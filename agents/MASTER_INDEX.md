@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / OD-SCALED IMPLEMENTATION COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / FULL REPO+BROWSER+REAL CII NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD` residual/basis tolerance; Method B OD-scaled run/angular tolerance + 3D-complexity weight; two-axis gate; conflict veto | SAFE / first core slice of Issue #993 | owner review; complete-checkout/real-CII qualification before wider authority; do not merge without explicit authorization |
+| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / OD-SCALED CORE COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / SOURCE-3 REAL BENCHMARK AUTHORED NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | SAFE / normalized to `main@a2acb8b3` with SOURCE-3/TARGET3-1 benchmark | execute SOURCE-3/TARGET3-1 + inherited CII suite; owner review; do not merge without explicit authorization |
 | PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
 | PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
@@ -31,7 +31,7 @@ compatible READY evidence accumulates
 conflicting READY source/target identity claims => AMBIGUOUS
 ```
 
-Current tolerance authority, superseding the first fixed-tolerance draft:
+Current tolerance authority:
 
 ```text
 T = x * SOURCE_OD
@@ -41,31 +41,53 @@ OD role = tolerance scale only; no identity points
 TARGET OD = no tolerance or identity authority
 ```
 
-Method A uses per-anchor normalized residual `r/(x*SOURCE_OD)` and evaluates every qualified local triplet against all anchors. Alternate admissible transforms that materially disagree fail closed with `METHOD_A_AMBIGUOUS_BASES`.
+Method A evaluates every qualified local triplet against all anchors with `residual/(x*SOURCE_OD) <= 1`. Alternate admissible transforms that materially disagree fail closed with `METHOD_A_AMBIGUOUS_BASES`.
 
-Method B retains the hard minimum two-independent-run gate. Run-length mismatch is compared directly with `x*SOURCE_OD`; included-angle mismatch is converted to transverse displacement `2*L*sin(deltaTheta/2)` and compared with the same tolerance. Geometry complexity weight increases as:
+Method B retains the hard minimum two-independent-run gate. Run-length mismatch and angular-equivalent displacement are compared with `x*SOURCE_OD`. Higher planar/full-3D complexity credit is earned only by additional compatible mapped runs:
 
 ```text
-one axis              0 / 40
-2 independent axes   24 / 40
-3+ coplanar axes     32 / 40
-3+ non-coplanar      32 + 8*scalar-triple-product
-orthogonal XYZ       40 / 40
+<2 compatible independent axes        0 / 40
+2 compatible independent axes        24 / 40
+3+ compatible coplanar axes          32 / 40
+3+ compatible non-coplanar axes      32 + 8*scalar-triple-product
+orthogonal compatible XYZ            40 / 40
 ```
+
+### SOURCE-3 / TARGET3-1 real qualification basis
+
+`main@a2acb8b3` added `Benchmark/CIICompare/SOURCE-3.CII` and `TARGET3-1.CII`; PR994 is normalized onto that base. The pair has 219 vs 223 ELEMENT records and exposes at least three geometry-equivalent local numbering regimes:
+
+```text
+20000→20010 ↔ 7000→7010      node offset -13000
+60880→60890 ↔ 7250→7260      node offset -53630
+6030→6040   ↔ 7650→7660      node offset +1620
+```
+
+This is direct real-file evidence that one global node-number offset is invalid identity authority.
+
+The authored real acceptance cases are:
+
+```text
+Method A: 60920/60930/60940 ↔ 7290/7300/7310
+Method B: 60930 ↔ 7300
+SOURCE OD = 114.3 mm
+x=2 => tolerance = 228.6 mm
+```
+
+The benchmark regression is present in `tests/cii-workspace-benchmark-base-anchor.test.js`, but full execution remains `NOT_RUN_ENVIRONMENT`; it must not be represented as PASS until run in a complete checkout.
 
 Focused validation truth:
 
 ```text
-current production/test syntax: PASS_LOCAL_EXACT_BLOBS
 Method A OD-scaled regression: PASS_IMPLEMENTATION_COUPLED
-Method B OD-scaled length/angular + complexity regression: PASS_IMPLEMENTATION_COUPLED
-Base Anchor weight/target-OD invariance regression: PASS_IMPLEMENTATION_COUPLED
+Method B OD-scaled length/angular + compatible-3D regression: PASS_IMPLEMENTATION_COUPLED
+Base Anchor weight/target-OD-invariance regression: PASS_IMPLEMENTATION_COUPLED
 independent Python numerical oracle: PASS_INDEPENDENT_REPRODUCTION
+SOURCE-3/TARGET3-1 real benchmark: AUTHORED_NOT_RUN_ENVIRONMENT
 coordinate-invariance execution: NOT_RUN_ENVIRONMENT
-real CII benchmark: NOT_RUN_ENVIRONMENT
 full repository suite: NOT_RUN_ENVIRONMENT
 browser / Chromium: NOT_RUN_ENVIRONMENT
-CI: NOT_RUN unless exact-head runs appear
+CI: refresh exact current head; no PASS claim without observed run
 ```
 
 Explicitly outside PR994 authority:
