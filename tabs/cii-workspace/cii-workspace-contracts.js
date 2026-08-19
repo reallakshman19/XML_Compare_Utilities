@@ -2,6 +2,7 @@ export const CII_WORKSPACE_SCHEMAS = Object.freeze({
   document: 'CIIWorkspaceDocument.v1',
   graph: 'CIIWorkspaceGraph.v1',
   anchor: 'CIIWorkspaceAnchor.v1',
+  baseAnchorSuggestion: 'CIIWorkspaceBaseAnchorSuggestion.v1',
   candidateEvidence: 'CIIWorkspaceCandidateEvidence.v1',
   correspondence: 'CIIWorkspaceCorrespondence.v1',
   engineeringDeltaSet: 'CIIWorkspaceEngineeringDeltaSet.v1',
