@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR996 | CII Base Anchor Method A/B discovery + fusion | `agent/cii-base-anchor-method-fusion` | DRAFT / IMPLEMENTATION COMPLETE / INDEPENDENT NUMERICAL ORACLE PASS / JS+BENCHMARK NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | bounded independent Method-A discovery; spatial runner-up recovery; evidence-derived A/B/A+B/Landmark labels; 3-anchor REVIEW cap | SAFE / successor to merged PR995 | execute focused JS + benchmark in complete checkout; owner review; do not merge without explicit authorization |
+| PR996 | CII Base Anchor Method A/B discovery + fusion | `agent/cii-base-anchor-method-fusion` | DRAFT / IMPLEMENTATION COMPLETE / INDEPENDENT NUMERICAL ORACLE PASS / JS+BENCHMARK NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | diversified independent Method-A discovery; spatial runner-up recovery; evidence-derived A/B/A+B/Landmark labels; 3-anchor REVIEW cap; B mutual-best+gap preservation | SAFE / successor to merged PR995 | execute focused JS + benchmark in complete checkout; owner review; do not merge without explicit authorization |
 | PR995 | CII independent multi-base correspondence orchestration | `agent/cii-multi-base-orchestration` | MERGED 2026-08-19 · `d28e33c1` / retained full production+real benchmark NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | explicit A/B base loops in preview; per-loop correspondence; OR union; node/element conflict veto; A+B provenance; legacy anchor identity preservation | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | MERGED 2026-08-19 · `daf3be0a` / retained REAL BENCHMARK+FULL SUITE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
@@ -25,9 +25,11 @@ Live GitHub state is authoritative over this snapshot.
 PR996 turns method labels into independent evidence rather than presentation text:
 
 ```text
-structural evidence -> bounded candidate generation only
+structural evidence -> candidate generation only
 
-Method A candidate pool
+Method A
+  -> broader candidate search floor (55 default)
+  -> diversified bounded seed pool
   -> one-to-one non-collinear triplets
   -> PR994 rigid registration
   -> mutual spatial winner expansion
@@ -36,20 +38,22 @@ Method A candidate pool
 Method B
   -> structural mutual-best pair
   -> PR994 two-independent-run gate
+  -> required winner gap
 
-A + B same pair -> METHOD_A_AND_B
-A only          -> METHOD_A_SPATIAL
-B only          -> METHOD_B_NETWORK
-neither         -> LANDMARK_ONLY
+A + qualified B same pair -> METHOD_A_AND_B
+A only                    -> METHOD_A_SPATIAL
+qualified B only          -> METHOD_B_NETWORK
+neither                   -> LANDMARK_ONLY
 ```
 
 Key rules:
 
 - Method A can surface a structurally non-mutual runner-up only when a READY local spatial base independently proves it.
-- Method B authority remains unavailable to a non-mutual structural candidate even if local run geometry is compatible.
+- Method B authority remains unavailable unless run basis, mutual-best and winner-gap all pass.
 - automatic 3-pair Method A bases are capped at REVIEW until a fourth pair validates the transform.
-- default Method-A candidate pool is bounded to 12 pairs, at most 220 raw triplets.
-- expansion uses unique minimum normalized residual per SOURCE and TARGET; ties fail closed.
+- default Method-A seed pool is 16 pairs, selected round-robin by SOURCE candidate rank; at most 560 raw triplets.
+- duplicate spatial expansions are cached before full requalification.
+- expansion uses unique minimum normalized residual per SOURCE and TARGET; equal residual ties fail closed.
 - local transforms remain independent; no global averaging or node-number-offset identity.
 
 Independent numerical evidence at OD=100 mm, x=2:
