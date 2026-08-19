@@ -5,8 +5,8 @@
 ## 1. Recovery Header
 
 ```text
-HANDOVER_READINESS: READY_FOR_TAKEOVER
-PR_RECOVERY_STATE: NEW_PR_REQUIRED / BRANCH_INITIALIZED
+HANDOVER_READINESS: READY
+PR_RECOVERY_STATE: IMPLEMENTATION_COMPLETE_FOCUSED_VALIDATION_PASS_PR_PENDING
 TAKEOVER_AUTHORITY: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
 EXECUTION_MODE: MANUAL
 AUTO_STATE: NOT_ACTIVE
@@ -15,254 +15,352 @@ PHASE_PROGRESSION: MANUAL
 MERGE_AUTHORITY: OWNER_ONLY
 AUTO_STOP_REASON: NOT_APPLICABLE
 REPOSITORY: reallaksh19/XML_Compare_Utilities
-SOURCE_TASK: Issue #993
+SOURCE_TASK: Issue #993 — first core increment only
 PR_OR_WIP: WIP-CII993-MULTIBASE
 BRANCH: agent/cii-multi-base-core
 PR_HEAD_OBSERVED: NOT_ALLOCATED
-REPORT_BASIS_HEAD: main@168d21bd9e9c198d22009f62b6203e4f60fd4ba1
+REPORT_BASIS_HEAD: branch@5780ace04f2a8ee879dd97e804e987cd1023601b
 MAIN_HEAD_LAST_CHECKED: 168d21bd9e9c198d22009f62b6203e4f60fd4ba1
 MERGE_BASE: 168d21bd9e9c198d22009f62b6203e4f60fd4ba1
-REPORT_SYNC: CURRENT_TO_GROUNDING_EPOCH_GE-001
-APPENDIX_A_STATUS: QUALIFIED_FOR_CORE_A_B_IMPLEMENTATION
-GROUNDING_EPOCH: GE-001 / 2026-08-19
+REPORT_SYNC: CURRENT_TO_GE-002
+APPENDIX_A_STATUS: PASS_FOR_APPROVED_CORE_A_B_INCREMENT
+GROUNDING_EPOCH: GE-002 / 2026-08-19
 CURRENT_TAKEOVER: NONE
-CURRENT_STAGE: IMPLEMENT
-LAST_COMPLETED_STAGE: BASELINE_AND_APPENDIX_A
-CURRENT_BLOCKER: NONE
-HIGHEST_RISK: accidental reintroduction of one-global-transform authority or one-axis Method B confidence
-LAST_DURABLE_CHECKPOINT: this workreport
-EXACT_NEXT_ACTION: implement Method A multi-basis fail-closed geometry, Method B two-axis run qualification, independent OR-loop core, and focused sample regressions.
+CURRENT_STAGE: VALIDATE_RECONCILE
+LAST_COMPLETED_STAGE: IMPLEMENT_AND_FOCUSED_VALIDATE
+CURRENT_BLOCKER: NONE_FOR_DRAFT_PR
+HIGHEST_RISK: successor orchestration must not fall back to one-global-transform or treat OR as first-success-wins
+LAST_DURABLE_CHECKPOINT: exact branch blobs + focused local execution + independent oracle
+EXACT_NEXT_ACTION: create draft PR, migrate WIP custody to PR-numbered records, reconcile exact changed files, do not merge.
 ```
 
 ## 2. Handover in 60 Seconds
 
 ### What is now true
-Issue #993 is the controlling engineering-critical task. Live `main` is `168d21bd9e9c198d22009f62b6203e4f60fd4ba1`. Existing geometry uses the first qualified non-collinear triplet; existing anchor suggestions are topology-salience based and can currently return HIGH without a two-axis run gate. The owner has clarified that multiple Method A bases and multiple Method B bases are **OR**, because separate source/target revision regions may undergo independent geometry changes.
+The first core slice for Issue #993 is implemented. The owner-authoritative architecture is **independent Method A/Method B OR loops with conflict veto**. Separate local Method A bases may produce materially different rigid transforms and remain READY simultaneously. Within one local Method A base, all qualified non-collinear triplet hypotheses are evaluated; every admissible hypothesis must satisfy all anchors assigned to that base, and materially conflicting admissible transforms return `METHOD_A_AMBIGUOUS_BASES` instead of iteration-order selection. Method B now has an executable two-independent-run gate before anchor confidence can reach MEDIUM/HIGH.
 
 ### What is currently being worked on
-Core only: independent multi-base authority for Method A + Method B and sample qualification. UI, transfer selection, Writer 1B, SIF/Tee and NodeName transfer are out of this increment.
+Reconciliation and draft PR publication only.
 
 ### What remains unfinished
-Production files/tests are not yet committed. Full CII Workspace/browser/regression execution is NOT_RUN because this environment cannot clone GitHub; connector-backed source is available and a synthetic local Node/Python harness is used for focused numerical proof.
+This is deliberately **not the full Issue #993**. Multi-base UI/orchestration, Method A suggestion cards, full-screen UX, selective transfer APPLY/EXCLUDE, SIF/Tee normalization, and Writer integration are successor increments. Full repository/browser/real-CII execution is NOT_RUN in this connector-only environment.
 
 ### What has been proven
-Current main/source behavior was re-read. The synthetic policy cases in Appendix A have independent analytical expectations.
+Exact published production/test blobs for the core slice were reconstructed locally and executed. Three focused JS checks pass. The independent Python oracle, which imports no production JS, passes the analytical Method A/Method B sample values. Cross-loop identity conflict veto is regression-tested.
 
 ### What has NOT been proven / NOT_RUN
-Full repository suite, real CII benchmark files, browser UI, CI, Writer 1A/1B lifecycle.
+Full repository regression, browser UI, real TARGET1/TARGET2 or other CII benchmark files, CI/GitHub Actions, Writer 1A/1B lifecycle.
 
 ### What must not be assumed
-OR does not mean first-success-wins. Compatible independent loops accumulate; explicit node-identity conflicts veto automatic authority. OD, WT and node-number offsets remain excluded from Method B identity.
+OR is not first-success-wins and not majority voting. A READY loop contributes authority; a conflicting READY identity claim vetoes automatic authority. Method A ambiguity inside one local base is not the same as different transforms across independent local bases. OD, WT, process values and node-number offsets remain excluded from Method B identity.
 
 ### Highest-risk remaining item
-Method A ambiguity must be detected inside one local base without requiring separate local bases to share one transform.
+Successor integration must route candidate correspondence through the independent-loop result; it must not resurrect ambiguous Method A evidence through an implicit global transform choice.
 
 ### Exact next action
-Implement and locally execute the focused JS + independent Python sample.
+Open the draft PR and convert WIP custody records to PR-numbered records.
 
 ## 3. Repository Ground Truth
 
 - repository: `reallaksh19/XML_Compare_Utilities`
-- default branch: `main`
-- live main: `168d21bd9e9c198d22009f62b6203e4f60fd4ba1`
-- branch: `agent/cii-multi-base-core`, created from exact live main
+- default/base: `main`
+- exact base/main at implementation start: `168d21bd9e9c198d22009f62b6203e4f60fd4ba1`
+- working branch: `agent/cii-multi-base-core`, created from exact base
+- current exact implementation checkpoint before this report update: `5780ace04f2a8ee879dd97e804e987cd1023601b`
 - source task: Issue #993
-- open CII multi-anchor PR/branch: none found at GE-001
-- `agents/MASTER_INDEX.md` is stale about PR992 draft state; live GitHub is authoritative and main already contains merge commit #992
-- no workflow change authorized
+- open multi-anchor CII PR before this work: none found
+- `agents/MASTER_INDEX.md` was stale about PR992; live GitHub is authority and main already contains PR992 merge
+- no workflow mutation authorized or performed
 
 ## 4. Mission / Scope / Acceptance
 
-### Mission
-Create the first production-core increment for independent multi-base CII matching:
+### Approved mission
+Create the first production-core increment for independent multi-base CII matching and prove it on synthetic numerical samples:
 
-1. Method A: evaluate all mathematically qualified non-collinear 3-anchor hypotheses inside one local base, validate each against every anchor in that base, and fail that base closed when credible hypotheses imply materially different transforms.
-2. Method A multi-base: allow separate local bases to remain independently READY even when their rigid transforms differ; combine bases as OR with explicit anchor-identity conflict veto.
-3. Method B: construct executable straight-pipe runs, merge opposite collinear rays into one undirected run, require at least two independent axes for MEDIUM/HIGH eligibility, and preserve OD/WT/node-number exclusions.
-4. Provide focused synthetic JS regressions and an independent Python analytical reproduction.
+1. Method A local multi-basis qualification.
+2. Independent Method A base loops combined as OR.
+3. Method B executable pipe-run extraction and two-axis hard gate.
+4. Independent Method B loops combined as OR.
+5. Cross-loop source/target identity conflict veto.
+6. Method-qualified anchor suggestion confidence for Method B.
+7. Focused JS regressions plus independent Python numerical oracle.
 
 ### Explicit non-goals
-- no full-screen/UI work;
+- no full-screen/UI implementation;
 - no transfer APPLY/EXCLUDE implementation;
 - no Writer 1A/1B changes;
-- no protected external writer changes;
+- no transfer policy/plan changes;
+- no fixed-field parser changes;
+- no protected external writer/converter changes;
 - no SIF/Tee or NodeName mutation changes;
-- no workflow files.
+- no workflows.
 
 ## 5. Current Implementation State
 
 | Work item | Implementation | Integration | Validation | Location | Remaining |
 |---|---|---|---|---|---|
-| Method A multi-basis geometry | PLANNED | existing geometry consumer will use it | analytical case defined | `cii-workspace-geometry.js` | code + focused tests |
-| Method B pipe-run core | PLANNED | anchor suggestions consumer | B1/B2 cases defined | new pipe-run module | code + tests |
-| Independent A/B OR loop core | PLANNED | first core/API slice | A1/A2 sample defined | new multi-base module | code + tests |
-| UI/transfer | OUT_OF_SCOPE | none | NOT_APPLICABLE | none | successor increment |
+| Method A alternate triplet hypotheses | COMPLETE | existing geometry API | focused PASS + independent oracle | `cii-workspace-geometry.js` | real CII/full-suite |
+| Method A local ambiguity | COMPLETE | existing geometry API returns `AMBIGUOUS` | 4-anchor PASS | same | successor UI/orchestration |
+| Method A independent OR bases | COMPLETE | core authority module | two-transform PASS | `cii-workspace-multi-base-anchor.js` | workspace wiring |
+| Method B run extraction | COMPLETE | anchor suggestions | B1/B2 PASS | `cii-workspace-pipe-runs.js` | real CII benchmark |
+| Method B two-axis hard gate | COMPLETE | anchor confidence | focused PASS | `cii-workspace-anchor-suggestions.js` | UI evidence card |
+| Cross-loop conflict veto | COMPLETE | core authority module | focused PASS | multi-base module/test | broader candidate arbitration |
+| UI/transfer/writer | OUT_OF_SCOPE | none | NOT_APPLICABLE | none | successor increments |
 
 ## 6. Active Engineering Item Register
 
 | ID | Type | Severity | Priority | Status | Summary | Evidence | Current PR? |
 |---|---|---|---|---|---|---|---|
-| DEC-001 | DEC | high | P0 | ACCEPTED | independent base loops use OR + conflict veto | owner instruction 2026-08-19 | yes |
-| RISK-001 | RISK | high | P0 | OPEN | one global rigid transform would reject legitimate clustered revisions | owner scenario | yes |
-| RISK-002 | RISK | high | P0 | OPEN | one-axis repetitive piping can manufacture false Method B confidence | Issue #993 A2 | yes |
-| RISK-003 | RISK | high | P0 | OPEN | first-valid-triplet Method A can hide alternative admissible basis ambiguity | current geometry source | yes |
-| DEC-002 | DEC | high | P0 | ACCEPTED | no majority vote / no first-success selection on identity conflict | fail-closed policy | yes |
+| DEC-001 | DEC | high | P0 | ACCEPTED | independent A/B base loops use OR + conflict veto | owner instruction 2026-08-19 | yes |
+| DEC-002 | DEC | high | P0 | ACCEPTED | no majority vote / first-success identity selection | core + regression | yes |
+| IMP-001 | IMP | high | P0 | COMPLETE | enumerate Method A local basis hypotheses | focused test | yes |
+| IMP-002 | IMP | high | P0 | COMPLETE | Method B two-run hard gate | B1/B2 test | yes |
+| IMP-003 | IMP | high | P0 | COMPLETE | cross-loop source/target collision veto | focused regression | yes |
+| RISK-001 | RISK | high | P1 | OPEN_SUCCESSOR | old workspace orchestration is still single global geometry-transform shaped | source inspection | successor |
+| RISK-002 | RISK | medium | P1 | OPEN_SUCCESSOR | Method B numerical thresholds require real-model calibration; do not weaken silently | synthetic-only qualification | successor/benchmark |
 
 ## 7. Current Technical Diagnosis
 
 ```text
-Observed symptom:
-- Method A chooses first usable triplet and does not diagnose alternate admissible triplets.
-- Method B anchor suggestions can be HIGH from topology salience without proving two independent geometric runs.
+Observed baseline:
+- geometry selected the first usable non-collinear triplet;
+- anchor suggestion confidence could reach HIGH without two independent geometric runs.
 
-Current hypothesis:
-A local independent-loop architecture fixes both without changing Writer authority.
+Implemented correction:
+- all qualified triplets within one local Method A base become independent hypotheses;
+- every hypothesis is validated against every anchor assigned to that base;
+- conflicting admissible hypotheses fail the local base closed;
+- separate local bases are OR, not forced to one transform;
+- Method B extracts undirected straight runs and requires >=2 independent axes before MEDIUM/HIGH;
+- READY loop identity collisions fail cross-loop arbitration closed.
 
-Supporting evidence:
-Current cii-workspace-geometry.js and cii-workspace-anchor-suggestions.js on main; Issue #993; owner clarification that A and B are OR across revision regions.
-
-Alternative hypotheses:
-One global all-anchor transform; Method A AND Method B; score-only two-axis bonus.
-
-Already ruled out:
-All three conflict with the owner's revision-change model or Issue #993 fail-closed requirements.
-
-Falsifier:
-If focused samples cannot retain two different local Method A transforms while also rejecting the ambiguous 4-anchor local basis and one-axis Method B case, the architecture is wrong.
-
-Next isolating experiment:
-Run the four synthetic cases in focused JS and independent Python.
+Falsifier exercised:
+- two different local translations must both survive;
+- 4-anchor near-collinear ambiguity must not choose the first triplet;
+- 20 m one-axis run must remain REVIEW;
+- compatible X+Z vs Y+Z two-axis basis must qualify;
+- same SOURCE claimed by two READY loops for different TARGETs must be AMBIGUOUS.
 ```
 
 ## 8. Authority and Invariants
 
-- base-loop union: `L1 OR L2 OR ...`, with explicit source/target node identity conflict veto;
-- one local Method A base: every admissible 3-anchor hypothesis must satisfy **all anchors in that base** within residual tolerance;
-- no arbitrary coordinate averaging, scale, shear or reflection;
-- separate local bases do **not** need equal transforms;
-- Method B direction authority is undirected run geometry, not global X/Y/Z labels;
-- OD, WT, process values and node-number offsets do not enter Method B identity;
-- Writer 1B and transfer authority remain unchanged.
+### Method A
+- local base residual tolerance: `anchorResidualToleranceMm = 2.0 mm` existing default;
+- non-collinearity: `nonCollinearSinTolerance = 1e-4` existing default;
+- local alternate-transform agreement: `basisTransformAgreementToleranceMm = 2.0 mm` new fail-closed default, otherwise inherits anchor residual tolerance;
+- transform disagreement includes centroid displacement + source-radius rotational displacement bound, plus optional probe-point disagreement;
+- no coordinate averaging, scale, shear or reflection;
+- separate local bases do not need equal transforms.
+
+### Method B
+- `runCollinearAngleDeg = 0.5°`;
+- `axisLabelSnapDeg = 2.0°` presentation only;
+- `independentAxisAngleDeg = 15°`;
+- `runIncludedAngleToleranceDeg = 2.0°`;
+- `runLengthRelativeTolerance = 0.10`;
+- `maxRunElements = 256`;
+- opposite collinear rays merge into one undirected run;
+- run compatibility uses rotation-invariant included angle, run length and terminator structure;
+- OD, WT, process values, node-number magnitude/offset are not Method B identity evidence.
+
+### Cross-loop / downstream
+- combination = `OR_WITH_CONFLICT_VETO`;
+- source->multiple target or target->multiple source among READY claims = `CROSS_LOOP_ANCHOR_IDENTITY_CONFLICT`;
+- existing Writer 1A/1B, transfer policy/plan, fixed-field parser and protected external writer are invariant in this slice.
+
+Thresholds are explicit engineering policy defaults, not benchmark-derived truths. They may only be changed through a separate qualification decision; no test-driven loosening is permitted.
 
 ## 9. Current Validation
 
-Initial validation is pre-commit synthetic execution and must be repeated/reconciled after branch publication.
+### V-001 — focused JavaScript syntax
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: NONE
+Basis: exact Git blobs reconstructed from published branch
+Commands: node --check on 4 production modules + 3 focused JS tests
+Actual: all exit 0
+Origin: INTRODUCED_BY_PR
+```
 
-- full repository regression: `NOT_RUN`
-- browser: `NOT_RUN`
-- CI: `NOT_RUN`
-- real CII benchmark: `NOT_RUN`
+### V-002 — Method A geometry authority regression
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: IMPLEMENTATION_COUPLED
+Command: node tests/cii-workspace-geometry-authority.test.js
+Actual: CII Workspace multi-basis geometry authority checks passed.
+Key proof: 4-anchor ambiguity => METHOD_A_AMBIGUOUS_BASES; four consistent anchors => 4 admissible bases.
+Origin: INTRODUCED_BY_PR
+```
+
+### V-003 — method-qualified anchor suggestions
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: IMPLEMENTATION_COUPLED
+Command: node tests/cii-workspace-base-anchor-suggestions.test.js
+Actual: CII method-qualified paired base-anchor suggestion checks passed.
+Key proof: one-axis topology-salient branch is REVIEW; two-axis compatible branch is METHOD_B_NETWORK/HIGH eligible.
+Origin: INTRODUCED_BY_PR
+```
+
+### V-004 — independent multi-base OR core
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: IMPLEMENTATION_COUPLED
+Command: node tests/cii-workspace-multi-base-authority.test.js
+Actual: CII independent multi-base A/B OR authority checks passed.
+Key proof: +100 mm and -200 mm Method A local translations coexist READY; Method B alone can satisfy OR; A READY + B REVIEW remains READY; conflicting READY source claims => AMBIGUOUS.
+Origin: INTRODUCED_BY_PR
+```
+
+### V-005 — independent numerical oracle
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: INDEPENDENT_REPRODUCTION
+Command: python tests/qualification/cii-workspace-multi-base-oracle.py
+Implementation import: NONE
+Actual: Independent CII multi-base Method A/B oracle passed.
+Expected numerical evidence:
+- local translations exactly (0,+100,0) mm and (0,-200,0) mm;
+- ambiguous basis residual maxima sqrt(2)=1.414213562... mm <=2 mm;
+- ambiguous basis relative rotation ~=90 degrees;
+- one-axis undirected included angle =0 degrees;
+- X+Z and Y+Z two-axis included angles =90 degrees.
+Origin: INTRODUCED_BY_PR
+```
+
+### Exact branch/local Git-blob identity
+```text
+8e9385de9cdb7b167600a2c857b46c54e2665c25  cii-workspace-contracts.js
+3d05c06d1918d1d622c58cce72ea31932d92a162  cii-workspace-geometry.js
+5f293cb41f9a61ff94c225034407389036940385  cii-workspace-pipe-runs.js
+9466209a2b3ee276bb93666c7ca31dd4e7fd9b99  cii-workspace-multi-base-anchor.js
+966611ee786eac5eb0e53aa2344fb4494488db3a  cii-workspace-anchor-suggestions.js
+e8f1d2c4a793af89998537ef6cf49dbd9e9c071e  cii-workspace-geometry-authority.test.js
+d8df36cb42ac48617456c3223c9fa1aeab68ae02  cii-workspace-base-anchor-suggestions.test.js
+e64925672b3ca8f43381ff3e9c43c051804ec370  cii-workspace-multi-base-authority.test.js
+ad225090ef763fa0d85a5be06df8f7f0ed41ade9  cii-workspace-multi-base-oracle.py
+```
+
+### NOT_RUN
+```text
+full repository npm test: NOT_RUN_ENVIRONMENT
+full inherited CII Workspace suite: NOT_RUN_ENVIRONMENT
+browser/Chromium: NOT_RUN_ENVIRONMENT
+real CII benchmark files: NOT_RUN_ENVIRONMENT
+Writer 1A/1B lifecycle: NOT_RUN_OUT_OF_SCOPE
+GitHub Actions/CI: NOT_RUN
+```
 
 ## 10. Changed-File Ledger
 
-Current durable branch change before implementation: this workreport only. Intended implementation paths:
+At checkpoint before report reconciliation, compare against exact base showed 12 paths: 3 WIP custody docs, 5 production paths, 3 JS tests, 1 Python oracle. No unexplained path existed.
 
-- `tabs/cii-workspace/cii-workspace-contracts.js`
-- `tabs/cii-workspace/cii-workspace-geometry.js`
-- `tabs/cii-workspace/cii-workspace-pipe-runs.js` (new)
-- `tabs/cii-workspace/cii-workspace-multi-base-anchor.js` (new)
-- `tabs/cii-workspace/cii-workspace-anchor-suggestions.js`
-- focused CII tests and independent Python qualification script
-- agent status/claim/index records
+| File | Intended? | Purpose | Sensitive? | Validation |
+|---|---:|---|---:|---|
+| `tabs/cii-workspace/cii-workspace-contracts.js` | yes | multi-base schemas | yes | syntax/blob |
+| `tabs/cii-workspace/cii-workspace-geometry.js` | yes | Method A multi-basis local qualification | yes | V-001/002/005 |
+| `tabs/cii-workspace/cii-workspace-pipe-runs.js` | yes | Method B executable run basis | yes | V-001/003/004/005 |
+| `tabs/cii-workspace/cii-workspace-multi-base-anchor.js` | yes | OR + conflict veto | yes | V-001/004 |
+| `tabs/cii-workspace/cii-workspace-anchor-suggestions.js` | yes | hard two-axis confidence gate | yes | V-001/003 |
+| `tests/cii-workspace-geometry-authority.test.js` | yes | A ambiguity/consensus | no | PASS |
+| `tests/cii-workspace-base-anchor-suggestions.test.js` | yes | B one/two-axis gate | no | PASS |
+| `tests/cii-workspace-multi-base-authority.test.js` | yes | OR/conflict core | no | PASS |
+| `tests/qualification/cii-workspace-multi-base-oracle.py` | yes | independent numerical oracle | no | PASS |
+| WIP custody records | yes | recoverability | no | source inspection |
+
+Production physical lines: geometry 177, pipe-runs 175, multi-base 70, anchor-suggestions 110; all below 300-line heuristic.
 
 ## 11. Review / CI State
 
-No PR allocated yet. No review or CI state exists for this branch.
+No PR allocated at this checkpoint. No review threads/checks. Draft PR publication is next. No merge authority exists.
 
 ## 12. Repository Coordination / Overlap
 
 ```text
 MASTER_INDEX_CHECKED: YES
-STATUS_RECORD: pending WIP record
-CLAIM_RECORD: pending WIP record
-LAST_OVERLAP_CHECK: GE-001
-FILE_OVERLAP: no active CII multi-anchor PR discovered
-AUTHORITY_OVERLAP: successor to merged CII PR989/992; Writer authority explicitly excluded
-DEPENDENCY_OVERLAP: geometry + topology adapter contracts only
-COORDINATION_STATE: SAFE_WITH_LIVE_GITHUB_OVERRIDING_STALE_PR992_INDEX_ROW
+STATUS_RECORD: WIP current
+CLAIM_RECORD: WIP current
+LAST_OVERLAP_CHECK: GE-002
+FILE_OVERLAP: no active CII multi-base PR discovered
+AUTHORITY_OVERLAP: successor to merged PR989/992; Writer authority excluded
+DEPENDENCY_OVERLAP: existing geometry and topology graph contracts only
+COORDINATION_STATE: SAFE
 ```
 
 ## 13. Continuation State
 
 ```text
-Start here: Appendix A below, then cii-workspace-geometry.js and new pipe-run module.
-Do not redo: owner OR-vs-AND decision.
-Do not change: Writer 1B, transfer policy, fixed-field parser, protected external writer.
-Validation still required: exact published focused JS, independent Python, inherited relevant tests where executable.
-Highest-risk remaining item: distinguish local Method A ambiguity from legitimate different transforms in separate independent bases.
-Exact next action: implement focused core and sample.
+Start here: create draft PR; convert WIP records to PR-numbered records.
+Do not redo: owner OR-vs-AND decision, Appendix A, focused sample implementation.
+Do not change: Writer 1A/1B, transfer policy/plan, fixed-field parser, external writer, workflows.
+Validation still required for final product authority: complete checkout CII suite + real CII benchmark + later UI/orchestration tests.
+Highest-risk remaining item: successor workspace wiring must preserve independent-loop provenance and conflict veto.
+Exact next action: draft PR + custody reconciliation, no merge.
 ```
 
 ## 14. Takeover / Custody Chain
 
-- `GE-001`: re-grounded to live main `168d21bd...`; Issue #993 read; current geometry, topology adapter, anchor suggestion, Writer pipeline and existing tests inspected.
+- `GE-001`: grounded live main, Issue #993, existing geometry/topology/anchor/writer boundaries; Appendix A completed before production mutation.
+- `GE-002`: implementation complete; exact production/test blobs locally reconstructed and focused checks executed; changed-file scope reconciled.
 
 # APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
 
-## A1 — Method A authoritative multi-base 3D registration policy
+## A1 — Method A authoritative policy
+Independent local Method A bases are OR. Inside one base, every mathematically qualified non-collinear triplet is an independent rigid hypothesis and is checked against every anchor assigned to that base. An admissible hypothesis has max residual <=2 mm by default. Multiple admissible hypotheses that materially disagree beyond the explicit transform-agreement tolerance make that local base `METHOD_A_AMBIGUOUS_BASES`. Separate local bases may have different transforms without conflict unless their explicit identity claims collide.
 
-**Answer:** independent local base loops use **OR**. Within one local Method A base, qualified non-collinear 3-anchor triplets are independent hypotheses; each hypothesis must validate against all anchors assigned to that base. Do not average transforms. If multiple admissible hypotheses within that same base imply material transform disagreement, that base returns `METHOD_A_AMBIGUOUS_BASES / REVIEW`. Separate local bases may retain materially different transforms and both remain READY.
-
-Proposed numerical defaults for this core slice:
-
+Numerical ambiguity case:
 ```text
-anchorResidualToleranceMm = 2.0            existing default
-nonCollinearSinTolerance = 1e-4            existing default
-basisTransformAgreementToleranceMm = 2.0   new explicit fail-closed default
+S: (0,0,0), (1000,0,0), (2000,1,0), (3000,0,1)
+T: (0,0,0), (1000,0,0), (2000,1,0), (3000,1,0)
+Basis 0-1-2 max residual = sqrt(2)=1.414214 mm
+Basis 0-1-3 max residual = sqrt(2)=1.414214 mm
+relative rotation ~=90 degrees
+=> both residual-qualified, transform-incompatible => AMBIGUOUS
 ```
 
-Material transform disagreement is evaluated using relative rotation plus displacement at the source-base centroid over the source-base radius; optional registration probe points can increase the observed disagreement. This detects rotational ambiguity that anchor residuals alone can hide.
-
-**4-anchor ambiguity case:**
-
+Independent OR case:
 ```text
-SOURCE A1=(0,0,0)       TARGET A1=(0,0,0)
-SOURCE A2=(1000,0,0)    TARGET A2=(1000,0,0)
-SOURCE A3=(2000,1,0)    TARGET A3=(2000,1,0)
-SOURCE A4=(3000,0,1)    TARGET A4=(3000,1,0)
+Local A1 translation = (0,+100,0) mm READY
+Local A2 translation = (0,-200,0) mm READY
+No identity collision => overall READY, methodAReadyCount=2
 ```
 
-Triplet A1-A2-A3 gives identity rotation; residuals `[0,0,0,sqrt(2)]`, max `1.414214 mm` <= 2 mm. Triplet A1-A2-A4 gives an approximately 90-degree X-axis rotation; residuals `[0,0,sqrt(2),0]`, max `1.414214 mm` <= 2 mm. Both triplets are non-collinear above `1e-4`, yet their rotations differ by 90 degrees, so the local base is `AMBIGUOUS`, not first-triplet READY.
+## A2 — Method B executable pipe-run policy
+A run is a maximal connected straight `PIPE` sequence. Continue through degree-2 nodes only while direction deviation <=0.5°. Stop at terminal, branch, non-PIPE transition, direction change, invalid geometry or 256-edge cap. Opposite collinear rays are one undirected run. Independent runs require acute undirected angle >=15°. `axisLabelSnapDeg=2°` is presentation-only. Cross-revision two-run compatibility uses included-angle delta <=2°, run-length relative delta <=10%, and terminator compatibility. OD/WT/process/node-number offset are excluded.
 
-**Independent OR example:** local Base A1 may resolve translation `(0,+100,0) mm`; local Base A2 may resolve `(0,-200,0) mm`. If their explicit node claims do not conflict, both are independently READY. No `T1 == T2` condition exists across bases.
-
-## A2 — Method B executable two-axis pipe-run policy
-
-A pipe run is a maximal connected sequence of straight `PIPE` edges. Starting at a candidate node, walk each incident PIPE ray and continue only through degree-2 nodes while the outgoing direction remains collinear. Stop on terminal, branch, non-PIPE component transition, direction change, invalid geometry or traversal cap.
-
+B1:
 ```text
-runCollinearAngleDeg = 0.5°
-axisLabelSnapDeg = 2.0°       presentation only
-independentAxisAngleDeg = 15°
-maxRunElements = 256
+20 m straight repetitive line; midpoint anchor
+left=-X, right=+X
+acos(abs(dot))=0 degrees
+=> merged one run => independentAxisRunCount=1 => REVIEW maximum
 ```
 
-Opposite collinear rays are merged into one **undirected** run; therefore a long straight line through the anchor is one run, not two. Two runs are independent only when their acute undirected included angle is at least 15°. The 15° gate corresponds to orientation-conditioning amplification `1/sin(15°)=3.864`; at 5° it would be `11.474`, so near-parallel evidence is deliberately not promoted.
-
-Cross-revision run compatibility uses rotation-invariant included angle, run length and terminator structure. Global axis labels are display-only. OD, WT, process values and node-number magnitude/offset are excluded.
-
-**B1:** 20 m repetitive straight line with anchor in the middle produces left/right rays with `acos(abs(dot(-X,+X)))=0°`; they merge to one run, `independentAxisRunCount=1`, so Method B is REVIEW maximum regardless of topology score.
-
-**B2:** SOURCE runs X (12,000 mm) + Z (7,000 mm); TARGET runs Y (12,000 mm) + Z (7,000 mm). Both included angles are 90°. With compatible terminators and existing mutual-best/winner-gap gates, Method B is eligible for MEDIUM/HIGH.
-
-## A3 — UI/authority partial transfer
-
-Not implemented in this core slice. Required successor authority remains:
-
+B2:
 ```text
-correspondence
- -> engineering deltas
- -> explicit transfer scope APPLY / EXCLUDE
- -> filtered immutable Writer plan
- -> Writer 1B readiness
- -> mutation / reparse / negative assurance
+SOURCE: X 12000 + Z 7000, included angle 90 degrees
+TARGET: Y 12000 + Z 7000, included angle 90 degrees
+=> two independent compatible runs => Method B READY; existing mutual-best + winner-gap may promote anchor suggestion to MEDIUM/HIGH
 ```
 
-Blocked-but-EXCLUDE SIF/Tee and NodeName deltas remain visible/audited but do not enter Writer readiness. Global identity/structure blockers, stale target SHA, selected unsupported operations, preimage/pointer/cardinality drift, duplicate write claims, reparse failure and unexpected semantic mutation remain global. The expected mixed scenario is `READY · PARTIAL SCOPE`, never silent skipping and never weakening Writer 1B.
+## A3 — UI/authority invariant retained, not implemented here
+Successor transfer architecture remains:
+```text
+correspondence -> engineering deltas -> explicit APPLY/EXCLUDE scope
+-> selected immutable Writer plan -> Writer 1B readiness
+-> mutation -> reparse -> negative assurance
+```
+Excluded blocked SIF/Tee or NodeName differences remain visible/audited but do not enter Writer readiness. Global stale/preimage/pointer/cardinality/duplicate-write/post-write blockers remain global. Writer 1B is not weakened.
 
-**Qualification verdict:** PASS for the approved core Method A/B increment. A3 is answered as an invariant but explicitly outside this implementation slice.
+**Qualification verdict: PASS for this approved first core Method A/B increment.**
 
 # HISTORICAL RECORD — NOT CURRENT AUTHORITY
 
 ## Stage Execution Log
-- GE-001 / BASELINE: live source and task grounded; Appendix A completed before production mutation.
+- GE-001 / BASELINE + Appendix A before mutation.
+- GE-002 / IMPLEMENT + focused exact-blob validation + independent oracle.
