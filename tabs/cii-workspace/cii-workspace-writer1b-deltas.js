@@ -1,5 +1,6 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId } from './cii-workspace-contracts.js';
 import { ciiIdentityBound } from './cii-workspace-engineering-delta.js';
+import { ciiWriter1BOdEligibility } from './cii-workspace-writer1b-od.js';
 
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [String(edge.elementId), edge])); }
 function sourceIds(row) { return row?.sourceElementIds || (row?.sourceElementId ? [row.sourceElementId] : []); }
@@ -16,8 +17,7 @@ function numericDelta(source, target) {
 function deltaRow(row, property, sourceValue, targetValue, authority, tolerance, limitations = []) {
   const changed = changedNumber(sourceValue, targetValue, tolerance);
   return deepFreeze({
-    deltaId: stableId('delta', row.correspondenceId, 'PROCESS', property),
-    correspondenceId: row.correspondenceId, identityKind: row.kind,
+    deltaId: stableId('delta', row.correspondenceId, 'PROCESS', property), correspondenceId: row.correspondenceId, identityKind: row.kind,
     sourceIdentity: sourceIds(row).join('|') || row.sourceElementId || null,
     targetIdentity: targetIds(row).join('|') || row.targetElementId || null,
     identityConfidence: row.status === 'LOCKED' ? 'LOCKED' : row.status,
@@ -50,18 +50,11 @@ const EXTENDED_FIELDS = Object.freeze([
   ['Hydro pressure', 'hydroPressure', 'PROTECTED_WRITER_ELEMENT_ROW6_HYDRO_PRESSURE_FIXED_FIELD'],
 ]);
 
-function odEligibility(source, target) {
-  const blockers = [];
-  if (source?.componentKind !== 'PIPE' || target?.componentKind !== 'PIPE') blockers.push('OD_WRITER_1B_PLAIN_PIPE_REQUIRED');
-  if (Number(source?.auxiliaryPointers?.reducer || 0) !== 0) blockers.push('OD_SOURCE_REDUCER_POINTER_PRESENT');
-  if (Number(target?.auxiliaryPointers?.reducer || 0) !== 0) blockers.push('OD_TARGET_REDUCER_POINTER_PRESENT');
-  return blockers;
-}
-function replaceOdAuthority(rows, correspondenceId, source, target) {
-  const blockers = odEligibility(source, target);
+function replaceOdAuthority(rows, correspondenceId, source, target, options) {
+  const blockers = ciiWriter1BOdEligibility(source, target, options);
   const authority = blockers.length
     ? `PARSED_ELEMENT_PIPE_PROPERTY;WRITER_1B_OD_BLOCKED:${blockers.join(',')}`
-    : 'PROTECTED_WRITER_ELEMENT_ROW1_OD_FIXED_FIELD:WRITER_1B_PLAIN_PIPE_NO_REDUCER';
+    : 'PROTECTED_WRITER_ELEMENT_ROW1_OD_FIXED_FIELD:WRITER_1B_PLAIN_PIPE_NO_REDUCER_TOPOLOGY_CLOSED';
   return rows.map((item) => {
     if (item.correspondenceId !== correspondenceId || item.category !== 'PIPE_SIZE' || item.property !== 'OD') return item;
     return deepFreeze({ ...item, authority, evidenceStatus: blockers.length ? 'PARTIAL' : 'QUALIFIED', limitations: Object.freeze(blockers) });
@@ -69,9 +62,7 @@ function replaceOdAuthority(rows, correspondenceId, source, target) {
 }
 function writer1BLimitations(limitations = []) {
   return Object.freeze(limitations.map((item) => item?.family === 'process' ? deepFreeze({
-    ...item,
-    label: 'Process P1–P9 / T1–T9 / densities',
-    comparisonState: 'PARTIAL',
+    ...item, label: 'Process P1–P9 / T1–T9 / densities', comparisonState: 'PARTIAL',
     reason: 'Exact Writer 1B fixed fields are normalized individually; unique values are revision evidence, not qualified CAESAR load-case counts or a complete process-data model.',
   }) : item));
 }
@@ -86,7 +77,7 @@ export function augmentCiiEngineeringDeltasWithWriter1BFields(deltaSet, sourceGr
     if (sourceIdList.length !== 1 || targetIdList.length !== 1) continue;
     const source = sourceEdges.get(String(sourceIdList[0])); const target = targetEdges.get(String(targetIdList[0]));
     if (!source || !target) continue;
-    rows = replaceOdAuthority(rows, row.correspondenceId, source, target);
+    rows = replaceOdAuthority(rows, row.correspondenceId, source, target, options);
     for (const [property, key, authority] of EXTENDED_FIELDS) {
       rows.push(deltaRow(row, property, source[key], target[key], authority, tolerance,
         ['Qualified fixed-field revision evidence; no load-case semantics beyond exact source field custody are inferred.']));
@@ -96,8 +87,7 @@ export function augmentCiiEngineeringDeltasWithWriter1BFields(deltaSet, sourceGr
   const changedRows = rows.filter((row) => row.changed); const counts = {};
   for (const row of changedRows) counts[row.category] = (counts[row.category] || 0) + 1;
   return deepFreeze({
-    ...deltaSet,
-    rows: Object.freeze(rows), changedRows: Object.freeze(changedRows), limitations: writer1BLimitations(deltaSet.limitations),
+    ...deltaSet, rows: Object.freeze(rows), changedRows: Object.freeze(changedRows), limitations: writer1BLimitations(deltaSet.limitations),
     summary: Object.freeze({ ...deltaSet.summary, comparedPropertyCount: rows.length, engineeringChangeCount: changedRows.length,
       unchangedPropertyCount: rows.length - changedRows.length, changeFamilyCounts: Object.freeze(counts) }),
   });
