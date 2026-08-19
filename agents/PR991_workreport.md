@@ -13,113 +13,81 @@
 - COORDINATION: SAFE_STACKED_ON_PR990
 - TARGET_MUTATION_SCOPE: WRITER_1A_CARDINALITY_PRESERVING_ONLY
 - MERGE_AUTHORITY: OWNER_ONLY
+- MERGE_READY: false
 
 ## Handover in 60 Seconds
 
-Writer 1A now has an executable target-mutation path for approved cardinality-preserving fields: ELEMENT WT/P1/T1/T2 and existing pointer-bound RIGID weight. The writer patches exact fixed-width spans, rejects stale TARGET bytes, reparses the generated CII, and fails unless the semantic negative-assurance audit reports zero unexpected changes. Stage06 is no longer a fake `NOT_IMPLEMENTED` gate; it is `READY_WRITER_1A` only when every approved non-KEEP operation is in the qualified Writer 1A whitelist. Existing-restraint mutation remains blocked pending explicit source-record→target-slot custody; do not infer slot order.
+Writer 1A now supports approved cardinality-preserving mutation of ELEMENT WT/P1/T1/T2, existing pointer-bound RIGID weight, and existing RESTRANT numeric fields through an explicit deterministic source-record → target pointer/slot pairing contract. Multi-restraint pairing is exhaustive over at most `6! = 720` assignments and never uses slot order or mutable type/stiffness/gap/friction values to manufacture identity. Ambiguous best assignments fail closed. The target restraint node, pointer, slot, tag and GUID remain target-native. Source connecting-node references are translated through bound node correspondence before mutation. Generated TARGET CII is reparsed and rejected unless semantic negative assurance reports zero unexpected changes.
+
+PR991 remains draft/unmerged because the real TARGET1/TARGET2 round-trip tests and inherited full CII Workspace/browser suite are still NOT_RUN in a complete checkout.
 
 ## Live ground truth
 
-- PR989 is merged into `main` at `13e7c0e653e6d61ef2f2217068e1010bd5a53bf6`.
-- PR990 is open/draft and documentation-only; PR991 is intentionally stacked on PR990.
-- PR991 is open/draft and mergeable at last live check.
-- Protected external writer remains `reallaksh19/3D_Converters/converters/scripts/inputxml_to_cii2019.py`; it was inspected as format authority and not modified.
-- The stale `agents/MASTER_INDEX.md` PR989 state was corrected on this branch.
+- PR991 remains on `agent/cii-writer-1a`, stacked on PR990.
+- PR989 and predecessor #982-#988 are merged historical foundations.
+- Protected external writer remains `reallaksh19/3D_Converters/converters/scripts/inputxml_to_cii2019.py`; inspected as format authority, never modified.
+- No workflow-file changes are authorized or present in this workstream.
 
 ## Implemented production path
 
-### Fixed-field Writer 1A
-
-`tabs/cii-workspace/cii-workspace-target-writer.js`
-
-Qualified mutation whitelist:
-
 ```text
-WALL | Wall thickness
-PROCESS | P1
-PROCESS | T1
-PROCESS | T2
-WEIGHT_RIGID | Rigid weight
+approved / locked correspondence
+  -> engineering delta set
+  -> restraint pointer/slot pairing augmentation
+  -> transfer policy
+  -> Writer 1A readiness
+  -> exact fixed-field patch
+  -> reparse modified target
+  -> semantic negative assurance
+  -> export Modified_<target>.CII only on PASS
 ```
 
-Rules:
+### ELEMENT and RIGID Writer 1A
 
-- plan must be `PREVIEW_READY`;
-- mutating row must be `REVIEWED` or `LOCKED`;
-- mutating action must be `COPY/PREVIEW_READY`;
-- unsupported approved mutations block the whole writer;
-- `KEEP/PREVIEW_READY` and `KEEP/PROTECTED` are permitted no-ops;
-- at least one actual mutation is required;
-- ELEMENT block is selected by parsed element index and raw FROM/TO identity check;
-- exact field span is patched; whole rows are not re-rendered;
-- raw TARGET field must equal transfer-plan `before` value;
-- duplicate field claims are rejected;
-- output text length must remain exactly unchanged;
-- RIGID weight uses the existing qualified 1-based pointer record.
-
-### Engineering-delta authority
-
-`cii-workspace-engineering-delta.js` now publishes exact field authority:
+Executable existing-record fields:
 
 ```text
-WT -> PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD
-P1 -> PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD
-T1 -> PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD
-T2 -> PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD
+ELEMENT row 2: WT, T1, T2
+ELEMENT row 4: P1
+RIGID: pointer-bound weight
 ```
 
-T2 is exposed downstream through `cii-workspace-topology-adapter.js` but remains excluded from M2 topology identity.
-
-### Transfer policy / plan
-
-- WT is no longer blanket-protected.
-- P1/T1/T2 are `COPY/PREVIEW_READY` only with exact fixed-field authority.
-- OD and geometry remain protected.
-- plan mutation authority is `WRITER_1A_CONDITIONAL` for a successful preview.
-- any blocked/unsupported approved mutation prevents Writer 1A readiness even when the preview itself remains inspectable.
-
-### Stage06 and UI
-
-- Stage06 now reports `READY_WRITER_1A` or `BLOCKED_WRITER_1A`.
-- Tab3 shows `TARGET MUTATION · WRITER 1A READY` only when all approved non-KEEP operations are writable.
-- otherwise Tab3 remains `TRANSFER PREVIEW · BLOCKED` and lists Writer 1A blockers.
-- the apply button calls the core Writer 1A path and downloads `Modified_<target>.CII` only after reparse/validation PASS.
-- the legacy duplicate Stage06 apply control was removed.
-
-### Core negative assurance
-
-`applyCiiWorkspaceTargetWriter1A()`:
-
-1. reparses current TARGET and requires the reviewed SHA-256 to match;
-2. applies exact Writer 1A spans;
-3. reparses modified TARGET;
-4. checks element count unchanged;
-5. checks FROM/TO/DX/DY/DZ/OD unchanged;
-6. checks WT/P1/T1/T2 equal either original or the exact approved proposal;
-7. checks parsed node geometry/numbers unchanged;
-8. checks node names unchanged;
-9. checks auxiliary pointer ownership unchanged;
-10. checks RIGID pointer set unchanged and only approved weight records changed;
-11. requires `unexpectedSemanticDeltaCount = 0` before returning exportable text.
-
-## Explicitly deferred
-
-- existing restraint mutation: deferred inside Writer 1A until exact source-record→target-slot mapping is retained;
-- node-name mutation: not yet in the executable whitelist;
-- OD mutation: Writer 1B conditional;
-- free-slot/new restraint creation: Writer 1B;
-- SIF/TEE in-place rewrite: Writer 1B;
-- pointer/cardinality-changing auxiliary create/delete: Writer 2;
-- node/element/connectivity changes: Writer 3;
-- workflows and protected writer changes: forbidden in this PR.
-
-## Restraint qualification finding
-
-`cii-workspace-auxiliary.js` already proves each restraint record carries:
+Existing protections remain:
 
 ```text
-pointer = 1-based 24-row RESTRANT block index
-slot    = 1..6 fixed 4-row slot
+node numbers
+FROM / TO
+DX / DY / DZ
+OD
+element count/order
+section cardinality
+auxiliary pointer ownership
+```
+
+### Deterministic existing-restraint pairing
+
+Files:
+
+- `tabs/cii-workspace/cii-workspace-restraint-pairing.js`
+- `tabs/cii-workspace/cii-workspace-restraint-transfer.js`
+
+Source authority already established by `cii-workspace-auxiliary.js` and protected writer:
+
+```text
+RESTRANT pointer = 1-based 24-row block index
+6 slots per block
+4 rows per slot:
+  line 1 numeric
+  line 2 direction cosines
+  tag
+  guid
+```
+
+Qualified record fields retained before pairing:
+
+```text
+pointer
+slot
 node
 typeCode
 stiffness
@@ -127,29 +95,199 @@ gap
 friction
 connectingNode
 directionCosines
+tag
+guid
 ```
 
-However current engineering deltas compare sorted aggregate sets by node and discard explicit source-record→target-slot pairing. Therefore a general existing-restraint writer would currently have to guess slot identity. Next safe increment is:
+#### Pairing rules
+
+1. SOURCE/TARGET restraint record count at the approved node must be equal for Writer 1A existing-record mutation.
+2. Zero/zero is trivially qualified but produces no mutation.
+3. One/one is uniquely paired by cardinality: `SINGLETON_EQUAL_CARDINALITY`.
+4. For 2..6 records, all one-to-one assignments are evaluated globally; maximum search is `6! = 720`.
+5. Multi-record stable evidence is:
+   - exact nonblank GUID;
+   - exact nonblank tag;
+   - approved source connecting-node → target connecting-node correspondence;
+   - equal direction cosines within tolerance.
+6. Identity score hierarchy:
 
 ```text
-single SOURCE restraint record at approved node
-+
-single TARGET restraint record at corresponding node
-=> explicit source pointer/slot + target pointer/slot custody
-=> in-place type/stiffness/gap/friction/connecting-node/direction-cosine mutation
+GUID exact                 1,000,000
+tag exact                     10,000
+mapped connecting node exact   1,000
+direction exact                  100
+both connecting nodes zero         1  (not strong by itself)
 ```
 
-Multi-record nodes remain blocked until a deterministic record-pairing rule is independently qualified. Free-slot creation remains Writer 1B.
+The hierarchy prevents all lower-level evidence across six slots from outweighing one higher-level exact cue.
+
+7. The following contribute ZERO pairing score and are deliberately excluded from identity:
+
+```text
+slot number
+typeCode
+stiffness
+gap
+friction
+```
+
+8. Raw source/target node-number equality is never used as restraint identity evidence.
+9. Multi-record candidates require at least one strong cue.
+10. A tied best global assignment is rejected with `RESTRAINT_RECORD_PAIRING_AMBIGUOUS`; slot order is never a tie-breaker.
+11. If a positive SOURCE connecting node cannot be mapped through bound node correspondence, executable pairing fails closed.
+12. Cardinality change is blocked from Writer 1A (`RESTRAINT_RECORD_CARDINALITY_CHANGE`) and belongs to Writer 1B/2 depending on required allocation/pointer changes.
+
+#### Target-native proposal
+
+For each qualified pair:
+
+```text
+TARGET pointer       preserved
+TARGET slot          preserved
+TARGET node          preserved
+TARGET tag           preserved
+TARGET GUID          preserved
+
+SOURCE typeCode      -> target existing slot
+SOURCE stiffness     -> target existing slot
+SOURCE gap           -> target existing slot
+SOURCE friction      -> target existing slot
+SOURCE direction XYZ -> target existing slot
+SOURCE connecting node -> mapped TARGET node number -> target existing slot
+```
+
+The writer never copies SOURCE pointer, SOURCE slot, or SOURCE node number into TARGET.
+
+### Restraint transfer authority
+
+The normal engineering-delta set is augmented with one row per bound node that has restraint evidence:
+
+```text
+category: RESTRAINT
+property: Qualified restraint record pairing
+authority: PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING:<pairing authority>
+```
+
+This pairing row is now the sole restraint mutation authority.
+
+Older aggregate rows remain visible evidence only:
+
+```text
+Restraint code set
+Restraint gap values
+Restraint friction values
+Restraint stiffness values
+Restraint direction-cosine set
+Qualified restraint numeric record set
+```
+
+They classify as `KEEP / PROTECTED` with `CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY`; they cannot independently write the same raw slot fields.
+
+### Exact RESTRANT writer fields
+
+For each paired existing target slot Writer 1A patches only changed fixed spans:
+
+```text
+line 1 field 2  typeCode
+line 1 field 3  stiffness
+line 1 field 4  gap
+line 1 field 5  friction
+line 1 field 6  connectingNode
+line 2 field 1  direction X
+line 2 field 2  direction Y
+line 2 field 3  direction Z
+```
+
+Before every patch:
+
+- raw target field must equal the recorded `before` value;
+- pointer/slot must equal the target custody in the pairing contract;
+- raw line1 node must equal the target-native node in both `before` and `proposed`;
+- duplicate field claims are rejected;
+- fixed-field overflow is rejected.
+
+No tag/GUID row is rewritten.
+
+## Post-write negative assurance
+
+After Writer 1A, the modified CII is reparsed and must satisfy all existing checks plus:
+
+```text
+RESTRANT pointer/slot set unchanged
+RESTRANT section row cardinality unchanged
+restraint target node unchanged
+tag unchanged
+guid unchanged
+every numeric field = original unless an exact approved writer mutation exists
+```
+
+Any violation raises `CII_WRITER_1A_NEGATIVE_ASSURANCE_FAILED`; export is not returned.
+
+## Real benchmark contract committed
+
+Benchmark authority remains:
+
+```text
+SOURCE node130 -> restraint block 5, type 15, friction 0
+TARGET1 node20130 -> block 5, type 9, friction 0.3
+TARGET2 node10130 -> block 6, type 9, friction 0
+```
+
+`tests/cii-workspace-benchmark-transfer-preview.test.js` is updated so:
+
+- aggregate restraint code/friction rows are evidence-only;
+- `Qualified restraint record pairing` is `COPY/PREVIEW_READY`;
+- pairing is singleton-qualified;
+- target pointer/slot/node stay target-native.
+
+New `tests/cii-workspace-benchmark-writer-1a-restraint.test.js` reviews only node130 and requires:
+
+- TARGET1 block 5 retained;
+- TARGET2 block 6 retained;
+- type `9 -> 15` in both;
+- TARGET1 friction `0.3 -> 0`;
+- TARGET2 friction `0 -> 0` is not rewritten;
+- only RESTRANT fields mutate;
+- post-write validation PASS with `unexpectedSemanticDeltaCount = 0`;
+- stale target bytes reject apply.
+
+This real benchmark test is COMMITTED BUT NOT_RUN in a complete checkout.
 
 ## Validation ledger
 
-PASS:
+### PASS — observed execution
 
-- protected-writer source inspection: ELEMENT row2 = `[WT, insulation, corrosion, T1, T2, T3]`; row4 begins `[P1..P6]`; numeric row widths `[15,13,13,13,13,13]`.
-- `tests/cii-workspace-target-writer-1a.test.js` executed from an exact minimal materialization of current writer + fixed-field helper. Initial run exposed a weak geometry substring assertion in the test oracle; the assertion was replaced by byte-identical ELEMENT header-row comparison. Re-run PASS.
-- focused Writer 1A execution covers WT, P1, T1, T2, existing RIGID weight, exact output length, immutable FROM/TO/DX/DY/DZ/OD row, unsupported SIF fail-closed behavior, stale `before` rejection, and protected-writer numeric formatting cases.
+1. Protected-writer source inspection:
+   - ELEMENT row2/row4 fixed-field layout;
+   - RESTRANT six-slot / 24-row block layout;
+   - line1 node/type/stiffness/gap/friction/connecting-node;
+   - line2 X/Y/Z cosines.
+2. Existing focused Writer 1A test:
+   - WT/P1/T1/T2/RIGID exact fixed-field mutation PASS.
+3. `tests/cii-workspace-restraint-pairing.test.js`:
+   - singleton cardinality pairing;
+   - swapped multi-slot direction pairing;
+   - GUID pairing despite direction change;
+   - mapped connecting-node pairing;
+   - ambiguous multi-record fail-closed;
+   - cardinality mismatch fail-closed.
+   - Re-run output: `CII deterministic restraint pairing checks passed.`
+4. `tests/cii-workspace-target-writer-restraint.test.js`:
+   - source slots 1/5 paired to target slots 6/2;
+   - target pointer differs from source;
+   - source connecting node `510 -> 9510` through node map;
+   - exactly 9 numeric fixed fields rewritten;
+   - target node/pointer/slot/tag rows preserved;
+   - exact output length preserved.
+   - Re-run output: `CII Writer 1A paired restraint slot mutation checks passed.`
 
-NOT_RUN in a complete checkout:
+Two focused test-oracle corrections were made during implementation and then rerun PASS:
+
+- pairing test originally expected a positive winner gap although every alternative assignment was invalid; correct authority is unique assignment with no runner-up;
+- raw writer synthetic fixture originally declared target pointer 7 with only one 24-row block; fixture corrected to valid target pointer 1 before execution.
+
+### NOT_RUN — complete repository/runtime unavailable
 
 ```text
 tests/cii-workspace-transfer-preview-policy.test.js
@@ -159,24 +297,23 @@ tests/cii-workspace-anchor-approval-ui.test.js
 tests/cii-workspace-benchmark-transfer-preview.test.js
 tests/cii-workspace-benchmark-end-to-end.test.js
 tests/cii-workspace-benchmark-writer-1a.test.js
+tests/cii-workspace-benchmark-writer-1a-restraint.test.js
 full inherited CII Workspace regression/browser lifecycle
 ```
 
-The real benchmark writer test is committed for TARGET1 and TARGET2. It approves only SOURCE `250→255`, requires WT `COPY/PREVIEW_READY`, keeps OD protected, applies Writer 1A, reparses, requires `unexpectedSemanticDeltaCount == 0`, and rejects stale target bytes. It has not been executed in a complete checkout.
-
-## Environment / backup limitation
-
-Repo-local policy requires `node utils/backup.cjs save ...` before existing-file edits. Direct container DNS cannot resolve GitHub and a complete checkout could not be materialized, so the repo-local backup utility was NOT_RUN. GitHub connector updates used exact preimage blob SHAs and Git history remains recoverable, but this is not represented as a substitute PASS for the local backup policy.
+Repo-local `utils/backup.cjs` remains `NOT_RUN_ENVIRONMENT` because the complete repository was not materialized in the container. GitHub writes used exact current blob SHAs; do not represent that as backup-script PASS.
 
 ## Changed-file ledger
 
 Coordination:
+
 - `agents/MASTER_INDEX.md`
 - `agents/PR991_workreport.md`
 - `agents/status/PR991.yaml`
 - `agents/claims/PR991.yaml`
 
 Production:
+
 - `tabs/cii-workspace/cii-workspace-core.js`
 - `tabs/cii-workspace/cii-workspace-engineering-delta.js`
 - `tabs/cii-workspace/cii-workspace-placeholders.js`
@@ -185,38 +322,56 @@ Production:
 - `tabs/cii-workspace/cii-workspace-topology-adapter.js`
 - `tabs/cii-workspace/cii-workspace-transfer-plan.js`
 - `tabs/cii-workspace/cii-workspace-transfer-policy.js`
+- `tabs/cii-workspace/cii-workspace-restraint-pairing.js`
+- `tabs/cii-workspace/cii-workspace-restraint-transfer.js`
 
 Tests:
+
 - `tests/cii-workspace-anchor-approval-ui.test.js`
 - `tests/cii-workspace-benchmark-end-to-end.test.js`
 - `tests/cii-workspace-benchmark-transfer-preview.test.js`
 - `tests/cii-workspace-benchmark-writer-1a.test.js`
+- `tests/cii-workspace-benchmark-writer-1a-restraint.test.js`
 - `tests/cii-workspace-placeholder-gate.test.js`
 - `tests/cii-workspace-target-writer-1a.test.js`
+- `tests/cii-workspace-target-writer-restraint.test.js`
+- `tests/cii-workspace-restraint-pairing.test.js`
 - `tests/cii-workspace-transfer-preview-policy.test.js`
 - `tests/cii-workspace-transfer-preview-ui.test.js`
 
-Temporary `agents/WIP-cii-writer1a_workreport.md` was retired after PR allocation.
-
 ## Risks / decisions
 
-- RISK-1: formatting drift in engineering files is controlled by exact-span replacement + exact output-length guard.
-- RISK-2: stale target bytes are blocked by SHA-256 before mutation.
-- RISK-3: restraint slot ambiguity remains open; no inferred mapping is permitted.
-- DEC-1: unsupported approved operations block apply; never silently skip.
-- DEC-2: Stage06 uses Writer 1A readiness derived from `PREVIEW_READY`, not the obsolete unreachable `READY` contract.
-- DEC-3: real TARGET1/TARGET2 writer benchmark must pass before this PR is merge-ready.
+- RISK-1: a restraint may legitimately change direction and metadata between revisions. Direction is therefore positive evidence, not a mandatory equality gate; stronger GUID/tag/connecting-node evidence can preserve identity while direction changes.
+- RISK-2: GUID/tag can be regenerated. Exact match is positive evidence only; nonmatch is not treated as automatic contradiction.
+- RISK-3: indistinguishable multiple restraints cannot be safely paired from mutable values; ambiguity stays blocked.
+- DEC-1: exhaustive assignment is acceptable because the physical format limits the set to six slots (`<=720` permutations).
+- DEC-2: slot order is custody after pairing, never identity evidence before pairing.
+- DEC-3: aggregate restraint deltas are evidence only; only explicit pointer/slot pairing authorizes mutation.
+- DEC-4: free-slot creation/cardinality change is not smuggled into Writer 1A.
+- DEC-5: no correspondence/M1/M2 thresholds or weights were changed for this writer increment.
 
 ## Exact continuation state
 
-EXACT_NEXT_ACTION: qualify and implement the single-record existing-restraint mutation path, then execute the real TARGET1/TARGET2 Writer 1A benchmark and inherited CII Workspace regression suite in a complete checkout. Keep PR991 draft and unmerged until those gates are observed PASS or the owner explicitly overrides them.
+EXACT_NEXT_ACTION:
+
+1. obtain a complete checkout/runner at the exact PR991 head;
+2. run `tests/cii-workspace-benchmark-writer-1a-restraint.test.js` for real TARGET1/TARGET2;
+3. run existing `tests/cii-workspace-benchmark-writer-1a.test.js`;
+4. run `tests/cii-workspace-benchmark-transfer-preview.test.js` and end-to-end benchmark;
+5. run transfer-policy/Stage06/UI and inherited browser lifecycle regressions;
+6. fix only genuine defects; do not tune correspondence policy to benchmark numbering;
+7. keep PR991 draft/unmerged until required gates are observed PASS.
 
 ## Appendix A — implementation qualification
 
-A1 Production trace: `engineering-delta -> transfer-policy -> transfer-plan -> writer-readiness -> Stage06/UI -> fixed-field writer -> reparse -> negative assurance` is implemented.
-A2 Failure isolation: stale target hash, raw `before` mismatch, unsupported operation, duplicate field claim, field overflow, pointer failure and unexpected semantic delta fail closed.
-A3 Authority/invariant: format fields come from protected writer source; topology/pointers/cardinality/OD remain immutable.
-A4 Independent validation: mutation formatter is checked by reparsing and semantic negative assurance; real benchmark writer test is separate from production but NOT_RUN.
-A5 Minimal patch: M1/M2/candidate/propagation algorithms and protected external writer are unchanged.
+A1 Production trace: `bound node correspondence -> auxiliary restraint byNode -> deterministic global pairing -> pairing engineering delta -> transfer policy -> Writer 1A readiness -> target pointer/slot patch -> reparse -> negative assurance` is implemented.
 
-QUALIFICATION_RESULT: CONTINUE — initial executable Writer 1A slice implemented and focused test PASS; full real benchmark and existing-restraint sub-slice remain before merge readiness.
+A2 Failure isolation: unequal cardinality, invalid fixed-field custody, missing connecting-node mapping, no stable multi-record assignment, tied assignment, stale target SHA, target before-value mismatch, pointer/slot mismatch, target-node mismatch, duplicate field claim, overflow and post-write semantic mismatch all fail closed.
+
+A3 Authority/invariant: protected writer establishes the six-slot 24-row RESTRANT layout; Writer 1A preserves target node/pointer/slot/tag/GUID/cardinality and only patches qualified numeric spans.
+
+A4 Independent validation: pairing logic is tested independently from the writer; writer raw-slot mutation is separately tested; the real TARGET1/TARGET2 core round-trip benchmark is committed but NOT_RUN.
+
+A5 Minimal patch: no changes to M1/M2 candidate scoring, topology propagation, node-offset policy, external protected writer, parser authority, or workflow files.
+
+QUALIFICATION_RESULT: CONTINUE — deterministic single/multi existing-restraint Writer 1A implementation and focused validation are complete; real benchmark/full regression execution remains the merge blocker.
