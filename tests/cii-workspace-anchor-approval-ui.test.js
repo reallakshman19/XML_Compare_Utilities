@@ -16,10 +16,10 @@ assert(shell.includes('<th>Approval</th><th>Source</th><th>Target</th>'), 'Engin
 assert(shell.includes('Approval is inherited from the parent correspondence Decision above'), 'Delta approval must explicitly derive from correspondence review');
 assert(shell.includes('updateCiiReviewDecisions(current.review, reviewFrom(decisions))'), 'approval must be bound through the existing review ledger before transfer refresh');
 assert(shell.includes('<th>Approval authority</th>'), 'Transfer Preview rows must expose reviewed/locked authority');
-assert(shell.includes('TRANSFER PREVIEW · BLOCKED'), 'Tab3 must preserve fail-closed mutation when Writer 1A is not fully qualified');
-assert(shell.includes('TARGET MUTATION · WRITER 1A READY'), 'Tab3 must expose qualified Writer 1A mutation separately from preview readiness');
-assert(shell.includes('<b>Preview plan:</b> ${h(plan.status)} · <b>Writer 1A:</b>'), 'Tab3 must expose preview readiness separately from writer readiness');
-assert(shell.includes('every approved non-KEEP operation is Writer 1A qualified'), 'Writer 1A must be all-or-nothing across approved mutations');
-assert(shell.includes('Apply approved Writer 1A changes to target CII'), 'Tab3 must expose the qualified mutation action');
+assert(shell.includes('TRANSFER PREVIEW · BLOCKED'), 'Tab3 must preserve fail-closed mutation when Writer 1B is not fully qualified');
+assert(shell.includes('TARGET MUTATION · WRITER 1B READY'), 'Tab3 must expose qualified Writer 1B mutation separately from preview readiness');
+assert(shell.includes('<b>Preview plan:</b> ${h(plan.status)} · <b>Writer 1B:</b>'), 'Tab3 must expose preview readiness separately from writer readiness');
+assert(shell.includes('every approved non-KEEP operation is Writer 1B qualified'), 'Writer 1B must be all-or-nothing across approved mutations');
+assert(shell.includes('Apply approved Writer 1B changes to target CII'), 'Tab3 must expose the qualified Writer 1B mutation action');
 
-console.log('CII base-anchor / approval-flow Writer 1A UI checks passed.');
+console.log('CII base-anchor / approval-flow Writer 1B UI checks passed.');
