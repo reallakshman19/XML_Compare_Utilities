@@ -118,7 +118,7 @@ await tile.click();
 let shell = overlay(documentRef);
 assert(shell, 'tile click should open one workspace overlay');
 assert.strictEqual(shell.querySelectorAll('[data-ciiw-stage]').length, 7, 'all seven locked stages must be visible');
-assert.strictEqual(shell.querySelector('[data-ciiw-apply]').disabled, true, 'Stage06 apply must remain disabled');
+assert.strictEqual(shell.querySelector('[data-ciiw-apply]'), null, 'legacy duplicate Stage06 apply control must remain removed');
 assert.strictEqual(shell.querySelector('[data-ciiw-refresh-review]').disabled, true);
 
 shell.querySelector('[data-ciiw-source]').files = [file('source.cii', cii(10, 20))];
@@ -132,6 +132,7 @@ shell.querySelector('[data-ciiw-source-anchors]').value = '10,20';
 shell.querySelector('[data-ciiw-target-anchors]').value = '5000,5010';
 await shell.querySelector('[data-ciiw-analyze]').click();
 assert(/Correspondence READY/.test(shell.querySelector('[data-ciiw-status]').textContent));
+assert(/Writer 1B/.test(shell.querySelector('[data-ciiw-status]').textContent));
 assert.strictEqual(shell.querySelector('[data-ciiw-refresh-review]').disabled, false);
 assert.strictEqual(shell.querySelector('[data-ciiw-export-csv]').disabled, false);
 assert.strictEqual(shell.querySelector('[data-ciiw-export-json]').disabled, false);
@@ -149,12 +150,13 @@ assert(decisions.length >= 1, 'automated correspondence should expose review con
 decisions[0].value = 'ACCEPT'; await decisions[0].dispatch('change');
 await shell.querySelector('[data-ciiw-refresh-review]').click();
 assert(overlay(documentRef), 'review refresh must keep shell mounted');
-assert(/transfer preview PREVIEW_READY/.test(shell.querySelector('[data-ciiw-status]').textContent), 'accepted element review should activate preview-only transfer operations');
+assert(/transfer preview (PREVIEW_READY|BLOCKED)/.test(shell.querySelector('[data-ciiw-status]').textContent), 'review refresh must rebuild an explicit transfer state');
+assert(/Writer 1B (READY|BLOCKED)/.test(shell.querySelector('[data-ciiw-status]').textContent), 'review refresh must expose Writer 1B readiness explicitly');
 
 await shell.querySelector('[data-ciiw-export-csv]').click();
 await shell.querySelector('[data-ciiw-export-json]').click();
 assert.deepStrictEqual(documentRef.downloads.map((item) => item.name), ['cii-correspondence.csv', 'cii-workspace-audit.json']);
-assert.strictEqual(shell.querySelector('[data-ciiw-apply]').disabled, true, 'review/export cannot enable Stage06');
+assert.strictEqual(shell.querySelector('[data-ciiw-apply]'), null, 'review/export must not restore the removed legacy apply control');
 
 shell.querySelector('[data-ciiw-target]').files = [file('target-2.cii', cii(5000, 5010))];
 await shell.querySelector('[data-ciiw-target]').dispatch('change');
@@ -171,4 +173,4 @@ assert.strictEqual(shell.querySelectorAll('[data-ciiw-stage]').length, 7);
 uninstall();
 assert.strictEqual(overlay(documentRef), null, 'uninstall must close an active overlay');
 assert.strictEqual(container.querySelector('[data-ciiw-open]'), null, 'uninstall must remove tile');
-console.log('CII Workspace shell/installer lifecycle checks passed.');
+console.log('CII Workspace shell/installer Writer 1B lifecycle checks passed.');
