@@ -45,18 +45,20 @@ const engineeringDeltas = {
     delta(sif, 'SIF_TEE', 'SIF/Tee raw code (field 2)', 3, 5, { evidenceStatus: 'PARTIAL', authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD' }),
     delta(rigid, 'WEIGHT_RIGID', 'Rigid weight', 111.2, 111.2, { changed: false, semanticChange: 'UNCHANGED', authority: 'ELEMENT_RIGID_POINTER_TO_RIGID_RECORD' }),
     delta(pipe, 'PIPE_SIZE', 'OD', 60.3, 114.3, { authority: 'PARSED_ELEMENT_PIPE_PROPERTY' }),
-    delta(pipe, 'WALL', 'Wall thickness', 3.9, 4.7752, { authority: 'PARSED_ELEMENT_PIPE_PROPERTY' }),
+    delta(pipe, 'WALL', 'Wall thickness', 3.9, 4.7752, { authority: 'PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD' }),
     delta(pipe, 'GEOMETRY', 'Element length', 659.301, 459.301, { authority: 'PARSED_ELEMENT_GEOMETRY' }),
-    delta(pipe, 'PROCESS', 'P1', 10, 15, { evidenceStatus: 'PARTIAL', authority: 'parser/sections/elements.js' }),
+    delta(pipe, 'PROCESS', 'P1', 10, 15, { authority: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD' }),
+    delta(pipe, 'PROCESS', 'T1', 200, 250, { authority: 'PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD' }),
+    delta(pipe, 'PROCESS', 'T2', 300, 350, { authority: 'PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD' }),
   ],
 };
 
 const plan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas);
 assert.strictEqual(plan.inputAuthority, 'ENGINEERING_DELTA_SET');
-assert.strictEqual(plan.mutationAuthority, 'BLOCKED_NOT_IMPLEMENTED');
+assert.strictEqual(plan.mutationAuthority, 'WRITER_1A_CONDITIONAL');
 assert.strictEqual(plan.policy.geometryProtected, true);
 assert.strictEqual(plan.policy.odProtected, true);
-assert.strictEqual(plan.policy.wallProtected, true);
+assert.strictEqual(plan.policy.wallProtected, false);
 assert.strictEqual(plan.status, 'PREVIEW_READY', 'blocked individual families do not prevent inspection when qualified operations exist');
 
 const find = (property) => plan.operations.find((item) => item.property === property);
@@ -80,21 +82,25 @@ assert.strictEqual(find('Rigid weight').status, 'PREVIEW_READY');
 assert.strictEqual(find('Rigid weight').before, 111.2);
 assert.strictEqual(find('Rigid weight').proposed, 111.2);
 
-for (const property of ['OD', 'Wall thickness', 'Element length']) {
+for (const property of ['OD', 'Element length']) {
   assert.strictEqual(find(property).action, 'KEEP');
   assert.strictEqual(find(property).status, 'PROTECTED');
   assert(find(property).blockers.includes('TARGET_PROPERTY_PROTECTED_BY_DEFAULT'));
 }
-assert.strictEqual(find('P1').action, 'COPY', 'partial authority blocks execution but must retain the intended copy action');
-assert.strictEqual(find('P1').status, 'BLOCKED');
-assert(find('P1').blockers.includes('PROCESS_TRANSFER_PARTIAL_AUTHORITY'));
+assert.strictEqual(find('Wall thickness').action, 'COPY');
+assert.strictEqual(find('Wall thickness').status, 'PREVIEW_READY');
+for (const property of ['P1', 'T1', 'T2']) {
+  assert.strictEqual(find(property).action, 'COPY');
+  assert.strictEqual(find(property).status, 'PREVIEW_READY');
+  assert.strictEqual(find(property).policyAuthority, 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD');
+}
 
-assert(plan.summary.byAction.COPY >= 4);
+assert(plan.summary.byAction.COPY >= 7);
 assert(plan.summary.byAction.CREATE >= 1);
-assert(plan.summary.byAction.KEEP >= 4);
+assert(plan.summary.byAction.KEEP >= 3);
 assert(plan.summary.byAction.BLOCKED >= 1);
-assert(plan.summary.protectedCount >= 3);
-assert(plan.summary.previewReadyCount >= 3);
+assert(plan.summary.protectedCount >= 2);
+assert(plan.summary.previewReadyCount >= 7);
 
 const rejectedReview = createCiiWorkspaceReviewLedger(sourceDocument, targetDocument, [], correspondence, {
   reviewedCorrespondenceIds: [node130.correspondenceId],
@@ -108,4 +114,4 @@ assert.strictEqual(stale.status, 'BLOCKED');
 assert.strictEqual(stale.operations.length, 0);
 assert(stale.blockers.includes('STALE_REVIEW_TARGET_IDENTITY'));
 
-console.log('CII qualified transfer-preview action/status separation checks passed.');
+console.log('CII Writer 1A transfer-policy checks passed.');
