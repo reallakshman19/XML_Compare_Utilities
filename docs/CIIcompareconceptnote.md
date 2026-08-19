@@ -4,40 +4,45 @@
 **Repository:** `reallaksh19/XML_Compare_Utilities`  
 **Authority direction:** `SOURCE CII -> TARGET CII`  
 **Live-state rule:** GitHub `main`, PR state and repository work reports are authoritative for merge/execution state.  
-**Engineering baseline:** Method A/B authority and multi-base orchestration introduced through PRs #994–#996; PRs #997–#999 connect that authority to the full-screen engineering review and human-readable transfer workflow; the current transfer-scope increment binds explicit APPLY/EXCLUDE custody before Writer readiness.  
-**Primary objective:** establish defensible local correspondence across complex revised piping models, separate identity from engineering differences, preserve engineer approval, and permit only explicitly scoped, qualified TARGET mutation with full audit custody.
+**Engineering baseline:** PRs #982–#1001 establish fixed-field parsing, Method A/B identity, independent multi-base correspondence, engineering deltas, Writer 1A/1B, full-screen review, and explicit APPLY/EXCLUDE mutation-scope custody. PR #1001 merged at `5a5fa0ae5068a7c15eecc1a57557e71336b9754c`.  
+**Primary objective:** compare revised CAESAR II neutral CII models, prove local identity without relying on node-number offsets, expose engineering deltas separately from identity, and mutate TARGET only through explicitly scoped, source-qualified writer authority with byte-level negative assurance.
 
 ---
 
-## 1. Purpose
+# 1. Product purpose
 
-CII Workspace compares CAESAR II neutral CII models when revisions can contain:
+CII Workspace must handle revisions containing:
 
 - node renumbering;
 - several independent local geometry changes;
 - inserted/deleted/rerouted piping regions;
 - OD or wall changes;
-- process-data changes;
-- support/restraint changes;
+- process/load-case field changes;
+- restraint/support changes;
 - SIF/tee changes;
-- rigid, hanger, weight and node-name changes.
+- rigid weight changes;
+- hanger changes;
+- node-name changes;
+- future pointer/cardinality changes.
 
-The product must answer four independent engineering questions:
+The product answers four independent engineering questions:
 
-1. **Input qualification** — what was loaded and parsed, and what is unsupported or unresolved?
-2. **Identity / correspondence** — what SOURCE object corresponds to what TARGET object, and which independent local evidence established that claim?
+1. **Input qualification** — what is parsed, qualified, partial, unsupported, or blocked?
+2. **Identity / correspondence** — what SOURCE object corresponds to what TARGET object and what independent local evidence supports that claim?
 3. **Engineering difference / approval** — after identity is established, what changed and what has the engineer accepted/rejected/locked?
-4. **Qualified TARGET mutation** — which approved deltas are explicitly selected to APPLY, which are EXCLUDED, and which selected values may actually be written without violating fixed-field, topology, pointer, cardinality or custody rules?
+4. **Qualified mutation** — which approved deltas are explicitly APPLY versus EXCLUDE, and which APPLY operations are actually supported by the selected Writer authority?
 
-These questions must never be collapsed into one score.
+These questions must never be collapsed into one score or one generic “matched” state.
 
 ---
 
 # 2. Non-negotiable engineering principles
 
-## 2.1 CII is fixed-field engineering data
+## 2.1 Fixed-field CII custody
 
-Parsing and writing must respect fixed columns. For the qualified ELEMENT header row the canonical widths are:
+CII is fixed-format engineering data. Whitespace tokenisation is not authoritative.
+
+For the qualified ELEMENT header row the canonical six-field widths are:
 
 ```text
 [15, 13, 13, 13, 13, 13]
@@ -49,25 +54,23 @@ with engineering order:
 FROM, TO, DX, DY, DZ, DIAMETER
 ```
 
-Whitespace tokenisation is not authoritative. Adjacent fields such as:
+Adjacent legal fields such as:
 
 ```text
 0.000000-0.488281E-03
 ```
 
-are legal fixed-width output.
+must remain parseable.
 
-A missing/unparsed diameter must not silently become `OD = 0`.
+A missing/unparsed diameter must not silently become `0`.
 
-The protected external writer:
+The protected external converter/writer remains format authority and is not modified merely to make CII Workspace pass:
 
 ```text
-3D_Converters/converters/scripts/inputxml_to_cii2019.py
+converters/scripts/inputxml_to_cii2019.py
 ```
 
-is a format authority and is not modified by CII Workspace.
-
-## 2.2 Identity, engineering difference and mutation scope are separate
+## 2.2 Identity, delta, mutation scope, and Writer authority are separate
 
 Authoritative pipeline:
 
@@ -80,35 +83,28 @@ PARSE
   -> REVIEW IDENTITY
   -> CALCULATE ENGINEERING DELTAS
   -> CLASSIFY TRANSFER OPERATIONS
-  -> EXPLICITLY BIND APPLY / EXCLUDE SCOPE
+  -> BIND EXPLICIT APPLY / EXCLUDE SCOPE
   -> WRITER READINESS ON APPLY SET ONLY
   -> QUALIFIED WRITER
   -> REPARSE / NEGATIVE ASSURANCE
-  -> EXPORT
+  -> SCOPED AUDIT / EXPORT
 ```
 
-Examples:
+Never route a raw candidate, an approved identity, or an unbound proposal directly into Writer 1A/1B/1C.
 
-- restraint code may change while node identity remains HIGH;
-- OD may change while topology identity remains valid;
-- a local reroute may invalidate one spatial base while another distant base remains valid;
-- Method B may establish the same network position even where geometry moved beyond a spatial registration tolerance;
-- an identity may be approved while one of its engineering deltas is deliberately EXCLUDED from mutation;
-- an unsupported delta may remain visible and auditable without blocking an unrelated qualified APPLY operation, provided the unsupported delta is explicitly EXCLUDED.
+## 2.3 Node numbering is not identity authority
 
-## 2.3 Node numbering is never identity authority
-
-Never implement correspondence as:
+Never implement:
 
 ```text
 targetNode = sourceNode + constantOffset
 ```
 
-The real benchmark pair `SOURCE 3.CII -> TARGET 3-1.CII` contains multiple valid local numbering regimes in the same model pair. Therefore a single global offset is mathematically invalid as identity authority.
+The real `SOURCE 3.CII -> TARGET 3-1.CII` benchmark contains multiple valid local numbering relationships in one model pair. A single global node offset is therefore mathematically invalid as correspondence authority.
 
-Node numbers remain identities inside their own file and may be displayed as labels/hints only.
+Node numbers remain labels/identities inside their own file only.
 
-## 2.4 OD is a tolerance scale, not identity evidence
+## 2.4 OD is tolerance scale only
 
 The common physical tolerance is:
 
@@ -116,80 +112,58 @@ The common physical tolerance is:
 T = x * SOURCE_OD
 ```
 
-Default:
+with current default:
 
 ```text
 x = 2.0
 ```
 
-`x` is configurable and dimensionless.
-
-SOURCE OD authority at a node is:
-
-```text
-minimum positive incident SOURCE OD
-```
-
-TARGET OD does not alter tolerance.
+SOURCE OD authority at a node is the minimum positive incident SOURCE OD. TARGET OD does not change identity tolerance.
 
 Required invariance:
 
 ```text
 same SOURCE geometry + same SOURCE OD
 TARGET OD changed by revision
-=> correspondence tolerance unchanged
+=> identity tolerance unchanged
 ```
 
-If no qualified positive SOURCE OD exists where an OD-scaled method requires it:
+If a method requires OD-scaled tolerance and no qualified positive SOURCE OD exists:
 
 ```text
 SOURCE_OD_TOLERANCE_UNAVAILABLE
 => REVIEW / UNAVAILABLE
 ```
 
-There is no hidden fixed-mm fallback.
+No hidden fixed-mm fallback is permitted.
 
-## 2.5 Several local geometry changes require independent local bases
+## 2.5 Local geometry changes require independent local bases
 
-A complex piping revision can contain several stable regions separated by changed geometry:
-
-```text
-stable local region A
-      |
-reroute / insertion / deletion
-      |
-stable local region B
-      |
-other local revision
-      |
-stable local region C
-```
-
-Therefore the architecture is not one global rigid registration.
-
-It is:
+Complex piping revisions may contain:
 
 ```text
-BASE A
-  OR
-BASE B
-  OR
-BASE C
+stable region A
+    |
+changed / inserted / rerouted region
+    |
+stable region B
+    |
+other changed region
+    |
+stable region C
 ```
 
-Each local Method-A base may legitimately own a different rigid transform.
-
-Do not require:
+The architecture is therefore:
 
 ```text
-T_A == T_B == T_C
+BASE A OR BASE B OR BASE C ...
 ```
 
-and do not average them into one compromise transform.
+Separate Method-A bases may own different local rigid transforms. Do not force them to agree globally and do not average incompatible transforms.
 
 ## 2.6 Method A and Method B are independent OR evidence
 
-At each local candidate/base region:
+At each local region:
 
 ```text
 METHOD A — Spatial
@@ -199,19 +173,23 @@ METHOD B — Network
 
 If both independently qualify and identify the same pair, they corroborate.
 
-If both independently qualify but identify different targets, the result is ambiguous.
+If both independently qualify but identify different targets:
 
-Canonical rule:
+```text
+AMBIGUOUS
+```
+
+Canonical combination:
 
 ```text
 OR_WITH_CONFLICT_VETO
 ```
 
-No majority vote. No first-loop winner. No score summation that overrides conflict.
+No majority vote. No first-success winner. No score summation that overrides a contradiction.
 
-## 2.7 One SOURCE / TARGET identity has unique custody
+## 2.7 One-to-one identity custody
 
-Fail closed when READY evidence claims:
+Fail closed on READY claims of:
 
 ```text
 same SOURCE -> different TARGETS
@@ -223,50 +201,27 @@ or:
 different SOURCES -> same TARGET
 ```
 
-These are identity custody conflicts and remain `AMBIGUOUS`.
+Those are custody conflicts, not confidence-ranking problems.
 
-## 2.8 Candidate evidence and identity approval are not Writer authority
+## 2.8 Explicit transfer scope is mutation custody
 
-Required order:
+Every mutable candidate operation must have exactly one explicit decision:
 
 ```text
-candidate evidence
- -> canonical correspondence
- -> canonical engineering delta
- -> identity approval
- -> transfer classification
- -> explicit APPLY / EXCLUDE selection
- -> selected Writer operation set
- -> Writer readiness
- -> mutation
- -> reparse / negative assurance
+APPLY
+EXCLUDE
 ```
 
-Never route a raw candidate, an approved correspondence, or an unbound transfer proposal directly into Writer 1A/1B.
-
-## 2.9 Transfer scope is exact custody, not a display filter
-
-A transfer scope is bound to:
+A bound transfer scope includes:
 
 ```text
 SOURCE content SHA-256
 TARGET content SHA-256
-exact mutable candidate operation-ID set
-one explicit decision per mutable operation:
-  APPLY
-  EXCLUDE
+exact mutable operation-ID set
+one decision per mutable operation
 ```
 
-The scope is invalid if:
-
-```text
-SOURCE hash changed
-OR TARGET hash changed
-OR an expected operation is missing
-OR a new operation appeared
-OR an operation is duplicated
-OR a decision is invalid
-```
+The scope is invalid if SOURCE/TARGET hashes change, an expected operation disappears, a new operation appears, a decision is duplicated, or a decision is invalid.
 
 `EXCLUDE` means:
 
@@ -276,196 +231,21 @@ remove operation from Writer operations[]
 keep effective TARGET equal to current TARGET
 ```
 
-It does **not** mean:
+It does not mean “pretend unsupported mutation is KEEP.”
 
-```text
-convert unsupported mutation into KEEP
-hide the operation from audit
-weaken Writer readiness
-```
+A selected unsupported APPLY remains a Writer blocker.
 
-A selected unsupported APPLY operation remains a Writer blocker.
-
-If every mutable operation is EXCLUDED:
+All EXCLUDE means no mutation authority:
 
 ```text
 TRANSFER_SCOPE_NO_APPLY_OPERATIONS
-=> no mutation authority
 ```
 
 ---
 
-# 3. Product information architecture
+# 3. Method A — local spatial registration
 
-The CII Workspace has three permanent engineering tabs:
-
-```text
-1. Inputs & Match Basis
-2. Compare Review
-3. Transfer Preview
-```
-
-The application-level workspace is full viewport by default and does not depend on the browser Fullscreen API.
-
-Required chrome:
-
-```text
-CII COMPARE WORKSPACE
-SOURCE.CII  ->  TARGET.CII
-readiness / authority state
-
-Inputs & Match Basis | Compare Review | Transfer Preview
-```
-
-`Compact view` may restore a centered modal footprint, but the engineering workflow and authority must remain identical.
-
----
-
-# 4. Tab 1 — Inputs & Match Basis
-
-## 4.1 Input custody
-
-SOURCE and TARGET are always shown explicitly side-by-side with:
-
-- filename;
-- hash/content identity;
-- CII version when available;
-- parse status;
-- element/node count;
-- branches, terminals, bends, rigids;
-- parsed auxiliary families;
-- unsupported/unresolved data.
-
-`0`, `EMPTY`, `NOT_PARSED`, `UNSUPPORTED` and `PARSE_ERROR` must remain distinguishable states.
-
-## 4.2 Candidate generation is structural search, not authority
-
-The structural candidate score is currently based on:
-
-```text
-30 base
-+ 20 incident component-kind similarity
-+ 20 neighbour-degree similarity
-+ 25 topology-neighbourhood similarity
-+  5 shared robust landmark reasons
-```
-
-This score answers:
-
-> Where is it worth evaluating Method A / Method B?
-
-It does not answer:
-
-> Is this identity proved?
-
-Current default search/gating parameters:
-
-```text
-Method-B structural minimum score      65
-Method-A broader search floor          55
-base-anchor winner gap                  8
-Method-A candidates/source              3
-Method-A reverse rank limit             3
-Method-A seed-pair pool                16
-```
-
-Method A may recover a structurally rank-2/3 candidate if spatial registration independently proves it.
-
-## 4.3 Method-qualified Base Anchor suggestion contract
-
-Each candidate exposes:
-
-```text
-sourceNodeId
-targetNodeId
-basisMethod:
-  METHOD_A_SPATIAL
-  METHOD_B_NETWORK
-  METHOD_A_AND_B
-  LANDMARK_ONLY
-
-methodA
-methodAWeight
-methodB
-methodBWeight
-candidateGeneration
-confidence
-identityExclusions
-reviewRequired
-```
-
-Primary card must show physical evidence, not raw JSON.
-
-## 4.4 Accepted independent base set
-
-The engineer may select several method-qualified Base Anchor cards.
-
-Selection projects to explicit `baseLoops[]`.
-
-### Method A card
-
-Selecting Method A contributes the **entire validated local Method-A base**, not only the clicked pair:
-
-```text
-{
-  method: METHOD_A_SPATIAL,
-  baseId,
-  anchorPairs: [all validated pairs belonging to that local base]
-}
-```
-
-If the same local Method-A base appears through several suggestion cards, it is deduplicated by base identity.
-
-### Method B card
-
-Selecting Method B contributes:
-
-```text
-{
-  method: METHOD_B_NETWORK,
-  baseId,
-  anchorPairs: [one accepted SOURCE <-> TARGET pair]
-}
-```
-
-### A+B card
-
-Selecting `METHOD_A_AND_B` contributes **two independent loops**:
-
-```text
-Method A loop
-OR
-Method B loop
-```
-
-It does not create one fused pseudo-method.
-
-### Conflict preservation
-
-If the engineer selects two B loops such as:
-
-```text
-S500 -> T1500
-S500 -> T2500
-```
-
-the UI must pass both to the core. It must not deduplicate or vote them away. The core conflict veto then returns `AMBIGUOUS`.
-
-## 4.5 Manual / landmark fallback is a separate mode
-
-`LANDMARK_ONLY` does not silently become Method B just because local run math exists.
-
-Manual anchors remain available for engineer-controlled fallback, but manual legacy mode and qualified `baseLoops[]` are not silently mixed.
-
-Changing to manual anchors clears the selected qualified base set.
-
-Changing the selected qualified base set clears manual anchor input.
-
----
-
-# 5. Method A — local spatial registration
-
-## 5.1 Minimum geometry
+## 3.1 Minimum geometry
 
 ```text
 1 anchor  -> UNDERDETERMINED / translation only
@@ -473,69 +253,42 @@ Changing the selected qualified base set clears manual anchor input.
 >=3 non-collinear pairs -> candidate rigid 3D basis
 ```
 
-Do not replace this with coordinate averaging.
+## 3.2 Local-basis hypothesis policy
 
-## 5.2 Local-basis hypothesis policy
+For one local Method-A base:
 
-For one accepted local Method-A base:
+1. enumerate non-collinear 3-anchor combinations;
+2. derive rigid transform;
+3. test transform against all local anchors;
+4. normalize every residual by its own SOURCE-OD tolerance;
+5. reject any hypothesis with normalized residual > 1;
+6. compare all remaining transforms for material disagreement;
+7. return `METHOD_A_AMBIGUOUS_BASES` when materially different admissible transforms remain;
+8. otherwise select the deterministic best admissible transform.
 
-1. enumerate every unordered 3-anchor combination;
-2. reject collinear/invalid bases;
-3. derive rigid rotation and translation;
-4. test that transform against **all anchors in that local base**;
-5. retain only hypotheses satisfying OD-scaled residual limits;
-6. compare admissible hypotheses against each other;
-7. fail `AMBIGUOUS` if materially different admissible transforms remain;
-8. otherwise select the deterministic best admissible hypothesis.
+No coordinate averaging and no Kabsch-style compromise across incompatible local bases.
 
-No averaging of incompatible transforms.
-
-## 5.3 OD-scaled residual qualification
+## 3.3 Residual qualification
 
 For anchor `i`:
 
 ```text
 T_i = x * SOURCE_OD_i
-```
 
-and:
-
-```text
 e_i = residual_i / T_i
-```
 
-A rigid hypothesis is admissible only when:
-
-```text
 max(e_i) <= 1
 ```
 
-The basis-agreement displacement tolerance is based on:
+Basis-agreement displacement tolerance is based on:
 
 ```text
-x * minimum qualified SOURCE OD in that local base
+x * minimum qualified SOURCE OD in the local base
 ```
 
-## 5.4 Alternate-basis ambiguity
+## 3.4 Method-A weight
 
-Two residual-qualified hypotheses are compared using:
-
-- relative rotation;
-- centroid displacement;
-- rotational displacement bound over source-base radius;
-- configured registration probes where present.
-
-If material transform disagreement exceeds basis-agreement tolerance:
-
-```text
-METHOD_A_AMBIGUOUS_BASES
-```
-
-and automatic authority fails closed.
-
-## 5.5 Method-A weight — 100 points
-
-Production decomposition:
+Current 100-point decomposition:
 
 ```text
 Residual quality              35
@@ -547,68 +300,25 @@ Basis consensus               10
                              100
 ```
 
-### Residual quality
+Current confidence policy:
 
 ```text
-35 * (1 - clamp(max normalized residual, 0, 1))
-```
-
-### Conditioning
-
-```text
-25 * clamp(minimum sin(theta), 0, 1)
-```
-
-### Spatial extent
-
-Let:
-
-```text
-spanRatio = maximum SOURCE anchor span / reference SOURCE OD
-```
-
-Full extent credit is reached at approximately `10 OD`:
-
-```text
-20 * clamp(spanRatio / 10, 0, 1)
-```
-
-### Redundancy
-
-Current production rule:
-
-```text
-3 anchors -> 2/10
-4 anchors -> 5/10
-5 anchors -> 8/10
-6+        -> 10/10
-```
-
-### Basis consensus
-
-A non-ambiguous READY local basis receives `10/10`.
-
-Ambiguity is a hard status veto; it is not compensated by points.
-
-### Confidence
-
-```text
-HIGH    total >= 85
-MEDIUM  total >= 70
+HIGH    >= 85
+MEDIUM  >= 70
 REVIEW  otherwise
 ```
 
-Automatic Method-A discovery additionally caps a 3-anchor base at `REVIEW` until at least a fourth pair validates the transform. Three pairs remain mathematically valid for registration but are not automatically promoted to HIGH/MEDIUM.
+Automatic discovery additionally caps a 3-anchor base at REVIEW until a fourth pair validates the transform.
 
 ---
 
-# 6. Method B — local pipe-run network basis
+# 4. Method B — local pipe-run/network basis
 
-## 6.1 Hard minimum two-axis gate
+## 4.1 Hard two-axis gate
 
-Method B cannot produce qualified network authority unless SOURCE and TARGET each contain at least two independent non-truncated compatible PIPE runs around the candidate node.
+Method B cannot be qualified unless SOURCE and TARGET each contain at least two independent, non-truncated, cross-compatible PIPE runs around the candidate node.
 
-Default independent-run angle threshold:
+Current independent-run angle threshold:
 
 ```text
 15 degrees
@@ -616,57 +326,31 @@ Default independent-run angle threshold:
 
 One long straight run is still one axis regardless of element count.
 
-## 6.2 Pipe-run extraction
+## 4.2 Run extraction
 
-Starting from the candidate node, walk each incident PIPE ray and merge collinear elements until a qualified stop such as:
+Starting from the candidate node, follow incident PIPE rays and merge collinear segments until terminal, branch, component transition, direction change, invalid data, or traversal limit.
 
-- terminal;
-- branch;
-- component transition;
-- direction change;
-- configured traversal limit.
+Opposite collinear rays form one undirected run. X/Y/Z labels are presentation only.
 
-Opposite collinear rays are treated as one undirected run.
+## 4.3 OD-scaled run compatibility
 
-Axis labels X/Y/Z are presentation only; skew runs remain valid geometry.
-
-## 6.3 OD-scaled run-length comparison
-
-For mapped SOURCE/TARGET runs:
+Run length:
 
 ```text
-length error = |L_SOURCE - L_TARGET|
+|L_SOURCE - L_TARGET| <= x * SOURCE_OD
 ```
 
-Qualification uses:
-
-```text
-length error <= x * SOURCE_OD
-```
-
-not a global percentage of run length.
-
-## 6.4 Angular mismatch converted to physical displacement
-
-Angular disagreement is converted to an equivalent displacement over characteristic run length:
+Angular mismatch becomes equivalent displacement:
 
 ```text
 d_angle = 2 * L_characteristic * sin(delta_theta / 2)
-```
 
-and compared with:
-
-```text
 d_angle <= x * SOURCE_OD
 ```
 
-This avoids treating a 2-degree difference over 0.5 m and 15 m as physically identical.
+## 4.4 Compatible geometry complexity
 
-## 6.5 Compatible 3D complexity
-
-Extra 3D credit is earned only when additional SOURCE/TARGET runs are themselves cross-revision compatible.
-
-Geometry-complexity component:
+Only cross-revision-compatible runs earn geometry complexity credit:
 
 ```text
 <2 compatible independent runs             0 / 40
@@ -681,18 +365,11 @@ where:
 V = |u1 dot (u2 cross u3)|
 ```
 
-For orthogonal compatible X/Y/Z:
+Orthogonal compatible XYZ gives `40/40`.
 
-```text
-V = 1
-geometry complexity = 40/40
-```
+## 4.5 Method-B weight
 
-If SOURCE and TARGET each look 3D but the third run is not compatible, the pair retains only the qualified lower-dimensional credit.
-
-## 6.6 Method-B weight — 100 points
-
-Production decomposition:
+Current 100-point decomposition:
 
 ```text
 Compatible geometry complexity          40
@@ -704,162 +381,73 @@ Mutual-best + winner-gap quality        10
                                         100
 ```
 
-Method B authority additionally requires all hard gates:
-
-```text
-run basis READY
-AND structural mutual-best
-AND winner gap >= required gap
-```
+Hard gates remain separate from score.
 
 Current confidence policy:
 
 ```text
 HIGH:
-  all hard gates
+  run basis READY
+  mutual-best
+  winner gap >= max(required, 12)
   total >= 80
-  winner gap >= max(required gap, 12)
 
 MEDIUM:
-  all hard gates
+  run basis READY
+  mutual-best
+  winner gap >= required
   total >= 65
 
 otherwise REVIEW
 ```
 
-A local run basis may therefore be mathematically `READY` while the overall Base Anchor remains `REVIEW` because mutual-best or winner-gap authority is missing.
-
-## 6.7 Method-B identity exclusions
-
-Do not earn Method-B identity weight from:
-
-```text
-node-number offset
-OD equality
-wall equality
-process values
-```
-
-OD is used only for physical tolerance scaling.
+Node-number offset, OD equality, wall equality, and process equality earn no Method-B identity weight.
 
 ---
 
-# 7. Independent multi-base authority
+# 5. Product information architecture
 
-The workspace input is conceptually:
-
-```text
-baseLoops = [
-  A1,
-  A2,
-  B1,
-  B2,
-  ...
-]
-```
-
-The authority engine evaluates each loop independently:
+Permanent workflow tabs:
 
 ```text
-A1 OR A2 OR B1 OR B2 ...
+1. Inputs & Match Basis
+2. Compare Review
+3. Transfer Preview
 ```
 
-Every READY loop may generate local correspondence.
+The UI is a presentation and selection layer. It must not become a second matching engine, a second transfer classifier, or a second Writer policy engine.
 
-Cross-loop arbitration then applies:
+## 5.1 Inputs & Match Basis
+
+Show SOURCE/TARGET filename, hash, CII version when available, parse/capability status, element/node counts, branches, terminals, bends, rigids, auxiliary-family state, and unresolved limitations.
+
+States must remain distinct:
 
 ```text
-compatible duplicate identity
-  -> canonical one-to-one correspondence
-  -> preserve all provenance
-  -> A+B agreement is corroboration
-
-contradictory READY identity
-  -> AMBIGUOUS
-
-uncovered region
-  -> REVIEW / UNRESOLVED
+PARSED
+EMPTY
+NOT_PARSED
+UNSUPPORTED
+PARSE_ERROR
 ```
 
-No global transform is published when several independent Method-A loops contribute.
+Engineer selection of method-qualified cards projects to explicit independent `baseLoops[]`.
 
-Compatibility geometry then reports an explicit state such as:
+A Method-A card contributes the whole validated local base. A Method-B card contributes one network loop. `METHOD_A_AND_B` contributes two independent loops, not one fused pseudo-method.
 
-```text
-MULTI_BASE
-INDEPENDENT_LOCAL_TRANSFORMS
-NO_SINGLE_GLOBAL_TRANSFORM_ACROSS_INDEPENDENT_BASES
-```
+Conflicting selections are preserved to core arbitration; the UI must not deduplicate away a true conflict.
 
----
+## 5.2 Compare Review
 
-# 8. Downstream M1/M2 correspondence versus Base Anchor A/B
+Primary grid shows identity decision, confidence, SOURCE, TARGET, M1/M2 evidence, OD/WT evidence, winner gap, change families, and structured evidence.
 
-Do not confuse the two levels.
+REVIEW and UNRESOLVED rows are never bulk accepted.
 
-## Base Anchor methods
-
-```text
-Method A = qualified local rigid spatial registration
-Method B = qualified local pipe-run/network basis
-```
-
-These establish accepted local registration/network authority loops.
-
-## Downstream candidate evidence
-
-Existing correspondence logic may expose row-level evidence labelled:
-
-```text
-M1 Spatial
-M2 Network / Gang
-```
-
-Those operate inside/under the accepted base-loop context.
-
-A raw/global M1 fallback must not recreate a rejected or ambiguous Method-A global registration in explicit multi-base mode.
-
----
-
-# 9. Compare Review UX
-
-## 9.1 Executive summary
-
-Show:
-
-- SOURCE/TARGET filenames;
-- correspondence status;
-- HIGH/MEDIUM/REVIEW/UNRESOLVED counts;
-- engineering-change count/families;
-- accepted/rejected/locked rows;
-- multi-base provenance/ambiguity summary where relevant.
-
-## 9.2 Correspondence grid
-
-Primary human-readable grid:
-
-```text
-Decision | Kind | Confidence | SOURCE | TARGET |
-M1 | M2 | OD | WT | Winner gap | Engineering changes | Evidence
-```
-
-`Accept all HIGH` and `Accept all MEDIUM` apply only to bound identities in those confidence bands.
-
-`REVIEW` and `UNRESOLVED` are never swept into bulk acceptance.
-
-## 9.3 Evidence inspector
-
-Raw transform matrices, alternate candidates, run mappings and detailed payloads belong under structured expandable evidence.
-
-Do not put `stableStringify()` object dumps into primary cells.
-
----
-
-# 10. Engineering Delta Grid
+## 5.3 Engineering Delta Grid
 
 Identity must be bound before engineering deltas are authoritative.
 
-Primary human-readable grid:
+Primary columns:
 
 ```text
 Approval
@@ -872,208 +460,445 @@ Engineering change
 Evidence / authority
 ```
 
-An approved correspondence is still not mutation scope.
+Identity ACCEPT/LOCK is not mutation APPLY.
 
-Before transfer scope is bound:
+## 5.4 Transfer Preview
+
+Before transfer scope binding:
 
 ```text
 Effective TARGET after apply = Current TARGET
-state = explicit scope required / preview rebuild as applicable
 ```
 
-After scope is bound:
+After scope binding:
 
 ```text
-APPLY + Writer READY -> Effective TARGET = selected proposed value
-EXCLUDE               -> Effective TARGET = Current TARGET; state EXCLUDED
+APPLY + Writer READY -> Effective TARGET = selected proposal
+EXCLUDE               -> Effective TARGET = Current TARGET
 BLOCKED / PROTECTED   -> Effective TARGET = Current TARGET
 ```
 
-Examples:
-
-```text
-130 <-> 20130 | RESTRAINT | Type code | SOURCE 15 | TARGET 9   | EXCLUDE -> TARGET stays 9
-130 <-> 20130 | RESTRAINT | Friction  | SOURCE 0  | TARGET 0.3 | APPLY only if Writer-qualified
-```
-
-Raw SIF/restraint pairing payloads move to evidence/details.
-
-Engineering deltas never feed back into identity unless explicitly classified as identity evidence.
+After scope binding, export controls must emit the scoped audit so the mutation-authority artifact cannot disagree with the UI.
 
 ---
 
-# 11. Transfer Preview and explicit mutation scope
+# 6. Writer authority model
 
-Transfer direction must be explicit:
+Writer phases are defined by **ownership, pointer stability, row-count stability, and topology impact**, not by UI family name.
 
-```text
-SOURCE candidate
-Current TARGET
-Effective TARGET after apply
-```
+A higher Writer version may compose lower Writer versions, but it must never copy their logic into a second divergent implementation.
 
-For protected, blocked, unbound or excluded operations, `Effective TARGET after apply` must show the unchanged TARGET.
-
-Do not display a SOURCE value under a misleading `Proposed target` heading when Writer authority cannot apply it.
-
-## 11.1 Two separate approvals
-
-Do not conflate:
+Required composition principle:
 
 ```text
-Correspondence decision:
-  ACCEPT / LOCK / REJECT
+Writer 1C
+  delegates Writer-1A operations to Writer 1A
+  delegates Writer-1B operations to Writer 1B
+  applies only qualified Writer-1C operations itself
 ```
 
-with:
+Every Writer must enforce:
 
-```text
-Mutation-scope decision:
-  APPLY / EXCLUDE
-```
+- exact TARGET hash / stale-target protection;
+- exact target preimage value before patch;
+- field/column width limits;
+- unique mutation-span claims;
+- no silent row insertion/deletion unless its Writer phase explicitly owns cardinality;
+- reparse after mutation;
+- expected semantic delta confirmation;
+- unexpected semantic delta count = 0;
+- byte/row negative assurance outside claimed spans.
 
-Correspondence approval establishes identity custody. APPLY/EXCLUDE establishes mutation custody.
+## 6.1 Writer 1A — existing cardinality-preserving numeric fields
 
-## 11.2 Scope binding contract
-
-For every mutable classified transfer candidate, the engineer must bind exactly one decision:
-
-```text
-operationId -> APPLY
-operationId -> EXCLUDE
-```
-
-The bound scope records:
-
-```text
-schema = CIIWorkspaceTransferScope.v1
-authority = USER_EXPLICIT_OPERATION_SCOPE
-SOURCE SHA-256
-TARGET SHA-256
-candidateOperationIds[]
-appliedOperationIds[]
-excludedOperationIds[]
-scopeId
-```
-
-The operation-ID set must match exactly when the scope is used. No implicit default APPLY is allowed for a newly appearing operation.
-
-## 11.3 APPLY semantics
-
-An APPLY operation remains in:
-
-```text
-transferPlan.operations[]
-```
-
-Writer readiness evaluates it without weakened policy.
-
-If APPLY selects an unsupported, blocked or otherwise unqualified mutation:
-
-```text
-Writer readiness = BLOCKED
-```
-
-## 11.4 EXCLUDE semantics
-
-An EXCLUDE operation moves to:
-
-```text
-transferPlan.excludedOperations[]
-```
-
-It remains in:
-
-- scoped audit JSON;
-- transfer-scope counts/IDs;
-- explicit excluded-operation UI;
-- engineering-delta presentation as `EXCLUDED`.
-
-It is absent from Writer `operations[]` and therefore cannot mutate TARGET or poison unrelated qualified APPLY operations.
-
-## 11.5 Stale-scope rules
-
-Fail closed on:
-
-```text
-TRANSFER_SCOPE_SOURCE_HASH_MISMATCH
-TRANSFER_SCOPE_TARGET_HASH_MISMATCH
-TRANSFER_SCOPE_OPERATION_SET_MISMATCH
-TRANSFER_SCOPE_DUPLICATE_OPERATION:<id>
-TRANSFER_SCOPE_DECISION_INVALID
-```
-
-If all mutable operations are EXCLUDE:
-
-```text
-TRANSFER_SCOPE_NO_APPLY_OPERATIONS
-```
-
-and Writer mutation remains blocked.
-
-## 11.6 Export custody
-
-Before scope binding, ordinary audit export may represent the pre-scope reviewed preview.
-
-After scope binding, product export controls must emit the **scoped** artifacts so there is no competing unscoped audit presented as the mutation authority.
-
-The scoped audit retains both selected operations and excluded operations.
-
----
-
-# 12. Writer authority roadmap
-
-Writer phases are defined primarily by custody/cardinality impact.
-
-## Writer 1A — existing-field/cardinality-preserving edits
-
-Qualified examples include existing fixed fields such as:
+Qualified examples:
 
 - WT;
-- P1/T1/T2 where qualified;
-- existing rigid weight;
-- deterministic existing restraint numeric fields.
+- P1/T1/T2;
+- existing RIGID weight;
+- deterministic existing restraint numeric pairing.
 
-Geometry, node numbering and connectivity remain protected.
+Geometry, node numbering, connectivity, pointers, and section cardinality remain protected.
 
-## Writer 1B — extended cardinality-preserving authority
+## 6.2 Writer 1B — extended existing/fixed-capacity fields
 
-Includes qualified extensions such as:
+Qualified examples:
 
-- additional fixed process fields;
-- conditional OD where topology/component semantics remain closed;
-- qualified free-slot use inside an already-owned fixed-capacity restraint block;
-- clearing a qualified existing restraint slot;
-- other existing auxiliary-record edits only after exact ownership/field qualification.
+- additional ELEMENT process fields;
+- conditional OD on topology-closed plain-pipe/no-reducer paths;
+- qualified use of an existing free restraint slot inside an already-owned fixed six-slot restraint block;
+- qualified clearing of an existing restraint slot;
+- existing numeric restraint mutations inherited from 1A.
 
-OD mutation is not blanket PIPE_SIZE authority. It must remain topology-closed and round-trip qualified.
+Writer 1B does not acquire authority merely because an operation is selected APPLY. Transfer scope selects operations; Writer policy still decides whether they are writable.
 
-Explicit transfer scope does not extend Writer 1B's whitelist. It only determines which already-classified operations Writer 1B is asked to evaluate.
+## 6.3 Writer 1C — planned pointer-stable existing auxiliary-record writer
 
-## Writer 2 — pointer/cardinality-aware auxiliary changes
+### Definition
+
+Writer 1C is **not** “all remaining Writer 1B blockers.”
+
+Writer 1C owns only mutations satisfying all of these structural gates:
+
+```text
+TARGET auxiliary row/block already exists
+AND pointer value remains unchanged
+AND pointer index remains unchanged
+AND section row count remains unchanged
+AND CONTROL counts remain unchanged
+AND no record is inserted/deleted/reordered
+AND no element/node/connectivity is created/deleted/renumbered
+AND exact record ownership is proven
+AND exact field semantics or byte-slice custody is source-qualified
+AND mutation is explicitly APPLY in the bound transfer scope
+```
+
+If any gate fails, the operation remains Writer 2/3 territory.
+
+### 6.3.1 Writer 1C first mandatory slice — existing NODENAME row fields
+
+Current source custody is in:
+
+```text
+tabs/cii-workspace/cii-workspace-nodename.js
+```
+
+Current fixed layout evidence:
+
+```text
+ELEMENT block rows                  15
+NODENAME pointer ELEMENT row index  13 (zero-based within block)
+NODENAME pointer numeric field      6th field on that row
+NODENAME row FROM slice             [2, 28) zero-based
+NODENAME row TO slice               [28, 53) zero-based
+```
+
+The implementation must re-qualify these offsets against canonical CII fixtures and protected writer output before treating them as mutation authority.
+
+Initial Writer-1C NODENAME authority may support only:
+
+```text
+existing TARGET pointer > 0
+existing TARGET NODENAME row present
+existing referenced row ownership qualified
+SOURCE/TARGET node identity bound
+SOURCE name fits qualified field width
+patch field in place
+preserve pointer and row count
+```
+
+Required conservative policy:
+
+- no creation of a new NODENAME row when target pointer is zero;
+- no pointer update;
+- no section-row insertion/deletion;
+- no automatic nonblank TARGET overwrite unless existing overwrite policy explicitly allows it;
+- no removal of the whole record when both fields become blank unless a separate cardinality policy proves it safe;
+- if one NODENAME row is referenced by multiple elements, derive one canonical desired post-state; conflicting desired values must block.
+
+Writer 1C should introduce explicit blockers such as:
+
+```text
+WRITER_1C_NODENAME_POINTER_REQUIRED
+WRITER_1C_NODENAME_ROW_OUT_OF_RANGE
+WRITER_1C_NODENAME_LAYOUT_DRIFT
+WRITER_1C_NODENAME_FIELD_OVERFLOW
+WRITER_1C_NODENAME_PREIMAGE_MISMATCH
+WRITER_1C_NODENAME_SHARED_RECORD_CONFLICT
+WRITER_1C_NODENAME_CREATE_REQUIRES_WRITER_2
+WRITER_1C_NODENAME_RECORD_DELETE_REQUIRES_WRITER_2
+```
+
+### 6.3.2 Writer 1C second slice — existing SIF/TEE 10-row block fields
+
+Current pointer/block custody is source-qualified by:
+
+```text
+tabs/cii-workspace/cii-workspace-auxiliary.js
+```
+
+Current structural evidence:
+
+```text
+SIF/TEE block size        10 rows
+ELEMENT pointer authority 1-based block index
+existing block ownership  pointer-bound
+```
+
+But current semantic authority is intentionally partial:
+
+```text
+FIELD_2_SEMANTICS_UNQUALIFIED
+normalized raw payload only
+```
+
+Therefore Writer 1C must **not** simply copy the raw 10-row SOURCE payload into TARGET.
+
+Before any SIF/TEE field becomes writable, the new agent must establish a source-qualified field map from authoritative converter/format code and canonical fixtures. Each writable field requires:
+
+```text
+section
+block row
+field/column span
+numeric/text format
+engineering meaning
+unit basis if applicable
+zero/blank semantics
+allowed domain
+pointer ownership
+preimage expectation
+```
+
+Only same-block, same-pointer, same-row-count field replacement may enter Writer 1C.
+
+Explicitly excluded from 1C:
+
+```text
+SIF/TEE record presence CREATE
+SIF/TEE record presence DELETE
+new SIF/TEE block allocation
+pointer renumbering
+section compaction
+CONTROL count changes
+```
+
+Those remain Writer 2.
+
+Required blockers include:
+
+```text
+WRITER_1C_SIF_FIELD_MAP_UNQUALIFIED
+WRITER_1C_SIF_POINTER_REQUIRED
+WRITER_1C_SIF_BLOCK_OUT_OF_RANGE
+WRITER_1C_SIF_LAYOUT_DRIFT
+WRITER_1C_SIF_SHARED_BLOCK_CONFLICT
+WRITER_1C_SIF_PREIMAGE_MISMATCH
+WRITER_1C_SIF_CARDINALITY_CHANGE_REQUIRES_WRITER_2
+```
+
+### 6.3.3 Optional later 1C slice — existing auxiliary text fields
+
+Existing restraint TAG/GUID or other text rows may be considered only after engineering deltas and exact string-layout custody are added. They are not implicitly authorized by existing numeric restraint-slot authority.
+
+### 6.3.4 Hangers are not Writer 1C scope
+
+Current hanger qualification proves:
+
+```text
+CONTROL.NOHGRS
+MISCEL_1.IHGRNODE membership
+node presence/count
+```
+
+but intentionally does not normalize:
+
+```text
+HGRDAT
+TAG
+GUID
+other hanger attributes
+```
+
+Current code also supports more than one physical MISCEL_1 layout and resolves them only for node-presence evidence.
+
+Therefore Writer 1C must not mutate hanger presence/count or HGRDAT. Hanger creation/deletion shifts packed arrays and/or CONTROL/cardinality and belongs to Writer 2 unless a separate qualification programme proves an in-place fixed-capacity representation.
+
+## 6.4 Writer 2 — pointer/cardinality-aware auxiliary mutation
+
+Writer 2 owns mutations that change auxiliary-record allocation or indices while preserving the piping topology itself.
 
 Examples:
 
-- create/delete SIF/TEE auxiliary blocks;
-- create/delete auxiliary sections where pointers/counts require re-indexing;
-- cardinality changes not representable inside an already-owned fixed slot.
+- create/delete NODENAME rows and update ELEMENT pointers;
+- create/delete SIF/TEE 10-row blocks;
+- reindex affected SIF/NODENAME pointers;
+- create/delete hanger records and update `CONTROL.NOHGRS` and `MISCEL_1` packed arrays;
+- create/delete auxiliary sections;
+- compact or expand auxiliary arrays;
+- any operation requiring deterministic pointer re-numbering or count maintenance.
 
-## Writer 3 — model structure mutation
+Writer 2 requires a transaction-level relocation plan, not individual line patches. Every changed pointer/count must be derived from the post-mutation section layout.
 
-Examples:
+## 6.5 Writer 3 — structural model mutation
+
+Writer 3 owns model-defining topology changes:
 
 - create/delete nodes;
 - create/delete elements;
 - connectivity changes;
-- structural model rebuild.
+- element split/merge;
+- structural section rebuild;
+- topology-sensitive pointer cascades caused by element insertion/deletion.
 
-Writer 3 requires a separate qualification programme.
+Writer 3 requires a separate qualification programme and must not be implemented by “editing more fields” inside Writer 1C/2.
 
 ---
 
-# 13. Real benchmark authority
+# 7. Anti-drift qualification programme
 
-Primary current multi-base benchmark pair:
+Writer development is disqualified if the implementation only proves “the intended field changed.” It must also prove that **everything else did not drift**.
+
+## 7.1 Structural invariant tests
+
+For every Writer 1C mutation:
+
+```text
+file byte length                 unchanged, unless the qualified field format explicitly proves equal-width replacement
+physical line count              unchanged
+line-ending style                unchanged
+section ordering                 unchanged
+ELEMENT block count              unchanged
+ELEMENT block row count          unchanged
+all ELEMENT pointers             unchanged
+CONTROL values                   unchanged
+NODENAME section row count       unchanged
+SIF/TEE section row count        unchanged
+RESTRANT section row count       unchanged
+RIGID section row count          unchanged
+MISCEL_1 row count               unchanged
+node count                       unchanged
+element count                    unchanged
+connectivity                     unchanged
+```
+
+For Writer 1C, any pointer or row-count change is a hard failure, even when the resulting CII still parses.
+
+## 7.2 Byte-span negative assurance
+
+Each mutation returns an exact claim:
+
+```text
+lineNumber
+startColumn
+endColumn
+beforeField
+afterField
+operationId
+section
+record identity
+field identity
+```
+
+Tests must construct the set of all claimed byte spans and assert:
+
+```text
+all bytes outside claimed spans are identical
+```
+
+Overlapping claims are blocked before mutation.
+
+Two operations that converge on the same physical field may collapse only if the canonical desired value is identical. Different desired values are a shared-record conflict.
+
+## 7.3 Preimage drift tests
+
+Before patching a field, Writer 1C must re-read the exact TARGET field and compare it against `operation.before`.
+
+Mismatch:
+
+```text
+WRITER_1C_TARGET_VALUE_MISMATCH
+```
+
+No “best effort” field search, no nearest record fallback, and no patching by node label alone.
+
+## 7.4 Pointer/index anti-drift tests
+
+NODENAME and SIF/TEE operations must bind:
+
+```text
+correspondenceId
+TARGET element identity
+TARGET parsed element index
+TARGET pointer value
+TARGET section record/block index
+```
+
+Reordering or changing any one after preview invalidates the operation.
+
+Tests must deliberately modify:
+
+- target pointer value;
+- target element order;
+- target auxiliary row order;
+- target section row count;
+- shared pointer ownership;
+
+and assert fail-closed behavior.
+
+## 7.5 Format-boundary tests
+
+NODENAME tests must include:
+
+- empty field;
+- one-character field;
+- exact maximum-width field;
+- one-character overflow;
+- leading/trailing spaces;
+- internal spaces;
+- punctuation supported by the source format;
+- two names sharing one NODENAME row;
+- two elements sharing one pointer;
+- conflict and non-conflict shared-record cases.
+
+SIF/TEE tests must include:
+
+- positive/negative/zero Fortran numeric values;
+- exponent forms;
+- exact fixed-field width;
+- overflow rejection;
+- pointer 1 and last valid pointer;
+- pointer zero;
+- out-of-range pointer;
+- shared-block aliasing;
+- malformed 10-row block;
+- section row count not divisible by 10;
+- semantic field map absent => blocked.
+
+## 7.6 Round-trip semantic assurance
+
+Required flow:
+
+```text
+TARGET text
+ -> qualified intake
+ -> Writer 1C patch
+ -> reparse modified TARGET
+ -> recompute relevant engineering evidence
+```
+
+Acceptance requires:
+
+```text
+expected semantic delta count = intended mutations
+unexpected semantic delta count = 0
+```
+
+The reparse must use production parser paths, not a Writer-specific parser.
+
+## 7.7 Independent oracle requirement
+
+At least one qualification test per Writer-1C family must be independent of the Writer implementation.
+
+Examples:
+
+- a small Python oracle computing exact NODENAME slice offsets and expected byte replacement from a fixture;
+- independent SIF/TEE block-index arithmetic and field-span computation from canonical raw rows.
+
+Do not use production Writer functions to compute expected output for the same test.
+
+## 7.8 Converter-drift sentinel
+
+Canonical fixtures emitted by the protected CII converter/format authority must be retained as golden inputs.
+
+If converter layout changes, anti-drift tests must fail with an explicit layout-drift result rather than silently learning a new offset.
+
+Writer authority changes only after a separate requalification decision.
+
+---
+
+# 8. Real benchmark authority
+
+Primary current multi-base benchmark:
 
 ```text
 Benchmark/CIICompare/SOURCE 3.CII
@@ -1087,9 +912,9 @@ SOURCE ELEMENT records = 219
 TARGET ELEMENT records = 223
 ```
 
-The pair contains several locally corresponding regions with different numbering relationships, demonstrating that one global node-number offset is invalid.
+The pair contains several locally corresponding regions with different numbering relationships and therefore proves one global node-number offset invalid.
 
-A real two-axis / spatial local qualification region is:
+A real Method-A/Method-B local region is:
 
 ```text
 SOURCE 60920 / 60930 / 60940
@@ -1099,20 +924,20 @@ TARGET  7290 /  7300 /  7310
 At SOURCE node `60930`:
 
 ```text
-incoming run  : delta Z = -450 mm
-outgoing run  : delta X = -152 mm
-SOURCE OD     : 114.3 mm
-x             : 2
-T             : 228.6 mm
+incoming run  ΔZ = -450 mm
+outgoing run  ΔX = -152 mm
+SOURCE OD     = 114.3 mm
+x             = 2
+T             = 228.6 mm
 ```
 
-This provides both non-collinear Method-A geometry and genuine two-axis Method-B evidence.
+Writer 1C also requires dedicated auxiliary-record fixtures; the `SOURCE 3/TARGET 3-1` identity benchmark alone is insufficient to qualify NODENAME or SIF/TEE mutation.
 
 ---
 
-# 14. Validation requirements
+# 9. Validation truth model
 
-Engineering-critical changes require explicit evidence dimensions:
+Every engineering-critical result records:
 
 ```text
 STATUS:
@@ -1127,107 +952,167 @@ ORACLE:
   ANALYTICAL | AUTHORITATIVE_REFERENCE | CROSS_SOLVER | EXPERIMENTAL
 ```
 
-Do not claim an authored test as PASS until it executes.
+An authored test is not PASS until it executes.
 
-Required focused qualification includes:
-
-- Method-A OD scaling;
-- TARGET-OD invariance;
-- Method-A alternate-basis ambiguity;
-- several independent A transforms in one model pair;
-- Method-B one-axis REVIEW;
-- Method-B two-axis READY;
-- planar versus full-3D compatible weighting;
-- angular mismatch converted to physical displacement;
-- A+B same-pair corroboration;
-- A/B source/target conflict veto;
-- multi-base UI selection projecting the whole Method-A base;
-- A+B UI selection creating two independent loops;
-- same-A-base card deduplication;
-- contradictory B selections preserved to core arbitration;
-- manual mode clearing explicit qualified-base selection;
-- complete SOURCE 3 -> TARGET 3-1 workspace path;
-- unbound transfer scope blocks product Writer readiness;
-- APPLY-qualified + EXCLUDE-unsupported permits only the qualified mutation;
-- selected unsupported APPLY remains blocked;
-- all-EXCLUDE scope has no mutation authority;
-- SOURCE/TARGET hash mismatch invalidates scope;
-- missing/new/duplicate operation IDs invalidate scope;
-- EXCLUDED delta remains visible with effective TARGET unchanged;
-- scoped audit retains excluded operations while Writer operations exclude them;
-- Writer round trip and negative assurance for every mutation class.
-
-Tolerance, Writer policy and transfer classifications must never be loosened merely to make one benchmark or transfer-scope scenario pass.
+Tolerance, Writer policy, field widths, pointer rules, or transfer classifications must never be loosened simply to make one benchmark pass.
 
 ---
 
-# 15. Current implementation / roadmap
+# 10. Current implementation baseline
 
-## Implemented authority foundation
-
-```text
-PR982  fixed-field parser foundation
-PR983  input capability/oracle states
-PR984  M1/M2 evidence
-PR985  anchor-seeded propagation
-PR986  Compare Review / engineering deltas
-PR987  auxiliary custody qualification
-PR988  transfer preview qualification
-PR989  explicit Base Anchor / approval flow
-PR991  Writer 1A
-PR992  Writer 1B qualified slice
-PR994  independent Method A/B core + x*SOURCE_OD policy
-PR995  independent multi-base correspondence orchestration
-PR996  automatic Method-A discovery + Method-A/Method-B fusion
-PR997  full-viewport Method A/B evidence UI
-PR998  multi-base UI selection -> explicit baseLoops[]
-PR999  human-readable delta / effective TARGET transfer presentation
-```
-
-Current Issue #993 transfer-scope increment adds:
+Merged foundation through PR #1001:
 
 ```text
-classified reviewed operations
-  -> explicit APPLY / EXCLUDE for every mutable operation
-  -> exact SOURCE/TARGET hash + operation-set binding
-  -> selected operations[] / audit-retained excludedOperations[]
-  -> Writer readiness on selected APPLY set only
-  -> scoped audit/export custody
+PR982   fixed-field parser foundation
+PR983   capability/oracle states
+PR984   M1/M2 evidence
+PR985   anchor-seeded propagation
+PR986   Compare Review / engineering deltas
+PR987   auxiliary custody qualification
+PR988   transfer preview qualification
+PR989   explicit Base Anchor / approval flow
+PR991   Writer 1A
+PR992   Writer 1B qualified slice
+PR994   independent Method A/B core + x*SOURCE_OD
+PR995   independent multi-base correspondence orchestration
+PR996   automatic Method-A discovery + A/B fusion
+PR997   full-viewport Method A/B evidence UI
+PR998   multi-base UI -> explicit baseLoops[]
+PR999   human-readable delta / effective TARGET presentation
+PR1001  explicit APPLY / EXCLUDE mutation scope + scoped audit custody
 ```
 
-The presentation layer must not become a second matching engine or a second Writer policy engine.
+The product now has the correct authority sequence before extending Writer capability.
 
 ---
 
-# 16. Non-goals / prohibited shortcuts
+# 11. Future upgrade roadmap
+
+## Phase 0 — close retained qualification debt
+
+Before expanding mutation authority, execute and retain evidence for:
+
+- focused PR1001 scope tests in a complete checkout;
+- full CII Workspace shell lifecycle;
+- Chromium workflow;
+- `SOURCE 3 -> TARGET 3-1` end-to-end correspondence/review/scope path;
+- existing Writer 1A/1B round-trip suites;
+- no-regression fixed-field parser suite.
+
+Do not make Writer 1C compensate for an unqualified lower layer.
+
+## Phase 1 — Writer 1C NODENAME
+
+Deliver in this order:
+
+1. source-qualified NODENAME physical-layout contract;
+2. target row/pointer ownership model;
+3. canonical shared-row mutation planning;
+4. transfer classification authority token for qualified existing-row mutation;
+5. `ciiWriter1CReadiness()`;
+6. `applyCiiTargetWriter1C()` composed over 1B;
+7. exact-span mutation evidence;
+8. round-trip and anti-drift suite;
+9. UI/product writer-version integration only after core qualification.
+
+Recommended first production scope is **existing-row NODENAME COPY only**. Creation/deletion remains Writer 2.
+
+## Phase 2 — Writer 1C existing SIF/TEE fields
+
+Prerequisite: authoritative field-semantic map.
+
+Then qualify one field family at a time. Do not expose blanket raw-payload copy.
+
+Each field family requires independent fixtures and one explicit Writer capability token.
+
+## Phase 3 — optional existing auxiliary text fields
+
+Consider restraint TAG/GUID or similar pointer-stable text fields only after they have:
+
+- normalized engineering deltas;
+- exact layout custody;
+- width/encoding policy;
+- independent anti-drift fixtures.
+
+## Phase 4 — Writer 2 pointer/cardinality transaction engine
+
+Implement a deterministic post-mutation section allocator for:
+
+- NODENAME create/delete;
+- SIF/TEE block create/delete;
+- hanger record create/delete;
+- pointer reindexing;
+- CONTROL count maintenance;
+- section insertion/deletion.
+
+Writer 2 should operate on a complete relocation plan and then emit line patches. It must prove all old-to-new pointer mappings.
+
+## Phase 5 — Writer 3 topology transaction engine
+
+Only after Writer 2 is qualified:
+
+- node/element create/delete;
+- connectivity changes;
+- split/merge;
+- topology-aware auxiliary migration;
+- structural section rebuild.
+
+This phase requires independent graph/topology qualification and stronger round-trip oracles.
+
+## Phase 6 — mutation manifest, rollback, and batch automation
+
+After Writer 1C/2/3 boundaries are stable, add:
+
+```text
+CIIWorkspaceMutationManifest.v1
+```
+
+containing:
+
+- source/target hashes;
+- correspondence semantic hash;
+- transfer-scope ID;
+- Writer version;
+- ordered mutation claims;
+- before/after field values;
+- before/after file hash;
+- validation result;
+- excluded operations;
+- deterministic rollback information where representable.
+
+Batch automation must consume the same manifest; no separate “fast path” Writer is permitted.
+
+---
+
+# 12. Prohibited shortcuts
 
 Do not:
 
-- assume one global node-number offset;
-- force all local Method-A transforms to agree globally;
+- use a global node-number offset as identity authority;
+- force independent Method-A transforms to one global transform;
 - average incompatible bases;
-- sum A and B weights to override disagreement;
-- use TARGET OD to scale correspondence tolerance;
-- use OD/WT equality as identity authority;
-- treat long one-axis piping as two-axis Method B because it has many elements;
-- grant 3D Method-B credit for an incompatible third run;
-- let UI deduplicate a true conflicting source/target claim before core arbitration;
-- silently mix manual legacy anchors with explicit method-qualified base loops;
-- expose one local transform as a fake global transform;
-- route a candidate directly to Writer;
-- treat identity ACCEPT as implicit mutation APPLY;
-- default a newly appearing transfer operation to APPLY under an old scope;
-- implement EXCLUDE by converting an unsupported operation to KEEP;
-- drop EXCLUDED operations from audit custody;
-- weaken Writer 1B to make a selected unsupported operation appear ready;
-- export an unscoped audit as the mutation authority after a scope is bound;
+- sum A/B scores to override conflict;
+- use TARGET OD for tolerance scaling;
+- use OD/WT equality as identity evidence;
+- treat one-axis geometry as two-axis Method B;
+- grant 3D credit for an incompatible third run;
+- deduplicate conflicting UI selections before core arbitration;
+- mix manual anchors and method-qualified base loops silently;
+- treat identity ACCEPT as mutation APPLY;
+- default new operations to APPLY under an old scope;
+- implement EXCLUDE as fake KEEP;
+- weaken a Writer whitelist because scope selected an unsupported operation;
+- let Writer 1C insert/delete rows or renumber pointers;
+- let Writer 1C mutate hanger arrays from node-presence evidence alone;
+- copy raw SIF/TEE payloads while semantics remain unqualified;
+- search for a “similar” target row after preimage/pointer mismatch;
+- silently truncate a fixed-width string/numeric field;
+- accept a parseable output when byte-level negative assurance fails;
 - represent NOT_RUN validation as PASS.
 
 ---
 
-# 17. Governing summary
-
-The CII Compare Workspace architecture is:
+# 13. Governing architecture
 
 ```text
 structural candidate discovery
@@ -1236,15 +1121,13 @@ local METHOD A spatial bases
         OR
 local METHOD B network bases
         ↓
-engineer selects one or more independent bases
+engineer selects independent bases
         ↓
 baseLoops[]
         ↓
 OR_WITH_CONFLICT_VETO
         ↓
-per-loop correspondence
-        ↓
-cross-loop canonical arbitration
+canonical correspondence
         ↓
 engineering deltas
         ↓
@@ -1256,9 +1139,11 @@ explicit APPLY / EXCLUDE scope
         ↓
 Writer readiness on APPLY set only
         ↓
-qualified Writer
+Writer 1A / 1B / 1C / 2 / 3 according to custody impact
         ↓
-reparse + negative assurance + scoped audit export
+reparse + semantic verification + byte-level negative assurance
+        ↓
+scoped audit / mutation manifest / export
 ```
 
-For complex 3D piping revisions, **local identity independence and explicit mutation custody are requirements, not fallbacks**.
+For complex CII revisions, **local identity independence, explicit mutation custody, and Writer authority boundaries are requirements, not fallbacks**.
