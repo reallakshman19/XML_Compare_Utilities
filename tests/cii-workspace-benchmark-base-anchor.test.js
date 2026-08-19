@@ -59,10 +59,16 @@ const pair1 = target1.baseAnchorSuggestions.find((row) => row.sourceNodeId === '
 const pair2 = target2.baseAnchorSuggestions.find((row) => row.sourceNodeId === '70' && row.targetNodeId === '10070');
 assert(pair1, 'TARGET1 must expose the reviewed 70 ↔ 20070 base-anchor candidate');
 assert(pair2, 'TARGET2 must expose the reviewed 70 ↔ 10070 base-anchor candidate under the same structural policy');
+const allowedBasisMethods = new Set(['METHOD_A_SPATIAL', 'METHOD_B_NETWORK', 'METHOD_A_AND_B', 'LANDMARK_ONLY']);
 for (const pair of [pair1, pair2]) {
   assert.strictEqual(pair.status, 'SUGGESTED');
   assert.strictEqual(pair.authority, 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED');
   assert.strictEqual(pair.reviewRequired, true);
+  assert(allowedBasisMethods.has(pair.basisMethod), `unexpected Base Anchor basis method ${pair.basisMethod}`);
+  assert.strictEqual(pair.candidateGeneration?.authorityRole, 'CANDIDATE_GENERATION_ONLY');
+  assert(pair.methodA && ['READY', 'UNAVAILABLE'].includes(pair.methodA.status));
+  if (pair.methodA.status === 'READY') assert(['METHOD_A_SPATIAL', 'METHOD_A_AND_B'].includes(pair.basisMethod));
+  if (pair.methodB.status === 'READY') assert(['METHOD_B_NETWORK', 'METHOD_A_AND_B'].includes(pair.basisMethod));
   assert(pair.identityExclusions.includes('NODE_NUMBER_OFFSET_NOT_USED'));
   assert(pair.identityExclusions.includes('OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE'));
   assert(pair.identityExclusions.includes('WALL_NOT_USED'));
