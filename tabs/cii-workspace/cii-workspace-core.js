@@ -3,6 +3,7 @@ import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
 import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
+import { suggestCiiBaseAnchorPairs } from './cii-workspace-anchor-suggestions.js';
 import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
 import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
 import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
@@ -74,7 +75,9 @@ export async function inspectCiiWorkspaceModels(input, options = {}) {
   const pair = await intakePair(input, options);
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.inspection,
-    source: inspectionSide(pair.sourceDocument, pair.sourceGraph, options), target: inspectionSide(pair.targetDocument, pair.targetGraph, options),
+    source: inspectionSide(pair.sourceDocument, pair.sourceGraph, options),
+    target: inspectionSide(pair.targetDocument, pair.targetGraph, options),
+    baseAnchorSuggestions: suggestCiiBaseAnchorPairs(pair.sourceGraph, pair.targetGraph, options),
   });
 }
 
@@ -94,8 +97,6 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const engineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
-  // Production Transfer Preview consumes the qualified downstream engineering
-  // delta set. It does not independently reinterpret raw CII property records.
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks);
   const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, landmarks, correspondence, review, engineeringDeltas, compareReview, transferPlan, audit };
