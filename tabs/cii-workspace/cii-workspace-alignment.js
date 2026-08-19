@@ -3,8 +3,8 @@ import { scoreCiiEdgeCandidate } from './cii-workspace-evidence.js';
 
 function confidence(evidence) {
   if (evidence.hardFail) return 'CONFLICT';
-  if (evidence.score >= 82) return 'HIGH';
-  if (evidence.score >= 55) return 'REVIEW';
+  if (evidence.identityConfidence === 'HIGH') return 'HIGH';
+  if (['MEDIUM', 'REVIEW'].includes(evidence.identityConfidence)) return 'REVIEW';
   return 'UNRESOLVED';
 }
 
@@ -54,7 +54,7 @@ function boundaryRow(left, right, options) {
   const leftEvidence = scoreCiiEdgeCandidate(left.refEdge, left.targetEdge, options);
   const rightEvidence = scoreCiiEdgeCandidate(right.refEdge, right.targetEdge, options);
   if (leftEvidence.hardFail || rightEvidence.hardFail) return null;
-  const status = Math.min(leftEvidence.score, rightEvidence.score) >= 82 ? 'HIGH' : 'REVIEW';
+  const status = leftEvidence.identityConfidence === 'HIGH' && rightEvidence.identityConfidence === 'HIGH' ? 'HIGH' : 'REVIEW';
   return deepFreeze({
     correspondenceId: stableId('node', sourceNodeId, targetNodeId),
     kind: 'NODE',
