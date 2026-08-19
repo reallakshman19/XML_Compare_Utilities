@@ -19,6 +19,27 @@ function graph(side, ids, od) {
     parsed: { elements, nodes, rigids: [] },
   });
 }
+function vectorEdge(index, from, to, vector, od, nodes) {
+  const [dx, dy, dz] = vector;
+  return { index, from, to, dx, dy, dz, length: Math.hypot(dx, dy, dz), od, wall: 8, P1: 10, T1: 100,
+    hasBend: false, fromPos: nodes[from], toPos: nodes[to] };
+}
+function twoAxisGraph(side, ids, od, rotated = false) {
+  const [a, branch, c, d] = ids;
+  const nodes = rotated
+    ? { [branch]: { x: 0, y: 0, z: 0 }, [a]: { x: 0, y: -1000, z: 0 }, [c]: { x: 0, y: 1000, z: 0 }, [d]: { x: 0, y: 0, z: 700 } }
+    : { [branch]: { x: 0, y: 0, z: 0 }, [a]: { x: -1000, y: 0, z: 0 }, [c]: { x: 1000, y: 0, z: 0 }, [d]: { x: 0, y: 0, z: 700 } };
+  const primary = rotated ? [0, 1000, 0] : [1000, 0, 0];
+  const elements = [
+    vectorEdge(0, a, branch, primary, od, nodes),
+    vectorEdge(1, branch, c, primary, od, nodes),
+    vectorEdge(2, branch, d, [0, 0, 700], od, nodes),
+  ];
+  return adaptCiiDocumentToTopologyGraph({
+    schema: 'CIIWorkspaceDocument.v1', side, contentSha256: `${side}-two-axis`, nodeNames: {},
+    parsed: { elements, nodes, rigids: [] },
+  });
+}
 
 const source = graph('SOURCE', [10, 20, 30, 40, 50, 60], 273);
 const target = graph('TARGET', [901, 777, 333, 555, 444, 222], 88.9);
@@ -29,7 +50,10 @@ assert.deepStrictEqual(first, second, 'paired anchor suggestions must be determi
 const branchPair = first.find((row) => row.sourceNodeId === '20');
 assert(branchPair, 'unique source branch must receive a paired base-anchor suggestion');
 assert.strictEqual(branchPair.targetNodeId, '777', 'pairing must follow topology, not numeric offset');
-assert.strictEqual(branchPair.confidence, 'HIGH');
+assert.strictEqual(branchPair.confidence, 'REVIEW', 'one-axis geometry must never be promoted to MEDIUM/HIGH Method B confidence');
+assert.strictEqual(branchPair.basisMethod, 'LANDMARK_ONLY');
+assert.strictEqual(branchPair.methodB.status, 'REVIEW');
+assert.strictEqual(branchPair.methodB.source.independentAxisRunCount, 1);
 assert.strictEqual(branchPair.status, 'SUGGESTED');
 assert.strictEqual(branchPair.authority, 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED');
 assert.strictEqual(branchPair.reviewRequired, true);
@@ -39,4 +63,16 @@ assert(branchPair.identityExclusions.includes('OD_NOT_USED'));
 assert(branchPair.identityExclusions.includes('WALL_NOT_USED'));
 assert(!first.some((row) => row.status === 'LOCKED'), 'suggestions must never create anchor authority automatically');
 
-console.log('CII paired base-anchor suggestion checks passed.');
+const sourceTwoAxis = twoAxisGraph('SOURCE', [10, 20, 30, 40], 273, false);
+const targetTwoAxis = twoAxisGraph('TARGET', [901, 777, 333, 555], 88.9, true);
+const twoAxis = suggestCiiBaseAnchorPairs(sourceTwoAxis, targetTwoAxis);
+const twoAxisBranch = twoAxis.find((row) => row.sourceNodeId === '20');
+assert(twoAxisBranch, 'two-axis branch must receive a candidate');
+assert.strictEqual(twoAxisBranch.targetNodeId, '777');
+assert.strictEqual(twoAxisBranch.basisMethod, 'METHOD_B_NETWORK');
+assert.strictEqual(twoAxisBranch.methodB.status, 'READY');
+assert.strictEqual(twoAxisBranch.methodB.source.independentAxisRunCount, 2);
+assert.strictEqual(twoAxisBranch.methodB.target.independentAxisRunCount, 2);
+assert.strictEqual(twoAxisBranch.confidence, 'HIGH', 'two compatible independent runs plus mutual-best/winner-gap may reach HIGH');
+
+console.log('CII method-qualified paired base-anchor suggestion checks passed.');
