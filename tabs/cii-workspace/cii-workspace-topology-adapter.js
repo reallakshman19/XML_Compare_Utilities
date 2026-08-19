@@ -55,7 +55,7 @@ function rawEdge(document, element, auxiliary) {
     dx: Number(element.dx || 0), dy: Number(element.dy || 0), dz: Number(element.dz || 0),
     lengthMm: Number(element.length || Math.hypot(element.dx || 0, element.dy || 0, element.dz || 0)),
     diameter: Number(element.od || 0), wall: Number(element.wall || 0),
-    P1: Number(element.P1 || 0), T1: Number(element.T1 || 0),
+    P1: Number(element.P1 || 0), T1: Number(element.T1 || 0), T2: Number(element.T2 || 0),
     fromPos: element.fromPos || null, toPos: element.toPos || null,
     componentKind,
     packetEvidence, flags: packetEvidence,

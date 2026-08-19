@@ -1,6 +1,20 @@
 import { CII_WORKSPACE_SCHEMAS, CII_WORKSPACE_STAGES, deepFreeze } from './cii-workspace-contracts.js';
 
-const INTERNAL_APPLY_AUTHORITY = Symbol('CII_WORKSPACE_APPLY_AUTHORITY_RESERVED');
+function writer1AStage(readiness) {
+  const ready = readiness?.ready === true;
+  const blockers = readiness?.blockers?.length
+    ? [...readiness.blockers]
+    : ready ? [] : ['Build an approved Writer 1A transfer plan before target mutation.'];
+  return {
+    schema: CII_WORKSPACE_SCHEMAS.stage,
+    stageId: '06',
+    capability: 'Apply to target CII',
+    status: ready ? 'READY_WRITER_1A' : 'BLOCKED_WRITER_1A',
+    actionEnabled: ready,
+    blockers: Object.freeze(blockers),
+    nextQualificationSlice: ready ? 'WRITER_1A_EXECUTION' : 'WRITER_1A_CARDINALITY_PRESERVING_AUTHORITY',
+  };
+}
 
 export function createUnavailableCiiWorkspaceStage(stageId, capability) {
   return deepFreeze({
@@ -11,22 +25,24 @@ export function createUnavailableCiiWorkspaceStage(stageId, capability) {
   });
 }
 
-export function createCiiWorkspaceStageModel() {
+export function createCiiWorkspaceStageModel(writerReadiness = null) {
   return deepFreeze(CII_WORKSPACE_STAGES.map((stage) => {
-    if (stage.id === '06') return { ...stage, ...createUnavailableCiiWorkspaceStage('06', 'Apply to target CII') };
-    if (stage.id === '07') return { ...stage, schema: CII_WORKSPACE_SCHEMAS.stage, status: 'ACTIVE_AUDIT_ONLY', actionEnabled: true, modifiedTargetCiiExportEnabled: false };
+    if (stage.id === '06') return { ...stage, ...writer1AStage(writerReadiness) };
+    if (stage.id === '07') return {
+      ...stage,
+      schema: CII_WORKSPACE_SCHEMAS.stage,
+      status: 'ACTIVE_AUDIT',
+      actionEnabled: true,
+      modifiedTargetCiiExportEnabled: writerReadiness?.ready === true,
+    };
     return { ...stage, schema: CII_WORKSPACE_SCHEMAS.stage, status: 'ACTIVE', actionEnabled: true };
   }));
 }
 
-function assertApplyAuthority(plan, authority) {
-  if (authority !== INTERNAL_APPLY_AUTHORITY) throw new Error('CII_APPLY_AUTHORITY_REQUIRED');
-  if (plan?.schema !== CII_WORKSPACE_SCHEMAS.transferPlan || plan?.status !== 'READY') throw new Error('READY_CII_TRANSFER_PLAN_REQUIRED');
+export function attemptCiiTargetApply() {
+  throw new Error('USE_APPLY_CII_WORKSPACE_TARGET_WRITER_1A');
 }
 
-export function attemptCiiTargetApply(plan, authority) {
-  assertApplyAuthority(plan, authority);
-  throw new Error('CII_TARGET_APPLY_NOT_IMPLEMENTED');
+export function canExportModifiedTargetCii(writerReadiness = null) {
+  return writerReadiness?.ready === true;
 }
-
-export function canExportModifiedTargetCii() { return false; }

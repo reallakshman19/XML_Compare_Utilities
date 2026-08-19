@@ -180,7 +180,7 @@ function engineeringDeltaOperations(engineeringDeltas, correspondence, review, o
 function blockedPlan(sourceDocument, targetDocument, blockers, inputAuthority = 'NONE') {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferPlan, direction: 'SOURCE_TO_TARGET', inputAuthority,
-    mutationAuthority: 'BLOCKED_NOT_IMPLEMENTED',
+    mutationAuthority: 'BLOCKED',
     sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
     targetDocument: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256 }),
     operations: Object.freeze([]), status: 'BLOCKED', blockers: Object.freeze(blockers),
@@ -189,7 +189,6 @@ function blockedPlan(sourceDocument, targetDocument, blockers, inputAuthority = 
 }
 
 export function createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review = {}, engineeringDeltas = null, options = {}) {
-  // Backward-compatible call shape: old callers pass options as argument 7.
   if (engineeringDeltas && engineeringDeltas.schema !== CII_WORKSPACE_SCHEMAS.engineeringDeltaSet) {
     options = engineeringDeltas;
     engineeringDeltas = null;
@@ -223,14 +222,14 @@ export function createCiiTransferPreview(sourceDocument, targetDocument, sourceG
 
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferPlan, direction: 'SOURCE_TO_TARGET', inputAuthority,
-    mutationAuthority: 'BLOCKED_NOT_IMPLEMENTED',
+    mutationAuthority: 'WRITER_1A_CONDITIONAL',
     policy: deepFreeze({
       geometryProtected: true,
       nodeNumberProtected: true,
       topologyProtected: true,
       odProtected: true,
-      wallProtected: true,
-      processDefault: 'BLOCKED_PARTIAL_AUTHORITY',
+      wallProtected: false,
+      processDefault: 'WRITER_1A_P1_T1_T2_WHEN_FIXED_FIELD_QUALIFIED',
     }),
     sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
     targetDocument: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256 }),

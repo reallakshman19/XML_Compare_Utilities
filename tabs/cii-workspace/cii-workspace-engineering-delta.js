@@ -261,15 +261,21 @@ function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, target
     deltas.push(deltaRow(row, 'GEOMETRY', 'Element length', source.lengthMm, target.lengthMm, {
       changed: changedNumber(source.lengthMm, target.lengthMm, geometryToleranceMm), delta: numberDelta(source.lengthMm, target.lengthMm), authority: 'PARSED_ELEMENT_GEOMETRY',
     }));
-    for (const [category, property, key] of [['PIPE_SIZE', 'OD', 'diameter'], ['WALL', 'Wall thickness', 'wall']]) {
-      deltas.push(deltaRow(row, category, property, source[key], target[key], {
-        changed: changedNumber(source[key], target[key], valueTolerance), delta: numberDelta(source[key], target[key]), authority: 'PARSED_ELEMENT_PIPE_PROPERTY',
-      }));
-    }
-    for (const [property, key] of [['P1', 'P1'], ['T1', 'T1']]) {
+    deltas.push(deltaRow(row, 'PIPE_SIZE', 'OD', source.diameter, target.diameter, {
+      changed: changedNumber(source.diameter, target.diameter, valueTolerance), delta: numberDelta(source.diameter, target.diameter), authority: 'PARSED_ELEMENT_PIPE_PROPERTY',
+    }));
+    deltas.push(deltaRow(row, 'WALL', 'Wall thickness', source.wall, target.wall, {
+      changed: changedNumber(source.wall, target.wall, valueTolerance), delta: numberDelta(source.wall, target.wall), authority: 'PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD',
+    }));
+    const processFields = [
+      ['P1', 'P1', 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD'],
+      ['T1', 'T1', 'PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD'],
+      ['T2', 'T2', 'PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD'],
+    ];
+    for (const [property, key, authority] of processFields) {
       deltas.push(deltaRow(row, 'PROCESS', property, source[key], target[key], {
-        changed: changedNumber(source[key], target[key], valueTolerance), delta: numberDelta(source[key], target[key]), evidenceStatus: 'PARTIAL', authority: 'parser/sections/elements.js',
-        limitations: ['P1/T1 are parsed element values; they are not a complete qualified load-case/process model.'],
+        changed: changedNumber(source[key], target[key], valueTolerance), delta: numberDelta(source[key], target[key]), authority,
+        limitations: ['This value is qualified at its fixed ELEMENT field; a complete multi-case process/load-case model is not asserted.'],
       }));
     }
     deltas.push(...sifTeeDeltas(row, sourceDocument, targetDocument, source, target));
@@ -336,7 +342,7 @@ function capabilityLimitations(sourceDocument, targetDocument) {
     pointerPartialLimitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee', '#SIF_TEE_POINTER'),
     limitation(sourceDocument, targetDocument, 'weightData', 'General weight data'),
     limitation(sourceDocument, targetDocument, 'lineNumbers', 'Line numbers'),
-    limitation(sourceDocument, targetDocument, 'process', 'Process P1/T1/T2', 'PARTIAL', 'Current process evidence is element-value level only.'),
+    limitation(sourceDocument, targetDocument, 'process', 'Process P1/T1/T2', 'PARTIAL', 'P1/T1/T2 fixed fields are qualified individually; the remaining process/load-case model is not normalized.'),
   ]);
 }
 

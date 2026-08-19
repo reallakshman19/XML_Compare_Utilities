@@ -1,10 +1,12 @@
 # Agent Work Index
 
-Live GitHub state remains authoritative over this snapshot.
+Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | IMPLEMENTATION COMPLETE / SYNTHETIC PAIRING PASS / REAL BENCHMARK NOT_RUN / DRAFT | ENGINEERING_CRITICAL | topology-only paired anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview UI | SAFE follow-on to merged #982-#988 | execute focused/benchmark/lifecycle tests; keep target mutation blocked |
+| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | ELEMENT/RIGID + EXISTING-RESTRAINT WRITER IMPLEMENTED / FOCUSED PASS / REAL BENCHMARK NOT_RUN / DRAFT | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | STACKED on PR990 | run real TARGET1/TARGET2 restraint+wall writer benchmarks and inherited regression suite |
+| PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | DOCUMENTATION COMPLETE / DRAFT | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | BASE for PR991 | review/merge before or with successor stack |
+| PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | topology-only paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
 | PR988 | CII Transfer Preview qualification | `agent/cii-transfer-preview-qualification` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | delta-driven read-only transfer policy + Tab3 | HISTORICAL / merged into main | none |
 | PR987 | CII auxiliary custody + benchmark qualification | `agent/cii-aux-custody-benchmark` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | RESTRANT/SIF/RIGID/hanger custody | HISTORICAL / merged into main | none |
 | PR986 | CII Compare Review + engineering deltas | `agent/cii-compare-review-deltas` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | Compare Review + downstream deltas | HISTORICAL / merged into main | none |
@@ -14,71 +16,90 @@ Live GitHub state remains authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR989 — current authority
+## PR991 — current authority
 
-The old UI presented independent SOURCE and TARGET `Suggested landmarks`. They were salience evidence only and were not paired base-anchor recommendations.
+Writer 1A applies SOURCE engineering values to an approved TARGET only when every approved non-KEEP operation is compatible with the qualified Writer 1A whitelist.
 
-PR989 adds a distinct paired contract:
+Executable mutation families now are:
 
 ```text
-Base Anchor suggestions
-SOURCE ↔ TARGET | Basis | Confidence | Review | Accept
+ELEMENT WT
+ELEMENT P1
+ELEMENT T1
+ELEMENT T2
+existing pointer-bound RIGID weight
+existing RESTRANT numeric fields through qualified pointer/slot pairing
 ```
 
-Pairing is topology-only from structural candidate cues and explicitly excludes:
+### Existing-restraint identity and custody
+
+Each existing restraint retains target-native pointer/slot/node custody. Pairing rules are:
 
 ```text
-node-number offset
-OD
-wall thickness
+1 record  <-> 1 record: qualified by cardinality
+2..6 records: exhaustive global assignment, at most 6! = 720
 ```
 
-Every pair remains `SUGGESTED / EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED`; Accept fills reviewed anchor inputs, and `Compare models` is still required before the core creates `USER_LOCKED` anchor authority.
-
-Correspondence Review adds explicit bulk actions:
+Stable pairing evidence:
 
 ```text
-Accept all HIGH
-Accept all MEDIUM
+exact GUID
+exact tag
+approved mapped connecting-node identity
+direction cosines
 ```
 
-Only bound identities in the selected confidence band are staged. REVIEW and UNRESOLVED are not bulk accepted.
-
-Engineering Delta Grid now projects the parent correspondence Decision as:
+Explicitly excluded from pairing identity:
 
 ```text
-APPROVED | LOCKED | REJECTED | PENDING
+slot order
+typeCode
+stiffness
+gap
+friction
+raw source/target numbering equality
 ```
 
-This is presentation of existing review authority, not a new delta authority.
+A tied best assignment fails closed with `RESTRAINT_RECORD_PAIRING_AMBIGUOUS`. Source connecting-node references are translated through bound node correspondence before target write.
 
-Transfer Preview remains review-ledger driven and now states the basis visibly. Banner remains:
+Aggregate restraint rows remain review evidence only. The executable transfer row is `Qualified restraint record pairing`.
+
+Writer patches only target existing-slot numeric fields:
 
 ```text
-TRANSFER PREVIEW · BLOCKED
-Preview only. Target mutation is not implemented. Geometry, node numbering, topology, OD and wall remain protected.
+typeCode
+stiffness
+gap
+friction
+connectingNode
+direction X/Y/Z
 ```
 
-No target writer/mutator is introduced.
+Target node, pointer, slot, tag, GUID, section cardinality and auxiliary pointer ownership remain immutable.
 
-## PR989 validation truth
+## PR991 validation truth
 
-Observed:
+Observed PASS:
 
-- source-level production/review/transfer authority trace: PASS;
-- reconstructed dimension-free pairing execution with unrelated numbering and OD `273 -> 88.9`: PASS; unique branch `20 ↔ 777`, score 100, HIGH, SUGGESTED;
-- target-mutation controls remain disabled by source inspection.
+- protected writer ELEMENT and RESTRANT layout source inspection;
+- focused WT/P1/T1/T2/RIGID writer execution;
+- deterministic restraint pairing execution including swapped slots, GUID evidence, mapped connecting nodes, ambiguous fail-closed and cardinality mismatch;
+- paired raw restraint writer execution: 9 exact numeric field mutations with target pointer/slot/node/tag preservation and source connecting node `510 -> 9510` mapping.
 
-Committed but not executed in a complete checkout:
+Committed but NOT_RUN in a complete checkout:
 
 ```text
-tests/cii-workspace-base-anchor-suggestions.test.js
-tests/cii-workspace-benchmark-base-anchor.test.js
+tests/cii-workspace-transfer-preview-policy.test.js
+tests/cii-workspace-placeholder-gate.test.js
+tests/cii-workspace-transfer-preview-ui.test.js
 tests/cii-workspace-anchor-approval-ui.test.js
-tests/cii-workspace-shell-lifecycle.test.js   (inherited)
-tests/cii-workspace-transfer-preview-ui.test.js (inherited)
+tests/cii-workspace-benchmark-transfer-preview.test.js
+tests/cii-workspace-benchmark-end-to-end.test.js
+tests/cii-workspace-benchmark-writer-1a.test.js
+tests/cii-workspace-benchmark-writer-1a-restraint.test.js
+full inherited CII Workspace regression/browser lifecycle
 ```
 
-The real benchmark test requires `70 ↔ 20070` for TARGET1 and `70 ↔ 10070` for TARGET2 under the same dimension-free policy. If actual topology evidence is ambiguous, do not tune against those node numbers; keep the suggestion at REVIEW/manual-anchor authority.
+The real restraint benchmark freezes SOURCE node130 block 5, TARGET1 block 5 and TARGET2 block 6. It requires target-native pointer/slot custody, type `9 -> 15`, TARGET1 friction `0.3 -> 0`, TARGET2 friction unchanged `0`, reparse PASS and zero unexpected semantic deltas.
 
-See `agents/PR989_workreport.md`, `agents/status/PR989.yaml`, and `agents/claims/PR989.yaml`.
+See `agents/PR991_workreport.md`, `agents/status/PR991.yaml`, and `agents/claims/PR991.yaml`.
