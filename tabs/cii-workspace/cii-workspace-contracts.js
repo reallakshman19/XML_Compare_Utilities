@@ -13,6 +13,8 @@ export const CII_WORKSPACE_SCHEMAS = Object.freeze({
   reviewLedger: 'CIIWorkspaceReviewLedger.v1',
   transferPlan: 'CIIWorkspaceTransferPlan.v1',
   transferOperation: 'CIIWorkspaceTransferOperation.v1',
+  transferScope: 'CIIWorkspaceTransferScope.v1',
+  transferScopeSelection: 'CIIWorkspaceTransferScopeSelection.v1',
   audit: 'CIIWorkspaceAudit.v1',
   stage: 'CIIWorkspaceStage.v1',
   inspection: 'CIIWorkspaceInspection.v1',
