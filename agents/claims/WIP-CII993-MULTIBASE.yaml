@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: WIP-CII993-MULTIBASE
-claim_state: ACTIVE_IMPLEMENTATION
+claim_state: IMPLEMENTATION_COMPLETE_HANDOVER_READY
 files:
   exact:
     - agents/WIP-CII993-MULTIBASE_workreport.md
@@ -21,6 +21,7 @@ authority_domains:
   - CII_METHOD_A_INDEPENDENT_OR_BASE_LOOPS
   - CII_METHOD_B_TWO_AXIS_PIPE_RUN_EVIDENCE
   - CII_BASE_ANCHOR_METHOD_QUALIFICATION
+  - CII_CROSS_LOOP_IDENTITY_CONFLICT_VETO
 claim_modes:
   - EXCLUSIVE
 forbidden_existing_file_edits:
@@ -38,5 +39,6 @@ implementation_claims:
   - Method B HIGH/MEDIUM requires at least two independent undirected pipe runs
   - opposite collinear rays merge to one run
   - OD WT process values and node-number offsets remain excluded from Method B identity
-validation_state: APPENDIX_A_COMPLETE_IMPLEMENTATION_IN_PROGRESS
+  - first-success and majority-vote identity arbitration are forbidden
+validation_state: FOCUSED_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
 merge_disposition: OWNER_ONLY_NO_MERGE_AUTHORITY
