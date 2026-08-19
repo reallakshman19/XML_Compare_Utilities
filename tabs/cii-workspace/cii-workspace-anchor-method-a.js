@@ -14,6 +14,8 @@ function sourceOdAtNode(graph, nodeId) {
 function pairKey(pair) { return `${pair.sourceNodeId}=>${pair.targetNodeId}`; }
 function rankInputPairs(left, right) {
   return Number(right.score || 0) - Number(left.score || 0)
+    || Number(left.sourceRank || 1) - Number(right.sourceRank || 1)
+    || Number(left.targetRank || 1) - Number(right.targetRank || 1)
     || Number(right.winnerGap || 0) - Number(left.winnerGap || 0)
     || compareNodeIds(left.sourceNodeId, right.sourceNodeId)
     || compareNodeIds(left.targetNodeId, right.targetNodeId);
@@ -29,21 +31,55 @@ function geometryPair(pair) {
   return { sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId,
     source: pair.source, target: pair.target, sourceOdMm: pair.sourceOdMm };
 }
+function oneToOne(rows) {
+  return new Set(rows.map((row) => row.sourceNodeId)).size === rows.length
+    && new Set(rows.map((row) => row.targetNodeId)).size === rows.length;
+}
 function combinations3(rows) {
   const result = [];
   for (let a = 0; a < rows.length - 2; a += 1) for (let b = a + 1; b < rows.length - 1; b += 1) {
-    for (let c = b + 1; c < rows.length; c += 1) result.push([rows[a], rows[b], rows[c]]);
+    for (let c = b + 1; c < rows.length; c += 1) {
+      const candidate = [rows[a], rows[b], rows[c]]; if (oneToOne(candidate)) result.push(candidate);
+    }
   }
   return result;
 }
 function distance(left, right) {
   return Math.hypot(Number(left.x) - Number(right.x), Number(left.y) - Number(right.y), Number(left.z) - Number(right.z));
 }
-function transformCompatible(transform, pair, options) {
-  if (transform?.status !== 'READY') return false;
-  const registered = registeredCiiPoint(transform, pair.source); if (!registered) return false;
-  const factor = positiveNumber(options.odToleranceFactor) ?? 2;
-  return distance(registered, pair.target) <= factor * pair.sourceOdMm;
+function residualEvidence(transform, pair, options) {
+  if (transform?.status !== 'READY') return null;
+  const registered = registeredCiiPoint(transform, pair.source); if (!registered) return null;
+  const factor = positiveNumber(options.odToleranceFactor) ?? 2; const toleranceMm = factor * pair.sourceOdMm;
+  const residualMm = distance(registered, pair.target);
+  return { pair, residualMm, toleranceMm, normalizedResidual: residualMm / toleranceMm };
+}
+function uniqueSpatialWinners(rows, field, tieTolerance) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const key = row.pair[field]; if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(row);
+  }
+  const winners = new Map(); const ambiguous = [];
+  for (const [key, values] of grouped.entries()) {
+    values.sort((a, b) => a.normalizedResidual - b.normalizedResidual
+      || Number(b.pair.score || 0) - Number(a.pair.score || 0)
+      || pairKey(a.pair).localeCompare(pairKey(b.pair), undefined, { numeric: true }));
+    if (values.length > 1 && Math.abs(values[1].normalizedResidual - values[0].normalizedResidual) <= tieTolerance) {
+      ambiguous.push(String(key)); continue;
+    }
+    winners.set(String(key), values[0]);
+  }
+  return { winners, ambiguous };
+}
+function spatialExpansion(transform, eligible, options) {
+  const compatible = eligible.map((pair) => residualEvidence(transform, pair, options)).filter((row) => row && row.normalizedResidual <= 1);
+  const tieTolerance = Math.max(0, Number(options.methodASpatialTieNormalizedTolerance ?? 1e-9));
+  const bySource = uniqueSpatialWinners(compatible, 'sourceNodeId', tieTolerance);
+  const byTarget = uniqueSpatialWinners(compatible, 'targetNodeId', tieTolerance);
+  const pairs = compatible.filter((row) => bySource.winners.get(row.pair.sourceNodeId) === row
+    && byTarget.winners.get(row.pair.targetNodeId) === row).map((row) => row.pair);
+  return { pairs, compatibleCandidateCount: compatible.length,
+    ambiguousSourceNodeIds: bySource.ambiguous, ambiguousTargetNodeIds: byTarget.ambiguous };
 }
 function confidenceRank(value) { return ({ HIGH: 3, MEDIUM: 2, REVIEW: 1 }[value] || 0); }
 function automaticConfidence(geometry, anchorCount, options) {
@@ -55,10 +91,11 @@ function baseCandidateScore(pairs) {
   return pairs.reduce((sum, pair) => sum + Number(pair.score || 0), 0) / Math.max(pairs.length, 1);
 }
 function baseCandidateGap(pairs) {
-  return Math.min(...pairs.map((pair) => Number(pair.winnerGap || 0)));
+  const values = pairs.map((pair) => Number(pair.winnerGap)).filter(Number.isFinite);
+  return values.length ? Math.min(...values) : 0;
 }
-function makeBase(seed, expanded, geometry, options) {
-  const ordered = [...expanded].sort((a, b) => compareNodeIds(a.sourceNodeId, b.sourceNodeId)
+function makeBase(seed, expansion, geometry, options) {
+  const ordered = [...expansion.pairs].sort((a, b) => compareNodeIds(a.sourceNodeId, b.sourceNodeId)
     || compareNodeIds(a.targetNodeId, b.targetNodeId));
   const confidence = automaticConfidence(geometry, ordered.length, options);
   const minimumForAuto = Math.max(3, Number(options.methodAAutoConfidenceMinAnchorCount ?? 4));
@@ -70,8 +107,14 @@ function makeBase(seed, expanded, geometry, options) {
     candidateScoreMean: Number(baseCandidateScore(ordered).toFixed(3)),
     candidateWinnerGapMin: Number(baseCandidateGap(ordered).toFixed(3)),
     seedTriplets: [[...seed].map(pairKey).sort()],
+    expansionDiagnostics: {
+      compatibleCandidateCount: expansion.compatibleCandidateCount,
+      ambiguousSourceNodeIds: expansion.ambiguousSourceNodeIds,
+      ambiguousTargetNodeIds: expansion.ambiguousTargetNodeIds,
+    },
     anchorPairs: ordered.map((pair) => ({ sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId,
-      sourceOdMm: pair.sourceOdMm, candidateScore: Number(pair.score || 0), winnerGap: Number(pair.winnerGap || 0) })),
+      sourceOdMm: pair.sourceOdMm, candidateScore: Number(pair.score || 0), winnerGap: Number(pair.winnerGap || 0),
+      sourceRank: Number(pair.sourceRank || 1), targetRank: Number(pair.targetRank || 1), mutualBest: Boolean(pair.mutualBest) })),
     geometry,
   };
 }
@@ -93,17 +136,18 @@ function baseEvidence(base) {
     validationAnchorCount: base.validationAnchorCount, automaticConfidenceMinimumAnchorCount: base.automaticConfidenceMinimumAnchorCount,
     automaticConfidenceCap: base.automaticConfidenceCap, candidateScoreMean: base.candidateScoreMean,
     candidateWinnerGapMin: base.candidateWinnerGapMin, seedTriplets: deepFreeze(base.seedTriplets),
-    anchorPairs: deepFreeze(base.anchorPairs), selectedBasisId: base.geometry.selectedBasisId,
-    minimumAnchorSinAngle: base.geometry.minimumAnchorSinAngle, maxResidualMm: base.geometry.maxResidualMm,
-    rmsResidualMm: base.geometry.rmsResidualMm, maxNormalizedResidual: base.geometry.maxNormalizedResidual,
-    rmsNormalizedResidual: base.geometry.rmsNormalizedResidual, rotation: base.geometry.rotation,
-    translation: base.geometry.translation, tolerancePolicy: base.geometry.tolerancePolicy, weight: base.geometry.weight,
+    expansionDiagnostics: deepFreeze(base.expansionDiagnostics), anchorPairs: deepFreeze(base.anchorPairs),
+    selectedBasisId: base.geometry.selectedBasisId, minimumAnchorSinAngle: base.geometry.minimumAnchorSinAngle,
+    maxResidualMm: base.geometry.maxResidualMm, rmsResidualMm: base.geometry.rmsResidualMm,
+    maxNormalizedResidual: base.geometry.maxNormalizedResidual, rmsNormalizedResidual: base.geometry.rmsNormalizedResidual,
+    rotation: base.geometry.rotation, translation: base.geometry.translation,
+    tolerancePolicy: base.geometry.tolerancePolicy, weight: base.geometry.weight,
   });
 }
 
 export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates = [], options = {}) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
-  const seedLimit = Math.max(3, Number(options.methodASeedPairLimit ?? 10));
+  const seedLimit = Math.max(3, Number(options.methodASeedPairLimit ?? 12));
   const baseLimit = Math.max(1, Number(options.methodABaseSuggestionLimit ?? 24));
   const eligible = [...pairCandidates].sort(rankInputPairs)
     .map((pair) => resolvedPair(sourceNodes, targetNodes, sourceGraph, pair)).filter(Boolean).slice(0, seedLimit);
@@ -111,10 +155,11 @@ export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates
   for (const seed of seeds) {
     const seedGeometry = qualifyCiiGeometryTransform(seed.map(geometryPair), options);
     if (seedGeometry.status !== 'READY') continue;
-    const expanded = eligible.filter((pair) => transformCompatible(seedGeometry, pair, options));
-    const geometry = qualifyCiiGeometryTransform(expanded.map(geometryPair), options);
+    const expansion = spatialExpansion(seedGeometry, eligible, options);
+    if (expansion.pairs.length < 3) continue;
+    const geometry = qualifyCiiGeometryTransform(expansion.pairs.map(geometryPair), options);
     if (geometry.status !== 'READY') continue;
-    const candidate = makeBase(seed, expanded, geometry, options); const existing = basesById.get(candidate.baseId);
+    const candidate = makeBase(seed, expansion, geometry, options); const existing = basesById.get(candidate.baseId);
     if (existing) mergeEquivalentBase(existing, candidate); else basesById.set(candidate.baseId, candidate);
   }
   const bases = [...basesById.values()].sort(rankBases).slice(0, baseLimit).map(baseEvidence);
