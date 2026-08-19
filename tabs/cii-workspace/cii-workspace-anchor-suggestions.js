@@ -102,6 +102,6 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
     }));
   }
   const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
-  suggestions.sort((a, b) => (order[a.confidence] - order[b.confidence]) || b.score - a.score || compareNodeIds(a.sourceNodeId, b.sourceNodeId));
+  suggestions.sort((a, b) => (order[a.confidence] - order[b.confidence]) || b.score - a.score || b.winnerGap - a.winnerGap || compareNodeIds(a.sourceNodeId, b.sourceNodeId));
   return deepFreeze(suggestions.slice(0, limit));
 }
