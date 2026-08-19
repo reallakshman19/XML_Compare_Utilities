@@ -12,14 +12,21 @@ files:
     - tabs/cii-workspace/cii-workspace-pipe-runs.js
     - tabs/cii-workspace/cii-workspace-multi-base-anchor.js
     - tabs/cii-workspace/cii-workspace-anchor-suggestions.js
+    - tabs/cii-workspace/cii-workspace-core.js
     - tests/cii-workspace-geometry-authority.test.js
     - tests/cii-workspace-base-anchor-suggestions.test.js
     - tests/cii-workspace-multi-base-authority.test.js
+    - tests/cii-workspace-coordinate-invariance.test.js
+    - tests/cii-workspace-benchmark-base-anchor.test.js
     - tests/qualification/cii-workspace-multi-base-oracle.py
 authority_domains:
   - CII_METHOD_A_MULTI_BASIS_LOCAL_REGISTRATION
   - CII_METHOD_A_INDEPENDENT_OR_BASE_LOOPS
+  - CII_METHOD_A_SOURCE_OD_SCALED_TOLERANCE
+  - CII_METHOD_A_EVIDENCE_WEIGHT
   - CII_METHOD_B_TWO_AXIS_PIPE_RUN_EVIDENCE
+  - CII_METHOD_B_SOURCE_OD_SCALED_GEOMETRIC_TOLERANCE
+  - CII_METHOD_B_3D_COMPLEXITY_WEIGHT
   - CII_BASE_ANCHOR_METHOD_QUALIFICATION
   - CII_CROSS_LOOP_IDENTITY_CONFLICT_VETO
 claim_modes:
@@ -36,9 +43,15 @@ implementation_claims:
   - independent Method A and Method B base loops combine as OR with explicit identity conflict veto
   - separate local Method A bases may retain different rigid transforms
   - alternate admissible triplets inside one local Method A base must agree materially or that local base fails closed
+  - OD tolerance factor x is configurable with default x=2.0
+  - Method A anchor residual acceptance uses r/(x*SOURCE_OD) and requires every local anchor normalized residual <=1
+  - Method B run-length and angular-equivalent displacement acceptance use x times minimum positive incident SOURCE OD
+  - TARGET OD never changes Method A or Method B tolerance
+  - OD is tolerance-scale evidence only and never earns identity score or candidate preference
   - Method B HIGH/MEDIUM requires at least two independent undirected pipe runs on both SOURCE and TARGET
+  - Method B geometry complexity weight increases from one-axis to two-axis to planar multi-axis to genuine non-coplanar 3D geometry
   - opposite collinear rays merge to one run
-  - OD WT process values and node-number offsets remain excluded from Method B identity
+  - WT process values and node-number offsets remain excluded from Method B identity
   - first-success and majority-vote identity arbitration are forbidden
-validation_state: FOCUSED_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
+validation_state: FOCUSED_EXACT_BLOB_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_COORDINATE_BENCHMARK_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
 merge_disposition: OWNER_ONLY_NO_MERGE_AUTHORITY
