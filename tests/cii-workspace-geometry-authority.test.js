@@ -34,10 +34,34 @@ const transform = qualifyCiiGeometryTransform([
 ]);
 assert.strictEqual(transform.status, 'READY');
 assert.strictEqual(transform.registeredWeight, 8);
+assert.strictEqual(transform.basisHypothesisCount, 1);
 const mapped = registeredCiiPoint(transform, point(50, 25, 0));
 assert(Math.abs(mapped.x - 975) < 1e-6);
 assert(Math.abs(mapped.y + 450) < 1e-6);
 assert(Math.abs(mapped.z - 200) < 1e-6);
+
+const fourConsistent = qualifyCiiGeometryTransform([
+  { source: point(0, 0, 0), target: point(10, 20, 30) },
+  { source: point(100, 0, 0), target: point(110, 20, 30) },
+  { source: point(0, 100, 0), target: point(10, 120, 30) },
+  { source: point(0, 0, 100), target: point(10, 20, 130) },
+]);
+assert.strictEqual(fourConsistent.status, 'READY');
+assert.strictEqual(fourConsistent.basisHypothesisCount, 4);
+assert.strictEqual(fourConsistent.admissibleBasisCount, 4);
+assert.strictEqual(fourConsistent.basisComparisons.length, 6);
+
+const ambiguous = qualifyCiiGeometryTransform([
+  { source: point(0, 0, 0), target: point(0, 0, 0) },
+  { source: point(1000, 0, 0), target: point(1000, 0, 0) },
+  { source: point(2000, 1, 0), target: point(2000, 1, 0) },
+  { source: point(3000, 0, 1), target: point(3000, 1, 0) },
+], { anchorResidualToleranceMm: 2, nonCollinearSinTolerance: 1e-4, basisTransformAgreementToleranceMm: 2 });
+assert.strictEqual(ambiguous.status, 'AMBIGUOUS');
+assert.strictEqual(ambiguous.reason, 'METHOD_A_AMBIGUOUS_BASES');
+assert(ambiguous.admissibleBasisCount >= 2);
+assert(ambiguous.conflictingBasisComparisons.some((row) => row.materialDisagreementMm > 1000));
+assert.strictEqual(ambiguous.registeredWeight, 0);
 
 const corruptedFourth = qualifyCiiGeometryTransform([
   { source: point(0, 0, 0), target: point(1000, -500, 200) },
@@ -57,4 +81,4 @@ assert.strictEqual(invalid.status, 'INCOMPATIBLE');
 assert.strictEqual(invalid.reason, 'NON_FINITE_ANCHOR_COORDINATE');
 assert.strictEqual(registeredCiiPoint(transform, { x: NaN, y: 0, z: 0 }), null);
 
-console.log('CII Workspace geometry authority checks passed.');
+console.log('CII Workspace multi-basis geometry authority checks passed.');
