@@ -5,6 +5,7 @@ branch: agent/cii-writer-1c-roadmap
 base: main
 main_at_grounding: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 predecessor_pr1001: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
+implementation_issue: 1003
 state: DRAFT_DOCUMENTATION_COMPLETE
 criticality: ENGINEERING_CRITICAL_WRITER_AUTHORITY
 merge_authority: OWNER_ONLY
@@ -22,4 +23,4 @@ independent_oracle_per_family: REQUIRED
 source_boundary_audit: PASS_SOURCE_INSPECTION
 documentation_diff: PASS_GIT_COMPARE
 production_execution: NOT_APPLICABLE
-next_action: owner review; use roadmap as authority for separate Writer 1C implementation issue/PR; do not merge PR1002 without explicit owner authorization
+next_action: owner review PR1002; Writer 1C implementation proceeds under Issue 1003 after mandatory expert qualification questions are answered; do not merge PR1002 without explicit owner authorization
