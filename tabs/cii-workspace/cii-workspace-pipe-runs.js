@@ -152,19 +152,75 @@ function mappingEvidence(sourceRuns, targetRuns, mapping, toleranceMm) {
   return { rows, maxNormalizedLengthError,
     qualified: maxNormalizedLengthError <= 1 && rows.every((row) => row.terminatorsCompatible) };
 }
+function mappingGeometry(source, target, mapping, toleranceMm) {
+  const mapped = mappingEvidence(source.runs, target.runs, mapping, toleranceMm); const angleRows = [];
+  for (let a = 0; a < mapping.length - 1; a += 1) for (let b = a + 1; b < mapping.length; b += 1) {
+    const [sa, ta] = mapping[a]; const [sb, tb] = mapping[b];
+    const sourceAngleDeg = angleDeg(source.runs[sa].axis, source.runs[sb].axis, true);
+    const targetAngleDeg = angleDeg(target.runs[ta].axis, target.runs[tb].axis, true);
+    const angleDifferenceDeg = Math.abs(sourceAngleDeg - targetAngleDeg);
+    const characteristicLengthMm = Math.min(source.runs[sa].totalLengthMm, source.runs[sb].totalLengthMm,
+      target.runs[ta].totalLengthMm, target.runs[tb].totalLengthMm);
+    const angularDisplacementMm = 2 * characteristicLengthMm * Math.sin((angleDifferenceDeg * Math.PI / 180) / 2);
+    angleRows.push({ sourceAngleDeg, targetAngleDeg, angleDifferenceDeg, characteristicLengthMm,
+      angularDisplacementMm, normalizedAngleError: angularDisplacementMm / toleranceMm });
+  }
+  const maxNormalizedAngleError = angleRows.length ? Math.max(...angleRows.map((row) => row.normalizedAngleError)) : 0;
+  return { mapping: mapped, angleRows, maxNormalizedAngleError,
+    maxNormalizedGeometricError: Math.max(mapped.maxNormalizedLengthError, maxNormalizedAngleError),
+    qualified: mapped.qualified && maxNormalizedAngleError <= 1 };
+}
+function mappingTripleProduct(source, target, mapping) {
+  let best = 0;
+  for (let a = 0; a < mapping.length - 2; a += 1) for (let b = a + 1; b < mapping.length - 1; b += 1) {
+    for (let c = b + 1; c < mapping.length; c += 1) {
+      const sourceValue = Math.abs(dot(source.runs[mapping[a][0]].axis, cross(source.runs[mapping[b][0]].axis, source.runs[mapping[c][0]].axis)));
+      const targetValue = Math.abs(dot(target.runs[mapping[a][1]].axis, cross(target.runs[mapping[b][1]].axis, target.runs[mapping[c][1]].axis)));
+      best = Math.max(best, Math.min(sourceValue, targetValue));
+    }
+  }
+  return best;
+}
+function independentAddition(source, target, mapping, sourceIndex, targetIndex, minimumAngleDeg) {
+  return mapping.every(([s, t]) => angleDeg(source.runs[s].axis, source.runs[sourceIndex].axis, true) >= minimumAngleDeg
+    && angleDeg(target.runs[t].axis, target.runs[targetIndex].axis, true) >= minimumAngleDeg);
+}
+function extendMapping(source, target, seed, toleranceMm, minimumAngleDeg) {
+  if (source.runs.length > 8 || target.runs.length > 8) return seed;
+  let best = seed; const seedSources = new Set(seed.runMapping.map(([s]) => s)); const seedTargets = new Set(seed.runMapping.map(([, t]) => t));
+  const visit = (sourceIndex, mapping, usedTargets) => {
+    if (sourceIndex >= source.runs.length) {
+      const evidence = mappingGeometry(source, target, mapping, toleranceMm);
+      if (!evidence.qualified) return;
+      if (mapping.length > best.compatibleIndependentRunCount
+        || (mapping.length === best.compatibleIndependentRunCount && evidence.maxNormalizedGeometricError < best.maxNormalizedGeometricError)) {
+        best = { ...best, runMapping: mapping.map((row) => [...row]), mapping: evidence.mapping, fullGeometry: evidence,
+          compatibleIndependentRunCount: mapping.length, compatibleTripleProduct: mappingTripleProduct(source, target, mapping),
+          maxNormalizedGeometricError: evidence.maxNormalizedGeometricError };
+      }
+      return;
+    }
+    if (seedSources.has(sourceIndex)) { visit(sourceIndex + 1, mapping, usedTargets); return; }
+    visit(sourceIndex + 1, mapping, usedTargets);
+    for (let targetIndex = 0; targetIndex < target.runs.length; targetIndex += 1) {
+      if (usedTargets.has(targetIndex) || seedTargets.has(targetIndex)) continue;
+      if (!independentAddition(source, target, mapping, sourceIndex, targetIndex, minimumAngleDeg)) continue;
+      const candidate = [...mapping, [sourceIndex, targetIndex]];
+      if (!mappingGeometry(source, target, candidate, toleranceMm).qualified) continue;
+      visit(sourceIndex + 1, candidate, new Set([...usedTargets, targetIndex]));
+    }
+  };
+  visit(0, seed.runMapping, new Set(seedTargets)); return best;
+}
 function pairCandidate(source, target, sourcePair, targetPair, mapping, toleranceMm) {
-  const angleDifferenceDeg = Math.abs(sourcePair.includedAngleDeg - targetPair.includedAngleDeg);
-  const involved = mapping.flatMap(([s, t]) => [source.runs[s].totalLengthMm, target.runs[t].totalLengthMm]);
-  const characteristicLengthMm = Math.min(...involved);
-  const angularDisplacementMm = 2 * characteristicLengthMm * Math.sin((angleDifferenceDeg * Math.PI / 180) / 2);
-  const normalizedAngleError = angularDisplacementMm / toleranceMm;
-  const mapped = mappingEvidence(source.runs, target.runs, mapping, toleranceMm);
+  const geometry = mappingGeometry(source, target, mapping, toleranceMm); const angle = geometry.angleRows[0];
   return {
-    sourcePair: sourcePair.indexes, targetPair: targetPair.indexes,
+    sourcePair: sourcePair.indexes, targetPair: targetPair.indexes, runMapping: mapping,
     sourceIncludedAngleDeg: sourcePair.includedAngleDeg, targetIncludedAngleDeg: targetPair.includedAngleDeg,
-    angleDifferenceDeg, characteristicLengthMm, angularDisplacementMm, normalizedAngleError,
-    mapping: mapped, maxNormalizedGeometricError: Math.max(mapped.maxNormalizedLengthError, normalizedAngleError),
-    qualified: mapped.qualified && normalizedAngleError <= 1,
+    angleDifferenceDeg: angle.angleDifferenceDeg, characteristicLengthMm: angle.characteristicLengthMm,
+    angularDisplacementMm: angle.angularDisplacementMm, normalizedAngleError: angle.normalizedAngleError,
+    mapping: geometry.mapping, fullGeometry: geometry, maxNormalizedGeometricError: geometry.maxNormalizedGeometricError,
+    compatibleIndependentRunCount: mapping.length, compatibleTripleProduct: 0, qualified: geometry.qualified,
   };
 }
 function comparePairBasis(source, target, sourcePair, targetPair, toleranceMm) {
@@ -175,14 +231,15 @@ function comparePairBasis(source, target, sourcePair, targetPair, toleranceMm) {
   ];
 }
 function methodBWeight(source, target, selected) {
-  const count = Math.min(source.independentAxisRunCount, target.independentAxisRunCount);
-  const triple = Math.min(source.geometry.maxScalarTripleProduct, target.geometry.maxScalarTripleProduct);
+  const count = selected?.compatibleIndependentRunCount || 0; const triple = selected?.compatibleTripleProduct || 0;
   const geometryComplexity = count < 2 ? 0 : (count === 2 ? 24 : 32 + (8 * clamp(triple, 0, 1)));
   const runCompatibility = selected ? 20 * (1 - clamp(selected.maxNormalizedGeometricError, 0, 1)) : 0;
   const topologyFingerprint = selected?.mapping?.rows?.every((row) => row.terminatorsCompatible) ? 15 : 0;
+  const compatibleDimension = count < 2 ? 'ONE_AXIS' : (count === 2 ? 'TWO_AXIS' : (triple > 1e-6 ? 'FULL_3D' : 'PLANAR_MULTI_AXIS'));
   return Object.freeze({
     geometryComplexity: Number(geometryComplexity.toFixed(3)), runCompatibility: Number(runCompatibility.toFixed(3)),
     topologyFingerprint, subtotal: Number((geometryComplexity + runCompatibility + topologyFingerprint).toFixed(3)),
+    compatibleIndependentRunCount: count, compatibleDimension, compatibleTripleProduct: Number(triple.toFixed(6)),
     sourceDimension: source.geometry.dimension, targetDimension: target.geometry.dimension,
     sourceTripleProduct: Number(source.geometry.maxScalarTripleProduct.toFixed(6)), targetTripleProduct: Number(target.geometry.maxScalarTripleProduct.toFixed(6)),
   });
@@ -196,8 +253,11 @@ export function qualifyCiiMethodBRunBasis(sourceGraph, targetGraph, sourceNodeId
   if (tolerancePolicy.available) for (const sourcePair of source.independentPairs) for (const targetPair of target.independentPairs) {
     candidates.push(...comparePairBasis(source, target, sourcePair, targetPair, tolerancePolicy.toleranceMm));
   }
-  const qualified = candidates.filter((item) => item.qualified).sort((a, b) => a.maxNormalizedGeometricError - b.maxNormalizedGeometricError
-    || a.sourcePair.join('-').localeCompare(b.sourcePair.join('-')) || a.targetPair.join('-').localeCompare(b.targetPair.join('-')));
+  const qualified = candidates.filter((item) => item.qualified)
+    .map((item) => extendMapping(source, target, item, tolerancePolicy.toleranceMm, options.independentAxisAngleDeg))
+    .sort((a, b) => b.compatibleIndependentRunCount - a.compatibleIndependentRunCount
+      || a.maxNormalizedGeometricError - b.maxNormalizedGeometricError
+      || a.sourcePair.join('-').localeCompare(b.sourcePair.join('-')) || a.targetPair.join('-').localeCompare(b.targetPair.join('-')));
   const status = tolerancePolicy.available && hardGate && qualified.length ? 'READY' : 'REVIEW';
   const selectedBasis = qualified[0] || null; const weight = methodBWeight(source, target, selectedBasis);
   const reason = !tolerancePolicy.available ? 'SOURCE_OD_TOLERANCE_UNAVAILABLE'
