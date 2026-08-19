@@ -70,13 +70,15 @@ const target2 = await reviewedPreview(target2Text, 'BM_CII_TARGET2.CII', '10010'
 for (const { result, rows } of [target1, target2]) {
   const plan = result.transferPlan;
   assert.strictEqual(plan.inputAuthority, 'ENGINEERING_DELTA_SET');
-  assert.strictEqual(plan.mutationAuthority, 'BLOCKED_NOT_IMPLEMENTED');
+  assert.strictEqual(plan.mutationAuthority, 'WRITER_1A_CONDITIONAL');
   assert.strictEqual(plan.policy.geometryProtected, true);
   assert.strictEqual(plan.policy.nodeNumberProtected, true);
   assert.strictEqual(plan.policy.topologyProtected, true);
   assert.strictEqual(plan.policy.odProtected, true);
-  assert.strictEqual(plan.policy.wallProtected, true);
-  assert.strictEqual(result.audit.mutationAuthority.stage06, 'NOT_IMPLEMENTED');
+  assert.strictEqual(plan.policy.wallProtected, false);
+  assert.strictEqual(result.writerReadiness.ready, false, 'mixed benchmark approvals contain operations outside Writer 1A and must fail closed');
+  assert(result.writerReadiness.blockers.some((item) => item.includes('WRITER_1A_UNSUPPORTED_OPERATION')));
+  assert.strictEqual(result.audit.mutationAuthority.stage06, 'WRITER_1A_BLOCKED');
   assert.strictEqual(result.audit.mutationAuthority.modifiedTargetCiiExport, 'BLOCKED');
   assert.strictEqual(result.artifacts.modifiedTargetCii, null);
 
@@ -108,13 +110,17 @@ for (const { result, rows } of [target1, target2]) {
   assert.strictEqual(rigid.action, 'KEEP');
   assert.strictEqual(rigid.status, 'PREVIEW_READY');
 
-  for (const property of ['OD', 'Wall thickness']) {
-    const protectedOp = op(plan, rows.sizeEdge.correspondenceId, property);
-    assert(protectedOp, `Missing protected ${property} preview`);
-    assert.strictEqual(protectedOp.action, 'KEEP');
-    assert.strictEqual(protectedOp.status, 'PROTECTED');
-    assert(protectedOp.blockers.includes('TARGET_PROPERTY_PROTECTED_BY_DEFAULT'));
-  }
+  const od = op(plan, rows.sizeEdge.correspondenceId, 'OD');
+  assert(od, 'Missing protected OD preview');
+  assert.strictEqual(od.action, 'KEEP');
+  assert.strictEqual(od.status, 'PROTECTED');
+  assert(od.blockers.includes('TARGET_PROPERTY_PROTECTED_BY_DEFAULT'));
+
+  const wall = op(plan, rows.sizeEdge.correspondenceId, 'Wall thickness');
+  assert(wall, 'Missing Writer 1A wall preview');
+  assert.strictEqual(wall.action, 'COPY');
+  assert.strictEqual(wall.status, 'PREVIEW_READY');
+  assert.strictEqual(wall.policyAuthority, 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD');
 }
 
 const t1Friction = op(target1.result.transferPlan, target1.rows.n130.correspondenceId, 'Restraint friction values');
@@ -124,8 +130,6 @@ assert.deepStrictEqual(t1Friction.proposed, [0]);
 assert.strictEqual(t1Friction.action, 'COPY');
 assert.strictEqual(t1Friction.status, 'PREVIEW_READY');
 
-// TARGET2 has equal source/target friction = 0, so it is not emitted under the
-// default changed-only preview policy.
 assert.strictEqual(op(target2.result.transferPlan, target2.rows.n130.correspondenceId, 'Restraint friction values'), null);
 
-console.log('CII real benchmark transfer-preview TARGET1/TARGET2 acceptance checks passed.');
+console.log('CII real benchmark transfer-preview TARGET1/TARGET2 Writer 1A authority checks passed.');
