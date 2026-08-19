@@ -40,17 +40,21 @@ function legacySingleLoopResult(loopResults) {
     contributingLoopIds: Object.freeze(ready ? [String(item.loop.loopId)] : []), loopResults: deepFreeze(loopResults),
     conflicts: Object.freeze([]) });
 }
+function unresolvedAuthorityCorrespondence(multiBaseAuthority) {
+  const blocked = multiBaseAuthority.status === 'BLOCKED';
+  return deepFreeze({ schema: 'CIIWorkspaceCorrespondence.v1', status: blocked ? 'BLOCKED' : 'AMBIGUOUS', combination: 'OR_WITH_CONFLICT_VETO',
+    blockers: Object.freeze([blocked ? 'MULTI_BASE_INPUT_INVALID' : 'MULTI_BASE_AUTHORITY_NOT_RESOLVED']), ambiguityRetained: !blocked,
+    conflicts: multiBaseAuthority.conflicts || Object.freeze([]), readyLoopCount: 0, unresolvedReadyBaseLoopCount: 0,
+    contributingLoopIds: Object.freeze([]), loopResults: Object.freeze([]), targetCustodyConflicts: Object.freeze([]),
+    nodeRows: Object.freeze([]), elementRows: Object.freeze([]) });
+}
 
 export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, options = {}) {
   if (!multiBaseAuthority || multiBaseAuthority.status === 'UNAVAILABLE') {
     return arbitrateCiiLoopCorrespondences([]);
   }
   if (multiBaseAuthority.status === 'AMBIGUOUS' || multiBaseAuthority.status === 'BLOCKED') {
-    return deepFreeze({ schema: 'CIIWorkspaceCorrespondence.v1', status: 'AMBIGUOUS', combination: 'OR_WITH_CONFLICT_VETO',
-      blockers: Object.freeze(['MULTI_BASE_AUTHORITY_NOT_RESOLVED']), ambiguityRetained: true,
-      conflicts: multiBaseAuthority.conflicts || Object.freeze([]), readyLoopCount: 0, unresolvedReadyBaseLoopCount: 0,
-      contributingLoopIds: Object.freeze([]), loopResults: Object.freeze([]), targetCustodyConflicts: Object.freeze([]),
-      nodeRows: Object.freeze([]), elementRows: Object.freeze([]) });
+    return unresolvedAuthorityCorrespondence(multiBaseAuthority);
   }
   const loopResults = (multiBaseAuthority.loops || []).filter((loop) => loop.status === 'READY').map((loop) => deepFreeze({
     loop, correspondence: loopCorrespondence(sourceGraph, targetGraph, loop, options),
