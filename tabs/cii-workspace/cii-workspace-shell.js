@@ -1,4 +1,4 @@
-import { applyCiiWorkspaceTargetWriter1A, createCiiWorkspacePreview, inspectCiiWorkspaceModels } from './cii-workspace-core.js';
+import { applyCiiWorkspaceTargetWriter1B, createCiiWorkspacePreview, inspectCiiWorkspaceModels } from './cii-workspace-core.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { stableStringify } from './cii-workspace-contracts.js';
 import { updateCiiReviewDecisions } from './cii-workspace-review.js';
@@ -46,16 +46,10 @@ function baseAnchorMarkup(inspection) {
   if (!rows.length) return '<section class="ciiw-anchor-suggestions"><h4>Base Anchor suggestions</h4><p>No sufficiently distinctive topology pair was found. Enter a reviewed SOURCE/TARGET anchor manually.</p></section>';
   return `<section class="ciiw-anchor-suggestions"><h4>Base Anchor suggestions</h4><p>Topology-only evidence. Node-number offsets, OD and wall are not used. Every pair requires engineer acceptance before it becomes a locked anchor.</p><table class="ciiw-grid"><thead><tr><th>Suggested pair</th><th>Basis</th><th>Confidence</th><th>Review</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr data-ciiw-anchor-row="${h(row.sourceNodeId)}:${h(row.targetNodeId)}"><td><b>${h(row.sourceNodeId)} ↔ ${h(row.targetNodeId)}</b></td><td>${h(row.basis.join(' · '))}</td><td><b>${h(row.confidence)}</b><small>score ${h(formatValue(row.score))} · winner gap ${h(formatValue(row.winnerGap))}/${h(formatValue(row.requiredWinnerGap))}</small></td><td>REQUIRED</td><td><button type="button" data-ciiw-accept-anchor data-source-node="${h(row.sourceNodeId)}" data-target-node="${h(row.targetNodeId)}">Accept base anchor</button></td></tr>`).join('')}</tbody></table></section>`;
 }
-function landmarkMarkup(inspection) {
-  return `${baseAnchorMarkup(inspection)}<div class="ciiw-landmark-grid">${landmarkSide('SOURCE', inspection?.source)}${landmarkSide('TARGET', inspection?.target)}</div>`;
-}
+function landmarkMarkup(inspection) { return `${baseAnchorMarkup(inspection)}<div class="ciiw-landmark-grid">${landmarkSide('SOURCE', inspection?.source)}${landmarkSide('TARGET', inspection?.target)}</div>`; }
 function pendingDecision(row, decisions) {
-  const explicit = decisions.get(row.correspondenceId);
-  if (explicit) return explicit;
-  if (row.decision === 'ACCEPTED') return 'ACCEPT';
-  if (row.decision === 'REJECTED') return 'REJECT';
-  if (row.decision === 'LOCKED') return 'LOCK';
-  return '';
+  const explicit = decisions.get(row.correspondenceId); if (explicit) return explicit;
+  if (row.decision === 'ACCEPTED') return 'ACCEPT'; if (row.decision === 'REJECTED') return 'REJECT'; if (row.decision === 'LOCKED') return 'LOCK'; return '';
 }
 function approvalText(row, decisions) {
   const value = pendingDecision(row, decisions);
@@ -102,20 +96,18 @@ function limitationMarkup(current) {
 function transferMarkup(current) {
   const plan = current?.transferPlan; if (!plan) return '<p>Build and approve correspondence before transfer preview.</p>';
   const operations = plan.operations || []; const byAction = plan.summary?.byAction || {}; const review = current?.compareReview?.summary?.review || {};
-  const readiness = current?.writerReadiness || { ready: false, blockers: ['Writer 1A readiness unavailable.'] };
+  const readiness = current?.writerReadiness || { ready: false, blockers: ['Writer 1B readiness unavailable.'] };
   const banner = readiness.ready
-    ? '<div class="ciiw-transfer-banner"><b>TARGET MUTATION · WRITER 1A READY</b><span>Approved cardinality-preserving fields can be applied. Geometry, node numbering, topology and OD remain protected.</span></div>'
-    : `<div class="ciiw-transfer-banner"><b>TRANSFER PREVIEW · BLOCKED</b><span>Target mutation is blocked until every approved non-KEEP operation is Writer 1A qualified. Geometry, node numbering, topology and OD remain protected.</span></div>`;
+    ? '<div class="ciiw-transfer-banner"><b>TARGET MUTATION · WRITER 1B READY</b><span>Approved exact fixed fields can be applied. Geometry, node numbering and topology remain protected; OD is conditional to plain non-reducer PIPE and SIF/TEE remains blocked.</span></div>'
+    : `<div class="ciiw-transfer-banner"><b>TRANSFER PREVIEW · BLOCKED</b><span>Target mutation is blocked until every approved non-KEEP operation is Writer 1B qualified. Geometry, node numbering and topology remain protected; OD is conditional and SIF/TEE remains blocked.</span></div>`;
   const table = operations.length ? `<table class="ciiw-grid"><thead><tr><th>Action</th><th>Family</th><th>Property</th><th>Custody</th><th>Approval authority</th><th>Target before</th><th>Proposed target</th><th>Status</th><th>Blockers</th></tr></thead><tbody>${operations.map((item) => `<tr><td><b>${h(item.action || '—')}</b></td><td>${h(item.family || '—')}</td><td>${h(item.property)}</td><td>${h(item.custody)}</td><td><b>${h(item.matchAuthority?.status || '—')}</b></td><td>${h(formatValue(item.before))}</td><td>${h(formatValue(item.proposed))}</td><td>${h(item.status)}</td><td>${h((item.blockers || []).join(', ') || '—')}</td></tr>`).join('')}</tbody></table>` : '<p>No approved transfer-preview operations are currently proposed.</p>';
-  const writerBlockers = readiness.blockers?.length ? `<p><b>Writer 1A blockers:</b> ${h(readiness.blockers.join(', '))}</p>` : '';
-  return `${banner}<p><b>Preview plan:</b> ${h(plan.status)} · <b>Writer 1A:</b> ${h(readiness.status || 'BLOCKED')} · <b>Approval basis:</b> ${h(review.accepted || 0)} accepted · ${h(review.locked || 0)} locked · ${h(review.rejected || 0)} rejected · ${h(review.pending || 0)} pending.</p><p>${h(plan.summary?.operationCount || 0)} rows · COPY ${h(byAction.COPY || 0)} · CREATE ${h(byAction.CREATE || 0)} · DELETE ${h(byAction.DELETE || 0)} · KEEP ${h(byAction.KEEP || 0)} · ${h(plan.summary?.protectedCount || 0)} protected · ${h(plan.summary?.blockedCount || 0)} blocked</p>${plan.blockers?.length ? `<p><b>Plan blockers:</b> ${h(plan.blockers.join(', '))}</p>` : ''}${writerBlockers}${table}<button type="button" ${readiness.ready ? '' : 'disabled'} data-ciiw-apply-target>Apply approved Writer 1A changes to target CII</button>`;
+  const writerBlockers = readiness.blockers?.length ? `<p><b>Writer 1B blockers:</b> ${h(readiness.blockers.join(', '))}</p>` : '';
+  return `${banner}<p><b>Preview plan:</b> ${h(plan.status)} · <b>Writer 1B:</b> ${h(readiness.status || 'BLOCKED')} · <b>Approval basis:</b> ${h(review.accepted || 0)} accepted · ${h(review.locked || 0)} locked · ${h(review.rejected || 0)} rejected · ${h(review.pending || 0)} pending.</p><p>${h(plan.summary?.operationCount || 0)} rows · COPY ${h(byAction.COPY || 0)} · CREATE ${h(byAction.CREATE || 0)} · DELETE ${h(byAction.DELETE || 0)} · KEEP ${h(byAction.KEEP || 0)} · ${h(plan.summary?.protectedCount || 0)} protected · ${h(plan.summary?.blockedCount || 0)} blocked</p>${plan.blockers?.length ? `<p><b>Plan blockers:</b> ${h(plan.blockers.join(', '))}</p>` : ''}${writerBlockers}${table}<button type="button" ${readiness.ready ? '' : 'disabled'} data-ciiw-apply-target>Apply approved Writer 1B changes to target CII</button>`;
 }
 function reviewFrom(decisions) {
   const reviewedCorrespondenceIds = []; const lockedCorrespondenceIds = []; const rejectedCorrespondenceIds = [];
   for (const [id, decision] of decisions.entries()) {
-    if (decision === 'LOCK') lockedCorrespondenceIds.push(id);
-    if (decision === 'ACCEPT') reviewedCorrespondenceIds.push(id);
-    if (decision === 'REJECT') rejectedCorrespondenceIds.push(id);
+    if (decision === 'LOCK') lockedCorrespondenceIds.push(id); if (decision === 'ACCEPT') reviewedCorrespondenceIds.push(id); if (decision === 'REJECT') rejectedCorrespondenceIds.push(id);
   }
   return { reviewedCorrespondenceIds, lockedCorrespondenceIds, rejectedCorrespondenceIds };
 }
@@ -130,8 +122,7 @@ function bulkAccept(current, decisions, confidence) {
 
 export function mountCiiWorkspaceShell(container, options = {}) {
   container.innerHTML = `<div class="ciiw-workspace"><header><div><h2>CII Workspace</h2><p>Compare CAESAR II neutral models and review engineering changes</p></div><button type="button" data-ciiw-close>Close</button></header><nav class="ciiw-tabs"><button type="button" data-ciiw-tab="inputs">1 Inputs &amp; Match Basis</button><button type="button" data-ciiw-tab="compare">2 Compare Review</button><button type="button" data-ciiw-tab="transfer">3 Transfer Preview</button></nav><section data-ciiw-panel="inputs"><div class="ciiw-intake"><label>SOURCE CII <input type="file" accept=".cii,.accdb" data-ciiw-source></label><label>TARGET CII <input type="file" accept=".cii,.accdb" data-ciiw-target></label><button type="button" data-ciiw-inspect>Inspect models &amp; suggest base anchors</button><div data-ciiw-landmarks></div><label>Accepted SOURCE base anchor(s) <input type="text" placeholder="10 or 10, 200" data-ciiw-source-anchors></label><label>Accepted TARGET base anchor(s) <input type="text" placeholder="20010 or 20010, 20200" data-ciiw-target-anchors></label><button type="button" data-ciiw-analyze>Compare models →</button></div><div class="ciiw-status" data-ciiw-status>Load two neutral CII files, inspect paired base-anchor suggestions, then accept or enter reviewed anchor pair(s).</div></section><section data-ciiw-panel="compare"><div class="ciiw-results"><h3>1. Executive Summary</h3><div data-ciiw-executive></div><h3>2. Correspondence Review</h3><div class="ciiw-bulk-accept"><b>Bulk Accept</b><button type="button" data-ciiw-accept-high>Accept all HIGH</button><button type="button" data-ciiw-accept-medium>Accept all MEDIUM</button><small>REVIEW and UNRESOLVED rows are never bulk accepted.</small></div><div class="ciiw-toolbar"><label>Confidence <select data-ciiw-confidence-filter><option>ALL</option><option>HIGH</option><option>MEDIUM</option><option>REVIEW</option><option>UNRESOLVED</option><option>LOCKED</option></select></label><label>Search <input type="search" data-ciiw-search placeholder="Node, element, family"></label><label><input type="checkbox" data-ciiw-changed-only> Changed only</label></div><div data-ciiw-results></div><aside class="ciiw-inspector" data-ciiw-inspector></aside><h3>3. Engineering Delta Grid</h3><p>Approval is inherited from the parent correspondence Decision above and is the authority gate for Tab 3.</p><div data-ciiw-deltas></div><div data-ciiw-limitations></div><button type="button" data-ciiw-refresh-review disabled>Apply approvals to Transfer Preview</button><button type="button" data-ciiw-export-csv disabled>Export correspondence CSV</button><button type="button" data-ciiw-export-json disabled>Export audit JSON</button></div></section><section data-ciiw-panel="transfer"><div data-ciiw-transfer></div><div class="ciiw-stages" data-ciiw-stages>${stageMarkup()}</div></section></div>`;
-  let current = null; let baseInput = null; let disposed = false; const decisions = new Map();
-  const filters = { confidence: 'ALL', search: '', changedOnly: false };
+  let current = null; let baseInput = null; let disposed = false; const decisions = new Map(); const filters = { confidence: 'ALL', search: '', changedOnly: false };
   const query = (selector) => container.querySelector(selector); const status = query('[data-ciiw-status]'); const results = query('[data-ciiw-results]'); const landmarkBox = query('[data-ciiw-landmarks]');
   const executive = query('[data-ciiw-executive]'); const inspector = query('[data-ciiw-inspector]'); const deltas = query('[data-ciiw-deltas]'); const limits = query('[data-ciiw-limitations]'); const transfer = query('[data-ciiw-transfer]'); const stagesBox = query('[data-ciiw-stages]');
   const reviewButton = query('[data-ciiw-refresh-review]'); const csvButton = query('[data-ciiw-export-csv]'); const jsonButton = query('[data-ciiw-export-json]');
@@ -142,18 +133,15 @@ export function mountCiiWorkspaceShell(container, options = {}) {
     results.querySelectorAll('[data-ciiw-inspect-row]').forEach((button) => button.addEventListener('click', () => { const row = current?.compareReview?.rows?.find((item) => item.correspondenceId === button.dataset.ciiwInspectRow); inspector.innerHTML = inspectorMarkup(row); switchTab('compare'); }));
   };
   const bindApply = () => {
-    const button = transfer.querySelector('[data-ciiw-apply-target]');
-    if (!button || button.disabled) return;
+    const button = transfer.querySelector('[data-ciiw-apply-target]'); if (!button || button.disabled) return;
     button.addEventListener('click', async () => {
       try {
         if (!current || !baseInput?.targetText) throw new Error('Rebuild the approved transfer preview before target mutation.');
-        button.disabled = true; status.textContent = 'Applying Writer 1A fields and reparsing modified TARGET CII…';
-        const applied = await applyCiiWorkspaceTargetWriter1A(current, baseInput.targetText, { cryptoRef: options.cryptoRef });
+        button.disabled = true; status.textContent = 'Applying Writer 1B fields and reparsing modified TARGET CII…';
+        const applied = await applyCiiWorkspaceTargetWriter1B(current, baseInput.targetText, { cryptoRef: options.cryptoRef });
         download(container.ownerDocument, applied.fileName, applied.text, 'text/plain');
         status.textContent = `Modified TARGET CII exported: ${applied.mutationCount} approved field changes; unexpected semantic deltas ${applied.validation.unexpectedSemanticDeltaCount}.`;
-      } catch (error) {
-        status.textContent = error.message || String(error); button.disabled = current?.writerReadiness?.ready !== true;
-      }
+      } catch (error) { status.textContent = error.message || String(error); button.disabled = current?.writerReadiness?.ready !== true; }
     });
   };
   const render = () => {
@@ -163,7 +151,7 @@ export function mountCiiWorkspaceShell(container, options = {}) {
   };
   const invalidate = (message, clearLandmarks = false) => { current = null; baseInput = null; decisions.clear(); results.innerHTML = ''; executive.innerHTML = ''; inspector.innerHTML = ''; deltas.innerHTML = ''; limits.innerHTML = ''; transfer.innerHTML = ''; stagesBox.innerHTML = stageMarkup(); reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true; if (clearLandmarks) landmarkBox.innerHTML = ''; status.textContent = message; switchTab('inputs'); };
   const readFiles = async () => { const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0]; if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.'); return { sourceText: await sourceFile.text(), sourceFileName: sourceFile.name, targetText: await targetFile.text(), targetFileName: targetFile.name }; };
-  const run = async (review = undefined) => { current = await createCiiWorkspacePreview({ ...baseInput, ...(review ? { review } : {}) }); if (disposed) return; status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}; Writer 1A ${current.writerReadiness.status}.`; render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false; switchTab('compare'); };
+  const run = async (review = undefined) => { current = await createCiiWorkspacePreview({ ...baseInput, ...(review ? { review } : {}) }); if (disposed) return; status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}; Writer 1B ${current.writerReadiness.status}.`; render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false; switchTab('compare'); };
   const inspect = async () => {
     try {
       status.textContent = 'Inspecting model summaries and topology-only base-anchor evidence…'; decisions.clear(); current = null; baseInput = await readFiles(); const inspection = await inspectCiiWorkspaceModels(baseInput); if (disposed) return;

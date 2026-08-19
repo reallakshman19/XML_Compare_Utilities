@@ -18,6 +18,7 @@ const [sourceText, target1Text, target2Text] = await Promise.all([
   text('../Benchmark/CIICompare/BM_CII_TARGET2.CII'),
 ]);
 const policy = Object.freeze({
+  writerVersion: '1A',
   cryptoRef: webcrypto,
   spatialToleranceMm: 100,
   diameterToleranceRatio: 0.10,
@@ -37,6 +38,7 @@ async function restraintWriterCase(targetText, targetFileName, targetAnchor, exp
     anchorPairs: [{ sourceNodeId: '10', targetNodeId: String(targetAnchor) }],
   };
   const first = await createCiiWorkspacePreview(baseInput, policy);
+  assert.strictEqual(first.writerVersion, '1A');
   const n130 = nodeRow(first, '130');
   assert(n130, 'benchmark must establish SOURCE node130 correspondence');
   assert.strictEqual(String(n130.targetNodeId), String(expectedTargetNode));
@@ -103,5 +105,4 @@ async function restraintWriterCase(targetText, targetFileName, targetAnchor, exp
 
 await restraintWriterCase(target1Text, 'BM_CII_TARGET1.CII', '20010', '20130', 5, 0.3);
 await restraintWriterCase(target2Text, 'BM_CII_TARGET2.CII', '10010', '10130', 6, 0);
-
 console.log('CII real TARGET1/TARGET2 Writer 1A restraint round-trip checks passed.');
