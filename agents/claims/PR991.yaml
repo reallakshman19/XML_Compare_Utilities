@@ -1,0 +1,38 @@
+schema: AgentClaim.v1
+pr_or_wip: PR991
+claim_state: ACTIVE_HANDOVER_READY
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-target-writer.js
+    - tabs/cii-workspace/cii-workspace-engineering-delta.js
+    - tabs/cii-workspace/cii-workspace-transfer-policy.js
+    - tabs/cii-workspace/cii-workspace-placeholders.js
+    - tabs/cii-workspace/cii-workspace-core.js
+    - tests/cii-workspace-target-writer-1a.test.js
+    - tests/cii-workspace-transfer-preview-policy.test.js
+    - agents/PR991_workreport.md
+    - agents/status/PR991.yaml
+    - agents/claims/PR991.yaml
+authority_domains:
+  - CII_TARGET_WRITER_1A
+  - CII_ELEMENT_FIXED_FIELD_MUTATION
+  - CII_RIGID_POINTER_MUTATION
+  - CII_STAGE06_APPLY_AUTHORITY
+claim_modes:
+  - EXCLUSIVE
+forbidden_existing_file_edits:
+  - converters/**
+  - parser/** except tests/fixtures only if explicitly required
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - any workflow file
+implementation_claims:
+  - writer patches exact fixed-field spans and preserves unrelated bytes
+  - Writer 1A never changes node numbers, topology, geometry, element count, section cardinality, or pointer ownership
+  - WT and qualified P1/T1/T2 are intended in-place ELEMENT mutations
+  - existing RIGID weight uses qualified pointer-bound row custody
+  - unsupported approved operations block apply and are never silently skipped
+  - restraint mutation remains blocked until explicit source-slot to target-slot authority exists
+validation_state: SOURCE_AUTHORITY_PASS_RUNTIME_PARTIAL
