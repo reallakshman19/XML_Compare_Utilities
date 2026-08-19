@@ -11,13 +11,14 @@ WORK_INTENT: DESIGN_AUTHORITY / ROADMAP
 CRITICALITY: ENGINEERING_CRITICAL_WRITER_AUTHORITY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR: 1002
+IMPLEMENTATION_ISSUE: 1003
 BRANCH: agent/cii-writer-1c-roadmap
 BASE_AT_GROUNDING: main@5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 PREDECESSOR: PR1001 merged -> 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 MERGE_AUTHORITY: OWNER_ONLY
 CURRENT_STAGE: DOCUMENTATION / IMPLEMENTATION CONTRACT
-CURRENT_BLOCKER: NONE FOR DOCUMENT REVIEW; WRITER 1C IMPLEMENTATION REQUIRES SEPARATE ISSUE/PR
-EXACT_NEXT_ACTION: review Writer 1C boundary and anti-drift programme; do not merge without owner authorization
+CURRENT_BLOCKER: NONE FOR DOCUMENT REVIEW; WRITER 1C IMPLEMENTATION IS OWNED BY ISSUE #1003
+EXACT_NEXT_ACTION: owner review PR1002; Writer 1C agent must answer Issue #1003 expert-qualification questions before coding; do not merge PR1002 without owner authorization
 ```
 
 ## Handover in 60 seconds
@@ -30,6 +31,8 @@ Writer 1C = pointer-stable + row-count-stable mutation
 ```
 
 It is **not** a catch-all for Writer 1B blockers.
+
+Implementation is delegated to **Issue #1003**, which contains the detailed source-level plan, anti-drift test matrix, Definition of Done, and three mandatory expert-qualification questions.
 
 First planned slice:
 
@@ -56,6 +59,7 @@ At grounding:
 main = 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 PR1001 = MERGED
 PR1002 = OPEN / DRAFT
+Issue1003 = OPEN / WRITER_1C_IMPLEMENTATION
 branch = agent/cii-writer-1c-roadmap
 production-code changes = 0
 ```
@@ -273,7 +277,21 @@ Writer 2 must be a relocation transaction engine, not a set of local pointer pat
 
 ---
 
-# 8. Changed-file ledger
+# 8. Implementation issue
+
+**Issue #1003 — `CII Writer 1C: pointer-stable auxiliary-record mutation with anti-drift qualification`** is the authoritative implementation handoff.
+
+It requires the next agent to answer three expert-screening questions before coding:
+
+1. shared NODENAME physical-span conflict/arbitration;
+2. SIF/TEE physical custody versus unqualified semantic authority;
+3. byte-level anti-drift falsifier where a requested edit succeeds but an unrelated pointer changes.
+
+Generic prose is insufficient; the answers must identify source paths, blocker behavior, physical invariants, and falsifying tests.
+
+---
+
+# 9. Changed-file ledger
 
 Expected PR1002 final files:
 
@@ -289,12 +307,13 @@ No production code should appear in this PR.
 
 ---
 
-# 9. Validation truth
+# 10. Validation truth
 
 ```text
 main grounding: PASS_SOURCE_INSPECTION
 Writer 1C source-boundary audit: PASS_SOURCE_INSPECTION
 documentation diff: PASS_GIT_COMPARE
+Issue #1003 implementation handoff: CREATED
 production code execution: NOT_APPLICABLE
 browser execution: NOT_APPLICABLE
 Writer 1C tests: NOT_APPLICABLE_TO_DOC_PR
