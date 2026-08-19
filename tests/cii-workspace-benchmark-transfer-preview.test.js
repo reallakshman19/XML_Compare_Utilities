@@ -76,7 +76,7 @@ for (const { result, rows } of [target1, target2]) {
   assert.strictEqual(plan.policy.topologyProtected, true);
   assert.strictEqual(plan.policy.odProtected, true);
   assert.strictEqual(plan.policy.wallProtected, false);
-  assert.strictEqual(result.writerReadiness.ready, false, 'mixed benchmark approvals contain operations outside Writer 1A and must fail closed');
+  assert.strictEqual(result.writerReadiness.ready, false, 'mixed benchmark approvals contain HANGER/SIF operations outside Writer 1A and must fail closed');
   assert(result.writerReadiness.blockers.some((item) => item.includes('WRITER_1A_UNSUPPORTED_OPERATION')));
   assert.strictEqual(result.audit.mutationAuthority.stage06, 'WRITER_1A_BLOCKED');
   assert.strictEqual(result.audit.mutationAuthority.modifiedTargetCiiExport, 'BLOCKED');
@@ -84,9 +84,25 @@ for (const { result, rows } of [target1, target2]) {
 
   const restraintCode = op(plan, rows.n130.correspondenceId, 'Restraint code set');
   assert(restraintCode);
-  assert.strictEqual(restraintCode.action, 'COPY');
-  assert.strictEqual(restraintCode.status, 'PREVIEW_READY');
+  assert.strictEqual(restraintCode.action, 'KEEP', 'aggregate restraint code evidence must not authorize target slot mutation');
+  assert.strictEqual(restraintCode.status, 'PROTECTED');
+  assert.strictEqual(restraintCode.policyAuthority, 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY');
   assert.deepStrictEqual(restraintCode.proposed, [15]);
+
+  const pairing = op(plan, rows.n130.correspondenceId, 'Qualified restraint record pairing');
+  assert(pairing, 'benchmark node130 must expose explicit restraint pointer/slot pairing');
+  assert.strictEqual(pairing.action, 'COPY');
+  assert.strictEqual(pairing.status, 'PREVIEW_READY');
+  assert.strictEqual(pairing.policyAuthority, 'CII_WRITER_1A_CARDINALITY_PRESERVING_RESTRAINT_SLOT');
+  assert.strictEqual(pairing.proposed.status, 'QUALIFIED');
+  assert.strictEqual(pairing.proposed.authority, 'SINGLETON_EQUAL_CARDINALITY');
+  assert.strictEqual(pairing.proposed.sourceCount, 1);
+  assert.strictEqual(pairing.proposed.targetCount, 1);
+  assert.strictEqual(pairing.proposed.pairs.length, 1);
+  assert.strictEqual(pairing.proposed.pairs[0].proposed.typeCode, 15);
+  assert.strictEqual(String(pairing.proposed.pairs[0].proposed.node), String(rows.n130.targetNodeId), 'writer proposal must retain target-native restraint node');
+  assert.strictEqual(pairing.proposed.pairs[0].proposed.pointer, pairing.proposed.pairs[0].before.pointer, 'target pointer must not be copied from SOURCE');
+  assert.strictEqual(pairing.proposed.pairs[0].proposed.slot, pairing.proposed.pairs[0].before.slot, 'target slot must remain target-native');
 
   const hanger = op(plan, rows.n205.correspondenceId, 'Hanger presence');
   assert(hanger);
@@ -127,9 +143,16 @@ const t1Friction = op(target1.result.transferPlan, target1.rows.n130.corresponde
 assert(t1Friction);
 assert.deepStrictEqual(t1Friction.before, [0.3]);
 assert.deepStrictEqual(t1Friction.proposed, [0]);
-assert.strictEqual(t1Friction.action, 'COPY');
-assert.strictEqual(t1Friction.status, 'PREVIEW_READY');
+assert.strictEqual(t1Friction.action, 'KEEP');
+assert.strictEqual(t1Friction.status, 'PROTECTED');
+assert.strictEqual(t1Friction.policyAuthority, 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY');
+const t1Pair = op(target1.result.transferPlan, target1.rows.n130.correspondenceId, 'Qualified restraint record pairing');
+assert.strictEqual(t1Pair.proposed.pairs[0].before.friction, 0.3);
+assert.strictEqual(t1Pair.proposed.pairs[0].proposed.friction, 0);
 
 assert.strictEqual(op(target2.result.transferPlan, target2.rows.n130.correspondenceId, 'Restraint friction values'), null);
+const t2Pair = op(target2.result.transferPlan, target2.rows.n130.correspondenceId, 'Qualified restraint record pairing');
+assert.strictEqual(t2Pair.proposed.pairs[0].before.friction, 0);
+assert.strictEqual(t2Pair.proposed.pairs[0].proposed.friction, 0);
 
-console.log('CII real benchmark transfer-preview TARGET1/TARGET2 Writer 1A authority checks passed.');
+console.log('CII real benchmark transfer-preview TARGET1/TARGET2 restraint-pairing authority checks passed.');
