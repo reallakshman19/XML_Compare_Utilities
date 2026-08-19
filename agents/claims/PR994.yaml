@@ -26,7 +26,7 @@ authority_domains:
   - CII_METHOD_A_EVIDENCE_WEIGHT
   - CII_METHOD_B_TWO_AXIS_PIPE_RUN_EVIDENCE
   - CII_METHOD_B_SOURCE_OD_SCALED_GEOMETRIC_TOLERANCE
-  - CII_METHOD_B_3D_COMPLEXITY_WEIGHT
+  - CII_METHOD_B_CROSS_COMPATIBLE_3D_COMPLEXITY_WEIGHT
   - CII_BASE_ANCHOR_METHOD_QUALIFICATION
   - CII_CROSS_LOOP_IDENTITY_CONFLICT_VETO
 claim_modes:
@@ -49,9 +49,10 @@ implementation_claims:
   - TARGET OD never changes Method A or Method B tolerance
   - OD is tolerance-scale evidence only and never earns identity score or candidate preference
   - Method B HIGH/MEDIUM requires at least two independent undirected pipe runs on both SOURCE and TARGET
-  - Method B geometry complexity weight increases from one-axis to two-axis to planar multi-axis to genuine non-coplanar 3D geometry
+  - Method B extra planar/full-3D weight is earned only by additional cross-revision compatible mapped runs, not by unrelated raw extra axes
+  - changed third run may leave a qualified two-axis basis READY but receives only two-axis complexity credit
   - opposite collinear rays merge to one run
   - WT process values and node-number offsets remain excluded from Method B identity
   - first-success and majority-vote identity arbitration are forbidden
-validation_state: FOCUSED_EXACT_BLOB_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_COORDINATE_BENCHMARK_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
+validation_state: FOCUSED_EXACT_BLOB_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_THIRD_RUN_NEGATIVE_REGRESSION_PASS_COORDINATE_BENCHMARK_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
 merge_disposition: OWNER_ONLY_NO_MERGE_AUTHORITY
