@@ -82,4 +82,18 @@ assert.strictEqual(mixed.status, 'READY');
 assert.strictEqual(mixed.methodAReadyCount, 1);
 assert.strictEqual(mixed.methodBReadyCount, 0, 'one-axis Method B remains REVIEW without blocking ready Method A loop');
 
+const conflicting = qualifyCiiMultiBaseAuthority({
+  methodABases: [
+    baseA1,
+    { ...baseA2, baseId: 'A-CONFLICT', anchorPairs: [
+      { sourceNodeId: '10', targetNodeId: '9999', source: point(10000, 0, 0), target: point(10000, -200, 0) },
+      { sourceNodeId: '320', targetNodeId: '3320', source: point(10100, 0, 0), target: point(10100, -200, 0) },
+      { sourceNodeId: '330', targetNodeId: '3330', source: point(10000, 100, 0), target: point(10000, -100, 0) },
+    ] },
+  ],
+});
+assert.strictEqual(conflicting.status, 'AMBIGUOUS');
+assert.strictEqual(conflicting.reason, 'CROSS_LOOP_ANCHOR_IDENTITY_CONFLICT');
+assert(conflicting.conflicts.some((row) => row.kind === 'SOURCE_TO_MULTIPLE_TARGETS' && row.key === '10'));
+
 console.log('CII independent multi-base A/B OR authority checks passed.');
