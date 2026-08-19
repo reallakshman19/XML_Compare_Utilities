@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - qualification/emp1-source-bytes-1261
+  pull_request:
 
 permissions:
   contents: read
@@ -66,7 +67,7 @@ jobs:
           pdftoppm -f 24 -l 31 -png -r 160 "$caux" "$out/caux-pages/page" >/dev/null
 
           python - <<'PY'
-          import hashlib, json, os
+          import hashlib, json
           from pathlib import Path
 
           base = 'dc1371afcd44c12de86b2dad6eddf00f1f0b3c55'
