@@ -43,7 +43,6 @@ function common(delta, family, action, status, blockers = [], extra = {}) {
   });
 }
 function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READY) { return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready; }
-
 function writerWall(delta) {
   if (delta.property !== 'Wall thickness') return null;
   const blockers = [];
@@ -70,7 +69,11 @@ function writerOd(delta) {
   return common(delta, 'PIPE_SIZE', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY, [],
     { policyAuthority: 'CII_WRITER_1B_CONDITIONAL_OD_FIXED_FIELD' });
 }
-function writerRestraint(delta) {
+function writerRestraint(delta, options = {}) {
+  if (options.writerVersion === '1A' && delta.property === 'Restraint presence' && delta.changed) {
+    return common(delta, 'RESTRAINT', actionFromPresence(delta.sourceValue, delta.targetValue), CII_TRANSFER_STATUSES.BLOCKED,
+      ['RESTRAINT_RECORD_CARDINALITY_CHANGE_WRITER_1A'], { policyAuthority: 'CII_WRITER_1A_EQUAL_CARDINALITY_ONLY' });
+  }
   if (delta.property === 'Qualified restraint record pairing') {
     const pairing = delta.sourceValue || {}; const blockers = [];
     if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING')) blockers.push('RESTRAINT_POINTER_SLOT_PAIRING_AUTHORITY_REQUIRED');
@@ -89,8 +92,6 @@ function writerRestraint(delta) {
       policyAuthority: 'CII_WRITER_1B_EXISTING_BLOCK_FIXED_SLOT', proposedValue: plan, restraintSlotMutation: true,
     });
   }
-  // Presence and aggregate rows are review evidence. Executable authority is
-  // either equal-cardinality pairing or the explicit Writer 1B slot plan.
   return common(delta, 'RESTRAINT', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED, [], {
     protected: true, evidenceOnly: true, rawNumericSemantics: true, policyAuthority: 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY',
   });
@@ -114,7 +115,7 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     }
     return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.PREVIEW_READY);
   }
-  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writerRestraint(delta);
+  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writerRestraint(delta, options);
   if (delta.category === 'HANGER' && HANGER_PROPERTIES.has(delta.property)) {
     const blockers = [];
     if (!String(delta.authority || '').includes('CONTROL_NOHGRS_PLUS_MISCEL_1_IHGRNODE')) blockers.push('HANGER_NODE_PRESENCE_AUTHORITY_REQUIRED');
