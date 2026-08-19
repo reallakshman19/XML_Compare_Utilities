@@ -1,5 +1,6 @@
 name: EMP.1 pinned source byte observation
 
+# Temporary evidence-only workflow for Advanced_Analysis Issue #1261.
 on:
   push:
     branches:
