@@ -69,6 +69,7 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
   const transfer = container.querySelector('[data-ciiw-transfer]'); const stages = container.querySelector('[data-ciiw-stages]');
   const deltas = container.querySelector('[data-ciiw-deltas]'); const status = container.querySelector('[data-ciiw-status]');
   const targetInput = container.querySelector('[data-ciiw-target]'); const reviewButton = container.querySelector('[data-ciiw-refresh-review]');
+  const csvButton = container.querySelector('[data-ciiw-export-csv]'); const auditButton = container.querySelector('[data-ciiw-export-json]');
   const decisions = new Map(); let lastRaw = null; let lastKey = ''; let scopedPreview = null; let reviewDirty = false; let awaitingReviewBind = false; let disposed = false; let observer = null;
 
   const render = () => {
@@ -131,13 +132,29 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
   };
   const onBulk = (event) => {
     if (!event.target?.matches?.('[data-ciiw-accept-high], [data-ciiw-accept-medium]')) return;
-    reviewDirty = true; scopedPreview = null; queueMicrotask(render);
+    reviewDirty = true; scopedPreview = null;
+    const schedule = documentRef.defaultView?.queueMicrotask || globalThis.queueMicrotask || ((callback) => Promise.resolve().then(callback));
+    schedule(render);
   };
   const onReviewBind = () => { awaitingReviewBind = true; scopedPreview = null; };
+  const onScopedAuditExport = (event) => {
+    if (scopedPreview?.transferPlan?.transferScope?.status !== 'BOUND') return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    download(documentRef, 'cii-workspace-audit.json', scopedPreview.artifacts.auditJson, 'application/json');
+  };
+  const onScopedCsvExport = (event) => {
+    if (scopedPreview?.transferPlan?.transferScope?.status !== 'BOUND') return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    download(documentRef, 'cii-correspondence.csv', scopedPreview.artifacts.correspondenceCsv, 'text/csv');
+  };
   container.addEventListener('change', onDecisionChange, true); container.addEventListener('click', onBulk, true); reviewButton?.addEventListener('click', onReviewBind, true);
+  auditButton?.addEventListener('click', onScopedAuditExport, true); csvButton?.addEventListener('click', onScopedCsvExport, true);
   render();
   return {
-    destroy() { disposed = true; observer?.disconnect(); container.removeEventListener('change', onDecisionChange, true); container.removeEventListener('click', onBulk, true); reviewButton?.removeEventListener('click', onReviewBind, true); legacy.destroy(); },
+    destroy() {
+      disposed = true; observer?.disconnect(); container.removeEventListener('change', onDecisionChange, true); container.removeEventListener('click', onBulk, true);
+      reviewButton?.removeEventListener('click', onReviewBind, true); auditButton?.removeEventListener('click', onScopedAuditExport, true); csvButton?.removeEventListener('click', onScopedCsvExport, true); legacy.destroy();
+    },
     getCurrentResult() { return scopedPreview || legacy.getCurrentResult?.(); },
     getSelectedBaseLoops() { return legacy.getSelectedBaseLoops?.() || []; },
     getTransferScopePreview() { return scopedPreview; },
