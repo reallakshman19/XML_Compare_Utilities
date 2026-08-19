@@ -9,22 +9,34 @@ base_basis_sha: b0285e28274ae951e5b85a2a0dc3c38e765a510c
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: IMPLEMENTING
-pr_recovery_state: GROUNDED_IMPLEMENTATION_STARTED
+pr_recovery_state: INITIAL_EXECUTABLE_SLICE_COMPLETE_VALIDATION_PARTIAL
 handover_readiness: READY
 report_path: agents/PR991_workreport.md
 scope_authority: WRITER_1A_CARDINALITY_PRESERVING_TARGET_MUTATION
-validation_state: SOURCE_AUTHORITY_PASS_RUNTIME_PARTIAL
+validation_state: FOCUSED_WRITER_PASS_FULL_BENCHMARK_NOT_RUN
+merge_ready: false
 acceptance_matrix:
-  wt_existing_element: PLANNED
-  p1_existing_element: PLANNED
-  t1_existing_element: PLANNED
-  t2_existing_element: PLANNED
-  rigid_weight_existing_record: PLANNED
-  existing_restraint_fields: DEFERRED_PENDING_SLOT_MAPPING_AUTHORITY
+  wt_existing_element: IMPLEMENTED_FOCUSED_PASS
+  p1_existing_element: IMPLEMENTED_FOCUSED_PASS
+  t1_existing_element: IMPLEMENTED_FOCUSED_PASS
+  t2_existing_element: IMPLEMENTED_FOCUSED_PASS
+  rigid_weight_existing_record: IMPLEMENTED_FOCUSED_PASS
+  stale_target_hash_gate: IMPLEMENTED
+  reparse_negative_assurance: IMPLEMENTED
+  stage06_status_contract: FIXED_WRITER_1A_READINESS
+  target_mutation_export: ENABLED_CONDITIONALLY_AFTER_VALIDATION
+  existing_restraint_fields: NEXT_PENDING_SINGLE_RECORD_SLOT_AUTHORITY
+  node_name: PENDING_WRITER_1A_SUBSLICE
   od: DEFERRED_WRITER_1B
   sif_tee: DEFERRED_WRITER_1B
+  free_slot_restraint_create: DEFERRED_WRITER_1B
   pointer_cardinality_create_delete: BLOCKED_WRITER_2
   topology_mutation: BLOCKED_WRITER_3
-  stage06_status_contract: DEFECT_CONFIRMED
-  target_mutation_export: NOT_YET_ENABLED
-exact_next_action: implement byte-preserving ELEMENT WT/P1/T1/T2 and existing RIGID writer with focused round-trip tests; keep unsupported approved operations fail-closed
+validation:
+  protected_writer_element_layout_source_inspection: PASS
+  focused_target_writer_1a: PASS
+  real_target1_target2_writer_1a: NOT_RUN
+  inherited_cii_workspace_regression: NOT_RUN
+  browser_lifecycle: NOT_RUN
+  repo_local_backup_utility: NOT_RUN_ENVIRONMENT
+exact_next_action: qualify single-source-record to single-target-restraint-slot custody and implement existing-restraint in-place mutation; then run real TARGET1/TARGET2 Writer 1A and inherited regression suites in a complete checkout
