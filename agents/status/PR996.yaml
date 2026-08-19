@@ -13,12 +13,14 @@ mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
 merge_authority: OWNER_ONLY
 scope_authority: CII_BASE_ANCHOR_METHOD_DISCOVERY_AND_FUSION
 qualified_scope:
-  - BOUNDED_BIDIRECTIONAL_METHOD_A_CANDIDATE_POOL
+  - BOUNDED_DIVERSIFIED_METHOD_A_CANDIDATE_POOL
+  - METHOD_A_SEPARATE_CANDIDATE_SEARCH_FLOOR
   - ONE_TO_ONE_NONCOLLINEAR_METHOD_A_SEEDS
   - MUTUAL_SPATIAL_WINNER_EXPANSION
   - THREE_ANCHOR_AUTOMATIC_REVIEW_CAP
   - METHOD_A_SPATIAL_RUNNER_UP_SURFACING
   - METHOD_B_MUTUAL_BEST_AUTHORITY_PRESERVATION
+  - METHOD_B_WINNER_GAP_AUTHORITY_PRESERVATION
   - METHOD_A_AND_B_EVIDENCE_LABEL
   - METHOD_A_SPATIAL_LABEL
   - METHOD_B_NETWORK_LABEL
@@ -44,5 +46,5 @@ validation:
   browser_chromium: NOT_RUN_ENVIRONMENT
   ci: REFRESH_REQUIRED_EXACT_HEAD
 known_engineering_defect: NONE_IDENTIFIED_WITHIN_EXECUTED_NUMERICAL_SCOPE
-highest_risk: chance-congruent triplets; mitigated by one-to-one seeds, bidirectional structural plausibility, mutual spatial winner expansion, PR994 full-base consistency and 3-anchor REVIEW cap
+highest_risk: chance-congruent triplets; mitigated by diversified bounded search, one-to-one seeds, mutual spatial winner expansion, PR994 full-base consistency and 3-anchor REVIEW cap
 exact_next_action: execute focused JS and benchmark tests in a complete checkout; owner review afterward; do not merge without explicit authorization
