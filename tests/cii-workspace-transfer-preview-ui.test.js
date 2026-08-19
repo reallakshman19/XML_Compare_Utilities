@@ -8,8 +8,12 @@ assert(shell.includes('COPY ${h(byAction.COPY || 0)}'), 'Tab3 must expose COPY c
 assert(shell.includes('CREATE ${h(byAction.CREATE || 0)}'), 'Tab3 must expose CREATE count');
 assert(shell.includes('DELETE ${h(byAction.DELETE || 0)}'), 'Tab3 must expose DELETE count');
 assert(shell.includes('KEEP ${h(byAction.KEEP || 0)}'), 'Tab3 must expose KEEP count');
-assert(shell.includes('Geometry, node numbering, topology, OD and wall remain protected.'), 'Tab3 must state protected target model-defining properties');
-assert(/<button type="button" disabled data-ciiw-apply-target>Apply to target CII<\/button>/.test(shell), 'new Tab3 apply control must remain disabled');
-assert(/<button type="button" disabled data-ciiw-apply>Apply to target CII<\/button>/.test(shell), 'legacy Stage06 apply control must remain disabled');
+assert(shell.includes('Geometry, node numbering, topology and OD remain protected.'), 'Tab3 must retain Writer 1A model-structure protections');
+assert(shell.includes('TARGET MUTATION · WRITER 1A READY'), 'Tab3 must expose the qualified Writer 1A state');
+assert(shell.includes('TRANSFER PREVIEW · BLOCKED'), 'Tab3 must preserve the fail-closed state');
+assert(shell.includes("${readiness.ready ? '' : 'disabled'} data-ciiw-apply-target"), 'target apply button must be enabled only from Writer 1A readiness');
+assert(shell.includes('applyCiiWorkspaceTargetWriter1A(current, baseInput.targetText'), 'Tab3 apply must call the qualified Writer 1A core path');
+assert(shell.includes('unexpected semantic deltas ${applied.validation.unexpectedSemanticDeltaCount}'), 'UI must surface negative-assurance result after export');
+assert(!shell.includes('data-ciiw-apply>Apply to target CII'), 'legacy duplicate Stage06 apply control must be removed');
 
-console.log('CII Transfer Preview Tab3 action/protection UI checks passed.');
+console.log('CII Transfer Preview Writer 1A UI checks passed.');
