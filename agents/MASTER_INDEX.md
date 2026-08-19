@@ -4,7 +4,8 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR997 | CII full-screen method-qualified Base Anchor engineering UI | `agent/cii-fullscreen-anchor-evidence-ui` | DRAFT / IMPLEMENTATION COMPLETE / SOURCE REVIEW PASS / JS+BROWSER NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI | application-level full viewport; SOURCE→TARGET identity chrome; canonical Method A/B/A+B/Landmark evidence cards; structured details; existing Accept delegation | SAFE / successor to merged PR996 | execute focused UI + inherited shell lifecycle + Chromium in complete checkout; owner review; do not merge without explicit authorization |
+| PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | DRAFT / STACKED ON PR997 / AUTO IMPLEMENTATION COMPLETE / FOCUSED EXACT-BLOB PASS / FULL UI+BROWSER NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | SAFE STACKED SUCCESSOR TO PR997 / AUTO / OWNER-ONLY MERGE | reconcile exact head/checks and remain merge-ready; PR997 must integrate before/together with PR998 |
+| PR997 | CII full-screen method-qualified Base Anchor engineering UI | `agent/cii-fullscreen-anchor-evidence-ui` | DRAFT / IMPLEMENTATION COMPLETE / STACK BASE FOR PR998 / SOURCE REVIEW PASS / JS+BROWSER NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI | application-level full viewport; SOURCE→TARGET identity chrome; canonical Method A/B/A+B/Landmark evidence cards; structured details | SAFE / predecessor stack base for PR998 | preserve as separately reviewable presentation layer; owner-only merge |
 | PR996 | CII Base Anchor Method A/B discovery + fusion | `agent/cii-base-anchor-method-fusion` | MERGED 2026-08-19 · `df19d183` / retained JS+benchmark NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | diversified independent Method-A discovery; spatial runner-up recovery; evidence-derived A/B/A+B/Landmark labels; 3-anchor REVIEW cap; B mutual-best+gap preservation | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR995 | CII independent multi-base correspondence orchestration | `agent/cii-multi-base-orchestration` | MERGED 2026-08-19 · `d28e33c1` / retained full production+real benchmark NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | explicit A/B base loops in preview; per-loop correspondence; OR union; node/element conflict veto; A+B provenance; legacy anchor identity preservation | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | MERGED 2026-08-19 · `daf3be0a` / retained REAL BENCHMARK+FULL SUITE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
@@ -21,14 +22,63 @@ Live GitHub state is authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR997 — current CII full-screen Method A/B engineering UI
+## PR998 — current stacked multi-base UI authority fix
+
+PR998 fixes the remaining seam between PR997 presentation and the merged PR995 multi-base correspondence engine:
+
+```text
+engineer selects method-qualified cards
+          ↓
+METHOD A -> entire validated bestBase.anchorPairs
+METHOD B -> one qualified pair loop
+A+B      -> A loop OR B loop
+          ↓
+dedupe identical A base IDs only
+          ↓
+explicit baseLoops[]
+          ↓
+OR_WITH_CONFLICT_VETO
+```
+
+Key rules:
+
+- several selected cards may contribute simultaneously;
+- multiple cards belonging to the same Method-A local base dedupe that one base;
+- different Method-A local bases remain independent even when their rigid transforms differ;
+- contradictory Method-B claims are deliberately preserved for core custody conflict detection;
+- LANDMARK_ONLY remains a manual fallback and cannot become Method B from local run math alone;
+- qualified base-loop mode and manual legacy-anchor mode are mutually exclusive in the UI;
+- changing either authority mode invalidates stale correspondence/review/export state;
+- review refresh reuses the bound base input and cannot silently regress to legacy anchors;
+- no Method-A/Method-B mathematics, arbitration or Writer rule changes in PR998.
+
+The concept note was refreshed from its stale PR989-era baseline to document current production authority: `x*SOURCE_OD` tolerance (default x=2), Method A/B exact weights, multi-local-transform OR architecture, SOURCE 3/TARGET 3-1 benchmark, manual fallback separation and Writer/validation boundaries.
+
+Validation truth:
+
+```text
+base-loop selection helper syntax: PASS_LOCAL_EXECUTION
+base-loop selection projection test: PASS_LOCAL_EXECUTION_EXACT_BRANCH_BLOBS
+first local test failure: RESOLVED_TEST_FIXTURE_ERROR
+integration/seam review: PASS_SOURCE_INSPECTION
+focused full engineering UI: NOT_RUN_ENVIRONMENT
+inherited shell lifecycle: NOT_RUN_ENVIRONMENT
+browser / Chromium: NOT_RUN_ENVIRONMENT
+full repository suite: NOT_RUN_ENVIRONMENT
+```
+
+AUTO MODE is scoped to PR998 implementation/reconciliation only. Merge remains OWNER_ONLY.
+
+See `agents/PR998_workreport.md`, `agents/status/PR998.yaml`, and `agents/claims/PR998.yaml`.
+
+## PR997 — CII full-screen Method A/B engineering UI stack base
 
 PR997 exposes the already-qualified identity evidence as an engineering review workspace. It is deliberately not a new matching engine:
 
 ```text
 PR996 canonical Base Anchor suggestion
           |
-          +--> existing legacy shell / Accept control
+          +--> existing shell / acceptance workflow
           |
           +--> PR997 engineering presentation
                     |
@@ -47,9 +97,7 @@ Production/UI rules:
 - Method B shows independent runs, axes, lengths, element counts, terminators, compatible dimension, OD-scaled tolerance, mutual-best and winner-gap gates;
 - local Method-B run-basis READY is distinguished from actual Method-B authority;
 - A+B is corroboration only; scores are not summed;
-- rotation matrices and run mappings are structured under expandable evidence rather than dumped as JSON;
-- the existing Base Anchor table stays in the DOM for acceptance authority, but is hidden only when the engineering wrapper is active;
-- the new card delegates acceptance to the existing control.
+- rotation matrices and run mappings are structured under expandable evidence rather than dumped as JSON.
 
 Validation truth:
 
