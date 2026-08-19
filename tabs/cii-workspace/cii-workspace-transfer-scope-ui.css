@@ -1,0 +1,6 @@
+.ciiw-transfer-scope{margin:0 0 14px;padding:14px;border:1px solid rgba(120,130,145,.35);border-radius:10px;background:rgba(120,130,145,.06)}
+.ciiw-transfer-scope header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 10px}
+.ciiw-transfer-scope h3{margin:0 0 4px;font-size:1rem}.ciiw-transfer-scope p{margin:0}.ciiw-transfer-scope small{display:block;opacity:.78;margin-top:3px}
+.ciiw-transfer-scope-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.ciiw-transfer-scope table{width:100%;border-collapse:collapse}.ciiw-transfer-scope th,.ciiw-transfer-scope td{padding:7px 8px;text-align:left;vertical-align:top;border-bottom:1px solid rgba(120,130,145,.2)}
+.ciiw-transfer-scope select{min-width:92px}.ciiw-transfer-scope-status{font-weight:700}.ciiw-transfer-scope-status[data-state="BOUND"]{color:var(--success,#16803a)}.ciiw-transfer-scope-status[data-state="INVALID"],.ciiw-transfer-scope-status[data-state="UNBOUND"]{color:var(--warning,#a86100)}
+.ciiw-transfer-excluded{margin-top:14px;padding-top:10px;border-top:1px dashed rgba(120,130,145,.35)}
