@@ -32,6 +32,14 @@ function loopCorrespondence(sourceGraph, targetGraph, loop, options) {
   if (loop.method === 'USER_LOCKED_LEGACY') return buildLegacyCorrespondence(sourceGraph, targetGraph, loop, options);
   return blockedCorrespondence(`UNSUPPORTED_MULTI_BASE_LOOP_METHOD:${loop.method || 'UNKNOWN'}`);
 }
+function legacySingleLoopResult(loopResults) {
+  if (loopResults.length !== 1 || loopResults[0].loop.method !== 'USER_LOCKED_LEGACY') return null;
+  const item = loopResults[0]; const ready = item.correspondence?.status === 'READY';
+  return deepFreeze({ ...item.correspondence, combination: 'LEGACY_SINGLE_LOOP_COMPATIBILITY',
+    readyLoopCount: ready ? 1 : 0, unresolvedReadyBaseLoopCount: ready ? 0 : 1,
+    contributingLoopIds: Object.freeze(ready ? [String(item.loop.loopId)] : []), loopResults: deepFreeze(loopResults),
+    conflicts: Object.freeze([]) });
+}
 
 export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, options = {}) {
   if (!multiBaseAuthority || multiBaseAuthority.status === 'UNAVAILABLE') {
@@ -47,5 +55,5 @@ export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiB
   const loopResults = (multiBaseAuthority.loops || []).filter((loop) => loop.status === 'READY').map((loop) => deepFreeze({
     loop, correspondence: loopCorrespondence(sourceGraph, targetGraph, loop, options),
   }));
-  return arbitrateCiiLoopCorrespondences(loopResults);
+  return legacySingleLoopResult(loopResults) || arbitrateCiiLoopCorrespondences(loopResults);
 }
