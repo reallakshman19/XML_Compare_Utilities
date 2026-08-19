@@ -82,7 +82,17 @@ assert.strictEqual(b3.status, 'READY');
 assert.strictEqual(b3.source.geometry.dimension, 'FULL_3D');
 assert.strictEqual(b3.target.geometry.dimension, 'FULL_3D');
 assert.strictEqual(b3.weight.geometryComplexity, 40);
+assert.strictEqual(b3.weight.compatibleIndependentRunCount, 3);
 assert(b3.weight.geometryComplexity > b2.weight.geometryComplexity, 'genuine 3D geometry must receive more weight than two-axis geometry');
+
+const threeAxisTargetBadThird = graph([
+  edge('TX', 'T0', 'T1', 0, 10000, 0, 88.9), edge('TY', 'T0', 'T2', -9000, 0, 0, 88.9), edge('TZ', 'T0', 'T3', 0, 0, 20000, 88.9),
+]);
+const b3BadThird = qualifyCiiMethodBRunBasis(threeAxisSource, threeAxisTargetBadThird, 'S0', 'T0');
+assert.strictEqual(b3BadThird.status, 'READY', 'compatible two-axis evidence may remain READY when an unrelated third run changes');
+assert.strictEqual(b3BadThird.target.geometry.dimension, 'FULL_3D', 'target still has three raw independent directions');
+assert.strictEqual(b3BadThird.weight.compatibleIndependentRunCount, 2, 'changed third run must not earn cross-revision 3D complexity credit');
+assert.strictEqual(b3BadThird.weight.geometryComplexity, 24);
 
 const planarSource = graph([
   edge('PX', 'P0', 'P1', 10000, 0, 0), edge('PY', 'P0', 'P2', 0, 9000, 0), edge('PD', 'P0', 'P3', 6000, 6000, 0),
