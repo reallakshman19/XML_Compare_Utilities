@@ -19,6 +19,7 @@ const [sourceText, target1Text, target2Text] = await Promise.all([
   text('../Benchmark/CIICompare/BM_CII_TARGET2.CII'),
 ]);
 const policy = Object.freeze({
+  writerVersion: '1A',
   cryptoRef: webcrypto,
   spatialToleranceMm: 100,
   diameterToleranceRatio: 0.10,
@@ -38,6 +39,7 @@ async function writerSlice(targetText, targetFileName, targetAnchor) {
     anchorPairs: [{ sourceNodeId: '10', targetNodeId: String(targetAnchor) }],
   };
   const first = await createCiiWorkspacePreview(baseInput, policy);
+  assert.strictEqual(first.writerVersion, '1A');
   const sizeEdge = edgeRow(first, '250', '255');
   assert(sizeEdge, 'Benchmark must establish SOURCE 250→255 correspondence without deriving target numbering from an offset.');
   const review = updateCiiReviewDecisions(first.review, {
@@ -76,5 +78,4 @@ async function writerSlice(targetText, targetFileName, targetAnchor) {
 
 await writerSlice(target1Text, 'BM_CII_TARGET1.CII', '20010');
 await writerSlice(target2Text, 'BM_CII_TARGET2.CII', '10010');
-
 console.log('CII real TARGET1/TARGET2 Writer 1A round-trip checks passed.');
