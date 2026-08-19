@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { inspectCiiWorkspaceModels } from '../tabs/cii-workspace/cii-workspace-core.js';
+import { createCiiWorkspacePreview, inspectCiiWorkspaceModels } from '../tabs/cii-workspace/cii-workspace-core.js';
 import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-intake.js';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
 import { qualifyCiiGeometryTransform } from '../tabs/cii-workspace/cii-workspace-geometry.js';
@@ -118,5 +118,29 @@ assert(Math.abs(realMethodB.tolerancePolicy.odRefMm - 114.3) < 1e-9);
 assert(Math.abs(realMethodB.tolerancePolicy.toleranceMm - 228.6) < 1e-9);
 assert.strictEqual(realMethodB.status, 'READY', 'real two-axis benchmark basis must qualify Method B');
 assert(realMethodB.weight.geometryComplexity >= 24, 'qualified real two-axis evidence must earn at least two-axis geometry weight');
+
+// Workspace-level orchestration: the same real local region is submitted as independent A OR B loops.
+// A READY correspondence is sufficient for the union; if whole-component B propagation encounters a revised region,
+// its unresolved result must remain diagnostic and must not poison the valid A loop.
+const realPreview = await createCiiWorkspacePreview({
+  sourceText: source3Text, sourceFileName: 'SOURCE 3.CII', targetText: target31Text, targetFileName: 'TARGET 3-1.CII',
+  baseLoops: [
+    { baseId: 'REAL_A_60930', method: 'METHOD_A', anchorPairs: [
+      { sourceNodeId: '60920', targetNodeId: '7290' },
+      { sourceNodeId: '60930', targetNodeId: '7300' },
+      { sourceNodeId: '60940', targetNodeId: '7310' },
+    ] },
+    { baseId: 'REAL_B_60930', method: 'METHOD_B', sourceNodeId: '60930', targetNodeId: '7300' },
+  ],
+}, { cryptoRef: webcrypto });
+assert.strictEqual(realPreview.multiBaseAuthority.status, 'READY');
+assert.strictEqual(realPreview.multiBaseAuthority.methodAReadyCount, 1);
+assert.strictEqual(realPreview.multiBaseAuthority.methodBReadyCount, 1);
+assert.strictEqual(realPreview.multiBaseCorrespondence.status, 'READY');
+assert(realPreview.multiBaseCorrespondence.contributingLoopIds.includes('REAL_A_60930'),
+  'real Method A loop must contribute an end-to-end workspace correspondence');
+assert(realPreview.multiBaseCorrespondence.loopResults.some((row) => row.loop.loopId === 'REAL_B_60930'),
+  'real Method B loop result must remain auditable even if revised downstream geometry stops its propagation');
+assert.strictEqual(realPreview.multiBaseCorrespondence.combination, 'OR_WITH_CONFLICT_VETO');
 
 console.log('CII real benchmark OD-scaled multi-base checks passed.');
