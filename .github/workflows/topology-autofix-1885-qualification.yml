@@ -73,3 +73,113 @@ jobs:
           path: qualification-evidence/topology-1885
           if-no-files-found: error
           retention-days: 14
+
+  emp1-source-observation:
+    name: TEMP EMP.1 pinned PDF observation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact evidence branch head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prove PDF blobs match pinned source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="dc1371afcd44c12de86b2dad6eddf00f1f0b3c55"
+          wrc="docs/emp.1/WRC537_2013.pdf"
+          caux="docs/emp.1/CAUx 2017 - WRC01f.pdf"
+          git cat-file -e "$base^{commit}"
+
+          for path in "$wrc" "$caux"; do
+            expected="$(git rev-parse "$base:$path")"
+            actual="$(git hash-object "$path")"
+            printf '%s\n  expected_blob=%s\n  actual_blob=%s\n' "$path" "$expected" "$actual"
+            test "$actual" = "$expected"
+          done
+
+          test "$(git hash-object "$wrc")" = "ce861233928154145a9257efbbf8dbef3f5a17d1"
+          test "$(git hash-object "$caux")" = "76573b41462943b2987e28b23ebbbf7e51ac0a02"
+          test "$(stat --printf='%s' "$wrc")" = "1443744"
+          test "$(stat --printf='%s' "$caux")" = "7260396"
+
+      - name: Prepare PDF tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v pdftotext >/dev/null 2>&1 || ! command -v pdftoppm >/dev/null 2>&1 || ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y poppler-utils
+          fi
+
+      - name: Compute raw hashes and extract bounded review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$PWD/qualification-evidence/emp1-source-observation"
+          mkdir -p "$out/wrc-pages" "$out/caux-pages"
+          wrc="docs/emp.1/WRC537_2013.pdf"
+          caux="docs/emp.1/CAUx 2017 - WRC01f.pdf"
+
+          sha256sum "$wrc" "$caux" > "$out/raw-sha256.txt"
+          stat --printf='%s  %n\n' "$wrc" "$caux" > "$out/byte-counts.txt"
+          git hash-object "$wrc" > "$out/wrc-git-blob-sha1.txt"
+          git hash-object "$caux" > "$out/caux-git-blob-sha1.txt"
+          pdfinfo "$wrc" > "$out/WRC537_2013.pdfinfo.txt"
+          pdfinfo "$caux" > "$out/CAUx_2017_WRC01f.pdfinfo.txt"
+
+          pdftotext -layout "$wrc" "$out/WRC537_2013.txt"
+          pdftotext -f 24 -l 31 -layout "$caux" "$out/CAUx_2017_WRC01f_pp24-31.txt"
+          pdftoppm -f 24 -l 31 -png -r 180 "$caux" "$out/caux-pages/page" >/dev/null
+
+          # Formula/sign pages are expected near the front of the bulletin.
+          pdftoppm -f 1 -l 20 -png -r 160 "$wrc" "$out/wrc-pages/front" >/dev/null
+
+          # Retained SP/SM curve-table locators span these physical page numbers.
+          for page in 51 52 54 56 58 60 62 64 66 68 70 71 74 76 78 80 82 84 86 89; do
+            pdftoppm -f "$page" -l "$page" -singlefile -png -r 180 "$wrc" "$out/wrc-pages/table-${page}" >/dev/null
+          done
+
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          base = 'dc1371afcd44c12de86b2dad6eddf00f1f0b3c55'
+          rows = []
+          for source_id, path, blob, expected_size in [
+              ('WRC537_2013', Path('docs/emp.1/WRC537_2013.pdf'), 'ce861233928154145a9257efbbf8dbef3f5a17d1', 1443744),
+              ('CAUX_2017_WRC01F', Path('docs/emp.1/CAUx 2017 - WRC01f.pdf'), '76573b41462943b2987e28b23ebbbf7e51ac0a02', 7260396),
+          ]:
+              data = path.read_bytes()
+              rows.append({
+                  'sourceId': source_id,
+                  'path': str(path),
+                  'pinnedCommit': base,
+                  'gitBlobSha1': blob,
+                  'expectedByteCount': expected_size,
+                  'observedByteCount': len(data),
+                  'rawPdfSha256': hashlib.sha256(data).hexdigest(),
+                  'byteCountMatches': len(data) == expected_size,
+              })
+          out = Path('qualification-evidence/emp1-source-observation/source-observation.json')
+          out.write_text(json.dumps({
+              'schema': 'emp1-source-byte-observation/v1',
+              'status': 'PASS' if all(r['byteCountMatches'] for r in rows) else 'FAIL',
+              'sources': rows,
+              'authorityNote': 'Observed on an unmerged evidence branch after proving both PDF blobs equal the exact pinned source commit. No source PDF byte is modified by this branch.'
+          }, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat "$out/source-observation.json"
+
+      - name: Upload EMP.1 source observation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: emp1-source-observation-${{ github.event.pull_request.head.sha }}
+          path: qualification-evidence/emp1-source-observation
+          if-no-files-found: error
+          retention-days: 14
