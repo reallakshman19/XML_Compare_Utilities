@@ -56,6 +56,7 @@ assert(corroborated.includes('METHOD A + METHOD B'), 'canonical A+B basis label 
 assert(corroborated.includes('A + B corroborated'), 'A+B must be presented as corroboration');
 assert(corroborated.includes('A+B acceptance creates two independent OR loops'), 'A+B UI must state that acceptance does not fuse the methods');
 assert(corroborated.includes('Add 2 OR bases'), 'A+B action must project two independent loops');
+assert(corroborated.includes('data-ciiw-selection-key="10=&gt;110"'), 'base selection key must use the data-ciiw-* lifecycle namespace');
 assert(corroborated.includes('RMS residual'), 'Method A RMS residual must be visible without raw JSON');
 assert(corroborated.includes('1.41 mm'), 'Method A max residual must be visible');
 assert(corroborated.includes('2 mm'), 'Method A OD-scaled tolerance must be visible');
