@@ -16,7 +16,7 @@ BRANCH: agent/cii-base-anchor-method-fusion
 BASE: main@d28e33c1b4fd4facf559c218a36367149e270777
 MERGE_AUTHORITY: OWNER_ONLY
 CURRENT_STAGE: VALIDATE / RECONCILE
-GROUNDING_EPOCH: GE-003 / 2026-08-19
+GROUNDING_EPOCH: GE-004 / 2026-08-19
 APPENDIX_A_STATUS: PASS_FOR_CURRENT_INCREMENT
 CURRENT_BLOCKER: COMPLETE-CHECKOUT JAVASCRIPT TESTS NOT_RUN_ENVIRONMENT
 EXACT_NEXT_ACTION: execute focused JS and benchmark tests in a complete checkout; owner review; do not merge without explicit authorization
@@ -26,11 +26,11 @@ EXACT_NEXT_ACTION: execute focused JS and benchmark tests in a complete checkout
 
 PR994 qualified Method A/B mathematics. PR995 connected explicit independent A/B base loops to workspace correspondence. PR996 upgrades Base Anchor suggestions from Method-B-only labels to independent automatic Method A discovery plus A/B evidence fusion.
 
-The key authority correction is that Method A is **not restricted to the structural mutual-best winner**. Structural evidence generates a bounded bidirectionally plausible candidate pool; local rigid registration then independently selects spatially consistent source-target pairs. A spatially proven structural runner-up can therefore surface as `METHOD_A_SPATIAL`. Method B still requires the structural mutual-best gate and two independent pipe runs.
+The key authority correction is that Method A is **not restricted to the structural mutual-best winner**. Structural evidence generates a bounded bidirectionally plausible candidate pool; local rigid registration then independently selects spatially consistent source-target pairs. A spatially proven structural runner-up can therefore surface as `METHOD_A_SPATIAL`. Method B remains stricter: it requires the structural mutual-best candidate, the existing two-independent-run basis, and the configured winner-gap gate.
 
 ## Live ground truth
 
-- base at GE-003: `main@d28e33c1b4fd4facf559c218a36367149e270777`
+- base at GE-004: `main@d28e33c1b4fd4facf559c218a36367149e270777`
 - predecessor PR995: merged by squash at that SHA
 - PR996: draft/open
 - branch: `agent/cii-base-anchor-method-fusion`
@@ -56,13 +56,15 @@ Method A qualification requires membership in at least one READY non-collinear l
 ```text
 structural/landmark evidence
        ↓ candidate generation only
-bounded forward top-N + reverse top-N plausible pairs
+bounded forward + reverse plausible candidates
+       ↓
+round-robin SOURCE-rank seed selection
        ↓
 one-to-one non-collinear triplet seeds
        ↓
 PR994 rigid registration qualification
        ↓
-all pairs tested against seed transform with x*SOURCE_OD tolerance
+all selected pairs tested against seed transform with x*SOURCE_OD tolerance
        ↓
 unique minimum-residual candidate per SOURCE
 AND unique minimum-residual candidate per TARGET
@@ -84,18 +86,28 @@ public suggestion pool:
 Per pair:
 
 ```text
-A READY + qualified B READY   -> METHOD_A_AND_B
-A READY only                  -> METHOD_A_SPATIAL
-qualified B READY only        -> METHOD_B_NETWORK
-neither                       -> LANDMARK_ONLY
+A READY + fully qualified B     -> METHOD_A_AND_B
+A READY only                    -> METHOD_A_SPATIAL
+fully qualified B only          -> METHOD_B_NETWORK
+neither                         -> LANDMARK_ONLY
+```
+
+A fully qualified B pair means:
+
+```text
+Method-B run basis READY
+AND structural mutual-best
+AND winnerGap >= requiredWinnerGap
 ```
 
 ## `cii-workspace-anchor-method-a.js`
 
 New bounded Method-A discovery module.
 
-- default seed-pair limit: 12;
-- max raw triplets before one-to-one/geometry rejection: C(12,3)=220;
+- default selected seed-pair limit: 16;
+- max raw triplets before one-to-one/geometry rejection: C(16,3)=560;
+- seed selection is `ROUND_ROBIN_BY_SOURCE_CANDIDATE_RANK`, so high-scoring first candidates from one SOURCE do not crowd out all other SOURCE identities and runner-up evidence;
+- duplicate spatial expansions are cached by canonical base membership before full-base requalification;
 - default returned base limit: 24;
 - seed triplets must be one-to-one in SOURCE and TARGET;
 - seed qualification reuses `qualifyCiiGeometryTransform()` from PR994;
@@ -109,12 +121,15 @@ New bounded Method-A discovery module.
 ## `cii-workspace-anchor-suggestions.js`
 
 - structural score remains candidate-generation evidence only;
-- Method-A candidate generation defaults to top 3 forward candidates and reverse top 3 plausibility, configurable;
+- Method B keeps existing `baseAnchorMinimumScore` default 65;
+- Method A has a separate broader candidate-search floor `methodAMinimumCandidateScore`, default 55; passing 55 grants no identity authority, it only permits the pair to enter spatial hypothesis testing;
+- Method-A discovery considers the source nodes that can be surfaced by the suggestion result (`methodASourceCandidateLimit`, default suggestion limit), with top 3 forward and reverse top 3 candidate plausibility by default;
 - structural mutual-best candidates remain visible for engineer review even when spatial evidence rejects them;
 - a non-mutual structural runner-up becomes visible only if a READY Method-A base independently proves it;
-- Method B may retain local run diagnostics for surfaced candidates but obtains Method-B basis authority only for the structural mutual-best candidate;
+- Method B may retain local run diagnostics for surfaced candidates but obtains `METHOD_B_NETWORK` authority only when run basis + mutual-best + winner-gap all pass;
+- non-authoritative Method-B weight is excluded from suggestion ranking;
 - A+B scores are not summed; suggestion confidence is the strongest independently qualified method;
-- candidate metadata records source rank, target rank, mutual-best state and candidate-only authority role;
+- candidate metadata records source rank, target rank, mutual-best state, Method-A search floor, and candidate-only authority role;
 - node-number offset, OD-as-identity and WT remain excluded.
 
 ## Focused regressions authored
@@ -193,12 +208,12 @@ Must remain unchanged:
 
 - RISK-001 chance congruent triplets: mitigated by bidirectional structural plausibility, one-to-one seeds, mutual spatial winner expansion, full PR994 requalification and 3-anchor REVIEW cap.
 - RISK-002 hidden global base: independent local bases are retained; mixed transform evidence is rejected by PR994 basis consistency. Independent oracle demonstrates a 6.5x cross-region residual.
-- RISK-003 combinatorial growth: default Method-A pool is bounded to 12 pairs / 220 raw triplets.
-- RISK-004 spatially correct structural runner-up: allowed to surface through Method A only; Method B authority remains unavailable until its own mutual-best gate is satisfied.
+- RISK-003 combinatorial growth: default seed pool is 16 pairs / 560 raw triplets; duplicate expansions are cached before full requalification.
+- RISK-004 spatially correct structural runner-up: allowed to surface through Method A only; Method B authority remains unavailable until its own run-basis, mutual-best and winner-gap gates pass.
 
 ## Changed-file ledger
 
-Expected permanent PR diff after WIP retirement:
+Expected permanent PR diff:
 
 ```text
 agents/MASTER_INDEX.md
@@ -225,7 +240,7 @@ The missing boundary is automatic Method-A base discovery and A/B suggestion fus
 
 ### A3 Authority / Invariant — PASS
 
-One point cannot establish Method A. Structural candidate generation cannot masquerade as spatial authority. Method A and Method B remain independent OR evidence; Method B retains mutual-best + two-run authority gates.
+One point cannot establish Method A. Structural candidate generation cannot masquerade as spatial authority. Method A and Method B remain independent OR evidence; Method B retains run-basis + mutual-best + winner-gap authority gates.
 
 ### A4 Independent Validation — PASS_FOR_IMPLEMENTATION
 
