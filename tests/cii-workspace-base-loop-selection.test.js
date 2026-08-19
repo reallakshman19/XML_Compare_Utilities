@@ -9,10 +9,12 @@ function methodABase(baseId = 'A_LOCAL_1', pairs = [['10','110'],['20','120'],['
 }
 function methodB(status = 'READY') { return { status }; }
 function row(sourceNodeId, targetNodeId, basisMethod, overrides = {}) {
+  const hasA = basisMethod === 'METHOD_A_SPATIAL' || basisMethod === 'METHOD_A_AND_B';
+  const hasB = basisMethod === 'METHOD_B_NETWORK' || basisMethod === 'METHOD_A_AND_B';
   return {
     sourceNodeId, targetNodeId, basisMethod,
-    methodA: basisMethod.includes('METHOD_A') ? methodABase() : { status: 'UNAVAILABLE' },
-    methodB: basisMethod.includes('METHOD_B') ? methodB() : null,
+    methodA: hasA ? methodABase() : { status: 'UNAVAILABLE' },
+    methodB: hasB ? methodB() : null,
     ...overrides,
   };
 }
