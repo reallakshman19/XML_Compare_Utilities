@@ -4,8 +4,8 @@
 **Repository:** `reallaksh19/XML_Compare_Utilities`  
 **Authority direction:** `SOURCE CII -> TARGET CII`  
 **Live-state rule:** GitHub `main`, PR state and repository work reports are authoritative for merge/execution state.  
-**Engineering baseline:** Method A/B authority and multi-base orchestration introduced through PRs #994–#996; this concept note also defines the full-screen/multi-base UI integration required by Issue #993.  
-**Primary objective:** establish defensible local correspondence across complex revised piping models, separate identity from engineering differences, preserve engineer approval, and permit only qualified TARGET mutation with full audit custody.
+**Engineering baseline:** Method A/B authority and multi-base orchestration introduced through PRs #994–#996; PRs #997–#999 connect that authority to the full-screen engineering review and human-readable transfer workflow; the current transfer-scope increment binds explicit APPLY/EXCLUDE custody before Writer readiness.  
+**Primary objective:** establish defensible local correspondence across complex revised piping models, separate identity from engineering differences, preserve engineer approval, and permit only explicitly scoped, qualified TARGET mutation with full audit custody.
 
 ---
 
@@ -27,7 +27,7 @@ The product must answer four independent engineering questions:
 1. **Input qualification** — what was loaded and parsed, and what is unsupported or unresolved?
 2. **Identity / correspondence** — what SOURCE object corresponds to what TARGET object, and which independent local evidence established that claim?
 3. **Engineering difference / approval** — after identity is established, what changed and what has the engineer accepted/rejected/locked?
-4. **Qualified TARGET mutation** — which approved values may be written without violating fixed-field, topology, pointer, cardinality or custody rules?
+4. **Qualified TARGET mutation** — which approved deltas are explicitly selected to APPLY, which are EXCLUDED, and which selected values may actually be written without violating fixed-field, topology, pointer, cardinality or custody rules?
 
 These questions must never be collapsed into one score.
 
@@ -67,7 +67,7 @@ The protected external writer:
 
 is a format authority and is not modified by CII Workspace.
 
-## 2.2 Identity and engineering difference are separate
+## 2.2 Identity, engineering difference and mutation scope are separate
 
 Authoritative pipeline:
 
@@ -79,8 +79,9 @@ PARSE
   -> ARBITRATE CROSS-BASE CLAIMS
   -> REVIEW IDENTITY
   -> CALCULATE ENGINEERING DELTAS
-  -> APPROVE / EXCLUDE
-  -> TRANSFER PREVIEW
+  -> CLASSIFY TRANSFER OPERATIONS
+  -> EXPLICITLY BIND APPLY / EXCLUDE SCOPE
+  -> WRITER READINESS ON APPLY SET ONLY
   -> QUALIFIED WRITER
   -> REPARSE / NEGATIVE ASSURANCE
   -> EXPORT
@@ -91,7 +92,9 @@ Examples:
 - restraint code may change while node identity remains HIGH;
 - OD may change while topology identity remains valid;
 - a local reroute may invalidate one spatial base while another distant base remains valid;
-- Method B may establish the same network position even where geometry moved beyond a spatial registration tolerance.
+- Method B may establish the same network position even where geometry moved beyond a spatial registration tolerance;
+- an identity may be approved while one of its engineering deltas is deliberately EXCLUDED from mutation;
+- an unsupported delta may remain visible and auditable without blocking an unrelated qualified APPLY operation, provided the unsupported delta is explicitly EXCLUDED.
 
 ## 2.3 Node numbering is never identity authority
 
@@ -222,7 +225,7 @@ different SOURCES -> same TARGET
 
 These are identity custody conflicts and remain `AMBIGUOUS`.
 
-## 2.8 Candidate evidence is not Writer authority
+## 2.8 Candidate evidence and identity approval are not Writer authority
 
 Required order:
 
@@ -230,14 +233,65 @@ Required order:
 candidate evidence
  -> canonical correspondence
  -> canonical engineering delta
- -> engineer approval / transfer selection
- -> selected Writer operation
+ -> identity approval
+ -> transfer classification
+ -> explicit APPLY / EXCLUDE selection
+ -> selected Writer operation set
  -> Writer readiness
  -> mutation
  -> reparse / negative assurance
 ```
 
-Never route a raw candidate directly into Writer 1A/1B.
+Never route a raw candidate, an approved correspondence, or an unbound transfer proposal directly into Writer 1A/1B.
+
+## 2.9 Transfer scope is exact custody, not a display filter
+
+A transfer scope is bound to:
+
+```text
+SOURCE content SHA-256
+TARGET content SHA-256
+exact mutable candidate operation-ID set
+one explicit decision per mutable operation:
+  APPLY
+  EXCLUDE
+```
+
+The scope is invalid if:
+
+```text
+SOURCE hash changed
+OR TARGET hash changed
+OR an expected operation is missing
+OR a new operation appeared
+OR an operation is duplicated
+OR a decision is invalid
+```
+
+`EXCLUDE` means:
+
+```text
+retain operation in audit custody
+remove operation from Writer operations[]
+keep effective TARGET equal to current TARGET
+```
+
+It does **not** mean:
+
+```text
+convert unsupported mutation into KEEP
+hide the operation from audit
+weaken Writer readiness
+```
+
+A selected unsupported APPLY operation remains a Writer blocker.
+
+If every mutable operation is EXCLUDED:
+
+```text
+TRANSFER_SCOPE_NO_APPLY_OPERATIONS
+=> no mutation authority
+```
 
 ---
 
@@ -805,19 +859,41 @@ Do not put `stableStringify()` object dumps into primary cells.
 
 Identity must be bound before engineering deltas are authoritative.
 
-Primary grid should remain human readable:
+Primary human-readable grid:
 
 ```text
-Approval | Correspondence | Confidence | Category | Property |
-SOURCE | TARGET | Difference | Transfer state
+Approval
+Identity
+Category / property
+SOURCE candidate
+Current TARGET
+Effective TARGET after apply
+Engineering change
+Evidence / authority
+```
+
+An approved correspondence is still not mutation scope.
+
+Before transfer scope is bound:
+
+```text
+Effective TARGET after apply = Current TARGET
+state = explicit scope required / preview rebuild as applicable
+```
+
+After scope is bound:
+
+```text
+APPLY + Writer READY -> Effective TARGET = selected proposed value
+EXCLUDE               -> Effective TARGET = Current TARGET; state EXCLUDED
+BLOCKED / PROTECTED   -> Effective TARGET = Current TARGET
 ```
 
 Examples:
 
 ```text
-130 <-> 20130 | RESTRAINT | Type code | 15 | 9   | changed
-130 <-> 20130 | RESTRAINT | Direction | Z  | X   | changed
-130 <-> 20130 | RESTRAINT | Friction  | 0  | 0.3 | target-write delta
+130 <-> 20130 | RESTRAINT | Type code | SOURCE 15 | TARGET 9   | EXCLUDE -> TARGET stays 9
+130 <-> 20130 | RESTRAINT | Friction  | SOURCE 0  | TARGET 0.3 | APPLY only if Writer-qualified
 ```
 
 Raw SIF/restraint pairing payloads move to evidence/details.
@@ -826,7 +902,7 @@ Engineering deltas never feed back into identity unless explicitly classified as
 
 ---
 
-# 11. Transfer Preview
+# 11. Transfer Preview and explicit mutation scope
 
 Transfer direction must be explicit:
 
@@ -836,22 +912,112 @@ Current TARGET
 Effective TARGET after apply
 ```
 
-For protected/blocked operations, `Effective TARGET after apply` must show the unchanged TARGET.
+For protected, blocked, unbound or excluded operations, `Effective TARGET after apply` must show the unchanged TARGET.
 
 Do not display a SOURCE value under a misleading `Proposed target` heading when Writer authority cannot apply it.
 
-Transfer selection boundary:
+## 11.1 Two separate approvals
+
+Do not conflate:
 
 ```text
-identity approval
-  -> engineering delta
-  -> APPLY / EXCLUDE
-  -> Writer readiness across selected APPLY operations
+Correspondence decision:
+  ACCEPT / LOCK / REJECT
 ```
 
-An explicitly excluded unsupported operation remains visible/auditable but should not block unrelated selected Writer-qualified operations.
+with:
 
-Global hard blockers remain global, including stale TARGET/review identity, fixed-field preimage mismatch, duplicate/pointer/cardinality drift and selected unsupported operations.
+```text
+Mutation-scope decision:
+  APPLY / EXCLUDE
+```
+
+Correspondence approval establishes identity custody. APPLY/EXCLUDE establishes mutation custody.
+
+## 11.2 Scope binding contract
+
+For every mutable classified transfer candidate, the engineer must bind exactly one decision:
+
+```text
+operationId -> APPLY
+operationId -> EXCLUDE
+```
+
+The bound scope records:
+
+```text
+schema = CIIWorkspaceTransferScope.v1
+authority = USER_EXPLICIT_OPERATION_SCOPE
+SOURCE SHA-256
+TARGET SHA-256
+candidateOperationIds[]
+appliedOperationIds[]
+excludedOperationIds[]
+scopeId
+```
+
+The operation-ID set must match exactly when the scope is used. No implicit default APPLY is allowed for a newly appearing operation.
+
+## 11.3 APPLY semantics
+
+An APPLY operation remains in:
+
+```text
+transferPlan.operations[]
+```
+
+Writer readiness evaluates it without weakened policy.
+
+If APPLY selects an unsupported, blocked or otherwise unqualified mutation:
+
+```text
+Writer readiness = BLOCKED
+```
+
+## 11.4 EXCLUDE semantics
+
+An EXCLUDE operation moves to:
+
+```text
+transferPlan.excludedOperations[]
+```
+
+It remains in:
+
+- scoped audit JSON;
+- transfer-scope counts/IDs;
+- explicit excluded-operation UI;
+- engineering-delta presentation as `EXCLUDED`.
+
+It is absent from Writer `operations[]` and therefore cannot mutate TARGET or poison unrelated qualified APPLY operations.
+
+## 11.5 Stale-scope rules
+
+Fail closed on:
+
+```text
+TRANSFER_SCOPE_SOURCE_HASH_MISMATCH
+TRANSFER_SCOPE_TARGET_HASH_MISMATCH
+TRANSFER_SCOPE_OPERATION_SET_MISMATCH
+TRANSFER_SCOPE_DUPLICATE_OPERATION:<id>
+TRANSFER_SCOPE_DECISION_INVALID
+```
+
+If all mutable operations are EXCLUDE:
+
+```text
+TRANSFER_SCOPE_NO_APPLY_OPERATIONS
+```
+
+and Writer mutation remains blocked.
+
+## 11.6 Export custody
+
+Before scope binding, ordinary audit export may represent the pre-scope reviewed preview.
+
+After scope binding, product export controls must emit the **scoped** artifacts so there is no competing unscoped audit presented as the mutation authority.
+
+The scoped audit retains both selected operations and excluded operations.
 
 ---
 
@@ -881,6 +1047,8 @@ Includes qualified extensions such as:
 - other existing auxiliary-record edits only after exact ownership/field qualification.
 
 OD mutation is not blanket PIPE_SIZE authority. It must remain topology-closed and round-trip qualified.
+
+Explicit transfer scope does not extend Writer 1B's whitelist. It only determines which already-classified operations Writer 1B is asked to evaluate.
 
 ## Writer 2 — pointer/cardinality-aware auxiliary changes
 
@@ -979,9 +1147,17 @@ Required focused qualification includes:
 - contradictory B selections preserved to core arbitration;
 - manual mode clearing explicit qualified-base selection;
 - complete SOURCE 3 -> TARGET 3-1 workspace path;
+- unbound transfer scope blocks product Writer readiness;
+- APPLY-qualified + EXCLUDE-unsupported permits only the qualified mutation;
+- selected unsupported APPLY remains blocked;
+- all-EXCLUDE scope has no mutation authority;
+- SOURCE/TARGET hash mismatch invalidates scope;
+- missing/new/duplicate operation IDs invalidate scope;
+- EXCLUDED delta remains visible with effective TARGET unchanged;
+- scoped audit retains excluded operations while Writer operations exclude them;
 - Writer round trip and negative assurance for every mutation class.
 
-Tolerance must never be loosened merely to make one benchmark pass.
+Tolerance, Writer policy and transfer classifications must never be loosened merely to make one benchmark or transfer-scope scenario pass.
 
 ---
 
@@ -1003,19 +1179,23 @@ PR992  Writer 1B qualified slice
 PR994  independent Method A/B core + x*SOURCE_OD policy
 PR995  independent multi-base correspondence orchestration
 PR996  automatic Method-A discovery + Method-A/Method-B fusion
+PR997  full-viewport Method A/B evidence UI
+PR998  multi-base UI selection -> explicit baseLoops[]
+PR999  human-readable delta / effective TARGET transfer presentation
 ```
 
-Issue #993 UI/integration work then adds:
+Current Issue #993 transfer-scope increment adds:
 
 ```text
-full-viewport engineering evidence presentation
-  -> multi-base engineer selection
-  -> explicit baseLoops[] handoff to PR995 core
-  -> human-readable Compare/Delta/Transfer cleanup
-  -> APPLY/EXCLUDE transfer-selection boundary
+classified reviewed operations
+  -> explicit APPLY / EXCLUDE for every mutable operation
+  -> exact SOURCE/TARGET hash + operation-set binding
+  -> selected operations[] / audit-retained excludedOperations[]
+  -> Writer readiness on selected APPLY set only
+  -> scoped audit/export custody
 ```
 
-The presentation layer must not become a second matching engine.
+The presentation layer must not become a second matching engine or a second Writer policy engine.
 
 ---
 
@@ -1035,14 +1215,19 @@ Do not:
 - silently mix manual legacy anchors with explicit method-qualified base loops;
 - expose one local transform as a fake global transform;
 - route a candidate directly to Writer;
-- weaken Writer 1B to make Transfer Preview appear ready;
+- treat identity ACCEPT as implicit mutation APPLY;
+- default a newly appearing transfer operation to APPLY under an old scope;
+- implement EXCLUDE by converting an unsupported operation to KEEP;
+- drop EXCLUDED operations from audit custody;
+- weaken Writer 1B to make a selected unsupported operation appear ready;
+- export an unscoped audit as the mutation authority after a scope is bound;
 - represent NOT_RUN validation as PASS.
 
 ---
 
 # 17. Governing summary
 
-The CII Compare Workspace identity architecture is:
+The CII Compare Workspace architecture is:
 
 ```text
 structural candidate discovery
@@ -1063,11 +1248,17 @@ cross-loop canonical arbitration
         ↓
 engineering deltas
         ↓
-engineer approval / APPLY-EXCLUDE
+identity approval
+        ↓
+classified transfer candidates
+        ↓
+explicit APPLY / EXCLUDE scope
+        ↓
+Writer readiness on APPLY set only
         ↓
 qualified Writer
         ↓
-reparse + negative assurance + audit export
+reparse + negative assurance + scoped audit export
 ```
 
-For complex 3D piping revisions, **local independence is a requirement, not a fallback**.
+For complex 3D piping revisions, **local identity independence and explicit mutation custody are requirements, not fallbacks**.
