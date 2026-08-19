@@ -4,8 +4,8 @@ pr_or_wip: PR991
 mission: CII target Writer 1A cardinality-preserving mutation
 workstream: cii-writer-1a
 branch: agent/cii-writer-1a
-base_branch: agent/cii-writer-roadmap-doc
-base_basis_sha: b0285e28274ae951e5b85a2a0dc3c38e765a510c
+base_branch: main
+base_basis_sha: 87123aa6f7ba0980c9cd94c3ff4f479601cfccf7
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: QUALIFICATION_CLOSED_OWNER_EXCEPTION
@@ -46,5 +46,5 @@ acceptance_matrix:
   free_slot_restraint_create: DEFERRED_WRITER_1B
   pointer_cardinality_create_delete: BLOCKED_WRITER_2
   topology_mutation: BLOCKED_WRITER_3
-dependency_state: PR990_READY_TO_MERGE_THEN_RETARGET_PR991_TO_MAIN
-exact_next_action: merge PR990 dependency, retarget PR991 to main, verify incremental diff unchanged, then merge exact PR991 head under owner-authorized environmental qualification exception
+dependency_state: PR990_MERGED_AT_87123aa6f7ba0980c9cd94c3ff4f479601cfccf7
+exact_next_action: verify incremental diff against main, mark PR991 ready, and merge exact head under owner-authorized environmental qualification exception
