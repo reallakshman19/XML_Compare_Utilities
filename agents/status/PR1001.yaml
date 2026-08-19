@@ -24,6 +24,7 @@ shell_lifecycle: NOT_RUN_ENVIRONMENT
 source3_target3_browser: NOT_RUN_ENVIRONMENT
 chromium: NOT_RUN_ENVIRONMENT
 full_repository_suite: NOT_RUN_ENVIRONMENT
-expected_final_changed_files: 14
-temporary_wip_files: MUST_BE_DELETED
-next_action: remove WIP records, update MASTER_INDEX, reconcile exact head/diff/checks and remain draft until owner merge authorization
+final_changed_files: 14_EXPECTED_14_ACTUAL_0_UNEXPLAINED
+behind_main_at_reconciliation: 0
+temporary_wip_files: NONE
+next_action: live head/check/review reconciliation; owner review; do not merge without explicit authorization
