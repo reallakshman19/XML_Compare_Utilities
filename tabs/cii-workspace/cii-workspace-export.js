@@ -28,6 +28,9 @@ function transferFields(row, transferPlan) {
     blockers: uniqueStrings(operations.flatMap((item) => item.blockers || [])).join('|'),
   };
 }
+function reviewProjection(row, compareReview) {
+  return (compareReview?.rows || []).find((item) => item.correspondenceId === row.correspondenceId) || null;
+}
 
 export function correspondenceRowsToCsv(correspondence, context = {}) {
   const rows = [
@@ -36,15 +39,19 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
     ...(correspondence?.componentRows || []),
   ].map((row) => {
     const transfer = transferFields(row, context.transferPlan);
+    const projection = reviewProjection(row, context.compareReview);
     return {
       kind: row.kind,
       operation: rowOperation(row),
-      confidence: row.status,
+      confidence: projection?.confidence || row.status,
+      workflowStatus: row.status,
       source: rowSource(row),
       target: rowTarget(row),
       correspondenceId: row.correspondenceId,
       authority: row.authority || '',
       reviewDecision: reviewDecision(row, context.review),
+      engineeringChangeCount: projection?.changeCount || 0,
+      engineeringChangeFamilies: (projection?.changeFamilies || []).join('|'),
       evidence: row.evidence ? stableStringify(row.evidence) : '',
       transferProperties: transfer.properties,
       transferCustodies: transfer.custodies,
@@ -52,7 +59,7 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       blockers: transfer.blockers,
     };
   });
-  const headers = ['kind', 'operation', 'confidence', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
+  const headers = ['kind', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }
 
@@ -63,7 +70,7 @@ export function ciiWorkspaceAuditToJson(audit) {
 export function ciiWorkspaceArtifactBundle(result) {
   const review = result?.audit?.review || result?.review || {};
   return Object.freeze({
-    correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, { review, transferPlan: result?.transferPlan }),
+    correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, { review, transferPlan: result?.transferPlan, compareReview: result?.compareReview }),
     auditJson: ciiWorkspaceAuditToJson(result?.audit),
     modifiedTargetCii: null,
   });

@@ -4,6 +4,8 @@ export const CII_WORKSPACE_SCHEMAS = Object.freeze({
   anchor: 'CIIWorkspaceAnchor.v1',
   candidateEvidence: 'CIIWorkspaceCandidateEvidence.v1',
   correspondence: 'CIIWorkspaceCorrespondence.v1',
+  engineeringDeltaSet: 'CIIWorkspaceEngineeringDeltaSet.v1',
+  compareReview: 'CIIWorkspaceCompareReview.v1',
   reviewLedger: 'CIIWorkspaceReviewLedger.v1',
   transferPlan: 'CIIWorkspaceTransferPlan.v1',
   transferOperation: 'CIIWorkspaceTransferOperation.v1',
