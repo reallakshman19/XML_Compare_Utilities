@@ -118,18 +118,21 @@ function finalMethodBWeight(methodB, winner, gap, requiredGap) {
     mutualBestWinnerGap: Number(mutualBestWinnerGap.toFixed(3)), total: Number(total.toFixed(3)),
   });
 }
-function methodBQualified(methodB, row) { return row.mutualBest && methodB?.status === 'READY'; }
-function methodBConfidence(weight, gap, requiredGap, methodB, row) {
-  if (!methodBQualified(methodB, row) || gap < requiredGap) return 'REVIEW';
-  if (weight.total >= 80 && gap >= Math.max(requiredGap, 12)) return 'HIGH';
+function methodBQualified(methodB, row, requiredGap) {
+  return row.mutualBest && methodB?.status === 'READY' && row.winnerGap >= requiredGap;
+}
+function methodBConfidence(weight, requiredGap, methodB, row) {
+  if (!methodBQualified(methodB, row, requiredGap)) return 'REVIEW';
+  if (weight.total >= 80 && row.winnerGap >= Math.max(requiredGap, 12)) return 'HIGH';
   if (weight.total >= 65) return 'MEDIUM';
   return 'REVIEW';
 }
-function methodBBasis(methodB, weight, row) {
+function methodBBasis(methodB, weight, row, requiredGap) {
   if (!methodB) return ['Method B unavailable'];
   const sourceCount = methodB.source?.independentAxisRunCount || 0; const targetCount = methodB.target?.independentAxisRunCount || 0;
   if (methodB.status !== 'READY') return [`Method B REVIEW: independent runs ${sourceCount}/${targetCount}; ${methodB.reason}`];
   if (!row.mutualBest) return [`Method B REVIEW: local run basis qualifies but structural candidate is rank ${row.sourceRank}/${row.targetRank}, not mutual-best`];
+  if (row.winnerGap < requiredGap) return [`Method B REVIEW: winner gap ${row.winnerGap.toFixed(3)} < required ${requiredGap.toFixed(3)}`];
   const basis = methodB.selectedBasis;
   return [`Method B PASS: ${methodB.weight.sourceDimension}/${methodB.weight.targetDimension}; independent runs ${sourceCount}/${targetCount}`,
     `OD-scaled tolerance ${methodB.tolerancePolicy.toleranceMm.toFixed(3)} mm = ${methodB.tolerancePolicy.factor} × SOURCE OD ${methodB.tolerancePolicy.odRefMm.toFixed(3)} mm`,
@@ -142,8 +145,8 @@ function methodABasis(methodA) {
     `registered max residual ${Number(base.maxResidualMm || 0).toFixed(3)} mm; normalized ${Number(base.maxNormalizedResidual || 0).toFixed(3)}; basis ${base.selectedBasisId}`,
     `OD-scaled tolerance factor ${factor} × SOURCE OD; local bases containing pair ${methodA.baseCount}`];
 }
-function basisMethod(methodA, methodB, row) {
-  const a = methodA?.status === 'READY'; const b = methodBQualified(methodB, row);
+function basisMethod(methodA, methodB, row, requiredGap) {
+  const a = methodA?.status === 'READY'; const b = methodBQualified(methodB, row, requiredGap);
   if (a && b) return 'METHOD_A_AND_B';
   if (a) return 'METHOD_A_SPATIAL';
   if (b) return 'METHOD_B_NETWORK';
@@ -152,13 +155,15 @@ function basisMethod(methodA, methodB, row) {
 function strongestConfidence(left, right) {
   return (CONFIDENCE_RANK[left] || 0) >= (CONFIDENCE_RANK[right] || 0) ? left : right;
 }
-function suggestionConfidence(methodA, methodB, methodBResult, row) {
+function suggestionConfidence(methodA, methodB, methodBResult, row, requiredGap) {
   const a = methodA?.status === 'READY' ? (methodA.confidence || 'REVIEW') : 'REVIEW';
-  const b = methodBQualified(methodB, row) ? methodBResult : 'REVIEW';
+  const b = methodBQualified(methodB, row, requiredGap) ? methodBResult : 'REVIEW';
   return strongestConfidence(a, b);
 }
-function methodStrength(methodA, methodBWeight) {
-  return Math.max(Number(methodA?.bestBase?.weight?.total || 0), Number(methodBWeight?.total || 0));
+function methodStrength(suggestion) {
+  const a = Number(suggestion.methodA?.bestBase?.weight?.total || 0);
+  const b = ['METHOD_B_NETWORK', 'METHOD_A_AND_B'].includes(suggestion.basisMethod) ? Number(suggestion.methodBWeight?.total || 0) : 0;
+  return Math.max(a, b);
 }
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
@@ -182,24 +187,24 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
     const multiBase = qualifyCiiMultiBaseAuthority({ sourceGraph, targetGraph,
       methodBAnchors: [{ baseId: `SUGGESTION_B_${sourceNodeId}_${targetNodeId}`, sourceNodeId, targetNodeId }] }, options);
     const methodB = multiBase.loops[0]?.evidence || null; const methodBWeight = finalMethodBWeight(methodB, row.winner, row.winnerGap, requiredGap);
-    const bConfidence = methodBConfidence(methodBWeight, row.winnerGap, requiredGap, methodB, row);
+    const bConfidence = methodBConfidence(methodBWeight, requiredGap, methodB, row);
     return deepFreeze({
       schema: CII_WORKSPACE_SCHEMAS.baseAnchorSuggestion, sourceNodeId, targetNodeId,
       status: 'SUGGESTED', authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED', reviewRequired: true,
-      basisMethod: basisMethod(methodA, methodB, row), methodA, methodAWeight: methodA.bestBase?.weight || null,
-      methodB, methodBWeight, confidence: suggestionConfidence(methodA, methodB, bConfidence, row),
+      basisMethod: basisMethod(methodA, methodB, row, requiredGap), methodA, methodAWeight: methodA.bestBase?.weight || null,
+      methodB, methodBWeight, confidence: suggestionConfidence(methodA, methodB, bConfidence, row, requiredGap),
       score: Number(row.winner.score.toFixed(3)), winnerGap: Number(row.winnerGap.toFixed(3)), requiredWinnerGap: requiredGap,
       candidateGeneration: deepFreeze({ method: row.mutualBest ? 'MUTUAL_BEST_STRUCTURAL_LANDMARK' : 'BIDIRECTIONAL_STRUCTURAL_CANDIDATE_FOR_METHOD_A',
         authorityRole: 'CANDIDATE_GENERATION_ONLY', score: Number(row.winner.score.toFixed(3)), sourceRank: row.sourceRank,
         targetRank: row.targetRank, mutualBest: row.mutualBest, sourceWinnerGap: Number(row.sourceGap.toFixed(3)), targetWinnerGap: Number(row.targetGap.toFixed(3)) }),
-      basis: Object.freeze([...row.winner.basis, ...methodABasis(methodA), ...methodBBasis(methodB, methodBWeight, row)]),
+      basis: Object.freeze([...row.winner.basis, ...methodABasis(methodA), ...methodBBasis(methodB, methodBWeight, row, requiredGap)]),
       identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE', 'WALL_NOT_USED']),
     });
   });
   const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
   suggestions.sort((a, b) => (order[a.confidence] - order[b.confidence])
     || Number(b.basisMethod === 'METHOD_A_AND_B') - Number(a.basisMethod === 'METHOD_A_AND_B')
-    || methodStrength(b.methodA, b.methodBWeight) - methodStrength(a.methodA, a.methodBWeight)
+    || methodStrength(b) - methodStrength(a)
     || b.winnerGap - a.winnerGap || compareNodeIds(a.sourceNodeId, b.sourceNodeId));
   return deepFreeze(suggestions.slice(0, limit));
 }
