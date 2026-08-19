@@ -13,8 +13,8 @@ const [sourceText, target1Text, target2Text, source3Text, target31Text] = await 
   text('../Benchmark/CIICompare/BM_CII_SOURCE.CII'),
   text('../Benchmark/CIICompare/BM_CII_TARGET1.CII'),
   text('../Benchmark/CIICompare/BM_CII_TARGET2.CII'),
-  text('../Benchmark/CIICompare/SOURCE-3.CII'),
-  text('../Benchmark/CIICompare/TARGET3-1.CII'),
+  text('../Benchmark/CIICompare/SOURCE 3.CII'),
+  text('../Benchmark/CIICompare/TARGET 3-1.CII'),
 ]);
 
 async function inspect(targetText, targetFileName) {
@@ -74,10 +74,10 @@ for (const pair of [pair1, pair2]) {
 // Real multi-base benchmark added to main on 2026-08-19.
 // The same SOURCE/TARGET file pair contains multiple incompatible node-number offsets,
 // so a single global node-offset registration policy is demonstrably invalid.
-const source3 = await graphFrom(source3Text, 'SOURCE-3.CII', 'SOURCE');
-const target31 = await graphFrom(target31Text, 'TARGET3-1.CII', 'TARGET');
-assert.strictEqual(source3.edges.length, 219, 'SOURCE-3 CONTROL declares 219 ELEMENT records');
-assert.strictEqual(target31.edges.length, 223, 'TARGET3-1 CONTROL declares 223 ELEMENT records');
+const source3 = await graphFrom(source3Text, 'SOURCE 3.CII', 'SOURCE');
+const target31 = await graphFrom(target31Text, 'TARGET 3-1.CII', 'TARGET');
+assert.strictEqual(source3.edges.length, 219, 'SOURCE 3 CONTROL declares 219 ELEMENT records');
+assert.strictEqual(target31.edges.length, 223, 'TARGET 3-1 CONTROL declares 223 ELEMENT records');
 
 const knownCorrespondences = [
   { source: ['20000', '20010'], target: ['7000', '7010'], offset: -13000, label: 'base-A' },
@@ -90,7 +90,7 @@ for (const row of knownCorrespondences) {
   assert.strictEqual(Number(row.target[0]) - Number(row.source[0]), row.offset, `${row.label}: benchmark offset custody changed`);
 }
 assert.strictEqual(new Set(knownCorrespondences.map((row) => row.offset)).size, 3,
-  'SOURCE-3/TARGET3-1 must retain at least three incompatible local node-number offsets');
+  'SOURCE 3/TARGET 3-1 must retain at least three incompatible local node-number offsets');
 
 // Real Method A basis around the 60930 ↔ 7300 direction change.
 // 60920→60930 is vertical; 60930→60940 is horizontal, so the three anchors are non-collinear.
