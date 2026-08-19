@@ -1,0 +1,51 @@
+schema: AgentClaim.v1
+pr_or_wip: PR992
+claim_state: ACTIVE_HANDOVER_READY
+files:
+  exact:
+    - agents/MASTER_INDEX.md
+    - agents/PR992_workreport.md
+    - agents/status/PR992.yaml
+    - agents/claims/PR992.yaml
+    - parser/sections/elements.js
+    - tabs/cii-workspace/cii-workspace-topology-adapter.js
+    - tabs/cii-workspace/cii-workspace-engineering-delta.js
+    - tabs/cii-workspace/cii-workspace-restraint-transfer.js
+    - tabs/cii-workspace/cii-workspace-transfer-policy.js
+    - tabs/cii-workspace/cii-workspace-transfer-plan.js
+    - tabs/cii-workspace/cii-workspace-target-writer.js
+    - tabs/cii-workspace/cii-workspace-core.js
+    - tabs/cii-workspace/cii-workspace-placeholders.js
+    - tabs/cii-workspace/cii-workspace-shell.js
+    - tests/cii-workspace-target-writer-1b.test.js
+    - tests/cii-workspace-restraint-slot-writer-1b.test.js
+    - tests/cii-workspace-transfer-preview-policy.test.js
+    - tests/cii-workspace-transfer-preview-ui.test.js
+authority_domains:
+  - CII_WRITER_1B_ELEMENT_FIXED_FIELDS
+  - CII_WRITER_1B_CONDITIONAL_OD
+  - CII_WRITER_1B_EXISTING_RESTRAINT_SLOT
+  - CII_WRITER_1B_NEGATIVE_ASSURANCE
+claim_modes:
+  - EXCLUSIVE
+forbidden_existing_file_edits:
+  - converters/**
+  - parser/fixed-field.js
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - any workflow file
+implementation_claims:
+  - extended ELEMENT mutation follows protected-writer exact row/field layout only
+  - extended process/density fields remain downstream engineering evidence and never enter M1/M2 identity
+  - OD mutation is conditional and never a blanket PIPE_SIZE write authority
+  - OD Writer 1B requires plain PIPE plus zero reducer pointer on SOURCE and TARGET and no BEND/RIGID semantic transition
+  - restraint slot create/clear uses only an already-owned 24-row block and preserves its pointer and row cardinality
+  - restraint slot mutation is limited to one net addition or deletion per qualified node in this slice
+  - restraint slot metadata must be empty; Writer 1B does not create/delete tag or GUID text
+  - ambiguous existing-record pairing fails closed
+  - SIF/TEE remains blocked because semantic payload fields are not qualified
+  - unsupported selected operations block apply and are never silently skipped
+  - modified target must reparse with zero unexpected semantic deltas before export
+validation_state: SOURCE_QUALIFIED_IMPLEMENTATION_IN_PROGRESS_RUNTIME_NOT_RUN
