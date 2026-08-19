@@ -1,4 +1,4 @@
-import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
+import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableStringify } from './cii-workspace-contracts.js';
 import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
@@ -15,6 +15,7 @@ import { buildCiiCompareReviewModel } from './cii-workspace-compare-review.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
+import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -40,14 +41,17 @@ function geometryPairs(sourceGraph, targetGraph, anchors) {
     return left && right ? [{ source: left, target: right, sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }] : [];
   });
 }
-function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks) {
+function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks, writerReadiness) {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.audit, direction: 'SOURCE_TO_TARGET',
     source: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256, summary: sourceDocument.summary }),
     target: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, summary: targetDocument.summary }),
     lockedAnchors: anchors, landmarkSuggestions: landmarks, geometry, automaticPathAudit: pathAudit,
-    correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan,
-    mutationAuthority: Object.freeze({ stage06: 'NOT_IMPLEMENTED', modifiedTargetCiiExport: 'BLOCKED' }),
+    correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan, writerReadiness,
+    mutationAuthority: Object.freeze({
+      stage06: writerReadiness.ready ? 'WRITER_1A_READY' : 'WRITER_1A_BLOCKED',
+      modifiedTargetCiiExport: writerReadiness.ready ? 'WRITER_1A_CONDITIONAL' : 'BLOCKED',
+    }),
   });
 }
 function inspectionSummary(document, graph) {
@@ -69,6 +73,67 @@ function inspectionSide(document, graph, options) {
 function buildBaseCorrespondence(sourceGraph, targetGraph, anchors, options) {
   if (anchors.length === 1) return propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options);
   return compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, options);
+}
+function sameNumber(a, b, tolerance = 1e-9) {
+  const left = Number(a); const right = Number(b);
+  return Number.isFinite(left) && Number.isFinite(right)
+    && Math.abs(left - right) <= Math.max(tolerance, Math.abs(right) * 1e-12);
+}
+function elementMutationMap(writerResult, targetGraph) {
+  const edges = new Map((targetGraph?.edges || []).map((edge) => [String(edge.elementId), edge])); const out = new Map();
+  const fieldMap = { WT: 'wall', P1: 'P1', T1: 'T1', T2: 'T2' };
+  for (const mutation of writerResult?.mutations || []) {
+    if (mutation.section !== 'ELEMENTS') continue;
+    const edge = edges.get(String(mutation.elementId)); if (!edge) continue;
+    const index = Number(edge.parsedElementIndex); if (!out.has(index)) out.set(index, {});
+    out.get(index)[fieldMap[mutation.field] || mutation.field] = Number(mutation.proposed);
+  }
+  return out;
+}
+function rigidMutationMap(writerResult) {
+  return new Map((writerResult?.mutations || [])
+    .filter((item) => item.section === 'RIGID')
+    .map((item) => [Number(item.pointer), Number(item.proposed)]));
+}
+function validateElementCustody(beforeDocument, afterDocument, targetGraph, writerResult, errors) {
+  const before = beforeDocument?.parsed?.elements || []; const after = afterDocument?.parsed?.elements || [];
+  if (before.length !== after.length) { errors.push('ELEMENT_COUNT_CHANGED'); return; }
+  const mutations = elementMutationMap(writerResult, targetGraph);
+  const immutableFields = ['from', 'to', 'dx', 'dy', 'dz', 'od']; const mutableFields = ['wall', 'P1', 'T1', 'T2'];
+  before.forEach((left, index) => {
+    const right = after[index];
+    for (const field of immutableFields) if (!sameNumber(left[field], right?.[field])) errors.push(`ELEMENT_${index}_${field}_UNEXPECTED_CHANGE`);
+    const allowed = mutations.get(index) || {};
+    for (const field of mutableFields) {
+      const expected = Object.hasOwn(allowed, field) ? allowed[field] : left[field];
+      if (!sameNumber(expected, right?.[field])) errors.push(`ELEMENT_${index}_${field}_EXPECTED_VALUE_MISMATCH`);
+    }
+  });
+}
+function validateRigidCustody(beforeDocument, afterDocument, writerResult, errors) {
+  const before = beforeDocument?.auxiliaryEvidence?.rigids?.byPointer || {}; const after = afterDocument?.auxiliaryEvidence?.rigids?.byPointer || {};
+  const beforeKeys = Object.keys(before).sort(); const afterKeys = Object.keys(after).sort();
+  if (stableStringify(beforeKeys) !== stableStringify(afterKeys)) { errors.push('RIGID_POINTER_SET_CHANGED'); return; }
+  const mutations = rigidMutationMap(writerResult);
+  for (const key of beforeKeys) {
+    const pointer = Number(key); const expected = mutations.has(pointer) ? mutations.get(pointer) : Number(before[key]?.weight);
+    if (!sameNumber(expected, after[key]?.weight)) errors.push(`RIGID_${pointer}_EXPECTED_WEIGHT_MISMATCH`);
+  }
+}
+function validateNegativeAssurance(beforeDocument, afterDocument, targetGraph, writerResult) {
+  const errors = [];
+  validateElementCustody(beforeDocument, afterDocument, targetGraph, writerResult, errors);
+  validateRigidCustody(beforeDocument, afterDocument, writerResult, errors);
+  if (stableStringify(beforeDocument?.parsed?.nodes || {}) !== stableStringify(afterDocument?.parsed?.nodes || {})) errors.push('NODE_GEOMETRY_CHANGED');
+  if (stableStringify(beforeDocument?.nodeNames || {}) !== stableStringify(afterDocument?.nodeNames || {})) errors.push('NODE_NAMES_CHANGED');
+  const beforePointers = Object.values(beforeDocument?.auxiliaryEvidence?.elements || {}).map((item) => item.pointers);
+  const afterPointers = Object.values(afterDocument?.auxiliaryEvidence?.elements || {}).map((item) => item.pointers);
+  if (stableStringify(beforePointers) !== stableStringify(afterPointers)) errors.push('AUXILIARY_POINTER_OWNERSHIP_CHANGED');
+  if (errors.length) throw new Error(`CII_WRITER_1A_NEGATIVE_ASSURANCE_FAILED:${errors.join('|')}`);
+  return deepFreeze({ schema: 'CIIWorkspaceWriter1AValidation.v1', status: 'PASS', unexpectedSemanticDeltaCount: 0, checks: Object.freeze([
+    'ELEMENT_COUNT_UNCHANGED', 'NODE_NUMBERS_AND_GEOMETRY_UNCHANGED', 'FROM_TO_DX_DY_DZ_OD_UNCHANGED',
+    'AUXILIARY_POINTER_OWNERSHIP_UNCHANGED', 'RIGID_POINTER_SET_UNCHANGED', 'ONLY_APPROVED_WRITER_1A_VALUES_CHANGED',
+  ]) });
 }
 
 export async function inspectCiiWorkspaceModels(input, options = {}) {
@@ -98,8 +163,29 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const engineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
-  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks);
-  const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, landmarks, correspondence, review, engineeringDeltas, compareReview, transferPlan, audit };
+  const writerReadiness = ciiWriter1AReadiness(transferPlan);
+  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks, writerReadiness);
+  const result = { stages: createCiiWorkspaceStageModel(writerReadiness), sourceDocument, targetDocument, landmarks, correspondence, review, engineeringDeltas, compareReview, transferPlan, writerReadiness, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);
+}
+
+export async function applyCiiWorkspaceTargetWriter1A(preview, targetText, options = {}) {
+  if (!preview?.targetDocument || !preview?.transferPlan || !preview?.correspondence) throw new Error('CII_WRITER_1A_PREVIEW_REQUIRED');
+  const currentTarget = await intakeCiiWorkspaceDocument(targetText, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+  if (currentTarget.contentSha256 !== preview.targetDocument.contentSha256) throw new Error('CII_WRITER_1A_STALE_TARGET_HASH');
+  const targetGraph = adaptCiiDocumentToTopologyGraph(currentTarget);
+  const writerResult = applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
+  const modifiedTarget = await intakeCiiWorkspaceDocument(writerResult.text, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+  const validation = validateNegativeAssurance(currentTarget, modifiedTarget, targetGraph, writerResult);
+  return deepFreeze({
+    schema: 'CIIWorkspaceTargetApplyResult.v1', status: 'PASS',
+    fileName: `Modified_${preview.targetDocument.fileName}`,
+    text: writerResult.text,
+    sourceTargetSha256: currentTarget.contentSha256,
+    modifiedTargetSha256: modifiedTarget.contentSha256,
+    mutationCount: writerResult.mutationCount,
+    mutations: writerResult.mutations,
+    validation,
+  });
 }
