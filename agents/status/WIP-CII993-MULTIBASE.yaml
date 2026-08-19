@@ -1,0 +1,31 @@
+schema: AgentStatus.v1
+work: WIP-CII993-MULTIBASE
+state: IMPLEMENTING
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+base_branch: main
+base_basis_sha: 168d21bd9e9c198d22009f62b6203e4f60fd4ba1
+branch: agent/cii-multi-base-core
+current_stage: IMPLEMENT
+handover_readiness: READY
+coordination: SAFE_WITH_LIVE_GITHUB_OVERRIDE_OF_STALE_PR992_INDEX
+mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
+merge_authority: OWNER_ONLY
+scope_authority: CII_INDEPENDENT_MULTI_BASE_METHOD_A_B_CORE
+qualified_scope:
+  - METHOD_A_LOCAL_MULTI_BASIS_DIAGNOSTICS
+  - METHOD_A_INDEPENDENT_OR_BASE_LOOPS
+  - METHOD_B_PIPE_RUN_EXTRACTION
+  - METHOD_B_TWO_AXIS_HARD_CONFIDENCE_GATE
+  - METHOD_B_OD_WT_NODE_NUMBER_EXCLUSIONS
+  - FOCUSED_SYNTHETIC_AND_INDEPENDENT_NUMERICAL_QUALIFICATION
+blocked_scope:
+  - WRITER_1A_OR_1B_CHANGES
+  - TRANSFER_APPLY_EXCLUDE_UI
+  - SIF_TEE_OR_NODENAME_MUTATION
+  - FIXED_FIELD_PARSER_CHANGES
+  - PROTECTED_EXTERNAL_WRITER
+  - WORKFLOW_CHANGES
+validation_state: PRE_IMPLEMENTATION_APPENDIX_A_PASS_FOCUSED_EXECUTION_TO_BE_RECONCILED
+highest_risk: confusing legitimate different transforms across independent local bases with ambiguity inside one local Method A base
+exact_next_action: implement production core and focused regressions, then publish a draft PR without merge
