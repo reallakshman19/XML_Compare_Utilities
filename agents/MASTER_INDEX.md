@@ -4,13 +4,14 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR996 | CII Base Anchor Method A/B discovery + fusion | `agent/cii-base-anchor-method-fusion` | DRAFT / IMPLEMENTATION COMPLETE / INDEPENDENT NUMERICAL ORACLE PASS / JS+BENCHMARK NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | diversified independent Method-A discovery; spatial runner-up recovery; evidence-derived A/B/A+B/Landmark labels; 3-anchor REVIEW cap; B mutual-best+gap preservation | SAFE / successor to merged PR995 | execute focused JS + benchmark in complete checkout; owner review; do not merge without explicit authorization |
+| PR997 | CII full-screen method-qualified Base Anchor engineering UI | `agent/cii-fullscreen-anchor-evidence-ui` | DRAFT / IMPLEMENTATION COMPLETE / SOURCE REVIEW PASS / JS+BROWSER NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI | application-level full viewport; SOURCE→TARGET identity chrome; canonical Method A/B/A+B/Landmark evidence cards; structured details; existing Accept delegation | SAFE / successor to merged PR996 | execute focused UI + inherited shell lifecycle + Chromium in complete checkout; owner review; do not merge without explicit authorization |
+| PR996 | CII Base Anchor Method A/B discovery + fusion | `agent/cii-base-anchor-method-fusion` | MERGED 2026-08-19 · `df19d183` / retained JS+benchmark NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | diversified independent Method-A discovery; spatial runner-up recovery; evidence-derived A/B/A+B/Landmark labels; 3-anchor REVIEW cap; B mutual-best+gap preservation | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR995 | CII independent multi-base correspondence orchestration | `agent/cii-multi-base-orchestration` | MERGED 2026-08-19 · `d28e33c1` / retained full production+real benchmark NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | explicit A/B base loops in preview; per-loop correspondence; OR union; node/element conflict veto; A+B provenance; legacy anchor identity preservation | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | MERGED 2026-08-19 · `daf3be0a` / retained REAL BENCHMARK+FULL SUITE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
-| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
+| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT numeric fields; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
-| PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | topology-only paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
+| PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
 | PR988 | CII Transfer Preview qualification | `agent/cii-transfer-preview-qualification` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | delta-driven read-only transfer policy + Tab3 | HISTORICAL / merged into main | none |
 | PR987 | CII auxiliary custody + benchmark qualification | `agent/cii-aux-custody-benchmark` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | RESTRANT/SIF/RIGID/hanger custody | HISTORICAL / merged into main | none |
 | PR986 | CII Compare Review + engineering deltas | `agent/cii-compare-review-deltas` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | Compare Review + downstream deltas | HISTORICAL / merged into main | none |
@@ -20,7 +21,64 @@ Live GitHub state is authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR996 — current Base Anchor Method A/B discovery and fusion
+## PR997 — current CII full-screen Method A/B engineering UI
+
+PR997 exposes the already-qualified identity evidence as an engineering review workspace. It is deliberately not a new matching engine:
+
+```text
+PR996 canonical Base Anchor suggestion
+          |
+          +--> existing legacy shell / Accept control
+          |
+          +--> PR997 engineering presentation
+                    |
+                    +-- METHOD A — Spatial
+                    +-- METHOD B — Network
+                    +-- METHOD A + METHOD B corroboration
+                    +-- LANDMARK ONLY / REVIEW
+```
+
+Production/UI rules:
+
+- application-level full viewport is the default; browser Fullscreen API is not required;
+- `Compact view` restores the previous centered modal footprint;
+- SOURCE → TARGET file identity and readiness remain visible in the header;
+- Method A shows local base, anchor/validation counts, RMS/max residual, OD-scaled tolerance, non-collinearity, normalized residual, weight, REVIEW cap and ambiguity diagnostics;
+- Method B shows independent runs, axes, lengths, element counts, terminators, compatible dimension, OD-scaled tolerance, mutual-best and winner-gap gates;
+- local Method-B run-basis READY is distinguished from actual Method-B authority;
+- A+B is corroboration only; scores are not summed;
+- rotation matrices and run mappings are structured under expandable evidence rather than dumped as JSON;
+- the existing Base Anchor table stays in the DOM for acceptance authority, but is hidden only when the engineering wrapper is active;
+- the new card delegates acceptance to the existing control.
+
+Validation truth:
+
+```text
+merged-main/source grounding: PASS_SOURCE_INSPECTION
+UI-only changed-path boundary: PASS_GIT_COMPARE
+focused engineering UI test: AUTHORED_NOT_RUN_ENVIRONMENT
+inherited CII shell lifecycle: NOT_RUN_ENVIRONMENT
+browser / Chromium: NOT_RUN_ENVIRONMENT
+full repository suite: NOT_RUN_ENVIRONMENT
+```
+
+Explicitly outside PR997 authority:
+
+```text
+Method A/B mathematics
+multi-base OR arbitration
+correspondence generation
+engineering-delta semantics
+transfer policy/plan
+Writer 1A/1B
+fixed-field parser
+protected converters
+workflow changes
+```
+
+See `agents/PR997_workreport.md`, `agents/status/PR997.yaml`, and `agents/claims/PR997.yaml`.
+
+## PR996 — merged Base Anchor Method A/B discovery and fusion
 
 PR996 turns method labels into independent evidence rather than presentation text:
 
@@ -66,7 +124,7 @@ runner-up true fourth-point residual ~1.14e-13 mm
 structural decoy                     ~298.37 x tolerance
 ```
 
-Validation truth:
+Retained validation truth:
 
 ```text
 two-local-transform oracle: PASS_INDEPENDENT_REPRODUCTION
@@ -75,8 +133,6 @@ focused JS production test: NOT_RUN_ENVIRONMENT
 benchmark Base Anchor test: AUTHORED_NOT_RUN_ENVIRONMENT
 inherited/full/browser suites: NOT_RUN_ENVIRONMENT
 ```
-
-See `agents/PR996_workreport.md`, `agents/status/PR996.yaml`, and `agents/claims/PR996.yaml`.
 
 ## PR995 — merged CII multi-base orchestration
 
