@@ -1,0 +1,30 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR991
+mission: CII target Writer 1A cardinality-preserving mutation
+workstream: cii-writer-1a
+branch: agent/cii-writer-1a
+base_branch: agent/cii-writer-roadmap-doc
+base_basis_sha: b0285e28274ae951e5b85a2a0dc3c38e765a510c
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: IMPLEMENTING
+pr_recovery_state: GROUNDED_IMPLEMENTATION_STARTED
+handover_readiness: READY
+report_path: agents/PR991_workreport.md
+scope_authority: WRITER_1A_CARDINALITY_PRESERVING_TARGET_MUTATION
+validation_state: SOURCE_AUTHORITY_PASS_RUNTIME_PARTIAL
+acceptance_matrix:
+  wt_existing_element: PLANNED
+  p1_existing_element: PLANNED
+  t1_existing_element: PLANNED
+  t2_existing_element: PLANNED
+  rigid_weight_existing_record: PLANNED
+  existing_restraint_fields: DEFERRED_PENDING_SLOT_MAPPING_AUTHORITY
+  od: DEFERRED_WRITER_1B
+  sif_tee: DEFERRED_WRITER_1B
+  pointer_cardinality_create_delete: BLOCKED_WRITER_2
+  topology_mutation: BLOCKED_WRITER_3
+  stage06_status_contract: DEFECT_CONFIRMED
+  target_mutation_export: NOT_YET_ENABLED
+exact_next_action: implement byte-preserving ELEMENT WT/P1/T1/T2 and existing RIGID writer with focused round-trip tests; keep unsupported approved operations fail-closed
