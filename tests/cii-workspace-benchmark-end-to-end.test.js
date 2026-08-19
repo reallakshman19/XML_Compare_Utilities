@@ -63,8 +63,9 @@ const target1 = await preview(target1Text, 'BM_CII_TARGET1.CII', '20010');
 const target2 = await preview(target2Text, 'BM_CII_TARGET2.CII', '10010');
 
 for (const result of [target1, target2]) {
-  assert.strictEqual(result.audit?.mutationAuthority?.stage06, 'NOT_IMPLEMENTED');
+  assert.strictEqual(result.audit?.mutationAuthority?.stage06, 'WRITER_1A_BLOCKED');
   assert.strictEqual(result.audit?.mutationAuthority?.modifiedTargetCiiExport, 'BLOCKED');
+  assert.strictEqual(result.writerReadiness?.ready, false, 'unreviewed preview must not gain mutation authority');
   assert.strictEqual(result.artifacts?.modifiedTargetCii, null);
   assert.strictEqual(result.sourceDocument.auxiliaryEvidence.conflicts.length, 0);
   assert.strictEqual(result.targetDocument.auxiliaryEvidence.conflicts.length, 0);
@@ -74,8 +75,6 @@ for (const result of [target1, target2]) {
   assert.strictEqual(result.targetDocument.summary.hangerCount, 0);
 }
 
-// TARGET1 qualification set. No target is derived arithmetically by this test;
-// every expected identity is stated explicitly.
 for (const [source, target] of [['10','20010'], ['35','20035'], ['70','20070'], ['113','20113'], ['116','20116'], ['130','20130'], ['205','20205']]) {
   assertNode(target1, source, target);
 }
@@ -126,12 +125,9 @@ assert.strictEqual(sifT1.targetValue, 5);
 const rigidWeightT1 = anyDelta(target1, 'Rigid weight');
 assert(rigidWeightT1, 'TARGET1 should carry pointer-bound rigid-weight evidence');
 if (String(rigidWeightT1.sourceIdentity).includes('RIGID')) {
-  // The benchmark note claiming a 113-116 weight change is quarantined: its
-  // pointer-resolved writer value is 111.2 on both sides.
   assert(!(rigidWeightT1.sourceValue === 111.2 && rigidWeightT1.targetValue !== 111.2));
 }
 
-// TARGET2 blind/generalisation set. Policy above is unchanged from TARGET1.
 for (const [source, target] of [['10','10010'], ['35','10035'], ['70','10070'], ['113','10113'], ['116','10116'], ['130','10130'], ['205','10205']]) {
   assertNode(target2, source, target);
 }
@@ -165,7 +161,6 @@ for (const tuple of [['250','255'], ['255','260'], ['260','270']]) {
 const node130t2 = nodeRow(target2, '130');
 assert.deepStrictEqual(changedDelta(target2, node130t2.correspondenceId, 'Restraint code set')?.sourceValue, [15]);
 assert.deepStrictEqual(changedDelta(target2, node130t2.correspondenceId, 'Restraint code set')?.targetValue, [9]);
-// TARGET2 friction remains 0 on both sides, so no changed friction row should exist.
 assert.strictEqual(changedDelta(target2, node130t2.correspondenceId, 'Restraint friction values'), null);
 const t2FrictionEvidence = (target2.engineeringDeltas?.rows || []).find((row) => row.correspondenceId === node130t2.correspondenceId && row.property === 'Restraint friction values');
 assert.deepStrictEqual(t2FrictionEvidence?.sourceValue, [0]);
