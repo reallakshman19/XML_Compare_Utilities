@@ -17,15 +17,13 @@ function deltaRow(row, property, sourceValue, targetValue, authority, tolerance,
   const changed = changedNumber(sourceValue, targetValue, tolerance);
   return deepFreeze({
     deltaId: stableId('delta', row.correspondenceId, 'PROCESS', property),
-    correspondenceId: row.correspondenceId,
-    identityKind: row.kind,
+    correspondenceId: row.correspondenceId, identityKind: row.kind,
     sourceIdentity: sourceIds(row).join('|') || row.sourceElementId || null,
     targetIdentity: targetIds(row).join('|') || row.targetElementId || null,
     identityConfidence: row.status === 'LOCKED' ? 'LOCKED' : row.status,
-    category: 'PROCESS', property, sourceValue, targetValue,
-    delta: numericDelta(sourceValue, targetValue),
-    semanticChange: changed ? 'CHANGED' : 'UNCHANGED', changed,
-    evidenceStatus: 'QUALIFIED', authority, limitations: Object.freeze(limitations),
+    category: 'PROCESS', property, sourceValue, targetValue, delta: numericDelta(sourceValue, targetValue),
+    semanticChange: changed ? 'CHANGED' : 'UNCHANGED', changed, evidenceStatus: 'QUALIFIED', authority,
+    limitations: Object.freeze(limitations),
   });
 }
 
@@ -59,7 +57,6 @@ function odEligibility(source, target) {
   if (Number(target?.auxiliaryPointers?.reducer || 0) !== 0) blockers.push('OD_TARGET_REDUCER_POINTER_PRESENT');
   return blockers;
 }
-
 function replaceOdAuthority(rows, correspondenceId, source, target) {
   const blockers = odEligibility(source, target);
   const authority = blockers.length
@@ -70,12 +67,19 @@ function replaceOdAuthority(rows, correspondenceId, source, target) {
     return deepFreeze({ ...item, authority, evidenceStatus: blockers.length ? 'PARTIAL' : 'QUALIFIED', limitations: Object.freeze(blockers) });
   });
 }
+function writer1BLimitations(limitations = []) {
+  return Object.freeze(limitations.map((item) => item?.family === 'process' ? deepFreeze({
+    ...item,
+    label: 'Process P1–P9 / T1–T9 / densities',
+    comparisonState: 'PARTIAL',
+    reason: 'Exact Writer 1B fixed fields are normalized individually; unique values are revision evidence, not qualified CAESAR load-case counts or a complete process-data model.',
+  }) : item));
+}
 
 export function augmentCiiEngineeringDeltasWithWriter1BFields(deltaSet, sourceGraph, targetGraph, correspondence, options = {}) {
   if (!deltaSet || deltaSet.schema !== CII_WORKSPACE_SCHEMAS.engineeringDeltaSet) return deltaSet;
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph);
-  const tolerance = Number(options.engineeringNumericTolerance ?? 1e-9);
-  let rows = [...(deltaSet.rows || [])];
+  const tolerance = Number(options.engineeringNumericTolerance ?? 1e-9); let rows = [...(deltaSet.rows || [])];
   for (const row of correspondence?.elementRows || []) {
     if (row.kind !== 'ELEMENT' || !ciiIdentityBound(row)) continue;
     const sourceIdList = sourceIds(row); const targetIdList = targetIds(row);
@@ -89,18 +93,12 @@ export function augmentCiiEngineeringDeltasWithWriter1BFields(deltaSet, sourceGr
     }
   }
   rows.sort((a, b) => `${a.sourceIdentity}|${a.category}|${a.property}`.localeCompare(`${b.sourceIdentity}|${b.category}|${b.property}`, undefined, { numeric: true }));
-  const changedRows = rows.filter((row) => row.changed);
-  const counts = {};
+  const changedRows = rows.filter((row) => row.changed); const counts = {};
   for (const row of changedRows) counts[row.category] = (counts[row.category] || 0) + 1;
   return deepFreeze({
     ...deltaSet,
-    rows: Object.freeze(rows), changedRows: Object.freeze(changedRows),
-    summary: Object.freeze({
-      ...deltaSet.summary,
-      comparedPropertyCount: rows.length,
-      engineeringChangeCount: changedRows.length,
-      unchangedPropertyCount: rows.length - changedRows.length,
-      changeFamilyCounts: Object.freeze(counts),
-    }),
+    rows: Object.freeze(rows), changedRows: Object.freeze(changedRows), limitations: writer1BLimitations(deltaSet.limitations),
+    summary: Object.freeze({ ...deltaSet.summary, comparedPropertyCount: rows.length, engineeringChangeCount: changedRows.length,
+      unchangedPropertyCount: rows.length - changedRows.length, changeFamilyCounts: Object.freeze(counts) }),
   });
 }
