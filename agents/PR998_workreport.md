@@ -5,41 +5,42 @@
 ## Recovery Header
 
 ```text
-HANDOVER_READINESS: READY_FOR_REVIEW
-PR_RECOVERY_STATE: DRAFT_IMPLEMENTATION_COMPLETE_FOCUSED_SELECTION_PASS
+HANDOVER_READINESS: READY_FOR_REVIEW_AND_OWNER_MERGE_DECISION
+PR_RECOVERY_STATE: DRAFT_IMPLEMENTATION_COMPLETE
 WORK_INTENT: IMPLEMENT
 CRITICALITY: ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #993 / owner instruction "implement fix in auto mode" + concept-note refresh
 PR: 998
 BRANCH: agent/cii-multi-base-ui-fix
-STACKED_BASE: agent/cii-fullscreen-anchor-evidence-ui / PR997@3b772956dbd4407f29df66789bae22e5ade112b1
-MERGED_MAIN_AT_START: df19d1834459f486fddd77eaec4297767ef83c6b
+STACKED_BASE: PR997 / agent/cii-fullscreen-anchor-evidence-ui@3b772956dbd4407f29df66789bae22e5ade112b1
+MAIN_AT_FINAL_GROUNDING: df19d1834459f486fddd77eaec4297767ef83c6b
+REPORT_BASIS_HEAD: d09b7e4b5e0e318f81db390e29376890c2e21be9
 EXECUTION_MODE: AUTO
-AUTO_STATE: RUNNING
+AUTO_STATE: COMPLETE
 SCOPE_AUTHORITY: LOCKED_TO_APPROVED_MISSION
-PHASE_PROGRESSION: AUTO
+PHASE_PROGRESSION: COMPLETE
 MERGE_AUTHORITY: OWNER_ONLY
-CURRENT_STAGE: VALIDATE / RECONCILE
+CURRENT_STAGE: HANDOVER / MERGE DECISION
 GROUNDING_EPOCH: GE-001 / 2026-08-19
-CURRENT_BLOCKER: COMPLETE-CHECKOUT FULL UI/SHELL/BROWSER EXECUTION NOT_RUN_ENVIRONMENT
-EXACT_NEXT_ACTION: reconcile branch/PR head and run any executable source-level/focused checks; stop merge-ready because AUTO MODE does not grant merge authority
+CURRENT_BLOCKER: NONE FOR APPROVED IMPLEMENTATION; COMPLETE-CHECKOUT UI/BROWSER SUITES REMAIN NOT_RUN_ENVIRONMENT
+EXACT_NEXT_ACTION: re-ground PR997/PR998 heads immediately before owner-authorized merge; integrate PR997 before or together with stacked PR998
 ```
 
 ## Handover in 60 Seconds
 
-PR997 made Method A/B evidence visible in a full-screen engineering UI, but its card acceptance still delegated to the legacy flat anchor text inputs. That could undo the multi-base architecture when a complex SOURCE/TARGET revision has several independently stable local regions.
+PR997 introduced the full-screen Method A/B evidence UI but still delegated each Base Anchor card to the legacy flat anchor input. That could collapse several independently stable piping regions into one legacy anchor set even though PR995 already supports explicit independent `baseLoops[]`.
 
-PR998 fixes that seam:
+PR998 closes that seam:
 
 ```text
-selected method-qualified card(s)
+engineer selects one or more method-qualified cards
         ↓
-Method A -> entire bestBase.anchorPairs
-Method B -> one accepted pair loop
-A+B      -> two independent loops
+Method A -> entire validated local bestBase.anchorPairs
+Method B -> one qualified pair loop
+A+B      -> TWO independent loops
         ↓
-dedupe same A base only
+dedupe the same Method-A base only
         ↓
 baseLoops[]
         ↓
@@ -48,238 +49,340 @@ createCiiWorkspacePreview()
 OR_WITH_CONFLICT_VETO
 ```
 
-Manual/LANDMARK fallback remains a separate mode. Contradictory B selections are intentionally preserved so the merged core can return AMBIGUOUS.
-
-`docs/CIIcompareconceptnote.md` was rewritten to remove stale PR989-era assumptions and now documents the implemented OD-scaled Method A/B/multi-base architecture.
+Manual/LANDMARK fallback is separate. Contradictory B claims are deliberately preserved for the existing core conflict veto. `docs/CIIcompareconceptnote.md` is refreshed to the current Method A/B/OD-scaled/multi-base architecture.
 
 ---
 
-## 1. Live ground truth
+# 1. Final live ground truth
 
-At PR creation:
+Observed before final report commit:
 
 ```text
 main: df19d1834459f486fddd77eaec4297767ef83c6b
-PR997: open draft, head 3b772956dbd4407f29df66789bae22e5ade112b1
-PR998: stacked on PR997 branch
-PR998 initial head at creation: af582734599eea6a5211485536a506362e267a87
+PR997: open / draft / mergeable / unmerged
+PR997 head: 3b772956dbd4407f29df66789bae22e5ade112b1
+PR998: open / draft / mergeable / unmerged
+PR998 stacked base: agent/cii-fullscreen-anchor-evidence-ui
+PR998 report-basis head: d09b7e4b5e0e318f81db390e29376890c2e21be9
+PR998 stacked compare: 0 behind PR997
+changed files: 11 expected / 11 actual / 0 unexplained
+reviews: none
+review threads: none
+status checks on observed pre-report head: none
+PR workflow runs on observed pre-report head: none
 ```
 
-Live GitHub state overrides this snapshot.
-
-## 2. Mission and acceptance
-
-### Mission
-
-Make the full-screen Method A/B Base Anchor UI actually preserve independent local base authority through the production preview pipeline.
-
-### Acceptance criteria
-
-1. Method-A card selection carries all validated pairs in the selected local base.
-2. A+B card selection creates two independent loops.
-3. Same Method-A base selected through several cards dedupes once.
-4. Distinct local Method-A bases remain separate.
-5. Conflicting Method-B source/target claims remain separate until core arbitration.
-6. LANDMARK_ONLY cannot silently become Method B.
-7. Explicit qualified base-loop mode and legacy/manual mode do not silently mix.
-8. Changing base selection invalidates stale correspondence/review/export state.
-9. Review refresh preserves the same bound `baseLoops` input.
-10. Concept note matches implemented tolerance, weighting, multi-base and benchmark authority.
-11. No Method A/B mathematics, correspondence arbitration, Writer 1A/1B, parser or converter authority is weakened.
+Live GitHub state overrides this snapshot. The report commit itself advances PR998 head; use `REPORT_BASIS_HEAD`, not an impossible self-referential report-head rule.
 
 ---
 
-## 3. Diagnosis
+# 2. Mission / acceptance result
 
-### ISS-998-01 — UI acceptance collapsed authority
+## Mission
 
-PR997 presentation correctly showed Method A/B evidence but delegated each new card to the old single-pair `Accept base anchor` control. The legacy shell then built:
+Make the full-screen Base Anchor UI preserve the independent local Method A/B architecture through the actual production preview input, and refresh the concept note to that same authority model.
 
-```text
-baseInput.anchorPairs = flat list
-```
+## Acceptance result
 
-and did not use the already-merged explicit `baseLoops[]` path.
-
-For a model with local transforms T1, T2, T3 this can incorrectly force all accepted regions into one legacy basis/span.
-
-### Falsifier
-
-If selecting two independent Method-A cards with different `baseId` values still results in one flat `anchorPairs` input or one global transform, the fix fails.
+| Requirement | Result |
+|---|---|
+| Method-A selection carries full validated local base | IMPLEMENTED |
+| A+B selection creates two independent loops | IMPLEMENTED |
+| Same Method-A base selected through multiple cards dedupes once | IMPLEMENTED |
+| Distinct local Method-A bases remain independent | IMPLEMENTED |
+| Conflicting B claims survive to core arbitration | IMPLEMENTED |
+| LANDMARK_ONLY cannot silently become Method B | IMPLEMENTED |
+| Qualified base mode and manual mode do not silently mix | IMPLEMENTED |
+| Base-selection change invalidates stale review/export | IMPLEMENTED |
+| Review refresh retains bound explicit loops | IMPLEMENTED |
+| Concept note reflects x*SOURCE_OD and exact weight basis | IMPLEMENTED |
+| Writer/parser/converter/Method-A/B kernels remain unchanged | VERIFIED BY STACKED DIFF |
 
 ---
 
-## 4. Implemented production behavior
+# 3. Root cause and falsifier
 
-### 4.1 `cii-workspace-base-loop-selection.js`
+## ISS-998-01 — PR997 acceptance was presentation-correct but authority-wrong
 
-Pure projection layer.
+PR997 rendered canonical `basisMethod`, `methodA`, `methodB`, tolerance and weight evidence. However its new card action delegated to the old hidden `Accept base anchor` button, which populated the two flat legacy text inputs.
 
-Rules:
+The legacy Analyze path then supplied:
 
 ```text
-METHOD_A_SPATIAL
-  -> use methodA.bestBase.baseId
-  -> use every pair in bestBase.anchorPairs
+anchorPairs[]
+```
 
-METHOD_B_NETWORK
-  -> one accepted SOURCE/TARGET pair loop
+instead of:
 
+```text
+baseLoops[]
+```
+
+For several revised local regions with transforms `T1`, `T2`, `T3`, that behavior could reconstruct the single-base assumption we had already removed from the core.
+
+## Falsifier
+
+The fix fails if either occurs:
+
+```text
+select two different Method-A baseIds
+  -> preview receives one flat anchorPairs list
+```
+
+or:
+
+```text
+select A+B candidate
+  -> preview receives one fused pseudo-loop instead of A OR B
+```
+
+The projection regression explicitly guards both boundaries.
+
+---
+
+# 4. Final production behavior
+
+## 4.1 `cii-workspace-base-loop-selection.js`
+
+Pure deterministic UI-to-core projection.
+
+### Method A
+
+A suggestion contributes Method A only when:
+
+```text
+basisMethod = METHOD_A_SPATIAL | METHOD_A_AND_B
+methodA.status = READY
+methodA.bestBase exists
+bestBase has >=3 valid anchor pairs
+```
+
+Output:
+
+```js
+{
+  method: 'METHOD_A_SPATIAL',
+  baseId: bestBase.baseId,
+  anchorPairs: bestBase.anchorPairs
+}
+```
+
+The clicked card pair alone is never used as a 3D Method-A basis.
+
+### Method B
+
+A suggestion contributes Method B only when:
+
+```text
+basisMethod = METHOD_B_NETWORK | METHOD_A_AND_B
+methodB.status = READY
+```
+
+Because `basisMethod` is produced only after PR996 mutual-best/winner-gap qualification, a locally READY run basis on a `LANDMARK_ONLY` or A-only candidate does not gain Method-B authority here.
+
+### A+B
+
+```text
 METHOD_A_AND_B
-  -> A loop + B loop
-
-LANDMARK_ONLY
-  -> no qualified loop
+  -> Method-A loop
+  OR Method-B loop
 ```
 
-Deduplication:
+No score summation and no fused method.
+
+### Dedupe / conflict policy
 
 ```text
-A: method + baseId
-B: method + source/target pair
+same Method-A baseId selected through multiple cards -> one A loop
+same Method-B SOURCE/TARGET pair repeated          -> one B loop
+same SOURCE with different TARGET B claims         -> preserve all
 ```
 
-Do not dedupe different B targets for the same source.
+The UI never hides a true identity conflict from core arbitration.
 
-### 4.2 `cii-workspace-shell.js`
+## 4.2 `cii-workspace-shell.js`
 
-The shell now accepts optional `options.getBaseLoops()`.
+The legacy shell now optionally consumes `options.getBaseLoops()`.
 
-Analyze behavior:
+Analyze logic:
 
 ```text
-if selected baseLoops exist:
-    baseInput.baseLoops = selected loops
-    stale anchorPairs removed
+if selected qualified loops exist:
+    remove stale anchorPairs
+    send baseLoops
 else:
-    parse manual SOURCE/TARGET anchor fields
-    baseInput.anchorPairs = legacy pairs
-    stale baseLoops removed
+    remove stale baseLoops
+    parse manual anchor fields
+    send legacy anchorPairs
 ```
 
-`invalidateExternal()` is exposed only so the engineering wrapper can invalidate stale review/export state when base selection changes.
+The existing `run()` function stores the selected mode in `baseInput`. Therefore subsequent review-ledger refresh reuses the same explicit `baseLoops` rather than recomputing from current UI text.
 
-Review refresh calls existing `run()` over the already-bound `baseInput`; it therefore preserves explicit multi-base mode.
+`invalidateExternal()` gives the wrapper one narrow ability: invalidate stale current/review/export state when accepted bases change. It does not modify matching or Writer authority.
 
-### 4.3 `cii-workspace-engineering-ui.js`
+## 4.3 `cii-workspace-engineering-ui.js`
 
-Maintains an engineer-selected set of suggestion keys.
-
-- several cards may remain selected simultaneously;
-- selected base tray shows A/B loop counts and `OR + conflict veto`;
-- A+B states explicitly that acceptance creates two independent loops;
-- switching to qualified bases clears manual fields;
-- typing manual anchors clears qualified selection;
-- file changes and reinspection clear stale selection;
-- LANDMARK_ONLY uses the separate legacy/manual fallback control.
-
-### 4.4 Concept note
-
-The concept note now records:
-
-- `T = x * SOURCE_OD`, default x=2;
-- SOURCE minimum-positive incident OD authority;
-- TARGET-OD invariance;
-- exact Method-A weight decomposition 35/25/20/10/10;
-- exact Method-B decomposition 40/20/15/15/10;
-- Method-B two-axis hard gate and angular displacement conversion;
-- compatible planar/full-3D weighting;
-- independent local bases and `OR_WITH_CONFLICT_VETO`;
-- A+B as two loops/corroboration;
-- separate Base Anchor A/B vs downstream M1/M2 concepts;
-- `SOURCE 3.CII -> TARGET 3-1.CII` benchmark;
-- Writer roadmap and validation anti-gaming rules.
-
----
-
-## 5. Authority / invariants
-
-### Must remain true
+The wrapper owns only engineer selection state:
 
 ```text
-OD identity points = 0
-TARGET OD tolerance authority = 0
-node-number offset identity authority = 0
-Method B minimum independent runs = 2
-Method A minimum non-collinear registration pairs = 3
-Method A auto confidence with only 3 pairs = REVIEW cap
-separate local A transforms need not agree globally
-A/B conflict cannot be averaged or majority-voted away
-Writer receives only canonical approved correspondence/deltas
+inspection
+selected suggestion keys
 ```
 
-### Explicitly unchanged
+It projects that state through the pure helper above.
 
-- `cii-workspace-geometry.js`;
-- `cii-workspace-pipe-runs.js`;
-- `cii-workspace-anchor-method-a.js`;
-- `cii-workspace-anchor-suggestions.js`;
-- `cii-workspace-multi-base-anchor.js`;
-- `cii-workspace-multi-base-correspondence.js`;
-- Writer 1A/1B;
-- fixed-field parser;
-- protected converter;
-- workflows.
+User-visible rules:
+
+- several method-qualified cards may stay selected;
+- a tray shows loop count and A/B split;
+- tray states `OR + conflict veto`;
+- selected cards remain visibly selected;
+- A+B card states that it creates two independent OR loops;
+- selecting qualified bases clears manual text;
+- typing manual anchors clears qualified selection;
+- file change / reinspection clears stale selected bases;
+- LANDMARK_ONLY delegates only to separate manual fallback.
+
+DOM control contract uses the repository namespace:
+
+```text
+data-ciiw-selection-key
+```
+
+not a browser-only generic dataset name, so existing fake-DOM lifecycle tooling can observe the same control.
+
+## 4.4 Concept note
+
+`docs/CIIcompareconceptnote.md` was rewritten from its obsolete PR989-era baseline.
+
+It now documents:
+
+- fixed-field custody;
+- identity/delta/Writer separation;
+- no global node-number-offset identity;
+- `T = x * SOURCE_OD`, default `x=2`;
+- SOURCE minimum-positive incident OD and TARGET-OD invariance;
+- independent local transforms;
+- `OR_WITH_CONFLICT_VETO`;
+- exact Method-A residual qualification and weight `35/25/20/10/10`;
+- Method-A three-anchor auto REVIEW cap;
+- Method-B two-axis hard gate;
+- OD-scaled run length and angular-equivalent displacement;
+- compatible 3D weight `40/20/15/15/10`;
+- A+B corroboration as two loops;
+- explicit engineer selection -> `baseLoops[]`;
+- manual fallback separation;
+- Base Anchor Method A/B versus downstream row M1/M2 distinction;
+- real `SOURCE 3.CII -> TARGET 3-1.CII` benchmark;
+- Compare/Delta/Transfer UX direction;
+- Writer 1A/1B/2/3 roadmap;
+- validation and anti-gaming rules.
 
 ---
 
-## 6. Validation ledger
+# 5. Authority / negative assurance
 
-### VAL-998-01 — exact selection projection
+## Preserved engineering invariants
+
+```text
+OD identity weight = 0
+TARGET OD tolerance authority = 0
+node-number offset authority = 0
+Method B minimum independent run gate = 2
+Method A minimum non-collinear registration pairs = 3
+3-pair automatic Method-A confidence remains REVIEW-capped
+independent local Method-A transforms need not agree globally
+conflict cannot be resolved by score, iteration order or majority vote
+Writer still consumes canonical reviewed correspondence/deltas only
+```
+
+## No changes in PR998 to
+
+```text
+cii-workspace-geometry.js
+cii-workspace-pipe-runs.js
+cii-workspace-anchor-method-a.js
+cii-workspace-anchor-suggestions.js
+cii-workspace-multi-base-anchor.js
+cii-workspace-multi-base-correspondence.js
+Writer 1A / Writer 1B
+fixed-field parser
+protected converter
+GitHub workflows
+```
+
+---
+
+# 6. Validation ledger
+
+## VAL-998-01 — base-loop selection projection
 
 ```text
 STATUS: PASS
 OBSERVATION: LOCAL_EXECUTION
 ORACLE: IMPLEMENTATION_COUPLED
-command:
-  node --check tabs/cii-workspace/cii-workspace-base-loop-selection.js
-  node tests/cii-workspace-base-loop-selection.test.js
-result:
-  CII independent multi-base UI selection projection checks passed.
+```
+
+Commands executed on exact helper/test contents:
+
+```text
+node --check tabs/cii-workspace/cii-workspace-base-loop-selection.js
+node tests/cii-workspace-base-loop-selection.test.js
+```
+
+Output:
+
+```text
+CII independent multi-base UI selection projection checks passed.
 ```
 
 Proved:
 
-- A+B -> two loops;
-- Method A carries whole four-pair base;
+- A+B -> two independent loops;
+- Method A carries complete four-pair base;
 - same A base dedupes;
-- two distinct A bases remain independent;
+- different A bases remain independent;
 - conflicting B claims are preserved;
-- LANDMARK_ONLY cannot become B;
-- engineer-selected three-anchor READY/REVIEW A base can still be passed explicitly;
-- explicit/legacy stale input fields are removed when switching mode.
+- LANDMARK_ONLY cannot become Method B;
+- explicit engineer acceptance may carry a mathematically READY 3-anchor REVIEW base;
+- stale explicit/manual fields are removed when switching authority mode.
 
-### VAL-998-02 — executed-content equivalence
+## VAL-998-02 — exact executed blob custody
 
 ```text
 STATUS: PASS
 OBSERVATION: ARTIFACT_INSPECTION + LOCAL_EXECUTION
 ORACLE: IMPLEMENTATION_COUPLED
-branch helper blob: ea660640e4c70cdf61db8350e09758d469b84477
-local executed helper blob: ea660640e4c70cdf61db8350e09758d469b84477
-branch test blob: 4852ee0372c14890a3837e0665323a32cc5f97e4
-local executed test blob: 4852ee0372c14890a3837e0665323a32cc5f97e4
 ```
 
-Therefore VAL-998-01 executed the exact helper/test blobs present on the PR branch.
+Executed branch blobs:
 
-### VAL-998-03 — first test attempt
+```text
+selection helper:
+  ea660640e4c70cdf61db8350e09758d469b84477
+selection regression:
+  4852ee0372c14890a3837e0665323a32cc5f97e4
+```
+
+The exact Git branch blobs matched the locally executed files.
+
+## VAL-998-03 — initial focused-test failure
 
 ```text
 STATUS: FAIL -> RESOLVED_BY_TEST_FIX
 OBSERVATION: LOCAL_EXECUTION
-failure origin: TEST_FIXTURE
+FAILURE_ORIGIN: TEST_FIXTURE
 ```
 
-The fixture used:
+Initial fixture incorrectly assumed:
 
-```text
-'METHOD_A_AND_B'.includes('METHOD_B') == false
+```js
+'METHOD_A_AND_B'.includes('METHOD_B')
 ```
 
-and therefore created no Method-B evidence. Production method membership used explicit enum equality and was not changed. Fixture corrected; rerun PASS.
+which is `false` and omitted test Method-B evidence. Production code already used explicit enum comparisons. The fixture was corrected; production thresholds/authority were not changed; rerun passed.
 
-### VAL-998-04 — integration source review
+## VAL-998-04 — integration authority review
 
 ```text
 STATUS: PASS
@@ -289,33 +392,57 @@ ORACLE: NONE
 
 Reviewed:
 
-- selected-loop projection;
-- shell analyze branch;
+- UI selection projection;
+- shell explicit-vs-manual branch;
 - stale-state invalidation;
-- review refresh persistence;
+- review refresh custody;
 - manual/qualified exclusivity;
 - file/reinspection reset;
-- conflict preservation.
+- conflict preservation;
+- `data-ciiw-*` lifecycle DOM namespace.
 
-### NOT_RUN
+## VAL-998-05 — changed-file / protected-authority reconciliation
 
 ```text
-focused full engineering UI test: NOT_RUN_ENVIRONMENT
-existing shell lifecycle: NOT_RUN_ENVIRONMENT
-SOURCE 3/TARGET 3-1 browser workflow: NOT_RUN_ENVIRONMENT
-Chromium full-screen/multi-select acceptance: NOT_RUN_ENVIRONMENT
-full repository suite: NOT_RUN_ENVIRONMENT
+STATUS: PASS
+OBSERVATION: GIT_COMPARE
+ORACLE: NONE
 ```
 
-Reason: execution container cannot resolve `github.com` for a complete checkout. No workflow file is added or modified to work around this.
+Stacked compare against PR997 showed:
+
+```text
+11 expected files
+11 actual files
+0 unexplained files
+0 Method A/B math files changed
+0 arbitration files changed
+0 Writer/parser/converter/workflow files changed
+```
+
+## Remaining NOT_RUN
+
+```text
+focused full engineering UI module test   NOT_RUN_ENVIRONMENT
+existing shell lifecycle                  NOT_RUN_ENVIRONMENT
+SOURCE 3/TARGET 3-1 browser workflow      NOT_RUN_ENVIRONMENT
+Chromium full-screen/multi-select UX       NOT_RUN_ENVIRONMENT
+full repository suite                     NOT_RUN_ENVIRONMENT
+```
+
+Reason: the execution container cannot obtain a complete repository checkout from `github.com`. No CI/workflow file was introduced to disguise this environment limitation.
+
+No unexecuted check is claimed as PASS.
 
 ---
 
-## 7. Changed-file ledger — stacked over PR997
-
-Expected production/docs/tests before custody files:
+# 7. Final changed-file ledger — stacked over PR997
 
 ```text
+agents/MASTER_INDEX.md
+agents/PR998_workreport.md
+agents/claims/PR998.yaml
+agents/status/PR998.yaml
 docs/CIIcompareconceptnote.md
 tabs/cii-workspace/cii-workspace-base-loop-selection.js
 tabs/cii-workspace/cii-workspace-engineering-ui.css
@@ -325,55 +452,109 @@ tests/cii-workspace-base-loop-selection.test.js
 tests/cii-workspace-engineering-ui.test.js
 ```
 
-Custody additions:
+Ledger:
 
 ```text
-agents/PR998_workreport.md
-agents/status/PR998.yaml
-agents/claims/PR998.yaml
-agents/MASTER_INDEX.md
+expected 11
+actual   11
+unexplained 0
 ```
 
-No authority-kernel file is expected to change.
+---
+
+# 8. Coordination / merge ordering
+
+PR998 is intentionally stacked on PR997.
+
+Safe integration options require owner merge authorization and live re-grounding:
+
+```text
+Option A:
+  merge PR997
+  rebase/retarget PR998 to current main
+  verify resulting PR998 diff is only the 7 functional/docs/test files + PR998 custody
+  merge PR998
+
+Option B:
+  deliberately combine both stacks after reviewing the union diff
+```
+
+Do not squash PR998 independently onto old `main` without checking the resulting dependency/diff.
 
 ---
 
-## 8. Risks / open questions
+# 9. Remaining bounded risk / question
 
-### RISK-998-01 — browser execution not observed
+## RISK-998-01 — browser behavior not observed
 
-Full DOM/browser behavior is authored but not executed in this environment.
+Source-level state/event review is complete, but a real browser execution remains required before claiming browser qualification.
 
-### RISK-998-02 — stacked merge ordering
+## QST-998-01 — alternate qualified Method-A bases containing one pair
 
-PR998 is based on PR997. PR997 must be integrated before or together with the PR998 diff; do not independently squash PR998 onto `main` without re-grounding/rebasing and confirming the resulting changed-file scope.
+`projectCiiMethodAEvidence()` may expose multiple `bases[]` containing the same pair. PR998 deliberately projects `bestBase` for deterministic first UI authority. It does **not** auto-select every alternate spatial base.
 
-### QST-998-01 — alternate Method-A bases containing same pair
-
-A suggestion may contain `methodA.bases[]` with more than one qualified local base. Current engineer selection projects `bestBase` only. This is intentional for deterministic first UI authority; exposing explicit alternate-base selection is a later UX enhancement if real benchmarks require it. Do not auto-select all alternate bases.
+If real benchmark review later requires explicit alternate-basis selection, add a separate inspector/control. Do not silently broaden one card into every alternate transform.
 
 ---
 
-# Appendix A — implementation qualification / next-agent gate
+# 10. AUTO MODE closure
 
-## A1 Production trace
+```text
+EXECUTION_MODE = AUTO
+AUTO_STATE = COMPLETE
+APPROVED_SCOPE = COMPLETE
+MERGE_AUTHORITY = OWNER_ONLY
+```
 
-Trace a selected `METHOD_A_AND_B` card from `cii-workspace-engineering-ui.js` through `cii-workspace-base-loop-selection.js`, `cii-workspace-shell.js`, `createCiiWorkspacePreview()`, `explicitMultiBaseAuthority()` and `buildCiiMultiBaseCorrespondence()`. Explain why two loops, not one fused loop, reach arbitration.
+No hard stop required an owner engineering decision. The only unavailable evidence is environment-limited complete-checkout/browser execution and is explicitly retained as NOT_RUN.
 
-## A2 Failure isolation
+The next action is not another routine implementation phase. It is the owner-controlled integration decision for PR997/PR998 after live head re-grounding.
 
-Construct a UI selection where SOURCE node `500` is accepted by two Method-B cards targeting `1500` and `2500`. Identify the first production function that must preserve both and the first core function that must classify the conflict. State the expected final authority status.
+---
 
-## A3 Authority / invariant
+# Appendix A — implementation takeover gate
 
-Explain why `bestBase.anchorPairs` must be passed in full for Method A and why using only the clicked pair would be mathematically invalid for 3D rotation authority.
+## A1 — Production trace
 
-## A4 Independent validation
+Trace a selected `METHOD_A_AND_B` card through:
 
-Design a browser or integration test with two local Method-A bases having materially different translations. Show how to prove the UI sent two explicit loops and did not regress to `LEGACY_ANCHOR_PAIRS` or expose one fake global transform.
+```text
+cii-workspace-engineering-ui.js
+ -> cii-workspace-base-loop-selection.js
+ -> cii-workspace-shell.js
+ -> createCiiWorkspacePreview()
+ -> explicitMultiBaseAuthority()
+ -> buildCiiMultiBaseCorrespondence()
+```
 
-## A5 Next commit / minimal patch
+Prove why two independent loops, not one fused loop, enter arbitration.
 
-If browser validation shows that manual input can coexist with a selected qualified base after a specific UI interaction, identify the smallest file(s) to fix without touching geometry, Method-B thresholds, arbitration or Writer authority.
+## A2 — Failure isolation
 
-Default engineering-critical takeover threshold remains 92/100 total and >=17/20 per question.
+Construct UI selections:
+
+```text
+SOURCE 500 -> TARGET 1500 via Method B
+SOURCE 500 -> TARGET 2500 via Method B
+```
+
+Identify the first UI function that must preserve both and the first core function that must issue the custody conflict. State expected status.
+
+## A3 — Authority invariant
+
+Explain why a Method-A card must project all `bestBase.anchorPairs` rather than only the card’s clicked pair. Include the 3D rigid-rotation degrees-of-freedom argument.
+
+## A4 — Independent validation
+
+Design a browser/integration case with two Method-A local bases having materially different translations. Prove the preview received two explicit loops, uses `MULTI_BASE / INDEPENDENT_LOCAL_TRANSFORMS`, and did not regress to `LEGACY_ANCHOR_PAIRS`.
+
+## A5 — Minimal future patch
+
+If browser execution reveals one interaction where manual anchors and selected qualified loops coexist, identify the smallest UI/shell patch that restores exclusivity without touching geometry, Method-B gates, arbitration or Writer authority.
+
+Default engineering-critical takeover threshold:
+
+```text
+total >= 92/100
+every question >= 17/20
+```
