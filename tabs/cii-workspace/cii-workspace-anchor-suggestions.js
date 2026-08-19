@@ -1,4 +1,5 @@
 import { CII_WORKSPACE_SCHEMAS, compareNodeIds, deepFreeze, uniqueStrings } from './cii-workspace-contracts.js';
+import { qualifyCiiMethodBRunBasis } from './cii-workspace-pipe-runs.js';
 
 const REASON_WEIGHT = Object.freeze({ BRANCH: 100, RIGID_ADJACENT: 90, TERMINAL: 80, BEND_ADJACENT: 65, NAMED_NODE: 45 });
 
@@ -39,47 +40,43 @@ function structuralEvidence(graph, node) {
   const neighbourDegrees = incident.map((edge) => Number(nodes.get(String(otherNode(edge, nodeId)))?.degree || 0)).sort((a, b) => a - b);
   const reasons = robustReasons(node, incident);
   return {
-    nodeId,
-    degree: Number(node.degree || 0),
-    componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
-    neighbourDegrees,
-    layers: node.neighbourhoodLayers || [],
-    robustReasons: reasons,
+    nodeId, degree: Number(node.degree || 0), componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
+    neighbourDegrees, layers: node.neighbourhoodLayers || [], robustReasons: reasons,
     salience: reasons.reduce((best, reason) => Math.max(best, REASON_WEIGHT[reason] || 0), 0),
   };
 }
 function structuralCandidates(graph, limit) {
-  return (graph?.nodes || []).map((node) => structuralEvidence(graph, node))
-    .filter((item) => item.robustReasons.length)
-    .sort((a, b) => b.salience - a.salience || compareNodeIds(a.nodeId, b.nodeId))
-    .slice(0, limit);
+  return (graph?.nodes || []).map((node) => structuralEvidence(graph, node)).filter((item) => item.robustReasons.length)
+    .sort((a, b) => b.salience - a.salience || compareNodeIds(a.nodeId, b.nodeId)).slice(0, limit);
 }
 function pairEvidence(source, target) {
   if (source.degree !== target.degree) return { score: 0, basis: ['degree mismatch'], blocked: true };
   const kinds = jaccard(source.componentKinds, target.componentKinds);
   const neighbours = multisetSimilarity(source.neighbourDegrees, target.neighbourDegrees);
-  const layers = layerSimilarity(source.layers, target.layers);
-  const reasons = jaccard(source.robustReasons, target.robustReasons);
+  const layers = layerSimilarity(source.layers, target.layers); const reasons = jaccard(source.robustReasons, target.robustReasons);
   const score = 30 + (20 * kinds) + (20 * neighbours) + (25 * layers) + (5 * reasons);
-  const basis = [
-    `degree ${source.degree}=${target.degree}`,
-    `incident kinds ${Math.round(kinds * 100)}%`,
-    `neighbour degrees ${Math.round(neighbours * 100)}%`,
-    `topology neighbourhood ${Math.round(layers * 100)}%`,
-  ];
+  const basis = [`degree ${source.degree}=${target.degree}`, `incident kinds ${Math.round(kinds * 100)}%`,
+    `neighbour degrees ${Math.round(neighbours * 100)}%`, `topology neighbourhood ${Math.round(layers * 100)}%`];
   const sharedReasons = source.robustReasons.filter((reason) => target.robustReasons.includes(reason));
   if (sharedReasons.length) basis.push(`shared ${sharedReasons.join('+')}`);
   return { score, basis, blocked: false };
 }
 function rankedForSource(source, targets) {
-  return targets.map((target) => ({ target, ...pairEvidence(source, target) }))
-    .filter((row) => !row.blocked)
+  return targets.map((target) => ({ target, ...pairEvidence(source, target) })).filter((row) => !row.blocked)
     .sort((a, b) => b.score - a.score || compareNodeIds(a.target.nodeId, b.target.nodeId));
 }
-function confidence(score, gap, requiredGap) {
+function confidence(score, gap, requiredGap, methodB) {
+  if (methodB?.status !== 'READY') return 'REVIEW';
   if (score >= 90 && gap >= Math.max(requiredGap, 12)) return 'HIGH';
   if (score >= 78 && gap >= requiredGap) return 'MEDIUM';
   return 'REVIEW';
+}
+function methodBBasis(methodB) {
+  const sourceCount = methodB.source.independentAxisRunCount; const targetCount = methodB.target.independentAxisRunCount;
+  if (methodB.status !== 'READY') return [`Method B REVIEW: independent runs ${sourceCount}/${targetCount}; ${methodB.reason}`];
+  const basis = methodB.selectedBasis;
+  return [`Method B two-axis PASS: independent runs ${sourceCount}/${targetCount}`,
+    `included angle ${basis.sourceIncludedAngleDeg.toFixed(3)}°/${basis.targetIncludedAngleDeg.toFixed(3)}°`];
 }
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
@@ -93,23 +90,17 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
   const suggestions = [];
   for (const item of source) {
     const ranked = sourceRankings.get(item.nodeId) || []; const winner = ranked[0]; if (!winner || winner.score < minimumScore) continue;
-    const reverse = targetRankings.get(winner.target.nodeId) || [];
-    if (reverse[0]?.target?.nodeId !== item.nodeId) continue;
-    const sourceGap = winner.score - Number(ranked[1]?.score ?? 0);
-    const targetGap = winner.score - Number(reverse[1]?.score ?? 0);
+    const reverse = targetRankings.get(winner.target.nodeId) || []; if (reverse[0]?.target?.nodeId !== item.nodeId) continue;
+    const sourceGap = winner.score - Number(ranked[1]?.score ?? 0); const targetGap = winner.score - Number(reverse[1]?.score ?? 0);
     const winnerGap = Math.min(sourceGap, targetGap);
+    const methodB = qualifyCiiMethodBRunBasis(sourceGraph, targetGraph, item.nodeId, winner.target.nodeId, options);
     suggestions.push(deepFreeze({
-      schema: CII_WORKSPACE_SCHEMAS.baseAnchorSuggestion,
-      sourceNodeId: item.nodeId,
-      targetNodeId: winner.target.nodeId,
-      status: 'SUGGESTED',
-      authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED',
-      reviewRequired: true,
-      confidence: confidence(winner.score, winnerGap, requiredGap),
-      score: Number(winner.score.toFixed(3)),
-      winnerGap: Number(winnerGap.toFixed(3)),
-      requiredWinnerGap: requiredGap,
-      basis: Object.freeze(winner.basis),
+      schema: CII_WORKSPACE_SCHEMAS.baseAnchorSuggestion, sourceNodeId: item.nodeId, targetNodeId: winner.target.nodeId,
+      status: 'SUGGESTED', authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED', reviewRequired: true,
+      basisMethod: methodB.status === 'READY' ? 'METHOD_B_NETWORK' : 'LANDMARK_ONLY', methodB,
+      confidence: confidence(winner.score, winnerGap, requiredGap, methodB), score: Number(winner.score.toFixed(3)),
+      winnerGap: Number(winnerGap.toFixed(3)), requiredWinnerGap: requiredGap,
+      basis: Object.freeze([...winner.basis, ...methodBBasis(methodB)]),
       identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_USED', 'WALL_NOT_USED']),
     }));
   }
