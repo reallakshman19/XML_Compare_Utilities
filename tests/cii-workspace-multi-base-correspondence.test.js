@@ -27,8 +27,8 @@ const source = graph('SOURCE', 'source-L', [
   segment(20, 30, point(1000, 0, 0), point(1000, 1000, 0)),
 ]);
 const target = graph('TARGET', 'target-L', [
-  segment(110, 120, point(5000, 3000, 0), point(6000, 3000, 0)),
-  segment(120, 130, point(6000, 3000, 0), point(6000, 4000, 0)),
+  segment(110, 120, point(0, 0, 0), point(1000, 0, 0)),
+  segment(120, 130, point(1000, 0, 0), point(1000, 1000, 0)),
 ]);
 
 // Method A alone: a local non-collinear three-anchor basis must drive only its own locked-span correspondence.
