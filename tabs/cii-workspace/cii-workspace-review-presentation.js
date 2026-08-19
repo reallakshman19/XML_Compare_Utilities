@@ -51,8 +51,9 @@ function limitationsMarkup(row) {
   return `<details><summary>${h(row?.evidenceStatus || 'EVIDENCE')} evidence</summary>${row?.authority ? `<p><b>Authority:</b> ${h(row.authority)}</p>` : ''}${limitations.length ? `<ul>${limitations.map((item) => `<li>${h(item)}</li>`).join('')}</ul>` : ''}</details>`;
 }
 function transferOperationMap(current) {
-  return new Map((current?.transferPlan?.operations || []).filter((item) => item?.engineeringDeltaId)
-    .map((item) => [String(item.engineeringDeltaId), item]));
+  const rows = [...(current?.transferPlan?.operations || []), ...(current?.transferPlan?.excludedOperations || [])]
+    .filter((item) => item?.engineeringDeltaId);
+  return new Map(rows.map((item) => [String(item.engineeringDeltaId), item]));
 }
 function boundReviewAuthority(current, correspondenceId) {
   const id = String(correspondenceId || '');
@@ -63,6 +64,7 @@ function boundReviewAuthority(current, correspondenceId) {
 function operationOutcome(operation, writerReady) {
   if (!operation) return null;
   const before = operation.before;
+  if (operation.scopeDecision === 'EXCLUDE') return { state: 'EXCLUDED', effective: before, proposed: operation.proposed, willApply: false };
   if (operation.action === 'KEEP') return { state: 'KEEP', effective: before, proposed: operation.proposed, willApply: false };
   if (operation.status === 'PROTECTED') return { state: 'PROTECTED', effective: before, proposed: operation.proposed, willApply: false };
   if (operation.status === 'BLOCKED') return { state: 'BLOCKED', effective: before, proposed: operation.proposed, willApply: false };
