@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR991
-claim_state: ACTIVE_HANDOVER_READY
+claim_state: COMPLETE_OWNER_AUTHORIZED_MERGE
 files:
   exact:
     - agents/MASTER_INDEX.md
@@ -64,4 +64,6 @@ implementation_claims:
   - current TARGET hash must match reviewed TARGET hash before mutation
   - modified target is reparsed and must have zero unexpected semantic deltas before export
   - unsupported approved operations block apply and are never silently skipped
-validation_state: FOCUSED_ELEMENT_RIGID_RESTRAINT_PASS_FULL_BENCHMARK_NOT_RUN
+validation_state: FOCUSED_EXECUTION_PASS_REAL_BENCHMARK_ORACLE_VERIFIED_FULL_RUNTIME_NOT_RUN_ENVIRONMENT
+qualification_exception: OWNER_AUTHORIZED_ENVIRONMENTAL_EXCEPTION
+merge_authority: OWNER_GRANTED_AFTER_QUALIFICATION_CLOSURE
