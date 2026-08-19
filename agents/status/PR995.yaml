@@ -6,7 +6,7 @@ criticality: ENGINEERING_CRITICAL
 base_branch: main
 base_basis_sha: daf3be0a23524c4e25c6adc915f8841732180c36
 branch: agent/cii-multi-base-orchestration
-current_stage: VALIDATE_RECONCILE
+current_stage: HANDOVER_REVIEW
 handover_readiness: READY
 coordination: SAFE
 mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
@@ -38,7 +38,13 @@ validation:
   full_repository_suite: NOT_RUN_ENVIRONMENT
   browser_chromium: NOT_RUN_ENVIRONMENT
   writer_lifecycle: NOT_RUN_OUT_OF_SCOPE
-  ci: REFRESH_REQUIRED_EXACT_HEAD
+  ci_observation: NO_STATUS_CHECKS_OR_PULL_REQUEST_WORKFLOW_RUNS_AT_RECONCILE_HEAD_bf2970a73d9b0e9bd62d3a709094780054fa66c9
+reconciliation:
+  changed_files: 9
+  expected_changed_files: 9
+  unexplained_files: 0
+  wip_records_retired: true
+  base_drift: NONE_AT_RECONCILE
 known_engineering_defect: NONE_IDENTIFIED_WITHIN_EXECUTED_ARBITRATION_SCOPE
 highest_risk: valid local Method A or B bases may produce unresolved correspondence when existing locked-span or whole-component propagation reaches legitimately revised geometry; retain loop diagnostics and do not weaken fail-closed propagation
 exact_next_action: execute focused production and SOURCE 3/TARGET 3-1 tests in a complete checkout; owner review afterward; do not merge without explicit authorization
