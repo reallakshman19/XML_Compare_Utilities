@@ -22,8 +22,9 @@ const anchors = [
   { sourceNodeId: '110', targetNodeId: '5010' },
   { sourceNodeId: '120', targetNodeId: '5020' },
 ];
-const transform = qualifyCiiGeometryTransform(anchors.map((pair, index) => ({ source: sourcePoints[index], target: targetPoints[index] })));
+const transform = qualifyCiiGeometryTransform(anchors.map((pair, index) => ({ source: sourcePoints[index], target: targetPoints[index], sourceOdMm: 273 })));
 assert.strictEqual(transform.status, 'READY');
+assert.strictEqual(transform.tolerancePolicy.basisAgreementToleranceMm, 546);
 
 const noGeometry = compareLockedCiiAnchorSpan(source, target, anchors);
 const registered = compareLockedCiiAnchorSpan(source, target, anchors, { geometryTransform: transform });
@@ -33,4 +34,4 @@ const projection = (result) => ({
   elements: result.elementRows.map((row) => [row.sourceElementId || row.sourceElementIds?.join('|'), row.targetElementIds?.join('|'), row.status]),
 });
 assert.strictEqual(stableStringify(projection(registered)), stableStringify(projection(noGeometry)), 'registered XYZ may support evidence but must not change topology authority');
-console.log('CII Workspace coordinate-transform correspondence invariance passed.');
+console.log('CII Workspace OD-scaled coordinate-transform correspondence invariance passed.');
