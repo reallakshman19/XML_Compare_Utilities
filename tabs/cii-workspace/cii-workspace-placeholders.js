@@ -1,18 +1,19 @@
 import { CII_WORKSPACE_SCHEMAS, CII_WORKSPACE_STAGES, deepFreeze } from './cii-workspace-contracts.js';
 
-function writer1AStage(readiness) {
+function writerStage(readiness) {
   const ready = readiness?.ready === true;
+  const writer = String(readiness?.schema || '').includes('Writer1B') ? 'WRITER_1B' : 'WRITER_1A';
   const blockers = readiness?.blockers?.length
     ? [...readiness.blockers]
-    : ready ? [] : ['Build an approved Writer 1A transfer plan before target mutation.'];
+    : ready ? [] : [`Build an approved ${writer.replace('_', ' ')} transfer plan before target mutation.`];
   return {
     schema: CII_WORKSPACE_SCHEMAS.stage,
     stageId: '06',
     capability: 'Apply to target CII',
-    status: ready ? 'READY_WRITER_1A' : 'BLOCKED_WRITER_1A',
+    status: ready ? `READY_${writer}` : `BLOCKED_${writer}`,
     actionEnabled: ready,
     blockers: Object.freeze(blockers),
-    nextQualificationSlice: ready ? 'WRITER_1A_EXECUTION' : 'WRITER_1A_CARDINALITY_PRESERVING_AUTHORITY',
+    nextQualificationSlice: ready ? `${writer}_EXECUTION` : `${writer}_QUALIFIED_MUTATION_AUTHORITY`,
   };
 }
 
@@ -27,7 +28,7 @@ export function createUnavailableCiiWorkspaceStage(stageId, capability) {
 
 export function createCiiWorkspaceStageModel(writerReadiness = null) {
   return deepFreeze(CII_WORKSPACE_STAGES.map((stage) => {
-    if (stage.id === '06') return { ...stage, ...writer1AStage(writerReadiness) };
+    if (stage.id === '06') return { ...stage, ...writerStage(writerReadiness) };
     if (stage.id === '07') return {
       ...stage,
       schema: CII_WORKSPACE_SCHEMAS.stage,
@@ -40,7 +41,7 @@ export function createCiiWorkspaceStageModel(writerReadiness = null) {
 }
 
 export function attemptCiiTargetApply() {
-  throw new Error('USE_APPLY_CII_WORKSPACE_TARGET_WRITER_1A');
+  throw new Error('USE_APPLY_CII_WORKSPACE_TARGET_WRITER_1B');
 }
 
 export function canExportModifiedTargetCii(writerReadiness = null) {
