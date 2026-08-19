@@ -1,20 +1,24 @@
 import assert from 'assert';
 import { readFile } from 'node:fs/promises';
 import { baseAnchorEvidenceMarkup, _test } from '../tabs/cii-workspace/cii-workspace-engineering-ui.js';
+import { ciiSuggestionSelectionKey } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 
 function run(runId, axisLabel, length, count, terminator) {
   return { runId, axisLabel, totalLengthMm: length, elementCount: count, terminatorClasses: [`${terminator}:`] };
 }
 function methodA(confidence = 'HIGH', cap = null) {
+  const anchorPairs = (cap ? [['10','110'],['20','120'],['30','130']] : [['10','110'],['20','120'],['30','130'],['40','140']])
+    .map(([sourceNodeId, targetNodeId]) => ({ sourceNodeId, targetNodeId }));
   return {
     status: 'READY', confidence, baseCount: 1,
     bestBase: {
-      baseId: 'METHOD_A_AUTO_10=>110__20=>120__30=>130__40=>140', selectedBasisId: 'B0-1-2',
+      baseId: `METHOD_A_AUTO_${anchorPairs.map((item) => `${item.sourceNodeId}=>${item.targetNodeId}`).join('__')}`,
+      selectedBasisId: 'B0-1-2', anchorPairs,
       anchorCount: cap ? 3 : 4, establishmentAnchorCount: 3, validationAnchorCount: cap ? 0 : 1,
       automaticConfidenceMinimumAnchorCount: 4, automaticConfidenceCap: cap,
       minimumAnchorSinAngle: 0.707107, rmsResidualMm: 0.72, maxResidualMm: 1.41,
       maxNormalizedResidual: 0.705, rotation: [[1,0,0],[0,1,0],[0,0,1]], translation: [2500,-700,50],
-      tolerancePolicy: { factor: 2, anchorTolerances: [{ toleranceMm: 2 }, { toleranceMm: 2 }, { toleranceMm: 2 }, { toleranceMm: 2 }] },
+      tolerancePolicy: { factor: 2, anchorTolerances: anchorPairs.map(() => ({ toleranceMm: 2 })) },
       weight: { total: 91.4 }, expansionDiagnostics: { ambiguousSourceNodeIds: [], ambiguousTargetNodeIds: [] },
     },
   };
@@ -46,9 +50,12 @@ function row(overrides = {}) {
   };
 }
 
-const corroborated = baseAnchorEvidenceMarkup({ baseAnchorSuggestions: [row()] });
+const abRow = row();
+const corroborated = baseAnchorEvidenceMarkup({ baseAnchorSuggestions: [abRow] });
 assert(corroborated.includes('METHOD A + METHOD B'), 'canonical A+B basis label must be primary UI');
 assert(corroborated.includes('A + B corroborated'), 'A+B must be presented as corroboration');
+assert(corroborated.includes('A+B acceptance creates two independent OR loops'), 'A+B UI must state that acceptance does not fuse the methods');
+assert(corroborated.includes('Add 2 OR bases'), 'A+B action must project two independent loops');
 assert(corroborated.includes('RMS residual'), 'Method A RMS residual must be visible without raw JSON');
 assert(corroborated.includes('1.41 mm'), 'Method A max residual must be visible');
 assert(corroborated.includes('2 mm'), 'Method A OD-scaled tolerance must be visible');
@@ -58,6 +65,13 @@ assert(corroborated.includes('18 / 12'), 'winner gap authority gate must be visi
 assert(corroborated.includes('Inspect transform evidence') && corroborated.includes('Inspect network evidence'), 'rawer evidence belongs under inspectors');
 assert(!corroborated.includes('{"'), 'primary/expanded evidence markup must not dump JSON objects');
 assert(!corroborated.includes('91.4 + 88.2'), 'A and B weights must never be presented as a summed authority score');
+
+const selected = baseAnchorEvidenceMarkup({ baseAnchorSuggestions: [abRow] }, new Set([ciiSuggestionSelectionKey(abRow)]));
+assert(selected.includes('Accepted independent base set'));
+assert(selected.includes('2 loops · A 1 · B 1'), 'selected A+B card must show two independent loops');
+assert(selected.includes('OR + conflict veto'));
+assert(selected.includes('Remove from base set'));
+assert(selected.includes('data-selected="true"'));
 
 const capped = _test.methodAMarkup(row({ basisMethod: 'METHOD_A_SPATIAL', methodA: methodA('REVIEW', 'REVIEW') }));
 assert(capped.includes('Automatic confidence capped at REVIEW'), 'three-anchor automatic Method A must visibly retain REVIEW cap');
@@ -88,11 +102,15 @@ const landmark = baseAnchorEvidenceMarkup({ baseAnchorSuggestions: [row({
 })] });
 assert(landmark.includes('LANDMARK ONLY'));
 assert(landmark.includes('METHOD_B_TWO_AXIS_GATE_NOT_MET'));
+assert(landmark.includes('Use manual anchor'), 'unqualified landmark evidence must stay in separate manual fallback mode');
 
 const css = await readFile(new URL('../tabs/cii-workspace/cii-workspace.css', import.meta.url), 'utf8');
+const engineeringCss = await readFile(new URL('../tabs/cii-workspace/cii-workspace-engineering-ui.css', import.meta.url), 'utf8');
 assert(css.includes('height: 100%'), 'application-level full viewport must not depend on browser fullscreen API');
 assert(css.includes('[data-ciiw-layout="compact"]'), 'engineer must be able to return to compact application layout');
 assert(css.includes('position: sticky'), 'review tables must retain sticky headers in full viewport');
 assert(css.includes('.ciiw-method-grid'), 'method evidence card layout must be present');
+assert(engineeringCss.includes('.ciiw-base-set'), 'accepted independent base set must have dedicated engineering presentation');
+assert(engineeringCss.includes('[data-selected="true"]'), 'multiple selected base cards must remain visibly selected');
 
-console.log('CII engineering full-screen / Method A+B evidence UI checks passed.');
+console.log('CII engineering full-screen / multi-base Method A+B evidence UI checks passed.');
