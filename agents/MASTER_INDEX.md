@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / DOCUMENTATION COMPLETE / SOURCE-BOUNDARY AUDIT PASS | ENGINEERING_CRITICAL_WRITER_AUTHORITY | Writer 1C = pointer-stable/row-count-stable existing auxiliary mutation; NODENAME first; SIF/TEE only after semantic map; anti-drift byte-span assurance; Writer 2/3 boundaries | SAFE / documentation successor to merged PR1001 / OWNER-ONLY MERGE | owner review; implementation proceeds through separate Writer 1C issue/PR |
+| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / DOCUMENTATION COMPLETE / SOURCE-BOUNDARY AUDIT PASS | ENGINEERING_CRITICAL_WRITER_AUTHORITY | Writer 1C = pointer-stable/row-count-stable existing auxiliary mutation; NODENAME first; SIF/TEE only after semantic map; anti-drift byte-span assurance; Writer 2/3 boundaries | SAFE / documentation successor to merged PR1001 / implementation Issue #1003 / OWNER-ONLY MERGE | owner review PR1002; Issue #1003 assignee answers expert gate before Writer 1C coding |
 | PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | MERGED 2026-08-19 · `7d63abe8` / retained UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | HISTORICAL | retained gates |
@@ -55,7 +55,9 @@ Phase 5  Writer 3 topology transaction engine
 Phase 6  mutation manifest / rollback / batch automation
 ```
 
-See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, and `docs/CIIcompareconceptnote.md`.
+Implementation is handed off through **Issue #1003**. Its assignee must answer three mandatory expert-qualification questions before coding: shared NODENAME byte-span custody, SIF/TEE physical ownership versus semantic authority, and the byte-level anti-drift falsifier.
+
+See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, and Issue #1003.
 
 ## PR1001 — merged explicit mutation-scope authority
 
