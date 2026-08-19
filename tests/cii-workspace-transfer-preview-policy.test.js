@@ -35,11 +35,23 @@ function delta(row, category, property, sourceValue, targetValue, config = {}) {
   };
 }
 
+const restraintPairing = {
+  schema: 'CIIWorkspaceRestraintPairing.v1', status: 'QUALIFIED', authority: 'SINGLETON_EQUAL_CARDINALITY',
+  sourceCount: 1, targetCount: 1, blockers: [], assignmentScore: 1, runnerUpScore: null, winnerGap: null,
+  pairs: [{
+    source: { pointer: 5, slot: 1, node: '130' }, target: { pointer: 5, slot: 1, node: '20130' },
+    before: { pointer: 5, slot: 1, node: '20130', typeCode: 9, stiffness: 1e12, gap: 0, friction: 0.3, connectingNode: 0, directionCosines: { x: 1, y: 0, z: 0 } },
+    proposed: { pointer: 5, slot: 1, node: '20130', typeCode: 15, stiffness: 1e12, gap: 0, friction: 0, connectingNode: 0, directionCosines: { x: 1, y: 0, z: 0 } },
+    evidence: { strong: false }, changed: true,
+  }],
+};
+
 const engineeringDeltas = {
   schema: 'CIIWorkspaceEngineeringDeltaSet.v1',
   rows: [
     delta(node130, 'RESTRAINT', 'Restraint code set', [15], [9], { evidenceStatus: 'PARTIAL', authority: 'PROTECTED_WRITER_RESTRANT_LINE1_LINE2' }),
     delta(node130, 'RESTRAINT', 'Restraint friction values', [0], [0.3], { authority: 'PROTECTED_WRITER_RESTRANT_LINE1_LINE2' }),
+    delta(node130, 'RESTRAINT', 'Qualified restraint record pairing', restraintPairing, null, { authority: 'PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING:SINGLETON_EQUAL_CARDINALITY' }),
     delta(node205, 'HANGER', 'Hanger presence', true, false, { authority: 'CONTROL_NOHGRS_PLUS_MISCEL_1_IHGRNODE', semanticChange: 'REMOVED_IN_TARGET' }),
     delta(node205, 'HANGER', 'Hanger record count at node', 1, 0, { authority: 'CONTROL_NOHGRS_PLUS_MISCEL_1_IHGRNODE' }),
     delta(sif, 'SIF_TEE', 'SIF/Tee raw code (field 2)', 3, 5, { evidenceStatus: 'PARTIAL', authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD' }),
@@ -62,10 +74,15 @@ assert.strictEqual(plan.policy.wallProtected, false);
 assert.strictEqual(plan.status, 'PREVIEW_READY', 'blocked individual families do not prevent inspection when qualified operations exist');
 
 const find = (property) => plan.operations.find((item) => item.property === property);
-assert.strictEqual(find('Restraint code set').action, 'COPY');
-assert.strictEqual(find('Restraint code set').status, 'PREVIEW_READY');
-assert.strictEqual(find('Restraint friction values').action, 'COPY');
-assert.strictEqual(find('Restraint friction values').status, 'PREVIEW_READY');
+for (const property of ['Restraint code set', 'Restraint friction values']) {
+  assert.strictEqual(find(property).action, 'KEEP', 'aggregate restraint evidence must not authorize a slot mutation');
+  assert.strictEqual(find(property).status, 'PROTECTED');
+  assert.strictEqual(find(property).policyAuthority, 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY');
+}
+assert.strictEqual(find('Qualified restraint record pairing').action, 'COPY');
+assert.strictEqual(find('Qualified restraint record pairing').status, 'PREVIEW_READY');
+assert.strictEqual(find('Qualified restraint record pairing').policyAuthority, 'CII_WRITER_1A_CARDINALITY_PRESERVING_RESTRAINT_SLOT');
+assert.strictEqual(find('Qualified restraint record pairing').proposed.status, 'QUALIFIED');
 
 assert.strictEqual(find('Hanger presence').action, 'CREATE', 'intended operation remains visible even though execution is blocked');
 assert.strictEqual(find('Hanger presence').status, 'BLOCKED');
@@ -95,12 +112,12 @@ for (const property of ['P1', 'T1', 'T2']) {
   assert.strictEqual(find(property).policyAuthority, 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD');
 }
 
-assert(plan.summary.byAction.COPY >= 7);
+assert(plan.summary.byAction.COPY >= 6);
 assert(plan.summary.byAction.CREATE >= 1);
-assert(plan.summary.byAction.KEEP >= 3);
+assert(plan.summary.byAction.KEEP >= 5);
 assert(plan.summary.byAction.BLOCKED >= 1);
-assert(plan.summary.protectedCount >= 2);
-assert(plan.summary.previewReadyCount >= 7);
+assert(plan.summary.protectedCount >= 4);
+assert(plan.summary.previewReadyCount >= 6);
 
 const rejectedReview = createCiiWorkspaceReviewLedger(sourceDocument, targetDocument, [], correspondence, {
   reviewedCorrespondenceIds: [node130.correspondenceId],
@@ -114,4 +131,4 @@ assert.strictEqual(stale.status, 'BLOCKED');
 assert.strictEqual(stale.operations.length, 0);
 assert(stale.blockers.includes('STALE_REVIEW_TARGET_IDENTITY'));
 
-console.log('CII Writer 1A transfer-policy checks passed.');
+console.log('CII Writer 1A transfer-policy pairing checks passed.');
