@@ -1,0 +1,120 @@
+{
+  "schema": "cii-compare-benchmark/v1",
+  "direction": "SOURCE_TO_TARGET",
+  "source": "BM_CII_SOURCE.CII",
+  "targets": {
+    "target1": {
+      "file": "BM_CII_TARGET1.CII",
+      "role": "QUALIFICATION"
+    },
+    "target2": {
+      "file": "BM_CII_TARGET2.CII",
+      "role": "BLIND_GENERALISATION"
+    }
+  },
+  "numberingHints": {
+    "target1": {
+      "offset": 20000,
+      "authority": "NON_AUTHORITATIVE_HINT"
+    },
+    "target2": {
+      "offset": 10000,
+      "authority": "NON_AUTHORITATIVE_HINT"
+    }
+  },
+  "nodeMappings": [
+    {
+      "id": "BASE-10",
+      "sourceNode": "10",
+      "target1Node": "20010",
+      "target2Node": "10010",
+      "purpose": "base-anchor-reference"
+    },
+    {
+      "id": "NODE-35",
+      "sourceNode": "35",
+      "target1Node": "20035",
+      "target2Node": "10035",
+      "purpose": "identity-with-node-name-change"
+    },
+    {
+      "id": "NODE-70",
+      "sourceNode": "70",
+      "target1Node": "20070",
+      "target2Node": "10070",
+      "purpose": "identity-with-sif-tee-change"
+    },
+    {
+      "id": "NODE-113",
+      "sourceNode": "113",
+      "target1Node": "20113",
+      "target2Node": "10113",
+      "purpose": "weight-change-span-start"
+    },
+    {
+      "id": "NODE-116",
+      "sourceNode": "116",
+      "target1Node": "20116",
+      "target2Node": "10116",
+      "purpose": "weight-change-span-end"
+    },
+    {
+      "id": "NODE-130",
+      "sourceNode": "130",
+      "target1Node": "20130",
+      "target2Node": "10130",
+      "purpose": "restraint-change"
+    },
+    {
+      "id": "NODE-205",
+      "sourceNode": "205",
+      "target1Node": "20205",
+      "target2Node": "10205",
+      "purpose": "moved-intermediate-node"
+    }
+  ],
+  "gangMappings": [
+    {
+      "id": "GANG-200-205-210",
+      "sourceNodes": ["200", "205", "210"],
+      "target1Nodes": ["20200", "20205", "20210"],
+      "target2Nodes": ["10200", "10205", "10210"],
+      "purpose": "same-network-span-with-internal-node-relocation"
+    },
+    {
+      "id": "GANG-250-255-260-270",
+      "sourceNodes": ["250", "255", "260", "270"],
+      "target1Nodes": ["20250", "20255", "20260", "20270"],
+      "target2Nodes": ["10250", "10255", "10260", "10270"],
+      "purpose": "size-wall-change-and-target2-internal-length-redistribution"
+    }
+  ],
+  "quarantinedExpectations": [
+    {
+      "id": "NOTE-BASE-10-20000",
+      "status": "QUARANTINED",
+      "text": "Base Anchor: 10->20000",
+      "reason": "20000 is not encoded as a target node expectation; the intended concept is a non-authoritative numbering offset while the actual target node is 20010."
+    },
+    {
+      "id": "NOTE-30-20130",
+      "status": "QUARANTINED",
+      "text": "30 is 20130",
+      "reason": "Source/target geometry and restraint evidence support 130->20130; do not tune against 30->20130."
+    },
+    {
+      "id": "NOTE-50-70",
+      "status": "QUARANTINED",
+      "text": "50-70 -> 20050-20070",
+      "reason": "The current benchmark does not provide a validated literal source node 50 / target node 20050 expectation."
+    }
+  ],
+  "oracleRules": {
+    "deriveTargetsFromOffset": false,
+    "requireSourceNodeExists": true,
+    "requireTargetNodeExists": true,
+    "requireGangConsecutiveEdges": true,
+    "requireUniqueNodeMappingTargetCustody": true,
+    "quarantinedExpectationsAreAssertions": false
+  }
+}
