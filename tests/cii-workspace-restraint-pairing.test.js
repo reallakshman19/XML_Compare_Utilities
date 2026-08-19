@@ -50,7 +50,8 @@ function record(pointer, slot, node, config = {}) {
   const bySourceSlot = new Map(pairing.pairs.map((pair) => [pair.source.slot, pair.target.slot]));
   assert.strictEqual(bySourceSlot.get(1), 6);
   assert.strictEqual(bySourceSlot.get(5), 2);
-  assert(pairing.winnerGap > 0);
+  assert.strictEqual(pairing.runnerUpScore, null, 'all alternative assignments are invalid rather than lower-scoring');
+  assert.strictEqual(pairing.winnerGap, null);
 }
 
 // GUID can preserve identity while direction itself is an approved engineering
