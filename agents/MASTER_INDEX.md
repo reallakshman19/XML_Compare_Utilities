@@ -4,7 +4,8 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | IMPLEMENTATION COMPLETE / FOCUSED PASS / REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT / DRAFT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | SAFE / successor to merged PR991 | merge only on explicit owner acceptance of retained NOT_RUN_ENVIRONMENT gates, otherwise run complete-checkout suite first |
+| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / IMPLEMENTATION COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / FULL REPO+BROWSER+REAL CII NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | local Method A multi-basis ambiguity; independent A/B OR loops; Method B two-axis run gate; cross-loop identity conflict veto | SAFE / first core slice of Issue #993 | owner review core/sample; complete-checkout and real-CII qualification before wider authority; do not merge without explicit authorization |
+| PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
 | PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
 | PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | topology-only paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
@@ -17,7 +18,51 @@ Live GitHub state is authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR992 — current authority
+## PR994 — current CII base-anchor authority work
+
+PR994 is the first core slice of Issue #993. The controlling architecture is:
+
+```text
+independent Method A local bases
+          OR
+independent Method B local bases
+          ↓
+compatible READY evidence accumulates
+conflicting READY source/target identity claims => AMBIGUOUS
+```
+
+Separate local Method A bases may retain different rigid transforms. Within one local Method A base, every qualified non-collinear triplet is evaluated against every anchor assigned to that base; materially different residual-qualified transforms fail that base closed with `METHOD_A_AMBIGUOUS_BASES`. Method B now requires at least two independent undirected straight-pipe runs on both SOURCE and TARGET before Base Anchor confidence can reach MEDIUM/HIGH.
+
+Focused validation truth:
+
+```text
+focused JS syntax: PASS
+Method A multi-basis regression: PASS_IMPLEMENTATION_COUPLED
+Method B one-axis/two-axis regression: PASS_IMPLEMENTATION_COUPLED
+independent A/B OR + conflict-veto regression: PASS_IMPLEMENTATION_COUPLED
+independent Python numerical oracle: PASS_INDEPENDENT_REPRODUCTION
+full repository suite: NOT_RUN_ENVIRONMENT
+browser / Chromium: NOT_RUN_ENVIRONMENT
+real CII benchmark: NOT_RUN_ENVIRONMENT
+CI: NOT_RUN
+```
+
+Explicitly outside PR994 authority:
+
+```text
+full-screen/UI orchestration
+transfer APPLY/EXCLUDE
+Writer 1A/1B
+transfer policy/plan
+fixed-field parser
+SIF/TEE or NodeName mutation
+protected external writer/converter
+workflow changes
+```
+
+See `agents/PR994_workreport.md`, `agents/status/PR994.yaml`, and `agents/claims/PR994.yaml`.
+
+## PR992 — merged Writer 1B authority
 
 Writer 1B extends Writer 1A only where fixed-field and ownership semantics are independently source-qualified.
 
@@ -45,7 +90,7 @@ unique pairing of unchanged records
 
 Writer 1B never creates/deletes restraint blocks or mutates restraint tag/GUID strings. Ambiguous pairing fails closed.
 
-Validation truth:
+Validation truth retained at merge:
 
 ```text
 focused exact-module Writer 1B execution: PASS_IMPLEMENTATION_COUPLED
@@ -58,7 +103,7 @@ full shell/browser/inherited CII Workspace suite: NOT_RUN_ENVIRONMENT
 CI status checks: none
 ```
 
-There is no known engineering defect in the implemented Writer 1B slice. Merge is conditionally defensible only with explicit owner acceptance of the retained `NOT_RUN_ENVIRONMENT` gates. Under strict qualification, run those committed tests in a complete checkout first.
+PR992 was merged under explicit owner authority at `main@168d21bd9e9c198d22009f62b6203e4f60fd4ba1`; the retained NOT_RUN_ENVIRONMENT items remain qualification truth and are not retroactively converted to PASS.
 
 Explicitly outside PR992 authority:
 
