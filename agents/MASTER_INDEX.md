@@ -4,58 +4,92 @@ Live GitHub state remains authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR987 | CII auxiliary custody + benchmark qualification | `agent/cii-aux-custody-benchmark` | IMPLEMENTATION COMPLETE / SOURCE-QUALIFIED / RUNTIME NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | ELEMENT auxiliary pointers, qualified restraint gap/friction, pointer-bound rigid/SIF evidence, registered/native delta basis, oracle correction | SAFE STACK on PR986/985/984/983/982 | keep draft; execute focused + real three-file tests in qualified checkout, then frozen-policy full preview qualification |
-| PR986 | CII Compare Review + engineering deltas | `agent/cii-compare-review-deltas` | IMPLEMENTATION COMPLETE / EXACT FOCUSED PASS / FULL INTEGRATION NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | downstream deltas + Compare Review view/UI/export; no identity or transfer mutation | SAFE STACK on PR985/984/983/982 | keep draft; PR987 qualifies auxiliary property custody and geometry basis |
-| PR985 | CII anchor-seeded network propagation | `agent/cii-anchor-propagation` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | one-anchor propagation + frontier assignment/custody | SAFE STACK on PR984/983/982 | keep draft; downstream PRs consume correspondence read-only |
-| PR984 | CII M1 Spatial / M2 Network evidence | `agent/cii-m1-m2-evidence` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | M1/M2 evidence + confidence/ranking | SAFE STACK | keep draft; endpoint-coordinate correction is authority |
-| PR983 | capability states + benchmark oracle/preflight | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | intake authority + test-only oracle | SAFE STACK | keep draft |
-| PR982 | fixed-field ELEMENT parser | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT | ENGINEERING_CRITICAL | fixed-field parser + regression | SAFE STACK | keep draft pending owner merge decision |
+| PR988 | CII Transfer Preview qualification | `agent/cii-transfer-preview-qualification` | IMPLEMENTATION COMPLETE / EXACT FOCUSED PASS / REAL BENCHMARK NOT_RUN / AUTO BLOCKED / STACKED DRAFT | ENGINEERING_CRITICAL | delta-driven read-only transfer policy, action/status separation, Tab3 actions/protection; no writer | SAFE STACK on PR987..982 | run real TARGET1/TARGET2 tests + inherited regression/UI lifecycle; do not start mutation or merge before PASS |
+| PR987 | CII auxiliary custody + benchmark qualification | `agent/cii-aux-custody-benchmark` | IMPLEMENTATION COMPLETE / SOURCE-QUALIFIED / HANGER FOCUSED PASS / REAL BENCHMARK NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | RESTRANT/SIF block-index pointers, RIGID pointer custody, hanger node presence, registered/native delta basis, oracle correction | SAFE STACK on PR986..982 | execute real benchmark qualification + end-to-end frozen-policy preview |
+| PR986 | CII Compare Review + engineering deltas | `agent/cii-compare-review-deltas` | IMPLEMENTATION COMPLETE / EXACT FOCUSED PASS / FULL INTEGRATION NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | downstream deltas + Compare Review view/UI/export; no identity or target mutation | SAFE STACK on PR985..982 | consumed by PR987/988; retain draft until chain qualification |
+| PR985 | CII anchor-seeded network propagation | `agent/cii-anchor-propagation` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | one-anchor multi-hop propagation + frontier assignment/custody | SAFE STACK on PR984..982 | frozen-policy real benchmark is remaining integration gate |
+| PR984 | CII M1 Spatial / M2 Network evidence | `agent/cii-m1-m2-evidence` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | endpoint-coordinate M1, dimension-free M2, confidence/ranking separation | SAFE STACK | frozen; do not retune for TARGET2 |
+| PR983 | capability states + benchmark oracle/preflight | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | truthful intake capability states + test-only oracle | SAFE STACK | frozen benchmark/oracle basis |
+| PR982 | fixed-field ELEMENT parser | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT | ENGINEERING_CRITICAL | fixed-field parser + adjacent-sign regression | SAFE STACK | base of CII Compare qualification chain |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | historical CII Workspace V1 | HISTORICAL | none |
 
-## PR987 GE-987-002
+## PR988 — read-only Transfer Preview
 
-- Protected writer source-qualifies ELEMENT row12/13/14 auxiliary-pointer positions and RESTRANT line1 `node/type/stiffness/gap/friction/connecting-node` semantics.
-- CII Workspace now parses auxiliary custody without rewriting generic CAESAR parsers.
-- RIGID topology/component custody is pointer-bound; the unsafe generic interpretation of a RIGID record first field as node is not used by CII Workspace.
-- SIF&TEES record custody is pointer-bound and raw field2 is retained with PARTIAL semantics only.
-- SIF/TEE changes are excluded from M2 packet/neighbourhood identity and remain downstream engineering deltas only.
-- Engineering deltas now distinguish native node-coordinate evidence from registered rigid-3D evidence.
-- Benchmark SOURCE 130 -> TARGET1 20130 qualifies code `15 -> 9` and friction `0 -> 0.3`; TARGET2 10130 has code 9 and friction 0.
-- Benchmark SIF raw field2 qualifies `70: 3 -> 20070: 5` and `70: 3 -> 10070: 5`, without assigning a semantic label to raw codes 3/5.
-- Historical `113-116 weight changed` expectation is quarantined: SOURCE RIGID pointer 9 and TARGET1/TARGET2 pointer 11 all resolve to writer weight `111.200`.
-- Hanger remains `NOT_PARSED`; raw MISCEL_1 presence is exposed, but 205 hanger-deletion custody is not source-qualified.
-- Committed tests cover synthetic auxiliary custody/deltas, SIF-vs-M2 identity separation, inherited legacy-delta compatibility, and real SOURCE/TARGET1/TARGET2 property qualification. Literal execution remains `NOT_RUN` in the current environment.
+Production flow:
 
-See `agents/PR987_workreport.md`, `agents/status/PR987.yaml`, and `agents/claims/PR987.yaml`.
+```text
+correspondence -> engineering deltas -> engineer review -> transfer policy -> preview only
+```
 
-## PR986 GE-986-002
+Operation contract separates intended action from execution status. Examples:
 
-Validated implementation head: `10f999c26368c08224e6efda0bc52e5bec96f39f`; later commits update recovery/status records only.
+```text
+restraint revision        COPY   PREVIEW_READY
+SOURCE hanger at 205      CREATE BLOCKED
+SIF/Tee raw revision      COPY   BLOCKED
+rigid 111.2 -> 111.2      KEEP   PREVIEW_READY
+OD / wall / geometry      KEEP   PROTECTED
+P1/T1 partial revision    COPY   BLOCKED
+```
 
-- Engineering deltas are generated only after identity is bound and have `identityMutationAuthority = NONE_READ_ONLY_DOWNSTREAM`.
-- Compare Review exposes independent M1/M2 evidence, OD/WT, winner gap, alternatives, confidence, workflow status, engineering changes, and Accept/Reject/Lock decisions.
-- Candidate-set ambiguity projects to REVIEW even when the individual winner has HIGH evidence.
-- The shell presents `Inputs & Match Basis -> Compare Review -> Transfer Preview`; Stage06 remains disabled.
-- Correspondence CSV exports `confidence` separately from `workflowStatus`.
-- Exact focused Node execution PASS after materialized file Git blob SHAs were verified against GitHub.
-- Full shell lifecycle, real SOURCE/TARGET1/TARGET2 end-to-end Compare Review, and Chromium visual validation remain `NOT_RUN`.
+Protected by default: geometry, node numbering, topology, OD and wall.
 
-## PR985 GE-985-002
+Observed validation:
 
-- Production one-anchor preview uses bounded multi-hop propagation; multi-anchor unique-path code is unchanged.
-- Frontiers use one-to-one assignment, winner gap and target custody.
-- MEDIUM identity may propagate while remaining workflow REVIEW.
-- Focused reconstructed execution covered 205, TARGET1 250, TARGET2 102xx redistribution and ambiguity stop.
-- Literal full-checkout tests remain `NOT_RUN`.
+- exact Git-blob-verified local PASS: transfer policy/action-status regression;
+- exact local PASS: inherited transfer-preview test;
+- exact local PASS: inherited review/LOCKED custody test;
+- current-source inspection PASS: Tab3 Action/Family columns, action counts, protected wording and both disabled apply controls;
+- real benchmark transfer-preview test: COMMITTED / NOT_RUN.
 
-## PR984 GE-984-003 correction
+`mutationAuthority = BLOCKED_NOT_IMPLEMENTED` remains authoritative.
 
-M1 Spatial is endpoint-coordinate based, not midpoint based. It evaluates direct/reversed endpoint custody and uses maximum matched-endpoint displacement. OD/WT remain supporting evidence only; M2 tokens contain no dimensions; method disagreement is REVIEW.
+## PR987 — corrected auxiliary custody
 
-## PR983 / PR982 retained state
+Engineering-critical pointer units:
 
-PR983 retains truthful capability states and benchmark preflight. PR982 retains fixed-field decoding for adjacent negative scientific fields. Both remain draft/unmerged.
+```text
+RESTRANT  1-based 24-row block index
+SIF&TEES  1-based 10-row block index
+RIGID     1-based one-row record index
+```
 
-## Transfer boundary
+Benchmark evidence:
 
-Stage06 target-CII mutation/export remains `NOT_IMPLEMENTED` / blocked. No PR in this stack enables target mutation.
+- SOURCE 130 / TARGET1 20130 / TARGET2 10130: type `15 -> 9`; friction `0 -> 0.3` for TARGET1 and `0 -> 0` for TARGET2;
+- SOURCE `70->250` SIF block1 raw field2 3; TARGET1/TARGET2 corresponding branch uses block8 raw field2 5;
+- SOURCE `113->116` RIGID pointer9 and target pointer11 all resolve to weight 111.2, so historical weight-change note is quarantined;
+- SOURCE CONTROL `NOHGRS=1` with dual-layout-qualified IHGRNODE = 205; TARGET1/TARGET2 `NOHGRS=0`, so hanger node presence is `1 -> 0` downstream of identity.
+
+HGRDAT/TAG/GUID and SIF raw-code semantic names remain intentionally unqualified.
+
+## Earlier correspondence chain retained
+
+PR986 keeps identity confidence separate from engineering changes and implements the three-tab Compare Review UI.
+
+PR985 provides one-anchor bounded multi-hop propagation with one-to-one assignment, winner gap and custody stop.
+
+PR984 defines endpoint-coordinate M1, topology-led M2, OD/WT as separate evidence and M1/M2 disagreement as REVIEW. TARGET2 policy must not be retuned.
+
+PR983 retains truthful capability states and benchmark-oracle preflight. PR982 retains canonical fixed-field ELEMENT decoding.
+
+## AUTO / merge state
+
+Owner enabled AUTO phase progression and authorized merge only after all approved phases are complete **and qualified**.
+
+Current hard gate:
+
+```text
+AUTO_STATE = BLOCKED
+BLOCKER = FULL_REAL_BENCHMARK_RUNTIME_UNAVAILABLE
+NOT_RUN:
+  tests/cii-workspace-benchmark-qualification.test.js
+  tests/cii-workspace-benchmark-end-to-end.test.js
+  tests/cii-workspace-benchmark-transfer-preview.test.js
+```
+
+The available runtime has no complete repository/benchmark checkout; direct raw download is unavailable; no GitHub status/workflow run is present for PR988.
+
+Therefore target CII mutation is not started and the stack is not merge-ready. Actual target writer qualification is a separate phase after the frozen-policy TARGET1/TARGET2 gates pass.
+
+See `agents/PR987_workreport.md` and `agents/PR988_workreport.md` for exact continuation evidence.

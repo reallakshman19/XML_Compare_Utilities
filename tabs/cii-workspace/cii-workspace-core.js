@@ -94,7 +94,9 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const engineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
-  const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
+  // Production Transfer Preview consumes the qualified downstream engineering
+  // delta set. It does not independently reinterpret raw CII property records.
+  const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks);
   const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, landmarks, correspondence, review, engineeringDeltas, compareReview, transferPlan, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
