@@ -1,0 +1,40 @@
+schema: AgentStatus.v1
+pr: 994
+state: DRAFT_IMPLEMENTATION_COMPLETE_FOCUSED_VALIDATION_PASS
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+base_branch: main
+base_basis_sha: 168d21bd9e9c198d22009f62b6203e4f60fd4ba1
+branch: agent/cii-multi-base-core
+current_stage: HANDOVER_RECONCILE
+handover_readiness: READY
+coordination: SAFE
+mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
+merge_authority: OWNER_ONLY
+scope_authority: CII_INDEPENDENT_MULTI_BASE_METHOD_A_B_CORE
+qualified_scope:
+  - METHOD_A_LOCAL_MULTI_BASIS_DIAGNOSTICS
+  - METHOD_A_INDEPENDENT_OR_BASE_LOOPS
+  - METHOD_B_PIPE_RUN_EXTRACTION
+  - METHOD_B_TWO_AXIS_HARD_CONFIDENCE_GATE
+  - METHOD_B_OD_WT_NODE_NUMBER_EXCLUSIONS
+  - CROSS_LOOP_IDENTITY_CONFLICT_VETO
+  - METHOD_B_ANCHOR_CONFIDENCE_GATE
+  - FOCUSED_SYNTHETIC_AND_INDEPENDENT_NUMERICAL_QUALIFICATION
+blocked_scope:
+  - FULL_ISSUE_993_UI_ORCHESTRATION
+  - WRITER_1A_OR_1B_CHANGES
+  - TRANSFER_POLICY_PLAN_CHANGES
+  - TRANSFER_APPLY_EXCLUDE_UI
+  - SIF_TEE_OR_NODENAME_MUTATION
+  - FIXED_FIELD_PARSER_CHANGES
+  - PROTECTED_EXTERNAL_WRITER
+  - WORKFLOW_CHANGES
+validation_state: FOCUSED_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
+full_repository_suite: NOT_RUN_ENVIRONMENT
+browser: NOT_RUN_ENVIRONMENT
+real_cii_benchmark: NOT_RUN_ENVIRONMENT
+ci: NOT_RUN
+known_engineering_defect: NONE_IDENTIFIED_WITHIN_CORE_SAMPLE_SCOPE
+highest_risk: successor workspace orchestration must consume independent loop provenance without reviving one-global-transform or first-success semantics
+exact_next_action: owner review of PR994; run complete-checkout/real-CII qualification before wider product authority; do not merge without explicit authorization
