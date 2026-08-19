@@ -171,11 +171,14 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
   const poolLimit = Math.max(limit * 2, Number(options.baseAnchorCandidatePool || 16));
   const requiredGap = Math.max(0, Number(options.baseAnchorWinnerGap ?? 8));
   const minimumScore = Math.max(0, Number(options.baseAnchorMinimumScore ?? 65));
+  const methodAMinimumScore = Math.max(0, Number(options.methodAMinimumCandidateScore ?? Math.min(minimumScore, 55)));
   const source = structuralCandidates(sourceGraph, poolLimit); const target = structuralCandidates(targetGraph, poolLimit);
   const sourceRankings = new Map(source.map((item) => [item.nodeId, rankedForSource(item, target)]));
   const targetRankings = new Map(target.map((item) => [item.nodeId, rankedForSource(item, source)]));
   const mutualRows = mutualBestHypotheses(source, sourceRankings, targetRankings, minimumScore);
-  const methodARows = methodACandidateHypotheses(source, sourceRankings, targetRankings, minimumScore, options);
+  const methodASourceLimit = Math.max(3, Number(options.methodASourceCandidateLimit ?? limit));
+  const methodASources = source.slice(0, Math.min(source.length, methodASourceLimit));
+  const methodARows = methodACandidateHypotheses(methodASources, sourceRankings, targetRankings, methodAMinimumScore, options);
   const methodADiscovery = discoverCiiMethodABases(sourceGraph, targetGraph, methodARows.map((row) => ({
     sourceNodeId: row.item.nodeId, targetNodeId: row.winner.target.nodeId, score: row.winner.score, winnerGap: row.winnerGap,
     sourceRank: row.sourceRank, targetRank: row.targetRank, mutualBest: row.mutualBest,
@@ -195,8 +198,9 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
       methodB, methodBWeight, confidence: suggestionConfidence(methodA, methodB, bConfidence, row, requiredGap),
       score: Number(row.winner.score.toFixed(3)), winnerGap: Number(row.winnerGap.toFixed(3)), requiredWinnerGap: requiredGap,
       candidateGeneration: deepFreeze({ method: row.mutualBest ? 'MUTUAL_BEST_STRUCTURAL_LANDMARK' : 'BIDIRECTIONAL_STRUCTURAL_CANDIDATE_FOR_METHOD_A',
-        authorityRole: 'CANDIDATE_GENERATION_ONLY', score: Number(row.winner.score.toFixed(3)), sourceRank: row.sourceRank,
-        targetRank: row.targetRank, mutualBest: row.mutualBest, sourceWinnerGap: Number(row.sourceGap.toFixed(3)), targetWinnerGap: Number(row.targetGap.toFixed(3)) }),
+        authorityRole: 'CANDIDATE_GENERATION_ONLY', score: Number(row.winner.score.toFixed(3)), methodAMinimumCandidateScore: methodAMinimumScore,
+        sourceRank: row.sourceRank, targetRank: row.targetRank, mutualBest: row.mutualBest,
+        sourceWinnerGap: Number(row.sourceGap.toFixed(3)), targetWinnerGap: Number(row.targetGap.toFixed(3)) }),
       basis: Object.freeze([...row.winner.basis, ...methodABasis(methodA), ...methodBBasis(methodB, methodBWeight, row, requiredGap)]),
       identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE', 'WALL_NOT_USED']),
     });
