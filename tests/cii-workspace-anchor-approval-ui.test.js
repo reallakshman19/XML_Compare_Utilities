@@ -13,7 +13,8 @@ assert(shell.includes('<th>Approval</th><th>Source</th><th>Target</th>'), 'Engin
 assert(shell.includes('Approval is inherited from the parent correspondence Decision above'), 'Delta approval must explicitly derive from correspondence review');
 assert(shell.includes('Only accepted/locked correspondence can produce transfer rows.'), 'Transfer Preview must state its approval authority gate');
 assert(shell.includes('<th>Approval authority</th>'), 'Transfer Preview rows must expose reviewed/locked authority');
-assert(shell.includes('TRANSFER PREVIEW · ${h(plan.status)}'), 'Tab3 must retain explicit transfer-preview status banner');
+assert(shell.includes('TRANSFER PREVIEW · BLOCKED'), 'Tab3 must keep target mutation explicitly BLOCKED');
+assert(shell.includes('<b>Preview plan:</b> ${h(plan.status)}'), 'Tab3 must expose preview-plan readiness separately from mutation authority');
 assert(shell.includes('Preview only. Target mutation is not implemented. Geometry, node numbering, topology, OD and wall remain protected.'), 'Tab3 must retain read-only protected-target wording');
 assert(/<button type="button" disabled data-ciiw-apply-target>Apply to target CII<\/button>/.test(shell), 'Tab3 target apply control must remain disabled');
 assert(/<button type="button" disabled data-ciiw-apply>Apply to target CII<\/button>/.test(shell), 'Stage06 target apply control must remain disabled');
