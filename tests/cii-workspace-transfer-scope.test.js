@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { ciiWriter1BReadiness } from '../tabs/cii-workspace/cii-workspace-target-writer-1b.js';
+import { ciiDeltaTransferOutcome } from '../tabs/cii-workspace/cii-workspace-review-presentation.js';
 import {
   applyCiiTransferScope, createCiiTransferScopeSelection, ciiTransferScopeCandidateOperations,
 } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
@@ -42,6 +43,16 @@ assert.deepStrictEqual(scoped.operations.filter((item) => item.action !== 'KEEP'
 assert.deepStrictEqual(scoped.excludedOperations.map((item) => item.operationId), ['op:sif']);
 assert.strictEqual(scoped.excludedOperations[0].scopeDecision, 'EXCLUDE');
 assert.strictEqual(ciiWriter1BReadiness(scoped).ready, true, 'excluded unsupported operation must not poison selected Writer mutation set');
+
+const excludedDelta = Object.freeze({ deltaId: 'delta:op:sif', correspondenceId: 'c1', sourceValue: 10, targetValue: 20 });
+const excludedOutcome = ciiDeltaTransferOutcome(Object.freeze({
+  transferPlan: scoped,
+  review: Object.freeze({ reviewedCorrespondenceIds: Object.freeze(['c1']), lockedCorrespondenceIds: Object.freeze([]) }),
+  writerReadiness: Object.freeze({ ready: true }),
+}), excludedDelta, 'APPROVED');
+assert.strictEqual(excludedOutcome.state, 'EXCLUDED');
+assert.strictEqual(excludedOutcome.effective, 20, 'EXCLUDE must preserve current TARGET in engineering delta presentation');
+assert.strictEqual(excludedOutcome.proposed, 10, 'excluded SOURCE proposal remains visible for audit/review');
 
 const selectUnsupported = createCiiTransferScopeSelection(raw, { 'op:p1': 'APPLY', 'op:sif': 'APPLY' });
 const badSelection = applyCiiTransferScope(raw, selectUnsupported);
