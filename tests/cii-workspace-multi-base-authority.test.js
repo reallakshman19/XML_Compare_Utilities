@@ -3,6 +3,7 @@ import { extractCiiPipeRunsAtNode, qualifyCiiMethodBRunBasis } from '../tabs/cii
 import { qualifyCiiMultiBaseAuthority } from '../tabs/cii-workspace/cii-workspace-multi-base-anchor.js';
 
 const point = (x, y, z) => ({ x, y, z });
+const radians = (degrees) => degrees * Math.PI / 180;
 function edge(id, from, to, dx, dy, dz, diameter = 273) {
   return { elementId: id, from: String(from), to: String(to), dx, dy, dz,
     lengthMm: Math.hypot(dx, dy, dz), componentKind: 'PIPE', diameter };
@@ -55,6 +56,20 @@ const twoAxisTargetLargeOd = graph([
 ]);
 const b2TargetOd = qualifyCiiMethodBRunBasis(twoAxisSource, twoAxisTargetLargeOd, 'S0', 'T0');
 assert.strictEqual(b2TargetOd.tolerancePolicy.toleranceMm, 546, 'TARGET OD must not alter Method B tolerance');
+
+function tiltedTwoAxisTarget(angleDeg) {
+  const length = 12000; const angle = radians(angleDeg);
+  return graph([
+    edge('TA', 'T0', 'T1', length * Math.cos(angle), 0, length * Math.sin(angle), 88.9),
+    edge('TZ', 'T0', 'T2', 0, 0, 7000, 88.9),
+  ]);
+}
+const bAngle3 = qualifyCiiMethodBRunBasis(twoAxisSource, tiltedTwoAxisTarget(3), 'S0', 'T0');
+assert.strictEqual(bAngle3.status, 'READY', '3 degree mismatch over 7 m must remain inside 2x273 mm transverse tolerance');
+assert(bAngle3.selectedBasis.angularDisplacementMm < 546);
+const bAngle5 = qualifyCiiMethodBRunBasis(twoAxisSource, tiltedTwoAxisTarget(5), 'S0', 'T0');
+assert.strictEqual(bAngle5.status, 'REVIEW', '5 degree mismatch over 7 m must exceed 2x273 mm transverse tolerance');
+assert(bAngle5.compatibleBasisCount === 0);
 
 const threeAxisSource = graph([
   edge('SX', 'S0', 'S1', 10000, 0, 0, 273), edge('SY', 'S0', 'S2', 0, 9000, 0, 273), edge('SZ', 'S0', 'S3', 0, 0, 8000, 273),
