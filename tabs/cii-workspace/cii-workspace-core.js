@@ -2,10 +2,11 @@ import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js'
 import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
+import { qualifyCiiMultiBaseAuthority } from './cii-workspace-multi-base-anchor.js';
+import { buildCiiMultiBaseCorrespondence } from './cii-workspace-multi-base-correspondence.js';
 import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
 import { suggestCiiBaseAnchorPairs } from './cii-workspace-anchor-suggestions.js';
-import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
-import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
+import { buildCiiAutomaticPathAudit } from './cii-workspace-topology.js';
 import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
 import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
@@ -30,6 +31,13 @@ function normalizeAnchorPairs(pairs) {
     sourceNodeId: String(pair.sourceNodeId), targetNodeId: String(pair.targetNodeId),
     status: 'LOCKED', authority: 'USER_LOCKED', locked: true,
   })));
+}
+function dedupeAnchors(pairs) {
+  const seen = new Set(); const rows = [];
+  for (const pair of pairs || []) {
+    const key = `${pair.sourceNodeId}=>${pair.targetNodeId}`; if (seen.has(key)) continue; seen.add(key); rows.push(pair);
+  }
+  return deepFreeze(rows);
 }
 async function intakePair(input, options) {
   const sourceDocument = await intakeCiiWorkspaceDocument(input?.sourceText, input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef });
@@ -59,13 +67,14 @@ function writer1APlanContract(plan) {
     sifTeeMutation: 'BLOCKED_SEMANTICS_UNQUALIFIED',
   }) });
 }
-function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks, writerReadiness, version) {
+function buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence,
+  pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks, writerReadiness, version) {
   const label = writerLabel(version);
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.audit, direction: 'SOURCE_TO_TARGET', writerVersion: version,
     source: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256, summary: sourceDocument.summary }),
     target: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, summary: targetDocument.summary }),
-    lockedAnchors: anchors, landmarkSuggestions: landmarks, geometry, automaticPathAudit: pathAudit,
+    lockedAnchors: anchors, landmarkSuggestions: landmarks, geometry, multiBaseAuthority, multiBaseCorrespondence, automaticPathAudit: pathAudit,
     correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan, writerReadiness,
     mutationAuthority: Object.freeze({ stage06: writerReadiness.ready ? `${label}_READY` : `${label}_BLOCKED`,
       modifiedTargetCiiExport: writerReadiness.ready ? `${label}_CONDITIONAL` : 'BLOCKED' }),
@@ -82,10 +91,71 @@ function inspectionSide(document, graph, options) {
   return Object.freeze({ fileName: document.fileName, contentSha256: document.contentSha256,
     summary: inspectionSummary(document, graph), landmarks: suggestCiiLandmarks(graph, options) });
 }
-function buildBaseCorrespondence(sourceGraph, targetGraph, anchors, options) {
-  return anchors.length === 1
-    ? propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options)
-    : compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, options);
+function normalizedLoopMethod(value) {
+  const method = String(value || '').trim().toUpperCase();
+  if (['A', 'METHOD_A', 'METHOD_A_SPATIAL'].includes(method)) return 'METHOD_A_SPATIAL';
+  if (['B', 'METHOD_B', 'METHOD_B_NETWORK'].includes(method)) return 'METHOD_B_NETWORK';
+  return method;
+}
+function loopAnchorPairs(loop) {
+  if (Array.isArray(loop?.anchorPairs) && loop.anchorPairs.length) return normalizeAnchorPairs(loop.anchorPairs);
+  if (loop?.sourceNodeId != null && loop?.targetNodeId != null) return normalizeAnchorPairs([loop]);
+  return deepFreeze([]);
+}
+function acceptedAnchors(input) {
+  if (!Array.isArray(input?.baseLoops)) return normalizeAnchorPairs(input?.anchorPairs);
+  return dedupeAnchors(input.baseLoops.flatMap((loop) => loopAnchorPairs(loop)));
+}
+function invalidExplicitAuthority(blockers) {
+  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: 'BLOCKED', combination: 'OR_WITH_CONFLICT_VETO',
+    authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED', inputMode: 'EXPLICIT_BASE_LOOPS', inputBlockers: deepFreeze(blockers),
+    readyLoopCount: 0, loopCount: 0, methodAReadyCount: 0, methodBReadyCount: 0,
+    loops: deepFreeze([]), conflicts: deepFreeze([]), reason: 'MULTI_BASE_INPUT_INVALID' });
+}
+function explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options) {
+  const methodABases = []; const methodBAnchors = []; const blockers = [];
+  for (let index = 0; index < input.baseLoops.length; index += 1) {
+    const loop = input.baseLoops[index]; const method = normalizedLoopMethod(loop?.method); const anchors = loopAnchorPairs(loop);
+    const baseId = String(loop?.baseId || `BASE_${index + 1}`);
+    if (method === 'METHOD_A_SPATIAL') {
+      if (!anchors.length) { blockers.push(`METHOD_A_BASE_ANCHORS_REQUIRED:${baseId}`); continue; }
+      methodABases.push({ baseId, anchorPairs: geometryPairs(sourceGraph, targetGraph, anchors), probePoints: loop?.probePoints || [] });
+    } else if (method === 'METHOD_B_NETWORK') {
+      if (anchors.length !== 1) { blockers.push(`METHOD_B_SINGLE_ANCHOR_REQUIRED:${baseId}`); continue; }
+      methodBAnchors.push({ baseId, sourceNodeId: anchors[0].sourceNodeId, targetNodeId: anchors[0].targetNodeId });
+    } else blockers.push(`UNSUPPORTED_MULTI_BASE_METHOD:${baseId}:${method || 'EMPTY'}`);
+  }
+  if (blockers.length) return invalidExplicitAuthority(blockers);
+  const authority = qualifyCiiMultiBaseAuthority({ sourceGraph, targetGraph, methodABases, methodBAnchors }, options);
+  return deepFreeze({ ...authority, inputMode: 'EXPLICIT_BASE_LOOPS', inputBlockers: deepFreeze([]) });
+}
+function legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options) {
+  if (!anchors.length) return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: 'UNAVAILABLE', combination: 'OR_WITH_CONFLICT_VETO',
+    authority: 'USER_LOCKED_LEGACY', inputMode: 'LEGACY_ANCHOR_PAIRS', readyLoopCount: 0, loopCount: 0,
+    methodAReadyCount: 0, methodBReadyCount: 0, loops: deepFreeze([]), conflicts: deepFreeze([]), reason: 'LOCKED_ANCHOR_PAIR_REQUIRED' });
+  const geometry = qualifyCiiGeometryTransform(geometryPairs(sourceGraph, targetGraph, anchors), options);
+  const loop = deepFreeze({ loopId: 'LEGACY_LOCKED_BASE_1', method: 'USER_LOCKED_LEGACY', combination: 'INDEPENDENT_OR_LOOP', status: 'READY',
+    confidence: 'USER_LOCKED', weight: null, geometry, anchorPairs: deepFreeze(anchors.map((pair) => ({ sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }))) });
+  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: 'READY', combination: 'OR_WITH_CONFLICT_VETO',
+    authority: 'USER_LOCKED_LEGACY', inputMode: 'LEGACY_ANCHOR_PAIRS', readyLoopCount: 1, loopCount: 1,
+    methodAReadyCount: 0, methodBReadyCount: 0, loops: deepFreeze([loop]), conflicts: deepFreeze([]), reason: 'LEGACY_LOCKED_BASE_READY' });
+}
+function workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options) {
+  return Array.isArray(input?.baseLoops)
+    ? explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options)
+    : legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options);
+}
+function compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence) {
+  const contributing = new Set(multiBaseCorrespondence?.contributingLoopIds || []);
+  const loops = (multiBaseAuthority?.loops || []).filter((loop) => contributing.has(String(loop.loopId)));
+  if (loops.length === 1 && loops[0].method === 'METHOD_A_SPATIAL') return loops[0].geometry;
+  if (loops.length === 1 && loops[0].method === 'USER_LOCKED_LEGACY') return loops[0].geometry;
+  const methodA = loops.filter((loop) => loop.method === 'METHOD_A_SPATIAL');
+  if (methodA.length) return deepFreeze({ status: 'MULTI_BASE', mode: 'INDEPENDENT_LOCAL_TRANSFORMS', registeredWeight: 0,
+    readyMethodALoopCount: methodA.length, contributingLoopCount: loops.length,
+    reason: 'NO_SINGLE_GLOBAL_TRANSFORM_ACROSS_INDEPENDENT_BASES' });
+  return deepFreeze({ status: 'UNAVAILABLE', mode: 'NO_GLOBAL_SPATIAL_REGISTRATION', registeredWeight: 0,
+    reason: loops.length ? 'CORRESPONDENCE_HAS_NO_SINGLE_METHOD_A_TRANSFORM' : 'NO_CONTRIBUTING_BASE_LOOP' });
 }
 
 export async function inspectCiiWorkspaceModels(input, options = {}) {
@@ -97,13 +167,14 @@ export async function inspectCiiWorkspaceModels(input, options = {}) {
 
 export async function createCiiWorkspacePreview(input, options = {}) {
   const { sourceDocument, targetDocument, sourceGraph, targetGraph } = await intakePair(input, options);
-  const version = writerVersion(options); const anchors = normalizeAnchorPairs(input?.anchorPairs);
+  const version = writerVersion(options); const anchors = acceptedAnchors(input);
   const landmarks = deepFreeze({ source: suggestCiiLandmarks(sourceGraph, options), target: suggestCiiLandmarks(targetGraph, options) });
-  const geometry = qualifyCiiGeometryTransform(geometryPairs(sourceGraph, targetGraph, anchors), options);
+  const multiBaseAuthority = workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options);
+  const multiBaseCorrespondence = buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, options);
+  const geometry = compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence);
   const pathAudit = deepFreeze({ structural: buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options),
     candidates: buildCiiPathCandidateAudit(sourceGraph, targetGraph, options) });
-  const baseCorrespondence = buildBaseCorrespondence(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
-  const nodeGatedCorrespondence = applyCiiNodeCustodyGates(baseCorrespondence, sourceGraph);
+  const nodeGatedCorrespondence = applyCiiNodeCustodyGates(multiBaseCorrespondence, sourceGraph);
   const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
@@ -117,10 +188,10 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const rawTransferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
   const transferPlan = version === '1A' ? writer1APlanContract(rawTransferPlan) : rawTransferPlan;
   const writerReadiness = version === '1A' ? ciiWriter1AReadiness(transferPlan) : ciiWriter1BReadiness(transferPlan);
-  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas,
+  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence, pathAudit, correspondence, review, engineeringDeltas,
     compareReview, transferPlan, landmarks, writerReadiness, version);
   const result = { writerVersion: version, stages: createCiiWorkspaceStageModel(writerReadiness), sourceDocument, targetDocument, landmarks,
-    correspondence, review, engineeringDeltas, compareReview, transferPlan, writerReadiness, audit };
+    geometry, multiBaseAuthority, multiBaseCorrespondence, correspondence, review, engineeringDeltas, compareReview, transferPlan, writerReadiness, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);
 }

@@ -4,7 +4,8 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / OD-SCALED CORE COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / SOURCE-3 REAL BENCHMARK AUTHORED NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | SAFE / normalized to `main@a2acb8b3` with SOURCE-3/TARGET3-1 benchmark | execute SOURCE-3/TARGET3-1 + inherited CII suite; owner review; do not merge without explicit authorization |
+| PR995 | CII independent multi-base correspondence orchestration | `agent/cii-multi-base-orchestration` | DRAFT / IMPLEMENTATION COMPLETE / PURE ARBITRATION LOCAL PASS / FULL PRODUCTION+REAL BENCHMARK NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | explicit A/B base loops in preview; per-loop correspondence; OR union; node/element conflict veto; A+B provenance; legacy anchor identity preservation | SAFE / successor to merged PR994 | execute focused production + `SOURCE 3/TARGET 3-1` in complete checkout; owner review; do not merge without explicit authorization |
+| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | MERGED 2026-08-19 · `daf3be0a` / retained REAL BENCHMARK+FULL SUITE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD`; Method B OD-scaled run/angular tolerance + cross-compatible 3D weight; two-axis gate; conflict veto | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
 | PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
@@ -18,7 +19,76 @@ Live GitHub state is authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR994 — current CII base-anchor authority work
+## PR995 — current CII multi-base orchestration work
+
+PR995 connects the PR994 base-authority primitives to the actual workspace preview pipeline:
+
+```text
+qualified independent A/B base loops
+          ↓
+correspondence generated independently per READY loop
+          ↓
+OR union with canonical claim arbitration
+          ↓
+compatible duplicate claims -> one row + provenance
+contradictory READY claims -> AMBIGUOUS
+unresolved independent loop -> diagnostic, not authority
+```
+
+Production rules:
+
+- Method A correspondence uses only that loop's local `geometry` transform.
+- Method B correspondence uses existing qualified single-anchor propagation after the two-axis Method-B gate.
+- source-node→multiple-target, target-node→multiple-source, and equivalent element-custody conflicts veto automatic correspondence.
+- an A+B duplicate claim becomes `METHOD_A_AND_B` with complete `multiBaseProvenance`.
+- legacy flat `anchorPairs` are routed through one compatibility loop while retaining old correspondence IDs and authority strings.
+- when multiple independent loops contribute, the workspace does not publish any one local Method-A transform as a global transform.
+
+Real authored workspace case:
+
+```text
+SOURCE 3.CII -> TARGET 3-1.CII
+
+REAL_A_60930:
+  60920 -> 7290
+  60930 -> 7300
+  60940 -> 7310
+
+OR
+
+REAL_B_60930:
+  60930 -> 7300
+```
+
+Validation truth:
+
+```text
+pure arbitration duplicate/conflict/OR-isolation smoke: PASS_LOCAL_EXECUTION
+new arbitration/orchestration module syntax: PASS_LOCAL_EXECUTION
+full synthetic production-module execution: NOT_RUN_ENVIRONMENT
+SOURCE 3/TARGET 3-1 workspace benchmark: AUTHORED_NOT_RUN_ENVIRONMENT
+inherited CII suite: NOT_RUN_ENVIRONMENT
+full repository suite: NOT_RUN_ENVIRONMENT
+browser / Chromium: NOT_RUN_ENVIRONMENT
+Writer lifecycle: NOT_RUN_OUT_OF_SCOPE
+```
+
+Explicitly outside PR995 authority:
+
+```text
+full-screen/method-card UI
+transfer APPLY/EXCLUDE
+Writer 1A/1B
+transfer policy/plan
+fixed-field parser
+SIF/TEE or NodeName mutation
+protected external writer/converter
+workflow changes
+```
+
+See `agents/PR995_workreport.md`, `agents/status/PR995.yaml`, and `agents/claims/PR995.yaml`.
+
+## PR994 — merged Method A/B base authority
 
 Controlling architecture:
 
@@ -53,73 +123,24 @@ Method B retains the hard minimum two-independent-run gate. Run-length mismatch 
 orthogonal compatible XYZ            40 / 40
 ```
 
-### SOURCE-3 / TARGET3-1 real qualification basis
+Real qualification basis uses `Benchmark/CIICompare/SOURCE 3.CII` and `TARGET 3-1.CII`. The pair has 219 vs 223 ELEMENT records and exposes multiple geometry-equivalent local numbering regimes, proving a single global node-number offset is not identity authority. The authored real local A/B case is `60920/60930/60940 ↔ 7290/7300/7310`, with SOURCE OD 114.3 mm and default `x=2`, giving tolerance 228.6 mm.
 
-`main@a2acb8b3` added `Benchmark/CIICompare/SOURCE-3.CII` and `TARGET3-1.CII`; PR994 is normalized onto that base. The pair has 219 vs 223 ELEMENT records and exposes at least three geometry-equivalent local numbering regimes:
-
-```text
-20000→20010 ↔ 7000→7010      node offset -13000
-60880→60890 ↔ 7250→7260      node offset -53630
-6030→6040   ↔ 7650→7660      node offset +1620
-```
-
-This is direct real-file evidence that one global node-number offset is invalid identity authority.
-
-The authored real acceptance cases are:
-
-```text
-Method A: 60920/60930/60940 ↔ 7290/7300/7310
-Method B: 60930 ↔ 7300
-SOURCE OD = 114.3 mm
-x=2 => tolerance = 228.6 mm
-```
-
-The benchmark regression is present in `tests/cii-workspace-benchmark-base-anchor.test.js`, but full execution remains `NOT_RUN_ENVIRONMENT`; it must not be represented as PASS until run in a complete checkout.
-
-Focused validation truth:
+Focused validation retained at PR994 merge:
 
 ```text
 Method A OD-scaled regression: PASS_IMPLEMENTATION_COUPLED
 Method B OD-scaled length/angular + compatible-3D regression: PASS_IMPLEMENTATION_COUPLED
 Base Anchor weight/target-OD-invariance regression: PASS_IMPLEMENTATION_COUPLED
 independent Python numerical oracle: PASS_INDEPENDENT_REPRODUCTION
-SOURCE-3/TARGET3-1 real benchmark: AUTHORED_NOT_RUN_ENVIRONMENT
+SOURCE 3/TARGET 3-1 real benchmark: AUTHORED_NOT_RUN_ENVIRONMENT
 coordinate-invariance execution: NOT_RUN_ENVIRONMENT
 full repository suite: NOT_RUN_ENVIRONMENT
 browser / Chromium: NOT_RUN_ENVIRONMENT
-CI: refresh exact current head; no PASS claim without observed run
 ```
-
-Explicitly outside PR994 authority:
-
-```text
-full-screen/UI orchestration
-transfer APPLY/EXCLUDE
-Writer 1A/1B
-transfer policy/plan
-fixed-field parser
-SIF/TEE or NodeName mutation
-protected external writer/converter
-workflow changes
-```
-
-See `agents/PR994_workreport.md`, `agents/status/PR994.yaml`, and `agents/claims/PR994.yaml`.
 
 ## PR992 — merged Writer 1B authority
 
-Writer 1B extends Writer 1A only where fixed-field and ownership semantics are independently source-qualified.
-
-Qualified ELEMENT layout:
-
-```text
-row 2: WT | insulation thickness | corrosion allowance | T1 | T2 | T3
-row 3: T4 | T5 | T6 | T7 | T8 | T9
-row 4: P1 | P2 | P3 | P4 | P5 | P6
-row 5: P7 | P8 | P9 | protected unrelated fields...
-row 6: insulation density | fluid density | protected unrelated fields... | hydro pressure
-```
-
-Conditional OD is not blanket PIPE_SIZE authority. It requires approved 1:1 element correspondence, `PIPE` on SOURCE/TARGET, zero reducer pointers, no BEND/RIGID semantic transition, and a topology-closed post-write run. OD remains excluded from M1/M2 identity.
+Writer 1B extends Writer 1A only where fixed-field and ownership semantics are independently source-qualified. Conditional OD is not blanket PIPE_SIZE authority; it requires approved 1:1 PIPE correspondence, zero reducer pointers, no BEND/RIGID semantic transition, and a topology-closed post-write run. OD remains excluded from identity.
 
 Existing-block RESTRANT slot mutation remains limited to one net CREATE or CLEAR inside an already-owned 24-row block, with target pointer/cardinality and metadata custody preserved. Ambiguous pairing fails closed.
 
@@ -131,8 +152,6 @@ real TARGET1/TARGET2 Writer 1B benchmark: NOT_RUN_ENVIRONMENT
 Writer 1A TARGET1/TARGET2 compatibility: NOT_RUN_ENVIRONMENT
 full shell/browser/inherited CII suite: NOT_RUN_ENVIRONMENT
 ```
-
-PR992 was merged under explicit owner authority at `main@168d21bd9e9c198d22009f62b6203e4f60fd4ba1`; retained NOT_RUN items remain qualification truth.
 
 ## PR991 — merged Writer 1A authority
 
