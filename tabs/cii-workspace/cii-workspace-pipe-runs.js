@@ -2,9 +2,10 @@ import { CII_WORKSPACE_SCHEMAS, deepFreeze, uniqueStrings } from './cii-workspac
 
 function otherNode(edge, nodeId) { return String(edge.from) === String(nodeId) ? String(edge.to) : String(edge.from); }
 function dot(a, b) { return a.reduce((sum, value, index) => sum + value * b[index], 0); }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 function mag(a) { return Math.sqrt(dot(a, a)); }
 function mul(a, scale) { return a.map((value) => value * scale); }
-function clamp(value) { return Math.max(-1, Math.min(1, value)); }
+function clamp(value, low = -1, high = 1) { return Math.max(low, Math.min(high, value)); }
 function unit(vector) { const length = mag(vector); return length > 1e-9 ? mul(vector, 1 / length) : null; }
 function angleDeg(a, b, undirected = false) {
   const cosine = dot(a, b);
@@ -14,10 +15,10 @@ function edgeLength(edge) { return Number(edge.lengthMm || Math.hypot(Number(edg
 function rawVector(edge) { return [Number(edge.dx || 0), Number(edge.dy || 0), Number(edge.dz || 0)]; }
 function awayVector(edge, nodeId) { return String(edge.from) === String(nodeId) ? rawVector(edge) : mul(rawVector(edge), -1); }
 function edgeId(edge) { return String(edge.elementId || `${edge.from}->${edge.to}`); }
+function positiveNumber(value) { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? parsed : null; }
 
 function canonicalUndirected(direction) {
-  const result = [...direction];
-  const pivot = result.find((value) => Math.abs(value) > 1e-12);
+  const result = [...direction]; const pivot = result.find((value) => Math.abs(value) > 1e-12);
   return pivot != null && pivot < 0 ? mul(result, -1) : result;
 }
 function axisLabel(direction, snapDeg) {
@@ -25,9 +26,7 @@ function axisLabel(direction, snapDeg) {
   for (const [label, axis] of axes) if (angleDeg(direction, axis, true) <= snapDeg) return label;
   return `SKEW(${direction.map((value) => Number(value.toFixed(6))).join(',')})`;
 }
-function terminator(kind, nodeId, componentKind = null) {
-  return Object.freeze({ kind, nodeId: String(nodeId), componentKind });
-}
+function terminator(kind, nodeId, componentKind = null) { return Object.freeze({ kind, nodeId: String(nodeId), componentKind }); }
 
 function continueRay(graph, currentNode, previousEdge, currentDirection, options) {
   const incident = [...(graph?.adjacency?.get(String(currentNode)) || [])];
@@ -38,12 +37,9 @@ function continueRay(graph, currentNode, previousEdge, currentDirection, options
   if (next.componentKind !== 'PIPE') return { stop: terminator('COMPONENT_TRANSITION', currentNode, next.componentKind) };
   const direction = unit(awayVector(next, currentNode));
   if (!direction) return { stop: terminator('INVALID_GEOMETRY', currentNode) };
-  if (angleDeg(currentDirection, direction) > options.runCollinearAngleDeg) {
-    return { stop: terminator('DIRECTION_CHANGE', currentNode) };
-  }
+  if (angleDeg(currentDirection, direction) > options.runCollinearAngleDeg) return { stop: terminator('DIRECTION_CHANGE', currentNode) };
   return { next, direction };
 }
-
 function walkRay(graph, anchorNodeId, startEdge, options) {
   const firstDirection = unit(awayVector(startEdge, anchorNodeId));
   if (!firstDirection || edgeLength(startEdge) <= 1e-9) return null;
@@ -54,12 +50,11 @@ function walkRay(graph, anchorNodeId, startEdge, options) {
     if (elementIds.length >= options.maxRunElements) { end = terminator('TRUNCATED', currentNode); break; }
     const nextStep = continueRay(graph, currentNode, previousEdge, currentDirection, options);
     if (nextStep.stop) { end = nextStep.stop; break; }
-    const next = nextStep.next; totalLengthMm += edgeLength(next); elementIds.push(edgeId(next));
-    previousEdge = next; currentDirection = nextStep.direction; currentNode = otherNode(next, currentNode);
+    totalLengthMm += edgeLength(nextStep.next); elementIds.push(edgeId(nextStep.next));
+    previousEdge = nextStep.next; currentDirection = nextStep.direction; currentNode = otherNode(nextStep.next, currentNode);
   }
   return { axis: canonicalUndirected(firstDirection), totalLengthMm, elementIds, terminator: end };
 }
-
 function mergeRays(rays, options) {
   const groups = [];
   for (const ray of [...rays].sort((a, b) => a.elementIds[0].localeCompare(b.elementIds[0], undefined, { numeric: true }))) {
@@ -82,11 +77,9 @@ function mergeRays(rays, options) {
 
 function independentPairs(runs, minimumAngleDeg) {
   const result = [];
-  for (let a = 0; a < runs.length - 1; a += 1) {
-    for (let b = a + 1; b < runs.length; b += 1) {
-      const includedAngleDeg = angleDeg(runs[a].axis, runs[b].axis, true);
-      if (includedAngleDeg >= minimumAngleDeg) result.push({ indexes: [a, b], includedAngleDeg });
-    }
+  for (let a = 0; a < runs.length - 1; a += 1) for (let b = a + 1; b < runs.length; b += 1) {
+    const includedAngleDeg = angleDeg(runs[a].axis, runs[b].axis, true);
+    if (includedAngleDeg >= minimumAngleDeg) result.push({ indexes: [a, b], includedAngleDeg });
   }
   return result;
 }
@@ -101,16 +94,35 @@ function maxIndependentCount(runs, minimumAngleDeg) {
   };
   visit(0, []); return best;
 }
+function maxTripleProduct(runs) {
+  let best = 0;
+  for (let a = 0; a < runs.length - 2; a += 1) for (let b = a + 1; b < runs.length - 1; b += 1) {
+    for (let c = b + 1; c < runs.length; c += 1) best = Math.max(best, Math.abs(dot(runs[a].axis, cross(runs[b].axis, runs[c].axis))));
+  }
+  return best;
+}
+function geometryDescriptor(result) {
+  const count = result.independentAxisRunCount; const triple = count >= 3 ? maxTripleProduct(result.runs) : 0;
+  const dimension = count < 2 ? 'ONE_AXIS' : (count === 2 ? 'TWO_AXIS' : (triple > 1e-6 ? 'FULL_3D' : 'PLANAR_MULTI_AXIS'));
+  return { independentAxisRunCount: count, maxScalarTripleProduct: triple, dimension };
+}
 
 function optionsFor(raw = {}) {
   return {
-    runCollinearAngleDeg: Number(raw.runCollinearAngleDeg ?? 0.5),
-    axisLabelSnapDeg: Number(raw.axisLabelSnapDeg ?? 2),
-    independentAxisAngleDeg: Number(raw.independentAxisAngleDeg ?? 15),
-    runIncludedAngleToleranceDeg: Number(raw.runIncludedAngleToleranceDeg ?? 2),
-    runLengthRelativeTolerance: Number(raw.runLengthRelativeTolerance ?? 0.1),
+    runCollinearAngleDeg: Number(raw.runCollinearAngleDeg ?? 0.5), axisLabelSnapDeg: Number(raw.axisLabelSnapDeg ?? 2),
+    independentAxisAngleDeg: Number(raw.independentAxisAngleDeg ?? 15), odToleranceFactor: positiveNumber(raw.odToleranceFactor) ?? 2,
     maxRunElements: Math.max(1, Number(raw.maxRunElements ?? 256)),
   };
+}
+function sourceTolerancePolicy(graph, nodeId, options) {
+  const incident = [...(graph?.adjacency?.get(String(nodeId)) || [])].filter((edge) => edge.componentKind === 'PIPE');
+  const ods = incident.map((edge) => positiveNumber(edge.diameter ?? edge.od)).filter((value) => value != null);
+  const odRefMm = ods.length ? Math.min(...ods) : null;
+  return Object.freeze({
+    kind: 'OD_SCALED', factor: options.odToleranceFactor, configurable: true, odAuthority: 'SOURCE',
+    odReferencePolicy: 'MIN_POSITIVE_INCIDENT_SOURCE_OD', identityRole: 'TOLERANCE_SCALE_ONLY',
+    available: odRefMm != null, odRefMm, toleranceMm: odRefMm == null ? null : options.odToleranceFactor * odRefMm,
+  });
 }
 
 export function extractCiiPipeRunsAtNode(graph, nodeId, rawOptions = {}) {
@@ -118,58 +130,83 @@ export function extractCiiPipeRunsAtNode(graph, nodeId, rawOptions = {}) {
   const incident = [...(graph?.adjacency?.get(key) || [])].filter((edge) => edge.componentKind === 'PIPE');
   const rays = incident.map((edge) => walkRay(graph, key, edge, options)).filter(Boolean);
   const runs = mergeRays(rays, options); const pairs = independentPairs(runs, options.independentAxisAngleDeg);
-  return deepFreeze({
+  const result = {
     nodeId: key, runs, runCount: runs.length, independentAxisRunCount: maxIndependentCount(runs, options.independentAxisAngleDeg),
     independentPairs: pairs, truncated: runs.some((run) => run.truncated),
     policy: Object.freeze({ runCollinearAngleDeg: options.runCollinearAngleDeg, independentAxisAngleDeg: options.independentAxisAngleDeg,
       axisLabelSnapDeg: options.axisLabelSnapDeg, maxRunElements: options.maxRunElements }),
-  });
+  };
+  result.geometry = Object.freeze(geometryDescriptor(result));
+  return deepFreeze(result);
 }
 
 function sameStrings(left, right) { return left.length === right.length && left.every((value, index) => value === right[index]); }
-function relativeError(left, right) { return Math.abs(left - right) / Math.max(Math.abs(left), Math.abs(right), 1); }
-function mappingEvidence(sourceRuns, targetRuns, mapping, options) {
+function mappingEvidence(sourceRuns, targetRuns, mapping, toleranceMm) {
   const rows = mapping.map(([sourceIndex, targetIndex]) => {
     const source = sourceRuns[sourceIndex]; const target = targetRuns[targetIndex];
-    const lengthRelativeError = relativeError(source.totalLengthMm, target.totalLengthMm);
-    return { sourceRunId: source.runId, targetRunId: target.runId, lengthRelativeError,
-      terminatorsCompatible: sameStrings(source.terminatorClasses, target.terminatorClasses) };
+    const lengthDeltaMm = Math.abs(source.totalLengthMm - target.totalLengthMm);
+    return { sourceRunId: source.runId, targetRunId: target.runId, lengthDeltaMm,
+      normalizedLengthError: lengthDeltaMm / toleranceMm, terminatorsCompatible: sameStrings(source.terminatorClasses, target.terminatorClasses) };
   });
-  const maxLengthRelativeError = Math.max(...rows.map((row) => row.lengthRelativeError));
-  return { rows, maxLengthRelativeError,
-    qualified: maxLengthRelativeError <= options.runLengthRelativeTolerance && rows.every((row) => row.terminatorsCompatible) };
+  const maxNormalizedLengthError = Math.max(...rows.map((row) => row.normalizedLengthError));
+  return { rows, maxNormalizedLengthError,
+    qualified: maxNormalizedLengthError <= 1 && rows.every((row) => row.terminatorsCompatible) };
 }
-function comparePairBasis(source, target, sourcePair, targetPair, options) {
+function pairCandidate(source, target, sourcePair, targetPair, mapping, toleranceMm) {
   const angleDifferenceDeg = Math.abs(sourcePair.includedAngleDeg - targetPair.includedAngleDeg);
-  if (angleDifferenceDeg > options.runIncludedAngleToleranceDeg) return [];
-  const [sa, sb] = sourcePair.indexes; const [ta, tb] = targetPair.indexes;
-  return [[[sa, ta], [sb, tb]], [[sa, tb], [sb, ta]]].map((mapping) => ({
+  const involved = mapping.flatMap(([s, t]) => [source.runs[s].totalLengthMm, target.runs[t].totalLengthMm]);
+  const characteristicLengthMm = Math.min(...involved);
+  const angularDisplacementMm = 2 * characteristicLengthMm * Math.sin((angleDifferenceDeg * Math.PI / 180) / 2);
+  const normalizedAngleError = angularDisplacementMm / toleranceMm;
+  const mapped = mappingEvidence(source.runs, target.runs, mapping, toleranceMm);
+  return {
     sourcePair: sourcePair.indexes, targetPair: targetPair.indexes,
     sourceIncludedAngleDeg: sourcePair.includedAngleDeg, targetIncludedAngleDeg: targetPair.includedAngleDeg,
-    angleDifferenceDeg, mapping: mappingEvidence(source.runs, target.runs, mapping, options),
-  }));
+    angleDifferenceDeg, characteristicLengthMm, angularDisplacementMm, normalizedAngleError,
+    mapping: mapped, maxNormalizedGeometricError: Math.max(mapped.maxNormalizedLengthError, normalizedAngleError),
+    qualified: mapped.qualified && normalizedAngleError <= 1,
+  };
+}
+function comparePairBasis(source, target, sourcePair, targetPair, toleranceMm) {
+  const [sa, sb] = sourcePair.indexes; const [ta, tb] = targetPair.indexes;
+  return [
+    pairCandidate(source, target, sourcePair, targetPair, [[sa, ta], [sb, tb]], toleranceMm),
+    pairCandidate(source, target, sourcePair, targetPair, [[sa, tb], [sb, ta]], toleranceMm),
+  ];
+}
+function methodBWeight(source, target, selected) {
+  const count = Math.min(source.independentAxisRunCount, target.independentAxisRunCount);
+  const triple = Math.min(source.geometry.maxScalarTripleProduct, target.geometry.maxScalarTripleProduct);
+  const geometryComplexity = count < 2 ? 0 : (count === 2 ? 24 : 32 + (8 * clamp(triple, 0, 1)));
+  const runCompatibility = selected ? 20 * (1 - clamp(selected.maxNormalizedGeometricError, 0, 1)) : 0;
+  const topologyFingerprint = selected?.mapping?.rows?.every((row) => row.terminatorsCompatible) ? 15 : 0;
+  return Object.freeze({
+    geometryComplexity: Number(geometryComplexity.toFixed(3)), runCompatibility: Number(runCompatibility.toFixed(3)),
+    topologyFingerprint, subtotal: Number((geometryComplexity + runCompatibility + topologyFingerprint).toFixed(3)),
+    sourceDimension: source.geometry.dimension, targetDimension: target.geometry.dimension,
+    sourceTripleProduct: Number(source.geometry.maxScalarTripleProduct.toFixed(6)), targetTripleProduct: Number(target.geometry.maxScalarTripleProduct.toFixed(6)),
+  });
 }
 
 export function qualifyCiiMethodBRunBasis(sourceGraph, targetGraph, sourceNodeId, targetNodeId, rawOptions = {}) {
-  const options = optionsFor(rawOptions);
-  const source = extractCiiPipeRunsAtNode(sourceGraph, sourceNodeId, options);
-  const target = extractCiiPipeRunsAtNode(targetGraph, targetNodeId, options);
-  const candidates = [];
-  for (const sourcePair of source.independentPairs) for (const targetPair of target.independentPairs) {
-    candidates.push(...comparePairBasis(source, target, sourcePair, targetPair, options));
-  }
-  const qualified = candidates.filter((item) => item.mapping.qualified).sort((a, b) => a.angleDifferenceDeg - b.angleDifferenceDeg
-    || a.mapping.maxLengthRelativeError - b.mapping.maxLengthRelativeError
-    || a.sourcePair.join('-').localeCompare(b.sourcePair.join('-')) || a.targetPair.join('-').localeCompare(b.targetPair.join('-')));
+  const options = optionsFor(rawOptions); const tolerancePolicy = sourceTolerancePolicy(sourceGraph, sourceNodeId, options);
+  const source = extractCiiPipeRunsAtNode(sourceGraph, sourceNodeId, options); const target = extractCiiPipeRunsAtNode(targetGraph, targetNodeId, options);
   const hardGate = source.independentAxisRunCount >= 2 && target.independentAxisRunCount >= 2 && !source.truncated && !target.truncated;
-  const status = hardGate && qualified.length ? 'READY' : 'REVIEW';
+  const candidates = [];
+  if (tolerancePolicy.available) for (const sourcePair of source.independentPairs) for (const targetPair of target.independentPairs) {
+    candidates.push(...comparePairBasis(source, target, sourcePair, targetPair, tolerancePolicy.toleranceMm));
+  }
+  const qualified = candidates.filter((item) => item.qualified).sort((a, b) => a.maxNormalizedGeometricError - b.maxNormalizedGeometricError
+    || a.sourcePair.join('-').localeCompare(b.sourcePair.join('-')) || a.targetPair.join('-').localeCompare(b.targetPair.join('-')));
+  const status = tolerancePolicy.available && hardGate && qualified.length ? 'READY' : 'REVIEW';
+  const selectedBasis = qualified[0] || null; const weight = methodBWeight(source, target, selectedBasis);
+  const reason = !tolerancePolicy.available ? 'SOURCE_OD_TOLERANCE_UNAVAILABLE'
+    : (!hardGate ? 'METHOD_B_TWO_AXIS_GATE_NOT_MET' : (qualified.length ? 'TWO_AXIS_RUN_BASIS_COMPATIBLE' : 'NO_OD_SCALED_COMPATIBLE_RUN_BASIS'));
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.methodBRunBasis, method: 'METHOD_B_NETWORK', status,
     sourceNodeId: String(sourceNodeId), targetNodeId: String(targetNodeId), source, target,
-    compatibleBasisCount: qualified.length, selectedBasis: qualified[0] || null,
-    reason: status === 'READY' ? 'TWO_AXIS_RUN_BASIS_COMPATIBLE' : (!hardGate ? 'METHOD_B_TWO_AXIS_GATE_NOT_MET' : 'NO_COMPATIBLE_TWO_AXIS_RUN_BASIS'),
-    identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_USED', 'WALL_NOT_USED']),
-    policy: Object.freeze({ independentAxisAngleDeg: options.independentAxisAngleDeg,
-      runIncludedAngleToleranceDeg: options.runIncludedAngleToleranceDeg, runLengthRelativeTolerance: options.runLengthRelativeTolerance }),
+    compatibleBasisCount: qualified.length, selectedBasis, reason, tolerancePolicy, weight,
+    identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE', 'WALL_NOT_USED']),
+    policy: Object.freeze({ independentAxisAngleDeg: options.independentAxisAngleDeg, odToleranceFactor: options.odToleranceFactor }),
   });
 }
