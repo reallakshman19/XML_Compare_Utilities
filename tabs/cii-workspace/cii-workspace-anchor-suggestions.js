@@ -1,7 +1,6 @@
 import { CII_WORKSPACE_SCHEMAS, compareNodeIds, deepFreeze, uniqueStrings } from './cii-workspace-contracts.js';
-import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
 
-const ROBUST_REASONS = new Set(['BRANCH', 'RIGID_ADJACENT', 'TERMINAL', 'BEND_ADJACENT', 'NAMED_NODE']);
+const REASON_WEIGHT = Object.freeze({ BRANCH: 100, RIGID_ADJACENT: 90, TERMINAL: 80, BEND_ADJACENT: 65, NAMED_NODE: 45 });
 
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
 function otherNode(edge, nodeId) { return edge.from === nodeId ? edge.to : edge.from; }
@@ -26,19 +25,34 @@ function layerSimilarity(left, right) {
   }
   return total ? score / total : 1;
 }
-function structuralEvidence(graph, landmark) {
-  const nodes = nodeMap(graph); const node = nodes.get(String(landmark.nodeId));
-  const incident = [...(graph?.adjacency?.get(String(landmark.nodeId)) || [])];
-  const neighbourDegrees = incident.map((edge) => Number(nodes.get(String(otherNode(edge, String(landmark.nodeId))))?.degree || 0)).sort((a, b) => a - b);
+function robustReasons(node, incident) {
+  const componentKinds = uniqueStrings(incident.map((edge) => edge.componentKind)); const reasons = [];
+  if (Number(node?.degree || 0) >= 3) reasons.push('BRANCH');
+  if (componentKinds.includes('RIGID')) reasons.push('RIGID_ADJACENT');
+  if (Number(node?.degree || 0) === 1) reasons.push('TERMINAL');
+  if (componentKinds.includes('BEND')) reasons.push('BEND_ADJACENT');
+  if (node?.nodeName) reasons.push('NAMED_NODE');
+  return reasons;
+}
+function structuralEvidence(graph, node) {
+  const nodes = nodeMap(graph); const nodeId = String(node.id); const incident = [...(graph?.adjacency?.get(nodeId) || [])];
+  const neighbourDegrees = incident.map((edge) => Number(nodes.get(String(otherNode(edge, nodeId)))?.degree || 0)).sort((a, b) => a - b);
+  const reasons = robustReasons(node, incident);
   return {
-    nodeId: String(landmark.nodeId),
-    degree: Number(node?.degree || 0),
+    nodeId,
+    degree: Number(node.degree || 0),
     componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
     neighbourDegrees,
-    layers: node?.neighbourhoodLayers || [],
-    robustReasons: landmark.reasons.filter((reason) => ROBUST_REASONS.has(reason)),
-    sizeTransition: landmark.reasons.includes('SIZE_TRANSITION'),
+    layers: node.neighbourhoodLayers || [],
+    robustReasons: reasons,
+    salience: reasons.reduce((best, reason) => Math.max(best, REASON_WEIGHT[reason] || 0), 0),
   };
+}
+function structuralCandidates(graph, limit) {
+  return (graph?.nodes || []).map((node) => structuralEvidence(graph, node))
+    .filter((item) => item.robustReasons.length)
+    .sort((a, b) => b.salience - a.salience || compareNodeIds(a.nodeId, b.nodeId))
+    .slice(0, limit);
 }
 function pairEvidence(source, target) {
   if (source.degree !== target.degree) return { score: 0, basis: ['degree mismatch'], blocked: true };
@@ -55,7 +69,6 @@ function pairEvidence(source, target) {
   ];
   const sharedReasons = source.robustReasons.filter((reason) => target.robustReasons.includes(reason));
   if (sharedReasons.length) basis.push(`shared ${sharedReasons.join('+')}`);
-  if (source.sizeTransition !== target.sizeTransition) basis.push('size-transition difference ignored for identity');
   return { score, basis, blocked: false };
 }
 function rankedForSource(source, targets) {
@@ -71,11 +84,10 @@ function confidence(score, gap, requiredGap) {
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
   const limit = Math.max(1, Number(options.baseAnchorSuggestionLimit || 8));
-  const landmarkLimit = Math.max(limit * 2, Number(options.landmarkPairingPool || 16));
+  const poolLimit = Math.max(limit * 2, Number(options.baseAnchorCandidatePool || 16));
   const requiredGap = Math.max(0, Number(options.baseAnchorWinnerGap ?? 8));
   const minimumScore = Math.max(0, Number(options.baseAnchorMinimumScore ?? 65));
-  const source = suggestCiiLandmarks(sourceGraph, { ...options, limit: landmarkLimit }).map((item) => structuralEvidence(sourceGraph, item));
-  const target = suggestCiiLandmarks(targetGraph, { ...options, limit: landmarkLimit }).map((item) => structuralEvidence(targetGraph, item));
+  const source = structuralCandidates(sourceGraph, poolLimit); const target = structuralCandidates(targetGraph, poolLimit);
   const sourceRankings = new Map(source.map((item) => [item.nodeId, rankedForSource(item, target)]));
   const targetRankings = new Map(target.map((item) => [item.nodeId, rankedForSource(item, source)]));
   const suggestions = [];
