@@ -23,6 +23,7 @@ const RESTRAINT_PROPERTIES = new Set([
   'Restraint stiffness values',
   'Restraint direction-cosine set',
   'Qualified restraint numeric record set',
+  'Qualified restraint record pairing',
 ]);
 const HANGER_PROPERTIES = new Set(['Hanger presence', 'Hanger record count at node']);
 const SIF_TEE_PROPERTIES = new Set([
@@ -86,6 +87,41 @@ function writer1AProcess(delta) {
     { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD' });
 }
 
+function writer1ARestraint(delta) {
+  if (delta.property === 'Qualified restraint record pairing') {
+    const pairing = delta.sourceValue || {}; const blockers = [];
+    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING')) {
+      blockers.push('RESTRAINT_POINTER_SLOT_PAIRING_AUTHORITY_REQUIRED');
+    }
+    if (pairing.status !== 'QUALIFIED') blockers.push(...(pairing.blockers || ['RESTRAINT_RECORD_PAIRING_NOT_QUALIFIED']));
+    const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
+    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers, {
+      policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RESTRAINT_SLOT',
+      proposedValue: pairing,
+      restraintPairing: true,
+    });
+  }
+
+  if (delta.property === 'Restraint presence') {
+    const blockers = [];
+    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT')) blockers.push('RESTRAINT_FIXED_FIELD_AUTHORITY_REQUIRED');
+    const action = actionFromPresence(delta.sourceValue, delta.targetValue);
+    if (action !== CII_TRANSFER_ACTIONS.KEEP) blockers.push('RESTRAINT_CARDINALITY_CHANGE_REQUIRES_WRITER_1B_OR_2');
+    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
+      { rawNumericSemantics: true, policyAuthority: 'CII_RESTRAINT_CARDINALITY_EVIDENCE' });
+  }
+
+  // Aggregate restraint rows remain useful review evidence, but they no longer
+  // authorize mutation. The executable Writer 1A authority is the explicit
+  // one-to-one pointer/slot pairing row above.
+  return common(delta, 'RESTRAINT', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED, [], {
+    protected: true,
+    evidenceOnly: true,
+    rawNumericSemantics: true,
+    policyAuthority: 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY',
+  });
+}
+
 export function classifyCiiTransferDelta(delta, options = {}) {
   if (!delta) return null;
   if (PROTECTED_CATEGORIES.has(delta.category)) {
@@ -111,18 +147,7 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.PREVIEW_READY);
   }
 
-  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) {
-    const blockers = [];
-    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT')) blockers.push('RESTRAINT_FIXED_FIELD_AUTHORITY_REQUIRED');
-    if (delta.property === 'Restraint presence') {
-      const action = actionFromPresence(delta.sourceValue, delta.targetValue);
-      return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
-        { rawNumericSemantics: true });
-    }
-    const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
-    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
-      { rawNumericSemantics: delta.evidenceStatus === 'PARTIAL' });
-  }
+  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writer1ARestraint(delta);
 
   if (delta.category === 'HANGER' && HANGER_PROPERTIES.has(delta.property)) {
     const blockers = [];
