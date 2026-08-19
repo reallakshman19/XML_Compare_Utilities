@@ -126,4 +126,35 @@ function baseContainsExactly(base, sourceIds) {
   assert(suggestions.every((row) => row.identityExclusions.includes('NODE_NUMBER_OFFSET_NOT_USED')));
 }
 
+// Method A must be able to rescue a structural runner-up without granting Method B authority to that non-mutual candidate.
+{
+  const shift = point(7000, -2500, 300);
+  const sourceSpecs = [
+    { id: 1, position: point(0, 0, 0), name: 'S1', layers: [['A'], ['B'], ['C']], vectors: [point(300, 0, 0)] },
+    { id: 2, position: point(1000, 0, 0), name: 'S2', layers: [['D'], ['E'], ['F']], vectors: [point(300, 0, 0), point(0, 400, 0)] },
+    { id: 3, position: point(0, 1000, 0), name: 'S3', layers: [['G'], ['H'], ['I']], vectors: [point(300, 0, 0), point(0, 400, 0), point(0, 0, 500)] },
+    { id: 4, position: point(0, 0, 1000), name: 'S4', layers: [['J'], ['K'], ['L']], vectors: [point(300, 0, 0), point(0, 400, 0), point(0, 0, 500), point(-250, 0, 0)] },
+  ];
+  const trueTargets = sourceSpecs.map((spec) => ({ ...spec, id: `1${spec.id}`, position: add(spec.position, shift),
+    layers: spec.id === 1 ? [['X'], ['Y'], ['Z']] : spec.layers }));
+  const decoy = { id: 19, position: point(-20000, 50000, 9000), name: 'DECOY', layers: [['A'], ['B'], ['C']], vectors: [point(300, 0, 0)] };
+  const source = graph(sourceSpecs); const target = graph([...trueTargets, decoy]);
+  const suggestions = suggestCiiBaseAnchorPairs(source, target, {
+    baseAnchorSuggestionLimit: 10, baseAnchorCandidatePool: 10, methodACandidatesPerSource: 3, methodAReverseCandidateRankLimit: 3,
+  });
+  const truePair = suggestions.find((row) => row.sourceNodeId === '1' && row.targetNodeId === '11');
+  const decoyPair = suggestions.find((row) => row.sourceNodeId === '1' && row.targetNodeId === '19');
+  assert(truePair, 'spatially validated SOURCE 1 -> TARGET 11 runner-up must be surfaced');
+  assert(decoyPair, 'structural mutual-best decoy remains visible for engineering review');
+  assert.strictEqual(truePair.candidateGeneration.mutualBest, false);
+  assert.strictEqual(truePair.candidateGeneration.sourceRank, 2);
+  assert.strictEqual(truePair.basisMethod, 'METHOD_A_SPATIAL');
+  assert.strictEqual(truePair.methodA.status, 'READY');
+  assert.strictEqual(truePair.methodA.confidence, 'HIGH');
+  assert.strictEqual(truePair.confidence, 'HIGH');
+  assert.notStrictEqual(truePair.basisMethod, 'METHOD_A_AND_B', 'non-mutual structural runner-up must not inherit Method B authority');
+  assert.strictEqual(decoyPair.candidateGeneration.mutualBest, true);
+  assert.strictEqual(decoyPair.methodA.status, 'UNAVAILABLE');
+}
+
 console.log('CII Base Anchor Method A/B discovery and fusion checks passed.');
