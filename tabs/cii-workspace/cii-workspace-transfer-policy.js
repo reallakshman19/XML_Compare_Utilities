@@ -1,124 +1,98 @@
 import { deepFreeze, stableStringify } from './cii-workspace-contracts.js';
 
-export const CII_TRANSFER_ACTIONS = Object.freeze({
-  COPY: 'COPY',
-  CREATE: 'CREATE',
-  DELETE: 'DELETE',
-  KEEP: 'KEEP',
-  BLOCKED: 'BLOCKED',
-});
+export const CII_TRANSFER_ACTIONS = Object.freeze({ COPY: 'COPY', CREATE: 'CREATE', DELETE: 'DELETE', KEEP: 'KEEP', BLOCKED: 'BLOCKED' });
+export const CII_TRANSFER_STATUSES = Object.freeze({ PREVIEW_READY: 'PREVIEW_READY', BLOCKED: 'BLOCKED', PROTECTED: 'PROTECTED' });
 
-export const CII_TRANSFER_STATUSES = Object.freeze({
-  PREVIEW_READY: 'PREVIEW_READY',
-  BLOCKED: 'BLOCKED',
-  PROTECTED: 'PROTECTED',
-});
-
-const PROTECTED_CATEGORIES = new Set(['GEOMETRY', 'PIPE_SIZE']);
+const PROTECTED_CATEGORIES = new Set(['GEOMETRY']);
 const RESTRAINT_PROPERTIES = new Set([
-  'Restraint presence',
-  'Restraint code set',
-  'Restraint gap values',
-  'Restraint friction values',
-  'Restraint stiffness values',
-  'Restraint direction-cosine set',
-  'Qualified restraint numeric record set',
-  'Qualified restraint record pairing',
+  'Restraint presence', 'Restraint code set', 'Restraint gap values', 'Restraint friction values', 'Restraint stiffness values',
+  'Restraint direction-cosine set', 'Qualified restraint numeric record set', 'Qualified restraint record pairing', 'Qualified restraint slot mutation',
 ]);
 const HANGER_PROPERTIES = new Set(['Hanger presence', 'Hanger record count at node']);
-const SIF_TEE_PROPERTIES = new Set([
-  'SIF/Tee record presence',
-  'SIF/Tee raw code (field 2)',
-  'SIF/Tee normalized raw payload',
-]);
+const SIF_TEE_PROPERTIES = new Set(['SIF/Tee record presence', 'SIF/Tee raw code (field 2)', 'SIF/Tee normalized raw payload']);
 const PROCESS_AUTHORITIES = Object.freeze({
-  P1: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD',
-  T1: 'PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD',
-  T2: 'PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD',
+  P1: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD', P2: 'PROTECTED_WRITER_ELEMENT_ROW4_P2_FIXED_FIELD',
+  P3: 'PROTECTED_WRITER_ELEMENT_ROW4_P3_FIXED_FIELD', P4: 'PROTECTED_WRITER_ELEMENT_ROW4_P4_FIXED_FIELD',
+  P5: 'PROTECTED_WRITER_ELEMENT_ROW4_P5_FIXED_FIELD', P6: 'PROTECTED_WRITER_ELEMENT_ROW4_P6_FIXED_FIELD',
+  P7: 'PROTECTED_WRITER_ELEMENT_ROW5_P7_FIXED_FIELD', P8: 'PROTECTED_WRITER_ELEMENT_ROW5_P8_FIXED_FIELD',
+  P9: 'PROTECTED_WRITER_ELEMENT_ROW5_P9_FIXED_FIELD',
+  T1: 'PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD', T2: 'PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD',
+  T3: 'PROTECTED_WRITER_ELEMENT_ROW2_T3_FIXED_FIELD', T4: 'PROTECTED_WRITER_ELEMENT_ROW3_T4_FIXED_FIELD',
+  T5: 'PROTECTED_WRITER_ELEMENT_ROW3_T5_FIXED_FIELD', T6: 'PROTECTED_WRITER_ELEMENT_ROW3_T6_FIXED_FIELD',
+  T7: 'PROTECTED_WRITER_ELEMENT_ROW3_T7_FIXED_FIELD', T8: 'PROTECTED_WRITER_ELEMENT_ROW3_T8_FIXED_FIELD',
+  T9: 'PROTECTED_WRITER_ELEMENT_ROW3_T9_FIXED_FIELD',
+  'Insulation thickness': 'PROTECTED_WRITER_ELEMENT_ROW2_INSULATION_FIXED_FIELD',
+  'Corrosion allowance': 'PROTECTED_WRITER_ELEMENT_ROW2_CORROSION_FIXED_FIELD',
+  'Insulation density': 'PROTECTED_WRITER_ELEMENT_ROW6_INSULATION_DENSITY_FIXED_FIELD',
+  'Fluid density': 'PROTECTED_WRITER_ELEMENT_ROW6_FLUID_DENSITY_FIXED_FIELD',
+  'Hydro pressure': 'PROTECTED_WRITER_ELEMENT_ROW6_HYDRO_PRESSURE_FIXED_FIELD',
 });
 
 function sameValue(a, b) { return stableStringify(a) === stableStringify(b); }
 function bool(value) { return value === true; }
-
 function actionFromPresence(sourceValue, targetValue) {
   const source = bool(sourceValue); const target = bool(targetValue);
   if (source === target) return CII_TRANSFER_ACTIONS.KEEP;
   return source ? CII_TRANSFER_ACTIONS.CREATE : CII_TRANSFER_ACTIONS.DELETE;
 }
-
 function common(delta, family, action, status, blockers = [], extra = {}) {
   return deepFreeze({
-    family,
-    action,
-    status,
-    blockers: Object.freeze([...new Set(blockers)]),
-    sourceValue: delta.sourceValue,
-    targetValue: delta.targetValue,
-    proposedValue: delta.sourceValue,
-    evidenceStatus: delta.evidenceStatus || 'UNSPECIFIED',
-    evidenceAuthority: delta.authority || null,
-    semanticChange: delta.semanticChange || (delta.changed ? 'CHANGED' : 'UNCHANGED'),
-    ...extra,
+    family, action, status, blockers: Object.freeze([...new Set(blockers)]), sourceValue: delta.sourceValue, targetValue: delta.targetValue,
+    proposedValue: delta.sourceValue, evidenceStatus: delta.evidenceStatus || 'UNSPECIFIED', evidenceAuthority: delta.authority || null,
+    semanticChange: delta.semanticChange || (delta.changed ? 'CHANGED' : 'UNCHANGED'), ...extra,
   });
 }
-function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READY) {
-  return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready;
-}
+function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READY) { return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready; }
 
-function writer1AWall(delta) {
+function writerWall(delta) {
   if (delta.property !== 'Wall thickness') return null;
   const blockers = [];
-  if (!String(delta.authority || '').includes('PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD')) {
-    blockers.push('WALL_FIXED_FIELD_AUTHORITY_REQUIRED');
-  }
-  const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
-  return common(delta, 'WALL', action, statusFromBlockers(blockers), blockers,
+  if (!String(delta.authority || '').includes('PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD')) blockers.push('WALL_FIXED_FIELD_AUTHORITY_REQUIRED');
+  return common(delta, 'WALL', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP, statusFromBlockers(blockers), blockers,
     { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD' });
 }
-
-function writer1AProcess(delta) {
+function writerProcess(delta) {
   const token = PROCESS_AUTHORITIES[delta.property];
-  if (!token) return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
-    ['PROCESS_FIELD_NOT_QUALIFIED_FOR_WRITER_1A']);
+  if (!token) return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED, ['PROCESS_FIELD_NOT_QUALIFIED_FOR_WRITER_1B']);
   const blockers = [];
   if (!String(delta.authority || '').includes(token)) blockers.push('PROCESS_FIXED_FIELD_AUTHORITY_REQUIRED');
-  const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
-  return common(delta, 'PROCESS', action, statusFromBlockers(blockers), blockers,
-    { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD' });
+  const writer = ['P1', 'T1', 'T2'].includes(delta.property) ? '1A' : '1B';
+  return common(delta, 'PROCESS', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP, statusFromBlockers(blockers), blockers,
+    { policyAuthority: `CII_WRITER_${writer}_CARDINALITY_PRESERVING_ELEMENT_FIELD` });
 }
-
-function writer1ARestraint(delta) {
+function writerOd(delta) {
+  if (delta.property !== 'OD') return common(delta, 'PIPE_SIZE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED,
+    delta.changed ? ['PIPE_SIZE_PROPERTY_NOT_QUALIFIED_FOR_WRITER_1B'] : [], { protected: true });
+  const qualified = String(delta.authority || '').includes('PROTECTED_WRITER_ELEMENT_ROW1_OD_FIXED_FIELD:WRITER_1B_PLAIN_PIPE_NO_REDUCER');
+  if (!qualified) return common(delta, 'PIPE_SIZE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED,
+    delta.changed ? ['OD_WRITER_1B_PLAIN_PIPE_NO_REDUCER_AUTHORITY_REQUIRED', ...(delta.limitations || [])] : [],
+    { protected: true, policyAuthority: 'CII_WRITER_1B_OD_CONDITIONAL_GATE' });
+  return common(delta, 'PIPE_SIZE', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY, [],
+    { policyAuthority: 'CII_WRITER_1B_CONDITIONAL_OD_FIXED_FIELD' });
+}
+function writerRestraint(delta) {
   if (delta.property === 'Qualified restraint record pairing') {
     const pairing = delta.sourceValue || {}; const blockers = [];
-    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING')) {
-      blockers.push('RESTRAINT_POINTER_SLOT_PAIRING_AUTHORITY_REQUIRED');
-    }
+    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT_POINTER_SLOT_PAIRING')) blockers.push('RESTRAINT_POINTER_SLOT_PAIRING_AUTHORITY_REQUIRED');
     if (pairing.status !== 'QUALIFIED') blockers.push(...(pairing.blockers || ['RESTRAINT_RECORD_PAIRING_NOT_QUALIFIED']));
-    const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
-    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers, {
-      policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RESTRAINT_SLOT',
-      proposedValue: pairing,
-      restraintPairing: true,
+    return common(delta, 'RESTRAINT', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP, statusFromBlockers(blockers), blockers, {
+      policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RESTRAINT_SLOT', proposedValue: pairing, restraintPairing: true,
     });
   }
-
-  if (delta.property === 'Restraint presence') {
-    const blockers = [];
-    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT')) blockers.push('RESTRAINT_FIXED_FIELD_AUTHORITY_REQUIRED');
-    const action = actionFromPresence(delta.sourceValue, delta.targetValue);
-    if (action !== CII_TRANSFER_ACTIONS.KEEP) blockers.push('RESTRAINT_CARDINALITY_CHANGE_REQUIRES_WRITER_1B_OR_2');
-    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
-      { rawNumericSemantics: true, policyAuthority: 'CII_RESTRAINT_CARDINALITY_EVIDENCE' });
+  if (delta.property === 'Qualified restraint slot mutation') {
+    const plan = delta.sourceValue || {}; const blockers = [];
+    if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT_SLOT_MUTATION')) blockers.push('RESTRAINT_SLOT_MUTATION_AUTHORITY_REQUIRED');
+    if (plan.status !== 'QUALIFIED') blockers.push(...(plan.blockers || ['RESTRAINT_SLOT_MUTATION_NOT_QUALIFIED']));
+    const action = plan.mode === 'CREATE' ? CII_TRANSFER_ACTIONS.CREATE : plan.mode === 'CLEAR' ? CII_TRANSFER_ACTIONS.DELETE : CII_TRANSFER_ACTIONS.BLOCKED;
+    if (action === CII_TRANSFER_ACTIONS.BLOCKED) blockers.push('RESTRAINT_SLOT_MUTATION_MODE_UNSUPPORTED');
+    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers, {
+      policyAuthority: 'CII_WRITER_1B_EXISTING_BLOCK_FIXED_SLOT', proposedValue: plan, restraintSlotMutation: true,
+    });
   }
-
-  // Aggregate restraint rows remain useful review evidence, but they no longer
-  // authorize mutation. The executable Writer 1A authority is the explicit
-  // one-to-one pointer/slot pairing row above.
+  // Presence and aggregate rows are review evidence. Executable authority is
+  // either equal-cardinality pairing or the explicit Writer 1B slot plan.
   return common(delta, 'RESTRAINT', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED, [], {
-    protected: true,
-    evidenceOnly: true,
-    rawNumericSemantics: true,
-    policyAuthority: 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY',
+    protected: true, evidenceOnly: true, rawNumericSemantics: true, policyAuthority: 'CII_RESTRAINT_AGGREGATE_EVIDENCE_ONLY',
   });
 }
 
@@ -126,82 +100,60 @@ export function classifyCiiTransferDelta(delta, options = {}) {
   if (!delta) return null;
   if (PROTECTED_CATEGORIES.has(delta.category)) {
     return common(delta, delta.category, CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED,
-      delta.changed ? ['TARGET_PROPERTY_PROTECTED_BY_DEFAULT'] : [],
-      { protected: true, policyAuthority: 'CII_TRANSFER_PROTECTED_MODEL_DEFINING_PROPERTIES' });
+      delta.changed ? ['TARGET_PROPERTY_PROTECTED_BY_DEFAULT'] : [], { protected: true, policyAuthority: 'CII_TRANSFER_PROTECTED_MODEL_DEFINING_PROPERTIES' });
   }
-
-  if (delta.category === 'WALL') return writer1AWall(delta)
+  if (delta.category === 'PIPE_SIZE') return writerOd(delta);
+  if (delta.category === 'WALL') return writerWall(delta)
     || common(delta, 'WALL', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED, ['WALL_FIELD_NOT_QUALIFIED_FOR_WRITER_1A']);
-
   if (delta.category === 'NODE_NAME' && delta.property === 'Node name / to-name') {
     if (!delta.changed) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY);
     const source = String(delta.sourceValue || ''); const target = String(delta.targetValue || '');
-    if (!source && target) {
-      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.DELETE, CII_TRANSFER_STATUSES.BLOCKED,
-        ['NODE_NAME_DELETE_REQUIRES_EXPLICIT_POLICY']);
-    }
+    if (!source && target) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.DELETE, CII_TRANSFER_STATUSES.BLOCKED, ['NODE_NAME_DELETE_REQUIRES_EXPLICIT_POLICY']);
     if (source && target && source !== target && options.allowNodeNameOverwrite !== true) {
-      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED,
-        ['TARGET_NODENAME_NONBLANK']);
+      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, ['TARGET_NODENAME_NONBLANK']);
     }
     return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.PREVIEW_READY);
   }
-
-  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writer1ARestraint(delta);
-
+  if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writerRestraint(delta);
   if (delta.category === 'HANGER' && HANGER_PROPERTIES.has(delta.property)) {
     const blockers = [];
     if (!String(delta.authority || '').includes('CONTROL_NOHGRS_PLUS_MISCEL_1_IHGRNODE')) blockers.push('HANGER_NODE_PRESENCE_AUTHORITY_REQUIRED');
     if (delta.property === 'Hanger presence') {
       const action = actionFromPresence(delta.sourceValue, delta.targetValue);
       if (action === CII_TRANSFER_ACTIONS.CREATE) blockers.push('HANGER_CREATE_PAYLOAD_NOT_QUALIFIED');
-      return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers,
-        { nodePresenceOnly: true });
+      return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers, { nodePresenceOnly: true });
     }
-    const action = delta.changed ? CII_TRANSFER_ACTIONS.BLOCKED : CII_TRANSFER_ACTIONS.KEEP;
     if (delta.changed) blockers.push('HANGER_RECORD_COUNT_IS_EVIDENCE_ONLY');
-    return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers,
+    return common(delta, 'HANGER', delta.changed ? CII_TRANSFER_ACTIONS.BLOCKED : CII_TRANSFER_ACTIONS.KEEP, statusFromBlockers(blockers), blockers,
       { nodePresenceOnly: true });
   }
-
   if (delta.category === 'SIF_TEE' && SIF_TEE_PROPERTIES.has(delta.property)) {
-    if (!delta.changed) return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY,
-      [], { rawSemanticsOnly: true });
+    if (!delta.changed) return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY, [], { rawSemanticsOnly: true });
     const blockers = [];
     if (!String(delta.authority || '').includes('ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD')) blockers.push('SIF_TEE_POINTER_AUTHORITY_REQUIRED');
     if (delta.property === 'SIF/Tee record presence') {
       const action = actionFromPresence(delta.sourceValue, delta.targetValue);
-      if (action === CII_TRANSFER_ACTIONS.CREATE) blockers.push('SIF_TEE_TARGET_NODE_REWRITE_NOT_IMPLEMENTED');
-      return common(delta, 'SIF_TEE', action, statusFromBlockers(blockers), blockers,
-        { rawSemanticsOnly: true });
+      blockers.push('SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION');
+      return common(delta, 'SIF_TEE', action, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
     }
-    blockers.push('SIF_TEE_RAW_RECORD_REWRITE_NOT_IMPLEMENTED');
-    return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers,
-      { rawSemanticsOnly: true });
+    blockers.push('SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED');
+    return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
   }
-
   if (delta.category === 'WEIGHT_RIGID' && delta.property === 'Rigid weight') {
     const blockers = [];
     if (!String(delta.authority || '').includes('ELEMENT_RIGID_POINTER_TO_RIGID_RECORD')) blockers.push('RIGID_POINTER_WEIGHT_AUTHORITY_REQUIRED');
-    const action = sameValue(delta.sourceValue, delta.targetValue) ? CII_TRANSFER_ACTIONS.KEEP : CII_TRANSFER_ACTIONS.COPY;
-    return common(delta, 'WEIGHT_RIGID', action, statusFromBlockers(blockers), blockers,
-      { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RIGID_RECORD' });
+    return common(delta, 'WEIGHT_RIGID', sameValue(delta.sourceValue, delta.targetValue) ? CII_TRANSFER_ACTIONS.KEEP : CII_TRANSFER_ACTIONS.COPY,
+      statusFromBlockers(blockers), blockers, { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RIGID_RECORD' });
   }
-
-  if (delta.category === 'PROCESS') return writer1AProcess(delta);
-
-  return common(delta, delta.category || 'UNKNOWN', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
-    ['TRANSFER_FAMILY_NOT_QUALIFIED']);
+  if (delta.category === 'PROCESS') return writerProcess(delta);
+  return common(delta, delta.category || 'UNKNOWN', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED, ['TRANSFER_FAMILY_NOT_QUALIFIED']);
 }
 
 export function ciiTransferPolicySummary(classifications) {
   const rows = classifications || [];
   const byAction = Object.fromEntries(Object.values(CII_TRANSFER_ACTIONS).map((action) => [action, 0]));
   for (const row of rows) byAction[row.action] = (byAction[row.action] || 0) + 1;
-  return deepFreeze({
-    byAction: deepFreeze(byAction),
-    protectedCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.PROTECTED).length,
+  return deepFreeze({ byAction: deepFreeze(byAction), protectedCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.PROTECTED).length,
     blockedCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.BLOCKED).length,
-    previewReadyCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.PREVIEW_READY).length,
-  });
+    previewReadyCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.PREVIEW_READY).length });
 }
