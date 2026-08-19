@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | IMPLEMENTED INITIAL EXECUTABLE SLICE / FOCUSED WRITER PASS / REAL BENCHMARK NOT_RUN / DRAFT | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2 + existing RIGID mutation; Stage06 readiness; reparse/negative assurance | STACKED on PR990 | run complete TARGET1/TARGET2 writer benchmark; then qualify existing-restraint single-record mutation |
+| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | ELEMENT/RIGID + EXISTING-RESTRAINT WRITER IMPLEMENTED / FOCUSED PASS / REAL BENCHMARK NOT_RUN / DRAFT | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | STACKED on PR990 | run real TARGET1/TARGET2 restraint+wall writer benchmarks and inherited regression suite |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | DOCUMENTATION COMPLETE / DRAFT | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | BASE for PR991 | review/merge before or with successor stack |
 | PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | topology-only paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
 | PR988 | CII Transfer Preview qualification | `agent/cii-transfer-preview-qualification` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | delta-driven read-only transfer policy + Tab3 | HISTORICAL / merged into main | none |
@@ -18,9 +18,9 @@ Live GitHub state is authoritative over this snapshot.
 
 ## PR991 — current authority
 
-Writer 1A applies SOURCE engineering values to an approved TARGET only when the transfer plan is fully compatible with the Writer 1A whitelist.
+Writer 1A applies SOURCE engineering values to an approved TARGET only when every approved non-KEEP operation is compatible with the qualified Writer 1A whitelist.
 
-Current executable mutation families:
+Executable mutation families now are:
 
 ```text
 ELEMENT WT
@@ -28,33 +28,63 @@ ELEMENT P1
 ELEMENT T1
 ELEMENT T2
 existing pointer-bound RIGID weight
+existing RESTRANT numeric fields through qualified pointer/slot pairing
 ```
 
-Current immutable boundary:
+### Existing-restraint identity and custody
+
+Each existing restraint retains target-native pointer/slot/node custody. Pairing rules are:
 
 ```text
-node numbers
-FROM/TO connectivity
-DX/DY/DZ geometry
-OD
-element count/order
-section cardinality
-auxiliary pointer ownership
+1 record  <-> 1 record: qualified by cardinality
+2..6 records: exhaustive global assignment, at most 6! = 720
 ```
 
-The writer patches exact fixed-field spans, checks the reviewed TARGET hash before applying, reparses the generated CII, and rejects output unless the expected-vs-actual semantic audit reports zero unexpected changes.
+Stable pairing evidence:
 
-Any approved non-KEEP operation outside the current Writer 1A whitelist keeps Stage06 `BLOCKED_WRITER_1A`; unsupported operations are never silently skipped.
+```text
+exact GUID
+exact tag
+approved mapped connecting-node identity
+direction cosines
+```
 
-Existing restraint mutation is the next Writer 1A qualification increment. Current delta evidence is aggregate by node; mutation must not proceed until source-record to target-slot custody is explicit. The first safe target is the single-record/single-record node case, followed by qualified multi-slot mapping. Free-slot new-restraint creation remains Writer 1B.
+Explicitly excluded from pairing identity:
+
+```text
+slot order
+typeCode
+stiffness
+gap
+friction
+raw source/target numbering equality
+```
+
+A tied best assignment fails closed with `RESTRAINT_RECORD_PAIRING_AMBIGUOUS`. Source connecting-node references are translated through bound node correspondence before target write.
+
+Aggregate restraint rows remain review evidence only. The executable transfer row is `Qualified restraint record pairing`.
+
+Writer patches only target existing-slot numeric fields:
+
+```text
+typeCode
+stiffness
+gap
+friction
+connectingNode
+direction X/Y/Z
+```
+
+Target node, pointer, slot, tag, GUID, section cardinality and auxiliary pointer ownership remain immutable.
 
 ## PR991 validation truth
 
 Observed PASS:
 
-- protected writer source inspection for ELEMENT row2/row4 field layout;
-- exact minimal-materialization execution of `tests/cii-workspace-target-writer-1a.test.js` after correcting its initial weak geometry substring oracle;
-- fixed-field mutation PASS covers WT, P1, T1, T2, existing RIGID weight, exact file-length preservation, immutable ELEMENT header row, unsupported SIF fail-closed behavior, stale `before` value rejection, and protected-writer numeric formatting cases.
+- protected writer ELEMENT and RESTRANT layout source inspection;
+- focused WT/P1/T1/T2/RIGID writer execution;
+- deterministic restraint pairing execution including swapped slots, GUID evidence, mapped connecting nodes, ambiguous fail-closed and cardinality mismatch;
+- paired raw restraint writer execution: 9 exact numeric field mutations with target pointer/slot/node/tag preservation and source connecting node `510 -> 9510` mapping.
 
 Committed but NOT_RUN in a complete checkout:
 
@@ -66,7 +96,10 @@ tests/cii-workspace-anchor-approval-ui.test.js
 tests/cii-workspace-benchmark-transfer-preview.test.js
 tests/cii-workspace-benchmark-end-to-end.test.js
 tests/cii-workspace-benchmark-writer-1a.test.js
+tests/cii-workspace-benchmark-writer-1a-restraint.test.js
 full inherited CII Workspace regression/browser lifecycle
 ```
+
+The real restraint benchmark freezes SOURCE node130 block 5, TARGET1 block 5 and TARGET2 block 6. It requires target-native pointer/slot custody, type `9 -> 15`, TARGET1 friction `0.3 -> 0`, TARGET2 friction unchanged `0`, reparse PASS and zero unexpected semantic deltas.
 
 See `agents/PR991_workreport.md`, `agents/status/PR991.yaml`, and `agents/claims/PR991.yaml`.
