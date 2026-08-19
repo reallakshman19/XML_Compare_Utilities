@@ -27,6 +27,23 @@ function resolvedPair(sourceNodes, targetNodes, sourceGraph, pair) {
   if (!source || !target || sourceOdMm == null) return null;
   return { ...pair, sourceNodeId, targetNodeId, source, target, sourceOdMm };
 }
+function diversifiedCandidates(rows, limit) {
+  const grouped = new Map();
+  for (const row of [...rows].sort(rankInputPairs)) {
+    if (!grouped.has(row.sourceNodeId)) grouped.set(row.sourceNodeId, []);
+    grouped.get(row.sourceNodeId).push(row);
+  }
+  const groups = [...grouped.values()].sort((a, b) => rankInputPairs(a[0], b[0])); const result = [];
+  for (let depth = 0; result.length < limit; depth += 1) {
+    let added = false;
+    for (const group of groups) {
+      if (result.length >= limit) break;
+      if (group[depth]) { result.push(group[depth]); added = true; }
+    }
+    if (!added) break;
+  }
+  return result;
+}
 function geometryPair(pair) {
   return { sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId,
     source: pair.source, target: pair.target, sourceOdMm: pair.sourceOdMm };
@@ -94,6 +111,12 @@ function baseCandidateGap(pairs) {
   const values = pairs.map((pair) => Number(pair.winnerGap)).filter(Number.isFinite);
   return values.length ? Math.min(...values) : 0;
 }
+function seedKey(seed) { return [...seed].map(pairKey).sort(); }
+function addSeed(existing, seed) {
+  const key = seedKey(seed); const token = key.join('|');
+  if (!existing.seedTriplets.some((row) => row.join('|') === token)) existing.seedTriplets.push(key);
+  existing.seedTriplets.sort((a, b) => a.join('|').localeCompare(b.join('|'), undefined, { numeric: true }));
+}
 function makeBase(seed, expansion, geometry, options) {
   const ordered = [...expansion.pairs].sort((a, b) => compareNodeIds(a.sourceNodeId, b.sourceNodeId)
     || compareNodeIds(a.targetNodeId, b.targetNodeId));
@@ -105,8 +128,7 @@ function makeBase(seed, expansion, geometry, options) {
     automaticConfidenceMinimumAnchorCount: minimumForAuto,
     automaticConfidenceCap: ordered.length < minimumForAuto ? 'REVIEW' : null,
     candidateScoreMean: Number(baseCandidateScore(ordered).toFixed(3)),
-    candidateWinnerGapMin: Number(baseCandidateGap(ordered).toFixed(3)),
-    seedTriplets: [[...seed].map(pairKey).sort()],
+    candidateWinnerGapMin: Number(baseCandidateGap(ordered).toFixed(3)), seedTriplets: [seedKey(seed)],
     expansionDiagnostics: {
       compatibleCandidateCount: expansion.compatibleCandidateCount,
       ambiguousSourceNodeIds: expansion.ambiguousSourceNodeIds,
@@ -117,10 +139,6 @@ function makeBase(seed, expansion, geometry, options) {
       sourceRank: Number(pair.sourceRank || 1), targetRank: Number(pair.targetRank || 1), mutualBest: Boolean(pair.mutualBest) })),
     geometry,
   };
-}
-function mergeEquivalentBase(existing, candidate) {
-  existing.seedTriplets.push(...candidate.seedTriplets);
-  existing.seedTriplets.sort((a, b) => a.join('|').localeCompare(b.join('|'), undefined, { numeric: true }));
 }
 function rankBases(left, right) {
   return confidenceRank(right.confidence) - confidenceRank(left.confidence)
@@ -147,26 +165,27 @@ function baseEvidence(base) {
 
 export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates = [], options = {}) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
-  const seedLimit = Math.max(3, Number(options.methodASeedPairLimit ?? 12));
+  const seedLimit = Math.max(3, Number(options.methodASeedPairLimit ?? 16));
   const baseLimit = Math.max(1, Number(options.methodABaseSuggestionLimit ?? 24));
-  const eligible = [...pairCandidates].sort(rankInputPairs)
-    .map((pair) => resolvedPair(sourceNodes, targetNodes, sourceGraph, pair)).filter(Boolean).slice(0, seedLimit);
-  const seeds = combinations3(eligible); const basesById = new Map();
+  const resolved = pairCandidates.map((pair) => resolvedPair(sourceNodes, targetNodes, sourceGraph, pair)).filter(Boolean);
+  const eligible = diversifiedCandidates(resolved, seedLimit); const seeds = combinations3(eligible); const basesById = new Map();
   for (const seed of seeds) {
     const seedGeometry = qualifyCiiGeometryTransform(seed.map(geometryPair), options);
     if (seedGeometry.status !== 'READY') continue;
     const expansion = spatialExpansion(seedGeometry, eligible, options);
     if (expansion.pairs.length < 3) continue;
+    const expansionId = baseId(expansion.pairs); const existing = basesById.get(expansionId);
+    if (existing) { addSeed(existing, seed); continue; }
     const geometry = qualifyCiiGeometryTransform(expansion.pairs.map(geometryPair), options);
     if (geometry.status !== 'READY') continue;
-    const candidate = makeBase(seed, expansion, geometry, options); const existing = basesById.get(candidate.baseId);
-    if (existing) mergeEquivalentBase(existing, candidate); else basesById.set(candidate.baseId, candidate);
+    basesById.set(expansionId, makeBase(seed, expansion, geometry, options));
   }
   const bases = [...basesById.values()].sort(rankBases).slice(0, baseLimit).map(baseEvidence);
   return deepFreeze({
     status: bases.length ? 'READY' : 'UNAVAILABLE', method: 'METHOD_A_SPATIAL',
     candidatePairCount: pairCandidates.length, eligiblePairCount: eligible.length, seedPairLimit: seedLimit,
-    seedTripletCount: seeds.length, qualifiedBaseCount: bases.length, bases,
+    seedSelectionPolicy: 'ROUND_ROBIN_BY_SOURCE_CANDIDATE_RANK', seedTripletCount: seeds.length,
+    qualifiedBaseCount: bases.length, bases,
     reason: bases.length ? 'AT_LEAST_ONE_AUTOMATIC_LOCAL_METHOD_A_BASE_READY' : 'NO_AUTOMATIC_LOCAL_METHOD_A_BASE_READY',
   });
 }
