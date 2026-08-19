@@ -1,0 +1,9 @@
+schema: AgentClaim.v1
+work: WIP-CII-TRANSFER-SCOPE
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-explicit-transfer-scope
+base: main@0274f63c6e17a0495a63e268b5da0dc0bb0e8a16
+mission: explicit APPLY_EXCLUDE mutation-scope custody before Writer readiness
+state: IMPLEMENTATION_COMPLETE_PENDING_PR_NUMBER
+criticality: ENGINEERING_CRITICAL_MUTATION_AUTHORITY
+owner_merge_required: true
