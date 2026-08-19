@@ -101,7 +101,7 @@ function candidateMarkup(row, index, selectedKeys = new Set()) {
 <header><div><span class="ciiw-anchor-index">B${index + 1}</span><h4>${h(row.sourceNodeId)} <span>↔</span> ${h(row.targetNodeId)}</h4></div><div class="ciiw-anchor-badges"><span class="ciiw-basis-badge">${h(methodLabel(method))}</span><span class="ciiw-confidence ${h(confidenceClass(row.confidence))}">${h(row.confidence || 'REVIEW')}</span>${corroboration}</div></header>
 <p class="ciiw-candidate-line">Structural candidate score ${h(fmt(row.score, 1))} · rank ${h(row.candidateGeneration?.sourceRank ?? '—')}/${h(row.candidateGeneration?.targetRank ?? '—')} · winner gap ${h(fmt(row.winnerGap, 1))}/${h(fmt(row.requiredWinnerGap, 1))} · engineer review required${qualifiedLoops.length > 1 ? ' · A+B acceptance creates two independent OR loops' : ''}</p>
 <div class="ciiw-method-grid">${methodAMarkup(row)}${methodBMarkup(row)}</div>
-<footer><small>Identity exclusions: ${h(exclusions || 'node-number offset, OD identity and wall identity remain excluded')}</small><button type="button" data-ciiw-evidence-accept data-ciiw-base-action data-selection-key="${h(key)}" data-source-node="${h(row.sourceNodeId)}" data-target-node="${h(row.targetNodeId)}">${h(action)}</button></footer></article>`;
+<footer><small>Identity exclusions: ${h(exclusions || 'node-number offset, OD identity and wall identity remain excluded')}</small><button type="button" data-ciiw-evidence-accept data-ciiw-base-action data-ciiw-selection-key="${h(key)}" data-source-node="${h(row.sourceNodeId)}" data-target-node="${h(row.targetNodeId)}">${h(action)}</button></footer></article>`;
 }
 function loopText(loop) {
   if (loop.method === 'METHOD_A_SPATIAL') return `METHOD A · ${loop.anchorPairs?.length || 0} anchor pairs · ${loop.baseId}`;
@@ -161,7 +161,7 @@ function addEngineeringChrome(container, legacy, options, selection) {
   };
   function bindActions() {
     evidence.querySelectorAll('[data-ciiw-base-action]').forEach((button) => button.addEventListener('click', async () => {
-      const key = button.dataset.selectionKey; const row = findSuggestion(key); if (!row) return;
+      const key = button.dataset.ciiwSelectionKey; const row = findSuggestion(key); if (!row) return;
       const qualified = ciiQualifiedLoopsForSuggestion(row);
       if (!qualified.length) { await useManualAnchor(row); return; }
       if (selection.selectedKeys.has(key)) selection.selectedKeys.delete(key); else selection.selectedKeys.add(key);
