@@ -1,12 +1,12 @@
 schema: AgentStatus.v1
 pr: 994
-state: IMPLEMENTING_OD_SCALED_TOLERANCE_AND_WEIGHTING
+state: DRAFT_IMPLEMENTATION_COMPLETE_OD_SCALED_FOCUSED_PASS
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 base_branch: main
 base_basis_sha: 168d21bd9e9c198d22009f62b6203e4f60fd4ba1
 branch: agent/cii-multi-base-core
-current_stage: IMPLEMENT
+current_stage: HANDOVER_RECONCILE
 handover_readiness: READY
 coordination: SAFE
 mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
@@ -37,13 +37,24 @@ owner_policy_update:
   tolerance: X_TIMES_SOURCE_OD
   default_factor_x: 2.0
   configurable: true
+  od_reference: MIN_POSITIVE_INCIDENT_SOURCE_OD
   od_role: TOLERANCE_SCALE_ONLY_NOT_IDENTITY_EVIDENCE
+  target_od_role: NO_TOLERANCE_OR_IDENTITY_AUTHORITY
   method_b_weighting: MORE_DISTINCT_3D_GEOMETRY_GETS_HIGHER_WEIGHT
-validation_state: IMPLEMENTATION_IN_PROGRESS_PRIOR_FOCUSED_PASS_REQUIRES_RERUN
+focused_validation:
+  javascript_syntax: PASS_LOCAL_EXACT_BLOBS
+  method_a_od_scaled_geometry: PASS_IMPLEMENTATION_COUPLED
+  method_b_od_scaled_multibase: PASS_IMPLEMENTATION_COUPLED
+  method_b_anchor_weighting: PASS_IMPLEMENTATION_COUPLED
+  independent_python_oracle: PASS_INDEPENDENT_REPRODUCTION
+  target_od_invariance: PASS_FOCUSED
+  configurable_x: PASS_FOCUSED
+  angular_equivalent_displacement: PASS_FOCUSED
 full_repository_suite: NOT_RUN_ENVIRONMENT
-browser: NOT_RUN_ENVIRONMENT
+coordinate_invariance_execution: NOT_RUN_ENVIRONMENT
 real_cii_benchmark: NOT_RUN_ENVIRONMENT
+browser: NOT_RUN_ENVIRONMENT
 ci: NOT_RUN
-known_engineering_defect: FIXED_ABSOLUTE_METHOD_A_AND_FIXED_METHOD_B_COMPARISON_TOLERANCES_SUPERSEDED_BY_OWNER_POLICY
-highest_risk: OD must scale tolerance without becoming hidden identity evidence; target OD must not alter correspondence tolerance
-exact_next_action: implement SOURCE-OD-scaled Method A/B tolerance and geometry-complexity weighting, add target-OD-invariance regressions, rerun focused validation, keep draft unmerged
+known_engineering_defect: NONE_IDENTIFIED_WITHIN_CURRENT_CORE_SAMPLE_SCOPE
+highest_risk: real-CII calibration of provisional score breakpoints must not weaken hard OD/two-axis/conflict gates
+exact_next_action: owner review of updated PR994 OD-scaled core; execute complete-checkout benchmark/inherited suite before wider product authority; do not merge without explicit authorization
