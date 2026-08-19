@@ -1,0 +1,6 @@
+standalone_scope_oracle: PASS_INDEPENDENT_REPRODUCTION
+focused_repository_tests: AUTHORED_NOT_RUN_ENVIRONMENT
+full_shell_lifecycle: NOT_RUN_ENVIRONMENT
+source3_target3_browser: NOT_RUN_ENVIRONMENT
+chromium: NOT_RUN_ENVIRONMENT
+full_repository_suite: NOT_RUN_ENVIRONMENT
