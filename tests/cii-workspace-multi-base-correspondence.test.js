@@ -3,6 +3,7 @@ import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-works
 import { qualifyCiiMultiBaseAuthority } from '../tabs/cii-workspace/cii-workspace-multi-base-anchor.js';
 import { buildCiiMultiBaseCorrespondence } from '../tabs/cii-workspace/cii-workspace-multi-base-correspondence.js';
 import { arbitrateCiiLoopCorrespondences } from '../tabs/cii-workspace/cii-workspace-correspondence-arbitration.js';
+import { compareLockedCiiAnchorSpan } from '../tabs/cii-workspace/cii-workspace-topology.js';
 
 function point(x = 0, y = 0, z = 0) { return { x, y, z }; }
 function segment(from, to, fromPos, toPos, od = 100, wall = 6) {
@@ -62,6 +63,20 @@ assert(central, 'central A+B pair must survive canonical arbitration');
 assert.strictEqual(central.basisMethod, 'METHOD_A_AND_B');
 assert.strictEqual(central.authority, 'MULTI_BASE_CORROBORATED');
 assert.strictEqual(central.evidence.multiBaseProvenance.length, 2);
+
+// Existing flat anchorPairs must keep their old row identities/authorities when routed through the new engine.
+{
+  const anchors = [{ sourceNodeId: '10', targetNodeId: '110' }, { sourceNodeId: '20', targetNodeId: '120' }, { sourceNodeId: '30', targetNodeId: '130' }];
+  const direct = compareLockedCiiAnchorSpan(source, target, anchors, { geometryTransform: aAuthority.loops[0].geometry });
+  const legacyAuthority = { status: 'READY', loops: [{ loopId: 'LEGACY_LOCKED_BASE_1', method: 'USER_LOCKED_LEGACY', status: 'READY',
+    geometry: aAuthority.loops[0].geometry, anchorPairs: anchors }] };
+  const routed = buildCiiMultiBaseCorrespondence(source, target, legacyAuthority);
+  assert.strictEqual(routed.combination, 'LEGACY_SINGLE_LOOP_COMPATIBILITY');
+  assert.deepStrictEqual(routed.nodeRows.map((row) => [row.correspondenceId, row.authority]),
+    direct.nodeRows.map((row) => [row.correspondenceId, row.authority]));
+  assert.deepStrictEqual(routed.elementRows.map((row) => [row.correspondenceId, row.authority]),
+    direct.elementRows.map((row) => [row.correspondenceId, row.authority]));
+}
 
 function mockLoop(loopId, method, correspondence) { return { loop: { loopId, method, status: 'READY' }, correspondence }; }
 function mockCorrespondence(nodeRows = [], elementRows = [], status = 'READY') {
