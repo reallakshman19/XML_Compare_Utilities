@@ -1,1 +1,0 @@
-Open draft PR for explicit APPLY/EXCLUDE transfer-scope authority; replace WIP custody with permanent PR-numbered records after PR creation.
