@@ -37,11 +37,16 @@ async function intakePair(input, options) {
   return { sourceDocument, targetDocument,
     sourceGraph: adaptCiiDocumentToTopologyGraph(sourceDocument), targetGraph: adaptCiiDocumentToTopologyGraph(targetDocument) };
 }
+function sourceOdAtNode(graph, nodeId) {
+  const values = [...(graph?.adjacency?.get(String(nodeId)) || [])].map((edge) => Number(edge.diameter)).filter((value) => Number.isFinite(value) && value > 0);
+  return values.length ? Math.min(...values) : null;
+}
 function geometryPairs(sourceGraph, targetGraph, anchors) {
   const source = nodeIndex(sourceGraph); const target = nodeIndex(targetGraph);
   return anchors.flatMap((pair) => {
     const left = source.get(pair.sourceNodeId)?.position; const right = target.get(pair.targetNodeId)?.position;
-    return left && right ? [{ source: left, target: right, sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }] : [];
+    return left && right ? [{ source: left, target: right, sourceOdMm: sourceOdAtNode(sourceGraph, pair.sourceNodeId),
+      sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }] : [];
   });
 }
 function writerVersion(options) { return options.writerVersion === '1A' ? '1A' : '1B'; }
