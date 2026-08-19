@@ -1,5 +1,5 @@
 import { CII_WORKSPACE_SCHEMAS, compareNodeIds, deepFreeze, uniqueStrings } from './cii-workspace-contracts.js';
-import { qualifyCiiMethodBRunBasis } from './cii-workspace-pipe-runs.js';
+import { qualifyCiiMultiBaseAuthority } from './cii-workspace-multi-base-anchor.js';
 
 const REASON_WEIGHT = Object.freeze({ BRANCH: 100, RIGID_ADJACENT: 90, TERMINAL: 80, BEND_ADJACENT: 65, NAMED_NODE: 45 });
 
@@ -93,7 +93,11 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
     const reverse = targetRankings.get(winner.target.nodeId) || []; if (reverse[0]?.target?.nodeId !== item.nodeId) continue;
     const sourceGap = winner.score - Number(ranked[1]?.score ?? 0); const targetGap = winner.score - Number(reverse[1]?.score ?? 0);
     const winnerGap = Math.min(sourceGap, targetGap);
-    const methodB = qualifyCiiMethodBRunBasis(sourceGraph, targetGraph, item.nodeId, winner.target.nodeId, options);
+    const multiBase = qualifyCiiMultiBaseAuthority({
+      sourceGraph, targetGraph,
+      methodBAnchors: [{ baseId: `SUGGESTION_B_${item.nodeId}_${winner.target.nodeId}`, sourceNodeId: item.nodeId, targetNodeId: winner.target.nodeId }],
+    }, options);
+    const methodB = multiBase.loops[0]?.evidence;
     suggestions.push(deepFreeze({
       schema: CII_WORKSPACE_SCHEMAS.baseAnchorSuggestion, sourceNodeId: item.nodeId, targetNodeId: winner.target.nodeId,
       status: 'SUGGESTED', authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED', reviewRequired: true,
