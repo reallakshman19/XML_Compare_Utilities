@@ -4,8 +4,9 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | ELEMENT/RIGID + EXISTING-RESTRAINT WRITER IMPLEMENTED / FOCUSED PASS / REAL BENCHMARK NOT_RUN / DRAFT | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | STACKED on PR990 | run real TARGET1/TARGET2 restraint+wall writer benchmarks and inherited regression suite |
-| PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | DOCUMENTATION COMPLETE / DRAFT | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | BASE for PR991 | review/merge before or with successor stack |
+| PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | SOURCE QUALIFIED / IMPLEMENTATION IN PROGRESS / DRAFT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; conditional reducer-safe OD; existing-block RESTRANT free-slot create/clear; SIF/TEE remains blocked | SAFE / successor to merged PR991 | implement parser/evidence -> transfer/writer -> restraint slot -> round-trip validation |
+| PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
+| PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
 | PR989 | Explicit CII base-anchor + approval flow | `agent/cii-anchor-approval-flow` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | topology-only paired base-anchor suggestions; bulk HIGH/MEDIUM approval; Delta Approval projection; approval-gated Transfer Preview | HISTORICAL / merged into main | none |
 | PR988 | CII Transfer Preview qualification | `agent/cii-transfer-preview-qualification` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | delta-driven read-only transfer policy + Tab3 | HISTORICAL / merged into main | none |
 | PR987 | CII auxiliary custody + benchmark qualification | `agent/cii-aux-custody-benchmark` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | RESTRANT/SIF/RIGID/hanger custody | HISTORICAL / merged into main | none |
@@ -16,11 +17,49 @@ Live GitHub state is authoritative over this snapshot.
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL / merged into main | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR991 — current authority
+## PR992 — current authority
+
+Writer 1B extends Writer 1A only where fixed-field and ownership semantics are independently source-qualified.
+
+Qualified ELEMENT layout from the protected writer:
+
+```text
+row 2: WT | insulation thickness | corrosion allowance | T1 | T2 | T3
+row 3: T4 | T5 | T6 | T7 | T8 | T9
+row 4: P1 | P2 | P3 | P4 | P5 | P6
+row 5: P7 | P8 | P9 | protected unrelated fields...
+row 6: insulation density | fluid density | protected unrelated fields... | hydro pressure
+```
+
+Conditional OD is not a blanket PIPE_SIZE authority. The first Writer 1B slice requires approved correspondence, one source/one target edge, `PIPE` component kind on both sides, zero reducer pointer on both sides and no BEND/RIGID semantic transition. OD remains excluded from M2 identity.
+
+Existing-block RESTRANT slot mutation is limited to the protected fixed-capacity representation:
+
+```text
+6 slots × 4 rows = 24 rows per block
+empty slot = zero numeric line1 + zero numeric line2 + empty tag + empty GUID
+```
+
+Writer 1B may add/clear one record only inside an already-owned TARGET block, with pointer and section row count unchanged. Tag/GUID must already be empty for the inserted/deleted record; string metadata is not mutated in this slice. Existing records must pair uniquely; ambiguity fails closed.
+
+Explicitly outside PR992 authority:
+
+```text
+SIF/TEE semantic rewrite
+new/delete RESTRANT block or pointer re-indexing
+BEND/FORCMNT/DISPLMNT/UNIFORM/WIND/OFFSETS/ALLOWBLS mutation
+node/element/connectivity/geometry mutation
+workflow changes
+protected external writer changes
+```
+
+See `agents/PR992_workreport.md`, `agents/status/PR992.yaml`, and `agents/claims/PR992.yaml`.
+
+## PR991 — merged Writer 1A authority
 
 Writer 1A applies SOURCE engineering values to an approved TARGET only when every approved non-KEEP operation is compatible with the qualified Writer 1A whitelist.
 
-Executable mutation families now are:
+Executable mutation families merged in PR991 are:
 
 ```text
 ELEMENT WT
@@ -31,75 +70,6 @@ existing pointer-bound RIGID weight
 existing RESTRANT numeric fields through qualified pointer/slot pairing
 ```
 
-### Existing-restraint identity and custody
+Each existing restraint retains target-native pointer/slot/node custody. Pairing uses singleton cardinality or exhaustive global assignment up to `6! = 720`; exact GUID/tag, approved mapped connecting-node identity and direction cosines are stable evidence. Slot order and mutable type/stiffness/gap/friction are not identity evidence. A tied best assignment fails closed.
 
-Each existing restraint retains target-native pointer/slot/node custody. Pairing rules are:
-
-```text
-1 record  <-> 1 record: qualified by cardinality
-2..6 records: exhaustive global assignment, at most 6! = 720
-```
-
-Stable pairing evidence:
-
-```text
-exact GUID
-exact tag
-approved mapped connecting-node identity
-direction cosines
-```
-
-Explicitly excluded from pairing identity:
-
-```text
-slot order
-typeCode
-stiffness
-gap
-friction
-raw source/target numbering equality
-```
-
-A tied best assignment fails closed with `RESTRAINT_RECORD_PAIRING_AMBIGUOUS`. Source connecting-node references are translated through bound node correspondence before target write.
-
-Aggregate restraint rows remain review evidence only. The executable transfer row is `Qualified restraint record pairing`.
-
-Writer patches only target existing-slot numeric fields:
-
-```text
-typeCode
-stiffness
-gap
-friction
-connectingNode
-direction X/Y/Z
-```
-
-Target node, pointer, slot, tag, GUID, section cardinality and auxiliary pointer ownership remain immutable.
-
-## PR991 validation truth
-
-Observed PASS:
-
-- protected writer ELEMENT and RESTRANT layout source inspection;
-- focused WT/P1/T1/T2/RIGID writer execution;
-- deterministic restraint pairing execution including swapped slots, GUID evidence, mapped connecting nodes, ambiguous fail-closed and cardinality mismatch;
-- paired raw restraint writer execution: 9 exact numeric field mutations with target pointer/slot/node/tag preservation and source connecting node `510 -> 9510` mapping.
-
-Committed but NOT_RUN in a complete checkout:
-
-```text
-tests/cii-workspace-transfer-preview-policy.test.js
-tests/cii-workspace-placeholder-gate.test.js
-tests/cii-workspace-transfer-preview-ui.test.js
-tests/cii-workspace-anchor-approval-ui.test.js
-tests/cii-workspace-benchmark-transfer-preview.test.js
-tests/cii-workspace-benchmark-end-to-end.test.js
-tests/cii-workspace-benchmark-writer-1a.test.js
-tests/cii-workspace-benchmark-writer-1a-restraint.test.js
-full inherited CII Workspace regression/browser lifecycle
-```
-
-The real restraint benchmark freezes SOURCE node130 block 5, TARGET1 block 5 and TARGET2 block 6. It requires target-native pointer/slot custody, type `9 -> 15`, TARGET1 friction `0.3 -> 0`, TARGET2 friction unchanged `0`, reparse PASS and zero unexpected semantic deltas.
-
-See `agents/PR991_workreport.md`, `agents/status/PR991.yaml`, and `agents/claims/PR991.yaml`.
+PR991 focused execution passed before merge. Real TARGET1/TARGET2/full-browser runtime remained `NOT_RUN_ENVIRONMENT` and was preserved truthfully under the owner's explicit merge authorization.
