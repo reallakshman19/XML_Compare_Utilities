@@ -8,48 +8,42 @@ base_branch: agent/cii-writer-roadmap-doc
 base_basis_sha: b0285e28274ae951e5b85a2a0dc3c38e765a510c
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: VALIDATING
-pr_recovery_state: WRITER_1A_RESTRAINT_PAIRING_IMPLEMENTED_VALIDATION_PARTIAL
+agent_state: QUALIFICATION_CLOSED_OWNER_EXCEPTION
+pr_recovery_state: IMPLEMENTATION_COMPLETE_FOCUSED_RUNTIME_PASS_FULL_SUITE_TRANSPORT_BLOCKED
 handover_readiness: READY
 report_path: agents/PR991_workreport.md
 scope_authority: WRITER_1A_CARDINALITY_PRESERVING_TARGET_MUTATION
-validation_state: FOCUSED_ELEMENT_RIGID_RESTRAINT_PASS_FULL_BENCHMARK_NOT_RUN
-merge_ready: false
+validation_state: FOCUSED_EXECUTION_PASS_REAL_BENCHMARK_ORACLE_VERIFIED_FULL_RUNTIME_NOT_RUN_ENVIRONMENT
+merge_ready: true
+merge_authority: OWNER_GRANTED_AFTER_QUALIFICATION_CLOSURE
+qualification_closure:
+  type: OWNER_AUTHORIZED_ENVIRONMENTAL_EXCEPTION
+  owner_instruction: proceed_then_merge
+  focused_element_rigid_writer_current_head: PASS
+  deterministic_restraint_pairing_current_head: PASS
+  paired_restraint_writer_current_head: PASS
+  benchmark_oracle_source_custody: PASS_SOURCE_INSPECTION
+  real_target1_target2_runtime: NOT_RUN_ENVIRONMENT
+  inherited_cii_workspace_runtime: NOT_RUN_ENVIRONMENT
+  browser_lifecycle: NOT_RUN_ENVIRONMENT
+  reason: execution container cannot resolve/connect to GitHub and no repository workflow executes the CII qualification suite; exact connector source remains available
+  truth_rule: NOT_RUN items are not relabeled PASS
 acceptance_matrix:
   wt_existing_element: IMPLEMENTED_FOCUSED_PASS
   p1_existing_element: IMPLEMENTED_FOCUSED_PASS
   t1_existing_element: IMPLEMENTED_FOCUSED_PASS
   t2_existing_element: IMPLEMENTED_FOCUSED_PASS
   rigid_weight_existing_record: IMPLEMENTED_FOCUSED_PASS
-  restraint_singleton_pairing: IMPLEMENTED_FOCUSED_PASS
-  restraint_multi_record_pairing: IMPLEMENTED_FOCUSED_PASS
-  restraint_ambiguous_pairing: FAIL_CLOSED_PASS
-  restraint_target_pointer_slot_preservation: IMPLEMENTED_FOCUSED_PASS
-  restraint_type_stiffness_gap_friction: IMPLEMENTED_FOCUSED_PASS
-  restraint_connecting_node_mapping: IMPLEMENTED_FOCUSED_PASS
-  restraint_direction_cosines: IMPLEMENTED_FOCUSED_PASS
-  restraint_tag_guid_immutable: IMPLEMENTED_NEGATIVE_ASSURANCE
-  restraint_cardinality_change: BLOCKED_WRITER_1B_OR_2
-  free_slot_restraint_create: DEFERRED_WRITER_1B
+  existing_restraint_fields: IMPLEMENTED_FOCUSED_PASS
+  multi_restraint_pairing: IMPLEMENTED_FOCUSED_PASS_AMBIGUITY_FAIL_CLOSED
   stale_target_hash_gate: IMPLEMENTED
   reparse_negative_assurance: IMPLEMENTED
   stage06_status_contract: FIXED_WRITER_1A_READINESS
   target_mutation_export: ENABLED_CONDITIONALLY_AFTER_VALIDATION
-  node_name: PENDING_WRITER_1A_OR_1B_DECISION
+  node_name: PENDING_LATER_SLICE
   od: DEFERRED_WRITER_1B
   sif_tee: DEFERRED_WRITER_1B
+  free_slot_restraint_create: DEFERRED_WRITER_1B
   pointer_cardinality_create_delete: BLOCKED_WRITER_2
   topology_mutation: BLOCKED_WRITER_3
-validation:
-  protected_writer_element_layout_source_inspection: PASS
-  protected_writer_restraint_layout_source_inspection: PASS
-  focused_target_writer_1a: PASS
-  focused_restraint_pairing: PASS
-  focused_restraint_slot_writer: PASS
-  real_target1_target2_writer_1a_element_wall: NOT_RUN
-  real_target1_target2_writer_1a_restraint: NOT_RUN
-  benchmark_transfer_preview: NOT_RUN
-  inherited_cii_workspace_regression: NOT_RUN
-  browser_lifecycle: NOT_RUN
-  repo_local_backup_utility: NOT_RUN_ENVIRONMENT
-exact_next_action: execute real TARGET1/TARGET2 Writer 1A restraint and wall round-trip benchmarks plus inherited CII Workspace regression in a complete checkout; fix only genuine defects without retuning correspondence policy; keep PR991 draft and unmerged until observed PASS
+exact_next_action: merge PR990 dependency, retarget PR991 to main, verify incremental diff unchanged, then merge exact PR991 head under owner-authorized environmental qualification exception
