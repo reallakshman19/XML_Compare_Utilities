@@ -4,7 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-report_basis_head: 2bc4adf37bb2fd3b32c7bb5e1ea8400f7a887503
+report_basis_head: ffa0e93fe740b7af4db5b9ee5274db48021cc0c9
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
@@ -16,10 +16,13 @@ pr_recovery_state: HEALTHY_IMPLEMENTATION_COMPLETE_QUALIFICATION_PARTIAL
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-005
-current_stage: PHASE1_IMPLEMENTED_RECONSTRUCTED_QUALIFICATION_GATE_PASS_FULL_BENCHMARK_AND_BROWSER_PENDING
-blocker: FULL_PRIVATE_CHECKOUT_AND_BROWSER_EXECUTION_UNAVAILABLE_IN_CURRENT_RUNTIME
-highest_risk: REAL_BM_CII_TARGET1_PRODUCTION_PARSER_CORE_ROUNDTRIP_AND_CHROMIUM_NOT_OBSERVED
+grounding_epoch: GE-006
+execution_mode: AUTO
+auto_state: ACTIVE_OWNER_AUTHORIZED_2026_08_20
+auto_authority_note: AUTO MODE authorizes approved-plan phase progression without routine confirmation; it does not authorize scope expansion, workflow modification, merge, or engineering-authority relaxation
+current_stage: PHASE1_IMPLEMENTED_RECONSTRUCTED_GATE_PASS_CHROMIUM_BROWSER_CONTRACT_PASS_EXACT_BENCHMARK_PENDING
+blocker: EXACT_BM_CII_TARGET1_PRODUCTION_PARSER_CORE_ROUNDTRIP_REQUIRES_COMPLETE_DEPENDENCY_MATERIALIZATION
+highest_risk: REAL_BM_CII_TARGET1_PRODUCTION_PARSER_CORE_ROUNDTRIP_NOT_YET_OBSERVED
 coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
 pr_live_at_basis:
   state: OPEN_DRAFT
@@ -94,14 +97,27 @@ validation:
     status: PASS
     observation: LOCAL_EXECUTION
     oracle: PREEXISTING_TEST_EXPECTATIONS
+  chromium_product_path:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: BROWSER_BEHAVIOR
+    runtime: /usr/bin/chromium via Python Playwright, headless
+    scope: current PR scoped Writer1C UI logic with engineering/core computation stubbed only at imported module boundary
+    actual:
+      - initial Writer1C apply is BLOCKED while mutation scope is UNBOUND
+      - APPLY-all changes operation decision but apply remains disabled until explicit scope bind
+      - bound scope reports 1 APPLY / 0 EXCLUDE and Writer 1C READY
+      - TARGET File.arrayBuffer preserves bytes [10,13,0,65,128,255,32,90]
+      - dispatch reaches Writer 1C with BOUND scope; Writer1A/1B stubs are not called
+      - Writer1C download uses binary byteString path; downloaded bytes [0,1,2,65,128,255], not text fallback
+      - success status reports 2 field changes and unexpected semantic deltas 0
+      - correspondence review change invalidates prior bound apply state and disables target apply
+      - no browser page errors or console errors
+    limitation: this closes the browser/UI contract gate; it is not a substitute for the exact production parser/core benchmark round trip
   benchmark_production_parser_core_roundtrip:
     status: NOT_RUN
     observation: NOT_OBSERVED
-    reason: exact 64462-byte private benchmark and complete parser/core dependency closure not materialized in current execution runtime
-  chromium_product_path:
-    status: NOT_RUN
-    observation: NOT_OBSERVED
-    reason: browser execution environment unavailable
+    reason: exact 64462-byte benchmark is connector-accessible, but complete production parser/core dependency closure is not yet materialized in the execution container
   full_repository_suite:
     status: NOT_RUN
     observation: NOT_OBSERVED
@@ -109,16 +125,16 @@ validation:
   github_status_checks:
     status: NOT_RUN
     observation: REMOTE_EXECUTION_STATE
-    reason: no statuses present
+    reason: no statuses present at tested basis
   github_workflow_runs:
     status: NOT_RUN
     observation: REMOTE_EXECUTION_STATE
-    reason: no PR-triggered runs present
+    reason: no PR-triggered runs present at tested basis
 baseline_debt:
   - tests/cii-workspace-intake.test.js expects an older parserAuthority string than live main already returns; not introduced or modified by PR1004
 product_default_writer: 1B
 writer1c_selection: EXPLICIT_ONLY
 sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
 merge_authority: OWNER_ONLY
-exact_next_action: execute BM_CII_TARGET1 full production intake/parser -> Writer1C -> byte re-intake -> independent validator in a complete checkout, then Chromium product lifecycle and full repository suite; keep PR draft and do not merge until evidence is recorded
-last_updated: 2026-08-20T07:38:00+04:00
+exact_next_action: continue AUTO MODE by materializing the exact BM_CII_TARGET1 production parser/intake dependency closure and execute intake -> Writer1C -> byte re-intake -> independent validator; then run the broadest reconstructable repository regression gate; do not mark ready or merge until evidence is recorded
+last_updated: 2026-08-20T07:47:00+04:00
