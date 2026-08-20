@@ -41,6 +41,7 @@ const correspondence = Object.freeze({ elementRows: Object.freeze([Object.freeze
 const slot = sifEvidence.byPointer['1'].slots[1];
 const lower = Object.freeze({
   operationId: 'LOWER-P3', family: 'PROCESS', property: 'P3', action: 'COPY', status: 'PREVIEW_READY', scopeDecision: 'APPLY',
+  policyAuthority: 'CII_WRITER_1B_CARDINALITY_PRESERVING_ELEMENT_FIELD',
   before: 100, proposed: 200, matchAuthority: Object.freeze({ status: 'REVIEWED', correspondenceId: 'C1' }),
 });
 const sif = Object.freeze({
@@ -60,10 +61,11 @@ const transferPlan = Object.freeze({
 });
 const readiness = ciiWriterCompositeReadiness(transferPlan, targetDocument);
 assert.equal(readiness.ready, true);
-assert.deepEqual(readiness.familyOperationCounts, { lower1A1B: 1, writer1C: 1 });
+assert.deepEqual(readiness.familyOperationCounts, { writer1A: 0, writer1B: 1, writer1C: 1 });
 const result = applyCiiTargetWriterComposite({ targetDocument, targetGraph, correspondence, transferPlan });
 assert.equal(result.mutationCount, 2);
-assert.equal(result.familyCounts.lower1A1B, 1);
+assert.equal(result.familyCounts.writer1A, 0);
+assert.equal(result.familyCounts.writer1B, 1);
 assert.equal(result.familyCounts.writer1C, 1);
 assert(result.components.lower);
 assert(result.components.writer1C);
@@ -77,4 +79,9 @@ assert.equal(afterSif.byPointer['1'].slots[1].ii.numericValue, 1.75);
 assert.equal(afterPhysical.byteLength, physicalFile.byteLength);
 assert.deepEqual(afterPhysical.lineEndings.sequence, physicalFile.lineEndings.sequence);
 
-console.log('Mixed Writer 1A/1B + Writer 1C transaction patches one original byte vector correctly.');
+const unqualifiedLowerPlan = Object.freeze({ ...transferPlan, operations: Object.freeze([{ ...lower, policyAuthority: 'UNQUALIFIED' }, sif]) });
+const unqualifiedReadiness = ciiWriterCompositeReadiness(unqualifiedLowerPlan, targetDocument);
+assert.equal(unqualifiedReadiness.ready, false);
+assert(unqualifiedReadiness.blockers.some((item) => item.startsWith('WRITER_COMPOSITE_LOWER_POLICY_AUTHORITY_REQUIRED')));
+
+console.log('Mixed Writer 1B + Writer 1C transaction patches one original byte vector with explicit lower authority.');
