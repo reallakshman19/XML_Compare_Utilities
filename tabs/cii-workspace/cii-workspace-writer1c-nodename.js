@@ -111,11 +111,13 @@ export function buildWriter1CNodeNamePlan({ transferPlan, targetDocument, allowE
   const blockers = [...(transferPlan?.blockers || [])];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('WRITER_1C_TRANSFER_PLAN_NOT_PREVIEW_READY');
   if (transferPlan?.transferScope?.status !== 'BOUND') blockers.push('WRITER_1C_BOUND_TRANSFER_SCOPE_REQUIRED');
-  if (targetDocument?.writer1CByteEligible !== true) blockers.push('WRITER_1C_ORIGINAL_BYTE_CUSTODY_REQUIRED');
-  const custody = targetDocument?.nodeNameEvidence?.physicalCustody;
-  if (custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_NODENAME_PHYSICAL_CUSTODY_REQUIRED']));
   const mutable = []; const operations = transferPlan?.operations || [];
   for (const operation of operations) if (validateOperation(operation, blockers)) mutable.push(operation);
+  const custody = targetDocument?.nodeNameEvidence?.physicalCustody;
+  if (mutable.length) {
+    if (targetDocument?.writer1CByteEligible !== true) blockers.push('WRITER_1C_ORIGINAL_BYTE_CUSTODY_REQUIRED');
+    if (custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_NODENAME_PHYSICAL_CUSTODY_REQUIRED']));
+  }
   const byNode = operationMap(mutable); const claims = [];
   for (const operation of mutable) {
     const nodeId = targetNodeId(operation); const spans = spansForNode(custody, nodeId);
