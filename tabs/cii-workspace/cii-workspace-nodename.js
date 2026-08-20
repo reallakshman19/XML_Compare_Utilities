@@ -27,11 +27,11 @@ function elementEnds(row) {
 function rawElementDescriptors(physicalFile, physicalBlockers) {
   const rows = ciiPhysicalSectionRows(physicalFile, 'ELEMENTS'); const blocks = [];
   if (rows.length % ELEMENT_BLOCK_ROWS !== 0) physicalBlockers.push('NODENAME_ELEMENT_BLOCK_ROW_COUNT_NOT_MULTIPLE_OF_15');
-  for (let offset = 0, blockIndex = 0; offset + ELEMENT_BLOCK_ROWS <= rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
-    const ends = elementEnds(rows[offset].text); if (!ends) continue;
+  for (let offset = 0, blockIndex = 0; offset < rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
+    const header = rows[offset]; const ends = elementEnds(header?.text); if (!ends) continue;
     const pointerLine = rows[offset + NODENAME_POINTER_ROW];
     blocks.push(Object.freeze({
-      blockIndex, ...ends, pointer: integerPointer(pointerLine.text), pointerLine,
+      blockIndex, ...ends, pointer: integerPointer(pointerLine?.text), pointerLine,
       pointerField: physicalSpan(pointerLine, POINTER_FIELD_START, POINTER_FIELD_END, 'ELEMENT_NODENAME_POINTER', physicalFile),
     }));
   }
