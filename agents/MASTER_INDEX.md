@@ -4,8 +4,8 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1006 | CII Writer 1C Phase-2A SIF/TEE field-semantic qualification | `agent/cii-writer-1c-sif-qualification` | DRAFT / `NOT_READY_FOR_SIF_WRITER` / QUALIFICATION ONLY | ENGINEERING_CRITICAL_WRITER_AUTHORITY | 60-position SIF/TEE field map; 10-row physical custody; canonical census; zero writable SIF fields until direct semantics exist | ACTIVE / Issue1005 / no production SIF mutation / owner-only merge | obtain approved CAESAR neutral-file field semantics; execute exact canonical census script on full checkout; do not start SIF Writer code |
-| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | MERGED 2026-08-20 · `692be3fd` / repository-wide `npm test` retained NOT_RUN by owner-accepted validation exception | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | HISTORICAL / merged into main | Phase-2 work must preserve NODENAME authority and start with SIF semantic qualification |
+| PR1006 | CII Writer 1C Phase-2A SIF/TEE field-semantic qualification | `agent/cii-writer-1c-sif-qualification` | DRAFT / `READY_FOR_SELECTED_SIF_FIELDS` / QUALIFICATION ONLY | ENGINEERING_CRITICAL_WRITER_AUTHORITY | Version12 two-tee/30-item map; 60 positions; ii/io selected as future candidates; zero current production SIF writes | ACTIVE / Issue1005 / no production SIF mutation / owner-only merge | finish live status and 8-file scope audit; keep exact local 3-file census `NOT_RUN`; after owner disposition create separate Phase2B Writer PR |
+| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | MERGED 2026-08-20 · `692be3fd` / repository-wide `npm test` retained NOT_RUN by owner-accepted validation exception | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | HISTORICAL / merged into main | Phase-2 work must preserve NODENAME authority and independent negative assurance |
 | PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | MERGED 2026-08-20 · `77fecdc` | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | HISTORICAL / merged into main | authority contract governs PR1006 and future Writer1C/2/3 work |
 | PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
@@ -57,44 +57,90 @@ Production default remains Writer1B; Writer1C is explicit-only.
 
 ## Active Phase-2A SIF/TEE qualification
 
-PR1006 establishes:
+PR1006 now establishes, from repository custody plus Hexagon Version-12 neutral documentation:
 
 ```text
 SIF&TEES block rows                    = 10
+tee slots per auxiliary                = 2
+rows per tee slot                      = 5
+items per tee slot                     = 30
 fixed numeric positions per block      = 60
-DIRECT identity positions              = 1
-DIRECT non-identity semantic positions = 0
-Writer1C-writable SIF positions        = 0
-verdict                                 = NOT_READY_FOR_SIF_WRITER
+DIRECT positions                       = 52
+UNRESOLVED positions                   = 8  (Version12 items27..30 x 2 slots)
+selected future Phase2B positions      = 4  (ii/io x 2 slots)
+currently product-enabled positions    = 0
+verdict                                 = READY_FOR_SELECTED_SIF_FIELDS
 ```
 
-Canonical SOURCE/TARGET1/TARGET2 observation census:
+Qualified selected positions:
+
+```text
+r0f2 = slot1 In-Plane SIF (ii)
+r0f3 = slot1 Out-Plane SIF (io)
+r5f2 = slot2 In-Plane SIF (ii)
+r5f3 = slot2 Out-Plane SIF (io)
+```
+
+The first Phase-2B writer slice must be explicit-to-explicit only:
+
+```text
+TARGET preimage finite >=1.0
+proposed finite >=1.0
+Type/code context unchanged
+10-row shape unchanged
+pointer/block/cardinality unchanged
+zero/blank/9999.99 transitions blocked
+```
+
+Canonical SOURCE/TARGET1/TARGET2 observation census remains:
 
 ```text
 files  = 3
 blocks = 27
 rows   = 270
-row0/f1: 3=>7, 5=>8, 11=>12
-row5/f1 nonzero 11=>6
-9999.99 recurrent at r3f4/r3f5/r8f4/r8f5
+slot1 Type: 3=>7, 5=>8, 11=>12
+slot2 Type=11 in 6 blocks
+9999.99 at Note-item positions 23/24 in both slots
 ```
 
-Values `3`, `5`, `11`, and `9999.99` are observations only. They carry no engineering meaning until an approved field-level authority defines them.
+Meanings come from source authority, never occurrence frequency.
 
-Current product blockers remain authoritative:
+## Edition-drift guard
+
+Version12 neutral shape:
+
+```text
+30 items per tee / 5 rows per tee / 10 rows total
+item15 = Torsion SIF
+item16 = Axial SIF
+```
+
+Versions14/15:
+
+```text
+42 items per tee / 7 rows per tee / 14 rows total
+item15 = Axial SIF
+item16 = Torsion SIF
+```
+
+Therefore future Writer1C SIF authority must fail closed on edition/shape drift and may not backport later item meanings.
+
+## Product authority remains unchanged in PR1006
+
+The current product blockers stay in force:
 
 ```text
 SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
 SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
 ```
 
-No SIF Writer code or policy token is authorized while PR1006 verdict is `NOT_READY_FOR_SIF_WRITER`.
+PR1006 adds no SIF Writer code, policy token, raw-payload COPY, pointer/cardinality mutation, protected converter change or workflow change.
 
 ## Phase boundaries
 
 - Phase 1: existing-row NODENAME — merged.
-- Phase 2A: source-qualified SIF/TEE field semantics — active in PR1006.
-- Phase 2B: existing SIF/TEE field mutation — blocked until Phase2A returns `READY_FOR_SELECTED_SIF_FIELDS`.
+- Phase 2A: selected SIF/TEE semantic qualification — active in PR1006, verdict `READY_FOR_SELECTED_SIF_FIELDS`.
+- Phase 2B: field-specific existing-block ii/io mutation — separate PR only after owner disposition of PR1006.
 - Writer 2: pointer/cardinality changes, record create/delete/reindex, hanger packed arrays/CONTROL counts.
 - Writer 3: node/element/connectivity/topology mutation.
 
@@ -104,11 +150,12 @@ For PR1006:
 
 ```text
 base = main@692be3fd536b7c62576c443f5f831984e4de66a2
-qualification-only changed files
+changed-file scope = exactly qualification/recovery artifacts
 production Writer/transfer-policy/converter/workflow changes = 0
+exact local 3-file census = NOT_RUN unless actually executed
 merge authority = OWNER_ONLY
 ```
 
-An unused ref `agent/cii-writer-1c-sif-qualification-2` exists at the same baseline with no unique commits and no PR effect. It is not an active workstream.
+Unused ref `agent/cii-writer-1c-sif-qualification-2` remains non-authoritative with no unique commits or PR effect.
 
 See `agents/PR1006_workreport.md`, `agents/status/PR1006.yaml`, `agents/claims/PR1006.yaml`, `docs/cii-writer1c-sif-field-qualification.md`, Issue #1005, and PR #1006.
