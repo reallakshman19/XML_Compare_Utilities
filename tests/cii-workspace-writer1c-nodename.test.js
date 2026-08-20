@@ -27,12 +27,20 @@ function redundantNodeFixture(name = 'PS-NEW1') {
     numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
     '#$ SIF&TEES', '#$ RESTRANT', '#$ RIGID', '#$ MISCEL_1'].join('\r\n');
 }
+function exactCustodyDriftFixture() {
+  return ['#$ ELEMENTS', ...elementBlock(100, 200, 1), ...elementBlock(300, 400, 2), '#$ NODENAME',
+    nameRow('A-FROM', 'OLD-A'), nameRow('B-FROM', 'OLD-B'), '#$ CONTROL', numericRow([2, 0, 0, 2, 0, 0]),
+    numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
+    '#$ SIF&TEES', '#$ RESTRANT', '#$ RIGID', '#$ MISCEL_1'].join('\r\n');
+}
 function parsed(shared = true) {
   return { nodes: shared ? { 100: {}, 200: {}, 300: {}, 400: {} } : { 100: {}, 200: {} },
     elements: shared ? [{ index: 0, from: 100, to: 200 }, { index: 1, from: 300, to: 400 }] : [{ index: 0, from: 100, to: 200 }] };
 }
 const redundantParsed = { nodes: { 100: {}, 200: {}, 300: {} },
   elements: [{ index: 0, from: 100, to: 200 }, { index: 1, from: 200, to: 300 }] };
+const exactCustodyDriftParsed = { nodes: { 100: {}, 200: {}, 300: {}, 400: {} },
+  elements: [{ index: 0, from: 300, to: 400 }, { index: 1, from: 100, to: 200 }] };
 function documentFrom(raw, parsedModel = parsed(true), auxiliaryEvidence = {}) {
   const physicalFile = createCiiPhysicalFile(raw instanceof Uint8Array ? raw : new TextEncoder().encode(raw));
   const nodeNameEvidence = extractCiiNodeNameEvidence(physicalFile.text, parsedModel, { physicalFile });
@@ -82,6 +90,22 @@ assert.equal(redundantValidation.expectedSemanticDeltaCount, 1);
 assert.equal(redundantValidation.actualSemanticDeltaCount, 1);
 assert.equal(redundantValidation.unexpectedSemanticDeltaCount, 0);
 
+// Semantic FROM/TO fallback can recover names for a damaged/reordered parser view,
+// but Writer1C must reject that document before planning any mutation because no
+// exact physical ELEMENT block custody exists for either parsed element.
+const driftBefore = documentFrom(exactCustodyDriftFixture(), exactCustodyDriftParsed);
+assert.equal(driftBefore.nodeNames['200'], 'OLD-A');
+assert.equal(driftBefore.nodeNames['400'], 'OLD-B');
+assert.equal(driftBefore.nodeNameEvidence.physicalCustody.status, 'BLOCKED');
+assert(driftBefore.nodeNameEvidence.physicalCustody.blockers.includes('NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:0'));
+assert(driftBefore.nodeNameEvidence.physicalCustody.blockers.includes('NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:1'));
+const driftPlan = buildWriter1CNodeNamePlan({
+  transferPlan: plan([operation('DRIFT', 200, 'OLD-A', 'NEW-A')]), targetDocument: driftBefore,
+});
+assert.equal(driftPlan.ready, false);
+assert(driftPlan.blockers.includes('NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:0'));
+assert.equal(ciiWriter1CReadiness(plan([operation('DRIFT', 200, 'OLD-A', 'NEW-A')]), driftBefore).ready, false);
+
 const blankBefore = documentFrom(fixture({ name: '' }));
 assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('', 'A'), targetDocument: blankBefore }).ready, true);
 assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('OLD', 'X'.repeat(25)), targetDocument: before }).ready, true);
@@ -115,4 +139,4 @@ const pointerRow = elementRows[13]; tampered[pointerRow.byteStart + 66] = '1'.ch
 const tamperedAfter = documentFrom(tampered);
 assert.throws(() => validateCiiWriter1CRoundTrip(before, tamperedAfter, sharedPlan, result), /UNAUTHORIZED_BYTE_CHANGE/);
 
-console.log('Writer 1C NODENAME planner, redundant FROM/TO custody, fixed-width boundaries, patcher and independent negative-assurance checks passed.');
+console.log('Writer 1C NODENAME planner, exact block custody, redundant FROM/TO ownership, patcher and independent negative-assurance checks passed.');

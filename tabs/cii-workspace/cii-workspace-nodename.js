@@ -25,27 +25,70 @@ function elementEnds(row) {
 }
 
 function rawElementDescriptors(physicalFile, physicalBlockers) {
-  const rows = ciiPhysicalSectionRows(physicalFile, 'ELEMENTS'); const blocks = [];
+  const rows = ciiPhysicalSectionRows(physicalFile, 'ELEMENTS');
   if (rows.length % ELEMENT_BLOCK_ROWS !== 0) physicalBlockers.push('NODENAME_ELEMENT_BLOCK_ROW_COUNT_NOT_MULTIPLE_OF_15');
-  for (let offset = 0, blockIndex = 0; offset < rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
-    const header = rows[offset]; const ends = elementEnds(header?.text); if (!ends) continue;
+  const blockCount = Math.floor(rows.length / ELEMENT_BLOCK_ROWS);
+  const blocks = Array.from({ length: blockCount }, () => null);
+  for (let blockIndex = 0; blockIndex < blockCount; blockIndex += 1) {
+    const offset = blockIndex * ELEMENT_BLOCK_ROWS;
+    const header = rows[offset]; const ends = elementEnds(header?.text);
+    if (!ends) {
+      physicalBlockers.push(`NODENAME_ELEMENT_BLOCK_HEADER_UNQUALIFIED:${blockIndex}`);
+      continue;
+    }
     const pointerLine = rows[offset + NODENAME_POINTER_ROW];
-    blocks.push(Object.freeze({
+    blocks[blockIndex] = Object.freeze({
       blockIndex, ...ends, pointer: integerPointer(pointerLine?.text), pointerLine,
       pointerField: physicalSpan(pointerLine, POINTER_FIELD_START, POINTER_FIELD_END, 'ELEMENT_NODENAME_POINTER', physicalFile),
-    }));
+    });
   }
-  return { rows, blocks };
+  return { rows, blocks, blockCount };
 }
 
-function matchDescriptor(element, descriptors, used) {
-  const from = String(Math.round(Number(element.from))); const to = String(Math.round(Number(element.to)));
-  const parsedIndex = Number(element.index);
-  let index = descriptors.findIndex((item, position) => !used.has(position)
-    && Number.isSafeInteger(parsedIndex) && item.blockIndex === parsedIndex && item.from === from && item.to === to);
-  if (index < 0) index = descriptors.findIndex((item, position) => !used.has(position) && item.from === from && item.to === to);
-  if (index < 0) return null;
-  used.add(index); return descriptors[index];
+function elementIdentity(element) {
+  return {
+    from: String(Math.round(Number(element?.from))),
+    to: String(Math.round(Number(element?.to))),
+    parsedIndex: Number(element?.index),
+  };
+}
+
+function exactDescriptor(element, descriptors) {
+  const { from, to, parsedIndex } = elementIdentity(element);
+  if (!Number.isSafeInteger(parsedIndex) || parsedIndex < 0 || parsedIndex >= descriptors.length) return null;
+  const descriptor = descriptors[parsedIndex];
+  if (!descriptor || descriptor.blockIndex !== parsedIndex || descriptor.from !== from || descriptor.to !== to) return null;
+  return descriptor;
+}
+
+function semanticDescriptor(element, descriptors, used) {
+  const identity = elementIdentity(element);
+  const exact = exactDescriptor(element, descriptors);
+  if (exact && !used.has(exact.blockIndex)) {
+    used.add(exact.blockIndex);
+    return Object.freeze({ descriptor: exact, authority: 'EXACT_BLOCK_INDEX' });
+  }
+  const fallbackIndex = descriptors.findIndex((item, position) => item && !used.has(position)
+    && item.from === identity.from && item.to === identity.to);
+  if (fallbackIndex < 0) return null;
+  used.add(fallbackIndex);
+  return Object.freeze({ descriptor: descriptors[fallbackIndex], authority: 'SEMANTIC_FROM_TO_FALLBACK' });
+}
+
+function addParsedIndexBlockers(elements, blockCount, physicalBlockers) {
+  if (elements.length !== blockCount) {
+    physicalBlockers.push(`NODENAME_ELEMENT_BLOCK_COUNT_MISMATCH:${elements.length}:${blockCount}`);
+  }
+  const seen = new Set();
+  for (const element of elements) {
+    const parsedIndex = Number(element?.index);
+    if (!Number.isSafeInteger(parsedIndex) || parsedIndex < 0 || parsedIndex >= blockCount) {
+      physicalBlockers.push(`NODENAME_ELEMENT_PARSED_INDEX_OUT_OF_RANGE:${String(element?.index ?? '')}`);
+      continue;
+    }
+    if (seen.has(parsedIndex)) physicalBlockers.push(`NODENAME_ELEMENT_PARSED_INDEX_DUPLICATE:${parsedIndex}`);
+    seen.add(parsedIndex);
+  }
 }
 
 function physicalSpan(line, startColumn, endColumn, fieldIdentity, physicalFile) {
@@ -115,38 +158,67 @@ export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
   const elements = Array.isArray(parsed.elements) ? parsed.elements : [];
   const rows = ciiPhysicalSectionRows(physicalFile, 'NODENAME'); const physicalBlockers = [];
   if (!physicalFile.writer1CByteEligible) physicalBlockers.push('NODENAME_ORIGINAL_BYTE_CUSTODY_REQUIRED');
-  const descriptors = rawElementDescriptors(physicalFile, physicalBlockers); const used = new Set();
+  const descriptors = rawElementDescriptors(physicalFile, physicalBlockers); const semanticUsed = new Set();
+  addParsedIndexBlockers(elements, descriptors.blockCount, physicalBlockers);
   const state = { known: new Set(Object.keys(parsed.nodes || {}).map(String)), names: new Map(), blocked: new Set(), conflicts: [] };
   const byElementIndex = {}; const bySpan = new Map(); let mappedElementCount = 0;
   elements.forEach((element, elementIndex) => {
-    const descriptor = matchDescriptor(element, descriptors.blocks, used);
-    if (!descriptor) { addConflict(state.conflicts, 'NODENAME_ELEMENT_BLOCK_NOT_FOUND', { elementIndex, from: element.from, to: element.to }); return; }
-    const { pointer, blockIndex } = descriptor;
-    if (pointer === null) { addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, blockIndex }); return; }
-    if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
-    if (pointer === 0) {
-      byElementIndex[elementIndex] = Object.freeze({ elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField, rowIndex: null }); return;
+    const exact = exactDescriptor(element, descriptors.blocks);
+    const semanticMatch = semanticDescriptor(element, descriptors.blocks, semanticUsed);
+    if (!semanticMatch) {
+      addConflict(state.conflicts, 'NODENAME_ELEMENT_BLOCK_NOT_FOUND', { elementIndex, parsedElementIndex: element?.index, from: element.from, to: element.to });
+      return;
     }
-    if (pointer > rows.length) { addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, blockIndex, pointer, rowCount: rows.length }); return; }
+    if (!exact) physicalBlockers.push(`NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:${elementIndex}`);
+    const descriptor = semanticMatch.descriptor;
+    const { pointer, blockIndex } = descriptor;
+    if (pointer === null) {
+      addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, parsedElementIndex: element?.index, blockIndex });
+      return;
+    }
+    if (pointer === 0) {
+      if (exact) {
+        if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
+        byElementIndex[elementIndex] = Object.freeze({
+          elementIndex, parsedElementIndex: Number(element.index), blockIndex, from: descriptor.from, to: descriptor.to,
+          pointer, pointerField: descriptor.pointerField, rowIndex: null, exactPhysicalCustody: true,
+        });
+      }
+      return;
+    }
+    if (pointer > rows.length) {
+      addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, parsedElementIndex: element?.index, blockIndex, pointer, rowCount: rows.length });
+      return;
+    }
     mappedElementCount += 1;
     const rowIndex = pointer - 1; const row = rows[rowIndex]; const pair = parseNamePair(row.text);
+    assignName(state, element.from, pair.fromName, {
+      elementIndex, parsedElementIndex: element?.index, blockIndex, pointer, end: 'FROM', semanticAuthority: semanticMatch.authority,
+    });
+    assignName(state, element.to, pair.toName, {
+      elementIndex, parsedElementIndex: element?.index, blockIndex, pointer, end: 'TO', semanticAuthority: semanticMatch.authority,
+    });
+    if (!exact) return;
+    if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
     const fromField = physicalSpan(row, NODENAME_FROM_START, NODENAME_TO_START, 'NODENAME_FROM', physicalFile);
     const toField = physicalSpan(row, NODENAME_TO_START, NODENAME_ROW_END, 'NODENAME_TO', physicalFile);
     if (!fromField.qualified || !toField.qualified) physicalBlockers.push('NODENAME_FIXED_LAYOUT_UNQUALIFIED');
     byElementIndex[elementIndex] = Object.freeze({
-      elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField,
-      rowIndex, rowLineNumber: row.lineNumber, fromField, toField,
+      elementIndex, parsedElementIndex: Number(element.index), blockIndex, from: descriptor.from, to: descriptor.to, pointer,
+      pointerField: descriptor.pointerField, rowIndex, rowLineNumber: row.lineNumber, fromField, toField, exactPhysicalCustody: true,
     });
-    addPhysicalOwner(bySpan, fromField, { elementIndex, blockIndex, pointer, rowIndex, end: 'FROM', nodeId: String(element.from) });
-    addPhysicalOwner(bySpan, toField, { elementIndex, blockIndex, pointer, rowIndex, end: 'TO', nodeId: String(element.to) });
-    assignName(state, element.from, pair.fromName, { elementIndex, blockIndex, pointer, end: 'FROM' });
-    assignName(state, element.to, pair.toName, { elementIndex, blockIndex, pointer, end: 'TO' });
+    addPhysicalOwner(bySpan, fromField, {
+      elementIndex, parsedElementIndex: Number(element.index), blockIndex, pointer, rowIndex, end: 'FROM', nodeId: String(element.from),
+    });
+    addPhysicalOwner(bySpan, toField, {
+      elementIndex, parsedElementIndex: Number(element.index), blockIndex, pointer, rowIndex, end: 'TO', nodeId: String(element.to),
+    });
   });
   const names = Object.fromEntries([...state.names.entries()].sort((a, b) => Number(a[0]) - Number(b[0])));
   const custodyBlockers = [...physicalBlockers,
     ...state.conflicts.map((item) => `NODENAME_CUSTODY_CONFLICT:${item.code}`)];
   return Object.freeze({
-    schema: 'CIIWorkspaceNodeNameEvidence.v1', rowCount: rows.length, rawElementBlockCount: descriptors.blocks.length,
+    schema: 'CIIWorkspaceNodeNameEvidence.v1', rowCount: rows.length, rawElementBlockCount: descriptors.blockCount,
     mappedElementCount, names: Object.freeze(names), conflicts: Object.freeze(state.conflicts),
     physicalCustody: freezePhysicalCustody(physicalFile, custodyBlockers, byElementIndex, bySpan, rows.length),
   });
