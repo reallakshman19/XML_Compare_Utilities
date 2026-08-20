@@ -25,7 +25,9 @@ export function installCiiWorkspaceTile(container, context = {}) {
     if (active) return;
     overlay = container.ownerDocument.createElement('div'); overlay.className = 'ciiw-backdrop';
     container.ownerDocument.body.appendChild(overlay);
-    active = mountCiiWorkspaceScopedEngineeringShell(overlay, { close, showToast: context.showToast });
+    active = mountCiiWorkspaceScopedEngineeringShell(overlay, {
+      close, showToast: context.showToast, ...(context.writerVersion ? { writerVersion: context.writerVersion } : {}),
+    });
   };
   tile.addEventListener('click', open);
   return () => { tile.removeEventListener('click', open); close(); tile.remove(); };
