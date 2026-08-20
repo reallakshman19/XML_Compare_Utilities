@@ -21,7 +21,9 @@ import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
+import { applyCiiTargetWriter1C, ciiWriter1CReadiness } from './cii-workspace-target-writer-1c.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
+import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -39,9 +41,12 @@ function dedupeAnchors(pairs) {
   }
   return deepFreeze(rows);
 }
+function inputPayload(input, side) {
+  return input?.[`${side}Bytes`] ?? input?.[`${side}Text`];
+}
 async function intakePair(input, options) {
-  const sourceDocument = await intakeCiiWorkspaceDocument(input?.sourceText, input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef });
-  const targetDocument = await intakeCiiWorkspaceDocument(input?.targetText, input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+  const sourceDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef });
+  const targetDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'target'), input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
   return { sourceDocument, targetDocument,
     sourceGraph: adaptCiiDocumentToTopologyGraph(sourceDocument), targetGraph: adaptCiiDocumentToTopologyGraph(targetDocument) };
 }
@@ -57,7 +62,9 @@ function geometryPairs(sourceGraph, targetGraph, anchors) {
       sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }] : [];
   });
 }
-function writerVersion(options) { return options.writerVersion === '1A' ? '1A' : '1B'; }
+function writerVersion(options) {
+  return ['1A', '1B', '1C'].includes(options?.writerVersion) ? options.writerVersion : '1B';
+}
 function writerLabel(version) { return `WRITER_${version}`; }
 function writer1APlanContract(plan) {
   if (plan?.mutationAuthority === 'BLOCKED') return plan;
@@ -66,6 +73,20 @@ function writer1APlanContract(plan) {
     processDefault: 'WRITER_1A_P1_T1_T2_WHEN_FIXED_FIELD_QUALIFIED', restraintCardinality: 'EQUAL_CARDINALITY_EXISTING_SLOTS_ONLY',
     sifTeeMutation: 'BLOCKED_SEMANTICS_UNQUALIFIED',
   }) });
+}
+function writer1CPlanContract(plan) {
+  if (plan?.mutationAuthority === 'BLOCKED') return plan;
+  return deepFreeze({ ...plan, mutationAuthority: 'WRITER_1C_CONDITIONAL', policy: deepFreeze({
+    ...(plan?.policy || {}), nodeNameMutation: 'EXISTING_POINTER_STABLE_FIXED_FIELD_ONLY',
+    mixedLowerWriterMutation: 'BLOCKED_IN_PHASE_1', sifTeeMutation: 'BLOCKED_SEMANTICS_UNQUALIFIED',
+  }) });
+}
+function readinessFor(version, plan, targetDocument) {
+  if (version === '1A') return ciiWriter1AReadiness(plan);
+  if (version === '1B') return ciiWriter1BReadiness(plan);
+  if (version === '1C') return ciiWriter1CReadiness(plan, targetDocument);
+  return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
+    mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${version}`]) });
 }
 function buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence,
   pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks, writerReadiness, version) {
@@ -179,15 +200,19 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const baseDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
-  const fieldDeltas = version === '1B' ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
+  const extendedWriter = version !== '1A';
+  const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
   const pairedDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(fieldDeltas, sourceDocument, targetDocument, correspondence, options);
-  const engineeringDeltas = version === '1B'
-    ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence, input?.sourceText, input?.targetText, options)
+  const engineeringDeltas = extendedWriter
+    ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence,
+      sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options)
     : pairedDeltas;
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
-  const rawTransferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
-  const transferPlan = version === '1A' ? writer1APlanContract(rawTransferPlan) : rawTransferPlan;
-  const writerReadiness = version === '1A' ? ciiWriter1AReadiness(transferPlan) : ciiWriter1BReadiness(transferPlan);
+  const rawTransferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas,
+    { ...options, writerVersion: version });
+  const transferPlan = version === '1A' ? writer1APlanContract(rawTransferPlan)
+    : version === '1C' ? writer1CPlanContract(rawTransferPlan) : rawTransferPlan;
+  const writerReadiness = readinessFor(version, transferPlan, targetDocument);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence, pathAudit, correspondence, review, engineeringDeltas,
     compareReview, transferPlan, landmarks, writerReadiness, version);
   const result = { writerVersion: version, stages: createCiiWorkspaceStageModel(writerReadiness), sourceDocument, targetDocument, landmarks,
@@ -196,29 +221,43 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   return deepFreeze(result);
 }
 
-async function currentTargetFor(preview, targetText, options, label) {
+async function currentTargetFor(preview, targetInput, options, label) {
   if (!preview?.targetDocument || !preview?.transferPlan || !preview?.correspondence) throw new Error(`CII_${label}_PREVIEW_REQUIRED`);
-  const currentTarget = await intakeCiiWorkspaceDocument(targetText, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+  const currentTarget = await intakeCiiWorkspaceDocument(targetInput, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
   if (currentTarget.contentSha256 !== preview.targetDocument.contentSha256) throw new Error(`CII_${label}_STALE_TARGET_HASH`);
   return currentTarget;
 }
-async function applyWriter(preview, targetText, options, version) {
-  const label = writerLabel(version); const currentTarget = await currentTargetFor(preview, targetText, options, label);
+function applyLowLevelWriter(version, currentTarget, targetGraph, preview) {
+  const targetText = currentTarget.physicalFile.text;
+  if (version === '1A') return applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
+  if (version === '1B') return applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
+  if (version === '1C') return applyCiiTargetWriter1C({ targetDocument: currentTarget, transferPlan: preview.transferPlan });
+  throw new Error(`CII_WRITER_VERSION_UNSUPPORTED:${version}`);
+}
+async function applyWriter(preview, targetInput, options, version) {
+  const label = writerLabel(version);
+  if (preview?.writerVersion && preview.writerVersion !== version) throw new Error(`CII_${label}_PREVIEW_WRITER_VERSION_MISMATCH`);
+  const currentTarget = await currentTargetFor(preview, targetInput, options, label);
   const targetGraph = adaptCiiDocumentToTopologyGraph(currentTarget);
-  const writerResult = version === '1A'
-    ? applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan })
-    : applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
-  const modifiedTarget = await intakeCiiWorkspaceDocument(writerResult.text, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
-  const validation = validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
+  const writerResult = applyLowLevelWriter(version, currentTarget, targetGraph, preview);
+  const modifiedInput = version === '1C' ? writerResult.bytes : writerResult.text;
+  const modifiedTarget = await intakeCiiWorkspaceDocument(modifiedInput, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+  const validation = version === '1C'
+    ? validateCiiWriter1CRoundTrip(currentTarget, modifiedTarget, preview.transferPlan, writerResult)
+    : validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
   return deepFreeze({ schema: 'CIIWorkspaceTargetApplyResult.v1', status: 'PASS', writer: label,
     fileName: `Modified_${preview.targetDocument.fileName}`, text: writerResult.text,
+    byteString: modifiedTarget.physicalFile.originalByteString, byteLength: modifiedTarget.byteLength,
     sourceTargetSha256: currentTarget.contentSha256, modifiedTargetSha256: modifiedTarget.contentSha256,
     mutationCount: writerResult.mutationCount, mutations: writerResult.mutations, validation });
 }
 
-export async function applyCiiWorkspaceTargetWriter1A(preview, targetText, options = {}) {
-  return applyWriter(preview, targetText, options, '1A');
+export async function applyCiiWorkspaceTargetWriter1A(preview, targetInput, options = {}) {
+  return applyWriter(preview, targetInput, options, '1A');
 }
-export async function applyCiiWorkspaceTargetWriter1B(preview, targetText, options = {}) {
-  return applyWriter(preview, targetText, options, '1B');
+export async function applyCiiWorkspaceTargetWriter1B(preview, targetInput, options = {}) {
+  return applyWriter(preview, targetInput, options, '1B');
+}
+export async function applyCiiWorkspaceTargetWriter1C(preview, targetInput, options = {}) {
+  return applyWriter(preview, targetInput, options, '1C');
 }
