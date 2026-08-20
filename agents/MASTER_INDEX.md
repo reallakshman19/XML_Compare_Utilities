@@ -4,8 +4,8 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | DRAFT / ENGINEERING PATH QUALIFIED / FULL REPOSITORY SUITE NOT_RUN | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | SAFE SCOPE / STACKED ON PR1002 / base drift must be reconciled after PR1002 authority normalization | reconcile branch onto latest PR1002 head; preserve 20-file implementation ledger; do not merge |
-| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / PHASE1 AUTHORITY NORMALIZED | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | SAFE / documentation predecessor of PR1004 / OWNER-ONLY MERGE | refresh exact 5-file ledger, then PR1004 reconciles stacked-base drift |
+| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | DRAFT / ENGINEERING PATH QUALIFIED / FULL REPOSITORY SUITE NOT_RUN | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | SAFE SCOPE / STACKED ON PR1002 / final ancestry sync required after this PR1002 checkpoint | ingest final PR1002 head as ancestor; retain exact 20-file diff; then only full repository `npm test` remains before review progression |
+| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / PHASE1 AUTHORITY NORMALIZED / READY FOR OWNER REVIEW AFTER FINAL STACK SYNC | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | SAFE / documentation predecessor of PR1004 / OWNER-ONLY MERGE | verify exact 5-file ledger; final PR1004 ancestry sync; then owner review/merge decision only |
 | PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | MERGED 2026-08-19 · `7d63abe8` / retained UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | HISTORICAL | retained gates |
@@ -26,156 +26,51 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR1004 — active Writer 1C Phase-1 implementation
-
-PR1004 implements the first Writer-1C production slice under the authority frozen by PR1002:
+## Current Writer 1C authority
 
 ```text
-existing NODENAME row
-+ original TARGET byte authority
-+ exact fixed-column pointer/row/FROM/TO custody
-+ complete physical owner/alias set
-+ explicit APPLY
-+ equal-width in-place byte replacement
-+ independent validator-derived S_auth
-+ structural + semantic + byte negative assurance
+original TARGET byte stream
+ -> exact physical NODENAME custody
+ -> explicit APPLY scope
+ -> independently derived S_auth
+ -> equal-width byte patch
+ -> re-intake
+ -> independent structural / semantic / byte assurance
 ```
 
-Current durable evidence reports PASS for exact TARGET1 production intake/core round-trip, independent unauthorized-byte and stale-target falsifiers, shared/redundant NODENAME ownership, Writer1A/1B focused regressions, independent Python oracle, and Chromium Writer1C routing/binary handling. The complete repository suite is still `NOT_RUN`; no GitHub PR checks/workflows are present.
-
-PR1004 remains draft and stacked on PR1002. Because PR1002 authority documentation has now moved, PR1004 must reconcile that base drift before review progression. No merge authority is implied.
-
-## PR1002 — normalized Writer 1C authority roadmap
-
-PR1002 is documentation-only and freezes the Writer boundary:
+Definitions:
 
 ```text
-Writer 1C = existing auxiliary record
-            + exact physical ownership
-            + original TARGET byte authority
-            + pointer unchanged
-            + section row count unchanged
-            + CONTROL unchanged
-            + source-qualified field layout/semantics
-            + explicit APPLY
-            + apply-time custody re-proof
-            + independent validator-derived S_auth
-```
-
-For Phase 1:
-
-```text
-S_auth = independently authorized physical byte spans
-B      = Writer-reported spans / audit testimony
-D      = actual byte differences
+S_auth = validator-derived authorized span union
+B      = Writer-reported span union / testimony
+D      = actual changed-byte indices
 
 PASS => D ⊆ S_auth
 ```
 
-Writer claims do not authorize themselves. Whole-file reconstruction/reserialization is forbidden for the NODENAME edit path. Mixed Writer1A/1B APPLY + Writer1C APPLY remains blocked until separately qualified as one original-byte transaction.
+Writer-reported spans do not define authorization. Whole-file reconstruction/reserialization is forbidden for Phase-1 NODENAME. Same-span divergent output blocks; identical output may canonicalize only with a complete compatible owner set; an unselected alias side-effect blocks.
 
-Mandatory first slice is existing-row NODENAME mutation. Existing SIF/TEE fields are a later slice only after an authoritative field-semantic map exists; `FIELD_2_SEMANTICS_UNQUALIFIED` remains a hard blocker. Hanger mutation, pointer allocation/reindexing, record creation/deletion, and CONTROL changes remain Writer 2. Node/element/connectivity changes remain Writer 3.
+Phase-1 transaction authority is NODENAME-only Writer1C APPLY. Mixed Writer1A/1B + Writer1C APPLY remains blocked until separately original-byte-qualified. Product default remains Writer1B; Writer1C is explicit-only.
 
-Future roadmap:
+## Phase boundaries
+
+- Phase 1: existing-row NODENAME only.
+- Phase 2: first create source-qualified SIF/TEE engineering field semantics; raw field2 remains `FIELD_2_SEMANTICS_UNQUALIFIED` and unwritable.
+- Writer 2: pointer/cardinality changes, record create/delete/reindex, hanger packed arrays/CONTROL counts.
+- Writer 3: node/element/connectivity/topology mutation.
+
+PR1004 has focused PASS evidence for exact TARGET1 production round trip, independent byte/stale-target falsifiers, shared/redundant ownership, Writer1A/1B regressions, independent Python oracle and Chromium binary routing. Its complete repository `npm test` remains `NOT_RUN` because an exact full checkout cannot currently be transported into the execution container. Existing workflows do not provide a repository-wide `npm test` path; no workflow has been modified to manufacture evidence.
+
+## Coordination invariant
+
+Before owner review of the stack:
 
 ```text
-Phase 0  close retained repository-wide qualification debt
-Phase 1  Writer 1C NODENAME
-Phase 2  source-qualify SIF/TEE semantics, then one field family at a time
-Phase 3  optional qualified existing auxiliary text
-Phase 4  Writer 2 pointer/cardinality transaction engine
-Phase 5  Writer 3 topology transaction engine
-Phase 6  mutation manifest / rollback / batch automation
+latest PR1002 head is an ancestor of PR1004
+compare PR1002 -> PR1004 has behind_by = 0
+PR1002 diff = exactly 5 documentation/custody files
+PR1004 diff = exactly 20 implementation/recovery files
+both PRs remain draft/unmerged unless owner explicitly changes that state
 ```
 
 See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, Issue #1003, and stacked implementation PR #1004.
-
-## PR1001 — merged explicit mutation-scope authority
-
-PR1001 separates **identity acceptance** from **mutation selection**:
-
-```text
-canonical identity + engineering delta
-        ↓
-correspondence ACCEPT / LOCK
-        ↓
-classified transfer candidates
-        ↓
-operation-level APPLY / EXCLUDE
-        ↓
-APPLY operations[] only
-        ↓
-Writer readiness
-        ↓
-qualified mutation
-```
-
-Scope custody:
-
-```text
-schema: CIIWorkspaceTransferScope.v1
-authority: USER_EXPLICIT_OPERATION_SCOPE
-SOURCE SHA-256
-TARGET SHA-256
-exact candidateOperationIds[]
-appliedOperationIds[]
-excludedOperationIds[]
-scopeId
-```
-
-Fail-closed rules:
-
-- unbound scope blocks the product Writer path;
-- SOURCE/TARGET hash mismatch invalidates scope;
-- missing/new operation ID invalidates scope;
-- duplicate/invalid decisions invalidate scope;
-- selected unsupported APPLY remains blocked by existing Writer policy;
-- all EXCLUDE returns `TRANSFER_SCOPE_NO_APPLY_OPERATIONS` and no mutation authority.
-
-EXCLUDE is never fake KEEP. It remains in audit custody but is absent from Writer `operations[]`.
-
-Retained validation truth includes several lower-layer environment gates that were not executed at merge time; PR1004 supplies focused Phase-1 evidence but does not retroactively convert unrelated historical `NOT_RUN` entries to PASS.
-
-## PR999 — merged Compare Review / Delta / Transfer clarity
-
-PR999 made the transfer effect explicit without changing Writer authority:
-
-```text
-SOURCE candidate
-Current TARGET
-Effective TARGET after apply
-```
-
-Blocked/protected/Writer-blocked proposals keep the current TARGET effective; only a bound, preview-ready operation under ready Writer authority is shown as `WILL APPLY`.
-
-## PR998 → PR994 — retained identity architecture
-
-```text
-candidate generation
-   ↓
-independent local Method-A rigid bases
- OR
-independent Method-B network bases
-   ↓
-OR_WITH_CONFLICT_VETO
-   ↓
-canonical correspondence
-   ↓
-engineering deltas
-```
-
-Tolerance authority remains:
-
-```text
-T = x * SOURCE_OD
-x default = 2.0
-SOURCE OD = minimum positive incident SOURCE OD
-OD role = tolerance scale only
-TARGET OD = no identity/tolerance authority
-```
-
-The real benchmark remains `Benchmark/CIICompare/SOURCE 3.CII -> TARGET 3-1.CII`, including the local `60920/60930/60940 ↔ 7290/7300/7310` A/B case and multiple incompatible local node-number offsets.
-
-## Writer authority retained from PR991/PR992
-
-Writer 1A/1B applies only the operations it receives and qualifies. Geometry, node numbering and topology remain protected. OD is conditional to the qualified Writer 1B plain-pipe/no-reducer path. Existing-block restraint mutation remains bounded by owned-block/cardinality rules. PR1001 establishes which reviewed classified operations are explicitly selected for Writer evaluation; PR1002 defines the next authority boundary without changing production code.
