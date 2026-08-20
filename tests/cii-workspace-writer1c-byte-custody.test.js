@@ -32,6 +32,7 @@ const encoded = new TextEncoder().encode(raw);
 const physical = createCiiPhysicalFile(encoded);
 assert.equal(physical.byteAuthority, 'ORIGINAL_BYTES');
 assert.equal(physical.writer1CByteEligible, true);
+assert.equal(physical.textEncodingAuthority, 'UTF8_STRICT');
 assert.equal(physical.lineEndings.style, 'CRLF');
 assert.equal(physical.lineEndings.finalLineTerminated, false);
 assert.equal(physical.byteLength, encoded.length);
@@ -55,5 +56,12 @@ assert.equal(toSpan.rawField, 'TO-SHARED'.padEnd(25));
 const compatibility = extractCiiNodeNameEvidence(raw, parsed);
 assert.equal(compatibility.physicalCustody.status, 'BLOCKED');
 assert(compatibility.physicalCustody.blockers.includes('NODENAME_ORIGINAL_BYTE_CUSTODY_REQUIRED'));
+
+const legacyBytes = new Uint8Array([0x23, 0x24, 0x20, 0x56, 0x45, 0x52, 0x53, 0x49, 0x4f, 0x4e, 0x0d, 0x0a, 0x80]);
+const legacyPhysical = createCiiPhysicalFile(legacyBytes);
+assert.equal(legacyPhysical.byteAuthority, 'ORIGINAL_BYTES');
+assert.equal(legacyPhysical.writer1CByteEligible, true);
+assert.equal(legacyPhysical.textEncodingAuthority, 'UTF8_REPLACEMENT_COMPATIBILITY');
+assert.equal(legacyPhysical.originalByteString.charCodeAt(legacyPhysical.originalByteString.length - 1), 0x80);
 
 console.log('Writer 1C byte custody and shared NODENAME physical ownership checks passed.');
