@@ -19,14 +19,17 @@ authority_domains:
   - CII_SIF_TEE_FIELD_SEMANTIC_QUALIFICATION
   - CII_SIF_TEE_EDITION_MAPPING
   - CII_SIF_TEE_CANONICAL_CENSUS
+  - CII_SIF_TEE_PHASE2B_SELECTED_FIELD_BOUNDARY
 coordination_notes:
   - qualification-only; no production SIF Writer mutation is authorized in PR1006
-  - official Version12 neutral authority proves a two-tee x 30-item map and item3=ii/item4=io for Version12 only
-  - canonical TARGET1 advertises version header 11.0000
-  - the Version11/2019 product guide proves ii/io engineering semantics and user-defined SIF >=1.0 but is not neutral item-position authority
-  - V12 to V11 positional equivalence is therefore unproven and must not be inferred
-  - all current/canonical SIF positions are writable=NO until V11 position authority is obtained
-  - current transfer-policy blockers remain in force
+  - canonical TARGET1 advertises neutral version header 11.0000
+  - vendor-authored CAESAR II 2019 Version11 User's Guide mirror directly defines #$ SIF&TEES at page1187
+  - V11 neutral authority states FORTRAN (2X,6G13.6), two tees x 30 items, five rows per tee, and directly maps item3=ii and item4=io
+  - selected future Phase2B candidates are therefore r0f2,r0f3,r5f2,r5f3
+  - official Version12 neutral documentation independently corroborates the selected item3/item4 mapping
+  - later edition drift remains a mandatory runtime edition/shape guard
+  - writable=YES in the CSV means qualification-approved future candidate, not current product enablement
+  - current transfer-policy blockers remain in force until separate Phase2B implementation qualification
 protected_out_of_scope:
   - converters/scripts/inputxml_to_cii2019.py
   - converters/scripts/inputxml_to_cii2014.py
@@ -45,30 +48,37 @@ protected_out_of_scope:
   - HANGER_MUTATION
   - WRITER_2
   - WRITER_3
-qualification_verdict: BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED
+qualification_verdict: READY_FOR_CANONICAL_V11_SELECTED_SIF_FIELDS
 qualification_evidence:
-  version12_reference_shape: TWO_TEE_SLOTS_X_30_ITEMS_X_5_ROWS
-  version12_fixed_positions: 60
-  version12_direct_positions: 52
-  version12_unresolved_positions: 8
-  version12_ii_io_candidate_positions: [r0f2, r0f3, r5f2, r5f3]
   canonical_target_version_header: 11.0000
-  canonical_v11_position_authority: UNRESOLVED
+  version11_reference_shape: TWO_TEE_SLOTS_X_30_ITEMS_X_5_ROWS
+  version11_fixed_positions: 60
+  version11_direct_positions: 52
+  version11_unresolved_positions: 8
+  selected_phase2b_positions: [r0f2, r0f3, r5f2, r5f3]
+  selected_engineering_fields: [IN_PLANE_SIF_ii, OUT_PLANE_SIF_io]
   currently_product_enabled_positions: 0
-  currently_writer_eligible_positions: 0
+  authority_source: VENDOR_AUTHORED_VERSION11_GUIDE_MIRROR_PAGE_1187
+  version12_selected_mapping_corroboration: PASS
   exact_repository_census_execution: NOT_RUN
 edition_guard:
+  version11_rows_per_auxiliary: 10
+  version11_item15: TORSION_SIF_it
+  version11_item16: AXIAL_SIF_ia
   version12_rows_per_auxiliary: 10
   version12_item15: TORSION_SIF_it
   version12_item16: AXIAL_SIF_ia
   version14_15_rows_per_auxiliary: 14
   version14_15_item15: AXIAL_SIF_ia
   version14_15_item16: TORSION_SIF_it
-  inference_rule: NEVER_BACKPORT_OR_FORWARD_PORT_POSITION_SEMANTICS_WITHOUT_EDITION_AUTHORITY
-unblocking_evidence:
-  acceptable:
-    - official CAESAR II Version11 neutral-file SIF&TEES specification proving item3/item4 positions
-    - authoritative Hexagon statement proving Version11 and Version12 SIF&TEES item3/item4 positional equivalence
-ready_for_review: false
-ready_for_review_reason: the previous READY verdict was overbroad for the canonical Version11 target; corrected artifacts intentionally retain a hard authority blocker
+  rule: MUTATION_REQUIRES_EXACT_EDITION_AND_BLOCK_SHAPE_GATE
+remaining_phase2b_gates:
+  - positive_explicit_sif_transaction_fixture
+  - runtime_piping_code_context_custody
+  - exact_byte_span_and_preimage_custody
+  - shared_pointer_arbitration
+  - independently_derived_S_auth
+  - unauthorized_byte_pointer_cardinality_edition_falsifiers
+ready_for_review: true
+ready_for_review_reason: V11 selected positions are now directly source-qualified from the vendor-authored Version11 neutral-file appendix; no production authority is implied and all residual implementation gates remain explicit
 merge_authority: OWNER_ONLY
