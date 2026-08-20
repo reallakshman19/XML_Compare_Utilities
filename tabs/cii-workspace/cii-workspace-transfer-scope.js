@@ -1,6 +1,7 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId } from './cii-workspace-contracts.js';
 import { ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
+import { ciiWriter1CReadiness } from './cii-workspace-target-writer-1c.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
@@ -132,9 +133,15 @@ export function applyCiiTransferScope(plan, selection = null) {
   });
 }
 function readinessFor(preview, transferPlan) {
-  return preview?.writerVersion === '1A' ? ciiWriter1AReadiness(transferPlan) : ciiWriter1BReadiness(transferPlan);
+  if (preview?.writerVersion === '1A') return ciiWriter1AReadiness(transferPlan);
+  if (preview?.writerVersion === '1B') return ciiWriter1BReadiness(transferPlan);
+  if (preview?.writerVersion === '1C') return ciiWriter1CReadiness(transferPlan, preview.targetDocument);
+  return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
+    mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${preview?.writerVersion || 'EMPTY'}`]) });
 }
-function writerLabel(preview) { return preview?.writerVersion === '1A' ? 'WRITER_1A' : 'WRITER_1B'; }
+function writerLabel(preview) {
+  return ['1A', '1B', '1C'].includes(preview?.writerVersion) ? `WRITER_${preview.writerVersion}` : 'WRITER_UNSUPPORTED';
+}
 export function bindCiiTransferScopeToPreview(preview, selection = null) {
   if (!preview?.transferPlan || !preview?.audit) throw new Error('CII_TRANSFER_SCOPE_PREVIEW_REQUIRED');
   const transferPlan = applyCiiTransferScope(preview.transferPlan, selection);
