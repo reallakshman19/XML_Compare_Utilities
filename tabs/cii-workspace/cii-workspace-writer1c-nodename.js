@@ -8,6 +8,10 @@ function isNodeNameCopy(operation) {
     && operation?.property === 'Node name / to-name'
     && operation?.action === 'COPY';
 }
+function isWriter1CSifCopy(operation) {
+  return operation?.family === 'SIF_TEE' && operation?.action === 'COPY'
+    && ['CII_WRITER_1C_SIF_IN_PLANE_EXISTING_BLOCK', 'CII_WRITER_1C_SIF_OUT_PLANE_EXISTING_BLOCK'].includes(operation?.policyAuthority);
+}
 function noMutation(operation) {
   return operation?.action === 'KEEP' && ['PREVIEW_READY', 'PROTECTED'].includes(operation?.status);
 }
@@ -45,7 +49,7 @@ function pushBlocker(blockers, code, operation, detail = '') {
   blockers.push(suffix ? `${code}:${suffix}` : code);
 }
 function validateOperation(operation, blockers) {
-  if (noMutation(operation)) return false;
+  if (noMutation(operation) || isWriter1CSifCopy(operation)) return false;
   if (!isNodeNameCopy(operation)) {
     pushBlocker(blockers, 'WRITER_1C_UNSUPPORTED_OPERATION', operation,
       `${operation?.family || 'UNKNOWN'}:${operation?.property || 'UNKNOWN'}:${operation?.action || 'UNKNOWN'}`);
@@ -103,15 +107,17 @@ function arbitrateClaims(claims, operationsByNode, blockers) {
   return mutations.sort((a, b) => a.byteStart - b.byteStart || a.byteEnd - b.byteEnd);
 }
 
-export function buildWriter1CNodeNamePlan({ transferPlan, targetDocument }) {
+export function buildWriter1CNodeNamePlan({ transferPlan, targetDocument, allowEmpty = false }) {
   const blockers = [...(transferPlan?.blockers || [])];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('WRITER_1C_TRANSFER_PLAN_NOT_PREVIEW_READY');
   if (transferPlan?.transferScope?.status !== 'BOUND') blockers.push('WRITER_1C_BOUND_TRANSFER_SCOPE_REQUIRED');
-  if (targetDocument?.writer1CByteEligible !== true) blockers.push('WRITER_1C_ORIGINAL_BYTE_CUSTODY_REQUIRED');
-  const custody = targetDocument?.nodeNameEvidence?.physicalCustody;
-  if (custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_NODENAME_PHYSICAL_CUSTODY_REQUIRED']));
   const mutable = []; const operations = transferPlan?.operations || [];
   for (const operation of operations) if (validateOperation(operation, blockers)) mutable.push(operation);
+  const custody = targetDocument?.nodeNameEvidence?.physicalCustody;
+  if (mutable.length) {
+    if (targetDocument?.writer1CByteEligible !== true) blockers.push('WRITER_1C_ORIGINAL_BYTE_CUSTODY_REQUIRED');
+    if (custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_NODENAME_PHYSICAL_CUSTODY_REQUIRED']));
+  }
   const byNode = operationMap(mutable); const claims = [];
   for (const operation of mutable) {
     const nodeId = targetNodeId(operation); const spans = spansForNode(custody, nodeId);
@@ -127,7 +133,7 @@ export function buildWriter1CNodeNamePlan({ transferPlan, targetDocument }) {
     }
   }
   const mutations = arbitrateClaims(claims, byNode, blockers);
-  if (!mutations.length) blockers.push('WRITER_1C_NO_MUTATIONS');
+  if (!allowEmpty && !mutations.length) blockers.push('WRITER_1C_NO_MUTATIONS');
   return Object.freeze({
     schema: 'CIIWorkspaceWriter1CNodeNamePlan.v1', status: blockers.length ? 'BLOCKED' : 'READY', ready: blockers.length === 0,
     mutationCount: mutations.length, mutations: Object.freeze(mutations), blockers: Object.freeze([...new Set(blockers)]),

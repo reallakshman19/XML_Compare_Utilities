@@ -33,9 +33,6 @@ function operationBase(property, custody, row, source, target, before, proposed,
   });
 }
 
-// Compatibility-only path for direct legacy unit callers that do not provide
-// the engineering-delta set. Production createCiiWorkspacePreview passes the
-// qualified delta set and does not use this authority path.
 function nodeNameOperations(sourceGraph, targetGraph, correspondence, review) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph); const operations = [];
   for (const row of correspondence?.nodeRows || []) {
@@ -121,6 +118,8 @@ function deltaOperation(delta, row, authorityStatus, classification) {
     before: delta.targetValue, proposed: classification.proposedValue, semanticChange: delta.semanticChange, engineeringDeltaId: delta.deltaId,
     evidenceStatus: classification.evidenceStatus, evidenceAuthority: classification.evidenceAuthority,
     policyAuthority: classification.policyAuthority || 'CII_TRANSFER_PREVIEW_POLICY', protected: classification.protected === true,
+    sifField: classification.sifField || delta.sifField || null,
+    sifContext: classification.sifContext || null,
     status: classification.status, blockers: classification.blockers,
     matchAuthority: Object.freeze({ correspondenceId: row.correspondenceId, kind: row.kind, status: authorityStatus,
       candidateStatus: row.status, authority: row.authority || 'REVIEWED_CORRESPONDENCE' }),
@@ -176,7 +175,7 @@ export function createCiiTransferPreview(sourceDocument, targetDocument, sourceG
       odProtected: 'CONDITIONAL_WRITER_1B_PLAIN_PIPE_NO_REDUCER', wallProtected: false,
       processDefault: 'WRITER_1B_EXACT_FIXED_FIELDS_ONLY',
       restraintCardinality: 'EXISTING_24_ROW_BLOCK_ONE_SLOT_STEP_ONLY',
-      sifTeeMutation: 'BLOCKED_SEMANTICS_UNQUALIFIED',
+      sifTeeMutation: 'BLOCKED_EXCEPT_WRITER_1C_V11_ITEM3_ITEM4',
     }),
     sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
     targetDocument: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256 }),

@@ -5,6 +5,7 @@ import { buildCiiWorkspaceCapabilities, capabilityCount } from './cii-workspace-
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
 import { extractCiiNodeNameEvidence } from './cii-workspace-nodename.js';
 import { ciiPhysicalFileBytes, createCiiPhysicalFile } from './cii-workspace-physical-file.js';
+import { extractCiiWriter1CSifEvidence } from './cii-workspace-writer1c-sif-custody.js';
 
 function parserAlias(fileName) {
   const name = String(fileName || 'model.cii').trim() || 'model.cii';
@@ -49,6 +50,7 @@ export async function intakeCiiWorkspaceDocument(rawInput, fileName, options = {
   const cryptoRef = options.cryptoRef ?? globalThis.crypto;
   const contentSha256 = await sha256Bytes(ciiPhysicalFileBytes(physicalFile), cryptoRef);
   const nodeNameEvidence = extractCiiNodeNameEvidence(sourceText, parsed, { physicalFile });
+  const sifWriter1CEvidence = extractCiiWriter1CSifEvidence(sourceText, parsed, { physicalFile });
   const auxiliaryEvidence = buildCiiWorkspaceAuxiliaryEvidence(sourceText, parsed);
   const hangerEvidence = buildCiiHangerEvidence(sourceText, parsed);
   const baselineCapabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence);
@@ -64,9 +66,12 @@ export async function intakeCiiWorkspaceDocument(rawInput, fileName, options = {
     textEncodingAuthority: physicalFile.textEncodingAuthority,
     physicalFile,
     format: parsed.format, parserAuthority: 'parser/caesar-parser.js + CII Workspace fixed-field auxiliary/hanger custody', parserAlias: parserAlias(fileName), parsed,
-    nodeNames: nodeNameEvidence.names, nodeNameEvidence, auxiliaryEvidence, hangerEvidence, capabilities,
+    nodeNames: nodeNameEvidence.names, nodeNameEvidence, sifWriter1CEvidence, auxiliaryEvidence, hangerEvidence, capabilities,
     summary: Object.freeze({
       version: versionLabel(sourceText),
+      neutralVersionMajor: sifWriter1CEvidence.neutralVersion?.major ?? null,
+      sifWriter1CCustodyStatus: sifWriter1CEvidence.status,
+      sifWriter1CSemanticStatus: sifWriter1CEvidence.semanticStatus,
       elementCount: parsed.elements.length,
       nodeCount: capabilityCount(families.nodes),
       bendCount: parsed.bends?.length || 0,
