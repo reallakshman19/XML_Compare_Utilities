@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 pr_or_wip: PR1004
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer-1c
-claim_state: ACTIVE
+claim_state: CLOSING
 claim_modes:
   - EXCLUSIVE
   - COORDINATED
@@ -32,11 +32,12 @@ authority_domains:
   - CII_SCOPED_WRITER_APPLY_PRESENTATION
   - CII_EXPLICIT_HOST_WRITER_SELECTION
 coordinated_with:
-  - PR1002_DOCUMENTATION_CONTRACT
+  - PR1002_DOCUMENTATION_CONTRACT_MERGED
 coordination_notes:
-  - PR1004 intentionally does not edit agents/MASTER_INDEX.md while PR1002 owns that path
-  - PR1004 remains stacked on PR1002 until owner-authorized predecessor normalization
-  - AUTO MODE completed all available Issue1003 Phase-1 engineering-path gates and hard-stopped at unavailable full-private-repository execution
+  - PR1002 squash-merged to main as 77fecdcaf5cfffaa673b71aa208622641d79816c
+  - PR1004 retargeted to main and squash-history reconciled without force rewrite
+  - PR1004 diff restored to exactly 20 files before merge
+  - owner explicitly authorized merge after fresh local Writer1C validation
 protected_out_of_scope:
   - converters/scripts/inputxml_to_cii2019.py
   - converters/scripts/cii2019_section_rules.py
@@ -48,8 +49,8 @@ protected_out_of_scope:
   - HANGER_MUTATION
   - WRITER_2_CARDINALITY
   - WRITER_3_TOPOLOGY
-report_basis_head: 0333be69859345e796011fbe8966530beb1b57ea
-qualification_checkpoint: GE007_ENGINEERING_PATH_QUALIFIED_CHROMIUM_AND_EXACT_TARGET1_PASS_FULL_REPOSITORY_SUITE_PENDING
+report_basis_head: 78c2cdb0840e7300e744761eacaad32ed9219c46
+qualification_checkpoint: GE011_OWNER_VALIDATION_EXCEPTION_ACCEPTED_READY_FOR_MERGE
 qualification_evidence:
   exact_target1_blob: 1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853
   exact_target1_core_roundtrip: PASS
@@ -58,9 +59,11 @@ qualification_evidence:
   unauthorized_byte_falsifier: PASS
   stale_target_hash_falsifier: PASS
   chromium_scoped_writer1c: PASS
-  focused_regression_gate: PASS
+  fresh_local_byte_custody: PASS
+  fresh_local_planner_patcher_validator: PASS
   independent_python_oracle: PASS
-  full_repository_suite: NOT_RUN_ENVIRONMENT
+  full_repository_suite: NOT_RUN_OWNER_ACCEPTED_VALIDATION_EXCEPTION
 changed_file_ledger: 20_EXPECTED_20_ACTUAL_0_UNEXPLAINED
-ready_for_review: false
-merge_authority: OWNER_ONLY
+ready_for_review: true
+ready_for_merge: true
+merge_authority: OWNER_AUTHORIZED
