@@ -143,9 +143,11 @@ export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
     assignName(state, element.to, pair.toName, { elementIndex, blockIndex, pointer, end: 'TO' });
   });
   const names = Object.fromEntries([...state.names.entries()].sort((a, b) => Number(a[0]) - Number(b[0])));
+  const custodyBlockers = [...physicalBlockers,
+    ...state.conflicts.map((item) => `NODENAME_CUSTODY_CONFLICT:${item.code}`)];
   return Object.freeze({
     schema: 'CIIWorkspaceNodeNameEvidence.v1', rowCount: rows.length, rawElementBlockCount: descriptors.blocks.length,
     mappedElementCount, names: Object.freeze(names), conflicts: Object.freeze(state.conflicts),
-    physicalCustody: freezePhysicalCustody(physicalFile, physicalBlockers, byElementIndex, bySpan, rows.length),
+    physicalCustody: freezePhysicalCustody(physicalFile, custodyBlockers, byElementIndex, bySpan, rows.length),
   });
 }
