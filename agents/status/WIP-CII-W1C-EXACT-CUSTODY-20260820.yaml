@@ -1,0 +1,29 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: WIP-CII-W1C-EXACT-CUSTODY-20260820
+mission: Writer 1C exact physical ELEMENT custody hardening
+branch: agent/cii-writer1c-exact-custody-hardening
+base: main
+base_head: 692be3fd536b7c62576c443f5f831984e4de66a2
+report_basis_head: 692be3fd536b7c62576c443f5f831984e4de66a2
+work_intent: IMPLEMENT
+repository_state: NEW_PR_REQUIRED
+mutation_authority: WRITE_ALLOWED
+criticality: ENGINEERING_CRITICAL
+agent_state: ACTIVE
+handover_readiness: READY
+report_path: agents/WIP-CII-W1C-EXACT-CUSTODY-20260820_workreport.md
+appendix_a_status: CURRENT
+grounding_epoch: GE-W1C-HARDEN-001
+execution_mode: MANUAL
+current_stage: BASELINE_PLAN
+current_blocker: NONE
+highest_risk: FROM_TO_ONLY_FALLBACK_CAN_BIND_WRONG_PHYSICAL_ELEMENT_BLOCK
+coordination_state: COORDINATION_REQUIRED_BUT_SAFE
+related_pr: 1006
+related_pr_scope: SIF_TEE_QUALIFICATION_ONLY
+implementation_tests: NOT_RUN
+full_repository_npm_test: NOT_RUN
+merge_authority: OWNER_ONLY
+exact_next_action: harden cii-workspace-nodename.js exact block custody and add adversarial tests
+last_updated: 2026-08-20T16:19:00+04:00
