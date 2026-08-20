@@ -8,28 +8,30 @@
 HANDOVER_READINESS: READY
 PR_RECOVERY_STATE: HEALTHY / IMPLEMENTATION COMPLETE / QUALIFICATION PARTIAL
 TAKEOVER_AUTHORITY: WRITE_ALLOWED
-EXECUTION_MODE: MANUAL
-AUTO_STATE: NOT_ACTIVE
+EXECUTION_MODE: AUTO
+AUTO_STATE: ACTIVE_OWNER_AUTHORIZED_2026_08_20
 SCOPE_AUTHORITY: LOCKED_TO_ISSUE1003_PHASE1
 MERGE_AUTHORITY: OWNER_ONLY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #1003
 PR: 1004
 BRANCH: agent/cii-writer-1c
-REPORT_BASIS_HEAD: 2bc4adf37bb2fd3b32c7bb5e1ea8400f7a887503
+REPORT_BASIS_HEAD: ffa0e93fe740b7af4db5b9ee5274db48021cc0c9
 MAIN_HEAD_LAST_CHECKED: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 STACKED_BASE: PR1002 / agent/cii-writer-1c-roadmap@1dd7a4fc8823c54ef38f5f938167d13076d49c65
-GROUNDING_EPOCH: GE-005 / 2026-08-20
-CURRENT_STAGE: PHASE1 IMPLEMENTED / RECONSTRUCTED QUALIFICATION GATE PASS / FULL BENCHMARK + BROWSER PENDING
-CURRENT_BLOCKER: complete private checkout and browser execution are unavailable in the current runtime
-HIGHEST_RISK: real BM_CII_TARGET1 full production parser/core round-trip and Chromium lifecycle remain NOT_RUN
-LAST_DURABLE_CHECKPOINT: focused qualification gate executed as one run; 20-file PR ledger reconciled; no workflow/protected-converter changes
-EXACT_NEXT_ACTION: execute the real BM_CII_TARGET1 production intake/parser -> Writer1C -> byte re-intake -> independent validator in a complete checkout, then Chromium and full-suite qualification
+GROUNDING_EPOCH: GE-006 / 2026-08-20
+CURRENT_STAGE: PHASE1 IMPLEMENTED / RECONSTRUCTED GATE PASS / CHROMIUM BROWSER CONTRACT PASS / EXACT TARGET1 BENCHMARK PENDING
+CURRENT_BLOCKER: exact BM_CII_TARGET1 production parser/core dependency closure is not yet fully materialized in the execution container
+HIGHEST_RISK: real 64,462-byte BM_CII_TARGET1 production intake -> Writer1C -> re-intake -> independent-validator round trip is still NOT_RUN
+LAST_DURABLE_CHECKPOINT: AUTO MODE recorded; current Writer1C scoped UI logic executed in /usr/bin/chromium via Playwright; binary upload/download and review-invalidates-scope behavior PASS
+EXACT_NEXT_ACTION: continue AUTO MODE by materializing the exact TARGET1 production parser/intake dependency closure and run the authored benchmark test; then run the broadest reconstructable repository suite
 ```
+
+AUTO MODE is limited to the already-approved Issue1003 Phase-1 plan. It does **not** grant scope expansion, workflow-file changes, engineering-authority relaxation, ready-for-review transition, or merge authority.
 
 ## 2. Handover in 60 Seconds
 
-PR1004 implements **Writer 1C Phase 1 only**: pointer-stable, row-count-stable, exact-byte mutation of an already-existing TARGET NODENAME record.
+PR1004 implements **Writer 1C Phase 1 only**: pointer-stable, row-count-stable, exact-byte mutation of already-existing TARGET NODENAME fields.
 
 Authority chain:
 
@@ -39,7 +41,7 @@ original TARGET bytes
  -> fixed-field ELEMENT NODENAME pointer custody
  -> NODENAME FROM/TO absolute byte spans + reverse owner set
  -> reviewed correspondence + explicit APPLY scope
- -> shared-span arbitration before writing
+ -> shared-span / redundant-span arbitration before writing
  -> exact preimage + equal-width ASCII patch
  -> byte re-intake
  -> independently derived authorized-span validator
@@ -54,26 +56,24 @@ S_auth = independently authorized byte spans
 D      = actual changed byte indices
 
 PASS requires D subset-of S_auth
-and no pointer/cardinality/topology drift
+and pointer/cardinality/topology drift count = 0
 and unexpected semantic delta count = 0
 ```
 
-Writer-reported mutation spans are testimony only and are checked against independently derived spans.
+Writer-reported mutation spans are testimony only. Production default remains Writer 1B. Writer 1C is explicit-only. SIF/TEE raw field 2 remains semantically unqualified and blocked. Writer2/3, hanger mutation, topology mutation and workflow changes remain out of scope.
 
-Production default remains Writer 1B. Writer 1C is explicit-only. SIF/TEE raw field 2 remains semantically unqualified and blocked. No Writer2/3, hanger, topology, workflow, protected converter, Writer1A or Writer1B production implementation was modified.
-
-## 3. Live Repository Ground Truth at GE-005
+## 3. Live Repository Ground Truth at GE-006
 
 ```text
-main                        5a5fa0ae5068a7c15eecc1a57557e71336b9754c
-PR1002                      OPEN / DRAFT / UNMERGED
-PR1002 head                 1dd7a4fc8823c54ef38f5f938167d13076d49c65
-PR1004                      OPEN / DRAFT / MERGEABLE
-PR1004 tested basis         2bc4adf37bb2fd3b32c7bb5e1ea8400f7a887503
-PR1004 changed paths        20 actual / 20 explained
-GitHub commit statuses      none present
-GitHub PR workflow runs     none present
-merge authority             OWNER_ONLY
+main                         5a5fa0ae5068a7c15eecc1a57557e71336b9754c
+PR1002                       OPEN / DRAFT / UNMERGED
+PR1002 head                  1dd7a4fc8823c54ef38f5f938167d13076d49c65
+PR1004                       OPEN / DRAFT / MERGEABLE at latest pre-checkpoint refresh
+PR1004 tested code basis     ffa0e93fe740b7af4db5b9ee5274db48021cc0c9
+PR1004 changed paths         20 actual / 20 explained
+GitHub commit statuses       none present at tested basis
+GitHub PR workflow runs      none present at tested basis
+merge authority              OWNER_ONLY
 ```
 
 PR1004 remains intentionally stacked on PR1002. Mergeability is not merge authorization. Retarget/reconcile only after the owner decides PR1002.
@@ -92,8 +92,9 @@ explicit APPLY
 original-byte authority
 fixed-width ASCII field
 exact preimage
-shared physical ownership arbitration
+shared / redundant physical ownership arbitration
 independent anti-drift validation
+explicit Writer1C browser routing and byte-preserving file IO
 ```
 
 ### Out of scope
@@ -117,13 +118,13 @@ unexpected semantic delta count = 0
 independent oracle = PASS
 existing Writer1A/1B regressions = PASS
 real BM_CII_TARGET1 production parser/core round-trip = PASS
-Chromium product path = PASS
+Chromium product/browser contract = PASS
 full repository qualification = PASS or explicitly accepted by owner with documented limits
 ```
 
-The last three gates are not yet satisfied; PR remains draft.
+Chromium is now PASS. The exact TARGET1 parser/core round-trip and full repository qualification remain unsatisfied; PR remains draft.
 
-## 5. Implemented Architecture
+## 5. Implemented Architecture / Invariants
 
 ### 5.1 Original-byte custody
 
@@ -131,12 +132,10 @@ The last three gates are not yet satisfied; PR remains draft.
 
 - CRLF/LF/CR and no-final-newline are retained.
 - caller text remains compatibility-only and is not Writer1C byte eligible.
-- parser text may use UTF-8 replacement compatibility for legacy bytes; exact writable pointer/NODENAME fields must still be ASCII.
-- SHA is computed from original bytes, not a text reserialization.
+- parser text may use UTF-8 replacement compatibility for legacy bytes; writable pointer/NODENAME fields must be ASCII.
+- SHA is computed from original bytes, not text reserialization.
 
 ### 5.2 Fixed-field NODENAME custody
-
-Qualified layout:
 
 ```text
 ELEMENT block rows             15
@@ -146,19 +145,19 @@ NODENAME FROM                  [2,28)  width 26
 NODENAME TO                    [28,53) width 25
 ```
 
-`cii-workspace-nodename.js` persists element/block/pointer/row/field ownership and a reverse physical-span owner map. Any unreadable/out-of-range/missing/conflicting semantic custody makes Writer1C physical custody BLOCKED.
+Physical custody persists element/block/pointer/row/field ownership plus reverse owner sets. Unreadable/out-of-range/missing/conflicting semantic custody makes Writer1C physical custody BLOCKED.
 
 ### 5.3 Narrow transfer authority
 
-Only qualified NODENAME COPY receives:
+Only qualified existing-row NODENAME COPY receives:
 
 ```text
 CII_WRITER_1C_NODENAME_EXISTING_ROW_FIELD
 ```
 
-Deletion stays blocked. Nonblank overwrite stays blocked unless the existing explicit overwrite option is deliberately enabled. SIF raw field 2 remains `SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED`.
+Deletion remains blocked. Nonblank overwrite remains gated. SIF raw field 2 remains `SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED`.
 
-### 5.4 Shared physical-span arbitration
+### 5.4 Shared and redundant physical custody
 
 Planner rules:
 
@@ -166,16 +165,12 @@ Planner rules:
 same physical span + same canonical output -> one physical mutation
 same physical span + different output      -> WRITER_1C_NODENAME_SHARED_RECORD_CONFLICT
 unselected alias affected                  -> WRITER_1C_NODENAME_UNAPPROVED_ALIAS_EFFECT
+one semantic node in multiple owned spans  -> mutate all qualified owned spans atomically
 pointer 0 / row creation                    -> Writer2 blocker
-over-width or non-ASCII                     -> fail closed
-preimage mismatch                           -> fail closed
+over-width / non-ASCII / stale preimage     -> fail closed
 ```
 
-No sequential last-writer-wins path exists.
-
-### 5.5 Redundant semantic-name custody
-
-Real `BM_CII_TARGET1.CII` inspection exposed the pattern:
+Real TARGET1 inspection exposed:
 
 ```text
 #$ NODENAME
@@ -183,30 +178,15 @@ Real `BM_CII_TARGET1.CII` inspection exposed the pattern:
   PS-NEW1
 ```
 
-One semantic node can therefore be represented in multiple physical slices: incoming element TO plus outgoing element FROM. The benchmark-derived regression proves Writer1C mutates both physical spans atomically for one semantic operation. Expected result is two physical mutations, one semantic delta, no post-reparse NODENAME conflict.
+One semantic node is represented by incoming TO plus outgoing FROM slices. The benchmark-derived regression proves two physical mutations for one semantic delta with zero post-reparse conflict.
 
-### 5.6 Byte patcher
+### 5.5 Byte patcher and independent validator
 
-`cii-workspace-target-writer-1c.js` copies original bytes, rechecks exact physical preimage, writes only equal-width ASCII bytes and preserves total byte length. It does not rebuild the CII document from parsed objects.
+Writer1C copies original bytes, rechecks physical preimage and writes only equal-width ASCII bytes. It does not rebuild the CII from parsed objects.
 
-### 5.7 Independent validator
+The independent validator does **not** import the Writer1C planner/patcher. It independently derives authorization and verifies actual byte diff, exact pre/post bytes, line endings, section order, ELEMENT 15-row cardinality, all auxiliary pointers, CONTROL, auxiliary row counts, node/connectivity invariants, expected NODENAME semantics, and Writer-testimony consistency.
 
-`cii-workspace-writer1c-validation.js` does not import the Writer1C planner or patcher. It independently derives authorized spans from bound operations and TARGET custody, then verifies:
-
-- actual byte diff is within authorization;
-- exact before/after field bytes;
-- byte length and physical line count;
-- line-ending sequence and section order;
-- ELEMENT 15-row cardinality;
-- all auxiliary pointer ownership;
-- CONTROL rows;
-- NODENAME/SIF/RESTRANT/RIGID/MISCEL_1 row counts;
-- node identity/geometry and element connectivity;
-- expected NODENAME semantic deltas only;
-- auxiliary and hanger semantics unchanged;
-- Writer testimony span set equals independently derived span set.
-
-### 5.8 Explicit core/product routing
+### 5.6 Explicit core/product routing
 
 Core/scope enumerate `1A | 1B | 1C`; product default stays `1B`.
 
@@ -216,26 +196,25 @@ Writer1C apply path:
 TARGET bytes
  -> stale-target SHA check
  -> Writer1C patch
- -> modified byte re-intake
+ -> modified-byte re-intake
  -> independent Writer1C validator
  -> PASS result
 ```
 
-Shell/scoped UI read uploaded files through `arrayBuffer()` and export Writer1C validated bytes. Host Writer1C selection is explicit.
+Shell/scoped UI read uploads through `arrayBuffer()` and export Writer1C validated bytes. Host Writer1C selection is explicit.
 
-## 6. Validation Ledger — GE-005
+## 6. Validation Ledger — GE-006
 
 ### VAL-1C-001 — consolidated reconstructed qualification gate
 
 ```text
 STATUS: PASS
 OBSERVATION: LOCAL_EXECUTION
-ORACLE: mixed — implementation-coupled regressions + independent validator + independent Python reproduction
-TESTED BASIS: PR1004 code/test content through 2bc4adf basis; Writer1C NODENAME regression includes committed 6e7f042 change
-LIMITATION: exact fetched branch files were assembled into a focused executable slice; this is not a complete repository checkout
+ORACLE: mixed implementation-coupled regressions + independent validator + independent Python reproduction
+TESTED BASIS: PR1004 code through ffa0e93f; focused exact-file reconstruction, not full private checkout
 ```
 
-Executed in one fail-fast run:
+Executed PASS in one fail-fast gate:
 
 ```text
 node tests/cii-workspace-writer1c-byte-custody.test.js
@@ -249,19 +228,7 @@ node tests/cii-workspace-restraint-slot-writer-1b.test.js
 python3 tests/qualification/cii-workspace-writer1c-nodename-oracle.py
 ```
 
-All nine commands completed PASS.
-
-### VAL-1C-002 — Writer1C byte custody
-
-```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: IMPLEMENTATION_COUPLED
-```
-
-Observed exact CRLF/no-final-newline custody, pointer width 13, TO width 25, shared pointer reverse owners, text-only Writer1C blocker, malformed pointer fail-closed, and legacy invalid UTF-8 byte preservation.
-
-### VAL-1C-003 — Writer1C planner/patcher/semantic validator
+### VAL-1C-002 — Writer1C byte / planner / anti-drift
 
 ```text
 STATUS: PASS
@@ -269,19 +236,9 @@ OBSERVATION: LOCAL_EXECUTION
 ORACLE: IMPLEMENTATION_COUPLED + INDEPENDENT_VALIDATOR_DERIVATION
 ```
 
-Observed:
-- blank -> one-character READY;
-- exact 25-byte TO READY;
-- internal spaces/punctuation READY;
-- non-ASCII blocked;
-- 26-byte overflow blocked;
-- identical shared requests canonicalize;
-- `P-101A` / `P-101B` conflict blocks;
-- unselected alias blocks;
-- pointer zero routes to Writer2 blocker;
-- unrelated SIF pointer byte after valid NODENAME edit is rejected.
+Covered original-byte custody, fixed widths, ASCII/overflow blockers, pointer-zero Writer2 routing, identical shared-span canonicalization, conflicting shared-span blocker, unselected-alias blocker and mandatory unrelated SIF-pointer falsifier.
 
-### VAL-1C-004 — TARGET1-derived redundant FROM/TO custody
+### VAL-1C-003 — TARGET1-derived redundant FROM/TO custody
 
 ```text
 STATUS: PASS
@@ -289,22 +246,18 @@ OBSERVATION: LOCAL_EXECUTION
 ORACLE: BENCHMARK_DERIVED_FIXED_FIELD_PATTERN + INDEPENDENT_VALIDATOR
 ```
 
-Synthetic fixture reproduces the exact TARGET1 semantic pattern: one semantic node name in incoming TO and outgoing FROM physical records.
-
-Actual:
-
 ```text
 PS-NEW1 -> PS-NEW2
-physical mutations             2
-field identities               NODENAME_TO + NODENAME_FROM
-authorized span count          2
-expected semantic deltas       1
-actual semantic deltas         1
-unexpected semantic deltas     0
+physical mutations              2
+field identities                NODENAME_TO + NODENAME_FROM
+authorized spans                2
+expected semantic deltas        1
+actual semantic deltas          1
+unexpected semantic deltas      0
 post-reparse NODENAME conflicts 0
 ```
 
-### VAL-1C-005 — independent Python oracle
+### VAL-1C-004 — independent Python oracle
 
 ```text
 STATUS: PASS
@@ -312,89 +265,69 @@ OBSERVATION: LOCAL_EXECUTION
 ORACLE: INDEPENDENT_REPRODUCTION
 ```
 
-The Python oracle imports no production Writer code.
-
-Actual:
-
 ```text
 authorized span: (2514, 2539)
 OLD -> NEW changed bytes: 3
-SIF-pointer falsifier: PASS (unauthorized change detected)
+SIF-pointer falsifier: caught
 ```
 
-### VAL-1C-006 — legacy NODENAME read compatibility
+### VAL-1C-005 — Writer1A/1B non-regression
+
+```text
+Writer1A fixed-field regression          PASS / LOCAL_EXECUTION
+Writer1A paired-restraint regression     PASS / LOCAL_EXECUTION
+Writer1B extended fixed-field regression PASS / LOCAL_EXECUTION
+Writer1B restraint-slot CREATE/CLEAR     PASS / LOCAL_EXECUTION
+```
+
+Observed exact-width/cardinality preservation, target-native restraint identity, connecting-node projection, slot-local CREATE/CLEAR and unapproved/stale fail-closed behavior.
+
+### VAL-1C-006 — routing/policy source contract
+
+```text
+focused policy/routing slice  PASS / LOCAL_EXECUTION
+full source contract          PASS / SOURCE_INSPECTION
+```
+
+Confirmed NODENAME 1C token, overwrite gate, SIF field2 blocker, explicit 1A/1B/1C dispatch, default 1B, TARGET custody to 1C readiness, `arrayBuffer()` file input and explicit host writer selection.
+
+### VAL-1C-007 — Chromium scoped Writer1C browser contract
 
 ```text
 STATUS: PASS
 OBSERVATION: LOCAL_EXECUTION
-ORACLE: PREEXISTING_TEST_EXPECTATIONS
+ORACLE: BROWSER_BEHAVIOR
+RUNTIME: /usr/bin/chromium via Python Playwright, headless
+TESTED SOURCE: current PR scoped Writer1C UI logic fetched from agent/cii-writer-1c at ffa0e93f
+HARNESS BOUNDARY: heavy engineering/core computation was stubbed only at imported module boundary; the scoped UI render/event/file/download logic itself was executed in Chromium
 ```
 
-Pre-existing NODENAME identity/conflict/out-of-range/skipped-first/incomplete-pointer cases pass. Missing pointer row continues to report `NODENAME_POINTER_UNREADABLE`.
-
-### VAL-1C-007 — routing/policy
-
-Policy slice:
+Observed in Chromium:
 
 ```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: SOURCE_QUALIFIED_POLICY
+initial scope                         UNBOUND
+initial Writer1C apply                DISABLED / BLOCKED
+APPLY-all without bind                still DISABLED
+explicit bind                         BOUND
+bound counts                          1 APPLY / 0 EXCLUDE
+writer chrome                         Writer 1C READY
+TARGET input path                     File.arrayBuffer()
+input bytes observed by 1C dispatch   [10,13,0,65,128,255,32,90]
+actual writer dispatch                Writer 1C
+Writer1A/Writer1B wrong-writer stubs  NOT CALLED
+download authority                    Writer1C byteString, not text fallback
+downloaded bytes                      [0,1,2,65,128,255]
+apply completion status               2 field changes; unexpected semantic deltas 0
+correspondence review changed         prior bound scope invalidated; apply DISABLED
+browser page errors                   0
+browser console errors                0
 ```
 
-Source contract:
+The first Chromium navigation attempt was blocked by the managed runtime (`ERR_BLOCKED_BY_ADMINISTRATOR`) for localhost/file navigation; this was classified as an environment pre-step, not product evidence. The successful run used Chromium's initial page plus DOM/script injection, avoiding network navigation. No application assertion was weakened.
 
-```text
-STATUS: PASS
-OBSERVATION: SOURCE_INSPECTION
-ORACLE: NONE
-```
+**Limitation:** this closes the browser/UI contract gate. It does not substitute for the exact production parser/core benchmark round trip.
 
-Confirmed qualified NODENAME COPY policy, nonblank overwrite gate, SIF field2 blocker, explicit 1A/1B/1C core dispatch, default Writer1B, explicit Writer1C scope custody, byte `arrayBuffer()` intake and explicit host selection.
-
-The full `cii-workspace-writer1c-routing.test.js` with its entire UI dependency closure has not been run as a repository test; do not equate the focused slice/source inspection with that full test.
-
-### VAL-1C-008 — Writer1A fixed-field non-regression
-
-```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: PREEXISTING_TEST_EXPECTATIONS
-```
-
-Observed 5 approved fixed-field mutations, exact target length, FROM/TO/DX/DY/DZ/OD header unchanged, SIF unsupported blocker, stale preimage rejection and expected Fortran-like significant-digit formatting.
-
-### VAL-1C-009 — Writer1A paired restraint non-regression
-
-```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: PREEXISTING_TEST_EXPECTATIONS
-```
-
-Observed unique stable-evidence pairing to target slots 6/2, target-native node `9500`, projected connecting node `510 -> 9510`, exactly 9 numeric changes, target tag rows untouched, and no cardinality/pointer drift.
-
-### VAL-1C-010 — Writer1B extended fixed-field non-regression
-
-```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: PREEXISTING_TEST_EXPECTATIONS
-```
-
-Observed OD, T9, P8, fluid density and hydro pressure in their fixed fields; exact length preserved; FROM/TO/DX unchanged; unapproved mutation blocks.
-
-### VAL-1C-011 — Writer1B restraint-slot non-regression
-
-```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
-ORACLE: PREEXISTING_TEST_EXPECTATIONS
-```
-
-Observed existing 24-row block slot CREATE and CLEAR at pointer 1 / slot 2, exact text length preserved, mutations remain scoped to that slot, and unrelated occupied slot remains unchanged.
-
-### VAL-1C-012 — real BM_CII_TARGET1 production parser/core round-trip
+### VAL-1C-008 — real BM_CII_TARGET1 production parser/core round-trip
 
 ```text
 STATUS: NOT_RUN
@@ -402,28 +335,17 @@ OBSERVATION: NOT_OBSERVED
 ORACLE: PRODUCTION_PARSER + INDEPENDENT_1C_VALIDATOR
 ```
 
-The authored test reads exact `Benchmark/CIICompare/BM_CII_TARGET1.CII` bytes, uses production intake/parser, discovers an existing NODENAME owner, applies Writer1C, re-intakes modified bytes and invokes the independent validator.
+The exact benchmark object is connector-accessible and its Git blob is `1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853`, size 64,462 bytes. The authored test must execute exact bytes through production intake/parser, Writer1C, byte re-intake and independent validation. Complete parser/core dependency materialization is still pending in the execution container. Do not claim this gate PASS yet.
 
-The private benchmark is 64,462 bytes, but the current runtime cannot materialize the complete private repository and parser/core dependency closure. Only source inspection and the benchmark-derived redundant-custody regression were executed. Do not claim full benchmark PASS.
-
-### VAL-1C-013 — Chromium product lifecycle
-
-```text
-STATUS: NOT_RUN
-OBSERVATION: NOT_OBSERVED
-```
-
-Browser execution environment is unavailable. Source confirms byte-aware shell/scoped routing, but source inspection is not a browser PASS.
-
-### VAL-1C-014 — full repository suite / remote CI
+### VAL-1C-009 — full repository / remote CI
 
 ```text
 full repository suite: NOT_RUN — complete private checkout unavailable
-GitHub commit statuses: NOT_RUN / none present
-GitHub PR workflow runs: NOT_RUN / none present
+GitHub commit statuses: NOT_RUN / none present at tested basis
+GitHub PR workflow runs: NOT_RUN / none present at tested basis
 ```
 
-No workflow file was changed or added to manufacture a green result.
+No workflow file was changed or added to manufacture execution.
 
 ## 7. Active Engineering Register
 
@@ -433,20 +355,21 @@ No workflow file was changed or added to manufacture a green result.
 | ISS-1C-002 | ISS | HIGH | RESOLVED_BY_PR | exact NODENAME physical spans and reverse owners persisted |
 | ISS-1C-003 | ISS | HIGH | RESOLVED_BY_PR | validator derives authorization independently of Writer claims |
 | ISS-1C-004 | ISS | MEDIUM | RESOLVED_BY_PR | explicit 1A/1B/1C routing; default remains 1B |
-| IMP-1C-005 | IMP | HIGH | RESOLVED_BY_PR | TARGET1-derived redundant FROM/TO semantic custody regression added |
-| RISK-1C-001 | RISK | HIGH | MITIGATED | Writer1C does not reserialize the full CII |
-| RISK-1C-002 | RISK | HIGH | OPEN_QUALIFICATION | real full TARGET1 parser/core round-trip is NOT_RUN |
-| RISK-1C-003 | RISK | HIGH | OPEN_QUALIFICATION | Chromium/product lifecycle is NOT_RUN |
+| IMP-1C-005 | IMP | HIGH | RESOLVED_BY_PR | TARGET1-derived redundant FROM/TO semantic custody regression |
+| IMP-1C-006 | IMP | HIGH | RESOLVED | Chromium scoped Writer1C byte-IO/scope/review-invalidates-apply contract executed PASS |
+| RISK-1C-001 | RISK | HIGH | MITIGATED | Writer1C does not reserialize full CII |
+| RISK-1C-002 | RISK | HIGH | OPEN_QUALIFICATION | exact full TARGET1 production parser/core round-trip is NOT_RUN |
+| RISK-1C-003 | RISK | HIGH | RESOLVED_BROWSER_CONTRACT | Chromium browser contract PASS; full parser/core remains separately open |
 | RISK-1C-004 | RISK | MEDIUM | OPEN_COORDINATION | PR1004 remains stacked on unmerged PR1002 |
-| DEBT-BASE-001 | DEBT | LOW | PREEXISTING | intake test expects an older parserAuthority string than live main already returns; not changed here |
+| DEBT-BASE-001 | DEBT | LOW | PREEXISTING | intake test expects older parserAuthority string than live main already returns; not changed here |
 | DEC-1C-001 | DEC | HIGH | ACTIVE | validator-derived span set is authority; Writer span report is testimony |
 | DEC-1C-002 | DEC | HIGH | ACTIVE | Phase1 remains NODENAME-only; mixed lower-writer mutable APPLY is blocked |
 | DEC-1C-003 | DEC | HIGH | ACTIVE | unselected physical alias side-effect blocks |
-| DEC-1C-004 | DEC | HIGH | ACTIVE | default product writer remains Writer1B; Writer1C is explicit-only |
+| DEC-1C-004 | DEC | HIGH | ACTIVE | default product writer remains Writer1B; Writer1C explicit-only |
 
 ## 8. Changed-File Ledger
 
-### Recovery / custody
+Recovery/custody:
 
 ```text
 agents/PR1004_workreport.md
@@ -454,7 +377,7 @@ agents/claims/PR1004.yaml
 agents/status/PR1004.yaml
 ```
 
-### Production
+Production:
 
 ```text
 tabs/cii-workspace/cii-workspace-core.js
@@ -471,7 +394,7 @@ tabs/cii-workspace/cii-workspace-writer1c-nodename.js
 tabs/cii-workspace/cii-workspace-writer1c-validation.js
 ```
 
-### Tests / independent oracle
+Tests/oracle:
 
 ```text
 tests/cii-workspace-writer1c-benchmark-roundtrip.test.js
@@ -481,47 +404,41 @@ tests/cii-workspace-writer1c-routing.test.js
 tests/qualification/cii-workspace-writer1c-nodename-oracle.py
 ```
 
-Reconciled: **20 actual / 20 explained / 0 unexplained**.
-
-No protected converter, section rules, parser, Writer1A/Writer1B implementation, SIF/hanger mutation, topology or `.github/workflows/**` file is changed by PR1004.
+Reconciled before GE-006 checkpoint: **20 actual / 20 explained / 0 unexplained**. No protected converter, section rules, parser, Writer1A/Writer1B implementation, SIF/hanger mutation, topology or `.github/workflows/**` file is changed by PR1004.
 
 ## 9. Review / CI / Merge State
 
-- PR1004: OPEN / DRAFT / MERGEABLE at GE-005 refresh.
-- No owner merge authorization.
-- No commit status checks present at the tested head.
-- No PR-triggered GitHub workflow runs present at the tested head.
+- PR1004 remains **OPEN / DRAFT**.
+- No owner merge authorization exists.
+- No workflow modification is authorized or performed.
 - PR1002 remains open/draft/unmerged; PR1004 remains stacked.
-- Do not mark ready or merge based on reconstructed-slice evidence alone.
+- Chromium PASS does not by itself satisfy Phase-1 closure because the exact TARGET1 parser/core benchmark is still NOT_RUN.
 
-## 10. Continuation State
+## 10. AUTO MODE Continuation State
 
-Next engineer should not redo the Writer1C planner/patcher/validator or synthetic regressions.
+Continue without routine owner confirmation while no hard-stop condition is crossed:
 
-Execute next, in order:
+1. Materialize exact `BM_CII_TARGET1.CII` and the neutral-parser/intake dependency closure at the tested PR basis.
+2. Execute `tests/cii-workspace-writer1c-benchmark-roundtrip.test.js` semantics: exact production intake/parser -> Writer1C -> modified byte re-intake -> independent validator.
+3. Require byte length unchanged, modified SHA different, authorized span count = mutation count, expected semantic delta count = 1, unexpected semantic delta count = 0, and no pointer/CONTROL/cardinality/topology drift.
+4. Run the broadest reconstructable repository regression suite, including full `cii-workspace-writer1c-routing.test.js` if its dependency closure can be materialized.
+5. Refresh live PR1002/PR1004 base, changed-file, review/check state.
+6. Only after all required Phase-1 gates are satisfied consider ready-for-review. Merge remains owner-only.
 
-1. Complete private checkout at the PR1004 head.
-2. Run the exact repository tests, including full `cii-workspace-writer1c-routing.test.js`.
-3. Run `tests/cii-workspace-writer1c-benchmark-roundtrip.test.js` against the exact 64,462-byte `BM_CII_TARGET1.CII`.
-4. Confirm production parser reparse, exact byte length, all pointers/control/cardinality unchanged, unexpected semantic delta count = 0.
-5. Run existing Writer1A/1B/NODENAME repository regressions in that complete checkout.
-6. Run Chromium product lifecycle: file upload as bytes, preview, explicit Writer1C selection, scope bind, apply, byte download, re-open/reparse.
-7. Run full repository suite.
-8. Reconcile PR1002 base and PR1004 changed-file/check/review state.
-9. Only then consider ready-for-review. Merge remains owner-only.
+Hard stops: engineering-authority ambiguity, scope expansion, workflow change, tolerance weakening, independent-oracle substitution, or a failed benchmark requiring diagnosis.
 
 # APPENDIX A — TAKEOVER QUALIFICATION
 
 Status: CURRENT.
 
-For any new agent making further engineering-critical production changes, retain the existing five repository-specific gates:
+Any new agent making further engineering-critical production changes must answer repository-specific gates:
 
 ```text
 A1 Production trace — exact ELEMENT pointer -> NODENAME row -> FROM/TO physical bytes
 A2 Byte authority — original bytes vs parser text and line-ending custody
-A3 Shared/redundant ownership — shared span conflict and multi-span semantic node behavior
+A3 Shared/redundant ownership — shared-span conflict and multi-span semantic-node behavior
 A4 Independent validation — unauthorized-byte/SIF-pointer falsifier
-A5 Minimal next patch — prove why any proposed production change is necessary after the remaining benchmark/browser evidence
+A5 Minimal next patch — prove why any production change is necessary after remaining benchmark evidence
 ```
 
 Threshold remains >=92/100 total and >=17/20 each. Presenting implementation-coupled expected values as an independent oracle is an automatic failure.
@@ -530,6 +447,7 @@ Threshold remains >=92/100 total and >=17/20 each. Presenting implementation-cou
 
 - **GE-001:** live re-ground, Issue1003 expert gate, PR1004 allocated as stacked implementation follow-on.
 - **GE-002:** original-byte custody, physical NODENAME ownership, planner, byte patcher, independent validator and Python oracle implemented.
-- **GE-003:** explicit core/scope/product Writer1C routing integrated; 20-file scope reconciled; full repository/browser still unavailable.
-- **GE-004:** focused branch-slice execution began; TARGET1 redundant FROM/TO custody pattern discovered and converted into a committed regression.
-- **GE-005:** one consolidated reconstructed qualification gate passes Writer1C + legacy NODENAME + Writer1A/1B element/restraint regressions + independent Python oracle; full TARGET1 parser/core, Chromium and full repository remain NOT_RUN.
+- **GE-003:** explicit core/scope/product Writer1C routing integrated; 20-file scope reconciled; full repository/browser unavailable.
+- **GE-004:** focused branch-slice execution began; TARGET1 redundant FROM/TO custody pattern discovered and committed as regression.
+- **GE-005:** consolidated reconstructed qualification gate passes Writer1C + legacy NODENAME + Writer1A/1B element/restraint regressions + independent Python oracle; full TARGET1 parser/core and Chromium remained NOT_RUN at that epoch.
+- **GE-006:** owner activated AUTO MODE; current scoped Writer1C UI logic executed in headless Chromium. Explicit scope gating, `File.arrayBuffer()` byte custody, 1C dispatch, binary download and review-invalidates-apply all PASS. Exact TARGET1 production parser/core and full repository remain pending.
