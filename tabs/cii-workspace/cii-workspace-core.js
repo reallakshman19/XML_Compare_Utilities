@@ -15,6 +15,7 @@ import { buildCiiEngineeringDeltas } from './cii-workspace-engineering-delta.js'
 import { augmentCiiEngineeringDeltasWithWriter1BFields } from './cii-workspace-writer1b-deltas.js';
 import { augmentCiiEngineeringDeltasWithRestraintPairing } from './cii-workspace-restraint-transfer.js';
 import { augmentCiiEngineeringDeltasWithRestraintSlots } from './cii-workspace-restraint-slot-transfer.js';
+import { augmentCiiEngineeringDeltasWithWriter1CSifFields } from './cii-workspace-writer1c-sif-deltas.js';
 import { buildCiiCompareReviewModel } from './cii-workspace-compare-review.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
@@ -78,7 +79,8 @@ function writer1CPlanContract(plan) {
   if (plan?.mutationAuthority === 'BLOCKED') return plan;
   return deepFreeze({ ...plan, mutationAuthority: 'WRITER_1C_CONDITIONAL', policy: deepFreeze({
     ...(plan?.policy || {}), nodeNameMutation: 'EXISTING_POINTER_STABLE_FIXED_FIELD_ONLY',
-    mixedLowerWriterMutation: 'BLOCKED_IN_PHASE_1', sifTeeMutation: 'BLOCKED_SEMANTICS_UNQUALIFIED',
+    mixedLowerWriterMutation: 'BLOCKED_PENDING_COMPOSITE_1A_1B_1C_QUALIFICATION',
+    sifTeeMutation: 'V11_ITEM3_ITEM4_EXISTING_BLOCK_EXPLICIT_GE_1_WITH_CODE_CONTEXT',
   }) });
 }
 function readinessFor(version, plan, targetDocument) {
@@ -203,10 +205,13 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const extendedWriter = version !== '1A';
   const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
   const pairedDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(fieldDeltas, sourceDocument, targetDocument, correspondence, options);
-  const engineeringDeltas = extendedWriter
+  const slotDeltas = extendedWriter
     ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence,
       sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options)
     : pairedDeltas;
+  const engineeringDeltas = version === '1C'
+    ? augmentCiiEngineeringDeltasWithWriter1CSifFields(slotDeltas, sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence)
+    : slotDeltas;
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
   const rawTransferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas,
     { ...options, writerVersion: version });
