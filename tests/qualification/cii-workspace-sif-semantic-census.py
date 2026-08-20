@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Qualification-only, edition-aware census/oracle for CII SIF&TEES.
 
-The oracle intentionally distinguishes:
-- official Version-12 neutral item-position authority; and
-- the canonical repository target whose VERSION header advertises 11.0000.
+The canonical repository target advertises VERSION 11.0000. The vendor-authored
+CAESAR II 2019 (11.0) neutral-file appendix directly maps item3=ii and item4=io
+for each of two 30-item tee slots written as five rows x six fields.
 
-It must never promote Version-12 item positions to Version-11 Writer authority
-without an explicit authoritative edition bridge.
+This oracle qualifies those four physical positions as future Phase2B
+candidates only. It does not enable production mutation.
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import re
 import sys
 
 WIDTHS = (15, 13, 13, 13, 13, 13)
+STARTS = (0, 15, 28, 41, 54, 67)
 SIF_BLOCK_ROWS = 10
 TEE_SLOT_ROWS = 5
 ITEMS_PER_TEE = 30
@@ -27,7 +28,7 @@ DEFAULT_FILES = (
     Path("Benchmark/CIICompare/BM_CII_TARGET2.CII"),
 )
 
-V12_ITEMS = {
+V11_ITEMS = {
     1: "Node", 2: "Type", 3: "In-Plane SIF (ii)", 4: "Out-Plane SIF (io)",
     5: "Weld d", 6: "Fillet", 7: "Pad Thk", 8: "Ftg Ro", 9: "Crotch R",
     10: "Weld ID", 11: "B1", 12: "B2", 13: "In-Plane Index (Ii)",
@@ -38,8 +39,7 @@ V12_ITEMS = {
     23: "Code-related Note option 23", 24: "Code-related Note option 24",
     25: "Axial Index (Ia)", 26: "Torsion Index (It)",
 }
-V12_REFERENCE_ITEMS = frozenset({3, 4})
-CANONICAL_V11_WRITER_ITEMS = frozenset()  # fail closed until authority bridge exists
+SELECTED_ITEMS = frozenset({3, 4})
 
 
 def neutral_position(row_index: int, field_index: int) -> tuple[int, int]:
@@ -48,6 +48,10 @@ def neutral_position(row_index: int, field_index: int) -> tuple[int, int]:
     tee_slot = 1 if row_index < TEE_SLOT_ROWS else 2
     item = (row_index % TEE_SLOT_ROWS) * 6 + field_index + 1
     return tee_slot, item
+
+
+def byte_columns(field_index: int) -> tuple[int, int]:
+    return STARTS[field_index], STARTS[field_index] + WIDTHS[field_index]
 
 
 def authority_self_test() -> dict[str, object]:
@@ -61,18 +65,29 @@ def authority_self_test() -> dict[str, object]:
     assert neutral_position(0, 3) == (1, 4)
     assert neutral_position(5, 2) == (2, 3)
     assert neutral_position(5, 3) == (2, 4)
-    assert V12_ITEMS[15] == "Torsion SIF (it)"
-    assert V12_ITEMS[16] == "Axial SIF (ia)"
-    assert len(V12_ITEMS) * 2 == 52
-    assert len(CANONICAL_V11_WRITER_ITEMS) == 0
+    assert byte_columns(2) == (28, 41)
+    assert byte_columns(3) == (41, 54)
+    assert V11_ITEMS[3] == "In-Plane SIF (ii)"
+    assert V11_ITEMS[4] == "Out-Plane SIF (io)"
+    assert V11_ITEMS[15] == "Torsion SIF (it)"
+    assert V11_ITEMS[16] == "Axial SIF (ia)"
+    assert len(V11_ITEMS) * 2 == 52
+    selected = [
+        f"r{row}f{field}"
+        for row in range(SIF_BLOCK_ROWS)
+        for field in range(6)
+        if neutral_position(row, field)[1] in SELECTED_ITEMS
+    ]
+    assert selected == ["r0f2", "r0f3", "r5f2", "r5f3"]
     return {
-        "status": "PASS_VERSION12_REFERENCE_ONLY",
-        "v12_fixed_positions": 60,
-        "v12_direct_positions": 52,
-        "v12_unresolved_positions": 8,
-        "v12_ii_io_reference_positions": ["r0f2", "r0f3", "r5f2", "r5f3"],
-        "canonical_v11_writer_eligible_positions": 0,
-        "canonical_v11_gate": "V11_NEUTRAL_POSITION_AUTHORITY_UNRESOLVED",
+        "status": "PASS_V11_SELECTED_POSITION_ARITHMETIC",
+        "authority": "CAESAR_II_2019_VERSION11_NEUTRAL_APPENDIX_PAGE_1187",
+        "fixed_positions": 60,
+        "directly_named_positions": 52,
+        "unresolved_positions": 8,
+        "selected_phase2b_positions": selected,
+        "selected_phase2b_count": 4,
+        "product_enabled_count": 0,
     }
 
 
@@ -155,16 +170,17 @@ def main() -> int:
     authority = authority_self_test()
     files = args.files or list(DEFAULT_FILES)
     if args.authority_self_test and not args.files:
-        print(json.dumps({"schema": "CIIWriter1CSifEditionAuthority.v3", **authority}, indent=2, sort_keys=True))
+        print(json.dumps({"schema": "CIIWriter1CSifEditionAuthority.v4", **authority}, indent=2, sort_keys=True))
         return 0
 
     missing = [path.as_posix() for path in files if not path.is_file()]
     if missing:
         print(json.dumps({
             "status": "NOT_RUN",
-            "qualification_verdict": "BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED",
+            "qualification_verdict": "READY_FOR_CANONICAL_V11_SELECTED_SIF_FIELDS",
             "authority_self_test": authority,
             "missing_files": missing,
+            "production_writer": "NOT_IMPLEMENTED",
         }, indent=2, sort_keys=True))
         return 2
 
@@ -174,12 +190,13 @@ def main() -> int:
         assert target1["version_header_second_field"] == 11.0, target1
 
     report = {
-        "schema": "CIIWriter1CSifEditionAuthority.v3",
-        "status": "PASS_CENSUS_WITH_WRITER_BLOCKER",
-        "qualification_verdict": "BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED",
+        "schema": "CIIWriter1CSifEditionAuthority.v4",
+        "status": "PASS_CENSUS_QUALIFICATION_ONLY",
+        "qualification_verdict": "READY_FOR_CANONICAL_V11_SELECTED_SIF_FIELDS",
         "authority_self_test": authority,
         "results": results,
-        "warning": "Version12 neutral positions are reference evidence only; canonical V11 Writer authority remains zero until an authoritative edition bridge is supplied.",
+        "production_writer": "NOT_IMPLEMENTED",
+        "warning": "Only item3/item4 in each V11 tee slot are selected future Writer1C candidates; product mutation remains disabled until separate Phase2B gates pass.",
     }
     print(json.dumps(report, indent=2, sort_keys=True) if args.json else report["warning"])
     return 0
