@@ -56,6 +56,7 @@ assert(scopeSource.includes("preview?.writerVersion === '1C'"), 'scope readiness
 assert(scopeSource.includes('ciiWriter1CReadiness(transferPlan, preview.targetDocument)'), 'scope Writer 1C readiness must receive TARGET custody');
 assert(shellSource.includes('.arrayBuffer()'), 'workspace file reads must preserve original file bytes');
 assert(shellSource.includes('applyCiiWorkspaceTargetWriter1C'), 'shell may invoke Writer 1C only through explicit version routing');
+assert(tabSource.includes('context.writerVersion'), 'product host may deliberately request a qualified writer version');
 assert(!tabSource.includes("writerVersion: '1C'"), 'product tile must not silently switch the default to Writer 1C');
 
 console.log('CII Writer 1C policy, routing, byte-input and default-authority guards passed.');
