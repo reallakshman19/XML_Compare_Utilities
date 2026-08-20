@@ -20,7 +20,7 @@ claims:
     status: IMPLEMENTED_SOURCE_INSPECTED
   - id: PR1009-CLAIM-005
     statement: Piping-code equality is not inferred from an unqualified neutral-file field; mutation requires an explicit engineer-attested same-active-piping-code context.
-    evidence: tabs/cii-workspace/cii-workspace-transfer-policy.js; tabs/cii-workspace/cii-workspace-tab.js; tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
+    evidence: tabs/cii-workspace/cii-workspace-transfer-policy.js; tabs/cii-workspace/cii-workspace-writer1c-sif.js; tabs/cii-workspace/cii-workspace-tab.js; tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
     status: IMPLEMENTED_SOURCE_INSPECTED
   - id: PR1009-CLAIM-006
     statement: Shared physical SIF spans block unapproved alias effects, canonicalize identical all-owner postimages and block divergent postimages.
@@ -42,9 +42,27 @@ claims:
     statement: Browser Writer1C flow carries explicit SIF code context and rechecks current context at apply time to prevent stale authorization reuse.
     evidence: tabs/cii-workspace/cii-workspace-tab.js; tabs/cii-workspace/cii-workspace-transfer-scope-ui.js; tests/cii-workspace-writer1c-sif-context-ui.test.js
     status: IMPLEMENTED_SOURCE_INSPECTED_TEST_AUTHORED_NOT_RUN
+  - id: PR1009-CLAIM-011
+    statement: The low-level SIF mutation planner independently validates the piping-code authority token and normalized SOURCE/TARGET code equality; a forged QUALIFIED status alone cannot authorize mutation.
+    evidence: tabs/cii-workspace/cii-workspace-writer1c-sif.js; tests/cii-workspace-writer1c-sif-context-planner.test.js
+    status: IMPLEMENTED_SOURCE_INSPECTED_TEST_AUTHORED_NOT_RUN
+  - id: PR1009-CLAIM-012
+    statement: Dedicated qualification coverage exists for all four Version-11 mutable positions: slot1 item3 ii, slot1 item4 io, slot2 item3 ii and slot2 item4 io, each asserting its exact 13-byte mutation span.
+    evidence: tests/cii-workspace-writer1c-sif-four-position-plan.test.js
+    status: AUTHORED_NOT_RUN_ENVIRONMENT
+qualification_findings:
+  - id: PR1009-QF-001
+    finding: Low-level planner previously trusted sifContext.status=QUALIFIED without independently checking the authority token and equal non-empty code values.
+    disposition: FIXED_IN_PR
+  - id: PR1009-QF-002
+    finding: Initial positive mutation regression covered only slot1 item3 ii while the production claim covers four Version-11 positions.
+    disposition: COVERAGE_CLOSED_WITH_FOUR_POSITION_TEST
 limitations:
+  - exact checkout failed because github.com DNS resolution is unavailable in the execution container
   - focused Phase-2B regression not executed in a complete checkout
   - canonical TARGET1 SIF custody regression not executed in a complete checkout
+  - low-level SIF context-planner regression not executed
+  - four-position planner regression not executed
   - SIF context UI regression not executed in a browser/runtime checkout
   - inherited Writer1C regressions not executed
   - full npm test not executed
