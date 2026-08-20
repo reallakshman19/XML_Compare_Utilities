@@ -1,156 +1,128 @@
 # CII Writer 1C Phase 2A — SIF/TEE Field Qualification
 
-## Corrected verdict
+## Final Phase-2A verdict
 
 ```text
-VERSION12_REFERENCE_VERDICT: READY_FOR_V12_SELECTED_SIF_FIELDS
-CANONICAL_V11_WRITER_VERDICT: BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED
-CURRENT_WRITER_ELIGIBLE_SIF_POSITIONS: 0
+CANONICAL_V11_VERDICT: READY_FOR_CANONICAL_V11_SELECTED_SIF_FIELDS
+SELECTED_POSITIONS: r0f2, r0f3, r5f2, r5f3
+SELECTED_FIELDS: In-Plane SIF (ii), Out-Plane SIF (io)
+CURRENT_PRODUCT_SIF_WRITER: NOT_IMPLEMENTED
+CURRENT_PRODUCT_ENABLED_SIF_POSITIONS: 0
 ```
 
-This PR remains qualification-only. It does not enable SIF/TEE mutation.
+`writable=YES` in the qualification map means **approved candidate for a future Phase-2B Writer1C implementation**, not that PR1006 enables mutation.
 
-## Why the previous READY verdict was too broad
+## Direct Version-11 neutral authority
 
-The canonical benchmark `Benchmark/CIICompare/BM_CII_TARGET1.CII` begins with:
+The canonical benchmark `Benchmark/CIICompare/BM_CII_TARGET1.CII` advertises neutral version `11.0000`.
+
+A vendor-authored CAESAR II User's Guide, Version 2019 (11.0), April 2019, mirrored on PDFCoffee, contains the neutral-file appendix. Under **External Interfaces → CAESAR II Neutral File → Auxiliary Element Data**, page 1187 directly states for `#$ SIF&TEES`:
 
 ```text
-#$ VERSION
-    5.00000      11.0000        1256
+FORTRAN format        (2X, 6G13.6)
+items per tee         30
+tees per auxiliary    2
+lines per tee         5
+lines per auxiliary   10
+item 3                In-Plane SIF (ii)
+item 4                Out-Plane SIF (io)
 ```
 
-The current canonical target therefore advertises neutral version `11.0000`.
+The same section names items 1 through 26 and leaves the remaining four item meanings unstated. Items 27..30 therefore remain unresolved.
 
-The official Hexagon source currently in custody is **Version 12** neutral-file documentation. It directly proves, for Version 12:
+Because six values are written per line, direct fixed-position arithmetic gives:
 
 ```text
-FORTRAN format           = (2X, 6G13.6)
-tees per auxiliary       = 2
-items per tee             = 30
-rows per tee              = 5
-rows per auxiliary        = 10
-item 3                    = In-Plane SIF (ii)
-item 4                    = Out-Plane SIF (io)
+slot1 item3 -> row0 field2 -> columns [28,41) -> ii
+slot1 item4 -> row0 field3 -> columns [41,54) -> io
+slot2 item3 -> row5 field2 -> columns [28,41) -> ii
+slot2 item4 -> row5 field3 -> columns [41,54) -> io
 ```
 
-That source does **not** by itself prove that Version 11 uses identical neutral item positions.
+No cross-edition assumption is required for these four canonical V11 positions.
 
-The CAESAR II 2019 / Version 11.0 User's Guide corroborates the engineering meaning of `ii` and `io`, the code-dependent nature of Type, and the rule that a user-defined SIF cannot be less than 1.0. It is not a neutral-file item-position specification.
+## Version-12 corroboration and edition guard
 
-Therefore the chain:
+Official Hexagon Version-12 neutral documentation independently gives the same selected mapping for item3/item4 and the same 30-item / 10-row shape.
+
+Later official documentation demonstrates edition drift:
 
 ```text
-V12 item3/item4 position authority
-+ V11 product ii/io semantics
+V11/V12: 30 items per tee, 5 rows per tee, 10 rows total
+V14/V15: 42 items per tee, 7 rows per tee, 14 rows total
+
+V11/V12 item15 = Torsion SIF
+V11/V12 item16 = Axial SIF
+V14/V15 item15 = Axial SIF
+V14/V15 item16 = Torsion SIF
 ```
 
-is insufficient to establish:
+Therefore Phase2B must still gate on exact neutral edition and block shape; later-edition semantics must never be backported by field number.
+
+## Initial Phase-2B writer domain
+
+Even though the four V11 positions are now semantically qualified, the first production slice must remain narrower:
 
 ```text
-V11 neutral item3/item4 position authority
+TARGET preimage        finite explicit >= 1.0
+proposed value         finite explicit >= 1.0
+Type                   unchanged
+piping-code context    unchanged and authoritatively custodied
+SIF pointer            existing nonzero and unchanged
+SIF block              same physical 10-row block
+CONTROL/cardinality    unchanged
+zero/blank/9999.99     blocked
 ```
 
-## Edition-drift falsifier
+Why `>=1.0`: the V11 product guide states that user-defined SIFs cannot be less than 1.0.
 
-Cross-edition inference is specifically unsafe because the retrieved neutral documentation demonstrates actual schema drift:
+## Product state remains fail-closed
 
-```text
-Version 12:
-  30 items per tee
-  5 rows per tee
-  10 rows per auxiliary
-  item15 = Torsion SIF
-  item16 = Axial SIF
+PR1006 does **not** change production Writer or transfer policy. Existing blockers remain appropriate until a separate Phase2B implementation adds the required mutation authority.
 
-Versions 14/15:
-  42 items per tee
-  7 rows per tee
-  14 rows per auxiliary
-  item15 = Axial SIF
-  item16 = Torsion SIF
-```
+PR1006 adds no:
 
-This does not prove Version 11 differs from Version 12. It proves that **edition equivalence must be demonstrated, not assumed**.
+- `cii-workspace-writer1c-sif.js`;
+- SIF Writer policy token;
+- raw 10-row payload COPY;
+- pointer allocation/reindex;
+- CONTROL/cardinality mutation;
+- Type/code-context mutation;
+- protected converter change;
+- workflow change.
 
-## Version-12 reference map
+## Phase-2B implementation gates still required
 
-For Version 12 only, the following reference positions are directly qualified:
+1. Runtime neutral-edition and exact 10-row SIF block-shape gate.
+2. Authoritative piping-code context custody and unchanged-Type proof.
+3. Positive explicit nonzero ii/io transaction fixture; canonical benchmark values are zero and cannot qualify the mutation domain by themselves.
+4. Exact byte-span/preimage custody for only the selected 13-byte fields.
+5. Shared-pointer/shared-block claim arbitration before mutation.
+6. One original TARGET byte stream and one canonical mutation plan.
+7. Independently derived `S_auth`; Writer-reported spans remain testimony only.
+8. Falsifiers for unauthorized byte drift, pointer drift, row/cardinality drift, edition mismatch, Type/code-context drift and semantic overreach.
+9. Reparse proving only intended ii/io semantic deltas.
 
-```text
-slot1 item3 -> row0 field2 [28,41) -> In-Plane SIF (ii)
-slot1 item4 -> row0 field3 [41,54) -> Out-Plane SIF (io)
-slot2 item3 -> row5 field2 [28,41) -> In-Plane SIF (ii)
-slot2 item4 -> row5 field3 [41,54) -> Out-Plane SIF (io)
-```
+CREATE/DELETE/reindex and CONTROL/cardinality changes remain Writer2.
 
-These are **reference candidates**, not current Writer authority.
-
-`docs/cii-writer1c-sif-field-map.csv` now records all 60 positions with:
+## Qualification truth
 
 ```text
-v12_position_authority
-canonical_v11_position_authority
-writable
-writer_domain
-```
-
-For the canonical V11 target, every row is `writable=NO` while the edition bridge remains unresolved.
-
-## Current product state
-
-The existing product blockers remain correct:
-
-```text
-SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
-SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
-```
-
-No SIF Writer code, policy token, pointer allocation, cardinality mutation, raw-payload COPY, converter change or workflow change is authorized by PR1006.
-
-The canonical Writer1C SIF gate is now explicitly:
-
-```text
-WRITER_1C_SIF_V11_NEUTRAL_POSITION_AUTHORITY_UNRESOLVED
-```
-
-## Evidence required to unblock Phase 2B
-
-At least one authoritative bridge is required before production SIF mutation may be implemented:
-
-1. official CAESAR II Version 11 neutral-file `#$ SIF&TEES` specification directly mapping item 3 and item 4; or
-2. authoritative Hexagon statement that Version 11 and Version 12 use identical `SIF&TEES` item 3/item 4 positions.
-
-Benchmark correlation, zero values at the candidate positions, parser field arithmetic, or the Version-11 UI/product semantics are **not** sufficient substitutes.
-
-After that edition gate is resolved, Phase 2B would still separately need:
-
-- exact byte-span custody;
-- existing nonzero pointer and unchanged block/cardinality;
-- finite explicit TARGET `>=1.0` to proposed `>=1.0` for the initial slice;
-- unchanged Type and authoritative piping-code context;
-- positive nonzero transaction fixture;
-- shared-pointer arbitration;
-- independently derived `S_auth`;
-- unauthorized-byte/pointer/cardinality/edition falsifiers;
-- semantic reparse showing only the intended ii/io delta.
-
-Writer 2 continues to own CREATE/DELETE/reindex, pointer allocation and CONTROL/cardinality changes.
-
-## Validation truth
-
-```text
-canonical TARGET1 version-header inspection       PASS (11.0000)
-official Hexagon Version12 neutral map             PASS_VERSION12_ONLY
-Version11 product ii/io semantic cross-check       PASS_SEMANTICS_ONLY
-official Version11 neutral item-position authority NOT_FOUND_NOT_PROVEN
-edition-drift falsifier                            PASS
-exact local three-file census                      NOT_RUN
-production SIF Writer                              NOT_IMPLEMENTED
+canonical TARGET1 version header                  PASS_REMOTE_SOURCE_INSPECTION (11.0000)
+V11 vendor-authored neutral appendix              PASS_VENDOR_AUTHORED_MIRROR
+V11 #$ SIF&TEES shape/item3/item4                 PASS_DIRECT_SOURCE
+V11 product ii/io domain                          PASS_DIRECT_SOURCE
+V12 selected-position corroboration               PASS
+edition-drift falsifier                           PASS
+V11/V12 items27..30 meanings                      UNRESOLVED
+exact local three-file census                     NOT_RUN
+production SIF Writer                             NOT_IMPLEMENTED
 ```
 
 ## Engineering rule
 
 ```text
-Same-looking field number across editions is evidence only.
-Mutation authority requires edition-qualified physical position + engineering meaning + byte custody.
+A fixed field is mutation-qualified only when:
+physical position + edition + engineering meaning/domain + byte custody + explicit operation authority
+are all proven.
 ```
