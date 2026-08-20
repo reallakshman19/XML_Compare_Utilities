@@ -10,7 +10,7 @@ agent_state: ACTIVE
 handover_readiness: READY
 merge_authority: OWNER_ONLY
 ready_for_review: false
-ready_for_review_reason: focused, inherited, full-repo and browser runtime tests remain NOT_RUN_ENVIRONMENT
+ready_for_review_reason: exact repository runtime remains unavailable; focused, inherited, full-repo and browser tests are not executable in this session
 implemented:
   neutral_format: VERSION_11_ONLY
   sif_block_shape: EXISTING_POINTER_EXISTING_10_ROW_BLOCK_ONLY
@@ -24,9 +24,23 @@ implemented:
   tee_type: FINITE_EQUAL_SOURCE_TARGET_AND_ACTUAL_TARGET
   element_binding: PARSED_INDEX_EQUALS_PHYSICAL_BLOCK_INDEX_PLUS_ENDPOINT_MATCH
   piping_code_context: ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE
+  piping_code_context_defense_in_depth:
+    - TRANSFER_POLICY_CLASSIFICATION
+    - LOW_LEVEL_SIF_MUTATION_PLANNER
+    - INDEPENDENT_ROUND_TRIP_VALIDATOR
+    - UI_APPLY_TIME_STALE_CONTEXT_CHECK
   shared_pointer_aliasing: ALL_OWNERS_REQUIRED_IDENTICAL_POSTIMAGE
   transaction: ONE_ORIGINAL_TARGET_BYTE_PREIMAGE_FOR_NODENAME_AND_SIF
   validator: INDEPENDENT_AUTHORIZED_SPAN_DERIVATION
+qualification_execution:
+  exact_checkout_attempt: BLOCKED_ENVIRONMENT_DNS_GITHUB_COM
+  source_integration_audit: PASS_SOURCE_INSPECTION
+  transfer_operation_sif_metadata_custody: PASS_SOURCE_INSPECTION
+  low_level_code_context_bypass_finding: FIXED
+  low_level_code_context_bypass_regression: AUTHORED_NOT_RUN_ENVIRONMENT
+  independent_v11_field_arithmetic_oracle: PASS_INDEPENDENT_ORACLE
+  independent_blank_semantics_oracle: PASS_INDEPENDENT_ORACLE
+  independent_shared_alias_oracle: PASS_INDEPENDENT_ORACLE
 validation:
   main_grounding: PASS_REMOTE_SOURCE_INSPECTION
   branch_compare: PASS_GIT_COMPARE
@@ -34,10 +48,11 @@ validation:
   focused_phase2b_test: AUTHORED_NOT_RUN_ENVIRONMENT
   target1_sif_custody_test: AUTHORED_NOT_RUN_ENVIRONMENT
   sif_context_ui_test: AUTHORED_NOT_RUN_ENVIRONMENT
+  sif_context_planner_test: AUTHORED_NOT_RUN_ENVIRONMENT
   inherited_writer1c_tests: NOT_RUN_ENVIRONMENT
   full_npm_test: NOT_RUN_ENVIRONMENT
   browser: NOT_RUN_ENVIRONMENT
-not_run_reason: complete executable repository checkout is unavailable in this session
+not_run_reason: direct git checkout fails with Could not resolve host github.com; no executable exact repository checkout is available in this session
 scope_audit:
   protected_converter_files_changed: 0
   fixed_field_parser_files_changed: 0
@@ -52,4 +67,4 @@ explicit_exclusions:
   - raw_10_row_payload_copy
   - version_12_14_15_mutation
   - general_writer1a_1b_1c_composite_transaction
-next_action: execute focused/inherited/full/browser validation when exact checkout is available; review PR1009; merge only with owner authorization
+next_action: execute exact PR-head Node/browser regressions when repository runtime is available; keep PR1009 draft until that qualification gate is satisfied; merge only with owner authorization
