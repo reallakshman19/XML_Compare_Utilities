@@ -7,7 +7,6 @@ const FROM_START = 2;
 const FROM_END = 28;
 const TO_START = 28;
 const TO_END = 53;
-const POINTER_FIELD_INDEX = 5;
 const CONTROL_NONAM_FIELD_INDEX = 3;
 const APPROVED = new Set(['REVIEWED', 'LOCKED']);
 
@@ -86,7 +85,7 @@ function rowStates(targetDocument, blockers) {
     } catch {
       blockers.push(`WRITER_2_NODENAME_ROW_NON_ASCII:${index + 1}`);
     }
-    return { oldPointer: index + 1, originalText: String(row.text || ''), afterText: String(row.text || ''), touched: false };
+    return { oldPointer: index + 1, afterText: String(row.text || ''), touched: false };
   });
 }
 function validateOperation(operation, targetDocument, blockers) {
@@ -162,7 +161,7 @@ export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transfer
     const candidates = incidentExactZeroBindings(custody, request.nodeId);
     if (!candidates.length) { blockers.push(`WRITER_2_NODENAME_CREATE_ZERO_POINTER_OWNER_REQUIRED:${request.nodeId}`); continue; }
     const selected = candidates[0]; const index = selected.parsedElementIndex;
-    const group = createGroups.get(index) || { parsedElementIndex: index, binding: selected.binding, fromName: '', toName: '', operationIds: [] };
+    const group = createGroups.get(index) || { parsedElementIndex: index, fromName: '', toName: '', operationIds: [] };
     const width = selected.end === 'FROM' ? FROM_END - FROM_START : TO_END - TO_START;
     const name = asciiName(request.operation.proposed, width, `WRITER_2_NODENAME_CREATE_NAME_INVALID:${request.nodeId}`, blockers);
     if (selected.end === 'FROM') {
