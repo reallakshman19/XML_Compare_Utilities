@@ -57,6 +57,14 @@ const compatibility = extractCiiNodeNameEvidence(raw, parsed);
 assert.equal(compatibility.physicalCustody.status, 'BLOCKED');
 assert(compatibility.physicalCustody.blockers.includes('NODENAME_ORIGINAL_BYTE_CUSTODY_REQUIRED'));
 
+const malformedBytes = new Uint8Array(encoded); const elementRows = ciiPhysicalSectionRows(physical, 'ELEMENTS');
+malformedBytes[elementRows[13].byteStart + 79] = 'X'.charCodeAt(0);
+const malformedPhysical = createCiiPhysicalFile(malformedBytes);
+const malformedEvidence = extractCiiNodeNameEvidence(malformedPhysical.text, parsed, { physicalFile: malformedPhysical });
+assert(malformedEvidence.conflicts.some((item) => item.code === 'NODENAME_POINTER_UNREADABLE'));
+assert.equal(malformedEvidence.physicalCustody.status, 'BLOCKED');
+assert(malformedEvidence.physicalCustody.blockers.includes('NODENAME_CUSTODY_CONFLICT:NODENAME_POINTER_UNREADABLE'));
+
 const legacyBytes = new Uint8Array([0x23, 0x24, 0x20, 0x56, 0x45, 0x52, 0x53, 0x49, 0x4f, 0x4e, 0x0d, 0x0a, 0x80]);
 const legacyPhysical = createCiiPhysicalFile(legacyBytes);
 assert.equal(legacyPhysical.byteAuthority, 'ORIGINAL_BYTES');
