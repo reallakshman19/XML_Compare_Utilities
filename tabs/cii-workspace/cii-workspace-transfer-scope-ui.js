@@ -1,5 +1,7 @@
 import { mountCiiWorkspaceEngineeringShell } from './cii-workspace-engineering-ui.js';
-import { applyCiiWorkspaceTargetWriter1B } from './cii-workspace-core.js';
+import {
+  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C,
+} from './cii-workspace-core.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiEngineeringDeltaMarkup, ciiEngineeringValueText, ciiTransferPreviewMarkup } from './cii-workspace-review-presentation.js';
 import {
@@ -13,9 +15,19 @@ function stylesheet(documentRef) {
   const link = documentRef.createElement('link'); link.id = STYLE_ID; link.rel = 'stylesheet';
   link.href = new URL('./cii-workspace-transfer-scope-ui.css', import.meta.url).href; documentRef.head.appendChild(link);
 }
-function download(documentRef, name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type })); const link = documentRef.createElement('a');
+function binaryBytes(value) {
+  const raw = String(value ?? ''); const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index) & 0xff;
+  return bytes;
+}
+function download(documentRef, name, payload, type) {
+  const url = URL.createObjectURL(new Blob([payload], { type })); const link = documentRef.createElement('a');
   link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+function downloadApplied(documentRef, applied) {
+  const payload = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string'
+    ? binaryBytes(applied.byteString) : applied?.text;
+  download(documentRef, applied.fileName, payload, 'text/plain');
 }
 function stageMarkup(readiness) {
   return createCiiWorkspaceStageModel(readiness).map((stage) => `<section class="ciiw-stage" data-ciiw-stage="${h(stage.id)}"><h3>${h(stage.id)} ${h(stage.label)}</h3><p>Status: <b>${h(stage.status)}</b></p>${stage.id === '06' && stage.blockers?.length ? `<p>${h(stage.blockers[0])}</p>` : ''}</section>`).join('');
@@ -27,8 +39,9 @@ function reviewKey(preview) {
 function rawKey(preview) {
   const plan = preview?.transferPlan; if (!plan) return '';
   const ids = ciiTransferScopeCandidateOperations(plan).map((operation) => operation.operationId).sort();
-  return [plan.sourceDocument?.contentSha256 || '', plan.targetDocument?.contentSha256 || '', reviewKey(preview), ids.join('|')].join('::');
+  return [preview?.writerVersion || '1B', plan.sourceDocument?.contentSha256 || '', plan.targetDocument?.contentSha256 || '', reviewKey(preview), ids.join('|')].join('::');
 }
+function writerLabel(preview) { return `Writer ${preview?.writerVersion || '1B'}`; }
 function approval(row) {
   if (row?.decision === 'LOCKED') return 'LOCKED';
   if (row?.decision === 'ACCEPTED') return 'APPROVED';
@@ -45,7 +58,7 @@ function scopePanelMarkup(raw, decisions, view, reviewDirty) {
     return `<tr><td>${control}</td><td><b>${h(item.family || '—')}</b><small>${h(item.property || '—')}</small></td><td>${h(item.action || '—')}</td><td>${h(item.status || '—')}<small>${h((item.blockers || []).join(' · ') || 'No row blocker')}</small></td></tr>`;
   }).join('') : '<tr><td colspan="4">No reviewed transfer operations are available yet.</td></tr>';
   const bound = scope.status === 'BOUND';
-  return `<section class="ciiw-transfer-scope"><header><div><h3>Explicit mutation scope</h3><p>Every mutable operation is explicitly APPLY or EXCLUDE before Writer 1B can run.</p></div><div class="ciiw-transfer-scope-status" data-state="${h(scope.status)}">${h(scope.status)}</div></header><p><b>Authority:</b> USER_EXPLICIT_OPERATION_SCOPE · <b>Candidates:</b> ${h(mutableCount)} · <b>APPLY:</b> ${h(scope.appliedOperationCount || 0)} · <b>EXCLUDE:</b> ${h(scope.excludedOperationCount || 0)}</p>${bound && scope.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${reviewDirty ? '<p><b>Review changed:</b> re-apply correspondence approvals before binding mutation scope.</p>' : ''}<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-scope-apply-ready ${reviewDirty || !mutableCount ? 'disabled' : ''}>APPLY all preview-ready</button><button type="button" data-ciiw-scope-exclude-all ${reviewDirty || !mutableCount ? 'disabled' : ''}>EXCLUDE all</button><button type="button" data-ciiw-bind-transfer-scope ${reviewDirty || !mutableCount ? 'disabled' : ''}>Bind APPLY / EXCLUDE scope</button><button type="button" data-ciiw-export-scoped-audit ${bound ? '' : 'disabled'}>Export scoped audit JSON</button></div><table><thead><tr><th>Scope</th><th>Family / property</th><th>Action</th><th>Classified status</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+  return `<section class="ciiw-transfer-scope"><header><div><h3>Explicit mutation scope</h3><p>Every mutable operation is explicitly APPLY or EXCLUDE before ${h(writerLabel(raw))} can run.</p></div><div class="ciiw-transfer-scope-status" data-state="${h(scope.status)}">${h(scope.status)}</div></header><p><b>Authority:</b> USER_EXPLICIT_OPERATION_SCOPE · <b>Writer:</b> ${h(raw?.writerVersion || '1B')} · <b>Candidates:</b> ${h(mutableCount)} · <b>APPLY:</b> ${h(scope.appliedOperationCount || 0)} · <b>EXCLUDE:</b> ${h(scope.excludedOperationCount || 0)}</p>${bound && scope.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${reviewDirty ? '<p><b>Review changed:</b> re-apply correspondence approvals before binding mutation scope.</p>' : ''}<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-scope-apply-ready ${reviewDirty || !mutableCount ? 'disabled' : ''}>APPLY all preview-ready</button><button type="button" data-ciiw-scope-exclude-all ${reviewDirty || !mutableCount ? 'disabled' : ''}>EXCLUDE all</button><button type="button" data-ciiw-bind-transfer-scope ${reviewDirty || !mutableCount ? 'disabled' : ''}>Bind APPLY / EXCLUDE scope</button><button type="button" data-ciiw-export-scoped-audit ${bound ? '' : 'disabled'}>Export scoped audit JSON</button></div><table><thead><tr><th>Scope</th><th>Family / property</th><th>Action</th><th>Classified status</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
 function excludedMarkup(view) {
   const rows = view?.transferPlan?.excludedOperations || [];
@@ -59,8 +72,18 @@ function seedDecisions(raw, decisions) {
 function statusText(view, reviewDirty) {
   if (reviewDirty) return 'Correspondence decisions changed. Re-apply approvals before binding APPLY / EXCLUDE mutation scope.';
   const scope = view?.transferPlan?.transferScope;
-  if (scope?.status !== 'BOUND') return 'Transfer scope is not bound. Explicitly choose APPLY / EXCLUDE for every mutable operation before Writer 1B can run.';
-  return `Transfer scope ${scope.scopeId}: ${scope.appliedOperationCount} APPLY / ${scope.excludedOperationCount} EXCLUDE; Writer 1B ${view.writerReadiness?.status || 'BLOCKED'}.`;
+  if (scope?.status !== 'BOUND') return `Transfer scope is not bound. Explicitly choose APPLY / EXCLUDE for every mutable operation before ${writerLabel(view)} can run.`;
+  return `Transfer scope ${scope.scopeId}: ${scope.appliedOperationCount} APPLY / ${scope.excludedOperationCount} EXCLUDE; ${writerLabel(view)} ${view.writerReadiness?.status || 'BLOCKED'}.`;
+}
+function applyFunction(version) {
+  if (version === '1A') return applyCiiWorkspaceTargetWriter1A;
+  if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
+  return applyCiiWorkspaceTargetWriter1B;
+}
+function updateWriterChrome(container, view) {
+  const readiness = container.querySelector('.ciiw-readiness');
+  if (!readiness || !view) return;
+  readiness.textContent = `Correspondence ${view.correspondence?.status || '—'} · ${writerLabel(view)} ${view.writerReadiness?.status || '—'}`;
 }
 
 export function mountCiiWorkspaceScopedEngineeringShell(container, options = {}) {
@@ -85,6 +108,7 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
     if (stages) stages.innerHTML = stageMarkup(view.writerReadiness);
     if (deltas && !reviewDirty) deltas.innerHTML = ciiEngineeringDeltaMarkup(view, approval);
     if (status) status.textContent = statusText(view, reviewDirty);
+    updateWriterChrome(container, view);
 
     transfer.querySelectorAll('[data-ciiw-transfer-scope-decision]').forEach((select) => select.addEventListener('change', () => {
       decisions.set(select.dataset.ciiwTransferScopeDecision, select.value === 'APPLY' ? 'APPLY' : 'EXCLUDE'); scopedPreview = null; render();
@@ -113,9 +137,11 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
         try {
           if (!authorized || !scopedPreview) throw new Error('Bind an explicit APPLY / EXCLUDE scope before target mutation.');
           const targetFile = targetInput?.files?.[0]; if (!targetFile) throw new Error('TARGET CII file is required.');
-          applyButton.disabled = true; if (status) status.textContent = 'Applying explicitly scoped Writer 1B operations and reparsing TARGET CII…';
-          const applied = await applyCiiWorkspaceTargetWriter1B(scopedPreview, await targetFile.text(), { cryptoRef: options.cryptoRef });
-          download(documentRef, applied.fileName, applied.text, 'text/plain');
+          const version = scopedPreview.writerVersion || '1B';
+          applyButton.disabled = true; if (status) status.textContent = `Applying explicitly scoped Writer ${version} operations and reparsing TARGET CII…`;
+          const targetBytes = new Uint8Array(await targetFile.arrayBuffer());
+          const applied = await applyFunction(version)(scopedPreview, targetBytes, { cryptoRef: options.cryptoRef });
+          downloadApplied(documentRef, applied);
           if (status) status.textContent = `Scoped TARGET CII exported: ${applied.mutationCount} field changes; unexpected semantic deltas ${applied.validation.unexpectedSemanticDeltaCount}.`;
         } catch (error) { if (status) status.textContent = error?.message || String(error); render(); }
       });
@@ -161,4 +187,4 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
   };
 }
 
-export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText });
+export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText, writerLabel });

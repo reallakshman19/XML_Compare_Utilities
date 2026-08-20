@@ -1,4 +1,7 @@
-import { applyCiiWorkspaceTargetWriter1B, createCiiWorkspacePreview, inspectCiiWorkspaceModels } from './cii-workspace-core.js';
+import {
+  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C,
+  createCiiWorkspacePreview, inspectCiiWorkspaceModels,
+} from './cii-workspace-core.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { stableStringify } from './cii-workspace-contracts.js';
 import { updateCiiReviewDecisions } from './cii-workspace-review.js';
@@ -12,10 +15,20 @@ function anchorPairs(source, target) {
   if (left.length !== right.length || left.length < 1) throw new Error('Provide at least one SOURCE and TARGET anchor node in corresponding order.');
   return left.map((sourceNodeId, index) => ({ sourceNodeId, targetNodeId: right[index] }));
 }
-function download(documentRef, name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function binaryBytes(value) {
+  const raw = String(value ?? ''); const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index) & 0xff;
+  return bytes;
+}
+function download(documentRef, name, payload, type) {
+  const url = URL.createObjectURL(new Blob([payload], { type }));
   const link = documentRef.createElement('a'); link.href = url; link.download = name; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+function downloadApplied(documentRef, applied) {
+  const payload = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string'
+    ? binaryBytes(applied.byteString) : applied?.text;
+  download(documentRef, applied.fileName, payload, 'text/plain');
 }
 function formatValue(value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -86,9 +99,7 @@ function inspectorMarkup(row) {
   const changes = ciiEngineeringChangesMarkup(row.changes || []);
   return `<div class="ciiw-inspector-head"><div><b>${h(row.source)}</b> → <b>${h(row.target)}</b></div><span class="ciiw-pill">${h(row.confidence)}</span></div><div class="ciiw-evidence-cards"><div><b>M1 Spatial</b><span>${h(passText(row.methodA))}</span><small>${row.methodA?.distanceMm != null ? `${h(formatValue(row.methodA.distanceMm))} mm / ${h(formatValue(row.methodA.toleranceMm))} mm · ${h(row.methodA.basis)}` : 'Unavailable'}</small></div><div><b>M2 Network</b><span>${h(passText(row.methodB))}</span><small>${row.methodB ? `score ${h(formatValue(row.methodB.score))} / ${h(formatValue(row.methodB.threshold))}` : 'Unavailable'}</small></div><div><b>OD</b><span>${h(passText(row.od))}</span></div><div><b>Wall</b><span>${h(passText(row.wall))}</span></div><div><b>Winner gap</b><span>${h(row.winnerGap ?? '—')} / ${h(row.requiredWinnerGap ?? '—')}</span></div></div>${row.reasons?.length ? `<p><b>Identity notes:</b> ${h(row.reasons.join(', '))}</p>` : ''}<h4>Alternative candidates</h4>${alternatives}<h4>Engineering changes</h4>${changes}`;
 }
-function deltaMarkup(current, decisions) {
-  return ciiEngineeringDeltaMarkup(current, (row) => approvalText(row, decisions));
-}
+function deltaMarkup(current, decisions) { return ciiEngineeringDeltaMarkup(current, (row) => approvalText(row, decisions)); }
 function limitationMarkup(current) {
   const rows = current?.engineeringDeltas?.limitations || []; if (!rows.length) return '';
   return `<div class="ciiw-limitations"><h4>Capability limits</h4>${rows.map((item) => `<div><b>${h(item.label)}</b><span>${h(item.comparisonState)}</span><small>SOURCE ${h(item.sourceState)} / TARGET ${h(item.targetState)} · ${h(item.reason)}</small></div>`).join('')}</div>`;
@@ -109,6 +120,11 @@ function bulkAccept(current, decisions, confidence) {
   }
   return count;
 }
+function applyFunction(version) {
+  if (version === '1A') return applyCiiWorkspaceTargetWriter1A;
+  if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
+  return applyCiiWorkspaceTargetWriter1B;
+}
 
 export function mountCiiWorkspaceShell(container, options = {}) {
   container.innerHTML = `<div class="ciiw-workspace"><header><div><h2>CII Workspace</h2><p>Compare CAESAR II neutral models and review engineering changes</p></div><button type="button" data-ciiw-close>Close</button></header><nav class="ciiw-tabs"><button type="button" data-ciiw-tab="inputs">1 Inputs &amp; Match Basis</button><button type="button" data-ciiw-tab="compare">2 Compare Review</button><button type="button" data-ciiw-tab="transfer">3 Transfer Preview</button></nav><section data-ciiw-panel="inputs"><div class="ciiw-intake"><label>SOURCE CII <input type="file" accept=".cii,.accdb" data-ciiw-source></label><label>TARGET CII <input type="file" accept=".cii,.accdb" data-ciiw-target></label><button type="button" data-ciiw-inspect>Inspect models &amp; suggest base anchors</button><div data-ciiw-landmarks></div><label>Manual SOURCE anchor(s) <input type="text" placeholder="Legacy/manual mode: 10 or 10, 200" data-ciiw-source-anchors></label><label>Manual TARGET anchor(s) <input type="text" placeholder="Legacy/manual mode: 20010 or 20010, 20200" data-ciiw-target-anchors></label><button type="button" data-ciiw-analyze>Compare models →</button></div><div class="ciiw-status" data-ciiw-status>Load two neutral CII files, inspect method-qualified Base Anchor suggestions, then add independent bases or use manual anchors.</div></section><section data-ciiw-panel="compare"><div class="ciiw-results"><h3>1. Executive Summary</h3><div data-ciiw-executive></div><h3>2. Correspondence Review</h3><div class="ciiw-bulk-accept"><b>Bulk Accept</b><button type="button" data-ciiw-accept-high>Accept all HIGH</button><button type="button" data-ciiw-accept-medium>Accept all MEDIUM</button><small>REVIEW and UNRESOLVED rows are never bulk accepted.</small></div><div class="ciiw-toolbar"><label>Confidence <select data-ciiw-confidence-filter><option>ALL</option><option>HIGH</option><option>MEDIUM</option><option>REVIEW</option><option>UNRESOLVED</option><option>LOCKED</option></select></label><label>Search <input type="search" data-ciiw-search placeholder="Node, element, family"></label><label><input type="checkbox" data-ciiw-changed-only> Changed only</label></div><div data-ciiw-results></div><aside class="ciiw-inspector" data-ciiw-inspector></aside><h3>3. Engineering Delta Grid</h3><p>SOURCE candidate, current TARGET and effective TARGET after apply are shown separately. Pending decisions must be bound to Transfer Preview before they can alter effective TARGET.</p><div data-ciiw-deltas></div><div data-ciiw-limitations></div><button type="button" data-ciiw-refresh-review disabled>Apply approvals to Transfer Preview</button><button type="button" data-ciiw-export-csv disabled>Export correspondence CSV</button><button type="button" data-ciiw-export-json disabled>Export audit JSON</button></div></section><section data-ciiw-panel="transfer"><div data-ciiw-transfer></div><div class="ciiw-stages" data-ciiw-stages>${stageMarkup()}</div></section></div>`;
@@ -126,10 +142,12 @@ export function mountCiiWorkspaceShell(container, options = {}) {
     const button = transfer.querySelector('[data-ciiw-apply-target]'); if (!button || button.disabled) return;
     button.addEventListener('click', async () => {
       try {
-        if (!current || !baseInput?.targetText) throw new Error('Rebuild the approved transfer preview before target mutation.');
-        button.disabled = true; status.textContent = 'Applying Writer 1B fields and reparsing modified TARGET CII…';
-        const applied = await applyCiiWorkspaceTargetWriter1B(current, baseInput.targetText, { cryptoRef: options.cryptoRef });
-        download(container.ownerDocument, applied.fileName, applied.text, 'text/plain');
+        const targetInput = baseInput?.targetBytes ?? baseInput?.targetText;
+        if (!current || !targetInput) throw new Error('Rebuild the approved transfer preview before target mutation.');
+        const version = current.writerVersion || '1B'; button.disabled = true;
+        status.textContent = `Applying Writer ${version} fields and reparsing modified TARGET CII…`;
+        const applied = await applyFunction(version)(current, targetInput, { cryptoRef: options.cryptoRef });
+        downloadApplied(container.ownerDocument, applied);
         status.textContent = `Modified TARGET CII exported: ${applied.mutationCount} approved field changes; unexpected semantic deltas ${applied.validation.unexpectedSemanticDeltaCount}.`;
       } catch (error) { status.textContent = error.message || String(error); button.disabled = current?.writerReadiness?.ready !== true; }
     });
@@ -140,11 +158,21 @@ export function mountCiiWorkspaceShell(container, options = {}) {
     inspector.innerHTML = inspectorMarkup(current?.compareReview?.rows?.[0] || null);
   };
   const invalidate = (message, clearLandmarks = false) => { current = null; baseInput = null; decisions.clear(); results.innerHTML = ''; executive.innerHTML = ''; inspector.innerHTML = ''; deltas.innerHTML = ''; limits.innerHTML = ''; transfer.innerHTML = ''; stagesBox.innerHTML = stageMarkup(); reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true; if (clearLandmarks) landmarkBox.innerHTML = ''; status.textContent = message; switchTab('inputs'); };
-  const readFiles = async () => { const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0]; if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.'); return { sourceText: await sourceFile.text(), sourceFileName: sourceFile.name, targetText: await targetFile.text(), targetFileName: targetFile.name }; };
-  const run = async (review = undefined) => { current = await createCiiWorkspacePreview({ ...baseInput, ...(review ? { review } : {}) }); if (disposed) return; status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}; Writer 1B ${current.writerReadiness.status}.`; render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false; switchTab('compare'); };
+  const readFiles = async () => {
+    const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0];
+    if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.');
+    return { sourceBytes: new Uint8Array(await sourceFile.arrayBuffer()), sourceFileName: sourceFile.name,
+      targetBytes: new Uint8Array(await targetFile.arrayBuffer()), targetFileName: targetFile.name };
+  };
+  const run = async (review = undefined) => {
+    current = await createCiiWorkspacePreview({ ...baseInput, ...(review ? { review } : {}) }, options); if (disposed) return;
+    status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}; Writer ${current.writerVersion} ${current.writerReadiness.status}.`;
+    render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false; switchTab('compare');
+  };
   const inspect = async () => {
     try {
-      status.textContent = 'Inspecting model summaries and method-qualified Base Anchor evidence…'; decisions.clear(); current = null; baseInput = await readFiles(); const inspection = await inspectCiiWorkspaceModels(baseInput); if (disposed) return;
+      status.textContent = 'Inspecting model summaries and method-qualified Base Anchor evidence…'; decisions.clear(); current = null; baseInput = await readFiles();
+      const inspection = await inspectCiiWorkspaceModels(baseInput, options); if (disposed) return;
       landmarkBox.innerHTML = landmarkMarkup(inspection);
       landmarkBox.querySelectorAll('[data-ciiw-accept-anchor]').forEach((button) => button.addEventListener('click', () => { query('[data-ciiw-source-anchors]').value = button.dataset.sourceNode; query('[data-ciiw-target-anchors]').value = button.dataset.targetNode; landmarkBox.querySelectorAll('[data-ciiw-anchor-row]').forEach((row) => row.setAttribute('data-selected', 'false')); landmarkBox.querySelector(`[data-ciiw-anchor-row="${button.dataset.sourceNode}:${button.dataset.targetNode}"]`)?.setAttribute('data-selected', 'true'); status.textContent = `Manual anchor ${button.dataset.sourceNode} ↔ ${button.dataset.targetNode} selected by engineer. Run Compare models to use legacy/manual anchor mode.`; }));
       status.textContent = 'Base Anchor suggestions are evidence only. Add one or more qualified independent bases, or use manual anchors as a separate fallback mode.'; reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true;

@@ -1,55 +1,71 @@
+import { decodeCiiNumericRow } from '../../parser/fixed-field.js';
+import {
+  ciiPhysicalByteString, ciiPhysicalSectionRows, createCiiPhysicalFile, decodeCiiAsciiByteString,
+} from './cii-workspace-physical-file.js';
+
 const ELEMENT_BLOCK_ROWS = 15;
 const NODENAME_POINTER_ROW = 13;
 const NODENAME_FROM_START = 2;
 const NODENAME_TO_START = 28;
 const NODENAME_ROW_END = 53;
+const POINTER_FIELD_START = 67;
+const POINTER_FIELD_END = 80;
 
-function sectionRows(rawText, wanted) {
-  const rows = String(rawText ?? '').split(/\r?\n/);
-  const marker = new RegExp(`^\\s*#\\$\\s*${wanted}\\s*$`, 'i');
-  const start = rows.findIndex((row) => marker.test(row));
-  if (start < 0) return [];
-  const out = [];
-  for (let index = start + 1; index < rows.length; index += 1) {
-    if (/^\s*#\$\s*/.test(rows[index])) break;
-    if (rows[index].trim()) out.push(rows[index]);
-  }
-  return out;
-}
-
-function parsePointer(row) {
-  const fields = String(row ?? '').trim().split(/\s+/);
-  if (fields.length < 6 || !fields.slice(0, 6).every((value) => /^[-+]?\d+$/.test(value))) return null;
-  const pointer = Number(fields[5]);
+function integerPointer(row) {
+  const values = decodeCiiNumericRow(row);
+  const pointer = Number(values?.[5]);
   return Number.isSafeInteger(pointer) && pointer >= 0 ? pointer : null;
 }
 
-function parseElementEnds(row) {
-  const fields = String(row ?? '').trim().split(/\s+/);
-  if (fields.length < 2) return null;
-  const from = Number(fields[0]); const to = Number(fields[1]);
+function elementEnds(row) {
+  const values = decodeCiiNumericRow(row);
+  const from = Number(values?.[0]); const to = Number(values?.[1]);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
   return { from: String(Math.round(from)), to: String(Math.round(to)) };
 }
 
-function rawElementDescriptors(rawText) {
-  const rows = sectionRows(rawText, 'ELEMENTS'); const blocks = [];
+function rawElementDescriptors(physicalFile, physicalBlockers) {
+  const rows = ciiPhysicalSectionRows(physicalFile, 'ELEMENTS'); const blocks = [];
+  if (rows.length % ELEMENT_BLOCK_ROWS !== 0) physicalBlockers.push('NODENAME_ELEMENT_BLOCK_ROW_COUNT_NOT_MULTIPLE_OF_15');
   for (let offset = 0, blockIndex = 0; offset < rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
-    const ends = parseElementEnds(rows[offset]);
-    if (!ends) continue;
+    const header = rows[offset]; const ends = elementEnds(header?.text); if (!ends) continue;
+    const pointerLine = rows[offset + NODENAME_POINTER_ROW];
     blocks.push(Object.freeze({
-      blockIndex, from: ends.from, to: ends.to,
-      pointer: parsePointer(rows[offset + NODENAME_POINTER_ROW]),
+      blockIndex, ...ends, pointer: integerPointer(pointerLine?.text), pointerLine,
+      pointerField: physicalSpan(pointerLine, POINTER_FIELD_START, POINTER_FIELD_END, 'ELEMENT_NODENAME_POINTER', physicalFile),
     }));
   }
-  return blocks;
+  return { rows, blocks };
 }
 
 function matchDescriptor(element, descriptors, used) {
   const from = String(Math.round(Number(element.from))); const to = String(Math.round(Number(element.to)));
-  const index = descriptors.findIndex((item, position) => !used.has(position) && item.from === from && item.to === to);
+  const parsedIndex = Number(element.index);
+  let index = descriptors.findIndex((item, position) => !used.has(position)
+    && Number.isSafeInteger(parsedIndex) && item.blockIndex === parsedIndex && item.from === from && item.to === to);
+  if (index < 0) index = descriptors.findIndex((item, position) => !used.has(position) && item.from === from && item.to === to);
   if (index < 0) return null;
   used.add(index); return descriptors[index];
+}
+
+function physicalSpan(line, startColumn, endColumn, fieldIdentity, physicalFile) {
+  if (!line) return Object.freeze({ qualified: false, fieldIdentity, reason: 'LINE_MISSING' });
+  const width = endColumn - startColumn; const start = line.byteStart + startColumn; const end = line.byteStart + endColumn;
+  if (line.bodyByteEnd - line.byteStart < endColumn) {
+    return Object.freeze({ qualified: false, fieldIdentity, lineNumber: line.lineNumber, startColumn, endColumn, width, reason: 'ROW_TOO_SHORT' });
+  }
+  try {
+    const rawField = decodeCiiAsciiByteString(ciiPhysicalByteString(physicalFile, start, end));
+    return Object.freeze({
+      qualified: true, fieldIdentity, lineNumber: line.lineNumber, startColumn, endColumn, width,
+      byteStart: start, byteEnd: end, rawField, value: rawField.trim(),
+    });
+  } catch (error) {
+    return Object.freeze({
+      qualified: false, fieldIdentity, lineNumber: line.lineNumber, startColumn, endColumn, width,
+      byteStart: start, byteEnd: end, reason: error?.message || String(error),
+    });
+  }
 }
 
 function parseNamePair(row) {
@@ -60,57 +76,78 @@ function parseNamePair(row) {
   };
 }
 
-function addConflict(conflicts, code, details = {}) {
-  conflicts.push(Object.freeze({ code, ...details }));
-}
+function addConflict(conflicts, code, details = {}) { conflicts.push(Object.freeze({ code, ...details })); }
 
 function assignName(state, nodeId, name, evidence) {
   if (!name) return;
   const key = String(nodeId);
-  if (!state.known.has(key)) {
-    addConflict(state.conflicts, 'NODENAME_UNKNOWN_NODE', { nodeId: key, ...evidence });
-    return;
-  }
+  if (!state.known.has(key)) { addConflict(state.conflicts, 'NODENAME_UNKNOWN_NODE', { nodeId: key, ...evidence }); return; }
   if (state.blocked.has(key)) return;
   const previous = state.names.get(key);
   if (previous && previous !== name) {
     state.names.delete(key); state.blocked.add(key);
-    addConflict(state.conflicts, 'NODENAME_CONFLICT', { nodeId: key, previous, proposed: name, ...evidence });
-    return;
+    addConflict(state.conflicts, 'NODENAME_CONFLICT', { nodeId: key, previous, proposed: name, ...evidence }); return;
   }
   state.names.set(key, name);
 }
 
-export function extractCiiNodeNameEvidence(rawText, parsed = {}) {
+function addPhysicalOwner(bySpan, field, owner) {
+  if (!field?.qualified) return;
+  const key = `${field.byteStart}:${field.byteEnd}`;
+  const existing = bySpan.get(key) || { ...field, section: 'NODENAME', owners: [] };
+  existing.owners.push(Object.freeze(owner)); bySpan.set(key, existing);
+}
+
+function freezePhysicalCustody(physicalFile, blockers, byElementIndex, bySpan, rowCount) {
+  const spans = Object.fromEntries([...bySpan.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([key, value]) => [key, Object.freeze({ ...value, owners: Object.freeze(value.owners) })]));
+  return Object.freeze({
+    schema: 'CIIWorkspaceNodeNamePhysicalCustody.v1',
+    status: physicalFile.writer1CByteEligible && blockers.length === 0 ? 'QUALIFIED' : 'BLOCKED',
+    byteAuthority: physicalFile.byteAuthority, writer1CByteEligible: physicalFile.writer1CByteEligible,
+    rowCount, blockers: Object.freeze([...new Set(blockers)]),
+    byElementIndex: Object.freeze(byElementIndex), bySpan: Object.freeze(spans),
+  });
+}
+
+export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
+  const physicalFile = options.physicalFile || createCiiPhysicalFile(rawText);
   const elements = Array.isArray(parsed.elements) ? parsed.elements : [];
-  const rows = sectionRows(rawText, 'NODENAME'); const descriptors = rawElementDescriptors(rawText); const used = new Set();
-  const state = {
-    known: new Set(Object.keys(parsed.nodes || {}).map(String)), names: new Map(), blocked: new Set(), conflicts: [],
-  };
-  let mappedElementCount = 0;
+  const rows = ciiPhysicalSectionRows(physicalFile, 'NODENAME'); const physicalBlockers = [];
+  if (!physicalFile.writer1CByteEligible) physicalBlockers.push('NODENAME_ORIGINAL_BYTE_CUSTODY_REQUIRED');
+  const descriptors = rawElementDescriptors(physicalFile, physicalBlockers); const used = new Set();
+  const state = { known: new Set(Object.keys(parsed.nodes || {}).map(String)), names: new Map(), blocked: new Set(), conflicts: [] };
+  const byElementIndex = {}; const bySpan = new Map(); let mappedElementCount = 0;
   elements.forEach((element, elementIndex) => {
-    const descriptor = matchDescriptor(element, descriptors, used);
-    if (!descriptor) {
-      addConflict(state.conflicts, 'NODENAME_ELEMENT_BLOCK_NOT_FOUND', { elementIndex, from: element.from, to: element.to });
-      return;
-    }
+    const descriptor = matchDescriptor(element, descriptors.blocks, used);
+    if (!descriptor) { addConflict(state.conflicts, 'NODENAME_ELEMENT_BLOCK_NOT_FOUND', { elementIndex, from: element.from, to: element.to }); return; }
     const { pointer, blockIndex } = descriptor;
-    if (pointer === null) {
-      addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, blockIndex });
-      return;
+    if (pointer === null) { addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, blockIndex }); return; }
+    if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
+    if (pointer === 0) {
+      byElementIndex[elementIndex] = Object.freeze({ elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField, rowIndex: null }); return;
     }
-    if (pointer === 0) return;
-    if (pointer > rows.length) {
-      addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, blockIndex, pointer, rowCount: rows.length });
-      return;
-    }
-    mappedElementCount += 1; const pair = parseNamePair(rows[pointer - 1]);
+    if (pointer > rows.length) { addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, blockIndex, pointer, rowCount: rows.length }); return; }
+    mappedElementCount += 1;
+    const rowIndex = pointer - 1; const row = rows[rowIndex]; const pair = parseNamePair(row.text);
+    const fromField = physicalSpan(row, NODENAME_FROM_START, NODENAME_TO_START, 'NODENAME_FROM', physicalFile);
+    const toField = physicalSpan(row, NODENAME_TO_START, NODENAME_ROW_END, 'NODENAME_TO', physicalFile);
+    if (!fromField.qualified || !toField.qualified) physicalBlockers.push('NODENAME_FIXED_LAYOUT_UNQUALIFIED');
+    byElementIndex[elementIndex] = Object.freeze({
+      elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField,
+      rowIndex, rowLineNumber: row.lineNumber, fromField, toField,
+    });
+    addPhysicalOwner(bySpan, fromField, { elementIndex, blockIndex, pointer, rowIndex, end: 'FROM', nodeId: String(element.from) });
+    addPhysicalOwner(bySpan, toField, { elementIndex, blockIndex, pointer, rowIndex, end: 'TO', nodeId: String(element.to) });
     assignName(state, element.from, pair.fromName, { elementIndex, blockIndex, pointer, end: 'FROM' });
     assignName(state, element.to, pair.toName, { elementIndex, blockIndex, pointer, end: 'TO' });
   });
   const names = Object.fromEntries([...state.names.entries()].sort((a, b) => Number(a[0]) - Number(b[0])));
+  const custodyBlockers = [...physicalBlockers,
+    ...state.conflicts.map((item) => `NODENAME_CUSTODY_CONFLICT:${item.code}`)];
   return Object.freeze({
-    schema: 'CIIWorkspaceNodeNameEvidence.v1', rowCount: rows.length, rawElementBlockCount: descriptors.length,
+    schema: 'CIIWorkspaceNodeNameEvidence.v1', rowCount: rows.length, rawElementBlockCount: descriptors.blocks.length,
     mappedElementCount, names: Object.freeze(names), conflicts: Object.freeze(state.conflicts),
+    physicalCustody: freezePhysicalCustody(physicalFile, custodyBlockers, byElementIndex, bySpan, rows.length),
   });
 }

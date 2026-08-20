@@ -10,6 +10,7 @@ const RESTRAINT_PROPERTIES = new Set([
 ]);
 const HANGER_PROPERTIES = new Set(['Hanger presence', 'Hanger record count at node']);
 const SIF_TEE_PROPERTIES = new Set(['SIF/Tee record presence', 'SIF/Tee raw code (field 2)', 'SIF/Tee normalized raw payload']);
+const NODENAME_WRITER_1C_AUTHORITY = 'CII_WRITER_1C_NODENAME_EXISTING_ROW_FIELD';
 const PROCESS_AUTHORITIES = Object.freeze({
   P1: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD', P2: 'PROTECTED_WRITER_ELEMENT_ROW4_P2_FIXED_FIELD',
   P3: 'PROTECTED_WRITER_ELEMENT_ROW4_P3_FIXED_FIELD', P4: 'PROTECTED_WRITER_ELEMENT_ROW4_P4_FIXED_FIELD',
@@ -108,12 +109,13 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     || common(delta, 'WALL', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED, ['WALL_FIELD_NOT_QUALIFIED_FOR_WRITER_1A']);
   if (delta.category === 'NODE_NAME' && delta.property === 'Node name / to-name') {
     if (!delta.changed) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY);
-    const source = String(delta.sourceValue || ''); const target = String(delta.targetValue || '');
-    if (!source && target) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.DELETE, CII_TRANSFER_STATUSES.BLOCKED, ['NODE_NAME_DELETE_REQUIRES_EXPLICIT_POLICY']);
-    if (source && target && source !== target && options.allowNodeNameOverwrite !== true) {
-      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, ['TARGET_NODENAME_NONBLANK']);
-    }
-    return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.PREVIEW_READY);
+    const source = String(delta.sourceValue || ''); const target = String(delta.targetValue || ''); const blockers = [];
+    if (!String(delta.authority || '').includes('CII_NODENAME_FIXED_LAYOUT')) blockers.push('NODENAME_FIXED_LAYOUT_AUTHORITY_REQUIRED');
+    if (!source && target) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.DELETE, CII_TRANSFER_STATUSES.BLOCKED,
+      [...blockers, 'NODE_NAME_DELETE_REQUIRES_EXPLICIT_POLICY']);
+    if (source && target && source !== target && options.allowNodeNameOverwrite !== true) blockers.push('TARGET_NODENAME_NONBLANK');
+    return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.COPY, statusFromBlockers(blockers), blockers,
+      { policyAuthority: NODENAME_WRITER_1C_AUTHORITY });
   }
   if (delta.category === 'RESTRAINT' && RESTRAINT_PROPERTIES.has(delta.property)) return writerRestraint(delta, options);
   if (delta.category === 'HANGER' && HANGER_PROPERTIES.has(delta.property)) {
