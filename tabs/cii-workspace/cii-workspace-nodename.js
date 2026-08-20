@@ -27,8 +27,12 @@ function elementEnds(row) {
 function rawElementDescriptors(physicalFile, physicalBlockers) {
   const rows = ciiPhysicalSectionRows(physicalFile, 'ELEMENTS'); const blocks = [];
   if (rows.length % ELEMENT_BLOCK_ROWS !== 0) physicalBlockers.push('NODENAME_ELEMENT_BLOCK_ROW_COUNT_NOT_MULTIPLE_OF_15');
-  for (let offset = 0, blockIndex = 0; offset < rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
-    const header = rows[offset]; const ends = elementEnds(header?.text); if (!ends) continue;
+  for (let offset = 0, blockIndex = 0; offset + ELEMENT_BLOCK_ROWS <= rows.length; offset += ELEMENT_BLOCK_ROWS, blockIndex += 1) {
+    const header = rows[offset]; const ends = elementEnds(header?.text);
+    if (!ends) {
+      physicalBlockers.push(`NODENAME_ELEMENT_CANONICAL_HEADER_INVALID:${blockIndex}`);
+      continue;
+    }
     const pointerLine = rows[offset + NODENAME_POINTER_ROW];
     blocks.push(Object.freeze({
       blockIndex, ...ends, pointer: integerPointer(pointerLine?.text), pointerLine,
@@ -41,11 +45,26 @@ function rawElementDescriptors(physicalFile, physicalBlockers) {
 function matchDescriptor(element, descriptors, used) {
   const from = String(Math.round(Number(element.from))); const to = String(Math.round(Number(element.to)));
   const parsedIndex = Number(element.index);
-  let index = descriptors.findIndex((item, position) => !used.has(position)
+  const exactIndex = descriptors.findIndex((item, position) => !used.has(position)
     && Number.isSafeInteger(parsedIndex) && item.blockIndex === parsedIndex && item.from === from && item.to === to);
-  if (index < 0) index = descriptors.findIndex((item, position) => !used.has(position) && item.from === from && item.to === to);
-  if (index < 0) return null;
-  used.add(index); return descriptors[index];
+  if (exactIndex >= 0) {
+    used.add(exactIndex);
+    return Object.freeze({ descriptor: descriptors[exactIndex], authority: 'EXACT_PARSED_INDEX_AND_ENDPOINTS' });
+  }
+
+  const fallback = descriptors.map((item, position) => ({ item, position }))
+    .filter(({ item, position }) => !used.has(position) && item.from === from && item.to === to);
+  if (fallback.length === 1) {
+    used.add(fallback[0].position);
+    return Object.freeze({ descriptor: fallback[0].item, authority: 'ENDPOINT_FALLBACK_READ_ONLY' });
+  }
+  if (fallback.length > 1) {
+    return Object.freeze({
+      descriptor: null, authority: 'AMBIGUOUS_ENDPOINT_FALLBACK',
+      candidateBlockIndexes: Object.freeze(fallback.map(({ item }) => item.blockIndex)),
+    });
+  }
+  return Object.freeze({ descriptor: null, authority: 'UNRESOLVED' });
 }
 
 function physicalSpan(line, startColumn, endColumn, fieldIdentity, physicalFile) {
@@ -116,16 +135,32 @@ export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
   const rows = ciiPhysicalSectionRows(physicalFile, 'NODENAME'); const physicalBlockers = [];
   if (!physicalFile.writer1CByteEligible) physicalBlockers.push('NODENAME_ORIGINAL_BYTE_CUSTODY_REQUIRED');
   const descriptors = rawElementDescriptors(physicalFile, physicalBlockers); const used = new Set();
+  if (descriptors.blocks.length !== elements.length) physicalBlockers.push('NODENAME_ELEMENT_BLOCK_COUNT_MISMATCH');
   const state = { known: new Set(Object.keys(parsed.nodes || {}).map(String)), names: new Map(), blocked: new Set(), conflicts: [] };
   const byElementIndex = {}; const bySpan = new Map(); let mappedElementCount = 0;
   elements.forEach((element, elementIndex) => {
-    const descriptor = matchDescriptor(element, descriptors.blocks, used);
-    if (!descriptor) { addConflict(state.conflicts, 'NODENAME_ELEMENT_BLOCK_NOT_FOUND', { elementIndex, from: element.from, to: element.to }); return; }
+    const binding = matchDescriptor(element, descriptors.blocks, used); const descriptor = binding.descriptor;
+    if (!descriptor) {
+      const code = binding.authority === 'AMBIGUOUS_ENDPOINT_FALLBACK'
+        ? 'NODENAME_ELEMENT_BLOCK_AMBIGUOUS' : 'NODENAME_ELEMENT_BLOCK_NOT_FOUND';
+      addConflict(state.conflicts, code, {
+        elementIndex, parsedElementIndex: element.index, from: element.from, to: element.to,
+        ...(binding.candidateBlockIndexes ? { candidateBlockIndexes: binding.candidateBlockIndexes } : {}),
+      });
+      return;
+    }
+    if (binding.authority !== 'EXACT_PARSED_INDEX_AND_ENDPOINTS') {
+      physicalBlockers.push(`NODENAME_ELEMENT_PHYSICAL_BINDING_EXACT_REQUIRED:${elementIndex}`);
+    }
     const { pointer, blockIndex } = descriptor;
     if (pointer === null) { addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, blockIndex }); return; }
     if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
     if (pointer === 0) {
-      byElementIndex[elementIndex] = Object.freeze({ elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField, rowIndex: null }); return;
+      byElementIndex[elementIndex] = Object.freeze({
+        elementIndex, parsedElementIndex: Number(element.index), bindingAuthority: binding.authority,
+        blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField, rowIndex: null,
+      });
+      return;
     }
     if (pointer > rows.length) { addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, blockIndex, pointer, rowCount: rows.length }); return; }
     mappedElementCount += 1;
@@ -134,11 +169,18 @@ export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
     const toField = physicalSpan(row, NODENAME_TO_START, NODENAME_ROW_END, 'NODENAME_TO', physicalFile);
     if (!fromField.qualified || !toField.qualified) physicalBlockers.push('NODENAME_FIXED_LAYOUT_UNQUALIFIED');
     byElementIndex[elementIndex] = Object.freeze({
-      elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField,
+      elementIndex, parsedElementIndex: Number(element.index), bindingAuthority: binding.authority,
+      blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField,
       rowIndex, rowLineNumber: row.lineNumber, fromField, toField,
     });
-    addPhysicalOwner(bySpan, fromField, { elementIndex, blockIndex, pointer, rowIndex, end: 'FROM', nodeId: String(element.from) });
-    addPhysicalOwner(bySpan, toField, { elementIndex, blockIndex, pointer, rowIndex, end: 'TO', nodeId: String(element.to) });
+    addPhysicalOwner(bySpan, fromField, {
+      elementIndex, parsedElementIndex: Number(element.index), bindingAuthority: binding.authority,
+      blockIndex, pointer, rowIndex, end: 'FROM', nodeId: String(element.from),
+    });
+    addPhysicalOwner(bySpan, toField, {
+      elementIndex, parsedElementIndex: Number(element.index), bindingAuthority: binding.authority,
+      blockIndex, pointer, rowIndex, end: 'TO', nodeId: String(element.to),
+    });
     assignName(state, element.from, pair.fromName, { elementIndex, blockIndex, pointer, end: 'FROM' });
     assignName(state, element.to, pair.toName, { elementIndex, blockIndex, pointer, end: 'TO' });
   });
