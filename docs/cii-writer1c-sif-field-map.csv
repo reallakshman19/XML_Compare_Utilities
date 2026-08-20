@@ -1,61 +1,61 @@
-section,tee_slot,block_relative_row,field_index,neutral_item,column_start,column_end_exclusive,width,encoding,engineering_meaning,unit_basis,value_semantics,authority_class,writable,writer_domain,source_ids,benchmark_observations,open_issue
-SIF&TEES,1,0,0,1,0,15,15,"FORTRAN (2X,6G13.6)",Node,node identity,identity; mutation prohibited,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,identity/ownership
-SIF&TEES,1,0,1,2,15,28,13,"FORTRAN (2X,6G13.6)",Type,intersection type code,code-dependent enum; preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,"slot1 3=>7;5=>8;11=>12",Type/code context must not drift
-SIF&TEES,1,0,2,3,28,41,13,"FORTRAN (2X,6G13.6)",In-Plane SIF (ii),dimensionless,initial writer blocks zero/blank/9999.99 transitions,DIRECT,YES,"explicit TARGET >=1.0 -> proposed >=1.0; Type/code unchanged",SRC-SIF-008;SRC-SIF-009,canonical position currently zero,positive Phase2B fixture required
-SIF&TEES,1,0,3,4,41,54,13,"FORTRAN (2X,6G13.6)",Out-Plane SIF (io),dimensionless,initial writer blocks zero/blank/9999.99 transitions,DIRECT,YES,"explicit TARGET >=1.0 -> proposed >=1.0; Type/code unchanged",SRC-SIF-008;SRC-SIF-009,canonical position currently zero,positive Phase2B fixture required
-SIF&TEES,1,0,4,5,54,67,13,"FORTRAN (2X,6G13.6)",Weld d,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,0,5,6,67,80,13,"FORTRAN (2X,6G13.6)",Fillet,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,1,0,7,0,15,15,"FORTRAN (2X,6G13.6)",Pad Thk,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,1,1,8,15,28,13,"FORTRAN (2X,6G13.6)",Ftg Ro,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,1,2,9,28,41,13,"FORTRAN (2X,6G13.6)",Crotch R,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,1,3,10,41,54,13,"FORTRAN (2X,6G13.6)",Weld ID,component/code option,preserve; context dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,1,1,4,11,54,67,13,"FORTRAN (2X,6G13.6)",B1,code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,code-specific
-SIF&TEES,1,1,5,12,67,80,13,"FORTRAN (2X,6G13.6)",B2,code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,code-specific
-SIF&TEES,1,2,0,13,0,15,15,"FORTRAN (2X,6G13.6)",In-Plane Index (Ii),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,1,2,1,14,15,28,13,"FORTRAN (2X,6G13.6)",Out-Plane Index (Io),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,1,2,2,15,28,41,13,"FORTRAN (2X,6G13.6)",Torsion SIF (it),dimensionless,preserve; Version12 ordering,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009;SRC-SIF-010,,item15 flips to Axial in V14/V15
-SIF&TEES,1,2,3,16,41,54,13,"FORTRAN (2X,6G13.6)",Axial SIF (ia),dimensionless,preserve; Version12 ordering,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009;SRC-SIF-010,,item16 flips to Torsion in V14/V15
-SIF&TEES,1,2,4,17,54,67,13,"FORTRAN (2X,6G13.6)",Pressure SIF (ip),dimensionless,preserve; code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not selected
-SIF&TEES,1,2,5,18,67,80,13,"FORTRAN (2X,6G13.6)",Pressure Index (Ip),dimensionless,preserve; code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not selected
-SIF&TEES,1,3,0,19,0,15,15,"FORTRAN (2X,6G13.6)",Code-specific item 19,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,1,3,1,20,15,28,13,"FORTRAN (2X,6G13.6)",Code-specific item 20,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,1,3,2,21,28,41,13,"FORTRAN (2X,6G13.6)",Code-specific item 21,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,1,3,3,22,41,54,13,"FORTRAN (2X,6G13.6)",Code-specific item 22,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,1,3,4,23,54,67,13,"FORTRAN (2X,6G13.6)",Code-related Note option 23,code option,preserve; Version12 sentinel rule not promoted,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-011,9999.99 in 27/27,do not backport later sentinel semantics
-SIF&TEES,1,3,5,24,67,80,13,"FORTRAN (2X,6G13.6)",Code-related Note option 24,code option,preserve; Version12 sentinel rule not promoted,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-011,9999.99 in 27/27,do not backport later sentinel semantics
-SIF&TEES,1,4,0,25,0,15,15,"FORTRAN (2X,6G13.6)",Axial Index (Ia),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,1,4,1,26,15,28,13,"FORTRAN (2X,6G13.6)",Torsion Index (It),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,1,4,2,27,28,41,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 27,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,1,4,3,28,41,54,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 28,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,1,4,4,29,54,67,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 29,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,1,4,5,30,67,80,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 30,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,2,5,0,1,0,15,15,"FORTRAN (2X,6G13.6)",Node,node identity,identity; mutation prohibited,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,slot2 Node populated in 6/27,identity/ownership
-SIF&TEES,2,5,1,2,15,28,13,"FORTRAN (2X,6G13.6)",Type,intersection type code,code-dependent enum; preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,slot2 Type=11 in 6/27,Type/code context must not drift
-SIF&TEES,2,5,2,3,28,41,13,"FORTRAN (2X,6G13.6)",In-Plane SIF (ii),dimensionless,initial writer blocks zero/blank/9999.99 transitions,DIRECT,YES,"explicit TARGET >=1.0 -> proposed >=1.0; Type/code unchanged",SRC-SIF-008;SRC-SIF-009,canonical position currently zero,positive Phase2B fixture required
-SIF&TEES,2,5,3,4,41,54,13,"FORTRAN (2X,6G13.6)",Out-Plane SIF (io),dimensionless,initial writer blocks zero/blank/9999.99 transitions,DIRECT,YES,"explicit TARGET >=1.0 -> proposed >=1.0; Type/code unchanged",SRC-SIF-008;SRC-SIF-009,canonical position currently zero,positive Phase2B fixture required
-SIF&TEES,2,5,4,5,54,67,13,"FORTRAN (2X,6G13.6)",Weld d,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,5,5,6,67,80,13,"FORTRAN (2X,6G13.6)",Fillet,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,6,0,7,0,15,15,"FORTRAN (2X,6G13.6)",Pad Thk,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,6,1,8,15,28,13,"FORTRAN (2X,6G13.6)",Ftg Ro,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,6,2,9,28,41,13,"FORTRAN (2X,6G13.6)",Crotch R,length / active unit system,preserve; component/code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,6,3,10,41,54,13,"FORTRAN (2X,6G13.6)",Weld ID,component/code option,preserve; context dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,not selected
-SIF&TEES,2,6,4,11,54,67,13,"FORTRAN (2X,6G13.6)",B1,code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,code-specific
-SIF&TEES,2,6,5,12,67,80,13,"FORTRAN (2X,6G13.6)",B2,code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,code-specific
-SIF&TEES,2,7,0,13,0,15,15,"FORTRAN (2X,6G13.6)",In-Plane Index (Ii),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,2,7,1,14,15,28,13,"FORTRAN (2X,6G13.6)",Out-Plane Index (Io),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,2,7,2,15,28,41,13,"FORTRAN (2X,6G13.6)",Torsion SIF (it),dimensionless,preserve; Version12 ordering,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009;SRC-SIF-010,,item15 flips to Axial in V14/V15
-SIF&TEES,2,7,3,16,41,54,13,"FORTRAN (2X,6G13.6)",Axial SIF (ia),dimensionless,preserve; Version12 ordering,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009;SRC-SIF-010,,item16 flips to Torsion in V14/V15
-SIF&TEES,2,7,4,17,54,67,13,"FORTRAN (2X,6G13.6)",Pressure SIF (ip),dimensionless,preserve; code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not selected
-SIF&TEES,2,7,5,18,67,80,13,"FORTRAN (2X,6G13.6)",Pressure Index (Ip),dimensionless,preserve; code dependent,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not selected
-SIF&TEES,2,8,0,19,0,15,15,"FORTRAN (2X,6G13.6)",Code-specific item 19,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,2,8,1,20,15,28,13,"FORTRAN (2X,6G13.6)",Code-specific item 20,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,2,8,2,21,28,41,13,"FORTRAN (2X,6G13.6)",Code-specific item 21,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,2,8,3,22,41,54,13,"FORTRAN (2X,6G13.6)",Code-specific item 22,IGE/TD/12 / code-specific,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008,,generic engineering name unresolved
-SIF&TEES,2,8,4,23,54,67,13,"FORTRAN (2X,6G13.6)",Code-related Note option 23,code option,preserve; Version12 sentinel rule not promoted,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-011,9999.99 in 27/27,do not backport later sentinel semantics
-SIF&TEES,2,8,5,24,67,80,13,"FORTRAN (2X,6G13.6)",Code-related Note option 24,code option,preserve; Version12 sentinel rule not promoted,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-011,9999.99 in 27/27,do not backport later sentinel semantics
-SIF&TEES,2,9,0,25,0,15,15,"FORTRAN (2X,6G13.6)",Axial Index (Ia),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,2,9,1,26,15,28,13,"FORTRAN (2X,6G13.6)",Torsion Index (It),dimensionless,preserve,DIRECT,NO,NO_WRITER_AUTHORITY,SRC-SIF-008;SRC-SIF-009,,not first slice
-SIF&TEES,2,9,2,27,28,41,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 27,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,2,9,3,28,41,54,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 28,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,2,9,4,29,54,67,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 29,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
-SIF&TEES,2,9,5,30,67,80,13,"FORTRAN (2X,6G13.6)",UNRESOLVED item 30,UNRESOLVED,preserve,UNRESOLVED,NO,NO_WRITER_AUTHORITY,GAP-SIF-001,,Version12 meaning unavailable
+section,tee_slot,block_relative_row,field_index,neutral_item,column_start,column_end_exclusive,width,engineering_meaning,v12_position_authority,canonical_v11_position_authority,writable,writer_domain,source_ids,open_issue
+SIF&TEES,1,0,0,1,0,15,15,"Node",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,0,1,2,15,28,13,"Type",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,0,2,3,28,41,13,"In-Plane SIF (ii)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,0,3,4,41,54,13,"Out-Plane SIF (io)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,0,4,5,54,67,13,"Weld d",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,0,5,6,67,80,13,"Fillet",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,0,7,0,15,15,"Pad Thk",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,1,8,15,28,13,"Ftg Ro",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,2,9,28,41,13,"Crotch R",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,3,10,41,54,13,"Weld ID",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,4,11,54,67,13,"B1",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,1,5,12,67,80,13,"B2",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,0,13,0,15,15,"In-Plane Index (Ii)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,1,14,15,28,13,"Out-Plane Index (Io)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,2,15,28,41,13,"Torsion SIF (it)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,3,16,41,54,13,"Axial SIF (ia)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,4,17,54,67,13,"Pressure SIF (ip)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,2,5,18,67,80,13,"Pressure Index (Ip)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,0,19,0,15,15,"Code-specific item 19",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,1,20,15,28,13,"Code-specific item 20",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,2,21,28,41,13,"Code-specific item 21",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,3,22,41,54,13,"Code-specific item 22",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,4,23,54,67,13,"Code-related Note option 23",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,3,5,24,67,80,13,"Code-related Note option 24",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,4,0,25,0,15,15,"Axial Index (Ia)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,4,1,26,15,28,13,"Torsion Index (It)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,1,4,2,27,28,41,13,"UNRESOLVED item 27",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,1,4,3,28,41,54,13,"UNRESOLVED item 28",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,1,4,4,29,54,67,13,"UNRESOLVED item 29",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,1,4,5,30,67,80,13,"UNRESOLVED item 30",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,2,5,0,1,0,15,15,"Node",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,5,1,2,15,28,13,"Type",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,5,2,3,28,41,13,"In-Plane SIF (ii)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,5,3,4,41,54,13,"Out-Plane SIF (io)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,5,4,5,54,67,13,"Weld d",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,5,5,6,67,80,13,"Fillet",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,0,7,0,15,15,"Pad Thk",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,1,8,15,28,13,"Ftg Ro",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,2,9,28,41,13,"Crotch R",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,3,10,41,54,13,"Weld ID",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,4,11,54,67,13,"B1",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,6,5,12,67,80,13,"B2",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,0,13,0,15,15,"In-Plane Index (Ii)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,1,14,15,28,13,"Out-Plane Index (Io)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,2,15,28,41,13,"Torsion SIF (it)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,3,16,41,54,13,"Axial SIF (ia)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,4,17,54,67,13,"Pressure SIF (ip)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,7,5,18,67,80,13,"Pressure Index (Ip)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,0,19,0,15,15,"Code-specific item 19",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,1,20,15,28,13,"Code-specific item 20",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,2,21,28,41,13,"Code-specific item 21",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,3,22,41,54,13,"Code-specific item 22",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,4,23,54,67,13,"Code-related Note option 23",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,8,5,24,67,80,13,"Code-related Note option 24",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,9,0,25,0,15,15,"Axial Index (Ia)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,9,1,26,15,28,13,"Torsion Index (It)",DIRECT,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,SRC-SIF-008;SRC-SIF-012,"V11 neutral position equivalence to V12 not established"
+SIF&TEES,2,9,2,27,28,41,13,"UNRESOLVED item 27",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,2,9,3,28,41,54,13,"UNRESOLVED item 28",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,2,9,4,29,54,67,13,"UNRESOLVED item 29",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
+SIF&TEES,2,9,5,30,67,80,13,"UNRESOLVED item 30",UNRESOLVED,UNRESOLVED,NO,BLOCKED_V11_POSITION_AUTHORITY_UNRESOLVED,GAP-SIF-001;SRC-SIF-012,"V12 meaning unresolved; V11 position/meaning also unresolved"
