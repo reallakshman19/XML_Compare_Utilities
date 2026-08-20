@@ -70,6 +70,8 @@ The protected external converter/writer remains format authority and is not modi
 converters/scripts/inputxml_to_cii2019.py
 ```
 
+For Writer 1C, **the original TARGET byte stream is the physical authority**. Intake may expose decoded text for parsing and UI, but mutation SHA custody is over original bytes. Writer 1C must patch qualified, equal-width pre-existing byte spans in that byte stream; it must not reconstruct or reserialize the complete CII from parsed text/objects merely to edit an auxiliary field.
+
 ## 2.2 Identity, delta, mutation scope, and Writer authority are separate
 
 Authoritative pipeline:
@@ -486,9 +488,9 @@ After scope binding, export controls must emit the scoped audit so the mutation-
 
 Writer phases are defined by **ownership, pointer stability, row-count stability, and topology impact**, not by UI family name.
 
-A higher Writer version may compose lower Writer versions, but it must never copy their logic into a second divergent implementation.
+A higher Writer version may eventually compose lower Writer versions, but composition is itself transaction authority and must be separately qualified. **Phase-1 Writer 1C does not automatically inherit mixed Writer 1A/1B mutation authority.**
 
-Required composition principle:
+Long-term composition principle:
 
 ```text
 Writer 1C
@@ -497,17 +499,47 @@ Writer 1C
   applies only qualified Writer-1C operations itself
 ```
 
+Current Phase-1 authority:
+
+```text
+NODENAME Writer-1C APPLY operations only
++ all other mutable operations explicitly EXCLUDE
+```
+
+A transaction containing Writer-1A/1B APPLY together with Writer-1C APPLY remains blocked until the complete mixed transaction has equivalent original-byte negative-assurance qualification.
+
 Every Writer must enforce:
 
 - exact TARGET hash / stale-target protection;
 - exact target preimage value before patch;
 - field/column width limits;
-- unique mutation-span claims;
+- deterministic mutation reporting;
 - no silent row insertion/deletion unless its Writer phase explicitly owns cardinality;
 - reparse after mutation;
 - expected semantic delta confirmation;
 - unexpected semantic delta count = 0;
-- byte/row negative assurance outside claimed spans.
+- negative assurance against an **independently derived authorized physical span set**, not merely against Writer-reported claims.
+
+For Writer 1C, define:
+
+```text
+S_auth = validator-derived authorized physical byte spans
+B      = Writer-reported mutation spans (audit testimony)
+D      = actual byte-difference indices
+```
+
+PASS requires at minimum:
+
+```text
+D ⊆ S_auth
+B == expected reported authorization set
+exact preimage/postimage at every S_auth span
+all structural invariants preserved
+expected semantic deltas only
+unexpected semantic delta count = 0
+```
+
+`B` never defines `S_auth`.
 
 ## 6.1 Writer 1A — existing cardinality-preserving numeric fields
 
@@ -532,7 +564,7 @@ Qualified examples:
 
 Writer 1B does not acquire authority merely because an operation is selected APPLY. Transfer scope selects operations; Writer policy still decides whether they are writable.
 
-## 6.3 Writer 1C — planned pointer-stable existing auxiliary-record writer
+## 6.3 Writer 1C — pointer-stable existing auxiliary-record writer
 
 ### Definition
 
@@ -551,9 +583,15 @@ AND no element/node/connectivity is created/deleted/renumbered
 AND exact record ownership is proven
 AND exact field semantics or byte-slice custody is source-qualified
 AND mutation is explicitly APPLY in the bound transfer scope
+AND original TARGET byte authority is retained
+AND apply-time physical custody still matches preview custody
 ```
 
 If any gate fails, the operation remains Writer 2/3 territory.
+
+Governing Phase-1 statement:
+
+> Writer 1C does not rewrite a CII file. Writer 1C patches a finite set of independently authorized, pre-existing physical byte spans in an otherwise immutable CII byte stream.
 
 ### 6.3.1 Writer 1C first mandatory slice — existing NODENAME row fields
 
@@ -563,27 +601,39 @@ Current source custody is in:
 tabs/cii-workspace/cii-workspace-nodename.js
 ```
 
-Current fixed layout evidence:
+Qualified fixed-layout evidence:
 
 ```text
 ELEMENT block rows                  15
 NODENAME pointer ELEMENT row index  13 (zero-based within block)
-NODENAME pointer numeric field      6th field on that row
+NODENAME pointer numeric field      fixed numeric field [67,80) zero-based on that row
 NODENAME row FROM slice             [2, 28) zero-based
 NODENAME row TO slice               [28, 53) zero-based
 ```
 
-The implementation must re-qualify these offsets against canonical CII fixtures and protected writer output before treating them as mutation authority.
+Physical custody must retain, for every writable field:
 
-Initial Writer-1C NODENAME authority may support only:
+```text
+TARGET ELEMENT identity / parsed element index
+pointer value
+referenced NODENAME row index
+FROM or TO field identity
+absolute byte start/end
+exact preimage bytes
+all physical owners / aliases of that span
+```
+
+Custody is persisted at intake and re-derived at apply. Pointer/row/span ownership drift blocks mutation.
+
+Initial Writer-1C NODENAME authority supports only:
 
 ```text
 existing TARGET pointer > 0
 existing TARGET NODENAME row present
 existing referenced row ownership qualified
 SOURCE/TARGET node identity bound
-SOURCE name fits qualified field width
-patch field in place
+SOURCE name fits qualified field width and encoding
+patch field in place in original bytes
 preserve pointer and row count
 ```
 
@@ -594,9 +644,12 @@ Required conservative policy:
 - no section-row insertion/deletion;
 - no automatic nonblank TARGET overwrite unless existing overwrite policy explicitly allows it;
 - no removal of the whole record when both fields become blank unless a separate cardinality policy proves it safe;
-- if one NODENAME row is referenced by multiple elements, derive one canonical desired post-state; conflicting desired values must block.
+- if one physical NODENAME span is owned by multiple elements/nodes, derive one canonical desired post-state;
+- same physical span + different desired bytes => block;
+- same physical span + identical desired bytes => canonicalize only when the complete owner set is compatible;
+- an unselected alias that would be changed => block.
 
-Writer 1C should introduce explicit blockers such as:
+Writer 1C blockers include:
 
 ```text
 WRITER_1C_NODENAME_POINTER_REQUIRED
@@ -605,6 +658,7 @@ WRITER_1C_NODENAME_LAYOUT_DRIFT
 WRITER_1C_NODENAME_FIELD_OVERFLOW
 WRITER_1C_NODENAME_PREIMAGE_MISMATCH
 WRITER_1C_NODENAME_SHARED_RECORD_CONFLICT
+WRITER_1C_NODENAME_UNAPPROVED_ALIAS_EFFECT
 WRITER_1C_NODENAME_CREATE_REQUIRES_WRITER_2
 WRITER_1C_NODENAME_RECORD_DELETE_REQUIRES_WRITER_2
 ```
@@ -743,9 +797,9 @@ Writer development is disqualified if the implementation only proves “the inte
 For every Writer 1C mutation:
 
 ```text
-file byte length                 unchanged, unless the qualified field format explicitly proves equal-width replacement
+file byte length                 unchanged for Phase-1 fixed-width NODENAME replacement
 physical line count              unchanged
-line-ending style                unchanged
+line-ending sequence             unchanged
 section ordering                 unchanged
 ELEMENT block count              unchanged
 ELEMENT block row count          unchanged
@@ -763,31 +817,60 @@ connectivity                     unchanged
 
 For Writer 1C, any pointer or row-count change is a hard failure, even when the resulting CII still parses.
 
-## 7.2 Byte-span negative assurance
+## 7.2 Independent byte-span negative assurance
 
-Each mutation returns an exact claim:
+Each Writer mutation may report an exact claim:
 
 ```text
 lineNumber
 startColumn
 endColumn
+absoluteByteStart
+absoluteByteEnd
 beforeField
 afterField
-operationId
+operationIds
 section
 record identity
 field identity
+physical owner bindings
 ```
 
-Tests must construct the set of all claimed byte spans and assert:
+But Writer claims are **audit testimony only**. They do not define mutation authority.
+
+The independent validator must derive `S_auth` without importing or trusting Writer/planner span output. Derivation uses:
 
 ```text
-all bytes outside claimed spans are identical
+bound APPLY operation(s)
+persisted original-byte TARGET custody
+apply-time re-derived TARGET custody
+source-qualified fixed-field layout
+exact target node/element/pointer/row/field ownership
 ```
 
-Overlapping claims are blocked before mutation.
+Let:
 
-Two operations that converge on the same physical field may collapse only if the canonical desired value is identical. Different desired values are a shared-record conflict.
+```text
+S_auth = independently authorized byte-span union
+B      = Writer-reported span union
+D      = actual byte-difference indices
+```
+
+Required assertions:
+
+```text
+D ⊆ S_auth
+B matches the expected report for S_auth
+preimage bytes at every S_auth span are exact
+postimage bytes at every S_auth span are exact
+EVERY byte outside S_auth is identical before vs after
+```
+
+This assertion includes whitespace, pointer digits, padding, comments, line endings, and untouched auxiliary records.
+
+Overlapping authorization is resolved before mutation. Two operations converging on one physical field may collapse only if the canonical desired bytes are identical and the complete alias-owner set is compatible. Different desired values, or an unselected alias that would be changed, block the transaction.
+
+A falsifier that changes an unrelated pointer/space/padding byte must fail even when the requested NODENAME edit succeeds and the modified CII reparses.
 
 ## 7.3 Preimage drift tests
 
@@ -798,6 +881,8 @@ Mismatch:
 ```text
 WRITER_1C_TARGET_VALUE_MISMATCH
 ```
+
+or a more specific family preimage blocker.
 
 No “best effort” field search, no nearest record fallback, and no patching by node label alone.
 
@@ -811,6 +896,8 @@ TARGET element identity
 TARGET parsed element index
 TARGET pointer value
 TARGET section record/block index
+absolute physical field span
+physical owner set
 ```
 
 Reordering or changing any one after preview invalidates the operation.
@@ -822,6 +909,7 @@ Tests must deliberately modify:
 - target auxiliary row order;
 - target section row count;
 - shared pointer ownership;
+- exact referenced-row preimage;
 
 and assert fail-closed behavior.
 
@@ -833,14 +921,17 @@ NODENAME tests must include:
 - one-character field;
 - exact maximum-width field;
 - one-character overflow;
-- leading/trailing spaces;
+- leading/trailing spaces policy;
 - internal spaces;
 - punctuation supported by the source format;
+- non-ASCII rejection unless separately qualified;
 - two names sharing one NODENAME row;
 - two elements sharing one pointer;
-- conflict and non-conflict shared-record cases.
+- redundant FROM/TO ownership;
+- conflict and non-conflict shared-record cases;
+- unselected-alias side effect.
 
-SIF/TEE tests must include:
+SIF/TEE tests must include, only after semantic field-map qualification:
 
 - positive/negative/zero Fortran numeric values;
 - exponent forms;
@@ -859,17 +950,18 @@ SIF/TEE tests must include:
 Required flow:
 
 ```text
-TARGET text
- -> qualified intake
- -> Writer 1C patch
- -> reparse modified TARGET
+TARGET original bytes
+ -> qualified intake + persisted physical custody
+ -> Writer 1C equal-width byte patch
+ -> re-intake modified bytes through production parser
+ -> independently validate structural/byte invariants
  -> recompute relevant engineering evidence
 ```
 
 Acceptance requires:
 
 ```text
-expected semantic delta count = intended mutations
+expected semantic delta count = intended semantic mutations
 unexpected semantic delta count = 0
 ```
 
@@ -882,7 +974,7 @@ At least one qualification test per Writer-1C family must be independent of the 
 Examples:
 
 - a small Python oracle computing exact NODENAME slice offsets and expected byte replacement from a fixture;
-- independent SIF/TEE block-index arithmetic and field-span computation from canonical raw rows.
+- independent SIF/TEE block-index arithmetic and field-span computation from canonical raw rows after semantic authority exists.
 
 Do not use production Writer functions to compute expected output for the same test.
 
@@ -982,7 +1074,7 @@ PR999   human-readable delta / effective TARGET presentation
 PR1001  explicit APPLY / EXCLUDE mutation scope + scoped audit custody
 ```
 
-The product now has the correct authority sequence before extending Writer capability.
+PR #1004 is the stacked implementation PR for Writer-1C Phase 1. Its engineering-path evidence is downstream implementation evidence; this documentation PR remains production-code-free and owner-merge-controlled.
 
 ---
 
@@ -992,7 +1084,7 @@ The product now has the correct authority sequence before extending Writer capab
 
 Before expanding mutation authority, execute and retain evidence for:
 
-- focused PR1001 scope tests in a complete checkout;
+- focused scope tests in a complete checkout;
 - full CII Workspace shell lifecycle;
 - Chromium workflow;
 - `SOURCE 3 -> TARGET 3-1` end-to-end correspondence/review/scope path;
@@ -1005,25 +1097,27 @@ Do not make Writer 1C compensate for an unqualified lower layer.
 
 Deliver in this order:
 
-1. source-qualified NODENAME physical-layout contract;
-2. target row/pointer ownership model;
-3. canonical shared-row mutation planning;
-4. transfer classification authority token for qualified existing-row mutation;
-5. `ciiWriter1CReadiness()`;
-6. `applyCiiTargetWriter1C()` composed over 1B;
-7. exact-span mutation evidence;
-8. round-trip and anti-drift suite;
-9. UI/product writer-version integration only after core qualification.
+1. original-byte physical-file custody;
+2. source-qualified NODENAME physical-layout contract;
+3. target pointer/row/FROM/TO absolute-byte-span custody and alias reverse index;
+4. narrow transfer classification authority token for qualified existing-row mutation;
+5. NODENAME-only Writer-1C readiness with other mutable operations EXCLUDE;
+6. equal-width original-byte patcher;
+7. independent validator deriving `S_auth` without trusting Writer claims;
+8. independent NODENAME oracle and byte falsifiers;
+9. production-parser benchmark round trip;
+10. explicit Writer-1C core/scope/product routing while preserving Writer 1B as product default;
+11. browser/product proof that original bytes and binary download remain intact.
 
-Recommended first production scope is **existing-row NODENAME COPY only**. Creation/deletion remains Writer 2.
+Recommended production scope is **existing-row NODENAME COPY only**. Creation/deletion remains Writer 2. Mixed Writer-1A/1B + Writer-1C APPLY is not Phase-1 authority and requires separate transaction qualification.
 
 ## Phase 2 — Writer 1C existing SIF/TEE fields
 
 Prerequisite: authoritative field-semantic map.
 
-Then qualify one field family at a time. Do not expose blanket raw-payload copy.
+`FIELD_2_SEMANTICS_UNQUALIFIED` is a hard blocker, not a placeholder to bypass. Qualify one field family at a time; do not expose blanket raw-payload copy.
 
-Each field family requires independent fixtures and one explicit Writer capability token.
+Each field family requires independent fixtures, an explicit Writer capability token, exact original-byte custody, and an independent `S_auth` derivation path.
 
 ## Phase 3 — optional existing auxiliary text fields
 
@@ -1073,7 +1167,8 @@ containing:
 - correspondence semantic hash;
 - transfer-scope ID;
 - Writer version;
-- ordered mutation claims;
+- independently authorized span set / authority evidence;
+- Writer-reported mutation claims;
 - before/after field values;
 - before/after file hash;
 - validation result;
@@ -1107,6 +1202,9 @@ Do not:
 - copy raw SIF/TEE payloads while semantics remain unqualified;
 - search for a “similar” target row after preimage/pointer mismatch;
 - silently truncate a fixed-width string/numeric field;
+- reconstruct/serialize the whole CII file from parsed text to perform a Phase-1 Writer-1C field edit;
+- use Writer-reported mutation spans as the source of validator authorization;
+- automatically combine Writer-1A/1B APPLY with Writer-1C APPLY before mixed-transaction qualification;
 - accept a parseable output when byte-level negative assurance fails;
 - represent NOT_RUN validation as PASS.
 
@@ -1141,9 +1239,11 @@ Writer readiness on APPLY set only
         ↓
 Writer 1A / 1B / 1C / 2 / 3 according to custody impact
         ↓
+original-byte mutation under independently derived physical authorization
+        ↓
 reparse + semantic verification + byte-level negative assurance
         ↓
 scoped audit / mutation manifest / export
 ```
 
-For complex CII revisions, **local identity independence, explicit mutation custody, and Writer authority boundaries are requirements, not fallbacks**.
+For complex CII revisions, **local identity independence, explicit mutation custody, original-byte authority, independently derived physical authorization, and Writer authority boundaries are requirements, not fallbacks**.
