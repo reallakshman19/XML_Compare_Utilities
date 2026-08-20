@@ -37,9 +37,12 @@ function operation(id, nodeId, before, proposed) {
     targetEvidence: { identity: String(nodeId) }, matchAuthority: { status: 'REVIEWED' } };
 }
 function plan(operations) { return { status: 'PREVIEW_READY', blockers: [], operations, transferScope: { status: 'BOUND' } }; }
+function sharedValuePlan(beforeValue, proposed) {
+  return plan([operation('A', 200, beforeValue, proposed), operation('B', 400, beforeValue, proposed)]);
+}
 
 const before = documentFrom(fixture());
-const sharedPlan = plan([operation('A', 200, 'OLD', 'NEW'), operation('B', 400, 'OLD', 'NEW')]);
+const sharedPlan = sharedValuePlan('OLD', 'NEW');
 assert.equal(ciiWriter1CReadiness(sharedPlan, before).ready, true);
 assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedPlan, targetDocument: before }).mutationCount, 1);
 const result = applyCiiTargetWriter1C({ targetDocument: before, transferPlan: sharedPlan });
@@ -49,6 +52,15 @@ const validation = validateCiiWriter1CRoundTrip(before, after, sharedPlan, resul
 assert.equal(validation.status, 'PASS');
 assert.equal(validation.unexpectedSemanticDeltaCount, 0);
 assert.equal(after.nodeNames['200'], 'NEW'); assert.equal(after.nodeNames['400'], 'NEW');
+
+const blankBefore = documentFrom(fixture({ name: '' }));
+assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('', 'A'), targetDocument: blankBefore }).ready, true);
+assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('OLD', 'X'.repeat(25)), targetDocument: before }).ready, true);
+assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('OLD', 'P-101 A/B.2'), targetDocument: before }).ready, true);
+
+const nonAscii = buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('OLD', 'P–101'), targetDocument: before });
+assert.equal(nonAscii.ready, false);
+assert(nonAscii.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_NON_ASCII')));
 
 const conflict = buildWriter1CNodeNamePlan({ transferPlan: plan([
   operation('A', 200, 'OLD', 'P-101A'), operation('B', 400, 'OLD', 'P-101B'),
@@ -60,9 +72,7 @@ const alias = buildWriter1CNodeNamePlan({ transferPlan: plan([operation('A', 200
 assert.equal(alias.ready, false);
 assert(alias.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_UNAPPROVED_ALIAS_EFFECT')));
 
-const overflow = buildWriter1CNodeNamePlan({ transferPlan: plan([
-  operation('A', 200, 'OLD', 'X'.repeat(26)), operation('B', 400, 'OLD', 'X'.repeat(26)),
-]), targetDocument: before });
+const overflow = buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('OLD', 'X'.repeat(26)), targetDocument: before });
 assert.equal(overflow.ready, false);
 assert(overflow.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_FIELD_OVERFLOW')));
 
@@ -76,4 +86,4 @@ const pointerRow = elementRows[13]; tampered[pointerRow.byteStart + 66] = '1'.ch
 const tamperedAfter = documentFrom(tampered);
 assert.throws(() => validateCiiWriter1CRoundTrip(before, tamperedAfter, sharedPlan, result), /UNAUTHORIZED_BYTE_CHANGE/);
 
-console.log('Writer 1C NODENAME planner, patcher and independent negative-assurance checks passed.');
+console.log('Writer 1C NODENAME planner, fixed-width boundaries, patcher and independent negative-assurance checks passed.');
