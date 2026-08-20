@@ -4,32 +4,48 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-pr_head: 7a1e5babc8af9a108a46941f92b999013c7eb82a
+report_basis_head: 19f020c11ae5d6dec97a7455b3d66954a5a70702
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
+base_head: 1dd7a4fc8823c54ef38f5f938167d13076d49c65
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: ACTIVE
-pr_recovery_state: HEALTHY
+pr_recovery_state: HEALTHY_IMPLEMENTATION_COMPLETE_QUALIFICATION_PARTIAL
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-002
-current_stage: CORE_PHASE1_IMPLEMENTED_INTEGRATION_PENDING
-blocker: FULL_REPOSITORY_EXECUTION_NOT_AVAILABLE_IN_CONNECTOR_RUNTIME
-highest_risk: CORE_AND_PRODUCT_STILL_ROUTE_TEXT_AND_BINARY_WRITER_1A_1B_ONLY
-dependencies:
-  - FOLLOW_ON:PR1002
-  - SOURCE_TASK:ISSUE1003
-coordination_state: SAFE_PRODUCTION_COORDINATED_DOCUMENTATION
+grounding_epoch: GE-003
+current_stage: PHASE1_IMPLEMENTED_PRODUCT_EXPLICIT_PATH_INTEGRATED_FULL_REPO_QUALIFICATION_PENDING
+blocker: FULL_REPOSITORY_AND_BROWSER_EXECUTION_NOT_AVAILABLE_IN_CURRENT_RUNTIME
+highest_risk: REAL_BENCHMARK_CORE_ROUNDTRIP_AND_BROWSER_NOT_EXECUTED
+coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
+pr_compare:
+  ahead_by: 41
+  behind_by: 0
+  changed_files: 20
+  unexplained_files: 0
+pr_metadata_mergeable: false
+mergeability_note: compare API is linear ahead/0-behind; re-evaluate after owner-authorized PR1002 normalization
 validation:
   byte_custody_local: PASS_IMPLEMENTATION_COUPLED
-  nodename_planner_patcher_local: PASS
-  independent_validator_falsifier: PASS_INDEPENDENT_REPRODUCTION
+  nodename_fixed_width_local: PASS
+  shared_alias_falsifiers_local: PASS
+  independent_validator_sif_pointer_falsifier: PASS_INDEPENDENT_DERIVATION
   python_oracle: PASS_INDEPENDENT_REPRODUCTION
+  legacy_nodename_semantic_compatibility: PASS_LOCAL_RECONSTRUCTION
+  benchmark_production_parser_roundtrip: AUTHORED_NOT_RUN
+  repository_writer1c_suite: NOT_RUN
+  browser_chromium: NOT_RUN
   full_repository: NOT_RUN
-  browser: NOT_RUN
-exact_next_action: wire explicit Writer1C core/scope routing with original-byte inputs and independent round-trip validation
+  github_status_checks: NOT_RUN_NONE_PRESENT
+  github_workflow_runs: NOT_RUN_NONE_PRESENT
+baseline_debt:
+  - tests/cii-workspace-intake.test.js expects an older parserAuthority string than live main already returns; not introduced or modified by PR1004
+product_default_writer: 1B
+writer1c_selection: EXPLICIT_ONLY
+sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
 merge_authority: OWNER_ONLY
-last_updated: 2026-08-20T06:44:00+04:00
+exact_next_action: execute focused Writer1C tests and BM_CII_TARGET1 production-parser roundtrip in a complete checkout, then browser and full-suite qualification; do not mark ready or merge before evidence is recorded
+last_updated: 2026-08-20T07:10:00+04:00
