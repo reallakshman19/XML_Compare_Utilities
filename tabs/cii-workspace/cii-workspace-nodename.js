@@ -125,7 +125,7 @@ export function extractCiiNodeNameEvidence(rawText, parsed = {}, options = {}) {
     if (pointer === null) { addConflict(state.conflicts, 'NODENAME_POINTER_UNREADABLE', { elementIndex, blockIndex }); return; }
     if (!descriptor.pointerField.qualified) physicalBlockers.push('NODENAME_POINTER_FIXED_LAYOUT_UNQUALIFIED');
     if (pointer === 0) {
-      byElementIndex[elementIndex] = Object.freeze({ elementIndex, blockIndex, pointer, pointerField: descriptor.pointerField, rowIndex: null }); return;
+      byElementIndex[elementIndex] = Object.freeze({ elementIndex, blockIndex, from: descriptor.from, to: descriptor.to, pointer, pointerField: descriptor.pointerField, rowIndex: null }); return;
     }
     if (pointer > rows.length) { addConflict(state.conflicts, 'NODENAME_POINTER_OUT_OF_RANGE', { elementIndex, blockIndex, pointer, rowCount: rows.length }); return; }
     mappedElementCount += 1;
