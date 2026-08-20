@@ -9,6 +9,7 @@ import {
 } from './cii-workspace-transfer-scope.js';
 
 const STYLE_ID = 'cii-workspace-transfer-scope-style';
+const SIF_CONTEXT_AUTHORITY = 'ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE';
 function h(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
 function stylesheet(documentRef) {
   if (documentRef.getElementById(STYLE_ID)) return;
@@ -80,6 +81,21 @@ function applyFunction(version) {
   if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
   return applyCiiWorkspaceTargetWriter1B;
 }
+function normalizedCode(value) { return String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase(); }
+function assertCurrentSifContext(preview, currentContext) {
+  const operations = (preview?.transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY' && operation?.family === 'SIF_TEE'
+    && ['CII_WRITER_1C_SIF_IN_PLANE_EXISTING_BLOCK', 'CII_WRITER_1C_SIF_OUT_PLANE_EXISTING_BLOCK'].includes(operation?.policyAuthority));
+  if (!operations.length) return true;
+  const sourceCode = normalizedCode(currentContext?.sourceCode); const targetCode = normalizedCode(currentContext?.targetCode);
+  if (currentContext?.authority !== SIF_CONTEXT_AUTHORITY || !sourceCode || sourceCode !== targetCode) throw new Error('CII_WRITER_1C_SIF_CURRENT_CODE_CONTEXT_NOT_QUALIFIED');
+  for (const operation of operations) {
+    if (operation?.sifContext?.status !== 'QUALIFIED' || operation?.sifContext?.authority !== SIF_CONTEXT_AUTHORITY
+      || normalizedCode(operation?.sifContext?.sourceCode) !== sourceCode || normalizedCode(operation?.sifContext?.targetCode) !== targetCode) {
+      throw new Error(`CII_WRITER_1C_SIF_CONTEXT_STALE:${operation?.operationId || 'unknown'}`);
+    }
+  }
+  return true;
+}
 function updateWriterChrome(container, view) {
   const readiness = container.querySelector('.ciiw-readiness');
   if (!readiness || !view) return;
@@ -138,6 +154,7 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
           if (!authorized || !scopedPreview) throw new Error('Bind an explicit APPLY / EXCLUDE scope before target mutation.');
           const targetFile = targetInput?.files?.[0]; if (!targetFile) throw new Error('TARGET CII file is required.');
           const version = scopedPreview.writerVersion || '1B';
+          if (version === '1C') assertCurrentSifContext(scopedPreview, options.sifEngineeringContext);
           applyButton.disabled = true; if (status) status.textContent = `Applying explicitly scoped Writer ${version} operations and reparsing TARGET CII…`;
           const targetBytes = new Uint8Array(await targetFile.arrayBuffer());
           const applied = await applyFunction(version)(scopedPreview, targetBytes, { cryptoRef: options.cryptoRef });
@@ -187,4 +204,4 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
   };
 }
 
-export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText, writerLabel });
+export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText, writerLabel, assertCurrentSifContext });
