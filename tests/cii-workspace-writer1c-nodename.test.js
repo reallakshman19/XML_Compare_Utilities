@@ -21,10 +21,18 @@ function fixture({ pointer = 1, shared = true, name = 'OLD' } = {}) {
     numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
     '#$ SIF&TEES', '#$ RESTRANT', '#$ RIGID', '#$ MISCEL_1'].join('\r\n');
 }
+function redundantNodeFixture(name = 'PS-NEW1') {
+  return ['#$ ELEMENTS', ...elementBlock(100, 200, 1), ...elementBlock(200, 300, 2), '#$ NODENAME',
+    nameRow('', name), nameRow(name, ''), '#$ CONTROL', numericRow([2, 0, 0, 2, 0, 0]),
+    numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
+    '#$ SIF&TEES', '#$ RESTRANT', '#$ RIGID', '#$ MISCEL_1'].join('\r\n');
+}
 function parsed(shared = true) {
   return { nodes: shared ? { 100: {}, 200: {}, 300: {}, 400: {} } : { 100: {}, 200: {} },
     elements: shared ? [{ index: 0, from: 100, to: 200 }, { index: 1, from: 300, to: 400 }] : [{ index: 0, from: 100, to: 200 }] };
 }
+const redundantParsed = { nodes: { 100: {}, 200: {}, 300: {} },
+  elements: [{ index: 0, from: 100, to: 200 }, { index: 1, from: 200, to: 300 }] };
 function documentFrom(raw, parsedModel = parsed(true), auxiliaryEvidence = {}) {
   const physicalFile = createCiiPhysicalFile(raw instanceof Uint8Array ? raw : new TextEncoder().encode(raw));
   const nodeNameEvidence = extractCiiNodeNameEvidence(physicalFile.text, parsedModel, { physicalFile });
@@ -52,6 +60,27 @@ const validation = validateCiiWriter1CRoundTrip(before, after, sharedPlan, resul
 assert.equal(validation.status, 'PASS');
 assert.equal(validation.unexpectedSemanticDeltaCount, 0);
 assert.equal(after.nodeNames['200'], 'NEW'); assert.equal(after.nodeNames['400'], 'NEW');
+
+// Real TARGET1 custody pattern: one semantic node label can be represented in two
+// physical records, as incoming TO and outgoing FROM. Writer 1C must mutate both
+// spans atomically so the reparsed semantic name remains conflict-free.
+const redundantBefore = documentFrom(redundantNodeFixture(), redundantParsed);
+assert.equal(redundantBefore.nodeNameEvidence.conflicts.length, 0);
+assert.equal(redundantBefore.nodeNames['200'], 'PS-NEW1');
+const redundantPlan = plan([operation('R', 200, 'PS-NEW1', 'PS-NEW2')]);
+const redundantMutationPlan = buildWriter1CNodeNamePlan({ transferPlan: redundantPlan, targetDocument: redundantBefore });
+assert.equal(redundantMutationPlan.ready, true);
+assert.equal(redundantMutationPlan.mutationCount, 2);
+assert.deepEqual(new Set(redundantMutationPlan.mutations.map((item) => item.fieldIdentity)), new Set(['NODENAME_FROM', 'NODENAME_TO']));
+const redundantResult = applyCiiTargetWriter1C({ targetDocument: redundantBefore, transferPlan: redundantPlan });
+const redundantAfter = documentFrom(redundantResult.bytes, redundantParsed);
+const redundantValidation = validateCiiWriter1CRoundTrip(redundantBefore, redundantAfter, redundantPlan, redundantResult);
+assert.equal(redundantAfter.nodeNameEvidence.conflicts.length, 0);
+assert.equal(redundantAfter.nodeNames['200'], 'PS-NEW2');
+assert.equal(redundantValidation.authorizedSpanCount, 2);
+assert.equal(redundantValidation.expectedSemanticDeltaCount, 1);
+assert.equal(redundantValidation.actualSemanticDeltaCount, 1);
+assert.equal(redundantValidation.unexpectedSemanticDeltaCount, 0);
 
 const blankBefore = documentFrom(fixture({ name: '' }));
 assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedValuePlan('', 'A'), targetDocument: blankBefore }).ready, true);
@@ -86,4 +115,4 @@ const pointerRow = elementRows[13]; tampered[pointerRow.byteStart + 66] = '1'.ch
 const tamperedAfter = documentFrom(tampered);
 assert.throws(() => validateCiiWriter1CRoundTrip(before, tamperedAfter, sharedPlan, result), /UNAUTHORIZED_BYTE_CHANGE/);
 
-console.log('Writer 1C NODENAME planner, fixed-width boundaries, patcher and independent negative-assurance checks passed.');
+console.log('Writer 1C NODENAME planner, redundant FROM/TO custody, fixed-width boundaries, patcher and independent negative-assurance checks passed.');
