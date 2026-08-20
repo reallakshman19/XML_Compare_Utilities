@@ -10,10 +10,13 @@ const FIELD_ROWS = Object.freeze([
 function sourceIds(row) { return row?.sourceElementIds || (row?.sourceElementId ? [row.sourceElementId] : []); }
 function targetIds(row) { return row?.targetElementIds || (row?.targetElementId ? [row.targetElementId] : []); }
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [String(edge.elementId), edge])); }
+function explicitFiniteNumber(value) { return typeof value === 'number' && Number.isFinite(value); }
 function sameNumber(left, right, tolerance = 1e-9) {
-  const a = Number(left); const b = Number(right);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return a === b;
-  return Math.abs(a - b) <= Math.max(tolerance, Math.abs(b) * 1e-12);
+  if (!explicitFiniteNumber(left) || !explicitFiniteNumber(right)) return left === right;
+  return Math.abs(left - right) <= Math.max(tolerance, Math.abs(right) * 1e-12);
+}
+function numericDelta(sourceValue, targetValue) {
+  return explicitFiniteNumber(sourceValue) && explicitFiniteNumber(targetValue) ? targetValue - sourceValue : null;
 }
 function nodeCorrespondenceMap(correspondence) {
   const out = new Map();
@@ -44,12 +47,13 @@ function deltaRow(row, sourceValue, targetValue, property, sifField) {
     sourceIdentity: sourceIds(row)[0] || null, targetIdentity: targetIds(row)[0] || null,
     identityConfidence: row.status === 'LOCKED' ? 'LOCKED' : row.status === 'HIGH' ? 'HIGH' : 'REVIEW',
     category: 'SIF_TEE', property, sourceValue, targetValue,
-    delta: Number.isFinite(Number(sourceValue)) && Number.isFinite(Number(targetValue)) ? Number(targetValue) - Number(sourceValue) : null,
+    delta: numericDelta(sourceValue, targetValue),
     semanticChange: changed ? 'CHANGED' : 'UNCHANGED', changed,
     evidenceStatus: 'QUALIFIED', authority: AUTHORITY,
     limitations: Object.freeze([
       'Writer 1C Phase-2B is limited to canonical neutral Version 11 item3/item4 existing-block explicit SIF values.',
-      'Production mutation additionally requires an explicit same-active-piping-code context attestation.',
+      'Blank/non-numeric fields are not equivalent to numeric zero and are outside the production mutation slice.',
+      'Production mutation additionally requires equal finite tee Type context and an explicit same-active-piping-code context attestation.',
     ]),
     sifField: deepFreeze(sifField),
   });
@@ -73,6 +77,8 @@ function writerSifRows(sourceDocument, targetDocument, sourceGraph, targetGraph,
     for (const slot of [1, 2]) {
       const sourceSlot = sourceBlock.slots?.[slot]; const targetSlot = targetBlock.slots?.[slot];
       if (!sourceSlot || !targetSlot || !sourceSlot.node || !targetSlot.node || Number(sourceSlot.node) <= 0 || Number(targetSlot.node) <= 0) continue;
+      const sourceType = sourceSlot.type; const targetType = targetSlot.type;
+      if (!explicitFiniteNumber(sourceType) || !explicitFiniteNumber(targetType) || sourceType !== targetType) continue;
       const nodeMappingQualified = exactNodeMapping(nodeMap, sourceSlot.node, targetSlot.node);
       for (const field of FIELD_ROWS) {
         const sourceField = sourceSlot[field.key]; const targetField = targetSlot[field.key];
@@ -83,7 +89,7 @@ function writerSifRows(sourceDocument, targetDocument, sourceGraph, targetGraph,
           sourceParsedElementIndex: Number(sourceEdge.parsedElementIndex), targetParsedElementIndex: Number(targetEdge.parsedElementIndex),
           sourcePointer: Number(sourceBinding.pointer), targetPointer: Number(targetBinding.pointer),
           sourceNode: sourceSlot.node, targetNode: targetSlot.node,
-          sourceType: Number(sourceSlot.type), targetType: Number(targetSlot.type), nodeMappingQualified,
+          sourceType, targetType, nodeMappingQualified,
           sourceNeutralVersion: Number(sourceCustody.neutralVersion.major), targetNeutralVersion: Number(targetCustody.neutralVersion.major),
           sourceSpan: sourceField, targetSpan: targetField,
         }));
@@ -117,3 +123,4 @@ export function augmentCiiEngineeringDeltasWithWriter1CSifFields(base, sourceDoc
 }
 
 export const CII_WRITER_1C_SIF_DELTA_AUTHORITY = AUTHORITY;
+export const _test = Object.freeze({ explicitFiniteNumber, sameSifValue: sameNumber, numericDelta });
