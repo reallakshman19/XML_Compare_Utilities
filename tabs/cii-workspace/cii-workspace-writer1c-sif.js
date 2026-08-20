@@ -131,10 +131,10 @@ export function buildWriter1CSifPlan({ transferPlan, targetDocument, allowEmpty 
   const blockers = [...(transferPlan?.blockers || [])];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('WRITER_1C_TRANSFER_PLAN_NOT_PREVIEW_READY');
   if (transferPlan?.transferScope?.status !== 'BOUND') blockers.push('WRITER_1C_BOUND_TRANSFER_SCOPE_REQUIRED');
-  const custody = targetDocument?.sifWriter1CEvidence;
-  if (custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_SIF_PHYSICAL_CUSTODY_REQUIRED']));
   const selected = [];
   for (const operation of transferPlan?.operations || []) if (validateOperation(operation, blockers)) selected.push(operation);
+  const custody = targetDocument?.sifWriter1CEvidence;
+  if (selected.length && custody?.status !== 'QUALIFIED') blockers.push(...(custody?.blockers || ['WRITER_1C_SIF_PHYSICAL_CUSTODY_REQUIRED']));
   const claims = selected.map((operation) => claimForOperation(operation, targetDocument, blockers)).filter(Boolean);
   const mutations = arbitrateClaims(claims, selected, blockers);
   if (!allowEmpty && !mutations.length) blockers.push('WRITER_1C_SIF_NO_MUTATIONS');
