@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict';
+import { createCiiPhysicalFile, ciiPhysicalSectionRows } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
+import { extractCiiNodeNameEvidence } from '../tabs/cii-workspace/cii-workspace-nodename.js';
+import { buildWriter1CNodeNamePlan, CII_WRITER_1C_NODENAME_POLICY } from '../tabs/cii-workspace/cii-workspace-writer1c-nodename.js';
+import { applyCiiTargetWriter1C, ciiWriter1CReadiness } from '../tabs/cii-workspace/cii-workspace-target-writer-1c.js';
+import { validateCiiWriter1CRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer1c-validation.js';
+
+const WIDTHS = [15, 13, 13, 13, 13, 13];
+function numericRow(values) { return values.map((value, index) => String(value ?? '').padStart(WIDTHS[index], ' ')).join(''); }
+function elementBlock(from, to, nodeNamePointer, sifPointer = 0) {
+  const rows = Array.from({ length: 15 }, () => numericRow([0, 0, 0, 0, 0, 0]));
+  rows[0] = numericRow([from, to, 0, 0, 1000, 273]);
+  rows[13] = numericRow([0, 0, 0, 0, sifPointer, nodeNamePointer]);
+  return rows;
+}
+function nameRow(fromName, toName) { return `  ${String(fromName).padEnd(26)}${String(toName).padEnd(25)}`; }
+function fixture({ pointer = 1, shared = true, name = 'OLD' } = {}) {
+  const elements = shared ? [[100, 200], [300, 400]] : [[100, 200]];
+  return ['#$ ELEMENTS', ...elements.flatMap(([from, to]) => elementBlock(from, to, pointer)), '#$ NODENAME',
+    ...(pointer ? [nameRow('FROM', name)] : []), '#$ CONTROL', numericRow([elements.length, 0, 0, pointer ? 1 : 0, 0, 0]),
+    numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
+    '#$ SIF&TEES', '#$ RESTRANT', '#$ RIGID', '#$ MISCEL_1'].join('\r\n');
+}
+function parsed(shared = true) {
+  return { nodes: shared ? { 100: {}, 200: {}, 300: {}, 400: {} } : { 100: {}, 200: {} },
+    elements: shared ? [{ index: 0, from: 100, to: 200 }, { index: 1, from: 300, to: 400 }] : [{ index: 0, from: 100, to: 200 }] };
+}
+function documentFrom(raw, parsedModel = parsed(true), auxiliaryEvidence = {}) {
+  const physicalFile = createCiiPhysicalFile(raw instanceof Uint8Array ? raw : new TextEncoder().encode(raw));
+  const nodeNameEvidence = extractCiiNodeNameEvidence(physicalFile.text, parsedModel, { physicalFile });
+  return { writer1CByteEligible: true, physicalFile, nodeNameEvidence, nodeNames: nodeNameEvidence.names,
+    parsed: parsedModel, auxiliaryEvidence, hangerEvidence: {} };
+}
+function operation(id, nodeId, before, proposed) {
+  return { operationId: id, family: 'NODE_NAME', property: 'Node name / to-name', action: 'COPY', status: 'PREVIEW_READY',
+    scopeDecision: 'APPLY', policyAuthority: CII_WRITER_1C_NODENAME_POLICY, before, proposed,
+    targetEvidence: { identity: String(nodeId) }, matchAuthority: { status: 'REVIEWED' } };
+}
+function plan(operations) { return { status: 'PREVIEW_READY', blockers: [], operations, transferScope: { status: 'BOUND' } }; }
+
+const before = documentFrom(fixture());
+const sharedPlan = plan([operation('A', 200, 'OLD', 'NEW'), operation('B', 400, 'OLD', 'NEW')]);
+assert.equal(ciiWriter1CReadiness(sharedPlan, before).ready, true);
+assert.equal(buildWriter1CNodeNamePlan({ transferPlan: sharedPlan, targetDocument: before }).mutationCount, 1);
+const result = applyCiiTargetWriter1C({ targetDocument: before, transferPlan: sharedPlan });
+assert.equal(result.mutationCount, 1);
+const after = documentFrom(result.bytes);
+const validation = validateCiiWriter1CRoundTrip(before, after, sharedPlan, result);
+assert.equal(validation.status, 'PASS');
+assert.equal(validation.unexpectedSemanticDeltaCount, 0);
+assert.equal(after.nodeNames['200'], 'NEW'); assert.equal(after.nodeNames['400'], 'NEW');
+
+const conflict = buildWriter1CNodeNamePlan({ transferPlan: plan([
+  operation('A', 200, 'OLD', 'P-101A'), operation('B', 400, 'OLD', 'P-101B'),
+]), targetDocument: before });
+assert.equal(conflict.ready, false);
+assert(conflict.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_SHARED_RECORD_CONFLICT')));
+
+const alias = buildWriter1CNodeNamePlan({ transferPlan: plan([operation('A', 200, 'OLD', 'NEW')]), targetDocument: before });
+assert.equal(alias.ready, false);
+assert(alias.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_UNAPPROVED_ALIAS_EFFECT')));
+
+const overflow = buildWriter1CNodeNamePlan({ transferPlan: plan([
+  operation('A', 200, 'OLD', 'X'.repeat(26)), operation('B', 400, 'OLD', 'X'.repeat(26)),
+]), targetDocument: before });
+assert.equal(overflow.ready, false);
+assert(overflow.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_FIELD_OVERFLOW')));
+
+const pointerZero = documentFrom(fixture({ pointer: 0, shared: false }), parsed(false));
+const createRequired = buildWriter1CNodeNamePlan({ transferPlan: plan([operation('A', 200, '', 'NEW')]), targetDocument: pointerZero });
+assert.equal(createRequired.ready, false);
+assert(createRequired.blockers.some((item) => item.startsWith('WRITER_1C_NODENAME_CREATE_REQUIRES_WRITER_2')));
+
+const tampered = new Uint8Array(result.bytes); const elementRows = ciiPhysicalSectionRows(createCiiPhysicalFile(tampered), 'ELEMENTS');
+const pointerRow = elementRows[13]; tampered[pointerRow.byteStart + 66] = '1'.charCodeAt(0);
+const tamperedAfter = documentFrom(tampered);
+assert.throws(() => validateCiiWriter1CRoundTrip(before, tamperedAfter, sharedPlan, result), /UNAUTHORIZED_BYTE_CHANGE/);
+
+console.log('Writer 1C NODENAME planner, patcher and independent negative-assurance checks passed.');
