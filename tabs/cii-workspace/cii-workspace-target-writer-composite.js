@@ -133,10 +133,11 @@ export function ciiWriterCompositeReadiness(transferPlan, targetDocument) {
     writer1C = ciiWriter1CReadiness(split.writer1CPlan, targetDocument);
     blockers.push(...writer1C.blockers);
   }
-  if (!split.lowerOperations.length && !split.writer1COperations.length) blockers.push('WRITER_COMPOSITE_NO_MUTATIONS');
+  const mutationCount = split.lowerOperations.length + split.writer1COperations.length;
+  if (!mutationCount) blockers.push('WRITER_COMPOSITE_NO_MUTATIONS');
   return Object.freeze({
     schema: 'CIIWorkspaceWriterCompositeReadiness.v1', status: blockers.length ? 'BLOCKED' : 'READY', ready: blockers.length === 0,
-    mutationOperationCount: split.lowerOperations.length + split.writer1COperations.length,
+    mutationCount, mutationOperationCount: mutationCount,
     familyOperationCounts: Object.freeze({ lower1A1B: split.lowerOperations.length, writer1C: split.writer1COperations.length }),
     blockers: Object.freeze([...new Set(blockers)]), lowerReadiness: lower, writer1CReadiness: writer1C,
   });
