@@ -9,46 +9,46 @@ PR: 1010
 BRANCH: agent/cii-writer-composite-1a-1b-1c
 BASE: main@d63e8c59a13013c9367a3c99f3e1293e1ca76203
 MISSION: compose already-qualified Writer 1A, Writer 1B and Writer 1C mutations from one untouched TARGET preimage
-CURRENT_STAGE: IMPLEMENTED_DRAFT_AWAITING_FULL_RUNTIME_QUALIFICATION
+CURRENT_STAGE: IMPLEMENTED_DRAFT_AWAITING_LATEST_RUNTIME_QUALIFICATION
 MERGE_AUTHORITY: OWNER_ONLY
 ```
 
-## 1. Why this PR exists
+## 1. Architectural reason
 
-Standalone Writer 1B currently implements its superset behavior by running Writer 1A first and then applying Writer-1B-only fields to the resulting text. That sequencing is acceptable inside standalone Writer 1B, but it cannot be used as mutation authority for a general Writer 1A + 1B + 1C transaction because the preimage would become writer-order dependent.
+Standalone Writer 1B currently implements its superset behavior by running Writer 1A first and then applying Writer-1B-only fields to the resulting text. That sequencing remains valid for standalone Writer 1B, but it cannot define authority for a general 1A + 1B + 1C transaction because the mutation preimage would become writer-order dependent.
 
-PR1010 therefore introduces a separate composite authority path. It does not change standalone Writer 1A or Writer 1B behavior.
+PR1010 therefore adds a separate composite path. Standalone Writer1A and Writer1B implementation files are not changed.
 
-## 2. Composite transaction model
+## 2. Composite transaction
 
 ```text
 untouched original TARGET
-   |-- lower Writer1A/1B dry-run from original text
-   |      -> existing Writer1B superset engine
-   |      -> lower physical mutation testimony
-   |      -> exact line/column -> original absolute-byte span
-   |      -> every beforeField must equal untouched original bytes
+   |-- Writer1A/Writer1B lower dry-run from original text
+   |      -> physical mutation testimony
+   |      -> line/column converted to original absolute-byte span
+   |      -> beforeField must equal untouched original bytes
    |
    |-- Writer1C dry-run from original byte-custodied TARGET
-          -> NODENAME / qualified V11 SIF claims
-          -> existing Writer1C independent custody
+          -> qualified NODENAME / V11 SIF mutation testimony
 
-lower claims + Writer1C claims
- -> require explicit Writer1A / Writer1B / Writer1C authority identity
- -> block cross-family same-span ownership
- -> block cross-family partial overlap
- -> canonicalize only same-family identical claims
- -> patch ONE copy of original TARGET bytes
- -> re-intake final output
- -> independently validate both dry-run components
- -> validate final D_actual subset of authorized union
+component evidence
+ -> preserve Writer1A / Writer1B / Writer1C policy identity
+ -> cross-family same-span veto
+ -> partial-overlap veto
+ -> same-family identical-claim canonicalization only
+ -> patch ONE original TARGET byte vector
+ -> re-intake final result
+ -> independently validate lower and Writer1C dry-runs
+ -> independently reconstruct S_auth from component evidence
+ -> require Writer composite ledger == independently reconstructed union
+ -> require D_actual subset S_auth
 ```
 
-No Writer output is used as the preimage for another writer family.
+No writer output becomes another writer family's mutation preimage.
 
-## 3. Lower-writer authority
+## 3. Lower authority and exact original preimage
 
-Every lower operation admitted to the composite must retain a qualified transfer-policy authority:
+Every lower operation must retain transfer-policy authority:
 
 ```text
 CII_WRITER_1A_* -> WRITER_1A
@@ -56,19 +56,7 @@ CII_WRITER_1B_* -> WRITER_1B
 anything else   -> BLOCK
 ```
 
-Blocker:
-
-```text
-WRITER_COMPOSITE_LOWER_POLICY_AUTHORITY_REQUIRED:<operationId>
-```
-
-This is intentionally separate from the question of whether the standalone Writer1B implementation recognizes the operation shape. Recognition by a writer implementation is not sufficient mutation authority.
-
-## 4. Original-preimage proof for lower claims
-
-Writer1A/1B mutation results report physical line number and fixed-field columns. The composite converts those to absolute original-byte spans using `targetDocument.physicalFile.lines[lineIndex].byteStart`.
-
-For every lower mutation:
+Physical conversion:
 
 ```text
 byteStart = physicalLine.byteStart + (startColumn - 1)
@@ -83,20 +71,18 @@ width == beforeField.length == afterField.length
 originalBytes[byteStart:byteEnd] == beforeField
 ```
 
-Therefore a lower dry-run that depended on a previous mutation cannot silently enter the final transaction: its reported preimage would fail against the untouched TARGET.
+This is the anti-sequential falsifier: if a lower mutation's preimage exists only because an earlier writer already changed that field, it cannot match the untouched TARGET.
 
-## 5. Cross-family arbitration
-
-Rules are fail-closed:
+## 4. Cross-family arbitration
 
 ```text
-same family + same span + identical pre/post -> may canonicalize
-same family + same span + divergent pre/post -> BLOCK
-Writer1A vs Writer1B vs Writer1C same span    -> BLOCK even if postimage identical
-any partial span overlap                      -> BLOCK
+same writer family + same span + identical pre/post -> may canonicalize
+same writer family + same span + divergent bytes    -> BLOCK
+Writer1A vs Writer1B vs Writer1C same span           -> BLOCK, even identical postimage
+any partial overlap                                  -> BLOCK
 ```
 
-Key blockers:
+Blockers include:
 
 ```text
 CII_WRITER_COMPOSITE_CROSS_FAMILY_SAME_SPAN
@@ -104,51 +90,100 @@ CII_WRITER_COMPOSITE_SAME_SPAN_CONFLICT
 CII_WRITER_COMPOSITE_CROSS_FAMILY_SPAN_OVERLAP
 ```
 
-There is no last-writer-wins behavior.
+There is no last-writer-wins path.
 
-## 6. Component validation and final negative assurance
+## 5. Component validators remain independent
 
-The composite does not replace existing validators.
-
-Lower dry-run:
+Lower dry-run is reparsed and checked with the existing lower writer validator:
 
 ```text
-existing validateCiiWriterRoundTrip(..., WRITER_1B_COMPONENT)
+validateCiiWriterRoundTrip(..., 'WRITER_1B_COMPONENT')
 ```
 
-This validates the qualified Writer1A/1B semantic union against the untouched TARGET.
-
-Writer1C dry-run:
+Writer1C dry-run is reparsed and checked with:
 
 ```text
-existing validateCiiWriter1CRoundTrip(...)
+validateCiiWriter1CRoundTrip(...)
 ```
 
-This independently validates NODENAME/SIF physical and semantic authority against the untouched TARGET.
+The final composite validator requires the applicable component validation results to PASS.
 
-Final composite validator then requires each applicable component validation to PASS and checks:
+## 6. Final authorization — QF-006 correction
+
+The first composite-validator implementation incorrectly used `writerResult.mutations` as the final authorized span set. That made the composite Writer's testimony the source of `S_auth`, contradicting the Writer1C authority rule established by prior work.
+
+**QF-006 is fixed.** The current validator independently reconstructs the final authorized union from:
 
 ```text
-D_actual_bytes subset S_auth_union
-exact authorized beforeField/postField
-all authorized spans non-overlapping
-one original byte-vector patch
-byte length unchanged
-physical line count unchanged
-line-ending sequence unchanged
-section order unchanged
-final reparse originalByteString == writer result bytes
+untouched TARGET physical custody
++ validated lower component mutation evidence
++ lower transfer-plan Writer1A/Writer1B policy identity
++ validated Writer1C component mutation evidence
 ```
 
-## 7. Production routing
+It independently converts lower line/column custody to absolute spans, reconstructs Writer1C absolute spans, canonicalizes only same-family identical claims, and independently rejects cross-family same-span/partial overlap.
 
-Writer1A and Writer1B routing remain unchanged.
+The composite writer ledger is then checked as testimony:
 
-Writer1C preview/readiness now uses `ciiWriterCompositeReadiness`, so Writer1C can act as the qualified superset transaction. The product default remains Writer1B; this PR does not silently promote Writer1C to the default.
+```text
+reported_union == independently_reconstructed_union
+```
 
-`cii-workspace-transfer-scope.js` uses the same composite readiness after explicit APPLY / EXCLUDE scope binding.
+A writer that omits, adds, relabels, or changes an authorized span fails:
 
-## 8. Regression coverage authored
+```text
+COMPOSITE_WRITER_REPORTED_UNION_MISMATCH
+```
+
+The actual final byte diff is checked against the independently reconstructed union, not against Writer testimony:
+
+```text
+D_actual subset S_auth_independent
+```
+
+## 7. Final structural / byte checks
+
+Current final validator requires:
+
+- exact independent component union;
+- exact writer-report equality to that union;
+- actual byte diff subset of independent union;
+- exact preimage and postimage for every authorized span;
+- byte length unchanged;
+- physical line count unchanged;
+- line-ending sequence unchanged;
+- section order unchanged;
+- final reparsed original-byte string exactly equal to Writer result bytes.
+
+## 8. Production routing
+
+Writer1A and Writer1B application routes remain unchanged.
+
+Writer1C preview and scoped readiness use `ciiWriterCompositeReadiness`, and Writer1C apply routes through the composite. The product default remains Writer1B.
+
+## 9. Qualification findings closed
+
+```text
+QF-001 existing Writer1B sequential internal chaining
+       -> separate one-preimage composite orchestrator
+
+QF-002 composite readiness omitted mutationCount compatibility
+       -> mutationCount restored
+
+QF-003 cross-family identical same-span initially canonicalized
+       -> cross-family same-span now always BLOCK
+
+QF-004 lower ledger initially lumped Writer1A/Writer1B
+       -> explicit CII_WRITER_1A_* / CII_WRITER_1B_* identity required
+
+QF-005 mixed regression initially covered only Writer1B + Writer1C
+       -> three-family P1 + P3 + V11 ii test added
+
+QF-006 final validator initially treated writerResult.mutations as S_auth
+       -> independently reconstruct component union; Writer ledger must match
+```
+
+## 10. Regression coverage authored
 
 ```text
 tests/cii-workspace-writer-composite-plan.test.js
@@ -160,23 +195,25 @@ tests/cii-workspace-writer1c-routing.test.js
 
 Coverage includes:
 
-- lower-vs-Writer1C plan splitting;
-- explicit Writer1A/Writer1B authority classification;
-- unqualified lower-operation rejection;
-- lower original-preimage mismatch falsifier;
-- same-family identical-span canonicalization;
-- cross-family same-span rejection even for identical bytes;
-- partial-overlap rejection;
-- Writer1B + Writer1C synthetic mixed transaction;
-- Writer1A + Writer1B + Writer1C synthetic three-family transaction;
-- final union unauthorized-byte falsifier;
+- plan splitting;
+- Writer1A vs Writer1B policy custody;
+- unqualified lower operation rejection;
+- exact lower original-preimage falsifier;
+- same-family canonicalization;
+- cross-family same-span veto even for identical bytes;
+- partial overlap veto;
+- Writer1B + Writer1C transaction;
+- Writer1A P1 + Writer1B P3 + Writer1C V11 ii transaction;
+- unauthorized final-byte falsifier;
 - missing component-validation falsifier;
-- Writer1C scope/core routing to composite readiness;
-- production default remains Writer1B.
+- independent union reconstruction;
+- composite Writer ledger omission falsifier;
+- lower-policy reconstruction falsifier;
+- Writer1C routing/default guard.
 
-## 9. Validation truth
+## 11. Validation truth
 
-Exact repository checkout attempt:
+Exact checkout remains unavailable:
 
 ```text
 git clone ...
@@ -186,22 +223,22 @@ fatal: unable to access ... Could not resolve host: github.com
 Current evidence:
 
 ```text
-main/base grounding                         PASS_GIT_COMPARE
-branch scope audit                          PASS_GIT_COMPARE
-source architecture audit                   PASS_SOURCE_INSPECTION
-isolated split/arbitration logic             PASS_ISOLATED_COMPOSITE_LOGIC_HARNESS_PRE_FINAL_REFINEMENT
-isolated union validator                     PASS_ISOLATED_COMPOSITE_LOGIC_HARNESS
-latest authority-aware planner tests         AUTHORED_NOT_RUN_ENVIRONMENT
-Writer1B + Writer1C synthetic test           AUTHORED_NOT_RUN_ENVIRONMENT
-Writer1A + Writer1B + Writer1C synthetic     AUTHORED_NOT_RUN_ENVIRONMENT
-inherited Writer1A/1B/1C tests               NOT_RUN_ENVIRONMENT
-full npm test                                NOT_RUN_ENVIRONMENT
-browser product flow                         NOT_RUN_ENVIRONMENT
+main/base grounding                              PASS_GIT_COMPARE
+branch scope                                     PASS_GIT_COMPARE
+source architecture audit                        PASS_SOURCE_INSPECTION
+pre-QF006 isolated composite harness              PASS_SUPERSEDED
+latest plan regression                            AUTHORED_NOT_RUN_ENVIRONMENT
+latest mixed Writer1B+1C regression               AUTHORED_NOT_RUN_ENVIRONMENT
+latest three-family Writer1A+1B+1C regression     AUTHORED_NOT_RUN_ENVIRONMENT
+latest independent-union validator regression     AUTHORED_NOT_RUN_ENVIRONMENT
+inherited Writer1A/1B/1C regressions              NOT_RUN_ENVIRONMENT
+full npm test                                     NOT_RUN_ENVIRONMENT
+browser product flow                              NOT_RUN_ENVIRONMENT
 ```
 
-No authored-but-unexecuted test is claimed PASS.
+No superseded harness result is used as evidence for the latest head.
 
-## 10. Changed-file ledger
+## 12. Changed-file ledger
 
 Production:
 
@@ -222,40 +259,45 @@ tests/cii-workspace-writer-composite-validation.test.js
 tests/cii-workspace-writer1c-routing.test.js
 ```
 
-Recovery artifacts are added under `agents/`.
+Recovery:
 
-No converter core, parser fixed-field engine, benchmark CII, workflow, Writer1A implementation or Writer1B implementation is modified.
+```text
+agents/MASTER_INDEX.md
+agents/PR1010_workreport.md
+agents/status/PR1010.yaml
+agents/claims/PR1010.yaml
+```
 
-## 11. Explicit exclusions
+No converter core, fixed-field parser, benchmark CII, workflow, Writer1A implementation, or Writer1B implementation is changed.
 
-Still outside this PR:
+## 13. Explicit exclusions
 
-- any new engineering-field semantic qualification;
-- Writer2 record creation/deletion/pointer allocation/reindexing;
-- SIF block create/delete/cardinality/CONTROL mutation;
-- new neutral editions or SIF fields beyond the merged Writer1C scope;
-- cross-family same-span canonicalization;
-- sequential Writer1B-output -> Writer1C mutation;
-- weakening existing component validators.
+- no new engineering-field semantics;
+- no Writer2 record/pointer/reindex authority;
+- no SIF block create/delete/cardinality/CONTROL mutation;
+- no new neutral editions/fields;
+- no cross-family same-span canonicalization;
+- no sequential Writer1B-output -> Writer1C authority;
+- no weakening of component validators.
 
-## 12. Appendix A — takeover qualification
+## 14. Appendix A — takeover qualification
 
-1. Explain why standalone Writer1B sequential use of Writer1A cannot be the authority model for a mixed 1A+1B+1C transaction.
-2. Show how a lower mutation line/column claim is converted to an absolute original-byte span.
-3. Explain why `beforeField == original span` detects hidden sequential dependencies.
-4. State how a lower operation is classified as Writer1A vs Writer1B authority.
-5. Why is implementation recognition insufficient without `CII_WRITER_1A_*` / `CII_WRITER_1B_*` policy authority?
-6. What happens if Writer1A and Writer1C claim the same physical span with identical postimage?
-7. What happens for partially overlapping spans?
-8. Which same-span condition may canonicalize?
-9. Explain the difference between component validation and final union validation.
-10. State the final `D_actual subset S_auth_union` requirement.
-11. Explain why the actual byte vector is patched only once.
-12. Prove standalone Writer1A and Writer1B behavior is unchanged by this PR.
-13. Identify the three-family regression and the three fields used in it.
-14. List all NOT_RUN runtime gates.
-15. Explain why this PR adds composition authority but no new engineering-field semantics.
+1. Why can standalone Writer1B sequencing not define mixed Writer1A+1B+1C authority?
+2. Derive lower absolute byte custody from line number and fixed-field columns.
+3. How does exact original `beforeField` detect hidden sequential dependencies?
+4. How is Writer1A vs Writer1B policy identity determined?
+5. Why is writer implementation recognition insufficient authority?
+6. What happens when Writer1A and Writer1C claim the same span with identical postimage?
+7. Which same-span condition may canonicalize?
+8. Explain QF-006: why may `writerResult.mutations` not define `S_auth`?
+9. From what evidence does the current validator independently reconstruct the union?
+10. What must happen if the Writer ledger omits one independently authorized component claim?
+11. State `D_actual subset S_auth_independent`.
+12. Explain component validation versus final union validation.
+13. Identify the three fields in the three-family regression.
+14. Prove standalone Writer1A/Writer1B files are unchanged.
+15. List all latest-head NOT_RUN gates.
 
-## 13. Current disposition
+## 15. Current disposition
 
-PR1010 is draft and must not merge without explicit owner authorization. Full repository and browser runtime qualification remain required before a release-quality PASS can be claimed.
+PR1010 remains **draft** and unmerged. Source qualification is substantially hardened, including independent final authorization, but exact latest-head repository and browser execution are still required before release-quality PASS or merge recommendation.
