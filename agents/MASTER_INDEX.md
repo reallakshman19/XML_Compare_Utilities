@@ -4,7 +4,9 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | DRAFT / IMPLEMENTATION COMPLETE / INDEPENDENT SCOPE ORACLE PASS / REPO+UI+BROWSER NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | SAFE / successor to merged PR999 / OWNER-ONLY MERGE | delete temporary WIP records; final 14-file reconcile; owner review |
+| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | DRAFT / ENGINEERING PATH QUALIFIED / FULL REPOSITORY SUITE NOT_RUN | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | SAFE SCOPE / STACKED ON PR1002 / final ancestry sync required after this PR1002 checkpoint | ingest final PR1002 head as ancestor; retain exact 20-file diff; then only full repository `npm test` remains before review progression |
+| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / PHASE1 AUTHORITY NORMALIZED / READY FOR OWNER REVIEW AFTER FINAL STACK SYNC | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | SAFE / documentation predecessor of PR1004 / OWNER-ONLY MERGE | verify exact 5-file ledger; final PR1004 ancestry sync; then owner review/merge decision only |
+| PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | MERGED 2026-08-19 · `7d63abe8` / retained UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | HISTORICAL | retained gates |
 | PR997 | CII full-screen method-qualified Base Anchor engineering UI | `agent/cii-fullscreen-anchor-evidence-ui` | MERGED 2026-08-19 · `a2b8b055` / retained JS+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI | full viewport; SOURCE→TARGET chrome; Method A/B/A+B/Landmark evidence cards | HISTORICAL | retained gates |
@@ -24,116 +26,51 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR1001 — current explicit mutation-scope authority
-
-PR1001 separates **identity acceptance** from **mutation selection**:
+## Current Writer 1C authority
 
 ```text
-canonical identity + engineering delta
-        ↓
-correspondence ACCEPT / LOCK
-        ↓
-classified transfer candidates
-        ↓
-operation-level APPLY / EXCLUDE
-        ↓
-APPLY operations[] only
-        ↓
-Writer 1B readiness
-        ↓
-qualified mutation
+original TARGET byte stream
+ -> exact physical NODENAME custody
+ -> explicit APPLY scope
+ -> independently derived S_auth
+ -> equal-width byte patch
+ -> re-intake
+ -> independent structural / semantic / byte assurance
 ```
 
-Scope custody:
+Definitions:
 
 ```text
-schema: CIIWorkspaceTransferScope.v1
-authority: USER_EXPLICIT_OPERATION_SCOPE
-SOURCE SHA-256
-TARGET SHA-256
-exact candidateOperationIds[]
-appliedOperationIds[]
-excludedOperationIds[]
-scopeId
+S_auth = validator-derived authorized span union
+B      = Writer-reported span union / testimony
+D      = actual changed-byte indices
+
+PASS => D ⊆ S_auth
 ```
 
-Fail-closed rules:
+Writer-reported spans do not define authorization. Whole-file reconstruction/reserialization is forbidden for Phase-1 NODENAME. Same-span divergent output blocks; identical output may canonicalize only with a complete compatible owner set; an unselected alias side-effect blocks.
 
-- unbound scope blocks the product Writer path;
-- SOURCE/TARGET hash mismatch invalidates scope;
-- missing/new operation ID invalidates scope;
-- duplicate/invalid decisions invalidate scope;
-- selected unsupported APPLY remains blocked by existing Writer policy;
-- all EXCLUDE returns `TRANSFER_SCOPE_NO_APPLY_OPERATIONS` and no mutation authority.
+Phase-1 transaction authority is NODENAME-only Writer1C APPLY. Mixed Writer1A/1B + Writer1C APPLY remains blocked until separately original-byte-qualified. Product default remains Writer1B; Writer1C is explicit-only.
 
-EXCLUDE is never fake KEEP. It remains in `excludedOperations[]`, scoped audit JSON, excluded-operation UI and engineering-delta presentation as `EXCLUDED`, but is absent from Writer `operations[]`.
+## Phase boundaries
 
-After a scope is bound, existing audit/CSV export controls emit the scoped artifact bundle so the mutation-authority audit does not compete with an unscoped export.
+- Phase 1: existing-row NODENAME only.
+- Phase 2: first create source-qualified SIF/TEE engineering field semantics; raw field2 remains `FIELD_2_SEMANTICS_UNQUALIFIED` and unwritable.
+- Writer 2: pointer/cardinality changes, record create/delete/reindex, hanger packed arrays/CONTROL counts.
+- Writer 3: node/element/connectivity/topology mutation.
 
-Product routing now mounts the scoped engineering shell. Low-level Writer APIs and their compatibility tests are not redefined.
+PR1004 has focused PASS evidence for exact TARGET1 production round trip, independent byte/stale-target falsifiers, shared/redundant ownership, Writer1A/1B regressions, independent Python oracle and Chromium binary routing. Its complete repository `npm test` remains `NOT_RUN` because an exact full checkout cannot currently be transported into the execution container. Existing workflows do not provide a repository-wide `npm test` path; no workflow has been modified to manufacture evidence.
 
-Validation truth:
+## Coordination invariant
+
+Before owner review of the stack:
 
 ```text
-main/source grounding: PASS_SOURCE_INSPECTION
-authority-boundary diff: PASS_GIT_COMPARE
-standalone scope state machine: PASS_INDEPENDENT_REPRODUCTION
-APPLY-qualified + EXCLUDE-unsupported: PASS_INDEPENDENT_REPRODUCTION
-all EXCLUDE blocker: PASS_INDEPENDENT_REPRODUCTION
-stale operation-set blocker: PASS_INDEPENDENT_REPRODUCTION
-TARGET-hash mismatch blocker: PASS_INDEPENDENT_REPRODUCTION
-focused repository scope test: AUTHORED_NOT_RUN_ENVIRONMENT
-focused scope UI/product-routing test: AUTHORED_NOT_RUN_ENVIRONMENT
-shell lifecycle: NOT_RUN_ENVIRONMENT
-SOURCE 3/TARGET 3-1 browser: NOT_RUN_ENVIRONMENT
-Chromium: NOT_RUN_ENVIRONMENT
-full repository suite: NOT_RUN_ENVIRONMENT
+latest PR1002 head is an ancestor of PR1004
+compare PR1002 -> PR1004 has behind_by = 0
+PR1002 diff = exactly 5 documentation/custody files
+PR1004 diff = exactly 20 implementation/recovery files
+both PRs remain draft/unmerged unless owner explicitly changes that state
 ```
 
-See `agents/PR1001_workreport.md`, `agents/status/PR1001.yaml`, `agents/claims/PR1001.yaml` and `docs/CIIcompareconceptnote.md`.
-
-## PR999 — merged Compare Review / Delta / Transfer clarity
-
-PR999 made the transfer effect explicit without changing Writer authority:
-
-```text
-SOURCE candidate
-Current TARGET
-Effective TARGET after apply
-```
-
-Blocked/protected/Writer-blocked proposals keep the current TARGET effective; only a bound, preview-ready operation under ready Writer authority is shown as `WILL APPLY`. Structured engineering data is rendered without raw JSON in primary cells.
-
-Retained validation truth: focused presentation PASS; full shell/browser/full-suite execution NOT_RUN_ENVIRONMENT.
-
-## PR998 → PR994 — retained identity architecture
-
-```text
-candidate generation
-   ↓
-independent local Method-A rigid bases
- OR
-independent Method-B network bases
-   ↓
-OR_WITH_CONFLICT_VETO
-   ↓
-canonical correspondence
-   ↓
-engineering deltas
-```
-
-Tolerance authority remains:
-
-```text
-T = x * SOURCE_OD
-x default = 2.0
-SOURCE OD = minimum positive incident SOURCE OD
-OD role = tolerance scale only
-TARGET OD = no identity/tolerance authority
-```
-
-The real benchmark remains `Benchmark/CIICompare/SOURCE 3.CII -> TARGET 3-1.CII`, including the local `60920/60930/60940 ↔ 7290/7300/7310` A/B case and multiple incompatible local node-number offsets.
-
-## Writer authority retained from PR991/PR992
-
-Writer 1A/1B applies only the operations it receives and qualifies. Geometry, node numbering and topology remain protected. OD is conditional to the qualified Writer 1B plain-pipe/no-reducer path. Existing-block restraint mutation remains bounded by owned-block/cardinality rules. PR1001 does not expand the whitelist; it establishes which reviewed classified operations are explicitly selected for Writer evaluation.
+See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, Issue #1003, and stacked implementation PR #1004.
