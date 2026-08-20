@@ -4,7 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-report_basis_head: dc8cf1d3e948e47678611cf5d0fa9818df47b84a
+report_basis_head: e11f9ea1ab395c1c2ffdb0a9bac3a3997b6275e4
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
@@ -19,10 +19,10 @@ appendix_a_status: CURRENT
 grounding_epoch: GE-009
 execution_mode: AUTO
 auto_state: HARD_STOP_REPOSITORY_WIDE_EXECUTION_TRANSPORT_UNAVAILABLE
-auto_authority_note: AUTO MODE progressed all approved Phase-1 engineering and stack-reconciliation gates available in this runtime; it does not authorize waiver of full-repository qualification, Phase-2 scope expansion, workflow modification, ready-for-review transition, PR retarget to main before PR1002 disposition, or merge
+auto_authority_note: AUTO MODE progressed all approved Phase-1 engineering and stack-reconciliation gates available in this runtime; it does not authorize waiver of full-repository qualification, Phase-2 scope expansion, workflow modification, ready-for-review transition, retarget to main before PR1002 disposition, or merge
 current_stage: PHASE1_ENGINEERING_PATH_QUALIFIED_PR1002_AUTHORITY_NORMALIZED_STACK_RECONCILED_FULL_REPOSITORY_SUITE_PENDING
 blocker: COMPLETE_PR_HEAD_REPOSITORY_BYTES_CANNOT_BE_MATERIALIZED_IN_EXECUTION_CONTAINER_FOR_NPM_TEST
-highest_risk: REPOSITORY_WIDE_REGRESSION_INTERACTION_NOT_OBSERVED; Writer1C engineering path itself has exact benchmark, falsifier, regression and browser evidence
+highest_risk: REPOSITORY_WIDE_REGRESSION_INTERACTION_NOT_OBSERVED; Writer1C engineering path itself has exact benchmark, falsifier, focused regression and browser evidence
 coordination_state: SAFE_STACKED_DEPENDENCY; PR1002_OPEN_DRAFT_UNMERGED; PR1004_CONTAINS_LATEST_PR1002_HEAD_AS_ANCESTOR
 stack_reconciliation:
   old_merge_base: 1dd7a4fc8823c54ef38f5f938167d13076d49c65
@@ -34,7 +34,7 @@ stack_reconciliation:
   merge_base_after_reconcile: 803cc1c14d343b78811cbcd8f43bde9b25848d3c
   pr1004_changed_files_after_reconcile: 20
   pr1004_unexplained_files: 0
-pr_live_at_ge009:
+pr_live_at_report_basis:
   pr1002:
     state: OPEN_DRAFT
     merged: false
@@ -46,8 +46,16 @@ pr_live_at_ge009:
     merged: false
     mergeable: true
     base_head: 803cc1c14d343b78811cbcd8f43bde9b25848d3c
-    head_at_stack_reconcile: dc8cf1d3e948e47678611cf5d0fa9818df47b84a
+    head: e11f9ea1ab395c1c2ffdb0a9bac3a3997b6275e4
     changed_files: 20
+    unexplained_files: 0
+    github_status_checks: NONE_PRESENT
+    github_pr_workflow_runs: NONE_PRESENT
+workflow_inventory:
+  deploy.yml: workflow_dispatch exists; executes only tests/deploy-workflow-pages-artifact.test.js and Pages packaging/deploy, not npm test
+  topology-autofix-1885-qualification.yml: topology-specific qualification only, not npm test
+  topology-staged-export-interchange.yml: topology-specific contract only, not npm test
+  repository_wide_existing_workflow: NONE
 validation:
   pr1002_authority_normalization:
     status: PASS
@@ -59,50 +67,16 @@ validation:
       - whole-file Writer1C reserialization prohibited
       - mixed Writer1A/1B plus Writer1C APPLY blocked pending separate qualification
       - SIF/TEE field2 remains semantics-unqualified and blocked
-  exact_target1_object_identity:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    expected_byte_length: 64462
-    actual_byte_length: 64462
-    expected_git_blob_sha: 1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853
-    actual_git_blob_sha: 1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853
-  production_neutral_intake_target1:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    actual: {elements: 40, nodes: 40, nodename_conflicts: 0, auxiliary_conflicts: 0, physical_custody: QUALIFIED, hanger_status: QUALIFIED, line_endings: CRLF}
-  benchmark_production_parser_core_roundtrip:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    exact_core_blob: bfdd20f0716ff47c394de564c26379e259e3f2e7
-    exact_benchmark_test_blob: b0b4662d03b47298bac0c3434fa4723165d2917c
-    exact_validator_blob: c8594d4f260ee58feba5823483f23b152322d8b9
-    actual: {selected_node: 20030, physical_span_count: 1, mutation_count: 1, changed_byte_count: 8, expected_semantic_delta_count: 1, unexpected_semantic_delta_count: 0, output_byte_length_unchanged: true}
-  real_target1_negative_assurance_falsifier:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    actual: unrelated byte drift still reparsed but independent validator rejected UNAUTHORIZED_BYTE_CHANGE
-  real_target1_stale_target_falsifier:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    actual: one-byte stale TARGET rejected CII_WRITER_1C_STALE_TARGET_HASH before mutation
-  reconstructed_regression_gate:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    result: 9_JS_TESTS_PLUS_INDEPENDENT_PYTHON_ORACLE_ALL_PASS
-    limitation: focused exact-file reconstruction, not complete repository checkout
-  target1_redundant_from_to_pattern:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    actual: 2 physical spans for 1 semantic node; 1 semantic delta; 0 unexpected deltas; 0 NODENAME conflicts
-  writer1a_writer1b_non_regression:
-    status: PASS
-    observation: LOCAL_EXECUTION
-  chromium_product_path:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    runtime: /usr/bin/chromium via Python Playwright headless
-    actual: explicit scope bind, byte-preserving File.arrayBuffer input, Writer1C dispatch, binary byteString export, review-invalidates-apply, 0 page errors, 0 console errors
-    limitation: browser contract used engineering/core stubs at imported boundary; exact core is separately qualified by TARGET1 benchmark
+  exact_target1_object_identity: {status: PASS, observation: LOCAL_EXECUTION, expected_byte_length: 64462, actual_byte_length: 64462, git_blob_sha: 1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853}
+  production_neutral_intake_target1: {status: PASS, observation: LOCAL_EXECUTION, elements: 40, nodes: 40, nodename_conflicts: 0, auxiliary_conflicts: 0, physical_custody: QUALIFIED, hanger_status: QUALIFIED, line_endings: CRLF}
+  benchmark_production_parser_core_roundtrip: {status: PASS, observation: LOCAL_EXECUTION, selected_node: 20030, physical_span_count: 1, mutation_count: 1, changed_byte_count: 8, expected_semantic_delta_count: 1, unexpected_semantic_delta_count: 0, output_byte_length_unchanged: true}
+  real_target1_negative_assurance_falsifier: {status: PASS, observation: LOCAL_EXECUTION, actual: unrelated byte drift reparsed but independent validator rejected UNAUTHORIZED_BYTE_CHANGE}
+  real_target1_stale_target_falsifier: {status: PASS, observation: LOCAL_EXECUTION, actual: one-byte stale TARGET rejected CII_WRITER_1C_STALE_TARGET_HASH before mutation}
+  reconstructed_regression_gate: {status: PASS, observation: LOCAL_EXECUTION, result: 9_JS_TESTS_PLUS_INDEPENDENT_PYTHON_ORACLE_ALL_PASS, limitation: focused exact-file reconstruction not complete repository checkout}
+  target1_redundant_from_to_pattern: {status: PASS, observation: LOCAL_EXECUTION, actual: 2 physical spans for 1 semantic node; 1 semantic delta; 0 unexpected deltas; 0 NODENAME conflicts}
+  writer1a_writer1b_non_regression: {status: PASS, observation: LOCAL_EXECUTION}
+  chromium_product_path: {status: PASS, observation: LOCAL_EXECUTION, runtime: /usr/bin/chromium via Python Playwright headless, actual: explicit scope bind; byte-preserving File.arrayBuffer input; Writer1C dispatch; binary byteString export; review-invalidates-apply; 0 page errors; 0 console errors}
+  stacked_base_reconciliation: {status: PASS, observation: REMOTE_GIT_OBJECT_AND_PR_METADATA, behind_by: 0, changed_files: 20, mergeable: true}
   repository_wide_suite:
     status: NOT_RUN
     observation: NOT_OBSERVED
@@ -112,16 +86,10 @@ validation:
       - direct git clone and ls-remote blocked by runtime network/DNS policy
       - pinned-IP HTTPS transport unavailable
       - GitHub connector exposes repository objects but no archive-to-container bridge
-      - existing workflow does not execute npm test
-      - no workflow was added or modified to manufacture qualification
-  github_status_checks:
-    status: NOT_RUN
-    observation: REMOTE_EXECUTION_STATE
-    reason: no qualifying checks observed at the tested implementation head; refresh required after final report-only commits
-  github_workflow_runs:
-    status: NOT_RUN
-    observation: REMOTE_EXECUTION_STATE
-    reason: no qualifying PR-triggered workflow runs observed at the tested implementation head; refresh required after final report-only commits
+      - existing workflows inspected; none execute repository-wide npm test
+      - no workflow was added, modified or dispatched to manufacture qualification
+  github_status_checks: {status: NOT_RUN, observation: REMOTE_EXECUTION_STATE, report_basis_head: e11f9ea1ab395c1c2ffdb0a9bac3a3997b6275e4, actual: NONE_PRESENT}
+  github_pr_workflow_runs: {status: NOT_RUN, observation: REMOTE_EXECUTION_STATE, report_basis_head: e11f9ea1ab395c1c2ffdb0a9bac3a3997b6275e4, actual: NONE_PRESENT}
 baseline_debt:
   - tests/cii-workspace-intake.test.js expects an older parserAuthority string than live main already returns; not introduced or modified by PR1004
 product_default_writer: 1B
@@ -131,6 +99,6 @@ phase2_allowed: false
 phase2_block_reason: Writer1C Phase-2 requires separate source-qualified SIF/TEE field semantics and must not begin while the Phase-1 repository-wide execution gate remains unresolved without owner disposition
 merge_authority: OWNER_ONLY
 ready_for_review: false
-ready_for_review_reason: engineering path and stacked authority are reconciled, but Definition of Done retains exact full-repository npm test unless the owner explicitly accepts the documented runtime limitation
-exact_next_action: execute npm test on a complete exact PR1004 checkout when repository transport becomes available, classify any failures as PREEXISTING/INTRODUCED/UNKNOWN, refresh checks and file ledger, then consider ready-for-review; do not merge or start SIF/TEE mutation without separate authority
-last_updated: 2026-08-20T11:48:00+04:00
+ready_for_review_reason: engineering path, documentation authority and stacked dependency are reconciled, but Definition of Done retains exact full-repository npm test unless the owner explicitly accepts the documented runtime limitation
+exact_next_action: execute npm test on a complete exact PR1004 checkout when repository transport becomes available, classify any failures as PREEXISTING/INTRODUCED_BY_PR/RESOLVED_BY_PR/UNKNOWN_ORIGIN, refresh checks and file ledger, then consider ready-for-review; do not merge or start SIF/TEE mutation without separate authority
+last_updated: 2026-08-20T11:53:00+04:00
