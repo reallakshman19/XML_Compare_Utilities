@@ -4,6 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
+pr_head_observed: 0dffb65339cbc45a601e2cbdad0f461d32c03897
 report_basis_head: 19f020c11ae5d6dec97a7455b3d66954a5a70702
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
@@ -22,12 +23,12 @@ blocker: FULL_REPOSITORY_AND_BROWSER_EXECUTION_NOT_AVAILABLE_IN_CURRENT_RUNTIME
 highest_risk: REAL_BENCHMARK_CORE_ROUNDTRIP_AND_BROWSER_NOT_EXECUTED
 coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
 pr_compare:
-  ahead_by: 41
+  ahead_by: 42
   behind_by: 0
   changed_files: 20
   unexplained_files: 0
-pr_metadata_mergeable: false
-mergeability_note: compare API is linear ahead/0-behind; re-evaluate after owner-authorized PR1002 normalization
+pr_metadata_mergeable: true
+mergeability_note: live refresh is mergeable while still stacked on unmerged PR1002; this is not merge authorization and base must be normalized after owner decision on PR1002
 validation:
   byte_custody_local: PASS_IMPLEMENTATION_COUPLED
   nodename_fixed_width_local: PASS
@@ -48,4 +49,4 @@ writer1c_selection: EXPLICIT_ONLY
 sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
 merge_authority: OWNER_ONLY
 exact_next_action: execute focused Writer1C tests and BM_CII_TARGET1 production-parser roundtrip in a complete checkout, then browser and full-suite qualification; do not mark ready or merge before evidence is recorded
-last_updated: 2026-08-20T07:10:00+04:00
+last_updated: 2026-08-20T07:13:00+04:00
