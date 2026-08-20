@@ -4,7 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-pr_head: 4ae1b1ca8c679353774304f7ea3ecab7fcec47df
+pr_head: 7a1e5babc8af9a108a46941f92b999013c7eb82a
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
@@ -15,14 +15,21 @@ pr_recovery_state: HEALTHY
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-001
-current_stage: BASELINE_IMPLEMENTATION_READY
-blocker: NONE_FOR_PHASE1_CORE
-highest_risk: FALSE_BYTE_AUTHORITY_FROM_TEXT_REENCODING_OR_WRITER_DECLARED_SPANS
+grounding_epoch: GE-002
+current_stage: CORE_PHASE1_IMPLEMENTED_INTEGRATION_PENDING
+blocker: FULL_REPOSITORY_EXECUTION_NOT_AVAILABLE_IN_CONNECTOR_RUNTIME
+highest_risk: CORE_AND_PRODUCT_STILL_ROUTE_TEXT_AND_BINARY_WRITER_1A_1B_ONLY
 dependencies:
   - FOLLOW_ON:PR1002
   - SOURCE_TASK:ISSUE1003
 coordination_state: SAFE_PRODUCTION_COORDINATED_DOCUMENTATION
-exact_next_action: implement original-byte physical-file custody and NODENAME physical span extraction before patcher
+validation:
+  byte_custody_local: PASS_IMPLEMENTATION_COUPLED
+  nodename_planner_patcher_local: PASS
+  independent_validator_falsifier: PASS_INDEPENDENT_REPRODUCTION
+  python_oracle: PASS_INDEPENDENT_REPRODUCTION
+  full_repository: NOT_RUN
+  browser: NOT_RUN
+exact_next_action: wire explicit Writer1C core/scope routing with original-byte inputs and independent round-trip validation
 merge_authority: OWNER_ONLY
-last_updated: 2026-08-20T06:29:00+04:00
+last_updated: 2026-08-20T06:44:00+04:00
