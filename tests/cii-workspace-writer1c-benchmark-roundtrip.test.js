@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { webcrypto } from 'node:crypto';
 import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-intake.js';
 import { applyCiiWorkspaceTargetWriter1C } from '../tabs/cii-workspace/cii-workspace-core.js';
 import { CII_WRITER_1C_NODENAME_POLICY } from '../tabs/cii-workspace/cii-workspace-writer1c-nodename.js';
@@ -26,7 +27,7 @@ function nodeCandidate(custody) {
 
 const targetPath = new URL('../Benchmark/CIICompare/BM_CII_TARGET1.CII', import.meta.url);
 const targetBytes = new Uint8Array(await readFile(targetPath));
-const targetDocument = await intakeCiiWorkspaceDocument(targetBytes, 'BM_CII_TARGET1.CII', { side: 'TARGET', cryptoRef: globalThis.crypto });
+const targetDocument = await intakeCiiWorkspaceDocument(targetBytes, 'BM_CII_TARGET1.CII', { side: 'TARGET', cryptoRef: webcrypto });
 assert.equal(targetDocument.writer1CByteEligible, true);
 assert.equal(targetDocument.nodeNameEvidence.physicalCustody.status, 'QUALIFIED',
   `benchmark NODENAME custody blockers: ${targetDocument.nodeNameEvidence.physicalCustody.blockers.join('|')}`);
@@ -51,7 +52,7 @@ const preview = Object.freeze({
   correspondence: Object.freeze({ status: 'READY' }),
 });
 
-const applied = await applyCiiWorkspaceTargetWriter1C(preview, targetBytes, { cryptoRef: globalThis.crypto });
+const applied = await applyCiiWorkspaceTargetWriter1C(preview, targetBytes, { cryptoRef: webcrypto });
 assert.equal(applied.status, 'PASS');
 assert.equal(applied.writer, 'WRITER_1C');
 assert.equal(applied.byteLength, targetBytes.length);
