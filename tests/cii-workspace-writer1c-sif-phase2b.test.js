@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createCiiPhysicalFile, ciiPhysicalSectionRows } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
 import { extractCiiWriter1CSifEvidence } from '../tabs/cii-workspace/cii-workspace-writer1c-sif-custody.js';
+import { _test as sifDeltaTest } from '../tabs/cii-workspace/cii-workspace-writer1c-sif-deltas.js';
 import {
   buildWriter1CSifPlan, CII_WRITER_1C_SIF_IN_PLANE_POLICY,
 } from '../tabs/cii-workspace/cii-workspace-writer1c-sif.js';
@@ -77,10 +78,21 @@ assert.equal(before.sifWriter1CEvidence.byPointer['1'].slots[1].ii.width, 13);
 assert.equal(before.sifWriter1CEvidence.byPointer['1'].slots[1].ii.item, 3);
 assert.equal(before.sifWriter1CEvidence.byPointer['1'].slots[1].io.item, 4);
 
+// Blank is not numeric zero. This prevents blank/default semantics from being silently normalized into an explicit SIF.
+assert.equal(sifDeltaTest.sameSifValue(null, 0), false);
+assert.equal(sifDeltaTest.sameSifValue(null, null), true);
+assert.equal(sifDeltaTest.numericDelta(null, 0), null);
+
 // Version drift fails closed.
 const version12 = documentFromBytes(new TextEncoder().encode(rawFile({ version: 12 })), parsedOne);
 assert.equal(version12.sifWriter1CEvidence.status, 'BLOCKED');
 assert(version12.sifWriter1CEvidence.blockers.some((item) => item.startsWith('WRITER_1C_SIF_NEUTRAL_VERSION_11_REQUIRED')));
+
+// Parsed element index must bind the same physical 15-row block; endpoint-only fallback is not mutation authority.
+const displacedIndex = documentFromBytes(bytes, parsed([{ index: 7, from: 10, to: 20 }]));
+assert.equal(displacedIndex.sifWriter1CEvidence.status, 'BLOCKED');
+assert(displacedIndex.sifWriter1CEvidence.blockers.includes('WRITER_1C_SIF_ELEMENT_PHYSICAL_BINDING_EXACT_REQUIRED:7'));
+assert.equal(displacedIndex.sifWriter1CEvidence.byParsedElementIndex['7'], undefined);
 
 // Policy requires Writer1C, exact semantic authority, >=1.0 values, and explicit same-code attestation.
 const baseDelta = Object.freeze({
@@ -108,6 +120,18 @@ classified = classifyCiiTransferDelta({ ...baseDelta, targetValue: 0 }, { writer
 } });
 assert.equal(classified.status, 'BLOCKED');
 assert(classified.blockers.includes('SIF_TEE_EXPLICIT_GE_1_VALUE_REQUIRED'));
+
+// Planner independently rejects missing/non-finite Type context even if a caller bypasses delta classification.
+const missingTypePlan = buildWriter1CSifPlan({
+  transferPlan: transferPlan([operation(before.sifWriter1CEvidence, { sifField: { sourceType: null, targetType: null } })]), targetDocument: before,
+});
+assert.equal(missingTypePlan.ready, false);
+assert(missingTypePlan.blockers.some((item) => item.startsWith('WRITER_1C_SIF_TYPE_CONTEXT_REQUIRED')));
+const mismatchedTypePlan = buildWriter1CSifPlan({
+  transferPlan: transferPlan([operation(before.sifWriter1CEvidence, { sifField: { sourceType: 5, targetType: 6 } })]), targetDocument: before,
+});
+assert.equal(mismatchedTypePlan.ready, false);
+assert(mismatchedTypePlan.blockers.some((item) => item.startsWith('WRITER_1C_SIF_TYPE_CONTEXT_MISMATCH')));
 
 // Positive SIF-only one-preimage round trip passes independent negative assurance.
 const op = operation(before.sifWriter1CEvidence); const plan = transferPlan([op]);
