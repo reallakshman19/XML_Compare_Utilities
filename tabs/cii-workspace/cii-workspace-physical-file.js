@@ -26,9 +26,10 @@ function bytesFromBinaryString(value) {
   return out;
 }
 
-function decodeUtf8(bytes, strict) {
-  try { return (strict ? UTF8_FATAL : UTF8).decode(bytes); }
-  catch { throw new Error('CII_WORKSPACE_TEXT_ENCODING_UNSUPPORTED'); }
+function decodeUtf8(bytes) { return UTF8.decode(bytes); }
+function decodedText(bytes) {
+  try { return Object.freeze({ text: UTF8_FATAL.decode(bytes), authority: 'UTF8_STRICT' }); }
+  catch { return Object.freeze({ text: UTF8.decode(bytes), authority: 'UTF8_REPLACEMENT_COMPATIBILITY' }); }
 }
 
 function scanLines(bytes) {
@@ -41,14 +42,14 @@ function scanLines(bytes) {
     if (value === 0x0d && bytes[index + 1] === 0x0a) { lineEnding = 'CRLF'; end = index + 2; }
     rows.push(Object.freeze({
       lineNumber, byteStart: start, bodyByteEnd: bodyEnd, byteEnd: end, lineEnding,
-      text: decodeUtf8(bytes.subarray(start, bodyEnd), false),
+      text: decodeUtf8(bytes.subarray(start, bodyEnd)),
     }));
     lineNumber += 1; start = end; index = end;
   }
   if (start < bytes.length || bytes.length === 0) {
     rows.push(Object.freeze({
       lineNumber, byteStart: start, bodyByteEnd: bytes.length, byteEnd: bytes.length, lineEnding: 'NONE',
-      text: decodeUtf8(bytes.subarray(start), false),
+      text: decodeUtf8(bytes.subarray(start)),
     }));
   }
   return Object.freeze(rows);
@@ -68,15 +69,16 @@ export function createCiiPhysicalFile(input) {
   const supplied = copyBytes(input);
   const originalBytes = supplied || new TextEncoder().encode(String(input ?? ''));
   const byteAuthority = supplied ? 'ORIGINAL_BYTES' : 'REENCODED_TEXT_COMPATIBILITY';
-  const text = supplied ? decodeUtf8(originalBytes, true) : String(input ?? '');
+  const decoded = supplied ? decodedText(originalBytes) : Object.freeze({ text: String(input ?? ''), authority: 'CALLER_TEXT' });
   const lines = scanLines(originalBytes);
   return Object.freeze({
     schema: 'CIIWorkspacePhysicalFile.v1',
     byteAuthority,
     writer1CByteEligible: byteAuthority === 'ORIGINAL_BYTES',
+    textEncodingAuthority: decoded.authority,
     byteLength: originalBytes.length,
     originalByteString: binaryStringFromBytes(originalBytes),
-    text,
+    text: decoded.text,
     lines,
     lineEndings: lineEndingSummary(lines),
   });
