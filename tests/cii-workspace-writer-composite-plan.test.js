@@ -17,18 +17,23 @@ assert.deepEqual(split.writer1COperations.map((item) => item.operationId), ['NAM
 assert(split.lowerPlan.operations.some((item) => item.operationId === 'KEEP'));
 assert(split.writer1CPlan.operations.some((item) => item.operationId === 'KEEP'));
 
-const identical = compositeTest.canonicalizeClaims([
-  Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['A'], sourceWriters: ['WRITER_1B_LOWER_FAMILY'] }),
+const identicalWithinFamily = compositeTest.canonicalizeClaims([
+  Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['A'], sourceWriters: ['WRITER_1C'] }),
   Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['B'], sourceWriters: ['WRITER_1C'] }),
 ]);
-assert.equal(identical.length, 1);
-assert.deepEqual(identical[0].operationIds, ['A', 'B']);
-assert.deepEqual(identical[0].sourceWriters, ['WRITER_1B_LOWER_FAMILY', 'WRITER_1C']);
+assert.equal(identicalWithinFamily.length, 1);
+assert.deepEqual(identicalWithinFamily[0].operationIds, ['A', 'B']);
+assert.deepEqual(identicalWithinFamily[0].sourceWriters, ['WRITER_1C']);
+
+assert.throws(() => compositeTest.canonicalizeClaims([
+  Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['A'], sourceWriters: ['WRITER_1B_LOWER_FAMILY'] }),
+  Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['B'], sourceWriters: ['WRITER_1C'] }),
+]), /CROSS_FAMILY_SAME_SPAN/);
 
 assert.throws(() => compositeTest.canonicalizeClaims([
   Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      2.00000', operationIds: ['A'], sourceWriters: ['LOWER'] }),
   Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '      1.00000', afterField: '      3.00000', operationIds: ['B'], sourceWriters: ['1C'] }),
-]), /SAME_SPAN_CONFLICT/);
+]), /CROSS_FAMILY_SAME_SPAN/);
 
 assert.throws(() => compositeTest.canonicalizeClaims([
   Object.freeze({ spanKey: '10:23', absoluteByteStart: 10, absoluteByteEnd: 23, width: 13, beforeField: '1234567890123', afterField: 'ABCDEFGHIJKLM', operationIds: ['A'], sourceWriters: ['LOWER'] }),
@@ -47,4 +52,4 @@ assert.throws(() => compositeTest.normalizeLowerMutation(Object.freeze({
   lineNumber: 1, startColumn: 1, endColumn: 13, beforeField: '      9.00000', afterField: '      2.00000', operationId: 'LOWER', section: 'ELEMENTS', field: 'P3',
 }), targetDocument, original), /ORIGINAL_PREIMAGE_MISMATCH/);
 
-console.log('Composite split, overlap arbitration and original-preimage gates passed.');
+console.log('Composite split, authority collision, overlap and original-preimage gates passed.');
