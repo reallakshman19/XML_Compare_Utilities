@@ -38,6 +38,8 @@ qualification_execution:
   transfer_operation_sif_metadata_custody: PASS_SOURCE_INSPECTION
   low_level_code_context_bypass_finding: FIXED
   low_level_code_context_bypass_regression: AUTHORED_NOT_RUN_ENVIRONMENT
+  four_position_plan_coverage_gap: CLOSED_TEST_AUTHORED
+  four_position_plan_test: AUTHORED_NOT_RUN_ENVIRONMENT
   independent_v11_field_arithmetic_oracle: PASS_INDEPENDENT_ORACLE
   independent_blank_semantics_oracle: PASS_INDEPENDENT_ORACLE
   independent_shared_alias_oracle: PASS_INDEPENDENT_ORACLE
@@ -49,6 +51,7 @@ validation:
   target1_sif_custody_test: AUTHORED_NOT_RUN_ENVIRONMENT
   sif_context_ui_test: AUTHORED_NOT_RUN_ENVIRONMENT
   sif_context_planner_test: AUTHORED_NOT_RUN_ENVIRONMENT
+  sif_four_position_plan_test: AUTHORED_NOT_RUN_ENVIRONMENT
   inherited_writer1c_tests: NOT_RUN_ENVIRONMENT
   full_npm_test: NOT_RUN_ENVIRONMENT
   browser: NOT_RUN_ENVIRONMENT
