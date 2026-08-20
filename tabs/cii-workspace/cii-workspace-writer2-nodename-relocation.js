@@ -51,9 +51,6 @@ function operationTargetNode(operation) { return text(operation?.targetEvidence?
 function exactBindings(custody) {
   return Object.values(custody?.byElementIndex || {}).filter((binding) => binding?.bindingAuthority === 'EXACT_PARSED_INDEX_AND_ENDPOINTS');
 }
-function bindingByParsedIndex(custody) {
-  return new Map(exactBindings(custody).map((binding) => [Number(binding.parsedElementIndex), binding]));
-}
 function spansForNode(custody, nodeId) {
   const spans = [];
   for (const [spanKey, span] of Object.entries(custody?.bySpan || {})) {
@@ -62,16 +59,14 @@ function spansForNode(custody, nodeId) {
   }
   return spans;
 }
-function incidentExactZeroBindings(targetGraph, custody, nodeId) {
-  const byIndex = bindingByParsedIndex(custody); const out = [];
-  for (const edge of targetGraph?.edges || []) {
-    if (String(edge.from) !== String(nodeId) && String(edge.to) !== String(nodeId)) continue;
-    const binding = byIndex.get(Number(edge.parsedElementIndex));
-    if (!binding || Number(binding.pointer) !== 0) continue;
-    if (String(binding.from) !== String(edge.from) || String(binding.to) !== String(edge.to)) continue;
-    out.push(Object.freeze({ edge, binding, end: String(edge.from) === String(nodeId) ? 'FROM' : 'TO' }));
-  }
-  return out.sort((a, b) => Number(a.edge.parsedElementIndex) - Number(b.edge.parsedElementIndex));
+function incidentExactZeroBindings(custody, nodeId) {
+  return exactBindings(custody).filter((binding) => Number(binding.pointer) === 0
+    && (String(binding.from) === String(nodeId) || String(binding.to) === String(nodeId)))
+    .map((binding) => Object.freeze({
+      binding, parsedElementIndex: Number(binding.parsedElementIndex),
+      end: String(binding.from) === String(nodeId) ? 'FROM' : 'TO',
+    }))
+    .sort((a, b) => a.parsedElementIndex - b.parsedElementIndex);
 }
 function controlEvidence(targetDocument, blockers) {
   const rows = ciiPhysicalSectionRows(targetDocument?.physicalFile, 'CONTROL');
@@ -111,7 +106,7 @@ function validateOperation(operation, targetDocument, blockers) {
   return nodeId;
 }
 
-export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, targetGraph, transferPlan }) {
+export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan }) {
   const blockers = [...(transferPlan?.blockers || [])];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('WRITER_2_NODENAME_TRANSFER_PLAN_NOT_PREVIEW_READY');
   if (transferPlan?.transferScope?.status !== 'BOUND') blockers.push('WRITER_2_NODENAME_BOUND_TRANSFER_SCOPE_REQUIRED');
@@ -164,9 +159,9 @@ export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, targetGr
     if (spansForNode(custody, request.nodeId).length) {
       blockers.push(`WRITER_2_NODENAME_CREATE_EXISTING_FIELD_USE_WRITER_1C:${request.nodeId}`); continue;
     }
-    const candidates = incidentExactZeroBindings(targetGraph, custody, request.nodeId);
+    const candidates = incidentExactZeroBindings(custody, request.nodeId);
     if (!candidates.length) { blockers.push(`WRITER_2_NODENAME_CREATE_ZERO_POINTER_OWNER_REQUIRED:${request.nodeId}`); continue; }
-    const selected = candidates[0]; const index = Number(selected.edge.parsedElementIndex);
+    const selected = candidates[0]; const index = selected.parsedElementIndex;
     const group = createGroups.get(index) || { parsedElementIndex: index, binding: selected.binding, fromName: '', toName: '', operationIds: [] };
     const width = selected.end === 'FROM' ? FROM_END - FROM_START : TO_END - TO_START;
     const name = asciiName(request.operation.proposed, width, `WRITER_2_NODENAME_CREATE_NAME_INVALID:${request.nodeId}`, blockers);
