@@ -4,7 +4,7 @@
 
 ```text
 HANDOVER_READINESS: READY
-PR_RECOVERY_STATE: QUALIFICATION_IN_PROGRESS / FAIL_CLOSED VERDICT ESTABLISHED
+PR_RECOVERY_STATE: QUALIFICATION COMPLETE FOR SELECTED FIELDS / PRODUCTION WRITER NOT IMPLEMENTED
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 ISSUE: #1005
 PR: #1006
@@ -12,30 +12,28 @@ BRANCH: agent/cii-writer-1c-sif-qualification
 BASE: main@692be3fd536b7c62576c443f5f831984e4de66a2
 WORK_INTENT: QUALIFY_ONLY
 CRITICALITY: ENGINEERING_CRITICAL
-CURRENT_VERDICT: NOT_READY_FOR_SIF_WRITER
+CURRENT_VERDICT: READY_FOR_SELECTED_SIF_FIELDS
+SELECTED_FIELDS: In-Plane SIF (ii), Out-Plane SIF (io), both tee slots
+CURRENT_PRODUCT_SIF_WRITER: DISABLED
 MERGE_AUTHORITY: OWNER_ONLY
 ```
 
 ## 1. Mission
 
-Determine whether any existing `SIF&TEES` field can receive Writer 1C mutation authority without guessing engineering semantics.
+Determine whether any existing `SIF&TEES` field can receive future Writer 1C mutation authority without guessing engineering semantics.
 
-This PR is intentionally not an implementation PR. It must answer:
-
-> For each of the 60 fixed numeric positions in one 10-row SIF/TEE block, what physical layout is proven, what engineering meaning is directly proven, what is merely observed in benchmarks, and which fields—if any—may be safely mutated?
+This PR is intentionally not an implementation PR. It must establish source-qualified physical position, engineering meaning, domain and explicit exclusions before a separate Phase-2B Writer PR is allowed.
 
 ## 2. Grounding
 
-Current baseline:
-
 ```text
-main = 692be3fd536b7c62576c443f5f831984e4de66a2
+main   = 692be3fd536b7c62576c443f5f831984e4de66a2
 PR1002 = merged
-PR1004 = merged
-Issue1005 = Phase 2A qualification authority
+PR1004 = merged (Writer1C NODENAME Phase 1)
+Issue1005 = Phase2A qualification authority
 ```
 
-Protected/source files inspected:
+Protected repository sources inspected and unchanged:
 
 ```text
 converters/scripts/inputxml_to_cii2019.py
@@ -50,69 +48,171 @@ Benchmark/CIICompare/BM_CII_TARGET1.CII
 Benchmark/CIICompare/BM_CII_TARGET2.CII
 ```
 
-No protected converter, parser, transfer policy, Writer, UI, or workflow source has been modified.
+No protected converter, parser, transfer policy, Writer, UI, or workflow source is modified by PR1006.
 
-## 3. Direct source findings
+## 3. First-pass finding retained
 
-### 3.1 Physical block authority
-
-Directly qualified:
+The first pass correctly established that repository sources alone did **not** define the non-identity SIF/TEE payload. At that point the correct verdict was:
 
 ```text
-SIF&TEES block rows = 10
-ELEMENT SIF pointer = 1-based 10-row block index
-CONTROL row3 field4 = SIF/TEE block count
-numeric widths = 15,13,13,13,13,13
+NOT_READY_FOR_SIF_WRITER
 ```
 
-Physical row spans:
+The repository converter models only `SifAux(node)` and zero-fills the remaining payload. The workspace correctly marked field 2 `FIELD_2_SEMANTICS_UNQUALIFIED`.
+
+That first-pass fail-closed behavior was retained until an external authoritative neutral-file definition was found.
+
+## 4. New authoritative source finding
+
+### 4.1 Hexagon Version-12 neutral specification
+
+Official Hexagon documentation:
 
 ```text
-f0 [0,15)
-f1 [15,28)
-f2 [28,41)
-f3 [41,54)
-f4 [54,67)
-f5 [67,80)
+CAESAR II User's Guide / Version 12
+Auxiliary Element Data / #$ SIF&TEES
+https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
 ```
 
-### 3.2 Protected converter semantic authority
+Directly establishes:
 
-2019 `SifAux` contains only:
-
-```python
-node: float
+```text
+format                     = (2X,6G13.6)
+tee slots per auxiliary    = 2
+items per tee              = 30
+rows per tee               = 5
+rows per auxiliary         = 10
+positions per auxiliary    = 60
 ```
-
-`_parse_sifs()` reads only `SIF/@NODE`.
-
-`_build_sif_payload()` writes row0/f0 from that node, row0/f1..f5 as zero, then emits nine further zero rows.
-
-The 2014 converter has the same node-only model.
 
 Therefore:
 
 ```text
-DIRECT identity semantic positions     = 1
-DIRECT non-identity semantic positions = 0
-Writer1C-writable SIF positions        = 0
+rows 0..4 = tee slot 1 / items 1..30
+rows 5..9 = tee slot 2 / items 1..30
 ```
 
-Row0/f0 is identity/ownership and remains non-writable.
+This resolves the former row5 anomaly. `r5f0` is tee-slot-2 Node and `r5f1` is tee-slot-2 Type.
 
-## 4. Canonical benchmark census
+Version-12 directly names items 1..26. Items 27..30 remain unresolved in the retrieved Version-12 item list and are not backfilled from later editions.
 
-Three canonical files were inspected through immutable `main` content:
+### 4.2 Selected item position authority
 
 ```text
-SOURCE
-TARGET1
-TARGET2
+item 3 = In-Plane SIF (ii)
+item 4 = Out-Plane SIF (io)
 ```
 
-Each has `CONTROL SIF&TEES = 9`.
+Mapped positions:
 
-Aggregate:
+```text
+slot1 ii -> r0f2 [28,41)
+slot1 io -> r0f3 [41,54)
+slot2 ii -> r5f2 [28,41)
+slot2 io -> r5f3 [41,54)
+```
+
+### 4.3 Product-domain corroboration
+
+CAESAR II 2019 User's Guide identifies itself as Version 11.0 and states:
+
+- `ii` is the in-plane SIF;
+- `io` is the out-of-plane SIF;
+- when ii/io are not specified CAESAR II performs code-related calculation;
+- user-defined SIFs cannot be less than 1.0.
+
+Source used for the v11.0 product semantic cross-check:
+
+```text
+https://studylib.net/doc/27105489/caesar-ii-2019---users-guide
+```
+
+This is not used as neutral item-position authority; Version-12 Hexagon neutral documentation supplies that custody.
+
+## 5. Edition-drift falsifier
+
+Hexagon Version 14/15 documentation proves the neutral shape later changed to:
+
+```text
+42 items per tee
+7 rows per tee
+14 rows per auxiliary
+```
+
+and changed item ordering:
+
+```text
+Version12: item15=Torsion SIF, item16=Axial SIF
+Version14/15: item15=Axial SIF, item16=Torsion SIF
+```
+
+Engineering conclusion:
+
+> Physical item number alone is never sufficient authority across editions.
+
+Future Phase-2B must require the qualified 10-row shape and block any edition-shape drift.
+
+## 6. 60-position qualification result
+
+`docs/cii-writer1c-sif-field-map.csv` contains exactly 60 positions:
+
+```text
+DIRECT semantic positions               52
+  = items 1..26 repeated across 2 tee slots
+UNRESOLVED positions                      8
+  = items 27..30 repeated across 2 tee slots
+selected future Writer1C candidates       4
+  = ii/io in both tee slots
+currently product-enabled SIF positions   0
+```
+
+No unresolved field is writable.
+
+`writable=YES` in the qualification CSV means eligible for a future Phase-2B implementation; it does not mean current product authority.
+
+## 7. Initial Phase-2B mutation domain
+
+Only the explicit-to-explicit SIF overwrite slice is qualified for first implementation:
+
+```text
+existing TARGET SIF pointer > 0
+qualified 10-row block shape
+same pointer/block at preview and apply
+same CONTROL/cardinality
+same Type and piping-code context
+field = ii or io only
+TARGET preimage finite >= 1.0
+proposed value finite >= 1.0
+zero transition prohibited
+blank transition prohibited
+9999.99 transition prohibited
+identity/Type/geometry/index/note fields unchanged
+```
+
+This intentionally avoids relying on unresolved Version-12 zero/sentinel representation semantics.
+
+## 8. Fields deliberately not selected
+
+Even with direct names, the following remain non-writable in the first implementation:
+
+```text
+Node                 identity
+Type                 code-dependent enum
+Weld d / Fillet      dimensional/context dependent
+Pad/Ftg Ro/Crotch    dimensional/component dependent
+Weld ID/B1/B2        context/code dependent
+Ii/Io                 not first slice
+it/ia                 edition-order drift exists
+ip/Ip                 code dependent
+items19..22           code specific
+items23..24           note positions; Version12 state/sentinel mutation not qualified
+Ia/It                 not first slice
+items27..30           Version12 semantics unresolved
+```
+
+## 9. Canonical benchmark census
+
+Three canonical files have been remotely inspected:
 
 ```text
 files  = 3
@@ -120,7 +220,7 @@ blocks = 27
 rows   = 270
 ```
 
-Row0/f1 observation frequency:
+Tee-slot-1 Type observations:
 
 ```text
 3  => 7
@@ -128,175 +228,164 @@ Row0/f1 observation frequency:
 11 => 12
 ```
 
-Row5/f1 nonzero observation:
+Tee-slot-2 Type `11` occurs in six blocks.
+
+Recurring 9999.99 positions now map to Note items 23/24 in both tee slots:
 
 ```text
-11 => 6 / 27 blocks
+r3f4/r3f5/r8f4/r8f5
 ```
 
-Repeated `9999.99` observations:
+Benchmarks never assign these meanings; the neutral source does.
 
-```text
-r3f4 = 27
-r3f5 = 27
-r8f4 = 27
-r8f5 = 27
-```
+Canonical ii/io positions are currently zero. Therefore a positive explicit-SIF transaction benchmark is a mandatory Phase-2B gate.
 
-None of these observations is semantic authority.
+## 10. Validation ledger
 
-A material qualification finding is that row5 may contain another nonzero pair. The existing workspace evidence that promotes only row0 `first[1]` as `rawCode` is therefore insufficient as a complete semantic representation of the 10-row record.
-
-## 5. 60-position result
-
-`docs/cii-writer1c-sif-field-map.csv` contains exactly 60 entries.
-
-Classification target:
-
-```text
-DIRECT         1   row0/f0 identity only
-OBSERVED_ONLY  7   notable positions
-UNRESOLVED    52   remaining positions
-writable YES   0
-```
-
-Notable OBSERVED_ONLY positions:
-
-```text
-r0f1
-r3f4
-r3f5
-r5f0
-r5f1
-r8f4
-r8f5
-```
-
-## 6. Validation
-
-### VAL-SIF-001 — source custody
+### VAL-SIF-001 — repository physical custody
 
 ```text
 STATUS: PASS
 OBSERVATION: REMOTE_SOURCE_INSPECTION
 ```
 
-Repository sources independently establish 10-row cardinality, pointer-block ownership, fixed widths, converter node identity, and current fail-closed policy.
+### VAL-SIF-002 — Hexagon Version-12 neutral map
 
-### VAL-SIF-002 — canonical raw census by source inspection
+```text
+STATUS: PASS
+OBSERVATION: EXTERNAL_VENDOR_SOURCE_INSPECTION
+2 tee slots / 30 items / 5 rows each / 10 total
+items 1..26 directly mapped
+```
+
+### VAL-SIF-003 — product semantic/domain cross-check
+
+```text
+STATUS: PASS
+OBSERVATION: VENDOR_GUIDE_MIRROR_INSPECTION
+selected fields: ii/io
+user-defined SIF minimum: 1.0
+```
+
+### VAL-SIF-004 — edition-drift falsifier
+
+```text
+STATUS: PASS
+OBSERVATION: EXTERNAL_VENDOR_SOURCE_INSPECTION
+Version14/15 = 42-item / 14-row shape
+Version12 item15/16 order differs from later editions
+```
+
+### VAL-SIF-005 — canonical raw census source inspection
 
 ```text
 STATUS: PASS
 OBSERVATION: REMOTE_IMMUTABLE_BENCHMARK_INSPECTION
-files: 3
-blocks: 27
-row0/f1 aggregate: 3=>7, 5=>8, 11=>12
-row5/f1 nonzero 11: 6
+files=3 / blocks=27 / rows=270
 ```
 
-### VAL-SIF-003 — census implementation synthetic reproduction
+### VAL-SIF-006 — authority-map/self-test
+
+The qualification script now independently asserts:
 
 ```text
-STATUS: PASS
-OBSERVATION: LOCAL_EXECUTION
+2 tee slots
+5 rows per tee
+30 items per tee
+60 unique positions
+52 direct positions
+8 unresolved positions
+selected positions r0f2,r0f3,r5f2,r5f3
+Version12 item15=Torsion / item16=Axial
+positive synthetic selected-field values >=1.0
 ```
 
-The census script was run against synthetic CII sections reproducing the exact canonical code/block positions. Observed:
+Status is recorded only after local reproduction in the current work session.
 
-```text
-27 blocks
-270 rows
-3=>7, 5=>8, 11=>12
-row5 11=>6
-r3f4/r3f5/r8f4/r8f5 9999.99=>27 each
-semantic_authority=NONE_INFERRED_FROM_CENSUS
-```
-
-### VAL-SIF-004 — exact repository-file census execution
+### VAL-SIF-007 — exact repository-file census execution
 
 ```text
 STATUS: NOT_RUN
 OBSERVATION: NOT_OBSERVED
 ```
 
-Reason: this runtime still lacks a complete local repository checkout. Exact benchmark content was inspected through the GitHub connector, but the new Python census has not yet been executed against the three repository files in one local checkout.
+Reason: this runtime does not provide a complete checkout of all three repository benchmark files to the execution container. Remote benchmark inspection is not relabeled as local execution.
 
-This is not upgraded to PASS by source inspection.
+## 11. Product state
 
-## 7. Blocking gap
+PR1006 does **not** modify product Writer authority.
 
-Current verdict:
+Current blockers remain correct until Phase-2B implements field-specific custody:
 
 ```text
-NOT_READY_FOR_SIF_WRITER
+SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
+SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
 ```
 
-Missing authoritative definition must state:
+Future policy must be field-specific; no generic raw-payload token is permitted.
+
+Candidate future tokens:
 
 ```text
-10-row semantic structure
-selected row/field meanings
-row5/sub-record semantics
-units
-domains/enums
-zero semantics
-blank semantics
-9999.99 semantics
-reference/identity rules
-field combination rules
-edition applicability
+CII_WRITER_1C_SIF_IN_PLANE_EXISTING_BLOCK
+CII_WRITER_1C_SIF_OUT_PLANE_EXISTING_BLOCK
 ```
 
-Values `3`, `5`, `11`, and `9999.99` shall not be interpreted by correlation.
+## 12. Changed-file ledger
 
-## 8. Changed-file ledger
-
-Expected qualification-only paths:
+Qualification-only paths:
 
 ```text
-docs/cii-writer1c-sif-field-qualification.md
+agents/MASTER_INDEX.md
+agents/PR1006_workreport.md
+agents/claims/PR1006.yaml
+agents/status/PR1006.yaml
 docs/cii-writer1c-sif-field-map.csv
+docs/cii-writer1c-sif-field-qualification.md
 docs/cii-writer1c-sif-source-ledger.csv
 tests/qualification/cii-workspace-sif-semantic-census.py
-agents/PR1006_workreport.md
-agents/status/PR1006.yaml
-agents/claims/PR1006.yaml
-agents/MASTER_INDEX.md
 ```
 
-No production mutation file belongs in this PR.
+Expected production Writer/transfer-policy/converter/workflow changes: **0**.
 
-## 9. Coordination note
+## 13. Coordination note
 
-An unused branch ref `agent/cii-writer-1c-sif-qualification-2` was created at the exact baseline while probing branch availability. It has no unique commits, no PR, and no code effect. The authoritative work branch is:
+Unused ref:
 
 ```text
-agent/cii-writer-1c-sif-qualification
+agent/cii-writer-1c-sif-qualification-2
 ```
 
-## 10. Exact next action
+It has no unique commits, PR or code effect and is not an active workstream.
 
-1. finish PR1006 living status/claim/index records;
-2. verify the 60-row CSV mechanically;
-3. execute the census against exact repository canonical files if a complete checkout becomes available;
-4. obtain approved field-level CAESAR neutral-file semantic authority;
-5. only then consider `READY_FOR_SELECTED_SIF_FIELDS`.
+## 14. Exact next action after Phase-2A
 
-Do not write SIF mutation code while verdict is `NOT_READY_FOR_SIF_WRITER`.
+Do not add SIF Writer code to PR1006.
+
+After owner disposition of PR1006, create a separate Phase-2B PR that:
+
+1. implements physical span custody for item3/item4 in both slots;
+2. adds a nonzero explicit-SIF SOURCE/TARGET fixture;
+3. enforces explicit-to-explicit `>=1.0` only;
+4. proves same Type/code context and 10-row edition shape;
+5. applies equal-width byte patches only;
+6. independently derives `S_auth`;
+7. catches unrelated byte, pointer, block, CONTROL and edition-shape drift;
+8. keeps CREATE/DELETE/reindex with Writer2.
 
 ---
 
 # Appendix A — takeover questionnaire
 
-A successor must answer these before changing qualification state:
+A successor must answer these before changing Phase-2B authority:
 
-1. Which source explicitly defines the engineering meaning of row0/f1?
-2. Does that source define values `3`, `5`, and `11`, or are they still observed-only?
-3. What is the authoritative semantic relationship between rows 0..4 and rows 5..9?
-4. What does `9999.99` mean at r3f4/r3f5/r8f4/r8f5 for the applicable CII edition?
-5. Which fields are identity/reference fields and therefore non-writable?
-6. Which selected non-identity fields have DIRECT semantics, units, domains, and zero/sentinel rules?
-7. Has the 60-position field map been updated with exact source locators?
-8. Has the exact canonical census script passed on SOURCE/TARGET1/TARGET2?
-9. Is transfer policy still fail-closed for all unqualified fields?
-10. Has any Writer code been added prematurely? If yes, stop and remove it before qualification review.
+1. Which Hexagon source defines the 30-item/two-tee Version-12 neutral shape?
+2. Why is row5 the start of tee slot 2 rather than an unrelated subrecord?
+3. What are the exact row/field/column spans for ii/io in both slots?
+4. Which source establishes the `>=1.0` user-defined SIF domain?
+5. Why are items15/16 not safe to copy from later-edition maps?
+6. Which Version-12 positions remain unresolved?
+7. Why are Type and Node non-writable?
+8. What initial policy prevents zero/blank/sentinel transitions?
+9. What positive nonzero fixture will Phase-2B add?
+10. How will the independent validator derive `S_auth` without trusting Writer-reported spans?
