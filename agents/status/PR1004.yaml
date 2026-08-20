@@ -4,8 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-pr_head_observed: 6e7f042af80e322614da094c50cf165134d546cf
-report_basis_head: 19f020c11ae5d6dec97a7455b3d66954a5a70702
+report_basis_head: 2bc4adf37bb2fd3b32c7bb5e1ea8400f7a887503
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
@@ -17,17 +16,38 @@ pr_recovery_state: HEALTHY_IMPLEMENTATION_COMPLETE_QUALIFICATION_PARTIAL
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-004
-current_stage: PHASE1_IMPLEMENTED_FOCUSED_EXECUTION_PASS_REAL_PARSER_AND_BROWSER_PENDING
-blocker: COMPLETE_PRIVATE_REPOSITORY_CHECKOUT_AND_BROWSER_EXECUTION_NOT_AVAILABLE_IN_CURRENT_RUNTIME
-highest_risk: REAL_BM_CII_TARGET1_PRODUCTION_PARSER_ROUNDTRIP_AND_BROWSER_NOT_YET_OBSERVED
+grounding_epoch: GE-005
+current_stage: PHASE1_IMPLEMENTED_RECONSTRUCTED_QUALIFICATION_GATE_PASS_FULL_BENCHMARK_AND_BROWSER_PENDING
+blocker: FULL_PRIVATE_CHECKOUT_AND_BROWSER_EXECUTION_UNAVAILABLE_IN_CURRENT_RUNTIME
+highest_risk: REAL_BM_CII_TARGET1_PRODUCTION_PARSER_CORE_ROUNDTRIP_AND_CHROMIUM_NOT_OBSERVED
 coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
+pr_live_at_basis:
+  state: OPEN_DRAFT
+  mergeable: true
+  changed_files: 20
+  unexplained_files: 0
+  github_status_checks: NONE_PRESENT
+  github_workflow_runs: NONE_PRESENT
 validation:
-  writer1c_byte_custody_reconstructed_branch_slice:
+  reconstructed_gate:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    limitation: exact fetched branch files assembled as a focused slice; not a complete repository checkout
+    commands:
+      - node tests/cii-workspace-writer1c-byte-custody.test.js
+      - node tests/cii-workspace-writer1c-nodename.test.js
+      - node tests/cii-workspace-nodename.test.js
+      - node tests/routing-policy-slice.test.js
+      - node tests/cii-workspace-target-writer-1a.test.js
+      - node tests/cii-workspace-target-writer-restraint.test.js
+      - node tests/cii-workspace-target-writer-1b.test.js
+      - node tests/cii-workspace-restraint-slot-writer-1b.test.js
+      - python3 tests/qualification/cii-workspace-writer1c-nodename-oracle.py
+  writer1c_byte_custody:
     status: PASS
     observation: LOCAL_EXECUTION
     oracle: IMPLEMENTATION_COUPLED
-  writer1c_nodename_reconstructed_branch_slice:
+  writer1c_nodename_planner_patcher_validator:
     status: PASS
     observation: LOCAL_EXECUTION
     oracle: IMPLEMENTATION_COUPLED_PLUS_INDEPENDENT_VALIDATOR
@@ -35,20 +55,7 @@ validation:
     status: PASS
     observation: LOCAL_EXECUTION
     oracle: BENCHMARK_DERIVED_FIXED_FIELD_PATTERN_PLUS_INDEPENDENT_VALIDATOR
-    actual: two physical spans mutated for one semantic node; one semantic delta; zero unexpected deltas
-  legacy_nodename_semantic_compatibility:
-    status: PASS
-    observation: LOCAL_EXECUTION_RECONSTRUCTED_BRANCH_SLICE
-    oracle: PREEXISTING_TEST_EXPECTATIONS
-  routing_policy_slice:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    oracle: SOURCE_QUALIFIED_POLICY
-  routing_source_contract:
-    status: PASS
-    observation: SOURCE_INSPECTION
-    oracle: NONE
-    actual: explicit 1A_1B_1C dispatch; default 1B; scope routes 1C custody; shell uses arrayBuffer; host 1C selection explicit
+    actual: 2 physical spans mutated for 1 semantic node; 1 semantic delta; 0 unexpected deltas; 0 NODENAME conflicts
   independent_validator_sif_pointer_falsifier:
     status: PASS
     observation: LOCAL_EXECUTION
@@ -57,20 +64,61 @@ validation:
     status: PASS
     observation: LOCAL_EXECUTION
     oracle: INDEPENDENT_REPRODUCTION
-    actual: authorized_span_2514_2539_changed_bytes_3_sif_pointer_falsifier_PASS
-  benchmark_production_parser_roundtrip: AUTHORED_NOT_RUN
-  repository_writer1c_suite: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
-  writer1a_regression: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
-  writer1b_regression: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
-  browser_chromium: NOT_RUN_BROWSER_UNAVAILABLE
-  full_repository: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
-  github_status_checks: NOT_RUN_NONE_PRESENT
-  github_workflow_runs: NOT_RUN_NONE_PRESENT
+    actual: authorized span 2514:2539; changed bytes 3; SIF pointer falsifier caught
+  legacy_nodename_semantic_regression:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  routing_policy_slice:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: SOURCE_QUALIFIED_POLICY
+  routing_product_contract:
+    status: PASS
+    observation: SOURCE_INSPECTION
+    oracle: NONE
+    actual: explicit 1A/1B/1C dispatch; default 1B; scope routes 1C with TARGET custody; shell uses arrayBuffer; host selection explicit
+  writer1a_fixed_field_regression:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  writer1a_paired_restraint_regression:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  writer1b_extended_fixed_field_regression:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  writer1b_restraint_slot_regression:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  benchmark_production_parser_core_roundtrip:
+    status: NOT_RUN
+    observation: NOT_OBSERVED
+    reason: exact 64462-byte private benchmark and complete parser/core dependency closure not materialized in current execution runtime
+  chromium_product_path:
+    status: NOT_RUN
+    observation: NOT_OBSERVED
+    reason: browser execution environment unavailable
+  full_repository_suite:
+    status: NOT_RUN
+    observation: NOT_OBSERVED
+    reason: complete private repository checkout unavailable
+  github_status_checks:
+    status: NOT_RUN
+    observation: REMOTE_EXECUTION_STATE
+    reason: no statuses present
+  github_workflow_runs:
+    status: NOT_RUN
+    observation: REMOTE_EXECUTION_STATE
+    reason: no PR-triggered runs present
 baseline_debt:
   - tests/cii-workspace-intake.test.js expects an older parserAuthority string than live main already returns; not introduced or modified by PR1004
 product_default_writer: 1B
 writer1c_selection: EXPLICIT_ONLY
 sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
 merge_authority: OWNER_ONLY
-exact_next_action: reconstruct and execute the smallest real BM_CII_TARGET1 production parser/custody roundtrip without workflow changes; then run full checkout and Chromium when an execution-capable repository/browser environment is available; do not mark ready or merge before evidence is recorded
-last_updated: 2026-08-20T07:30:00+04:00
+exact_next_action: execute BM_CII_TARGET1 full production intake/parser -> Writer1C -> byte re-intake -> independent validator in a complete checkout, then Chromium product lifecycle and full repository suite; keep PR draft and do not merge until evidence is recorded
+last_updated: 2026-08-20T07:38:00+04:00
