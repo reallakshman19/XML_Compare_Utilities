@@ -50,10 +50,11 @@ export function applyCiiTargetWriter1C({ targetDocument, transferPlan }) {
       section: 'NODENAME', recordIdentity: `NODENAME_ROW:${mutation.owners?.[0]?.rowIndex ?? 'unknown'}`,
       fieldIdentity: mutation.fieldIdentity,
       targetNodeIds: mutation.targetNodeIds,
+      ownerBindings: mutation.owners,
     }));
   }
   if (bytes.length !== original.length) throw new Error('CII_WRITER_1C_BYTE_LENGTH_CHANGED');
-  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const text = new TextDecoder('utf-8').decode(bytes);
   return Object.freeze({
     schema: 'CIIWorkspaceWriter1CResult.v1', writerVersion: '1C',
     bytes, text, byteLength: bytes.length,
