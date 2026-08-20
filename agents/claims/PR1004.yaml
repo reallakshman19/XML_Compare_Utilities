@@ -47,6 +47,7 @@ protected_out_of_scope:
   - HANGER_MUTATION
   - WRITER_2_CARDINALITY
   - WRITER_3_TOPOLOGY
-report_basis_head: 19f020c11ae5d6dec97a7455b3d66954a5a70702
+report_basis_head: 2bc4adf37bb2fd3b32c7bb5e1ea8400f7a887503
+qualification_checkpoint: RECONSTRUCTED_SLICE_PASS_FULL_BENCHMARK_BROWSER_PENDING
 changed_file_ledger: 20_EXPECTED_20_ACTUAL_0_UNEXPLAINED
 merge_authority: OWNER_ONLY
