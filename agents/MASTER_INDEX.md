@@ -4,8 +4,9 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | DRAFT / ENGINEERING PATH QUALIFIED / FULL REPOSITORY SUITE NOT_RUN | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | SAFE SCOPE / STACKED ON PR1002 / final ancestry sync required after this PR1002 checkpoint | ingest final PR1002 head as ancestor; retain exact 20-file diff; then only full repository `npm test` remains before review progression |
-| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / PHASE1 AUTHORITY NORMALIZED / READY FOR OWNER REVIEW AFTER FINAL STACK SYNC | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | SAFE / documentation predecessor of PR1004 / OWNER-ONLY MERGE | verify exact 5-file ledger; final PR1004 ancestry sync; then owner review/merge decision only |
+| PR1006 | CII Writer 1C Phase-2A SIF/TEE field-semantic qualification | `agent/cii-writer-1c-sif-qualification` | DRAFT / `NOT_READY_FOR_SIF_WRITER` / QUALIFICATION ONLY | ENGINEERING_CRITICAL_WRITER_AUTHORITY | 60-position SIF/TEE field map; 10-row physical custody; canonical census; zero writable SIF fields until direct semantics exist | ACTIVE / Issue1005 / no production SIF mutation / owner-only merge | obtain approved CAESAR neutral-file field semantics; execute exact canonical census script on full checkout; do not start SIF Writer code |
+| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | MERGED 2026-08-20 · `692be3fd` / repository-wide `npm test` retained NOT_RUN by owner-accepted validation exception | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | HISTORICAL / merged into main | Phase-2 work must preserve NODENAME authority and start with SIF semantic qualification |
+| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | MERGED 2026-08-20 · `77fecdc` | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | HISTORICAL / merged into main | authority contract governs PR1006 and future Writer1C/2/3 work |
 | PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | MERGED 2026-08-19 · `7d63abe8` / retained UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | HISTORICAL | retained gates |
@@ -27,6 +28,8 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
 ## Current Writer 1C authority
+
+Phase-1 NODENAME authority merged in PR1004:
 
 ```text
 original TARGET byte stream
@@ -50,27 +53,62 @@ PASS => D ⊆ S_auth
 
 Writer-reported spans do not define authorization. Whole-file reconstruction/reserialization is forbidden for Phase-1 NODENAME. Same-span divergent output blocks; identical output may canonicalize only with a complete compatible owner set; an unselected alias side-effect blocks.
 
-Phase-1 transaction authority is NODENAME-only Writer1C APPLY. Mixed Writer1A/1B + Writer1C APPLY remains blocked until separately original-byte-qualified. Product default remains Writer1B; Writer1C is explicit-only.
+Production default remains Writer1B; Writer1C is explicit-only.
+
+## Active Phase-2A SIF/TEE qualification
+
+PR1006 establishes:
+
+```text
+SIF&TEES block rows                    = 10
+fixed numeric positions per block      = 60
+DIRECT identity positions              = 1
+DIRECT non-identity semantic positions = 0
+Writer1C-writable SIF positions        = 0
+verdict                                 = NOT_READY_FOR_SIF_WRITER
+```
+
+Canonical SOURCE/TARGET1/TARGET2 observation census:
+
+```text
+files  = 3
+blocks = 27
+rows   = 270
+row0/f1: 3=>7, 5=>8, 11=>12
+row5/f1 nonzero 11=>6
+9999.99 recurrent at r3f4/r3f5/r8f4/r8f5
+```
+
+Values `3`, `5`, `11`, and `9999.99` are observations only. They carry no engineering meaning until an approved field-level authority defines them.
+
+Current product blockers remain authoritative:
+
+```text
+SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
+SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
+```
+
+No SIF Writer code or policy token is authorized while PR1006 verdict is `NOT_READY_FOR_SIF_WRITER`.
 
 ## Phase boundaries
 
-- Phase 1: existing-row NODENAME only.
-- Phase 2: first create source-qualified SIF/TEE engineering field semantics; raw field2 remains `FIELD_2_SEMANTICS_UNQUALIFIED` and unwritable.
+- Phase 1: existing-row NODENAME — merged.
+- Phase 2A: source-qualified SIF/TEE field semantics — active in PR1006.
+- Phase 2B: existing SIF/TEE field mutation — blocked until Phase2A returns `READY_FOR_SELECTED_SIF_FIELDS`.
 - Writer 2: pointer/cardinality changes, record create/delete/reindex, hanger packed arrays/CONTROL counts.
 - Writer 3: node/element/connectivity/topology mutation.
 
-PR1004 has focused PASS evidence for exact TARGET1 production round trip, independent byte/stale-target falsifiers, shared/redundant ownership, Writer1A/1B regressions, independent Python oracle and Chromium binary routing. Its complete repository `npm test` remains `NOT_RUN` because an exact full checkout cannot currently be transported into the execution container. Existing workflows do not provide a repository-wide `npm test` path; no workflow has been modified to manufacture evidence.
-
 ## Coordination invariant
 
-Before owner review of the stack:
+For PR1006:
 
 ```text
-latest PR1002 head is an ancestor of PR1004
-compare PR1002 -> PR1004 has behind_by = 0
-PR1002 diff = exactly 5 documentation/custody files
-PR1004 diff = exactly 20 implementation/recovery files
-both PRs remain draft/unmerged unless owner explicitly changes that state
+base = main@692be3fd536b7c62576c443f5f831984e4de66a2
+qualification-only changed files
+production Writer/transfer-policy/converter/workflow changes = 0
+merge authority = OWNER_ONLY
 ```
 
-See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, Issue #1003, and stacked implementation PR #1004.
+An unused ref `agent/cii-writer-1c-sif-qualification-2` exists at the same baseline with no unique commits and no PR effect. It is not an active workstream.
+
+See `agents/PR1006_workreport.md`, `agents/status/PR1006.yaml`, `agents/claims/PR1006.yaml`, `docs/cii-writer1c-sif-field-qualification.md`, Issue #1005, and PR #1006.
