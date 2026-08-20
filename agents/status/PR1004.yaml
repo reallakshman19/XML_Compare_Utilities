@@ -1,0 +1,28 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR1004
+mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
+workstream: CII_WORKSPACE_WRITER_1C
+branch: agent/cii-writer-1c
+pr_head: 4ae1b1ca8c679353774304f7ea3ecab7fcec47df
+main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
+base_pr: 1002
+base_branch: agent/cii-writer-1c-roadmap
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: ACTIVE
+pr_recovery_state: HEALTHY
+handover_readiness: READY
+report_path: agents/PR1004_workreport.md
+appendix_a_status: CURRENT
+grounding_epoch: GE-001
+current_stage: BASELINE_IMPLEMENTATION_READY
+blocker: NONE_FOR_PHASE1_CORE
+highest_risk: FALSE_BYTE_AUTHORITY_FROM_TEXT_REENCODING_OR_WRITER_DECLARED_SPANS
+dependencies:
+  - FOLLOW_ON:PR1002
+  - SOURCE_TASK:ISSUE1003
+coordination_state: SAFE_PRODUCTION_COORDINATED_DOCUMENTATION
+exact_next_action: implement original-byte physical-file custody and NODENAME physical span extraction before patcher
+merge_authority: OWNER_ONLY
+last_updated: 2026-08-20T06:29:00+04:00
