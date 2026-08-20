@@ -5,10 +5,12 @@ export const CII_WRITER_1C_SIF_IN_PLANE_POLICY = 'CII_WRITER_1C_SIF_IN_PLANE_EXI
 export const CII_WRITER_1C_SIF_OUT_PLANE_POLICY = 'CII_WRITER_1C_SIF_OUT_PLANE_EXISTING_BLOCK';
 const POLICIES = new Set([CII_WRITER_1C_SIF_IN_PLANE_POLICY, CII_WRITER_1C_SIF_OUT_PLANE_POLICY]);
 const DELTA_AUTHORITY = 'CII_V11_SIF_TEE_ITEM3_ITEM4_EXACT_PHYSICAL_CUSTODY';
+const SIF_CONTEXT_AUTHORITY = 'ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE';
 
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
 function explicitFiniteNumber(value) { return typeof value === 'number' && Number.isFinite(value); }
+function normalizedCode(value) { return text(value).replace(/\s+/g, ' ').toUpperCase(); }
 function noMutation(operation) { return operation?.action === 'KEEP' && ['PREVIEW_READY', 'PROTECTED'].includes(operation?.status); }
 function isNodeNameCopy(operation) {
   return operation?.family === 'NODE_NAME' && operation?.property === 'Node name / to-name' && operation?.action === 'COPY';
@@ -35,6 +37,14 @@ function expectedField(operation) {
   if (policy === CII_WRITER_1C_SIF_OUT_PLANE_POLICY && field.fieldKey === 'io' && Number(field.item) === 4) return 'io';
   return null;
 }
+function validateCodeContext(operation, blockers) {
+  const context = operation?.sifContext || {};
+  const sourceCode = normalizedCode(context.sourceCode); const targetCode = normalizedCode(context.targetCode);
+  if (context.status !== 'QUALIFIED') pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_STATUS_REQUIRED', operation);
+  if (context.authority !== SIF_CONTEXT_AUTHORITY) pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_AUTHORITY_REQUIRED', operation);
+  if (!sourceCode || !targetCode) pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_VALUES_REQUIRED', operation);
+  else if (sourceCode !== targetCode) pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_MISMATCH', operation, `${sourceCode}:${targetCode}`);
+}
 function validateOperation(operation, blockers) {
   if (noMutation(operation) || isNodeNameCopy(operation)) return false;
   if (!isSifCopy(operation)) {
@@ -47,7 +57,7 @@ function validateOperation(operation, blockers) {
   if (operation?.scopeDecision !== 'APPLY') pushBlocker(blockers, 'WRITER_1C_SIF_EXPLICIT_APPLY_REQUIRED', operation);
   if (!String(operation?.sourceEvidence?.authority || '').includes(DELTA_AUTHORITY)) pushBlocker(blockers, 'WRITER_1C_SIF_FIELD_AUTHORITY_REQUIRED', operation);
   if (!expectedField(operation)) pushBlocker(blockers, 'WRITER_1C_SIF_POLICY_FIELD_MISMATCH', operation);
-  if (operation?.sifContext?.status !== 'QUALIFIED') pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_REQUIRED', operation);
+  validateCodeContext(operation, blockers);
   const before = operation?.before; const proposed = operation?.proposed;
   if (!explicitFiniteNumber(before) || before < 1.0 || !explicitFiniteNumber(proposed) || proposed < 1.0) {
     pushBlocker(blockers, 'WRITER_1C_SIF_VALUE_DOMAIN_EXPLICIT_GE_1_REQUIRED', operation);
