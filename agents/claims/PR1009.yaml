@@ -45,11 +45,19 @@ claims:
   - id: PR1009-CLAIM-011
     statement: The low-level SIF mutation planner independently validates the piping-code authority token and normalized SOURCE/TARGET code equality; a forged QUALIFIED status alone cannot authorize mutation.
     evidence: tabs/cii-workspace/cii-workspace-writer1c-sif.js; tests/cii-workspace-writer1c-sif-context-planner.test.js
-    status: IMPLEMENTED_SOURCE_INSPECTED_TEST_AUTHORED_NOT_RUN
+    status: PASS_ISOLATED_EXACT_PLANNER_HARNESS_AND_SOURCE_INSPECTION
   - id: PR1009-CLAIM-012
-    statement: Dedicated qualification coverage exists for all four Version-11 mutable positions: slot1 item3 ii, slot1 item4 io, slot2 item3 ii and slot2 item4 io, each asserting its exact 13-byte mutation span.
+    statement: All four Version-11 mutable positions have dedicated exact-span coverage: slot1 item3 ii, slot1 item4 io, slot2 item3 ii and slot2 item4 io.
     evidence: tests/cii-workspace-writer1c-sif-four-position-plan.test.js
-    status: AUTHORED_NOT_RUN_ENVIRONMENT
+    status: PASS_ISOLATED_EXACT_PLANNER_HARNESS
+  - id: PR1009-CLAIM-013
+    statement: Git-blob-matched production fixed-field, physical-file and SIF-custody modules qualify synthetic Version-11 item3/item4 spans and reject Version drift and parsed-index displacement.
+    evidence: isolated qualification harness using fixed-field blob 485daa43553681ca54f488499e57f36d2239be58, physical-file blob 0c4c445fbd3d4b929b1f9288b789b244547c8867 and SIF-custody blob 915ceb0a199091f00823e89d6c73c6007da62f9d
+    status: PASS_ISOLATED_EXACT_MODULE_HARNESS
+  - id: PR1009-CLAIM-014
+    statement: An isolated SIF-only stack using Git-blob-matched production planner, custody, validator, physical-file, fixed-field and contracts modules round-trips all four authorized Version-11 SIF positions and the validator rejects one unrelated ELEMENT pointer-byte tamper as UNAUTHORIZED_BYTE_CHANGE.
+    evidence: planner blob 980e5c6df1d16a66ddd32ee83da9f2eae583108a; custody blob 915ceb0a199091f00823e89d6c73c6007da62f9d; validator blob 7d389a7e52e0c0b6b7592f282fa639535915ced9; physical-file blob 0c4c445fbd3d4b929b1f9288b789b244547c8867; fixed-field blob 485daa43553681ca54f488499e57f36d2239be58; contracts blob 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
+    status: PASS_ISOLATED_PRODUCTION_MODULE_HARNESS
 qualification_findings:
   - id: PR1009-QF-001
     finding: Low-level planner previously trusted sifContext.status=QUALIFIED without independently checking the authority token and equal non-empty code values.
@@ -59,16 +67,15 @@ qualification_findings:
     disposition: COVERAGE_CLOSED_WITH_FOUR_POSITION_TEST
 limitations:
   - exact checkout failed because github.com DNS resolution is unavailable in the execution container
-  - focused Phase-2B regression not executed in a complete checkout
-  - canonical TARGET1 SIF custody regression not executed in a complete checkout
-  - low-level SIF context-planner regression not executed
-  - four-position planner regression not executed
+  - isolated harness results do not substitute for execution from a complete exact repository checkout
+  - focused Phase-2B repository regression not executed in a complete checkout
+  - canonical TARGET1 repository custody regression not executed in a complete checkout
   - SIF context UI regression not executed in a browser/runtime checkout
   - inherited Writer1C regressions not executed
   - full npm test not executed
   - browser product flow not executed
 prohibited_claims:
-  - do not claim runtime PASS from authored tests
+  - do not describe isolated harness PASS as full repository or CI PASS
   - do not claim Version 12, Version 14 or Version 15 SIF mutation authority
   - do not claim blank/default/zero/9999.99 transition semantics
   - do not claim SIF record creation/deletion or pointer allocation authority
