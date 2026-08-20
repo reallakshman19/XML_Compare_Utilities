@@ -22,9 +22,10 @@ import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
-import { applyCiiTargetWriter1C, ciiWriter1CReadiness } from './cii-workspace-target-writer-1c.js';
+import { applyCiiTargetWriterComposite, ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
+import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -79,14 +80,14 @@ function writer1CPlanContract(plan) {
   if (plan?.mutationAuthority === 'BLOCKED') return plan;
   return deepFreeze({ ...plan, mutationAuthority: 'WRITER_1C_CONDITIONAL', policy: deepFreeze({
     ...(plan?.policy || {}), nodeNameMutation: 'EXISTING_POINTER_STABLE_FIXED_FIELD_ONLY',
-    mixedLowerWriterMutation: 'BLOCKED_PENDING_COMPOSITE_1A_1B_1C_QUALIFICATION',
+    mixedLowerWriterMutation: 'ONE_ORIGINAL_PREIMAGE_COMPOSITE_1A_1B_1C',
     sifTeeMutation: 'V11_ITEM3_ITEM4_EXISTING_BLOCK_EXPLICIT_GE_1_WITH_CODE_CONTEXT',
   }) });
 }
 function readinessFor(version, plan, targetDocument) {
   if (version === '1A') return ciiWriter1AReadiness(plan);
   if (version === '1B') return ciiWriter1BReadiness(plan);
-  if (version === '1C') return ciiWriter1CReadiness(plan, targetDocument);
+  if (version === '1C') return ciiWriterCompositeReadiness(plan, targetDocument);
   return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
     mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${version}`]) });
 }
@@ -236,8 +237,22 @@ function applyLowLevelWriter(version, currentTarget, targetGraph, preview) {
   const targetText = currentTarget.physicalFile.text;
   if (version === '1A') return applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1B') return applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
-  if (version === '1C') return applyCiiTargetWriter1C({ targetDocument: currentTarget, transferPlan: preview.transferPlan });
+  if (version === '1C') return applyCiiTargetWriterComposite({ targetDocument: currentTarget, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   throw new Error(`CII_WRITER_VERSION_UNSUPPORTED:${version}`);
+}
+async function validateCompositeComponents(currentTarget, targetGraph, writerResult, options, fileName) {
+  const validations = {};
+  if (writerResult?.components?.lower) {
+    const component = writerResult.components.lower;
+    const modified = await intakeCiiWorkspaceDocument(component.result.text, fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+    validations.lower = validateCiiWriterRoundTrip(currentTarget, modified, targetGraph, component.result, component.transferPlan, 'WRITER_1B_COMPONENT');
+  }
+  if (writerResult?.components?.writer1C) {
+    const component = writerResult.components.writer1C;
+    const modified = await intakeCiiWorkspaceDocument(component.result.bytes, fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
+    validations.writer1C = validateCiiWriter1CRoundTrip(currentTarget, modified, component.transferPlan, component.result);
+  }
+  return Object.freeze(validations);
 }
 async function applyWriter(preview, targetInput, options, version) {
   const label = writerLabel(version);
@@ -247,9 +262,13 @@ async function applyWriter(preview, targetInput, options, version) {
   const writerResult = applyLowLevelWriter(version, currentTarget, targetGraph, preview);
   const modifiedInput = version === '1C' ? writerResult.bytes : writerResult.text;
   const modifiedTarget = await intakeCiiWorkspaceDocument(modifiedInput, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
-  const validation = version === '1C'
-    ? validateCiiWriter1CRoundTrip(currentTarget, modifiedTarget, preview.transferPlan, writerResult)
-    : validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
+  let validation;
+  if (version === '1C') {
+    const componentValidations = await validateCompositeComponents(currentTarget, targetGraph, writerResult, options, preview.targetDocument.fileName);
+    validation = validateCiiWriterCompositeRoundTrip(currentTarget, modifiedTarget, writerResult, componentValidations);
+  } else {
+    validation = validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
+  }
   return deepFreeze({ schema: 'CIIWorkspaceTargetApplyResult.v1', status: 'PASS', writer: label,
     fileName: `Modified_${preview.targetDocument.fileName}`, text: writerResult.text,
     byteString: modifiedTarget.physicalFile.originalByteString, byteLength: modifiedTarget.byteLength,
