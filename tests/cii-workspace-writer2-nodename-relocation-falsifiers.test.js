@@ -85,4 +85,12 @@ const blankRow = _test.canonicalRow('', '');
   assert(result.blockers.includes('WRITER_2_NODENAME_POINTER_FIELD_CUSTODY_REQUIRED:0'));
 }
 
+{
+  const c = custody({ rowCount: 0, bindings: [{ parsedElementIndex: 0, blockIndex: 0, from: '10', to: '20', pointer: 0 }] });
+  const graph = { edges: [{ parsedElementIndex: 0, from: 10, to: 20 }] };
+  const result = run(document({ c }), graph, [op('C1', 'CREATE', 20, '', 'P20-A'), op('C2', 'CREATE', 20, '', 'P20-B')]);
+  assert.equal(result.ready, false);
+  assert(result.blockers.includes('WRITER_2_NODENAME_CREATE_OWNER_CONFLICT:0:TO'));
+}
+
 console.log('Writer 2 NODENAME relocation falsifiers remain fail-closed.');
