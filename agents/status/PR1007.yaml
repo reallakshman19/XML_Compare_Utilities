@@ -6,8 +6,9 @@ workstream: CII_WRITER_1C_EXACT_CUSTODY_HARDENING
 branch: agent/cii-writer1c-exact-custody-hardening
 base: main
 base_head: 692be3fd536b7c62576c443f5f831984e4de66a2
-pr_head_observed: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
-report_basis_head: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
+pr_head_observed: f0fbcd30bbec133c01531849a3d6032526e7855a
+report_basis_head: f0fbcd30bbec133c01531849a3d6032526e7855a
+report_sync: CURRENT
 work_intent: IMPLEMENT
 repository_state: EXISTING_PR
 mutation_authority: WRITE_ALLOWED
@@ -16,16 +17,48 @@ agent_state: ACTIVE
 handover_readiness: READY
 report_path: agents/PR1007_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-W1C-HARDEN-002
+grounding_epoch: GE-W1C-HARDEN-003
 execution_mode: MANUAL
-current_stage: IMPLEMENT
-current_blocker: NONE
-highest_risk: FROM_TO_ONLY_FALLBACK_CAN_BIND_WRONG_PHYSICAL_ELEMENT_BLOCK
-coordination_state: COORDINATION_REQUIRED_BUT_SAFE
-related_pr: 1006
-related_pr_scope: SIF_TEE_QUALIFICATION_ONLY_NO_PRODUCTION_WRITER
-implementation_tests: NOT_RUN
-full_repository_npm_test: NOT_RUN
+current_stage: RECONCILE_HANDOVER
+implementation_state: COMPLETE_IN_APPROVED_SCOPE
+current_blocker: TARGET1_CURRENT_HEAD_AND_FULL_REPOSITORY_EXECUTION_NOT_RUN
+highest_risk: REPOSITORY_WIDE_INTERACTION_NOT_OBSERVED
+resolved:
+  - FROM_TO_ONLY_FALLBACK_NO_LONGER_GRANTS_PHYSICAL_WRITER_CUSTODY
+  - EXACT_PARSED_INDEX_FROM_TO_REQUIRED
+  - PARSED_PHYSICAL_ELEMENT_COUNT_GATE_ADDED
+  - INVALID_OR_DUPLICATE_PARSED_INDEX_BLOCKS_PHYSICAL_CUSTODY
+  - SEMANTIC_FALLBACK_RETAINED_READ_ONLY
+validation:
+  source_defect_confirmation: {status: PASS, observation: SOURCE_INSPECTION, origin: PREEXISTING}
+  exact_custody_focused: {status: PASS, observation: LOCAL_EXECUTION, oracle: IMPLEMENTATION_COUPLED}
+  planner_fallback_rejection: {status: PASS, observation: LOCAL_EXECUTION, oracle: INDEPENDENT_REPRODUCTION}
+  old_fallback_ambiguity_reproduction: {status: PASS, observation: LOCAL_EXECUTION, oracle: INDEPENDENT_REPRODUCTION}
+  focused_writer1c_nodename_non_regression: {status: PASS, observation: LOCAL_EXECUTION, oracle: IMPLEMENTATION_COUPLED}
+  target1_current_head_benchmark: {status: NOT_RUN, observation: NOT_OBSERVED}
+  full_repository_npm_test: {status: NOT_RUN, observation: NOT_OBSERVED}
+  browser_current_head: {status: NOT_RUN, observation: NOT_OBSERVED}
+github_state:
+  changed_files: 6
+  unexplained_files: 0
+  combined_statuses: NONE_PRESENT
+  pr_workflow_runs: NONE_PRESENT
+  review_threads: 0
+coordination:
+  state: COORDINATION_REQUIRED_BUT_SAFE
+  related_pr: 1006
+  related_pr_scope: SIF_TEE_QUALIFICATION_ONLY_NO_PRODUCTION_WRITER
+  master_index_update: DEFERRED_TO_AVOID_ACTIVE_PR1006_FILE_COLLISION
+  production_file_overlap_with_pr1006: NONE
+scope_guards:
+  sif_writer_mutation: UNCHANGED_BLOCKED
+  transfer_policy: UNCHANGED
+  writer2: OUT_OF_SCOPE
+  writer3: OUT_OF_SCOPE
+  protected_converters: UNCHANGED
+  workflows: UNCHANGED
 merge_authority: OWNER_ONLY
-exact_next_action: harden cii-workspace-nodename.js exact block custody and add adversarial tests
-last_updated: 2026-08-20T16:23:00+04:00
+ready_for_review: false
+ready_for_review_reason: exact TARGET1 current-head benchmark and full repository regression remain NOT_RUN; PR remains draft unless owner accepts or validation is completed
+exact_next_action: keep draft, refresh live state after recovery sync, run exact TARGET1 benchmark and npm test when complete checkout is available; do not merge or enable SIF mutation in this PR
+last_updated: 2026-08-20T16:35:00+04:00

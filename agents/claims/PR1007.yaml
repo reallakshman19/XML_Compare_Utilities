@@ -18,17 +18,32 @@ authority_domains:
   - CII_WRITER1C_NODENAME_PHYSICAL_CUSTODY
   - CII_ELEMENT_BLOCK_IDENTITY_FOR_MUTATION
   - CII_WRITER1C_NEGATIVE_ASSURANCE_PRECONDITIONS
+resolved_authority:
+  - exact parsed element index plus exact FROM_TO required for physical ELEMENT ownership
+  - parsed element count must equal physical 15-row block count for qualified Writer custody
+  - invalid or duplicate parsed indices block physical custody
+  - FROM_TO-only compatibility fallback is semantic evidence only and cannot create physical spans or fallback owner bindings
 coordination_notes:
-  - PR1006 is active in the broader Writer1C domain but qualification-only for SIF/TEE and does not change these production/test files.
-  - PR1007 must not enable SIF/TEE mutation or relax PR1006 product blockers.
-  - Read-only semantic NODENAME recovery may remain tolerant, but physical mutation custody must fail closed without exact block-index identity.
+  - PR1006 remains active in the broader Writer1C domain but is qualification-only for SIF/TEE and has no production/test file overlap with PR1007.
+  - Future SIF Phase2B physical custody should inherit PR1007 exact-index discipline rather than copying the old FROM_TO fallback pattern.
+  - MASTER_INDEX update is deliberately deferred because PR1006 already changes that shared coordination file; PR1007 status/claim/workreport carry current durable coordination state.
 protected_out_of_scope:
   - tabs/cii-workspace/cii-workspace-transfer-policy.js
   - tabs/cii-workspace/cii-workspace-auxiliary.js
   - converters/scripts/**
   - .github/workflows/**
   - SIF_TEE_WRITER_MUTATION
+  - SIF_TEE_TRANSFER_POLICY_RELAXATION
   - WRITER_2
   - WRITER_3
-changed_file_ledger: PR1007_6_EXPECTED_MAXIMUM_PLUS_OPTIONAL_MASTER_INDEX
+validation_truth:
+  focused_exact_custody: PASS_LOCAL_EXECUTION
+  planner_fallback_rejection: PASS_INDEPENDENT_REPRODUCTION
+  old_fallback_ambiguity: PASS_INDEPENDENT_REPRODUCTION
+  writer1c_nodename_focused_non_regression: PASS_LOCAL_EXECUTION
+  target1_current_head: NOT_RUN
+  full_repository_npm_test: NOT_RUN
+  browser_current_head: NOT_RUN
+changed_file_ledger: 6_EXPECTED_6_ACTUAL_0_UNEXPLAINED
+review_state: DRAFT
 merge_authority: OWNER_ONLY

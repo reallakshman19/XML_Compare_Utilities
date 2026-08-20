@@ -6,8 +6,9 @@
 
 ```text
 HANDOVER_READINESS: READY
-PR_RECOVERY_STATE: HEALTHY / IMPLEMENTATION ACTIVE
+PR_RECOVERY_STATE: HEALTHY / IMPLEMENTATION COMPLETE / FOCUSED QUALIFICATION PASS / REPOSITORY-WIDE GATES NOT_RUN
 TAKEOVER_AUTHORITY: WRITE_ALLOWED
+
 EXECUTION_MODE: MANUAL
 AUTO_STATE: NOT_ACTIVE
 SCOPE_AUTHORITY: LOCKED_TO_APPROVED_MISSION
@@ -19,180 +20,362 @@ SOURCE_TASK: owner instruction 2026-08-20 following Writer 1C audit
 PR_OR_WIP: PR1007
 BRANCH: agent/cii-writer1c-exact-custody-hardening
 
-PR_HEAD_OBSERVED: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
-REPORT_BASIS_HEAD: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
+PR_HEAD_OBSERVED: f0fbcd30bbec133c01531849a3d6032526e7855a
+REPORT_BASIS_HEAD: f0fbcd30bbec133c01531849a3d6032526e7855a
 MAIN_HEAD_LAST_CHECKED: 692be3fd536b7c62576c443f5f831984e4de66a2
 MERGE_BASE: 692be3fd536b7c62576c443f5f831984e4de66a2
 REPORT_SYNC: CURRENT
 
 APPENDIX_A_STATUS: CURRENT
-GROUNDING_EPOCH: GE-W1C-HARDEN-002
+GROUNDING_EPOCH: GE-W1C-HARDEN-003
 CURRENT_TAKEOVER: NONE
-CURRENT_STAGE: IMPLEMENT
-LAST_COMPLETED_STAGE: BOOTSTRAP / COORDINATION / PR ALLOCATION
-CURRENT_BLOCKER: NONE
-HIGHEST_RISK: current merged NODENAME physical-custody mapper can fall back from exact parsed-index identity to FROM/TO-only matching, which is not unique for duplicate/parallel physical elements.
-LAST_DURABLE_CHECKPOINT: PR1007 allocated from WIP bootstrap
-EXACT_NEXT_ACTION: patch cii-workspace-nodename.js to separate tolerant semantic fallback from exact Writer physical custody, then add adversarial duplicate/index-drift tests and execute focused validation.
+
+CURRENT_STAGE: RECONCILE / HANDOVER
+LAST_COMPLETED_STAGE: IMPLEMENT + FOCUSED VALIDATE
+CURRENT_BLOCKER: exact TARGET1 production benchmark and full repository npm test are NOT_RUN on the current PR head because a complete checkout/fixture set is not available in the execution container
+HIGHEST_RISK: repository-wide interaction remains unobserved; exact-custody mechanism itself is covered by direct falsifiers and existing Writer1C round-trip logic
+LAST_DURABLE_CHECKPOINT: production/test head f0fbcd30
+
+EXACT_NEXT_ACTION: retain PR1007 as draft; refresh current PR diff/check/review state after recovery-sync commit; when exact repository execution is available run TARGET1 Writer1C benchmark and full npm test without weakening any gate. Do not enable SIF/TEE mutation in this PR and do not merge without explicit owner authorization.
 ```
 
 ## 2. Handover in 60 Seconds
 
-PR1007 hardens merged Writer1C Phase-1 NODENAME custody only. Current main `matchDescriptor()` first binds a parsed element to a physical 15-row ELEMENT block by exact `element.index + FROM + TO`, but if that fails it chooses the first unused physical block with only matching FROM/TO. FROM/TO is not a unique physical-record key when duplicate/parallel elements exist.
+### What is now true
 
-The required change is intentionally narrow: read-only semantic NODENAME recovery may still use a deterministic fallback, but **no fallback may populate Writer1C physical spans, pointer custody, or alias ownership**. Writer authority must require exact block index, exact FROM/TO, canonical 15-row physical cardinality, and complete parsed/physical block coverage.
+PR1007 closes the audited Phase-1 custody seam. `cii-workspace-nodename.js` no longer lets a FROM/TO-only fallback become physical mutation authority. Writer1C physical ownership now requires:
 
-PR1006 is concurrently active in the Writer1C domain but changes only SIF/TEE qualification/recovery artifacts. It enables zero SIF production writes. PR1007 must not relax any SIF blocker or use PR1006 as mutation authority.
+```text
+parsed element index is a safe in-range integer
+physical ELEMENT section has canonical 15-row block cardinality
+parsed element count == physical block count
+physical block at parsed index exists
+physical block index == parsed index
+physical FROM == parsed FROM
+physical TO   == parsed TO
+pointer row/field is qualified
+```
 
-No new implementation validation has run yet. Existing PR1004 qualification remains historical evidence only until re-run against the new HEAD.
+A deterministic FROM/TO fallback is retained **only** for read-only semantic name evidence. If the fallback is needed, physical custody receives `NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:<elementIndex>` and no `byElementIndex`/`bySpan` mutation custody is created from that fallback.
+
+### What was fixed
+
+The merged PR1004 implementation previously did:
+
+```text
+exact index + FROM/TO match
+    else
+first unused FROM/TO match
+```
+
+for the same descriptor that fed physical Writer custody. Duplicate/parallel elements can share FROM/TO but own different NODENAME pointers; therefore selection by iteration order was not sufficient byte-mutation authority.
+
+### What was deliberately not changed
+
+- Writer1C byte patcher;
+- independent `S_auth` validator;
+- shared-span/alias arbitration;
+- transfer policy;
+- SIF/TEE semantics or production mutation;
+- Writer2/3;
+- protected converters;
+- workflows.
+
+### What has been proven on this PR
+
+- canonical synthetic exact-index custody remains QUALIFIED;
+- swapped parsed index/FROM/TO views remain semantically readable but physically BLOCKED;
+- duplicate `100->200` physical elements plus parsed index `9` reproduce the old ambiguity and are physically BLOCKED;
+- incomplete parsed/physical block coverage is physically BLOCKED;
+- Writer1C planner/readiness reject semantic-only fallback custody;
+- existing shared-row canonicalization, redundant FROM/TO atomic mutation, pointer=0 Writer2 blocker, field overflow/non-ASCII blockers, unapproved alias blocker, divergent shared-record blocker and unauthorized-byte falsifier remain PASS in the focused reconstructed suite.
+
+### What is NOT_RUN
+
+- exact `Benchmark/CIICompare/BM_CII_TARGET1.CII` production benchmark on current PR1007 head;
+- full repository `npm test`;
+- browser/Chromium product lifecycle on current PR1007 head.
+
+Historical PR1004 PASS evidence is not promoted to current-head PASS.
 
 ## 3. Repository Ground Truth
 
 ```text
-verified_at: 2026-08-20T16:23+04:00
+verified_at: 2026-08-20T16:35+04:00
+repository: reallaksh19/XML_Compare_Utilities
 main: 692be3fd536b7c62576c443f5f831984e4de66a2
-PR1007: OPEN / DRAFT / UNMERGED
-PR1007 head: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
+PR1007: OPEN / DRAFT / MERGEABLE / UNMERGED
+PR1007 production/test head: f0fbcd30bbec133c01531849a3d6032526e7855a
 PR1007 base: main@692be3fd536b7c62576c443f5f831984e4de66a2
-changed files: 3 recovery bootstrap files before WIP->PR migration
-PR1006: OPEN / READY-FOR-REVIEW metadata / qualification-only
-PR1006 head: 096b7ccbaf773ebe7d5df8e23fa6d7eee21a063b
-review threads PR1007: not yet observed
-checks PR1007: not yet observed
-workflow modifications: prohibited by scope
+changed files: 6 expected / 6 actual / 0 unexplained
+combined commit statuses at f0fbcd30: none present
+PR workflow runs at f0fbcd30: none present
+review threads: 0
+PR1006: OPEN / qualification-only SIF/TEE authority work
+PR1006 head last checked: 096b7ccbaf773ebe7d5df8e23fa6d7eee21a063b
+workflow changes in PR1007: 0
+converter changes in PR1007: 0
+SIF transfer/writer changes in PR1007: 0
 ```
+
+`agents/MASTER_INDEX.md` on main is stale relative to merged PR1004; PR1006 already modifies that shared coordination file. PR1007 intentionally does not edit MASTER_INDEX to avoid a needless active-PR file collision. This report/status/claim record is the durable PR1007 coordination authority until the index is reconciled after PR ordering is known.
 
 ## 4. Mission / Scope / Acceptance
 
-Mission: make physical ELEMENT ownership fail closed before Writer1C receives any additional auxiliary-family capability.
+Mission: close exact physical ELEMENT ownership before any additional Writer1C auxiliary family is enabled.
 
-In scope:
-- exact `parsed element index == physical 15-row block index` plus exact FROM/TO as Writer custody;
-- physical block count / parsed element count consistency gate;
-- retain read-only semantic recovery separately where deterministic;
-- no Writer spans or owners from semantic-only fallback;
-- tests for duplicate FROM/TO, wrong parsed index, cardinality mismatch, and canonical non-regression.
+Approved scope:
+- exact `parsed element index + FROM + TO` physical block custody;
+- physical block/cardinality/index completeness gates;
+- semantic fallback separation;
+- duplicate/index-drift adversarial regressions;
+- preserve current Writer1C negative assurance.
 
-Out of scope:
-- SIF/TEE mutation or policy relaxation;
-- NODENAME create/delete/reindex;
-- Writer2/3;
-- protected converter changes;
-- workflows;
-- merge without explicit owner authorization.
+Acceptance result:
 
-Acceptance:
-1. canonical TARGET1 remains `physicalCustody.status=QUALIFIED`;
-2. exact block identity is mandatory for every Writer owner binding;
-3. duplicate FROM/TO cannot be resolved into mutation authority by iteration order;
-4. semantic fallback, if used, is explicitly non-writable and produces a physical blocker;
-5. existing shared-span canonicalization, unapproved-alias blocking, stale-target and byte anti-drift rules remain unchanged.
+```text
+A1 canonical exact physical custody preserved                      PASS
+A2 FROM/TO fallback cannot create physical Writer spans            PASS
+A3 duplicate endpoints cannot become order-dependent custody       PASS
+A4 parsed/physical cardinality mismatch blocks                     PASS
+A5 Writer1C planner/readiness reject semantic-only fallback        PASS
+A6 existing focused Writer1C NODENAME safety behaviors preserved   PASS
+A7 exact TARGET1 benchmark current head                            NOT_RUN
+A8 full npm test current head                                      NOT_RUN
+```
 
 ## 5. Current Implementation State
 
 | Work item | Implementation | Integration | Validation | Location | Remaining |
 |---|---|---|---|---|---|
-| Exact Writer block custody | NOT_STARTED | N/A | NOT_RUN | `cii-workspace-nodename.js` | implement |
-| Semantic fallback separation | NOT_STARTED | N/A | NOT_RUN | `cii-workspace-nodename.js` | implement |
-| Duplicate/index drift regressions | NOT_STARTED | N/A | NOT_RUN | Writer1C tests | implement/run |
-| TARGET1 benchmark | EXISTING | EXISTING | HISTORICAL_PASS | benchmark Writer1C test | re-run |
-| WIP->PR recovery migration | IN_PROGRESS | N/A | SOURCE_INSPECTION | agents metadata | finish this commit |
+| Exact Writer block custody | COMPLETE | ACTIVE | PASS focused | `cii-workspace-nodename.js` | repository-wide execution |
+| Semantic fallback separation | COMPLETE | ACTIVE | PASS falsifier | same | none in scope |
+| Parsed/physical count/index gates | COMPLETE | ACTIVE | PASS synthetic | same | benchmark execution |
+| Duplicate/index-drift regressions | COMPLETE | test suite | PASS local | two Writer1C tests | none in scope |
+| TARGET1 benchmark | unchanged test exists | production core | NOT_RUN current head | `cii-workspace-writer1c-benchmark-roundtrip.test.js` | execute when fixture checkout available |
 
 ## 6. Active Engineering Item Register
 
 | ID | Type | Severity | Priority | Status | Summary | Evidence | Current PR? |
 |---|---|---|---|---|---|---|---|
-| ISS-W1C-001 | ISS | HIGH | P0 | OPEN | FROM/TO-only fallback can grant physical custody after exact match failure | merged main source | YES |
-| RISK-W1C-001 | RISK | HIGH | P0 | duplicate/parallel ELEMENTs can share FROM/TO but own different pointer rows | fixed-record model semantics | YES |
-| DEC-W1C-001 | DEC | HIGH | P0 | tolerant semantic recovery and mutation custody are separate authority layers | Writer1C authority contract | YES |
-| IMP-W1C-001 | IMP | HIGH | P0 | require exact index+FROM+TO and full cardinality for Writer spans | planned | YES |
-| DEBT-W1C-001 | DEBT | MEDIUM | P2 | repository-wide npm test historical debt remains | PR1004 record | inherited |
+| ISS-W1C-001 | ISS | HIGH | P0 | RESOLVED_BY_PR | FROM/TO fallback could feed physical Writer custody | exact gate + regressions | YES |
+| RISK-W1C-001 | RISK | HIGH | P0 | MITIGATED | duplicate/parallel endpoint ambiguity | duplicate pointer/index falsifier | YES |
+| IMP-W1C-001 | IMP | HIGH | P0 | COMPLETE | exact index+FROM+TO + full block coverage | production source | YES |
+| DEC-W1C-001 | DEC | HIGH | P0 | ACTIVE | semantic evidence and mutation custody are distinct authorities | source structure/tests | YES |
+| DEBT-W1C-001 | DEBT | MEDIUM | P2 | OPEN | full repository npm test not observed | inherited + current NOT_RUN | inherited/current |
+| DEBT-W1C-002 | DEBT | MEDIUM | P1 | OPEN | exact TARGET1 benchmark not rerun on PR1007 | current validation ledger | YES |
 
-## 7. Current Technical Diagnosis
+## 7. Technical Diagnosis and Final Mechanism
+
+### Before
+
+```javascript
+exact parsedIndex + from + to
+if not found:
+    first unused from + to
+```
+
+The returned descriptor then supplied pointer row, NODENAME row, field spans and owner bindings.
+
+### After
 
 ```text
-Observed symptom:
-matchDescriptor() uses exact block identity first, then FROM/TO-only fallback.
+exactDescriptor()
+    -> only exact physical Writer authority
 
-Current hypothesis:
-The fallback is useful only as semantic evidence compatibility. If it feeds physicalCustody.byElementIndex/bySpan, Writer1C can attach a node-name span to the wrong physical ELEMENT pointer record when endpoints are duplicated.
+semanticDescriptor()
+    -> exact when available
+    -> otherwise deterministic FROM/TO compatibility evidence
 
-Supporting evidence:
-main cii-workspace-nodename.js and canonical parser block-index semantics.
-
-Alternative hypothesis:
-Current benchmark may have unique endpoints, but qualification cannot rely on fixture uniqueness.
-
-Falsifier:
-Two physical 100->200 elements with distinct NODENAME pointers and a deliberately mismatched parsed index. Read-only name extraction may recover evidence, but physical custody must BLOCK and must expose no writable span ownership from the fallback.
-
-Minimal patch implication:
-Do not touch patcher/S_auth algorithms; fix custody authority at intake and add regressions.
+fallback used?
+    -> semantic names may be populated
+    -> physical blocker added
+    -> no fallback physical byElementIndex
+    -> no fallback physical bySpan / owner claim
 ```
+
+Additional physical gates:
+
+```text
+NODENAME_ELEMENT_BLOCK_ROW_COUNT_NOT_MULTIPLE_OF_15
+NODENAME_ELEMENT_BLOCK_HEADER_UNQUALIFIED:<block>
+NODENAME_ELEMENT_BLOCK_COUNT_MISMATCH:<parsed>:<physical>
+NODENAME_ELEMENT_PARSED_INDEX_OUT_OF_RANGE:<index>
+NODENAME_ELEMENT_PARSED_INDEX_DUPLICATE:<index>
+NODENAME_ELEMENT_BLOCK_EXACT_CUSTODY_REQUIRED:<element>
+```
+
+The Writer planner already requires `physicalCustody.status === QUALIFIED`, so no lower-layer relaxation was needed.
 
 ## 8. Authority and Invariants
 
+Authoritative mutation chain after PR1007:
+
 ```text
 original TARGET bytes
- -> canonical 15-row physical ELEMENT blocks
- -> exact parsed block index + FROM/TO
- -> exact row13 NODENAME pointer bytes/value
- -> existing NODENAME row
- -> exact FROM/TO field bytes
- -> complete alias owner set
+ -> canonical physical 15-row ELEMENT block array
+ -> exact parsed element.index == physical blockIndex
+ -> exact FROM/TO identity at that same index
+ -> exact row13 NODENAME pointer field
+ -> existing pointer-bound NODENAME row
+ -> exact fixed FROM/TO byte span
+ -> complete physical owner set
  -> explicit APPLY scope
- -> independent S_auth
+ -> Writer1C planner/arbitration
+ -> equal-width original-byte patch
+ -> independent validator-derived S_auth
 ```
 
-Invariants: original bytes, line endings, pointer values, row counts, CONTROL, nodes, element connectivity, and independent validator semantics remain unchanged by this PR.
+Invariant preserved: read-only semantic compatibility must never silently promote itself into physical Writer authority.
 
 ## 9. Current Validation
 
-VAL-1007-001
+### VAL-1007-001 — source audit / defect confirmation
+
 ```text
 Status: PASS
 Observation: SOURCE_INSPECTION
 Oracle: NONE
 Tested HEAD: main@692be3fd536b7c62576c443f5f831984e4de66a2
-Evidence: merged matchDescriptor fallback
-Expected: identify physical authority seam
-Actual: FROM/TO-only fallback exists after exact match failure
-Limitations: no runtime execution yet
+Expected: determine whether physical mapping had a non-exact fallback
+Actual: exact match was followed by FROM/TO-only fallback
 Origin: PREEXISTING
 ```
 
-All new implementation checks: NOT_RUN.
+### VAL-1007-002 — exact-custody focused test
+
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: IMPLEMENTATION_COUPLED
+Tested implementation: PR1007 production blob at a3340a1/f0fbcd30; cleanup changes test assertions only
+Command: node /tmp/pr1007test/tests/cii-workspace-writer1c-byte-custody.test.js
+Expected: exact canonical custody qualifies; swapped, duplicate-index and partial-cardinality cases block physical custody; semantic evidence survives where non-conflicting
+Actual: PASS
+Output: Writer 1C byte custody, exact ELEMENT identity, semantic fallback isolation and shared NODENAME ownership checks passed.
+Limitations: focused reconstruction of exact production modules, not a complete repository checkout
+Origin: RESOLVED_BY_PR
+```
+
+### VAL-1007-003 — Writer1C planner + NODENAME regression
+
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: IMPLEMENTATION_COUPLED
+Command: node /tmp/pr1007test/tests/cii-workspace-writer1c-nodename.test.js
+Expected: semantic-only fallback blocks planner/readiness while inherited Writer1C NODENAME behaviors remain green
+Actual: PASS
+Output: Writer 1C NODENAME planner, exact block custody, redundant FROM/TO ownership, patcher and independent negative-assurance checks passed.
+Limitations: focused reconstructed module tree
+Origin: RESOLVED_BY_PR / NON_REGRESSION
+```
+
+### VAL-1007-004 — direct planner falsifier
+
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: INDEPENDENT_REPRODUCTION
+Command: node /tmp/pr1007test/tests/planner-falsifier.mjs
+Expected: target document requiring semantic fallback cannot become Writer1C READY
+Actual: PASS; `Writer1C planner correctly rejects semantic-only block fallback.`
+Origin: RESOLVED_BY_PR
+```
+
+### VAL-1007-005 — old algorithm ambiguity reproduction
+
+```text
+Status: PASS
+Observation: LOCAL_EXECUTION
+Oracle: INDEPENDENT_REPRODUCTION
+Case: two physical 100->200 descriptors with pointers 1 and 2; parsed element index 9
+Expected old behavior: FROM/TO fallback selects one record by order
+Expected hardened behavior: exact custody returns no descriptor and blocks
+Actual: old fallback selected pointer 1; hardened exact custody rejected parsed index 9
+Origin: RESOLVED_BY_PR
+```
+
+### VAL-1007-006 — TARGET1 exact production benchmark
+
+```text
+Status: NOT_RUN
+Observation: NOT_OBSERVED
+Oracle: existing benchmark test / production parser
+Current head applicability: REQUIRED
+Reason: complete exact benchmark checkout was not available in execution container
+Historical evidence: PR1004 ran TARGET1 successfully; historical only, not relabeled PASS here
+```
+
+### VAL-1007-007 — full repository regression
+
+```text
+Status: NOT_RUN
+Observation: NOT_OBSERVED
+Command: npm test
+Reason: complete repository checkout unavailable in execution runtime
+No workflow was added or changed to manufacture evidence.
+```
+
+### VAL-1007-008 — GitHub CI / reviews
+
+```text
+Status: NOT_RUN / NOT_PRESENT
+Observation: REMOTE_SOURCE_INSPECTION
+Head: f0fbcd30bbec133c01531849a3d6032526e7855a
+Combined statuses: none present
+PR workflow runs: none present
+Review threads: 0
+```
 
 ## 10. Changed-File Ledger
 
-Expected implementation scope:
+Reconciled against GitHub PR file list at production/test head:
 
 | File | Intended? | Purpose | Sensitive? | Validation |
 |---|---:|---|---:|---|
-| `tabs/cii-workspace/cii-workspace-nodename.js` | YES | exact physical custody | YES | pending |
-| `tests/cii-workspace-writer1c-byte-custody.test.js` | YES | physical-custody falsifiers | YES | pending |
-| `tests/cii-workspace-writer1c-nodename.test.js` | IF NEEDED | planner integration blocker | YES | pending |
-| `agents/PR1007_workreport.md` | YES | recovery authority | NO | source inspection |
-| `agents/status/PR1007.yaml` | YES | state | NO | source inspection |
-| `agents/claims/PR1007.yaml` | YES | coordination | NO | source inspection |
-| `agents/MASTER_INDEX.md` | LATER | repo coordination after PR1006 reconciliation | NO | pending |
+| `agents/PR1007_workreport.md` | YES | recovery authority | NO | current sync |
+| `agents/status/PR1007.yaml` | YES | machine-readable state | NO | current sync |
+| `agents/claims/PR1007.yaml` | YES | multi-agent claim | NO | current sync |
+| `tabs/cii-workspace/cii-workspace-nodename.js` | YES | exact physical custody | YES | focused PASS |
+| `tests/cii-workspace-writer1c-byte-custody.test.js` | YES | custody falsifiers | YES | PASS |
+| `tests/cii-workspace-writer1c-nodename.test.js` | YES | planner/non-regression | YES | PASS |
 
-WIP bootstrap files will be deleted during migration and must not remain in final ledger.
+```text
+expected: 6
+actual:   6
+unexplained: 0
+workflow files: 0
+protected converter files: 0
+SIF writer/policy files: 0
+```
 
 ## 11. Review / CI State
 
-PR1007 is draft. Review/check state must be refreshed after implementation commit. No workflow changes authorized.
+```text
+PR: 1007
+state: OPEN
+review state: DRAFT
+mergeable at last refresh: true
+reviews/threads: none
+combined statuses: none
+PR workflow runs: none
+merge authority: OWNER_ONLY
+```
+
+Absence of checks is not PASS.
 
 ## 12. Repository Coordination / Overlap
 
 ```text
 MASTER_INDEX_CHECKED: YES
-STATUS_RECORD: PR1007 after migration
-CLAIM_RECORD: PR1007 after migration
-LAST_OVERLAP_CHECK: 2026-08-20T16:23+04:00
-FILE_OVERLAP_WITH_PR1006: none in production/test scope; MASTER_INDEX only if later synchronized
-AUTHORITY_OVERLAP: related Writer1C domain; PR1006 qualification-only SIF, PR1007 Phase1 custody hardening
-DEPENDENCY_OVERLAP: future Phase2B should inherit PR1007 exact-custody rule
+MASTER_INDEX_MUTATION: DEFERRED to avoid active exact-file collision with PR1006
+STATUS_RECORD: agents/status/PR1007.yaml
+CLAIM_RECORD: agents/claims/PR1007.yaml
+LAST_OVERLAP_CHECK: 2026-08-20T16:35+04:00
+FILE_OVERLAP_WITH_PR1006: NONE in production/test/recovery except MASTER_INDEX would overlap, so PR1007 does not touch it
+AUTHORITY_OVERLAP: broader Writer1C domain only
+DEPENDENCY_OVERLAP: future SIF Phase2B should inherit PR1007 exact physical-custody rule
 COORDINATION_STATE: COORDINATION_REQUIRED_BUT_SAFE
 ```
 
@@ -200,47 +383,53 @@ COORDINATION_STATE: COORDINATION_REQUIRED_BUT_SAFE
 
 ```text
 Start here: tabs/cii-workspace/cii-workspace-nodename.js
-Function: matchDescriptor / rawElementDescriptors / extractCiiNodeNameEvidence
-Do not redo: byte storage, node-name field layout, alias arbitration, writer patcher, independent S_auth
-Do not change: SIF policy, converters, workflows, Writer2/3
-Validation required: synthetic duplicate/index-drift cases + existing focused Writer1C + TARGET1 benchmark where executable
-Exact next action: introduce exact custody matching and separate semantic fallback without granting spans.
+Current implementation: exactDescriptor + semanticDescriptor separation and physical blockers
+Do not redo: original-byte layer, shared-span arbitration, patcher, independent S_auth
+Do not change in this PR: SIF transfer policy, SIF writer, converters, workflows, Writer2/3
+Validation still required: exact TARGET1 benchmark and full npm test when execution environment permits
+Highest-risk remaining item: integration regression outside focused modules, not a known custody defect
+Exact next action: refresh PR head after recovery-only sync; keep draft pending owner direction and/or current-head full validation. No merge authority.
 ```
 
 ## 14. Takeover / Custody Chain
 
-- GE-W1C-HARDEN-001: new WIP grounded on main and PR1006.
-- GE-W1C-HARDEN-002: draft PR1007 allocated at head `2caeacd2`; scope unchanged; migration to PR-numbered recovery records initiated.
+- GE-W1C-HARDEN-001: new WIP grounded on `main@692be3fd` and active PR1006.
+- GE-W1C-HARDEN-002: draft PR1007 allocated; WIP records migrated.
+- GE-W1C-HARDEN-003: implementation at `a3340a1`, assertion cleanup at `f0fbcd30`, six-file diff and remote check/review state reconciled; focused validation PASS, full/benchmark gates retained NOT_RUN.
 
 # APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
 
+Qualification basis:
+
 ```text
-PR_HEAD: 2caeacd2e4ec7bcb27b1e4a3fefabafbe7ff46b5
+PR_HEAD: f0fbcd30bbec133c01531849a3d6032526e7855a
 MAIN_HEAD: 692be3fd536b7c62576c443f5f831984e4de66a2
-GROUNDING_EPOCH: GE-W1C-HARDEN-002
-Generated from: ISS-W1C-001 / RISK-W1C-001
-PARTIAL implementation: none
-NOT_RUN validation: all new tests
-Next intended stage: IMPLEMENT
+GROUNDING_EPOCH: GE-W1C-HARDEN-003
+Generated from: DEBT-W1C-001 / DEBT-W1C-002 and future integration risk
+PARTIAL implementation: none in approved mechanism
+NOT_RUN validation: TARGET1 current-head benchmark; full npm test; browser
+Next intended stage: current-head integration validation / owner review
 APPENDIX_A_STATUS: CURRENT
 ```
 
-A1 Production Trace (20): Trace a Writer1C node-name mutation from parsed element index to exact physical block, row13 pointer, NODENAME span and validator-derived S_auth. Identify each custody boundary.
+A1 Production Trace (20): Trace the current PR1007 Writer1C node-name path from `parsed.elements[n].index` through `exactDescriptor()`, row13 pointer, `physicalCustody.bySpan`, planner claim arbitration and validator `S_auth`. Identify where a semantic fallback is intentionally stopped from gaining mutation authority.
 
-A2 Current Failure Isolation (20): Build a duplicate-FROM/TO example that defeats uniqueness and show exactly how the current fallback could associate a different pointer row.
+A2 Current Failure Isolation (20): Using two physical elements with identical `FROM=100, TO=200` but different NODENAME pointers, explain the pre-PR ambiguity, the new blockers for an invalid parsed index, and why `physicalCustody.status=BLOCKED` is necessary even if the semantic names are mutually consistent.
 
-A3 Authority / Invariant (20): State why FROM/TO is semantic topology evidence but not sufficient physical-record identity, and enumerate exact writer preconditions.
+A3 Authority / Invariant (20): Enumerate the complete exact physical custody invariants now required by PR1007 and explain why FROM/TO is topology evidence but not a unique fixed-record identity.
 
-A4 Independent Validation (20): Design a parseable wrong-association falsifier and explain why preventing unauthorized custody must happen before byte-negative assurance.
+A4 Independent Validation (20): Reproduce a case that the old fallback accepts by iteration order but `exactDescriptor()` rejects. Then explain which current tests prove semantic-read compatibility, physical fail-closed behavior, and downstream planner rejection independently of Writer-reported mutation spans.
 
-A5 Next-Commit / Minimal Patch (20): Identify the smallest exact source and test changes, including how read-only semantic fallback can remain without granting Writer spans.
+A5 Next-Commit / Minimal Patch (20): If TARGET1 current-head execution exposes a regression, identify how to classify `PREEXISTING` vs `INTRODUCED_BY_PR` without weakening exact custody, and list the production files that remain out of scope.
 
 Engineering-critical takeover threshold: total >=92/100 and every question >=17/20.
 
 # HISTORICAL RECORD — NOT CURRENT AUTHORITY
 
 ## Stage Execution Log
-- owner instructed coding under Engineering PR Delivery;
-- branch created from `main@692be3fd`;
-- WIP recovery checkpoint committed at `2caeacd2`;
-- draft PR1007 allocated; WIP-to-PR migration started.
+
+- BOOTSTRAP: owner authorized coding under Engineering PR Delivery.
+- PR1007 allocated draft before production mutation.
+- IMPLEMENT: exact physical custody separated from semantic fallback.
+- VALIDATE: synthetic exact/duplicate/index/cardinality and planner/round-trip focused tests PASS.
+- RECONCILE: six intended files, zero unexplained; no workflows/checks/review threads; exact benchmark/full repository tests remain NOT_RUN.
