@@ -6,7 +6,7 @@ workstream: CII_WRITER_1C_SIF_QUALIFICATION
 branch: agent/cii-writer-1c-sif-qualification
 base: main
 base_head: 692be3fd536b7c62576c443f5f831984e4de66a2
-report_basis_head: ebb8e06b181287ffc4141a53b1aff5f51bb88b23
+report_basis_head: c2802e811aa8d1b83e76a5bd6f1f6ae028647a97
 issue: 1005
 work_intent: QUALIFY_ONLY
 criticality: ENGINEERING_CRITICAL
@@ -14,56 +14,97 @@ agent_state: ACTIVE
 handover_readiness: READY
 report_path: agents/PR1006_workreport.md
 appendix_a_status: CURRENT
+grounding_epoch: GE-012_VENDOR_NEUTRAL_AUTHORITY
 execution_mode: AUTO
-current_stage: PHASE2A_SOURCE_CUSTODY_AND_60_POSITION_MAP_ESTABLISHED
-qualification_verdict: NOT_READY_FOR_SIF_WRITER
+current_stage: PHASE2A_SELECTED_FIELD_SEMANTICS_QUALIFIED_PRODUCTION_WRITER_NOT_IMPLEMENTED
+qualification_verdict: READY_FOR_SELECTED_SIF_FIELDS
 merge_authority: OWNER_ONLY
-ready_for_review: false
-ready_for_review_reason: exact canonical census script execution remains NOT_RUN and no approved field-level source defines any non-identity SIF field semantics
+ready_for_review: true
+ready_for_review_reason: qualification-only artifacts are internally consistent; live PR diff is exactly 8 expected non-production files; selected ii/io fields have source-qualified position/meaning/domain; remaining NOT_RUN local 3-file census is explicit and does not masquerade as PASS
 semantic_summary:
+  tee_slots: 2
+  rows_per_tee_slot: 5
+  items_per_tee_slot: 30
   total_fixed_positions: 60
-  direct_identity_positions: 1
-  direct_non_identity_positions: 0
-  observed_only_notable_positions: 7
-  unresolved_positions: 52
-  writer1c_writable_positions: 0
+  direct_positions: 52
+  unresolved_positions: 8
+  selected_phase2b_positions: 4
+  currently_product_enabled_positions: 0
+  selected_fields: [IN_PLANE_SIF_ii, OUT_PLANE_SIF_io]
+selected_positions:
+  - {tee_slot: 1, neutral_item: 3, row: 0, field: 2, columns: '[28,41)', meaning: IN_PLANE_SIF_ii}
+  - {tee_slot: 1, neutral_item: 4, row: 0, field: 3, columns: '[41,54)', meaning: OUT_PLANE_SIF_io}
+  - {tee_slot: 2, neutral_item: 3, row: 5, field: 2, columns: '[28,41)', meaning: IN_PLANE_SIF_ii}
+  - {tee_slot: 2, neutral_item: 4, row: 5, field: 3, columns: '[41,54)', meaning: OUT_PLANE_SIF_io}
+initial_phase2b_domain:
+  target_preimage: FINITE_GE_1_0
+  proposed_value: FINITE_GE_1_0
+  type_context: UNCHANGED
+  piping_code_context: UNCHANGED
+  pointer: EXISTING_NONZERO_UNCHANGED
+  block_shape: EXACT_10_ROW_UNCHANGED
+  zero_transition: BLOCKED
+  blank_transition: BLOCKED
+  sentinel_9999_99_transition: BLOCKED
 physical_authority:
   sif_tee_block_rows: 10
   pointer_unit: ONE_BASED_10_ROW_BLOCK_INDEX
   field_widths: [15, 13, 13, 13, 13, 13]
+external_authority:
+  version12_neutral:
+    status: PASS
+    source: HEXAGON_CAESAR_II_USERS_GUIDE_VERSION12_AUXILIARY_ELEMENT_DATA
+    url: https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
+    facts: TWO_TEES_X_30_ITEMS; FIVE_ROWS_PER_TEE; TEN_ROWS_TOTAL; ITEMS_1_TO_26_MAPPED
+  caesar_2019_product_semantics:
+    status: PASS
+    source: CAESAR_II_2019_USERS_GUIDE_VERSION11_MIRROR
+    facts: II_IO_ENGINEERING_MEANINGS; USER_DEFINED_SIF_MIN_1_0; TYPE_CODE_DEPENDENT
+  edition_drift:
+    status: PASS
+    facts: VERSION12_ITEM15_TORSION_ITEM16_AXIAL; VERSION14_15_ITEM15_AXIAL_ITEM16_TORSION; VERSION14_15_FOURTEEN_ROW_SHAPE
 canonical_census:
   files_inspected: 3
   blocks: 27
   rows: 270
-  row0_field1_frequency: {3: 7, 5: 8, 11: 12}
-  row5_nonzero_field1_frequency: {11: 6}
+  slot1_type_frequency: {3: 7, 5: 8, 11: 12}
+  slot2_type11_blocks: 6
   recurring_9999_99_positions: [r3f4, r3f5, r8f4, r8f5]
+  selected_ii_io_positive_values_present: false
 validation:
-  source_custody: {status: PASS, observation: REMOTE_SOURCE_INSPECTION}
-  canonical_raw_census_source_inspection: {status: PASS, observation: REMOTE_IMMUTABLE_BENCHMARK_INSPECTION}
-  census_synthetic_reproduction: {status: PASS, observation: LOCAL_EXECUTION, blocks: 27, rows: 270}
+  repository_source_custody: {status: PASS, observation: REMOTE_SOURCE_INSPECTION}
+  vendor_version12_neutral_map: {status: PASS, observation: EXTERNAL_VENDOR_SOURCE_INSPECTION}
+  product_ii_io_semantic_domain: {status: PASS, observation: VENDOR_GUIDE_MIRROR_INSPECTION}
+  edition_drift_falsifier: {status: PASS, observation: EXTERNAL_VENDOR_SOURCE_INSPECTION}
+  canonical_raw_census_source_inspection: {status: PASS, observation: REMOTE_IMMUTABLE_BENCHMARK_INSPECTION, files: 3, blocks: 27, rows: 270}
+  authority_self_test_reproduction: {status: PASS, observation: LOCAL_REPRODUCTION, positions: 60, direct: 52, unresolved: 8, selected: [r0f2, r0f3, r5f2, r5f3], positive_fixture: PASS}
   exact_repository_file_census_execution:
     status: NOT_RUN
     observation: NOT_OBSERVED
-    reason: complete local repository checkout unavailable in runtime
+    reason: complete local checkout of the three repository benchmark files remains unavailable in this runtime
 product_authority:
   transfer_policy_relaxed: false
   sif_writer_code_added: false
   sif_writer_policy_token_added: false
-  current_blocker_preserved: SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
   raw_payload_copy_authorized: false
-  phase2b_allowed: false
-blocking_authority_required:
-  - authoritative 10-row semantic structure
-  - row/field engineering meanings
-  - row5 or sub-record semantic definition
-  - units and domains
-  - zero and blank semantics
-  - 9999.99 sentinel semantics
-  - reference and identity rules
-  - edition applicability
+  current_blocker_preserved: SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
+  phase2b_production_allowed: false
+  phase2b_reason: separate implementation PR must add positive transaction fixture, byte-span custody, same-code/type guards, independent S_auth and adversarial negative assurance
+unresolved_authority:
+  - Version12 neutral items 27..30
+  - zero/blank/sentinel transitions for first writer slice
+  - code-context mutation semantics beyond unchanged-context gate
+  - positive explicit-SIF production transaction benchmark
+scope_audit:
+  changed_files_expected: 8
+  changed_files_actual: 8
+  unexpected_files: 0
+  production_writer_files_changed: 0
+  transfer_policy_files_changed: 0
+  protected_converter_files_changed: 0
+  workflow_files_changed: 0
 coordination:
   unused_branch_ref: agent/cii-writer-1c-sif-qualification-2
   unused_branch_effect: NO_UNIQUE_COMMITS_NO_PR_NO_CODE_EFFECT
-exact_next_action: obtain approved field-level CAESAR neutral-file SIF/TEE authority and execute the census against exact repository SOURCE/TARGET1/TARGET2 when a full checkout is available; do not implement SIF mutation while verdict is NOT_READY_FOR_SIF_WRITER
-last_updated: 2026-08-20T15:10:00+04:00
+exact_next_action: owner review/disposition of PR1006. Do not implement SIF mutation in this PR. After Phase2A disposition, create a separate Phase2B PR for explicit-to-explicit ii/io existing-block Writer1C mutation with independent byte authority and anti-drift qualification.
+last_updated: 2026-08-20T15:38:00+04:00
