@@ -8,6 +8,7 @@ const DELTA_AUTHORITY = 'CII_V11_SIF_TEE_ITEM3_ITEM4_EXACT_PHYSICAL_CUSTODY';
 
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
+function explicitFiniteNumber(value) { return typeof value === 'number' && Number.isFinite(value); }
 function noMutation(operation) { return operation?.action === 'KEEP' && ['PREVIEW_READY', 'PROTECTED'].includes(operation?.status); }
 function isNodeNameCopy(operation) {
   return operation?.family === 'NODE_NAME' && operation?.property === 'Node name / to-name' && operation?.action === 'COPY';
@@ -20,9 +21,8 @@ function pushBlocker(blockers, code, operation, detail = '') {
   blockers.push(suffix ? `${code}:${suffix}` : code);
 }
 function sameNumber(left, right) {
-  const a = Number(left); const b = Number(right);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
-  return Math.abs(a - b) <= Math.max(1e-9, Math.abs(b) * 1e-12);
+  if (!explicitFiniteNumber(left) || !explicitFiniteNumber(right)) return false;
+  return Math.abs(left - right) <= Math.max(1e-9, Math.abs(right) * 1e-12);
 }
 function ownerKey(parsedElementIndex, slot, item) { return `${Number(parsedElementIndex)}|${Number(slot)}|${Number(item)}`; }
 function operationOwnerKey(operation) {
@@ -48,10 +48,13 @@ function validateOperation(operation, blockers) {
   if (!String(operation?.sourceEvidence?.authority || '').includes(DELTA_AUTHORITY)) pushBlocker(blockers, 'WRITER_1C_SIF_FIELD_AUTHORITY_REQUIRED', operation);
   if (!expectedField(operation)) pushBlocker(blockers, 'WRITER_1C_SIF_POLICY_FIELD_MISMATCH', operation);
   if (operation?.sifContext?.status !== 'QUALIFIED') pushBlocker(blockers, 'WRITER_1C_SIF_CODE_CONTEXT_REQUIRED', operation);
-  const before = Number(operation?.before); const proposed = Number(operation?.proposed);
-  if (!Number.isFinite(before) || before < 1.0 || !Number.isFinite(proposed) || proposed < 1.0) {
+  const before = operation?.before; const proposed = operation?.proposed;
+  if (!explicitFiniteNumber(before) || before < 1.0 || !explicitFiniteNumber(proposed) || proposed < 1.0) {
     pushBlocker(blockers, 'WRITER_1C_SIF_VALUE_DOMAIN_EXPLICIT_GE_1_REQUIRED', operation);
   }
+  const sourceType = operation?.sifField?.sourceType; const targetType = operation?.sifField?.targetType;
+  if (!explicitFiniteNumber(sourceType) || !explicitFiniteNumber(targetType)) pushBlocker(blockers, 'WRITER_1C_SIF_TYPE_CONTEXT_REQUIRED', operation);
+  else if (sourceType !== targetType) pushBlocker(blockers, 'WRITER_1C_SIF_TYPE_CONTEXT_MISMATCH', operation);
   return true;
 }
 function actualTargetField(operation, targetDocument, blockers) {
@@ -68,7 +71,11 @@ function actualTargetField(operation, targetDocument, blockers) {
   if (!slot || !field?.qualified) { pushBlocker(blockers, 'WRITER_1C_SIF_FIELD_SPAN_REQUIRED', operation); return null; }
   if (Number(field.item) !== Number(meta.item)) { pushBlocker(blockers, 'WRITER_1C_SIF_ITEM_MISMATCH', operation); return null; }
   if (String(slot.node) !== String(meta.targetNode)) { pushBlocker(blockers, 'WRITER_1C_SIF_NODE_CONTEXT_MISMATCH', operation); return null; }
-  if (Number(slot.type) !== Number(meta.targetType) || Number(meta.sourceType) !== Number(meta.targetType)) {
+  const actualType = slot.type; const sourceType = meta.sourceType; const targetType = meta.targetType;
+  if (!explicitFiniteNumber(actualType) || !explicitFiniteNumber(sourceType) || !explicitFiniteNumber(targetType)) {
+    pushBlocker(blockers, 'WRITER_1C_SIF_TYPE_CONTEXT_REQUIRED', operation); return null;
+  }
+  if (actualType !== targetType || sourceType !== targetType) {
     pushBlocker(blockers, 'WRITER_1C_SIF_TYPE_CONTEXT_MISMATCH', operation); return null;
   }
   if (meta.nodeMappingQualified !== true) { pushBlocker(blockers, 'WRITER_1C_SIF_NODE_MAPPING_REQUIRED', operation); return null; }
@@ -93,7 +100,7 @@ function claimForOperation(operation, targetDocument, blockers) {
     section: 'SIF&TEES', fieldIdentity: actual.field.fieldIdentity, fieldKey: actual.fieldKey,
     pointer: Number(actual.binding.pointer), slot: Number(operation.sifField.slot), item: Number(operation.sifField.item),
     parsedElementIndex: Number(operation.sifField.targetParsedElementIndex),
-    beforeField: actual.field.rawField, afterField, before: Number(actual.field.numericValue), proposed: Number(operation.proposed),
+    beforeField: actual.field.rawField, afterField, before: actual.field.numericValue, proposed: operation.proposed,
     operationId: operationId(operation), owners: span.owners || Object.freeze([]),
     sifContext: operation.sifContext,
   });
