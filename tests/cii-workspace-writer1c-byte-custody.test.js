@@ -70,7 +70,8 @@ const swappedParsed = {
   elements: [{ index: 0, from: 300, to: 400 }, { index: 1, from: 100, to: 200 }],
 };
 const swappedEvidence = extractCiiNodeNameEvidence(raw, swappedParsed, { physicalFile: physical });
-assert.equal(swappedEvidence.nodeNames, undefined);
+assert.equal(swappedEvidence.conflicts.length, 0,
+  'semantic compatibility fallback should remain readable without inventing a semantic conflict');
 assert.equal(swappedEvidence.names['200'], 'TO-SHARED');
 assert.equal(swappedEvidence.names['400'], 'TO-SHARED');
 assert.equal(swappedEvidence.physicalCustody.status, 'BLOCKED');
@@ -91,6 +92,8 @@ const duplicateParsed = {
   elements: [{ index: 9, from: 100, to: 200 }, { index: 1, from: 100, to: 200 }],
 };
 const duplicateEvidence = extractCiiNodeNameEvidence(duplicateRaw, duplicateParsed, { physicalFile: duplicatePhysical });
+assert.equal(duplicateEvidence.conflicts.length, 0,
+  'duplicate endpoints with consistent names remain semantic evidence, never physical Writer authority');
 assert.equal(duplicateEvidence.names['100'], 'DUP-FROM');
 assert.equal(duplicateEvidence.names['200'], 'DUP-TO');
 assert.equal(duplicateEvidence.physicalCustody.status, 'BLOCKED');
