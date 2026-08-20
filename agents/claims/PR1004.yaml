@@ -17,6 +17,8 @@ files:
     - tabs/cii-workspace/cii-workspace-writer1c-nodename.js
     - tabs/cii-workspace/cii-workspace-writer1c-validation.js
     - tabs/cii-workspace/cii-workspace-physical-file.js
+    - tabs/cii-workspace/cii-workspace-shell.js
+    - tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
   prefixes:
     - tests/qualification/cii-workspace-writer1c-
     - tests/cii-workspace-writer1c-
@@ -25,6 +27,8 @@ authority_domains:
   - CII_NODENAME_PHYSICAL_SPAN_CUSTODY
   - CII_WRITER_1C_EXISTING_AUXILIARY_MUTATION
   - CII_BYTE_NEGATIVE_ASSURANCE
+  - CII_WRITER_VERSION_ROUTING
+  - CII_SCOPED_WRITER_APPLY_PRESENTATION
 coordinated_with:
   - PR1002_DOCUMENTATION_CONTRACT
 protected_out_of_scope:
@@ -38,5 +42,5 @@ protected_out_of_scope:
   - HANGER_MUTATION
   - WRITER_2_CARDINALITY
   - WRITER_3_TOPOLOGY
-last_verified_head: 809db57e2b4de099d5c412a73096709f89c2984a
+last_verified_head: e19a74c009c664371414e047216c98e18ea4a0dc
 merge_authority: OWNER_ONLY
