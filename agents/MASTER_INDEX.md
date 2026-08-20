@@ -4,7 +4,8 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / DOCUMENTATION COMPLETE / SOURCE-BOUNDARY AUDIT PASS | ENGINEERING_CRITICAL_WRITER_AUTHORITY | Writer 1C = pointer-stable/row-count-stable existing auxiliary mutation; NODENAME first; SIF/TEE only after semantic map; anti-drift byte-span assurance; Writer 2/3 boundaries | SAFE / documentation successor to merged PR1001 / implementation Issue #1003 / OWNER-ONLY MERGE | owner review PR1002; Issue #1003 assignee answers expert gate before Writer 1C coding |
+| PR1004 | CII Writer 1C Phase-1 NODENAME byte-custody implementation | `agent/cii-writer-1c` | DRAFT / ENGINEERING PATH QUALIFIED / FULL REPOSITORY SUITE NOT_RUN | ENGINEERING_CRITICAL_WRITER_MUTATION | original-byte NODENAME existing-row COPY; independently derived `S_auth`; equal-width byte patch; no SIF/hanger/cardinality/topology | SAFE SCOPE / STACKED ON PR1002 / base drift must be reconciled after PR1002 authority normalization | reconcile branch onto latest PR1002 head; preserve 20-file implementation ledger; do not merge |
+| PR1002 | CII Writer 1C authority + future Writer roadmap | `agent/cii-writer-1c-roadmap` | DRAFT / PHASE1 AUTHORITY NORMALIZED | ENGINEERING_CRITICAL_WRITER_AUTHORITY | original TARGET bytes; independent `S_auth`; Writer claims testimony only; NODENAME-only Phase 1; mixed 1A/1B+1C APPLY blocked; SIF/TEE only after semantic map | SAFE / documentation predecessor of PR1004 / OWNER-ONLY MERGE | refresh exact 5-file ledger, then PR1004 reconciles stacked-base drift |
 | PR1001 | CII explicit APPLY / EXCLUDE transfer-scope custody | `agent/cii-explicit-transfer-scope` | MERGED 2026-08-19 · `5a5fa0ae` / retained repo+UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_MUTATION_AUTHORITY | exact SOURCE/TARGET hash + mutable operation-set binding; APPLY to Writer set; EXCLUDE audit custody; stale-scope fail-closed; product scoped shell | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR999 | CII Compare Review / Engineering Delta / effective TARGET clarity | `agent/cii-review-transfer-clarity` | MERGED 2026-08-19 · `0274f63c` / retained shell+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_PRESENTATION | human-readable structured values; SOURCE candidate vs Current TARGET vs Effective TARGET after apply; conservative Writer outcome projection | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain qualification truth |
 | PR998 | CII multi-base UI authority fix + concept-note refresh | `agent/cii-multi-base-ui-fix` | MERGED 2026-08-19 · `7d63abe8` / retained UI+browser NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM | engineer multi-select of independent A/B bases -> explicit `baseLoops[]`; A+B two-loop projection; manual/qualified exclusivity; concept-note refresh | HISTORICAL | retained gates |
@@ -25,39 +26,69 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR982 | CII fixed-field parser | `agent/cii-fixed-field-parser` | MERGED 2026-08-19 | ENGINEERING_CRITICAL | fixed-field ELEMENT parsing | HISTORICAL | none |
 | PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | anchored correspondence foundation | HISTORICAL | none |
 
-## PR1002 — current Writer 1C authority roadmap
+## PR1004 — active Writer 1C Phase-1 implementation
 
-PR1002 is documentation-only and freezes the next Writer boundary before implementation:
+PR1004 implements the first Writer-1C production slice under the authority frozen by PR1002:
+
+```text
+existing NODENAME row
++ original TARGET byte authority
++ exact fixed-column pointer/row/FROM/TO custody
++ complete physical owner/alias set
++ explicit APPLY
++ equal-width in-place byte replacement
++ independent validator-derived S_auth
++ structural + semantic + byte negative assurance
+```
+
+Current durable evidence reports PASS for exact TARGET1 production intake/core round-trip, independent unauthorized-byte and stale-target falsifiers, shared/redundant NODENAME ownership, Writer1A/1B focused regressions, independent Python oracle, and Chromium Writer1C routing/binary handling. The complete repository suite is still `NOT_RUN`; no GitHub PR checks/workflows are present.
+
+PR1004 remains draft and stacked on PR1002. Because PR1002 authority documentation has now moved, PR1004 must reconcile that base drift before review progression. No merge authority is implied.
+
+## PR1002 — normalized Writer 1C authority roadmap
+
+PR1002 is documentation-only and freezes the Writer boundary:
 
 ```text
 Writer 1C = existing auxiliary record
-            + exact ownership
+            + exact physical ownership
+            + original TARGET byte authority
             + pointer unchanged
             + section row count unchanged
             + CONTROL unchanged
             + source-qualified field layout/semantics
             + explicit APPLY
+            + apply-time custody re-proof
+            + independent validator-derived S_auth
 ```
 
-Mandatory first slice is existing-row NODENAME mutation. Existing SIF/TEE block fields are a later 1C slice only after an authoritative field-semantic map is established. Hanger mutation, pointer allocation/reindexing, record creation/deletion, and CONTROL count changes remain Writer 2. Node/element/connectivity changes remain Writer 3.
+For Phase 1:
 
-Anti-drift authority requires exact physical mutation spans and proof that all bytes outside those spans remain identical. Parseability alone is not a PASS criterion.
+```text
+S_auth = independently authorized physical byte spans
+B      = Writer-reported spans / audit testimony
+D      = actual byte differences
+
+PASS => D ⊆ S_auth
+```
+
+Writer claims do not authorize themselves. Whole-file reconstruction/reserialization is forbidden for the NODENAME edit path. Mixed Writer1A/1B APPLY + Writer1C APPLY remains blocked until separately qualified as one original-byte transaction.
+
+Mandatory first slice is existing-row NODENAME mutation. Existing SIF/TEE fields are a later slice only after an authoritative field-semantic map exists; `FIELD_2_SEMANTICS_UNQUALIFIED` remains a hard blocker. Hanger mutation, pointer allocation/reindexing, record creation/deletion, and CONTROL changes remain Writer 2. Node/element/connectivity changes remain Writer 3.
 
 Future roadmap:
 
 ```text
-Phase 0  close retained qualification debt
+Phase 0  close retained repository-wide qualification debt
 Phase 1  Writer 1C NODENAME
-Phase 2  Writer 1C existing SIF/TEE fields after semantic map
+Phase 2  source-qualify SIF/TEE semantics, then one field family at a time
 Phase 3  optional qualified existing auxiliary text
 Phase 4  Writer 2 pointer/cardinality transaction engine
 Phase 5  Writer 3 topology transaction engine
 Phase 6  mutation manifest / rollback / batch automation
 ```
 
-Implementation is handed off through **Issue #1003**. Its assignee must answer three mandatory expert-qualification questions before coding: shared NODENAME byte-span custody, SIF/TEE physical ownership versus semantic authority, and the byte-level anti-drift falsifier.
-
-See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, and Issue #1003.
+See `agents/PR1002_workreport.md`, `agents/status/PR1002.yaml`, `agents/claims/PR1002.yaml`, `docs/CIIcompareconceptnote.md`, Issue #1003, and stacked implementation PR #1004.
 
 ## PR1001 — merged explicit mutation-scope authority
 
@@ -74,7 +105,7 @@ operation-level APPLY / EXCLUDE
         ↓
 APPLY operations[] only
         ↓
-Writer 1B readiness
+Writer readiness
         ↓
 qualified mutation
 ```
@@ -101,27 +132,9 @@ Fail-closed rules:
 - selected unsupported APPLY remains blocked by existing Writer policy;
 - all EXCLUDE returns `TRANSFER_SCOPE_NO_APPLY_OPERATIONS` and no mutation authority.
 
-EXCLUDE is never fake KEEP. It remains in `excludedOperations[]`, scoped audit JSON, excluded-operation UI and engineering-delta presentation as `EXCLUDED`, but is absent from Writer `operations[]`.
+EXCLUDE is never fake KEEP. It remains in audit custody but is absent from Writer `operations[]`.
 
-After a scope is bound, existing audit/CSV export controls emit the scoped artifact bundle so the mutation-authority audit does not compete with an unscoped export.
-
-Retained validation truth:
-
-```text
-main/source grounding: PASS_SOURCE_INSPECTION
-authority-boundary diff: PASS_GIT_COMPARE
-standalone scope state machine: PASS_INDEPENDENT_REPRODUCTION
-APPLY-qualified + EXCLUDE-unsupported: PASS_INDEPENDENT_REPRODUCTION
-all EXCLUDE blocker: PASS_INDEPENDENT_REPRODUCTION
-stale operation-set blocker: PASS_INDEPENDENT_REPRODUCTION
-TARGET-hash mismatch blocker: PASS_INDEPENDENT_REPRODUCTION
-focused repository scope test: AUTHORED_NOT_RUN_ENVIRONMENT
-focused scope UI/product-routing test: AUTHORED_NOT_RUN_ENVIRONMENT
-shell lifecycle: NOT_RUN_ENVIRONMENT
-SOURCE 3/TARGET 3-1 browser: NOT_RUN_ENVIRONMENT
-Chromium: NOT_RUN_ENVIRONMENT
-full repository suite: NOT_RUN_ENVIRONMENT
-```
+Retained validation truth includes several lower-layer environment gates that were not executed at merge time; PR1004 supplies focused Phase-1 evidence but does not retroactively convert unrelated historical `NOT_RUN` entries to PASS.
 
 ## PR999 — merged Compare Review / Delta / Transfer clarity
 
@@ -133,9 +146,7 @@ Current TARGET
 Effective TARGET after apply
 ```
 
-Blocked/protected/Writer-blocked proposals keep the current TARGET effective; only a bound, preview-ready operation under ready Writer authority is shown as `WILL APPLY`. Structured engineering data is rendered without raw JSON in primary cells.
-
-Retained validation truth: focused presentation PASS; full shell/browser/full-suite execution NOT_RUN_ENVIRONMENT.
+Blocked/protected/Writer-blocked proposals keep the current TARGET effective; only a bound, preview-ready operation under ready Writer authority is shown as `WILL APPLY`.
 
 ## PR998 → PR994 — retained identity architecture
 
@@ -167,4 +178,4 @@ The real benchmark remains `Benchmark/CIICompare/SOURCE 3.CII -> TARGET 3-1.CII`
 
 ## Writer authority retained from PR991/PR992
 
-Writer 1A/1B applies only the operations it receives and qualifies. Geometry, node numbering and topology remain protected. OD is conditional to the qualified Writer 1B plain-pipe/no-reducer path. Existing-block restraint mutation remains bounded by owned-block/cardinality rules. PR1001 establishes which reviewed classified operations are explicitly selected for Writer evaluation; PR1002 documents the next authority boundary without changing production code.
+Writer 1A/1B applies only the operations it receives and qualifies. Geometry, node numbering and topology remain protected. OD is conditional to the qualified Writer 1B plain-pipe/no-reducer path. Existing-block restraint mutation remains bounded by owned-block/cardinality rules. PR1001 establishes which reviewed classified operations are explicitly selected for Writer evaluation; PR1002 defines the next authority boundary without changing production code.
