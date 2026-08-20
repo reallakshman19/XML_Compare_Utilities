@@ -4,7 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-report_basis_head: 0333be69859345e796011fbe8966530beb1b57ea
+report_basis_head: a21219dff8b32bd07e93cacd4266932f628594f2
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
 base_branch: agent/cii-writer-1c-roadmap
@@ -16,28 +16,33 @@ pr_recovery_state: HEALTHY_IMPLEMENTATION_COMPLETE_ENGINEERING_PATH_QUALIFIED_RE
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-007
+grounding_epoch: GE-008
 execution_mode: AUTO
-auto_state: HARD_STOP_REPOSITORY_WIDE_CHECKOUT_UNAVAILABLE
-auto_authority_note: AUTO MODE progressed all approved Phase-1 gates available in this runtime; it does not authorize waiver of the full-repository gate, ready-for-review transition, scope expansion, workflow modification, or merge
-current_stage: PHASE1_ENGINEERING_PATH_QUALIFIED_CHROMIUM_PASS_EXACT_TARGET1_CORE_ROUNDTRIP_PASS_FULL_REPOSITORY_SUITE_PENDING
-blocker: COMPLETE_PRIVATE_REPOSITORY_CHECKOUT_UNAVAILABLE_FOR_FULL_REPOSITORY_SUITE
-highest_risk: REPOSITORY_WIDE_REGRESSION_INTERACTION_NOT_OBSERVED; Writer1C engineering path itself has direct benchmark and browser evidence
-coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
-pr_live_at_basis:
-  state: OPEN_DRAFT
-  mergeable: true
-  changed_files: 20
-  unexplained_files: 0
-  reviews: 0
-  review_threads: 0
-  github_status_checks: NONE_PRESENT
-  github_workflow_runs: NONE_PRESENT
+auto_state: HARD_STOP_REPOSITORY_WIDE_EXECUTION_TRANSPORT_UNAVAILABLE
+auto_authority_note: AUTO MODE progressed every approved Phase-1 engineering gate available in this runtime; it does not authorize waiver of full-repository qualification, Phase-2 scope expansion, workflow modification, ready-for-review transition, or merge
+current_stage: PHASE1_ENGINEERING_PATH_QUALIFIED_CHROMIUM_PASS_EXACT_TARGET1_CORE_ROUNDTRIP_PASS_PR1002_AUTHORITY_CORRECTED_FULL_REPOSITORY_SUITE_PENDING
+blocker: COMPLETE_PR_HEAD_REPOSITORY_BYTES_CANNOT_BE_MATERIALIZED_IN_EXECUTION_CONTAINER_FOR_NPM_TEST
+highest_risk: REPOSITORY_WIDE_REGRESSION_INTERACTION_NOT_OBSERVED; Writer1C engineering path itself has exact benchmark, falsifier, regression and browser evidence
+coordination_state: PR1002_OPEN_DRAFT_UNMERGED; PR1002_PR_BODY_NORMATIVE_CORRECTION_ADDED; BRANCH_CONCEPT_NOTE_STILL_REQUIRES_NORMALIZATION_BEFORE_PR1002_MERGE
+pr_live_at_last_check:
+  pr1002:
+    state: OPEN_DRAFT
+    merged: false
+    mergeable: true
+    head: 1dd7a4fc8823c54ef38f5f938167d13076d49c65
+    changed_files: 5
+  pr1004:
+    state: OPEN_DRAFT
+    merged: false
+    mergeable: true
+    changed_files: 20
+    unexplained_files: 0
+    github_status_checks: NONE_PRESENT
+    github_workflow_runs: NONE_PRESENT
 validation:
   exact_target1_object_identity:
     status: PASS
     observation: LOCAL_EXECUTION
-    oracle: AUTHORITATIVE_GIT_BLOB_IDENTITY
     expected_byte_length: 64462
     actual_byte_length: 64462
     expected_git_blob_sha: 1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853
@@ -45,135 +50,71 @@ validation:
   production_neutral_intake_target1:
     status: PASS
     observation: LOCAL_EXECUTION
-    oracle: PRODUCTION_PARSER_PLUS_FIXED_FIELD_CUSTODY
-    exact_branch_blobs:
-      caesar_parser: 46b921c656fff242354c27b6d1a83dd40791f7ec
-      elements: e0f6fbb30a4849d2659608eb10965a53b823286d
-      fixed_field: 485daa43553681ca54f488499e57f36d2239be58
-      validator: 90cef22039bcedbe0699ed9137855ea84c1d3f34
-      auxiliary: 7459677eccb2ca460b1971ac6d75c22f2f5ae870
-      hanger: 71e5bca8cb3429878785244b5508e104add2fc57
-      capabilities: db7b67ed25ccad6f8bb46c03561747ea7b2094c1
-      intake: f5347036c2add51d68a5ebdae9707edabea5f12d
-      nodename: 797999b4fdb8344e94852ee9bee6fa3ffee2fee1
-      physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
-    actual:
-      byte_length: 64462
-      sha256: aa84f8a70bbf7b41bfdbf69c664ca10b0f068cec5a40f670b8dff7581a237110
-      format: NEUTRAL
-      elements: 40
-      nodes: 40
-      nodenames: {20035: PS-NEW1}
-      nodename_conflicts: 0
-      physical_custody: QUALIFIED
-      auxiliary_conflicts: 0
-      hanger_status: QUALIFIED
-      line_endings: CRLF
-    import_resolution_limit: XML/PDF parser imports were fail-fast stubs; neither branch was entered by the NEUTRAL benchmark
+    actual: {elements: 40, nodes: 40, nodename_conflicts: 0, auxiliary_conflicts: 0, physical_custody: QUALIFIED, hanger_status: QUALIFIED, line_endings: CRLF}
   benchmark_production_parser_core_roundtrip:
     status: PASS
     observation: LOCAL_EXECUTION
-    oracle: PRODUCTION_INTAKE_CORE_WRITER1C_PLUS_INDEPENDENT_1C_VALIDATOR
-    exact_branch_blobs:
-      core: bfdd20f0716ff47c394de564c26379e259e3f2e7
-      benchmark_test: b0b4662d03b47298bac0c3434fa4723165d2917c
-      writer1c_validation: c8594d4f260ee58feba5823483f23b152322d8b9
-    boundary: unrelated comparison/topology imports were fail-fast stubs; adaptCiiDocumentToTopologyGraph returned an unused sentinel because core computes it but Writer1C does not consume it
-    actual:
-      selected_node: 20030
-      physical_span_count: 1
-      mutation_count: 1
-      changed_byte_count: 8
-      status: PASS
-      writer: WRITER_1C
-      expected_semantic_delta_count: 1
-      unexpected_semantic_delta_count: 0
-      authorized_span_count_equals_mutation_count: true
-      output_byte_length_unchanged: true
-      modified_sha_differs: true
+    exact_core_blob: bfdd20f0716ff47c394de564c26379e259e3f2e7
+    exact_benchmark_test_blob: b0b4662d03b47298bac0c3434fa4723165d2917c
+    exact_validator_blob: c8594d4f260ee58feba5823483f23b152322d8b9
+    actual: {selected_node: 20030, physical_span_count: 1, mutation_count: 1, changed_byte_count: 8, expected_semantic_delta_count: 1, unexpected_semantic_delta_count: 0, output_byte_length_unchanged: true}
   real_target1_negative_assurance_falsifier:
     status: PASS
-    observation: LOCAL_EXECUTION
-    oracle: INDEPENDENT_VALIDATOR_DERIVATION
-    actual: an unrelated header-space byte changed after a valid Writer1C patch still reparsed but was rejected as UNAUTHORIZED_BYTE_CHANGE
+    actual: unrelated byte drift still reparsed but independent validator rejected UNAUTHORIZED_BYTE_CHANGE
   real_target1_stale_target_falsifier:
     status: PASS
-    observation: LOCAL_EXECUTION
-    oracle: CORE_SHA_PRECONDITION
-    actual: a one-byte stale TARGET change was rejected with CII_WRITER_1C_STALE_TARGET_HASH before mutation
+    actual: one-byte stale TARGET rejected CII_WRITER_1C_STALE_TARGET_HASH before mutation
   reconstructed_regression_gate:
     status: PASS
     observation: LOCAL_EXECUTION
+    result: 9_JS_TESTS_PLUS_INDEPENDENT_PYTHON_ORACLE_ALL_PASS
     limitation: focused exact-file reconstruction, not complete private checkout
-    commands:
-      - node tests/cii-workspace-writer1c-byte-custody.test.js
-      - node tests/cii-workspace-writer1c-nodename.test.js
-      - node tests/cii-workspace-nodename.test.js
-      - node tests/routing-policy-slice.test.js
-      - node tests/cii-workspace-target-writer-1a.test.js
-      - node tests/cii-workspace-target-writer-restraint.test.js
-      - node tests/cii-workspace-target-writer-1b.test.js
-      - node tests/cii-workspace-restraint-slot-writer-1b.test.js
-      - node tests/cii-workspace-writer1c-benchmark-roundtrip.test.js
-      - python3 tests/qualification/cii-workspace-writer1c-nodename-oracle.py
-    result: ALL_PASS
   target1_redundant_from_to_pattern:
     status: PASS
-    observation: LOCAL_EXECUTION
-    oracle: BENCHMARK_DERIVED_FIXED_FIELD_PATTERN_PLUS_INDEPENDENT_VALIDATOR
-    actual: 2 physical spans mutated for 1 semantic node; 1 semantic delta; 0 unexpected deltas; 0 NODENAME conflicts
-  independent_validator_sif_pointer_falsifier:
+    actual: 2 physical spans for 1 semantic node; 1 semantic delta; 0 unexpected deltas; 0 NODENAME conflicts
+  writer1a_writer1b_non_regression:
     status: PASS
     observation: LOCAL_EXECUTION
-    oracle: INDEPENDENT_DERIVATION
-  python_oracle:
-    status: PASS
-    observation: LOCAL_EXECUTION
-    oracle: INDEPENDENT_REPRODUCTION
-    actual: authorized span 2514:2539; changed bytes 3; SIF pointer falsifier caught
-  writer1a_fixed_field_regression: {status: PASS, observation: LOCAL_EXECUTION, oracle: PREEXISTING_TEST_EXPECTATIONS}
-  writer1a_paired_restraint_regression: {status: PASS, observation: LOCAL_EXECUTION, oracle: PREEXISTING_TEST_EXPECTATIONS}
-  writer1b_extended_fixed_field_regression: {status: PASS, observation: LOCAL_EXECUTION, oracle: PREEXISTING_TEST_EXPECTATIONS}
-  writer1b_restraint_slot_regression: {status: PASS, observation: LOCAL_EXECUTION, oracle: PREEXISTING_TEST_EXPECTATIONS}
   chromium_product_path:
     status: PASS
     observation: LOCAL_EXECUTION
-    oracle: BROWSER_BEHAVIOR
     runtime: /usr/bin/chromium via Python Playwright headless
-    actual:
-      - initial Writer1C apply blocked while mutation scope UNBOUND
-      - explicit bind produces 1 APPLY / 0 EXCLUDE and Writer1C READY
-      - File.arrayBuffer preserved bytes [10,13,0,65,128,255,32,90]
-      - Writer1C dispatch occurred; Writer1A/1B wrong-writer stubs not called
-      - binary byteString download produced bytes [0,1,2,65,128,255]
-      - success reported unexpected semantic deltas 0
-      - correspondence review change invalidated bound apply state
-      - browser page errors 0; console errors 0
-    limitation: browser contract used engineering/core computation stubs at imported boundary; exact core is separately qualified by TARGET1 benchmark
-  routing_product_contract:
-    status: PASS
-    observation: SOURCE_INSPECTION_PLUS_CHROMIUM
-    oracle: NONE
-    actual: explicit 1A/1B/1C dispatch; default 1B; scope routes 1C with TARGET custody; shell uses arrayBuffer; host selection explicit
-  full_repository_suite:
+    actual: explicit scope bind, byte-preserving File.arrayBuffer input, Writer1C dispatch, binary byteString export, review-invalidates-apply, 0 page errors, 0 console errors
+    limitation: browser contract used engineering/core stubs at imported boundary; exact core is separately qualified by TARGET1 benchmark
+  pr1002_contract_audit:
+    status: DEFECT_FOUND_AND_PR_LEVEL_CORRECTION_RECORDED
+    findings:
+      - branch concept note still treats writer-claimed spans as negative-assurance authority
+      - branch concept note states immediate lower-writer composition more broadly than Phase-1 byte qualification supports
+    correction:
+      - PR1002 body now declares validator-derived S_auth authoritative and Writer claims testimony only
+      - PR1002 body requires original-byte equal-width patching and forbids whole-file reserialization for Phase-1 NODENAME
+      - PR1002 body blocks mixed Writer1A/1B plus Writer1C transactions until separately byte-qualified
+      - Issue1003 GE-008 comment records same normative authority and keeps SIF/TEE Phase-2 closed
+  repository_wide_suite:
     status: NOT_RUN
     observation: NOT_OBSERVED
-    reason: complete private repository checkout is unavailable in this runtime; no workflow was added to manufacture execution
-  github_status_checks:
-    status: NOT_RUN
-    observation: REMOTE_EXECUTION_STATE
-    reason: no statuses present at live PR head
-  github_workflow_runs:
-    status: NOT_RUN
-    observation: REMOTE_EXECUTION_STATE
-    reason: no PR-triggered workflow runs present at live PR head
+    repository_test_command: npm test
+    reason: complete PR-head checkout cannot be transported into execution container
+    recovery_attempts:
+      - direct git ls-remote/clone blocked by container network/DNS policy
+      - pinned-IP HTTPS transport also unavailable
+      - GitHub connector exposes recursive tree/files but no repository archive download action
+      - existing deploy workflow does not execute npm test
+      - no PR1004 status checks or PR-triggered workflow runs exist
+      - workflow modification/dispatch was not used to manufacture qualification
+  tooling_side_effect:
+    status: NO_BRANCH_OR_COMMIT_EFFECT
+    detail: connector capability probing created one unreferenced Git tree object eb97a9695b4162ef573900619fe0221ea81df41a; no commit, ref, branch, PR file, or working source was changed by that object
 baseline_debt:
   - tests/cii-workspace-intake.test.js expects an older parserAuthority string than live main already returns; not introduced or modified by PR1004
 product_default_writer: 1B
 writer1c_selection: EXPLICIT_ONLY
 sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
+phase2_allowed: false
+phase2_block_reason: Writer1C Phase-2 requires separate SIF/TEE source-qualified field dictionary and Phase-1 repository-wide gate resolution/owner decision; raw field2 remains unqualified
 merge_authority: OWNER_ONLY
 ready_for_review: false
-ready_for_review_reason: engineering path is qualified, but Definition of Done retains full repository qualification unless owner explicitly accepts the documented runtime limitation
-exact_next_action: obtain a complete private checkout or equivalent repository-wide execution capability and run the full repository suite at the PR head; if green, reconcile stacked base PR1002 and only then consider ready-for-review; do not merge without explicit owner authorization
-last_updated: 2026-08-20T08:00:00+04:00
+ready_for_review_reason: engineering path is qualified, but Definition of Done retains full repository qualification unless owner explicitly accepts the documented runtime limitation; PR1002 branch documentation also still needs normalization to its PR-level authority correction
+exact_next_action: obtain complete repository execution capability and run npm test at the exact PR1004 head; normalize PR1002 branch docs to the normative authority correction before PR1002 merge; only after those gates may PR1004 be retargeted/reconciled and considered for ready-for-review; do not start SIF/TEE mutation or merge without separate authority
+last_updated: 2026-08-20T09:34:56+04:00
