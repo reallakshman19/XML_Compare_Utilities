@@ -52,11 +52,12 @@ const [coreSource, scopeSource, shellSource, tabSource] = await Promise.all([
 ]);
 assert(coreSource.includes("['1A', '1B', '1C']"), 'core writer-version dispatcher must enumerate 1A/1B/1C');
 assert(coreSource.includes("? options.writerVersion : '1B'"), 'production default must remain Writer 1B');
+assert(coreSource.includes('ONE_ORIGINAL_PREIMAGE_COMPOSITE_1A_1B_1C'), 'Writer 1C contract must advertise one-preimage lower+1C composition');
 assert(scopeSource.includes("preview?.writerVersion === '1C'"), 'scope readiness must route Writer 1C explicitly');
-assert(scopeSource.includes('ciiWriter1CReadiness(transferPlan, preview.targetDocument)'), 'scope Writer 1C readiness must receive TARGET custody');
+assert(scopeSource.includes('ciiWriterCompositeReadiness(transferPlan, preview.targetDocument)'), 'scope Writer 1C readiness must use composite TARGET custody');
 assert(shellSource.includes('.arrayBuffer()'), 'workspace file reads must preserve original file bytes');
 assert(shellSource.includes('applyCiiWorkspaceTargetWriter1C'), 'shell may invoke Writer 1C only through explicit version routing');
 assert(tabSource.includes('context.writerVersion'), 'product host may deliberately request a qualified writer version');
 assert(!tabSource.includes("writerVersion: '1C'"), 'product tile must not silently switch the default to Writer 1C');
 
-console.log('CII Writer 1C policy, routing, byte-input and default-authority guards passed.');
+console.log('CII Writer 1C policy, composite routing, byte-input and default-authority guards passed.');
