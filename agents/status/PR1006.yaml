@@ -1,0 +1,69 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR1006
+mission: Writer 1C Phase 2A SIF/TEE field-semantic qualification before mutation
+workstream: CII_WRITER_1C_SIF_QUALIFICATION
+branch: agent/cii-writer-1c-sif-qualification
+base: main
+base_head: 692be3fd536b7c62576c443f5f831984e4de66a2
+report_basis_head: ebb8e06b181287ffc4141a53b1aff5f51bb88b23
+issue: 1005
+work_intent: QUALIFY_ONLY
+criticality: ENGINEERING_CRITICAL
+agent_state: ACTIVE
+handover_readiness: READY
+report_path: agents/PR1006_workreport.md
+appendix_a_status: CURRENT
+execution_mode: AUTO
+current_stage: PHASE2A_SOURCE_CUSTODY_AND_60_POSITION_MAP_ESTABLISHED
+qualification_verdict: NOT_READY_FOR_SIF_WRITER
+merge_authority: OWNER_ONLY
+ready_for_review: false
+ready_for_review_reason: exact canonical census script execution remains NOT_RUN and no approved field-level source defines any non-identity SIF field semantics
+semantic_summary:
+  total_fixed_positions: 60
+  direct_identity_positions: 1
+  direct_non_identity_positions: 0
+  observed_only_notable_positions: 7
+  unresolved_positions: 52
+  writer1c_writable_positions: 0
+physical_authority:
+  sif_tee_block_rows: 10
+  pointer_unit: ONE_BASED_10_ROW_BLOCK_INDEX
+  field_widths: [15, 13, 13, 13, 13, 13]
+canonical_census:
+  files_inspected: 3
+  blocks: 27
+  rows: 270
+  row0_field1_frequency: {3: 7, 5: 8, 11: 12}
+  row5_nonzero_field1_frequency: {11: 6}
+  recurring_9999_99_positions: [r3f4, r3f5, r8f4, r8f5]
+validation:
+  source_custody: {status: PASS, observation: REMOTE_SOURCE_INSPECTION}
+  canonical_raw_census_source_inspection: {status: PASS, observation: REMOTE_IMMUTABLE_BENCHMARK_INSPECTION}
+  census_synthetic_reproduction: {status: PASS, observation: LOCAL_EXECUTION, blocks: 27, rows: 270}
+  exact_repository_file_census_execution:
+    status: NOT_RUN
+    observation: NOT_OBSERVED
+    reason: complete local repository checkout unavailable in runtime
+product_authority:
+  transfer_policy_relaxed: false
+  sif_writer_code_added: false
+  sif_writer_policy_token_added: false
+  current_blocker_preserved: SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED
+  raw_payload_copy_authorized: false
+  phase2b_allowed: false
+blocking_authority_required:
+  - authoritative 10-row semantic structure
+  - row/field engineering meanings
+  - row5 or sub-record semantic definition
+  - units and domains
+  - zero and blank semantics
+  - 9999.99 sentinel semantics
+  - reference and identity rules
+  - edition applicability
+coordination:
+  unused_branch_ref: agent/cii-writer-1c-sif-qualification-2
+  unused_branch_effect: NO_UNIQUE_COMMITS_NO_PR_NO_CODE_EFFECT
+exact_next_action: obtain approved field-level CAESAR neutral-file SIF/TEE authority and execute the census against exact repository SOURCE/TARGET1/TARGET2 when a full checkout is available; do not implement SIF mutation while verdict is NOT_READY_FOR_SIF_WRITER
+last_updated: 2026-08-20T15:10:00+04:00
