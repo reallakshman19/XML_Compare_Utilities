@@ -1,4 +1,7 @@
 import { deepFreeze, stableStringify } from './cii-workspace-contracts.js';
+import {
+  CII_WRITER_1C_SIF_IN_PLANE_POLICY, CII_WRITER_1C_SIF_OUT_PLANE_POLICY,
+} from './cii-workspace-writer1c-sif.js';
 
 export const CII_TRANSFER_ACTIONS = Object.freeze({ COPY: 'COPY', CREATE: 'CREATE', DELETE: 'DELETE', KEEP: 'KEEP', BLOCKED: 'BLOCKED' });
 export const CII_TRANSFER_STATUSES = Object.freeze({ PREVIEW_READY: 'PREVIEW_READY', BLOCKED: 'BLOCKED', PROTECTED: 'PROTECTED' });
@@ -10,7 +13,15 @@ const RESTRAINT_PROPERTIES = new Set([
 ]);
 const HANGER_PROPERTIES = new Set(['Hanger presence', 'Hanger record count at node']);
 const SIF_TEE_PROPERTIES = new Set(['SIF/Tee record presence', 'SIF/Tee raw code (field 2)', 'SIF/Tee normalized raw payload']);
+const SIF_SELECTED_PROPERTIES = new Map([
+  ['SIF/Tee slot 1 In-Plane SIF (ii)', Object.freeze({ slot: 1, item: 3, fieldKey: 'ii', policyAuthority: CII_WRITER_1C_SIF_IN_PLANE_POLICY })],
+  ['SIF/Tee slot 1 Out-Plane SIF (io)', Object.freeze({ slot: 1, item: 4, fieldKey: 'io', policyAuthority: CII_WRITER_1C_SIF_OUT_PLANE_POLICY })],
+  ['SIF/Tee slot 2 In-Plane SIF (ii)', Object.freeze({ slot: 2, item: 3, fieldKey: 'ii', policyAuthority: CII_WRITER_1C_SIF_IN_PLANE_POLICY })],
+  ['SIF/Tee slot 2 Out-Plane SIF (io)', Object.freeze({ slot: 2, item: 4, fieldKey: 'io', policyAuthority: CII_WRITER_1C_SIF_OUT_PLANE_POLICY })],
+]);
 const NODENAME_WRITER_1C_AUTHORITY = 'CII_WRITER_1C_NODENAME_EXISTING_ROW_FIELD';
+const SIF_FIELD_AUTHORITY = 'CII_V11_SIF_TEE_ITEM3_ITEM4_EXACT_PHYSICAL_CUSTODY';
+const SIF_CONTEXT_AUTHORITY = 'ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE';
 const PROCESS_AUTHORITIES = Object.freeze({
   P1: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD', P2: 'PROTECTED_WRITER_ELEMENT_ROW4_P2_FIXED_FIELD',
   P3: 'PROTECTED_WRITER_ELEMENT_ROW4_P3_FIXED_FIELD', P4: 'PROTECTED_WRITER_ELEMENT_ROW4_P4_FIXED_FIELD',
@@ -44,6 +55,36 @@ function common(delta, family, action, status, blockers = [], extra = {}) {
   });
 }
 function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READY) { return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready; }
+function normalizedCode(value) { return String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase(); }
+function sifCodeContext(options, blockers) {
+  const supplied = options?.sifEngineeringContext || {}; const sourceCode = normalizedCode(supplied.sourceCode); const targetCode = normalizedCode(supplied.targetCode);
+  if (supplied.authority !== SIF_CONTEXT_AUTHORITY) blockers.push('SIF_TEE_PIPING_CODE_CONTEXT_ATTESTATION_REQUIRED');
+  if (!sourceCode || !targetCode) blockers.push('SIF_TEE_PIPING_CODE_CONTEXT_REQUIRED');
+  else if (sourceCode !== targetCode) blockers.push(`SIF_TEE_PIPING_CODE_CONTEXT_MISMATCH:${sourceCode}:${targetCode}`);
+  return deepFreeze({
+    status: blockers.some((item) => String(item).startsWith('SIF_TEE_PIPING_CODE_CONTEXT')) ? 'BLOCKED' : 'QUALIFIED',
+    authority: supplied.authority || null, sourceCode: sourceCode || null, targetCode: targetCode || null,
+  });
+}
+function writerSifSelected(delta, options) {
+  const spec = SIF_SELECTED_PROPERTIES.get(delta.property); if (!spec) return null;
+  const blockers = []; const meta = delta.sifField || {};
+  if (options.writerVersion !== '1C') blockers.push('SIF_TEE_SELECTED_FIELD_REQUIRES_WRITER_1C');
+  if (!String(delta.authority || '').includes(SIF_FIELD_AUTHORITY)) blockers.push('SIF_TEE_SELECTED_FIELD_AUTHORITY_REQUIRED');
+  if (Number(meta.slot) !== spec.slot || Number(meta.item) !== spec.item || meta.fieldKey !== spec.fieldKey) blockers.push('SIF_TEE_SELECTED_FIELD_METADATA_MISMATCH');
+  if (Number(meta.sourceNeutralVersion) !== 11 || Number(meta.targetNeutralVersion) !== 11) blockers.push('SIF_TEE_NEUTRAL_VERSION_11_REQUIRED');
+  if (!(Number(meta.sourcePointer) > 0) || !(Number(meta.targetPointer) > 0)) blockers.push('SIF_TEE_EXISTING_POINTER_REQUIRED');
+  if (meta.nodeMappingQualified !== true) blockers.push('SIF_TEE_SLOT_NODE_CORRESPONDENCE_REQUIRED');
+  if (String(meta.sourceNode || '') !== '' && String(meta.targetNode || '') !== '' && Number(meta.sourceType) !== Number(meta.targetType)) blockers.push('SIF_TEE_TYPE_CONTEXT_MISMATCH');
+  const source = Number(delta.sourceValue); const target = Number(delta.targetValue);
+  if (!Number.isFinite(source) || source < 1.0 || !Number.isFinite(target) || target < 1.0) blockers.push('SIF_TEE_EXPLICIT_GE_1_VALUE_REQUIRED');
+  const sifContext = sifCodeContext(options, blockers);
+  return common(delta, 'SIF_TEE', delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP,
+    statusFromBlockers(blockers), blockers, {
+      policyAuthority: spec.policyAuthority, sifContext, sifField: meta,
+      rawSemanticsOnly: false, fieldQualified: true,
+    });
+}
 function writerWall(delta) {
   if (delta.property !== 'Wall thickness') return null;
   const blockers = [];
@@ -130,17 +171,20 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     return common(delta, 'HANGER', delta.changed ? CII_TRANSFER_ACTIONS.BLOCKED : CII_TRANSFER_ACTIONS.KEEP, statusFromBlockers(blockers), blockers,
       { nodePresenceOnly: true });
   }
-  if (delta.category === 'SIF_TEE' && SIF_TEE_PROPERTIES.has(delta.property)) {
-    if (!delta.changed) return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY, [], { rawSemanticsOnly: true });
-    const blockers = [];
-    if (!String(delta.authority || '').includes('ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD')) blockers.push('SIF_TEE_POINTER_AUTHORITY_REQUIRED');
-    if (delta.property === 'SIF/Tee record presence') {
-      const action = actionFromPresence(delta.sourceValue, delta.targetValue);
-      blockers.push('SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION');
-      return common(delta, 'SIF_TEE', action, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
+  if (delta.category === 'SIF_TEE') {
+    const selected = writerSifSelected(delta, options); if (selected) return selected;
+    if (SIF_TEE_PROPERTIES.has(delta.property)) {
+      if (!delta.changed) return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY, [], { rawSemanticsOnly: true });
+      const blockers = [];
+      if (!String(delta.authority || '').includes('ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD')) blockers.push('SIF_TEE_POINTER_AUTHORITY_REQUIRED');
+      if (delta.property === 'SIF/Tee record presence') {
+        const action = actionFromPresence(delta.sourceValue, delta.targetValue);
+        blockers.push('SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION');
+        return common(delta, 'SIF_TEE', action, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
+      }
+      blockers.push('SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED');
+      return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
     }
-    blockers.push('SIF_TEE_FIELD_SEMANTICS_UNQUALIFIED');
-    return common(delta, 'SIF_TEE', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers, { rawSemanticsOnly: true });
   }
   if (delta.category === 'WEIGHT_RIGID' && delta.property === 'Rigid weight') {
     const blockers = [];
@@ -160,3 +204,5 @@ export function ciiTransferPolicySummary(classifications) {
     blockedCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.BLOCKED).length,
     previewReadyCount: rows.filter((row) => row.status === CII_TRANSFER_STATUSES.PREVIEW_READY).length });
 }
+
+export const CII_WRITER_1C_SIF_CONTEXT_AUTHORITY = SIF_CONTEXT_AUTHORITY;
