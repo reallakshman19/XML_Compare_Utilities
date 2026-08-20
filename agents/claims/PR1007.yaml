@@ -1,5 +1,5 @@
 schema: AgentClaim.v1
-pr_or_wip: WIP-CII-W1C-EXACT-CUSTODY-20260820
+pr_or_wip: PR1007
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer1c-exact-custody-hardening
 claim_state: ACTIVE
@@ -11,16 +11,16 @@ files:
     - tabs/cii-workspace/cii-workspace-nodename.js
     - tests/cii-workspace-writer1c-byte-custody.test.js
     - tests/cii-workspace-writer1c-nodename.test.js
-    - agents/WIP-CII-W1C-EXACT-CUSTODY-20260820_workreport.md
-    - agents/status/WIP-CII-W1C-EXACT-CUSTODY-20260820.yaml
-    - agents/claims/WIP-CII-W1C-EXACT-CUSTODY-20260820.yaml
+    - agents/PR1007_workreport.md
+    - agents/status/PR1007.yaml
+    - agents/claims/PR1007.yaml
 authority_domains:
   - CII_WRITER1C_NODENAME_PHYSICAL_CUSTODY
   - CII_ELEMENT_BLOCK_IDENTITY_FOR_MUTATION
   - CII_WRITER1C_NEGATIVE_ASSURANCE_PRECONDITIONS
 coordination_notes:
   - PR1006 is active in the broader Writer1C domain but qualification-only for SIF/TEE and does not change these production/test files.
-  - This WIP must not enable SIF/TEE mutation or relax PR1006 product blockers.
+  - PR1007 must not enable SIF/TEE mutation or relax PR1006 product blockers.
   - Read-only semantic NODENAME recovery may remain tolerant, but physical mutation custody must fail closed without exact block-index identity.
 protected_out_of_scope:
   - tabs/cii-workspace/cii-workspace-transfer-policy.js
@@ -30,5 +30,5 @@ protected_out_of_scope:
   - SIF_TEE_WRITER_MUTATION
   - WRITER_2
   - WRITER_3
-changed_file_ledger: WIP_6_EXPECTED_MAXIMUM
+changed_file_ledger: PR1007_6_EXPECTED_MAXIMUM_PLUS_OPTIONAL_MASTER_INDEX
 merge_authority: OWNER_ONLY
