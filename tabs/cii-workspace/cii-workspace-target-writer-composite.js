@@ -8,6 +8,7 @@ const SIF_POLICIES = new Set([
   'CII_WRITER_1C_SIF_OUT_PLANE_EXISTING_BLOCK',
 ]);
 
+function operationId(operation) { return String(operation?.operationId || 'unknown'); }
 function noMutation(operation) {
   return operation?.action === 'KEEP' && ['PREVIEW_READY', 'PROTECTED'].includes(operation?.status);
 }
@@ -15,6 +16,12 @@ function writer1CMutation(operation) {
   if (operation?.family === 'NODE_NAME' && operation?.property === 'Node name / to-name'
     && operation?.action === 'COPY' && operation?.policyAuthority === NODE_POLICY) return true;
   return operation?.family === 'SIF_TEE' && operation?.action === 'COPY' && SIF_POLICIES.has(operation?.policyAuthority);
+}
+function lowerWriterAuthority(operation) {
+  const authority = String(operation?.policyAuthority || '');
+  if (authority.startsWith('CII_WRITER_1A_')) return 'WRITER_1A';
+  if (authority.startsWith('CII_WRITER_1B_')) return 'WRITER_1B';
+  return null;
 }
 function subsetPlan(plan, operations) {
   return Object.freeze({ ...plan, operations: Object.freeze(operations) });
@@ -52,7 +59,9 @@ function exactOriginalField(original, byteStart, byteEnd, expected, code) {
   if (actual !== expected) throw new Error(`${code}:ORIGINAL_PREIMAGE_MISMATCH:${byteStart}:${byteEnd}`);
   return actual;
 }
-function normalizeLowerMutation(mutation, targetDocument, original) {
+function normalizeLowerMutation(mutation, targetDocument, original, operation) {
+  const sourceWriter = lowerWriterAuthority(operation);
+  if (!sourceWriter) throw new Error(`CII_WRITER_COMPOSITE_LOWER_POLICY_AUTHORITY_REQUIRED:${mutation?.operationId || 'unknown'}`);
   const lineIndex = Number(mutation?.lineNumber) - 1;
   const line = targetDocument?.physicalFile?.lines?.[lineIndex];
   const startColumn = Number(mutation?.startColumn) - 1; const endColumn = Number(mutation?.endColumn);
@@ -68,9 +77,8 @@ function normalizeLowerMutation(mutation, targetDocument, original) {
   return Object.freeze({
     spanKey: `${byteStart}:${byteEnd}`, absoluteByteStart: byteStart, absoluteByteEnd: byteEnd, width,
     beforeField: mutation.beforeField, afterField: mutation.afterField,
-    operationIds: Object.freeze([String(mutation.operationId || 'unknown')]),
-    sourceWriters: Object.freeze(['WRITER_1B_LOWER_FAMILY']),
-    section: mutation.section, fieldIdentity: mutation.field || null,
+    operationIds: Object.freeze([String(mutation.operationId || 'unknown')]), sourceWriters: Object.freeze([sourceWriter]),
+    section: mutation.section, fieldIdentity: mutation.field || null, policyAuthority: operation.policyAuthority,
     lowerMutation: mutation,
   });
 }
@@ -83,10 +91,8 @@ function normalizeWriter1CMutation(mutation, original) {
   return Object.freeze({
     spanKey: `${byteStart}:${byteEnd}`, absoluteByteStart: byteStart, absoluteByteEnd: byteEnd, width,
     beforeField: mutation.beforeField, afterField: mutation.afterField,
-    operationIds: Object.freeze([...(mutation.operationIds || [])].map(String)),
-    sourceWriters: Object.freeze(['WRITER_1C']),
-    section: mutation.section, fieldIdentity: mutation.fieldIdentity || null,
-    writer1CMutation: mutation,
+    operationIds: Object.freeze([...(mutation.operationIds || [])].map(String)), sourceWriters: Object.freeze(['WRITER_1C']),
+    section: mutation.section, fieldIdentity: mutation.fieldIdentity || null, writer1CMutation: mutation,
   });
 }
 function canonicalizeClaims(claims) {
@@ -118,6 +124,25 @@ function canonicalizeClaims(claims) {
   }
   return Object.freeze(out);
 }
+function writerOperationCounts(split) {
+  const counts = { writer1A: 0, writer1B: 0, writer1C: split.writer1COperations.length };
+  for (const operation of split.lowerOperations) {
+    const writer = lowerWriterAuthority(operation);
+    if (writer === 'WRITER_1A') counts.writer1A += 1;
+    if (writer === 'WRITER_1B') counts.writer1B += 1;
+  }
+  return Object.freeze(counts);
+}
+function physicalFamilyCounts(mutations) {
+  const counts = { writer1A: 0, writer1B: 0, writer1C: 0 };
+  for (const mutation of mutations) {
+    const writer = mutation.sourceWriters?.[0];
+    if (writer === 'WRITER_1A') counts.writer1A += 1;
+    if (writer === 'WRITER_1B') counts.writer1B += 1;
+    if (writer === 'WRITER_1C') counts.writer1C += 1;
+  }
+  return Object.freeze(counts);
+}
 
 export function ciiWriterCompositeReadiness(transferPlan, targetDocument) {
   const blockers = [...(transferPlan?.blockers || [])];
@@ -125,6 +150,9 @@ export function ciiWriterCompositeReadiness(transferPlan, targetDocument) {
   if (transferPlan?.transferScope?.status !== 'BOUND') blockers.push('WRITER_COMPOSITE_BOUND_TRANSFER_SCOPE_REQUIRED');
   if (targetDocument?.writer1CByteEligible !== true) blockers.push('WRITER_COMPOSITE_ORIGINAL_BYTE_CUSTODY_REQUIRED');
   const split = splitPlan(transferPlan);
+  for (const operation of split.lowerOperations) {
+    if (!lowerWriterAuthority(operation)) blockers.push(`WRITER_COMPOSITE_LOWER_POLICY_AUTHORITY_REQUIRED:${operationId(operation)}`);
+  }
   let lower = null; let writer1C = null;
   if (split.lowerOperations.length) {
     lower = ciiWriter1BReadiness(split.lowerPlan);
@@ -138,8 +166,7 @@ export function ciiWriterCompositeReadiness(transferPlan, targetDocument) {
   if (!mutationCount) blockers.push('WRITER_COMPOSITE_NO_MUTATIONS');
   return Object.freeze({
     schema: 'CIIWorkspaceWriterCompositeReadiness.v1', status: blockers.length ? 'BLOCKED' : 'READY', ready: blockers.length === 0,
-    mutationCount, mutationOperationCount: mutationCount,
-    familyOperationCounts: Object.freeze({ lower1A1B: split.lowerOperations.length, writer1C: split.writer1COperations.length }),
+    mutationCount, mutationOperationCount: mutationCount, familyOperationCounts: writerOperationCounts(split),
     blockers: Object.freeze([...new Set(blockers)]), lowerReadiness: lower, writer1CReadiness: writer1C,
   });
 }
@@ -153,7 +180,10 @@ export function applyCiiTargetWriterComposite({ targetDocument, targetGraph, cor
     lowerResult = applyCiiTargetWriter1B({
       targetText: targetDocument.physicalFile.text, targetGraph, correspondence, transferPlan: split.lowerPlan,
     });
-    for (const mutation of lowerResult.mutations || []) claims.push(normalizeLowerMutation(mutation, targetDocument, original));
+    const operationMap = new Map(split.lowerOperations.map((operation) => [operationId(operation), operation]));
+    for (const mutation of lowerResult.mutations || []) {
+      claims.push(normalizeLowerMutation(mutation, targetDocument, original, operationMap.get(String(mutation.operationId))));
+    }
   }
   if (split.writer1COperations.length) {
     writer1CResult = applyCiiTargetWriter1C({ targetDocument, transferPlan: split.writer1CPlan });
@@ -170,8 +200,7 @@ export function applyCiiTargetWriterComposite({ targetDocument, targetGraph, cor
   return Object.freeze({
     schema: 'CIIWorkspaceWriterCompositeResult.v1', writerVersion: '1C', status: 'APPLIED',
     bytes, text: new TextDecoder('utf-8').decode(bytes), byteLength: bytes.length,
-    mutationCount: mutations.length, mutations,
-    familyCounts: Object.freeze({ lower1A1B: lowerResult?.mutationCount || 0, writer1C: writer1CResult?.mutationCount || 0 }),
+    mutationCount: mutations.length, mutations, familyCounts: physicalFamilyCounts(mutations),
     components: Object.freeze({
       lower: lowerResult ? Object.freeze({ transferPlan: split.lowerPlan, result: lowerResult }) : null,
       writer1C: writer1CResult ? Object.freeze({ transferPlan: split.writer1CPlan, result: writer1CResult }) : null,
@@ -179,4 +208,4 @@ export function applyCiiTargetWriterComposite({ targetDocument, targetGraph, cor
   });
 }
 
-export const _test = Object.freeze({ splitPlan, canonicalizeClaims, normalizeLowerMutation, normalizeWriter1CMutation });
+export const _test = Object.freeze({ splitPlan, canonicalizeClaims, normalizeLowerMutation, normalizeWriter1CMutation, lowerWriterAuthority });
