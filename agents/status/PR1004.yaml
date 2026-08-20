@@ -4,7 +4,7 @@ pr_or_wip: PR1004
 mission: Writer 1C Phase-1 existing-row NODENAME mutation with original-byte custody and independent anti-drift qualification
 workstream: CII_WORKSPACE_WRITER_1C
 branch: agent/cii-writer-1c
-pr_head_observed: 0dffb65339cbc45a601e2cbdad0f461d32c03897
+pr_head_observed: 6e7f042af80e322614da094c50cf165134d546cf
 report_basis_head: 19f020c11ae5d6dec97a7455b3d66954a5a70702
 main_head_last_checked: 5a5fa0ae5068a7c15eecc1a57557e71336b9754c
 base_pr: 1002
@@ -17,29 +17,53 @@ pr_recovery_state: HEALTHY_IMPLEMENTATION_COMPLETE_QUALIFICATION_PARTIAL
 handover_readiness: READY
 report_path: agents/PR1004_workreport.md
 appendix_a_status: CURRENT
-grounding_epoch: GE-003
-current_stage: PHASE1_IMPLEMENTED_PRODUCT_EXPLICIT_PATH_INTEGRATED_FULL_REPO_QUALIFICATION_PENDING
-blocker: FULL_REPOSITORY_AND_BROWSER_EXECUTION_NOT_AVAILABLE_IN_CURRENT_RUNTIME
-highest_risk: REAL_BENCHMARK_CORE_ROUNDTRIP_AND_BROWSER_NOT_EXECUTED
+grounding_epoch: GE-004
+current_stage: PHASE1_IMPLEMENTED_FOCUSED_EXECUTION_PASS_REAL_PARSER_AND_BROWSER_PENDING
+blocker: COMPLETE_PRIVATE_REPOSITORY_CHECKOUT_AND_BROWSER_EXECUTION_NOT_AVAILABLE_IN_CURRENT_RUNTIME
+highest_risk: REAL_BM_CII_TARGET1_PRODUCTION_PARSER_ROUNDTRIP_AND_BROWSER_NOT_YET_OBSERVED
 coordination_state: SAFE_PRODUCTION_STACKED_DEPENDENCY_PR1002
-pr_compare:
-  ahead_by: 42
-  behind_by: 0
-  changed_files: 20
-  unexplained_files: 0
-pr_metadata_mergeable: true
-mergeability_note: live refresh is mergeable while still stacked on unmerged PR1002; this is not merge authorization and base must be normalized after owner decision on PR1002
 validation:
-  byte_custody_local: PASS_IMPLEMENTATION_COUPLED
-  nodename_fixed_width_local: PASS
-  shared_alias_falsifiers_local: PASS
-  independent_validator_sif_pointer_falsifier: PASS_INDEPENDENT_DERIVATION
-  python_oracle: PASS_INDEPENDENT_REPRODUCTION
-  legacy_nodename_semantic_compatibility: PASS_LOCAL_RECONSTRUCTION
+  writer1c_byte_custody_reconstructed_branch_slice:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: IMPLEMENTATION_COUPLED
+  writer1c_nodename_reconstructed_branch_slice:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: IMPLEMENTATION_COUPLED_PLUS_INDEPENDENT_VALIDATOR
+  target1_redundant_from_to_pattern:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: BENCHMARK_DERIVED_FIXED_FIELD_PATTERN_PLUS_INDEPENDENT_VALIDATOR
+    actual: two physical spans mutated for one semantic node; one semantic delta; zero unexpected deltas
+  legacy_nodename_semantic_compatibility:
+    status: PASS
+    observation: LOCAL_EXECUTION_RECONSTRUCTED_BRANCH_SLICE
+    oracle: PREEXISTING_TEST_EXPECTATIONS
+  routing_policy_slice:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: SOURCE_QUALIFIED_POLICY
+  routing_source_contract:
+    status: PASS
+    observation: SOURCE_INSPECTION
+    oracle: NONE
+    actual: explicit 1A_1B_1C dispatch; default 1B; scope routes 1C custody; shell uses arrayBuffer; host 1C selection explicit
+  independent_validator_sif_pointer_falsifier:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: INDEPENDENT_DERIVATION
+  python_oracle:
+    status: PASS
+    observation: LOCAL_EXECUTION
+    oracle: INDEPENDENT_REPRODUCTION
+    actual: authorized_span_2514_2539_changed_bytes_3_sif_pointer_falsifier_PASS
   benchmark_production_parser_roundtrip: AUTHORED_NOT_RUN
-  repository_writer1c_suite: NOT_RUN
-  browser_chromium: NOT_RUN
-  full_repository: NOT_RUN
+  repository_writer1c_suite: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
+  writer1a_regression: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
+  writer1b_regression: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
+  browser_chromium: NOT_RUN_BROWSER_UNAVAILABLE
+  full_repository: NOT_RUN_FULL_CHECKOUT_UNAVAILABLE
   github_status_checks: NOT_RUN_NONE_PRESENT
   github_workflow_runs: NOT_RUN_NONE_PRESENT
 baseline_debt:
@@ -48,5 +72,5 @@ product_default_writer: 1B
 writer1c_selection: EXPLICIT_ONLY
 sif_tee_field2_writer1c: BLOCKED_SEMANTICS_UNQUALIFIED
 merge_authority: OWNER_ONLY
-exact_next_action: execute focused Writer1C tests and BM_CII_TARGET1 production-parser roundtrip in a complete checkout, then browser and full-suite qualification; do not mark ready or merge before evidence is recorded
-last_updated: 2026-08-20T07:13:00+04:00
+exact_next_action: reconstruct and execute the smallest real BM_CII_TARGET1 production parser/custody roundtrip without workflow changes; then run full checkout and Chromium when an execution-capable repository/browser environment is available; do not mark ready or merge before evidence is recorded
+last_updated: 2026-08-20T07:30:00+04:00
