@@ -97,6 +97,8 @@ function canonicalizeClaims(claims) {
   }
   const out = [];
   for (const [spanKey, group] of grouped) {
+    const sourceWriters = new Set(group.flatMap((item) => item.sourceWriters));
+    if (sourceWriters.size > 1) throw new Error(`CII_WRITER_COMPOSITE_CROSS_FAMILY_SAME_SPAN:${spanKey}`);
     const before = new Set(group.map((item) => item.beforeField)); const after = new Set(group.map((item) => item.afterField));
     if (before.size !== 1 || after.size !== 1) throw new Error(`CII_WRITER_COMPOSITE_SAME_SPAN_CONFLICT:${spanKey}`);
     const first = group[0];
@@ -104,8 +106,7 @@ function canonicalizeClaims(claims) {
       spanKey, absoluteByteStart: first.absoluteByteStart, absoluteByteEnd: first.absoluteByteEnd, width: first.width,
       beforeField: first.beforeField, afterField: first.afterField,
       operationIds: Object.freeze([...new Set(group.flatMap((item) => item.operationIds))].sort()),
-      sourceWriters: Object.freeze([...new Set(group.flatMap((item) => item.sourceWriters))].sort()),
-      claims: Object.freeze(group),
+      sourceWriters: Object.freeze([...sourceWriters].sort()), claims: Object.freeze(group),
     }));
   }
   out.sort((a, b) => a.absoluteByteStart - b.absoluteByteStart || a.absoluteByteEnd - b.absoluteByteEnd);
@@ -174,8 +175,7 @@ export function applyCiiTargetWriterComposite({ targetDocument, targetGraph, cor
     components: Object.freeze({
       lower: lowerResult ? Object.freeze({ transferPlan: split.lowerPlan, result: lowerResult }) : null,
       writer1C: writer1CResult ? Object.freeze({ transferPlan: split.writer1CPlan, result: writer1CResult }) : null,
-    }),
-    readiness,
+    }), readiness,
   });
 }
 
