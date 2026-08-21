@@ -31,9 +31,23 @@ function sortedUnique(values) {
   return [...new Set((values || []).map(text).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
+function sortedStrings(values) {
+  return (values || []).map(text).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
 function sameStrings(left, right) {
-  const a = sortedUnique(left); const b = sortedUnique(right);
+  const a = sortedStrings(left); const b = sortedStrings(right);
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+function scopeIds(scope, field, label, blockers) {
+  const values = scope?.[field];
+  if (!Array.isArray(values)) {
+    blockers.push(`WRITER_2_COMPOSITE_SCOPE_${label}_IDS_ARRAY_REQUIRED`);
+    return [];
+  }
+  const ids = values.map(text);
+  if (ids.some((id) => !id)) blockers.push(`WRITER_2_COMPOSITE_SCOPE_${label}_IDS_ID_REQUIRED`);
+  if (new Set(ids).size !== ids.length) blockers.push(`WRITER_2_COMPOSITE_SCOPE_${label}_IDS_DUPLICATE`);
+  return sortedStrings(ids);
 }
 function isNodeRoute(operation) {
   return operation?.family === 'NODE_NAME' && operation?.property === NODE_PROPERTY;
@@ -198,15 +212,18 @@ function exactScopeBlockers(transferPlan, targetDocument) {
   const allIds = allRows.map(operationId);
   if (allIds.some((id) => !id)) blockers.push('WRITER_2_COMPOSITE_SCOPE_OPERATION_ID_REQUIRED');
   if (new Set(allIds).size !== allIds.length) blockers.push('WRITER_2_COMPOSITE_SCOPE_DUPLICATE_OPERATION_ID');
-  const appliedIds = sortedUnique((transferPlan?.operations || [])
+  const appliedIds = sortedStrings((transferPlan?.operations || [])
     .filter((operation) => operation?.scopeDecision === 'APPLY' && operation?.action !== 'KEEP').map(operationId));
-  const excludedIds = sortedUnique((transferPlan?.excludedOperations || [])
+  const excludedIds = sortedStrings((transferPlan?.excludedOperations || [])
     .filter((operation) => operation?.scopeDecision === 'EXCLUDE' && operation?.action !== 'KEEP').map(operationId));
   if (appliedIds.some((id) => excludedIds.includes(id))) blockers.push('WRITER_2_COMPOSITE_SCOPE_APPLY_EXCLUDE_OVERLAP');
-  const candidateIds = sortedUnique([...appliedIds, ...excludedIds]);
-  if (!sameStrings(appliedIds, scope?.appliedOperationIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_APPLY_SET_MISMATCH');
-  if (!sameStrings(excludedIds, scope?.excludedOperationIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_EXCLUDE_SET_MISMATCH');
-  if (!sameStrings(candidateIds, scope?.candidateOperationIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_CANDIDATE_SET_MISMATCH');
+  const candidateIds = sortedStrings([...appliedIds, ...excludedIds]);
+  const scopeAppliedIds = scopeIds(scope, 'appliedOperationIds', 'APPLY', blockers);
+  const scopeExcludedIds = scopeIds(scope, 'excludedOperationIds', 'EXCLUDE', blockers);
+  const scopeCandidateIds = scopeIds(scope, 'candidateOperationIds', 'CANDIDATE', blockers);
+  if (!sameStrings(appliedIds, scopeAppliedIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_APPLY_SET_MISMATCH');
+  if (!sameStrings(excludedIds, scopeExcludedIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_EXCLUDE_SET_MISMATCH');
+  if (!sameStrings(candidateIds, scopeCandidateIds)) blockers.push('WRITER_2_COMPOSITE_SCOPE_CANDIDATE_SET_MISMATCH');
   const sourceSha = text(transferPlan?.sourceDocument?.contentSha256);
   const targetSha = text(transferPlan?.targetDocument?.contentSha256);
   if (!sourceSha || sourceSha !== text(scope?.sourceSha256)) blockers.push('WRITER_2_COMPOSITE_SCOPE_SOURCE_HASH_MISMATCH');
@@ -273,7 +290,7 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
 }
 
 export const _test = deepFreeze({
-  text, operationId, sortedUnique, sameStrings,
+  text, operationId, sortedUnique, sortedStrings, sameStrings, scopeIds,
   isNodeRoute, isSifPresenceRoute, isHangerPresenceRoute,
   isNodeMutation, isSifDelete, isSifCreate, isHangerDelete, isHangerCreate,
   qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers,
