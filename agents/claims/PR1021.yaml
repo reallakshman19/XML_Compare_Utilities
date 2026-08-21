@@ -23,7 +23,7 @@ claims:
     evidence: AUTHORED_NOT_RUN_ENVIRONMENT
   - id: CMP-1021-007
     statement: product/core routing is unchanged in PR1021
-    evidence: CHANGED_FILE_SCOPE_INSPECTION_PENDING_FINAL_RECONCILIATION
+    evidence: PASS_CHANGED_FILE_SCOPE_RECONCILIATION_7_OF_7
 prohibited_claims:
   - tri-family product routing is qualified
   - partial H>1 hanger deletion is qualified
