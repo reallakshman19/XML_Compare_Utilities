@@ -35,7 +35,9 @@ function controlReplacement(before, plan) {
   if (!row) throw new Error('WRITER_2_VALIDATOR_CONTROL_ROW_REQUIRED');
   const startColumn = CII_SIX_FIELD_WIDTHS.slice(0, CONTROL_NONAM_INDEX).reduce((sum, width) => sum + width, 0);
   const byteStart = row.byteStart + startColumn; const byteEnd = byteStart + WIDTH; const bytes = before.physicalFile.originalByteString;
-  return { kind: 'CONTROL_NONAM', byteStart, byteEnd, beforeField: bytes.slice(byteStart, byteEnd), afterField: integerField(plan.controlCountAfter) };
+  const beforeField = bytes.slice(byteStart, byteEnd);
+  if (beforeField !== integerField(plan.controlCountBefore)) throw new Error('WRITER_2_VALIDATOR_CONTROL_PREIMAGE_FORMAT_MISMATCH');
+  return { kind: 'CONTROL_NONAM', byteStart, byteEnd, beforeField, afterField: integerField(plan.controlCountAfter) };
 }
 function pointerReplacements(before, plan) {
   const bytes = String(before?.physicalFile?.originalByteString || '');
@@ -48,6 +50,7 @@ function pointerReplacements(before, plan) {
 function nodenameReplacement(before, plan) {
   const envelope = sectionEnvelope(before, 'NODENAME');
   if (envelope.rows.some((row) => !String(row.text || '').trim())) throw new Error('WRITER_2_VALIDATOR_BLANK_NODENAME_ROW_UNSUPPORTED');
+  if (envelope.rows.some((row) => String(row.text || '').length !== 53)) throw new Error('WRITER_2_VALIDATOR_NODENAME_ROW_WIDTH_NOT_53');
   if (envelope.rows.length !== plan.rowCountBefore) throw new Error('WRITER_2_VALIDATOR_PRE_ROW_COUNT_MISMATCH');
   const appendEnding = envelope.rows.length ? envelope.rows[envelope.rows.length - 1].lineEnding : envelope.marker.lineEnding;
   const afterField = plan.finalRows.map((row) => {
