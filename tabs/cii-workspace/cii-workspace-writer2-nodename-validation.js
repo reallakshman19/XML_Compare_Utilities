@@ -68,6 +68,7 @@ function expectedReplacements(before, plan) {
   for (let index = 1; index < rows.length; index += 1) if (rows[index].byteStart < rows[index - 1].byteEnd) throw new Error('WRITER_2_VALIDATOR_REPLACEMENT_OVERLAP');
   return rows.filter((item) => item.beforeField !== item.afterField);
 }
+
 function applyExpected(original, replacements) {
   let cursor = 0; let output = '';
   for (const replacement of replacements) {
