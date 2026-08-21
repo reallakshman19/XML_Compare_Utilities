@@ -82,4 +82,23 @@ function transferPlan(operations) {
   assert.throws(() => validateCiiWriter2NodeNameRoundTrip(before, after, plan, written), /WRITER_2_EXACT_POSTIMAGE_MISMATCH/);
 }
 
+{
+  const before = fixture([{ from: 10, to: 20, pointer: 1 }], [{ fromName: '', toName: 'D20' }]);
+  const plan = transferPlan([op('D20', 'DELETE', 20, 'D20', '')]);
+  const written = applyCiiWriter2NodeNameRelocation({ targetDocument: before, transferPlan: plan });
+  assert(written.byteLengthAfter < written.byteLengthBefore);
+  const after = documentFromBytes(written.bytes, before.parsed);
+  assert.equal(validateCiiWriter2NodeNameRoundTrip(before, after, plan, written).status, 'PASS');
+  assert.equal(after.nodeNameEvidence.physicalCustody.rowCount, 0);
+  assert.equal(Number(after.nodeNameEvidence.physicalCustody.byElementIndex['0'].pointer), 0);
+}
+
+{
+  const before = fixture([{ from: 10, to: 20, pointer: 0 }], []); const plan = transferPlan([op('C20', 'CREATE', 20, '', 'P20')]);
+  const written = applyCiiWriter2NodeNameRelocation({ targetDocument: before, transferPlan: plan });
+  const after = documentFromBytes(written.bytes, before.parsed);
+  const forged = Object.freeze({ ...written, mutations: Object.freeze(written.mutations.slice(1)) });
+  assert.throws(() => validateCiiWriter2NodeNameRoundTrip(before, after, plan, forged), /WRITER_2_MUTATION_TESTIMONY_MISMATCH/);
+}
+
 console.log('Writer 2 NODENAME physical rewrite and independent exact-postimage validation are covered.');
