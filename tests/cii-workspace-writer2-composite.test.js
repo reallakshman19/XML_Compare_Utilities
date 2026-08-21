@@ -3,11 +3,13 @@ import { createCiiPhysicalFile, ciiPhysicalSectionRows } from '../tabs/cii-works
 import { extractCiiNodeNameEvidence } from '../tabs/cii-workspace/cii-workspace-nodename.js';
 import { extractCiiWriter1CSifEvidence } from '../tabs/cii-workspace/cii-workspace-writer1c-sif-custody.js';
 import { CII_WRITER_2_NODENAME_RELOCATION_POLICY } from '../tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js';
-import { CII_WRITER_2_SIF_DELETE_POLICY } from '../tabs/cii-workspace/cii-workspace-writer2-sif-delete.js';
+import { CII_WRITER_2_SIF_CREATE_BLOCKER, CII_WRITER_2_SIF_DELETE_POLICY } from '../tabs/cii-workspace/cii-workspace-writer2-sif-delete.js';
 import { applyCiiWriter2Composite, _test as compositeTest } from '../tabs/cii-workspace/cii-workspace-writer2-composite.js';
 import { validateCiiWriter2CompositeRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-composite-validation.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
+const SOURCE_SHA = 'SOURCE-SHA-TEST';
+const TARGET_SHA = 'TARGET-SHA-TEST';
 function numericRow(values) { return values.map((value, index) => String(value ?? 0).padStart(WIDTHS[index], ' ')).join(''); }
 function nameRow(fromName = '', toName = '') { return `  ${String(fromName).padEnd(26, ' ')}${String(toName).padEnd(25, ' ')}`; }
 function elementBlock(from, to, sifPointer, nodePointer) {
@@ -48,7 +50,7 @@ function targetGraph() {
 function documentFrom(bytes, parsed = parsedModel()) {
   const physicalFile = createCiiPhysicalFile(bytes); const nodeNameEvidence = extractCiiNodeNameEvidence(physicalFile.text, parsed, { physicalFile });
   const sifWriter1CEvidence = extractCiiWriter1CSifEvidence(physicalFile.text, parsed, { physicalFile });
-  return Object.freeze({ physicalFile, writer1CByteEligible: physicalFile.writer1CByteEligible, parsed, nodeNameEvidence,
+  return Object.freeze({ contentSha256: TARGET_SHA, physicalFile, writer1CByteEligible: physicalFile.writer1CByteEligible, parsed, nodeNameEvidence,
     nodeNames: nodeNameEvidence.names, sifWriter1CEvidence });
 }
 function nodeCreate() {
@@ -62,18 +64,46 @@ function sifDelete() {
     sourceEvidence: Object.freeze({ identity: 'SRC-E2', value: false, authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD' }),
     targetEvidence: Object.freeze({ identity: 'E2', value: true }), before: true, proposed: false, matchAuthority: Object.freeze({ status: 'REVIEWED' }) });
 }
-function transferPlan(extra = []) {
-  return Object.freeze({ status: 'PREVIEW_READY', blockers: Object.freeze([]), transferScope: Object.freeze({ status: 'BOUND' }),
-    operations: Object.freeze([nodeCreate(), sifDelete(), ...extra]) });
+function sifCreate() {
+  return Object.freeze({ operationId: 'CREATE-SIF-E4', family: 'SIF_TEE', property: 'SIF/Tee record presence', action: 'CREATE', status: 'BLOCKED', scopeDecision: 'APPLY',
+    policyAuthority: CII_WRITER_2_SIF_DELETE_POLICY, evidenceAuthority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD',
+    sourceEvidence: Object.freeze({ identity: 'SRC-E4', value: true, authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD' }),
+    targetEvidence: Object.freeze({ identity: 'E4', value: false }), before: false, proposed: true, matchAuthority: Object.freeze({ status: 'REVIEWED' }) });
+}
+function transferPlan(extra = [], excluded = []) {
+  const operations = [nodeCreate(), sifDelete(), ...extra];
+  const appliedIds = operations.filter((item) => item.scopeDecision === 'APPLY' && item.action !== 'KEEP').map((item) => item.operationId).sort();
+  const excludedRows = excluded.map((item) => Object.freeze({ ...item, scopeDecision: 'EXCLUDE' }));
+  const excludedIds = excludedRows.filter((item) => item.action !== 'KEEP').map((item) => item.operationId).sort();
+  const candidateIds = [...appliedIds, ...excludedIds].sort();
+  return Object.freeze({
+    status: 'PREVIEW_READY', blockers: Object.freeze([]),
+    sourceDocument: Object.freeze({ fileName: 'source.cii', contentSha256: SOURCE_SHA }),
+    targetDocument: Object.freeze({ fileName: 'target.cii', contentSha256: TARGET_SHA }),
+    operations: Object.freeze(operations), excludedOperations: Object.freeze(excludedRows),
+    transferScope: Object.freeze({ schema: 'CIIWorkspaceTransferScope.v1', mode: 'EXPLICIT_APPLY_EXCLUDE', status: 'BOUND', authority: 'USER_EXPLICIT_OPERATION_SCOPE',
+      sourceSha256: SOURCE_SHA, targetSha256: TARGET_SHA, scopeId: `transfer-scope:test:${candidateIds.join('|')}`,
+      candidateOperationIds: Object.freeze(candidateIds), appliedOperationIds: Object.freeze(appliedIds), excludedOperationIds: Object.freeze(excludedIds),
+      appliedOperationCount: appliedIds.length, excludedOperationCount: excludedIds.length }),
+  });
 }
 
 {
   const before = documentFrom(new TextEncoder().encode(fixtureText())); const graph = targetGraph(); const plan = transferPlan();
   assert.equal(before.nodeNameEvidence.physicalCustody.status, 'QUALIFIED'); assert.equal(before.sifWriter1CEvidence.status, 'QUALIFIED');
+  const parentCustody = compositeTest.assertBoundScopeCustody(plan, before);
+  const nodeProjection = compositeTest.projectTransferPlan(plan, compositeTest.isNodeMutation, 'WRITER_2_NODENAME', parentCustody);
+  assert.equal(nodeProjection.transferScope, plan.transferScope);
+  assert.equal(nodeProjection.familyProjection.status, 'DERIVED_BOUND_SUBSET');
+  assert.deepEqual(nodeProjection.familyProjection.projectedAppliedOperationIds, ['CREATE-N80']);
+  assert.deepEqual(nodeProjection.familyProjection.siblingAppliedOperationIds, ['DELETE-SIF-E2']);
+  assert.deepEqual(nodeProjection.excludedOperations.map((item) => item.operationId), ['DELETE-SIF-E2']);
+
   const beforeSifRows = ciiPhysicalSectionRows(before.physicalFile, ['SIF&TEES', 'SIF']).map((row) => row.text);
   const writer = applyCiiWriter2Composite({ targetDocument: before, targetGraph: graph, transferPlan: plan });
   assert.equal(writer.status, 'APPLIED'); assert.equal(writer.mode, 'ONE_ORIGINAL_PREIMAGE_COMPOSITE');
   assert.notEqual(writer.byteLengthAfter, writer.byteLengthBefore);
+  assert.equal(writer.parentScopeCustody.parentScopeId, plan.transferScope.scopeId);
   assert.equal(writer.familyMutationCounts.nodeNameOperations, 1); assert.equal(writer.familyMutationCounts.sifDeleteOperations, 1);
   assert(writer.mutations.some((item) => item.authorityFamily === 'WRITER_2_NODENAME' && item.kind === 'NODENAME_SECTION_PAYLOAD'));
   assert(writer.mutations.some((item) => item.authorityFamily === 'WRITER_2_SIF_DELETE' && item.kind === 'SIF_TEE_SECTION_PAYLOAD'));
@@ -91,11 +121,15 @@ function transferPlan(extra = []) {
   assert.throws(() => validateCiiWriter2CompositeRoundTrip(before, tampered, graph, plan, writer), /EXACT_COMPOSITE_POSTIMAGE_MISMATCH/);
 
   const forged = Object.freeze({ ...writer, mutations: Object.freeze(writer.mutations.slice(1)) });
-  assert.throws(() => validateCiiWriter2CompositeRoundTrip(before, after, graph, plan, forged), /COMPOSITE_MUTATION_TESTIMONY_MISMATCH/);
+  assert.throws(() => validateCiiWriter2CompositeRoundTrip(before, after, graph, plan, forged), /COMPOSITE_MUTATION_(COUNT|TESTIMONY)_MISMATCH/);
 
   const forgedComponent = Object.freeze({ ...writer, components: Object.freeze({ ...writer.components,
     sifDelete: Object.freeze({ ...writer.components.sifDelete, relocationPlan: Object.freeze({ ...writer.components.sifDelete.relocationPlan, blockCountAfter: 99 }) }) }) });
   assert.throws(() => validateCiiWriter2CompositeRoundTrip(before, after, graph, plan, forgedComponent), /SIF_COMPONENT_RELOCATION_TESTIMONY_MISMATCH/);
+
+  const forgedScope = Object.freeze({ ...plan, transferScope: Object.freeze({ ...plan.transferScope, appliedOperationIds: Object.freeze(['CREATE-N80']) }) });
+  assert.throws(() => applyCiiWriter2Composite({ targetDocument: before, targetGraph: graph, transferPlan: forgedScope }), /CII_WRITER_2_COMPOSITE_SCOPE_APPLY_SET_MISMATCH/);
+  assert.throws(() => validateCiiWriter2CompositeRoundTrip(before, after, graph, forgedScope, writer), /SCOPE_APPLY_SET_MISMATCH/);
 }
 
 {
@@ -113,4 +147,10 @@ function transferPlan(extra = []) {
     /CII_WRITER_2_COMPOSITE_UNSUPPORTED_APPLY:BAD/);
 }
 
-console.log('Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite and independent exact-postimage validation are covered.');
+{
+  const before = documentFrom(new TextEncoder().encode(fixtureText()));
+  assert.throws(() => applyCiiWriter2Composite({ targetDocument: before, targetGraph: targetGraph(), transferPlan: transferPlan([sifCreate()]) }),
+    new RegExp(`CII_WRITER_2_COMPOSITE_${CII_WRITER_2_SIF_CREATE_BLOCKER}`));
+}
+
+console.log('Writer 2 one-original-preimage composite covers canonical scope custody, mixed NODENAME+SIF DELETE, overlap, semantic blockers and independent postimage validation.');
