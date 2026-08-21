@@ -55,7 +55,7 @@ function nodeCreate() {
 function sifPresence(id, source, target) {
   return Object.freeze({
     operationId: id, family: 'SIF_TEE', property: 'SIF/Tee record presence', action: source ? 'CREATE' : 'DELETE', status: 'BLOCKED',
-    blockers: Object.freeze(['SIF_TEE_CARDINALITY_REQUIRES_WRITER_2']), evidenceAuthority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD',
+    blockers: Object.freeze(['SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION']), evidenceAuthority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD',
     sourceEvidence: Object.freeze({ identity: 'SRC-E1', value: source, authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD' }),
     targetEvidence: Object.freeze({ identity: 'E1', value: target }), before: target, proposed: source, matchAuthority: Object.freeze({ status: 'REVIEWED' }),
   });
