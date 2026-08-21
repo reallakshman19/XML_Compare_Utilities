@@ -1,7 +1,6 @@
 import { stableStringify } from './cii-workspace-contracts.js';
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow } from '../../parser/fixed-field.js';
 import { ciiPhysicalSectionRows } from './cii-workspace-physical-file.js';
-import { formatCiiWriterSig6 } from './cii-workspace-target-writer.js';
 import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
 
 const CONTROL_NONAM_INDEX = 3;
@@ -20,8 +19,18 @@ function integerField(value) {
   const number = Number(value); if (!Number.isSafeInteger(number) || number < 0) throw new Error('WRITER_2_VALIDATOR_INTEGER_INVALID');
   const token = String(number); if (token.length > WIDTH) throw new Error('WRITER_2_VALIDATOR_INTEGER_OVERFLOW'); return token.padStart(WIDTH, ' ');
 }
+function exponential(value) {
+  const [mantissa, rawExponent] = Number(value).toExponential(6).toUpperCase().split('E'); const exponent = Number(rawExponent);
+  return `${mantissa}E${exponent < 0 ? '-' : '+'}${String(Math.abs(exponent)).padStart(2, '0')}`;
+}
+function independentSig6(value) {
+  const number = Number(value); if (!Number.isFinite(number)) throw new Error('WRITER_2_VALIDATOR_NUMERIC_INVALID');
+  const absolute = Math.abs(number); if (absolute < 1e-12) return '0.000000';
+  if (absolute >= 1e9 || absolute < 1e-6) return exponential(number); if (absolute < 1.0) return number.toFixed(6);
+  const integerDigits = String(Math.trunc(absolute)).length; return number.toFixed(Math.max(1, 6 - integerDigits));
+}
 function numericField(value) {
-  const token = formatCiiWriterSig6(value); if (token.length > WIDTH) throw new Error('WRITER_2_VALIDATOR_NUMERIC_OVERFLOW'); return token.padStart(WIDTH, ' ');
+  const token = independentSig6(value); if (token.length > WIDTH) throw new Error('WRITER_2_VALIDATOR_NUMERIC_OVERFLOW'); return token.padStart(WIDTH, ' ');
 }
 function sectionEnvelope(document, wanted) {
   const lines = document?.physicalFile?.lines || []; const markerIndex = lines.findIndex((line) => markerName(line.text) === wanted);
