@@ -4,15 +4,16 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1017 | Writer 2 composite product/core routing | DRAFT / ACTIVE | Explicit Writer2 requalification of NODENAME CREATE/DELETE + V11 SIF existing-block DELETE; composite readiness/apply/validation; Writer1B default preserved | Run focused/repository/browser/real-CII qualification; do not merge without fresh owner authority |
-| PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Canonical PR1001 parent-scope custody; derived family subsets; original-coordinate claim arbitration; one patch; independent full-postimage validator | Product/core route now being adopted by PR1017 |
-| PR1015 | Writer 2 V11 SIF/TEE physical DELETE Phase-4B | MERGED 2026-08-21 · `d5ecd8ac` | CONTROL SIF count + exact ELEMENT SIF pointers + byte-preserved SIF payload deletion; independent complete-postimage validator | Reused unchanged by PR1016/PR1017 |
-| PR1014 | Writer 2 V11 SIF/TEE DELETE relocation authority | MERGED 2026-08-21 · `9a2984cb` | DELETE-only exact owner binding, shared-pointer veto, 10-row compaction, complete old→new pointer mapping; CREATE blocked | Reused unchanged |
-| PR1013 | Writer 2 NODENAME product/core routing | MERGED 2026-08-21 · `70c7004f` | Initial explicit Writer2 NODENAME CREATE/DELETE product route and byte export | Product transaction boundary superseded by PR1017; standalone NODENAME authority retained |
-| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT NODENAME pointers + variable-length NODENAME payload; independent exact-postimage validator | Reused unchanged as component authority |
-| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation, compaction, complete pointer relocation | Reused unchanged |
+| PR1018 | Writer 2 real-benchmark product qualification | DRAFT / ACTIVE | Qualification only: real `BM_CII_TARGET1.CII` physical preimage + controlled bound NODENAME CREATE and V11 SIF DELETE through public Writer2 apply; export/re-intake, stale-hash and anti-drift falsifiers | Execute exact-head regression when checkout environment is available; no new mutation family |
+| PR1017 | Writer 2 composite product/core routing | MERGED 2026-08-21 · `112e2d78` | Explicit Writer2 requalification of NODENAME CREATE/DELETE + V11 SIF existing-block DELETE; composite readiness/apply/validation; Writer1B default preserved | Qualified by PR1018 |
+| PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Canonical PR1001 parent-scope custody; derived family subsets; original-coordinate claim arbitration; one patch; independent full-postimage validator | Reused by product route and PR1018 |
+| PR1015 | Writer 2 V11 SIF/TEE physical DELETE Phase-4B | MERGED 2026-08-21 · `d5ecd8ac` | CONTROL SIF count + exact ELEMENT SIF pointers + byte-preserved SIF payload deletion; independent complete-postimage validator | Component authority |
+| PR1014 | Writer 2 V11 SIF/TEE DELETE relocation authority | MERGED 2026-08-21 · `9a2984cb` | Exact owner binding, shared-pointer veto, 10-row compaction, complete old→new pointer mapping; CREATE blocked | Component authority |
+| PR1013 | Writer 2 NODENAME initial product route | MERGED 2026-08-21 · `70c7004f` | Initial explicit NODENAME CREATE/DELETE product route | Product boundary superseded by PR1017; component authority retained |
+| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT NODENAME pointers + variable-length NODENAME payload; independent exact-postimage validator | Component authority |
+| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation, compaction, complete pointer relocation | Component authority |
 | PR1010 | One-preimage Writer 1A + 1B + 1C composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified Writer1 family claims from one untouched TARGET with independent final authorization | Architectural precedent |
-| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 block; selected ii/io fields only | Existing field-level authority preserved |
+| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 block; selected ii/io fields only | Existing field-level authority |
 | PR1008 | Writer 1C exact ELEMENT/NODENAME custody | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical ELEMENT/NODENAME binding | Physical custody foundation |
 | PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; items 27..30 unresolved | Governs SIF CREATE blocker |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Writer1 fixed fields; Writer2 cardinality/pointers; Writer3 topology | Governing architecture |
@@ -39,50 +40,61 @@ Writer 2
   NODENAME CREATE/DELETE component authority        MERGED
   V11 existing SIF 10-row block DELETE authority   MERGED
   one-original-preimage mixed composite             MERGED PR1016
-  product/core composite route                      PR1017
+  product/core composite route                      MERGED PR1017
+  real physical-preimage qualification              PR1018
 
 Writer 3
   topology mutation only
 ```
 
-## PR1017 product transaction
+## PR1018 qualification boundary
 
-The base engineering-delta layer already exposes qualified pointer-presence evidence:
-
-```text
-category  = SIF_TEE
-property  = SIF/Tee record presence
-authority = ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD
-```
-
-The generic transfer policy remains deliberately conservative and unchanged. Changed SIF presence is BLOCKED there because generic Writer1/default paths do not have cardinality authority.
-
-PR1017 adds a Writer2-only requalification layer:
+The real physical fixture is:
 
 ```text
-raw auditable base transfer plan
- |-- NODENAME family -> merged Writer2 NODENAME routing contract
- |-- SIF presence    -> merged Writer2 SIF DELETE routing contract
- |-- KEEP            -> preserve
- `-- any other mutable family -> BLOCKED
-
-explicit PR1001 APPLY / EXCLUDE scope
- -> composite readiness against current TARGET graph
- -> merged PR1016 one-original-preimage composite
- -> re-intake binary bytes
- -> merged PR1016 independent composite validator
- -> binary-authoritative Modified_Target.CII
+Benchmark/CIICompare/BM_CII_TARGET1.CII
+repository blob  1a1cb9ac27e9c347cfcd3e4a8766ebad0e4b7853
+size             64462 bytes
+ELEMENTS         40
+NODENAME rows    2
+V11 SIF blocks   9
 ```
 
-Qualified Writer2 product APPLY shapes:
+PR1018 does **not** claim that `BM_CII_SOURCE.CII -> BM_CII_TARGET1.CII` naturally contains the same mixed cardinality mutation. The benchmark's published SIF oracle is a pointer-bound raw-field change. The qualification therefore uses a controlled, canonical explicit scope against the real TARGET preimage.
+
+Transaction under qualification:
 
 ```text
-NODE_NAME / Node name / to-name / CREATE
-NODE_NAME / Node name / to-name / DELETE
-SIF_TEE / SIF/Tee record presence / DELETE
+real untouched BM_CII_TARGET1 bytes
+ -> exact intake + physical custody
+ -> deterministic real zero-pointer NODENAME endpoint
+ -> deterministic real existing SIF pointer
+ -> all SIF owners selected if pointer is shared
+ -> canonical PR1001 bound APPLY scope
+ -> applyCiiWorkspaceTargetWriter2
+ -> merged PR1016 one-preimage composite
+ -> binary export
+ -> re-intake
+ -> exact independent composite validator
 ```
 
-Either family alone or both together may be selected.
+Positive requirements:
+
+```text
+NODENAME rows  2 -> 3
+SIF blocks     9 -> 8
+selected SIF owners -> pointer 0
+element connectivity unchanged
+product bytes == low-level composite bytes
+post-image exact-byte custody remains qualified
+```
+
+Falsifiers:
+
+```text
+old preview replay against modified export -> CII_WRITER_2_STALE_TARGET_HASH
+one unrelated reparsable header byte       -> EXACT_COMPOSITE_POSTIMAGE_MISMATCH
+```
 
 Still prohibited:
 
@@ -95,52 +107,21 @@ hanger cardinality                       -> unsupported Writer2
 topology/connectivity mutation           -> Writer3
 ```
 
-## Isolation requirements
-
-Writer2 deliberately remains on base engineering deltas:
-
-```js
-if (version === '2') {
-  engineeringDeltas = baseDeltas;
-}
-```
-
-Therefore Writer2 does not inherit Writer1B process/restraint augmentation or Writer1C selected-field augmentation.
-
-No option supplied still resolves to Writer1B. The product tile does not silently opt into Writer2.
-
-The old product-level direct NODENAME sequence is removed from core:
-
-```text
-NOT product boundary:
-applyCiiWriter2NodeNameRelocation
-validateCiiWriter2NodeNameRoundTrip
-
-CURRENT product boundary:
-applyCiiWriter2Composite
-validateCiiWriter2CompositeRoundTrip
-```
-
-Standalone NODENAME and SIF modules remain component authorities and regressions; they are not deleted or semantically widened.
-
 ## Current validation truth
 
 ```text
-PR1016 merge / PR1017 base grounding                  PASS
-branch ancestry                                       PASS_GIT_COMPARE
-base SIF-presence delta grounding                     PASS_SOURCE_INSPECTION
-generic SIF-cardinality policy grounding              PASS_SOURCE_INSPECTION
-core composite dispatch source audit                  PASS_SOURCE_INSPECTION
-scope composite readiness source audit                PASS_SOURCE_INSPECTION
-focused composite product-routing regression          AUTHORED_NOT_RUN_ENVIRONMENT
-inherited Writer2 NODENAME product regression         AUTHORED_NOT_RUN_ENVIRONMENT
-PR1016 mixed composite regression                     NOT_RUN_ENVIRONMENT
-Writer2 component regressions                         NOT_RUN_ENVIRONMENT
-full repository tests                                 NOT_RUN_ENVIRONMENT
-browser scoped Writer2 flow                           NOT_RUN_ENVIRONMENT
-real-CII mixed export/re-intake                       NOT_RUN_ENVIRONMENT
+PR1017 merge / PR1018 base grounding                  PASS
+benchmark file metadata/custody inspection            PASS_SOURCE_INSPECTION
+BM_CII_TARGET1 CONTROL 40 / NONAM 2 / SIF 9           PASS_SOURCE_INSPECTION
+SOURCE3 / TARGET3-1 CONTROL SIF count 14 / 14          PASS_SOURCE_INSPECTION
+qualification test source audit                        PASS_SOURCE_INSPECTION
+exact checkout                                         BLOCKED_ENVIRONMENT_GITHUB_DNS
+real-benchmark Writer2 regression                      AUTHORED_NOT_RUN_ENVIRONMENT
+inherited Writer2 regressions                          NOT_RUN_ENVIRONMENT
+full repository tests                                  NOT_RUN_ENVIRONMENT
+browser scoped Writer2 flow                            NOT_RUN_ENVIRONMENT
 ```
 
 No unexecuted test is represented as PASS.
 
-See `agents/PR1017_workreport.md`, `agents/status/PR1017.yaml`, and `agents/claims/PR1017.yaml`.
+See `agents/PR1018_workreport.md`, `agents/status/PR1018.yaml`, and `agents/claims/PR1018.yaml`.
