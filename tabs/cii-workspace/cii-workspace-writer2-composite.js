@@ -1,6 +1,7 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { applyCiiWriter2NodeNameRelocation } from './cii-workspace-writer2-nodename-write.js';
 import { applyCiiWriter2SifDeleteRelocation } from './cii-workspace-writer2-sif-delete-write.js';
+import { CII_WRITER_2_SIF_CREATE_BLOCKER } from './cii-workspace-writer2-sif-delete.js';
 
 const NODE_PROPERTY = 'Node name / to-name';
 const SIF_PROPERTY = 'SIF/Tee record presence';
@@ -10,6 +11,12 @@ function isNodeMutation(operation) {
     && operation?.family === 'NODE_NAME'
     && operation?.property === NODE_PROPERTY
     && ['CREATE', 'DELETE'].includes(operation?.action);
+}
+function isSifCreate(operation) {
+  return operation?.scopeDecision === 'APPLY'
+    && operation?.family === 'SIF_TEE'
+    && operation?.property === SIF_PROPERTY
+    && operation?.action === 'CREATE';
 }
 function isSifDelete(operation) {
   return operation?.scopeDecision === 'APPLY'
@@ -87,6 +94,8 @@ export function applyCiiWriter2Composite({ targetDocument, targetGraph, transfer
   if ((transferPlan?.blockers || []).length) throw new Error(`CII_WRITER_2_COMPOSITE_TRANSFER_BLOCKED:${transferPlan.blockers.join('|')}`);
   const applied = appliedOperations(transferPlan);
   if (!applied.length) throw new Error('CII_WRITER_2_COMPOSITE_NO_MUTATIONS');
+  const sifCreates = applied.filter(isSifCreate);
+  if (sifCreates.length) throw new Error(`CII_WRITER_2_COMPOSITE_${CII_WRITER_2_SIF_CREATE_BLOCKER}:${sifCreates.map((item) => item.operationId || 'unknown').join(',')}`);
   const unsupported = applied.filter((operation) => !supportedApply(operation));
   if (unsupported.length) {
     throw new Error(`CII_WRITER_2_COMPOSITE_UNSUPPORTED_APPLY:${unsupported.map((item) => item.operationId || 'unknown').join(',')}`);
@@ -114,4 +123,4 @@ export function applyCiiWriter2Composite({ targetDocument, targetGraph, transfer
   });
 }
 
-export const _test = deepFreeze({ isNodeMutation, isSifDelete, supportedApply, projectTransferPlan, normalizeClaim, arbitrateClaims, applyClaims });
+export const _test = deepFreeze({ isNodeMutation, isSifCreate, isSifDelete, supportedApply, projectTransferPlan, normalizeClaim, arbitrateClaims, applyClaims });
