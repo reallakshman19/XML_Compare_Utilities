@@ -40,6 +40,7 @@ function rawPlan(operations, blockers = []) {
   assert.equal(routed.operations[0].action, 'CREATE');
   assert.equal(routed.operations[0].status, 'PREVIEW_READY');
   assert.equal(routed.operations[0].policyAuthority, CII_WRITER_2_NODENAME_RELOCATION_POLICY);
+  assert.equal(routed.summary.writer2MutationCount, 1);
   assert.equal(routed.policy.nodeNameMutation, 'CREATE_DELETE_RELOCATION_ONLY');
 }
 
@@ -50,6 +51,7 @@ function rawPlan(operations, blockers = []) {
   assert.equal(routed.status, 'PREVIEW_READY');
   assert.equal(routed.operations[0].action, 'DELETE');
   assert.equal(routed.operations[0].status, 'PREVIEW_READY');
+  assert.equal(routed.summary.writer2MutationCount, 1);
   assert(!routed.blockers.includes('NO_TRANSFERABLE_PREVIEW_OPERATIONS'));
 }
 
@@ -59,7 +61,9 @@ function rawPlan(operations, blockers = []) {
   ]));
   assert.equal(routed.status, 'BLOCKED');
   assert.equal(routed.operations[0].action, 'BLOCKED');
+  assert.equal(routed.summary.writer2MutationCount, 0);
   assert(routed.operations[0].blockers.includes('WRITER_2_NODENAME_OVERWRITE_USE_WRITER_1C'));
+  assert(routed.blockers.includes('NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS'));
 }
 
 {
@@ -68,7 +72,21 @@ function rawPlan(operations, blockers = []) {
   ]));
   assert.equal(routed.status, 'BLOCKED');
   assert.equal(routed.operations[0].action, 'BLOCKED');
+  assert.equal(routed.summary.writer2MutationCount, 0);
   assert(routed.operations[0].blockers.includes('WRITER_2_PHASE1_NODENAME_ONLY'));
+  assert(routed.blockers.includes('NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS'));
+}
+
+{
+  const routed = applyCiiWriter2NodeNamePlanContract(rawPlan([
+    operation({ id: 'KEEP-20', source: 'P-20', target: 'P-20', action: 'KEEP', status: 'PREVIEW_READY' }),
+    operation({ id: 'GEOM', family: 'GEOMETRY', property: 'Node location', source: 0, target: 0, action: 'KEEP', status: 'PROTECTED', evidenceAuthority: 'PARSED_NATIVE_NODE_COORDINATES' }),
+  ]));
+  assert.equal(routed.summary.previewReadyCount, 1);
+  assert.equal(routed.summary.protectedCount, 1);
+  assert.equal(routed.summary.writer2MutationCount, 0);
+  assert.equal(routed.status, 'BLOCKED');
+  assert(routed.blockers.includes('NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS'));
 }
 
 {
@@ -108,6 +126,7 @@ function rawPlan(operations, blockers = []) {
   const ui = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-transfer-scope-ui.js', import.meta.url), 'utf8');
   const tab = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-tab.js', import.meta.url), 'utf8');
   assert(core.includes("['1A', '1B', '1C', '2']"));
+  assert(core.includes("? options.writerVersion : '1B'"), 'production default must remain Writer 1B');
   assert(core.includes('applyCiiWorkspaceTargetWriter2'));
   assert(core.includes("version === '2' ? applyCiiWriter2NodeNamePlanContract"));
   assert(core.includes("['1C', '2'].includes(version)"));
@@ -115,7 +134,9 @@ function rawPlan(operations, blockers = []) {
   assert(scope.includes("['1A', '1B', '1C', '2']"));
   assert(ui.includes('applyCiiWorkspaceTargetWriter2'));
   assert(ui.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
+  assert(tab.includes('mountCiiWorkspaceScopedEngineeringShell'));
   assert(tab.includes('...(context.writerVersion ? { writerVersion: context.writerVersion } : {})'));
+  assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
 console.log('Writer 2 product/core routing remains NODENAME-cardinality-only and scope bound.');
