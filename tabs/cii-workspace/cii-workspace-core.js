@@ -24,11 +24,11 @@ import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-ta
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { applyCiiTargetWriterComposite, ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
 import { applyCiiWriter2CompositePlanContract, ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
-import { applyCiiWriter2Composite } from './cii-workspace-writer2-composite.js';
+import { applyCiiWriter2CompositeWithHangerDeleteAll as applyCiiWriter2Composite } from './cii-workspace-writer2-composite-hanger.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
-import { validateCiiWriter2CompositeRoundTrip } from './cii-workspace-writer2-composite-validation.js';
+import { validateCiiWriter2CompositeWithHangerRoundTrip as validateCiiWriter2CompositeRoundTrip } from './cii-workspace-writer2-composite-hanger-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
