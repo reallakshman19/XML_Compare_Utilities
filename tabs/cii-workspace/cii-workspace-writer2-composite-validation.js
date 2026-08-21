@@ -2,14 +2,23 @@ import { stableStringify } from './cii-workspace-contracts.js';
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow } from '../../parser/fixed-field.js';
 import { ciiPhysicalSectionRows } from './cii-workspace-physical-file.js';
 import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
-import { buildCiiWriter2SifDeleteRelocationPlan } from './cii-workspace-writer2-sif-delete.js';
+import { buildCiiWriter2SifDeleteRelocationPlan, CII_WRITER_2_SIF_CREATE_BLOCKER } from './cii-workspace-writer2-sif-delete.js';
 
 const NODE_PROPERTY = 'Node name / to-name';
 const SIF_PROPERTY = 'SIF/Tee record presence';
+const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
+const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const WIDTH = 13;
 const SIF_ROWS = 10;
 
 function text(value) { return String(value ?? '').trim(); }
+function operationId(operation) { return text(operation?.operationId); }
+function sortedUnique(values) { return [...new Set((values || []).map(text).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+function sameStrings(left, right) {
+  const a = sortedUnique(left); const b = sortedUnique(right);
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+function isMutable(operation) { return operation?.action !== 'KEEP'; }
 function markerName(value) {
   const match = String(value ?? '').match(/^\s*#\$\s*(.*?)\s*$/);
   return match ? match[1].trim().toUpperCase() : null;
@@ -18,17 +27,61 @@ function isNodeMutation(operation) {
   return operation?.scopeDecision === 'APPLY' && operation?.family === 'NODE_NAME'
     && operation?.property === NODE_PROPERTY && ['CREATE', 'DELETE'].includes(operation?.action);
 }
+function isSifCreate(operation) {
+  return operation?.scopeDecision === 'APPLY' && operation?.family === 'SIF_TEE'
+    && operation?.property === SIF_PROPERTY && operation?.action === 'CREATE';
+}
 function isSifDelete(operation) {
   return operation?.scopeDecision === 'APPLY' && operation?.family === 'SIF_TEE'
     && operation?.property === SIF_PROPERTY && operation?.action === 'DELETE';
 }
 function supportedApply(operation) { return isNodeMutation(operation) || isSifDelete(operation); }
-function projectPlan(transferPlan, predicate) {
+function appliedOperations(transferPlan) {
+  return (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
+}
+function excludedOperations(transferPlan) {
+  return (transferPlan?.excludedOperations || []).filter((operation) => operation?.scopeDecision === 'EXCLUDE');
+}
+function independentBoundScopeCustody(transferPlan, before) {
+  const errors = []; const scope = transferPlan?.transferScope;
+  if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope?.scopeId)) {
+    errors.push('CANONICAL_BOUND_SCOPE_REQUIRED');
+  }
+  const appliedIds = sortedUnique(appliedOperations(transferPlan).filter(isMutable).map(operationId));
+  const excludedIds = sortedUnique(excludedOperations(transferPlan).filter(isMutable).map(operationId));
+  const candidateIds = sortedUnique([...appliedIds, ...excludedIds]);
+  if (!sameStrings(appliedIds, scope?.appliedOperationIds)) errors.push('SCOPE_APPLY_SET_MISMATCH');
+  if (!sameStrings(excludedIds, scope?.excludedOperationIds)) errors.push('SCOPE_EXCLUDE_SET_MISMATCH');
+  if (!sameStrings(candidateIds, scope?.candidateOperationIds)) errors.push('SCOPE_CANDIDATE_SET_MISMATCH');
+  const sourceSha = text(transferPlan?.sourceDocument?.contentSha256); const targetSha = text(transferPlan?.targetDocument?.contentSha256);
+  if (!sourceSha || sourceSha !== text(scope?.sourceSha256)) errors.push('SCOPE_SOURCE_HASH_MISMATCH');
+  if (!targetSha || targetSha !== text(scope?.targetSha256) || targetSha !== text(before?.contentSha256)) errors.push('SCOPE_TARGET_HASH_MISMATCH');
+  return Object.freeze({
+    errors: Object.freeze(errors), custody: Object.freeze({
+      parentScopeId: text(scope?.scopeId), sourceSha256: sourceSha, targetSha256: targetSha,
+      candidateOperationIds: Object.freeze(candidateIds), appliedOperationIds: Object.freeze(appliedIds), excludedOperationIds: Object.freeze(excludedIds),
+    }),
+  });
+}
+function projectPlan(transferPlan, predicate, family, parentCustody) {
+  const projectedApply = []; const siblingExcludes = []; const keeps = [];
+  for (const operation of transferPlan?.operations || []) {
+    if (operation?.scopeDecision === 'APPLY') {
+      if (predicate(operation)) projectedApply.push(operation);
+      else siblingExcludes.push(Object.freeze({ ...operation, scopeDecision: 'EXCLUDE' }));
+    } else keeps.push(operation);
+  }
   return Object.freeze({
     ...transferPlan,
-    operations: Object.freeze((transferPlan?.operations || []).map((operation) => operation?.scopeDecision === 'APPLY' && !predicate(operation)
-      ? Object.freeze({ ...operation, scopeDecision: 'EXCLUDE' }) : operation)),
-    transferScope: Object.freeze({ ...(transferPlan?.transferScope || {}), status: 'BOUND' }),
+    operations: Object.freeze([...keeps, ...projectedApply]),
+    excludedOperations: Object.freeze([...(transferPlan?.excludedOperations || []), ...siblingExcludes]),
+    transferScope: transferPlan.transferScope,
+    familyProjection: Object.freeze({
+      schema: 'CIIWorkspaceWriter2FamilyProjection.v1', status: 'DERIVED_BOUND_SUBSET', authority: 'PARENT_TRANSFER_SCOPE_SUBSET_ONLY', family,
+      parentScopeId: parentCustody.parentScopeId, parentAppliedOperationIds: parentCustody.appliedOperationIds,
+      projectedAppliedOperationIds: Object.freeze(sortedUnique(projectedApply.map(operationId))),
+      siblingAppliedOperationIds: Object.freeze(sortedUnique(siblingExcludes.map(operationId))),
+    }),
   });
 }
 function integerField(value) {
@@ -167,13 +220,18 @@ function relocationTestimony(plan, family) {
 }
 
 export function validateCiiWriter2CompositeRoundTrip(before, after, targetGraph, transferPlan, writerResult) {
-  const errors = []; const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
-  const unsupported = applied.filter((operation) => !supportedApply(operation));
+  const errors = []; const scopeCheck = independentBoundScopeCustody(transferPlan, before); errors.push(...scopeCheck.errors);
+  const applied = appliedOperations(transferPlan); const sifCreates = applied.filter(isSifCreate);
+  if (sifCreates.length) errors.push(`${CII_WRITER_2_SIF_CREATE_BLOCKER}:${sifCreates.map((item) => item.operationId || 'unknown').join(',')}`);
+  const unsupported = applied.filter((operation) => !supportedApply(operation) && !isSifCreate(operation));
   if (unsupported.length) errors.push(`UNSUPPORTED_APPLY:${unsupported.map((item) => item.operationId || 'unknown').join(',')}`);
   const nodeCount = applied.filter(isNodeMutation).length; const sifCount = applied.filter(isSifDelete).length;
   if (!nodeCount && !sifCount) errors.push('NO_COMPOSITE_MUTATIONS');
-  const nodePlan = nodeCount ? buildCiiWriter2NodeNameRelocationPlan({ targetDocument: before, transferPlan: projectPlan(transferPlan, isNodeMutation) }) : null;
-  const sifPlan = sifCount ? buildCiiWriter2SifDeleteRelocationPlan({ targetDocument: before, targetGraph, transferPlan: projectPlan(transferPlan, isSifDelete) }) : null;
+  const scopeReady = scopeCheck.errors.length === 0;
+  const nodePlan = nodeCount && scopeReady ? buildCiiWriter2NodeNameRelocationPlan({ targetDocument: before,
+    transferPlan: projectPlan(transferPlan, isNodeMutation, 'WRITER_2_NODENAME', scopeCheck.custody) }) : null;
+  const sifPlan = sifCount && scopeReady ? buildCiiWriter2SifDeleteRelocationPlan({ targetDocument: before, targetGraph,
+    transferPlan: projectPlan(transferPlan, isSifDelete, 'WRITER_2_SIF_DELETE', scopeCheck.custody) }) : null;
   if (nodePlan && !nodePlan.ready) errors.push(...nodePlan.blockers.map((item) => `INDEPENDENT_NODE_PLAN_BLOCKED:${item}`));
   if (sifPlan && !sifPlan.ready) errors.push(...sifPlan.blockers.map((item) => `INDEPENDENT_SIF_PLAN_BLOCKED:${item}`));
   if (sifPlan?.createAuthority?.ready !== false) errors.push('SIF_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
@@ -184,9 +242,18 @@ export function validateCiiWriter2CompositeRoundTrip(before, after, targetGraph,
     expectedBytes = applyExpected(original, expectedClaims);
   }
   const actualBytes = String(after?.physicalFile?.originalByteString || '');
+  if (after?.writer1CByteEligible !== true) errors.push('POST_ORIGINAL_BYTE_CUSTODY_NOT_QUALIFIED');
   if (expectedBytes != null && actualBytes !== expectedBytes) errors.push('EXACT_COMPOSITE_POSTIMAGE_MISMATCH');
   if (writerResult?.byteString != null && String(writerResult.byteString) !== actualBytes) errors.push('COMPOSITE_RESULT_BYTES_MISMATCH');
+  if (writerResult?.schema !== 'CIIWorkspaceWriter2CompositeResult.v1' || writerResult?.status !== 'APPLIED'
+    || writerResult?.writer !== 'WRITER_2' || writerResult?.mode !== 'ONE_ORIGINAL_PREIMAGE_COMPOSITE') errors.push('COMPOSITE_RESULT_CONTRACT_MISMATCH');
+  if (Number(writerResult?.mutationCount) !== expectedClaims.length) errors.push('COMPOSITE_MUTATION_COUNT_MISMATCH');
   if (stableStringify(testimony(writerResult?.mutations)) !== stableStringify(testimony(expectedClaims))) errors.push('COMPOSITE_MUTATION_TESTIMONY_MISMATCH');
+  if (stableStringify(writerResult?.parentScopeCustody || null) !== stableStringify(scopeCheck.custody)) errors.push('COMPOSITE_SCOPE_TESTIMONY_MISMATCH');
+  const expectedFamilyCounts = { nodeNameOperations: nodeCount, sifDeleteOperations: sifCount,
+    nodeNameClaims: expectedClaims.filter((item) => item.authorityFamily === 'WRITER_2_NODENAME').length,
+    sifDeleteClaims: expectedClaims.filter((item) => item.authorityFamily === 'WRITER_2_SIF_DELETE').length };
+  if (stableStringify(writerResult?.familyMutationCounts || {}) !== stableStringify(expectedFamilyCounts)) errors.push('COMPOSITE_FAMILY_COUNT_TESTIMONY_MISMATCH');
   if (stableStringify(connectivity(before)) !== stableStringify(connectivity(after))) errors.push('CONNECTIVITY_CHANGED');
   if (stableStringify(sectionOrder(before)) !== stableStringify(sectionOrder(after))) errors.push('SECTION_ORDER_CHANGED');
   if (nodePlan) {
@@ -207,11 +274,13 @@ export function validateCiiWriter2CompositeRoundTrip(before, after, targetGraph,
   if (errors.length) throw new Error(`CII_WRITER_2_COMPOSITE_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({
     schema: 'CIIWorkspaceWriter2CompositeValidation.v1', status: 'PASS',
-    checks: Object.freeze(['ONE_ORIGINAL_PREIMAGE', 'INDEPENDENT_COMPONENT_PLAN_REBUILD', 'ORIGINAL_COORDINATE_ARBITRATION', 'EXACT_FULL_BYTE_POSTIMAGE',
-      'CONTROL_COUNTS', 'POINTER_RELOCATION', 'NODENAME_SEMANTICS', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH', 'SIF_CREATE_REMAINS_BLOCKED']),
+    checks: Object.freeze(['CANONICAL_BOUND_SCOPE_CUSTODY', 'DERIVED_FAMILY_SCOPE_SUBSETS', 'ONE_ORIGINAL_PREIMAGE', 'INDEPENDENT_COMPONENT_PLAN_REBUILD',
+      'ORIGINAL_COORDINATE_ARBITRATION', 'EXACT_FULL_BYTE_POSTIMAGE', 'POST_ORIGINAL_BYTE_CUSTODY', 'CONTROL_COUNTS', 'POINTER_RELOCATION',
+      'NODENAME_SEMANTICS', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH', 'SIF_CREATE_REMAINS_BLOCKED']),
     nodeNameOperationCount: nodeCount, sifDeleteOperationCount: sifCount, expectedMutationCount: expectedClaims.length,
   });
 }
 
-export const _test = Object.freeze({ isNodeMutation, isSifDelete, supportedApply, projectPlan, integerField, numericField, sectionEnvelope,
+export const _test = Object.freeze({ text, operationId, sortedUnique, sameStrings, isNodeMutation, isSifCreate, isSifDelete, supportedApply,
+  appliedOperations, excludedOperations, independentBoundScopeCustody, projectPlan, integerField, numericField, sectionEnvelope,
   nodeExpectedClaims, sifExpectedClaims, arbitrateExpected, applyExpected, testimony });
