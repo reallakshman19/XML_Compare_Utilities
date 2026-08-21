@@ -4,19 +4,44 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1012 | Writer 2 Phase-4B NODENAME physical relocation | DRAFT / ACTIVE | Apply merged Phase-4A relocation to original TARGET bytes; update CONTROL.NONAM + exact ELEMENT NODENAME pointers + NODENAME payload; independent exact-full-postimage validator | Execute exact repository regressions/benchmark; after acceptance, add Writer2 product/core routing in a separate PR |
-| PR1011 | Writer 2 Phase-4A NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation plan, row compaction, complete old→new pointer map and CONTROL.NONAM after-count | Preserve as Writer2 NODENAME transaction-planning authority for PR1012 and later routing |
-| PR1010 | One-preimage Writer 1A + 1B + 1C composite transaction | MERGED 2026-08-21 · `7c1b7df0` | Compose only qualified 1A/1B/1C claims from one untouched TARGET; component validation + independently reconstructed final authorization | Preserve as lower-writer transaction authority inside future Writer2 routing/composition |
-| PR1009 | Writer 1C V11 SIF Phase-2B exact-field mutation | MERGED 2026-08-20 · `d63e8c59` | Existing V11 SIF pointer/block; slot1/2 item3 ii and item4 io; finite >=1; finite equal Type; same-code engineer attestation; independent byte anti-drift | Preserve these field/context gates |
-| PR1008 | Writer 1C exact ELEMENT/NODENAME custody hardening | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical 15-row block + FROM/TO mutation custody; endpoint fallback read-only only; shared-span arbitration | Preserve exact physical custody in all relocation work |
+| PR1013 | Writer 2 NODENAME product/core routing | DRAFT / ACTIVE | Explicit `writerVersion=2`; NODENAME CREATE/DELETE-only plan adapter; scope-bound Phase-4A readiness; Phase-4B apply/re-intake/validation; binary-authoritative export | Execute exact repo tests + browser/real-CII Writer2 flow; do not merge without owner authorization |
+| PR1012 | Writer 2 Phase-4B NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT NODENAME pointers + variable-length NODENAME payload; independent exact full-postimage validator | Reused unchanged by PR1013 product/core routing |
+| PR1011 | Writer 2 Phase-4A NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation plan, row compaction, complete old→new pointer map and CONTROL.NONAM after-count | Reused unchanged by PR1013 readiness/apply path |
+| PR1010 | One-preimage Writer 1A + 1B + 1C composite transaction | MERGED 2026-08-21 · `7c1b7df0` | Compose only qualified 1A/1B/1C claims from one untouched TARGET; component validation + independently reconstructed final authorization | Preserve Writer-1 authority; PR1013 does not alter it |
+| PR1009 | Writer 1C V11 SIF Phase-2B exact-field mutation | MERGED 2026-08-20 · `d63e8c59` | Existing V11 SIF pointer/block; slot1/2 item3 ii and item4 io; finite >=1; finite equal Type; same-code engineer attestation; independent byte anti-drift | Preserve field/context gates |
+| PR1008 | Writer 1C exact ELEMENT/NODENAME custody hardening | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical 15-row block + FROM/TO mutation custody; endpoint fallback read-only only; shared-span arbitration | Preserve exact physical custody in relocation work |
 | PR1006 | Writer 1C SIF/TEE Version-11 field qualification | MERGED 2026-08-20 · `430b2b0e` | Vendor-source-qualified item3/item4 ii/io positions and edition/layout gates | Historical source authority for PR1009 |
 | PR1004 | Writer 1C NODENAME byte-custody implementation | MERGED 2026-08-20 · `692be3fd` | Existing-pointer NODENAME fixed-field COPY; one-preimage byte patch; independent authorization | Historical foundation |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Original TARGET bytes; independent authorization; Writer testimony is not authority; Writer2/3 boundaries | Historical authority contract |
 | PR1001 | Explicit APPLY / EXCLUDE transfer-scope custody | MERGED 2026-08-19 · `5a5fa0ae` | Source/target hash + operation-set custody | Historical |
-| PR992 | Target Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Qualified fixed fields and existing restraint slice | Lower writer authority |
-| PR991 | Target Writer 1A | MERGED 2026-08-19 · `edf297f7` | Initial fixed-field writer slice | Lower writer authority |
+| PR992 | Target Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Qualified fixed fields and existing restraint slice | Production default remains Writer 1B |
+| PR991 | Target Writer 1A | MERGED 2026-08-19 · `edf297f7` | Initial fixed-field writer slice | Historical lower-writer authority |
 
-## Current Writer 1C / composite authority
+## Current writer authority stack
+
+```text
+Writer 1A
+  fixed-cardinality qualified element/restraint fields
+
+Writer 1B
+  Writer-1A-compatible lower path + qualified extra fixed fields
+  PRODUCT DEFAULT
+
+Writer 1C
+  one-original-preimage composite of qualified 1A/1B/1C claims
+  existing NODENAME field overwrite
+  selected existing V11 SIF ii/io fields
+
+Writer 2 Phase-1
+  NODENAME row CREATE / DELETE only
+  pointer/cardinality-aware relocation
+  variable-length physical rewrite
+  full independent expected-postimage validation
+```
+
+Writer 3 remains topology mutation.
+
+## Writer 1C / composite authority preserved
 
 ```text
 untouched original TARGET
@@ -25,13 +50,13 @@ untouched original TARGET
 
 all claims
  -> exact original preimage proof
- -> preserve Writer1A / Writer1B / Writer1C authority identity
+ -> preserve source-writer authority identity
  -> reject cross-family same-span or partial overlap
  -> patch one original byte vector once
  -> re-intake
- -> validate each component independently
+ -> independent component validation
  -> independently reconstruct final authorized union
- -> require actual byte diff inside that union
+ -> actual changed bytes must remain inside that union
 ```
 
 NODENAME physical binding remains:
@@ -42,22 +67,13 @@ AND parsed FROM == physical FROM
 AND parsed TO == physical TO
 ```
 
-Endpoint fallback is read-only and cannot authorize mutation or relocation.
+Endpoint fallback remains read-only.
 
-V11 SIF production slice remains exactly:
+## Writer 2 merged transaction authority
 
-```text
-slot1 item3 ii -> r0f2 -> [28,41)
-slot1 item4 io -> r0f3 -> [41,54)
-slot2 item3 ii -> r5f2 -> [28,41)
-slot2 item4 io -> r5f3 -> [41,54)
-```
+### Phase-4A — PR1011
 
-## Writer 2 NODENAME transaction authority
-
-### Phase-4A — merged planning authority
-
-Protected CII format oracle:
+Source-qualified layout:
 
 ```text
 NODENAME row = 2X + FROM[26] + TO[25] = 53 characters
@@ -65,116 +81,145 @@ CONTROL line1 field4 = NONAM row count
 ELEMENT row13 field6 = 1-based NODENAME pointer
 ```
 
-Phase-4A derives:
+Relocation plan:
 
 ```text
-scoped NODENAME CREATE/DELETE
- -> exact existing physical custody
- -> deterministic CREATE owner selection among pointer=0 ELEMENTs
+scoped CREATE/DELETE
+ -> exact NODENAME/ELEMENT custody
+ -> deterministic zero-pointer CREATE owner
  -> clear selected DELETE fields
- -> remove only rows made fully blank
+ -> remove only fully blank rows
  -> compact retained rows
- -> derive complete oldPointer -> newPointer map
+ -> oldPointer -> newPointer map
  -> append deterministic CREATE rows
- -> derive every ELEMENT pointer transition
- -> derive CONTROL.NONAM_after from final row count
+ -> derive every changed ELEMENT pointer
+ -> derive CONTROL.NONAM_after
 ```
 
 Critical example:
 
 ```text
-old rows: 1,2,3
-delete old row 2
-old->new: 1->1, 2->0, 3->2
+old pointers: 1,2,3
+delete row 2
+mapping: 1->1, 2->0, 3->2
 ```
 
-The `3->2` pointer transition is a relocation consequence and is explicitly part of the transaction authority.
+The unrelated element whose pointer changes `3->2` is part of the relocation transaction and must have exact pointer-field custody.
 
-### Phase-4B — PR1012 physical writer
+### Phase-4B — PR1012
 
-PR1012 applies the Phase-4A transaction using only three physical replacement classes:
+Only three physical replacement classes are authorized:
 
 ```text
-1. CONTROL.NONAM fixed-width integer field
-2. exact ELEMENT NODENAME pointer fields
-3. complete raw NODENAME section payload
+CONTROL.NONAM fixed-width integer field
+qualified ELEMENT NODENAME pointer fields
+complete raw NODENAME payload span
 ```
 
-Everything else is copied verbatim from the original TARGET byte stream.
+Everything outside those replacements is copied verbatim from the original TARGET bytes.
 
-Cardinality is explicitly variable:
-
-```text
-CREATE       -> byte/row count can increase
-DELETE       -> byte/row count can decrease
-CREATE+DELETE -> count can stay equal while pointer layout changes
-```
-
-CONTROL.NONAM uses canonical integer formatting. Existing NODENAME rows must be exactly 53 characters. Retained rows preserve their own physical line endings; appended rows inherit the section row ending.
-
-## Writer 2 Phase-4B validation model
-
-Writer 1C can express same-length negative assurance as an authorized changed-byte subset. Writer 2 cannot use that as its primary proof because inserting/removing rows shifts all downstream byte offsets.
-
-PR1012 therefore independently reconstructs the complete expected postimage:
+Because CREATE/DELETE can shift downstream offsets, primary negative assurance is:
 
 ```text
 untouched TARGET + bound transfer plan
- -> independently rebuild Phase-4A relocation plan
- -> independently derive CONTROL/pointer/NODENAME replacements
- -> build complete expected variable-length byte stream
+ -> independently rebuild Phase-4A plan
+ -> independently derive complete expected variable-length postimage
 
-PASS only if
-actual post bytes == independent expected post bytes
+PASS only if actual post bytes == independent expected post bytes
 ```
-
-Additional validation requires exact post CONTROL count, NODENAME row count, ELEMENT pointer snapshot, node-name semantics, connectivity, section order, and agreement between Writer testimony and the independent replacement/relocation ledgers.
 
 Writer testimony never defines authorization.
 
-The validator also has an independent six-significant-digit pointer formatter rather than reusing the production writer formatter.
+## PR1013 product/core routing authority
 
-## Writer 2 boundary still not crossed
-
-PR1012 deliberately does not include product/core routing. The next separate phase is:
+Writer 2 is explicit only:
 
 ```text
 writerVersion = 2
- -> NODENAME CREATE/DELETE transfer classification
- -> Phase-4A readiness
- -> Phase-4B physical writer
- -> re-intake
- -> Phase-4B independent validator
- -> product/export lifecycle
 ```
 
-Still later Writer-2 work:
+No option supplied continues to resolve to:
+
+```text
+Writer 1B
+```
+
+Writer-2 preview uses **base engineering deltas only**. It does not activate Writer-1B field augmentation, restraint-slot augmentation or Writer-1C SIF augmentation.
+
+Writer-2 NODENAME routing matrix:
+
+```text
+SOURCE nonblank + TARGET blank       -> CREATE
+SOURCE blank    + TARGET nonblank    -> DELETE
+SOURCE nonblank + TARGET different   -> BLOCKED / Writer 1C overwrite territory
+same values / both blank             -> KEEP
+```
+
+All other mutable families are blocked with:
+
+`WRITER_2_PHASE1_NODENAME_ONLY`
+
+Writer-2 availability requires at least one exact cardinality mutation:
+
+```text
+family == NODE_NAME
+property == Node name / to-name
+action in {CREATE, DELETE}
+status == PREVIEW_READY
+policyAuthority == CII_WRITER_2_NODENAME_RELOCATION
+```
+
+Unchanged/protected rows cannot satisfy availability.
+
+After explicit APPLY/EXCLUDE scope binding:
+
+```text
+Phase-4A readiness
+ -> Phase-4B byte write
+ -> modified-byte re-intake
+ -> independent Phase-4B validation
+ -> Modified_<target>.cii binary export
+```
+
+Writer-2 output is exported from authoritative bytes, not re-encoded text.
+
+## Writer 2 boundary still not crossed
+
+Still not authorized:
 
 ```text
 SIF/TEE 10-row block create/delete
-hanger create/delete / HGRDAT / packed MISCEL_1 maintenance
-generic auxiliary section insertion/deletion
+hanger create/delete
+HGRDAT construction
+MISCEL_1 packed-array relocation
+generic auxiliary-section insertion/deletion
+node/element create/delete
+connectivity changes
+branch insertion
+split/merge topology operations
 ```
 
-Writer 3 remains topology mutation: node/element creation/deletion, connectivity changes, branch insertion, split/merge and topology-aware auxiliary migration.
+Those require separate Writer-2 family qualification or Writer 3 as applicable.
 
-## Validation truth
+## Current validation truth
 
 ```text
-PR1011 merge / current-main grounding                 PASS
-PR1012 branch ancestry                                PASS_GIT_COMPARE
-PR1012 new writer syntax                              PASS_LOCAL_EXECUTION
-PR1012 new validator syntax                           PASS_LOCAL_EXECUTION
-PR1012 focused test source syntax                     PASS_LOCAL_EXECUTION
-isolated exact new Writer2 writer+validator           PASS_ISOLATED_EXACT_NEW_MODULES
-forged writer testimony isolated attack               FAIL_AS_REQUIRED
-repository Phase4A + Phase4B focused tests            AUTHORED_NOT_RUN_ENVIRONMENT
-real Writer2 benchmark                                NOT_RUN_ENVIRONMENT
-inherited Writer1A/1B/1C regressions                  NOT_RUN_ENVIRONMENT
-full npm test                                         NOT_RUN_ENVIRONMENT
-browser / product flow                                NOT_RUN_ENVIRONMENT
+PR1012 merge / PR1013 base grounding                 PASS
+PR1013 branch ancestry                               PASS_GIT_COMPARE
+PR1013 changed-file scope                            PASS_GIT_COMPARE
+exact Writer2 routing blob syntax/execution          PASS_ISOLATED_EXACT_WRITER2_ROUTING
+CREATE / DELETE routing                              PASS_ISOLATED_EXACT_WRITER2_ROUTING
+overwrite / non-node falsifiers                      PASS_ISOLATED_EXACT_WRITER2_ROUTING
+KEEP/protected empty-availability falsifier          PASS_ISOLATED_EXACT_WRITER2_ROUTING
+repository Writer2 product-routing regression         AUTHORED_NOT_RUN_ENVIRONMENT
+inherited Writer1A/1B/1C regressions                 NOT_RUN_ENVIRONMENT
+full npm test                                        NOT_RUN_ENVIRONMENT
+browser Writer2 product flow                         NOT_RUN_ENVIRONMENT
+real CII Writer2 export/re-intake                    NOT_RUN_ENVIRONMENT
 ```
 
-Exact complete-checkout execution remains unavailable in the current execution environment. No unexecuted repository test is represented as PASS.
+The exact routing source executed in isolation matched Git blob `0748657f49956acaf01f5d0c9c0a205474f9a7bd` at execution time.
 
-See `agents/PR1012_workreport.md`, `agents/status/PR1012.yaml`, and `agents/claims/PR1012.yaml`.
+The execution container still cannot resolve `github.com` for a complete checkout. No unexecuted repository/browser test is represented as PASS.
+
+See `agents/PR1013_workreport.md`, `agents/status/PR1013.yaml`, and `agents/claims/PR1013.yaml`.
