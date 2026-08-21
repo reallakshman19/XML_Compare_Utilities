@@ -18,6 +18,16 @@ function sameStrings(left, right) {
   const a = sortedUnique(left); const b = sortedUnique(right);
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
+function exactIdsForValidation(values, code, errors) {
+  if (!Array.isArray(values)) { errors.push(`${code}_ARRAY_REQUIRED`); return []; }
+  const ids = values.map(text);
+  if (ids.some((id) => !id)) errors.push(`${code}_ID_REQUIRED`);
+  if (new Set(ids).size !== ids.length) errors.push(`${code}_DUPLICATE_ID`);
+  return [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+function exactOperationIdsForValidation(operations, code, errors) {
+  return exactIdsForValidation((operations || []).map(operationId), code, errors);
+}
 function isMutable(operation) { return operation?.action !== 'KEEP'; }
 function markerName(value) {
   const match = String(value ?? '').match(/^\s*#\$\s*(.*?)\s*$/);
@@ -47,12 +57,20 @@ function independentBoundScopeCustody(transferPlan, before) {
   if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope?.scopeId)) {
     errors.push('CANONICAL_BOUND_SCOPE_REQUIRED');
   }
-  const appliedIds = sortedUnique(appliedOperations(transferPlan).filter(isMutable).map(operationId));
-  const excludedIds = sortedUnique(excludedOperations(transferPlan).filter(isMutable).map(operationId));
-  const candidateIds = sortedUnique([...appliedIds, ...excludedIds]);
-  if (!sameStrings(appliedIds, scope?.appliedOperationIds)) errors.push('SCOPE_APPLY_SET_MISMATCH');
-  if (!sameStrings(excludedIds, scope?.excludedOperationIds)) errors.push('SCOPE_EXCLUDE_SET_MISMATCH');
-  if (!sameStrings(candidateIds, scope?.candidateOperationIds)) errors.push('SCOPE_CANDIDATE_SET_MISMATCH');
+  const allPlanRows = [...(transferPlan?.operations || []), ...(transferPlan?.excludedOperations || [])];
+  exactOperationIdsForValidation(allPlanRows, 'PLAN_OPERATION', errors);
+  const appliedRows = appliedOperations(transferPlan).filter(isMutable); const excludedRows = excludedOperations(transferPlan).filter(isMutable);
+  const appliedIds = exactOperationIdsForValidation(appliedRows, 'PLAN_APPLY', errors);
+  const excludedIds = exactOperationIdsForValidation(excludedRows, 'PLAN_EXCLUDE', errors);
+  if (appliedIds.some((id) => excludedIds.includes(id))) errors.push('PLAN_APPLY_EXCLUDE_OVERLAP');
+  const candidateIds = [...appliedIds, ...excludedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const scopeAppliedIds = exactIdsForValidation(scope?.appliedOperationIds, 'SCOPE_APPLY', errors);
+  const scopeExcludedIds = exactIdsForValidation(scope?.excludedOperationIds, 'SCOPE_EXCLUDE', errors);
+  const scopeCandidateIds = exactIdsForValidation(scope?.candidateOperationIds, 'SCOPE_CANDIDATE', errors);
+  if (scopeAppliedIds.some((id) => scopeExcludedIds.includes(id))) errors.push('SCOPE_APPLY_EXCLUDE_OVERLAP');
+  if (!sameStrings(appliedIds, scopeAppliedIds)) errors.push('SCOPE_APPLY_SET_MISMATCH');
+  if (!sameStrings(excludedIds, scopeExcludedIds)) errors.push('SCOPE_EXCLUDE_SET_MISMATCH');
+  if (!sameStrings(candidateIds, scopeCandidateIds)) errors.push('SCOPE_CANDIDATE_SET_MISMATCH');
   const sourceSha = text(transferPlan?.sourceDocument?.contentSha256); const targetSha = text(transferPlan?.targetDocument?.contentSha256);
   if (!sourceSha || sourceSha !== text(scope?.sourceSha256)) errors.push('SCOPE_SOURCE_HASH_MISMATCH');
   if (!targetSha || targetSha !== text(scope?.targetSha256) || targetSha !== text(before?.contentSha256)) errors.push('SCOPE_TARGET_HASH_MISMATCH');
@@ -274,13 +292,14 @@ export function validateCiiWriter2CompositeRoundTrip(before, after, targetGraph,
   if (errors.length) throw new Error(`CII_WRITER_2_COMPOSITE_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({
     schema: 'CIIWorkspaceWriter2CompositeValidation.v1', status: 'PASS',
-    checks: Object.freeze(['CANONICAL_BOUND_SCOPE_CUSTODY', 'DERIVED_FAMILY_SCOPE_SUBSETS', 'ONE_ORIGINAL_PREIMAGE', 'INDEPENDENT_COMPONENT_PLAN_REBUILD',
-      'ORIGINAL_COORDINATE_ARBITRATION', 'EXACT_FULL_BYTE_POSTIMAGE', 'POST_ORIGINAL_BYTE_CUSTODY', 'CONTROL_COUNTS', 'POINTER_RELOCATION',
-      'NODENAME_SEMANTICS', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH', 'SIF_CREATE_REMAINS_BLOCKED']),
+    checks: Object.freeze(['CANONICAL_BOUND_SCOPE_CUSTODY', 'UNIQUE_OPERATION_CARDINALITY', 'DERIVED_FAMILY_SCOPE_SUBSETS', 'ONE_ORIGINAL_PREIMAGE',
+      'INDEPENDENT_COMPONENT_PLAN_REBUILD', 'ORIGINAL_COORDINATE_ARBITRATION', 'EXACT_FULL_BYTE_POSTIMAGE', 'POST_ORIGINAL_BYTE_CUSTODY',
+      'CONTROL_COUNTS', 'POINTER_RELOCATION', 'NODENAME_SEMANTICS', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH',
+      'SIF_CREATE_REMAINS_BLOCKED']),
     nodeNameOperationCount: nodeCount, sifDeleteOperationCount: sifCount, expectedMutationCount: expectedClaims.length,
   });
 }
 
-export const _test = Object.freeze({ text, operationId, sortedUnique, sameStrings, isNodeMutation, isSifCreate, isSifDelete, supportedApply,
-  appliedOperations, excludedOperations, independentBoundScopeCustody, projectPlan, integerField, numericField, sectionEnvelope,
-  nodeExpectedClaims, sifExpectedClaims, arbitrateExpected, applyExpected, testimony });
+export const _test = Object.freeze({ text, operationId, sortedUnique, sameStrings, exactIdsForValidation, exactOperationIdsForValidation,
+  isNodeMutation, isSifCreate, isSifDelete, supportedApply, appliedOperations, excludedOperations, independentBoundScopeCustody, projectPlan,
+  integerField, numericField, sectionEnvelope, nodeExpectedClaims, sifExpectedClaims, arbitrateExpected, applyExpected, testimony });
