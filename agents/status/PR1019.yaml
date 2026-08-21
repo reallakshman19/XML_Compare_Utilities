@@ -1,0 +1,26 @@
+schema: engineering-pr-status/v1
+repository: reallaksh19/XML_Compare_Utilities
+pr: 1019
+branch: agent/cii-writer2-hanger-delete-authority
+base: 887eedc028f64e3831b28fb755fdbe9ed904682f
+state: DRAFT_ACTIVE
+handover_readiness: READY
+takeover_authority: WRITE_ALLOWED
+merge_authority: OWNER_ONLY
+mission: qualify canonical existing HANGER DELETE record-index compaction before physical mutation
+scope:
+  delete_planner: IMPLEMENTED_CANONICAL_LAYOUT_ONLY
+  create: BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
+  physical_rewrite: NOT_IMPLEMENTED
+  independent_postimage_validator: NOT_IMPLEMENTED
+  product_routing: NOT_CHANGED
+  alternate_layout_mutation: BLOCKED
+validation:
+  source_inspection: PASS
+  independent_arithmetic: PASS
+  focused_js_regression: AUTHORED_NOT_RUN_ENVIRONMENT
+  inherited_hanger_regression: NOT_RUN_ENVIRONMENT
+  writer2_regressions: NOT_RUN_ENVIRONMENT
+  full_repository: NOT_RUN_ENVIRONMENT
+  browser_product: NOT_RUN_ENVIRONMENT
+next_phase: physical canonical HANGER DELETE rewrite plus independent full-postimage validation
