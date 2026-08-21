@@ -113,13 +113,13 @@ export function applyCiiWriter2Composite({ targetDocument, targetGraph, transfer
   const mutations = arbitrateClaims(candidateClaims, original);
   if (!mutations.length) throw new Error('CII_WRITER_2_COMPOSITE_NO_PHYSICAL_MUTATIONS');
   const byteString = applyClaims(original, mutations); const bytes = byteStringToBytes(byteString);
-  return deepFreeze({
+  return Object.freeze({
     schema: 'CIIWorkspaceWriter2CompositeResult.v1', status: 'APPLIED', writer: 'WRITER_2', mode: 'ONE_ORIGINAL_PREIMAGE_COMPOSITE',
     byteString, bytes, text: new TextDecoder('utf-8').decode(bytes), byteLengthBefore: original.length, byteLengthAfter: byteString.length,
     mutationCount: mutations.length, mutations,
     familyMutationCounts: deepFreeze({ nodeNameOperations: nodeCount, sifDeleteOperations: sifDeleteCount,
       nodeNameClaims: nodeResult?.mutations?.length || 0, sifDeleteClaims: sifResult?.mutations?.length || 0 }),
-    components: deepFreeze({ nodeName: nodeResult, sifDelete: sifResult }),
+    components: Object.freeze({ nodeName: nodeResult, sifDelete: sifResult }),
   });
 }
 
