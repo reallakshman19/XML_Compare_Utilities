@@ -227,8 +227,8 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert.equal(applied.validation.sifDeleteOperations, 1);
   assert.equal(applied.validation.hangerDeleteOperations, 1);
   const after = await intakeCiiWorkspaceDocument(new TextEncoder().encode(applied.byteString), applied.fileName, { side: 'TARGET', cryptoRef: webcrypto });
-  assert.equal(after.nodeNames.byNode['20'], 'P-20');
-  assert.equal(after.sifWriter1CEvidence.blockCount, 0);
+  assert.equal(after.nodeNames['20'], 'P-20');
+  assert.equal(after.sifWriter1CEvidence.controlBlockCount, 0);
   assert.equal(after.hangerEvidence.count, 0);
   assert.equal(after.hangerEvidence.layout, CII_HANGER_LAYOUTS.NONE);
 }
