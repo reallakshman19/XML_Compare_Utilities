@@ -128,9 +128,12 @@ function rawPlan(operations, blockers = []) {
   assert(core.includes("['1A', '1B', '1C', '2']"));
   assert(core.includes("? options.writerVersion : '1B'"), 'production default must remain Writer 1B');
   assert(core.includes('applyCiiWorkspaceTargetWriter2'));
-  assert(core.includes("version === '2' ? applyCiiWriter2NodeNamePlanContract"));
+  assert(core.includes("version === '2' ? applyCiiWriter2CompositePlanContract"));
   assert(core.includes("['1C', '2'].includes(version)"));
+  assert(core.includes('applyCiiWriter2Composite({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan })'));
+  assert(core.includes('validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
   assert(scope.includes("preview?.writerVersion === '2'"));
+  assert(scope.includes('ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph)'));
   assert(scope.includes("['1A', '1B', '1C', '2']"));
   assert(ui.includes('applyCiiWorkspaceTargetWriter2'));
   assert(ui.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
@@ -139,4 +142,4 @@ function rawPlan(operations, blockers = []) {
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
-console.log('Writer 2 product/core routing remains NODENAME-cardinality-only and scope bound.');
+console.log('Writer 2 standalone NODENAME authority remains qualified while product/core routing uses the one-preimage composite.');

@@ -23,12 +23,12 @@ import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { applyCiiTargetWriterComposite, ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
-import { applyCiiWriter2NodeNamePlanContract, ciiWriter2NodeNameReadiness } from './cii-workspace-writer2-routing.js';
-import { applyCiiWriter2NodeNameRelocation } from './cii-workspace-writer2-nodename-write.js';
+import { applyCiiWriter2CompositePlanContract, ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
+import { applyCiiWriter2Composite } from './cii-workspace-writer2-composite.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
-import { validateCiiWriter2NodeNameRoundTrip } from './cii-workspace-writer2-nodename-validation.js';
+import { validateCiiWriter2CompositeRoundTrip } from './cii-workspace-writer2-composite-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -87,11 +87,11 @@ function writer1CPlanContract(plan) {
     sifTeeMutation: 'V11_ITEM3_ITEM4_EXISTING_BLOCK_EXPLICIT_GE_1_WITH_CODE_CONTEXT',
   }) });
 }
-function readinessFor(version, plan, targetDocument) {
+function readinessFor(version, plan, targetDocument, targetGraph) {
   if (version === '1A') return ciiWriter1AReadiness(plan);
   if (version === '1B') return ciiWriter1BReadiness(plan);
   if (version === '1C') return ciiWriterCompositeReadiness(plan, targetDocument);
-  if (version === '2') return ciiWriter2NodeNameReadiness(plan, targetDocument);
+  if (version === '2') return ciiWriter2CompositeReadiness(plan, targetDocument, targetGraph);
   return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
     mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${version}`]) });
 }
@@ -227,8 +227,8 @@ export async function createCiiWorkspacePreview(input, options = {}) {
     { ...options, writerVersion: version });
   const transferPlan = version === '1A' ? writer1APlanContract(rawTransferPlan)
     : version === '1C' ? writer1CPlanContract(rawTransferPlan)
-      : version === '2' ? applyCiiWriter2NodeNamePlanContract(rawTransferPlan) : rawTransferPlan;
-  const writerReadiness = readinessFor(version, transferPlan, targetDocument);
+      : version === '2' ? applyCiiWriter2CompositePlanContract(rawTransferPlan) : rawTransferPlan;
+  const writerReadiness = readinessFor(version, transferPlan, targetDocument, targetGraph);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence, pathAudit, correspondence, review, engineeringDeltas,
     compareReview, transferPlan, landmarks, writerReadiness, version);
   const result = { writerVersion: version, stages: createCiiWorkspaceStageModel(writerReadiness), sourceDocument, targetDocument, landmarks,
@@ -248,7 +248,7 @@ function applyLowLevelWriter(version, currentTarget, targetGraph, preview) {
   if (version === '1A') return applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1B') return applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1C') return applyCiiTargetWriterComposite({ targetDocument: currentTarget, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
-  if (version === '2') return applyCiiWriter2NodeNameRelocation({ targetDocument: currentTarget, transferPlan: preview.transferPlan });
+  if (version === '2') return applyCiiWriter2Composite({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan });
   throw new Error(`CII_WRITER_VERSION_UNSUPPORTED:${version}`);
 }
 async function validateCompositeComponents(currentTarget, targetGraph, writerResult, options, fileName) {
@@ -278,7 +278,7 @@ async function applyWriter(preview, targetInput, options, version) {
     const componentValidations = await validateCompositeComponents(currentTarget, targetGraph, writerResult, options, preview.targetDocument.fileName);
     validation = validateCiiWriterCompositeRoundTrip(currentTarget, modifiedTarget, writerResult, componentValidations);
   } else if (version === '2') {
-    const writer2Validation = validateCiiWriter2NodeNameRoundTrip(currentTarget, modifiedTarget, preview.transferPlan, writerResult);
+    const writer2Validation = validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult);
     validation = deepFreeze({ ...writer2Validation, unexpectedSemanticDeltaCount: 0 });
   } else {
     validation = validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
