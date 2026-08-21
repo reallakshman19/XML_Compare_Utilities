@@ -7,27 +7,40 @@ import { buildCiiHangerEvidence, CII_HANGER_LAYOUTS } from '../tabs/cii-workspac
 import {
   applyCiiWriter2HangerDeletePlanContract, buildCiiWriter2HangerDeletePlan,
   CII_WRITER_2_HANGER_CREATE_BLOCKER, CII_WRITER_2_HANGER_DELETE_POLICY,
+  CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER,
 } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 function numericRow(values) { return values.map((value, index) => String(value ?? '').padStart(WIDTHS[index] || 13, ' ')).join(''); }
+function packedIntegerRow(values) { return `  ${values.map((value) => String(value).padStart(13, ' ')).join('')}`; }
 function control(numelt, nohgrs, numnoz = 0) {
   return [numericRow([numelt, numnoz, nohgrs, 0, 0, 0]), numericRow([0, 0, 0, 0, 0, 0]),
     numericRow([0, 0, 0, 0, 0, 0]), numericRow([0])];
 }
 function executionRows() { return [numericRow([0, 0, 0, 2, 0, 1]), numericRow([0, 0, 21, 21, 0, 0]), numericRow([0, 0, 0, 0, 0, 3]), numericRow([3])]; }
-function canonicalTarget(nodes) {
+function hangerRows(node, index) {
+  const hgrdat = [numericRow([100 + index, 25, 0, 0, 0, 0]), numericRow([0, 9999, index, 0, 0])];
+  const tagGuid = [`       ${String(`H${node}`).length.toString().padStart(5, ' ')} H${node}`, '           0 '];
+  return { hgrdat, tagGuid };
+}
+function canonicalTarget(nodes, tailOrder = 'INTERLEAVED', mutate = null) {
   const count = nodes.length; const elementCount = Math.max(1, count);
   const rrmat = [numericRow(Array.from({ length: elementCount }, () => 106))];
-  const defaults = [numericRow([1, 25, 0, 9999, 1, 1]), numericRow([1, 0, 1, 1, 1])];
-  const hgrdat = nodes.flatMap((node, index) => [numericRow([100 + index, 25, 0, 0, 0, 0]), numericRow([0, 9999, index, 0, 0])]);
-  const tagGuid = nodes.flatMap((node) => [`       ${String(node).length.toString().padStart(5, ' ')} H${node}`, '           0 ']);
-  const free = nodes.map((node, index) => numericRow([node, 0, index + 1, 0]));
+  const defaults = [numericRow([1, 25, 0, 9999, 1, 1]), packedIntegerRow([1, 0, 1, 1, 1])];
+  const records = nodes.map((node, index) => hangerRows(node, index));
+  const hgrdatTagGuid = tailOrder === 'INTERLEAVED'
+    ? records.flatMap((record) => [...record.hgrdat, ...record.tagGuid])
+    : [...records.flatMap((record) => record.hgrdat), ...records.flatMap((record) => record.tagGuid)];
+  const free = nodes.map((node, index) => packedIntegerRow([node, 0, index + 1, 0]));
+  const packed = [
+    packedIntegerRow(nodes.map((_, index) => index + 10)),
+    packedIntegerRow(nodes.map((_, index) => index + 20)),
+    packedIntegerRow(nodes.map((_, index) => index + 30)),
+    packedIntegerRow(nodes.map((_, index) => index + 40)),
+  ];
+  if (mutate === 'BAD_IHGRNUM_PREFIX') packed[0] = `X ${packed[0].slice(2)}`;
   const body = ['#$ CONTROL', ...control(elementCount, count), '#$ MISCEL_1', ...rrmat, ...defaults,
-    numericRow(nodes), ...hgrdat, ...tagGuid, ...free,
-    numericRow(nodes.map((_, index) => index + 10)), numericRow(nodes.map((_, index) => index + 20)),
-    numericRow(nodes.map((_, index) => index + 30)), numericRow(nodes.map((_, index) => index + 40)),
-    ...executionRows()].join('\r\n') + '\r\n';
+    packedIntegerRow(nodes), ...hgrdatTagGuid, ...free, ...packed, ...executionRows()].join('\r\n') + '\r\n';
   const parsed = Object.freeze({
     elements: Object.freeze(Array.from({ length: elementCount }, (_, index) => Object.freeze({ index, from: 10 + index * 10, to: 20 + index * 10 }))),
     nodes: Object.freeze(Object.fromEntries([...new Set([10, 20, 30, 40, 50, ...nodes])].map((node) => [String(node), Object.freeze({})]))),
@@ -38,9 +51,9 @@ function canonicalTarget(nodes) {
 }
 function inputXmlCurrentTarget(node = 20) {
   const body = ['#$ CONTROL', ...control(1, 1), '#$ MISCEL_1', numericRow([106]),
-    numericRow([1, 25, 0, 9999, 1, 1]), numericRow([1, 0, 1, 1, 1]),
-    numericRow([0, 25, 0, 0, 0, 0]), numericRow([0, 9999, 0, 0, 0]), '           0 ', '           0 ', numericRow([0, 0, 0, 0]),
-    numericRow([node]), numericRow([0]), numericRow([1]), numericRow([0]), numericRow([0]), ...executionRows()].join('\r\n') + '\r\n';
+    numericRow([1, 25, 0, 9999, 1, 1]), packedIntegerRow([1, 0, 1, 1, 1]),
+    numericRow([0, 25, 0, 0, 0, 0]), numericRow([0, 9999, 0, 0, 0]), '           0 ', '           0 ', packedIntegerRow([0, 0, 0, 0]),
+    packedIntegerRow([node]), packedIntegerRow([0]), packedIntegerRow([1]), packedIntegerRow([0]), packedIntegerRow([0]), ...executionRows()].join('\r\n') + '\r\n';
   const parsed = Object.freeze({ elements: Object.freeze([Object.freeze({ index: 0, from: 10, to: 20 })]), nodes: Object.freeze({ 10: Object.freeze({}), 20: Object.freeze({}) }) });
   const physicalFile = createCiiPhysicalFile(new TextEncoder().encode(body));
   const hangerEvidence = buildCiiHangerEvidence(physicalFile.text, parsed);
@@ -71,27 +84,44 @@ function bound(contracted, decisions = () => 'APPLY') {
     transferScope: Object.freeze({ status: 'BOUND' }) });
 }
 
-// Canonical synthetic three-record case: delete the middle record and preserve index-parallel custody.
-{
-  const target = canonicalTarget([20, 30, 40]);
+// QF-1019-001: H>1 partial record compaction is not source-qualified because two repository emitters disagree on HGRDAT/TAG-GUID order.
+for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
+  const target = canonicalTarget([20, 30, 40], tailOrder);
   assert.equal(target.hangerEvidence.status, 'QUALIFIED');
   assert.equal(target.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER);
   const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(30, false, true)]));
-  assert.equal(contracted.status, 'PREVIEW_READY');
-  assert.equal(contracted.operations[0].policyAuthority, CII_WRITER_2_HANGER_DELETE_POLICY);
+  const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
+  assert.equal(plan.ready, false);
+  assert(plan.blockers.includes(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER));
+  assert.equal(plan.compaction.partialRecordCompactionAuthorized, false);
+  assert.equal(plan.compaction.tailOrderAuthority, 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER');
+  assert.deepEqual(plan.oldToNewRecordIndex, { 1: 1, 2: 0, 3: 2 }, 'mapping remains testimony, not authorization');
+  assert.deepEqual(plan.compaction.retainedOpaqueHgrdatTagGuidRecordIndices, [], 'blocked partial compaction must not expose retained opaque-row authority');
+}
+
+// Delete-all does not require HGRDAT/TAG-GUID record ordering: the complete hanger payload is removed.
+for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
+  const target = canonicalTarget([20, 30, 40], tailOrder);
+  const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([
+    hangerOperation(20, false, true), hangerOperation(30, false, true), hangerOperation(40, false, true),
+  ]));
   const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
   assert.equal(plan.ready, true, plan.blockers.join('|'));
-  assert.equal(plan.countBefore, 3); assert.equal(plan.countAfter, 2);
-  assert.deepEqual(plan.deletedRecordIndices, [2]);
-  assert.deepEqual(plan.retainedRecordIndices, [1, 3]);
-  assert.deepEqual(plan.oldToNewRecordIndex, { 1: 1, 2: 0, 3: 2 });
-  assert.deepEqual(plan.retainedNodes, ['20', '40']);
-  for (const label of ['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']) {
-    assert.deepEqual(plan.compaction.retainedPackedFields[label].map((field) => field.valueIndex), [1, 3], `${label} must retain the same record indices`);
-  }
-  assert.deepEqual(plan.compaction.retainedHgrdatRecordIndices, [1, 3]);
-  assert.deepEqual(plan.compaction.retainedTagGuidRecordIndices, [1, 3]);
-  assert.deepEqual(plan.compaction.retainedIhgrfreeRecordIndices, [1, 3]);
+  assert.equal(plan.countBefore, 3); assert.equal(plan.countAfter, 0);
+  assert.deepEqual(plan.deletedRecordIndices, [1, 2, 3]);
+  assert.deepEqual(plan.oldToNewRecordIndex, { 1: 0, 2: 0, 3: 0 });
+  assert.equal(plan.compaction.deleteAll, true);
+  assert.equal(plan.compaction.tailOrderAuthority, 'NOT_REQUIRED_FOR_AUTHORIZED_DELETE');
+  assert.equal(plan.compaction.expectedMiscelRowsAfter, 5, '3 elements => one RRMAT row + four execution rows');
+}
+
+// Packed arrays are canonical 2X + 13-byte integer fields; a forged prefix blocks physical custody.
+{
+  const target = canonicalTarget([20], 'INTERLEAVED', 'BAD_IHGRNUM_PREFIX');
+  const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(20, false, true)]));
+  const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
+  assert.equal(plan.ready, false);
+  assert(plan.blockers.some((item) => item.startsWith('WRITER_2_HANGER_PACKED_PREFIX_REQUIRED:IHGRNUM:')));
 }
 
 // CREATE remains blocked because complete hanger construction/default semantics are not qualified.
@@ -113,7 +143,7 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert(plan.blockers.some((item) => item.startsWith('WRITER_2_HANGER_CANONICAL_LAYOUT_REQUIRED:')));
 }
 
-// Real CAESAR benchmark custody: the existing hanger at node 205 can be planned for complete deletion without interpreting HGRDAT values.
+// Real CAESAR benchmark custody: the one existing hanger at node 205 is delete-all, so the H>1 tail-order conflict is irrelevant.
 {
   const bytes = new Uint8Array(await readFile(new URL('../Benchmark/CIICompare/BM_CII_SOURCE.CII', import.meta.url)));
   const target = await intakeCiiWorkspaceDocument(bytes, 'BM_CII_SOURCE.CII', { side: 'TARGET', cryptoRef: webcrypto });
@@ -130,8 +160,9 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert.equal(plan.physicalCustody.rrmatRows, 7);
   assert.equal(plan.physicalCustody.nozzleRows, 0);
   assert.equal(plan.physicalCustody.expectedRowCount, 23);
+  assert.equal(plan.physicalCustody.tailOrderAuthority, 'ORDER_EQUIVALENT_FOR_SINGLE_RECORD');
   assert.equal(plan.compaction.expectedMiscelRowsAfter, 11);
   assert.equal(plan.compaction.hangerHeaderRowsRetained, false);
 }
 
-console.log('Writer2 canonical HANGER DELETE planner custody checks authored.');
+console.log('Writer2 HANGER DELETE planner now fails closed on unresolved H>1 partial tail ordering.');
