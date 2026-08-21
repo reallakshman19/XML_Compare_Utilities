@@ -63,7 +63,7 @@ export function applyCiiWriter2NodeNamePlanContract(plan) {
   const operations = deepFreeze((plan.operations || []).map(routeOperation));
   const summary = operationSummary(operations);
   const blockers = (plan.blockers || []).filter((item) => item !== 'NO_TRANSFERABLE_PREVIEW_OPERATIONS');
-  if (!summary.previewReadyCount && !summary.protectedCount) blockers.push('NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS');
+  if (!summary.previewReadyCount) blockers.push('NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS');
   const uniqueBlockers = deepFreeze([...new Set(blockers)]);
   return deepFreeze({
     ...plan,
