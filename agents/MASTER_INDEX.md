@@ -4,15 +4,15 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1014 | Writer 2 V11 SIF/TEE existing-block DELETE relocation authority | DRAFT / ACTIVE | DELETE-only planning: exact owner binding, shared-pointer veto, 10-row block compaction, complete old→new pointer map, shifted ELEMENT SIF pointers, CONTROL after-count; CREATE hard-blocked | Review/qualify planner; successor implements physical block deletion + independent variable-length validator |
-| PR1013 | Writer 2 NODENAME product/core routing | MERGED 2026-08-21 · `70c7004f` | Explicit `writerVersion=2`; NODENAME CREATE/DELETE-only routing; scope-bound readiness; Phase-4B apply/re-intake/validation; binary export | Preserve unchanged while extending Writer2 by separate family PRs |
-| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT NODENAME pointers + variable-length NODENAME payload; independent exact full-postimage validator | Historical Writer2 physical-relocation pattern |
-| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation, row compaction, complete pointer map, CONTROL after-count | Historical Writer2 planning pattern |
-| PR1010 | One-preimage Writer 1A + 1B + 1C composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified 1A/1B/1C claims from one untouched TARGET; independent final authorization | Preserve Writer-1 authority |
+| PR1015 | Writer 2 V11 SIF/TEE physical DELETE Phase-4B | DRAFT / ACTIVE | CONTROL SIF count + exact ELEMENT SIF pointers + byte-preserved variable-length SIF payload deletion; independent complete-postimage validator; CREATE hard-blocked | Run exact repository/real-CII qualification; after acceptance build one-preimage Writer2 NODENAME+SIF composite before product routing |
+| PR1014 | Writer 2 V11 SIF/TEE DELETE relocation authority | MERGED 2026-08-21 · `9a2984cb` | DELETE-only planning: exact owner binding, shared-pointer veto, 10-row block compaction, complete old→new pointer map, shifted ELEMENT SIF pointers, CONTROL after-count; CREATE hard-blocked | Reused unchanged by PR1015 physical transaction |
+| PR1013 | Writer 2 NODENAME product/core routing | MERGED 2026-08-21 · `70c7004f` | Explicit `writerVersion=2`; NODENAME CREATE/DELETE-only routing; scope-bound readiness; Phase-4B apply/re-intake/validation; binary export | Preserve default Writer1B behavior; successor composition must not sequentially mutate bytes |
+| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT NODENAME pointers + variable-length NODENAME payload; independent exact full-postimage validator | Reused by future Writer2 composite |
+| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation, row compaction, complete pointer map, CONTROL after-count | Reused by future Writer2 composite |
+| PR1010 | One-preimage Writer 1A + 1B + 1C composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified 1A/1B/1C claims from one untouched TARGET; independent final authorization | Architectural precedent for multi-family one-preimage composition |
 | PR1009 | Writer 1C V11 SIF selected-field mutation | MERGED 2026-08-20 · `d63e8c59` | Existing V11 block; slot1/2 item3 ii and item4 io; explicit >=1; code/Type gates; anti-drift validation | Field-level SIF authority remains unchanged |
 | PR1008 | Writer 1C exact ELEMENT/NODENAME custody | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical block + FROM/TO mutation custody; shared-span arbitration | Reused by relocation work |
-| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items1..26 named; item3/item4 selected Writer1C fields; items27..30 unresolved | Source authority for PR1009 and PR1014 CREATE blocker |
-| PR1004 | Writer 1C NODENAME fixed-field mutation | MERGED 2026-08-20 · `692be3fd` | Existing-pointer fixed-field overwrite from one original TARGET byte stream | Historical |
+| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items1..26 named; items27..30 unresolved; selected existing-block ii/io authority | Source authority for SIF CREATE blocker |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Writer1 fixed fields; Writer2 cardinality/pointers; Writer3 topology; Writer testimony not authority | Governing architecture |
 | PR1001 | Explicit APPLY / EXCLUDE transfer scope | MERGED 2026-08-19 · `5a5fa0ae` | Source/target hash + operation-set custody | Governing transaction scope |
 | PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Qualified fixed fields / restraint slice | Production default remains Writer 1B |
@@ -34,8 +34,8 @@ Writer 1C
   selected existing V11 SIF ii/io fields
 
 Writer 2
-  NODENAME CREATE/DELETE physical relocation + product routing
-  V11 SIF existing-block DELETE relocation planning (PR1014)
+  NODENAME CREATE/DELETE: planning + physical rewrite + product routing
+  V11 SIF existing-block DELETE: planning merged; physical rewrite in PR1015
 
 Writer 3
   topology mutation only
@@ -57,32 +57,23 @@ scoped NODENAME CREATE/DELETE
 
 No option supplied still resolves to Writer 1B. Writer 2 remains explicit.
 
-## PR1014 — V11 SIF block DELETE authority
+## Writer 2 SIF DELETE authority
 
-Source-qualified structure:
+### PR1014 — merged transaction planning
+
+V11 structure:
 
 ```text
 #$ SIF&TEES
-FORTRAN                  2X,6G13.6
-tee slots/block          2
-values/tee slot          30
-rows/tee slot             5
-rows/block               10
-ELEMENT SIF pointer       row13 field index4 (1-based block pointer)
-CONTROL SIF block count   row3 field index4
+2 tee slots / block
+30 values / slot
+5 rows / slot
+10 rows / block
+ELEMENT row13 field5       = 1-based SIF block pointer
+CONTROL payload row3 field5 = SIF block count
 ```
 
-V11 field qualification status:
-
-```text
-items 1..26              source-named
-items 27..30             UNRESOLVED
-unresolved physical      8 fields / block (4 x 2 slots)
-```
-
-The protected V11/V14 converter corroborates the two independent 30-value V11 slots and 10-row block boundary. It does not supply engineering semantics for items27..30.
-
-### DELETE plan
+DELETE plan:
 
 ```text
 explicit SIF/Tee record-presence DELETE
@@ -90,72 +81,116 @@ explicit SIF/Tee record-presence DELETE
  -> exact parsed-index + FROM/TO physical ELEMENT binding
  -> existing nonzero V11 SIF pointer
  -> all shared-pointer owners selected
- -> mark complete existing 10-row block for removal
+ -> mark complete 10-row block for removal
  -> compact retained block indices
  -> oldPointer -> newPointer map
  -> derive every changed ELEMENT SIF pointer
  -> derive CONTROL SIF-count_after
 ```
 
-Example:
+Critical case:
 
 ```text
-before: 1,2,3
-delete:   2
-after:  1,0,2
+before pointers: 1,2,3
+delete block:       2
+after pointers:  1,0,2
 mapping: 1->1, 2->0, 3->2
 ```
 
-The `3->2` shift is a transaction consequence and must have exact 13-byte pointer-field custody.
+### PR1015 — physical transaction
 
-### CREATE hard blocker
+Only three physical replacements are authorized:
+
+```text
+CONTROL_SIF_TEE_COUNT
+ELEMENT_SIF_TEE_POINTER
+SIF_TEE_SECTION_PAYLOAD
+```
+
+The SIF payload is not regenerated numerically. Every retained 10-row block is copied from original TARGET byte spans, including the original line endings, and selected blocks are omitted.
+
+Deleting all blocks is a supported DELETE postimage:
+
+```text
+CONTROL SIF count -> 0
+all owning ELEMENT SIF pointers -> 0
+SIF payload -> empty
+section marker -> retained
+```
+
+Primary validator proof:
+
+```text
+untouched TARGET + targetGraph + bound transfer plan
+ -> independently rebuild PR1014 relocation plan
+ -> independently derive CONTROL/pointer/payload replacements
+ -> independently build complete expected variable-length postimage
+
+PASS only if actual post bytes == independent expected post bytes
+```
+
+Writer mutation/relocation ledgers are testimony only.
+
+### CREATE remains hard-blocked
 
 ```text
 WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 ```
 
-Not authorized:
+V11 items27..30 remain unresolved in each tee slot. Not authorized:
 
 - opaque SOURCE 10-row block copy;
-- zero/default fill for unresolved items;
-- later-edition field inference;
-- assumption that structural converter logic equals V11 semantic authority.
+- zero/default synthesis;
+- later-edition inference;
+- assumption that converter structure establishes missing engineering semantics.
 
-CREATE may be revisited only after complete V11 block construction/default semantics are source-qualified or a separately qualified exact whole-block semantic transfer contract exists.
+## Critical next Writer2 architecture gate
+
+Do not route SIF DELETE as a sequential second pass after the existing NODENAME Writer2 transaction.
+
+Both families can change byte length. Second-pass offsets would then be based on an intermediate postimage instead of the untouched TARGET.
+
+Required successor architecture:
+
+```text
+one untouched TARGET
+ |-- NODENAME relocation plan -> original-coordinate replacements
+ |-- SIF DELETE relocation plan -> original-coordinate replacements
+
+all Writer2 replacements
+ -> cross-family same-span / partial-overlap arbitration
+ -> patch one original byte stream once
+ -> re-intake
+ -> independently rebuild both family plans
+ -> independently build final complete expected postimage
+ -> exact byte equality
+```
+
+Expected disjoint physical families must be proven, not assumed:
+
+```text
+CONTROL.NONAM              vs CONTROL SIF count
+ELEMENT NODENAME pointer   vs ELEMENT SIF pointer
+NODENAME payload           vs SIF&TEES payload
+```
+
+Only after that composite is qualified should `writerVersion=2` product routing admit mixed NODENAME + SIF DELETE transactions.
 
 ## Current validation truth
 
 ```text
-PR1013 merge / current-main grounding                  PASS
-PR1014 branch ancestry                                 PASS_GIT_COMPARE
-V11 SIF source/shape review                            PASS_SOURCE_INSPECTION
-items27..30 unresolved gate                            PASS_SOURCE_INSPECTION
-protected converter structural corroboration           PASS_SOURCE_INSPECTION
-independent delete/compaction arithmetic                PASS_INDEPENDENT_SIF_DELETE_RELOCATION_ORACLE
-independent shared-owner veto                           PASS_INDEPENDENT_SIF_DELETE_RELOCATION_ORACLE
-PR1014 repository regression                            AUTHORED_NOT_RUN_ENVIRONMENT
-inherited Writer1 regressions                           NOT_RUN_ENVIRONMENT
-full npm test                                           NOT_RUN_ENVIRONMENT
-browser/product flow                                    NOT_RUN_ENVIRONMENT
+PR1014 merge / PR1015 base grounding                  PASS
+canonical V11 CONTROL SIF count representation        PASS_SOURCE_INSPECTION
+PR1015 writer source audit                             PASS_SOURCE_INSPECTION
+PR1015 validator source audit                          PASS_SOURCE_INSPECTION
+PR1015 physical regression                             AUTHORED_NOT_RUN_ENVIRONMENT
+exact repository checkout                              BLOCKED_ENVIRONMENT_DNS
+inherited Writer1 / Writer2 NODENAME regressions       NOT_RUN_ENVIRONMENT
+full npm test                                          NOT_RUN_ENVIRONMENT
+browser / product flow                                 NOT_RUN_ENVIRONMENT
+real-CII SIF DELETE export/re-intake                    NOT_RUN_ENVIRONMENT
 ```
 
-The execution container still cannot resolve `github.com` for a complete checkout. No unexecuted repository test is represented as PASS.
+Exact checkout remains blocked by `Could not resolve host: github.com`. No unexecuted repository/browser test is represented as PASS.
 
-## Exact next phase after PR1014 disposition
-
-Separate PR:
-
-```text
-reuse PR1014 DELETE relocation plan
- -> update CONTROL SIF count
- -> update all changed ELEMENT SIF pointers
- -> physically remove selected complete 10-row SIF blocks
- -> preserve retained block bytes and ordering
- -> re-intake
- -> independently reconstruct complete expected variable-length postimage
- -> require actual bytes == independent expected bytes
-```
-
-SIF CREATE remains blocked unless semantic qualification changes first.
-
-See `agents/PR1014_workreport.md`, `agents/status/PR1014.yaml`, and `agents/claims/PR1014.yaml`.
+See `agents/PR1015_workreport.md`, `agents/status/PR1015.yaml`, and `agents/claims/PR1015.yaml`.
