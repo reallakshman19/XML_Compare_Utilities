@@ -23,9 +23,12 @@ import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { applyCiiTargetWriterComposite, ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
+import { applyCiiWriter2NodeNamePlanContract, ciiWriter2NodeNameReadiness } from './cii-workspace-writer2-routing.js';
+import { applyCiiWriter2NodeNameRelocation } from './cii-workspace-writer2-nodename-write.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
+import { validateCiiWriter2NodeNameRoundTrip } from './cii-workspace-writer2-nodename-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -65,7 +68,7 @@ function geometryPairs(sourceGraph, targetGraph, anchors) {
   });
 }
 function writerVersion(options) {
-  return ['1A', '1B', '1C'].includes(options?.writerVersion) ? options.writerVersion : '1B';
+  return ['1A', '1B', '1C', '2'].includes(options?.writerVersion) ? options.writerVersion : '1B';
 }
 function writerLabel(version) { return `WRITER_${version}`; }
 function writer1APlanContract(plan) {
@@ -88,6 +91,7 @@ function readinessFor(version, plan, targetDocument) {
   if (version === '1A') return ciiWriter1AReadiness(plan);
   if (version === '1B') return ciiWriter1BReadiness(plan);
   if (version === '1C') return ciiWriterCompositeReadiness(plan, targetDocument);
+  if (version === '2') return ciiWriter2NodeNameReadiness(plan, targetDocument);
   return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
     mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${version}`]) });
 }
@@ -203,21 +207,27 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const baseDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
-  const extendedWriter = version !== '1A';
-  const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
-  const pairedDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(fieldDeltas, sourceDocument, targetDocument, correspondence, options);
-  const slotDeltas = extendedWriter
-    ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence,
-      sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options)
-    : pairedDeltas;
-  const engineeringDeltas = version === '1C'
-    ? augmentCiiEngineeringDeltasWithWriter1CSifFields(slotDeltas, sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence)
-    : slotDeltas;
+  let engineeringDeltas;
+  if (version === '2') {
+    engineeringDeltas = baseDeltas;
+  } else {
+    const extendedWriter = version !== '1A';
+    const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
+    const pairedDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(fieldDeltas, sourceDocument, targetDocument, correspondence, options);
+    const slotDeltas = extendedWriter
+      ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence,
+        sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options)
+      : pairedDeltas;
+    engineeringDeltas = version === '1C'
+      ? augmentCiiEngineeringDeltasWithWriter1CSifFields(slotDeltas, sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence)
+      : slotDeltas;
+  }
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
   const rawTransferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas,
     { ...options, writerVersion: version });
   const transferPlan = version === '1A' ? writer1APlanContract(rawTransferPlan)
-    : version === '1C' ? writer1CPlanContract(rawTransferPlan) : rawTransferPlan;
+    : version === '1C' ? writer1CPlanContract(rawTransferPlan)
+      : version === '2' ? applyCiiWriter2NodeNamePlanContract(rawTransferPlan) : rawTransferPlan;
   const writerReadiness = readinessFor(version, transferPlan, targetDocument);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, multiBaseAuthority, multiBaseCorrespondence, pathAudit, correspondence, review, engineeringDeltas,
     compareReview, transferPlan, landmarks, writerReadiness, version);
@@ -238,6 +248,7 @@ function applyLowLevelWriter(version, currentTarget, targetGraph, preview) {
   if (version === '1A') return applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1B') return applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1C') return applyCiiTargetWriterComposite({ targetDocument: currentTarget, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
+  if (version === '2') return applyCiiWriter2NodeNameRelocation({ targetDocument: currentTarget, transferPlan: preview.transferPlan });
   throw new Error(`CII_WRITER_VERSION_UNSUPPORTED:${version}`);
 }
 async function validateCompositeComponents(currentTarget, targetGraph, writerResult, options, fileName) {
@@ -260,12 +271,15 @@ async function applyWriter(preview, targetInput, options, version) {
   const currentTarget = await currentTargetFor(preview, targetInput, options, label);
   const targetGraph = adaptCiiDocumentToTopologyGraph(currentTarget);
   const writerResult = applyLowLevelWriter(version, currentTarget, targetGraph, preview);
-  const modifiedInput = version === '1C' ? writerResult.bytes : writerResult.text;
+  const modifiedInput = ['1C', '2'].includes(version) ? writerResult.bytes : writerResult.text;
   const modifiedTarget = await intakeCiiWorkspaceDocument(modifiedInput, preview.targetDocument.fileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
   let validation;
   if (version === '1C') {
     const componentValidations = await validateCompositeComponents(currentTarget, targetGraph, writerResult, options, preview.targetDocument.fileName);
     validation = validateCiiWriterCompositeRoundTrip(currentTarget, modifiedTarget, writerResult, componentValidations);
+  } else if (version === '2') {
+    const writer2Validation = validateCiiWriter2NodeNameRoundTrip(currentTarget, modifiedTarget, preview.transferPlan, writerResult);
+    validation = deepFreeze({ ...writer2Validation, unexpectedSemanticDeltaCount: 0 });
   } else {
     validation = validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
   }
@@ -284,4 +298,7 @@ export async function applyCiiWorkspaceTargetWriter1B(preview, targetInput, opti
 }
 export async function applyCiiWorkspaceTargetWriter1C(preview, targetInput, options = {}) {
   return applyWriter(preview, targetInput, options, '1C');
+}
+export async function applyCiiWorkspaceTargetWriter2(preview, targetInput, options = {}) {
+  return applyWriter(preview, targetInput, options, '2');
 }
