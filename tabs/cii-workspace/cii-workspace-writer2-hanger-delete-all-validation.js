@@ -137,11 +137,12 @@ export function validateCiiWriter2HangerDeleteAllRoundTrip(before, after, transf
   if (plan?.compaction?.deleteAll !== true || Number(plan.countAfter) !== 0) errors.push('WRITER_2_HANGER_DELETE_ALL_SCOPE_NOT_PROVEN');
   if (plan.createAuthority?.ready !== false) errors.push('WRITER_2_HANGER_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
   const replacements = plan.ready && plan?.compaction?.deleteAll === true ? expectedReplacements(before, plan) : [];
-  const expectedBytes = replacements.length ? applyExpected(String(before?.physicalFile?.originalByteString || ''), replacements) : null;
+  const expectedBytes = plan.ready && plan?.compaction?.deleteAll === true
+    ? applyExpected(String(before?.physicalFile?.originalByteString || ''), replacements) : null;
   const actualBytes = String(after?.physicalFile?.originalByteString || '');
   if (after?.writer1CByteEligible !== true) errors.push('WRITER_2_HANGER_POST_ORIGINAL_BYTE_CUSTODY_NOT_QUALIFIED');
   if (expectedBytes != null && actualBytes !== expectedBytes) errors.push('WRITER_2_HANGER_EXACT_POSTIMAGE_MISMATCH');
-  if (writerResult?.byteString != null && String(writerResult.byteString) !== actualBytes) errors.push('WRITER_2_HANGER_RESULT_BYTES_MISMATCH');
+  if (String(writerResult?.byteString ?? '') !== actualBytes) errors.push('WRITER_2_HANGER_RESULT_BYTES_MISMATCH');
   if (stableStringify(mutationTestimony(writerResult)) !== stableStringify(expectedTestimony(replacements))) {
     errors.push('WRITER_2_HANGER_MUTATION_TESTIMONY_MISMATCH');
   }
@@ -150,6 +151,13 @@ export function validateCiiWriter2HangerDeleteAllRoundTrip(before, after, transf
     errors.push('WRITER_2_HANGER_RESULT_CONTRACT_MISMATCH');
   }
   if (Number(writerResult?.mutationCount) !== replacements.length) errors.push('WRITER_2_HANGER_MUTATION_COUNT_TESTIMONY_MISMATCH');
+  if (Number(writerResult?.hangerCountBefore) !== Number(plan.countBefore) || Number(writerResult?.hangerCountAfter) !== 0) {
+    errors.push('WRITER_2_HANGER_RESULT_COUNT_TESTIMONY_MISMATCH');
+  }
+  const beforeLength = String(before?.physicalFile?.originalByteString || '').length;
+  if (Number(writerResult?.byteLengthBefore) !== beforeLength || Number(writerResult?.byteLengthAfter) !== actualBytes.length) {
+    errors.push('WRITER_2_HANGER_RESULT_LENGTH_TESTIMONY_MISMATCH');
+  }
   if (controlCount(after) !== 0) errors.push('WRITER_2_HANGER_CONTROL_POSTCOUNT_MISMATCH');
   const expectedAfterRows = expectedPhysicalCounts(before).rowCountAfter;
   if (ciiPhysicalSectionRows(after?.physicalFile, 'MISCEL_1').length !== expectedAfterRows) errors.push('WRITER_2_HANGER_POST_ROW_COUNT_MISMATCH');
@@ -159,7 +167,7 @@ export function validateCiiWriter2HangerDeleteAllRoundTrip(before, after, transf
   }
   if (stableStringify(connectivity(before)) !== stableStringify(connectivity(after))) errors.push('WRITER_2_HANGER_CONNECTIVITY_CHANGED');
   if (stableStringify(sectionOrder(before)) !== stableStringify(sectionOrder(after))) errors.push('WRITER_2_HANGER_SECTION_ORDER_CHANGED');
-  if (writerResult?.deletePlan && stableStringify(planTestimony(writerResult.deletePlan)) !== stableStringify(planTestimony(plan))) {
+  if (!writerResult?.deletePlan || stableStringify(planTestimony(writerResult.deletePlan)) !== stableStringify(planTestimony(plan))) {
     errors.push('WRITER_2_HANGER_PLAN_TESTIMONY_MISMATCH');
   }
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_DELETE_ALL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
