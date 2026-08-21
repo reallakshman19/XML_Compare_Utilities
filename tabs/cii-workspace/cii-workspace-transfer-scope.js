@@ -2,7 +2,8 @@ import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId } from './cii-workspace-con
 import { ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
-import { ciiWriter2NodeNameReadiness } from './cii-workspace-writer2-routing.js';
+import { ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
+import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
@@ -137,7 +138,10 @@ function readinessFor(preview, transferPlan) {
   if (preview?.writerVersion === '1A') return ciiWriter1AReadiness(transferPlan);
   if (preview?.writerVersion === '1B') return ciiWriter1BReadiness(transferPlan);
   if (preview?.writerVersion === '1C') return ciiWriterCompositeReadiness(transferPlan, preview.targetDocument);
-  if (preview?.writerVersion === '2') return ciiWriter2NodeNameReadiness(transferPlan, preview.targetDocument);
+  if (preview?.writerVersion === '2') {
+    const targetGraph = adaptCiiDocumentToTopologyGraph(preview.targetDocument);
+    return ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph);
+  }
   return Object.freeze({ schema: 'CIIWorkspaceWriterReadiness.v1', status: 'BLOCKED', ready: false,
     mutationCount: 0, blockers: Object.freeze([`WRITER_VERSION_UNSUPPORTED:${preview?.writerVersion || 'EMPTY'}`]) });
 }
