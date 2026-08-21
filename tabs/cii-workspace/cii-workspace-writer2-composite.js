@@ -15,6 +15,14 @@ function sameStrings(left, right) {
   const a = sortedUnique(left); const b = sortedUnique(right);
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
+function exactIds(values, code) {
+  if (!Array.isArray(values)) throw new Error(`CII_WRITER_2_COMPOSITE_${code}_ARRAY_REQUIRED`);
+  const ids = values.map(text);
+  if (ids.some((id) => !id)) throw new Error(`CII_WRITER_2_COMPOSITE_${code}_ID_REQUIRED`);
+  if (new Set(ids).size !== ids.length) throw new Error(`CII_WRITER_2_COMPOSITE_${code}_DUPLICATE_ID`);
+  return Object.freeze([...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+}
+function exactOperationIds(operations, code) { return exactIds((operations || []).map(operationId), code); }
 function isMutable(operation) { return operation?.action !== 'KEEP'; }
 function isNodeMutation(operation) {
   return operation?.scopeDecision === 'APPLY'
@@ -46,12 +54,19 @@ function assertBoundScopeCustody(transferPlan, targetDocument) {
   if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope?.scopeId)) {
     throw new Error('CII_WRITER_2_COMPOSITE_CANONICAL_BOUND_SCOPE_REQUIRED');
   }
-  const appliedIds = sortedUnique(appliedOperations(transferPlan).filter(isMutable).map(operationId));
-  const excludedIds = sortedUnique(excludedOperations(transferPlan).filter(isMutable).map(operationId));
-  const candidateIds = sortedUnique([...appliedIds, ...excludedIds]);
-  if (!sameStrings(appliedIds, scope.appliedOperationIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_APPLY_SET_MISMATCH');
-  if (!sameStrings(excludedIds, scope.excludedOperationIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_EXCLUDE_SET_MISMATCH');
-  if (!sameStrings(candidateIds, scope.candidateOperationIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_CANDIDATE_SET_MISMATCH');
+  const allPlanRows = [...(transferPlan?.operations || []), ...(transferPlan?.excludedOperations || [])];
+  exactOperationIds(allPlanRows, 'PLAN_OPERATION');
+  const appliedRows = appliedOperations(transferPlan).filter(isMutable); const excludedRows = excludedOperations(transferPlan).filter(isMutable);
+  const appliedIds = exactOperationIds(appliedRows, 'PLAN_APPLY'); const excludedIds = exactOperationIds(excludedRows, 'PLAN_EXCLUDE');
+  if (appliedIds.some((id) => excludedIds.includes(id))) throw new Error('CII_WRITER_2_COMPOSITE_PLAN_APPLY_EXCLUDE_OVERLAP');
+  const candidateIds = Object.freeze([...appliedIds, ...excludedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+  const scopeAppliedIds = exactIds(scope.appliedOperationIds, 'SCOPE_APPLY');
+  const scopeExcludedIds = exactIds(scope.excludedOperationIds, 'SCOPE_EXCLUDE');
+  const scopeCandidateIds = exactIds(scope.candidateOperationIds, 'SCOPE_CANDIDATE');
+  if (scopeAppliedIds.some((id) => scopeExcludedIds.includes(id))) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_APPLY_EXCLUDE_OVERLAP');
+  if (!sameStrings(appliedIds, scopeAppliedIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_APPLY_SET_MISMATCH');
+  if (!sameStrings(excludedIds, scopeExcludedIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_EXCLUDE_SET_MISMATCH');
+  if (!sameStrings(candidateIds, scopeCandidateIds)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_CANDIDATE_SET_MISMATCH');
   const sourceSha = text(transferPlan?.sourceDocument?.contentSha256); const targetSha = text(transferPlan?.targetDocument?.contentSha256);
   if (!sourceSha || sourceSha !== text(scope.sourceSha256)) throw new Error('CII_WRITER_2_COMPOSITE_SCOPE_SOURCE_HASH_MISMATCH');
   if (!targetSha || targetSha !== text(scope.targetSha256) || targetSha !== text(targetDocument?.contentSha256)) {
@@ -162,5 +177,5 @@ export function applyCiiWriter2Composite({ targetDocument, targetGraph, transfer
   });
 }
 
-export const _test = deepFreeze({ text, operationId, sortedUnique, sameStrings, isNodeMutation, isSifCreate, isSifDelete, supportedApply,
-  appliedOperations, excludedOperations, assertBoundScopeCustody, projectTransferPlan, normalizeClaim, arbitrateClaims, applyClaims });
+export const _test = deepFreeze({ text, operationId, sortedUnique, sameStrings, exactIds, exactOperationIds, isNodeMutation, isSifCreate, isSifDelete,
+  supportedApply, appliedOperations, excludedOperations, assertBoundScopeCustody, projectTransferPlan, normalizeClaim, arbitrateClaims, applyClaims });
