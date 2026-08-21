@@ -1,6 +1,6 @@
 import { mountCiiWorkspaceEngineeringShell } from './cii-workspace-engineering-ui.js';
 import {
-  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C,
+  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C, applyCiiWorkspaceTargetWriter2,
 } from './cii-workspace-core.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiEngineeringDeltaMarkup, ciiEngineeringValueText, ciiTransferPreviewMarkup } from './cii-workspace-review-presentation.js';
@@ -26,8 +26,8 @@ function download(documentRef, name, payload, type) {
   link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function downloadApplied(documentRef, applied) {
-  const payload = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string'
-    ? binaryBytes(applied.byteString) : applied?.text;
+  const byteAuthoritative = ['WRITER_1C', 'WRITER_2'].includes(applied?.writer) && typeof applied?.byteString === 'string';
+  const payload = byteAuthoritative ? binaryBytes(applied.byteString) : applied?.text;
   download(documentRef, applied.fileName, payload, 'text/plain');
 }
 function stageMarkup(readiness) {
@@ -79,6 +79,7 @@ function statusText(view, reviewDirty) {
 function applyFunction(version) {
   if (version === '1A') return applyCiiWorkspaceTargetWriter1A;
   if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
+  if (version === '2') return applyCiiWorkspaceTargetWriter2;
   return applyCiiWorkspaceTargetWriter1B;
 }
 function normalizedCode(value) { return String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase(); }
