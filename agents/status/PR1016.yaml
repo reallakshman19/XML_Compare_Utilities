@@ -1,0 +1,28 @@
+pr: 1016
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-composite-one-preimage
+base: d5ecd8ac356cebba6027d7d6446e644053632565
+state: DRAFT_ACTIVE
+handover_readiness: READY
+mission: one-original-preimage Writer2 composite for NODENAME cardinality and V11 SIF DELETE
+merge_authority: OWNER_ONLY
+current_stage: COMPOSITE_WRITER_AND_INDEPENDENT_VALIDATOR_AUTHORED
+scope:
+  - NODENAME_CREATE_DELETE
+  - V11_SIF_EXISTING_BLOCK_DELETE
+  - ORIGINAL_COORDINATE_CLAIM_ARBITRATION
+  - SINGLE_BYTE_PATCH
+  - INDEPENDENT_FULL_POSTIMAGE_VALIDATION
+blocked:
+  - SIF_CREATE_ITEMS_27_30_UNRESOLVED
+  - HANGER_CARDINALITY
+  - GENERIC_AUXILIARY_RELOCATION
+  - WRITER3_TOPOLOGY
+  - PRODUCT_CORE_ROUTING_IN_THIS_PR
+validation:
+  branch_grounding: PASS_GIT_COMPARE
+  source_syntax: PASS_LOCAL_SOURCE_BEFORE_PUBLICATION
+  uint8array_freeze_falsifier: PASS_LOCAL_REPRODUCTION_AND_SOURCE_FIX
+  repository_composite_test: AUTHORED_NOT_RUN_ENVIRONMENT
+  full_repository: NOT_RUN_ENVIRONMENT
+  browser: NOT_RUN_ENVIRONMENT
