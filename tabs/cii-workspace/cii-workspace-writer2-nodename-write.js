@@ -47,6 +47,7 @@ function lineEndingText(kind) {
 function nodenamePayloadReplacement(targetDocument, relocationPlan) {
   const envelope = rawSectionEnvelope(targetDocument?.physicalFile, NODENAME_MARKER);
   if (envelope.rows.some((row) => !String(row.text || '').trim())) throw new Error('CII_WRITER_2_NODENAME_BLANK_PHYSICAL_ROWS_UNSUPPORTED');
+  if (envelope.rows.some((row) => String(row.text || '').length !== 53)) throw new Error('CII_WRITER_2_NODENAME_ROW_WIDTH_NOT_53');
   if (envelope.rows.length !== Number(relocationPlan.rowCountBefore)) {
     throw new Error(`CII_WRITER_2_NODENAME_RAW_ROW_COUNT_MISMATCH:${envelope.rows.length}:${relocationPlan.rowCountBefore}`);
   }
@@ -74,7 +75,7 @@ function controlReplacement(targetDocument, relocationPlan) {
   const beforeField = bytes.slice(byteStart, byteEnd);
   const expectedBefore = integerField(relocationPlan.controlCountBefore, CONTROL_FIELD_WIDTH, 'CII_WRITER_2_CONTROL_BEFORE');
   if (Number(relocationPlan.controlCountBefore) !== Number(relocationPlan.rowCountBefore)) throw new Error('CII_WRITER_2_CONTROL_PLAN_PRECOUNT_MISMATCH');
-  if (!beforeField.trim()) throw new Error('CII_WRITER_2_CONTROL_PREIMAGE_EMPTY');
+  if (beforeField !== expectedBefore) throw new Error('CII_WRITER_2_CONTROL_PREIMAGE_FORMAT_MISMATCH');
   return Object.freeze({
     kind: 'CONTROL_NONAM', byteStart, byteEnd, beforeField,
     afterField: integerField(relocationPlan.controlCountAfter, CONTROL_FIELD_WIDTH, 'CII_WRITER_2_CONTROL_AFTER'),
