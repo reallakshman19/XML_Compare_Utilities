@@ -6,7 +6,6 @@ import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-
 import { buildCiiHangerEvidence, CII_HANGER_LAYOUTS } from '../tabs/cii-workspace/cii-workspace-hanger.js';
 import {
   applyCiiWriter2HangerDeletePlanContract, CII_WRITER_2_HANGER_DELETE_POLICY,
-  CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER,
 } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js';
 import {
   applyCiiWriter2HangerDeleteAll, _test as writerTest,
@@ -123,7 +122,7 @@ for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   assert.deepEqual(sectionRows(after, 'MISCEL_1'), [originalMiscel[0], ...originalMiscel.slice(-4)]);
 }
 
-// Partial H>1 selection remains blocked before physical mutation.
+// Partial H>1 may now be planner-qualified, but this physical writer remains delete-all-only.
 {
   const before = syntheticTarget([20, 30, 40]);
   const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(30)]));
@@ -131,7 +130,7 @@ for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
     operations: Object.freeze(contracted.operations.map((item) => Object.freeze({ ...item, scopeDecision: 'APPLY' }))),
     excludedOperations: Object.freeze([]), transferScope: Object.freeze({ status: 'BOUND' }) });
   assert.throws(() => applyCiiWriter2HangerDeleteAll({ targetDocument: before, transferPlan }),
-    new RegExp(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER));
+    /CII_WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED/);
 }
 
 // Unrelated postimage tamper must fail exact independent postimage equality.
