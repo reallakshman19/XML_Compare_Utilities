@@ -153,10 +153,13 @@ export function qualifyCiiWriter2HangerTailOrder(rows, count) {
 export function retainedCiiWriter2HangerTailRows(qualification, retainedRecordIndices) {
   if (qualification?.status !== 'QUALIFIED') return Object.freeze([]);
   const retained = new Set((retainedRecordIndices || []).map(Number));
+  const records = (qualification.records || []).filter((record) => retained.has(Number(record.recordIndex)));
   const indices = [];
-  for (const record of qualification.records || []) {
-    if (!retained.has(Number(record.recordIndex))) continue;
-    indices.push(...record.hgrdatRowIndices, record.tagRowIndex, record.guidRowIndex);
+  if (qualification.order === CII_WRITER_2_HANGER_TAIL_ORDERS.GROUPED) {
+    for (const record of records) indices.push(...record.hgrdatRowIndices);
+    for (const record of records) indices.push(record.tagRowIndex, record.guidRowIndex);
+  } else {
+    for (const record of records) indices.push(...record.hgrdatRowIndices, record.tagRowIndex, record.guidRowIndex);
   }
   return Object.freeze(indices);
 }
