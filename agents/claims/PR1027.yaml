@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_VALIDATION_PENDING
+claim_state: ACTIVE_VALIDATION_PARTIAL_PASS
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -56,5 +56,11 @@ negative_assurance:
   - no SIF CREATE
   - no Writer3 topology
   - no workflow or package-script changes
-last_verified_head_basis: d3fd66de6ec3b7acb2c1897bbb4400c30a2cda0b
-last_updated: 2026-08-22T22:53:00+05:30
+validation_custody:
+  exact_component_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
+  focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
+  native_exact_checkout: NOT_AVAILABLE
+  f28_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
+  full_repository: NOT_RUN_ENVIRONMENT
+last_verified_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
+last_updated: 2026-08-22T23:09:00+05:30
