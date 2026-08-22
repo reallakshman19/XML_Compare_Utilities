@@ -7,348 +7,249 @@
 ```text
 HANDOVER_READINESS: READY
 PR_RECOVERY_STATE: HEALTHY
-TAKEOVER_AUTHORITY: RESTRICTED
+TAKEOVER_AUTHORITY: WRITE_ALLOWED
 
 EXECUTION_MODE: MANUAL
 AUTO_STATE: NOT_ACTIVE
 SCOPE_AUTHORITY: LOCKED_TO_APPROVED_MISSION
 PHASE_PROGRESSION: MANUAL
 MERGE_AUTHORITY: OWNER_ONLY
-AUTO_STOP_REASON: NOT_APPLICABLE
 
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #1026
 PR_OR_WIP: PR1027
 BRANCH: agent/cii-writer2-hanger-partial-physical
 
-PR_HEAD_OBSERVED: 45d9592d2e637c21295a9700112404adfb023c7c
-REPORT_BASIS_HEAD: 45d9592d2e637c21295a9700112404adfb023c7c
-MAIN_HEAD_LAST_CHECKED: 1f3f7b8e1e9c3829278af131606c056af80c2c00
-MERGE_BASE: 1f3f7b8e1e9c3829278af131606c056af80c2c00
+PR_HEAD_OBSERVED: 7c27f1f30be55e8419e8ab4bd744cd9345638ad4
+REPORT_BASIS_HEAD: 7c27f1f30be55e8419e8ab4bd744cd9345638ad4
+MAIN_HEAD_LAST_CHECKED: ae1de402db129e32cd6d7811a4e4707d64512bd4
+MERGE_BASE: ae1de402db129e32cd6d7811a4e4707d64512bd4
 REPORT_SYNC: CURRENT
 
 APPENDIX_A_STATUS: CURRENT
-GROUNDING_EPOCH: GE-1027-001
+GROUNDING_EPOCH: GE-1027-002
 CURRENT_TAKEOVER: NONE_NEW_WORK
 
-CURRENT_STAGE: DEPENDENCY_BLOCKED_HANDOVER_READY
-LAST_COMPLETED_STAGE: PR_NUMBER_MIGRATION_AND_SCOPE_RECONCILIATION
-CURRENT_BLOCKER: PR1025_OPEN_DRAFT_NOT_MERGED
-HIGHEST_RISK: Implementing physical compaction against unaccepted planner authority would violate Issue #1026 and create stale byte-custody assumptions.
-LAST_DURABLE_CHECKPOINT: 2026-08-22T19:46:20+05:30
+CURRENT_STAGE: IMPLEMENTATION_READY_AFTER_DEPENDENCY_MERGE
+LAST_COMPLETED_STAGE: PR1025_OWNER_MERGE_AND_EXACT_MAIN_REGROUND
+CURRENT_BLOCKER: NONE
+HIGHEST_RISK: Packed-array row-boundary compaction can corrupt positional custody if retained raw 13-byte fields are parsed/reserialized or repacked in inconsistent record order.
+LAST_DURABLE_CHECKPOINT: 2026-08-22T22:27+05:30
 
-EXACT_NEXT_ACTION: Keep PR1027 as the single Issue #1026 stack. When PR1025 is explicitly owner-accepted/merged, re-ground PR1027 on the exact new main and reconcile the merged planner contract before the first production/test commit.
+EXACT_NEXT_ACTION: Implement the component-only partial H>1 physical writer from one untouched TARGET0, preserving raw I13 fields and original HGRDAT/TAG/GUID order class; do not product/composite route it.
 ```
 
 ## 2. Handover in 60 Seconds
 
 ### What is now true
-- PR #1027 is the single open draft PR for Issue #1026 and is mergeable.
-- Exact reconciled PR head observed: `45d9592d2e637c21295a9700112404adfb023c7c`.
-- Exact base/main remains `1f3f7b8e1e9c3829278af131606c056af80c2c00`.
-- Actual PR diff is exactly four recovery/coordination paths: `agents/MASTER_INDEX.md`, `agents/PR1027_workreport.md`, `agents/claims/PR1027.yaml`, `agents/status/PR1027.yaml`.
-- Temporary WIP-named artifacts were migrated and deleted; no WIP file remains in the final diff.
-- PR #1025 is the hard predecessor and remains open/draft/unmerged at `a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6`.
-- No Issue #1026 production/test file has changed.
+- Owner authorized progression through the dependency gate.
+- PR #1025 was converted from draft and squash-merged at `ae1de402db129e32cd6d7811a4e4707d64512bd4`.
+- Live `main` equals that exact merge SHA.
+- PR #1027 was re-grounded by merge commit `7c27f1f30be55e8419e8ab4bd744cd9345638ad4`, with the old PR1027 recovery head and merged main as parents.
+- Merged PR1025 now supplies qualified positional record binding for partial H>1 planner READY state.
+- Production write authority is now permitted only for Issue #1026 component scope.
 
 ### What is currently being worked on
-- Nothing in production. PR1027 is intentionally parked at the dependency gate with complete recovery state.
+- Physical partial-HANGER writer, then independent complete-postimage validator.
 
 ### What remains unfinished
-- Re-ground after #1025 merges.
-- Consume exact merged #1025 positional record-binding authority.
-- Implement partial physical HANGER compaction and exact `CONTROL.NOHGRS` rewrite.
-- Implement independent complete-postimage validation without writer-helper reuse.
-- Cover issue packing-boundary cases and F01-F30 adversarial falsifiers.
+- Implement `cii-workspace-writer2-hanger-partial-write.js`.
+- Implement `cii-workspace-writer2-hanger-partial-validation.js` independently.
+- Add packing-boundary matrix and F01-F30 falsifiers.
+- Re-intake and prove complete expected-postimage equality.
+- Reconcile exact changed files and inherited non-regressions.
 
 ### What has been proven
-- Live GitHub grounding for main, PR1025 and PR1027.
-- Dependency classification: `HARD_DEPENDENCY` / `BLOCKED_BY_ACTIVE_CLAIM`.
-- Scope reconciliation: 4 actual changed paths / 4 intended / 0 unexplained.
-- PR1027 has no review threads, no combined status contexts, and no PR-triggered workflow runs at the reconciled head; absence is not PASS.
+- PR1025 merged authority and exact main SHA: PASS_GITHUB_STATE.
+- PR1027 branch explicitly contains merged main as parent: PASS_GIT_BRANCH.
+- Merged planner exposes `countBefore`, `countAfter`, `retainedRecordIndices`, `oldToNewRecordIndex`, `retainedNodes`, `physicalCustody`, and `plannerPartialRecordAuthority`.
+- Merged binder binds record index across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE, IHGRNUM, IHGRTABLE, IHGRSHORT and IHGRCN under `PHYSICAL_ROW_SHAPE_PLUS_DUAL_EMITTER_ORDER+POSITIONAL_HANGER_ARRAY_RECORD_INDEX`.
 
 ### What has NOT been proven / NOT_RUN
-- No Issue #1026 production behavior exists yet.
-- No focused Node, full repository, browser/product, or CAESAR round-trip execution is claimed for PR1027.
-- No PR1025 authored-but-not-run evidence is inherited as PR1027 PASS.
+- No PR1027 production writer behavior has yet been executed.
+- No PR1027 focused Node suite, full repository suite, or product/browser suite has yet run.
+- PR1025 authored-but-not-run tests remain historical NOT_RUN; they are not inherited as PASS.
 
 ### What must not be assumed
-- PR1025 draft code is not merged authority.
-- PR1024 tail-order classification alone is insufficient for physical partial deletion.
-- Product/composite/UI partial-HANGER authority remains out of scope.
+- HGRDAT engineering semantics remain unqualified; only positional physical custody exists.
+- `countAfter == 0` remains the existing delete-all writer path.
+- Product/composite/UI partial-HANGER routing is not authorized in PR1027.
 
-### Highest-risk remaining item
-- Repacking all five six-value packed arrays while preserving each retained raw 13-byte token exactly and preserving one common positional record order across every correlated hanger representation.
-
-### Exact next action
-- Owner disposition of #1025 is external to PR1027. After #1025 merge, create `GE-1027-002`, verify the exact merged main/planner bytes, then start the first component-only production increment on PR1027.
-
-## 3. Repository Ground Truth
-
-Grounding epoch `GE-1027-001`, reconciled after PR allocation:
+## 3. Repository Ground Truth — GE-1027-002
 
 ```text
-repository: reallaksh19/XML_Compare_Utilities
-default branch: main
-main head: 1f3f7b8e1e9c3829278af131606c056af80c2c00
-PR: 1027 OPEN / DRAFT / MERGEABLE
-PR branch: agent/cii-writer2-hanger-partial-physical
-PR base: main@1f3f7b8e1e9c3829278af131606c056af80c2c00
-PR head observed: 45d9592d2e637c21295a9700112404adfb023c7c
-commits: 8 recovery/coordination commits
-changed files: 4
-review threads: 0
-combined statuses: 0
-PR workflow runs at head: 0
-source task: issue #1026
-hard predecessor: PR #1025
-PR1025 state: OPEN / DRAFT / UNMERGED / MERGEABLE
-PR1025 head: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
+main: ae1de402db129e32cd6d7811a4e4707d64512bd4
+PR1025: MERGED / squash SHA ae1de402db129e32cd6d7811a4e4707d64512bd4
+PR1025 accepted head: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
+PR1027: OPEN / DRAFT
+PR1027 re-ground commit: 7c27f1f30be55e8419e8ab4bd744cd9345638ad4
+PR1027 branch: agent/cii-writer2-hanger-partial-physical
+merge base with main: ae1de402db129e32cd6d7811a4e4707d64512bd4
+review threads on predecessor: 0
+predecessor workflow runs: 0
 ```
-
-Live GitHub state overrides stale historical documentation. PR1024 is merged in live main; PR1025 is the active planner successor.
 
 ## 4. Mission / Scope / Acceptance
 
-Mission from Issue #1026:
+Mission:
 
 ```text
-qualified merged-#1025 partial H>1 HANGER plan
+qualified merged-PR1025 partial H>1 HANGER plan
 + untouched TARGET0
 -> rewrite exact CONTROL.NOHGRS H -> H'
--> reconstruct complete MISCEL_1 partial hanger payload
--> repack IHGRNODE/IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN from retained raw 13-byte fields
--> retain HGRDAT/TAG/GUID in original INTERLEAVED/GROUPED order class
+-> reconstruct complete MISCEL_1 hanger payload
+-> repack IHGRNODE/IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN from retained raw I13 fields
+-> retain HGRDAT/TAG/GUID in original INTERLEAVED/GROUPED class
 -> retain IHGRFREE by positional record index
+-> patch TARGET0 exactly once
 -> re-intake
--> independent complete expected-postimage reconstruction
--> actual final bytes === independently reconstructed expected bytes
+-> independently rebuild expected complete postimage
+-> require exact final-byte equality
 ```
 
-Approved production scope after dependency merge:
-
-```text
-partial existing H>1 HANGER DELETE physical writer
-independent complete-postimage validator
-component-level packing-boundary regressions
-F01-F30 adversarial falsifiers
-negative assurance preserving existing delete-all/product/composite boundaries
-```
+Approved scope:
+- partial existing H>1 HANGER DELETE physical writer;
+- independent complete-postimage validator;
+- component packing-boundary regressions;
+- F01-F30 adversarial falsifiers;
+- negative assurance preserving delete-all/product/composite boundaries.
 
 Explicit non-goals:
-
-```text
-tri-family composite expansion
-product/core route expansion
-UI enablement
-HANGER CREATE
-HANGER value editing
-HGRDAT semantic qualification
-SIF CREATE
-restraint/process cardinality
-Writer3 topology
-protected converter/parser changes
-workflow changes
-```
-
-Critical constraints:
-- consume only a qualified merged-#1025 positional record-binding plan;
-- `countAfter > 0`; `countAfter == 0` remains existing delete-all authority;
-- preserve raw retained 13-byte packed fields; do not numeric-reserialize retained values;
-- all five packed families use identical retained-record order;
-- preserve target tail-order class exactly;
-- validator must not import/call writer payload/repacking helpers;
-- complete final byte equality is the release oracle.
+- product/core route expansion;
+- tri-family composite expansion;
+- UI enablement;
+- HANGER CREATE or value editing;
+- HGRDAT semantic qualification;
+- SIF CREATE;
+- restraint/process cardinality;
+- Writer3 topology;
+- protected converter/parser/workflow changes.
 
 ## 5. Current Implementation State
 
-| Work item | Implementation | Integration | Validation | Location | Remaining |
-|---|---|---|---|---|---|
-| Dependency grounding | COMPLETE | N/A | PASS source/live inspection | GitHub PR #1025 | Recheck after disposition |
-| Recovery/coordination bootstrap | COMPLETE | COMPLETE | PASS source/live inspection | `agents/**` | keep current |
-| Physical writer | BLOCKED | BLOCKED | NOT_RUN | planned new module | entire implementation |
-| Independent validator | BLOCKED | BLOCKED | NOT_RUN | planned new module | entire implementation |
-| Packing-boundary regressions | BLOCKED | N/A | NOT_RUN | planned focused test | H=2,3,6,7,8,12,13 matrix |
-| Adversarial falsifiers | BLOCKED | N/A | NOT_RUN | planned focused test | F01-F30 |
-| Product/composite isolation | NOT_STARTED | must remain blocked | NOT_RUN | existing routes | negative assurance only |
+| Work item | Implementation | Integration | Validation | Remaining |
+|---|---|---|---|---|
+| PR1025 dependency | MERGED | COMPLETE | PASS_GITHUB_STATE | none |
+| PR1027 re-ground | COMPLETE | COMPLETE | PASS_GIT_BRANCH | none |
+| Physical writer | STARTING | COMPONENT_ONLY | NOT_RUN | implement |
+| Independent validator | NOT_STARTED | COMPONENT_ONLY | NOT_RUN | implement independently |
+| Boundary matrix | NOT_STARTED | N/A | NOT_RUN | H=2,3,6,7,8,12,13 |
+| F01-F30 | NOT_STARTED | N/A | NOT_RUN | all falsifiers |
+| Product/composite isolation | UNCHANGED | BLOCKED_BY_DESIGN | NOT_RUN | negative assurance |
 
 ## 6. Active Engineering Item Register
 
-| ID | Type | Severity | Priority | Status | Summary | Evidence | Current PR? |
-|---|---|---|---|---|---|---|---|
-| RISK-1027-001 | RISK | HIGH | P0 | OPEN | Starting before #1025 merge would build against non-authoritative planner state. | Issue #1026 + live PR #1025 | yes |
-| RISK-1027-002 | RISK | HIGH | P0 | OPEN | Packed arrays can silently corrupt record ownership if rows are deleted instead of retained raw I13 fields being repacked. | Issue #1026 | yes |
-| RISK-1027-003 | RISK | HIGH | P0 | OPEN | Validator independence is lost if it reuses writer payload/repacking helpers. | Issue #1026 | yes |
-| DEC-1027-001 | DEC | HIGH | P0 | ACTIVE | PR1027 is the single coherent Issue #1026 stack; predecessor merge is not inferred. | Owner instruction + pinned skill | yes |
-| QST-1027-001 | QST | MEDIUM | P1 | BLOCKED_BY_DEPENDENCY | What exact merged-main SHA will contain PR1025 authority? | live GitHub | yes |
+| ID | Type | Severity | Status | Summary |
+|---|---|---|---|---|
+| RISK-1027-002 | RISK | HIGH | OPEN | Packed arrays must relocate retained raw 13-byte fields, never parse/reserialize them. |
+| RISK-1027-003 | RISK | HIGH | OPEN | Validator independence fails if writer payload/repacking helpers are reused. |
+| RISK-1027-004 | RISK | HIGH | OPEN | GROUPED tail targets must stay GROUPED; generic per-record emission would corrupt order class. |
+| DEC-1027-001 | DEC | HIGH | ACTIVE | PR1027 remains the single Issue #1026 stack. |
+| DEC-1027-002 | DEC | HIGH | ACTIVE | Physical transaction uses one TARGET0 and two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1 payload. |
 
 ## 7. Current Technical Diagnosis
 
 ```text
-Observed symptom: no Issue #1026 production mutation is attempted yet; implementation is blocked by explicit predecessor authority.
-Current hypothesis: safe physical implementation begins only after #1025 merges because the writer must consume its exact qualified record-binding contract.
-Supporting evidence: Issue #1026 dependency text; PR1025 live draft/unmerged state; PR1025 declares physicalPartialWriteAuthority=false.
-Alternative hypotheses: code on PR1025 head; copy record-binding logic into PR1027; derive ownership from PR1024 alone.
-Already ruled out: each alternative violates the issue start condition or weakens provenance.
-Falsifier: live GitHub shows #1025 merged and exact main contains the qualified planner/record-binding contract.
-Next isolating experiment: after merge, compare exact merged main against PR1025 head and re-derive the physical writer input contract before coding.
+Authority input is now available from merged PR1025.
+The correct writer seam is the existing delete-all two-replacement architecture.
+The mutation difference is that hanger-specific rows survive and packed arrays must be rebuilt from retained raw I13 fields.
+The validator must independently reconstruct the same final CII without importing writer repacking/payload helpers.
+Falsifier: any H=7->6 or H=13->12 case where numeric values match but a retained raw I13 token changes lexically must fail.
 ```
 
 ## 8. Authority and Invariants
 
-Authority chain:
+- TARGET0 is the sole preimage.
+- Record index, not numeric equality, is the custody key.
+- `plannerPartialRecordAuthority == true` is required.
+- `countBefore > 1`, `countAfter > 0`, and `countAfter < countBefore` are required.
+- `countAfter == 0` is rejected by the partial writer and remains delete-all.
+- All five packed families use the identical `retainedRecordIndices` sequence.
+- Retained packed `rawField` values remain exact 13-byte strings.
+- Retained HGRDAT1/HGRDAT2/TAG/GUID and IHGRFREE rows remain byte-identical.
+- INTERLEAVED/GROUPED order class is preserved exactly.
+- RRMAT/VFLEX, two hanger default rows, and four execution rows remain byte-identical.
+- Only CONTROL.NOHGRS and the full MISCEL_1 payload replacement are authorized to change in this component writer.
+- Product/composite/UI behavior remains unchanged.
+
+## 9. Validation Ledger
 
 ```text
-Issue #1026
--> merged PR1025 planner/record-binding authority
--> untouched TARGET0 physical custody
--> PR1027 physical partial writer
--> independent PR1027 validator reconstructed from TARGET0 + canonical scope + independently rebuilt planner custody
-```
+VAL-1027-004
+Status: PASS
+Observation: REMOTE_EXECUTION
+Oracle: AUTHORITATIVE_REFERENCE
+Tested HEAD: PR1025 head a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
+Evidence: GitHub squash merge result
+Expected: PR1025 merged before PR1027 production work
+Actual: merged at ae1de402db129e32cd6d7811a4e4707d64512bd4
+Origin: RESOLVED_BY_PR
 
-Invariants:
-- TARGET0 is the only mutation preimage;
-- record index is the custody key, not equal numeric value;
-- raw retained I13 tokens are moved/repacked but never lexically regenerated;
-- retained HGRDAT/TAG/GUID and IHGRFREE bytes are copied byte-for-byte;
-- original INTERLEAVED/GROUPED class is unchanged;
-- RRMAT/VFLEX/two defaults/four execution rows remain byte-identical;
-- only exact CONTROL.NOHGRS and complete MISCEL_1 payload replacement may differ in this component writer;
-- NODENAME/SIF/topology/product/composite/UI behavior remains unchanged.
-
-## 9. Current Validation
-
-```text
-ID: VAL-1027-001
+VAL-1027-005
 Status: PASS
 Observation: SOURCE_INSPECTION
 Oracle: AUTHORITATIVE_REFERENCE
-Tested HEAD: main@1f3f7b8e1e9c3829278af131606c056af80c2c00 + live PR metadata
-Evidence: GitHub live issue/branch/PR inspection
-Expected: PR1025 accepted/merged before Issue1026 production coding
-Actual: PR1025 OPEN / DRAFT / UNMERGED at a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
-Limitations: no runtime execution
+Tested HEAD: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
+Evidence: merged planner/binder source
+Expected: positional record-binding contract present
+Actual: contract present with plannerPartialRecordAuthority and binder authority token
 Origin: PREEXISTING
-
-ID: VAL-1027-002
-Status: PASS
-Observation: SOURCE_INSPECTION
-Oracle: NONE
-Tested HEAD: 45d9592d2e637c21295a9700112404adfb023c7c
-Evidence: GitHub changed-file reconciliation
-Expected: only PR recovery/coordination files before dependency merge
-Actual: 4 changed paths, all expected; 0 production/test paths; 0 unexplained
-Limitations: source-scope validation only
-Origin: INTRODUCED_BY_PR
-
-ID: VAL-1027-003
-Status: NOT_RUN
-Observation: NOT_OBSERVED
-Oracle: NONE
-Tested HEAD: 45d9592d2e637c21295a9700112404adfb023c7c
-Evidence: combined statuses=[], workflow runs=[], review threads=[]
-Expected: no execution claim before implementation
-Actual: no CI/workflow execution present
-Limitations: absence of checks is not PASS
-Origin: UNKNOWN_ORIGIN
 ```
 
-All Issue #1026 behavior/runtime validations remain `NOT_RUN_DEPENDENCY_BLOCKED`.
+All PR1027 behavior tests remain NOT_RUN until authored/executed.
 
 ## 10. Changed-File Ledger
 
-Reconciled against GitHub at head `45d9592d2e637c21295a9700112404adfb023c7c`:
+Current recovery paths remain:
+- `agents/PR1027_workreport.md`
+- `agents/status/PR1027.yaml`
+- `agents/claims/PR1027.yaml`
 
-| File | Intended? | First stage | Latest stage | Purpose | Sensitive? | Validation |
-|---|---:|---|---|---|---:|---|
-| agents/MASTER_INDEX.md | yes | BOOTSTRAP | RECONCILE | repo coordination snapshot | no | live reconciliation |
-| agents/PR1027_workreport.md | yes | PR_ALLOCATION | RECONCILE | recovery authority | no | source inspection |
-| agents/claims/PR1027.yaml | yes | PR_ALLOCATION | RECONCILE | coordination claim | no | source inspection |
-| agents/status/PR1027.yaml | yes | PR_ALLOCATION | RECONCILE | machine status | no | source inspection |
+Planned component paths:
+- `tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js`
+- `tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js`
+- `tests/cii-workspace-writer2-hanger-partial-physical.test.js`
+- `docs/cii-writer2-hanger-partial-physical.md`
+- `agents/MASTER_INDEX.md`
 
-```text
-actual changed files: 4
-ledger files: 4
-unexplained files: 0
-production files: 0
-test files: 0
-workflow files: 0
-```
+Any product/composite/UI/workflow path is unexplained until separately owner-authorized.
 
 ## 11. Review / CI State
 
-```text
-PR: #1027
-state: OPEN / DRAFT / MERGEABLE
-merge authority: OWNER_ONLY
-review threads: 0
-combined status contexts: 0
-PR-triggered workflow runs at reconciled head: 0
-requested changes: none observed
-```
-
-No absent or unexecuted check is represented as PASS.
+PR1027 remains draft. No current-head execution claim is made before focused tests are authored/run. Merge authority remains OWNER_ONLY.
 
 ## 12. Repository Coordination / Overlap
 
 ```text
-MASTER_INDEX_CHECKED: yes and reconciled on PR branch
-STATUS_RECORD: agents/status/PR1027.yaml
-CLAIM_RECORD: agents/claims/PR1027.yaml
-LAST_OVERLAP_CHECK: 2026-08-22T19:46:20+05:30
-FILE_OVERLAP: planned physical modules are new; PR1025 planner files remain read-only until merge; metadata is coordinated
-AUTHORITY_OVERLAP: direct Writer2 HANGER partial-delete overlap with active PR1025
-DEPENDENCY_OVERLAP: HARD_DEPENDENCY PR1025 -> PR1027
-COORDINATION_STATE: BLOCKED_BY_ACTIVE_CLAIM until PR1025 owner disposition/merge
+MASTER_INDEX_CHECKED: yes
+DEPENDENCY_OVERLAP: PR1025 SATISFIED_BY_MERGE
+AUTHORITY_OVERLAP: inherited planner read-only; PR1027 owns new component physical writer/validator
+COORDINATION_STATE: SAFE_TO_CONTINUE
 ```
 
 ## 13. Continuation State
 
 ```text
-Start here: live PR1025 disposition and live main SHA
-Exact file/function/component after gate clears: planned partial writer + independent validator modules
-Current value/path under investigation: none; production intentionally untouched
-Do not redo: PR1024 tail-order qualification or PR1025 positional record-binding semantics
-Do not change: delete-all writer scope, product/composite/UI, HANGER CREATE, SIF CREATE, Writer3
-Validation still required: issue packing matrix, F01-F30, complete postimage equality, re-intake invariants, non-regressions
-Highest-risk remaining item: raw I13 packing boundaries at H=7->6 and H=13->12
-Exact next action: after #1025 merge, create GE-1027-002 and re-ground on exact merged main before first production commit
+Start here: cii-workspace-writer2-hanger-partial-write.js
+Reuse conceptually, not by mutation-helper sharing: delete-all two-replacement architecture.
+Consume: buildCiiWriter2HangerDeletePlan() from merged main.
+Do not change: delete-all writer, product/composite readiness, UI, CREATE authority.
+First qualification case: H=7 delete record 2 -> retained 1,3,4,5,6,7 -> packed rows 2->1 across all five families.
+Next: independent validator and grouped/interleaved falsifiers.
 ```
 
-## 14. Takeover / Custody Chain
+## 14. Custody Chain
 
-- `GE-1027-001`: new-work grounding from live `main@1f3f7b8e...`; PR1025 observed open/draft/unmerged at `a7990ba9...`; PR1027 allocated and reconciled with recovery-only diff; no inherited runtime PASS.
+- GE-1027-001: bootstrap from pre-PR1025 main; dependency blocked.
+- GE-1027-002: owner authorized #1025 merge; #1025 squash-merged to `ae1de402...`; PR1027 re-grounded on that exact main at merge commit `7c27f1f3...`; write authority enabled for Issue #1026 component scope only.
 
 # APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
 
-Qualification basis:
-
-```text
-PR_HEAD: 45d9592d2e637c21295a9700112404adfb023c7c (reconciled basis; later recovery-only sync commits permitted)
-MAIN_HEAD: 1f3f7b8e1e9c3829278af131606c056af80c2c00
-GROUNDING_EPOCH: GE-1027-001
-Generated from OPEN ISS/RISK/QST: RISK-1027-001..003, QST-1027-001
-PARTIAL implementation: none; dependency-blocked
-NOT_RUN validation: all Issue #1026 behavior/runtime validation
-Next intended stage: merged-main re-ground, then physical writer
-APPENDIX_A_STATUS: CURRENT
-```
-
-A1 — Production Trace (20): From merged #1025 source, trace the exact object fields proving planner partial authority, record-binding authority, retained indices, tail order, raw packed-field custody and H before/after; name each file/function and fail-closed blocker.
-
-A2 — Current Failure Isolation (20): For H=7 deleting record 2, derive every packed-row and MISCEL_1 row-count transition using original raw 13-byte tokens. Give a byte-level falsifier separating correct repacking from parse-and-reserialize behavior.
-
-A3 — Authority / Invariant (20): For a GROUPED target and a multi-delete, derive the retained HGRDAT/TAG/GUID physical row sequence and identify the exact authority permitting relocation while forbidding semantic reinterpretation and GROUPED→INTERLEAVED conversion.
-
-A4 — Independent Validation (20): Reconstruct the complete expected postimage using only untouched TARGET0, canonical scope, target graph/physical custody and independently rebuilt planner authority. Identify forbidden writer-helper imports and how F18/F20/F21/F22 are detected.
-
-A5 — Next-Commit / Minimal Patch (20): After #1025 merge, identify the smallest production increment that remains component-only, list exact files, and define focused boundary/falsifier tests required before the next commit.
-
-Default engineering-critical takeover threshold: total >=92/100 and every question >=17/20.
+Qualification basis: GE-1027-002 / merged main `ae1de402...` / next stage physical writer. An incoming implementation agent must trace the merged planner/binder, derive H=7->6 raw-field repacking, preserve GROUPED/INTERLEAVED order, independently reconstruct the complete expected postimage, and propose the minimal component-only next patch. Default threshold remains 92/100 with every challenge >=17/20.
 
 # HISTORICAL RECORD — NOT CURRENT AUTHORITY
 
-## Stage Execution Log
-- 2026-08-22: Issue #1026 and pinned Engineering PR Delivery skill inspected; live main/predecessor grounded; WIP bootstrap committed.
-- 2026-08-22: Draft PR #1027 allocated as the single Issue #1026 stack; WIP records migrated to PR-numbered artifacts.
-- 2026-08-22: Exact PR scope reconciled: 4 expected recovery paths / 4 actual / 0 unexplained; no production/test/workflow changes; no CI or review threads observed.
+- 2026-08-22: Issue #1026 bootstrap created PR1027 while PR1025 was unmerged.
+- 2026-08-22: PR1027 recovery diff reconciled at 4 paths / 0 production.
+- 2026-08-22: Owner said proceed; PR1025 made ready and squash-merged at `ae1de402...`.
+- 2026-08-22: PR1027 explicitly re-grounded on merged PR1025 authority before production coding.
