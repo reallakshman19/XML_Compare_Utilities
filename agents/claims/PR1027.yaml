@@ -2,11 +2,11 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_DEPENDENCY_BLOCKED
-base: main@1f3f7b8e1e9c3829278af131606c056af80c2c00
+claim_state: ACTIVE
+base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
-  - OBSERVE_ONLY_UNTIL_PR1025_MERGED
+  - EXCLUSIVE
 files:
   exact:
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
@@ -18,34 +18,27 @@ files:
     - agents/claims/PR1027.yaml
     - agents/MASTER_INDEX.md
   prefixes: []
+shared_read_only:
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-record-binding.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-tail-order.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-validation.js
 authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
-hard_dependency:
+dependency:
   pr: 1025
-  head_observed: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
-  required_state_before_production_write: MERGED_TO_MAIN
+  state: SATISFIED_BY_MERGE
+  accepted_head: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
+  merge_sha: ae1de402db129e32cd6d7811a4e4707d64512bd4
 coordination:
-  file_overlap: >-
-    Planned production modules are new, but recovery/master-index metadata is
-    shared. Existing planner files owned by PR1025 remain read-only until merge.
-  authority_overlap: DIRECT_WITH_PR1025
-  dependency_overlap: HARD_DEPENDENCY
-  state: BLOCKED_BY_ACTIVE_CLAIM
-scope_reconciliation:
-  changed_files:
-    - agents/MASTER_INDEX.md
-    - agents/PR1027_workreport.md
-    - agents/claims/PR1027.yaml
-    - agents/status/PR1027.yaml
-  actual_count: 4
-  intended_count: 4
-  unexplained_count: 0
-  production_count: 0
-  test_count: 0
-  workflow_count: 0
+  file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
+  authority_overlap: INHERITED_PLANNER_READ_ONLY
+  dependency_overlap: SATISFIED
+  state: SAFE_TO_CONTINUE
 negative_assurance:
   - no product/core routing expansion
   - no tri-family composite expansion
@@ -54,5 +47,5 @@ negative_assurance:
   - no SIF CREATE
   - no Writer3 topology
   - no workflow changes
-last_verified_head: fb82bbe4cb453a7e671fa99b1f1a7f2d03f6600c
-last_updated: 2026-08-22T19:46:20+05:30
+last_verified_head: 307a1e7d1586a2175ffc501abd561317ce4a3749
+last_updated: 2026-08-22T22:28:00+05:30
