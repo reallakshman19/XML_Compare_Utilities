@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | DRAFT / ACTIVE · source authored | Component-only partial physical writer; raw I13 repacking; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; frozen SHA oracles; F01-F30 authored; no product/composite/UI expansion | Execute focused Node suites on exact PR head when environment permits; reconcile all source findings before review |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | DRAFT / ACTIVE · focused component qualification PASS | Component-only partial physical writer; raw I13 repacking; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; frozen SHA oracles PASS; F01-F27/F29-F30 PASS in reconstructed dependency closure; F28 current-head source gate PASS; no product/composite/UI expansion | On a native exact checkout, run inherited HANGER/Writer2 suites, real H=1 delete-all regression and full npm test; keep draft until that gate is resolved |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, qualified HGRDAT/TAG/GUID tail, IHGRFREE and all five packed arrays; semantic authority remains positional-only | Authority consumed by PR1027 component writer |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; exact per-record row ownership | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -101,37 +101,38 @@ H=13 delete record 1 -> retained 2..13        -> packed rows 3 -> 2
 
 Retained numeric lexical custody is byte-based. A retained `+12` is not equivalent to a rewritten `12`.
 
-## PR1027 source qualification authored
+## PR1027 qualification state
 
 ```text
-mandatory packing matrix                       AUTHORED_SOURCE_INSPECTED
-INTERLEAVED representative cases               AUTHORED_SOURCE_INSPECTED
-GROUPED representative cases                   AUTHORED_SOURCE_INSPECTED
-lexical raw-I13 +12 custody                     AUTHORED_SOURCE_INSPECTED
-F01-F30 adversarial falsifiers                  AUTHORED_SOURCE_INSPECTED
-independent complete-postimage validator        AUTHORED_SOURCE_INSPECTED
+mandatory packing matrix                       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+INTERLEAVED representative cases               PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+GROUPED representative cases                   PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+lexical raw-I13 +12 custody                     PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+frozen independent postimage SHA oracles        PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+independent complete-postimage validator        PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+F01-F27 adversarial falsifiers                  PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+F28 product/composite delete-all-only gate      PASS_SOURCE_INSPECTION_CURRENT_HEAD
+F29-F30 packing boundary falsifiers             PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
 writer-helper import separation                 PASS_SOURCE_INSPECTION
-frozen independent postimage SHA oracles        AUTHORED_SOURCE_INSPECTED
-existing product/composite partial gate         PASS_SOURCE_INSPECTION
 existing delete-all component unchanged         PASS_SOURCE_INSPECTION
 ```
 
-A source audit corrected the H'=1 tail-order validation rule: one retained record is physically `SINGLE_RECORD_ORDER_EQUIVALENT`, while writer testimony retains the qualified original preimage order class.
+First focused frozen-oracle execution exposed a test-harness scope-hash defect: the test used nonexistent `spec.targetSha256` instead of immutable `spec.target0Sha256`. Production correctly failed closed with `CII_WRITER_2_HANGER_PARTIAL_SCOPE_TARGET_HASH_MISMATCH`; the test was corrected at `85b38416adbb09f680b1f8122b2f82b77a8927f3` without weakening production authority.
+
+A prior source audit also corrected the H'=1 tail-order validation rule: one retained record is physically `SINGLE_RECORD_ORDER_EQUIVALENT`, while writer testimony retains the qualified original preimage order class.
 
 ## Current execution truth
 
 ```text
 PR1025 merge / PR1027 merged-main grounding     PASS_REMOTE_EXECUTION
-new writer source audit                         PASS_SOURCE_INSPECTION
-new independent validator source audit          PASS_SOURCE_INSPECTION
-new focused tests/frozen oracle source audit    PASS_SOURCE_INSPECTION
-focused partial-HANGER Node execution           NOT_RUN_ENVIRONMENT
+focused partial-HANGER component qualification PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+F28 product/composite boundary                  PASS_SOURCE_INSPECTION_CURRENT_HEAD
 inherited HANGER/Writer2 execution              NOT_RUN_ENVIRONMENT
 real BM_CII_SOURCE H=1 delete-all regression    NOT_RUN_ENVIRONMENT (existing test unchanged)
 full repository npm test                        NOT_RUN_ENVIRONMENT
 browser/product                                 NOT_APPLICABLE: no route/UI change
 ```
 
-The execution container cannot resolve `github.com`, and no current-head GitHub Actions run exists. No unexecuted test is represented as PASS.
+The execution container cannot resolve `github.com`, so a native private-repository checkout is unavailable. Focused execution was performed from a dependency closure reconstructed from GitHub connector source at the PR component head and is not represented as `PASS_EXACT_CHECKOUT`. No current-head PR-triggered GitHub Actions run/status exists. No unexecuted test is represented as PASS.
 
 See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, and `docs/cii-writer2-hanger-partial-physical.md`.
