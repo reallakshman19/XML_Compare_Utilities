@@ -58,7 +58,7 @@ assert.deepStrictEqual(grouped3.records[1], {
   tagRowIndex: 9,
   guidRowIndex: 10,
 });
-assert.deepStrictEqual(retainedCiiWriter2HangerTailRows(grouped3, [1, 3]), [1, 2, 7, 8, 5, 6, 11, 12]);
+assert.deepStrictEqual(retainedCiiWriter2HangerTailRows(grouped3, [1, 3]), [1, 2, 5, 6, 7, 8, 11, 12]);
 
 // H=1 is physically identical for both known emitter orders.
 const single = qualifyCiiWriter2HangerTailOrder([
