@@ -271,7 +271,7 @@ for (const order of ['INTERLEAVED', 'GROUPED']) {
 // F22 forged writer tail-order testimony.
 {
   const c = runCase(3, [2]); const forged = Object.freeze({ ...c.writer, tailOrder: 'FORGED_ORDER' });
-  assert.throws(() => validateCiiWriter2HangerPartialRoundTrip(c.before, c.after, c.transferPlan, forged), /TAIL_ORDER_CHANGED/);
+  assert.throws(() => validateCiiWriter2HangerPartialRoundTrip(c.before, c.after, c.transferPlan, forged), /TAIL_ORDER_TESTIMONY_MISMATCH/);
 }
 // F23 unsupported INPUTXML_CURRENT/HGRDAT-first layout.
 {
