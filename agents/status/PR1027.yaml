@@ -6,22 +6,23 @@ mission: >-
   independent complete-postimage validator.
 workstream: CII_WRITER2_HANGER_PARTIAL_PHYSICAL
 branch: agent/cii-writer2-hanger-partial-physical
-pr_head_basis: d3fd66de6ec3b7acb2c1897bbb4400c30a2cda0b
+pr_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 main_head_last_checked: ae1de402db129e32cd6d7811a4e4707d64512bd4
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_VALIDATION_PENDING
+agent_state: ACTIVE_VALIDATION_PARTIAL_PASS
 pr_recovery_state: HEALTHY
 handover_readiness: READY
 report_path: agents/PR1027_workreport.md
-report_basis_head: d3fd66de6ec3b7acb2c1897bbb4400c30a2cda0b
+report_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: SOURCE_IMPLEMENTATION_COMPLETE_EXECUTION_PENDING
-blocker: EXACT_CHECKOUT_EXECUTION_ENVIRONMENT_UNAVAILABLE
+current_stage: FOCUSED_COMPONENT_QUALIFICATION_PASS_FULL_REPOSITORY_PENDING
+blocker: FULL_EXACT_CHECKOUT_REGRESSION_ENVIRONMENT_UNAVAILABLE
 highest_risk: >-
-  Runtime execution has not yet exercised the complete independently validated
-  packing-boundary and F01-F30 matrix on the exact PR head.
+  Component qualification now passes, but inherited Writer2 suites, the real
+  BM_CII_SOURCE H=1 delete-all regression and full npm test have not been run on
+  a native exact repository checkout.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -33,25 +34,33 @@ changed_files:
   actual: 10
   intended: 10
   unexplained: 0
-branch_relation:
-  ahead: 24
-  behind: 0
 validation:
   pr1025_merge: PASS_REMOTE_EXECUTION
   merged_planner_contract: PASS_SOURCE_INSPECTION
   pr1027_reground: PASS_GIT_BRANCH
-  writer_source: PASS_SOURCE_INSPECTION
-  independent_validator_source: PASS_SOURCE_INSPECTION
-  packing_matrix_f01_f30_source: PASS_SOURCE_INSPECTION
-  frozen_postimage_oracle_generation: PASS_INDEPENDENT_REPRODUCTION
-  focused_partial_hanger: NOT_RUN_ENVIRONMENT
-  focused_frozen_oracle: NOT_RUN_ENVIRONMENT
+  frozen_oracle_initial_run: FAIL_TEST_HARNESS_SCOPE_HASH_UNDEFINED
+  frozen_oracle_scope_hash_fix: PASS_COMMITTED_85B38416
+  frozen_postimage_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  independent_validator_frozen_cases: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  mandatory_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  lexical_raw_i13_plus12: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  falsifiers_f01_f15: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  falsifier_f16_vflex: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  falsifiers_f17_f27: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  falsifier_f28_product_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
+  falsifiers_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   inherited_hanger_writer2: NOT_RUN_ENVIRONMENT
   real_h1_delete_all_non_regression: NOT_RUN_ENVIRONMENT_EXISTING_TEST_UNCHANGED
   full_repository: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
+execution_limitation: >-
+  The container cannot resolve github.com and cannot create a native private-repo
+  checkout. Focused runtime evidence was executed from a dependency closure
+  reconstructed from GitHub connector source at the PR head. It is not claimed
+  as PASS_EXACT_CHECKOUT. F28 was intentionally source-inspected instead of
+  stubbing unrelated NODENAME/SIF composite imports.
 exact_next_action: >-
-  Execute the two focused PR1027 Node tests on an exact checkout, then inherited
-  HANGER/Writer2 suites and full npm test; reconcile any runtime finding without
-  weakening frozen or independent expected values.
-last_updated: 2026-08-22T22:52:00+05:30
+  Run inherited HANGER/Writer2 regressions and full npm test on a native exact
+  PR1027 checkout when available; do not weaken fail-closed behavior or merge
+  without fresh owner authorization.
+last_updated: 2026-08-22T23:08:00+05:30
