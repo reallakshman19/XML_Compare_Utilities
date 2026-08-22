@@ -232,10 +232,10 @@ const duplicateScope = Object.freeze({
 });
 const duplicateReadiness = ciiWriter2CompositeReadiness(duplicateScope, before, graph);
 assert.equal(duplicateReadiness.ready, false);
-assert(duplicateReadiness.blockers.includes('WRITER_2_COMPOSITE_SCOPE_APPLY_DUPLICATE_ID'));
+assert(duplicateReadiness.blockers.includes('WRITER_2_COMPOSITE_SCOPE_APPLY_IDS_DUPLICATE'));
 assert.throws(
   () => applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument: before, targetGraph: graph, transferPlan: duplicateScope }),
-  /CII_WRITER_2_COMPOSITE_SCOPE_APPLY_DUPLICATE_ID/,
+  /CII_WRITER_2_COMPOSITE_HANGER_SCOPE_APPLY_DUPLICATE_ID/,
   'duplicate parent-scope operation testimony must fail before byte mutation',
 );
 
