@@ -4,12 +4,13 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1024 | Writer 2 H>1 HANGER tail-order qualification | DRAFT / ACTIVE | Qualification-only physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; per-record row ownership; no mutation authority | Execute focused classifier regression when environment permits; successor may integrate classifier into planner only |
+| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | DRAFT / ACTIVE | Planner-only positional record binding across IHGRNODE, qualified HGRDAT/TAG/GUID tail, IHGRFREE and four packed arrays; physical/product partial write remains blocked | Execute focused regressions when exact checkout is available; after acceptance build a separate physical partial-compaction writer/validator |
+| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; exact per-record row ownership; no mutation authority | Consumed by PR1025 planner only |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL; direct/product byte parity; independent full-postimage validation | Evidence baseline retained |
-| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline |
+| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline; partial HANGER still product-blocked |
 | PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; one TARGET0; independent full-postimage validator | Reused by product/core |
-| PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | Exact `CONTROL.NOHGRS -> 0` + complete `MISCEL_1` hanger-payload removal; independent full-postimage validator | Component authority |
-| PR1019 | Writer 2 HANGER DELETE authority | MERGED 2026-08-21 · `66342367` | IHGRNODE-first; H=1 or H>1 delete-all only; partial H>1 blocked; CREATE blocked | Planner authority under PR1024 qualification extension |
+| PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | Exact `CONTROL.NOHGRS -> 0` + complete `MISCEL_1` hanger-payload removal; independent full-postimage validator | Physical authority remains DELETE-ALL only |
+| PR1019 | Writer 2 HANGER DELETE planner foundation | MERGED 2026-08-21 · `66342367` | IHGRNODE-first HANGER delete planner; delete-all authority; CREATE blocked; original H>1 partial blocker | Extended at planner level by PR1025 only when record binding is qualified |
 | PR1018 | Writer 2 real-benchmark product qualification | MERGED 2026-08-21 · `887eedc0` | Qualification-only real CII preimage for merged NODENAME + V11 SIF DELETE product route | Two-family evidence retained |
 | PR1017 | Writer 2 composite product/core routing | MERGED 2026-08-21 · `112e2d78` | Explicit Writer2 NODENAME CREATE/DELETE + V11 SIF existing-block DELETE product route; Writer1B default preserved | Superseded by PR1022 |
 | PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Parent-scope custody; derived family subsets; original-coordinate arbitration; independent validator | Architectural foundation |
@@ -42,77 +43,104 @@ Writer 1C
   existing NODENAME overwrite
   selected existing V11 SIF ii/io fields
 
-Writer 2 — merged production
+Writer 2 — merged physical/product authority
   explicit writerVersion=2 only
   NODENAME CREATE/DELETE
   V11 existing SIF 10-row block DELETE
-  HANGER H=1 delete / H>1 delete-all
+  HANGER H=1 delete / H>1 DELETE-ALL only
   canonical parent APPLY/EXCLUDE scope custody
   one untouched TARGET0 tri-family composite
   re-intake + independent complete-postimage validator
 
-Writer 2 — active PR1024 qualification
-  H>1 HGRDAT/TAG/GUID envelope classification only
-  interleaved order: numeric6,numeric5,string,string per record
-  grouped order: all numeric pairs, then all string pairs
-  exact per-record row ownership
-  retained-row testimony preserves original ordering class
-  no planner/physical/product authority expansion
+Writer 2 — active PR1025 planner authority only
+  H>1 partial HANGER DELETE may be planner READY only when record binding is QUALIFIED
+  record i binds IHGRNODE + HGRDAT/TAG/GUID + IHGRFREE + IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN
+  semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
+  plannerPartialRecordAuthority = true
+  physicalPartialWriteAuthority = false
+  physicalWriterScope = DELETE_ALL_ONLY_UNCHANGED
 
-Writer 2 stable blockers
-  partial H>1 HANGER DELETE  BLOCKED_TAIL_ORDER_UNQUALIFIED in merged planner
-  HANGER CREATE               BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
-  SIF CREATE                  BLOCKED_ITEMS_27_30_UNRESOLVED
+Writer 2 partial-HANGER gates
+  record binding unqualified -> WRITER_2_HANGER_PARTIAL_MULTI_RECORD_TAIL_ORDER_UNQUALIFIED
+  physical delete-all writer -> CII_WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+  product/composite readiness -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+
+Writer 2 stable CREATE blockers
+  HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
+  SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 
 Writer 3
   topology/node/element/connectivity mutation only
 ```
 
-## PR1024 qualification boundary
+## PR1025 planner transaction
 
 ```text
-untouched 4*H HGRDAT/TAG/GUID envelope
- -> exact row-count gate
- -> numeric HGRDAT card proof (6 values, then 5 values)
- -> TAG/GUID string-card proof (7X + I5 + 1X + body)
- -> classify INTERLEAVED or GROUPED
- -> emit exact 1-based per-record row ownership
- -> retained-row testimony preserves the same ordering class
- -> NO MUTATION AUTHORITY
+untouched TARGET0 HANGER payload
+ -> existing CONTROL / MISCEL_1 / IHGRNODE structural custody
+ -> PR1024 HGRDAT/TAG/GUID tail classifier
+ -> positional record-binding proof
+      record i / IHGRNODE[i]
+      record i / HGRDAT/TAG/GUID physical rows
+      record i / IHGRFREE row
+      record i / IHGRNUM[i]
+      record i / IHGRTABLE[i]
+      record i / IHGRSHORT[i]
+      record i / IHGRCN[i]
+ -> selected record indices
+ -> old->new record-index map
+ -> retained-row/field custody ledger
+ -> PLANNER READY only
+ -> NO physical partial write authority
 ```
 
-For H=3 retaining records 1 and 3:
+For H=3 deleting record 2:
 
 ```text
-interleaved rows -> 1,2,3,4,9,10,11,12
-grouped rows     -> 1,2,5,6,7,8,11,12
+oldToNewRecordIndex = {1:1, 2:0, 3:2}
+
+INTERLEAVED retained tail rows
+1,2,3,4,9,10,11,12
+
+GROUPED retained tail rows
+1,2,5,6,7,8,11,12
 ```
 
-QF-1024-001 corrected an initial helper defect that would have reordered grouped retention into interleaved order.
-
-## Stable blockers
+## QF-1025 authority boundaries
 
 ```text
-WRITER_2_HANGER_PARTIAL_MULTI_RECORD_TAIL_ORDER_UNQUALIFIED
-WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
-WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+QF-1025-001
+planner READY cannot leak to product/physical apply because two independent delete-all gates remain.
+
+QF-1025-002
+blank raw 13-byte packed field cannot silently become zero positional authority; explicit integer token required.
+
+QF-1025-003
+delete-all remains independent of retained per-record binding because every hanger-specific record is removed.
+
+QF-1025-004
+grouped HGRDAT/TAG/GUID order must remain grouped; no canonicalization to interleaved order.
 ```
 
 ## Current validation truth
 
 ```text
-PR1023 merge / PR1024 exact base                       PASS
-3D_Converters dual-emitter source conflict             PASS_SOURCE_INSPECTION
-interleaved physical order                              PASS_SOURCE_INSPECTION
-grouped physical order                                  PASS_SOURCE_INSPECTION
-PR1024 classifier source audit                          PASS_SOURCE_INSPECTION
-QF-1024-001 grouped-retention correction                PASS_SOURCE_INSPECTION
-focused HANGER tail-order regression                    AUTHORED_NOT_RUN_ENVIRONMENT
-inherited HANGER / Writer2 regressions                  NOT_RUN_ENVIRONMENT
-full repository tests                                   NOT_RUN_ENVIRONMENT
-browser/product                                         NOT_RUN_ENVIRONMENT
+PR1024 merge / PR1025 exact base                       PASS
+branch scope before recovery docs                      PASS_SOURCE_INSPECTION
+merged product delete-all gate                         PASS_SOURCE_INSPECTION
+merged physical delete-all gate                        PASS_SOURCE_INSPECTION
+record-binding module source audit                     PASS_SOURCE_INSPECTION
+planner integration source audit                       PASS_SOURCE_INSPECTION
+regression source audit                                PASS_SOURCE_INSPECTION
+focused HANGER record-binding regression               AUTHORED_NOT_RUN_ENVIRONMENT
+focused HANGER planner regression                      AUTHORED_NOT_RUN_ENVIRONMENT
+HANGER delete-all physical regression                  AUTHORED_NOT_RUN_ENVIRONMENT
+inherited Writer2 component regressions                NOT_RUN_ENVIRONMENT
+tri-family composite/product suites                    NOT_RUN_ENVIRONMENT
+full repository tests                                  NOT_RUN_ENVIRONMENT
+browser/product                                        NOT_RUN_ENVIRONMENT
 ```
 
 No unexecuted test is represented as PASS.
 
-See `agents/PR1024_workreport.md`, `agents/status/PR1024.yaml`, and `agents/claims/PR1024.yaml`.
+See `agents/PR1025_workreport.md`, `agents/status/PR1025.yaml`, and `agents/claims/PR1025.yaml`.
