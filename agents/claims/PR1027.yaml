@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE
+claim_state: ACTIVE_VALIDATION_PENDING
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -12,6 +12,8 @@ files:
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
     - tests/cii-workspace-writer2-hanger-partial-physical.test.js
+    - tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
+    - tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
     - docs/cii-writer2-hanger-partial-physical.md
     - agents/PR1027_workreport.md
     - agents/status/PR1027.yaml
@@ -24,11 +26,13 @@ shared_read_only:
   - tabs/cii-workspace/cii-workspace-writer2-hanger-tail-order.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-validation.js
+  - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
 authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
+  - IMMUTABLE_INDEPENDENT_POSTIMAGE_SHA_ORACLE
 dependency:
   pr: 1025
   state: SATISFIED_BY_MERGE
@@ -38,14 +42,19 @@ coordination:
   file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
   authority_overlap: INHERITED_PLANNER_READ_ONLY
   dependency_overlap: SATISFIED
+  changed_paths_actual: 10
+  changed_paths_intended: 10
+  unexplained_paths: 0
   state: SAFE_TO_CONTINUE
 negative_assurance:
+  - no existing planner/binder mutation
+  - no delete-all writer/validator mutation
   - no product/core routing expansion
   - no tri-family composite expansion
   - no UI enablement
   - no HANGER CREATE or value editing
   - no SIF CREATE
   - no Writer3 topology
-  - no workflow changes
-last_verified_head: 307a1e7d1586a2175ffc501abd561317ce4a3749
-last_updated: 2026-08-22T22:28:00+05:30
+  - no workflow or package-script changes
+last_verified_head_basis: d3fd66de6ec3b7acb2c1897bbb4400c30a2cda0b
+last_updated: 2026-08-22T22:53:00+05:30
