@@ -1,11 +1,11 @@
 # Agent Work Index
 
-Live GitHub state is authoritative over this snapshot. Detailed implementation history remains in each `agents/PR<NUMBER>_workreport.md` or active WIP report.
+Live GitHub state is authoritative over this snapshot. Detailed implementation history remains in each `agents/PR<NUMBER>_workreport.md`.
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| WIP-ISSUE1026-PHYSICAL-HANGER | Issue #1026 Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | ACTIVE / DEPENDENCY BLOCKED | Recovery/coordination only until PR1025 merges; planned physical component authority only; no product/composite/UI expansion | Allocate one draft PR, migrate WIP records; after PR1025 merge re-ground same PR branch on exact merged main before coding |
-| PR1025 | Writer 2 partial H>1 HANGER planner + positional record binding | DRAFT / ACTIVE · head `a7990ba9` | Planner-only partial H>1 authority; physicalPartialWriteAuthority=false; product/composite remains delete-all-only | Owner disposition/merge required before Issue #1026 production coding |
+| PR1027 | Issue #1026 Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | DRAFT / DEPENDENCY BLOCKED | Recovery/coordination only until PR1025 merges; planned component physical authority only; no product/composite/UI expansion | After PR1025 merge, re-ground this same PR branch on exact merged main before first production commit |
+| PR1025 | Writer 2 partial H>1 HANGER planner + positional record binding | DRAFT / ACTIVE · head `a7990ba9` | Planner-only partial H>1 authority; `physicalPartialWriteAuthority=false`; product/composite remains delete-all-only | Owner disposition/merge required before PR1027 production coding |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes; per-record row ownership; no direct mutation authority | Authority inherited by PR1025 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL; direct/product byte parity; independent full-postimage validation | Evidence baseline retained |
 | PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline |
@@ -48,7 +48,7 @@ Writer 2 — active PR1025 planner dependency
   physicalPartialWriteAuthority = false
   product/composite partial HANGER = blocked
 
-Issue #1026 WIP
+PR1027 — Issue #1026
   planned physical partial H>1 HANGER compaction only after PR1025 merge
   repack five packed arrays from exact retained raw 13-byte fields
   preserve original INTERLEAVED/GROUPED order class
@@ -64,7 +64,7 @@ PR1025 OPEN DRAFT at a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
         |
         | HARD_DEPENDENCY / OWNER MERGE REQUIRED
         v
-WIP-ISSUE1026-PHYSICAL-HANGER
+PR1027 OPEN DRAFT
         production/test mutation BLOCKED until merged-main re-ground
 ```
 
@@ -73,18 +73,18 @@ WIP-ISSUE1026-PHYSICAL-HANGER
 ```text
 HANGER CREATE               BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
 SIF CREATE                  BLOCKED_ITEMS_27_30_UNRESOLVED
-Issue1026 product/composite BLOCKED until separate future adoption
+PR1027 product/composite    BLOCKED until separate future adoption
 Writer3 topology            out of scope
 ```
 
-## Current validation truth for Issue #1026 WIP
+## Current validation truth for PR1027
 
 ```text
 issue scope inspection                     PASS_SOURCE_INSPECTION
 live main grounding                        PASS_GIT_BRANCH
 PR1025 dependency state                    PASS_GITHUB_STATE: OPEN/DRAFT/UNMERGED
-Issue1026 production                       NOT_RUN_DEPENDENCY_BLOCKED
-Issue1026 focused tests                    NOT_RUN_DEPENDENCY_BLOCKED
+PR1027 production                          NOT_RUN_DEPENDENCY_BLOCKED
+PR1027 focused tests                       NOT_RUN_DEPENDENCY_BLOCKED
 full repository                            NOT_RUN_DEPENDENCY_BLOCKED
 browser/product                            NOT_RUN_DEPENDENCY_BLOCKED
 ```
