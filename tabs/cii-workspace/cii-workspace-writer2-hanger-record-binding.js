@@ -13,6 +13,10 @@ const IHGRFREE_FIELD_COUNT = 4;
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
 
 function codeOf(item) { return String(item?.code || item || '').trim(); }
+function integerToken(rawField) {
+  const token = String(rawField || '').trim();
+  return /^[+-]?\d+$/.test(token) ? Number(token) : null;
+}
 function rowRef(row, relativeRowIndex) {
   return Object.freeze({
     relativeRowIndex,
@@ -35,7 +39,7 @@ function ihgrfreeCustody(row, recordIndex, blockers) {
     const start = PACKED_PREFIX + column * FIELD_WIDTH;
     const end = start + FIELD_WIDTH;
     const rawField = raw.slice(start, end);
-    const value = Number(rawField.trim());
+    const value = integerToken(rawField);
     if (!Number.isSafeInteger(value)) blockers.push(`WRITER_2_HANGER_IHGRFREE_INTEGER_REQUIRED:${recordIndex}:${column + 1}`);
     fields.push(Object.freeze({
       fieldIndex: column + 1,
@@ -86,7 +90,9 @@ export function qualifyCiiWriter2HangerRecordBindings({ count, tailRows, ihgrfre
       const arrays = {};
       for (const label of PACKED_LABELS) {
         const field = packed?.[label]?.fields?.[recordIndex - 1] || null;
-        if (!field || Number(field.valueIndex) !== recordIndex) {
+        const tokenValue = field ? integerToken(field.rawField) : null;
+        if (!field || Number(field.valueIndex) !== recordIndex || !Number.isSafeInteger(tokenValue)
+          || Number(field.value) !== tokenValue) {
           blockers.push(`WRITER_2_HANGER_POSITIONAL_FIELD_REQUIRED:${label}:${recordIndex}`);
         }
         arrays[label] = field;
@@ -109,10 +115,11 @@ export function qualifyCiiWriter2HangerRecordBindings({ count, tailRows, ihgrfre
     authority: unique.length ? null : CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY,
     tailOrder: unique.length ? null : tail.order,
     tailAuthority: unique.length ? null : tail.authority,
+    tailQualification: tail,
     records: unique.length ? Object.freeze([]) : Object.freeze(records),
     blockers: unique,
     semanticAuthority: 'NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY',
   });
 }
 
-export const _test = Object.freeze({ ihgrfreeCustody, tailCustody });
+export const _test = Object.freeze({ ihgrfreeCustody, integerToken, tailCustody });
