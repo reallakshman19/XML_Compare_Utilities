@@ -4,11 +4,12 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1023 | Writer 2 tri-family real-benchmark product qualification | DRAFT / ACTIVE | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL; direct/product byte parity; independent full-postimage validation | Reconcile exact head and execute focused regression when an exact checkout is available; no authority expansion |
-| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline under PR1023 qualification |
+| PR1024 | Writer 2 H>1 HANGER tail-order qualification | DRAFT / ACTIVE | Qualification-only physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; per-record row ownership; no mutation authority | Execute focused classifier regression when environment permits; successor may integrate classifier into planner only |
+| PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL; direct/product byte parity; independent full-postimage validation | Evidence baseline retained |
+| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline |
 | PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; one TARGET0; independent full-postimage validator | Reused by product/core |
 | PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | Exact `CONTROL.NOHGRS -> 0` + complete `MISCEL_1` hanger-payload removal; independent full-postimage validator | Component authority |
-| PR1019 | Writer 2 HANGER DELETE authority | MERGED 2026-08-21 · `66342367` | IHGRNODE-first; H=1 or H>1 delete-all only; partial H>1 blocked; CREATE blocked | Component planner authority |
+| PR1019 | Writer 2 HANGER DELETE authority | MERGED 2026-08-21 · `66342367` | IHGRNODE-first; H=1 or H>1 delete-all only; partial H>1 blocked; CREATE blocked | Planner authority under PR1024 qualification extension |
 | PR1018 | Writer 2 real-benchmark product qualification | MERGED 2026-08-21 · `887eedc0` | Qualification-only real CII preimage for merged NODENAME + V11 SIF DELETE product route | Two-family evidence retained |
 | PR1017 | Writer 2 composite product/core routing | MERGED 2026-08-21 · `112e2d78` | Explicit Writer2 NODENAME CREATE/DELETE + V11 SIF existing-block DELETE product route; Writer1B default preserved | Superseded by PR1022 |
 | PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Parent-scope custody; derived family subsets; original-coordinate arbitration; independent validator | Architectural foundation |
@@ -50,17 +51,16 @@ Writer 2 — merged production
   one untouched TARGET0 tri-family composite
   re-intake + independent complete-postimage validator
 
-Writer 2 — active PR1023 qualification
-  real CAESAR V11 BM_CII_SOURCE TARGET0
-  CONTROL NUMELT=40 / NOHGRS=1 / NONAM=4 / SIF=9
-  dynamic zero-pointer NODENAME CREATE candidate
-  existing SIF pointer DELETE with all physical owners
-  real HANGER node 205 DELETE-ALL
-  public product bytes == direct tri-family bytes
-  no production authority expansion
+Writer 2 — active PR1024 qualification
+  H>1 HGRDAT/TAG/GUID envelope classification only
+  interleaved order: numeric6,numeric5,string,string per record
+  grouped order: all numeric pairs, then all string pairs
+  exact per-record row ownership
+  retained-row testimony preserves original ordering class
+  no planner/physical/product authority expansion
 
 Writer 2 stable blockers
-  partial H>1 HANGER DELETE  BLOCKED_TAIL_ORDER_UNQUALIFIED
+  partial H>1 HANGER DELETE  BLOCKED_TAIL_ORDER_UNQUALIFIED in merged planner
   HANGER CREATE               BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
   SIF CREATE                  BLOCKED_ITEMS_27_30_UNRESOLVED
 
@@ -68,29 +68,27 @@ Writer 3
   topology/node/element/connectivity mutation only
 ```
 
-## PR1023 real-preimage transaction
+## PR1024 qualification boundary
 
 ```text
-BM_CII_SOURCE.CII TARGET0
- -> canonical bound APPLY set
-      NODENAME CREATE
-      V11 SIF DELETE [all owners of selected pointer]
-      HANGER node 205 DELETE-ALL
- -> ciiWriter2CompositeReadiness
- -> direct tri-family one-preimage writer
- -> public applyCiiWorkspaceTargetWriter2 on same TARGET0
- -> require exact byte parity
- -> re-intake export
- -> independent tri-family complete-postimage validation
+untouched 4*H HGRDAT/TAG/GUID envelope
+ -> exact row-count gate
+ -> numeric HGRDAT card proof (6 values, then 5 values)
+ -> TAG/GUID string-card proof (7X + I5 + 1X + body)
+ -> classify INTERLEAVED or GROUPED
+ -> emit exact 1-based per-record row ownership
+ -> retained-row testimony preserves the same ordering class
+ -> NO MUTATION AUTHORITY
 ```
 
-Expected real HANGER physical result:
+For H=3 retaining records 1 and 3:
 
 ```text
-CONTROL.NOHGRS  1 -> 0
-MISCEL_1       23 -> 11 rows
-retained        7 RRMAT rows + 4 execution rows
+interleaved rows -> 1,2,3,4,9,10,11,12
+grouped rows     -> 1,2,5,6,7,8,11,12
 ```
+
+QF-1024-001 corrected an initial helper defect that would have reordered grouped retention into interleaved order.
 
 ## Stable blockers
 
@@ -103,20 +101,18 @@ WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 ## Current validation truth
 
 ```text
-PR1022 merge / PR1023 base grounding                  PASS_GIT_BRANCH
-BM_CII_SOURCE V11 / CONTROL counts                    PASS_SOURCE_INSPECTION
-BM_CII_SOURCE four NODENAME rows                      PASS_SOURCE_INSPECTION
-BM_CII_SOURCE hanger 205 / 23->11 basis               PASS_INHERITED_SOURCE_EVIDENCE
-PR1023 qualification source audit                     PASS_SOURCE_INSPECTION
-exact checkout                                        BLOCKED_ENVIRONMENT_GITHUB_DNS
-focused tri-family real-benchmark regression          AUTHORED_NOT_RUN_ENVIRONMENT
-inherited PR1022 product regression                   NOT_RUN_ENVIRONMENT
-inherited PR1021 tri-family regression                NOT_RUN_ENVIRONMENT
-inherited Writer2 component regressions               NOT_RUN_ENVIRONMENT
-full repository tests                                 NOT_RUN_ENVIRONMENT
-browser/product                                       NOT_RUN_ENVIRONMENT
+PR1023 merge / PR1024 exact base                       PASS
+3D_Converters dual-emitter source conflict             PASS_SOURCE_INSPECTION
+interleaved physical order                              PASS_SOURCE_INSPECTION
+grouped physical order                                  PASS_SOURCE_INSPECTION
+PR1024 classifier source audit                          PASS_SOURCE_INSPECTION
+QF-1024-001 grouped-retention correction                PASS_SOURCE_INSPECTION
+focused HANGER tail-order regression                    AUTHORED_NOT_RUN_ENVIRONMENT
+inherited HANGER / Writer2 regressions                  NOT_RUN_ENVIRONMENT
+full repository tests                                   NOT_RUN_ENVIRONMENT
+browser/product                                         NOT_RUN_ENVIRONMENT
 ```
 
 No unexecuted test is represented as PASS.
 
-See `agents/PR1023_workreport.md`, `agents/status/PR1023.yaml`, and `agents/claims/PR1023.yaml`.
+See `agents/PR1024_workreport.md`, `agents/status/PR1024.yaml`, and `agents/claims/PR1024.yaml`.
