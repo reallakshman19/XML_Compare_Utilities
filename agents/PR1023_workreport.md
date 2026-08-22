@@ -132,13 +132,19 @@ Delete one mutation from the writer-result ledger while keeping the correct byte
 
 Duplicate one APPLY operation ID in `transferScope.appliedOperationIds`.
 
-Required results:
+Required layer-specific results:
 
 ```text
-ciiWriter2CompositeReadiness.ready = false
-WRITER_2_COMPOSITE_SCOPE_APPLY_DUPLICATE_ID
-low-level tri-family apply throws before mutation
+product readiness:
+  ciiWriter2CompositeReadiness.ready = false
+  WRITER_2_COMPOSITE_SCOPE_APPLY_IDS_DUPLICATE
+
+low-level tri-family writer:
+  CII_WRITER_2_COMPOSITE_HANGER_SCOPE_APPLY_DUPLICATE_ID
+  thrown before byte mutation
 ```
+
+The two layers intentionally use different error namespaces; the qualification asserts each actual contract rather than collapsing them into one string.
 
 ## 6. Existing fail-closed boundaries inherited unchanged
 
@@ -219,7 +225,7 @@ Do not widen Writer2 authority in PR1023.
 10. Why is successful reparsing insufficient after an unrelated-byte tamper?
 11. What does the stale-preview falsifier prove?
 12. What does forged mutation testimony prove?
-13. Why must duplicate scope IDs fail at readiness and apply?
+13. Why do readiness and low-level writer use different duplicate-scope error namespaces?
 14. Which Writer2 authorities remain blocked after this qualification?
 15. Which production files are intentionally unchanged?
 16. Which tests remain NOT_RUN and why?
