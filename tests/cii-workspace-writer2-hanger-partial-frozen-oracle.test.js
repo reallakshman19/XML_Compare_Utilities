@@ -119,7 +119,7 @@ for (const [caseId, spec] of Object.entries(oracle.cases)) {
   const target = target0ForCase(spec);
   assert.equal(target.body.length, spec.target0ByteLength, `${caseId} TARGET0 length`);
   assert.equal(sha256(target.body), spec.target0Sha256, `${caseId} TARGET0 immutable oracle`);
-  const before = documentFromBytes(target.body, target.parsed, spec.targetSha256);
+  const before = documentFromBytes(target.body, target.parsed, spec.target0Sha256);
   assert.equal(before.hangerEvidence.status, 'QUALIFIED', `${caseId} pre hanger evidence`);
   assert.equal(before.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER, `${caseId} pre layout`);
   const deleteNodes = spec.deletePositions.map((position) => target.nodes[position - 1]);
