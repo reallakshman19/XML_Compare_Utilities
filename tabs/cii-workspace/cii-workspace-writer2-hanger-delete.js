@@ -1,6 +1,8 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { ciiPhysicalByteString, ciiPhysicalSectionRows, decodeCiiAsciiByteString } from './cii-workspace-physical-file.js';
 import { CII_HANGER_LAYOUTS } from './cii-workspace-hanger.js';
+import { qualifyCiiWriter2HangerRecordBindings } from './cii-workspace-writer2-hanger-record-binding.js';
+import { retainedCiiWriter2HangerTailRows } from './cii-workspace-writer2-hanger-tail-order.js';
 
 export const CII_WRITER_2_HANGER_DELETE_POLICY = 'CII_WRITER_2_HANGER_DELETE_COMPACTION';
 export const CII_WRITER_2_HANGER_CREATE_BLOCKER = 'WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED';
@@ -73,7 +75,8 @@ export function applyCiiWriter2HangerDeletePlanContract(plan) {
     operations, status: unique.length ? 'BLOCKED' : 'PREVIEW_READY', blockers: unique,
     summary: deepFreeze({ ...summary, writer2HangerDeleteMutationCount: deleteReady.length }),
     policy: deepFreeze({ ...(plan.policy || {}),
-      hangerMutation: 'EXISTING_HANGER_DELETE_ALL_OR_SINGLE_RECORD_ONLY_UNTIL_MULTI_TAIL_ORDER_QUALIFIED',
+      hangerMutation: 'EXISTING_HANGER_DELETE_PLANNER_WITH_QUALIFIED_RECORD_BINDING',
+      hangerPhysicalMutation: 'DELETE_ALL_ONLY_UNCHANGED',
       hangerCreate: 'BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED', topologyMutation: 'BLOCKED' }),
   });
 }
@@ -150,11 +153,7 @@ function physicalCustody(targetDocument, blockers) {
   const prefixRows = rrmatRows + nozzleRows; let cursor = prefixRows;
   const defaultRows = rowGroup(rows, cursor, count > 0 ? 2 : 0); cursor += defaultRows.length;
   const ihgrNodeRows = rowGroup(rows, cursor, packedRows); cursor += packedRows;
-  // Source review found conflicting H>1 orderings after IHGRNODE:
-  // cii2019_hanger_miscel_control.py interleaves HGRDAT/TAG/GUID per hanger,
-  // while cii2019_miscel_hardener.py groups all HGRDAT then all TAG/GUID.
-  // Both occupy the same 4*H row envelope. Keep it opaque until the order is qualified.
-  const opaqueHgrdatTagGuidRows = rowGroup(rows, cursor, 4 * count); cursor += 4 * count;
+  const hgrdatTagGuidRows = rowGroup(rows, cursor, 4 * count); cursor += 4 * count;
   const ihgrfreeRows = rowGroup(rows, cursor, count); cursor += count;
   const ihgrnumRows = rowGroup(rows, cursor, packedRows); cursor += packedRows;
   const ihgrtableRows = rowGroup(rows, cursor, packedRows); cursor += packedRows;
@@ -168,11 +167,13 @@ function physicalCustody(targetDocument, blockers) {
   const ihgrtable = extractPacked(ihgrtableRows, count, 'IHGRTABLE', blockers);
   const ihgrshort = extractPacked(ihgrshortRows, count, 'IHGRSHORT', blockers);
   const ihgrcn = extractPacked(ihgrcnRows, count, 'IHGRCN', blockers);
+  const packed = Object.freeze({ IHGRNODE: ihgrNode, IHGRNUM: ihgrnum, IHGRTABLE: ihgrtable, IHGRSHORT: ihgrshort, IHGRCN: ihgrcn });
   const expectedNodes = [...(evidence.nodes || [])].map((node) => String(node));
   const physicalNodes = ihgrNode.fields.map((field) => String(field.value));
   if (expectedNodes.length !== physicalNodes.length || expectedNodes.some((node, index) => node !== physicalNodes[index])) {
     blockers.push('WRITER_2_HANGER_IHGRNODE_RECORD_ORDER_CUSTODY_REQUIRED');
   }
+  const recordBinding = qualifyCiiWriter2HangerRecordBindings({ count, tailRows: hgrdatTagGuidRows, ihgrfreeRows, packed });
   const payloadStart = rows[0]?.byteStart; const payloadEnd = rows[rows.length - 1]?.byteEnd;
   if (!Number.isSafeInteger(payloadStart) || !Number.isSafeInteger(payloadEnd) || payloadEnd < payloadStart) {
     blockers.push('WRITER_2_HANGER_MISCEL_PAYLOAD_SPAN_REQUIRED');
@@ -180,7 +181,8 @@ function physicalCustody(targetDocument, blockers) {
   return deepFreeze({
     status: blockers.length ? 'BLOCKED' : 'QUALIFIED', layout: evidence.layout, count, rrmatRows, nozzleRows, packedRows,
     expectedRowCount: expectedRows,
-    tailOrderAuthority: count <= 1 ? 'ORDER_EQUIVALENT_FOR_SINGLE_RECORD' : 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER',
+    tailOrderAuthority: count <= 1 ? 'ORDER_EQUIVALENT_FOR_SINGLE_RECORD'
+      : recordBinding.status === 'QUALIFIED' ? recordBinding.tailAuthority : 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER',
     control: Object.freeze({
       count: controlCount, rowLineNumber: controlRow?.lineNumber ?? null,
       byteStart: Number(controlRow?.byteStart) + CONTROL_NOHGRS_FIELD.start,
@@ -190,8 +192,7 @@ function physicalCustody(targetDocument, blockers) {
     miscelPayload: Object.freeze({ byteStart: payloadStart, byteEnd: payloadEnd,
       beforeField: Number.isSafeInteger(payloadStart) && Number.isSafeInteger(payloadEnd)
         ? ciiPhysicalByteString(physicalFile, payloadStart, payloadEnd) : '' }),
-    defaultRows, opaqueHgrdatTagGuidRows, ihgrfreeRows, executionRows,
-    packed: Object.freeze({ IHGRNODE: ihgrNode, IHGRNUM: ihgrnum, IHGRTABLE: ihgrtable, IHGRSHORT: ihgrshort, IHGRCN: ihgrcn }),
+    defaultRows, hgrdatTagGuidRows, ihgrfreeRows, executionRows, packed, recordBinding,
   });
 }
 function targetNodeId(operation, blockers) {
@@ -255,7 +256,11 @@ export function buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan }
   const countBefore = Number(custody?.count || 0);
   const deleteAll = countBefore > 0 && selectedRecords.size === countBefore;
   const partialMultiRecordDelete = countBefore > 1 && selectedRecords.size > 0 && !deleteAll;
-  if (partialMultiRecordDelete) blockers.push(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER);
+  const partialRecordBindingQualified = !partialMultiRecordDelete || custody?.recordBinding?.status === 'QUALIFIED';
+  if (partialMultiRecordDelete && !partialRecordBindingQualified) {
+    blockers.push(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER);
+    for (const code of custody?.recordBinding?.blockers || []) blockers.push(`WRITER_2_HANGER_PARTIAL_RECORD_BINDING_REQUIRED:${code}`);
+  }
 
   const retained = new Set();
   for (let index = 1; index <= countBefore; index += 1) if (!selectedRecords.has(index)) retained.add(index);
@@ -265,6 +270,9 @@ export function buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan }
   const expectedMiscelRowsAfter = Number(custody?.rrmatRows || 0) + Number(custody?.nozzleRows || 0) + hangerRowsAfter + EXECUTION_ROWS;
   const ready = blockers.length === 0;
   const retainedIndices = Object.freeze([...retained].sort((a, b) => a - b));
+  const retainedTailRowIndices = partialMultiRecordDelete && partialRecordBindingQualified
+    ? retainedCiiWriter2HangerTailRows(custody?.recordBinding?.tailQualification, retainedIndices)
+    : Object.freeze([]);
   return deepFreeze({
     schema: 'CIIWorkspaceWriter2HangerDeletePlan.v1', status: ready ? 'READY' : 'BLOCKED', ready,
     policyAuthority: CII_WRITER_2_HANGER_DELETE_POLICY,
@@ -277,14 +285,20 @@ export function buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan }
     physicalCustody: custody,
     compaction: Object.freeze({
       canonicalIhgrNodeFirstOnly: true, deleteAll, partialMultiRecordDelete,
-      partialRecordCompactionAuthorized: !partialMultiRecordDelete,
-      tailOrderAuthority: deleteAll || countBefore <= 1 ? 'NOT_REQUIRED_FOR_AUTHORIZED_DELETE' : 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER',
+      partialRecordCompactionAuthorized: !partialMultiRecordDelete || partialRecordBindingQualified,
+      plannerPartialRecordAuthority: partialMultiRecordDelete && partialRecordBindingQualified,
+      physicalPartialWriteAuthority: false,
+      physicalWriterScope: 'DELETE_ALL_ONLY_UNCHANGED',
+      tailOrderAuthority: deleteAll || countBefore <= 1 ? 'NOT_REQUIRED_FOR_AUTHORIZED_DELETE'
+        : partialRecordBindingQualified ? custody?.recordBinding?.authority : 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER',
       hangerHeaderRowsRetained: countAfter > 0,
       packedRowsBefore: custody?.packedRows ?? null, packedRowsAfter,
       expectedMiscelRowsBefore: custody?.expectedRowCount ?? null, expectedMiscelRowsAfter,
-      retainedOpaqueHgrdatTagGuidRecordIndices: partialMultiRecordDelete ? Object.freeze([]) : retainedIndices,
-      retainedIhgrfreeRecordIndices: partialMultiRecordDelete ? Object.freeze([]) : retainedIndices,
+      retainedOpaqueHgrdatTagGuidRecordIndices: partialMultiRecordDelete && !partialRecordBindingQualified ? Object.freeze([]) : retainedIndices,
+      retainedHgrdatTagGuidRowIndices: retainedTailRowIndices,
+      retainedIhgrfreeRecordIndices: partialMultiRecordDelete && !partialRecordBindingQualified ? Object.freeze([]) : retainedIndices,
       retainedPackedFields: retainedPackedFields(custody, retained),
+      recordBindingAuthority: partialRecordBindingQualified ? custody?.recordBinding?.authority || null : null,
     }),
     blockers: Object.freeze([...new Set(blockers)]),
     createAuthority: Object.freeze({ ready: false, blocker: CII_WRITER_2_HANGER_CREATE_BLOCKER,
