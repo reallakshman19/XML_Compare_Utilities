@@ -34,6 +34,18 @@ coordination:
   authority_overlap: DIRECT_WITH_PR1025
   dependency_overlap: HARD_DEPENDENCY
   state: BLOCKED_BY_ACTIVE_CLAIM
+scope_reconciliation:
+  changed_files:
+    - agents/MASTER_INDEX.md
+    - agents/PR1027_workreport.md
+    - agents/claims/PR1027.yaml
+    - agents/status/PR1027.yaml
+  actual_count: 4
+  intended_count: 4
+  unexplained_count: 0
+  production_count: 0
+  test_count: 0
+  workflow_count: 0
 negative_assurance:
   - no product/core routing expansion
   - no tri-family composite expansion
@@ -42,5 +54,5 @@ negative_assurance:
   - no SIF CREATE
   - no Writer3 topology
   - no workflow changes
-last_verified_head: cc99e8feb85248ecfa3e00be478d61b7cfa8d266
-last_updated: 2026-08-22T19:44:27+05:30
+last_verified_head: fb82bbe4cb453a7e671fa99b1f1a7f2d03f6600c
+last_updated: 2026-08-22T19:46:20+05:30
