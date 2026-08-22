@@ -19,7 +19,7 @@ BRANCH: agent/cii-writer2-hanger-partial-physical
 BASE_MAIN: ae1de402db129e32cd6d7811a4e4707d64512bd4
 COMPONENT_VALIDATION_BASIS_HEAD: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 GROUNDING_EPOCH: GE-1027-002
-CURRENT_STAGE: FOCUSED_COMPONENT_QUALIFICATION_PASS_FULL_REPOSITORY_PENDING
+CURRENT_STAGE: FOCUSED_COMPONENT_AND_TWO_INHERITED_PREDECESSOR_TESTS_PASS
 CURRENT_BLOCKER: FULL_EXACT_CHECKOUT_REGRESSION_ENVIRONMENT_UNAVAILABLE
 ```
 
@@ -53,10 +53,13 @@ What is now proven by focused execution:
 - H=7->6 and H=13->12 packed-row boundaries pass;
 - retained lexical `+12` I13 token survives exactly;
 - F01-F27 and F29-F30 pass in reconstructed dependency-closure execution;
-- F28 product/composite delete-all-only gate passes current-head source inspection.
+- F28 product/composite delete-all-only gate passes current-head source inspection;
+- inherited `cii-workspace-writer2-hanger-tail-order.test.js` scenarios pass from current-head reconstructed source;
+- inherited `cii-workspace-writer2-hanger-record-binding.test.js` scenarios pass from current-head reconstructed source.
 
 What remains NOT_RUN:
-- inherited HANGER/Writer2 runtime suites on a native exact checkout;
+- complete inherited HANGER/Writer2 suite on a native exact checkout;
+- inherited planner/delete-all tests that require intake + private benchmark materialization;
 - real `BM_CII_SOURCE.CII` H=1 delete-all regression on a native exact checkout;
 - full repository `npm test`.
 
@@ -266,14 +269,36 @@ WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
 
 for any ready HANGER plan that is not delete-all/count-zero.
 
-## 9. Validation observation class / limitation
+## 9. Inherited predecessor checks
+
+Executed from the current-head reconstructed source closure:
+
+```text
+tests/cii-workspace-writer2-hanger-tail-order.test.js      PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+tests/cii-workspace-writer2-hanger-record-binding.test.js PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+```
+
+These are direct predecessor authority tests and did not require product/composite stubbing.
+
+The following inherited paths remain unexecuted because they import intake and/or the private benchmark or broaden into unrelated Writer2 families:
+
+```text
+tests/cii-workspace-writer2-hanger-delete-plan.test.js
+tests/cii-workspace-writer2-hanger-delete-all-physical.test.js
+broader Writer2 composite/product suites
+```
+
+They must not be inferred PASS from the two predecessor checks above.
+
+## 10. Validation observation class / limitation
 
 The runtime environment cannot resolve `github.com`, so a native private-repository checkout is unavailable.
 
-Focused tests were executed from a dependency closure reconstructed from GitHub connector source at the PR component head. Therefore these results are recorded as:
+Focused tests and two direct predecessor tests were executed from source/dependency closure reconstructed through the GitHub connector at the PR component/current source. Therefore these results are recorded as:
 
 ```text
 PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
 ```
 
 They are **not** claimed as:
@@ -285,7 +310,7 @@ PASS_FULL_REPOSITORY
 
 No current-head GitHub Actions test workflow exists for this qualification; the repository workflow inspected is Pages/deploy oriented.
 
-## 10. Changed-file ledger
+## 11. Changed-file ledger
 
 Expected/actual Issue #1026 paths:
 
@@ -302,7 +327,7 @@ tests/cii-workspace-writer2-hanger-partial-physical.test.js
 tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
 ```
 
-Last reconciled before validation metadata:
+Last reconciled:
 
 ```text
 actual: 10
@@ -313,7 +338,7 @@ package-script changes: 0
 product/UI changes: 0
 ```
 
-## 11. Negative assurance
+## 12. Negative assurance
 
 PR1027 does not gain or modify authority for:
 - product/core partial-HANGER apply;
@@ -328,7 +353,7 @@ PR1027 does not gain or modify authority for:
 - protected parser/converter code;
 - GitHub workflows.
 
-## 12. Current review / merge state
+## 13. Current review / merge state
 
 ```text
 PR #1027: OPEN / DRAFT / MERGEABLE
@@ -337,17 +362,16 @@ merge authority: OWNER_ONLY
 
 Do not merge without fresh owner authorization.
 
-## 13. Exact next action
+## 14. Exact next action
 
 When a native exact checkout becomes available:
 
 ```text
-1. run tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
-2. run tests/cii-workspace-writer2-hanger-partial-physical.test.js
-3. run inherited HANGER/Writer2 suites
-4. run real BM_CII_SOURCE H=1 delete-all regression
-5. run full npm test
-6. reconcile changed files / statuses / reviews
+1. rerun both PR1027 focused Node tests
+2. run the full inherited HANGER/Writer2 suites
+3. run real BM_CII_SOURCE H=1 delete-all regression
+4. run full npm test
+5. reconcile changed files / statuses / reviews
 ```
 
 Until then, keep the PR draft and preserve the fail-closed component boundary.
@@ -375,3 +399,4 @@ Qualification threshold: 92/100 overall, each question >=17/20.
 - 2026-08-22: first frozen runtime exposed test TARGET hash bug; production correctly failed closed.
 - 2026-08-22: test fixed at `85b38416...` to use immutable `target0Sha256`.
 - 2026-08-22: frozen oracles, independent validator cases, complete packing matrix, physical falsifiers, VFLEX custody and delete-all delegation passed in reconstructed dependency-closure execution; F28 current-head source gate confirmed.
+- 2026-08-22: inherited tail-order and record-binding predecessor scenarios passed from current-head reconstructed source; planner/delete-all benchmark-dependent inherited tests remain NOT_RUN.
