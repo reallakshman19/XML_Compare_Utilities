@@ -9,6 +9,8 @@ import {
   CII_WRITER_2_HANGER_CREATE_BLOCKER, CII_WRITER_2_HANGER_DELETE_POLICY,
   CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER,
 } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js';
+import { applyCiiWriter2HangerDeleteAll } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js';
+import { CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-record-binding.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 function numericRow(values) { return values.map((value, index) => String(value ?? '').padStart(WIDTHS[index] || 13, ' ')).join(''); }
@@ -39,6 +41,8 @@ function canonicalTarget(nodes, tailOrder = 'INTERLEAVED', mutate = null) {
     packedIntegerRow(nodes.map((_, index) => index + 40)),
   ];
   if (mutate === 'BAD_IHGRNUM_PREFIX') packed[0] = `X ${packed[0].slice(2)}`;
+  if (mutate === 'BAD_TAIL_SHAPE') hgrdatTagGuid[4] = '       6 FORGED';
+  if (mutate === 'BAD_IHGRFREE_PREFIX') free[1] = `X ${free[1].slice(2)}`;
   const body = ['#$ CONTROL', ...control(elementCount, count), '#$ MISCEL_1', ...rrmat, ...defaults,
     packedIntegerRow(nodes), ...hgrdatTagGuid, ...free, ...packed, ...executionRows()].join('\r\n') + '\r\n';
   const parsed = Object.freeze({
@@ -84,22 +88,70 @@ function bound(contracted, decisions = () => 'APPLY') {
     transferScope: Object.freeze({ status: 'BOUND' }) });
 }
 
-// QF-1019-001: H>1 partial record compaction is not source-qualified because two repository emitters disagree on HGRDAT/TAG-GUID order.
+// PR1024 + PR1025: both known H>1 tail layouts have exact per-record positional custody, so partial planner compaction is eligible.
 for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   const target = canonicalTarget([20, 30, 40], tailOrder);
   assert.equal(target.hangerEvidence.status, 'QUALIFIED');
   assert.equal(target.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER);
   const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(30, false, true)]));
+  const transferPlan = bound(contracted);
+  const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan });
+  assert.equal(plan.ready, true, plan.blockers.join('|'));
+  assert(!plan.blockers.includes(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER));
+  assert.equal(plan.compaction.partialRecordCompactionAuthorized, true);
+  assert.equal(plan.compaction.plannerPartialRecordAuthority, true);
+  assert.equal(plan.compaction.physicalPartialWriteAuthority, false);
+  assert.equal(plan.compaction.physicalWriterScope, 'DELETE_ALL_ONLY_UNCHANGED');
+  assert.equal(plan.compaction.tailOrderAuthority, CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY);
+  assert.deepEqual(plan.oldToNewRecordIndex, { 1: 1, 2: 0, 3: 2 });
+  assert.deepEqual(plan.compaction.retainedOpaqueHgrdatTagGuidRecordIndices, [1, 3]);
+  assert.deepEqual(plan.compaction.retainedIhgrfreeRecordIndices, [1, 3]);
+  assert.deepEqual(plan.compaction.retainedHgrdatTagGuidRowIndices,
+    tailOrder === 'INTERLEAVED' ? [1, 2, 3, 4, 9, 10, 11, 12] : [1, 2, 5, 6, 7, 8, 11, 12]);
+  assert.equal(plan.physicalCustody.recordBinding.status, 'QUALIFIED');
+  assert.equal(plan.physicalCustody.recordBinding.records[1].recordIndex, 2);
+  assert.equal(plan.physicalCustody.recordBinding.records[1].node, '30');
+  assert.equal(plan.physicalCustody.recordBinding.records[1].ihgrfree.recordIndex, 2);
+  for (const field of Object.values(plan.physicalCustody.recordBinding.records[1].packed)) assert.equal(field.valueIndex, 2);
+  assert.throws(() => applyCiiWriter2HangerDeleteAll({ targetDocument: target, transferPlan }), /CII_WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED/,
+    'planner authority must not leak into the delete-all physical writer');
+}
+
+// A tail envelope that matches neither qualified physical order keeps the stable partial-H>1 blocker.
+{
+  const target = canonicalTarget([20, 30, 40], 'INTERLEAVED', 'BAD_TAIL_SHAPE');
+  const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(30, false, true)]));
   const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
   assert.equal(plan.ready, false);
   assert(plan.blockers.includes(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER));
+  assert(plan.blockers.some((item) => item.includes('WRITER_2_HANGER_TAIL_ROW_SHAPE_UNQUALIFIED')));
+  assert.equal(plan.physicalCustody.recordBinding.status, 'BLOCKED');
   assert.equal(plan.compaction.partialRecordCompactionAuthorized, false);
-  assert.equal(plan.compaction.tailOrderAuthority, 'UNRESOLVED_INTER_EMITTER_HGRDAT_TAG_GUID_ORDER');
-  assert.deepEqual(plan.oldToNewRecordIndex, { 1: 1, 2: 0, 3: 2 }, 'mapping remains testimony, not authorization');
-  assert.deepEqual(plan.compaction.retainedOpaqueHgrdatTagGuidRecordIndices, [], 'blocked partial compaction must not expose retained opaque-row authority');
 }
 
-// Delete-all does not require HGRDAT/TAG-GUID record ordering: the complete hanger payload is removed.
+// IHGRFREE is part of the same positional record binding; corrupting one retained/deleted row blocks partial authority.
+{
+  const target = canonicalTarget([20, 30, 40], 'INTERLEAVED', 'BAD_IHGRFREE_PREFIX');
+  const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(30, false, true)]));
+  const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
+  assert.equal(plan.ready, false);
+  assert(plan.blockers.includes(CII_WRITER_2_HANGER_PARTIAL_MULTI_DELETE_BLOCKER));
+  assert(plan.blockers.some((item) => item.includes('WRITER_2_HANGER_IHGRFREE_PREFIX_REQUIRED:2')));
+}
+
+// Delete-all remains independent of per-record tail/IHGRFREE classification because no hanger record is retained.
+for (const mutate of ['BAD_TAIL_SHAPE', 'BAD_IHGRFREE_PREFIX']) {
+  const target = canonicalTarget([20, 30, 40], 'INTERLEAVED', mutate);
+  const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([
+    hangerOperation(20, false, true), hangerOperation(30, false, true), hangerOperation(40, false, true),
+  ]));
+  const plan = buildCiiWriter2HangerDeletePlan({ targetDocument: target, transferPlan: bound(contracted) });
+  assert.equal(plan.ready, true, plan.blockers.join('|'));
+  assert.equal(plan.compaction.deleteAll, true);
+  assert.equal(plan.countAfter, 0);
+}
+
+// Normal delete-all still does not require retained record ordering: complete hanger payload is removed.
 for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   const target = canonicalTarget([20, 30, 40], tailOrder);
   const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([
@@ -115,7 +167,7 @@ for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   assert.equal(plan.compaction.expectedMiscelRowsAfter, 5, '3 elements => one RRMAT row + four execution rows');
 }
 
-// Packed arrays are canonical 2X + 13-byte integer fields; a forged prefix blocks physical custody.
+// Packed arrays are canonical 2X + 13-byte integer fields; a forged prefix blocks base physical custody.
 {
   const target = canonicalTarget([20], 'INTERLEAVED', 'BAD_IHGRNUM_PREFIX');
   const contracted = applyCiiWriter2HangerDeletePlanContract(rawPlan([hangerOperation(20, false, true)]));
@@ -143,7 +195,7 @@ for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   assert(plan.blockers.some((item) => item.startsWith('WRITER_2_HANGER_CANONICAL_LAYOUT_REQUIRED:')));
 }
 
-// Real CAESAR benchmark custody: the one existing hanger at node 205 is delete-all, so the H>1 tail-order conflict is irrelevant.
+// Real CAESAR benchmark custody: the one existing hanger at node 205 remains delete-all and unchanged by partial-H>1 authority.
 {
   const bytes = new Uint8Array(await readFile(new URL('../Benchmark/CIICompare/BM_CII_SOURCE.CII', import.meta.url)));
   const target = await intakeCiiWorkspaceDocument(bytes, 'BM_CII_SOURCE.CII', { side: 'TARGET', cryptoRef: webcrypto });
@@ -165,4 +217,4 @@ for (const tailOrder of ['INTERLEAVED', 'GROUPED']) {
   assert.equal(plan.compaction.hangerHeaderRowsRetained, false);
 }
 
-console.log('Writer2 HANGER DELETE planner now fails closed on unresolved H>1 partial tail ordering.');
+console.log('Writer2 HANGER DELETE planner qualifies partial H>1 record custody while physical delete-all authority stays unchanged.');
