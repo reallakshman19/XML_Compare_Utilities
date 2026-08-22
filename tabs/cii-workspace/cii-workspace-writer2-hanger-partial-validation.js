@@ -13,6 +13,7 @@ const EXECUTION_ROWS = 4;
 const CONTROL_HANGER_FIELD_INDEX = 2;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
+const SINGLE_RECORD_ORDER = 'SINGLE_RECORD_ORDER_EQUIVALENT';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
 
 function text(value) { return String(value ?? '').trim(); }
@@ -261,8 +262,11 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
       || Number(after?.hangerEvidence?.count) !== retainedInfo.retained.length
       || stableStringify(after?.hangerEvidence?.nodes || []) !== stableStringify(expectedNodes)) errors.push('WRITER_2_HANGER_PARTIAL_POST_HANGER_CUSTODY_MISMATCH');
     try {
-      const order = afterTailOrder(after, retainedInfo.retained.length);
-      if (order !== plan?.physicalCustody?.recordBinding?.tailOrder || writerResult?.tailOrder !== order) errors.push('WRITER_2_HANGER_PARTIAL_TAIL_ORDER_CHANGED');
+      const postOrder = afterTailOrder(after, retainedInfo.retained.length);
+      const preOrder = plan?.physicalCustody?.recordBinding?.tailOrder;
+      if (writerResult?.tailOrder !== preOrder) errors.push('WRITER_2_HANGER_PARTIAL_TAIL_ORDER_TESTIMONY_MISMATCH');
+      if (retainedInfo.retained.length > 1 && postOrder !== preOrder) errors.push('WRITER_2_HANGER_PARTIAL_TAIL_ORDER_CHANGED');
+      if (retainedInfo.retained.length === 1 && postOrder !== SINGLE_RECORD_ORDER) errors.push('WRITER_2_HANGER_PARTIAL_SINGLE_RECORD_ORDER_NOT_EQUIVALENT');
     } catch (error) { errors.push(error.message); }
   }
   const beforeLength = String(before?.physicalFile?.originalByteString || '').length;
@@ -284,7 +288,7 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP',
       'INDEPENDENT_RAW_I13_REPACK', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
-      'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
+      'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
     hangerCountBefore: counts.countBefore, hangerCountAfter: counts.countAfter, expectedMiscelRowsAfter: counts.rowCountAfter });
 }
 
