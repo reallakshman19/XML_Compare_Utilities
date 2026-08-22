@@ -17,12 +17,12 @@ report_path: agents/PR1027_workreport.md
 report_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: FOCUSED_COMPONENT_QUALIFICATION_PASS_FULL_REPOSITORY_PENDING
+current_stage: FOCUSED_COMPONENT_AND_TWO_INHERITED_PREDECESSOR_TESTS_PASS
 blocker: FULL_EXACT_CHECKOUT_REGRESSION_ENVIRONMENT_UNAVAILABLE
 highest_risk: >-
-  Component qualification now passes, but inherited Writer2 suites, the real
-  BM_CII_SOURCE H=1 delete-all regression and full npm test have not been run on
-  a native exact repository checkout.
+  Component qualification and two direct predecessor tests pass under reconstructed
+  source execution, but the planner/delete-all intake benchmark path, broader
+  Writer2 regressions and full npm test have not run on a native exact checkout.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -49,18 +49,22 @@ validation:
   falsifiers_f17_f27: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   falsifier_f28_product_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
   falsifiers_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  inherited_hanger_writer2: NOT_RUN_ENVIRONMENT
-  real_h1_delete_all_non_regression: NOT_RUN_ENVIRONMENT_EXISTING_TEST_UNCHANGED
+  inherited_hanger_tail_order_test: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  inherited_hanger_record_binding_test: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  inherited_hanger_delete_plan_full_test: NOT_RUN_ENVIRONMENT_INTAKE_BENCHMARK_DEPENDENCY
+  inherited_hanger_delete_all_full_test: NOT_RUN_ENVIRONMENT_INTAKE_BENCHMARK_DEPENDENCY
+  broader_writer2: NOT_RUN_ENVIRONMENT
+  real_h1_delete_all_non_regression: NOT_RUN_ENVIRONMENT_PRIVATE_BENCHMARK_NOT_MATERIALIZED
   full_repository: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
 execution_limitation: >-
   The container cannot resolve github.com and cannot create a native private-repo
-  checkout. Focused runtime evidence was executed from a dependency closure
-  reconstructed from GitHub connector source at the PR head. It is not claimed
-  as PASS_EXACT_CHECKOUT. F28 was intentionally source-inspected instead of
-  stubbing unrelated NODENAME/SIF composite imports.
+  checkout. Focused runtime evidence and the two direct predecessor tests were
+  executed from dependency closure/source reconstructed through the GitHub
+  connector. These are not claimed as PASS_EXACT_CHECKOUT. F28 was intentionally
+  source-inspected instead of stubbing unrelated NODENAME/SIF composite imports.
 exact_next_action: >-
-  Run inherited HANGER/Writer2 regressions and full npm test on a native exact
-  PR1027 checkout when available; do not weaken fail-closed behavior or merge
-  without fresh owner authorization.
-last_updated: 2026-08-22T23:08:00+05:30
+  On a native exact PR1027 checkout, run the complete inherited HANGER/Writer2
+  suites including real BM_CII_SOURCE H=1 delete-all, then full npm test; keep
+  the PR draft and do not merge without fresh owner authorization.
+last_updated: 2026-08-22T23:16:00+05:30
