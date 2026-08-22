@@ -1,0 +1,46 @@
+schema: AgentClaim.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: WIP-ISSUE1026-PHYSICAL-HANGER
+branch: agent/cii-writer2-hanger-partial-physical
+claim_state: ACTIVE_DEPENDENCY_BLOCKED
+base: main@1f3f7b8e1e9c3829278af131606c056af80c2c00
+source_task: issue#1026
+claim_modes:
+  - OBSERVE_ONLY_UNTIL_PR1025_MERGED
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
+    - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
+    - tests/cii-workspace-writer2-hanger-partial-physical.test.js
+    - docs/cii-writer2-hanger-partial-physical.md
+    - agents/WIP-ISSUE1026-PHYSICAL-HANGER_workreport.md
+    - agents/status/WIP-ISSUE1026-PHYSICAL-HANGER.yaml
+    - agents/claims/WIP-ISSUE1026-PHYSICAL-HANGER.yaml
+    - agents/MASTER_INDEX.md
+  prefixes: []
+authority_domains:
+  - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
+  - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
+  - RAW_I13_PACKED_FIELD_REPACKING
+  - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
+hard_dependency:
+  pr: 1025
+  head_observed: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
+  required_state_before_production_write: MERGED_TO_MAIN
+coordination:
+  file_overlap: >-
+    Planned production modules are new, but recovery/master-index metadata is
+    shared. Existing planner files owned by PR1025 are read-only until merge.
+  authority_overlap: DIRECT_WITH_PR1025
+  dependency_overlap: HARD_DEPENDENCY
+  state: BLOCKED_BY_ACTIVE_CLAIM
+negative_assurance:
+  - no product/core routing expansion
+  - no tri-family composite expansion
+  - no UI enablement
+  - no HANGER CREATE or value editing
+  - no SIF CREATE
+  - no Writer3 topology
+  - no workflow changes
+last_verified_head: 1f3f7b8e1e9c3829278af131606c056af80c2c00
+last_updated: 2026-08-22T19:40:00+05:30
