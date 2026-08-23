@@ -295,13 +295,7 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
     ready,
     mutationCount,
     mutationOperationCount: mutationCount,
-    familyMutationCounts: deepFreeze({
-      nodeName: nodeOperations.length,
-      sifDelete: sifDeletes.length,
-      hangerDelete: hangerDeletes.length,
-      hangerDeleteAll: hangerClass === 'DELETE_ALL' ? hangerDeletes.length : 0,
-      hangerPartialDelete: hangerClass === 'PARTIAL_H_GT_1' ? hangerDeletes.length : 0,
-    }),
+    familyMutationCounts: deepFreeze({ nodeName: nodeOperations.length, sifDelete: sifDeletes.length, hangerDelete: hangerDeletes.length }),
     blockers: unique,
     components: deepFreeze({
       nodeName: nodePlan,
