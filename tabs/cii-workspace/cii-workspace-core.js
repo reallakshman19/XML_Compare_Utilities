@@ -28,7 +28,7 @@ import { applyCiiWriter2CompositeWithHangerDeleteAll as applyCiiWriter2Composite
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
-import { validateCiiWriter2CompositeWithHangerRoundTrip as validateCiiWriter2CompositeRoundTrip } from './cii-workspace-writer2-composite-hanger-validation.js';
+import { validateCiiWriter2ProductRoundTrip } from './cii-workspace-writer2-product-validation.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 
 function nodeIndex(graph) { return new Map((graph.nodes || []).map((node) => [String(node.id), node])); }
@@ -278,8 +278,7 @@ async function applyWriter(preview, targetInput, options, version) {
     const componentValidations = await validateCompositeComponents(currentTarget, targetGraph, writerResult, options, preview.targetDocument.fileName);
     validation = validateCiiWriterCompositeRoundTrip(currentTarget, modifiedTarget, writerResult, componentValidations);
   } else if (version === '2') {
-    const writer2Validation = validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult);
-    validation = deepFreeze({ ...writer2Validation, unexpectedSemanticDeltaCount: 0 });
+    validation = validateCiiWriter2ProductRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult);
   } else {
     validation = validateCiiWriterRoundTrip(currentTarget, modifiedTarget, targetGraph, writerResult, preview.transferPlan, label);
   }
