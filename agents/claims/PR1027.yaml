@@ -166,8 +166,8 @@ validation_custody:
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
   full_repository: NOT_RUN_ENVIRONMENT
 review_state:
-  ready_for_review: false
+  ready_for_review: true
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T14:39:00+05:30
+last_updated: 2026-08-23T14:40:00+05:30
