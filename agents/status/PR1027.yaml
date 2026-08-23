@@ -7,6 +7,7 @@ mission: >-
 workstream: CII_WRITER2_HANGER_PARTIAL_PHYSICAL
 branch: agent/cii-writer2-hanger-partial-physical
 main_head_last_checked: ae1de402db129e32cd6d7811a4e4707d64512bd4
+review_ready_head_basis: 92d0c76b7952c1e798435a8f0d65f7ced8bfe2a2
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: REVIEW_READY_AFTER_PREMERGE_AUDIT_FIX
@@ -45,9 +46,6 @@ runtime_adoption:
   existing_product_or_composite_path_changed: false
   package_json_changed: false
   workflow_changed: false
-  note: >-
-    New partial-HANGER production modules remain component-isolated. Existing
-    product/composite/UI routing is unchanged and still blocks partial HANGER.
 validation:
   pr1025_merge: PASS_REMOTE_EXECUTION
   merged_planner_contract: PASS_SOURCE_INSPECTION
@@ -67,10 +65,6 @@ validation:
   inherited_hanger_delete_plan_synthetic_cases: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   inherited_hanger_delete_all_writer_validator_synthetic_cases: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   real_bm_cii_source_hanger_slice: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
-  real_bm_cii_source_slice_details: >-
-    Actual repository CONTROL and HANGER MISCEL_1 custody exercised:
-    NUMELT=40, NUMNOZ=0, NOHGRS=1, IHGRNODE=205, 7 RRMAT rows,
-    23 pre-rows and 11 post-rows. This is not a full-file exact-intake claim.
   focused_tests_native_exact_checkout: NOT_RUN_ENVIRONMENT
   real_bm_cii_source_full_file_exact_intake: NOT_RUN_ENVIRONMENT
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
@@ -86,7 +80,6 @@ review_readiness_basis: >-
   top-level deleted-record testimony gap was fixed and directly falsified; direct
   predecessor behavior remains passing; product/composite/UI adoption remains absent.
 exact_next_action: >-
-  Return PR1027 to ready-for-review after final live reconciliation. Do not merge
-  without fresh owner authorization. If a native checkout becomes available,
-  rerun the focused tests and broader regressions before merge.
+  Owner engineering review. Do not merge without fresh owner authorization. If
+  a native checkout becomes available, rerun focused and broader regressions.
 last_updated: 2026-08-23T08:38:00+05:30
