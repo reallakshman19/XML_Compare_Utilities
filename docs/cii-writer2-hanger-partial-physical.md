@@ -61,49 +61,27 @@ SCOPE APPLY ∩ EXCLUDE = empty
 operationId globally unique across both containers
 ```
 
-Writer and independent validator enforce these rules separately. The integrated F31-F39 suite falsifies overlap, wrong-container rows, wrong decisions, KEEP exclusion, missing containers, blank IDs and KEEP/mutable ID aliasing.
+Writer and independent validator enforce these rules separately. F31-F39 falsify overlap, wrong-container rows, wrong decisions, KEEP exclusion, missing containers, blank IDs and KEEP/mutable ID aliasing.
 
-## TARGET0 cryptographic byte custody
+## Cryptographic byte custody model
 
-### Production intake authority
-
-`cii-workspace-intake.js` creates the document hash as:
+PR1027 now has two distinct SHA-256 authorities around the one-pass physical mutation:
 
 ```text
-physicalFile = createCiiPhysicalFile(rawInput)
-bytes        = ciiPhysicalFileBytes(physicalFile)
-contentSha256 = SHA256(bytes)
+TARGET0 before planning/mutation
+  authority = SHA256_ORIGINAL_TARGET0_BYTES
+
+Writer2 final postimage
+  authority = SHA256_WRITER2_POSTIMAGE_BYTES
 ```
 
-Therefore the authoritative target digest is a digest of the exact physical TARGET0 bytes, not of normalized text and not merely a caller label.
+These authorities bind different byte states. Neither digest substitutes for the exact full-byte postimage oracle.
 
-### Prior weakness
+### TARGET0 cryptographic custody
 
-Before the cryptographic hardening batch, the partial-HANGER component only proved equality among:
+Production intake computes `document.contentSha256` from `ciiPhysicalFileBytes(physicalFile)`, i.e. the exact original physical bytes.
 
-```text
-targetDocument.contentSha256
-transferPlan.targetDocument.contentSha256
-transferScope.targetSha256
-```
-
-Three matching strings can still all be false. A forged BOUND object could therefore carry internally consistent hash testimony that did not match the actual TARGET0 preimage bytes.
-
-### Current authority
-
-```text
-SHA256_ORIGINAL_TARGET0_BYTES
-```
-
-New neutral utility:
-
-```text
-tabs/cii-workspace/cii-workspace-byte-sha256.js
-```
-
-The physical-file layer represents original bytes as `originalByteString`, one byte per JavaScript code unit. `sha256CiiByteString()` hashes exactly those byte values and rejects code units greater than `0xff` instead of truncating them.
-
-Writer preconditions, before planner execution:
+Before planner execution Writer2 requires:
 
 ```text
 targetDocument.contentSha256 is lowercase 64-hex SHA-256
@@ -127,33 +105,63 @@ target0HashCustody = {
 }
 ```
 
-The independent validator recomputes the same digest from `before.physicalFile.originalByteString` without importing the Writer custody helper and independently checks the transfer-plan/scope target hashes. It then checks Writer `target0HashCustody` only as secondary testimony.
+The validator independently recomputes TARGET0 SHA-256 from `before.physicalFile.originalByteString` and checks Writer testimony only after rebuilding its own custody object.
+
+F40-F45 cover consistent forged declared hashes, stale TARGET0 bytes, malformed digest labels, physical/document length contradictions, and forged Writer TARGET0 testimony.
+
+### Postimage cryptographic custody
+
+Exact postimage byte equality was already the primary physical acceptance criterion, but prior to the postimage hardening the re-intaken `after.contentSha256` and postimage length testimony were not themselves bound to the actual postimage bytes.
+
+Writer now computes immediately from the final one-pass result:
+
+```text
+postimageHashCustody = {
+  authority: SHA256_WRITER2_POSTIMAGE_BYTES,
+  contentSha256: SHA256(final byteString),
+  byteLength: final byteString.length
+}
+```
+
+The independent validator separately requires:
+
+```text
+after.contentSha256 is lowercase 64-hex SHA-256
+after.physicalFile.byteLength == after.originalByteString.length
+after.byteLength, when present, == after.originalByteString.length
+
+actualPostimageSha = SHA256(after.physicalFile.originalByteString)
+after.contentSha256 == actualPostimageSha
+writerResult.postimageHashCustody == independently rebuilt custody
+```
 
 The validator PASS checklist includes:
 
 ```text
 INDEPENDENT_TARGET0_SHA256
+INDEPENDENT_POSTIMAGE_SHA256
 ```
 
-### SOURCE boundary
+F46-F50 cover a forged but well-formed postimage digest, a non-SHA placeholder, physical/document postimage length contradictions, and forged Writer postimage testimony while the final bytes and declared `after` digest remain correct.
 
-SOURCE bytes are not supplied to this component API. This PR therefore does **not** claim independent SOURCE-byte rehash. SOURCE hash equality remains inherited scope testimony from upstream intake. Creating surrogate SOURCE bytes solely to satisfy a local rehash would violate fail-closed custody.
+### SOURCE hash boundary
 
-## SHA qualification and F40-F45
+SOURCE physical bytes are not supplied to this component API. PR1027 therefore does **not** claim independent SOURCE-byte rehash. SOURCE hash equality remains inherited BOUND-scope testimony from upstream intake. Manufacturing surrogate SOURCE bytes merely to satisfy a local hash check would violate fail-closed custody.
 
-`tests/cii-workspace-byte-sha256.test.js` contains standard SHA-256 vectors and TARGET0 falsifiers.
+## SHA implementation and qualification
 
-Standard vectors:
+Neutral production utility:
 
 ```text
-SHA256("")
-  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+tabs/cii-workspace/cii-workspace-byte-sha256.js
+```
 
-SHA256("abc")
-  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+`sha256CiiByteString()` hashes the physical-file `originalByteString` representation one byte per JavaScript code unit and rejects code units greater than `0xff` rather than truncating them.
 
-SHA256("The quick brown fox jumps over the lazy dog")
-  d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592
+Standard vectors and adversarial custody tests are in:
+
+```text
+tests/cii-workspace-byte-sha256.test.js
 ```
 
 Falsifiers:
@@ -165,20 +173,27 @@ F42 NON_SHA_PLACEHOLDER_TARGET_HASH
 F43 PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
 F44 DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
 F45 FORGED_WRITER_TARGET0_HASH_TESTIMONY
+F46 FORGED_WELL_FORMED_POSTIMAGE_HASH
+F47 NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
+F48 POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
+F49 POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
+F50 FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
 ```
 
-F45 is separate from final-byte validation: a correct postimage does not authorize false preimage testimony.
-
-Observation class:
+Current observation class:
 
 ```text
 production intake SHA basis                         PASS_SOURCE_INSPECTION
 SHA utility source                                  PASS_SOURCE_INSPECTION
-standard-vector equivalent local calculation        PASS_EQUIVALENT_IMPLEMENTATION
-exact committed SHA/F40-F45 runtime                 NOT_RUN_ENVIRONMENT
 Writer TARGET0 hash gate                            PASS_SOURCE_INSPECTION
 validator TARGET0 hash gate                         PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+Writer postimage hash custody                       PASS_SOURCE_INSPECTION
+validator postimage hash custody                    PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+F40-F50 test source                                 AUTHORED / PASS_SOURCE_INSPECTION
+exact committed SHA/F40-F50 runtime                 NOT_RUN_ENVIRONMENT
 ```
+
+No runtime PASS is inferred from source inspection.
 
 ## One-TARGET0 physical transaction
 
@@ -293,19 +308,22 @@ HGRDAT/TAG/GUID retained rows
 IHGRFREE retained rows
 complete MISCEL_1
 complete final CII byte string
+postimage SHA-256 custody
 ```
 
-Primary acceptance criterion:
+Primary physical acceptance criterion remains:
 
 ```text
 actual final bytes === independently reconstructed expected final bytes
 ```
 
-Writer testimony is secondary evidence only.
+Cryptographic postimage custody additionally proves the `after` document hash/length metadata and Writer final-digest testimony refer to those same bytes. Writer testimony remains secondary evidence.
 
 ## Synthetic fixture hash migration
 
-Synthetic tests that actually call the partial Writer now compute TARGET0 hashes from their exact CRLF byte strings:
+Synthetic tests that call the partial Writer now derive TARGET0 hashes from exact CRLF byte strings. Re-intaken postimages used by validator tests likewise derive `contentSha256` from the exact postimage bytes rather than labels such as `post-sha` or `tampered-post`.
+
+Affected suites:
 
 ```text
 tests/cii-workspace-writer2-hanger-partial-physical.test.js
@@ -313,7 +331,7 @@ tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
 tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
 ```
 
-The frozen-oracle test already used independent Node `crypto.createHash('sha256')` TARGET0 hashes and required no migration.
+The frozen-oracle test remains unchanged: its independent expected-final-SHA oracle is a separate qualification mechanism and already uses Node `crypto.createHash('sha256')` for its frozen comparisons.
 
 ## Real repository source census
 
@@ -346,7 +364,7 @@ The census test fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIF
 Historical reconstructed evidence retains its original classification; it is not relabelled as current-head native PASS.
 
 ```text
-F40-F45 exact runtime                              NOT_RUN_ENVIRONMENT
+F40-F50 exact runtime                              NOT_RUN_ENVIRONMENT
 F31-F39 exact runtime                              NOT_RUN_ENVIRONMENT
 packed-tail integrated test                        NOT_RUN_ENVIRONMENT
 real-source census test                            NOT_RUN_ENVIRONMENT
@@ -368,6 +386,7 @@ The partial Writer and validator remain component-isolated. Existing product/com
 component implementation                    COMPLETE
 independent complete-postimage design        COMPLETE
 TARGET0 cryptographic byte custody           HARDENED
+postimage cryptographic byte custody         HARDENED
 canonical operation-container custody        HARDENED
 packed source-shape authority                QUALIFIED
 real HANGER source census                    COMPLETE
