@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_VALIDATION_PARTIAL_PASS
+claim_state: ACTIVE_REVIEW_READY
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -45,7 +45,7 @@ coordination:
   changed_paths_actual: 10
   changed_paths_intended: 10
   unexplained_paths: 0
-  state: SAFE_TO_CONTINUE
+  state: SAFE_FOR_REVIEW
 negative_assurance:
   - no existing planner/binder mutation
   - no delete-all writer/validator mutation
@@ -56,11 +56,26 @@ negative_assurance:
   - no SIF CREATE
   - no Writer3 topology
   - no workflow or package-script changes
+  - no existing runtime import of new partial-HANGER component
 validation_custody:
-  exact_component_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
+  component_implementation_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
+  expanded_validation_basis_head: c663f5ec21e130af532adc0f6e0d41169c4aca09
   focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
   native_exact_checkout: NOT_AVAILABLE
+  frozen_oracles: PASS
+  packing_matrix: PASS
+  falsifiers_f01_f27_f29_f30: PASS
   f28_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
+  predecessor_tail_order: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  predecessor_record_binding: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  predecessor_delete_plan_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  predecessor_delete_all_writer_validator_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  real_benchmark_hanger_slice: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+  full_benchmark_exact_intake: NOT_RUN_ENVIRONMENT
   full_repository: NOT_RUN_ENVIRONMENT
-last_verified_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
-last_updated: 2026-08-22T23:09:00+05:30
+review_state:
+  ready_for_review: true
+  merge_authority: OWNER_ONLY
+  merge_authorized: false
+last_verified_head_basis: c663f5ec21e130af532adc0f6e0d41169c4aca09
+last_updated: 2026-08-23T08:21:00+05:30
