@@ -5,6 +5,7 @@ import { buildCiiWriter2HangerDeletePlan } from './cii-workspace-writer2-hanger-
 import { CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY } from './cii-workspace-writer2-hanger-record-binding.js';
 import { qualifyCiiWriter2HangerTailOrder } from './cii-workspace-writer2-hanger-tail-order.js';
 import { CII_HANGER_LAYOUTS } from './cii-workspace-hanger.js';
+import { isCiiSha256Hex, sha256CiiByteString } from './cii-workspace-byte-sha256.js';
 
 const WIDTH = 13;
 const VALUES_PER_PACKED_ROW = 6;
@@ -13,6 +14,7 @@ const EXECUTION_ROWS = 4;
 const CONTROL_HANGER_FIELD_INDEX = 2;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
+const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
 const SINGLE_RECORD_ORDER = 'SINGLE_RECORD_ORDER_EQUIVALENT';
 const PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
@@ -128,6 +130,24 @@ function independentlyValidateScope(transferPlan, before) {
     throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_SCOPE_TARGET_HASH_MISMATCH');
   }
   return { scopeId: text(scope.scopeId), appliedIds, excludedIds, candidates, sourceSha, targetSha };
+}
+function independentlyValidateTarget0HashCustody(before, transferPlan) {
+  const physicalFile = before?.physicalFile;
+  const original = String(physicalFile?.originalByteString ?? '');
+  const declared = text(before?.contentSha256);
+  if (!isCiiSha256Hex(declared)) throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_TARGET0_SHA256_FORMAT_REQUIRED');
+  if (!original || Number(physicalFile?.byteLength) !== original.length) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_TARGET0_BYTE_LENGTH_MISMATCH:${physicalFile?.byteLength ?? 'missing'}:${original.length}`);
+  }
+  if (before?.byteLength != null && Number(before.byteLength) !== original.length) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_TARGET0_DOCUMENT_BYTE_LENGTH_MISMATCH:${before.byteLength}:${original.length}`);
+  }
+  const actual = sha256CiiByteString(original);
+  if (declared !== actual) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_TARGET0_SHA256_MISMATCH:${declared}:${actual}`);
+  if (text(transferPlan?.targetDocument?.contentSha256) !== actual || text(transferPlan?.transferScope?.targetSha256) !== actual) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_SCOPE_TARGET0_SHA256_MISMATCH');
+  }
+  return Object.freeze({ authority: TARGET0_HASH_AUTHORITY, contentSha256: actual, byteLength: original.length });
 }
 function independentlyRetained(countBefore, deletedIndices) {
   const deleted = new Set((deletedIndices || []).map(Number)); const retained = []; const oldToNew = {}; let next = 1;
@@ -282,8 +302,10 @@ function afterTailOrder(after, countAfter) {
 }
 
 export function validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writerResult) {
-  const errors = []; let scope = null; let plan = null; let retainedInfo = null; let counts = null; let replacements = []; let expectedBytes = null;
+  const errors = []; let scope = null; let target0HashCustody = null; let plan = null; let retainedInfo = null;
+  let counts = null; let replacements = []; let expectedBytes = null;
   try { scope = independentlyValidateScope(transferPlan, before); } catch (error) { errors.push(error.message); }
+  try { target0HashCustody = independentlyValidateTarget0HashCustody(before, transferPlan); } catch (error) { errors.push(error.message); }
   try {
     plan = buildCiiWriter2HangerDeletePlan({ targetDocument: before, transferPlan });
     if (!plan.ready || plan?.compaction?.plannerPartialRecordAuthority !== true || plan?.compaction?.partialMultiRecordDelete !== true
@@ -308,6 +330,9 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (writerResult?.schema !== 'CIIWorkspaceWriter2HangerPartialDeleteResult.v1' || writerResult?.status !== 'APPLIED'
     || writerResult?.writer !== 'WRITER_2' || writerResult?.family !== 'HANGER_PARTIAL_DELETE') errors.push('WRITER_2_HANGER_PARTIAL_RESULT_CONTRACT_MISMATCH');
   if (writerResult?.packedTailAuthority !== PACKED_TAIL_AUTHORITY) errors.push('WRITER_2_HANGER_PARTIAL_PACKED_TAIL_TESTIMONY_MISMATCH');
+  if (!target0HashCustody || stableStringify(writerResult?.target0HashCustody || {}) !== stableStringify(target0HashCustody)) {
+    errors.push('WRITER_2_HANGER_PARTIAL_TARGET0_HASH_TESTIMONY_MISMATCH');
+  }
   if (counts) {
     if (Number(writerResult?.hangerCountBefore) !== counts.countBefore || Number(writerResult?.hangerCountAfter) !== counts.countAfter) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_COUNT_TESTIMONY_MISMATCH');
     if (Number(writerResult?.packedRowsBefore) !== counts.packedBefore || Number(writerResult?.packedRowsAfter) !== counts.packedAfter) errors.push('WRITER_2_HANGER_PARTIAL_PACKED_ROW_TESTIMONY_MISMATCH');
@@ -348,13 +373,15 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_CANONICAL_OPERATION_CONTAINERS', 'INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS',
-      'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK', 'PACKED_UNUSED_TAIL_POLICY',
-      'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT', 'POST_HANGER_CUSTODY',
-      'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
+      'INDEPENDENT_TARGET0_SHA256', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK',
+      'PACKED_UNUSED_TAIL_POLICY', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
+      'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE',
+      'WRITER_TESTIMONY_MATCH']),
     hangerCountBefore: counts.countBefore, hangerCountAfter: counts.countAfter, expectedMiscelRowsAfter: counts.rowCountAfter });
 }
 
 export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, exactIds,
-  independentlyAssertScopeSetsDisjoint, independentlyValidateOperationContainers, independentlyValidateScope, independentlyRetained,
-  expectedCounts, partitionBefore, controlReplacement, independentlyQualifyPackedSourceTail, independentPackedRows, independentTailRows,
-  payloadReplacement, expectedReplacements, applyExpected, controlCount, afterTailOrder });
+  independentlyAssertScopeSetsDisjoint, independentlyValidateOperationContainers, independentlyValidateScope,
+  independentlyValidateTarget0HashCustody, independentlyRetained, expectedCounts, partitionBefore, controlReplacement,
+  independentlyQualifyPackedSourceTail, independentPackedRows, independentTailRows, payloadReplacement, expectedReplacements,
+  applyExpected, controlCount, afterTailOrder });
