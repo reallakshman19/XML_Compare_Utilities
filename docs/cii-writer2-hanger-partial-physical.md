@@ -13,9 +13,9 @@ layout = CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
 
 Planner/positional binding authority is inherited read-only from merged PR #1025 at `main@ae1de402db129e32cd6d7811a4e4707d64512bd4`.
 
-No product/composite/UI partial-HANGER route is added. HANGER CREATE/value editing, SIF CREATE, Writer3 topology, restraint/process cardinality, protected parsers/converters, package scripts and workflows remain outside this PR.
+No product/composite/UI partial-HANGER route is added. HANGER CREATE/value editing, SIF CREATE, Writer3 topology, protected parsers/converters, package scripts and workflows remain outside this PR.
 
-## Governing positional record authority
+## Governing record authority
 
 A physical partial transaction requires:
 
@@ -42,106 +42,157 @@ IHGRCN[i]
 
 The writer relocates already-qualified physical records. It does not infer HGRDAT engineering semantics.
 
-## Canonical transfer-scope and operation-container custody
+## Canonical BOUND transaction custody
 
-The normal repository transfer-scope builder, `cii-workspace-transfer-scope.js::applyCiiTransferScope()`, uses one decision map and emits a canonical transaction representation:
+A caller-supplied BOUND transaction is treated as untrusted component input even though the upstream `applyCiiTransferScope()` builder is canonical by construction.
+
+Required representation:
 
 ```text
 operations[]
-  mutable selected rows -> scopeDecision = APPLY
-  unchanged rows        -> scopeDecision = KEEP
+  mutable rows -> scopeDecision = APPLY
+  KEEP rows    -> scopeDecision = KEEP
 
 excludedOperations[]
-  mutable excluded rows -> scopeDecision = EXCLUDE
+  mutable rows only -> scopeDecision = EXCLUDE
+
+PLAN APPLY ∩ EXCLUDE = empty
+SCOPE APPLY ∩ EXCLUDE = empty
+operationId globally unique across both containers
 ```
 
-The upstream builder is unchanged by PR1027. PR1027 nevertheless treats a caller-supplied already-BOUND `transferPlan` as untrusted component input.
+Writer and independent validator enforce these rules separately. The integrated F31-F39 suite falsifies overlap, wrong-container rows, wrong decisions, KEEP exclusion, missing containers, blank IDs and KEEP/mutable ID aliasing.
 
-### Disjointness authority
+## TARGET0 cryptographic byte custody
 
-Set equality alone is insufficient because helpers that normalize through `Set` can hide duplicate authority. PR1027 therefore requires:
+### Production intake authority
+
+`cii-workspace-intake.js` creates the document hash as:
 
 ```text
-PLAN appliedOperationIds ∩ PLAN excludedOperationIds = ∅
-SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+physicalFile = createCiiPhysicalFile(rawInput)
+bytes        = ciiPhysicalFileBytes(physicalFile)
+contentSha256 = SHA256(bytes)
 ```
 
-Writer/validator disjointness commits:
+Therefore the authoritative target digest is a digest of the exact physical TARGET0 bytes, not of normalized text and not merely a caller label.
+
+### Prior weakness
+
+Before the cryptographic hardening batch, the partial-HANGER component only proved equality among:
 
 ```text
-575962cbe8bcc8e30a68758158d774aba2d5c26c  Writer
-df9eef839dc7511c6ff2d51bd46c5e9853679fe0  independent validator
+targetDocument.contentSha256
+transferPlan.targetDocument.contentSha256
+transferScope.targetSha256
 ```
 
-### Canonical physical-container authority
+Three matching strings can still all be false. A forged BOUND object could therefore carry internally consistent hash testimony that did not match the actual TARGET0 preimage bytes.
 
-The audit then continued beyond F31/F32. The old component boundary derived custody only from rows that already matched APPLY/EXCLUDE filters. A malformed BOUND object could therefore contain authority-bearing rows that were simply filtered out.
-
-Before planner execution, PR1027 now requires:
+### Current authority
 
 ```text
-operations is an Array
-excludedOperations is an Array
-
-each operations row:
-  operationId is nonblank
-  action != KEEP -> scopeDecision exactly APPLY
-  action == KEEP -> scopeDecision exactly KEEP
-
-each excludedOperations row:
-  operationId is nonblank
-  action != KEEP
-  scopeDecision exactly EXCLUDE
-
-all operation IDs across operations + excludedOperations are globally unique
+SHA256_ORIGINAL_TARGET0_BYTES
 ```
 
-This matters because the merged HANGER planner selects physical mutations only from `transferPlan.operations` rows whose `scopeDecision` is APPLY. A mutable row hidden in the wrong container or behind EXCLUDE/UNBOUND must therefore be rejected, not ignored.
-
-Writer/validator container-custody commits:
+New neutral utility:
 
 ```text
-4a9f2f7daf6b7c50f776a4b8ad569df76ada1106  Writer canonical-container gate
-c6fb4d2c1b8d415581eb14d876f4d84f7a70708b  independent validator gate
+tabs/cii-workspace/cii-workspace-byte-sha256.js
 ```
 
-The validator implements the container proof locally and does not import Writer helpers. Its PASS checklist includes:
+The physical-file layer represents original bytes as `originalByteString`, one byte per JavaScript code unit. `sha256CiiByteString()` hashes exactly those byte values and rejects code units greater than `0xff` instead of truncating them.
+
+Writer preconditions, before planner execution:
 
 ```text
-INDEPENDENT_CANONICAL_OPERATION_CONTAINERS
-INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS
+targetDocument.contentSha256 is lowercase 64-hex SHA-256
+physicalFile.byteLength == originalByteString.length
+targetDocument.byteLength, when present, == originalByteString.length
+
+actualTarget0Sha = SHA256(originalByteString bytes)
+
+actualTarget0Sha == targetDocument.contentSha256
+actualTarget0Sha == transferPlan.targetDocument.contentSha256
+actualTarget0Sha == transferScope.targetSha256
 ```
 
-### F31-F39 qualification source
+Writer testimony:
 
 ```text
-tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+target0HashCustody = {
+  authority: SHA256_ORIGINAL_TARGET0_BYTES,
+  contentSha256: actualTarget0Sha,
+  byteLength: originalByteString.length
+}
 ```
 
-The integrated suite covers:
+The independent validator recomputes the same digest from `before.physicalFile.originalByteString` without importing the Writer custody helper and independently checks the transfer-plan/scope target hashes. It then checks Writer `target0HashCustody` only as secondary testimony.
+
+The validator PASS checklist includes:
 
 ```text
-F31 PLAN_APPLY_EXCLUDE_OVERLAP
-F32 SCOPE_APPLY_EXCLUDE_OVERLAP
-F33 MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
-F34 EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
-F35 KEEP_ROW_IN_EXCLUDED_OPERATIONS
-F36 KEEP_MUTABLE_OPERATION_ID_ALIAS
-F37 EXCLUDED_OPERATIONS_ARRAY_MISSING
-F38 BLANK_OPERATION_ID
-F39 KEEP_ROW_NON_KEEP_DECISION
+INDEPENDENT_TARGET0_SHA256
 ```
 
-The same test source proves one distinct KEEP row is valid in `operations` with `scopeDecision=KEEP` and does not enter `candidateOperationIds`.
+### SOURCE boundary
 
-Current observation class:
+SOURCE bytes are not supplied to this component API. This PR therefore does **not** claim independent SOURCE-byte rehash. SOURCE hash equality remains inherited scope testimony from upstream intake. Creating surrogate SOURCE bytes solely to satisfy a local rehash would violate fail-closed custody.
+
+## SHA qualification and F40-F45
+
+`tests/cii-workspace-byte-sha256.test.js` contains standard SHA-256 vectors and TARGET0 falsifiers.
+
+Standard vectors:
 
 ```text
-Writer gate                                  PASS_SOURCE_INSPECTION
-independent validator gate                   PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-F31-F39 test source                          AUTHORED / PASS_SOURCE_INSPECTION
-F31-F39 runtime                              NOT_RUN_ENVIRONMENT
+SHA256("")
+  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+SHA256("abc")
+  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+
+SHA256("The quick brown fox jumps over the lazy dog")
+  d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592
 ```
+
+Falsifiers:
+
+```text
+F40 CONSISTENTLY_FORGED_DECLARED_TARGET_HASHES
+F41 STALE_TARGET0_PHYSICAL_BYTES_WITH_OLD_DIGEST
+F42 NON_SHA_PLACEHOLDER_TARGET_HASH
+F43 PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
+F44 DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
+F45 FORGED_WRITER_TARGET0_HASH_TESTIMONY
+```
+
+F45 is separate from final-byte validation: a correct postimage does not authorize false preimage testimony.
+
+Observation class:
+
+```text
+production intake SHA basis                         PASS_SOURCE_INSPECTION
+SHA utility source                                  PASS_SOURCE_INSPECTION
+standard-vector equivalent local calculation        PASS_EQUIVALENT_IMPLEMENTATION
+exact committed SHA/F40-F45 runtime                 NOT_RUN_ENVIRONMENT
+Writer TARGET0 hash gate                            PASS_SOURCE_INSPECTION
+validator TARGET0 hash gate                         PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+```
+
+## One-TARGET0 physical transaction
+
+The writer uses one untouched TARGET0 and constructs exactly two original-coordinate replacements:
+
+```text
+CONTROL_HANGER_COUNT
+  CONTROL.NOHGRS: H -> H'
+
+MISCEL_1_HANGER_PARTIAL_COMPACT_PAYLOAD
+  complete HANGER-region reconstruction
+```
+
+Both preimages are checked and both replacements are applied in one splice pass. No sequential family writer chaining or downstream offset-adjust authority is used.
 
 ## Physical row model
 
@@ -155,7 +206,7 @@ hangerRows(H)
  = 2 + 5*H + 5*ceil(H/6)
 ```
 
-MISCEL_1 physical order:
+MISCEL_1 order:
 
 ```text
 RRMAT / VFLEX prefix
@@ -170,23 +221,9 @@ IHGRCN packed rows
 4 execution rows
 ```
 
-## One-TARGET0 transaction
-
-The writer operates from one untouched TARGET0 byte string and constructs exactly two original-coordinate replacements:
-
-```text
-CONTROL_HANGER_COUNT
-  CONTROL.NOHGRS: H -> H'
-
-MISCEL_1_HANGER_PARTIAL_COMPACT_PAYLOAD
-  complete HANGER-region reconstruction
-```
-
-Both preimages are checked and both replacements are applied in one splice pass. No sequential writer chaining or downstream offset-adjust authority is used.
-
 ## Exact raw-I13 repacking
 
-The five packed arrays are:
+Packed arrays:
 
 ```text
 IHGRNODE
@@ -196,83 +233,67 @@ IHGRSHORT
 IHGRCN
 ```
 
-Compaction is **field repacking**, not row deletion. Every retained 13-byte field is copied lexically and all five families use the same retained-record sequence. A token such as `"          +12"` must remain byte-identical; numeric parse/reformat is not equivalent.
+Compaction is field repacking, not logical-row deletion. Every retained 13-byte field is copied lexically and all five families use the same retained-record sequence. A token such as `"          +12"` must remain byte-identical; numeric parse/reformat is not equivalent.
 
 ## Packed-row source-shape authority
-
-Qualified source shape:
 
 ```text
 SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
 ```
 
-For packed row `r`:
+Rule:
 
 ```text
-full non-final row length = 2 + 6*13 = 80 bytes
-final row length          = 2 + usedFields*13 bytes
-unused physical fields    = omitted
+non-final row length = 2 + 6*13 = 80 bytes
+final row length     = 2 + usedFields*13 bytes
+unused physical fields = omitted
+extra trailing bytes = forbidden
 ```
-
-There is no authority to pad unused fields with spaces, tabs or arbitrary trailing bytes.
 
 Source basis:
 
-1. `converters/scripts/cii2019_hanger_miscel_control.py::_pack_i` chunks only actual values and `_format_i` emits `2X + n*I13`.
-2. Real vendor `Benchmark/CIICompare/BM_CII_SOURCE.CII` H=1 uses active-only one-value packed rows, including `IHGRNODE=205`.
-3. `converters/scripts/inputxml_profile_bm_cii_2019.cii` independently carries the same active-only H=1 shape.
-
-PR1025's planner is intentionally broader and may tolerate whitespace-only trailing text while establishing positional ownership. PR1027 narrows **physical write authority** fail-closed: any packed source row whose length differs from the exact active-only shape is rejected before mutation.
-
-Writer testimony includes:
-
 ```text
-packedTailAuthority = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+converters/scripts/cii2019_hanger_miscel_control.py::_pack_i
+Benchmark/CIICompare/BM_CII_SOURCE.CII
+converters/scripts/inputxml_profile_bm_cii_2019.cii
 ```
 
-The independent validator defines that authority locally rather than importing the writer constant.
+This physical-write authority is intentionally stricter than merged PR1025 planner tolerance.
 
-## Tail-order preservation
+## Tail-order and IHGRFREE preservation
 
 Qualified HGRDAT/TAG/GUID forms:
 
 ```text
 INTERLEAVED
-  HGRDAT1[i], HGRDAT2[i], TAG[i], GUID[i]
-
 GROUPED
-  all HGRDAT pairs, then all TAG/GUID pairs
 ```
 
-The original order class is preserved. GROUPED is never canonicalized to INTERLEAVED or vice versa. When H'=1, the postimage can only prove `SINGLE_RECORD_ORDER_EQUIVALENT`; writer testimony still records the qualified preimage order class.
+The original order class is preserved. When H'=1, postimage order is `SINGLE_RECORD_ORDER_EQUIVALENT`; Writer testimony still records the qualified preimage order.
 
-## IHGRFREE custody
-
-IHGRFREE is one physical row per hanger record. Retained rows are copied according to the same `retainedRecordIndices` used by the tail and all five packed arrays.
+IHGRFREE is one physical row per HANGER record and retained rows follow the same `retainedRecordIndices` used by the tail and all five packed arrays.
 
 ## Delete-all boundary
 
-The partial writer rejects `countAfter == 0`. That remains the unchanged PR1020 delete-all writer path.
+The partial writer rejects `countAfter == 0`. That remains the unchanged delete-all writer path.
 
 ## Independent complete-postimage validator
 
-`cii-workspace-writer2-hanger-partial-validation.js` does not import or call the partial writer or its payload/repacking helpers.
+The validator does not import or call partial Writer payload/repacking helpers. From TARGET0 + BOUND scope + merged planner authority it independently rebuilds:
 
-From TARGET0 + canonical scope + merged planner authority it independently rebuilds:
-
-- source/target scope hashes;
-- canonical `operations` / `excludedOperations` representation;
-- nonblank globally unique operation identities;
-- APPLY/EXCLUDE disjointness for plan and bound-scope testimony;
-- partial delete plan;
-- deleted/retained record map and old-to-new map;
-- exact active-only source packed-row shape for all five families;
-- CONTROL replacement;
-- all five raw-I13 packed arrays;
-- retained HGRDAT/TAG/GUID rows;
-- retained IHGRFREE rows;
-- complete MISCEL_1;
-- complete expected final CII byte string.
+```text
+canonical operation-container custody
+APPLY/EXCLUDE disjointness
+TARGET0 SHA-256 custody
+partial delete plan
+record map
+CONTROL replacement
+all five raw-I13 packed arrays
+HGRDAT/TAG/GUID retained rows
+IHGRFREE retained rows
+complete MISCEL_1
+complete final CII byte string
+```
 
 Primary acceptance criterion:
 
@@ -280,116 +301,82 @@ Primary acceptance criterion:
 actual final bytes === independently reconstructed expected final bytes
 ```
 
-Writer testimony is secondary evidence only. Counts, deleted/retained/old-to-new maps, packed row counts, `packedTailAuthority`, tail order, mutation testimony, scope custody, nested delete-plan testimony and byte lengths are checked separately.
+Writer testimony is secondary evidence only.
 
-## Real repository source census — 2026-08-23
+## Synthetic fixture hash migration
 
-Frozen source ledger:
+Synthetic tests that actually call the partial Writer now compute TARGET0 hashes from their exact CRLF byte strings:
+
+```text
+tests/cii-workspace-writer2-hanger-partial-physical.test.js
+tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
+tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
+```
+
+The frozen-oracle test already used independent Node `crypto.createHash('sha256')` TARGET0 hashes and required no migration.
+
+## Real repository source census
+
+Frozen ledger:
 
 ```text
 docs/cii-writer2-hanger-real-source-census.csv
 ```
 
-Qualified inventory:
+Current evidence:
 
 ```text
 repository CII assets = 9
-NOHGRS=0 assets       = 7
-NOHGRS=1 assets       = 2
-NOHGRS>1 assets       = 0
+NOHGRS=0 = 7
+NOHGRS=1 = 2
+NOHGRS>1 = 0
 ```
 
-H=1 sources:
-
-```text
-Benchmark/CIICompare/BM_CII_SOURCE.CII
-converters/scripts/inputxml_profile_bm_cii_2019.cii
-```
-
-The two large CAESAR neutral files (`SOURCE 3.CII` and `TARGET 3-1.CII`) both have `NOHGRS=0`. The associated repository InputXML profile `pdf_inputxml_profile_bm_cii.xml` also declares `NOHGRS="0"` and does not provide H>1 authority.
-
-**Result:** there is currently no repository real CII preimage with `NOHGRS > 1`. No real H>1 physical-delete transaction is therefore claimed or manufactured in this PR.
+Therefore:
 
 ```text
 REAL_REPOSITORY_H_GT_1_CII_SOURCE = NOT_AVAILABLE
 REAL_H_GT_1_PARTIAL_DELETE_ROUNDTRIP = NOT_RUN_NO_REAL_SOURCE
 ```
 
-This is an evidence limitation, not a software fallback.
+The census test fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` when the first real H>1 source appears.
 
-### Real-source discovery/qualification gate
+## Current evidence boundary
 
-```text
-tests/cii-workspace-writer2-hanger-real-source-census.test.js
-```
-
-The test is intentionally independent of Writer2 mutation helpers. It inventories the repository CII evidence roots, derives CONTROL counts, compares them to the frozen census, validates the active-only H=1 shape, and fails with:
+Historical reconstructed evidence retains its original classification; it is not relabelled as current-head native PASS.
 
 ```text
-REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION
-```
-
-when the first real H>1 source appears.
-
-A future real H>1 source is therefore an explicit qualification trigger: its tail order, five packed families, positional binding and actual partial-delete postimage must be qualified before the evidence ledger advances.
-
-## Earlier audit/hardening history
-
-- Top-level `writerResult.deletedRecordIndices` testimony gap fixed at `8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84`, with dedicated falsifier `172467f96f4f417dc2639adeec2a5d8ba558fa61`.
-- Packed-row source shape narrowed to exact active-only source rows using synchronizer emitter + real H=1 evidence.
-- Scope disjointness hardened independently in Writer and validator for F31/F32.
-- Canonical operation-container custody then extended that boundary through F39 without modifying the upstream transfer-scope builder or merged planner.
-- Historical pre-packed-shape qualification includes the mandatory H=2/3/6/7/8/12/13 matrix, INTERLEAVED/GROUPED cases, raw-I13 `+12`, frozen independent postimage SHA oracles, F01-F30 and predecessor/delete-all slices under their recorded reconstructed-source observation classes.
-
-Those historical passes are not silently relabelled as current-head native execution.
-
-## Current observation classes
-
-```text
-F31 PLAN APPLY/EXCLUDE overlap                       PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F32 bound-SCOPE APPLY/EXCLUDE overlap                PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F33 hidden mutable operation                         PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F34 false APPLY in excludedOperations                PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F35 KEEP in excludedOperations                       PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F36 KEEP/mutable operation-ID alias                  PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F37 missing excludedOperations array                 PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F38 blank operationId                                PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F39 KEEP decision mismatch                           PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-canonical scope-container falsifier runtime          NOT_RUN_ENVIRONMENT
-synchronizer emitter active-only authority           PASS_SOURCE_INSPECTION
-real BM_CII_SOURCE H=1 packed shape                   PASS_SOURCE_INSPECTION
-converter-profile H=1 packed shape                    PASS_SOURCE_INSPECTION
-real-source repository census                         PASS_SOURCE_INSPECTION
-real H>1 repository preimage                          NOT_AVAILABLE
-real H>1 partial-delete roundtrip                     NOT_RUN_NO_REAL_SOURCE
-packed-tail integrated test                           NOT_RUN_ENVIRONMENT
-real-source census test                               NOT_RUN_ENVIRONMENT
-all focused current-head tests                        NOT_RUN_ENVIRONMENT
-full-file BM_CII_SOURCE intake -> write -> re-intake  NOT_RUN_ENVIRONMENT
-broader Writer2/product regression                    NOT_RUN_ENVIRONMENT
-repository-wide npm test                              NOT_RUN_ENVIRONMENT
+F40-F45 exact runtime                              NOT_RUN_ENVIRONMENT
+F31-F39 exact runtime                              NOT_RUN_ENVIRONMENT
+packed-tail integrated test                        NOT_RUN_ENVIRONMENT
+real-source census test                            NOT_RUN_ENVIRONMENT
+focused current-head native tests                  NOT_RUN_ENVIRONMENT
+full BM_CII_SOURCE exact intake/roundtrip          NOT_RUN_ENVIRONMENT
+broader Writer2/product regression                 NOT_RUN_ENVIRONMENT
+repository-wide npm test                           NOT_RUN_ENVIRONMENT
+real repository H>1 source                         NOT_AVAILABLE
+real H>1 physical roundtrip                        NOT_RUN_NO_REAL_SOURCE
 ```
 
 ## Product/runtime boundary
 
-The partial writer and validator remain component-isolated. Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED`.
+The partial Writer and validator remain component-isolated. Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED`.
 
 ## Release disposition
 
 ```text
-component implementation                         COMPLETE
-independent complete-postimage design             COMPLETE
-canonical operation-container custody             HARDENED
-scope APPLY/EXCLUDE disjointness                  HARDENED
-F31-F39                                           AUTHORED / NOT_RUN_ENVIRONMENT
-record-testimony audit defect                     FIXED + FALSIFIED
-packed source-shape authority                     QUALIFIED
-real HANGER source census                         COMPLETE
-real H>1 repository source                        NOT_AVAILABLE
-real H>1 roundtrip evidence                       NOT_RUN_NO_REAL_SOURCE
-runtime product adoption                          NONE
-merge authority                                   OWNER_ONLY
-merge authorized                                  FALSE
+component implementation                    COMPLETE
+independent complete-postimage design        COMPLETE
+TARGET0 cryptographic byte custody           HARDENED
+canonical operation-container custody        HARDENED
+packed source-shape authority                QUALIFIED
+real HANGER source census                    COMPLETE
+real H>1 repository source                   NOT_AVAILABLE
+real H>1 roundtrip evidence                  NOT_RUN_NO_REAL_SOURCE
+current-head native execution                NOT_RUN_ENVIRONMENT
+runtime product adoption                     NONE
+merge authority                              OWNER_ONLY
+merge authorized                             FALSE
 ```
 
 Do not merge without fresh owner authorization.
