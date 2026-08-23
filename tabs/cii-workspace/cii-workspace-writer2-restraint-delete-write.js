@@ -14,6 +14,7 @@ export const CII_WRITER_2_RESTRAINT_POSTIMAGE_REPRESENTATION_AUTHORITY =
 
 const FIELD_WIDTHS = Object.freeze([15, 13, 13, 13, 13, 13]);
 const FIELD_WIDTH = 13;
+const CONTROL_COUNT_ROW_INDEX = 1;
 const CONTROL_COUNT_FIELD_INDEX = 3;
 const BLOCK_ROWS = 24;
 
@@ -63,8 +64,8 @@ function target0HashCustody(targetDocument) {
 function controlReplacement(targetDocument, plan) {
   const lines = targetDocument?.physicalFile?.lines || [];
   const markerIndex = lines.findIndex((line) => markerName(line.text) === 'CONTROL');
-  const row = markerIndex >= 0 ? lines[markerIndex + 1] : null;
-  if (!row) throw new Error('CII_WRITER_2_RESTRAINT_CONTROL_ROW1_REQUIRED');
+  const row = markerIndex >= 0 ? lines[markerIndex + 1 + CONTROL_COUNT_ROW_INDEX] : null;
+  if (!row) throw new Error('CII_WRITER_2_RESTRAINT_CONTROL_ROW2_REQUIRED');
   const startColumn = FIELD_WIDTHS.slice(0, CONTROL_COUNT_FIELD_INDEX).reduce((sum, width) => sum + width, 0);
   const byteStart = Number(row.byteStart) + startColumn; const byteEnd = byteStart + FIELD_WIDTH;
   const original = String(targetDocument?.physicalFile?.originalByteString ?? '');
@@ -155,7 +156,7 @@ function representationCustody(physicalFile) {
 }
 
 export function applyCiiWriter2RestraintDeleteCompaction({ targetDocument, transferPlan }) {
-  const target0HashCustody = target0HashCustody(targetDocument);
+  const target0Custody = target0HashCustody(targetDocument);
   const plan = buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, transferPlan });
   if (!plan?.ready) throw new Error(`CII_WRITER_2_RESTRAINT_DELETE_BLOCKED:${(plan?.blockers || []).join('|')}`);
   if (plan?.createAuthority?.ready !== false || plan?.createAuthority?.blocker !== CII_WRITER_2_RESTRAINT_CREATE_BLOCKER) {
@@ -179,7 +180,7 @@ export function applyCiiWriter2RestraintDeleteCompaction({ targetDocument, trans
     byteString, bytes, text: canonicalPostimage.text,
     byteLengthBefore: original.length, byteLengthAfter: byteString.length,
     blockCountBefore: Number(plan.blockCountBefore), blockCountAfter: Number(plan.blockCountAfter),
-    target0HashCustody, postimageHashCustody, postimageRepresentationCustody: representationCustody(canonicalPostimage),
+    target0HashCustody: target0Custody, postimageHashCustody, postimageRepresentationCustody: representationCustody(canonicalPostimage),
     mutationCount: replacements.length, mutations: replacements, relocationPlan: plan,
   });
 }
