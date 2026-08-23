@@ -66,6 +66,10 @@ function exactIds(values, code) {
   if (ids.some((id) => !id) || new Set(ids).size !== ids.length) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_${code}_INVALID`);
   return Object.freeze([...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
 }
+function independentlyAssertScopeSetsDisjoint(appliedIds, excludedIds, code) {
+  const excluded = new Set(excludedIds); const overlap = appliedIds.filter((id) => excluded.has(id));
+  if (overlap.length) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_${code}_APPLY_EXCLUDE_OVERLAP:${overlap.join(',')}`);
+}
 function independentlyValidateScope(transferPlan, before) {
   const scope = transferPlan?.transferScope;
   if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope.scopeId)) {
@@ -76,10 +80,15 @@ function independentlyValidateScope(transferPlan, before) {
   const excluded = (transferPlan?.excludedOperations || []).filter((item) => item?.scopeDecision === 'EXCLUDE' && mutable(item));
   const appliedIds = exactIds(applied.map((item) => item.operationId), 'PLAN_APPLY');
   const excludedIds = exactIds(excluded.map((item) => item.operationId), 'PLAN_EXCLUDE');
+  independentlyAssertScopeSetsDisjoint(appliedIds, excludedIds, 'PLAN');
   const candidates = Object.freeze([...appliedIds, ...excludedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
-  if (!sameStrings(appliedIds, exactIds(scope.appliedOperationIds, 'SCOPE_APPLY'))
-    || !sameStrings(excludedIds, exactIds(scope.excludedOperationIds, 'SCOPE_EXCLUDE'))
-    || !sameStrings(candidates, exactIds(scope.candidateOperationIds, 'SCOPE_CANDIDATE'))) {
+  const scopeApplied = exactIds(scope.appliedOperationIds, 'SCOPE_APPLY');
+  const scopeExcluded = exactIds(scope.excludedOperationIds, 'SCOPE_EXCLUDE');
+  independentlyAssertScopeSetsDisjoint(scopeApplied, scopeExcluded, 'SCOPE');
+  const scopeCandidates = exactIds(scope.candidateOperationIds, 'SCOPE_CANDIDATE');
+  if (!sameStrings(appliedIds, scopeApplied)
+    || !sameStrings(excludedIds, scopeExcluded)
+    || !sameStrings(candidates, scopeCandidates)) {
     throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_SCOPE_OPERATION_SET_MISMATCH');
   }
   const sourceSha = text(transferPlan?.sourceDocument?.contentSha256); const targetSha = text(transferPlan?.targetDocument?.contentSha256);
@@ -307,12 +316,12 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   }
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
-    checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP',
+    checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP',
       'INDEPENDENT_RAW_I13_REPACK', 'PACKED_UNUSED_TAIL_POLICY', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
       'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
     hangerCountBefore: counts.countBefore, hangerCountAfter: counts.countAfter, expectedMiscelRowsAfter: counts.rowCountAfter });
 }
 
-export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, independentlyValidateScope,
-  independentlyRetained, expectedCounts, partitionBefore, controlReplacement, independentlyQualifyPackedSourceTail,
+export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, exactIds, independentlyAssertScopeSetsDisjoint,
+  independentlyValidateScope, independentlyRetained, expectedCounts, partitionBefore, controlReplacement, independentlyQualifyPackedSourceTail,
   independentPackedRows, independentTailRows, payloadReplacement, expectedReplacements, applyExpected, controlCount, afterTailOrder });
