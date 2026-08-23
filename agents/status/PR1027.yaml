@@ -6,34 +6,43 @@ mission: >-
   independent complete-postimage validator.
 workstream: CII_WRITER2_HANGER_PARTIAL_PHYSICAL
 branch: agent/cii-writer2-hanger-partial-physical
-pr_head_basis: 85b38416adbb09f680b1f8122b2f82b77a8927f3
+engineering_validation_basis_head: c663f5ec21e130af532adc0f6e0d41169c4aca09
+component_implementation_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 main_head_last_checked: ae1de402db129e32cd6d7811a4e4707d64512bd4
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_VALIDATION_PARTIAL_PASS
+agent_state: REVIEW_READY_WITH_ENVIRONMENT_LIMITATIONS
 pr_recovery_state: HEALTHY
 handover_readiness: READY
 report_path: agents/PR1027_workreport.md
-report_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: FOCUSED_COMPONENT_AND_TWO_INHERITED_PREDECESSOR_TESTS_PASS
-blocker: FULL_EXACT_CHECKOUT_REGRESSION_ENVIRONMENT_UNAVAILABLE
+current_stage: COMPONENT_COMPLETE_REVIEW_READY
+blocker: NONE_FOR_COMPONENT_REVIEW
+remaining_environment_limitation: NATIVE_EXACT_CHECKOUT_AND_GLOBAL_REGRESSION_NOT_AVAILABLE
 highest_risk: >-
-  Component qualification and two direct predecessor tests pass under reconstructed
-  source execution, but the planner/delete-all intake benchmark path, broader
-  Writer2 regressions and full npm test have not run on a native exact checkout.
+  No unresolved component defect is known. Remaining uncertainty is limited to
+  native exact-checkout execution of the standalone focused tests, the full-file
+  BM_CII_SOURCE intake roundtrip, and the repository-wide npm regression suite.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
     accepted_head: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
     merge_sha: ae1de402db129e32cd6d7811a4e4707d64512bd4
-coordination_state: SAFE_TO_CONTINUE
+coordination_state: SAFE_FOR_REVIEW
 merge_authority: OWNER_ONLY
 changed_files:
   actual: 10
   intended: 10
   unexplained: 0
+runtime_adoption:
+  existing_product_or_composite_path_changed: false
+  package_json_changed: false
+  workflow_changed: false
+  note: >-
+    The two new production modules are component-isolated. No existing runtime
+    product/composite/UI file is changed to import them. package.json npm test
+    does not invoke CII Workspace/HANGER tests.
 validation:
   pr1025_merge: PASS_REMOTE_EXECUTION
   merged_planner_contract: PASS_SOURCE_INSPECTION
@@ -51,20 +60,31 @@ validation:
   falsifiers_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   inherited_hanger_tail_order_test: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   inherited_hanger_record_binding_test: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  inherited_hanger_delete_plan_full_test: NOT_RUN_ENVIRONMENT_INTAKE_BENCHMARK_DEPENDENCY
-  inherited_hanger_delete_all_full_test: NOT_RUN_ENVIRONMENT_INTAKE_BENCHMARK_DEPENDENCY
-  broader_writer2: NOT_RUN_ENVIRONMENT
-  real_h1_delete_all_non_regression: NOT_RUN_ENVIRONMENT_PRIVATE_BENCHMARK_NOT_MATERIALIZED
-  full_repository: NOT_RUN_ENVIRONMENT
+  inherited_hanger_delete_plan_synthetic_cases: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  inherited_hanger_delete_all_writer_validator_synthetic_cases: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  real_bm_cii_source_hanger_slice: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+  real_bm_cii_source_slice_details: >-
+    Actual repository CONTROL and all 23 MISCEL_1 HANGER rows were exercised:
+    NUMELT=40, NOHGRS=1, IHGRNODE=205, 7 RRMAT rows, 23 pre-rows and 11 post-rows.
+    Writer plus independent validator passed. This is not a full-file exact-intake claim.
+  focused_tests_native_exact_checkout: NOT_RUN_ENVIRONMENT
+  real_bm_cii_source_full_file_exact_intake: NOT_RUN_ENVIRONMENT
+  broader_writer2_integration: NOT_RUN_ENVIRONMENT
+  full_repository_npm_test: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
 execution_limitation: >-
-  The container cannot resolve github.com and cannot create a native private-repo
-  checkout. Focused runtime evidence and the two direct predecessor tests were
-  executed from dependency closure/source reconstructed through the GitHub
-  connector. These are not claimed as PASS_EXACT_CHECKOUT. F28 was intentionally
-  source-inspected instead of stubbing unrelated NODENAME/SIF composite imports.
+  The execution container cannot resolve GitHub hosts and cannot create a native
+  private-repository checkout. Reconstructed runs use exact current-head source
+  obtained through the GitHub connector. Ranged benchmark text normalizes the
+  transport representation, so the benchmark-slice result is deliberately not
+  called a full-file exact-byte roundtrip.
+review_readiness_basis: >-
+  Issue #1026 component scope is implemented and independently falsified; direct
+  predecessor planner/delete-all behavior passes reconstructed execution; the
+  component is not adopted into existing product/composite/UI runtime paths;
+  all unavailable global/native checks remain explicit NOT_RUN.
 exact_next_action: >-
-  On a native exact PR1027 checkout, run the complete inherited HANGER/Writer2
-  suites including real BM_CII_SOURCE H=1 delete-all, then full npm test; keep
-  the PR draft and do not merge without fresh owner authorization.
-last_updated: 2026-08-22T23:16:00+05:30
+  Submit PR1027 for review. Do not merge without fresh owner authorization. If a
+  native exact checkout becomes available before merge, rerun both focused tests,
+  the full BM_CII_SOURCE H=1 roundtrip, and repository-wide regression.
+last_updated: 2026-08-23T08:20:00+05:30
