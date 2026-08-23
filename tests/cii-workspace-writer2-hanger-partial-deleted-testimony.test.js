@@ -4,6 +4,7 @@ import { buildCiiHangerEvidence, CII_HANGER_LAYOUTS } from '../tabs/cii-workspac
 import { applyCiiWriter2HangerDeletePlanContract } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js';
 import { applyCiiWriter2HangerPartialDelete } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js';
 import { validateCiiWriter2HangerPartialRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js';
+import { sha256CiiByteString } from '../tabs/cii-workspace/cii-workspace-byte-sha256.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 function numericRow(values) { return values.map((value, index) => String(value ?? '').padStart(WIDTHS[index] || 13, ' ')).join(''); }
@@ -12,7 +13,7 @@ function stringCard(value) {
   const text = String(value || '');
   return `${' '.repeat(7)}${String(text.length).padStart(5, ' ')} ${text}`;
 }
-function physicalDocument(byteString, parsed, contentSha256) {
+function physicalDocument(byteString, parsed, contentSha256 = sha256CiiByteString(byteString)) {
   const bytes = new Uint8Array(byteString.length);
   for (let index = 0; index < bytes.length; index += 1) bytes[index] = byteString.charCodeAt(index) & 0xff;
   const physicalFile = createCiiPhysicalFile(bytes);
@@ -67,7 +68,7 @@ function target() {
     '#$ UNITS',
     'UNITS-CUSTODY',
   ].join('\r\n') + '\r\n';
-  const document = physicalDocument(body, parsed, 'target-sha');
+  const document = physicalDocument(body, parsed);
   assert.equal(document.hangerEvidence.status, 'QUALIFIED');
   assert.equal(document.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER);
   return document;
