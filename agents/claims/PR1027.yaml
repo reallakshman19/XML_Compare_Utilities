@@ -2,15 +2,17 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED
+claim_state: ACTIVE_REVIEW_READY_TARGET0_CRYPTOGRAPHIC_CUSTODY_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
   - EXCLUSIVE
 files:
   exact:
+    - tabs/cii-workspace/cii-workspace-byte-sha256.js
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
+    - tests/cii-workspace-byte-sha256.test.js
     - tests/cii-workspace-writer2-hanger-partial-physical.test.js
     - tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
     - tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
@@ -26,6 +28,8 @@ files:
     - agents/MASTER_INDEX.md
   prefixes: []
 shared_read_only:
+  - tabs/cii-workspace/cii-workspace-intake.js
+  - tabs/cii-workspace/cii-workspace-physical-file.js
   - tabs/cii-workspace/cii-workspace-transfer-scope.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-record-binding.js
@@ -47,6 +51,9 @@ shared_read_only:
 authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
+  - SHA256_ORIGINAL_TARGET0_BYTES
+  - TARGET0_BYTE_LENGTH_CUSTODY
+  - WRITER_TARGET0_HASH_TESTIMONY_INDEPENDENT_FALSIFICATION
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
   - IMMUTABLE_INDEPENDENT_POSTIMAGE_SHA_ORACLE
@@ -64,14 +71,16 @@ dependency:
   accepted_head: a7990ba977a4d68a1ca08a38bdf5c6d68a0491d6
   merge_sha: ae1de402db129e32cd6d7811a4e4707d64512bd4
 coordination:
-  file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
-  authority_overlap: INHERITED_PLANNER_AND_TRANSFER_SCOPE_READ_ONLY
+  file_overlap: NONE_ON_EXISTING_PRODUCT_OR_PROTECTED_PATHS
+  authority_overlap: INHERITED_PLANNER_TRANSFER_SCOPE_AND_INTAKE_READ_ONLY
   dependency_overlap: SATISFIED
-  changed_paths_actual: 15
-  changed_paths_intended: 15
+  changed_paths_actual: 17
+  changed_paths_intended: 17
   unexplained_paths: 0
   state: SAFE_FOR_REVIEW
 negative_assurance:
+  - no intake implementation mutation
+  - no physical-file implementation mutation
   - no transfer-scope builder mutation
   - no existing planner/binder mutation
   - no delete-all writer/validator mutation
@@ -83,84 +92,79 @@ negative_assurance:
   - no Writer3 topology
   - no workflow or package-script changes
   - no protected parser/converter changes
-  - no existing runtime import of new partial-HANGER component
+  - no existing runtime import of partial-HANGER component into product route
   - no synthetic fixture represented as real H>1 authority
+target0_cryptographic_custody:
+  authority: SHA256_ORIGINAL_TARGET0_BYTES
+  intake_basis: tabs/cii-workspace/cii-workspace-intake.js
+  intake_property: SHA256_OF_CII_PHYSICAL_FILE_ORIGINAL_BYTES
+  sha_primitive: tabs/cii-workspace/cii-workspace-byte-sha256.js
+  sha_primitive_commit: 3470e9871469fae1a2a13cbc916c6c328bd8168c
+  writer_fix_commit: 39e6770a70f284c0f36400425f19789e430fb9fa
+  validator_fix_commit: 4d34f7699f46fd1025c3cba52ae16335dff87448
+  sha_test: tests/cii-workspace-byte-sha256.test.js
+  sha_falsifier_commit: 3c820eb73639c76be22c1cde824c911732728ea8
+  testimony_falsifier_commit: 3652e38832f626755e1f99c308f94fe42b558682
+  fixture_migrations:
+    - 54a8b52ff17eb577d4e3bc500cc4e2e5fdf13d92
+    - 64d36923160fb4b76c095da53a57b7752f094094
+    - 7458a8f700d0d982b01e4b0de4888a5ffdde5b53
+  rules:
+    declared_target_digest: LOWERCASE_SHA256_64_HEX_REQUIRED
+    physical_byte_length: MUST_MATCH_ORIGINAL_BYTE_STRING
+    document_byte_length_when_present: MUST_MATCH_ORIGINAL_BYTE_STRING
+    target0_digest: RECOMPUTED_FROM_UNTOUCHED_ORIGINAL_BYTE_STRING
+    transfer_plan_target_digest: MUST_MATCH_RECOMPUTED_TARGET0_DIGEST
+    bound_scope_target_digest: MUST_MATCH_RECOMPUTED_TARGET0_DIGEST
+    writer_testimony: MUST_MATCH_INDEPENDENT_VALIDATOR_CUSTODY
+  falsifiers:
+    f40: CONSISTENTLY_FORGED_DECLARED_TARGET_HASHES
+    f41: STALE_TARGET0_PHYSICAL_BYTES_WITH_OLD_DIGEST
+    f42: NON_SHA_PLACEHOLDER_TARGET_HASH
+    f43: PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
+    f44: DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
+    f45: FORGED_WRITER_TARGET0_HASH_TESTIMONY
+  source_hash_boundary: >-
+    SOURCE byte rehash is not claimed because source physical bytes are not supplied
+    to this component API. Existing source hash equality remains inherited scope
+    testimony from upstream intake.
+  transient_setup_commit: 9168c5d7ee8a9ba978aaf76e1a1c1db94b7aa784
+  transient_setup_disposition: IMMEDIATELY_SUPERSEDED_EMPTY_FILE_NO_CURRENT_EFFECT
 canonical_scope_container_custody:
-  upstream_canonical_builder: tabs/cii-workspace/cii-workspace-transfer-scope.js
-  upstream_property: SINGLE_DECISION_MAP_CANONICAL_OPERATIONS_AND_EXCLUDED_OPERATIONS
-  upstream_changed: false
   writer_fix_commit: 4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
   validator_fix_commit: c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
   falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
   falsifier_extension_commit: 4def181b64e70b348bd3540d505765090ece02c2
-  rules:
-    operations_array_required: true
-    excluded_operations_array_required: true
-    mutable_operations_decision: APPLY_ONLY
-    keep_operations_decision: KEEP_ONLY
-    excluded_operations_mutability: MUTABLE_ONLY
-    excluded_operations_decision: EXCLUDE_ONLY
-    apply_exclude_disjoint: true
-    all_operation_ids_global_unique: true
-  falsifiers:
-    f31: PLAN_APPLY_EXCLUDE_OVERLAP
-    f32: SCOPE_APPLY_EXCLUDE_OVERLAP
-    f33: MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
-    f34: EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
-    f35: KEEP_ROW_IN_EXCLUDED_OPERATIONS
-    f36: KEEP_MUTABLE_OPERATION_ID_ALIAS
-    f37: EXCLUDED_OPERATIONS_ARRAY_MISSING
-    f38: BLANK_OPERATION_ID
-    f39: KEEP_ROW_NON_KEEP_DECISION
-  source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATIONS
+  falsifiers: F31_F39
   runtime_observation: NOT_RUN_ENVIRONMENT
 real_source_census:
   ledger: docs/cii-writer2-hanger-real-source-census.csv
-  gate_test: tests/cii-workspace-writer2-hanger-real-source-census.test.js
   inventoried_assets: 9
   h0_assets: 7
   h1_assets: 2
   h_gt_1_assets: 0
   real_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_roundtrip: NOT_RUN_NO_REAL_SOURCE
-  discovery_error: REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION
-  observation: PASS_SOURCE_INSPECTION
 packed_source_shape:
   authority: SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
   writer_rule: EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
   validator_rule: INDEPENDENT_EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
-  source_emitter: converters/scripts/cii2019_hanger_miscel_control.py::_pack_i
-  vendor_benchmark: Benchmark/CIICompare/BM_CII_SOURCE.CII
-  converter_profile: converters/scripts/inputxml_profile_bm_cii_2019.cii
-pre_merge_audit:
-  finding: TOP_LEVEL_DELETED_RECORD_TESTIMONY_UNCHECKED
-  disposition: FIXED_AND_FALSIFIED
-  production_fix_commit: 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
-  regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
 validation_custody:
+  production_intake_sha_basis: PASS_SOURCE_INSPECTION
+  sha_primitive_source: PASS_SOURCE_INSPECTION
+  sha_standard_vectors_exact_committed_test: AUTHORED_NOT_RUN_ENVIRONMENT
+  sha_standard_vectors_equivalent_local_check: PASS_EQUIVALENT_IMPLEMENTATION
+  writer_target0_hash_gate: PASS_SOURCE_INSPECTION
+  validator_target0_hash_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+  f40_f45_target0_hash_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   historical_frozen_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  historical_falsifiers_f01_f27_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  f28_composite_gate: PASS_SOURCE_INSPECTION_AT_TIME
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
-  f31_plan_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f32_bound_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f33_hidden_mutable_operation: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f34_wrong_excluded_decision: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f35_excluded_keep: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f36_keep_mutable_id_alias: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f37_missing_excluded_operations_array: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f38_blank_operation_id: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-  f39_keep_decision_mismatch: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f31_f39_scope_container_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   packed_source_shape_emitter: PASS_SOURCE_INSPECTION
-  packed_source_shape_vendor_benchmark: PASS_SOURCE_INSPECTION
-  packed_source_shape_converter_profile: PASS_SOURCE_INSPECTION
   repository_real_source_census: PASS_SOURCE_INSPECTION
   real_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_roundtrip: NOT_RUN_NO_REAL_SOURCE
-  canonical_scope_container_runtime: NOT_RUN_ENVIRONMENT
-  packed_source_shape_runtime: NOT_RUN_ENVIRONMENT
-  real_source_census_runtime: NOT_RUN_ENVIRONMENT
   native_exact_checkout_current_head: NOT_AVAILABLE
   full_benchmark_exact_intake: NOT_RUN_ENVIRONMENT
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
@@ -170,4 +174,4 @@ review_state:
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T14:40:00+05:30
+last_updated: 2026-08-23T15:01:00+05:30
