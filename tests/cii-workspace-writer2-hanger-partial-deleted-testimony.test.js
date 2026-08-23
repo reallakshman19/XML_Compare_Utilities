@@ -127,6 +127,11 @@ const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, tran
 const after = physicalDocument(writer.byteString, before.parsed, 'post-sha');
 assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, plan, writer).status, 'PASS');
 assert.deepEqual(writer.deletedRecordIndices, [2]);
+assert.deepEqual(writer.target0HashCustody, {
+  authority: 'SHA256_ORIGINAL_TARGET0_BYTES',
+  contentSha256: before.contentSha256,
+  byteLength: before.physicalFile.originalByteString.length,
+});
 
 const forged = Object.freeze({ ...writer, deletedRecordIndices: Object.freeze([1]) });
 assert.throws(
@@ -134,4 +139,17 @@ assert.throws(
   /WRITER_2_HANGER_PARTIAL_RECORD_TESTIMONY_MISMATCH/,
 );
 
-console.log('Writer2 partial HANGER validator rejects forged top-level deleted-record testimony.');
+// F45: correct final bytes do not excuse forged Writer TARGET0 hash testimony.
+const forgedHash = Object.freeze({
+  ...writer,
+  target0HashCustody: Object.freeze({
+    ...writer.target0HashCustody,
+    contentSha256: '0'.repeat(64),
+  }),
+});
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before, after, plan, forgedHash),
+  /WRITER_2_HANGER_PARTIAL_TARGET0_HASH_TESTIMONY_MISMATCH/,
+);
+
+console.log('Writer2 partial HANGER validator rejects forged deleted-record and TARGET0 hash testimony.');
