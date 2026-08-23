@@ -16,8 +16,8 @@ PR: #1029
 BRANCH: agent/cii-writer2-hanger-partial-composite
 BASE_MAIN: e9a28071aa932e5c360206d20807aeaf2e4f9517
 GROUNDING_EPOCH: GE-1029-001
-CURRENT_STAGE: GROUNDED_PRE_IMPLEMENTATION
-CURRENT_BLOCKER: NONE
+CURRENT_STAGE: COMPOSITE_PARTIAL_HANGER_IMPLEMENTED_SOURCE_QUALIFIED_DRAFT
+CURRENT_BLOCKER: NONE_FOR_SOURCE_REVIEW
 EVIDENCE_LIMITATION: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 RUNTIME_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 ```
@@ -26,155 +26,385 @@ RUNTIME_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 
 Adopt merged PR1027 partial H>1 HANGER physical claims into the existing one-original-preimage Writer2 composite. Product/core routing, browser/UI enablement, and real H>1 product qualification remain a later separate PR.
 
-## Ground truth
+## Ground truth / dependency
 
 ```text
 PR1027 accepted head  457a2c4572c0773cdf1cd2e15fa36f6a3e305638
 PR1027 merge/main     e9a28071aa932e5c360206d20807aeaf2e4f9517
 PR1029 base           e9a28071aa932e5c360206d20807aeaf2e4f9517
-PR1029 initial head   45041903216ca9725103f6e07150f8425f84d092
-relation              1 ahead / 0 behind at allocation
+PR1029                OPEN / DRAFT
 ```
 
-No open PR found claiming the Issue1028 composite-HANGER authority. PR1007 is Writer1C custody and does not overlap this production authority.
+No open PR was found claiming Issue1028 composite-HANGER authority. PR1007 is Writer1C physical custody and does not overlap these production paths.
 
-## Existing composite architecture
+# IMPLEMENTED TRANSACTION
 
-`tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js` currently composes from one untouched TARGET0:
+Existing tri-family composite remains the authority surface:
+
+```text
+tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js
+```
+
+It now composes from one untouched TARGET0:
 
 ```text
 WRITER_2_NODENAME
 WRITER_2_SIF_DELETE
 WRITER_2_HANGER_DELETE_ALL
+WRITER_2_HANGER_PARTIAL_DELETE
 ```
 
-Each component writer dry-runs against TARGET0, exposes original-coordinate claims, the composite rejects overlap, and all accepted claims are applied in one pass.
+All family components still dry-run against the same untouched TARGET0. Their original-coordinate claims are normalized, checked against TARGET0 preimages, rejected on overlap, then applied in one final splice pass.
 
-`tabs/cii-workspace/cii-workspace-writer2-composite-hanger-validation.js` independently rebuilds the same three family claims and requires exact complete-postimage byte equality.
+## ISS-1029-001 resolved — canonical partial-HANGER child scope
 
-## ISS-1029-001 — legacy family projection is not canonical enough for PR1027 partial writer
+The legacy family projection moves sibling parent APPLY rows to `excludedOperations` but retains the parent transferScope. That remains intentionally unchanged for legacy NODENAME/SIF/delete-all components.
 
-Current `projectTransferPlan()`:
+Merged PR1027 partial HANGER requires exact projected operation-container / BOUND-scope equality. PR1029 therefore adds a partial-only child projection:
 
 ```text
-family APPLY rows remain operations/APPLY
-sibling parent APPLY rows move to excludedOperations/EXCLUDE
-parent transferScope is retained unchanged
+status    DERIVED_CANONICAL_BOUND_SUBSCOPE
+authority PARENT_TRANSFER_SCOPE_CANONICAL_SUBSCOPE
+family    WRITER_2_HANGER_PARTIAL_DELETE
+
+child operations
+  parent KEEP rows
+  HANGER APPLY rows
+
+child excludedOperations
+  inherited parent EXCLUDE rows
+  sibling parent APPLY rows rewritten EXCLUDE
+
+child transferScope
+  source/target hashes = exact parent custody
+  applied IDs          = HANGER APPLY IDs only
+  excluded IDs         = inherited EXCLUDE + sibling APPLY
+  candidate IDs        = exact union
+  scopeId              = <parentScopeId>::WRITER_2_HANGER_PARTIAL_DELETE
 ```
 
-This was sufficient for older component writers. Merged PR1027 partial HANGER intentionally requires exact equality between projected operation containers and BOUND scope APPLY/EXCLUDE/candidate sets.
+Parent BOUND scope custody remains a separate composite-level authority record; the child scope does not replace it.
 
-Therefore a direct call to `applyCiiWriter2HangerPartialDelete()` using the legacy composite projection would fail canonical scope custody whenever sibling family APPLY operations exist.
-
-### Decision DEC-1029-001
-
-Do not weaken PR1027 scope gates. Preserve parent BOUND scope separately and derive a canonical HANGER family subscope for partial deletion.
-
-Required projected partial-HANGER transaction:
+Writer implementation commit:
 
 ```text
-operations
-  KEEP rows + HANGER APPLY rows
-
-excludedOperations
-  original EXCLUDE rows + sibling parent APPLY rows rewritten EXCLUDE
-
-transferScope
-  status/authority canonical BOUND
-  source/target hashes inherited exactly
-  appliedOperationIds  = HANGER family APPLY IDs
-  excludedOperationIds = original excluded IDs + sibling parent APPLY IDs
-  candidateOperationIds = exact union
-  scopeId = deterministic child identity derived from parent scope/family
-
-familyProjection
-  explicit parent scope lineage
-  parent applied IDs
-  projected applied IDs
-  sibling applied IDs
-  projected child scope ID
+2af0c55368e321a1017b4b1e7f83351d2546aaf8
+CII: adopt partial HANGER into one-TARGET0 composite
 ```
 
-## Required HANGER dispatch
+## Delete-all / partial dispatch
 
-Use `buildCiiWriter2HangerDeletePlan()` as planner authority on the family projection.
+The composite first builds the merged HANGER delete plan using the legacy HANGER projection only to classify the authorized cardinality transition.
 
 ```text
-plan.compaction.deleteAll == true && countAfter == 0
-  -> existing applyCiiWriter2HangerDeleteAll() unchanged
+deleteAll == true && countAfter == 0
+  -> unchanged applyCiiWriter2HangerDeleteAll()
+  -> legacy family projection retained
+  -> authority family WRITER_2_HANGER_DELETE_ALL
 
-plan.compaction.partialMultiRecordDelete == true
+partialMultiRecordDelete == true
 && countBefore > 1
 && 0 < countAfter < countBefore
+  -> canonical partial-HANGER child scope
   -> applyCiiWriter2HangerPartialDelete()
+  -> authority family WRITER_2_HANGER_PARTIAL_DELETE
 
-anything else
-  -> fail closed
+otherwise
+  -> fail closed CII_WRITER_2_COMPOSITE_HANGER_DELETE_SCOPE_UNQUALIFIED
 ```
 
-HANGER CREATE/value editing remain blocked.
+The existing delete-all component is not modified.
 
-## Composite invariants
+Composite result preserves prior fields and adds split testimony:
 
 ```text
-one untouched TARGET0
-parent canonical APPLY/EXCLUDE custody retained
-all family claims are original-coordinate TARGET0 claims
-partial HANGER authority family distinct from delete-all
-no sequential mutation through intermediate files
-claim overlap fails closed
-one final claim application pass
-product/core route unchanged
+hangerDeleteAllOperations
+hangerPartialDeleteOperations
+hangerDeleteAllClaims
+hangerPartialDeleteClaims
+components.hangerDeleteAll
+components.hangerPartialDelete
 ```
 
-## Independent validation requirement
+`hangerDeleteOperations` and `hangerDeleteClaims` remain aggregate compatibility fields.
 
-The composite validator must independently reconstruct partial-HANGER claims from TARGET0 + parent scope + planner/record-binding authority. It must not import/call PR1027 Writer payload/repacking helpers and must not use the partial Writer result as oracle.
+# INDEPENDENT COMPLETE-POSTIMAGE VALIDATION
 
-Expected partial claims:
+New validator:
 
 ```text
-CONTROL_HANGER_COUNT
-MISCEL_1_HANGER_PARTIAL_COMPACT_PAYLOAD
+tabs/cii-workspace/cii-workspace-writer2-composite-hanger-partial-validation.js
 ```
 
-The complete expected composite postimage must include sibling NODENAME/SIF claims before exact byte comparison.
-
-## Current evidence truth
+Initial implementation:
 
 ```text
-PR1027 component authority                         MERGED
-PR1027 source inspection evidence                  RETAINED
-PR1027 exact native runtime                        NOT_RUN_ENVIRONMENT
-real repository H>1 source                         NOT_AVAILABLE
-Issue1028 product/core qualification               OUT_OF_SCOPE
-PR1029 implementation runtime                      NOT_RUN_NOT_IMPLEMENTED
+0d2e127e412bbbe602b1c15b007373cf5b141f48
+CII: independently validate partial HANGER composite
 ```
 
-## Initial intended changed-file ledger
+Custody closure:
 
 ```text
-tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js
-tabs/cii-workspace/cii-workspace-writer2-composite-hanger-validation.js
+5b55744b7c81af1aadb2b90034477e223532db4b
+CII: close partial composite testimony custody
+```
+
+The validator does not import/call partial Writer mutation/repack helpers.
+
+It independently:
+
+1. rebuilds parent BOUND scope custody using validator-side composite logic;
+2. derives the canonical partial-HANGER child scope independently;
+3. rebuilds NODENAME/SIF plans using existing independent composite-validator logic;
+4. builds the HANGER delete plan from the independent child scope;
+5. independently derives retained record map/counts;
+6. reuses **PR1027 independent-validator helpers** for exact raw-I13/tail/IHGRFREE partial expected replacements;
+7. combines NODENAME + SIF + partial-HANGER expected claims;
+8. independently arbitrates original-coordinate spans;
+9. reconstructs the complete expected final CII;
+10. requires exact final-byte equality;
+11. rehashes/re-intakes the actual composite postimage;
+12. independently reconstructs the partial-component-only expected bytes to falsify component TARGET0/postimage/representation testimony.
+
+Primary acceptance remains:
+
+```text
+actual composite final bytes
+== independently reconstructed complete expected composite bytes
+```
+
+Writer testimony is checked only after the independent byte oracle.
+
+## Partial component custody retained at composite level
+
+The new validator independently checks:
+
+```text
+component deletePlan record/count/packed/tail testimony
+component canonical child scope testimony
+component target0HashCustody
+component partial-only byteString / Uint8Array / text
+component byte lengths / mutation count
+component postimageHashCustody
+component postimageRepresentationCustody
+```
+
+Composite-level checks additionally cover:
+
+```text
+parentScopeCustody testimony
+composite Uint8Array/text representation
+actual after.contentSha256 against actual bytes
+actual physical text/lines/line-endings against canonical re-intake
+family operation/claim counts
+connectivity stable
+section order stable
+```
+
+# QUALIFICATION TESTS AUTHORED
+
+## Partial-only + canonical child scope
+
+```text
+tests/cii-workspace-writer2-composite-hanger-partial.test.js
+```
+
+Commits:
+
+```text
+7ec16e44d2455e09b7f315e35b135f4e3e216829  Writer/subscope qualification
+0de845e07e31413587b9db186cedd2f714ef42d9  independent oracle integration
+```
+
+Covers:
+
+```text
+H=3 delete record2 -> H'=2
+partial-only composite byte parity with qualified PR1027 component
+partial dispatch != delete-all
+canonical child scope under sibling APPLY + inherited EXCLUDE
+parent lineage testimony
+malformed projected operation container rejection
+original-coordinate overlap rejection
+exact final-postimage tamper rejection
+forged partial component plan testimony rejection
+```
+
+## True three-family variable-length case
+
+```text
+tests/cii-workspace-writer2-composite-hanger-partial-trifamily.test.js
+```
+
+Commits:
+
+```text
+47af1a191e6c237124bbd78eb622d53b9d736f5c  tri-family qualification
+4f290a2beea53065161b80ecb72780745ef13a22  custody-testimony falsifiers
+```
+
+Transaction:
+
+```text
+NODENAME CREATE
+  variable-length NODENAME growth
++
+V11 SIF DELETE
+  variable-length SIF&TEES shrinkage
++
+HANGER H=3 -> H'=2 partial delete
+  CONTROL.NOHGRS + complete MISCEL_1 compaction
+```
+
+All three component writers derive claims from one TARGET0 and are applied in one composite pass.
+
+The test also falsifies:
+
+```text
+unrelated postimage drift
+stale parent transferScope APPLY testimony
+forged writer parentScopeCustody
+forged partial-component TARGET0 hash custody
+```
+
+## Delete-all coexistence
+
+Existing unchanged test:
+
+```text
 tests/cii-workspace-writer2-composite-hanger.test.js
-agents/PR1029_workreport.md
-agents/status/PR1029.yaml
-agents/claims/PR1029.yaml
-agents/MASTER_INDEX.md
 ```
 
-A new focused test path may be added only if the existing composite test becomes materially overloaded.
+continues to cover the tri-family HANGER delete-all path and expects:
 
-## Exact next action
+```text
+WRITER_2_HANGER_DELETE_ALL claim ownership
+components.hangerDeleteAll
+HANGER post count = 0
+legacy independent delete-all composite validator PASS
+```
 
-Implement canonical partial-HANGER family subscope derivation and delete-all/partial dispatch in `cii-workspace-writer2-composite-hanger.js`, add writer-side focused falsifiers, then freeze that slice before extending the independent composite validator.
+The PR1029 Writer preserves all of those legacy result fields and routes delete-all through the unchanged component/legacy projection.
+
+# SOURCE AUDIT
+
+Merged planner source confirms each HANGER DELETE must provide:
+
+```text
+PREVIEW_READY
+matchAuthority REVIEWED/LOCKED
+policyAuthority CII_WRITER_2_HANGER_DELETE_COMPACTION
+before=true / proposed=false
+one target node identity
+qualified physical record binding for partial H>1
+```
+
+The new H=3 tri-family fixture provides those fields. Record binding and retained raw-I13 authority are derived from the fixture physical bytes; they are not injected as test testimony.
+
+# CURRENT VALIDATION TRUTH
+
+```text
+PR1027 merge                                     PASS_REMOTE_EXECUTION
+PR1029 Writer source                            PASS_SOURCE_INSPECTION
+canonical child subscope source                 PASS_SOURCE_INSPECTION
+independent composite-partial validator source  PASS_SOURCE_INSPECTION_INDEPENDENT_ORACLE
+partial-only test source                        AUTHORED / PASS_SOURCE_INSPECTION
+tri-family H=3->2 test source                    AUTHORED / PASS_SOURCE_INSPECTION
+delete-all legacy test source                   EXISTING / UNCHANGED
+exact current-head Node execution               NOT_RUN_ENVIRONMENT
+full repository npm test                        NOT_RUN_ENVIRONMENT
+real repository H>1 source                      NOT_AVAILABLE
+real H>1 product qualification                  OUT_OF_SCOPE / NOT_RUN_NO_REAL_SOURCE
+```
+
+Execution attempt on 2026-08-23:
+
+```text
+git ls-remote https://github.com/reallaksh19/XML_Compare_Utilities.git HEAD
+-> Could not resolve host: github.com
+```
+
+No source inspection or authored test is represented as runtime PASS.
+
+# PRODUCT / AUTHORITY BOUNDARY
+
+Unchanged in this PR:
+
+```text
+tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+tabs/cii-workspace/cii-workspace-writer2-product-routing.js
+browser/UI routes
+package.json
+workflows
+parsers/converters
+```
+
+Partial HANGER product/core readiness remains deliberately blocked for the later successor PR.
+
+# CHANGED-FILE LEDGER — CURRENT INTENDED
+
+```text
+agents/MASTER_INDEX.md
+agents/PR1029_workreport.md
+agents/claims/PR1029.yaml
+agents/status/PR1029.yaml
+tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js
+tabs/cii-workspace/cii-workspace-writer2-composite-hanger-partial-validation.js
+tests/cii-workspace-writer2-composite-hanger-partial.test.js
+tests/cii-workspace-writer2-composite-hanger-partial-trifamily.test.js
+```
+
+Expected final reconciliation:
+
+```text
+intended = 8
+actual   = 8
+unexplained = 0
+```
+
+# NEGATIVE ASSURANCE
+
+No new authority for:
+
+```text
+product/core partial HANGER APPLY
+browser/UI partial HANGER execution
+real H>1 qualification without a real source
+HANGER CREATE/value editing
+SIF CREATE
+sequential family mutation against intermediate bytes
+weaker PR1027 scope/container custody
+weaker HANGER delete-all gate
+parser/converter mutation
+workflow/package mutation
+```
+
+# CURRENT DISPOSITION
+
+```text
+COMPOSITE PARTIAL-HANGER WRITER ADOPTION       IMPLEMENTED
+CANONICAL CHILD BOUND SUBSCOPE                 IMPLEMENTED
+DELETE-ALL COEXISTENCE                         PRESERVED
+INDEPENDENT COMPLETE-POSTIMAGE VALIDATOR       IMPLEMENTED
+PARTIAL-ONLY QUALIFICATION                     AUTHORED / NOT_RUN_ENVIRONMENT
+TRI-FAMILY H=3->2 QUALIFICATION                AUTHORED / NOT_RUN_ENVIRONMENT
+REAL H>1 SOURCE                                NOT_AVAILABLE
+PRODUCT/CORE ADOPTION                          OUT_OF_SCOPE
+HANDOVER READINESS                             READY
+PR STATE                                       DRAFT
+MERGE AUTHORITY                                OWNER_ONLY
+MERGE AUTHORIZED                               FALSE
+```
+
+Keep PR1029 draft until exact path reconciliation and final source review are complete. Do not merge without fresh owner authorization.
 
 # APPENDIX A — TAKEOVER QUALIFICATION
 
-1. Trace the current one-TARGET0 HANGER composite from parent transfer scope through family projection, component writer claims, arbitration and final splice.
-2. Explain exactly why the legacy family projection is accepted by the delete-all path but cannot satisfy PR1027 partial-HANGER canonical-scope custody with sibling APPLY operations.
-3. Define the child partial-HANGER BOUND scope sets from a parent containing NODENAME + SIF DELETE + HANGER DELETE, including original exclusions.
-4. Explain how to classify delete-all versus partial without weakening `applyCiiWriter2HangerDeleteAll()`.
-5. Design an independent composite falsifier where partial HANGER bytes are correct but a sibling claim overlaps its MISCEL_1 span; state the expected fail-closed boundary.
+1. Trace a parent NODENAME + SIF DELETE + HANGER partial transaction from parent scope through child HANGER scope, four family claim sources, arbitration and final splice.
+2. Explain why delete-all intentionally keeps the legacy family projection while partial HANGER requires `PARENT_TRANSFER_SCOPE_CANONICAL_SUBSCOPE`.
+3. Given parent APPLY `[N1,S1,H1]` and parent EXCLUDE `[X1]`, derive the partial-HANGER child operations, excludedOperations and all three child scope ID sets exactly.
+4. Explain why the new validator may reuse PR1027 **validator** raw-I13 helpers but must not import partial Writer payload/repack helpers.
+5. Explain how the tri-family test proves original-coordinate composition when one sibling grows, one shrinks and MISCEL_1 shrinks, and identify the fail-closed overlap boundary.
 
-Threshold: total >=92/100 and each >=17/20 for engineering-critical takeover.
+Threshold: total >=92/100 and each >=17/20.
