@@ -110,7 +110,7 @@ function insertBeforeLineEnding(byteString, row, insertion) {
 {
   const { document: before, nodes } = target(8); const transferPlan = boundPlan(before, nodes[1]);
   const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
-  const after = documentFromByteString(writer.byteString, before.parsed, 'tail-post-8');
+  const after = documentFromByteString(writer.byteString, before.parsed);
   assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer).status, 'PASS');
   assert.equal(writer.packedTailAuthority, CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY);
   for (const label of PACKED_LABELS) {
@@ -123,7 +123,7 @@ function insertBeforeLineEnding(byteString, row, insertion) {
 
   const row = packedGroups(after).IHGRNUM.at(-1);
   const paddedPost = insertBeforeLineEnding(writer.byteString, row, ' '.repeat(13));
-  const paddedAfter = documentFromByteString(paddedPost, before.parsed, 'tail-post-tampered');
+  const paddedAfter = documentFromByteString(paddedPost, before.parsed);
   assert.throws(() => validateCiiWriter2HangerPartialRoundTrip(before, paddedAfter, transferPlan, writer), /EXACT_POSTIMAGE_MISMATCH/);
 }
 
@@ -131,7 +131,7 @@ function insertBeforeLineEnding(byteString, row, insertion) {
 {
   const { document: before, nodes } = target(6); const transferPlan = boundPlan(before, nodes[0]);
   const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
-  const after = documentFromByteString(writer.byteString, before.parsed, 'tail-post-6');
+  const after = documentFromByteString(writer.byteString, before.parsed);
   assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer).status, 'PASS');
   for (const label of PACKED_LABELS) {
     assert.equal(packedGroups(before)[label].at(-1).text.length, 80, `${label} full source row = 2X + six I13 fields`);
