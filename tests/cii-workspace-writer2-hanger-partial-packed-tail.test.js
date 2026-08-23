@@ -105,18 +105,16 @@ function insertBeforeLineEnding(byteString, row, insertion) {
   const position = row.byteEnd - lineEndingLength(row); return byteString.slice(0, position) + insertion + byteString.slice(position);
 }
 
-// Source may contain blank physical tail bytes. The postimage must use the qualified synchronizer active-fields-only form.
+// Active-only source and post shapes are the qualified emitter/vendor form.
 {
-  const paddedTail = ' '.repeat(4 * 13); // H=8 source last row has 2 active fields and four unused I13 fields.
-  const tails = Object.fromEntries(PACKED_LABELS.map((label) => [label, paddedTail]));
-  const { document: before, nodes } = target(8, tails); const transferPlan = boundPlan(before, nodes[1]);
+  const { document: before, nodes } = target(8); const transferPlan = boundPlan(before, nodes[1]);
   const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
   const after = documentFromByteString(writer.byteString, before.parsed, 'tail-post-8');
   assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer).status, 'PASS');
   assert.equal(writer.packedTailAuthority, CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY);
   for (const label of PACKED_LABELS) {
-    assert.equal(packedGroups(before)[label].at(-1).text.length, 80, `${label} source padded to six fields`);
-    assert.equal(packedGroups(after)[label].at(-1).text.length, 15, `${label} post row contains prefix + one active I13 only`);
+    assert.equal(packedGroups(before)[label].at(-1).text.length, 28, `${label} source row = 2X + two active I13 fields`);
+    assert.equal(packedGroups(after)[label].at(-1).text.length, 15, `${label} post row = 2X + one active I13 field`);
   }
 
   const forged = Object.freeze({ ...writer, packedTailAuthority: 'FORGED_PACKED_TAIL_AUTHORITY' });
@@ -128,19 +126,23 @@ function insertBeforeLineEnding(byteString, row, insertion) {
   assert.throws(() => validateCiiWriter2HangerPartialRoundTrip(before, paddedAfter, transferPlan, writer), /EXACT_POSTIMAGE_MISMATCH/);
 }
 
-// Full H=6 source has no unused source tail. H'=5 must still use the same canonical active-fields-only post shape.
+// A full six-field source row compacting to five fields still emits exactly the active fields.
 {
   const { document: before, nodes } = target(6); const transferPlan = boundPlan(before, nodes[0]);
   const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
   const after = documentFromByteString(writer.byteString, before.parsed, 'tail-post-6');
   assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer).status, 'PASS');
-  for (const label of PACKED_LABELS) assert.equal(packedGroups(after)[label].at(-1).text.length, 67, `${label} prefix + five active I13 fields`);
+  for (const label of PACKED_LABELS) {
+    assert.equal(packedGroups(before)[label].at(-1).text.length, 80, `${label} full source row = 2X + six I13 fields`);
+    assert.equal(packedGroups(after)[label].at(-1).text.length, 67, `${label} post row = 2X + five active I13 fields`);
+  }
 }
 
-// #1025 accepts whitespace-only trailing source data. PR1027 tightens physical authority to ASCII blank bytes only; tabs are not fixed-field blank custody.
-{
-  const { document: before, nodes } = target(8, { IHGRNUM: '\t' }); const transferPlan = boundPlan(before, nodes[1]);
-  assert.throws(() => applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan }), /PACKED_TRAILING_BLANK_BYTES_REQUIRED:IHGRNUM/);
+// No unused-field padding has source authority. Even blanks must fail closed instead of being silently normalized away.
+for (const [label, tail] of [['IHGRNODE', ' '.repeat(13)], ['IHGRNUM', '\t'], ['IHGRTABLE', 'X']]) {
+  const { document: before, nodes } = target(8, { [label]: tail }); const transferPlan = boundPlan(before, nodes[1]);
+  assert.throws(() => applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan }),
+    new RegExp(`PACKED_SOURCE_ACTIVE_FIELDS_ONLY_REQUIRED:${label}`));
 }
 
-console.log('Writer2 partial HANGER packed-row unused-tail custody and canonical post-shape qualification authored.');
+console.log('Writer2 partial HANGER active-fields-only packed-row custody qualification authored.');
