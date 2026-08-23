@@ -10,6 +10,7 @@ const EXECUTION_ROWS = 4;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
+const POSTIMAGE_HASH_AUTHORITY = 'SHA256_WRITER2_POSTIMAGE_BYTES';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
 export const CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 
@@ -317,6 +318,8 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
   const replacements = assertDisjoint([controlReplacement(targetDocument, plan), payloadReplacement(targetDocument, plan)])
     .filter((item) => item.beforeField !== item.afterField);
   const byteString = applyReplacements(original, replacements); const bytes = byteStringToBytes(byteString);
+  const postimageHashCustody = Object.freeze({ authority: POSTIMAGE_HASH_AUTHORITY,
+    contentSha256: sha256CiiByteString(byteString), byteLength: byteString.length });
   return Object.freeze({
     schema: 'CIIWorkspaceWriter2HangerPartialDeleteResult.v1', status: 'APPLIED', writer: 'WRITER_2', family: 'HANGER_PARTIAL_DELETE',
     byteString, bytes, text: new TextDecoder('utf-8').decode(bytes), byteLengthBefore: original.length, byteLengthAfter: byteString.length,
@@ -324,7 +327,7 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
     deletedRecordIndices: Object.freeze([...(plan.deletedRecordIndices || [])]), retainedRecordIndices: Object.freeze([...(plan.retainedRecordIndices || [])]),
     oldToNewRecordIndex: Object.freeze({ ...(plan.oldToNewRecordIndex || {}) }), tailOrder: plan?.physicalCustody?.recordBinding?.tailOrder,
     packedRowsBefore: Number(plan?.compaction?.packedRowsBefore), packedRowsAfter: Number(plan?.compaction?.packedRowsAfter),
-    packedTailAuthority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY, target0HashCustody,
+    packedTailAuthority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY, target0HashCustody, postimageHashCustody,
     mutationCount: replacements.length, mutations: Object.freeze(replacements), scopeCustody, deletePlan: plan,
   });
 }
