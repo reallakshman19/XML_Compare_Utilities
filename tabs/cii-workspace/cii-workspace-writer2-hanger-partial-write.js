@@ -1,6 +1,7 @@
 import { buildCiiWriter2HangerDeletePlan } from './cii-workspace-writer2-hanger-delete.js';
 import { CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY } from './cii-workspace-writer2-hanger-record-binding.js';
 import { decodeCiiAsciiByteString } from './cii-workspace-physical-file.js';
+import { isCiiSha256Hex, sha256CiiByteString } from './cii-workspace-byte-sha256.js';
 
 const FIELD_WIDTH = 13;
 const VALUES_PER_PACKED_ROW = 6;
@@ -8,6 +9,7 @@ const PACKED_PREFIX = '  ';
 const EXECUTION_ROWS = 4;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
+const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
 export const CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 
@@ -125,6 +127,22 @@ function assertBoundScopeCustody(transferPlan, targetDocument) {
   }
   return Object.freeze({ scopeId: text(scope.scopeId), sourceSha256: sourceSha, targetSha256: targetSha,
     appliedOperationIds: appliedIds, excludedOperationIds: excludedIds, candidateOperationIds: candidateIds });
+}
+function assertTarget0HashCustody(targetDocument, scopeCustody) {
+  const physicalFile = targetDocument?.physicalFile;
+  const original = String(physicalFile?.originalByteString ?? '');
+  const declared = text(targetDocument?.contentSha256);
+  if (!isCiiSha256Hex(declared)) throw new Error('CII_WRITER_2_HANGER_PARTIAL_TARGET0_SHA256_FORMAT_REQUIRED');
+  if (!original || Number(physicalFile?.byteLength) !== original.length) {
+    throw new Error(`CII_WRITER_2_HANGER_PARTIAL_TARGET0_BYTE_LENGTH_MISMATCH:${physicalFile?.byteLength ?? 'missing'}:${original.length}`);
+  }
+  if (targetDocument?.byteLength != null && Number(targetDocument.byteLength) !== original.length) {
+    throw new Error(`CII_WRITER_2_HANGER_PARTIAL_TARGET0_DOCUMENT_BYTE_LENGTH_MISMATCH:${targetDocument.byteLength}:${original.length}`);
+  }
+  const actual = sha256CiiByteString(original);
+  if (declared !== actual) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_TARGET0_SHA256_MISMATCH:${declared}:${actual}`);
+  if (text(scopeCustody?.targetSha256) !== actual) throw new Error('CII_WRITER_2_HANGER_PARTIAL_SCOPE_TARGET0_SHA256_MISMATCH');
+  return Object.freeze({ authority: TARGET0_HASH_AUTHORITY, contentSha256: actual, byteLength: original.length });
 }
 function assertPartialPlan(plan) {
   if (!plan?.ready) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_BLOCKED:${(plan?.blockers || []).join('|')}`);
@@ -290,6 +308,7 @@ function byteStringToBytes(value) {
 
 export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPlan }) {
   const scopeCustody = assertBoundScopeCustody(transferPlan, targetDocument);
+  const target0HashCustody = assertTarget0HashCustody(targetDocument, scopeCustody);
   const plan = buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan }); assertPartialPlan(plan);
   const original = String(targetDocument?.physicalFile?.originalByteString ?? '');
   if (!original || targetDocument?.writer1CByteEligible !== true || targetDocument?.physicalFile?.writer1CByteEligible !== true) {
@@ -305,11 +324,11 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
     deletedRecordIndices: Object.freeze([...(plan.deletedRecordIndices || [])]), retainedRecordIndices: Object.freeze([...(plan.retainedRecordIndices || [])]),
     oldToNewRecordIndex: Object.freeze({ ...(plan.oldToNewRecordIndex || {}) }), tailOrder: plan?.physicalCustody?.recordBinding?.tailOrder,
     packedRowsBefore: Number(plan?.compaction?.packedRowsBefore), packedRowsAfter: Number(plan?.compaction?.packedRowsAfter),
-    packedTailAuthority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY,
+    packedTailAuthority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY, target0HashCustody,
     mutationCount: replacements.length, mutations: Object.freeze(replacements), scopeCustody, deletePlan: plan,
   });
 }
 
 export const _test = Object.freeze({ markerName, integerField, lineEndingBytes, rawSectionEnvelope, exactScopeIds, assertScopeSetsDisjoint,
-  assertCanonicalOperationContainers, assertBoundScopeCustody, assertPartialPlan, partitionRows, retainedPackedFields,
+  assertCanonicalOperationContainers, assertBoundScopeCustody, assertTarget0HashCustody, assertPartialPlan, partitionRows, retainedPackedFields,
   assertPackedSourceTailQualified, repackPackedRows, controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
