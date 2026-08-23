@@ -11,11 +11,7 @@ H' > 0
 layout = CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
 ```
 
-Planner/positional binding authority is inherited read-only from merged PR #1025 at:
-
-```text
-main@ae1de402db129e32cd6d7811a4e4707d64512bd4
-```
+Planner/positional binding authority is inherited read-only from merged PR #1025 at `main@ae1de402db129e32cd6d7811a4e4707d64512bd4`.
 
 No product/composite/UI partial-HANGER route is added. HANGER CREATE/value editing, SIF CREATE, Writer3 topology, restraint/process cardinality, protected parsers/converters, package scripts and workflows remain outside this PR.
 
@@ -78,11 +74,11 @@ IHGRCN packed rows
 The writer operates from one untouched TARGET0 byte string and constructs exactly two original-coordinate replacements:
 
 ```text
-1. CONTROL_HANGER_COUNT
-   CONTROL.NOHGRS: H -> H'
+CONTROL_HANGER_COUNT
+  CONTROL.NOHGRS: H -> H'
 
-2. MISCEL_1_HANGER_PARTIAL_COMPACT_PAYLOAD
-   complete HANGER region reconstruction
+MISCEL_1_HANGER_PARTIAL_COMPACT_PAYLOAD
+  complete HANGER-region reconstruction
 ```
 
 Both preimages are checked and both replacements are applied in one splice pass. No sequential writer chaining or downstream offset-adjust authority is used.
@@ -99,21 +95,13 @@ IHGRSHORT
 IHGRCN
 ```
 
-Compaction is **field repacking**, not row deletion. Every retained 13-byte field is copied lexically and all five families use the same retained-record sequence.
-
-A source token such as:
-
-```text
-"          +12"
-```
-
-must remain exactly that token. Numeric parse/reformat is not byte-equivalent.
+Compaction is **field repacking**, not row deletion. Every retained 13-byte field is copied lexically and all five families use the same retained-record sequence. A token such as `"          +12"` must remain byte-identical; numeric parse/reformat is not equivalent.
 
 ## Packed-row source-shape authority
 
 Issue #1026 requires the unused-field representation of a partially occupied packed row to be source-qualified and deterministic.
 
-The qualified source shape is:
+Qualified source shape:
 
 ```text
 SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
@@ -127,36 +115,22 @@ final row length          = 2 + usedFields*13 bytes
 unused physical fields    = omitted
 ```
 
-There is **no authority to pad unused fields with spaces, tabs or arbitrary trailing bytes**.
+There is no authority to pad unused fields with spaces, tabs or arbitrary trailing bytes.
 
-This boundary is supported by two independent repository sources:
+Two independent sources establish this boundary:
 
-1. `converters/scripts/cii2019_hanger_miscel_control.py`
+1. `converters/scripts/cii2019_hanger_miscel_control.py::_pack_i` chunks only actual values and `_format_i` emits `2X + n*I13`.
+2. Real vendor `Benchmark/CIICompare/BM_CII_SOURCE.CII` H=1 uses active-only one-value packed rows, including `IHGRNODE=205`.
 
-```python
-def _format_i(values):
-    return "  " + "".join(f"{int(value):13d}" for value in values)
+PR1025's planner is intentionally broader and may tolerate whitespace-only trailing text while establishing positional ownership. PR1027 narrows **physical write authority** fail-closed: any packed source row whose length differs from the exact active-only shape is rejected before mutation.
 
-def _pack_i(values, width=6):
-    return [_format_i(values[index:index + width])
-            for index in range(0, len(values), width)]
-```
-
-`_pack_i` therefore emits only active values in the final chunk.
-
-2. Real vendor benchmark `Benchmark/CIICompare/BM_CII_SOURCE.CII`
-
-The H=1 MISCEL_1 HANGER arrays show active-only one-value packed rows, including `IHGRNODE=205`; no unused blank I13 slots are present.
-
-PR1025's planner is intentionally broader and may tolerate whitespace-only trailing text while establishing positional record ownership. PR1027 narrows the **physical write authority** fail-closed: a source packed row whose byte length is not the exact active-only length is rejected before mutation.
-
-The writer records:
+Writer testimony includes:
 
 ```text
 packedTailAuthority = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
 ```
 
-The independent validator defines the same authority locally; it does not import the writer constant or writer repacking helpers.
+The independent validator defines that authority locally rather than importing the writer constant.
 
 ## Tail-order preservation
 
@@ -170,9 +144,7 @@ GROUPED
   all HGRDAT pairs, then all TAG/GUID pairs
 ```
 
-The original order class is preserved. GROUPED is never canonicalized to INTERLEAVED or vice versa.
-
-When H'=1, the postimage can only prove `SINGLE_RECORD_ORDER_EQUIVALENT`; writer testimony still records the qualified preimage order class.
+The original order class is preserved. GROUPED is never canonicalized to INTERLEAVED or vice versa. When H'=1, the postimage can only prove `SINGLE_RECORD_ORDER_EQUIVALENT`; writer testimony still records the qualified preimage order class.
 
 ## IHGRFREE custody
 
@@ -180,13 +152,7 @@ IHGRFREE is one physical row per hanger record. Retained rows are copied accordi
 
 ## Delete-all boundary
 
-The partial writer rejects:
-
-```text
-countAfter == 0
-```
-
-That remains the unchanged PR1020 delete-all writer path.
+The partial writer rejects `countAfter == 0`. That remains the unchanged PR1020 delete-all writer path.
 
 ## Independent complete-postimage validator
 
@@ -211,118 +177,99 @@ Primary acceptance criterion:
 actual final bytes === independently reconstructed expected final bytes
 ```
 
-Writer testimony is secondary evidence only. The validator separately checks counts, deleted/retained/old-to-new maps, packed row counts, `packedTailAuthority`, tail order, mutation testimony, scope custody, nested delete-plan testimony and byte lengths.
+Writer testimony is secondary evidence only. Counts, deleted/retained/old-to-new maps, packed row counts, `packedTailAuthority`, tail order, mutation testimony, scope custody, nested delete-plan testimony and byte lengths are checked separately.
 
-## Pre-merge testimony correction
+## Real repository source census — 2026-08-23
 
-A 2026-08-23 audit found that top-level `writerResult.deletedRecordIndices` was not separately compared with the independently rebuilt plan.
+The next qualification batch searched the repository's real/benchmark/profile CII sources for a physical `NOHGRS > 1` preimage before attempting to claim a real H>1 roundtrip.
 
-Corrected at:
+Frozen source ledger:
 
 ```text
-8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
+docs/cii-writer2-hanger-real-source-census.csv
 ```
 
-Dedicated regression:
+Nine repository CII assets were identified in the qualified census roots:
 
 ```text
-tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
+Benchmark/CIICompare/BM_CII_SOURCE.CII                         H=1
+Benchmark/CIICompare/BM_CII_TARGET1.CII                        H=0
+Benchmark/CIICompare/BM_CII_TARGET2.CII                        H=0
+Benchmark/CIICompare/SOURCE 3.CII                              H=0
+Benchmark/CIICompare/TARGET 3-1.CII                            H=0
+Benchmark/Pipeline/CII                                         H=0
+converters/scripts/inputxml_profile_bm_cii_2019.cii            H=1
+converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii H=0
+output.cii                                                      H=0
 ```
 
-Observed reconstructed behavior:
+The two large CAESAR neutral files (`SOURCE 3.CII` and `TARGET 3-1.CII`) both have `NOHGRS=0`; the real vendor BM source has `NOHGRS=1`. The associated repository InputXML profile `pdf_inputxml_profile_bm_cii.xml` also declares `NOHGRS="0"` and does not provide H>1 authority.
+
+**Result:** there is currently no repository real CII preimage with `NOHGRS > 1`. No real H>1 physical-delete transaction is therefore claimed or manufactured in this PR.
+
+This is an evidence limitation, not a software fallback.
+
+### Real-source discovery/qualification gate
 
 ```text
-H=3 delete record2
-correct deletedRecordIndices=[2] -> PASS
-forged  deletedRecordIndices=[1] -> FAIL_CLOSED
+tests/cii-workspace-writer2-hanger-real-source-census.test.js
 ```
 
-## Packed-row source-shape hardening batch
+The test is intentionally independent of Writer2 mutation helpers. It:
 
-Production/validation commits in the batch include:
+1. recursively inventories repository CII assets under `Benchmark/` and `converters/scripts/`, plus root `output.cii`;
+2. independently parses `CONTROL` NUMELT/NUMNOZ/NOHGRS;
+3. compares the current inventory/counts with the frozen CSV ledger;
+4. fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` if any real source has H>1;
+5. for every current H=1 source, independently derives the MISCEL_1 H=1 row model and proves all five packed arrays are exactly `2X + 1*I13` (15 characters);
+6. fails on source-census drift so added/removed CII evidence cannot silently bypass qualification.
 
-```text
-b4afb09c  initial packed-tail custody gate
-ec86dea3  writer tightened to exact active-only source rows
-d0159b06  validator independently tightened to exact active-only source rows
-4cd43b7b  qualification suite isolates the new physical gate
-```
+A future real H>1 source is therefore an explicit **qualification trigger**: its tail order, five packed families, positional binding and actual partial-delete postimage must be qualified before this evidence ledger can be advanced.
 
-Qualification file:
+## Earlier audit/hardening history
 
-```text
-tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
-```
+The 2026-08-23 pre-merge audit found top-level `writerResult.deletedRecordIndices` testimony was not separately checked. It was fixed at `8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84`, with dedicated falsifier `172467f96f4f417dc2639adeec2a5d8ba558fa61`.
 
-It covers as one integrated suite:
+Packed-row source-shape hardening then added exact active-only source gating in writer and independent validator, plus `tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js`.
 
-- H=8 active-only source -> H'=7 active-only post shape;
-- H=6 full six-field source -> H'=5 five-field post shape;
-- all five packed families reject planner-tolerated space padding;
-- tab padding rejects fail-closed;
-- forged `packedTailAuthority` testimony rejects;
-- reintroduced postimage padding rejects via exact-byte oracle.
+Historical pre-packed-shape qualification includes the mandatory H=2/3/6/7/8/12/13 matrix, INTERLEAVED/GROUPED cases, raw-I13 `+12`, frozen independent postimage SHA oracles, F01-F30 and predecessor/delete-all slices under their recorded reconstructed-source observation classes.
 
-The execution container cannot resolve GitHub and cannot create a native checkout, so this newly authored suite is currently:
+Those historical passes are not silently relabelled as current-head native execution.
+
+## Current observation classes
 
 ```text
-SOURCE_AUTHORITY_AUDITED
-TEST_AUTHORED
-NOT_RUN_ENVIRONMENT
-```
-
-It is **not** represented as runtime PASS.
-
-## Existing qualification retained
-
-Before this packed-shape batch, the following had passed under explicit reconstructed-source observation classes:
-
-```text
-mandatory H=2/3/6/7/8/12/13 packing matrix
-INTERLEAVED + GROUPED representative cases
-raw-I13 lexical +12 preservation
-frozen independent postimage SHA oracles
-independent complete-postimage validator
-F01-F27 fail-closed / expected routing
-F28 product/composite delete-all-only gate by current-head source inspection
-F29 H=7->6
-F30 H=13->12
-pre-merge deleted-record testimony falsifier
-inherited planner/delete-all synthetic regression
-real BM_CII_SOURCE HANGER slice
-```
-
-The packed-shape production changes occurred after those runs; those historical passes are not silently relabelled as current-head runtime execution.
-
-## Explicit NOT_RUN
-
-```text
-new packed-row source-shape qualification suite on exact PR1027 checkout
-all focused PR1027 tests on a native exact checkout after this batch
-full-file BM_CII_SOURCE intake -> write -> re-intake
-broader Writer2/product integration regression
-repository-wide npm test
+synchronizer emitter active-only authority           PASS_SOURCE_INSPECTION
+real BM_CII_SOURCE H=1 packed shape                   PASS_SOURCE_INSPECTION
+converter-profile H=1 packed shape                    PASS_SOURCE_INSPECTION
+real-source repository census                         PASS_SOURCE_INSPECTION
+real H>1 repository preimage                          NOT_AVAILABLE
+real H>1 partial-delete roundtrip                     NOT_RUN_NO_REAL_SOURCE
+packed-tail integrated test                           AUTHORED / NOT_RUN_ENVIRONMENT
+real-source census test                               AUTHORED / NOT_RUN_ENVIRONMENT
+all focused current-head tests                        NOT_RUN_ENVIRONMENT
+full-file BM_CII_SOURCE intake -> write -> re-intake  NOT_RUN_ENVIRONMENT
+broader Writer2/product regression                    NOT_RUN_ENVIRONMENT
+repository-wide npm test                              NOT_RUN_ENVIRONMENT
 ```
 
 ## Product/runtime boundary
 
-The partial writer and validator remain component-isolated. Existing product/composite partial HANGER remains blocked by:
-
-```text
-WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
-```
+The partial writer and validator remain component-isolated. Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED`.
 
 ## Release disposition
 
 ```text
-component implementation                 COMPLETE
-independent complete-postimage design     COMPLETE
-record-testimony audit defect             FIXED + FALSIFIED
-packed source-shape authority             QUALIFIED_FROM_EMITTER_AND_VENDOR_BENCHMARK
-packed source-shape test                  AUTHORED / NOT_RUN_ENVIRONMENT
-runtime product adoption                  NONE
-merge authority                           OWNER_ONLY
-merge authorized                          FALSE
+component implementation                    COMPLETE
+independent complete-postimage design        COMPLETE
+record-testimony audit defect                FIXED + FALSIFIED
+packed source-shape authority                QUALIFIED
+real HANGER source census                    COMPLETE
+real H>1 repository source                   NOT_AVAILABLE
+real H>1 roundtrip evidence                  NOT_RUN_NO_REAL_SOURCE
+runtime product adoption                     NONE
+merge authority                              OWNER_ONLY
+merge authorized                             FALSE
 ```
 
 Do not merge without fresh owner authorization.
