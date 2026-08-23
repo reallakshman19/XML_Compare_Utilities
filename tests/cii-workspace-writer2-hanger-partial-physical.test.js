@@ -6,6 +6,7 @@ import { applyCiiWriter2HangerPartialDelete } from '../tabs/cii-workspace/cii-wo
 import { validateCiiWriter2HangerPartialRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js';
 import { applyCiiWriter2HangerDeleteAll } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js';
 import { ciiWriter2CompositeReadiness } from '../tabs/cii-workspace/cii-workspace-writer2-composite-routing.js';
+import { sha256CiiByteString } from '../tabs/cii-workspace/cii-workspace-byte-sha256.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 const PACKED_LABELS = ['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN'];
@@ -40,7 +41,7 @@ function parsedModel(nodes) {
   const allNodes = new Set(nodes.map(Number)); for (const item of elements) { allNodes.add(item.from); allNodes.add(item.to); }
   return Object.freeze({ elements: Object.freeze(elements), nodes: Object.freeze(Object.fromEntries([...allNodes].map((node) => [String(node), Object.freeze({})]))) });
 }
-function documentFromByteString(byteString, parsed, contentSha256 = 'post-sha') {
+function documentFromByteString(byteString, parsed, contentSha256 = sha256CiiByteString(byteString)) {
   const bytes = new Uint8Array(String(byteString).length);
   for (let index = 0; index < bytes.length; index += 1) bytes[index] = byteString.charCodeAt(index) & 0xff;
   const physicalFile = createCiiPhysicalFile(bytes); const hangerEvidence = buildCiiHangerEvidence(physicalFile.text, parsed);
@@ -67,7 +68,7 @@ function syntheticTarget(count, tailOrder = 'INTERLEAVED', options = {}) {
   const body = ['#$ CONTROL', ...control(parsed.elements.length, count, numnoz), '#$ MISCEL_1', ...rrmat, ...nozzleRows, ...defaults,
     ...packed.IHGRNODE, ...tail, ...free, ...packed.IHGRNUM, ...packed.IHGRTABLE, ...packed.IHGRSHORT, ...packed.IHGRCN,
     ...executionRows(), '#$ UNITS', 'UNITS-CUSTODY'].join('\r\n') + '\r\n';
-  const contentSha256 = `target-${count}-${tailOrder}-${numnoz}`; const target = documentFromByteString(body, parsed, contentSha256);
+  const target = documentFromByteString(body, parsed);
   assert.equal(target.hangerEvidence.status, 'QUALIFIED'); assert.equal(target.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER);
   return Object.freeze({ target, nodes });
 }
