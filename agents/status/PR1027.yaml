@@ -15,15 +15,16 @@ handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: SCOPE_DISJOINTNESS_HARDENED_REVIEW_READY
+current_stage: CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED_REVIEW_PENDING
 blocker: NONE_FOR_COMPONENT_REVIEW
 real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 highest_risk: >-
-  The component now explicitly rejects contradictory APPLY/EXCLUDE authority at
-  both the transfer-plan representation and bound-scope testimony. No real
-  repository H>1 CII preimage exists, so an actual H>1 partial-delete roundtrip
-  cannot yet be claimed. Current-head native tests also remain unavailable.
+  The component now rejects malformed BOUND transaction representations before
+  planner execution: mutable rows cannot be hidden in the wrong container or
+  behind a noncanonical scopeDecision, KEEP rows cannot enter excludedOperations,
+  and operation IDs are globally unique across both physical containers. No real
+  repository H>1 CII preimage exists, and current-head native tests remain unavailable.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -36,22 +37,40 @@ changed_files:
   actual: 15
   intended: 15
   unexplained: 0
-batch_scope_disjointness:
+batch_canonical_scope_container_custody:
   finding: >-
-    sameStrings() intentionally compares sets by unique IDs, so a forged BOUND
-    transferPlan could previously place the same mutable operation in both APPLY
-    and EXCLUDE and survive set-equivalence comparison.
+    The previous boundary selected only operations/scopeDecision=APPLY and
+    excludedOperations/scopeDecision=EXCLUDE. A forged BOUND transferPlan could
+    therefore hide mutable rows in the wrong container or with EXCLUDE/UNBOUND
+    decisions and have them filtered out instead of rejected.
   upstream_canonical_scope_builder: tabs/cii-workspace/cii-workspace-transfer-scope.js
-  upstream_state: DISJOINT_BY_CONSTRUCTION_UNCHANGED
-  writer_fix_commit: 575962cbe8bcc8e30a68758158d774aba2d5c26c
-  validator_fix_commit: df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+  upstream_state: SINGLE_DECISION_MAP_AND_CANONICAL_CONTAINERS_UNCHANGED
+  writer_fix_commit: 4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
+  validator_fix_commit: c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
   falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
-  falsifier_commit: 28d45aa25ce763db9d3700479c5011cf3e3b2470
-  test_eof_normalization_commit: 74c935b8531899f2d97abcda495849ed290338e6
-  f31: PLAN_APPLY_EXCLUDE_OVERLAP
-  f32: SCOPE_APPLY_EXCLUDE_OVERLAP
+  falsifier_extension_commit: 4def181b64e70b348bd3540d505765090ece02c2
+  canonical_rules:
+    - operations ARRAY REQUIRED
+    - excludedOperations ARRAY REQUIRED
+    - mutable operations row REQUIRES scopeDecision APPLY
+    - KEEP operations row REQUIRES scopeDecision KEEP
+    - excludedOperations rows MUST be mutable
+    - excludedOperations rows REQUIRE scopeDecision EXCLUDE
+    - APPLY and EXCLUDE mutable ID sets MUST be disjoint
+    - operation IDs MUST be globally unique across operations and excludedOperations
+  falsifiers:
+    f31: PLAN_APPLY_EXCLUDE_OVERLAP
+    f32: SCOPE_APPLY_EXCLUDE_OVERLAP
+    f33: MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
+    f34: EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
+    f35: KEEP_ROW_IN_EXCLUDED_OPERATIONS
+    f36: KEEP_MUTABLE_OPERATION_ID_ALIAS
+    f37: EXCLUDED_OPERATIONS_ARRAY_MISSING
+    f38: BLANK_OPERATION_ID
+    f39: KEEP_ROW_NON_KEEP_DECISION
   writer_source_observation: PASS_SOURCE_INSPECTION
   validator_source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+  test_source_observation: PASS_SOURCE_INSPECTION_TEST_AUTHORED
   test_runtime_observation: NOT_RUN_ENVIRONMENT
 batch_real_source_census:
   ledger: docs/cii-writer2-hanger-real-source-census.csv
@@ -94,13 +113,20 @@ validation:
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
   f31_plan_apply_exclude_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   f32_scope_apply_exclude_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f33_hidden_mutable_operation: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f34_wrong_excluded_decision: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f35_excluded_keep: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f36_keep_mutable_id_alias: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f37_missing_excluded_operations_array: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f38_blank_operation_id: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f39_keep_decision_mismatch: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   packed_source_shape_emitter_authority: PASS_SOURCE_INSPECTION
   packed_source_shape_vendor_benchmark_authority: PASS_SOURCE_INSPECTION
   packed_source_shape_converter_profile_authority: PASS_SOURCE_INSPECTION
   repository_real_source_census: PASS_SOURCE_INSPECTION
   real_repository_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_partial_delete_roundtrip: NOT_RUN_NO_REAL_SOURCE
-  scope_disjointness_test: NOT_RUN_ENVIRONMENT
+  canonical_scope_container_test: NOT_RUN_ENVIRONMENT
   packed_source_shape_integrated_test: NOT_RUN_ENVIRONMENT
   real_source_census_test: NOT_RUN_ENVIRONMENT
   focused_tests_native_exact_checkout_current_head: NOT_RUN_ENVIRONMENT
@@ -111,17 +137,17 @@ validation:
 execution_limitation: >-
   The execution container cannot provide a native exact repository checkout for
   current-head Node tests. Historical reconstructed results retain their original
-  observation class. Source-inspected F31/F32 are not represented as runtime PASS.
+  observation class. Source-inspected F31-F39 are not represented as runtime PASS.
   Absence of real H>1 source is separately classified as NOT_AVAILABLE /
   NOT_RUN_NO_REAL_SOURCE.
 review_readiness_basis: >-
-  Component scope is implemented and isolated; contradictory APPLY/EXCLUDE scope
-  is now rejected independently by writer and validator; packed-row authority is
-  fail-closed; the real-source inventory is frozen and guarded; unavailable
-  execution remains explicit.
+  Component scope is implemented and isolated; canonical operation-container and
+  APPLY/EXCLUDE custody is now rejected fail-closed independently by writer and
+  validator; packed-row authority and real-source inventory remain fail-closed;
+  unavailable execution remains explicit.
 exact_next_action: >-
-  Owner engineering review. Do not merge without fresh owner authorization. On
-  the first native checkout, run the scope-disjointness falsifier followed by all
-  focused PR1027 tests and broader regression. If a real H>1 source appears,
-  qualify it before advancing the census.
-last_updated: 2026-08-23T14:17:00+05:30
+  Owner engineering review after final head reconciliation. Do not merge without
+  fresh owner authorization. On the first native checkout, run the F31-F39 scope
+  custody suite followed by all focused PR1027 tests and broader regression. If a
+  real H>1 source appears, qualify it before advancing the census.
+last_updated: 2026-08-23T14:39:00+05:30
