@@ -139,16 +139,17 @@ function independentlyQualifyPackedSourceTail(binding, sourceRows, label) {
   if (!Number.isSafeInteger(count) || count <= 0 || sourceRows.length !== expectedRows) {
     throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_SOURCE_ROW_COUNT_REQUIRED:${label}:${sourceRows.length}:${expectedRows}`);
   }
-  const last = sourceRows[sourceRows.length - 1]; const raw = String(last?.text || '');
-  const used = count % VALUES_PER_PACKED_ROW || VALUES_PER_PACKED_ROW; const activeEnd = PACKED_PREFIX.length + used * WIDTH;
-  if (raw.slice(0, PACKED_PREFIX.length) !== PACKED_PREFIX || raw.length < activeEnd) {
-    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_SOURCE_TAIL_SPAN_REQUIRED:${label}`);
+  for (let rowIndex = 0; rowIndex < sourceRows.length; rowIndex += 1) {
+    const row = sourceRows[rowIndex]; const raw = String(row?.text || '');
+    const isLast = rowIndex === sourceRows.length - 1;
+    const fieldsInRow = isLast ? (count % VALUES_PER_PACKED_ROW || VALUES_PER_PACKED_ROW) : VALUES_PER_PACKED_ROW;
+    const expectedLength = PACKED_PREFIX.length + fieldsInRow * WIDTH;
+    decodeCiiAsciiByteString(raw);
+    if (raw.slice(0, PACKED_PREFIX.length) !== PACKED_PREFIX || raw.length !== expectedLength) {
+      throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_SOURCE_ACTIVE_FIELDS_ONLY_REQUIRED:${label}:${rowIndex + 1}:${raw.length}:${expectedLength}`);
+    }
   }
-  const tail = raw.slice(activeEnd); decodeCiiAsciiByteString(tail);
-  if ([...tail].some((char) => char !== ' ')) {
-    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_TRAILING_BLANK_BYTES_REQUIRED:${label}`);
-  }
-  return { authority: PACKED_TAIL_AUTHORITY, sourceTrailingBlankBytes: tail.length, postUnusedFieldPolicy: 'OMIT_UNUSED_FIELDS' };
+  return { authority: PACKED_TAIL_AUTHORITY, sourceTrailingBytes: 0, postUnusedFieldPolicy: 'OMIT_UNUSED_FIELDS' };
 }
 function independentPackedRows(binding, retained, label, sourceRows) {
   independentlyQualifyPackedSourceTail(binding, sourceRows, label);
