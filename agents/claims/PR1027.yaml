@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_REAL_SOURCE_CENSUS_COMPLETE
+claim_state: ACTIVE_REVIEW_READY_SCOPE_DISJOINTNESS_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -15,6 +15,7 @@ files:
     - tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
     - tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
     - tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
+    - tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
     - tests/cii-workspace-writer2-hanger-real-source-census.test.js
     - tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
     - docs/cii-writer2-hanger-partial-physical.md
@@ -25,6 +26,7 @@ files:
     - agents/MASTER_INDEX.md
   prefixes: []
 shared_read_only:
+  - tabs/cii-workspace/cii-workspace-transfer-scope.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-record-binding.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-tail-order.js
@@ -51,6 +53,7 @@ authority_domains:
   - WRITER_RECORD_TESTIMONY_INDEPENDENT_FALSIFICATION
   - SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
   - PACKED_ROW_SOURCE_SHAPE_FAIL_CLOSED
+  - CANONICAL_SCOPE_APPLY_EXCLUDE_DISJOINTNESS
   - REAL_HANGER_SOURCE_CENSUS
   - REAL_H_GT_1_DISCOVERY_QUALIFICATION_GATE
 dependency:
@@ -60,13 +63,14 @@ dependency:
   merge_sha: ae1de402db129e32cd6d7811a4e4707d64512bd4
 coordination:
   file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
-  authority_overlap: INHERITED_PLANNER_READ_ONLY
+  authority_overlap: INHERITED_PLANNER_AND_TRANSFER_SCOPE_READ_ONLY
   dependency_overlap: SATISFIED
-  changed_paths_actual: 14
-  changed_paths_intended: 14
+  changed_paths_actual: 15
+  changed_paths_intended: 15
   unexplained_paths: 0
   state: SAFE_FOR_REVIEW
 negative_assurance:
+  - no transfer-scope builder mutation
   - no existing planner/binder mutation
   - no delete-all writer/validator mutation
   - no product/core routing expansion
@@ -79,6 +83,17 @@ negative_assurance:
   - no protected parser/converter changes
   - no existing runtime import of new partial-HANGER component
   - no synthetic fixture represented as real H>1 authority
+scope_disjointness:
+  upstream_canonical_builder: tabs/cii-workspace/cii-workspace-transfer-scope.js
+  upstream_property: DISJOINT_APPLY_EXCLUDE_BY_SINGLE_DECISION_MAP
+  upstream_changed: false
+  writer_fix_commit: 575962cbe8bcc8e30a68758158d774aba2d5c26c
+  validator_fix_commit: df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+  falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+  f31: PLAN_APPLY_EXCLUDE_OVERLAP
+  f32: SCOPE_APPLY_EXCLUDE_OVERLAP
+  source_observation: PASS_SOURCE_INSPECTION
+  runtime_observation: NOT_RUN_ENVIRONMENT
 real_source_census:
   ledger: docs/cii-writer2-hanger-real-source-census.csv
   gate_test: tests/cii-workspace-writer2-hanger-real-source-census.test.js
@@ -108,12 +123,15 @@ validation_custody:
   historical_falsifiers_f01_f27_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   f28_composite_gate: PASS_SOURCE_INSPECTION_AT_TIME
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
+  f31_plan_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f32_bound_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   packed_source_shape_emitter: PASS_SOURCE_INSPECTION
   packed_source_shape_vendor_benchmark: PASS_SOURCE_INSPECTION
   packed_source_shape_converter_profile: PASS_SOURCE_INSPECTION
   repository_real_source_census: PASS_SOURCE_INSPECTION
   real_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_roundtrip: NOT_RUN_NO_REAL_SOURCE
+  scope_disjointness_runtime: NOT_RUN_ENVIRONMENT
   packed_source_shape_runtime: NOT_RUN_ENVIRONMENT
   real_source_census_runtime: NOT_RUN_ENVIRONMENT
   native_exact_checkout_current_head: NOT_AVAILABLE
@@ -125,4 +143,4 @@ review_state:
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T12:05:00+05:30
+last_updated: 2026-08-23T14:17:00+05:30
