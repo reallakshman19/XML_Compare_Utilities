@@ -17,11 +17,11 @@ Planner/positional binding authority is inherited read-only from merged PR #1025
 main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 ```
 
-This PR does **not** expand composite/product/UI routing and does not authorize HANGER CREATE, HANGER value editing, SIF CREATE, Writer3 topology, restraint/process cardinality or protected parser/converter mutation.
+No product/composite/UI partial-HANGER route is added. HANGER CREATE/value editing, SIF CREATE, Writer3 topology, restraint/process cardinality, protected parsers/converters, package scripts and workflows remain outside this PR.
 
-## Governing record authority
+## Governing positional record authority
 
-A physical partial transaction is allowed only when the merged planner proves:
+A physical partial transaction requires:
 
 ```text
 plannerPartialRecordAuthority = true
@@ -31,7 +31,7 @@ recordBindingAuthority =
 semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
 ```
 
-For original record index `i`, one positional custody record binds:
+Original record index `i` binds:
 
 ```text
 IHGRNODE[i]
@@ -44,11 +44,9 @@ IHGRSHORT[i]
 IHGRCN[i]
 ```
 
-The component may relocate those already-qualified physical records. It does not infer HGRDAT engineering meaning.
+The writer relocates already-qualified physical records. It does not infer HGRDAT engineering semantics.
 
 ## Physical row model
-
-For H>0:
 
 ```text
 rrmatRows  = ceil(NUMELT / 6)
@@ -56,15 +54,11 @@ nozzleRows = NUMNOZ * 4
 packedRows = ceil(H / 6)
 
 hangerRows(H)
- = 2
- + packedRows
- + 4*H
- + H
- + 4*packedRows
+ = 2 + packedRows + 4*H + H + 4*packedRows
  = 2 + 5*H + 5*ceil(H/6)
 ```
 
-MISCEL_1 physical order is:
+MISCEL_1 physical order:
 
 ```text
 RRMAT / VFLEX prefix
@@ -79,11 +73,9 @@ IHGRCN packed rows
 4 execution rows
 ```
 
-## Transaction model
+## One-TARGET0 transaction
 
-The writer operates from exactly one untouched TARGET0 byte string.
-
-It builds exactly two original-coordinate replacements:
+The writer operates from one untouched TARGET0 byte string and constructs exactly two original-coordinate replacements:
 
 ```text
 1. CONTROL_HANGER_COUNT
@@ -93,7 +85,7 @@ It builds exactly two original-coordinate replacements:
    complete HANGER region reconstruction
 ```
 
-Both replacements are checked against their original preimages and applied in one splice pass. No sequential writer mutation or downstream offset-adjust authority is used.
+Both preimages are checked and both replacements are applied in one splice pass. No sequential writer chaining or downstream offset-adjust authority is used.
 
 ## Exact raw-I13 repacking
 
@@ -107,45 +99,84 @@ IHGRSHORT
 IHGRCN
 ```
 
-Partial compaction is **field repacking**, not packed-row deletion.
+Compaction is **field repacking**, not row deletion. Every retained 13-byte field is copied lexically and all five families use the same retained-record sequence.
 
-For every retained record, the original 13-byte field is copied exactly. The writer must not parse and reformat retained numeric values.
-
-Thus:
+A source token such as:
 
 ```text
 "          +12"
 ```
 
-must remain exactly that token; it is not byte-equivalent to a rewritten `12`.
+must remain exactly that token. Numeric parse/reformat is not byte-equivalent.
 
-All five families use the same retained-record sequence.
+## Packed-row source-shape authority
+
+Issue #1026 requires the unused-field representation of a partially occupied packed row to be source-qualified and deterministic.
+
+The qualified source shape is:
+
+```text
+SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+```
+
+For packed row `r`:
+
+```text
+full non-final row length = 2 + 6*13 = 80 bytes
+final row length          = 2 + usedFields*13 bytes
+unused physical fields    = omitted
+```
+
+There is **no authority to pad unused fields with spaces, tabs or arbitrary trailing bytes**.
+
+This boundary is supported by two independent repository sources:
+
+1. `converters/scripts/cii2019_hanger_miscel_control.py`
+
+```python
+def _format_i(values):
+    return "  " + "".join(f"{int(value):13d}" for value in values)
+
+def _pack_i(values, width=6):
+    return [_format_i(values[index:index + width])
+            for index in range(0, len(values), width)]
+```
+
+`_pack_i` therefore emits only active values in the final chunk.
+
+2. Real vendor benchmark `Benchmark/CIICompare/BM_CII_SOURCE.CII`
+
+The H=1 MISCEL_1 HANGER arrays show active-only one-value packed rows, including `IHGRNODE=205`; no unused blank I13 slots are present.
+
+PR1025's planner is intentionally broader and may tolerate whitespace-only trailing text while establishing positional record ownership. PR1027 narrows the **physical write authority** fail-closed: a source packed row whose byte length is not the exact active-only length is rejected before mutation.
+
+The writer records:
+
+```text
+packedTailAuthority = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+```
+
+The independent validator defines the same authority locally; it does not import the writer constant or writer repacking helpers.
 
 ## Tail-order preservation
 
-Two qualified HGRDAT/TAG/GUID physical layouts exist:
+Qualified HGRDAT/TAG/GUID forms:
 
 ```text
 INTERLEAVED
-  HGRDAT1[i], HGRDAT2[i], TAG[i], GUID[i] per record
+  HGRDAT1[i], HGRDAT2[i], TAG[i], GUID[i]
 
 GROUPED
-  all retained HGRDAT pairs, then all retained TAG/GUID pairs
+  all HGRDAT pairs, then all TAG/GUID pairs
 ```
 
-The original order class is preserved. GROUPED is never canonicalized to INTERLEAVED and vice versa.
+The original order class is preserved. GROUPED is never canonicalized to INTERLEAVED or vice versa.
 
-When H'=1, the postimage can only prove:
-
-```text
-SINGLE_RECORD_ORDER_EQUIVALENT
-```
-
-The writer's tail-order testimony still records the qualified preimage order class.
+When H'=1, the postimage can only prove `SINGLE_RECORD_ORDER_EQUIVALENT`; writer testimony still records the qualified preimage order class.
 
 ## IHGRFREE custody
 
-IHGRFREE is exactly one physical row per hanger record. Retained IHGRFREE rows are copied by the same `retainedRecordIndices` used by the five packed arrays and tail envelope.
+IHGRFREE is one physical row per hanger record. Retained rows are copied according to the same `retainedRecordIndices` used by the tail and all five packed arrays.
 
 ## Delete-all boundary
 
@@ -157,16 +188,16 @@ countAfter == 0
 
 That remains the unchanged PR1020 delete-all writer path.
 
-## Independent validator
+## Independent complete-postimage validator
 
 `cii-workspace-writer2-hanger-partial-validation.js` does not import or call the partial writer or its payload/repacking helpers.
 
-From TARGET0 + canonical transfer scope + merged planner authority it independently rebuilds:
+From TARGET0 + canonical scope + merged planner authority it independently rebuilds:
 
 - source/target scope hashes and operation sets;
 - partial delete plan;
-- deleted and retained record map;
-- old-to-new record map;
+- deleted/retained record map and old-to-new map;
+- exact active-only source packed-row shape for all five families;
 - CONTROL replacement;
 - all five raw-I13 packed arrays;
 - retained HGRDAT/TAG/GUID rows;
@@ -180,148 +211,104 @@ Primary acceptance criterion:
 actual final bytes === independently reconstructed expected final bytes
 ```
 
-Writer testimony is secondary evidence only.
+Writer testimony is secondary evidence only. The validator separately checks counts, deleted/retained/old-to-new maps, packed row counts, `packedTailAuthority`, tail order, mutation testimony, scope custody, nested delete-plan testimony and byte lengths.
 
-After independent expected bytes are available, the validator checks:
+## Pre-merge testimony correction
 
-```text
-hangerCountBefore / hangerCountAfter
-deletedRecordIndices
-retainedRecordIndices
-oldToNewRecordIndex
-packedRowsBefore / packedRowsAfter
-tailOrder
-mutation count and exact replacement testimony
-scope custody
-nested delete-plan testimony
-byte lengths
-```
-
-### Pre-merge audit correction
-
-A 2026-08-23 pre-merge audit found that the validator compared retained-record and old-to-new testimony but did not separately compare the writer result's **top-level** `deletedRecordIndices`.
+A 2026-08-23 audit found that top-level `writerResult.deletedRecordIndices` was not separately compared with the independently rebuilt plan.
 
 Corrected at:
 
 ```text
 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
-CII: validate deleted HANGER record testimony
 ```
 
-Dedicated falsifier added at:
+Dedicated regression:
 
 ```text
-172467f96f4f417dc2639adeec2a5d8ba558fa61
 tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
 ```
 
-Behavior exercised:
+Observed reconstructed behavior:
 
 ```text
-H=3, delete record 2
-correct top-level deletedRecordIndices=[2] -> PASS
-forged top-level deletedRecordIndices=[1] ->
-  WRITER_2_HANGER_PARTIAL_RECORD_TESTIMONY_MISMATCH
+H=3 delete record2
+correct deletedRecordIndices=[2] -> PASS
+forged  deletedRecordIndices=[1] -> FAIL_CLOSED
 ```
 
-Result:
+## Packed-row source-shape hardening batch
+
+Production/validation commits in the batch include:
 
 ```text
-PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+b4afb09c  initial packed-tail custody gate
+e c86dea3  writer tightened to exact active-only source rows
+d0159b06  validator independently tightened to exact active-only source rows
+4cd43b7b  qualification suite isolates the new physical gate
 ```
 
-## Mandatory packing matrix
+(Commit display above is mnemonic; Git history remains authoritative.)
 
-Executed under reconstructed current-head dependency closure:
+Qualification file:
 
 ```text
-H=2   delete 1     -> H'=1   packed 1->1 PASS
-H=3   delete 2     -> H'=2   packed 1->1 PASS
-H=6   delete 1     -> H'=5   packed 1->1 PASS
-H=7   delete 1     -> H'=6   packed 2->1 PASS
-H=7   delete 7     -> H'=6   packed 2->1 PASS
-H=8   delete 2     -> H'=7   packed 2->2 PASS
-H=8   delete 2,7   -> H'=6   packed 2->1 PASS
-H=12  delete 1     -> H'=11  packed 2->2 PASS
-H=13  delete 1     -> H'=12  packed 3->2 PASS
+tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
 ```
 
-Representative GROUPED H=3/H=7/H=13 cases also pass.
+It covers as one integrated suite:
 
-## Falsifier qualification
+- H=8 active-only source -> H'=7 active-only post shape;
+- H=6 full six-field source -> H'=5 five-field post shape;
+- all five packed families reject planner-tolerated space padding;
+- tab padding rejects fail-closed;
+- forged `packedTailAuthority` testimony rejects;
+- reintroduced postimage padding rejects via exact-byte oracle.
 
-Issue #1026 F01-F30 coverage is retained.
-
-Observation classes:
+The execution container cannot resolve GitHub and cannot create a native checkout, so this newly authored suite is currently:
 
 ```text
-F01-F27   PASS / FAIL_CLOSED in reconstructed execution
-F28       PASS_SOURCE_INSPECTION_CURRENT_HEAD
-F29-F30   PASS critical packed boundaries
+SOURCE_AUTHORITY_AUDITED
+TEST_AUTHORED
+NOT_RUN_ENVIRONMENT
 ```
 
-The new pre-merge deleted-record testimony falsifier is an additional direct regression of the F21-style writer record-testimony boundary.
+It is **not** represented as runtime PASS.
 
-## Frozen independent postimage oracles
+## Existing qualification retained
 
-Five immutable TARGET0/final SHA-256 fixtures cover:
+Before this packed-shape batch, the following had passed under explicit reconstructed-source observation classes:
 
 ```text
-H3  INTERLEAVED delete2
-H3  GROUPED delete2
-H7  INTERLEAVED delete2, including retained lexical +12 token
-H7  GROUPED delete2
-H13 INTERLEAVED delete1
+mandatory H=2/3/6/7/8/12/13 packing matrix
+INTERLEAVED + GROUPED representative cases
+raw-I13 lexical +12 preservation
+frozen independent postimage SHA oracles
+independent complete-postimage validator
+F01-F27 fail-closed / expected routing
+F28 product/composite delete-all-only gate by current-head source inspection
+F29 H=7->6
+F30 H=13->12
+pre-merge deleted-record testimony falsifier
+inherited planner/delete-all synthetic regression
+real BM_CII_SOURCE HANGER slice
 ```
 
-All five pass under reconstructed dependency-closure execution.
+The packed-shape production changes occurred after those runs; those historical passes are not silently relabelled as current-head runtime execution.
 
-The first frozen-oracle execution exposed a test-harness error (`targetSha256` vs immutable `target0Sha256`). Production correctly failed closed. The test was corrected at `85b38416adbb09f680b1f8122b2f82b77a8927f3`; production authority was not relaxed.
-
-## Inherited non-regression
-
-After the pre-merge testimony fix, the reconstructed current-head predecessor closure was rerun:
+## Explicit NOT_RUN
 
 ```text
-HANGER planner/delete-all synthetic cases              PASS
-HANGER delete-all writer + independent validator       PASS
-real BM_CII_SOURCE HANGER CONTROL/MISCEL_1 slice       PASS
-```
-
-Real benchmark HANGER custody used:
-
-```text
-NUMELT=40
-NUMNOZ=0
-NOHGRS=1
-IHGRNODE=205
-RRMAT rows=7
-MISCEL_1 before=23 rows
-MISCEL_1 after=11 rows
-```
-
-This benchmark result is deliberately classified as `PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE`, not a full-file exact-intake PASS.
-
-## Explicit execution limitations
-
-The following remain NOT_RUN and must not be inferred as PASS:
-
-```text
-focused PR1027 tests on a native exact private-repository checkout
-full-file BM_CII_SOURCE intake -> write -> re-intake roundtrip
+new packed-row source-shape qualification suite on exact PR1027 checkout
+all focused PR1027 tests on a native exact checkout after this batch
+full-file BM_CII_SOURCE intake -> write -> re-intake
 broader Writer2/product integration regression
 repository-wide npm test
 ```
 
-The execution container cannot resolve GitHub hosts and cannot clone the private repository. No PR-triggered engineering-test workflow is available for this head.
-
-`package.json` is unchanged; its broad `npm test` does not register the CII Workspace/HANGER qualification tests.
-
 ## Product/runtime boundary
 
-The new partial writer and validator remain component-isolated. No existing product/composite/UI runtime file imports them in PR1027.
-
-Existing product/composite partial HANGER remains blocked by:
+The partial writer and validator remain component-isolated. Existing product/composite partial HANGER remains blocked by:
 
 ```text
 WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
@@ -330,16 +317,14 @@ WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
 ## Release disposition
 
 ```text
-component implementation              COMPLETE
-independent validation                COMPLETE
-pre-merge testimony audit defect      FIXED
-new deleted-record falsifier          PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-changed paths                         11 intended / 11 actual / 0 unexplained
-runtime product adoption              NONE
-native/global regression              NOT_RUN_ENVIRONMENT
-review readiness                      READY after handover synchronization
-merge authority                       OWNER_ONLY
-merge authorized                      FALSE
+component implementation                 COMPLETE
+independent complete-postimage design     COMPLETE
+record-testimony audit defect             FIXED + FALSIFIED
+packed source-shape authority             QUALIFIED_FROM_EMITTER_AND_VENDOR_BENCHMARK
+packed source-shape test                  AUTHORED / NOT_RUN_ENVIRONMENT
+runtime product adoption                  NONE
+merge authority                           OWNER_ONLY
+merge authorized                          FALSE
 ```
 
 Do not merge without fresh owner authorization.
