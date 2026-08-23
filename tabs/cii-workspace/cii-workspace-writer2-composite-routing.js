@@ -24,6 +24,7 @@ const GENERIC_NO_TRANSFER = 'NO_TRANSFERABLE_PREVIEW_OPERATIONS';
 const UNSUPPORTED_POLICY = 'CII_WRITER_2_COMPOSITE_UNSUPPORTED_FAMILY';
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
+const POSITIONAL_SEMANTIC_AUTHORITY = 'NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY';
 
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
@@ -183,9 +184,9 @@ export function applyCiiWriter2CompositePlanContract(plan) {
       nodeNameOverwrite: 'WRITER_1C_ONLY',
       sifTeeMutation: 'V11_EXISTING_BLOCK_DELETE_REINDEX_ONLY',
       sifTeeCreate: 'BLOCKED_ITEMS_27_30_UNRESOLVED',
-      hangerMutation: 'EXISTING_HANGER_DELETE_ALL_ONLY',
+      hangerMutation: 'EXISTING_HANGER_DELETE_ALL_OR_QUALIFIED_PARTIAL',
       hangerCreate: 'BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED',
-      hangerPartialMultiDelete: 'BLOCKED_TAIL_ORDER_UNQUALIFIED',
+      hangerPartialMultiDelete: 'QUALIFIED_POSITIONAL_RECORD_COMPACTION_ONLY',
       mixedCardinalityMutation: 'ONE_ORIGINAL_PREIMAGE_COMPOSITE',
       processDefault: 'BLOCKED_WRITER_2_COMPOSITE',
       restraintCardinality: 'BLOCKED_WRITER_2_COMPOSITE',
@@ -232,6 +233,23 @@ function exactScopeBlockers(transferPlan, targetDocument) {
   }
   return blockers;
 }
+function hangerTransactionClass(plan) {
+  if (!plan?.ready) return null;
+  if (plan?.compaction?.deleteAll === true && Number(plan.countAfter) === 0) return 'DELETE_ALL';
+  const binding = plan?.physicalCustody?.recordBinding;
+  const bindingAuthority = text(binding?.authority);
+  const partial = Number(plan.countBefore) > 1
+    && Number(plan.countAfter) > 0
+    && Number(plan.countAfter) < Number(plan.countBefore)
+    && plan?.compaction?.partialMultiRecordDelete === true
+    && plan?.compaction?.plannerPartialRecordAuthority === true
+    && plan?.compaction?.partialRecordCompactionAuthorized === true
+    && binding?.status === 'QUALIFIED'
+    && Boolean(bindingAuthority)
+    && binding?.semanticAuthority === POSITIONAL_SEMANTIC_AUTHORITY
+    && text(plan?.compaction?.recordBindingAuthority) === bindingAuthority;
+  return partial ? 'PARTIAL_H_GT_1' : null;
+}
 
 export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targetGraph) {
   const blockers = [...(transferPlan?.blockers || [])];
@@ -265,9 +283,8 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
   if (hangerPlan && !hangerPlan.ready) blockers.push(...hangerPlan.blockers);
   if (sifPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_SIF_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
   if (hangerPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_HANGER_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
-  if (hangerPlan?.ready && (hangerPlan?.compaction?.deleteAll !== true || Number(hangerPlan?.countAfter) !== 0)) {
-    blockers.push('WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED');
-  }
+  const hangerClass = hangerPlan?.ready ? hangerTransactionClass(hangerPlan) : null;
+  if (hangerPlan?.ready && !hangerClass) blockers.push('WRITER_2_HANGER_PRODUCT_TRANSACTION_CLASS_UNQUALIFIED');
 
   const unique = deepFreeze([...new Set(blockers)]);
   const ready = unique.length === 0;
@@ -278,9 +295,21 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
     ready,
     mutationCount,
     mutationOperationCount: mutationCount,
-    familyMutationCounts: deepFreeze({ nodeName: nodeOperations.length, sifDelete: sifDeletes.length, hangerDelete: hangerDeletes.length }),
+    familyMutationCounts: deepFreeze({
+      nodeName: nodeOperations.length,
+      sifDelete: sifDeletes.length,
+      hangerDelete: hangerDeletes.length,
+      hangerDeleteAll: hangerClass === 'DELETE_ALL' ? hangerDeletes.length : 0,
+      hangerPartialDelete: hangerClass === 'PARTIAL_H_GT_1' ? hangerDeletes.length : 0,
+    }),
     blockers: unique,
-    components: deepFreeze({ nodeName: nodePlan, sifDelete: sifPlan, hangerDeleteAll: hangerPlan }),
+    components: deepFreeze({
+      nodeName: nodePlan,
+      sifDelete: sifPlan,
+      hangerDeleteAll: hangerClass === 'DELETE_ALL' ? hangerPlan : null,
+      hangerPartialDelete: hangerClass === 'PARTIAL_H_GT_1' ? hangerPlan : null,
+    }),
+    hangerTransactionClass: hangerClass,
     createAuthority: deepFreeze({
       ready: false,
       sifTeeBlocker: CII_WRITER_2_SIF_CREATE_BLOCKER,
@@ -293,5 +322,5 @@ export const _test = deepFreeze({
   text, operationId, sortedUnique, sortedStrings, sameStrings, scopeIds,
   isNodeRoute, isSifPresenceRoute, isHangerPresenceRoute,
   isNodeMutation, isSifDelete, isSifCreate, isHangerDelete, isHangerCreate,
-  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers,
+  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers, hangerTransactionClass,
 });
