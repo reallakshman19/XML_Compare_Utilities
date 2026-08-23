@@ -42,6 +42,46 @@ IHGRCN[i]
 
 The writer relocates already-qualified physical records. It does not infer HGRDAT engineering semantics.
 
+## Canonical transfer-scope custody
+
+The normal repository transfer-scope builder, `cii-workspace-transfer-scope.js::applyCiiTransferScope()`, is disjoint by construction: one decision map assigns each mutable operation ID exactly one decision, APPLY or EXCLUDE.
+
+PR1027 still treats a caller-supplied BOUND `transferPlan` as an untrusted component boundary. Before this hardening batch, Writer and validator compared APPLY/EXCLUDE/candidate ID sets through helpers that normalize with a `Set`. That proves set equality but does **not** prove mutual exclusivity. A forged object could therefore claim the same operation in both APPLY and EXCLUDE and still present the expected unique candidate set.
+
+PR1027 now explicitly requires:
+
+```text
+PLAN appliedOperationIds ∩ PLAN excludedOperationIds = ∅
+SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+```
+
+Writer diagnostics:
+
+```text
+CII_WRITER_2_HANGER_PARTIAL_PLAN_APPLY_EXCLUDE_OVERLAP:<ids>
+CII_WRITER_2_HANGER_PARTIAL_SCOPE_APPLY_EXCLUDE_OVERLAP:<ids>
+```
+
+The independent validator implements its own disjointness derivation and emits corresponding validator diagnostics. It does not import the Writer helper.
+
+Dedicated qualification source:
+
+```text
+tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+
+F31 PLAN_APPLY_EXCLUDE_OVERLAP
+F32 SCOPE_APPLY_EXCLUDE_OVERLAP
+```
+
+Production commits:
+
+```text
+575962cbe8bcc8e30a68758158d774aba2d5c26c  Writer boundary
+ df9eef839dc7511c6ff2d51bd46c5e9853679fe0  independent validator boundary
+```
+
+The upstream canonical transfer-scope builder is unchanged. Current observation class for F31/F32 is source-inspected/test-authored; native runtime remains `NOT_RUN_ENVIRONMENT`.
+
 ## Physical row model
 
 ```text
@@ -161,6 +201,7 @@ The partial writer rejects `countAfter == 0`. That remains the unchanged PR1020 
 From TARGET0 + canonical scope + merged planner authority it independently rebuilds:
 
 - source/target scope hashes and operation sets;
+- APPLY/EXCLUDE mutual disjointness for both plan representation and bound-scope testimony;
 - partial delete plan;
 - deleted/retained record map and old-to-new map;
 - exact active-only source packed-row shape for all five families;
@@ -232,6 +273,8 @@ The 2026-08-23 pre-merge audit found top-level `writerResult.deletedRecordIndice
 
 Packed-row source-shape hardening then added exact active-only source gating in writer and independent validator, plus `tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js`.
 
+The scope-disjointness audit then found that set-normalized equality did not itself prove APPLY/EXCLUDE exclusivity for a forged BOUND component input. Writer and validator now independently reject both PLAN overlap (F31) and SCOPE-testimony overlap (F32), while the upstream canonical scope builder remains unchanged.
+
 Historical pre-packed-shape qualification includes the mandatory H=2/3/6/7/8/12/13 matrix, INTERLEAVED/GROUPED cases, raw-I13 `+12`, frozen independent postimage SHA oracles, F01-F30 and predecessor/delete-all slices under their recorded reconstructed-source observation classes.
 
 Those historical passes are not silently relabelled as current-head native execution.
@@ -239,14 +282,17 @@ Those historical passes are not silently relabelled as current-head native execu
 ## Current observation classes
 
 ```text
+F31 PLAN APPLY/EXCLUDE overlap                       PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F32 bound-SCOPE APPLY/EXCLUDE overlap                PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+scope-disjointness falsifier runtime                 NOT_RUN_ENVIRONMENT
 synchronizer emitter active-only authority           PASS_SOURCE_INSPECTION
 real BM_CII_SOURCE H=1 packed shape                   PASS_SOURCE_INSPECTION
 converter-profile H=1 packed shape                    PASS_SOURCE_INSPECTION
 real-source repository census                         PASS_SOURCE_INSPECTION
 real H>1 repository preimage                          NOT_AVAILABLE
 real H>1 partial-delete roundtrip                     NOT_RUN_NO_REAL_SOURCE
-packed-tail integrated test                           AUTHORED / NOT_RUN_ENVIRONMENT
-real-source census test                               AUTHORED / NOT_RUN_ENVIRONMENT
+packed-tail integrated test                           NOT_RUN_ENVIRONMENT
+real-source census test                               NOT_RUN_ENVIRONMENT
 all focused current-head tests                        NOT_RUN_ENVIRONMENT
 full-file BM_CII_SOURCE intake -> write -> re-intake  NOT_RUN_ENVIRONMENT
 broader Writer2/product regression                    NOT_RUN_ENVIRONMENT
@@ -262,6 +308,8 @@ The partial writer and validator remain component-isolated. Existing product/com
 ```text
 component implementation                    COMPLETE
 independent complete-postimage design        COMPLETE
+scope APPLY/EXCLUDE disjointness             HARDENED
+F31/F32                                      AUTHORED / NOT_RUN_ENVIRONMENT
 record-testimony audit defect                FIXED + FALSIFIED
 packed source-shape authority                QUALIFIED
 real HANGER source census                    COMPLETE
