@@ -15,7 +15,7 @@ handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED_REVIEW_PENDING
+current_stage: CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED_REVIEW_READY
 blocker: NONE_FOR_COMPONENT_REVIEW
 real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
@@ -146,8 +146,8 @@ review_readiness_basis: >-
   validator; packed-row authority and real-source inventory remain fail-closed;
   unavailable execution remains explicit.
 exact_next_action: >-
-  Owner engineering review after final head reconciliation. Do not merge without
-  fresh owner authorization. On the first native checkout, run the F31-F39 scope
-  custody suite followed by all focused PR1027 tests and broader regression. If a
-  real H>1 source appears, qualify it before advancing the census.
-last_updated: 2026-08-23T14:39:00+05:30
+  Owner engineering review. Do not merge without fresh owner authorization. On
+  the first native checkout, run the F31-F39 scope custody suite followed by all
+  focused PR1027 tests and broader regression. If a real H>1 source appears,
+  qualify it before advancing the census.
+last_updated: 2026-08-23T14:40:00+05:30
