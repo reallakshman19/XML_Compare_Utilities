@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census: 9 CII assets, H0=7/H1=2/H>1=0; 14 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. First real H>1 source must trigger dedicated qualification; current-head native execution remains NOT_RUN_ENVIRONMENT |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; canonical BOUND APPLY/EXCLUDE disjointness; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 15 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Run F31/F32 + focused current-head tests on first native checkout; first real H>1 source must trigger dedicated qualification |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027 |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -44,6 +44,8 @@ Merged PR1025 planner authority
 
 PR1027 component authority
   H>1 partial HANGER DELETE physical compaction only; H' > 0
+  caller-supplied BOUND scope must prove APPLY ∩ EXCLUDE = ∅ in both PLAN and SCOPE testimony
+  upstream applyCiiTransferScope remains unchanged and disjoint by construction
   one untouched TARGET0
   two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1
   exact retained raw I13 field repacking across all five arrays
@@ -51,7 +53,7 @@ PR1027 component authority
   no extra packed-row source bytes are silently normalized
   retained IHGRFREE copied by the same positional map
   INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class preserved
-  independent complete-postimage validator
+  independent complete-postimage validator independently re-proves scope disjointness
   actual final bytes == independently expected final bytes
   Writer testimony is secondary evidence only
 ```
@@ -62,6 +64,40 @@ Stable blockers:
 HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
 SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+```
+
+## PR1027 scope-disjointness hardening
+
+The upstream canonical scope builder uses one decision per mutable operation ID and is disjoint by construction. PR1027 nevertheless treats the supplied BOUND transferPlan as an untrusted component boundary.
+
+Previous `sameStrings()` set-equivalence could hide a forged duplicate authority because it normalizes through a Set. PR1027 now requires:
+
+```text
+PLAN appliedOperationIds ∩ PLAN excludedOperationIds   = ∅
+SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+```
+
+Independent Writer/validator changes:
+
+```text
+Writer    575962cbe8bcc8e30a68758158d774aba2d5c26c
+Validator df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+```
+
+Falsifier:
+
+```text
+tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+F31 PLAN_APPLY_EXCLUDE_OVERLAP
+F32 SCOPE_APPLY_EXCLUDE_OVERLAP
+```
+
+Observation:
+
+```text
+Writer gate source audit        PASS_SOURCE_INSPECTION
+Validator independent audit     PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+F31/F32 test                    AUTHORED / NOT_RUN_ENVIRONMENT
 ```
 
 ## PR1027 real-source census
@@ -111,17 +147,20 @@ pre-merge deleted-record testimony falsifier  PASS_FAIL_CLOSED_RECONSTRUCTED_AT_
 real BM_CII_SOURCE HANGER slice                PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
 ```
 
-Current source/evidence batch:
+Current source/evidence state:
 
 ```text
+F31 PLAN APPLY/EXCLUDE overlap                 PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F32 bound-SCOPE APPLY/EXCLUDE overlap          PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
 synchronizer _pack_i active-only authority     PASS_SOURCE_INSPECTION
 real BM_CII_SOURCE active-only H=1 rows        PASS_SOURCE_INSPECTION
 converter profile active-only H=1 rows         PASS_SOURCE_INSPECTION
 repository real-source census                  PASS_SOURCE_INSPECTION
 real repository H>1 source                     NOT_AVAILABLE
 real H>1 physical roundtrip                    NOT_RUN_NO_REAL_SOURCE
-packed-tail integrated test                    AUTHORED / NOT_RUN_ENVIRONMENT
-real-source census test                        AUTHORED / NOT_RUN_ENVIRONMENT
+scope-disjointness falsifier                   NOT_RUN_ENVIRONMENT
+packed-tail integrated test                    NOT_RUN_ENVIRONMENT
+real-source census test                        NOT_RUN_ENVIRONMENT
 all focused current-head tests                 NOT_RUN_ENVIRONMENT
 full-file BM_CII_SOURCE exact roundtrip        NOT_RUN_ENVIRONMENT
 broader Writer2/product regression             NOT_RUN_ENVIRONMENT
