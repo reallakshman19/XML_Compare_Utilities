@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_AFTER_PREMERGE_AUDIT_FIX
+claim_state: ACTIVE_REVIEW_READY_PACKED_SOURCE_SHAPE_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -14,6 +14,7 @@ files:
     - tests/cii-workspace-writer2-hanger-partial-physical.test.js
     - tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
     - tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
+    - tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
     - tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
     - docs/cii-writer2-hanger-partial-physical.md
     - agents/PR1027_workreport.md
@@ -28,6 +29,8 @@ shared_read_only:
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js
   - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-validation.js
   - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+  - converters/scripts/cii2019_hanger_miscel_control.py
+  - Benchmark/CIICompare/BM_CII_SOURCE.CII
 authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
@@ -35,6 +38,8 @@ authority_domains:
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
   - IMMUTABLE_INDEPENDENT_POSTIMAGE_SHA_ORACLE
   - WRITER_RECORD_TESTIMONY_INDEPENDENT_FALSIFICATION
+  - SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+  - PACKED_ROW_SOURCE_SHAPE_FAIL_CLOSED
 dependency:
   pr: 1025
   state: SATISFIED_BY_MERGE
@@ -44,8 +49,8 @@ coordination:
   file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
   authority_overlap: INHERITED_PLANNER_READ_ONLY
   dependency_overlap: SATISFIED
-  changed_paths_actual: 11
-  changed_paths_intended: 11
+  changed_paths_actual: 12
+  changed_paths_intended: 12
   unexplained_paths: 0
   state: SAFE_FOR_REVIEW
 negative_assurance:
@@ -59,30 +64,37 @@ negative_assurance:
   - no Writer3 topology
   - no workflow or package-script changes
   - no existing runtime import of new partial-HANGER component
+packed_source_shape:
+  authority: SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+  writer_rule: EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
+  validator_rule: INDEPENDENT_EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
+  source_emitter: converters/scripts/cii2019_hanger_miscel_control.py::_pack_i
+  vendor_benchmark: Benchmark/CIICompare/BM_CII_SOURCE.CII
+  integrated_test: tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
+  runtime_result: NOT_RUN_ENVIRONMENT
 pre_merge_audit:
   finding: TOP_LEVEL_DELETED_RECORD_TESTIMONY_UNCHECKED
   disposition: FIXED_AND_FALSIFIED
   production_fix_commit: 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
   regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
-  result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+  historical_result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
 validation_custody:
-  focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
-  native_exact_checkout: NOT_AVAILABLE
-  frozen_oracles: PASS
-  packing_matrix: PASS
-  falsifiers_f01_f27_f29_f30: PASS
-  f28_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
-  deleted_record_testimony_falsifier: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  predecessor_tail_order: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  predecessor_record_binding: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  predecessor_delete_plan_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  predecessor_delete_all_writer_validator_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-  real_benchmark_hanger_slice: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+  historical_frozen_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_falsifiers_f01_f27_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  f28_composite_gate: PASS_SOURCE_INSPECTION
+  historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
+  packed_source_shape_emitter: PASS_SOURCE_INSPECTION
+  packed_source_shape_vendor_benchmark: PASS_SOURCE_INSPECTION
+  packed_source_shape_current_source: PASS_SOURCE_INSPECTION_CURRENT_BRANCH
+  packed_source_shape_runtime: NOT_RUN_ENVIRONMENT
+  native_exact_checkout_current_head: NOT_AVAILABLE
   full_benchmark_exact_intake: NOT_RUN_ENVIRONMENT
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
   full_repository: NOT_RUN_ENVIRONMENT
 review_state:
   ready_for_review: true
+  current_head_runtime_limit_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T08:38:00+05:30
+last_updated: 2026-08-23T10:26:00+05:30
