@@ -61,10 +61,12 @@ negative_assurance:
   - no existing runtime import of new partial-HANGER component
 pre_merge_audit:
   finding: TOP_LEVEL_DELETED_RECORD_TESTIMONY_UNCHECKED
+  disposition: FIXED_AND_FALSIFIED
   production_fix_commit: 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
   regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
   result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
 validation_custody:
+  review_ready_repository_basis: 5b1fef334955df1c6e9b71bbe3949cbbb4668a67
   focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
   native_exact_checkout: NOT_AVAILABLE
   frozen_oracles: PASS
