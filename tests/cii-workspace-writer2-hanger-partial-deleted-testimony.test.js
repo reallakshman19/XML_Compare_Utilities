@@ -124,13 +124,18 @@ function transferPlan(before) {
 const before = target();
 const plan = transferPlan(before);
 const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan: plan });
-const after = physicalDocument(writer.byteString, before.parsed, 'post-sha');
+const after = physicalDocument(writer.byteString, before.parsed);
 assert.equal(validateCiiWriter2HangerPartialRoundTrip(before, after, plan, writer).status, 'PASS');
 assert.deepEqual(writer.deletedRecordIndices, [2]);
 assert.deepEqual(writer.target0HashCustody, {
   authority: 'SHA256_ORIGINAL_TARGET0_BYTES',
   contentSha256: before.contentSha256,
   byteLength: before.physicalFile.originalByteString.length,
+});
+assert.deepEqual(writer.postimageHashCustody, {
+  authority: 'SHA256_WRITER2_POSTIMAGE_BYTES',
+  contentSha256: after.contentSha256,
+  byteLength: after.physicalFile.originalByteString.length,
 });
 
 const forged = Object.freeze({ ...writer, deletedRecordIndices: Object.freeze([1]) });
@@ -152,4 +157,17 @@ assert.throws(
   /WRITER_2_HANGER_PARTIAL_TARGET0_HASH_TESTIMONY_MISMATCH/,
 );
 
-console.log('Writer2 partial HANGER validator rejects forged deleted-record and TARGET0 hash testimony.');
+// F50: correct final bytes and declared postimage hash do not excuse forged Writer postimage hash testimony.
+const forgedPostimageHash = Object.freeze({
+  ...writer,
+  postimageHashCustody: Object.freeze({
+    ...writer.postimageHashCustody,
+    contentSha256: '0'.repeat(64),
+  }),
+});
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before, after, plan, forgedPostimageHash),
+  /WRITER_2_HANGER_PARTIAL_POSTIMAGE_HASH_TESTIMONY_MISMATCH/,
+);
+
+console.log('Writer2 partial HANGER validator rejects forged deleted-record, TARGET0 hash and postimage hash testimony.');
