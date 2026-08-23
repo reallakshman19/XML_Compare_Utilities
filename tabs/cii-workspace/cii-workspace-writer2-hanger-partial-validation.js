@@ -1,6 +1,6 @@
 import { stableStringify } from './cii-workspace-contracts.js';
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow } from '../../parser/fixed-field.js';
-import { ciiPhysicalSectionRows, decodeCiiAsciiByteString } from './cii-workspace-physical-file.js';
+import { ciiPhysicalFileBytes, ciiPhysicalSectionRows, createCiiPhysicalFile, decodeCiiAsciiByteString } from './cii-workspace-physical-file.js';
 import { buildCiiWriter2HangerDeletePlan } from './cii-workspace-writer2-hanger-delete.js';
 import { CII_WRITER_2_HANGER_RECORD_BINDING_AUTHORITY } from './cii-workspace-writer2-hanger-record-binding.js';
 import { qualifyCiiWriter2HangerTailOrder } from './cii-workspace-writer2-hanger-tail-order.js';
@@ -16,6 +16,7 @@ const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
 const POSTIMAGE_HASH_AUTHORITY = 'SHA256_WRITER2_POSTIMAGE_BYTES';
+const POSTIMAGE_REPRESENTATION_AUTHORITY = 'CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE';
 const SINGLE_RECORD_ORDER = 'SINGLE_RECORD_ORDER_EQUIVALENT';
 const PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
@@ -33,6 +34,11 @@ function sortedUnique(values) {
 function sameStrings(left, right) {
   const a = sortedUnique(left); const b = sortedUnique(right);
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+function sameUint8Array(actual, expected) {
+  if (!(actual instanceof Uint8Array) || !(expected instanceof Uint8Array) || actual.length !== expected.length) return false;
+  for (let index = 0; index < actual.length; index += 1) if (actual[index] !== expected[index]) return false;
+  return true;
 }
 function integerField(value) {
   const number = Number(value);
@@ -164,6 +170,52 @@ function independentlyValidatePostimageHashCustody(after) {
   const actual = sha256CiiByteString(original);
   if (declared !== actual) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_SHA256_MISMATCH:${declared}:${actual}`);
   return Object.freeze({ authority: POSTIMAGE_HASH_AUTHORITY, contentSha256: actual, byteLength: original.length });
+}
+function independentlyValidatePostimageRepresentationCustody(after, writerResult) {
+  const physicalFile = after?.physicalFile;
+  const original = String(physicalFile?.originalByteString ?? '');
+  if (!original) throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_ORIGINAL_BYTE_STRING_REQUIRED');
+  const canonical = createCiiPhysicalFile(ciiPhysicalFileBytes(physicalFile));
+  if (canonical.originalByteString !== original) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_BINARY_STRING_REINTAKE_MISMATCH');
+  }
+  if (physicalFile?.schema !== canonical.schema
+    || physicalFile?.byteAuthority !== canonical.byteAuthority
+    || physicalFile?.writer1CByteEligible !== canonical.writer1CByteEligible
+    || physicalFile?.textEncodingAuthority !== canonical.textEncodingAuthority
+    || Number(physicalFile?.byteLength) !== canonical.byteLength) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_PHYSICAL_METADATA_MISMATCH');
+  }
+  if (String(physicalFile?.text ?? '') !== canonical.text) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_PHYSICAL_TEXT_MISMATCH');
+  }
+  if (stableStringify(physicalFile?.lines || []) !== stableStringify(canonical.lines)) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_PHYSICAL_LINES_MISMATCH');
+  }
+  if (stableStringify(physicalFile?.lineEndings || {}) !== stableStringify(canonical.lineEndings)) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_PHYSICAL_LINE_ENDINGS_MISMATCH');
+  }
+  if ((after?.byteAuthority != null && after.byteAuthority !== canonical.byteAuthority)
+    || (after?.textEncodingAuthority != null && after.textEncodingAuthority !== canonical.textEncodingAuthority)
+    || (after?.textLength != null && Number(after.textLength) !== canonical.text.length)) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH');
+  }
+  const canonicalBytes = ciiPhysicalFileBytes(canonical);
+  if (!sameUint8Array(writerResult?.bytes, canonicalBytes)) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_RESULT_BYTE_ARRAY_MISMATCH');
+  }
+  if (String(writerResult?.text ?? '') !== canonical.text) {
+    throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_RESULT_TEXT_MISMATCH');
+  }
+  return Object.freeze({
+    authority: POSTIMAGE_REPRESENTATION_AUTHORITY,
+    byteLength: canonical.byteLength,
+    textLength: canonical.text.length,
+    textEncodingAuthority: canonical.textEncodingAuthority,
+    lineCount: canonical.lines.length,
+    lineEndingStyle: canonical.lineEndings.style,
+    finalLineTerminated: canonical.lineEndings.finalLineTerminated,
+  });
 }
 function independentlyRetained(countBefore, deletedIndices) {
   const deleted = new Set((deletedIndices || []).map(Number)); const retained = []; const oldToNew = {}; let next = 1;
@@ -318,8 +370,8 @@ function afterTailOrder(after, countAfter) {
 }
 
 export function validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writerResult) {
-  const errors = []; let scope = null; let target0HashCustody = null; let postimageHashCustody = null; let plan = null; let retainedInfo = null;
-  let counts = null; let replacements = []; let expectedBytes = null;
+  const errors = []; let scope = null; let target0HashCustody = null; let postimageHashCustody = null; let postimageRepresentationCustody = null;
+  let plan = null; let retainedInfo = null; let counts = null; let replacements = []; let expectedBytes = null;
   try { scope = independentlyValidateScope(transferPlan, before); } catch (error) { errors.push(error.message); }
   try { target0HashCustody = independentlyValidateTarget0HashCustody(before, transferPlan); } catch (error) { errors.push(error.message); }
   try {
@@ -340,6 +392,7 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
 
   const actualBytes = String(after?.physicalFile?.originalByteString || '');
   try { postimageHashCustody = independentlyValidatePostimageHashCustody(after); } catch (error) { errors.push(error.message); }
+  try { postimageRepresentationCustody = independentlyValidatePostimageRepresentationCustody(after, writerResult); } catch (error) { errors.push(error.message); }
   if (after?.writer1CByteEligible !== true || after?.physicalFile?.writer1CByteEligible !== true) errors.push('WRITER_2_HANGER_PARTIAL_POST_ORIGINAL_BYTE_CUSTODY_NOT_QUALIFIED');
   if (expectedBytes != null && actualBytes !== expectedBytes) errors.push('WRITER_2_HANGER_PARTIAL_EXACT_POSTIMAGE_MISMATCH');
   if (String(writerResult?.byteString ?? '') !== actualBytes) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_BYTES_MISMATCH');
@@ -352,6 +405,10 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   }
   if (!postimageHashCustody || stableStringify(writerResult?.postimageHashCustody || {}) !== stableStringify(postimageHashCustody)) {
     errors.push('WRITER_2_HANGER_PARTIAL_POSTIMAGE_HASH_TESTIMONY_MISMATCH');
+  }
+  if (!postimageRepresentationCustody
+    || stableStringify(writerResult?.postimageRepresentationCustody || {}) !== stableStringify(postimageRepresentationCustody)) {
+    errors.push('WRITER_2_HANGER_PARTIAL_POSTIMAGE_REPRESENTATION_TESTIMONY_MISMATCH');
   }
   if (counts) {
     if (Number(writerResult?.hangerCountBefore) !== counts.countBefore || Number(writerResult?.hangerCountAfter) !== counts.countAfter) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_COUNT_TESTIMONY_MISMATCH');
@@ -393,15 +450,15 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_CANONICAL_OPERATION_CONTAINERS', 'INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS',
-      'INDEPENDENT_TARGET0_SHA256', 'INDEPENDENT_POSTIMAGE_SHA256', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK',
-      'PACKED_UNUSED_TAIL_POLICY', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
-      'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE',
-      'WRITER_TESTIMONY_MATCH']),
+      'INDEPENDENT_TARGET0_SHA256', 'INDEPENDENT_POSTIMAGE_SHA256', 'INDEPENDENT_POSTIMAGE_REPRESENTATION', 'WRITER_RESULT_BYTE_TEXT_EQUIVALENCE',
+      'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK', 'PACKED_UNUSED_TAIL_POLICY',
+      'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT', 'POST_HANGER_CUSTODY',
+      'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
     hangerCountBefore: counts.countBefore, hangerCountAfter: counts.countAfter, expectedMiscelRowsAfter: counts.rowCountAfter });
 }
 
-export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, exactIds,
+export const _test = Object.freeze({ markerName, ceilDiv, sameUint8Array, integerField, lineEndingBytes, sectionEnvelope, exactIds,
   independentlyAssertScopeSetsDisjoint, independentlyValidateOperationContainers, independentlyValidateScope,
-  independentlyValidateTarget0HashCustody, independentlyValidatePostimageHashCustody, independentlyRetained, expectedCounts, partitionBefore, controlReplacement,
-  independentlyQualifyPackedSourceTail, independentPackedRows, independentTailRows, payloadReplacement, expectedReplacements,
-  applyExpected, controlCount, afterTailOrder });
+  independentlyValidateTarget0HashCustody, independentlyValidatePostimageHashCustody, independentlyValidatePostimageRepresentationCustody,
+  independentlyRetained, expectedCounts, partitionBefore, controlReplacement, independentlyQualifyPackedSourceTail, independentPackedRows,
+  independentTailRows, payloadReplacement, expectedReplacements, applyExpected, controlCount, afterTailOrder });
