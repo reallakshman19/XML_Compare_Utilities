@@ -16,200 +16,151 @@ PR: #1027
 BRANCH: agent/cii-writer2-hanger-partial-physical
 BASE_MAIN: ae1de402db129e32cd6d7811a4e4707d64512bd4
 GROUNDING_EPOCH: GE-1027-002
-CURRENT_STAGE: PACKED_SOURCE_SHAPE_HARDENED_REVIEW_PENDING
-CURRENT_BLOCKER: NONE_FOR_SOURCE_REVIEW
-REMAINING_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
+CURRENT_STAGE: REAL_SOURCE_CENSUS_COMPLETE_REVIEW_PENDING
+CURRENT_BLOCKER: NONE_FOR_COMPONENT_REVIEW
+EVIDENCE_LIMITATION: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
+RUNTIME_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 ```
 
-PR1027 remains the single Issue #1026 stack. PR1025 planner/record-binding authority is merged and consumed read-only.
+PR1027 remains the single Issue #1026 stack. PR1025 is merged and its planner/record-binding authority is consumed read-only.
 
-## Current component transaction
+## Current engineering transaction
 
 ```text
 qualified merged-PR1025 partial H>1 HANGER plan
 + untouched TARGET0
 -> CONTROL.NOHGRS H -> H'
 -> complete MISCEL_1 reconstruction
-   - preserve RRMAT/VFLEX prefix bytes
+   - preserve RRMAT/VFLEX prefix
    - preserve two default rows
-   - repack exact raw I13 fields across five packed families
-   - require source packed rows to match active-fields-only physical shape
-   - retain HGRDAT/TAG/GUID in qualified original order class
-   - retain IHGRFREE by the same positional record sequence
+   - repack exact retained raw I13 fields across five packed arrays
+   - require exact active-fields-only packed source rows
+   - preserve qualified INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class
+   - retain IHGRFREE by the same positional record map
    - preserve four execution rows
 -> apply exactly two original-coordinate replacements once
 -> independent complete-postimage reconstruction
 -> exact final-byte equality
 ```
 
-`countAfter == 0` remains the existing delete-all writer path. Semantic authority remains `NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY`.
+`countAfter == 0` remains the existing delete-all writer. Semantic authority remains `NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY`. Product/composite/UI partial HANGER remains blocked.
 
-## Batch finding — packed-row unused-field authority
+## Current batch — real-source qualification census
 
-Issue #1026 requires the last packed row's unused-field representation to be source-qualified and deterministic.
+### Mission
 
-Merged PR1025 planner parsing was broader than the physical writer should be: its trailing-data check can tolerate whitespace-only bytes after the active fields. PR1027 previously rebuilt post rows as active fields only but did not explicitly prove that source shape.
+Before claiming a real H>1 qualification, locate an actual repository CII preimage with `CONTROL.NOHGRS > 1`. If none exists, record that absence explicitly and make future discovery a qualification trigger rather than manufacturing a source.
 
-The source authority was traced to two independent repository sources.
+### Source census result
 
-### Source A — synchronizer emitter
-
-`converters/scripts/cii2019_hanger_miscel_control.py` defines:
-
-```python
-def _format_i(values):
-    return "  " + "".join(f"{int(value):13d}" for value in values)
-
-def _pack_i(values, width=6):
-    return [_format_i(values[index:index + width])
-            for index in range(0, len(values), width)]
-```
-
-The final chunk therefore contains only active values.
-
-### Source B — real vendor benchmark
-
-`Benchmark/CIICompare/BM_CII_SOURCE.CII` H=1 MISCEL_1 shows active-only packed rows:
+Frozen ledger:
 
 ```text
-IHGRNODE = 205
-IHGRNUM / IHGRTABLE / IHGRSHORT / IHGRCN = one active I13 each
-unused padded I13 slots = absent
+docs/cii-writer2-hanger-real-source-census.csv
 ```
 
-Qualified physical authority:
+Nine repository CII assets were identified in the qualified census roots:
+
+```text
+Benchmark/CIICompare/BM_CII_SOURCE.CII                           H=1
+Benchmark/CIICompare/BM_CII_TARGET1.CII                          H=0
+Benchmark/CIICompare/BM_CII_TARGET2.CII                          H=0
+Benchmark/CIICompare/SOURCE 3.CII                                H=0
+Benchmark/CIICompare/TARGET 3-1.CII                              H=0
+Benchmark/Pipeline/CII                                           H=0
+converters/scripts/inputxml_profile_bm_cii_2019.cii              H=1
+converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii H=0
+output.cii                                                        H=0
+```
+
+Exact notable source custody:
+
+```text
+BM_CII_SOURCE.CII
+  blob e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+  NUMELT=40 NUMNOZ=0 NOHGRS=1
+
+SOURCE 3.CII
+  blob 20c0c37014004fb9de46e3e4d01f0c62535495d5
+  NUMELT=219 NUMNOZ=0 NOHGRS=0
+
+TARGET 3-1.CII
+  blob b79806ac2082e8355bfcd323d7e6496439759a5a
+  NUMELT=223 NUMNOZ=0 NOHGRS=0
+
+inputxml_profile_bm_cii_2019.cii
+  blob c72c0ee3c7a2e9a36d849085fbc8fc5b8757bca8
+  NUMELT=40 NUMNOZ=0 NOHGRS=1
+```
+
+The associated `converters/scripts/pdf_inputxml_profile_bm_cii.xml` declares `NOHGRS="0"`; repository search for `<HANGER` found converter implementation references but no real multi-HANGER InputXML fixture.
+
+### Engineering conclusion
+
+```text
+REAL_REPOSITORY_H_GT_1_CII_SOURCE = NOT_AVAILABLE
+REAL_H_GT_1_PARTIAL_DELETE_ROUNDTRIP = NOT_RUN_NO_REAL_SOURCE
+```
+
+This is an evidence limitation, not a fallback. PR1027 does not synthesize a “real” H>1 benchmark and does not upgrade synthetic qualification to real-source authority.
+
+### Independent discovery gate
+
+Added:
+
+```text
+tests/cii-workspace-writer2-hanger-real-source-census.test.js
+```
+
+The test does not import Writer2 mutation helpers. It independently:
+
+1. inventories `.cii` assets under `Benchmark/` and `converters/scripts/`, plus `Benchmark/Pipeline/CII` and root `output.cii`;
+2. parses CONTROL NUMELT/NUMNOZ/NOHGRS from raw source text;
+3. compares inventory/counts to the frozen CSV ledger;
+4. fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` if any source has H>1;
+5. for each H=1 source, derives the MISCEL_1 H=1 row model and proves IHGRNODE/IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN are exactly `2X + 1*I13` (15 chars);
+6. fails on source-census drift.
+
+Future addition of a real H>1 file therefore requires deliberate qualification of tail order, packed arrays, positional record binding and an actual partial-delete postimage before the census can advance.
+
+## Packed-row source-shape authority retained
+
+Qualified physical authority remains:
 
 ```text
 SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
 ```
 
-For every source packed row:
+Source basis:
 
 ```text
-non-final row length = 2 + 6*13 = 80 bytes
-final row length     = 2 + usedFields*13 bytes
+converters/scripts/cii2019_hanger_miscel_control.py::_pack_i
+Benchmark/CIICompare/BM_CII_SOURCE.CII
+converters/scripts/inputxml_profile_bm_cii_2019.cii
+```
+
+Rule:
+
+```text
+non-final packed row = exactly 2 + 6*13 bytes
+final packed row     = exactly 2 + usedFields*13 bytes
 extra trailing bytes = 0
 ```
 
-Spaces, tabs and arbitrary trailing bytes are not silently normalized. The physical writer fails closed even where the merged planner had sufficient positional custody to continue planning.
+Writer and validator enforce this independently. `packedTailAuthority` is Writer testimony only.
 
-## Batch production changes
+## Earlier audit / qualification history
 
-### Writer
+- PR1025 merged at `ae1de402...`; PR1027 re-grounded before production implementation.
+- Partial writer and independent complete-postimage validator implemented.
+- Frozen independent postimage SHA fixtures authored for H3/H7/H13 representative cases.
+- Mandatory H=2/3/6/7/8/12/13 packing matrix and F01-F30 were historically exercised under reconstructed-source observation classes.
+- Frozen-oracle test harness target-hash bug was fixed without weakening production.
+- Pre-merge audit found missing top-level `deletedRecordIndices` testimony comparison; fixed at `8ea0c9df...` and directly falsified at `172467f9...`.
+- Packed-row shape was subsequently narrowed to exact active-only source rows based on synchronizer emitter + real H=1 vendor evidence.
+- Current batch established that no real H>1 repository source exists and added a future-discovery gate.
 
-`tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js`
-
-- exports `CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY`;
-- validates the exact active-only length of **every** packed source row for all five families;
-- still copies each retained raw 13-byte field lexically;
-- emits active fields only in every post packed row;
-- records `packedTailAuthority` in writer testimony.
-
-Relevant batch commits:
-
-```text
-b4afb09ce82e614b27e28fa7ced0d7df04f631f8
-  initial packed-row tail custody gate
-
-ec86dea37b40ca04ced47e769cd42fd5932bea88
-  fail closed on unqualified packed-row padding
-```
-
-### Independent validator
-
-`tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js`
-
-- defines the active-only authority locally; it does not import the writer constant;
-- independently derives expected row count and exact source row length;
-- independently reconstructs active-only post rows;
-- exact final-byte equality still remains the primary oracle;
-- separately rejects forged `packedTailAuthority` testimony.
-
-Relevant batch commits:
-
-```text
-26e527df52da7d77930b424cd983bf1585ad987e
-  initial independent packed-tail validation
-
-d0159b06d22b7f727e58225b9266980efac17838
-  independently enforce active-only packed rows
-```
-
-### Integrated qualification test
-
-```text
-tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
-```
-
-Current test basis is commit:
-
-```text
-4cd43b7bb698669d2e70021da1f3aeab00bc1e01
-```
-
-It exercises as one coherent suite:
-
-- H=8 active-only source, delete record2 -> H'=7; all five final rows become `2X + 1*I13`;
-- H=6 full six-field row, delete record1 -> H'=5; all five final rows become `2X + 5*I13`;
-- all five families reject planner-tolerated space padding at the physical writer gate;
-- tab padding rejects fail-closed;
-- forged `packedTailAuthority` rejects;
-- postimage padding reintroduced after writing rejects via exact-byte equality.
-
-## Runtime observation class for this batch
-
-The execution container still cannot resolve `github.com`, and no native private-repository checkout can be created. No PR-triggered engineering workflow is available.
-
-Therefore the new packed-source-shape batch is classified:
-
-```text
-SOURCE_AUTHORITY_AUDITED
-PRODUCTION_SOURCE_AUDITED
-INDEPENDENT_VALIDATOR_SOURCE_AUDITED
-INTEGRATED_TEST_AUTHORED
-CURRENT_HEAD_RUNTIME: NOT_RUN_ENVIRONMENT
-```
-
-Do **not** infer runtime PASS for the current packed-shape head.
-
-## Previously established qualification
-
-Before the packed-source-shape production changes, the following passed under explicit reconstructed-source observation classes:
-
-```text
-frozen independent TARGET0/final SHA oracles       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-mandatory H=2/3/6/7/8/12/13 matrix                 PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-INTERLEAVED representative cases                   PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-GROUPED representative cases                       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-raw-I13 lexical +12 preservation                    PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-independent complete-postimage validator           PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-F01-F27                                             PASS / FAIL_CLOSED as expected
-F28 product/composite gate                         PASS_SOURCE_INSPECTION_CURRENT_HEAD_AT_TIME
-F29-F30                                             PASS
-pre-merge deleted-record testimony falsifier       PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
-inherited planner/delete-all regression             PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
-real BM_CII_SOURCE HANGER slice                    PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
-```
-
-These historical results are retained with their original observation class; they are not relabelled as execution of the new packed-shape head.
-
-## Earlier pre-merge testimony defect
-
-The 2026-08-23 review audit found that top-level writer `deletedRecordIndices` testimony was not separately checked.
-
-Fixed at:
-
-```text
-8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
-```
-
-Dedicated falsifier:
-
-```text
-172467f96f4f417dc2639adeec2a5d8ba558fa61
-```
-
-Observed result: valid H=3 delete-record2 PASS; forged top-level deleted-record testimony FAIL_CLOSED.
+Historical reconstructed PASS results remain historical; they are not relabelled as native current-head execution.
 
 ## Changed-file ledger
 
@@ -221,75 +172,108 @@ agents/PR1027_workreport.md
 agents/claims/PR1027.yaml
 agents/status/PR1027.yaml
 docs/cii-writer2-hanger-partial-physical.md
+docs/cii-writer2-hanger-real-source-census.csv
 tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
 tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
 tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
 tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
 tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
 tests/cii-workspace-writer2-hanger-partial-physical.test.js
+tests/cii-workspace-writer2-hanger-real-source-census.test.js
 tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
 ```
 
 Expected reconciliation:
 
 ```text
-actual: 12
-intended: 12
+actual: 14
+intended: 14
 unexplained: 0
+production paths added this batch: 0
+test paths added this batch: 1
+document/data paths added this batch: 1
 workflow changes: 0
 package.json changes: 0
 product/composite/UI route changes: 0
+protected parser/converter changes: 0
 ```
 
-## Explicit NOT_RUN
+## Validation truth
+
+Historical evidence retained at original observation class:
 
 ```text
-new packed-row active-only qualification suite on exact PR1027 checkout
-all focused PR1027 tests on a native exact checkout after this batch
-full-file BM_CII_SOURCE.CII intake -> write -> re-intake
-broader Writer2/product integration regression
-repository-wide npm test
+mandatory packing matrix                         PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+INTERLEAVED/GROUPED representative cases         PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+raw-I13 +12 preservation                         PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+frozen independent postimage SHA oracles         PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+F01-F27 / F29-F30                                PASS / FAIL_CLOSED as expected
+F28 product/composite gate                       PASS_SOURCE_INSPECTION_AT_TIME
+deleted-record testimony falsifier               PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
+real BM_CII_SOURCE HANGER slice                  PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+```
+
+Current-head source evidence:
+
+```text
+synchronizer active-only emitter authority       PASS_SOURCE_INSPECTION
+BM_CII_SOURCE H=1 active-only shape               PASS_SOURCE_INSPECTION
+converter profile H=1 active-only shape           PASS_SOURCE_INSPECTION
+repository CII real-source census                 PASS_SOURCE_INSPECTION
+real repository H>1 source                        NOT_AVAILABLE
+real H>1 physical partial-delete roundtrip        NOT_RUN_NO_REAL_SOURCE
+packed-tail integrated test                       AUTHORED / NOT_RUN_ENVIRONMENT
+real-source census test                           AUTHORED / NOT_RUN_ENVIRONMENT
+focused current-head native tests                 NOT_RUN_ENVIRONMENT
+full BM_CII_SOURCE exact intake/write/re-intake   NOT_RUN_ENVIRONMENT
+broader Writer2/product integration               NOT_RUN_ENVIRONMENT
+repository-wide npm test                          NOT_RUN_ENVIRONMENT
 ```
 
 ## Negative assurance
 
-No new authority for product/core partial-HANGER apply, composite partial HANGER, UI execution, HANGER CREATE/value editing, HGRDAT semantics, SIF CREATE, Writer3 topology, protected parsers/converters, package scripts or workflows.
+No new authority for:
+
+```text
+product/core partial-HANGER apply
+composite partial HANGER
+UI execution
+HANGER CREATE/value editing
+HGRDAT engineering semantics
+SIF CREATE
+Writer3 topology
+protected parser/converter mutation
+package scripts
+workflows
+```
 
 Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED`.
 
 ## Review / merge disposition
 
 ```text
-COMPONENT IMPLEMENTATION                    COMPLETE
-PACKED SOURCE-SHAPE AUTHORITY               QUALIFIED
-PACKED SOURCE-SHAPE IMPLEMENTATION          COMPLETE
-PACKED SOURCE-SHAPE INTEGRATED TEST         AUTHORED / NOT_RUN_ENVIRONMENT
-INDEPENDENT VALIDATOR DESIGN                COMPLETE
-RUNTIME ADOPTION                            NONE / COMPONENT_ISOLATED
-HANDOVER READINESS                          READY
-REVIEW READINESS                            READY_WITH_CURRENT_HEAD_NOT_RUN_LIMITATION
-MERGE AUTHORITY                             OWNER_ONLY
-MERGE AUTHORIZED                            FALSE
+COMPONENT IMPLEMENTATION                 COMPLETE
+INDEPENDENT VALIDATOR                    COMPLETE
+PACKED SOURCE-SHAPE AUTHORITY            QUALIFIED
+REAL-SOURCE CENSUS                       COMPLETE
+REAL H>1 SOURCE                          NOT_AVAILABLE
+REAL H>1 ROUNDTRIP                       NOT_RUN_NO_REAL_SOURCE
+CURRENT-HEAD NATIVE TEST EXECUTION       NOT_RUN_ENVIRONMENT
+RUNTIME ADOPTION                         NONE / COMPONENT_ISOLATED
+HANDOVER READINESS                       READY
+REVIEW READINESS                         READY_WITH_EXPLICIT_EVIDENCE_LIMITATIONS
+MERGE AUTHORITY                          OWNER_ONLY
+MERGE AUTHORIZED                         FALSE
 ```
 
 Do not merge without fresh owner authorization.
 
 # APPENDIX A — TAKEOVER QUALIFICATION
 
-1. Explain why retained I13 fields are copied lexically and derive H=7->6.
-2. Derive GROUPED H=3 delete-record2 HGRDAT/TAG/GUID retention.
-3. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance, citing both emitter and real benchmark evidence.
-4. Explain how writer and validator independently reject source padding, post padding and forged packed-tail testimony.
-5. Explain why countAfter==0 remains delete-all and product/composite partial HANGER remains blocked.
+1. Derive H=7 -> H'=6 and explain why the five packed families must repack raw I13 fields rather than delete physical rows.
+2. Derive GROUPED H=3 delete-record2 HGRDAT/TAG/GUID retained row order.
+3. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance and cite both emitter and real H=1 evidence.
+4. Explain why the absence of a real repository H>1 preimage must remain `NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE` rather than being filled by a synthetic “real” fixture.
+5. Explain how the new source-census test turns the first future real H>1 file into a fail-closed qualification event without changing production routing.
 
 Threshold: 92/100 overall and each answer >=17/20.
-
-## Durable history
-
-- 2026-08-22: Issue #1026 grounded; PR1027 allocated as single stack.
-- 2026-08-22: PR1025 merged at `ae1de402...`; PR1027 re-grounded before production code.
-- 2026-08-22: component writer, independent validator, packing/falsifier tests and frozen SHA oracles authored.
-- 2026-08-22: frozen-oracle target-hash harness defect fixed without weakening production.
-- 2026-08-22/23: packing matrix, F01-F30 coverage and predecessor slices qualified under explicit observation classes.
-- 2026-08-23: top-level deleted-record testimony gap found, fixed and directly falsified.
-- 2026-08-23: next hardening batch traced packed-row source shape to synchronizer `_pack_i()` and real `BM_CII_SOURCE.CII`; writer and independent validator narrowed physical authority to exact active-only rows; integrated qualification test added; current-head execution remains NOT_RUN_ENVIRONMENT.
