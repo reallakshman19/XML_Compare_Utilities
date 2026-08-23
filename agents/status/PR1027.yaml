@@ -9,19 +9,21 @@ branch: agent/cii-writer2-hanger-partial-physical
 main_head_last_checked: ae1de402db129e32cd6d7811a4e4707d64512bd4
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: REVIEW_READY_WITH_CURRENT_HEAD_NOT_RUN_LIMITATION
+agent_state: REVIEW_READY_WITH_EXPLICIT_EVIDENCE_LIMITATIONS
 pr_recovery_state: HEALTHY
 handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: PACKED_SOURCE_SHAPE_HARDENED_REVIEW_READY
-blocker: NONE_FOR_SOURCE_REVIEW
+current_stage: REAL_SOURCE_CENSUS_COMPLETE_REVIEW_READY
+blocker: NONE_FOR_COMPONENT_REVIEW
+real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 highest_risk: >-
-  Packed-row source shape is now fail-closed to the active-fields-only form proven
-  by the synchronizer emitter and real vendor benchmark. The new current-head
-  integrated test cannot be executed because GitHub/native checkout is unavailable.
+  No real repository H>1 CII preimage exists in the qualified source census, so
+  an actual H>1 partial-delete roundtrip cannot yet be claimed. The source-census
+  gate fails closed when such a source is first added. Current-head native tests
+  also remain unavailable in this execution environment.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -31,62 +33,74 @@ coordination_state: SAFE_FOR_REVIEW
 merge_authority: OWNER_ONLY
 merge_authorized: false
 changed_files:
-  actual: 12
-  intended: 12
+  actual: 14
+  intended: 14
   unexplained: 0
+batch_real_source_census:
+  ledger: docs/cii-writer2-hanger-real-source-census.csv
+  qualification_test: tests/cii-workspace-writer2-hanger-real-source-census.test.js
+  inventoried_cii_assets: 9
+  h0_assets: 7
+  h1_assets: 2
+  h_gt_1_assets: 0
+  h1_assets_list:
+    - Benchmark/CIICompare/BM_CII_SOURCE.CII
+    - converters/scripts/inputxml_profile_bm_cii_2019.cii
+  h_gt_1_discovery_error: REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION
+  production_files_changed_this_batch: 0
+  source_census_observation: PASS_SOURCE_INSPECTION
+  test_runtime_observation: NOT_RUN_ENVIRONMENT
 packed_source_shape:
   authority: SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
   source_emitter: converters/scripts/cii2019_hanger_miscel_control.py::_pack_i
   vendor_benchmark: Benchmark/CIICompare/BM_CII_SOURCE.CII
+  converter_profile: converters/scripts/inputxml_profile_bm_cii_2019.cii
   source_rule: EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
   post_rule: EXACT_2X_PLUS_RETAINED_ACTIVE_I13_FIELDS_NO_UNUSED_PADDING
   writer_testimony: packedTailAuthority
-  integrated_test: tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
-  source_authority_observation: PASS_SOURCE_INSPECTION
-  implementation_observation: PASS_SOURCE_INSPECTION_CURRENT_BRANCH
-  runtime_observation: NOT_RUN_ENVIRONMENT
 pre_merge_audit:
   finding: TOP_LEVEL_DELETED_RECORD_TESTIMONY_UNCHECKED
   disposition: FIXED_AND_FALSIFIED
   production_fix_commit: 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
   regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
-  historical_result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
 runtime_adoption:
   existing_product_or_composite_path_changed: false
   package_json_changed: false
   workflow_changed: false
+  protected_parser_or_converter_changed: false
 validation:
   pr1025_merge: PASS_REMOTE_EXECUTION
   merged_planner_contract: PASS_SOURCE_INSPECTION
-  pr1027_reground: PASS_GIT_BRANCH
-  frozen_postimage_oracles_pre_batch: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  mandatory_packing_matrix_pre_batch: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  lexical_raw_i13_plus12_pre_batch: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  falsifiers_f01_f27_pre_batch: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  falsifier_f28_product_composite_gate: PASS_SOURCE_INSPECTION
-  falsifiers_f29_f30_pre_batch: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-  premerge_deleted_record_testimony_falsifier_pre_batch: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
-  real_bm_cii_source_hanger_slice_pre_batch: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+  historical_frozen_postimage_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_mandatory_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_lexical_raw_i13_plus12: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_falsifiers_f01_f27_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+  historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
   packed_source_shape_emitter_authority: PASS_SOURCE_INSPECTION
   packed_source_shape_vendor_benchmark_authority: PASS_SOURCE_INSPECTION
-  packed_source_shape_current_writer_validator: PASS_SOURCE_INSPECTION_CURRENT_BRANCH
+  packed_source_shape_converter_profile_authority: PASS_SOURCE_INSPECTION
+  repository_real_source_census: PASS_SOURCE_INSPECTION
+  real_repository_h_gt_1_source: NOT_AVAILABLE
+  real_h_gt_1_partial_delete_roundtrip: NOT_RUN_NO_REAL_SOURCE
   packed_source_shape_integrated_test: NOT_RUN_ENVIRONMENT
+  real_source_census_test: NOT_RUN_ENVIRONMENT
   focused_tests_native_exact_checkout_current_head: NOT_RUN_ENVIRONMENT
   real_bm_cii_source_full_file_exact_intake: NOT_RUN_ENVIRONMENT
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
   full_repository_npm_test: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
 execution_limitation: >-
-  The execution container cannot resolve github.com and cannot create a native
-  repository checkout. Historical reconstructed results retain their original
-  observation class; new packed-shape source changes are not silently called PASS.
+  The execution container cannot provide a native exact repository checkout for
+  current-head Node tests. Historical reconstructed results retain their original
+  observation class. Absence of real H>1 source is separately classified as
+  NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE, not as a runtime failure.
 review_readiness_basis: >-
-  Component scope remains isolated and source-authority complete. The packed-row
-  ambiguity was narrowed fail-closed using both emitter and vendor benchmark
-  evidence; writer and validator are independently implemented; current-head
-  runtime unavailability is explicit.
+  Component scope is implemented and isolated; packed-row authority is fail-closed;
+  the repository real-source inventory is frozen and independently guarded; no
+  false real-H>1 qualification claim is made; all unavailable execution remains
+  explicit.
 exact_next_action: >-
-  Owner engineering review. Do not merge without fresh owner authorization. On
-  the first native checkout, run the packed-tail suite, all focused PR1027 tests,
-  full BM_CII_SOURCE roundtrip and broader regression before upgrading evidence.
-last_updated: 2026-08-23T10:26:00+05:30
+  Owner engineering review. Do not merge without fresh owner authorization. If a
+  real H>1 CII source is added, qualify its tail order, positional bindings, five
+  packed families and actual partial-delete postimage before advancing the census.
+last_updated: 2026-08-23T12:05:00+05:30
