@@ -185,4 +185,30 @@ assert.throws(
   /PARENT_SCOPE:.*SCOPE_APPLY_SET_MISMATCH/,
 );
 
+// Correct final bytes do not excuse forged composite parent-scope testimony.
+const forgedParentCustody = Object.freeze({
+  ...writer,
+  parentScopeCustody: Object.freeze({ ...writer.parentScopeCustody, targetSha256: 'forged-parent-target' }),
+});
+assert.throws(
+  () => validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, after, graph, plan, forgedParentCustody),
+  /PARENT_SCOPE_TESTIMONY_MISMATCH/,
+);
+
+// Correct composite bytes do not excuse forged partial-component TARGET0 hash testimony.
+const forgedTarget0 = Object.freeze({
+  ...writer,
+  components: Object.freeze({
+    ...writer.components,
+    hangerPartialDelete: Object.freeze({
+      ...writer.components.hangerPartialDelete,
+      target0HashCustody: Object.freeze({ ...writer.components.hangerPartialDelete.target0HashCustody, contentSha256: '0'.repeat(64) }),
+    }),
+  }),
+});
+assert.throws(
+  () => validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, after, graph, plan, forgedTarget0),
+  /HANGER_PARTIAL_COMPONENT_TARGET0_HASH_TESTIMONY_MISMATCH/,
+);
+
 console.log('Writer2 NODENAME + SIF DELETE + partial HANGER one-TARGET0 composite qualification authored.');
