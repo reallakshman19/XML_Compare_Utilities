@@ -15,15 +15,14 @@ handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: TARGET0_CRYPTOGRAPHIC_BYTE_CUSTODY_HARDENED_REVIEW_READY
+current_stage: POSTIMAGE_CRYPTOGRAPHIC_BYTE_CUSTODY_HARDENED_REVIEW_READY
 blocker: NONE_FOR_COMPONENT_REVIEW
 real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 highest_risk: >-
-  The component now recomputes SHA-256 from untouched TARGET0 original bytes before
-  planner execution and the validator independently rehashes the same preimage.
-  Exact current-head runtime execution remains unavailable and no real repository
-  H>1 CII preimage exists.
+  TARGET0 and Writer2 postimage bytes are now both cryptographically bound to
+  SHA-256 custody at the component/validator boundary. Exact current-head runtime
+  execution remains unavailable and no real repository H>1 CII preimage exists.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -36,63 +35,48 @@ changed_files:
   actual: 17
   intended: 17
   unexplained: 0
-batch_target0_cryptographic_custody:
+batch_postimage_cryptographic_custody:
   finding: >-
-    The prior component boundary proved only equality among declared target hash
-    strings. A forged already-BOUND object could therefore make targetDocument,
-    transferPlan.targetDocument and transferScope agree on a false digest while
-    the untouched TARGET0 physical bytes differed.
-  production_intake_authority: >-
-    tabs/cii-workspace/cii-workspace-intake.js computes contentSha256 as SHA-256
-    over ciiPhysicalFileBytes(physicalFile), i.e. the original physical bytes.
-  target0_hash_authority: SHA256_ORIGINAL_TARGET0_BYTES
-  sha_primitive_path: tabs/cii-workspace/cii-workspace-byte-sha256.js
-  sha_primitive_commit: 3470e9871469fae1a2a13cbc916c6c328bd8168c
-  writer_fix_commit: 39e6770a70f284c0f36400425f19789e430fb9fa
-  validator_fix_commit: 4d34f7699f46fd1025c3cba52ae16335dff87448
-  sha_test_path: tests/cii-workspace-byte-sha256.test.js
-  sha_test_initial_commit: 12eebcc1a2e7dbdd0f5c61f57f20ab2df2b16c66
-  sha_falsifier_commit: 3c820eb73639c76be22c1cde824c911732728ea8
-  writer_hash_testimony_falsifier_commit: 3652e38832f626755e1f99c308f94fe42b558682
+    Exact postimage bytes were independently reconstructed, but the validator did
+    not bind after.contentSha256 or after byte-length testimony to those bytes and
+    the Writer result did not carry a final-digest custody record.
+  postimage_hash_authority: SHA256_WRITER2_POSTIMAGE_BYTES
+  writer_fix_commit: b93835388b5f27c2044ecd20c91084c7a5f1b38c
+  validator_fix_commit: c2cd7bd114d09027feb3a413a7ec244751ba56e2
+  sha_falsifier_extension_commit: 09864fcb3df5c70146c8c093cfefdcb43a057c34
   fixture_migration_commits:
-    physical_matrix: 54a8b52ff17eb577d4e3bc500cc4e2e5fdf13d92
-    packed_tail: 64d36923160fb4b76c095da53a57b7752f094094
-    deleted_testimony: 7458a8f700d0d982b01e4b0de4888a5ffdde5b53
+    physical_matrix: 4b8d47abaaa7c9d3f7a3f5bc32da5f65d58bca48
+    packed_tail: 181a11da248286007f3b46e22803cdf2469232ef
+    testimony: cd6bd81105e00cf2513ae5d2cf9520501080161c
   rules:
-    - targetDocument.contentSha256 MUST be lowercase 64-hex SHA-256
-    - physicalFile.byteLength MUST equal untouched originalByteString length
-    - document byteLength MUST match when present
-    - SHA-256 MUST be recomputed from untouched TARGET0 originalByteString
-    - recomputed digest MUST equal targetDocument.contentSha256
-    - recomputed digest MUST equal transferPlan target hash and transferScope target hash
-    - Writer target0HashCustody testimony MUST match independent validator custody
+    - Writer MUST SHA-256 the final byteString produced from the one TARGET0 mutation pass
+    - Writer MUST testify postimageHashCustody with authority, digest and byte length
+    - after.contentSha256 MUST be lowercase 64-hex SHA-256
+    - after.physicalFile.byteLength MUST equal actual postimage byte-string length
+    - after.byteLength MUST match when present
+    - validator MUST independently SHA-256 after.physicalFile.originalByteString
+    - declared after hash MUST equal independently recomputed postimage SHA-256
+    - Writer postimageHashCustody MUST match independent validator custody
   falsifiers:
-    f40: CONSISTENTLY_FORGED_DECLARED_TARGET_HASHES
-    f41: STALE_TARGET0_PHYSICAL_BYTES_WITH_OLD_DIGEST
-    f42: NON_SHA_PLACEHOLDER_TARGET_HASH
-    f43: PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
-    f44: DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
-    f45: FORGED_WRITER_TARGET0_HASH_TESTIMONY
-  source_boundary: >-
-    Only TARGET0 is cryptographically rehashed here because untouched target bytes
-    are present at this component API. SOURCE bytes are not supplied to the partial
-    Writer2 API, so SOURCE cryptographic rehash is not claimed by this batch.
-  transient_setup_commit: >-
-    9168c5d7ee8a9ba978aaf76e1a1c1db94b7aa784 temporarily created the SHA utility
-    as an empty file through the contents API; it was immediately superseded by
-    3470e9871469fae1a2a13cbc916c6c328bd8168c and has no effect on current content.
-  intake_source_observation: PASS_SOURCE_INSPECTION
-  sha_primitive_source_observation: PASS_SOURCE_INSPECTION
-  sha_standard_vector_equivalent_local_check: PASS_EQUIVALENT_IMPLEMENTATION
+    f46: FORGED_WELL_FORMED_POSTIMAGE_HASH
+    f47: NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
+    f48: POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
+    f49: POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
+    f50: FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
   writer_source_observation: PASS_SOURCE_INSPECTION
   validator_source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-  f40_f45_test_source_observation: PASS_SOURCE_INSPECTION_TEST_AUTHORED
+  f46_f50_test_source_observation: PASS_SOURCE_INSPECTION_TEST_AUTHORED
   current_head_runtime_observation: NOT_RUN_ENVIRONMENT
+batch_target0_cryptographic_custody:
+  authority: SHA256_ORIGINAL_TARGET0_BYTES
+  sha_primitive_path: tabs/cii-workspace/cii-workspace-byte-sha256.js
+  writer_fix_commit: 39e6770a70f284c0f36400425f19789e430fb9fa
+  validator_fix_commit: 4d34f7699f46fd1025c3cba52ae16335dff87448
+  falsifiers: F40_F45
+  runtime_observation: NOT_RUN_ENVIRONMENT
 batch_canonical_scope_container_custody:
   writer_fix_commit: 4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
   validator_fix_commit: c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
-  falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
-  falsifier_extension_commit: 4def181b64e70b348bd3540d505765090ece02c2
   falsifiers: F31_F39
   runtime_observation: NOT_RUN_ENVIRONMENT
 batch_real_source_census:
@@ -119,6 +103,7 @@ validation:
   production_intake_sha_basis: PASS_SOURCE_INSPECTION
   sha256_primitive_standard_vectors_exact_test: AUTHORED_NOT_RUN_ENVIRONMENT
   f40_f45_target0_hash_falsifiers: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f46_f50_postimage_hash_falsifiers: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   historical_frozen_postimage_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_mandatory_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
@@ -134,15 +119,14 @@ validation:
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
 execution_limitation: >-
   The execution container cannot provide a native exact repository checkout for
-  current-head Node tests. Source inspection and the equivalent local standard-vector
-  calculation do not constitute exact committed-module runtime PASS.
+  current-head Node tests. Source inspection does not constitute exact committed-module
+  runtime PASS.
 review_readiness_basis: >-
-  TARGET0 byte custody is now cryptographically bound before planning and independently
-  re-proven by validation; prior scope/container, packed-row and record-binding gates
-  remain intact; unavailable execution and missing real H>1 evidence remain explicit.
+  Preimage and postimage hashes are both byte-derived at the component boundary;
+  prior scope/container, packed-row and record-binding gates remain intact; unavailable
+  execution and missing real H>1 evidence remain explicit.
 exact_next_action: >-
   Owner engineering review. Do not merge without fresh owner authorization. On the
-  first native checkout, run the SHA vector/F40-F45 test first, then all focused
-  PR1027 tests and broader regression. If a real H>1 source appears, qualify it
-  before advancing the real-source census.
-last_updated: 2026-08-23T15:01:00+05:30
+  first native checkout, run SHA/F40-F50 first, then all focused PR1027 tests and
+  broader regression. If a real H>1 source appears, qualify it before advancing the census.
+last_updated: 2026-08-23T15:28:00+05:30
