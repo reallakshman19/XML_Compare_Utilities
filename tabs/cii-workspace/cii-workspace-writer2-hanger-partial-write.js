@@ -67,16 +67,48 @@ function assertScopeSetsDisjoint(appliedIds, excludedIds, code) {
   const excluded = new Set(excludedIds); const overlap = appliedIds.filter((id) => excluded.has(id));
   if (overlap.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_${code}_APPLY_EXCLUDE_OVERLAP:${overlap.join(',')}`);
 }
+function assertCanonicalOperationContainers(transferPlan) {
+  const operations = transferPlan?.operations;
+  const excludedOperations = transferPlan?.excludedOperations;
+  if (!Array.isArray(operations)) throw new Error('CII_WRITER_2_HANGER_PARTIAL_PLAN_OPERATIONS_ARRAY_REQUIRED');
+  if (!Array.isArray(excludedOperations)) throw new Error('CII_WRITER_2_HANGER_PARTIAL_PLAN_EXCLUDED_OPERATIONS_ARRAY_REQUIRED');
+  const applied = [];
+  for (const operation of operations) {
+    const id = operationId(operation);
+    if (!id) throw new Error('CII_WRITER_2_HANGER_PARTIAL_PLAN_OPERATION_ID_REQUIRED');
+    if (isMutable(operation)) {
+      if (operation?.scopeDecision !== 'APPLY') {
+        throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PLAN_OPERATION_DECISION_MISMATCH:${id}:${text(operation?.scopeDecision) || 'EMPTY'}:APPLY`);
+      }
+      applied.push(operation);
+    } else if (operation?.scopeDecision !== 'KEEP') {
+      throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PLAN_KEEP_DECISION_MISMATCH:${id}:${text(operation?.scopeDecision) || 'EMPTY'}:KEEP`);
+    }
+  }
+  const excluded = [];
+  for (const operation of excludedOperations) {
+    const id = operationId(operation);
+    if (!id) throw new Error('CII_WRITER_2_HANGER_PARTIAL_PLAN_OPERATION_ID_REQUIRED');
+    if (!isMutable(operation)) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PLAN_EXCLUDED_KEEP_FORBIDDEN:${id}`);
+    if (operation?.scopeDecision !== 'EXCLUDE') {
+      throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PLAN_EXCLUDED_DECISION_MISMATCH:${id}:${text(operation?.scopeDecision) || 'EMPTY'}:EXCLUDE`);
+    }
+    excluded.push(operation);
+  }
+  const appliedIds = exactScopeIds(applied.map(operationId), 'PLAN_APPLY');
+  const excludedIds = exactScopeIds(excluded.map(operationId), 'PLAN_EXCLUDE');
+  assertScopeSetsDisjoint(appliedIds, excludedIds, 'PLAN');
+  exactScopeIds([...operations, ...excludedOperations].map(operationId), 'PLAN_ALL');
+  return Object.freeze({ appliedIds, excludedIds });
+}
 function assertBoundScopeCustody(transferPlan, targetDocument) {
   const scope = transferPlan?.transferScope;
   if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope?.scopeId)) {
     throw new Error('CII_WRITER_2_HANGER_PARTIAL_CANONICAL_BOUND_SCOPE_REQUIRED');
   }
-  const applied = (transferPlan?.operations || []).filter((item) => item?.scopeDecision === 'APPLY' && isMutable(item));
-  const excluded = (transferPlan?.excludedOperations || []).filter((item) => item?.scopeDecision === 'EXCLUDE' && isMutable(item));
-  const appliedIds = exactScopeIds(applied.map(operationId), 'PLAN_APPLY');
-  const excludedIds = exactScopeIds(excluded.map(operationId), 'PLAN_EXCLUDE');
-  assertScopeSetsDisjoint(appliedIds, excludedIds, 'PLAN');
+  const planScope = assertCanonicalOperationContainers(transferPlan);
+  const appliedIds = planScope.appliedIds;
+  const excludedIds = planScope.excludedIds;
   const candidateIds = Object.freeze([...appliedIds, ...excludedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
   const scopeApplied = exactScopeIds(scope.appliedOperationIds, 'SCOPE_APPLY');
   const scopeExcluded = exactScopeIds(scope.excludedOperationIds, 'SCOPE_EXCLUDE');
@@ -279,5 +311,5 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
 }
 
 export const _test = Object.freeze({ markerName, integerField, lineEndingBytes, rawSectionEnvelope, exactScopeIds, assertScopeSetsDisjoint,
-  assertBoundScopeCustody, assertPartialPlan, partitionRows, retainedPackedFields, assertPackedSourceTailQualified, repackPackedRows,
-  controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
+  assertCanonicalOperationContainers, assertBoundScopeCustody, assertPartialPlan, partitionRows, retainedPackedFields,
+  assertPackedSourceTailQualified, repackPackedRows, controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
