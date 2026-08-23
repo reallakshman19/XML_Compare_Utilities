@@ -63,6 +63,10 @@ function exactScopeIds(values, code) {
   if (new Set(ids).size !== ids.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_${code}_DUPLICATE_ID`);
   return Object.freeze([...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
 }
+function assertScopeSetsDisjoint(appliedIds, excludedIds, code) {
+  const excluded = new Set(excludedIds); const overlap = appliedIds.filter((id) => excluded.has(id));
+  if (overlap.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_${code}_APPLY_EXCLUDE_OVERLAP:${overlap.join(',')}`);
+}
 function assertBoundScopeCustody(transferPlan, targetDocument) {
   const scope = transferPlan?.transferScope;
   if (scope?.status !== 'BOUND' || scope?.mode !== SCOPE_MODE || scope?.authority !== SCOPE_AUTHORITY || !text(scope?.scopeId)) {
@@ -72,9 +76,11 @@ function assertBoundScopeCustody(transferPlan, targetDocument) {
   const excluded = (transferPlan?.excludedOperations || []).filter((item) => item?.scopeDecision === 'EXCLUDE' && isMutable(item));
   const appliedIds = exactScopeIds(applied.map(operationId), 'PLAN_APPLY');
   const excludedIds = exactScopeIds(excluded.map(operationId), 'PLAN_EXCLUDE');
+  assertScopeSetsDisjoint(appliedIds, excludedIds, 'PLAN');
   const candidateIds = Object.freeze([...appliedIds, ...excludedIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
   const scopeApplied = exactScopeIds(scope.appliedOperationIds, 'SCOPE_APPLY');
   const scopeExcluded = exactScopeIds(scope.excludedOperationIds, 'SCOPE_EXCLUDE');
+  assertScopeSetsDisjoint(scopeApplied, scopeExcluded, 'SCOPE');
   const scopeCandidates = exactScopeIds(scope.candidateOperationIds, 'SCOPE_CANDIDATE');
   if (!sameStrings(appliedIds, scopeApplied)) throw new Error('CII_WRITER_2_HANGER_PARTIAL_SCOPE_APPLY_SET_MISMATCH');
   if (!sameStrings(excludedIds, scopeExcluded)) throw new Error('CII_WRITER_2_HANGER_PARTIAL_SCOPE_EXCLUDE_SET_MISMATCH');
@@ -272,6 +278,6 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
   });
 }
 
-export const _test = Object.freeze({ markerName, integerField, lineEndingBytes, rawSectionEnvelope, assertBoundScopeCustody,
-  assertPartialPlan, partitionRows, retainedPackedFields, assertPackedSourceTailQualified, repackPackedRows,
+export const _test = Object.freeze({ markerName, integerField, lineEndingBytes, rawSectionEnvelope, exactScopeIds, assertScopeSetsDisjoint,
+  assertBoundScopeCustody, assertPartialPlan, partitionRows, retainedPackedFields, assertPackedSourceTailQualified, repackPackedRows,
   controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
