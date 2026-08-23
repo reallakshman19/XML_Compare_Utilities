@@ -243,12 +243,10 @@ Production/validation commits in the batch include:
 
 ```text
 b4afb09c  initial packed-tail custody gate
-e c86dea3  writer tightened to exact active-only source rows
+ec86dea3  writer tightened to exact active-only source rows
 d0159b06  validator independently tightened to exact active-only source rows
 4cd43b7b  qualification suite isolates the new physical gate
 ```
-
-(Commit display above is mnemonic; Git history remains authoritative.)
 
 Qualification file:
 
