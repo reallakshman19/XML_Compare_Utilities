@@ -5,7 +5,7 @@ claim_state: ACTIVE_REVIEW_READY_NOT_READY_VERDICT
 claim_scope: WRITER2_W2_9_RESTRAINT_CARDINALITY_QUALIFICATION_ONLY
 branch: agent/cii-writer2-restraint-cardinality-w29
 base_main: ff9d706796e42a43ebfb1c74696350e9b8cc695b
-report_basis_head: 857c85e39cdd85988144eee53a0526f594615270
+report_basis_head: 6aa1f04ad24958ab64c069074343c7ccb54f3c28
 ready_for_review: true
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -44,9 +44,12 @@ physical_writer_authority: false
 composite_product_authority: false
 production_planner_added: false
 
-changed_paths_intended: 9
-changed_paths_unexplained_expected: 0
-production_paths_intended: 0
+changed_paths:
+  intended: 9
+  actual: 9
+  production: 0
+  unexplained: 0
+  observation: PASS_REMOTE_GITHUB_COMPARE_AT_REPORT_BASIS
 
 validation_truth:
   exact_v11_restraint_input: PASS_VENDOR_AUTHORED_EXACT_VERSION_MIRROR
