@@ -15,14 +15,15 @@ handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: POSTIMAGE_CRYPTOGRAPHIC_BYTE_CUSTODY_HARDENED_REVIEW_READY
+current_stage: POSTIMAGE_REPRESENTATION_CUSTODY_HARDENED_REVIEW_READY
 blocker: NONE_FOR_COMPONENT_REVIEW
 real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 highest_risk: >-
-  TARGET0 and Writer2 postimage bytes are now both cryptographically bound to
-  SHA-256 custody at the component/validator boundary. Exact current-head runtime
-  execution remains unavailable and no real repository H>1 CII preimage exists.
+  TARGET0 and postimage bytes are cryptographically bound, and the postimage
+  byteString/Uint8Array/text/physical-file metadata are now required to represent
+  the same final bytes. Exact current-head runtime execution remains unavailable
+  and no real repository H>1 CII preimage exists.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -35,38 +36,45 @@ changed_files:
   actual: 17
   intended: 17
   unexplained: 0
-batch_postimage_cryptographic_custody:
+batch_postimage_representation_custody:
   finding: >-
-    Exact postimage bytes were independently reconstructed, but the validator did
-    not bind after.contentSha256 or after byte-length testimony to those bytes and
-    the Writer result did not carry a final-digest custody record.
+    The prior validator proved final byteString equality and postimage SHA-256, but
+    did not independently prove that Writer bytes/text or caller-supplied physicalFile
+    text/lines/line-ending/encoding metadata represented those same final bytes.
+  authority: CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+  writer_fix_commit: 79f8fec0df92572dba66a5a4fdba40fe24935198
+  validator_fix_commit: 2c2d4ecd0ea7cc4f91438572c7d0ea59a5ec6eca
+  falsifier_extension_commit: 7b622609ec8da738c41ebe2d6e7b02305bc4e13d
+  integrated_falsifier_commit: ddf98d2b79ee98822eb0ce7b3e537d2468dc5fc5
+  rules:
+    - Writer MUST derive exposed text from canonical createCiiPhysicalFile(final bytes)
+    - Writer MUST testify postimageRepresentationCustody
+    - validator MUST reconstruct canonical physicalFile from after.originalByteString bytes
+    - physicalFile schema/byteAuthority/writer eligibility/textEncoding/byteLength MUST match canonical re-intake
+    - physicalFile text/lines/lineEndings MUST match canonical re-intake
+    - after byteAuthority/textEncodingAuthority/textLength MUST match when supplied
+    - Writer bytes MUST be Uint8Array and byte-identical to canonical postimage bytes
+    - Writer text MUST equal canonical postimage text
+    - Writer postimageRepresentationCustody MUST match independently rebuilt custody
+  falsifiers:
+    f51: WRITER_BYTE_ARRAY_CONTENT_MISMATCH
+    f52: WRITER_BYTE_ARRAY_TYPE_MISMATCH
+    f53: WRITER_TEXT_MISMATCH
+    f54: POSTIMAGE_PHYSICAL_TEXT_MISMATCH
+    f55: POSTIMAGE_PHYSICAL_LINES_MISMATCH
+    f56: POSTIMAGE_PHYSICAL_LINE_ENDINGS_MISMATCH
+    f57: POSTIMAGE_PHYSICAL_METADATA_MISMATCH
+    f58: POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH
+  writer_source_observation: PASS_SOURCE_INSPECTION
+  validator_source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_REINTAKE
+  f51_f58_test_source_observation: PASS_SOURCE_INSPECTION_TEST_AUTHORED
+  current_head_runtime_observation: NOT_RUN_ENVIRONMENT
+batch_postimage_cryptographic_custody:
   postimage_hash_authority: SHA256_WRITER2_POSTIMAGE_BYTES
   writer_fix_commit: b93835388b5f27c2044ecd20c91084c7a5f1b38c
   validator_fix_commit: c2cd7bd114d09027feb3a413a7ec244751ba56e2
-  sha_falsifier_extension_commit: 09864fcb3df5c70146c8c093cfefdcb43a057c34
-  fixture_migration_commits:
-    physical_matrix: 4b8d47abaaa7c9d3f7a3f5bc32da5f65d58bca48
-    packed_tail: 181a11da248286007f3b46e22803cdf2469232ef
-    testimony: cd6bd81105e00cf2513ae5d2cf9520501080161c
-  rules:
-    - Writer MUST SHA-256 the final byteString produced from the one TARGET0 mutation pass
-    - Writer MUST testify postimageHashCustody with authority, digest and byte length
-    - after.contentSha256 MUST be lowercase 64-hex SHA-256
-    - after.physicalFile.byteLength MUST equal actual postimage byte-string length
-    - after.byteLength MUST match when present
-    - validator MUST independently SHA-256 after.physicalFile.originalByteString
-    - declared after hash MUST equal independently recomputed postimage SHA-256
-    - Writer postimageHashCustody MUST match independent validator custody
-  falsifiers:
-    f46: FORGED_WELL_FORMED_POSTIMAGE_HASH
-    f47: NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
-    f48: POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
-    f49: POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
-    f50: FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
-  writer_source_observation: PASS_SOURCE_INSPECTION
-  validator_source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-  f46_f50_test_source_observation: PASS_SOURCE_INSPECTION_TEST_AUTHORED
-  current_head_runtime_observation: NOT_RUN_ENVIRONMENT
+  falsifiers: F46_F50
+  runtime_observation: NOT_RUN_ENVIRONMENT
 batch_target0_cryptographic_custody:
   authority: SHA256_ORIGINAL_TARGET0_BYTES
   sha_primitive_path: tabs/cii-workspace/cii-workspace-byte-sha256.js
@@ -104,6 +112,7 @@ validation:
   sha256_primitive_standard_vectors_exact_test: AUTHORED_NOT_RUN_ENVIRONMENT
   f40_f45_target0_hash_falsifiers: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   f46_f50_postimage_hash_falsifiers: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f51_f58_postimage_representation_falsifiers: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   historical_frozen_postimage_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_mandatory_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
@@ -122,11 +131,11 @@ execution_limitation: >-
   current-head Node tests. Source inspection does not constitute exact committed-module
   runtime PASS.
 review_readiness_basis: >-
-  Preimage and postimage hashes are both byte-derived at the component boundary;
-  prior scope/container, packed-row and record-binding gates remain intact; unavailable
-  execution and missing real H>1 evidence remain explicit.
+  Preimage/postimage hashes and postimage representations are now byte-derived at
+  the component boundary; prior scope/container, packed-row and record-binding gates
+  remain intact; unavailable execution and missing real H>1 evidence remain explicit.
 exact_next_action: >-
   Owner engineering review. Do not merge without fresh owner authorization. On the
-  first native checkout, run SHA/F40-F50 first, then all focused PR1027 tests and
+  first native checkout, run SHA/F40-F58 first, then all focused PR1027 tests and
   broader regression. If a real H>1 source appears, qualify it before advancing the census.
-last_updated: 2026-08-23T15:28:00+05:30
+last_updated: 2026-08-23T16:22:00+05:30
