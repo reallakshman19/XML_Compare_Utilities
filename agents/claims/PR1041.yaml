@@ -7,6 +7,7 @@ claim_state: ACTIVE_REVIEW_READY_RESTRAINT_DELETE_COMPACTION_PLAN
 ready_for_review: true
 merge_authority: OWNER_ONLY
 merge_authorized: true
+merge_authorization_basis: explicit_owner_instruction_2026_08_23
 
 claims:
   - id: RESTRAINT_BLOCK_DELETE_COMPACTION_PLAN
@@ -41,7 +42,8 @@ validation_truth:
   full_repository: NOT_RUN_ENVIRONMENT
   pre_h04_h05_local_exact_fetched_dependencies: PASS_AT_TIME
 
-changed_paths_expected: 6
-changed_paths_unexplained_expected: 0
+changed_paths_actual: 6
+changed_paths_intended: 6
+changed_paths_unexplained: 0
 
 next_claim_gate: W2_11_PHYSICAL_WRITER_MUST_CONSUM_THIS_PLAN_WITH_INDEPENDENT_COMPLETE_POSTIMAGE_VALIDATION
