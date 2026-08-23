@@ -137,6 +137,15 @@ assert.deepEqual(writer.postimageHashCustody, {
   contentSha256: after.contentSha256,
   byteLength: after.physicalFile.originalByteString.length,
 });
+assert.deepEqual(writer.postimageRepresentationCustody, {
+  authority: 'CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE',
+  byteLength: after.physicalFile.byteLength,
+  textLength: after.physicalFile.text.length,
+  textEncodingAuthority: after.physicalFile.textEncodingAuthority,
+  lineCount: after.physicalFile.lines.length,
+  lineEndingStyle: after.physicalFile.lineEndings.style,
+  finalLineTerminated: after.physicalFile.lineEndings.finalLineTerminated,
+});
 
 const forged = Object.freeze({ ...writer, deletedRecordIndices: Object.freeze([1]) });
 assert.throws(
@@ -170,4 +179,31 @@ assert.throws(
   /WRITER_2_HANGER_PARTIAL_POSTIMAGE_HASH_TESTIMONY_MISMATCH/,
 );
 
-console.log('Writer2 partial HANGER validator rejects forged deleted-record, TARGET0 hash and postimage hash testimony.');
+// F51: byte-perfect byteString with forged Writer Uint8Array must fail the integrated validator.
+const forgedBytes = new Uint8Array(writer.bytes); forgedBytes[0] ^= 0x01;
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before, after, plan, Object.freeze({ ...writer, bytes: forgedBytes })),
+  /WRITER_2_HANGER_PARTIAL_VALIDATOR_RESULT_BYTE_ARRAY_MISMATCH/,
+);
+
+// F53: byte-perfect byteString with forged Writer decoded text must fail the integrated validator.
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before, after, plan, Object.freeze({ ...writer, text: 'FORGED-TEXT' })),
+  /WRITER_2_HANGER_PARTIAL_VALIDATOR_RESULT_TEXT_MISMATCH/,
+);
+
+// F54: correct originalByteString/hash cannot excuse stale or forged physicalFile.text.
+const forgedPhysicalText = Object.freeze({ ...after.physicalFile, text: 'FORGED-PHYSICAL-TEXT' });
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before, Object.freeze({ ...after, physicalFile: forgedPhysicalText }), plan, writer),
+  /WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_PHYSICAL_TEXT_MISMATCH/,
+);
+
+// F58: intake-level representation metadata, when present, must bind the same postimage bytes.
+assert.throws(
+  () => validateCiiWriter2HangerPartialRoundTrip(before,
+    Object.freeze({ ...after, textLength: after.physicalFile.text.length + 1 }), plan, writer),
+  /WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH/,
+);
+
+console.log('Writer2 partial HANGER validator rejects forged record/hash/byte-array/text/physical representation testimony.');
