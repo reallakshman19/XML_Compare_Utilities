@@ -4,13 +4,14 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1037 | Writer 2 W2.5 — qualify HANGER CREATE construction semantics | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION` | Exact V11 HANGER field dictionary; software-assigned GUID identified; physical row/cardinality model qualified; repository fallback conflicts frozen; no production CREATE authority | Acquire GUID neutral-import behavior + native H=0→1 and H=1→2 transitions + complete omission/default/insertion authority; do not start W2.6 or merge without fresh owner authorization |
-| PR1033 | Writer 2 W2.1 — qualify complete V11 SIF/TEE CREATE construction semantics | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION` | Qualification/data only; 60-position V11 physical map; source ledger; repository V11 census; later-edition drift veto; no production CREATE authority | Source acquisition/qualification; W2.2–W2.4 remain blocked; do not merge without fresh owner authorization |
+| PR1039 | Writer 2 W2.9 — qualify true RESTRAINT cardinality planning | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_RESTRAINT_CARDINALITY_PLANNER` | CONTROL block-count and 1-based pointer unit qualified; V11 six-slot/24-row physical custody; DELETE-compaction relocation arithmetic qualified as derived-only; generic CREATE blocked; no production planner/writer | Acquire GUID/default/allocation authority or explicitly split a narrower DELETE-compaction successor; do not start generic W2.10 or merge without fresh owner authorization |
+| PR1037 | Writer 2 W2.5 — qualify HANGER CREATE construction semantics | MERGED 2026-08-23 · `ff9d7067` · `NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION` | Exact V11 HANGER field dictionary; software-assigned GUID identified; physical row/cardinality model qualified; repository fallback conflicts frozen; no production CREATE authority | Source acquisition only: GUID neutral-import behavior + native H=0→1/H=1→2 transitions + complete omission/default/insertion authority; W2.6-W2.8 remain blocked |
+| PR1033 | Writer 2 W2.1 — qualify complete V11 SIF/TEE CREATE construction semantics | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION` | Qualification/data only; 60-position V11 physical map; source ledger; repository V11 census; later-edition drift veto; no production CREATE authority | Source acquisition/qualification; W2.2-W2.4 remain blocked; do not merge without fresh owner authorization |
 | PR1031 | Adopt partial H>1 HANGER into Writer2 product/core routing | MERGED 2026-08-23 · `e5d3420f` | Explicit DELETE_ALL vs PARTIAL_H_GT_1 readiness classification; positional record-binding gate; fail-closed product validator dispatch; deterministic H=3→2 partial-only + tri-family product qualification authored; real H>1 source remains unavailable | Authority consumed read-only by main; exact native/full-regression evidence remains an explicit limitation |
 | PR1029 | Adopt partial H>1 HANGER into the one-TARGET0 Writer2 composite | MERGED 2026-08-23 · `9f2f11cc` | Canonical partial-HANGER child BOUND scope; delete-all/partial dispatch; one-TARGET0 original-coordinate arbitration; independent complete-postimage partial composite validator; NODENAME + SIF DELETE + H=3→2 qualification authored | Authority consumed read-only by PR1031/main |
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | MERGED 2026-08-23 · `e9a28071` | Component-only partial writer; TARGET0 + postimage SHA-256 custody; canonical physical re-intake; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0 | Delete/positional authority consumed read-only by merged product chain and PR1037; first real H>1 source still requires dedicated qualification |
-| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027/PR1029/PR1031/PR1037 |
-| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by merged HANGER delete chain and PR1037 qualification |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | MERGED 2026-08-23 · `e9a28071` | Component-only partial writer; TARGET0 + postimage SHA-256 custody; canonical physical re-intake; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0 | Delete/positional authority consumed read-only by merged product chain and later qualifications; first real H>1 source still requires dedicated qualification |
+| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by merged HANGER chain |
+| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by merged HANGER delete chain and HANGER CREATE qualification |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Real H=1/delete-all evidence baseline retained |
 | PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL | Product baseline extended by merged PR1031 |
 | PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | One TARGET0 + independent postimage validation | Architectural foundation extended by PR1029 |
@@ -30,13 +31,13 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; 27..30 unresolved | Consumed read-only by PR1033; SIF CREATE remains blocked |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Writer1 fixed fields; Writer2 cardinality/pointers; Writer3 topology | Governing architecture |
 | PR1001 | Explicit APPLY / EXCLUDE transfer scope | MERGED 2026-08-19 · `5a5fa0ae` | Hash + operation-set custody | Governing transaction scope |
-| PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Extended fixed-field writer | PRODUCT DEFAULT |
+| PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Extended fixed-field writer including existing-block restraint free-slot CREATE/CLEAR | PRODUCT DEFAULT; true restraint block cardinality remains Writer2 |
 | PR991 | Writer 1A | MERGED 2026-08-19 · `edf297f7` | Initial fixed-cardinality writer | Historical |
 
 ## Current Writer 2 HANGER authority stack
 
 ```text
-Merged product authority on main@e5d3420f78794e465b4b8c7f858c3fc53baf3039
+Merged product authority on main@ff9d706796e42a43ebfb1c74696350e9b8cc695b
   Writer1B remains PRODUCT DEFAULT
   Writer2 remains explicit-only
   NODENAME CREATE/DELETE
@@ -104,10 +105,11 @@ Stable blockers:
 ```text
 HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
 SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+RESTRAINT true cardinality -> restraintCardinality = BLOCKED_WRITER_2_COMPOSITE
 unsupported HANGER transaction class -> WRITER_2_HANGER_PRODUCT_TRANSACTION_CLASS_UNQUALIFIED
 ```
 
-## Active Writer2 CREATE qualifications
+## Writer2 successor qualification state
 
 ### PR1033 — W2.1 SIF CREATE
 
@@ -129,11 +131,14 @@ W2.2-W2.4
   BLOCKED
 ```
 
-### PR1037 — W2.5 HANGER CREATE
+### PR1037 — W2.5 HANGER CREATE — merged qualification
 
 ```text
 verdict
   NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
+
+merged
+  ff9d706796e42a43ebfb1c74696350e9b8cc695b
 
 qualified
   exact V11 HANGER neutral field dictionary/formats
@@ -153,8 +158,41 @@ hard blockers
   OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
   REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
 
-W2.6
-  NOT AUTHORIZED
+W2.6-W2.8
+  BLOCKED
+```
+
+### PR1039 — W2.9 RESTRAINT true cardinality
+
+```text
+verdict
+  NOT_READY_FOR_WRITER2_RESTRAINT_CARDINALITY_PLANNER
+
+qualified
+  CONTROL restraint unit = restraint auxiliary block count
+  current pointer unit = 1-based 24-row block index
+  six slots x four rows = 24-row block
+  real V11 multi-block sources available: 7 / 132 / 135 blocks
+  DELETE-compaction relocation arithmetic:
+    newPointer(p) = p - count(deleted old blocks < p)
+
+hard blockers
+  RESTRAINT_GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
+  RESTRAINT_TYPE_DEPENDENT_CREATE_DEFAULTS_INCOMPLETE
+  NEW_RESTRAINT_BLOCK_ALLOCATION_POLICY_NOT_VENDOR_QUALIFIED
+  NATIVE_RESTRAINT_BLOCK_CREATE_TRANSITION_NOT_AVAILABLE
+  SHARED_POINTER_ALIAS_SEMANTICS_NOT_SOURCE_QUALIFIED
+  FULL_REPOSITORY_POINTER_ALIAS_CENSUS_NOT_EXECUTED
+
+production planner
+  NOT ADDED
+
+physical/composite/product authority
+  FALSE / BLOCKED
+
+recommended possible successor split
+  qualify RESTRAINT_BLOCK_DELETE_COMPACTION separately
+  keep RESTRAINT_BLOCK_CREATE_ALLOCATION blocked until source-complete
 ```
 
 ## PR1031 qualification truth
@@ -235,4 +273,4 @@ workflow/package mutation
 Writer3
 ```
 
-PR1031 is merged. Active qualification handovers are `agents/PR1037_workreport.md` for HANGER CREATE and PR1033's branch workreport for SIF CREATE. PR1027 and PR1029 details remain in their merged workreports and qualification documents.
+PR1031 and PR1037 are merged. Active Writer2 qualification handovers are PR1039 for RESTRAINT cardinality and PR1033 for SIF CREATE. HANGER CREATE source acquisition remains governed by merged `agents/PR1037_workreport.md`. PR1027 and PR1029 details remain in their merged workreports and qualification documents.
