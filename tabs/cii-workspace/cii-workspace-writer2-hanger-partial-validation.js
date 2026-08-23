@@ -14,6 +14,7 @@ const CONTROL_HANGER_FIELD_INDEX = 2;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const SINGLE_RECORD_ORDER = 'SINGLE_RECORD_ORDER_EQUIVALENT';
+const PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
 
 function text(value) { return String(value ?? '').trim(); }
@@ -133,7 +134,24 @@ function recordByIndex(binding, index) {
   if (!record) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_RECORD_REQUIRED:${index}`);
   return record;
 }
+function independentlyQualifyPackedSourceTail(binding, sourceRows, label) {
+  const count = Number(binding?.records?.length); const expectedRows = ceilDiv(count, VALUES_PER_PACKED_ROW);
+  if (!Number.isSafeInteger(count) || count <= 0 || sourceRows.length !== expectedRows) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_SOURCE_ROW_COUNT_REQUIRED:${label}:${sourceRows.length}:${expectedRows}`);
+  }
+  const last = sourceRows[sourceRows.length - 1]; const raw = String(last?.text || '');
+  const used = count % VALUES_PER_PACKED_ROW || VALUES_PER_PACKED_ROW; const activeEnd = PACKED_PREFIX.length + used * WIDTH;
+  if (raw.slice(0, PACKED_PREFIX.length) !== PACKED_PREFIX || raw.length < activeEnd) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_SOURCE_TAIL_SPAN_REQUIRED:${label}`);
+  }
+  const tail = raw.slice(activeEnd); decodeCiiAsciiByteString(tail);
+  if ([...tail].some((char) => char !== ' ')) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_PACKED_TRAILING_BLANK_BYTES_REQUIRED:${label}`);
+  }
+  return { authority: PACKED_TAIL_AUTHORITY, sourceTrailingBlankBytes: tail.length, postUnusedFieldPolicy: 'OMIT_UNUSED_FIELDS' };
+}
 function independentPackedRows(binding, retained, label, sourceRows) {
+  independentlyQualifyPackedSourceTail(binding, sourceRows, label);
   const rawFields = retained.map((index) => {
     const field = recordByIndex(binding, index)?.packed?.[label];
     if (!field || Number(field.valueIndex) !== index || typeof field.rawField !== 'string' || field.rawField.length !== WIDTH) {
@@ -248,6 +266,7 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (stableStringify(mutationTestimony(writerResult)) !== stableStringify(expectedTestimony(replacements))) errors.push('WRITER_2_HANGER_PARTIAL_MUTATION_TESTIMONY_MISMATCH');
   if (writerResult?.schema !== 'CIIWorkspaceWriter2HangerPartialDeleteResult.v1' || writerResult?.status !== 'APPLIED'
     || writerResult?.writer !== 'WRITER_2' || writerResult?.family !== 'HANGER_PARTIAL_DELETE') errors.push('WRITER_2_HANGER_PARTIAL_RESULT_CONTRACT_MISMATCH');
+  if (writerResult?.packedTailAuthority !== PACKED_TAIL_AUTHORITY) errors.push('WRITER_2_HANGER_PARTIAL_PACKED_TAIL_TESTIMONY_MISMATCH');
   if (counts) {
     if (Number(writerResult?.hangerCountBefore) !== counts.countBefore || Number(writerResult?.hangerCountAfter) !== counts.countAfter) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_COUNT_TESTIMONY_MISMATCH');
     if (Number(writerResult?.packedRowsBefore) !== counts.packedBefore || Number(writerResult?.packedRowsAfter) !== counts.packedAfter) errors.push('WRITER_2_HANGER_PARTIAL_PACKED_ROW_TESTIMONY_MISMATCH');
@@ -288,11 +307,11 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP',
-      'INDEPENDENT_RAW_I13_REPACK', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
+      'INDEPENDENT_RAW_I13_REPACK', 'PACKED_UNUSED_TAIL_POLICY', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
       'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH']),
     hangerCountBefore: counts.countBefore, hangerCountAfter: counts.countAfter, expectedMiscelRowsAfter: counts.rowCountAfter });
 }
 
 export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, independentlyValidateScope,
-  independentlyRetained, expectedCounts, partitionBefore, controlReplacement, independentPackedRows, independentTailRows,
-  payloadReplacement, expectedReplacements, applyExpected, controlCount, afterTailOrder });
+  independentlyRetained, expectedCounts, partitionBefore, controlReplacement, independentlyQualifyPackedSourceTail,
+  independentPackedRows, independentTailRows, payloadReplacement, expectedReplacements, applyExpected, controlCount, afterTailOrder });
