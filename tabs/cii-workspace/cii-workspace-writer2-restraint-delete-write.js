@@ -162,9 +162,9 @@ export function applyCiiWriter2RestraintDeleteCompaction({ targetDocument, trans
     throw new Error('CII_WRITER_2_RESTRAINT_CREATE_AUTHORITY_MUST_REMAIN_BLOCKED');
   }
   const original = String(targetDocument?.physicalFile?.originalByteString ?? '');
-  const replacements = assertDisjoint([
+  const replacements = Object.freeze(assertDisjoint([
     controlReplacement(targetDocument, plan), ...pointerReplacements(targetDocument, plan), restraintPayloadReplacement(targetDocument, plan),
-  ]).filter((item) => item.beforeField !== item.afterField);
+  ]).filter((item) => item.beforeField !== item.afterField));
   const byteString = applyReplacements(original, replacements);
   const bytes = byteStringToBytes(byteString);
   const canonicalPostimage = createCiiPhysicalFile(bytes);
