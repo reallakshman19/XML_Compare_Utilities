@@ -53,7 +53,7 @@ function versionMajor(raw) {
 }
 function controlRestraintCount(raw) {
   const rows = sectionRows(raw, 'CONTROL');
-  const values = decodeCiiNumericRow(rows[0] || '');
+  const values = decodeCiiNumericRow(rows[1] || '');
   const count = Number(values?.[3]);
   return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
@@ -64,7 +64,7 @@ function slotState(restraintRows, pointer, slot) {
   const second = decodeCiiNumericRow(restraintRows[base + 1]);
   if (!Array.isArray(first) || first.length < 6 || !Array.isArray(second) || second.length < 3) return null;
   const line1 = first.slice(0, 6).map(Number); const line2 = second.slice(0, 3).map(Number);
-  if (![...line1, ...line2].every(Number.isFinite)) return null;
+  if (![...first.slice(0, 6).map(Number), ...second.slice(0, 3).map(Number)].every(Number.isFinite)) return null;
   const tag = prefixedText(restraintRows[base + 2]); const guid = prefixedText(restraintRows[base + 3]);
   if (tag == null || guid == null) return null;
   const occupied = !(Math.abs(line1[0]) <= 1e-12 && Math.abs(line1[1]) <= 1e-12);
