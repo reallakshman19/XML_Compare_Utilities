@@ -115,11 +115,28 @@ function canonicalScopeBlockers(transferPlan, targetDocument) {
   const ids = all.map(operationId);
   if (ids.some((id) => !id)) blockers.push('WRITER_2_RESTRAINT_SCOPE_OPERATION_ID_REQUIRED');
   if (new Set(ids).size !== ids.length) blockers.push('WRITER_2_RESTRAINT_SCOPE_DUPLICATE_OPERATION_ID');
-  const applied = (transferPlan?.operations || []).filter((item) => item?.scopeDecision === 'APPLY' && item?.action !== 'KEEP').map(operationId);
-  const excluded = (transferPlan?.excludedOperations || []).filter((item) => item?.scopeDecision === 'EXCLUDE' && item?.action !== 'KEEP').map(operationId);
+  const operations = transferPlan?.operations || []; const excludedOperations = transferPlan?.excludedOperations || [];
+  for (const operation of operations) {
+    const id = operationId(operation) || 'unknown';
+    if (operation?.action === 'KEEP') {
+      if (operation?.scopeDecision !== 'KEEP') blockers.push(`WRITER_2_RESTRAINT_SCOPE_KEEP_DECISION_REQUIRED:${id}`);
+    } else if (operation?.scopeDecision !== 'APPLY') {
+      blockers.push(`WRITER_2_RESTRAINT_SCOPE_APPLY_DECISION_REQUIRED:${id}`);
+    }
+  }
+  for (const operation of excludedOperations) {
+    const id = operationId(operation) || 'unknown';
+    if (operation?.action === 'KEEP') blockers.push(`WRITER_2_RESTRAINT_SCOPE_KEEP_IN_EXCLUDED_FORBIDDEN:${id}`);
+    if (operation?.scopeDecision !== 'EXCLUDE') blockers.push(`WRITER_2_RESTRAINT_SCOPE_EXCLUDE_DECISION_REQUIRED:${id}`);
+  }
+  const applied = operations.filter((item) => item?.scopeDecision === 'APPLY' && item?.action !== 'KEEP').map(operationId);
+  const excluded = excludedOperations.filter((item) => item?.scopeDecision === 'EXCLUDE' && item?.action !== 'KEEP').map(operationId);
   if (!sameStrings(applied, scope?.appliedOperationIds || [])) blockers.push('WRITER_2_RESTRAINT_SCOPE_APPLY_SET_MISMATCH');
   if (!sameStrings(excluded, scope?.excludedOperationIds || [])) blockers.push('WRITER_2_RESTRAINT_SCOPE_EXCLUDE_SET_MISMATCH');
   if (!sameStrings([...applied, ...excluded], scope?.candidateOperationIds || [])) blockers.push('WRITER_2_RESTRAINT_SCOPE_CANDIDATE_SET_MISMATCH');
+  const sourcePlanHash = text(transferPlan?.sourceDocument?.contentSha256);
+  const sourceScopeHash = text(scope?.sourceSha256);
+  if (!isCiiSha256Hex(sourcePlanHash) || sourcePlanHash !== sourceScopeHash) blockers.push('WRITER_2_RESTRAINT_SCOPE_SOURCE_HASH_MISMATCH');
 
   const declared = text(targetDocument?.contentSha256);
   const planHash = text(transferPlan?.targetDocument?.contentSha256);
@@ -192,13 +209,19 @@ export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, t
   }
 
   const clears = selectedClears(transferPlan, blockers);
-  const claims = new Set();
+  const claims = new Set(); const invalidDeletePointers = new Set();
   for (const clear of clears) {
     const key = `${clear.pointer}:${clear.slot}`;
-    if (claims.has(key)) blockers.push(`WRITER_2_RESTRAINT_DUPLICATE_SLOT_DELETE_CLAIM:${key}`);
+    if (claims.has(key)) {
+      blockers.push(`WRITER_2_RESTRAINT_DUPLICATE_SLOT_DELETE_CLAIM:${key}`);
+      invalidDeletePointers.add(clear.pointer);
+    }
     claims.add(key);
     const actual = slotState(restraintRows, clear.pointer, clear.slot);
-    if (!sameSlotPreimage(clear.beforeSlot, actual)) blockers.push(`WRITER_2_RESTRAINT_SLOT_PREIMAGE_MISMATCH:${key}`);
+    if (!sameSlotPreimage(clear.beforeSlot, actual)) {
+      blockers.push(`WRITER_2_RESTRAINT_SLOT_PREIMAGE_MISMATCH:${key}`);
+      invalidDeletePointers.add(clear.pointer);
+    }
   }
 
   const byPointer = new Map();
@@ -212,13 +235,14 @@ export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, t
     const pointerOwners = owners.get(pointer) || [];
     if (pointerOwners.length !== 1) { blockers.push(`WRITER_2_RESTRAINT_DELETE_UNIQUE_OWNER_REQUIRED:${pointer}:${pointerOwners.length}`); continue; }
     const owner = pointerOwners[0];
+    let removable = !invalidDeletePointers.has(pointer);
     for (const clear of pointerClears) {
       if (clear.targetNode !== owner.from && clear.targetNode !== owner.to) {
         blockers.push(`WRITER_2_RESTRAINT_DELETE_OWNER_NODE_CUSTODY_REQUIRED:${pointer}:${clear.targetNode}`);
+        removable = false;
       }
     }
     const selectedSlots = new Set(pointerClears.map((item) => item.slot));
-    let removable = true;
     for (let slot = 1; slot <= SLOTS; slot += 1) {
       const state = slotState(restraintRows, pointer, slot);
       if (!state) { blockers.push(`WRITER_2_RESTRAINT_SLOT_SHAPE_REQUIRED:${pointer}:${slot}`); removable = false; continue; }
