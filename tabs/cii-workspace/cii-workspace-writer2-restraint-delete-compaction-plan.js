@@ -1,6 +1,7 @@
 import { decodeCiiNumericRow } from '../../parser/fixed-field.js';
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { isCiiSha256Hex, sha256CiiByteString } from './cii-workspace-byte-sha256.js';
+import { buildCiiWriter2RestraintPointerCustody } from './cii-workspace-writer2-restraint-delete-custody.js';
 
 export const CII_WRITER_2_RESTRAINT_DELETE_COMPACTION_POLICY =
   'CII_WRITER_2_RESTRAINT_BLOCK_DELETE_COMPACTION_PLAN';
@@ -91,19 +92,6 @@ function pointerMapping(blockCount, deleted) {
   }
   return Object.freeze(mapping);
 }
-function ownersByPointer(elements) {
-  const rows = new Map();
-  for (const item of Object.values(elements || {})) {
-    const pointer = Number(item?.pointers?.restraint || 0);
-    if (!Number.isSafeInteger(pointer) || pointer <= 0) continue;
-    if (!rows.has(pointer)) rows.set(pointer, []);
-    rows.get(pointer).push(Object.freeze({
-      parsedElementIndex: Number(item.parsedElementIndex),
-      from: String(item.from), to: String(item.to), pointer,
-    }));
-  }
-  return rows;
-}
 function canonicalScopeBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
   if (!Array.isArray(transferPlan?.operations)) blockers.push('WRITER_2_RESTRAINT_OPERATIONS_ARRAY_REQUIRED');
@@ -120,9 +108,7 @@ function canonicalScopeBlockers(transferPlan, targetDocument) {
     const id = operationId(operation) || 'unknown';
     if (operation?.action === 'KEEP') {
       if (operation?.scopeDecision !== 'KEEP') blockers.push(`WRITER_2_RESTRAINT_SCOPE_KEEP_DECISION_REQUIRED:${id}`);
-    } else if (operation?.scopeDecision !== 'APPLY') {
-      blockers.push(`WRITER_2_RESTRAINT_SCOPE_APPLY_DECISION_REQUIRED:${id}`);
-    }
+    } else if (operation?.scopeDecision !== 'APPLY') blockers.push(`WRITER_2_RESTRAINT_SCOPE_APPLY_DECISION_REQUIRED:${id}`);
   }
   for (const operation of excludedOperations) {
     const id = operationId(operation) || 'unknown';
@@ -153,9 +139,7 @@ function canonicalScopeBlockers(transferPlan, targetDocument) {
   }
   return blockers;
 }
-function clearPlanFrom(operation) {
-  return operation?.sourceEvidence?.value || operation?.proposed || null;
-}
+function clearPlanFrom(operation) { return operation?.sourceEvidence?.value || operation?.proposed || null; }
 function selectedClears(transferPlan, blockers) {
   const clears = [];
   for (const operation of transferPlan?.operations || []) {
@@ -184,6 +168,13 @@ function selectedClears(transferPlan, blockers) {
   if (!clears.length) blockers.push('WRITER_2_RESTRAINT_DELETE_NO_MUTATIONS');
   return clears;
 }
+function exactOwners(targetDocument, blockers) {
+  const custody = buildCiiWriter2RestraintPointerCustody(targetDocument);
+  blockers.push(...(custody?.blockers || []));
+  const owners = new Map();
+  for (const [pointer, rows] of Object.entries(custody?.ownersByPointer || {})) owners.set(Number(pointer), [...rows]);
+  return { custody, owners };
+}
 
 export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, transferPlan }) {
   const blockers = [...(transferPlan?.blockers || [])];
@@ -202,7 +193,7 @@ export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, t
     blockers.push('WRITER_2_RESTRAINT_24_ROW_PHYSICAL_CUSTODY_REQUIRED');
   }
 
-  const owners = ownersByPointer(targetDocument?.auxiliaryEvidence?.elements);
+  const { custody: pointerCustody, owners } = exactOwners(targetDocument, blockers);
   for (const [pointer, list] of owners.entries()) {
     if (pointer > blockCount) blockers.push(`WRITER_2_RESTRAINT_POINTER_OUT_OF_RANGE:${pointer}`);
     if (list.length > 1) blockers.push(`WRITER_2_RESTRAINT_SHARED_POINTER_ALIAS_UNQUALIFIED:${pointer}:${list.map((item) => item.parsedElementIndex).join(',')}`);
@@ -275,6 +266,7 @@ export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, t
     blockCountBefore: Number.isSafeInteger(blockCount) ? blockCount : null,
     blockCountAfter: Number.isSafeInteger(blockCount) ? blockCount - deleted.size : null,
     controlCountBefore: controlCount, controlCountAfter: Number.isSafeInteger(controlCount) ? controlCount - deleted.size : null,
+    pointerCustody,
     deletedPointers, retainedPointers, oldToNewPointer, pointerChanges: Object.freeze(pointerChanges),
     deletedRowRanges, deletionClaims: Object.freeze(clears), operationCount: clears.length,
     blockers: Object.freeze([...new Set(blockers)]),
@@ -285,5 +277,5 @@ export function buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, t
 
 export const _test = Object.freeze({
   text, sectionRows, versionMajor, controlRestraintCount, slotState, sameSlotPreimage,
-  pointerMapping, ownersByPointer, canonicalScopeBlockers, selectedClears,
+  pointerMapping, canonicalScopeBlockers, selectedClears, exactOwners,
 });
