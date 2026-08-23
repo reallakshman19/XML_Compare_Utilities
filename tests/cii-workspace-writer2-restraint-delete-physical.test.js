@@ -39,5 +39,15 @@ import { applyAndValidate, clearOperation, occupied, targetDocument, three } fro
   const {writer}=applyAndValidate(target,[clearOperation({id:'P06',pointer:1,targetNode:30,spec:specs[0]})]);
   assert(!writer.relocationPlan.pointerChanges.some((item)=>item.parsedElementIndex===0));
 }
+// P19 CONTROL custody regression: row1 NONAM is unchanged; row2 RESTRAINT count is the only CONTROL row changed.
+{
+  const {specs,target}=three();
+  const {after}=applyAndValidate(target,[clearOperation({id:'P19',pointer:2,targetNode:30,spec:specs[1]})]);
+  const beforeMarker=target.physicalFile.lines.findIndex((line)=>String(line.text).trim().toUpperCase()==='#$ CONTROL');
+  const afterMarker=after.physicalFile.lines.findIndex((line)=>String(line.text).trim().toUpperCase()==='#$ CONTROL');
+  assert(beforeMarker>=0&&afterMarker>=0);
+  assert.equal(after.physicalFile.lines[afterMarker+1].text,target.physicalFile.lines[beforeMarker+1].text,'CONTROL row1/NONAM must remain byte-identical');
+  assert.notEqual(after.physicalFile.lines[afterMarker+2].text,target.physicalFile.lines[beforeMarker+2].text,'CONTROL row2 restraint-count field must change');
+}
 
-console.log('Writer2 RESTRAINT physical DELETE P01-P06 passed.');
+console.log('Writer2 RESTRAINT physical DELETE P01-P06 and CONTROL-custody P19 passed.');
