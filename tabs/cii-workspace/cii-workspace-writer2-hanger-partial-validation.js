@@ -15,6 +15,7 @@ const CONTROL_HANGER_FIELD_INDEX = 2;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
+const POSTIMAGE_HASH_AUTHORITY = 'SHA256_WRITER2_POSTIMAGE_BYTES';
 const SINGLE_RECORD_ORDER = 'SINGLE_RECORD_ORDER_EQUIVALENT';
 const PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
@@ -148,6 +149,21 @@ function independentlyValidateTarget0HashCustody(before, transferPlan) {
     throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_SCOPE_TARGET0_SHA256_MISMATCH');
   }
   return Object.freeze({ authority: TARGET0_HASH_AUTHORITY, contentSha256: actual, byteLength: original.length });
+}
+function independentlyValidatePostimageHashCustody(after) {
+  const physicalFile = after?.physicalFile;
+  const original = String(physicalFile?.originalByteString ?? '');
+  const declared = text(after?.contentSha256);
+  if (!isCiiSha256Hex(declared)) throw new Error('WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_SHA256_FORMAT_REQUIRED');
+  if (!original || Number(physicalFile?.byteLength) !== original.length) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_BYTE_LENGTH_MISMATCH:${physicalFile?.byteLength ?? 'missing'}:${original.length}`);
+  }
+  if (after?.byteLength != null && Number(after.byteLength) !== original.length) {
+    throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH:${after.byteLength}:${original.length}`);
+  }
+  const actual = sha256CiiByteString(original);
+  if (declared !== actual) throw new Error(`WRITER_2_HANGER_PARTIAL_VALIDATOR_POSTIMAGE_SHA256_MISMATCH:${declared}:${actual}`);
+  return Object.freeze({ authority: POSTIMAGE_HASH_AUTHORITY, contentSha256: actual, byteLength: original.length });
 }
 function independentlyRetained(countBefore, deletedIndices) {
   const deleted = new Set((deletedIndices || []).map(Number)); const retained = []; const oldToNew = {}; let next = 1;
@@ -302,7 +318,7 @@ function afterTailOrder(after, countAfter) {
 }
 
 export function validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writerResult) {
-  const errors = []; let scope = null; let target0HashCustody = null; let plan = null; let retainedInfo = null;
+  const errors = []; let scope = null; let target0HashCustody = null; let postimageHashCustody = null; let plan = null; let retainedInfo = null;
   let counts = null; let replacements = []; let expectedBytes = null;
   try { scope = independentlyValidateScope(transferPlan, before); } catch (error) { errors.push(error.message); }
   try { target0HashCustody = independentlyValidateTarget0HashCustody(before, transferPlan); } catch (error) { errors.push(error.message); }
@@ -323,6 +339,7 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   } catch (error) { errors.push(error.message); }
 
   const actualBytes = String(after?.physicalFile?.originalByteString || '');
+  try { postimageHashCustody = independentlyValidatePostimageHashCustody(after); } catch (error) { errors.push(error.message); }
   if (after?.writer1CByteEligible !== true || after?.physicalFile?.writer1CByteEligible !== true) errors.push('WRITER_2_HANGER_PARTIAL_POST_ORIGINAL_BYTE_CUSTODY_NOT_QUALIFIED');
   if (expectedBytes != null && actualBytes !== expectedBytes) errors.push('WRITER_2_HANGER_PARTIAL_EXACT_POSTIMAGE_MISMATCH');
   if (String(writerResult?.byteString ?? '') !== actualBytes) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_BYTES_MISMATCH');
@@ -332,6 +349,9 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (writerResult?.packedTailAuthority !== PACKED_TAIL_AUTHORITY) errors.push('WRITER_2_HANGER_PARTIAL_PACKED_TAIL_TESTIMONY_MISMATCH');
   if (!target0HashCustody || stableStringify(writerResult?.target0HashCustody || {}) !== stableStringify(target0HashCustody)) {
     errors.push('WRITER_2_HANGER_PARTIAL_TARGET0_HASH_TESTIMONY_MISMATCH');
+  }
+  if (!postimageHashCustody || stableStringify(writerResult?.postimageHashCustody || {}) !== stableStringify(postimageHashCustody)) {
+    errors.push('WRITER_2_HANGER_PARTIAL_POSTIMAGE_HASH_TESTIMONY_MISMATCH');
   }
   if (counts) {
     if (Number(writerResult?.hangerCountBefore) !== counts.countBefore || Number(writerResult?.hangerCountAfter) !== counts.countAfter) errors.push('WRITER_2_HANGER_PARTIAL_RESULT_COUNT_TESTIMONY_MISMATCH');
@@ -373,7 +393,7 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
   if (errors.length) throw new Error(`CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED:${[...new Set(errors)].join('|')}`);
   return Object.freeze({ schema: 'CIIWorkspaceWriter2HangerPartialDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_BOUND_SCOPE_REBUILD', 'INDEPENDENT_CANONICAL_OPERATION_CONTAINERS', 'INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS',
-      'INDEPENDENT_TARGET0_SHA256', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK',
+      'INDEPENDENT_TARGET0_SHA256', 'INDEPENDENT_POSTIMAGE_SHA256', 'INDEPENDENT_PARTIAL_PLAN_REBUILD', 'INDEPENDENT_RECORD_MAP', 'INDEPENDENT_RAW_I13_REPACK',
       'PACKED_UNUSED_TAIL_POLICY', 'INDEPENDENT_TAIL_RETENTION', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_NOHGRS_POSTCOUNT',
       'POST_HANGER_CUSTODY', 'TAIL_ORDER_STABLE_OR_SINGLE_EQUIVALENT', 'ELEMENTS_STABLE', 'NODE_SET_STABLE', 'SECTION_ORDER_STABLE',
       'WRITER_TESTIMONY_MATCH']),
@@ -382,6 +402,6 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
 
 export const _test = Object.freeze({ markerName, ceilDiv, integerField, lineEndingBytes, sectionEnvelope, exactIds,
   independentlyAssertScopeSetsDisjoint, independentlyValidateOperationContainers, independentlyValidateScope,
-  independentlyValidateTarget0HashCustody, independentlyRetained, expectedCounts, partitionBefore, controlReplacement,
+  independentlyValidateTarget0HashCustody, independentlyValidatePostimageHashCustody, independentlyRetained, expectedCounts, partitionBefore, controlReplacement,
   independentlyQualifyPackedSourceTail, independentPackedRows, independentTailRows, payloadReplacement, expectedReplacements,
   applyExpected, controlCount, afterTailOrder });
