@@ -27,8 +27,10 @@ function elementRows(pointer, from, to) {
   assert.equal(rows.length, 15); return rows;
 }
 function rawCii(blocks, pointers, endpoints, { controlCount = blocks.length } = {}) {
-  const rows = ['#$ VERSION', numericRow([5,11,1256]), '#$ CONTROL', numericRow([10,0,0,controlCount,0,0]),
-    numericRow([0,0,0,0,0,0]), numericRow([0,0,0,1,0,0]), numericRow([0]), '#$ ELEMENTS'];
+  const rows = ['#$ VERSION', numericRow([5,11,1256]), '#$ CONTROL',
+    numericRow([10,0,0,0,0,0]),
+    numericRow([0,0,0,controlCount,0,0]),
+    numericRow([0,0,0,1,0,0]), numericRow([0]), '#$ ELEMENTS'];
   pointers.forEach((pointer, index) => rows.push(...elementRows(pointer, endpoints[index][0], endpoints[index][1])));
   rows.push('#$ RESTRANT');
   for (const block of blocks) rows.push(...blockRows(block.slots || {}, block.residues || {}));
