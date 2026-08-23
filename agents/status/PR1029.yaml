@@ -1,0 +1,68 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR1029
+mission: >-
+  Adopt merged PR1027 partial H>1 HANGER physical claims into the existing
+  one-original-preimage Writer2 composite with independent complete-postimage validation.
+workstream: CII_WRITER2_HANGER_PARTIAL_COMPOSITE
+branch: agent/cii-writer2-hanger-partial-composite
+main_head_last_checked: e9a28071aa932e5c360206d20807aeaf2e4f9517
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: ACTIVE_IMPLEMENTATION
+pr_recovery_state: HEALTHY
+handover_readiness: READY
+report_path: agents/PR1029_workreport.md
+appendix_a_status: CURRENT
+grounding_epoch: GE-1029-001
+current_stage: GROUNDED_PRE_IMPLEMENTATION
+blocker: NONE
+highest_risk: >-
+  Legacy composite family projection retains the parent transferScope while rewriting
+  sibling APPLY rows as projected EXCLUDE rows. PR1027 partial HANGER requires exact
+  projected container/scope equality, so direct reuse would violate canonical custody.
+dependency:
+  pr: 1027
+  state: SATISFIED_BY_MERGE
+  accepted_head: 457a2c4572c0773cdf1cd2e15fa36f6a3e305638
+  merge_sha: e9a28071aa932e5c360206d20807aeaf2e4f9517
+coordination_state: SAFE_FOR_IMPLEMENTATION
+merge_authority: OWNER_ONLY
+merge_authorized: false
+scope:
+  composite_only: true
+  product_core_routing: OUT_OF_SCOPE
+  browser_ui_enablement: OUT_OF_SCOPE
+  real_h_gt_1_product_qualification: OUT_OF_SCOPE
+  hanger_create: BLOCKED
+  hanger_value_edit: BLOCKED
+  sif_create: BLOCKED
+implementation_plan:
+  - preserve parent BOUND scope custody
+  - derive canonical partial-HANGER child BOUND scope with explicit parent lineage
+  - classify HANGER delete-all versus partial using merged planner authority
+  - keep delete-all writer unchanged
+  - run partial component only from untouched TARGET0
+  - arbitrate partial claims with NODENAME and SIF claims in original coordinates
+  - extend independent complete-postimage validator separately
+validation:
+  pr1027_merge: PASS_REMOTE_EXECUTION
+  pr1027_current_head_native_runtime: NOT_RUN_ENVIRONMENT
+  real_repository_h_gt_1_source: NOT_AVAILABLE
+  pr1029_writer_slice: NOT_RUN_NOT_IMPLEMENTED
+  pr1029_independent_validator: NOT_RUN_NOT_IMPLEMENTED
+  focused_composite_current_head: NOT_RUN_ENVIRONMENT
+  full_repository_npm_test: NOT_RUN_ENVIRONMENT
+changed_files:
+  intended_initial: 7
+  actual: 3
+  unexplained: 0
+runtime_adoption:
+  product_route_changed: false
+  package_json_changed: false
+  workflow_changed: false
+  parser_converter_changed: false
+exact_next_action: >-
+  Implement canonical partial-HANGER family subscope and delete-all/partial dispatch
+  in the existing tri-family composite, then add focused writer-side falsifiers.
+last_updated: 2026-08-23T16:53:00+05:30
