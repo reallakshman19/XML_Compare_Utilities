@@ -16,7 +16,7 @@ PR: #1027
 BRANCH: agent/cii-writer2-hanger-partial-physical
 BASE_MAIN: ae1de402db129e32cd6d7811a4e4707d64512bd4
 GROUNDING_EPOCH: GE-1027-002
-CURRENT_STAGE: SCOPE_DISJOINTNESS_HARDENED_REVIEW_PENDING
+CURRENT_STAGE: CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED_REVIEW_PENDING
 CURRENT_BLOCKER: NONE_FOR_COMPONENT_REVIEW
 EVIDENCE_LIMITATION: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 RUNTIME_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
@@ -28,7 +28,14 @@ PR1027 remains the single Issue #1026 stack. PR1025 is merged and its planner/re
 
 ```text
 qualified merged-PR1025 partial H>1 HANGER plan
-+ canonical BOUND APPLY/EXCLUDE scope with disjoint authority sets
++ canonical BOUND transaction representation
+  - operations[] present
+  - excludedOperations[] present
+  - mutable operations rows are APPLY only
+  - KEEP rows are operations-only and KEEP only
+  - excludedOperations rows are mutable and EXCLUDE only
+  - APPLY and EXCLUDE IDs are disjoint
+  - all operation IDs are globally unique across both containers
 + untouched TARGET0
 -> CONTROL.NOHGRS H -> H'
 -> complete MISCEL_1 reconstruction
@@ -46,110 +53,175 @@ qualified merged-PR1025 partial H>1 HANGER plan
 
 `countAfter == 0` remains the existing delete-all writer. Semantic authority remains `NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY`. Product/composite/UI partial HANGER remains blocked.
 
-## Current batch — canonical APPLY/EXCLUDE disjointness hardening
+## Current batch — canonical operation-container / scope custody
 
 ### Finding
 
-The normal repository scope builder in:
+The normal repository transfer-scope builder in:
 
 ```text
 tabs/cii-workspace/cii-workspace-transfer-scope.js
 ```
 
-is disjoint by construction. `applyCiiTransferScope()` creates one `decisionMap`, each mutable operation ID receives exactly one decision, and the operation is emitted either into `operations` with `scopeDecision=APPLY` or into `excludedOperations` with `scopeDecision=EXCLUDE`.
-
-PR1027 must nevertheless treat the supplied `transferPlan` as an untrusted boundary object because its physical writer/validator are callable component APIs. The previous component checks validated:
+uses one decision map and emits a canonical physical representation:
 
 ```text
-PLAN APPLY IDs == scope.appliedOperationIds
-PLAN EXCLUDE IDs == scope.excludedOperationIds
-PLAN candidate IDs == scope.candidateOperationIds
+operations
+  mutable selected rows -> scopeDecision=APPLY
+  unchanged rows        -> scopeDecision=KEEP
+
+excludedOperations
+  mutable excluded rows -> scopeDecision=EXCLUDE
 ```
 
-but comparison used `sameStrings()`, which normalizes through a `Set`. A forged BOUND object could therefore carry the same mutable `operationId` in both APPLY and EXCLUDE while the candidate set remained a single unique ID. Set-equivalence alone did not prove mutual exclusivity.
+That upstream builder remains unchanged.
 
-This was a custody defect, not a defect in the upstream canonical scope builder.
+PR1027 nevertheless accepts a caller-supplied already-BOUND `transferPlan` at a component boundary. After the earlier F31/F32 disjointness hardening, the audit continued through the full physical representation rather than stopping at set overlap.
 
-### Production hardening
-
-Writer commit:
+The prior component code derived scope custody by filtering:
 
 ```text
-575962cbe8bcc8e30a68758158d774aba2d5c26c
+transferPlan.operations
+  where scopeDecision == APPLY and action != KEEP
+
+transferPlan.excludedOperations
+  where scopeDecision == EXCLUDE and action != KEEP
 ```
 
-`cii-workspace-writer2-hanger-partial-write.js` now independently requires:
+That means malformed rows could be made invisible to the custody proof. Examples:
 
 ```text
-PLAN appliedOperationIds ∩ PLAN excludedOperationIds = ∅
-SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+mutable DELETE stored in operations with scopeDecision=EXCLUDE
+mutable DELETE stored in excludedOperations with scopeDecision=APPLY
+KEEP stored in excludedOperations
+KEEP and mutable rows sharing one operationId
+missing excludedOperations array treated as [] by fallback
 ```
 
-Dedicated fail-closed diagnostics:
+The planner itself mutates only `transferPlan.operations` rows marked APPLY. Therefore filtering malformed rows at the physical writer boundary was not sufficient: a forged BOUND transaction could contain authority-bearing rows that neither the scope proof nor the planner considered.
+
+This is a component-boundary custody defect, not a defect in the upstream canonical scope builder.
+
+### Writer hardening
+
+Commit:
 
 ```text
-CII_WRITER_2_HANGER_PARTIAL_PLAN_APPLY_EXCLUDE_OVERLAP:<ids>
-CII_WRITER_2_HANGER_PARTIAL_SCOPE_APPLY_EXCLUDE_OVERLAP:<ids>
+4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
+CII: enforce canonical partial-HANGER operation containers
 ```
 
-Validator commit:
+Before the merged PR1025 planner is invoked, `cii-workspace-writer2-hanger-partial-write.js` now requires:
 
 ```text
-df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+operations is an Array
+excludedOperations is an Array
+
+each operations row:
+  operationId is nonblank
+  action != KEEP -> scopeDecision exactly APPLY
+  action == KEEP -> scopeDecision exactly KEEP
+
+each excludedOperations row:
+  operationId is nonblank
+  action != KEEP
+  scopeDecision exactly EXCLUDE
+
+mutable APPLY IDs ∩ mutable EXCLUDE IDs = empty
+all operation IDs across both containers are globally unique
 ```
 
-`cii-workspace-writer2-hanger-partial-validation.js` implements the disjointness derivation separately. It does not import the Writer helper. The validation PASS checklist now includes:
+The previous F31 PLAN overlap error retains precedence over the broader global-ID duplicate gate.
+
+### Independent validator hardening
+
+Commit:
 
 ```text
+c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
+CII: independently validate partial-HANGER operation containers
+```
+
+`cii-workspace-writer2-hanger-partial-validation.js` derives the same canonical-container proof independently. It does not import or call the Writer helper. The validator PASS checklist now includes:
+
+```text
+INDEPENDENT_CANONICAL_OPERATION_CONTAINERS
 INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS
 ```
 
-### F31 / F32 falsifier
+### Integrated F31-F39 falsifier suite
 
-Added:
+Existing test path expanded:
 
 ```text
 tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
 ```
 
-Commits:
+Extension commit:
 
 ```text
-28d45aa25ce763db9d3700479c5011cf3e3b2470  test authored
-74c935b8531899f2d97abcda495849ed290338e6  test EOF normalized
+4def181b64e70b348bd3540d505765090ece02c2
+CII: qualify canonical partial-HANGER scope containers
 ```
 
 Cases:
 
 ```text
 F31 PLAN_APPLY_EXCLUDE_OVERLAP
-  same operation ID physically present in both transferPlan.operations(APPLY)
-  and transferPlan.excludedOperations(EXCLUDE)
-  -> Writer rejects before physical mutation
-  -> independent validator rejects
+  same mutable ID physically present in APPLY and EXCLUDE plan containers
 
 F32 SCOPE_APPLY_EXCLUDE_OVERLAP
-  plan representation is disjoint but transferScope testimony claims the same
-  operation ID in both appliedOperationIds and excludedOperationIds
-  -> Writer rejects before set-equivalence comparison
-  -> independent validator rejects before set-equivalence comparison
+  plan containers canonical but bound-scope testimony claims one ID in both sets
+
+F33 MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
+  mutable row is in operations but marked EXCLUDE
+
+F34 EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
+  mutable row is in excludedOperations but marked APPLY
+
+F35 KEEP_ROW_IN_EXCLUDED_OPERATIONS
+  KEEP is placed in the excluded container
+
+F36 KEEP_MUTABLE_OPERATION_ID_ALIAS
+  a KEEP row and mutable APPLY row share one operationId
+
+F37 EXCLUDED_OPERATIONS_ARRAY_MISSING
+  canonical BOUND representation omits the excludedOperations container
+
+F38 BLANK_OPERATION_ID
+  physical operation row has no stable operation identity
+
+F39 KEEP_ROW_NON_KEEP_DECISION
+  KEEP row in operations is falsely marked APPLY
 ```
 
-The test also proves the normal one-APPLY/zero-EXCLUDE custody object remains accepted by both scope-check implementations.
+The same suite proves a canonical transaction containing one mutable APPLY row plus a distinct KEEP row is accepted by both scope-custody implementations, while KEEP remains absent from `candidateOperationIds`.
 
 ### Observation class
 
 ```text
-upstream canonical builder                         PASS_SOURCE_INSPECTION / UNCHANGED
-Writer disjointness gate                           PASS_SOURCE_INSPECTION
-independent validator disjointness gate             PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-F31/F32 test source                                AUTHORED / PASS_SOURCE_INSPECTION
-F31/F32 runtime                                    NOT_RUN_ENVIRONMENT
+upstream canonical transfer-scope builder             PASS_SOURCE_INSPECTION / UNCHANGED
+Writer canonical-container gate                       PASS_SOURCE_INSPECTION
+independent validator canonical-container gate         PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+existing focused builders compatibility                PASS_SOURCE_INSPECTION
+F31-F39 test source                                    AUTHORED / PASS_SOURCE_INSPECTION
+F31-F39 runtime                                        NOT_RUN_ENVIRONMENT
 ```
 
 No runtime PASS is inferred from source inspection.
 
-## Previous batch — real-source qualification census
+## Previous hardening — APPLY/EXCLUDE disjointness
+
+The earlier audit established that `sameStrings()` compares unique sets and could hide a forged representation containing the same mutable operation ID in both APPLY and EXCLUDE. Writer and validator were hardened separately at:
+
+```text
+575962cbe8bcc8e30a68758158d774aba2d5c26c  Writer disjointness gate
+df9eef839dc7511c6ff2d51bd46c5e9853679fe0  independent validator disjointness gate
+```
+
+F31/F32 remain part of the expanded F31-F39 suite; their specific overlap diagnostics are preserved.
+
+## Real-source qualification census retained
 
 Frozen ledger:
 
@@ -216,7 +288,8 @@ Writer and validator enforce this independently. `packedTailAuthority` is Writer
 - Pre-merge audit found missing top-level `deletedRecordIndices` testimony comparison; fixed at `8ea0c9df...` and directly falsified at `172467f9...`.
 - Packed-row shape was narrowed to exact active-only source rows based on synchronizer emitter + real H=1 vendor/profile evidence.
 - Real-source census established that no real H>1 repository source exists and added a future-discovery gate.
-- Current batch found the APPLY/EXCLUDE set-comparison ambiguity and added explicit disjointness gates in Writer and independent validator plus F31/F32.
+- Scope audit found APPLY/EXCLUDE overlap could survive set-equivalence on a forged BOUND object; Writer and independent validator hardened; F31/F32 authored.
+- Current batch completed the same trust-boundary audit by enforcing the canonical operation-container representation and expanding the suite through F39.
 
 Historical reconstructed PASS results remain historical; they are not relabelled as native current-head execution.
 
@@ -248,9 +321,11 @@ Expected reconciliation:
 actual: 15
 intended: 15
 unexplained: 0
-new path this batch: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+new paths this batch: 0
 existing production paths hardened this batch: 2
+existing test paths expanded this batch: 1
 upstream transfer-scope path changed: 0
+upstream planner path changed: 0
 workflow changes: 0
 package.json changes: 0
 product/composite/UI route changes: 0
@@ -277,13 +352,20 @@ Current-head source evidence:
 ```text
 F31 PLAN APPLY/EXCLUDE overlap                   PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
 F32 bound-SCOPE APPLY/EXCLUDE overlap            PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F33 hidden mutable operation                     PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F34 false APPLY in excludedOperations            PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F35 KEEP in excludedOperations                   PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F36 KEEP/mutable operation-ID alias              PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F37 missing excludedOperations array             PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F38 blank operationId                            PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F39 KEEP decision mismatch                       PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
 synchronizer active-only emitter authority       PASS_SOURCE_INSPECTION
 BM_CII_SOURCE H=1 active-only shape               PASS_SOURCE_INSPECTION
 converter profile H=1 active-only shape           PASS_SOURCE_INSPECTION
 repository CII real-source census                 PASS_SOURCE_INSPECTION
 real repository H>1 source                        NOT_AVAILABLE
 real H>1 physical partial-delete roundtrip        NOT_RUN_NO_REAL_SOURCE
-scope-disjointness falsifier                      NOT_RUN_ENVIRONMENT
+canonical scope-container falsifier               NOT_RUN_ENVIRONMENT
 packed-tail integrated test                       NOT_RUN_ENVIRONMENT
 real-source census test                           NOT_RUN_ENVIRONMENT
 focused current-head native tests                 NOT_RUN_ENVIRONMENT
@@ -298,6 +380,7 @@ No new authority for:
 
 ```text
 transfer-scope builder mutation
+merged HANGER planner mutation
 product/core partial-HANGER apply
 composite partial HANGER
 UI execution
@@ -315,20 +398,21 @@ Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DE
 ## Review / merge disposition
 
 ```text
-COMPONENT IMPLEMENTATION                 COMPLETE
-INDEPENDENT VALIDATOR                    COMPLETE
-SCOPE APPLY/EXCLUDE DISJOINTNESS         HARDENED
-F31/F32                                  AUTHORED / NOT_RUN_ENVIRONMENT
-PACKED SOURCE-SHAPE AUTHORITY            QUALIFIED
-REAL-SOURCE CENSUS                       COMPLETE
-REAL H>1 SOURCE                          NOT_AVAILABLE
-REAL H>1 ROUNDTRIP                       NOT_RUN_NO_REAL_SOURCE
-CURRENT-HEAD NATIVE TEST EXECUTION       NOT_RUN_ENVIRONMENT
-RUNTIME ADOPTION                         NONE / COMPONENT_ISOLATED
-HANDOVER READINESS                       READY
-REVIEW READINESS                         READY_WITH_EXPLICIT_EVIDENCE_LIMITATIONS
-MERGE AUTHORITY                          OWNER_ONLY
-MERGE AUTHORIZED                         FALSE
+COMPONENT IMPLEMENTATION                    COMPLETE
+INDEPENDENT VALIDATOR                       COMPLETE
+CANONICAL OPERATION-CONTAINER CUSTODY       HARDENED
+SCOPE APPLY/EXCLUDE DISJOINTNESS            HARDENED
+F31-F39                                     AUTHORED / NOT_RUN_ENVIRONMENT
+PACKED SOURCE-SHAPE AUTHORITY               QUALIFIED
+REAL-SOURCE CENSUS                          COMPLETE
+REAL H>1 SOURCE                             NOT_AVAILABLE
+REAL H>1 ROUNDTRIP                          NOT_RUN_NO_REAL_SOURCE
+CURRENT-HEAD NATIVE TEST EXECUTION          NOT_RUN_ENVIRONMENT
+RUNTIME ADOPTION                            NONE / COMPONENT_ISOLATED
+HANDOVER READINESS                          READY
+REVIEW READINESS                            PENDING_FINAL_HEAD_RECONCILIATION
+MERGE AUTHORITY                             OWNER_ONLY
+MERGE AUTHORIZED                            FALSE
 ```
 
 Do not merge without fresh owner authorization.
@@ -336,10 +420,12 @@ Do not merge without fresh owner authorization.
 # APPENDIX A — TAKEOVER QUALIFICATION
 
 1. Derive H=7 -> H'=6 and explain why the five packed families must repack raw I13 fields rather than delete physical rows.
-2. Explain the distinction between the upstream canonical transfer-scope builder being disjoint by construction and PR1027 still needing to reject a forged contradictory BOUND `transferPlan` at its component boundary.
-3. Explain exactly how `sameStrings()` could hide APPLY/EXCLUDE overlap and why F31 and F32 are separate falsifiers.
-4. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance and cite emitter + real H=1 evidence.
-5. Explain why absence of a real repository H>1 preimage remains `NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE` rather than being filled by a synthetic “real” fixture.
+2. Explain why upstream `applyCiiTransferScope()` being canonical by construction does not remove PR1027's obligation to validate a caller-supplied BOUND component object.
+3. Distinguish F31/F32 set-overlap defects from F33-F39 physical container/decision/identity defects. Explain why all are required.
+4. Explain why a mutable row marked EXCLUDE inside `operations` is dangerous even if scope set comparison filters it out, using the merged planner's APPLY-only selection behavior.
+5. Explain why KEEP IDs must be globally unique relative to mutable IDs even though KEEP rows are intentionally absent from `candidateOperationIds`.
+6. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance and cite emitter + real H=1 evidence.
+7. Explain why absence of a real repository H>1 preimage remains `NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE` rather than being filled by a synthetic “real” fixture.
 
 Threshold: 92/100 overall and each answer >=17/20.
 
@@ -352,3 +438,4 @@ Threshold: 92/100 overall and each answer >=17/20.
 - 2026-08-23: packed-row source shape narrowed fail-closed to active-fields-only using synchronizer emitter + real H=1 source evidence.
 - 2026-08-23: repository real-source census frozen; no H>1 source exists; future H>1 discovery converted to a qualification trigger.
 - 2026-08-23: scope audit found APPLY/EXCLUDE overlap could survive set-equivalence on a forged BOUND object; Writer and independent validator hardened; F31/F32 authored.
+- 2026-08-23: canonical operation-container custody hardened; F31/F32 retained and suite expanded through F39 without adding a new PR path.
