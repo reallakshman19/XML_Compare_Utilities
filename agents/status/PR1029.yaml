@@ -9,7 +9,7 @@ branch: agent/cii-writer2-hanger-partial-composite
 main_head_last_checked: e9a28071aa932e5c360206d20807aeaf2e4f9517
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_SOURCE_QUALIFIED_DRAFT
+agent_state: SOURCE_REVIEW_READY_WITH_EXPLICIT_RUNTIME_LIMITATION
 pr_recovery_state: HEALTHY
 handover_readiness: READY
 report_path: agents/PR1029_workreport.md
@@ -60,13 +60,7 @@ implementation:
     pr1027_independent_validator_oracle_reused: true
 qualification:
   partial_only_test: tests/cii-workspace-writer2-composite-hanger-partial.test.js
-  partial_only_commits:
-    - 7ec16e44d2455e09b7f315e35b135f4e3e216829
-    - 0de845e07e31413587b9db186cedd2f714ef42d9
   tri_family_test: tests/cii-workspace-writer2-composite-hanger-partial-trifamily.test.js
-  tri_family_commits:
-    - 47af1a191e6c237124bbd78eb622d53b9d736f5c
-    - 4f290a2beea53065161b80ecb72780745ef13a22
   transaction: NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_H3_TO_H2_HANGER_PARTIAL
 validation:
   pr1027_merge: PASS_REMOTE_EXECUTION
@@ -86,14 +80,25 @@ execution_attempt:
   detail: Could not resolve host github.com
 changed_files:
   intended: 8
-  expected_actual_after_master_sync: 8
+  actual: 8
   unexplained: 0
+reconciliation_snapshot:
+  observed_head: a350a3cfb0b93bccdf41c5816a546dd562157ab3
+  base_main: e9a28071aa932e5c360206d20807aeaf2e4f9517
+  ahead: 16
+  behind: 0
+  merge_base_exact_main: true
+  review_threads: 0
+  submitted_reviews: 0
+  status_contexts: 0
+  pr_workflow_runs: 0
 runtime_adoption:
   product_route_changed: false
   package_json_changed: false
   workflow_changed: false
   parser_converter_changed: false
 exact_next_action: >-
-  Synchronize PR1029 claim/master index, reconcile exact eight-path diff against live main,
-  inspect review/check surfaces, and keep draft unless a further source defect is found.
-last_updated: 2026-08-23T17:10:00+05:30
+  Keep PR1029 draft for owner/source review or native exact checkout. On the first native
+  checkout run the two new partial-composite tests, existing delete-all composite test,
+  then broader Writer2 regression. Do not merge without fresh owner authorization.
+last_updated: 2026-08-23T17:15:00+05:30
