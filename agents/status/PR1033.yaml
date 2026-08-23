@@ -1,0 +1,45 @@
+schema: engineering-pr-status/v1
+repository: reallaksh19/XML_Compare_Utilities
+pr: 1033
+issue: 1032
+branch: agent/cii-writer2-sif-create-qualification
+base_main: e5d3420f78794e465b4b8c7f858c3fc53baf3039
+agent_state: REVIEW_READY_WITH_EXPLICIT_SOURCE_BLOCKERS
+current_stage: W2_1_SIF_CREATE_SOURCE_QUALIFICATION_NOT_READY
+scope_authority: ISSUE_1032_QUALIFICATION_ONLY
+handover_readiness: READY
+merge_authority: OWNER_ONLY
+merge_authorized: false
+production_create_authorized: false
+final_verdict: NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
+current_blockers:
+  - V11_ITEMS_27_30_UNRESOLVED
+  - V11_ITEMS_19_22_GENERIC_CREATE_CONSTRUCTION_UNRESOLVED
+  - V11_ITEMS_23_24_RAW_SENTINEL_DEFAULT_ENCODING_UNRESOLVED
+  - V11_UNUSED_SECOND_TEE_SLOT_ENCODING_UNRESOLVED
+  - V11_GENERAL_OMITTED_DEFAULT_NEUTRAL_ENCODING_UNRESOLVED
+source_authority:
+  v11_physical_schema: PASS_DIRECT_SOURCE
+  v11_named_items_1_18_25_26: PASS_DIRECT_SOURCE
+  v11_items_19_22: UNRESOLVED
+  v11_items_23_24_raw_encoding: UNRESOLVED
+  v11_items_27_30: UNRESOLVED
+  v11_unused_slot_encoding: UNRESOLVED
+  v11_general_default_encoding: UNRESOLVED
+  v13_b31j_introduction: PASS_DIRECT_SOURCE
+  v14_edition_drift: PASS_DIRECT_SOURCE_DRIFT_ONLY
+repository_census:
+  v11_real_interface_sources_confirmed: 5
+  source3_sif_blocks: 14
+  target3_1_sif_blocks: 14
+  detailed_payload_position_enumeration: NOT_FULLY_ENUMERATED_REMOTE_ONLY
+validation:
+  qualification_test_source: AUTHORED_PASS_SOURCE_INSPECTION
+  exact_head_node_execution: NOT_RUN_ENVIRONMENT
+  repository_npm_test: NOT_RUN_ENVIRONMENT
+  browser_product: NOT_APPLICABLE_QUALIFICATION_ONLY
+intended_changed_paths: 9
+production_changed_paths: 0
+unexplained_changed_paths: 0
+next_action: >-
+  Owner/source-custodian review. Do not begin W2.2 production CREATE until a new source-qualification event resolves a complete supported-domain 60-position construction dataset. PR1033 remains draft and unmerged without fresh owner authorization.
