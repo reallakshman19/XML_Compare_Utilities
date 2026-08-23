@@ -2,14 +2,16 @@ import { deepFreeze } from './cii-workspace-contracts.js';
 import { applyCiiWriter2NodeNameRelocation } from './cii-workspace-writer2-nodename-write.js';
 import { applyCiiWriter2SifDeleteRelocation } from './cii-workspace-writer2-sif-delete-write.js';
 import { applyCiiWriter2HangerDeleteAll } from './cii-workspace-writer2-hanger-delete-all-write.js';
+import { applyCiiWriter2HangerPartialDelete } from './cii-workspace-writer2-hanger-partial-write.js';
 import { CII_WRITER_2_SIF_CREATE_BLOCKER } from './cii-workspace-writer2-sif-delete.js';
-import { CII_WRITER_2_HANGER_CREATE_BLOCKER } from './cii-workspace-writer2-hanger-delete.js';
+import { buildCiiWriter2HangerDeletePlan, CII_WRITER_2_HANGER_CREATE_BLOCKER } from './cii-workspace-writer2-hanger-delete.js';
 
 const NODE_PROPERTY = 'Node name / to-name';
 const SIF_PROPERTY = 'SIF/Tee record presence';
 const HANGER_PROPERTY = 'Hanger presence';
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
+const PARTIAL_HANGER_FAMILY = 'WRITER_2_HANGER_PARTIAL_DELETE';
 
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
@@ -121,6 +123,48 @@ function projectTransferPlan(transferPlan, predicate, family, parentCustody) {
     }),
   });
 }
+function projectCanonicalFamilySubscope(transferPlan, predicate, family, parentCustody) {
+  const projectedApply = []; const siblingExcludes = []; const keeps = [];
+  for (const operation of transferPlan?.operations || []) {
+    if (operation?.scopeDecision === 'APPLY') {
+      if (predicate(operation)) projectedApply.push(operation);
+      else siblingExcludes.push(deepFreeze({ ...operation, scopeDecision: 'EXCLUDE' }));
+    } else if (operation?.action === 'KEEP' && operation?.scopeDecision === 'KEEP') keeps.push(operation);
+    else throw new Error(`CII_WRITER_2_COMPOSITE_HANGER_PROJECTED_OPERATION_CONTAINER_INVALID:${operationId(operation) || 'UNKNOWN'}`);
+  }
+  const inheritedExcluded = [...(transferPlan?.excludedOperations || [])];
+  for (const operation of inheritedExcluded) {
+    if (!isMutable(operation) || operation?.scopeDecision !== 'EXCLUDE') {
+      throw new Error(`CII_WRITER_2_COMPOSITE_HANGER_PROJECTED_EXCLUDE_CONTAINER_INVALID:${operationId(operation) || 'UNKNOWN'}`);
+    }
+  }
+  const projectedExcluded = [...inheritedExcluded, ...siblingExcludes];
+  exactOperationIds([...keeps, ...projectedApply, ...projectedExcluded], 'PROJECTED_OPERATION');
+  const appliedIds = exactOperationIds(projectedApply, 'PROJECTED_APPLY');
+  const excludedIds = exactOperationIds(projectedExcluded, 'PROJECTED_EXCLUDE');
+  if (appliedIds.some((id) => excludedIds.includes(id))) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_PROJECTED_APPLY_EXCLUDE_OVERLAP');
+  const candidateIds = Object.freeze([...appliedIds, ...excludedIds]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+  const childScopeId = `${parentCustody.parentScopeId}::${family}`;
+  return deepFreeze({
+    ...transferPlan,
+    operations: deepFreeze([...keeps, ...projectedApply]),
+    excludedOperations: deepFreeze(projectedExcluded),
+    transferScope: deepFreeze({
+      status: 'BOUND', mode: SCOPE_MODE, authority: SCOPE_AUTHORITY, scopeId: childScopeId,
+      sourceSha256: parentCustody.sourceSha256, targetSha256: parentCustody.targetSha256,
+      candidateOperationIds: candidateIds, appliedOperationIds: deepFreeze(appliedIds), excludedOperationIds: deepFreeze(excludedIds),
+    }),
+    familyProjection: deepFreeze({
+      schema: 'CIIWorkspaceWriter2FamilyProjection.v1', status: 'DERIVED_CANONICAL_BOUND_SUBSCOPE',
+      authority: 'PARENT_TRANSFER_SCOPE_CANONICAL_SUBSCOPE', family,
+      parentScopeId: parentCustody.parentScopeId, projectedScopeId: childScopeId,
+      parentAppliedOperationIds: parentCustody.appliedOperationIds,
+      projectedAppliedOperationIds: deepFreeze(appliedIds),
+      siblingAppliedOperationIds: deepFreeze(sortedUnique(siblingExcludes.map(operationId))),
+    }),
+  });
+}
 function originalBytes(targetDocument) {
   const original = String(targetDocument?.physicalFile?.originalByteString ?? '');
   if (!original || targetDocument?.writer1CByteEligible !== true) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_ORIGINAL_BYTE_AUTHORITY_REQUIRED');
@@ -185,17 +229,30 @@ export function applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument, ta
   const hangerDeleteCount = applied.filter(isHangerDelete).length;
   const nodePlan = nodeCount ? projectTransferPlan(transferPlan, isNodeMutation, 'WRITER_2_NODENAME', parentCustody) : null;
   const sifPlan = sifDeleteCount ? projectTransferPlan(transferPlan, isSifDelete, 'WRITER_2_SIF_DELETE', parentCustody) : null;
-  const hangerPlan = hangerDeleteCount ? projectTransferPlan(transferPlan, isHangerDelete, 'WRITER_2_HANGER_DELETE_ALL', parentCustody) : null;
+  const hangerLegacyPlan = hangerDeleteCount ? projectTransferPlan(transferPlan, isHangerDelete, 'WRITER_2_HANGER_DELETE_ALL', parentCustody) : null;
+  const hangerDecision = hangerLegacyPlan ? buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan: hangerLegacyPlan }) : null;
+  if (hangerDecision && !hangerDecision.ready) throw new Error(`CII_WRITER_2_COMPOSITE_HANGER_PLAN_BLOCKED:${hangerDecision.blockers.join('|')}`);
+  const hangerIsDeleteAll = Boolean(hangerDecision?.compaction?.deleteAll === true && Number(hangerDecision?.countAfter) === 0);
+  const hangerIsPartial = Boolean(hangerDecision?.compaction?.partialMultiRecordDelete === true
+    && Number(hangerDecision?.countBefore) > 1 && Number(hangerDecision?.countAfter) > 0
+    && Number(hangerDecision?.countAfter) < Number(hangerDecision?.countBefore));
+  if (hangerDeleteCount && !hangerIsDeleteAll && !hangerIsPartial) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_DELETE_SCOPE_UNQUALIFIED');
+  const hangerPartialPlan = hangerIsPartial
+    ? projectCanonicalFamilySubscope(transferPlan, isHangerDelete, PARTIAL_HANGER_FAMILY, parentCustody) : null;
 
   // All component writers dry-run from exactly the same untouched TARGET preimage.
   const nodeResult = nodePlan ? applyCiiWriter2NodeNameRelocation({ targetDocument, transferPlan: nodePlan }) : null;
   const sifResult = sifPlan ? applyCiiWriter2SifDeleteRelocation({ targetDocument, targetGraph, transferPlan: sifPlan }) : null;
-  const hangerResult = hangerPlan ? applyCiiWriter2HangerDeleteAll({ targetDocument, transferPlan: hangerPlan }) : null;
+  const hangerDeleteAllResult = hangerIsDeleteAll
+    ? applyCiiWriter2HangerDeleteAll({ targetDocument, transferPlan: hangerLegacyPlan }) : null;
+  const hangerPartialResult = hangerIsPartial
+    ? applyCiiWriter2HangerPartialDelete({ targetDocument, transferPlan: hangerPartialPlan }) : null;
 
   const candidateClaims = [
     ...(nodeResult?.mutations || []).map((claim) => ({ authorityFamily: 'WRITER_2_NODENAME', claim })),
     ...(sifResult?.mutations || []).map((claim) => ({ authorityFamily: 'WRITER_2_SIF_DELETE', claim })),
-    ...(hangerResult?.mutations || []).map((claim) => ({ authorityFamily: 'WRITER_2_HANGER_DELETE_ALL', claim })),
+    ...(hangerDeleteAllResult?.mutations || []).map((claim) => ({ authorityFamily: 'WRITER_2_HANGER_DELETE_ALL', claim })),
+    ...(hangerPartialResult?.mutations || []).map((claim) => ({ authorityFamily: PARTIAL_HANGER_FAMILY, claim })),
   ];
   const mutations = arbitrateClaims(candidateClaims, original);
   if (!mutations.length) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_NO_PHYSICAL_MUTATIONS');
@@ -206,16 +263,22 @@ export function applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument, ta
     mutationCount: mutations.length, mutations, parentScopeCustody: parentCustody,
     familyMutationCounts: deepFreeze({
       nodeNameOperations: nodeCount, sifDeleteOperations: sifDeleteCount, hangerDeleteOperations: hangerDeleteCount,
+      hangerDeleteAllOperations: hangerIsDeleteAll ? hangerDeleteCount : 0,
+      hangerPartialDeleteOperations: hangerIsPartial ? hangerDeleteCount : 0,
       nodeNameClaims: nodeResult?.mutations?.length || 0, sifDeleteClaims: sifResult?.mutations?.length || 0,
-      hangerDeleteClaims: hangerResult?.mutations?.length || 0,
+      hangerDeleteClaims: (hangerDeleteAllResult?.mutations?.length || 0) + (hangerPartialResult?.mutations?.length || 0),
+      hangerDeleteAllClaims: hangerDeleteAllResult?.mutations?.length || 0,
+      hangerPartialDeleteClaims: hangerPartialResult?.mutations?.length || 0,
     }),
-    components: Object.freeze({ nodeName: nodeResult, sifDelete: sifResult, hangerDeleteAll: hangerResult }),
+    components: Object.freeze({
+      nodeName: nodeResult, sifDelete: sifResult, hangerDeleteAll: hangerDeleteAllResult, hangerPartialDelete: hangerPartialResult,
+    }),
   });
 }
 
 export const _test = deepFreeze({
   text, operationId, sortedUnique, sameStrings, exactIds, exactOperationIds,
   isNodeMutation, isSifCreate, isSifDelete, isHangerCreate, isHangerDelete,
-  supportedApply, appliedOperations, excludedOperations, assertBoundScopeCustody, projectTransferPlan,
+  supportedApply, appliedOperations, excludedOperations, assertBoundScopeCustody, projectTransferPlan, projectCanonicalFamilySubscope,
   normalizeClaim, arbitrateClaims, applyClaims,
 });
