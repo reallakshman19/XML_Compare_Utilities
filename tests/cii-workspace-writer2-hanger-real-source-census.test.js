@@ -88,29 +88,37 @@ const expectedByPath = new Map(censusRows.map((row) => [row.path, row]));
 assert.equal(expectedByPath.size, censusRows.length, 'Census paths must be unique');
 assert.ok(censusRows.every((row) => row.h_gt_1_candidate === 'false'), 'Frozen census must not claim an H>1 real source');
 
+// Detect newly introduced real H>1 evidence before generic census-drift handling.
+// That source is a qualification event, not merely an inventory update.
 const candidates = await repositoryCiiCandidates();
-const actualPaths = candidates.map((item) => item.path);
-const expectedPaths = [...expectedByPath.keys()].sort((a, b) => a.localeCompare(b));
-assert.deepEqual(actualPaths, expectedPaths,
-  'REAL_HANGER_SOURCE_CENSUS_DRIFT: update source custody before accepting added/removed repository CII assets');
-
-const observedH1 = [];
+const observed = [];
 for (const candidate of candidates) {
   const raw = await readFile(candidate.absolute, 'utf8');
   const lines = raw.split(/\r\n|\n|\r/); const counts = controlCounts(lines, candidate.path);
   if (counts.nohgrs > 1) {
     throw new Error(`REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION:${candidate.path}:${counts.nohgrs}`);
   }
-  const expected = expectedByPath.get(candidate.path);
-  assert.equal(counts.numelt, Number(expected.numelt), `NUMELT census custody: ${candidate.path}`);
-  assert.equal(counts.numnoz, Number(expected.numnoz), `NUMNOZ census custody: ${candidate.path}`);
-  assert.equal(counts.nohgrs, Number(expected.nohgrs), `NOHGRS census custody: ${candidate.path}`);
-  if (counts.nohgrs === 1) {
-    observedH1.push(candidate.path);
-    assert.equal(expected.packed_shape_observed, 'ACTIVE_FIELDS_ONLY_H1', `H=1 source shape ledger: ${candidate.path}`);
-    assertH1PackedShape(lines, counts, candidate.path);
+  observed.push(Object.freeze({ ...candidate, lines: Object.freeze(lines), counts }));
+}
+
+const actualPaths = observed.map((item) => item.path);
+const expectedPaths = [...expectedByPath.keys()].sort((a, b) => a.localeCompare(b));
+assert.deepEqual(actualPaths, expectedPaths,
+  'REAL_HANGER_SOURCE_CENSUS_DRIFT: update source custody before accepting added/removed repository CII assets');
+
+const observedH1 = [];
+for (const item of observed) {
+  const expected = expectedByPath.get(item.path);
+  assert.ok(expected, `Frozen census entry required: ${item.path}`);
+  assert.equal(item.counts.numelt, Number(expected.numelt), `NUMELT census custody: ${item.path}`);
+  assert.equal(item.counts.numnoz, Number(expected.numnoz), `NUMNOZ census custody: ${item.path}`);
+  assert.equal(item.counts.nohgrs, Number(expected.nohgrs), `NOHGRS census custody: ${item.path}`);
+  if (item.counts.nohgrs === 1) {
+    observedH1.push(item.path);
+    assert.equal(expected.packed_shape_observed, 'ACTIVE_FIELDS_ONLY_H1', `H=1 source shape ledger: ${item.path}`);
+    assertH1PackedShape(item.lines, item.counts, item.path);
   } else {
-    assert.equal(expected.packed_shape_observed, 'NOT_APPLICABLE_H0', `H=0 source shape ledger: ${candidate.path}`);
+    assert.equal(expected.packed_shape_observed, 'NOT_APPLICABLE_H0', `H=0 source shape ledger: ${item.path}`);
   }
 }
 
