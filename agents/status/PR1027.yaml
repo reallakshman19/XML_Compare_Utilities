@@ -7,7 +7,7 @@ mission: >-
 workstream: CII_WRITER2_HANGER_PARTIAL_PHYSICAL
 branch: agent/cii-writer2-hanger-partial-physical
 main_head_last_checked: ae1de402db129e32cd6d7811a4e4707d64512bd4
-review_ready_head_basis: 92d0c76b7952c1e798435a8f0d65f7ced8bfe2a2
+review_ready_head_basis: fb4d738d12bec97e434f0207a6640a17cb582cf0
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: REVIEW_READY_AFTER_PREMERGE_AUDIT_FIX
