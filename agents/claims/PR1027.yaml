@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_TARGET0_CRYPTOGRAPHIC_CUSTODY_HARDENED
+claim_state: ACTIVE_REVIEW_READY_POSTIMAGE_CRYPTOGRAPHIC_CUSTODY_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -39,27 +39,19 @@ shared_read_only:
   - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
   - converters/scripts/cii2019_hanger_miscel_control.py
   - Benchmark/CIICompare/BM_CII_SOURCE.CII
-  - Benchmark/CIICompare/BM_CII_TARGET1.CII
-  - Benchmark/CIICompare/BM_CII_TARGET2.CII
-  - Benchmark/CIICompare/SOURCE 3.CII
-  - Benchmark/CIICompare/TARGET 3-1.CII
-  - Benchmark/Pipeline/CII
   - converters/scripts/inputxml_profile_bm_cii_2019.cii
-  - converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii
-  - converters/scripts/pdf_inputxml_profile_bm_cii.xml
-  - output.cii
 authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_H_GT_1_PHYSICAL_COMPACTION
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
   - SHA256_ORIGINAL_TARGET0_BYTES
+  - SHA256_WRITER2_POSTIMAGE_BYTES
   - TARGET0_BYTE_LENGTH_CUSTODY
+  - POSTIMAGE_BYTE_LENGTH_CUSTODY
   - WRITER_TARGET0_HASH_TESTIMONY_INDEPENDENT_FALSIFICATION
+  - WRITER_POSTIMAGE_HASH_TESTIMONY_INDEPENDENT_FALSIFICATION
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
-  - IMMUTABLE_INDEPENDENT_POSTIMAGE_SHA_ORACLE
-  - WRITER_RECORD_TESTIMONY_INDEPENDENT_FALSIFICATION
   - SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
-  - PACKED_ROW_SOURCE_SHAPE_FAIL_CLOSED
   - CANONICAL_SCOPE_APPLY_EXCLUDE_DISJOINTNESS
   - CANONICAL_SCOPE_OPERATION_CONTAINER_CUSTODY
   - GLOBAL_TRANSFER_OPERATION_ID_UNIQUENESS
@@ -88,53 +80,44 @@ negative_assurance:
   - no tri-family composite expansion
   - no UI enablement
   - no HANGER CREATE or value editing
-  - no SIF CREATE
-  - no Writer3 topology
   - no workflow or package-script changes
   - no protected parser/converter changes
-  - no existing runtime import of partial-HANGER component into product route
   - no synthetic fixture represented as real H>1 authority
+postimage_cryptographic_custody:
+  authority: SHA256_WRITER2_POSTIMAGE_BYTES
+  writer_fix_commit: b93835388b5f27c2044ecd20c91084c7a5f1b38c
+  validator_fix_commit: c2cd7bd114d09027feb3a413a7ec244751ba56e2
+  sha_falsifier_extension_commit: 09864fcb3df5c70146c8c093cfefdcb43a057c34
+  fixture_migrations:
+    - 4b8d47abaaa7c9d3f7a3f5bc32da5f65d58bca48
+    - 181a11da248286007f3b46e22803cdf2469232ef
+    - cd6bd81105e00cf2513ae5d2cf9520501080161c
+  rules:
+    writer_postimage_digest: SHA256_OF_FINAL_BYTE_STRING
+    writer_testimony: POSTIMAGE_HASH_CUSTODY_REQUIRED
+    declared_after_digest: LOWERCASE_SHA256_64_HEX_REQUIRED
+    physical_byte_length: MUST_MATCH_ACTUAL_POSTIMAGE_BYTE_STRING
+    document_byte_length_when_present: MUST_MATCH_ACTUAL_POSTIMAGE_BYTE_STRING
+    validator_postimage_digest: INDEPENDENTLY_RECOMPUTED_FROM_AFTER_ORIGINAL_BYTE_STRING
+    declared_after_digest_match: REQUIRED
+    writer_postimage_testimony_match: REQUIRED
+  falsifiers:
+    f46: FORGED_WELL_FORMED_POSTIMAGE_HASH
+    f47: NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
+    f48: POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
+    f49: POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
+    f50: FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
+  runtime_observation: NOT_RUN_ENVIRONMENT
 target0_cryptographic_custody:
   authority: SHA256_ORIGINAL_TARGET0_BYTES
-  intake_basis: tabs/cii-workspace/cii-workspace-intake.js
-  intake_property: SHA256_OF_CII_PHYSICAL_FILE_ORIGINAL_BYTES
   sha_primitive: tabs/cii-workspace/cii-workspace-byte-sha256.js
-  sha_primitive_commit: 3470e9871469fae1a2a13cbc916c6c328bd8168c
   writer_fix_commit: 39e6770a70f284c0f36400425f19789e430fb9fa
   validator_fix_commit: 4d34f7699f46fd1025c3cba52ae16335dff87448
-  sha_test: tests/cii-workspace-byte-sha256.test.js
-  sha_falsifier_commit: 3c820eb73639c76be22c1cde824c911732728ea8
-  testimony_falsifier_commit: 3652e38832f626755e1f99c308f94fe42b558682
-  fixture_migrations:
-    - 54a8b52ff17eb577d4e3bc500cc4e2e5fdf13d92
-    - 64d36923160fb4b76c095da53a57b7752f094094
-    - 7458a8f700d0d982b01e4b0de4888a5ffdde5b53
-  rules:
-    declared_target_digest: LOWERCASE_SHA256_64_HEX_REQUIRED
-    physical_byte_length: MUST_MATCH_ORIGINAL_BYTE_STRING
-    document_byte_length_when_present: MUST_MATCH_ORIGINAL_BYTE_STRING
-    target0_digest: RECOMPUTED_FROM_UNTOUCHED_ORIGINAL_BYTE_STRING
-    transfer_plan_target_digest: MUST_MATCH_RECOMPUTED_TARGET0_DIGEST
-    bound_scope_target_digest: MUST_MATCH_RECOMPUTED_TARGET0_DIGEST
-    writer_testimony: MUST_MATCH_INDEPENDENT_VALIDATOR_CUSTODY
-  falsifiers:
-    f40: CONSISTENTLY_FORGED_DECLARED_TARGET_HASHES
-    f41: STALE_TARGET0_PHYSICAL_BYTES_WITH_OLD_DIGEST
-    f42: NON_SHA_PLACEHOLDER_TARGET_HASH
-    f43: PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
-    f44: DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
-    f45: FORGED_WRITER_TARGET0_HASH_TESTIMONY
-  source_hash_boundary: >-
-    SOURCE byte rehash is not claimed because source physical bytes are not supplied
-    to this component API. Existing source hash equality remains inherited scope
-    testimony from upstream intake.
-  transient_setup_commit: 9168c5d7ee8a9ba978aaf76e1a1c1db94b7aa784
-  transient_setup_disposition: IMMEDIATELY_SUPERSEDED_EMPTY_FILE_NO_CURRENT_EFFECT
+  falsifiers: F40_F45
+  runtime_observation: NOT_RUN_ENVIRONMENT
 canonical_scope_container_custody:
   writer_fix_commit: 4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
   validator_fix_commit: c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
-  falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
-  falsifier_extension_commit: 4def181b64e70b348bd3540d505765090ece02c2
   falsifiers: F31_F39
   runtime_observation: NOT_RUN_ENVIRONMENT
 real_source_census:
@@ -151,12 +134,12 @@ packed_source_shape:
   validator_rule: INDEPENDENT_EXACT_2X_PLUS_ACTIVE_I13_FIELDS_NO_TRAILING_BYTES
 validation_custody:
   production_intake_sha_basis: PASS_SOURCE_INSPECTION
-  sha_primitive_source: PASS_SOURCE_INSPECTION
-  sha_standard_vectors_exact_committed_test: AUTHORED_NOT_RUN_ENVIRONMENT
-  sha_standard_vectors_equivalent_local_check: PASS_EQUIVALENT_IMPLEMENTATION
   writer_target0_hash_gate: PASS_SOURCE_INSPECTION
   validator_target0_hash_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+  writer_postimage_hash_gate: PASS_SOURCE_INSPECTION
+  validator_postimage_hash_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
   f40_f45_target0_hash_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f46_f50_postimage_hash_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   historical_frozen_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
@@ -174,4 +157,4 @@ review_state:
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T15:01:00+05:30
+last_updated: 2026-08-23T15:28:00+05:30
