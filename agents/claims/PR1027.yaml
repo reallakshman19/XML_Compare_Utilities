@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_SCOPE_DISJOINTNESS_HARDENED
+claim_state: ACTIVE_REVIEW_READY_CANONICAL_SCOPE_CONTAINER_CUSTODY_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -54,6 +54,8 @@ authority_domains:
   - SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
   - PACKED_ROW_SOURCE_SHAPE_FAIL_CLOSED
   - CANONICAL_SCOPE_APPLY_EXCLUDE_DISJOINTNESS
+  - CANONICAL_SCOPE_OPERATION_CONTAINER_CUSTODY
+  - GLOBAL_TRANSFER_OPERATION_ID_UNIQUENESS
   - REAL_HANGER_SOURCE_CENSUS
   - REAL_H_GT_1_DISCOVERY_QUALIFICATION_GATE
 dependency:
@@ -83,16 +85,34 @@ negative_assurance:
   - no protected parser/converter changes
   - no existing runtime import of new partial-HANGER component
   - no synthetic fixture represented as real H>1 authority
-scope_disjointness:
+canonical_scope_container_custody:
   upstream_canonical_builder: tabs/cii-workspace/cii-workspace-transfer-scope.js
-  upstream_property: DISJOINT_APPLY_EXCLUDE_BY_SINGLE_DECISION_MAP
+  upstream_property: SINGLE_DECISION_MAP_CANONICAL_OPERATIONS_AND_EXCLUDED_OPERATIONS
   upstream_changed: false
-  writer_fix_commit: 575962cbe8bcc8e30a68758158d774aba2d5c26c
-  validator_fix_commit: df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+  writer_fix_commit: 4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
+  validator_fix_commit: c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
   falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
-  f31: PLAN_APPLY_EXCLUDE_OVERLAP
-  f32: SCOPE_APPLY_EXCLUDE_OVERLAP
-  source_observation: PASS_SOURCE_INSPECTION
+  falsifier_extension_commit: 4def181b64e70b348bd3540d505765090ece02c2
+  rules:
+    operations_array_required: true
+    excluded_operations_array_required: true
+    mutable_operations_decision: APPLY_ONLY
+    keep_operations_decision: KEEP_ONLY
+    excluded_operations_mutability: MUTABLE_ONLY
+    excluded_operations_decision: EXCLUDE_ONLY
+    apply_exclude_disjoint: true
+    all_operation_ids_global_unique: true
+  falsifiers:
+    f31: PLAN_APPLY_EXCLUDE_OVERLAP
+    f32: SCOPE_APPLY_EXCLUDE_OVERLAP
+    f33: MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
+    f34: EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
+    f35: KEEP_ROW_IN_EXCLUDED_OPERATIONS
+    f36: KEEP_MUTABLE_OPERATION_ID_ALIAS
+    f37: EXCLUDED_OPERATIONS_ARRAY_MISSING
+    f38: BLANK_OPERATION_ID
+    f39: KEEP_ROW_NON_KEEP_DECISION
+  source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATIONS
   runtime_observation: NOT_RUN_ENVIRONMENT
 real_source_census:
   ledger: docs/cii-writer2-hanger-real-source-census.csv
@@ -125,13 +145,20 @@ validation_custody:
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
   f31_plan_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   f32_bound_scope_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f33_hidden_mutable_operation: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f34_wrong_excluded_decision: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f35_excluded_keep: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f36_keep_mutable_id_alias: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f37_missing_excluded_operations_array: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f38_blank_operation_id: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f39_keep_decision_mismatch: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   packed_source_shape_emitter: PASS_SOURCE_INSPECTION
   packed_source_shape_vendor_benchmark: PASS_SOURCE_INSPECTION
   packed_source_shape_converter_profile: PASS_SOURCE_INSPECTION
   repository_real_source_census: PASS_SOURCE_INSPECTION
   real_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_roundtrip: NOT_RUN_NO_REAL_SOURCE
-  scope_disjointness_runtime: NOT_RUN_ENVIRONMENT
+  canonical_scope_container_runtime: NOT_RUN_ENVIRONMENT
   packed_source_shape_runtime: NOT_RUN_ENVIRONMENT
   real_source_census_runtime: NOT_RUN_ENVIRONMENT
   native_exact_checkout_current_head: NOT_AVAILABLE
@@ -139,8 +166,8 @@ validation_custody:
   broader_writer2_integration: NOT_RUN_ENVIRONMENT
   full_repository: NOT_RUN_ENVIRONMENT
 review_state:
-  ready_for_review: true
+  ready_for_review: false
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T14:17:00+05:30
+last_updated: 2026-08-23T14:39:00+05:30
