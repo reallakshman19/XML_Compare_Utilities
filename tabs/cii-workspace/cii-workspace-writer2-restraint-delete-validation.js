@@ -5,6 +5,7 @@ import { buildCiiWriter2RestraintDeleteCompactionPlan } from './cii-workspace-wr
 
 const FIELD_WIDTHS = Object.freeze([15, 13, 13, 13, 13, 13]);
 const FIELD_WIDTH = 13;
+const CONTROL_COUNT_ROW_INDEX = 1;
 const CONTROL_COUNT_FIELD_INDEX = 3;
 const BLOCK_ROWS = 24;
 const TARGET0_HASH_AUTHORITY = 'SHA256_ORIGINAL_TARGET0_BYTES';
@@ -46,8 +47,8 @@ function rawSectionEnvelope(physicalFile, section) {
 function independentControlReplacement(before, plan) {
   const lines = before?.physicalFile?.lines || [];
   const markerIndex = lines.findIndex((line) => markerName(line.text) === 'CONTROL');
-  const row = markerIndex >= 0 ? lines[markerIndex + 1] : null;
-  if (!row) throw new Error('CII_WRITER_2_RESTRAINT_VALIDATOR_CONTROL_ROW1_REQUIRED');
+  const row = markerIndex >= 0 ? lines[markerIndex + 1 + CONTROL_COUNT_ROW_INDEX] : null;
+  if (!row) throw new Error('CII_WRITER_2_RESTRAINT_VALIDATOR_CONTROL_ROW2_REQUIRED');
   const startColumn = FIELD_WIDTHS.slice(0, CONTROL_COUNT_FIELD_INDEX).reduce((sum, width) => sum + width, 0);
   const byteStart = Number(row.byteStart) + startColumn; const byteEnd = byteStart + FIELD_WIDTH;
   const original = String(before?.physicalFile?.originalByteString ?? '');
