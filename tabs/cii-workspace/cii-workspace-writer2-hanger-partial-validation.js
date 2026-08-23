@@ -255,7 +255,8 @@ export function validateCiiWriter2HangerPartialRoundTrip(before, after, transfer
     if (ciiPhysicalSectionRows(after?.physicalFile, 'MISCEL_1').length !== counts.rowCountAfter) errors.push('WRITER_2_HANGER_PARTIAL_POST_ROW_COUNT_MISMATCH');
   }
   if (retainedInfo) {
-    if (stableStringify(writerResult?.retainedRecordIndices || []) !== stableStringify(retainedInfo.retained)
+    if (stableStringify(writerResult?.deletedRecordIndices || []) !== stableStringify(plan?.deletedRecordIndices || [])
+      || stableStringify(writerResult?.retainedRecordIndices || []) !== stableStringify(retainedInfo.retained)
       || stableStringify(writerResult?.oldToNewRecordIndex || {}) !== stableStringify(retainedInfo.oldToNew)) errors.push('WRITER_2_HANGER_PARTIAL_RECORD_TESTIMONY_MISMATCH');
     const expectedNodes = retainedInfo.retained.map((index) => String(recordByIndex(plan?.physicalCustody?.recordBinding, index)?.node));
     if (after?.hangerEvidence?.status !== 'QUALIFIED' || after?.hangerEvidence?.layout !== CII_HANGER_LAYOUTS.SYNCHRONIZER
