@@ -4,143 +4,215 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | DRAFT / ACTIVE | Planner-only positional record binding across IHGRNODE, qualified HGRDAT/TAG/GUID tail, IHGRFREE and four packed arrays; physical/product partial write remains blocked | Execute focused regressions when exact checkout is available; after acceptance build a separate physical partial-compaction writer/validator |
-| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; exact per-record row ownership; no mutation authority | Consumed by PR1025 planner only |
-| PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL; direct/product byte parity; independent full-postimage validation | Evidence baseline retained |
-| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | Explicit NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; canonical parent-scope custody; tri-family writer + independent validator | Production baseline; partial HANGER still product-blocked |
-| PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL; one TARGET0; independent full-postimage validator | Reused by product/core |
-| PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | Exact `CONTROL.NOHGRS -> 0` + complete `MISCEL_1` hanger-payload removal; independent full-postimage validator | Physical authority remains DELETE-ALL only |
-| PR1019 | Writer 2 HANGER DELETE planner foundation | MERGED 2026-08-21 · `66342367` | IHGRNODE-first HANGER delete planner; delete-all authority; CREATE blocked; original H>1 partial blocker | Extended at planner level by PR1025 only when record binding is qualified |
-| PR1018 | Writer 2 real-benchmark product qualification | MERGED 2026-08-21 · `887eedc0` | Qualification-only real CII preimage for merged NODENAME + V11 SIF DELETE product route | Two-family evidence retained |
-| PR1017 | Writer 2 composite product/core routing | MERGED 2026-08-21 · `112e2d78` | Explicit Writer2 NODENAME CREATE/DELETE + V11 SIF existing-block DELETE product route; Writer1B default preserved | Superseded by PR1022 |
-| PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Parent-scope custody; derived family subsets; original-coordinate arbitration; independent validator | Architectural foundation |
-| PR1015 | Writer 2 V11 SIF/TEE physical DELETE | MERGED 2026-08-21 · `d5ecd8ac` | CONTROL SIF count + ELEMENT pointers + byte-preserved SIF payload deletion | Component authority |
-| PR1014 | Writer 2 V11 SIF/TEE DELETE planner | MERGED 2026-08-21 · `9a2984cb` | Exact owner binding, shared-pointer veto, 10-row compaction; CREATE blocked | Component authority |
-| PR1013 | Writer 2 NODENAME initial product route | MERGED 2026-08-21 · `70c7004f` | Initial explicit NODENAME CREATE/DELETE product path | Superseded |
-| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + exact ELEMENT pointers + NODENAME payload; independent validator | Component authority |
-| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation and complete pointer relocation | Component authority |
-| PR1010 | Writer 1A + 1B + 1C one-preimage composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified Writer1 family claims from one untouched TARGET | Architectural precedent |
-| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 block; selected ii/io fields only | Existing-field authority |
-| PR1008 | Writer 1C exact ELEMENT/NODENAME custody | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical ELEMENT/NODENAME binding | Physical custody foundation |
-| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; items 27..30 unresolved | SIF CREATE remains blocked |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; TARGET0 + postimage SHA-256 byte custody; canonical postimage physical re-intake + Writer byte/text equivalence; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 17 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Run SHA/F40-F58 then all focused current-head tests on first native checkout; first real H>1 source must trigger dedicated qualification |
+| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027 |
+| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027 |
+| PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
+| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL | Partial HANGER deliberately product-blocked |
+| PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | One TARGET0 + independent postimage validation | Architectural foundation |
+| PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | `CONTROL.NOHGRS -> 0` + complete MISCEL_1 HANGER payload removal | Delete-all authority unchanged |
+| PR1019 | Writer 2 HANGER DELETE planner foundation | MERGED 2026-08-21 · `66342367` | IHGRNODE-first HANGER delete planner; CREATE blocked | Foundation |
+| PR1018 | Writer 2 real-benchmark product qualification | MERGED 2026-08-21 · `887eedc0` | Real CII preimage for NODENAME + V11 SIF DELETE | Evidence retained |
+| PR1017 | Writer 2 composite product/core routing | MERGED 2026-08-21 · `112e2d78` | NODENAME CREATE/DELETE + V11 SIF DELETE | Superseded by PR1022 |
+| PR1016 | Writer 2 one-original-preimage NODENAME + V11 SIF DELETE composite | MERGED 2026-08-21 · `5a160285` | Original-coordinate arbitration + independent validator | Architectural foundation |
+| PR1015 | Writer 2 V11 SIF/TEE physical DELETE | MERGED 2026-08-21 · `d5ecd8ac` | Existing 10-row SIF block delete | Component authority |
+| PR1014 | Writer 2 V11 SIF/TEE DELETE planner | MERGED 2026-08-21 · `9a2984cb` | Owner binding/shared-pointer veto; CREATE blocked | Component authority |
+| PR1013 | Writer 2 NODENAME initial product route | MERGED 2026-08-21 · `70c7004f` | Initial NODENAME product path | Superseded |
+| PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + pointers + NODENAME payload | Component authority |
+| PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation | Component authority |
+| PR1010 | Writer 1A + 1B + 1C one-preimage composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified Writer1 claims from one TARGET | Architectural precedent |
+| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 selected fields | Existing-field authority |
+| PR1008 | Writer 1C exact ELEMENT/NODENAME custody | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical binding | Physical custody foundation |
+| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; 27..30 unresolved | SIF CREATE remains blocked |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Writer1 fixed fields; Writer2 cardinality/pointers; Writer3 topology | Governing architecture |
-| PR1001 | Explicit APPLY / EXCLUDE transfer scope | MERGED 2026-08-19 · `5a5fa0ae` | Source/target hash + exact candidate/APPLY/EXCLUDE operation-set custody | Governing transaction scope |
-| PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Qualified extended fixed-field writer | PRODUCT DEFAULT |
+| PR1001 | Explicit APPLY / EXCLUDE transfer scope | MERGED 2026-08-19 · `5a5fa0ae` | Hash + operation-set custody | Governing transaction scope |
+| PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Extended fixed-field writer | PRODUCT DEFAULT |
 | PR991 | Writer 1A | MERGED 2026-08-19 · `edf297f7` | Initial fixed-cardinality writer | Historical |
 
-## Current writer authority stack
+## Current Writer 2 HANGER authority stack
 
 ```text
-Writer 1A
-  fixed-cardinality qualified fields
+Merged product authority
+  HANGER H=1 / H>1 DELETE-ALL
+  partial HANGER product/composite remains blocked
 
-Writer 1B
-  qualified extended fixed fields
-  PRODUCT DEFAULT
-
-Writer 1C
-  one-original-preimage Writer1 composition
-  existing NODENAME overwrite
-  selected existing V11 SIF ii/io fields
-
-Writer 2 — merged physical/product authority
-  explicit writerVersion=2 only
-  NODENAME CREATE/DELETE
-  V11 existing SIF 10-row block DELETE
-  HANGER H=1 delete / H>1 DELETE-ALL only
-  canonical parent APPLY/EXCLUDE scope custody
-  one untouched TARGET0 tri-family composite
-  re-intake + independent complete-postimage validator
-
-Writer 2 — active PR1025 planner authority only
-  H>1 partial HANGER DELETE may be planner READY only when record binding is QUALIFIED
-  record i binds IHGRNODE + HGRDAT/TAG/GUID + IHGRFREE + IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN
+Merged PR1025 planner authority
+  H>1 partial plan only with qualified positional record binding
   semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
-  plannerPartialRecordAuthority = true
-  physicalPartialWriteAuthority = false
-  physicalWriterScope = DELETE_ALL_ONLY_UNCHANGED
 
-Writer 2 partial-HANGER gates
-  record binding unqualified -> WRITER_2_HANGER_PARTIAL_MULTI_RECORD_TAIL_ORDER_UNQUALIFIED
-  physical delete-all writer -> CII_WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
-  product/composite readiness -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+PR1027 component authority
+  H>1 partial HANGER DELETE physical compaction only; H' > 0
 
-Writer 2 stable CREATE blockers
-  HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
-  SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+  TARGET0 preimage custody
+    authority = SHA256_ORIGINAL_TARGET0_BYTES
+    physical/document byte lengths bind untouched originalByteString
+    SHA256(original TARGET0 bytes) recomputed before planner execution
+    recomputed digest == target document == transfer-plan target == BOUND-scope target
+    independent validator separately rehashes TARGET0
+    Writer target0HashCustody is secondary testimony
 
-Writer 3
-  topology/node/element/connectivity mutation only
+  BOUND transaction custody
+    operations[] required
+      mutable rows -> APPLY only
+      KEEP rows    -> KEEP only
+    excludedOperations[] required
+      mutable rows -> EXCLUDE only
+      KEEP forbidden
+    PLAN APPLY ∩ EXCLUDE = empty
+    SCOPE APPLY ∩ EXCLUDE = empty
+    operation IDs globally unique across both containers
+
+  physical compaction
+    one untouched TARGET0
+    two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1
+    exact retained raw I13 field repacking across all five arrays
+    packed source authority = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+    retained IHGRFREE copied by the same positional map
+    INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class preserved
+    actual final bytes == independently expected final bytes
+
+  postimage cryptographic custody
+    authority = SHA256_WRITER2_POSTIMAGE_BYTES
+    Writer hashes exact final byteString after the one mutation pass
+    independent validator rehashes after.physicalFile.originalByteString
+    after.contentSha256 + physical/document byte lengths bind actual postimage bytes
+    Writer postimageHashCustody is secondary testimony
+
+  postimage representation custody
+    authority = CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+    Writer derives exposed text from canonical createCiiPhysicalFile(final bytes)
+    independent validator re-intakes after original bytes through neutral physical-file authority
+    physicalFile text/lines/line endings/encoding metadata must equal canonical byte re-intake
+    Writer bytes must be Uint8Array and byte-identical to final physical bytes
+    Writer text must equal canonical decoded text
+    Writer postimageRepresentationCustody is secondary testimony
 ```
 
-## PR1025 planner transaction
+Stable blockers:
 
 ```text
-untouched TARGET0 HANGER payload
- -> existing CONTROL / MISCEL_1 / IHGRNODE structural custody
- -> PR1024 HGRDAT/TAG/GUID tail classifier
- -> positional record-binding proof
-      record i / IHGRNODE[i]
-      record i / HGRDAT/TAG/GUID physical rows
-      record i / IHGRFREE row
-      record i / IHGRNUM[i]
-      record i / IHGRTABLE[i]
-      record i / IHGRSHORT[i]
-      record i / IHGRCN[i]
- -> selected record indices
- -> old->new record-index map
- -> retained-row/field custody ledger
- -> PLANNER READY only
- -> NO physical partial write authority
+HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
+SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
 ```
 
-For H=3 deleting record 2:
+## PR1027 cryptographic + representation custody
+
+### TARGET0 — F40-F45
 
 ```text
-oldToNewRecordIndex = {1:1, 2:0, 3:2}
-
-INTERLEAVED retained tail rows
-1,2,3,4,9,10,11,12
-
-GROUPED retained tail rows
-1,2,5,6,7,8,11,12
+SHA primitive       3470e9871469fae1a2a13cbc916c6c328bd8168c
+Writer gate         39e6770a70f284c0f36400425f19789e430fb9fa
+Validator gate      4d34f7699f46fd1025c3cba52ae16335dff87448
+SHA/F40-F44         3c820eb73639c76be22c1cde824c911732728ea8
+F45 testimony       3652e38832f626755e1f99c308f94fe42b558682
 ```
-
-## QF-1025 authority boundaries
 
 ```text
-QF-1025-001
-planner READY cannot leak to product/physical apply because two independent delete-all gates remain.
-
-QF-1025-002
-blank raw 13-byte packed field cannot silently become zero positional authority; explicit integer token required.
-
-QF-1025-003
-delete-all remains independent of retained per-record binding because every hanger-specific record is removed.
-
-QF-1025-004
-grouped HGRDAT/TAG/GUID order must remain grouped; no canonicalization to interleaved order.
+F40 CONSISTENTLY_FORGED_DECLARED_TARGET_HASHES
+F41 STALE_TARGET0_PHYSICAL_BYTES_WITH_OLD_DIGEST
+F42 NON_SHA_PLACEHOLDER_TARGET_HASH
+F43 PHYSICAL_BYTE_LENGTH_TESTIMONY_MISMATCH
+F44 DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
+F45 FORGED_WRITER_TARGET0_HASH_TESTIMONY
 ```
 
-## Current validation truth
+### Postimage SHA — F46-F50
 
 ```text
-PR1024 merge / PR1025 exact base                       PASS
-branch scope before recovery docs                      PASS_SOURCE_INSPECTION
-merged product delete-all gate                         PASS_SOURCE_INSPECTION
-merged physical delete-all gate                        PASS_SOURCE_INSPECTION
-record-binding module source audit                     PASS_SOURCE_INSPECTION
-planner integration source audit                       PASS_SOURCE_INSPECTION
-regression source audit                                PASS_SOURCE_INSPECTION
-focused HANGER record-binding regression               AUTHORED_NOT_RUN_ENVIRONMENT
-focused HANGER planner regression                      AUTHORED_NOT_RUN_ENVIRONMENT
-HANGER delete-all physical regression                  AUTHORED_NOT_RUN_ENVIRONMENT
-inherited Writer2 component regressions                NOT_RUN_ENVIRONMENT
-tri-family composite/product suites                    NOT_RUN_ENVIRONMENT
-full repository tests                                  NOT_RUN_ENVIRONMENT
-browser/product                                        NOT_RUN_ENVIRONMENT
+Writer final digest            b93835388b5f27c2044ecd20c91084c7a5f1b38c
+Validator independent rehash   c2cd7bd114d09027feb3a413a7ec244751ba56e2
+SHA/F46-F49 extension          09864fcb3df5c70146c8c093cfefdcb43a057c34
+F50 testimony                  cd6bd81105e00cf2513ae5d2cf9520501080161c
 ```
 
-No unexecuted test is represented as PASS.
+```text
+F46 FORGED_WELL_FORMED_POSTIMAGE_HASH
+F47 NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
+F48 POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
+F49 POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
+F50 FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
+```
 
-See `agents/PR1025_workreport.md`, `agents/status/PR1025.yaml`, and `agents/claims/PR1025.yaml`.
+### Postimage representations — F51-F58
+
+```text
+Writer canonical representation   79f8fec0df92572dba66a5a4fdba40fe24935198
+Validator independent re-intake   2c2d4ecd0ea7cc4f91438572c7d0ea59a5ec6eca
+F51-F58 helper falsifiers          7b622609ec8da738c41ebe2d6e7b02305bc4e13d
+Integrated roundtrip falsifiers    ddf98d2b79ee98822eb0ce7b3e537d2468dc5fc5
+```
+
+```text
+F51 WRITER_BYTE_ARRAY_CONTENT_MISMATCH
+F52 WRITER_BYTE_ARRAY_TYPE_MISMATCH
+F53 WRITER_TEXT_MISMATCH
+F54 POSTIMAGE_PHYSICAL_TEXT_MISMATCH
+F55 POSTIMAGE_PHYSICAL_LINES_MISMATCH
+F56 POSTIMAGE_PHYSICAL_LINE_ENDINGS_MISMATCH
+F57 POSTIMAGE_PHYSICAL_METADATA_MISMATCH
+F58 POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH
+```
+
+SOURCE physical bytes are not present at this component API, so independent SOURCE-byte rehash is not claimed. Existing SOURCE hash equality remains inherited BOUND-scope testimony.
+
+Observation:
+
+```text
+production intake SHA basis                   PASS_SOURCE_INSPECTION
+physical-file canonical representation        PASS_SOURCE_INSPECTION
+SHA utility source                            PASS_SOURCE_INSPECTION
+Writer TARGET0 gate                           PASS_SOURCE_INSPECTION
+Validator TARGET0 gate                        PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+Writer postimage digest                       PASS_SOURCE_INSPECTION
+Validator postimage rehash                    PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+Writer postimage representation               PASS_SOURCE_INSPECTION
+Validator representation re-intake            PASS_SOURCE_INSPECTION_INDEPENDENT_REINTAKE
+F40-F58 source                                AUTHORED / PASS_SOURCE_INSPECTION
+F40-F58 exact runtime                         NOT_RUN_ENVIRONMENT
+```
+
+## PR1027 canonical scope-container hardening
+
+```text
+Writer container custody    4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
+Validator independent proof c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
+Test suite extension         4def181b64e70b348bd3540d505765090ece02c2
+```
+
+Integrated F31-F39 rejects APPLY/EXCLUDE overlap, wrong-container mutable rows, wrong decisions, excluded KEEP, KEEP/mutable ID alias, missing excluded container, blank IDs and malformed KEEP decisions.
+
+## PR1027 real-source census
+
+```text
+repository CII assets = 9
+NOHGRS=0 assets       = 7
+NOHGRS=1 assets       = 2
+NOHGRS>1 assets       = 0
+
+real H>1 source                   NOT_AVAILABLE
+real H>1 partial-delete roundtrip NOT_RUN_NO_REAL_SOURCE
+```
+
+First real H>1 discovery must trigger explicit qualification; synthetic evidence is not represented as real source authority.
+
+## PR1027 validation truth
+
+Historical reconstructed evidence remains at its original observation class and is not relabelled as current-head native execution.
+
+```text
+F40-F58 hash/representation suite        AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
+F31-F39 canonical scope/container suite  AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
+synchronizer active-only authority       PASS_SOURCE_INSPECTION
+repository real-source census            PASS_SOURCE_INSPECTION
+real repository H>1 source               NOT_AVAILABLE
+real H>1 physical roundtrip              NOT_RUN_NO_REAL_SOURCE
+packed-tail integrated test              NOT_RUN_ENVIRONMENT
+real-source census test                  NOT_RUN_ENVIRONMENT
+all focused current-head tests           NOT_RUN_ENVIRONMENT
+full-file BM_CII_SOURCE exact roundtrip  NOT_RUN_ENVIRONMENT
+broader Writer2/product regression       NOT_RUN_ENVIRONMENT
+full repository npm test                 NOT_RUN_ENVIRONMENT
+```
+
+See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, `docs/cii-writer2-hanger-partial-physical.md`, and the real-source census CSV for exact custody and observation classes.
