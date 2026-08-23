@@ -7,6 +7,7 @@ import {
   CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY,
 } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js';
 import { validateCiiWriter2HangerPartialRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js';
+import { sha256CiiByteString } from '../tabs/cii-workspace/cii-workspace-byte-sha256.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 const PACKED_LABELS = ['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN'];
@@ -40,7 +41,7 @@ function parsedModel(nodes) {
   const allNodes = new Set(nodes.map(Number)); for (const item of elements) { allNodes.add(item.from); allNodes.add(item.to); }
   return Object.freeze({ elements: Object.freeze(elements), nodes: Object.freeze(Object.fromEntries([...allNodes].map((node) => [String(node), Object.freeze({})]))) });
 }
-function documentFromByteString(byteString, parsed, contentSha256) {
+function documentFromByteString(byteString, parsed, contentSha256 = sha256CiiByteString(byteString)) {
   const bytes = new Uint8Array(String(byteString).length);
   for (let index = 0; index < bytes.length; index += 1) bytes[index] = byteString.charCodeAt(index) & 0xff;
   const physicalFile = createCiiPhysicalFile(bytes);
@@ -64,7 +65,7 @@ function target(count, tails = {}) {
     ...packed.IHGRNODE, ...nodes.flatMap((node, index) => hangerRecord(node, index + 1)), ...free,
     ...packed.IHGRNUM, ...packed.IHGRTABLE, ...packed.IHGRSHORT, ...packed.IHGRCN,
     ...executionRows(), '#$ UNITS', 'UNITS-CUSTODY'].join('\r\n') + '\r\n';
-  const document = documentFromByteString(body, parsed, `tail-target-${count}`);
+  const document = documentFromByteString(body, parsed);
   assert.equal(document.hangerEvidence.status, 'QUALIFIED');
   assert.equal(document.hangerEvidence.layout, CII_HANGER_LAYOUTS.SYNCHRONIZER);
   return { document, nodes };
