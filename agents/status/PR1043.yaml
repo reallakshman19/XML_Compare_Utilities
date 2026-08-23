@@ -3,24 +3,47 @@ issue: 1042
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-delete-physical-w211
 base_main: f298aa10eba7d2125a9c0f6818e4727b6f4ef0c3
-agent_state: REVIEW_READY_WITH_EXPLICIT_EVIDENCE_LIMITATIONS
-current_stage: W2_11_RESTRAINT_DELETE_PHYSICAL_COMPONENT_SOURCE_COMPLETE
-handover_readiness: READY_WITH_EXPLICIT_COORDINATION_LIMITATION
+agent_state: ACTIVE_CORRECTED_SOURCE_AUDIT_COMPLETE
+current_stage: W2_11_RESTRAINT_DELETE_PHYSICAL_COMPONENT_WITH_W2_10_CONTROL_CORRECTION
+handover_readiness: READY_WITH_EXPLICIT_EXECUTION_LIMITATION
 execution_mode: AUTO_MODE
-scope_authority: ISSUE_1042_COMPONENT_ONLY
+scope_authority: ISSUE_1042_COMPONENT_PLUS_INHERITED_AUTHORITY_CORRECTION
 merge_authority: OWNER_ONLY
 merge_authorized: false
+
+rebase_audit:
+  requested: true
+  performed: false
+  reason: main_has_not_moved_rebase_would_be_noop
+  current_main: f298aa10eba7d2125a9c0f6818e4727b6f4ef0c3
+  pr_base_sha: f298aa10eba7d2125a9c0f6818e4727b6f4ef0c3
+
+inherited_issue:
+  id: ISS_W2_10_CONTROL_RESTRAINT_COUNT_ROW
+  severity: CRITICAL
+  discovered_in: PR1043_recovery
+  prior_behavior: W2_10_planner_read_CONTROL_row1_field4_NONAM_as_restraint_count
+  authoritative_behavior: CONTROL_row2_field4_is_RESTRAINT_block_count
+  correction_status: PATCHED_IN_PR1043
+  affected_paths:
+    - tabs/cii-workspace/cii-workspace-writer2-restraint-delete-compaction-plan.js
+    - tests/cii-workspace-writer2-restraint-delete-compaction-plan.test.js
+  negative_assurance: fixture_now_keeps_NONAM_0_while_RESTRAINT_count_positive
 
 production_authority:
   restraint_delete_physical_writer: true
   independent_component_validator: true
+  corrected_w2_10_restraint_count_read: true
   composite: false
   product_core: false
   generic_restraint_create: false
 
 consumed_authority:
-  - CII_WRITER_2_RESTRAINT_BLOCK_DELETE_COMPACTION_PLAN
   - EXACT_PARSED_INDEX_ENDPOINTS_AND_PHYSICAL_RESTRAINT_POINTER_I13
+  - PROTECTED_WRITER_RESTRANT_BLOCK_INDEX_24_ROWS
+
+corrected_authority:
+  - CII_WRITER_2_RESTRAINT_BLOCK_DELETE_COMPACTION_PLAN_CONTROL_ROW2_FIELD4
 
 new_authority:
   - CII_WRITER_2_RESTRAINT_BLOCK_DELETE_PHYSICAL_WRITE
@@ -29,13 +52,17 @@ new_authority:
   - CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
 
 qualification:
-  P01_P18_source: AUTHORED_PASS_SOURCE_INSPECTION
+  W2_10_planner_test_source: CORRECTED_AUTHORED_SOURCE_INSPECTION
+  P01_P18_source: AUTHORED_SOURCE_INSPECTION
+  P19_nonam_restraint_control_separation: AUTHORED_SOURCE_INSPECTION
   exact_current_branch_native_execution: NOT_RUN_ENVIRONMENT
   native_execution_blocker: github.com_DNS_resolution_failure
+  pr_workflow_runs_current_head: NONE
   repository_npm_test: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
 
 negative_assurance:
+  control_nonam_mutation_authorized: false
   writer1b_free_slot_changed: false
   restraint_create_added: false
   guid_generation_added: false
@@ -48,11 +75,12 @@ negative_assurance:
   parser_converter_changed: false
 
 expected_final_scope:
-  production_paths: 2
-  test_paths: 3
+  production_paths: 3
+  test_paths: 4
   coordination_paths_without_master_index: 3
-  total_paths_without_master_index: 8
+  total_paths_without_master_index: 10
   unexplained_paths: 0
 
 coordination_limitation: MASTER_INDEX_FULL_FILE_REPLACEMENT_NOT_ATTEMPTED_FROM_TRUNCATED_READ
+next_gate: execute corrected W2_10 planner suite plus W2_11 P01_P19 and P07_P18 on an exact checkout; retain NOT_RUN until actually observed
 next_phase_after_separate_merge_authorization: W2_12_RESTRAINT_ONE_TARGET0_COMPOSITE_ADOPTION
