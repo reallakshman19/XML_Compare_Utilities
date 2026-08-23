@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY_POSTIMAGE_CRYPTOGRAPHIC_CUSTODY_HARDENED
+claim_state: ACTIVE_REVIEW_READY_POSTIMAGE_REPRESENTATION_CUSTODY_HARDENED
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -45,10 +45,13 @@ authority_domains:
   - CII_WRITER2_HANGER_PARTIAL_COMPLETE_POSTIMAGE_VALIDATION
   - SHA256_ORIGINAL_TARGET0_BYTES
   - SHA256_WRITER2_POSTIMAGE_BYTES
+  - CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+  - WRITER_RESULT_BYTE_TEXT_EQUIVALENCE
   - TARGET0_BYTE_LENGTH_CUSTODY
   - POSTIMAGE_BYTE_LENGTH_CUSTODY
   - WRITER_TARGET0_HASH_TESTIMONY_INDEPENDENT_FALSIFICATION
   - WRITER_POSTIMAGE_HASH_TESTIMONY_INDEPENDENT_FALSIFICATION
+  - WRITER_POSTIMAGE_REPRESENTATION_TESTIMONY_INDEPENDENT_FALSIFICATION
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
   - SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
@@ -64,7 +67,7 @@ dependency:
   merge_sha: ae1de402db129e32cd6d7811a4e4707d64512bd4
 coordination:
   file_overlap: NONE_ON_EXISTING_PRODUCT_OR_PROTECTED_PATHS
-  authority_overlap: INHERITED_PLANNER_TRANSFER_SCOPE_AND_INTAKE_READ_ONLY
+  authority_overlap: INHERITED_PLANNER_TRANSFER_SCOPE_INTAKE_AND_PHYSICAL_FILE_READ_ONLY
   dependency_overlap: SATISFIED
   changed_paths_actual: 17
   changed_paths_intended: 17
@@ -83,30 +86,37 @@ negative_assurance:
   - no workflow or package-script changes
   - no protected parser/converter changes
   - no synthetic fixture represented as real H>1 authority
+postimage_representation_custody:
+  authority: CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+  writer_fix_commit: 79f8fec0df92572dba66a5a4fdba40fe24935198
+  validator_fix_commit: 2c2d4ecd0ea7cc4f91438572c7d0ea59a5ec6eca
+  falsifier_extension_commit: 7b622609ec8da738c41ebe2d6e7b02305bc4e13d
+  integrated_falsifier_commit: ddf98d2b79ee98822eb0ce7b3e537d2468dc5fc5
+  rules:
+    writer_text: DERIVED_FROM_CREATE_CII_PHYSICAL_FILE_FINAL_BYTES
+    writer_bytes: UINT8ARRAY_BYTE_IDENTICAL_TO_FINAL_BYTE_STRING
+    physical_file_reintake: REBUILT_FROM_AFTER_ORIGINAL_BYTE_STRING_BYTES
+    physical_file_metadata: MUST_MATCH_CANONICAL_REINTAKE
+    physical_file_text: MUST_MATCH_CANONICAL_REINTAKE
+    physical_file_lines: MUST_MATCH_CANONICAL_REINTAKE
+    physical_file_line_endings: MUST_MATCH_CANONICAL_REINTAKE
+    document_representation_metadata_when_present: MUST_MATCH_CANONICAL_REINTAKE
+    writer_representation_testimony: MUST_MATCH_INDEPENDENT_REINTAKE_CUSTODY
+  falsifiers:
+    f51: WRITER_BYTE_ARRAY_CONTENT_MISMATCH
+    f52: WRITER_BYTE_ARRAY_TYPE_MISMATCH
+    f53: WRITER_TEXT_MISMATCH
+    f54: POSTIMAGE_PHYSICAL_TEXT_MISMATCH
+    f55: POSTIMAGE_PHYSICAL_LINES_MISMATCH
+    f56: POSTIMAGE_PHYSICAL_LINE_ENDINGS_MISMATCH
+    f57: POSTIMAGE_PHYSICAL_METADATA_MISMATCH
+    f58: POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH
+  runtime_observation: NOT_RUN_ENVIRONMENT
 postimage_cryptographic_custody:
   authority: SHA256_WRITER2_POSTIMAGE_BYTES
   writer_fix_commit: b93835388b5f27c2044ecd20c91084c7a5f1b38c
   validator_fix_commit: c2cd7bd114d09027feb3a413a7ec244751ba56e2
-  sha_falsifier_extension_commit: 09864fcb3df5c70146c8c093cfefdcb43a057c34
-  fixture_migrations:
-    - 4b8d47abaaa7c9d3f7a3f5bc32da5f65d58bca48
-    - 181a11da248286007f3b46e22803cdf2469232ef
-    - cd6bd81105e00cf2513ae5d2cf9520501080161c
-  rules:
-    writer_postimage_digest: SHA256_OF_FINAL_BYTE_STRING
-    writer_testimony: POSTIMAGE_HASH_CUSTODY_REQUIRED
-    declared_after_digest: LOWERCASE_SHA256_64_HEX_REQUIRED
-    physical_byte_length: MUST_MATCH_ACTUAL_POSTIMAGE_BYTE_STRING
-    document_byte_length_when_present: MUST_MATCH_ACTUAL_POSTIMAGE_BYTE_STRING
-    validator_postimage_digest: INDEPENDENTLY_RECOMPUTED_FROM_AFTER_ORIGINAL_BYTE_STRING
-    declared_after_digest_match: REQUIRED
-    writer_postimage_testimony_match: REQUIRED
-  falsifiers:
-    f46: FORGED_WELL_FORMED_POSTIMAGE_HASH
-    f47: NON_SHA_POSTIMAGE_HASH_PLACEHOLDER
-    f48: POSTIMAGE_PHYSICAL_BYTE_LENGTH_MISMATCH
-    f49: POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
-    f50: FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
+  falsifiers: F46_F50
   runtime_observation: NOT_RUN_ENVIRONMENT
 target0_cryptographic_custody:
   authority: SHA256_ORIGINAL_TARGET0_BYTES
@@ -138,8 +148,11 @@ validation_custody:
   validator_target0_hash_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
   writer_postimage_hash_gate: PASS_SOURCE_INSPECTION
   validator_postimage_hash_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+  writer_postimage_representation_gate: PASS_SOURCE_INSPECTION
+  validator_postimage_representation_gate: PASS_SOURCE_INSPECTION_INDEPENDENT_REINTAKE
   f40_f45_target0_hash_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   f46_f50_postimage_hash_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f51_f58_postimage_representation_suite: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   historical_frozen_oracles: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_packing_matrix: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
@@ -157,4 +170,4 @@ review_state:
   evidence_limits_explicit: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_updated: 2026-08-23T15:28:00+05:30
+last_updated: 2026-08-23T16:22:00+05:30
