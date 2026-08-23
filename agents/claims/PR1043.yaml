@@ -1,0 +1,55 @@
+pr: 1043
+issue: 1042
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-delete-physical-w211
+base_main: f298aa10eba7d2125a9c0f6818e4727b6f4ef0c3
+claim_state: ACTIVE_REVIEW_READY_RESTRAINT_DELETE_PHYSICAL_COMPONENT
+ready_for_review: true
+merge_authority: OWNER_ONLY
+merge_authorized: false
+
+claims:
+  - id: RESTRAINT_BLOCK_DELETE_PHYSICAL_WRITE
+    state: COMPONENT_IMPLEMENTED_SOURCE_COMPLETE
+    authority: CII_WRITER_2_RESTRAINT_BLOCK_DELETE_PHYSICAL_WRITE
+  - id: RESTRAINT_DELETE_INDEPENDENT_COMPLETE_POSTIMAGE_VALIDATION
+    state: COMPONENT_IMPLEMENTED_SOURCE_COMPLETE
+    authority: EXACT_COMPLETE_FINAL_BYTES_PLUS_INDEPENDENT_REINTAKE
+  - id: TARGET0_CRYPTOGRAPHIC_CUSTODY
+    state: IMPLEMENTED
+    authority: SHA256_ORIGINAL_TARGET0_BYTES
+  - id: POSTIMAGE_CRYPTOGRAPHIC_CUSTODY
+    state: IMPLEMENTED
+    authority: SHA256_WRITER2_POSTIMAGE_BYTES
+  - id: POSTIMAGE_REPRESENTATION_CUSTODY
+    state: IMPLEMENTED
+    authority: CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+  - id: RESTRAINT_COMPOSITE_ADOPTION
+    state: NOT_IMPLEMENTED
+    authority: NONE
+  - id: RESTRAINT_PRODUCT_ADOPTION
+    state: NOT_IMPLEMENTED
+    authority: NONE
+  - id: RESTRAINT_BLOCK_CREATE
+    state: BLOCKED_UNCHANGED
+    authority: NONE
+
+validation_truth:
+  P01_P18_source: AUTHORED_PASS_SOURCE_INSPECTION
+  current_exact_runtime: NOT_RUN_ENVIRONMENT
+  current_runtime_blocker: github.com_DNS_resolution_failure
+  repository_npm: NOT_RUN_ENVIRONMENT
+  browser_product: NOT_APPLICABLE_UNCHANGED_ROUTE
+
+negative_assurance:
+  writer1b_changed: false
+  create_enabled: false
+  guid_generation_added: false
+  product_core_changed: false
+  writer3_changed: false
+  workflow_package_changed: false
+
+expected_final_changed_paths_without_master_index: 8
+expected_unexplained_paths: 0
+coordination_limitation: MASTER_INDEX_REQUIRES_SAFE_FULL_FILE_ACCESS
+next_claim_gate: W2_12_REQUIRES_THIS_PR_MERGED_UNDER_SEPARATE_OWNER_AUTHORIZATION
