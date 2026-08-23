@@ -66,7 +66,7 @@ pre_merge_audit:
   regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
   result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
 validation_custody:
-  review_ready_repository_basis: 010bc4e35c9e80241d98b499537aeacad37b3ede
+  review_ready_repository_basis: 8ed7b7812f12d4e8f04927e5304f23ace079759a
   focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
   native_exact_checkout: NOT_AVAILABLE
   frozen_oracles: PASS
