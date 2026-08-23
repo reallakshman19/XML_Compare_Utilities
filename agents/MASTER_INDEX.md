@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | READY FOR REVIEW · component qualification PASS | Component-only partial writer; exact raw-I13 repacking; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; frozen SHA oracles + F01-F30 covered; predecessor planner/delete-all reconstructed regression PASS; BM_CII_SOURCE HANGER slice PASS; no product/composite/UI runtime adoption | Owner review. Merge only with fresh owner authorization. Native exact focused/full-benchmark/global regression remains explicit NOT_RUN_ENVIRONMENT |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY after pre-merge audit fix | Component-only partial writer; raw I13 repacking; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; F01-F30 qualification; pre-merge top-level deleted-record testimony gap fixed at `8ea0c9df` and falsified at `172467f9`; 11 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Native exact-checkout/global regression remains NOT_RUN_ENVIRONMENT |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, qualified HGRDAT/TAG/GUID tail, IHGRFREE and all five packed arrays; semantic authority remains positional-only | Authority consumed by PR1027 component writer |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for interleaved vs grouped HGRDAT/TAG/GUID envelopes; exact per-record row ownership | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Qualification-only on real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -48,18 +48,19 @@ Writer 2 — merged PR1025 planner authority
   plannerPartialRecordAuthority = true
   semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
 
-Writer 2 — PR1027 component authority, ready for review
+Writer 2 — PR1027 component authority
   existing H>1 partial HANGER DELETE physical compaction only
   H' > 0; countAfter == 0 remains PR1020 delete-all path
-  one untouched TARGET0
+  one TARGET0
   two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1 payload
-  exact retained raw I13 field relocation/repacking across all five arrays
-  exact retained IHGRFREE row custody
+  exact retained raw I13 relocation/repacking across all five arrays
+  exact retained IHGRFREE custody
   original INTERLEAVED/GROUPED HGRDAT/TAG/GUID order preserved
   independent validator does not import writer/repacking/payload helpers
   complete expected postimage + exact final-byte equality
+  deleted + retained + old-to-new top-level Writer record testimony independently checked
   frozen independent postimage SHA fixtures
-  component not adopted into product/composite/UI runtime paths in this PR
+  product/composite/UI partial HANGER remains blocked
 
 Stable blockers
   HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
@@ -70,110 +71,24 @@ Writer 3
   topology/node/element/connectivity mutation only
 ```
 
-## PR1027 physical transaction
+## PR1027 current validation truth
 
 ```text
-untouched TARGET0
- -> canonical BOUND APPLY/EXCLUDE scope + exact source/target hashes
- -> independently rebuilt merged-PR1025 partial plan
- -> retained record index map
- -> CONTROL.NOHGRS H -> H'
- -> MISCEL_1 complete reconstruction
-      copy RRMAT/VFLEX prefix bytes
-      copy 2 default rows
-      repack IHGRNODE raw I13 fields
-      retain HGRDAT/TAG/GUID in original physical order class
-      retain IHGRFREE rows by original record index
-      repack IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN raw I13 fields
-      copy 4 execution rows
- -> apply two TARGET0-relative replacements once
- -> independent complete expected postimage
- -> exact final byte equality
+mandatory packing matrix                       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+INTERLEAVED/GROUPED representative cases       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+raw-I13 +12 custody                            PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+frozen independent postimage SHA oracles       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+independent complete-postimage validator       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
+F01-F27                                        PASS / FAIL_CLOSED as expected
+F28 product/composite delete-all-only gate     PASS_SOURCE_INSPECTION_CURRENT_HEAD
+F29-F30                                        PASS
+pre-merge deleted-record testimony falsifier  PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+inherited planner/delete-all synthetic         PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
+real BM_CII_SOURCE HANGER slice                PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
+native exact-checkout focused tests            NOT_RUN_ENVIRONMENT
+full-file BM_CII_SOURCE exact roundtrip        NOT_RUN_ENVIRONMENT
+broader Writer2/product regression             NOT_RUN_ENVIRONMENT
+full repository npm test                       NOT_RUN_ENVIRONMENT
 ```
 
-Critical boundaries:
-
-```text
-H=7  delete record 2 -> retained 1,3,4,5,6,7 -> packed rows 2 -> 1
-H=13 delete record 1 -> retained 2..13        -> packed rows 3 -> 2
-```
-
-Retained numeric lexical custody is byte-based. A retained `+12` is not equivalent to a rewritten `12`.
-
-## PR1027 qualification state
-
-```text
-mandatory packing matrix                         PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-INTERLEAVED representative cases                 PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-GROUPED representative cases                     PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-lexical raw-I13 +12 custody                       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-frozen independent postimage SHA oracles          PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-independent complete-postimage validator          PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-F01-F27 adversarial falsifiers                    PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-F28 product/composite delete-all-only gate        PASS_SOURCE_INSPECTION_CURRENT_HEAD
-F29-F30 packing boundary falsifiers               PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-inherited tail-order test                         PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-inherited record-binding test                     PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-inherited planner synthetic cases                 PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-inherited delete-all writer/validator synthetic   PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-real BM_CII_SOURCE HANGER slice                   PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
-writer-helper import separation                   PASS_SOURCE_INSPECTION
-existing delete-all component unchanged           PASS_SOURCE_INSPECTION
-runtime/product/composite/UI adoption             NONE / COMPONENT_ISOLATED
-```
-
-First focused frozen-oracle execution exposed a test-harness scope-hash defect: the test used nonexistent `spec.targetSha256` instead of immutable `spec.target0Sha256`. Production correctly failed closed with `CII_WRITER_2_HANGER_PARTIAL_SCOPE_TARGET_HASH_MISMATCH`; the test was corrected at `85b38416adbb09f680b1f8122b2f82b77a8927f3` without weakening production authority.
-
-## Real benchmark HANGER custody
-
-Actual `Benchmark/CIICompare/BM_CII_SOURCE.CII` HANGER evidence used in the reconstructed benchmark-slice regression:
-
-```text
-CONTROL.NUMELT = 40
-CONTROL.NUMNOZ = 0
-CONTROL.NOHGRS = 1
-IHGRNODE       = 205
-RRMAT rows     = 7
-MISCEL_1 rows before = 23
-MISCEL_1 rows after delete-all = 11
-```
-
-The actual repository CONTROL values plus all 23 HANGER MISCEL_1 rows pass the unchanged delete-all writer and independent validator. This is deliberately classified as `PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE`, not a full-file exact-byte benchmark intake PASS, because the connector's ranged text representation is transport-normalized.
-
-## Current execution truth
-
-```text
-PR1025 merge / PR1027 merged-main grounding       PASS_REMOTE_EXECUTION
-focused partial-HANGER component qualification   PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-inherited HANGER tail-order / record-binding     PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-inherited planner synthetic regression            PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-inherited delete-all writer/validator synthetic   PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
-real BM_CII_SOURCE HANGER slice                   PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
-F28 product/composite boundary                    PASS_SOURCE_INSPECTION_CURRENT_HEAD
-native exact focused PR1027 tests                 NOT_RUN_ENVIRONMENT
-full-file BM_CII_SOURCE intake roundtrip          NOT_RUN_ENVIRONMENT
-broader Writer2 integration                       NOT_RUN_ENVIRONMENT
-full repository npm test                          NOT_RUN_ENVIRONMENT
-browser/product                                   NOT_APPLICABLE: no route/UI change
-```
-
-The execution container cannot resolve GitHub hosts, so a native private-repository checkout is unavailable. No unexecuted test is represented as PASS.
-
-`package.json` is unchanged. Its broad `npm test` script does not invoke CII Workspace/HANGER qualification tests. The Issue #1026 focused tests therefore remain explicit standalone tests; no package-script change is required or authorized by this PR.
-
-## PR1027 disposition
-
-```text
-COMPONENT IMPLEMENTATION      COMPLETE
-COMPONENT QUALIFICATION       PASS_WITH_EXPLICIT_OBSERVATION_CLASS
-DIRECT PREDECESSOR REGRESSION PASS_RECONSTRUCTED
-RUNTIME ADOPTION              NONE / COMPONENT_ISOLATED
-HANDOVER_READINESS            READY
-REVIEW READINESS              READY
-MERGE AUTHORITY               OWNER_ONLY
-MERGE AUTHORIZED              FALSE
-```
-
-Exact next action: submit PR1027 for review. Do not merge without fresh owner authorization. If a native exact checkout becomes available before merge, run the focused tests, full benchmark intake roundtrip, broader Writer2 regressions and `npm test` and record those results without upgrading any unexecuted check.
-
-See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, and `docs/cii-writer2-hanger-partial-physical.md`.
+See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, and `docs/cii-writer2-hanger-partial-physical.md` for the exact observation classes and audit history.
