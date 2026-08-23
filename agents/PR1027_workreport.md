@@ -16,7 +16,7 @@ PR: #1027
 BRANCH: agent/cii-writer2-hanger-partial-physical
 BASE_MAIN: ae1de402db129e32cd6d7811a4e4707d64512bd4
 GROUNDING_EPOCH: GE-1027-002
-CURRENT_STAGE: REAL_SOURCE_CENSUS_COMPLETE_REVIEW_PENDING
+CURRENT_STAGE: SCOPE_DISJOINTNESS_HARDENED_REVIEW_PENDING
 CURRENT_BLOCKER: NONE_FOR_COMPONENT_REVIEW
 EVIDENCE_LIMITATION: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 RUNTIME_LIMITATION: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
@@ -28,6 +28,7 @@ PR1027 remains the single Issue #1026 stack. PR1025 is merged and its planner/re
 
 ```text
 qualified merged-PR1025 partial H>1 HANGER plan
++ canonical BOUND APPLY/EXCLUDE scope with disjoint authority sets
 + untouched TARGET0
 -> CONTROL.NOHGRS H -> H'
 -> complete MISCEL_1 reconstruction
@@ -45,13 +46,110 @@ qualified merged-PR1025 partial H>1 HANGER plan
 
 `countAfter == 0` remains the existing delete-all writer. Semantic authority remains `NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY`. Product/composite/UI partial HANGER remains blocked.
 
-## Current batch — real-source qualification census
+## Current batch — canonical APPLY/EXCLUDE disjointness hardening
 
-### Mission
+### Finding
 
-Before claiming a real H>1 qualification, locate an actual repository CII preimage with `CONTROL.NOHGRS > 1`. If none exists, record that absence explicitly and make future discovery a qualification trigger rather than manufacturing a source.
+The normal repository scope builder in:
 
-### Source census result
+```text
+tabs/cii-workspace/cii-workspace-transfer-scope.js
+```
+
+is disjoint by construction. `applyCiiTransferScope()` creates one `decisionMap`, each mutable operation ID receives exactly one decision, and the operation is emitted either into `operations` with `scopeDecision=APPLY` or into `excludedOperations` with `scopeDecision=EXCLUDE`.
+
+PR1027 must nevertheless treat the supplied `transferPlan` as an untrusted boundary object because its physical writer/validator are callable component APIs. The previous component checks validated:
+
+```text
+PLAN APPLY IDs == scope.appliedOperationIds
+PLAN EXCLUDE IDs == scope.excludedOperationIds
+PLAN candidate IDs == scope.candidateOperationIds
+```
+
+but comparison used `sameStrings()`, which normalizes through a `Set`. A forged BOUND object could therefore carry the same mutable `operationId` in both APPLY and EXCLUDE while the candidate set remained a single unique ID. Set-equivalence alone did not prove mutual exclusivity.
+
+This was a custody defect, not a defect in the upstream canonical scope builder.
+
+### Production hardening
+
+Writer commit:
+
+```text
+575962cbe8bcc8e30a68758158d774aba2d5c26c
+```
+
+`cii-workspace-writer2-hanger-partial-write.js` now independently requires:
+
+```text
+PLAN appliedOperationIds ∩ PLAN excludedOperationIds = ∅
+SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+```
+
+Dedicated fail-closed diagnostics:
+
+```text
+CII_WRITER_2_HANGER_PARTIAL_PLAN_APPLY_EXCLUDE_OVERLAP:<ids>
+CII_WRITER_2_HANGER_PARTIAL_SCOPE_APPLY_EXCLUDE_OVERLAP:<ids>
+```
+
+Validator commit:
+
+```text
+df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+```
+
+`cii-workspace-writer2-hanger-partial-validation.js` implements the disjointness derivation separately. It does not import the Writer helper. The validation PASS checklist now includes:
+
+```text
+INDEPENDENT_APPLY_EXCLUDE_DISJOINTNESS
+```
+
+### F31 / F32 falsifier
+
+Added:
+
+```text
+tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+```
+
+Commits:
+
+```text
+28d45aa25ce763db9d3700479c5011cf3e3b2470  test authored
+74c935b8531899f2d97abcda495849ed290338e6  test EOF normalized
+```
+
+Cases:
+
+```text
+F31 PLAN_APPLY_EXCLUDE_OVERLAP
+  same operation ID physically present in both transferPlan.operations(APPLY)
+  and transferPlan.excludedOperations(EXCLUDE)
+  -> Writer rejects before physical mutation
+  -> independent validator rejects
+
+F32 SCOPE_APPLY_EXCLUDE_OVERLAP
+  plan representation is disjoint but transferScope testimony claims the same
+  operation ID in both appliedOperationIds and excludedOperationIds
+  -> Writer rejects before set-equivalence comparison
+  -> independent validator rejects before set-equivalence comparison
+```
+
+The test also proves the normal one-APPLY/zero-EXCLUDE custody object remains accepted by both scope-check implementations.
+
+### Observation class
+
+```text
+upstream canonical builder                         PASS_SOURCE_INSPECTION / UNCHANGED
+Writer disjointness gate                           PASS_SOURCE_INSPECTION
+independent validator disjointness gate             PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+F31/F32 test source                                AUTHORED / PASS_SOURCE_INSPECTION
+F31/F32 runtime                                    NOT_RUN_ENVIRONMENT
+```
+
+No runtime PASS is inferred from source inspection.
+
+## Previous batch — real-source qualification census
 
 Frozen ledger:
 
@@ -73,55 +171,14 @@ converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii H=0
 output.cii                                                        H=0
 ```
 
-Exact notable source custody:
-
-```text
-BM_CII_SOURCE.CII
-  blob e41cd05603b56837cbb6e31b9d4074ef6106fe9b
-  NUMELT=40 NUMNOZ=0 NOHGRS=1
-
-SOURCE 3.CII
-  blob 20c0c37014004fb9de46e3e4d01f0c62535495d5
-  NUMELT=219 NUMNOZ=0 NOHGRS=0
-
-TARGET 3-1.CII
-  blob b79806ac2082e8355bfcd323d7e6496439759a5a
-  NUMELT=223 NUMNOZ=0 NOHGRS=0
-
-inputxml_profile_bm_cii_2019.cii
-  blob c72c0ee3c7a2e9a36d849085fbc8fc5b8757bca8
-  NUMELT=40 NUMNOZ=0 NOHGRS=1
-```
-
-The associated `converters/scripts/pdf_inputxml_profile_bm_cii.xml` declares `NOHGRS="0"`; repository search for `<HANGER` found converter implementation references but no real multi-HANGER InputXML fixture.
-
-### Engineering conclusion
+Engineering conclusion remains:
 
 ```text
 REAL_REPOSITORY_H_GT_1_CII_SOURCE = NOT_AVAILABLE
 REAL_H_GT_1_PARTIAL_DELETE_ROUNDTRIP = NOT_RUN_NO_REAL_SOURCE
 ```
 
-This is an evidence limitation, not a fallback. PR1027 does not synthesize a “real” H>1 benchmark and does not upgrade synthetic qualification to real-source authority.
-
-### Independent discovery gate
-
-Added:
-
-```text
-tests/cii-workspace-writer2-hanger-real-source-census.test.js
-```
-
-The test does not import Writer2 mutation helpers. It independently:
-
-1. inventories `.cii` assets under `Benchmark/` and `converters/scripts/`, plus `Benchmark/Pipeline/CII` and root `output.cii`;
-2. parses CONTROL NUMELT/NUMNOZ/NOHGRS from raw source text;
-3. compares inventory/counts to the frozen CSV ledger;
-4. fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` if any source has H>1;
-5. for each H=1 source, derives the MISCEL_1 H=1 row model and proves IHGRNODE/IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN are exactly `2X + 1*I13` (15 chars);
-6. fails on source-census drift.
-
-Future addition of a real H>1 file therefore requires deliberate qualification of tail order, packed arrays, positional record binding and an actual partial-delete postimage before the census can advance.
+No synthetic fixture is represented as real H>1 evidence. `tests/cii-workspace-writer2-hanger-real-source-census.test.js` fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` when the first real H>1 repository source appears.
 
 ## Packed-row source-shape authority retained
 
@@ -157,8 +214,9 @@ Writer and validator enforce this independently. `packedTailAuthority` is Writer
 - Mandatory H=2/3/6/7/8/12/13 packing matrix and F01-F30 were historically exercised under reconstructed-source observation classes.
 - Frozen-oracle test harness target-hash bug was fixed without weakening production.
 - Pre-merge audit found missing top-level `deletedRecordIndices` testimony comparison; fixed at `8ea0c9df...` and directly falsified at `172467f9...`.
-- Packed-row shape was subsequently narrowed to exact active-only source rows based on synchronizer emitter + real H=1 vendor evidence.
-- Current batch established that no real H>1 repository source exists and added a future-discovery gate.
+- Packed-row shape was narrowed to exact active-only source rows based on synchronizer emitter + real H=1 vendor/profile evidence.
+- Real-source census established that no real H>1 repository source exists and added a future-discovery gate.
+- Current batch found the APPLY/EXCLUDE set-comparison ambiguity and added explicit disjointness gates in Writer and independent validator plus F31/F32.
 
 Historical reconstructed PASS results remain historical; they are not relabelled as native current-head execution.
 
@@ -179,6 +237,7 @@ tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
 tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
 tests/cii-workspace-writer2-hanger-partial-packed-tail.test.js
 tests/cii-workspace-writer2-hanger-partial-physical.test.js
+tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
 tests/cii-workspace-writer2-hanger-real-source-census.test.js
 tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
 ```
@@ -186,12 +245,12 @@ tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
 Expected reconciliation:
 
 ```text
-actual: 14
-intended: 14
+actual: 15
+intended: 15
 unexplained: 0
-production paths added this batch: 0
-test paths added this batch: 1
-document/data paths added this batch: 1
+new path this batch: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+existing production paths hardened this batch: 2
+upstream transfer-scope path changed: 0
 workflow changes: 0
 package.json changes: 0
 product/composite/UI route changes: 0
@@ -216,14 +275,17 @@ real BM_CII_SOURCE HANGER slice                  PASS_RECONSTRUCTED_BENCHMARK_HA
 Current-head source evidence:
 
 ```text
+F31 PLAN APPLY/EXCLUDE overlap                   PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F32 bound-SCOPE APPLY/EXCLUDE overlap            PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
 synchronizer active-only emitter authority       PASS_SOURCE_INSPECTION
 BM_CII_SOURCE H=1 active-only shape               PASS_SOURCE_INSPECTION
 converter profile H=1 active-only shape           PASS_SOURCE_INSPECTION
 repository CII real-source census                 PASS_SOURCE_INSPECTION
 real repository H>1 source                        NOT_AVAILABLE
 real H>1 physical partial-delete roundtrip        NOT_RUN_NO_REAL_SOURCE
-packed-tail integrated test                       AUTHORED / NOT_RUN_ENVIRONMENT
-real-source census test                           AUTHORED / NOT_RUN_ENVIRONMENT
+scope-disjointness falsifier                      NOT_RUN_ENVIRONMENT
+packed-tail integrated test                       NOT_RUN_ENVIRONMENT
+real-source census test                           NOT_RUN_ENVIRONMENT
 focused current-head native tests                 NOT_RUN_ENVIRONMENT
 full BM_CII_SOURCE exact intake/write/re-intake   NOT_RUN_ENVIRONMENT
 broader Writer2/product integration               NOT_RUN_ENVIRONMENT
@@ -235,6 +297,7 @@ repository-wide npm test                          NOT_RUN_ENVIRONMENT
 No new authority for:
 
 ```text
+transfer-scope builder mutation
 product/core partial-HANGER apply
 composite partial HANGER
 UI execution
@@ -254,6 +317,8 @@ Existing product/composite partial HANGER remains blocked by `WRITER_2_HANGER_DE
 ```text
 COMPONENT IMPLEMENTATION                 COMPLETE
 INDEPENDENT VALIDATOR                    COMPLETE
+SCOPE APPLY/EXCLUDE DISJOINTNESS         HARDENED
+F31/F32                                  AUTHORED / NOT_RUN_ENVIRONMENT
 PACKED SOURCE-SHAPE AUTHORITY            QUALIFIED
 REAL-SOURCE CENSUS                       COMPLETE
 REAL H>1 SOURCE                          NOT_AVAILABLE
@@ -271,9 +336,19 @@ Do not merge without fresh owner authorization.
 # APPENDIX A — TAKEOVER QUALIFICATION
 
 1. Derive H=7 -> H'=6 and explain why the five packed families must repack raw I13 fields rather than delete physical rows.
-2. Derive GROUPED H=3 delete-record2 HGRDAT/TAG/GUID retained row order.
-3. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance and cite both emitter and real H=1 evidence.
-4. Explain why the absence of a real repository H>1 preimage must remain `NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE` rather than being filled by a synthetic “real” fixture.
-5. Explain how the new source-census test turns the first future real H>1 file into a fail-closed qualification event without changing production routing.
+2. Explain the distinction between the upstream canonical transfer-scope builder being disjoint by construction and PR1027 still needing to reject a forged contradictory BOUND `transferPlan` at its component boundary.
+3. Explain exactly how `sameStrings()` could hide APPLY/EXCLUDE overlap and why F31 and F32 are separate falsifiers.
+4. Explain why `SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY` is stricter than PR1025 planner tolerance and cite emitter + real H=1 evidence.
+5. Explain why absence of a real repository H>1 preimage remains `NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE` rather than being filled by a synthetic “real” fixture.
 
 Threshold: 92/100 overall and each answer >=17/20.
+
+## Durable history
+
+- 2026-08-22: Issue #1026 grounded; PR1027 allocated as the single component stack.
+- 2026-08-22: PR1025 merged at `ae1de402...`; PR1027 re-grounded before production coding.
+- 2026-08-22: physical partial writer, independent validator, mandatory matrix/falsifier tests and frozen postimage SHA oracles authored.
+- 2026-08-23: deleted-record Writer testimony gap found, fixed and falsified.
+- 2026-08-23: packed-row source shape narrowed fail-closed to active-fields-only using synchronizer emitter + real H=1 source evidence.
+- 2026-08-23: repository real-source census frozen; no H>1 source exists; future H>1 discovery converted to a qualification trigger.
+- 2026-08-23: scope audit found APPLY/EXCLUDE overlap could survive set-equivalence on a forged BOUND object; Writer and independent validator hardened; F31/F32 authored.
