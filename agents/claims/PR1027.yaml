@@ -60,6 +60,7 @@ negative_assurance:
 validation_custody:
   component_implementation_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
   expanded_validation_basis_head: c663f5ec21e130af532adc0f6e0d41169c4aca09
+  current_metadata_head: b35b32c9de8e686ccf7d04cd089af9d9fa57bcb7
   focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
   native_exact_checkout: NOT_AVAILABLE
   frozen_oracles: PASS
@@ -77,5 +78,5 @@ review_state:
   ready_for_review: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_verified_head_basis: c663f5ec21e130af532adc0f6e0d41169c4aca09
-last_updated: 2026-08-23T08:21:00+05:30
+last_verified_head_basis: b35b32c9de8e686ccf7d04cd089af9d9fa57bcb7
+last_updated: 2026-08-23T08:29:00+05:30
