@@ -77,7 +77,7 @@ Production commits:
 
 ```text
 575962cbe8bcc8e30a68758158d774aba2d5c26c  Writer boundary
- df9eef839dc7511c6ff2d51bd46c5e9853679fe0  independent validator boundary
+df9eef839dc7511c6ff2d51bd46c5e9853679fe0  independent validator boundary
 ```
 
 The upstream canonical transfer-scope builder is unchanged. Current observation class for F31/F32 is source-inspected/test-authored; native runtime remains `NOT_RUN_ENVIRONMENT`.
