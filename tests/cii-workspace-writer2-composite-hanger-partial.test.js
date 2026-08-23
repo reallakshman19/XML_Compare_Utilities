@@ -8,6 +8,7 @@ import {
   applyCiiWriter2CompositeWithHangerDeleteAll,
   _test as compositeTest,
 } from '../tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js';
+import { validateCiiWriter2CompositeWithPartialHangerRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-composite-hanger-partial-validation.js';
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 const PARTIAL_FAMILY = 'WRITER_2_HANGER_PARTIAL_DELETE';
@@ -117,6 +118,10 @@ assert.equal(composite.familyMutationCounts.hangerDeleteAllOperations, 0);
 assert.equal(composite.familyMutationCounts.hangerPartialDeleteOperations, 1);
 assert.equal(composite.familyMutationCounts.hangerPartialDeleteClaims, 2);
 assert.equal(composite.mutations.every((claim) => claim.authorityFamily === PARTIAL_FAMILY), true);
+const after = documentFromByteString(composite.byteString, before.parsed);
+assert.equal(after.hangerEvidence.count, 2);
+assert.deepEqual(after.hangerEvidence.nodes, ['200', '220']);
+assert.equal(validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, after, null, parent, composite).status, 'PASS');
 
 const parentCustody = compositeTest.assertBoundScopeCustody(parent, before);
 const child = compositeTest.projectCanonicalFamilySubscope(parent, compositeTest.isHangerDelete, PARTIAL_FAMILY, parentCustody);
@@ -160,4 +165,27 @@ assert.throws(
   /ORIGINAL_SPAN_OVERLAP/,
 );
 
-console.log('Writer2 one-TARGET0 composite partial-HANGER adoption and canonical child scope qualification authored.');
+// Exact final bytes remain the composite validator authority; correct Writer testimony cannot excuse unrelated postimage drift.
+const tampered = documentFromByteString(composite.byteString.replace('UNITS-CUSTODY', 'XNITS-CUSTODY'), before.parsed);
+assert.throws(
+  () => validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, tampered, null, parent, composite),
+  /EXACT_PARTIAL_HANGER_COMPOSITE_POSTIMAGE_MISMATCH/,
+);
+
+// Partial component plan testimony remains secondary and is independently falsified.
+const forged = Object.freeze({
+  ...composite,
+  components: Object.freeze({
+    ...composite.components,
+    hangerPartialDelete: Object.freeze({
+      ...composite.components.hangerPartialDelete,
+      deletePlan: Object.freeze({ ...composite.components.hangerPartialDelete.deletePlan, retainedRecordIndices: Object.freeze([1, 2]) }),
+    }),
+  }),
+});
+assert.throws(
+  () => validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, after, null, parent, forged),
+  /HANGER_PARTIAL_COMPONENT_PLAN_TESTIMONY_MISMATCH/,
+);
+
+console.log('Writer2 one-TARGET0 composite partial-HANGER writer + independent complete-postimage qualification authored.');
