@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; TARGET0 + postimage SHA-256 byte custody; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 17 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Run SHA/F40-F50 then all focused current-head tests on first native checkout; first real H>1 source must trigger dedicated qualification |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; TARGET0 + postimage SHA-256 byte custody; canonical postimage physical re-intake + Writer byte/text equivalence; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 17 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Run SHA/F40-F58 then all focused current-head tests on first native checkout; first real H>1 source must trigger dedicated qualification |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027 |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -71,12 +71,21 @@ PR1027 component authority
     INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class preserved
     actual final bytes == independently expected final bytes
 
-  postimage custody
+  postimage cryptographic custody
     authority = SHA256_WRITER2_POSTIMAGE_BYTES
     Writer hashes exact final byteString after the one mutation pass
     independent validator rehashes after.physicalFile.originalByteString
-    after.contentSha256 + physical/document byte lengths must bind actual postimage bytes
+    after.contentSha256 + physical/document byte lengths bind actual postimage bytes
     Writer postimageHashCustody is secondary testimony
+
+  postimage representation custody
+    authority = CII_PHYSICAL_POSTIMAGE_REINTAKE_EQUIVALENCE
+    Writer derives exposed text from canonical createCiiPhysicalFile(final bytes)
+    independent validator re-intakes after original bytes through neutral physical-file authority
+    physicalFile text/lines/line endings/encoding metadata must equal canonical byte re-intake
+    Writer bytes must be Uint8Array and byte-identical to final physical bytes
+    Writer text must equal canonical decoded text
+    Writer postimageRepresentationCustody is secondary testimony
 ```
 
 Stable blockers:
@@ -87,7 +96,7 @@ SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
 ```
 
-## PR1027 cryptographic custody
+## PR1027 cryptographic + representation custody
 
 ### TARGET0 — F40-F45
 
@@ -108,7 +117,7 @@ F44 DOCUMENT_BYTE_LENGTH_TESTIMONY_MISMATCH
 F45 FORGED_WRITER_TARGET0_HASH_TESTIMONY
 ```
 
-### Postimage — F46-F50
+### Postimage SHA — F46-F50
 
 ```text
 Writer final digest            b93835388b5f27c2044ecd20c91084c7a5f1b38c
@@ -125,19 +134,42 @@ F49 POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH
 F50 FORGED_WRITER_POSTIMAGE_HASH_TESTIMONY
 ```
 
+### Postimage representations — F51-F58
+
+```text
+Writer canonical representation   79f8fec0df92572dba66a5a4fdba40fe24935198
+Validator independent re-intake   2c2d4ecd0ea7cc4f91438572c7d0ea59a5ec6eca
+F51-F58 helper falsifiers          7b622609ec8da738c41ebe2d6e7b02305bc4e13d
+Integrated roundtrip falsifiers    ddf98d2b79ee98822eb0ce7b3e537d2468dc5fc5
+```
+
+```text
+F51 WRITER_BYTE_ARRAY_CONTENT_MISMATCH
+F52 WRITER_BYTE_ARRAY_TYPE_MISMATCH
+F53 WRITER_TEXT_MISMATCH
+F54 POSTIMAGE_PHYSICAL_TEXT_MISMATCH
+F55 POSTIMAGE_PHYSICAL_LINES_MISMATCH
+F56 POSTIMAGE_PHYSICAL_LINE_ENDINGS_MISMATCH
+F57 POSTIMAGE_PHYSICAL_METADATA_MISMATCH
+F58 POSTIMAGE_DOCUMENT_REPRESENTATION_METADATA_MISMATCH
+```
+
 SOURCE physical bytes are not present at this component API, so independent SOURCE-byte rehash is not claimed. Existing SOURCE hash equality remains inherited BOUND-scope testimony.
 
 Observation:
 
 ```text
-production intake SHA basis              PASS_SOURCE_INSPECTION
-SHA utility source                       PASS_SOURCE_INSPECTION
-Writer TARGET0 gate                      PASS_SOURCE_INSPECTION
-Validator TARGET0 gate                   PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-Writer postimage digest                  PASS_SOURCE_INSPECTION
-Validator postimage rehash               PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-F40-F50 source                           AUTHORED / PASS_SOURCE_INSPECTION
-F40-F50 exact runtime                    NOT_RUN_ENVIRONMENT
+production intake SHA basis                   PASS_SOURCE_INSPECTION
+physical-file canonical representation        PASS_SOURCE_INSPECTION
+SHA utility source                            PASS_SOURCE_INSPECTION
+Writer TARGET0 gate                           PASS_SOURCE_INSPECTION
+Validator TARGET0 gate                        PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+Writer postimage digest                       PASS_SOURCE_INSPECTION
+Validator postimage rehash                    PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+Writer postimage representation               PASS_SOURCE_INSPECTION
+Validator representation re-intake            PASS_SOURCE_INSPECTION_INDEPENDENT_REINTAKE
+F40-F58 source                                AUTHORED / PASS_SOURCE_INSPECTION
+F40-F58 exact runtime                         NOT_RUN_ENVIRONMENT
 ```
 
 ## PR1027 canonical scope-container hardening
@@ -169,18 +201,18 @@ First real H>1 discovery must trigger explicit qualification; synthetic evidence
 Historical reconstructed evidence remains at its original observation class and is not relabelled as current-head native execution.
 
 ```text
-F40-F50 SHA custody suite                 AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
-F31-F39 canonical scope/container suite   AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
-synchronizer active-only authority        PASS_SOURCE_INSPECTION
-repository real-source census             PASS_SOURCE_INSPECTION
-real repository H>1 source                NOT_AVAILABLE
-real H>1 physical roundtrip               NOT_RUN_NO_REAL_SOURCE
-packed-tail integrated test               NOT_RUN_ENVIRONMENT
-real-source census test                   NOT_RUN_ENVIRONMENT
-all focused current-head tests            NOT_RUN_ENVIRONMENT
-full-file BM_CII_SOURCE exact roundtrip   NOT_RUN_ENVIRONMENT
-broader Writer2/product regression        NOT_RUN_ENVIRONMENT
-full repository npm test                  NOT_RUN_ENVIRONMENT
+F40-F58 hash/representation suite        AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
+F31-F39 canonical scope/container suite  AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
+synchronizer active-only authority       PASS_SOURCE_INSPECTION
+repository real-source census            PASS_SOURCE_INSPECTION
+real repository H>1 source               NOT_AVAILABLE
+real H>1 physical roundtrip              NOT_RUN_NO_REAL_SOURCE
+packed-tail integrated test              NOT_RUN_ENVIRONMENT
+real-source census test                  NOT_RUN_ENVIRONMENT
+all focused current-head tests           NOT_RUN_ENVIRONMENT
+full-file BM_CII_SOURCE exact roundtrip  NOT_RUN_ENVIRONMENT
+broader Writer2/product regression       NOT_RUN_ENVIRONMENT
+full repository npm test                 NOT_RUN_ENVIRONMENT
 ```
 
 See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, `docs/cii-writer2-hanger-partial-physical.md`, and the real-source census CSV for exact custody and observation classes.
