@@ -9,6 +9,7 @@ const EXECUTION_ROWS = 4;
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
 const SCOPE_AUTHORITY = 'USER_EXPLICIT_OPERATION_SCOPE';
 const PACKED_LABELS = Object.freeze(['IHGRNODE', 'IHGRNUM', 'IHGRTABLE', 'IHGRSHORT', 'IHGRCN']);
+export const CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY = 'SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY';
 
 function text(value) { return String(value ?? '').trim(); }
 function markerName(value) {
@@ -149,8 +150,28 @@ function retainedPackedFields(plan, label) {
   }
   return fields;
 }
+function assertPackedSourceTailQualified(sourceRows, count, label) {
+  const expectedRows = Math.ceil(Number(count) / VALUES_PER_PACKED_ROW);
+  if (!Number.isSafeInteger(Number(count)) || Number(count) <= 0 || sourceRows.length !== expectedRows) {
+    throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PACKED_SOURCE_ROW_COUNT_REQUIRED:${label}:${sourceRows.length}:${expectedRows}`);
+  }
+  const last = sourceRows[sourceRows.length - 1]; const raw = String(last?.text || '');
+  const used = Number(count) % VALUES_PER_PACKED_ROW || VALUES_PER_PACKED_ROW;
+  const activeEnd = PACKED_PREFIX.length + used * FIELD_WIDTH;
+  if (raw.slice(0, PACKED_PREFIX.length) !== PACKED_PREFIX || raw.length < activeEnd) {
+    throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PACKED_SOURCE_TAIL_SPAN_REQUIRED:${label}`);
+  }
+  const tail = raw.slice(activeEnd);
+  decodeCiiAsciiByteString(tail);
+  if ([...tail].some((char) => char !== ' ')) {
+    throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PACKED_TRAILING_BLANK_BYTES_REQUIRED:${label}`);
+  }
+  return Object.freeze({ authority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY,
+    sourceTrailingBlankBytes: tail.length, postUnusedFieldPolicy: 'OMIT_UNUSED_FIELDS' });
+}
 function repackPackedRows(plan, label, sourceRows) {
   const fields = retainedPackedFields(plan, label); const afterRows = Number(plan?.compaction?.packedRowsAfter);
+  assertPackedSourceTailQualified(sourceRows, Number(plan.countBefore), label);
   if (!Number.isSafeInteger(afterRows) || afterRows !== Math.ceil(fields.length / VALUES_PER_PACKED_ROW) || sourceRows.length < afterRows) {
     throw new Error(`CII_WRITER_2_HANGER_PARTIAL_PACKED_ROW_COUNT_INVALID:${label}:${sourceRows.length}:${afterRows}`);
   }
@@ -247,9 +268,11 @@ export function applyCiiWriter2HangerPartialDelete({ targetDocument, transferPla
     deletedRecordIndices: Object.freeze([...(plan.deletedRecordIndices || [])]), retainedRecordIndices: Object.freeze([...(plan.retainedRecordIndices || [])]),
     oldToNewRecordIndex: Object.freeze({ ...(plan.oldToNewRecordIndex || {}) }), tailOrder: plan?.physicalCustody?.recordBinding?.tailOrder,
     packedRowsBefore: Number(plan?.compaction?.packedRowsBefore), packedRowsAfter: Number(plan?.compaction?.packedRowsAfter),
+    packedTailAuthority: CII_WRITER_2_HANGER_PACKED_TAIL_AUTHORITY,
     mutationCount: replacements.length, mutations: Object.freeze(replacements), scopeCustody, deletePlan: plan,
   });
 }
 
 export const _test = Object.freeze({ markerName, integerField, lineEndingBytes, rawSectionEnvelope, assertBoundScopeCustody,
-  assertPartialPlan, partitionRows, retainedPackedFields, repackPackedRows, controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
+  assertPartialPlan, partitionRows, retainedPackedFields, assertPackedSourceTailQualified, repackPackedRows,
+  controlReplacement, payloadReplacement, assertDisjoint, applyReplacements });
