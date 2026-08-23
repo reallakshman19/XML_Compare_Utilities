@@ -3,9 +3,9 @@ issue: 1038
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-cardinality-w29
 base_main: ff9d706796e42a43ebfb1c74696350e9b8cc695b
-report_basis_head: 857c85e39cdd85988144eee53a0526f594615270
+report_basis_head: 6aa1f04ad24958ab64c069074343c7ccb54f3c28
 agent_state: REVIEW_READY_WITH_NOT_READY_ENGINEERING_VERDICT
-current_stage: W2_9_RESTRAINT_CARDINALITY_QUALIFICATION_COMPLETE_NOT_READY
+current_stage: W2_9_RESTRAINT_CARDINALITY_QUALIFICATION_COMPLETE_NOT_READY_RECONCILED
 handover_readiness: READY
 scope_authority: ISSUE_1038_QUALIFICATION_ONLY
 merge_authority: OWNER_ONLY
@@ -47,9 +47,12 @@ runtime:
   full_repository_test: NOT_RUN_ENVIRONMENT
   browser_product: NOT_APPLICABLE_NO_PRODUCTION_ROUTE_CHANGE
 
-intended_paths: 9
-production_paths_intended: 0
-unexplained_paths_expected: 0
+changed_paths:
+  intended: 9
+  actual: 9
+  production: 0
+  unexplained: 0
+  observation: PASS_REMOTE_GITHUB_COMPARE_AT_REPORT_BASIS
 
 coordination:
   classification: SAFE_WITH_SHARED_INDEX_RECONCILIATION
