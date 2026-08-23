@@ -13,84 +13,94 @@ SOURCE_TASK: Issue #1038
 PR: #1039
 BRANCH: agent/cii-writer2-restraint-cardinality-w29
 BASE_MAIN: ff9d706796e42a43ebfb1c74696350e9b8cc695b
-REPORT_BASIS_HEAD: 857c85e39cdd85988144eee53a0526f594615270
-CURRENT_STAGE: W2_9_RESTRAINT_CARDINALITY_QUALIFICATION_COMPLETE_NOT_READY
+REPORT_BASIS_HEAD: 6aa1f04ad24958ab64c069074343c7ccb54f3c28
+CURRENT_STAGE: W2_9_RESTRAINT_CARDINALITY_QUALIFICATION_COMPLETE_NOT_READY_RECONCILED
 FINAL_VERDICT: NOT_READY_FOR_WRITER2_RESTRAINT_CARDINALITY_PLANNER
 PHYSICAL_WRITER_AUTHORITY: FALSE
 COMPOSITE_PRODUCT_AUTHORITY: FALSE
 WRITER1B_FREE_SLOT_AUTHORITY: PRESERVED
 ```
 
+`REPORT_BASIS_HEAD` is the pre-final-coordination head whose GitHub compare established the observed 9-path scope. Live GitHub state remains authoritative for the branch head after coordination-only commits.
+
 ## Handover in 60 Seconds
 
-W2.9 follows merged W2.5 PR #1037. SIF CREATE W2.1 remains NOT_READY in draft PR #1033, blocking W2.2-W2.4. HANGER CREATE W2.5 merged with a NOT_READY verdict, blocking W2.6-W2.8. W2.9 is therefore the next independent Writer2 roadmap phase.
+PR1037/W2.5 was owner-authorized and squash-merged to `main@ff9d706796e42a43ebfb1c74696350e9b8cc695b` before W2.9 started.
 
-The investigation proves the structural restraint block model and deterministic DELETE-compaction index arithmetic, but generic CREATE-capable cardinality planning remains source-incomplete.
-
-Final verdict:
+Roadmap state:
 
 ```text
-NOT_READY_FOR_WRITER2_RESTRAINT_CARDINALITY_PLANNER
+W2.1 SIF CREATE qualification
+  NOT_READY -> W2.2-W2.4 blocked
+
+W2.5 HANGER CREATE qualification
+  merged NOT_READY -> W2.6-W2.8 blocked
+
+W2.9 RESTRAINT true cardinality
+  THIS PR
+  final verdict NOT_READY_FOR_WRITER2_RESTRAINT_CARDINALITY_PLANNER
 ```
 
-No Writer2 restraint-cardinality planner or physical writer has been added.
+W2.9 materially qualified the block/pointer model and DELETE-compaction relocation arithmetic, but generic CREATE-capable cardinality planning remains source-incomplete. No production planner or writer was added.
 
-## Live grounding epoch GE-1039-001
-
-Starting live authority:
+## Grounding epoch GE-1039-001
 
 ```text
-main
+live main at branch creation
   ff9d706796e42a43ebfb1c74696350e9b8cc695b
 
-PR1039 branch
+branch
   agent/cii-writer2-restraint-cardinality-w29
+
+PR
+  #1039 draft during active work
 
 source issue
   #1038
 
 coordination
-  PR1033 active qualification only
-  no RESTRAINT production/test authority overlap
-  shared agents/MASTER_INDEX.md requires preservation
+  PR1033 remains active qualification-only
+  shared path = agents/MASTER_INDEX.md
+  RESTRAINT production/test authority overlap = NONE
 
 classification
   SAFE_WITH_SHARED_INDEX_RECONCILIATION
 ```
 
-A full clone was attempted and failed before checkout because the environment could not resolve `github.com`. Exact-checkout runtime is therefore retained as `NOT_RUN_ENVIRONMENT`.
+A full repository clone was attempted. The environment failed before checkout because `github.com` could not be resolved. Therefore exact-checkout Node execution, full pointer census and repository-wide tests remain `NOT_RUN_ENVIRONMENT`.
 
-## Mission boundary
+## Scope boundary
 
-W2.9 may source-qualify and, only if READY, implement a deterministic cardinality planner.
+Qualification/planner gate only.
 
-It must not modify:
+Explicit non-scope:
 
 ```text
-Writer1B fixed-slot CREATE/CLEAR
-production physical writer
-one-TARGET0 composite routing
+Writer1B fixed-slot behavior
+Writer2 physical restraint-cardinality writer
+one-TARGET0 composite adoption
 product/core routing
-UI/browser
+UI/browser enablement
 SIF CREATE
 HANGER CREATE
 Writer3 topology
-workflow/package scripts
+protected converter mutation
+workflow/package mutation
 ```
 
 ## Existing Writer1B authority preserved
 
-Merged Writer1B already owns:
+Merged Writer1B owns cardinality-preserving mutation inside one existing restraint auxiliary block:
 
 ```text
-6 slots per existing restraint block
-4 rows per slot
-24 rows per block
+6 slots
+4 rows/slot
+24 rows/block
 CREATE into clean existing free slot
 CLEAR qualified existing slot
 ```
 
-Production authority/blockers retained:
+Preserved authority/blockers:
 
 ```text
 PROTECTED_WRITER_EXISTING_24_ROW_BLOCK_FREE_SLOT
@@ -98,130 +108,160 @@ PROTECTED_WRITER_EXISTING_24_ROW_BLOCK_EMPTY_SLOT_TEMPLATE
 RESTRAINT_TARGET_FREE_SLOT_REQUIRED
 ```
 
-Therefore:
+Boundary:
 
 ```text
 existing free slot -> Writer1B
 new block required -> Writer2 true-cardinality domain
 ```
 
-## Source findings
+## Source qualification
 
-### Exact V11 Piping Input authority
+### Exact V11 input semantics
 
-Vendor-authored Version 2019 (11.0) User's Guide establishes:
+Vendor-authored CAESAR II User's Guide Version 2019 (11.0), April 2019 establishes:
 
 ```text
 up to six restraints per element
 Node required
 Type required
-other input optional
+other restraint input optional
 blank stiffness -> rigid support behavior
-Tag user input
-Support GUID may be imported by PCF mapping
+Tag may be entered
+Support GUID may be imported through PCF mapping
 ```
 
-Most important:
+The decisive V11 identity statement is:
 
 ```text
-restraint GUID is software-assigned
-restraint GUID is display-only in the Restraints list input
+restraint GUID = software-assigned
+restraint GUID = display-only in Restraints list input
 ```
 
-No external neutral-file GUID generation rule was found.
+No external neutral-file GUID generation algorithm was found.
 
 ### CONTROL count
 
-Official Hexagon neutral-file help defines CONTROL auxiliary item 4 as:
+Official Hexagon neutral help defines the fourth auxiliary count in CONTROL as:
 
 ```text
 number of restraint auxiliary data blocks
 ```
 
-This is block cardinality, not occupied restraint-slot cardinality.
+Therefore Writer2 cardinality count is a block count, not an occupied-slot count.
 
-### Physical neutral block
+### Pointer and block format
 
-Vendor neutral-format authority plus V12 official corroboration defines:
+Vendor neutral documentation plus merged custody establishes:
 
 ```text
-IEL item4 -> restraint auxiliary pointer
-pointer 0 -> no restraint auxiliary data
-six possible restraints per auxiliary block
-nine numeric fields per restraint
-Support TAG
-Support GUID
-blank string -> length 0
+ELEMENT IEL item4 = pointer to restraint auxiliary field
+pointer 0 = no restraint auxiliary data
+current supported pointer = 1-based 24-row block index
 ```
 
-Current merged physical custody establishes the pointer as a 1-based 24-row block index for the supported route.
+Current six-slot block:
+
+```text
+6 restraint slots
+x 4 physical rows
+= 24 rows
+```
+
+Per slot:
+
+```text
+row1/row2 numeric:
+  node
+  type
+  stiffness
+  gap
+  friction
+  connecting node
+  X/Y/Z direction cosines
+
+row3 Support TAG
+row4 Support GUID
+```
+
+Blank string representation uses length prefix 0.
+
+Edition guard is mandatory; older four-restraint neutral layouts are not current W2.9 authority.
 
 ### Repository converter
 
-`converters/scripts/inputxml_to_cii2019.py` emits:
+`converters/scripts/inputxml_to_cii2019.py` locally emits:
 
 ```text
-6 x 4 = 24 rows per block
-one block for each element with restraints
-next sequential block index
+6 x 4 = 24 rows/block
+one block per element with restraints
+next sequential emitted block index
 empty numeric/template rows
-blank TAG/GUID for unused slots
+blank TAG/GUID rows for unused slots
 ```
 
-This is repository converter policy/corroboration, not universal vendor CREATE authority.
+This is repository converter policy/corroboration. It is not promoted to universal vendor CREATE authority.
 
 ## Real-source census
 
 Observed block counts:
 
 ```text
-BM_CII_SOURCE.CII                 7
-BM_CII_TARGET1.CII                7
-BM_CII_TARGET2.CII                7
-SOURCE 3.CII                    132
-TARGET 3-1.CII                  135
-inputxml_profile_bm_cii_2019      8
-Benchmark/Pipeline/CII            0
-output.cii                        0
-legacy sys30 profile              3  // unsupported W2.9 layout signature
+BM_CII_SOURCE.CII                         7
+BM_CII_TARGET1.CII                        7
+BM_CII_TARGET2.CII                        7
+SOURCE 3.CII                            132
+TARGET 3-1.CII                          135
+inputxml_profile_bm_cii_2019.cii          8
+Benchmark/Pipeline/CII                     0
+output.cii                                 0
+legacy sys30 profile                       3  // unsupported layout signature
 ```
 
-`SOURCE 3.CII` explicitly identifies CAESAR II Neutral file interface Ver 11.00.
+`SOURCE 3.CII` identifies `Neutral file interface Ver 11.00`.
 
-Real source inspection shows occupied slots plus zero/blank empty slots in 24-row blocks.
+Real V11 files visibly corroborate occupied slots plus zero/blank empty slots inside 24-row blocks.
 
-No controlled native before/after restraint-block CREATE or DELETE transition was found.
+No controlled native before/after pair was found for:
 
-## Qualified DELETE-compaction arithmetic
+```text
+0 -> 1 restraint block
+N -> N+1 restraint blocks
+N -> N-1 restraint blocks
+middle-block compaction
+blank GUID import -> assigned software GUID
+```
 
-For original positive block pointer `p` and deleted old block set `D`:
+## DELETE-compaction relocation arithmetic
+
+For original positive block pointer `p` and deleted old-block set `D`:
 
 ```text
 newPointer(p) = p - count(d in D where d < p)
 ```
 
-Deleted block indices map to zero in the old-to-new block map.
+Deleted blocks map to zero in the old-to-new block map.
 
-Examples:
+Qualification examples:
 
 ```text
-3 blocks, delete 2
-  {1:1, 2:0, 3:2}
+B=3 delete {2}
+  1->1  2->0  3->2
 
-3 blocks, delete 1
-  {1:0, 2:1, 3:2}
+B=3 delete {1}
+  1->0  2->1  3->2
 
-3 blocks, delete 3
-  {1:1, 2:2, 3:0}
+B=3 delete {3}
+  1->1  2->2  3->0
 
-5 blocks, delete 2 and 4
-  {1:1, 2:0, 3:2, 4:0, 5:3}
+B=5 delete {2,4}
+  1->1  2->0  3->2  4->0  5->3
 ```
 
-CONTROL and physical consequences:
+Count/row consequence:
 
 ```text
-blockCountAfter = blockCountBefore - deletedBlockCount
+blockCountAfter = B - |D|
 RESTRANT rowsAfter = 24 * blockCountAfter
 ```
 
@@ -231,7 +271,7 @@ Classification:
 PASS_DERIVED_FROM_DIRECT_FORMAT
 ```
 
-This is not planner or physical-write authority.
+This is evidence for a future DELETE-only planner; it is not planner or physical-write authority in PR1039.
 
 ## Hard blockers
 
@@ -246,98 +286,71 @@ B06 FULL_REPOSITORY_POINTER_ALIAS_CENSUS_NOT_EXECUTED
 
 B01-B04 independently block generic CREATE-capable planner authority.
 
-## Recommended future split
-
-A future issue may separately qualify:
-
-```text
-RESTRAINT_BLOCK_DELETE_COMPACTION
-```
-
-with unique/unambiguous owner custody, fail-closed alias behavior and one deterministic old-to-new block map.
-
-Separately:
-
-```text
-RESTRAINT_BLOCK_CREATE_ALLOCATION
-```
-
-must remain blocked until GUID/default/allocation authority is complete.
-
-This recommendation is not implementation authority.
-
 ## R01-R18 disposition
 
 ```text
 R01 free slot                         Writer1B only
 R02 no free slot                      generic CREATE blocked
 R03 pointer=0 first block             generic CREATE blocked
-R04 slot clear/block occupied         Writer1B fixed-capacity
-R05 last occupied slot                delete-compaction candidate only
-R06 middle block remove               relocation arithmetic qualified
-R07 first block remove                relocation arithmetic qualified
-R08 last block remove                 relocation arithmetic qualified
+R04 clear slot/block still occupied   Writer1B fixed-capacity
+R05 last occupied slot                DELETE-compaction candidate only
+R06 remove middle block               relocation arithmetic qualified
+R07 remove first block                relocation arithmetic qualified
+R08 remove last block                 relocation arithmetic qualified
 R09 new-block allocation order        unresolved
-R10 shared pointer alias              block unless qualified
-R11 duplicate claims                  canonicalize only with complete identical ownership or block
+R10 shared pointer alias              block unless separately qualified
+R11 duplicate logical claims          canonicalize only with complete identical custody or block
 R12 conflicting same-block claims     block
 R13 stale TARGET                      block
 R14 CONTROL count mismatch            block
-R15 row count not multiple of 24      block
+R15 rows not multiple of 24           block
 R16 CREATE GUID/default unresolved     block
 R17 unsupported edition/layout        block
 R18 node/element topology change      Writer3
 ```
 
-## Validation ledger
+## Machine-checkable sentinel
+
+Authored:
 
 ```text
-exact V11 restraint input semantics
-  PASS_VENDOR_AUTHORED_EXACT_VERSION_MIRROR
-
-exact V11 GUID software-assigned/display-only
-  PASS_VENDOR_AUTHORED_EXACT_VERSION_MIRROR
-
-official Hexagon CONTROL block-count semantics
-  PASS_OFFICIAL_HEXAGON_SOURCE
-
-neutral six-slot + TAG/GUID physical format
-  PASS_VENDOR_NEUTRAL_DOCUMENTATION
-  + PASS_OFFICIAL_HEXAGON_V12_CORROBORATION
-
-Writer1B boundary
-  PASS_MERGED_SOURCE_INSPECTION
-
-repository converter policy
-  PASS_SOURCE_INSPECTION_REPOSITORY_POLICY_ONLY
-
-real V11 multi-block CII availability
-  AVAILABLE / PASS_REMOTE_SOURCE_INSPECTION
-
-native CREATE transition
-  NOT_AVAILABLE
-
-native DELETE compaction transition
-  NOT_AVAILABLE
-
-full pointer-alias census
-  NOT_RUN_ENVIRONMENT
-
-qualification sentinel
-  AUTHORED / NOT_RUN_ENVIRONMENT
-
-repository-wide npm test
-  NOT_RUN_ENVIRONMENT
-
-browser/product
-  NOT_APPLICABLE_NO_PRODUCTION_ROUTE_CHANGE
+tests/cii-workspace-writer2-restraint-cardinality-qualification.test.js
 ```
 
-No unexecuted check is reported as PASS.
+It asserts:
 
-## Changed-file ledger
+```text
+NOT_READY final verdict
+B01-B06 presence
+CONTROL block-count semantics recorded
+software-assigned GUID blocker recorded
+four independent relocation-map examples
+24-row count arithmetic
+Writer1B RESTRAINT_TARGET_FREE_SLOT_REQUIRED remains present
+Writer2 composite restraintCardinality blocker remains present
+no production restraint-cardinality planner exists
+```
 
-Final intended scope:
+Runtime truth:
+
+```text
+AUTHORED / NOT_RUN_ENVIRONMENT
+```
+
+## Changed-file ledger — observed
+
+GitHub compare at `REPORT_BASIS_HEAD` showed:
+
+```text
+ahead / behind   10 / 0
+merge-base        ff9d706796e42a43ebfb1c74696350e9b8cc695b
+intended paths    9
+actual paths      9
+production paths  0
+unexplained       0
+```
+
+Exact paths:
 
 ```text
 agents/MASTER_INDEX.md
@@ -351,45 +364,95 @@ docs/cii-writer2-restraint-cardinality-source-ledger.csv
 tests/cii-workspace-writer2-restraint-cardinality-qualification.test.js
 ```
 
-Expected:
+Final coordination commits modify only already-intended metadata paths; live GitHub compare is authoritative for the latest head.
+
+## Validation ledger
 
 ```text
-intended paths    9
-production paths  0
-unexplained       0
+exact V11 restraint input semantics
+  PASS_VENDOR_AUTHORED_EXACT_VERSION_MIRROR
+
+exact V11 software-assigned/display-only GUID
+  PASS_VENDOR_AUTHORED_EXACT_VERSION_MIRROR
+
+official Hexagon CONTROL block count
+  PASS_OFFICIAL_HEXAGON_SOURCE
+
+neutral six-slot/TAG/GUID block format
+  PASS_VENDOR_NEUTRAL_DOCUMENTATION
+  + PASS_OFFICIAL_HEXAGON_V12_CORROBORATION
+
+Writer1B scope boundary
+  PASS_MERGED_SOURCE_INSPECTION
+
+real V11 multi-block sources
+  AVAILABLE / PASS_REMOTE_SOURCE_INSPECTION
+
+DELETE relocation arithmetic
+  PASS_DERIVED_FROM_DIRECT_FORMAT
+
+native CREATE transition
+  NOT_AVAILABLE
+
+native DELETE transition
+  NOT_AVAILABLE
+
+full exact-checkout pointer-alias census
+  NOT_RUN_ENVIRONMENT
+
+qualification sentinel
+  NOT_RUN_ENVIRONMENT
+
+npm test
+  NOT_RUN_ENVIRONMENT
+
+browser/product
+  NOT_APPLICABLE_NO_PRODUCTION_ROUTE_CHANGE
 ```
 
-Final GitHub reconciliation must replace expectation with observed counts before review-ready disposition.
+No unexecuted check is represented as PASS.
+
+## Recommended successor split
+
+Do not start generic W2.10.
+
+A separately scoped future issue may qualify:
+
+```text
+RESTRAINT_BLOCK_DELETE_COMPACTION
+```
+
+with unique/unambiguous block ownership, explicit fail-closed alias handling, one old-to-new block map, CONTROL decrement and complete expected postimage.
+
+Keep:
+
+```text
+RESTRAINT_BLOCK_CREATE_ALLOCATION
+```
+
+blocked until GUID/default/allocation source authority is complete.
 
 ## Exact next action
 
-Not a generic W2.10 implementation.
-
-Either:
-
 ```text
-A. acquire source authority for GUID/default/allocation semantics and resume W2.9
+SOURCE_ACQUISITION
+or
+EXPLICIT_NARROW_DELETE_COMPACTION_SUCCESSOR
 ```
 
-or explicitly create a narrower successor issue for:
-
-```text
-B. RESTRAINT_BLOCK_DELETE_COMPACTION qualification/planner only
-```
-
-No merge without fresh owner authorization.
+PR1039 remains owner-merge-controlled. No merge without fresh owner authorization.
 
 ## Appendix A — expert takeover gate
 
-1. Why is an existing clean free slot Writer1B while a new seventh slot/block is Writer2?
-2. Prove the current pointer unit and physical span for restraint pointer `p`.
+1. Why is an existing free restraint slot Writer1B, while a new 24-row block is Writer2?
+2. Prove the pointer unit and physical block span for pointer `p`.
 3. What exactly does CONTROL restraint count represent?
-4. Derive the old-to-new map for blocks 1..5 when blocks 2 and 4 are removed.
+4. Derive the 1..5 relocation map when old blocks 2 and 4 are removed.
 5. Why must a pointer to a removed block never be silently redirected?
-6. What source establishes the restraint GUID owner, and why does it block generic Writer CREATE?
-7. Which repository converter behaviors are policy rather than vendor neutral requirements?
-8. Why do real 132/135-block files strengthen physical custody but not prove CREATE?
-9. Define the conditions under which an entire block can be removed rather than one slot merely cleared.
-10. How must shared-pointer aliases be handled before block deletion?
-11. Define the later independent full-postimage oracle for a variable-length RESTRANT compaction.
-12. State every condition that keeps the generic W2.9 planner NOT_READY.
+6. What source establishes GUID ownership and why does it block generic CREATE?
+7. Which converter behaviors are repository policy rather than vendor rules?
+8. Why do real 132/135-block files not prove CREATE semantics?
+9. When is a whole block removable versus one slot merely clearable?
+10. What must happen if two ELEMENTs share one block pointer?
+11. Define the future independent complete-postimage oracle for variable-length RESTRANT compaction.
+12. State every fact that keeps the generic W2.9 planner NOT_READY.
