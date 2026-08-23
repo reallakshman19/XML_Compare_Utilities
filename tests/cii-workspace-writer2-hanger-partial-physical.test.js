@@ -147,13 +147,13 @@ function tamperRowByte(byteString, row) {
   const position = row.byteStart; const current = byteString[position]; const replacement = current === 'X' ? 'Y' : 'X'; return replaceSpan(byteString, position, position + 1, replacement);
 }
 function validateFails(before, transferPlan, writer, tamperedBytes, pattern = /CII_WRITER_2_HANGER_PARTIAL_ROUNDTRIP_FAILED/) {
-  const after = documentFromByteString(tamperedBytes, before.parsed, 'tampered-post');
+  const after = documentFromByteString(tamperedBytes, before.parsed);
   assert.throws(() => validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer), pattern);
 }
 function runCase(count, deletePositions, tailOrder = 'INTERLEAVED', options = {}) {
   const { target: before, nodes } = syntheticTarget(count, tailOrder, options); const deleteNodes = deletePositions.map((position) => nodes[position - 1]);
   const transferPlan = boundForDelete(before, deleteNodes); const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
-  const after = documentFromByteString(writer.byteString, before.parsed, 'post-sha'); const validation = validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer);
+  const after = documentFromByteString(writer.byteString, before.parsed); const validation = validateCiiWriter2HangerPartialRoundTrip(before, after, transferPlan, writer);
   assert.equal(validation.status, 'PASS'); const deleted = new Set(deletePositions); const retained = Array.from({ length: count }, (_, index) => index + 1).filter((index) => !deleted.has(index));
   assert.deepEqual(writer.retainedRecordIndices, retained); assert.equal(writer.hangerCountAfter, retained.length);
   assert.equal(writer.packedRowsBefore, Math.ceil(count / 6)); assert.equal(writer.packedRowsAfter, Math.ceil(retained.length / 6));
