@@ -143,7 +143,8 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert.equal(hanger.action, 'DELETE'); assert.equal(hanger.status, 'PREVIEW_READY'); assert.equal(hanger.policyAuthority, CII_WRITER_2_HANGER_DELETE_POLICY);
   assert(!routed.blockers.includes('NO_TRANSFERABLE_PREVIEW_OPERATIONS'));
   assert.equal(routed.policy.mixedCardinalityMutation, 'ONE_ORIGINAL_PREIMAGE_COMPOSITE');
-  assert.equal(routed.policy.hangerMutation, 'EXISTING_HANGER_DELETE_ALL_ONLY');
+  assert.equal(routed.policy.hangerMutation, 'EXISTING_HANGER_DELETE_ALL_OR_QUALIFIED_PARTIAL');
+  assert.equal(routed.policy.hangerPartialMultiDelete, 'QUALIFIED_POSITIONAL_RECORD_COMPACTION_ONLY');
 
   const before = fixtureDocument();
   assert.equal(before.hangerEvidence.status, 'QUALIFIED');
@@ -155,10 +156,12 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert.equal(ready.ready, true, ready.blockers.join('|'));
   assert.equal(ready.mutationCount, 3);
   assert.deepEqual(ready.familyMutationCounts, { nodeName: 1, sifDelete: 1, hangerDelete: 1 });
+  assert.equal(ready.hangerTransactionClass, 'DELETE_ALL');
   assert.equal(ready.components.nodeName.appendedRows[0].toName, 'P-20');
   assert.equal(ready.components.sifDelete.blockCountAfter, 0);
   assert.equal(ready.components.hangerDeleteAll.countAfter, 0);
   assert.equal(ready.components.hangerDeleteAll.compaction.deleteAll, true);
+  assert.equal(ready.components.hangerPartialDelete, null);
 }
 
 {
@@ -217,12 +220,14 @@ function bound(contracted, decisions = () => 'APPLY') {
   const transferPlan = bound(routed);
   const readiness = ciiWriter2CompositeReadiness(transferPlan, before, graph());
   assert.equal(readiness.ready, true, readiness.blockers.join('|'));
+  assert.equal(readiness.hangerTransactionClass, 'DELETE_ALL');
   const preview = Object.freeze({ writerVersion: '2', targetDocument: before, transferPlan, correspondence: Object.freeze({}) });
   const applied = await applyCiiWorkspaceTargetWriter2(preview, bytes, { cryptoRef: webcrypto });
   assert.equal(applied.status, 'PASS');
   assert.equal(applied.writer, 'WRITER_2');
   assert.equal(applied.validation.status, 'PASS');
   assert.equal(applied.validation.schema, 'CIIWorkspaceWriter2CompositeHangerValidation.v1');
+  assert.equal(applied.validation.productValidatorClass, 'DELETE_ALL');
   assert.equal(applied.validation.nodeNameOperations, 1);
   assert.equal(applied.validation.sifDeleteOperations, 1);
   assert.equal(applied.validation.hangerDeleteOperations, 1);
@@ -245,10 +250,10 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert(core.includes('ciiWriter2CompositeReadiness(plan, targetDocument, targetGraph)'));
   assert(core.includes('applyCiiWriter2CompositeWithHangerDeleteAll as applyCiiWriter2Composite'));
   assert(core.includes("from './cii-workspace-writer2-composite-hanger.js'"));
-  assert(core.includes('validateCiiWriter2CompositeWithHangerRoundTrip as validateCiiWriter2CompositeRoundTrip'));
-  assert(core.includes("from './cii-workspace-writer2-composite-hanger-validation.js'"));
+  assert(core.includes('validateCiiWriter2ProductRoundTrip'));
+  assert(core.includes("from './cii-workspace-writer2-product-validation.js'"));
   assert(core.includes('applyCiiWriter2Composite({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan })'));
-  assert(core.includes('validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
+  assert(core.includes('validateCiiWriter2ProductRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
   assert(!core.includes("from './cii-workspace-writer2-composite.js'"));
   assert(!core.includes("from './cii-workspace-writer2-composite-validation.js'"));
   assert(!core.includes('applyCiiWriter2NodeNameRelocation({ targetDocument: currentTarget'));
@@ -261,4 +266,4 @@ function bound(contracted, decisions = () => 'APPLY') {
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
-console.log('Writer 2 product routing admits qualified NODENAME + V11 SIF DELETE + HANGER DELETE-ALL through one-preimage tri-family composite only.');
+console.log('Writer 2 product routing preserves qualified delete-all while admitting separately qualified partial HANGER through one-preimage composite authority.');
