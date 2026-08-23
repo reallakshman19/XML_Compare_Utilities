@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; canonical BOUND APPLY/EXCLUDE disjointness; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 15 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Run F31/F32 + focused current-head tests on first native checkout; first real H>1 source must trigger dedicated qualification |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW PENDING FINAL HEAD RECONCILIATION | Component-only partial writer; canonical BOUND operation-container custody + APPLY/EXCLUDE disjointness; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0; 15 intended paths / 0 unexplained; no product/composite/UI adoption | Final head/main/review/check reconciliation, then owner engineering review. Run F31-F39 + focused current-head tests on first native checkout; merge only on fresh explicit owner authorization |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027 |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -44,8 +44,17 @@ Merged PR1025 planner authority
 
 PR1027 component authority
   H>1 partial HANGER DELETE physical compaction only; H' > 0
-  caller-supplied BOUND scope must prove APPLY ∩ EXCLUDE = ∅ in both PLAN and SCOPE testimony
-  upstream applyCiiTransferScope remains unchanged and disjoint by construction
+  caller-supplied BOUND transaction is validated as a canonical physical representation
+  operations[] required
+    mutable rows -> APPLY only
+    KEEP rows    -> KEEP only
+  excludedOperations[] required
+    mutable rows -> EXCLUDE only
+    KEEP forbidden
+  PLAN APPLY ∩ EXCLUDE = empty
+  SCOPE APPLY ∩ EXCLUDE = empty
+  operation IDs globally unique across both physical containers
+  upstream applyCiiTransferScope remains unchanged/canonical by construction
   one untouched TARGET0
   two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1
   exact retained raw I13 field repacking across all five arrays
@@ -53,7 +62,7 @@ PR1027 component authority
   no extra packed-row source bytes are silently normalized
   retained IHGRFREE copied by the same positional map
   INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class preserved
-  independent complete-postimage validator independently re-proves scope disjointness
+  independent complete-postimage validator independently re-proves scope/container custody
   actual final bytes == independently expected final bytes
   Writer testimony is secondary evidence only
 ```
@@ -66,30 +75,30 @@ SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
 ```
 
-## PR1027 scope-disjointness hardening
+## PR1027 canonical scope-container hardening
 
-The upstream canonical scope builder uses one decision per mutable operation ID and is disjoint by construction. PR1027 nevertheless treats the supplied BOUND transferPlan as an untrusted component boundary.
+The upstream canonical scope builder uses one decision per mutable operation ID and emits APPLY rows in `operations`, EXCLUDE rows in `excludedOperations`, and KEEP rows only in `operations`. PR1027 nevertheless treats a supplied already-BOUND object as untrusted component input.
 
-Previous `sameStrings()` set-equivalence could hide a forged duplicate authority because it normalizes through a Set. PR1027 now requires:
+Independent component changes:
 
 ```text
-PLAN appliedOperationIds ∩ PLAN excludedOperationIds   = ∅
-SCOPE appliedOperationIds ∩ SCOPE excludedOperationIds = ∅
+Writer container custody    4a9f2f7daf6b7c50f776a4b8ad569df76ada1106
+Validator independent proof c6fb4d2c1b8d415581eb14d876f4d84f7a70708b
+Test suite extension         4def181b64e70b348bd3540d505765090ece02c2
 ```
 
-Independent Writer/validator changes:
+Integrated falsifier suite:
 
 ```text
-Writer    575962cbe8bcc8e30a68758158d774aba2d5c26c
-Validator df9eef839dc7511c6ff2d51bd46c5e9853679fe0
-```
-
-Falsifier:
-
-```text
-tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
 F31 PLAN_APPLY_EXCLUDE_OVERLAP
 F32 SCOPE_APPLY_EXCLUDE_OVERLAP
+F33 MUTABLE_OPERATION_HIDDEN_WITH_EXCLUDE_DECISION
+F34 EXCLUDED_OPERATION_FALSELY_MARKED_APPLY
+F35 KEEP_ROW_IN_EXCLUDED_OPERATIONS
+F36 KEEP_MUTABLE_OPERATION_ID_ALIAS
+F37 EXCLUDED_OPERATIONS_ARRAY_MISSING
+F38 BLANK_OPERATION_ID
+F39 KEEP_ROW_NON_KEEP_DECISION
 ```
 
 Observation:
@@ -97,7 +106,8 @@ Observation:
 ```text
 Writer gate source audit        PASS_SOURCE_INSPECTION
 Validator independent audit     PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
-F31/F32 test                    AUTHORED / NOT_RUN_ENVIRONMENT
+F31-F39 test source             AUTHORED / PASS_SOURCE_INSPECTION
+F31-F39 runtime                 NOT_RUN_ENVIRONMENT
 ```
 
 ## PR1027 real-source census
@@ -150,15 +160,13 @@ real BM_CII_SOURCE HANGER slice                PASS_RECONSTRUCTED_BENCHMARK_HANG
 Current source/evidence state:
 
 ```text
-F31 PLAN APPLY/EXCLUDE overlap                 PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
-F32 bound-SCOPE APPLY/EXCLUDE overlap          PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+F31-F39 canonical scope/container suite        AUTHORED / PASS_SOURCE_INSPECTION / NOT_RUN_ENVIRONMENT
 synchronizer _pack_i active-only authority     PASS_SOURCE_INSPECTION
 real BM_CII_SOURCE active-only H=1 rows        PASS_SOURCE_INSPECTION
 converter profile active-only H=1 rows         PASS_SOURCE_INSPECTION
 repository real-source census                  PASS_SOURCE_INSPECTION
 real repository H>1 source                     NOT_AVAILABLE
 real H>1 physical roundtrip                    NOT_RUN_NO_REAL_SOURCE
-scope-disjointness falsifier                   NOT_RUN_ENVIRONMENT
 packed-tail integrated test                    NOT_RUN_ENVIRONMENT
 real-source census test                        NOT_RUN_ENVIRONMENT
 all focused current-head tests                 NOT_RUN_ENVIRONMENT
