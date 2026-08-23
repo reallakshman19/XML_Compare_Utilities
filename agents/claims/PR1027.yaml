@@ -2,7 +2,7 @@ schema: AgentClaim.v1
 repository: reallaksh19/XML_Compare_Utilities
 pr_or_wip: PR1027
 branch: agent/cii-writer2-hanger-partial-physical
-claim_state: ACTIVE_REVIEW_READY
+claim_state: ACTIVE_REVIEW_READY_AFTER_PREMERGE_AUDIT_FIX
 base: main@ae1de402db129e32cd6d7811a4e4707d64512bd4
 source_task: issue#1026
 claim_modes:
@@ -13,6 +13,7 @@ files:
     - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
     - tests/cii-workspace-writer2-hanger-partial-physical.test.js
     - tests/cii-workspace-writer2-hanger-partial-frozen-oracle.test.js
+    - tests/cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
     - tests/fixtures/cii-writer2-hanger-partial-postimage-oracles.json
     - docs/cii-writer2-hanger-partial-physical.md
     - agents/PR1027_workreport.md
@@ -33,6 +34,7 @@ authority_domains:
   - RAW_I13_PACKED_FIELD_REPACKING
   - HGRDAT_TAG_GUID_ORDER_CLASS_PRESERVATION
   - IMMUTABLE_INDEPENDENT_POSTIMAGE_SHA_ORACLE
+  - WRITER_RECORD_TESTIMONY_INDEPENDENT_FALSIFICATION
 dependency:
   pr: 1025
   state: SATISFIED_BY_MERGE
@@ -42,8 +44,8 @@ coordination:
   file_overlap: NONE_ON_NEW_PRODUCTION_MODULES
   authority_overlap: INHERITED_PLANNER_READ_ONLY
   dependency_overlap: SATISFIED
-  changed_paths_actual: 10
-  changed_paths_intended: 10
+  changed_paths_actual: 11
+  changed_paths_intended: 11
   unexplained_paths: 0
   state: SAFE_FOR_REVIEW
 negative_assurance:
@@ -57,26 +59,29 @@ negative_assurance:
   - no Writer3 topology
   - no workflow or package-script changes
   - no existing runtime import of new partial-HANGER component
+pre_merge_audit:
+  finding: TOP_LEVEL_DELETED_RECORD_TESTIMONY_UNCHECKED
+  production_fix_commit: 8ea0c9dfd2f09ccac0b5bdb6ec0e5c05ab5bea84
+  regression_commit: 172467f96f4f417dc2639adeec2a5d8ba558fa61
+  result: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
 validation_custody:
-  component_implementation_basis_head: 85b38416adbb09f680b1f8122b2f82b77a8927f3
-  expanded_validation_basis_head: c663f5ec21e130af532adc0f6e0d41169c4aca09
-  current_metadata_head: b35b32c9de8e686ccf7d04cd089af9d9fa57bcb7
   focused_runtime_mode: RECONSTRUCTED_DEPENDENCY_CLOSURE
   native_exact_checkout: NOT_AVAILABLE
   frozen_oracles: PASS
   packing_matrix: PASS
   falsifiers_f01_f27_f29_f30: PASS
   f28_composite_gate: PASS_SOURCE_INSPECTION_CURRENT_HEAD
+  deleted_record_testimony_falsifier: PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   predecessor_tail_order: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   predecessor_record_binding: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   predecessor_delete_plan_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   predecessor_delete_all_writer_validator_synthetic: PASS_RECONSTRUCTED_CURRENT_HEAD_SOURCE
   real_benchmark_hanger_slice: PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
   full_benchmark_exact_intake: NOT_RUN_ENVIRONMENT
+  broader_writer2_integration: NOT_RUN_ENVIRONMENT
   full_repository: NOT_RUN_ENVIRONMENT
 review_state:
   ready_for_review: true
   merge_authority: OWNER_ONLY
   merge_authorized: false
-last_verified_head_basis: b35b32c9de8e686ccf7d04cd089af9d9fa57bcb7
-last_updated: 2026-08-23T08:29:00+05:30
+last_updated: 2026-08-23T08:38:00+05:30
