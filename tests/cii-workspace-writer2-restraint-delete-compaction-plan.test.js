@@ -185,8 +185,9 @@ function expectBlocked(result, prefix) {
 {
   const spec = occupied(10);
   const target = targetDocument({ blocks: [{ slots: { 1: spec } }], pointers: [1], endpoints: [['10','20']] });
-  expectBlocked(plan(target, [clearOperation({ id: 'D08', pointer: 1, targetNode: 999, spec })]),
-    'WRITER_2_RESTRAINT_DELETE_OWNER_NODE_CUSTODY_REQUIRED:1:999');
+  const result = plan(target, [clearOperation({ id: 'D08', pointer: 1, targetNode: 999, spec })]);
+  expectBlocked(result, 'WRITER_2_RESTRAINT_DELETE_OWNER_NODE_CUSTODY_REQUIRED:1:999');
+  assert.deepEqual(result.deletedPointers, []);
 }
 // D09 shared pointer alias.
 {
@@ -228,10 +229,12 @@ function expectBlocked(result, prefix) {
 {
   const spec = occupied(10);
   const target = targetDocument({ blocks: [{ slots: { 1: spec } }], pointers: [1], endpoints: [['10','20']] });
-  expectBlocked(plan(target, [
+  const result = plan(target, [
     clearOperation({ id: 'D14-A', pointer: 1, targetNode: 10, spec }),
     clearOperation({ id: 'D14-B', pointer: 1, targetNode: 10, spec }),
-  ]), 'WRITER_2_RESTRAINT_DUPLICATE_SLOT_DELETE_CLAIM:1:1');
+  ]);
+  expectBlocked(result, 'WRITER_2_RESTRAINT_DUPLICATE_SLOT_DELETE_CLAIM:1:1');
+  assert.deepEqual(result.deletedPointers, []);
 }
 // D15 CREATE is blocked.
 {
@@ -281,4 +284,40 @@ function expectBlocked(result, prefix) {
   assert.deepEqual(_test.pointerMapping(5, deleted), expected);
 }
 
-console.log('Writer2 RESTRAINT block DELETE/compaction planner D01-D18 qualification passed.');
+// H01 canonical BOUND scope also binds SOURCE hash testimony.
+{
+  const spec = occupied(10);
+  const target = targetDocument({ blocks: [{ slots: { 1: spec } }], pointers: [1], endpoints: [['10','20']] });
+  const op = clearOperation({ id: 'H01', pointer: 1, targetNode: 10, spec });
+  const base = transferPlan(target, [op]);
+  const forged = Object.freeze({ ...base, transferScope: Object.freeze({ ...base.transferScope, sourceSha256: '0'.repeat(64) }) });
+  expectBlocked(buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument: target, transferPlan: forged }),
+    'WRITER_2_RESTRAINT_SCOPE_SOURCE_HASH_MISMATCH');
+}
+// H02 mutable rows cannot hide in the operations container with a non-APPLY decision.
+{
+  const spec = occupied(10);
+  const target = targetDocument({ blocks: [{ slots: { 1: spec } }], pointers: [1], endpoints: [['10','20']] });
+  const op = clearOperation({ id: 'H02', pointer: 1, targetNode: 10, spec, scopeDecision: 'EXCLUDE' });
+  const malformed = Object.freeze({
+    status: 'PREVIEW_READY', blockers: Object.freeze([]),
+    sourceDocument: Object.freeze({ contentSha256: '1'.repeat(64) }), targetDocument: Object.freeze({ contentSha256: target.contentSha256 }),
+    operations: Object.freeze([op]), excludedOperations: Object.freeze([]),
+    transferScope: Object.freeze({ status: 'BOUND', mode: 'EXPLICIT_APPLY_EXCLUDE', authority: 'USER_EXPLICIT_OPERATION_SCOPE', scopeId: 'scope-H02',
+      sourceSha256: '1'.repeat(64), targetSha256: target.contentSha256,
+      appliedOperationIds: Object.freeze([]), excludedOperationIds: Object.freeze([]), candidateOperationIds: Object.freeze([]) }),
+  });
+  expectBlocked(buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument: target, transferPlan: malformed }),
+    'WRITER_2_RESTRAINT_SCOPE_APPLY_DECISION_REQUIRED:H02');
+}
+// H03 failed raw-slot preimage custody must not leak the pointer into deletion testimony.
+{
+  const actual = occupied(10); const stale = occupied(11);
+  const target = targetDocument({ blocks: [{ slots: { 1: actual } }], pointers: [1], endpoints: [['10','20']] });
+  const result = plan(target, [clearOperation({ id: 'H03', pointer: 1, targetNode: 10, spec: stale })]);
+  expectBlocked(result, 'WRITER_2_RESTRAINT_SLOT_PREIMAGE_MISMATCH:1:1');
+  assert.deepEqual(result.deletedPointers, []);
+  assert.deepEqual(result.pointerChanges, []);
+}
+
+console.log('Writer2 RESTRAINT block DELETE/compaction planner D01-D18 + hardening qualification passed.');
