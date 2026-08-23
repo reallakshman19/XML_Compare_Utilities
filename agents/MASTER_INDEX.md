@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with current-head runtime limitation | Component-only partial writer; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; record-testimony falsification; 12 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. Current packed-shape head native execution remains NOT_RUN_ENVIRONMENT |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | REVIEW READY with explicit evidence limitations | Component-only partial writer; raw I13 repacking; active-fields-only packed source shape; INTERLEAVED/GROUPED preservation; independent complete-postimage validator; real-source census: 9 CII assets, H0=7/H1=2/H>1=0; 14 intended paths / 0 unexplained; no product/composite/UI adoption | Owner engineering review; merge only on fresh explicit owner authorization. First real H>1 source must trigger dedicated qualification; current-head native execution remains NOT_RUN_ENVIRONMENT |
 | PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027 |
 | PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027 |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Evidence baseline retained |
@@ -29,67 +29,103 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Extended fixed-field writer | PRODUCT DEFAULT |
 | PR991 | Writer 1A | MERGED 2026-08-19 · `edf297f7` | Initial fixed-cardinality writer | Historical |
 
-## Current writer authority stack
+## Current Writer 2 HANGER authority stack
 
 ```text
-Writer 2 — merged product authority
-  NODENAME CREATE/DELETE
-  V11 existing SIF 10-row block DELETE
+Merged product authority
   HANGER H=1 / H>1 DELETE-ALL
-  one untouched TARGET0 composite
+  partial HANGER product/composite remains blocked
 
-Writer 2 — merged PR1025 planner authority
-  H>1 partial HANGER planner READY only with qualified positional record binding
-  plannerPartialRecordAuthority = true
+Merged PR1025 planner authority
+  H>1 partial plan only with qualified positional record binding
+  record i binds IHGRNODE + HGRDAT/TAG/GUID + IHGRFREE
+                   + IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN
   semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
 
-Writer 2 — PR1027 component authority
+PR1027 component authority
   H>1 partial HANGER DELETE physical compaction only; H' > 0
-  countAfter == 0 remains PR1020 delete-all path
-  CONTROL.NOHGRS + complete MISCEL_1 are the only top-level replacements
-  exact retained raw I13 relocation/repacking across all five arrays
-  source packed rows must be exact SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY shape
-  no unused/trailing packed source bytes are silently normalized
-  exact retained IHGRFREE custody
-  original INTERLEAVED/GROUPED HGRDAT/TAG/GUID order preserved
-  independent validator does not import writer repacking/payload helpers
-  exact complete-postimage byte equality
-  deleted + retained + old-to-new + packed-tail Writer testimony independently checked
-  product/composite/UI partial HANGER remains blocked
-
-Stable blockers
-  HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
-  SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
-  product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+  one untouched TARGET0
+  two top-level replacements: CONTROL.NOHGRS + complete MISCEL_1
+  exact retained raw I13 field repacking across all five arrays
+  packed source authority = SYNCHRONIZER_PACK_I_ACTIVE_FIELDS_ONLY
+  no extra packed-row source bytes are silently normalized
+  retained IHGRFREE copied by the same positional map
+  INTERLEAVED/GROUPED HGRDAT/TAG/GUID order class preserved
+  independent complete-postimage validator
+  actual final bytes == independently expected final bytes
+  Writer testimony is secondary evidence only
 ```
+
+Stable blockers:
+
+```text
+HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
+SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+product partial HANGER -> WRITER_2_HANGER_DELETE_ALL_SCOPE_REQUIRED
+```
+
+## PR1027 real-source census
+
+Frozen ledger:
+
+```text
+docs/cii-writer2-hanger-real-source-census.csv
+```
+
+Current qualified inventory:
+
+```text
+repository CII assets = 9
+NOHGRS=0 assets       = 7
+NOHGRS=1 assets       = 2
+NOHGRS>1 assets       = 0
+```
+
+H=1 sources:
+
+```text
+Benchmark/CIICompare/BM_CII_SOURCE.CII
+converters/scripts/inputxml_profile_bm_cii_2019.cii
+```
+
+Both expose active-only one-value HANGER packed rows. No real repository H>1 CII exists, so:
+
+```text
+real H>1 source                      NOT_AVAILABLE
+real H>1 partial-delete roundtrip    NOT_RUN_NO_REAL_SOURCE
+```
+
+`tests/cii-workspace-writer2-hanger-real-source-census.test.js` independently scans the census roots and fails with `REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION` when the first real H>1 file appears.
 
 ## PR1027 validation truth
 
-Historical pre-packed-shape execution:
+Historical reconstructed evidence retained at its original observation class:
 
 ```text
 mandatory packing matrix                       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
 INTERLEAVED/GROUPED representative cases       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
 raw-I13 +12 custody                            PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
 frozen independent postimage SHA oracles       PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
-F01-F27                                        PASS / FAIL_CLOSED as expected
-F28 product/composite delete-all-only gate     PASS_SOURCE_INSPECTION
-F29-F30                                        PASS
-pre-merge deleted-record testimony falsifier  PASS_FAIL_CLOSED_RECONSTRUCTED_CURRENT_HEAD_SOURCE_AT_TIME
+F01-F27 / F29-F30                              PASS / FAIL_CLOSED as expected
+pre-merge deleted-record testimony falsifier  PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
 real BM_CII_SOURCE HANGER slice                PASS_RECONSTRUCTED_BENCHMARK_HANGER_SLICE
 ```
 
-Current packed-source-shape batch:
+Current source/evidence batch:
 
 ```text
 synchronizer _pack_i active-only authority     PASS_SOURCE_INSPECTION
 real BM_CII_SOURCE active-only H=1 rows        PASS_SOURCE_INSPECTION
-current writer/validator source audit          PASS_SOURCE_INSPECTION_CURRENT_BRANCH
+converter profile active-only H=1 rows         PASS_SOURCE_INSPECTION
+repository real-source census                  PASS_SOURCE_INSPECTION
+real repository H>1 source                     NOT_AVAILABLE
+real H>1 physical roundtrip                    NOT_RUN_NO_REAL_SOURCE
 packed-tail integrated test                    AUTHORED / NOT_RUN_ENVIRONMENT
+real-source census test                        AUTHORED / NOT_RUN_ENVIRONMENT
 all focused current-head tests                 NOT_RUN_ENVIRONMENT
 full-file BM_CII_SOURCE exact roundtrip        NOT_RUN_ENVIRONMENT
 broader Writer2/product regression             NOT_RUN_ENVIRONMENT
 full repository npm test                       NOT_RUN_ENVIRONMENT
 ```
 
-See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, and `docs/cii-writer2-hanger-partial-physical.md` for exact authority and observation classes.
+See `agents/PR1027_workreport.md`, `agents/status/PR1027.yaml`, `agents/claims/PR1027.yaml`, `docs/cii-writer2-hanger-partial-physical.md`, and the census CSV for exact custody and observation classes.
