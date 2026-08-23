@@ -4,13 +4,15 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 
 | Work | Mission | State | Authority / scope | Exact next action |
 |---|---|---|---|---|
-| PR1031 | Adopt partial H>1 HANGER into Writer2 product/core routing | ACTIVE DRAFT · source-qualified with runtime limits | Explicit DELETE_ALL vs PARTIAL_H_GT_1 readiness classification; positional record-binding gate; fail-closed product validator dispatch; deterministic H=3→2 partial-only + tri-family product qualification authored; real H>1 source remains unavailable | Final source/review reconciliation; exact native execution when environment permits; do not merge without fresh owner authorization |
-| PR1029 | Adopt partial H>1 HANGER into the one-TARGET0 Writer2 composite | MERGED 2026-08-23 · `9f2f11cc` | Canonical partial-HANGER child BOUND scope; delete-all/partial dispatch; one-TARGET0 original-coordinate arbitration; independent complete-postimage partial composite validator; NODENAME + SIF DELETE + H=3→2 qualification authored | Authority consumed read-only by PR1031 |
-| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | MERGED 2026-08-23 · `e9a28071` | Component-only partial writer; TARGET0 + postimage SHA-256 custody; canonical physical re-intake; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0 | Authority consumed read-only by PR1029/PR1031; first real H>1 source still requires dedicated qualification |
-| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027/PR1029/PR1031 |
-| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by PR1025/PR1027/PR1029/PR1031 |
+| PR1037 | Writer 2 W2.5 — qualify HANGER CREATE construction semantics | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION` | Exact V11 HANGER field dictionary; software-assigned GUID identified; physical row/cardinality model qualified; repository fallback conflicts frozen; no production CREATE authority | Acquire GUID neutral-import behavior + native H=0→1 and H=1→2 transitions + complete omission/default/insertion authority; do not start W2.6 or merge without fresh owner authorization |
+| PR1033 | Writer 2 W2.1 — qualify complete V11 SIF/TEE CREATE construction semantics | ACTIVE DRAFT · review-ready qualification · `NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION` | Qualification/data only; 60-position V11 physical map; source ledger; repository V11 census; later-edition drift veto; no production CREATE authority | Source acquisition/qualification; W2.2–W2.4 remain blocked; do not merge without fresh owner authorization |
+| PR1031 | Adopt partial H>1 HANGER into Writer2 product/core routing | MERGED 2026-08-23 · `e5d3420f` | Explicit DELETE_ALL vs PARTIAL_H_GT_1 readiness classification; positional record-binding gate; fail-closed product validator dispatch; deterministic H=3→2 partial-only + tri-family product qualification authored; real H>1 source remains unavailable | Authority consumed read-only by main; exact native/full-regression evidence remains an explicit limitation |
+| PR1029 | Adopt partial H>1 HANGER into the one-TARGET0 Writer2 composite | MERGED 2026-08-23 · `9f2f11cc` | Canonical partial-HANGER child BOUND scope; delete-all/partial dispatch; one-TARGET0 original-coordinate arbitration; independent complete-postimage partial composite validator; NODENAME + SIF DELETE + H=3→2 qualification authored | Authority consumed read-only by PR1031/main |
+| PR1027 | Writer 2 partial H>1 HANGER physical compaction + independent full-postimage validation | MERGED 2026-08-23 · `e9a28071` | Component-only partial writer; TARGET0 + postimage SHA-256 custody; canonical physical re-intake; canonical BOUND operation-container custody; exact raw-I13 repacking; active-fields-only packed source shape; independent complete-postimage validator; real-source census H0=7/H1=2/H>1=0 | Delete/positional authority consumed read-only by merged product chain and PR1037; first real H>1 source still requires dedicated qualification |
+| PR1025 | Writer 2 partial H>1 HANGER DELETE planner integration | MERGED 2026-08-22 · `ae1de402` | Planner positional record binding across IHGRNODE, HGRDAT/TAG/GUID, IHGRFREE and all five packed arrays; semantic authority positional-only | Authority consumed read-only by PR1027/PR1029/PR1031/PR1037 |
+| PR1024 | Writer 2 H>1 HANGER tail-order qualification | MERGED 2026-08-22 · `1f3f7b8e` | Physical classifier for INTERLEAVED vs GROUPED HGRDAT/TAG/GUID envelopes | Consumed by merged HANGER delete chain and PR1037 qualification |
 | PR1023 | Writer 2 tri-family real-benchmark product qualification | MERGED 2026-08-22 · `d9b680d6` | Real `BM_CII_SOURCE.CII`; NODENAME CREATE + V11 SIF DELETE + HANGER DELETE-ALL | Real H=1/delete-all evidence baseline retained |
-| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL | Merged product baseline extended only on PR1031 branch until acceptance |
+| PR1022 | Writer 2 tri-family product/core adoption | MERGED 2026-08-21 · `dcb9c433` | NODENAME CREATE/DELETE + V11 SIF DELETE + HANGER DELETE-ALL | Product baseline extended by merged PR1031 |
 | PR1021 | Writer 2 tri-family one-preimage composite | MERGED 2026-08-21 · `257e1d3d` | One TARGET0 + independent postimage validation | Architectural foundation extended by PR1029 |
 | PR1020 | Writer 2 HANGER delete-all physical rewrite | MERGED 2026-08-21 · `a16a3f2e` | `CONTROL.NOHGRS -> 0` + complete MISCEL_1 HANGER payload removal | Delete-all authority unchanged |
 | PR1019 | Writer 2 HANGER DELETE planner foundation | MERGED 2026-08-21 · `66342367` | IHGRNODE-first HANGER delete planner; CREATE blocked | Foundation |
@@ -23,9 +25,9 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 | PR1012 | Writer 2 NODENAME physical relocation | MERGED 2026-08-21 · `81ac1c91` | CONTROL.NONAM + pointers + NODENAME payload | Component authority |
 | PR1011 | Writer 2 NODENAME relocation planner | MERGED 2026-08-21 · `a450ab35` | Deterministic CREATE/DELETE allocation | Component authority |
 | PR1010 | Writer 1A + 1B + 1C one-preimage composite | MERGED 2026-08-21 · `7c1b7df0` | Qualified Writer1 claims from one TARGET | Architectural precedent |
-| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 selected fields | Existing-field authority |
+| PR1009 | Writer 1C V11 selected SIF fields | MERGED 2026-08-20 · `d63e8c59` | Existing V11 selected fields | Existing-field authority only; not CREATE authority |
 | PR1008 | Writer 1C exact ELEMENT/NODENAME custody | MERGED 2026-08-20 · `cd09968c` | Exact parsed-index + physical binding | Physical custody foundation |
-| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; 27..30 unresolved | SIF CREATE remains blocked |
+| PR1006 | V11 SIF/TEE field qualification | MERGED 2026-08-20 · `430b2b0e` | Items 1..26 named; 27..30 unresolved | Consumed read-only by PR1033; SIF CREATE remains blocked |
 | PR1002 | Writer authority roadmap | MERGED 2026-08-20 · `77fecdc` | Writer1 fixed fields; Writer2 cardinality/pointers; Writer3 topology | Governing architecture |
 | PR1001 | Explicit APPLY / EXCLUDE transfer scope | MERGED 2026-08-19 · `5a5fa0ae` | Hash + operation-set custody | Governing transaction scope |
 | PR992 | Writer 1B qualified fields | MERGED 2026-08-19 · `168d21bd` | Extended fixed-field writer | PRODUCT DEFAULT |
@@ -34,13 +36,13 @@ Live GitHub state is authoritative over this snapshot. Detailed implementation h
 ## Current Writer 2 HANGER authority stack
 
 ```text
-Merged product authority on main@9f2f11cc
+Merged product authority on main@e5d3420f78794e465b4b8c7f858c3fc53baf3039
   Writer1B remains PRODUCT DEFAULT
   Writer2 remains explicit-only
   NODENAME CREATE/DELETE
   V11 SIF DELETE
   HANGER H=1 / H>1 DELETE-ALL
-  partial HANGER product/core is not merged yet
+  HANGER qualified H>1 PARTIAL DELETE product/core route
 
 Merged PR1025 planner authority
   H>1 partial plan only with qualified positional record binding
@@ -71,7 +73,7 @@ Merged PR1029 composite authority
   overlap fails closed before one final splice pass
   independent partial-composite validator reconstructs exact full postimage
 
-PR1031 draft product/core adoption
+Merged PR1031 product/core adoption
   readiness transaction classes:
     DELETE_ALL
     PARTIAL_H_GT_1
@@ -103,6 +105,56 @@ Stable blockers:
 HANGER CREATE -> WRITER_2_HANGER_CREATE_PAYLOAD_SEMANTICS_NOT_QUALIFIED
 SIF CREATE    -> WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 unsupported HANGER transaction class -> WRITER_2_HANGER_PRODUCT_TRANSACTION_CLASS_UNQUALIFIED
+```
+
+## Active Writer2 CREATE qualifications
+
+### PR1033 — W2.1 SIF CREATE
+
+```text
+verdict
+  NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
+
+qualified
+  V11 30-item-per-tee / 10-row physical schema
+  60-position map
+  source ledger and repository census
+
+unresolved
+  complete V11 construction/default/sentinel semantics
+  items 27..30 authority
+  unused second-slot/default encoding
+
+W2.2-W2.4
+  BLOCKED
+```
+
+### PR1037 — W2.5 HANGER CREATE
+
+```text
+verdict
+  NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
+
+qualified
+  exact V11 HANGER neutral field dictionary/formats
+  HGRDAT[1..11] meanings
+  9999.99 uninitialized-infinite representation
+  HGRDAT[6]/[7] 0.0 initialization
+  TAG/GUID string encoding
+  IHGRFREE/IHGRNUM/IHGRTABLE/IHGRSHORT/IHGRCN meanings
+  physical row/cardinality arithmetic
+  CONTROL.NOHGRS H->H+1 structural transition
+
+hard blockers
+  GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
+  FIRST_HANGER_HEADER_DEFAULTS_UNRESOLVED
+  REPOSITORY_FALLBACK_DEFAULT_CONFLICT
+  NEW_HANGER_RECORD_INSERTION_POLICY_UNRESOLVED
+  OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
+  REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
+
+W2.6
+  NOT AUTHORIZED
 ```
 
 ## PR1031 qualification truth
@@ -152,7 +204,7 @@ real repository H>1 source                       NOT_AVAILABLE
 real H>1 product roundtrip                       NOT_RUN_NO_REAL_SOURCE
 ```
 
-Execution environment still cannot resolve `github.com`; no authored/source-inspected test is relabelled as runtime PASS.
+No authored/source-inspected test is relabelled as runtime PASS.
 
 ## PR1031 intended scope boundary
 
@@ -183,4 +235,4 @@ workflow/package mutation
 Writer3
 ```
 
-See `agents/PR1031_workreport.md`, `agents/status/PR1031.yaml`, and `agents/claims/PR1031.yaml` for exact continuation state. PR1027 and PR1029 details remain in their merged workreports and qualification documents.
+PR1031 is merged. Active qualification handovers are `agents/PR1037_workreport.md` for HANGER CREATE and PR1033's branch workreport for SIF CREATE. PR1027 and PR1029 details remain in their merged workreports and qualification documents.
