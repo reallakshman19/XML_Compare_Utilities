@@ -1,5 +1,5 @@
 import { stableStringify } from './cii-workspace-contracts.js';
-import { ciiPhysicalFileBytes, ciiPhysicalSectionRows, createCiiPhysicalFile } from './cii-workspace-physical-file.js';
+import { ciiPhysicalSectionRows, createCiiPhysicalFile } from './cii-workspace-physical-file.js';
 import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
 import { buildCiiWriter2SifDeleteRelocationPlan, CII_WRITER_2_SIF_CREATE_BLOCKER } from './cii-workspace-writer2-sif-delete.js';
 import { buildCiiWriter2HangerDeletePlan, CII_WRITER_2_HANGER_CREATE_BLOCKER } from './cii-workspace-writer2-hanger-delete.js';
@@ -141,6 +141,14 @@ function componentScopeTestimony(value) {
     excludedOperationIds: [...(value.excludedOperationIds || [])],
   };
 }
+function parentScopeTestimony(value) {
+  if (!value) return null;
+  return {
+    parentScopeId: text(value.parentScopeId), sourceSha256: text(value.sourceSha256), targetSha256: text(value.targetSha256),
+    candidateOperationIds: [...(value.candidateOperationIds || [])], appliedOperationIds: [...(value.appliedOperationIds || [])],
+    excludedOperationIds: [...(value.excludedOperationIds || [])],
+  };
+}
 function markerName(value) {
   const match = String(value ?? '').match(/^\s*#\$\s*(.*?)\s*$/);
   return match ? match[1].trim().toUpperCase() : null;
@@ -180,11 +188,12 @@ export function validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, af
     targetDocument: before, targetGraph,
     transferPlan: legacyValidatorTest.projectPlan(transferPlan, isSifDelete, 'WRITER_2_SIF_DELETE', parentCheck.custody),
   }) : null;
-  let partialSubscope = null; let hangerPlan = null; let retainedInfo = null; let hangerCounts = null; let partialClaims = [];
+  let partialSubscope = null; let target0Custody = null; let hangerPlan = null;
+  let retainedInfo = null; let hangerCounts = null; let partialClaims = [];
   try {
     if (hangerCount && scopeReady) {
       partialSubscope = independentCanonicalPartialSubscope(transferPlan, parentCheck.custody);
-      partialValidatorTest.independentlyValidateTarget0HashCustody(before, partialSubscope);
+      target0Custody = partialValidatorTest.independentlyValidateTarget0HashCustody(before, partialSubscope);
       hangerPlan = buildCiiWriter2HangerDeletePlan({ targetDocument: before, transferPlan: partialSubscope });
       if (!hangerPlan.ready) errors.push(...hangerPlan.blockers.map((item) => `INDEPENDENT_HANGER_PLAN_BLOCKED:${item}`));
       if (hangerPlan?.compaction?.partialMultiRecordDelete !== true || hangerPlan?.compaction?.deleteAll === true
@@ -212,29 +221,46 @@ export function validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, af
     expectedBytes = legacyValidatorTest.applyExpected(original, arbitrated);
   } catch (error) { errors.push(error.message); }
   const actualBytes = String(after?.physicalFile?.originalByteString || '');
+  const canonicalAfter = createCiiPhysicalFile(byteStringToBytes(actualBytes));
   if (after?.writer1CByteEligible !== true || after?.physicalFile?.writer1CByteEligible !== true) errors.push('POST_ORIGINAL_BYTE_CUSTODY_NOT_QUALIFIED');
   if (actualBytes !== expectedBytes) errors.push('EXACT_PARTIAL_HANGER_COMPOSITE_POSTIMAGE_MISMATCH');
+  if (text(after?.contentSha256) !== sha256CiiByteString(actualBytes)) errors.push('POSTIMAGE_SHA256_MISMATCH');
+  if (String(after?.physicalFile?.text ?? '') !== canonicalAfter.text
+    || stableStringify(after?.physicalFile?.lines || []) !== stableStringify(canonicalAfter.lines)
+    || stableStringify(after?.physicalFile?.lineEndings || {}) !== stableStringify(canonicalAfter.lineEndings)) {
+    errors.push('POSTIMAGE_PHYSICAL_REPRESENTATION_MISMATCH');
+  }
   if (String(writerResult?.byteString ?? '') !== actualBytes) errors.push('RESULT_BYTES_MISMATCH');
+  if (!sameBytes(writerResult?.bytes, byteStringToBytes(actualBytes))) errors.push('RESULT_BYTE_ARRAY_MISMATCH');
+  if (String(writerResult?.text ?? '') !== canonicalAfter.text) errors.push('RESULT_TEXT_MISMATCH');
   if (writerResult?.schema !== 'CIIWorkspaceWriter2CompositeHangerResult.v1' || writerResult?.status !== 'APPLIED'
     || writerResult?.writer !== 'WRITER_2' || writerResult?.mode !== 'ONE_ORIGINAL_PREIMAGE_COMPOSITE') errors.push('RESULT_CONTRACT_MISMATCH');
   if (Number(writerResult?.mutationCount) !== arbitrated.length) errors.push('COMPOSITE_MUTATION_COUNT_MISMATCH');
   if (stableStringify(actualMutationTestimony(writerResult)) !== stableStringify(expectedMutationTestimony(arbitrated))) {
     errors.push('COMPOSITE_MUTATION_TESTIMONY_MISMATCH');
   }
+  if (stableStringify(parentScopeTestimony(writerResult?.parentScopeCustody)) !== stableStringify(parentScopeTestimony(parentCheck.custody))) {
+    errors.push('PARENT_SCOPE_TESTIMONY_MISMATCH');
+  }
 
   const counts = writerResult?.familyMutationCounts || {};
   if (Number(counts.nodeNameOperations) !== nodeCount || Number(counts.sifDeleteOperations) !== sifCount
     || Number(counts.hangerDeleteOperations) !== hangerCount || Number(counts.hangerDeleteAllOperations) !== 0
     || Number(counts.hangerPartialDeleteOperations) !== hangerCount) errors.push('FAMILY_OPERATION_COUNT_TESTIMONY_MISMATCH');
+  const expectedNodeClaims = arbitrated.filter((item) => item.authorityFamily === 'WRITER_2_NODENAME').length;
+  const expectedSifClaims = arbitrated.filter((item) => item.authorityFamily === 'WRITER_2_SIF_DELETE').length;
   const expectedPartialClaims = arbitrated.filter((item) => item.authorityFamily === PARTIAL_FAMILY).length;
-  if (Number(counts.hangerPartialDeleteClaims) !== expectedPartialClaims || Number(counts.hangerDeleteAllClaims) !== 0) {
-    errors.push('HANGER_PARTIAL_CLAIM_COUNT_TESTIMONY_MISMATCH');
-  }
+  if (Number(counts.nodeNameClaims) !== expectedNodeClaims || Number(counts.sifDeleteClaims) !== expectedSifClaims
+    || Number(counts.hangerPartialDeleteClaims) !== expectedPartialClaims || Number(counts.hangerDeleteAllClaims) !== 0
+    || Number(counts.hangerDeleteClaims) !== expectedPartialClaims) errors.push('FAMILY_CLAIM_COUNT_TESTIMONY_MISMATCH');
 
   const component = writerResult?.components?.hangerPartialDelete;
   if (!component || writerResult?.components?.hangerDeleteAll != null) errors.push('HANGER_PARTIAL_COMPONENT_DISPATCH_MISMATCH');
   if (hangerPlan && stableStringify(partialPlanTestimony(component?.deletePlan)) !== stableStringify(partialPlanTestimony(hangerPlan))) {
     errors.push('HANGER_PARTIAL_COMPONENT_PLAN_TESTIMONY_MISMATCH');
+  }
+  if (target0Custody && stableStringify(component?.target0HashCustody || {}) !== stableStringify(target0Custody)) {
+    errors.push('HANGER_PARTIAL_COMPONENT_TARGET0_HASH_TESTIMONY_MISMATCH');
   }
   if (partialSubscope) {
     const expectedScope = {
@@ -259,10 +285,15 @@ export function validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, af
   if (component && partialClaims.length) {
     const partialOnlyClaims = legacyValidatorTest.arbitrateExpected(partialClaims, original);
     const partialOnlyBytes = legacyValidatorTest.applyExpected(original, partialOnlyClaims);
+    const expectedPartialBytes = byteStringToBytes(partialOnlyBytes);
+    const expectedPartialPhysical = createCiiPhysicalFile(expectedPartialBytes);
     const expectedHashCustody = { authority: POSTIMAGE_HASH_AUTHORITY, contentSha256: sha256CiiByteString(partialOnlyBytes), byteLength: partialOnlyBytes.length };
     const expectedRepresentation = representationCustody(partialOnlyBytes);
     if (String(component.byteString ?? '') !== partialOnlyBytes) errors.push('HANGER_PARTIAL_COMPONENT_BYTES_MISMATCH');
-    if (!sameBytes(component.bytes, byteStringToBytes(partialOnlyBytes))) errors.push('HANGER_PARTIAL_COMPONENT_BYTE_ARRAY_MISMATCH');
+    if (!sameBytes(component.bytes, expectedPartialBytes)) errors.push('HANGER_PARTIAL_COMPONENT_BYTE_ARRAY_MISMATCH');
+    if (String(component.text ?? '') !== expectedPartialPhysical.text) errors.push('HANGER_PARTIAL_COMPONENT_TEXT_MISMATCH');
+    if (Number(component.byteLengthBefore) !== original.length || Number(component.byteLengthAfter) !== partialOnlyBytes.length
+      || Number(component.mutationCount) !== partialOnlyClaims.length) errors.push('HANGER_PARTIAL_COMPONENT_LENGTH_OR_MUTATION_TESTIMONY_MISMATCH');
     if (stableStringify(component.postimageHashCustody || {}) !== stableStringify(expectedHashCustody)) errors.push('HANGER_PARTIAL_COMPONENT_POSTIMAGE_HASH_MISMATCH');
     if (stableStringify(component.postimageRepresentationCustody || {}) !== stableStringify(expectedRepresentation)) {
       errors.push('HANGER_PARTIAL_COMPONENT_REPRESENTATION_CUSTODY_MISMATCH');
@@ -280,7 +311,8 @@ export function validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, af
       'INDEPENDENT_PARENT_SCOPE_CUSTODY', 'INDEPENDENT_CANONICAL_PARTIAL_HANGER_SUBSCOPE',
       'INDEPENDENT_NODE_PLAN', 'INDEPENDENT_SIF_PLAN', 'INDEPENDENT_PARTIAL_HANGER_PLAN',
       'PR1027_INDEPENDENT_RAW_I13_AND_TAIL_ORACLE_REUSED', 'INDEPENDENT_ORIGINAL_COORDINATE_ARBITRATION',
-      'EXACT_FULL_BYTE_POSTIMAGE', 'PARTIAL_COMPONENT_HASH_AND_REPRESENTATION_CUSTODY',
+      'EXACT_FULL_BYTE_POSTIMAGE', 'COMPOSITE_POSTIMAGE_HASH_AND_REPRESENTATION_CUSTODY',
+      'PARTIAL_COMPONENT_TARGET0_HASH_POSTIMAGE_AND_REPRESENTATION_CUSTODY',
       'POST_FAMILY_CUSTODY', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE', 'WRITER_TESTIMONY_MATCH',
     ]),
     nodeNameOperations: nodeCount, sifDeleteOperations: sifCount, hangerPartialDeleteOperations: hangerCount,
@@ -290,5 +322,5 @@ export function validateCiiWriter2CompositeWithPartialHangerRoundTrip(before, af
 
 export const _test = Object.freeze({
   isNodeMutation, isSifDelete, isHangerDelete, independentCanonicalPartialSubscope,
-  representationCustody, partialPlanTestimony, componentScopeTestimony,
+  representationCustody, partialPlanTestimony, componentScopeTestimony, parentScopeTestimony,
 });
