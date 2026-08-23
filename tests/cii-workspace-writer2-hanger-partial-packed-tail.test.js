@@ -105,7 +105,7 @@ function insertBeforeLineEnding(byteString, row, insertion) {
   const position = row.byteEnd - lineEndingLength(row); return byteString.slice(0, position) + insertion + byteString.slice(position);
 }
 
-// Active-only source and post shapes are the qualified emitter/vendor form.
+// Active-only source and post shapes are the qualified synchronizer/vendor form.
 {
   const { document: before, nodes } = target(8); const transferPlan = boundPlan(before, nodes[1]);
   const writer = applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan });
@@ -138,11 +138,16 @@ function insertBeforeLineEnding(byteString, row, insertion) {
   }
 }
 
-// No unused-field padding has source authority. Even blanks must fail closed instead of being silently normalized away.
-for (const [label, tail] of [['IHGRNODE', ' '.repeat(13)], ['IHGRNUM', '\t'], ['IHGRTABLE', 'X']]) {
-  const { document: before, nodes } = target(8, { [label]: tail }); const transferPlan = boundPlan(before, nodes[1]);
+// Merged #1025 tolerates whitespace-only trailing data, but PR1027 physical authority does not silently normalize it.
+for (const label of PACKED_LABELS) {
+  const { document: before, nodes } = target(8, { [label]: ' '.repeat(13) }); const transferPlan = boundPlan(before, nodes[1]);
   assert.throws(() => applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan }),
     new RegExp(`PACKED_SOURCE_ACTIVE_FIELDS_ONLY_REQUIRED:${label}`));
+}
+{
+  const { document: before, nodes } = target(8, { IHGRNUM: '\t' }); const transferPlan = boundPlan(before, nodes[1]);
+  assert.throws(() => applyCiiWriter2HangerPartialDelete({ targetDocument: before, transferPlan }),
+    /PACKED_SOURCE_ACTIVE_FIELDS_ONLY_REQUIRED:IHGRNUM/);
 }
 
 console.log('Writer2 partial HANGER active-fields-only packed-row custody qualification authored.');
