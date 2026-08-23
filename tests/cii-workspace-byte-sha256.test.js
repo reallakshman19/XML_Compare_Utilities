@@ -28,15 +28,25 @@ function target0(bytes = canonicalBytes, declaredSha = canonicalSha, physicalByt
   if (documentByteLength != null) document.byteLength = documentByteLength;
   return Object.freeze(document);
 }
+function postimage(bytes = canonicalBytes, declaredSha = canonicalSha, physicalByteLength = bytes.length, documentByteLength = null) {
+  const document = {
+    contentSha256: declaredSha,
+    physicalFile: Object.freeze({ originalByteString: bytes, byteLength: physicalByteLength }),
+  };
+  if (documentByteLength != null) document.byteLength = documentByteLength;
+  return Object.freeze(document);
+}
 function transferPlan(targetSha) {
   return Object.freeze({
     targetDocument: Object.freeze({ contentSha256: targetSha }),
     transferScope: Object.freeze({ targetSha256: targetSha }),
   });
 }
-const expectedCustody = Object.freeze({ authority: 'SHA256_ORIGINAL_TARGET0_BYTES', contentSha256: canonicalSha, byteLength: canonicalBytes.length });
-assert.deepEqual(writerTest.assertTarget0HashCustody(target0(), Object.freeze({ targetSha256: canonicalSha })), expectedCustody);
-assert.deepEqual(validatorTest.independentlyValidateTarget0HashCustody(target0(), transferPlan(canonicalSha)), expectedCustody);
+const expectedTarget0Custody = Object.freeze({ authority: 'SHA256_ORIGINAL_TARGET0_BYTES', contentSha256: canonicalSha, byteLength: canonicalBytes.length });
+const expectedPostimageCustody = Object.freeze({ authority: 'SHA256_WRITER2_POSTIMAGE_BYTES', contentSha256: canonicalSha, byteLength: canonicalBytes.length });
+assert.deepEqual(writerTest.assertTarget0HashCustody(target0(), Object.freeze({ targetSha256: canonicalSha })), expectedTarget0Custody);
+assert.deepEqual(validatorTest.independentlyValidateTarget0HashCustody(target0(), transferPlan(canonicalSha)), expectedTarget0Custody);
+assert.deepEqual(validatorTest.independentlyValidatePostimageHashCustody(postimage()), expectedPostimageCustody);
 
 // F40: caller forges all declared TARGET hashes consistently, but they do not match TARGET0 bytes.
 {
@@ -68,5 +78,25 @@ assert.deepEqual(validatorTest.independentlyValidateTarget0HashCustody(target0()
   assert.throws(() => writerTest.assertTarget0HashCustody(wrongLength, Object.freeze({ targetSha256: canonicalSha })), /TARGET0_DOCUMENT_BYTE_LENGTH_MISMATCH/);
   assert.throws(() => validatorTest.independentlyValidateTarget0HashCustody(wrongLength, transferPlan(canonicalSha)), /TARGET0_DOCUMENT_BYTE_LENGTH_MISMATCH/);
 }
+// F46: byte-perfect postimage with a different well-formed declared digest is rejected.
+{
+  const forged = postimage(canonicalBytes, '0'.repeat(64));
+  assert.throws(() => validatorTest.independentlyValidatePostimageHashCustody(forged), /POSTIMAGE_SHA256_MISMATCH/);
+}
+// F47: postimage placeholder labels are not cryptographic custody.
+{
+  const malformed = postimage(canonicalBytes, 'post-sha');
+  assert.throws(() => validatorTest.independentlyValidatePostimageHashCustody(malformed), /POSTIMAGE_SHA256_FORMAT_REQUIRED/);
+}
+// F48: postimage physical byte-length testimony must equal actual bytes.
+{
+  const wrongLength = postimage(canonicalBytes, canonicalSha, 2);
+  assert.throws(() => validatorTest.independentlyValidatePostimageHashCustody(wrongLength), /POSTIMAGE_BYTE_LENGTH_MISMATCH/);
+}
+// F49: postimage document-level byte-length testimony, when present, must match actual bytes.
+{
+  const wrongLength = postimage(canonicalBytes, canonicalSha, canonicalBytes.length, 4);
+  assert.throws(() => validatorTest.independentlyValidatePostimageHashCustody(wrongLength), /POSTIMAGE_DOCUMENT_BYTE_LENGTH_MISMATCH/);
+}
 
-console.log('CII SHA-256 primitive and Writer2 partial-HANGER TARGET0 cryptographic custody falsifiers F40-F44 authored.');
+console.log('CII SHA-256 primitive and Writer2 partial-HANGER TARGET0/postimage cryptographic custody falsifiers F40-F44/F46-F49 authored.');
