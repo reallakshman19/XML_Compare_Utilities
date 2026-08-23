@@ -15,15 +15,15 @@ handover_readiness: READY
 report_path: agents/PR1027_workreport.md
 appendix_a_status: CURRENT
 grounding_epoch: GE-1027-002
-current_stage: REAL_SOURCE_CENSUS_COMPLETE_REVIEW_READY
+current_stage: SCOPE_DISJOINTNESS_HARDENED_REVIEW_READY
 blocker: NONE_FOR_COMPONENT_REVIEW
 real_source_evidence_limitation: NO_REAL_REPOSITORY_H_GT_1_CII_PREIMAGE
 remaining_environment_limitation: CURRENT_HEAD_NATIVE_EXECUTION_NOT_AVAILABLE
 highest_risk: >-
-  No real repository H>1 CII preimage exists in the qualified source census, so
-  an actual H>1 partial-delete roundtrip cannot yet be claimed. The source-census
-  gate fails closed when such a source is first added. Current-head native tests
-  also remain unavailable in this execution environment.
+  The component now explicitly rejects contradictory APPLY/EXCLUDE authority at
+  both the transfer-plan representation and bound-scope testimony. No real
+  repository H>1 CII preimage exists, so an actual H>1 partial-delete roundtrip
+  cannot yet be claimed. Current-head native tests also remain unavailable.
 dependencies:
   - type: HARD_DEPENDENCY_SATISFIED
     pr: 1025
@@ -33,9 +33,26 @@ coordination_state: SAFE_FOR_REVIEW
 merge_authority: OWNER_ONLY
 merge_authorized: false
 changed_files:
-  actual: 14
-  intended: 14
+  actual: 15
+  intended: 15
   unexplained: 0
+batch_scope_disjointness:
+  finding: >-
+    sameStrings() intentionally compares sets by unique IDs, so a forged BOUND
+    transferPlan could previously place the same mutable operation in both APPLY
+    and EXCLUDE and survive set-equivalence comparison.
+  upstream_canonical_scope_builder: tabs/cii-workspace/cii-workspace-transfer-scope.js
+  upstream_state: DISJOINT_BY_CONSTRUCTION_UNCHANGED
+  writer_fix_commit: 575962cbe8bcc8e30a68758158d774aba2d5c26c
+  validator_fix_commit: df9eef839dc7511c6ff2d51bd46c5e9853679fe0
+  falsifier_test: tests/cii-workspace-writer2-hanger-partial-scope-disjoint.test.js
+  falsifier_commit: 28d45aa25ce763db9d3700479c5011cf3e3b2470
+  test_eof_normalization_commit: 74c935b8531899f2d97abcda495849ed290338e6
+  f31: PLAN_APPLY_EXCLUDE_OVERLAP
+  f32: SCOPE_APPLY_EXCLUDE_OVERLAP
+  writer_source_observation: PASS_SOURCE_INSPECTION
+  validator_source_observation: PASS_SOURCE_INSPECTION_INDEPENDENT_IMPLEMENTATION
+  test_runtime_observation: NOT_RUN_ENVIRONMENT
 batch_real_source_census:
   ledger: docs/cii-writer2-hanger-real-source-census.csv
   qualification_test: tests/cii-workspace-writer2-hanger-real-source-census.test.js
@@ -47,7 +64,6 @@ batch_real_source_census:
     - Benchmark/CIICompare/BM_CII_SOURCE.CII
     - converters/scripts/inputxml_profile_bm_cii_2019.cii
   h_gt_1_discovery_error: REAL_H_GT_1_HANGER_SOURCE_DISCOVERED_REQUIRES_QUALIFICATION
-  production_files_changed_this_batch: 0
   source_census_observation: PASS_SOURCE_INSPECTION
   test_runtime_observation: NOT_RUN_ENVIRONMENT
 packed_source_shape:
@@ -76,12 +92,15 @@ validation:
   historical_lexical_raw_i13_plus12: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_falsifiers_f01_f27_f29_f30: PASS_RECONSTRUCTED_DEPENDENCY_CLOSURE
   historical_deleted_record_testimony: PASS_FAIL_CLOSED_RECONSTRUCTED_AT_TIME
+  f31_plan_apply_exclude_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
+  f32_scope_apply_exclude_overlap: PASS_SOURCE_INSPECTION_TEST_AUTHORED_NOT_RUN
   packed_source_shape_emitter_authority: PASS_SOURCE_INSPECTION
   packed_source_shape_vendor_benchmark_authority: PASS_SOURCE_INSPECTION
   packed_source_shape_converter_profile_authority: PASS_SOURCE_INSPECTION
   repository_real_source_census: PASS_SOURCE_INSPECTION
   real_repository_h_gt_1_source: NOT_AVAILABLE
   real_h_gt_1_partial_delete_roundtrip: NOT_RUN_NO_REAL_SOURCE
+  scope_disjointness_test: NOT_RUN_ENVIRONMENT
   packed_source_shape_integrated_test: NOT_RUN_ENVIRONMENT
   real_source_census_test: NOT_RUN_ENVIRONMENT
   focused_tests_native_exact_checkout_current_head: NOT_RUN_ENVIRONMENT
@@ -92,15 +111,17 @@ validation:
 execution_limitation: >-
   The execution container cannot provide a native exact repository checkout for
   current-head Node tests. Historical reconstructed results retain their original
-  observation class. Absence of real H>1 source is separately classified as
-  NOT_AVAILABLE / NOT_RUN_NO_REAL_SOURCE, not as a runtime failure.
+  observation class. Source-inspected F31/F32 are not represented as runtime PASS.
+  Absence of real H>1 source is separately classified as NOT_AVAILABLE /
+  NOT_RUN_NO_REAL_SOURCE.
 review_readiness_basis: >-
-  Component scope is implemented and isolated; packed-row authority is fail-closed;
-  the repository real-source inventory is frozen and independently guarded; no
-  false real-H>1 qualification claim is made; all unavailable execution remains
-  explicit.
+  Component scope is implemented and isolated; contradictory APPLY/EXCLUDE scope
+  is now rejected independently by writer and validator; packed-row authority is
+  fail-closed; the real-source inventory is frozen and guarded; unavailable
+  execution remains explicit.
 exact_next_action: >-
-  Owner engineering review. Do not merge without fresh owner authorization. If a
-  real H>1 CII source is added, qualify its tail order, positional bindings, five
-  packed families and actual partial-delete postimage before advancing the census.
-last_updated: 2026-08-23T12:05:00+05:30
+  Owner engineering review. Do not merge without fresh owner authorization. On
+  the first native checkout, run the scope-disjointness falsifier followed by all
+  focused PR1027 tests and broader regression. If a real H>1 source appears,
+  qualify it before advancing the census.
+last_updated: 2026-08-23T14:17:00+05:30
