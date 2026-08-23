@@ -1,0 +1,58 @@
+schema: AgentClaim.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR1029
+branch: agent/cii-writer2-hanger-partial-composite
+claim_state: ACTIVE_IMPLEMENTATION
+base: main@e9a28071aa932e5c360206d20807aeaf2e4f9517
+source_task: issue#1028
+claim_modes:
+  - EXCLUSIVE
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-writer2-composite-hanger.js
+    - tabs/cii-workspace/cii-workspace-writer2-composite-hanger-validation.js
+    - tests/cii-workspace-writer2-composite-hanger.test.js
+    - agents/PR1029_workreport.md
+    - agents/status/PR1029.yaml
+    - agents/claims/PR1029.yaml
+    - agents/MASTER_INDEX.md
+  conditional_new_test:
+    - tests/cii-workspace-writer2-composite-hanger-partial.test.js
+  prefixes: []
+shared_read_only:
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-write.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-delete-all-write.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-record-binding.js
+  - tabs/cii-workspace/cii-workspace-writer2-hanger-tail-order.js
+  - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+  - tabs/cii-workspace/cii-workspace-writer2-product-routing.js
+authority_domains:
+  - CII_WRITER2_ONE_TARGET0_COMPOSITE_PARTIAL_HANGER_ADOPTION
+  - CANONICAL_PARTIAL_HANGER_FAMILY_SUBSCOPE
+  - ORIGINAL_COORDINATE_WRITER2_CLAIM_ARBITRATION
+  - INDEPENDENT_COMPOSITE_COMPLETE_POSTIMAGE_VALIDATION
+dependency:
+  pr: 1027
+  state: SATISFIED_BY_MERGE
+  accepted_head: 457a2c4572c0773cdf1cd2e15fa36f6a3e305638
+  merge_sha: e9a28071aa932e5c360206d20807aeaf2e4f9517
+coordination:
+  state: SAFE_FOR_IMPLEMENTATION
+  known_open_pr_overlap: NONE_IN_AUTHORITY_DOMAIN
+negative_assurance:
+  - no product/core Writer2 readiness expansion
+  - no browser/UI partial HANGER enablement
+  - no real H>1 product qualification claim
+  - no HANGER CREATE or value editing
+  - no SIF CREATE
+  - no parser/converter changes unless a proven blocker is separately recorded
+  - no workflow or package-script changes merely to manufacture evidence
+  - no weakening of PR1027 canonical BOUND operation-container custody
+  - no weakening of existing HANGER delete-all scope gate
+review_state:
+  draft: true
+  merge_authority: OWNER_ONLY
+  merge_authorized: false
+last_updated: 2026-08-23T16:53:00+05:30
