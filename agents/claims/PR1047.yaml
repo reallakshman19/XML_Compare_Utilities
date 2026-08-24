@@ -1,0 +1,42 @@
+pr: 1047
+issue: 1046
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-w213
+base_main: 72afe8fa9e8167e0284d34259bc7ad304ac14d99
+claim_state: IMPLEMENTATION_IN_PROGRESS
+ready_for_review: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+
+claims:
+  - id: RESTRAINT_PRODUCT_READINESS_ROUTE
+    state: NOT_YET_IMPLEMENTED
+    authority: MERGED_W2_12_DELETE_ONLY
+  - id: RESTRAINT_PRODUCT_CORE_DISPATCH
+    state: NOT_YET_IMPLEMENTED
+    authority: CII_WRITER_2_RESTRAINT_ONE_TARGET0_COMPOSITE
+  - id: RESTRAINT_PRODUCT_INDEPENDENT_VALIDATION
+    state: NOT_YET_IMPLEMENTED
+    authority: INDEPENDENT_COMPLETE_POSTIMAGE_RESTRAINT_COMPOSITE_VALIDATION
+  - id: RESTRAINT_REAL_CII_PRODUCT_QUALIFICATION
+    state: NOT_YET_AUTHORED
+    authority: RETAINED_V11_CII_PREIMAGE
+  - id: RESTRAINT_BLOCK_CREATE
+    state: BLOCKED_UNCHANGED
+    authority: NONE
+
+negative_assurance:
+  w2_12_physical_writer_changed: false
+  writer1b_changed: false
+  sif_create_enabled: false
+  hanger_create_enabled: false
+  restraint_create_enabled: false
+  parser_converter_changed: false
+  writer3_changed: false
+
+historical_w2_12_validation:
+  focused_R01_R22: NOT_RUN_ENVIRONMENT
+  repository_npm: NOT_RUN_ENVIRONMENT
+  accepted_for_w2_12_merge_only: true
+
+next_claim_gate: product route implementation plus independent retained-real-CII qualification
