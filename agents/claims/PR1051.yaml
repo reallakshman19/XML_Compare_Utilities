@@ -3,10 +3,12 @@ issue: 1050
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-runtime-w215
 base_main: 710db4bb0af2286fef7ca48b09256ba8cd769344
-claim_state: RUNTIME_MATRIX_CONTINUATION_NOT_READY_DEPENDENCY_CLOSURE
-ready_for_review: false
+claim_state: OWNER_AUTHORIZED_EVIDENCE_CHECKPOINT_MERGE_WITH_RUNTIME_DEBT_CARRIED
+ready_for_review: true
 merge_authority: OWNER_ONLY
-merge_authorized: false
+merge_authorized: true
+merge_authorized_at_utc: 2026-08-24T18:04:59Z
+merge_authorization_text: "merge, proceed next"
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 claims:
@@ -18,22 +20,16 @@ claims:
     state: PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
     required: false
     predecessor_pr: 1049
-  - id: W2_12_R01_R09_EXACT_BLOB_CLOSURE
+  - id: W2_12_WRITER_SIDE_EXACT_BLOB_CLOSURE
+    state: COMPLETE_IMPORTS_UNDER_NODE_22_16_0
+    required: true
+    engineering_assertion_failure: NONE_OBSERVED
+  - id: W2_12_VALIDATOR_SIDE_EXACT_BLOB_CLOSURE
     state: IN_PROGRESS
     required: true
-    exact_materialized_blobs:
-      entrypoint: b46ddd256df56353e21c0137bb075462904e14b3
-      fixture: b725d56be579e7a2d7c40995ca2e13af7e702cbc
-      writer: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
-      validator: 919ac88c071db9d793c7793cbbd82cff7e193189
-      validator_support: a5b8f07b733161ddfec222d1a80371bcd27794e7
-      writer_support: 5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
-      predecessor_composite_hanger: 4f18e4fc15d01d7c3fc8938dbd591c319e814aae
-      sif_delete_planner: 7213a92de3223c4ce9b82e80fa872a55fd992ee3
-    execution_state: MODULE_LOAD_DEPENDENCY_CLOSURE
+    partial_hanger_validator_authority_blob: 309770a62e5c2a9caa317383ae70c89c5ff02679
     engineering_assertion_failure: NONE_OBSERVED
-    current_missing_dependency: cii-workspace-writer2-hanger-delete.js
-  - id: W2_12_FOCUSED_RUNTIME
+  - id: W2_12_FOCUSED_RUNTIME_R01_R22
     state: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
     required: true
   - id: W2_13_SYNTHETIC_PRODUCT_RUNTIME
@@ -53,6 +49,11 @@ claims:
     authority: NONE
   - id: ENGINEERING_FAILURE
     state: NONE_OBSERVED
+  - id: OWNER_CHECKPOINT_MERGE_ACCEPTANCE
+    state: AUTHORIZED
+    effect: MERGE_EVIDENCE_ONLY_NO_QUALIFICATION_PROMOTION
+    does_not_convert_not_run_to_pass: true
+    does_not_authorize_release_freeze: true
 
 runtime_custody:
   mode: EXACT_GIT_BLOB_SPARSE_MIRROR_WHERE_NEEDED
@@ -69,7 +70,12 @@ negative_assurance:
   control_row1_nonam_protected: true
   control_row2_restraints_authority_preserved: true
   authority_widening: false
-  production_diff_default: NONE
+  production_diff: NONE
+  test_diff: NONE
+  workflow_diff: NONE
+  merge_implies_w2_12_pass: false
+  merge_implies_release_freeze_ready: false
 
+successor_rule: W2.13 must be a separate PR from exact post-merge main and must carry W2.12 R01-R22 as NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS until actual authored entrypoint execution proves otherwise
 qualification_rule: module-load dependency closure is NOT test PASS or FAIL; only authored entrypoint assertions qualify W2.12/W2.13 gates
-next_claim_gate: materialize exact hanger planner and downstream predecessor dependencies, then rerun R01-R09 authored entrypoint
+next_claim_gate: merge PR1051 with expected-head protection; re-ground post-merge main; open W2.13 successor issue/branch/PR
