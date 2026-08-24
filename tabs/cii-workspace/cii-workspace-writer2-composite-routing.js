@@ -277,20 +277,28 @@ function hangerTransactionClass(plan) {
     && text(plan?.compaction?.recordBindingAuthority) === bindingAuthority;
   return partial ? 'PARTIAL_H_GT_1' : null;
 }
-function buildRestraintPlan(transferPlan, targetDocument, blockers, scopeReady) {
+function restraintParentCustody(transferPlan, targetDocument, blockers, scopeReady) {
   if (!scopeReady) return null;
   try {
-    const parent = assertRestraintCompositeBoundScope(transferPlan, targetDocument);
-    const child = projectRestraintCompositeSubscope(
-      transferPlan, isRestraintDelete, RESTRAINT_DELETE_FAMILY, parent,
-    );
-    const plan = buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, transferPlan: child });
-    if (!plan.ready) blockers.push(...plan.blockers);
-    return plan;
+    return assertRestraintCompositeBoundScope(transferPlan, targetDocument);
   } catch (error) {
     blockers.push(`WRITER_2_RESTRAINT_PRODUCT_SCOPE:${text(error?.message) || 'UNKNOWN'}`);
     return null;
   }
+}
+function readinessFamilyPlan(transferPlan, predicate, family, restraintParent) {
+  return restraintParent
+    ? projectRestraintCompositeSubscope(transferPlan, predicate, family, restraintParent)
+    : projectPlan(transferPlan, predicate);
+}
+function buildRestraintPlan(transferPlan, targetDocument, blockers, parent) {
+  if (!parent) return null;
+  const child = projectRestraintCompositeSubscope(
+    transferPlan, isRestraintDelete, RESTRAINT_DELETE_FAMILY, parent,
+  );
+  const plan = buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, transferPlan: child });
+  if (!plan.ready) blockers.push(...plan.blockers);
+  return plan;
 }
 
 export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targetGraph) {
@@ -317,17 +325,29 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
     blockers.push('WRITER_2_COMPOSITE_NO_MUTATIONS');
   }
 
+  const restraintParent = restraintDeletes.length
+    ? restraintParentCustody(transferPlan, targetDocument, blockers, scopeBlockers.length === 0)
+    : null;
   const nodePlan = nodeOperations.length
-    ? buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: projectPlan(transferPlan, isNodeMutation) })
+    ? buildCiiWriter2NodeNameRelocationPlan({
+      targetDocument,
+      transferPlan: readinessFamilyPlan(transferPlan, isNodeMutation, 'WRITER_2_NODENAME', restraintParent),
+    })
     : null;
   const sifPlan = sifDeletes.length
-    ? buildCiiWriter2SifDeleteRelocationPlan({ targetDocument, targetGraph, transferPlan: projectPlan(transferPlan, isSifDelete) })
+    ? buildCiiWriter2SifDeleteRelocationPlan({
+      targetDocument, targetGraph,
+      transferPlan: readinessFamilyPlan(transferPlan, isSifDelete, 'WRITER_2_SIF_DELETE', restraintParent),
+    })
     : null;
   const hangerPlan = hangerDeletes.length
-    ? buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan: projectPlan(transferPlan, isHangerDelete) })
+    ? buildCiiWriter2HangerDeletePlan({
+      targetDocument,
+      transferPlan: readinessFamilyPlan(transferPlan, isHangerDelete, 'WRITER_2_HANGER_DELETE', restraintParent),
+    })
     : null;
   const restraintPlan = restraintDeletes.length
-    ? buildRestraintPlan(transferPlan, targetDocument, blockers, scopeBlockers.length === 0)
+    ? buildRestraintPlan(transferPlan, targetDocument, blockers, restraintParent)
     : null;
   if (nodePlan && !nodePlan.ready) blockers.push(...nodePlan.blockers);
   if (sifPlan && !sifPlan.ready) blockers.push(...sifPlan.blockers);
@@ -376,5 +396,6 @@ export const _test = deepFreeze({
   text, operationId, sortedUnique, sortedStrings, sameStrings, scopeIds,
   isNodeRoute, isSifPresenceRoute, isHangerPresenceRoute, isRestraintRoute,
   isNodeMutation, isSifDelete, isSifCreate, isHangerDelete, isHangerCreate, isRestraintDelete, isRestraintCreate,
-  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers, hangerTransactionClass, buildRestraintPlan,
+  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers, hangerTransactionClass,
+  restraintParentCustody, readinessFamilyPlan, buildRestraintPlan,
 });
