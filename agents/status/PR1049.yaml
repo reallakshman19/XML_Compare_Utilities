@@ -10,9 +10,10 @@ criticality: ENGINEERING_CRITICAL
 production_change_authority: false
 production_code_diff_from_base: false
 merge_authority: OWNER_ONLY
-merge_authorized: false
-ready_for_review: false
-pr_state: DRAFT_NOT_READY
+merge_authorized: true
+owner_accepts_recorded_residuals: true
+ready_for_review: true
+pr_state: OWNER_MERGE_AUTHORIZED_EVIDENCE_CHECKPOINT
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 predecessor:
@@ -68,5 +69,6 @@ negative_assurance:
   hanger_create_enabled: false
   writer3_changed: false
   parser_converter_changed: false
+  merge_does_not_imply_release_ready: true
 
-next_gate: finish exact-blob W2.12 dependency closure and execute source-authored R01-R22 entrypoints; then W2.13 product and remaining inherited Writer2 regression; repository npm remains a separate full-checkout gate
+next_gate: after owner-authorized evidence-checkpoint merge, continue exact-blob W2.12 R01-R22, W2.13 product, remaining inherited Writer2 regression, and repository full-checkout npm gate in a successor qualification workstream
