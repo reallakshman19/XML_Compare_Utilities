@@ -14,10 +14,28 @@ PREDECESSOR_VERDICT: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 TAKEOVER_AUTHORITY: READ_ONLY_QUALIFICATION
 PRODUCTION_CHANGE_AUTHORITY: FALSE_BY_DEFAULT
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
-PR_STATE: DRAFT
-CURRENT_GATE: W2_12_EXACT_BLOB_DEPENDENCY_CLOSURE
+MERGE_AUTHORIZED: TRUE — owner directive 2026-08-24T18:04:59Z: "merge, proceed next"
+PR_STATE: OWNER_MERGE_AUTHORIZED_EVIDENCE_CHECKPOINT
+CURRENT_GATE: MERGE_W2_15_EVIDENCE_CHECKPOINT_THEN_START_W2_13_SEPARATE_PR
 ```
+
+## Owner merge directive and residual acceptance
+
+The owner explicitly instructed `merge, proceed next` at `2026-08-24T18:04:59Z`.
+
+This authorizes merging PR #1051 as an **evidence checkpoint only**. It does not convert any NOT_RUN item into PASS and does not authorize Writer2 RESTRAINT DELETE release/freeze. The following residual limitations remain binding after merge:
+
+```text
+W2.12 R01-R22                   NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+W2.13 synthetic                 NOT_RUN
+W2.13 retained-real-CII         NOT_RUN
+remaining Writer2 regressions   PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+repository npm                  NOT_RUN_ENVIRONMENT
+engineering failure             NONE_OBSERVED
+release/freeze                  NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+```
+
+The successor workstream must carry those exact states forward. W2.13 must be a separate PR from the post-merge `main` and must not infer W2.12 PASS from this merge.
 
 ## Inherited observed runtime
 
@@ -49,7 +67,7 @@ W2.14 changed only its three agent evidence files between `f51f8acd...` and `710
 
 ## W2.12 authored R01-R09 closure progress
 
-The following files are now materialized locally and independently verified by `git hash-object` against `main@710db4bb...`:
+The following files were materialized locally and independently verified by `git hash-object` against `main@710db4bb...`:
 
 ```text
 tests/cii-workspace-writer2-composite-restraint.test.js
@@ -77,38 +95,15 @@ tabs/cii-workspace/cii-workspace-writer2-sif-delete.js
   7213a92de3223c4ce9b82e80fa872a55fd992ee3
 ```
 
-The already verified W2.11 restraint/physical/SHA/parser files remain present in the same mirror.
+Additional exact dependency closure in the continuation established the Writer-side W2.12 composite import path under Node v22.16.0, including the HANGER, NODENAME, SIF and W2.11 RESTRAINT predecessor stacks. The independent validator side also advanced substantially, including `cii-workspace-writer2-hanger-partial-validation.js` authority blob `309770a62e5c2a9caa317383ae70c89c5ff02679`.
 
-### Current Node observation
+No authored R01-R22 engineering assertion was claimed PASS. The execution state remains `NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS` because complete validator closure and the three authored entrypoints were not all executed.
 
-Command:
+## Why module-load closure is NOT a test result
 
-```text
-node tests/cii-workspace-writer2-composite-restraint.test.js
-```
+An `ERR_MODULE_NOT_FOUND` or incomplete sparse mirror during exact dependency closure is an execution-environment stop. It is not evidence that an engineering assertion failed. Conversely, successful support-module import is not qualification testimony. Only the authored entrypoint assertions qualify W2.12/W2.13 gates.
 
-Node runtime: `v22.16.0`.
-
-Current result:
-
-```text
-MODULE LOAD reached exact W2.12 authored entrypoint.
-No engineering assertion executed to failure.
-Current closure stop = ERR_MODULE_NOT_FOUND for
-  tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
-```
-
-Disposition is therefore:
-
-```text
-NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-```
-
-It is **not** a W2.12 FAIL and **not** a PASS.
-
-## Why closure is manual/bounded
-
-Available execution routes were rechecked:
+## Environment constraints
 
 ```text
 container DNS to github.com/raw.githubusercontent.com = unavailable
@@ -119,17 +114,11 @@ existing linked Netlify project for this repository = none
 
 No external project/site was created implicitly. No workflow instrumentation was reintroduced.
 
-## Mandatory remaining order
+## Mandatory successor order
 
-### A. W2.12
+### A. Carry W2.12 debt explicitly
 
-Continue exact dependency closure beginning with:
-
-```text
-tabs/cii-workspace/cii-workspace-writer2-hanger-delete.js
-```
-
-Then rerun:
+Do not relabel R01-R22. If an exact complete execution path becomes available, execute:
 
 ```text
 node tests/cii-workspace-writer2-composite-restraint.test.js
@@ -139,12 +128,19 @@ node tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
 
 Qualifying anchors remain R02, R09 and R20.
 
-### B. W2.13
+### B. W2.13 separate PR after this merge
+
+Proceed with product/core routing and real-CII qualification only on the post-merge main baseline. Primary intended surfaces are:
 
 ```text
-node tests/cii-workspace-writer2-restraint-product-routing.test.js
-node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
+tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+tabs/cii-workspace/cii-workspace-core.js
+tabs/cii-workspace/cii-workspace-writer2-product-validation.js
+tests/cii-workspace-writer2-restraint-product-routing.test.js
+tests/cii-workspace-writer2-restraint-product-real-cii.test.js
 ```
+
+W2.13 must preserve CREATE/topology blocks and exact #1042 CONTROL custody.
 
 ### C. Inherited Writer2 regression
 
@@ -160,28 +156,13 @@ node tests/cii-workspace-writer2-trifamily-real-benchmark-roundtrip.test.js
 
 `npm ci && npm test` remains `NOT_RUN_ENVIRONMENT` until a complete exact checkout/runner exists. Sparse focused execution cannot replace it.
 
-## Current validation ledger
-
-```text
-base grounding                              PASS_REMOTE_GITHUB
-W2.11 inherited runtime                     PASS_RUNTIME_EXACT_BLOB
-W2.12 exact-blob closure                    IN_PROGRESS
-W2.12 focused R01-R22                       NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-W2.13 synthetic                             NOT_RUN
-W2.13 retained-real-CII                     NOT_RUN
-remaining inherited Writer2 regression      PARTIAL_PASS_W2_11_RESTRAINT_ONLY
-repository npm                              NOT_RUN_ENVIRONMENT
-engineering failure                         NONE_OBSERVED
-release/freeze                              NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
-```
-
 ## Production mutation rule
 
-No production mutation has been made. If an authored runtime assertion exposes a real defect, record the exact failure before any patch, isolate the smallest correction, and document authority impact. Do not widen CREATE/topology/parser/converter authority.
+No production mutation has been made in PR #1051. If an authored runtime assertion exposes a real defect in a successor PR, record the exact failure before any patch, isolate the smallest correction, and document authority impact. Do not widen CREATE/topology/parser/converter authority.
 
 ## Changed-file ledger
 
-PR #1051 remains intended to contain only:
+PR #1051 contains only:
 
 ```text
 agents/PR1051_workreport.md
@@ -189,19 +170,22 @@ agents/status/PR1051.yaml
 agents/claims/PR1051.yaml
 ```
 
+No production, test, workflow, parser, converter, core-routing, or Writer3 file is part of this checkpoint.
+
 ## Appendix A — expert takeover gate
 
-1. Why does W2.14 merge not imply release/freeze READY?
+1. Why does merging W2.15 not imply release/freeze READY?
 2. State the #1042 CONTROL row1/row2 custody correction.
 3. Why is the W2.12 support probe nonqualifying?
-4. Why is `ERR_MODULE_NOT_FOUND` during exact sparse closure NOT a W2.12 FAIL?
+4. Why is module-load dependency closure neither PASS nor FAIL?
 5. What must R02 prove about original-coordinate spans?
 6. What must R09 prove byte-for-byte?
 7. Why is R20 the independent complete-postimage anti-drift falsifier?
-8. Why must every loaded sparse-mirror repository file hash to the base Git blob?
+8. Why must every loaded sparse-mirror repository file hash to the baseline Git blob?
 9. Why cannot sparse focused PASS replace repository-wide npm test?
 10. What must happen before any production patch if an authored assertion fails?
+11. Why must W2.13 start from the exact post-merge main and remain a separate PR?
 
 ## Exact next action
 
-Materialize and hash-verify `cii-workspace-writer2-hanger-delete.js` and its transitive predecessor dependencies at `main@710db4bb0af2286fef7ca48b09256ba8cd769344`; rerun the exact R01-R09 authored entrypoint until its assertions execute. Preserve exact output before moving to R05 and R10-R22.
+Merge PR #1051 under the explicit owner authorization above using expected-head protection. Re-ground the resulting `main` merge SHA. Then create the W2.13 successor issue/branch/PR from that exact baseline, carrying W2.12 R01-R22 as `NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS` rather than PASS.
