@@ -129,6 +129,33 @@ tests/cii-workspace-writer2-restraint-delete-physical-falsifiers.test.js
 
 Git blob identities above were verified before execution. Repository files with no terminal newline were materialized without adding one so `git hash-object` remained exact.
 
+## W2.12 exact support observation — non-qualifying
+
+The exact W2.12 support module was materialized and verified:
+
+```text
+tabs/cii-workspace/cii-workspace-writer2-composite-restraint-support.js
+  5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
+```
+
+A bounded runtime probe against that exact module observed:
+
+```text
+TARGET0 SHA custody                         PASS_OBSERVATION
+canonical RESTRAINT child-scope projection PASS_OBSERVATION
+original-coordinate disjoint arbitration   PASS_OBSERVATION
+cross-family original-span overlap          FAILS_CLOSED_AS_REQUIRED
+stale TARGET0 SHA                           FAILS_CLOSED_AS_REQUIRED
+```
+
+Observed console output:
+
+```text
+W2.12 exact support observation probe passed: TARGET0 custody, canonical child scope, original-coordinate arbitration, overlap fail-closed.
+```
+
+This is explicitly **NONQUALIFYING**. It does not substitute for the source-authored W2.12 R01-R22 entrypoints and must not change `W2_12_FOCUSED_RUNTIME` from NOT_RUN.
+
 ## W2.12 dependency closure — in progress
 
 The exact merged tree is `f51f8acdcdcbd108073e2a2e57753c07d9f27c42`.
@@ -198,6 +225,7 @@ predecessor #1047 merge                             PASS_REMOTE_GITHUB
 W2.11 RESTRAINT P01-P06 runtime                     PASS_RUNTIME_EXACT_BLOB
 W2.11 #1042 CONTROL P19 runtime                     PASS_RUNTIME_EXACT_BLOB
 W2.11 RESTRAINT P07-P18 falsifier runtime           PASS_RUNTIME_EXACT_BLOB
+W2.12 support observation probe                     PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
 W2.12 focused R01-R22 runtime                       NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
 W2.13 synthetic product runtime                     NOT_RUN_ENVIRONMENT
 W2.13 retained-real-CII product runtime             NOT_RUN_ENVIRONMENT
@@ -209,7 +237,7 @@ engineering failure                                 NONE_OBSERVED
 release/freeze                                      NOT_READY
 ```
 
-Do not reinterpret `NONE_OBSERVED`, `NOT_RUN_ENVIRONMENT`, or a partial PASS as completion of the release gate.
+Do not reinterpret `NONE_OBSERVED`, `NOT_RUN_ENVIRONMENT`, a partial PASS, or the nonqualifying W2.12 support probe as completion of the release gate.
 
 ## Historical predecessor evidence
 
@@ -236,7 +264,7 @@ No production, test, benchmark, workflow, parser, converter, UI, or topology fil
 3. State the #1042 CONTROL row1/row2 custody correction without referring to predecessor implementation adjacency.
 4. What exactly did P19 prove at runtime?
 5. Why is a sparse mirror acceptable only when every transitively loaded repository blob is exact-hash verified?
-6. Why may W2.14 not use source-authored tests as runtime testimony?
+6. Why is the W2.12 support observation nonqualifying even though it executed exact code?
 7. What no-RESTRAINT Writer2 routes must still be included in inherited regression?
 8. Why can a sparse mirror not satisfy repository-wide `npm test`?
 9. What would justify a production patch during qualification?
