@@ -4,7 +4,7 @@ repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-runtime-w214
 base_main: f51f8acdcdcbd108073e2a2e57753c07d9f27c42
 current_stage: W2_14_RUNTIME_QUALIFICATION_AND_RELEASE_FREEZE
-agent_state: QUALIFICATION_NOT_RUN_ENVIRONMENT
+agent_state: PARTIAL_RUNTIME_QUALIFICATION_OBSERVED
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
 production_change_authority: false
@@ -24,13 +24,22 @@ inherited_authority_correction:
   control_row1_field4: NONAM_PRESERVE
   control_row2_field4: RESTRAINT_BLOCK_COUNT_I13
 
+runtime_environment:
+  mode: EXACT_GIT_BLOB_SPARSE_MIRROR
+  tree_ref: f51f8acdcdcbd108073e2a2e57753c07d9f27c42
+  node: v22.16.0
+  custody_rule: EVERY_TRANSITIVELY_LOADED_REPOSITORY_FILE_GIT_BLOB_SHA_VERIFIED_BEFORE_EXECUTION
+
 validation:
   base_grounding: PASS_REMOTE_GITHUB
   production_diff: NONE
-  w2_12_focused_runtime: NOT_RUN_ENVIRONMENT
+  w2_11_restraint_physical_positive_p01_p06: PASS_RUNTIME_EXACT_BLOB
+  w2_11_control_custody_p19: PASS_RUNTIME_EXACT_BLOB
+  w2_11_restraint_physical_falsifiers_p07_p18: PASS_RUNTIME_EXACT_BLOB
+  w2_12_focused_runtime: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
   w2_13_synthetic_runtime: NOT_RUN_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
-  inherited_writer2_regression: NOT_RUN_ENVIRONMENT
+  inherited_writer2_regression: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
   repository_npm: NOT_RUN_ENVIRONMENT
   pr_workflow_runs: NONE_OBSERVED
   commit_statuses: NONE_OBSERVED
@@ -50,4 +59,4 @@ negative_assurance:
   writer3_changed: false
   parser_converter_changed: false
 
-next_gate: exact executable checkout or functioning CI runner; execute required runtime matrix before changing freeze verdict
+next_gate: finish exact-blob W2.12 dependency closure and execute R01-R22; then W2.13 product and remaining inherited Writer2 regression; repository npm remains a separate full-checkout gate
