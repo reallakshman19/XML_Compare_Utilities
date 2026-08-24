@@ -1,0 +1,46 @@
+pr: 1047
+issue: 1046
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-w213
+base_main: 72afe8fa9e8167e0284d34259bc7ad304ac14d99
+current_stage: W2_13_PRODUCT_CORE_RESTRAINT_DELETE_ADOPTION
+agent_state: IMPLEMENTATION_IN_PROGRESS
+handover_readiness: READY
+criticality: ENGINEERING_CRITICAL
+takeover_authority: WRITE_ALLOWED
+merge_authority: OWNER_ONLY
+merge_authorized: false
+ready_for_review: false
+pr_state: DRAFT
+
+predecessor:
+  pr: 1045
+  phase: W2_12_RESTRAINT_ONE_TARGET0_COMPOSITE
+  merge_sha: 72afe8fa9e8167e0284d34259bc7ad304ac14d99
+
+inherited_authority_correction:
+  control_row1_field4: NONAM_PRESERVE
+  control_row2_field4: RESTRAINT_BLOCK_COUNT_I13
+
+scope:
+  routing: true
+  core_dispatch: true
+  product_validation: true
+  real_cii_qualification: true
+  physical_writer_change: false
+  restraint_create: false
+  parser_converter: false
+  ui: false
+  writer3: false
+
+coordination_state: SAFE
+
+validation:
+  base_grounding: PASS
+  predecessor_merge: PASS
+  product_gap_diagnosis: PASS_SOURCE_INSPECTION
+  implementation: IN_PROGRESS
+  focused_runtime: NOT_RUN
+  repository_npm: NOT_RUN
+
+next_gate: implement qualified RESTRAINT DELETE readiness/core/product dispatch and retained-real-CII qualification
