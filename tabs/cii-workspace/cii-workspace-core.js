@@ -24,7 +24,8 @@ import { applyCiiTargetWriter1A, ciiWriter1AReadiness } from './cii-workspace-ta
 import { applyCiiTargetWriter1B, ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { applyCiiTargetWriterComposite, ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
 import { applyCiiWriter2CompositePlanContract, ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
-import { applyCiiWriter2CompositeWithHangerDeleteAll as applyCiiWriter2Composite } from './cii-workspace-writer2-composite-hanger.js';
+import { applyCiiWriter2CompositeWithHangerDeleteAll } from './cii-workspace-writer2-composite-hanger.js';
+import { applyCiiWriter2CompositeWithRestraintDelete } from './cii-workspace-writer2-composite-restraint.js';
 import { validateCiiWriterRoundTrip } from './cii-workspace-writer-validation.js';
 import { validateCiiWriter1CRoundTrip } from './cii-workspace-writer1c-validation.js';
 import { validateCiiWriterCompositeRoundTrip } from './cii-workspace-writer-composite-validation.js';
@@ -209,7 +210,10 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const baseDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   let engineeringDeltas;
   if (version === '2') {
-    engineeringDeltas = baseDeltas;
+    engineeringDeltas = augmentCiiEngineeringDeltasWithRestraintSlots(
+      baseDeltas, sourceDocument, targetDocument, correspondence,
+      sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options,
+    );
   } else {
     const extendedWriter = version !== '1A';
     const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
@@ -243,12 +247,20 @@ async function currentTargetFor(preview, targetInput, options, label) {
   if (currentTarget.contentSha256 !== preview.targetDocument.contentSha256) throw new Error(`CII_${label}_STALE_TARGET_HASH`);
   return currentTarget;
 }
+function writer2HasRestraintApply(transferPlan) {
+  return (transferPlan?.operations || []).some((operation) => operation?.scopeDecision === 'APPLY' && operation?.family === 'RESTRAINT');
+}
 function applyLowLevelWriter(version, currentTarget, targetGraph, preview) {
   const targetText = currentTarget.physicalFile.text;
   if (version === '1A') return applyCiiTargetWriter1A({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1B') return applyCiiTargetWriter1B({ targetText, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
   if (version === '1C') return applyCiiTargetWriterComposite({ targetDocument: currentTarget, targetGraph, correspondence: preview.correspondence, transferPlan: preview.transferPlan });
-  if (version === '2') return applyCiiWriter2Composite({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan });
+  if (version === '2' && writer2HasRestraintApply(preview.transferPlan)) {
+    return applyCiiWriter2CompositeWithRestraintDelete({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan });
+  }
+  if (version === '2') {
+    return applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan });
+  }
   throw new Error(`CII_WRITER_VERSION_UNSUPPORTED:${version}`);
 }
 async function validateCompositeComponents(currentTarget, targetGraph, writerResult, options, fileName) {
