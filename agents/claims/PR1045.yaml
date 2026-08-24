@@ -3,21 +3,24 @@ issue: 1044
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-composite-w212
 base_main: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
-claim_state: ACTIVE_NOT_YET_QUALIFIED
+claim_state: SOURCE_IMPLEMENTED_RUNTIME_NOT_RUN
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
 
 claims:
   - id: RESTRAINT_ONE_TARGET0_COMPOSITE
-    state: NOT_IMPLEMENTED
-    authority: NONE
+    state: IMPLEMENTED_SOURCE_NOT_RUNTIME_QUALIFIED
+    authority: CII_WRITER_2_RESTRAINT_ONE_TARGET0_COMPOSITE
   - id: RESTRAINT_COMPOSITE_INDEPENDENT_POSTIMAGE_VALIDATOR
-    state: NOT_IMPLEMENTED
-    authority: NONE
+    state: IMPLEMENTED_SOURCE_NOT_RUNTIME_QUALIFIED
+    authority: INDEPENDENT_COMPLETE_POSTIMAGE_RESTRAINT_COMPOSITE_VALIDATION
   - id: RESTRAINT_COMPONENT_PHYSICAL_WRITE
     state: INHERITED_FROM_MERGED_PR1043
     authority: CII_WRITER_2_RESTRAINT_BLOCK_DELETE_PHYSICAL_WRITE
+  - id: RESTRAINT_PARTIAL_HANGER_COMPOSITION
+    state: QUALIFICATION_SOURCE_AUTHORED_RUNTIME_NOT_RUN
+    authority: EXISTING_WRITER_2_HANGER_PARTIAL_DELETE_PLUS_RESTRAINT_TARGET0_COMPOSITION
   - id: RESTRAINT_BLOCK_CREATE
     state: BLOCKED_UNCHANGED
     authority: NONE
@@ -25,14 +28,27 @@ claims:
     state: NOT_IMPLEMENTED_W2_13_ONLY
     authority: NONE
 
+validator_independence:
+  imports_w2_12_writer_module: false
+  reuses_writer_payload_helpers: false
+  primary_oracle: EXACT_COMPLETE_FINAL_BYTES
+  writer_testimony_secondary_only: true
+
 protected_paths:
   - tabs/cii-workspace/cii-workspace-core.js
   - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
   - tabs/cii-workspace/cii-workspace-writer2-product-validation.js
 
+protected_path_diff_count: 0
+changed_file_count: 9
+unexplained_path_count: 0
+
 validation_truth:
-  focused_native: NOT_RUN
-  repository_npm: NOT_RUN
+  source_architecture_audit: PASS
+  R01_R22_source: AUTHORED
+  focused_native: NOT_RUN_ENVIRONMENT
+  repository_npm: NOT_RUN_ENVIRONMENT
+  pr_workflow_runs: NONE_OBSERVED
   product_browser: NOT_APPLICABLE_W2_12
 
-next_claim_gate: complete writer/validator and R01-R22 focused qualification
+next_claim_gate: exact runtime execution of focused W2.12 suites; do not mark ready_for_review before observed execution or explicit owner acceptance of the limitation
