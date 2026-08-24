@@ -36,6 +36,7 @@ validation:
   w2_11_restraint_physical_positive_p01_p06: PASS_RUNTIME_EXACT_BLOB
   w2_11_control_custody_p19: PASS_RUNTIME_EXACT_BLOB
   w2_11_restraint_physical_falsifiers_p07_p18: PASS_RUNTIME_EXACT_BLOB
+  w2_12_support_observation_probe: PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
   w2_12_focused_runtime: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
   w2_13_synthetic_runtime: NOT_RUN_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
@@ -44,6 +45,15 @@ validation:
   pr_workflow_runs: NONE_OBSERVED
   commit_statuses: NONE_OBSERVED
   engineering_failure: NONE_OBSERVED
+
+w2_12_support_observation:
+  blob: 5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
+  qualifying_gate: false
+  observed:
+    - TARGET0_SHA_CUSTODY
+    - CANONICAL_CHILD_SCOPE_PROJECTION
+    - ORIGINAL_COORDINATE_ARBITRATION
+    - ORIGINAL_SPAN_OVERLAP_FAIL_CLOSED
 
 workflow_probe:
   temporary_new_workflow_removed: true
@@ -59,4 +69,4 @@ negative_assurance:
   writer3_changed: false
   parser_converter_changed: false
 
-next_gate: finish exact-blob W2.12 dependency closure and execute R01-R22; then W2.13 product and remaining inherited Writer2 regression; repository npm remains a separate full-checkout gate
+next_gate: finish exact-blob W2.12 dependency closure and execute source-authored R01-R22 entrypoints; then W2.13 product and remaining inherited Writer2 regression; repository npm remains a separate full-checkout gate
