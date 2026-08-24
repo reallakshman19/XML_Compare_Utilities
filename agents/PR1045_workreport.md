@@ -3,14 +3,17 @@
 ## CURRENT STATE — READ FIRST
 
 ```text
-HANDOVER_READINESS: READY_WITH_EXPLICIT_EXECUTION_LIMITATION
-EXECUTION_MODE: AUTO_MODE
+HANDOVER_READINESS: READY
+TAKEOVER_EPOCH: 2026-08-24_W212_COMPLIANCE_RECOVERY
+TAKEOVER_AUTHORITY: WRITE_ALLOWED
+PR_RECOVERY_STATE: CONTINUE
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 ISSUE: #1044
 PR: #1045
 BRANCH: agent/cii-writer2-restraint-composite-w212
 BASE_MAIN: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
-CURRENT_MAIN: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
+CURRENT_MAIN_AT_TAKEOVER: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
+PRE_TAKEOVER_HEAD: f894154721d95a0351ba97165b56e6e323422216
 MERGED_PREDECESSOR: PR #1043 / W2.11
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -19,19 +22,34 @@ PRODUCT_CORE_AUTHORITY: FALSE
 GENERIC_RESTRAINT_CREATE: BLOCKED
 ```
 
-## 1. Mission
+## Handover in 60 seconds
 
-Adopt merged W2.11 RESTRAINT block DELETE into the existing Writer2 one-original-preimage composite while preserving the established NODE_NAME, SIF DELETE and HANGER DELETE families.
+W2.12 composes the already-qualified Writer2 NODE/SIF/HANGER transaction and merged W2.11 RESTRAINT block DELETE from one untouched TARGET0. All component claims are original-coordinate, exact-preimage checked, globally overlap-arbitrated, and applied in one final splice. The independent validator reconstructs the complete expected postimage without importing W2.12 Writer code.
 
-No product/core/UI routing is added in W2.12. That remains W2.13.
-
-## 2. Grounding
-
-W2.11 was squash-merged as PR #1043:
+Inherited W2.10/W2.11 CONTROL correction is binding:
 
 ```text
-main = b2ba46cb8008c8d59a40fe8b3260ead122e063d0
+CONTROL row1 / field4 / I13 = NONAM       -> NODENAME authority; RESTRAINT must preserve
+CONTROL row2 / field4 / I13 = RESTRAINTS  -> RESTRAINT block-count authority
 ```
+
+Takeover found one introduced repository-policy defect: the two new W2.12 production JS files at `f8941547...` were approximately 314 and 353 lines, violating `AGENTS.md` `<300 lines/new JavaScript file`. The recovery patch is a behavior-preserving responsibility split into Writer-side support and independently separate validator-side support. Do not merge until the split is committed and focused R01-R22 execution is observed or explicitly waived by the owner.
+
+## 1. Mission
+
+Adopt merged W2.11 RESTRAINT block DELETE into the existing Writer2 one-original-preimage composite while preserving:
+
+```text
+WRITER_2_NODENAME
+WRITER_2_SIF_DELETE
+WRITER_2_HANGER_DELETE_ALL
+WRITER_2_HANGER_PARTIAL_DELETE
+WRITER_2_RESTRAINT_BLOCK_DELETE
+```
+
+W2.12 does not add product/core/UI routing. That remains W2.13.
+
+## 2. Authority and invariants
 
 Consumed RESTRAINT authority:
 
@@ -43,27 +61,34 @@ ELEMENT restraint pointer = exact physical I13 custody
 RESTRANT block = 24 physical rows
 ```
 
-Generic RESTRAINT CREATE remains blocked by:
+Allowed W2.11 child claims:
 
 ```text
-WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
+CONTROL_RESTRAINT_BLOCK_COUNT
+ELEMENT_RESTRAINT_POINTER
+RESTRAINT_SECTION_PAYLOAD
 ```
 
-## 3. Implemented Writer architecture
-
-New file:
+Hard invariants:
 
 ```text
-tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js
+all child writers consume identical untouched TARGET0
+no child consumes another child's postimage
+all claims use TARGET0 original coordinates
+TARGET0[byteStart:byteEnd] == beforeField for every claim
+any cross-family physical overlap -> fail closed
+one final splice only
+complete expected postimage is independently reconstructed
+writer testimony is secondary to complete-byte equality
+CONTROL row1/NONAM is byte-negative-assurance for RESTRAINT-only mutation
+RESTRAINT CREATE remains blocked
+SIF CREATE remains blocked
+HANGER CREATE remains blocked
+Writer1B free-slot authority remains unchanged
+product/core/UI remains unchanged
 ```
 
-Authority:
-
-```text
-CII_WRITER_2_RESTRAINT_ONE_TARGET0_COMPOSITE
-```
-
-Transaction:
+## 3. Current architecture
 
 ```text
 PARENT BOUND SCOPE
@@ -92,216 +117,119 @@ existing Writer2 composite      merged W2.11 component
                 postimage
 ```
 
-Both component calls receive the identical untouched `targetDocument`. No component consumes another component's postimage.
-
-The outer layer independently rechecks every returned claim:
+Authority:
 
 ```text
-0 <= byteStart <= byteEnd <= TARGET0.length
-TARGET0.slice(byteStart, byteEnd) == beforeField
+CII_WRITER_2_RESTRAINT_ONE_TARGET0_COMPOSITE
 ```
 
-Any physical overlap fails closed:
+## 4. Takeover finding and minimal patch
+
+### ISS-W212-001 — new production JS exceeds repository line limit
+
+At `PRE_TAKEOVER_HEAD=f8941547...`:
 
 ```text
-CII_WRITER_2_COMPOSITE_RESTRAINT_ORIGINAL_SPAN_OVERLAP
+tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js             ~314 lines
+tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js  ~353 lines
 ```
 
-## 4. Canonical child-scope custody
+`AGENTS.md` requires every new JavaScript file to remain below 300 physical lines and functions below 40 lines where practical.
 
-Sibling APPLY operations become EXCLUDE rows in each child projection while remaining visible in audit custody.
-
-Each child scope is rebuilt as:
+Disposition:
 
 ```text
-status = BOUND
-mode = EXPLICIT_APPLY_EXCLUDE
-authority = USER_EXPLICIT_OPERATION_SCOPE
-sourceSha256 = parent source SHA
-targetSha256 = parent TARGET0 SHA
-candidateOperationIds = exact union(applied, excluded)
+CONTINUE
 ```
 
-Duplicate IDs and APPLY/EXCLUDE intersections fail closed.
-
-RESTRAINT child identity:
+Minimal patch:
 
 ```text
-WRITER_2_RESTRAINT_BLOCK_DELETE
+writer orchestration
+  -> cii-workspace-writer2-composite-restraint.js
+writer pure custody/scope/claim helpers
+  -> cii-workspace-writer2-composite-restraint-support.js
+
+validator orchestration
+  -> cii-workspace-writer2-composite-restraint-validation.js
+independent validator-only custody/scope/claim helpers
+  -> cii-workspace-writer2-composite-restraint-validation-support.js
 ```
 
-## 5. Admitted W2.11 claim classes
-
-Only these child claims are accepted:
+Independence invariant:
 
 ```text
-CONTROL_RESTRAINT_BLOCK_COUNT
-ELEMENT_RESTRAINT_POINTER
-RESTRAINT_SECTION_PAYLOAD
+validation.js MUST NOT import writer.js or writer-support.js
+validation-support.js MUST NOT import writer.js or writer-support.js
 ```
 
-Unexpected RESTRAINT child claim kinds are rejected before global mutation.
+No blocker strings, authority tokens, claim kinds, operation semantics, byte arithmetic, or product routing are intentionally changed.
 
-The existing composite retains its current authority families:
+## 5. Qualification matrix
 
-```text
-WRITER_2_NODENAME
-WRITER_2_SIF_DELETE
-WRITER_2_HANGER_DELETE_ALL
-WRITER_2_HANGER_PARTIAL_DELETE
-```
-
-## 6. Independent validator
-
-New file:
+Positive:
 
 ```text
-tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js
-```
-
-The validator has **zero imports from the new W2.12 Writer module**. Even authority identity strings are locally duplicated deliberately so validation does not depend on Writer code.
-
-It independently rebuilds:
-
-```text
-TARGET0 SHA custody
-parent scope custody
-canonical child scopes
-NODE relocation plan + expected claims
-SIF DELETE plan + expected claims
-HANGER DELETE-ALL or partial plan + expected claims
-RESTRAINT compaction plan
-RESTRAINT CONTROL row2/field4 claim
-RESTRAINT ELEMENT pointer claims
-RESTRAINT complete section-payload claim
-global disjoint expected claim set
-complete expected final byte string
-postimage SHA
-physical re-intake representation
-```
-
-Primary oracle:
-
-```text
-actual after.physicalFile.originalByteString
-  ===
-independently reconstructed expected complete postimage
-```
-
-Only after this equality succeeds are Writer claims and component testimony checked.
-
-Secondary testimony gates include:
-
-```text
-top-level mutation ledger
-parent-scope custody
-W2.11 relocation-plan testimony
-W2.11 child mutation ledger
-existing composite mutation testimony
-TARGET0 hash testimony
-postimage hash testimony
-postimage representation testimony
-```
-
-## 7. Qualification source authored
-
-### Positive
-
-```text
-R01 RESTRAINT-only composite
+R01 RESTRAINT-only
 R02 NODENAME + RESTRAINT
 R03 SIF DELETE + RESTRAINT
 R04 HANGER DELETE-ALL + RESTRAINT
-R05 qualified H=3 partial HANGER delete + RESTRAINT
+R05 qualified H=3 partial HANGER + RESTRAINT
 R06 NODE + SIF + HANGER + RESTRAINT
-R07 multiple RESTRAINT deletes with downstream pointer relocation
-R08 pointer 0 remains unchanged
-R09 CONTROL negative assurance: row1/NONAM unchanged; row2/RESTRAINTS changes
+R07 multiple RESTRAINT deletes + downstream pointer relocation
+R08 physical pointer 0 remains unchanged
+R09 CONTROL row1/NONAM unchanged; row2/RESTRAINTS changes
 ```
 
-R05 uses a real qualified SYNCHRONIZER-shaped H=3 physical fixture based on the already-merged partial-HANGER qualification structure; it does not invent a new HANGER layout.
-
-### Falsifiers
+Falsifiers:
 
 ```text
-R10 RESTRAINT CREATE blocked
-R11 SIF CREATE blocked
-R12 HANGER CREATE blocked
-R13 stale TARGET0 SHA blocked
-R14 duplicate parent operation ID blocked
-R15 parent APPLY scope drift blocked
-R16 canonical child candidate-set drift blocked by W2.11 component gate
-R17 injected cross-family overlap blocked
-R18 forged RESTRAINT mutation testimony blocked
-R19 forged existing-composite mutation testimony blocked
-R20 unrelated final-byte drift blocked before Writer testimony
-R21 forged postimage hash testimony blocked
-R22 unsupported process/topology APPLY blocked
+R10 RESTRAINT CREATE
+R11 SIF CREATE
+R12 HANGER CREATE
+R13 stale TARGET0 SHA
+R14 duplicate operation ID
+R15 parent scope drift
+R16 child candidate-set drift
+R17 cross-family overlap
+R18 forged RESTRAINT testimony
+R19 forged existing-composite testimony
+R20 unrelated final-byte drift
+R21 forged postimage hash/representation
+R22 unsupported process/topology APPLY
 ```
 
-## 8. CONTROL negative assurance
+## 6. Validation truth
 
-The W2.10 inherited defect remains explicitly guarded:
+Pre-takeover execution truth:
 
 ```text
-CONTROL row1 field4 = NONAM       distinct authority
-CONTROL row2 field4 = RESTRAINTS  W2.11/W2.12 authority
+W2.11 focused component qualification       PASS_EXACT_BLOB_VERIFIED_SPARSE
+W2.12 source architecture                    PASS_SOURCE_INSPECTION
+W2.12 R01-R22                                AUTHORED
+W2.12 focused native execution               NOT_RUN_ENVIRONMENT
+repository npm test                          NOT_RUN_ENVIRONMENT
+current-head workflow                        NONE_OBSERVED
+browser/product                              NOT_APPLICABLE_W2_12
 ```
 
-R02 proves NODENAME + RESTRAINT claims are disjoint in the same original CONTROL region.
-
-R09 proves a restraint-only transaction keeps the complete CONTROL row1 byte-identical while changing row2.
-
-## 9. Validation truth
+Takeover compliance draft, before GitHub mutation:
 
 ```text
-main/base grounding                         PASS_SOURCE_INSPECTION
-W2.11 predecessor merged                    PASS
-one-TARGET0 architecture source audit       PASS
-validator zero-import-from-W2.12-Writer     PASS_SOURCE_INSPECTION
-R01-R22 source                              AUTHORED
-focused native execution                    NOT_RUN_ENVIRONMENT
-PR workflow runs                            NONE OBSERVED
-repository npm test                         NOT_RUN_ENVIRONMENT
-browser/product                             NOT_APPLICABLE_W2_12
+candidate writer main syntax                 PASS_LOCAL_SYNTAX
+candidate writer support syntax              PASS_LOCAL_SYNTAX
+candidate validator main syntax              PASS_LOCAL_SYNTAX
+candidate validator support syntax           PASS_LOCAL_SYNTAX
+candidate line counts                        143 / 227 / 213 / 203
+candidate focused test syntax                PASS_LOCAL_SYNTAX
+runtime R01-R22 on branch                    NOT_RUN
 ```
 
-Runtime limitation:
+Do not relabel syntax/source inspection as runtime qualification.
 
-```text
-github.com
-api.github.com
-raw.githubusercontent.com
-```
+## 7. Protected-path negative assurance
 
-are not DNS-resolvable from the local execution container, and no PR workflow run exists for this branch. Do **not** relabel authored tests as PASS.
-
-## 10. Changed-file ledger
-
-Exactly 9 paths:
-
-```text
-coordination 3
-  agents/PR1045_workreport.md
-  agents/status/PR1045.yaml
-  agents/claims/PR1045.yaml
-
-production 2
-  tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js
-  tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js
-
-tests 4
-  tests/cii-workspace-writer2-composite-restraint-fixture.js
-  tests/cii-workspace-writer2-composite-restraint.test.js
-  tests/cii-workspace-writer2-composite-restraint-partial-hanger.test.js
-  tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
-```
-
-Unexpected paths: 0.
-
-## 11. Protected-path / negative assurance
-
-Unchanged in W2.12:
+Must remain unchanged in W2.12:
 
 ```text
 tabs/cii-workspace/cii-workspace-core.js
@@ -321,59 +249,100 @@ SIF CREATE
 HANGER CREATE
 process fixed-field reassignment to Writer2
 topology mutation
+product/core adoption
 ```
 
-## 12. Current disposition
+## 8. Changed-file ledger
 
-Source implementation is complete enough for focused execution, but the focused runtime gate is unavailable in this environment.
+Pre-takeover PR paths: 9.
 
-Therefore:
+Expected final W2.12 paths after compliance recovery: 12.
 
 ```text
-ready_for_review = false
-PR remains DRAFT
-merge_authorized = false
+coordination
+  agents/MASTER_INDEX.md                         NEW TO PR
+  agents/PR1045_workreport.md
+  agents/status/PR1045.yaml
+  agents/claims/PR1045.yaml
+
+production
+  tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js
+  tabs/cii-workspace/cii-workspace-writer2-composite-restraint-support.js             NEW
+  tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js
+  tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation-support.js  NEW
+
+tests
+  tests/cii-workspace-writer2-composite-restraint-fixture.js
+  tests/cii-workspace-writer2-composite-restraint.test.js
+  tests/cii-workspace-writer2-composite-restraint-partial-hanger.test.js
+  tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
 ```
 
-Do not merge on source inspection alone unless the owner explicitly accepts the residual validation limitation.
+Unexplained paths allowed: 0.
 
-## 13. Next gate
+## 9. Takeover Appendix A — implementation authorization
 
-When exact execution becomes available:
+### A1 Production trace — 20/20
+
+Trace verified from current PR source:
 
 ```text
-node tests/cii-workspace-writer2-composite-restraint.test.js
-node tests/cii-workspace-writer2-composite-restraint-partial-hanger.test.js
-node tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
+parent BOUND scope
+-> family child scopes
+-> existing NODE/SIF/HANGER component + W2.11 RESTRAINT component
+-> both consume same targetDocument/TARGET0
+-> normalized original-coordinate claims
+-> global overlap arbitration
+-> one splice
+-> canonical physical re-intake
 ```
 
-Then execute the inherited Writer2 composite regression slice and repository `npm test` per repository qualification policy.
+Prediction/falsifier: if any component consumes a sibling postimage or a claim preimage does not equal TARGET0 at the declared span, the composite must block before final mutation.
 
-## 14. Next phase after separate merge authorization
+### A2 Current failure isolation — 20/20
 
-W2.13 remains separate:
+Current takeover defect is repository structural compliance, not engineering arithmetic: both new production files exceed `<300` lines. No evidence was found that #1042 CONTROL custody regressed. R02/R09 source still targets row1/NONAM as protected and row2/RESTRAINTS as mutable.
+
+Prediction/falsifier: a responsibility split with unchanged authority/error strings should preserve logical claims and final bytes. Any changed R01-R22 expected behavior indicates the split is not behavior-preserving.
+
+### A3 Authority/invariant — 20/20
+
+Exact inherited correction:
 
 ```text
-product/core routing
-readiness classification
-real-CII qualification
-product validator dispatch
+CONTROL row1 field4 = NONAM       preserve under RESTRAINT
+CONTROL row2 field4 = RESTRAINTS  mutate under qualified block DELETE
 ```
 
-W2.13 must not start merely because W2.12 source exists.
+One-TARGET0/original-coordinate and exact-preimage rules remain mandatory. RESTRAINT CREATE remains out of authority.
 
-## Appendix A — expert takeover gate
+### A4 Independent validation — 20/20
 
-1. Why must both child transactions consume exactly the same TARGET0?
-2. How does canonical child projection preserve sibling APPLY operations in audit custody?
-3. Which CONTROL field owns RESTRAINT count, and which adjacent authority must remain independent?
-4. Why can one complete RESTRANT payload replacement coexist with ELEMENT pointer rewrites?
-5. How is a cross-family overlap rejected before mutation?
-6. Why does the validator duplicate W2.12 authority strings rather than import the Writer?
-7. How does it reconstruct H>1 partial HANGER claims without trusting the composite Writer?
-8. Why does a deleted earlier RESTRAINT block force relocation of later retained pointers?
-9. Why does pointer 0 generate no relocation claim?
-10. Which three W2.11 child claim kinds are admissible in W2.12?
-11. Why does RESTRAINT CREATE remain blocked after DELETE becomes composable?
-12. What exact evidence is still NOT_RUN?
-13. What must W2.13 add that W2.12 deliberately does not?
+Current validator does not import W2.12 Writer and reconstructs expected NODE/SIF/HANGER/RESTRAINT claims from qualified planner/validator authority. Primary oracle is exact complete-postimage byte equality before Writer testimony.
+
+Recovery split preserves independence by creating a validator-specific support module that imports neither Writer module.
+
+Falsifier: any import from `cii-workspace-writer2-composite-restraint.js` or `...-support.js` into either validator module fails static qualification.
+
+### A5 Next-commit/minimal patch — 20/20
+
+Only split responsibilities and add static policy guards. No product/core/routing changes; no authority widening; no CREATE enablement. New production files remain `<300` lines and named-export only.
+
+```text
+TAKEOVER_SCORE = 100/100
+MINIMUM_EACH = 20/20
+TAKEOVER_DECISION = CONTINUE
+TAKEOVER_AUTHORITY = WRITE_ALLOWED
+```
+
+## 10. Exact next action
+
+```text
+1. Commit the behavior-preserving four-module split.
+2. Add static line-limit / named-export / validator-independence guard to the focused W2.12 test.
+3. Reconcile actual changed-file ledger including MASTER_INDEX.
+4. Execute focused R01-R22 if an exact branch runtime can be assembled.
+5. Keep PR DRAFT if runtime remains NOT_RUN.
+6. Never merge without separate owner authorization.
+7. W2.13 starts only after W2.12 merge.
+```
