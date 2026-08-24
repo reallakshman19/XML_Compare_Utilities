@@ -16,6 +16,11 @@ claims:
     evidence: P01_P06_POSITIVE__P19_CONTROL_CUSTODY__P07_P18_FALSIFIERS
     node: v22.16.0
     tree_ref: f51f8acdcdcbd108073e2a2e57753c07d9f27c42
+  - id: W2_12_SUPPORT_OBSERVATION
+    state: PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
+    required: false
+    blob: 5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
+    evidence: TARGET0_CUSTODY__CANONICAL_CHILD_SCOPE__ORIGINAL_COORDINATE_ARBITRATION__OVERLAP_FAIL_CLOSED
   - id: W2_12_FOCUSED_RUNTIME
     state: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
     required: true
@@ -33,7 +38,7 @@ claims:
     required: true
   - id: ENGINEERING_FAILURE
     state: NONE_OBSERVED
-    authority: OBSERVED_W2_11_RUNTIME_PLUS_UNRUN_REMAINING_MATRIX
+    authority: OBSERVED_W2_11_RUNTIME_PLUS_NONQUALIFYING_W2_12_SUPPORT_PROBE_PLUS_UNRUN_REMAINING_MATRIX
   - id: RESTRAINT_BLOCK_CREATE
     state: BLOCKED_RUNTIME_CONFIRMED_P18
     authority: NONE
@@ -51,5 +56,5 @@ negative_assurance:
   control_row2_restraints_authority_preserved: true
   authority_widening: false
 
-qualification_rule: authored/source/static evidence cannot substitute for observed runtime PASS
+qualification_rule: authored/source/static evidence cannot substitute for observed runtime PASS; nonqualifying support probes cannot substitute for source-authored focused entrypoints
 next_claim_gate: execute W2.12 R01-R22 on completed exact-blob dependency closure, then W2.13 and remaining inherited regression; keep repository npm as separate full-checkout gate
