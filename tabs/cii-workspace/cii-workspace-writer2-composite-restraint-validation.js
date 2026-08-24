@@ -8,11 +8,10 @@ import { buildCiiWriter2RestraintDeleteCompactionPlan, CII_WRITER_2_RESTRAINT_CR
 import { _test as legacyValidatorTest } from './cii-workspace-writer2-composite-hanger-validation.js';
 import { _test as hangerPartialValidatorTest } from './cii-workspace-writer2-hanger-partial-validation.js';
 import { _test as restraintValidatorTest } from './cii-workspace-writer2-restraint-delete-validation.js';
-import {
-  CII_WRITER_2_RESTRAINT_COMPOSITE_AUTHORITY,
-  CII_WRITER_2_RESTRAINT_COMPOSITE_FAMILY,
-} from './cii-workspace-writer2-composite-restraint.js';
 
+// Deliberately duplicated authority identities: this validator must not import the new W2.12 Writer module.
+const CII_WRITER_2_RESTRAINT_COMPOSITE_AUTHORITY = 'CII_WRITER_2_RESTRAINT_ONE_TARGET0_COMPOSITE';
+const CII_WRITER_2_RESTRAINT_COMPOSITE_FAMILY = 'WRITER_2_RESTRAINT_BLOCK_DELETE';
 const NODE_PROPERTY = 'Node name / to-name';
 const SIF_PROPERTY = 'SIF/Tee record presence';
 const HANGER_PROPERTY = 'Hanger presence';
@@ -286,6 +285,17 @@ export function validateCiiWriter2CompositeWithRestraintDelete({ before, after, 
   }
   if (stableStringify(writerResult?.components?.restraintDelete?.relocationPlan) !== stableStringify(restraintPlan)) {
     throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_VALIDATOR_RESTRAINT_PLAN_TESTIMONY_MISMATCH');
+  }
+  const restraintExpected = expectedTestimony.filter((item) => item.authorityFamily === CII_WRITER_2_RESTRAINT_COMPOSITE_FAMILY);
+  const restraintActual = (writerResult?.components?.restraintDelete?.mutations || []).map((item) => ({
+    authorityFamily: CII_WRITER_2_RESTRAINT_COMPOSITE_FAMILY, kind: item.kind,
+    byteStart: Number(item.byteStart), byteEnd: Number(item.byteEnd),
+    beforeField: item.beforeField, afterField: item.afterField,
+    ...(item.parsedElementIndex != null ? { parsedElementIndex: Number(item.parsedElementIndex) } : {}),
+  }));
+  if (Number(writerResult?.components?.restraintDelete?.mutationCount) !== restraintExpected.length
+    || stableStringify(restraintActual) !== stableStringify(restraintExpected)) {
+    throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_VALIDATOR_RESTRAINT_COMPONENT_MUTATION_TESTIMONY_MISMATCH');
   }
   const existingExpected = expectedTestimony.filter((item) => item.authorityFamily !== CII_WRITER_2_RESTRAINT_COMPOSITE_FAMILY);
   const existingActual = (writerResult?.components?.existingComposite?.mutations || []).map((item) => ({
