@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { applyCiiWriter2CompositeWithRestraintDelete } from '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js';
 import { validateCiiWriter2CompositeWithRestraintDelete } from '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js';
 import {
@@ -105,6 +106,24 @@ function controlRows(document) {
   assert.notEqual(afterRows[1], beforeRows[1], 'CONTROL row2 RESTRAINT count must change');
   assert.equal(afterRows[2], beforeRows[2]);
   assert.equal(afterRows[3], beforeRows[3]);
+}
+
+// Static W2.12 policy guards: every new production JS stays <300 lines and validator remains independent.
+{
+  const production = [
+    '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js',
+    '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint-support.js',
+    '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation.js',
+    '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint-validation-support.js',
+  ];
+  for (const relative of production) {
+    const source = fs.readFileSync(new URL(relative, import.meta.url), 'utf8');
+    assert(source.split(/\r?\n/).length < 300, `${relative} must remain below 300 physical lines`);
+    assert(!/\bexport\s+default\b/.test(source), `${relative} must use named exports only`);
+  }
+  const validatorSources = production.slice(2).map((relative) => fs.readFileSync(new URL(relative, import.meta.url), 'utf8')).join('\n');
+  assert(!validatorSources.includes("from './cii-workspace-writer2-composite-restraint.js'"));
+  assert(!validatorSources.includes("from './cii-workspace-writer2-composite-restraint-support.js'"));
 }
 
 console.log('Writer2 W2.12 RESTRAINT composite R01-R04, R06-R09 passed.');
