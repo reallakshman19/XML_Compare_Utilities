@@ -14,6 +14,7 @@ BRANCH: agent/cii-writer2-restraint-composite-w212
 BASE_MAIN: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
 CURRENT_MAIN_AT_TAKEOVER: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
 PRE_TAKEOVER_HEAD: f894154721d95a0351ba97165b56e6e323422216
+REPORT_BASIS_HEAD: 4901df18936c75428d58e1666bd0b8244f679c04
 MERGED_PREDECESSOR: PR #1043 / W2.11
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -213,7 +214,7 @@ current-head workflow                        NONE_OBSERVED
 browser/product                              NOT_APPLICABLE_W2_12
 ```
 
-Takeover compliance draft, before GitHub mutation:
+Takeover compliance evidence:
 
 ```text
 candidate writer main syntax                 PASS_LOCAL_SYNTAX
@@ -222,10 +223,24 @@ candidate validator main syntax              PASS_LOCAL_SYNTAX
 candidate validator support syntax           PASS_LOCAL_SYNTAX
 candidate line counts                        143 / 227 / 213 / 203
 candidate focused test syntax                PASS_LOCAL_SYNTAX
-runtime R01-R22 on branch                    NOT_RUN
+published blob SHA match (4 prod + test)      PASS_EXACT_GIT_BLOB
+validator no-import boundary                 PASS_EXACT_BLOB_SOURCE
+runtime R01-R22 on branch                    NOT_RUN_ENVIRONMENT
 ```
 
 Do not relabel syntax/source inspection as runtime qualification.
+
+Published exact-blob evidence:
+
+```text
+writer.js                    c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
+writer-support.js            5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
+validation.js                919ac88c071db9d793c7793cbbd82cff7e193189
+validation-support.js        a5b8f07b733161ddfec222d1a80371bcd27794e7
+focused positive test        b46ddd256df56353e21c0137bb075462904e14b3
+```
+
+Each GitHub blob SHA matched local `git hash-object` before local `node --check`. Direct `git ls-remote` still fails with `Could not resolve host: github.com`, so focused runtime remains NOT_RUN_ENVIRONMENT.
 
 ## 7. Protected-path negative assurance
 
@@ -256,11 +271,10 @@ product/core adoption
 
 Pre-takeover PR paths: 9.
 
-Expected final W2.12 paths after compliance recovery: 12.
+Actual W2.12 paths after compliance recovery: 11.
 
 ```text
 coordination
-  agents/MASTER_INDEX.md                         NEW TO PR
   agents/PR1045_workreport.md
   agents/status/PR1045.yaml
   agents/claims/PR1045.yaml
@@ -338,11 +352,10 @@ TAKEOVER_AUTHORITY = WRITE_ALLOWED
 ## 10. Exact next action
 
 ```text
-1. Commit the behavior-preserving four-module split.
-2. Add static line-limit / named-export / validator-independence guard to the focused W2.12 test.
-3. Reconcile actual changed-file ledger including MASTER_INDEX.
-4. Execute focused R01-R22 if an exact branch runtime can be assembled.
-5. Keep PR DRAFT if runtime remains NOT_RUN.
-6. Never merge without separate owner authorization.
-7. W2.13 starts only after W2.12 merge.
+1. Compliance split and static guards are committed.
+2. Execute focused R01-R22 on an exact complete checkout or exact complete sparse mirror.
+3. Run inherited Writer2 composite regressions when that runtime is available.
+4. Keep PR DRAFT while focused runtime remains NOT_RUN_ENVIRONMENT.
+5. Never merge without separate owner authorization.
+6. W2.13 starts only after W2.12 merge.
 ```
