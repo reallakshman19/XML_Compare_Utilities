@@ -1,0 +1,49 @@
+pr: 1051
+issue: 1050
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-runtime-w215
+base_main: 710db4bb0af2286fef7ca48b09256ba8cd769344
+current_stage: W2_15_RUNTIME_QUALIFICATION_CONTINUATION
+agent_state: READ_ONLY_QUALIFICATION
+handover_readiness: READY
+criticality: ENGINEERING_CRITICAL
+production_change_authority: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+ready_for_review: false
+pr_state: DRAFT
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+
+predecessor:
+  pr: 1049
+  phase: W2_14_RUNTIME_EVIDENCE_CHECKPOINT
+  merge_sha: 710db4bb0af2286fef7ca48b09256ba8cd769344
+
+inherited_authority_correction:
+  control_row1_field4: NONAM_PRESERVE
+  control_row2_field4: RESTRAINT_BLOCK_COUNT_I13
+
+inherited_runtime:
+  w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
+  w2_11_control_p19: PASS_RUNTIME_EXACT_BLOB
+  w2_11_falsifiers: PASS_RUNTIME_EXACT_BLOB
+  w2_12_support_probe: PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
+
+validation:
+  base_grounding: PASS_REMOTE_GITHUB
+  w2_12_focused_runtime: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+  w2_13_synthetic_runtime: NOT_RUN
+  w2_13_real_cii_runtime: NOT_RUN
+  inherited_writer2_regression: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+  repository_npm: NOT_RUN_ENVIRONMENT
+  engineering_failure: NONE_OBSERVED
+
+negative_assurance:
+  production_changed: false
+  restraint_create_enabled: false
+  sif_create_enabled: false
+  hanger_create_enabled: false
+  writer3_changed: false
+  parser_converter_changed: false
+
+next_gate: execute exact-blob W2.12 authored R01-R22 entrypoints before W2.13 product qualification
