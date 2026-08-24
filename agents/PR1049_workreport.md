@@ -1,4 +1,4 @@
-# PR1049 work report — Writer2 W2.14 runtime qualification and release/freeze verdict
+# PR1049 work report — Writer2 W2.14 runtime qualification and evidence-checkpoint merge
 
 ## CURRENT STATE — READ FIRST
 
@@ -13,23 +13,30 @@ PREDECESSOR: PR #1047 / W2.13 / merged at f51f8acdcdcbd108073e2a2e57753c07d9f27c
 PRODUCTION_CHANGE_AUTHORITY: FALSE_BY_DEFAULT
 PRODUCTION_CODE_DIFF_FROM_BASE: NONE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
-PR_STATE: DRAFT_NOT_READY
+MERGE_AUTHORIZED: TRUE — explicit owner instruction 2026-08-24
+OWNER_ACCEPTS_RECORDED_RESIDUALS: TRUE
+PR_STATE: OWNER_MERGE_AUTHORIZED_EVIDENCE_CHECKPOINT
 RELEASE_FREEZE_VERDICT: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 RUNTIME_PROGRESS: PARTIAL_OBSERVED_PASS
 ```
 
-## Verdict
+## Owner merge instruction — exact meaning
+
+The owner explicitly authorized merge of this evidence-only W2.14 checkpoint while the runtime matrix is incomplete.
+
+This authorization does **not** mean:
 
 ```text
-NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+W2.12 R01-R22 = PASS
+W2.13 product runtime = PASS
+remaining Writer2 regression = PASS
+repository npm test = PASS
+release/freeze = READY
 ```
 
-The verdict remains NOT_READY because W2.12, W2.13, the remaining inherited Writer2 regression matrix, and the repository gate are not yet fully observed. This is no longer a wholly unexecuted gate: the inherited W2.11 RESTRAINT physical writer/independent-validator tranche has now executed and passed on an exact-hash sparse mirror.
+Those states remain exactly as observed below. The successor workstream must continue them from the exact W2.14 merge SHA.
 
-No Writer2 engineering failure has been observed.
-
-## Binding authority remains unchanged
+## Binding engineering authority remains unchanged
 
 ```text
 CONTROL row1 / field4 / I13 = NONAM       -> byte-negative assurance
@@ -41,11 +48,11 @@ HANGER CREATE = BLOCKED
 Writer3 topology = unchanged
 ```
 
-W2.14 made no production changes and did not widen engineering authority.
+W2.14 changes no production code and widens no engineering authority.
 
-## Exact-blob sparse-mirror execution authority
+## Exact-blob runtime custody
 
-A full Git checkout is still unavailable because the container cannot resolve GitHub. W2.14 therefore uses a bounded sparse mirror only under this rule:
+A full Git checkout remained unavailable because the execution container could not resolve GitHub. Runtime evidence was therefore accepted only from a bounded sparse mirror under this rule:
 
 ```text
 For every transitively loaded repository source/test file:
@@ -54,18 +61,17 @@ Otherwise:
   do not execute / do not claim runtime evidence.
 ```
 
-The mirror uses a synthetic top-level `package.json` containing only `{"type":"module"}` to select Node ESM mode. It is not repository engineering source, is not used as engineering testimony, and does not replace any repository dependency.
-
-Observed runtime:
+Node runtime:
 
 ```text
-node --version
 v22.16.0
 ```
 
-## Observed runtime PASS — inherited W2.11 RESTRAINT physical authority
+A synthetic top-level `package.json` containing only `{"type":"module"}` selected ESM mode. It is not engineering source and is not used as testimony.
 
-Commands executed:
+## Observed runtime PASS — inherited W2.11 RESTRAINT authority
+
+Executed:
 
 ```text
 node tests/cii-workspace-writer2-restraint-delete-physical.test.js
@@ -82,15 +88,15 @@ Writer2 RESTRAINT physical DELETE P07-P18 falsifiers passed.
 Disposition:
 
 ```text
-P01-P06 positive physical DELETE                    PASS_RUNTIME_EXACT_BLOB
-P19 #1042 CONTROL custody regression                PASS_RUNTIME_EXACT_BLOB
-P07-P18 falsifiers                                  PASS_RUNTIME_EXACT_BLOB
-RESTRAINT CREATE remains blocked (P18)              PASS_RUNTIME_NEGATIVE_ASSURANCE
+P01-P06 physical DELETE positives             PASS_RUNTIME_EXACT_BLOB
+P19 #1042 CONTROL custody                     PASS_RUNTIME_EXACT_BLOB
+P07-P18 falsifiers                            PASS_RUNTIME_EXACT_BLOB
+RESTRAINT CREATE remains blocked (P18)        PASS_RUNTIME_NEGATIVE_ASSURANCE
 ```
 
-P19 is the binding #1042 runtime assurance: restraint-only execution kept CONTROL row1/NONAM byte-identical while changing CONTROL row2/RESTRAINTS.
+P19 proves at runtime that a restraint-only mutation keeps CONTROL row1/NONAM byte-identical while mutating the qualified CONTROL row2/RESTRAINTS I13 count.
 
-### Exact loaded repository blobs for this executed tranche
+### Exact loaded blob identities for executed W2.11 tranche
 
 ```text
 parser/fixed-field.js
@@ -127,40 +133,30 @@ tests/cii-workspace-writer2-restraint-delete-physical-falsifiers.test.js
   834df00e88b1f0d8bfed04223f676a8f285a9533
 ```
 
-Git blob identities above were verified before execution. Repository files with no terminal newline were materialized without adding one so `git hash-object` remained exact.
+## W2.12 support observation — executed but NONQUALIFYING
 
-## W2.12 exact support observation — non-qualifying
-
-The exact W2.12 support module was materialized and verified:
+Exact support blob:
 
 ```text
 tabs/cii-workspace/cii-workspace-writer2-composite-restraint-support.js
   5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
 ```
 
-A bounded runtime probe against that exact module observed:
+Observed:
 
 ```text
 TARGET0 SHA custody                         PASS_OBSERVATION
 canonical RESTRAINT child-scope projection PASS_OBSERVATION
 original-coordinate disjoint arbitration   PASS_OBSERVATION
-cross-family original-span overlap          FAILS_CLOSED_AS_REQUIRED
+cross-family span overlap                   FAILS_CLOSED_AS_REQUIRED
 stale TARGET0 SHA                           FAILS_CLOSED_AS_REQUIRED
 ```
 
-Observed console output:
+This probe is explicitly nonqualifying. It does not substitute for the authored W2.12 R01-R22 entrypoints.
 
-```text
-W2.12 exact support observation probe passed: TARGET0 custody, canonical child scope, original-coordinate arbitration, overlap fail-closed.
-```
+## Remaining qualification matrix after this merge
 
-This is explicitly **NONQUALIFYING**. It does not substitute for the source-authored W2.12 R01-R22 entrypoints and must not change `W2_12_FOCUSED_RUNTIME` from NOT_RUN.
-
-## W2.12 dependency closure — in progress
-
-The exact merged tree is `f51f8acdcdcbd108073e2a2e57753c07d9f27c42`.
-
-W2.12 focused commands remain:
+### W2.12 focused
 
 ```text
 node tests/cii-workspace-writer2-composite-restraint.test.js
@@ -168,20 +164,22 @@ node tests/cii-workspace-writer2-composite-restraint-partial-hanger.test.js
 node tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
 ```
 
-The sparse mirror has begun exact-hash materialization of the wider W2.12 dependency graph, including HANGER record/tail authority. Do not mark R01-R22 PASS until these exact entrypoints execute.
+Current disposition:
 
-## W2.13 required runtime
+```text
+R01-R22 = NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+```
 
-Still required:
+### W2.13 product
 
 ```text
 node tests/cii-workspace-writer2-restraint-product-routing.test.js
 node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
 ```
 
-## Remaining inherited Writer2 product/composite regression
+Current disposition: `NOT_RUN_ENVIRONMENT`.
 
-Still required:
+### Remaining inherited Writer2 regression
 
 ```text
 node tests/cii-workspace-writer2-composite-product-routing.test.js
@@ -191,63 +189,53 @@ node tests/cii-workspace-writer2-real-benchmark-roundtrip.test.js
 node tests/cii-workspace-writer2-trifamily-real-benchmark-roundtrip.test.js
 ```
 
-The inherited regression ledger is therefore PARTIAL PASS, not complete PASS: W2.11 RESTRAINT is green; broader NODE/SIF/HANGER/product routes remain to execute.
+Current disposition: `PARTIAL_PASS_W2_11_RESTRAINT_ONLY`.
 
-## Repository gate
+### Repository gate
 
 ```text
 npm ci
 npm test
 ```
 
-A sparse dependency mirror cannot honestly substitute for the repository-wide npm gate. This remains `NOT_RUN_ENVIRONMENT` until a complete exact checkout is executable.
+Current disposition: `NOT_RUN_ENVIRONMENT`. A sparse mirror cannot substitute for the repository-wide gate.
 
-## GitHub Actions activation probes — historical
+## Historical GitHub Actions probe
 
-Earlier W2.14 probes observed no PR-triggered workflow run or commit status/check evidence. All temporary workflow instrumentation was removed before finalization of that probe attempt.
+No usable PR workflow/check evidence instantiated. All temporary workflow instrumentation was removed.
 
 ```text
-new W2.14 workflow = DELETED
-trusted topology-staged-export-interchange.yml = RESTORED EXACTLY
-restored trusted workflow blob SHA = ec5182b4a893b05f717746691164ec06a421a47f
-PR-triggered workflow runs = NONE_OBSERVED
-commit statuses/check evidence = NONE_OBSERVED
+trusted workflow restored blob = ec5182b4a893b05f717746691164ec06a421a47f
+workflow net diff              = NONE
 ```
 
 Absence of CI is not PASS.
 
-## Validation ledger
+## Validation ledger at owner-authorized merge
 
 ```text
-base main exact SHA                                  PASS_REMOTE_GITHUB
-predecessor #1047 merge                             PASS_REMOTE_GITHUB
-#1042 source authority custody                      PRESERVED
-W2.11 RESTRAINT P01-P06 runtime                     PASS_RUNTIME_EXACT_BLOB
-W2.11 #1042 CONTROL P19 runtime                     PASS_RUNTIME_EXACT_BLOB
-W2.11 RESTRAINT P07-P18 falsifier runtime           PASS_RUNTIME_EXACT_BLOB
-W2.12 support observation probe                     PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
-W2.12 focused R01-R22 runtime                       NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-W2.13 synthetic product runtime                     NOT_RUN_ENVIRONMENT
-W2.13 retained-real-CII product runtime             NOT_RUN_ENVIRONMENT
-inherited Writer2 regression runtime                PARTIAL_PASS_W2_11_RESTRAINT_ONLY
-repository npm test                                 NOT_RUN_ENVIRONMENT
-production code diff                                NONE
-GitHub PR workflow                                  NONE_OBSERVED
-engineering failure                                 NONE_OBSERVED
-release/freeze                                      NOT_READY
+base main exact SHA                         PASS_REMOTE_GITHUB
+predecessor #1047 merge                    PASS_REMOTE_GITHUB
+#1042 source custody                       PRESERVED
+W2.11 P01-P06                              PASS_RUNTIME_EXACT_BLOB
+W2.11 P19                                  PASS_RUNTIME_EXACT_BLOB
+W2.11 P07-P18                              PASS_RUNTIME_EXACT_BLOB
+W2.12 support observation                  PASS_RUNTIME_EXACT_BLOB_NONQUALIFYING
+W2.12 focused R01-R22                      NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+W2.13 synthetic                            NOT_RUN_ENVIRONMENT
+W2.13 retained-real-CII                    NOT_RUN_ENVIRONMENT
+remaining inherited Writer2 regression     PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+repository npm                             NOT_RUN_ENVIRONMENT
+engineering failure                        NONE_OBSERVED
+production code diff                       NONE
+workflow net diff                          NONE
+release/freeze                             NOT_READY
+owner evidence-checkpoint merge            AUTHORIZED
 ```
 
-Do not reinterpret `NONE_OBSERVED`, `NOT_RUN_ENVIRONMENT`, a partial PASS, or the nonqualifying W2.12 support probe as completion of the release gate.
+## Changed-file ledger
 
-## Historical predecessor evidence
-
-Historical W2.12/W2.13 source-authored/NOT_RUN records remain historical. The new W2.11 PASS evidence is current W2.14 runtime evidence and does not retroactively convert W2.12 or W2.13 to PASS.
-
-## Compliance debt
-
-The oversized edited-existing-file debt inherited from W2.13 remains separate and unresolved. W2.14 did not refactor production solely to address file length.
-
-## Changed-file ledger — final intended
+Exactly three evidence files:
 
 ```text
 agents/PR1049_workreport.md
@@ -255,21 +243,21 @@ agents/status/PR1049.yaml
 agents/claims/PR1049.yaml
 ```
 
-No production, test, benchmark, workflow, parser, converter, UI, or topology files should remain changed in the final PR.
+No production, test, benchmark, workflow, parser, converter, UI or topology path is changed by W2.14.
 
-## Appendix A — expert takeover gate
+## Appendix A — successor takeover gate
 
-1. Why is `NOT_RUN_ENVIRONMENT` different from an observed test failure?
-2. Why does W2.11 runtime PASS not qualify W2.12 or W2.13?
-3. State the #1042 CONTROL row1/row2 custody correction without referring to predecessor implementation adjacency.
+1. Why does owner-authorized merge of W2.14 not mean release/freeze READY?
+2. Why does W2.11 PASS not qualify W2.12 or W2.13?
+3. State the #1042 CONTROL row1/row2 custody correction.
 4. What exactly did P19 prove at runtime?
-5. Why is a sparse mirror acceptable only when every transitively loaded repository blob is exact-hash verified?
-6. Why is the W2.12 support observation nonqualifying even though it executed exact code?
-7. What no-RESTRAINT Writer2 routes must still be included in inherited regression?
-8. Why can a sparse mirror not satisfy repository-wide `npm test`?
-9. What would justify a production patch during qualification?
-10. Why must RESTRAINT CREATE remain out of scope even after DELETE release qualification succeeds?
+5. Why must every loaded sparse-mirror blob be Git-hash verified?
+6. Why is the W2.12 support probe nonqualifying?
+7. Which W2.12 source-authored entrypoints remain mandatory?
+8. Which W2.13 real/product entrypoints remain mandatory?
+9. Why can sparse execution not satisfy repository-wide npm test?
+10. Why must RESTRAINT CREATE remain blocked regardless of DELETE qualification progress?
 
-## Exact next action
+## Exact successor action
 
-Finish the exact Git-blob dependency closure for the three W2.12 composite RESTRAINT entrypoints and execute R01-R22 under Node v22.16.0. If they pass, proceed to W2.13 synthetic/retained-real-CII and the remaining inherited Writer2 regression. Preserve raw failure names/logs if anything fails. Keep the release/freeze verdict NOT_READY until the required matrix is genuinely observed; repository-wide npm remains a separate complete-checkout gate.
+After this evidence-checkpoint merge, create a successor qualification workstream from the exact merge SHA. Continue the exact-blob dependency closure and run W2.12 R01-R22 first, then W2.13 product and remaining inherited Writer2 regression. Preserve exact failure names if any occur. Keep `NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE` until the required runtime matrix is actually observed; the repository-wide npm gate remains separately required.
