@@ -11,3 +11,13 @@ MERGE_AUTHORIZED: FALSE
 ```
 
 Historical predecessor NOT_RUN evidence remains historical. W2.14 must create observed runtime evidence from the exact merged base or preserve NOT_RUN honestly.
+
+## Actions activation probe
+
+The PR was marked ready after a trusted default-branch PR workflow was temporarily extended with W2.14 qualification jobs. This coordination-only synchronize commit exists solely to test whether GitHub Actions instantiates the PR workflow after the draft-to-ready transition.
+
+```text
+TEMPORARY_WORKFLOW_INSTRUMENTATION: PRESENT
+PRODUCTION_CODE_DIFF_FROM_BASE: NONE
+EXPECTED_NEXT: observe PR workflow run or classify Actions as NOT_RUN_ENVIRONMENT, then restore workflows exactly
+```
