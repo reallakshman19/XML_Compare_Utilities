@@ -6,7 +6,6 @@
 HANDOVER_READINESS: READY
 WORK_INTENT: IMPLEMENT
 CRITICALITY: ENGINEERING_CRITICAL
-TAKEOVER_AUTHORITY: WRITE_ALLOWED
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 ISSUE: #1046
 PR: #1047
@@ -14,112 +13,118 @@ BRANCH: agent/cii-writer2-restraint-product-w213
 BASE_MAIN: 72afe8fa9e8167e0284d34259bc7ad304ac14d99
 PREDECESSOR: PR #1045 / W2.12 / merged at 72afe8fa9e8167e0284d34259bc7ad304ac14d99
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
-PR_STATE: DRAFT
+MERGE_AUTHORIZED: TRUE — explicit owner instruction 2026-08-24
+OWNER_ACCEPTS_RECORDED_RESIDUALS: TRUE
+PR_STATE: READY_FOR_OWNER_AUTHORIZED_MERGE
 ```
 
-## Handover in 60 seconds
+## Final W2.13 result
 
-W2.13 does not create new physical RESTRAINT mutation authority. It exposes merged W2.12 through the Writer2 product path only when the transfer plan contains qualified RESTRAINT DELETE. W2.12 remains the one-TARGET0 physical authority and the independent complete-postimage validator remains the RESTRAINT product oracle.
+W2.13 exposes merged W2.12 RESTRAINT block DELETE through the Writer2 product path. It does not create new physical mutation authority.
 
-Binding #1042 correction:
+Implemented product path:
 
 ```text
-CONTROL row1 / field4 / I13 = NONAM       -> RESTRAINT must preserve
-CONTROL row2 / field4 / I13 = RESTRAINTS  -> qualified RESTRAINT count mutation
+real/product comparison
+-> Writer2 restraint slot CLEAR candidate augmentation
+-> explicit APPLY/EXCLUDE transfer-scope binding
+-> Writer2 readiness builds qualified W2.11 delete-compaction plan
+-> core dispatch selects merged W2.12 one-TARGET0 composite when RESTRAINT APPLY exists
+-> canonical re-intake
+-> product validator dispatches to independent W2.12 complete-postimage validator
 ```
 
-Historical W2.12 validation limitation is retained exactly:
+No-RESTRAINT Writer2 plans retain the existing NODE/SIF/HANGER composite route.
+
+## Binding authority and negative assurance
+
+```text
+CONTROL row1 / field4 / I13 = NONAM       -> preserved by RESTRAINT DELETE
+CONTROL row2 / field4 / I13 = RESTRAINTS  -> qualified RESTRAINT block-count mutation
+RESTRAINT CREATE -> WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
+physical RESTRAINT authority -> merged W2.12 only
+sequential postimage-relative composition -> forbidden
+Writer1B free-slot authority -> unchanged
+SIF CREATE -> blocked unchanged
+HANGER CREATE -> blocked unchanged
+Writer3 topology -> unchanged
+parser/converter/workflow/UI -> unchanged
+```
+
+## Exact changed-file ledger
+
+Eight paths, zero unexplained:
+
+```text
+agents/PR1047_workreport.md
+agents/claims/PR1047.yaml
+agents/status/PR1047.yaml
+tabs/cii-workspace/cii-workspace-core.js
+tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+tabs/cii-workspace/cii-workspace-writer2-product-validation.js
+tests/cii-workspace-writer2-restraint-product-real-cii.test.js
+tests/cii-workspace-writer2-restraint-product-routing.test.js
+```
+
+No W2.12 physical writer file changed.
+
+## Qualification source
+
+Synthetic product qualification covers:
+
+```text
+qualified RESTRAINT DELETE readiness
+core dispatch to W2.12
+independent W2.12 product validation
+RESTRAINT CREATE block
+stale-target block
+forged/missing RESTRAINT testimony/schema block
+no-RESTRAINT route non-regression
+```
+
+Retained-real-CII qualification uses `Benchmark/CIICompare/BM_CII_SOURCE.CII`. The test derives an eligible whole-block deletion candidate from actual V11 24-row RESTRAINT blocks and pointer ownership rather than hard-coding a block number, then binds the explicit transfer scope and exercises the public Writer2 product apply path.
+
+## Validation truth at merge authorization
+
+```text
+base/main grounding                             PASS_REMOTE_GITHUB
+W2.12 predecessor merge                        PASS_REMOTE_GITHUB
+changed-path reconciliation                    PASS_REMOTE_GITHUB — 8/8, zero unexplained
+source architecture/product-route inspection   PASS_SOURCE_INSPECTION
+new/edited JS syntax and exact-blob check       PASS_LOCAL_SYNTAX_EXACT_BLOB
+synthetic W2.13 product test runtime            NOT_RUN_ENVIRONMENT
+real-CII W2.13 product test runtime             NOT_RUN_ENVIRONMENT
+repository npm test                             NOT_RUN_ENVIRONMENT
+PR-triggered workflow runs at pre-closure head NONE_OBSERVED
+browser/UI                                      NOT_APPLICABLE_W2_13
+```
+
+Do not relabel authored tests, source inspection, or syntax/blob verification as runtime PASS.
+
+Historical W2.12 residual also remains unchanged:
 
 ```text
 focused R01-R22 = NOT_RUN_ENVIRONMENT
 repository npm test = NOT_RUN_ENVIRONMENT
 ```
 
-The owner accepted that residual only for the W2.12 merge; W2.13 must record its own validation truth.
+## Recorded compliance residual
 
-## Mission
+The edited existing `cii-workspace-writer2-composite-routing.js` and `cii-workspace-core.js` remain above the repository's preferred edited-file size threshold. W2.13 did not broaden scope to create new production modules solely for refactoring. This residual was disclosed before the owner's explicit merge instruction and is accepted for this merge; it is not represented as resolved.
 
-Implement exactly three product seams:
+## Appendix A — next-agent expert gate
 
-1. `cii-workspace-writer2-composite-routing.js` — recognize qualified RESTRAINT DELETE, preserve CREATE blocker, expose readiness/count/component custody.
-2. `cii-workspace-core.js` — dispatch Writer2 apply to W2.12 composite when qualified RESTRAINT DELETE is present; retain existing Writer2 composite when absent.
-3. `cii-workspace-writer2-product-validation.js` — dispatch W2.12 result to independent W2.12 complete-postimage validator; retain existing HANGER delete-all/partial validation classes for no-RESTRAINT results.
+1. Explain why Writer2 preview must augment restraint slot deltas before the product route can naturally discover DELETE candidates.
+2. Explain why the first comparison preview is not executable until explicit APPLY/EXCLUDE transfer scope is BOUND.
+3. Prove why W2.13 must consume the W2.11 compaction planner instead of classifying arbitrary RESTRAINT DELETE as ready.
+4. State the exact #1042 CONTROL custody correction and its byte-negative assurance.
+5. Explain why product core dispatch can select W2.12 without altering W2.12 physical byte arithmetic.
+6. Explain why the independent complete-postimage validator, not Writer testimony, remains the RESTRAINT product oracle.
+7. Define the no-RESTRAINT regression boundary: NODE/SIF/HANGER routing and validator classes must remain unchanged.
+8. State why RESTRAINT CREATE remains outside authority even if an empty slot or block can be observed.
+9. Distinguish source-authored qualification, syntax/blob verification, and observed runtime PASS.
+10. Identify the remaining release debt: native/runtime execution of W2.12/W2.13 qualification and repository regression suite.
 
-Supporting tests may use retained V11 CII benchmark files. No parser/converter/UI/workflow/Writer3 change is authorized.
+## EXACT NEXT PHASE
 
-## Authority / invariants
-
-```text
-RESTRAINT DELETE only
-RESTRAINT CREATE -> WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
-all physical RESTRAINT claims remain W2.12 TARGET0-relative
-no sequential postimage-relative composition
-NODENAME/SIF/HANGER existing product route unchanged when RESTRAINT absent
-CONTROL row1/NONAM negative assurance remains mandatory
-CONTROL row2/RESTRAINTS is the only CONTROL count changed by RESTRAINT DELETE
-```
-
-## Coordination
-
-Open Writer2 PR #1033 is qualification/data-only for SIF CREATE and has zero production paths. Open PR #1007 is Writer1C custody. No exact-file or product/core authority overlap found.
-
-```text
-COORDINATION_STATE: SAFE
-```
-
-## Current diagnosis
-
-Main currently blocks all RESTRAINT APPLY in Writer2 product readiness because `ciiWriter2CompositeReadiness()` recognizes only NODE/SIF/HANGER. Core Writer2 apply is hard-bound to `applyCiiWriter2CompositeWithHangerDeleteAll`, and product validation knows only HANGER delete-all/partial/no-hanger classes. Therefore merged W2.12 cannot be reached through the product route even though its component/composite authority exists.
-
-## Hypothesis / falsifier
-
-Hypothesis: W2.13 is a routing-only adoption. If readiness classifies RESTRAINT DELETE using the merged W2.11 planner, core dispatch chooses W2.12 only for plans containing RESTRAINT DELETE, and product validation recognizes the W2.12 result schema, then no physical writer code needs modification.
-
-Falsifier: any implementation need to change W2.12 byte arithmetic, W2.11 compaction, RESTRAINT CREATE/default/GUID semantics, parser/converter behavior, or existing NODE/SIF/HANGER writers requires stop/re-scope.
-
-## Intended changed paths
-
-```text
-agents/MASTER_INDEX.md
-agents/PR1047_workreport.md
-agents/status/PR1047.yaml
-agents/claims/PR1047.yaml
-tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
-tabs/cii-workspace/cii-workspace-core.js
-tabs/cii-workspace/cii-workspace-writer2-product-validation.js
-tests/<focused W2.13 product qualification>
-```
-
-## Validation ledger — initial
-
-```text
-main/base exact SHA                         PASS_REMOTE_GITHUB
-W2.12 merge                                PASS_REMOTE_GITHUB
-open-PR overlap                            SAFE_SOURCE_INSPECTION
-product routing diagnosis                  PASS_SOURCE_INSPECTION
-W2.13 implementation                       NOT_STARTED
-W2.13 focused runtime                      NOT_RUN
-repository npm test                        NOT_RUN
-```
-
-## Appendix A — implementation authorization
-
-A1 Production trace — 20/20: product preview applies `applyCiiWriter2CompositePlanContract`, readiness gates Writer2, core `applyLowLevelWriter` selects the current HANGER composite, and `validateCiiWriter2ProductRoundTrip` dispatches HANGER validator class. RESTRAINT is absent at all three seams.
-
-A2 Failure isolation — 20/20: the failure is not W2.12 physical mutation; it is product reachability. Current readiness labels RESTRAINT APPLY unsupported and policy says `restraintCardinality: BLOCKED_WRITER_2_COMPOSITE`.
-
-A3 Authority — 20/20: RESTRAINT DELETE uses merged W2.12; CREATE remains blocked; #1042 row1/row2 CONTROL custody is immutable.
-
-A4 Independent validation — 20/20: RESTRAINT product path must call `validateCiiWriter2CompositeWithRestraintDelete`; it must not infer correctness from Writer testimony.
-
-A5 Minimal patch — 20/20: modify only routing/core/product validator plus focused tests/agent records. No physical writer changes.
-
-```text
-TAKEOVER_SCORE: 100/100
-TAKEOVER_DECISION: CONTINUE
-```
-
-## EXACT_NEXT_ACTION
-
-Implement routing readiness for qualified RESTRAINT DELETE, then core dispatch and product-validator dispatch, then author retained-real-CII product qualification and falsifiers. Keep PR draft and unmerged.
+After merge, start a separate Writer2 qualification/freeze phase from the exact merge SHA. Its purpose is to execute the accumulated W2.12/W2.13 focused suites and retained-real-CII product roundtrip on an exact checkout, run the repository regression gate when available, reconcile any failures without widening engineering authority, and produce a release/freeze verdict. Do not introduce RESTRAINT CREATE, new physical semantics, or topology authority in that phase.
