@@ -210,7 +210,10 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const baseDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   let engineeringDeltas;
   if (version === '2') {
-    engineeringDeltas = baseDeltas;
+    engineeringDeltas = augmentCiiEngineeringDeltasWithRestraintSlots(
+      baseDeltas, sourceDocument, targetDocument, correspondence,
+      sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options,
+    );
   } else {
     const extendedWriter = version !== '1A';
     const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
