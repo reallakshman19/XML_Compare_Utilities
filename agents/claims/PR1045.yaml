@@ -1,0 +1,38 @@
+pr: 1045
+issue: 1044
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-composite-w212
+base_main: b2ba46cb8008c8d59a40fe8b3260ead122e063d0
+claim_state: ACTIVE_NOT_YET_QUALIFIED
+ready_for_review: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+
+claims:
+  - id: RESTRAINT_ONE_TARGET0_COMPOSITE
+    state: NOT_IMPLEMENTED
+    authority: NONE
+  - id: RESTRAINT_COMPOSITE_INDEPENDENT_POSTIMAGE_VALIDATOR
+    state: NOT_IMPLEMENTED
+    authority: NONE
+  - id: RESTRAINT_COMPONENT_PHYSICAL_WRITE
+    state: INHERITED_FROM_MERGED_PR1043
+    authority: CII_WRITER_2_RESTRAINT_BLOCK_DELETE_PHYSICAL_WRITE
+  - id: RESTRAINT_BLOCK_CREATE
+    state: BLOCKED_UNCHANGED
+    authority: NONE
+  - id: PRODUCT_CORE_ADOPTION
+    state: NOT_IMPLEMENTED_W2_13_ONLY
+    authority: NONE
+
+protected_paths:
+  - tabs/cii-workspace/cii-workspace-core.js
+  - tabs/cii-workspace/cii-workspace-writer2-composite-routing.js
+  - tabs/cii-workspace/cii-workspace-writer2-product-validation.js
+
+validation_truth:
+  focused_native: NOT_RUN
+  repository_npm: NOT_RUN
+  product_browser: NOT_APPLICABLE_W2_12
+
+next_claim_gate: complete writer/validator and R01-R22 focused qualification
