@@ -11,6 +11,11 @@ import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-works
 import { ciiPhysicalSectionRows } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
 import { applyCiiWriter2CompositeWithRestraintDelete } from '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js';
 import { validateCiiWriter2ProductRoundTrip } from '../tabs/cii-workspace/cii-workspace-writer2-product-validation.js';
+import {
+  bindCiiTransferScopeToPreview,
+  ciiTransferScopeCandidateOperations,
+  createCiiTransferScopeSelection,
+} from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
 
 const SOURCE_SHA = '3'.repeat(64);
 const BLOCK_ROWS = 24;
@@ -143,7 +148,7 @@ const policy = Object.freeze({
   wallWeight: 30,
   winnerGap: 8,
 });
-const preview = await createCiiWorkspacePreview({
+const initialPreview = await createCiiWorkspacePreview({
   sourceBytes: seedResult.bytes,
   sourceFileName: 'W213_SOURCE_WITH_ONE_RESTRAINT_BLOCK_REMOVED.CII',
   targetBytes: fixture,
@@ -151,12 +156,21 @@ const preview = await createCiiWorkspacePreview({
   anchorPairs: [{ sourceNodeId: candidate.targetNode, targetNodeId: candidate.targetNode }],
 }, policy);
 
-const productOperation = (preview.transferPlan.operations || []).find((operation) =>
+const productOperation = (initialPreview.transferPlan.operations || []).find((operation) =>
   operation.family === 'RESTRAINT'
   && operation.property === 'Qualified restraint slot mutation'
   && operation.action === 'DELETE');
-assert(productOperation, `real Writer2 preview must expose RESTRAINT DELETE: ${preview.transferPlan.blockers?.join('|')}`);
+assert(productOperation, `real Writer2 preview must expose RESTRAINT DELETE: ${initialPreview.transferPlan.blockers?.join('|')}`);
 assert.equal(productOperation.status, 'PREVIEW_READY', productOperation.blockers?.join('|'));
+const decisions = Object.fromEntries(
+  ciiTransferScopeCandidateOperations(initialPreview.transferPlan)
+    .filter((operation) => operation.action !== 'KEEP')
+    .map((operation) => [operation.operationId, operation.operationId === productOperation.operationId ? 'APPLY' : 'EXCLUDE']),
+);
+const selection = createCiiTransferScopeSelection(initialPreview.transferPlan, decisions);
+const preview = bindCiiTransferScopeToPreview(initialPreview, selection);
+assert.equal(preview.transferScope.status, 'BOUND');
+assert.deepEqual(preview.transferScope.appliedOperationIds, [productOperation.operationId]);
 assert.equal(preview.writerReadiness.ready, true, preview.writerReadiness.blockers?.join('|'));
 assert.equal(preview.writerReadiness.familyMutationCounts.restraintDelete, 1);
 assert.equal(preview.writerReadiness.restraintTransactionClass, 'BLOCK_DELETE_COMPACTION');
