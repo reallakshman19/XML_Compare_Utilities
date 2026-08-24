@@ -16,10 +16,23 @@ import {
   CII_WRITER_2_HANGER_CREATE_BLOCKER,
   CII_WRITER_2_HANGER_DELETE_POLICY,
 } from './cii-workspace-writer2-hanger-delete.js';
+import {
+  buildCiiWriter2RestraintDeleteCompactionPlan,
+  CII_WRITER_2_RESTRAINT_CREATE_BLOCKER,
+} from './cii-workspace-writer2-restraint-delete-compaction-plan.js';
+import {
+  assertBoundScopeCustody as assertRestraintCompositeBoundScope,
+  isRestraintCreate,
+  isRestraintDelete,
+  projectCanonicalSubscope as projectRestraintCompositeSubscope,
+} from './cii-workspace-writer2-composite-restraint-support.js';
 
 const NODE_PROPERTY = 'Node name / to-name';
 const SIF_PROPERTY = 'SIF/Tee record presence';
 const HANGER_PROPERTY = 'Hanger presence';
+const RESTRAINT_PROPERTY = 'Qualified restraint slot mutation';
+const RESTRAINT_SLOT_POLICY = 'CII_WRITER_1B_EXISTING_BLOCK_FIXED_SLOT';
+const RESTRAINT_DELETE_FAMILY = 'WRITER_2_RESTRAINT_BLOCK_DELETE';
 const GENERIC_NO_TRANSFER = 'NO_TRANSFERABLE_PREVIEW_OPERATIONS';
 const UNSUPPORTED_POLICY = 'CII_WRITER_2_COMPOSITE_UNSUPPORTED_FAMILY';
 const SCOPE_MODE = 'EXPLICIT_APPLY_EXCLUDE';
@@ -59,6 +72,9 @@ function isSifPresenceRoute(operation) {
 function isHangerPresenceRoute(operation) {
   return operation?.family === 'HANGER' && operation?.property === HANGER_PROPERTY;
 }
+function isRestraintRoute(operation) {
+  return operation?.family === 'RESTRAINT' && operation?.property === RESTRAINT_PROPERTY;
+}
 function isNodeMutation(operation) {
   return operation?.scopeDecision === 'APPLY'
     && isNodeRoute(operation)
@@ -92,8 +108,11 @@ function qualifiedCompositeMutation(operation) {
   if (isSifPresenceRoute(operation) && operation?.action === 'DELETE') {
     return operation?.policyAuthority === CII_WRITER_2_SIF_DELETE_POLICY;
   }
-  return isHangerPresenceRoute(operation) && operation?.action === 'DELETE'
-    && operation?.policyAuthority === CII_WRITER_2_HANGER_DELETE_POLICY;
+  if (isHangerPresenceRoute(operation) && operation?.action === 'DELETE') {
+    return operation?.policyAuthority === CII_WRITER_2_HANGER_DELETE_POLICY;
+  }
+  return isRestraintRoute(operation) && operation?.action === 'DELETE'
+    && operation?.policyAuthority === RESTRAINT_SLOT_POLICY;
 }
 function operationMap(contract) {
   const rows = new Map();
@@ -125,6 +144,7 @@ function operationSummary(operations) {
     nodeNameMutationCount: mutations.filter((item) => isNodeRoute(item)).length,
     sifDeleteMutationCount: mutations.filter((item) => isSifPresenceRoute(item)).length,
     hangerDeleteMutationCount: mutations.filter((item) => isHangerPresenceRoute(item)).length,
+    restraintDeleteMutationCount: mutations.filter((item) => isRestraintRoute(item)).length,
     byAction: deepFreeze(byAction),
   });
 }
@@ -158,6 +178,11 @@ export function applyCiiWriter2CompositePlanContract(plan) {
       operations.push(sifById.get(id) || blockedOperation(operation, `WRITER_2_COMPOSITE_SIF_ROUTE_MISSING:${id}`));
     } else if (isHangerPresenceRoute(operation)) {
       operations.push(hangerById.get(id) || blockedOperation(operation, `WRITER_2_COMPOSITE_HANGER_ROUTE_MISSING:${id}`));
+    } else if (isRestraintRoute(operation) && operation?.action === 'DELETE') {
+      operations.push(operation);
+    } else if (isRestraintRoute(operation) && operation?.action === 'CREATE') {
+      blockers.push(CII_WRITER_2_RESTRAINT_CREATE_BLOCKER);
+      operations.push(blockedOperation(operation, CII_WRITER_2_RESTRAINT_CREATE_BLOCKER));
     } else if (operation?.action === 'KEEP') {
       operations.push(operation);
     } else {
@@ -187,9 +212,11 @@ export function applyCiiWriter2CompositePlanContract(plan) {
       hangerMutation: 'EXISTING_HANGER_DELETE_ALL_OR_QUALIFIED_PARTIAL',
       hangerCreate: 'BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED',
       hangerPartialMultiDelete: 'QUALIFIED_POSITIONAL_RECORD_COMPACTION_ONLY',
+      restraintMutation: 'QUALIFIED_EXISTING_24_ROW_BLOCK_DELETE_COMPACTION_ONLY',
+      restraintCreate: 'BLOCKED_ALLOCATION_DEFAULT_GUID_AUTHORITY_NOT_QUALIFIED',
       mixedCardinalityMutation: 'ONE_ORIGINAL_PREIMAGE_COMPOSITE',
       processDefault: 'BLOCKED_WRITER_2_COMPOSITE',
-      restraintCardinality: 'BLOCKED_WRITER_2_COMPOSITE',
+      restraintCardinality: 'QUALIFIED_DELETE_COMPACTION_ONLY',
       topologyMutation: 'BLOCKED_WRITER_3_ONLY',
     }),
   });
@@ -250,24 +277,45 @@ function hangerTransactionClass(plan) {
     && text(plan?.compaction?.recordBindingAuthority) === bindingAuthority;
   return partial ? 'PARTIAL_H_GT_1' : null;
 }
+function buildRestraintPlan(transferPlan, targetDocument, blockers, scopeReady) {
+  if (!scopeReady) return null;
+  try {
+    const parent = assertRestraintCompositeBoundScope(transferPlan, targetDocument);
+    const child = projectRestraintCompositeSubscope(
+      transferPlan, isRestraintDelete, RESTRAINT_DELETE_FAMILY, parent,
+    );
+    const plan = buildCiiWriter2RestraintDeleteCompactionPlan({ targetDocument, transferPlan: child });
+    if (!plan.ready) blockers.push(...plan.blockers);
+    return plan;
+  } catch (error) {
+    blockers.push(`WRITER_2_RESTRAINT_PRODUCT_SCOPE:${text(error?.message) || 'UNKNOWN'}`);
+    return null;
+  }
+}
 
 export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targetGraph) {
   const blockers = [...(transferPlan?.blockers || [])];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('WRITER_2_COMPOSITE_TRANSFER_PLAN_NOT_PREVIEW_READY');
-  blockers.push(...exactScopeBlockers(transferPlan, targetDocument));
+  const scopeBlockers = exactScopeBlockers(transferPlan, targetDocument);
+  blockers.push(...scopeBlockers);
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
   const sifCreates = applied.filter(isSifCreate);
   const hangerCreates = applied.filter(isHangerCreate);
+  const restraintCreates = applied.filter(isRestraintCreate);
   if (sifCreates.length) blockers.push(CII_WRITER_2_SIF_CREATE_BLOCKER);
   if (hangerCreates.length) blockers.push(CII_WRITER_2_HANGER_CREATE_BLOCKER);
+  if (restraintCreates.length) blockers.push(CII_WRITER_2_RESTRAINT_CREATE_BLOCKER);
   const unsupported = applied.filter((operation) => !isNodeMutation(operation) && !isSifDelete(operation) && !isSifCreate(operation)
-    && !isHangerDelete(operation) && !isHangerCreate(operation));
+    && !isHangerDelete(operation) && !isHangerCreate(operation) && !isRestraintDelete(operation) && !isRestraintCreate(operation));
   for (const operation of unsupported) blockers.push(`WRITER_2_COMPOSITE_UNSUPPORTED_APPLY:${operationId(operation) || 'unknown'}`);
 
   const nodeOperations = applied.filter(isNodeMutation);
   const sifDeletes = applied.filter(isSifDelete);
   const hangerDeletes = applied.filter(isHangerDelete);
-  if (!nodeOperations.length && !sifDeletes.length && !hangerDeletes.length) blockers.push('WRITER_2_COMPOSITE_NO_MUTATIONS');
+  const restraintDeletes = applied.filter(isRestraintDelete);
+  if (!nodeOperations.length && !sifDeletes.length && !hangerDeletes.length && !restraintDeletes.length) {
+    blockers.push('WRITER_2_COMPOSITE_NO_MUTATIONS');
+  }
 
   const nodePlan = nodeOperations.length
     ? buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: projectPlan(transferPlan, isNodeMutation) })
@@ -278,43 +326,55 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
   const hangerPlan = hangerDeletes.length
     ? buildCiiWriter2HangerDeletePlan({ targetDocument, transferPlan: projectPlan(transferPlan, isHangerDelete) })
     : null;
+  const restraintPlan = restraintDeletes.length
+    ? buildRestraintPlan(transferPlan, targetDocument, blockers, scopeBlockers.length === 0)
+    : null;
   if (nodePlan && !nodePlan.ready) blockers.push(...nodePlan.blockers);
   if (sifPlan && !sifPlan.ready) blockers.push(...sifPlan.blockers);
   if (hangerPlan && !hangerPlan.ready) blockers.push(...hangerPlan.blockers);
   if (sifPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_SIF_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
   if (hangerPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_HANGER_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
+  if (restraintPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_RESTRAINT_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
   const hangerClass = hangerPlan?.ready ? hangerTransactionClass(hangerPlan) : null;
   if (hangerPlan?.ready && !hangerClass) blockers.push('WRITER_2_HANGER_PRODUCT_TRANSACTION_CLASS_UNQUALIFIED');
 
   const unique = deepFreeze([...new Set(blockers)]);
   const ready = unique.length === 0;
-  const mutationCount = nodeOperations.length + sifDeletes.length + hangerDeletes.length;
+  const mutationCount = nodeOperations.length + sifDeletes.length + hangerDeletes.length + restraintDeletes.length;
   return deepFreeze({
     schema: 'CIIWorkspaceWriter2CompositeReadiness.v1',
     status: ready ? 'READY' : 'BLOCKED',
     ready,
     mutationCount,
     mutationOperationCount: mutationCount,
-    familyMutationCounts: deepFreeze({ nodeName: nodeOperations.length, sifDelete: sifDeletes.length, hangerDelete: hangerDeletes.length }),
+    familyMutationCounts: deepFreeze({
+      nodeName: nodeOperations.length,
+      sifDelete: sifDeletes.length,
+      hangerDelete: hangerDeletes.length,
+      restraintDelete: restraintDeletes.length,
+    }),
     blockers: unique,
     components: deepFreeze({
       nodeName: nodePlan,
       sifDelete: sifPlan,
       hangerDeleteAll: hangerClass === 'DELETE_ALL' ? hangerPlan : null,
       hangerPartialDelete: hangerClass === 'PARTIAL_H_GT_1' ? hangerPlan : null,
+      restraintDelete: restraintPlan,
     }),
     hangerTransactionClass: hangerClass,
+    restraintTransactionClass: restraintPlan?.ready ? 'BLOCK_DELETE_COMPACTION' : null,
     createAuthority: deepFreeze({
       ready: false,
       sifTeeBlocker: CII_WRITER_2_SIF_CREATE_BLOCKER,
       hangerBlocker: CII_WRITER_2_HANGER_CREATE_BLOCKER,
+      restraintBlocker: CII_WRITER_2_RESTRAINT_CREATE_BLOCKER,
     }),
   });
 }
 
 export const _test = deepFreeze({
   text, operationId, sortedUnique, sortedStrings, sameStrings, scopeIds,
-  isNodeRoute, isSifPresenceRoute, isHangerPresenceRoute,
-  isNodeMutation, isSifDelete, isSifCreate, isHangerDelete, isHangerCreate,
-  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers, hangerTransactionClass,
+  isNodeRoute, isSifPresenceRoute, isHangerPresenceRoute, isRestraintRoute,
+  isNodeMutation, isSifDelete, isSifCreate, isHangerDelete, isHangerCreate, isRestraintDelete, isRestraintCreate,
+  qualifiedCompositeMutation, operationSummary, projectPlan, exactScopeBlockers, hangerTransactionClass, buildRestraintPlan,
 });
