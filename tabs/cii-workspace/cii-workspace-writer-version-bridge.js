@@ -23,7 +23,7 @@ function frozenAudit(audit) {
   return audit ? Object.freeze({ ...audit }) : null;
 }
 
-async function normalizeSideToV11(value, fileName, side) {
+async function normalizeSideToV11(value, fileName, side, cryptoRef) {
   const version = detectCiiNeutralVersion(value);
   if (version === 11) {
     return Object.freeze({
@@ -37,8 +37,8 @@ async function normalizeSideToV11(value, fileName, side) {
       exactRoundTrip: true,
     });
   }
-  const down = await convertCiiNeutralVersionLossless(value, 11, { fileName });
-  const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName });
+  const down = await convertCiiNeutralVersionLossless(value, 11, { fileName, cryptoRef });
+  const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName, cryptoRef });
   if (!ciiBytesEqual(value, up.outputBytes)) {
     throw new Error(`CII_VERSION_BRIDGE_${side}_BASELINE_ROUNDTRIP_NOT_EXACT`);
   }
@@ -47,31 +47,31 @@ async function normalizeSideToV11(value, fileName, side) {
     originalVersion: 14,
     normalizedVersion: 11,
     normalizedBytes: down.outputBytes,
-    sourceSha256: String(down.audit?.source_sha256 || ''),
+    sourceSha256: down.sourceSha256,
     normalizeAudit: frozenAudit(down.audit),
     roundTripAudit: frozenAudit(up.audit),
     exactRoundTrip: true,
   });
 }
 
-async function normalizePairInput(input) {
+async function normalizePairInput(input, options = {}) {
   const sourceValue = sideInput(input, 'source');
   const targetValue = sideInput(input, 'target');
   if (sourceValue == null || targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE');
-  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET');
+  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef);
+  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef);
   let normalizedInput = withoutSideText(input, 'source', source.normalizedBytes);
   normalizedInput = withoutSideText(normalizedInput, 'target', target.normalizedBytes);
   return Object.freeze({ source, target, normalizedInput });
 }
 
 export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options = {}) {
-  const normalized = await normalizePairInput(input);
+  const normalized = await normalizePairInput(input, options);
   return inspectCiiWorkspaceModels(normalized.normalizedInput, options);
 }
 
 export async function createCiiWorkspacePreviewWithVersionBridge(input, options = {}) {
-  const normalized = await normalizePairInput(input);
+  const normalized = await normalizePairInput(input, options);
   const { source, target } = normalized;
   const preview = await createCiiWorkspacePreview(normalized.normalizedInput, options);
   return Object.freeze({
@@ -104,7 +104,7 @@ export async function createCiiWorkspacePreviewWithVersionBridge(input, options 
   });
 }
 
-async function normalizeCurrentTarget(preview, targetInput) {
+async function normalizeCurrentTarget(preview, targetInput, options = {}) {
   const bridge = preview?.versionBridge;
   if (!bridge) throw new Error('CII_VERSION_BRIDGE_PREVIEW_REQUIRED');
   const expected = Number(bridge.target?.originalVersion);
@@ -112,11 +112,17 @@ async function normalizeCurrentTarget(preview, targetInput) {
   if (actual !== expected) throw new Error(`CII_VERSION_BRIDGE_TARGET_VERSION_MISMATCH:${expected}:${actual}`);
   if (actual === 11) return Object.freeze({ bytes: targetInput, audit: null });
 
-  const down = await convertCiiNeutralVersionLossless(targetInput, 11, { fileName: preview?.targetDocument?.fileName || 'target.cii' });
-  if (bridge.target?.originalSha256 && String(down.audit?.source_sha256 || '') !== bridge.target.originalSha256) {
+  const down = await convertCiiNeutralVersionLossless(targetInput, 11, {
+    fileName: preview?.targetDocument?.fileName || 'target.cii',
+    cryptoRef: options.cryptoRef,
+  });
+  if (bridge.target?.originalSha256 && down.sourceSha256 !== bridge.target.originalSha256) {
     throw new Error('CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH');
   }
-  const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName: preview?.targetDocument?.fileName || 'target.cii' });
+  const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, {
+    fileName: preview?.targetDocument?.fileName || 'target.cii',
+    cryptoRef: options.cryptoRef,
+  });
   if (!ciiBytesEqual(targetInput, up.outputBytes)) throw new Error('CII_VERSION_BRIDGE_TARGET_BASELINE_ROUNDTRIP_NOT_EXACT');
   return Object.freeze({ bytes: down.outputBytes, audit: frozenAudit(down.audit) });
 }
@@ -124,7 +130,7 @@ async function normalizeCurrentTarget(preview, targetInput) {
 export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, targetInput, options = {}) {
   const bridge = preview?.versionBridge;
   if (!bridge) throw new Error('CII_VERSION_BRIDGE_PREVIEW_REQUIRED');
-  const normalized = await normalizeCurrentTarget(preview, targetInput);
+  const normalized = await normalizeCurrentTarget(preview, targetInput, options);
   const v11Result = await applyCiiWorkspaceTargetWriter2(preview, normalized.bytes, options);
   if (Number(bridge.target?.originalVersion) === 11) {
     return Object.freeze({
@@ -137,8 +143,14 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     });
   }
 
-  const upgraded = await convertCiiNeutralVersionLossless(v11Result.text, 14, { fileName: v11Result.fileName });
-  const proof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, { fileName: v11Result.fileName });
+  const upgraded = await convertCiiNeutralVersionLossless(v11Result.text, 14, {
+    fileName: v11Result.fileName,
+    cryptoRef: options.cryptoRef,
+  });
+  const proof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, {
+    fileName: v11Result.fileName,
+    cryptoRef: options.cryptoRef,
+  });
   if (!ciiBytesEqual(v11Result.text, proof.outputBytes)) {
     throw new Error('CII_VERSION_BRIDGE_MODIFIED_ROUNDTRIP_NOT_EXACT');
   }
@@ -149,13 +161,15 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     byteString: ciiBytesToByteString(upgraded.outputBytes),
     byteLength: upgraded.outputBytes.byteLength,
     sourceTargetSha256: bridge.target.originalSha256 || v11Result.sourceTargetSha256,
-    modifiedTargetSha256: String(upgraded.audit?.target_sha256 || ''),
+    modifiedTargetSha256: upgraded.targetSha256,
     versionBridgeValidation: Object.freeze({
       schema: 'CIIWorkspaceWriterVersionBridgeValidation.v1',
       status: 'PASS',
       path: 'V14_LOSSLESS_VIA_V11',
       baselineExactRoundTrip: true,
       modifiedExactRoundTrip: true,
+      originalTargetSha256: bridge.target.originalSha256,
+      modifiedTargetSha256: upgraded.targetSha256,
       downgradeAudit: normalized.audit,
       upgradeAudit: frozenAudit(upgraded.audit),
       proofAudit: frozenAudit(proof.audit),
