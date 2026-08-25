@@ -4,6 +4,7 @@ import {
   inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
 import {
+  ciiByteStringToBytes,
   ciiBytesEqual,
   ciiBytesToByteString,
   convertCiiNeutralVersionLossless,
@@ -143,15 +144,20 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     });
   }
 
-  const upgraded = await convertCiiNeutralVersionLossless(v11Result.text, 14, {
+  if (typeof v11Result.byteString !== 'string') throw new Error('CII_VERSION_BRIDGE_V11_POSTIMAGE_BYTES_REQUIRED');
+  const v11PostimageBytes = ciiByteStringToBytes(v11Result.byteString);
+  const upgraded = await convertCiiNeutralVersionLossless(v11PostimageBytes, 14, {
     fileName: v11Result.fileName,
     cryptoRef: options.cryptoRef,
   });
+  if (v11Result.modifiedTargetSha256 && upgraded.sourceSha256 !== v11Result.modifiedTargetSha256) {
+    throw new Error('CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH');
+  }
   const proof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, {
     fileName: v11Result.fileName,
     cryptoRef: options.cryptoRef,
   });
-  if (!ciiBytesEqual(v11Result.text, proof.outputBytes)) {
+  if (!ciiBytesEqual(v11PostimageBytes, proof.outputBytes)) {
     throw new Error('CII_VERSION_BRIDGE_MODIFIED_ROUNDTRIP_NOT_EXACT');
   }
   const outputText = new TextDecoder('utf-8').decode(upgraded.outputBytes);
@@ -169,6 +175,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
       baselineExactRoundTrip: true,
       modifiedExactRoundTrip: true,
       originalTargetSha256: bridge.target.originalSha256,
+      v11PostimageSha256: upgraded.sourceSha256,
       modifiedTargetSha256: upgraded.targetSha256,
       downgradeAudit: normalized.audit,
       upgradeAudit: frozenAudit(upgraded.audit),
