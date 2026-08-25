@@ -1,0 +1,52 @@
+pr: 1055
+issue: 1052
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-runtime-w218
+base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
+claim_state: W2_18_RUNTIME_DEPENDENCY_REBUILD
+ready_for_review: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+
+claims:
+  - id: W2_11_RESTRAINT_RUNTIME
+    state: PASS_RUNTIME_EXACT_BLOB
+  - id: W2_12_R01_R22_RUNTIME
+    state: PASS_RUNTIME_EXACT_BLOB
+  - id: W2_13_SYNTHETIC_PRODUCT_RUNTIME
+    state: NOT_RUN_DEPENDENCY_REBUILD
+    assertion_failure_observed: false
+    prior_exact_sparse_file_count: 54
+    prior_unresolved_static_module_count: 31
+  - id: W2_13_REAL_CII_PRODUCT_RUNTIME
+    state: NOT_RUN_ENVIRONMENT
+  - id: WRITER2_INHERITED_REGRESSION_RUNTIME
+    state: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+  - id: REPOSITORY_NPM_GATE
+    state: NOT_RUN_ENVIRONMENT
+  - id: CURRENT_EXACT_DEPENDENCY
+    state: GROUNDED_SOURCE_EXACT_BLOB
+    path: tabs/cii-workspace/cii-workspace-auxiliary.js
+    blob: 7459677eccb2ca460b1971ac6d75c22f2f5ae870
+  - id: NATIVE_EXACT_CHECKOUT
+    state: FAIL_ENVIRONMENT_DNS
+    error: Could not resolve host github.com
+    exit: 128
+  - id: RESTRAINT_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED
+  - id: SIF_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED
+  - id: HANGER_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED
+  - id: ENGINEERING_FAILURE
+    state: NONE_OBSERVED
+
+validation_integrity:
+  modified_authored_entrypoint_used: false
+  dependency_stubs_used: false
+  workflow_trigger_gaming_used: false
+  source_inspection_promoted_to_runtime_pass: false
+  module_load_stop_promoted_to_product_fail: false
+
+next_claim_gate: exact sparse rebuild from main@297fb37a starting at cii-workspace-auxiliary.js, then execute authored W2.13 synthetic assertions before any PASS or FAIL promotion
