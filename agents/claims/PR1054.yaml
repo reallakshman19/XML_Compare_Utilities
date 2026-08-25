@@ -1,0 +1,50 @@
+pr: 1054
+issue: 1052
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-runtime-w217
+base_main: 3a681c1c587ee3c1462a962879e4f79433258105
+claim_state: W2_12_RUNTIME_PASS_W2_13_PRODUCT_PENDING
+ready_for_review: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+
+claims:
+  - id: W2_11_RESTRAINT_RUNTIME
+    state: PASS_RUNTIME_EXACT_BLOB
+    required: true
+  - id: W2_12_R01_R22_RUNTIME
+    state: PASS_RUNTIME_EXACT_BLOB
+    required: true
+  - id: W2_13_PRODUCT_CORE_IMPLEMENTATION
+    state: ALREADY_MERGED_PR1047
+    merge_sha: f51f8acdcdcbd108073e2a2e57753c07d9f27c42
+    required: true
+  - id: W2_13_SYNTHETIC_PRODUCT_RUNTIME
+    state: NOT_RUN_ENVIRONMENT
+    required: true
+  - id: W2_13_REAL_CII_PRODUCT_RUNTIME
+    state: NOT_RUN_ENVIRONMENT
+    required: true
+  - id: WRITER2_INHERITED_REGRESSION_RUNTIME
+    state: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+    required: true
+  - id: REPOSITORY_NPM_GATE
+    state: NOT_RUN_ENVIRONMENT
+    required: true
+  - id: RESTRAINT_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R10
+    authority: NONE
+  - id: SIF_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R11
+    authority: NONE
+  - id: HANGER_CREATE
+    state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R12
+    authority: NONE
+  - id: UNSUPPORTED_PROCESS_TOPOLOGY_APPLY
+    state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R22
+  - id: ENGINEERING_FAILURE
+    state: NONE_OBSERVED
+
+qualification_rule: authored entrypoint assertions are required for runtime PASS; module/dependency closure is not PASS
+next_claim_gate: execute exact-blob W2.13 product-routing and retained-real-CII entrypoints, then inherited Writer2 regressions
