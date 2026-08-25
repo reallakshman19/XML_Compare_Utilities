@@ -182,7 +182,67 @@ Current production blocker remains authoritative:
 WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
 ```
 
-## 5. Current runtime evidence gaps
+## 5. Structural-family classification audit — Gate G source closure
+
+Live transfer-policy and Writer2 plan-contract source were re-inspected on exact base `297fb37a...`.
+
+The base classifier has a finite family surface:
+
+```text
+GEOMETRY       -> protected / Writer3 boundary
+PIPE_SIZE      -> Writer1B conditional OD or protected
+WALL           -> Writer1A fixed field
+PROCESS        -> Writer1A/1B fixed fields
+WEIGHT_RIGID   -> Writer1A cardinality-preserving rigid record field
+NODE_NAME      -> Writer1C existing field; Writer2 plan layer owns cardinality CREATE/DELETE
+RESTRAINT      -> Writer1A/1B existing-block slot semantics; Writer2 plan layer owns qualified block DELETE
+HANGER         -> presence/count evidence; Writer2 plan layer owns qualified DELETE
+SIF_TEE        -> Writer1C selected ii/io; Writer2 plan layer owns qualified existing-block DELETE
+UNKNOWN        -> TRANSFER_FAMILY_NOT_QUALIFIED
+```
+
+The Writer2 composite plan contract explicitly admits only:
+
+```text
+NODENAME CREATE / DELETE
+SIF/Tee record presence DELETE
+HANGER presence DELETE
+qualified RESTRAINT slot DELETE promoted to block DELETE/compaction
+```
+
+Everything else is fail-closed. Its policy surface explicitly states:
+
+```text
+sifTeeMutation       = V11_EXISTING_BLOCK_DELETE_REINDEX_ONLY
+sifTeeCreate         = BLOCKED_ITEMS_27_30_UNRESOLVED
+hangerMutation       = EXISTING_HANGER_DELETE_ALL_OR_QUALIFIED_PARTIAL
+hangerCreate         = BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
+restraintMutation    = QUALIFIED_EXISTING_24_ROW_BLOCK_DELETE_COMPACTION_ONLY
+restraintCreate      = BLOCKED_ALLOCATION_DEFAULT_GUID_AUTHORITY_NOT_QUALIFIED
+processDefault       = BLOCKED_WRITER_2_COMPOSITE
+topologyMutation     = BLOCKED_WRITER_3_ONLY
+```
+
+The older base-policy blocker:
+
+```text
+SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
+```
+
+is therefore not an ambiguous active Writer2 route. The Writer2 SIF plan contract deterministically promotes only the already-qualified existing-block DELETE case and retains CREATE as blocked.
+
+Gate G source verdict:
+
+```text
+REMAINING_STRUCTURAL_FAMILY_AUDIT = PASS_SOURCE_INSPECTION
+HIDDEN_WRITER2_FAMILY = NONE_OBSERVED
+AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE = NONE_OBSERVED
+UNKNOWN_FAMILY_BEHAVIOR = FAIL_CLOSED
+```
+
+This is a source-classification result, not runtime qualification.
+
+## 6. Current runtime evidence gaps
 
 The following are evidence gaps, not authorization to widen semantics:
 
@@ -201,7 +261,7 @@ native RESTRAINT block CREATE transition: NOT_AVAILABLE
 
 PR #1055 source/static dependency closure is not runtime qualification. Exact local checkout currently fails because github.com cannot be resolved from the execution container.
 
-## 6. Stacked PR #1055 completion sequence
+## 7. Stacked PR #1055 completion sequence
 
 ```text
 GATE A
@@ -225,8 +285,8 @@ GATE F
   -> otherwise preserve SOURCE_BLOCKED
 
 GATE G
-  audit remaining auxiliary/cardinality requests
-  -> classify every operation as Writer1, Writer2 DONE, Writer2 SOURCE_BLOCKED, Writer3, or NOT_SUPPORTED
+  remaining auxiliary/cardinality source classification audit
+  -> PASS_SOURCE_INSPECTION at current checkpoint
 
 GATE H
   publish final capability matrix and program verdict
@@ -234,7 +294,7 @@ GATE H
 
 No later gate may retroactively convert `NOT_RUN`, `NOT_AVAILABLE`, or `SOURCE_BLOCKED` to PASS.
 
-## 7. Program-level freeze rule
+## 8. Program-level freeze rule
 
 Writer2 may be declared accomplished/frozen when all of the following are true:
 
