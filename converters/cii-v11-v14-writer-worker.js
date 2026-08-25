@@ -22,6 +22,7 @@ const WORK_ROOT = '/work/cii-writer-v11-v14';
 
 let runtimePromise = null;
 let scriptPromise = null;
+let jobQueue = Promise.resolve();
 
 function asText(value) {
   return value === undefined || value === null ? '' : String(value);
@@ -133,13 +134,16 @@ async function runJob(message) {
     cleanupJobDir(pyodide, jobDir, [inputPath, outputPath, auditPath]);
   }
 }
-self.addEventListener('message', async (event) => {
+function enqueueJob(message) {
+  const current = jobQueue.then(() => runJob(message));
+  jobQueue = current.catch(() => undefined);
+  return current;
+}
+self.addEventListener('message', (event) => {
   const message = event.data || {};
   if (message.type !== 'run') return;
-  try {
-    const result = await runJob(message);
-    self.postMessage({ type: 'result', jobId: message.jobId, ok: true, ...result });
-  } catch (error) {
-    self.postMessage({ type: 'result', jobId: message.jobId, ok: false, error: errorText(error) });
-  }
+  enqueueJob(message).then(
+    (result) => self.postMessage({ type: 'result', jobId: message.jobId, ok: true, ...result }),
+    (error) => self.postMessage({ type: 'result', jobId: message.jobId, ok: false, error: errorText(error) }),
+  );
 });
