@@ -21,9 +21,26 @@ claims:
     required: true
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
-    current_missing_module: tabs/cii-workspace/cii-workspace-topology.js
-    exact_local_js_files: 18
-    prior_w217_frontier_crossed: true
+    full_entrypoint_rerun_this_checkpoint: false
+    reason: prior full exact sparse mirror not retained by execution container
+  - id: PATH_CANDIDATES_SUPPORT_RUNTIME
+    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
+    observation: LOCAL_EXECUTION
+    qualifying_for_product_gate: false
+    exact_blobs:
+      path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
+      path_aligner: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
+      evidence: 8c7e392d42308eb1cb6671314e55e99be8b72a57
+      match_methods: 20c129291d85d16558185b711dc1cd334769d21e
+      geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
+      contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
+    output: W218_PATH_CANDIDATES_EXACT_SUPPORT_IMPORT_PASS
+  - id: PUBLIC_CORE_SUPPORT_FRONTIER
+    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
+    node_custody_blob: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
+    components_blob: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
+    identity_blob: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
+    next_boundary: tabs/cii-workspace/cii-workspace-engineering-delta.js
   - id: W2_13_REAL_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
@@ -33,11 +50,9 @@ claims:
   - id: REPOSITORY_NPM_GATE
     state: NOT_RUN_ENVIRONMENT
     required: true
-  - id: EXACT_SPARSE_MIRROR_CUSTODY
-    state: IN_PROGRESS
-    local_mirror: /mnt/data/w218
-    rule: every_transitively_loaded_repository_file_must_hash_to_BASE_MAIN_blob_before_execution
-    exact_local_js_files: 18
+  - id: EXACT_SPARSE_CUSTODY_RULE
+    state: ACTIVE
+    rule: every_loaded_repository_file_must_hash_to_BASE_MAIN_blob_before_admissible_execution
   - id: HASH_GATE_EFFECTIVE
     state: PASS_OBSERVATION
     evidence: terminal_LF_mismatch_on_restraint_compaction_planner_was_rejected_before_execution_then_corrected_to_exact_blob
@@ -58,8 +73,9 @@ validation_integrity:
   dependency_stubs_used: false
   workflow_trigger_gaming_used: false
   source_inspection_promoted_to_runtime_pass: false
+  support_import_promoted_to_product_pass: false
   module_load_stop_promoted_to_product_fail: false
   mismatched_blob_admitted: false
 
-qualification_rule: authored entrypoint assertions on exact blobs are required for runtime PASS; module/dependency closure remains NOT_RUN and not FAIL
-next_claim_gate: materialize cii-workspace-topology.js exactly, rerun the unchanged W2.13 synthetic entrypoint, and continue until assertions execute
+qualification_rule: W2.13 product PASS or FAIL requires the unchanged authored entrypoint to reach assertions on exact repository blobs; bounded support imports remain nonqualifying
+next_claim_gate: reconstruct cii-workspace-engineering-delta.js and subsequent public-core dependencies, restore the full authored graph, then rerun the unchanged W2.13 synthetic entrypoint
