@@ -22,25 +22,38 @@ claims:
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
     full_entrypoint_rerun_this_checkpoint: false
-    reason: prior full exact sparse mirror not retained by execution container
-  - id: PATH_CANDIDATES_SUPPORT_RUNTIME
+  - id: WRITER2_DELTA_PREVIEW_SUPPORT_RUNTIME
     state: PASS_NONQUALIFYING_SUPPORT_IMPORT
     observation: LOCAL_EXECUTION
     qualifying_for_product_gate: false
+    exact_blobs:
+      engineering_delta: 790900cccc7da1486c57d52719dde6abfa500909
+      writer1b_od: 1ed7597f14339a554fe8a3555584241e416eb6ab
+      writer1b_deltas: 43435146a3cb4741882ccfa73f0315e5c92bcaaa
+      restraint_pairing: 18e01014aa716f0b3f15220b3c9454056bf0fc9d
+      restraint_transfer: 410843c343ed1915a925dee84129b174f514d803
+      restraint_slot_transfer: 907708a038eab1b56886bb5398e759d95e69af7c
+    outputs:
+      - W218_ENGINEERING_DELTA_EXACT_SUPPORT_IMPORT_PASS
+      - W218_WRITER1B_DELTAS_EXACT_SUPPORT_IMPORT_PASS
+      - W218_RESTRAINT_PAIRING_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
+      - W218_RESTRAINT_SLOT_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
+  - id: PATH_AND_CORRESPONDENCE_SUPPORT_RUNTIME
+    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
     exact_blobs:
       path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
       path_aligner: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
       evidence: 8c7e392d42308eb1cb6671314e55e99be8b72a57
       match_methods: 20c129291d85d16558185b711dc1cd334769d21e
-      geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
-      contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
-    output: W218_PATH_CANDIDATES_EXACT_SUPPORT_IMPORT_PASS
-  - id: PUBLIC_CORE_SUPPORT_FRONTIER
-    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
-    node_custody_blob: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
-    components_blob: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
-    identity_blob: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
-    next_boundary: tabs/cii-workspace/cii-workspace-engineering-delta.js
+      node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
+      components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
+      identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
+  - id: BYTE_CUSTODY_GUARD
+    state: PASS_OBSERVATION
+    evidence:
+      - restraint compaction terminal-LF near-match rejected before use
+      - restraint pairing reformatted near-match rejected before use then replaced by exact blob
+    mismatched_blob_admitted: false
   - id: W2_13_REAL_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
@@ -50,15 +63,6 @@ claims:
   - id: REPOSITORY_NPM_GATE
     state: NOT_RUN_ENVIRONMENT
     required: true
-  - id: EXACT_SPARSE_CUSTODY_RULE
-    state: ACTIVE
-    rule: every_loaded_repository_file_must_hash_to_BASE_MAIN_blob_before_admissible_execution
-  - id: HASH_GATE_EFFECTIVE
-    state: PASS_OBSERVATION
-    evidence: terminal_LF_mismatch_on_restraint_compaction_planner_was_rejected_before_execution_then_corrected_to_exact_blob
-  - id: NATIVE_EXACT_CHECKOUT
-    state: FAIL_ENVIRONMENT_DNS
-    exit: 128
   - id: RESTRAINT_CREATE
     state: BLOCKED_RUNTIME_CONFIRMED
   - id: SIF_CREATE
@@ -72,10 +76,9 @@ validation_integrity:
   modified_authored_entrypoint_used: false
   dependency_stubs_used: false
   workflow_trigger_gaming_used: false
-  source_inspection_promoted_to_runtime_pass: false
   support_import_promoted_to_product_pass: false
   module_load_stop_promoted_to_product_fail: false
   mismatched_blob_admitted: false
 
-qualification_rule: W2.13 product PASS or FAIL requires the unchanged authored entrypoint to reach assertions on exact repository blobs; bounded support imports remain nonqualifying
-next_claim_gate: reconstruct cii-workspace-engineering-delta.js and subsequent public-core dependencies, restore the full authored graph, then rerun the unchanged W2.13 synthetic entrypoint
+qualification_rule: W2.13 product PASS or FAIL requires unchanged authored entrypoint assertions on exact repository blobs; all bounded support imports remain nonqualifying
+next_claim_gate: close compare-review, transfer-plan, review and placeholders static imports, restore full authored graph, then rerun W2.13 synthetic entrypoint
