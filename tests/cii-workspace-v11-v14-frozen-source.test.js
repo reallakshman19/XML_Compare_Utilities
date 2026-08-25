@@ -36,6 +36,16 @@ assert.notEqual(localRulesSha, EXPECTED['cii2019_section_rules.py'], 'test requi
 
 const worker = readFileSync(`${ROOT}/converters/cii-v11-v14-writer-worker.js`, 'utf8');
 assert.match(worker, /\.\/scripts\/cii-v11-v14-upstream\//);
+assert.match(worker, /const FROZEN_SCRIPT_BLOBS = Object\.freeze/);
+for (const [fileName, expectedSha] of Object.entries(EXPECTED)) {
+  assert.match(worker, new RegExp(`['"]${fileName.replaceAll('.', '\\.') }['"]\\s*:\\s*['"]${expectedSha}['"]`), `${fileName} runtime blob identity must be pinned in worker`);
+}
+assert.match(worker, /new TextEncoder\(\)\.encode\(`blob \$\{bytes\.byteLength\}\\0`\)/, 'runtime SHA must use Git blob framing');
+assert.match(worker, /crypto\.subtle\.digest\('SHA-1', payload\)/, 'runtime worker must compute Git blob SHA before execution');
+assert.match(worker, /Frozen \$\{fileName\} Git blob mismatch/, 'runtime worker must fail closed on deployed source drift');
+assert.match(worker, /response\.arrayBuffer\(\)/, 'runtime custody must hash fetched bytes, not decoded text');
+assert.match(worker, /FS\.writeFile\(`\/scripts\/\$\{fileName\}`, bytes\)/, 'verified bytes must be written directly to Pyodide');
+assert.doesNotMatch(worker, /response\.text\(\)/, 'frozen Python must not be text-decoded and re-encoded before execution');
 assert.match(worker, /cii2019_section_rules\.py/);
 assert.doesNotMatch(worker, /FROZEN_SCRIPT_ROOT\s*=\s*['"]\.\/scripts\/['"]/);
 assert.match(worker, /FS\.unlink\(path\)/, 'worker must remove job files before removing the job directory');
@@ -50,7 +60,7 @@ assert.match(worker, /jobQueue = current\.catch\(\(\) => undefined\)/, 'a failed
 assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/, 'message handler must not directly overlap shared-runtime jobs');
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
-assert.match(converter, /frozen-3d-converters-6/, 'worker URL cache key must move with worker runtime semantics');
+assert.match(converter, /frozen-3d-converters-7/, 'worker URL cache key must move with worker runtime semantics');
 assert.match(converter, /const AUDIT_SCHEMA = 'cii-v11-v14-conversion-audit\/v1'/);
 assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_SCHEMA_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_ARRAY_REQUIRED/);
