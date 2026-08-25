@@ -15,8 +15,8 @@ CRITICALITY: ENGINEERING_CRITICAL
 TAKEOVER_AUTHORITY: READ_ONLY_QUALIFICATION
 PRODUCTION_CHANGE_AUTHORITY: FALSE_BY_DEFAULT
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
-PR_STATE: DRAFT
+MERGE_AUTHORIZED: TRUE — owner instruction 2026-08-25: "merge, proceed next"
+PR_STATE: DRAFT_PENDING_READY_TRANSITION
 CURRENT_GATE: W2_13_PRODUCT_RUNTIME
 RELEASE_FREEZE: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 ```
@@ -110,6 +110,12 @@ engineering failure                        NONE_OBSERVED
 release/freeze                             NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 ```
 
+## Authorized checkpoint disposition
+
+The owner explicitly authorized `merge, proceed next` on 2026-08-25. This authorization permits merging this evidence-only W2.16 checkpoint despite the intentionally retained `NOT_READY` release/freeze verdict. It does **not** convert W2.13 or inherited regression gates into PASS and does **not** authorize production, CREATE, topology, parser/converter, or workflow changes.
+
+After merge, continue the remaining runtime qualification in a new successor PR from the exact merged `main`.
+
 ## Next mandatory order
 
 1. Execute merged W2.13 product qualification:
@@ -160,4 +166,4 @@ A5 If a later W2.13/regression assertion fails, capture the raw failure first an
 
 ## EXACT_NEXT_ACTION
 
-Materialize the two already-merged W2.13 product test entrypoints and all transitively loaded repository dependencies into the exact sparse mirror, verify every Git blob against `main@a0098a7b6f1aff9f0219b051da964c6a9adad5ce`, and execute product-routing then retained-real-CII qualification. Do not merge PR1053 without a new owner authorization.
+Mark PR1053 ready, re-ground the final head, and squash-merge under the owner's explicit authorization while preserving `release/freeze = NOT_READY`. Then create a separate successor PR from the exact merged `main` to execute W2.13 product-routing, retained-real-CII, and inherited Writer2 regression runtime gates.
