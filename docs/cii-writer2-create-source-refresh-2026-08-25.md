@@ -1,223 +1,192 @@
-# Writer2 CREATE source-authority refresh — 2026-08-25
+# Writer2 CREATE source-authority refresh — CAESAR II Version 11 only — 2026-08-25
 
 ## Status
 
 ```text
 PR = #1055
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
+AUTHORITY_EDITION = CAESAR II 2019 / Version 11.0 ONLY
+NEUTRAL_INTERFACE_SCOPE = VERSION 11.00
+LATER_EDITION_AUTHORITY = EXCLUDED
 MODE = SOURCE_ACQUISITION_REFRESH_ONLY
 PRODUCTION_CREATE_AUTHORITY = FALSE
 ```
 
-This refresh asks whether newly rechecked authoritative source material is sufficient to move any currently blocked Writer2 CREATE family to implementation authority.
+This record answers one narrow question: **does CAESAR II Version 11 alone provide enough source authority to synthesize the complete physical bytes for a new Writer2 SIF, HANGER, or RESTRAINT record/block?**
 
-Final refresh result:
+Authority rule:
 
 ```text
-SIF CREATE       SOURCE_BLOCKED_REAFFIRMED
-HANGER CREATE    SOURCE_BLOCKED_REAFFIRMED
-RESTRAINT CREATE SOURCE_BLOCKED_REAFFIRMED
+exact V11 vendor-authored material       may qualify V11 semantics
+real V11 neutral files                   may qualify observed physical facts only
+repository converter/default behavior    is repository policy unless vendor-sourced
+V12/V14/current-version documentation    is NOT V11 CREATE authority
+later-edition field meanings/defaults    MUST NOT fill V11 gaps
 ```
 
-No production Writer2 CREATE route is enabled by this document.
+Final V11-only result:
+
+```text
+SIF CREATE       SOURCE_BLOCKED_REAFFIRMED_V11
+HANGER CREATE    SOURCE_BLOCKED_REAFFIRMED_V11
+RESTRAINT CREATE SOURCE_BLOCKED_REAFFIRMED_V11
+PRODUCTION CREATE CHANGE = NONE
+```
 
 ---
 
-# 1. SIF / TEE CREATE refresh
+## 1. SIF / TEE CREATE — V11 authority
 
-## Existing verdict
+### V11 sources
 
-```text
-NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
-```
-
-## Direct official source refresh
-
-Official Hexagon CAESAR II Version 12 neutral-file documentation confirms the V11/V12-era `#$ SIF&TEES` shape:
+Repository ledger:
 
 ```text
-FORTRAN format       (2X, 6G13.6)
-items per tee        30
-tee slots            2
-rows per tee         5
-rows per auxiliary   10
-array                 SIF(N4,60)
+docs/cii-writer1c-sif-source-ledger.csv
 ```
 
-It explicitly identifies items 1..26, including node, Type, ii/io, geometry, SIF/index and code-dependent positions. Several positions are explicitly piping-code dependent.
-
-Source:
+Exact Version 11 vendor-authored authority retained by that ledger includes:
 
 ```text
-Hexagon CAESAR II Users Guide
-Version 12
-Auxiliary Element Data / #$ SIF&TEES
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
+CAESAR II User's Guide
+Version 2019 (11.0), April 2019
+Piping Input / SIFs & Tees, pp.142-153
+
+CAESAR II User's Guide
+Version 2019 (11.0), April 2019
+External Interfaces / Neutral File / Auxiliary Element Data, p.1187
 ```
 
-The Version 12 source does not establish a complete V11/V12 CREATE/default/sentinel contract for positions 27..30, unused second-slot construction, or every omitted/default field.
-
-Official Version 14 documentation demonstrates material edition drift:
+The V11 neutral description establishes:
 
 ```text
-array                 SIF(N4,84)
-items per tee         42
-rows per tee          7
-rows per auxiliary    14
-B31J positions        introduced from item 27 onward
+section             #$ SIF&TEES
+FORTRAN format      (2X,6G13.6)
+items per tee       30
+tee slots           2
+rows per tee        5
+rows per auxiliary  10
+item 3              In-Plane SIF (ii)
+item 4              Out-Plane SIF (io)
+items 1..26         explicitly identified in the retained V11 source ledger
 ```
 
-Source:
+The V11 product guide separately establishes the engineering meaning of ii/io, user-defined SIF constraints, and code-dependent Type context.
+
+### V11 blocker
+
+The retained V11 neutral description states 30 items per tee but directly names only items 1..26. The retrieved V11 authority therefore does **not** establish the semantics or required neutral representation of items 27..30.
+
+A new Writer2 block cannot preserve unknown bytes because no target block exists. CREATE would have to synthesize all 60 positions. Consequently the following remain unresolved from V11 alone:
 
 ```text
-Hexagon CAESAR II Users Guide
-Version 14
-Auxiliary Element Data / #$ SIF&TEES
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/1471418
+V11 items 27..30 meaning / reserved representation
+complete 60-position CREATE construction contract
+exact omitted/default/sentinel encoding for every position
+unused second-tee-slot CREATE representation
+complete Type + piping-code construction rule
 ```
 
-The later field meanings are drift evidence only. They cannot be backported to V11 by item number.
-
-## SIF refresh verdict
+V11 verdict:
 
 ```text
-V11_V12_PHYSICAL_SCHEMA             PASS_DIRECT_SOURCE_REFRESH
-V11_ITEMS_1_26_PARTIAL_SEMANTICS    PASS_DIRECT_SOURCE_REFRESH
-V11_ITEMS_27_30_CREATE_AUTHORITY    UNRESOLVED
-V11_COMPLETE_DEFAULT_CONTRACT       UNRESOLVED
-V11_UNUSED_SECOND_SLOT_CREATE_RULE  UNRESOLVED
-V14_B31J_BACKPORT_ALLOWED           FALSE
-SIF_CREATE                          SOURCE_BLOCKED_REAFFIRMED
+V11_SIF_PHYSICAL_SCHEMA                  PASS_VENDOR_V11
+V11_SIF_ITEMS_1_26                       PASS_VENDOR_V11
+V11_SIF_ITEMS_27_30                      UNRESOLVED
+V11_COMPLETE_60_POSITION_CREATE_CONTRACT UNRESOLVED
+V11_UNUSED_SECOND_TEE_SLOT_CREATE_RULE   UNRESOLVED
+SIF_CREATE                               SOURCE_BLOCKED_REAFFIRMED_V11
 ```
 
-Existing blocker remains fail-closed:
+Production blocker remains fail-closed:
 
 ```text
 WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 ```
 
+No V12/V14 semantics may be substituted for these V11 gaps.
+
 ---
 
-# 2. HANGER CREATE refresh
+## 2. HANGER CREATE — V11 authority
 
-## Existing verdict
+### V11 sources
 
-Merged W2.5 / PR #1037:
-
-```text
-NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
-```
-
-## Direct official Version 12 neutral-file authority
-
-Official Version 12 `Miscellaneous Data Group #1` documents the hanger record family.
-
-Global hanger-default records include, among others:
+Repository ledger:
 
 ```text
-IDFTABLE      default hanger table
-DEFVAR        default allowable load variation
-DEFRIG        default rigid-support displacement criterion
-DEFMXTRAVEL   default maximum travel
-DEFSHTSPR     default allow-short-range-spring flag
-DEFMUL        default multi-load-case design option
-IDFOPER       default number of hanger design operating cases
-IACTCLD       default cold-load calculation switch
-IHGRLDS       number of hanger operating loads
-IACTUAL       actual-cold-load case
-IMULTIOPTS    multi-load-case design option
+docs/cii-writer2-hanger-create-source-ledger.csv
 ```
 
-Per-hanger physical families are directly documented:
+Exact Version 11 vendor-authored authority retained by that ledger:
 
 ```text
-IHGRNODE     (2X,6I13)
-HGRDAT       11 values per hanger, (2X,6G13.6), two rows per hanger
-TAG          (7X,I5,1X,A100)
-GUID         (7X,I5,1X,A100)
-IHGRFREE     4 values/hanger, (2X,6I13)
-IHGRNUM      packed (2X,6I13)
-IHGRTABLE    packed (2X,6I13)
-IHGRSHORT    packed (2X,6I13)
-IHGRCN       packed (2X,6I13)
+CAESAR II User's Guide
+Version 2019 (11.0), October 2018
+External Interfaces > Miscellaneous Data Group #1 > Hangers
+pp.1158-1159
+
+CAESAR II User's Guide
+Version 2019 (11.0), October 2018
+Piping Input Reference > Hangers
+pp.184-185
 ```
 
-HGRDAT positions are explicitly identified:
+V11 directly qualifies the published HANGER physical dictionary:
 
 ```text
-1  hanger stiffness
-2  allowable load variation
-3  rigid support displacement criteria
-4  available space
-5  theoretical cold load #1
-6  hot load #1 — initialize 0.0
-7  user-defined operating load for variable springs — initialize 0.0
-8  maximum allowed travel
-9  multiple-load-case design option
-10 hanger hardware weight
-11 constant effort support load
+two hanger default/header rows
+IHGRNODE
+11 HGRDAT meanings/formats
+9999.99 uninitialized/infinite representation
+TAG/GUID string format
+IHGRFREE
+IHGRNUM
+IHGRTABLE
+IHGRSHORT
+IHGRCN
 ```
 
-Source:
+V11 also states that the hanger GUID is software-assigned and display-only in the Hangers list.
+
+### V11 blocker
+
+Those facts are not a complete neutral CREATE algorithm. The exact V11 sources do not publish:
 
 ```text
-Hexagon CAESAR II Users Guide
-Version 12
-Miscellaneous Data Group #1 / Hangers
-https://docs.hexagonppm.com/r/ru-RU/CAESAR-II-Users-Guide/Version-12/337059
+external GUID generation algorithm
+blank-GUID neutral import -> fresh software GUID behavior
+complete universal numeric CREATE defaults for every HGRDAT/header field
+first-hanger exact header/default byte construction
+new-record insertion/index rule across correlated packed arrays
+complete omitted/per-hanger default construction
 ```
 
-Version 12 Hanger input documentation also states that individual hanger values can inherit global `Hanger Design Control Data`, and local hanger values override those global values.
+Repository converter fallbacks cannot close these gaps because the retained V11 ledger records conflicting local fallback policies; repository policy is not vendor CREATE authority.
 
-Sources:
+The repository also lacks a controlled V11-native before/after pair for:
 
 ```text
-Hexagon CAESAR II Users Guide Version 12
-Hangers
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/335388
-
-Design Data
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/346194
-
-Hanger Design Control Data
-https://docs.hexagonppm.com/r/ru-RU/CAESAR-II-Users-Guide/Version-12/336106
+H=0 -> H=1
+H=1 -> H=2
 ```
 
-This is important CREATE evidence: a correct new-record payload cannot assume every per-hanger value is an isolated hard-coded constant because defaults/inheritance depend on global design control and whether the hanger is program-designed or predefined.
+Therefore insertion order, existing-header treatment, and generated identity behavior remain unproven.
 
-## GUID authority refresh
-
-Official later-edition Hexagon documentation states:
+V11 verdict:
 
 ```text
-hanger GUID = software-assigned
-hanger GUID = display-only in hanger list input
+V11_HANGER_PHYSICAL_DICTIONARY        PASS_VENDOR_V11
+V11_HANGER_GUID_OWNERSHIP             PASS_VENDOR_V11
+V11_GUID_CREATE_RULE                  UNRESOLVED
+V11_COMPLETE_CREATE_DEFAULTS          UNRESOLVED
+V11_FIRST_HANGER_HEADER_CONSTRUCTION  UNRESOLVED
+V11_NEW_RECORD_INSERTION_POLICY       UNRESOLVED
+V11_NATIVE_H0_H1_H2_TRANSITION        NOT_AVAILABLE
+HANGER_CREATE                         SOURCE_BLOCKED_REAFFIRMED_V11
 ```
 
-Source:
-
-```text
-Hexagon CAESAR II Users Guide
-Version 14
-GUID
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/824023
-```
-
-Historical Version 10 enhancement notes establish that hanger Tag/GUID fields were introduced to read/import hanger ID and display-only GUID data from PCF files.
-
-Source:
-
-```text
-Hexagon CAESAR II Users Guide
-CAESAR II 2018 / Version 10 changes and enhancements
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/15/957848
-```
-
-These sources establish ownership/display behavior, but they do **not** publish the V11/V12 neutral CREATE algorithm for generating a fresh GUID, nor prove the result of importing a newly created neutral record with a blank GUID.
-
-## Remaining HANGER CREATE gaps
-
-No authoritative source was found that closes:
+Retained hard blockers:
 
 ```text
 GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
@@ -228,187 +197,86 @@ OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
 REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
 ```
 
-In particular, the refresh did not locate a genuine native H=0 -> H=1 or H=1 -> H=2 neutral transition proving complete preimage/postimage construction and positional insertion behavior.
-
-## HANGER refresh verdict
-
-```text
-HANGER_GLOBAL_DEFAULT_FIELDS             PASS_DIRECT_SOURCE_REFRESH
-HANGER_PHYSICAL_FIELD_DICTIONARY         PASS_DIRECT_SOURCE_REFRESH
-HGRDAT_ITEMS_1_11                        PASS_DIRECT_SOURCE_REFRESH
-HGRDAT_ITEM6_ITEM7_ZERO_INITIALIZATION   PASS_DIRECT_SOURCE_REFRESH
-TAG_GUID_PHYSICAL_STRING_FORMAT          PASS_DIRECT_SOURCE_REFRESH
-GUID_SOFTWARE_OWNERSHIP                  PASS_DIRECT_SOURCE_CORROBORATION
-GUID_CREATE_GENERATION_RULE              UNRESOLVED
-NEW_RECORD_INSERTION_POLICY              UNRESOLVED
-COMPLETE_DEFAULT_INHERITANCE_TO_BYTES    UNRESOLVED
-NATIVE_H0_H1_H2_TRANSITION               NOT_AVAILABLE
-HANGER_CREATE                            SOURCE_BLOCKED_REAFFIRMED
-```
-
-Production HANGER CREATE remains disabled.
-
 ---
 
-# 3. RESTRAINT CREATE refresh
+## 3. RESTRAINT CREATE — V11 authority
 
-## Existing qualification truth
+### V11 sources
 
-Merged W2.9 qualification established a narrow DELETE/cardinality split and retained CREATE blockers.
-
-Repository authority:
+Repository ledgers:
 
 ```text
+docs/cii-writer2-restraint-cardinality-source-ledger.csv
 docs/cii-writer2-restraint-cardinality-qualification.md
 ```
 
-Existing unresolved CREATE gates include:
+Exact Version 11 vendor-authored authority retained by those records:
 
 ```text
-RESTRAINT_GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
-RESTRAINT_TYPE_DEPENDENT_CREATE_DEFAULTS_INCOMPLETE
-NEW_RESTRAINT_BLOCK_ALLOCATION_POLICY_NOT_VENDOR_QUALIFIED
-NATIVE_RESTRAINT_BLOCK_CREATE_TRANSITION_NOT_AVAILABLE
-SHARED_POINTER_ALIAS_SEMANTICS_NOT_SOURCE_QUALIFIED
+CAESAR II User's Guide
+Version 2019 (11.0), April 2019
+Piping Input > Restraints, pp.163-175
 ```
 
-## Direct official Version 12 neutral-file authority
-
-Official Hexagon Version 12 auxiliary neutral documentation defines `#$ RESTRANT`.
-
-For each restraint specification, the numeric payload is:
+V11 directly establishes:
 
 ```text
-FORTRAN (2X,6G13.6)
-1 restraint node number
-2 restraint type
-3 stiffness
-4 gap
-5 friction coefficient
-6 connecting node
-7 X direction cosine
-8 Y direction cosine
-9 Z direction cosine
+up to six restraints per element
+Node required
+Type required
+remaining restraint input optional
+blank stiffness -> rigid-support behavior
+Tag input
+Support GUID import via PCF
+restraint GUID software-assigned and display-only
 ```
 
-The payload is followed by:
+Merged V11 qualification plus real Version 11 neutral sources establish the supported physical custody:
 
 ```text
-Support Tag
-Support GUID
-```
-
-using:
-
-```text
-FORTRAN (7X,I5,1X,A100)
-```
-
-The documentation repeats the restraint specification for the available restraint DOFs and defines the restraint type domain as integer 1..62.
-
-Source:
-
-```text
-Hexagon CAESAR II Users Guide
-Version 12
-Auxiliary Element Data / #$ RESTRANT
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
-```
-
-The repository's exact V11 qualification and real-source evidence already establish the implementation-supported physical block shape:
-
-```text
-6 slots × 4 physical rows = 24 rows per restraint auxiliary block
+6 restraint slots
+4 physical rows per slot
+24 rows per auxiliary block
 ELEMENT restraint pointer = 1-based block index
-CONTROL restraint count = auxiliary block count
+CONTROL restraint cardinality = auxiliary-block count
+real V11 files contain occupied and empty 24-row blocks
 ```
 
-## Default restraint stiffness
+Real V11 sources include the retained benchmark and Version 11.00 neutral files, but these are observations, not controlled CREATE transitions.
 
-Official Version 12 documentation establishes the software defaults used when translational/rotational stiffness is unspecified:
+### V11 blocker
 
-```text
-Default translational restraint stiffness
-  1.0E+12 lb/in
-  or unit-converted equivalent
-
-Default rotational restraint stiffness
-  1.0E+12 in-lb/deg
-  or unit-converted equivalent
-```
-
-Sources:
+V11 does not publish the external algorithm needed to synthesize a new block safely:
 
 ```text
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/334803
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/334802
-```
-
-This strengthens one default family but does not define the complete per-Type CREATE payload, omitted gap/friction/cosine representation, Tag/GUID behavior, or new-block allocation policy.
-
-## GUID/import evidence
-
-Official Version 12 PCF restraint mapping documentation defines `<SUPPORT_GUID>` as an imported support property.
-
-Source:
-
-```text
-Hexagon CAESAR II Users Guide
-Version 12
-PCF Restraint Mapping
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1428451
-```
-
-Historical Version 10 enhancement notes state that support/restraint GUID data is display-only identification read/imported from PCF files.
-
-Source:
-
-```text
-Hexagon CAESAR II Users Guide
-CAESAR II 2018 / Version 10 changes and enhancements
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/15/957848
-```
-
-The existing repository V11 qualification further records GUID as software-assigned/display-only and explicitly states that no external GUID generation algorithm or blank-GUID neutral CREATE behavior is proven.
-
-## Remaining RESTRAINT CREATE gaps
-
-The source refresh did not establish:
-
-```text
-fresh software-assigned GUID generation/import rule
-complete Type-dependent CREATE defaults for all required fields
-vendor-qualified new 24-row block allocation/insertion policy
+blank/new restraint GUID import assignment rule
+external software GUID generation rule
+complete Type-dependent CREATE defaults/byte representation
+new 24-row block allocation/index policy
 first-block CREATE serialization contract
-seventh-restraint/new-block transition contract
 shared-pointer alias CREATE semantics
-genuine native restraint-block CREATE before/after transition
 ```
 
-The documented `Insert Restraints` UI operation is also not usable as block-allocation authority because that command divides an element into two elements and therefore crosses into Writer3 topology mutation.
-
-Source:
+No controlled same-model V11 native transition is retained for:
 
 ```text
-Hexagon CAESAR II Users Guide Version 12
-Insert Restraints
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/788486
+0 -> 1 restraint auxiliary block
+N -> N+1 restraint auxiliary blocks
 ```
 
-## RESTRAINT refresh verdict
+Therefore a new block cannot be authorized merely because DELETE compaction arithmetic and existing-block Writer1B free-slot CREATE are qualified.
+
+V11 verdict:
 
 ```text
-V11_V12_RESTRAINT_FIELD_DICTIONARY      PASS_DIRECT_SOURCE_REFRESH
-TYPE_DOMAIN_1_62                        PASS_DIRECT_SOURCE_REFRESH
-TAG_GUID_PHYSICAL_FORMAT                PASS_DIRECT_SOURCE_REFRESH
-TRANSLATIONAL_STIFFNESS_DEFAULT         PASS_DIRECT_SOURCE_REFRESH
-ROTATIONAL_STIFFNESS_DEFAULT            PASS_DIRECT_SOURCE_REFRESH
-GUID_CREATE_GENERATION_RULE             UNRESOLVED
-TYPE_DEPENDENT_COMPLETE_CREATE_PAYLOAD  UNRESOLVED
-NEW_BLOCK_ALLOCATION_POLICY             UNRESOLVED
-SHARED_POINTER_CREATE_SEMANTICS         UNRESOLVED
-NATIVE_BLOCK_CREATE_TRANSITION          NOT_AVAILABLE
-RESTRAINT_CREATE                        SOURCE_BLOCKED_REAFFIRMED
+V11_RESTRAINT_BLOCK_SHAPE                 PASS_VENDOR_AND_REAL_V11
+V11_RESTRAINT_GUID_OWNERSHIP              PASS_VENDOR_V11
+V11_GUID_CREATE_RULE                      UNRESOLVED
+V11_TYPE_DEPENDENT_COMPLETE_CREATE_PAYLOAD UNRESOLVED
+V11_NEW_BLOCK_ALLOCATION_POLICY           UNRESOLVED
+V11_SHARED_POINTER_CREATE_SEMANTICS       UNRESOLVED
+V11_NATIVE_BLOCK_CREATE_TRANSITION        NOT_AVAILABLE
+RESTRAINT_CREATE                          SOURCE_BLOCKED_REAFFIRMED_V11
 ```
 
 Production blocker remains authoritative:
@@ -419,15 +287,38 @@ WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
 
 ---
 
-# 4. Gate F conclusion
+## 4. V11-only Gate F conclusion
+
+The CREATE blocker does **not** depend on Version 12 or Version 14 evidence. Version 11 alone is sufficient to establish both the known schema portions and the remaining authority gaps.
 
 ```text
-SIF_CREATE_SOURCE_REFRESH        COMPLETE_SOURCE_BLOCKED
-HANGER_CREATE_SOURCE_REFRESH     COMPLETE_SOURCE_BLOCKED
-RESTRAINT_CREATE_SOURCE_REFRESH  COMPLETE_SOURCE_BLOCKED
-PRODUCTION_CREATE_CHANGE         NONE
+AUTHORITY_SCOPE                       CAESAR_II_2019_VERSION_11_ONLY
+LATER_EDITION_AUTHORITY_ALLOWED       FALSE
+SIF_CREATE_SOURCE_REFRESH             COMPLETE_SOURCE_BLOCKED_V11
+HANGER_CREATE_SOURCE_REFRESH          COMPLETE_SOURCE_BLOCKED_V11
+RESTRAINT_CREATE_SOURCE_REFRESH       COMPLETE_SOURCE_BLOCKED_V11
+PRODUCTION_CREATE_CHANGE              NONE
 ```
 
-The remaining Writer2 program blockers are now primarily runtime/release evidence for already-implemented authority, not an undefined CREATE implementation backlog.
+What would actually reopen each family:
 
-Writer2 release/freeze may therefore treat these CREATE families as explicitly classified `SOURCE_BLOCKED` provided their production blockers remain fail-closed and regression-tested. A future source acquisition event may reopen one family independently; it does not prevent freezing the currently source-qualified Writer2 authority boundary.
+```text
+SIF
+  authoritative V11 meaning/default/reserved representation for items 27..30
+  + complete V11 60-position new-block construction rule
+
+HANGER
+  authoritative V11 blank/generated GUID behavior
+  + complete V11 default/header construction
+  + V11 insertion/order rule
+  + controlled native H=0->1 and H=1->2 evidence
+
+RESTRAINT
+  authoritative V11 blank/generated GUID behavior
+  + complete V11 Type-dependent block construction
+  + V11 block allocation/index rule
+  + shared-pointer CREATE semantics
+  + controlled native 0->1 or N->N+1 block transition
+```
+
+Until then all three CREATE families remain explicit fail-closed `SOURCE_BLOCKED` operations. No later-edition semantics are permitted to fill the gaps.
