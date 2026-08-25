@@ -1,4 +1,5 @@
 const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-6', import.meta.url);
+const AUDIT_SCHEMA = 'cii-v11-v14-conversion-audit/v1';
 let worker = null;
 let sequence = 0;
 const pending = new Map();
@@ -44,12 +45,16 @@ function inputBytes(value) {
 }
 
 function frozenAuditSnapshot(value) {
-  const audit = value && typeof value === 'object' ? value : {};
+  if (!value || typeof value !== 'object') throw new Error('CII_VERSION_BRIDGE_AUDIT_REQUIRED');
+  if (value.schema !== AUDIT_SCHEMA) throw new Error(`CII_VERSION_BRIDGE_AUDIT_SCHEMA_MISMATCH:${value.schema || 'EMPTY'}`);
+  for (const key of ['changed_sections', 'warnings', 'loss_events']) {
+    if (!Array.isArray(value[key])) throw new Error(`CII_VERSION_BRIDGE_AUDIT_ARRAY_REQUIRED:${key}`);
+  }
   return Object.freeze({
-    ...audit,
-    changed_sections: Object.freeze([...(Array.isArray(audit.changed_sections) ? audit.changed_sections : [])]),
-    warnings: Object.freeze([...(Array.isArray(audit.warnings) ? audit.warnings : [])]),
-    loss_events: Object.freeze([...(Array.isArray(audit.loss_events) ? audit.loss_events : [])]),
+    ...value,
+    changed_sections: Object.freeze([...value.changed_sections]),
+    warnings: Object.freeze([...value.warnings]),
+    loss_events: Object.freeze([...value.loss_events]),
   });
 }
 
@@ -122,6 +127,8 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
   const outputBytes = new Uint8Array(response.outputBytes);
   if (Number(audit.source_version) !== expectedSource) throw new Error('CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH');
   if (Number(audit.target_version) !== target) throw new Error('CII_VERSION_BRIDGE_TARGET_AUDIT_MISMATCH');
+  if (Number(audit.source_bytes) !== bytes.byteLength) throw new Error('CII_VERSION_BRIDGE_SOURCE_BYTE_COUNT_AUDIT_MISMATCH');
+  if (Number(audit.target_bytes) !== outputBytes.byteLength) throw new Error('CII_VERSION_BRIDGE_TARGET_BYTE_COUNT_AUDIT_MISMATCH');
   const physicalTarget = detectCiiNeutralVersion(outputBytes);
   if (physicalTarget !== target) throw new Error('CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH');
   const targetSha256 = await ciiSha256(outputBytes, options.cryptoRef);
@@ -142,8 +149,7 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
 
 export async function convertCiiNeutralVersionLossless(value, targetVersion, options = {}) {
   const result = await convertCiiNeutralVersion(value, targetVersion, { ...options, allowLossy: false });
-  const losses = Array.isArray(result.audit?.loss_events) ? result.audit.loss_events : [];
-  if (losses.length) throw new Error(`CII_VERSION_BRIDGE_LOSS_NOT_ALLOWED:${losses.length}`);
+  if (result.audit.loss_events.length) throw new Error(`CII_VERSION_BRIDGE_LOSS_NOT_ALLOWED:${result.audit.loss_events.length}`);
   return result;
 }
 
