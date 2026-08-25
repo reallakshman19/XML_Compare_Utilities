@@ -1,7 +1,18 @@
-const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-4', import.meta.url);
+const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-5', import.meta.url);
 let worker = null;
 let sequence = 0;
 const pending = new Map();
+
+function rejectAll(error) {
+  for (const entry of pending.values()) entry.reject(error);
+  pending.clear();
+}
+
+function resetWorker(error) {
+  rejectAll(error);
+  worker?.terminate();
+  worker = null;
+}
 
 function ensureWorker() {
   if (worker) return worker;
@@ -16,11 +27,10 @@ function ensureWorker() {
     else entry.reject(new Error(message.error || 'CAESAR v11/v14 conversion failed.'));
   });
   worker.addEventListener('error', (event) => {
-    const error = new Error(event?.message || 'CAESAR v11/v14 worker failed.');
-    for (const entry of pending.values()) entry.reject(error);
-    pending.clear();
-    worker?.terminate();
-    worker = null;
+    resetWorker(new Error(event?.message || 'CAESAR v11/v14 worker failed.'));
+  });
+  worker.addEventListener('messageerror', () => {
+    resetWorker(new Error('CAESAR v11/v14 worker message serialization failed.'));
   });
   return worker;
 }
@@ -49,7 +59,12 @@ function runWorker(payload) {
   const jobId = `cii-writer-v11-v14-${Date.now()}-${++sequence}`;
   return new Promise((resolve, reject) => {
     pending.set(jobId, { resolve, reject });
-    active.postMessage({ type: 'run', jobId, ...payload });
+    try {
+      active.postMessage({ type: 'run', jobId, ...payload });
+    } catch (error) {
+      pending.delete(jobId);
+      reject(new Error(`Failed to post CAESAR v11/v14 conversion job: ${error?.message || error}`));
+    }
   });
 }
 
