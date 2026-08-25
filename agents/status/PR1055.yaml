@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_PROGRAM_GATE_A_EXACT_W2_13_SYNTHETIC_RUNTIME
+current_stage: W2_PROGRAM_RUNTIME_RELEASE_CLOSURE
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -45,48 +45,47 @@ execution_environment:
   workflow_substitution_used: false
   source_inspection_promoted_to_runtime_pass: false
 
-current_authored_entrypoint:
-  command: node tests/cii-workspace-writer2-restraint-product-routing.test.js
-  exact_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
-  status: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
-  assertion_failure_observed: false
-
 static_dependency_closure:
   state: PASS_SOURCE_INSPECTION
   named_frontier_closed: true
   runtime_admission_observed: false
-  exact_blobs:
-    pdf_parser: e7f2711daa0c31fba8e2f9023380e6774b2d8f8a
-    xml_elements: 0e967fa4044570f7af734fef21683a5ac9b5e53d
-    parser_validator: 90cef22039bcedbe0699ed9137855ea84c1d3f34
-    hanger_partial_validation: 309770a62e5c2a9caa317383ae70c89c5ff02679
-    restraint_delete_validation: 1833d9fecc37061eaf2f51f1676e6386e1f9ac3c
-    support_debug: edabff13f6563bbd0e6a9fa38b437ccd3cc42224
-    compare_review: e3e8ae949dd57906743edfbdd030389d2b8e85d0
-    transfer_plan: fb74004eb43a4f2807f45e5cf839da6686a36fad
-    review: 6454074f8247b61a052d34071a87d03d04efa8c2
-    placeholders: 0bec565ac73ec7c06a78327725b6c6152fd81848
-    transfer_policy: 5bb37b810e6b46fbb617d9e6fcf4d72fce1f307f
 
 program_matrix:
   document: docs/cii-writer2-release-freeze-matrix.md
   nodename_create_delete: DONE
   sif_delete_compaction: DONE
-  sif_create: SOURCE_BLOCKED
+  sif_create: SOURCE_BLOCKED_REAFFIRMED
   hanger_delete_all: DONE
   hanger_partial_delete: DONE_PRODUCT_ROUTED
-  hanger_create: SOURCE_BLOCKED
+  hanger_create: SOURCE_BLOCKED_REAFFIRMED
   restraint_delete_planner: DONE
   restraint_delete_physical: DONE
   restraint_delete_composite: DONE
   restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-  restraint_create: SOURCE_BLOCKED
+  restraint_create: SOURCE_BLOCKED_REAFFIRMED
   writer3_topology: OUTSIDE_WRITER2
 
-source_blockers:
-  sif_create_verdict: NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
-  hanger_create_verdict: NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
-  restraint_create_blocker: WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
+source_refresh:
+  document: docs/cii-writer2-create-source-refresh-2026-08-25.md
+  gate_f: COMPLETE
+  sif_create: COMPLETE_SOURCE_BLOCKED
+  hanger_create: COMPLETE_SOURCE_BLOCKED
+  restraint_create: COMPLETE_SOURCE_BLOCKED
+  production_create_change: false
+
+structural_family_audit:
+  gate_g: PASS_SOURCE_INSPECTION
+  hidden_writer2_family: NONE_OBSERVED
+  ambiguous_generic_future_writer_route: NONE_OBSERVED
+  unknown_family_behavior: FAIL_CLOSED
+
+remaining_program_gates:
+  gate_a_w2_13_synthetic: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+  gate_b_real_cii_restraint: NOT_RUN_ENVIRONMENT
+  gate_c_inherited_writer2_regressions: PARTIAL
+  gate_d_adjacent_repository_browser: NOT_RUN_ENVIRONMENT
+  gate_e_delete_cardinality_freeze: BLOCKED_BY_A_TO_D
+  gate_h_program_verdict: NOT_READY
 
 negative_assurance:
   control_row1_nonam_protected: true
@@ -103,5 +102,6 @@ changed_file_expectation:
   - agents/status/PR1055.yaml
   - agents/claims/PR1055.yaml
   - docs/cii-writer2-release-freeze-matrix.md
+  - docs/cii-writer2-create-source-refresh-2026-08-25.md
 
-next_gate: obtain_or_reconstruct_exact_executable_graph_without_stubs_or_import_rewrites_then_run_unchanged_W2_13_synthetic_until_assertions_execute
+next_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_CII_then_inherited_Writer2_regressions_then_adjacent_repository_browser_gates
