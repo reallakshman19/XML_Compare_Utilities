@@ -44,6 +44,10 @@ assert.ok(
   worker.indexOf("if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');") < worker.indexOf('pyodide.FS.mkdirTree(jobDir);'),
   'empty input must be rejected before allocating a job directory',
 );
+assert.match(worker, /let jobQueue = Promise\.resolve\(\);/, 'shared Pyodide runtime must have an explicit serialization queue');
+assert.match(worker, /jobQueue\.then\(\(\) => runJob\(message\)\)/, 'conversion jobs must execute through the serialization queue');
+assert.match(worker, /jobQueue = current\.catch\(\(\) => undefined\)/, 'a failed conversion must not poison subsequent queued jobs');
+assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/, 'message handler must not directly overlap shared-runtime jobs');
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
