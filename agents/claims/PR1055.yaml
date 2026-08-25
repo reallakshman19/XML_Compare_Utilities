@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_19_FROZEN_3D_CONVERTERS_V11_V14_BRIDGE_HARDENED
+claim_state: W2_24_FROZEN_3D_CONVERTERS_V11_V14_BRIDGE_CUSTODY_HARDENED
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -42,6 +42,18 @@ claims:
     local_xml_section_rules_reused: false
     reason: target local cii2019_section_rules.py has a different Git blob from pinned upstream dependency
 
+  - id: UPSTREAM_V14_CONVERTER_QUALIFICATION_BOUNDARY
+    state: ESTABLISHED_SOURCE_RECORD
+    required: true
+    repository_regressions_present: true
+    paired_benchmark: Benchmarks/v11-v14.zip
+    paired_files: [SYS-0001-v11.cii, SYS-0001-v14.CII]
+    external_caesar_v11_import_save_reexport: NOT_RUN_UPSTREAM
+    evidence:
+      - reallaksh19/3D_Converters/docs/cii/cii-v14-v11-import-rca.md
+      - reallaksh19/3D_Converters/docs/cii/cii-v14-v11-error239-dry-run.md
+    target_may_not_promote_external_acceptance_to_pass: true
+
   - id: V11_WRITER_IMPLEMENTATION_REUSED_UNCHANGED
     state: PASS_SOURCE_INSPECTION
     required: true
@@ -49,7 +61,7 @@ claims:
     path: existing cii-workspace-core Writer1/Writer2 implementation
 
   - id: V14_WRITER_DIALECT_BRIDGE
-    state: IMPLEMENTED_HARDENED_RUNTIME_PENDING
+    state: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
     required: true
     architecture: LOSSLESS_V14_TO_V11_EXISTING_V11_WRITER_V11_TO_V14
     allow_lossy: false
@@ -71,14 +83,27 @@ claims:
     controls:
       pyodide_files_unlinked_before_job_rmdir: true
       empty_input_rejected_before_fs_job_allocation: true
+      shared_pyodide_jobs_serialized: true
+      failed_job_does_not_poison_serial_queue: true
       worker_messageerror_rejects_pending_and_resets_worker: true
       failed_postmessage_removes_pending_job: true
+      worker_cache_key_advanced_after_runtime_change: true
       physical_source_version_checked_independently: true
       physical_target_version_checked_independently: true
       nonintegral_version_alias_blocked: true
+      converter_audit_schema_required: true
+      converter_audit_arrays_required: true
+      converter_audit_source_and_target_byte_counts_crosschecked: true
+      converter_audit_arrays_immutable: true
       converter_source_sha_crosschecked_against_independent_js_sha: true
       converter_target_sha_crosschecked_against_independent_js_sha: true
-      stale_v14_target_uses_independent_js_sha: true
+      direct_v11_original_sha_recorded: true
+      v14_original_sha_recorded: true
+      normalized_v11_sha_recorded: true
+      normalized_workspace_intake_sha_crosschecked: true
+      stale_v14_original_sha_checked: true
+      stale_normalized_v11_sha_checked: true
+      canonical_exported_audit_contains_bridge_provenance: true
       v11_writer_text_not_used_as_restore_authority: true
       v11_writer_byte_string_required: true
       v11_writer_postimage_sha_crosschecked_before_v14_conversion: true
@@ -141,13 +166,17 @@ claims:
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
     required: true
     path: tests/cii-workspace-v11-v14-frozen-engine.test.py
-    authored_falsifiers:
-      - unsupported_version
-      - sif_axial_torsion_swap
-      - nonzero_v14_sif_extension
-      - ambiguous_v11_sif_field
-      - nonzero_v14_allowables_extension
-      - restraint_default_stiffness_mapping
+
+  - id: V14_BASELINE_EXACT_ROUNDTRIP
+    state: NOT_RUN
+    required: true
+    rule: actual V14 bytes -> frozen V11 -> frozen V14 must reproduce exact original V14 bytes
+    weakening_to_semantic_equivalence_authorized: false
+
+  - id: V14_MODIFIED_WRITER2_ROUNDTRIP
+    state: NOT_RUN
+    required: true
+    rule: exact V11 Writer2 postimage -> frozen V14 -> frozen V11 must reproduce exact V11 postimage bytes
 
   - id: NO_GITHUB_ACTIONS_QUALIFICATION
     state: PASS_POLICY_RECONCILIATION
@@ -164,7 +193,7 @@ claims:
       hanger_delete_all: DONE
       hanger_partial_delete: DONE_PRODUCT_ROUTED
       restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-      v14_lossless_dialect_bridge: IMPLEMENTED_HARDENED_RUNTIME_PENDING
+      v14_lossless_dialect_bridge: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
       sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
@@ -185,11 +214,15 @@ validation_integrity:
   local_dependency_substituted: false
   lossy_bridge_enabled: false
   converter_audit_sha_used_as_sole_custody_authority: false
+  malformed_converter_audit_treated_as_no_loss: false
+  normalized_intake_hash_unchecked: false
+  version_bridge_omitted_from_exported_audit: false
   v11_writer_text_view_used_as_restore_authority: false
   source_inspection_promoted_to_runtime_pass: false
   extracted_source_runtime_promoted_to_full_engine_pass: false
   workflow_definition_promoted_to_runtime_pass: false
   not_run_promoted_to_pass: false
+  upstream_external_caesar_acceptance_promoted_to_pass: false
   v14_converter_promoted_to_v11_create_authority: false
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
