@@ -35,6 +35,13 @@ const worker = readFileSync(`${ROOT}/converters/cii-v11-v14-writer-worker.js`, '
 assert.match(worker, /\.\/scripts\/cii-v11-v14-upstream\//);
 assert.match(worker, /cii2019_section_rules\.py/);
 assert.doesNotMatch(worker, /FROZEN_SCRIPT_ROOT\s*=\s*['"]\.\/scripts\/['"]/);
+assert.match(worker, /FS\.unlink\(path\)/, 'worker must remove job files before removing the job directory');
+assert.match(worker, /cleanupJobDir\(pyodide, jobDir, \[inputPath, outputPath, auditPath\]\)/);
+
+const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
+assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
+assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
+assert.match(converter, /Math\.abs\(numeric - major\) > 1e-6/);
 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
@@ -48,5 +55,6 @@ assert.equal(detectCiiNeutralVersion(v11), 11);
 assert.equal(detectCiiNeutralVersion(v14), 14);
 assert.equal(ciiBytesEqual(v11, new TextEncoder().encode(v11)), true);
 assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 12.0\n'), /UNSUPPORTED_VERSION/);
+assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 11.4\n'), /UNSUPPORTED_VERSION/);
 
 console.log('CII Workspace frozen 3D_Converters v11/v14 source custody: PASS');
