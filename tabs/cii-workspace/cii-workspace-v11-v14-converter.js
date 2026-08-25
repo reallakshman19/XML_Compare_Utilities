@@ -1,4 +1,4 @@
-const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-5', import.meta.url);
+const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-6', import.meta.url);
 let worker = null;
 let sequence = 0;
 const pending = new Map();
@@ -41,6 +41,16 @@ function inputBytes(value) {
   if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   if (typeof value === 'string') return new TextEncoder().encode(value);
   throw new Error('CII_VERSION_BRIDGE_BYTES_REQUIRED');
+}
+
+function frozenAuditSnapshot(value) {
+  const audit = value && typeof value === 'object' ? value : {};
+  return Object.freeze({
+    ...audit,
+    changed_sections: Object.freeze([...(Array.isArray(audit.changed_sections) ? audit.changed_sections : [])]),
+    warnings: Object.freeze([...(Array.isArray(audit.warnings) ? audit.warnings : [])]),
+    loss_events: Object.freeze([...(Array.isArray(audit.loss_events) ? audit.loss_events : [])]),
+  });
 }
 
 export function ciiByteStringToBytes(value) {
@@ -108,7 +118,7 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
     targetVersion: String(target),
     allowLossy: options.allowLossy === true,
   });
-  const audit = response.audit || JSON.parse(response.auditText || '{}');
+  const audit = frozenAuditSnapshot(response.audit || JSON.parse(response.auditText || '{}'));
   const outputBytes = new Uint8Array(response.outputBytes);
   if (Number(audit.source_version) !== expectedSource) throw new Error('CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH');
   if (Number(audit.target_version) !== target) throw new Error('CII_VERSION_BRIDGE_TARGET_AUDIT_MISMATCH');
@@ -124,7 +134,7 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
     sourceSha256,
     targetSha256,
     outputBytes,
-    audit: Object.freeze(audit),
+    audit,
     stdout: Object.freeze([...(response.stdout || [])]),
     stderr: Object.freeze([...(response.stderr || [])]),
   });
