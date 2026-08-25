@@ -3,57 +3,58 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_13_PRODUCT_RUNTIME_DEPENDENCY_CLOSURE
-agent_state: READ_ONLY_QUALIFICATION
+current_stage: W2_PROGRAM_GATE_A_EXACT_W2_13_SYNTHETIC_RUNTIME
+agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
-production_change_authority: false
+production_change_authority: false_by_default
 merge_authority: OWNER_ONLY
 merge_authorized: false
 ready_for_review: false
 pr_state: DRAFT
-release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+restraint_release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 inherited_authority_correction:
-  source: issue_1042_w2_11_recovery_comments
+  source: issue_1042
   control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
   control_row2_field4: RESTRAINT_BLOCK_COUNT_I13_MUTABLE
-  live_main_writer_corrected: true
-  live_main_validator_corrected: true
-  live_main_planner_corrected: true
-  negative_assurance_case: P19
+  planner_corrected: true
+  writer_corrected: true
+  validator_corrected: true
+  negative_assurance_anchors:
+    - W2_11_P19
+    - W2_12_R09
 
 runtime:
   w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
-  w2_13_synthetic_runtime: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+  w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
-  inherited_writer2_regression: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+  inherited_writer2_regression: PARTIAL
+  writer1_adjacent_regression: NOT_RUN_ENVIRONMENT
   repository_npm: NOT_RUN_ENVIRONMENT
+  browser_product_writer2: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
+
+execution_environment:
+  native_clone_attempted_current_checkpoint: true
+  native_clone_result: FAIL_ENVIRONMENT_DNS
+  raw_failure: Could not resolve host github.com
+  exact_executable_mirror_available: false
+  workflow_substitution_used: false
+  source_inspection_promoted_to_runtime_pass: false
 
 current_authored_entrypoint:
   command: node tests/cii-workspace-writer2-restraint-product-routing.test.js
   exact_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
-  status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
+  status: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   assertion_failure_observed: false
 
-prior_runtime_support:
-  classification: PASS_NONQUALIFYING_SUPPORT_IMPORT
-  qualifying_for_w2_13_product_pass: false
-
-incoming_handoff:
-  classification: HANDOFF_TESTIMONY_NOT_REEXECUTED_THIS_CHECKPOINT
-  assertion_failure_reported: false
-  engineering_failure_reported: false
-  reported_remaining_named_modules: 5
-
-current_source_inspection:
-  classification: PASS_SOURCE_INSPECTION
+static_dependency_closure:
+  state: PASS_SOURCE_INSPECTION
+  named_frontier_closed: true
   runtime_admission_observed: false
-  named_frontier_source_identity_closed: true
-  discovered_transitive_modules:
-    - debug/support-debug.js
   exact_blobs:
     pdf_parser: e7f2711daa0c31fba8e2f9023380e6774b2d8f8a
     xml_elements: 0e967fa4044570f7af734fef21683a5ac9b5e53d
@@ -67,14 +68,40 @@ current_source_inspection:
     placeholders: 0bec565ac73ec7c06a78327725b6c6152fd81848
     transfer_policy: 5bb37b810e6b46fbb617d9e6fcf4d72fce1f307f
 
+program_matrix:
+  document: docs/cii-writer2-release-freeze-matrix.md
+  nodename_create_delete: DONE
+  sif_delete_compaction: DONE
+  sif_create: SOURCE_BLOCKED
+  hanger_delete_all: DONE
+  hanger_partial_delete: DONE_PRODUCT_ROUTED
+  hanger_create: SOURCE_BLOCKED
+  restraint_delete_planner: DONE
+  restraint_delete_physical: DONE
+  restraint_delete_composite: DONE
+  restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
+  restraint_create: SOURCE_BLOCKED
+  writer3_topology: OUTSIDE_WRITER2
+
+source_blockers:
+  sif_create_verdict: NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
+  hanger_create_verdict: NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
+  restraint_create_blocker: WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
+
 negative_assurance:
   control_row1_nonam_protected: true
   control_row2_restraints_authority_preserved: true
-  production_changed: false
+  production_changed_this_checkpoint: false
   restraint_create_enabled: false
   sif_create_enabled: false
   hanger_create_enabled: false
   writer3_changed: false
   workflow_changed: false
 
-next_gate: rebuild exact executable graph; hash-admit every loaded repository file; rerun unchanged W2.13 synthetic until assertions execute; then real-CII, inherited Writer2 regressions, and repository npm on complete exact checkout
+changed_file_expectation:
+  - agents/PR1055_workreport.md
+  - agents/status/PR1055.yaml
+  - agents/claims/PR1055.yaml
+  - docs/cii-writer2-release-freeze-matrix.md
+
+next_gate: obtain_or_reconstruct_exact_executable_graph_without_stubs_or_import_rewrites_then_run_unchanged_W2_13_synthetic_until_assertions_execute
