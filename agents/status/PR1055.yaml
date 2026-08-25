@@ -39,46 +39,45 @@ current_authored_entrypoint:
   status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
   assertion_failure_observed: false
   full_entrypoint_rerun_this_checkpoint: false
-  reason: prior full sparse mirror was not retained by execution container
 
-bounded_exact_support_runtime:
-  status: PASS_NONQUALIFYING_SUPPORT_IMPORT
-  observation: LOCAL_EXECUTION
-  local_mirror: /mnt/data/w218-frontier
-  exact_loaded_files:
-    - path: tabs/cii-workspace/cii-workspace-path-candidates.js
-      blob: 618d3a36a5ead65bf48a0905828bed6a72f96887
-    - path: tabs/model-converters/xml-cii-inputxml-path-aligner.js
-      blob: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
-    - path: tabs/cii-workspace/cii-workspace-evidence.js
-      blob: 8c7e392d42308eb1cb6671314e55e99be8b72a57
-    - path: tabs/cii-workspace/cii-workspace-match-methods.js
-      blob: 20c129291d85d16558185b711dc1cd334769d21e
-    - path: tabs/cii-workspace/cii-workspace-geometry.js
-      blob: 86fbb79cb859225b1f980f8d3709dc5286f15c26
-    - path: tabs/cii-workspace/cii-workspace-contracts.js
-      blob: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
-  additional_exact_support_imports:
+exact_support_runtime:
+  classification: PASS_NONQUALIFYING_SUPPORT_IMPORT
+  qualifying_for_w2_13_product_pass: false
+  exact_blobs:
+    path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
+    path_aligner: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
+    evidence: 8c7e392d42308eb1cb6671314e55e99be8b72a57
+    match_methods: 20c129291d85d16558185b711dc1cd334769d21e
+    geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
+    contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
     node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
     components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
     identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
-  runtime_outputs:
+    engineering_delta: 790900cccc7da1486c57d52719dde6abfa500909
+    writer1b_od: 1ed7597f14339a554fe8a3555584241e416eb6ab
+    writer1b_deltas: 43435146a3cb4741882ccfa73f0315e5c92bcaaa
+    restraint_pairing: 18e01014aa716f0b3f15220b3c9454056bf0fc9d
+    restraint_transfer: 410843c343ed1915a925dee84129b174f514d803
+    restraint_slot_transfer: 907708a038eab1b56886bb5398e759d95e69af7c
+    fixed_field: 485daa43553681ca54f488499e57f36d2239be58
+  outputs:
     - W218_PATH_CANDIDATES_EXACT_SUPPORT_IMPORT_PASS
     - W218_NODE_CUSTODY_EXACT_SUPPORT_IMPORT_PASS
     - W218_COMPONENTS_EXACT_SUPPORT_IMPORT_PASS
     - W218_IDENTITY_EXACT_SUPPORT_IMPORT_PASS
-  qualifying_for_w2_13_product_pass: false
-
-source_frontier:
-  prior_w217_frontier_crossed: true
-  path_candidates_dependency_slice_closed: true
-  next_public_core_boundary: tabs/cii-workspace/cii-workspace-engineering-delta.js
-  next_boundary_source_fetched: true
+    - W218_ENGINEERING_DELTA_EXACT_SUPPORT_IMPORT_PASS
+    - W218_WRITER1B_DELTAS_EXACT_SUPPORT_IMPORT_PASS
+    - W218_RESTRAINT_PAIRING_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
+    - W218_RESTRAINT_SLOT_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
 
 custody_incidents:
-  restraint_compaction_planner_terminal_lf_mismatch_detected: true
+  restraint_compaction_terminal_lf_near_match_rejected: true
+  restraint_pairing_reformatted_near_match_rejected: true
   mismatched_file_admitted_to_runtime: false
-  corrected_exact_blob: aedfb3ac78eed2294a88a64af261386f0db65085
+
+source_frontier:
+  writer2_delta_preview_slice_closed: true
+  next_public_core_boundary: tabs/cii-workspace/cii-workspace-compare-review.js
 
 negative_assurance:
   control_row1_nonam_protected: true
@@ -90,4 +89,4 @@ negative_assurance:
   writer3_changed: false
   workflow_changed: false
 
-next_gate: continue exact public-core reconstruction at cii-workspace-engineering-delta.js; rebuild enough of the authored W2.13 graph to rerun the unchanged entrypoint; only authored assertions can promote W2.13 to PASS or FAIL
+next_gate: reconstruct compare-review, transfer-plan, review, placeholders and subsequent static core dependencies; restore full authored W2.13 graph; rerun unchanged authored test before any product PASS or FAIL promotion
