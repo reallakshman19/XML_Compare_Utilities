@@ -19,7 +19,7 @@ The six Python engine/dependency files are vendored byte-identically under:
 converters/scripts/cii-v11-v14-upstream/
 ```
 
-Exact blob custody is recorded in `UPSTREAM.md` and enforced by `tests/cii-workspace-v11-v14-frozen-source.test.js`.
+Exact repository blob custody is recorded in `UPSTREAM.md` and enforced by `tests/cii-workspace-v11-v14-frozen-source.test.js`.
 
 ## Authority split
 
@@ -57,7 +57,7 @@ Benchmarks/v11-v14.zip
 
 The pair represents the same 112-element model. Upstream qualification records establish the relevant record deltas and regression coverage, including semantic SIF mapping and independent generated-target validation.
 
-Upstream also explicitly records this final application gate as `NOT_RUN`:
+Upstream explicitly records this final application gate as `NOT_RUN`:
 
 ```text
 actual V14 source
@@ -69,6 +69,24 @@ actual V14 source
 ```
 
 That external CAESAR acceptance is not inherited as PASS by this bridge.
+
+## Runtime frozen-source custody
+
+Repository SHA identity alone is not sufficient for browser execution. Before any frozen Python is imported or run, the worker independently verifies the deployed bytes.
+
+For each pinned source file:
+
+```text
+fetch exact bytes with cache:no-store
+-> form Git object bytes: "blob " + byte_length + NUL + exact_bytes
+-> WebCrypto SHA-1
+-> require equality with pinned upstream Git blob SHA
+-> write the same verified Uint8Array directly to Pyodide FS
+```
+
+The worker does not use `response.text()` for frozen Python. No decode/re-encode step is allowed between deployed-byte verification and Pyodide execution.
+
+A missing cryptographic API, empty source file, SHA mismatch or fetch error fails closed before converter execution.
 
 ## Writer2 execution paths
 
@@ -91,7 +109,7 @@ No converter call is required.
 ```text
 SOURCE/TARGET V14
   -> independent original V14 SHA
-  -> frozen 3D_Converters V14 -> V11, allow_lossy = false
+  -> runtime-verified frozen 3D_Converters V14 -> V11, allow_lossy = false
   -> converter structural validation
   -> independent normalized V11 SHA
   -> exact untouched V14 -> V11 -> V14 byte equality gate
@@ -99,7 +117,7 @@ SOURCE/TARGET V14
   -> existing V11 CII Workspace preview / Writer2 / validator
   -> authoritative Writer2 byteString -> exact V11 postimage bytes
   -> Writer2 postimage SHA cross-check
-  -> frozen 3D_Converters V11 -> V14, allow_lossy = false
+  -> runtime-verified frozen 3D_Converters V11 -> V14, allow_lossy = false
   -> converter structural validation
   -> exact modified V11 -> V14 -> V11 byte equality gate
   -> V14 output
@@ -146,6 +164,12 @@ postMessage failure removes the pending request
 worker cache key advances when worker runtime semantics change
 ```
 
+Current worker cache identity:
+
+```text
+20260825-frozen-3d-converters-7
+```
+
 Frozen Python is never edited for these adapter controls.
 
 ## Cross-boundary provenance
@@ -186,6 +210,9 @@ v11Result.byteString
 ## Fail-closed gates
 
 ```text
+runtime frozen-source drift
+  deployed Git blob SHA mismatch -> block before Python execution
+
 unsupported/non-integral neutral version
   CII_VERSION_BRIDGE_UNSUPPORTED_VERSION
 
@@ -231,7 +258,7 @@ modified V11 result not exactly recoverable after V14 serialization
 ```text
 converters/cii-v11-v14-writer-worker.js
   adapted Pyodide transport only
-  loads frozen Python from isolated directory
+  runtime-verifies and loads frozen Python from isolated directory
 
 tabs/cii-workspace/cii-workspace-v11-v14-converter.js
   Worker client, physical version detection, independent SHA/audit custody,
@@ -255,11 +282,14 @@ tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v11-v14-frozen-engine.test.py
 ```
 
+Bounded extracted runtime now contains 12 falsifiers, including an independent check of the Git-blob hashing algorithm and serialized-job recovery. It remains `PASS_RUNTIME_EXACT_SOURCE_EXCERPT`, not full-module PASS.
+
 Runtime truth:
 
 ```text
 frozen source Git-blob custody           PASS_EXACT_BLOB_CUSTODY
-extracted high-risk source runtime       PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+runtime deployed-source blob gate        IMPLEMENTED_NOT_RUN_BROWSER
+extracted source/adapter runtime         PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
 frozen-source authored JS test           NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 frozen-engine authored Python test       NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 real V14 baseline exact roundtrip        NOT_RUN
