@@ -9,9 +9,10 @@ handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
 production_change_authority: false
 merge_authority: OWNER_ONLY
-merge_authorized: false
-ready_for_review: false
-pr_state: DRAFT
+merge_authorized: true
+merge_authorization_source: OWNER_INSTRUCTION_2026_08_25_MERGE_PROCEED_NEXT
+ready_for_review: true
+pr_state: DRAFT_PENDING_READY_TRANSITION
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 predecessor:
@@ -75,4 +76,4 @@ negative_assurance:
   parser_converter_changed: false
   workflow_changed: false
 
-next_gate: materialize exact W2.13 product-routing and retained-real-CII test stacks, verify every blob, execute both authored product entrypoints
+next_gate: after authorized checkpoint merge, continue exact W2.13 product-routing and retained-real-CII runtime plus inherited Writer2 regressions in a separate successor PR
