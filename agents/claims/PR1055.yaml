@@ -34,7 +34,7 @@ claims:
       cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
     evidence:
       - converters/scripts/cii-v11-v14-upstream/UPSTREAM.md
-      - tests/cii-workspace-v11-v14-frozen-source.test.js
+      - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
 
   - id: UPSTREAM_DEPENDENCY_ISOLATION
     state: PASS_SOURCE_INSPECTION
@@ -49,7 +49,7 @@ claims:
     path: existing cii-workspace-core Writer1/Writer2 implementation
 
   - id: V14_WRITER_DIALECT_BRIDGE
-    state: IMPLEMENTED_NOT_RUN
+    state: IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY
     required: true
     architecture: LOSSLESS_V14_TO_V11_EXISTING_V11_WRITER_V11_TO_V14
     allow_lossy: false
@@ -62,6 +62,7 @@ claims:
       - tabs/cii-workspace/cii-workspace-v11-v14-converter.js
       - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
       - docs/cii-writer2-v11-v14-lossless-bridge.md
+      - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
 
   - id: V14_BRIDGE_ENGINEERING_AUTHORITY_BOUNDARY
     state: PASS_SOURCE_INSPECTION
@@ -93,16 +94,31 @@ claims:
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
 
+  - id: V11_V14_EXTRACTED_HIGH_RISK_RUNTIME
+    state: PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+    required: false
+    qualifying_for_full_engine_gate: false
+    evidence: docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+    falsifiers:
+      source_version_11_admitted: PASS
+      source_version_14_admitted: PASS
+      source_version_12_rejected: PASS
+      sif_axial_torsion_semantic_swap: PASS
+      nonzero_v14_sif_item27_rejected: PASS
+      ambiguous_v11_sif_item19_rejected: PASS
+      restraint_default_stiffness_mapping: PASS
+      nonzero_v14_allowables_item154_rejected: PASS
+
   - id: V11_V14_FROZEN_SOURCE_TARGET_TEST
-    state: NOT_RUN_ENVIRONMENT
+    state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
     required: true
     path: tests/cii-workspace-v11-v14-frozen-source.test.js
 
   - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
-    state: NOT_RUN_ENVIRONMENT
+    state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
     required: true
     path: tests/cii-workspace-v11-v14-frozen-engine.test.py
-    falsifiers:
+    authored_falsifiers:
       - unsupported_version
       - sif_axial_torsion_swap
       - nonzero_v14_sif_extension
@@ -110,10 +126,11 @@ claims:
       - nonzero_v14_allowables_extension
       - restraint_default_stiffness_mapping
 
-  - id: V11_V14_BRIDGE_QUALIFICATION_WORKFLOW
-    state: DEFINED_NOT_RUN
-    path: .github/workflows/cii-writer-v11-v14-bridge.yml
-    workflow_run_observed: false
+  - id: NO_GITHUB_ACTIONS_QUALIFICATION
+    state: PASS_POLICY_RECONCILIATION
+    github_actions_authorized: false
+    temporary_workflow_removed: true
+    workflow_result_used_as_evidence: false
 
   - id: WRITER2_PROGRAM_CAPABILITY_MATRIX
     state: ESTABLISHED
@@ -124,7 +141,7 @@ claims:
       hanger_delete_all: DONE
       hanger_partial_delete: DONE_PRODUCT_ROUTED
       restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-      v14_lossless_dialect_bridge: IMPLEMENTED_NOT_RUN
+      v14_lossless_dialect_bridge: IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY
       sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
@@ -145,10 +162,11 @@ validation_integrity:
   local_dependency_substituted: false
   lossy_bridge_enabled: false
   source_inspection_promoted_to_runtime_pass: false
+  extracted_source_runtime_promoted_to_full_engine_pass: false
   workflow_definition_promoted_to_runtime_pass: false
   not_run_promoted_to_pass: false
   v14_converter_promoted_to_v11_create_authority: false
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
 
-next_claim_gate: execute_exact_checkout_frozen_source_and_python_tests_then_v14_baseline_and_modified_roundtrip_bridge_tests_then_existing_W2_13_and_writer2_regressions
+next_claim_gate: execute_exact_repository_module_graph_frozen_source_and_engine_tests_then_existing_W2_13_then_real_v14_baseline_and_modified_roundtrip_then_writer2_regressions
