@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: WRITER2_SOURCE_GATES_CLOSED_RUNTIME_RELEASE_GATES_REMAIN
+claim_state: W2_PROGRAM_RUNTIME_RELEASE_CLOSURE_V11_AUTHORITY_STRICT
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -11,11 +11,30 @@ program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 restraint_release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 claims:
-  - id: ISSUE_1042_CONTROL_CORRECTION
+  - id: WRITER2_CREATE_V11_ONLY_AUTHORITY_SCOPE
     state: PASS_SOURCE_REGROUNDING
+    required: true
+    authority:
+      edition: CAESAR_II_2019_VERSION_11_0_ONLY
+      neutral_interface: VERSION_11_00
+      later_edition_authority_allowed: false
+      later_edition_semantics_may_fill_v11_gaps: false
+    evidence:
+      - docs/cii-writer2-create-source-refresh-2026-08-25.md
+      - docs/cii-writer1c-sif-source-ledger.csv
+      - docs/cii-writer2-hanger-create-source-ledger.csv
+      - docs/cii-writer2-restraint-cardinality-source-ledger.csv
+      - docs/cii-writer2-restraint-cardinality-qualification.md
+
+  - id: ISSUE_1042_INHERITED_CONTROL_AUTHORITY_CORRECTION
+    state: PASS_SOURCE_REGROUNDING
+    required: true
     authority:
       control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
       control_row2_field4: RESTRAINT_BLOCK_COUNT_I13_MUTABLE
+    anchors:
+      - W2_11_P19
+      - W2_12_R09
 
   - id: W2_11_RESTRAINT_RUNTIME
     state: PASS_RUNTIME_EXACT_BLOB
@@ -30,46 +49,54 @@ claims:
     required: true
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
+    current_native_checkout_failure: Could not resolve host github.com
 
-  - id: W2_13_RETAINED_REAL_CII_PRODUCT_RUNTIME
+  - id: W2_13_RETAINED_REAL_V11_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
 
   - id: STATIC_DEPENDENCY_FRONTIER
     state: PASS_SOURCE_INSPECTION
-    named_frontier_closed: true
     qualifying_for_product_gate: false
+    named_frontier_closed: true
+    runtime_admission_observed: false
 
-  - id: WRITER2_STRUCTURAL_FAMILY_AUDIT
-    state: PASS_SOURCE_INSPECTION
+  - id: WRITER2_PROGRAM_CAPABILITY_MATRIX
+    state: ESTABLISHED
     evidence: docs/cii-writer2-release-freeze-matrix.md
-    hidden_writer2_family: NONE_OBSERVED
-    ambiguous_generic_future_writer_route: NONE_OBSERVED
-    unknown_family_behavior: FAIL_CLOSED
+    classifications:
+      nodename_create_delete: DONE
+      sif_delete_compaction: DONE
+      sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
+      hanger_delete_all: DONE
+      hanger_partial_delete: DONE_PRODUCT_ROUTED
+      hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
+      restraint_delete_planner: DONE
+      restraint_delete_physical: DONE
+      restraint_delete_composite: DONE
+      restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
+      restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
+      writer3_topology: OUTSIDE_WRITER2
 
-  - id: WRITER2_CREATE_SOURCE_REFRESH
-    state: COMPLETE
-    evidence: docs/cii-writer2-create-source-refresh-2026-08-25.md
-    production_change: false
-    families:
-      sif_create: SOURCE_BLOCKED_REAFFIRMED
-      hanger_create: SOURCE_BLOCKED_REAFFIRMED
-      restraint_create: SOURCE_BLOCKED_REAFFIRMED
-
-  - id: SIF_CREATE
-    state: SOURCE_BLOCKED_REAFFIRMED
-    verdict: NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
+  - id: SIF_CREATE_V11
+    state: COMPLETE_SOURCE_BLOCKED_V11
     production_enabled: false
-    unresolved:
-      - V11_ITEMS_27_30_CREATE_AUTHORITY
-      - V11_COMPLETE_DEFAULT_CONTRACT
-      - V11_UNUSED_SECOND_SLOT_CREATE_RULE
+    v11_known:
+      physical_schema: PASS_VENDOR_V11
+      items_1_26: PASS_VENDOR_V11
+    v11_unresolved:
+      - ITEMS_27_30
+      - COMPLETE_60_POSITION_CREATE_CONTRACT
+      - UNUSED_SECOND_TEE_SLOT_CREATE_RULE
+    blocker: WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
 
-  - id: HANGER_CREATE
-    state: SOURCE_BLOCKED_REAFFIRMED
-    verdict: NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
+  - id: HANGER_CREATE_V11
+    state: COMPLETE_SOURCE_BLOCKED_V11
     production_enabled: false
-    unresolved:
+    v11_known:
+      physical_dictionary: PASS_VENDOR_V11
+      guid_ownership: PASS_VENDOR_V11
+    v11_unresolved:
       - GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
       - FIRST_HANGER_HEADER_DEFAULTS_UNRESOLVED
       - REPOSITORY_FALLBACK_DEFAULT_CONFLICT
@@ -77,16 +104,25 @@ claims:
       - OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
       - REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
 
-  - id: RESTRAINT_CREATE
-    state: SOURCE_BLOCKED_REAFFIRMED
+  - id: RESTRAINT_CREATE_V11
+    state: COMPLETE_SOURCE_BLOCKED_V11
     production_enabled: false
+    v11_known:
+      block_shape: PASS_VENDOR_AND_REAL_V11
+      guid_ownership: PASS_VENDOR_V11
+    v11_unresolved:
+      - RESTRAINT_GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
+      - RESTRAINT_TYPE_DEPENDENT_CREATE_DEFAULTS_INCOMPLETE
+      - NEW_RESTRAINT_BLOCK_ALLOCATION_POLICY_NOT_VENDOR_QUALIFIED
+      - NATIVE_RESTRAINT_BLOCK_CREATE_TRANSITION_NOT_AVAILABLE
+      - SHARED_POINTER_ALIAS_SEMANTICS_NOT_SOURCE_QUALIFIED
     blocker: WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
-    unresolved:
-      - GUID_CREATE_GENERATION_RULE
-      - TYPE_DEPENDENT_COMPLETE_CREATE_PAYLOAD
-      - NEW_BLOCK_ALLOCATION_POLICY
-      - SHARED_POINTER_CREATE_SEMANTICS
-      - NATIVE_BLOCK_CREATE_TRANSITION
+
+  - id: WRITER2_STRUCTURAL_FAMILY_AUDIT
+    state: PASS_SOURCE_INSPECTION
+    hidden_writer2_family: NONE_OBSERVED
+    ambiguous_generic_future_writer_route: NONE_OBSERVED
+    unknown_family_behavior: FAIL_CLOSED
 
   - id: WRITER2_INHERITED_REGRESSION_RUNTIME
     state: PARTIAL
@@ -113,10 +149,12 @@ validation_integrity:
   import_rewrites_used: false
   workflow_trigger_gaming_used: false
   source_inspection_promoted_to_product_pass: false
+  module_load_stop_promoted_to_product_fail: false
   not_run_promoted_to_pass: false
   source_blocked_create_promoted_to_implementation_authority: false
+  later_edition_semantics_promoted_to_v11_authority: false
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
 
-program_freeze_rule: READY requires all source-qualified Writer2 operations implemented and validated, all source-blocked CREATE families explicit/fail-closed, all mandatory runtime/repository/product gates dispositioned, no ambiguous generic FUTURE_WRITER route, and no Writer3 topology leakage
-next_claim_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_CII_then_inherited_Writer2_regressions_then_adjacent_repository_browser_gates
+program_freeze_rule: READY requires all source-qualified V11 Writer2 operations implemented and validated, all unresolved V11 CREATE families explicit and fail-closed, all mandatory runtime/repository/product gates dispositioned, no ambiguous generic FUTURE_WRITER operations, and no Writer3 topology leakage
+next_claim_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_V11_CII_then_inherited_V11_Writer2_regressions_then_adjacent_repository_browser_gates
