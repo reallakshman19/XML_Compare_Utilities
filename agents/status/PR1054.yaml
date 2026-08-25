@@ -35,6 +35,38 @@ runtime:
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
 
+execution_environment:
+  classification: HARD_BLOCKED_NO_EXACT_CHECKOUT_OR_NETWORK_RUNNER
+  preserved_sparse_mirror_present: false
+  current_main_workflow_runs: 0
+  predecessor_main_workflow_runs: 0
+  git_ls_remote:
+    status: FAIL_ENVIRONMENT
+    exit_code: 128
+    observation: "Could not resolve host: github.com"
+  direct_raw_https_ip_override:
+    status: FAIL_ENVIRONMENT
+    exit_code: 7
+    observation: "Failed to connect to raw.githubusercontent.com port 443"
+  container_github_token_present: false
+  container_http_proxy_present: false
+  validation_integrity: NO_STUBS_NO_MODIFIED_ENTRYPOINT_NO_PASS_PROMOTION
+
+exact_current_main_manifest:
+  w2_13_synthetic_test: 9922377ddeda86fc9167d65f33c97095346e79fa
+  w2_13_real_cii_test: c341b99e2786b0034ef672b4efb03d167d9ad26c
+  real_benchmark: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+  core: cee2858a63992648edf5e61b8f63b3837a937f9e
+  composite_routing: 2e7a21bd17aa9af405f1a2f93201d4a45bb09e4b
+  restraint_writer: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
+  product_validator: 05fcb594a3be5e360ce804c77872319730a16b53
+  restraint_compaction_planner: aedfb3ac78eed2294a88a64af261386f0db65085
+  regression_composite_product: 9fbddd0fdda5285c8ee8a477a850cf945051a9df
+  regression_hanger_partial_product: 4696cd24de47650d0757b1313f4ed05d622331f8
+  regression_hanger_partial_deleted_testimony: f02f0775424fabf20fbb70afa5be6090eeb67a0e
+  regression_real_benchmark: 94f63368d0620ce22d26429073408d8f4d9f6e8c
+  regression_trifamily_real_benchmark: 3a5fbab24a1de1e887bd13f40784484045f2b047
+
 negative_assurance:
   control_row1_nonam_protected: true
   control_row2_restraints_authority_preserved: true
@@ -46,4 +78,4 @@ negative_assurance:
   parser_converter_changed: false
   workflow_changed: false
 
-next_gate: execute exact-blob W2.13 product-routing and retained-real-CII entrypoints, then inherited Writer2 regressions
+next_gate: run the pinned authored entrypoints on an exact checkout or existing authorized runner; do not replace with stubs or modified harnesses
