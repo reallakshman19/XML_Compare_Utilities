@@ -15,6 +15,13 @@ pr_state: DRAFT
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 restraint_release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
+source_authority_scope:
+  writer2_create_edition: CAESAR_II_2019_VERSION_11_ONLY
+  neutral_interface: VERSION_11_00
+  later_edition_authority_allowed: false
+  v12_v14_current_semantics_may_fill_v11_gaps: false
+  source_document: docs/cii-writer2-create-source-refresh-2026-08-25.md
+
 inherited_authority_correction:
   source: issue_1042
   control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
@@ -38,7 +45,6 @@ runtime:
   engineering_failure: NONE_OBSERVED
 
 execution_environment:
-  native_clone_attempted_current_checkpoint: true
   native_clone_result: FAIL_ENVIRONMENT_DNS
   raw_failure: Could not resolve host github.com
   exact_executable_mirror_available: false
@@ -54,23 +60,41 @@ program_matrix:
   document: docs/cii-writer2-release-freeze-matrix.md
   nodename_create_delete: DONE
   sif_delete_compaction: DONE
-  sif_create: SOURCE_BLOCKED_REAFFIRMED
+  sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
   hanger_delete_all: DONE
   hanger_partial_delete: DONE_PRODUCT_ROUTED
-  hanger_create: SOURCE_BLOCKED_REAFFIRMED
+  hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
   restraint_delete_planner: DONE
   restraint_delete_physical: DONE
   restraint_delete_composite: DONE
   restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-  restraint_create: SOURCE_BLOCKED_REAFFIRMED
+  restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
   writer3_topology: OUTSIDE_WRITER2
 
-source_refresh:
-  document: docs/cii-writer2-create-source-refresh-2026-08-25.md
+v11_create_source_closure:
   gate_f: COMPLETE
-  sif_create: COMPLETE_SOURCE_BLOCKED
-  hanger_create: COMPLETE_SOURCE_BLOCKED
-  restraint_create: COMPLETE_SOURCE_BLOCKED
+  authority_scope: CAESAR_II_2019_VERSION_11_ONLY
+  sif:
+    exact_v11_schema_items_1_26: PASS_VENDOR_V11
+    items_27_30: UNRESOLVED
+    complete_60_position_create_contract: UNRESOLVED
+    disposition: COMPLETE_SOURCE_BLOCKED_V11
+  hanger:
+    exact_v11_physical_dictionary: PASS_VENDOR_V11
+    exact_v11_guid_ownership: PASS_VENDOR_V11
+    guid_create_rule: UNRESOLVED
+    complete_defaults: UNRESOLVED
+    insertion_policy: UNRESOLVED
+    native_h0_h1_h2_transition: NOT_AVAILABLE
+    disposition: COMPLETE_SOURCE_BLOCKED_V11
+  restraint:
+    v11_block_shape: PASS_VENDOR_AND_REAL_V11
+    exact_v11_guid_ownership: PASS_VENDOR_V11
+    guid_create_rule: UNRESOLVED
+    type_dependent_complete_payload: UNRESOLVED
+    block_allocation_policy: UNRESOLVED
+    native_create_transition: NOT_AVAILABLE
+    disposition: COMPLETE_SOURCE_BLOCKED_V11
   production_create_change: false
 
 structural_family_audit:
@@ -94,6 +118,7 @@ negative_assurance:
   restraint_create_enabled: false
   sif_create_enabled: false
   hanger_create_enabled: false
+  later_edition_create_semantics_admitted: false
   writer3_changed: false
   workflow_changed: false
 
@@ -104,4 +129,4 @@ changed_file_expectation:
   - docs/cii-writer2-release-freeze-matrix.md
   - docs/cii-writer2-create-source-refresh-2026-08-25.md
 
-next_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_CII_then_inherited_Writer2_regressions_then_adjacent_repository_browser_gates
+next_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_V11_CII_then_inherited_V11_Writer2_regressions_then_adjacent_repository_browser_gates
