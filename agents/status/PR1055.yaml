@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_24_V11_V14_BRIDGE_CUSTODY_HARDENED_RUNTIME_PENDING
+current_stage: W2_26_BRIDGE_ARCHITECTURE_FROZEN_RUNTIME_EVIDENCE_PENDING
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -30,13 +30,17 @@ source_reuse:
     cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
     cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
     cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
+  runtime_worker_verifies_git_blob_before_execution: true
+  runtime_worker_hash_basis: SHA1_GIT_BLOB_HEADER_PLUS_EXACT_FETCHED_BYTES
+  runtime_worker_writes_verified_bytes_without_text_reencoding: true
   local_xml_section_rules_reused: false
-  reason: local XML cii2019_section_rules.py is not byte-identical to pinned upstream dependency
 
 upstream_qualification_boundary:
+  paired_benchmark: Benchmarks/v11-v14.zip
+  paired_files: [SYS-0001-v11.cii, SYS-0001-v14.CII]
+  same_model_element_count: 112
   repository_regression_scope: PAIRED_BENCHMARK_AND_FIXED_RECORD_VALIDATION_PRESENT
   external_caesar_v11_import_save_reexport: NOT_RUN_UPSTREAM
-  source_record: reallaksh19/3D_Converters/docs/cii/cii-v14-v11-import-rca.md
   target_bridge_must_not_promote_upstream_external_acceptance_to_pass: true
 
 writer_version_architecture:
@@ -48,7 +52,7 @@ writer_version_architecture:
   v14_broad_canonicalizing_rewrite_allowed: false
   independent_new_v14_neutral_writer_created: false
   v14_create_semantics_promoted: false
-  architecture_document: docs/cii-writer2-v11-v14-lossless-bridge.md
+  architecture_state: FROZEN_PENDING_RUNTIME_EVIDENCE
 
 bridge_modules:
   worker: converters/cii-v11-v14-writer-worker.js
@@ -56,16 +60,17 @@ bridge_modules:
   writer_bridge: tabs/cii-workspace/cii-workspace-writer-version-bridge.js
   core_v11_writer_modified: false
   live_ui_auto_routing_modified: false
-  integration_state: ADDITIVE_API_HARDENED_PRODUCT_UI_ADOPTION_PENDING_QUALIFICATION
+  integration_state: ADDITIVE_API_CUSTODY_HARDENED_PRODUCT_UI_ADOPTION_PENDING_QUALIFICATION
 
 adapter_hardening:
+  deployed_frozen_python_git_blob_verified_before_execution: true
   pyodide_job_files_unlinked_before_rmdir: true
   empty_input_rejected_before_job_directory_allocation: true
   shared_pyodide_jobs_serialized: true
   failed_job_does_not_poison_queue: true
   worker_messageerror_rejects_all_pending_and_resets_worker: true
   postmessage_failure_deletes_pending_job: true
-  worker_cache_key_advanced_after_runtime_semantic_change: true
+  worker_cache_key: 20260825-frozen-3d-converters-7
   physical_source_version_independently_checked: true
   physical_target_version_independently_checked: true
   nonintegral_version_aliasing_blocked: true
@@ -90,7 +95,6 @@ adapter_hardening:
 
 source_authority_scope:
   writer2_create_edition: CAESAR_II_2019_VERSION_11_ONLY
-  v11_create_source_document: docs/cii-writer2-create-source-refresh-2026-08-25.md
   v14_dialect_conversion_authority: PINNED_3D_CONVERTERS_ENGINE
   v14_dialect_bridge_does_not_fill_v11_create_gaps: true
 
@@ -98,19 +102,15 @@ inherited_authority_correction:
   source: issue_1042
   control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
   control_row2_field4: RESTRAINT_BLOCK_COUNT_I13_MUTABLE
-  planner_corrected: true
-  writer_corrected: true
-  validator_corrected: true
-  negative_assurance_anchors:
-    - W2_11_P19
-    - W2_12_R09
+  negative_assurance_anchors: [W2_11_P19, W2_12_R09]
 
 runtime:
   w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
-  v11_v14_frozen_source_custody: PASS_EXACT_BLOB_CUSTODY
+  v11_v14_frozen_source_repository_custody: PASS_EXACT_BLOB_CUSTODY
+  v11_v14_runtime_deployment_blob_gate: IMPLEMENTED_NOT_RUN_BROWSER
   v11_v14_extracted_high_risk_runtime: PASS_RUNTIME_EXACT_SOURCE_EXCERPT_8_FALSIFIERS
   v11_v14_frozen_source_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
   v11_v14_frozen_engine_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
@@ -122,82 +122,40 @@ runtime:
   writer1_adjacent_regression: NOT_RUN_ENVIRONMENT
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
-  evidence_document: docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
 
 execution_environment:
   native_clone_result: FAIL_ENVIRONMENT_DNS
   raw_download_result: FAIL_ENVIRONMENT_DNS
-  raw_failure: Could not resolve host github.com/raw.githubusercontent.com
   exact_executable_mirror_available: false
-  extracted_source_runtime_used: true
-  extracted_source_runtime_promoted_to_full_engine_pass: false
-  local_source_inspection_promoted_to_runtime_pass: false
-
-no_actions_policy:
   github_actions_authorized: false
-  temporary_bridge_workflow_removed: true
-  workflow_path_present_in_current_diff: false
-  workflow_result_used_as_evidence: false
+  source_inspection_promoted_to_runtime_pass: false
+  extracted_source_runtime_promoted_to_full_engine_pass: false
 
 program_matrix:
-  document: docs/cii-writer2-release-freeze-matrix.md
   nodename_create_delete: DONE
   sif_delete_compaction: DONE
   sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
   hanger_delete_all: DONE
   hanger_partial_delete: DONE_PRODUCT_ROUTED
   hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
-  restraint_delete_planner: DONE
-  restraint_delete_physical: DONE
-  restraint_delete_composite: DONE
   restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
   restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
   v14_lossless_dialect_bridge: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
   writer3_topology: OUTSIDE_WRITER2
 
-structural_family_audit:
-  gate_g: PASS_SOURCE_INSPECTION
-  hidden_writer2_family: NONE_OBSERVED
-  ambiguous_generic_future_writer_route: NONE_OBSERVED
-  unknown_family_behavior: FAIL_CLOSED
-
 negative_assurance:
   control_row1_nonam_protected: true
-  control_row2_restraints_authority_preserved: true
-  restraint_create_enabled: false
-  sif_create_enabled: false
-  hanger_create_enabled: false
   lossy_v14_bridge_enabled: false
   source_3d_converters_modified: false
+  frozen_python_runtime_unverified_before_execution: false
   core_v11_writer_modified: false
   writer3_changed: false
   workflow_changed_in_current_diff: false
-  extracted_runtime_misrepresented_as_full_engine_pass: false
-  converter_audit_sha_used_as_sole_custody_authority: false
   malformed_converter_audit_treated_as_no_loss: false
-  v11_text_view_used_as_v14_restore_authority: false
+  normalized_intake_hash_unchecked: false
   version_bridge_omitted_from_exported_audit: false
+  v11_text_view_used_as_v14_restore_authority: false
+  upstream_external_caesar_acceptance_promoted_to_pass: false
 
 changed_file_count_expected: 19
-changed_file_expectation:
-  - agents/PR1055_workreport.md
-  - agents/claims/PR1055.yaml
-  - agents/status/PR1055.yaml
-  - converters/cii-v11-v14-writer-worker.js
-  - converters/scripts/cii-v11-v14-upstream/UPSTREAM.md
-  - converters/scripts/cii-v11-v14-upstream/cii2019_section_rules.py
-  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14.py
-  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_format.py
-  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_records.py
-  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_sif.py
-  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_validate.py
-  - docs/cii-writer2-create-source-refresh-2026-08-25.md
-  - docs/cii-writer2-release-freeze-matrix.md
-  - docs/cii-writer2-v11-v14-lossless-bridge.md
-  - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
-  - tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-  - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
-  - tests/cii-workspace-v11-v14-frozen-engine.test.py
-  - tests/cii-workspace-v11-v14-frozen-source.test.js
-
 next_gate: exact_repository_module_graph_for_authored_bridge_tests_then_existing_w2_13_product_runtime_then_retained_real_v11_then_real_v14_baseline_and_modified_roundtrip_before_ui_auto_adoption_or_release_freeze
