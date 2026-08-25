@@ -3,10 +3,12 @@ import {
   createCiiWorkspacePreview,
   inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
+import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import {
   ciiByteStringToBytes,
   ciiBytesEqual,
   ciiBytesToByteString,
+  ciiSha256,
   convertCiiNeutralVersionLossless,
   detectCiiNeutralVersion,
 } from './cii-workspace-v11-v14-converter.js';
@@ -27,12 +29,14 @@ function frozenAudit(audit) {
 async function normalizeSideToV11(value, fileName, side, cryptoRef) {
   const version = detectCiiNeutralVersion(value);
   if (version === 11) {
+    const sourceSha256 = await ciiSha256(value, cryptoRef);
     return Object.freeze({
       side,
       originalVersion: 11,
       normalizedVersion: 11,
       normalizedBytes: value,
-      sourceSha256: null,
+      sourceSha256,
+      normalizedSha256: sourceSha256,
       normalizeAudit: null,
       roundTripAudit: null,
       exactRoundTrip: true,
@@ -49,6 +53,7 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef) {
     normalizedVersion: 11,
     normalizedBytes: down.outputBytes,
     sourceSha256: down.sourceSha256,
+    normalizedSha256: down.targetSha256,
     normalizeAudit: frozenAudit(down.audit),
     roundTripAudit: frozenAudit(up.audit),
     exactRoundTrip: true,
@@ -66,43 +71,49 @@ async function normalizePairInput(input, options = {}) {
   return Object.freeze({ source, target, normalizedInput });
 }
 
+function bridgeSideEvidence(side) {
+  return Object.freeze({
+    originalVersion: side.originalVersion,
+    normalizedVersion: 11,
+    originalSha256: side.sourceSha256,
+    normalizedSha256: side.normalizedSha256,
+    exactBaselineRoundTrip: side.exactRoundTrip,
+    normalizeAudit: side.normalizeAudit,
+    roundTripAudit: side.roundTripAudit,
+  });
+}
+
+function buildVersionBridgeEvidence(source, target) {
+  return Object.freeze({
+    schema: 'CIIWorkspaceWriterVersionBridge.v1',
+    mode: source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'LOSSLESS_V14_VIA_V11',
+    source: bridgeSideEvidence(source),
+    target: bridgeSideEvidence(target),
+    conversionSource: Object.freeze({
+      repository: 'reallaksh19/3D_Converters',
+      commit: 'ca8d391ac5f829f53bebb3c37adf0547c34a67b4',
+      policy: 'FROZEN_BYTE_IDENTICAL_PYTHON_ENGINE_ALLOW_LOSSY_FALSE',
+    }),
+  });
+}
+
 export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options = {}) {
   const normalized = await normalizePairInput(input, options);
-  return inspectCiiWorkspaceModels(normalized.normalizedInput, options);
+  const inspection = await inspectCiiWorkspaceModels(normalized.normalizedInput, options);
+  return Object.freeze({
+    ...inspection,
+    versionBridge: buildVersionBridgeEvidence(normalized.source, normalized.target),
+  });
 }
 
 export async function createCiiWorkspacePreviewWithVersionBridge(input, options = {}) {
   const normalized = await normalizePairInput(input, options);
-  const { source, target } = normalized;
+  const versionBridge = buildVersionBridgeEvidence(normalized.source, normalized.target);
   const preview = await createCiiWorkspacePreview(normalized.normalizedInput, options);
-  return Object.freeze({
-    ...preview,
-    versionBridge: Object.freeze({
-      schema: 'CIIWorkspaceWriterVersionBridge.v1',
-      mode: source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'LOSSLESS_V14_VIA_V11',
-      source: Object.freeze({
-        originalVersion: source.originalVersion,
-        normalizedVersion: 11,
-        originalSha256: source.sourceSha256,
-        exactBaselineRoundTrip: source.exactRoundTrip,
-        normalizeAudit: source.normalizeAudit,
-        roundTripAudit: source.roundTripAudit,
-      }),
-      target: Object.freeze({
-        originalVersion: target.originalVersion,
-        normalizedVersion: 11,
-        originalSha256: target.sourceSha256,
-        exactBaselineRoundTrip: target.exactRoundTrip,
-        normalizeAudit: target.normalizeAudit,
-        roundTripAudit: target.roundTripAudit,
-      }),
-      conversionSource: Object.freeze({
-        repository: 'reallaksh19/3D_Converters',
-        commit: 'ca8d391ac5f829f53bebb3c37adf0547c34a67b4',
-        policy: 'FROZEN_BYTE_IDENTICAL_PYTHON_ENGINE_ALLOW_LOSSY_FALSE',
-      }),
-    }),
-  });
+  const audit = Object.freeze({ ...preview.audit, versionBridge });
+  const result = { ...preview, versionBridge, audit };
+  result.artifacts = ciiWorkspaceArtifactBundle(result);
+  return Object.freeze(result);
 }
 
 async function normalizeCurrentTarget(preview, targetInput, options = {}) {
@@ -119,6 +130,9 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
   });
   if (bridge.target?.originalSha256 && down.sourceSha256 !== bridge.target.originalSha256) {
     throw new Error('CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH');
+  }
+  if (bridge.target?.normalizedSha256 && down.targetSha256 !== bridge.target.normalizedSha256) {
+    throw new Error('CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH');
   }
   const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, {
     fileName: preview?.targetDocument?.fileName || 'target.cii',
@@ -175,6 +189,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
       baselineExactRoundTrip: true,
       modifiedExactRoundTrip: true,
       originalTargetSha256: bridge.target.originalSha256,
+      normalizedTargetSha256: bridge.target.normalizedSha256,
       v11PostimageSha256: upgraded.sourceSha256,
       modifiedTargetSha256: upgraded.targetSha256,
       downgradeAudit: normalized.audit,
