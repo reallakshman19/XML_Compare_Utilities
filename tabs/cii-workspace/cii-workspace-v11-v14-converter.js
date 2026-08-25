@@ -1,4 +1,4 @@
-const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-6', import.meta.url);
+const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-7', import.meta.url);
 const AUDIT_SCHEMA = 'cii-v11-v14-conversion-audit/v1';
 let worker = null;
 let sequence = 0;
