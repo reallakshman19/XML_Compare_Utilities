@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_24_FROZEN_3D_CONVERTERS_V11_V14_BRIDGE_CUSTODY_HARDENED
+claim_state: W2_26_BRIDGE_ARCHITECTURE_FROZEN_RUNTIME_EVIDENCE_PENDING
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -32,15 +32,13 @@ claims:
       cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
       cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
       cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
-    evidence:
-      - converters/scripts/cii-v11-v14-upstream/UPSTREAM.md
-      - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+    runtime_worker_verifies_fetched_git_blobs_before_execution: true
+    runtime_worker_writes_exact_verified_bytes: true
 
   - id: UPSTREAM_DEPENDENCY_ISOLATION
     state: PASS_SOURCE_INSPECTION
     required: true
     local_xml_section_rules_reused: false
-    reason: target local cii2019_section_rules.py has a different Git blob from pinned upstream dependency
 
   - id: UPSTREAM_V14_CONVERTER_QUALIFICATION_BOUNDARY
     state: ESTABLISHED_SOURCE_RECORD
@@ -48,17 +46,14 @@ claims:
     repository_regressions_present: true
     paired_benchmark: Benchmarks/v11-v14.zip
     paired_files: [SYS-0001-v11.cii, SYS-0001-v14.CII]
+    paired_element_count: 112
     external_caesar_v11_import_save_reexport: NOT_RUN_UPSTREAM
-    evidence:
-      - reallaksh19/3D_Converters/docs/cii/cii-v14-v11-import-rca.md
-      - reallaksh19/3D_Converters/docs/cii/cii-v14-v11-error239-dry-run.md
     target_may_not_promote_external_acceptance_to_pass: true
 
   - id: V11_WRITER_IMPLEMENTATION_REUSED_UNCHANGED
     state: PASS_SOURCE_INSPECTION
     required: true
     core_v11_writer_modified: false
-    path: existing cii-workspace-core Writer1/Writer2 implementation
 
   - id: V14_WRITER_DIALECT_BRIDGE
     state: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
@@ -69,25 +64,21 @@ claims:
     modified_exact_cross_version_roundtrip_required: true
     broad_v14_canonicalizing_rewrite_allowed: false
     independent_new_v14_format_writer_created: false
-    evidence:
-      - converters/cii-v11-v14-writer-worker.js
-      - tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-      - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
-      - docs/cii-writer2-v11-v14-lossless-bridge.md
-      - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
 
   - id: V14_BRIDGE_BYTE_CUSTODY_HARDENING
     state: PASS_SOURCE_INSPECTION
     required: true
     frozen_python_changed: false
     controls:
+      deployed_python_git_blob_verified_before_execution: true
+      fetched_python_bytes_not_text_reencoded: true
       pyodide_files_unlinked_before_job_rmdir: true
       empty_input_rejected_before_fs_job_allocation: true
       shared_pyodide_jobs_serialized: true
       failed_job_does_not_poison_serial_queue: true
       worker_messageerror_rejects_pending_and_resets_worker: true
       failed_postmessage_removes_pending_job: true
-      worker_cache_key_advanced_after_runtime_change: true
+      worker_cache_key: 20260825-frozen-3d-converters-7
       physical_source_version_checked_independently: true
       physical_target_version_checked_independently: true
       nonintegral_version_alias_blocked: true
@@ -97,12 +88,9 @@ claims:
       converter_audit_arrays_immutable: true
       converter_source_sha_crosschecked_against_independent_js_sha: true
       converter_target_sha_crosschecked_against_independent_js_sha: true
-      direct_v11_original_sha_recorded: true
-      v14_original_sha_recorded: true
-      normalized_v11_sha_recorded: true
+      original_and_normalized_sha_provenance_bound: true
       normalized_workspace_intake_sha_crosschecked: true
-      stale_v14_original_sha_checked: true
-      stale_normalized_v11_sha_checked: true
+      stale_original_and_normalized_target_checked: true
       canonical_exported_audit_contains_bridge_provenance: true
       v11_writer_text_not_used_as_restore_authority: true
       v11_writer_byte_string_required: true
@@ -122,7 +110,6 @@ claims:
 
   - id: V11_CREATE_SOURCE_SCOPE
     state: COMPLETE_SOURCE_BLOCKED_WHERE_UNQUALIFIED
-    evidence: docs/cii-writer2-create-source-refresh-2026-08-25.md
     sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
     hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
     restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
@@ -141,11 +128,12 @@ claims:
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
 
-  - id: V11_V14_EXTRACTED_HIGH_RISK_RUNTIME
+  - id: V11_V14_EXTRACTED_RUNTIME
     state: PASS_RUNTIME_EXACT_SOURCE_EXCERPT
     required: false
     qualifying_for_full_engine_gate: false
     evidence: docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+    falsifier_count: 12
     falsifiers:
       source_version_11_admitted: PASS
       source_version_14_admitted: PASS
@@ -155,12 +143,15 @@ claims:
       ambiguous_v11_sif_item19_rejected: PASS
       restraint_default_stiffness_mapping: PASS
       nonzero_v14_allowables_item154_rejected: PASS
+      git_blob_hash_algorithm_independently_agrees: PASS
+      missing_loss_events_audit_rejected: PASS
+      binary_byte_string_roundtrip_and_overflow_rejection: PASS
+      serialized_failed_job_does_not_overlap_or_poison_next: PASS
 
   - id: V11_V14_FROZEN_SOURCE_TARGET_TEST
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
     required: true
     path: tests/cii-workspace-v11-v14-frozen-source.test.js
-    includes_adapter_hardening_falsifiers: true
 
   - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
@@ -170,23 +161,25 @@ claims:
   - id: V14_BASELINE_EXACT_ROUNDTRIP
     state: NOT_RUN
     required: true
-    rule: actual V14 bytes -> frozen V11 -> frozen V14 must reproduce exact original V14 bytes
     weakening_to_semantic_equivalence_authorized: false
 
   - id: V14_MODIFIED_WRITER2_ROUNDTRIP
     state: NOT_RUN
     required: true
-    rule: exact V11 Writer2 postimage -> frozen V14 -> frozen V11 must reproduce exact V11 postimage bytes
+
+  - id: EXTERNAL_CAESAR_V11_ACCEPTANCE
+    state: NOT_RUN
+    required_for_repository_bridge_freeze: false
+    required_for_external_application_qualification: true
 
   - id: NO_GITHUB_ACTIONS_QUALIFICATION
     state: PASS_POLICY_RECONCILIATION
     github_actions_authorized: false
-    temporary_workflow_removed: true
+    current_diff_contains_workflow: false
     workflow_result_used_as_evidence: false
 
   - id: WRITER2_PROGRAM_CAPABILITY_MATRIX
     state: ESTABLISHED
-    evidence: docs/cii-writer2-release-freeze-matrix.md
     classifications:
       nodename_create_delete: DONE
       sif_delete_compaction: DONE
@@ -199,28 +192,21 @@ claims:
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
       writer3_topology: OUTSIDE_WRITER2
 
-  - id: WRITER2_STRUCTURAL_FAMILY_AUDIT
-    state: PASS_SOURCE_INSPECTION
-    hidden_writer2_family: NONE_OBSERVED
-    ambiguous_generic_future_writer_route: NONE_OBSERVED
-    unknown_family_behavior: FAIL_CLOSED
-
   - id: ENGINEERING_FAILURE
     state: NONE_OBSERVED
 
 validation_integrity:
   source_3d_converters_modified: false
   frozen_python_rewritten: false
+  deployed_frozen_python_unverified_before_execution: false
   local_dependency_substituted: false
   lossy_bridge_enabled: false
-  converter_audit_sha_used_as_sole_custody_authority: false
   malformed_converter_audit_treated_as_no_loss: false
   normalized_intake_hash_unchecked: false
   version_bridge_omitted_from_exported_audit: false
   v11_writer_text_view_used_as_restore_authority: false
   source_inspection_promoted_to_runtime_pass: false
   extracted_source_runtime_promoted_to_full_engine_pass: false
-  workflow_definition_promoted_to_runtime_pass: false
   not_run_promoted_to_pass: false
   upstream_external_caesar_acceptance_promoted_to_pass: false
   v14_converter_promoted_to_v11_create_authority: false
