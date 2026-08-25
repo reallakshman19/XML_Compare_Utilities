@@ -51,6 +51,9 @@ assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_TARGET_SHA256_AUDIT_MISMATCH/);
 assert.match(converter, /Math\.abs\(numeric - major\) > 1e-6/);
+assert.match(converter, /addEventListener\('messageerror'/);
+assert.match(converter, /resetWorker\(new Error\('CAESAR v11\/v14 worker message serialization failed\.'/);
+assert.match(converter, /pending\.delete\(jobId\);\s*reject\(new Error\(`Failed to post CAESAR v11\/v14 conversion job:/s);
 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
