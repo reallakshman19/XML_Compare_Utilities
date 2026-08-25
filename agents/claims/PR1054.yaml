@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w217
 base_main: 3a681c1c587ee3c1462a962879e4f79433258105
-claim_state: W2_12_RUNTIME_PASS_W2_13_PRODUCT_PENDING
+claim_state: W2_12_RUNTIME_PASS_W2_13_PRODUCT_ENVIRONMENT_BLOCKED
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -23,15 +23,36 @@ claims:
   - id: W2_13_SYNTHETIC_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
+    exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
   - id: W2_13_REAL_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
+    exact_entrypoint_blob: c341b99e2786b0034ef672b4efb03d167d9ad26c
+    benchmark_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
   - id: WRITER2_INHERITED_REGRESSION_RUNTIME
     state: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
     required: true
+    exact_entrypoint_blobs:
+      composite_product: 9fbddd0fdda5285c8ee8a477a850cf945051a9df
+      hanger_partial_product: 4696cd24de47650d0757b1313f4ed05d622331f8
+      hanger_partial_deleted_testimony: f02f0775424fabf20fbb70afa5be6090eeb67a0e
+      real_benchmark: 94f63368d0620ce22d26429073408d8f4d9f6e8c
+      trifamily_real_benchmark: 3a5fbab24a1de1e887bd13f40784484045f2b047
   - id: REPOSITORY_NPM_GATE
     state: NOT_RUN_ENVIRONMENT
     required: true
+  - id: EXECUTION_ENVIRONMENT
+    state: HARD_BLOCKED_NO_EXACT_CHECKOUT_OR_NETWORK_RUNNER
+    evidence:
+      preserved_sparse_mirror_present: false
+      current_main_workflow_runs: 0
+      predecessor_main_workflow_runs: 0
+      git_ls_remote_exit: 128
+      git_ls_remote_observation: "Could not resolve host: github.com"
+      raw_https_ip_override_exit: 7
+      raw_https_ip_override_observation: "Failed to connect to raw.githubusercontent.com port 443"
+      github_token_present: false
+      http_proxy_present: false
   - id: RESTRAINT_CREATE
     state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R10
     authority: NONE
@@ -46,5 +67,11 @@ claims:
   - id: ENGINEERING_FAILURE
     state: NONE_OBSERVED
 
-qualification_rule: authored entrypoint assertions are required for runtime PASS; module/dependency closure is not PASS
-next_claim_gate: execute exact-blob W2.13 product-routing and retained-real-CII entrypoints, then inherited Writer2 regressions
+validation_integrity:
+  modified_authored_entrypoint_used: false
+  dependency_stubs_used: false
+  source_inspection_promoted_to_runtime_pass: false
+  environment_failure_promoted_to_product_pass: false
+
+qualification_rule: authored entrypoint assertions on exact blobs are required for runtime PASS; module/dependency closure and source inspection are not PASS
+next_claim_gate: execute the pinned W2.13 and regression entrypoints on an exact checkout or existing authorized runner
