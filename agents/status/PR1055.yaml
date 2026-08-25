@@ -14,11 +14,6 @@ ready_for_review: false
 pr_state: DRAFT
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
-predecessor:
-  pr: 1054
-  phase: W2_17_EVIDENCE_CHECKPOINT
-  merge_sha: 297fb37a0e894a3aac91de9188ebf30e810781fb
-
 runtime:
   w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
@@ -29,14 +24,13 @@ runtime:
   engineering_failure: NONE_OBSERVED
 
 execution_environment:
-  local_sparse_mirror: /mnt/data/w218
   node_version: v22.16.0
   native_git_clone: FAIL_ENVIRONMENT_DNS
   direct_github_https: FAIL_ENVIRONMENT_EGRESS
   exact_main_actions_runs: NONE
   w2_13_merge_actions_runs: NONE
-  current_sparse_js_file_count: 18
-  current_unresolved_relative_import_count: 43
+  prior_sparse_mirror_persisted_between_turns: false
+  current_bounded_support_mirror: /mnt/data/w218-frontier
   validation_integrity: NO_STUBS_NO_MODIFIED_ENTRYPOINT_NO_PASS_PROMOTION
 
 current_authored_entrypoint:
@@ -44,28 +38,42 @@ current_authored_entrypoint:
   exact_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
   status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
   assertion_failure_observed: false
-  current_missing_module: tabs/cii-workspace/cii-workspace-topology.js
-  progress_vs_w217: CROSSED_PRIOR_ANCHOR_SUGGESTIONS_FRONTIER
+  full_entrypoint_rerun_this_checkpoint: false
+  reason: prior full sparse mirror was not retained by execution container
 
-exact_sparse_mirror_verified:
-  synthetic_test: 9922377ddeda86fc9167d65f33c97095346e79fa
-  restraint_fixture: b725d56be579e7a2d7c40995ca2e13af7e702cbc
-  core: cee2858a63992648edf5e61b8f63b3837a937f9e
-  composite_routing: 2e7a21bd17aa9af405f1a2f93201d4a45bb09e4b
-  restraint_composite_writer: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
-  product_validator: 05fcb594a3be5e360ce804c77872319730a16b53
-  restraint_compaction_planner: aedfb3ac78eed2294a88a64af261386f0db65085
-  contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
-  byte_sha256: 6435e0eaadc382a18aac6a0bd46318ab6c27c714
-  physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
-  fixed_field: 485daa43553681ca54f488499e57f36d2239be58
-  intake: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
-  topology_adapter: 57b8d2d6e8335887b962e09085cc93ece2e36d68
-  geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
-  multi_base_anchor: c782f2c64338845960a7f2d52d8ce25510d849ec
-  multi_base_correspondence: fdedb84add2faac6b38bff9300fe79224c8808e5
-  landmarks: cc8d8e0861987357386e105ca164ceac23162594
-  anchor_suggestions: 6aebbf63afa65a2001413365671827aa3a27299e
+bounded_exact_support_runtime:
+  status: PASS_NONQUALIFYING_SUPPORT_IMPORT
+  observation: LOCAL_EXECUTION
+  local_mirror: /mnt/data/w218-frontier
+  exact_loaded_files:
+    - path: tabs/cii-workspace/cii-workspace-path-candidates.js
+      blob: 618d3a36a5ead65bf48a0905828bed6a72f96887
+    - path: tabs/model-converters/xml-cii-inputxml-path-aligner.js
+      blob: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
+    - path: tabs/cii-workspace/cii-workspace-evidence.js
+      blob: 8c7e392d42308eb1cb6671314e55e99be8b72a57
+    - path: tabs/cii-workspace/cii-workspace-match-methods.js
+      blob: 20c129291d85d16558185b711dc1cd334769d21e
+    - path: tabs/cii-workspace/cii-workspace-geometry.js
+      blob: 86fbb79cb859225b1f980f8d3709dc5286f15c26
+    - path: tabs/cii-workspace/cii-workspace-contracts.js
+      blob: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
+  additional_exact_support_imports:
+    node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
+    components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
+    identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
+  runtime_outputs:
+    - W218_PATH_CANDIDATES_EXACT_SUPPORT_IMPORT_PASS
+    - W218_NODE_CUSTODY_EXACT_SUPPORT_IMPORT_PASS
+    - W218_COMPONENTS_EXACT_SUPPORT_IMPORT_PASS
+    - W218_IDENTITY_EXACT_SUPPORT_IMPORT_PASS
+  qualifying_for_w2_13_product_pass: false
+
+source_frontier:
+  prior_w217_frontier_crossed: true
+  path_candidates_dependency_slice_closed: true
+  next_public_core_boundary: tabs/cii-workspace/cii-workspace-engineering-delta.js
+  next_boundary_source_fetched: true
 
 custody_incidents:
   restraint_compaction_planner_terminal_lf_mismatch_detected: true
@@ -82,4 +90,4 @@ negative_assurance:
   writer3_changed: false
   workflow_changed: false
 
-next_gate: materialize exact cii-workspace-topology.js, verify Git object against main@297fb37a, rerun unchanged W2.13 synthetic entrypoint, and continue only through dependencies Node proves necessary
+next_gate: continue exact public-core reconstruction at cii-workspace-engineering-delta.js; rebuild enough of the authored W2.13 graph to rerun the unchanged entrypoint; only authored assertions can promote W2.13 to PASS or FAIL
