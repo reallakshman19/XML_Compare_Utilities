@@ -1,4 +1,4 @@
-# PR1055 work report — Writer2 W2.18 RESTRAINT product/runtime qualification
+# PR1055 work report — Writer2 program completion / release-freeze closure
 
 ## CURRENT STATE — READ FIRST
 
@@ -6,114 +6,95 @@
 HANDOVER_READINESS: READY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_ISSUE: #1052
-INHERITED_AUTHORITY_CORRECTION: Issue #1042 comments / W2.11 correction
+PROGRAM_ROADMAP: #1030
+INHERITED_CONTROL_CORRECTION: #1042
 PR: #1055
 BRANCH: agent/cii-writer2-restraint-product-runtime-w218
 BASE_MAIN: 297fb37a0e894a3aac91de9188ebf30e810781fb
 PREDECESSOR: PR #1054 / W2.17 / squash merged
-WORK_INTENT: INVESTIGATE / VALIDATE
+STACKED_INTENT: WRITER2_PROGRAM_COMPLETION_AND_RELEASE_FREEZE
 CRITICALITY: ENGINEERING_CRITICAL
-MUTATION_AUTHORITY: READ_ONLY_QUALIFICATION
-PRODUCTION_CHANGE_AUTHORITY: FALSE
+PRODUCTION_CHANGE_AUTHORITY: FALSE_BY_DEFAULT
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 PR_STATE: DRAFT
-CURRENT_GATE: W2_13_SYNTHETIC_PRODUCT_RUNTIME_DEPENDENCY_CLOSURE
-RELEASE_FREEZE: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+CURRENT_GATE: W2_PROGRAM_GATE_A_EXACT_W2_13_SYNTHETIC_RUNTIME
+PROGRAM_VERDICT: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+RESTRAINT_VERDICT: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 ```
 
-## 1. Qualification truth
+Owner direction now stacks the remaining Writer2 accomplishment work on this same PR. This does not widen engineering authority automatically. Any production mutation requires an observed authored failure plus a separately documented minimal authority-preserving correction.
+
+## 1. Binding #1042 inherited-authority correction
+
+Normative physical custody:
 
 ```text
-W2.11 RESTRAINT focused runtime = PASS_RUNTIME_EXACT_BLOB
-W2.12 R01-R22                  = PASS_RUNTIME_EXACT_BLOB
-W2.13 synthetic product        = NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-W2.13 retained-real-CII        = NOT_RUN_ENVIRONMENT
-inherited Writer2 regressions  = PARTIAL_PASS_W2_11_RESTRAINT_ONLY
-repository npm                 = NOT_RUN_ENVIRONMENT
-engineering failure            = NONE_OBSERVED
+CONTROL row1 / field4 / I13 = NONAM
+  -> preserve byte-identically
+
+CONTROL row2 / field4 / I13 = RESTRAINT block count
+  -> mutable only under qualified RESTRAINT cardinality authority
 ```
 
-The unchanged authored W2.13 entrypoint has not reached assertions in a complete exact dependency graph during the currently durable/re-observed evidence. A module-load stop is NOT a product failure and support imports are NOT a product pass.
-
-## 2. #1042 inherited-authority correction — normative
-
-Issue #1042 records the critical correction inherited from W2.10/W2.11:
+Current base source is re-grounded and correct:
 
 ```text
-CONTROL row1 / field4 / I13 = NONAM       -> preserve byte-identically
-CONTROL row2 / field4 / I13 = RESTRAINTS  -> qualified block-count mutation
+planner    -> CONTROL rows[1], decoded field[3]
+writer     -> CONTROL_COUNT_ROW_INDEX = 1
+              CONTROL_COUNT_FIELD_INDEX = 3
+validator  -> CONTROL_COUNT_ROW_INDEX = 1
+              CONTROL_COUNT_FIELD_INDEX = 3
 ```
 
-The incorrect inherited location was CONTROL row1/field4. Current `main@297fb37...` is re-grounded and correct:
+W2.11 P19 / W2.12 R09 remain the mandatory negative-assurance anchors. Any route that mutates row1/field4 is an engineering failure regardless of parseability.
 
-- `cii-workspace-writer2-restraint-delete-compaction-plan.js` reads `rows[1]` and numeric field index `3`;
-- `cii-workspace-writer2-restraint-delete-write.js` uses `CONTROL_COUNT_ROW_INDEX = 1`, `CONTROL_COUNT_FIELD_INDEX = 3`;
-- `cii-workspace-writer2-restraint-delete-validation.js` independently uses the same physical row/field definition;
-- W2.11 P19 remains the negative-assurance requirement that NONAM stay unchanged while RESTRAINTS decreases.
-
-This authority separation is mandatory for every W2.18 product/runtime claim. Any path that writes CONTROL row1/field4 is an engineering failure regardless of parseability.
-
-## 3. Exact authored gate
+## 2. Current runtime truth
 
 ```text
-command: node tests/cii-workspace-writer2-restraint-product-routing.test.js
-entrypoint blob: 9922377ddeda86fc9167d65f33c97095346e79fa
-status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-assertion failure observed: false
+W2.11 RESTRAINT physical DELETE      PASS_RUNTIME_EXACT_BLOB
+W2.12 R01-R22                        PASS_RUNTIME_EXACT_BLOB
+W2.13 synthetic product              NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+W2.13 retained-real-CII              NOT_RUN_ENVIRONMENT
+inherited Writer2 regressions        PARTIAL
+repository npm                       NOT_RUN_ENVIRONMENT
+browser/product Writer2 regression   NOT_RUN_ENVIRONMENT
+engineering failure                  NONE_OBSERVED
 ```
 
-PASS or FAIL requires the unchanged authored entrypoint to reach its assertions using exact repository bytes. No stubs, import rewrites, modified entrypoint, workflow-trigger gaming, or source-inspection-to-runtime promotion are authorized.
-
-## 4. Durable exact runtime support already recorded on PR1055
-
-Non-qualifying support imports previously observed and recorded include:
+The unchanged W2.13 synthetic entrypoint remains:
 
 ```text
-path_candidates      618d3a36a5ead65bf48a0905828bed6a72f96887
-path_aligner         6a9e17e0f4373d8d0e57111e2b135ea645b7e080
-evidence             8c7e392d42308eb1cb6671314e55e99be8b72a57
-match_methods        20c129291d85d16558185b711dc1cd334769d21e
-node_custody         8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
-components           aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
-identity             b30f5bade8e61ce7bf4d403cd6124cfa226287d9
-engineering_delta    790900cccc7da1486c57d52719dde6abfa500909
-writer1b_od          1ed7597f14339a554fe8a3555584241e416eb6ab
-writer1b_deltas      43435146a3cb4741882ccfa73f0315e5c92bcaaa
-restraint_pairing    18e01014aa716f0b3f15220b3c9454056bf0fc9d
-restraint_transfer   410843c343ed1915a925dee84129b174f514d803
-restraint_slot       907708a038eab1b56886bb5398e759d95e69af7c
-fixed_field          485daa43553681ca54f488499e57f36d2239be58
+node tests/cii-workspace-writer2-restraint-product-routing.test.js
+blob 9922377ddeda86fc9167d65f33c97095346e79fa
 ```
 
-These are support/runtime custody only. They do not qualify W2.13.
+No authored W2.13 assertion failure has been observed.
 
-## 5. Later-agent handoff testimony — preserved but not promoted
+## 3. Exact execution environment result — current checkpoint
 
-The incoming handoff reports that a later sparse-mirror session further admitted exact files, including:
+A fresh native checkout was attempted from the execution container and failed exactly with:
 
 ```text
-cii-workspace-path-gates.js                              320d7451d0922d6b65d4238c859707c3d77473db
-cii-workspace-target-writer-1c.js                        4b127d364d9e32519d82c25ea1f99672ed21552e
-cii-workspace-writer2-sif-delete-write.js                799685d9f3e5bddd794a9f9b4fd2e481558d5f2f
-cii-workspace-writer2-hanger-delete-all-write.js         5993c4e534438629a683b018f15dd013c37a20b2
-cii-workspace-writer2-hanger-partial-write.js            755057e9a276b0f4398989b44e86639a2bedfa05
-cii-workspace-writer2-composite-restraint-validation-support.js
-a5b8f07b733161ddfec222d1a80371bcd27794e7
-parser/sections/bends.js                                 4673fc54253f8d94e7c52d416b22e15f1e12a94d
-parser/sections/elements.js                              e0f6fbb30a4849d2659608eb10965a53b823286d
-parser/sections/forces.js                                d1d709fd4fe367c5e56ea29ec8cb1e3bf451bf7c
-parser/sections/restraints.js                            687f167678a2804c01de36e4a03561d8fa298f5d
-parser/sections/units.js                                 9aaca6ff54ee22af120ccb00307a1befacf82f45
-utils/formatter.js                                       e37c1bfed10d03be957e9f3f27e39e7f3bca7883
-cii-workspace-writer1c-nodename.js                       4eda5077279393b2256612fefd5581f09cd95f2e
+fatal: unable to access 'https://github.com/reallaksh19/XML_Compare_Utilities.git/':
+Could not resolve host: github.com
 ```
 
-The handoff further states that no authored assertion or engineering failure was observed and that the remaining load frontier had narrowed to five named modules. Because the prior sparse mirror is not present in the current execution runtime, this section is classified as `HANDOFF_TESTIMONY_NOT_REEXECUTED_THIS_CHECKPOINT` and is not promoted to PASS.
+Therefore:
 
-## 6. Current checkpoint — exact main source re-grounding of remaining named frontier
+```text
+NATIVE_EXACT_CHECKOUT = FAIL_ENVIRONMENT_DNS
+EXACT_EXECUTABLE_MIRROR = NOT_AVAILABLE_THIS_RUNTIME
+W2_13_SYNTHETIC_ASSERTIONS = NOT_RUN
+```
 
-This checkpoint independently fetched the remaining named source files from exact `BASE_MAIN` and verified their Git blob identities through the repository connector:
+No workflow-run or artifact substitution is being used. Source/static closure is not promoted to runtime PASS.
+
+## 4. Static dependency/source closure
+
+The late-agent handoff reported a sparse mirror reaching five remaining named modules. That prior runtime mirror did not persist, so its later execution testimony remains nonqualifying.
+
+This PR independently re-grounded the remaining named source frontier on exact BASE_MAIN:
 
 ```text
 parser/pdf-parser.js
@@ -130,34 +111,12 @@ tabs/cii-workspace/cii-workspace-writer2-hanger-partial-validation.js
 
 tabs/cii-workspace/cii-workspace-writer2-restraint-delete-validation.js
   1833d9fecc37061eaf2f51f1676e6386e1f9ac3c
-```
 
-The XML parser exposes one additional transitive import and it is also source-grounded:
-
-```text
 debug/support-debug.js
   edabff13f6563bbd0e6a9fa38b437ccd3cc42224
 ```
 
-Static import review of these modules finds no new engineering authority and no new unresolved dependency inside this bounded frontier:
-
-- `pdf-parser.js` -> `utils/formatter.js`;
-- `xml-elements.js` -> `utils/formatter.js`, `debug/support-debug.js`;
-- `parser/validator.js` -> no imports;
-- RESTRAINT validator -> contracts, physical-file, byte-sha256, W2.10 compaction planner;
-- hanger-partial validator -> contracts, fixed-field, physical-file, hanger delete/binding/tail-order/layout and byte-sha256.
-
-Supporting exact source identities re-grounded in this checkpoint include:
-
-```text
-cii-workspace-writer2-hanger-delete.js          d104fe291c0bda1b41c29604a98671dae8a23a9a
-cii-workspace-writer2-hanger-record-binding.js  7d860be728f1eddfb374391bae9b3ae49cac808c
-cii-workspace-writer2-hanger-tail-order.js      eda94b208239f324b45c9c70f57537c31a501e56
-cii-workspace-hanger.js                         71e5bca8cb3429878785244b5508e104add2fc57
-cii-workspace-byte-sha256.js                    6435e0eaadc382a18aac6a0bd46318ab6c27c714
-```
-
-Earlier durable core-frontier files are also source-grounded on exact base:
+Earlier exact core frontier is also grounded:
 
 ```text
 cii-workspace-compare-review.js   e3e8ae949dd57906743edfbdd030389d2b8e85d0
@@ -167,76 +126,300 @@ cii-workspace-placeholders.js     0bec565ac73ec7c06a78327725b6c6152fd81848
 cii-workspace-transfer-policy.js  5bb37b810e6b46fbb617d9e6fcf4d72fce1f307f
 ```
 
-Classification of this section:
+Classification:
 
 ```text
-SOURCE_IDENTITY_AND_STATIC_IMPORT_CLOSURE = PASS_SOURCE_INSPECTION
-RUNTIME_ADMISSION_OF_RECONSTRUCTED_FILES = NOT_OBSERVED_THIS_CHECKPOINT
-W2_13_PRODUCT_STATUS = UNCHANGED
+NAMED_STATIC_FRONTIER = CLOSED_SOURCE_INSPECTION
+RUNTIME_ADMISSION_OF_FULL_GRAPH = NOT_OBSERVED
 ```
 
-## 7. #1042 physical mutation surface remains exactly bounded
+The blocker is no longer an unknown import path. It is lack of an exact executable checkout/mirror in the current runtime.
+
+## 5. Program-level Writer2 capability matrix
+
+Canonical live matrix is now retained in:
 
 ```text
-1. CONTROL row2/field4 RESTRAINT block-count I13
-2. affected ELEMENT restraint-pointer I13 fields
-3. complete RESTRANT section-payload replacement/compaction
+docs/cii-writer2-release-freeze-matrix.md
 ```
 
-Forbidden:
+### NODENAME
+
+```text
+existing overwrite          Writer1C   DONE
+row CREATE                  Writer2    DONE
+row DELETE                  Writer2    DONE
+pointer allocation/reindex  Writer2    DONE
+node/topology mutation      Writer3    OUTSIDE_WRITER2
+```
+
+### SIF / TEE
+
+```text
+selected existing ii/io UPDATE   Writer1C   DONE
+existing block DELETE            Writer2    DONE
+block compaction/reindex          Writer2    DONE
+new block CREATE                  Writer2    SOURCE_BLOCKED
+```
+
+Current SIF CREATE verdict from PR #1033:
+
+```text
+NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
+```
+
+Hard unresolved source areas include V11 complete construction/default/sentinel semantics, unresolved item groups, unused slot representation, and complete Type+piping-code construction rules. Later edition B31J/V14 semantics may not be backported by item number.
+
+### HANGER
+
+```text
+H=1 delete-all                    Writer2   DONE
+H>1 delete-all                   Writer2   DONE
+H>1 partial DELETE               Writer2   DONE + PRODUCT_ROUTED
+packed-array compaction          Writer2   DONE for DELETE
+CONTROL.NOHGRS decrement         Writer2   DONE for DELETE
+new HANGER CREATE                Writer2   SOURCE_BLOCKED
+engineering value editing        none      NOT_AUTHORIZED
+```
+
+Merged W2.5 / PR #1037 verdict:
+
+```text
+NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
+```
+
+Retained hard blockers:
+
+```text
+GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
+FIRST_HANGER_HEADER_DEFAULTS_UNRESOLVED
+REPOSITORY_FALLBACK_DEFAULT_CONFLICT
+NEW_HANGER_RECORD_INSERTION_POLICY_UNRESOLVED
+OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
+REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
+```
+
+### RESTRAINT
+
+```text
+existing numeric update                  Writer1A/1B DONE
+free-slot CREATE/CLEAR                   Writer1B    DONE
+24-row block DELETE planner              Writer2     DONE
+physical block DELETE/compaction         Writer2     DONE
+one-TARGET0 composite adoption           Writer2     DONE
+product/core adoption                    Writer2     IMPLEMENTED / RUNTIME_PENDING
+new block CREATE/allocation              Writer2     SOURCE_BLOCKED
+```
+
+W2.13 product/core implementation was merged in PR #1047. The current deficiency is runtime/release evidence, not duplicate implementation.
+
+Current RESTRAINT CREATE blocker remains:
+
+```text
+WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
+```
+
+## 6. Definition of Writer2 accomplishment
+
+Writer2 completion does not require guessing source-blocked CREATE defaults.
+
+Program freeze requires:
+
+```text
+all source-qualified Writer2 operations implemented
+all implemented Writer2 operations dispositioned by required exact runtime tests
+one untouched TARGET0 for composite transactions
+canonical BOUND APPLY/EXCLUDE custody
+cryptographic TARGET0 custody
+complete deterministic relocation maps
+original-coordinate claim arbitration
+no last-writer-wins overlap handling
+one final splice pass
+postimage SHA custody
+canonical physical re-intake
+independent complete-postimage validators
+Writer testimony secondary to independent final-byte reconstruction
+Writer1A/1B/1C adjacent regressions dispositioned
+repository gate disposition explicit
+browser/product gate disposition explicit
+all available real-source roundtrips dispositioned
+all unresolved CREATE families have explicit fail-closed blockers
+no ambiguous generic FUTURE_WRITER operation remains
+no Writer3 topology leakage
+zero unexplained changed paths
+```
+
+Final program verdict is one of:
+
+```text
+READY_FOR_WRITER2_RELEASE_FREEZE
+NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+```
+
+## 7. Stacked PR1055 execution gates
+
+### Gate A — W2.13 synthetic product
+
+Required:
+
+```text
+exact repository bytes
+unchanged authored entrypoint
+actual assertions execute
+BOUND APPLY/EXCLUDE scope
+core dispatch to W2.12 restraint composite
+independent complete-postimage product validation
+RESTRAINT CREATE block
+stale-target block
+forged testimony/schema block
+no-RESTRAINT route non-regression
+#1042 NONAM/RESTRAINTS separation
+```
+
+Current state:
+
+```text
+NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+```
+
+### Gate B — retained-real-CII RESTRAINT product
+
+Run only after Gate A reaches assertions and passes or a real defect is corrected/requalified.
+
+### Gate C — inherited Writer2 regressions
+
+At minimum:
+
+```text
+cii-workspace-writer2-composite-product-routing.test.js
+cii-workspace-writer2-hanger-partial-product.test.js
+cii-workspace-writer2-hanger-partial-deleted-testimony.test.js
+cii-workspace-writer2-real-benchmark-roundtrip.test.js
+cii-workspace-writer2-trifamily-real-benchmark-roundtrip.test.js
+```
+
+Include NODE/SIF/HANGER predecessor tests required by the exact dependency graph.
+
+### Gate D — repository / adjacent / browser
+
+```text
+Writer1A focused regressions
+Writer1B focused regressions
+Writer1C focused regressions
+CII Workspace full focused suite
+npm ci
+npm test
+browser/product Writer2 path
+```
+
+Unexecuted checks remain NOT_RUN.
+
+### Gate E — mature DELETE/cardinality freeze
+
+Freeze the currently implemented NODENAME/SIF/HANGER/RESTRAINT structural DELETE/cardinality authority only after Gates A-D are dispositioned.
+
+### Gate F — CREATE source acquisition refresh
+
+For each of SIF/HANGER/RESTRAINT CREATE:
+
+```text
+SOURCE_BLOCKED -> source acquisition/qualification -> explicit READY or remain SOURCE_BLOCKED
+```
+
+Only an explicit source READY verdict can authorize implementation. No CREATE family will be implemented merely because DELETE mechanics are mature.
+
+### Gate G — remaining auxiliary/cardinality audit
+
+Every structural request must be classified as exactly one of:
+
+```text
+WRITER1A/1B/1C
+WRITER2_DONE
+WRITER2_SOURCE_BLOCKED
+WRITER3
+NOT_SUPPORTED_BY_SOURCE
+```
+
+No generic process-default Writer2 is authorized.
+
+### Gate H — final Writer2 release/freeze verdict
+
+Publish final capability matrix and exact residual ledger.
+
+## 8. Negative-assurance boundaries
+
+Remain blocked / unchanged unless separately source-qualified:
 
 ```text
 CONTROL row1/field4 NONAM mutation
-RESTRAINT CREATE/new block allocation
-GUID/default synthesis
+RESTRAINT CREATE/new-block allocation
 SIF CREATE
 HANGER CREATE
-Writer3 topology
-production/test/workflow changes merely to make qualification execute
+HANGER attribute/value editing
+Writer3 node/element/connectivity/topology mutation
+parser/converter semantic changes merely to make Writer2 pass
+workflow trigger gaming
+fabricated real/native qualification
 ```
 
-The live physical writer uses `CONTROL_COUNT_ROW_INDEX = 1` / `FIELD_INDEX = 3`; the independent validator uses the same corrected physical location and reconstructs complete expected postimage bytes before trusting Writer testimony.
+## 9. Current changed-file ledger
 
-## 8. Environment truth
-
-```text
-prior sparse execution mirror: not retained in this runtime
-complete exact Git checkout: unavailable
-repository npm: NOT_RUN_ENVIRONMENT
-current checkpoint runtime W2.13 assertions: NOT_RUN
-```
-
-Therefore source closure cannot be represented as runtime product qualification.
-
-## 9. Changed-file ledger
-
-PR #1055 remains evidence/coordination only:
+Expected stacked PR paths at this checkpoint:
 
 ```text
 agents/PR1055_workreport.md
 agents/status/PR1055.yaml
 agents/claims/PR1055.yaml
+docs/cii-writer2-release-freeze-matrix.md
 ```
 
-No production, test, benchmark, parser/converter, UI, workflow, or Writer3 source is modified by W2.18.
+Production/test/parser/converter/UI/workflow files remain unchanged at this checkpoint.
 
-## 10. Exact continuation
+## 10. Checkpoint history
 
-1. Rebuild or obtain an exact executable sparse/full graph from `main@297fb37...` without stubs or import rewrites.
-2. Admit every loaded repository file only when local `git hash-object(file)` equals the exact Git blob.
-3. Rerun unchanged `node tests/cii-workspace-writer2-restraint-product-routing.test.js` until its actual assertions execute.
-4. If assertions pass, run retained-real-CII product test, inherited Writer2 regressions, then repository npm only on a complete exact checkout.
-5. If any assertion fails, preserve raw output and isolate the smallest authority-preserving defect before any production change.
-6. Do not merge PR #1055 without new explicit owner authorization.
+```text
+W2.11
+  RESTRAINT physical DELETE + independent validator
+  focused runtime PASS retained
+
+W2.12
+  one-TARGET0 RESTRAINT composite adoption
+  R01-R22 runtime PASS retained
+
+W2.13 / PR #1047
+  RESTRAINT product/core route implemented and merged
+  runtime residual accepted at merge
+
+W2.14-W2.17
+  evidence/runtime closure attempts
+  exact sparse-mirror dependency reconstruction
+
+W2.18 / PR #1055
+  source/static frontier closed
+  #1042 inherited correction re-grounded
+  exact executable environment still unavailable
+  owner directs remaining Writer2 accomplishment to stay stacked on same PR
+  program-level release/freeze matrix established
+```
 
 ## Appendix A — takeover gate
 
-A1. Explain the #1042 correction: CONTROL row1/field4 is NONAM and immutable; row2/field4 is RESTRAINTS/I13 and mutable only under W2.11 DELETE compaction authority.
+A1. State the #1042 CONTROL correction exactly and identify the only qualified RESTRAINT count field.
 
-A2. Trace RESTRAINT DELETE from Writer1B qualified slot CLEAR -> W2.10 compaction planner -> W2.11 physical writer -> W2.12 one-TARGET0 composite -> W2.13 public core -> canonical re-intake -> independent complete-postimage validation.
+A2. Trace RESTRAINT DELETE from Writer1B slot CLEAR -> W2.10 planner -> W2.11 physical writer -> W2.12 one-TARGET0 composite -> W2.13 core/product -> canonical re-intake -> independent complete-postimage validation.
 
-A3. Explain why source/static closure is not runtime qualification.
+A3. Explain why source/static dependency closure is not W2.13 runtime qualification.
 
-A4. Require exact Git-object equality for every loaded repository file and reject near-matches, including terminal-newline drift.
+A4. Explain why Writer2 may freeze with CREATE families SOURCE_BLOCKED, but may not freeze with ambiguous unclassified structural operations.
 
-A5. State release/freeze truth: `NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE` until required runtime gates execute.
+A5. Explain why SIF/HANGER/RESTRAINT CREATE source gaps cannot be inferred from mature DELETE mechanics.
+
+A6. Define the one-TARGET0/original-coordinate/no-last-writer-wins architecture.
+
+A7. State the exact Gate A-D runtime requirements before mature RESTRAINT DELETE can be release-frozen.
+
+A8. State the final program verdict rule: READY requires all source-qualified operations implemented and validated, all unresolved CREATE families fail-closed and explicitly classified, and no Writer3 scope leakage.
+
+## EXACT NEXT ACTION
+
+Obtain/reconstruct an exact executable graph for `main@297fb37a0e894a3aac91de9188ebf30e810781fb` without stubs/import rewrites and run the unchanged W2.13 synthetic product entrypoint until its actual assertions execute. In parallel, maintain the program capability matrix and source-blocked CREATE ledger; do not implement CREATE without an explicit source-ready verdict. Do not merge PR #1055 without fresh owner authorization.
