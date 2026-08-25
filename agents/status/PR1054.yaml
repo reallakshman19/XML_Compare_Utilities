@@ -1,0 +1,49 @@
+pr: 1054
+issue: 1052
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-runtime-w217
+base_main: 3a681c1c587ee3c1462a962879e4f79433258105
+current_stage: W2_13_PRODUCT_RUNTIME
+agent_state: READ_ONLY_QUALIFICATION
+handover_readiness: READY
+criticality: ENGINEERING_CRITICAL
+production_change_authority: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+ready_for_review: false
+pr_state: DRAFT
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+
+predecessor:
+  pr: 1053
+  phase: W2_16_RUNTIME_CHECKPOINT
+  merge_sha: 3a681c1c587ee3c1462a962879e4f79433258105
+
+coordination:
+  open_sif_create_pr: 1033
+  restraint_runtime_overlap: NONE_FOUND
+  classification: SAFE_WITH_PRESERVED_SIF_CREATE_BLOCKER
+
+runtime:
+  w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
+  w2_11_control_p19: PASS_RUNTIME_EXACT_BLOB
+  w2_11_falsifiers: PASS_RUNTIME_EXACT_BLOB
+  w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
+  w2_13_synthetic_runtime: NOT_RUN_ENVIRONMENT
+  w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
+  inherited_writer2_regression: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+  repository_npm: NOT_RUN_ENVIRONMENT
+  engineering_failure: NONE_OBSERVED
+
+negative_assurance:
+  control_row1_nonam_protected: true
+  control_row2_restraints_authority_preserved: true
+  production_changed: false
+  restraint_create_enabled: false
+  sif_create_enabled: false
+  hanger_create_enabled: false
+  writer3_changed: false
+  parser_converter_changed: false
+  workflow_changed: false
+
+next_gate: execute exact-blob W2.13 product-routing and retained-real-CII entrypoints, then inherited Writer2 regressions
