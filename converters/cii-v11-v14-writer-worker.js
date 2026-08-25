@@ -98,6 +98,8 @@ function cleanupJobDir(pyodide, jobDir, paths) {
 async function runJob(message) {
   const pyodide = await getRuntime();
   await ensureScripts(pyodide);
+  const inputBytes = new Uint8Array(message.inputBytes || new ArrayBuffer(0));
+  if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');
   const jobId = sanitizeFileName(message.jobId || `job-${Date.now()}`);
   const jobDir = `${WORK_ROOT}/${jobId}`;
   pyodide.FS.mkdirTree(jobDir);
@@ -105,8 +107,6 @@ async function runJob(message) {
   const inputPath = `${jobDir}/${inputName}`;
   const outputPath = `${jobDir}/converted.cii`;
   const auditPath = `${jobDir}/conversion.audit.json`;
-  const inputBytes = new Uint8Array(message.inputBytes || new ArrayBuffer(0));
-  if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');
   pyodide.FS.writeFile(inputPath, inputBytes);
   const targetVersion = ['11', '14'].includes(String(message.targetVersion))
     ? String(message.targetVersion)
