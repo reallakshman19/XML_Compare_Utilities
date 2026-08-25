@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   ciiBytesEqual,
+  ciiSha256,
   detectCiiNeutralVersion,
 } from '../tabs/cii-workspace/cii-workspace-v11-v14-converter.js';
 
@@ -37,16 +38,25 @@ assert.match(worker, /cii2019_section_rules\.py/);
 assert.doesNotMatch(worker, /FROZEN_SCRIPT_ROOT\s*=\s*['"]\.\/scripts\/['"]/);
 assert.match(worker, /FS\.unlink\(path\)/, 'worker must remove job files before removing the job directory');
 assert.match(worker, /cleanupJobDir\(pyodide, jobDir, \[inputPath, outputPath, auditPath\]\)/);
+assert.ok(
+  worker.indexOf("if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');") < worker.indexOf('pyodide.FS.mkdirTree(jobDir);'),
+  'empty input must be rejected before allocating a job directory',
+);
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
+assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH/);
+assert.match(converter, /CII_VERSION_BRIDGE_TARGET_SHA256_AUDIT_MISMATCH/);
 assert.match(converter, /Math\.abs\(numeric - major\) > 1e-6/);
 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
 assert.match(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /MODIFIED_ROUNDTRIP_NOT_EXACT/);
+assert.match(bridge, /sourceSha256:\s*down\.sourceSha256/);
+assert.match(bridge, /down\.sourceSha256 !== bridge\.target\.originalSha256/);
+assert.doesNotMatch(bridge, /down\.audit\?\.source_sha256/);
 assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
 
 const v11 = '#$ VERSION\n        5.00000      11.0000    1252\n#$ CONTROL\n';
@@ -56,5 +66,8 @@ assert.equal(detectCiiNeutralVersion(v14), 14);
 assert.equal(ciiBytesEqual(v11, new TextEncoder().encode(v11)), true);
 assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 12.0\n'), /UNSUPPORTED_VERSION/);
 assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 11.4\n'), /UNSUPPORTED_VERSION/);
+
+const expectedV11Sha = createHash('sha256').update(Buffer.from(v11, 'utf8')).digest('hex');
+assert.equal(await ciiSha256(v11, webcrypto), expectedV11Sha, 'browser-style SHA custody must agree with independent Node SHA-256');
 
 console.log('CII Workspace frozen 3D_Converters v11/v14 source custody: PASS');
