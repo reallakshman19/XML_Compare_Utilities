@@ -9,41 +9,42 @@ V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37a
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
-The V14 bridge does not create new Writer2 engineering semantics. It translates an admissible V14 neutral file to the already-qualified V11 mutation domain and back by using the frozen existing converter.
+The V14 bridge creates no new Writer2 engineering semantics. It transports an admissible V14 neutral file through the already-qualified V11 mutation domain by using the frozen existing converter.
 
-Canonical bridge design:
+## 1. Global invariants
 
-```text
-docs/cii-writer2-v11-v14-lossless-bridge.md
-```
-
-## 1. Global Writer2 invariants
+Writer2 V11 invariants:
 
 ```text
 one untouched writer-domain TARGET0
-canonical explicit BOUND APPLY / EXCLUDE scope
+canonical BOUND APPLY / EXCLUDE scope
 cryptographic target custody
 original-coordinate claim arbitration
-no last-writer-wins overlap handling
+no last-writer-wins
 one final V11 splice pass
 independent complete V11 postimage oracle
-no fabricated source authority
+no fabricated authority
 no unexecuted test represented as PASS
 no Writer3 topology leakage
 ```
 
-For a V14 target, additional mandatory invariants are:
+Additional V14 bridge invariants:
 
 ```text
 frozen pinned 3D_Converters source only
 allow_lossy = false
-exact untouched V14 -> V11 -> V14 byte roundtrip
+physical VERSION independently admitted as exact major 11 or 14
+converter source/output VERSION testimony independently checked
+independent JS SHA-256 must agree with converter source/output SHA testimony
+exact untouched V14 -> V11 -> V14 byte admission
 existing V11 Writer2 only
-exact modified V11 -> V14 -> V11 byte roundtrip
+V11 Writer2 authoritative byteString required for restoration
+V11 postimage SHA must agree across Writer2 and conversion boundary
+exact modified V11 -> V14 -> V11 byte proof
 no broad converter canonicalization admitted as Writer2 mutation
 ```
 
-## 2. Binding #1042 CONTROL correction
+## 2. Binding Issue #1042
 
 ```text
 CONTROL row1 / field4 / I13 = NONAM
@@ -59,20 +60,20 @@ W2.11 P19 and W2.12 R09 remain mandatory negative-assurance anchors.
 
 | Family / operation | Owner | V11 disposition | V14 disposition |
 |---|---|---|---|
-| NODENAME existing field update | Writer1C | DONE | via bridge only after bridge qualification |
-| NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | via bridge only after bridge qualification |
-| SIF existing qualified ii/io update | Writer1C | DONE | via bridge only if exact-roundtrip admissible |
-| SIF block DELETE/compaction/reindex | Writer2 | DONE | via bridge only if exact-roundtrip admissible |
-| SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
-| HANGER delete-all | Writer2 | DONE | via bridge only if exact-roundtrip admissible |
-| HANGER H>1 partial DELETE/repack | Writer2 | DONE_PRODUCT_ROUTED | via bridge only after bridge qualification |
-| HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
-| RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | via bridge only after bridge qualification |
-| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | bridge IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY |
-| RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
+| NODENAME existing field update | Writer1C | DONE | bridge only after qualification |
+| NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | bridge only after qualification |
+| SIF existing qualified ii/io update | Writer1C | DONE | bridge only when exact-roundtrip admissible |
+| SIF block DELETE/compaction/reindex | Writer2 | DONE | bridge only when exact-roundtrip admissible |
+| SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
+| HANGER delete-all | Writer2 | DONE | bridge only when exact-roundtrip admissible |
+| HANGER H>1 partial DELETE/repack | Writer2 | DONE_PRODUCT_ROUTED | bridge only after qualification |
+| HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
+| RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | bridge only after qualification |
+| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | IMPLEMENTED_HARDENED_RUNTIME_PENDING |
+| RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
 | node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
-## 4. V11 CREATE boundary remains authoritative
+## 4. V11 CREATE boundary
 
 ```text
 SIF_CREATE        SOURCE_BLOCKED_REAFFIRMED_V11
@@ -86,17 +87,11 @@ Canonical V11 source record:
 docs/cii-writer2-create-source-refresh-2026-08-25.md
 ```
 
-The frozen converter's knowledge of V14 physical dialect is not authority to synthesize a Writer2 CREATE operation that is blocked in the V11 mutation policy.
+The V14 converter cannot fill these V11 engineering-authority gaps.
 
 ## 5. Frozen converter custody
 
-Pinned source files are vendored byte-identically under:
-
-```text
-converters/scripts/cii-v11-v14-upstream/
-```
-
-Current target and pinned upstream Git blobs were re-compared and match exactly:
+Pinned target/upstream Git blobs match exactly:
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -107,31 +102,46 @@ cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
 cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 ```
 
-Disposition:
-
 ```text
 FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
 ```
 
-The XML repository's pre-existing `converters/scripts/cii2019_section_rules.py` is not substituted for the upstream dependency because the two blobs differ.
+XML's pre-existing `cii2019_section_rules.py` is not substituted.
 
-## 6. V14 bridge implementation state
+## 6. Hardened bridge implementation
 
 ```text
-frozen upstream Python engine       COPIED_EXACT_BLOB
-isolated dependency root            IMPLEMENTED
-Pyodide worker adapter              IMPLEMENTED
-JS conversion client                IMPLEMENTED
-inspection/preview V14->V11 bridge  IMPLEMENTED_ADDITIVE_API
-stale original V14 target custody   IMPLEMENTED
-V11 Writer2 invocation              REUSES_EXISTING_CORE
-V11->V14 restoration                IMPLEMENTED
-baseline exact roundtrip gate       IMPLEMENTED
-modified exact roundtrip gate       IMPLEMENTED
-live Writer2 UI automatic adoption  PENDING_QUALIFICATION
+frozen upstream Python engine        COPIED_EXACT_BLOB
+isolated dependency root             IMPLEMENTED
+Pyodide worker adapter               IMPLEMENTED_HARDENED
+JS conversion client                 IMPLEMENTED_HARDENED
+inspection/preview normalization     IMPLEMENTED_ADDITIVE_API
+stale original V14 target custody    INDEPENDENT_JS_SHA
+V11 Writer2 invocation               REUSES_EXISTING_CORE
+V11 postimage input to converter     AUTHORITATIVE_BYTESTRING
+V11 postimage SHA cross-check        IMPLEMENTED
+V11->V14 restoration                 IMPLEMENTED
+baseline exact roundtrip gate        IMPLEMENTED
+modified exact roundtrip gate        IMPLEMENTED
+live Writer2 UI automatic adoption   PENDING_QUALIFICATION
 ```
 
-No existing V11 core writer source was changed to implement the bridge.
+Adapter hardening includes:
+
+```text
+job files unlinked before Pyodide directory removal
+empty input rejected before FS allocation
+messageerror / worker error reject all pending and reset worker
+postMessage failure removes pending request
+physical source/output VERSION independently checked
+11.4-style version alias blocked
+independent JS input/output SHA cross-checks converter audit
+V14 stale target uses independent JS SHA
+V11 Writer2 text view excluded from V14 restoration authority
+exact Writer2 byte postimage + postimage SHA cross-boundary custody
+```
+
+No frozen Python or V11 core writer source was changed by these fixes.
 
 ## 7. Runtime evidence
 
@@ -140,45 +150,50 @@ W2.11 RESTRAINT physical runtime          PASS_RUNTIME_EXACT_BLOB
 W2.12 R01-R22                             PASS_RUNTIME_EXACT_BLOB
 W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_ENVIRONMENT
-frozen source Git-blob custody             PASS_EXACT_BLOB_CUSTODY
-extracted high-risk converter runtime      PASS_RUNTIME_EXACT_SOURCE_EXCERPT
-frozen-source authored target test         NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-frozen-engine authored Python test         NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-real V14 bridge baseline                   NOT_RUN
-real V14 Writer2 mutation                  NOT_RUN
-browser V14 bridge                         NOT_RUN
-repository npm                              NOT_RUN_ENVIRONMENT
+
+frozen source Git-blob custody            PASS_EXACT_BLOB_CUSTODY
+extracted high-risk converter runtime     PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+frozen-source authored JS test            NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+frozen-engine authored Python test        NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+real V14 bridge baseline                  NOT_RUN
+real V14 Writer2 mutation                 NOT_RUN
+browser V14 bridge                        NOT_RUN
+repository npm                             NOT_RUN_ENVIRONMENT
 ```
 
-Extracted-source runtime evidence:
-
-```text
-docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
-```
-
-Executed high-risk falsifiers:
+Executed extracted-source falsifiers:
 
 ```text
 VERSION 11 admitted                               PASS
 VERSION 14 admitted                               PASS
 VERSION 12 rejected                               PASS
-V14 SIF axial/torsion item15/item16 swap          PASS
+V14 SIF item15/item16 semantic swap               PASS
 non-zero V14 SIF item27 rejected                  PASS
 ambiguous non-zero V11 SIF item19 rejected        PASS
 V14 empty restraint stiffness -> V11 sentinel     PASS
 non-zero V14 ALLOWBLS item154 rejected            PASS
 ```
 
-The excerpt run is not full-engine qualification. Authored exact-repository tests remain mandatory:
+Evidence:
+
+```text
+docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+```
+
+This evidence is not promoted to full-engine or product PASS.
+
+## 8. Authored falsifiers still pending runtime
 
 ```text
 tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v11-v14-frozen-engine.test.py
 ```
 
-GitHub Actions are not authorized for this workstream. The temporary bridge workflow has been removed and no workflow result is used as evidence.
+The static authored test now protects frozen blob custody plus adapter lifecycle, physical version admission, independent SHA custody, exact byteString handling, V11 postimage SHA custody, and no-lossy/no-text-authority regressions.
 
-## 8. Structural-family classification
+GitHub Actions are not authorized; the temporary workflow was removed.
+
+## 9. Structural-family classification
 
 ```text
 Writer1-class   PROCESS / WALL / qualified OD / RIGID weight
@@ -194,21 +209,19 @@ AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE NONE_OBSERVED
 UNKNOWN_FAMILY_BEHAVIOR               FAIL_CLOSED
 ```
 
-## 9. Remaining gates
+## 10. Remaining gates
 
 ```text
-BRIDGE A  exact repository module graph: authored frozen-source + frozen-engine tests
-BRIDGE B  real/native V14 baseline exact V14->V11->V14 admission
-BRIDGE C  real qualified Writer2 mutation through V14->V11->Writer2->V14
-BRIDGE D  exact modified V11->V14->V11 proof + browser/product adoption
-
-W2 A      unchanged W2.13 synthetic product assertions
-W2 B      retained-real V11 RESTRAINT product runtime
+BRIDGE A  exact module graph: authored frozen-source + frozen-engine tests
+W2 A      unchanged W2.13 synthetic product
+W2 B      retained-real V11 RESTRAINT product
+BRIDGE B  retained/native V14 baseline exact V14->V11->V14 admission
+BRIDGE C  real V14->V11->Writer2->V14 mutation + exact modified proof
 W2 C      inherited Writer2 NODE/SIF/HANGER regressions
 W2 D      Writer1 adjacent + repository npm + browser/product regressions
 W2 H      final Writer2 release/freeze verdict
 ```
 
-## 10. Freeze rule
+## 11. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires all source-qualified V11 Writer2 operations to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and any V14 route exposed in production to pass the exact lossless bridge gates. No lossy V14 conversion, broad unrelated-byte canonicalization, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and every V14 route exposed in production to pass the exact lossless bridge gates. No lossy V14 conversion, unrelated-byte canonicalization, audit-only SHA custody, text-based postimage authority, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
