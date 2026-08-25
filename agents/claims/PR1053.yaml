@@ -4,9 +4,10 @@ repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-runtime-w216
 base_main: a0098a7b6f1aff9f0219b051da964c6a9adad5ce
 claim_state: W2_12_RUNTIME_PASS_W2_13_PENDING
-ready_for_review: false
+ready_for_review: true
 merge_authority: OWNER_ONLY
-merge_authorized: false
+merge_authorized: true
+merge_authorization_source: OWNER_INSTRUCTION_2026_08_25_MERGE_PROCEED_NEXT
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 claims:
@@ -71,5 +72,5 @@ negative_assurance:
   production_diff: NONE
   workflow_diff: NONE
 
-qualification_rule: only authored entrypoint assertions qualify runtime gates; W2.12 is now observed PASS, but release/freeze remains NOT_READY until W2.13 product plus inherited Writer2 regression gates are observed
-next_claim_gate: execute exact-blob W2.13 product-routing and retained-real-CII entrypoints
+qualification_rule: only authored entrypoint assertions qualify runtime gates; W2.12 is observed PASS, but release/freeze remains NOT_READY until W2.13 product plus inherited Writer2 regression gates are observed
+next_claim_gate: after authorized checkpoint merge, execute exact-blob W2.13 product-routing and retained-real-CII entrypoints plus inherited Writer2 regressions in a separate successor PR
