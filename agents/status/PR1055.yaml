@@ -3,11 +3,12 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_PROGRAM_RUNTIME_RELEASE_CLOSURE
+current_stage: W2_19_V11_V14_FROZEN_CONVERTER_BRIDGE
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
-production_change_authority: false_by_default
+production_change_authority: OWNER_AUTHORIZED_COPY_ADAPT_3D_CONVERTERS_ONLY
+source_repository_mutation_authority: NONE
 merge_authority: OWNER_ONLY
 merge_authorized: false
 ready_for_review: false
@@ -15,12 +16,46 @@ pr_state: DRAFT
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 restraint_release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
+source_reuse:
+  repository: reallaksh19/3D_Converters
+  pinned_commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+  source_repository_modified: false
+  frozen_target_directory: converters/scripts/cii-v11-v14-upstream
+  policy: FROZEN_PYTHON_BYTE_IDENTICAL_ADAPT_INTEGRATION_ONLY
+  verified_target_blob_identity:
+    cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
+    cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
+    cii_v11_v14_records.py: 1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
+    cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
+    cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
+    cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
+  local_xml_section_rules_reused: false
+  reason: local XML cii2019_section_rules.py is not byte-identical to pinned upstream dependency
+
+writer_version_architecture:
+  v11_path: EXISTING_QUALIFIED_WRITER_UNCHANGED
+  v14_path: LOSSLESS_3D_CONVERTERS_V14_TO_V11_THEN_EXISTING_V11_WRITER_THEN_V11_TO_V14
+  allow_lossy_in_writer_bridge: false
+  baseline_cross_version_exact_roundtrip_required: true
+  modified_cross_version_exact_roundtrip_required: true
+  v14_broad_canonicalizing_rewrite_allowed: false
+  independent_new_v14_neutral_writer_created: false
+  v14_create_semantics_promoted: false
+  architecture_document: docs/cii-writer2-v11-v14-lossless-bridge.md
+
+bridge_modules:
+  worker: converters/cii-v11-v14-writer-worker.js
+  client: tabs/cii-workspace/cii-workspace-v11-v14-converter.js
+  writer_bridge: tabs/cii-workspace/cii-workspace-writer-version-bridge.js
+  core_v11_writer_modified: false
+  live_ui_auto_routing_modified: false
+  integration_state: ADDITIVE_API_IMPLEMENTED_PRODUCT_UI_ADOPTION_PENDING_QUALIFICATION
+
 source_authority_scope:
   writer2_create_edition: CAESAR_II_2019_VERSION_11_ONLY
-  neutral_interface: VERSION_11_00
-  later_edition_authority_allowed: false
-  v12_v14_current_semantics_may_fill_v11_gaps: false
-  source_document: docs/cii-writer2-create-source-refresh-2026-08-25.md
+  v11_create_source_document: docs/cii-writer2-create-source-refresh-2026-08-25.md
+  v14_dialect_conversion_authority: PINNED_3D_CONVERTERS_ENGINE
+  v14_dialect_bridge_does_not_fill_v11_create_gaps: true
 
 inherited_authority_correction:
   source: issue_1042
@@ -38,23 +73,27 @@ runtime:
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
+  v11_v14_frozen_source_test: NOT_RUN_ENVIRONMENT
+  v11_v14_frozen_engine_synthetic_test: NOT_RUN_ENVIRONMENT
+  v14_writer_bridge_browser_runtime: NOT_RUN
   inherited_writer2_regression: PARTIAL
   writer1_adjacent_regression: NOT_RUN_ENVIRONMENT
   repository_npm: NOT_RUN_ENVIRONMENT
-  browser_product_writer2: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
 
 execution_environment:
   native_clone_result: FAIL_ENVIRONMENT_DNS
-  raw_failure: Could not resolve host github.com
+  raw_download_result: FAIL_ENVIRONMENT_DNS
+  raw_failure: Could not resolve host github.com/raw.githubusercontent.com
   exact_executable_mirror_available: false
-  workflow_substitution_used: false
-  source_inspection_promoted_to_runtime_pass: false
+  local_source_inspection_promoted_to_runtime_pass: false
 
-static_dependency_closure:
-  state: PASS_SOURCE_INSPECTION
-  named_frontier_closed: true
-  runtime_admission_observed: false
+qualification_workflow:
+  path: .github/workflows/cii-writer-v11-v14-bridge.yml
+  exact_checkout_static_blob_test: DEFINED_NOT_RUN
+  synthetic_python_falsifiers: DEFINED_NOT_RUN
+  workflow_run_observed: false
+  combined_status_observed: false
 
 program_matrix:
   document: docs/cii-writer2-release-freeze-matrix.md
@@ -69,33 +108,8 @@ program_matrix:
   restraint_delete_composite: DONE
   restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
   restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
+  v14_lossless_dialect_bridge: IMPLEMENTED_NOT_RUN
   writer3_topology: OUTSIDE_WRITER2
-
-v11_create_source_closure:
-  gate_f: COMPLETE
-  authority_scope: CAESAR_II_2019_VERSION_11_ONLY
-  sif:
-    exact_v11_schema_items_1_26: PASS_VENDOR_V11
-    items_27_30: UNRESOLVED
-    complete_60_position_create_contract: UNRESOLVED
-    disposition: COMPLETE_SOURCE_BLOCKED_V11
-  hanger:
-    exact_v11_physical_dictionary: PASS_VENDOR_V11
-    exact_v11_guid_ownership: PASS_VENDOR_V11
-    guid_create_rule: UNRESOLVED
-    complete_defaults: UNRESOLVED
-    insertion_policy: UNRESOLVED
-    native_h0_h1_h2_transition: NOT_AVAILABLE
-    disposition: COMPLETE_SOURCE_BLOCKED_V11
-  restraint:
-    v11_block_shape: PASS_VENDOR_AND_REAL_V11
-    exact_v11_guid_ownership: PASS_VENDOR_V11
-    guid_create_rule: UNRESOLVED
-    type_dependent_complete_payload: UNRESOLVED
-    block_allocation_policy: UNRESOLVED
-    native_create_transition: NOT_AVAILABLE
-    disposition: COMPLETE_SOURCE_BLOCKED_V11
-  production_create_change: false
 
 structural_family_audit:
   gate_g: PASS_SOURCE_INSPECTION
@@ -103,30 +117,38 @@ structural_family_audit:
   ambiguous_generic_future_writer_route: NONE_OBSERVED
   unknown_family_behavior: FAIL_CLOSED
 
-remaining_program_gates:
-  gate_a_w2_13_synthetic: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
-  gate_b_real_cii_restraint: NOT_RUN_ENVIRONMENT
-  gate_c_inherited_writer2_regressions: PARTIAL
-  gate_d_adjacent_repository_browser: NOT_RUN_ENVIRONMENT
-  gate_e_delete_cardinality_freeze: BLOCKED_BY_A_TO_D
-  gate_h_program_verdict: NOT_READY
-
 negative_assurance:
   control_row1_nonam_protected: true
   control_row2_restraints_authority_preserved: true
-  production_changed_this_checkpoint: false
   restraint_create_enabled: false
   sif_create_enabled: false
   hanger_create_enabled: false
-  later_edition_create_semantics_admitted: false
+  lossy_v14_bridge_enabled: false
+  source_3d_converters_modified: false
+  core_v11_writer_modified: false
   writer3_changed: false
-  workflow_changed: false
+  workflow_changed: true
 
+changed_file_count_expected: 19
 changed_file_expectation:
+  - .github/workflows/cii-writer-v11-v14-bridge.yml
   - agents/PR1055_workreport.md
-  - agents/status/PR1055.yaml
   - agents/claims/PR1055.yaml
-  - docs/cii-writer2-release-freeze-matrix.md
+  - agents/status/PR1055.yaml
+  - converters/cii-v11-v14-writer-worker.js
+  - converters/scripts/cii-v11-v14-upstream/UPSTREAM.md
+  - converters/scripts/cii-v11-v14-upstream/cii2019_section_rules.py
+  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14.py
+  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_format.py
+  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_records.py
+  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_sif.py
+  - converters/scripts/cii-v11-v14-upstream/cii_v11_v14_validate.py
   - docs/cii-writer2-create-source-refresh-2026-08-25.md
+  - docs/cii-writer2-release-freeze-matrix.md
+  - docs/cii-writer2-v11-v14-lossless-bridge.md
+  - tabs/cii-workspace/cii-workspace-v11-v14-converter.js
+  - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
+  - tests/cii-workspace-v11-v14-frozen-engine.test.py
+  - tests/cii-workspace-v11-v14-frozen-source.test.js
 
-next_gate: exact_executable_W2_13_synthetic_assertions_then_retained_real_V11_CII_then_inherited_V11_Writer2_regressions_then_adjacent_repository_browser_gates
+next_gate: execute_frozen_source_and_engine_tests_on_exact_checkout_then_execute_v14_bridge_roundtrip_and_existing_w2_13_product_gates_before_ui_auto_adoption_or_release_freeze
