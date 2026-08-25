@@ -78,6 +78,11 @@ assert.match(bridge, /result\.artifacts = ciiWorkspaceArtifactBundle\(result\)/)
 assert.match(bridge, /originalSha256:\s*side\.sourceSha256/);
 assert.match(bridge, /normalizedSha256:\s*side\.normalizedSha256/);
 assert.match(bridge, /normalizedSha256:\s*down\.targetSha256/);
+assert.match(bridge, /function assertNormalizedIntakeHashes\(result, source, target, context\)/);
+assert.match(bridge, /CII_VERSION_BRIDGE_\$\{context\}_SOURCE_NORMALIZED_HASH_MISMATCH/);
+assert.match(bridge, /CII_VERSION_BRIDGE_\$\{context\}_TARGET_NORMALIZED_HASH_MISMATCH/);
+assert.match(bridge, /assertNormalizedIntakeHashes\(inspection, normalized\.source, normalized\.target, 'INSPECTION'\)/);
+assert.match(bridge, /assertNormalizedIntakeHashes\(preview, normalized\.source, normalized\.target, 'PREVIEW'\)/);
 assert.match(bridge, /CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH/);
 assert.match(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /MODIFIED_ROUNDTRIP_NOT_EXACT/);
