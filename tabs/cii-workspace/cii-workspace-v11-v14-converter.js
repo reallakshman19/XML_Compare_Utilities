@@ -1,4 +1,4 @@
-const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-3', import.meta.url);
+const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-4', import.meta.url);
 let worker = null;
 let sequence = 0;
 const pending = new Map();
@@ -31,6 +31,17 @@ function inputBytes(value) {
   if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   if (typeof value === 'string') return new TextEncoder().encode(value);
   throw new Error('CII_VERSION_BRIDGE_BYTES_REQUIRED');
+}
+
+export function ciiByteStringToBytes(value) {
+  const raw = String(value ?? '');
+  const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) {
+    const code = raw.charCodeAt(index);
+    if (code > 0xff) throw new Error(`CII_VERSION_BRIDGE_BYTE_STRING_INVALID:${index}`);
+    bytes[index] = code;
+  }
+  return bytes;
 }
 
 function runWorker(payload) {
