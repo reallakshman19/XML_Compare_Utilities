@@ -22,6 +22,7 @@ source_reuse:
   source_repository_modified: false
   frozen_target_directory: converters/scripts/cii-v11-v14-upstream
   policy: FROZEN_PYTHON_BYTE_IDENTICAL_ADAPT_INTEGRATION_ONLY
+  custody_state: PASS_EXACT_BLOB_CUSTODY
   verified_target_blob_identity:
     cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
     cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
@@ -73,27 +74,31 @@ runtime:
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
-  v11_v14_frozen_source_test: NOT_RUN_ENVIRONMENT
-  v11_v14_frozen_engine_synthetic_test: NOT_RUN_ENVIRONMENT
+  v11_v14_frozen_source_custody: PASS_EXACT_BLOB_CUSTODY
+  v11_v14_extracted_high_risk_runtime: PASS_RUNTIME_EXACT_SOURCE_EXCERPT_8_FALSIFIERS
+  v11_v14_frozen_source_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+  v11_v14_frozen_engine_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
   v14_writer_bridge_browser_runtime: NOT_RUN
   inherited_writer2_regression: PARTIAL
   writer1_adjacent_regression: NOT_RUN_ENVIRONMENT
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
+  evidence_document: docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
 
 execution_environment:
   native_clone_result: FAIL_ENVIRONMENT_DNS
   raw_download_result: FAIL_ENVIRONMENT_DNS
   raw_failure: Could not resolve host github.com/raw.githubusercontent.com
   exact_executable_mirror_available: false
+  extracted_source_runtime_used: true
+  extracted_source_runtime_promoted_to_full_engine_pass: false
   local_source_inspection_promoted_to_runtime_pass: false
 
-qualification_workflow:
-  path: .github/workflows/cii-writer-v11-v14-bridge.yml
-  exact_checkout_static_blob_test: DEFINED_NOT_RUN
-  synthetic_python_falsifiers: DEFINED_NOT_RUN
-  workflow_run_observed: false
-  combined_status_observed: false
+no_actions_policy:
+  github_actions_authorized: false
+  temporary_bridge_workflow_removed: true
+  workflow_path_present_in_current_diff: false
+  workflow_result_used_as_evidence: false
 
 program_matrix:
   document: docs/cii-writer2-release-freeze-matrix.md
@@ -108,7 +113,7 @@ program_matrix:
   restraint_delete_composite: DONE
   restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
   restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
-  v14_lossless_dialect_bridge: IMPLEMENTED_NOT_RUN
+  v14_lossless_dialect_bridge: IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY
   writer3_topology: OUTSIDE_WRITER2
 
 structural_family_audit:
@@ -127,11 +132,11 @@ negative_assurance:
   source_3d_converters_modified: false
   core_v11_writer_modified: false
   writer3_changed: false
-  workflow_changed: true
+  workflow_changed_in_current_diff: false
+  extracted_runtime_misrepresented_as_full_engine_pass: false
 
 changed_file_count_expected: 19
 changed_file_expectation:
-  - .github/workflows/cii-writer-v11-v14-bridge.yml
   - agents/PR1055_workreport.md
   - agents/claims/PR1055.yaml
   - agents/status/PR1055.yaml
@@ -146,9 +151,10 @@ changed_file_expectation:
   - docs/cii-writer2-create-source-refresh-2026-08-25.md
   - docs/cii-writer2-release-freeze-matrix.md
   - docs/cii-writer2-v11-v14-lossless-bridge.md
+  - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
   - tabs/cii-workspace/cii-workspace-v11-v14-converter.js
   - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
   - tests/cii-workspace-v11-v14-frozen-engine.test.py
   - tests/cii-workspace-v11-v14-frozen-source.test.js
 
-next_gate: execute_frozen_source_and_engine_tests_on_exact_checkout_then_execute_v14_bridge_roundtrip_and_existing_w2_13_product_gates_before_ui_auto_adoption_or_release_freeze
+next_gate: exact_repository_module_graph_for_authored_frozen_source_and_engine_tests_then_existing_w2_13_product_runtime_then_real_v14_roundtrip_before_ui_auto_adoption_or_release_freeze
