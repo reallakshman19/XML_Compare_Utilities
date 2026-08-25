@@ -10,6 +10,19 @@ merge_authorized: false
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 claims:
+  - id: ISSUE_1042_INHERITED_CONTROL_AUTHORITY_CORRECTION
+    state: PASS_SOURCE_REGROUNDING
+    required: true
+    authority:
+      control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
+      control_row2_field4: RESTRAINT_BLOCK_COUNT_I13_MUTABLE
+    live_main_evidence:
+      planner_uses_rows_1_field_3_zero_based: true
+      physical_writer_control_count_row_index: 1
+      physical_writer_control_count_field_index: 3
+      independent_validator_control_count_row_index: 1
+      independent_validator_control_count_field_index: 3
+      p19_negative_assurance_inherited: true
   - id: W2_11_RESTRAINT_RUNTIME
     state: PASS_RUNTIME_EXACT_BLOB
     required: true
@@ -22,38 +35,37 @@ claims:
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     assertion_failure_observed: false
     full_entrypoint_rerun_this_checkpoint: false
-  - id: WRITER2_DELTA_PREVIEW_SUPPORT_RUNTIME
-    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
-    observation: LOCAL_EXECUTION
+  - id: INCOMING_LATE_HANDOFF
+    state: HANDOFF_TESTIMONY_NOT_REEXECUTED_THIS_CHECKPOINT
+    qualifying_for_product_gate: false
+    reported_assertion_failure: false
+    reported_engineering_failure: false
+  - id: REMAINING_NAMED_FRONTIER_SOURCE_IDENTITY
+    state: PASS_SOURCE_INSPECTION
+    qualifying_for_product_gate: false
+    runtime_admission_observed: false
+    exact_blobs:
+      pdf_parser: e7f2711daa0c31fba8e2f9023380e6774b2d8f8a
+      xml_elements: 0e967fa4044570f7af734fef21683a5ac9b5e53d
+      parser_validator: 90cef22039bcedbe0699ed9137855ea84c1d3f34
+      hanger_partial_validation: 309770a62e5c2a9caa317383ae70c89c5ff02679
+      restraint_delete_validation: 1833d9fecc37061eaf2f51f1676e6386e1f9ac3c
+      support_debug: edabff13f6563bbd0e6a9fa38b437ccd3cc42224
+    static_import_closure:
+      pdf_parser: CLOSED_TO_FORMATTER
+      xml_elements: CLOSED_TO_FORMATTER_AND_SUPPORT_DEBUG
+      parser_validator: CLOSED_NO_IMPORTS
+      restraint_delete_validation: CLOSED_TO_ALREADY_GROUNDED_W2_11_SUPPORT
+      hanger_partial_validation: CLOSED_TO_GROUNDED_HANGER_SUPPORT
+  - id: EARLIER_CORE_FRONTIER_SOURCE_IDENTITY
+    state: PASS_SOURCE_INSPECTION
     qualifying_for_product_gate: false
     exact_blobs:
-      engineering_delta: 790900cccc7da1486c57d52719dde6abfa500909
-      writer1b_od: 1ed7597f14339a554fe8a3555584241e416eb6ab
-      writer1b_deltas: 43435146a3cb4741882ccfa73f0315e5c92bcaaa
-      restraint_pairing: 18e01014aa716f0b3f15220b3c9454056bf0fc9d
-      restraint_transfer: 410843c343ed1915a925dee84129b174f514d803
-      restraint_slot_transfer: 907708a038eab1b56886bb5398e759d95e69af7c
-    outputs:
-      - W218_ENGINEERING_DELTA_EXACT_SUPPORT_IMPORT_PASS
-      - W218_WRITER1B_DELTAS_EXACT_SUPPORT_IMPORT_PASS
-      - W218_RESTRAINT_PAIRING_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
-      - W218_RESTRAINT_SLOT_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
-  - id: PATH_AND_CORRESPONDENCE_SUPPORT_RUNTIME
-    state: PASS_NONQUALIFYING_SUPPORT_IMPORT
-    exact_blobs:
-      path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
-      path_aligner: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
-      evidence: 8c7e392d42308eb1cb6671314e55e99be8b72a57
-      match_methods: 20c129291d85d16558185b711dc1cd334769d21e
-      node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
-      components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
-      identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
-  - id: BYTE_CUSTODY_GUARD
-    state: PASS_OBSERVATION
-    evidence:
-      - restraint compaction terminal-LF near-match rejected before use
-      - restraint pairing reformatted near-match rejected before use then replaced by exact blob
-    mismatched_blob_admitted: false
+      compare_review: e3e8ae949dd57906743edfbdd030389d2b8e85d0
+      transfer_plan: fb74004eb43a4f2807f45e5cf839da6686a36fad
+      review: 6454074f8247b61a052d34071a87d03d04efa8c2
+      placeholders: 0bec565ac73ec7c06a78327725b6c6152fd81848
+      transfer_policy: 5bb37b810e6b46fbb617d9e6fcf4d72fce1f307f
   - id: W2_13_REAL_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
@@ -77,8 +89,10 @@ validation_integrity:
   dependency_stubs_used: false
   workflow_trigger_gaming_used: false
   support_import_promoted_to_product_pass: false
+  source_inspection_promoted_to_product_pass: false
   module_load_stop_promoted_to_product_fail: false
   mismatched_blob_admitted: false
+  issue_1042_nonam_restraints_authority_separation_preserved: true
 
-qualification_rule: W2.13 product PASS or FAIL requires unchanged authored entrypoint assertions on exact repository blobs; all bounded support imports remain nonqualifying
-next_claim_gate: close compare-review, transfer-plan, review and placeholders static imports, restore full authored graph, then rerun W2.13 synthetic entrypoint
+qualification_rule: W2.13 product PASS or FAIL requires unchanged authored entrypoint assertions on exact repository blobs; source/static closure and bounded support imports remain nonqualifying
+next_claim_gate: reconstruct an exact executable graph, hash-admit every loaded repository file, rerun unchanged W2.13 synthetic until authored assertions execute, then real-CII, inherited Writer2 regressions, and repository npm on a complete exact checkout
