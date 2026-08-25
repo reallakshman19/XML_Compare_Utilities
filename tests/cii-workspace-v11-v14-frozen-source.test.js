@@ -51,10 +51,16 @@ assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
 assert.match(converter, /frozen-3d-converters-6/, 'worker URL cache key must move with worker runtime semantics');
+assert.match(converter, /const AUDIT_SCHEMA = 'cii-v11-v14-conversion-audit\/v1'/);
+assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_SCHEMA_MISMATCH/);
+assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_ARRAY_REQUIRED/);
+assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_BYTE_COUNT_AUDIT_MISMATCH/);
+assert.match(converter, /CII_VERSION_BRIDGE_TARGET_BYTE_COUNT_AUDIT_MISMATCH/);
 assert.match(converter, /function frozenAuditSnapshot\(value\)/);
 assert.match(converter, /loss_events:\s*Object\.freeze/);
 assert.match(converter, /warnings:\s*Object\.freeze/);
 assert.match(converter, /changed_sections:\s*Object\.freeze/);
+assert.match(converter, /result\.audit\.loss_events\.length/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH/);
@@ -66,6 +72,13 @@ assert.match(converter, /pending\.delete\(jobId\);\s*reject\(new Error\(`Failed 
 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
+assert.match(bridge, /ciiWorkspaceArtifactBundle/);
+assert.match(bridge, /const audit = Object\.freeze\(\{ \.\.\.preview\.audit, versionBridge \}\)/);
+assert.match(bridge, /result\.artifacts = ciiWorkspaceArtifactBundle\(result\)/);
+assert.match(bridge, /originalSha256:\s*side\.sourceSha256/);
+assert.match(bridge, /normalizedSha256:\s*side\.normalizedSha256/);
+assert.match(bridge, /normalizedSha256:\s*down\.targetSha256/);
+assert.match(bridge, /CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH/);
 assert.match(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /MODIFIED_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /sourceSha256:\s*down\.sourceSha256/);
