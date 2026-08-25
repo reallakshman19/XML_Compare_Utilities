@@ -2,44 +2,34 @@
 
 Status: **LIVE STACKED CLOSURE ON PR #1055**
 
-This document is a program-level authority ledger. It does not create engineering authority by itself. Production authority remains defined by merged source-qualified implementations, explicit blockers, exact runtime evidence, and independent validators.
+This is the canonical program-level authority matrix. It does not create engineering authority; it reconciles merged implementation authority, explicit source blockers, and observed validation evidence.
 
-## 1. Writer ownership boundary
+Detailed 2026-08-25 CREATE source refresh:
 
 ```text
-Writer 1A
-  existing fixed-width cardinality-preserving fields
-
-Writer 1B
-  extended fixed fields
-  + qualified CREATE/CLEAR inside an already-existing 24-row restraint block free slot
-
-Writer 1C
-  pointer-stable, row-count-stable mutation of already-existing auxiliary records
-
-Writer 2
-  auxiliary row/block cardinality changes
-  section expansion/compaction
-  pointer allocation/reindex
-  governed CONTROL count changes
-  one-TARGET0 multi-family arbitration
-
-Writer 3
-  node / element / connectivity / topology mutation
+docs/cii-writer2-create-source-refresh-2026-08-25.md
 ```
 
-Ordinary P/T/process-field updates remain Writer1A/1B work even when engineering-critical.
+## 1. Ownership boundary
 
-## 2. Global Writer2 transaction invariants
+```text
+Writer1A   existing cardinality-preserving fixed fields
+Writer1B   extended fixed fields + qualified existing restraint-block free-slot CREATE/CLEAR
+Writer1C   pointer-stable / row-count-stable existing auxiliary-field mutation
+Writer2    auxiliary cardinality, section expansion/compaction, pointer allocation/reindex,
+           governed CONTROL counts, one-TARGET0 multi-family arbitration
+Writer3    node / element / connectivity / topology mutation
+```
 
-Every qualified Writer2 transaction must preserve:
+Ordinary P/T/process-field changes remain Writer1A/1B work.
+
+## 2. Global Writer2 invariants
 
 ```text
 one untouched TARGET0
-canonical explicit APPLY / EXCLUDE scope
+canonical explicit BOUND APPLY / EXCLUDE scope
 cryptographic TARGET0 byte custody
 complete deterministic relocation/cardinality plan
-no opportunistic pointer decrement/increment
 exact physical fixed-field/section custody
 original-coordinate claim arbitration
 no last-writer-wins overlap handling
@@ -47,147 +37,98 @@ one final splice pass
 postimage SHA custody
 canonical physical re-intake
 independent complete-postimage oracle
-Writer testimony secondary to independently reconstructed final bytes
+Writer testimony secondary to independent expected final bytes
 no fabricated native provenance
 no unexecuted test represented as PASS
-Writer3 topology authority excluded
+no Writer3 topology leakage
 ```
 
-## 3. Binding inherited CONTROL correction
-
-Issue #1042 correction is normative for all current and future RESTRAINT DELETE claims:
+## 3. Binding #1042 CONTROL correction
 
 ```text
 CONTROL row1 / field4 / I13 = NONAM
   -> preserve byte-identically
 
-CONTROL row2 / field4 / I13 = RESTRAINT block count
+CONTROL row2 / field4 / I13 = RESTRAINT auxiliary-block count
   -> mutable only under qualified RESTRAINT cardinality authority
 ```
 
-Any Writer2 RESTRAINT path that mutates row1/field4 is an engineering failure even when the output reparses.
+W2.11 P19 and W2.12 R09 remain mandatory negative-assurance anchors.
 
 ## 4. Capability matrix
 
-### 4.1 NODENAME
+### NODENAME
 
-| Operation | Owner | Current disposition | Freeze requirement |
-|---|---|---|---|
-| Existing fixed-field overwrite | Writer1C | DONE | adjacent regression PASS |
-| Row CREATE | Writer2 | DONE | Writer2 regression PASS |
-| Row DELETE | Writer2 | DONE | Writer2 regression PASS |
-| Pointer allocation/reindex | Writer2 | DONE | Writer2 regression PASS |
-| Node create/delete/renumber | Writer3 | OUTSIDE_WRITER2 | must remain blocked from Writer2 |
+| Operation | Owner | Disposition |
+|---|---|---|
+| existing name-field overwrite | Writer1C | DONE |
+| row CREATE | Writer2 | DONE |
+| row DELETE | Writer2 | DONE |
+| pointer allocation/reindex | Writer2 | DONE |
+| node create/delete/renumber | Writer3 | OUTSIDE_WRITER2 |
 
-### 4.2 SIF / TEE
+### SIF / TEE
 
-| Operation | Owner | Current disposition | Freeze requirement |
-|---|---|---|---|
-| Existing selected V11 ii/io update | Writer1C | DONE | adjacent regression PASS |
-| Existing block DELETE | Writer2 | DONE | Writer2 regression PASS |
-| Block compaction/reindex | Writer2 | DONE | Writer2 regression PASS |
-| New block CREATE | Writer2 | SOURCE_BLOCKED | preserve blocker unless complete V11 construction authority is resolved |
+| Operation | Owner | Disposition |
+|---|---|---|
+| selected existing V11 ii/io UPDATE | Writer1C | DONE |
+| existing block DELETE | Writer2 | DONE |
+| block compaction/reindex | Writer2 | DONE |
+| new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED |
 
-Current SIF CREATE qualification disposition:
+Current CREATE verdict:
 
 ```text
 NOT_READY_FOR_WRITER2_SIF_CREATE_IMPLEMENTATION
 ```
 
-Known unresolved construction authority includes:
+2026-08-25 direct-source refresh established/confirmed:
 
 ```text
-items19..22 complete supported-code construction/default semantics
-items23..24 exact V11 raw note/sentinel/default encoding
-items27..30 V11 meaning or authoritative reserved/default representation
-V11 unused second-tee-slot representation
-V11 exact omitted/default field encoding
-complete Type + piping-code 60-position construction rule
+V11/V12 physical shape (2X,6G13.6), 30 items/tee, 2 tees, 10 rows   PASS_DIRECT_SOURCE_REFRESH
+items 1..26 partial semantics                                      PASS_DIRECT_SOURCE_REFRESH
+items 27..30 complete V11 CREATE authority                         UNRESOLVED
+complete omitted/default/sentinel construction contract            UNRESOLVED
+unused second-slot CREATE representation                           UNRESOLVED
+V14/B31J item-number backport                                      FORBIDDEN_BY_EDITION_DRIFT
 ```
 
-Later-edition V14/B31J semantics must not be backported by item number.
+Production blocker remains fail-closed.
 
-#### Gate F.1 source refresh — 2026-08-25
+### HANGER
 
-A targeted external source refresh rechecked official Hexagon CAESAR II documentation.
+| Operation | Owner | Disposition |
+|---|---|---|
+| H=1 delete-all | Writer2 | DONE |
+| H>1 delete-all | Writer2 | DONE |
+| H>1 partial DELETE | Writer2 | DONE_PRODUCT_ROUTED |
+| five packed-array DELETE compaction/repacking | Writer2 | DONE |
+| CONTROL.NOHGRS decrement for DELETE | Writer2 | DONE |
+| new HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED |
+| HANGER engineering value editing | none | NOT_AUTHORIZED |
 
-Direct official Version 12 neutral-file authority confirms the V11/V12-era physical shape:
-
-```text
-section             #$ SIF&TEES
-format              (2X, 6G13.6)
-items per tee       30
-tee slots           2
-rows per tee        5
-rows per auxiliary  10
-array                SIF(N4,60)
-```
-
-The same official Version 12 page explicitly identifies items 1..26, including selected SIF/index/note positions, but does not supply a complete construction/default contract for items 27..30. It also states that several positions are piping-code dependent. This strengthens physical and partial semantic authority but does not qualify a full new 60-position payload.
-
-Source locator:
-
-```text
-Hexagon CAESAR II Users Guide
-Version 12
-Auxiliary Element Data
-#$ SIF&TEES
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
-```
-
-Official Version 14 documentation demonstrates edition drift:
-
-```text
-SIF array changes from N4,60 to N4,84
-rows per tee change from 5 to 7
-rows per auxiliary change from 10 to 14
-B31J-specific positions appear from item 27 onward
-```
-
-Version 14 identifies item 27 as B31J Surface Node and later unused/B31J positions, but this is **not** V11 construction authority. The changed row/item schema is positive evidence that later-edition meanings/defaults must not be backported by field number.
-
-Source locator:
-
-```text
-Hexagon CAESAR II Users Guide
-Version 14
-Auxiliary Element Data
-#$ SIF&TEES
-https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/1471418
-```
-
-Refresh verdict:
-
-```text
-V11_V12_PHYSICAL_SCHEMA             PASS_DIRECT_SOURCE_REFRESH
-V11_ITEMS_1_26_PARTIAL_SEMANTICS    PASS_DIRECT_SOURCE_REFRESH
-V11_ITEMS_27_30_CREATE_AUTHORITY    UNRESOLVED
-V11_COMPLETE_DEFAULT_CONTRACT       UNRESOLVED
-V14_B31J_BACKPORT_ALLOWED           FALSE
-SIF_CREATE                          SOURCE_BLOCKED_REAFFIRMED
-```
-
-No production SIF CREATE authority is created by this refresh.
-
-### 4.3 HANGER
-
-| Operation | Owner | Current disposition | Freeze requirement |
-|---|---|---|---|
-| H=1 delete-all | Writer2 | DONE | exact-head regression PASS |
-| H>1 delete-all | Writer2 | DONE | exact-head regression PASS |
-| H>1 partial DELETE | Writer2 | DONE + PRODUCT_ROUTED | focused product regression PASS |
-| Packed-array compaction/repacking for DELETE | Writer2 | DONE | boundary/regression PASS |
-| CONTROL.NOHGRS decrement for DELETE | Writer2 | DONE | regression PASS |
-| New HANGER CREATE | Writer2 | SOURCE_BLOCKED | preserve blocker until source acquisition closes hard gates |
-| HANGER engineering value editing | none | NOT_AUTHORIZED | explicit future qualification required |
-
-Current HANGER CREATE qualification disposition:
+Current CREATE verdict:
 
 ```text
 NOT_READY_FOR_WRITER2_HANGER_CREATE_IMPLEMENTATION
 ```
 
-Hard blockers:
+2026-08-25 direct-source refresh established/confirmed:
+
+```text
+Version12 global hanger-default record dictionary         PASS_DIRECT_SOURCE_REFRESH
+IHGRNODE/HGRDAT/TAG/GUID/IHGRFREE/packed-family layout    PASS_DIRECT_SOURCE_REFRESH
+HGRDAT items 1..11                                        PASS_DIRECT_SOURCE_REFRESH
+HGRDAT items 6 and 7 zero initialization                  PASS_DIRECT_SOURCE_REFRESH
+GUID software ownership/display behavior                  PASS_DIRECT_SOURCE_CORROBORATION
+GUID fresh-CREATE generation/import rule                  UNRESOLVED
+first-hanger/global-default -> exact neutral bytes         UNRESOLVED
+new-record insertion policy across correlated arrays      UNRESOLVED
+complete omitted/per-hanger default construction          UNRESOLVED
+native H=0->1 / H=1->2 transition                         NOT_AVAILABLE
+```
+
+Retained hard blockers include:
 
 ```text
 GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
@@ -198,189 +139,167 @@ OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
 REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
 ```
 
-The existing partial-HANGER record binding remains physical/positional authority only:
+### RESTRAINT
+
+| Operation | Owner | Disposition |
+|---|---|---|
+| existing qualified numeric update | Writer1A/1B | DONE |
+| existing 24-row-block free-slot CREATE/CLEAR | Writer1B | DONE |
+| whole 24-row block DELETE planner | Writer2 | DONE |
+| physical block DELETE/compaction | Writer2 | DONE |
+| one-TARGET0 composite adoption | Writer2 | DONE |
+| product/core adoption | Writer2 | IMPLEMENTED_RUNTIME_PENDING |
+| new 24-row block CREATE/allocation | Writer2 | SOURCE_BLOCKED_REAFFIRMED |
+
+Current RESTRAINT DELETE release truth:
 
 ```text
-semanticAuthority = NONE_POSITIONAL_PHYSICAL_CUSTODY_ONLY
+W2.11 physical runtime   PASS_RUNTIME_EXACT_BLOB
+W2.12 R01-R22            PASS_RUNTIME_EXACT_BLOB
+W2.13 synthetic product  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+W2.13 retained-real-CII  NOT_RUN_ENVIRONMENT
 ```
 
-### 4.4 RESTRAINT
-
-| Operation | Owner | Current disposition | Freeze requirement |
-|---|---|---|---|
-| Existing qualified numeric update | Writer1A/1B | DONE | adjacent regression PASS |
-| CREATE/CLEAR inside existing qualified free slot | Writer1B | DONE | adjacent regression PASS |
-| Whole 24-row block DELETE planner | Writer2 | DONE | inherited planner authority retained |
-| Whole block physical DELETE/compaction | Writer2 | DONE | W2.11 exact runtime PASS retained |
-| One-TARGET0 composite adoption | Writer2 | DONE | W2.12 R01-R22 PASS retained |
-| Product/core adoption | Writer2 | IMPLEMENTED / RUNTIME_PENDING | W2.13 synthetic + retained-real-CII runtime required |
-| New block CREATE/allocation | Writer2 | SOURCE_BLOCKED | preserve blocker until complete allocation/default/GUID authority exists |
-
-Current RESTRAINT product release truth on PR #1055:
+2026-08-25 CREATE direct-source refresh established/confirmed:
 
 ```text
-W2.11 focused physical runtime = PASS_RUNTIME_EXACT_BLOB
-W2.12 R01-R22                  = PASS_RUNTIME_EXACT_BLOB
-W2.13 synthetic product        = NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
-W2.13 retained-real-CII        = NOT_RUN_ENVIRONMENT
-release/freeze                 = NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+V11/V12 restraint field dictionary and Tag/GUID physical format    PASS_DIRECT_SOURCE_REFRESH
+type range 1..62                                                   PASS_DIRECT_SOURCE_REFRESH
+translational/rotational unspecified-stiffness defaults            PASS_DIRECT_SOURCE_REFRESH
+fresh GUID generation/import behavior                              UNRESOLVED
+complete Type-dependent CREATE payload/default representation      UNRESOLVED
+new-block allocation/insertion policy                              UNRESOLVED
+shared-pointer CREATE alias semantics                              UNRESOLVED
+first-block / seventh-restraint transition                         UNRESOLVED
+native new-block CREATE transition                                 NOT_AVAILABLE
 ```
 
-Required RESTRAINT CREATE authority before implementation:
-
-```text
-software-assigned GUID behavior
-new-block allocation position/index policy
-complete restraint-type-dependent/default payload
-first-block CREATE semantics
-seventh-restraint/new-block transition
-shared-pointer alias semantics
-native import/roundtrip CREATE transition evidence
-```
-
-Current production blocker remains authoritative:
+Production blocker remains:
 
 ```text
 WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
 ```
 
-## 5. Structural-family classification audit — Gate G source closure
+## 5. Gate G — structural-family classification audit
 
-Live transfer-policy and Writer2 plan-contract source were re-inspected on exact base `297fb37a...`.
+Exact-base `cii-workspace-transfer-policy.js` plus `cii-workspace-writer2-composite-routing.js` were re-inspected.
 
-The base classifier has a finite family surface:
+Finite production family partition:
 
 ```text
-GEOMETRY       -> protected / Writer3 boundary
+GEOMETRY       -> protected / Writer3
 PIPE_SIZE      -> Writer1B conditional OD or protected
-WALL           -> Writer1A fixed field
-PROCESS        -> Writer1A/1B fixed fields
-WEIGHT_RIGID   -> Writer1A cardinality-preserving rigid record field
-NODE_NAME      -> Writer1C existing field; Writer2 plan layer owns cardinality CREATE/DELETE
-RESTRAINT      -> Writer1A/1B existing-block slot semantics; Writer2 plan layer owns qualified block DELETE
-HANGER         -> presence/count evidence; Writer2 plan layer owns qualified DELETE
-SIF_TEE        -> Writer1C selected ii/io; Writer2 plan layer owns qualified existing-block DELETE
+WALL           -> Writer1A
+PROCESS        -> Writer1A/1B
+WEIGHT_RIGID   -> Writer1A cardinality-preserving
+NODE_NAME      -> Writer1C existing field / Writer2 cardinality
+RESTRAINT      -> Writer1A/1B existing slot / Writer2 block DELETE
+HANGER         -> evidence + Writer2 DELETE
+SIF_TEE        -> Writer1C selected existing fields / Writer2 DELETE
 UNKNOWN        -> TRANSFER_FAMILY_NOT_QUALIFIED
 ```
 
-The Writer2 composite plan contract explicitly admits only:
+Writer2 composite routing explicitly admits only:
 
 ```text
-NODENAME CREATE / DELETE
-SIF/Tee record presence DELETE
+NODENAME CREATE/DELETE
+SIF record-presence DELETE
 HANGER presence DELETE
-qualified RESTRAINT slot DELETE promoted to block DELETE/compaction
+qualified RESTRAINT DELETE -> block DELETE/compaction
 ```
 
-Everything else is fail-closed. Its policy surface explicitly states:
+and explicitly blocks:
 
 ```text
-sifTeeMutation       = V11_EXISTING_BLOCK_DELETE_REINDEX_ONLY
-sifTeeCreate         = BLOCKED_ITEMS_27_30_UNRESOLVED
-hangerMutation       = EXISTING_HANGER_DELETE_ALL_OR_QUALIFIED_PARTIAL
-hangerCreate         = BLOCKED_PAYLOAD_SEMANTICS_NOT_QUALIFIED
-restraintMutation    = QUALIFIED_EXISTING_24_ROW_BLOCK_DELETE_COMPACTION_ONLY
-restraintCreate      = BLOCKED_ALLOCATION_DEFAULT_GUID_AUTHORITY_NOT_QUALIFIED
-processDefault       = BLOCKED_WRITER_2_COMPOSITE
-topologyMutation     = BLOCKED_WRITER_3_ONLY
+SIF CREATE
+HANGER CREATE
+RESTRAINT CREATE
+process-default mutation
+Writer3 topology
+all unsupported non-KEEP families
 ```
 
-The older base-policy blocker:
+Gate G verdict:
 
 ```text
-SIF_TEE_CARDINALITY_OR_SEMANTIC_REWRITE_REQUIRES_FUTURE_QUALIFICATION
+REMAINING_STRUCTURAL_FAMILY_AUDIT       PASS_SOURCE_INSPECTION
+HIDDEN_WRITER2_FAMILY                   NONE_OBSERVED
+AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE   NONE_OBSERVED
+UNKNOWN_FAMILY_BEHAVIOR                 FAIL_CLOSED
 ```
 
-is therefore not an ambiguous active Writer2 route. The Writer2 SIF plan contract deterministically promotes only the already-qualified existing-block DELETE case and retains CREATE as blocked.
+## 6. Gate F — CREATE source acquisition refresh
 
-Gate G source verdict:
+Detailed evidence is in `docs/cii-writer2-create-source-refresh-2026-08-25.md`.
+
+Final Gate F verdict:
 
 ```text
-REMAINING_STRUCTURAL_FAMILY_AUDIT = PASS_SOURCE_INSPECTION
-HIDDEN_WRITER2_FAMILY = NONE_OBSERVED
-AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE = NONE_OBSERVED
-UNKNOWN_FAMILY_BEHAVIOR = FAIL_CLOSED
+SIF_CREATE_SOURCE_REFRESH        COMPLETE_SOURCE_BLOCKED
+HANGER_CREATE_SOURCE_REFRESH     COMPLETE_SOURCE_BLOCKED
+RESTRAINT_CREATE_SOURCE_REFRESH  COMPLETE_SOURCE_BLOCKED
+PRODUCTION_CREATE_CHANGE         NONE
 ```
 
-This is a source-classification result, not runtime qualification.
+This closes CREATE as a source-classification obligation for the current freeze. Future authoritative source acquisition may reopen one family independently.
 
-## 6. Current runtime evidence gaps
+## 7. Remaining release blockers
 
-The following are evidence gaps, not authorization to widen semantics:
+The only unresolved program gates are execution/release evidence for already-implemented authority:
 
 ```text
-W2.13 RESTRAINT synthetic product assertions
-W2.13 retained-real-CII RESTRAINT product route
-inherited Writer2 NODE/SIF/HANGER product/composite regression matrix on current exact base
-repository-wide npm test on exact checkout
-browser/product Writer2 flow on current exact head
-real repository H>1 HANGER source: NOT_AVAILABLE
-real H>1 partial product roundtrip: NOT_RUN_NO_REAL_SOURCE
-native SIF CREATE transition: NOT_AVAILABLE
-native HANGER CREATE transition: NOT_AVAILABLE
-native RESTRAINT block CREATE transition: NOT_AVAILABLE
+GATE A  unchanged W2.13 synthetic RESTRAINT product assertions on exact repository bytes
+GATE B  retained-real-CII RESTRAINT product runtime
+GATE C  inherited Writer2 NODE/SIF/HANGER product/composite regressions on current exact base
+GATE D  Writer1A/1B/1C adjacent regressions + repository npm + browser/product Writer2 gate
+GATE E  mature DELETE/cardinality freeze from Gates A-D
+GATE H  final program release/freeze verdict
 ```
 
-PR #1055 source/static dependency closure is not runtime qualification. Exact local checkout currently fails because github.com cannot be resolved from the execution container.
-
-## 7. Stacked PR #1055 completion sequence
+Current environment blocker:
 
 ```text
-GATE A
-  execute unchanged W2.13 synthetic product test on exact repository bytes
-
-GATE B
-  execute retained-real-CII RESTRAINT product test
-
-GATE C
-  execute inherited Writer2 NODE/SIF/HANGER product/composite regression slice
-
-GATE D
-  execute Writer1A/1B/1C adjacent regressions + repository npm + browser/product gate
-
-GATE E
-  freeze all mature DELETE/cardinality authority with exact runtime evidence
-
-GATE F
-  source-acquisition refresh for SIF CREATE / HANGER CREATE / RESTRAINT CREATE
-  -> SIF refresh complete; SOURCE_BLOCKED reaffirmed
-  -> implement only a family that reaches explicit READY source verdict
-  -> otherwise preserve SOURCE_BLOCKED
-
-GATE G
-  remaining auxiliary/cardinality source classification audit
-  -> PASS_SOURCE_INSPECTION at current checkpoint
-
-GATE H
-  publish final capability matrix and program verdict
+native checkout -> FAIL_ENVIRONMENT_DNS
+Could not resolve host: github.com
+exact executable mirror -> NOT_AVAILABLE_THIS_RUNTIME
 ```
 
-No later gate may retroactively convert `NOT_RUN`, `NOT_AVAILABLE`, or `SOURCE_BLOCKED` to PASS.
+Source/static dependency closure is not runtime qualification.
+
+Additional evidence limitations retained:
+
+```text
+real repository H>1 HANGER source          NOT_AVAILABLE
+real H>1 partial product roundtrip          NOT_RUN_NO_REAL_SOURCE
+native SIF CREATE transition                NOT_AVAILABLE
+native HANGER CREATE transition             NOT_AVAILABLE
+native RESTRAINT block CREATE transition    NOT_AVAILABLE
+```
 
 ## 8. Program-level freeze rule
 
-Writer2 may be declared accomplished/frozen when all of the following are true:
-
-```text
-all source-qualified Writer2 operations have implementation authority
-all implemented Writer2 operations have required exact runtime evidence
-one-TARGET0 original-coordinate arbitration is preserved
-independent complete-postimage validation covers every variable-length transaction class
-Writer1A/1B/1C adjacent regressions pass
-repository gate disposition is explicit
-browser/product gate disposition is explicit
-all available real-source roundtrips are dispositioned
-all unresolved CREATE families retain explicit fail-closed blockers
-no operation remains ambiguously classified as generic FUTURE_WRITER
-no Writer3 topology authority leaks into Writer2
-changed-file ledger has zero unexplained paths
-```
-
-The final verdict must be exactly one of:
+Final verdict must be exactly one of:
 
 ```text
 READY_FOR_WRITER2_RELEASE_FREEZE
 NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` does **not** require inventing source-blocked CREATE semantics. It requires that those operations be explicitly classified and fail closed until authoritative construction data becomes available.
+READY requires:
+
+```text
+all source-qualified Writer2 operations implemented
+all implemented Writer2 operations have required exact runtime evidence
+one-TARGET0/original-coordinate architecture preserved
+independent complete-postimage validation retained
+Writer1A/1B/1C adjacent regressions dispositioned
+repository gate disposition explicit
+browser/product gate disposition explicit
+all available real-source roundtrips dispositioned
+all unresolved CREATE families explicit and fail-closed
+no ambiguous generic FUTURE_WRITER operation
+no Writer3 topology leakage
+zero unexplained changed paths
+```
+
+READY does not require inventing source-blocked CREATE semantics.
