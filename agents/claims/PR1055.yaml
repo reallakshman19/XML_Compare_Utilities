@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_19_FROZEN_3D_CONVERTERS_V11_V14_BRIDGE
+claim_state: W2_19_FROZEN_3D_CONVERTERS_V11_V14_BRIDGE_HARDENED
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -49,7 +49,7 @@ claims:
     path: existing cii-workspace-core Writer1/Writer2 implementation
 
   - id: V14_WRITER_DIALECT_BRIDGE
-    state: IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY
+    state: IMPLEMENTED_HARDENED_RUNTIME_PENDING
     required: true
     architecture: LOSSLESS_V14_TO_V11_EXISTING_V11_WRITER_V11_TO_V14
     allow_lossy: false
@@ -63,6 +63,28 @@ claims:
       - tabs/cii-workspace/cii-workspace-writer-version-bridge.js
       - docs/cii-writer2-v11-v14-lossless-bridge.md
       - docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+
+  - id: V14_BRIDGE_BYTE_CUSTODY_HARDENING
+    state: PASS_SOURCE_INSPECTION
+    required: true
+    frozen_python_changed: false
+    controls:
+      pyodide_files_unlinked_before_job_rmdir: true
+      empty_input_rejected_before_fs_job_allocation: true
+      worker_messageerror_rejects_pending_and_resets_worker: true
+      failed_postmessage_removes_pending_job: true
+      physical_source_version_checked_independently: true
+      physical_target_version_checked_independently: true
+      nonintegral_version_alias_blocked: true
+      converter_source_sha_crosschecked_against_independent_js_sha: true
+      converter_target_sha_crosschecked_against_independent_js_sha: true
+      stale_v14_target_uses_independent_js_sha: true
+      v11_writer_text_not_used_as_restore_authority: true
+      v11_writer_byte_string_required: true
+      v11_writer_postimage_sha_crosschecked_before_v14_conversion: true
+      modified_roundtrip_compares_exact_v11_postimage_bytes: true
+    authored_falsifier: tests/cii-workspace-v11-v14-frozen-source.test.js
+    authored_falsifier_runtime: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 
   - id: V14_BRIDGE_ENGINEERING_AUTHORITY_BOUNDARY
     state: PASS_SOURCE_INSPECTION
@@ -113,6 +135,7 @@ claims:
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
     required: true
     path: tests/cii-workspace-v11-v14-frozen-source.test.js
+    includes_adapter_hardening_falsifiers: true
 
   - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
@@ -141,7 +164,7 @@ claims:
       hanger_delete_all: DONE
       hanger_partial_delete: DONE_PRODUCT_ROUTED
       restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-      v14_lossless_dialect_bridge: IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY
+      v14_lossless_dialect_bridge: IMPLEMENTED_HARDENED_RUNTIME_PENDING
       sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
@@ -161,6 +184,8 @@ validation_integrity:
   frozen_python_rewritten: false
   local_dependency_substituted: false
   lossy_bridge_enabled: false
+  converter_audit_sha_used_as_sole_custody_authority: false
+  v11_writer_text_view_used_as_restore_authority: false
   source_inspection_promoted_to_runtime_pass: false
   extracted_source_runtime_promoted_to_full_engine_pass: false
   workflow_definition_promoted_to_runtime_pass: false
@@ -169,4 +194,4 @@ validation_integrity:
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
 
-next_claim_gate: execute_exact_repository_module_graph_frozen_source_and_engine_tests_then_existing_W2_13_then_real_v14_baseline_and_modified_roundtrip_then_writer2_regressions
+next_claim_gate: execute_exact_repository_module_graph_frozen_source_and_engine_tests_then_existing_W2_13_then_retained_real_v11_then_real_v14_baseline_and_modified_roundtrip_then_writer2_regressions
