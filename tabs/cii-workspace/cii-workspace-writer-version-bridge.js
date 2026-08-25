@@ -97,9 +97,21 @@ function buildVersionBridgeEvidence(source, target) {
   });
 }
 
+function assertNormalizedIntakeHashes(result, source, target, context) {
+  const sourceHash = result?.sourceDocument?.contentSha256 ?? result?.source?.contentSha256;
+  const targetHash = result?.targetDocument?.contentSha256 ?? result?.target?.contentSha256;
+  if (sourceHash !== source.normalizedSha256) {
+    throw new Error(`CII_VERSION_BRIDGE_${context}_SOURCE_NORMALIZED_HASH_MISMATCH`);
+  }
+  if (targetHash !== target.normalizedSha256) {
+    throw new Error(`CII_VERSION_BRIDGE_${context}_TARGET_NORMALIZED_HASH_MISMATCH`);
+  }
+}
+
 export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options = {}) {
   const normalized = await normalizePairInput(input, options);
   const inspection = await inspectCiiWorkspaceModels(normalized.normalizedInput, options);
+  assertNormalizedIntakeHashes(inspection, normalized.source, normalized.target, 'INSPECTION');
   return Object.freeze({
     ...inspection,
     versionBridge: buildVersionBridgeEvidence(normalized.source, normalized.target),
@@ -110,6 +122,7 @@ export async function createCiiWorkspacePreviewWithVersionBridge(input, options 
   const normalized = await normalizePairInput(input, options);
   const versionBridge = buildVersionBridgeEvidence(normalized.source, normalized.target);
   const preview = await createCiiWorkspacePreview(normalized.normalizedInput, options);
+  assertNormalizedIntakeHashes(preview, normalized.source, normalized.target, 'PREVIEW');
   const audit = Object.freeze({ ...preview.audit, versionBridge });
   const result = { ...preview, versionBridge, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
