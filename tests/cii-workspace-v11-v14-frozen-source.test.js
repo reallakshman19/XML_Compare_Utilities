@@ -3,7 +3,9 @@ import { createHash, webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  ciiByteStringToBytes,
   ciiBytesEqual,
+  ciiBytesToByteString,
   ciiSha256,
   detectCiiNeutralVersion,
 } from '../tabs/cii-workspace/cii-workspace-v11-v14-converter.js';
@@ -56,6 +58,11 @@ assert.match(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /MODIFIED_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /sourceSha256:\s*down\.sourceSha256/);
 assert.match(bridge, /down\.sourceSha256 !== bridge\.target\.originalSha256/);
+assert.match(bridge, /CII_VERSION_BRIDGE_V11_POSTIMAGE_BYTES_REQUIRED/);
+assert.match(bridge, /ciiByteStringToBytes\(v11Result\.byteString\)/);
+assert.match(bridge, /CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH/);
+assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, proof\.outputBytes\)/);
+assert.doesNotMatch(bridge, /convertCiiNeutralVersionLossless\(v11Result\.text/);
 assert.doesNotMatch(bridge, /down\.audit\?\.source_sha256/);
 assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
 
@@ -69,5 +76,10 @@ assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 11.4\n'), /UNSUPP
 
 const expectedV11Sha = createHash('sha256').update(Buffer.from(v11, 'utf8')).digest('hex');
 assert.equal(await ciiSha256(v11, webcrypto), expectedV11Sha, 'browser-style SHA custody must agree with independent Node SHA-256');
+
+const binaryFixture = Uint8Array.from([0x00, 0x41, 0x7f, 0x80, 0xff]);
+const binaryString = ciiBytesToByteString(binaryFixture);
+assert.deepEqual([...ciiByteStringToBytes(binaryString)], [...binaryFixture], 'byteString conversion must preserve all 0x00..0xff bytes exactly');
+assert.throws(() => ciiByteStringToBytes(String.fromCharCode(0x100)), /BYTE_STRING_INVALID/);
 
 console.log('CII Workspace frozen 3D_Converters v11/v14 source custody: PASS');
