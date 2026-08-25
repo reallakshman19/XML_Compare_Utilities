@@ -1,6 +1,7 @@
 import {
   applyCiiWorkspaceTargetWriter2,
   createCiiWorkspacePreview,
+  inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
 import {
   ciiBytesEqual,
@@ -53,17 +54,26 @@ async function normalizeSideToV11(value, fileName, side) {
   });
 }
 
-export async function createCiiWorkspacePreviewWithVersionBridge(input, options = {}) {
+async function normalizePairInput(input) {
   const sourceValue = sideInput(input, 'source');
   const targetValue = sideInput(input, 'target');
   if (sourceValue == null || targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-
   const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE');
   const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET');
   let normalizedInput = withoutSideText(input, 'source', source.normalizedBytes);
   normalizedInput = withoutSideText(normalizedInput, 'target', target.normalizedBytes);
-  const preview = await createCiiWorkspacePreview(normalizedInput, options);
+  return Object.freeze({ source, target, normalizedInput });
+}
 
+export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options = {}) {
+  const normalized = await normalizePairInput(input);
+  return inspectCiiWorkspaceModels(normalized.normalizedInput, options);
+}
+
+export async function createCiiWorkspacePreviewWithVersionBridge(input, options = {}) {
+  const normalized = await normalizePairInput(input);
+  const { source, target } = normalized;
+  const preview = await createCiiWorkspacePreview(normalized.normalizedInput, options);
   return Object.freeze({
     ...preview,
     versionBridge: Object.freeze({
