@@ -9,7 +9,7 @@ V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37a
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
-The v14 bridge does not create new Writer2 engineering semantics. It losslessly translates an admissible V14 neutral file to the already-qualified V11 mutation domain and back by using the frozen existing converter.
+The V14 bridge does not create new Writer2 engineering semantics. It translates an admissible V14 neutral file to the already-qualified V11 mutation domain and back by using the frozen existing converter.
 
 Canonical bridge design:
 
@@ -61,20 +61,18 @@ W2.11 P19 and W2.12 R09 remain mandatory negative-assurance anchors.
 |---|---|---|---|
 | NODENAME existing field update | Writer1C | DONE | via bridge only after bridge qualification |
 | NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | via bridge only after bridge qualification |
-| SIF existing qualified ii/io update | Writer1C | DONE | via bridge only if lossless exact-roundtrip admissible |
-| SIF block DELETE/compaction/reindex | Writer2 | DONE | via bridge only if lossless exact-roundtrip admissible |
+| SIF existing qualified ii/io update | Writer1C | DONE | via bridge only if exact-roundtrip admissible |
+| SIF block DELETE/compaction/reindex | Writer2 | DONE | via bridge only if exact-roundtrip admissible |
 | SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
-| HANGER delete-all | Writer2 | DONE | via bridge only if lossless exact-roundtrip admissible |
+| HANGER delete-all | Writer2 | DONE | via bridge only if exact-roundtrip admissible |
 | HANGER H>1 partial DELETE/repack | Writer2 | DONE_PRODUCT_ROUTED | via bridge only after bridge qualification |
 | HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
 | RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | via bridge only after bridge qualification |
-| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | bridge IMPLEMENTED_NOT_RUN |
+| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | bridge IMPLEMENTED_PARTIAL_RUNTIME_EXCERPT_ONLY |
 | RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
 | node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
 ## 4. V11 CREATE boundary remains authoritative
-
-V11 CREATE qualification is unchanged by the v14 converter:
 
 ```text
 SIF_CREATE        SOURCE_BLOCKED_REAFFIRMED_V11
@@ -88,7 +86,7 @@ Canonical V11 source record:
 docs/cii-writer2-create-source-refresh-2026-08-25.md
 ```
 
-The frozen converter's knowledge of v14 physical dialect is not authority to synthesize a Writer2 CREATE operation that is blocked in the V11 mutation policy.
+The frozen converter's knowledge of V14 physical dialect is not authority to synthesize a Writer2 CREATE operation that is blocked in the V11 mutation policy.
 
 ## 5. Frozen converter custody
 
@@ -98,7 +96,7 @@ Pinned source files are vendored byte-identically under:
 converters/scripts/cii-v11-v14-upstream/
 ```
 
-Exact expected Git blobs:
+Current target and pinned upstream Git blobs were re-compared and match exactly:
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -107,6 +105,12 @@ cii_v11_v14_records.py       1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
 cii_v11_v14_sif.py           88c1d80bdb7bd2d5197a56c5be60ac2057c02367
 cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
 cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
+```
+
+Disposition:
+
+```text
+FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
 ```
 
 The XML repository's pre-existing `converters/scripts/cii2019_section_rules.py` is not substituted for the upstream dependency because the two blobs differ.
@@ -132,27 +136,47 @@ No existing V11 core writer source was changed to implement the bridge.
 ## 7. Runtime evidence
 
 ```text
-W2.11 RESTRAINT physical runtime        PASS_RUNTIME_EXACT_BLOB
-W2.12 R01-R22                           PASS_RUNTIME_EXACT_BLOB
-W2.13 synthetic Writer2 product         NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
-W2.13 retained-real V11 CII             NOT_RUN_ENVIRONMENT
-frozen upstream target blob test        NOT_RUN_ENVIRONMENT
-frozen engine synthetic falsifiers      NOT_RUN_ENVIRONMENT
-real V14 bridge baseline                NOT_RUN
-real V14 Writer2 mutation               NOT_RUN
-browser V14 bridge                      NOT_RUN
-repository npm                           NOT_RUN_ENVIRONMENT
+W2.11 RESTRAINT physical runtime          PASS_RUNTIME_EXACT_BLOB
+W2.12 R01-R22                             PASS_RUNTIME_EXACT_BLOB
+W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+W2.13 retained-real V11 CII               NOT_RUN_ENVIRONMENT
+frozen source Git-blob custody             PASS_EXACT_BLOB_CUSTODY
+extracted high-risk converter runtime      PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+frozen-source authored target test         NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+frozen-engine authored Python test         NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+real V14 bridge baseline                   NOT_RUN
+real V14 Writer2 mutation                  NOT_RUN
+browser V14 bridge                         NOT_RUN
+repository npm                              NOT_RUN_ENVIRONMENT
 ```
 
-Bridge qualification files:
+Extracted-source runtime evidence:
+
+```text
+docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+```
+
+Executed high-risk falsifiers:
+
+```text
+VERSION 11 admitted                               PASS
+VERSION 14 admitted                               PASS
+VERSION 12 rejected                               PASS
+V14 SIF axial/torsion item15/item16 swap          PASS
+non-zero V14 SIF item27 rejected                  PASS
+ambiguous non-zero V11 SIF item19 rejected        PASS
+V14 empty restraint stiffness -> V11 sentinel     PASS
+non-zero V14 ALLOWBLS item154 rejected            PASS
+```
+
+The excerpt run is not full-engine qualification. Authored exact-repository tests remain mandatory:
 
 ```text
 tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v11-v14-frozen-engine.test.py
-.github/workflows/cii-writer-v11-v14-bridge.yml
 ```
 
-No workflow run/status has yet been observed. Defined tests/workflows are not represented as PASS.
+GitHub Actions are not authorized for this workstream. The temporary bridge workflow has been removed and no workflow result is used as evidence.
 
 ## 8. Structural-family classification
 
@@ -173,11 +197,10 @@ UNKNOWN_FAMILY_BEHAVIOR               FAIL_CLOSED
 ## 9. Remaining gates
 
 ```text
-BRIDGE A  exact-checkout frozen-source Git-blob test
-BRIDGE B  frozen-engine synthetic falsifiers
-BRIDGE C  real/native V14 baseline exact V14->V11->V14 admission
-BRIDGE D  real qualified Writer2 mutation through V14->V11->Writer2->V14
-BRIDGE E  exact modified V11->V14->V11 proof + browser/product adoption
+BRIDGE A  exact repository module graph: authored frozen-source + frozen-engine tests
+BRIDGE B  real/native V14 baseline exact V14->V11->V14 admission
+BRIDGE C  real qualified Writer2 mutation through V14->V11->Writer2->V14
+BRIDGE D  exact modified V11->V14->V11 proof + browser/product adoption
 
 W2 A      unchanged W2.13 synthetic product assertions
 W2 B      retained-real V11 RESTRAINT product runtime
@@ -188,4 +211,4 @@ W2 H      final Writer2 release/freeze verdict
 
 ## 10. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires all source-qualified V11 Writer2 operations to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and any V14 route exposed in production to pass the lossless exact-roundtrip bridge gates. No lossy V14 conversion, broad unrelated-byte canonicalization, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires all source-qualified V11 Writer2 operations to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and any V14 route exposed in production to pass the exact lossless bridge gates. No lossy V14 conversion, broad unrelated-byte canonicalization, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
