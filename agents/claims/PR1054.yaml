@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w217
 base_main: 3a681c1c587ee3c1462a962879e4f79433258105
-claim_state: W2_12_RUNTIME_PASS_W2_13_PRODUCT_ENVIRONMENT_BLOCKED
+claim_state: W2_12_RUNTIME_PASS_W2_13_SYNTHETIC_DEPENDENCY_CLOSURE
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -21,9 +21,12 @@ claims:
     merge_sha: f51f8acdcdcbd108073e2a2e57753c07d9f27c42
     required: true
   - id: W2_13_SYNTHETIC_PRODUCT_RUNTIME
-    state: NOT_RUN_ENVIRONMENT
+    state: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
     required: true
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
+    local_mirror: /mnt/data/w217
+    assertion_failure_observed: false
+    current_missing_module: tabs/cii-workspace/cii-workspace-anchor-suggestions.js
   - id: W2_13_REAL_CII_PRODUCT_RUNTIME
     state: NOT_RUN_ENVIRONMENT
     required: true
@@ -41,18 +44,11 @@ claims:
   - id: REPOSITORY_NPM_GATE
     state: NOT_RUN_ENVIRONMENT
     required: true
-  - id: EXECUTION_ENVIRONMENT
-    state: HARD_BLOCKED_NO_EXACT_CHECKOUT_OR_NETWORK_RUNNER
-    evidence:
-      preserved_sparse_mirror_present: false
-      current_main_workflow_runs: 0
-      predecessor_main_workflow_runs: 0
-      git_ls_remote_exit: 128
-      git_ls_remote_observation: "Could not resolve host: github.com"
-      raw_https_ip_override_exit: 7
-      raw_https_ip_override_observation: "Failed to connect to raw.githubusercontent.com port 443"
-      github_token_present: false
-      http_proxy_present: false
+  - id: EXACT_SPARSE_MIRROR_CUSTODY
+    state: IN_PROGRESS
+    rule: every_transitively_loaded_repository_file_must_hash_to_BASE_MAIN_blob_before_execution
+    current_verified_file_count: 16
+    local_mirror: /mnt/data/w217
   - id: RESTRAINT_CREATE
     state: BLOCKED_RUNTIME_CONFIRMED_W2_12_R10
     authority: NONE
@@ -70,8 +66,9 @@ claims:
 validation_integrity:
   modified_authored_entrypoint_used: false
   dependency_stubs_used: false
+  unrelated_workflow_path_trigger_used: false
   source_inspection_promoted_to_runtime_pass: false
-  environment_failure_promoted_to_product_pass: false
+  module_load_stop_promoted_to_product_fail: false
 
-qualification_rule: authored entrypoint assertions on exact blobs are required for runtime PASS; module/dependency closure and source inspection are not PASS
-next_claim_gate: execute the pinned W2.13 and regression entrypoints on an exact checkout or existing authorized runner
+qualification_rule: authored entrypoint assertions on exact blobs are required for runtime PASS; module/dependency closure is NOT_RUN and not FAIL
+next_claim_gate: finish exact dependency closure and execute the W2.13 synthetic authored entrypoint, then retained-real-CII and inherited regressions
