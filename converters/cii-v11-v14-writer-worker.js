@@ -89,6 +89,12 @@ json.dumps({"exit_code": _exit_code, "stdout": _stdout.getvalue(), "stderr": _st
 `);
   return JSON.parse(String(raw));
 }
+function cleanupJobDir(pyodide, jobDir, paths) {
+  for (const path of paths) {
+    try { pyodide.FS.unlink(path); } catch {}
+  }
+  try { pyodide.FS.rmdir(jobDir); } catch {}
+}
 async function runJob(message) {
   const pyodide = await getRuntime();
   await ensureScripts(pyodide);
@@ -124,7 +130,7 @@ async function runJob(message) {
       argv: argv.slice(1),
     };
   } finally {
-    try { pyodide.FS.rmdir(jobDir); } catch {}
+    cleanupJobDir(pyodide, jobDir, [inputPath, outputPath, auditPath]);
   }
 }
 self.addEventListener('message', async (event) => {
