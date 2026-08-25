@@ -50,6 +50,11 @@ assert.match(worker, /jobQueue = current\.catch\(\(\) => undefined\)/, 'a failed
 assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/, 'message handler must not directly overlap shared-runtime jobs');
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
+assert.match(converter, /frozen-3d-converters-6/, 'worker URL cache key must move with worker runtime semantics');
+assert.match(converter, /function frozenAuditSnapshot\(value\)/);
+assert.match(converter, /loss_events:\s*Object\.freeze/);
+assert.match(converter, /warnings:\s*Object\.freeze/);
+assert.match(converter, /changed_sections:\s*Object\.freeze/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH/);
