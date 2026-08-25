@@ -1,0 +1,58 @@
+pr: 1055
+issue: 1052
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-restraint-product-runtime-w218
+base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
+current_stage: W2_13_PRODUCT_RUNTIME_DEPENDENCY_REBUILD
+agent_state: READ_ONLY_QUALIFICATION
+handover_readiness: READY
+criticality: ENGINEERING_CRITICAL
+production_change_authority: false
+merge_authority: OWNER_ONLY
+merge_authorized: false
+ready_for_review: false
+pr_state: DRAFT
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
+
+predecessor:
+  pr: 1054
+  phase: W2_17_EVIDENCE_CHECKPOINT
+  merge_sha: 297fb37a0e894a3aac91de9188ebf30e810781fb
+
+runtime:
+  w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
+  w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
+  w2_13_synthetic_runtime: NOT_RUN_DEPENDENCY_REBUILD
+  w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
+  inherited_writer2_regression: PARTIAL_PASS_W2_11_RESTRAINT_ONLY
+  repository_npm: NOT_RUN_ENVIRONMENT
+  engineering_failure: NONE_OBSERVED
+
+execution_environment:
+  native_git_clone: FAIL_ENVIRONMENT_DNS
+  clone_error: Could not resolve host github.com
+  exact_clone_exit: 128
+  prior_w217_sparse_files_admitted: 54
+  prior_w217_unresolved_static_modules: 31
+  prior_w217_assertion_failure_observed: false
+  current_sparse_mirror_rebuilt: false
+  validation_integrity: NO_STUBS_NO_MODIFIED_ENTRYPOINT_NO_PASS_PROMOTION
+
+current_exact_restart:
+  current_missing_module: tabs/cii-workspace/cii-workspace-auxiliary.js
+  auxiliary_blob: 7459677eccb2ca460b1971ac6d75c22f2f5ae870
+  auxiliary_imports:
+    - parser/fixed-field.js
+    - tabs/cii-workspace/cii-workspace-contracts.js
+
+negative_assurance:
+  control_row1_nonam_protected: true
+  control_row2_restraints_authority_preserved: true
+  production_changed: false
+  restraint_create_enabled: false
+  sif_create_enabled: false
+  hanger_create_enabled: false
+  writer3_changed: false
+  workflow_changed: false
+
+next_gate: rebuild exact sparse dependency slice from new main beginning at cii-workspace-auxiliary.js and execute the unchanged W2.13 synthetic authored entrypoint until assertions are reached
