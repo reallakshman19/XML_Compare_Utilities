@@ -4,65 +4,46 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 
 ```text
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
-CREATE_AUTHORITY_EDITION = CAESAR II 2019 / Version 11.0 ONLY
-LATER_EDITION_CREATE_AUTHORITY = EXCLUDED
+V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
+V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
-This is the canonical program-level authority matrix. It reconciles merged implementation authority, V11 source blockers, and observed validation evidence. It does not create engineering authority by itself.
+The v14 bridge does not create new Writer2 engineering semantics. It losslessly translates an admissible V14 neutral file to the already-qualified V11 mutation domain and back by using the frozen existing converter.
 
-V11-only CREATE source record:
+Canonical bridge design:
 
 ```text
-docs/cii-writer2-create-source-refresh-2026-08-25.md
+docs/cii-writer2-v11-v14-lossless-bridge.md
 ```
 
-## 1. Ownership boundary
+## 1. Global Writer2 invariants
 
 ```text
-Writer1A   existing cardinality-preserving fixed fields
-Writer1B   extended fixed fields + qualified existing restraint-block free-slot CREATE/CLEAR
-Writer1C   pointer-stable / row-count-stable existing auxiliary-field mutation
-Writer2    auxiliary cardinality, section expansion/compaction, pointer allocation/reindex,
-           governed CONTROL counts, one-TARGET0 multi-family arbitration
-Writer3    node / element / connectivity / topology mutation
-```
-
-## 2. V11 authority rule
-
-For Writer2 CREATE qualification:
-
-```text
-exact V11 vendor-authored material       authority-bearing
-real V11 neutral files                   observation/physical evidence only unless transition-controlled
-repository converter defaults            repository policy only unless vendor-sourced
-V12/V14/current-version documentation    NOT V11 CREATE authority
-later-edition meanings/defaults           MUST NOT be backported to V11
-```
-
-The current CREATE blockers are therefore V11-native blockers; they do not depend on later-edition drift arguments.
-
-## 3. Global Writer2 transaction invariants
-
-```text
-one untouched TARGET0
+one untouched writer-domain TARGET0
 canonical explicit BOUND APPLY / EXCLUDE scope
-cryptographic TARGET0 byte custody
-complete deterministic relocation/cardinality plan
-exact physical fixed-field/section custody
+cryptographic target custody
 original-coordinate claim arbitration
 no last-writer-wins overlap handling
-one final splice pass
-postimage SHA custody
-canonical physical re-intake
-independent complete-postimage oracle
-Writer testimony secondary to independent expected final bytes
-no fabricated native provenance
+one final V11 splice pass
+independent complete V11 postimage oracle
+no fabricated source authority
 no unexecuted test represented as PASS
 no Writer3 topology leakage
 ```
 
-## 4. Binding Issue #1042 CONTROL correction
+For a V14 target, additional mandatory invariants are:
+
+```text
+frozen pinned 3D_Converters source only
+allow_lossy = false
+exact untouched V14 -> V11 -> V14 byte roundtrip
+existing V11 Writer2 only
+exact modified V11 -> V14 -> V11 byte roundtrip
+no broad converter canonicalization admitted as Writer2 mutation
+```
+
+## 2. Binding #1042 CONTROL correction
 
 ```text
 CONTROL row1 / field4 / I13 = NONAM
@@ -74,157 +55,106 @@ CONTROL row2 / field4 / I13 = RESTRAINT auxiliary-block count
 
 W2.11 P19 and W2.12 R09 remain mandatory negative-assurance anchors.
 
-## 5. Capability matrix
+## 3. Capability matrix
 
-### NODENAME
+| Family / operation | Owner | V11 disposition | V14 disposition |
+|---|---|---|---|
+| NODENAME existing field update | Writer1C | DONE | via bridge only after bridge qualification |
+| NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | via bridge only after bridge qualification |
+| SIF existing qualified ii/io update | Writer1C | DONE | via bridge only if lossless exact-roundtrip admissible |
+| SIF block DELETE/compaction/reindex | Writer2 | DONE | via bridge only if lossless exact-roundtrip admissible |
+| SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
+| HANGER delete-all | Writer2 | DONE | via bridge only if lossless exact-roundtrip admissible |
+| HANGER H>1 partial DELETE/repack | Writer2 | DONE_PRODUCT_ROUTED | via bridge only after bridge qualification |
+| HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
+| RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | via bridge only after bridge qualification |
+| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | bridge IMPLEMENTED_NOT_RUN |
+| RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED through bridge |
+| node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
-| Operation | Owner | Disposition |
-|---|---|---|
-| existing name-field overwrite | Writer1C | DONE |
-| row CREATE | Writer2 | DONE |
-| row DELETE | Writer2 | DONE |
-| pointer allocation/reindex | Writer2 | DONE |
-| node create/delete/renumber | Writer3 | OUTSIDE_WRITER2 |
+## 4. V11 CREATE boundary remains authoritative
 
-### SIF / TEE
-
-| Operation | Owner | Disposition |
-|---|---|---|
-| selected existing V11 ii/io UPDATE | Writer1C | DONE |
-| existing V11 block DELETE | Writer2 | DONE |
-| block compaction/reindex | Writer2 | DONE |
-| new V11 block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 |
-
-V11 source truth:
+V11 CREATE qualification is unchanged by the v14 converter:
 
 ```text
-#$ SIF&TEES
-FORTRAN (2X,6G13.6)
-30 items/tee
-2 tee slots
-5 rows/tee
-10 rows/auxiliary
-items 1..26 source-identified
-items 27..30 unresolved in retained V11 neutral authority
+SIF_CREATE        SOURCE_BLOCKED_REAFFIRMED_V11
+HANGER_CREATE     SOURCE_BLOCKED_REAFFIRMED_V11
+RESTRAINT_CREATE  SOURCE_BLOCKED_REAFFIRMED_V11
 ```
 
-Therefore:
+Canonical V11 source record:
 
 ```text
-V11_COMPLETE_60_POSITION_CREATE_CONTRACT UNRESOLVED
-V11_UNUSED_SECOND_TEE_SLOT_CREATE_RULE   UNRESOLVED
-SIF_CREATE                               SOURCE_BLOCKED_REAFFIRMED_V11
+docs/cii-writer2-create-source-refresh-2026-08-25.md
 ```
 
-Production blocker:
+The frozen converter's knowledge of v14 physical dialect is not authority to synthesize a Writer2 CREATE operation that is blocked in the V11 mutation policy.
+
+## 5. Frozen converter custody
+
+Pinned source files are vendored byte-identically under:
 
 ```text
-WRITER_2_SIF_CREATE_PAYLOAD_SEMANTICS_UNQUALIFIED_ITEMS_27_30
+converters/scripts/cii-v11-v14-upstream/
 ```
 
-### HANGER
-
-| Operation | Owner | Disposition |
-|---|---|---|
-| H=1 delete-all | Writer2 | DONE |
-| H>1 delete-all | Writer2 | DONE |
-| H>1 partial DELETE | Writer2 | DONE_PRODUCT_ROUTED |
-| packed-array DELETE compaction/repacking | Writer2 | DONE |
-| CONTROL.NOHGRS decrement for DELETE | Writer2 | DONE |
-| new V11 HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 |
-| HANGER engineering value editing | none | NOT_AUTHORIZED |
-
-Exact V11 vendor source qualifies the published physical dictionary, including header/default records, `IHGRNODE`, all 11 `HGRDAT` positions, TAG/GUID, `IHGRFREE`, and packed arrays. V11 also states hanger GUID is software-assigned/display-only.
-
-Still unresolved from V11 alone:
+Exact expected Git blobs:
 
 ```text
-blank/generated GUID CREATE/import behavior
-complete universal CREATE defaults
-first-hanger header/default exact byte construction
-correlated-array record insertion/index policy
-native H=0->1 / H=1->2 controlled transition
+cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
+cii_v11_v14_format.py        56f59fb7e095a887fc84e8a008a5f40acbadaec5
+cii_v11_v14_records.py       1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
+cii_v11_v14_sif.py           88c1d80bdb7bd2d5197a56c5be60ac2057c02367
+cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
+cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 ```
 
-Retained blockers:
+The XML repository's pre-existing `converters/scripts/cii2019_section_rules.py` is not substituted for the upstream dependency because the two blobs differ.
+
+## 6. V14 bridge implementation state
 
 ```text
-GUID_SOFTWARE_ASSIGNED_CREATE_RULE_UNRESOLVED
-FIRST_HANGER_HEADER_DEFAULTS_UNRESOLVED
-REPOSITORY_FALLBACK_DEFAULT_CONFLICT
-NEW_HANGER_RECORD_INSERTION_POLICY_UNRESOLVED
-OMITTED_PER_HANGER_DEFAULTS_NOT_COMPLETE
-REAL_NATIVE_CREATE_TRANSITION_NOT_AVAILABLE
+frozen upstream Python engine       COPIED_EXACT_BLOB
+isolated dependency root            IMPLEMENTED
+Pyodide worker adapter              IMPLEMENTED
+JS conversion client                IMPLEMENTED
+inspection/preview V14->V11 bridge  IMPLEMENTED_ADDITIVE_API
+stale original V14 target custody   IMPLEMENTED
+V11 Writer2 invocation              REUSES_EXISTING_CORE
+V11->V14 restoration                IMPLEMENTED
+baseline exact roundtrip gate       IMPLEMENTED
+modified exact roundtrip gate       IMPLEMENTED
+live Writer2 UI automatic adoption  PENDING_QUALIFICATION
 ```
 
-### RESTRAINT
+No existing V11 core writer source was changed to implement the bridge.
 
-| Operation | Owner | Disposition |
-|---|---|---|
-| existing qualified numeric update | Writer1A/1B | DONE |
-| existing 24-row-block free-slot CREATE/CLEAR | Writer1B | DONE |
-| whole 24-row block DELETE planner | Writer2 | DONE |
-| physical block DELETE/compaction | Writer2 | DONE |
-| one-TARGET0 composite adoption | Writer2 | DONE |
-| product/core adoption | Writer2 | IMPLEMENTED_RUNTIME_PENDING |
-| new V11 24-row block CREATE/allocation | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 |
-
-Exact V11 vendor/source custody establishes:
+## 7. Runtime evidence
 
 ```text
-up to six restraints per element
-Node + Type required
-remaining input optional
-blank stiffness -> rigid behavior
-Tag input
-GUID software-assigned/display-only
-6 slots × 4 rows = 24 rows/block
-1-based ELEMENT restraint pointer
-CONTROL restraint count = auxiliary-block count
+W2.11 RESTRAINT physical runtime        PASS_RUNTIME_EXACT_BLOB
+W2.12 R01-R22                           PASS_RUNTIME_EXACT_BLOB
+W2.13 synthetic Writer2 product         NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+W2.13 retained-real V11 CII             NOT_RUN_ENVIRONMENT
+frozen upstream target blob test        NOT_RUN_ENVIRONMENT
+frozen engine synthetic falsifiers      NOT_RUN_ENVIRONMENT
+real V14 bridge baseline                NOT_RUN
+real V14 Writer2 mutation               NOT_RUN
+browser V14 bridge                      NOT_RUN
+repository npm                           NOT_RUN_ENVIRONMENT
 ```
 
-Still unresolved from V11 alone:
+Bridge qualification files:
 
 ```text
-blank/generated GUID CREATE/import behavior
-complete Type-dependent CREATE byte payload/defaults
-new-block allocation/index policy
-first-block CREATE serialization
-shared-pointer CREATE alias semantics
-controlled native 0->1 / N->N+1 block transition
+tests/cii-workspace-v11-v14-frozen-source.test.js
+tests/cii-workspace-v11-v14-frozen-engine.test.py
+.github/workflows/cii-writer-v11-v14-bridge.yml
 ```
 
-Production blocker:
+No workflow run/status has yet been observed. Defined tests/workflows are not represented as PASS.
 
-```text
-WRITER_2_RESTRAINT_BLOCK_CREATE_ALLOCATION_NOT_QUALIFIED
-```
-
-Current RESTRAINT DELETE release truth:
-
-```text
-W2.11 physical runtime   PASS_RUNTIME_EXACT_BLOB
-W2.12 R01-R22            PASS_RUNTIME_EXACT_BLOB
-W2.13 synthetic product  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
-W2.13 retained-real-CII  NOT_RUN_ENVIRONMENT
-```
-
-## 6. Gate F — V11-only CREATE source closure
-
-```text
-AUTHORITY_SCOPE                       CAESAR_II_2019_VERSION_11_ONLY
-LATER_EDITION_AUTHORITY_ALLOWED       FALSE
-SIF_CREATE_SOURCE_REFRESH             COMPLETE_SOURCE_BLOCKED_V11
-HANGER_CREATE_SOURCE_REFRESH          COMPLETE_SOURCE_BLOCKED_V11
-RESTRAINT_CREATE_SOURCE_REFRESH       COMPLETE_SOURCE_BLOCKED_V11
-PRODUCTION_CREATE_CHANGE              NONE
-```
-
-This closes CREATE as a source-classification obligation for the current Writer2 freeze. A family may reopen only if new V11-authoritative evidence closes its specific blocker.
-
-## 7. Gate G — structural-family classification audit
-
-Exact-base transfer-policy and Writer2 composite-routing source produce the finite partition:
+## 8. Structural-family classification
 
 ```text
 Writer1-class   PROCESS / WALL / qualified OD / RIGID weight
@@ -234,47 +164,28 @@ Writer3         topology
 UNKNOWN         TRANSFER_FAMILY_NOT_QUALIFIED
 ```
 
-Writer2 routing explicitly admits only NODENAME CREATE/DELETE, SIF DELETE, HANGER DELETE and qualified RESTRAINT DELETE; unsupported non-KEEP families fail closed.
-
 ```text
-REMAINING_STRUCTURAL_FAMILY_AUDIT       PASS_SOURCE_INSPECTION
-HIDDEN_WRITER2_FAMILY                   NONE_OBSERVED
-AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE   NONE_OBSERVED
-UNKNOWN_FAMILY_BEHAVIOR                 FAIL_CLOSED
+HIDDEN_WRITER2_FAMILY                 NONE_OBSERVED
+AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE NONE_OBSERVED
+UNKNOWN_FAMILY_BEHAVIOR               FAIL_CLOSED
 ```
 
-## 8. Remaining release blockers
-
-The unresolved program gates are execution/release evidence for already-implemented V11 authority:
+## 9. Remaining gates
 
 ```text
-GATE A  unchanged W2.13 synthetic RESTRAINT product assertions on exact repository bytes
-GATE B  retained-real-CII V11 RESTRAINT product runtime
-GATE C  inherited V11 Writer2 NODE/SIF/HANGER product/composite regressions
-GATE D  Writer1A/1B/1C adjacent regressions + repository npm + browser/product Writer2 gate
-GATE E  mature DELETE/cardinality freeze from Gates A-D
-GATE H  final Writer2 program verdict
+BRIDGE A  exact-checkout frozen-source Git-blob test
+BRIDGE B  frozen-engine synthetic falsifiers
+BRIDGE C  real/native V14 baseline exact V14->V11->V14 admission
+BRIDGE D  real qualified Writer2 mutation through V14->V11->Writer2->V14
+BRIDGE E  exact modified V11->V14->V11 proof + browser/product adoption
+
+W2 A      unchanged W2.13 synthetic product assertions
+W2 B      retained-real V11 RESTRAINT product runtime
+W2 C      inherited Writer2 NODE/SIF/HANGER regressions
+W2 D      Writer1 adjacent + repository npm + browser/product regressions
+W2 H      final Writer2 release/freeze verdict
 ```
 
-Current environment blocker:
+## 10. Freeze rule
 
-```text
-native checkout -> FAIL_ENVIRONMENT_DNS
-Could not resolve host: github.com
-exact executable mirror -> NOT_AVAILABLE_THIS_RUNTIME
-```
-
-Source/static closure is not runtime qualification.
-
-## 9. Program-level freeze rule
-
-Final verdict must be exactly one of:
-
-```text
-READY_FOR_WRITER2_RELEASE_FREEZE
-NOT_READY_FOR_WRITER2_RELEASE_FREEZE
-```
-
-READY requires all source-qualified V11 Writer2 operations to be implemented and runtime-dispositioned; one-TARGET0/original-coordinate architecture and independent complete-postimage validation must remain intact; adjacent/repository/product gates must be explicit; all unresolved V11 CREATE families must remain fail-closed; no generic FUTURE_WRITER ambiguity or Writer3 topology leakage may remain.
-
-READY does not require inventing source-blocked V11 CREATE semantics.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires all source-qualified V11 Writer2 operations to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and any V14 route exposed in production to pass the lossless exact-roundtrip bridge gates. No lossy V14 conversion, broad unrelated-byte canonicalization, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
