@@ -3,15 +3,16 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w217
 base_main: 3a681c1c587ee3c1462a962879e4f79433258105
-current_stage: W2_13_PRODUCT_RUNTIME_DEPENDENCY_CLOSURE
+current_stage: W2_17_EVIDENCE_CHECKPOINT_READY_TO_MERGE
 agent_state: READ_ONLY_QUALIFICATION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
 production_change_authority: false
 merge_authority: OWNER_ONLY
-merge_authorized: false
-ready_for_review: false
-pr_state: DRAFT
+merge_authorized: true
+merge_authorized_at: 2026-08-25T08:24:19Z
+ready_for_review: true
+pr_state: OPEN_PREMERGE
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 predecessor:
@@ -35,49 +36,23 @@ runtime:
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
 
-execution_environment:
-  classification: SPARSE_MIRROR_RECONSTRUCTION_IN_PROGRESS
-  local_sparse_mirror: /mnt/data/w217
-  node_version: v22.16.0
-  native_git_network: FAIL_ENVIRONMENT
-  workflow_dispatch_defined_in_repo: true
-  workflow_dispatch_connector_action_available: false
-  unrelated_path_filtered_workflow_trigger_rejected_as_validation_gaming: true
+execution_checkpoint:
+  prior_sparse_mirror_path: /mnt/data/w217
+  prior_exact_repository_js_files_admitted: 54
+  prior_unresolved_static_modules: 31
+  prior_current_missing_module: tabs/cii-workspace/cii-workspace-auxiliary.js
+  prior_assertion_failure_observed: false
+  current_session_sparse_mirror_retained: false
+  classification: EVIDENCE_CHECKPOINT_ONLY
   validation_integrity: NO_STUBS_NO_MODIFIED_ENTRYPOINT_NO_PASS_PROMOTION
 
-exact_sparse_mirror_verified:
+notable_exact_blobs:
   w2_13_synthetic_test: 9922377ddeda86fc9167d65f33c97095346e79fa
-  w2_12_fixture: b725d56be579e7a2d7c40995ca2e13af7e702cbc
-  core: cee2858a63992648edf5e61b8f63b3837a937f9e
-  composite_routing: 2e7a21bd17aa9af405f1a2f93201d4a45bb09e4b
-  restraint_composite_writer: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
-  product_validator: 05fcb594a3be5e360ce804c77872319730a16b53
-  restraint_compaction_planner: aedfb3ac78eed2294a88a64af261386f0db65085
-  contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
-  byte_sha256: 6435e0eaadc382a18aac6a0bd46318ab6c27c714
-  physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
-  intake: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
-  topology_adapter: 57b8d2d6e8335887b962e09085cc93ece2e36d68
-  geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
-  multi_base_anchor: c782f2c64338845960a7f2d52d8ce25510d849ec
-  multi_base_correspondence: fdedb84add2faac6b38bff9300fe79224c8808e5
-  landmarks: cc8d8e0861987357386e105ca164ceac23162594
-
-current_authored_entrypoint_observation:
-  command: node tests/cii-workspace-writer2-restraint-product-routing.test.js
-  status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
-  assertion_failure_observed: false
-  current_missing_module: tabs/cii-workspace/cii-workspace-anchor-suggestions.js
-  custody_note: every admitted local repository file must satisfy local_git_hash_object_equals_BASE_MAIN_blob
-
-exact_current_main_manifest:
   w2_13_real_cii_test: c341b99e2786b0034ef672b4efb03d167d9ad26c
   real_benchmark: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
-  regression_composite_product: 9fbddd0fdda5285c8ee8a477a850cf945051a9df
-  regression_hanger_partial_product: 4696cd24de47650d0757b1313f4ed05d622331f8
-  regression_hanger_partial_deleted_testimony: f02f0775424fabf20fbb70afa5be6090eeb67a0e
-  regression_real_benchmark: 94f63368d0620ce22d26429073408d8f4d9f6e8c
-  regression_trifamily_real_benchmark: 3a5fbab24a1de1e887bd13f40784484045f2b047
+  restraint_physical_writer: e8a92417e45c75269a859469e6f51bd577b412cb
+  restraint_pointer_custody: 2176ac97eaef84f3aa9073d5eaf73d1530cf09a8
+  restraint_composite_validator: 919ac88c071db9d793c7793cbbd82cff7e193189
 
 negative_assurance:
   control_row1_nonam_protected: true
@@ -90,4 +65,10 @@ negative_assurance:
   parser_converter_changed: false
   workflow_changed: false
 
-next_gate: continue exact sparse-mirror closure from cii-workspace-anchor-suggestions.js until the authored W2.13 synthetic entrypoint reaches assertions; only then classify PASS or FAIL
+merge_semantics:
+  owner_accepts_evidence_only_checkpoint_merge: true
+  merge_does_not_promote_release_freeze: true
+  merge_does_not_promote_runtime_pass: true
+  merge_does_not_close_issue_1052_as_qualified: true
+
+next_gate: after merge, continue qualification on a successor evidence phase from exact new main; reconstruct exact dependencies beginning with cii-workspace-auxiliary.js and run the unchanged authored W2.13 synthetic entrypoint before any PASS or FAIL classification
