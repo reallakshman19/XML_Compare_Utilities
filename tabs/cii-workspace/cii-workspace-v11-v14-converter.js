@@ -1,4 +1,4 @@
-const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-1', import.meta.url);
+const WORKER_URL = new URL('../../converters/cii-v11-v14-writer-worker.js?v=20260825-frozen-3d-converters-2', import.meta.url);
 let worker = null;
 let sequence = 0;
 const pending = new Map();
@@ -52,8 +52,12 @@ export function detectCiiNeutralVersion(value) {
     const tokens = rows[index].trim().split(/\s+/).filter(Boolean);
     if (!tokens.length) continue;
     if (tokens.length < 2) throw new Error('CII_VERSION_BRIDGE_VERSION_RECORD_INVALID');
-    const major = Math.round(Number(tokens[1]));
-    if (major !== 11 && major !== 14) throw new Error(`CII_VERSION_BRIDGE_UNSUPPORTED_VERSION:${tokens[1]}`);
+    const numeric = Number(tokens[1]);
+    if (!Number.isFinite(numeric)) throw new Error('CII_VERSION_BRIDGE_VERSION_RECORD_INVALID');
+    const major = Math.round(numeric);
+    if ((major !== 11 && major !== 14) || Math.abs(numeric - major) > 1e-6) {
+      throw new Error(`CII_VERSION_BRIDGE_UNSUPPORTED_VERSION:${tokens[1]}`);
+    }
     return major;
   }
   throw new Error('CII_VERSION_BRIDGE_VERSION_RECORD_REQUIRED');
@@ -63,6 +67,7 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
   const target = Number(targetVersion);
   if (target !== 11 && target !== 14) throw new Error(`CII_VERSION_BRIDGE_TARGET_UNSUPPORTED:${targetVersion}`);
   const bytes = inputBytes(value);
+  const expectedSource = detectCiiNeutralVersion(bytes);
   const response = await runWorker({
     inputName: String(options.fileName || 'model.cii'),
     inputBytes: bytes,
@@ -71,7 +76,10 @@ export async function convertCiiNeutralVersion(value, targetVersion, options = {
   });
   const audit = response.audit || JSON.parse(response.auditText || '{}');
   const outputBytes = new Uint8Array(response.outputBytes);
+  if (Number(audit.source_version) !== expectedSource) throw new Error('CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH');
   if (Number(audit.target_version) !== target) throw new Error('CII_VERSION_BRIDGE_TARGET_AUDIT_MISMATCH');
+  const physicalTarget = detectCiiNeutralVersion(outputBytes);
+  if (physicalTarget !== target) throw new Error('CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH');
   return Object.freeze({
     schema: 'CIIWorkspaceVersionConversion.v1',
     sourceVersion: Number(audit.source_version),
