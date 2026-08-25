@@ -14,6 +14,15 @@ ready_for_review: false
 pr_state: DRAFT
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
+inherited_authority_correction:
+  source: issue_1042_w2_11_recovery_comments
+  control_row1_field4: NONAM_PRESERVE_BYTE_IDENTICAL
+  control_row2_field4: RESTRAINT_BLOCK_COUNT_I13_MUTABLE
+  live_main_writer_corrected: true
+  live_main_validator_corrected: true
+  live_main_planner_corrected: true
+  negative_assurance_case: P19
+
 runtime:
   w2_11_restraint_physical: PASS_RUNTIME_EXACT_BLOB
   w2_12_r01_r22: PASS_RUNTIME_EXACT_BLOB
@@ -23,61 +32,40 @@ runtime:
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_failure: NONE_OBSERVED
 
-execution_environment:
-  node_version: v22.16.0
-  native_git_clone: FAIL_ENVIRONMENT_DNS
-  direct_github_https: FAIL_ENVIRONMENT_EGRESS
-  exact_main_actions_runs: NONE
-  w2_13_merge_actions_runs: NONE
-  prior_sparse_mirror_persisted_between_turns: false
-  current_bounded_support_mirror: /mnt/data/w218-frontier
-  validation_integrity: NO_STUBS_NO_MODIFIED_ENTRYPOINT_NO_PASS_PROMOTION
-
 current_authored_entrypoint:
   command: node tests/cii-workspace-writer2-restraint-product-routing.test.js
   exact_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
   status: NOT_RUN_DEPENDENCY_CLOSURE_IN_PROGRESS
   assertion_failure_observed: false
-  full_entrypoint_rerun_this_checkpoint: false
 
-exact_support_runtime:
+prior_runtime_support:
   classification: PASS_NONQUALIFYING_SUPPORT_IMPORT
   qualifying_for_w2_13_product_pass: false
+
+incoming_handoff:
+  classification: HANDOFF_TESTIMONY_NOT_REEXECUTED_THIS_CHECKPOINT
+  assertion_failure_reported: false
+  engineering_failure_reported: false
+  reported_remaining_named_modules: 5
+
+current_source_inspection:
+  classification: PASS_SOURCE_INSPECTION
+  runtime_admission_observed: false
+  named_frontier_source_identity_closed: true
+  discovered_transitive_modules:
+    - debug/support-debug.js
   exact_blobs:
-    path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
-    path_aligner: 6a9e17e0f4373d8d0e57111e2b135ea645b7e080
-    evidence: 8c7e392d42308eb1cb6671314e55e99be8b72a57
-    match_methods: 20c129291d85d16558185b711dc1cd334769d21e
-    geometry: 86fbb79cb859225b1f980f8d3709dc5286f15c26
-    contracts: 6ab30d8dd088225fd89bb729bf9ffdebefe652f6
-    node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
-    components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
-    identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
-    engineering_delta: 790900cccc7da1486c57d52719dde6abfa500909
-    writer1b_od: 1ed7597f14339a554fe8a3555584241e416eb6ab
-    writer1b_deltas: 43435146a3cb4741882ccfa73f0315e5c92bcaaa
-    restraint_pairing: 18e01014aa716f0b3f15220b3c9454056bf0fc9d
-    restraint_transfer: 410843c343ed1915a925dee84129b174f514d803
-    restraint_slot_transfer: 907708a038eab1b56886bb5398e759d95e69af7c
-    fixed_field: 485daa43553681ca54f488499e57f36d2239be58
-  outputs:
-    - W218_PATH_CANDIDATES_EXACT_SUPPORT_IMPORT_PASS
-    - W218_NODE_CUSTODY_EXACT_SUPPORT_IMPORT_PASS
-    - W218_COMPONENTS_EXACT_SUPPORT_IMPORT_PASS
-    - W218_IDENTITY_EXACT_SUPPORT_IMPORT_PASS
-    - W218_ENGINEERING_DELTA_EXACT_SUPPORT_IMPORT_PASS
-    - W218_WRITER1B_DELTAS_EXACT_SUPPORT_IMPORT_PASS
-    - W218_RESTRAINT_PAIRING_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
-    - W218_RESTRAINT_SLOT_TRANSFER_EXACT_SUPPORT_IMPORT_PASS
-
-custody_incidents:
-  restraint_compaction_terminal_lf_near_match_rejected: true
-  restraint_pairing_reformatted_near_match_rejected: true
-  mismatched_file_admitted_to_runtime: false
-
-source_frontier:
-  writer2_delta_preview_slice_closed: true
-  next_public_core_boundary: tabs/cii-workspace/cii-workspace-compare-review.js
+    pdf_parser: e7f2711daa0c31fba8e2f9023380e6774b2d8f8a
+    xml_elements: 0e967fa4044570f7af734fef21683a5ac9b5e53d
+    parser_validator: 90cef22039bcedbe0699ed9137855ea84c1d3f34
+    hanger_partial_validation: 309770a62e5c2a9caa317383ae70c89c5ff02679
+    restraint_delete_validation: 1833d9fecc37061eaf2f51f1676e6386e1f9ac3c
+    support_debug: edabff13f6563bbd0e6a9fa38b437ccd3cc42224
+    compare_review: e3e8ae949dd57906743edfbdd030389d2b8e85d0
+    transfer_plan: fb74004eb43a4f2807f45e5cf839da6686a36fad
+    review: 6454074f8247b61a052d34071a87d03d04efa8c2
+    placeholders: 0bec565ac73ec7c06a78327725b6c6152fd81848
+    transfer_policy: 5bb37b810e6b46fbb617d9e6fcf4d72fce1f307f
 
 negative_assurance:
   control_row1_nonam_protected: true
@@ -89,4 +77,4 @@ negative_assurance:
   writer3_changed: false
   workflow_changed: false
 
-next_gate: reconstruct compare-review, transfer-plan, review, placeholders and subsequent static core dependencies; restore full authored W2.13 graph; rerun unchanged authored test before any product PASS or FAIL promotion
+next_gate: rebuild exact executable graph; hash-admit every loaded repository file; rerun unchanged W2.13 synthetic until assertions execute; then real-CII, inherited Writer2 regressions, and repository npm on complete exact checkout
