@@ -107,6 +107,68 @@ complete Type + piping-code 60-position construction rule
 
 Later-edition V14/B31J semantics must not be backported by item number.
 
+#### Gate F.1 source refresh — 2026-08-25
+
+A targeted external source refresh rechecked official Hexagon CAESAR II documentation.
+
+Direct official Version 12 neutral-file authority confirms the V11/V12-era physical shape:
+
+```text
+section             #$ SIF&TEES
+format              (2X, 6G13.6)
+items per tee       30
+tee slots           2
+rows per tee        5
+rows per auxiliary  10
+array                SIF(N4,60)
+```
+
+The same official Version 12 page explicitly identifies items 1..26, including selected SIF/index/note positions, but does not supply a complete construction/default contract for items 27..30. It also states that several positions are piping-code dependent. This strengthens physical and partial semantic authority but does not qualify a full new 60-position payload.
+
+Source locator:
+
+```text
+Hexagon CAESAR II Users Guide
+Version 12
+Auxiliary Element Data
+#$ SIF&TEES
+https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-12/1216040
+```
+
+Official Version 14 documentation demonstrates edition drift:
+
+```text
+SIF array changes from N4,60 to N4,84
+rows per tee change from 5 to 7
+rows per auxiliary change from 10 to 14
+B31J-specific positions appear from item 27 onward
+```
+
+Version 14 identifies item 27 as B31J Surface Node and later unused/B31J positions, but this is **not** V11 construction authority. The changed row/item schema is positive evidence that later-edition meanings/defaults must not be backported by field number.
+
+Source locator:
+
+```text
+Hexagon CAESAR II Users Guide
+Version 14
+Auxiliary Element Data
+#$ SIF&TEES
+https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/1471418
+```
+
+Refresh verdict:
+
+```text
+V11_V12_PHYSICAL_SCHEMA             PASS_DIRECT_SOURCE_REFRESH
+V11_ITEMS_1_26_PARTIAL_SEMANTICS    PASS_DIRECT_SOURCE_REFRESH
+V11_ITEMS_27_30_CREATE_AUTHORITY    UNRESOLVED
+V11_COMPLETE_DEFAULT_CONTRACT       UNRESOLVED
+V14_B31J_BACKPORT_ALLOWED           FALSE
+SIF_CREATE                          SOURCE_BLOCKED_REAFFIRMED
+```
+
+No production SIF CREATE authority is created by this refresh.
+
 ### 4.3 HANGER
 
 | Operation | Owner | Current disposition | Freeze requirement |
@@ -281,6 +343,7 @@ GATE E
 
 GATE F
   source-acquisition refresh for SIF CREATE / HANGER CREATE / RESTRAINT CREATE
+  -> SIF refresh complete; SOURCE_BLOCKED reaffirmed
   -> implement only a family that reaches explicit READY source verdict
   -> otherwise preserve SOURCE_BLOCKED
 
