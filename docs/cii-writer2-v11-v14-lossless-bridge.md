@@ -1,10 +1,10 @@
-# CII Writer2 — CAESAR II v11 / v14 lossless bridge
+# CII Writer2 — CAESAR II V11 / V14 lossless bridge
 
 ## Decision
 
-Do not implement an independent new CAESAR II v14 neutral-format writer.
+Do not implement an independent CAESAR II V14 neutral-format writer.
 
-Reuse the existing CAESAR II v11 <-> v14 converter from `reallaksh19/3D_Converters` and keep its source implementation unchanged.
+Reuse the existing CAESAR II V11 <-> V14 converter from `reallaksh19/3D_Converters` and keep its source implementation unchanged.
 
 Pinned source:
 
@@ -23,13 +23,13 @@ Exact blob custody is recorded in `UPSTREAM.md` and enforced by `tests/cii-works
 
 ## Authority split
 
-The bridge does not promote v14 engineering semantics into the V11 Writer2 implementation.
+The bridge does not promote V14 engineering semantics into the V11 Writer2 implementation.
 
 ```text
 3D_Converters authority:
-  v11 <-> v14 neutral-dialect conversion
+  V11 <-> V14 neutral-dialect conversion
   version-owned physical record shapes
-  SIF semantic position mapping
+  semantic SIF position mapping
   restraint stiffness sentinel mapping
   ALLOWBLS / REDUCER extension handling
   source and generated structural validation
@@ -40,9 +40,35 @@ XML_Compare_Utilities authority:
   one-TARGET0 mutation planning
   original-coordinate claim arbitration
   independent V11 postimage validation
+  V14 admission and exact byte-custody restrictions around the frozen converter
 ```
 
-V11 CREATE blockers remain unchanged. The converter is not authority to invent a SIF/HANGER/RESTRAINT CREATE payload that the V11 Writer2 policy already blocks.
+V11 CREATE blockers remain unchanged. The converter is not authority to invent SIF/HANGER/RESTRAINT CREATE payloads already blocked by V11 Writer2 policy.
+
+## Upstream qualification boundary
+
+The pinned upstream repository contains the paired benchmark:
+
+```text
+Benchmarks/v11-v14.zip
+  SYS-0001-v11.cii
+  SYS-0001-v14.CII
+```
+
+The pair represents the same 112-element model. Upstream qualification records establish the relevant record deltas and regression coverage, including semantic SIF mapping and independent generated-target validation.
+
+Upstream also explicitly records this final application gate as `NOT_RUN`:
+
+```text
+actual V14 source
+-> repaired converter
+-> generated V11
+-> actual CAESAR V11 import/use
+-> save/export from CAESAR
+-> semantic/record comparison
+```
+
+That external CAESAR acceptance is not inherited as PASS by this bridge.
 
 ## Writer2 execution paths
 
@@ -50,7 +76,9 @@ V11 CREATE blockers remain unchanged. The converter is not authority to invent a
 
 ```text
 SOURCE V11 + TARGET V11
+  -> original SHA custody
   -> existing CII Workspace intake/preview
+  -> normalized/intake SHA equality check
   -> existing V11 Writer2
   -> existing V11 independent postimage validation
   -> V11 output
@@ -62,44 +90,139 @@ No converter call is required.
 
 ```text
 SOURCE/TARGET V14
-  -> frozen 3D_Converters v14 -> v11, allow_lossy = false
-  -> frozen converter structural validation
-  -> exact untouched v14 -> v11 -> v14 byte equality gate
+  -> independent original V14 SHA
+  -> frozen 3D_Converters V14 -> V11, allow_lossy = false
+  -> converter structural validation
+  -> independent normalized V11 SHA
+  -> exact untouched V14 -> V11 -> V14 byte equality gate
+  -> workspace intake SHA must equal normalized V11 SHA
   -> existing V11 CII Workspace preview / Writer2 / validator
-  -> frozen 3D_Converters v11 -> v14, allow_lossy = false
-  -> frozen converter structural validation
-  -> exact modified v11 -> v14 -> v11 byte equality gate
+  -> authoritative Writer2 byteString -> exact V11 postimage bytes
+  -> Writer2 postimage SHA cross-check
+  -> frozen 3D_Converters V11 -> V14, allow_lossy = false
+  -> converter structural validation
+  -> exact modified V11 -> V14 -> V11 byte equality gate
   -> V14 output
 ```
 
-The same normalization permits a mixed V11/V14 SOURCE/TARGET pair only when every V14 side is losslessly and exactly roundtrippable through the pinned converter.
+A mixed V11/V14 SOURCE/TARGET pair is admissible only when every V14 side satisfies these lossless exact-roundtrip gates.
 
 ## Why the exact roundtrip gate is stricter than the converter
 
-The upstream converter intentionally normalizes version-owned formatting and does not claim arbitrary cross-version byte identity. That behavior is valid for a converter but is too broad for Writer2 byte custody.
+The upstream converter intentionally emits target-dialect formatting and does not claim arbitrary V14 -> V11 -> V14 byte identity. That is valid converter behavior but too broad for Writer2's unrelated-byte custody requirement.
 
-Writer2 therefore admits V14 only when conversion of the untouched baseline is exactly reversible byte-for-byte. If canonicalization would change unrelated bytes, the bridge blocks rather than exporting a broad rewrite.
+Writer2 therefore admits V14 only when conversion of the untouched baseline is exactly reversible byte-for-byte. If dialect canonicalization changes unrelated physical bytes, the bridge blocks rather than treating those changes as Writer2 mutations.
 
 This is an XML Writer2 restriction, not a modification of the upstream converter.
+
+## Converter testimony is secondary
+
+The JS client independently checks:
+
+```text
+physical source VERSION = exact integral major 11 or 14
+physical target VERSION = requested target
+SHA256(actual input) = audit.source_sha256
+SHA256(actual output) = audit.target_sha256
+actual input byte count = audit.source_bytes
+actual output byte count = audit.target_bytes
+audit.schema = cii-v11-v14-conversion-audit/v1
+changed_sections / warnings / loss_events are arrays
+```
+
+The audit arrays are frozen before exposure. Missing `loss_events` is a malformed audit, not evidence of zero loss.
+
+## Shared Pyodide runtime custody
+
+The browser worker uses one Pyodide runtime. Python invocation mutates shared `sys.argv` and `cii_job_argv`, so conversion jobs are serialized through an explicit promise queue.
+
+```text
+one job at a time through shared runtime
+failed job does not poison the queue
+job files unlinked before job-directory removal
+empty input rejected before filesystem allocation
+worker error/messageerror rejects all pending jobs and resets worker
+postMessage failure removes the pending request
+worker cache key advances when worker runtime semantics change
+```
+
+Frozen Python is never edited for these adapter controls.
+
+## Cross-boundary provenance
+
+Bridge evidence records, for each side:
+
+```text
+originalVersion
+normalizedVersion = 11
+originalSha256
+normalizedSha256
+exactBaselineRoundTrip
+normalization audit
+roundtrip audit
+```
+
+Inspection and preview require the workspace's independently calculated document SHA to equal the normalized V11 SHA before correspondence/planning can proceed.
+
+At V14 apply time, a fresh downgrade must reproduce both the preview-bound original V14 SHA and normalized V11 SHA.
+
+`preview.audit.versionBridge` contains the bridge evidence and the artifact bundle is regenerated, so exported audit JSON retains the complete V14 -> V11 custody chain.
+
+## V11 postimage authority
+
+The V14 restoration path must not use `v11Result.text` as physical mutation authority.
+
+Required sequence:
+
+```text
+v11Result.byteString
+-> reconstruct exact V11 bytes
+-> cross-check v11Result.modifiedTargetSha256
+-> frozen V11 -> V14
+-> frozen V14 -> V11 proof
+-> proof bytes must equal exact Writer2 V11 postimage bytes
+```
 
 ## Fail-closed gates
 
 ```text
-unsupported neutral version
+unsupported/non-integral neutral version
   CII_VERSION_BRIDGE_UNSUPPORTED_VERSION
 
-lossy converter requirement
-  converter raises with allow_lossy=false
-  CII_VERSION_BRIDGE_LOSS_NOT_ALLOWED is retained as a secondary audit guard
+malformed converter audit
+  CII_VERSION_BRIDGE_AUDIT_REQUIRED
+  CII_VERSION_BRIDGE_AUDIT_SCHEMA_MISMATCH
+  CII_VERSION_BRIDGE_AUDIT_ARRAY_REQUIRED
+  CII_VERSION_BRIDGE_*_BYTE_COUNT_AUDIT_MISMATCH
 
-SOURCE/TARGET baseline not byte-exact through v11
+converter SHA/version testimony disagreement
+  CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH
+  CII_VERSION_BRIDGE_TARGET_AUDIT_MISMATCH
+  CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH
+  CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH
+  CII_VERSION_BRIDGE_TARGET_SHA256_AUDIT_MISMATCH
+
+lossy converter requirement
+  frozen converter raises with allow_lossy=false
+  CII_VERSION_BRIDGE_LOSS_NOT_ALLOWED remains a secondary guard
+
+SOURCE/TARGET baseline not byte-exact through V11
   CII_VERSION_BRIDGE_SOURCE_BASELINE_ROUNDTRIP_NOT_EXACT
   CII_VERSION_BRIDGE_TARGET_BASELINE_ROUNDTRIP_NOT_EXACT
 
-original V14 TARGET changed after preview
-  CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH
+workspace intake differs from normalized V11 bytes
+  CII_VERSION_BRIDGE_INSPECTION_*_NORMALIZED_HASH_MISMATCH
+  CII_VERSION_BRIDGE_PREVIEW_*_NORMALIZED_HASH_MISMATCH
 
-modified V11 result not exactly recoverable after v14 serialization
+original/normalized TARGET changed after preview
+  CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH
+  CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH
+
+V11 Writer2 physical postimage unavailable/mismatched
+  CII_VERSION_BRIDGE_V11_POSTIMAGE_BYTES_REQUIRED
+  CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH
+
+modified V11 result not exactly recoverable after V14 serialization
   CII_VERSION_BRIDGE_MODIFIED_ROUNDTRIP_NOT_EXACT
 ```
 
@@ -111,25 +234,40 @@ converters/cii-v11-v14-writer-worker.js
   loads frozen Python from isolated directory
 
 tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-  Worker client, version detection, lossless conversion API
+  Worker client, physical version detection, independent SHA/audit custody,
+  lossless conversion API and byte helpers
 
 tabs/cii-workspace/cii-workspace-writer-version-bridge.js
-  inspection/preview normalization
-  stale V14 TARGET custody
-  existing V11 Writer2 execution
+  inspection/preview normalization, provenance binding,
+  stale original/normalized TARGET custody,
+  existing V11 Writer2 execution,
   V14 restoration and exact post-roundtrip proof
 ```
 
 The existing `cii-workspace-core.js` V11 writer implementation is not modified by this bridge.
 
-## Qualification
+## Qualification state
 
-Upstream engine qualification remains traceable to the pinned `3D_Converters` source and its benchmark/tests. Target-repository additions provide independent custody/bridge falsifiers:
+Target-repository falsifiers:
 
 ```text
 tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v11-v14-frozen-engine.test.py
-.github/workflows/cii-writer-v11-v14-bridge.yml
 ```
 
-Runtime verdict remains `NOT_RUN` until those tests execute on an exact target checkout. Source identity is not runtime qualification.
+Runtime truth:
+
+```text
+frozen source Git-blob custody           PASS_EXACT_BLOB_CUSTODY
+extracted high-risk source runtime       PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+frozen-source authored JS test           NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+frozen-engine authored Python test       NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+real V14 baseline exact roundtrip        NOT_RUN
+real V14 Writer2 modified roundtrip      NOT_RUN
+browser/product V14 bridge               NOT_RUN
+external CAESAR V11 import/re-export     NOT_RUN
+```
+
+GitHub Actions are not authorized for this workstream. No workflow result is qualification evidence.
+
+Live V14 UI auto-routing remains disabled until the required bridge runtime gates pass.
