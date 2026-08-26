@@ -101,6 +101,9 @@ assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
 
 const projection = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v14-change-projection.js`, 'utf8');
 assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v2/);
+assert.match(projection, /PROJECTABLE_CHANGED_SECTIONS/);
+assert.match(projection, /if \(!PROJECTABLE_CHANGED_SECTIONS\.has\(baselineSection\.name\)\)/);
+assert.match(projection, /CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED/);
 assert.match(projection, /CARDINALITY_UNIT_ROWS/);
 assert.match(projection, /NODENAME:\s*1/);
 assert.match(projection, /RESTRANT:\s*24/);
