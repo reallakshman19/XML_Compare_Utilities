@@ -119,14 +119,14 @@ function block(prefix, rows = 24) {
   );
 }
 
-// HANGER/MISCEL cardinality requires its own qualified packing projection.
+// HANGER/MISCEL has no qualified V14 projection authority at all.
 {
   const original = documentBytes([['MISCEL_1', ['A', 'B']]]);
   const baseline = documentBytes([['MISCEL_1', ['A', 'B']]]);
   const modified = documentBytes([['MISCEL_1', ['A']]]);
   assert.throws(
     () => projectCanonicalV14WriterDelta(original, baseline, modified),
-    /CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED:MISCEL_1/,
+    /CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:MISCEL_1/,
   );
 }
 
