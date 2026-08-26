@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_30_V14_WRITER2_ONLY_PROJECTION_SCOPE
+claim_state: W2_31_V14_WRITER2_FIXED_FIELD_AUTHORITY
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -16,13 +16,6 @@ claims:
     source_repository: reallaksh19/3D_Converters
     source_commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
     source_repository_modified: false
-    blobs:
-      cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
-      cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
-      cii_v11_v14_records.py: 1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
-      cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
-      cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
-      cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 
   - id: V14_WRITER_DIALECT_BRIDGE
     state: IMPLEMENTED_CHANGE_ISOLATED_RUNTIME_PARTIAL
@@ -32,39 +25,57 @@ claims:
     v14_writer1_fixed_field_projection: NOT_QUALIFIED_FAIL_CLOSED
     allow_lossy: false
     canonical_v14_final_output_allowed: false
-    canonical_modified_v14_to_v11_exact_postimage_proof: REQUIRED
     projected_native_v14_to_v11_exact_postimage_proof: REQUIRED
 
   - id: V14_CHANGE_PROJECTION_AUTHORITY
     state: IMPLEMENTED_FAIL_CLOSED_W2_30
     required: true
     module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
-    schema: CIIWorkspaceV14ChangeProjection.v2
     current_module_blob: 0a16b1383da6ef58abf55c53a91711a0a1f21c17
     projectable_changed_sections: [CONTROL, ELEMENTS, NODENAME, RESTRANT, SIF&TEES]
-    cardinality_units:
-      NODENAME: 1
-      RESTRANT: 24
-      SIF&TEES: 14
-    duplicate_unit_identity: BLOCK
+    cardinality_units: { NODENAME: 1, RESTRANT: 24, SIF&TEES: 14 }
     retained_unit_reorder: BLOCK
     equal_cardinality_unit_replacement: BLOCK
     writer1_equal_cardinality_fields: NOT_QUALIFIED_BLOCK
     miscel_hanger_changed_section: NOT_AUTHORIZED_BLOCK
     nodename_whole_section_create: NOT_AUTHORIZED_EXISTING_SECTION_REQUIRED
 
+  - id: V14_WRITER2_FIXED_FIELD_AUTHORITY
+    state: IMPLEMENTED_FAIL_CLOSED_W2_31
+    required: true
+    module: tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
+    schema: CIIWorkspaceV14Writer2FixedFieldAuthority.v1
+    module_blob: 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+    bridge_blob: 8038993f0a97719c0c316f31c2d6c30ea0386ec4
+    allowed_control_fields:
+      - CONTROL_NODENAME_NONAM_COUNT@row0_field3
+      - CONTROL_RESTRAINT_BLOCK_COUNT@row1_field3
+      - CONTROL_SIF_TEE_BLOCK_COUNT@row2_field4
+    allowed_element_fields_per_15_row_block:
+      - ELEMENT_RESTRAINT_POINTER@row12_field3
+      - ELEMENT_SIF_TEE_POINTER@row13_field4
+      - ELEMENT_NODENAME_POINTER@row13_field5
+    unauthorized_control_element_field: BLOCK
+    whole_row_adoption_as_authority: BLOCKED_BY_PREFLIGHT
+    cardinality_control_correlation: REQUIRED
+    pointer_without_cardinality_change: BLOCK
+    sif_restraint_cardinality_increase: BLOCK
+    changed_pointer_out_of_postimage_range: BLOCK
+
+  - id: V14_WRITER2_FIXED_FIELD_AUTHORITY_W2_31_RUNTIME
+    state: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+    required: true
+    module_blob: 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+    test_blob: 74077b00b094c5e30ff402f8a0adeb1814bb24cc
+    command: node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+    evidence: docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
+    scope_limit: DOES_NOT_QUALIFY_FULL_BRIDGE_PYODIDE_PRODUCT_BROWSER
+
   - id: V14_CHANGE_PROJECTION_W2_30_RUNTIME
     state: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
     required: true
     module_blob: 0a16b1383da6ef58abf55c53a91711a0a1f21c17
     test_blob: 90b7b8fb4edbdb63accbf0ff21a8185610ab06b0
-    command: node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
-    explicit_new_falsifiers:
-      - NODENAME_EQUAL_CARDINALITY_WRITER1_STYLE_EDIT_BLOCKED
-      - RESTRANT_EQUAL_CARDINALITY_WRITER1_STYLE_EDIT_BLOCKED
-      - SIF_TEES_EQUAL_CARDINALITY_WRITER1_STYLE_EDIT_BLOCKED
-    evidence: docs/cii-writer2-v14-writer2-only-projection-scope-2026-08-26.md
-    scope_limit: DOES_NOT_QUALIFY_FULL_BRIDGE_PYODIDE_PRODUCT_BROWSER_OR_V14_WRITER1
 
   - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
     state: PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
@@ -79,9 +90,10 @@ claims:
     executed_test_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
 
   - id: V11_V14_FROZEN_SOURCE_CURRENT
-    state: NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
+    state: NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
     required: true
-    current_test_blob: 095ddb65d51b3f3dda577a0db2c9d091e580dc5b
+    current_test_blob: 75ba19e9e8027b6d88dbda014cf83edcb11a120a
+    current_graph_file_count: 13
     source_inspection_promoted_to_runtime_pass: false
 
   - id: W2_11_RESTRAINT_RUNTIME
@@ -115,7 +127,6 @@ claims:
     state: NOT_QUALIFIED_FAIL_CLOSED
     required_for_writer2_release_freeze: false
     future_requirement: SEPARATE_SOURCE_QUALIFIED_FIELD_IDENTITY_PROJECTION_AUTHORITY
-    may_be_enabled_by_weakening_writer2_unit_blocker: false
 
   - id: WRITER2_PROGRAM_CAPABILITY_MATRIX
     state: ESTABLISHED
@@ -124,15 +135,13 @@ claims:
       nodename_cardinality_v14_projection: IMPLEMENTED_EXISTING_SECTION_RUNTIME_PENDING_FULL_BRIDGE
       nodename_equal_cardinality_v14_writer1_projection: NOT_QUALIFIED_FAIL_CLOSED
       sif_delete_compaction_v11: DONE
-      sif_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING_FULL_BRIDGE
-      sif_equal_cardinality_v14_writer1c_projection: NOT_QUALIFIED_FAIL_CLOSED
+      sif_delete_v14_projection: IMPLEMENTED_DELETE_ONLY_RUNTIME_PENDING_FULL_BRIDGE
+      sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_delete_v11: DONE_PRODUCT_ROUTED
       hanger_v14_projection: NOT_AUTHORIZED_FAIL_CLOSED
-      restraint_delete_product_v11: IMPLEMENTED_RUNTIME_PENDING_FULL_WORKSPACE
-      restraint_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING_FULL_BRIDGE
-      restraint_equal_cardinality_v14_writer1_projection: NOT_QUALIFIED_FAIL_CLOSED
-      sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
+      restraint_delete_product_v11: IMPLEMENTED_RUNTIME_PENDING_FULL_WORKSPACE
+      restraint_delete_v14_projection: IMPLEMENTED_DELETE_ONLY_RUNTIME_PENDING_FULL_BRIDGE
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
       writer3_topology: OUTSIDE_WRITER2
 
@@ -140,14 +149,15 @@ validation_integrity:
   source_3d_converters_modified: false
   lossy_bridge_enabled: false
   broad_canonical_v14_rewrite_used_as_output: false
+  unauthorized_v14_control_element_field_projection_allowed: false
   v14_writer1_equal_cardinality_projection_claimed: false
   miscel_hanger_v14_projection_allowed: false
   nodename_absent_section_create_claimed: false
-  focused_projection_runtime_promoted_to_full_bridge_pass: false
+  focused_runtime_promoted_to_full_bridge_pass: false
   current_source_test_promoted_to_pass_without_rerun: false
   full_workspace_graph_stubbed_or_import_rewritten: false
   not_run_promoted_to_pass: false
   writer3_scope_leakage: false
 
-changed_file_count_expected: 26
-next_claim_gate: exact_full_workspace_graph_for_w2_13_and_retained_real_v11_if_environment_becomes_available_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
+changed_file_count_expected: 29
+next_claim_gate: current_13_file_source_custody_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
