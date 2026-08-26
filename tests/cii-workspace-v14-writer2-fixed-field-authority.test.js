@@ -27,8 +27,8 @@ function elementRows() {
   controlAfter[2] = fixedRow([1, 2, 3, 4, 4, 6]);
   const elementsBefore = elementRows();
   const elementsAfter = [...elementsBefore];
-  elementsAfter[12] = fixedRow([112, 0, 0, 7, 0, 0]);
-  elementsAfter[13] = fixedRow([113, 0, 0, 0, 8, 9]);
+  elementsAfter[12] = fixedRow([112, 0, 0, 3, 0, 0]);
+  elementsAfter[13] = fixedRow([113, 0, 0, 0, 4, 5]);
   const nodenameBefore = Array.from({ length: 4 }, (_, index) => `N-${index}`);
   const nodenameAfter = Array.from({ length: 5 }, (_, index) => `N-${index}`);
   const restraintBefore = Array.from({ length: 4 * 24 }, (_, index) => `R-${index}`);
@@ -153,6 +153,46 @@ function elementRows() {
     doc([['CONTROL', matching], ['ELEMENTS', elements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
   );
   assert.equal(result.claims.find((claim) => claim.fieldIdentity === 'CONTROL_NODENAME_NONAM_COUNT')?.after, 2);
+}
+
+// SIF and RESTRAINT Writer2 bridge authority is DELETE/compaction only; cardinality
+// growth remains blocked by the V11 CREATE authority boundary. Changed pointers
+// must also remain in range for the physical postimage block count.
+{
+  const controlBefore = [
+    fixedRow([1, 2, 3, 0, 5, 6]),
+    fixedRow([1, 2, 3, 1, 5, 6]),
+    fixedRow([1, 2, 3, 4, 1, 6]),
+    fixedRow([1, 2, 3, 4, 5, 6]),
+  ];
+  const controlAfter = [...controlBefore];
+  controlAfter[1] = fixedRow([1, 2, 3, 2, 5, 6]);
+  const elements = elementRows();
+  const restraint1 = Array.from({ length: 24 }, (_, index) => `R1-${index}`);
+  const restraint2 = Array.from({ length: 24 }, (_, index) => `R2-${index}`);
+  assert.throws(
+    () => assertCiiV14Writer2FixedFieldAuthority(
+      doc([['CONTROL', controlBefore], ['ELEMENTS', elements], ['RESTRANT', restraint1]]),
+      doc([['CONTROL', controlAfter], ['ELEMENTS', elements], ['RESTRANT', [...restraint1, ...restraint2]]]),
+    ),
+    /CII_V14_WRITER2_CARDINALITY_INCREASE_NOT_AUTHORIZED:RESTRANT:1:2/,
+  );
+
+  const pointerControlBefore = [...controlBefore];
+  pointerControlBefore[1] = fixedRow([1, 2, 3, 2, 5, 6]);
+  const pointerControlAfter = [...controlBefore];
+  pointerControlAfter[1] = fixedRow([1, 2, 3, 1, 5, 6]);
+  const pointerElementsBefore = elementRows();
+  pointerElementsBefore[12] = fixedRow([112, 0, 0, 2, 0, 0]);
+  const pointerElementsAfter = [...pointerElementsBefore];
+  pointerElementsAfter[12] = fixedRow([112, 0, 0, 3, 0, 0]);
+  assert.throws(
+    () => assertCiiV14Writer2FixedFieldAuthority(
+      doc([['CONTROL', pointerControlBefore], ['ELEMENTS', pointerElementsBefore], ['RESTRANT', [...restraint1, ...restraint2]]]),
+      doc([['CONTROL', pointerControlAfter], ['ELEMENTS', pointerElementsAfter], ['RESTRANT', restraint1]]),
+    ),
+    /CII_V14_WRITER2_POINTER_OUT_OF_RANGE:RESTRANT:12:2:2:3:1/,
+  );
 }
 
 console.log('CII Workspace V14 Writer2 fixed-field authority: PASS');
