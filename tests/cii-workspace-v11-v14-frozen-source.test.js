@@ -117,6 +117,7 @@ assert.match(fixedFieldAuthority, /'13:5': 'ELEMENT_NODENAME_POINTER'/);
 assert.match(fixedFieldAuthority, /CII_V14_WRITER2_FIXED_FIELD_NOT_AUTHORIZED/);
 assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CONTROL_COUNT_CLAIM_REQUIRED/);
 assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CONTROL_COUNT_CHANGED_WITHOUT_CARDINALITY/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_POINTER_CLAIM_REQUIRED/);
 assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CARDINALITY_INCREASE_NOT_AUTHORIZED/);
 assert.match(fixedFieldAuthority, /CII_V14_WRITER2_POINTER_OUT_OF_RANGE/);
 
