@@ -31,9 +31,11 @@ XML_Compare_Utilities authority
   independent V11 complete-postimage validation
   V14 original-byte custody
   canonical-baseline -> canonical-modified change isolation
-  qualified V14 changed-section/cardinality projection boundary
+  qualified V14 Writer2 changed-section/cardinality projection boundary
   final projected V14 -> V11 exact-postimage proof
 ```
+
+The V14 bridge in this PR is **Writer2-only**. It does not qualify V14 Writer1A/1B/1C equal-cardinality fixed-field edits.
 
 The converter does not authorize V11 SIF/HANGER/RESTRAINT CREATE and does not widen Writer3/topology authority.
 
@@ -99,7 +101,7 @@ V11 SOURCE/TARGET
 -> V11 output
 ```
 
-### Native V14
+### Native V14 Writer2
 
 ```text
 ORIGINAL V14 TARGET0
@@ -123,7 +125,7 @@ canonical baseline -> canonical modified
 
 Canonical V14 is differential evidence only; it is never final broad-output authority.
 
-## V14 projection contract — W2.29 final
+## V14 projection contract — W2.30
 
 Implementation:
 
@@ -131,6 +133,7 @@ Implementation:
 tabs/cii-workspace/cii-workspace-v14-change-projection.js
 schema: CIIWorkspaceV14ChangeProjection.v2
 blob:   0a16b1383da6ef58abf55c53a91711a0a1f21c17
+scope:  WRITER2_ONLY
 ```
 
 ### Changed-section authority
@@ -151,7 +154,7 @@ Any other canonical changed section fails with:
 CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:<section>
 ```
 
-`MISCEL_1` is deliberately absent. There is no qualified V14 HANGER/MISCEL projection in this PR, so any changed `MISCEL_1` section blocks.
+`MISCEL_1` is deliberately absent. There is no qualified V14 HANGER/MISCEL projection in this PR.
 
 ### Unchanged sections
 
@@ -163,7 +166,7 @@ copy ORIGINAL V14 section header and rows exactly
 
 This is the primary anti-canonicalization rule.
 
-### Cardinality authority
+### Writer2 cardinality authority
 
 Qualified physical units:
 
@@ -195,11 +198,35 @@ CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
 CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
 ```
 
-W2.29 added the reorder and equal-cardinality gates after an exact falsifier showed that `A,B -> B,A` could otherwise be decomposed by LCS, and that same-count RESTRANT changes could bypass cardinality semantics via fixed-row mutation.
+### V14 Writer1 boundary
+
+For `NODENAME`, `RESTRANT`, and `SIF&TEES`, equal-cardinality fixed-field changes remain owned by Writer1A/B/C in V11. They are **not** qualified for V14 projection by this Writer2 PR.
+
+```text
+NODENAME existing-field Writer1C change  -> V14 NOT_QUALIFIED
+RESTRANT existing-field Writer1A/1B      -> V14 NOT_QUALIFIED
+SIF&TEES existing ii/io Writer1C         -> V14 NOT_QUALIFIED
+```
+
+A future V14 Writer1 route requires a separate source-qualified field-identity projection authority. It must not be enabled by weakening `CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED`.
+
+### NODENAME existing-section boundary
+
+The existing V11 Writer2 NODENAME writer requires the physical `#$ NODENAME` section and a following section marker. Therefore:
+
+```text
+qualified:
+  row insertion/deletion within an existing NODENAME section
+
+not qualified:
+  creation of an absent whole NODENAME section
+```
+
+The V14 bridge does not widen that V11 structural boundary.
 
 ### Equal-cardinality non-cardinality sections
 
-For projectable sections that are not governed by `CARDINALITY_UNIT_ROWS`, fixed-width field projection remains fail-closed:
+For projectable sections that are not governed by `CARDINALITY_UNIT_ROWS` (`CONTROL` and `ELEMENTS`), fixed-width field projection is still subordinate to the independently validated V11 Writer2 postimage:
 
 ```text
 baseline field unchanged -> preserve ORIGINAL field bytes
@@ -315,24 +342,28 @@ V11 postimage mismatch
   CII_VERSION_BRIDGE_PROJECTED_V14_NORMALIZED_POSTIMAGE_MISMATCH
 ```
 
-## Current capability boundary
+## Current capability boundary — PR #1055
 
 ```text
-NODENAME Writer2 CREATE/DELETE
+Writer2 NODENAME row CREATE/DELETE
+  V11 DONE, existing NODENAME section required
+  V14 1-row projection implemented, existing section required, full bridge runtime pending
+
+Writer2 SIF block DELETE
   V11 DONE
-  V14 1-row projection implemented; full bridge runtime pending
+  V14 14-row projection implemented, full bridge runtime pending
 
-SIF block DELETE
-  V11 DONE
-  V14 14-row projection implemented; full bridge runtime pending
+Writer2 RESTRAINT 24-row block DELETE
+  V11 implemented, full Workspace runtime pending
+  V14 24-row projection implemented, full bridge runtime pending
 
-RESTRAINT 24-row block DELETE
-  V11 implemented; full Workspace runtime pending
-  V14 24-row projection implemented; full bridge runtime pending
-
-HANGER delete/cardinality
+Writer2 HANGER delete/cardinality
   V11 DONE / PRODUCT_ROUTED
   V14 NOT_AUTHORIZED_FOR_PROJECTION
+
+Writer1 NODENAME/SIF/RESTRAINT existing fields
+  V11 existing qualified authorities unchanged
+  V14 NOT_QUALIFIED in this Writer2 PR
 
 V11 SIF/HANGER/RESTRAINT CREATE
   SOURCE_BLOCKED_REAFFIRMED_V11
@@ -349,7 +380,7 @@ exact upstream benchmark custody                 PASS_EXACT_GIT_BLOB
 frozen-engine authored Python test               PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
 frozen-source authored JS @18433c...             PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 current frozen-source JS @095ddb...              NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
-final W2.29 projector graph                      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
+W2.30 Writer2-only projector graph               PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.13 synthetic full Workspace                   NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 full Workspace           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real Writer2 projected V14 mutation              NOT_RUN
@@ -357,15 +388,21 @@ browser/product V14 bridge                       NOT_RUN
 external CAESAR V11 import/re-export             NOT_RUN
 ```
 
-Final W2.29 projector runtime:
+W2.30 focused runtime:
 
 ```text
 module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
-test    586d6be0537162100979df63f56146db9d64c0e5
+test    90b7b8fb4edbdb63accbf0ff21a8185610ab06b0
 command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
 result  PASS
 ```
 
-This narrow PASS is not full converter, bridge, product, browser, or release qualification.
+This narrow PASS is not full converter, bridge, product, browser, V14 Writer1, or release qualification.
+
+Evidence:
+
+```text
+docs/cii-writer2-v14-writer2-only-projection-scope-2026-08-26.md
+```
 
 GitHub Actions are not authorized. Live V14 UI auto-routing remains disabled until required full-path runtime gates pass.
