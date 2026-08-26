@@ -1,7 +1,8 @@
 import { mountCiiWorkspaceEngineeringShell } from './cii-workspace-engineering-ui.js';
 import {
-  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C, applyCiiWorkspaceTargetWriter2,
+  applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C,
 } from './cii-workspace-core.js';
+import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiEngineeringDeltaMarkup, ciiEngineeringValueText, ciiTransferPreviewMarkup } from './cii-workspace-review-presentation.js';
 import {
@@ -70,16 +71,18 @@ function seedDecisions(raw, decisions) {
   decisions.clear();
   for (const operation of candidateRows(raw?.transferPlan)) if (operation.action !== 'KEEP') decisions.set(String(operation.operationId), 'EXCLUDE');
 }
+function writer2BridgeReady(preview) { return preview?.writerVersion !== '2' || Boolean(preview?.versionBridge); }
 function statusText(view, reviewDirty) {
   if (reviewDirty) return 'Correspondence decisions changed. Re-apply approvals before binding APPLY / EXCLUDE mutation scope.';
   const scope = view?.transferPlan?.transferScope;
   if (scope?.status !== 'BOUND') return `Transfer scope is not bound. Explicitly choose APPLY / EXCLUDE for every mutable operation before ${writerLabel(view)} can run.`;
+  if (!writer2BridgeReady(view)) return 'Writer 2 version-bridge evidence is missing. Rebuild inspection and preview before target mutation.';
   return `Transfer scope ${scope.scopeId}: ${scope.appliedOperationCount} APPLY / ${scope.excludedOperationCount} EXCLUDE; ${writerLabel(view)} ${view.writerReadiness?.status || 'BLOCKED'}.`;
 }
 function applyFunction(version) {
   if (version === '1A') return applyCiiWorkspaceTargetWriter1A;
   if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
-  if (version === '2') return applyCiiWorkspaceTargetWriter2;
+  if (version === '2') return applyCiiWorkspaceTargetWriter2WithVersionBridge;
   return applyCiiWorkspaceTargetWriter1B;
 }
 function normalizedCode(value) { return String(value ?? '').trim().replace(/\s+/g, ' ').toUpperCase(); }
@@ -148,7 +151,8 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
     });
     const applyButton = transfer.querySelector('[data-ciiw-apply-target]');
     if (applyButton) {
-      const authorized = scopedPreview?.transferPlan?.transferScope?.status === 'BOUND' && scopedPreview?.writerReadiness?.ready === true && !reviewDirty;
+      const authorized = scopedPreview?.transferPlan?.transferScope?.status === 'BOUND'
+        && scopedPreview?.writerReadiness?.ready === true && writer2BridgeReady(scopedPreview) && !reviewDirty;
       applyButton.disabled = !authorized;
       applyButton.addEventListener('click', async () => {
         try {
@@ -205,4 +209,4 @@ export function mountCiiWorkspaceScopedEngineeringShell(container, options = {})
   };
 }
 
-export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText, writerLabel, assertCurrentSifContext });
+export const _test = Object.freeze({ rawKey, approval, candidateRows, scopePanelMarkup, excludedMarkup, statusText, writerLabel, writer2BridgeReady, assertCurrentSifContext });
