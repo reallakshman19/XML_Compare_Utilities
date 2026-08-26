@@ -231,12 +231,12 @@ No upstream source was altered.
 W2.11 RESTRAINT physical runtime          PASS_RUNTIME_EXACT_BLOB
 W2.12 R01-R22                             PASS_RUNTIME_EXACT_BLOB
 frozen-engine authored Python             PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
-frozen-source authored JS @18433c...      PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+historical frozen-source JS @18433c...    PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 W2.30 projector exact graph               PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.31 fixed-field guard exact graph       PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 W2.32 pointer-correlation exact graph     PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+current frozen-source JS @ade99d0...      PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
 
-current frozen-source JS @ade99d0...      NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
 W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real V14 change-isolated Writer2 path     NOT_RUN
@@ -245,10 +245,11 @@ external CAESAR acceptance                NOT_RUN
 repository npm/full regressions           NOT_RUN/PARTIAL
 ```
 
+The current 13-file frozen-source graph was reconstructed from the exact PR Git blobs and every participating file was Git-object SHA admitted before the unchanged authored Node test executed. No stub, import rewrite, or source modification was used.
+
 ## 9. Remaining gates
 
 ```text
-BRIDGE A  current exact 13-file frozen-source custody graph @ade99d0...
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 Writer2 + exact projected normalization proof
