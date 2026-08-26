@@ -2,6 +2,11 @@ const SECTION_RX = /^#\$\s+([A-Z0-9_&]+)\s*$/;
 const NUMBER_RX = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?$/;
 const MAX_DIFF_ROWS = 3000;
 const MAX_DIFF_CELLS = 4_000_000;
+const CARDINALITY_UNIT_ROWS = Object.freeze({
+  NODENAME: 1,
+  RESTRANT: 24,
+  'SIF&TEES': 14,
+});
 
 function asBytes(value) {
   if (value instanceof Uint8Array) return value;
@@ -173,37 +178,45 @@ function projectEqualCardinality(original, baseline, modified, sectionName, ledg
   return rows;
 }
 
-function projectChangedRun(output, original, baseline, modified, sectionName, bStart, bEnd, mStart, mEnd, ledger) {
+function groupUnits(rows, sectionName, label) {
+  const unitRows = CARDINALITY_UNIT_ROWS[sectionName];
+  if (!unitRows) throw new Error(`CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED:${sectionName}`);
+  if (rows.length % unitRows !== 0) {
+    throw new Error(`CII_V14_PROJECTION_${label}_UNIT_ALIGNMENT:${sectionName}:${rows.length}:${unitRows}`);
+  }
+  const units = [];
+  for (let start = 0; start < rows.length; start += unitRows) {
+    const physicalRows = rows.slice(start, start + unitRows);
+    units.push(Object.freeze({
+      start,
+      rows: Object.freeze(physicalRows),
+      key: physicalRows.join('\n'),
+    }));
+  }
+  return units;
+}
+
+function assertUniqueUnitKeys(units, sectionName, label) {
+  const seen = new Set();
+  for (const unit of units) {
+    if (seen.has(unit.key)) throw new Error(`CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT:${sectionName}:${label}`);
+    seen.add(unit.key);
+  }
+}
+
+function projectCardinalityRun(output, originalUnits, modifiedUnits, sectionName, bStart, bEnd, mStart, mEnd, ledger) {
   const bCount = bEnd - bStart;
   const mCount = mEnd - mStart;
   if (bCount === 0 && mCount > 0) {
-    output.push(...modified.slice(mStart, mEnd));
-    ledger.push(Object.freeze({ section: sectionName, operation: 'INSERT_ROWS', baselineStart: bStart, modifiedStart: mStart, count: mCount }));
+    for (const unit of modifiedUnits.slice(mStart, mEnd)) output.push(...unit.rows);
+    ledger.push(Object.freeze({ section: sectionName, operation: 'INSERT_UNITS', baselineUnitStart: bStart, modifiedUnitStart: mStart, count: mCount, unitRows: CARDINALITY_UNIT_ROWS[sectionName] }));
     return;
   }
   if (mCount === 0 && bCount > 0) {
-    ledger.push(Object.freeze({ section: sectionName, operation: 'DELETE_ROWS', baselineStart: bStart, count: bCount }));
+    ledger.push(Object.freeze({ section: sectionName, operation: 'DELETE_UNITS', baselineUnitStart: bStart, count: bCount, unitRows: CARDINALITY_UNIT_ROWS[sectionName] }));
     return;
   }
-  if (bCount === mCount) {
-    for (let offset = 0; offset < bCount; offset += 1) {
-      const merged = mergeChangedRow(
-        original[bStart + offset],
-        baseline[bStart + offset],
-        modified[mStart + offset],
-        `${sectionName}:${bStart + offset}->${mStart + offset}`,
-      );
-      output.push(merged.row);
-      ledger.push(Object.freeze({
-        section: sectionName,
-        operation: 'MERGE_FIXED_ROW',
-        baselineRow: bStart + offset,
-        modifiedRow: mStart + offset,
-        changedFields: merged.changedFields,
-      }));
-    }
-    return;
-  }
+  if (bCount === 0 && mCount === 0) return;
   throw new Error(`CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN:${sectionName}:${bStart}:${bCount}:${mStart}:${mCount}`);
 }
 
@@ -211,13 +224,23 @@ function projectChangedCardinality(original, baseline, modified, sectionName, le
   if (original.length !== baseline.length) {
     throw new Error(`CII_V14_PROJECTION_BASELINE_ORIGINAL_ROW_COUNT_MISMATCH:${sectionName}:${original.length}:${baseline.length}`);
   }
-  const matches = lcsMatches(baseline, modified, sectionName);
+  const originalUnits = groupUnits(original, sectionName, 'ORIGINAL');
+  const baselineUnits = groupUnits(baseline, sectionName, 'BASELINE');
+  const modifiedUnits = groupUnits(modified, sectionName, 'MODIFIED');
+  if (originalUnits.length !== baselineUnits.length) {
+    throw new Error(`CII_V14_PROJECTION_BASELINE_ORIGINAL_UNIT_COUNT_MISMATCH:${sectionName}`);
+  }
+  assertUniqueUnitKeys(baselineUnits, sectionName, 'BASELINE');
+  assertUniqueUnitKeys(modifiedUnits, sectionName, 'MODIFIED');
+  const baselineKeys = baselineUnits.map((unit) => unit.key);
+  const modifiedKeys = modifiedUnits.map((unit) => unit.key);
+  const matches = lcsMatches(baselineKeys, modifiedKeys, sectionName);
   const output = [];
   let previousB = 0;
   let previousM = 0;
-  for (const [bIndex, mIndex] of [...matches, [baseline.length, modified.length]]) {
-    projectChangedRun(output, original, baseline, modified, sectionName, previousB, bIndex, previousM, mIndex, ledger);
-    if (bIndex < baseline.length && mIndex < modified.length) output.push(original[bIndex]);
+  for (const [bIndex, mIndex] of [...matches, [baselineUnits.length, modifiedUnits.length]]) {
+    projectCardinalityRun(output, originalUnits, modifiedUnits, sectionName, previousB, bIndex, previousM, mIndex, ledger);
+    if (bIndex < baselineUnits.length && mIndex < modifiedUnits.length) output.push(...originalUnits[bIndex].rows);
     previousB = bIndex + 1;
     previousM = mIndex + 1;
   }
@@ -267,7 +290,7 @@ export function projectCanonicalV14WriterDelta(originalValue, baselineCanonicalV
   const text = `${physical.join('\r\n')}\r\n`;
   const outputBytes = new TextEncoder().encode(text);
   return Object.freeze({
-    schema: 'CIIWorkspaceV14ChangeProjection.v1',
+    schema: 'CIIWorkspaceV14ChangeProjection.v2',
     outputBytes,
     changedSections: Object.freeze([...changedSections]),
     ledger: Object.freeze([...ledger]),
