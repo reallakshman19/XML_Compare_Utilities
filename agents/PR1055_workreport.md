@@ -64,6 +64,16 @@ physical cardinality change
 
 This is grounded in all three existing V11 Writer2 cardinality paths, not inferred from V14.
 
+The current strengthened source-custody test is now directly executed on an exact 13-file Git-blob-admitted graph:
+
+```text
+test   ade99d0d4f4d4ff394a90f81286e4394b5409a54
+graph  13/13 exact Git blobs
+result PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
+```
+
+No source/import/test rewrite was used for that run.
+
 ## 2. Frozen upstream authority
 
 ```text
@@ -291,8 +301,8 @@ historical frozen-source JS @18433c...   PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRA
 W2.30 projector exact graph              PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.31 fixed-field guard exact graph      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 W2.32 pointer-correlation exact graph    PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+current frozen-source JS @ade99d0...     PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
 
-current frozen-source JS @ade99d0...     NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
 W2.13 synthetic product                  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 product          NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real V14 change-isolated Writer2 path    NOT_RUN
@@ -301,7 +311,7 @@ repository npm/full regressions          NOT_RUN/PARTIAL
 external CAESAR acceptance               NOT_RUN
 ```
 
-Both W2.13 tests import `cii-workspace-core.js`, whose static graph expands through the complete Workspace intake/topology/correspondence/Writer1/Writer2 stack. Do not stub or rewrite imports to manufacture a PASS.
+The current source-custody graph is no longer an environment blocker. It was reconstructed from exact Git blobs and executed unchanged. Both W2.13 tests still import `cii-workspace-core.js`, whose static graph expands through the complete Workspace intake/topology/correspondence/Writer1/Writer2 stack. Do not stub or rewrite imports to manufacture a PASS.
 
 ## 8. V11 engineering authority remains unchanged
 
@@ -379,7 +389,6 @@ tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
 ## 11. Remaining gates
 
 ```text
-BRIDGE A  current 13-file frozen-source custody graph @ade99d0... if exact graph can be materialized
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 change-isolated Writer2 + exact projected normalization proof
@@ -395,15 +404,4 @@ A2. State all six CONTROL/ELEMENT field coordinates and the independent V11 + na
 A3. Explain the projector whole-row bypass that motivated W2.31 and why the guard is placed before projection.
 A4. Explain W2.32's same-family pointer requirement and prove it independently from the NODENAME, SIF and RESTRAINT V11 planners.
 A5. Explain why SIF/RESTRAINT cardinality growth reports CREATE authority failure before missing-pointer evidence.
-A6. Distinguish W2.30/W2.31/W2.32 focused runtime PASS from the still-NOT_RUN full bridge/product/browser gates.
-
-## EXACT NEXT ACTION
-
-If the current 13-file source-custody graph can be materialized exactly, run it unchanged. Otherwise do not substitute source inspection for runtime. If exact full Workspace checkout becomes executable, run unchanged:
-
-```text
-node tests/cii-workspace-writer2-restraint-product-routing.test.js
-node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
-```
-
-Then execute the real native V14 change-isolated Writer2 proof. Do not alter frozen Python, enable lossy conversion, enable live V14 UI routing, or merge without fresh owner authorization.
+A6. Distinguish W2.30/W2.31/W2.32 focused runtime PASS plus the current exact 13-file source-custody PASS from the still-NOT_RUN full bridge/product/browser gates.
