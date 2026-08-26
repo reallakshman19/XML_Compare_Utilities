@@ -6,7 +6,7 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
 V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
 V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
-CURRENT_STAGE = W2.29 V14 PROJECTION UNIT-ORDER HARDENED
+CURRENT_STAGE = W2.29 V14 PROJECTION UNIT-ORDER + MISCEL HARDENED
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
@@ -47,7 +47,7 @@ cardinality changes use qualified physical units only
 duplicate physical-unit identities fail closed
 retained physical-unit order must be preserved
 same-count cardinality-unit replacement is not fixed-row authority
-HANGER/MISCEL cardinality remains unqualified/fail-closed
+MISCEL_1/HANGER has no V14 projection authority
 ```
 
 The prior whole-file `V14 -> V11 -> V14 == original bytes` gate remains retired by exact native benchmark evidence.
@@ -86,15 +86,15 @@ ORIGINAL V14 TARGET0
 
 Canonical V14 is differential evidence only and never broad final-output authority.
 
-## 4. Projection authority — W2.29
+## 4. Projection authority — W2.29 final
 
 ```text
 module = tabs/cii-workspace/cii-workspace-v14-change-projection.js
 schema = CIIWorkspaceV14ChangeProjection.v2
-current blob = 2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
+current blob = 0a16b1383da6ef58abf55c53a91711a0a1f21c17
 ```
 
-Changed-section allowlist:
+Projectable changed sections are exactly:
 
 ```text
 CONTROL
@@ -102,8 +102,9 @@ ELEMENTS
 NODENAME
 RESTRANT
 SIF&TEES
-MISCEL_1
 ```
+
+`MISCEL_1` is not projectable. Any V14 HANGER/MISCEL change fails as an unauthorized changed section.
 
 Qualified cardinality units:
 
@@ -113,7 +114,7 @@ RESTRANT  24 rows/unit
 SIF&TEES  14 rows/unit
 ```
 
-Fail-closed rules:
+Fail-closed rules include:
 
 ```text
 changed section outside allowlist
@@ -131,15 +132,21 @@ retained unit reorder
 same-count cardinality-unit replacement
   -> CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
 
-HANGER/MISCEL cardinality
-  -> CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED
+MISCEL_1 / HANGER change
+  -> CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:MISCEL_1
 ```
 
-### W2.29 defect and correction
+### W2.29 defect chain
 
-Source audit found that a unique-unit LCS could reinterpret `A,B -> B,A` as delete+insert, and equal row counts bypassed cardinality semantics by entering fixed-row projection.
+Source audit found three gaps:
 
-First exact W2.29 graph:
+```text
+1. unique-unit LCS could reinterpret A,B -> B,A as delete+insert
+2. equal-cardinality qualified sections bypassed unit custody through fixed-row mutation
+3. MISCEL_1 remained projectable despite no qualified V14 HANGER packing authority
+```
+
+First exact graph:
 
 ```text
 module  6b83e85ff0229e9c6bbe3363beedbe5843d8c2d9
@@ -148,16 +155,22 @@ result  FAIL
 actual  CII_V14_PROJECTION_ROW_WIDTH_MISMATCH:RESTRANT:0
 ```
 
-Correction: cardinality-qualified sections no longer use fixed-row authority for changed equal-cardinality payloads. Ordered common units must remain in the LCS; otherwise reorder blocks. Same-count replacement also blocks.
-
-Corrected exact graph:
+Intermediate correction:
 
 ```text
 module  2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
 test    ae0f81ed419a26401194abc11e5c78b79164f044
+result  PASS
+```
+
+Final MISCEL-tightened committed graph:
+
+```text
+module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
+test    586d6be0537162100979df63f56146db9d64c0e5
 command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
 result  PASS
-class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29
+class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
 ```
 
 Evidence: `docs/cii-writer2-v14-projection-unit-order-runtime-2026-08-26.md`.
@@ -169,13 +182,13 @@ Evidence: `docs/cii-writer2-v14-projection-unit-order-runtime-2026-08-26.md`.
 | NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | 1-row projection implemented; full bridge runtime pending |
 | SIF block DELETE/compaction/reindex | Writer2 | DONE | 14-row projection implemented; full bridge runtime pending |
 | SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
-| HANGER delete-all / partial | Writer2 | DONE / DONE_PRODUCT_ROUTED | cardinality projection NOT_QUALIFIED_FAIL_CLOSED |
+| HANGER delete-all / partial | Writer2 | DONE / DONE_PRODUCT_ROUTED | V14 projection NOT_AUTHORIZED_FAIL_CLOSED |
 | HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
 | RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | 24-row projection implemented; full bridge runtime pending |
 | RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
 | node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
-Equal-cardinality existing-field operations remain owned by Writer1A/B/C and are not promoted into Writer2 V14 cardinality authority by this projector.
+Equal-cardinality existing-field operations remain owned by Writer1A/B/C and are not promoted into Writer2 V14 cardinality authority.
 
 ## 6. Frozen converter custody
 
@@ -202,8 +215,8 @@ frozen source Git-blob custody            PASS_EXACT_BLOB_CUSTODY
 extracted converter+adapter runtime        PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
 frozen-engine authored Python test        PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
 frozen-source authored JS @18433c...      PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-current frozen-source JS @db29b8...       NOT_RUN_AFTER_W2_29_ASSERTION_STRENGTHENING
-V14 projector W2.29 exact graph           PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29
+current frozen-source JS @095ddb...       NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
+V14 projector final W2.29 exact graph      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
 real V14 change-isolated Writer2 path      NOT_RUN
 browser V14 bridge                        NOT_RUN
 external CAESAR V11 acceptance            NOT_RUN
@@ -240,10 +253,10 @@ W2 H      final READY/NOT_READY release-freeze verdict
 EXTERNAL  actual CAESAR V11 import/use + save/re-export acceptance
 ```
 
-Current strengthened frozen-source test blob `db29b87f367f7e8c00939b32a7586d8d43ea5bf1` is also pending a fresh exact 12-file run after W2.29 assertions were added.
+Current strengthened frozen-source test blob `095ddb65d51b3f3dda577a0db2c9d091e580dc5b` also requires a fresh exact 12-file run before current-blob PASS.
 
 Native checkout remains unavailable (`Could not resolve host: github.com`). GitHub Actions are not authorized for qualification.
 
 ## 10. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, all V11 CREATE blockers explicit/fail-closed, every exposed V14 route to preserve original unrelated bytes through change-isolated projection, retained physical unit order preserved, and final projected V14 normalization to reproduce the exact independently validated V11 Writer2 postimage. No lossy conversion, broad canonical V14 rewrite, unauthorized changed section, ambiguous unit, retained-unit reorder, same-count unit replacement, unqualified HANGER cardinality, malformed/missing converter testimony, text-based postimage authority, or Writer3 topology leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, all V11 CREATE blockers explicit/fail-closed, every exposed V14 route to preserve original unrelated bytes through change-isolated projection, retained physical unit order preserved, and final projected V14 normalization to reproduce the exact independently validated V11 Writer2 postimage. No lossy conversion, broad canonical V14 rewrite, unauthorized changed section, ambiguous unit, retained-unit reorder, same-count unit replacement, MISCEL/HANGER projection, malformed/missing converter testimony, text-based postimage authority, or Writer3 topology leakage is permitted.
