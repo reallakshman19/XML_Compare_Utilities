@@ -11,7 +11,7 @@ INHERITED_CONTROL_CORRECTION: #1042
 PR: #1055
 BRANCH: agent/cii-writer2-restraint-product-runtime-w218
 BASE_MAIN: 297fb37a0e894a3aac91de9188ebf30e810781fb
-CURRENT_STAGE: W2.32_V14_WRITER2_POINTER_CORRELATION
+CURRENT_STAGE: W2.33_LIVE_WRITER2_V11_V14_BRIDGE_ROUTING
 PROGRAM_VERDICT: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -70,36 +70,67 @@ graph  13/13 exact Git blobs
 result PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
 ```
 
-No source/import/test rewrite was used for that run.
+No source/import/test rewrite was used for that run. W2.33 does not modify any file in that executed 13-file graph, so the W2.32 source-custody PASS remains valid.
 
-Latest regression audit also found `tests/cii-workspace-writer2-product-routing.test.js` still asserting the pre-RESTRAINT product architecture. The stale assertions were corrected to the live product route:
+### W2.33 — live Writer2 V11/V14 bridge routing
+
+Source audit found that the V11/V14 bridge was implemented but the live CII Workspace product surfaces bypassed it:
 
 ```text
-old static assertions
-  applyCiiWriter2Composite
-  validateCiiWriter2CompositeRoundTrip
+cii-workspace-shell.js
+  inspect -> direct core
+  preview -> direct core
+  Writer2 apply -> direct core
 
-current static assertions
-  writer2HasRestraintApply
-  applyCiiWriter2CompositeWithRestraintDelete
-  applyCiiWriter2CompositeWithHangerDeleteAll
-  validateCiiWriter2ProductRoundTrip
+cii-workspace-transfer-scope-ui.js
+  scoped Writer2 apply -> direct core
+
+cii-workspace-engineering-ui.js
+  evidence inspection -> direct core
+
+normal Utilities tile
+  no production writerVersion:'2' selection
 ```
 
-Current corrected test blob:
+This meant the bridge was a library path, not a reachable Writer2 product path.
+
+W2.33 fixes that without changing the default Writer1B product behavior:
 
 ```text
-cb324b739bae4cb0050ee236b70d80dfa3fdedaf
+normal CII Workspace tile       -> existing default Writer1B
+explicit CII Writer 2 — V11/V14 -> writerVersion='2'
+
+Writer2 inspect  -> inspectCiiWorkspaceModelsWithVersionBridge
+Writer2 preview  -> createCiiWorkspacePreviewWithVersionBridge
+Writer2 apply    -> applyCiiWorkspaceTargetWriter2WithVersionBridge
+
+scoped Writer2 apply requires preview.versionBridge
+missing bridge evidence -> fail closed
+Writer2 download uses byteString as byte-authoritative output
+```
+
+Current W2.33 source identities:
+
+```text
+cii-workspace-shell.js                         ac5412044df3c4b8230bfb2044607944fa9d6442
+cii-workspace-transfer-scope-ui.js             2fd96ce57b23da40441e68b6a088b7b048a0b63c
+cii-workspace-engineering-ui.js                cff53d820075417f817d6768c16ce550910c28c5
+cii-workspace-tab.js                           b7589c7595f3b33cdd8529a03c7e990da4b68d76
+cii-workspace-writer2-product-routing.test.js  5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
 ```
 
 Classification:
 
 ```text
-PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
-RUNTIME = NOT_RUN_EXACT_11_FILE_GRAPH_NOT_MATERIALIZED
+W2.33_IMPLEMENTATION = IMPLEMENTED_SOURCE_INSPECTION
+WRITER2_UTILITIES_REACHABILITY = EXPLICIT_REACHABLE
+PRODUCTION_DEFAULT_WRITER = WRITER_1B_UNCHANGED
+WRITER2_V11_V14_BRIDGE_BOUND = PASS_SOURCE_INSPECTION
+RUNTIME = NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
+BROWSER_PRODUCT = NOT_RUN
 ```
 
-This is a regression-test drift correction only; no production Writer2/core behavior was changed.
+The routing regression was previously stale against the pre-RESTRAINT architecture. It now binds both the current RESTRAINT product dispatch and W2.33 bridge routing. Its current blob is `5588e5b86cc2855bfb6e2707da3dcddf3849d2cb`. Source inspection is PASS; runtime is not promoted.
 
 ## 2. Frozen upstream authority
 
@@ -251,7 +282,7 @@ W2.30 projector exact graph              PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_
 W2.31 fixed-field guard exact graph      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 W2.32 pointer-correlation exact graph    PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 current frozen-source JS @ade99d0...     PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
-Writer2 product-routing static @cb324... PASS_SOURCE_INSPECTION / RUNTIME_PENDING_EXACT_11_FILE_GRAPH
+W2.33 Writer2 bridge-bound product route PASS_SOURCE_INSPECTION / RUNTIME_PENDING_EXACT_14_FILE_GRAPH
 
 W2.13 synthetic product                  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 product          NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -285,7 +316,10 @@ frozen Python modified                          FALSE
 allow_lossy enabled                             FALSE
 V11 core writer modified                        FALSE
 V11 Writer1 authority reduced                   FALSE
-live V14 UI auto-routing modified               FALSE
+production default Writer1B changed             FALSE
+Writer2 silently auto-selected                  FALSE
+explicit Writer2 live route added               TRUE
+Writer2 live route bypasses version bridge      FALSE
 Writer3/topology implementation modified        FALSE
 workflow path introduced                        FALSE
 canonical whole V14 used as final output        FALSE
@@ -295,13 +329,13 @@ V14 Writer1 fixed-field support claimed         FALSE
 MISCEL/HANGER V14 projection permitted          FALSE
 absent NODENAME section creation claimed        FALSE
 current source test promoted without rerun       FALSE
-product-routing static correction called runtime PASS FALSE
+W2.33 source routing called runtime PASS         FALSE
 NOT_RUN promoted to PASS                        FALSE
 ```
 
 ## 10. Exact changed-file ledger
 
-Expected PR diff is exactly 30 paths:
+Expected PR diff is exactly 34 paths:
 
 ```text
 agents/PR1055_workreport.md
@@ -325,6 +359,10 @@ docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
 docs/cii-writer2-v14-native-benchmark-change-isolation-2026-08-26.md
 docs/cii-writer2-v14-projection-unit-order-runtime-2026-08-26.md
 docs/cii-writer2-v14-writer2-only-projection-scope-2026-08-26.md
+tabs/cii-workspace/cii-workspace-engineering-ui.js
+tabs/cii-workspace/cii-workspace-shell.js
+tabs/cii-workspace/cii-workspace-tab.js
+tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
 tabs/cii-workspace/cii-workspace-v11-v14-converter.js
 tabs/cii-workspace/cii-workspace-v14-change-projection.js
 tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
@@ -339,13 +377,13 @@ tests/cii-workspace-writer2-product-routing.test.js
 ## 11. Remaining gates
 
 ```text
-W2 C0     corrected Writer2 product-routing static test on exact 11-file graph
+W2 C0     Writer2 bridge-bound product-routing test on exact 14-file graph
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 change-isolated Writer2 + exact projected normalization proof
 W2 C/D    inherited Writer2 + Writer1 adjacent + npm + browser/product regressions
 W2 H      final READY/NOT_READY release-freeze verdict
-EXTERNAL  actual CAESAR V11 import/use + save/re-export acceptance
+EXTERNAL  actual CAESAR V11/V14 import/use + save/re-export acceptance
 ```
 
 ## Appendix A — takeover gate
@@ -354,5 +392,7 @@ A1. Trace the current V14 Writer2 path from original V14 through V11 Writer2, W2
 A2. State all six CONTROL/ELEMENT field coordinates and the independent V11 + native V14 structural authority for them.
 A3. Explain W2.32's same-family pointer requirement and prove it independently from NODENAME, SIF and RESTRAINT V11 planners.
 A4. Explain why current 13-file frozen-source custody is a real runtime PASS but W2.13 remains NOT_RUN.
-A5. Identify the corrected `cii-workspace-writer2-product-routing.test.js` stale assertions, its current blob, and why source correction is not a runtime PASS.
-A6. Explain why a smaller low-level product test cannot replace the authored public W2.13 entrypoints that import `cii-workspace-core.js`.
+A5. Trace W2.33 from the normal Utilities registry to the separate Writer2 tile, then through bridged inspection, bridged preview, explicit scope binding, bridged apply and byte-authoritative export.
+A6. Prove the ordinary CII Workspace launch remains Writer1B and explain why the Writer2 launch is explicit rather than automatic.
+A7. Identify the current product-routing test blob `5588e5b8...`, why its source assertions are PASS, and why its 14-file runtime remains NOT_RUN.
+A8. Explain why a smaller low-level product test cannot replace the authored public W2.13 entrypoints that import `cii-workspace-core.js`.
