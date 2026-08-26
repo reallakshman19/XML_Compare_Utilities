@@ -5,6 +5,7 @@ import {
 } from './cii-workspace-core.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { projectCanonicalV14WriterDelta } from './cii-workspace-v14-change-projection.js';
+import { assertCiiV14Writer2FixedFieldAuthority } from './cii-workspace-v14-writer2-fixed-field-authority.js';
 import {
   ciiByteStringToBytes,
   ciiBytesEqual,
@@ -197,6 +198,10 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     throw new Error('CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH');
   }
 
+  const fixedFieldAuthority = assertCiiV14Writer2FixedFieldAuthority(
+    normalized.baselineCanonicalBytes,
+    upgraded.outputBytes,
+  );
   const canonicalProof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, {
     fileName: v11Result.fileName,
     cryptoRef: options.cryptoRef,
@@ -239,6 +244,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
       baselineCanonicalSha256: bridge.target.baselineCanonicalSha256,
       v11PostimageSha256: upgraded.sourceSha256,
       modifiedTargetSha256,
+      fixedFieldAuthority,
       changedV14Sections: projection.changedSections,
       projectionLedger: projection.ledger,
       untouchedV14SectionCount: projection.untouchedSectionCount,
