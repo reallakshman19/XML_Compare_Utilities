@@ -104,6 +104,11 @@ assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v2/);
 assert.match(projection, /PROJECTABLE_CHANGED_SECTIONS/);
 assert.match(projection, /if \(!PROJECTABLE_CHANGED_SECTIONS\.has\(baselineSection\.name\)\)/);
 assert.match(projection, /CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED/);
+const projectionAuthorityBlock = projection.slice(
+  projection.indexOf('const PROJECTABLE_CHANGED_SECTIONS'),
+  projection.indexOf('const CARDINALITY_UNIT_ROWS'),
+);
+assert.doesNotMatch(projectionAuthorityBlock, /MISCEL_1/);
 assert.match(projection, /CARDINALITY_UNIT_ROWS/);
 assert.match(projection, /NODENAME:\s*1/);
 assert.match(projection, /RESTRANT:\s*24/);
