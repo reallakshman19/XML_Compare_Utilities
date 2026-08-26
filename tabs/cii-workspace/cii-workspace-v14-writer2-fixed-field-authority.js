@@ -111,6 +111,9 @@ function assertCardinalityCorrelation(baseline, modified, claims) {
     if (controlClaims.length !== 1) {
       throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CLAIM_REQUIRED:${family}:${controlClaims.length}`);
     }
+    if (!pointerClaims.length) {
+      throw new Error(`CII_V14_WRITER2_POINTER_CLAIM_REQUIRED:${family}:0`);
+    }
     const control = controlClaims[0];
     if (control.before !== beforeCount || control.after !== afterCount) {
       throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CARDINALITY_MISMATCH:${family}:${control.before}:${beforeCount}:${control.after}:${afterCount}`);
