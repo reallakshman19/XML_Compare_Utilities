@@ -114,7 +114,9 @@ function elementRows() {
   );
 }
 
-// Writer2 cardinality deltas must be coupled to the matching CONTROL count.
+// Writer2 cardinality deltas must be coupled to the matching CONTROL count and
+// at least one same-family ELEMENT pointer change. Qualified V11 Writer2 cannot
+// change NODENAME/SIF/RESTRAINT physical cardinality without an owned pointer.
 {
   const control = [
     fixedRow([1, 2, 3, 1, 5, 6]),
@@ -148,11 +150,22 @@ function elementRows() {
 
   const matching = [...control];
   matching[0] = fixedRow([1, 2, 3, 2, 5, 6]);
+  assert.throws(
+    () => assertCiiV14Writer2FixedFieldAuthority(
+      doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+      doc([['CONTROL', matching], ['ELEMENTS', elements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    ),
+    /CII_V14_WRITER2_POINTER_CLAIM_REQUIRED:NODENAME:0/,
+  );
+
+  const matchingElements = [...elements];
+  matchingElements[13] = fixedRow([113, 0, 0, 0, 0, 2]);
   const result = assertCiiV14Writer2FixedFieldAuthority(
     doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
-    doc([['CONTROL', matching], ['ELEMENTS', elements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    doc([['CONTROL', matching], ['ELEMENTS', matchingElements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
   );
   assert.equal(result.claims.find((claim) => claim.fieldIdentity === 'CONTROL_NODENAME_NONAM_COUNT')?.after, 2);
+  assert.equal(result.claims.find((claim) => claim.fieldIdentity === 'ELEMENT_NODENAME_POINTER')?.after, 2);
 }
 
 // SIF and RESTRAINT Writer2 bridge authority is DELETE/compaction only; cardinality
