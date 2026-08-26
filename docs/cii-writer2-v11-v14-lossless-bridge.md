@@ -11,13 +11,7 @@ reallaksh19/3D_Converters
 ca8d391ac5f829f53bebb3c37adf0547c34a67b4
 ```
 
-Use the already-qualified V11 CII Workspace/Writer2 as engineering mutation authority. For V14 output, preserve the original native V14 bytes and project only the Writer2-caused canonical delta back onto those original bytes.
-
-The six Python engine/dependency files remain vendored byte-identically under:
-
-```text
-converters/scripts/cii-v11-v14-upstream/
-```
+Use the already-qualified V11 CII Workspace/Writer2 as engineering mutation authority. For V14 output, preserve the original native V14 bytes and project only the Writer2-caused canonical delta onto those original bytes.
 
 ## Authority split
 
@@ -37,7 +31,7 @@ XML_Compare_Utilities authority
   independent V11 complete-postimage validation
   V14 original-byte custody
   canonical-baseline -> canonical-modified change isolation
-  qualified V14 projection family/cardinality boundary
+  qualified V14 changed-section/cardinality projection boundary
   final projected V14 -> V11 exact-postimage proof
 ```
 
@@ -45,7 +39,7 @@ The converter does not authorize V11 SIF/HANGER/RESTRAINT CREATE and does not wi
 
 ## Exact upstream custody
 
-Pinned blobs:
+Frozen blobs:
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -56,61 +50,43 @@ cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
 cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 ```
 
-At browser runtime, the worker also verifies each fetched deployed file against the pinned Git object SHA before Python execution:
+At browser runtime, each deployed frozen file is fetched as bytes, Git-object SHA-1 verified against the pinned blob, then the same verified bytes are written directly into Pyodide. No frozen Python text decode/re-encode path is permitted.
 
-```text
-fetch exact bytes
--> construct "blob <length>\0<bytes>"
--> WebCrypto SHA-1
--> require pinned Git blob SHA
--> write the same verified bytes directly into Pyodide
-```
+## Why whole-file V14 roundtrip equality is retired
 
-No frozen Python `response.text()` decode/re-encode path is permitted.
-
-## Why whole-file V14 roundtrip equality was retired
-
-The first bridge prototype required:
+The first XML bridge prototype required:
 
 ```text
 native V14 -> V11 -> V14 == native V14 byte-for-byte
 ```
 
-That was an XML-side policy assumption, not an upstream guarantee.
+That was an XML-side assumption, not an upstream guarantee.
 
-Exact paired benchmark evidence disproves the assumption:
+Exact benchmark evidence:
 
 ```text
 Benchmarks/v11-v14.zip
-Git blob 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
-size     10740 bytes
+Git blob  8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+size      10,740 bytes
 
 SYS-0001-v14.CII
-SHA-256  d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
+SHA-256   d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
 
 SYS-0001-v11.cii
-SHA-256  41ef8912a55a978aa96b3300f42ba2ff335ba5bb35c4882f4012af0e011dc9cc
+SHA-256   41ef8912a55a978aa96b3300f42ba2ff335ba5bb35c4882f4012af0e011dc9cc
 ```
 
-The pinned formatter uses six significant digits for ordinary mid-range V11 REAL values and seven significant digits for V14 `.6E` values. The first native V14 RIGID row proves the effect:
+Concrete native formatting falsifier:
 
 ```text
-native V14        2.044599E+02 0.000000E+00
-V14 -> V11        204.460      0.000000
-V11 -> V14        2.044600E+02 0.000000E+00
+native V14        2.044599E+02
+V14 -> V11        204.460
+V11 -> V14        2.044600E+02
 ```
 
-26 of the 43 exact native V14 RIGID rows exhibit the same deterministic byte non-reversibility. This is target-dialect formatting, not a converter lossy-event defect.
+26/43 native V14 RIGID rows show deterministic cross-dialect byte non-reversibility. Therefore whole-file equality is retired, while generic semantic equivalence is also insufficient for Writer2 unrelated-byte custody.
 
-Therefore whole-file cross-version byte equality is retired as V14 admission authority. Generic semantic equivalence is also insufficient for Writer2 unrelated-byte custody.
-
-Canonical evidence:
-
-```text
-docs/cii-writer2-v14-native-benchmark-change-isolation-2026-08-26.md
-```
-
-## Corrected execution paths
+## Execution paths
 
 ### Native V11
 
@@ -119,55 +95,47 @@ V11 SOURCE/TARGET
 -> original SHA custody
 -> existing CII Workspace intake/preview
 -> existing V11 Writer2
--> existing V11 independent complete-postimage validation
+-> existing independent complete-postimage validation
 -> V11 output
 ```
 
-### V14
+### Native V14
 
 ```text
-original native V14 TARGET0
+ORIGINAL V14 TARGET0
    |
-   +--> runtime-verified frozen V14 -> V11, allow_lossy=false
-   |       |
-   |       +--> normalized V11 TARGET0
-   |                |
-   |                +--> existing V11 Writer2
-   |                         |
-   |                         +--> independently validated V11 TARGET1
+   +--> frozen V14->V11, allow_lossy=false
+   |       -> normalized V11 TARGET0
+   |       -> existing V11 Writer2
+   |       -> independently validated V11 TARGET1
    |
-   +--> normalized V11 TARGET0 -> frozen V11 -> V14
-   |       canonical baseline V14
+   +--> normalized V11 TARGET0 -> frozen V11->V14 -> canonical baseline V14
    |
-   +--> validated V11 TARGET1 -> frozen V11 -> V14
-           canonical modified V14
+   +--> validated V11 TARGET1 -> frozen V11->V14 -> canonical modified V14
 
 canonical baseline -> canonical modified
-        |
-        +--> isolate Writer2-caused fixed-field/record-unit delta
-                     |
-                     +--> project onto ORIGINAL native V14 bytes
-                                  |
-                                  +--> projected V14 TARGET1
-                                             |
-                                             +--> frozen V14 -> V11
-                                                  MUST equal exact V11 TARGET1 bytes
+        -> isolate Writer2-caused delta
+        -> project onto ORIGINAL V14 bytes
+        -> projected V14 TARGET1
+        -> frozen V14->V11
+        -> MUST equal exact validated V11 TARGET1 bytes
 ```
 
-The canonical modified V14 is an oracle input, never the final Writer2 output.
+Canonical V14 is differential evidence only; it is never final broad-output authority.
 
-## V14 projection contract
+## V14 projection contract — W2.29 final
 
 Implementation:
 
 ```text
 tabs/cii-workspace/cii-workspace-v14-change-projection.js
 schema: CIIWorkspaceV14ChangeProjection.v2
+blob:   0a16b1383da6ef58abf55c53a91711a0a1f21c17
 ```
 
 ### Changed-section authority
 
-Canonical changes may be projected only in:
+Projectable changed sections are exactly:
 
 ```text
 CONTROL
@@ -175,24 +143,63 @@ ELEMENTS
 NODENAME
 RESTRANT
 SIF&TEES
-MISCEL_1
 ```
 
-Any changed section outside this list fails with `CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED`. Thus converter canonicalization in `RIGID`, `UNITS`, `COORDS`, or another non-owned family cannot become Writer output.
+Any other canonical changed section fails with:
+
+```text
+CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:<section>
+```
+
+`MISCEL_1` is deliberately absent. There is no qualified V14 HANGER/MISCEL projection in this PR, so any changed `MISCEL_1` section blocks.
 
 ### Unchanged sections
 
 If canonical baseline and canonical modified section payloads are identical:
 
 ```text
-copy the ORIGINAL V14 section header and rows exactly
+copy ORIGINAL V14 section header and rows exactly
 ```
 
 This is the primary anti-canonicalization rule.
 
-### Equal-cardinality changed rows
+### Cardinality authority
 
-For fixed-width rows:
+Qualified physical units:
+
+```text
+NODENAME   1 row/unit
+RESTRANT  24 rows/unit
+SIF&TEES  14 rows/unit
+```
+
+Rules:
+
+```text
+unit identities must be unique
+isolated deletion may remove corresponding original-coordinate unit
+isolated insertion may insert modified canonical unit
+retained common-unit order must remain unchanged
+mixed replacement/cardinality run -> BLOCK
+same-count unit replacement       -> BLOCK
+duplicate identity                -> BLOCK
+unit misalignment                 -> BLOCK
+```
+
+Specific blockers:
+
+```text
+CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT
+CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN
+CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
+CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
+```
+
+W2.29 added the reorder and equal-cardinality gates after an exact falsifier showed that `A,B -> B,A` could otherwise be decomposed by LCS, and that same-count RESTRANT changes could bypass cardinality semantics via fixed-row mutation.
+
+### Equal-cardinality non-cardinality sections
+
+For projectable sections that are not governed by `CARDINALITY_UNIT_ROWS`, fixed-width field projection remains fail-closed:
 
 ```text
 baseline field unchanged -> preserve ORIGINAL field bytes
@@ -200,29 +207,6 @@ baseline field changed   -> project canonical modified field
 changed-field preimage   -> must be compatible with ORIGINAL field
 ambiguous/non-fixed replacement -> BLOCK
 ```
-
-### Cardinality changes
-
-Cardinality is projected by qualified physical record units, not arbitrary row LCS:
-
-```text
-NODENAME   1 row/unit
-RESTRANT  24 rows/unit
-SIF&TEES  14 rows/unit (V14)
-```
-
-Rules:
-
-```text
-unique canonical unit identities required
-isolated unit deletion -> delete corresponding original-coordinate units
-isolated unit insertion -> insert modified canonical units
-mixed replacement/cardinality run -> BLOCK
-duplicate unit identity -> BLOCK
-unit misalignment -> BLOCK
-```
-
-`MISCEL_1`/HANGER cardinality is deliberately not yet qualified for V14 projection and therefore blocks.
 
 ### Final proof
 
@@ -236,7 +220,7 @@ projected native-byte V14 -> V11
   == exact validated Writer2 V11 TARGET1
 ```
 
-The second proof is the final projection oracle.
+The second proof is final projection authority.
 
 ## Converter testimony is secondary
 
@@ -249,14 +233,12 @@ SHA256(actual input) = audit.source_sha256
 SHA256(actual output) = audit.target_sha256
 actual byte counts = audit byte counts
 audit.schema = cii-v11-v14-conversion-audit/v1
-changed_sections / warnings / loss_events exist as arrays
+changed_sections / warnings / loss_events are arrays
 ```
 
-Audit arrays are frozen after admission. Missing `loss_events` is a malformed audit, not zero loss.
+Audit arrays are frozen after admission. Missing `loss_events` is malformed testimony, not zero loss.
 
 ## Shared Pyodide runtime custody
-
-One Pyodide runtime is used, so converter jobs are serialized:
 
 ```text
 one active Python job at a time
@@ -265,7 +247,7 @@ job files removed before directory removal
 empty input rejected before FS allocation
 worker error/messageerror rejects pending jobs and resets worker
 postMessage failure removes pending request
-worker cache key advances with runtime semantic changes
+worker cache identity advances with runtime semantic changes
 ```
 
 Current worker cache identity:
@@ -284,16 +266,14 @@ normalizedVersion = 11
 originalSha256
 normalizedSha256
 baselineCanonicalSha256
-exactBaselineRoundTrip   # evidence only, never admission authority
+exactBaselineRoundTrip  # evidence only, never admission authority
 normalization audit
 canonicalization audit
 ```
 
-Inspection/preview require workspace content SHA to equal the normalized V11 SHA.
+Inspection/preview require Workspace content SHA to equal normalized V11 SHA. Apply requires fresh V14 downgrade to reproduce the preview-bound original and normalized hashes and the preview-bound canonical baseline SHA.
 
-At apply, a fresh target downgrade must reproduce the preview-bound original V14 SHA and normalized V11 SHA, and its canonical baseline SHA must reproduce the preview-bound canonical baseline SHA.
-
-Canonical exported audit JSON includes this version-bridge evidence.
+Canonical exported audit JSON includes version-bridge evidence.
 
 ## Fail-closed gates
 
@@ -320,17 +300,13 @@ stale custody
   CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH
   CII_VERSION_BRIDGE_BASELINE_CANONICAL_SHA_MISMATCH
 
-workspace intake drift
-  CII_VERSION_BRIDGE_INSPECTION_*_NORMALIZED_HASH_MISMATCH
-  CII_VERSION_BRIDGE_PREVIEW_*_NORMALIZED_HASH_MISMATCH
-
-projection authority / preimage / structure ambiguity
+projection authority
   CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED
   CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT
-  CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED
   CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN
+  CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
+  CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
   CII_V14_PROJECTION_CHANGED_FIELD_PREIMAGE_MISMATCH
-  other CII_V14_PROJECTION_* envelope blockers
 
 V11 postimage mismatch
   CII_VERSION_BRIDGE_V11_POSTIMAGE_BYTES_REQUIRED
@@ -339,23 +315,24 @@ V11 postimage mismatch
   CII_VERSION_BRIDGE_PROJECTED_V14_NORMALIZED_POSTIMAGE_MISMATCH
 ```
 
-## Current V14 capability boundary
+## Current capability boundary
 
 ```text
-fixed-field Writer1/Writer2 changes
-  SOURCE_IMPLEMENTED / FULL-BRIDGE RUNTIME PENDING
+NODENAME Writer2 CREATE/DELETE
+  V11 DONE
+  V14 1-row projection implemented; full bridge runtime pending
 
-NODENAME CREATE/DELETE
-  1-row projection implemented / full-bridge runtime pending
+SIF block DELETE
+  V11 DONE
+  V14 14-row projection implemented; full bridge runtime pending
 
 RESTRAINT 24-row block DELETE
-  24-row projection implemented / full-bridge runtime pending
-
-SIF/TEE block DELETE
-  14-row V14 projection implemented / full-bridge runtime pending
+  V11 implemented; full Workspace runtime pending
+  V14 24-row projection implemented; full bridge runtime pending
 
 HANGER delete/cardinality
-  NOT_YET_QUALIFIED_FOR_V14_PROJECTION
+  V11 DONE / PRODUCT_ROUTED
+  V14 NOT_AUTHORIZED_FOR_PROJECTION
 
 V11 SIF/HANGER/RESTRAINT CREATE
   SOURCE_BLOCKED_REAFFIRMED_V11
@@ -366,42 +343,29 @@ Writer3 topology
 
 ## Qualification state
 
-Authored target tests:
-
 ```text
-tests/cii-workspace-v11-v14-frozen-source.test.js
-tests/cii-workspace-v11-v14-frozen-engine.test.py
-tests/cii-workspace-v14-change-projection.test.js
+frozen source repository custody                 PASS_EXACT_BLOB_CUSTODY
+exact upstream benchmark custody                 PASS_EXACT_GIT_BLOB
+frozen-engine authored Python test               PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
+frozen-source authored JS @18433c...             PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+current frozen-source JS @095ddb...              NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
+final W2.29 projector graph                      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
+W2.13 synthetic full Workspace                   NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+W2.13 retained-real V11 full Workspace           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+real Writer2 projected V14 mutation              NOT_RUN
+browser/product V14 bridge                       NOT_RUN
+external CAESAR V11 import/re-export             NOT_RUN
 ```
 
-Current evidence:
+Final W2.29 projector runtime:
 
 ```text
-frozen source repository custody               PASS_EXACT_BLOB_CUSTODY
-exact upstream benchmark ZIP custody            PASS_EXACT_GIT_BLOB
-exact benchmark pair extraction                 PASS_EXACT_BYTES
-old whole-file baseline exact gate              REJECTED_EXACT_BENCHMARK_SOURCE_FALSIFIER
-bounded converter/adapter runtime                PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
-V14 change-isolation projection source          IMPLEMENTED_FAIL_CLOSED
-focused authored projection runtime             PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
-frozen-source authored JS test                  NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-frozen-engine authored Python test              NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-real benchmark full-converter normalization     NOT_RUN
-real Writer2 projected V14 mutation             NOT_RUN
-final projected V14 -> V11 postimage proof      IMPLEMENTED_PENDING_RUNTIME
-browser/product V14 bridge                      NOT_RUN
-external CAESAR V11 import/re-export            NOT_RUN
+module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
+test    586d6be0537162100979df63f56146db9d64c0e5
+command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
+result  PASS
 ```
 
-Focused projection runtime used exact current PR blobs:
+This narrow PASS is not full converter, bridge, product, browser, or release qualification.
 
-```text
-projection module  0a04c75c2ed0880a815c17616a7c99afcde132c2
-projection test    60f1586e5ac469988b59ede2b59258dcdc771e57
-command            node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
-result             PASS
-```
-
-This narrow PASS is not a full converter, bridge, product, browser, or release qualification.
-
-GitHub Actions are not authorized. Live V14 UI auto-routing remains disabled until the required full-path runtime gates pass.
+GitHub Actions are not authorized. Live V14 UI auto-routing remains disabled until required full-path runtime gates pass.
