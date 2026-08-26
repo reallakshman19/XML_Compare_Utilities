@@ -2,8 +2,7 @@ pr: 1057
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-w236
 base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
-report_basis_head: c5f84ad9b3969fe6253bfdcd0ca8c96e0e76c4a9
-current_stage: W2_RUNTIME_CLOSURE_AFTER_W2_34
+current_stage: W2_35_GENERATED_V14_BROWSER_BRIDGE_AUTHORED
 work_intent: INVESTIGATE_VALIDATE
 criticality: ENGINEERING_CRITICAL
 mutation_authority: EVIDENCE_AND_QUALIFICATION_TESTS_ONLY_UNLESS_EXACT_RUNTIME_EXPOSES_DEFECT
@@ -28,10 +27,11 @@ runtime:
   w2_c0_exact_required_files: 14
   w2_a_synthetic_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_b_retained_real_v11_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+  w2_35_generated_v14_browser_product: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
   real_native_v14_writer2_product: NOT_RUN_AUTHORED_ENTRYPOINT_MISSING
-  browser_pyodide_bridge_product: NOT_RUN
   github_actions_authorized: false
   clone_observation: FAIL_ENVIRONMENT_DNS_COULD_NOT_RESOLVE_GITHUB_COM
+  worker_runtime_dependency: HTTPS_CDN_JSDELIVR_PYODIDE_0_27_2
 
 entrypoints:
   w2_a_synthetic:
@@ -41,6 +41,16 @@ entrypoints:
     file: tests/cii-workspace-writer2-restraint-product-real-cii.test.js
     blob: c341b99e2786b0034ef672b4efb03d167d9ad26c
     benchmark_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+  w2_35_generated_v14_browser:
+    spec: tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
+    spec_blob: be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
+    config: playwright.cii-writer2.config.mjs
+    config_blob: a397ca35e536dc0573076b82560faa1295cffae0
+    fixture: tests/browser/cii-writer2-bridge-fixture.html
+    fixture_blob: 28c66a7fd6175c7cc50294cbe79e138dbde090f8
+    fixture_class: CONVERTER_GENERATED_V14_FROM_REAL_V11_BENCHMARK
+    command: npx_playwright_test_--config=playwright.cii-writer2.config.mjs
+    required_oracle: FINAL_GENERATED_V14_DOWNGRADE_EXACTLY_EQUALS_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
   native_v14_product:
     authored_entrypoint: false
     required_oracle: PROJECTED_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
@@ -51,9 +61,11 @@ negative_assurance:
   v11_create_authority_widened: false
   writer1_authority_changed: false
   writer3_scope_leakage: false
+  generated_v14_claimed_as_native: false
   source_inspection_promoted_to_runtime_pass: false
   not_run_promoted_to_pass: false
   stubs_or_import_rewrites_used: false
+  worker_runtime_substituted: false
   production_default_writer1b_changed: false
 
-exact_next_action: AUTHOR_BROWSER_PRODUCT_QUALIFICATION_USING_REAL_WORKER_PYODIDE_RUNTIME_WITH_CONVERTER_GENERATED_V14_AS_INTERMEDIATE_ONLY_AND_KEEP_NATIVE_V14_GATE_SEPARATE_UNTIL_PINNED_BENCHMARK_BYTES_ARE_AVAILABLE
+exact_next_action: EXECUTE_W2_35_ON_COMPLETE_EXACT_BROWSER_CHECKOUT_WHEN_AVAILABLE_THEN_AUTHOR_NATIVE_V14_ENTRYPOINT_ONLY_FROM_PINNED_3D_CONVERTERS_BENCHMARK_BYTES_NOT_DOCUMENT_RECONSTRUCTION
