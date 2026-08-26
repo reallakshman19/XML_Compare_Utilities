@@ -2,7 +2,7 @@
 
 Date: 2026-08-26  
 PR: #1055  
-Stage: W2.31
+Stage: W2.31 / W2.32
 
 ## 1. Purpose
 
@@ -10,7 +10,7 @@ W2.30 established that the V14 bridge is Writer2-only and that equal-cardinality
 
 That projector behavior is acceptable only when an independent pre-projection guard proves the changed CONTROL/ELEMENTS fields are exactly fields already owned by the V11 Writer2 transaction. Without that guard, a whole CONTROL/ELEMENTS row could be accepted merely because canonical baseline happened to be byte-identical to native V14.
 
-W2.31 therefore adds a separate authority guard rather than modifying the frozen `3D_Converters` Python or the V11 Writer2.
+W2.31 therefore adds a separate authority guard rather than modifying the frozen `3D_Converters` Python or the V11 Writer2. W2.32 tightens cardinality correlation so a qualified physical cardinality change also requires at least one matching ELEMENT pointer claim.
 
 ## 2. V11 authority coordinates
 
@@ -52,10 +52,16 @@ tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
 ```
 
-Final committed blob:
+W2.31 historical blob:
 
 ```text
 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+```
+
+W2.32 current blob:
+
+```text
+fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
 ```
 
 The guard executes in `applyCiiWorkspaceTargetWriter2WithVersionBridge()` after the independently validated V11 postimage is converted to canonical V14 and **before** `projectCanonicalV14WriterDelta()`.
@@ -69,6 +75,7 @@ ELEMENTS rows not a multiple of 15                          -> BLOCK
 cardinality payload changes without matching CONTROL count -> BLOCK
 CONTROL count changes without physical cardinality change   -> BLOCK
 pointer changes without physical cardinality change         -> BLOCK
+cardinality change without same-family pointer claim        -> BLOCK
 SIF/RESTRAINT cardinality increase                          -> BLOCK
 changed pointer outside before/after block count            -> BLOCK
 ```
@@ -90,11 +97,29 @@ A physical cardinality change requires exactly one matching CONTROL claim and:
 ```text
 CONTROL before == physical before count
 CONTROL after  == physical after count
+at least one matching same-family ELEMENT pointer claim
+```
+
+The pointer-evidence invariant is grounded in all three existing V11 Writer2 paths:
+
+```text
+NODENAME
+  CREATE derives from an exact zero-pointer element binding
+  DELETE row removal derives from physically owned name spans
+  relocationPlan.pointerChanges is emitted with cardinality mutation
+
+SIF/TEE DELETE
+  each delete is tied to an exact owned existing pointer
+  deleted owner pointer maps to zero and retained higher pointers compact
+
+RESTRAINT block DELETE
+  block deletion requires exactly one pointer owner
+  deleted owner pointer maps to zero and retained higher pointers compact
 ```
 
 SIF and RESTRAINT are DELETE/compaction-only in this bridge because V11 CREATE remains source-blocked. NODENAME can increase or decrease, but only inside an already-existing physical NODENAME section.
 
-## 5. Exact focused runtime
+## 5. Exact focused runtime history
 
 Authored test:
 
@@ -102,14 +127,25 @@ Authored test:
 tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
 ```
 
-Final committed graph:
+W2.31 graph:
 
 ```text
 guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
+result PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 ```
 
-Both local files were admitted by recomputing Git-object SHA over:
+W2.32 graph:
+
+```text
+guard  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+test   78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+command node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+result  CII Workspace V14 Writer2 fixed-field authority: PASS
+class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+```
+
+Both W2.32 local files were admitted by recomputing Git-object SHA over:
 
 ```text
 blob <byte_length>\0<exact_bytes>
@@ -117,34 +153,14 @@ blob <byte_length>\0<exact_bytes>
 
 before execution.
 
-Command/result:
+The W2.32 test additionally proves:
 
 ```text
-node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
-CII Workspace V14 Writer2 fixed-field authority: PASS
+matching NODENAME payload + CONTROL count with zero pointer claim -> BLOCK
+matching NODENAME payload + CONTROL count + exact NODENAME pointer -> PASS
 ```
 
-Classification:
-
-```text
-PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
-```
-
-The final test covers:
-
-```text
-all six qualified field coordinates accepted
-whole-row adoption cannot authorize CONTROL field 0
-wrong CONTROL row/field rejected
-wrong ELEMENTS row/field rejected
-fractional count rejected
-15-row ELEMENT block alignment enforced
-payload cardinality without count rejected
-count without payload cardinality rejected
-matching NODENAME count/cardinality accepted
-RESTRANT cardinality increase rejected
-post-delete RESTRAINT pointer outside new count rejected
-```
+The same guard rule applies to RESTRANT and SIF&TEES; their necessity is independently grounded in the V11 planner source described above.
 
 ## 6. Frozen/source boundary
 
@@ -154,7 +170,7 @@ No frozen Python file changed. The source remains:
 reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
 ```
 
-No V11 Writer1/Writer2 production file was modified. The W2.31 guard is additive XML-side bridge policy only.
+No V11 Writer1/Writer2 production file was modified. The W2.31/W2.32 guard is additive XML-side bridge policy only.
 
 ## 7. Native V14 layout corroboration
 
@@ -193,12 +209,12 @@ frozen cii_v11_v14_records.py
   leaves ELEMENT rows 12-15 untouched across the V11/V14 dialect boundary
 ```
 
-Because all six W2.31 fields are non-first fixed numeric cells, the native V14 `2X + 13-column` field profile is column-compatible with the XML fixed-row `[15, 13, 13, ...]` custody convention for these fields. The CONTROL layout is explicitly shared, and the ELEMENT record remains 15 rows.
+Because all six guarded fields are non-first fixed numeric cells, the native V14 `2X + 13-column` field profile is column-compatible with the XML fixed-row `[15, 13, 13, ...]` custody convention for these fields. The CONTROL layout is explicitly shared, and the ELEMENT record remains 15 rows.
 
 Conclusion:
 
 ```text
-W2.31 six CONTROL/ELEMENT count-pointer coordinates
+six CONTROL/ELEMENT count-pointer coordinates
   = corroborated by existing V11 XML writer/custody
   + corroborated independently by pinned native V14 structural authority
 ```
@@ -207,7 +223,7 @@ This source qualification does not promote the full V14 bridge, browser/Pyodide 
 
 ## 8. Qualification limitation
 
-This focused PASS does not qualify:
+These focused PASS results do not qualify:
 
 ```text
 current full frozen-source custody graph
@@ -219,4 +235,4 @@ repository npm/full regressions
 external CAESAR import/save/re-export acceptance
 ```
 
-Current strengthened frozen-source authored test includes W2.31 assertions but remains NOT_RUN on its enlarged exact graph.
+The current strengthened frozen-source authored test must be refreshed for W2.32 pointer-correlation custody and executed on its exact graph before current-blob PASS.
