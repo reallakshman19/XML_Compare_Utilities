@@ -1,0 +1,59 @@
+pr: 1057
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-runtime-closure-w236
+base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
+report_basis_head: c5f84ad9b3969fe6253bfdcd0ca8c96e0e76c4a9
+current_stage: W2_RUNTIME_CLOSURE_AFTER_W2_34
+work_intent: INVESTIGATE_VALIDATE
+criticality: ENGINEERING_CRITICAL
+mutation_authority: EVIDENCE_AND_QUALIFICATION_TESTS_ONLY_UNLESS_EXACT_RUNTIME_EXPOSES_DEFECT
+production_change_authority: NONE_CURRENTLY
+merge_authority: OWNER_ONLY
+merge_authorized: false
+pr_state: DRAFT
+handover_readiness: READY
+coordination_state: SAFE_EVIDENCE_ONLY
+program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+source_reuse:
+  repository: reallaksh19/3D_Converters
+  pinned_commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+  source_repository_modified: false
+  policy: COPY_ADAPT_WITH_FROZEN_UPSTREAM_SOURCE_UNCHANGED
+
+runtime:
+  w2_34_focused_7_file_graph: PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH_NODE_ESM_MODE
+  w2_c0_product_routing_14_file_graph: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_FULLY_MATERIALIZED
+  w2_c0_exact_local_files_available: 10
+  w2_c0_exact_required_files: 14
+  w2_a_synthetic_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+  w2_b_retained_real_v11_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
+  real_native_v14_writer2_product: NOT_RUN_AUTHORED_ENTRYPOINT_MISSING
+  browser_pyodide_bridge_product: NOT_RUN
+  github_actions_authorized: false
+  clone_observation: FAIL_ENVIRONMENT_DNS_COULD_NOT_RESOLVE_GITHUB_COM
+
+entrypoints:
+  w2_a_synthetic:
+    file: tests/cii-workspace-writer2-restraint-product-routing.test.js
+    blob: 9922377ddeda86fc9167d65f33c97095346e79fa
+  w2_b_real_v11:
+    file: tests/cii-workspace-writer2-restraint-product-real-cii.test.js
+    blob: c341b99e2786b0034ef672b4efb03d167d9ad26c
+    benchmark_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+  native_v14_product:
+    authored_entrypoint: false
+    required_oracle: PROJECTED_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
+
+negative_assurance:
+  frozen_3d_converters_modified: false
+  lossy_bridge_enabled: false
+  v11_create_authority_widened: false
+  writer1_authority_changed: false
+  writer3_scope_leakage: false
+  source_inspection_promoted_to_runtime_pass: false
+  not_run_promoted_to_pass: false
+  stubs_or_import_rewrites_used: false
+  production_default_writer1b_changed: false
+
+exact_next_action: AUTHOR_BROWSER_PRODUCT_QUALIFICATION_USING_REAL_WORKER_PYODIDE_RUNTIME_WITH_CONVERTER_GENERATED_V14_AS_INTERMEDIATE_ONLY_AND_KEEP_NATIVE_V14_GATE_SEPARATE_UNTIL_PINNED_BENCHMARK_BYTES_ARE_AVAILABLE
