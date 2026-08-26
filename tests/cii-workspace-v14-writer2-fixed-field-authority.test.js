@@ -29,9 +29,15 @@ function elementRows() {
   const elementsAfter = [...elementsBefore];
   elementsAfter[12] = fixedRow([112, 0, 0, 7, 0, 0]);
   elementsAfter[13] = fixedRow([113, 0, 0, 0, 8, 9]);
+  const nodenameBefore = Array.from({ length: 4 }, (_, index) => `N-${index}`);
+  const nodenameAfter = Array.from({ length: 5 }, (_, index) => `N-${index}`);
+  const restraintBefore = Array.from({ length: 4 * 24 }, (_, index) => `R-${index}`);
+  const restraintAfter = restraintBefore.slice(0, 3 * 24);
+  const sifBefore = Array.from({ length: 5 * 14 }, (_, index) => `S-${index}`);
+  const sifAfter = sifBefore.slice(0, 4 * 14);
   const result = assertCiiV14Writer2FixedFieldAuthority(
-    doc([['CONTROL', controlBefore], ['ELEMENTS', elementsBefore]]),
-    doc([['CONTROL', controlAfter], ['ELEMENTS', elementsAfter]]),
+    doc([['CONTROL', controlBefore], ['ELEMENTS', elementsBefore], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    doc([['CONTROL', controlAfter], ['ELEMENTS', elementsAfter], ['NODENAME', nodenameAfter], ['RESTRANT', restraintAfter], ['SIF&TEES', sifAfter]]),
   );
   assert.equal(result.status, 'PASS');
   assert.deepEqual(result.claims.map((claim) => claim.fieldIdentity), [
@@ -106,6 +112,47 @@ function elementRows() {
     () => assertCiiV14Writer2FixedFieldAuthority(doc([['ELEMENTS', before]]), doc([['ELEMENTS', after]])),
     /CII_V14_WRITER2_FIELD_AUTHORITY_ELEMENT_BLOCK_ALIGNMENT:14/,
   );
+}
+
+// Writer2 cardinality deltas must be coupled to the matching CONTROL count.
+{
+  const control = [
+    fixedRow([1, 2, 3, 1, 5, 6]),
+    fixedRow([1, 2, 3, 1, 5, 6]),
+    fixedRow([1, 2, 3, 4, 1, 6]),
+    fixedRow([1, 2, 3, 4, 5, 6]),
+  ];
+  const elements = elementRows();
+  const nodenameBefore = ['A'];
+  const restraintBefore = Array.from({ length: 24 }, (_, index) => `R-${index}`);
+  const sifBefore = Array.from({ length: 14 }, (_, index) => `S-${index}`);
+
+  const nodenameAfter = ['A', 'B'];
+  assert.throws(
+    () => assertCiiV14Writer2FixedFieldAuthority(
+      doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+      doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    ),
+    /CII_V14_WRITER2_CONTROL_COUNT_CLAIM_REQUIRED:NODENAME:0/,
+  );
+
+  const countOnly = [...control];
+  countOnly[0] = fixedRow([1, 2, 3, 2, 5, 6]);
+  assert.throws(
+    () => assertCiiV14Writer2FixedFieldAuthority(
+      doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+      doc([['CONTROL', countOnly], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    ),
+    /CII_V14_WRITER2_CONTROL_COUNT_CHANGED_WITHOUT_CARDINALITY:NODENAME/,
+  );
+
+  const matching = [...control];
+  matching[0] = fixedRow([1, 2, 3, 2, 5, 6]);
+  const result = assertCiiV14Writer2FixedFieldAuthority(
+    doc([['CONTROL', control], ['ELEMENTS', elements], ['NODENAME', nodenameBefore], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+    doc([['CONTROL', matching], ['ELEMENTS', elements], ['NODENAME', nodenameAfter], ['RESTRANT', restraintBefore], ['SIF&TEES', sifBefore]]),
+  );
+  assert.equal(result.claims.find((claim) => claim.fieldIdentity === 'CONTROL_NODENAME_NONAM_COUNT')?.after, 2);
 }
 
 console.log('CII Workspace V14 Writer2 fixed-field authority: PASS');
