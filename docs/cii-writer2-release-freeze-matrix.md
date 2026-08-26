@@ -6,7 +6,7 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
 V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
 V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
-CURRENT_STAGE = W2.31 V14 WRITER2 FIXED-FIELD AUTHORITY
+CURRENT_STAGE = W2.32 V14 WRITER2 POINTER CORRELATION
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
@@ -38,7 +38,8 @@ final projected V14 must downgrade exactly to Writer2 V11 TARGET1
 canonical V14 is differential evidence only
 changed section must be explicitly projectable
 cardinality changes use qualified physical units only
-CONTROL/ELEMENTS changes must pass W2.31 exact field-identity guard
+CONTROL/ELEMENTS changes must pass exact field-identity guard
+physical cardinality change requires matching CONTROL count and same-family pointer claim
 V14 Writer1 fixed-field projection is not qualified
 MISCEL_1/HANGER has no V14 projection authority
 ```
@@ -69,7 +70,7 @@ ORIGINAL V14 TARGET0
 normalized V11 TARGET0 -> frozen V11->V14 -> canonical baseline V14
 
 canonical baseline vs modified
-  -> W2.31 fixed-field authority guard
+  -> W2.31/W2.32 fixed-field + pointer-correlation authority guard
   -> W2.29/W2.30 change projector
   -> project onto ORIGINAL V14
   -> projected V14 TARGET1
@@ -115,14 +116,15 @@ test    90b7b8fb4edbdb63accbf0ff21a8185610ab06b0
 result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 ```
 
-## 5. V14 Writer2 fixed-field authority — W2.31
+## 5. V14 Writer2 fixed-field / pointer authority — W2.31/W2.32
 
-Projector source audit found a broad path: if canonical baseline exactly equaled original, `mergeChangedRow()` could return the entire modified row. W2.31 adds a separate bridge preflight guard rather than modifying the frozen converter or V11 Writer2.
+Projector source audit found a broad path: if canonical baseline exactly equaled original, `mergeChangedRow()` could return the entire modified row. W2.31 added a separate bridge preflight guard rather than modifying the frozen converter or V11 Writer2.
 
 ```text
 module tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-blob   7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+W2.31 blob 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+W2.32 blob fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
 bridge integration blob 8038993f0a97719c0c316f31c2d6c30ea0386ec4
 ```
 
@@ -142,9 +144,27 @@ row13 field4 ELEMENT_SIF_TEE_POINTER
 row13 field5 ELEMENT_NODENAME_POINTER
 ```
 
-These coordinates are derived from the existing V11 production writer/custody modules. The pinned converter preserves ELEMENT rows 12-15 across V11/V14 conversion.
+These coordinates have dual structural authority:
 
-Additional W2.31 invariants:
+```text
+V11 XML writer/custody
++
+pinned native V14 source
+  cii14_section_rules.py reuses V11 CONTROL_LAYOUT
+  ELEMENT_RECORD_LINES = 15
+  cii14_multi_merge.py uses 2X + 13-column numeric cells
+  frozen cii_v11_v14_records.py preserves ELEMENT rows 12-15
+```
+
+Native V14 layout classification:
+
+```text
+PASS_SOURCE_INSPECTION_AUTHORITATIVE_REFERENCE
+OBSERVATION = SOURCE_INSPECTION
+ORACLE = AUTHORITATIVE_REFERENCE
+```
+
+W2.31/W2.32 invariants:
 
 ```text
 changed CONTROL/ELEMENT field outside six coordinates -> BLOCK
@@ -152,18 +172,26 @@ count/pointer values must be non-negative integers
 physical cardinality change requires matching CONTROL before/after count
 CONTROL count change without cardinality change -> BLOCK
 pointer change without cardinality change -> BLOCK
+physical cardinality change without same-family pointer claim -> BLOCK
 SIF/RESTRAINT cardinality increase -> BLOCK
 changed pointer must remain within before/after physical block count
 ```
 
-Exact W2.31 runtime:
+The same-family pointer requirement is independently grounded in the V11 NODENAME, SIF and RESTRAINT planners: every qualified cardinality mutation is tied to at least one owned ELEMENT pointer mutation.
+
+Exact runtime:
 
 ```text
+W2.31
 module  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 test    74077b00b094c5e30ff402f8a0adeb1814bb24cc
+result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+
+W2.32
+module  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+test    78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
 command node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
-result  PASS
-class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
 
 Evidence: `docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md`.
@@ -206,8 +234,9 @@ frozen-engine authored Python             PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRA
 frozen-source authored JS @18433c...      PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 W2.30 projector exact graph               PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.31 fixed-field guard exact graph       PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+W2.32 pointer-correlation exact graph     PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 
-current frozen-source JS @75ba19e...      NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
+current frozen-source JS @ade99d0...      NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
 W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real V14 change-isolated Writer2 path     NOT_RUN
@@ -219,7 +248,7 @@ repository npm/full regressions           NOT_RUN/PARTIAL
 ## 9. Remaining gates
 
 ```text
-BRIDGE A  current exact 13-file frozen-source custody graph
+BRIDGE A  current exact 13-file frozen-source custody graph @ade99d0...
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 Writer2 + exact projected normalization proof
@@ -232,4 +261,4 @@ Native checkout remains unavailable (`Could not resolve host: github.com`). No s
 
 ## 10. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact W2.31 field identity for CONTROL/ELEMENTS, qualified physical cardinality, and final projected V14 normalization equal to the independently validated V11 Writer2 postimage. No lossy conversion, broad canonical rewrite, unauthorized field/section, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation, or Writer3 leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact field identity for CONTROL/ELEMENTS, matching CONTROL/cardinality/pointer correlation, qualified physical cardinality, and final projected V14 normalization equal to the independently validated V11 Writer2 postimage. No lossy conversion, broad canonical rewrite, unauthorized field/section, cardinality without pointer evidence, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation, or Writer3 leakage is permitted.
