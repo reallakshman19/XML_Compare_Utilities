@@ -40,15 +40,15 @@ assert.match(worker, /const FROZEN_SCRIPT_BLOBS = Object\.freeze/);
 for (const [fileName, expectedSha] of Object.entries(EXPECTED)) {
   assert.match(worker, new RegExp(`['"]${fileName.replaceAll('.', '\\.') }['"]\\s*:\\s*['"]${expectedSha}['"]`), `${fileName} runtime blob identity must be pinned in worker`);
 }
-assert.match(worker, /new TextEncoder\(\)\.encode\(`blob \$\{bytes\.byteLength\}\\0`\)/, 'runtime SHA must use Git blob framing');
-assert.match(worker, /crypto\.subtle\.digest\('SHA-1', payload\)/, 'runtime worker must compute Git blob SHA before execution');
-assert.match(worker, /Frozen \$\{fileName\} Git blob mismatch/, 'runtime worker must fail closed on deployed source drift');
-assert.match(worker, /response\.arrayBuffer\(\)/, 'runtime custody must hash fetched bytes, not decoded text');
-assert.match(worker, /FS\.writeFile\(`\/scripts\/\$\{fileName\}`, bytes\)/, 'verified bytes must be written directly to Pyodide');
-assert.doesNotMatch(worker, /response\.text\(\)/, 'frozen Python must not be text-decoded and re-encoded before execution');
+assert.match(worker, /new TextEncoder\(\)\.encode\(`blob \$\{bytes\.byteLength\}\\0`\)/);
+assert.match(worker, /crypto\.subtle\.digest\('SHA-1', payload\)/);
+assert.match(worker, /Frozen \$\{fileName\} Git blob mismatch/);
+assert.match(worker, /response\.arrayBuffer\(\)/);
+assert.match(worker, /FS\.writeFile\(`\/scripts\/\$\{fileName\}`, bytes\)/);
+assert.doesNotMatch(worker, /response\.text\(\)/);
 assert.match(worker, /cii2019_section_rules\.py/);
 assert.doesNotMatch(worker, /FROZEN_SCRIPT_ROOT\s*=\s*['"]\.\/scripts\/['"]/);
-assert.match(worker, /FS\.unlink\(path\)/, 'worker must remove job files before removing the job directory');
+assert.match(worker, /FS\.unlink\(path\)/);
 assert.match(worker, /cleanupJobDir\(pyodide, jobDir, \[inputPath, outputPath, auditPath\]\)/);
 assert.ok(
   worker.indexOf("if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');") < worker.indexOf('pyodide.FS.mkdirTree(jobDir);'),
@@ -85,8 +85,8 @@ assert.match(bridge, /ORIGINAL_V14_BYTES_PLUS_CANONICAL_WRITER_DELTA/);
 assert.match(bridge, /wholeFileCanonicalRewriteAllowed:\s*false/);
 assert.match(bridge, /canonicalBaselineUsedAsOutput:\s*false/);
 assert.match(bridge, /baselineCanonicalSha256:\s*up\.targetSha256/);
-assert.match(bridge, /exactRoundTrip:\s*ciiBytesEqual\(value, up\.outputBytes\)/, 'baseline byte identity is evidence only, not admission authority');
-assert.doesNotMatch(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/, 'native V14 must not be rejected merely for reversible-dialect formatting drift');
+assert.match(bridge, /exactRoundTrip:\s*ciiBytesEqual\(value, up\.outputBytes\)/);
+assert.doesNotMatch(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /CII_VERSION_BRIDGE_BASELINE_CANONICAL_SHA_MISMATCH/);
 assert.match(bridge, /CII_VERSION_BRIDGE_CANONICAL_MODIFIED_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /CII_VERSION_BRIDGE_PROJECTED_V14_NORMALIZED_POSTIMAGE_MISMATCH/);
@@ -95,16 +95,22 @@ assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, canonicalProof\.outputBy
 assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, projectedProof\.outputBytes\)/);
 assert.match(bridge, /modifiedTargetSha256 = await ciiSha256\(projection\.outputBytes/);
 assert.match(bridge, /byteString:\s*ciiBytesToByteString\(projection\.outputBytes\)/);
-assert.doesNotMatch(bridge, /byteString:\s*ciiBytesToByteString\(upgraded\.outputBytes\)/, 'canonical whole-file V14 must not become final Writer2 output');
+assert.doesNotMatch(bridge, /byteString:\s*ciiBytesToByteString\(upgraded\.outputBytes\)/);
 assert.doesNotMatch(bridge, /convertCiiNeutralVersionLossless\(v11Result\.text/);
 assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
 
 const projection = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v14-change-projection.js`, 'utf8');
-assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v1/);
-assert.match(projection, /physical\.push\(\.\.\.originalSection\.rows\)/, 'unchanged canonical sections must preserve original V14 rows');
+assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v2/);
+assert.match(projection, /CARDINALITY_UNIT_ROWS/);
+assert.match(projection, /NODENAME:\s*1/);
+assert.match(projection, /RESTRANT:\s*24/);
+assert.match(projection, /'SIF&TEES':\s*14/);
+assert.match(projection, /physical\.push\(\.\.\.originalSection\.rows\)/);
 assert.match(projection, /MERGE_FIXED_ROW/);
-assert.match(projection, /DELETE_ROWS/);
-assert.match(projection, /INSERT_ROWS/);
+assert.match(projection, /DELETE_UNITS/);
+assert.match(projection, /INSERT_UNITS/);
+assert.match(projection, /CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT/);
+assert.match(projection, /CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED/);
 assert.match(projection, /CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN/);
 assert.match(projection, /CII_V14_PROJECTION_CHANGED_FIELD_PREIMAGE_MISMATCH/);
 assert.match(projection, /CII_V14_PROJECTION_BASELINE_ORIGINAL_ROW_COUNT_MISMATCH/);
@@ -113,7 +119,7 @@ assert.doesNotMatch(projection, /return\s+modifiedCanonicalValue/);
 const upstreamFormat = readFileSync(`${FROZEN}/cii_v11_v14_format.py`, 'utf8');
 assert.match(upstreamFormat, /return f"\{value:#\.6G\}"/);
 assert.match(upstreamFormat, /return f"\{value:\.6E\}"/);
-assert.notEqual('   2.044599E+02 0.000000E+00', '   2.044600E+02 0.000000E+00', 'native benchmark precision counterexample must remain non-byte-reversible through V11 formatting');
+assert.notEqual('   2.044599E+02 0.000000E+00', '   2.044600E+02 0.000000E+00');
 
 const v11 = '#$ VERSION\n        5.00000      11.0000    1252\n#$ CONTROL\n';
 const v14 = '#$ VERSION\r\n    5.00000      14.0000        1256\r\n#$ CONTROL\r\n';
