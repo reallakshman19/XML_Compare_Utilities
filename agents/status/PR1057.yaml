@@ -2,7 +2,7 @@ pr: 1057
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-w236
 base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
-current_stage: W2_35_GENERATED_V14_BROWSER_BRIDGE_AUTHORED
+current_stage: W2_35A_1042_GENERATED_V14_AUTHORITY_AUTHORED
 work_intent: INVESTIGATE_VALIDATE
 criticality: ENGINEERING_CRITICAL
 mutation_authority: EVIDENCE_AND_QUALIFICATION_TESTS_ONLY_UNLESS_EXACT_RUNTIME_EXPOSES_DEFECT
@@ -17,8 +17,18 @@ program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 source_reuse:
   repository: reallaksh19/3D_Converters
   pinned_commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+  upstream_post_pr702_main: e5dbfcd2d86a5705a60df87b932d839fbc78301e
+  embedded_frozen_engine_blob_continuity: PASS_REMOTE_EXACT_GIT_BLOB_IDENTITY
+  repin_required: false
   source_repository_modified: false
   policy: COPY_ADAPT_WITH_FROZEN_UPSTREAM_SOURCE_UNCHANGED
+  embedded_blobs:
+    cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
+    cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
+    cii_v11_v14_records.py: 1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
+    cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
+    cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
+    cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 
 runtime:
   w2_34_focused_7_file_graph: PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH_NODE_ESM_MODE
@@ -28,6 +38,7 @@ runtime:
   w2_a_synthetic_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_b_retained_real_v11_product: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_35_generated_v14_browser_product: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
+  w2_35a_1042_generated_v14_authority: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
   real_native_v14_writer2_product: NOT_RUN_AUTHORED_ENTRYPOINT_MISSING
   github_actions_authorized: false
   clone_observation: FAIL_ENVIRONMENT_DNS_COULD_NOT_RESOLVE_GITHUB_COM
@@ -44,19 +55,31 @@ entrypoints:
   w2_35_generated_v14_browser:
     spec: tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
     spec_blob: be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
+    authority_spec: tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs
+    authority_spec_blob: 4a717c2e5f432037634f09b6e71bfe474dd06f66
     config: playwright.cii-writer2.config.mjs
-    config_blob: a397ca35e536dc0573076b82560faa1295cffae0
+    config_blob: 72af10052ccea48f493fc2156cc34277f97e5e8a
     fixture: tests/browser/cii-writer2-bridge-fixture.html
     fixture_blob: 28c66a7fd6175c7cc50294cbe79e138dbde090f8
     fixture_class: CONVERTER_GENERATED_V14_FROM_REAL_V11_BENCHMARK
     command: npx_playwright_test_--config=playwright.cii-writer2.config.mjs
     required_oracle: FINAL_GENERATED_V14_DOWNGRADE_EXACTLY_EQUALS_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
+    inherited_control_authority_oracle:
+      - CONTROL_ROW1_FIELD4_NONAM_RAW_I13_BYTE_IDENTICAL
+      - CONTROL_ROW2_FIELD4_RESTRAINT_COUNT_DECREASES_EXACTLY_ONE
+      - EXACT_ONE_CONTROL_RESTRAINT_BLOCK_COUNT_CLAIM
+      - RESTRAINT_POINTER_CLAIM_PRESENT
+      - ZERO_CONTROL_NODENAME_NONAM_COUNT_CLAIM
+      - ZERO_CONTROL_SIF_TEE_BLOCK_COUNT_CLAIM
+      - ZERO_ELEMENT_NODENAME_POINTER_CLAIM
+      - ZERO_ELEMENT_SIF_TEE_POINTER_CLAIM
   native_v14_product:
     authored_entrypoint: false
     required_oracle: PROJECTED_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
 
 negative_assurance:
   frozen_3d_converters_modified: false
+  upstream_pr702_requires_repin: false
   lossy_bridge_enabled: false
   v11_create_authority_widened: false
   writer1_authority_changed: false
@@ -68,4 +91,4 @@ negative_assurance:
   worker_runtime_substituted: false
   production_default_writer1b_changed: false
 
-exact_next_action: EXECUTE_W2_35_ON_COMPLETE_EXACT_BROWSER_CHECKOUT_WHEN_AVAILABLE_THEN_AUTHOR_NATIVE_V14_ENTRYPOINT_ONLY_FROM_PINNED_3D_CONVERTERS_BENCHMARK_BYTES_NOT_DOCUMENT_RECONSTRUCTION
+exact_next_action: EXECUTE_COMBINED_W2_35_AND_W2_35A_ON_COMPLETE_EXACT_BROWSER_CHECKOUT_WHEN_AVAILABLE_THEN_AUTHOR_NATIVE_V14_ENTRYPOINT_ONLY_FROM_PINNED_3D_CONVERTERS_BENCHMARK_BYTES_NOT_DOCUMENT_RECONSTRUCTION
