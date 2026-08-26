@@ -11,7 +11,7 @@ INHERITED_CONTROL_CORRECTION: #1042
 PR: #1055
 BRANCH: agent/cii-writer2-restraint-product-runtime-w218
 BASE_MAIN: 297fb37a0e894a3aac91de9188ebf30e810781fb
-CURRENT_STAGE: W2.31_V14_WRITER2_FIXED_FIELD_AUTHORITY
+CURRENT_STAGE: W2.32_V14_WRITER2_POINTER_CORRELATION
 PROGRAM_VERDICT: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -43,7 +43,7 @@ normalized V11 TARGET0
   -> frozen V11->V14 canonical baseline V14
 
 canonical baseline vs canonical modified
-  -> W2.31 exact Writer2 CONTROL/ELEMENT field guard
+  -> W2.31/W2.32 exact Writer2 CONTROL/ELEMENT field + pointer-correlation guard
   -> W2.29/W2.30 canonical delta projector
   -> project only Writer2 delta onto ORIGINAL native V14
   -> frozen projected V14->V11
@@ -53,6 +53,16 @@ canonical baseline vs canonical modified
 Canonical V14 is differential evidence only, never final broad-output authority.
 
 V14 Writer1A/B/C fixed-field projection is **not qualified** in PR1055. V11 Writer1 authority is unchanged.
+
+W2.32 adds one important invariant to W2.31:
+
+```text
+physical cardinality change
+  requires matching CONTROL count
+  AND at least one same-family ELEMENT pointer claim
+```
+
+This is grounded in all three existing V11 Writer2 cardinality paths, not inferred from V14.
 
 ## 2. Frozen upstream authority
 
@@ -149,17 +159,16 @@ test    90b7b8fb4edbdb63accbf0ff21a8185610ab06b0
 result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 ```
 
-## 5. W2.31 fixed-field authority guard
+## 5. W2.31/W2.32 fixed-field authority guard
 
 Source audit found that the projector's `mergeChangedRow()` can adopt a complete modified row when canonical baseline equals original. W2.31 does not modify the projector or frozen converter. It adds a pre-projection guard:
 
 ```text
 tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-blob   7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 ```
 
-The exact V11 Writer2 coordinates are:
+The exact Writer2 coordinates are:
 
 ```text
 CONTROL
@@ -173,9 +182,27 @@ ELEMENTS per 15-row block
   row 13 field 5 ELEMENT_NODENAME_POINTER
 ```
 
-They are grounded to the existing V11 writer/custody files, not invented V14 semantics. The pinned converter preserves ELEMENT rows 12-15 without relocation.
+These coordinates have dual structural support:
 
-W2.31 guard rules:
+```text
+existing V11 XML writer/custody
++
+pinned native V14 3D_Converters authority
+  cii14_section_rules.py reuses V11 CONTROL_LAYOUT
+  ELEMENT_RECORD_LINES = 15
+  cii14_multi_merge.py uses 2X + 13-column numeric cells
+  frozen cii_v11_v14_records.py leaves ELEMENT rows 12-15 untouched
+```
+
+Classification of the V14 layout corroboration:
+
+```text
+PASS_SOURCE_INSPECTION_AUTHORITATIVE_REFERENCE
+OBSERVATION = SOURCE_INSPECTION
+ORACLE = AUTHORITATIVE_REFERENCE
+```
+
+W2.31/W2.32 guard rules:
 
 ```text
 CONTROL/ELEMENTS changed field outside six coordinates -> BLOCK
@@ -184,11 +211,29 @@ ELEMENTS row count must be multiple of 15              -> BLOCK otherwise
 physical cardinality change requires matching CONTROL -> BLOCK otherwise
 CONTROL count without physical cardinality change      -> BLOCK
 pointer change without physical cardinality change     -> BLOCK
+physical cardinality change without same-family pointer claim -> BLOCK
 SIF/RESTRANT cardinality increase                      -> BLOCK
 changed pointer outside before/after block count        -> BLOCK
 ```
 
-Bridge integration:
+Pointer-correlation grounding in V11:
+
+```text
+NODENAME
+  CREATE uses an exact zero-pointer binding
+  DELETE row removal comes from physically owned name spans
+  relocationPlan.pointerChanges accompanies cardinality mutation
+
+SIF DELETE
+  selected block must have owned exact pointer
+  deleted owner pointer maps to zero; later pointers compact
+
+RESTRAINT block DELETE
+  removable block requires exactly one pointer owner
+  deleted owner pointer maps to zero; later pointers compact
+```
+
+Bridge integration remains:
 
 ```text
 bridge blob 8038993f0a97719c0c316f31c2d6c30ea0386ec4
@@ -196,15 +241,30 @@ bridge blob 8038993f0a97719c0c316f31c2d6c30ea0386ec4
 
 The guard executes after canonical modified V14 is built and **before** `projectCanonicalV14WriterDelta()`. Its immutable claims are retained under `versionBridgeValidation.fixedFieldAuthority`.
 
-Exact focused runtime:
+Exact focused runtime history:
 
 ```text
+W2.31
 guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
+result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+
+W2.32
+guard  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+test   78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
 command node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
 result  PASS
-class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
+
+The W2.32 authored falsifier proves:
+
+```text
+NODENAME payload cardinality + matching CONTROL count + zero NODENAME pointer claim -> BLOCK
+same mutation + exact NODENAME pointer claim -> PASS
+```
+
+Both W2.32 files were Git-object SHA admitted against the committed identities before execution.
 
 Evidence: `docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md`.
 
@@ -230,8 +290,9 @@ frozen-engine authored Python            PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAP
 historical frozen-source JS @18433c...   PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 W2.30 projector exact graph              PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.31 fixed-field guard exact graph      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+W2.32 pointer-correlation exact graph    PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 
-current frozen-source JS @75ba19e...     NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
+current frozen-source JS @ade99d0...     NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
 W2.13 synthetic product                  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 product          NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real V14 change-isolated Writer2 path    NOT_RUN
@@ -269,6 +330,7 @@ Writer3/topology implementation modified        FALSE
 workflow path introduced                        FALSE
 canonical whole V14 used as final output        FALSE
 unauthorized V14 CONTROL/ELEMENT field allowed  FALSE
+cardinality mutation without pointer evidence   FALSE
 retained cardinality unit reorder permitted     FALSE
 equal-cardinality unit replacement permitted    FALSE
 V14 Writer1 fixed-field support claimed         FALSE
@@ -317,7 +379,7 @@ tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
 ## 11. Remaining gates
 
 ```text
-BRIDGE A  current 13-file frozen-source custody graph @75ba19e... if exact graph can be materialized
+BRIDGE A  current 13-file frozen-source custody graph @ade99d0... if exact graph can be materialized
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 change-isolated Writer2 + exact projected normalization proof
@@ -328,11 +390,12 @@ EXTERNAL  actual CAESAR V11 import/use + save/re-export acceptance
 
 ## Appendix A — takeover gate
 
-A1. Trace the current V14 Writer2 path from original V14 through V11 Writer2, W2.31 guard, projection, and exact projected normalization proof.
-A2. State all six W2.31 CONTROL/ELEMENT field coordinates and their V11 source modules.
+A1. Trace the current V14 Writer2 path from original V14 through V11 Writer2, W2.32 guard, projection, and exact projected normalization proof.
+A2. State all six CONTROL/ELEMENT field coordinates and the independent V11 + native V14 structural authority for them.
 A3. Explain the projector whole-row bypass that motivated W2.31 and why the guard is placed before projection.
-A4. Explain CONTROL↔cardinality correlation and why SIF/RESTRAINT increases remain blocked.
-A5. Distinguish W2.30/W2.31 focused runtime PASS from the still-NOT_RUN full bridge/product/browser gates.
+A4. Explain W2.32's same-family pointer requirement and prove it independently from the NODENAME, SIF and RESTRAINT V11 planners.
+A5. Explain why SIF/RESTRAINT cardinality growth reports CREATE authority failure before missing-pointer evidence.
+A6. Distinguish W2.30/W2.31/W2.32 focused runtime PASS from the still-NOT_RUN full bridge/product/browser gates.
 
 ## EXACT NEXT ACTION
 
