@@ -43,10 +43,33 @@ claims:
       transfer_scope_ui: 2fd96ce57b23da40441e68b6a088b7b048a0b63c
       engineering_ui: cff53d820075417f817d6768c16ce550910c28c5
       tab: b7589c7595f3b33cdd8529a03c7e990da4b68d76
-      regression_test: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
-    source_verdict: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
-    runtime_verdict: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
+      bridge: 8038993f0a97719c0c316f31c2d6c30ea0386ec4
+      focused_source_regression: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
+      broader_product_regression: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+    source_verdict: PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+    focused_runtime_verdict: NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
+    broader_runtime_verdict: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
     browser_verdict: NOT_RUN
+
+  - id: WRITER2_LIVE_V11_V14_PRODUCT_ROUTE_W2_33_SOURCE_REGRESSION
+    state: PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+    required: true
+    test: tests/cii-workspace-writer2-live-version-bridge-routing.test.js
+    test_blob: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
+    graph_file_count: 7
+    asserts:
+      - NORMAL_UTILITIES_REGISTRY_RETAINS_CII_WORKSPACE
+      - SEPARATE_WRITER2_V11_V14_TILE_PRESENT
+      - WRITER2_NOT_SILENT_DEFAULT
+      - WRITER2_INSPECT_BRIDGE_BOUND
+      - WRITER2_PREVIEW_BRIDGE_BOUND
+      - WRITER2_APPLY_BRIDGE_BOUND
+      - SCOPED_WRITER2_REQUIRES_VERSION_BRIDGE_EVIDENCE
+      - WRITER2_BYTE_AUTHORITATIVE_EXPORT
+      - DIRECT_V11_AND_V14_CHANGE_ISOLATED_PATHS_PRESENT
+      - PROJECTED_V14_DOWNGRADE_MUST_EQUAL_V11_POSTIMAGE
+    runtime_state: NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
+    source_inspection_promoted_to_runtime_pass: false
 
   - id: V14_CHANGE_PROJECTION_AUTHORITY
     state: IMPLEMENTED_FAIL_CLOSED_W2_30
@@ -168,7 +191,6 @@ claims:
       - createCiiWorkspacePreviewWithVersionBridge
       - applyCiiWorkspaceTargetWriter2WithVersionBridge
       - scoped_writer2_versionBridge_required
-      - explicit_writer2_utilities_launch
       - production_default_writer1b_preserved
     source_architecture_check: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
     runtime_promoted: false
@@ -238,9 +260,10 @@ validation_integrity:
   native_v14_layout_source_inspection_promoted_to_runtime_pass: false
   current_source_test_promoted_to_pass_without_rerun: false
   writer2_product_routing_static_test_promoted_to_runtime_pass: false
+  writer2_live_route_source_test_promoted_to_runtime_pass: false
   full_workspace_graph_stubbed_or_import_rewritten: false
   not_run_promoted_to_pass: false
   writer3_scope_leakage: false
 
-changed_file_count_expected: 34
-next_claim_gate: exact_writer2_product_routing_14_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_browser_regressions_and_freeze
+changed_file_count_expected: 35
+next_claim_gate: exact_w2_33_live_route_7_file_graph_if_materializable_then_exact_writer2_product_routing_14_file_graph_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_browser_regressions_and_freeze
