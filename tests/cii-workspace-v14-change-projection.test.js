@@ -92,6 +92,22 @@ function block(prefix, rows = 24) {
   );
 }
 
+// A retained unit may not move. LCS delete+insert decomposition is not authority
+// for a physical block reorder because Writer2 compaction preserves retained order.
+{
+  const originalA = block('native-A');
+  const originalB = block('native-B');
+  const baselineA = block('canonical-A');
+  const baselineB = block('canonical-B');
+  const original = documentBytes([['RESTRANT', [...originalA, ...originalB]]]);
+  const baseline = documentBytes([['RESTRANT', [...baselineA, ...baselineB]]]);
+  const modified = documentBytes([['RESTRANT', [...baselineB, ...baselineA]]]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(original, baseline, modified),
+    /CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED:RESTRANT/,
+  );
+}
+
 // Non-isolated NODENAME cardinality rewrite has no safe original-coordinate projection.
 {
   const original = documentBytes([['NODENAME', ['A', 'B', 'C']]]);
