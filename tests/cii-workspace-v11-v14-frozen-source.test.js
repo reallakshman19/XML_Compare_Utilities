@@ -80,6 +80,7 @@ assert.match(converter, /pending\.delete\(jobId\);\s*reject\(new Error\(`Failed 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
 assert.match(bridge, /projectCanonicalV14WriterDelta/);
+assert.match(bridge, /assertCiiV14Writer2FixedFieldAuthority/);
 assert.match(bridge, /CIIWorkspaceWriterVersionBridge\.v2/);
 assert.match(bridge, /ORIGINAL_V14_BYTES_PLUS_CANONICAL_WRITER_DELTA/);
 assert.match(bridge, /wholeFileCanonicalRewriteAllowed:\s*false/);
@@ -95,9 +96,29 @@ assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, canonicalProof\.outputBy
 assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, projectedProof\.outputBytes\)/);
 assert.match(bridge, /modifiedTargetSha256 = await ciiSha256\(projection\.outputBytes/);
 assert.match(bridge, /byteString:\s*ciiBytesToByteString\(projection\.outputBytes\)/);
+assert.match(bridge, /fixedFieldAuthority,/);
+assert.ok(
+  bridge.indexOf('const fixedFieldAuthority = assertCiiV14Writer2FixedFieldAuthority(')
+    < bridge.indexOf('const projection = projectCanonicalV14WriterDelta('),
+  'V14 Writer2 fixed-field authority must be checked before canonical delta projection',
+);
 assert.doesNotMatch(bridge, /byteString:\s*ciiBytesToByteString\(upgraded\.outputBytes\)/);
 assert.doesNotMatch(bridge, /convertCiiNeutralVersionLossless\(v11Result\.text/);
 assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
+
+const fixedFieldAuthority = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js`, 'utf8');
+assert.match(fixedFieldAuthority, /CIIWorkspaceV14Writer2FixedFieldAuthority\.v1/);
+assert.match(fixedFieldAuthority, /'0:3': 'CONTROL_NODENAME_NONAM_COUNT'/);
+assert.match(fixedFieldAuthority, /'1:3': 'CONTROL_RESTRAINT_BLOCK_COUNT'/);
+assert.match(fixedFieldAuthority, /'2:4': 'CONTROL_SIF_TEE_BLOCK_COUNT'/);
+assert.match(fixedFieldAuthority, /'12:3': 'ELEMENT_RESTRAINT_POINTER'/);
+assert.match(fixedFieldAuthority, /'13:4': 'ELEMENT_SIF_TEE_POINTER'/);
+assert.match(fixedFieldAuthority, /'13:5': 'ELEMENT_NODENAME_POINTER'/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_FIXED_FIELD_NOT_AUTHORIZED/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CONTROL_COUNT_CLAIM_REQUIRED/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CONTROL_COUNT_CHANGED_WITHOUT_CARDINALITY/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_CARDINALITY_INCREASE_NOT_AUTHORIZED/);
+assert.match(fixedFieldAuthority, /CII_V14_WRITER2_POINTER_OUT_OF_RANGE/);
 
 const projection = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v14-change-projection.js`, 'utf8');
 assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v2/);
