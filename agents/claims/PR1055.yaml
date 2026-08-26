@@ -133,6 +133,22 @@ claims:
     admitted_blob_count: 13
     source_inspection_promoted_to_runtime_pass: false
 
+  - id: WRITER2_PRODUCT_ROUTING_STATIC_REGRESSION
+    state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_11_FILE_GRAPH
+    required: true
+    current_test_blob: cb324b739bae4cb0050ee236b70d80dfa3fdedaf
+    drift_found: PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS
+    old_assertions:
+      - applyCiiWriter2Composite
+      - validateCiiWriter2CompositeRoundTrip
+    current_assertions:
+      - writer2HasRestraintApply
+      - applyCiiWriter2CompositeWithRestraintDelete
+      - applyCiiWriter2CompositeWithHangerDeleteAll
+      - validateCiiWriter2ProductRoundTrip
+    source_architecture_check: PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
+    runtime_promoted: false
+
   - id: W2_11_RESTRAINT_RUNTIME
     state: PASS_RUNTIME_EXACT_BLOB
     required: true
@@ -194,9 +210,10 @@ validation_integrity:
   focused_runtime_promoted_to_full_bridge_pass: false
   native_v14_layout_source_inspection_promoted_to_runtime_pass: false
   current_source_test_promoted_to_pass_without_rerun: false
+  writer2_product_routing_static_test_promoted_to_runtime_pass: false
   full_workspace_graph_stubbed_or_import_rewritten: false
   not_run_promoted_to_pass: false
   writer3_scope_leakage: false
 
-changed_file_count_expected: 29
-next_claim_gate: exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
+changed_file_count_expected: 30
+next_claim_gate: exact_writer2_product_routing_11_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
