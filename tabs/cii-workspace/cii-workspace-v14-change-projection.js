@@ -174,6 +174,18 @@ function assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName) {
   }
 }
 
+function rejectEqualCardinalityUnitMutation(baseline, modified, sectionName) {
+  const baselineUnits = groupUnits(baseline, sectionName, 'BASELINE');
+  const modifiedUnits = groupUnits(modified, sectionName, 'MODIFIED');
+  assertUniqueUnitKeys(baselineUnits, sectionName, 'BASELINE');
+  assertUniqueUnitKeys(modifiedUnits, sectionName, 'MODIFIED');
+  const baselineKeys = baselineUnits.map((unit) => unit.key);
+  const modifiedKeys = modifiedUnits.map((unit) => unit.key);
+  const matches = lcsMatches(baselineKeys, modifiedKeys, sectionName);
+  assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName);
+  throw new Error(`CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED:${sectionName}`);
+}
+
 function projectEqualCardinality(original, baseline, modified, sectionName, ledger) {
   const rows = [];
   for (let index = 0; index < baseline.length; index += 1) {
@@ -301,7 +313,11 @@ export function projectCanonicalV14WriterDelta(originalValue, baselineCanonicalV
     if (originalSection.rows.length !== baselineSection.rows.length) {
       throw new Error(`CII_V14_PROJECTION_BASELINE_ORIGINAL_ROW_COUNT_MISMATCH:${baselineSection.name}:${originalSection.rows.length}:${baselineSection.rows.length}`);
     }
-    const projectedRows = baselineSection.rows.length === modifiedSection.rows.length
+    const equalCardinality = baselineSection.rows.length === modifiedSection.rows.length;
+    if (equalCardinality && CARDINALITY_UNIT_ROWS[baselineSection.name]) {
+      rejectEqualCardinalityUnitMutation(baselineSection.rows, modifiedSection.rows, baselineSection.name);
+    }
+    const projectedRows = equalCardinality
       ? projectEqualCardinality(originalSection.rows, baselineSection.rows, modifiedSection.rows, baselineSection.name, ledger)
       : projectChangedCardinality(originalSection.rows, baselineSection.rows, modifiedSection.rows, baselineSection.name, ledger);
     physical.push(...projectedRows);
