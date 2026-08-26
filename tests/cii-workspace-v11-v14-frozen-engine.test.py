@@ -9,6 +9,7 @@ FROZEN = ROOT / 'converters' / 'scripts' / 'cii-v11-v14-upstream'
 sys.path.insert(0, str(FROZEN))
 
 import cii_v11_v14 as mod  # noqa: E402
+import cii_v11_v14_records as records  # noqa: E402
 
 
 def audit(source: int, target: int):
@@ -69,7 +70,7 @@ class FrozenCiiV11V14EngineTests(unittest.TestCase):
     def test_restraint_default_stiffness_mapping_is_preserved(self) -> None:
         values1 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         values2 = [0.0, 0.0, 0.0]
-        mapped = mod._map_restraint_stiffness(values1, values2, '            0 ', '            0 ', 14, 11)
+        mapped = records._map_restraint_stiffness(values1, values2, '            0 ', '            0 ', 14, 11)
         self.assertTrue(mod._close_to(mapped[2], mod._V11_DEFAULT_STIFFNESS))
 
 
