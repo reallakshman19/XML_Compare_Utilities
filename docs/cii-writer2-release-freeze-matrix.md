@@ -6,7 +6,7 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
 V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
 V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
-CURRENT_STAGE = W2.33 LIVE WRITER2 V11/V14 BRIDGE ROUTING
+CURRENT_STAGE = W2.34 WRITER2 EXPORT CUSTODY
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
@@ -24,7 +24,7 @@ no unexecuted test represented as PASS
 no Writer3 topology leakage
 ```
 
-V14 invariants:
+V14 / product invariants:
 
 ```text
 frozen pinned 3D_Converters source only
@@ -44,6 +44,9 @@ V14 Writer1 fixed-field projection is not qualified
 MISCEL_1/HANGER has no V14 projection authority
 explicit Writer2 product route must use the version bridge
 ordinary product default remains Writer1B
+Writer2 export requires versionBridgeValidation.status = PASS
+Writer2 export requires byteString
+Writer2 text fallback is forbidden
 ```
 
 Whole-file `V14 -> V11 -> V14 == original` is retired by exact native benchmark evidence.
@@ -94,7 +97,7 @@ RESTRANT
 SIF&TEES
 ```
 
-Qualified Writer2 cardinality units:
+Qualified physical cardinality units:
 
 ```text
 NODENAME   1 row/unit
@@ -102,14 +105,14 @@ RESTRANT  24 rows/unit
 SIF&TEES  14 rows/unit
 ```
 
-Equal-cardinality NODENAME/RESTRANT/SIF Writer1-style field edits, retained-unit reorder, non-isolated cardinality runs, MISCEL/HANGER changes, and absent whole NODENAME section creation remain fail-closed.
+Equal-cardinality Writer1-style field edits in those cardinality sections, retained-unit reorder, non-isolated cardinality runs, MISCEL/HANGER changes and absent whole NODENAME section creation remain fail-closed.
 
 Exact W2.30 runtime:
 
 ```text
 module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
 test    90b7b8fb4edbdb63accbf0ff21a8185610ab06b0
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
+PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 ```
 
 ## 5. V14 Writer2 fixed-field / pointer authority — W2.31/W2.32
@@ -117,12 +120,11 @@ result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_
 ```text
 module tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-W2.31 blob 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
-W2.32 blob fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+current blob fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
 bridge integration blob 8038993f0a97719c0c316f31c2d6c30ea0386ec4
 ```
 
-Exact allowed CONTROL coordinates:
+Allowed CONTROL coordinates:
 
 ```text
 row0 field3  CONTROL_NODENAME_NONAM_COUNT
@@ -130,7 +132,7 @@ row1 field3  CONTROL_RESTRAINT_BLOCK_COUNT
 row2 field4  CONTROL_SIF_TEE_BLOCK_COUNT
 ```
 
-Exact allowed ELEMENTS coordinates per 15-row element block:
+Allowed ELEMENTS coordinates per 15-row element block:
 
 ```text
 row12 field3 ELEMENT_RESTRAINT_POINTER
@@ -138,9 +140,7 @@ row13 field4 ELEMENT_SIF_TEE_POINTER
 row13 field5 ELEMENT_NODENAME_POINTER
 ```
 
-These coordinates have dual structural authority from existing V11 writer/custody and the pinned native V14 source profile.
-
-W2.31/W2.32 invariants:
+Rules:
 
 ```text
 changed CONTROL/ELEMENT field outside six coordinates -> BLOCK
@@ -153,81 +153,95 @@ SIF/RESTRAINT cardinality increase -> BLOCK
 changed pointer must remain within before/after physical block count
 ```
 
-Exact runtime:
+Runtime:
 
 ```text
 W2.31
-module  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
-test    74077b00b094c5e30ff402f8a0adeb1814bb24cc
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+  module 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+  test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
+  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 
 W2.32
-module  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
-test    78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+  module fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+  test   78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
 
-## 6. W2.33 live Writer2 V11/V14 product routing
+## 6. W2.33/W2.34 live Writer2 product route
 
-Source audit found that the bridge existed but the live product shell called direct core Writer2 paths, and the normal Utilities registry had no Writer2 selection.
-
-W2.33 implementation:
+W2.33 fixed product reachability/routing:
 
 ```text
 ordinary CII Workspace tile -> Writer1B default unchanged
 separate CII Writer 2 — V11/V14 tile -> explicit writerVersion='2'
-
 Writer2 inspection -> inspectCiiWorkspaceModelsWithVersionBridge
 Writer2 preview    -> createCiiWorkspacePreviewWithVersionBridge
 Writer2 apply      -> applyCiiWorkspaceTargetWriter2WithVersionBridge
 scoped apply       -> requires preview.versionBridge
-Writer2 export     -> byteString is byte-authoritative
 ```
 
-Current source blobs:
+W2.34 fixes final export custody on both product surfaces:
 
 ```text
-shell                 ac5412044df3c4b8230bfb2044607944fa9d6442
-scoped transfer UI    2fd96ce57b23da40441e68b6a088b7b048a0b63c
+WRITER_2 export
+  versionBridgeValidation.status MUST be PASS
+  byteString MUST be present
+  exact byteString is exported
+  applied.text fallback is forbidden
+```
+
+Fail-closed blockers:
+
+```text
+CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED
+CII_WRITER_2_BYTE_STRING_REQUIRED
+```
+
+Current W2.34 blobs:
+
+```text
+shell                 226ae8f3a7906b0d28a8c10195ad9b27d7f6444e
+scoped transfer UI    4d60b2c1f418ed3a7490a1f4d91f3c83f2cc5ae8
 engineering UI        cff53d820075417f817d6768c16ce550910c28c5
 workspace tile        b7589c7595f3b33cdd8529a03c7e990da4b68d76
 bridge                8038993f0a97719c0c316f31c2d6c30ea0386ec4
-focused regression    eee5776113ed8ce0e2e6d780f6897d0f3c830fee
-broader regression    5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+focused regression    20b31c241ded6e475fe293277e3f3d29ac787093
+broader regression    2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
 ```
 
-Qualification state:
+Qualification:
 
 ```text
-W2.33 implementation
-  IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
-
-focused source regression @eee577...
-  PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+focused W2.34 source regression
+  PASS_SOURCE_INSPECTION_W2_34_LIVE_V11_V14_BRIDGE_AND_EXPORT_CUSTODY
   graph 7 files
   runtime NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
 
-broader routing regression @5588e5...
-  PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
+broader routing/export regression
+  PASS_SOURCE_INSPECTION_BRIDGE_BOUND_PRODUCT_AND_EXPORT_CUSTODY
   graph 14 files
   runtime NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
 
-browser/product
+browser/product runtime
   NOT_RUN
 ```
 
-W2.33 does not alter the frozen converter, bridge implementation, W2.30 projector, or W2.31/W2.32 guard. Therefore the exact 13-file W2.32 frozen-source runtime PASS remains valid.
+No source-inspection result is represented as runtime PASS.
 
-## 7. Result-validation custody
+## 7. Result and audit custody
 
-For V14 Writer2 apply, the bridge returns only after:
+The bridge returns a V14 Writer2 result only after both proofs pass:
 
 ```text
 canonical modified V14 -> V11 == independently validated V11 TARGET1
 projected native V14    -> V11 == independently validated V11 TARGET1
 ```
 
-`validation` remains the V11 Writer2 independent semantic oracle; `versionBridgeValidation` is the final-dialect proof and carries `v11WriterValidation`. A V14 bridge mismatch throws before return, so there is no source-level false-PASS path. Browser presentation remains runtime-unqualified.
+`validation` remains the independent V11 semantic oracle and `versionBridgeValidation` is the final-dialect proof. A mismatch throws before return.
+
+Explicit scope binding preserves `preview.audit`, and artifact export serializes the resulting audit, so version-bridge evidence remains in downloaded audit JSON.
+
+Mixed V11/V14 SOURCE/TARGET combinations retain independent side version/hash evidence; TARGET original version controls the actual write dialect. The bridge is therefore not modified merely to rename aggregate mode.
 
 ## 8. Capability matrix
 
@@ -265,12 +279,12 @@ W2.11 RESTRAINT physical runtime          PASS_RUNTIME_EXACT_BLOB
 W2.12 R01-R22                             PASS_RUNTIME_EXACT_BLOB
 frozen-engine authored Python             PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
 historical frozen-source JS @18433c...    PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-W2.30 projector exact graph               PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
-W2.31 fixed-field guard exact graph       PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
-W2.32 pointer-correlation exact graph     PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+W2.30 projector                           PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
+W2.31 fixed-field guard                   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+W2.32 pointer correlation                 PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 current frozen-source JS @ade99d0...      PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
-W2.33 focused live route @eee577...       PASS_SOURCE_INSPECTION / NOT_RUN_EXACT_7_FILE_GRAPH
-W2.33 broader routing @5588e5...          PASS_SOURCE_INSPECTION / NOT_RUN_EXACT_14_FILE_GRAPH
+W2.34 focused route/export @20b31c...     PASS_SOURCE_INSPECTION / NOT_RUN_EXACT_7_FILE_GRAPH
+W2.34 broader route/export @2b01a6...     PASS_SOURCE_INSPECTION / NOT_RUN_EXACT_14_FILE_GRAPH
 
 W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -283,8 +297,8 @@ repository npm/full regressions           NOT_RUN/PARTIAL
 ## 11. Remaining gates
 
 ```text
-W2.33 C0  focused live-route source test on exact 7-file graph
-W2 C0     broader Writer2 product-routing test on exact 14-file graph
+W2.34 C0  focused routing/export source test on exact 7-file graph
+W2 C0     broader Writer2 product-routing/export test on exact 14-file graph
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 Writer2 + exact projected normalization proof
@@ -293,8 +307,8 @@ W2 H      final READY/NOT_READY release-freeze verdict
 EXTERNAL  actual CAESAR V11/V14 import/use + save/re-export acceptance
 ```
 
-Native checkout remains unavailable (`Could not resolve host: github.com`). No stubs/import rewrites/partial-core substitutes are authorized. GitHub Actions are not authorized for qualification.
+Native checkout remains unavailable. No stubs/import rewrites/partial-core substitutes are authorized. GitHub Actions are not authorized for qualification.
 
 ## 12. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact field identity for CONTROL/ELEMENTS, matching CONTROL/cardinality/pointer correlation, qualified physical cardinality, and final projected V14 normalization equal to the independently validated V11 Writer2 postimage. The explicit Writer2 product route must use the version bridge and must not silently change the ordinary Writer1B default. No lossy conversion, broad canonical rewrite, unauthorized field/section, cardinality without pointer evidence, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation, or Writer3 leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact CONTROL/ELEMENT identity, matching CONTROL/cardinality/pointer correlation, qualified physical cardinality, final projected V14 normalization equal to independently validated V11 TARGET1, and product export to require bridge PASS plus byte custody. No lossy conversion, broad canonical rewrite, unauthorized field/section, Writer2 text fallback, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation or Writer3 leakage is permitted.
