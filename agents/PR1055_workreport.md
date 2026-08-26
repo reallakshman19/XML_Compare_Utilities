@@ -11,7 +11,7 @@ INHERITED_CONTROL_CORRECTION: #1042
 PR: #1055
 BRANCH: agent/cii-writer2-restraint-product-runtime-w218
 BASE_MAIN: 297fb37a0e894a3aac91de9188ebf30e810781fb
-CURRENT_STAGE: W2.29_V14_PROJECTION_UNIT_ORDER_HARDENED
+CURRENT_STAGE: W2.29_V14_PROJECTION_UNIT_ORDER_MISCEL_HARDENED
 PROGRAM_VERDICT: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -29,7 +29,7 @@ no GitHub Actions for qualification
 
 ## 1. Handover in 60 seconds
 
-The bridge remains:
+Final V14 architecture remains:
 
 ```text
 ORIGINAL native V14
@@ -42,7 +42,7 @@ normalized V11 TARGET0
   -> frozen V11->V14 canonical baseline V14
 
 canonical baseline vs modified
-  -> isolate only Writer2-caused delta
+  -> isolate Writer2-caused delta only
   -> project delta onto ORIGINAL native V14 bytes
   -> projected V14 TARGET1
   -> frozen V14->V11
@@ -51,7 +51,25 @@ canonical baseline vs modified
 
 Canonical V14 is differential evidence only; never broad final-output authority.
 
-W2.29 found and fixed a projector authority gap: a unit reorder could be decomposed by LCS as delete+insert, and same-count cardinality changes bypassed unit custody through the fixed-row path. Both now fail closed.
+W2.29 found and fixed three projector authority gaps:
+
+```text
+1. retained-unit reorder could be decomposed by LCS as delete+insert
+2. same-count cardinality payload bypassed unit custody through fixed-row mutation
+3. MISCEL_1 remained projectable despite no qualified V14 HANGER/MISCEL authority
+```
+
+Current V14 projectable changed sections are exactly:
+
+```text
+CONTROL
+ELEMENTS
+NODENAME
+RESTRANT
+SIF&TEES
+```
+
+Any `MISCEL_1` change blocks.
 
 ## 2. Binding Issue #1042
 
@@ -91,18 +109,9 @@ FROZEN_PYTHON_MUTATION = NONE
 FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
 ```
 
-## 4. Why whole-file V14 roundtrip equality is retired
+## 4. Whole-file V14 byte-roundtrip policy
 
-Exact upstream benchmark archive:
-
-```text
-Benchmarks/v11-v14.zip
-size      10,740 bytes
-Git blob  8409e1c429665e34a83c2a464665ebf5d5f1b0a1
-SHA-256   da0b276c4c2f3a44c3dcd0a6cddd6ca9fcdfc44709caac7af61083b79bb7f808
-```
-
-Concrete real row:
+The former XML-only requirement `V14 -> V11 -> V14 == original bytes` is permanently retired. Exact native upstream benchmark evidence shows target-format numeric canonicalization:
 
 ```text
 V14 original    2.044599E+02
@@ -110,7 +119,7 @@ V14 -> V11      204.460
 V11 -> V14      2.044600E+02
 ```
 
-26/43 native V14 RIGID rows show this deterministic target-format canonicalization. Therefore:
+26/43 native V14 RIGID rows exhibit deterministic byte non-reversibility.
 
 ```text
 whole-file cross-version byte equality = RETIRED
@@ -118,25 +127,12 @@ semantic-equivalence-only custody       = REJECTED
 replacement                             = ORIGINAL-BYTE CHANGE ISOLATION
 ```
 
-## 5. V14 projection authority
-
-Current module:
+## 5. Final W2.29 V14 projection authority
 
 ```text
-tabs/cii-workspace/cii-workspace-v14-change-projection.js
-schema CIIWorkspaceV14ChangeProjection.v2
-blob   2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
-```
-
-Changed-section allowlist:
-
-```text
-CONTROL
-ELEMENTS
-NODENAME
-RESTRANT
-SIF&TEES
-MISCEL_1
+module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
+schema: CIIWorkspaceV14ChangeProjection.v2
+blob:   0a16b1383da6ef58abf55c53a91711a0a1f21c17
 ```
 
 Qualified cardinality units:
@@ -147,27 +143,23 @@ RESTRANT  24 rows/unit
 SIF&TEES  14 rows/unit
 ```
 
-Fail-closed conditions now include:
+Fail-closed blockers include:
 
 ```text
-unlisted changed section
-  CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED
-
-duplicate unit identity
-  CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT
-
-non-isolated replacement
-  CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN
-
-retained-unit reorder
-  CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
-
-same-count cardinality-unit replacement
-  CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
-
-HANGER/MISCEL cardinality
-  CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED
+CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED
+CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT
+CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN
+CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
+CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
 ```
+
+For `MISCEL_1` specifically:
+
+```text
+CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:MISCEL_1
+```
+
+No V14 HANGER/MISCEL projection exists in this PR.
 
 ## 6. W2.29 exact projector runtime
 
@@ -177,47 +169,36 @@ Evidence:
 docs/cii-writer2-v14-projection-unit-order-runtime-2026-08-26.md
 ```
 
-First exact graph:
+Initial falsifying graph:
 
 ```text
 module  6b83e85ff0229e9c6bbe3363beedbe5843d8c2d9
 test    ae0f81ed419a26401194abc11e5c78b79164f044
+result  FAIL
+actual  CII_V14_PROJECTION_ROW_WIDTH_MISMATCH:RESTRANT:0
 ```
 
-Both local files were independently Git-object SHA admitted before execution.
+This proved equal-cardinality RESTRANT changes still entered row mutation authority.
 
-First result:
-
-```text
-FAIL
-expected reorder blocker
-received CII_V14_PROJECTION_ROW_WIDTH_MISMATCH:RESTRANT:0
-```
-
-This proved same-count RESTRANT changes were bypassing cardinality semantics.
-
-Correction:
-
-```text
-changed equal-cardinality payload in a cardinality-qualified section
-  -> never use fixed-row mutation authority
-  -> group by physical units
-  -> unique identities required
-  -> all common units must remain ordered
-  -> reorder or replacement blocks
-```
-
-Corrected exact graph:
+Intermediate corrected graph:
 
 ```text
 module  2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
 test    ae0f81ed419a26401194abc11e5c78b79164f044
-command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
 result  PASS
-class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29
 ```
 
-No frozen upstream file changed.
+Final MISCEL-tightened committed graph:
+
+```text
+module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
+test    586d6be0537162100979df63f56146db9d64c0e5
+command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
+result  PASS
+class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
+```
+
+Both final local files were independently admitted by Git-object SHA against the committed blobs before execution.
 
 ## 7. Other runtime evidence
 
@@ -232,8 +213,8 @@ frozen-engine authored Python test       PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAP
 frozen-source authored JS last executed  PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
   executed test blob                     18433c7664428a02bea97625ce6bdc3c21bd8365
 
-current frozen-source authored JS        NOT_RUN_AFTER_W2_29_ASSERTION_STRENGTHENING
-  current test blob                      db29b87f367f7e8c00939b32a7586d8d43ea5bf1
+current frozen-source authored JS        NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
+  current test blob                      095ddb65d51b3f3dda577a0db2c9d091e580dc5b
 
 W2.13 synthetic product                  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   test blob                              9922377ddeda86fc9167d65f33c97095346e79fa
@@ -247,7 +228,7 @@ repository npm                           NOT_RUN_ENVIRONMENT
 external CAESAR acceptance               NOT_RUN
 ```
 
-Both W2.13 entrypoints statically import `cii-workspace-core.js`, which immediately expands into the full Workspace intake/topology/correspondence/Writer1/Writer2 validation graph. The current environment cannot clone/materialize that graph. No stub, import rewrite, or partial-core substitute is authorized.
+Both W2.13 entrypoints statically import `cii-workspace-core.js`, which expands into the full Workspace intake/topology/correspondence/Writer1/Writer2 validation graph. The current environment cannot clone/materialize that full graph. No stub, import rewrite, or partial-core substitute is authorized.
 
 ## 8. V11 engineering authority remains unchanged
 
@@ -279,7 +260,7 @@ canonical whole V14 used as final output        FALSE
 unauthorized changed V14 section projected      FALSE
 retained cardinality unit reorder permitted     FALSE
 equal-cardinality unit replacement permitted    FALSE
-HANGER cardinality claimed V14-qualified        FALSE
+MISCEL/HANGER V14 projection permitted          FALSE
 v11Result.text used as physical authority       FALSE
 current source test promoted without rerun       FALSE
 NOT_RUN promoted to PASS                        FALSE
@@ -345,29 +326,31 @@ EXTERNAL
   actual CAESAR V11 import/use + save/re-export acceptance
 ```
 
-Current frozen-source test `db29b87f...` also requires a fresh exact 12-file run before current-blob PASS.
+Current frozen-source test `095ddb65...` requires a fresh exact 12-file run before current-blob PASS.
 
 ## Appendix A — takeover gate
 
-A1. State the Issue #1042 NONAM vs RESTRAINT CONTROL-field correction exactly.
+A1. State Issue #1042 NONAM vs RESTRAINT CONTROL-field correction exactly.
 
-A2. State the pinned `3D_Converters` commit and six frozen blob SHAs.
+A2. State the pinned `3D_Converters` commit and all six frozen blob SHAs.
 
 A3. Explain why whole-file V14→V11→V14 byte equality was retired.
 
 A4. Trace ORIGINAL V14 through normalized V11 Writer2, canonical baseline/modified V14, change projection, and final downgrade proof.
 
-A5. State the changed-section allowlist and cardinality unit sizes.
+A5. State the exact final projectable V14 changed-section set and explain why MISCEL_1 is absent.
 
-A6. Explain why unique unit identities alone were insufficient before W2.29.
+A6. State cardinality unit sizes NODENAME=1, RESTRANT=24, SIF&TEES=14.
 
-A7. Show how `A,B -> B,A` could be decomposed by LCS and why that is not Writer2 compaction authority.
+A7. Explain why unique unit identities alone were insufficient before W2.29.
 
-A8. State the two W2.29 blockers for retained-unit reorder and same-count unit replacement.
+A8. Explain the W2.29 initial FAIL and why same-count cardinality changes needed a separate authority gate.
 
-A9. Distinguish W2.29 two-file projector PASS from full bridge/product/browser qualification.
+A9. State the retained-unit reorder and equal-cardinality replacement blockers.
 
-A10. Explain why W2.13 cannot be called PASS until the exact full `cii-workspace-core.js` dependency graph executes unchanged.
+A10. Distinguish the final W2.29 two-file PASS from full bridge/product/browser qualification.
+
+A11. Explain why W2.13 cannot be called PASS until the exact full `cii-workspace-core.js` dependency graph executes unchanged.
 
 ## EXACT NEXT ACTION
 
