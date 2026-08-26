@@ -2,6 +2,11 @@ import {
   applyCiiWorkspaceTargetWriter1A, applyCiiWorkspaceTargetWriter1B, applyCiiWorkspaceTargetWriter1C,
   createCiiWorkspacePreview, inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
+import {
+  applyCiiWorkspaceTargetWriter2WithVersionBridge,
+  createCiiWorkspacePreviewWithVersionBridge,
+  inspectCiiWorkspaceModelsWithVersionBridge,
+} from './cii-workspace-writer-version-bridge.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { stableStringify } from './cii-workspace-contracts.js';
 import { updateCiiReviewDecisions } from './cii-workspace-review.js';
@@ -26,8 +31,14 @@ function download(documentRef, name, payload, type) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function downloadApplied(documentRef, applied) {
-  const payload = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string'
-    ? binaryBytes(applied.byteString) : applied?.text;
+  if (applied?.writer === 'WRITER_2') {
+    if (applied?.versionBridgeValidation?.status !== 'PASS') throw new Error('CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED');
+    if (typeof applied?.byteString !== 'string') throw new Error('CII_WRITER_2_BYTE_STRING_REQUIRED');
+    download(documentRef, applied.fileName, binaryBytes(applied.byteString), 'text/plain');
+    return;
+  }
+  const byteAuthoritative = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string';
+  const payload = byteAuthoritative ? binaryBytes(applied.byteString) : applied?.text;
   download(documentRef, applied.fileName, payload, 'text/plain');
 }
 function formatValue(value) {
@@ -120,9 +131,17 @@ function bulkAccept(current, decisions, confidence) {
   }
   return count;
 }
+function writer2BridgeSelected(options) { return options?.writerVersion === '2'; }
+function inspectFunction(options) {
+  return writer2BridgeSelected(options) ? inspectCiiWorkspaceModelsWithVersionBridge : inspectCiiWorkspaceModels;
+}
+function previewFunction(options) {
+  return writer2BridgeSelected(options) ? createCiiWorkspacePreviewWithVersionBridge : createCiiWorkspacePreview;
+}
 function applyFunction(version) {
   if (version === '1A') return applyCiiWorkspaceTargetWriter1A;
   if (version === '1C') return applyCiiWorkspaceTargetWriter1C;
+  if (version === '2') return applyCiiWorkspaceTargetWriter2WithVersionBridge;
   return applyCiiWorkspaceTargetWriter1B;
 }
 
@@ -165,14 +184,16 @@ export function mountCiiWorkspaceShell(container, options = {}) {
       targetBytes: new Uint8Array(await targetFile.arrayBuffer()), targetFileName: targetFile.name };
   };
   const run = async (review = undefined) => {
-    current = await createCiiWorkspacePreview({ ...baseInput, ...(review ? { review } : {}) }, options); if (disposed) return;
+    const createPreview = previewFunction(options);
+    current = await createPreview({ ...baseInput, ...(review ? { review } : {}) }, options); if (disposed) return;
     status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}; Writer ${current.writerVersion} ${current.writerReadiness.status}.`;
     render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false; switchTab('compare');
   };
   const inspect = async () => {
     try {
       status.textContent = 'Inspecting model summaries and method-qualified Base Anchor evidence…'; decisions.clear(); current = null; baseInput = await readFiles();
-      const inspection = await inspectCiiWorkspaceModels(baseInput, options); if (disposed) return;
+      const inspectModels = inspectFunction(options);
+      const inspection = await inspectModels(baseInput, options); if (disposed) return;
       landmarkBox.innerHTML = landmarkMarkup(inspection);
       landmarkBox.querySelectorAll('[data-ciiw-accept-anchor]').forEach((button) => button.addEventListener('click', () => { query('[data-ciiw-source-anchors]').value = button.dataset.sourceNode; query('[data-ciiw-target-anchors]').value = button.dataset.targetNode; landmarkBox.querySelectorAll('[data-ciiw-anchor-row]').forEach((row) => row.setAttribute('data-selected', 'false')); landmarkBox.querySelector(`[data-ciiw-anchor-row="${button.dataset.sourceNode}:${button.dataset.targetNode}"]`)?.setAttribute('data-selected', 'true'); status.textContent = `Manual anchor ${button.dataset.sourceNode} ↔ ${button.dataset.targetNode} selected by engineer. Run Compare models to use legacy/manual anchor mode.`; }));
       status.textContent = 'Base Anchor suggestions are evidence only. Add one or more qualified independent bases, or use manual anchors as a separate fallback mode.'; reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true;
