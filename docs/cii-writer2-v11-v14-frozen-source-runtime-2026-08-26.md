@@ -3,60 +3,12 @@
 Date: 2026-08-26  
 PR: #1055  
 Initial stage: W2.28  
-Current addendum: W2.29  
+Current addendum: W2.31  
 Pinned upstream: `reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4`
 
-## 1. Scope
+## 1. Retained executed runtime
 
-This record retains execution of:
-
-```text
-tests/cii-workspace-v11-v14-frozen-source.test.js
-```
-
-against the exact source-custody graph required at the time of execution. It does not execute Pyodide, Writer2 product routing, or a real V14 mutation.
-
-## 2. Exact executed graph
-
-The executed graph contained 12 exact repository files:
-
-```text
-tests/cii-workspace-v11-v14-frozen-source.test.js
-tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-converters/cii-v11-v14-writer-worker.js
-tabs/cii-workspace/cii-workspace-writer-version-bridge.js
-tabs/cii-workspace/cii-workspace-v14-change-projection.js
-converters/scripts/cii2019_section_rules.py
-converters/scripts/cii-v11-v14-upstream/cii_v11_v14.py
-converters/scripts/cii-v11-v14-upstream/cii_v11_v14_format.py
-converters/scripts/cii-v11-v14-upstream/cii_v11_v14_records.py
-converters/scripts/cii-v11-v14-upstream/cii_v11_v14_sif.py
-converters/scripts/cii-v11-v14-upstream/cii_v11_v14_validate.py
-converters/scripts/cii-v11-v14-upstream/cii2019_section_rules.py
-```
-
-Frozen upstream blobs:
-
-```text
-cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
-cii_v11_v14_format.py        56f59fb7e095a887fc84e8a008a5f40acbadaec5
-cii_v11_v14_records.py       1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
-cii_v11_v14_sif.py           88c1d80bdb7bd2d5197a56c5be60ac2057c02367
-cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
-cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
-```
-
-Each participating local file was admitted by recomputing Git object SHA over:
-
-```text
-blob <byte_length>\0<exact_bytes>
-```
-
-before execution.
-
-## 3. Executed authored test
-
-Executed test blob:
+The last complete authored frozen-source execution used an exact 12-file Git-blob-admitted graph and test blob:
 
 ```text
 18433c7664428a02bea97625ce6bdc3c21bd8365
@@ -75,82 +27,111 @@ Classification:
 PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 ```
 
-The executed assertions covered frozen Python Git-blob custody, dependency isolation, runtime blob pinning, binary fetch/write custody, job serialization/cleanup, converter audit gates, V11/V14 admission, SHA/byte-string helpers, change-isolated bridge policy, final projected-normalization proof requirements, and then-current projector fail-closed contracts.
-
-## 4. Post-execution strengthening history
-
-After the exact PASS, this authored test was strengthened without claiming new runtime evidence.
-
-### W2.28 strengthening
-
-Test blob:
+The executed graph covered:
 
 ```text
-85377e45ab0044d90e4e70cf0ba8cd921d7442e7
+tests/cii-workspace-v11-v14-frozen-source.test.js
+tabs/cii-workspace/cii-workspace-v11-v14-converter.js
+converters/cii-v11-v14-writer-worker.js
+tabs/cii-workspace/cii-workspace-writer-version-bridge.js
+tabs/cii-workspace/cii-workspace-v14-change-projection.js
+converters/scripts/cii2019_section_rules.py
+six frozen upstream Python/dependency files
 ```
 
-Added source assertions for:
+Every participating local file was admitted by recomputing Git-object SHA before execution.
+
+## 2. Post-execution strengthening
+
+The authored source-custody test was subsequently strengthened as the V14 bridge authority narrowed.
+
+W2.28/W2.29 added assertions for:
 
 ```text
-PROJECTABLE_CHANGED_SECTIONS
-changed-section membership gate
-CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED
+changed-section allowlist
+unit reorder blocker
+same-count cardinality-unit blocker
+MISCEL_1 exclusion
 ```
 
-### W2.29 strengthening
-
-The projector then gained stronger authority boundaries after an exact two-file falsifier/run:
+W2.31 adds a thirteenth source file to the custody graph:
 
 ```text
-CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED
-CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED
-MISCEL_1 removed entirely from projectable changed sections
+tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 ```
 
-Current frozen-source test blob is:
+and requires:
 
 ```text
-095ddb65d51b3f3dda577a0db2c9d091e580dc5b
+bridge imports and calls assertCiiV14Writer2FixedFieldAuthority
+fixed-field guard executes before projectCanonicalV14WriterDelta
+fixedFieldAuthority is retained in versionBridgeValidation
+exact CONTROL coordinates 0:3, 1:3, 2:4
+exact ELEMENT coordinates 12:3, 13:4, 13:5
+unauthorized CONTROL/ELEMENT field blocker
+CONTROL/cardinality correlation blocker
+SIF/RESTRAINT cardinality-increase blocker
+changed-pointer range blocker
 ```
 
-It now also asserts that the `PROJECTABLE_CHANGED_SECTIONS` declaration does not contain `MISCEL_1`.
-
-The current `095ddb...` 12-file graph has **not** been rerun. The last actual full source-custody execution remains `18433c...`.
-
-Therefore:
+Current authored source test blob:
 
 ```text
-frozen-source authored JS @18433c...  PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-current authored JS @095ddb...       NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
+75ba19e9e8027b6d88dbda014cf83edcb11a120a
 ```
 
-No source inspection or incremental assertion reasoning is represented as a fresh current-blob runtime PASS.
-
-## 5. Related W2.29 projector runtime
-
-The current projector itself has separate exact two-file runtime evidence:
+Current exact graph size:
 
 ```text
-module  0a16b1383da6ef58abf55c53a91711a0a1f21c17
-test    586d6be0537162100979df63f56146db9d64c0e5
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
+13 files
+```
+
+The current `75ba19e...` graph has **not** been executed as a complete exact graph. Therefore:
+
+```text
+historical authored JS @18433c...  PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+current authored JS @75ba19e...     NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
+```
+
+No source inspection, previous graph PASS, or incremental reasoning is promoted to a fresh current-blob runtime PASS.
+
+## 3. Independently executed focused W2.31 graph
+
+The newly added W2.31 fixed-field guard has its own exact focused runtime:
+
+```text
+guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
+result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 ```
 
 Evidence:
 
 ```text
-docs/cii-writer2-v14-projection-unit-order-runtime-2026-08-26.md
+docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
 ```
 
-That projector PASS does not substitute for rerunning the complete current 12-file frozen-source test.
+This focused PASS does not substitute for rerunning the full current 13-file source-custody graph.
 
-## 6. Scope limits
+## 4. Frozen source identities
 
-This evidence does not qualify:
+```text
+cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
+cii_v11_v14_format.py        56f59fb7e095a887fc84e8a008a5f40acbadaec5
+cii_v11_v14_records.py       1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
+cii_v11_v14_sif.py           88c1d80bdb7bd2d5197a56c5be60ac2057c02367
+cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
+cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
+```
+
+Frozen Python remains untouched.
+
+## 5. Scope limits
+
+Neither historical nor focused source-custody runtime qualifies:
 
 ```text
 browser/Pyodide runtime
-runtime deployed-source network fetch
 W2.13 Writer2 product routing
 retained-real V11 RESTRAINT product
 real/native V14 change-isolated Writer2 mutation
