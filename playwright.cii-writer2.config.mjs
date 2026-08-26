@@ -2,7 +2,10 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: ['cii-writer2-v14-generated-bridge.spec.mjs'],
+  testMatch: [
+    'cii-writer2-v14-generated-bridge.spec.mjs',
+    'cii-writer2-v14-generated-bridge-1042.spec.mjs',
+  ],
   timeout: 180_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
