@@ -31,7 +31,13 @@ function download(documentRef, name, payload, type) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 function downloadApplied(documentRef, applied) {
-  const byteAuthoritative = ['WRITER_1C', 'WRITER_2'].includes(applied?.writer) && typeof applied?.byteString === 'string';
+  if (applied?.writer === 'WRITER_2') {
+    if (applied?.versionBridgeValidation?.status !== 'PASS') throw new Error('CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED');
+    if (typeof applied?.byteString !== 'string') throw new Error('CII_WRITER_2_BYTE_STRING_REQUIRED');
+    download(documentRef, applied.fileName, binaryBytes(applied.byteString), 'text/plain');
+    return;
+  }
+  const byteAuthoritative = applied?.writer === 'WRITER_1C' && typeof applied?.byteString === 'string';
   const payload = byteAuthoritative ? binaryBytes(applied.byteString) : applied?.text;
   download(documentRef, applied.fileName, payload, 'text/plain');
 }
