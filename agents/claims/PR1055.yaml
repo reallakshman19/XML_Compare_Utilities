@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_31_V14_WRITER2_FIXED_FIELD_AUTHORITY
+claim_state: W2_32_V14_WRITER2_POINTER_CORRELATION
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -41,11 +41,11 @@ claims:
     nodename_whole_section_create: NOT_AUTHORIZED_EXISTING_SECTION_REQUIRED
 
   - id: V14_WRITER2_FIXED_FIELD_AUTHORITY
-    state: IMPLEMENTED_FAIL_CLOSED_W2_31
+    state: IMPLEMENTED_FAIL_CLOSED_W2_32
     required: true
     module: tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
     schema: CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-    module_blob: 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+    module_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
     bridge_blob: 8038993f0a97719c0c316f31c2d6c30ea0386ec4
     allowed_control_fields:
       - CONTROL_NODENAME_NONAM_COUNT@row0_field3
@@ -58,6 +58,7 @@ claims:
     unauthorized_control_element_field: BLOCK
     whole_row_adoption_as_authority: BLOCKED_BY_PREFLIGHT
     cardinality_control_correlation: REQUIRED
+    cardinality_change_same_family_pointer_claim: REQUIRED
     pointer_without_cardinality_change: BLOCK
     sif_restraint_cardinality_increase: BLOCK
     changed_pointer_out_of_postimage_range: BLOCK
@@ -79,7 +80,7 @@ claims:
       - V14_NUMERIC_PROFILE_2X_PLUS_13_COLUMN_CELLS
       - FROZEN_ELEMENT_ROWS_12_15_PRESERVED_ACROSS_DIALECT_CONVERSION
       - V14_MULTI_MERGE_HANGERS_BLOCKED
-    supports: SIX_W2_31_CONTROL_ELEMENT_COUNT_POINTER_COORDINATES
+    supports: SIX_W2_31_W2_32_CONTROL_ELEMENT_COUNT_POINTER_COORDINATES
     runtime_promoted: false
     evidence_record: docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
 
@@ -88,7 +89,19 @@ claims:
     required: true
     module_blob: 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
     test_blob: 74077b00b094c5e30ff402f8a0adeb1814bb24cc
+
+  - id: V14_WRITER2_POINTER_CORRELATION_W2_32_RUNTIME
+    state: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+    required: true
+    module_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+    test_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
     command: node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+    exact_blob_admission: true
+    explicit_falsifier: MATCHING_CARDINALITY_AND_CONTROL_WITH_ZERO_SAME_FAMILY_POINTER_CLAIM_BLOCKED
+    source_grounding:
+      - V11_NODENAME_RELOCATION_REQUIRES_OWNED_POINTER_CHANGE
+      - V11_SIF_DELETE_REQUIRES_OWNED_POINTER_CHANGE
+      - V11_RESTRAINT_BLOCK_DELETE_REQUIRES_UNIQUE_OWNED_POINTER_CHANGE
     evidence: docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
     scope_limit: DOES_NOT_QUALIFY_FULL_BRIDGE_PYODIDE_PRODUCT_BROWSER
 
@@ -111,9 +124,9 @@ claims:
     executed_test_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
 
   - id: V11_V14_FROZEN_SOURCE_CURRENT
-    state: NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
+    state: NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
     required: true
-    current_test_blob: 75ba19e9e8027b6d88dbda014cf83edcb11a120a
+    current_test_blob: ade99d0d4f4d4ff394a90f81286e4394b5409a54
     current_graph_file_count: 13
     source_inspection_promoted_to_runtime_pass: false
 
@@ -171,6 +184,7 @@ validation_integrity:
   lossy_bridge_enabled: false
   broad_canonical_v14_rewrite_used_as_output: false
   unauthorized_v14_control_element_field_projection_allowed: false
+  cardinality_change_without_pointer_evidence_allowed: false
   v14_writer1_equal_cardinality_projection_claimed: false
   miscel_hanger_v14_projection_allowed: false
   nodename_absent_section_create_claimed: false
