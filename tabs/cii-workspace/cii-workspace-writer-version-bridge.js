@@ -4,6 +4,7 @@ import {
   inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
+import { projectCanonicalV14WriterDelta } from './cii-workspace-v14-change-projection.js';
 import {
   ciiByteStringToBytes,
   ciiBytesEqual,
@@ -37,6 +38,7 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef) {
       normalizedBytes: value,
       sourceSha256,
       normalizedSha256: sourceSha256,
+      baselineCanonicalSha256: sourceSha256,
       normalizeAudit: null,
       roundTripAudit: null,
       exactRoundTrip: true,
@@ -44,9 +46,6 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef) {
   }
   const down = await convertCiiNeutralVersionLossless(value, 11, { fileName, cryptoRef });
   const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName, cryptoRef });
-  if (!ciiBytesEqual(value, up.outputBytes)) {
-    throw new Error(`CII_VERSION_BRIDGE_${side}_BASELINE_ROUNDTRIP_NOT_EXACT`);
-  }
   return Object.freeze({
     side,
     originalVersion: 14,
@@ -54,9 +53,10 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef) {
     normalizedBytes: down.outputBytes,
     sourceSha256: down.sourceSha256,
     normalizedSha256: down.targetSha256,
+    baselineCanonicalSha256: up.targetSha256,
     normalizeAudit: frozenAudit(down.audit),
     roundTripAudit: frozenAudit(up.audit),
-    exactRoundTrip: true,
+    exactRoundTrip: ciiBytesEqual(value, up.outputBytes),
   });
 }
 
@@ -77,6 +77,7 @@ function bridgeSideEvidence(side) {
     normalizedVersion: 11,
     originalSha256: side.sourceSha256,
     normalizedSha256: side.normalizedSha256,
+    baselineCanonicalSha256: side.baselineCanonicalSha256,
     exactBaselineRoundTrip: side.exactRoundTrip,
     normalizeAudit: side.normalizeAudit,
     roundTripAudit: side.roundTripAudit,
@@ -85,14 +86,20 @@ function bridgeSideEvidence(side) {
 
 function buildVersionBridgeEvidence(source, target) {
   return Object.freeze({
-    schema: 'CIIWorkspaceWriterVersionBridge.v1',
-    mode: source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'LOSSLESS_V14_VIA_V11',
+    schema: 'CIIWorkspaceWriterVersionBridge.v2',
+    mode: source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'CHANGE_ISOLATED_V14_VIA_V11',
     source: bridgeSideEvidence(source),
     target: bridgeSideEvidence(target),
     conversionSource: Object.freeze({
       repository: 'reallaksh19/3D_Converters',
       commit: 'ca8d391ac5f829f53bebb3c37adf0547c34a67b4',
       policy: 'FROZEN_BYTE_IDENTICAL_PYTHON_ENGINE_ALLOW_LOSSY_FALSE',
+    }),
+    v14WritePolicy: Object.freeze({
+      policy: 'ORIGINAL_V14_BYTES_PLUS_CANONICAL_WRITER_DELTA',
+      wholeFileCanonicalRewriteAllowed: false,
+      canonicalBaselineUsedAsOutput: false,
+      finalNormalizedPostimageMustEqualWriter2V11: true,
     }),
   });
 }
@@ -135,7 +142,7 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
   const expected = Number(bridge.target?.originalVersion);
   const actual = detectCiiNeutralVersion(targetInput);
   if (actual !== expected) throw new Error(`CII_VERSION_BRIDGE_TARGET_VERSION_MISMATCH:${expected}:${actual}`);
-  if (actual === 11) return Object.freeze({ bytes: targetInput, audit: null });
+  if (actual === 11) return Object.freeze({ bytes: targetInput, originalBytes: targetInput, audit: null, baselineCanonicalBytes: null, baselineCanonicalAudit: null });
 
   const down = await convertCiiNeutralVersionLossless(targetInput, 11, {
     fileName: preview?.targetDocument?.fileName || 'target.cii',
@@ -151,8 +158,17 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
     fileName: preview?.targetDocument?.fileName || 'target.cii',
     cryptoRef: options.cryptoRef,
   });
-  if (!ciiBytesEqual(targetInput, up.outputBytes)) throw new Error('CII_VERSION_BRIDGE_TARGET_BASELINE_ROUNDTRIP_NOT_EXACT');
-  return Object.freeze({ bytes: down.outputBytes, audit: frozenAudit(down.audit) });
+  if (bridge.target?.baselineCanonicalSha256 && up.targetSha256 !== bridge.target.baselineCanonicalSha256) {
+    throw new Error('CII_VERSION_BRIDGE_BASELINE_CANONICAL_SHA_MISMATCH');
+  }
+  return Object.freeze({
+    bytes: down.outputBytes,
+    originalBytes: targetInput,
+    audit: frozenAudit(down.audit),
+    baselineCanonicalBytes: up.outputBytes,
+    baselineCanonicalAudit: frozenAudit(up.audit),
+    baselineExactRoundTrip: ciiBytesEqual(targetInput, up.outputBytes),
+  });
 }
 
 export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, targetInput, options = {}) {
@@ -164,7 +180,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     return Object.freeze({
       ...v11Result,
       versionBridgeValidation: Object.freeze({
-        schema: 'CIIWorkspaceWriterVersionBridgeValidation.v1',
+        schema: 'CIIWorkspaceWriterVersionBridgeValidation.v2',
         status: 'PASS',
         path: 'DIRECT_V11',
       }),
@@ -180,34 +196,57 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
   if (v11Result.modifiedTargetSha256 && upgraded.sourceSha256 !== v11Result.modifiedTargetSha256) {
     throw new Error('CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH');
   }
-  const proof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, {
+
+  const canonicalProof = await convertCiiNeutralVersionLossless(upgraded.outputBytes, 11, {
     fileName: v11Result.fileName,
     cryptoRef: options.cryptoRef,
   });
-  if (!ciiBytesEqual(v11PostimageBytes, proof.outputBytes)) {
-    throw new Error('CII_VERSION_BRIDGE_MODIFIED_ROUNDTRIP_NOT_EXACT');
+  if (!ciiBytesEqual(v11PostimageBytes, canonicalProof.outputBytes)) {
+    throw new Error('CII_VERSION_BRIDGE_CANONICAL_MODIFIED_ROUNDTRIP_NOT_EXACT');
   }
-  const outputText = new TextDecoder('utf-8').decode(upgraded.outputBytes);
+
+  const projection = projectCanonicalV14WriterDelta(
+    normalized.originalBytes,
+    normalized.baselineCanonicalBytes,
+    upgraded.outputBytes,
+  );
+  const projectedProof = await convertCiiNeutralVersionLossless(projection.outputBytes, 11, {
+    fileName: v11Result.fileName,
+    cryptoRef: options.cryptoRef,
+  });
+  if (!ciiBytesEqual(v11PostimageBytes, projectedProof.outputBytes)) {
+    throw new Error('CII_VERSION_BRIDGE_PROJECTED_V14_NORMALIZED_POSTIMAGE_MISMATCH');
+  }
+
+  const modifiedTargetSha256 = await ciiSha256(projection.outputBytes, options.cryptoRef);
+  const outputText = new TextDecoder('utf-8').decode(projection.outputBytes);
   return Object.freeze({
     ...v11Result,
     text: outputText,
-    byteString: ciiBytesToByteString(upgraded.outputBytes),
-    byteLength: upgraded.outputBytes.byteLength,
+    byteString: ciiBytesToByteString(projection.outputBytes),
+    byteLength: projection.outputBytes.byteLength,
     sourceTargetSha256: bridge.target.originalSha256 || v11Result.sourceTargetSha256,
-    modifiedTargetSha256: upgraded.targetSha256,
+    modifiedTargetSha256,
     versionBridgeValidation: Object.freeze({
-      schema: 'CIIWorkspaceWriterVersionBridgeValidation.v1',
+      schema: 'CIIWorkspaceWriterVersionBridgeValidation.v2',
       status: 'PASS',
-      path: 'V14_LOSSLESS_VIA_V11',
-      baselineExactRoundTrip: true,
-      modifiedExactRoundTrip: true,
+      path: 'V14_CHANGE_ISOLATED_VIA_V11',
+      baselineExactRoundTrip: normalized.baselineExactRoundTrip,
+      canonicalModifiedRoundTripExact: true,
+      projectedNormalizedPostimageExact: true,
       originalTargetSha256: bridge.target.originalSha256,
       normalizedTargetSha256: bridge.target.normalizedSha256,
+      baselineCanonicalSha256: bridge.target.baselineCanonicalSha256,
       v11PostimageSha256: upgraded.sourceSha256,
-      modifiedTargetSha256: upgraded.targetSha256,
+      modifiedTargetSha256,
+      changedV14Sections: projection.changedSections,
+      projectionLedger: projection.ledger,
+      untouchedV14SectionCount: projection.untouchedSectionCount,
       downgradeAudit: normalized.audit,
+      baselineCanonicalAudit: normalized.baselineCanonicalAudit,
       upgradeAudit: frozenAudit(upgraded.audit),
-      proofAudit: frozenAudit(proof.audit),
+      canonicalProofAudit: frozenAudit(canonicalProof.audit),
+      projectedProofAudit: frozenAudit(projectedProof.audit),
       v11WriterValidation: v11Result.validation,
     }),
   });
