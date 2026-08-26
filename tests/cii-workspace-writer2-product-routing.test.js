@@ -130,8 +130,11 @@ function rawPlan(operations, blockers = []) {
   assert(core.includes('applyCiiWorkspaceTargetWriter2'));
   assert(core.includes("version === '2' ? applyCiiWriter2CompositePlanContract"));
   assert(core.includes("['1C', '2'].includes(version)"));
-  assert(core.includes('applyCiiWriter2Composite({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan })'));
-  assert(core.includes('validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
+  assert(core.includes('writer2HasRestraintApply(preview.transferPlan)'));
+  assert(core.includes('applyCiiWriter2CompositeWithRestraintDelete({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan })'));
+  assert(core.includes('applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument: currentTarget, targetGraph, transferPlan: preview.transferPlan })'));
+  assert(core.includes('validateCiiWriter2ProductRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
+  assert(!core.includes('validateCiiWriter2CompositeRoundTrip(currentTarget, modifiedTarget, targetGraph, preview.transferPlan, writerResult)'));
   assert(scope.includes("preview?.writerVersion === '2'"));
   assert(scope.includes('ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph)'));
   assert(scope.includes("['1A', '1B', '1C', '2']"));
