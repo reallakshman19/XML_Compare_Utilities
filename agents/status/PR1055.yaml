@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_29_V14_PROJECTION_UNIT_ORDER_HARDENED
+current_stage: W2_29_V14_PROJECTION_UNIT_ORDER_MISCEL_HARDENED
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -50,8 +50,8 @@ writer_version_architecture:
 v14_projection:
   module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
   schema: CIIWorkspaceV14ChangeProjection.v2
-  module_blob: 2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
-  changed_section_allowlist: [CONTROL, ELEMENTS, NODENAME, RESTRANT, SIF&TEES, MISCEL_1]
+  module_blob: 0a16b1383da6ef58abf55c53a91711a0a1f21c17
+  changed_section_allowlist: [CONTROL, ELEMENTS, NODENAME, RESTRANT, SIF&TEES]
   unauthorized_changed_section: FAIL_CLOSED
   cardinality_units:
     NODENAME: 1
@@ -61,7 +61,7 @@ v14_projection:
   non_isolated_cardinality_run: FAIL_CLOSED
   retained_unit_reorder: FAIL_CLOSED
   equal_cardinality_unit_replacement: FAIL_CLOSED
-  hanger_miscel_cardinality: NOT_QUALIFIED_FAIL_CLOSED
+  miscel_hanger_changed_section: NOT_AUTHORIZED_FAIL_CLOSED
   final_projected_v14_normalization_must_equal_writer2_v11_postimage: true
 
 source_authority_scope:
@@ -94,22 +94,23 @@ runtime:
   v11_v14_frozen_engine_test_blob: 43721ed3f2c990080945afa2a8a3702dbb021eb4
   v11_v14_frozen_source_last_executed_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
   v11_v14_frozen_source_last_executed_state: PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-  v11_v14_frozen_source_current_test_blob: db29b87f367f7e8c00939b32a7586d8d43ea5bf1
-  v11_v14_frozen_source_current_test_state: NOT_RUN_AFTER_W2_29_ASSERTION_STRENGTHENING
-  v14_change_projection_w2_27_prior_pass_module_blob: 0a04c75c2ed0880a815c17616a7c99afcde132c2
-  v14_change_projection_w2_27_prior_pass_test_blob: 60f1586e5ac469988b59ede2b59258dcdc771e57
+  v11_v14_frozen_source_current_test_blob: 095ddb65d51b3f3dda577a0db2c9d091e580dc5b
+  v11_v14_frozen_source_current_test_state: NOT_RUN_AFTER_W2_29_MISCEL_ASSERTION_STRENGTHENING
   v14_change_projection_w2_29_initial_module_blob: 6b83e85ff0229e9c6bbe3363beedbe5843d8c2d9
-  v14_change_projection_w2_29_test_blob: ae0f81ed419a26401194abc11e5c78b79164f044
+  v14_change_projection_w2_29_initial_test_blob: ae0f81ed419a26401194abc11e5c78b79164f044
   v14_change_projection_w2_29_initial_result: FAIL_EQUAL_CARDINALITY_PATH_BYPASSED_UNIT_REORDER_GATE
-  v14_change_projection_w2_29_final_module_blob: 2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
-  v14_change_projection_w2_29_final_result: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
+  v14_change_projection_w2_29_intermediate_module_blob: 2f1a9cde4b00ccc25c10f2f89b06628d93aafba9
+  v14_change_projection_w2_29_intermediate_result: PASS
+  v14_change_projection_w2_29_final_module_blob: 0a16b1383da6ef58abf55c53a91711a0a1f21c17
+  v14_change_projection_w2_29_final_test_blob: 586d6be0537162100979df63f56146db9d64c0e5
+  v14_change_projection_w2_29_final_result: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_29_FINAL
   v14_real_writer2_change_isolated_roundtrip: NOT_RUN
   v14_writer_bridge_browser_runtime: NOT_RUN
   external_caesar_v11_acceptance_after_v14_conversion: NOT_RUN
   inherited_writer2_regression: PARTIAL
   writer1_adjacent_regression: NOT_RUN_ENVIRONMENT
   repository_npm: NOT_RUN_ENVIRONMENT
-  engineering_defect_w2_29: FOUND_AND_FIXED_UNIT_REORDER_AND_EQUAL_CARDINALITY_AUTHORITY_GAP
+  engineering_defect_w2_29: FOUND_AND_FIXED_UNIT_ORDER_EQUAL_CARDINALITY_AND_MISCEL_AUTHORITY_GAPS
   engineering_failure_open: NONE
 
 execution_environment:
@@ -130,7 +131,7 @@ program_matrix:
   sif_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING_FULL_BRIDGE
   sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
   hanger_delete_v11: DONE_PRODUCT_ROUTED
-  hanger_cardinality_v14_projection: NOT_QUALIFIED_FAIL_CLOSED
+  hanger_v14_projection: NOT_AUTHORIZED_FAIL_CLOSED
   hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
   restraint_delete_product_v11: IMPLEMENTED_RUNTIME_PENDING_FULL_WORKSPACE
   restraint_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING_FULL_BRIDGE
@@ -149,7 +150,7 @@ negative_assurance:
   unauthorized_v14_changed_section_projected: false
   retained_v14_cardinality_unit_reorder_projected: false
   equal_cardinality_v14_unit_replacement_projected: false
-  unqualified_hanger_cardinality_projected: false
+  miscel_hanger_v14_projected: false
   v11_text_view_used_as_v14_restore_authority: false
   upstream_external_caesar_acceptance_promoted_to_pass: false
 
