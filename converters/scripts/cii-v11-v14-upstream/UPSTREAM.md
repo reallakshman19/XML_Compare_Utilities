@@ -15,10 +15,8 @@ The upstream repository is not modified by XML_Compare_Utilities. The Python fil
 | `cii_v11_v14_format.py` | `56f59fb7e095a887fc84e8a008a5f40acbadaec5` |
 | `cii_v11_v14_records.py` | `1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235` |
 | `cii_v11_v14_sif.py` | `88c1d80bdb7bd2d5197a56c5be60ac2057c02367` |
-| `cii_v11_v11_validate.py` | `8e6896e8b61ac3c90d579139d39b29a6ace1637c` |
+| `cii_v11_v14_validate.py` | `8e6896e8b61ac3c90d579139d39b29a6ace1637c` |
 | `cii2019_section_rules.py` | `efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e` |
-
-> Note: the frozen file on disk is `cii_v11_v14_validate.py`; its required Git blob is `8e6896e8b61ac3c90d579139d39b29a6ace1637c`.
 
 ## Isolation rule
 
