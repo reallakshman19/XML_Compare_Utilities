@@ -115,6 +115,14 @@ function assertCardinalityCorrelation(baseline, modified, claims) {
     if (control.before !== beforeCount || control.after !== afterCount) {
       throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CARDINALITY_MISMATCH:${family}:${control.before}:${beforeCount}:${control.after}:${afterCount}`);
     }
+    if ((family === 'RESTRANT' || family === 'SIF&TEES') && afterCount > beforeCount) {
+      throw new Error(`CII_V14_WRITER2_CARDINALITY_INCREASE_NOT_AUTHORIZED:${family}:${beforeCount}:${afterCount}`);
+    }
+    for (const pointer of pointerClaims) {
+      if (pointer.before > beforeCount || pointer.after > afterCount) {
+        throw new Error(`CII_V14_WRITER2_POINTER_OUT_OF_RANGE:${family}:${pointer.rowIndex}:${pointer.before}:${beforeCount}:${pointer.after}:${afterCount}`);
+      }
+    }
   }
 }
 
