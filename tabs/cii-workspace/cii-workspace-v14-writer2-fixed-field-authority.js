@@ -1,6 +1,17 @@
 const SECTION_RX = /^#\$\s+([A-Z0-9_&]+)\s*$/;
 const NUMBER_RX = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?$/;
 const ELEMENT_BLOCK_ROWS = 15;
+const CARDINALITY_UNIT_ROWS = Object.freeze({ NODENAME: 1, RESTRANT: 24, 'SIF&TEES': 14 });
+const FAMILY_CONTROL_IDENTITY = Object.freeze({
+  NODENAME: 'CONTROL_NODENAME_NONAM_COUNT',
+  RESTRANT: 'CONTROL_RESTRAINT_BLOCK_COUNT',
+  'SIF&TEES': 'CONTROL_SIF_TEE_BLOCK_COUNT',
+});
+const FAMILY_POINTER_IDENTITY = Object.freeze({
+  NODENAME: 'ELEMENT_NODENAME_POINTER',
+  RESTRANT: 'ELEMENT_RESTRAINT_POINTER',
+  'SIF&TEES': 'ELEMENT_SIF_TEE_POINTER',
+});
 
 const CONTROL_FIELDS = Object.freeze({
   '0:3': 'CONTROL_NODENAME_NONAM_COUNT',
@@ -70,6 +81,43 @@ function authorityIdentity(sectionName, rowIndex, fieldIndex) {
   return null;
 }
 
+function sectionByName(sections, name) {
+  return sections.find((section) => section.name === name) || null;
+}
+
+function cardinalityCount(sections, family, label) {
+  const section = sectionByName(sections, family);
+  if (!section) return 0;
+  const unitRows = CARDINALITY_UNIT_ROWS[family];
+  if (section.rows.length % unitRows !== 0) {
+    throw new Error(`CII_V14_WRITER2_FIELD_AUTHORITY_${label}_${family}_UNIT_ALIGNMENT:${section.rows.length}:${unitRows}`);
+  }
+  return section.rows.length / unitRows;
+}
+
+function assertCardinalityCorrelation(baseline, modified, claims) {
+  for (const family of Object.keys(CARDINALITY_UNIT_ROWS)) {
+    const beforeCount = cardinalityCount(baseline, family, 'BASELINE');
+    const afterCount = cardinalityCount(modified, family, 'MODIFIED');
+    const controlIdentity = FAMILY_CONTROL_IDENTITY[family];
+    const pointerIdentity = FAMILY_POINTER_IDENTITY[family];
+    const controlClaims = claims.filter((claim) => claim.fieldIdentity === controlIdentity);
+    const pointerClaims = claims.filter((claim) => claim.fieldIdentity === pointerIdentity);
+    if (beforeCount === afterCount) {
+      if (controlClaims.length) throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CHANGED_WITHOUT_CARDINALITY:${family}`);
+      if (pointerClaims.length) throw new Error(`CII_V14_WRITER2_POINTER_CHANGED_WITHOUT_CARDINALITY:${family}`);
+      continue;
+    }
+    if (controlClaims.length !== 1) {
+      throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CLAIM_REQUIRED:${family}:${controlClaims.length}`);
+    }
+    const control = controlClaims[0];
+    if (control.before !== beforeCount || control.after !== afterCount) {
+      throw new Error(`CII_V14_WRITER2_CONTROL_COUNT_CARDINALITY_MISMATCH:${family}:${control.before}:${beforeCount}:${control.after}:${afterCount}`);
+    }
+  }
+}
+
 function inspectSection(baseline, modified, ledger) {
   if (baseline.rows.length !== modified.rows.length) {
     throw new Error(`CII_V14_WRITER2_FIELD_AUTHORITY_ROW_COUNT_CHANGED:${baseline.name}:${baseline.rows.length}:${modified.rows.length}`);
@@ -122,6 +170,7 @@ export function assertCiiV14Writer2FixedFieldAuthority(baselineCanonicalValue, m
     if (baseline[index].name !== 'CONTROL' && baseline[index].name !== 'ELEMENTS') continue;
     inspectSection(baseline[index], modified[index], ledger);
   }
+  assertCardinalityCorrelation(baseline, modified, ledger);
   return Object.freeze({
     schema: 'CIIWorkspaceV14Writer2FixedFieldAuthority.v1',
     status: 'PASS',
@@ -129,4 +178,4 @@ export function assertCiiV14Writer2FixedFieldAuthority(baselineCanonicalValue, m
   });
 }
 
-export const _test = Object.freeze({ fixedFields, integerValue, authorityIdentity });
+export const _test = Object.freeze({ fixedFields, integerValue, authorityIdentity, cardinalityCount, assertCardinalityCorrelation });
