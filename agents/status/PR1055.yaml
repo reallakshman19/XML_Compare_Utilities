@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_26_BRIDGE_ARCHITECTURE_FROZEN_RUNTIME_EVIDENCE_PENDING
+current_stage: W2_27_V14_CHANGE_ISOLATION_RUNTIME_CLOSURE_PENDING
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -14,7 +14,6 @@ merge_authorized: false
 ready_for_review: false
 pr_state: DRAFT
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
-restraint_release_freeze_verdict: NOT_READY_FOR_WRITER2_RESTRAINT_DELETE_RELEASE_FREEZE
 
 source_reuse:
   repository: reallaksh19/3D_Converters
@@ -31,72 +30,65 @@ source_reuse:
     cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
     cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
   runtime_worker_verifies_git_blob_before_execution: true
-  runtime_worker_hash_basis: SHA1_GIT_BLOB_HEADER_PLUS_EXACT_FETCHED_BYTES
   runtime_worker_writes_verified_bytes_without_text_reencoding: true
-  local_xml_section_rules_reused: false
 
-upstream_qualification_boundary:
-  paired_benchmark: Benchmarks/v11-v14.zip
-  paired_files: [SYS-0001-v11.cii, SYS-0001-v14.CII]
+native_v14_benchmark:
+  source_archive: Benchmarks/v11-v14.zip
+  archive_size_bytes: 10740
+  archive_git_blob: 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+  archive_sha256: da0b276c4c2f3a44c3dcd0a6cddd6ca9fcdfc44709caac7af61083b79bb7f808
+  v14_member: SYS-0001-v14.CII
+  v14_size_bytes: 168574
+  v14_sha256: d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
+  v11_member: SYS-0001-v11.cii
+  v11_size_bytes: 316571
+  v11_sha256: 41ef8912a55a978aa96b3300f42ba2ff335ba5bb35c4882f4012af0e011dc9cc
   same_model_element_count: 112
-  repository_regression_scope: PAIRED_BENCHMARK_AND_FIXED_RECORD_VALIDATION_PRESENT
-  external_caesar_v11_import_save_reexport: NOT_RUN_UPSTREAM
-  target_bridge_must_not_promote_upstream_external_acceptance_to_pass: true
+  whole_file_cross_version_exact_roundtrip_policy: RETIRED_AS_INCOMPATIBLE_WITH_PINNED_CONVERTER
+  concrete_rigid_falsifier:
+    original_v14: 2.044599E+02
+    v11_rendered: 204.460
+    upgraded_v14: 2.044600E+02
+    affected_native_rigid_rows_observed: 26
+    total_native_rigid_rows: 43
 
 writer_version_architecture:
   v11_path: EXISTING_QUALIFIED_WRITER_UNCHANGED
-  v14_path: LOSSLESS_3D_CONVERTERS_V14_TO_V11_THEN_EXISTING_V11_WRITER_THEN_V11_TO_V14
+  v14_path: ORIGINAL_V14_PLUS_CANONICAL_WRITER_DELTA_VIA_FROZEN_V11_BRIDGE
   allow_lossy_in_writer_bridge: false
-  baseline_cross_version_exact_roundtrip_required: true
-  modified_cross_version_exact_roundtrip_required: true
+  baseline_whole_file_exact_roundtrip_required: false
+  baseline_canonical_sha_custody_required: true
+  canonical_modified_v14_to_v11_exact_postimage_proof_required: true
+  projected_native_v14_to_v11_exact_postimage_proof_required: true
   v14_broad_canonicalizing_rewrite_allowed: false
+  canonical_v14_used_as_final_output: false
+  original_v14_untouched_bytes_preserved: true
   independent_new_v14_neutral_writer_created: false
   v14_create_semantics_promoted: false
-  architecture_state: FROZEN_PENDING_RUNTIME_EVIDENCE
+  architecture_state: W2_27_IMPLEMENTED_RUNTIME_PENDING
 
-bridge_modules:
-  worker: converters/cii-v11-v14-writer-worker.js
-  client: tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-  writer_bridge: tabs/cii-workspace/cii-workspace-writer-version-bridge.js
-  core_v11_writer_modified: false
-  live_ui_auto_routing_modified: false
-  integration_state: ADDITIVE_API_CUSTODY_HARDENED_PRODUCT_UI_ADOPTION_PENDING_QUALIFICATION
-
-adapter_hardening:
-  deployed_frozen_python_git_blob_verified_before_execution: true
-  pyodide_job_files_unlinked_before_rmdir: true
-  empty_input_rejected_before_job_directory_allocation: true
-  shared_pyodide_jobs_serialized: true
-  failed_job_does_not_poison_queue: true
-  worker_messageerror_rejects_all_pending_and_resets_worker: true
-  postmessage_failure_deletes_pending_job: true
-  worker_cache_key: 20260825-frozen-3d-converters-7
-  physical_source_version_independently_checked: true
-  physical_target_version_independently_checked: true
-  nonintegral_version_aliasing_blocked: true
-  converter_audit_schema_required: true
-  converter_audit_arrays_required: true
-  converter_audit_source_byte_count_crosschecked: true
-  converter_audit_target_byte_count_crosschecked: true
-  converter_audit_arrays_frozen: true
-  independent_js_source_sha256_crosschecked_to_converter_audit: true
-  independent_js_target_sha256_crosschecked_to_converter_audit: true
-  original_v11_sha_recorded: true
-  original_v14_sha_recorded: true
-  normalized_v11_sha_recorded: true
-  normalized_workspace_intake_sha_crosschecked: true
-  original_v14_stale_target_custody_uses_independent_js_sha: true
-  normalized_v11_stale_target_custody_checked: true
-  canonical_audit_embeds_version_bridge_provenance: true
-  v11_writer_postimage_uses_authoritative_byte_string: true
-  v11_writer_postimage_sha_crosschecked_before_v14_restore: true
-  modified_v14_roundtrip_proof_compares_exact_v11_postimage_bytes: true
-  frozen_python_changed_by_hardening: false
+v14_projection:
+  module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
+  schema: CIIWorkspaceV14ChangeProjection.v2
+  changed_section_allowlist: [CONTROL, ELEMENTS, NODENAME, RESTRANT, SIF&TEES, MISCEL_1]
+  unauthorized_changed_section: FAIL_CLOSED
+  cardinality_units:
+    NODENAME: 1
+    RESTRANT: 24
+    SIF&TEES: 14
+  duplicate_canonical_unit_identity: FAIL_CLOSED
+  non_isolated_cardinality_run: FAIL_CLOSED
+  hanger_miscel_cardinality: NOT_QUALIFIED_FAIL_CLOSED
+  final_projected_v14_normalization_must_equal_writer2_v11_postimage: true
 
 source_authority_scope:
   writer2_create_edition: CAESAR_II_2019_VERSION_11_ONLY
   v14_dialect_conversion_authority: PINNED_3D_CONVERTERS_ENGINE
   v14_dialect_bridge_does_not_fill_v11_create_gaps: true
+  sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
+  hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
+  restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
+  writer3_topology: OUTSIDE_WRITER2
 
 inherited_authority_correction:
   source: issue_1042
@@ -112,10 +104,13 @@ runtime:
   v11_v14_frozen_source_repository_custody: PASS_EXACT_BLOB_CUSTODY
   v11_v14_runtime_deployment_blob_gate: IMPLEMENTED_NOT_RUN_BROWSER
   v11_v14_extracted_high_risk_runtime: PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
+  v14_change_projection_focused_runtime: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
+  v14_change_projection_module_blob: 0a04c75c2ed0880a815c17616a7c99afcde132c2
+  v14_change_projection_test_blob: 60f1586e5ac469988b59ede2b59258dcdc771e57
+  v14_change_projection_command: node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
   v11_v14_frozen_source_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
   v11_v14_frozen_engine_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-  v14_baseline_exact_roundtrip: NOT_RUN
-  v14_modified_writer2_roundtrip: NOT_RUN
+  v14_real_writer2_change_isolated_roundtrip: NOT_RUN
   v14_writer_bridge_browser_runtime: NOT_RUN
   external_caesar_v11_acceptance_after_v14_conversion: NOT_RUN
   inherited_writer2_regression: PARTIAL
@@ -125,39 +120,41 @@ runtime:
 
 execution_environment:
   native_clone_result: FAIL_ENVIRONMENT_NETWORK
-  raw_download_result: FAIL_ENVIRONMENT_NETWORK
-  direct_ip_tls_recovery_result: FAIL_ENVIRONMENT_NETWORK
   exact_executable_mirror_available: false
   connector_blob_mount_available: false
   github_actions_authorized: false
+  focused_projection_graph_manually_materialized_with_git_blob_identity_check: true
   source_inspection_promoted_to_runtime_pass: false
-  extracted_source_runtime_promoted_to_full_engine_pass: false
+  focused_projection_runtime_promoted_to_full_bridge_pass: false
+  not_run_promoted_to_pass: false
 
 program_matrix:
-  nodename_create_delete: DONE
-  sif_delete_compaction: DONE
+  nodename_create_delete_v11: DONE
+  nodename_cardinality_v14_projection: IMPLEMENTED_RUNTIME_PENDING
+  sif_delete_compaction_v11: DONE
+  sif_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING
   sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
-  hanger_delete_all: DONE
-  hanger_partial_delete: DONE_PRODUCT_ROUTED
+  hanger_delete_v11: DONE_PRODUCT_ROUTED
+  hanger_cardinality_v14_projection: NOT_QUALIFIED_FAIL_CLOSED
   hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
-  restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
+  restraint_delete_product_v11: IMPLEMENTED_RUNTIME_PENDING
+  restraint_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING
   restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
-  v14_lossless_dialect_bridge: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
   writer3_topology: OUTSIDE_WRITER2
 
 negative_assurance:
   control_row1_nonam_protected: true
   lossy_v14_bridge_enabled: false
   source_3d_converters_modified: false
-  frozen_python_runtime_unverified_before_execution: false
   core_v11_writer_modified: false
+  live_ui_auto_routing_modified: false
   writer3_changed: false
   workflow_changed_in_current_diff: false
-  malformed_converter_audit_treated_as_no_loss: false
-  normalized_intake_hash_unchecked: false
-  version_bridge_omitted_from_exported_audit: false
+  canonical_v14_whole_file_used_as_output: false
+  unauthorized_v14_changed_section_projected: false
+  unqualified_hanger_cardinality_projected: false
   v11_text_view_used_as_v14_restore_authority: false
   upstream_external_caesar_acceptance_promoted_to_pass: false
 
-changed_file_count_expected: 19
-next_gate: exact_repository_module_graph_for_authored_bridge_tests_then_existing_w2_13_product_runtime_then_retained_real_v11_then_real_v14_baseline_and_modified_roundtrip_before_ui_auto_adoption_or_release_freeze
+changed_file_count_expected: 22
+next_gate: exact_full_repository_module_graph_for_authored_bridge_tests_then_existing_w2_13_then_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze_verdict
