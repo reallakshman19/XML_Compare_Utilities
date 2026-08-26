@@ -156,7 +156,56 @@ reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
 
 No V11 Writer1/Writer2 production file was modified. The W2.31 guard is additive XML-side bridge policy only.
 
-## 7. Qualification limitation
+## 7. Native V14 layout corroboration
+
+Classification:
+
+```text
+PASS_SOURCE_INSPECTION_AUTHORITATIVE_REFERENCE
+OBSERVATION = SOURCE_INSPECTION
+ORACLE = AUTHORITATIVE_REFERENCE
+```
+
+Pinned source:
+
+```text
+reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+```
+
+Independent V14 profile evidence:
+
+```text
+converters/scripts/cii14_section_rules.py
+  imports/reuses the V11 CONTROL_LAYOUT
+  ELEMENT_RECORD_LINES = 15
+  RESTRAINT_RECORD_LINES = 4
+  SIF_RECORD_LINES = 14
+
+converters/scripts/cii14_multi_merge.py
+  uses 2X + 13-column fixed numeric fields
+  uses 15-row ELEMENT records
+  treats the final three ELEMENT rows as pointer rows
+  blocks HANGERS in V14 multi-file merge preflight
+
+frozen cii_v11_v14_records.py
+  converts ELEMENT rows 1-9 numerically
+  converts ELEMENT rows 10-11 as text
+  leaves ELEMENT rows 12-15 untouched across the V11/V14 dialect boundary
+```
+
+Because all six W2.31 fields are non-first fixed numeric cells, the native V14 `2X + 13-column` field profile is column-compatible with the XML fixed-row `[15, 13, 13, ...]` custody convention for these fields. The CONTROL layout is explicitly shared, and the ELEMENT record remains 15 rows.
+
+Conclusion:
+
+```text
+W2.31 six CONTROL/ELEMENT count-pointer coordinates
+  = corroborated by existing V11 XML writer/custody
+  + corroborated independently by pinned native V14 structural authority
+```
+
+This source qualification does not promote the full V14 bridge, browser/Pyodide route, HANGER/MISCEL, V14 Writer1, or external CAESAR acceptance to runtime PASS.
+
+## 8. Qualification limitation
 
 This focused PASS does not qualify:
 
