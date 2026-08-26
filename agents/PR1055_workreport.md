@@ -62,8 +62,6 @@ physical cardinality change
   AND at least one same-family ELEMENT pointer claim
 ```
 
-This is grounded in all three existing V11 Writer2 cardinality paths, not inferred from V14.
-
 Current strengthened source-custody runtime:
 
 ```text
@@ -73,6 +71,35 @@ result PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
 ```
 
 No source/import/test rewrite was used for that run.
+
+Latest regression audit also found `tests/cii-workspace-writer2-product-routing.test.js` still asserting the pre-RESTRAINT product architecture. The stale assertions were corrected to the live product route:
+
+```text
+old static assertions
+  applyCiiWriter2Composite
+  validateCiiWriter2CompositeRoundTrip
+
+current static assertions
+  writer2HasRestraintApply
+  applyCiiWriter2CompositeWithRestraintDelete
+  applyCiiWriter2CompositeWithHangerDeleteAll
+  validateCiiWriter2ProductRoundTrip
+```
+
+Current corrected test blob:
+
+```text
+cb324b739bae4cb0050ee236b70d80dfa3fdedaf
+```
+
+Classification:
+
+```text
+PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
+RUNTIME = NOT_RUN_EXACT_11_FILE_GRAPH_NOT_MATERIALIZED
+```
+
+This is a regression-test drift correction only; no production Writer2/core behavior was changed.
 
 ## 2. Frozen upstream authority
 
@@ -98,8 +125,6 @@ FROZEN_PYTHON_MUTATION = NONE
 FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
 ```
 
-The browser worker verifies deployed frozen Git-object bytes before Python execution.
-
 ## 3. Whole-file V14 byte roundtrip is retired
 
 Exact upstream benchmark proved target-dialect canonicalization:
@@ -110,15 +135,7 @@ V14 -> V11      204.460
 V11 -> V14      2.044600E+02
 ```
 
-26/43 native V14 RIGID rows are deterministically non-byte-reversible across the dialect boundary. Therefore:
-
-```text
-whole-file cross-version byte equality = RETIRED
-semantic-equivalence-only custody       = REJECTED
-replacement                             = ORIGINAL-BYTE CHANGE ISOLATION
-```
-
-Evidence: `docs/cii-writer2-v14-native-benchmark-change-isolation-2026-08-26.md`.
+26/43 native V14 RIGID rows are deterministically non-byte-reversible across the dialect boundary. Therefore whole-file cross-version equality is not output authority; original-byte change isolation is.
 
 ## 4. W2.29/W2.30 V14 projector authority
 
@@ -148,18 +165,7 @@ RESTRANT  24 rows/unit
 SIF&TEES  14 rows/unit
 ```
 
-Fail closed:
-
-```text
-duplicate physical unit
-non-isolated cardinality run
-retained unit reorder
-same-count cardinality-unit replacement
-changed section outside allowlist
-MISCEL/HANGER change
-```
-
-NODENAME row CREATE/DELETE requires an existing physical `#$ NODENAME` section. Creating an absent whole NODENAME section is not qualified.
+Fail closed on duplicate units, non-isolated cardinality runs, retained-unit reorder, same-count cardinality-unit replacement, unauthorized sections, MISCEL/HANGER changes, and absent whole NODENAME section creation.
 
 W2.30 exact runtime:
 
@@ -171,14 +177,7 @@ result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_
 
 ## 5. W2.31/W2.32 fixed-field authority guard
 
-Source audit found that the projector's `mergeChangedRow()` can adopt a complete modified row when canonical baseline equals original. W2.31 does not modify the projector or frozen converter. It adds a pre-projection guard:
-
-```text
-tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
-schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-```
-
-The exact Writer2 coordinates are:
+Exact Writer2 coordinates:
 
 ```text
 CONTROL
@@ -192,7 +191,7 @@ ELEMENTS per 15-row block
   row 13 field 5 ELEMENT_NODENAME_POINTER
 ```
 
-These coordinates have dual structural support:
+Dual structural support:
 
 ```text
 existing V11 XML writer/custody
@@ -202,14 +201,6 @@ pinned native V14 3D_Converters authority
   ELEMENT_RECORD_LINES = 15
   cii14_multi_merge.py uses 2X + 13-column numeric cells
   frozen cii_v11_v14_records.py leaves ELEMENT rows 12-15 untouched
-```
-
-Classification of the V14 layout corroboration:
-
-```text
-PASS_SOURCE_INSPECTION_AUTHORITATIVE_REFERENCE
-OBSERVATION = SOURCE_INSPECTION
-ORACLE = AUTHORITATIVE_REFERENCE
 ```
 
 W2.31/W2.32 guard rules:
@@ -226,70 +217,28 @@ SIF/RESTRANT cardinality increase                      -> BLOCK
 changed pointer outside before/after block count        -> BLOCK
 ```
 
-Pointer-correlation grounding in V11:
-
-```text
-NODENAME
-  CREATE uses an exact zero-pointer binding
-  DELETE row removal comes from physically owned name spans
-  relocationPlan.pointerChanges accompanies cardinality mutation
-
-SIF DELETE
-  selected block must have owned exact pointer
-  deleted owner pointer maps to zero; later pointers compact
-
-RESTRAINT block DELETE
-  removable block requires exactly one pointer owner
-  deleted owner pointer maps to zero; later pointers compact
-```
-
-Bridge integration remains:
-
-```text
-bridge blob 8038993f0a97719c0c316f31c2d6c30ea0386ec4
-```
-
-The guard executes after canonical modified V14 is built and **before** `projectCanonicalV14WriterDelta()`. Its immutable claims are retained under `versionBridgeValidation.fixedFieldAuthority`.
-
 Exact focused runtime history:
 
 ```text
 W2.31
 guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+result PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 
 W2.32
 guard  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
 test   78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
-command node --experimental-default-type=module tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
-result  PASS
-class   PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+result PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
-
-The W2.32 authored falsifier proves:
-
-```text
-NODENAME payload cardinality + matching CONTROL count + zero NODENAME pointer claim -> BLOCK
-same mutation + exact NODENAME pointer claim -> PASS
-```
-
-Both W2.32 files were Git-object SHA admitted against the committed identities before execution.
-
-Evidence: `docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md`.
 
 ## 6. Binding Issue #1042
 
 ```text
 CONTROL zero-based row0 field3 = NONAM/NODENAME count
-  NODENAME Writer2 may update it under its own cardinality authority
-  RESTRAINT must preserve it
-
 CONTROL zero-based row1 field3 = RESTRAINT auxiliary-block count
-  qualified RESTRAINT cardinality field
 ```
 
-W2.11 P19 and W2.12 R09 remain mandatory RESTRAINT-route falsifiers.
+W2.11 P19 and W2.12 R09 remain mandatory RESTRAINT-route negative assurance.
 
 ## 7. Runtime truth
 
@@ -302,6 +251,7 @@ W2.30 projector exact graph              PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_
 W2.31 fixed-field guard exact graph      PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 W2.32 pointer-correlation exact graph    PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 current frozen-source JS @ade99d0...     PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
+Writer2 product-routing static @cb324... PASS_SOURCE_INSPECTION / RUNTIME_PENDING_EXACT_11_FILE_GRAPH
 
 W2.13 synthetic product                  NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 product          NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -311,7 +261,7 @@ repository npm/full regressions          NOT_RUN/PARTIAL
 external CAESAR acceptance               NOT_RUN
 ```
 
-The current source-custody graph is no longer an environment blocker. It was reconstructed from exact Git blobs and executed unchanged. Both W2.13 tests still import `cii-workspace-core.js`, whose static graph expands through the complete Workspace intake/topology/correspondence/Writer1/Writer2 stack. Do not stub or rewrite imports to manufacture a PASS.
+W2.13 synthetic and real-CII entrypoints both import `cii-workspace-core.js`; no smaller authored public-product entrypoint exists. Low-level tests may add evidence but cannot substitute for Gate A/B.
 
 ## 8. V11 engineering authority remains unchanged
 
@@ -341,18 +291,17 @@ workflow path introduced                        FALSE
 canonical whole V14 used as final output        FALSE
 unauthorized V14 CONTROL/ELEMENT field allowed  FALSE
 cardinality mutation without pointer evidence   FALSE
-retained cardinality unit reorder permitted     FALSE
-equal-cardinality unit replacement permitted    FALSE
 V14 Writer1 fixed-field support claimed         FALSE
 MISCEL/HANGER V14 projection permitted          FALSE
 absent NODENAME section creation claimed        FALSE
 current source test promoted without rerun       FALSE
+product-routing static correction called runtime PASS FALSE
 NOT_RUN promoted to PASS                        FALSE
 ```
 
 ## 10. Exact changed-file ledger
 
-Expected PR diff is exactly 29 paths:
+Expected PR diff is exactly 30 paths:
 
 ```text
 agents/PR1055_workreport.md
@@ -384,11 +333,13 @@ tests/cii-workspace-v11-v14-frozen-engine.test.py
 tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v14-change-projection.test.js
 tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+tests/cii-workspace-writer2-product-routing.test.js
 ```
 
 ## 11. Remaining gates
 
 ```text
+W2 C0     corrected Writer2 product-routing static test on exact 11-file graph
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 change-isolated Writer2 + exact projected normalization proof
@@ -401,7 +352,7 @@ EXTERNAL  actual CAESAR V11 import/use + save/re-export acceptance
 
 A1. Trace the current V14 Writer2 path from original V14 through V11 Writer2, W2.32 guard, projection, and exact projected normalization proof.
 A2. State all six CONTROL/ELEMENT field coordinates and the independent V11 + native V14 structural authority for them.
-A3. Explain the projector whole-row bypass that motivated W2.31 and why the guard is placed before projection.
-A4. Explain W2.32's same-family pointer requirement and prove it independently from the NODENAME, SIF and RESTRAINT V11 planners.
-A5. Explain why SIF/RESTRAINT cardinality growth reports CREATE authority failure before missing-pointer evidence.
-A6. Distinguish W2.30/W2.31/W2.32 focused runtime PASS plus the current exact 13-file source-custody PASS from the still-NOT_RUN full bridge/product/browser gates.
+A3. Explain W2.32's same-family pointer requirement and prove it independently from NODENAME, SIF and RESTRAINT V11 planners.
+A4. Explain why current 13-file frozen-source custody is a real runtime PASS but W2.13 remains NOT_RUN.
+A5. Identify the corrected `cii-workspace-writer2-product-routing.test.js` stale assertions, its current blob, and why source correction is not a runtime PASS.
+A6. Explain why a smaller low-level product test cannot replace the authored public W2.13 entrypoints that import `cii-workspace-core.js`.
