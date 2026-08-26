@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_27_V14_CHANGE_ISOLATION_RUNTIME_CLOSURE_PENDING
+claim_state: W2_28_BRIDGE_A_AUTHORED_TESTS_PARTIAL_CLOSED
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -31,8 +31,6 @@ claims:
       cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
       cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
       cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
-    runtime_worker_verifies_fetched_git_blobs_before_execution: true
-    runtime_worker_writes_exact_verified_bytes: true
 
   - id: NATIVE_V14_BENCHMARK_EXACT_CUSTODY
     state: PASS_EXACT_BLOB_AND_MEMBER_CUSTODY
@@ -51,16 +49,10 @@ claims:
     state: RETIRED_BY_EXACT_NATIVE_BENCHMARK_FALSIFIER
     required: true
     reason: PINNED_CONVERTER_TARGET_DIALECT_FORMATTING_IS_NOT_BYTE_REVERSIBLE
-    concrete_falsifier:
-      native_v14_rigid_value: 2.044599E+02
-      rendered_v11_value: 204.460
-      upgraded_v14_value: 2.044600E+02
-      changed_native_rigid_rows: 26
-      total_native_rigid_rows: 43
     semantic_equivalence_substitution_allowed: false
 
   - id: V14_WRITER_DIALECT_BRIDGE
-    state: IMPLEMENTED_CHANGE_ISOLATED_RUNTIME_PENDING
+    state: IMPLEMENTED_CHANGE_ISOLATED_RUNTIME_PARTIAL
     required: true
     architecture: ORIGINAL_V14_PLUS_CANONICAL_WRITER_DELTA_VIA_V11
     allow_lossy: false
@@ -68,7 +60,6 @@ claims:
     original_v14_untouched_bytes_preserved: true
     canonical_modified_v14_to_v11_exact_postimage_proof: REQUIRED
     projected_native_v14_to_v11_exact_postimage_proof: REQUIRED
-    independent_new_v14_writer_created: false
 
   - id: V14_CHANGE_PROJECTION_AUTHORITY
     state: IMPLEMENTED_FAIL_CLOSED
@@ -91,9 +82,36 @@ claims:
     module_blob: 0a04c75c2ed0880a815c17616a7c99afcde132c2
     test_blob: 60f1586e5ac469988b59ede2b59258dcdc771e57
     command: node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
-    observation: LOCAL_EXECUTION
-    oracle: INDEPENDENT_ASSERTIONS_IN_AUTHORED_TEST
     scope_limit: DOES_NOT_QUALIFY_FULL_BRIDGE_PYODIDE_PRODUCT_OR_BROWSER
+
+  - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
+    state: PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH
+    required: true
+    path: tests/cii-workspace-v11-v14-frozen-engine.test.py
+    corrected_test_blob: 43721ed3f2c990080945afa2a8a3702dbb021eb4
+    initial_exact_failure:
+      test_blob: 431d898616f78b2ff999f5470cfadac0be8ab750
+      result: 5_PASS_1_ERROR
+      error: MAIN_MODULE_DID_NOT_EXPORT_PRIVATE_RESTRAINT_HELPER
+    correction: TEST_ONLY_PRIVATE_HELPER_OWNER_CORRECTION
+    frozen_python_modified: false
+    final_result: 6_PASS_0_FAIL
+
+  - id: V11_V14_FROZEN_SOURCE_TARGET_TEST_EXECUTED
+    state: PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+    required: true
+    path: tests/cii-workspace-v11-v14-frozen-source.test.js
+    executed_test_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
+    result: PASS
+    scope_limit: SOURCE_CUSTODY_ONLY_NOT_BROWSER_PYODIDE_PRODUCT
+
+  - id: V11_V14_FROZEN_SOURCE_TARGET_TEST_CURRENT
+    state: NOT_RUN_AFTER_ASSERTION_STRENGTHENING
+    required: true
+    path: tests/cii-workspace-v11-v14-frozen-source.test.js
+    current_test_blob: 85377e45ab0044d90e4e70cf0ba8cd921d7442e7
+    strengthened_assertions: CHANGED_SECTION_ALLOWLIST_AND_UNAUTHORIZED_SECTION_BLOCKER
+    source_inspection_promoted_to_runtime_pass: false
 
   - id: V14_BRIDGE_ENGINEERING_AUTHORITY_BOUNDARY
     state: PASS_SOURCE_INSPECTION
@@ -116,22 +134,6 @@ claims:
     state: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
     required: true
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
-
-  - id: V11_V14_EXTRACTED_RUNTIME
-    state: PASS_RUNTIME_EXACT_SOURCE_EXCERPT
-    required: false
-    qualifying_for_full_engine_gate: false
-    falsifier_count: 12
-
-  - id: V11_V14_FROZEN_SOURCE_TARGET_TEST
-    state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-    required: true
-    path: tests/cii-workspace-v11-v14-frozen-source.test.js
-
-  - id: V11_V14_FROZEN_ENGINE_SYNTHETIC_TEST
-    state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-    required: true
-    path: tests/cii-workspace-v11-v14-frozen-engine.test.py
 
   - id: REAL_V14_CHANGE_ISOLATED_WRITER2_ROUNDTRIP
     state: NOT_RUN
@@ -176,9 +178,11 @@ validation_integrity:
   hanger_cardinality_v14_projection_claimed_qualified: false
   v11_writer_text_view_used_as_restore_authority: false
   focused_projection_runtime_promoted_to_full_bridge_pass: false
+  strengthened_source_test_promoted_to_pass_without_rerun: false
   not_run_promoted_to_pass: false
   upstream_external_caesar_acceptance_promoted_to_pass: false
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
 
-next_claim_gate: execute_exact_full_repository_bridge_graph_then_existing_w2_13_then_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
+changed_file_count_expected: 24
+next_claim_gate: rerun_current_strengthened_frozen_source_test_on_exact_12_file_graph_if_executable_then_existing_w2_13_then_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
