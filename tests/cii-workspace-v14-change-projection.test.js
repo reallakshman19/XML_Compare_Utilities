@@ -49,6 +49,18 @@ function block(prefix, rows = 24) {
   assert.equal(result.ledger.filter((item) => item.operation === 'MERGE_FIXED_ROW').length, 1);
 }
 
+// A changed section outside the qualified Writer2 physical family surface cannot
+// be projected even when it looks like a harmless fixed-width numeric mutation.
+{
+  const original = documentBytes([['RIGID', ['   2.044599E+02 0.000000E+00']]]);
+  const baseline = documentBytes([['RIGID', ['   2.044600E+02 0.000000E+00']]]);
+  const modified = documentBytes([['RIGID', ['   2.044600E+02 1.000000E+00']]]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(original, baseline, modified),
+    /CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:RIGID/,
+  );
+}
+
 // RESTRAINT cardinality is projected by qualified 24-row auxiliary blocks, not
 // by ambiguous individual zero-like rows. Retained physical blocks come from the
 // original native V14 coordinates.
