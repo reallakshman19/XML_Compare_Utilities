@@ -18,6 +18,10 @@ function fixedRow(values) {
   return values.map((value, index) => String(value).padStart(index === 0 ? 15 : 13, ' ')).join('');
 }
 
+function fixedBlock(seed, rows) {
+  return Array.from({ length: rows }, (_, index) => fixedRow([seed + index, 0, 0, 0, 0, 0]));
+}
+
 function block(prefix, rows = 24) {
   return Array.from({ length: rows }, (_, index) => `${prefix}-${String(index).padStart(2, '0')}`);
 }
@@ -105,6 +109,47 @@ function block(prefix, rows = 24) {
   assert.throws(
     () => projectCanonicalV14WriterDelta(original, baseline, modified),
     /CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED:RESTRANT/,
+  );
+}
+
+// This PR qualifies V14 Writer2 cardinality only for NODENAME/SIF/RESTRAINT.
+// Equal-cardinality fixed-field edits in these sections belong to Writer1B/1C
+// and remain blocked until a separate field-identity projection authority exists.
+{
+  const original = documentBytes([['NODENAME', [fixedRow([100, 1, 0, 0, 0, 0])]]]);
+  const baseline = documentBytes([['NODENAME', [fixedRow([100, 1, 0, 0, 0, 0])]]]);
+  const modified = documentBytes([['NODENAME', [fixedRow([100, 2, 0, 0, 0, 0])]]]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(original, baseline, modified),
+    /CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED:NODENAME/,
+  );
+}
+{
+  const originalRows = fixedBlock(1000, 24);
+  const baselineRows = fixedBlock(1000, 24);
+  const modifiedRows = [...baselineRows];
+  modifiedRows[0] = fixedRow([1000, 9, 0, 0, 0, 0]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(
+      documentBytes([['RESTRANT', originalRows]]),
+      documentBytes([['RESTRANT', baselineRows]]),
+      documentBytes([['RESTRANT', modifiedRows]]),
+    ),
+    /CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED:RESTRANT/,
+  );
+}
+{
+  const originalRows = fixedBlock(2000, 14);
+  const baselineRows = fixedBlock(2000, 14);
+  const modifiedRows = [...baselineRows];
+  modifiedRows[2] = fixedRow([2002, 7, 0, 0, 0, 0]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(
+      documentBytes([['SIF&TEES', originalRows]]),
+      documentBytes([['SIF&TEES', baselineRows]]),
+      documentBytes([['SIF&TEES', modifiedRows]]),
+    ),
+    /CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED:SIF&TEES/,
   );
 }
 
