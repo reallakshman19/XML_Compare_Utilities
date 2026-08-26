@@ -1,4 +1,5 @@
 import { inspectCiiWorkspaceModels } from './cii-workspace-core.js';
+import { inspectCiiWorkspaceModelsWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { mountCiiWorkspaceShell } from './cii-workspace-shell.js';
 import {
   buildCiiSelectedBaseLoops, ciiBaseSelectionSummary, ciiQualifiedLoopsForSuggestion, ciiSuggestionSelectionKey,
@@ -122,6 +123,9 @@ export function baseAnchorEvidenceMarkup(inspection, rawSelectedKeys = []) {
 }
 
 function fileIdentity(input) { return input?.files?.[0]?.name || 'Not loaded'; }
+function inspectionFunction(options) {
+  return options?.writerVersion === '2' ? inspectCiiWorkspaceModelsWithVersionBridge : inspectCiiWorkspaceModels;
+}
 function addEngineeringChrome(container, legacy, options, selection) {
   const documentRef = container.ownerDocument; const sourceInput = container.querySelector('[data-ciiw-source]');
   const targetInput = container.querySelector('[data-ciiw-target]'); const inspectButton = container.querySelector('[data-ciiw-inspect]');
@@ -137,7 +141,8 @@ function addEngineeringChrome(container, legacy, options, selection) {
   const getBaseLoops = () => buildCiiSelectedBaseLoops(selection.inspection?.baseAnchorSuggestions || [], selection.selectedKeys);
   const updateIdentity = () => {
     const current = legacy.getCurrentResult?.(); const summary = ciiBaseSelectionSummary(getBaseLoops());
-    const readiness = current ? `Correspondence ${current.correspondence?.status || '—'} · Writer 1B ${current.writerReadiness?.status || '—'}`
+    const writer = current?.writerVersion || options?.writerVersion || '1B';
+    const readiness = current ? `Correspondence ${current.correspondence?.status || '—'} · Writer ${writer} ${current.writerReadiness?.status || '—'}`
       : (summary.loopCount ? `${summary.loopCount} independent base loop${summary.loopCount === 1 ? '' : 's'} selected · OR conflict veto`
         : (selection.inspection ? 'Match basis review' : 'Input required'));
     identity.innerHTML = `<div><span>SOURCE</span><b>${h(fileIdentity(sourceInput))}</b></div><span class="ciiw-identity-arrow">→</span><div><span>TARGET</span><b>${h(fileIdentity(targetInput))}</b></div><span class="ciiw-readiness">${h(readiness)}</span>`;
@@ -177,8 +182,11 @@ function addEngineeringChrome(container, legacy, options, selection) {
       selection.selectedKeys.clear(); selection.inspection = null; updateIdentity();
       const sourceFile = sourceInput.files?.[0]; const targetFile = targetInput.files?.[0]; if (!sourceFile || !targetFile) return;
       evidence.innerHTML = '<div class="ciiw-method-loading">Building Method A / Method B evidence…</div>';
-      const inspection = await inspectCiiWorkspaceModels({ sourceText: await sourceFile.text(), sourceFileName: sourceFile.name,
-        targetText: await targetFile.text(), targetFileName: targetFile.name }, { cryptoRef: options.cryptoRef });
+      const inspectModels = inspectionFunction(options);
+      const inspection = await inspectModels({
+        sourceBytes: new Uint8Array(await sourceFile.arrayBuffer()), sourceFileName: sourceFile.name,
+        targetBytes: new Uint8Array(await targetFile.arrayBuffer()), targetFileName: targetFile.name,
+      }, { cryptoRef: options.cryptoRef });
       if (disposed) return; selection.inspection = inspection; renderEvidence();
     } catch (error) {
       if (!disposed) evidence.innerHTML = `<div class="ciiw-method-empty"><b>Evidence view unavailable</b><p>${h(error?.message || error)}</p></div>`;
@@ -214,4 +222,5 @@ export function mountCiiWorkspaceEngineeringShell(container, options = {}) {
 
 export const _test = Object.freeze({
   methodLabel, methodClass, confidenceClass, toleranceRange, methodAMarkup, methodBMarkup, candidateMarkup, selectedBaseSetMarkup,
+  inspectionFunction,
 });
