@@ -4,10 +4,12 @@
 
 - Base: `main@10b7e60b39c18460c812c9fa6dc9c7f46d81e77e`
 - Successor to merged PR #1056.
-- Scope: Writer2 runtime/evidence closure only unless an exact runtime gate exposes a concrete defect.
-- Frozen `reallaksh19/3D_Converters` V11↔V14 source remains unmodified.
+- Scope: Writer2 runtime/evidence closure and qualification tests only unless an exact runtime gate exposes a concrete product defect.
+- Frozen `reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4` V11↔V14 source remains unmodified.
 - Merge authority: OWNER_ONLY.
 - Merge authorized: FALSE.
+- Coordination: SAFE_EVIDENCE_ONLY relative to active SIF CREATE qualification PR #1033 and unrelated Writer1C custody PR #1007; this PR does not change those authority domains.
+- `agents/MASTER_INDEX.md` was inspected but not rewritten because the connector returned only a truncated whole-file payload; destructive regeneration from a partial file is prohibited.
 
 ## Inherited evidence
 
@@ -53,31 +55,110 @@ Why this remains a 14-file gate: `cii-workspace-core.js` and `cii-workspace-tran
 
 Live test: `tests/cii-workspace-writer2-restraint-product-routing.test.js` blob `9922377ddeda86fc9167d65f33c97095346e79fa`.
 
-The test is not a low-level RESTRAINT substitute. It directly imports and calls public `applyCiiWorkspaceTargetWriter2()` from `cii-workspace-core.js`, then proves:
-
-- routed RESTRAINT whole-block DELETE is preview-ready;
-- composite readiness identifies `BLOCK_DELETE_COMPACTION`;
-- direct Writer2 composite result and public-product result are byte-identical;
-- complete product postimage validation is `PASS` with zero unexpected semantic deltas;
-- RESTRAINT CREATE remains blocked by `CII_WRITER_2_RESTRAINT_CREATE_BLOCKER`;
-- forged policy authority fails closed;
-- missing restraint component testimony fails closed;
-- forged result schema fails closed;
-- stale TARGET bytes fail with `CII_WRITER_2_STALE_TARGET_HASH`;
-- Writer2 NODE-only path remains valid when no RESTRAINT mutation exists.
+The test is not a low-level RESTRAINT substitute. It directly imports and calls public `applyCiiWorkspaceTargetWriter2()` from `cii-workspace-core.js`, then proves routed RESTRAINT whole-block DELETE, `BLOCK_DELETE_COMPACTION` readiness, direct/public byte identity, complete-postimage validation, CREATE and forged-authority rejection, stale-target rejection, and Writer2 NODE-only non-regression.
 
 Because this test imports the full Workspace public entrypoint, no smaller restraint/composite unit test substitutes for W2 A. Runtime remains `NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT` until its complete transitive graph is available.
+
+## W2 B — retained-real V11 product
+
+Live test: `tests/cii-workspace-writer2-restraint-product-real-cii.test.js` blob `c341b99e2786b0034ef672b4efb03d167d9ad26c`.
+
+Retained fixture: `Benchmark/CIICompare/BM_CII_SOURCE.CII` Git blob `e41cd05603b56837cbb6e31b9d4074ef6106fe9b`.
+
+This test uses real V11 bytes and the public Workspace product route. Its required negative assurance is:
+
+```text
+CONTROL row1 / NONAM              byte-identical
+CONTROL row2 / RESTRAINT count    changed under qualified authority
+RESTRANT payload                  exactly one 24-row block removed
+topology/connectivity              unchanged
+ELEMENT restraint pointers         match relocation plan
+complete-postimage tamper           rejected
+stale TARGET                        rejected
+```
+
+Runtime remains `NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT`; no lower-level result substitutes for this gate.
+
+## BRIDGE B authority — native V14 remains distinct
+
+The pinned `3D_Converters` native benchmark is `Benchmarks/v11-v14.zip` blob `8409e1c429665e34a83c2a464665ebf5d5f1b0a1`, containing `SYS-0001-v14.CII` SHA-256 `d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf`.
+
+Whole-file V14→V11→V14 byte identity is already source-falsified by the pinned formatter and benchmark. Therefore the only admissible real-V14 product oracle is:
+
+```text
+original native V14 TARGET0
+-> normalized V11 TARGET0
+-> validated V11 Writer2 TARGET1
+-> canonical V14 differential
+-> project Writer2-only delta onto ORIGINAL V14 bytes
+-> final projected V14 TARGET1
+-> frozen V14→V11
+-> exact equality with validated V11 Writer2 TARGET1
+```
+
+Repository search found no authored full-product test invoking `applyCiiWorkspaceTargetWriter2WithVersionBridge()` on native V14 benchmark bytes. Existing uses are production routing and static source regressions. Hence the native gate remains `NOT_RUN_AUTHORED_ENTRYPOINT_MISSING` in addition to native benchmark bytes being unavailable in this execution container. No native fixture may be reconstructed from documentation.
+
+## W2.35 — converter-generated V14 browser bridge qualification
+
+This is an **intermediate bridge/product gate only**. It does not replace or satisfy native V14 BRIDGE B.
+
+Authored test-only files:
+
+```text
+tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
+  be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
+
+playwright.cii-writer2.config.mjs
+  a397ca35e536dc0573076b82560faa1295cffae0
+
+tests/browser/cii-writer2-bridge-fixture.html
+  28c66a7fd6175c7cc50294cbe79e138dbde090f8
+```
+
+The test deliberately uses the real browser Worker/Pyodide path. It does not inject or mock `Worker`, does not call local Python as a substitute, and does not alter the frozen Python engine.
+
+Test chain:
+
+```text
+real BM_CII_SOURCE.CII V11 TARGET0
+-> choose the same source-qualified unique RESTRAINT delete class used by retained-real W2.13
+-> produce validated/direct V11 Writer2 seed TARGET1
+-> frozen 3D_Converters V11→V14 for SOURCE and TARGET
+-> createCiiWorkspacePreviewWithVersionBridge(writerVersion=2)
+-> explicit APPLY / EXCLUDE scope
+-> direct public V11 applyCiiWorkspaceTargetWriter2() reference result
+-> public applyCiiWorkspaceTargetWriter2WithVersionBridge() on generated V14 TARGET
+-> require V14_CHANGE_ISOLATED_VIA_V11 / bridge PASS
+-> require projectedNormalizedPostimageExact=true
+-> frozen final V14→V11
+-> exact byte equality and SHA-256 equality with direct validated V11 Writer2 result
+-> require changed V14 sections include CONTROL/ELEMENTS/RESTRANT and exclude MISCEL_1
+```
+
+Classification:
+
+```text
+FIXTURE_CLASS  CONVERTER_GENERATED_V14_FROM_REAL_V11_BENCHMARK
+NATIVE_V14     FALSE
+STATUS         AUTHORED / NOT_RUN
+OBSERVATION    SOURCE_INSPECTION
+ORACLE         CROSS_PATH_EXACT_POSTIMAGE_AGAINST_VALIDATED_V11_PRODUCT
+COMMAND        npx playwright test --config=playwright.cii-writer2.config.mjs
+```
+
+Execution limitation: the current container cannot materialize a complete exact repository checkout. In addition, the real worker imports Pyodide from `https://cdn.jsdelivr.net/pyodide/v0.27.2/full/`; no offline or test-only runtime substitution is authorized. Therefore no browser PASS is claimed.
 
 ## Execution order
 
 1. W2 C0 — exact 14-file Writer2 product-routing regression.
 2. W2 A — unchanged W2.13 synthetic full Workspace runtime.
 3. W2 B — retained-real V11 RESTRAINT product runtime.
-4. BRIDGE B — real/native V14 change-isolated Writer2 roundtrip.
-5. W2 C/D — inherited Writer2, adjacent Writer1 and browser/product regressions.
-6. W2 H — final READY/NOT_READY freeze verdict.
+4. W2.35 — converter-generated V14 real Worker/Pyodide bridge product runtime.
+5. BRIDGE B — pinned real/native V14 change-isolated Writer2 product with exact projected V14→V11 postimage proof.
+6. W2 C/D — inherited Writer2, adjacent Writer1 and browser/product regressions.
+7. W2 H — final READY/NOT_READY freeze verdict.
 
-## Rules
+## Rules / negative assurance
 
 - No GitHub Actions qualification.
 - No stubs, import rewrites, partial-core substitutes or workflow gaming.
@@ -87,15 +168,24 @@ Because this test imports the full Workspace public entrypoint, no smaller restr
 - Preserve V11 CREATE source blockers for SIF/HANGER/RESTRAINT.
 - Preserve Writer1A/B/C authority boundaries.
 - Do not modify the frozen 3D_Converters source.
+- Converter-generated V14 must never be represented as native V14 qualification.
+- Production default Writer1B remains unchanged.
 
 ## Changed-file ledger
 
-- `agents/PR1057_workreport.md` — living recovery record only.
+1. `agents/PR1057_workreport.md` — living recovery record.
+2. `agents/status/PR1057.yaml` — machine-readable current state.
+3. `agents/claims/PR1057.yaml` — validation/authority claims.
+4. `tests/browser/cii-writer2-bridge-fixture.html` — focused browser host only.
+5. `playwright.cii-writer2.config.mjs` — focused local Playwright runner only.
+6. `tests/browser/cii-writer2-v14-generated-bridge.spec.mjs` — generated-V14 public bridge qualification.
+
+No production, converter, benchmark, parser, workflow, Writer1, Writer2 or Writer3 implementation path is changed by PR1057 at this checkpoint.
 
 ## Appendix A — takeover qualification
 
-1. State the exact current `main` SHA and PR1057 head SHA before any write.
-2. Reconstruct the broader product-routing test graph from the committed imports and prove why it is exactly 14 files.
-3. For every runtime PASS, list the exact Git blob SHA for every admitted file and the unchanged test command.
-4. Explain why source-read `cii-workspace-core.js` and `cii-workspace-transfer-scope.js` do not expand the executable import graph for W2 C0.
-5. State which remaining gate is first NOT_RUN after W2 C0 and why no lower-level substitute qualifies it.
+1. State the exact current `main` SHA and PR1057 head SHA before any write, and reconcile all six changed paths.
+2. Reconstruct the W2 C0 graph from committed imports and prove why it is exactly 14 files; explain why source-read core/scope do not expand its executable graph.
+3. Trace W2 B from the real V11 benchmark through physical RESTRAINT deletion, core product validation, CONTROL row custody and exact complete-postimage oracle.
+4. Explain why native V14 whole-file roundtrip identity is invalid, and why converter-generated V14 W2.35 cannot satisfy native BRIDGE B.
+5. For W2.35, predict the exact bridge path and changed V14 sections, state the external exact-postimage oracle, and name the first falsifier that would prevent promotion to PASS.
