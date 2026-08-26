@@ -6,7 +6,7 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
 V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
 V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
-CURRENT_STAGE = W2.32 V14 WRITER2 POINTER CORRELATION
+CURRENT_STAGE = W2.33 LIVE WRITER2 V11/V14 BRIDGE ROUTING
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
@@ -165,7 +165,45 @@ test    78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
 result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
 
-## 6. Capability matrix
+## 6. W2.33 live Writer2 V11/V14 product routing
+
+Source audit found that the bridge existed but the live product shell called direct core Writer2 paths, and the normal Utilities registry had no Writer2 selection.
+
+W2.33 source implementation:
+
+```text
+ordinary CII Workspace tile -> Writer1B default unchanged
+separate CII Writer 2 — V11/V14 tile -> explicit writerVersion='2'
+
+Writer2 inspection -> inspectCiiWorkspaceModelsWithVersionBridge
+Writer2 preview    -> createCiiWorkspacePreviewWithVersionBridge
+Writer2 apply      -> applyCiiWorkspaceTargetWriter2WithVersionBridge
+scoped apply       -> requires preview.versionBridge
+Writer2 export     -> byteString is byte-authoritative
+```
+
+Current source blobs:
+
+```text
+shell                ac5412044df3c4b8230bfb2044607944fa9d6442
+scoped transfer UI   2fd96ce57b23da40441e68b6a088b7b048a0b63c
+engineering UI       cff53d820075417f817d6768c16ce550910c28c5
+workspace tile       b7589c7595f3b33cdd8529a03c7e990da4b68d76
+routing regression   5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+```
+
+Classification:
+
+```text
+IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
+PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
+RUNTIME_PENDING_EXACT_14_FILE_GRAPH
+BROWSER_PRODUCT_NOT_RUN
+```
+
+W2.33 does not alter the frozen converter, bridge implementation, W2.30 projector, or W2.31/W2.32 guard. Therefore the exact 13-file W2.32 frozen-source runtime PASS remains valid.
+
+## 7. Capability matrix
 
 | Family / operation | Owner | V11 disposition | V14 disposition |
 |---|---|---|---|
@@ -181,7 +219,7 @@ result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRE
 | RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
 | node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
-## 7. Frozen converter custody
+## 8. Frozen converter custody
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -194,7 +232,7 @@ cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 
 No upstream source was altered.
 
-## 8. Runtime / regression evidence
+## 9. Runtime / regression evidence
 
 ```text
 W2.11 RESTRAINT physical runtime          PASS_RUNTIME_EXACT_BLOB
@@ -205,7 +243,7 @@ W2.30 projector exact graph               PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH
 W2.31 fixed-field guard exact graph       PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 W2.32 pointer-correlation exact graph     PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 current frozen-source JS @ade99d0...      PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
-Writer2 product-routing @cb324...         PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING / RUNTIME_PENDING_EXACT_11_FILE_GRAPH
+W2.33 live Writer2 product routing        PASS_SOURCE_INSPECTION / RUNTIME_PENDING_EXACT_14_FILE_GRAPH
 
 W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -215,22 +253,22 @@ external CAESAR acceptance                NOT_RUN
 repository npm/full regressions           NOT_RUN/PARTIAL
 ```
 
-The product-routing regression test was stale: it asserted `applyCiiWriter2Composite` and `validateCiiWriter2CompositeRoundTrip`, while live core uses the restraint/hanger product branches and `validateCiiWriter2ProductRoundTrip`. The test is corrected; no production code changed. Runtime remains pending until the exact 11-file test graph is materialized.
+The W2.33 routing regression binds the current RESTRAINT product dispatch plus bridged inspection/preview/apply, the explicit Writer2 Utilities launch, preservation of Writer1B as the ordinary default, and fail-closed scoped apply without `versionBridge`. It is source-qualified only until the exact 14-file graph is executed.
 
-## 9. Remaining gates
+## 10. Remaining gates
 
 ```text
-W2 C0     corrected Writer2 product-routing test on exact 11-file graph
+W2 C0     bridge-bound Writer2 product-routing test on exact 14-file graph
 W2 A      unchanged W2.13 synthetic product on exact full Workspace graph
 W2 B      retained-real V11 RESTRAINT product on exact full Workspace graph
 BRIDGE B  real/native V14 Writer2 + exact projected normalization proof
 W2 C/D    inherited Writer2 + Writer1 adjacent + npm + browser/product regressions
 W2 H      final READY/NOT_READY release-freeze verdict
-EXTERNAL  actual CAESAR import/use + save/re-export acceptance
+EXTERNAL  actual CAESAR V11/V14 import/use + save/re-export acceptance
 ```
 
 Native checkout remains unavailable (`Could not resolve host: github.com`). No stubs/import rewrites/partial-core substitutes are authorized. GitHub Actions are not authorized for qualification.
 
-## 10. Freeze rule
+## 11. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact field identity for CONTROL/ELEMENTS, matching CONTROL/cardinality/pointer correlation, qualified physical cardinality, and final projected V14 normalization equal to the independently validated V11 Writer2 postimage. No lossy conversion, broad canonical rewrite, unauthorized field/section, cardinality without pointer evidence, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation, or Writer3 leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, V11 CREATE blockers explicit/fail-closed, exposed V14 Writer2 routes to preserve original unrelated bytes, exact field identity for CONTROL/ELEMENTS, matching CONTROL/cardinality/pointer correlation, qualified physical cardinality, and final projected V14 normalization equal to the independently validated V11 Writer2 postimage. The product route must use the version bridge for explicit Writer2 operation and must not silently change the ordinary Writer1B default. No lossy conversion, broad canonical rewrite, unauthorized field/section, cardinality without pointer evidence, unqualified V14 Writer1 mutation, HANGER/MISCEL projection, absent-section NODENAME creation, or Writer3 leakage is permitted.
