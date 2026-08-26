@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_32_V14_WRITER2_POINTER_CORRELATION
+claim_state: W2_33_LIVE_WRITER2_V11_V14_BRIDGE_ROUTING
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -26,6 +26,27 @@ claims:
     allow_lossy: false
     canonical_v14_final_output_allowed: false
     projected_native_v14_to_v11_exact_postimage_proof: REQUIRED
+
+  - id: WRITER2_LIVE_V11_V14_PRODUCT_ROUTE_W2_33
+    state: IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
+    required: true
+    production_default_writer: WRITER_1B
+    writer2_selection: EXPLICIT_SEPARATE_UTILITIES_TILE
+    writer2_auto_selected: false
+    inspect_route: inspectCiiWorkspaceModelsWithVersionBridge
+    preview_route: createCiiWorkspacePreviewWithVersionBridge
+    apply_route: applyCiiWorkspaceTargetWriter2WithVersionBridge
+    scoped_apply_requires_version_bridge: true
+    byte_authoritative_writer2_export: true
+    files:
+      shell: ac5412044df3c4b8230bfb2044607944fa9d6442
+      transfer_scope_ui: 2fd96ce57b23da40441e68b6a088b7b048a0b63c
+      engineering_ui: cff53d820075417f817d6768c16ce550910c28c5
+      tab: b7589c7595f3b33cdd8529a03c7e990da4b68d76
+      regression_test: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+    source_verdict: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
+    runtime_verdict: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
+    browser_verdict: NOT_RUN
 
   - id: V14_CHANGE_PROJECTION_AUTHORITY
     state: IMPLEMENTED_FAIL_CLOSED_W2_30
@@ -134,19 +155,22 @@ claims:
     source_inspection_promoted_to_runtime_pass: false
 
   - id: WRITER2_PRODUCT_ROUTING_STATIC_REGRESSION
-    state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_11_FILE_GRAPH
+    state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_14_FILE_GRAPH
     required: true
-    current_test_blob: cb324b739bae4cb0050ee236b70d80dfa3fdedaf
-    drift_found: PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS
-    old_assertions:
-      - applyCiiWriter2Composite
-      - validateCiiWriter2CompositeRoundTrip
+    current_test_blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+    drift_found: PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS_AND_UNBRIDGED_LIVE_WRITER2_ROUTE
     current_assertions:
       - writer2HasRestraintApply
       - applyCiiWriter2CompositeWithRestraintDelete
       - applyCiiWriter2CompositeWithHangerDeleteAll
       - validateCiiWriter2ProductRoundTrip
-    source_architecture_check: PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
+      - inspectCiiWorkspaceModelsWithVersionBridge
+      - createCiiWorkspacePreviewWithVersionBridge
+      - applyCiiWorkspaceTargetWriter2WithVersionBridge
+      - scoped_writer2_versionBridge_required
+      - explicit_writer2_utilities_launch
+      - production_default_writer1b_preserved
+    source_architecture_check: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
     runtime_promoted: false
 
   - id: W2_11_RESTRAINT_RUNTIME
@@ -207,6 +231,9 @@ validation_integrity:
   v14_writer1_equal_cardinality_projection_claimed: false
   miscel_hanger_v14_projection_allowed: false
   nodename_absent_section_create_claimed: false
+  production_default_writer1b_changed: false
+  writer2_auto_selected: false
+  writer2_live_route_bypasses_version_bridge: false
   focused_runtime_promoted_to_full_bridge_pass: false
   native_v14_layout_source_inspection_promoted_to_runtime_pass: false
   current_source_test_promoted_to_pass_without_rerun: false
@@ -215,5 +242,5 @@ validation_integrity:
   not_run_promoted_to_pass: false
   writer3_scope_leakage: false
 
-changed_file_count_expected: 30
-next_claim_gate: exact_writer2_product_routing_11_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
+changed_file_count_expected: 34
+next_claim_gate: exact_writer2_product_routing_14_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_browser_regressions_and_freeze
