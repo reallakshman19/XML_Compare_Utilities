@@ -2,6 +2,14 @@ const SECTION_RX = /^#\$\s+([A-Z0-9_&]+)\s*$/;
 const NUMBER_RX = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?$/;
 const MAX_DIFF_ROWS = 3000;
 const MAX_DIFF_CELLS = 4_000_000;
+const PROJECTABLE_CHANGED_SECTIONS = new Set([
+  'CONTROL',
+  'ELEMENTS',
+  'NODENAME',
+  'RESTRANT',
+  'SIF&TEES',
+  'MISCEL_1',
+]);
 const CARDINALITY_UNIT_ROWS = Object.freeze({
   NODENAME: 1,
   RESTRANT: 24,
@@ -277,6 +285,9 @@ export function projectCanonicalV14WriterDelta(originalValue, baselineCanonicalV
       continue;
     }
 
+    if (!PROJECTABLE_CHANGED_SECTIONS.has(baselineSection.name)) {
+      throw new Error(`CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED:${baselineSection.name}`);
+    }
     changedSections.push(baselineSection.name);
     if (originalSection.rows.length !== baselineSection.rows.length) {
       throw new Error(`CII_V14_PROJECTION_BASELINE_ORIGINAL_ROW_COUNT_MISMATCH:${baselineSection.name}:${originalSection.rows.length}:${baselineSection.rows.length}`);
