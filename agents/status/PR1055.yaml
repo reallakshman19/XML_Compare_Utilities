@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_32_V14_WRITER2_POINTER_CORRELATION
+current_stage: W2_33_LIVE_WRITER2_V11_V14_BRIDGE_ROUTING
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -31,7 +31,7 @@ source_reuse:
     cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 
 writer_version_architecture:
-  v11_path: EXISTING_QUALIFIED_WRITER_UNCHANGED
+  v11_path: EXISTING_QUALIFIED_WRITER_VIA_DIRECT_V11_BRIDGE_PATH
   v14_path: ORIGINAL_V14_PLUS_CANONICAL_WRITER2_DELTA_VIA_FROZEN_V11_BRIDGE
   v14_bridge_scope: WRITER2_ONLY
   v14_writer1_fixed_field_projection: NOT_QUALIFIED_FAIL_CLOSED
@@ -40,7 +40,35 @@ writer_version_architecture:
   original_v14_untouched_bytes_preserved: true
   canonical_modified_v14_to_v11_exact_postimage_proof_required: true
   projected_native_v14_to_v11_exact_postimage_proof_required: true
-  architecture_state: W2_32_IMPLEMENTED_RUNTIME_PARTIAL
+  architecture_state: W2_33_LIVE_PRODUCT_ROUTING_IMPLEMENTED_RUNTIME_PENDING
+
+live_writer2_product_routing:
+  state: IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
+  production_default_writer: WRITER_1B
+  writer2_selection: EXPLICIT_SEPARATE_UTILITIES_TILE
+  writer2_tile_label: CII_WRITER_2_V11_V14
+  direct_writer2_ui_bypass_allowed: false
+  version_bridge_preview_required: true
+  version_bridge_apply_required: true
+  scoped_apply_missing_version_bridge: FAIL_CLOSED
+  writer2_byte_authoritative_export: true
+  shell:
+    file: tabs/cii-workspace/cii-workspace-shell.js
+    blob: ac5412044df3c4b8230bfb2044607944fa9d6442
+  scoped_transfer_ui:
+    file: tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
+    blob: 2fd96ce57b23da40441e68b6a088b7b048a0b63c
+  engineering_ui:
+    file: tabs/cii-workspace/cii-workspace-engineering-ui.js
+    blob: cff53d820075417f817d6768c16ce550910c28c5
+  tile:
+    file: tabs/cii-workspace/cii-workspace-tab.js
+    blob: b7589c7595f3b33cdd8529a03c7e990da4b68d76
+  source_regression:
+    file: tests/cii-workspace-writer2-product-routing.test.js
+    blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+    source_state: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
+    runtime_state: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
 
 v14_projection:
   module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
@@ -123,9 +151,9 @@ runtime:
   v14_pointer_correlation_w2_32_module_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
   v14_pointer_correlation_w2_32_test_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
   v14_pointer_correlation_w2_32_result: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
-  writer2_product_routing_static_test_blob: cb324b739bae4cb0050ee236b70d80dfa3fdedaf
-  writer2_product_routing_static_test_state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_11_FILE_GRAPH
-  writer2_product_routing_source_architecture_check: PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
+  writer2_product_routing_static_test_blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+  writer2_product_routing_static_test_state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_14_FILE_GRAPH
+  writer2_product_routing_source_architecture_check: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   v14_real_writer2_change_isolated_roundtrip: NOT_RUN
@@ -136,6 +164,7 @@ runtime:
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_defect_w2_31: FOUND_AND_FIXED_BROAD_CONTROL_ELEMENTS_ROW_ADOPTION_AND_FIELD_CORRELATION_GAPS
   engineering_defect_w2_32: FOUND_AND_FIXED_CARDINALITY_WITHOUT_POINTER_EVIDENCE_GAP
+  engineering_defect_w2_33: FOUND_AND_FIXED_LIVE_WRITER2_UI_BYPASSED_VERSION_BRIDGE_AND_WRITER2_WAS_NOT_NORMAL_UTILITIES_REACHABLE
   regression_test_drift: FOUND_AND_FIXED_STALE_PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS
   engineering_failure_open: NONE
 
@@ -145,7 +174,7 @@ execution_environment:
   exact_executable_mirror_available: false
   source_custody_exact_13_file_mirror_available: true
   source_custody_exact_13_file_runtime: PASS
-  writer2_product_routing_exact_11_file_mirror_available: false
+  writer2_product_routing_exact_14_file_mirror_available: false
   github_actions_authorized: false
   source_inspection_promoted_to_runtime_pass: false
   focused_runtime_promoted_to_full_bridge_pass: false
@@ -175,7 +204,10 @@ negative_assurance:
   source_3d_converters_modified: false
   core_v11_writer_modified: false
   v11_writer1_authority_reduced: false
-  live_ui_auto_routing_modified: false
+  production_default_writer1b_changed: false
+  writer2_auto_selected_by_default_tile: false
+  explicit_writer2_live_route_added: true
+  live_ui_writer2_bridge_routing_modified: true
   writer3_changed: false
   workflow_changed_in_current_diff: false
   canonical_v14_whole_file_used_as_output: false
@@ -186,5 +218,5 @@ negative_assurance:
   nodename_absent_section_create_claimed: false
   v11_text_view_used_as_v14_restore_authority: false
 
-changed_file_count_expected: 30
-next_gate: exact_writer2_product_routing_11_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_regressions_and_freeze
+changed_file_count_expected: 34
+next_gate: exact_writer2_product_routing_14_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_browser_regressions_and_freeze
