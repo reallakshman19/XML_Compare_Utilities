@@ -146,7 +146,11 @@ function rawPlan(operations, blockers = []) {
   assert(shell.includes('createCiiWorkspacePreviewWithVersionBridge'));
   assert(shell.includes('applyCiiWorkspaceTargetWriter2WithVersionBridge'));
   assert(shell.includes("options?.writerVersion === '2'"));
-  assert(shell.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
+  assert(shell.includes("applied?.writer === 'WRITER_2'"));
+  assert(shell.includes('CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED'));
+  assert(shell.includes('CII_WRITER_2_BYTE_STRING_REQUIRED'));
+  assert(shell.includes("applied?.writer === 'WRITER_1C'"));
+  assert(!shell.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
   assert(!shell.includes("if (version === '2') return applyCiiWorkspaceTargetWriter2;"));
 
   assert(engineeringUi.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
@@ -159,7 +163,11 @@ function rawPlan(operations, blockers = []) {
   assert(ui.includes('writer2BridgeReady'));
   assert(ui.includes('Boolean(preview?.versionBridge)'));
   assert(ui.includes('Writer 2 version-bridge evidence is missing'));
-  assert(ui.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
+  assert(ui.includes("applied?.writer === 'WRITER_2'"));
+  assert(ui.includes('CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED'));
+  assert(ui.includes('CII_WRITER_2_BYTE_STRING_REQUIRED'));
+  assert(ui.includes("applied?.writer === 'WRITER_1C'"));
+  assert(!ui.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
   assert(!ui.includes("if (version === '2') return applyCiiWorkspaceTargetWriter2;"));
 
   assert(bridge.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
@@ -173,4 +181,4 @@ function rawPlan(operations, blockers = []) {
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
-console.log('Writer 2 product routing is bridge-bound for V11/V14 while the production default remains Writer 1B.');
+console.log('Writer 2 product routing is bridge-bound for V11/V14 and Writer2 export is byte/proof-authoritative while the production default remains Writer 1B.');
