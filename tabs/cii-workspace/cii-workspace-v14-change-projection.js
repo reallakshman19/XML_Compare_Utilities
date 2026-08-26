@@ -166,6 +166,14 @@ function lcsMatches(baseline, modified, sectionName) {
   return matches;
 }
 
+function assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName) {
+  const modifiedSet = new Set(modifiedKeys);
+  const commonCount = baselineKeys.reduce((count, key) => count + (modifiedSet.has(key) ? 1 : 0), 0);
+  if (matches.length !== commonCount) {
+    throw new Error(`CII_V14_PROJECTION_UNIT_REORDER_NOT_AUTHORIZED:${sectionName}:${commonCount}:${matches.length}`);
+  }
+}
+
 function projectEqualCardinality(original, baseline, modified, sectionName, ledger) {
   const rows = [];
   for (let index = 0; index < baseline.length; index += 1) {
@@ -243,6 +251,7 @@ function projectChangedCardinality(original, baseline, modified, sectionName, le
   const baselineKeys = baselineUnits.map((unit) => unit.key);
   const modifiedKeys = modifiedUnits.map((unit) => unit.key);
   const matches = lcsMatches(baselineKeys, modifiedKeys, sectionName);
+  assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName);
   const output = [];
   let previousB = 0;
   let previousM = 0;
