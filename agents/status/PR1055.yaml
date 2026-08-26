@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-current_stage: W2_33_LIVE_WRITER2_V11_V14_BRIDGE_ROUTING
+current_stage: W2_34_WRITER2_EXPORT_CUSTODY
 agent_state: STACKED_PROGRAM_COMPLETION
 handover_readiness: READY
 criticality: ENGINEERING_CRITICAL
@@ -40,7 +40,7 @@ writer_version_architecture:
   original_v14_untouched_bytes_preserved: true
   canonical_modified_v14_to_v11_exact_postimage_proof_required: true
   projected_native_v14_to_v11_exact_postimage_proof_required: true
-  architecture_state: W2_33_LIVE_PRODUCT_ROUTING_IMPLEMENTED_RUNTIME_PENDING
+  architecture_state: W2_34_LIVE_PRODUCT_ROUTING_EXPORT_CUSTODY_IMPLEMENTED_RUNTIME_PENDING
 
 live_writer2_product_routing:
   state: IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
@@ -51,13 +51,16 @@ live_writer2_product_routing:
   version_bridge_preview_required: true
   version_bridge_apply_required: true
   scoped_apply_missing_version_bridge: FAIL_CLOSED
-  writer2_byte_authoritative_export: true
+  writer2_byte_authoritative_export: REQUIRED
+  writer2_export_missing_bridge_validation: FAIL_CLOSED
+  writer2_export_missing_byte_string: FAIL_CLOSED
+  writer2_text_fallback_allowed: false
   shell:
     file: tabs/cii-workspace/cii-workspace-shell.js
-    blob: ac5412044df3c4b8230bfb2044607944fa9d6442
+    blob: 226ae8f3a7906b0d28a8c10195ad9b27d7f6444e
   scoped_transfer_ui:
     file: tabs/cii-workspace/cii-workspace-transfer-scope-ui.js
-    blob: 2fd96ce57b23da40441e68b6a088b7b048a0b63c
+    blob: 4d60b2c1f418ed3a7490a1f4d91f3c83f2cc5ae8
   engineering_ui:
     file: tabs/cii-workspace/cii-workspace-engineering-ui.js
     blob: cff53d820075417f817d6768c16ce550910c28c5
@@ -66,15 +69,15 @@ live_writer2_product_routing:
     blob: b7589c7595f3b33cdd8529a03c7e990da4b68d76
   focused_source_regression:
     file: tests/cii-workspace-writer2-live-version-bridge-routing.test.js
-    blob: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
+    blob: 20b31c241ded6e475fe293277e3f3d29ac787093
     graph_file_count: 7
-    source_state: PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+    source_state: PASS_SOURCE_INSPECTION_W2_34_LIVE_V11_V14_BRIDGE_AND_EXPORT_CUSTODY
     runtime_state: NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
   broad_product_routing_regression:
     file: tests/cii-workspace-writer2-product-routing.test.js
-    blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+    blob: 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
     graph_file_count: 14
-    source_state: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_PRODUCT_ROUTING
+    source_state: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_PRODUCT_AND_EXPORT_CUSTODY
     runtime_state: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
 
 v14_projection:
@@ -158,9 +161,9 @@ runtime:
   v14_pointer_correlation_w2_32_module_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
   v14_pointer_correlation_w2_32_test_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
   v14_pointer_correlation_w2_32_result: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
-  w2_33_live_route_test_blob: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
-  w2_33_live_route_test_state: PASS_SOURCE_INSPECTION_RUNTIME_PENDING_EXACT_7_FILE_GRAPH
-  writer2_product_routing_static_test_blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
+  w2_34_live_route_test_blob: 20b31c241ded6e475fe293277e3f3d29ac787093
+  w2_34_live_route_test_state: PASS_SOURCE_INSPECTION_RUNTIME_PENDING_EXACT_7_FILE_GRAPH
+  writer2_product_routing_static_test_blob: 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
   writer2_product_routing_static_test_state: PASS_SOURCE_INSPECTION_RUNTIME_PENDING_EXACT_14_FILE_GRAPH
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -173,7 +176,8 @@ runtime:
   engineering_defect_w2_31: FOUND_AND_FIXED_BROAD_CONTROL_ELEMENTS_ROW_ADOPTION_AND_FIELD_CORRELATION_GAPS
   engineering_defect_w2_32: FOUND_AND_FIXED_CARDINALITY_WITHOUT_POINTER_EVIDENCE_GAP
   engineering_defect_w2_33: FOUND_AND_FIXED_LIVE_WRITER2_UI_BYPASSED_VERSION_BRIDGE_AND_WRITER2_WAS_NOT_NORMAL_UTILITIES_REACHABLE
-  regression_test_drift: FOUND_AND_FIXED_STALE_PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS
+  engineering_defect_w2_34: FOUND_AND_FIXED_WRITER2_EXPORT_TEXT_FALLBACK_AND_MISSING_EXPORT_BOUNDARY_BRIDGE_PROOF
+  regression_test_drift: FOUND_AND_FIXED_STALE_PRE_RESTRAINT_AND_PRE_EXPORT_CUSTODY_ASSERTIONS
   engineering_failure_open: NONE
 
 execution_environment:
@@ -182,7 +186,7 @@ execution_environment:
   exact_executable_mirror_available: false
   source_custody_exact_13_file_mirror_available: true
   source_custody_exact_13_file_runtime: PASS
-  w2_33_live_route_exact_7_file_mirror_available: false
+  w2_34_live_route_exact_7_file_mirror_available: false
   writer2_product_routing_exact_14_file_mirror_available: false
   github_actions_authorized: false
   source_inspection_promoted_to_runtime_pass: false
@@ -217,6 +221,9 @@ negative_assurance:
   writer2_auto_selected_by_default_tile: false
   explicit_writer2_live_route_added: true
   live_ui_writer2_bridge_routing_modified: true
+  writer2_export_text_fallback_allowed: false
+  writer2_export_without_bridge_pass_allowed: false
+  writer2_export_without_byte_string_allowed: false
   writer3_changed: false
   workflow_changed_in_current_diff: false
   canonical_v14_whole_file_used_as_output: false
@@ -228,4 +235,4 @@ negative_assurance:
   v11_text_view_used_as_v14_restore_authority: false
 
 changed_file_count_expected: 35
-next_gate: exact_w2_33_live_route_7_file_graph_if_materializable_then_exact_writer2_product_routing_14_file_graph_then_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_browser_regressions_and_freeze
+next_gate: exact_w2_34_live_route_7_file_graph_if_materializable_then_exact_writer2_product_routing_14_file_graph_then_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_browser_regressions_and_freeze
