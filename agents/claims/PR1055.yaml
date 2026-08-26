@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_26_BRIDGE_ARCHITECTURE_FROZEN_RUNTIME_EVIDENCE_PENDING
+claim_state: W2_27_V14_CHANGE_ISOLATION_RUNTIME_CLOSURE_PENDING
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -24,7 +24,6 @@ claims:
     source_repository: reallaksh19/3D_Converters
     source_commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
     source_repository_modified: false
-    target_directory: converters/scripts/cii-v11-v14-upstream
     blobs:
       cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
       cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
@@ -35,69 +34,66 @@ claims:
     runtime_worker_verifies_fetched_git_blobs_before_execution: true
     runtime_worker_writes_exact_verified_bytes: true
 
-  - id: UPSTREAM_DEPENDENCY_ISOLATION
-    state: PASS_SOURCE_INSPECTION
+  - id: NATIVE_V14_BENCHMARK_EXACT_CUSTODY
+    state: PASS_EXACT_BLOB_AND_MEMBER_CUSTODY
     required: true
-    local_xml_section_rules_reused: false
+    archive: Benchmarks/v11-v14.zip
+    archive_size: 10740
+    archive_git_blob: 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+    archive_sha256: da0b276c4c2f3a44c3dcd0a6cddd6ca9fcdfc44709caac7af61083b79bb7f808
+    v14_member: SYS-0001-v14.CII
+    v14_sha256: d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
+    v11_member: SYS-0001-v11.cii
+    v11_sha256: 41ef8912a55a978aa96b3300f42ba2ff335ba5bb35c4882f4012af0e011dc9cc
+    same_model_element_count: 112
 
-  - id: UPSTREAM_V14_CONVERTER_QUALIFICATION_BOUNDARY
-    state: ESTABLISHED_SOURCE_RECORD
+  - id: WHOLE_FILE_CROSS_VERSION_EXACT_ROUNDTRIP_POLICY
+    state: RETIRED_BY_EXACT_NATIVE_BENCHMARK_FALSIFIER
     required: true
-    repository_regressions_present: true
-    paired_benchmark: Benchmarks/v11-v14.zip
-    paired_files: [SYS-0001-v11.cii, SYS-0001-v14.CII]
-    paired_element_count: 112
-    external_caesar_v11_import_save_reexport: NOT_RUN_UPSTREAM
-    target_may_not_promote_external_acceptance_to_pass: true
-
-  - id: V11_WRITER_IMPLEMENTATION_REUSED_UNCHANGED
-    state: PASS_SOURCE_INSPECTION
-    required: true
-    core_v11_writer_modified: false
+    reason: PINNED_CONVERTER_TARGET_DIALECT_FORMATTING_IS_NOT_BYTE_REVERSIBLE
+    concrete_falsifier:
+      native_v14_rigid_value: 2.044599E+02
+      rendered_v11_value: 204.460
+      upgraded_v14_value: 2.044600E+02
+      changed_native_rigid_rows: 26
+      total_native_rigid_rows: 43
+    semantic_equivalence_substitution_allowed: false
 
   - id: V14_WRITER_DIALECT_BRIDGE
-    state: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
+    state: IMPLEMENTED_CHANGE_ISOLATED_RUNTIME_PENDING
     required: true
-    architecture: LOSSLESS_V14_TO_V11_EXISTING_V11_WRITER_V11_TO_V14
+    architecture: ORIGINAL_V14_PLUS_CANONICAL_WRITER_DELTA_VIA_V11
     allow_lossy: false
-    baseline_exact_cross_version_roundtrip_required: true
-    modified_exact_cross_version_roundtrip_required: true
-    broad_v14_canonicalizing_rewrite_allowed: false
-    independent_new_v14_format_writer_created: false
+    canonical_v14_final_output_allowed: false
+    original_v14_untouched_bytes_preserved: true
+    canonical_modified_v14_to_v11_exact_postimage_proof: REQUIRED
+    projected_native_v14_to_v11_exact_postimage_proof: REQUIRED
+    independent_new_v14_writer_created: false
 
-  - id: V14_BRIDGE_BYTE_CUSTODY_HARDENING
-    state: PASS_SOURCE_INSPECTION
+  - id: V14_CHANGE_PROJECTION_AUTHORITY
+    state: IMPLEMENTED_FAIL_CLOSED
     required: true
-    frozen_python_changed: false
-    controls:
-      deployed_python_git_blob_verified_before_execution: true
-      fetched_python_bytes_not_text_reencoded: true
-      pyodide_files_unlinked_before_job_rmdir: true
-      empty_input_rejected_before_fs_job_allocation: true
-      shared_pyodide_jobs_serialized: true
-      failed_job_does_not_poison_serial_queue: true
-      worker_messageerror_rejects_pending_and_resets_worker: true
-      failed_postmessage_removes_pending_job: true
-      worker_cache_key: 20260825-frozen-3d-converters-7
-      physical_source_version_checked_independently: true
-      physical_target_version_checked_independently: true
-      nonintegral_version_alias_blocked: true
-      converter_audit_schema_required: true
-      converter_audit_arrays_required: true
-      converter_audit_source_and_target_byte_counts_crosschecked: true
-      converter_audit_arrays_immutable: true
-      converter_source_sha_crosschecked_against_independent_js_sha: true
-      converter_target_sha_crosschecked_against_independent_js_sha: true
-      original_and_normalized_sha_provenance_bound: true
-      normalized_workspace_intake_sha_crosschecked: true
-      stale_original_and_normalized_target_checked: true
-      canonical_exported_audit_contains_bridge_provenance: true
-      v11_writer_text_not_used_as_restore_authority: true
-      v11_writer_byte_string_required: true
-      v11_writer_postimage_sha_crosschecked_before_v14_conversion: true
-      modified_roundtrip_compares_exact_v11_postimage_bytes: true
-    authored_falsifier: tests/cii-workspace-v11-v14-frozen-source.test.js
-    authored_falsifier_runtime: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+    module: tabs/cii-workspace/cii-workspace-v14-change-projection.js
+    schema: CIIWorkspaceV14ChangeProjection.v2
+    projectable_changed_sections: [CONTROL, ELEMENTS, NODENAME, RESTRANT, SIF&TEES, MISCEL_1]
+    unlisted_changed_section: BLOCK
+    cardinality_units:
+      NODENAME: 1
+      RESTRANT: 24
+      SIF&TEES: 14
+    duplicate_unit_identity: BLOCK
+    non_isolated_cardinality: BLOCK
+    hanger_miscel_cardinality: NOT_QUALIFIED_BLOCK
+
+  - id: V14_CHANGE_PROJECTION_FOCUSED_RUNTIME
+    state: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
+    required: true
+    module_blob: 0a04c75c2ed0880a815c17616a7c99afcde132c2
+    test_blob: 60f1586e5ac469988b59ede2b59258dcdc771e57
+    command: node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
+    observation: LOCAL_EXECUTION
+    oracle: INDEPENDENT_ASSERTIONS_IN_AUTHORED_TEST
+    scope_limit: DOES_NOT_QUALIFY_FULL_BRIDGE_PYODIDE_PRODUCT_OR_BROWSER
 
   - id: V14_BRIDGE_ENGINEERING_AUTHORITY_BOUNDARY
     state: PASS_SOURCE_INSPECTION
@@ -107,12 +103,6 @@ claims:
     hanger_create_enabled: false
     restraint_create_enabled: false
     writer3_topology_enabled: false
-
-  - id: V11_CREATE_SOURCE_SCOPE
-    state: COMPLETE_SOURCE_BLOCKED_WHERE_UNQUALIFIED
-    sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
-    hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
-    restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
 
   - id: W2_11_RESTRAINT_RUNTIME
     state: PASS_RUNTIME_EXACT_BLOB
@@ -126,27 +116,12 @@ claims:
     state: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
     required: true
     exact_entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
-    assertion_failure_observed: false
 
   - id: V11_V14_EXTRACTED_RUNTIME
     state: PASS_RUNTIME_EXACT_SOURCE_EXCERPT
     required: false
     qualifying_for_full_engine_gate: false
-    evidence: docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
     falsifier_count: 12
-    falsifiers:
-      source_version_11_admitted: PASS
-      source_version_14_admitted: PASS
-      source_version_12_rejected: PASS
-      sif_axial_torsion_semantic_swap: PASS
-      nonzero_v14_sif_item27_rejected: PASS
-      ambiguous_v11_sif_item19_rejected: PASS
-      restraint_default_stiffness_mapping: PASS
-      nonzero_v14_allowables_item154_rejected: PASS
-      git_blob_hash_algorithm_independently_agrees: PASS
-      missing_loss_events_audit_rejected: PASS
-      binary_byte_string_roundtrip_and_overflow_rejection: PASS
-      serialized_failed_job_does_not_overlap_or_poison_next: PASS
 
   - id: V11_V14_FROZEN_SOURCE_TARGET_TEST
     state: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
@@ -158,14 +133,10 @@ claims:
     required: true
     path: tests/cii-workspace-v11-v14-frozen-engine.test.py
 
-  - id: V14_BASELINE_EXACT_ROUNDTRIP
+  - id: REAL_V14_CHANGE_ISOLATED_WRITER2_ROUNDTRIP
     state: NOT_RUN
     required: true
-    weakening_to_semantic_equivalence_authorized: false
-
-  - id: V14_MODIFIED_WRITER2_ROUNDTRIP
-    state: NOT_RUN
-    required: true
+    required_oracle: PROJECTED_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
 
   - id: EXTERNAL_CAESAR_V11_ACCEPTANCE
     state: NOT_RUN
@@ -175,18 +146,19 @@ claims:
   - id: NO_GITHUB_ACTIONS_QUALIFICATION
     state: PASS_POLICY_RECONCILIATION
     github_actions_authorized: false
-    current_diff_contains_workflow: false
     workflow_result_used_as_evidence: false
 
   - id: WRITER2_PROGRAM_CAPABILITY_MATRIX
     state: ESTABLISHED
     classifications:
-      nodename_create_delete: DONE
-      sif_delete_compaction: DONE
-      hanger_delete_all: DONE
-      hanger_partial_delete: DONE_PRODUCT_ROUTED
-      restraint_delete_product: IMPLEMENTED_RUNTIME_PENDING
-      v14_lossless_dialect_bridge: IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING
+      nodename_create_delete_v11: DONE
+      nodename_cardinality_v14_projection: IMPLEMENTED_RUNTIME_PENDING
+      sif_delete_compaction_v11: DONE
+      sif_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING
+      hanger_delete_v11: DONE_PRODUCT_ROUTED
+      hanger_cardinality_v14_projection: NOT_QUALIFIED_FAIL_CLOSED
+      restraint_delete_product_v11: IMPLEMENTED_RUNTIME_PENDING
+      restraint_delete_v14_projection: IMPLEMENTED_RUNTIME_PENDING
       sif_create: SOURCE_BLOCKED_REAFFIRMED_V11
       hanger_create: SOURCE_BLOCKED_REAFFIRMED_V11
       restraint_create: SOURCE_BLOCKED_REAFFIRMED_V11
@@ -197,20 +169,16 @@ claims:
 
 validation_integrity:
   source_3d_converters_modified: false
-  frozen_python_rewritten: false
-  deployed_frozen_python_unverified_before_execution: false
-  local_dependency_substituted: false
   lossy_bridge_enabled: false
-  malformed_converter_audit_treated_as_no_loss: false
-  normalized_intake_hash_unchecked: false
-  version_bridge_omitted_from_exported_audit: false
+  whole_file_cross_version_byte_identity_claimed: false
+  broad_canonical_v14_rewrite_used_as_output: false
+  unqualified_v14_changed_section_projection_allowed: false
+  hanger_cardinality_v14_projection_claimed_qualified: false
   v11_writer_text_view_used_as_restore_authority: false
-  source_inspection_promoted_to_runtime_pass: false
-  extracted_source_runtime_promoted_to_full_engine_pass: false
+  focused_projection_runtime_promoted_to_full_bridge_pass: false
   not_run_promoted_to_pass: false
   upstream_external_caesar_acceptance_promoted_to_pass: false
-  v14_converter_promoted_to_v11_create_authority: false
   issue_1042_nonam_restraints_authority_separation_preserved: true
   writer3_scope_leakage: false
 
-next_claim_gate: execute_exact_repository_module_graph_frozen_source_and_engine_tests_then_existing_W2_13_then_retained_real_v11_then_real_v14_baseline_and_modified_roundtrip_then_writer2_regressions
+next_claim_gate: execute_exact_full_repository_bridge_graph_then_existing_w2_13_then_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
