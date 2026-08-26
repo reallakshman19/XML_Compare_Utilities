@@ -124,6 +124,9 @@ function rawPlan(operations, blockers = []) {
   const core = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-core.js', import.meta.url), 'utf8');
   const scope = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-transfer-scope.js', import.meta.url), 'utf8');
   const ui = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-transfer-scope-ui.js', import.meta.url), 'utf8');
+  const shell = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-shell.js', import.meta.url), 'utf8');
+  const engineeringUi = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-engineering-ui.js', import.meta.url), 'utf8');
+  const bridge = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-writer-version-bridge.js', import.meta.url), 'utf8');
   const tab = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-tab.js', import.meta.url), 'utf8');
   assert(core.includes("['1A', '1B', '1C', '2']"));
   assert(core.includes("? options.writerVersion : '1B'"), 'production default must remain Writer 1B');
@@ -138,11 +141,36 @@ function rawPlan(operations, blockers = []) {
   assert(scope.includes("preview?.writerVersion === '2'"));
   assert(scope.includes('ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph)'));
   assert(scope.includes("['1A', '1B', '1C', '2']"));
-  assert(ui.includes('applyCiiWorkspaceTargetWriter2'));
+
+  assert(shell.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
+  assert(shell.includes('createCiiWorkspacePreviewWithVersionBridge'));
+  assert(shell.includes('applyCiiWorkspaceTargetWriter2WithVersionBridge'));
+  assert(shell.includes("options?.writerVersion === '2'"));
+  assert(shell.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
+  assert(!shell.includes("if (version === '2') return applyCiiWorkspaceTargetWriter2;"));
+
+  assert(engineeringUi.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
+  assert(engineeringUi.includes("options?.writerVersion === '2' ? inspectCiiWorkspaceModelsWithVersionBridge"));
+  assert(engineeringUi.includes('new Uint8Array(await sourceFile.arrayBuffer())'));
+  assert(engineeringUi.includes('new Uint8Array(await targetFile.arrayBuffer())'));
+  assert(engineeringUi.includes("current?.writerVersion || options?.writerVersion || '1B'"));
+
+  assert(ui.includes('applyCiiWorkspaceTargetWriter2WithVersionBridge'));
+  assert(ui.includes('writer2BridgeReady'));
+  assert(ui.includes('Boolean(preview?.versionBridge)'));
+  assert(ui.includes('Writer 2 version-bridge evidence is missing'));
   assert(ui.includes("['WRITER_1C', 'WRITER_2'].includes(applied?.writer)"));
+  assert(!ui.includes("if (version === '2') return applyCiiWorkspaceTargetWriter2;"));
+
+  assert(bridge.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
+  assert(bridge.includes('createCiiWorkspacePreviewWithVersionBridge'));
+  assert(bridge.includes('applyCiiWorkspaceTargetWriter2WithVersionBridge'));
+  assert(bridge.includes("path: 'DIRECT_V11'"));
+  assert(bridge.includes("path: 'V14_CHANGE_ISOLATED_VIA_V11'"));
+
   assert(tab.includes('mountCiiWorkspaceScopedEngineeringShell'));
   assert(tab.includes('...(context.writerVersion ? { writerVersion: context.writerVersion } : {})'));
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
-console.log('Writer 2 standalone NODENAME authority remains qualified while product/core routing uses the one-preimage composite.');
+console.log('Writer 2 product routing is bridge-bound for V11/V14 while the production default remains Writer 1B.');
