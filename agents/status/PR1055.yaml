@@ -63,6 +63,17 @@ v14_writer2_fixed_field_authority:
   schema: CIIWorkspaceV14Writer2FixedFieldAuthority.v1
   module_blob: 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
   bridge_integration_blob: 8038993f0a97719c0c316f31c2d6c30ea0386ec4
+  native_v14_layout_crosscheck: PASS_SOURCE_INSPECTION_AUTHORITATIVE_REFERENCE
+  native_v14_layout_sources:
+    - reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4:converters/scripts/cii14_section_rules.py
+    - reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4:converters/scripts/cii14_multi_merge.py
+    - frozen:converters/scripts/cii-v11-v14-upstream/cii_v11_v14_records.py
+  native_v14_layout_facts:
+    control_layout_reuses_v11: true
+    element_record_rows: 15
+    numeric_field_profile: 2X_PLUS_13_COLUMN_CELLS
+    element_rows_12_15_preserved_across_converter: true
+    upstream_v14_hangers_merge_blocked: true
   control_fields:
     row0_field3: CONTROL_NODENAME_NONAM_COUNT
     row1_field3: CONTROL_RESTRAINT_BLOCK_COUNT
