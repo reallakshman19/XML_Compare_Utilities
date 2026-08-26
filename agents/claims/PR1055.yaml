@@ -124,10 +124,13 @@ claims:
     executed_test_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
 
   - id: V11_V14_FROZEN_SOURCE_CURRENT
-    state: NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
+    state: PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
     required: true
     current_test_blob: ade99d0d4f4d4ff394a90f81286e4394b5409a54
     current_graph_file_count: 13
+    command: node --experimental-default-type=module tests/cii-workspace-v11-v14-frozen-source.test.js
+    exact_blob_admission: true
+    admitted_blob_count: 13
     source_inspection_promoted_to_runtime_pass: false
 
   - id: W2_11_RESTRAINT_RUNTIME
@@ -196,4 +199,4 @@ validation_integrity:
   writer3_scope_leakage: false
 
 changed_file_count_expected: 29
-next_claim_gate: current_13_file_source_custody_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
+next_claim_gate: exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_regressions_and_freeze
