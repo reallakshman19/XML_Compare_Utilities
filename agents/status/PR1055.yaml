@@ -123,6 +123,9 @@ runtime:
   v14_pointer_correlation_w2_32_module_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
   v14_pointer_correlation_w2_32_test_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
   v14_pointer_correlation_w2_32_result: PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+  writer2_product_routing_static_test_blob: cb324b739bae4cb0050ee236b70d80dfa3fdedaf
+  writer2_product_routing_static_test_state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_11_FILE_GRAPH
+  writer2_product_routing_source_architecture_check: PASS_SOURCE_INSPECTION_CURRENT_RESTRAINT_PRODUCT_ROUTING
   w2_13_synthetic_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   w2_13_real_cii_runtime: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
   v14_real_writer2_change_isolated_roundtrip: NOT_RUN
@@ -133,6 +136,7 @@ runtime:
   repository_npm: NOT_RUN_ENVIRONMENT
   engineering_defect_w2_31: FOUND_AND_FIXED_BROAD_CONTROL_ELEMENTS_ROW_ADOPTION_AND_FIELD_CORRELATION_GAPS
   engineering_defect_w2_32: FOUND_AND_FIXED_CARDINALITY_WITHOUT_POINTER_EVIDENCE_GAP
+  regression_test_drift: FOUND_AND_FIXED_STALE_PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS
   engineering_failure_open: NONE
 
 execution_environment:
@@ -141,6 +145,7 @@ execution_environment:
   exact_executable_mirror_available: false
   source_custody_exact_13_file_mirror_available: true
   source_custody_exact_13_file_runtime: PASS
+  writer2_product_routing_exact_11_file_mirror_available: false
   github_actions_authorized: false
   source_inspection_promoted_to_runtime_pass: false
   focused_runtime_promoted_to_full_bridge_pass: false
@@ -181,5 +186,5 @@ negative_assurance:
   nodename_absent_section_create_claimed: false
   v11_text_view_used_as_v14_restore_authority: false
 
-changed_file_count_expected: 29
-next_gate: exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_regressions_and_freeze
+changed_file_count_expected: 30
+next_gate: exact_writer2_product_routing_11_file_graph_if_materializable_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_writer2_roundtrip_regressions_and_freeze
