@@ -88,6 +88,16 @@ COORDS        2
 
 The V14 member uses CRLF; the V11 member uses LF.
 
+The exact native V14 member also provides the physical-identity check used by projection design:
+
+```text
+40 / 40 RESTRAINT 24-row blocks unique
+2 / 2 SIF&TEES 14-row blocks unique
+55 / 55 NODENAME 1-row units unique
+```
+
+This does not remove the runtime duplicate-unit blocker; it only proves the retained benchmark itself is not rejected by that ambiguity rule.
+
 ## 4. Decisive cross-version byte-identity falsifier
 
 Pinned formatter authority:
@@ -148,7 +158,7 @@ XML_BRIDGE_POLICY_DEFECT
   = TRUE / CORRECTED_ON_PR1055
 ```
 
-This is not represented as a full unchanged-module converter runtime because the exact target repository module graph remains unavailable in the execution environment.
+This source falsifier is independent of the full target-repository converter runtime; it derives from exact benchmark bytes plus exact pinned formatter/routing source.
 
 ## 5. Corrected V14 Writer2 model
 
@@ -191,31 +201,51 @@ Implementation:
 
 ```text
 tabs/cii-workspace/cii-workspace-v14-change-projection.js
+schema CIIWorkspaceV14ChangeProjection.v2
+```
+
+Changed-section allowlist:
+
+```text
+CONTROL
+ELEMENTS
+NODENAME
+RESTRANT
+SIF&TEES
+MISCEL_1
+```
+
+Any canonical delta in an unlisted section, including `RIGID`, `UNITS`, or `COORDS`, blocks rather than being projected.
+
+Equal-cardinality rule:
+
+```text
+baseline field unchanged -> retain ORIGINAL native V14 field bytes
+baseline field changed   -> apply only the canonical modified field
+changed-field preimage   -> must be compatible with ORIGINAL
+ambiguous/non-fixed replacement -> BLOCK
+```
+
+Cardinality is not row-LCS custody. It uses qualified physical units:
+
+```text
+NODENAME   1 row/unit
+RESTRANT  24 rows/unit
+SIF&TEES  14 rows/unit in V14
 ```
 
 Rules:
 
 ```text
-unchanged canonical section
-  -> copy original native V14 header/rows exactly
-
-equal-cardinality changed fixed-width row
-  -> retain unchanged original fields
-  -> apply only fields changed baseline -> modified
-  -> changed-field preimage must be compatible
-
-isolated canonical row deletion
-  -> delete corresponding original-coordinate rows
-
-isolated canonical row insertion
-  -> insert qualified canonical target rows
-
-mixed cardinality rewrite without stable isolation
-  -> BLOCK
-
-section-order drift / row-count preimage drift / non-fixed ambiguous replacement
-  -> BLOCK
+unique canonical unit identities required
+isolated unit deletion/insertion only
+duplicate unit identity -> BLOCK
+unit misalignment -> BLOCK
+mixed replacement/cardinality run -> BLOCK
+unqualified cardinality section -> BLOCK
 ```
+
+`MISCEL_1`/HANGER cardinality remains deliberately unqualified and fail-closed.
 
 Final authority gate:
 
@@ -226,25 +256,63 @@ frozen V14->V11(projected V14 TARGET1)
 
 Thus converter formatting normalization outside Writer2's actual mutation cannot leak into the final V14 file.
 
-## 7. Updated qualification state
+## 7. Focused projection runtime — executed
+
+The projection module has a bounded pure-JS graph. The exact current PR module and authored test were materialized, and their Git-object identities were independently checked before execution:
+
+```text
+module
+  tabs/cii-workspace/cii-workspace-v14-change-projection.js
+  Git blob 0a04c75c2ed0880a815c17616a7c99afcde132c2
+
+test
+  tests/cii-workspace-v14-change-projection.test.js
+  Git blob 60f1586e5ac469988b59ede2b59258dcdc771e57
+
+command
+  node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
+
+result
+  PASS
+```
+
+Classification:
+
+```text
+PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
+```
+
+The assertions cover original-byte preservation, qualified fixed-row projection, unauthorized `RIGID` delta blocking, 24-row RESTRAINT deletion, duplicate-unit rejection, non-isolated NODENAME cardinality rejection, unqualified MISCEL/HANGER cardinality rejection, section-order rejection and CRLF custody.
+
+This PASS does **not** qualify the full frozen Python graph, Worker/Pyodide bridge, W2.13 product, real native V14 Writer2 mutation, browser path, or external CAESAR acceptance.
+
+## 8. Updated qualification state
 
 ```text
 BENCHMARK_ZIP_CUSTODY                    PASS_EXACT_GIT_BLOB
 BENCHMARK_PAIR_EXTRACTION                PASS_EXACT_BYTES
-OLD_BASELINE_EXACT_GATE                  FAIL_EXACT_BENCHMARK_SOURCE_FALSIFIER
-V14_CHANGE_ISOLATION_ARCHITECTURE        IMPLEMENTED_SOURCE_PENDING_RUNTIME
+OLD_BASELINE_EXACT_GATE                  REJECTED_EXACT_BENCHMARK_SOURCE_FALSIFIER
+V14_CHANGE_ISOLATION_ARCHITECTURE        IMPLEMENTED
+V14_PROJECTION_FOCUSED_RUNTIME           PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
+FULL_FROZEN_ENGINE_RUNTIME               NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+FROZEN_SOURCE_AUTHORED_JS                NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
+REAL_BENCHMARK_FULL_CONVERTER_NORMALIZE  NOT_RUN
+REAL_WRITER2_PROJECTED_V14_MUTATION      NOT_RUN
 PROJECTED_V14_FINAL_NORMALIZATION_PROOF  IMPLEMENTED_PENDING_RUNTIME
+BROWSER_PYODIDE_PRODUCT                  NOT_RUN
 LIVE_UI_AUTO_ADOPTION                    DISABLED
+EXTERNAL_CAESAR_ACCEPTANCE               NOT_RUN
 ```
 
-Required runtime gates remain:
+## 9. Remaining runtime gates
 
 ```text
-1. authored pure projection test on exact repository module graph
-2. frozen-source and frozen-engine authored tests
-3. real benchmark V14 normalization with pinned full converter
-4. real Writer2 mutation through projection
+1. frozen-engine authored Python test on its exact frozen graph
+2. frozen-source authored JS test on its exact repository graph
+3. real benchmark V14 normalization with the full pinned converter
+4. real Writer2 mutation through canonical differential + original-byte projection
 5. projected V14 -> V11 exact equality with Writer2 V11 postimage
-6. browser/Pyodide product qualification
-7. external CAESAR import/save/re-export acceptance, tracked separately
+6. W2.13 / retained-real V11 Writer2 product gates
+7. browser/Pyodide product qualification
+8. external CAESAR import/save/re-export acceptance, tracked separately
 ```
