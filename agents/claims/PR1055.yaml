@@ -3,7 +3,7 @@ issue: 1052
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-restraint-product-runtime-w218
 base_main: 297fb37a0e894a3aac91de9188ebf30e810781fb
-claim_state: W2_33_LIVE_WRITER2_V11_V14_BRIDGE_ROUTING
+claim_state: W2_34_WRITER2_EXPORT_CUSTODY
 ready_for_review: false
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -27,7 +27,7 @@ claims:
     canonical_v14_final_output_allowed: false
     projected_native_v14_to_v11_exact_postimage_proof: REQUIRED
 
-  - id: WRITER2_LIVE_V11_V14_PRODUCT_ROUTE_W2_33
+  - id: WRITER2_LIVE_V11_V14_PRODUCT_ROUTE_W2_34
     state: IMPLEMENTED_SOURCE_INSPECTION_RUNTIME_PENDING
     required: true
     production_default_writer: WRITER_1B
@@ -37,39 +37,38 @@ claims:
     preview_route: createCiiWorkspacePreviewWithVersionBridge
     apply_route: applyCiiWorkspaceTargetWriter2WithVersionBridge
     scoped_apply_requires_version_bridge: true
-    byte_authoritative_writer2_export: true
+    writer2_export_requires_version_bridge_validation_pass: true
+    writer2_export_requires_byte_string: true
+    writer2_text_fallback_allowed: false
     files:
-      shell: ac5412044df3c4b8230bfb2044607944fa9d6442
-      transfer_scope_ui: 2fd96ce57b23da40441e68b6a088b7b048a0b63c
+      shell: 226ae8f3a7906b0d28a8c10195ad9b27d7f6444e
+      transfer_scope_ui: 4d60b2c1f418ed3a7490a1f4d91f3c83f2cc5ae8
       engineering_ui: cff53d820075417f817d6768c16ce550910c28c5
       tab: b7589c7595f3b33cdd8529a03c7e990da4b68d76
       bridge: 8038993f0a97719c0c316f31c2d6c30ea0386ec4
-      focused_source_regression: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
-      broader_product_regression: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
-    source_verdict: PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+      focused_source_regression: 20b31c241ded6e475fe293277e3f3d29ac787093
+      broader_product_regression: 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
+    source_verdict: PASS_SOURCE_INSPECTION_W2_34_LIVE_V11_V14_BRIDGE_AND_EXPORT_CUSTODY
     focused_runtime_verdict: NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
     broader_runtime_verdict: NOT_RUN_EXACT_14_FILE_GRAPH_NOT_MATERIALIZED
     browser_verdict: NOT_RUN
 
-  - id: WRITER2_LIVE_V11_V14_PRODUCT_ROUTE_W2_33_SOURCE_REGRESSION
-    state: PASS_SOURCE_INSPECTION_W2_33_LIVE_V11_V14_BRIDGE_ROUTING
+  - id: WRITER2_EXPORT_CUSTODY_W2_34
+    state: PASS_SOURCE_INSPECTION_FAIL_CLOSED_EXPORT_BOUNDARY
     required: true
-    test: tests/cii-workspace-writer2-live-version-bridge-routing.test.js
-    test_blob: eee5776113ed8ce0e2e6d780f6897d0f3c830fee
-    graph_file_count: 7
-    asserts:
-      - NORMAL_UTILITIES_REGISTRY_RETAINS_CII_WORKSPACE
-      - SEPARATE_WRITER2_V11_V14_TILE_PRESENT
-      - WRITER2_NOT_SILENT_DEFAULT
-      - WRITER2_INSPECT_BRIDGE_BOUND
-      - WRITER2_PREVIEW_BRIDGE_BOUND
-      - WRITER2_APPLY_BRIDGE_BOUND
-      - SCOPED_WRITER2_REQUIRES_VERSION_BRIDGE_EVIDENCE
-      - WRITER2_BYTE_AUTHORITATIVE_EXPORT
-      - DIRECT_V11_AND_V14_CHANGE_ISOLATED_PATHS_PRESENT
-      - PROJECTED_V14_DOWNGRADE_MUST_EQUAL_V11_POSTIMAGE
-    runtime_state: NOT_RUN_EXACT_7_FILE_GRAPH_NOT_MATERIALIZED
-    source_inspection_promoted_to_runtime_pass: false
+    shell_blob: 226ae8f3a7906b0d28a8c10195ad9b27d7f6444e
+    scoped_ui_blob: 4d60b2c1f418ed3a7490a1f4d91f3c83f2cc5ae8
+    blockers:
+      - CII_WRITER_2_VERSION_BRIDGE_VALIDATION_REQUIRED
+      - CII_WRITER_2_BYTE_STRING_REQUIRED
+    rules:
+      - WRITER2_NO_TEXT_FALLBACK
+      - WRITER2_EXPORT_REQUIRES_VERSION_BRIDGE_VALIDATION_PASS
+      - WRITER2_EXPORT_REQUIRES_BYTE_STRING
+      - WRITER1C_BYTE_EXPORT_BEHAVIOR_PRESERVED
+      - WRITER1A_B_TEXT_BEHAVIOR_PRESERVED
+    source_regression_blob: 20b31c241ded6e475fe293277e3f3d29ac787093
+    runtime_promoted: false
 
   - id: V14_CHANGE_PROJECTION_AUTHORITY
     state: IMPLEMENTED_FAIL_CLOSED_W2_30
@@ -162,11 +161,6 @@ claims:
     final_result: 6_PASS_0_FAIL
     frozen_python_modified: false
 
-  - id: V11_V14_FROZEN_SOURCE_LAST_EXECUTED
-    state: PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-    required: true
-    executed_test_blob: 18433c7664428a02bea97625ce6bdc3c21bd8365
-
   - id: V11_V14_FROZEN_SOURCE_CURRENT
     state: PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
     required: true
@@ -180,8 +174,8 @@ claims:
   - id: WRITER2_PRODUCT_ROUTING_STATIC_REGRESSION
     state: SOURCE_ASSERTIONS_UPDATED_RUNTIME_PENDING_EXACT_14_FILE_GRAPH
     required: true
-    current_test_blob: 5588e5b86cc2855bfb6e2707da3dcddf3849d2cb
-    drift_found: PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS_AND_UNBRIDGED_LIVE_WRITER2_ROUTE
+    current_test_blob: 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
+    drift_found: PRE_RESTRAINT_PRODUCT_CORE_ASSERTIONS_AND_UNBRIDGED_LIVE_WRITER2_ROUTE_AND_PRE_EXPORT_CUSTODY_ASSERTIONS
     current_assertions:
       - writer2HasRestraintApply
       - applyCiiWriter2CompositeWithRestraintDelete
@@ -191,8 +185,11 @@ claims:
       - createCiiWorkspacePreviewWithVersionBridge
       - applyCiiWorkspaceTargetWriter2WithVersionBridge
       - scoped_writer2_versionBridge_required
+      - writer2_export_bridge_validation_required
+      - writer2_export_byte_string_required
+      - writer2_text_fallback_forbidden
       - production_default_writer1b_preserved
-    source_architecture_check: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_V11_V14_PRODUCT_ROUTING
+    source_architecture_check: PASS_SOURCE_INSPECTION_BRIDGE_BOUND_PRODUCT_AND_EXPORT_CUSTODY
     runtime_promoted: false
 
   - id: W2_11_RESTRAINT_RUNTIME
@@ -256,6 +253,9 @@ validation_integrity:
   production_default_writer1b_changed: false
   writer2_auto_selected: false
   writer2_live_route_bypasses_version_bridge: false
+  writer2_export_text_fallback_allowed: false
+  writer2_export_without_bridge_pass_allowed: false
+  writer2_export_without_byte_string_allowed: false
   focused_runtime_promoted_to_full_bridge_pass: false
   native_v14_layout_source_inspection_promoted_to_runtime_pass: false
   current_source_test_promoted_to_pass_without_rerun: false
@@ -266,4 +266,4 @@ validation_integrity:
   writer3_scope_leakage: false
 
 changed_file_count_expected: 35
-next_claim_gate: exact_w2_33_live_route_7_file_graph_if_materializable_then_exact_writer2_product_routing_14_file_graph_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_browser_regressions_and_freeze
+next_claim_gate: exact_w2_34_live_route_7_file_graph_if_materializable_then_exact_writer2_product_routing_14_file_graph_then_exact_full_workspace_w2_13_and_retained_real_v11_then_real_v14_change_isolated_writer2_roundtrip_then_browser_regressions_and_freeze
