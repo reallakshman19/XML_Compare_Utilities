@@ -8,7 +8,6 @@ const PROJECTABLE_CHANGED_SECTIONS = new Set([
   'NODENAME',
   'RESTRANT',
   'SIF&TEES',
-  'MISCEL_1',
 ]);
 const CARDINALITY_UNIT_ROWS = Object.freeze({
   NODENAME: 1,
