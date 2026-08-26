@@ -64,7 +64,7 @@ physical cardinality change
 
 This is grounded in all three existing V11 Writer2 cardinality paths, not inferred from V14.
 
-The current strengthened source-custody test is now directly executed on an exact 13-file Git-blob-admitted graph:
+Current strengthened source-custody runtime:
 
 ```text
 test   ade99d0d4f4d4ff394a90f81286e4394b5409a54
