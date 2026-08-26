@@ -24,18 +24,25 @@ XML_Compare_Utilities already contains `converters/scripts/cii2019_section_rules
 
 ## Adaptation boundary
 
-Only target-repository integration code outside this directory may be adapted. The frozen upstream Python files must not be edited to fit the CII Workspace.
+Only target-repository integration code outside the frozen Python files may be adapted. The six `.py` files in this directory must not be edited to fit the CII Workspace.
 
 Writer integration is fail-closed:
 
 ```text
-V11 target -> existing qualified CII Workspace writer directly
+V11 target
+  -> existing qualified CII Workspace writer directly
 
-V14 target -> lossless upstream v14->v11 normalization
-           -> exact untouched v14->v11->v14 roundtrip equality gate
-           -> existing qualified V11 CII Workspace writer
-           -> lossless upstream v11->v14 conversion
-           -> upstream target-version structural validation
+V14 target
+  -> preserve ORIGINAL native V14 bytes and SHA custody
+  -> lossless upstream V14->V11 normalization, allow_lossy=false
+  -> existing qualified V11 CII Workspace writer + independent V11 postimage validation
+  -> upstream V11->V14 canonical baseline/modified representations as differential evidence
+  -> isolate only the canonical Writer2 delta
+  -> project that delta onto ORIGINAL native V14 bytes
+  -> upstream V14->V11 proof of the projected V14 output
+  -> require exact equality with the validated V11 Writer2 postimage
 ```
 
-No `allow_lossy` conversion is permitted in a Writer1/Writer2 bridge. A source/target that cannot be represented losslessly in V11 remains outside the bridged writer authority.
+The canonical V14 conversion result is not broad final-output authority. The former XML-side requirement that untouched `V14->V11->V14` be byte-identical to the original V14 file was retired after the exact pinned benchmark proved target-dialect formatting is not cross-version byte-reversible.
+
+No `allow_lossy` conversion is permitted in a Writer1/Writer2 bridge. A source/target that cannot be represented without converter loss events remains outside the bridged writer authority. The bridge does not fill any V11 SIF/HANGER/RESTRAINT CREATE authority gap and does not authorize Writer3 topology mutation.
