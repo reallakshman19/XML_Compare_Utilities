@@ -15,7 +15,7 @@ function ensureStylesheet(documentRef) {
 function installWriter1CSifContextControls(root, state) {
   const panel = root.querySelector('[data-ciiw-panel="inputs"]'); if (!panel) return () => {};
   const section = root.ownerDocument.createElement('section'); section.className = 'ciiw-sif-context'; section.setAttribute('data-ciiw-sif-context', '1');
-  section.innerHTML = `<h3>Writer 1C SIF engineering context</h3><p>Required only for Version-11 item3/item4 ii/io mutation. Enter the active piping-code basis on both models and explicitly attest that the basis is the same.</p><div class="ciiw-intake"><label>SOURCE active piping code <input type="text" data-ciiw-sif-source-code placeholder="e.g. ASME B31.3-2018"></label><label>TARGET active piping code <input type="text" data-ciiw-sif-target-code placeholder="e.g. ASME B31.3-2018"></label><label><input type="checkbox" data-ciiw-sif-code-attest> I attest that SOURCE and TARGET use the same active piping-code basis for these SIF values.</label></div><small>Changing this context invalidates the current mutation authorization. Run Compare models again before binding APPLY / EXCLUDE scope.</small>`;
+  section.innerHTML = `<h3>Writer 1C SIF engineering context</h3><p>Required only for Version-11 item3/item4 ii/io mutation. Enter the active piping-code basis on both models and explicitly attest that the basis is the same.</p><div class="ciiw-intake"><label>SOURCE active piping code <input type="text" data-ciiw-sif-source-code placeholder="e.g. ASME B31.3-2018"></label><label>TARGET active piping code <input type="text" data-ciiw-sif-target-code placeholder="e.g. ASME B31.3-2018"></label><label><input type="checkbox" data-ciiw-sif-code-attest> I attest that SOURCE and TARGET use the same active piping-code basis for these SIF values.</label></div><small>Changing this context invalidates the current mutation authorization. Run Compare models again before Writer 1C authorization.</small>`;
   panel.appendChild(section);
   const source = section.querySelector('[data-ciiw-sif-source-code]'); const target = section.querySelector('[data-ciiw-sif-target-code]'); const attest = section.querySelector('[data-ciiw-sif-code-attest]');
   source.value = state.sourceCode || ''; target.value = state.targetCode || ''; attest.checked = state.authority === SIF_CONTEXT_AUTHORITY;
@@ -29,17 +29,36 @@ function installWriter1CSifContextControls(root, state) {
   return () => { source.removeEventListener('input', update); target.removeEventListener('input', update); attest.removeEventListener('change', update); section.remove(); };
 }
 
+function workspaceTile(documentRef, attribute, title, description) {
+  const tile = documentRef.createElement('button'); tile.type = 'button';
+  tile.className = 'psmap-card psmap-tile'; tile.setAttribute(attribute, '1');
+  tile.innerHTML = `<b>${title}</b><span>${description}</span>`;
+  return tile;
+}
+
 export function installCiiWorkspaceTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
   if (container.querySelector('[data-ciiw-open]')) return () => {};
-  const tile = container.ownerDocument.createElement('button'); tile.type = 'button';
-  tile.className = 'psmap-card psmap-tile'; tile.setAttribute('data-ciiw-open', '1');
-  tile.innerHTML = '<b>CII Workspace</b><span>Method-qualified model correspondence and explicitly scoped target transfer review</span>';
+  const tile = workspaceTile(
+    container.ownerDocument,
+    'data-ciiw-open',
+    'CII Workspace',
+    'Method-qualified model correspondence and explicitly scoped target transfer review',
+  );
   container.appendChild(tile);
+  const writer2Tile = context.writerVersion ? null : workspaceTile(
+    container.ownerDocument,
+    'data-ciiw-open-writer2',
+    'CII Writer 2 — V11 / V14',
+    'Explicit Writer 2 cardinality transfer using V11 authority and the frozen V11↔V14 bridge',
+  );
+  if (writer2Tile) container.appendChild(writer2Tile);
+
   let overlay = null; let active = null; let disposeSifContext = null;
   const close = () => { disposeSifContext?.(); active?.destroy(); overlay?.remove(); disposeSifContext = null; active = null; overlay = null; };
-  const open = () => {
+  const open = (writerVersionOverride = null) => {
     if (active) return;
+    const writerVersion = writerVersionOverride || context.writerVersion || null;
     overlay = container.ownerDocument.createElement('div'); overlay.className = 'ciiw-backdrop';
     container.ownerDocument.body.appendChild(overlay);
     const sifEngineeringContext = {
@@ -49,13 +68,20 @@ export function installCiiWorkspaceTile(container, context = {}) {
     };
     active = mountCiiWorkspaceScopedEngineeringShell(overlay, {
       close, showToast: context.showToast,
-      ...(context.writerVersion ? { writerVersion: context.writerVersion } : {}),
-      ...(context.writerVersion === '1C' ? { sifEngineeringContext } : {}),
+      ...(writerVersion ? { writerVersion } : {}),
+      ...(writerVersion === '1C' ? { sifEngineeringContext } : {}),
     });
-    if (context.writerVersion === '1C') disposeSifContext = installWriter1CSifContextControls(overlay, sifEngineeringContext);
+    if (writerVersion === '1C') disposeSifContext = installWriter1CSifContextControls(overlay, sifEngineeringContext);
   };
-  tile.addEventListener('click', open);
-  return () => { tile.removeEventListener('click', open); close(); tile.remove(); };
+  const openDefault = () => open();
+  const openWriter2 = () => open('2');
+  tile.addEventListener('click', openDefault);
+  writer2Tile?.addEventListener('click', openWriter2);
+  return () => {
+    tile.removeEventListener('click', openDefault);
+    writer2Tile?.removeEventListener('click', openWriter2);
+    close(); tile.remove(); writer2Tile?.remove();
+  };
 }
 
-export const _test = Object.freeze({ ensureStylesheet, installWriter1CSifContextControls });
+export const _test = Object.freeze({ ensureStylesheet, installWriter1CSifContextControls, workspaceTile });
