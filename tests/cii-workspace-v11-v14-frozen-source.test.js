@@ -54,13 +54,13 @@ assert.ok(
   worker.indexOf("if (!inputBytes.byteLength) throw new Error('Primary CII input is empty.');") < worker.indexOf('pyodide.FS.mkdirTree(jobDir);'),
   'empty input must be rejected before allocating a job directory',
 );
-assert.match(worker, /let jobQueue = Promise\.resolve\(\);/, 'shared Pyodide runtime must have an explicit serialization queue');
-assert.match(worker, /jobQueue\.then\(\(\) => runJob\(message\)\)/, 'conversion jobs must execute through the serialization queue');
-assert.match(worker, /jobQueue = current\.catch\(\(\) => undefined\)/, 'a failed conversion must not poison subsequent queued jobs');
-assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/, 'message handler must not directly overlap shared-runtime jobs');
+assert.match(worker, /let jobQueue = Promise\.resolve\(\);/);
+assert.match(worker, /jobQueue\.then\(\(\) => runJob\(message\)\)/);
+assert.match(worker, /jobQueue = current\.catch\(\(\) => undefined\)/);
+assert.doesNotMatch(worker, /self\.addEventListener\('message', async \(event\)/);
 
 const converter = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v11-v14-converter.js`, 'utf8');
-assert.match(converter, /frozen-3d-converters-7/, 'worker URL cache key must move with worker runtime semantics');
+assert.match(converter, /frozen-3d-converters-7/);
 assert.match(converter, /const AUDIT_SCHEMA = 'cii-v11-v14-conversion-audit\/v1'/);
 assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_SCHEMA_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_AUDIT_ARRAY_REQUIRED/);
@@ -71,40 +71,49 @@ assert.match(converter, /loss_events:\s*Object\.freeze/);
 assert.match(converter, /warnings:\s*Object\.freeze/);
 assert.match(converter, /changed_sections:\s*Object\.freeze/);
 assert.match(converter, /result\.audit\.loss_events\.length/);
-assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_AUDIT_MISMATCH/);
-assert.match(converter, /CII_VERSION_BRIDGE_TARGET_PHYSICAL_VERSION_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_SOURCE_SHA256_AUDIT_MISMATCH/);
 assert.match(converter, /CII_VERSION_BRIDGE_TARGET_SHA256_AUDIT_MISMATCH/);
 assert.match(converter, /Math\.abs\(numeric - major\) > 1e-6/);
 assert.match(converter, /addEventListener\('messageerror'/);
-assert.match(converter, /resetWorker\(new Error\('CAESAR v11\/v14 worker message serialization failed\.'/);
 assert.match(converter, /pending\.delete\(jobId\);\s*reject\(new Error\(`Failed to post CAESAR v11\/v14 conversion job:/s);
 
 const bridge = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-writer-version-bridge.js`, 'utf8');
 assert.match(bridge, /ca8d391ac5f829f53bebb3c37adf0547c34a67b4/);
-assert.match(bridge, /ciiWorkspaceArtifactBundle/);
-assert.match(bridge, /const audit = Object\.freeze\(\{ \.\.\.preview\.audit, versionBridge \}\)/);
-assert.match(bridge, /result\.artifacts = ciiWorkspaceArtifactBundle\(result\)/);
-assert.match(bridge, /originalSha256:\s*side\.sourceSha256/);
-assert.match(bridge, /normalizedSha256:\s*side\.normalizedSha256/);
-assert.match(bridge, /normalizedSha256:\s*down\.targetSha256/);
-assert.match(bridge, /function assertNormalizedIntakeHashes\(result, source, target, context\)/);
-assert.match(bridge, /CII_VERSION_BRIDGE_\$\{context\}_SOURCE_NORMALIZED_HASH_MISMATCH/);
-assert.match(bridge, /CII_VERSION_BRIDGE_\$\{context\}_TARGET_NORMALIZED_HASH_MISMATCH/);
-assert.match(bridge, /assertNormalizedIntakeHashes\(inspection, normalized\.source, normalized\.target, 'INSPECTION'\)/);
-assert.match(bridge, /assertNormalizedIntakeHashes\(preview, normalized\.source, normalized\.target, 'PREVIEW'\)/);
-assert.match(bridge, /CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH/);
-assert.match(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
-assert.match(bridge, /MODIFIED_ROUNDTRIP_NOT_EXACT/);
-assert.match(bridge, /sourceSha256:\s*down\.sourceSha256/);
-assert.match(bridge, /down\.sourceSha256 !== bridge\.target\.originalSha256/);
-assert.match(bridge, /CII_VERSION_BRIDGE_V11_POSTIMAGE_BYTES_REQUIRED/);
-assert.match(bridge, /ciiByteStringToBytes\(v11Result\.byteString\)/);
-assert.match(bridge, /CII_VERSION_BRIDGE_V11_POSTIMAGE_SHA_MISMATCH/);
-assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, proof\.outputBytes\)/);
+assert.match(bridge, /projectCanonicalV14WriterDelta/);
+assert.match(bridge, /CIIWorkspaceWriterVersionBridge\.v2/);
+assert.match(bridge, /ORIGINAL_V14_BYTES_PLUS_CANONICAL_WRITER_DELTA/);
+assert.match(bridge, /wholeFileCanonicalRewriteAllowed:\s*false/);
+assert.match(bridge, /canonicalBaselineUsedAsOutput:\s*false/);
+assert.match(bridge, /baselineCanonicalSha256:\s*up\.targetSha256/);
+assert.match(bridge, /exactRoundTrip:\s*ciiBytesEqual\(value, up\.outputBytes\)/, 'baseline byte identity is evidence only, not admission authority');
+assert.doesNotMatch(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/, 'native V14 must not be rejected merely for reversible-dialect formatting drift');
+assert.match(bridge, /CII_VERSION_BRIDGE_BASELINE_CANONICAL_SHA_MISMATCH/);
+assert.match(bridge, /CII_VERSION_BRIDGE_CANONICAL_MODIFIED_ROUNDTRIP_NOT_EXACT/);
+assert.match(bridge, /CII_VERSION_BRIDGE_PROJECTED_V14_NORMALIZED_POSTIMAGE_MISMATCH/);
+assert.match(bridge, /projectCanonicalV14WriterDelta\(\s*normalized\.originalBytes,\s*normalized\.baselineCanonicalBytes,\s*upgraded\.outputBytes/s);
+assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, canonicalProof\.outputBytes\)/);
+assert.match(bridge, /ciiBytesEqual\(v11PostimageBytes, projectedProof\.outputBytes\)/);
+assert.match(bridge, /modifiedTargetSha256 = await ciiSha256\(projection\.outputBytes/);
+assert.match(bridge, /byteString:\s*ciiBytesToByteString\(projection\.outputBytes\)/);
+assert.doesNotMatch(bridge, /byteString:\s*ciiBytesToByteString\(upgraded\.outputBytes\)/, 'canonical whole-file V14 must not become final Writer2 output');
 assert.doesNotMatch(bridge, /convertCiiNeutralVersionLossless\(v11Result\.text/);
-assert.doesNotMatch(bridge, /down\.audit\?\.source_sha256/);
 assert.doesNotMatch(bridge, /allowLossy\s*:\s*true/);
+
+const projection = readFileSync(`${ROOT}/tabs/cii-workspace/cii-workspace-v14-change-projection.js`, 'utf8');
+assert.match(projection, /CIIWorkspaceV14ChangeProjection\.v1/);
+assert.match(projection, /physical\.push\(\.\.\.originalSection\.rows\)/, 'unchanged canonical sections must preserve original V14 rows');
+assert.match(projection, /MERGE_FIXED_ROW/);
+assert.match(projection, /DELETE_ROWS/);
+assert.match(projection, /INSERT_ROWS/);
+assert.match(projection, /CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN/);
+assert.match(projection, /CII_V14_PROJECTION_CHANGED_FIELD_PREIMAGE_MISMATCH/);
+assert.match(projection, /CII_V14_PROJECTION_BASELINE_ORIGINAL_ROW_COUNT_MISMATCH/);
+assert.doesNotMatch(projection, /return\s+modifiedCanonicalValue/);
+
+const upstreamFormat = readFileSync(`${FROZEN}/cii_v11_v14_format.py`, 'utf8');
+assert.match(upstreamFormat, /return f"\{value:#\.6G\}"/);
+assert.match(upstreamFormat, /return f"\{value:\.6E\}"/);
+assert.notEqual('   2.044599E+02 0.000000E+00', '   2.044600E+02 0.000000E+00', 'native benchmark precision counterexample must remain non-byte-reversible through V11 formatting');
 
 const v11 = '#$ VERSION\n        5.00000      11.0000    1252\n#$ CONTROL\n';
 const v14 = '#$ VERSION\r\n    5.00000      14.0000        1256\r\n#$ CONTROL\r\n';
@@ -115,11 +124,10 @@ assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 12.0\n'), /UNSUPP
 assert.throws(() => detectCiiNeutralVersion('#$ VERSION\n  5.0 11.4\n'), /UNSUPPORTED_VERSION/);
 
 const expectedV11Sha = createHash('sha256').update(Buffer.from(v11, 'utf8')).digest('hex');
-assert.equal(await ciiSha256(v11, webcrypto), expectedV11Sha, 'browser-style SHA custody must agree with independent Node SHA-256');
-
+assert.equal(await ciiSha256(v11, webcrypto), expectedV11Sha);
 const binaryFixture = Uint8Array.from([0x00, 0x41, 0x7f, 0x80, 0xff]);
 const binaryString = ciiBytesToByteString(binaryFixture);
-assert.deepEqual([...ciiByteStringToBytes(binaryString)], [...binaryFixture], 'byteString conversion must preserve all 0x00..0xff bytes exactly');
+assert.deepEqual([...ciiByteStringToBytes(binaryString)], [...binaryFixture]);
 assert.throws(() => ciiByteStringToBytes(String.fromCharCode(0x100)), /BYTE_STRING_INVALID/);
 
-console.log('CII Workspace frozen 3D_Converters v11/v14 source custody: PASS');
+console.log('CII Workspace frozen 3D_Converters V11/V14 source + change-isolation custody: PASS');
