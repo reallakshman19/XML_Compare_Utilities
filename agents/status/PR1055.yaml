@@ -111,7 +111,7 @@ runtime:
   w2_13_real_cii_runtime: NOT_RUN_ENVIRONMENT
   v11_v14_frozen_source_repository_custody: PASS_EXACT_BLOB_CUSTODY
   v11_v14_runtime_deployment_blob_gate: IMPLEMENTED_NOT_RUN_BROWSER
-  v11_v14_extracted_high_risk_runtime: PASS_RUNTIME_EXACT_SOURCE_EXCERPT_8_FALSIFIERS
+  v11_v14_extracted_high_risk_runtime: PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
   v11_v14_frozen_source_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
   v11_v14_frozen_engine_authored_test: NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
   v14_baseline_exact_roundtrip: NOT_RUN
@@ -124,9 +124,11 @@ runtime:
   engineering_failure: NONE_OBSERVED
 
 execution_environment:
-  native_clone_result: FAIL_ENVIRONMENT_DNS
-  raw_download_result: FAIL_ENVIRONMENT_DNS
+  native_clone_result: FAIL_ENVIRONMENT_NETWORK
+  raw_download_result: FAIL_ENVIRONMENT_NETWORK
+  direct_ip_tls_recovery_result: FAIL_ENVIRONMENT_NETWORK
   exact_executable_mirror_available: false
+  connector_blob_mount_available: false
   github_actions_authorized: false
   source_inspection_promoted_to_runtime_pass: false
   extracted_source_runtime_promoted_to_full_engine_pass: false
