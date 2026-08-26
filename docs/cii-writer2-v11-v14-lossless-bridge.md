@@ -27,6 +27,7 @@ XML_Compare_Utilities
   independent V11 complete-postimage validation
   original V14 byte custody
   W2.31 exact CONTROL/ELEMENT field identity guard
+  W2.32 same-family pointer/cardinality correlation
   W2.29/W2.30 Writer2 cardinality projection
   final projected V14 -> V11 exact-postimage proof
 ```
@@ -79,7 +80,7 @@ normalized V11 TARGET0
   -> frozen V11->V14 canonical baseline V14
 
 canonical baseline vs modified
-  -> W2.31 exact Writer2 CONTROL/ELEMENT fixed-field guard
+  -> W2.31/W2.32 exact Writer2 CONTROL/ELEMENT authority guard
   -> W2.29/W2.30 cardinality/change projector
   -> project onto ORIGINAL V14 bytes
   -> projected V14 TARGET1
@@ -119,17 +120,17 @@ Equal-cardinality NODENAME/RESTRANT/SIF&TEES payload mutation is blocked. This i
 
 `MISCEL_1`/HANGER is not projectable. NODENAME row CREATE/DELETE also requires an already-existing physical NODENAME section.
 
-## W2.31 exact CONTROL/ELEMENT authority
+## W2.31/W2.32 exact CONTROL/ELEMENT authority
 
-Source audit found a broad projector condition: when canonical baseline equaled original, `mergeChangedRow()` could adopt an entire modified row. The V14 product route therefore now executes a separate guard before projection:
+W2.31 source audit found a broad projector condition: when canonical baseline equaled original, `mergeChangedRow()` could adopt an entire modified row. The V14 product route therefore executes a separate guard before projection:
 
 ```text
 tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
 schema CIIWorkspaceV14Writer2FixedFieldAuthority.v1
-blob   7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+current blob fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
 ```
 
-Bridge integration blob:
+Bridge integration blob remains:
 
 ```text
 8038993f0a97719c0c316f31c2d6c30ea0386ec4
@@ -151,9 +152,9 @@ Allowed ELEMENTS fields, zero-based row within each 15-row element block / field
 13:5 ELEMENT_NODENAME_POINTER
 ```
 
-These coordinates are grounded to existing V11 writer/custody modules. The pinned converter preserves ELEMENT rows 12-15 rather than relocating or re-rendering them.
+These coordinates are grounded to existing V11 writer/custody modules and independently corroborated by the pinned native-V14 profile. The native V14 profile reuses the V11 CONTROL layout, retains 15-row ELEMENT records and compatible 13-column numeric cells; the frozen converter preserves ELEMENT rows 12-15 rather than relocating or re-rendering them.
 
-Guard rules:
+Current guard rules:
 
 ```text
 any other CONTROL/ELEMENT field change -> BLOCK
@@ -162,19 +163,49 @@ ELEMENT rows not multiple of 15 -> BLOCK
 cardinality payload change without matching CONTROL count -> BLOCK
 CONTROL count change without physical cardinality change -> BLOCK
 pointer change without physical cardinality change -> BLOCK
+cardinality change without same-family ELEMENT pointer claim -> BLOCK
 SIF/RESTRANT cardinality increase -> BLOCK
 changed pointer outside physical before/after count -> BLOCK
 ```
 
+The W2.32 pointer requirement is not a new V14 engineering rule. It is a bridge admission invariant derived from the qualified V11 Writer2 planners:
+
+```text
+NODENAME cardinality mutation -> owned NODENAME element pointer change(s)
+SIF block DELETE/compaction   -> owned SIF element pointer change(s)
+RESTRAINT block DELETE        -> deleted owner pointer to 0 and/or shifted pointer change(s)
+```
+
+Therefore a canonical V14 cardinality delta with the matching CONTROL count but zero same-family pointer claims cannot be the image of a qualified V11 Writer2 cardinality operation.
+
 The guard returns immutable claims retained under `versionBridgeValidation.fixedFieldAuthority`.
 
-Exact W2.31 focused runtime:
+Historical W2.31 focused runtime:
 
 ```text
 guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
 test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+result PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
 ```
+
+Current W2.32 focused runtime:
+
+```text
+guard  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+test   78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+result PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+```
+
+W2.32 falsifier:
+
+```text
+physical NODENAME cardinality changes
++ CONTROL NODENAME count changes correctly
++ no ELEMENT_NODENAME_POINTER claim
+=> CII_V14_WRITER2_POINTER_CLAIM_REQUIRED:NODENAME:0
+```
+
+A corresponding pointer-backed NODENAME case passes. The same generic guard rule covers SIF&TEES and RESTRANT; their pointer necessity is independently source-grounded in the V11 delete/relocation planners rather than claimed from synthetic V14 semantics.
 
 Evidence: `docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md`.
 
@@ -189,10 +220,12 @@ existing V11 Writer2 succeeds
 independent V11 Writer2 validation succeeds
 V11 byteString is authoritative postimage bytes
 canonical modified V14->V11 exactly reproduces V11 TARGET1
-W2.31 CONTROL/ELEMENT field guard passes
+W2.31/W2.32 CONTROL/ELEMENT field + pointer/cardinality guard passes
 W2.30 cardinality/change projection passes
 projected native V14->V11 exactly reproduces V11 TARGET1
 ```
+
+The V14 guard deliberately does not reimplement the complete V11 pointer relocation planner. The independent V11 validator already rebuilds the qualified NODENAME/SIF/RESTRAINT plans, arbitrates expected mutations in original coordinates, constructs the complete expected postimage and compares exact final bytes. Duplicating that engineering arithmetic in the V14 dialect guard would create a competing semantic oracle.
 
 ## Fail-closed boundary
 
@@ -206,6 +239,7 @@ retained unit reorder                          BLOCK
 same-count NODENAME/SIF/RESTRAINT replacement BLOCK
 unqualified CONTROL/ELEMENT field              BLOCK
 CONTROL/cardinality inconsistency              BLOCK
+cardinality change with zero family pointer    BLOCK
 SIF/RESTRAINT cardinality increase             BLOCK
 out-of-range changed pointer                   BLOCK
 absent NODENAME whole-section creation         BLOCK
@@ -221,7 +255,8 @@ frozen-engine authored Python                 PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB
 historical frozen-source JS @18433c...        PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
 W2.30 projector graph                         PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_30_WRITER2_ONLY_SCOPE
 W2.31 fixed-field guard graph                 PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
-current frozen-source JS @75ba19e...          NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
+W2.32 pointer-correlation guard graph         PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
+current frozen-source JS @ade99d0...          NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING
 W2.13 synthetic full Workspace                NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 full Workspace        NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 real native V14 Writer2 mutation              NOT_RUN
