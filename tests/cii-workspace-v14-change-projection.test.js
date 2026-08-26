@@ -18,6 +18,10 @@ function fixedRow(values) {
   return values.map((value, index) => String(value).padStart(index === 0 ? 15 : 13, ' ')).join('');
 }
 
+function block(prefix, rows = 24) {
+  return Array.from({ length: rows }, (_, index) => `${prefix}-${String(index).padStart(2, '0')}`);
+}
+
 // Native V14 contains one more significant digit than the V11-normalized/canonical
 // form. Writer2 changes only the second fixed field. The projection must preserve
 // the first original V14 field rather than leaking converter canonicalization.
@@ -45,26 +49,38 @@ function fixedRow(values) {
   assert.equal(result.ledger.filter((item) => item.operation === 'MERGE_FIXED_ROW').length, 1);
 }
 
-// A qualified auxiliary block deletion is represented as an isolated canonical
-// row deletion. Original retained rows must be copied rather than canonical rows.
+// RESTRAINT cardinality is projected by qualified 24-row auxiliary blocks, not
+// by ambiguous individual zero-like rows. Retained physical blocks come from the
+// original native V14 coordinates.
 {
-  const original = documentBytes([
-    ['RESTRANT', ['native-A', 'delete-me', 'native-C']],
-  ]);
-  const baseline = documentBytes([
-    ['RESTRANT', ['canonical-A', 'delete-me', 'canonical-C']],
-  ]);
-  const modified = documentBytes([
-    ['RESTRANT', ['canonical-A', 'canonical-C']],
-  ]);
-  // Canonical anchors need to match baseline/modified. Keep original row identity
-  // different to prove retained output rows come from original coordinates.
+  const originalA = block('native-A');
+  const originalB = block('native-B');
+  const originalC = block('native-C');
+  const baselineA = block('canonical-A');
+  const baselineB = block('canonical-B');
+  const baselineC = block('canonical-C');
+  const original = documentBytes([['RESTRANT', [...originalA, ...originalB, ...originalC]]]);
+  const baseline = documentBytes([['RESTRANT', [...baselineA, ...baselineB, ...baselineC]]]);
+  const modified = documentBytes([['RESTRANT', [...baselineA, ...baselineC]]]);
   const result = projectCanonicalV14WriterDelta(original, baseline, modified);
-  assert.equal(text(result.outputBytes), '#$ RESTRANT\r\nnative-A\r\nnative-C\r\n');
-  assert.deepEqual(result.ledger.map((item) => item.operation), ['DELETE_ROWS']);
+  assert.equal(text(result.outputBytes), `#$ RESTRANT\r\n${[...originalA, ...originalC].join('\r\n')}\r\n`);
+  assert.deepEqual(result.ledger.map((item) => item.operation), ['DELETE_UNITS']);
+  assert.equal(result.ledger[0].unitRows, 24);
 }
 
-// Non-isolated cardinality rewrite has no safe original-coordinate projection.
+// Duplicate block identities are not safe physical ownership anchors.
+{
+  const duplicate = block('same');
+  const original = documentBytes([['RESTRANT', [...duplicate, ...duplicate]]]);
+  const baseline = documentBytes([['RESTRANT', [...duplicate, ...duplicate]]]);
+  const modified = documentBytes([['RESTRANT', [...duplicate]]]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(original, baseline, modified),
+    /CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT/,
+  );
+}
+
+// Non-isolated NODENAME cardinality rewrite has no safe original-coordinate projection.
 {
   const original = documentBytes([['NODENAME', ['A', 'B', 'C']]]);
   const baseline = documentBytes([['NODENAME', ['A', 'B', 'C']]]);
@@ -72,6 +88,17 @@ function fixedRow(values) {
   assert.throws(
     () => projectCanonicalV14WriterDelta(original, baseline, modified),
     /CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN/,
+  );
+}
+
+// HANGER/MISCEL cardinality requires its own qualified packing projection.
+{
+  const original = documentBytes([['MISCEL_1', ['A', 'B']]]);
+  const baseline = documentBytes([['MISCEL_1', ['A', 'B']]]);
+  const modified = documentBytes([['MISCEL_1', ['A']]]);
+  assert.throws(
+    () => projectCanonicalV14WriterDelta(original, baseline, modified),
+    /CII_V14_PROJECTION_CARDINALITY_SECTION_NOT_QUALIFIED:MISCEL_1/,
   );
 }
 
