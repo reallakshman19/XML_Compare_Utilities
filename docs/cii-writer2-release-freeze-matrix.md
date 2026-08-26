@@ -32,6 +32,7 @@ Additional V14 bridge invariants:
 
 ```text
 frozen pinned 3D_Converters source only
+deployed frozen Python bytes must match pinned Git blob objects before execution
 allow_lossy = false
 physical VERSION independently admitted as exact integral major 11 or 14
 converter audit schema/arrays/byte counts must be valid
@@ -112,6 +113,12 @@ FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
 
 XML's pre-existing `cii2019_section_rules.py` is not substituted.
 
+W2.26 additionally hardens live deployment custody. Before Python import/execution, the worker fetches each frozen script as bytes, forms the Git object payload `blob <length>\0<bytes>`, computes SHA-1, requires equality with the pinned Git blob SHA, and writes the already-verified bytes directly into Pyodide. No text decode/re-encode path is used.
+
+```text
+DEPLOYED_SOURCE_GIT_BLOB_GATE = IMPLEMENTED_BROWSER_RUNTIME_NOT_RUN
+```
+
 ## 6. Upstream qualification boundary
 
 Pinned upstream evidence identifies the actual pair:
@@ -136,6 +143,7 @@ That external CAESAR acceptance cannot be inherited as a target PASS.
 ```text
 frozen upstream Python engine        COPIED_EXACT_BLOB
 isolated dependency root             IMPLEMENTED
+runtime deployed-source blob gate    IMPLEMENTED_BROWSER_RUNTIME_PENDING
 Pyodide worker adapter               IMPLEMENTED_CUSTODY_HARDENED
 JS conversion client                 IMPLEMENTED_CUSTODY_HARDENED
 inspection/preview normalization     IMPLEMENTED_ADDITIVE_API
@@ -154,6 +162,8 @@ live Writer2 UI automatic adoption   PENDING_QUALIFICATION
 Adapter hardening includes:
 
 ```text
+deployed frozen scripts Git-blob verified before execution
+verified script bytes written directly to Pyodide
 job files unlinked before Pyodide directory removal
 empty input rejected before FS allocation
 shared Pyodide jobs serialized; failed jobs do not poison queue
@@ -184,7 +194,8 @@ W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_ENVIRONMENT
 
 frozen source Git-blob custody            PASS_EXACT_BLOB_CUSTODY
-extracted high-risk converter runtime     PASS_RUNTIME_EXACT_SOURCE_EXCERPT
+deployed-source Git-blob worker gate      IMPLEMENTED_BROWSER_RUNTIME_NOT_RUN
+extracted converter+adapter runtime        PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
 frozen-source authored JS test            NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 frozen-engine authored Python test        NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 real V14 bridge baseline                  NOT_RUN
@@ -194,17 +205,21 @@ external CAESAR V11 acceptance            NOT_RUN
 repository npm                            NOT_RUN_ENVIRONMENT
 ```
 
-Executed extracted-source falsifiers:
+Executed bounded falsifiers:
 
 ```text
-VERSION 11 admitted                               PASS
-VERSION 14 admitted                               PASS
-VERSION 12 rejected                               PASS
-V14 SIF item15/item16 semantic swap               PASS
-non-zero V14 SIF item27 rejected                  PASS
-ambiguous non-zero V11 SIF item19 rejected        PASS
-V14 empty restraint stiffness -> V11 sentinel     PASS
-non-zero V14 ALLOWBLS item154 rejected            PASS
+T01 VERSION 11 admitted                                      PASS
+T02 VERSION 14 admitted                                      PASS
+T03 VERSION 12 rejected                                      PASS
+T04 V14 SIF item15/item16 semantic swap                      PASS
+T05 non-zero V14 SIF item27 rejected                         PASS
+T06 ambiguous non-zero V11 SIF item19 rejected               PASS
+T07 V14 empty restraint stiffness -> V11 sentinel            PASS
+T08 non-zero V14 ALLOWBLS item154 rejected                   PASS
+T09 WebCrypto Git-blob SHA agrees with independent Node SHA  PASS
+T10 audit missing loss_events fails closed                   PASS
+T11 binary byteString preserves 0x00..0xFF; >0xFF rejects    PASS
+T12 failed serialized job cannot overlap/poison next job     PASS
 ```
 
 Evidence:
@@ -222,7 +237,7 @@ tests/cii-workspace-v11-v14-frozen-source.test.js
 tests/cii-workspace-v11-v14-frozen-engine.test.py
 ```
 
-The static test protects frozen source custody, dependency isolation, worker serialization/lifecycle/cache identity, physical version admission, converter-audit shape, independent SHA custody, normalized-intake custody, canonical audit provenance, exact byteString handling, postimage SHA custody, and no-lossy/no-text-authority regressions.
+The static test protects repository and deployed frozen-source custody, dependency isolation, worker serialization/lifecycle/cache identity, physical version admission, converter-audit shape, independent SHA custody, normalized-intake custody, canonical audit provenance, exact byteString handling, postimage SHA custody, and no-lossy/no-text-authority regressions.
 
 GitHub Actions are not authorized; current PR diff contains no workflow file.
 
