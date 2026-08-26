@@ -6,14 +6,15 @@ Status: **LIVE STACKED CLOSURE ON PR #1055**
 BASE_MAIN = 297fb37a0e894a3aac91de9188ebf30e810781fb
 V11_ENGINEERING_AUTHORITY = CAESAR II 2019 / Version 11.0
 V14_DIALECT_BRIDGE_SOURCE = reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+CURRENT_STAGE = W2.27 V14 CHANGE ISOLATION
 PROGRAM_VERDICT = NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 ```
 
-The V14 bridge creates no new Writer2 engineering semantics. It transports an admissible V14 neutral file through the already-qualified V11 mutation domain using the frozen existing converter.
+The V14 bridge creates no new engineering semantics. It uses the frozen V11↔V14 converter only as a dialect adapter and differential oracle around the already-qualified V11 mutation domain.
 
 ## 1. Global invariants
 
-Writer2 V11 invariants:
+V11 Writer2 invariants remain:
 
 ```text
 one untouched writer-domain TARGET0
@@ -28,75 +29,147 @@ no unexecuted test represented as PASS
 no Writer3 topology leakage
 ```
 
-Additional V14 bridge invariants:
+W2.27 V14 invariants:
 
 ```text
 frozen pinned 3D_Converters source only
-deployed frozen Python bytes must match pinned Git blob objects before execution
 allow_lossy = false
-physical VERSION independently admitted as exact integral major 11 or 14
-converter audit schema/arrays/byte counts must be valid
-independent JS SHA-256 must agree with converter source/output SHA testimony
-one shared Pyodide runtime executes conversion jobs serially
-exact untouched V14 -> V11 -> V14 byte admission
-original V14 SHA + normalized V11 SHA retained
+original V14 SHA retained
+normalized V11 SHA retained
+canonical baseline V14 SHA retained
 workspace intake SHA == normalized V11 SHA
 existing V11 Writer2 only
-V11 Writer2 authoritative byteString required for restoration
-V11 postimage SHA must agree across Writer2 and conversion boundary
-exact modified V11 -> V14 -> V11 byte proof
-canonical audit JSON includes version-bridge provenance
-no broad converter canonicalization admitted as Writer2 mutation
+V11 Writer2 authoritative byteString required
+canonical modified V14 must downgrade exactly to Writer2 V11 TARGET1
+final V14 output = ORIGINAL V14 bytes + isolated canonical Writer2 delta
+final projected V14 must downgrade exactly to Writer2 V11 TARGET1
+unchanged V14 sections copied from ORIGINAL, never canonical output
+changed section must be explicitly projectable
+cardinality changes use qualified physical units only
+duplicate physical-unit identities fail closed
+HANGER/MISCEL cardinality remains unqualified/fail-closed
 ```
+
+The prior whole-file `V14 -> V11 -> V14 == original bytes` gate is retired. Exact native benchmark evidence proves it is incompatible with the pinned converter's target-dialect formatting and therefore cannot be a valid admission requirement.
 
 ## 2. Binding Issue #1042
 
 ```text
 CONTROL row1 / field4 / I13 = NONAM
   -> preserve byte-identically
-
 CONTROL row2 / field4 / I13 = RESTRAINT auxiliary-block count
   -> mutable only under qualified RESTRAINT cardinality authority
 ```
 
 W2.11 P19 and W2.12 R09 remain mandatory negative-assurance anchors.
 
-## 3. Capability matrix
+## 3. Exact native V14 benchmark falsifier
+
+Pinned upstream archive:
+
+```text
+Benchmarks/v11-v14.zip
+size = 10,740 bytes
+Git blob = 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+SHA-256 = da0b276c4c2f3a44c3dcd0a6cddd6ca9fcdfc44709caac7af61083b79bb7f808
+
+SYS-0001-v14.CII
+size = 168,574
+SHA-256 = d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
+
+SYS-0001-v11.cii
+size = 316,571
+SHA-256 = 41ef8912a55a978aa96b3300f42ba2ff335ba5bb35c4882f4012af0e011dc9cc
+```
+
+Concrete native row:
+
+```text
+V14 original RIGID value   2.044599E+02
+V14 -> V11 renderer        204.460
+V11 -> V14 renderer        2.044600E+02
+```
+
+26 of 43 native V14 `RIGID` rows show deterministic byte non-reversibility from the pinned formatter. This is not a lossy engineering-event claim; it is a physical-format fact that invalidates whole-file cross-version byte equality as an XML bridge admission rule.
+
+Evidence: `docs/cii-writer2-v14-native-benchmark-change-isolation-2026-08-26.md`.
+
+## 4. V14 change-isolation architecture
+
+```text
+ORIGINAL V14 TARGET0
+   |
+   +--> frozen V14->V11 --> normalized V11 TARGET0 --> existing Writer2 --> validated V11 TARGET1
+   |
+   +--> normalized V11 TARGET0 --> frozen V11->V14 --> canonical baseline V14
+                                    validated V11 TARGET1 --> frozen V11->V14 --> canonical modified V14
+                                                             |
+                                           canonical baseline -> modified delta
+                                                             |
+                                                             v
+                                                project onto ORIGINAL V14
+                                                             |
+                                                             v
+                                                projected V14 TARGET1
+                                                             |
+                                                  frozen V14->V11 proof
+                                                             |
+                                      must equal exact validated V11 TARGET1
+```
+
+Canonical V14 bytes are differential evidence only. They are never broad final-output authority.
+
+## 5. Projection authority
+
+Module:
+
+```text
+tabs/cii-workspace/cii-workspace-v14-change-projection.js
+schema = CIIWorkspaceV14ChangeProjection.v2
+```
+
+Changed-section allowlist:
+
+```text
+CONTROL
+ELEMENTS
+NODENAME
+RESTRANT
+SIF&TEES
+MISCEL_1
+```
+
+Any changed section outside this list fails with `CII_V14_PROJECTION_CHANGED_SECTION_NOT_AUTHORIZED`.
+
+Qualified cardinality units:
+
+```text
+NODENAME   1 row/unit
+RESTRANT  24 rows/unit
+SIF&TEES  14 rows/unit in V14
+```
+
+Duplicate canonical unit identities, misaligned unit counts, non-isolated cardinality runs, and unqualified cardinality sections fail closed. `MISCEL_1`/HANGER cardinality is intentionally not qualified yet.
+
+## 6. Capability matrix
 
 | Family / operation | Owner | V11 disposition | V14 disposition |
 |---|---|---|---|
-| NODENAME existing field update | Writer1C | DONE | bridge only after qualification |
-| NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | bridge only after qualification |
-| SIF existing qualified ii/io update | Writer1C | DONE | bridge only when exact-roundtrip admissible |
-| SIF block DELETE/compaction/reindex | Writer2 | DONE | bridge only when exact-roundtrip admissible |
+| NODENAME existing field update | Writer1C | DONE | change-isolated projection path; runtime pending |
+| NODENAME row CREATE/DELETE + pointer reindex | Writer2 | DONE | 1-row projection implemented; runtime pending |
+| SIF existing qualified ii/io update | Writer1C | DONE | change-isolated fixed-row projection; runtime pending |
+| SIF block DELETE/compaction/reindex | Writer2 | DONE | 14-row projection implemented; runtime pending |
 | SIF new block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
-| HANGER delete-all | Writer2 | DONE | bridge only when exact-roundtrip admissible |
-| HANGER H>1 partial DELETE/repack | Writer2 | DONE_PRODUCT_ROUTED | bridge only after qualification |
+| HANGER delete-all / partial | Writer2 | DONE / DONE_PRODUCT_ROUTED | cardinality projection NOT_QUALIFIED_FAIL_CLOSED |
 | HANGER CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
-| RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | bridge only after qualification |
-| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | IMPLEMENTED_CUSTODY_HARDENED_RUNTIME_PENDING |
+| RESTRAINT existing numeric/free-slot operations | Writer1A/1B | DONE | change-isolated fixed-row projection; runtime pending |
+| RESTRAINT whole 24-row block DELETE | Writer2 | IMPLEMENTED_RUNTIME_PENDING | 24-row projection implemented; runtime pending |
 | RESTRAINT new 24-row block CREATE | Writer2 | SOURCE_BLOCKED_REAFFIRMED_V11 | NOT AUTHORIZED |
 | node/element/connectivity topology | Writer3 | OUTSIDE_WRITER2 | OUTSIDE_WRITER2 |
 
-## 4. V11 CREATE boundary
+## 7. Frozen converter custody
 
-```text
-SIF_CREATE        SOURCE_BLOCKED_REAFFIRMED_V11
-HANGER_CREATE     SOURCE_BLOCKED_REAFFIRMED_V11
-RESTRAINT_CREATE  SOURCE_BLOCKED_REAFFIRMED_V11
-```
-
-Canonical V11 source record:
-
-```text
-docs/cii-writer2-create-source-refresh-2026-08-25.md
-```
-
-The V14 converter cannot fill these V11 engineering-authority gaps.
-
-## 5. Frozen converter custody
-
-Pinned target/upstream Git blobs match exactly:
+Exact upstream Git blobs remain unchanged:
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -107,83 +180,9 @@ cii_v11_v14_validate.py      8e6896e8b61ac3c90d579139d39b29a6ace1637c
 cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 ```
 
-```text
-FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY
-```
+`FROZEN_SOURCE_CUSTODY = PASS_EXACT_BLOB_CUSTODY`.
 
-XML's pre-existing `cii2019_section_rules.py` is not substituted.
-
-W2.26 additionally hardens live deployment custody. Before Python import/execution, the worker fetches each frozen script as bytes, forms the Git object payload `blob <length>\0<bytes>`, computes SHA-1, requires equality with the pinned Git blob SHA, and writes the already-verified bytes directly into Pyodide. No text decode/re-encode path is used.
-
-```text
-DEPLOYED_SOURCE_GIT_BLOB_GATE = IMPLEMENTED_BROWSER_RUNTIME_NOT_RUN
-```
-
-## 6. Upstream qualification boundary
-
-Pinned upstream evidence identifies the actual pair:
-
-```text
-Benchmarks/v11-v14.zip
-  SYS-0001-v11.cii
-  SYS-0001-v14.CII
-same 112-element model
-```
-
-Upstream repository regressions cover repaired fixed-record and semantic conversion behavior. Upstream explicitly leaves the following external application gate `NOT_RUN`:
-
-```text
-actual V14 -> generated V11 -> CAESAR V11 import/use -> save/re-export -> comparison
-```
-
-That external CAESAR acceptance cannot be inherited as a target PASS.
-
-## 7. Hardened bridge implementation
-
-```text
-frozen upstream Python engine        COPIED_EXACT_BLOB
-isolated dependency root             IMPLEMENTED
-runtime deployed-source blob gate    IMPLEMENTED_BROWSER_RUNTIME_PENDING
-Pyodide worker adapter               IMPLEMENTED_CUSTODY_HARDENED
-JS conversion client                 IMPLEMENTED_CUSTODY_HARDENED
-inspection/preview normalization     IMPLEMENTED_ADDITIVE_API
-original + normalized SHA custody    IMPLEMENTED
-workspace normalized-SHA crosscheck  IMPLEMENTED
-canonical audit bridge provenance    IMPLEMENTED
-V11 Writer2 invocation               REUSES_EXISTING_CORE
-V11 postimage converter input        AUTHORITATIVE_BYTESTRING
-V11 postimage SHA cross-check        IMPLEMENTED
-V11->V14 restoration                 IMPLEMENTED
-baseline exact roundtrip gate        IMPLEMENTED
-modified exact roundtrip gate        IMPLEMENTED
-live Writer2 UI automatic adoption   PENDING_QUALIFICATION
-```
-
-Adapter hardening includes:
-
-```text
-deployed frozen scripts Git-blob verified before execution
-verified script bytes written directly to Pyodide
-job files unlinked before Pyodide directory removal
-empty input rejected before FS allocation
-shared Pyodide jobs serialized; failed jobs do not poison queue
-messageerror / worker error reject all pending and reset worker
-postMessage failure removes pending request
-worker cache key advanced after runtime semantic change
-physical source/output VERSION independently checked
-11.4-style version alias blocked
-converter audit schema/arrays/byte counts fail closed
-converter audit arrays immutable after admission
-independent JS input/output SHA cross-checks converter audit
-both original SHA and normalized V11 SHA retained
-workspace intake independently cross-checks normalized V11 SHA
-fresh apply target must reproduce original + normalized target SHA
-V11 Writer2 text view excluded from V14 restoration authority
-exact Writer2 byte postimage + postimage SHA cross-boundary custody
-canonical exported audit includes bridge provenance
-```
-
-No frozen Python or V11 core writer source was changed by these fixes.
+W2.26 deployed-source Git-blob verification remains implemented but browser runtime is still `NOT_RUN`.
 
 ## 8. Runtime evidence
 
@@ -194,85 +193,53 @@ W2.13 synthetic Writer2 product           NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 W2.13 retained-real V11 CII               NOT_RUN_ENVIRONMENT
 
 frozen source Git-blob custody            PASS_EXACT_BLOB_CUSTODY
-deployed-source Git-blob worker gate      IMPLEMENTED_BROWSER_RUNTIME_NOT_RUN
 extracted converter+adapter runtime        PASS_RUNTIME_EXACT_SOURCE_EXCERPT_12_FALSIFIERS
+V14 projection focused runtime            PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE
 frozen-source authored JS test            NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
 frozen-engine authored Python test        NOT_RUN_EXACT_REPOSITORY_MODULE_GRAPH
-real V14 bridge baseline                  NOT_RUN
-real V14 Writer2 mutation                 NOT_RUN
+real V14 change-isolated Writer2 path      NOT_RUN
 browser V14 bridge                        NOT_RUN
 external CAESAR V11 acceptance            NOT_RUN
 repository npm                            NOT_RUN_ENVIRONMENT
 ```
 
-Executed bounded falsifiers:
+Focused projection runtime exact blobs:
 
 ```text
-T01 VERSION 11 admitted                                      PASS
-T02 VERSION 14 admitted                                      PASS
-T03 VERSION 12 rejected                                      PASS
-T04 V14 SIF item15/item16 semantic swap                      PASS
-T05 non-zero V14 SIF item27 rejected                         PASS
-T06 ambiguous non-zero V11 SIF item19 rejected               PASS
-T07 V14 empty restraint stiffness -> V11 sentinel            PASS
-T08 non-zero V14 ALLOWBLS item154 rejected                   PASS
-T09 WebCrypto Git-blob SHA agrees with independent Node SHA  PASS
-T10 audit missing loss_events fails closed                   PASS
-T11 binary byteString preserves 0x00..0xFF; >0xFF rejects    PASS
-T12 failed serialized job cannot overlap/poison next job     PASS
+module  0a04c75c2ed0880a815c17616a7c99afcde132c2
+test    60f1586e5ac469988b59ede2b59258dcdc771e57
+command node --experimental-default-type=module tests/cii-workspace-v14-change-projection.test.js
+result  PASS
 ```
 
-Evidence:
+This narrow PASS is not promoted to full bridge/product/browser qualification.
+
+## 9. CREATE and structural boundaries
 
 ```text
-docs/cii-writer2-v11-v14-local-excerpt-runtime-2026-08-25.md
+SIF_CREATE        SOURCE_BLOCKED_REAFFIRMED_V11
+HANGER_CREATE     SOURCE_BLOCKED_REAFFIRMED_V11
+RESTRAINT_CREATE  SOURCE_BLOCKED_REAFFIRMED_V11
+Writer3 topology  OUTSIDE_WRITER2
+UNKNOWN family    FAIL_CLOSED
 ```
 
-This evidence is not promoted to full-engine or product PASS.
+The V14 bridge does not fill any V11 engineering-authority gap.
 
-## 9. Authored falsifiers still pending runtime
-
-```text
-tests/cii-workspace-v11-v14-frozen-source.test.js
-tests/cii-workspace-v11-v14-frozen-engine.test.py
-```
-
-The static test protects repository and deployed frozen-source custody, dependency isolation, worker serialization/lifecycle/cache identity, physical version admission, converter-audit shape, independent SHA custody, normalized-intake custody, canonical audit provenance, exact byteString handling, postimage SHA custody, and no-lossy/no-text-authority regressions.
-
-GitHub Actions are not authorized; current PR diff contains no workflow file.
-
-## 10. Structural-family classification
+## 10. Remaining gates
 
 ```text
-Writer1-class   PROCESS / WALL / qualified OD / RIGID weight
-Writer2         NODENAME cardinality / SIF DELETE / HANGER DELETE / RESTRAINT block DELETE
-SOURCE_BLOCKED  V11 SIF CREATE / V11 HANGER CREATE / V11 RESTRAINT CREATE
-Writer3         topology
-UNKNOWN         TRANSFER_FAMILY_NOT_QUALIFIED
-```
-
-```text
-HIDDEN_WRITER2_FAMILY                  NONE_OBSERVED
-AMBIGUOUS_GENERIC_FUTURE_WRITER_ROUTE NONE_OBSERVED
-UNKNOWN_FAMILY_BEHAVIOR                FAIL_CLOSED
-```
-
-## 11. Remaining gates
-
-```text
-BRIDGE A  exact module graph: authored frozen-source + frozen-engine tests
+BRIDGE A  exact full repository graph: authored frozen-source + frozen-engine tests
 W2 A      unchanged W2.13 synthetic product
 W2 B      retained-real V11 RESTRAINT product
-BRIDGE B  retained/native V14 baseline exact V14->V11->V14 admission
-BRIDGE C  real V14->V11->Writer2->V14 mutation + exact modified proof
-EXTERNAL  actual CAESAR V11 import/use + save/re-export after V14 conversion
-W2 C      inherited Writer2 NODE/SIF/HANGER regressions
-W2 D      Writer1 adjacent + repository npm + browser/product regressions
-W2 H      final Writer2 release/freeze verdict
+BRIDGE B  real/native V14 change-isolated Writer2 roundtrip + exact projected normalization proof
+W2 C/D    inherited Writer2 + Writer1 adjacent + npm + browser/product regressions
+W2 H      final READY/NOT_READY release-freeze verdict
+EXTERNAL  actual CAESAR V11 import/use + save/re-export acceptance
 ```
 
-## 12. Freeze rule
+## 11. Freeze rule
 
-`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, all V11 CREATE blockers to remain explicit/fail-closed, and every V14 route exposed in production to pass the exact lossless bridge gates. No lossy V14 conversion, unrelated-byte canonicalization, malformed/missing converter testimony, audit-only SHA custody, normalized-intake drift, text-based postimage authority, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
+`READY_FOR_WRITER2_RELEASE_FREEZE` requires every source-qualified V11 Writer2 operation to be runtime-dispositioned, all V11 CREATE blockers explicit/fail-closed, every exposed V14 route to preserve original unrelated bytes through change-isolated projection, and final projected V14 normalization to reproduce the exact independently validated V11 Writer2 postimage. No lossy conversion, broad canonical V14 rewrite, unauthorized changed section, ambiguous physical unit, unqualified HANGER cardinality, malformed/missing converter testimony, text-based postimage authority, generic FUTURE_WRITER ambiguity, or Writer3 topology leakage is permitted.
 
-External CAESAR import/save/re-export acceptance is tracked separately and remains `NOT_RUN` until actually performed.
+External CAESAR import/save/re-export acceptance remains separately `NOT_RUN` until actually performed.
