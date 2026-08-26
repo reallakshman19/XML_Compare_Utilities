@@ -3,18 +3,32 @@
 Date: 2026-08-26  
 PR: #1055  
 Initial stage: W2.28  
-Current addendum: W2.31  
+Current stage: W2.32  
 Pinned upstream: `reallaksh19/3D_Converters@ca8d391ac5f829f53bebb3c37adf0547c34a67b4`
 
-## 1. Retained executed runtime
+## 1. Current exact W2.32 execution
 
-The last complete authored frozen-source execution used an exact 12-file Git-blob-admitted graph and test blob:
+The current authored frozen-source custody test was reconstructed from the exact PR #1055 Git blobs without changing the test, imports, production modules, or frozen Python.
+
+Current test blob:
 
 ```text
-18433c7664428a02bea97625ce6bdc3c21bd8365
+ade99d0d4f4d4ff394a90f81286e4394b5409a54
 ```
 
-Command/result:
+Complete exact graph size:
+
+```text
+13 files
+```
+
+Before execution, every participating file was admitted by recomputing its Git-object SHA over:
+
+```text
+blob <byte_length>\0<exact_bytes>
+```
+
+The reconstructed graph was then executed unchanged:
 
 ```text
 node --experimental-default-type=module tests/cii-workspace-v11-v14-frozen-source.test.js
@@ -24,96 +38,97 @@ CII Workspace frozen 3D_Converters V11/V14 source + change-isolation custody: PA
 Classification:
 
 ```text
-PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+PASS_RUNTIME_EXACT_THIRTEEN_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32
 ```
 
-The executed graph covered:
+No native clone, stub, import rewrite, partial-core substitute, or GitHub Actions execution was used.
+
+## 2. Exact admitted graph
 
 ```text
 tests/cii-workspace-v11-v14-frozen-source.test.js
+  ade99d0d4f4d4ff394a90f81286e4394b5409a54
+
 tabs/cii-workspace/cii-workspace-v11-v14-converter.js
-converters/cii-v11-v14-writer-worker.js
+  01ee6b457b123eb32f084ad45f8ff72cb909a1b9
+
 tabs/cii-workspace/cii-workspace-writer-version-bridge.js
+  8038993f0a97719c0c316f31c2d6c30ea0386ec4
+
 tabs/cii-workspace/cii-workspace-v14-change-projection.js
-converters/scripts/cii2019_section_rules.py
-six frozen upstream Python/dependency files
-```
+  0a16b1383da6ef58abf55c53a91711a0a1f21c17
 
-Every participating local file was admitted by recomputing Git-object SHA before execution.
-
-## 2. Post-execution strengthening
-
-The authored source-custody test was subsequently strengthened as the V14 bridge authority narrowed.
-
-W2.28/W2.29 added assertions for:
-
-```text
-changed-section allowlist
-unit reorder blocker
-same-count cardinality-unit blocker
-MISCEL_1 exclusion
-```
-
-W2.31 adds a thirteenth source file to the custody graph:
-
-```text
 tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
+  fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+
+converters/cii-v11-v14-writer-worker.js
+  0c28eef6251e780b230dda1ce71e6da05f21abcc
+
+converters/scripts/cii2019_section_rules.py
+  c025879cdabd168bd33790682fb30336b48841b9
+
+converters/scripts/cii-v11-v14-upstream/cii_v11_v14.py
+  6152f28c0c43b4d70029f360d993da5794310c8a
+converters/scripts/cii-v11-v14-upstream/cii_v11_v14_format.py
+  56f59fb7e095a887fc84e8a008a5f40acbadaec5
+converters/scripts/cii-v11-v14-upstream/cii_v11_v14_records.py
+  1a1f7bdd78a4b1479dd474fd9cc61a2b9adef235
+converters/scripts/cii-v11-v14-upstream/cii_v11_v14_sif.py
+  88c1d80bdb7bd2d5197a56c5be60ac2057c02367
+converters/scripts/cii-v11-v14-upstream/cii_v11_v14_validate.py
+  8e6896e8b61ac3c90d579139d39b29a6ace1637c
+converters/scripts/cii-v11-v14-upstream/cii2019_section_rules.py
+  efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 ```
 
-and requires:
+The exact admission also preserved upstream byte details that decoded-text reconstruction can obscure. In particular, the pinned `cii_v11_v14.py` and `cii_v11_v14_validate.py` blobs have no final newline; their Git-object identities were verified before execution rather than inferred from display text.
+
+## 3. What the current source-custody PASS covers
+
+The test verifies, on the current W2.32 graph:
 
 ```text
-bridge imports and calls assertCiiV14Writer2FixedFieldAuthority
-fixed-field guard executes before projectCanonicalV14WriterDelta
-fixedFieldAuthority is retained in versionBridgeValidation
-exact CONTROL coordinates 0:3, 1:3, 2:4
-exact ELEMENT coordinates 12:3, 13:4, 13:5
-unauthorized CONTROL/ELEMENT field blocker
-CONTROL/cardinality correlation blocker
-SIF/RESTRAINT cardinality-increase blocker
-changed-pointer range blocker
+all six frozen Python/dependency Git blobs are exactly pinned
+local cii2019_section_rules.py remains distinct from the frozen dependency
+worker fetches frozen source as bytes and checks Git blob identity
+worker installs only verified frozen bytes into Pyodide
+worker serializes jobs and cleans temporary files
+converter enforces conversion audit schema/count/hash custody
+version detection is exact for V11/V14 and rejects unsupported/intermediate versions
+bridge uses pinned 3D_Converters source
+allow_lossy=true is absent from the bridge path
+canonical V14 is not used as final output
+final projected V14 must normalize exactly to validated V11 TARGET1
+W2.30 changed-section/cardinality projection policy is present
+W2.32 fixed-field guard has the exact six CONTROL/ELEMENT coordinates
+W2.32 pointer/cardinality correlation blocker is present
+MISCEL_1/HANGER is absent from V14 projection authority
+formatter non-byte-roundtrip falsifier remains explicit
+binary byte-string/SHA utilities preserve byte custody
 ```
 
-Current authored source test blob:
+## 4. Historical runtime epochs
+
+Retained historical evidence remains valid for the blobs actually executed at those epochs:
 
 ```text
-75ba19e9e8027b6d88dbda014cf83edcb11a120a
+historical source test @18433c7664428a02bea97625ce6bdc3c21bd8365
+  PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
+
+W2.31 focused guard
+  guard 7bc3a83ef37159c9a70fb0e16acaba721fd73b26
+  test  74077b00b094c5e30ff402f8a0adeb1814bb24cc
+  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
+
+W2.32 focused guard
+  guard fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+  test  78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_32_POINTER_CORRELATION
 ```
 
-Current exact graph size:
+The former `NOT_RUN_AFTER_W2_32_POINTER_ASSERTION_STRENGTHENING` state is superseded by the exact 13-file execution above.
 
-```text
-13 files
-```
-
-The current `75ba19e...` graph has **not** been executed as a complete exact graph. Therefore:
-
-```text
-historical authored JS @18433c...  PASS_RUNTIME_EXACT_TWELVE_FILE_BLOB_GRAPH_NODE_ESM_MODE
-current authored JS @75ba19e...     NOT_RUN_AFTER_W2_31_FIELD_AUTHORITY_STRENGTHENING
-```
-
-No source inspection, previous graph PASS, or incremental reasoning is promoted to a fresh current-blob runtime PASS.
-
-## 3. Independently executed focused W2.31 graph
-
-The newly added W2.31 fixed-field guard has its own exact focused runtime:
-
-```text
-guard  7bc3a83ef37159c9a70fb0e16acaba721fd73b26
-test   74077b00b094c5e30ff402f8a0adeb1814bb24cc
-result  PASS_RUNTIME_EXACT_TWO_FILE_BLOB_GRAPH_NODE_ESM_MODE_W2_31_FIXED_FIELD_AUTHORITY
-```
-
-Evidence:
-
-```text
-docs/cii-writer2-v14-fixed-field-authority-runtime-2026-08-26.md
-```
-
-This focused PASS does not substitute for rerunning the full current 13-file source-custody graph.
-
-## 4. Frozen source identities
+## 5. Frozen source identities
 
 ```text
 cii_v11_v14.py               6152f28c0c43b4d70029f360d993da5794310c8a
@@ -126,16 +141,17 @@ cii2019_section_rules.py     efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
 
 Frozen Python remains untouched.
 
-## 5. Scope limits
+## 6. Scope limits
 
-Neither historical nor focused source-custody runtime qualifies:
+This source-custody PASS does **not** qualify:
 
 ```text
-browser/Pyodide runtime
-W2.13 Writer2 product routing
-retained-real V11 RESTRAINT product
+full CII Workspace / W2.13 product routing
+retained-real V11 RESTRAINT product runtime
 real/native V14 change-isolated Writer2 mutation
-projected V14 -> V11 real-file postimage proof
-repository npm/browser suite
+browser/Pyodide product route
+repository npm/full regressions
 external CAESAR import/save/re-export acceptance
 ```
+
+Those remain separate gates and must not inherit this PASS.
