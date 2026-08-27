@@ -35,6 +35,13 @@ runtime:
   bm_w2_04: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
   bm_w2_04_test_blob: 54c08bf0b2baf8138a703350d9e2600387693008
   bm_w2_04_oracle_blob: b36e38c8df327069f07ea20ad50c91f03ffdcd6a
+  existing_restraint_compaction_regression:
+    state: DIAGNOSTIC_PASS_NOT_QUALIFICATION
+    reason: LOCAL_RECONSTRUCTED_PLAN_AND_TEST_BYTES_DID_NOT_MATCH_CURRENT_GIT_BLOBS
+    current_plan_blob: aedfb3ac78eed2294a88a64af261386f0db65085
+    current_test_blob: e27c65b68cc4e44138c4965b07c85f00893ef0e7
+    behavior_observed: PASS
+    pass_claimed: false
   w2_a: NOT_RUN
   w2_b: NOT_RUN
   w2_35_generated_v14: NOT_RUN
@@ -44,10 +51,29 @@ runtime:
 materialization:
   archive_or_clone_transport_available: false
   native_git_dns_available: false
-  direct_exact_blobs_pinned_minimum: 10
   public_core_requires_broad_static_graph: true
   intake_requires_parser_and_auxiliary_subgraph: true
   bm_w2_04_authored_assertion_failure_observed: false
+  pinned_frontier:
+    benchmark_test: 54c08bf0b2baf8138a703350d9e2600387693008
+    benchmark_oracle: b36e38c8df327069f07ea20ad50c91f03ffdcd6a
+    parser_fixed_field: 485daa43553681ca54f488499e57f36d2239be58
+    workspace_core: cee2858a63992648edf5e61b8f63b3837a937f9e
+    workspace_intake: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
+    workspace_physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
+    workspace_topology_adapter: 57b8d2d6e8335887b962e09085cc93ece2e36d68
+    writer2_composite_restraint: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
+    writer2_product_validation: 05fcb594a3be5e360ce804c77872319730a16b53
+    writer2_composite_restraint_validation: 919ac88c071db9d793c7793cbbd82cff7e193189
+    writer2_composite_restraint_validation_support: a5b8f07b733161ddfec222d1a80371bcd27794e7
+    writer2_restraint_delete_validation: 1833d9fecc37061eaf2f51f1676e6386e1f9ac3c
+    writer2_restraint_pointer_custody: 7053230546eaba4588b98a35ae5fc3819da83c14
+    caesar_parser: 46b921c656fff242354c27b6d1a83dd40791f7ec
+    workspace_auxiliary: 7459677eccb2ca460b1971ac6d75c22f2f5ae870
+    workspace_hanger: 71e5bca8cb3429878785244b5508e104add2fc57
+    workspace_capabilities: db7b67ed25ccad6f8bb46c03561747ea7b2094c1
+    workspace_nodename: 050df81250d62cc454856e403d6e4ffc85fd9321
+    workspace_sif_custody: 915ceb0a199091f00823e89d6c73c6007da62f9d
 
 negative_assurance:
   stubs_used: false
@@ -60,5 +86,6 @@ negative_assurance:
   benchmark_changed: false
   focused_test_added: true
   not_run_promoted_to_pass: false
+  diagnostic_regression_promoted_to_pass: false
 
-exact_next_action: CONTINUE_TRANSITIVE_STATIC_IMPORT_EXPANSION_FROM_CORE_AND_INTAKE; VERIFY_EVERY_GIT_BLOB; RUN_UNCHANGED_BM_W2_04; THEN_CONTINUE_W2_A
+exact_next_action: EXPAND_PARSER_SECTION_AND_CORE_STATIC_IMPORTS_FROM_CURRENT_PINNED_FRONTIER; VERIFY_EVERY_GIT_BLOB; RUN_UNCHANGED_BM_W2_04; THEN_CONTINUE_W2_A
