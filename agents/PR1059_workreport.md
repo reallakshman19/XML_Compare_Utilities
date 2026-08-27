@@ -6,7 +6,7 @@ PR #1059 continues the exact W2 A runtime gate from merged PR #1058 on `main@968
 
 On 2026-08-27 the owner instructed `ok fix them` after the V11/V14 fixed-FORTRAN cross-check identified one concrete release-hardening defect: `tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js` accepted lexically REAL tokens such as `3.000000`, `3.000000E+00`, and `3.000000D+00` in Writer2-owned `I13` count/pointer coordinates whenever they were numerically integral. `3D_Converters` had already demonstrated that lexical REAL substitution in an `I13` slot can violate the CAESAR fixed-FORTRAN reader contract even when width and numeric value look acceptable. The owner instruction is therefore recorded as bounded production mutation authority for the lexical-I13 gate only; it does not authorize bypassing W2 A or widening CREATE/topology authority.
 
-The fix is now implemented: changed Writer2-owned V14 count/pointer fields must match lexical integer syntax `[+-]?\d+`. A focused falsifier was added. A reconstructed local preimage run demonstrates the old integer parser returns `3` for decimal/scientific REAL spellings and therefore fails the new falsifier; the patched reconstructed logic passes. Exact branch checkout execution remains NOT_RUN because direct Git/GitHub network access from the execution container is unavailable.
+The fix is implemented and the focused gate now has exact-blob runtime evidence. The patched production module, the new lexical-I13 falsifier, and the pre-existing V14 fixed-field regression were reconstructed locally byte-for-byte from GitHub, each was admitted only after `git hash-object` matched the hosted Git blob, and both authored Node tests passed. This focused PASS does not promote W2 A because the W2 A test has a much larger public-core ESM graph that is still not completely materialized in the execution container.
 
 Historical W2 A recovery remains unchanged: merged PR #1054 recorded a prior sparse mirror of 54 exact repository JS files with 31 unresolved static modules; execution reached missing `tabs/cii-workspace/cii-workspace-auxiliary.js` and no authored assertion failed. That mirror is not retained and is not current runtime evidence.
 
@@ -15,7 +15,7 @@ Historical W2 A recovery remains unchanged: merged PR #1054 recorded a prior spa
 - repository: `reallaksh19/XML_Compare_Utilities`
 - base: `main@9685a2f41ec2b5a5c170762816702fefe90e18a7`
 - branch: `agent/cii-writer2-w2a-runtime-closure`
-- PR: #1059 draft/open
+- PR: #1059 draft/open/mergeable
 - predecessor: PR #1058 merged at `9685a2f41ec2b5a5c170762816702fefe90e18a7`
 - W2 A test blob: `9922377ddeda86fc9167d65f33c97095346e79fa`
 - public entrypoint: `applyCiiWorkspaceTargetWriter2`
@@ -53,7 +53,7 @@ Writer2-owned ELEMENT auxiliary-pointer positions are likewise integer fields.
 
 ### Patch
 
-`NUMBER_RX` was replaced by a dedicated lexical integer gate:
+`NUMBER_RX` was replaced by:
 
 ```js
 const INTEGER_RX = /^[+-]?\d+$/;
@@ -61,18 +61,58 @@ const INTEGER_RX = /^[+-]?\d+$/;
 
 and `integerValue()` now rejects decimal and exponent spellings before numeric conversion.
 
+Hosted postimage production blob:
+
+```text
+5f1473f692c172de5aa0712a70bc72d917a6934d
+```
+
 New focused falsifier:
 
 ```text
 tests/cii-workspace-v14-writer2-i13-lexical.test.js
+37703add4fbefd5e5636ef49a4b54214e33e5820
 ```
 
-It proves both the helper behavior and complete count/pointer transactions:
+It proves both helper behavior and complete count/pointer transactions:
 
 - plain/signed/zero-padded integer tokens remain accepted;
 - `3.000000`, `3.000000E+00`, `3.000000D+00`, and fractional tokens are rejected;
 - CONTROL row1/field4 NONAM written as a decimal REAL is rejected even when NODENAME cardinality and pointer movement otherwise agree;
 - ELEMENT row14/field6 NODENAME pointer written in scientific REAL notation is rejected even when the matching CONTROL/cardinality transaction otherwise agrees.
+
+The existing regression was also executed against the patched exact production blob:
+
+```text
+tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+```
+
+### Exact focused runtime evidence
+
+Local exact materialization:
+
+```text
+production_blob = 5f1473f692c172de5aa0712a70bc72d917a6934d   MATCH
+new_test_blob   = 37703add4fbefd5e5636ef49a4b54214e33e5820   MATCH
+legacy_test     = 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df   MATCH
+```
+
+Commands/results:
+
+```text
+node tests/cii-workspace-v14-writer2-i13-lexical.test.js
+CII Workspace V14 Writer2 lexical I13 fixed-field authority: PASS
+
+node tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+CII Workspace V14 Writer2 fixed-field authority: PASS
+```
+
+Classification:
+
+```text
+W2_V14_I13_LEXICAL_FIXED_FIELD_AUTHORITY = PASS_RUNTIME_EXACT_3_FILE_BLOB_SUBGRAPH
+```
 
 ### Negative assurance
 
@@ -108,27 +148,25 @@ No workflow file, benchmark, frozen upstream converter, topology Writer, or gene
 |---|---|---|---|---|
 | W2.34 focused bridge/export | PASS inherited | prior exact runtime | predecessor evidence | unchanged |
 | W2 C0 exact 14-file route/export | PASS inherited | prior exact runtime | predecessor evidence | unchanged |
-| preimage lexical-I13 falsifier | FAIL as expected | LOCAL_EXECUTION_RECONSTRUCTED | exact preimage `integerValue()` logic | decimal/scientific REAL returns integer 3 |
-| patched lexical-I13 falsifier | PASS | LOCAL_EXECUTION_RECONSTRUCTED | focused new test + patched logic | exact repository checkout not available |
-| branch source patch inspection | PASS | SOURCE_INSPECTION | GitHub connector | surgical lexical gate only |
-| exact branch Node execution of new test | NOT_RUN | NOT_OBSERVED | none | direct Git checkout unavailable |
+| preimage lexical-I13 falsifier | FAIL as expected | LOCAL_EXECUTION_RECONSTRUCTED | exact preimage `integerValue()` logic | decimal/scientific REAL returned integer 3 |
+| new lexical-I13 test | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+test blob identities matched GitHub |
+| existing V14 fixed-field regression | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+legacy test blob identities matched GitHub |
+| hosted production diff | PASS | SOURCE_INSPECTION | GitHub PR patch | only lexical integer gate changed |
 | W2 A exact public runtime | NOT_RUN | NOT_OBSERVED | exact graph reconstruction required | unchanged committed test |
 | W2 B retained-real V11 | NOT_RUN | NOT_OBSERVED | none | blocked until W2 A PASS |
 | generated/native V14 browser gates | NOT_RUN | NOT_OBSERVED | none | later stage |
 | release freeze | NOT_READY | SOURCE/STATE | required gates incomplete | no NOT_RUN promotion |
 
-No reconstructed execution is represented as exact branch runtime.
-
 ## Runtime/environment boundary
 
-Direct native Git access from the current execution container was rechecked and remains unavailable:
+Direct native Git access from the current execution container remains unavailable:
 
 ```text
 git ls-remote https://github.com/reallaksh19/XML_Compare_Utilities.git HEAD
 fatal: Could not resolve host: github.com
 ```
 
-The GitHub connector provides exact file/blob access but no repository/archive materialization endpoint. Therefore a full exact W2 A checkout still requires connector-mediated file reconstruction or a runtime with native repository access.
+The GitHub connector provides exact file/blob access but no repository/archive materialization endpoint. Small focused graphs can be reconstructed exactly, as proven above. The much larger W2 A public-core graph still requires connector-mediated reconstruction or a runtime with native repository access.
 
 ## W2 A continuation rule
 
@@ -145,13 +183,13 @@ No stub, import rewrite, partial-core substitution, lossy bridge, workflow-based
 
 ## Exact next action
 
-Continue W2 A dependency closure from current branch/main truth. If exact repository materialization becomes available, run:
+Continue W2 A dependency closure from current branch/main truth. Reconstruct exact dependencies beginning from the historical frontier `tabs/cii-workspace/cii-workspace-auxiliary.js`, retain exact Git blob custody, and run unchanged:
 
 ```text
 node tests/cii-workspace-writer2-restraint-product-routing.test.js
 ```
 
-against the exact admitted graph. Otherwise continue connector-mediated dependency reconstruction, beginning from the historical frontier `tabs/cii-workspace/cii-workspace-auxiliary.js`, while retaining exact Git blob custody. Do not modify additional production Writer behavior unless the exact runtime exposes a reproducible authored failure.
+Do not modify additional production Writer behavior unless that exact authored runtime exposes a reproducible failure.
 
 ## Appendix A — takeover qualification
 
