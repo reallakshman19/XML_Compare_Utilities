@@ -2,9 +2,13 @@ pr: 1061
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-bmw204-runtime-closure-2
 base_main: 9c6b49b7846906c5274cf57e6537ed4e7a6a6f8c
-current_stage: BM_W2_04_SOURCE_GRAPH_CLOSED_WAITING_EXACT_EXECUTION_MATERIALIZATION
+current_stage: AUTO_W2_A_W2_B_SOURCE_CUSTODY_AFTER_BM_W2_04_SOURCE_GRAPH_CLOSURE
 work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
 criticality: ENGINEERING_CRITICAL
+execution_mode: AUTO
+auto_state: RUNNING
+scope_authority: LOCKED_TO_APPROVED_MISSION
+phase_progression: AUTO
 merge_authority: OWNER_ONLY
 merge_authorized: false
 pr_state: DRAFT
@@ -38,6 +42,8 @@ source_graph:
   intake_blob: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
   topology_adapter_blob: 57b8d2d6e8335887b962e09085cc93ece2e36d68
   intake_parser_frontier_inherited_from_pr1060: true
+  w2_a_source_graph: NOT_YET_RECONCILED_CURRENT_HEAD
+  w2_b_source_graph: NOT_YET_RECONCILED_CURRENT_HEAD
 
 materialization:
   base_main_exact: true
@@ -46,6 +52,13 @@ materialization:
   native_git_dns_available: false
   connector_exact_source_blob_reads_available: true
   connector_repository_archive_to_runtime_available: false
+  codeload_attempt_2026_08_27: BLOCKED_NO_AUTHENTICATED_WEB_TRANSPORT
+
+coordination:
+  master_index_checked: true
+  pr1039_restraint_cardinality: MERGED
+  pr1033_sif_create: OPEN_DRAFT_QUALIFICATION_DATA_ONLY
+  collision_classification: SAFE_FOR_RUNTIME_AND_SOURCE_CUSTODY_ONLY
 
 negative_assurance:
   stubs_used: false
@@ -57,4 +70,10 @@ negative_assurance:
   test_changed: false
   not_run_promoted_to_pass: false
 
-exact_next_action: MATERIALIZE_ALL_PINNED_GIT_BLOBS_IN_ONE_UNCHANGED_ESM_TREE; GIT_HASH_OBJECT_VERIFY_EVERY_FILE; RUN_UNCHANGED_TESTS_CII_WORKSPACE_WRITER2_BENCHMARK_RESTRAINT_DELETE_TEST_JS; CLASSIFY_AUTHORED_RUNTIME_PASS_OR_FAIL; THEN_CONTINUE_W2_A
+auto_plan:
+  phase_1: RECONCILE_W2_A_AUTHORED_TEST_AND_CURRENT_STATIC_ESM_GRAPH
+  phase_2: RECONCILE_W2_B_RETAINED_REAL_V11_AUTHORED_GATE_AND_GRAPH
+  phase_3: ATTEMPT_ANY_EXACT_EXECUTABLE_SUBGRAPHS_AVAILABLE_WITHOUT_IMPORT_REWRITE
+  phase_4: SYNCHRONIZE_WORKREPORT_STATUS_CLAIMS_AND_STOP_ONLY_ON_HARD_GATE
+
+exact_next_action: FETCH_W2_A_AUTHORED_TEST_AT_CURRENT_HEAD; TRACE_DIRECT_AND_TRANSITIVE_STATIC_IMPORTS; PIN_GIT_BLOBS; KEEP_RUNTIME_NOT_RUN_UNTIL_EXACT_EXECUTION
