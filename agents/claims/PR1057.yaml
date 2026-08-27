@@ -2,7 +2,7 @@ pr: 1057
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-w236
 base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
-claim_state: W2_35A_1042_GENERATED_V14_AUTHORITY_AUTHORED
+claim_state: W2_40_NATIVE_V14_BROWSER_BRIDGE_AUTHORED
 merge_authority: OWNER_ONLY
 merge_authorized: false
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
@@ -21,7 +21,7 @@ claims:
     upstream_main_after_pr702: e5dbfcd2d86a5705a60df87b932d839fbc78301e
     frozen_source_commit_remains: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
     repin_required: false
-    rationale: PR702_MODIFIED_VALIDATOR_PROFILE_FILES_OUTSIDE_EMBEDDED_WORKER_GRAPH
+    rationale: PR702_MODIFIED_CII14_PROFILE_AND_LEGACY_SYNTAX_CHECKER_OUTSIDE_EMBEDDED_WORKER_GRAPH
     verified_embedded_blobs:
       cii_v11_v14.py: 6152f28c0c43b4d70029f360d993da5794310c8a
       cii_v11_v14_format.py: 56f59fb7e095a887fc84e8a008a5f40acbadaec5
@@ -70,39 +70,13 @@ claims:
   - id: CONVERTER_GENERATED_V14_BRIDGE_PRODUCT_INTERMEDIATE_GATE
     state: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
     required_for_native_v14_gate: false
-    purpose: EXERCISE_REAL_WORKER_PYODIDE_PUBLIC_BRIDGE_PRODUCT_WITHOUT_CLAIMING_NATIVE_V14_ACCEPTANCE
-    fixture_class: CONVERTER_GENERATED_V14_FROM_REAL_V11_BENCHMARK
-    fixture_source: Benchmark/CIICompare/BM_CII_SOURCE.CII
     runtime_class: BROWSER_PRODUCT_REAL_WORKER_PYODIDE
+    fixture_class: CONVERTER_GENERATED_V14_FROM_REAL_V11_BENCHMARK
     spec: tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
     spec_blob: be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
     authority_spec: tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs
     authority_spec_blob: 4a717c2e5f432037634f09b6e71bfe474dd06f66
-    config: playwright.cii-writer2.config.mjs
-    config_blob: 72af10052ccea48f493fc2156cc34277f97e5e8a
-    fixture: tests/browser/cii-writer2-bridge-fixture.html
-    fixture_blob: 28c66a7fd6175c7cc50294cbe79e138dbde090f8
-    command: npx_playwright_test_--config=playwright.cii-writer2.config.mjs
     worker_substitution_allowed: false
-    required_assertions:
-      - SOURCE_AND_TARGET_ORIGINAL_VERSION_14
-      - PATH_V14_CHANGE_ISOLATED_VIA_V11
-      - VERSION_BRIDGE_VALIDATION_PASS
-      - PROJECTED_NORMALIZED_POSTIMAGE_EXACT
-      - OUTPUT_VERSION_14
-      - FINAL_V14_DOWNGRADE_EXACT_BYTES_EQUAL_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
-      - FINAL_V14_DOWNGRADE_SHA256_EQUAL_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
-      - CHANGED_SECTIONS_INCLUDE_CONTROL_ELEMENTS_RESTRANT
-      - MISCEL_1_UNCHANGED
-      - CONTROL_ROW1_FIELD4_NONAM_RAW_I13_BYTE_IDENTICAL
-      - CONTROL_ROW2_FIELD4_RESTRAINT_COUNT_DECREASES_EXACTLY_ONE
-      - EXACT_ONE_CONTROL_RESTRAINT_BLOCK_COUNT_CLAIM
-      - RESTRAINT_POINTER_CLAIM_PRESENT
-      - ZERO_CONTROL_NODENAME_NONAM_COUNT_CLAIM
-      - ZERO_CONTROL_SIF_TEE_BLOCK_COUNT_CLAIM
-      - ZERO_ELEMENT_NODENAME_POINTER_CLAIM
-      - ZERO_ELEMENT_SIF_TEE_POINTER_CLAIM
-    observation: SOURCE_INSPECTION
     oracle: CROSS_PATH_EXACT_POSTIMAGE_PLUS_INHERITED_CONTROL_AUTHORITY
     runtime_promoted: false
 
@@ -129,26 +103,77 @@ claims:
     test_blob: 4a717c2e5f432037634f09b6e71bfe474dd06f66
 
   - id: REAL_NATIVE_V14_CHANGE_ISOLATED_WRITER2_PRODUCT
-    state: NOT_RUN_AUTHORED_ENTRYPOINT_MISSING
+    state: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
     required: true
-    source_observation: SOURCE_INSPECTION
-    required_oracle: PROJECTED_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
+    runtime_class: BROWSER_PRODUCT_REAL_WORKER_PYODIDE_PLUS_PINNED_RAW_GITHUB_ARCHIVE
+    test: tests/browser/cii-writer2-v14-native-bridge.spec.mjs
+    test_blob: ec99f9abcff5ab2df70b4f4635bbdeb7413a4bb1
+    fixture_class: PINNED_NATIVE_V14_TARGET_WITH_VALIDATED_GENERATED_V14_SOURCE
+    target_is_native: true
+    source_is_native: false
+    source_policy: VALIDATED_V11_WRITER2_SEED_UPGRADED_TO_V14_FOR_TRANSFER_INPUT_ONLY
     pinned_native_benchmark:
       repository: reallaksh19/3D_Converters
       commit: ca8d391ac5f829f53bebb3c37adf0547c34a67b4
       archive: Benchmarks/v11-v14.zip
-      archive_blob: 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+      archive_url: https://raw.githubusercontent.com/reallaksh19/3D_Converters/ca8d391ac5f829f53bebb3c37adf0547c34a67b4/Benchmarks/v11-v14.zip
+      archive_git_blob_sha1: 8409e1c429665e34a83c2a464665ebf5d5f1b0a1
       native_v14_member: SYS-0001-v14.CII
       native_v14_sha256: d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
+      documented_native_restraint_block_count: 40
+    fixture_custody_assertions:
+      - FETCH_EXACT_PINNED_COMMIT_URL
+      - RECOMPUTE_GIT_BLOB_SHA1_BEFORE_UNZIP
+      - EXTRACT_EXACT_MEMBER_FROM_ZIP_CENTRAL_DIRECTORY
+      - RECOMPUTE_NATIVE_MEMBER_SHA256_BEFORE_WRITER2
+      - NATIVE_V14_VERSION_REQUIRED
+      - NATIVE_V14_TO_V11_TO_V14_MUST_BE_NONEXACT_FOR_THIS_FIXTURE
+    product_assertions:
+      - PUBLIC_CREATE_PREVIEW_WITH_VERSION_BRIDGE
+      - PUBLIC_APPLY_WRITER2_WITH_VERSION_BRIDGE
+      - PATH_V14_CHANGE_ISOLATED_VIA_V11
+      - VERSION_BRIDGE_VALIDATION_PASS
+      - PROJECTED_NORMALIZED_POSTIMAGE_EXACT
+      - ORIGINAL_TARGET_SHA256_EQUALS_PINNED_NATIVE_SHA256
+      - OUTPUT_VERSION_14
+      - EXACT_CHANGED_SECTION_SET_CONTROL_ELEMENTS_RESTRANT
+      - ALL_UNRELATED_NATIVE_V14_SECTIONS_BYTE_IDENTICAL
+      - RESTRAINT_SECTION_MINUS_24_ROWS
+      - STALE_CANONICAL_V14_TARGET_REJECTED_AS_NOT_ORIGINAL_NATIVE_TARGET
+      - FINAL_V14_DOWNGRADE_EXACT_BYTES_EQUAL_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
+      - FINAL_V14_DOWNGRADE_SHA256_EQUAL_DIRECT_VALIDATED_V11_WRITER2_POSTIMAGE
+    inherited_1042_assertions:
+      - CONTROL_ROW1_FIELD4_NONAM_RAW_I13_BYTE_IDENTICAL
+      - CONTROL_ROW2_FIELD4_RESTRAINT_COUNT_DECREASES_EXACTLY_ONE
+      - CONTROL_ROW3_FIELD5_SIF_RAW_I13_BYTE_IDENTICAL
+      - EXACT_ONE_CONTROL_RESTRAINT_BLOCK_COUNT_CLAIM
+      - ELEMENT_RESTRAINT_POINTER_CLAIM_PRESENT
+      - ZERO_NON_RESTRAINT_FIXED_FIELD_AUTHORITY_CLAIMS
+    candidate_policy: FAIL_CLOSED_UNLESS_PINNED_NATIVE_FIXTURE_HAS_UNIQUE_OWNER_SINGLE_OCCUPIED_RESTRAINT_SLOT
     native_fixture_fabrication_allowed: false
-    converter_generated_v14_may_substitute_native_gate: false
+    converter_generated_v14_may_substitute_native_target_gate: false
+    source_observation: SOURCE_INSPECTION
+    required_oracle: PROJECTED_NATIVE_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
+    runtime_promoted: false
+
+  - id: FOCUSED_BROWSER_GATE
+    state: AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
+    required: true
+    config: playwright.cii-writer2.config.mjs
+    config_blob: 0de2666dd8e05a1cd989976ce28fce281d1a92cb
+    specs:
+      - tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
+      - tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs
+      - tests/browser/cii-writer2-v14-native-bridge.spec.mjs
+    command: npx_playwright_test_--config=playwright.cii-writer2.config.mjs
 
 validation_integrity:
   source_3d_converters_modified: false
   upstream_pr702_repin_performed: false
   lossy_bridge_enabled: false
   native_v14_fixture_fabricated: false
-  converter_generated_v14_claimed_as_native: false
+  native_v14_target_replaced_by_converter_generated_fixture: false
+  generated_source_claimed_as_native: false
   worker_or_pyodide_substituted: false
   source_inspection_promoted_to_runtime_pass: false
   unexecuted_check_claimed_pass: false
