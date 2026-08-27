@@ -2,7 +2,7 @@ pr: 1061
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-bmw204-runtime-closure-2
 base_main: 9c6b49b7846906c5274cf57e6537ed4e7a6a6f8c
-current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_CORE_GRAPH_EXPANSION
+current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_ENGINEERING_DELTA_TRANSFER_GRAPH_EXPANSION
 work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
 criticality: ENGINEERING_CRITICAL
 merge_authority: OWNER_ONLY
@@ -29,8 +29,15 @@ materialization:
   base_main_exact: true
   core_blob: cee2858a63992648edf5e61b8f63b3837a937f9e
   public_core_direct_imports_enumerated: true
+  core_batch_1_geometry_multi_base_topology_scoring_closed: true
+  core_batch_2_path_node_component_identity_closed: true
   public_core_transitive_graph_complete: false
   intake_parser_frontier_inherited_from_pr1060: true
+  batch_2_blobs:
+    path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
+    node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
+    components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
+    identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
   archive_or_clone_transport_available: false
   native_git_dns_available: false
   bm_w2_04_authored_assertion_failure_observed: false
@@ -44,4 +51,4 @@ negative_assurance:
   production_changed: false
   not_run_promoted_to_pass: false
 
-exact_next_action: PIN_REMAINING_CII_WORKSPACE_CORE_DIRECT_IMPORTS_AND_EXPAND_TRANSITIVE_STATIC_GRAPH; VERIFY_GIT_BLOBS; EXECUTE_UNCHANGED_BM_W2_04_ONLY_AFTER_COMPLETE_GRAPH
+exact_next_action: EXPAND_ENGINEERING_DELTA_RESTRAINT_TRANSFER_REVIEW_TRANSFER_PLAN_FAMILIES; PIN_TRANSITIVE_GIT_BLOBS; THEN_CLOSE_REMAINING_WRITER_READINESS_EXPORT_IMPORTS; EXECUTE_UNCHANGED_BM_W2_04_ONLY_AFTER_COMPLETE_GRAPH
