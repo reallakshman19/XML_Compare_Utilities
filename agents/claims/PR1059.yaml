@@ -50,8 +50,12 @@ claims:
       - '3'
       - '+3'
       - '0003'
-    preimage_falsifier: FAIL_AS_EXPECTED_LOCAL_EXECUTION_RECONSTRUCTED
-    exact_blob_runtime:
+    exact_preimage_falsifier:
+      production_blob_match: true
+      test_blob_match: true
+      result: FAIL_AS_EXPECTED
+      failure: ASSERT_EQUAL_ACTUAL_3_EXPECTED_NULL
+    exact_postimage_runtime:
       production_blob_match: true
       focused_test_blob_match: true
       existing_test_blob_match: true
