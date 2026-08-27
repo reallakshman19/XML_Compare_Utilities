@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: [
     'cii-writer2-v14-generated-bridge.spec.mjs',
     'cii-writer2-v14-generated-bridge-1042.spec.mjs',
+    'cii-writer2-v14-native-bridge.spec.mjs',
   ],
   timeout: 180_000,
   expect: { timeout: 15_000 },
