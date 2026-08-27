@@ -1,0 +1,62 @@
+pr: 1062
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-benchmark-next
+base_main: d1f7d773ec89459f55d3fca9bcf0c93f2308b1e1
+current_stage: BM_W2_01_NODENAME_CREATE_AUTHORING
+work_intent: IMPLEMENT_VALIDATE
+criticality: ENGINEERING_CRITICAL
+execution_mode: AUTO
+auto_state: RUNNING
+scope_authority: LOCKED_TO_APPROVED_BENCHMARK_ROADMAP
+merge_authority: OWNER_ONLY
+merge_authorized: false
+pr_state: DRAFT
+handover_readiness: READY
+
+benchmark_source:
+  path: Benchmark/CIICompare/BM_CII_SOURCE.CII
+  git_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+  version: 11
+
+bm_w2_01:
+  state: SOURCE_QUALIFIED_AUTHORING
+  candidate_node: '10'
+  owner_element_index: 0
+  owner_from: '10'
+  owner_to: '20'
+  owner_end: FROM
+  pointer_before: 0
+  nodename_rows_before: 4
+  expected_pointer_after: 5
+  expected_name: BM-N10
+  expected_nonam_before: 4
+  expected_nonam_after: 5
+  expected_topology_unchanged: true
+  runtime: NOT_RUN
+
+source_inspection_risk:
+  id: NODENAME_POINTER_NON_LEXICAL_I13
+  state: SUSPECTED_NOT_RUNTIME_REPRODUCED
+  module: tabs/cii-workspace/cii-workspace-writer2-nodename-write.js
+  current_pointer_formatter: numericField_to_formatCiiWriterSig6
+  required_pointer_lexical: '^[+-]?\\d+$'
+  production_patch_authorized: false
+
+inherited_runtime:
+  bm_w2_04: NOT_RUN
+  w2_a: NOT_RUN
+  w2_b: NOT_RUN
+  w2_35: NOT_RUN
+  w2_35a: NOT_RUN
+  w2_40: NOT_RUN
+  release_freeze: NOT_READY
+
+negative_assurance:
+  production_changed: false
+  benchmark_source_changed: false
+  workflow_changed: false
+  parser_changed: false
+  converter_changed: false
+  not_run_promoted_to_pass: false
+
+exact_next_action: AUTHOR_BM_W2_01_INDEPENDENT_ORACLE_AND_PUBLIC_TEST; UPDATE_MANIFEST_ROADMAP; ATTEMPT_EXACT_RUNTIME; PATCH_PRODUCTION_ONLY_AFTER_RUNTIME_FALSIFIER
