@@ -18,19 +18,9 @@ RELEASE_FREEZE: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
 
 ## Merge and successor custody
 
-Owner explicitly instructed `merge and proceed next` on 2026-08-27. PR #1059 was first marked ready-for-review, then squash-merged from exact head `312fc847d0d29fcac97bc1e24bf93f4134eb5aee` to:
+Owner explicitly instructed `merge and proceed next` on 2026-08-27. PR #1059 was marked ready-for-review and squash-merged from exact head `312fc847d0d29fcac97bc1e24bf93f4134eb5aee` to `ba4659e2cfb0c7242738ca7e6f372d94c3e44541`.
 
-```text
-ba4659e2cfb0c7242738ca7e6f372d94c3e44541
-```
-
-During successor initialization, one placeholder-only `agents/PR1060_workreport.md` commit was accidentally written to `main`; it was immediately removed. No product, benchmark, parser, Writer, converter, test, or release file was touched by that cleanup. Corrected main head before successor branch creation:
-
-```text
-29766c0432665e5f4b1340e59f9a16e7d4ef3999
-```
-
-Successor branch was created from that exact corrected head.
+During successor initialization, one placeholder-only `agents/PR1060_workreport.md` commit was accidentally written to `main`; it was immediately removed. No product, benchmark, parser, Writer, converter, test, or release file was touched by that cleanup. Corrected main head before successor branch creation is `29766c0432665e5f4b1340e59f9a16e7d4ef3999`.
 
 ## Inherited truth
 
@@ -49,9 +39,74 @@ W2.40 native V14                 NOT_RUN
 W2 H release freeze              NOT_READY
 ```
 
-## BM-W2-04 exact graph frontier
+## New reproduced production defect — RESTRAINT pointer lexical I13 custody
 
-The authored retained-real benchmark remains unchanged and is being materialized from the successor branch without stubs, import rewrites or partial-core substitution.
+While expanding the BM-W2-04 RESTRAINT path, source inspection found that `buildCiiWriter2RestraintPointerCustody()` claimed authority `EXACT_PARSED_INDEX_ENDPOINTS_AND_PHYSICAL_RESTRAINT_POINTER_I13`, but `physicalPointerField()` accepted numerically integral REAL spellings by applying `Number()` before the integer check.
+
+A focused authored falsifier was added:
+
+```text
+tests/cii-workspace-writer2-restraint-pointer-i13-custody.test.js
+Git blob 2c5940d17b13807455c4468a0b6d31fdc36f860f
+```
+
+It requires lexical `1` to qualify and requires these tokens to be rejected:
+
+```text
+1.000000
+1.000000E+00
+1.000000D+00
+```
+
+Exact five-file graph admitted and Git-blob verified:
+
+```text
+parser/fixed-field.js
+  485daa43553681ca54f488499e57f36d2239be58
+
+tabs/cii-workspace/cii-workspace-contracts.js
+  6ab30d8dd088225fd89bb729bf9ffdebefe652f6
+
+tabs/cii-workspace/cii-workspace-physical-file.js
+  0c4c445fbd3d4b929b1f9288b789b244547c8867
+
+tabs/cii-workspace/cii-workspace-writer2-restraint-delete-custody.js
+  preimage 2176ac97eaef84f3aa9073d5eaf73d1530cf09a8
+  postimage 7053230546eaba4588b98a35ae5fc3819da83c14
+
+tests/cii-workspace-writer2-restraint-pointer-i13-custody.test.js
+  2c5940d17b13807455c4468a0b6d31fdc36f860f
+```
+
+Exact preimage execution:
+
+```text
+node --experimental-default-type=module tests/cii-workspace-writer2-restraint-pointer-i13-custody.test.js
+
+FAIL AS EXPECTED
+actual   = QUALIFIED
+expected = BLOCKED
+token    = 1.000000
+```
+
+The production patch adds lexical gate `/^[+-]?\d+$/` before semantic nonnegative-safe-integer conversion. No generic parser, RESTRAINT allocation/create authority, topology, benchmark oracle, or Writer3 behavior changed.
+
+Exact postimage execution using the same unchanged test and exact four dependency blobs:
+
+```text
+PASS
+CII Writer2 RESTRAINT pointer lexical-I13 custody falsifier passed.
+```
+
+Classification:
+
+```text
+W2_RESTRAINT_POINTER_LEXICAL_I13_CUSTODY = PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+```
+
+This focused PASS does **not** promote BM-W2-04, W2 A, or W2 B.
+
+## BM-W2-04 exact graph frontier
 
 Entry test:
 
@@ -90,35 +145,40 @@ tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js
 
 tabs/cii-workspace/cii-workspace-writer2-product-validation.js
   05fcb594a3be5e360ce804c77872319730a16b53
+
+tabs/cii-workspace/cii-workspace-writer2-composite-restraint-support.js
+  5b1494ba95dbfdf663bc377f8632a50d7cd2b65b
+
+tabs/cii-workspace/cii-workspace-writer2-restraint-delete-compaction-plan.js
+  current exact branch blob to continue from
+
+tabs/cii-workspace/cii-workspace-writer2-restraint-delete-custody.js
+  7053230546eaba4588b98a35ae5fc3819da83c14
 ```
 
-`cii-workspace-core.js` statically imports the broader normal product path, including geometry, multi-base correspondence, topology/path matching, node custody, component/identity/delta/review/transfer modules, Writer1A/1B/1C validators, Writer2 composite routing/hanger/restraint, product validation, and export. `cii-workspace-intake.js` additionally requires `parser/caesar-parser.js`, auxiliary/hanger/capability/nodename/SIF-custody modules. Therefore BM-W2-04 cannot be represented as a small direct-only graph while the committed test exercises public `applyCiiWorkspaceTargetWriter2()`.
-
-Repository/archive materialization remains unavailable through the current connector and native container Git has no authenticated/private-repo checkout. This is an environment transport limitation only. It is **not** a benchmark FAIL and does not permit a reconstructed PASS.
+`cii-workspace-core.js` still requires the broader normal product graph; `cii-workspace-intake.js` additionally requires the CAESAR parser and auxiliary/hanger/capability/nodename/SIF custody subgraph. Native Git remains unavailable in the execution container (`Could not resolve host: github.com`), and the connector exposes no archive/clone transport. This is an environment transport limitation, not a benchmark FAIL or PASS.
 
 ## Runtime classification
 
 ```text
-BM-W2-04 source custody          PASS_SOURCE_INSPECTION
-BM-W2-04 independent oracle      AUTHORED
-BM-W2-04 direct graph frontier   PARTIALLY_MATERIALIZED_EXACT_BLOBS
-BM-W2-04 complete exact graph    NOT_YET_MATERIALIZED
-BM-W2-04 unchanged execution     NOT_RUN
-W2 B retained-real V11           NOT_RUN
+RESTRAINT lexical-I13 focused gate PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+BM-W2-04 source custody            PASS_SOURCE_INSPECTION
+BM-W2-04 independent oracle        AUTHORED
+BM-W2-04 complete exact graph      NOT_YET_MATERIALIZED
+BM-W2-04 unchanged execution       NOT_RUN
+W2 A                                NOT_RUN
+W2 B retained-real V11             NOT_RUN
 ```
-
-No authored assertion/runtime failure has been observed because the complete graph has not executed.
 
 ## Exact next action
 
-1. Continue transitive static-import expansion from the exact blobs above, beginning with `cii-workspace-core.js` and `cii-workspace-intake.js` dependencies.
-2. Verify every admitted repository file against its Git blob SHA.
-3. Run unchanged:
-   `node tests/cii-workspace-writer2-benchmark-restraint-delete.test.js`.
+1. Continue exact transitive static-import expansion from `cii-workspace-core.js` and `cii-workspace-intake.js`.
+2. Git-blob verify every admitted repository file.
+3. Run unchanged `node tests/cii-workspace-writer2-benchmark-restraint-delete.test.js`.
 4. First authored assertion/runtime failure after complete graph materialization is a genuine BM-W2-04 FAIL.
 5. Clean execution promotes BM-W2-04 runtime only; W2 B remains blocked until W2 A also passes.
 6. Continue unchanged W2 A public-runtime test next.
-7. Do not alter production behavior unless exact execution reproduces a product defect.
+7. No additional production behavior changes without another exact reproduced defect.
 
 ## Authority boundaries
 
@@ -128,14 +188,16 @@ No stubs, import rewrites, partial-core substitute, lossy V14 bridge, reconstruc
 
 ```text
 agents/PR1060_workreport.md
+agents/status/PR1060.yaml
+agents/claims/PR1060.yaml
+tabs/cii-workspace/cii-workspace-writer2-restraint-delete-custody.js
+tests/cii-workspace-writer2-restraint-pointer-i13-custody.test.js
 ```
-
-No production or benchmark file has been changed in PR #1060 at this point.
 
 ## Appendix A — takeover qualification
 
-1. What exact event changes BM-W2-04 from NOT_RUN to PASS or FAIL?
-2. Which physical coordinates may BM-W2-04 change, and which CONTROL field must remain byte-identical?
-3. Why is the benchmark oracle independent of Writer2 implementation?
-4. Why does BM-W2-04 PASS alone not promote W2 B?
-5. If exact output differs from the oracle, which first wrong boundary must be isolated before any code change?
+1. Reproduce why `1.000000` was incorrectly accepted under an authority explicitly named physical I13 and identify the exact preimage/postimage blobs.
+2. Trace BM-W2-04 pointer 1 / node 190 / owner `180->190` from physical ELEMENT row 13 field 4 into pointer custody, compaction planning, physical write, public route, and product validation.
+3. Explain why the focused lexical-I13 PASS does not promote BM-W2-04 or W2 B.
+4. State the exact event that changes BM-W2-04 from NOT_RUN to PASS or FAIL.
+5. If the completed BM-W2-04 graph fails next, identify the first wrong authority boundary before changing any oracle or production code.
