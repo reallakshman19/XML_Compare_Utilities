@@ -1,0 +1,49 @@
+pr: 1061
+repository: reallaksh19/XML_Compare_Utilities
+base_main: 9c6b49b7846906c5274cf57e6537ed4e7a6a6f8c
+
+claims:
+  - id: W2_34_FOCUSED_BRIDGE_EXPORT
+    state: PASS
+    authority: INHERITED
+
+  - id: W2_C0_EXACT_PUBLIC_ROUTE
+    state: PASS
+    authority: INHERITED
+
+  - id: W2_RESTRAINT_POINTER_LEXICAL_I13_CUSTODY
+    state: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+    authority: INHERITED_FROM_PR1060
+    production_blob: 7053230546eaba4588b98a35ae5fc3819da83c14
+
+  - id: BM_W2_04_EXACT_PUBLIC_RUNTIME
+    state: NOT_RUN
+    reason: COMPLETE_TRANSITIVE_STATIC_ESM_GRAPH_NOT_YET_MATERIALIZED
+    authored_runtime_pass_claimed: false
+
+  - id: W2_A_EXACT_PUBLIC_RUNTIME
+    state: NOT_RUN
+
+  - id: W2_B_RETAINED_REAL_V11
+    state: NOT_RUN
+
+  - id: W2_35_GENERATED_V14
+    state: NOT_RUN
+
+  - id: W2_35A_ISSUE_1042_GENERATED_V14
+    state: NOT_RUN
+
+  - id: W2_40_NATIVE_V14
+    state: NOT_RUN
+
+  - id: W2_H_RELEASE_FREEZE
+    state: NOT_READY
+
+negative_claims:
+  benchmark_modified: false
+  production_modified: false
+  reconstructed_pass_used: false
+  stubs_used: false
+  import_rewrites_used: false
+  partial_core_used: false
+  not_run_promoted_to_pass: false
