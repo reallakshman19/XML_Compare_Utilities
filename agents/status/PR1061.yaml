@@ -1,0 +1,47 @@
+pr: 1061
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-bmw204-runtime-closure-2
+base_main: 9c6b49b7846906c5274cf57e6537ed4e7a6a6f8c
+current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_CORE_GRAPH_EXPANSION
+work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
+criticality: ENGINEERING_CRITICAL
+merge_authority: OWNER_ONLY
+merge_authorized: false
+pr_state: DRAFT
+handover_readiness: READY
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+inherited:
+  w2_34_focused_bridge_export: PASS
+  w2_c0_exact_public_route: PASS
+  v14_i13_lexical_gate: PASS
+  restraint_pointer_i13: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+
+runtime:
+  bm_w2_04: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
+  w2_a: NOT_RUN
+  w2_b: NOT_RUN
+  w2_35_generated_v14: NOT_RUN
+  w2_35a_issue_1042_generated_v14: NOT_RUN
+  w2_40_native_v14: NOT_RUN
+
+materialization:
+  base_main_exact: true
+  core_blob: cee2858a63992648edf5e61b8f63b3837a937f9e
+  public_core_direct_imports_enumerated: true
+  public_core_transitive_graph_complete: false
+  intake_parser_frontier_inherited_from_pr1060: true
+  archive_or_clone_transport_available: false
+  native_git_dns_available: false
+  bm_w2_04_authored_assertion_failure_observed: false
+
+negative_assurance:
+  stubs_used: false
+  import_rewrites_used: false
+  partial_core_used: false
+  reconstructed_pass_used: false
+  benchmark_changed: false
+  production_changed: false
+  not_run_promoted_to_pass: false
+
+exact_next_action: PIN_REMAINING_CII_WORKSPACE_CORE_DIRECT_IMPORTS_AND_EXPAND_TRANSITIVE_STATIC_GRAPH; VERIFY_GIT_BLOBS; EXECUTE_UNCHANGED_BM_W2_04_ONLY_AFTER_COMPLETE_GRAPH
