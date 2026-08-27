@@ -2,7 +2,7 @@ pr: 1058
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-next
 base_main: 6d2a1fe149a87c55de3606a9434adc51ccce5e8e
-claim_state: W2_A_IN_PROGRESS
+claim_state: W2_A_EXACT_RUNTIME_NOT_RUN_GRAPH_MATERIALIZATION_IN_PROGRESS
 merge_authority: OWNER_ONLY
 merge_authorized: false
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
@@ -14,11 +14,17 @@ claims:
     required: true
 
   - id: W2_A_SYNTHETIC_PUBLIC_PRODUCT_RUNTIME
-    state: IN_PROGRESS
+    state: NOT_RUN_FULL_PUBLIC_ENTRYPOINT_GRAPH_NOT_YET_MATERIALIZED
     required: true
     entrypoint: tests/cii-workspace-writer2-restraint-product-routing.test.js
+    entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
+    entrypoint_local_git_blob_identity: PASS
     public_entrypoint: applyCiiWorkspaceTargetWriter2
     independent_complete_postimage_validation_required: true
+    exact_public_graph_rule: NO_STUBS_NO_IMPORT_REWRITES_NO_PARTIAL_CORE
+    immediate_missing_import_count_from_current_exact_seed: 34
+    environment_observation: CONTAINER_DNS_CANNOT_RESOLVE_GITHUB_COM
+    runtime_failure_observed: false
 
   - id: W2_B_RETAINED_REAL_V11_PUBLIC_PRODUCT_RUNTIME
     state: NOT_RUN
@@ -46,3 +52,4 @@ validation_integrity:
   lossy_bridge_enabled: false
   generated_v14_claimed_as_native: false
   unexecuted_check_claimed_pass: false
+  environment_blocker_misclassified_as_product_failure: false
