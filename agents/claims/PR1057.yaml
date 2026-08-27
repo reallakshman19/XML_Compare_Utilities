@@ -6,6 +6,7 @@ claim_state: W2_40_NATIVE_V14_BROWSER_BRIDGE_AUTHORED
 merge_authority: OWNER_ONLY
 merge_authorized: false
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+last_report_basis_head: ab5201131579237ebe88be50fed62ea3c33200e1
 
 claims:
   - id: FROZEN_3D_CONVERTERS_SOURCE_CUSTODY
@@ -40,8 +41,6 @@ claims:
     required: true
     test_blob: 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
     graph_file_count: 14
-    exact_local_file_count: 10
-    clone_blocker: ENVIRONMENT_DNS_COULD_NOT_RESOLVE_GITHUB_COM
     stubs_or_import_rewrites_allowed: false
 
   - id: W2_A_SYNTHETIC_PUBLIC_PRODUCT_RUNTIME
@@ -50,7 +49,6 @@ claims:
     entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
     public_entrypoint: applyCiiWorkspaceTargetWriter2
     independent_complete_postimage_validation_required: true
-    lower_level_substitute_allowed: false
 
   - id: W2_B_RETAINED_REAL_V11_PUBLIC_PRODUCT_RUNTIME
     state: NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
@@ -76,7 +74,6 @@ claims:
     spec_blob: be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
     authority_spec: tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs
     authority_spec_blob: 4a717c2e5f432037634f09b6e71bfe474dd06f66
-    worker_substitution_allowed: false
     oracle: CROSS_PATH_EXACT_POSTIMAGE_PLUS_INHERITED_CONTROL_AUTHORITY
     runtime_promoted: false
 
@@ -152,7 +149,6 @@ claims:
     candidate_policy: FAIL_CLOSED_UNLESS_PINNED_NATIVE_FIXTURE_HAS_UNIQUE_OWNER_SINGLE_OCCUPIED_RESTRAINT_SLOT
     native_fixture_fabrication_allowed: false
     converter_generated_v14_may_substitute_native_target_gate: false
-    source_observation: SOURCE_INSPECTION
     required_oracle: PROJECTED_NATIVE_V14_DOWNGRADE_EQUALS_EXACT_VALIDATED_V11_WRITER2_POSTIMAGE
     runtime_promoted: false
 
