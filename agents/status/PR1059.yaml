@@ -2,11 +2,11 @@ pr: 1059
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-w2a-runtime-closure
 base_main: 9685a2f41ec2b5a5c170762816702fefe90e18a7
-current_stage: W2_A_EXACT_PUBLIC_RUNTIME_PLUS_V14_I13_HARDENING
+current_stage: W2_A_EXACT_PUBLIC_RUNTIME_AFTER_V14_I13_HARDENING
 work_intent: IMPLEMENT_INVESTIGATE_VALIDATE
 criticality: ENGINEERING_CRITICAL
 mutation_authority: WRITE_ALLOWED_BOUNDED_BY_OWNER_2026_08_27
-production_change_authority: V14_WRITER2_I13_LEXICAL_GATE_ONLY_UNLESS_EXACT_W2A_RUNTIME_EXPOSES_ADDITIONAL_DEFECT
+production_change_authority: V14_WRITER2_I13_LEXICAL_GATE_IMPLEMENTED; ADDITIONAL_PRODUCTION_ONLY_IF_EXACT_W2A_RUNTIME_EXPOSES_DEFECT
 merge_authority: OWNER_ONLY
 merge_authorized: false
 pr_state: DRAFT
@@ -34,18 +34,24 @@ hardening:
   issue: CII_V14_WRITER2_I13_NUMERICALLY_INTEGRAL_BUT_LEXICALLY_REAL_ACCEPTED
   affected_module: tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
   preimage_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+  postimage_blob: 5f1473f692c172de5aa0712a70bc72d917a6934d
   required_behavior: CHANGED_CONTROL_AND_ELEMENT_COUNT_POINTER_FIELDS_MUST_BE_LEXICAL_I13
-  regression_target: tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
-  regression_preimage_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
-  execution_status: NOT_RUN_BEFORE_PATCH
+  regression_target: tests/cii-workspace-v14-writer2-i13-lexical.test.js
+  regression_blob: 37703add4fbefd5e5636ef49a4b54214e33e5820
+  preimage_falsifier: FAIL_AS_EXPECTED_LOCAL_EXECUTION_RECONSTRUCTED
+  patched_falsifier: PASS_LOCAL_EXECUTION_RECONSTRUCTED
+  exact_branch_execution: NOT_RUN_ENVIRONMENT
+  implementation_state: IMPLEMENTED
 
 negative_assurance:
   stubs_used: false
   import_rewrites_used: false
   partial_core_used: false
   lossy_bridge_used: false
-  production_changed: false
+  production_changed: true
+  production_changed_paths:
+    - tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
   not_run_promoted_to_pass: false
   w2_a_scope_replaced_by_hardening: false
 
-exact_next_action: ADD_I13_LEXICAL_FALSIFIERS_THEN_MINIMAL_GATE_PATCH_THEN_RESUME_EXACT_W2A_GRAPH_AND_RUN_UNCHANGED_TEST
+exact_next_action: RESUME_EXACT_W2A_GRAPH_RECONSTRUCTION_AND_RUN_UNCHANGED_TEST; ONLY_EXACT_AUTHORED_FAILURE_AUTHORIZES_ADDITIONAL_PRODUCTION_FIX
