@@ -21,19 +21,58 @@ claims:
       expected_pointer_after: 5
     runtime_implication: NONE
 
+  - id: BM_W2_01_INDEPENDENT_ORACLE
+    state: AUTHORED
+    oracle_blob: ab770906e30fa4a0db156e083517af1d7793eb5c
+    test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
+    writer2_mutation_imports_in_oracle: false
+
   - id: BM_W2_01_EXACT_RUNTIME
     state: NOT_RUN
+    reason: EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
 
   - id: NODENAME_POINTER_LEXICAL_I13_DEFECT_CANDIDATE
     state: SUSPECTED_SOURCE_INSPECTION_ONLY
     production_module_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
     observation: ELEMENT_NODENAME_POINTER_REPLACEMENT_USES_NUMERICFIELD_FORMATCIIWRITERSIG6
-    required_runtime_falsifier: AUTHORED_BM_W2_01_OR_FOCUSED_TEST_MUST_FAIL_LEXICAL_I13_ON_EXACT_GRAPH
+    authored_runtime_falsifier: true
+    required_runtime_event: BM_W2_01_LEXICAL_I13_ASSERTION_FAILS_ON_EXACT_GRAPH
     production_fix_claimed: false
+
+  - id: BM_W2_02_STANDALONE
+    state: AUTHORED_RUNTIME_NOT_RUN
+
+  - id: BM_W2_03_SOURCE_CANDIDATE
+    state: PASS_SOURCE_INSPECTION
+    evidence:
+      source_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+      node: '205'
+      layout: CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
+      hanger_count: 1
+      miscel_rows: 23
+      retained_prefix_rows: 7
+      retained_execution_rows: 4
+
+  - id: BM_W2_03_INDEPENDENT_ORACLE
+    state: AUTHORED
+    oracle_blob: 16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f
+    test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
+    writer2_mutation_imports_in_oracle: false
+
+  - id: BM_W2_03_EXACT_RUNTIME
+    state: NOT_RUN
+    reason: EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+  - id: BM_W2_04_STANDALONE
+    state: AUTHORED_RUNTIME_NOT_RUN
+
+  - id: PHASE_3_COMPOSITES
+    state: BLOCKED
+    bm_w2_05_reason: BM_W2_01_02_03_RUNTIME_PASS_REQUIRED
+    bm_w2_06_reason: BM_W2_01_02_03_04_RUNTIME_PASS_REQUIRED
 
   - id: WRITER2_RUNTIME_LADDER
     state: NOT_READY
-    bm_w2_04: NOT_RUN
     w2_a: NOT_RUN
     w2_b: NOT_RUN
     w2_35: NOT_RUN
@@ -47,5 +86,6 @@ negative_claims:
   workflow_modified: false
   parser_modified: false
   converter_modified: false
+  composites_authored_before_standalone_runtime: false
   runtime_pass_fabricated: false
   not_run_promoted_to_pass: false
