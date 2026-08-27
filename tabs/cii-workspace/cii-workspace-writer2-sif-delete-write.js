@@ -1,4 +1,3 @@
-import { formatCiiWriterSig6 } from './cii-workspace-target-writer.js';
 import { buildCiiWriter2SifDeleteRelocationPlan } from './cii-workspace-writer2-sif-delete.js';
 
 const SIF_MARKERS = new Set(['SIF&TEES', 'SIF']);
@@ -16,11 +15,6 @@ function integerField(value, width, code) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < 0) throw new Error(`${code}:INVALID_INTEGER`);
   const token = String(number);
-  if (token.length > width) throw new Error(`${code}:OVERFLOW:${token.length}>${width}`);
-  return token.padStart(width, ' ');
-}
-function numericField(value, width, code) {
-  const token = formatCiiWriterSig6(value);
   if (token.length > width) throw new Error(`${code}:OVERFLOW:${token.length}>${width}`);
   return token.padStart(width, ' ');
 }
@@ -69,7 +63,7 @@ function pointerReplacements(targetDocument, relocationPlan) {
     }
     return Object.freeze({
       kind: 'ELEMENT_SIF_TEE_POINTER', byteStart, byteEnd, beforeField,
-      afterField: numericField(change.newPointer, FIELD_WIDTH, `CII_WRITER_2_SIF_POINTER_AFTER:${change.parsedElementIndex}`),
+      afterField: integerField(change.newPointer, FIELD_WIDTH, `CII_WRITER_2_SIF_POINTER_AFTER:${change.parsedElementIndex}`),
       parsedElementIndex: Number(change.parsedElementIndex), oldPointer: Number(change.oldPointer), newPointer: Number(change.newPointer),
     });
   }));
@@ -145,5 +139,5 @@ export function applyCiiWriter2SifDeleteRelocation({ targetDocument, targetGraph
   });
 }
 
-export const _test = Object.freeze({ markerName, integerField, numericField, rawSectionEnvelope, controlReplacement,
+export const _test = Object.freeze({ markerName, integerField, rawSectionEnvelope, controlReplacement,
   pointerReplacements, sifPayloadReplacement, assertDisjoint, applyReplacements });
