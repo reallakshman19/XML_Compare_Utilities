@@ -9,7 +9,7 @@ repository          reallaksh19/XML_Compare_Utilities
 base                main@10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
 branch              agent/cii-writer2-runtime-closure-w236
 PR                  #1057 OPEN / DRAFT / UNMERGED
-REPORT_BASIS_HEAD   92f26a89dca085c7bcdc14e36eba8cecbb4305ed
+REPORT_BASIS_HEAD   ab5201131579237ebe88be50fed62ea3c33200e1
 work intent         INVESTIGATE_VALIDATE
 criticality         ENGINEERING_CRITICAL
 mutation authority  qualification/evidence only unless exact runtime exposes product defect
@@ -44,6 +44,16 @@ release freeze                                             NOT_READY
 
 No NOT_RUN is promoted to PASS. GitHub Actions remain unauthorized for qualification.
 
+Hosted reconciliation at `ab5201131579237ebe88be50fed62ea3c33200e1`:
+
+```text
+PR state        OPEN / DRAFT / MERGEABLE
+changed files   8
+production files in diff  0
+```
+
+The eight paths are exactly the three PR recovery files, focused Playwright config/fixture, two generated-V14 specs and one pinned-native-V14 spec.
+
 Exact next action when a complete executable checkout/browser environment exists:
 
 ```text
@@ -73,8 +83,8 @@ Acceptance requires all of the following:
 
 ## Ground truth / coordination
 
-- `main` was rechecked after the upstream syntax-authority work and remains `10b7e60b39c18460c812c9fa6dc9c7f46d81e77e`.
-- PR1057 remained open/draft/mergeable with no reviews or unresolved review threads at the last hosted reconciliation.
+- `main` remains `10b7e60b39c18460c812c9fa6dc9c7f46d81e77e`.
+- PR1057 is open/draft/mergeable.
 - Coordination remains `SAFE_EVIDENCE_ONLY` relative to active SIF CREATE and Writer1C workstreams because PR1057 changes only qualification/evidence surfaces.
 - `agents/MASTER_INDEX.md` was previously inspected but not rewritten from a truncated connector payload; destructive regeneration from partial content is prohibited.
 
@@ -141,17 +151,10 @@ A reparse or downstream normalized equality does not excuse NONAM drift.
 
 ## W2 C0 — broader Writer2 product-routing gate
 
-Committed test:
-
 ```text
 tests/cii-workspace-writer2-product-routing.test.js
 blob 2b01a6eba2e60eabdb3dd19b28c7aaba1deb758d
-```
-
-The exact qualification graph is 14 files. Only 10/14 were materialized in the prior execution workspace. Direct checkout failed because this runtime could not resolve `github.com`; therefore:
-
-```text
-W2 C0 = NOT_RUN_EXACT_14_FILE_GRAPH_NOT_FULLY_MATERIALIZED
+status NOT_RUN_EXACT_14_FILE_GRAPH_NOT_FULLY_MATERIALIZED
 ```
 
 No partial graph, stub, import rewrite or source-only substitute qualifies this gate.
@@ -161,68 +164,41 @@ No partial graph, stub, import rewrite or source-only substitute qualifies this 
 ```text
 tests/cii-workspace-writer2-restraint-product-routing.test.js
 blob 9922377ddeda86fc9167d65f33c97095346e79fa
+status NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 ```
-
-This calls public `applyCiiWorkspaceTargetWriter2()` and proves routed RESTRAINT delete, complete-postimage validation, CREATE/forged-authority rejection, stale-target rejection and Writer2 NODE non-regression.
-
-State: `NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT`.
 
 ## W2 B — retained-real V11 product
 
 ```text
-test       tests/cii-workspace-writer2-restraint-product-real-cii.test.js
-blob       c341b99e2786b0034ef672b4efb03d167d9ad26c
-fixture    Benchmark/CIICompare/BM_CII_SOURCE.CII
+test         tests/cii-workspace-writer2-restraint-product-real-cii.test.js
+blob         c341b99e2786b0034ef672b4efb03d167d9ad26c
+fixture      Benchmark/CIICompare/BM_CII_SOURCE.CII
 fixture blob e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+status       NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT
 ```
 
-Required negative assurance includes:
-
-- NONAM row byte-identical;
-- RESTRAINT count under qualified authority only;
-- exactly one 24-row RESTRAINT block removed;
-- topology/connectivity unchanged;
-- restraint pointer relocation matches plan;
-- tampered complete postimage rejected;
-- stale TARGET rejected.
-
-State: `NOT_RUN_EXACT_EXECUTABLE_ENVIRONMENT`.
+Required negative assurance includes NONAM byte identity, exact RESTRAINT count/cardinality delta, topology invariance, pointer relocation, tamper rejection and stale-target rejection.
 
 ## W2.35 / W2.35a — generated-V14 browser qualification
 
-Focused specs:
-
 ```text
 tests/browser/cii-writer2-v14-generated-bridge.spec.mjs
-  blob be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
+  be2bffb6ca001a84f1a6795970ac4e4c7f3b75b3
 
 tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs
-  blob 4a717c2e5f432037634f09b6e71bfe474dd06f66
+  4a717c2e5f432037634f09b6e71bfe474dd06f66
 ```
 
-They use the real Worker/Pyodide path and do not substitute local Python or mocks.
-
-The primary oracle is:
-
-```text
-generated V14 target
--> public Writer2 bridge
--> final projected V14
--> frozen downgrade to V11
--> exact bytes/SHA == direct validated V11 Writer2 postimage
-```
-
-W2.35a independently reads raw I13 fields and enforces #1042 claim custody.
+They use the real Worker/Pyodide path. W2.35 proves final generated-V14 downgrade exact to direct validated V11 Writer2. W2.35a independently proves raw #1042 I13 custody and zero NODENAME/SIF fixed-field claims.
 
 State: `AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT`.
 
 ## W2.40 — pinned native-target V14 Writer2 bridge
 
-New committed spec:
-
 ```text
 tests/browser/cii-writer2-v14-native-bridge.spec.mjs
 blob ec99f9abcff5ab2df70b4f4635bbdeb7413a4bb1
+status AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
 ```
 
 ### Native fixture custody
@@ -239,34 +215,19 @@ member          SYS-0001-v14.CII
 member SHA-256  d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
 ```
 
-Before any Writer2 call the browser spec:
-
-1. fetches the exact pinned archive URL;
-2. recomputes the Git blob SHA-1 using `blob <length>\0<bytes>`;
-3. parses the ZIP central directory;
-4. extracts/inflates `SYS-0001-v14.CII` locally;
-5. recomputes the native member SHA-256;
-6. requires physical CII version 14.
+Before any Writer2 call the spec fetches the pinned archive, recomputes the Git blob SHA-1, parses the ZIP central directory, extracts/inflates the exact native member, recomputes its SHA-256 and requires physical version 14.
 
 The upstream qualification record states the paired native V14 model has 40 RESTRAINT blocks. The spec still fails closed unless the exact native fixture contains the same qualified **unique-owner / single-occupied-slot** deletion class.
 
 ### Native product path
 
-The test deliberately distinguishes source custody from target custody:
-
 ```text
 TARGET = exact pinned native SYS-0001-v14.CII bytes
 SOURCE = validated V11 Writer2 seed upgraded to V14 for transfer input only
-```
 
-Therefore:
-
-```text
 target_is_native = TRUE
 source_is_native = FALSE
 ```
-
-The source is never claimed as native.
 
 Product oracle:
 
@@ -282,25 +243,7 @@ ORIGINAL native V14 TARGET0
 -> exact bytes/SHA == validated direct V11 TARGET1
 ```
 
-Additional mandatory assertions:
-
-- original target SHA in preview/apply equals pinned native SHA-256;
-- native V14 -> V11 -> canonical V14 is **not** whole-file byte-identical for this fixture;
-- using that canonicalized V14 as the current target is rejected as stale/not-original;
-- exact changed-section set is `CONTROL`, `ELEMENTS`, `RESTRANT`;
-- every unrelated native V14 section is byte-identical, including MISCEL_1;
-- RESTRAINT rows decrease by exactly 24;
-- raw native `CONTROL row1/field4` NONAM I13 remains byte-identical;
-- raw `CONTROL row2/field4` RESTRAINT count decreases by exactly one;
-- raw SIF CONTROL field remains byte-identical;
-- fixed-field authority claims contain only RESTRAINT count/pointer identities;
-- final downgrade exactly equals the direct validated V11 Writer2 postimage.
-
-State:
-
-```text
-AUTHORED_NOT_RUN_EXACT_BROWSER_ENVIRONMENT
-```
+Mandatory native assertions include original-target SHA custody, non-exact native canonical roundtrip, stale canonical-target rejection, exact changed sections `CONTROL/ELEMENTS/RESTRANT`, all unrelated native sections byte-identical, exactly 24 RESTRAINT rows removed, raw NONAM I13 unchanged, exact RESTRAINT-count delta, no non-RESTRAINT fixed-field claims, and final exact V11 postimage equality.
 
 The first genuine native runtime falsifier is authoritative. No production repair is justified until that execution produces one.
 
@@ -311,13 +254,7 @@ playwright.cii-writer2.config.mjs
 blob 0de2666dd8e05a1cd989976ce28fce281d1a92cb
 ```
 
-It runs exactly:
-
-```text
-cii-writer2-v14-generated-bridge.spec.mjs
-cii-writer2-v14-generated-bridge-1042.spec.mjs
-cii-writer2-v14-native-bridge.spec.mjs
-```
+It runs exactly the two generated-V14 specs plus the pinned native-V14 spec.
 
 Command:
 
@@ -325,19 +262,19 @@ Command:
 npx playwright test --config=playwright.cii-writer2.config.mjs
 ```
 
-The exact browser environment remains unavailable here. The worker also requires real Pyodide from jsDelivr and the native spec requires the pinned raw GitHub archive; no offline substitution is authorized.
+The exact browser environment remains unavailable here. The worker requires real Pyodide from jsDelivr and the native spec requires the pinned raw GitHub archive; no offline substitution is authorized.
 
 ## Validation ledger
 
 | Gate | Status | Observation | Oracle | Notes |
 |---|---|---|---|---|
-| W2.34 focused 7-file runtime | PASS | LOCAL_EXECUTION inherited | independent route/export assertions | exact committed graph |
+| W2.34 focused 7-file runtime | PASS | LOCAL_EXECUTION inherited | route/export assertions | exact committed graph |
 | post-PR702 six embedded blobs | PASS | REMOTE/SOURCE inspection | exact Git blob identity | no repin |
 | W2 C0 | NOT_RUN | NOT_OBSERVED | committed product test | exact graph incomplete locally |
 | W2 A | NOT_RUN | NOT_OBSERVED | public product test | executable graph unavailable |
-| W2 B | NOT_RUN | NOT_OBSERVED | retained-real V11 + independent complete postimage | executable graph unavailable |
+| W2 B | NOT_RUN | NOT_OBSERVED | retained-real V11 + complete-postimage oracle | executable graph unavailable |
 | W2.35 | NOT_RUN | SOURCE_INSPECTION only | exact generated-V14 downgrade vs direct V11 | authored |
-| W2.35a #1042 | NOT_RUN | SOURCE_INSPECTION only | raw I13 + fixed-field claim oracle | authored |
+| W2.35a #1042 | NOT_RUN | SOURCE_INSPECTION only | raw I13 + fixed-field claims | authored |
 | W2.40 native target | NOT_RUN | SOURCE_INSPECTION only | pinned archive/member custody + native projection + exact downgrade | authored |
 
 ## Active issues / decisions / risks
@@ -345,13 +282,11 @@ The exact browser environment remains unavailable here. The worker also requires
 - `ISS-1057-01`: exact complete checkout/browser execution unavailable in current runtime.
 - `DEC-1057-01`: retain `3D_Converters@ca8d391a...` frozen provenance because all six embedded runtime blobs are unchanged after upstream PR702.
 - `DEC-1057-02`: native target may be fetched from exact pinned upstream archive at runtime only after Git-blob and member-SHA verification; documentation reconstruction is forbidden.
-- `RISK-1057-01`: pinned SYS-0001 native fixture may lack the exact qualified single-occupied RESTRAINT deletion class; if so native gate must fail closed and another source-qualified native fixture is required.
-- `RISK-1057-02`: browser support/network for raw-deflate archive extraction, raw GitHub and jsDelivr Pyodide are execution dependencies; environment failure is NOT_RUN/ENVIRONMENT, not product PASS/FAIL.
-- `RISK-1057-03`: the first exact native product mismatch may expose a real bridge/projection defect. Do not repair spec/oracle to make the test pass.
+- `RISK-1057-01`: pinned SYS-0001 native fixture may lack the exact qualified single-occupied RESTRAINT deletion class; if so native gate fails closed and another source-qualified native fixture is required.
+- `RISK-1057-02`: raw-deflate support, raw GitHub and jsDelivr Pyodide are execution dependencies; environment failure remains NOT_RUN/ENVIRONMENT.
+- `RISK-1057-03`: first exact native product mismatch may expose a real bridge/projection defect. Do not weaken the spec/oracle to obtain PASS.
 
 ## Negative assurance
-
-The PR must continue to satisfy:
 
 ```text
 production Writer2 code changed                    FALSE
@@ -369,32 +304,32 @@ GitHub Actions used as qualification              FALSE
 
 ## Changed-file ledger
 
-1. `agents/PR1057_workreport.md` — living recovery authority.
-2. `agents/status/PR1057.yaml` — machine-readable current state.
-3. `agents/claims/PR1057.yaml` — machine-readable claims/validation truth.
-4. `playwright.cii-writer2.config.mjs` — focused three-spec local browser runner.
-5. `tests/browser/cii-writer2-bridge-fixture.html` — minimal real browser host.
-6. `tests/browser/cii-writer2-v14-generated-bridge.spec.mjs` — generated-V14 exact-postimage bridge gate.
-7. `tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs` — explicit generated-V14 #1042 raw-field/claim gate.
-8. `tests/browser/cii-writer2-v14-native-bridge.spec.mjs` — pinned native-target V14 bridge/product gate.
+1. `agents/PR1057_workreport.md`
+2. `agents/status/PR1057.yaml`
+3. `agents/claims/PR1057.yaml`
+4. `playwright.cii-writer2.config.mjs`
+5. `tests/browser/cii-writer2-bridge-fixture.html`
+6. `tests/browser/cii-writer2-v14-generated-bridge.spec.mjs`
+7. `tests/browser/cii-writer2-v14-generated-bridge-1042.spec.mjs`
+8. `tests/browser/cii-writer2-v14-native-bridge.spec.mjs`
 
 No production implementation file is in the PR diff at this checkpoint.
 
 ## Appendix A — implementation takeover qualification
 
-Before any production mutation, the incoming agent must answer from the live repository and score `>=92/100`, each `>=17/20`.
+Before any production mutation, incoming agent must answer from live repository and score `>=92/100`, each `>=17/20`.
 
 ### A1 — production trace — 20
-Trace `createCiiWorkspacePreviewWithVersionBridge()` and `applyCiiWorkspaceTargetWriter2WithVersionBridge()` through normalization, public V11 Writer2, canonical V14 generation, `assertCiiV14Writer2FixedFieldAuthority()`, `projectCanonicalV14WriterDelta()`, and final downgrade proof. Name the exact current files/functions and the first value that would falsify native projection correctness.
+Trace `createCiiWorkspacePreviewWithVersionBridge()` and `applyCiiWorkspaceTargetWriter2WithVersionBridge()` through normalization, public V11 Writer2, canonical V14 generation, `assertCiiV14Writer2FixedFieldAuthority()`, `projectCanonicalV14WriterDelta()`, and final downgrade proof. Name exact current functions/files and first falsifying value.
 
 ### A2 — native-fixture custody — 20
-From the live W2.40 spec, state the exact upstream commit, archive Git blob SHA-1, member, member SHA-256, ZIP extraction path and the distinction between native target and generated source. Explain exactly which assertion prevents a reconstructed or wrong archive from qualifying.
+From live W2.40 spec, state exact upstream commit, archive Git blob SHA-1, member, member SHA-256, ZIP extraction path and native-target/generated-source distinction. Identify assertion that prevents reconstructed/wrong archive qualification.
 
 ### A3 — Issue #1042 authority — 20
-Using both one-based neutral-file notation and zero-based implementation notation, identify NONAM and RESTRAINT count fields. Trace the current V14 fixed-field-authority identities and explain why a NONAM mutation must fail even if the final file reparses.
+Using one-based and zero-based notation, identify NONAM and RESTRAINT count. Trace V14 fixed-field identities and explain why NONAM mutation fails even if file reparses.
 
 ### A4 — independent validation — 20
-Explain why whole-file V14->V11->V14 identity is invalid, and reconstruct the native BRIDGE B oracle from original native V14 TARGET0 to exact validated V11 TARGET1. Identify which evidence is implementation-coupled and which is independently observed in the test.
+Explain why whole-file V14->V11->V14 identity is invalid and reconstruct native BRIDGE B oracle from original native V14 TARGET0 to exact validated V11 TARGET1. Separate implementation-coupled from independent evidence.
 
 ### A5 — next-commit/minimal repair — 20
-Assume the native spec executes and the final projected V14 downgrades to bytes different from direct V11 Writer2 TARGET1 while all earlier custody hashes pass. Identify the first production module to inspect, the exact intermediate values to compare, and the smallest legitimate patch boundary. State what evidence would instead prove the failure is fixture/environment rather than product logic.
+Assume native spec executes and projected V14 downgrade differs from direct V11 Writer2 TARGET1 while custody hashes pass. Identify first production module to inspect, exact intermediates to compare and smallest legitimate patch boundary. State evidence that would instead classify fixture/environment failure.
