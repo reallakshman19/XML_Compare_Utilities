@@ -1,0 +1,44 @@
+pr: 1059
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-w2a-runtime-closure
+base_main: 9685a2f41ec2b5a5c170762816702fefe90e18a7
+claim_state: W2_A_EXACT_RUNTIME_PENDING
+merge_authority: OWNER_ONLY
+merge_authorized: false
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+claims:
+  - id: W2_C0_BROAD_PRODUCT_ROUTING_RUNTIME
+    state: PASS_RUNTIME_EXACT_14_FILE_BLOB_GRAPH_NODE_ESM_MODE
+    inherited_from_pr: 1057
+    required: true
+
+  - id: W2_A_SYNTHETIC_PUBLIC_PRODUCT_RUNTIME
+    state: NOT_RUN_GRAPH_RECONSTRUCTION_IN_PROGRESS
+    required: true
+    entrypoint: tests/cii-workspace-writer2-restraint-product-routing.test.js
+    entrypoint_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
+    public_entrypoint: applyCiiWorkspaceTargetWriter2
+    exact_graph_required: true
+    stubs_allowed: false
+    import_rewrites_allowed: false
+    partial_core_allowed: false
+    historical_sparse_mirror_evidence_only:
+      pr: 1054
+      exact_files_admitted: 54
+      unresolved_static_modules: 31
+      last_missing_module: tabs/cii-workspace/cii-workspace-auxiliary.js
+      authored_assertion_failure_observed: false
+
+  - id: W2_B_RETAINED_REAL_V11_PUBLIC_PRODUCT_RUNTIME
+    state: NOT_RUN
+    required: true
+
+  - id: FOCUSED_BROWSER_GATE
+    state: NOT_RUN
+    required: true
+
+validation_integrity:
+  production_changed: false
+  not_run_promoted_to_pass: false
+  historical_sparse_mirror_promoted_to_current_runtime: false
