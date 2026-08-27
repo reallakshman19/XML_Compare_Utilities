@@ -2,7 +2,7 @@ pr: 1059
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-w2a-runtime-closure
 base_main: 9685a2f41ec2b5a5c170762816702fefe90e18a7
-claim_state: W2_A_EXACT_RUNTIME_PENDING
+claim_state: W2_A_EXACT_RUNTIME_PLUS_BOUNDED_I13_HARDENING
 merge_authority: OWNER_ONLY
 merge_authorized: false
 release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
@@ -30,6 +30,24 @@ claims:
       last_missing_module: tabs/cii-workspace/cii-workspace-auxiliary.js
       authored_assertion_failure_observed: false
 
+  - id: W2_V14_I13_LEXICAL_FIXED_FIELD_AUTHORITY
+    state: IMPLEMENTATION_AUTHORIZED_PENDING
+    required: true
+    source_cross_check: reallaksh19/3D_Converters@e5dbfcd2d86a5705a60df87b932d839fbc78301e
+    production_path: tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js
+    production_preimage_blob: fc97ddd7fd5645e46c70a722c7f96f17dc7ae188
+    regression_path: tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
+    regression_preimage_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
+    invariant: CHANGED_CONTROL_AND_ELEMENT_WRITER2_COUNT_POINTER_FIELDS_MUST_BE_LEXICAL_I13
+    reject_examples:
+      - '3.000000'
+      - '3.000000E+00'
+      - '3.000000D+00'
+    allow_examples:
+      - '3'
+      - '+3'
+      - '0003'
+
   - id: W2_B_RETAINED_REAL_V11_PUBLIC_PRODUCT_RUNTIME
     state: NOT_RUN
     required: true
@@ -42,3 +60,4 @@ validation_integrity:
   production_changed: false
   not_run_promoted_to_pass: false
   historical_sparse_mirror_promoted_to_current_runtime: false
+  i13_hardening_runtime_pass_claimed: false
