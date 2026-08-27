@@ -1,0 +1,60 @@
+pr: 1060
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-bmw204-runtime-closure
+base_main: 29766c0432665e5f4b1340e59f9a16e7d4ef3999
+claim_state: BM_W2_04_EXACT_RUNTIME_GRAPH_RECONSTRUCTION
+merge_authority: OWNER_ONLY
+merge_authorized: false
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+claims:
+  - id: W2_C0_BROAD_PRODUCT_ROUTING_RUNTIME
+    state: PASS_RUNTIME_EXACT_14_FILE_BLOB_GRAPH_NODE_ESM_MODE
+    inherited_from_pr: 1059
+    required: true
+
+  - id: W2_V14_I13_LEXICAL_FIXED_FIELD_AUTHORITY
+    state: PASS_RUNTIME_EXACT_3_FILE_BLOB_SUBGRAPH
+    inherited_from_pr: 1059
+    required: true
+
+  - id: BM_W2_04_RETAINED_REAL_V11_RESTRAINT_DELETE
+    state: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
+    required: true
+    role: PRIMARY_W2_B_RETAINED_REAL_V11
+    test: tests/cii-workspace-writer2-benchmark-restraint-delete.test.js
+    test_blob: 54c08bf0b2baf8138a703350d9e2600387693008
+    independent_oracle: Benchmark/CIICompare/Writer2/cii-writer2-benchmark-oracle.js
+    oracle_blob: b36e38c8df327069f07ea20ad50c91f03ffdcd6a
+    exact_graph_required: true
+    stubs_allowed: false
+    import_rewrites_allowed: false
+    partial_core_allowed: false
+    direct_graph_blobs:
+      parser/fixed-field.js: 485daa43553681ca54f488499e57f36d2239be58
+      tabs/cii-workspace/cii-workspace-core.js: cee2858a63992648edf5e61b8f63b3837a937f9e
+      tabs/cii-workspace/cii-workspace-intake.js: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
+      tabs/cii-workspace/cii-workspace-physical-file.js: 0c4c445fbd3d4b929b1f9288b789b244547c8867
+      tabs/cii-workspace/cii-workspace-topology-adapter.js: 57b8d2d6e8335887b962e09085cc93ece2e36d68
+      tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js: c007c91e1ac73a3ba5003f59ccdfa027eb5156a0
+      tabs/cii-workspace/cii-workspace-writer2-product-validation.js: 05fcb594a3be5e360ce804c77872319730a16b53
+    pass_claimed: false
+    authored_failure_observed: false
+
+  - id: W2_A_SYNTHETIC_PUBLIC_PRODUCT_RUNTIME
+    state: NOT_RUN
+    inherited_from_pr: 1059
+    required: true
+
+  - id: W2_B_RETAINED_REAL_V11_PUBLIC_PRODUCT_RUNTIME
+    state: NOT_RUN
+    required: true
+    precondition_w2_a_pass: true
+    precondition_bm_w2_04_pass: true
+
+validation_integrity:
+  production_changed_in_pr1060: false
+  benchmark_changed_in_pr1060: false
+  not_run_promoted_to_pass: false
+  graph_transport_limitation_treated_as_fail: false
+  graph_transport_limitation_treated_as_pass: false
