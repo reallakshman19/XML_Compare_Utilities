@@ -1,0 +1,233 @@
+{
+  "schema": "cii-writer2-benchmarks/v1",
+  "source": {
+    "file": "Benchmark/CIICompare/BM_CII_SOURCE.CII",
+    "gitBlob": "e41cd05603b56837cbb6e31b9d4074ef6106fe9b",
+    "frozenCommit": "9685a2f41ec2b5a5c170762816702fefe90e18a7",
+    "neutralVersionMajor": 11,
+    "elementCount": 40,
+    "control": {
+      "hangerCount": 1,
+      "nodeNameCount": 4,
+      "restraintBlockCount": 7,
+      "sifTeeBlockCount": 9
+    },
+    "physical": {
+      "elementRowsPerBlock": 15,
+      "restraintRowsPerBlock": 24,
+      "restraintSlotsPerBlock": 6,
+      "restraintRowsPerSlot": 4,
+      "sifTeeRowsPerBlock": 10,
+      "nodeNameRows": 4,
+      "miscel1Rows": 23
+    },
+    "hanger": {
+      "count": 1,
+      "nodes": ["205"]
+    }
+  },
+  "cases": [
+    {
+      "id": "BM-W2-00",
+      "family": "IDENTITY",
+      "state": "PLANNED",
+      "operation": "NONE",
+      "expected": {
+        "byteIdentical": true,
+        "topologyUnchanged": true
+      }
+    },
+    {
+      "id": "BM-W2-01",
+      "family": "NODENAME",
+      "state": "PLANNED_REQUIRES_RETAINED_SOURCE_ALLOCATION_REQUALIFICATION",
+      "operation": "CREATE",
+      "candidate": {
+        "node": "10",
+        "name": "BM-N10"
+      },
+      "expected": {
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "topologyUnchanged": true
+      }
+    },
+    {
+      "id": "BM-W2-02",
+      "family": "SIF_TEE",
+      "state": "PLANNED",
+      "operation": "DELETE_BLOCK",
+      "candidate": {
+        "pointer": 1,
+        "ownerFrom": "70",
+        "ownerTo": "250",
+        "recordNode": "70",
+        "sourceRawCode": 3
+      },
+      "expected": {
+        "blockCountBefore": 9,
+        "blockCountAfter": 8,
+        "rowsBefore": 90,
+        "rowsAfter": 80,
+        "rowsPerBlock": 10,
+        "deletedPointerAfter": 0,
+        "retainedPointerRule": "P_GT_1_DECREMENT_BY_1",
+        "topologyUnchanged": true
+      },
+      "exclusions": [
+        "RAW_CODE_3_TO_5_IS_NOT_A_WRITER2_ORACLE_WHILE_FIELD2_SEMANTICS_UNRESOLVED"
+      ]
+    },
+    {
+      "id": "BM-W2-03",
+      "family": "HANGER",
+      "state": "PLANNED",
+      "operation": "DELETE_ALL",
+      "candidate": {
+        "node": "205"
+      },
+      "expected": {
+        "countBefore": 1,
+        "countAfter": 0,
+        "nodesBefore": ["205"],
+        "nodesAfter": [],
+        "miscel1RowsBefore": 23,
+        "miscel1RowsAfter": 11,
+        "topologyUnchanged": true
+      }
+    },
+    {
+      "id": "BM-W2-04",
+      "family": "RESTRAINT",
+      "state": "IMPLEMENTING_PHASE_1",
+      "role": "PRIMARY_W2_B_RETAINED_REAL_V11",
+      "operation": "DELETE_BLOCK_COMPACTION",
+      "candidate": {
+        "pointer": 1,
+        "slot": 1,
+        "node": "190",
+        "ownerFrom": "180",
+        "ownerTo": "190",
+        "expectedOwnerCount": 1,
+        "expectedOccupiedSlotCount": 1,
+        "expectedNodeRecordCount": 1
+      },
+      "expected": {
+        "blockCountBefore": 7,
+        "blockCountAfter": 6,
+        "rowsBefore": 168,
+        "rowsAfter": 144,
+        "rowsPerBlock": 24,
+        "deletedPointerAfter": 0,
+        "retainedPointerRule": "P_GT_1_DECREMENT_BY_1",
+        "controlNodeNameCountBefore": 4,
+        "controlNodeNameCountAfter": 4,
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "oracle": {
+        "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
+        "mustNotImportWriter2MutationCode": true,
+        "authorizedCoordinates": [
+          "CONTROL_ROW2_FIELD4_RESTRAINT_BLOCK_COUNT",
+          "ELEMENT_ROW13_FIELD4_RESTRAINT_POINTER",
+          "RESTRANT_FIRST_24_PHYSICAL_ROWS_DELETE"
+        ]
+      }
+    },
+    {
+      "id": "BM-W2-05",
+      "family": "COMPOSITE",
+      "state": "PLANNED_AFTER_BM_W2_01_02_03",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE",
+      "expectedControl": {
+        "hangerCountBefore": 1,
+        "hangerCountAfter": 0,
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "restraintBlockCountBefore": 7,
+        "restraintBlockCountAfter": 7,
+        "sifTeeBlockCountBefore": 9,
+        "sifTeeBlockCountAfter": 8
+      }
+    },
+    {
+      "id": "BM-W2-06",
+      "family": "COMPOSITE",
+      "state": "PLANNED_AFTER_BM_W2_01_02_03_04",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE",
+      "expectedControl": {
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "hangerCountBefore": 1,
+        "hangerCountAfter": 0,
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "restraintBlockCountBefore": 7,
+        "restraintBlockCountAfter": 6,
+        "sifTeeBlockCountBefore": 9,
+        "sifTeeBlockCountAfter": 8
+      }
+    }
+  ],
+  "negativeCases": [
+    {
+      "id": "NEG-01",
+      "name": "UNRELATED_BYTE_DRIFT",
+      "expected": "FAIL_EXACT_COMPLETE_POSTIMAGE"
+    },
+    {
+      "id": "NEG-02",
+      "name": "STALE_BOUND_PREVIEW",
+      "expected": "FAIL_STALE_TARGET_HASH"
+    },
+    {
+      "id": "NEG-03",
+      "name": "WRONG_CONTROL_FIELD",
+      "expected": "FAIL_AUTHORITY_OR_POSTIMAGE"
+    },
+    {
+      "id": "NEG-04",
+      "name": "WRONG_POINTER_RELOCATION",
+      "expected": "FAIL_INDEPENDENT_POSTIMAGE"
+    },
+    {
+      "id": "NEG-05",
+      "name": "NON_LEXICAL_I13",
+      "reject": ["6.000000", "6.000000E+00", "6.000000D+00"],
+      "expected": "FAIL_I13_LEXICAL_AUTHORITY"
+    },
+    {
+      "id": "NEG-06",
+      "name": "WRONG_V11_SIF_BLOCK_CARDINALITY",
+      "expected": "FAIL_10_ROW_BLOCK_AUTHORITY"
+    }
+  ],
+  "versionGates": {
+    "W2_A": {
+      "role": "SYNTHETIC_PUBLIC_RUNTIME",
+      "benchmarkDoesNotReplace": true
+    },
+    "W2_B": {
+      "benchmarkCase": "BM-W2-04",
+      "evidenceClass": "RETAINED_REAL_V11"
+    },
+    "W2_35": {
+      "benchmarkCase": "BM-W2-04",
+      "evidenceClass": "CONVERTER_GENERATED_V14"
+    },
+    "W2_35a": {
+      "evidenceClass": "ISSUE_1042_GENERATED_V14_REGRESSION",
+      "separateIdentityRequired": true
+    },
+    "W2_40": {
+      "benchmarkCase": "BM-W2-04_EQUIVALENT",
+      "evidenceClass": "NATIVE_V14",
+      "converterGeneratedEvidenceForbiddenAsNative": true
+    }
+  }
+}
