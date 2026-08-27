@@ -40,24 +40,53 @@
     {
       "id": "BM-W2-01",
       "family": "NODENAME",
-      "state": "PLANNED_REQUIRES_RETAINED_SOURCE_ALLOCATION_REQUALIFICATION",
+      "state": "AUTHORED_RUNTIME_NOT_RUN",
       "operation": "CREATE",
       "candidate": {
         "node": "10",
-        "name": "BM-N10"
+        "name": "BM-N10",
+        "ownerElementIndex": 0,
+        "ownerFrom": "10",
+        "ownerTo": "20",
+        "ownerEnd": "FROM",
+        "pointerBefore": 0,
+        "expectedPointerAfter": 5,
+        "expectedOwnerCountAtLowestIndex": 1
+      },
+      "sourceAuthority": {
+        "plannerPath": "tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js",
+        "plannerBlob": "326954e4d6342ba25915c107c7118b4f51c23610",
+        "allocationRule": "LOWEST_PARSED_INDEX_INCIDENT_ZERO_POINTER_OWNER_THEN_APPEND_AFTER_RETAINED_ROWS",
+        "pointerBasis": "ONE_BASED_NODENAME_ROW_INDEX"
       },
       "expected": {
         "nodeNameCountBefore": 4,
         "nodeNameCountAfter": 5,
+        "selectedPointerBefore": 0,
+        "selectedPointerAfter": 5,
         "elementCountBefore": 40,
         "elementCountAfter": 40,
-        "topologyUnchanged": true
-      }
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "oracle": {
+        "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
+        "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-nodename-oracle.js",
+        "mustNotImportWriter2MutationCode": true,
+        "authorizedCoordinates": [
+          "CONTROL_ROW1_FIELD4_NONAM_COUNT",
+          "ELEMENT_BLOCK0_ROW14_FIELD6_NODENAME_POINTER",
+          "NODENAME_APPEND_ROW5_FROM_FIELD"
+        ]
+      },
+      "test": "tests/cii-workspace-writer2-benchmark-nodename-create.test.js",
+      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE",
+      "knownSourceInspectionRisk": "CURRENT_V11_NODENAME_POINTER_WRITER_USES_REAL_FORMATTER_IN_I13_COORDINATE"
     },
     {
       "id": "BM-W2-02",
       "family": "SIF_TEE",
-      "state": "IMPLEMENTING_PHASE_2",
+      "state": "AUTHORED_RUNTIME_NOT_RUN",
       "operation": "DELETE_BLOCK",
       "candidate": {
         "pointer": 1,
@@ -88,6 +117,8 @@
           "SIF_TEES_FIRST_10_PHYSICAL_ROWS_DELETE"
         ]
       },
+      "test": "tests/cii-workspace-writer2-benchmark-sif-delete.test.js",
+      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE",
       "exclusions": [
         "RAW_CODE_3_TO_5_IS_NOT_A_WRITER2_ORACLE_WHILE_FIELD2_SEMANTICS_UNRESOLVED"
       ]
@@ -95,10 +126,11 @@
     {
       "id": "BM-W2-03",
       "family": "HANGER",
-      "state": "PLANNED",
+      "state": "AUTHORED_RUNTIME_NOT_RUN",
       "operation": "DELETE_ALL",
       "candidate": {
-        "node": "205"
+        "node": "205",
+        "layout": "CAESAR_SYNCHRONIZER_IHGRNODE_FIRST"
       },
       "expected": {
         "countBefore": 1,
@@ -107,13 +139,27 @@
         "nodesAfter": [],
         "miscel1RowsBefore": 23,
         "miscel1RowsAfter": 11,
-        "topologyUnchanged": true
-      }
+        "retainedPrefixRows": 7,
+        "retainedExecutionRows": 4,
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "oracle": {
+        "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
+        "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-hanger-oracle.js",
+        "mustNotImportWriter2MutationCode": true,
+        "authorizedCoordinates": [
+          "CONTROL_ROW1_FIELD3_NOHGRS_COUNT",
+          "MISCEL_1_REMOVE_HANGER_MIDDLE_ROWS_RETAIN_FIRST7_LAST4"
+        ]
+      },
+      "test": "tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js",
+      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
     },
     {
       "id": "BM-W2-04",
       "family": "RESTRAINT",
-      "state": "IMPLEMENTING_PHASE_1",
+      "state": "AUTHORED_RUNTIME_NOT_RUN",
       "role": "PRIMARY_W2_B_RETAINED_REAL_V11",
       "operation": "DELETE_BLOCK_COMPACTION",
       "candidate": {
@@ -143,18 +189,21 @@
       },
       "oracle": {
         "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
+        "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-oracle.js",
         "mustNotImportWriter2MutationCode": true,
         "authorizedCoordinates": [
           "CONTROL_ROW2_FIELD4_RESTRAINT_BLOCK_COUNT",
           "ELEMENT_ROW13_FIELD4_RESTRAINT_POINTER",
           "RESTRANT_FIRST_24_PHYSICAL_ROWS_DELETE"
         ]
-      }
+      },
+      "test": "tests/cii-workspace-writer2-benchmark-restraint-delete.test.js",
+      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
     },
     {
       "id": "BM-W2-05",
       "family": "COMPOSITE",
-      "state": "PLANNED_AFTER_BM_W2_01_02_03",
+      "state": "READY_TO_AUTHOR_AFTER_STANDALONE_RUNTIME_QUALIFICATION",
       "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE",
       "expectedControl": {
         "hangerCountBefore": 1,
@@ -170,7 +219,7 @@
     {
       "id": "BM-W2-06",
       "family": "COMPOSITE",
-      "state": "PLANNED_AFTER_BM_W2_01_02_03_04",
+      "state": "PLANNED_AFTER_BM_W2_01_02_03_04_RUNTIME_QUALIFICATION",
       "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE",
       "expectedControl": {
         "elementCountBefore": 40,
@@ -222,24 +271,29 @@
   "versionGates": {
     "W2_A": {
       "role": "SYNTHETIC_PUBLIC_RUNTIME",
-      "benchmarkDoesNotReplace": true
+      "benchmarkDoesNotReplace": true,
+      "state": "NOT_RUN"
     },
     "W2_B": {
       "benchmarkCase": "BM-W2-04",
-      "evidenceClass": "RETAINED_REAL_V11"
+      "evidenceClass": "RETAINED_REAL_V11",
+      "state": "NOT_RUN"
     },
     "W2_35": {
       "benchmarkCase": "BM-W2-04",
-      "evidenceClass": "CONVERTER_GENERATED_V14"
+      "evidenceClass": "CONVERTER_GENERATED_V14",
+      "state": "NOT_RUN"
     },
     "W2_35a": {
       "evidenceClass": "ISSUE_1042_GENERATED_V14_REGRESSION",
-      "separateIdentityRequired": true
+      "separateIdentityRequired": true,
+      "state": "NOT_RUN"
     },
     "W2_40": {
       "benchmarkCase": "BM-W2-04_EQUIVALENT",
       "evidenceClass": "NATIVE_V14",
-      "converterGeneratedEvidenceForbiddenAsNative": true
+      "converterGeneratedEvidenceForbiddenAsNative": true,
+      "state": "NOT_RUN"
     }
   }
 }
