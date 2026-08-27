@@ -1,0 +1,39 @@
+pr: 1059
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-w2a-runtime-closure
+base_main: 9685a2f41ec2b5a5c170762816702fefe90e18a7
+current_stage: W2_A_EXACT_PUBLIC_RUNTIME_GRAPH_RECONSTRUCTION
+work_intent: INVESTIGATE_VALIDATE
+criticality: ENGINEERING_CRITICAL
+mutation_authority: READ_ONLY_QUALIFICATION_UNLESS_EXACT_RUNTIME_EXPOSES_DEFECT
+production_change_authority: NONE_CURRENTLY
+merge_authority: OWNER_ONLY
+merge_authorized: false
+pr_state: DRAFT
+handover_readiness: READY
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+inherited:
+  w2_34_focused_bridge_export: PASS
+  w2_c0_exact_14_file_graph: PASS_RUNTIME_EXACT_14_FILE_BLOB_GRAPH_NODE_ESM_MODE
+
+runtime:
+  w2_a: NOT_RUN_GRAPH_RECONSTRUCTION_IN_PROGRESS
+  w2_a_test_blob: 9922377ddeda86fc9167d65f33c97095346e79fa
+  public_entrypoint: applyCiiWorkspaceTargetWriter2
+  historical_pr1054_exact_files_admitted: 54
+  historical_pr1054_unresolved_static_modules: 31
+  historical_pr1054_last_missing_module: tabs/cii-workspace/cii-workspace-auxiliary.js
+  historical_assertion_failure: false
+  current_sparse_mirror_retained: false
+  w2_b: NOT_RUN
+  browser_gates: NOT_RUN
+
+negative_assurance:
+  stubs_used: false
+  import_rewrites_used: false
+  partial_core_used: false
+  production_changed: false
+  not_run_promoted_to_pass: false
+
+exact_next_action: REBUILD_CURRENT_MAIN_W2A_TRANSITIVE_ESM_GRAPH_WITH_EXACT_GIT_BLOB_ADMISSION_THEN_RUN_UNCHANGED_TEST
