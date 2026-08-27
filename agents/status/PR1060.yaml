@@ -2,7 +2,7 @@ pr: 1060
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-bmw204-runtime-closure
 base_main: 29766c0432665e5f4b1340e59f9a16e7d4ef3999
-current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_GRAPH_RECONSTRUCTION
+current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_GRAPH_RECONSTRUCTION_AFTER_RESTRAINT_I13_HARDENING
 work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
 criticality: ENGINEERING_CRITICAL
 merge_authority: OWNER_ONLY
@@ -16,6 +16,21 @@ inherited:
   w2_c0_exact_14_file_graph: PASS_RUNTIME_EXACT_14_FILE_BLOB_GRAPH_NODE_ESM_MODE
   v14_i13_lexical_gate: PASS_RUNTIME_EXACT_3_FILE_BLOB_SUBGRAPH
 
+hardening:
+  restraint_pointer_i13:
+    state: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+    test: tests/cii-workspace-writer2-restraint-pointer-i13-custody.test.js
+    test_blob: 2c5940d17b13807455c4468a0b6d31fdc36f860f
+    production_path: tabs/cii-workspace/cii-workspace-writer2-restraint-delete-custody.js
+    preimage_blob: 2176ac97eaef84f3aa9073d5eaf73d1530cf09a8
+    postimage_blob: 7053230546eaba4588b98a35ae5fc3819da83c14
+    preimage_falsifier: FAIL_AS_EXPECTED
+    preimage_actual: QUALIFIED
+    preimage_expected: BLOCKED
+    preimage_token: '1.000000'
+    postimage_execution: PASS
+    invariant: ELEMENT_RESTRAINT_POINTER_PHYSICAL_CUSTODY_REQUIRES_LEXICAL_I13
+
 runtime:
   bm_w2_04: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
   bm_w2_04_test_blob: 54c08bf0b2baf8138a703350d9e2600387693008
@@ -28,18 +43,22 @@ runtime:
 
 materialization:
   archive_or_clone_transport_available: false
-  direct_exact_blobs_pinned: 7
+  native_git_dns_available: false
+  direct_exact_blobs_pinned_minimum: 10
   public_core_requires_broad_static_graph: true
   intake_requires_parser_and_auxiliary_subgraph: true
-  authored_assertion_failure_observed: false
+  bm_w2_04_authored_assertion_failure_observed: false
 
 negative_assurance:
   stubs_used: false
   import_rewrites_used: false
   partial_core_used: false
   reconstructed_pass_used: false
-  production_changed: false
+  production_changed: true
+  production_changed_paths:
+    - tabs/cii-workspace/cii-workspace-writer2-restraint-delete-custody.js
   benchmark_changed: false
+  focused_test_added: true
   not_run_promoted_to_pass: false
 
 exact_next_action: CONTINUE_TRANSITIVE_STATIC_IMPORT_EXPANSION_FROM_CORE_AND_INTAKE; VERIFY_EVERY_GIT_BLOB; RUN_UNCHANGED_BM_W2_04; THEN_CONTINUE_W2_A
