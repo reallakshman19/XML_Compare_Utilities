@@ -7,6 +7,18 @@ import { validateCiiWriter2SifDeleteRoundTrip } from '../tabs/cii-workspace/cii-
 
 const WIDTHS = [15, 13, 13, 13, 13, 13];
 function numericRow(values) { return values.map((value, index) => String(value ?? 0).padStart(WIDTHS[index], ' ')).join(''); }
+function fixedToken(line, fieldIndex) {
+  const start = WIDTHS.slice(0, fieldIndex).reduce((sum, width) => sum + width, 0);
+  return String(line ?? '').slice(start, start + WIDTHS[fieldIndex]).trim();
+}
+function assertSifPointerI13(document, parsedElementIndex, expected) {
+  const rows = ciiPhysicalSectionRows(document.physicalFile, 'ELEMENTS');
+  const pointerRow = rows[Number(parsedElementIndex) * 15 + 13]?.text;
+  assert(pointerRow, `ELEMENT ${parsedElementIndex} SIF pointer row required`);
+  const token = fixedToken(pointerRow, 4);
+  assert.match(token, /^[+-]?\d+$/, `ELEMENT ${parsedElementIndex} SIF pointer must be lexical I13`);
+  assert.equal(Number(token), expected);
+}
 function elementBlock(from, to, sifPointer) {
   const rows = Array.from({ length: 15 }, () => numericRow([0, 0, 0, 0, 0, 0]));
   rows[0] = numericRow([from, to, 0, 0, 0, 100]);
@@ -84,6 +96,9 @@ function afterDocument(writerResult, parsedModel = parsed()) { return documentFr
   assert.equal(after.sifWriter1CEvidence.status, 'QUALIFIED', after.sifWriter1CEvidence.blockers?.join('|'));
   assert.equal(after.sifWriter1CEvidence.controlBlockCount, 2);
   assert.deepEqual(Object.values(after.sifWriter1CEvidence.byParsedElementIndex).map((item) => item.pointer), [1, 0, 2]);
+  assertSifPointerI13(after, 0, 1);
+  assertSifPointerI13(after, 1, 0);
+  assertSifPointerI13(after, 2, 2);
   const afterRows = ciiPhysicalSectionRows(after.physicalFile, ['SIF&TEES', 'SIF']).map((row) => row.text);
   assert.deepEqual(afterRows, [...beforeRows.slice(0, 10), ...beforeRows.slice(20, 30)]);
 
@@ -108,8 +123,11 @@ function afterDocument(writerResult, parsedModel = parsed()) { return documentFr
   assert.equal(writer.blockCountAfter, 0);
   assert.equal(after.sifWriter1CEvidence.controlBlockCount, 0);
   assert.deepEqual(Object.values(after.sifWriter1CEvidence.byParsedElementIndex).map((item) => item.pointer), [0, 0, 0]);
+  assertSifPointerI13(after, 0, 0);
+  assertSifPointerI13(after, 1, 0);
+  assertSifPointerI13(after, 2, 0);
   assert.equal(ciiPhysicalSectionRows(after.physicalFile, ['SIF&TEES', 'SIF']).length, 0);
   assert.equal(validateCiiWriter2SifDeleteRoundTrip(before, after, targetGraph, plan, writer).status, 'PASS');
 }
 
-console.log('Writer 2 V11 SIF physical DELETE, compaction, exact-postimage and anti-testimony checks passed.');
+console.log('Writer 2 V11 SIF physical DELETE, compaction, lexical-I13 pointer, exact-postimage and anti-testimony checks passed.');

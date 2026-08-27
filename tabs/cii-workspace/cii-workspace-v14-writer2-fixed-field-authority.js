@@ -1,5 +1,5 @@
 const SECTION_RX = /^#\$\s+([A-Z0-9_&]+)\s*$/;
-const NUMBER_RX = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?$/;
+const INTEGER_RX = /^[+-]?\d+$/;
 const ELEMENT_BLOCK_ROWS = 15;
 const CARDINALITY_UNIT_ROWS = Object.freeze({ NODENAME: 1, RESTRANT: 24, 'SIF&TEES': 14 });
 const FAMILY_CONTROL_IDENTITY = Object.freeze({
@@ -66,11 +66,9 @@ function fixedFields(line) {
 
 function integerValue(field) {
   const token = String(field ?? '').trim();
-  if (!token || !NUMBER_RX.test(token)) return null;
-  const value = Number(token.replace(/[Dd]/g, 'E'));
-  if (!Number.isFinite(value)) return null;
-  const rounded = Math.round(value);
-  return Math.abs(value - rounded) <= 1e-9 ? rounded : null;
+  if (!token || !INTEGER_RX.test(token)) return null;
+  const value = Number(token);
+  return Number.isFinite(value) ? value : null;
 }
 
 function authorityIdentity(sectionName, rowIndex, fieldIndex) {
