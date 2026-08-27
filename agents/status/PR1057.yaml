@@ -13,6 +13,7 @@ pr_state: DRAFT
 handover_readiness: READY
 coordination_state: SAFE_EVIDENCE_ONLY
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+last_report_basis_head: ab5201131579237ebe88be50fed62ea3c33200e1
 
 source_reuse:
   repository: reallaksh19/3D_Converters
