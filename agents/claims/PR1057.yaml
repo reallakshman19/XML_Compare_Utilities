@@ -2,11 +2,11 @@ pr: 1057
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-w236
 base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
-claim_state: W2_40_NATIVE_V14_BROWSER_BRIDGE_AUTHORED
+claim_state: W2_41_NATIVE_V14_PREFLIGHT_SOURCE_QUALIFIED
 merge_authority: OWNER_ONLY
 merge_authorized: false
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
-last_report_basis_head: ab5201131579237ebe88be50fed62ea3c33200e1
+last_report_basis_head: bba41b165fc5bf5c355c170e89dbeaabf2887f6e
 
 claims:
   - id: FROZEN_3D_CONVERTERS_SOURCE_CUSTODY
@@ -30,6 +30,25 @@ claims:
       cii_v11_v14_sif.py: 88c1d80bdb7bd2d5197a56c5be60ac2057c02367
       cii_v11_v14_validate.py: 8e6896e8b61ac3c90d579139d39b29a6ace1637c
       cii2019_section_rules.py: efa894afd241f8ac0b74f6a6e0ecfaedc3d6d76e
+
+  - id: NATIVE_V14_PREFLIGHT_SOURCE_ELIGIBILITY
+    state: PASS_SOURCE_AUTHORITY_ONLY_NOT_RUNTIME
+    required: true
+    upstream_repository_visibility: PUBLIC
+    pinned_archive_url_class: RAW_GITHUB_PINNED_PUBLIC_COMMIT
+    browser_zip_inflate_contract: DECOMPRESSIONSTREAM_DEFLATE_RAW
+    browser_api_authority: CURRENT_WEB_PLATFORM_SOURCE_CONFIRMATION
+    lossless_fixture_contract:
+      upstream_test: converters/scripts/test_cii_v11_v14.py
+      benchmark_archive: Benchmarks/v11-v14.zip
+      native_member: SYS-0001-v14.CII
+      source_assertions:
+        - test_v14_to_v11_matches_target_record_shape_uses_convert_bytes_default_allow_lossy_false
+        - test_generated_v11_passes_independent_structure_gate
+        - nonzero_v14_sif_extension_has_separate_fail_closed_test
+        - nonzero_v14_allowables_extension_has_separate_fail_closed_test
+    observation: SOURCE_INSPECTION
+    runtime_promoted: false
 
   - id: W2_34_LIVE_ROUTE_EXPORT_RUNTIME
     state: PASS_RUNTIME_EXACT_SEVEN_FILE_BLOB_GRAPH_NODE_ESM_MODE
