@@ -2,7 +2,7 @@ pr: 1057
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-runtime-closure-w236
 base_main: 10b7e60b39c18460c812c9fa6dc9c7f46d81e77e
-current_stage: W2_40_NATIVE_V14_BROWSER_BRIDGE_AUTHORED
+current_stage: W2_41_NATIVE_V14_PREFLIGHT_SOURCE_QUALIFIED
 work_intent: INVESTIGATE_VALIDATE
 criticality: ENGINEERING_CRITICAL
 mutation_authority: EVIDENCE_AND_QUALIFICATION_TESTS_ONLY_UNLESS_EXACT_RUNTIME_EXPOSES_DEFECT
@@ -13,7 +13,7 @@ pr_state: DRAFT
 handover_readiness: READY
 coordination_state: SAFE_EVIDENCE_ONLY
 program_release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
-last_report_basis_head: ab5201131579237ebe88be50fed62ea3c33200e1
+last_report_basis_head: bba41b165fc5bf5c355c170e89dbeaabf2887f6e
 
 source_reuse:
   repository: reallaksh19/3D_Converters
@@ -43,6 +43,19 @@ runtime:
   clone_observation: FAIL_ENVIRONMENT_DNS_COULD_NOT_RESOLVE_GITHUB_COM
   worker_runtime_dependency: HTTPS_CDN_JSDELIVR_PYODIDE_0_27_2
   native_archive_runtime_dependency: HTTPS_RAW_GITHUB_PINNED_COMMIT
+
+native_pre_runtime_eligibility:
+  status: PASS_SOURCE_AUTHORITY_ONLY_NOT_RUNTIME
+  upstream_repository_visibility: PUBLIC
+  pinned_raw_archive_fetch_design: VALID
+  archive_cors_runtime: TO_BE_OBSERVED_IN_EXACT_BROWSER_RUN
+  zip_method_8_runtime_support: SOURCE_CONFIRMED_DECOMPRESSIONSTREAM_DEFLATE_RAW
+  lossless_v14_to_v11_fixture_eligibility: SOURCE_CONFIRMED_BY_COMMITTED_UPSTREAM_BENCHMARK_TEST
+  upstream_test: converters/scripts/test_cii_v11_v14.py
+  upstream_test_contracts:
+    - test_v14_to_v11_matches_target_record_shape_calls_convert_bytes_without_allow_lossy
+    - test_generated_v11_passes_independent_structure_gate
+  runtime_promoted: false
 
 entrypoints:
   w2_a_synthetic:
