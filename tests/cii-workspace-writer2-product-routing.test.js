@@ -177,7 +177,9 @@ function rawPlan(operations, blockers = []) {
   assert(bridge.includes("path: 'V14_CHANGE_ISOLATED_VIA_V11'"));
 
   assert(tab.includes('mountCiiWorkspaceScopedEngineeringShell'));
-  assert(tab.includes('...(context.writerVersion ? { writerVersion: context.writerVersion } : {})'));
+  assert(tab.includes('const writerVersion = writerVersionOverride || context.writerVersion || null;'));
+  assert(tab.includes('...(writerVersion ? { writerVersion } : {})'));
+  assert(tab.includes("const openWriter2 = () => open('2');"));
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
 
