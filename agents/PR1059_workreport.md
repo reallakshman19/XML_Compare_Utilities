@@ -6,7 +6,9 @@ PR #1059 continues the exact W2 A runtime gate from merged PR #1058 on `main@968
 
 On 2026-08-27 the owner instructed `ok fix them` after the V11/V14 fixed-FORTRAN cross-check identified one concrete release-hardening defect: `tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js` accepted lexically REAL tokens such as `3.000000`, `3.000000E+00`, and `3.000000D+00` in Writer2-owned `I13` count/pointer coordinates whenever they were numerically integral. `3D_Converters` had already demonstrated that lexical REAL substitution in an `I13` slot can violate the CAESAR fixed-FORTRAN reader contract even when width and numeric value look acceptable. The owner instruction is therefore recorded as bounded production mutation authority for the lexical-I13 gate only; it does not authorize bypassing W2 A or widening CREATE/topology authority.
 
-The fix is implemented and the focused gate now has exact-blob runtime evidence. The patched production module, the new lexical-I13 falsifier, and the pre-existing V14 fixed-field regression were reconstructed locally byte-for-byte from GitHub, each was admitted only after `git hash-object` matched the hosted Git blob, and both authored Node tests passed. This focused PASS does not promote W2 A because the W2 A test has a much larger public-core ESM graph that is still not completely materialized in the execution container.
+The fix is implemented and the focused gate now has exact before/after blob evidence. The exact production preimage `fc97ddd7...` fails the new authored lexical-I13 falsifier because `3.000000` is returned as integer `3`. The exact patched production blob `5f1473f...` passes that same test. The pre-existing V14 fixed-field regression also passes against the patched exact blob. Every local repository file used in these focused executions was admitted only after `git hash-object` matched its hosted Git blob.
+
+This focused PASS does not promote W2 A because the W2 A test has a much larger public-core ESM graph that is still not completely materialized in the execution container.
 
 Historical W2 A recovery remains unchanged: merged PR #1054 recorded a prior sparse mirror of 54 exact repository JS files with 31 unresolved static modules; execution reached missing `tabs/cii-workspace/cii-workspace-auxiliary.js` and no authored assertion failed. That mirror is not retained and is not current runtime evidence.
 
@@ -15,7 +17,7 @@ Historical W2 A recovery remains unchanged: merged PR #1054 recorded a prior spa
 - repository: `reallaksh19/XML_Compare_Utilities`
 - base: `main@9685a2f41ec2b5a5c170762816702fefe90e18a7`
 - branch: `agent/cii-writer2-w2a-runtime-closure`
-- PR: #1059 draft/open/mergeable
+- PR: #1059 draft/open; branch is linearly ahead of main with merge base equal to main
 - predecessor: PR #1058 merged at `9685a2f41ec2b5a5c170762816702fefe90e18a7`
 - W2 A test blob: `9922377ddeda86fc9167d65f33c97095346e79fa`
 - public entrypoint: `applyCiiWorkspaceTargetWriter2`
@@ -81,26 +83,31 @@ It proves both helper behavior and complete count/pointer transactions:
 - CONTROL row1/field4 NONAM written as a decimal REAL is rejected even when NODENAME cardinality and pointer movement otherwise agree;
 - ELEMENT row14/field6 NODENAME pointer written in scientific REAL notation is rejected even when the matching CONTROL/cardinality transaction otherwise agrees.
 
-The existing regression was also executed against the patched exact production blob:
+Existing regression:
 
 ```text
 tests/cii-workspace-v14-writer2-fixed-field-authority.test.js
 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
 ```
 
-### Exact focused runtime evidence
+### Exact before/after runtime evidence
 
-Local exact materialization:
+Exact preimage falsification:
 
 ```text
-production_blob = 5f1473f692c172de5aa0712a70bc72d917a6934d   MATCH
-new_test_blob   = 37703add4fbefd5e5636ef49a4b54214e33e5820   MATCH
-legacy_test     = 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df   MATCH
+production preimage blob = fc97ddd7fd5645e46c70a722c7f96f17dc7ae188   MATCH
+new test blob            = 37703add4fbefd5e5636ef49a4b54214e33e5820   MATCH
+node tests/cii-workspace-v14-writer2-i13-lexical.test.js
+=> FAIL as expected: AssertionError, actual 3, expected null
 ```
 
-Commands/results:
+Exact patched qualification:
 
 ```text
+production postimage blob = 5f1473f692c172de5aa0712a70bc72d917a6934d   MATCH
+new test blob             = 37703add4fbefd5e5636ef49a4b54214e33e5820   MATCH
+existing regression blob  = 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df   MATCH
+
 node tests/cii-workspace-v14-writer2-i13-lexical.test.js
 CII Workspace V14 Writer2 lexical I13 fixed-field authority: PASS
 
@@ -148,9 +155,9 @@ No workflow file, benchmark, frozen upstream converter, topology Writer, or gene
 |---|---|---|---|---|
 | W2.34 focused bridge/export | PASS inherited | prior exact runtime | predecessor evidence | unchanged |
 | W2 C0 exact 14-file route/export | PASS inherited | prior exact runtime | predecessor evidence | unchanged |
-| preimage lexical-I13 falsifier | FAIL as expected | LOCAL_EXECUTION_RECONSTRUCTED | exact preimage `integerValue()` logic | decimal/scientific REAL returned integer 3 |
-| new lexical-I13 test | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+test blob identities matched GitHub |
-| existing V14 fixed-field regression | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+legacy test blob identities matched GitHub |
+| exact preimage lexical-I13 falsifier | FAIL as expected | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored new test | actual 3 vs expected null |
+| new lexical-I13 test on patch | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+test blobs matched GitHub |
+| existing V14 fixed-field regression | PASS | LOCAL_EXECUTION / EXACT_GIT_BLOB | authored Node test | production+legacy test blobs matched GitHub |
 | hosted production diff | PASS | SOURCE_INSPECTION | GitHub PR patch | only lexical integer gate changed |
 | W2 A exact public runtime | NOT_RUN | NOT_OBSERVED | exact graph reconstruction required | unchanged committed test |
 | W2 B retained-real V11 | NOT_RUN | NOT_OBSERVED | none | blocked until W2 A PASS |
