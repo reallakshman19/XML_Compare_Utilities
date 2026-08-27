@@ -20,25 +20,6 @@ function integerField(value) {
   if (token.length > WIDTH) throw new Error('WRITER_2_SIF_VALIDATOR_INTEGER_OVERFLOW');
   return token.padStart(WIDTH, ' ');
 }
-function exponential(value) {
-  const [mantissa, rawExponent] = Number(value).toExponential(6).toUpperCase().split('E'); const exponent = Number(rawExponent);
-  return `${mantissa}E${exponent < 0 ? '-' : '+'}${String(Math.abs(exponent)).padStart(2, '0')}`;
-}
-function independentSig6(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) throw new Error('WRITER_2_SIF_VALIDATOR_NUMERIC_INVALID');
-  const absolute = Math.abs(number);
-  if (absolute < 1e-12) return '0.000000';
-  if (absolute >= 1e9 || absolute < 1e-6) return exponential(number);
-  if (absolute < 1.0) return number.toFixed(6);
-  const integerDigits = String(Math.trunc(absolute)).length;
-  return number.toFixed(Math.max(1, 6 - integerDigits));
-}
-function numericField(value) {
-  const token = independentSig6(value);
-  if (token.length > WIDTH) throw new Error('WRITER_2_SIF_VALIDATOR_NUMERIC_OVERFLOW');
-  return token.padStart(WIDTH, ' ');
-}
 function sectionEnvelope(document) {
   const lines = document?.physicalFile?.lines || [];
   const markerIndex = lines.findIndex((line) => SIF_MARKERS.has(markerName(line.text)));
@@ -69,7 +50,7 @@ function pointerReplacements(before, plan) {
     }
     return {
       kind: 'ELEMENT_SIF_TEE_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
-      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: numericField(change.newPointer),
+      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: integerField(change.newPointer),
     };
   });
 }
@@ -185,10 +166,10 @@ export function validateCiiWriter2SifDeleteRoundTrip(before, after, targetGraph,
     schema: 'CIIWorkspaceWriter2SifDeleteValidation.v1', status: 'PASS',
     checks: Object.freeze(['INDEPENDENT_SIF_DELETE_RELOCATION_REBUILD', 'EXACT_FULL_BYTE_POSTIMAGE', 'CONTROL_SIF_POSTCOUNT',
       'SIF_TEE_ROW_COUNT', 'ELEMENT_SIF_POINTER_RELOCATION', 'CONNECTIVITY_STABLE', 'SECTION_ORDER_STABLE',
-      'WRITER_TESTIMONY_MATCH', 'CREATE_AUTHORITY_REMAINS_BLOCKED']),
+      'WRITER_TESTIMONY_MATCH', 'CREATE_AUTHORITY_REMAINS_BLOCKED', 'LEXICAL_I13_POINTERS']),
     blockCountBefore: plan.blockCountBefore, blockCountAfter: plan.blockCountAfter, pointerChangeCount: plan.pointerChanges.length,
   });
 }
 
-export const _test = Object.freeze({ markerName, integerField, numericField, sectionEnvelope, controlReplacement,
+export const _test = Object.freeze({ markerName, integerField, sectionEnvelope, controlReplacement,
   pointerReplacements, sifPayloadReplacement, expectedReplacements, applyExpected, controlCount, pointerSnapshot, expectedPointers });
