@@ -16,10 +16,17 @@ claims:
     authority: INHERITED_FROM_PR1060
     production_blob: 7053230546eaba4588b98a35ae5fc3819da83c14
 
+  - id: BM_W2_04_PUBLIC_CORE_STATIC_SOURCE_GRAPH
+    state: CLOSED_SOURCE_BLOB_CUSTODY
+    authority: CURRENT_PR_GITHUB_BLOB_TRAVERSAL
+    runtime_implication: NONE
+    core_blob: cee2858a63992648edf5e61b8f63b3837a937f9e
+
   - id: BM_W2_04_EXACT_PUBLIC_RUNTIME
     state: NOT_RUN
-    reason: COMPLETE_TRANSITIVE_STATIC_ESM_GRAPH_NOT_YET_MATERIALIZED
+    reason: COMPLETE_EXACT_PRIVATE_REPOSITORY_ESM_GRAPH_NOT_MATERIALIZED_IN_EXECUTION_FILESYSTEM
     authored_runtime_pass_claimed: false
+    authored_assertion_failure_observed: false
 
   - id: W2_A_EXACT_PUBLIC_RUNTIME
     state: NOT_RUN
@@ -42,8 +49,10 @@ claims:
 negative_claims:
   benchmark_modified: false
   production_modified: false
+  test_modified: false
   reconstructed_pass_used: false
   stubs_used: false
   import_rewrites_used: false
   partial_core_used: false
+  source_graph_closure_promoted_to_runtime_pass: false
   not_run_promoted_to_pass: false
