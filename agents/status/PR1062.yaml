@@ -2,11 +2,12 @@ pr: 1062
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-benchmark-next
 base_main: d1f7d773ec89459f55d3fca9bcf0c93f2308b1e1
-current_stage: BM_W2_01_NODENAME_CREATE_AUTHORING
+current_stage: PHASE2_STANDALONE_BENCHMARKS_AUTHORED_RUNTIME_BLOCKED
 work_intent: IMPLEMENT_VALIDATE
 criticality: ENGINEERING_CRITICAL
 execution_mode: AUTO
-auto_state: RUNNING
+auto_state: BLOCKED
+hard_stop: STANDALONE_EXACT_RUNTIME_REQUIRED_BEFORE_COMPOSITES
 scope_authority: LOCKED_TO_APPROVED_BENCHMARK_ROADMAP
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -19,7 +20,7 @@ benchmark_source:
   version: 11
 
 bm_w2_01:
-  state: SOURCE_QUALIFIED_AUTHORING
+  state: AUTHORED_RUNTIME_NOT_RUN
   candidate_node: '10'
   owner_element_index: 0
   owner_from: '10'
@@ -32,18 +33,47 @@ bm_w2_01:
   expected_nonam_before: 4
   expected_nonam_after: 5
   expected_topology_unchanged: true
-  runtime: NOT_RUN
+  oracle_blob: ab770906e30fa4a0db156e083517af1d7793eb5c
+  test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
+  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+bm_w2_02:
+  state: AUTHORED_RUNTIME_NOT_RUN
+  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+bm_w2_03:
+  state: AUTHORED_RUNTIME_NOT_RUN
+  candidate_node: '205'
+  layout: CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
+  hanger_count_before: 1
+  hanger_count_after: 0
+  miscel_rows_before: 23
+  miscel_rows_after: 11
+  retained_prefix_rows: 7
+  retained_execution_rows: 4
+  oracle_blob: 16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f
+  test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
+  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+bm_w2_04:
+  state: AUTHORED_RUNTIME_NOT_RUN
+  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+phase3_composites:
+  bm_w2_05: BLOCKED_ON_BM_W2_01_02_03_RUNTIME_PASS
+  bm_w2_06: BLOCKED_ON_BM_W2_01_02_03_04_RUNTIME_PASS
 
 source_inspection_risk:
   id: NODENAME_POINTER_NON_LEXICAL_I13
   state: SUSPECTED_NOT_RUNTIME_REPRODUCED
   module: tabs/cii-workspace/cii-workspace-writer2-nodename-write.js
+  production_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
   current_pointer_formatter: numericField_to_formatCiiWriterSig6
   required_pointer_lexical: '^[+-]?\\d+$'
+  runtime_falsifier_authored: true
   production_patch_authorized: false
 
 inherited_runtime:
-  bm_w2_04: NOT_RUN
   w2_a: NOT_RUN
   w2_b: NOT_RUN
   w2_35: NOT_RUN
@@ -51,12 +81,20 @@ inherited_runtime:
   w2_40: NOT_RUN
   release_freeze: NOT_READY
 
+environment:
+  exact_private_checkout_materialized: false
+  native_git_dns_available: false
+  connector_source_blob_access: true
+  connector_runtime_checkout_transport: false
+
 negative_assurance:
   production_changed: false
   benchmark_source_changed: false
   workflow_changed: false
   parser_changed: false
   converter_changed: false
+  composites_authored_before_standalone_runtime: false
+  runtime_pass_fabricated: false
   not_run_promoted_to_pass: false
 
-exact_next_action: AUTHOR_BM_W2_01_INDEPENDENT_ORACLE_AND_PUBLIC_TEST; UPDATE_MANIFEST_ROADMAP; ATTEMPT_EXACT_RUNTIME; PATCH_PRODUCTION_ONLY_AFTER_RUNTIME_FALSIFIER
+exact_next_action: MATERIALIZE_EXACT_PRIVATE_CHECKOUT; RUN_W2_A_AND_BM_W2_01_02_03_04_UNCHANGED; STOP_AT_FIRST_AUTHORED_FALSIFIER; PATCH_NODENAME_POINTER_FORMATTER_ONLY_IF_BM_W2_01_REPRODUCES_I13_DEFECT; THEN_PROCEED_TO_BM_W2_05_AND_BM_W2_06
