@@ -2,7 +2,7 @@ pr: 1061
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-bmw204-runtime-closure-2
 base_main: 9c6b49b7846906c5274cf57e6537ed4e7a6a6f8c
-current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_ENGINEERING_DELTA_TRANSFER_GRAPH_EXPANSION
+current_stage: BM_W2_04_SOURCE_GRAPH_CLOSED_WAITING_EXACT_EXECUTION_MATERIALIZATION
 work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
 criticality: ENGINEERING_CRITICAL
 merge_authority: OWNER_ONLY
@@ -18,29 +18,34 @@ inherited:
   restraint_pointer_i13: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
 
 runtime:
-  bm_w2_04: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
+  bm_w2_04: NOT_RUN_EXACT_EXECUTABLE_GRAPH_NOT_MATERIALIZED
+  bm_w2_04_pass_claimed: false
+  bm_w2_04_authored_assertion_failure_observed: false
   w2_a: NOT_RUN
   w2_b: NOT_RUN
   w2_35_generated_v14: NOT_RUN
   w2_35a_issue_1042_generated_v14: NOT_RUN
   w2_40_native_v14: NOT_RUN
 
-materialization:
-  base_main_exact: true
+source_graph:
   core_blob: cee2858a63992648edf5e61b8f63b3837a937f9e
   public_core_direct_imports_enumerated: true
-  core_batch_1_geometry_multi_base_topology_scoring_closed: true
-  core_batch_2_path_node_component_identity_closed: true
-  public_core_transitive_graph_complete: false
+  public_core_static_source_graph: CLOSED
+  core_batch_1_geometry_multi_base_topology_scoring: CLOSED
+  core_batch_2_path_node_component_identity: CLOSED
+  core_batch_3_engineering_delta_transfer_review_policy: CLOSED
+  core_batch_4_writer_routing_composite_validation_export: CLOSED
+  intake_blob: 3939ff6866191bca0ccf6d27264ecd1f2549ddd5
+  topology_adapter_blob: 57b8d2d6e8335887b962e09085cc93ece2e36d68
   intake_parser_frontier_inherited_from_pr1060: true
-  batch_2_blobs:
-    path_candidates: 618d3a36a5ead65bf48a0905828bed6a72f96887
-    node_custody: 8fbbf0f4040920172ef2b9ebdf9d62a4aa8bf029
-    components: aff1590bccfdfa6a33cb9ae6533ee0cf519dadc5
-    identity: b30f5bade8e61ce7bf4d403cd6124cfa226287d9
+
+materialization:
+  base_main_exact: true
+  exact_private_repo_graph_materialized: false
   archive_or_clone_transport_available: false
   native_git_dns_available: false
-  bm_w2_04_authored_assertion_failure_observed: false
+  connector_exact_source_blob_reads_available: true
+  connector_repository_archive_to_runtime_available: false
 
 negative_assurance:
   stubs_used: false
@@ -49,6 +54,7 @@ negative_assurance:
   reconstructed_pass_used: false
   benchmark_changed: false
   production_changed: false
+  test_changed: false
   not_run_promoted_to_pass: false
 
-exact_next_action: EXPAND_ENGINEERING_DELTA_RESTRAINT_TRANSFER_REVIEW_TRANSFER_PLAN_FAMILIES; PIN_TRANSITIVE_GIT_BLOBS; THEN_CLOSE_REMAINING_WRITER_READINESS_EXPORT_IMPORTS; EXECUTE_UNCHANGED_BM_W2_04_ONLY_AFTER_COMPLETE_GRAPH
+exact_next_action: MATERIALIZE_ALL_PINNED_GIT_BLOBS_IN_ONE_UNCHANGED_ESM_TREE; GIT_HASH_OBJECT_VERIFY_EVERY_FILE; RUN_UNCHANGED_TESTS_CII_WORKSPACE_WRITER2_BENCHMARK_RESTRAINT_DELETE_TEST_JS; CLASSIFY_AUTHORED_RUNTIME_PASS_OR_FAIL; THEN_CONTINUE_W2_A
