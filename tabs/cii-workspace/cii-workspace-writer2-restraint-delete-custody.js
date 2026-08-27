@@ -11,6 +11,7 @@ const ELEMENT_BLOCK_ROWS = 15;
 const POINTER_ROW = 12;
 const POINTER_FIELD_INDEX = 3;
 const FIELD_WIDTHS = Object.freeze([15, 13, 13, 13, 13, 13]);
+const I13_RX = /^[+-]?\d+$/;
 
 function fieldColumns(fieldIndex) {
   const start = FIELD_WIDTHS.slice(0, fieldIndex).reduce((sum, width) => sum + width, 0);
@@ -36,12 +37,13 @@ function physicalPointerField(line, physicalFile) {
   try {
     const rawField = decodeCiiAsciiByteString(ciiPhysicalByteString(physicalFile, byteStart, byteEnd));
     const text = rawField.trim();
-    const pointer = text ? integer(Number(text.replace(/[dD]/g, 'E'))) : null;
+    const lexicalI13 = I13_RX.test(text);
+    const pointer = lexicalI13 ? integer(Number(text)) : null;
     return deepFreeze({
       qualified: pointer != null,
       fieldIdentity: 'ELEMENT_RESTRAINT_POINTER', fieldIndex: POINTER_FIELD_INDEX,
       lineNumber: line.lineNumber, ...columns, byteStart, byteEnd, rawField, pointer,
-      ...(pointer == null ? { reason: 'NON_INTEGER_POINTER_FIELD' } : {}),
+      ...(pointer == null ? { reason: lexicalI13 ? 'INVALID_NONNEGATIVE_I13_POINTER_FIELD' : 'NON_LEXICAL_I13_POINTER_FIELD' } : {}),
     });
   } catch (error) {
     return deepFreeze({ qualified: false, ...columns, reason: error?.message || String(error) });
