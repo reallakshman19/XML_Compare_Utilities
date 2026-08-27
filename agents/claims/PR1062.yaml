@@ -1,0 +1,51 @@
+pr: 1062
+repository: reallaksh19/XML_Compare_Utilities
+base_main: d1f7d773ec89459f55d3fca9bcf0c93f2308b1e1
+
+claims:
+  - id: BM_W2_01_SOURCE_CANDIDATE
+    state: PASS_SOURCE_INSPECTION
+    evidence:
+      source_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
+      owner_element_index: 0
+      owner_from: '10'
+      owner_to: '20'
+      owner_end: FROM
+      pointer_before: 0
+
+  - id: BM_W2_01_APPEND_ALLOCATION
+    state: PASS_SOURCE_AUTHORITY
+    evidence:
+      planner_blob: 326954e4d6342ba25915c107c7118b4f51c23610
+      retained_rows_before: 4
+      expected_pointer_after: 5
+    runtime_implication: NONE
+
+  - id: BM_W2_01_EXACT_RUNTIME
+    state: NOT_RUN
+
+  - id: NODENAME_POINTER_LEXICAL_I13_DEFECT_CANDIDATE
+    state: SUSPECTED_SOURCE_INSPECTION_ONLY
+    production_module_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
+    observation: ELEMENT_NODENAME_POINTER_REPLACEMENT_USES_NUMERICFIELD_FORMATCIIWRITERSIG6
+    required_runtime_falsifier: AUTHORED_BM_W2_01_OR_FOCUSED_TEST_MUST_FAIL_LEXICAL_I13_ON_EXACT_GRAPH
+    production_fix_claimed: false
+
+  - id: WRITER2_RUNTIME_LADDER
+    state: NOT_READY
+    bm_w2_04: NOT_RUN
+    w2_a: NOT_RUN
+    w2_b: NOT_RUN
+    w2_35: NOT_RUN
+    w2_35a: NOT_RUN
+    w2_40: NOT_RUN
+    release_freeze: NOT_READY
+
+negative_claims:
+  production_modified: false
+  benchmark_source_modified: false
+  workflow_modified: false
+  parser_modified: false
+  converter_modified: false
+  runtime_pass_fabricated: false
+  not_run_promoted_to_pass: false
