@@ -38,10 +38,11 @@ hardening:
   required_behavior: CHANGED_CONTROL_AND_ELEMENT_COUNT_POINTER_FIELDS_MUST_BE_LEXICAL_I13
   regression_target: tests/cii-workspace-v14-writer2-i13-lexical.test.js
   regression_blob: 37703add4fbefd5e5636ef49a4b54214e33e5820
+  existing_regression_blob: 78dbe0af0b8d0d8fd55aae26f586f727bb2d03df
   preimage_falsifier: FAIL_AS_EXPECTED_LOCAL_EXECUTION_RECONSTRUCTED
-  patched_falsifier: PASS_LOCAL_EXECUTION_RECONSTRUCTED
-  exact_branch_execution: NOT_RUN_ENVIRONMENT
-  implementation_state: IMPLEMENTED
+  patched_focused_runtime: PASS_RUNTIME_EXACT_3_FILE_BLOB_SUBGRAPH
+  exact_blob_matches: true
+  implementation_state: IMPLEMENTED_QUALIFIED_FOCUSED
 
 negative_assurance:
   stubs_used: false
