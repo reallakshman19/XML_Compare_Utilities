@@ -1,0 +1,45 @@
+pr: 1060
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-writer2-bmw204-runtime-closure
+base_main: 29766c0432665e5f4b1340e59f9a16e7d4ef3999
+current_stage: BM_W2_04_EXACT_PUBLIC_RUNTIME_GRAPH_RECONSTRUCTION
+work_intent: INVESTIGATE_VALIDATE_IMPLEMENT_ONLY_ON_REPRODUCED_DEFECT
+criticality: ENGINEERING_CRITICAL
+merge_authority: OWNER_ONLY
+merge_authorized: false
+pr_state: DRAFT
+handover_readiness: READY
+release_freeze_verdict: NOT_READY_FOR_WRITER2_RELEASE_FREEZE
+
+inherited:
+  w2_34_focused_bridge_export: PASS
+  w2_c0_exact_14_file_graph: PASS_RUNTIME_EXACT_14_FILE_BLOB_GRAPH_NODE_ESM_MODE
+  v14_i13_lexical_gate: PASS_RUNTIME_EXACT_3_FILE_BLOB_SUBGRAPH
+
+runtime:
+  bm_w2_04: NOT_RUN_EXACT_GRAPH_RECONSTRUCTION_IN_PROGRESS
+  bm_w2_04_test_blob: 54c08bf0b2baf8138a703350d9e2600387693008
+  bm_w2_04_oracle_blob: b36e38c8df327069f07ea20ad50c91f03ffdcd6a
+  w2_a: NOT_RUN
+  w2_b: NOT_RUN
+  w2_35_generated_v14: NOT_RUN
+  w2_35a_issue_1042_generated_v14: NOT_RUN
+  w2_40_native_v14: NOT_RUN
+
+materialization:
+  archive_or_clone_transport_available: false
+  direct_exact_blobs_pinned: 7
+  public_core_requires_broad_static_graph: true
+  intake_requires_parser_and_auxiliary_subgraph: true
+  authored_assertion_failure_observed: false
+
+negative_assurance:
+  stubs_used: false
+  import_rewrites_used: false
+  partial_core_used: false
+  reconstructed_pass_used: false
+  production_changed: false
+  benchmark_changed: false
+  not_run_promoted_to_pass: false
+
+exact_next_action: CONTINUE_TRANSITIVE_STATIC_IMPORT_EXPANSION_FROM_CORE_AND_INTAKE; VERIFY_EVERY_GIT_BLOB; RUN_UNCHANGED_BM_W2_04; THEN_CONTINUE_W2_A
