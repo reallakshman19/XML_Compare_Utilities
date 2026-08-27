@@ -57,12 +57,13 @@
     {
       "id": "BM-W2-02",
       "family": "SIF_TEE",
-      "state": "PLANNED",
+      "state": "IMPLEMENTING_PHASE_2",
       "operation": "DELETE_BLOCK",
       "candidate": {
         "pointer": 1,
         "ownerFrom": "70",
         "ownerTo": "250",
+        "expectedOwnerCount": 1,
         "recordNode": "70",
         "sourceRawCode": 3
       },
@@ -74,7 +75,18 @@
         "rowsPerBlock": 10,
         "deletedPointerAfter": 0,
         "retainedPointerRule": "P_GT_1_DECREMENT_BY_1",
-        "topologyUnchanged": true
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "oracle": {
+        "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
+        "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-sif-oracle.js",
+        "mustNotImportWriter2MutationCode": true,
+        "authorizedCoordinates": [
+          "CONTROL_ROW3_FIELD5_SIF_BLOCK_COUNT",
+          "ELEMENT_ROW14_FIELD5_SIF_POINTER",
+          "SIF_TEES_FIRST_10_PHYSICAL_ROWS_DELETE"
+        ]
       },
       "exclusions": [
         "RAW_CODE_3_TO_5_IS_NOT_A_WRITER2_ORACLE_WHILE_FIELD2_SEMANTICS_UNRESOLVED"
