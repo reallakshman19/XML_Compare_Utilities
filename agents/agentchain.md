@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0006 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Fetch the unchanged W2 A test and every direct static import at material basis a9018c131be736606e44fd0379545d233238f33e; pin each path/blob and recurse until the first unpinned repository module is identified |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0007 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0007.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Fetch and close core import #5 `cii-workspace-multi-base-anchor.js` at material basis a9018c131be736606e44fd0379545d233238f33e; enumerate exact transitive imports, then continue core import order |
 
 ## ENDPOINT LOG
 
@@ -18,3 +18,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0004 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-PRE-MERGE-RECOVERY | d0d36de8899b1c0252342bc6914088de90f80386 | READY_FOR_NEXT_LEG | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0004.md |
 | EP-CII-W2-0005 | CII-WRITER2-RUNTIME-QUALIFICATION | W2A-PUBLIC-RUNTIME-SUCCESSOR | a9018c131be736606e44fd0379545d233238f33e | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0005.md |
 | EP-CII-W2-0006 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-PUBLIC-RUNTIME | f109a6f7287a593c9515192f0aa6376fc5cf243a | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md |
+| EP-CII-W2-0007 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE | bb545197ec84b58dd849603190c422fd5c1f42a9 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0007.md |
