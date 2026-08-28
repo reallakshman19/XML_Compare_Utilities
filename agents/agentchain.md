@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0012 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0012.md | #1064 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an exact-checkout execution substrate, follow `agents/evidence/PR1063_w2a_external_execution_capsule.md` against frozen basis `a9018c131be736606e44fd0379545d233238f33e`; environment/module stop = NOT_RUN, first authored failure = FAIL, clean completion = candidate PASS |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0013 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0013.md | #1064 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an exact-checkout execution substrate, run `bash agents/evidence/PR1064_writer2_public_runtime_batch.sh`; verify frozen basis/tree/registry/source/runner blobs, run W2 A first, and admit BM-W2-01->04 only on W2 A candidate PASS; preserve first nonzero evidence and stop |
 
 ## ENDPOINT LOG
 
@@ -24,3 +24,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0010 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXTERNAL-EXECUTION-READINESS | c3cf59271ab585cc5f8b9d040128e3fe8e697080 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0010.md |
 | EP-CII-W2-0011 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-MATERIALIZATION-ROUTE-EXHAUSTION | 05ff6aef413ca18934a0dc698e6e86fa1d6308af | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md |
 | EP-CII-W2-0012 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-W2A-EXACT-PUBLIC-RUNTIME | 09e2c9116db6d35b30b2c0b78b5f7310a33c6cef | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0012.md |
+| EP-CII-W2-0013 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-W2A-PLUS-BM-PUBLIC-RUNTIME-BATCH-READY | 1e69fbfa6ee65c91fb320800a7281f6098675452 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0013.md |
