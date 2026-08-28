@@ -50,14 +50,7 @@
         "ownerTo": "20",
         "ownerEnd": "FROM",
         "pointerBefore": 0,
-        "expectedPointerAfter": 5,
-        "expectedOwnerCountAtLowestIndex": 1
-      },
-      "sourceAuthority": {
-        "plannerPath": "tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js",
-        "plannerBlob": "326954e4d6342ba25915c107c7118b4f51c23610",
-        "allocationRule": "LOWEST_PARSED_INDEX_INCIDENT_ZERO_POINTER_OWNER_THEN_APPEND_AFTER_RETAINED_ROWS",
-        "pointerBasis": "ONE_BASED_NODENAME_ROW_INDEX"
+        "expectedPointerAfter": 5
       },
       "expected": {
         "nodeNameCountBefore": 4,
@@ -72,24 +65,13 @@
       "oracle": {
         "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
         "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-nodename-oracle.js",
-        "mustNotImportWriter2MutationCode": true,
-        "authorizedCoordinates": [
-          "CONTROL_ROW1_FIELD4_NONAM_COUNT",
-          "ELEMENT_BLOCK0_ROW14_FIELD6_NODENAME_POINTER",
-          "NODENAME_APPEND_ROW5_FROM_FIELD"
-        ]
+        "gitBlob": "ab770906e30fa4a0db156e083517af1d7793eb5c",
+        "mustNotImportWriter2MutationCode": true
       },
-      "test": "tests/cii-workspace-writer2-benchmark-nodename-create.test.js",
-      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE",
-      "focusedI13Hardening": {
-        "state": "PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH",
-        "preimageWriterBlob": "9e520ceaedc16b0bd36b70396bca3bfc9fd5996f",
-        "postimageWriterBlob": "eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c",
-        "sourceContractTest": "tests/cii-workspace-writer2-nodename-i13-source-contract.test.js",
-        "sourceContractTestBlob": "c80bca35e3b62f216eaab5bf8a48faaa21a276d7",
-        "focusedRuntimeTest": "tests/cii-workspace-writer2-nodename-i13-focused-runtime.test.js",
-        "focusedRuntimeTestBlob": "65896fd41e16efcd25dea97ad5a8848cbc87d03c",
-        "publicBenchmarkPassImplication": "NONE"
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-nodename-create.test.js",
+        "gitBlob": "7ba33984f290550f6f40eb91369ce9ceab1b74af",
+        "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
       }
     },
     {
@@ -119,15 +101,12 @@
       "oracle": {
         "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
         "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-sif-oracle.js",
-        "mustNotImportWriter2MutationCode": true,
-        "authorizedCoordinates": [
-          "CONTROL_ROW3_FIELD5_SIF_BLOCK_COUNT",
-          "ELEMENT_ROW14_FIELD5_SIF_POINTER",
-          "SIF_TEES_FIRST_10_PHYSICAL_ROWS_DELETE"
-        ]
+        "mustNotImportWriter2MutationCode": true
       },
-      "test": "tests/cii-workspace-writer2-benchmark-sif-delete.test.js",
-      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE",
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-sif-delete.test.js",
+        "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
+      },
       "exclusions": [
         "RAW_CODE_3_TO_5_IS_NOT_A_WRITER2_ORACLE_WHILE_FIELD2_SEMANTICS_UNRESOLVED"
       ]
@@ -150,20 +129,19 @@
         "miscel1RowsAfter": 11,
         "retainedPrefixRows": 7,
         "retainedExecutionRows": 4,
-        "topologyUnchanged": true,
-        "lexicalIntegerRequired": true
+        "topologyUnchanged": true
       },
       "oracle": {
         "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
         "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-hanger-oracle.js",
-        "mustNotImportWriter2MutationCode": true,
-        "authorizedCoordinates": [
-          "CONTROL_ROW1_FIELD3_NOHGRS_COUNT",
-          "MISCEL_1_REMOVE_HANGER_MIDDLE_ROWS_RETAIN_FIRST7_LAST4"
-        ]
+        "gitBlob": "16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f",
+        "mustNotImportWriter2MutationCode": true
       },
-      "test": "tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js",
-      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js",
+        "gitBlob": "93703ac66fec9b663165d95a20afbc654b6e26f4",
+        "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
+      }
     },
     {
       "id": "BM-W2-04",
@@ -199,110 +177,95 @@
       "oracle": {
         "class": "INDEPENDENT_STRUCTURAL_POSTIMAGE",
         "path": "Benchmark/CIICompare/Writer2/cii-writer2-benchmark-oracle.js",
-        "mustNotImportWriter2MutationCode": true,
-        "authorizedCoordinates": [
-          "CONTROL_ROW2_FIELD4_RESTRAINT_BLOCK_COUNT",
-          "ELEMENT_ROW13_FIELD4_RESTRAINT_POINTER",
-          "RESTRANT_FIRST_24_PHYSICAL_ROWS_DELETE"
-        ]
+        "mustNotImportWriter2MutationCode": true
       },
-      "test": "tests/cii-workspace-writer2-benchmark-restraint-delete.test.js",
-      "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-restraint-delete.test.js",
+        "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE"
+      }
     },
     {
       "id": "BM-W2-05",
       "family": "COMPOSITE",
-      "state": "READY_TO_AUTHOR_AFTER_STANDALONE_RUNTIME_QUALIFICATION",
-      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE",
-      "expectedControl": {
-        "hangerCountBefore": 1,
-        "hangerCountAfter": 0,
-        "nodeNameCountBefore": 4,
-        "nodeNameCountAfter": 5,
-        "restraintBlockCountBefore": 7,
-        "restraintBlockCountAfter": 7,
-        "sifTeeBlockCountBefore": 9,
-        "sifTeeBlockCountAfter": 8
-      }
+      "state": "BLOCKED_ON_BM_W2_01_02_03_PUBLIC_RUNTIME_PASS",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE"
     },
     {
       "id": "BM-W2-06",
       "family": "COMPOSITE",
-      "state": "PLANNED_AFTER_BM_W2_01_02_03_04_RUNTIME_QUALIFICATION",
-      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE",
-      "expectedControl": {
-        "elementCountBefore": 40,
-        "elementCountAfter": 40,
-        "hangerCountBefore": 1,
-        "hangerCountAfter": 0,
-        "nodeNameCountBefore": 4,
-        "nodeNameCountAfter": 5,
-        "restraintBlockCountBefore": 7,
-        "restraintBlockCountAfter": 6,
-        "sifTeeBlockCountBefore": 9,
-        "sifTeeBlockCountAfter": 8
-      }
+      "state": "BLOCKED_ON_BM_W2_01_02_03_04_PUBLIC_RUNTIME_PASS",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE"
     }
   ],
+  "focusedQualification": {
+    "classificationRule": "FOCUSED_PASS_DOES_NOT_PROMOTE_RETAINED_REAL_PUBLIC_RUNTIME",
+    "NODENAME": {
+      "state": "PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH",
+      "sourceContract": {
+        "testBlob": "c80bca35e3b62f216eaab5bf8a48faaa21a276d7",
+        "preimageWriterBlob": "9e520ceaedc16b0bd36b70396bca3bfc9fd5996f",
+        "postimageWriterBlob": "eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c",
+        "preimage": "FAIL_AS_EXPECTED",
+        "postimage": "PASS"
+      },
+      "runtimeTestBlob": "65896fd41e16efcd25dea97ad5a8848cbc87d03c",
+      "observed": "CONTROL_NONAM_4_TO_5_AND_POINTER_0_TO_5_LEXICAL_I13"
+    },
+    "SIF_TEE": {
+      "state": "PASS_RUNTIME_EXACT_8_FILE_BLOB_GRAPH",
+      "testPath": "tests/cii-workspace-writer2-sif-delete-physical.test.js",
+      "testBlob": "65d70d2cab42ce19ac6648d9c6929dae56404990",
+      "observed": [
+        "MIDDLE_DELETE_1_2_3_TO_1_0_2",
+        "DELETE_ALL_TO_ZERO",
+        "LEXICAL_I13_POINTERS",
+        "EXACT_POSTIMAGE",
+        "UNRELATED_BYTE_FALSIFIER",
+        "FORGED_TESTIMONY_FALSIFIER"
+      ]
+    },
+    "HANGER": {
+      "state": "PASS_RUNTIME_EXACT_9_FILE_BLOB_GRAPH",
+      "testPath": "tests/cii-workspace-writer2-hanger-focused-runtime.test.js",
+      "testBlob": "2e45b358640e9028c66b11b108b6b8d44d2dd2d1",
+      "recordBindingBlob": "7d860be728f1eddfb374391bae9b3ae49cac808c",
+      "tailOrderBlob": "eda94b208239f324b45c9c70f57537c31a501e56",
+      "observed": "CANONICAL_SYNCHRONIZER_DELETE_ALL_COUNT_1_TO_0"
+    },
+    "RESTRAINT": {
+      "pointerI13State": "PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH_INHERITED",
+      "compactionState": "PASS_RUNTIME_EXACT_7_FILE_BLOB_GRAPH",
+      "testPath": "tests/cii-workspace-writer2-restraint-compaction-focused-runtime.test.js",
+      "testBlob": "b7e76470cf416e595c556467b3207b4fe8d5d0ba",
+      "pointerCustodyBlob": "7053230546eaba4588b98a35ae5fc3819da83c14",
+      "compactionPlanBlob": "aedfb3ac78eed2294a88a64af261386f0db65085",
+      "observed": "POINTER_MAPPING_1_2_3_TO_1_0_2_CONTROL_3_TO_2"
+    }
+  },
   "negativeCases": [
-    {
-      "id": "NEG-01",
-      "name": "UNRELATED_BYTE_DRIFT",
-      "expected": "FAIL_EXACT_COMPLETE_POSTIMAGE"
-    },
-    {
-      "id": "NEG-02",
-      "name": "STALE_BOUND_PREVIEW",
-      "expected": "FAIL_STALE_TARGET_HASH"
-    },
-    {
-      "id": "NEG-03",
-      "name": "WRONG_CONTROL_FIELD",
-      "expected": "FAIL_AUTHORITY_OR_POSTIMAGE"
-    },
-    {
-      "id": "NEG-04",
-      "name": "WRONG_POINTER_RELOCATION",
-      "expected": "FAIL_INDEPENDENT_POSTIMAGE"
-    },
+    { "id": "NEG-01", "name": "UNRELATED_BYTE_DRIFT", "expected": "FAIL_EXACT_COMPLETE_POSTIMAGE" },
+    { "id": "NEG-02", "name": "STALE_BOUND_PREVIEW", "expected": "FAIL_STALE_TARGET_HASH" },
+    { "id": "NEG-03", "name": "WRONG_CONTROL_FIELD", "expected": "FAIL_AUTHORITY_OR_POSTIMAGE" },
+    { "id": "NEG-04", "name": "WRONG_POINTER_RELOCATION", "expected": "FAIL_INDEPENDENT_POSTIMAGE" },
     {
       "id": "NEG-05",
       "name": "NON_LEXICAL_I13",
       "reject": ["6.000000", "6.000000E+00", "6.000000D+00"],
       "expected": "FAIL_I13_LEXICAL_AUTHORITY"
     },
-    {
-      "id": "NEG-06",
-      "name": "WRONG_V11_SIF_BLOCK_CARDINALITY",
-      "expected": "FAIL_10_ROW_BLOCK_AUTHORITY"
-    }
+    { "id": "NEG-06", "name": "WRONG_V11_SIF_BLOCK_CARDINALITY", "expected": "FAIL_10_ROW_BLOCK_AUTHORITY" }
   ],
   "versionGates": {
-    "W2_A": {
-      "role": "SYNTHETIC_PUBLIC_RUNTIME",
-      "benchmarkDoesNotReplace": true,
-      "state": "NOT_RUN"
-    },
-    "W2_B": {
-      "benchmarkCase": "BM-W2-04",
-      "evidenceClass": "RETAINED_REAL_V11",
-      "state": "NOT_RUN"
-    },
-    "W2_35": {
-      "benchmarkCase": "BM-W2-04",
-      "evidenceClass": "CONVERTER_GENERATED_V14",
-      "state": "NOT_RUN"
-    },
-    "W2_35a": {
-      "evidenceClass": "ISSUE_1042_GENERATED_V14_REGRESSION",
-      "separateIdentityRequired": true,
-      "state": "NOT_RUN"
-    },
+    "W2_A": { "role": "SYNTHETIC_PUBLIC_RUNTIME", "state": "NOT_RUN", "benchmarkDoesNotReplace": true },
+    "W2_B": { "benchmarkCase": "BM-W2-04", "evidenceClass": "RETAINED_REAL_V11", "state": "NOT_RUN" },
+    "W2_35": { "benchmarkCase": "BM-W2-04", "evidenceClass": "CONVERTER_GENERATED_V14", "state": "NOT_RUN" },
+    "W2_35a": { "evidenceClass": "ISSUE_1042_GENERATED_V14_REGRESSION", "state": "NOT_RUN" },
     "W2_40": {
       "benchmarkCase": "BM-W2-04_EQUIVALENT",
       "evidenceClass": "NATIVE_V14",
       "converterGeneratedEvidenceForbiddenAsNative": true,
       "state": "NOT_RUN"
-    }
+    },
+    "W2_H": { "state": "NOT_READY" }
   }
 }
