@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0005 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0005.md | PENDING | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Trace and pin the complete W2 A static import closure at merged main a9018c131be736606e44fd0379545d233238f33e; identify the first still-unpinned repository module before any runtime reconstruction |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0006 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Fetch the unchanged W2 A test and every direct static import at material basis a9018c131be736606e44fd0379545d233238f33e; pin each path/blob and recurse until the first unpinned repository module is identified |
 
 ## ENDPOINT LOG
 
@@ -17,3 +17,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0003 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-PRE-MERGE | 02fb118674fc5bea6fb10d869d4a44c5d9b60123 | READY_FOR_NEXT_LEG | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0003.md |
 | EP-CII-W2-0004 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-PRE-MERGE-RECOVERY | d0d36de8899b1c0252342bc6914088de90f80386 | READY_FOR_NEXT_LEG | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0004.md |
 | EP-CII-W2-0005 | CII-WRITER2-RUNTIME-QUALIFICATION | W2A-PUBLIC-RUNTIME-SUCCESSOR | a9018c131be736606e44fd0379545d233238f33e | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0005.md |
+| EP-CII-W2-0006 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-PUBLIC-RUNTIME | f109a6f7287a593c9515192f0aa6376fc5cf243a | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md |
