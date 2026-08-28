@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0008 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0008.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Materialize exact private checkout at `a9018c131be736606e44fd0379545d233238f33e`, verify W2 A blob `9922377ddeda86fc9167d65f33c97095346e79fa`, run unchanged `node tests/cii-workspace-writer2-restraint-product-routing.test.js`; environment/module stop = NOT_RUN, first authored failure = FAIL |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0009 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0009.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an execution environment with exact private checkout access, materialize `a9018c131be736606e44fd0379545d233238f33e`, verify W2 A blob `9922377ddeda86fc9167d65f33c97095346e79fa`, run unchanged `node tests/cii-workspace-writer2-restraint-product-routing.test.js`; environment/module stop = NOT_RUN, first authored failure = FAIL |
 
 ## ENDPOINT LOG
 
@@ -20,3 +20,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0006 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-PUBLIC-RUNTIME | f109a6f7287a593c9515192f0aa6376fc5cf243a | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md |
 | EP-CII-W2-0007 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE | bb545197ec84b58dd849603190c422fd5c1f42a9 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0007.md |
 | EP-CII-W2-0008 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE-COMPLETE | 7219079a73e28835657827aa29d07431674a5d85 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0008.md |
+| EP-CII-W2-0009 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXECUTION-ENVIRONMENT-AUDIT | 932e8f803374396ec3e73293b47d619b8779bcc6 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0009.md |
