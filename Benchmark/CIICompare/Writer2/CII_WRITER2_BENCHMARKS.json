@@ -81,7 +81,16 @@
       },
       "test": "tests/cii-workspace-writer2-benchmark-nodename-create.test.js",
       "runtime": "NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE",
-      "knownSourceInspectionRisk": "CURRENT_V11_NODENAME_POINTER_WRITER_USES_REAL_FORMATTER_IN_I13_COORDINATE"
+      "focusedI13Hardening": {
+        "state": "PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH",
+        "preimageWriterBlob": "9e520ceaedc16b0bd36b70396bca3bfc9fd5996f",
+        "postimageWriterBlob": "eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c",
+        "sourceContractTest": "tests/cii-workspace-writer2-nodename-i13-source-contract.test.js",
+        "sourceContractTestBlob": "c80bca35e3b62f216eaab5bf8a48faaa21a276d7",
+        "focusedRuntimeTest": "tests/cii-workspace-writer2-nodename-i13-focused-runtime.test.js",
+        "focusedRuntimeTestBlob": "65896fd41e16efcd25dea97ad5a8848cbc87d03c",
+        "publicBenchmarkPassImplication": "NONE"
+      }
     },
     {
       "id": "BM-W2-02",
