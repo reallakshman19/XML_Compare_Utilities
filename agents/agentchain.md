@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0010 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0010.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an execution environment with exact checkout access, run `agents/evidence/PR1063_w2a_external_execution_capsule.md` against `a9018c131be736606e44fd0379545d233238f33e`; environment/module stop = NOT_RUN, first authored failure = FAIL, clean completion = candidate PASS |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0011 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an execution substrate with exact checkout access, run `agents/evidence/PR1063_w2a_external_execution_capsule.md` against `a9018c131be736606e44fd0379545d233238f33e`; materialization/module stop before authored assertion = NOT_RUN, first authored failure = FAIL, clean completion = candidate PASS |
 
 ## ENDPOINT LOG
 
@@ -22,3 +22,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0008 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE-COMPLETE | 7219079a73e28835657827aa29d07431674a5d85 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0008.md |
 | EP-CII-W2-0009 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXECUTION-ENVIRONMENT-AUDIT | 932e8f803374396ec3e73293b47d619b8779bcc6 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0009.md |
 | EP-CII-W2-0010 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXTERNAL-EXECUTION-READINESS | c3cf59271ab585cc5f8b9d040128e3fe8e697080 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0010.md |
+| EP-CII-W2-0011 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-MATERIALIZATION-ROUTE-EXHAUSTION | 05ff6aef413ca18934a0dc698e6e86fa1d6308af | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md |
