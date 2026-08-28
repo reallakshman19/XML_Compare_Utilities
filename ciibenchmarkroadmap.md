@@ -2,20 +2,40 @@
 
 ## Purpose
 
-Create a retained, auditable benchmark ladder for Writer2 using the exact frozen real file:
+Create a retained, auditable Writer2 benchmark ladder from the exact frozen real file:
 
 ```text
 Benchmark/CIICompare/BM_CII_SOURCE.CII
 Git blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
-Frozen base commit: 9685a2f41ec2b5a5c170762816702fefe90e18a7
+Frozen source commit: 9685a2f41ec2b5a5c170762816702fefe90e18a7
 Neutral version: V11
 ```
 
-The benchmark must separate runtime-routing qualification from engineering/postimage qualification. It must not turn Writer2 output into its own oracle, must not silently discover a different record when an expected benchmark record drifts, and must not promote generated V14 evidence to native-V14 evidence.
+The benchmark program separates source/engineering custody, focused family runtime, and public-product runtime qualification. Writer2 output must never become its own sole oracle. Generated V14 and native V14 remain different evidence classes.
 
-## Baseline retained facts
+Current relay custody is indexed by:
 
-The frozen V11 source is the benchmark authority. Current qualified baseline facts are:
+```text
+agents/agentchain.md
+agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/
+```
+
+## Governing rules
+
+1. Every case is tied to the exact frozen source blob.
+2. Standalone mutation families are qualified before composites.
+3. Expected postimages are constructed by independent benchmark modules that do not import Writer2 mutation code.
+4. Fixture drift fails closed; no dynamic fallback candidate is allowed for a frozen case.
+5. Bytes and semantics outside authorized mutation coordinates remain unchanged.
+6. Writer2 benchmarks preserve ELEMENT connectivity/topology.
+7. I13 count/pointer coordinates require lexical integers, not merely numerically integral values.
+8. V11 retained-real, generated V14, #1042 generated V14, and native V14 remain separate gates.
+9. Focused family runtime success does not qualify the public product route.
+10. Source inspection never promotes an unexecuted runtime gate to PASS.
+11. Missing checkout/module transport is NOT_RUN, not authored FAIL.
+12. Any additional production repair after the closed NODENAME I13 defect requires a reproduced falsifier at the first wrong product boundary; do not patch around environment/materialization stops.
+
+## Frozen baseline
 
 ```text
 ELEMENTS                  40 x 15-row blocks
@@ -31,31 +51,11 @@ HANGER node                205
 MISCEL_1 rows              23
 ```
 
-The first retained RESTRAINT benchmark is intentionally frozen to:
+Machine-readable authority:
 
 ```text
-pointer                    1
-slot                       1
-node                       190
-owner element              180 -> 190
-expected occupied slots    1
-expected owner count       1
+Benchmark/CIICompare/Writer2/CII_WRITER2_BENCHMARKS.json
 ```
-
-The benchmark must fail if those facts stop being true. It must not dynamically choose another candidate.
-
-## Governing benchmark rules
-
-1. **Exact source custody** — every benchmark records the exact source Git blob and source SHA-256 when executed.
-2. **Orthogonal first cases** — qualify one mutation family at a time before composites.
-3. **Independent expected postimage** — structural expected bytes are constructed by benchmark/oracle code that does not import Writer2 mutation code.
-4. **Fail closed on fixture drift** — node, element, pointer, slot, cardinality and owner count are fixed benchmark facts.
-5. **Exact negative assurance** — bytes/semantics outside authorized mutation regions must remain unchanged.
-6. **No topology widening** — Writer2 benchmark cases must preserve ELEMENT connectivity unless a future separately-authorized Writer3 benchmark says otherwise.
-7. **FORTRAN lexical authority** — I13 count/pointer coordinates must remain lexical integers, not merely numerically integral values.
-8. **Version evidence classes stay separate** — V11 retained-real, converter-generated V14, #1042 generated V14, and native V14 are different gates.
-9. **No PASS by construction** — a Writer2-produced postimage is never the sole expected oracle for Writer2 itself.
-10. **Public runtime and oracle both required** — low-level writer success alone does not qualify the product route.
 
 ## Benchmark ladder
 
@@ -65,33 +65,126 @@ The benchmark must fail if those facts stop being true. It must not dynamically 
 input      BM_CII_SOURCE.CII
 operation  none
 expected   byte-identical identity
+state      PLANNED
 ```
 
-Purpose: establish zero-delta intake/export custody.
+Purpose: zero-delta intake/export custody.
 
-### BM-W2-01 — NODENAME CREATE
+### BM-W2-01 — retained-real NODENAME CREATE
 
-Preferred frozen endpoint after custody qualification:
+Frozen candidate:
 
 ```text
-node       10
-before     unnamed / zero NODENAME pointer
-after      BM-N10
+node                   10
+owner element index    0
+owner                   10 -> 20
+owner endpoint          FROM
+pointer before          0
+name after              BM-N10
+existing NODENAME rows 4
+pointer after           5
 ```
 
-Expected structural transition:
+The active Writer2 relocation authority is:
 
 ```text
-CONTROL.NONAM        4 -> 5
-NODENAME rows        4 -> 5
-selected pointer     0 -> 5 (append allocation, only if source qualification proves this policy)
-ELEMENT count        40 -> 40
-topology             unchanged
+tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js
+blob 326954e4d6342ba25915c107c7118b4f51c23610
 ```
 
-Do not freeze append allocation until its current Writer2 authority is re-proven against this retained source.
+CREATE allocation rule:
 
-### BM-W2-02 — V11 SIF/TEE DELETE
+```text
+no existing physical NODENAME field
+-> collect exact incident pointer=0 bindings
+-> choose lowest parsed ELEMENT index
+-> append after retained NODENAME rows
+-> assign resulting 1-based row pointer
+```
+
+Independent expected transition:
+
+```text
+CONTROL.NONAM       4 -> 5
+NODENAME rows       4 -> 5
+ELEMENT0 pointer    0 -> 5
+ELEMENT count       40 -> 40
+connectivity        unchanged
+pointer syntax      lexical I13
+```
+
+Independent oracle:
+
+```text
+Benchmark/CIICompare/Writer2/cii-writer2-benchmark-nodename-oracle.js
+blob ab770906e30fa4a0db156e083517af1d7793eb5c
+```
+
+Authored public-product test:
+
+```text
+tests/cii-workspace-writer2-benchmark-nodename-create.test.js
+blob 7ba33984f290550f6f40eb91369ce9ceab1b74af
+```
+
+#### Reproduced V11 I13 defect and bounded repair
+
+Preimage production blob:
+
+```text
+tabs/cii-workspace/cii-workspace-writer2-nodename-write.js
+9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
+```
+
+The preimage routed the ELEMENT NODENAME pointer through:
+
+```text
+numericField() -> formatCiiWriterSig6()
+```
+
+although the physical pointer coordinate is I13.
+
+Exact source-contract falsifier:
+
+```text
+tests/cii-workspace-writer2-nodename-i13-source-contract.test.js
+blob c80bca35e3b62f216eaab5bf8a48faaa21a276d7
+```
+
+Observed classification:
+
+```text
+preimage  FAIL as expected
+postimage PASS
+```
+
+Surgical postimage writer:
+
+```text
+eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c
+```
+
+The repair removes the REAL-style pointer formatter path and writes the pointer through the existing lexical integer field formatter.
+
+Focused exact runtime:
+
+```text
+tests/cii-workspace-writer2-nodename-i13-focused-runtime.test.js
+blob 65896fd41e16efcd25dea97ad5a8848cbc87d03c
+state PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+observed pointer 0 -> 5
+observed lexical token "5"
+```
+
+Current public state:
+
+```text
+AUTHORED_PUBLIC_RUNTIME_NOT_RUN
+```
+
+The focused PASS does not qualify the public product route.
+
+### BM-W2-02 — retained-real V11 SIF/TEE DELETE
 
 Frozen candidate:
 
@@ -102,48 +195,124 @@ record node          70
 source raw code      3
 ```
 
-Operation:
+Operation and expected transition:
 
 ```text
 DELETE complete SIF block 1
-```
-
-Expected:
-
-```text
 CONTROL.SIF&TEES     9 -> 8
 SIF rows             90 -> 80
-selected owner       1 -> 0
+selected pointer     1 -> 0
 retained pointers    p > 1 => p - 1
 connectivity         unchanged
+pointer syntax       lexical I13
 ```
 
-Raw-code mutation `3 -> 5` is not a Writer2 benchmark oracle while raw field-2 semantics remain unresolved.
+Independent oracle:
 
-### BM-W2-03 — HANGER DELETE-ALL
+```text
+Benchmark/CIICompare/Writer2/cii-writer2-benchmark-sif-oracle.js
+```
+
+Authored public-product test:
+
+```text
+tests/cii-workspace-writer2-benchmark-sif-delete.test.js
+```
+
+Raw-code mutation `3 -> 5` is explicitly excluded while raw field-2 semantics remain unresolved.
+
+Focused exact runtime:
+
+```text
+tests/cii-workspace-writer2-sif-delete-physical.test.js
+blob 65d70d2cab42ce19ac6648d9c6929dae56404990
+state PASS_RUNTIME_EXACT_8_FILE_BLOB_GRAPH
+```
+
+Observed focused evidence includes:
+
+```text
+middle delete mapping  1:1, 2:0, 3:2
+delete-all              PASS
+lexical I13 pointers    PASS
+exact postimage         PASS
+unrelated-byte guard    PASS
+forged-testimony guard  PASS
+```
+
+Current public state:
+
+```text
+AUTHORED_PUBLIC_RUNTIME_NOT_RUN
+```
+
+### BM-W2-03 — retained-real HANGER DELETE-ALL
 
 Frozen candidate:
 
 ```text
-node                 205
-count                1 -> 0
+node                  205
+layout                CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
+CONTROL.NOHGRS        1
+MISCEL_1 rows         23
+rrmat/prefix rows     7
+execution tail rows   4
 ```
 
-Expected:
+Independent expected transition:
 
 ```text
-CONTROL.NOHGRS       1 -> 0
-hanger nodes         [205] -> []
-MISCEL_1 rows        23 -> 11
-ELEMENTS             unchanged
-NODENAME             unchanged
-SIF&TEES             unchanged
-RESTRANT             unchanged
+CONTROL.NOHGRS        1 -> 0
+hanger nodes          [205] -> []
+MISCEL_1 rows         23 -> 11
+retained rows         first 7 + last 4
+ELEMENT connectivity unchanged
 ```
 
-### BM-W2-04 — RESTRAINT block DELETE/compaction
+Independent oracle:
 
-This is the primary retained-real W2 B benchmark.
+```text
+Benchmark/CIICompare/Writer2/cii-writer2-benchmark-hanger-oracle.js
+blob 16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f
+```
+
+Authored public-product test:
+
+```text
+tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js
+blob 93703ac66fec9b663165d95a20afbc654b6e26f4
+```
+
+The oracle derives the synchronizer IHGRNODE location independently from CONTROL counts and MISCEL_1 physical shape, then constructs the exact postimage without importing Writer2 mutation code.
+
+Focused exact runtime:
+
+```text
+tests/cii-workspace-writer2-hanger-focused-runtime.test.js
+blob 2e45b358640e9028c66b11b108b6b8d44d2dd2d1
+state PASS_RUNTIME_EXACT_9_FILE_BLOB_GRAPH
+```
+
+The focused graph includes the real HANGER record-binding and tail-order custody modules; no stub or reduced writer-only path was used.
+
+Observed:
+
+```text
+hanger count 1 -> 0
+post custody count 0
+post layout CONTROL_NOHGRS_ZERO
+retained payload exact prefix + execution tail
+```
+
+Current public state:
+
+```text
+AUTHORED_PUBLIC_RUNTIME_NOT_RUN
+```
+
+### BM-W2-04 — retained-real RESTRAINT block DELETE/compaction
+
+Primary retained-real W2 B case.
 
 Frozen candidate:
 
@@ -155,56 +324,98 @@ owner element        180 -> 190
 rows/block           24
 ```
 
-Independent expected transformation:
+Independent expected transition:
 
 ```text
-CONTROL restraint blocks        7 -> 6
-RESTRANT physical rows          168 -> 144
-selected owner pointer          1 -> 0
-all retained pointers p > 1     p -> p - 1
-CONTROL.NONAM                   exactly unchanged at 4
-ELEMENT connectivity            exactly unchanged
-all non-RESTRANT semantic data  unchanged
+CONTROL restraints         7 -> 6
+RESTRANT rows              168 -> 144
+selected pointer           1 -> 0
+retained pointers p > 1    p -> p - 1
+CONTROL.NONAM              remains 4
+ELEMENT connectivity       unchanged
+count/pointer syntax       lexical I13
 ```
 
-The independent oracle may edit only:
+Independent oracle:
 
 ```text
-CONTROL row 2 / field 4 (I13)
-ELEMENT block row 13 / field 4 (I13 restraint pointer)
-RESTRANT section physical cardinality
+Benchmark/CIICompare/Writer2/cii-writer2-benchmark-oracle.js
 ```
 
-All remaining bytes are expected to be inherited from the frozen source except where line deletion changes absolute offsets.
-
-### BM-W2-05 — tri-family composite
-
-Only after BM-W2-01/02/03 independently qualify:
+Authored public-product test:
 
 ```text
-NODENAME CREATE
-+ SIF DELETE
-+ HANGER DELETE
+tests/cii-workspace-writer2-benchmark-restraint-delete.test.js
+```
+
+Focused exact compaction runtime:
+
+```text
+tests/cii-workspace-writer2-restraint-compaction-focused-runtime.test.js
+blob b7e76470cf416e595c556467b3207b4fe8d5d0ba
+state PASS_RUNTIME_EXACT_7_FILE_BLOB_GRAPH
+```
+
+Current exact planner/custody blobs:
+
+```text
+compaction plan  aedfb3ac78eed2294a88a64af261386f0db65085
+pointer custody  7053230546eaba4588b98a35ae5fc3819da83c14
+```
+
+Observed focused case:
+
+```text
+pointer mapping      1:1, 2:0, 3:2
+CONTROL count        3 -> 2
+deleted row range    [24,48)
+lexical I13 custody  PASS
+```
+
+The earlier exact pointer-I13 qualification also remains PASS.
+
+Current public state:
+
+```text
+AUTHORED_PUBLIC_RUNTIME_NOT_RUN
+```
+
+### BM-W2-05 — tri-family one-preimage composite
+
+Only after BM-W2-01, BM-W2-02 and BM-W2-03 independently pass **public** runtime qualification:
+
+```text
+NODENAME CREATE node10 -> BM-N10
++ SIF block1 DELETE
++ HANGER node205 DELETE-ALL
 ```
 
 Expected CONTROL state:
 
 ```text
-NOHGRS  1 -> 0
-NONAM   4 -> 5
-SIF     9 -> 8
+NOHGRS      1 -> 0
+NONAM       4 -> 5
+RESTRAINT   7 -> 7
+SIF&TEES    9 -> 8
+NUMELT      40 -> 40
 ```
 
-RESTRANT remains exactly 7.
+Current state:
+
+```text
+BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
+```
+
+Do not author a composite merely to bypass an unexecuted public standalone gate.
 
 ### BM-W2-06 — four-family stress case
 
-After BM-W2-04 also qualifies:
+After BM-W2-01/02/03/04 **public** runtime qualification:
 
 ```text
 NODENAME CREATE
 + SIF DELETE
-+ HANGER DELETE
++ HANGER DELETE-ALL
 + RESTRAINT DELETE
 ```
 
@@ -218,11 +429,13 @@ Expected cardinality vector:
 | RESTRAINT | 7 | 6 |
 | SIF&TEES | 9 | 8 |
 
-This is the final V11 one-original-preimage composite benchmark, not the first benchmark.
+Current state:
+
+```text
+BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
+```
 
 ## Negative benchmark suite
-
-Each positive benchmark requires falsifiers.
 
 ### NEG-01 — unrelated byte drift
 
@@ -234,166 +447,137 @@ Replay a bound preview against an already-modified target. Must fail stale-targe
 
 ### NEG-03 — wrong CONTROL field
 
-For RESTRAINT delete, mutate `CONTROL.NONAM` in addition to the authorized restraint count. Must fail.
+Mutate an unrelated CONTROL field in addition to the authorized count. Must fail.
 
 ### NEG-04 — wrong pointer relocation
 
-Delete RESTRAINT block 1 but leave any pointer greater than 1 unshifted. Must fail.
+Leave a required relocation stale after a cardinality change. Must fail the independent oracle.
 
 ### NEG-05 — invalid I13 lexical form
 
-Use `6.000000`, `6.000000E+00`, or `6.000000D+00` in an I13 count/pointer coordinate. Must fail.
-
-### NEG-06 — wrong SIF cardinality unit
-
-Remove fewer/more than the complete 10-row V11 SIF block. Must fail.
-
-## Benchmark manifest
-
-The repository benchmark manifest is expected at:
+I13 coordinates reject REAL-style spellings such as:
 
 ```text
-Benchmark/CIICompare/Writer2/CII_WRITER2_BENCHMARKS.json
+6.000000
+6.000000E+00
+6.000000D+00
 ```
 
-It records frozen source custody and each benchmark's fixed record identity, operation family, expected counts, expected pointer transition and authority class. Tests must read it rather than duplicate benchmark facts in several source files.
+This falsifier applies to Writer2-controlled count/pointer coordinates. The NODENAME pointer defect in this exact class has been reproduced and repaired; the lexical rule remains active for all families.
+
+### NEG-06 — wrong V11 SIF cardinality
+
+Delete fewer or more than the complete 10-row V11 SIF block. Must fail.
 
 ## Independent oracle architecture
 
-### Level A — repository independent structural oracle
+Level-A repository oracles independently parse fixed sections and construct expected postimages. They do not import Writer2 planner/writer/mutation modules.
 
-Implement an oracle that does not import Writer2 writer/planner modules. For BM-W2-04 it will:
+Current Level-A oracle set:
 
-1. verify CRLF and section ordering;
-2. verify CONTROL restraint count is exactly 7;
-3. verify ELEMENTS has exactly 40 x 15 rows;
-4. verify element `180 -> 190` has restraint pointer 1;
-5. verify RESTRAINT has exactly 7 x 24 rows;
-6. verify block 1 / slot 1 is node 190 and all other slots are empty;
-7. construct expected postimage by:
-   - `CONTROL restraint count 7 -> 6` using lexical I13;
-   - `ELEMENT restraint pointer 1 -> 0` for deleted owners;
-   - `ELEMENT restraint pointer p -> p-1` for every retained pointer `p > 1`;
-   - deleting exactly the first 24 RESTRAINT rows;
-8. preserve all other line text exactly;
-9. re-intake the oracle postimage and verify semantic invariants.
+```text
+BM-W2-01  cii-writer2-benchmark-nodename-oracle.js
+BM-W2-02  cii-writer2-benchmark-sif-oracle.js
+BM-W2-03  cii-writer2-benchmark-hanger-oracle.js
+BM-W2-04  cii-writer2-benchmark-oracle.js
+```
 
-Writer2 output must equal this independently constructed expected postimage for the canonical repository benchmark.
+Level-B CAESAR-native retained oracles may be added when genuine native files are available. Converter-generated V14 must not be relabelled native.
 
-### Level B — CAESAR-native retained oracle
+## Version/runtime ladder
 
-Where available, create a native CAESAR file by making exactly the benchmark change in the corresponding CAESAR version and saving/exporting. Freeze the file hash and compare structural/semantic authority against the Level-A oracle.
+### W2 A — synthetic public runtime
 
-Do not require whole-file byte equality when CAESAR itself legitimately rewrites unrelated formatting; instead classify the accepted comparison dimensions explicitly.
+Existing authored gate:
 
-## Version ladder
+```text
+tests/cii-workspace-writer2-restraint-product-routing.test.js
+blob 9922377ddeda86fc9167d65f33c97095346e79fa
+```
 
-### W2 A
+State: `NOT_RUN`.
 
-Existing synthetic public-runtime qualification remains independent. Benchmark work does not replace W2 A.
+Historical exact sparse-mirror execution reached module loading only and stopped at `cii-workspace-auxiliary.js`; no authored assertion failed. The current `cii-workspace-auxiliary.js` itself imports only `parser/fixed-field.js` and `cii-workspace-contracts.js`, so that historical frontier is a materialization checkpoint, not an engineering failure.
 
 ### W2 B — retained-real V11
 
-Primary case: BM-W2-04.
+Primary evidence case: BM-W2-04.
 
-Required path:
-
-```text
-retained V11 BM_CII_SOURCE
--> exact preview / explicit APPLY
--> public applyCiiWorkspaceTargetWriter2()
--> Writer2 postimage
--> independent BM-W2-04 oracle
--> exact expected postimage + semantic validation
-```
+State: `NOT_RUN`; classification requires W2 A and BM-W2-04 public runtime PASS.
 
 ### W2.35 — converter-generated V14
 
-Generate V14 source/target from the validated V11 benchmark. Execute the same BM-W2-04 operation. Require:
+Authored browser gate uses the real Worker/Pyodide bridge and requires final V14 downgrade equality with validated V11 Writer2 output.
 
-```text
-input/output version 14
-changed sections include CONTROL/ELEMENTS/RESTRANT
-generated V14 output downgraded to V11 == validated BM-W2-04 V11 postimage
-```
+State: `NOT_RUN`.
 
-This is generated-V14 evidence only.
+### W2.35a — Issue #1042 generated V14
 
-### W2.35a — #1042 generated V14 regression
+Separate historical regression identity. NONAM must remain byte-identical for a pure RESTRAINT delete.
 
-Keep #1042 as a separate historical regression fixture and gate. Do not merge its evidence identity with generic generated V14.
+State: `NOT_RUN`.
 
-### W2.40 — native V14
+### W2.40 — pinned native V14
 
-Acquire/freeze a genuine native V14 baseline and a native V14 BM-W2-04-equivalent changed file. Converter-generated V14 must never be relabelled native.
+Uses genuine pinned upstream V14 target custody; generated V14 cannot satisfy this gate.
+
+State: `NOT_RUN`.
 
 ### W2 H — release freeze
 
-Release freeze requires, at minimum:
+Requires at minimum:
 
 ```text
-W2 A public runtime PASS
-BM-W2-04 retained-real V11 / W2 B PASS
-BM-W2 generated-V14 / W2.35 PASS
-#1042 generated-V14 / W2.35a PASS
-native V14 / W2.40 PASS
-I13 lexical falsifiers PASS
+W2 A PASS
+W2 B / BM-W2-04 PASS
+W2.35 PASS
+W2.35a PASS
+W2.40 PASS
+I13 falsifiers PASS
 negative benchmark suite PASS
-no unresolved unexpected semantic delta
+no unexpected semantic delta
 ```
 
-## Implementation phases
+Current state: `NOT_READY`.
 
-### Phase 1 — benchmark custody and independent BM-W2-04 oracle
-
-Files:
+## Implementation phases and current progress
 
 ```text
-ciibenchmarkroadmap.md
-Benchmark/CIICompare/Writer2/CII_WRITER2_BENCHMARKS.json
-tests/cii-workspace-writer2-benchmark-restraint-delete.test.js
+Phase 1  benchmark custody + BM-W2-04 oracle        AUTHORED / public runtime NOT_RUN
+Phase 2  BM-W2-01/02/03/04 standalone families     FOCUSED EXACT RUNTIME PASS / public runtime NOT_RUN
+Phase 3  BM-W2-05/06 composites                     BLOCKED on standalone public runtime
+Phase 4  generated V14                               AUTHORED gate / runtime NOT_RUN
+Phase 5  native V14                                  AUTHORED gate / runtime NOT_RUN
+Phase 6  release bundle                              NOT_READY
 ```
 
-Acceptance:
+## Current hard gate
 
-- fixed pointer-1/node-190/180->190 custody is proven from the real source;
-- no dynamic fallback candidate selection;
-- independent postimage is constructed without Writer2 imports for its expected bytes;
-- Writer2 result is compared to the independent postimage;
-- connectivity and unrelated semantic state remain unchanged;
-- I13 lexical forms are explicitly checked.
+All four standalone mutation families now have bounded focused exact-runtime evidence, but the exact private repository still cannot be materialized into this execution filesystem for unchanged public Node/Chromium execution. Native Git/raw download cannot resolve GitHub DNS, while the connected GitHub interface provides exact source/blob access but no authenticated checkout/archive materialization into the execution container.
 
-### Phase 2 — BM-W2-01/02/03 standalone cases
-
-Qualify NODENAME CREATE, SIF DELETE and HANGER DELETE independently against fixed retained-source records.
-
-### Phase 3 — composites BM-W2-05/06
-
-Combine only already-qualified standalone cases.
-
-### Phase 4 — generated V14
-
-Run the same benchmark semantics through the frozen V11/V14 converter bridge and compare normalized V11 postimages exactly.
-
-### Phase 5 — native V14
-
-Add externally retained native V14 benchmark evidence and keep its source custody explicit.
-
-### Phase 6 — release bundle
-
-Freeze benchmark manifests, expected hashes, validation ledger, negative assurance and release-gate result.
-
-## Current implementation decision
-
-Start with **BM-W2-04 RESTRAINT block 1 / node 190 / owner 180->190** because it exercises the exact currently-pending retained-real Writer2 boundary:
+Therefore:
 
 ```text
-real physical cardinality
-+ CONTROL count custody
-+ ELEMENT pointer relocation
-+ fixed-FORTRAN I13 syntax
-+ independent complete-postimage validation
-+ topology non-regression
+FOCUSED FAMILY RUNTIME       PASS for NODENAME/SIF/HANGER/RESTRAINT
+PUBLIC PRODUCT RUNTIME      NOT_RUN
+W2 A / W2 B                 NOT_RUN
+ADDITIONAL PRODUCTION FIX   requires a new reproduced product falsifier
+BM-W2-05 / BM-W2-06         blocked on standalone public runtime
+RELEASE FREEZE              NOT_READY
 ```
 
-No additional Writer2 engineering authority is created by the benchmark. If the retained source contradicts any frozen benchmark fact, the benchmark fails and the discrepancy must be investigated before changing the expected data.
+The next legitimate runtime sequence remains:
+
+```text
+1. materialize/reconcile complete exact repository graph
+2. node tests/cii-workspace-writer2-restraint-product-routing.test.js
+3. node tests/cii-workspace-writer2-benchmark-nodename-create.test.js
+4. node tests/cii-workspace-writer2-benchmark-sif-delete.test.js
+5. node tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js
+6. node tests/cii-workspace-writer2-benchmark-restraint-delete.test.js
+7. stop at first authored falsifier and isolate it
+8. only after standalone public PASS, author/run BM-W2-05 and BM-W2-06
+9. run playwright.cii-writer2.config.mjs for W2.35/W2.35a/W2.40
+```
+
+No benchmark expectation, source authority, or tolerance may be weakened to obtain green status.

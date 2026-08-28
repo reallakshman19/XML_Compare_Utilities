@@ -1,4 +1,3 @@
-import { formatCiiWriterSig6 } from './cii-workspace-target-writer.js';
 import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
 
 const NODENAME_MARKER = 'NODENAME';
@@ -20,11 +19,6 @@ function integerField(value, width, code) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < 0) throw new Error(`${code}:INVALID_INTEGER`);
   const token = String(number);
-  if (token.length > width) throw new Error(`${code}:OVERFLOW:${token.length}>${width}`);
-  return token.padStart(width, ' ');
-}
-function numericField(value, width, code) {
-  const token = formatCiiWriterSig6(value);
   if (token.length > width) throw new Error(`${code}:OVERFLOW:${token.length}>${width}`);
   return token.padStart(width, ' ');
 }
@@ -93,7 +87,7 @@ function pointerReplacements(targetDocument, relocationPlan) {
     if (field.rawField != null && beforeField !== field.rawField) throw new Error(`CII_WRITER_2_POINTER_PREIMAGE_MISMATCH:${change.parsedElementIndex}`);
     return Object.freeze({
       kind: 'ELEMENT_NODENAME_POINTER', byteStart, byteEnd, beforeField,
-      afterField: numericField(change.newPointer, POINTER_FIELD_WIDTH, `CII_WRITER_2_POINTER_AFTER:${change.parsedElementIndex}`),
+      afterField: integerField(change.newPointer, POINTER_FIELD_WIDTH, `CII_WRITER_2_POINTER_AFTER:${change.parsedElementIndex}`),
       parsedElementIndex: change.parsedElementIndex, oldPointer: change.oldPointer, newPointer: change.newPointer,
     });
   }));
@@ -143,4 +137,4 @@ export function applyCiiWriter2NodeNameRelocation({ targetDocument, transferPlan
   });
 }
 
-export const _test = Object.freeze({ markerName, rawSectionEnvelope, lineEndingText, applyReplacements, integerField, numericField });
+export const _test = Object.freeze({ markerName, rawSectionEnvelope, lineEndingText, applyReplacements, integerField });
