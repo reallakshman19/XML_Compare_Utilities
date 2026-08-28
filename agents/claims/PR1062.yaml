@@ -12,64 +12,63 @@ claims:
       owner_to: '20'
       owner_end: FROM
       pointer_before: 0
-
-  - id: BM_W2_01_APPEND_ALLOCATION
-    state: PASS_SOURCE_AUTHORITY
-    evidence:
-      planner_blob: 326954e4d6342ba25915c107c7118b4f51c23610
-      retained_rows_before: 4
       expected_pointer_after: 5
-    runtime_implication: NONE
 
   - id: BM_W2_01_INDEPENDENT_ORACLE
     state: AUTHORED
     oracle_blob: ab770906e30fa4a0db156e083517af1d7793eb5c
-    test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
+    public_test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
     writer2_mutation_imports_in_oracle: false
 
-  - id: BM_W2_01_EXACT_RUNTIME
+  - id: BM_W2_01_PUBLIC_EXACT_RUNTIME
     state: NOT_RUN
     reason: EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
 
-  - id: NODENAME_POINTER_LEXICAL_I13_DEFECT_CANDIDATE
-    state: SUSPECTED_SOURCE_INSPECTION_ONLY
-    production_module_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
-    observation: ELEMENT_NODENAME_POINTER_REPLACEMENT_USES_NUMERICFIELD_FORMATCIIWRITERSIG6
-    authored_runtime_falsifier: true
-    required_runtime_event: BM_W2_01_LEXICAL_I13_ASSERTION_FAILS_ON_EXACT_GRAPH
-    production_fix_claimed: false
+  - id: NODENAME_POINTER_LEXICAL_I13_SOURCE_CONTRACT
+    state: PASS_PREIMAGE_FAIL_POSTIMAGE_PASS
+    test_blob: c80bca35e3b62f216eaab5bf8a48faaa21a276d7
+    preimage_writer_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
+    postimage_writer_blob: eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c
+    preimage_result: FAIL_AS_EXPECTED_NUMERICFIELD_POINTER_WIRING
+    postimage_result: PASS_INTEGERFIELD_POINTER_WIRING
+
+  - id: NODENAME_POINTER_LEXICAL_I13_FOCUSED_RUNTIME
+    state: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+    test_blob: 65896fd41e16efcd25dea97ad5a8848cbc87d03c
+    graph:
+      parser_fixed_field: 485daa43553681ca54f488499e57f36d2239be58
+      physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
+      nodename_relocation: 326954e4d6342ba25915c107c7118b4f51c23610
+      nodename_writer: eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c
+      test: 65896fd41e16efcd25dea97ad5a8848cbc87d03c
+    observed:
+      pointer_before: 0
+      pointer_after: 5
+      pointer_field_width: 13
+      pointer_token: '5'
+      control_nonam_after: 5
+    runtime_implication_for_bm_w2_01: NONE_PUBLIC_ROUTE_STILL_NOT_RUN
 
   - id: BM_W2_02_STANDALONE
-    state: AUTHORED_RUNTIME_NOT_RUN
-
-  - id: BM_W2_03_SOURCE_CANDIDATE
-    state: PASS_SOURCE_INSPECTION
-    evidence:
-      source_blob: e41cd05603b56837cbb6e31b9d4074ef6106fe9b
-      node: '205'
-      layout: CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
-      hanger_count: 1
-      miscel_rows: 23
-      retained_prefix_rows: 7
-      retained_execution_rows: 4
+    state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
 
   - id: BM_W2_03_INDEPENDENT_ORACLE
     state: AUTHORED
     oracle_blob: 16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f
-    test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
+    public_test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
     writer2_mutation_imports_in_oracle: false
 
-  - id: BM_W2_03_EXACT_RUNTIME
+  - id: BM_W2_03_PUBLIC_EXACT_RUNTIME
     state: NOT_RUN
     reason: EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
 
   - id: BM_W2_04_STANDALONE
-    state: AUTHORED_RUNTIME_NOT_RUN
+    state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
 
   - id: PHASE_3_COMPOSITES
     state: BLOCKED
-    bm_w2_05_reason: BM_W2_01_02_03_RUNTIME_PASS_REQUIRED
-    bm_w2_06_reason: BM_W2_01_02_03_04_RUNTIME_PASS_REQUIRED
+    bm_w2_05_reason: BM_W2_01_02_03_PUBLIC_RUNTIME_PASS_REQUIRED
+    bm_w2_06_reason: BM_W2_01_02_03_04_PUBLIC_RUNTIME_PASS_REQUIRED
 
   - id: WRITER2_RUNTIME_LADDER
     state: NOT_READY
@@ -81,11 +80,12 @@ claims:
     release_freeze: NOT_READY
 
 negative_claims:
-  production_modified: false
   benchmark_source_modified: false
   workflow_modified: false
   parser_modified: false
   converter_modified: false
-  composites_authored_before_standalone_runtime: false
+  production_modified_outside_nodename_i13_fix: false
+  bm_w2_01_public_pass_claimed_from_focused_runtime: false
+  composites_authored_before_standalone_public_runtime: false
   runtime_pass_fabricated: false
   not_run_promoted_to_pass: false
