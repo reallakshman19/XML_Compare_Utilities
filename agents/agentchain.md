@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0004 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0004.md | #1062 | READY_FOR_NEXT_LEG | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Re-fetch PR #1062 and main; if post-material-basis tail remains relay metadata only and no base drift exists, mark ready if required and squash-merge with freshly fetched expected head SHA; then start successor leg on merged main |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0011 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an execution substrate with exact checkout access, run `agents/evidence/PR1063_w2a_external_execution_capsule.md` against `a9018c131be736606e44fd0379545d233238f33e`; materialization/module stop before authored assertion = NOT_RUN, first authored failure = FAIL, clean completion = candidate PASS |
 
 ## ENDPOINT LOG
 
@@ -16,3 +16,10 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0002 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-ROADMAP-RECONCILIATION | 5dc79ae7f57528eaca2f6a5e5c50fdb80a68972b | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0002.md |
 | EP-CII-W2-0003 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-PRE-MERGE | 02fb118674fc5bea6fb10d869d4a44c5d9b60123 | READY_FOR_NEXT_LEG | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0003.md |
 | EP-CII-W2-0004 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1062-PRE-MERGE-RECOVERY | d0d36de8899b1c0252342bc6914088de90f80386 | READY_FOR_NEXT_LEG | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0004.md |
+| EP-CII-W2-0005 | CII-WRITER2-RUNTIME-QUALIFICATION | W2A-PUBLIC-RUNTIME-SUCCESSOR | a9018c131be736606e44fd0379545d233238f33e | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0005.md |
+| EP-CII-W2-0006 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-PUBLIC-RUNTIME | f109a6f7287a593c9515192f0aa6376fc5cf243a | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0006.md |
+| EP-CII-W2-0007 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE | bb545197ec84b58dd849603190c422fd5c1f42a9 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0007.md |
+| EP-CII-W2-0008 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-STATIC-CLOSURE-COMPLETE | 7219079a73e28835657827aa29d07431674a5d85 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0008.md |
+| EP-CII-W2-0009 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXECUTION-ENVIRONMENT-AUDIT | 932e8f803374396ec3e73293b47d619b8779bcc6 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0009.md |
+| EP-CII-W2-0010 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXTERNAL-EXECUTION-READINESS | c3cf59271ab585cc5f8b9d040128e3fe8e697080 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0010.md |
+| EP-CII-W2-0011 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-MATERIALIZATION-ROUTE-EXHAUSTION | 05ff6aef413ca18934a0dc698e6e86fa1d6308af | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md |
