@@ -2,12 +2,11 @@ pr: 1062
 repository: reallaksh19/XML_Compare_Utilities
 branch: agent/cii-writer2-benchmark-next
 base_main: d1f7d773ec89459f55d3fca9bcf0c93f2308b1e1
-current_stage: PHASE2_STANDALONE_BENCHMARKS_AUTHORED_RUNTIME_BLOCKED
+current_stage: NODENAME_I13_HARDENED_HANGER_FOCUSED_GRAPH_NEXT
 work_intent: IMPLEMENT_VALIDATE
 criticality: ENGINEERING_CRITICAL
 execution_mode: AUTO
-auto_state: BLOCKED
-hard_stop: STANDALONE_EXACT_RUNTIME_REQUIRED_BEFORE_COMPOSITES
+auto_state: RUNNING
 scope_authority: LOCKED_TO_APPROVED_BENCHMARK_ROADMAP
 merge_authority: OWNER_ONLY
 merge_authorized: false
@@ -20,58 +19,59 @@ benchmark_source:
   version: 11
 
 bm_w2_01:
-  state: AUTHORED_RUNTIME_NOT_RUN
+  state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
   candidate_node: '10'
   owner_element_index: 0
   owner_from: '10'
   owner_to: '20'
   owner_end: FROM
   pointer_before: 0
-  nodename_rows_before: 4
   expected_pointer_after: 5
   expected_name: BM-N10
-  expected_nonam_before: 4
-  expected_nonam_after: 5
-  expected_topology_unchanged: true
   oracle_blob: ab770906e30fa4a0db156e083517af1d7793eb5c
-  test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
-  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+  public_test_blob: 7ba33984f290550f6f40eb91369ce9ceab1b74af
+  public_runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+
+nodename_i13_hardening:
+  state: PASS_FOCUSED_EXACT_RUNTIME
+  preimage_writer_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
+  postimage_writer_blob: eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c
+  source_contract_test_blob: c80bca35e3b62f216eaab5bf8a48faaa21a276d7
+  focused_runtime_test_blob: 65896fd41e16efcd25dea97ad5a8848cbc87d03c
+  preimage_source_contract: FAIL_AS_EXPECTED
+  postimage_source_contract: PASS
+  postimage_focused_runtime: PASS_RUNTIME_EXACT_5_FILE_BLOB_GRAPH
+  exact_runtime_graph:
+    fixed_field: 485daa43553681ca54f488499e57f36d2239be58
+    physical_file: 0c4c445fbd3d4b929b1f9288b789b244547c8867
+    nodename_relocation: 326954e4d6342ba25915c107c7118b4f51c23610
+    nodename_writer: eb6bff1cdd4dc1f50e101a4f2f2dc717c74bdd5c
+    focused_test: 65896fd41e16efcd25dea97ad5a8848cbc87d03c
+  authority_change: ELEMENT_NODENAME_POINTER_USES_INTEGERFIELD_I13
+  writer1a_sig6_import_removed: true
 
 bm_w2_02:
-  state: AUTHORED_RUNTIME_NOT_RUN
-  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+  state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
 
 bm_w2_03:
-  state: AUTHORED_RUNTIME_NOT_RUN
+  state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
   candidate_node: '205'
   layout: CAESAR_SYNCHRONIZER_IHGRNODE_FIRST
   hanger_count_before: 1
   hanger_count_after: 0
   miscel_rows_before: 23
   miscel_rows_after: 11
-  retained_prefix_rows: 7
-  retained_execution_rows: 4
   oracle_blob: 16cbba8d5ac7dec1dc4e8cce1c5f0b6a9c728b3f
-  test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
-  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+  public_test_blob: 93703ac66fec9b663165d95a20afbc654b6e26f4
+  public_runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+  focused_graph_frontier: HANGER_PLANNER_RECORD_BINDING_AND_TAIL_ORDER_REQUIRED
 
 bm_w2_04:
-  state: AUTHORED_RUNTIME_NOT_RUN
-  runtime: NOT_RUN_EXACT_PRIVATE_CHECKOUT_UNAVAILABLE
+  state: AUTHORED_PUBLIC_RUNTIME_NOT_RUN
 
 phase3_composites:
-  bm_w2_05: BLOCKED_ON_BM_W2_01_02_03_RUNTIME_PASS
-  bm_w2_06: BLOCKED_ON_BM_W2_01_02_03_04_RUNTIME_PASS
-
-source_inspection_risk:
-  id: NODENAME_POINTER_NON_LEXICAL_I13
-  state: SUSPECTED_NOT_RUNTIME_REPRODUCED
-  module: tabs/cii-workspace/cii-workspace-writer2-nodename-write.js
-  production_blob: 9e520ceaedc16b0bd36b70396bca3bfc9fd5996f
-  current_pointer_formatter: numericField_to_formatCiiWriterSig6
-  required_pointer_lexical: '^[+-]?\\d+$'
-  runtime_falsifier_authored: true
-  production_patch_authorized: false
+  bm_w2_05: BLOCKED_ON_BM_W2_01_02_03_PUBLIC_RUNTIME_PASS
+  bm_w2_06: BLOCKED_ON_BM_W2_01_02_03_04_PUBLIC_RUNTIME_PASS
 
 inherited_runtime:
   w2_a: NOT_RUN
@@ -88,13 +88,13 @@ environment:
   connector_runtime_checkout_transport: false
 
 negative_assurance:
-  production_changed: false
   benchmark_source_changed: false
   workflow_changed: false
   parser_changed: false
   converter_changed: false
   composites_authored_before_standalone_runtime: false
+  bm_w2_01_public_runtime_promoted_from_focused_pass: false
   runtime_pass_fabricated: false
   not_run_promoted_to_pass: false
 
-exact_next_action: MATERIALIZE_EXACT_PRIVATE_CHECKOUT; RUN_W2_A_AND_BM_W2_01_02_03_04_UNCHANGED; STOP_AT_FIRST_AUTHORED_FALSIFIER; PATCH_NODENAME_POINTER_FORMATTER_ONLY_IF_BM_W2_01_REPRODUCES_I13_DEFECT; THEN_PROCEED_TO_BM_W2_05_AND_BM_W2_06
+exact_next_action: CLOSE_HANGER_FOCUSED_EXACT_GRAPH_WITH_RECORD_BINDING_AND_TAIL_ORDER; KEEP_BM_W2_03_PUBLIC_RUNTIME_NOT_RUN; THEN_RECONCILE_MANIFEST_AND_CONTINUE_STANDALONE_QUALIFICATION
