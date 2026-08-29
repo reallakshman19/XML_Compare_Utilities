@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0014 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0014.md | #1064 | QUALIFICATION_REQUIRED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Answer QS-0014 from live PR #1064 evidence, obtain an independent verifier verdict, and keep engineering-critical mutation READ_ONLY until that verdict exists |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0014 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0014.md | #1064 | QUALIFICATION_REQUIRED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Independently verify `CII-W2-QS-0014-gpt-5-6-sol-20260829-answer.md`; until a non-self `PASS_WRITE_ALLOWED` verdict exists, keep engineering-critical mutation READ_ONLY |
 
 ## ENDPOINT LOG
 
