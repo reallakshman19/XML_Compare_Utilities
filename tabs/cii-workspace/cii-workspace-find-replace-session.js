@@ -4,6 +4,7 @@ import {
   FIND_REPLACE_CSV_MODES,
   parseFindReplaceCsv,
 } from './cii-workspace-find-replace-csv.js';
+import { buildFindReplaceDownloadArtifact } from './cii-workspace-find-replace-output.js';
 import {
   buildFindReplacePreview,
   setFindReplaceRowDecision,
@@ -13,6 +14,15 @@ import { validateFindReplacePreimage } from './cii-workspace-find-replace-valida
 import { buildValidatedFindReplacePostimage } from './cii-workspace-find-replace-executor.js';
 
 const MODES = new Set(Object.values(FIND_REPLACE_CSV_MODES));
+const APPLIED_TO_NEW_COPY = 'APPLIED_TO_NEW_COPY';
+
+function freezeRelease(release) {
+  if (!release) return null;
+  return Object.freeze({
+    ...release,
+    receipt: release.receipt ? Object.freeze({ ...release.receipt }) : null,
+  });
+}
 
 function freezeSession(session) {
   return Object.freeze({
@@ -20,6 +30,7 @@ function freezeSession(session) {
     rows: Object.freeze([...(session.rows || [])]),
     errors: Object.freeze([...(session.errors || [])]),
     qualification: session.qualification ? Object.freeze(session.qualification) : null,
+    release: freezeRelease(session.release),
   });
 }
 
@@ -61,6 +72,7 @@ export function createFindReplaceSession() {
     status: 'EMPTY',
     errors: [],
     qualification: null,
+    release: null,
   });
 }
 
@@ -69,6 +81,7 @@ function invalidate(session, overrides = {}) {
     ...session,
     ...overrides,
     qualification: null,
+    release: null,
   });
 }
 
@@ -146,7 +159,7 @@ export function qualifyFindReplaceSession(session) {
   if (session.target && session.target.version !== 14) blockers.push(`TARGET_V14_REQUIRED:${session.target.version ?? 'UNKNOWN'}`);
   const summary = summarizeFindReplacePreview(session.rows);
   if (!summary.readyForTransaction) blockers.push('REVIEW_NOT_COMPLETE');
-  if (blockers.length) return freezeSession({ ...session, status: 'QUALIFICATION_BLOCKED', errors: blockers, qualification: null });
+  if (blockers.length) return freezeSession({ ...session, status: 'QUALIFICATION_BLOCKED', errors: blockers, qualification: null, release: null });
 
   const approved = session.rows.filter((row) => row.status === 'APPROVED');
   const preimage = validateFindReplacePreimage(session.target.text, approved);
@@ -156,6 +169,7 @@ export function qualifyFindReplaceSession(session) {
       status: 'VALIDATION_FAILED',
       errors: [...preimage.blockers],
       qualification: { preimage, postimage: null },
+      release: null,
     });
   }
 
@@ -165,12 +179,34 @@ export function qualifyFindReplaceSession(session) {
     status: postimage.status === 'QUALIFIED_POSTIMAGE' ? 'QUALIFIED_PREVIEW' : 'POSTIMAGE_BLOCKED',
     errors: [...(postimage.blockers || [])],
     qualification: { preimage, postimage },
+    release: null,
+  });
+}
+
+export function applyFindReplaceToNewCopy(session) {
+  if (session?.status !== 'QUALIFIED_PREVIEW') {
+    return freezeSession({ ...session, status: 'APPLY_TO_NEW_COPY_BLOCKED', errors: ['QUALIFIED_PREVIEW_REQUIRED'], release: null });
+  }
+  if (session.release?.status === APPLIED_TO_NEW_COPY) return session;
+  const output = buildFindReplaceDownloadArtifact(session);
+  if (output.status !== 'READY_FOR_DOWNLOAD') {
+    return freezeSession({ ...session, status: 'APPLY_TO_NEW_COPY_BLOCKED', errors: [...output.blockers], release: null });
+  }
+  return freezeSession({
+    ...session,
+    errors: [],
+    release: {
+      status: APPLIED_TO_NEW_COPY,
+      targetHash: output.artifact.receipt.targetHash,
+      receipt: output.artifact.receipt,
+    },
   });
 }
 
 export function summarizeFindReplaceSession(session) {
   const preview = summarizeFindReplacePreview(session.rows);
   const qualified = session.status === 'QUALIFIED_PREVIEW';
+  const appliedToNewCopy = qualified && session.release?.status === APPLIED_TO_NEW_COPY;
   return Object.freeze({
     ...preview,
     mode: session.mode,
@@ -179,7 +215,10 @@ export function summarizeFindReplaceSession(session) {
     sourceHash: session.target?.hash ?? null,
     canValidate: session.target?.version === 14 && preview.readyForTransaction,
     qualified,
+    appliedToNewCopy,
     canApply: false,
+    canApplyToNewCopy: qualified && !appliedToNewCopy,
+    canDownload: appliedToNewCopy,
   });
 }
 
