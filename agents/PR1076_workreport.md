@@ -35,13 +35,16 @@ Behavior:
    - BLOCK: From, To, Block, Find Text, Replace Text, Expected Matches
 6. `Update Preview` replaces current manual preview rows deterministically instead of appending duplicates.
 7. Existing CSV preview rows are preserved when the manual grid is refreshed.
-8. NODE NAME and DISPLACEMENT remain selectable; FORCE remains visible but qualification-pending/fail-closed.
+8. Any unsynchronized spreadsheet edit creates a dirty-grid gate: review decisions, validation, Apply-to-new-copy, audit export and download are disabled until `Update Preview` is run.
+9. If an already qualified/applied session is edited, the qualification/release is invalidated immediately.
+10. Spreadsheet refresh preserves a non-v14 target blocker; manual editing cannot promote a legacy target into a ready state.
+11. NODE NAME and DISPLACEMENT remain selectable; FORCE remains visible but qualification-pending/fail-closed.
 
 ## Unchanged authority
 
 No changes to:
 
-- CII v14 target qualification;
+- CII v14 target qualification requirements;
 - NODENAME or DISPLACEMENT physical ownership;
 - FORCE/FORCMNT mutation authority;
 - validator/executor claim semantics;
@@ -52,13 +55,32 @@ No changes to:
 - benchmarks/oracles;
 - workflows.
 
+## Source review findings
+
+Source/diff review: **PASS** for bounded intent after two fail-closed corrections:
+
+1. stale-preview prevention — unsynced edits now block all downstream review/release actions;
+2. legacy target preservation — `replaceFindReplaceManualRows()` retains `TARGET_VERSION_BLOCKED` and `TARGET_V14_REQUIRED:*`.
+
+Focused tests were added for:
+
+- rectangular Excel clipboard parsing;
+- mode-specific spreadsheet column order;
+- block alias normalization;
+- blank-row detection;
+- deterministic MANUAL-row replacement with CSV preservation;
+- non-v14 blocker preservation;
+- dirty-grid UI gating;
+- existing Apply-to-new-copy and FORCE-blocked boundaries.
+
 ## Validation truth
 
-- source/diff review: in progress at handover creation;
-- new session/static/manual-grid tests: authored;
-- exact-checkout execution: NOT_RUN in current connector-only substrate;
-- full repository suite: NOT_RUN;
-- retained-real/native-v14 gates: unchanged from prior chain state.
+- source/diff review: **PASS / inspection**;
+- focused tests: **AUTHORED, NOT_RUN**;
+- exact-checkout execution: **NOT_RUN / current connector-only substrate**;
+- GitHub CI/check status: no PASS claimed unless attached to final head;
+- full repository suite: **NOT_RUN**;
+- retained-real/native-v14/external CAESAR gates: unchanged from prior chain state.
 
 ## Coordination
 
