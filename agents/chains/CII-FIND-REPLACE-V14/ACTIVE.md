@@ -1,18 +1,18 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-FIND-REPLACE-V14
 MISSION: Deliver CII v14 Find & Replace with explicit Preview -> Apply-to-new-copy -> Download while preserving TARGET0 byte custody and Writer1/Writer2 separation
-ACTIVE_ENDPOINT: EP-CII-FR-0013
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+ACTIVE_ENDPOINT: EP-CII-FR-0014
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0014.md
 MATERIAL_HISTORY_ROOT_BASE: e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0012.md
-PR: 1078
-BRANCH: chore/cii-find-replace-postmerge-qualification-v14
-HEAD: eec69a6de3cdb4c79260bbf2e8425bd54e5c8f0d
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+PR: 1080
+BRANCH: chore/cii-forcmnt-oracle-acquisition-v14
+HEAD: e349389687b44bc9ad4a38538d4d39e06eb1a6f6
 STATE: ACTIVE
-ENGINEERING_STATE: POST_MERGE_QUALIFICATION_EVIDENCE_ONLY
+ENGINEERING_STATE: FORCMNT_ORACLE_ACQUISITION_CHECKER_AUTHORED
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: EXACT_CHECKOUT_OR_NONZERO_FORCMNT_ORACLE_REQUIRED
-WRITE_AUTHORITY: EVIDENCE_ONLY
+QUALIFICATION_STATE: RETAINED_NONZERO_V14_FORCMNT_ORACLE_REQUIRED
+WRITE_AUTHORITY: DIAGNOSTIC_EVIDENCE_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -20,16 +20,16 @@ MERGEABILITY: PENDING_RECONCILIATION
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NONE
-AUTHORITY_DOMAIN: post-merge CII Find & Replace qualification evidence only; FORCE/FORCMNT mutation, direct overwrite, Writer1/Writer2, parser/converter and workflow authority excluded
+AUTHORITY_DOMAIN: read-only FORCMNT candidate acquisition and evidence only; FORCE mutation, direct overwrite, Writer1/Writer2, parser/converter and workflow authority excluded
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol continuous CII-FIND-REPLACE-V14 custodian
 WORK_ITEM_SOURCE: OWNER_DIRECT
-WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:POSTMERGE-QUALIFICATION
+WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:FORCMNT-ORACLE-ACQUISITION
 WORK_ITEM_MODE: EXCLUSIVE
 WORK_ITEM_PARTITION: NONE
 WORK_ITEM_PARTITION_AUTHORITY: NONE
-CUSTODY_EPOCH: 14
+CUSTODY_EPOCH: 15
 COORDINATION_STATE: SAFE
-DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow merged via PR1077 at main c80aa9b4f670e90b831d65a9f16c775a50096271; authored focused exact-checkout tests NOT_RUN/environment; retained/public nonzero v14 FORCMNT oracle NOT_QUALIFIED; FORCE remains blocked
+DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow merged; post-merge qualification evidence merged through PR1079 at main bfe3abbb67060c1212001f2e9d967c229a057640; BM4 ACCDB/InputXML supplies real FORCMNT semantic evidence but no nonzero v14 neutral export; FORCE remains NOT_QUALIFIED
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 293a3db7993a6945c01adc592a7ff14a339c504a
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -37,16 +37,16 @@ ROADMAPS: NONE — bounded owner-direct CII Find & Replace mission
 ROADMAP_REVIEW_STATUS: NOT_APPLICABLE
 ROADMAP_ALIGNMENT: NOT_APPLICABLE
 ROADMAP_MUTATION_AUTHORITY: NONE
-QUALIFICATION_SCOPE_ID: QSCOPE-PR1078-POSTMERGE-QUALIFICATION
+QUALIFICATION_SCOPE_ID: QSCOPE-PR1080-FORCMNT-ORACLE-ACQUISITION
 QUESTION_SET_ID: CII-FR-QS-0001
 QUESTION_SET_STATUS: REUSE_ALLOWED_WITHIN_EXISTING_AUTHORITY
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
-OWNER_PROGRESSION_COMMAND: MERGE_IF_MERGEABLE_PROCEED_NEXT
+OWNER_PROGRESSION_COMMAND: MERGE_PROCEED_NEXT
 HANDOVER_PROTOCOL_VERSION: 2
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: PASS_EVIDENCE_BOUNDARY
-HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md; agents/PR1078_workreport.md; agents/evidence/CII_FORCMNT_retained_oracle_scan.md
+HANDOVER_VALIDATION_STATUS: SOURCE_REVIEW_PASS_EXECUTION_NOT_RUN
+HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0014.md; agents/PR1080_workreport.md; scripts/cii-forcmnt-oracle-check.mjs; tests/cii-forcmnt-oracle-check.test.js
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: TRUE
@@ -54,7 +54,7 @@ REPORTING_CONTRACT: ACTIVE_HANDOVER_FIRST
 HANDOVER_RESPONSE_REQUIRED: ALWAYS
 RESPONSE_DELTA_MODE: DELTA_ONLY
 OWNER_QUALIFICATION_BASELINE_DISCOVERY: COMPLETE
-OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — merge active UI leg if mergeable and proceed next without widening protected authority
+OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — merge active evidence leg and proceed to the next safe FORCE/FORCMNT qualification action
 OWNER_QUALIFICATION_BASELINE_MANIFEST: NONE
 OWNER_QUALIFICATION_BASELINE_STATUS: SATISFIED
-EXACT_NEXT_ACTION: obtain one exact v14 CII with CONTROL FORCMNT > 0 and positive ELEMENT FORCMNT pointer and prove byte ownership end-to-end; if authenticated exact checkout becomes available first, run authored manual-grid/session/UI focused tests and record actual PASS/FAIL; do not enable FORCE or merge PR1078 without Owner authorization
+EXACT_NEXT_ACTION: run the read-only oracle checker on any exact CAESAR II v14 CII candidate with nonzero FORCMNT; PASS_CANDIDATE grants no mutation authority and must be followed by two-spec semantic decode, sentinel proof, adjacent falsifiers and retained-real byte-custody tests; do not enable FORCE or merge PR1080 without Owner authorization
