@@ -1,255 +1,222 @@
 # PR1065 Work Report
 
-HANDOVER_READINESS: READY_FOR_EXACT_RUNTIME_GATE
+HANDOVER_READINESS: QUALIFICATION_REQUIRED
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR: 1065
 BRANCH: feature/cii-find-replace-icon-v14
-MISSION: CII v14 Find & Replace with preview/approval, immutable TARGET0 validation, qualified TARGET1 preview/download, and fail-closed engineering scope authority. Direct source-file overwrite remains unauthorized.
+MISSION: CII v14 Find & Replace with Node Name as the owner's first implementation priority, followed by other qualified scopes. Direct source-file overwrite remains unauthorized.
 
-## Recovery header
+## Governing process
 
-```text
-WORK_INTENT = IMPLEMENT / QUALIFY
-CRITICALITY = ENGINEERING_CRITICAL
-TAKEOVER_AUTHORITY = CONTINUE_BOUNDED
-MERGE_AUTHORITY = OWNER_ONLY_NOT_GRANTED
-LIVE_BASE = d35f6aa419244585afec2c47c8fbd0584011931a
-BATCH_INPUT_HEAD = e2322da062e69d61c55e5f8da02082197be6b2ee
-REPORT_BASIS_HEAD = 5c274b79cbe7ef4353d1b4d995ba387405410e3f
-PR_STATE = OPEN_DRAFT
-```
+This PR is now governed by:
 
-Live base remained unchanged at this batch start. PR #1064 remains a separate Writer2 runtime-qualification workstream; PR #1033 remains SIF CREATE qualification/data-only. No production file overlap with this retained-real Find & Replace batch was identified. Coordination classification remains `SAFE`.
+`reallaksh19/Common@10d667ce715bb52e1f73035c6fa326db77d0f9dd/skills/engineering-pr-delivery-v2/SKILL.md`
 
-## Protected invariants
+Durable chain:
 
-- TARGET0 remains immutable and SHA-256 bound.
-- Only reviewed APPROVED operations may produce claims.
-- All claims remain original-coordinate physical byte spans.
-- Equal byte length remains the default mutation rule.
-- Ambiguous identity, stale hash/preimage, overlaps, unsupported width changes and unexpected postimage bytes fail closed.
-- Writer1/Writer2 are not invoked by Find & Replace.
-- Direct source-file overwrite is disabled.
-- FORCE remains blocked until a retained nonzero FORCMNT ownership oracle exists.
-- This batch does not change parser, converter, compare core, topology or writer authority.
+`CII-FIND-REPLACE-V14`
 
-## Delivered product capability
+Current endpoint:
 
-- Visible `↔ CII Find & Replace — V14` Utilities action.
-- CSV/manual intake with mandatory preview and explicit row Approve/Reject.
-- Document scope over physical line bodies only.
-- Element scope over one exact ordered From→To 15-row ELEMENTS block.
-- DISPLACEMENT scope through an element's 1-based IEL pointer to one 20-row DISPLMNT block.
-- FORCE visible as qualification-pending but fail-closed at intake and resolver.
-- Immutable claim construction, independent preimage/postimage validation and in-memory TARGET1.
-- Explicit `Download Modified CII` only after `QUALIFIED_PREVIEW`; original source is not overwritten.
+`agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0003.md`
 
-## Current batch — retained-real DISPLACEMENT qualification
-
-### Why this batch changed direction
-
-The intended next gate was FORCE authority qualification. Repository/upstream search still found no retained CII with nonzero FORCMNT suitable as an ownership oracle. Current authoritative fixed-format sources establish `FORCMNT = 20` physical rows/block and place its pointer in ELEMENT IEL row 12, item 6, but that does not establish the payload/owner semantics needed to authorize mutation. FORCE therefore remains blocked.
-
-The same evidence pass exposed a concrete retained-real DISPLACEMENT mismatch that could be fixed safely.
-
-### Retained real source
-
-Authority file:
-
-`Benchmark/CIICompare/SOURCE 3.CII`
-
-Observed CONTROL:
+Current authority:
 
 ```text
-NUMELT=219
-DISPLMNT=1
-FORCMNT=0
+TAKEOVER_AUTHORITY: READ_ONLY
+QUALIFICATION_STATUS: DEFERRED_VERIFICATION
+ENGINEERING_CRITICAL_WRITE_AUTHORITY: FALSE
+MERGE_AUTHORITY: OWNER_ONLY
+MERGE_AUTHORIZED: FALSE
 ```
 
-Observed exact owner chain:
+No independent verifier is available in the current single-agent substrate. The candidate has not self-authorized and no verdict was fabricated.
+
+## Owner priority — Node Name first
+
+First implementation target after independent `PASS_WRITE_ALLOWED`:
+
+```text
+From / To element
+   -> exact 15-row ELEMENT block
+   -> row13 sixth item = NODENAME pointer
+   -> 1-based NODENAME row
+   -> exact FROM [2,28) / TO [28,53) field
+   -> exact semantic whole-field match
+   -> ASCII replacement right-padded to full field width
+   -> TARGET0-relative equal-width physical claim
+```
+
+Retained-real SOURCE3 isolating oracle:
+
+```text
+ELEMENT 20020 -> 20030
+row13 item6 = 1
+NODENAME row 1:
+  FROM = blank
+  TO   = PS-12146
+```
+
+First-priority example:
+
+```text
+From:         20020
+To:           20030
+Block:        NODENAME
+Find Text:    PS-12146
+Replace Text: NODE-20030
+```
+
+The expected physical claim is the complete 25-byte TO name field, with the replacement space-padded to exactly 25 bytes. CONTROL count, ELEMENT pointers, NODENAME row count, line endings and all unrelated bytes must remain unchanged.
+
+## Node Name authority basis
+
+- `tabs/cii-workspace/cii-workspace-nodename.js@main` establishes exact NODENAME physical custody:
+  - 15 rows per ELEMENT block;
+  - row13 sixth numeric item = NODENAME pointer;
+  - positive pointer = 1-based NODENAME row index;
+  - FROM field `[2,28)` width 26;
+  - TO field `[28,53)` width 25;
+  - exact physical owner sets and ambiguity blocking.
+- `tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js@main` establishes native-v14 NODENAME cardinality/pointer identity:
+  - one NODENAME row/unit;
+  - CONTROL row0 field3 = NODENAME/NONAM count;
+  - ELEMENT row13 field5 = NODENAME pointer.
+- pinned `reallaksh19/3D_Converters@ca8d391...` states NODENAME strings are among record shapes unchanged between the qualified V11/V14 profiles.
+- `docs/cii-writer2-v11-v14-lossless-bridge.md` explicitly does **not** authorize equal-cardinality NODENAME payload mutation through the Writer2 V14 bridge. Find & Replace therefore requires its own native-v14 fixed-field claim authority.
+
+## Node Name relay artifacts
+
+- `agents/evidence/PR1065_nodename_find_replace_readonly_trace.md`
+- `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md`
+- `agents/evidence/PR1065_nodename_verifier_packet.md`
+- `agents/evidence/PR1065_nodename_patch_blueprint.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0001.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0002.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0003.md`
+
+All commits after material basis `e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b` are relay/evidence metadata only; no production/test path has been modified under the Node Name chain.
+
+## Planned bounded Node Name patch after verifier PASS
+
+Production:
+
+```text
+tabs/cii-workspace/cii-workspace-find-replace-csv.js
+tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js
+tabs/cii-workspace/cii-workspace-find-replace-validator.js
+tabs/cii-workspace/cii-workspace-find-replace.js
+```
+
+Tests:
+
+```text
+tests/cii-workspace-find-replace-scope-resolver.test.js
+tests/cii-workspace-find-replace-validator.test.js
+tests/cii-workspace-find-replace-session.test.js
+tests/cii-workspace-find-replace-ui-registration.test.js
+tests/cii-workspace-find-replace-retained-real.test.js
+```
+
+Protected unchanged paths/domains:
+
+```text
+cii-workspace-find-replace-executor.js
+cii-workspace-find-replace-output.js
+cii-workspace-nodename.js
+Writer1 / Writer2
+3D_Converters
+FORCE authority
+topology
+benchmarks/oracles/tolerances
+workflows
+direct source overwrite
+```
+
+## Existing delivered capability before Node Name relay gate
+
+- Visible `↔ CII Find & Replace — V14` Utilities tile.
+- CII v14 target intake.
+- Document / Element / Block modes.
+- CSV schemas and manual-table rows share one proposal contract.
+- Preview, row Approve/Reject, bulk approval/reset.
+- TARGET0-relative scope resolution for Document, exact 15-row Element and DISPLACEMENT pointer custody.
+- Independent preimage/postimage validation.
+- Qualified in-memory TARGET1 and audit JSON.
+- Explicit `Download Modified CII` output after QUALIFIED_PREVIEW.
+- `Direct Apply to File` remains disabled.
+- FORCE remains visible but explicitly qualification-pending and blocked.
+
+## DISPLACEMENT retained-real correction
+
+`Benchmark/CIICompare/SOURCE 3.CII` proved:
 
 ```text
 ELEMENT 15440 -> 15450
-IEL row12 = 0 0 0 0 1 0
-                    ^ ^
-                    | +-- FORCMNT pointer = 0
-                    +---- DISPLMNT pointer = 1
-
-DISPLMNT block 1
-  row 1  node = 15450.0
-  rows 1..10  = first displacement spec
-  row 11 node = 0.000000
-  rows 11..20 = unused second displacement spec
+IEL row12 item5 = 1
+DISPLMNT block 1 = 20 rows
+first spec node   = 15450.0
+second spec node  = 0.000000 (unused)
 ```
 
-The `#$ FORCMNT` marker immediately follows the 20-row displacement block and contains no payload, consistent with CONTROL FORCMNT=0.
+The resolver accepts only `0.0` and `9999.99` as unused displacement-spec node sentinels. Any other finite nonzero out-of-endpoint node still blocks.
 
-### Independent structural authority
+`tests/cii-workspace-find-replace-retained-real.test.js` is authored but current-head execution remains NOT_RUN.
 
-`converters/scripts/cii2019_displmnt_sync.py` independently establishes:
+## FORCE fail-closed boundary
 
-- one DISPLMNT block contains two specs;
-- each spec is 10 physical rows;
-- blocks are assigned in element order;
-- element→DISPLMNT pointer is 1-based;
-- the pointer is IEL row12 item 5.
+FORCE remains protected independently at intake and resolver layers:
 
-Current V11/CII2019 and V14 section-rule authorities both establish `DISPLMNT = 20` physical rows/block. Current V14 merge authority also preserves IEL row12 pointer layout as:
+- CSV/manual FORCE => `BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE`;
+- direct FORCE resolver => zero spans + `FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED`.
+
+No retained nonzero FORCMNT ownership oracle has been qualified.
+
+## Output boundary
+
+`cii-workspace-find-replace-output.js` releases only a new `<source>.find-replace.cii` artifact after qualification. It rechecks source/target hashes, unchanged total length and independent postimage validation immediately before release.
+
+Receipt states:
 
 ```text
-BEND, RIGID, EXPJT, RESTRANT, DISPLMNT, FORCMNT
+originalFileOverwritten=false
+writerInvoked=false
 ```
 
-### Issue isolated and fixed
+Direct Apply remains disabled.
 
-`ISS-DISPLMNT-REAL-001`
+## Native V14 evidence truth
 
-The Find & Replace resolver previously considered only `9999.99` a missing displacement-spec node. The retained real file encodes the unused second spec's node as `0.0`. Therefore the prior resolver would classify `0.0` as an out-of-element endpoint and incorrectly fail the valid real block with an endpoint-identity mismatch.
-
-`cii-workspace-find-replace-scope-resolver.js` now treats exactly these values as unused displacement-spec node sentinels:
-
-```text
-0.0
-9999.99
-```
-
-No other value is ignored. A finite nonzero node outside the selected element's exact From/To endpoints still fails closed.
-
-Pre-edit resolver blob: `5737d0a03c8364a637df551fb5128fb21c56c701`
-
-Post-edit resolver blob: `a9b7935e4454adf3f47415f03eb9446ca11ca10e`
-
-### Retained-real regression authored
-
-New file:
-
-`tests/cii-workspace-find-replace-retained-real.test.js`
-
-It reads the actual repository `SOURCE 3.CII` and requires:
-
-1. exact ELEMENT `15440 -> 15450` resolves to 15 physical rows;
-2. DISPLACEMENT resolves through pointer `1` to exactly 20 physical rows;
-3. block spec nodes are observed as `15450.0` and `0.000000`;
-4. equal-width `-20.0000 -> -21.0000` produces exactly one owned DISPLACEMENT claim;
-5. adjacent `15430 -> 15440`, which has no DISPLMNT pointer, fails closed;
-6. FORCE remains blocked with zero spans.
-
-The test is `AUTHORED / NOT_RUN` in the exact private repository runtime. It is not labelled PASS.
-
-An optional attempt to add the same zero-sentinel case to the existing synthetic resolver test was rejected by GitHub with `409` because the supplied blob preimage was stale. The existing test file was therefore not modified; no forced overwrite was attempted.
-
-## FORCE qualification state
-
-Current authoritative facts:
-
-- ELEMENT IEL row12 item 6 is the 1-based FORCMNT pointer slot.
-- V11/CII2019 and V14 rule authorities specify 20 physical rows per FORCMNT block.
-- `SOURCE 3.CII`, `TARGET 3-1.CII`, `RMS-BLOW-1.cii`, and other inspected candidates have zero FORCMNT count / empty payload.
-- Current V14 merge authority explicitly keeps nonzero FORCMNT unqualified.
-
-Therefore:
-
-```text
-FORCE_INTAKE = BLOCKED
-FORCE_RESOLVER = BLOCKED
-FORCE_MUTATION_AUTHORITY = NONE
-```
-
-The existing two-layer fail-closed protection remains unchanged:
-
-- intake blocker: `BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE`
-- resolver blocker: `FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED`
-
-## Native V14 evidence state
-
-Pinned authority inherited from the existing v14 qualification chain:
+Pinned authority:
 
 - upstream repo: `reallaksh19/3D_Converters`
 - upstream commit: `ca8d391ac5f829f53bebb3c37adf0547c34a67b4`
-- archive Git blob: `8409e1c429665e34a83c2a464665ebf5d5f1b0a1`
+- archive blob: `8409e1c429665e34a83c2a464665ebf5d5f1b0a1`
 - member: `SYS-0001-v14.CII`
 - member SHA-256: `d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf`
 
-A direct Git blob retrieval was retried in this batch. The connected GitHub substrate attempts UTF-8 decoding and fails on the binary ZIP (`UnicodeDecodeError`), so the member still cannot be materialized here. Native-v14 byte/runtime qualification remains `NOT_RUN`.
+The connected GitHub text interface cannot materialize the binary ZIP member. Native-v14 mutation runtime remains **NOT_RUN**, not PASS.
 
-## Scope qualification state
+## Current validation ledger
 
-| Scope | Current evidence | Product state |
-|---|---|---|
-| DOCUMENT | implementation/falsifier coverage; native-v14 runtime pending | available, fail-closed |
-| ELEMENT | retained real 15-row ownership inspected, including 15440→15450 | available, fail-closed |
-| DISPLACEMENT | retained real pointer=1 → 20-row block chain independently inspected; zero unused-spec sentinel corrected | available, fail-closed |
-| FORCE | pointer slot/cardinality known; no retained nonzero payload/ownership oracle | **BLOCKED / NOT_QUALIFIED** |
+| Check | Status | Observation | Oracle / basis |
+|---|---|---|---|
+| live base / PR grounding | PASS | REMOTE_EXECUTION | GitHub |
+| Node Name read-only authority trace | PASS | SOURCE_INSPECTION | repository + pinned upstream |
+| Node Name candidate answer | PASS artifact present | ARTIFACT_INSPECTION | qualification artifact |
+| independent Node Name verifier | NOT_RUN | NOT_OBSERVED | unavailable in current single-agent substrate |
+| Node Name write authority | FALSE | PROCESS GATE | engineering-pr-delivery-v2 |
+| Node Name production implementation | NOT_RUN | prohibited | no independent PASS |
+| Node Name focused tests | NOT_RUN | no implementation | none |
+| retained SOURCE3 Node Name ownership | PASS | SOURCE_INSPECTION | retained-real V11 reference |
+| native-v14 Node Name runtime | NOT_RUN | environment | pinned archive not materialized |
+| current-head complete Find & Replace suite | NOT_RUN | environment | none |
+| full repository suite | NOT_RUN | environment | none |
+| FORCE retained nonzero ownership oracle | NOT_AVAILABLE | source census | inspected corpus |
+| direct source overwrite | DISABLED | product boundary | intentional |
 
-Retained V11 source inspection does not become a native-v14 runtime PASS.
-
-## Batch changed-file ledger
-
-Relative to `e2322da062e69d61c55e5f8da02082197be6b2ee`:
-
-Production:
-- `tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js` — accept only retained-real `0.0` plus generated `9999.99` as unused DISPLMNT spec-node sentinels.
-
-Tests:
-- `tests/cii-workspace-find-replace-retained-real.test.js` — retained repository benchmark ownership/fail-closed regression.
-
-Handover:
-- `agents/PR1065_workreport.md` — this evidence and continuation state.
-
-Attempted but unchanged:
-- `tests/cii-workspace-find-replace-scope-resolver.test.js` — stale-preimage update rejected with 409; no write occurred.
-
-No existing CII parser, converter, Writer1, Writer2, compare-core, topology, registry or workflow file is changed by this batch.
-
-## Validation ledger
-
-| Check | Status | Observation | Oracle | Notes |
-|---|---|---|---|---|
-| live main / PR grounding | PASS | REMOTE_EXECUTION | GitHub | base unchanged entering batch; PR open/draft/mergeable |
-| upstream IEL pointer layout | PASS | SOURCE_INSPECTION | V14 merge authority | row12 item5 DISPLMNT, item6 FORCMNT |
-| V11/V14 DISPLMNT cardinality | PASS | SOURCE_INSPECTION | section-rule authorities | 20 rows/block |
-| retained SOURCE3 CONTROL census | PASS | SOURCE_INSPECTION | retained CII | DISPLMNT=1, FORCMNT=0 |
-| retained owner element | PASS | SOURCE_INSPECTION | retained CII | 15440→15450 has IEL DISPLMNT pointer 1 |
-| retained displacement block | PASS | SOURCE_INSPECTION | retained CII | 20 rows; first node 15450.0; unused second node 0.0 |
-| canonical block construction | PASS | SOURCE_INSPECTION | `cii2019_displmnt_sync.py` | two 10-row specs; 1-based element mapping |
-| stale optional test update | PASS_FAIL_CLOSED | REMOTE_EXECUTION | GitHub contents API | 409 rejected stale blob; no overwrite performed |
-| retained-real JS regression | NOT_RUN | NOT_OBSERVED | retained CII | authored; exact checkout/runtime unavailable here |
-| existing focused Find & Replace suite | NOT_RUN_CURRENT_HEAD | NOT_OBSERVED | NONE | historical earlier passes are not relabelled |
-| full repository suite | NOT_RUN | NOT_OBSERVED | NONE | exact checkout unavailable |
-| nonzero FORCE retained oracle | NOT_AVAILABLE | SOURCE_INSPECTION | retained corpus search | FORCE remains blocked |
-| pinned native-v14 member execution | NOT_RUN | NOT_OBSERVED | authoritative member hash | connector cannot decode binary ZIP |
-
-No `NOT_RUN` is promoted to `PASS`.
-
-## Backup / local patch-ledger limitation
-
-This batch was applied through the connected GitHub API, not a native checkout. Repository-local ignored `.agent-worklogs/` and normal local backup commands cannot be executed through this substrate. Exact Git preimages were preserved before existing-file changes:
-
-- resolver preimage blob `5737d0a03c8364a637df551fb5128fb21c56c701`
-- initial workreport preimage blob `4402049de67c357e3d3e136e8532492d6e1892f9`
-- retained-real test had no preimage; undo is deletion only after verifying no later changes.
-
-No destructive history rewrite was performed.
-
-## Current verdict
-
-```text
-ISS-DISPLMNT-REAL-001             ROOT_CAUSE_FIXED_IN_BRANCH
-RETAINED ELEMENT CUSTODY          PASS_SOURCE_INSPECTION
-RETAINED DISPLMNT POINTER/BLOCK   PASS_SOURCE_INSPECTION
-RETAINED REAL REGRESSION          AUTHORED_NOT_RUN
-FORCE                              BLOCKED_NOT_QUALIFIED
-NATIVE V14 EXECUTION              NOT_RUN_ENVIRONMENT
-DIRECT SOURCE OVERWRITE           DISABLED
-MERGE                              NOT AUTHORIZED
-```
+No NOT_RUN result is promoted to PASS.
 
 ## EXACT_NEXT_ACTION
 
-On an exact checkout of the PR head, run the retained-real test first and preserve the first failure:
-
-```text
-node --test tests/cii-workspace-find-replace-retained-real.test.js
-```
-
-Then run the complete focused Find & Replace suite and existing CII installer/lifecycle regressions. Separately acquire a retained nonzero FORCMNT CII and independently prove its element pointer, 20-row physical block layout, node/load payload ownership and ambiguity rules before removing either FORCE blocker. Materialize the pinned native-v14 ZIP member through a binary-capable substrate for v14 runtime qualification. Keep direct source overwrite disabled until a separate explicit qualification gate authorizes it.
+An independent verifier distinct from candidate `GPT-5.6-SOL-2026-09-02-A` must evaluate `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md` using `agents/evidence/PR1065_nodename_verifier_packet.md` and write `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-verdict.md`. Only `PASS_WRITE_ALLOWED` authorizes the bounded Node Name production/test patch in `agents/evidence/PR1065_nodename_patch_blueprint.md`. Until then production/test mutation is prohibited.
