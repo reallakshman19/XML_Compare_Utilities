@@ -1,105 +1,84 @@
 # PR1065 Work Report
 
-HANDOVER_READINESS: QUALIFICATION_REQUIRED
+HANDOVER_READINESS: READY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR: 1065
 BRANCH: feature/cii-find-replace-icon-v14
-MISSION: CII v14 Find & Replace with Node Name as the owner's first implementation priority, followed by other qualified scopes. Direct source-file overwrite remains unauthorized.
+MISSION: CII v14 Find & Replace with Node Name as the owner's first semantic implementation priority. Direct source-file overwrite remains unauthorized.
 
-## Governing process
+## Current governing process
 
-This PR is now governed by:
+Current reusable protocol:
 
-`reallaksh19/Common@10d667ce715bb52e1f73035c6fa326db77d0f9dd/skills/engineering-pr-delivery-v2/SKILL.md`
+`reallaksh19/Common@293a3db7993a6945c01adc592a7ff14a339c504a/skills/engineering-pr-delivery-v2/SKILL.md`
 
-Durable chain:
+The earlier pin `10d667ce...` remains historical evidence only. Current Common explicitly distinguishes **same-custodian Owner progression** from **replacement takeover qualification**. The verifier gate applies to a replacement/custodian change; it is not a blocker for this same active custodian completing the already Owner-authorized bounded progression.
 
-`CII-FIND-REPLACE-V14`
+Current durable chain state:
 
-Current endpoint:
+- `agents/chains/CII-FIND-REPLACE-V14/ACTIVE.md`
+- `agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0004.md`
 
-`agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0003.md`
+Legacy relay artifacts under `agents/agentchain/**` remain immutable history and are not deleted.
 
 Current authority:
 
 ```text
-TAKEOVER_AUTHORITY: READ_ONLY
-QUALIFICATION_STATUS: DEFERRED_VERIFICATION
-ENGINEERING_CRITICAL_WRITE_AUTHORITY: FALSE
+ENGINEERING_STATE: READY
+CUSTODY_STATE: HELD
+QUALIFICATION_STATE: NOT_REQUIRED
+WRITE_AUTHORITY: WRITE_ALLOWED
+OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
+QUESTION_SET_STATUS: CURRENT
+QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
+TAKEOVER_QUALIFICATION_READY: TRUE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 ```
 
-No independent verifier is available in the current single-agent substrate. The candidate has not self-authorized and no verdict was fabricated.
+## Revised execution plan — Node Name first
 
-## Owner priority — Node Name first
-
-First implementation target after independent `PASS_WRITE_ALLOWED`:
+One coherent bounded progression only:
 
 ```text
-From / To element
-   -> exact 15-row ELEMENT block
-   -> row13 sixth item = NODENAME pointer
-   -> 1-based NODENAME row
-   -> exact FROM [2,28) / TO [28,53) field
-   -> exact semantic whole-field match
-   -> ASCII replacement right-padded to full field width
-   -> TARGET0-relative equal-width physical claim
+BLOCK=NODENAME intake
+  -> exact From/To ELEMENT identity
+  -> exact 15-row ELEMENT block
+  -> row13 sixth item = 1-based NODENAME pointer
+  -> exact NODENAME row
+  -> exact endpoint field
+       FROM [2,28) width 26
+       TO   [28,53) width 25
+  -> trim(field) must exactly equal Find Text
+  -> replacement must be ASCII and fit field width
+  -> replacement right-padded to the complete field width
+  -> one equal-width TARGET0-relative physical claim
+  -> existing executor/postimage validator unchanged
+  -> QUALIFIED_PREVIEW
+  -> safe Download Modified CII remains the only output path
 ```
 
-Retained-real SOURCE3 isolating oracle:
+Retained-real first falsifier:
 
 ```text
+Benchmark/CIICompare/SOURCE 3.CII
 ELEMENT 20020 -> 20030
-row13 item6 = 1
-NODENAME row 1:
-  FROM = blank
-  TO   = PS-12146
+NODENAME pointer = 1
+NODENAME row 1 TO = PS-12146
+
+Operation:
+From         20020
+To           20030
+Block        NODENAME
+Find Text    PS-12146
+Replace Text NODE-20030
+
+Expected mutation:
+exact complete 25-byte TO field only
 ```
 
-First-priority example:
-
-```text
-From:         20020
-To:           20030
-Block:        NODENAME
-Find Text:    PS-12146
-Replace Text: NODE-20030
-```
-
-The expected physical claim is the complete 25-byte TO name field, with the replacement space-padded to exactly 25 bytes. CONTROL count, ELEMENT pointers, NODENAME row count, line endings and all unrelated bytes must remain unchanged.
-
-## Node Name authority basis
-
-- `tabs/cii-workspace/cii-workspace-nodename.js@main` establishes exact NODENAME physical custody:
-  - 15 rows per ELEMENT block;
-  - row13 sixth numeric item = NODENAME pointer;
-  - positive pointer = 1-based NODENAME row index;
-  - FROM field `[2,28)` width 26;
-  - TO field `[28,53)` width 25;
-  - exact physical owner sets and ambiguity blocking.
-- `tabs/cii-workspace/cii-workspace-v14-writer2-fixed-field-authority.js@main` establishes native-v14 NODENAME cardinality/pointer identity:
-  - one NODENAME row/unit;
-  - CONTROL row0 field3 = NODENAME/NONAM count;
-  - ELEMENT row13 field5 = NODENAME pointer.
-- pinned `reallaksh19/3D_Converters@ca8d391...` states NODENAME strings are among record shapes unchanged between the qualified V11/V14 profiles.
-- `docs/cii-writer2-v11-v14-lossless-bridge.md` explicitly does **not** authorize equal-cardinality NODENAME payload mutation through the Writer2 V14 bridge. Find & Replace therefore requires its own native-v14 fixed-field claim authority.
-
-## Node Name relay artifacts
-
-- `agents/evidence/PR1065_nodename_find_replace_readonly_trace.md`
-- `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md`
-- `agents/evidence/PR1065_nodename_verifier_packet.md`
-- `agents/evidence/PR1065_nodename_patch_blueprint.md`
-- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0001.md`
-- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0002.md`
-- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0003.md`
-
-All commits after material basis `e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b` are relay/evidence metadata only; no production/test path has been modified under the Node Name chain.
-
-## Planned bounded Node Name patch after verifier PASS
-
-Production:
+## Authorized production scope
 
 ```text
 tabs/cii-workspace/cii-workspace-find-replace-csv.js
@@ -108,7 +87,7 @@ tabs/cii-workspace/cii-workspace-find-replace-validator.js
 tabs/cii-workspace/cii-workspace-find-replace.js
 ```
 
-Tests:
+Expected focused tests:
 
 ```text
 tests/cii-workspace-find-replace-scope-resolver.test.js
@@ -118,105 +97,90 @@ tests/cii-workspace-find-replace-ui-registration.test.js
 tests/cii-workspace-find-replace-retained-real.test.js
 ```
 
-Protected unchanged paths/domains:
+## Protected unchanged domains
 
 ```text
 cii-workspace-find-replace-executor.js
 cii-workspace-find-replace-output.js
 cii-workspace-nodename.js
 Writer1 / Writer2
-3D_Converters
+3D_Converters source
 FORCE authority
 topology
-benchmarks/oracles/tolerances
-workflows
+benchmarks / independent oracles / tolerances
+.github/workflows/**
 direct source overwrite
 ```
 
-## Existing delivered capability before Node Name relay gate
+No change to CONTROL NONAM, ELEMENT NODENAME pointers, NODENAME row count, section order, line endings, file length, or unrelated bytes is authorized for same-cardinality Node Name rename.
 
-- Visible `↔ CII Find & Replace — V14` Utilities tile.
-- CII v14 target intake.
-- Document / Element / Block modes.
-- CSV schemas and manual-table rows share one proposal contract.
-- Preview, row Approve/Reject, bulk approval/reset.
-- TARGET0-relative scope resolution for Document, exact 15-row Element and DISPLACEMENT pointer custody.
-- Independent preimage/postimage validation.
-- Qualified in-memory TARGET1 and audit JSON.
-- Explicit `Download Modified CII` output after QUALIFIED_PREVIEW.
-- `Direct Apply to File` remains disabled.
-- FORCE remains visible but explicitly qualification-pending and blocked.
+## Node Name authority basis
 
-## DISPLACEMENT retained-real correction
+- `cii-workspace-nodename.js` establishes exact physical custody: 15-row ELEMENT records, row13 item6 pointer, positive 1-based NODENAME row index, FROM width 26, TO width 25, physical owner sets and ambiguity blocking.
+- native-v14 fixed-field authority establishes NODENAME cardinality = 1 row/unit, CONTROL row0 field3 count identity, and ELEMENT row13 field5 pointer identity.
+- pinned `3D_Converters` v11/v14 adapter states NODENAME string record shape is compatible between qualified V11/V14 profiles.
+- existing V14 Writer2 bridge does **not** authorize equal-cardinality NODENAME payload changes, so this Find & Replace path uses its own exact fixed-field TARGET0 claim authority and does not invoke Writer2.
 
-`Benchmark/CIICompare/SOURCE 3.CII` proved:
+## Required falsifiers
 
-```text
-ELEMENT 15440 -> 15450
-IEL row12 item5 = 1
-DISPLMNT block 1 = 20 rows
-first spec node   = 15450.0
-second spec node  = 0.000000 (unused)
-```
+The bounded batch must fail closed for:
 
-The resolver accepts only `0.0` and `9999.99` as unused displacement-spec node sentinels. Any other finite nonzero out-of-endpoint node still blocks.
+- selected element NODENAME pointer = 0;
+- pointer out of physical NODENAME row range;
+- CONTROL NONAM != physical NODENAME row count;
+- duplicate/ambiguous exact element identity;
+- one physical NODENAME field owned by more than one distinct node identity;
+- selected endpoint field logical value != Find Text;
+- replacement longer than 26/25-byte field;
+- replacement contains non-ASCII;
+- any postimage byte outside the exact field claim changes;
+- FORCE remains attempted through the existing blocked route.
 
-`tests/cii-workspace-find-replace-retained-real.test.js` is authored but current-head execution remains NOT_RUN.
+## Existing delivered foundation
 
-## FORCE fail-closed boundary
+- visible `↔ CII Find & Replace — V14` Utilities workflow;
+- CSV/manual intake, mandatory preview and approval;
+- immutable TARGET0 source-hash custody;
+- Document, exact Element and qualified DISPLACEMENT scope handling;
+- independent preimage/postimage validation;
+- deterministic in-memory TARGET1;
+- safe `Download Modified CII` as a new artifact;
+- direct source overwrite disabled;
+- FORCE fail-closed pending real FORCMNT ownership authority.
 
-FORCE remains protected independently at intake and resolver layers:
+## Validation truth
 
-- CSV/manual FORCE => `BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE`;
-- direct FORCE resolver => zero spans + `FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED`.
-
-No retained nonzero FORCMNT ownership oracle has been qualified.
-
-## Output boundary
-
-`cii-workspace-find-replace-output.js` releases only a new `<source>.find-replace.cii` artifact after qualification. It rechecks source/target hashes, unchanged total length and independent postimage validation immediately before release.
-
-Receipt states:
-
-```text
-originalFileOverwritten=false
-writerInvoked=false
-```
-
-Direct Apply remains disabled.
-
-## Native V14 evidence truth
-
-Pinned authority:
-
-- upstream repo: `reallaksh19/3D_Converters`
-- upstream commit: `ca8d391ac5f829f53bebb3c37adf0547c34a67b4`
-- archive blob: `8409e1c429665e34a83c2a464665ebf5d5f1b0a1`
-- member: `SYS-0001-v14.CII`
-- member SHA-256: `d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf`
-
-The connected GitHub text interface cannot materialize the binary ZIP member. Native-v14 mutation runtime remains **NOT_RUN**, not PASS.
-
-## Current validation ledger
-
-| Check | Status | Observation | Oracle / basis |
-|---|---|---|---|
-| live base / PR grounding | PASS | REMOTE_EXECUTION | GitHub |
-| Node Name read-only authority trace | PASS | SOURCE_INSPECTION | repository + pinned upstream |
-| Node Name candidate answer | PASS artifact present | ARTIFACT_INSPECTION | qualification artifact |
-| independent Node Name verifier | NOT_RUN | NOT_OBSERVED | unavailable in current single-agent substrate |
-| Node Name write authority | FALSE | PROCESS GATE | engineering-pr-delivery-v2 |
-| Node Name production implementation | NOT_RUN | prohibited | no independent PASS |
-| Node Name focused tests | NOT_RUN | no implementation | none |
-| retained SOURCE3 Node Name ownership | PASS | SOURCE_INSPECTION | retained-real V11 reference |
-| native-v14 Node Name runtime | NOT_RUN | environment | pinned archive not materialized |
-| current-head complete Find & Replace suite | NOT_RUN | environment | none |
-| full repository suite | NOT_RUN | environment | none |
-| FORCE retained nonzero ownership oracle | NOT_AVAILABLE | source census | inspected corpus |
-| direct source overwrite | DISABLED | product boundary | intentional |
+| Check | Status | Observation / basis |
+|---|---|---|
+| current Common protocol | PASS | authoritative source inspection at `293a3db...` |
+| same-custodian progression classification | PASS | current protocol / owner-progression commands |
+| live PR/base grounding | PASS | PR #1065 open, Draft, mergeable; main unchanged at `d35f6aa...` |
+| Node Name physical/source authority trace | PASS | repository + pinned upstream source inspection |
+| retained SOURCE3 ownership reconstruction | PASS | retained-real source inspection |
+| Node Name product implementation | NOT_RUN | next material batch |
+| Node Name focused tests | NOT_RUN | next material batch |
+| native-v14 retained runtime | NOT_RUN | binary fixture unavailable in current connector substrate |
+| full repository suite | NOT_RUN | no exact executable checkout in current connector substrate |
+| external CAESAR acceptance | NOT_RUN | not executed |
+| FORCE retained nonzero ownership oracle | NOT_AVAILABLE | inspected corpus |
+| direct overwrite | DISABLED | intentional product boundary |
 
 No NOT_RUN result is promoted to PASS.
 
+## Recovery / historical artifacts
+
+Legacy qualification and archaeology remain useful takeover evidence:
+
+- `agents/evidence/PR1065_nodename_find_replace_readonly_trace.md`
+- `agents/evidence/PR1065_nodename_patch_blueprint.md`
+- `agents/evidence/PR1065_nodename_verifier_packet.md`
+- `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0001.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0002.md`
+- `agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0003.md`
+
+They no longer impose a same-custodian verifier blocker under current Common policy.
+
 ## EXACT_NEXT_ACTION
 
-An independent verifier distinct from candidate `GPT-5.6-SOL-2026-09-02-A` must evaluate `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md` using `agents/evidence/PR1065_nodename_verifier_packet.md` and write `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-verdict.md`. Only `PASS_WRITE_ALLOWED` authorizes the bounded Node Name production/test patch in `agents/evidence/PR1065_nodename_patch_blueprint.md`. Until then production/test mutation is prohibited.
+Execute one coherent Node Name implementation batch across the authorized production/test scope, validate retained SOURCE3 ownership and unchanged-byte invariants, then write a material-leg receipt and successor endpoint. Stop immediately on owner ambiguity, source-authority contradiction, unrelated-byte mutation, or required scope expansion.
