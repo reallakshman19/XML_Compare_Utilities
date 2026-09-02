@@ -1,5 +1,11 @@
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFortranNumber } from '../../parser/fixed-field.js';
 import { resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
+import {
+  V14_AUX_BLOCKS,
+  canonicalAuxBlock,
+  readAuxPointer,
+  resolveV14AuxiliaryRecord,
+} from './cii-workspace-find-replace-v14-aux-authority.js';
 
 /*
  * CII v14 Find & Replace scope resolution.
@@ -17,9 +23,6 @@ import { resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scop
  */
 
 const ELEMENT_ROWS = 15;
-const ELEMENT_DISPLMNT_POINTER_ROW = 12;
-const ELEMENT_DISPLMNT_POINTER_FIELD = 4;
-const DISPLMNT_ROWS = 20;
 const FORCMNT_ROWS = 20;
 const ZERO_DISPLACEMENT_NODE = 0;
 const MISSING_DISPLACEMENT_NODE = 9999.99;
@@ -135,14 +138,8 @@ function resolveElement(lines, operation) {
 }
 
 function displacementPointer(block) {
-  const ref = block?.refs?.[ELEMENT_DISPLMNT_POINTER_ROW];
-  if (!ref) return null;
-  const fields = decodeFixedFields(ref.body, CII_SIX_FIELD_WIDTHS);
-  const value = parseFortranNumber(fields[ELEMENT_DISPLMNT_POINTER_FIELD]);
-  if (!Number.isFinite(value)) return null;
-  const pointer = Math.round(value);
-  if (Math.abs(value - pointer) > 1e-9 || pointer < 1) return null;
-  return pointer;
+  const pointer = readAuxPointer(block, V14_AUX_BLOCKS.DISPLMNT);
+  return Number.isSafeInteger(pointer) && pointer > 0 ? pointer : null;
 }
 
 function isMissingDisplacementNode(value) {
@@ -168,36 +165,48 @@ function validateDisplacementIdentity(refs, from, to) {
   return [];
 }
 
+function displacementBlockers(result, operation) {
+  const from = integerIdentity(operation?.from);
+  const to = integerIdentity(operation?.to);
+  return (result?.blockers || []).map((blocker) => {
+    if (blocker === `AUX_POINTER_REQUIRED:DISPLMNT:${from}:${to}`) return `DISPLMNT_POINTER_REQUIRED:${from}:${to}`;
+    return blocker;
+  });
+}
+
 function resolveDisplacement(lines, operation) {
-  const element = exactElementBlock(lines, operation);
-  if (element.status !== 'PASS') return element;
-  const pointer = displacementPointer(element.block);
-  if (pointer == null) return { status: 'BLOCKED', blockers: [`DISPLMNT_POINTER_REQUIRED:${element.block.from}:${element.block.to}`] };
-  const section = sectionRefs(lines, 'DISPLMNT');
-  if (section.status !== 'PASS') return section;
-  if (!section.refs.length || section.refs.length % DISPLMNT_ROWS !== 0) {
-    return { status: 'BLOCKED', blockers: [`DISPLMNT_BLOCK_CARDINALITY_INVALID:${section.refs.length}`] };
-  }
-  const blockCount = section.refs.length / DISPLMNT_ROWS;
-  if (pointer > blockCount) return { status: 'BLOCKED', blockers: [`DISPLMNT_POINTER_OUT_OF_RANGE:${pointer}:${blockCount}`] };
-  const start = (pointer - 1) * DISPLMNT_ROWS;
-  const refs = section.refs.slice(start, start + DISPLMNT_ROWS);
-  const identityBlockers = validateDisplacementIdentity(refs, element.block.from, element.block.to);
+  const owned = resolveV14AuxiliaryRecord(
+    lines, { ...operation, block: 'DISPLMNT' }, { elementBlocks, exactElementBlock },
+  );
+  if (owned.status !== 'PASS') return { ...owned, blockers: displacementBlockers(owned, operation) };
+  const identityBlockers = validateDisplacementIdentity(owned.refs, owned.evidence.from, owned.evidence.to);
   if (identityBlockers.length) return { status: 'BLOCKED', blockers: identityBlockers };
   return Object.freeze({
     status: 'PASS',
     scope: 'BLOCK',
     block: 'DISPLACEMENT',
     authority: 'CII_V14_ELEMENT_DISPLMNT_POINTER_20_ROW_BLOCK',
-    spans: lineSpans(refs, { section: 'DISPLMNT', pointer }),
-    evidence: Object.freeze({
-      from: element.block.from,
-      to: element.block.to,
-      elementIndex: element.block.index,
-      pointer,
-      rowCount: DISPLMNT_ROWS,
-    }),
+    spans: lineSpans(owned.refs, { section: 'DISPLMNT', pointer: owned.evidence.pointer }),
+    evidence: owned.evidence,
     blockers: Object.freeze([]),
+  });
+}
+
+function resolveGenericAuxiliary(lines, operation, block) {
+  const owned = resolveV14AuxiliaryRecord(
+    lines, { ...operation, block }, { elementBlocks, exactElementBlock },
+  );
+  if (owned.status !== 'PASS') {
+    return Object.freeze({ ...owned, scope: 'BLOCK', block, spans: Object.freeze([]) });
+  }
+  return Object.freeze({
+    status: 'BLOCKED',
+    scope: 'BLOCK',
+    block,
+    authority: 'CII_V14_AUX_RECORD_OWNERSHIP_READ_ONLY',
+    spans: Object.freeze([]),
+    evidence: owned.evidence,
+    blockers: Object.freeze([`BLOCK_MUTATION_NOT_QUALIFIED:${block}`]),
   });
 }
 
@@ -245,6 +254,8 @@ export function resolveFindReplaceScope(target0Input, operation = {}) {
     if (block === 'NODENAME') return resolveNodeNameScope(lines, operation, { sectionRefs, elementBlocks, exactElementBlock });
     if (block === 'DISPLACEMENT' || block === 'DISPLMNT') return resolveDisplacement(lines, operation);
     if (block === 'FORCE' || block === 'FORCMNT') return resolveForce();
+    const auxiliary = canonicalAuxBlock(operation?.block);
+    if (auxiliary) return resolveGenericAuxiliary(lines, operation, auxiliary);
     return Object.freeze({ status: 'BLOCKED', scope, block, spans: Object.freeze([]), blockers: Object.freeze([`BLOCK_SCOPE_UNSUPPORTED:${block || 'UNKNOWN'}`]) });
   }
   return Object.freeze({ status: 'BLOCKED', scope, spans: Object.freeze([]), blockers: Object.freeze([`SCOPE_UNSUPPORTED:${scope || 'UNKNOWN'}`]) });
