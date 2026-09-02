@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   appendFindReplaceManualRow,
+  applyFindReplaceToNewCopy,
   approveAllFindReplaceRows,
   createFindReplaceSession,
   detectFindReplaceCiiVersion,
@@ -26,7 +27,7 @@ const V11 = `#$ VERSION
 OLD
 `;
 
-test('v14 session loads CSV, requires approval and builds qualified in-memory preview', () => {
+test('v14 session requires Preview then Apply-to-new-copy before download readiness', () => {
   let session = createFindReplaceSession();
   session = withFindReplaceTarget(session, { name: 'model.cii', text: V14 });
   session = withFindReplaceCsv(session, {
@@ -49,8 +50,43 @@ test('v14 session loads CSV, requires approval and builds qualified in-memory pr
   assert.equal(session.status, 'QUALIFIED_PREVIEW');
   assert.equal(summary.qualified, true);
   assert.equal(summary.canApply, false);
+  assert.equal(summary.canApplyToNewCopy, true);
+  assert.equal(summary.canDownload, false);
   assert.equal(session.qualification.preimage.claims.length, 2);
   assert.match(session.qualification.postimage.target1, /NEW NEW/);
+
+  session = applyFindReplaceToNewCopy(session);
+  summary = summarizeFindReplaceSession(session);
+  assert.equal(session.status, 'QUALIFIED_PREVIEW');
+  assert.equal(summary.canApply, false);
+  assert.equal(summary.canApplyToNewCopy, false);
+  assert.equal(summary.appliedToNewCopy, true);
+  assert.equal(summary.canDownload, true);
+  assert.equal(session.release.status, 'APPLIED_TO_NEW_COPY');
+  assert.equal(session.release.receipt.originalFileOverwritten, false);
+  assert.equal(session.release.receipt.writerInvoked, false);
+  assert.equal(session.release.targetHash, session.qualification.postimage.audit.targetHash);
+});
+
+test('changing TARGET0 invalidates an applied-to-new-copy release', () => {
+  let session = createFindReplaceSession();
+  session = withFindReplaceTarget(session, { name: 'model.cii', text: V14 });
+  session = withFindReplaceCsv(session, {
+    name: 'replace.csv',
+    mode: 'DOCUMENT',
+    text: 'Find Text,Replace Text\nOLD,NEW\n',
+  });
+  session = approveAllFindReplaceRows(session);
+  session = qualifyFindReplaceSession(session);
+  session = applyFindReplaceToNewCopy(session);
+  assert.equal(summarizeFindReplaceSession(session).canDownload, true);
+
+  session = withFindReplaceTarget(session, { name: 'model.cii', text: V14.replace('OLD OLD', 'OLD OLD ') });
+  const summary = summarizeFindReplaceSession(session);
+  assert.equal(session.release, null);
+  assert.equal(summary.appliedToNewCopy, false);
+  assert.equal(summary.canDownload, false);
+  assert.equal(summary.canApply, false);
 });
 
 test('non-v14 target fails closed without fallback', () => {
