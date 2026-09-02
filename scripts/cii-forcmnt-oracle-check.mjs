@@ -10,11 +10,45 @@ import {
   decodeFixedFields,
   parseFortranNumber,
 } from '../parser/fixed-field.js';
-import { _test as scopeResolverTest } from '../tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js';
 
+const ELEMENT_ROWS = 15;
 const ELEMENT_FORCMNT_POINTER_ROW = 12;
 const ELEMENT_FORCMNT_POINTER_FIELD = 5;
 const FORCMNT_ROWS_PER_BLOCK = 20;
+
+function physicalLines(textInput) {
+  const text = String(textInput ?? '');
+  const matches = text.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) || [];
+  const lines = [];
+  let offset = 0;
+  for (const raw of matches) {
+    if (!raw) continue;
+    const ending = raw.endsWith('\r\n') ? '\r\n' : raw.endsWith('\n') ? '\n' : raw.endsWith('\r') ? '\r' : '';
+    const body = ending ? raw.slice(0, -ending.length) : raw;
+    lines.push(Object.freeze({
+      body,
+      ending,
+      start: offset,
+      bodyEnd: offset + body.length,
+      end: offset + raw.length,
+    }));
+    offset += raw.length;
+  }
+  return lines;
+}
+
+function sectionRefs(lines, wanted) {
+  const marker = new RegExp(`^\\s*#\\$\\s*${wanted}\\s*$`, 'i');
+  const start = lines.findIndex((line) => marker.test(line.body));
+  if (start < 0) return { status: 'BLOCKED', blockers: [`SECTION_NOT_FOUND:${wanted}`], refs: [] };
+  const refs = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^\s*#\$\s*/.test(lines[index].body)) break;
+    if (!lines[index].body.trim()) continue;
+    refs.push(Object.freeze({ ...lines[index], lineIndex: index }));
+  }
+  return { status: 'PASS', blockers: [], refs };
+}
 
 function safeInteger(value) {
   const number = Number(value);
@@ -22,6 +56,38 @@ function safeInteger(value) {
   const rounded = Math.round(number);
   if (Math.abs(number - rounded) > 1e-9 || !Number.isSafeInteger(rounded)) return null;
   return rounded;
+}
+
+function parseElementHeader(body) {
+  const fields = decodeFixedFields(body, CII_SIX_FIELD_WIDTHS);
+  const from = parseFortranNumber(fields[0]);
+  const to = parseFortranNumber(fields[1]);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  const roundedFrom = safeInteger(from);
+  const roundedTo = safeInteger(to);
+  if (roundedFrom == null || roundedTo == null) return null;
+  return { from: roundedFrom, to: roundedTo };
+}
+
+function elementBlocks(lines) {
+  const section = sectionRefs(lines, 'ELEMENTS');
+  if (section.status !== 'PASS') return section;
+  if (!section.refs.length || section.refs.length % ELEMENT_ROWS !== 0) {
+    return { status: 'BLOCKED', blockers: [`ELEMENT_BLOCK_CARDINALITY_INVALID:${section.refs.length}`], blocks: [] };
+  }
+  const blocks = [];
+  for (let offset = 0; offset < section.refs.length; offset += ELEMENT_ROWS) {
+    const refs = section.refs.slice(offset, offset + ELEMENT_ROWS);
+    const identity = parseElementHeader(refs[0].body);
+    if (!identity) return { status: 'BLOCKED', blockers: [`ELEMENT_HEADER_INVALID:${offset / ELEMENT_ROWS}`], blocks: [] };
+    blocks.push(Object.freeze({
+      index: offset / ELEMENT_ROWS,
+      from: identity.from,
+      to: identity.to,
+      refs: Object.freeze(refs),
+    }));
+  }
+  return { status: 'PASS', blockers: [], blocks: Object.freeze(blocks) };
 }
 
 function numericVersion(refs) {
@@ -61,19 +127,19 @@ function blockHeadValue(refs, offset) {
 export function inspectForcmntOracleCandidate(input) {
   const bytes = Buffer.isBuffer(input) ? input : Buffer.from(String(input ?? ''), 'utf8');
   const text = bytes.toString('utf8');
-  const lines = scopeResolverTest.physicalLines(text);
+  const lines = physicalLines(text);
   const blockers = [];
 
-  const versionSection = scopeResolverTest.sectionRefs(lines, 'VERSION');
+  const versionSection = sectionRefs(lines, 'VERSION');
   const version = versionSection.status === 'PASS' ? numericVersion(versionSection.refs) : null;
   if (version !== 14) blockers.push(`TARGET_V14_REQUIRED:${version ?? 'UNKNOWN'}`);
 
-  const controlSection = scopeResolverTest.sectionRefs(lines, 'CONTROL');
+  const controlSection = sectionRefs(lines, 'CONTROL');
   const controlCount = controlSection.status === 'PASS' ? controlForcmntCount(controlSection.refs) : null;
   if (controlCount == null || controlCount < 0) blockers.push('CONTROL_FORCMNT_COUNT_INVALID');
   else if (controlCount === 0) blockers.push('CONTROL_FORCMNT_NONZERO_REQUIRED');
 
-  const parsedElements = scopeResolverTest.elementBlocks(lines);
+  const parsedElements = elementBlocks(lines);
   const elementPointers = [];
   if (parsedElements.status !== 'PASS') {
     blockers.push(...(parsedElements.blockers || ['ELEMENT_BLOCKS_INVALID']));
@@ -96,7 +162,7 @@ export function inspectForcmntOracleCandidate(input) {
   const positivePointers = elementPointers.filter((entry) => entry.pointer > 0);
   if (!positivePointers.length) blockers.push('ELEMENT_FORCMNT_POSITIVE_POINTER_REQUIRED');
 
-  const forcmntSection = scopeResolverTest.sectionRefs(lines, 'FORCMNT');
+  const forcmntSection = sectionRefs(lines, 'FORCMNT');
   const physicalRows = forcmntSection.status === 'PASS' ? forcmntSection.refs.length : 0;
   if (forcmntSection.status !== 'PASS') blockers.push('SECTION_NOT_FOUND:FORCMNT');
 
@@ -180,10 +246,15 @@ const isCli = process.argv[1]
 if (isCli) process.exitCode = main(process.argv);
 
 export const _test = Object.freeze({
+  ELEMENT_ROWS,
   ELEMENT_FORCMNT_POINTER_ROW,
   ELEMENT_FORCMNT_POINTER_FIELD,
   FORCMNT_ROWS_PER_BLOCK,
+  physicalLines,
+  sectionRefs,
   safeInteger,
+  parseElementHeader,
+  elementBlocks,
   numericVersion,
   controlForcmntCount,
   elementForcmntPointer,
