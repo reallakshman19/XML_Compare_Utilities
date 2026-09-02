@@ -41,6 +41,21 @@ test('Find & Replace UI exposes editable spreadsheet then Preview and Apply-to-n
   assert.match(ui, /applyFindReplaceToNewCopy/);
 });
 
+test('finalization stage presents Validate then Apply then Download as distinct ordered steps', () => {
+  assert.match(panel, /ciifr-finalize-steps/);
+  assert.match(panel, /ciifr-step-number[^>]*[^]*?>1</);
+  assert.match(panel, /ciifr-step-number[^>]*[^]*?>2</);
+  assert.match(panel, /ciifr-step-number[^>]*[^]*?>3</);
+  const validate = panel.indexOf('data-ciifr-validate');
+  const apply = panel.indexOf('data-ciifr-apply');
+  const download = panel.indexOf('data-ciifr-download');
+  assert.ok(validate >= 0 && validate < apply && apply < download);
+  assert.match(panel, /Workflow status/);
+  assert.match(panel, /Available only after successful Validate &amp; Preview/);
+  assert.match(ui, /No approved replacement rows\. Approve at least one row before validation\./);
+  assert.doesNotMatch(ui, /return 'Preview ready\.'/);
+});
+
 test('spreadsheet edits invalidate stale preview authority until Update Preview', () => {
   assert.match(ui, /let manualGridDirty = false/);
   assert.match(ui, /Manual spreadsheet changed\. Click Update Preview before review, validation, Apply, or Download\./);
