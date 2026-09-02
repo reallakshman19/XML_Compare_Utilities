@@ -1,22 +1,22 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-FIND-REPLACE-V14
 MISSION: Deliver CII v14 Find & Replace with explicit Preview -> Apply-to-new-copy -> Download while preserving TARGET0 byte custody and Writer1/Writer2 separation
-ACTIVE_ENDPOINT: EP-CII-FR-0014
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0014.md
+ACTIVE_ENDPOINT: EP-CII-FR-0015
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0015.md
 MATERIAL_HISTORY_ROOT_BASE: e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0014.md
 PR: 1080
 BRANCH: chore/cii-forcmnt-oracle-acquisition-v14
-HEAD: e349389687b44bc9ad4a38538d4d39e06eb1a6f6
+HEAD: 3270a0481b5478d3d4cc9f16dda5359bb1fe582e
 STATE: ACTIVE
-ENGINEERING_STATE: FORCMNT_ORACLE_ACQUISITION_CHECKER_AUTHORED
+ENGINEERING_STATE: FORCMNT_ORACLE_ACQUISITION_CHECKER_EXACT_SOURCE_PASS
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: RETAINED_NONZERO_V14_FORCMNT_ORACLE_REQUIRED
 WRITE_AUTHORITY: DIAGNOSTIC_EVIDENCE_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: PENDING_RECONCILIATION
+MERGEABILITY: MERGEABLE
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NONE
@@ -27,9 +27,9 @@ WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:FORCMNT-O
 WORK_ITEM_MODE: EXCLUSIVE
 WORK_ITEM_PARTITION: NONE
 WORK_ITEM_PARTITION_AUTHORITY: NONE
-CUSTODY_EPOCH: 15
+CUSTODY_EPOCH: 16
 COORDINATION_STATE: SAFE
-DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow merged; post-merge qualification evidence merged through PR1079 at main bfe3abbb67060c1212001f2e9d967c229a057640; BM4 ACCDB/InputXML supplies real FORCMNT semantic evidence but no nonzero v14 neutral export; FORCE remains NOT_QUALIFIED
+DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow merged; post-merge qualification evidence merged through PR1079 at main bfe3abbb67060c1212001f2e9d967c229a057640; acquisition checker exact-source tests PASS 5/5; BM4 ACCDB/InputXML supplies real FORCMNT semantic evidence but no nonzero v14 neutral export; FORCE remains NOT_QUALIFIED
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 293a3db7993a6945c01adc592a7ff14a339c504a
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -42,11 +42,11 @@ QUESTION_SET_ID: CII-FR-QS-0001
 QUESTION_SET_STATUS: REUSE_ALLOWED_WITHIN_EXISTING_AUTHORITY
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
-OWNER_PROGRESSION_COMMAND: MERGE_PROCEED_NEXT
+OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
 HANDOVER_PROTOCOL_VERSION: 2
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: SOURCE_REVIEW_PASS_EXECUTION_NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0014.md; agents/PR1080_workreport.md; scripts/cii-forcmnt-oracle-check.mjs; tests/cii-forcmnt-oracle-check.test.js
+HANDOVER_VALIDATION_STATUS: EXACT_SOURCE_FOCUSED_PASS_5_OF_5
+HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0015.md; agents/PR1080_workreport.md; agents/evidence/PR1080_forcmnt_checker_exact_execution.md; scripts/cii-forcmnt-oracle-check.mjs; tests/cii-forcmnt-oracle-check.test.js
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: TRUE
@@ -54,7 +54,7 @@ REPORTING_CONTRACT: ACTIVE_HANDOVER_FIRST
 HANDOVER_RESPONSE_REQUIRED: ALWAYS
 RESPONSE_DELTA_MODE: DELTA_ONLY
 OWNER_QUALIFICATION_BASELINE_DISCOVERY: COMPLETE
-OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — merge active evidence leg and proceed to the next safe FORCE/FORCMNT qualification action
+OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — proceed to the next safe FORCE/FORCMNT qualification action without widening protected authority
 OWNER_QUALIFICATION_BASELINE_MANIFEST: NONE
 OWNER_QUALIFICATION_BASELINE_STATUS: SATISFIED
-EXACT_NEXT_ACTION: run the read-only oracle checker on any exact CAESAR II v14 CII candidate with nonzero FORCMNT; PASS_CANDIDATE grants no mutation authority and must be followed by two-spec semantic decode, sentinel proof, adjacent falsifiers and retained-real byte-custody tests; do not enable FORCE or merge PR1080 without Owner authorization
+EXACT_NEXT_ACTION: run the qualified read-only oracle checker on any newly obtained exact CAESAR II v14 CII with nonzero FORCMNT; PASS_CANDIDATE grants no mutation authority and must be followed by exact-byte retention, two-spec semantic decode, sentinel proof, adjacent falsifiers and retained-real byte-custody tests; do not enable FORCE or merge PR1080 without Owner authorization
