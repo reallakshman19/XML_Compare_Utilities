@@ -61,7 +61,26 @@ test('non-v14 target fails closed without fallback', () => {
   assert.deepEqual(session.errors, ['TARGET_V14_REQUIRED:11']);
 });
 
-test('manual table entry shares CSV contract across modes', () => {
+test('manual table entry shares CSV contract for qualified displacement block mode', () => {
+  let session = createFindReplaceSession();
+  session = withFindReplaceMode(session, 'BLOCK');
+  session = appendFindReplaceManualRow(session, {
+    from: 10,
+    to: 20,
+    block: 'displacement',
+    findText: '500',
+    replaceText: '700',
+    expectedMatches: 1,
+  });
+  assert.equal(session.rows.length, 1);
+  assert.equal(session.rows[0].scope, 'BLOCK');
+  assert.equal(session.rows[0].block, 'DISPLACEMENT');
+  assert.equal(session.rows[0].source, 'MANUAL');
+  assert.equal(session.rows[0].expectedMatches, 1);
+  assert.equal(session.rows[0].status, 'PROPOSED');
+});
+
+test('manual FORCE entry remains visible but blocked on physical authority', () => {
   let session = createFindReplaceSession();
   session = withFindReplaceMode(session, 'BLOCK');
   session = appendFindReplaceManualRow(session, {
@@ -70,14 +89,10 @@ test('manual table entry shares CSV contract across modes', () => {
     block: 'force',
     findText: '500',
     replaceText: '700',
-    expectedMatches: 1,
   });
-  assert.equal(session.rows.length, 1);
-  assert.equal(session.rows[0].scope, 'BLOCK');
   assert.equal(session.rows[0].block, 'FORCE');
-  assert.equal(session.rows[0].source, 'MANUAL');
-  assert.equal(session.rows[0].expectedMatches, 1);
-  assert.equal(session.rows[0].status, 'PROPOSED');
+  assert.equal(session.rows[0].status, 'BLOCKED');
+  assert.ok(session.rows[0].blockers.includes('BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE'));
 });
 
 test('manual block entry rejects unsupported block authority', () => {
