@@ -40,7 +40,7 @@ test('postimage validator detects unrelated byte changes independently of writer
   assert.ok(postimage.blockers.some((item) => item.startsWith('UNEXPECTED_POSTIMAGE_BYTES:')));
 });
 
-test('preimage validator fails closed on width change, unresolved scope and overlapping claims', () => {
+test('preimage validator fails closed on width change, unresolved physical scope and overlapping claims', () => {
   const width = validateFindReplacePreimage('OLD', [{
     scope: 'DOCUMENT',
     findText: 'OLD',
@@ -52,12 +52,14 @@ test('preimage validator fails closed on width change, unresolved scope and over
 
   const scope = validateFindReplacePreimage('ABC', [{
     scope: 'ELEMENT',
+    from: 10,
+    to: 20,
     findText: 'A',
     replaceText: 'Z',
     status: 'APPROVED',
   }]);
   assert.equal(scope.status, 'FAIL');
-  assert.ok(scope.blockers.some((item) => item.includes('SCOPE_RESOLVER_REQUIRED')));
+  assert.ok(scope.blockers.some((item) => item.includes('SECTION_NOT_FOUND:ELEMENTS')));
 
   const overlap = validateFindReplacePreimage('ABC', [
     { sequence: 1, scope: 'DOCUMENT', findText: 'AB', replaceText: 'XY', status: 'APPROVED' },
