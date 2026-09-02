@@ -1,11 +1,12 @@
 import { sha256CiiByteString } from './cii-workspace-byte-sha256.js';
+import { resolveFindReplaceScope } from './cii-workspace-find-replace-scope-resolver.js';
 
 /*
  * CII v14 Find & Replace independent validation helpers.
  *
- * The validator never writes. Claims are always TARGET0-relative. This first
- * qualification slice supports document-scope literal replacement only;
- * element/block scopes fail closed until a qualified scope resolver exists.
+ * The validator never writes. Claims are always TARGET0-relative. Scope
+ * resolvers independently derive the only physical line-body spans in which
+ * an operation may search. Line endings are never authorized search spans.
  */
 
 function byteLength(value) {
@@ -16,15 +17,20 @@ function byteLength(value) {
   return text.length;
 }
 
-function literalMatches(target0, needle) {
+function literalMatchesWithinSpans(target0, needle, spans) {
   const matches = [];
   if (!needle) return matches;
-  let offset = 0;
-  while (offset <= target0.length - needle.length) {
-    const found = target0.indexOf(needle, offset);
-    if (found < 0) break;
-    matches.push(found);
-    offset = found + needle.length;
+  for (const span of spans || []) {
+    const start = Number(span?.start); const end = Number(span?.end);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end > target0.length) continue;
+    const body = target0.slice(start, end);
+    let offset = 0;
+    while (offset <= body.length - needle.length) {
+      const found = body.indexOf(needle, offset);
+      if (found < 0) break;
+      matches.push(start + found);
+      offset = found + needle.length;
+    }
   }
   return matches;
 }
@@ -64,10 +70,6 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
       blockers.push(`OPERATION_STATUS_UNSUPPORTED:${sequence}:${status}`);
       return;
     }
-    if (operation?.scope !== 'DOCUMENT') {
-      blockers.push(`SCOPE_RESOLVER_REQUIRED:${sequence}:${operation?.scope || 'UNKNOWN'}`);
-      return;
-    }
 
     const findText = String(operation?.findText ?? operation?.before ?? '');
     const replaceText = String(operation?.replaceText ?? operation?.after ?? '');
@@ -75,13 +77,23 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
     const replaceBytes = byteLength(replaceText);
     const operationBlockers = [];
     if (!findText) operationBlockers.push('FIND_TEXT_REQUIRED');
+    if (findText.includes('\r') || findText.includes('\n') || replaceText.includes('\r') || replaceText.includes('\n')) {
+      operationBlockers.push('LINE_ENDING_TEXT_NOT_SUPPORTED');
+    }
     if (findBytes == null || replaceBytes == null) operationBlockers.push('NON_BYTE_TEXT_NOT_SUPPORTED');
     if (requireEqualByteLength && findBytes != null && replaceBytes != null && findBytes !== replaceBytes) {
       operationBlockers.push(`FIXED_WIDTH_LENGTH_MISMATCH:${findBytes}:${replaceBytes}`);
     }
 
-    const matches = operationBlockers.length ? [] : literalMatches(target0, findText);
-    if (!operationBlockers.length && matches.length === 0) operationBlockers.push('NO_MATCHES_IN_TARGET0');
+    const scopeResolution = resolveFindReplaceScope(target0, operation);
+    if (scopeResolution?.status !== 'PASS') {
+      for (const blocker of scopeResolution?.blockers || ['SCOPE_RESOLUTION_FAILED']) operationBlockers.push(blocker);
+    }
+
+    const matches = operationBlockers.length
+      ? []
+      : literalMatchesWithinSpans(target0, findText, scopeResolution.spans);
+    if (!operationBlockers.length && matches.length === 0) operationBlockers.push('NO_MATCHES_IN_SCOPE');
     if (operation?.expectedMatches != null && matches.length !== Number(operation.expectedMatches)) {
       operationBlockers.push(`MATCH_COUNT_MISMATCH:${operation.expectedMatches}:${matches.length}`);
     }
@@ -95,13 +107,20 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
           end: start + findText.length,
           before: findText,
           after: replaceText,
+          scope: scopeResolution.scope,
+          block: scopeResolution.block || null,
+          authority: scopeResolution.authority || null,
         }));
       }
     }
     summaries.push(Object.freeze({
       sequence,
       status: operationBlockers.length ? 'BLOCKED' : 'VALID',
+      scope: String(operation?.scope || 'DOCUMENT').toUpperCase(),
+      block: operation?.block || null,
       matchCount: matches.length,
+      scopeAuthority: scopeResolution?.authority || null,
+      scopeEvidence: scopeResolution?.evidence || null,
       blockers: Object.freeze(operationBlockers),
     }));
   });
@@ -151,3 +170,5 @@ export function validateFindReplacePostimage(target0Input, target1Input, preimag
     unexpected: Object.freeze(unexpected),
   });
 }
+
+export const _test = Object.freeze({ byteLength, literalMatchesWithinSpans, overlapBlockers });
