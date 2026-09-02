@@ -65,6 +65,7 @@ export function renderFindReplacePanel() {
             </label>
             <label data-ciifr-block-field>Block
               <select data-ciifr-block>
+                <option value="NODENAME">NODE NAME</option>
                 <option value="DISPLACEMENT">DISPLACEMENT</option>
                 <option value="FORCE" disabled>FORCE — qualification pending</option>
               </select>

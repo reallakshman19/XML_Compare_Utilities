@@ -5,8 +5,8 @@ import { resolveFindReplaceScope } from './cii-workspace-find-replace-scope-reso
  * CII v14 Find & Replace independent validation helpers.
  *
  * The validator never writes. Claims are always TARGET0-relative. Scope
- * resolvers independently derive the only physical line-body spans in which
- * an operation may search. Line endings are never authorized search spans.
+ * resolvers independently derive the only physical spans in which an
+ * operation may search. Line endings are never authorized search spans.
  */
 
 function byteLength(value) {
@@ -15,6 +15,23 @@ function byteLength(value) {
     if (text.charCodeAt(index) > 0xff) return null;
   }
   return text.length;
+}
+
+function asciiLength(value) {
+  const text = String(value ?? '');
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.charCodeAt(index) > 0x7f) return null;
+  }
+  return text.length;
+}
+
+function blockToken(value) {
+  return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+}
+
+function isNodeNameOperation(operation) {
+  return String(operation?.scope || '').trim().toUpperCase() === 'BLOCK'
+    && blockToken(operation?.block) === 'NODENAME';
 }
 
 function literalMatchesWithinSpans(target0, needle, spans) {
@@ -33,6 +50,45 @@ function literalMatchesWithinSpans(target0, needle, spans) {
     }
   }
   return matches;
+}
+
+function nodeNameClaimPlan(target0, findText, replaceText, spans, sequence, scopeResolution) {
+  const matches = [];
+  const blockers = [];
+  const claims = [];
+  const replacementLength = asciiLength(replaceText);
+  for (const span of spans || []) {
+    const start = Number(span?.start); const end = Number(span?.end);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > target0.length) continue;
+    const before = target0.slice(start, end);
+    if (before.trim() !== findText) continue;
+    matches.push(span);
+    const width = end - start;
+    if (span?.fieldWidth != null && Number(span.fieldWidth) !== width) {
+      blockers.push(`NODENAME_FIELD_WIDTH_MISMATCH:${span.fieldIdentity || 'UNKNOWN'}:${span.fieldWidth}:${width}`);
+    }
+    if (span?.ownerAmbiguous || (span?.ownerNodeIds || []).length !== 1) {
+      blockers.push(`NODENAME_FIELD_OWNER_AMBIGUOUS:${span?.pointer ?? '?'}:${span?.fieldEnd || 'UNKNOWN'}`);
+    }
+    if (replacementLength != null && replacementLength > width) {
+      blockers.push(`NODENAME_REPLACEMENT_TOO_WIDE:${replacementLength}:${width}:${span?.fieldIdentity || 'UNKNOWN'}`);
+    }
+    if (!blockers.length) {
+      claims.push(Object.freeze({
+        operationIndex: sequence,
+        start,
+        end,
+        before,
+        after: replaceText.padEnd(width, ' '),
+        scope: scopeResolution.scope,
+        block: 'NODENAME',
+        authority: scopeResolution.authority || null,
+        fieldIdentity: span?.fieldIdentity || null,
+        nodeId: span?.ownerNodeIds?.[0] || null,
+      }));
+    }
+  }
+  return { matches, blockers, claims };
 }
 
 function overlapBlockers(claims) {
@@ -73,6 +129,7 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
 
     const findText = String(operation?.findText ?? operation?.before ?? '');
     const replaceText = String(operation?.replaceText ?? operation?.after ?? '');
+    const nodeName = isNodeNameOperation(operation);
     const findBytes = byteLength(findText);
     const replaceBytes = byteLength(replaceText);
     const operationBlockers = [];
@@ -80,9 +137,13 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
     if (findText.includes('\r') || findText.includes('\n') || replaceText.includes('\r') || replaceText.includes('\n')) {
       operationBlockers.push('LINE_ENDING_TEXT_NOT_SUPPORTED');
     }
-    if (findBytes == null || replaceBytes == null) operationBlockers.push('NON_BYTE_TEXT_NOT_SUPPORTED');
-    if (requireEqualByteLength && findBytes != null && replaceBytes != null && findBytes !== replaceBytes) {
-      operationBlockers.push(`FIXED_WIDTH_LENGTH_MISMATCH:${findBytes}:${replaceBytes}`);
+    if (nodeName) {
+      if (asciiLength(findText) == null || asciiLength(replaceText) == null) operationBlockers.push('NODENAME_ASCII_TEXT_REQUIRED');
+    } else {
+      if (findBytes == null || replaceBytes == null) operationBlockers.push('NON_BYTE_TEXT_NOT_SUPPORTED');
+      if (requireEqualByteLength && findBytes != null && replaceBytes != null && findBytes !== replaceBytes) {
+        operationBlockers.push(`FIXED_WIDTH_LENGTH_MISMATCH:${findBytes}:${replaceBytes}`);
+      }
     }
 
     const scopeResolution = resolveFindReplaceScope(target0, operation);
@@ -90,9 +151,17 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
       for (const blocker of scopeResolution?.blockers || ['SCOPE_RESOLUTION_FAILED']) operationBlockers.push(blocker);
     }
 
-    const matches = operationBlockers.length
-      ? []
-      : literalMatchesWithinSpans(target0, findText, scopeResolution.spans);
+    let matches = [];
+    let preparedClaims = [];
+    if (!operationBlockers.length && nodeName) {
+      const plan = nodeNameClaimPlan(target0, findText, replaceText, scopeResolution.spans, sequence, scopeResolution);
+      matches = plan.matches;
+      operationBlockers.push(...plan.blockers);
+      preparedClaims = plan.claims;
+    } else if (!operationBlockers.length) {
+      matches = literalMatchesWithinSpans(target0, findText, scopeResolution.spans);
+    }
+
     if (!operationBlockers.length && matches.length === 0) operationBlockers.push('NO_MATCHES_IN_SCOPE');
     if (operation?.expectedMatches != null && matches.length !== Number(operation.expectedMatches)) {
       operationBlockers.push(`MATCH_COUNT_MISMATCH:${operation.expectedMatches}:${matches.length}`);
@@ -100,17 +169,20 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
 
     for (const blocker of operationBlockers) blockers.push(`OPERATION:${sequence}:${blocker}`);
     if (!operationBlockers.length) {
-      for (const start of matches) {
-        claims.push(Object.freeze({
-          operationIndex: sequence,
-          start,
-          end: start + findText.length,
-          before: findText,
-          after: replaceText,
-          scope: scopeResolution.scope,
-          block: scopeResolution.block || null,
-          authority: scopeResolution.authority || null,
-        }));
+      if (nodeName) claims.push(...preparedClaims);
+      else {
+        for (const start of matches) {
+          claims.push(Object.freeze({
+            operationIndex: sequence,
+            start,
+            end: start + findText.length,
+            before: findText,
+            after: replaceText,
+            scope: scopeResolution.scope,
+            block: scopeResolution.block || null,
+            authority: scopeResolution.authority || null,
+          }));
+        }
       }
     }
     summaries.push(Object.freeze({
@@ -171,4 +243,11 @@ export function validateFindReplacePostimage(target0Input, target1Input, preimag
   });
 }
 
-export const _test = Object.freeze({ byteLength, literalMatchesWithinSpans, overlapBlockers });
+export const _test = Object.freeze({
+  byteLength,
+  asciiLength,
+  isNodeNameOperation,
+  literalMatchesWithinSpans,
+  nodeNameClaimPlan,
+  overlapBlockers,
+});

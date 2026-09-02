@@ -1,4 +1,5 @@
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFortranNumber } from '../../parser/fixed-field.js';
+import { resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
 
 /*
  * CII v14 Find & Replace scope resolution.
@@ -8,6 +9,8 @@ import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFort
  * - ELEMENTS: exact 15-row physical element blocks.
  * - DISPLMNT: ELEMENT row-12 (0-based 12) field-5 (0-based 4) pointer,
  *   20 physical rows per displacement block (2 specs x 10 rows).
+ * - NODENAME: ELEMENT row-13 (0-based 13) field-6 (0-based 5) pointer,
+ *   one physical row per name pair with fixed FROM/TO fields.
  * - FORCMNT: current repository authority establishes 20 physical rows/block,
  *   but the exact retained endpoint/payload ownership map is not yet qualified
  *   for Find & Replace. FORCE therefore fails closed.
@@ -49,7 +52,7 @@ function sectionRefs(lines, wanted, options = {}) {
   const refs = [];
   for (let index = start + 1; index < lines.length; index += 1) {
     if (/^\s*#\$\s*/.test(lines[index].body)) break;
-    if (!lines[index].body.trim()) continue;
+    if (!options.keepBlank && !lines[index].body.trim()) continue;
     if (options.skipComments && lines[index].body.trim().startsWith('*')) continue;
     refs.push(Object.freeze({ ...lines[index], lineIndex: index }));
   }
@@ -219,6 +222,10 @@ function documentSpans(lines) {
   })));
 }
 
+function blockToken(value) {
+  return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+}
+
 export function resolveFindReplaceScope(target0Input, operation = {}) {
   const lines = physicalLines(target0Input);
   const scope = String(operation?.scope || 'DOCUMENT').trim().toUpperCase();
@@ -234,7 +241,8 @@ export function resolveFindReplaceScope(target0Input, operation = {}) {
   }
   if (scope === 'ELEMENT') return resolveElement(lines, operation);
   if (scope === 'BLOCK') {
-    const block = String(operation?.block || '').trim().toUpperCase();
+    const block = blockToken(operation?.block);
+    if (block === 'NODENAME') return resolveNodeNameScope(lines, operation, { sectionRefs, elementBlocks, exactElementBlock });
     if (block === 'DISPLACEMENT' || block === 'DISPLMNT') return resolveDisplacement(lines, operation);
     if (block === 'FORCE' || block === 'FORCMNT') return resolveForce();
     return Object.freeze({ status: 'BLOCKED', scope, block, spans: Object.freeze([]), blockers: Object.freeze([`BLOCK_SCOPE_UNSUPPORTED:${block || 'UNKNOWN'}`]) });

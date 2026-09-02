@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
+import { buildValidatedFindReplacePostimage } from '../tabs/cii-workspace/cii-workspace-find-replace-executor.js';
 import { resolveFindReplaceScope } from '../tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js';
 import { validateFindReplacePreimage } from '../tabs/cii-workspace/cii-workspace-find-replace-validator.js';
 
@@ -65,6 +66,51 @@ test('retained SOURCE 3 adjacent element without displacement pointer fails clos
   });
   assert.equal(resolved.status, 'BLOCKED');
   assert.ok(resolved.blockers.includes('DISPLMNT_POINTER_REQUIRED:15430:15440'));
+});
+
+test('retained SOURCE 3 binds Node Name pointer 1 and exact TO field for 20020 -> 20030', () => {
+  const resolved = resolveFindReplaceScope(source3, {
+    scope: 'BLOCK',
+    block: 'NODENAME',
+    from: 20020,
+    to: 20030,
+  });
+  assert.equal(resolved.status, 'PASS');
+  assert.equal(resolved.evidence.pointer, 1);
+  assert.equal(resolved.evidence.toWidth, 25);
+  assert.equal(resolved.spans.length, 2);
+  assert.equal(resolved.spans[0].fieldIdentity, 'NODENAME_FROM');
+  assert.equal(resolved.spans[1].fieldIdentity, 'NODENAME_TO');
+  assert.equal(resolved.spans[1].semanticValue, 'PS-12146');
+  assert.deepEqual(resolved.spans[1].ownerNodeIds, ['20030']);
+});
+
+test('retained SOURCE 3 Node Name rename changes only the complete owned TO field', () => {
+  const preimage = validateFindReplacePreimage(source3, [{
+    scope: 'BLOCK',
+    block: 'NODENAME',
+    from: 20020,
+    to: 20030,
+    findText: 'PS-12146',
+    replaceText: 'NODE-20030',
+    expectedMatches: 1,
+    status: 'APPROVED',
+  }]);
+  assert.equal(preimage.status, 'PASS');
+  assert.equal(preimage.claims.length, 1);
+  const claim = preimage.claims[0];
+  assert.equal(claim.fieldIdentity, 'NODENAME_TO');
+  assert.equal(claim.nodeId, '20030');
+  assert.equal(claim.before.length, 25);
+  assert.equal(claim.after.length, 25);
+  assert.equal(claim.before.trim(), 'PS-12146');
+  assert.equal(claim.after.trim(), 'NODE-20030');
+
+  const postimage = buildValidatedFindReplacePostimage(source3, preimage);
+  assert.equal(postimage.status, 'QUALIFIED_POSTIMAGE');
+  assert.equal(postimage.target1.length, source3.length);
+  assert.equal(postimage.target1.slice(0, claim.start), source3.slice(0, claim.start));
+  assert.equal(postimage.target1.slice(claim.end), source3.slice(claim.end));
 });
 
 test('retained SOURCE 3 FORCE remains blocked because section authority is not qualified', () => {
