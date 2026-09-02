@@ -64,12 +64,15 @@ test('spreadsheet edits invalidate stale preview authority until Update Preview'
   assert.match(ui, /manualGridDirty = false;\s*render\(\);/);
 });
 
-test('NODE NAME is enabled while FORCE stays visible and qualification-pending', () => {
-  assert.match(panelAndUi, /NODENAME/);
-  assert.match(panelAndUi, /NODE NAME/);
-  assert.match(panelAndUi, /DISPLACEMENT/);
-  assert.match(panelAndUi, /FORCE — qualification pending/);
-  assert.match(panelAndUi, /disabled/);
+test('finished block surface exposes only NODE NAME and DISPLACEMENT as selectable options', () => {
+  assert.match(panel, /Supported block scopes:<\/strong> Node Name and Displacement/);
+  assert.match(ui, /SUPPORTED_GRID_BLOCKS/);
+  assert.match(ui, /\['NODENAME', 'NODE NAME'\]/);
+  assert.match(ui, /\['DISPLACEMENT', 'DISPLACEMENT'\]/);
+  assert.doesNotMatch(panelAndUi, /FORCE — qualification pending/);
+  assert.doesNotMatch(ui, /\['FORCE', 'FORCE/);
+  assert.match(ui, /option\.textContent = `\$\{normalized\} — unsupported`/);
+  assert.match(ui, /option\.disabled = true/);
 });
 
 test('UI controller does not import writer or file-mutation modules', () => {
