@@ -1,6 +1,6 @@
 # PR1065 Work Report
 
-HANDOVER_READINESS: IN_PROGRESS
+HANDOVER_READINESS: READY_FOR_NEXT_GATE
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR: 1065
 BRANCH: feature/cii-find-replace-icon-v14
@@ -9,24 +9,24 @@ MISSION: CII v14 Find & Replace with preview/approval, TARGET0 validation, quali
 ## Live grounding
 
 - Live base: `main@d35f6aa419244585afec2c47c8fbd0584011931a`.
-- Current material head before this correction: `d9cd6f0555e65f3c1e206468096a596d34e59411`.
-- PR state: OPEN / DRAFT / mergeable; merge authority owner-only.
-- Open CII coordination review: PR1064 is Writer2 runtime qualification and does not overlap Find & Replace production paths; PR1033 is SIF CREATE qualification/data-only. Coordination classification for this correction: SAFE.
-- No CI/status context exists on the current PR head; absence of CI is not PASS.
+- Material basis entering this correction: `d9cd6f0555e65f3c1e206468096a596d34e59411`.
+- PR state at batch start: OPEN / DRAFT / mergeable; merge authority owner-only.
+- Open CII coordination review: PR1064 is Writer2 runtime qualification and does not overlap Find & Replace production paths; PR1033 is SIF CREATE qualification/data-only. Coordination classification: SAFE.
+- No CI/status context existed on the incoming PR head; absence of CI is not PASS.
 
 ## Takeover qualification / authority
 
 TAKEOVER_AUTHORITY: CONTINUE_BOUNDED_FAIL_CLOSED_CORRECTION
 
-A1 Production trace: `cii-workspace-find-replace-csv.js` admits BLOCK `FORCE`; `cii-workspace-find-replace-scope-resolver.js` then resolves FORCE by scanning every nonblank `FORCMNT` row and treating field 1 as a node identity; validator/executor can therefore generate TARGET0 claims from that resolver testimony.
+A1 Production trace: `cii-workspace-find-replace-csv.js` admitted BLOCK `FORCE`; `cii-workspace-find-replace-scope-resolver.js` then resolved FORCE by scanning every nonblank `FORCMNT` row and treating field 1 as a node identity; validator/executor could therefore generate TARGET0 claims from that resolver testimony.
 
-A2 Failure isolation: the FORCE resolver and its synthetic test assume a one-row node-keyed representation. Current upstream fixed-format authority in `reallaksh19/3D_Converters@3224c5561d6f9cad4b5c9821520661c44f3dd44c` records V11/CII2019 `FORCMNT = 20 physical rows/block`; the upstream pointer layout also places FORCMNT in the ELEMENT auxiliary-pointer row. The existing one-line synthetic FORCE fixture is therefore not a valid retained oracle for physical block ownership.
+A2 Failure isolation: the FORCE resolver and its synthetic test assumed a one-row node-keyed representation. Current upstream fixed-format authority in `reallaksh19/3D_Converters@3224c5561d6f9cad4b5c9821520661c44f3dd44c` records V11/CII2019 `FORCMNT = 20 physical rows/block`; the upstream ELEMENT pointer layout also includes FORCMNT in the auxiliary-pointer row. The prior one-line synthetic FORCE fixture was not a valid retained oracle for physical block ownership.
 
-A3 Authority / invariant: do not infer a 20-row FORCE payload map or endpoint ownership from the stale synthetic test. FORCE must fail closed until a retained force-bearing CII and exact block/pointer ownership map are qualified. Document, Element and DISPLACEMENT authority must remain unchanged. Direct source overwrite remains disabled.
+A3 Authority / invariant: do not infer a 20-row FORCE payload map or endpoint ownership from a synthetic row. FORCE must fail closed until a retained force-bearing CII and exact block/pointer ownership map are qualified. Document, Element and DISPLACEMENT authority remain unchanged. Direct source overwrite remains disabled.
 
-A4 Independent validation: falsifier is any FORCE row that reaches `PROPOSED`/scope `PASS` without qualified 20-row physical custody. Correction must block at intake and resolver independently, so bypassing either layer still cannot generate FORCE claims.
+A4 Independent validation: any FORCE row reaching `PROPOSED` or scope `PASS` without qualified 20-row physical custody is a falsifier. The correction blocks FORCE at intake and independently at the resolver so bypassing either layer cannot generate FORCE claims.
 
-A5 Minimal patch: change only Find & Replace FORCE admission/resolution/UI/tests and this handover. Do not modify parser, converter, Writer1/Writer2, topology, compare core, workflow, or CII registry descriptors.
+A5 Minimal patch: Find & Replace FORCE admission/resolution/UI/tests and this handover only. Parser, converter, Writer1/Writer2, topology, compare core, workflows and registry descriptors remain untouched.
 
 ## Protected invariants
 
@@ -39,7 +39,7 @@ A5 Minimal patch: change only Find & Replace FORCE admission/resolution/UI/tests
 - Direct filesystem overwrite is not authorized.
 - DOCUMENT / ELEMENT / DISPLACEMENT behavior is not widened by this correction.
 
-## Delivered product capability before correction
+## Delivered capability
 
 - Visible `↔ CII Find & Replace — V14` Utilities tile.
 - CII v14-only target intake; no version fallback.
@@ -51,6 +51,42 @@ A5 Minimal patch: change only Find & Replace FORCE admission/resolution/UI/tests
 - Qualified in-memory TARGET1 and audit JSON.
 - Explicit `Download Modified CII` output after QUALIFIED_PREVIEW.
 - `Direct Apply to File` remains disabled.
+- FORCE remains visible as a schema/UI concept but is now explicitly qualification-pending and cannot reach claims.
+
+## FORCE fail-closed correction
+
+### Intake gate
+
+`cii-workspace-find-replace-csv.js` keeps `FORCE` recognized but adds:
+
+`BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE`
+
+Therefore CSV/manual FORCE rows remain review evidence but are `BLOCKED`, never `PROPOSED`.
+
+### Resolver gate
+
+`cii-workspace-find-replace-scope-resolver.js` no longer scans arbitrary FORCMNT rows as endpoint-owned records. FORCE/FORCMNT now returns:
+
+- `status = BLOCKED`
+- `authority = CII_FORCMNT_20_ROW_BLOCK_AUTHORITY_PENDING_OWNERSHIP_MAP`
+- `evidence.rowsPerBlock = 20`
+- zero spans
+- blocker `FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED`
+
+This independently prevents byte claims even if intake is bypassed.
+
+### UI gate
+
+Manual Block selection keeps DISPLACEMENT enabled and shows `FORCE — qualification pending` disabled.
+
+### Falsifiers
+
+Focused source tests now require:
+
+- DISPLACEMENT remains `PROPOSED`/resolvable under its existing authority;
+- CSV/manual FORCE is `BLOCKED`;
+- direct resolver invocation for synthetic node-keyed FORCE remains `BLOCKED` with zero spans;
+- validator rejects an APPROVED FORCE operation when the resolver authority is unqualified.
 
 ## Output boundary
 
@@ -68,49 +104,81 @@ Pinned authority inherited from PR1061:
 - native member: `SYS-0001-v14.CII`
 - member SHA-256: `d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf`
 
-Current connector cannot decode the binary ZIP member through its UTF-8 interface. Native-v14 runtime/byte qualification remains **NOT_RUN**, not PASS.
+The connected GitHub text interface cannot decode the binary ZIP member. Native-v14 runtime/byte qualification remains **NOT_RUN**, not PASS.
 
-### Retained real V11 source shapes
+### Retained real V11 evidence
 
-`Benchmark/CIICompare/SOURCE 3.CII` and `TARGET 3-1.CII` confirm canonical 15-row ELEMENTS and non-empty DISPLMNT. Their FORCMNT sections are empty.
+`Benchmark/CIICompare/SOURCE 3.CII` and `TARGET 3-1.CII` confirm canonical 15-row ELEMENTS and non-empty DISPLMNT; their FORCMNT sections are empty.
 
-Additional upstream authority at `3D_Converters@3224c556...` records V11/CII2019 `FORCMNT = 20 physical rows/block`. This falsifies the current one-line synthetic FORCE ownership oracle but does not by itself establish the complete FORCE payload/endpoint map.
+A second retained candidate, `reallaksh19/3D_Converters@3224c556.../Benchmarks/XML to CII 2019/Sample 1.1/RMS-BLOW-1.cii`, was inspected. Its CONTROL row-2 force-count field is zero and `#$ FORCMNT` is immediately followed by the next section marker, so it is also not force-bearing.
 
-### Scope state after current finding
+Current upstream authority establishes 20 physical rows per FORCMNT block, but no inspected retained source establishes a nonzero block plus exact Find & Replace ownership semantics. FORCE therefore remains **NOT_QUALIFIED**.
 
-| Scope | Evidence state | Required product state |
+### Scope state
+
+| Scope | Evidence state | Product state |
 |---|---|---|
 | DOCUMENT | implementation qualified; retained-native runtime NOT_RUN | available, fail-closed |
 | ELEMENT | retained 15-row physical evidence inspected; runtime NOT_RUN | available, fail-closed |
 | DISPLACEMENT | retained non-empty physical evidence inspected; runtime NOT_RUN | available, fail-closed |
-| FORCE | 20-row cardinality authority known; real ownership map/retained force-bearing fixture not qualified | **BLOCKED** |
+| FORCE | 20-row cardinality authority known; retained force-bearing ownership map absent | **BLOCKED / qualification pending** |
 
 No scope is promoted to retained-native runtime PASS.
 
-## Current correction plan
+## Correction changed-file ledger
 
-1. Intake: BLOCK `FORCE` rows with explicit `BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE` while retaining schema visibility.
-2. Resolver: reject FORCE independently with `FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED`; remove stale endpoint-row resolution testimony.
-3. UI: show FORCE as qualification pending/disabled; DISPLACEMENT remains selectable.
-4. Tests: replace synthetic FORCE PASS expectation with fail-closed intake and resolver falsifiers; keep existing Document/Element/DISPLACEMENT tests unchanged.
-5. Reconcile PR body/workreport and preserve runtime state as NOT_RUN where exact execution is unavailable.
+Relative to material basis `d9cd6f0555e65f3c1e206468096a596d34e59411`:
 
-## Validation truth before correction
+Production:
+- `tabs/cii-workspace/cii-workspace-find-replace-csv.js` — FORCE intake blocker.
+- `tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js` — remove stale endpoint-row FORCE resolver; independent fail-closed authority gate.
+- `tabs/cii-workspace/cii-workspace-find-replace.js` — FORCE qualification-pending UI state.
 
-- Previously executed focused checks remain as previously recorded: foundation 5/5 PASS; TARGET0 validator 3/3 PASS; UI registration 3/3 PASS; CSV/manual smoke PASS.
-- Scope/executor/session/output tests on complete current repository: NOT_RUN.
-- Full repository suite: NOT_RUN.
-- Native V14 archive/member execution: NOT_RUN.
-- FORCE retained qualification: FAIL_AUTHORITY_FALSIFIER / current synthetic oracle invalid for 20-row physical authority.
+Tests:
+- `tests/cii-workspace-find-replace-foundation.test.js` — FORCE intake falsifier / DISPLACEMENT non-regression.
+- `tests/cii-workspace-find-replace-scope-resolver.test.js` — replace synthetic FORCE PASS oracle with fail-closed resolver/validator falsifier.
+- `tests/cii-workspace-find-replace-session.test.js` — qualified DISPLACEMENT manual path and blocked FORCE manual path.
+- `tests/cii-workspace-find-replace-ui-registration.test.js` — FORCE pending UI source contract.
+
+Handover:
+- `agents/PR1065_workreport.md`.
+
+No parser, converter, writer, topology, workflow, compare-core or registry-descriptor file changed in this correction.
+
+## Validation ledger
+
+| Check | Status | Observation | Oracle | Notes |
+|---|---|---|---|---|
+| live main / PR grounding | PASS | REMOTE_EXECUTION | GitHub | main unchanged; PR open/draft entering batch |
+| correction diff containment | PASS | REMOTE_EXECUTION | GitHub compare | eight intended paths only before final report checkpoint |
+| upstream FORCMNT cardinality | PASS | SOURCE_INSPECTION | current qualified upstream rules / PR702 handover | 20 physical rows/block |
+| retained SOURCE3/TARGET3 FORCE census | PASS | SOURCE_INSPECTION | retained CII | both FORCMNT empty |
+| retained RMS-BLOW-1 FORCE census | PASS | SOURCE_INSPECTION | retained CII | CONTROL force count 0; FORCMNT empty |
+| FORCE synthetic one-line oracle | FAIL | SOURCE_INSPECTION | upstream fixed-format authority | invalid as physical ownership proof; removed as PASS oracle |
+| correction focused JS tests | NOT_RUN | NOT_OBSERVED | NONE | exact private checkout unavailable in this substrate |
+| full repository suite | NOT_RUN | NOT_OBSERVED | NONE | exact checkout unavailable |
+| pinned native-v14 member execution | NOT_RUN | NOT_OBSERVED | authoritative member hash only | binary ZIP cannot be decoded via connected text interface |
+
+Previously recorded focused PASS results on older branch material are retained as historical evidence only and are not relabelled current-head PASS.
 
 ## Backup / patch-ledger limitation
 
-This task is being performed through the connected GitHub repository API rather than a native checkout. Repository-local `.backups/` and ignored `.agent-worklogs/` cannot be created through that API. Exact pre-edit Git blob SHAs are preserved in this report/commit history before each existing-file update; no destructive history operation is authorized.
+This correction was applied through the connected GitHub repository API rather than a native checkout. Repository-local `.backups/` and ignored `.agent-worklogs/` could not be created through that API. Exact pre-edit Git blob SHAs were fetched/preserved before each existing-file update; no destructive history operation was used.
 
-## Highest current risk
+## Current verdict
 
-Allowing FORCE to remain reviewable would let an unqualified physical ownership assumption reach byte claims. The correction must land before any further FORCE qualification work.
+```text
+FORCE STALE OWNERSHIP ASSUMPTION     FALSIFIED
+FORCE INTAKE                         FAIL_CLOSED
+FORCE RESOLVER                       FAIL_CLOSED
+DOCUMENT/ELEMENT/DISPLACEMENT        UNCHANGED
+DIRECT SOURCE OVERWRITE              DISABLED
+EXACT CURRENT-HEAD TEST EXECUTION    NOT_RUN_ENVIRONMENT
+NATIVE V14 EXECUTION                 NOT_RUN_ENVIRONMENT
+PR                                   DRAFT / HANDOVER_READY
+MERGE                                NOT AUTHORIZED
+```
 
 ## EXACT_NEXT_ACTION
 
-Apply the bounded FORCE fail-closed correction to intake, resolver, UI and focused tests; inspect the final PR diff and keep PR1065 Draft. Then search for a retained force-bearing fixture and qualify the real 20-row pointer/ownership map before re-enabling FORCE. Direct source overwrite remains disabled.
+In an exact checkout, run the focused Find & Replace suite plus existing CII installer/lifecycle regressions and preserve the first failure. Separately source a retained nonzero FORCMNT CII, prove its 20-row block and ELEMENT pointer/owner semantics independently, and only then replace the FORCE blocker with qualified scope resolution. Materialize the pinned native-v14 member in a binary-capable substrate for retained-native qualification. Do not enable direct source overwrite without a separate explicit qualification gate.
