@@ -70,7 +70,7 @@ test('review adapter promotes only identity-approved qualified scalar deltas', (
   assert.ok(operations[1].blockers.includes('NON_SCALAR_CHANGE_NOT_SUPPORTED'));
 });
 
-test('CSV intake supports document, element and block proposal schemas', () => {
+test('CSV intake supports document, element and qualified displacement schemas while FORCE fails closed', () => {
   const document = parseFindReplaceCsv('Find Text,Replace Text\nOLD,NEW\n', FIND_REPLACE_CSV_MODES.DOCUMENT);
   assert.equal(document.status, 'VALID');
   assert.equal(document.operations[0].scope, 'DOCUMENT');
@@ -81,9 +81,15 @@ test('CSV intake supports document, element and block proposal schemas', () => {
   assert.equal(element.operations[0].from, 100);
   assert.equal(element.operations[0].to, 120);
 
-  const block = parseFindReplaceCsv('From,To,Find Text,Replace Text,Block\n10,20,500,700,FORCE\n', FIND_REPLACE_CSV_MODES.BLOCK);
-  assert.equal(block.status, 'VALID');
-  assert.equal(block.operations[0].block, 'FORCE');
+  const displacement = parseFindReplaceCsv('From,To,Find Text,Replace Text,Block\n10,20,500,700,DISPLACEMENT\n', FIND_REPLACE_CSV_MODES.BLOCK);
+  assert.equal(displacement.status, 'VALID');
+  assert.equal(displacement.operations[0].block, 'DISPLACEMENT');
+  assert.equal(displacement.operations[0].status, 'PROPOSED');
+
+  const force = parseFindReplaceCsv('From,To,Find Text,Replace Text,Block\n10,20,500,700,FORCE\n', FIND_REPLACE_CSV_MODES.BLOCK);
+  assert.equal(force.status, 'REVIEW');
+  assert.equal(force.operations[0].status, 'BLOCKED');
+  assert.ok(force.operations[0].blockers.includes('BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE'));
 });
 
 test('CSV intake blocks invalid ranges without discarding preview evidence', () => {
