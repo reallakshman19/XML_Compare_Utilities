@@ -18,7 +18,7 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE_AT_PHASE_RECONCILIATION
+MERGEABILITY: MERGEABLE_CLEAN
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NONE_OBSERVED
@@ -31,7 +31,7 @@ WORK_ITEM_PARTITION: NONE
 WORK_ITEM_PARTITION_AUTHORITY: NONE
 CUSTODY_EPOCH: 18
 COORDINATION_STATE: SAFE
-DEPENDENCIES: Phase 1 CSV/manual synchronization patch complete at product material head 43761321967387130988590bc61877a79b632c37; exact-source UI/static closure PASS 10/10; supported app surface remains complete; FORCE/FORCMNT remains de-scoped; retained-real/full-suite/native-v14/external-CAESAR gates remain NOT_RUN
+DEPENDENCIES: Phase 1 CSV/manual synchronization patch complete at product material head 43761321967387130988590bc61877a79b632c37; exact-source UI/static closure PASS 10/10; PR1081 raw GitHub mergeability clean; supported app surface remains complete; FORCE/FORCMNT remains de-scoped; retained-real/full-suite/native-v14/external-CAESAR gates remain NOT_RUN
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 293a3db7993a6945c01adc592a7ff14a339c504a
 COMMON_PROTOCOL_STATUS: CURRENT
