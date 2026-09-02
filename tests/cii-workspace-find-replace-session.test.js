@@ -98,6 +98,15 @@ test('non-v14 target fails closed without fallback', () => {
   assert.deepEqual(session.errors, ['TARGET_V14_REQUIRED:11']);
 });
 
+test('spreadsheet refresh cannot clear a non-v14 target blocker', () => {
+  let session = createFindReplaceSession();
+  session = withFindReplaceTarget(session, { name: 'legacy.cii', text: V11 });
+  session = replaceFindReplaceManualRows(session, [{ findText: 'OLD', replaceText: 'NEW' }]);
+  assert.equal(session.status, 'TARGET_VERSION_BLOCKED');
+  assert.deepEqual(session.errors, ['TARGET_V14_REQUIRED:11']);
+  assert.equal(summarizeFindReplaceSession(session).canValidate, false);
+});
+
 test('manual table entry shares CSV contract for qualified displacement block mode', () => {
   let session = createFindReplaceSession();
   session = withFindReplaceMode(session, 'BLOCK');
