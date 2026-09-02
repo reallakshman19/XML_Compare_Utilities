@@ -21,7 +21,7 @@ export function renderFindReplacePanel() {
       <header class="ciifr-header">
         <div>
           <h2><span aria-hidden="true">↔</span> CII Find &amp; Replace <small>V14</small></h2>
-          <p>CSV or manual-table replacement with mandatory preview, approval and TARGET0 validation.</p>
+          <p>CSV or editable spreadsheet replacement with mandatory preview, approval and TARGET0 validation.</p>
         </div>
         <button type="button" data-ciifr-close>Close</button>
       </header>
@@ -47,44 +47,45 @@ export function renderFindReplacePanel() {
             <label>CSV file
               <input type="file" accept=".csv,text/csv" data-ciifr-csv>
             </label>
-            <p data-ciifr-csv-meta>No CSV loaded. Manual rows may be entered below.</p>
+            <p data-ciifr-csv-meta>No CSV loaded. Manual spreadsheet rows may be entered below.</p>
           </article>
         </section>
 
         <section class="ciifr-card ciifr-manual">
           <div class="ciifr-section-head">
-            <div><h3>3. Manual table entry</h3><p>Uses the same operation contract as CSV rows.</p></div>
-            <button type="button" data-ciifr-add-row>Add row</button>
+            <div>
+              <h3>3. Manual table entry</h3>
+              <p>Editable Excel-style grid. Type directly or paste a rectangular range copied from Microsoft Excel.</p>
+            </div>
+            <div class="ciifr-actions">
+              <button type="button" data-ciifr-add-row>+ Row</button>
+              <button type="button" data-ciifr-clear-grid>Clear grid</button>
+              <button type="button" data-ciifr-sync-grid>Update Preview</button>
+            </div>
           </div>
-          <div class="ciifr-entry-grid">
-            <label data-ciifr-range-field>From
-              <input type="number" min="0" step="1" data-ciifr-from>
-            </label>
-            <label data-ciifr-range-field>To
-              <input type="number" min="0" step="1" data-ciifr-to>
-            </label>
-            <label data-ciifr-block-field>Block
-              <select data-ciifr-block>
-                <option value="NODENAME">NODE NAME</option>
-                <option value="DISPLACEMENT">DISPLACEMENT</option>
-                <option value="FORCE" disabled>FORCE — qualification pending</option>
-              </select>
-            </label>
-            <label>Find Text
-              <input type="text" data-ciifr-find>
-            </label>
-            <label>Replace Text
-              <input type="text" data-ciifr-replace>
-            </label>
-            <label>Expected matches <small>(optional)</small>
-              <input type="number" min="0" step="1" data-ciifr-expected>
-            </label>
+          <div class="ciifr-sheet-wrap" role="region" aria-label="Manual Find and Replace spreadsheet" tabindex="0">
+            <table class="ciifr-sheet" data-ciifr-manual-grid>
+              <thead>
+                <tr>
+                  <th class="ciifr-sheet-row-number" aria-label="Row number">#</th>
+                  <th data-ciifr-grid-range>From</th>
+                  <th data-ciifr-grid-range>To</th>
+                  <th data-ciifr-grid-block>Block</th>
+                  <th>Find Text</th>
+                  <th>Replace Text</th>
+                  <th>Expected Matches <small>(optional)</small></th>
+                  <th aria-label="Row action"></th>
+                </tr>
+              </thead>
+              <tbody data-ciifr-manual-body></tbody>
+            </table>
           </div>
+          <p class="ciifr-sheet-hint">Excel paste is supported: copy rows/cells, click the first destination cell, then paste. Tab moves across cells; Enter moves to the same column on the next row.</p>
         </section>
 
         <section class="ciifr-card">
           <div class="ciifr-section-head">
-            <div><h3>4. Preview and approval</h3><p>CSV rows are always shown here before validation.</p></div>
+            <div><h3>4. Preview and approval</h3><p>CSV and manual spreadsheet rows are shown here before validation.</p></div>
             <div class="ciifr-actions">
               <button type="button" data-ciifr-approve-all disabled>Approve all reviewable</button>
               <button type="button" data-ciifr-reset disabled>Reset decisions</button>
@@ -96,34 +97,63 @@ export function renderFindReplacePanel() {
                 <tr><th>#</th><th>Source</th><th>Scope</th><th>Owner</th><th>Find</th><th>Replace</th><th>Status</th><th>Decision</th></tr>
               </thead>
               <tbody data-ciifr-preview-body>
-                <tr><td colspan="8">Load CSV or add a manual row.</td></tr>
+                <tr><td colspan="8">Load CSV or update the manual spreadsheet preview.</td></tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <section class="ciifr-card">
-          <div class="ciifr-section-head">
+        <section class="ciifr-card ciifr-finalize">
+          <div class="ciifr-finalize-head">
             <div>
               <h3>5. Validate, Apply to New Copy, and Download</h3>
-              <p>Validate TARGET1 first, then explicitly Apply it to a new output copy. TARGET0 is never overwritten.</p>
+              <p>Validate TARGET1 first, then explicitly release it as a new output copy. TARGET0 is never overwritten.</p>
             </div>
-            <div class="ciifr-actions">
-              <button type="button" data-ciifr-validate disabled>Validate &amp; Preview</button>
-              <button type="button" data-ciifr-apply disabled title="Releases only the validated TARGET1 as a new copy">Apply to New Copy</button>
-              <button type="button" data-ciifr-download disabled>Download Modified CII</button>
-              <button type="button" data-ciifr-export-audit disabled>Export Audit JSON</button>
-            </div>
+            <button type="button" class="ciifr-audit-button" data-ciifr-export-audit disabled>Export Audit JSON</button>
           </div>
-          <div class="ciifr-status" aria-live="polite" data-ciifr-status>Load a CII v14 target and replacement rows.</div>
-          <dl class="ciifr-kpis">
+
+          <ol class="ciifr-finalize-steps" aria-label="Validate, apply, and download workflow">
+            <li class="ciifr-finalize-step">
+              <span class="ciifr-step-number" aria-hidden="true">1</span>
+              <div class="ciifr-step-copy">
+                <strong>Validate TARGET1</strong>
+                <small>Build the in-memory postimage and verify every approved TARGET0-relative claim.</small>
+              </div>
+              <button type="button" data-ciifr-validate disabled>Validate &amp; Preview</button>
+            </li>
+            <li class="ciifr-finalize-step">
+              <span class="ciifr-step-number" aria-hidden="true">2</span>
+              <div class="ciifr-step-copy">
+                <strong>Apply to New Copy</strong>
+                <small>Release only the qualified TARGET1. The loaded TARGET0 file remains unchanged.</small>
+              </div>
+              <button type="button" data-ciifr-apply disabled title="Releases only the validated TARGET1 as a new copy">Apply to New Copy</button>
+            </li>
+            <li class="ciifr-finalize-step">
+              <span class="ciifr-step-number" aria-hidden="true">3</span>
+              <div class="ciifr-step-copy">
+                <strong>Download</strong>
+                <small>Download is enabled only after the Apply-to-new-copy release receipt is valid.</small>
+              </div>
+              <button type="button" data-ciifr-download disabled>Download Modified CII</button>
+            </li>
+          </ol>
+
+          <div class="ciifr-status-panel">
+            <span class="ciifr-status-label">Workflow status</span>
+            <div class="ciifr-status" aria-live="polite" data-ciifr-status>Load a CII v14 target and replacement rows.</div>
+          </div>
+
+          <dl class="ciifr-kpis" aria-label="Find and Replace qualification summary">
             <div><dt>Source hash</dt><dd data-ciifr-source-hash>—</dd></div>
             <div><dt>Claims</dt><dd data-ciifr-claims>0</dd></div>
             <div><dt>Target hash</dt><dd data-ciifr-target-hash>—</dd></div>
             <div><dt>Qualification</dt><dd data-ciifr-qualification>Pending</dd></div>
           </dl>
-          <details>
+
+          <details class="ciifr-target1-preview">
             <summary>Qualified TARGET1 preview</summary>
+            <p class="ciifr-target1-help">Available only after successful Validate &amp; Preview.</p>
             <pre class="ciifr-postimage" data-ciifr-postimage-preview>No qualified postimage yet.</pre>
           </details>
         </section>

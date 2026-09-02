@@ -8,6 +8,7 @@ import {
   createFindReplaceSession,
   detectFindReplaceCiiVersion,
   qualifyFindReplaceSession,
+  replaceFindReplaceManualRows,
   summarizeFindReplaceSession,
   withFindReplaceCsv,
   withFindReplaceMode,
@@ -97,6 +98,15 @@ test('non-v14 target fails closed without fallback', () => {
   assert.deepEqual(session.errors, ['TARGET_V14_REQUIRED:11']);
 });
 
+test('spreadsheet refresh cannot clear a non-v14 target blocker', () => {
+  let session = createFindReplaceSession();
+  session = withFindReplaceTarget(session, { name: 'legacy.cii', text: V11 });
+  session = replaceFindReplaceManualRows(session, [{ findText: 'OLD', replaceText: 'NEW' }]);
+  assert.equal(session.status, 'TARGET_VERSION_BLOCKED');
+  assert.deepEqual(session.errors, ['TARGET_V14_REQUIRED:11']);
+  assert.equal(summarizeFindReplaceSession(session).canValidate, false);
+});
+
 test('manual table entry shares CSV contract for qualified displacement block mode', () => {
   let session = createFindReplaceSession();
   session = withFindReplaceMode(session, 'BLOCK');
@@ -114,6 +124,32 @@ test('manual table entry shares CSV contract for qualified displacement block mo
   assert.equal(session.rows[0].source, 'MANUAL');
   assert.equal(session.rows[0].expectedMatches, 1);
   assert.equal(session.rows[0].status, 'PROPOSED');
+});
+
+test('editable spreadsheet replaces manual preview rows instead of duplicating them', () => {
+  let session = createFindReplaceSession();
+  session = withFindReplaceCsv(session, {
+    name: 'replace.csv',
+    mode: 'DOCUMENT',
+    text: 'Find Text,Replace Text\nOLD,NEW\n',
+  });
+  session = replaceFindReplaceManualRows(session, [
+    { findText: 'AAA', replaceText: 'BBB' },
+    { findText: 'CCC', replaceText: 'DDD', expectedMatches: 2 },
+  ]);
+  assert.equal(session.rows.length, 3);
+  assert.deepEqual(session.rows.map((row) => row.source), ['CSV', 'MANUAL', 'MANUAL']);
+  assert.equal(session.rows[2].expectedMatches, 2);
+
+  session = replaceFindReplaceManualRows(session, [
+    { findText: 'EDITED', replaceText: 'VALUE' },
+  ]);
+  assert.equal(session.rows.length, 2);
+  assert.equal(session.rows[0].source, 'CSV');
+  assert.equal(session.rows[0].findText, 'OLD');
+  assert.equal(session.rows[1].source, 'MANUAL');
+  assert.equal(session.rows[1].findText, 'EDITED');
+  assert.equal(session.rows[1].replaceText, 'VALUE');
 });
 
 test('manual FORCE entry remains visible but blocked on physical authority', () => {
