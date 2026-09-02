@@ -1,15 +1,17 @@
 # PR1076 Workreport — CII Find & Replace Excel-style Manual Grid
 
-## Owner requirement
+## Owner requirements
 
-Section `3. Manual table entry` shall be an editable Microsoft Excel-style table rather than a detached form-style row editor.
+1. Section `3. Manual table entry` shall be an editable Microsoft Excel-style table rather than a detached form-style row editor.
+2. Section `5. Validate, Apply to New Copy, and Download` shall not render as a compressed action/status block; the transactional order and current qualification state must be visually explicit.
 
 ## Delivery container
 
 - PR: `#1076`
 - Branch: `feature/cii-find-replace-excel-manual-grid-v14`
 - Base: `main@274b47ef7a787a9f82cfe585371dc9b19d7983b1`
-- Merge authority: Owner-only; not granted in the requirement message.
+- Material product/test head after Section 5 correction: `9b3f867388dab7c48072704cc8dc8655c2733bcd`
+- Merge authority: Owner-only; not granted in the latest fix message.
 
 ## Product delta
 
@@ -23,7 +25,7 @@ Changed:
 - `tests/cii-workspace-find-replace-ui-registration.test.js`
 - `tests/cii-workspace-find-replace-manual-grid.test.js`
 
-Behavior:
+### Section 3 — editable spreadsheet
 
 1. Manual entry is rendered as an editable spreadsheet grid with row numbers.
 2. Three blank rows are available initially; rows can be added/deleted/cleared.
@@ -39,6 +41,21 @@ Behavior:
 9. If an already qualified/applied session is edited, the qualification/release is invalidated immediately.
 10. Spreadsheet refresh preserves a non-v14 target blocker; manual editing cannot promote a legacy target into a ready state.
 11. NODE NAME and DISPLACEMENT remain selectable; FORCE remains visible but qualification-pending/fail-closed.
+
+### Section 5 — explicit finalization workflow
+
+1. Replaced the compressed action row with three numbered workflow rows:
+   - `1 Validate TARGET1` → `Validate & Preview`
+   - `2 Apply to New Copy` → release qualified TARGET1 only
+   - `3 Download` → `Download Modified CII`
+2. `Export Audit JSON` is separated as a secondary control rather than appearing inline with the three transactional actions.
+3. Added an explicit `Workflow status` panel before the hash/claim/qualification KPIs.
+4. Kept Source hash, Claims, Target hash and Qualification as four separately bordered KPI cells.
+5. Added explanatory copy under `Qualified TARGET1 preview` stating that it is available only after successful validation.
+6. Corrected the misleading terminal fallback status. A reviewed state with zero approved rows now says:
+   `No approved replacement rows. Approve at least one row before validation.`
+   It no longer reports `Preview ready.` while Claims=0 and Qualification=Pending.
+7. Transaction semantics are unchanged: Validate → Apply-to-new-copy → Download.
 
 ## Unchanged authority
 
@@ -57,12 +74,14 @@ No changes to:
 
 ## Source review findings
 
-Source/diff review: **PASS** for bounded intent after two fail-closed corrections:
+Source/diff review: **PASS** for bounded intent after fail-closed corrections:
 
-1. stale-preview prevention — unsynced edits now block all downstream review/release actions;
-2. legacy target preservation — `replaceFindReplaceManualRows()` retains `TARGET_VERSION_BLOCKED` and `TARGET_V14_REQUIRED:*`.
+1. stale-preview prevention — unsynced edits block all downstream review/release actions;
+2. legacy target preservation — `replaceFindReplaceManualRows()` retains `TARGET_VERSION_BLOCKED` and `TARGET_V14_REQUIRED:*`;
+3. Section 5 state clarity — zero-approved rows can no longer be described as preview-ready;
+4. finalization controls remain in required Validate → Apply → Download order.
 
-Focused tests were added for:
+Focused tests cover:
 
 - rectangular Excel clipboard parsing;
 - mode-specific spreadsheet column order;
@@ -71,6 +90,7 @@ Focused tests were added for:
 - deterministic MANUAL-row replacement with CSV preservation;
 - non-v14 blocker preservation;
 - dirty-grid UI gating;
+- explicit Section 5 ordered-step markup and status copy;
 - existing Apply-to-new-copy and FORCE-blocked boundaries.
 
 ## Validation truth
@@ -84,4 +104,4 @@ Focused tests were added for:
 
 ## Coordination
 
-Draft PR #1075 is evidence-only and touches only `agents/**`; it does not overlap the seven product/test paths above. The Owner's newer manual-grid requirement is the active product priority.
+Draft PR #1075 is evidence-only and touches only `agents/**`; it does not overlap the product/test paths above. The Owner's Section 3 and Section 5 UI requirements are the active product priority in PR #1076.
