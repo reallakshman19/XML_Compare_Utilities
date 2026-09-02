@@ -1,8 +1,8 @@
 /*
- * CII v14 Find & Replace CSV intake.
+ * CII v14 Find & Replace CSV/manual intake.
  *
- * CSV intake creates proposals only. It does not mutate XML/CII content and
- * does not call Writer1/Writer2.
+ * Intake creates proposals only. It does not mutate CII content and does not
+ * call Writer1/Writer2. CSV and manual table rows share one operation contract.
  */
 
 const MODES = Object.freeze({ DOCUMENT: 'DOCUMENT', ELEMENT: 'ELEMENT', BLOCK: 'BLOCK' });
@@ -14,6 +14,11 @@ const REQUIRED = Object.freeze({
 
 function normalizeHeader(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeMode(value) {
+  const mode = String(value || '').trim().toUpperCase();
+  return Object.hasOwn(REQUIRED, mode) ? mode : null;
 }
 
 function parseCsvRows(text) {
@@ -56,23 +61,69 @@ function integerRange(value) {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+function optionalExpectedMatches(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const parsed = Number(String(value).trim());
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : Number.NaN;
+}
+
 function rowBlockers(mode, data) {
   const blockers = [];
   if (!data.findText) blockers.push('FIND_TEXT_REQUIRED');
   if (data.findText === data.replaceText) blockers.push('NO_EFFECTIVE_TEXT_CHANGE');
+  if (data.expectedMatches != null && !Number.isInteger(data.expectedMatches)) blockers.push('EXPECTED_MATCHES_MUST_BE_NON_NEGATIVE_INTEGER');
   if (mode !== MODES.DOCUMENT) {
     if (data.from == null) blockers.push('FROM_MUST_BE_NON_NEGATIVE_INTEGER');
     if (data.to == null) blockers.push('TO_MUST_BE_NON_NEGATIVE_INTEGER');
     if (data.from != null && data.to != null && data.from > data.to) blockers.push('FROM_EXCEEDS_TO');
   }
   if (mode === MODES.BLOCK && !data.block) blockers.push('BLOCK_REQUIRED');
+  if (mode === MODES.BLOCK && data.block && !['FORCE', 'DISPLACEMENT'].includes(data.block)) blockers.push(`BLOCK_UNSUPPORTED:${data.block}`);
   return blockers;
 }
 
+export function createFindReplaceOperation(input = {}, mode = MODES.DOCUMENT, metadata = {}) {
+  const normalizedMode = normalizeMode(mode);
+  if (!normalizedMode) throw new TypeError(`Unsupported Find & Replace mode: ${mode}`);
+
+  const findText = String(input.findText ?? input.before ?? '');
+  const replaceText = String(input.replaceText ?? input.after ?? '');
+  const from = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.from);
+  const to = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.to);
+  const block = normalizedMode === MODES.BLOCK ? String(input.block ?? '').trim().toUpperCase() : null;
+  const expectedMatches = optionalExpectedMatches(input.expectedMatches);
+  const data = { findText, replaceText, from, to, block, expectedMatches };
+  const blockers = rowBlockers(normalizedMode, data);
+
+  return Object.freeze({
+    source: metadata.source || input.source || 'MANUAL',
+    rowNumber: metadata.rowNumber ?? input.rowNumber ?? null,
+    scope: normalizedMode,
+    entity: normalizedMode === MODES.DOCUMENT ? null : 'ELEMENT_RANGE',
+    id: normalizedMode === MODES.DOCUMENT ? null : `${from ?? '?'}:${to ?? '?'}`,
+    from,
+    to,
+    block,
+    field: null,
+    before: findText,
+    after: replaceText,
+    findText,
+    replaceText,
+    expectedMatches: Number.isInteger(expectedMatches) ? expectedMatches : null,
+    status: blockers.length ? 'BLOCKED' : 'PROPOSED',
+    blockers: Object.freeze(blockers),
+  });
+}
+
 export function parseFindReplaceCsv(text, mode = MODES.DOCUMENT) {
-  const normalizedMode = String(mode || '').trim().toUpperCase();
-  if (!Object.hasOwn(REQUIRED, normalizedMode)) {
-    return Object.freeze({ mode: normalizedMode, status: 'INVALID', operations: Object.freeze([]), errors: Object.freeze(['UNSUPPORTED_MODE']) });
+  const normalizedMode = normalizeMode(mode);
+  if (!normalizedMode) {
+    return Object.freeze({
+      mode: String(mode || '').trim().toUpperCase(),
+      status: 'INVALID',
+      operations: Object.freeze([]),
+      errors: Object.freeze(['UNSUPPORTED_MODE']),
+    });
   }
 
   const parsed = parseCsvRows(text);
@@ -95,32 +146,13 @@ export function parseFindReplaceCsv(text, mode = MODES.DOCUMENT) {
   }
 
   const index = Object.fromEntries(headers.map((name, position) => [name, position]));
-  const operations = parsed.rows.slice(1).map((cells, offset) => {
-    const findText = String(cells[index.findtext] ?? '');
-    const replaceText = String(cells[index.replacetext] ?? '');
-    const from = normalizedMode === MODES.DOCUMENT ? null : integerRange(cells[index.from]);
-    const to = normalizedMode === MODES.DOCUMENT ? null : integerRange(cells[index.to]);
-    const block = normalizedMode === MODES.BLOCK ? String(cells[index.block] ?? '').trim() : null;
-    const data = { findText, replaceText, from, to, block };
-    const blockers = rowBlockers(normalizedMode, data);
-    return Object.freeze({
-      source: 'CSV',
-      rowNumber: offset + 2,
-      scope: normalizedMode,
-      entity: normalizedMode === MODES.DOCUMENT ? null : 'ELEMENT_RANGE',
-      id: normalizedMode === MODES.DOCUMENT ? null : `${from ?? '?'}:${to ?? '?'}`,
-      from,
-      to,
-      block,
-      field: null,
-      before: findText,
-      after: replaceText,
-      findText,
-      replaceText,
-      status: blockers.length ? 'BLOCKED' : 'PROPOSED',
-      blockers: Object.freeze(blockers),
-    });
-  });
+  const operations = parsed.rows.slice(1).map((cells, offset) => createFindReplaceOperation({
+    findText: cells[index.findtext],
+    replaceText: cells[index.replacetext],
+    from: normalizedMode === MODES.DOCUMENT ? null : cells[index.from],
+    to: normalizedMode === MODES.DOCUMENT ? null : cells[index.to],
+    block: normalizedMode === MODES.BLOCK ? cells[index.block] : null,
+  }, normalizedMode, { source: 'CSV', rowNumber: offset + 2 }));
 
   return Object.freeze({
     mode: normalizedMode,
