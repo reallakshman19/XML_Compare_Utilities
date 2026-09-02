@@ -140,11 +140,21 @@ export function replaceFindReplaceManualRows(session, inputs = []) {
     .map(withoutSequence);
   const manual = (inputs || []).map((input) => createFindReplaceOperation(input, session.mode, { source: 'MANUAL' }));
   const rows = buildFindReplacePreview([...retained, ...manual]);
+  const targetBlocked = Boolean(session.target && session.target.version !== 14);
   const csvInvalid = session.csv?.status === 'INVALID';
+  const targetErrors = targetBlocked ? [`TARGET_V14_REQUIRED:${session.target.version ?? 'UNKNOWN'}`] : [];
   return invalidate(session, {
     rows,
-    status: csvInvalid ? 'CSV_INVALID' : rows.length ? 'PREVIEW_READY' : session.target ? 'TARGET_READY' : 'EMPTY',
-    errors: csvInvalid ? [...session.errors] : [],
+    status: targetBlocked
+      ? 'TARGET_VERSION_BLOCKED'
+      : csvInvalid
+        ? 'CSV_INVALID'
+        : rows.length
+          ? 'PREVIEW_READY'
+          : session.target
+            ? 'TARGET_READY'
+            : 'EMPTY',
+    errors: targetBlocked ? targetErrors : csvInvalid ? [...session.errors] : [],
   });
 }
 
