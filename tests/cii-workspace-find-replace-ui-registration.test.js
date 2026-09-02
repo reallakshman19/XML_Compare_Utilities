@@ -36,9 +36,17 @@ test('Find & Replace UI exposes editable spreadsheet then Preview and Apply-to-n
   assert.match(ui, /refs\.manualGrid, 'paste', onGridPaste/);
   assert.match(panel, /Apply to New Copy/);
   assert.doesNotMatch(panel, /Direct Apply to File/);
-  assert.match(ui, /refs\.apply\.disabled = !summary\.canApplyToNewCopy/);
-  assert.match(ui, /refs\.download\.disabled = !summary\.canDownload/);
+  assert.match(ui, /refs\.apply\.disabled = manualGridDirty \|\| !summary\.canApplyToNewCopy/);
+  assert.match(ui, /refs\.download\.disabled = manualGridDirty \|\| !summary\.canDownload/);
   assert.match(ui, /applyFindReplaceToNewCopy/);
+});
+
+test('spreadsheet edits invalidate stale preview authority until Update Preview', () => {
+  assert.match(ui, /let manualGridDirty = false/);
+  assert.match(ui, /Manual spreadsheet changed\. Click Update Preview before review, validation, Apply, or Download\./);
+  assert.match(ui, /refs\.manualGrid, 'input', onGridInput/);
+  assert.match(ui, /if \(manualGridDirty\) return;/);
+  assert.match(ui, /manualGridDirty = false;\s*render\(\);/);
 });
 
 test('NODE NAME is enabled while FORCE stays visible and qualification-pending', () => {
