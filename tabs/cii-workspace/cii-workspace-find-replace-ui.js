@@ -310,7 +310,9 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   async function onCsvChange() {
     const file = refs.csv.files?.[0];
     if (!file) return;
+    const syncedManualInputs = manualGridDirty ? null : manualGridInputs();
     session = withFindReplaceCsv(session, { name: file.name, text: await file.text(), mode: session.mode });
+    if (syncedManualInputs) session = replaceFindReplaceManualRows(session, syncedManualInputs);
     render();
   }
 
