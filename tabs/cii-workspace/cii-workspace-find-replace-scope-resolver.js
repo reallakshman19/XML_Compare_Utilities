@@ -8,14 +8,16 @@ import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFort
  * - ELEMENTS: exact 15-row physical element blocks.
  * - DISPLMNT: ELEMENT row-12 (0-based 12) field-5 (0-based 4) pointer,
  *   20 physical rows per displacement block (2 specs x 10 rows).
- * - FORCMNT: node-keyed force/moment rows; element scope is limited to exact
- *   FROM/TO endpoint rows only.
+ * - FORCMNT: current repository authority establishes 20 physical rows/block,
+ *   but the exact retained endpoint/payload ownership map is not yet qualified
+ *   for Find & Replace. FORCE therefore fails closed.
  */
 
 const ELEMENT_ROWS = 15;
 const ELEMENT_DISPLMNT_POINTER_ROW = 12;
 const ELEMENT_DISPLMNT_POINTER_FIELD = 4;
 const DISPLMNT_ROWS = 20;
+const FORCMNT_ROWS = 20;
 const MISSING_DISPLACEMENT_NODE = 9999.99;
 
 function physicalLines(textInput) {
@@ -193,35 +195,15 @@ function resolveDisplacement(lines, operation) {
   });
 }
 
-function resolveForce(lines, operation) {
-  const element = exactElementBlock(lines, operation);
-  if (element.status !== 'PASS') return element;
-  const section = sectionRefs(lines, 'FORCMNT', { skipComments: true });
-  if (section.status !== 'PASS') return section;
-  const endpointSet = new Set([element.block.from, element.block.to]);
-  const refs = [];
-  for (const ref of section.refs) {
-    const values = decodeCiiNumericRow(ref.body);
-    if (!values?.length || !Number.isFinite(values[0])) return { status: 'BLOCKED', blockers: [`FORCMNT_ROW_INVALID:${ref.lineIndex + 1}`] };
-    const node = Math.round(values[0]);
-    if (Math.abs(values[0] - node) > 1e-9) return { status: 'BLOCKED', blockers: [`FORCMNT_NODE_INVALID:${ref.lineIndex + 1}`] };
-    if (endpointSet.has(node)) refs.push(ref);
-  }
-  if (!refs.length) return { status: 'BLOCKED', blockers: [`FORCMNT_ENDPOINT_ROWS_NOT_FOUND:${element.block.from}:${element.block.to}`] };
+function resolveForce() {
   return Object.freeze({
-    status: 'PASS',
+    status: 'BLOCKED',
     scope: 'BLOCK',
     block: 'FORCE',
-    authority: 'CII_FORCMNT_EXACT_ELEMENT_ENDPOINT_ROWS',
-    spans: lineSpans(refs, { section: 'FORCMNT' }),
-    evidence: Object.freeze({
-      from: element.block.from,
-      to: element.block.to,
-      elementIndex: element.block.index,
-      rowCount: refs.length,
-      endpointNodes: Object.freeze([...endpointSet]),
-    }),
-    blockers: Object.freeze([]),
+    authority: 'CII_FORCMNT_20_ROW_BLOCK_AUTHORITY_PENDING_OWNERSHIP_MAP',
+    spans: Object.freeze([]),
+    evidence: Object.freeze({ rowsPerBlock: FORCMNT_ROWS }),
+    blockers: Object.freeze(['FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED']),
   });
 }
 
@@ -251,7 +233,7 @@ export function resolveFindReplaceScope(target0Input, operation = {}) {
   if (scope === 'BLOCK') {
     const block = String(operation?.block || '').trim().toUpperCase();
     if (block === 'DISPLACEMENT' || block === 'DISPLMNT') return resolveDisplacement(lines, operation);
-    if (block === 'FORCE' || block === 'FORCMNT') return resolveForce(lines, operation);
+    if (block === 'FORCE' || block === 'FORCMNT') return resolveForce();
     return Object.freeze({ status: 'BLOCKED', scope, block, spans: Object.freeze([]), blockers: Object.freeze([`BLOCK_SCOPE_UNSUPPORTED:${block || 'UNKNOWN'}`]) });
   }
   return Object.freeze({ status: 'BLOCKED', scope, spans: Object.freeze([]), blockers: Object.freeze([`SCOPE_UNSUPPORTED:${scope || 'UNKNOWN'}`]) });
