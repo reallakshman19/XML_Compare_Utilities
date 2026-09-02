@@ -1,18 +1,18 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-FIND-REPLACE-V14
 MISSION: Deliver CII v14 Find & Replace with explicit Preview -> Apply-to-new-copy -> Download while preserving TARGET0 byte custody and Writer1/Writer2 separation
-ACTIVE_ENDPOINT: EP-CII-FR-0013
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+ACTIVE_ENDPOINT: EP-CII-FR-0016
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0016.md
 MATERIAL_HISTORY_ROOT_BASE: e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0012.md
-PR: 1078
-BRANCH: chore/cii-find-replace-postmerge-qualification-v14
-HEAD: eec69a6de3cdb4c79260bbf2e8425bd54e5c8f0d
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+PR: 1081
+BRANCH: feature/cii-find-replace-finish-v14
+HEAD: da4b11e6c191504184bf7dbac96d371ef681030b
 STATE: ACTIVE
-ENGINEERING_STATE: POST_MERGE_QUALIFICATION_EVIDENCE_ONLY
+ENGINEERING_STATE: APP_COMPLETION_REVIEW_READY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: EXACT_CHECKOUT_OR_NONZERO_FORCMNT_ORACLE_REQUIRED
-WRITE_AUTHORITY: EVIDENCE_ONLY
+QUALIFICATION_STATE: SUPPORTED_APP_SCOPE_COMPLETE
+WRITE_AUTHORITY: APP_COMPLETION_SCOPE_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -20,33 +20,33 @@ MERGEABILITY: PENDING_RECONCILIATION
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NONE
-AUTHORITY_DOMAIN: post-merge CII Find & Replace qualification evidence only; FORCE/FORCMNT mutation, direct overwrite, Writer1/Writer2, parser/converter and workflow authority excluded
+AUTHORITY_DOMAIN: CII Find & Replace app completion for Document, Element, Node Name, Displacement, editable manual grid, Preview/Validate/Apply-to-new-copy/Download; FORCE is owner-de-scoped; direct overwrite, Writer1/Writer2, parser/converter and workflow authority excluded
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol continuous CII-FIND-REPLACE-V14 custodian
 WORK_ITEM_SOURCE: OWNER_DIRECT
-WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:POSTMERGE-QUALIFICATION
+WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:APP-COMPLETION
 WORK_ITEM_MODE: EXCLUSIVE
 WORK_ITEM_PARTITION: NONE
 WORK_ITEM_PARTITION_AUTHORITY: NONE
-CUSTODY_EPOCH: 14
+CUSTODY_EPOCH: 16
 COORDINATION_STATE: SAFE
-DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow merged via PR1077 at main c80aa9b4f670e90b831d65a9f16c775a50096271; authored focused exact-checkout tests NOT_RUN/environment; retained/public nonzero v14 FORCMNT oracle NOT_QUALIFIED; FORCE remains blocked
+DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow already merged; owner explicitly skipped FORCE; PR1080 closed unmerged as retired diagnostic evidence; PR1081 finishes supported UI surface and preserves fail-closed unsupported input
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 293a3db7993a6945c01adc592a7ff14a339c504a
 COMMON_PROTOCOL_STATUS: CURRENT
-ROADMAPS: NONE — bounded owner-direct CII Find & Replace mission
+ROADMAPS: NONE — bounded owner-direct CII Find & Replace app completion
 ROADMAP_REVIEW_STATUS: NOT_APPLICABLE
 ROADMAP_ALIGNMENT: NOT_APPLICABLE
 ROADMAP_MUTATION_AUTHORITY: NONE
-QUALIFICATION_SCOPE_ID: QSCOPE-PR1078-POSTMERGE-QUALIFICATION
+QUALIFICATION_SCOPE_ID: QSCOPE-PR1081-APP-COMPLETION
 QUESTION_SET_ID: CII-FR-QS-0001
 QUESTION_SET_STATUS: REUSE_ALLOWED_WITHIN_EXISTING_AUTHORITY
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
-OWNER_PROGRESSION_COMMAND: MERGE_IF_MERGEABLE_PROCEED_NEXT
+OWNER_PROGRESSION_COMMAND: SKIP_FORCE_FINISH_APP_PROCEED_NEXT
 HANDOVER_PROTOCOL_VERSION: 2
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: PASS_EVIDENCE_BOUNDARY
-HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md; agents/PR1078_workreport.md; agents/evidence/CII_FORCMNT_retained_oracle_scan.md
+HANDOVER_VALIDATION_STATUS: PASS_EXACT_SOURCE_UI_RELEASE_9_OF_9
+HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0016.md; agents/PR1081_workreport.md; agents/evidence/PR1081_find_replace_finish_exact_execution.md
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: TRUE
@@ -54,7 +54,7 @@ REPORTING_CONTRACT: ACTIVE_HANDOVER_FIRST
 HANDOVER_RESPONSE_REQUIRED: ALWAYS
 RESPONSE_DELTA_MODE: DELTA_ONLY
 OWNER_QUALIFICATION_BASELINE_DISCOVERY: COMPLETE
-OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — merge active UI leg if mergeable and proceed next without widening protected authority
-OWNER_QUALIFICATION_BASELINE_MANIFEST: NONE
+OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — skip FORCE, finish the app, proceed next
+OWNER_QUALIFICATION_BASELINE_MANIFEST: Document; Element; Node Name; Displacement; CSV; editable Excel-style manual grid; Preview/approval; Validate TARGET1; Apply to New Copy; Download Modified CII; Audit JSON
 OWNER_QUALIFICATION_BASELINE_STATUS: SATISFIED
-EXACT_NEXT_ACTION: obtain one exact v14 CII with CONTROL FORCMNT > 0 and positive ELEMENT FORCMNT pointer and prove byte ownership end-to-end; if authenticated exact checkout becomes available first, run authored manual-grid/session/UI focused tests and record actual PASS/FAIL; do not enable FORCE or merge PR1078 without Owner authorization
+EXACT_NEXT_ACTION: review PR1081 as the app-completion delivery container; merge only on explicit Owner authorization; after merge reconcile main/status and run available post-merge smoke checks; do not resume FORCE unless Owner explicitly restores it to scope
