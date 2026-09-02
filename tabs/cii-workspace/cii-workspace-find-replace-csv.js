@@ -79,6 +79,7 @@ function rowBlockers(mode, data) {
   }
   if (mode === MODES.BLOCK && !data.block) blockers.push('BLOCK_REQUIRED');
   if (mode === MODES.BLOCK && data.block && !['FORCE', 'DISPLACEMENT'].includes(data.block)) blockers.push(`BLOCK_UNSUPPORTED:${data.block}`);
+  if (mode === MODES.BLOCK && data.block === 'FORCE') blockers.push('BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE');
   return blockers;
 }
 
