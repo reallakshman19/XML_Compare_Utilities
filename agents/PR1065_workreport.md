@@ -15,7 +15,7 @@ TAKEOVER_AUTHORITY = CONTINUE_BOUNDED
 MERGE_AUTHORITY = OWNER_ONLY_NOT_GRANTED
 LIVE_BASE = d35f6aa419244585afec2c47c8fbd0584011931a
 BATCH_INPUT_HEAD = e2322da062e69d61c55e5f8da02082197be6b2ee
-REPORT_BASIS_HEAD = 0feb06361852dd6537f6ae69bf597a3e1e707b21
+REPORT_BASIS_HEAD = 5c274b79cbe7ef4353d1b4d995ba387405410e3f
 PR_STATE = OPEN_DRAFT
 ```
 
@@ -100,15 +100,11 @@ Current V11/CII2019 and V14 section-rule authorities both establish `DISPLMNT = 
 BEND, RIGID, EXPJT, RESTRANT, DISPLMNT, FORCMNT
 ```
 
-### Issue isolated
+### Issue isolated and fixed
 
 `ISS-DISPLMNT-REAL-001`
 
 The Find & Replace resolver previously considered only `9999.99` a missing displacement-spec node. The retained real file encodes the unused second spec's node as `0.0`. Therefore the prior resolver would classify `0.0` as an out-of-element endpoint and incorrectly fail the valid real block with an endpoint-identity mismatch.
-
-This is a synthetic-vs-retained compatibility defect, not permission to broaden node matching.
-
-### Minimal correction
 
 `cii-workspace-find-replace-scope-resolver.js` now treats exactly these values as unused displacement-spec node sentinels:
 
@@ -119,13 +115,9 @@ This is a synthetic-vs-retained compatibility defect, not permission to broaden 
 
 No other value is ignored. A finite nonzero node outside the selected element's exact From/To endpoints still fails closed.
 
-Pre-edit resolver blob:
+Pre-edit resolver blob: `5737d0a03c8364a637df551fb5128fb21c56c701`
 
-`5737d0a03c8364a637df551fb5128fb21c56c701`
-
-Post-edit resolver blob:
-
-`a9b7935e4454adf3f47415f03eb9446ca11ca10e`
+Post-edit resolver blob: `a9b7935e4454adf3f47415f03eb9446ca11ca10e`
 
 ### Retained-real regression authored
 
@@ -144,7 +136,7 @@ It reads the actual repository `SOURCE 3.CII` and requires:
 
 The test is `AUTHORED / NOT_RUN` in the exact private repository runtime. It is not labelled PASS.
 
-An optional attempt to add the same zero-sentinel case to the existing synthetic resolver test was rejected by GitHub with `409` because the supplied blob preimage was stale. The existing test file was therefore **not modified**; no force update or overwrite of newer content was attempted. The retained-real test is the authoritative new regression for this batch.
+An optional attempt to add the same zero-sentinel case to the existing synthetic resolver test was rejected by GitHub with `409` because the supplied blob preimage was stale. The existing test file was therefore not modified; no forced overwrite was attempted.
 
 ## FORCE qualification state
 
@@ -153,7 +145,7 @@ Current authoritative facts:
 - ELEMENT IEL row12 item 6 is the 1-based FORCMNT pointer slot.
 - V11/CII2019 and V14 rule authorities specify 20 physical rows per FORCMNT block.
 - `SOURCE 3.CII`, `TARGET 3-1.CII`, `RMS-BLOW-1.cii`, and other inspected candidates have zero FORCMNT count / empty payload.
-- The pinned native-v14 fixture used elsewhere does not independently qualify nonzero FORCMNT; current V14 merge authority explicitly keeps nonzero FORCMNT unqualified.
+- Current V14 merge authority explicitly keeps nonzero FORCMNT unqualified.
 
 Therefore:
 
