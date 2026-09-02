@@ -1,7 +1,7 @@
 /*
  * CII v14 Find & Replace CSV/manual intake.
  *
- * Intake creates proposals only. It does not mutate CII content and does not
+ * Intake creates proposals only. It does not mutate CII file content and does not
  * call Writer1/Writer2. CSV and manual table rows share one operation contract.
  */
 
@@ -19,6 +19,15 @@ function normalizeHeader(value) {
 function normalizeMode(value) {
   const mode = String(value || '').trim().toUpperCase();
   return Object.hasOwn(REQUIRED, mode) ? mode : null;
+}
+
+function normalizeBlock(value) {
+  const raw = String(value ?? '').trim().toUpperCase();
+  const token = raw.replace(/[\s_-]+/g, '');
+  if (token === 'NODENAME') return 'NODENAME';
+  if (token === 'DISPLACEMENT' || token === 'DISPLMNT') return 'DISPLACEMENT';
+  if (token === 'FORCE' || token === 'FORCMNT') return 'FORCE';
+  return raw;
 }
 
 function parseCsvRows(text) {
@@ -78,7 +87,7 @@ function rowBlockers(mode, data) {
     if (data.from != null && data.to != null && data.from > data.to) blockers.push('FROM_EXCEEDS_TO');
   }
   if (mode === MODES.BLOCK && !data.block) blockers.push('BLOCK_REQUIRED');
-  if (mode === MODES.BLOCK && data.block && !['FORCE', 'DISPLACEMENT'].includes(data.block)) blockers.push(`BLOCK_UNSUPPORTED:${data.block}`);
+  if (mode === MODES.BLOCK && data.block && !['NODENAME', 'FORCE', 'DISPLACEMENT'].includes(data.block)) blockers.push(`BLOCK_UNSUPPORTED:${data.block}`);
   if (mode === MODES.BLOCK && data.block === 'FORCE') blockers.push('BLOCK_AUTHORITY_NOT_QUALIFIED:FORCE');
   return blockers;
 }
@@ -91,7 +100,7 @@ export function createFindReplaceOperation(input = {}, mode = MODES.DOCUMENT, me
   const replaceText = String(input.replaceText ?? input.after ?? '');
   const from = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.from);
   const to = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.to);
-  const block = normalizedMode === MODES.BLOCK ? String(input.block ?? '').trim().toUpperCase() : null;
+  const block = normalizedMode === MODES.BLOCK ? normalizeBlock(input.block) : null;
   const expectedMatches = optionalExpectedMatches(input.expectedMatches);
   const data = { findText, replaceText, from, to, block, expectedMatches };
   const blockers = rowBlockers(normalizedMode, data);

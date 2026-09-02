@@ -26,7 +26,8 @@ test('Find & Replace UI exposes target, CSV, manual table, preview and disabled 
   assert.match(ui, /root\.querySelector\('\[data-ciifr-apply\]'\)\.disabled = true/);
 });
 
-test('FORCE stays visible but disabled until physical ownership authority is qualified', () => {
+test('NODE NAME is enabled while FORCE stays visible and qualification-pending', () => {
+  assert.match(panel, /<option value="NODENAME">NODE NAME<\/option>/);
   assert.match(panel, /<option value="DISPLACEMENT">DISPLACEMENT<\/option>/);
   assert.match(panel, /<option value="FORCE" disabled>FORCE — qualification pending<\/option>/);
 });
