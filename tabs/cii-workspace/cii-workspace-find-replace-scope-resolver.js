@@ -18,6 +18,7 @@ const ELEMENT_DISPLMNT_POINTER_ROW = 12;
 const ELEMENT_DISPLMNT_POINTER_FIELD = 4;
 const DISPLMNT_ROWS = 20;
 const FORCMNT_ROWS = 20;
+const ZERO_DISPLACEMENT_NODE = 0;
 const MISSING_DISPLACEMENT_NODE = 9999.99;
 
 function physicalLines(textInput) {
@@ -142,7 +143,9 @@ function displacementPointer(block) {
 }
 
 function isMissingDisplacementNode(value) {
-  return Number.isFinite(value) && Math.abs(value - MISSING_DISPLACEMENT_NODE) < 1e-6;
+  if (!Number.isFinite(value)) return false;
+  return Math.abs(value - ZERO_DISPLACEMENT_NODE) < 1e-9
+    || Math.abs(value - MISSING_DISPLACEMENT_NODE) < 1e-6;
 }
 
 function displacementNode(ref) {
