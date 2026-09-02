@@ -1,35 +1,35 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-FIND-REPLACE-V14
 MISSION: Deliver CII v14 Find & Replace with explicit Preview -> Apply-to-new-copy -> Download while preserving TARGET0 byte custody and Writer1/Writer2 separation
-ACTIVE_ENDPOINT: EP-CII-FR-0016
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0016.md
+ACTIVE_ENDPOINT: EP-CII-FR-0017
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0017.md
 MATERIAL_HISTORY_ROOT_BASE: e28e33aa9e7927d2d8e7f5532660108eb1fe4b7b
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0013.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0016.md
 PR: 1081
 BRANCH: feature/cii-find-replace-finish-v14
-HEAD: da4b11e6c191504184bf7dbac96d371ef681030b
-STATE: ACTIVE
-ENGINEERING_STATE: APP_COMPLETION_REVIEW_READY
-CUSTODY_STATE: HELD
+HEAD: 9d42ed4169bdc15139f38d19412961c1dbbd28d8
+STATE: HANDOVER_READY
+ENGINEERING_STATE: APP_COMPLETION_HANDOVER_READY
+CUSTODY_STATE: HANDOVER_READY
 QUALIFICATION_STATE: SUPPORTED_APP_SCOPE_COMPLETE
 WRITE_AUTHORITY: APP_COMPLETION_SCOPE_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: PENDING_RECONCILIATION
+MERGEABILITY: TRUE_AT_HANDOVER_RECONCILIATION
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NONE
 AUTHORITY_DOMAIN: CII Find & Replace app completion for Document, Element, Node Name, Displacement, editable manual grid, Preview/Validate/Apply-to-new-copy/Download; FORCE is owner-de-scoped; direct overwrite, Writer1/Writer2, parser/converter and workflow authority excluded
-ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol continuous CII-FIND-REPLACE-V14 custodian
+ACTIVE_CUSTODIAN: HANDOVER_READY_SUCCESSOR_UNASSIGNED
 WORK_ITEM_SOURCE: OWNER_DIRECT
 WORK_ITEM_KEY: owner-direct:XML_Compare_Utilities:CII-FIND-REPLACE-V14:APP-COMPLETION
 WORK_ITEM_MODE: EXCLUSIVE
 WORK_ITEM_PARTITION: NONE
 WORK_ITEM_PARTITION_AUTHORITY: NONE
-CUSTODY_EPOCH: 16
+CUSTODY_EPOCH: 17
 COORDINATION_STATE: SAFE
-DEPENDENCIES: Excel-style manual grid and ordered Section 5 workflow already merged; owner explicitly skipped FORCE; PR1080 closed unmerged as retired diagnostic evidence; PR1081 finishes supported UI surface and preserves fail-closed unsupported input
+DEPENDENCIES: supported app scope complete in Draft PR1081; Excel-style manual grid and ordered Section 5 workflow present; owner explicitly skipped FORCE; PR1080 closed unmerged as retired diagnostic evidence; PR1081 exact-source UI/static release checks PASS 9/9; retained-real/full-suite/native-v14/external-CAESAR gates remain NOT_RUN
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 293a3db7993a6945c01adc592a7ff14a339c504a
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -42,11 +42,11 @@ QUESTION_SET_ID: CII-FR-QS-0001
 QUESTION_SET_STATUS: REUSE_ALLOWED_WITHIN_EXISTING_AUTHORITY
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
-OWNER_PROGRESSION_COMMAND: SKIP_FORCE_FINISH_APP_PROCEED_NEXT
+OWNER_PROGRESSION_COMMAND: HANDOVER_WITH_Q1_TO_Q5
 HANDOVER_PROTOCOL_VERSION: 2
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS_EXACT_SOURCE_UI_RELEASE_9_OF_9
-HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0016.md; agents/PR1081_workreport.md; agents/evidence/PR1081_find_replace_finish_exact_execution.md
+HANDOVER_VALIDATION_EVIDENCE: agents/chains/CII-FIND-REPLACE-V14/endpoints/EP-CII-FR-0017.md; agents/PR1081_workreport.md; agents/evidence/PR1081_find_replace_finish_exact_execution.md
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: TRUE
@@ -54,7 +54,7 @@ REPORTING_CONTRACT: ACTIVE_HANDOVER_FIRST
 HANDOVER_RESPONSE_REQUIRED: ALWAYS
 RESPONSE_DELTA_MODE: DELTA_ONLY
 OWNER_QUALIFICATION_BASELINE_DISCOVERY: COMPLETE
-OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — skip FORCE, finish the app, proceed next
+OWNER_QUALIFICATION_BASELINE_SOURCE: owner instruction — skip FORCE, finish the app, then hand over with Q1 to Q5
 OWNER_QUALIFICATION_BASELINE_MANIFEST: Document; Element; Node Name; Displacement; CSV; editable Excel-style manual grid; Preview/approval; Validate TARGET1; Apply to New Copy; Download Modified CII; Audit JSON
 OWNER_QUALIFICATION_BASELINE_STATUS: SATISFIED
-EXACT_NEXT_ACTION: review PR1081 as the app-completion delivery container; merge only on explicit Owner authorization; after merge reconcile main/status and run available post-merge smoke checks; do not resume FORCE unless Owner explicitly restores it to scope
+EXACT_NEXT_ACTION: successor starts READ_ONLY; reconcile PR1081 against EP-CII-FR-0017; do not merge without explicit Owner authorization; after an authorized merge reconcile main and run actually available smoke checks; preserve NOT_RUN gates; do not resume FORCE unless Owner explicitly restores it to scope
