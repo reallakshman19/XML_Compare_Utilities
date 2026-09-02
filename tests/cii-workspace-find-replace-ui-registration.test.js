@@ -26,6 +26,11 @@ test('Find & Replace UI exposes target, CSV, manual table, preview and disabled 
   assert.match(ui, /root\.querySelector\('\[data-ciifr-apply\]'\)\.disabled = true/);
 });
 
+test('FORCE stays visible but disabled until physical ownership authority is qualified', () => {
+  assert.match(panel, /<option value="DISPLACEMENT">DISPLACEMENT<\/option>/);
+  assert.match(panel, /<option value="FORCE" disabled>FORCE — qualification pending<\/option>/);
+});
+
 test('UI controller does not import writer or file-mutation modules', () => {
   assert.doesNotMatch(ui, /target-writer|writer1|writer2|writeFile|FileSystem/);
 });
