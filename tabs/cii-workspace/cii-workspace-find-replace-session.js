@@ -4,7 +4,7 @@ import {
   FIND_REPLACE_CSV_MODES,
   parseFindReplaceCsv,
 } from './cii-workspace-find-replace-csv.js';
-import { buildFindReplaceDownloadArtifact } from './cii-workspace-find-replace-output.js';
+import { qualifyFindReplaceOutputCandidate } from './cii-workspace-find-replace-output.js';
 import {
   buildFindReplacePreview,
   setFindReplaceRowDecision,
@@ -188,8 +188,8 @@ export function applyFindReplaceToNewCopy(session) {
     return freezeSession({ ...session, status: 'APPLY_TO_NEW_COPY_BLOCKED', errors: ['QUALIFIED_PREVIEW_REQUIRED'], release: null });
   }
   if (session.release?.status === APPLIED_TO_NEW_COPY) return session;
-  const output = buildFindReplaceDownloadArtifact(session);
-  if (output.status !== 'READY_FOR_DOWNLOAD') {
+  const output = qualifyFindReplaceOutputCandidate(session);
+  if (output.status !== 'READY_FOR_APPLY_TO_NEW_COPY') {
     return freezeSession({ ...session, status: 'APPLY_TO_NEW_COPY_BLOCKED', errors: [...output.blockers], release: null });
   }
   return freezeSession({
