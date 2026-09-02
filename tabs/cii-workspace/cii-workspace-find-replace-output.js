@@ -4,10 +4,12 @@ import { validateFindReplacePostimage } from './cii-workspace-find-replace-valid
 /*
  * CII v14 Find & Replace explicit output boundary.
  *
- * This module never writes or overwrites a file. It packages an already
- * qualified in-memory TARGET1 for an explicit user download and independently
- * re-validates TARGET0/TARGET1 immediately before release.
+ * This module never writes or overwrites a file. Apply-to-new-copy records an
+ * explicit release after candidate validation. Download independently repeats
+ * validation and requires that exact release before packaging TARGET1.
  */
+
+const APPLIED_TO_NEW_COPY = 'APPLIED_TO_NEW_COPY';
 
 function outputName(inputName) {
   const name = String(inputName || 'target.cii').replace(/[\\/]/g, '_');
@@ -25,9 +27,9 @@ function blockersForSession(session) {
   return blockers;
 }
 
-export function buildFindReplaceDownloadArtifact(session) {
+function validatedCandidate(session) {
   const blockers = blockersForSession(session);
-  if (blockers.length) return Object.freeze({ status: 'BLOCKED', blockers: Object.freeze(blockers), artifact: null });
+  if (blockers.length) return { blockers, candidate: null };
 
   const target0 = session.target.text;
   const preimage = session.qualification.preimage;
@@ -42,11 +44,11 @@ export function buildFindReplaceDownloadArtifact(session) {
 
   const independent = validateFindReplacePostimage(target0, target1, preimage);
   if (independent.status !== 'PASS') blockers.push('INDEPENDENT_POSTIMAGE_REVALIDATION_FAILED', ...(independent.blockers || []));
-  if (blockers.length) return Object.freeze({ status: 'BLOCKED', blockers: Object.freeze([...new Set(blockers)]), artifact: null });
+  if (blockers.length) return { blockers: [...new Set(blockers)], candidate: null };
 
   const receipt = Object.freeze({
-    schema: 'CIIWorkspaceFindReplaceDownloadReceipt.v1',
-    authority: 'EXPLICIT_USER_DOWNLOAD_OF_INDEPENDENTLY_VALIDATED_POSTIMAGE',
+    schema: 'CIIWorkspaceFindReplaceOutputValidationReceipt.v1',
+    authority: 'INDEPENDENT_POSTIMAGE_REVALIDATION_FOR_NEW_COPY',
     sourceName: session.target.name,
     sourceVersion: 14,
     sourceHash,
@@ -59,17 +61,54 @@ export function buildFindReplaceDownloadArtifact(session) {
     writerInvoked: false,
     validationStatus: independent.status,
   });
-
-  return Object.freeze({
-    status: 'READY_FOR_DOWNLOAD',
-    blockers: Object.freeze([]),
-    artifact: Object.freeze({
+  return {
+    blockers: [],
+    candidate: Object.freeze({
       fileName: outputName(session.target.name),
       mimeType: 'text/plain;charset=utf-8',
       text: target1,
       receipt,
     }),
+  };
+}
+
+export function qualifyFindReplaceOutputCandidate(session) {
+  const validated = validatedCandidate(session);
+  if (validated.blockers.length) {
+    return Object.freeze({ status: 'BLOCKED', blockers: Object.freeze(validated.blockers), artifact: null });
+  }
+  return Object.freeze({
+    status: 'READY_FOR_APPLY_TO_NEW_COPY',
+    blockers: Object.freeze([]),
+    artifact: validated.candidate,
   });
 }
 
-export const _test = Object.freeze({ outputName, blockersForSession });
+function releaseBlockers(session, candidate) {
+  const blockers = [];
+  if (session?.release?.status !== APPLIED_TO_NEW_COPY) blockers.push('APPLY_TO_NEW_COPY_REQUIRED');
+  if (session?.release?.targetHash !== candidate?.receipt?.targetHash) blockers.push('APPLIED_TARGET1_HASH_MISMATCH');
+  if (session?.release?.receipt?.targetHash !== candidate?.receipt?.targetHash) blockers.push('APPLIED_RECEIPT_HASH_MISMATCH');
+  return blockers;
+}
+
+export function buildFindReplaceDownloadArtifact(session) {
+  const validation = qualifyFindReplaceOutputCandidate(session);
+  if (validation.status !== 'READY_FOR_APPLY_TO_NEW_COPY') return validation;
+  const blockers = releaseBlockers(session, validation.artifact);
+  if (blockers.length) return Object.freeze({ status: 'BLOCKED', blockers: Object.freeze(blockers), artifact: null });
+
+  const receipt = Object.freeze({
+    ...validation.artifact.receipt,
+    schema: 'CIIWorkspaceFindReplaceDownloadReceipt.v2',
+    authority: 'EXPLICIT_USER_APPLY_TO_NEW_COPY_OF_INDEPENDENTLY_VALIDATED_POSTIMAGE',
+    appliedToNewCopy: true,
+  });
+  return Object.freeze({
+    status: 'READY_FOR_DOWNLOAD',
+    blockers: Object.freeze([]),
+    artifact: Object.freeze({ ...validation.artifact, receipt }),
+  });
+}
+
+export const _test = Object.freeze({ outputName, blockersForSession, validatedCandidate, releaseBlockers });
