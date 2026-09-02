@@ -7,6 +7,7 @@ AGENTCHAIN_VERSION: 2
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
 | CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0011 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md | #1063 | BLOCKED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an execution substrate with exact checkout access, run `agents/evidence/PR1063_w2a_external_execution_capsule.md` against `a9018c131be736606e44fd0379545d233238f33e`; materialization/module stop before authored assertion = NOT_RUN, first authored failure = FAIL, clean completion = candidate PASS |
+| CII-FIND-REPLACE-V14 | Deliver CII v14 Find & Replace with Node Name as first qualified entity/block scope while preserving TARGET0 custody and Writer1/Writer2 separation | EP-CII-FR-0001 | agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0001.md | #1065 | QUALIFICATION_REQUIRED | Native-v14 Find & Replace NODENAME fixed-field rename; no Writer1/Writer2 execution authority | Create `agents/qualifications/CII-FIND-REPLACE-V14/CII-FR-QS-0001-gpt56sol-answer.md` from live evidence while READ_ONLY; do not modify production/test files |
 
 ## ENDPOINT LOG
 
@@ -23,3 +24,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0009 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXECUTION-ENVIRONMENT-AUDIT | 932e8f803374396ec3e73293b47d619b8779bcc6 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0009.md |
 | EP-CII-W2-0010 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-EXTERNAL-EXECUTION-READINESS | c3cf59271ab585cc5f8b9d040128e3fe8e697080 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0010.md |
 | EP-CII-W2-0011 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1063-W2A-MATERIALIZATION-ROUTE-EXHAUSTION | 05ff6aef413ca18934a0dc698e6e86fa1d6308af | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0011.md |
+| EP-CII-FR-0001 | CII-FIND-REPLACE-V14 | PR1065-NODENAME-FIRST | 8db1a7bfcd71f5dc204d4c6e11fca255c4544d88 | QUALIFICATION_REQUIRED | agents/agentchain/CII-FIND-REPLACE-V14/EP-CII-FR-0001.md |
