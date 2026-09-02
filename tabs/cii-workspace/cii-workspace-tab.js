@@ -1,7 +1,9 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
+import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js';
 
 const STYLE_ID = 'cii-workspace-style';
 const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
+const FIND_REPLACE_STYLE_ID = 'cii-workspace-find-replace-style';
 const SIF_CONTEXT_AUTHORITY = 'ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE';
 function stylesheet(documentRef, id, relativeUrl) {
   if (documentRef.getElementById(id)) return;
@@ -11,6 +13,7 @@ function stylesheet(documentRef, id, relativeUrl) {
 function ensureStylesheet(documentRef) {
   stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
   stylesheet(documentRef, ENGINEERING_STYLE_ID, './cii-workspace-engineering-ui.css');
+  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css');
 }
 function installWriter1CSifContextControls(root, state) {
   const panel = root.querySelector('[data-ciiw-panel="inputs"]'); if (!panel) return () => {};
@@ -53,6 +56,13 @@ export function installCiiWorkspaceTile(container, context = {}) {
     'Explicit Writer 2 cardinality transfer using V11 authority and the frozen V11↔V14 bridge',
   );
   if (writer2Tile) container.appendChild(writer2Tile);
+  const findReplaceTile = context.writerVersion ? null : workspaceTile(
+    container.ownerDocument,
+    'data-ciiw-open-find-replace',
+    '↔ CII Find & Replace — V14',
+    'CSV/manual-table preview, exact scoped validation and qualified in-memory postimage',
+  );
+  if (findReplaceTile) container.appendChild(findReplaceTile);
 
   let overlay = null; let active = null; let disposeSifContext = null;
   const close = () => { disposeSifContext?.(); active?.destroy(); overlay?.remove(); disposeSifContext = null; active = null; overlay = null; };
@@ -73,14 +83,26 @@ export function installCiiWorkspaceTile(container, context = {}) {
     });
     if (writerVersion === '1C') disposeSifContext = installWriter1CSifContextControls(overlay, sifEngineeringContext);
   };
+  const openFindReplace = () => {
+    if (active) return;
+    overlay = container.ownerDocument.createElement('div'); overlay.className = 'ciiw-backdrop';
+    container.ownerDocument.body.appendChild(overlay);
+    active = mountCiiFindReplaceShell(overlay, {
+      close,
+      showToast: context.showToast,
+      downloadJson: context.downloadJson,
+    });
+  };
   const openDefault = () => open();
   const openWriter2 = () => open('2');
   tile.addEventListener('click', openDefault);
   writer2Tile?.addEventListener('click', openWriter2);
+  findReplaceTile?.addEventListener('click', openFindReplace);
   return () => {
     tile.removeEventListener('click', openDefault);
     writer2Tile?.removeEventListener('click', openWriter2);
-    close(); tile.remove(); writer2Tile?.remove();
+    findReplaceTile?.removeEventListener('click', openFindReplace);
+    close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();
   };
 }
 
