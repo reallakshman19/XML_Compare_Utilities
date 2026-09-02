@@ -34,6 +34,11 @@ function displacementBlock(from, to, marker) {
 
 function fixture({ pointer = 1 } = {}) {
   const lines = [
+    '#$ CONTROL',
+    row([2, 0, 0, 0, 0, 0]),
+    row([0, 0, 0, 0, 1, 0]),
+    row([0, 0, 0, 0, 0, 0]),
+    row([0]),
     '#$ ELEMENTS',
     ...elementBlock(10, 20, 111, pointer),
     ...elementBlock(20, 30, 111, 0),
