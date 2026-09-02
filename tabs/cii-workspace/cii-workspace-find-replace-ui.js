@@ -152,6 +152,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   host.appendChild(wrapper);
   const root = wrapper.querySelector('[data-ciifr-workspace]');
   let session = createFindReplaceSession();
+  let manualGridDirty = false;
 
   const refs = {
     target: root.querySelector('[data-ciifr-target]'),
@@ -237,9 +238,20 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     control.value = String(value ?? '');
   }
 
+  function markManualGridDirty() {
+    if (manualGridDirty) return;
+    if (session.qualification || session.release) {
+      session = replaceFindReplaceManualRows(session, manualGridInputs());
+    }
+    manualGridDirty = true;
+    render();
+  }
+
   function bindDecisionButtons() {
     for (const button of refs.body.querySelectorAll('[data-ciifr-decision]')) {
+      button.disabled = manualGridDirty;
       button.addEventListener('click', () => {
+        if (manualGridDirty) return;
         session = decideFindReplaceRow(session, Number(button.getAttribute('data-ciifr-sequence')), button.getAttribute('data-ciifr-decision'));
         render();
       });
@@ -274,13 +286,15 @@ export function mountCiiFindReplaceShell(host, context = {}) {
       ? `${session.target.name} — v${session.target.version ?? '?'} — ${shortHash(session.target.hash)}`
       : 'No target loaded.';
     refs.csvMeta.textContent = session.csv ? `${session.csv.name} — ${session.csv.status}` : 'No CSV loaded. Manual spreadsheet rows may be entered below.';
-    refs.status.textContent = statusMessage(session, summary);
-    refs.validate.disabled = !summary.canValidate;
-    refs.approveAll.disabled = summary.proposed === 0;
-    refs.reset.disabled = (summary.approved + summary.rejected) === 0;
-    refs.apply.disabled = !summary.canApplyToNewCopy;
-    refs.audit.disabled = !summary.qualified;
-    refs.download.disabled = !summary.canDownload;
+    refs.status.textContent = manualGridDirty
+      ? 'Manual spreadsheet changed. Click Update Preview before review, validation, Apply, or Download.'
+      : statusMessage(session, summary);
+    refs.validate.disabled = manualGridDirty || !summary.canValidate;
+    refs.approveAll.disabled = manualGridDirty || summary.proposed === 0;
+    refs.reset.disabled = manualGridDirty || (summary.approved + summary.rejected) === 0;
+    refs.apply.disabled = manualGridDirty || !summary.canApplyToNewCopy;
+    refs.audit.disabled = manualGridDirty || !summary.qualified;
+    refs.download.disabled = manualGridDirty || !summary.canDownload;
     renderScope(); renderRows(); renderQualification(summary);
   }
 
@@ -301,6 +315,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   function onScopeChange(event) {
     if (!event.target.checked) return;
     session = withFindReplaceMode(session, event.target.value);
+    manualGridDirty = manualGridInputs().length > 0;
     render();
   }
 
@@ -311,20 +326,29 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   function onClearGrid() {
     resetManualGrid();
     session = replaceFindReplaceManualRows(session, []);
+    manualGridDirty = false;
     render();
   }
 
   function onSyncGrid() {
     session = replaceFindReplaceManualRows(session, manualGridInputs());
+    manualGridDirty = false;
     render();
+  }
+
+  function onGridInput() {
+    markManualGridDirty();
   }
 
   function onDeleteGridRow(event) {
     const button = event.target.closest?.('[data-ciifr-delete-row]');
     if (!button) return;
-    button.closest('[data-ciifr-manual-row]')?.remove();
+    const row = button.closest('[data-ciifr-manual-row]');
+    const changedOperationalData = row && !isManualGridRowEmpty(gridInput(row), session.mode);
+    row?.remove();
     if (!manualRows().length) addManualRow();
     renumberManualRows();
+    if (changedOperationalData) markManualGridDirty();
   }
 
   function onGridPaste(event) {
@@ -348,6 +372,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
         if (field) setGridCell(rows[startRow + rowOffset], field, value);
       });
     });
+    markManualGridDirty();
   }
 
   function onGridKeyDown(event) {
@@ -361,12 +386,25 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     manualRows()[rowIndex + 1]?.querySelector(`[data-ciifr-grid-field="${field}"]`)?.focus();
   }
 
-  function onApproveAll() { session = approveAllFindReplaceRows(session); render(); }
-  function onReset() { session = resetFindReplaceDecisions(session); render(); }
-  function onValidate() { session = qualifyFindReplaceSession(session); render(); }
-  function onApply() { session = applyFindReplaceToNewCopy(session); render(); }
+  function onApproveAll() {
+    if (manualGridDirty) return;
+    session = approveAllFindReplaceRows(session); render();
+  }
+  function onReset() {
+    if (manualGridDirty) return;
+    session = resetFindReplaceDecisions(session); render();
+  }
+  function onValidate() {
+    if (manualGridDirty) return;
+    session = qualifyFindReplaceSession(session); render();
+  }
+  function onApply() {
+    if (manualGridDirty) return;
+    session = applyFindReplaceToNewCopy(session); render();
+  }
 
   function onAudit() {
+    if (manualGridDirty) return;
     const audit = session.qualification?.postimage?.audit;
     if (!audit) return;
     const download = context.downloadJson || ((name, value) => defaultDownloadJson(documentRef, name, value));
@@ -374,7 +412,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   }
 
   function onDownload() {
-    if (session.release?.status !== 'APPLIED_TO_NEW_COPY') return;
+    if (manualGridDirty || session.release?.status !== 'APPLIED_TO_NEW_COPY') return;
     const result = buildFindReplaceDownloadArtifact(session);
     if (result.status !== 'READY_FOR_DOWNLOAD') {
       context.showToast?.(`Download blocked: ${result.blockers.join(', ')}`);
@@ -397,6 +435,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     [root.querySelector('[data-ciifr-clear-grid]'), 'click', onClearGrid],
     [root.querySelector('[data-ciifr-sync-grid]'), 'click', onSyncGrid],
     [refs.manualBody, 'click', onDeleteGridRow],
+    [refs.manualGrid, 'input', onGridInput],
     [refs.manualGrid, 'paste', onGridPaste],
     [refs.manualGrid, 'keydown', onGridKeyDown],
     [refs.approveAll, 'click', onApproveAll],
