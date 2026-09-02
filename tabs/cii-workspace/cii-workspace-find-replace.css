@@ -82,11 +82,6 @@
 }
 .ciifr-scope legend { font-weight: 700; margin-bottom: .35rem; }
 .ciifr-scope label { display: flex; align-items: center; gap: .3rem; font-weight: 500; }
-.ciifr-entry-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .7rem;
-}
 .ciifr-section-head {
   display: flex;
   justify-content: space-between;
@@ -97,6 +92,105 @@
 .ciifr-section-head h3,
 .ciifr-section-head p { margin-bottom: .2rem; }
 .ciifr-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+
+/* Manual-entry spreadsheet: intentionally table-first rather than form-first. */
+.ciifr-sheet-wrap {
+  width: 100%;
+  max-height: 390px;
+  overflow: auto;
+  border: 1px solid #9aa3ad;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+.ciifr-sheet {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: .86rem;
+}
+.ciifr-sheet th,
+.ciifr-sheet td {
+  border-right: 1px solid #d0d7de;
+  border-bottom: 1px solid #d0d7de;
+  padding: 0;
+  height: 34px;
+  background: #fff;
+  vertical-align: middle;
+}
+.ciifr-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: .42rem .5rem;
+  background: #e2f0d9;
+  color: #1f3325;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+.ciifr-sheet thead th small { font-weight: 500; color: #57606a; }
+.ciifr-sheet-row-number {
+  width: 42px;
+  min-width: 42px;
+  text-align: center !important;
+  background: #f3f4f6 !important;
+  color: #57606a !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ciifr-sheet tbody .ciifr-sheet-row-number {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-left: 0;
+}
+.ciifr-sheet td[data-ciifr-grid-range] { width: 110px; }
+.ciifr-sheet td[data-ciifr-grid-block] { width: 160px; }
+.ciifr-sheet td:nth-last-child(2) { width: 150px; }
+.ciifr-sheet-action { width: 42px; min-width: 42px; text-align: center; background: #f6f8fa !important; }
+.ciifr-sheet .ciifr-sheet-action button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: #57606a;
+  font-size: 1.15rem;
+}
+.ciifr-sheet .ciifr-sheet-action button:hover { background: #ffebe9; color: #cf222e; }
+.ciifr-sheet input,
+.ciifr-sheet select {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 33px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  padding: .38rem .45rem;
+  background: transparent;
+  color: #18212b;
+  outline: none;
+}
+.ciifr-sheet input:focus,
+.ciifr-sheet select:focus {
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px #217346;
+  background: #fff;
+}
+.ciifr-sheet input::selection { background: #c6e0b4; }
+.ciifr-sheet select:disabled { background: #f6f8fa; color: #8c959f; }
+.ciifr-sheet-hint {
+  margin: .45rem 0 0 !important;
+  font-size: .78rem;
+  color: #57606a !important;
+}
+
 .ciifr-table-wrap { overflow: auto; max-height: 360px; }
 .ciifr-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
 .ciifr-table th,
@@ -135,7 +229,7 @@
 }
 @media (max-width: 900px) {
   .ciifr-intake-grid,
-  .ciifr-entry-grid,
   .ciifr-kpis { grid-template-columns: 1fr; }
   .ciifr-section-head { align-items: flex-start; flex-direction: column; }
+  .ciifr-sheet { min-width: 680px; }
 }
