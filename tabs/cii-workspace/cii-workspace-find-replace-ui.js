@@ -134,8 +134,8 @@ function statusMessage(session, summary) {
   if (!session.rows.length) return 'Target loaded. Load CSV or update the manual spreadsheet preview.';
   if (summary.blocked) return `${summary.blocked} row(s) blocked. Resolve before validation.`;
   if (summary.proposed) return `${summary.proposed} row(s) awaiting approval or rejection.`;
-  if (summary.canValidate) return 'Review complete. Validate to build a qualified in-memory TARGET1 preview.';
-  return 'Preview ready.';
+  if (summary.canValidate) return 'Review complete. Validate & Preview to build a qualified in-memory TARGET1.';
+  return 'No approved replacement rows. Approve at least one row before validation.';
 }
 
 function previewText(session) {
