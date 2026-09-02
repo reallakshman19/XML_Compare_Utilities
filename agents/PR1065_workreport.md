@@ -4,90 +4,111 @@ HANDOVER_READINESS: READY_FOR_NEXT_GATE
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR: 1065
 BRANCH: feature/cii-find-replace-icon-v14
-MISSION: Deliver a visible CII v14 Find & Replace UI with CSV/manual-table proposal entry, preview/approval, TARGET0 validation, and qualified in-memory postimage preview. File mutation remains disabled.
+MISSION: CII v14 Find & Replace with preview/approval, TARGET0 validation, qualified TARGET1, and explicit safe output. Direct source-file overwrite remains unauthorized.
 
 ## Live grounding
 
-- Base at batch start: `main@d35f6aa419244585afec2c47c8fbd0584011931a`
-- Pre-batch feature head: `f54bbdfcab5cea32a2a55e286f1a58dc6753317a`
-- Workreport checkpoint: `c44dbfddff1ba7c0dee36e7f763c4bccea99002b`
-- PR state: DRAFT; merge authority remains owner-only.
-- Active overlap review: PR1033 is qualification/data-only with no production paths; other open PRs inspected did not overlap the Find & Replace or CII tile-installer paths. Coordination classification: SAFE.
+- Current base: `main@d35f6aa419244585afec2c47c8fbd0584011931a`.
+- Batch input head: `8bbf77745abc07aba1c68ad32591d1747e122281`.
+- Base drift at batch start: 18 ahead / 0 behind.
+- PR state: DRAFT / mergeable; merge authority owner-only.
+- Coordination: SAFE for Find & Replace/output paths based on inspected open PRs.
 
-## Takeover qualification / authority
+## Authority
 
 TAKEOVER_AUTHORITY: CONTINUE
 
-A1 Production trace: Utilities registry installs `installCiiWorkspaceTile`; `cii-workspace-tab.js` owns existing CII tile/overlay lifecycle.
-A2 Failure isolated: prior Find & Replace modules were unreachable from the product UI.
-A3 Authority: Find & Replace may create proposals, TARGET0-relative claims and an in-memory TARGET1 only. No file writer authority.
-A4 Independent validation: TARGET0 SHA-256, fixed-width/overlap/stale-preimage checks and independent postimage validation remain mandatory.
-A5 Patch boundary delivered: dedicated Find & Replace session/UI/style plus one minimal existing CII tile-installer hook.
+- TARGET0 is immutable and SHA-256 bound.
+- Only reviewed APPROVED rows can generate claims.
+- Claims are original-coordinate physical byte spans.
+- Equal byte length remains the default mutation rule.
+- Overlap, stale preimage, stale hash and unexpected postimage bytes fail closed.
+- Writer1/Writer2 are not called by Find & Replace.
+- Direct filesystem overwrite is not authorized.
 
-## Delivered capability
+## Delivered product capability
 
-- Real visible `↔ CII Find & Replace — V14` tile beside existing CII Workspace / Writer2 entries.
-- Separate Find & Replace overlay; existing compare/writer shell remains separate.
-- Target CII file intake with explicit v14 gate and no fallback.
-- CSV intake for Document / Element / Block schemas.
-- Manual table entry using the same operation contract as CSV.
-- Block manual entry intentionally restricted to current qualified `FORCE` / `DISPLACEMENT` scope families.
-- Preview table before validation.
-- Per-row Approve / Reject plus bulk approve and decision reset.
-- Only approved rows reach TARGET0 validation.
-- Qualified in-memory TARGET1 preview and JSON audit export.
-- `Apply to File` remains visibly disabled and controller forcibly keeps it disabled.
+- Visible `↔ CII Find & Replace — V14` Utilities tile.
+- CII v14-only target intake; no version fallback.
+- Document / Element / Block modes.
+- CSV schemas and manual-table rows share one proposal contract.
+- Preview, row Approve/Reject, bulk approval/reset.
+- TARGET0-relative scope resolution for Document, exact 15-row Element, DISPLACEMENT pointer custody and FORCE endpoint-row custody.
+- Independent preimage/postimage validation.
+- Qualified in-memory TARGET1 and audit JSON.
+- New explicit `Download Modified CII` output after QUALIFIED_PREVIEW.
+- `Direct Apply to File` remains disabled.
 
-## Protected invariants
+## Output boundary
 
-- Existing CII compare logic unchanged.
-- Writer1/Writer2 implementations unchanged and not imported by Find & Replace UI.
-- Parser/converter/core/Utilities registry descriptor unchanged.
-- No CII/XML/file write.
-- Non-v14 target fails closed.
-- Claims remain immutable TARGET0-relative offsets.
-- Equal byte length remains required by validator default.
-- Existing CII/Writer2 installer lifecycle retained; Find & Replace shares only the overlay ownership slot.
+`cii-workspace-find-replace-output.js` releases a new artifact only when:
 
-## Changed-file ledger for UI batch
+1. session status is `QUALIFIED_PREVIEW`;
+2. target is v14;
+3. TARGET0 hash equals both loaded-target and preimage custody hashes;
+4. TARGET0/TARGET1 lengths match;
+5. TARGET1 hash equals the executor audit hash;
+6. independent postimage validation passes again immediately before release.
 
-Production:
-- `tabs/cii-workspace/cii-workspace-tab.js` — minimal tile/style import and shared overlay hookup.
-- `tabs/cii-workspace/cii-workspace-find-replace.js` — complete panel markup.
-- `tabs/cii-workspace/cii-workspace-find-replace-csv.js` — shared CSV/manual operation factory.
-- `tabs/cii-workspace/cii-workspace-find-replace-session.js` — new immutable UI/session orchestration.
-- `tabs/cii-workspace/cii-workspace-find-replace-ui.js` — new browser controller.
-- `tabs/cii-workspace/cii-workspace-find-replace.css` — new isolated styling.
+The receipt states `originalFileOverwritten=false` and `writerInvoked=false`. Default output name is `<source-stem>.find-replace.cii`.
 
-Tests:
-- `tests/cii-workspace-find-replace-session.test.js`
-- `tests/cii-workspace-find-replace-ui-registration.test.js`
+## Retained evidence / qualification truth
 
-Handover:
-- `agents/PR1065_workreport.md`
+### Native V14
 
-No compare, writer, parser, converter, workflow or registry-descriptor files changed.
+Pinned authority inherited from PR1061:
 
-## Validation
+- upstream repo: `reallaksh19/3D_Converters`
+- upstream commit: `ca8d391ac5f829f53bebb3c37adf0547c34a67b4`
+- archive Git blob: `8409e1c429665e34a83c2a464665ebf5d5f1b0a1`
+- native member: `SYS-0001-v14.CII`
+- member SHA-256: `d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf`
 
-- New/modified batch JavaScript source syntax (`node --check` on exact batch files): PASS.
-- New UI registration/source contract test (`node --test tests/cii-workspace-find-replace-ui-registration.test.js` against exact batch files): 3/3 PASS.
-- CSV/manual shared-operation smoke on exact batch module: PASS.
-- New session integration tests: AUTHORED / NOT_RUN in full repository runtime at this checkpoint.
-- Previously reported foundation checks: 5/5 PASS.
-- Previously reported TARGET0 validator checks: 3/3 PASS.
-- Scope/executor tests already on branch: AUTHORED / runtime evidence pending.
-- Full repository runtime suite: NOT_RUN at this checkpoint.
-- Oracle classification: syntax is parser validation; UI registration assertions are source-contract checks; CSV/manual smoke executes the production operation factory; retained-real CII remains the required independent qualification oracle before file Apply.
+Current connector can verify the pinned source graph/testimony but cannot decode the binary ZIP through its UTF-8 file interface. Therefore native-v14 runtime/byte qualification in this batch is **NOT_RUN**, not PASS.
 
-## Backup / patch-ledger limitation
+### Retained real V11 source shapes
 
-This batch was applied through the connected GitHub repository API rather than a local checkout. The repository-mandated local `.backups/` and ignored `.agent-worklogs/` artifacts cannot be created through that API. The exact pre-edit blob SHA for the sole pre-existing production file is retained in GitHub history (`cii-workspace-tab.js` preimage blob `b7589c7595f3b33cdd8529a03c7e990da4b68d76`). No destructive history operation was used.
+`Benchmark/CIICompare/SOURCE 3.CII` and `TARGET 3-1.CII` are retained real V11 files. Inspection confirms:
+
+- canonical 15-row ELEMENTS records;
+- non-empty `DISPLMNT` section;
+- empty `FORCMNT` section in both inspected files.
+
+These are valid retained physical evidence for Element/DISPLACEMENT structure and potential lossless V11→V14 qualification, but runtime conversion + Find/Replace execution is **NOT_RUN** in this connector-only batch.
+
+### Scope promotion state
+
+| Scope | Evidence state | Product resolver |
+|---|---|---|
+| DOCUMENT | implementation qualified; retained-native runtime NOT_RUN | available, fail-closed |
+| ELEMENT | retained 15-row physical evidence inspected; runtime NOT_RUN | available, fail-closed |
+| DISPLACEMENT | retained non-empty physical evidence inspected; runtime NOT_RUN | available, fail-closed |
+| FORCE | no retained force-row fixture found in inspected pair | available but retained qualification NOT_QUALIFIED |
+
+No scope is falsely promoted to retained-native runtime PASS.
+
+## Changed files in output batch
+
+- `tabs/cii-workspace/cii-workspace-find-replace-output.js` — new download release boundary.
+- `tabs/cii-workspace/cii-workspace-find-replace-ui.js` — qualified download wiring.
+- `tabs/cii-workspace/cii-workspace-find-replace.js` — output UI and direct-overwrite wording.
+- `tests/cii-workspace-find-replace-output.test.js` — output custody/falsifier tests.
+- `agents/PR1065_workreport.md` — durable evidence/authority state.
+
+No compare, parser, converter, Writer1, Writer2, workflow, topology or registry-descriptor file changed in this batch.
+
+## Validation truth
+
+- Existing previously executed focused checks remain as previously recorded: foundation 5/5 PASS; TARGET0 validator 3/3 PASS; UI registration 3/3 PASS; CSV/manual smoke PASS.
+- New output tests: AUTHORED / NOT_RUN in full repository runtime.
+- Scope/executor/session tests: AUTHORED / runtime evidence pending.
+- Full repository suite: NOT_RUN.
+- Native V14 archive/member execution: NOT_RUN because binary member materialization is unavailable through current connected text interface.
 
 ## Highest remaining risk
 
-File-write authority has not been qualified. The next gate must use real retained v14 CII files to prove Document / Element / FORCE / DISPLACEMENT paths end-to-end before any Apply-to-file adapter can be enabled.
+Retained-native v14 end-to-end qualification is still absent, and FORCE lacks a retained row-bearing fixture. Direct overwrite must remain disabled.
 
 ## EXACT_NEXT_ACTION
 
-Run focused Find & Replace tests plus existing CII installer/lifecycle regression tests at the new head. If they pass, perform retained-real v14 qualification and only then design the explicit file-write adapter; do not enable Apply before that evidence exists.
+In an exact checkout or binary-capable execution substrate, materialize pinned `SYS-0001-v14.CII`, run Document/Element/DISPLACEMENT/FORCE retained tests (FORCE only if a real force-bearing fixture is sourced), run existing CII installer/lifecycle regression tests, and preserve the first failure. Do not enable direct file overwrite without those gates.

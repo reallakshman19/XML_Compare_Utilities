@@ -1,8 +1,8 @@
 /*
  * CII Find & Replace v14 panel markup.
  *
- * UI only. File mutation authority is intentionally absent; Apply stays
- * disabled even after a qualified in-memory TARGET1 preview is produced.
+ * Direct file overwrite authority is intentionally absent. A qualified
+ * TARGET1 may be exported only as a new explicit download artifact.
  */
 
 export function createFindReplaceAction() {
@@ -103,10 +103,14 @@ export function renderFindReplacePanel() {
 
         <section class="ciifr-card">
           <div class="ciifr-section-head">
-            <div><h3>5. Validate and build in-memory TARGET1</h3><p>No file is written by this action.</p></div>
+            <div>
+              <h3>5. Validate and build TARGET1</h3>
+              <p>A qualified result can be downloaded as a new CII file. The original file is never overwritten.</p>
+            </div>
             <div class="ciifr-actions">
               <button type="button" data-ciifr-validate disabled>Validate &amp; Preview</button>
-              <button type="button" data-ciifr-apply disabled title="File Apply is not qualified in this phase">Apply to File</button>
+              <button type="button" data-ciifr-download disabled>Download Modified CII</button>
+              <button type="button" data-ciifr-apply disabled title="Direct file overwrite is not authorized">Direct Apply to File</button>
               <button type="button" data-ciifr-export-audit disabled>Export Audit JSON</button>
             </div>
           </div>
