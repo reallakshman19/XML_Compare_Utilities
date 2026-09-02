@@ -144,6 +144,8 @@ It reads the actual repository `SOURCE 3.CII` and requires:
 
 The test is `AUTHORED / NOT_RUN` in the exact private repository runtime. It is not labelled PASS.
 
+An optional attempt to add the same zero-sentinel case to the existing synthetic resolver test was rejected by GitHub with `409` because the supplied blob preimage was stale. The existing test file was therefore **not modified**; no force update or overwrite of newer content was attempted. The retained-real test is the authoritative new regression for this batch.
+
 ## FORCE qualification state
 
 Current authoritative facts:
@@ -202,6 +204,9 @@ Tests:
 Handover:
 - `agents/PR1065_workreport.md` — this evidence and continuation state.
 
+Attempted but unchanged:
+- `tests/cii-workspace-find-replace-scope-resolver.test.js` — stale-preimage update rejected with 409; no write occurred.
+
 No existing CII parser, converter, Writer1, Writer2, compare-core, topology, registry or workflow file is changed by this batch.
 
 ## Validation ledger
@@ -215,6 +220,7 @@ No existing CII parser, converter, Writer1, Writer2, compare-core, topology, reg
 | retained owner element | PASS | SOURCE_INSPECTION | retained CII | 15440→15450 has IEL DISPLMNT pointer 1 |
 | retained displacement block | PASS | SOURCE_INSPECTION | retained CII | 20 rows; first node 15450.0; unused second node 0.0 |
 | canonical block construction | PASS | SOURCE_INSPECTION | `cii2019_displmnt_sync.py` | two 10-row specs; 1-based element mapping |
+| stale optional test update | PASS_FAIL_CLOSED | REMOTE_EXECUTION | GitHub contents API | 409 rejected stale blob; no overwrite performed |
 | retained-real JS regression | NOT_RUN | NOT_OBSERVED | retained CII | authored; exact checkout/runtime unavailable here |
 | existing focused Find & Replace suite | NOT_RUN_CURRENT_HEAD | NOT_OBSERVED | NONE | historical earlier passes are not relabelled |
 | full repository suite | NOT_RUN | NOT_OBSERVED | NONE | exact checkout unavailable |
@@ -228,7 +234,7 @@ No `NOT_RUN` is promoted to `PASS`.
 This batch was applied through the connected GitHub API, not a native checkout. Repository-local ignored `.agent-worklogs/` and normal local backup commands cannot be executed through this substrate. Exact Git preimages were preserved before existing-file changes:
 
 - resolver preimage blob `5737d0a03c8364a637df551fb5128fb21c56c701`
-- workreport preimage blob `4402049de67c357e3d3e136e8532492d6e1892f9`
+- initial workreport preimage blob `4402049de67c357e3d3e136e8532492d6e1892f9`
 - retained-real test had no preimage; undo is deletion only after verifying no later changes.
 
 No destructive history rewrite was performed.
