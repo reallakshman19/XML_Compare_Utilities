@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildFindReplaceDownloadArtifact } from '../tabs/cii-workspace/cii-workspace-find-replace-output.js';
 import {
+  buildFindReplaceDownloadArtifact,
+  qualifyFindReplaceOutputCandidate,
+} from '../tabs/cii-workspace/cii-workspace-find-replace-output.js';
+import {
+  applyFindReplaceToNewCopy,
   approveAllFindReplaceRows,
   createFindReplaceSession,
   qualifyFindReplaceSession,
@@ -24,8 +28,20 @@ function qualifiedSession() {
   return qualifyFindReplaceSession(session);
 }
 
-test('qualified preview releases a new CII artifact without overwrite authority', () => {
+test('qualified preview is a valid candidate but cannot download before explicit Apply', () => {
   const session = qualifiedSession();
+  const candidate = qualifyFindReplaceOutputCandidate(session);
+  assert.equal(candidate.status, 'READY_FOR_APPLY_TO_NEW_COPY');
+  assert.equal(candidate.artifact.receipt.originalFileOverwritten, false);
+  assert.equal(candidate.artifact.receipt.writerInvoked, false);
+
+  const blocked = buildFindReplaceDownloadArtifact(session);
+  assert.equal(blocked.status, 'BLOCKED');
+  assert.ok(blocked.blockers.includes('APPLY_TO_NEW_COPY_REQUIRED'));
+});
+
+test('applied new copy releases a CII download without overwrite authority', () => {
+  const session = applyFindReplaceToNewCopy(qualifiedSession());
   const result = buildFindReplaceDownloadArtifact(session);
 
   assert.equal(result.status, 'READY_FOR_DOWNLOAD');
@@ -33,13 +49,14 @@ test('qualified preview releases a new CII artifact without overwrite authority'
   assert.match(result.artifact.text, /NEW NEW/);
   assert.equal(result.artifact.receipt.sourceVersion, 14);
   assert.equal(result.artifact.receipt.byteLengthPreserved, true);
+  assert.equal(result.artifact.receipt.appliedToNewCopy, true);
   assert.equal(result.artifact.receipt.originalFileOverwritten, false);
   assert.equal(result.artifact.receipt.writerInvoked, false);
   assert.equal(result.artifact.receipt.validationStatus, 'PASS');
 });
 
-test('download boundary rechecks TARGET0 and TARGET1 hash custody', () => {
-  const session = qualifiedSession();
+test('download boundary rechecks TARGET0 and TARGET1 hash custody after Apply', () => {
+  const session = applyFindReplaceToNewCopy(qualifiedSession());
   const forged = {
     ...session,
     target: { ...session.target, hash: '0'.repeat(64) },
@@ -49,9 +66,13 @@ test('download boundary rechecks TARGET0 and TARGET1 hash custody', () => {
   assert.ok(result.blockers.includes('TARGET0_HASH_MISMATCH'));
 });
 
-test('unqualified session cannot release an output artifact', () => {
+test('unqualified session cannot validate or release an output artifact', () => {
   let session = createFindReplaceSession();
   session = withFindReplaceTarget(session, { name: 'plant.cii', text: V14 });
+  const candidate = qualifyFindReplaceOutputCandidate(session);
+  assert.equal(candidate.status, 'BLOCKED');
+  assert.ok(candidate.blockers.includes('SESSION_NOT_QUALIFIED'));
+
   const result = buildFindReplaceDownloadArtifact(session);
   assert.equal(result.status, 'BLOCKED');
   assert.ok(result.blockers.includes('SESSION_NOT_QUALIFIED'));

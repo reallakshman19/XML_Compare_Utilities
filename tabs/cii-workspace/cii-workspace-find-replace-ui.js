@@ -2,6 +2,7 @@ import { renderFindReplacePanel } from './cii-workspace-find-replace.js';
 import { buildFindReplaceDownloadArtifact } from './cii-workspace-find-replace-output.js';
 import {
   appendFindReplaceManualRow,
+  applyFindReplaceToNewCopy,
   approveAllFindReplaceRows,
   createFindReplaceSession,
   decideFindReplaceRow,
@@ -63,11 +64,14 @@ function shortHash(value) {
 function statusMessage(session, summary) {
   if (session.status === 'TARGET_VERSION_BLOCKED') return `Blocked: target is not CII v14 (${session.errors.join(', ')}).`;
   if (session.status === 'CSV_INVALID') return `CSV invalid: ${session.errors.join(', ')}`;
-  if (session.status === 'VALIDATION_FAILED' || session.status === 'POSTIMAGE_BLOCKED' || session.status === 'QUALIFICATION_BLOCKED') {
+  if (['VALIDATION_FAILED', 'POSTIMAGE_BLOCKED', 'QUALIFICATION_BLOCKED', 'APPLY_TO_NEW_COPY_BLOCKED'].includes(session.status)) {
     return `Blocked: ${session.errors.join(', ')}`;
   }
+  if (summary.appliedToNewCopy) {
+    return 'Applied to a new validated output copy. TARGET0 is unchanged; Download Modified CII is now available.';
+  }
   if (session.status === 'QUALIFIED_PREVIEW') {
-    return `Qualified preview: ${session.qualification.preimage.claims.length} TARGET0-relative claim(s). Modified CII download is available; direct overwrite remains disabled.`;
+    return `Qualified preview: ${session.qualification.preimage.claims.length} TARGET0-relative claim(s). Click Apply to New Copy to explicitly release TARGET1; TARGET0 remains unchanged.`;
   }
   if (!summary.targetLoaded) return 'Load a CII v14 target.';
   if (!session.rows.length) return 'Target loaded. Load CSV or add manual rows.';
@@ -119,6 +123,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     validate: root.querySelector('[data-ciifr-validate]'),
     approveAll: root.querySelector('[data-ciifr-approve-all]'),
     reset: root.querySelector('[data-ciifr-reset]'),
+    apply: root.querySelector('[data-ciifr-apply]'),
     audit: root.querySelector('[data-ciifr-export-audit]'),
     download: root.querySelector('[data-ciifr-download]'),
   };
@@ -148,7 +153,9 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     root.querySelector('[data-ciifr-source-hash]').textContent = shortHash(summary.sourceHash);
     root.querySelector('[data-ciifr-claims]').textContent = String(session.qualification?.preimage?.claims?.length || 0);
     root.querySelector('[data-ciifr-target-hash]').textContent = shortHash(session.qualification?.postimage?.audit?.targetHash);
-    root.querySelector('[data-ciifr-qualification]').textContent = summary.qualified ? 'QUALIFIED PREVIEW' : 'Pending';
+    root.querySelector('[data-ciifr-qualification]').textContent = summary.appliedToNewCopy
+      ? 'APPLIED TO NEW COPY'
+      : summary.qualified ? 'QUALIFIED PREVIEW' : 'Pending';
     root.querySelector('[data-ciifr-postimage-preview]').textContent = previewText(session);
   }
 
@@ -162,9 +169,9 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     refs.validate.disabled = !summary.canValidate;
     refs.approveAll.disabled = summary.proposed === 0;
     refs.reset.disabled = (summary.approved + summary.rejected) === 0;
+    refs.apply.disabled = !summary.canApplyToNewCopy;
     refs.audit.disabled = !summary.qualified;
-    refs.download.disabled = !summary.qualified;
-    root.querySelector('[data-ciifr-apply]').disabled = true;
+    refs.download.disabled = !summary.canDownload;
     renderScope(); renderRows(); renderQualification(summary);
   }
 
@@ -192,6 +199,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   function onApproveAll() { session = approveAllFindReplaceRows(session); render(); }
   function onReset() { session = resetFindReplaceDecisions(session); render(); }
   function onValidate() { session = qualifyFindReplaceSession(session); render(); }
+  function onApply() { session = applyFindReplaceToNewCopy(session); render(); }
 
   function onAudit() {
     const audit = session.qualification?.postimage?.audit;
@@ -201,9 +209,14 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   }
 
   function onDownload() {
+    if (session.release?.status !== 'APPLIED_TO_NEW_COPY') return;
     const result = buildFindReplaceDownloadArtifact(session);
     if (result.status !== 'READY_FOR_DOWNLOAD') {
       context.showToast?.(`Download blocked: ${result.blockers.join(', ')}`);
+      return;
+    }
+    if (result.artifact.receipt.targetHash !== session.release.targetHash) {
+      context.showToast?.('Download blocked: applied TARGET1 hash no longer matches the qualified output.');
       return;
     }
     const download = context.downloadText || ((artifact) => defaultDownloadText(documentRef, artifact));
@@ -217,6 +230,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     [refs.approveAll, 'click', onApproveAll],
     [refs.reset, 'click', onReset],
     [refs.validate, 'click', onValidate],
+    [refs.apply, 'click', onApply],
     [refs.audit, 'click', onAudit],
     [refs.download, 'click', onDownload],
     [root.querySelector('[data-ciifr-close]'), 'click', context.close || (() => {})],

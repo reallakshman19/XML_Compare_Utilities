@@ -13,17 +13,22 @@ test('existing CII installer exposes exactly one v14 Find & Replace tile', () =>
   assert.match(tab, /cii-workspace-find-replace\.css/);
 });
 
-test('Find & Replace UI exposes target, CSV, manual table, preview and disabled file Apply', () => {
+test('Find & Replace UI exposes Preview then Apply-to-new-copy before download', () => {
   for (const selector of [
     'data-ciifr-target',
     'data-ciifr-csv',
     'data-ciifr-add-row',
     'data-ciifr-preview-body',
     'data-ciifr-validate',
+    'data-ciifr-apply',
+    'data-ciifr-download',
     'data-ciifr-export-audit',
   ]) assert.match(panel, new RegExp(selector));
-  assert.match(panel, /data-ciifr-apply disabled/);
-  assert.match(ui, /root\.querySelector\('\[data-ciifr-apply\]'\)\.disabled = true/);
+  assert.match(panel, /Apply to New Copy/);
+  assert.doesNotMatch(panel, /Direct Apply to File/);
+  assert.match(ui, /refs\.apply\.disabled = !summary\.canApplyToNewCopy/);
+  assert.match(ui, /refs\.download\.disabled = !summary\.canDownload/);
+  assert.match(ui, /applyFindReplaceToNewCopy/);
 });
 
 test('NODE NAME is enabled while FORCE stays visible and qualification-pending', () => {

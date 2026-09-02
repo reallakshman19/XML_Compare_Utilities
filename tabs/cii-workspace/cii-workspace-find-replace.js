@@ -2,7 +2,7 @@
  * CII Find & Replace v14 panel markup.
  *
  * Direct file overwrite authority is intentionally absent. A qualified
- * TARGET1 may be exported only as a new explicit download artifact.
+ * TARGET1 must pass an explicit Apply-to-new-copy gate before download.
  */
 
 export function createFindReplaceAction() {
@@ -105,13 +105,13 @@ export function renderFindReplacePanel() {
         <section class="ciifr-card">
           <div class="ciifr-section-head">
             <div>
-              <h3>5. Validate and build TARGET1</h3>
-              <p>A qualified result can be downloaded as a new CII file. The original file is never overwritten.</p>
+              <h3>5. Validate, Apply to New Copy, and Download</h3>
+              <p>Validate TARGET1 first, then explicitly Apply it to a new output copy. TARGET0 is never overwritten.</p>
             </div>
             <div class="ciifr-actions">
               <button type="button" data-ciifr-validate disabled>Validate &amp; Preview</button>
+              <button type="button" data-ciifr-apply disabled title="Releases only the validated TARGET1 as a new copy">Apply to New Copy</button>
               <button type="button" data-ciifr-download disabled>Download Modified CII</button>
-              <button type="button" data-ciifr-apply disabled title="Direct file overwrite is not authorized">Direct Apply to File</button>
               <button type="button" data-ciifr-export-audit disabled>Export Audit JSON</button>
             </div>
           </div>
