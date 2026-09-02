@@ -129,6 +129,25 @@ export function appendFindReplaceManualRow(session, input = {}) {
   });
 }
 
+function withoutSequence(row) {
+  const { sequence, ...candidate } = row || {};
+  return candidate;
+}
+
+export function replaceFindReplaceManualRows(session, inputs = []) {
+  const retained = (session.rows || [])
+    .filter((row) => row.source !== 'MANUAL')
+    .map(withoutSequence);
+  const manual = (inputs || []).map((input) => createFindReplaceOperation(input, session.mode, { source: 'MANUAL' }));
+  const rows = buildFindReplacePreview([...retained, ...manual]);
+  const csvInvalid = session.csv?.status === 'INVALID';
+  return invalidate(session, {
+    rows,
+    status: csvInvalid ? 'CSV_INVALID' : rows.length ? 'PREVIEW_READY' : session.target ? 'TARGET_READY' : 'EMPTY',
+    errors: csvInvalid ? [...session.errors] : [],
+  });
+}
+
 export function decideFindReplaceRow(session, sequence, decision) {
   return invalidate(session, {
     rows: setFindReplaceRowDecision(session.rows, sequence, decision),
