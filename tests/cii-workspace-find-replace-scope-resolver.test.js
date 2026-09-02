@@ -94,19 +94,21 @@ test('displacement block fails closed without a positive pointer', () => {
   assert.ok(resolved.blockers.includes('DISPLMNT_POINTER_REQUIRED:10:20'));
 });
 
-test('force block is limited to FORCMNT rows on exact element endpoints', () => {
+test('synthetic node-keyed FORCE rows cannot bypass unqualified 20-row physical authority', () => {
   const target0 = fixture();
   const resolved = resolveFindReplaceScope(target0, { scope: 'BLOCK', block: 'FORCE', from: 10, to: 20 });
-  assert.equal(resolved.status, 'PASS');
-  assert.equal(resolved.authority, 'CII_FORCMNT_EXACT_ELEMENT_ENDPOINT_ROWS');
-  assert.equal(resolved.spans.length, 1, 'node 99 force row must not enter element scope');
+  assert.equal(resolved.status, 'BLOCKED');
+  assert.equal(resolved.authority, 'CII_FORCMNT_20_ROW_BLOCK_AUTHORITY_PENDING_OWNERSHIP_MAP');
+  assert.equal(resolved.evidence.rowsPerBlock, 20);
+  assert.deepEqual(resolved.spans, []);
+  assert.ok(resolved.blockers.includes('FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED'));
 
   const validation = validateFindReplacePreimage(target0, [{
     scope: 'BLOCK', block: 'FORCE', from: 10, to: 20,
     findText: '555', replaceText: '666', expectedMatches: 1, status: 'APPROVED',
   }]);
-  assert.equal(validation.status, 'PASS');
-  assert.equal(validation.claims.length, 1);
+  assert.equal(validation.status, 'FAIL');
+  assert.ok(validation.blockers.some((item) => item.includes('FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED')));
 });
 
 test('line ending mutation text is rejected even at equal byte width', () => {
