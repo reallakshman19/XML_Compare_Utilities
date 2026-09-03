@@ -1,25 +1,15 @@
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFortranNumber } from '../../parser/fixed-field.js';
 import { resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
+import { V14_AUX_BLOCKS, canonicalAuxBlock, readAuxPointer, resolveV14AuxiliaryRecord } from './cii-workspace-find-replace-v14-aux-authority.js';
+import { auxiliaryMutableFieldSpans, elementMutableFieldSpans } from './cii-workspace-find-replace-v14-field-authority.js';
 
 /*
  * CII v14 Find & Replace scope resolution.
- *
- * This module is read-only. It derives authorized search spans from TARGET0.
- * Proven custody used here:
- * - ELEMENTS: exact 15-row physical element blocks.
- * - DISPLMNT: ELEMENT row-12 (0-based 12) field-5 (0-based 4) pointer,
- *   20 physical rows per displacement block (2 specs x 10 rows).
- * - NODENAME: ELEMENT row-13 (0-based 13) field-6 (0-based 5) pointer,
- *   one physical row per name pair with fixed FROM/TO fields.
- * - FORCMNT: current repository authority establishes 20 physical rows/block,
- *   but the exact retained endpoint/payload ownership map is not yet qualified
- *   for Find & Replace. FORCE therefore fails closed.
+ * Default calls preserve U1 behavior. Mutation validation opts into field-aware
+ * spans, which protect Element identity/pointers and generic record boundaries.
  */
 
 const ELEMENT_ROWS = 15;
-const ELEMENT_DISPLMNT_POINTER_ROW = 12;
-const ELEMENT_DISPLMNT_POINTER_FIELD = 4;
-const DISPLMNT_ROWS = 20;
 const FORCMNT_ROWS = 20;
 const ZERO_DISPLACEMENT_NODE = 0;
 const MISSING_DISPLACEMENT_NODE = 9999.99;
@@ -33,13 +23,7 @@ function physicalLines(textInput) {
     if (!raw) continue;
     const ending = raw.endsWith('\r\n') ? '\r\n' : raw.endsWith('\n') ? '\n' : raw.endsWith('\r') ? '\r' : '';
     const body = ending ? raw.slice(0, -ending.length) : raw;
-    lines.push(Object.freeze({
-      body,
-      ending,
-      start: offset,
-      bodyEnd: offset + body.length,
-      end: offset + raw.length,
-    }));
+    lines.push(Object.freeze({ body, ending, start: offset, bodyEnd: offset + body.length, end: offset + raw.length }));
     offset += raw.length;
   }
   return lines;
@@ -61,10 +45,7 @@ function sectionRefs(lines, wanted, options = {}) {
 
 function lineSpans(refs, metadata = {}) {
   return Object.freeze((refs || []).map((ref) => Object.freeze({
-    start: ref.start,
-    end: ref.bodyEnd,
-    lineIndex: ref.lineIndex,
-    ...metadata,
+    start: ref.start, end: ref.bodyEnd, lineIndex: ref.lineIndex, ...metadata,
   })));
 }
 
@@ -75,8 +56,7 @@ function integerIdentity(value) {
 
 function parseElementHeader(body) {
   const fields = decodeFixedFields(body, CII_SIX_FIELD_WIDTHS);
-  const from = parseFortranNumber(fields[0]);
-  const to = parseFortranNumber(fields[1]);
+  const from = parseFortranNumber(fields[0]); const to = parseFortranNumber(fields[1]);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
   const roundedFrom = Math.round(from); const roundedTo = Math.round(to);
   if (Math.abs(from - roundedFrom) > 1e-9 || Math.abs(to - roundedTo) > 1e-9) return null;
@@ -94,19 +74,13 @@ function elementBlocks(lines) {
     const refs = section.refs.slice(offset, offset + ELEMENT_ROWS);
     const identity = parseElementHeader(refs[0].body);
     if (!identity) return { status: 'BLOCKED', blockers: [`ELEMENT_HEADER_INVALID:${offset / ELEMENT_ROWS}`], blocks: [] };
-    blocks.push(Object.freeze({
-      index: offset / ELEMENT_ROWS,
-      from: identity.from,
-      to: identity.to,
-      refs: Object.freeze(refs),
-    }));
+    blocks.push(Object.freeze({ index: offset / ELEMENT_ROWS, from: identity.from, to: identity.to, refs: Object.freeze(refs) }));
   }
   return { status: 'PASS', blockers: [], blocks: Object.freeze(blocks) };
 }
 
 function exactElementBlock(lines, operation) {
-  const from = integerIdentity(operation?.from);
-  const to = integerIdentity(operation?.to);
+  const from = integerIdentity(operation?.from); const to = integerIdentity(operation?.to);
   if (from == null || to == null) return { status: 'BLOCKED', blockers: ['ELEMENT_FROM_TO_REQUIRED'] };
   const parsed = elementBlocks(lines);
   if (parsed.status !== 'PASS') return parsed;
@@ -116,45 +90,44 @@ function exactElementBlock(lines, operation) {
   return { status: 'PASS', blockers: [], block: matches[0] };
 }
 
-function resolveElement(lines, operation) {
+function resolveElement(lines, operation, options = {}) {
   const resolved = exactElementBlock(lines, operation);
   if (resolved.status !== 'PASS') return resolved;
+  if (!options.fieldAwareMutation) {
+    return Object.freeze({
+      status: 'PASS', scope: 'ELEMENT', authority: 'CII_V14_EXACT_15_ROW_ELEMENT_BLOCK',
+      spans: lineSpans(resolved.block.refs, { section: 'ELEMENTS', elementIndex: resolved.block.index }),
+      evidence: Object.freeze({ from: resolved.block.from, to: resolved.block.to, elementIndex: resolved.block.index, rowCount: ELEMENT_ROWS }),
+      blockers: Object.freeze([]),
+    });
+  }
+  const fields = elementMutableFieldSpans(resolved.block);
+  if (fields.status !== 'PASS') return fields;
   return Object.freeze({
-    status: 'PASS',
-    scope: 'ELEMENT',
-    authority: 'CII_V14_EXACT_15_ROW_ELEMENT_BLOCK',
-    spans: lineSpans(resolved.block.refs, { section: 'ELEMENTS', elementIndex: resolved.block.index }),
+    status: 'PASS', scope: 'ELEMENT', authority: 'CII_V14_ELEMENT_MUTABLE_FIELD_AUTHORITY', fieldAware: true,
+    spans: fields.spans,
     evidence: Object.freeze({
-      from: resolved.block.from,
-      to: resolved.block.to,
-      elementIndex: resolved.block.index,
-      rowCount: ELEMENT_ROWS,
+      from: resolved.block.from, to: resolved.block.to, elementIndex: resolved.block.index,
+      rowCount: ELEMENT_ROWS, mutableFieldCount: fields.spans.length,
+      protected: Object.freeze(['FROM', 'TO', 'IEL_POINTERS_1_15']),
     }),
     blockers: Object.freeze([]),
   });
 }
 
 function displacementPointer(block) {
-  const ref = block?.refs?.[ELEMENT_DISPLMNT_POINTER_ROW];
-  if (!ref) return null;
-  const fields = decodeFixedFields(ref.body, CII_SIX_FIELD_WIDTHS);
-  const value = parseFortranNumber(fields[ELEMENT_DISPLMNT_POINTER_FIELD]);
-  if (!Number.isFinite(value)) return null;
-  const pointer = Math.round(value);
-  if (Math.abs(value - pointer) > 1e-9 || pointer < 1) return null;
-  return pointer;
+  const pointer = readAuxPointer(block, V14_AUX_BLOCKS.DISPLMNT);
+  return Number.isSafeInteger(pointer) && pointer > 0 ? pointer : null;
 }
 
 function isMissingDisplacementNode(value) {
-  if (!Number.isFinite(value)) return false;
-  return Math.abs(value - ZERO_DISPLACEMENT_NODE) < 1e-9
-    || Math.abs(value - MISSING_DISPLACEMENT_NODE) < 1e-6;
+  return Number.isFinite(value) && (Math.abs(value - ZERO_DISPLACEMENT_NODE) < 1e-9
+    || Math.abs(value - MISSING_DISPLACEMENT_NODE) < 1e-6);
 }
 
 function displacementNode(ref) {
   const values = decodeCiiNumericRow(ref?.body || '');
-  const value = values?.[0];
-  return Number.isFinite(value) ? value : null;
+  return Number.isFinite(values?.[0]) ? values[0] : null;
 }
 
 function validateDisplacementIdentity(refs, from, to) {
@@ -164,96 +137,87 @@ function validateDisplacementIdentity(refs, from, to) {
   if (!candidates.length) return ['DISPLMNT_BLOCK_HAS_NO_ENDPOINT_IDENTITY'];
   const allowed = new Set([from, to]);
   const outside = candidates.filter((value) => !allowed.has(value));
-  if (outside.length) return [`DISPLMNT_ENDPOINT_IDENTITY_MISMATCH:${outside.join(',')}`];
-  return [];
+  return outside.length ? [`DISPLMNT_ENDPOINT_IDENTITY_MISMATCH:${outside.join(',')}`] : [];
 }
 
-function resolveDisplacement(lines, operation) {
-  const element = exactElementBlock(lines, operation);
-  if (element.status !== 'PASS') return element;
-  const pointer = displacementPointer(element.block);
-  if (pointer == null) return { status: 'BLOCKED', blockers: [`DISPLMNT_POINTER_REQUIRED:${element.block.from}:${element.block.to}`] };
-  const section = sectionRefs(lines, 'DISPLMNT');
-  if (section.status !== 'PASS') return section;
-  if (!section.refs.length || section.refs.length % DISPLMNT_ROWS !== 0) {
-    return { status: 'BLOCKED', blockers: [`DISPLMNT_BLOCK_CARDINALITY_INVALID:${section.refs.length}`] };
-  }
-  const blockCount = section.refs.length / DISPLMNT_ROWS;
-  if (pointer > blockCount) return { status: 'BLOCKED', blockers: [`DISPLMNT_POINTER_OUT_OF_RANGE:${pointer}:${blockCount}`] };
-  const start = (pointer - 1) * DISPLMNT_ROWS;
-  const refs = section.refs.slice(start, start + DISPLMNT_ROWS);
-  const identityBlockers = validateDisplacementIdentity(refs, element.block.from, element.block.to);
+function displacementBlockers(result, operation) {
+  const from = integerIdentity(operation?.from); const to = integerIdentity(operation?.to);
+  return (result?.blockers || []).map((blocker) => (
+    blocker === `AUX_POINTER_REQUIRED:DISPLMNT:${from}:${to}` ? `DISPLMNT_POINTER_REQUIRED:${from}:${to}` : blocker
+  ));
+}
+
+function resolveDisplacement(lines, operation, options = {}) {
+  const owned = resolveV14AuxiliaryRecord(lines, { ...operation, block: 'DISPLMNT' }, { elementBlocks, exactElementBlock });
+  if (owned.status !== 'PASS') return { ...owned, blockers: displacementBlockers(owned, operation) };
+  const identityBlockers = validateDisplacementIdentity(owned.refs, owned.evidence.from, owned.evidence.to);
   if (identityBlockers.length) return { status: 'BLOCKED', blockers: identityBlockers };
+  if (!options.fieldAwareMutation) {
+    return Object.freeze({
+      status: 'PASS', scope: 'BLOCK', block: 'DISPLACEMENT', authority: 'CII_V14_ELEMENT_DISPLMNT_POINTER_20_ROW_BLOCK',
+      spans: lineSpans(owned.refs, { section: 'DISPLMNT', pointer: owned.evidence.pointer }), evidence: owned.evidence,
+      blockers: Object.freeze([]),
+    });
+  }
+  const fields = auxiliaryMutableFieldSpans('DISPLMNT', owned.refs);
+  if (fields.status !== 'PASS') return fields;
   return Object.freeze({
-    status: 'PASS',
-    scope: 'BLOCK',
-    block: 'DISPLACEMENT',
-    authority: 'CII_V14_ELEMENT_DISPLMNT_POINTER_20_ROW_BLOCK',
-    spans: lineSpans(refs, { section: 'DISPLMNT', pointer }),
-    evidence: Object.freeze({
-      from: element.block.from,
-      to: element.block.to,
-      elementIndex: element.block.index,
-      pointer,
-      rowCount: DISPLMNT_ROWS,
-    }),
+    status: 'PASS', scope: 'BLOCK', block: 'DISPLACEMENT', authority: 'CII_V14_ELEMENT_DISPLMNT_POINTER_20_ROW_BLOCK',
+    fieldAware: true, spans: fields.spans, evidence: Object.freeze({ ...owned.evidence, mutableFieldCount: fields.spans.length }),
     blockers: Object.freeze([]),
+  });
+}
+
+function resolveGenericAuxiliary(lines, operation, block, options = {}) {
+  const owned = resolveV14AuxiliaryRecord(lines, { ...operation, block }, { elementBlocks, exactElementBlock });
+  if (owned.status !== 'PASS') return Object.freeze({ ...owned, scope: 'BLOCK', block, spans: Object.freeze([]) });
+  if (!options.fieldAwareMutation) {
+    return Object.freeze({
+      status: 'BLOCKED', scope: 'BLOCK', block, authority: 'CII_V14_AUX_RECORD_OWNERSHIP_READ_ONLY',
+      spans: Object.freeze([]), evidence: owned.evidence, blockers: Object.freeze([`BLOCK_MUTATION_NOT_QUALIFIED:${block}`]),
+    });
+  }
+  const fields = auxiliaryMutableFieldSpans(block, owned.refs);
+  if (fields.status !== 'PASS') return Object.freeze({ ...fields, scope: 'BLOCK', block });
+  return Object.freeze({
+    status: 'PASS', scope: 'BLOCK', block, authority: 'CII_V14_AUX_RECORD_FIELD_AUTHORITY', fieldAware: true,
+    spans: fields.spans, evidence: Object.freeze({ ...owned.evidence, mutableFieldCount: fields.spans.length }), blockers: Object.freeze([]),
   });
 }
 
 function resolveForce() {
   return Object.freeze({
-    status: 'BLOCKED',
-    scope: 'BLOCK',
-    block: 'FORCE',
-    authority: 'CII_FORCMNT_20_ROW_BLOCK_AUTHORITY_PENDING_OWNERSHIP_MAP',
-    spans: Object.freeze([]),
-    evidence: Object.freeze({ rowsPerBlock: FORCMNT_ROWS }),
-    blockers: Object.freeze(['FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED']),
+    status: 'BLOCKED', scope: 'BLOCK', block: 'FORCE',
+    authority: 'CII_FORCMNT_20_ROW_BLOCK_AUTHORITY_PENDING_OWNERSHIP_MAP', spans: Object.freeze([]),
+    evidence: Object.freeze({ rowsPerBlock: FORCMNT_ROWS }), blockers: Object.freeze(['FORCMNT_BLOCK_AUTHORITY_NOT_QUALIFIED']),
   });
 }
 
 function documentSpans(lines) {
   return Object.freeze(lines.filter((line) => line.body.length > 0).map((line) => Object.freeze({
-    start: line.start,
-    end: line.bodyEnd,
-    lineIndex: lines.indexOf(line),
-    section: 'DOCUMENT',
+    start: line.start, end: line.bodyEnd, lineIndex: lines.indexOf(line), section: 'DOCUMENT',
   })));
 }
 
-function blockToken(value) {
-  return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
-}
+function blockToken(value) { return String(value || '').trim().toUpperCase().replace(/[\s_-]+/g, ''); }
 
-export function resolveFindReplaceScope(target0Input, operation = {}) {
+export function resolveFindReplaceScope(target0Input, operation = {}, options = {}) {
   const lines = physicalLines(target0Input);
   const scope = String(operation?.scope || 'DOCUMENT').trim().toUpperCase();
   if (scope === 'DOCUMENT') {
-    return Object.freeze({
-      status: 'PASS',
-      scope,
-      authority: 'TARGET0_PHYSICAL_LINE_BODIES',
-      spans: documentSpans(lines),
-      evidence: Object.freeze({ lineCount: lines.length }),
-      blockers: Object.freeze([]),
-    });
+    return Object.freeze({ status: 'PASS', scope, authority: 'TARGET0_PHYSICAL_LINE_BODIES', spans: documentSpans(lines), evidence: Object.freeze({ lineCount: lines.length }), blockers: Object.freeze([]) });
   }
-  if (scope === 'ELEMENT') return resolveElement(lines, operation);
+  if (scope === 'ELEMENT') return resolveElement(lines, operation, options);
   if (scope === 'BLOCK') {
     const block = blockToken(operation?.block);
     if (block === 'NODENAME') return resolveNodeNameScope(lines, operation, { sectionRefs, elementBlocks, exactElementBlock });
-    if (block === 'DISPLACEMENT' || block === 'DISPLMNT') return resolveDisplacement(lines, operation);
+    if (block === 'DISPLACEMENT' || block === 'DISPLMNT') return resolveDisplacement(lines, operation, options);
     if (block === 'FORCE' || block === 'FORCMNT') return resolveForce();
+    const auxiliary = canonicalAuxBlock(operation?.block);
+    if (auxiliary) return resolveGenericAuxiliary(lines, operation, auxiliary, options);
     return Object.freeze({ status: 'BLOCKED', scope, block, spans: Object.freeze([]), blockers: Object.freeze([`BLOCK_SCOPE_UNSUPPORTED:${block || 'UNKNOWN'}`]) });
   }
   return Object.freeze({ status: 'BLOCKED', scope, spans: Object.freeze([]), blockers: Object.freeze([`SCOPE_UNSUPPORTED:${scope || 'UNKNOWN'}`]) });
 }
 
-export const _test = Object.freeze({
-  physicalLines,
-  sectionRefs,
-  elementBlocks,
-  exactElementBlock,
-  displacementPointer,
-});
+export const _test = Object.freeze({ physicalLines, sectionRefs, elementBlocks, exactElementBlock, displacementPointer });

@@ -20,6 +20,11 @@ const GRID_FIELDS = Object.freeze({
   BLOCK: Object.freeze(['from', 'to', 'block', 'findText', 'replaceText', 'expectedMatches']),
 });
 
+const SUPPORTED_GRID_BLOCKS = Object.freeze([
+  Object.freeze(['NODENAME', 'NODE NAME']),
+  Object.freeze(['DISPLACEMENT', 'DISPLACEMENT']),
+]);
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -57,12 +62,8 @@ function normalizeGridBlock(value) {
 
 function blockOptions(selected = 'NODENAME') {
   const value = normalizeGridBlock(selected) || 'NODENAME';
-  const base = [
-    ['NODENAME', 'NODE NAME', false],
-    ['DISPLACEMENT', 'DISPLACEMENT', false],
-    ['FORCE', 'FORCE — qualification pending', true],
-  ];
-  if (value && !base.some(([candidate]) => candidate === value)) base.push([value, `${value} — unsupported`, false]);
+  const base = SUPPORTED_GRID_BLOCKS.map(([candidate, label]) => [candidate, label, false]);
+  if (value && !base.some(([candidate]) => candidate === value)) base.push([value, `${value} — unsupported`, true]);
   return base.map(([candidate, label, disabled]) =>
     `<option value="${escapeHtml(candidate)}"${candidate === value ? ' selected' : ''}${disabled ? ' disabled' : ''}>${escapeHtml(label)}</option>`).join('');
 }
@@ -230,6 +231,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
         const option = documentRef.createElement('option');
         option.value = normalized;
         option.textContent = `${normalized} — unsupported`;
+        option.disabled = true;
         control.appendChild(option);
       }
       control.value = normalized || 'NODENAME';
@@ -308,7 +310,9 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   async function onCsvChange() {
     const file = refs.csv.files?.[0];
     if (!file) return;
+    const syncedManualInputs = manualGridDirty ? null : manualGridInputs();
     session = withFindReplaceCsv(session, { name: file.name, text: await file.text(), mode: session.mode });
+    if (syncedManualInputs) session = replaceFindReplaceManualRows(session, syncedManualInputs);
     render();
   }
 

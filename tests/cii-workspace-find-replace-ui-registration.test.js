@@ -64,12 +64,27 @@ test('spreadsheet edits invalidate stale preview authority until Update Preview'
   assert.match(ui, /manualGridDirty = false;\s*render\(\);/);
 });
 
-test('NODE NAME is enabled while FORCE stays visible and qualification-pending', () => {
-  assert.match(panelAndUi, /NODENAME/);
-  assert.match(panelAndUi, /NODE NAME/);
-  assert.match(panelAndUi, /DISPLACEMENT/);
-  assert.match(panelAndUi, /FORCE — qualification pending/);
-  assert.match(panelAndUi, /disabled/);
+test('CSV changes preserve synchronized manual rows without bypassing dirty-grid custody', () => {
+  const start = ui.indexOf('async function onCsvChange()');
+  const end = ui.indexOf('function onScopeChange', start);
+  const handler = ui.slice(start, end);
+  const capture = handler.indexOf('const syncedManualInputs = manualGridDirty ? null : manualGridInputs();');
+  const loadCsv = handler.indexOf('session = withFindReplaceCsv');
+  const restoreManual = handler.indexOf('session = replaceFindReplaceManualRows');
+  assert.ok(capture >= 0 && capture < loadCsv && loadCsv < restoreManual);
+  assert.match(handler, /if \(syncedManualInputs\) session = replaceFindReplaceManualRows\(session, syncedManualInputs\);/);
+  assert.match(ui, /refs\.validate\.disabled = manualGridDirty \|\| !summary\.canValidate/);
+});
+
+test('finished block surface exposes only NODE NAME and DISPLACEMENT as selectable options', () => {
+  assert.match(panel, /Supported block scopes:<\/strong> Node Name and Displacement/);
+  assert.match(ui, /SUPPORTED_GRID_BLOCKS/);
+  assert.match(ui, /\['NODENAME', 'NODE NAME'\]/);
+  assert.match(ui, /\['DISPLACEMENT', 'DISPLACEMENT'\]/);
+  assert.doesNotMatch(panelAndUi, /FORCE — qualification pending/);
+  assert.doesNotMatch(ui, /\['FORCE', 'FORCE/);
+  assert.match(ui, /option\.textContent = `\$\{normalized\} — unsupported`/);
+  assert.match(ui, /option\.disabled = true/);
 });
 
 test('UI controller does not import writer or file-mutation modules', () => {

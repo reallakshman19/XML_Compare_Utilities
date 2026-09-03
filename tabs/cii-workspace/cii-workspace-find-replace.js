@@ -44,6 +44,7 @@ export function renderFindReplacePanel() {
               <label><input type="radio" name="ciifr-scope" value="ELEMENT" data-ciifr-scope> Element basis</label>
               <label><input type="radio" name="ciifr-scope" value="BLOCK" data-ciifr-scope> Block basis</label>
             </fieldset>
+            <p><strong>Supported block scopes:</strong> Node Name and Displacement.</p>
             <label>CSV file
               <input type="file" accept=".csv,text/csv" data-ciifr-csv>
             </label>
