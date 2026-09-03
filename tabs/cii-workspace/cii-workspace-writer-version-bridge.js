@@ -7,6 +7,10 @@ import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { projectCanonicalV14WriterDelta } from './cii-workspace-v14-change-projection.js';
 import { assertCiiV14Writer2FixedFieldAuthority } from './cii-workspace-v14-writer2-fixed-field-authority.js';
 import {
+  assertCiiWriter2V14ShadowIdentity,
+  createCiiWriter2V14LosslessShadow,
+} from './cii-workspace-v14-writer2-shadow.js';
+import {
   ciiByteStringToBytes,
   ciiBytesEqual,
   ciiBytesToByteString,
@@ -27,8 +31,11 @@ function withoutSideText(input, side, bytes) {
 function frozenAudit(audit) {
   return audit ? Object.freeze({ ...audit }) : null;
 }
+function writer2TargetShadowEnabled(side, options = {}) {
+  return side === 'TARGET' && String(options?.writerVersion || '') === '2';
+}
 
-async function normalizeSideToV11(value, fileName, side, cryptoRef) {
+async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}) {
   const version = detectCiiNeutralVersion(value);
   if (version === 11) {
     const sourceSha256 = await ciiSha256(value, cryptoRef);
@@ -43,21 +50,41 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef) {
       normalizeAudit: null,
       roundTripAudit: null,
       exactRoundTrip: true,
+      writer2Shadow: null,
     });
   }
-  const down = await convertCiiNeutralVersionLossless(value, 11, { fileName, cryptoRef });
+
+  const originalSha256 = await ciiSha256(value, cryptoRef);
+  let conversionInput = value;
+  let writer2Shadow = null;
+  if (writer2TargetShadowEnabled(side, options)) {
+    const shadow = createCiiWriter2V14LosslessShadow(value);
+    if (shadow.audit.maskedFieldCount > 0) {
+      const shadowSha256 = await ciiSha256(shadow.outputBytes, cryptoRef);
+      conversionInput = shadow.outputBytes;
+      writer2Shadow = Object.freeze({
+        enabled: true,
+        originalSha256,
+        shadowSha256,
+        audit: shadow.audit,
+      });
+    }
+  }
+
+  const down = await convertCiiNeutralVersionLossless(conversionInput, 11, { fileName, cryptoRef });
   const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName, cryptoRef });
   return Object.freeze({
     side,
     originalVersion: 14,
     normalizedVersion: 11,
     normalizedBytes: down.outputBytes,
-    sourceSha256: down.sourceSha256,
+    sourceSha256: originalSha256,
     normalizedSha256: down.targetSha256,
     baselineCanonicalSha256: up.targetSha256,
     normalizeAudit: frozenAudit(down.audit),
     roundTripAudit: frozenAudit(up.audit),
-    exactRoundTrip: ciiBytesEqual(value, up.outputBytes),
+    exactRoundTrip: ciiBytesEqual(conversionInput, up.outputBytes),
+    writer2Shadow,
   });
 }
 
@@ -65,8 +92,8 @@ async function normalizePairInput(input, options = {}) {
   const sourceValue = sideInput(input, 'source');
   const targetValue = sideInput(input, 'target');
   if (sourceValue == null || targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef);
-  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef);
+  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options);
+  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef, options);
   let normalizedInput = withoutSideText(input, 'source', source.normalizedBytes);
   normalizedInput = withoutSideText(normalizedInput, 'target', target.normalizedBytes);
   return Object.freeze({ source, target, normalizedInput });
@@ -82,13 +109,16 @@ function bridgeSideEvidence(side) {
     exactBaselineRoundTrip: side.exactRoundTrip,
     normalizeAudit: side.normalizeAudit,
     roundTripAudit: side.roundTripAudit,
+    writer2Shadow: side.writer2Shadow,
   });
 }
 
 function buildVersionBridgeEvidence(source, target) {
   return Object.freeze({
     schema: 'CIIWorkspaceWriterVersionBridge.v2',
-    mode: source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'CHANGE_ISOLATED_V14_VIA_V11',
+    mode: target.writer2Shadow?.enabled
+      ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11'
+      : (source.originalVersion === 11 && target.originalVersion === 11 ? 'DIRECT_V11' : 'CHANGE_ISOLATED_V14_VIA_V11'),
     source: bridgeSideEvidence(source),
     target: bridgeSideEvidence(target),
     conversionSource: Object.freeze({
@@ -101,6 +131,8 @@ function buildVersionBridgeEvidence(source, target) {
       wholeFileCanonicalRewriteAllowed: false,
       canonicalBaselineUsedAsOutput: false,
       finalNormalizedPostimageMustEqualWriter2V11: true,
+      writer2TargetShadowAllowed: target.writer2Shadow?.enabled === true,
+      writer2TargetShadowOutputAuthority: 'ORIGINAL_V14_BYTES_ONLY',
     }),
   });
 }
@@ -143,14 +175,41 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
   const expected = Number(bridge.target?.originalVersion);
   const actual = detectCiiNeutralVersion(targetInput);
   if (actual !== expected) throw new Error(`CII_VERSION_BRIDGE_TARGET_VERSION_MISMATCH:${expected}:${actual}`);
-  if (actual === 11) return Object.freeze({ bytes: targetInput, originalBytes: targetInput, audit: null, baselineCanonicalBytes: null, baselineCanonicalAudit: null });
+  if (actual === 11) return Object.freeze({
+    bytes: targetInput, originalBytes: targetInput, audit: null,
+    baselineCanonicalBytes: null, baselineCanonicalAudit: null,
+    shadowAudit: null, shadowValidation: null,
+  });
 
-  const down = await convertCiiNeutralVersionLossless(targetInput, 11, {
+  const originalSha256 = await ciiSha256(targetInput, options.cryptoRef);
+  if (bridge.target?.originalSha256 && originalSha256 !== bridge.target.originalSha256) {
+    throw new Error('CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH');
+  }
+
+  let conversionInput = targetInput;
+  let shadowAudit = null;
+  let shadowValidation = null;
+  const expectedShadow = bridge.target?.writer2Shadow;
+  if (expectedShadow?.enabled) {
+    const shadow = createCiiWriter2V14LosslessShadow(targetInput);
+    const shadowSha256 = await ciiSha256(shadow.outputBytes, options.cryptoRef);
+    if (expectedShadow.shadowSha256 && shadowSha256 !== expectedShadow.shadowSha256) {
+      throw new Error('CII_WRITER_2_STALE_V14_TARGET_SHADOW_HASH');
+    }
+    shadowValidation = assertCiiWriter2V14ShadowIdentity(expectedShadow.audit, shadow.audit);
+    shadowAudit = shadow.audit;
+    conversionInput = shadow.outputBytes;
+  }
+
+  const down = await convertCiiNeutralVersionLossless(conversionInput, 11, {
     fileName: preview?.targetDocument?.fileName || 'target.cii',
     cryptoRef: options.cryptoRef,
   });
-  if (bridge.target?.originalSha256 && down.sourceSha256 !== bridge.target.originalSha256) {
+  if (!expectedShadow?.enabled && bridge.target?.originalSha256 && down.sourceSha256 !== bridge.target.originalSha256) {
     throw new Error('CII_WRITER_2_STALE_ORIGINAL_V14_TARGET_HASH');
+  }
+  if (expectedShadow?.enabled && expectedShadow.shadowSha256 && down.sourceSha256 !== expectedShadow.shadowSha256) {
+    throw new Error('CII_WRITER_2_V14_TARGET_SHADOW_CONVERTER_SOURCE_HASH_MISMATCH');
   }
   if (bridge.target?.normalizedSha256 && down.targetSha256 !== bridge.target.normalizedSha256) {
     throw new Error('CII_WRITER_2_STALE_NORMALIZED_V11_TARGET_HASH');
@@ -168,7 +227,9 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
     audit: frozenAudit(down.audit),
     baselineCanonicalBytes: up.outputBytes,
     baselineCanonicalAudit: frozenAudit(up.audit),
-    baselineExactRoundTrip: ciiBytesEqual(targetInput, up.outputBytes),
+    baselineExactRoundTrip: ciiBytesEqual(conversionInput, up.outputBytes),
+    shadowAudit,
+    shadowValidation,
   });
 }
 
@@ -215,7 +276,20 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     normalized.baselineCanonicalBytes,
     upgraded.outputBytes,
   );
-  const projectedProof = await convertCiiNeutralVersionLossless(projection.outputBytes, 11, {
+  if (bridge.target?.writer2Shadow?.enabled && (projection.changedSections || []).includes('SIF&TEES')) {
+    throw new Error('CII_WRITER_2_V14_TARGET_SHADOW_PROTECTED_SIF_DELTA');
+  }
+
+  let projectedProofInput = projection.outputBytes;
+  let projectedShadowAudit = null;
+  let projectedShadowValidation = null;
+  if (bridge.target?.writer2Shadow?.enabled) {
+    const projectedShadow = createCiiWriter2V14LosslessShadow(projection.outputBytes);
+    projectedShadowValidation = assertCiiWriter2V14ShadowIdentity(normalized.shadowAudit, projectedShadow.audit);
+    projectedShadowAudit = projectedShadow.audit;
+    projectedProofInput = projectedShadow.outputBytes;
+  }
+  const projectedProof = await convertCiiNeutralVersionLossless(projectedProofInput, 11, {
     fileName: v11Result.fileName,
     cryptoRef: options.cryptoRef,
   });
@@ -235,8 +309,9 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     versionBridgeValidation: Object.freeze({
       schema: 'CIIWorkspaceWriterVersionBridgeValidation.v2',
       status: 'PASS',
-      path: 'V14_CHANGE_ISOLATED_VIA_V11',
+      path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_VIA_V11',
       baselineExactRoundTrip: normalized.baselineExactRoundTrip,
+      baselineRoundTripAuthority: bridge.target?.writer2Shadow?.enabled ? 'CONVERSION_SHADOW' : 'ORIGINAL_TARGET',
       canonicalModifiedRoundTripExact: true,
       projectedNormalizedPostimageExact: true,
       originalTargetSha256: bridge.target.originalSha256,
@@ -253,7 +328,13 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
       upgradeAudit: frozenAudit(upgraded.audit),
       canonicalProofAudit: frozenAudit(canonicalProof.audit),
       projectedProofAudit: frozenAudit(projectedProof.audit),
+      writer2TargetShadow: bridge.target?.writer2Shadow || null,
+      currentTargetShadowValidation: normalized.shadowValidation,
+      projectedTargetShadowValidation: projectedShadowValidation,
+      projectedTargetShadowAudit: projectedShadowAudit,
       v11WriterValidation: v11Result.validation,
     }),
   });
 }
+
+export const _test = Object.freeze({ writer2TargetShadowEnabled });
