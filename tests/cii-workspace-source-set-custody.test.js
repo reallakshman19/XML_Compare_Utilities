@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-intake.js';
+import { ciiSha256, detectCiiNeutralVersion } from '../tabs/cii-workspace/cii-workspace-v11-v14-converter.js';
 import {
   canonicalCiiSourceSetPreimage,
   ciiSourceSetSha256,
@@ -30,7 +30,6 @@ const [s1, s2, s3, targetBytes] = await Promise.all([bytes('S1'), bytes('S2'), b
 const set = await intakeCiiWorkspaceSourceSet([
   source('S1', s1), source('S2', s2), source('S3', s3),
 ], { cryptoRef });
-const target = await intakeCiiWorkspaceDocument(targetBytes, 'T.CII', { side: 'TARGET', cryptoRef });
 
 assert.equal(set.schema, 'CIIWorkspaceSourceSet.v1');
 assert.equal(set.status, 'CUSTODY_READY');
@@ -44,9 +43,8 @@ assert.deepEqual(set.members.map((member) => member.normalizedSha256), [null, nu
 assert.deepEqual(set.members.map((member) => member.normalizedVersion), [null, null, null]);
 assert.deepEqual(set.members.map((member) => member.normalizationStatus), ['NOT_RUN', 'NOT_RUN', 'NOT_RUN']);
 assert.equal(set.sourceSetSha256, SOURCE_SET_SHA);
-assert.equal(target.contentSha256, EXPECTED.T);
-assert.equal(target.summary.neutralVersionMajor, 14);
-assert.equal(target.side, 'TARGET');
+assert.equal(await ciiSha256(targetBytes, cryptoRef), EXPECTED.T);
+assert.equal(detectCiiNeutralVersion(targetBytes), 14);
 
 const expectedPreimage = `S1:${EXPECTED.S1}\nS2:${EXPECTED.S2}\nS3:${EXPECTED.S3}\n`;
 assert.equal(canonicalCiiSourceSetPreimage(set.members), expectedPreimage);
