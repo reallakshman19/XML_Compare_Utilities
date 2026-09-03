@@ -145,7 +145,7 @@ export function renderFindReplacePanel() {
             <div><dt>Source hash</dt><dd data-ciifr-source-hash>—</dd></div>
             <div><dt>Claims</dt><dd data-ciifr-claims>0</dd></div>
             <div><dt>Target hash</dt><dd data-ciifr-target-hash>—</dd></div>
-            <div><dt>Qualification</dt><dd data-ciifr-qualification>Pending</dd></div>
+            <div><dt>Qualification</dt><dd data-ciifr-qualification>NOT VALIDATED</dd></div>
           </dl>
 
           <details class="ciifr-target1-preview">
