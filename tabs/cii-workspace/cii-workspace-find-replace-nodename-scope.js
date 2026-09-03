@@ -116,6 +116,44 @@ function selectedSpans(element, context, pointer) {
   return { status: 'PASS', spans: Object.freeze([from.span, to.span]) };
 }
 
+function allNodeNameSpans(context) {
+  const spans = []; const blockers = [];
+  for (let pointer = 1; pointer <= context.refs.length; pointer += 1) {
+    const ref = context.refs[pointer - 1];
+    const from = asciiField(
+      ref, pointer, 'FROM', NODENAME_FROM_START, NODENAME_TO_START,
+      context.owners.get(ownerKey(pointer, 'FROM')),
+    );
+    const to = asciiField(
+      ref, pointer, 'TO', NODENAME_TO_START, NODENAME_ROW_END,
+      context.owners.get(ownerKey(pointer, 'TO')),
+    );
+    if (from.status !== 'PASS') blockers.push(from.blocker); else spans.push(from.span);
+    if (to.status !== 'PASS') blockers.push(to.blocker); else spans.push(to.span);
+  }
+  return blockers.length
+    ? { status: 'BLOCKED', blockers: Object.freeze(blockers), spans: Object.freeze([]) }
+    : { status: 'PASS', blockers: Object.freeze([]), spans: Object.freeze(spans) };
+}
+
+export function resolveDocumentNodeNameScope(lines, helpers) {
+  const context = nodeNameContext(lines, helpers);
+  if (context.status !== 'PASS') return context;
+  const selected = allNodeNameSpans(context);
+  if (selected.status !== 'PASS') return selected;
+  return Object.freeze({
+    status: 'PASS', scope: 'DOCUMENT', block: 'NODENAME', fieldAware: true,
+    authority: 'CII_V14_DOCUMENT_NODENAME_FIXED_FIELDS', spans: selected.spans,
+    evidence: Object.freeze({
+      rowCount: context.count, mutableFieldCount: selected.spans.length,
+      fromWidth: NODENAME_TO_START - NODENAME_FROM_START,
+      toWidth: NODENAME_ROW_END - NODENAME_TO_START,
+      serializer: 'AUTO_RIGHT_PAD_FIXED_WIDTH',
+    }),
+    blockers: Object.freeze([]),
+  });
+}
+
 export function resolveNodeNameScope(lines, operation, helpers) {
   const element = helpers.exactElementBlock(lines, operation);
   if (element.status !== 'PASS') return element;

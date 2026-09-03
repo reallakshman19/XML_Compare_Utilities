@@ -60,6 +60,22 @@ export function findReplaceRowsToTsv(rows = []) {
     .join('\n');
 }
 
+function diagnosticBlockerMessage(codeInput, sequence) {
+  const code = String(codeInput || '');
+  const tooWide = code.match(/^NODENAME_REPLACEMENT_TOO_WIDE:(\d+):(\d+):(.+)$/);
+  if (tooWide) {
+    return `Row ${sequence}: replacement has ${tooWide[1]} characters; the matched Node Name field allows ${tooWide[2]}. Enter only the logical value — padding is automatic.`;
+  }
+  const fixed = code.match(/^FIXED_WIDTH_LENGTH_MISMATCH:(\d+):(\d+)$/);
+  if (fixed) {
+    return `Row ${sequence}: this unequal-length change did not resolve to a qualified smart fixed-width field. Do not add spaces manually; use an exact Node Name value or choose the appropriate Element/Block scope.`;
+  }
+  if (code === 'NODENAME_ASCII_TEXT_REQUIRED') {
+    return `Row ${sequence}: Node Name values must use ASCII text. Fixed-width padding is handled automatically.`;
+  }
+  return `Row ${sequence}: ${code}`;
+}
+
 export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = []) {
   const entries = [];
   const blockedSequences = new Set();
@@ -88,7 +104,7 @@ export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = [])
     for (const blocker of row?.blockers || []) {
       entries.push(freezeEntry({
         severity: 'ERROR', code: String(blocker), sequences: [sequence],
-        message: `Row ${sequence}: ${String(blocker)}`,
+        message: diagnosticBlockerMessage(blocker, sequence),
       }));
       blockedSequences.add(sequence);
     }
@@ -135,6 +151,12 @@ export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = [])
   for (const summary of operationSummaries || []) {
     const sequence = Number(summary?.sequence);
     if (!Number.isInteger(sequence)) continue;
+    if (summary?.semanticMode === 'AUTO_NODENAME_FIXED_WIDTH') {
+      entries.push(freezeEntry({
+        severity: 'INFO', code: 'SMART_FIXED_WIDTH_NODENAME', sequences: [sequence],
+        message: `Row ${sequence}: exact Node Name field resolved automatically. Fixed-width padding is handled by the CII serializer; no Fortran spacing is required.`,
+      }));
+    }
     if (Number(summary?.matchCount) === 0) {
       entries.push(freezeEntry({
         severity: 'ERROR', code: 'NO_MATCHES_IN_SCOPE', sequences: [sequence],
@@ -147,7 +169,7 @@ export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = [])
       if (code === 'NO_MATCHES_IN_SCOPE') continue;
       entries.push(freezeEntry({
         severity: 'ERROR', code, sequences: [sequence],
-        message: `Row ${sequence}: ${code}`,
+        message: diagnosticBlockerMessage(code, sequence),
       }));
       blockedSequences.add(sequence);
     }
@@ -163,4 +185,4 @@ export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = [])
   });
 }
 
-export const _test = Object.freeze({ rawReplacement, effectiveReplacement, activeRow });
+export const _test = Object.freeze({ rawReplacement, effectiveReplacement, activeRow, diagnosticBlockerMessage });
