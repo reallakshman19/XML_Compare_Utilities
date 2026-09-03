@@ -41,7 +41,7 @@ function structuralEvidence(graph, node) {
   const nodes = nodeMap(graph); const nodeId = String(node.id); const incident = [...(graph?.adjacency?.get(nodeId) || [])];
   const neighbourDegrees = incident.map((edge) => Number(nodes.get(String(otherNode(edge, nodeId)))?.degree || 0)).sort((a, b) => a - b);
   const reasons = robustReasons(node, incident);
-  return { nodeId, degree: Number(node.degree || 0), componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
+  return { nodeId, nodeName: String(node?.nodeName || '').trim(), degree: Number(node.degree || 0), componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
     neighbourDegrees, layers: node.neighbourhoodLayers || [], robustReasons: reasons,
     salience: reasons.reduce((best, reason) => Math.max(best, REASON_WEIGHT[reason] || 0), 0) };
 }
@@ -105,6 +105,33 @@ function surfacedHypotheses(mutualRows, methodARows, discovery) {
   for (const row of methodARows) if (aPairs.has(pairKey(row)) && !byKey.has(pairKey(row))) byKey.set(pairKey(row), row);
   return [...byKey.values()];
 }
+function uniqueNamedStructuralEvidence(graph) {
+  const byName = new Map();
+  for (const node of graph?.nodes || []) {
+    const name = String(node?.nodeName || '').trim(); if (!name) continue;
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(structuralEvidence(graph, node));
+  }
+  return new Map([...byName.entries()].filter(([, rows]) => rows.length === 1).map(([name, rows]) => [name, rows[0]]));
+}
+function exactNameReviewHypotheses(sourceGraph, targetGraph, minimumScore) {
+  const sourceNames = uniqueNamedStructuralEvidence(sourceGraph); const targetNames = uniqueNamedStructuralEvidence(targetGraph); const rows = [];
+  for (const [name, item] of sourceNames) {
+    const target = targetNames.get(name); if (!target) continue;
+    const evidence = pairEvidence(item, target); if (evidence.blocked || evidence.score < minimumScore) continue;
+    rows.push({
+      item, winner: { target, ...evidence }, sourceRank: null, targetRank: null, mutualBest: false,
+      sourceGap: 0, targetGap: 0, winnerGap: 0,
+      reviewDiscovery: Object.freeze({ authority: 'EXACT_EXISTING_NODE_NAME_REVIEW_DISCOVERY_ONLY', nodeName: name }),
+    });
+  }
+  return rows;
+}
+function mergeReviewHypotheses(primary, reviewRows) {
+  const byKey = new Map(primary.map((row) => [pairKey(row), row]));
+  for (const row of reviewRows) if (!byKey.has(pairKey(row))) byKey.set(pairKey(row), row);
+  return [...byKey.values()];
+}
 function finalMethodBWeight(methodB, winner, gap, requiredGap) {
   const metrics = winner.metrics || { kinds: 0, neighbours: 0, layers: 0, reasons: 0 };
   const quality = (0.2 * metrics.kinds) + (0.2 * metrics.neighbours) + (0.5 * metrics.layers) + (0.1 * metrics.reasons);
@@ -131,7 +158,7 @@ function methodBBasis(methodB, weight, row, requiredGap) {
   if (!methodB) return ['Method B unavailable'];
   const sourceCount = methodB.source?.independentAxisRunCount || 0; const targetCount = methodB.target?.independentAxisRunCount || 0;
   if (methodB.status !== 'READY') return [`Method B REVIEW: independent runs ${sourceCount}/${targetCount}; ${methodB.reason}`];
-  if (!row.mutualBest) return [`Method B REVIEW: local run basis qualifies but structural candidate is rank ${row.sourceRank}/${row.targetRank}, not mutual-best`];
+  if (!row.mutualBest) return [`Method B REVIEW: local run basis qualifies but structural candidate is rank ${row.sourceRank ?? 'review-only'}/${row.targetRank ?? 'review-only'}, not mutual-best`];
   if (row.winnerGap < requiredGap) return [`Method B REVIEW: winner gap ${row.winnerGap.toFixed(3)} < required ${requiredGap.toFixed(3)}`];
   const basis = methodB.selectedBasis;
   return [`Method B PASS: ${methodB.weight.sourceDimension}/${methodB.weight.targetDimension}; independent runs ${sourceCount}/${targetCount}`,
@@ -165,6 +192,29 @@ function methodStrength(suggestion) {
   const b = ['METHOD_B_NETWORK', 'METHOD_A_AND_B'].includes(suggestion.basisMethod) ? Number(suggestion.methodBWeight?.total || 0) : 0;
   return Math.max(a, b);
 }
+function reviewDiscoveryEvidence(row, methodB) {
+  if (!row.reviewDiscovery) return null;
+  const sourceRuns = methodB?.source?.runs || []; const targetRuns = methodB?.target?.runs || [];
+  const sourceAxisCount = Number(methodB?.source?.independentAxisRunCount || 0); const targetAxisCount = Number(methodB?.target?.independentAxisRunCount || 0);
+  const sourceRun = sourceAxisCount === 1 && sourceRuns.length === 1 ? sourceRuns[0] : null;
+  const targetRun = targetAxisCount === 1 && targetRuns.length === 1 ? targetRuns[0] : null;
+  const sourceLengthMm = Number(sourceRun?.totalLengthMm); const targetLengthMm = Number(targetRun?.totalLengthMm);
+  const lengthDeltaMm = Number.isFinite(sourceLengthMm) && Number.isFinite(targetLengthMm) ? Math.abs(sourceLengthMm - targetLengthMm) : null;
+  const toleranceMm = Number(methodB?.tolerancePolicy?.toleranceMm);
+  const sourceTerminators = [...(sourceRun?.terminatorClasses || [])].map(String).sort(); const targetTerminators = [...(targetRun?.terminatorClasses || [])].map(String).sort();
+  const terminatorsCompatible = sourceTerminators.join('|') === targetTerminators.join('|') && sourceTerminators.length > 0;
+  const oneAxisCompatible = lengthDeltaMm != null && Number.isFinite(toleranceMm) && lengthDeltaMm <= toleranceMm && terminatorsCompatible;
+  return deepFreeze({
+    ...row.reviewDiscovery, reviewOnly: true, sourceAxisCount, targetAxisCount, sourceLengthMm, targetLengthMm,
+    lengthDeltaMm, toleranceMm: Number.isFinite(toleranceMm) ? toleranceMm : null, terminatorsCompatible, oneAxisCompatible,
+  });
+}
+function reviewDiscoveryStrength(suggestion) {
+  const item = suggestion?.candidateGeneration?.reviewDiscovery; if (!item) return 0;
+  const normalized = item.oneAxisCompatible && item.toleranceMm > 0 ? clamp(1 - (item.lengthDeltaMm / item.toleranceMm)) : 0;
+  const lengthScale = Math.min(99999, Number(item.sourceLengthMm || 0)) / 100000;
+  return (item.oneAxisCompatible ? 100 : 1) + normalized + lengthScale;
+}
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
   const limit = Math.max(1, Number(options.baseAnchorSuggestionLimit || 8));
@@ -183,32 +233,51 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
     sourceNodeId: row.item.nodeId, targetNodeId: row.winner.target.nodeId, score: row.winner.score, winnerGap: row.winnerGap,
     sourceRank: row.sourceRank, targetRank: row.targetRank, mutualBest: row.mutualBest,
   })), options);
-  const hypotheses = surfacedHypotheses(mutualRows, methodARows, methodADiscovery);
+  const structuralHypotheses = surfacedHypotheses(mutualRows, methodARows, methodADiscovery);
+  const reviewHypotheses = exactNameReviewHypotheses(sourceGraph, targetGraph, minimumScore);
+  const hypotheses = mergeReviewHypotheses(structuralHypotheses, reviewHypotheses);
   const suggestions = hypotheses.map((row) => {
     const sourceNodeId = row.item.nodeId; const targetNodeId = row.winner.target.nodeId;
     const methodA = projectCiiMethodAEvidence(methodADiscovery, sourceNodeId, targetNodeId);
     const multiBase = qualifyCiiMultiBaseAuthority({ sourceGraph, targetGraph,
       methodBAnchors: [{ baseId: `SUGGESTION_B_${sourceNodeId}_${targetNodeId}`, sourceNodeId, targetNodeId }] }, options);
     const methodB = multiBase.loops[0]?.evidence || null; const methodBWeight = finalMethodBWeight(methodB, row.winner, row.winnerGap, requiredGap);
-    const bConfidence = methodBConfidence(methodBWeight, requiredGap, methodB, row);
+    const bConfidence = methodBConfidence(methodBWeight, requiredGap, methodB, row); const reviewDiscovery = reviewDiscoveryEvidence(row, methodB);
+    const discoveryBasis = reviewDiscovery ? [
+      `Review-only exact existing Node Name corroboration ${reviewDiscovery.nodeName}; Node Name is not correspondence identity authority`,
+      reviewDiscovery.oneAxisCompatible
+        ? `Review-only one-axis network corroboration Δ ${Number(reviewDiscovery.lengthDeltaMm || 0).toFixed(3)} mm within ${Number(reviewDiscovery.toleranceMm || 0).toFixed(3)} mm; two-axis Method B gate remains unmet`
+        : 'Exact-name review discovery did not independently qualify the Method B two-axis gate',
+    ] : [];
     return deepFreeze({
       schema: CII_WORKSPACE_SCHEMAS.baseAnchorSuggestion, sourceNodeId, targetNodeId,
       status: 'SUGGESTED', authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED', reviewRequired: true,
       basisMethod: basisMethod(methodA, methodB, row, requiredGap), methodA, methodAWeight: methodA.bestBase?.weight || null,
       methodB, methodBWeight, confidence: suggestionConfidence(methodA, methodB, bConfidence, row, requiredGap),
       score: Number(row.winner.score.toFixed(3)), winnerGap: Number(row.winnerGap.toFixed(3)), requiredWinnerGap: requiredGap,
-      candidateGeneration: deepFreeze({ method: row.mutualBest ? 'MUTUAL_BEST_STRUCTURAL_LANDMARK' : 'BIDIRECTIONAL_STRUCTURAL_CANDIDATE_FOR_METHOD_A',
-        authorityRole: 'CANDIDATE_GENERATION_ONLY', score: Number(row.winner.score.toFixed(3)), methodAMinimumCandidateScore: methodAMinimumScore,
+      candidateGeneration: deepFreeze({
+        method: row.reviewDiscovery ? 'EXACT_NODE_NAME_REVIEW_DISCOVERY' : (row.mutualBest ? 'MUTUAL_BEST_STRUCTURAL_LANDMARK' : 'BIDIRECTIONAL_STRUCTURAL_CANDIDATE_FOR_METHOD_A'),
+        authorityRole: row.reviewDiscovery ? 'REVIEW_DISCOVERY_ONLY_NOT_IDENTITY_AUTHORITY' : 'CANDIDATE_GENERATION_ONLY',
+        score: Number(row.winner.score.toFixed(3)), methodAMinimumCandidateScore: methodAMinimumScore,
         sourceRank: row.sourceRank, targetRank: row.targetRank, mutualBest: row.mutualBest,
-        sourceWinnerGap: Number(row.sourceGap.toFixed(3)), targetWinnerGap: Number(row.targetGap.toFixed(3)) }),
-      basis: Object.freeze([...row.winner.basis, ...methodABasis(methodA), ...methodBBasis(methodB, methodBWeight, row, requiredGap)]),
-      identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE', 'WALL_NOT_USED']),
+        sourceWinnerGap: Number(row.sourceGap.toFixed(3)), targetWinnerGap: Number(row.targetGap.toFixed(3)),
+        reviewDiscovery,
+      }),
+      basis: Object.freeze([...discoveryBasis, ...row.winner.basis, ...methodABasis(methodA), ...methodBBasis(methodB, methodBWeight, row, requiredGap)]),
+      identityExclusions: Object.freeze(['NODE_NUMBER_OFFSET_NOT_USED', 'OD_NOT_IDENTITY_USED_AS_TOLERANCE_SCALE', 'WALL_NOT_USED',
+        ...(row.reviewDiscovery ? ['EXACT_NODE_NAME_USED_FOR_REVIEW_DISCOVERY_NOT_IDENTITY_AUTHORITY'] : [])]),
     });
   });
   const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
   suggestions.sort((a, b) => (order[a.confidence] - order[b.confidence])
     || Number(b.basisMethod === 'METHOD_A_AND_B') - Number(a.basisMethod === 'METHOD_A_AND_B')
+    || reviewDiscoveryStrength(b) - reviewDiscoveryStrength(a)
     || methodStrength(b) - methodStrength(a)
     || b.winnerGap - a.winnerGap || compareNodeIds(a.sourceNodeId, b.sourceNodeId));
   return deepFreeze(suggestions.slice(0, limit));
 }
+
+export const _test = Object.freeze({
+  structuralEvidence, structuralCandidates, pairEvidence, uniqueNamedStructuralEvidence,
+  exactNameReviewHypotheses, mergeReviewHypotheses, reviewDiscoveryEvidence, reviewDiscoveryStrength,
+});

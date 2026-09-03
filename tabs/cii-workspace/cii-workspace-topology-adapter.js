@@ -15,6 +15,21 @@ function pointerFamilyReady(document, family, authorityToken, qualification = nu
 function auxiliaryForElement(document, element) {
   return document?.auxiliaryEvidence?.elements?.[Number(element?.index)] || null;
 }
+function fixedBendPointer(auxiliary) {
+  const pointer = Number(auxiliary?.pointers?.bend);
+  return Number.isSafeInteger(pointer) && pointer >= 0 ? pointer : null;
+}
+function bendEvidence(element, auxiliary) {
+  const pointer = fixedBendPointer(auxiliary);
+  if (pointer != null) return Object.freeze({
+    status: pointer > 0 ? 'POINTER_BOUND_RECORD' : 'NONE', pointer,
+    authority: 'ELEMENT_FIXED_BEND_POINTER', legacyFlagIgnored: Boolean(element?.hasBend) !== (pointer > 0),
+  });
+  return Object.freeze({
+    status: element?.hasBend ? 'LEGACY_FLAG' : 'NONE', pointer: null,
+    authority: 'LEGACY_PARSED_BEND_FLAG_FALLBACK', legacyFlagIgnored: false,
+  });
+}
 function rigidEvidence(document, auxiliary) {
   const record = auxiliary?.rigidRecord;
   if (!record) return Object.freeze({ status: 'NONE' });
@@ -45,9 +60,10 @@ function processEvidence(element) {
   return evidence;
 }
 function rawEdge(document, element, auxiliary) {
-  const rigid = rigidEvidence(document, auxiliary);
-  const componentKind = rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : (element.hasBend ? 'BEND' : 'PIPE');
-  const packetEvidence = uniqueStrings([element.hasBend ? 'BEND' : '', rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : '']);
+  const rigid = rigidEvidence(document, auxiliary); const bend = bendEvidence(element, auxiliary);
+  const isRigid = rigid.status === 'POINTER_BOUND_RECORD'; const isBend = bend.status === 'POINTER_BOUND_RECORD' || bend.status === 'LEGACY_FLAG';
+  const componentKind = isRigid ? 'RIGID' : (isBend ? 'BEND' : 'PIPE');
+  const packetEvidence = uniqueStrings([isBend ? 'BEND' : '', isRigid ? 'RIGID' : '']);
   return {
     from: nodeId(element.from), to: nodeId(element.to),
     canonicalFrom: nodeId(element.from), canonicalTo: nodeId(element.to), normalizedFromTo: `${nodeId(element.from)}->${nodeId(element.to)}`,
@@ -58,7 +74,7 @@ function rawEdge(document, element, auxiliary) {
     fromPos: element.fromPos || null, toPos: element.toPos || null,
     componentKind, packetEvidence, flags: packetEvidence,
     parsedElementIndex: Number(element.index), auxiliaryPointers: auxiliary?.pointers || null,
-    sifTeeEvidence: sifTeeEvidence(document, auxiliary), rigidEvidence: rigid,
+    bendEvidence: bend, sifTeeEvidence: sifTeeEvidence(document, auxiliary), rigidEvidence: rigid,
   };
 }
 
@@ -166,3 +182,5 @@ export function adaptCiiDocumentToTopologyGraph(document) {
     summary: Object.freeze({ nodeCount: orderedNodes.length, elementCount: edges.length }),
   };
 }
+
+export const _test = Object.freeze({ fixedBendPointer, bendEvidence });

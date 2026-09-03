@@ -11,6 +11,13 @@ import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-mul
 import { bindCiiTransferScopeToPreview } from './cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
+import {
+  bulkAcceptCiiMultiSourceReview,
+  ciiMultiSourceReviewBySource,
+  ciiMultiSourceReviewMarkup,
+  ciiMultiSourceReviewSummaryMarkup,
+  seedCiiMultiSourceReviewDecisions,
+} from './cii-workspace-multisource-review-ui.js';
 
 const CII_MS_SOURCE_SHA_TO_ID = Object.freeze({
   '9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b': 'S1',
@@ -52,13 +59,16 @@ function binaryBytes(value) {
   for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index) & 0xff;
   return bytes;
 }
+function downloadPayload(documentRef, name, payload, type) {
+  const url = URL.createObjectURL(new Blob([payload], { type }));
+  const link = documentRef.createElement('a'); link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 function downloadApplied(documentRef, applied) {
   if (applied?.versionBridgeValidation?.status !== 'PASS' || typeof applied?.byteString !== 'string') {
     throw new Error('CII_MS_WRITER2_VERSION_BRIDGE_OUTPUT_REQUIRED');
   }
-  const url = URL.createObjectURL(new Blob([binaryBytes(applied.byteString)], { type: 'text/plain' }));
-  const link = documentRef.createElement('a'); link.href = url; link.download = applied.fileName; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadPayload(documentRef, applied.fileName, binaryBytes(applied.byteString), 'text/plain');
 }
 export function ciiSourceSetCustodyMarkup(inspection) {
   const sourceSet = inspection?.sourceSet; const rows = sourceSet?.members || [];
@@ -80,9 +90,9 @@ function manualDraft(manualDraftBySource, sourceId) {
 function manualAnchorMarkup(item, manualBySource, manualDraftBySource) {
   const pairs = manualRows(manualBySource, item.sourceId); const draft = manualDraft(manualDraftBySource, item.sourceId);
   const pairList = pairs.length
-    ? `<ol>${pairs.map((pair, index) => `<li><b>${h(pair.sourceNodeId)} ↔ ${h(pair.targetNodeId)}</b> <button type="button" data-ciiw-ms-manual-remove="${index}">Remove</button></li>`).join('')}</ol>`
+    ? `<ol class="ciiw-ms-manual-list">${pairs.map((pair, index) => `<li><b>${h(pair.sourceNodeId)} ↔ ${h(pair.targetNodeId)}</b><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-manual-remove="${index}">Remove</button></li>`).join('')}</ol>`
     : '<p>No reviewed manual anchor is locked for this SOURCE.</p>';
-  return `<section class="ciiw-base-set" data-ciiw-ms-manual-editor="1"><header><div><b>Manual / reviewed anchor fallback</b><span>${h(pairs.length)} locked pair${pairs.length === 1 ? '' : 's'}</span></div><span class="ciiw-corroboration">USER LOCKED</span>${pairs.length ? '<button type="button" data-ciiw-ms-manual-clear>Clear manual anchors</button>' : ''}</header><p>Use this when Method A/B cannot qualify a base. Enter nodes that you have reviewed as the same physical point. Manual anchors replace automatic base loops for this SOURCE; they do not weaken target-conflict checks.</p>${pairList}<div class="ciiw-detail-grid"><label><b>SOURCE node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-source value="${h(draft.sourceNodeId)}" placeholder="e.g. 1360"></label><label><b>TARGET node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-target value="${h(draft.targetNodeId)}" placeholder="reviewed target node"></label></div><div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-manual-add>Add reviewed anchor</button></div><small>Tip: clicking “Use manual anchor” above only prefills these fields. Edit either node before adding if the structural suggestion is not the point you intend to lock.</small></section>`;
+  return `<section class="ciiw-base-set" data-ciiw-ms-manual-editor="1"><header><div><b>Manual / reviewed anchor fallback</b><span>${h(pairs.length)} locked pair${pairs.length === 1 ? '' : 's'}</span></div><span class="ciiw-corroboration">USER LOCKED</span>${pairs.length ? '<button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-manual-clear>Clear manual anchors</button>' : ''}</header><p>Use this when Method A/B cannot qualify a base. Enter nodes that you have reviewed as the same physical point. Manual anchors replace automatic base loops for this SOURCE; they do not weaken target-conflict checks.</p>${pairList}<div class="ciiw-detail-grid"><label><b>SOURCE node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-source value="${h(draft.sourceNodeId)}" placeholder="e.g. 1360"></label><label><b>TARGET node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-target value="${h(draft.targetNodeId)}" placeholder="reviewed target node"></label></div><div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-manual-add>Add reviewed anchor</button></div><small>Tip: clicking “Use manual anchor” above only prefills these fields. Edit either node before adding if the review-only suggestion is not the physical point you intend to lock.</small></section>`;
 }
 function renderMemberAnchors(inspection, selectedBySource, manualBySource = new Map(), manualDraftBySource = new Map()) {
   const members = inspection?.memberInspections || [];
@@ -139,13 +149,13 @@ function nodeNameChangesMarkup(preview) {
     return `<tr><td><b>${h(row.sourceId)}</b></td><td>${h(row.sourceIdentity)} → ${h(row.targetIdentity)}</td><td>${h(row.sourceValue || '—')}</td><td>${h(row.targetValue || '—')}</td><td>${h(operation?.action || '—')}<small>${h(operation?.status || '—')}</small></td><td>${acceptance?.status === 'BOUND' ? `<b>BOUND</b><small>${h(acceptance.groupedKey)}</small>` : 'NOT BOUND'}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
-function transferMarkup(raw, scoped) {
+function transferMarkup(raw, scoped, reviewDirty = false) {
   const view = scoped || raw; const plan = view?.transferPlan; if (!plan) return '';
   const scope = plan.transferScope; const candidates = [...(raw?.transferPlan?.operations || []), ...(raw?.transferPlan?.excludedOperations || [])];
   const boundExpected = candidates.filter((item) => item?.bm001Acceptance?.status === 'BOUND' && ['CREATE', 'DELETE'].includes(item.action)).length;
-  const ready = scope?.status === 'BOUND' && view?.writerReadiness?.ready === true;
+  const ready = !reviewDirty && scope?.status === 'BOUND' && view?.writerReadiness?.ready === true;
   const excluded = plan.excludedOperations?.length || 0;
-  return `<section class="ciiw-transfer-scope" data-ciiw-ms-transfer="1"><header><div><h3>Multi-source Writer2 exact scope</h3><p>Only BM-001-bound NODENAME CREATE/DELETE can become APPLY. All other mutable candidates are EXCLUDE.</p></div><div class="ciiw-transfer-scope-status">${h(scope?.status || 'UNBOUND')}</div></header><p><b>Source-set:</b> <code>${h(raw.sourceSetSha256)}</code><br><b>Original TARGET:</b> <code>${h(raw.targetAuthority?.originalSha256 || '—')}</code></p><p><b>BM-001:</b> ${h(raw.bm001Authority?.rowCount || 0)} expected rows · <b>bound Writer2 candidates:</b> ${h(boundExpected)} · <b>EXCLUDE:</b> ${h(excluded)}</p><div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-bind-expected ${raw.transferPlan?.status === 'PREVIEW_READY' ? '' : 'disabled'}>Bind expected Node Name changes only</button><button type="button" data-ciiw-ms-apply ${ready ? '' : 'disabled'}>Apply scoped Writer2 to TARGET copy</button></div>${scope?.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${view?.writerReadiness?.blockers?.length ? `<p><b>Writer blockers:</b> ${h(view.writerReadiness.blockers.join(' · '))}</p>` : ''}</section>`;
+  return `<section class="ciiw-transfer-scope" data-ciiw-ms-transfer="1"><header><div><h3>Multi-source Writer2 exact scope</h3><p>Only BM-001-bound NODENAME CREATE/DELETE can become APPLY. All other mutable candidates are EXCLUDE.</p></div><div class="ciiw-transfer-scope-status">${h(scope?.status || 'UNBOUND')}</div></header><p><b>Source-set:</b> <code>${h(raw.sourceSetSha256)}</code><br><b>Original TARGET:</b> <code>${h(raw.targetAuthority?.originalSha256 || '—')}</code></p><p><b>BM-001:</b> ${h(raw.bm001Authority?.rowCount || 0)} expected rows · <b>bound Writer2 candidates:</b> ${h(boundExpected)} · <b>EXCLUDE:</b> ${h(excluded)}</p>${reviewDirty ? '<p><b>Correspondence review changed.</b> Apply approvals to Transfer Preview before binding Writer2 scope.</p>' : ''}<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-bind-expected ${!reviewDirty && raw.transferPlan?.status === 'PREVIEW_READY' ? '' : 'disabled'}>Bind expected Node Name changes only</button><button type="button" data-ciiw-ms-apply ${ready ? '' : 'disabled'}>Apply scoped Writer2 to TARGET copy</button></div>${scope?.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${view?.writerReadiness?.blockers?.length ? `<p><b>Writer blockers:</b> ${h(view.writerReadiness.blockers.join(' · '))}</p>` : ''}</section>`;
 }
 function switchTab(container, name) { container.querySelector(`[data-ciiw-tab="${name}"]`)?.click(); }
 
@@ -155,21 +165,43 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const inspectButton = container.querySelector('[data-ciiw-inspect]'); const analyzeButton = container.querySelector('[data-ciiw-analyze]');
   const evidence = container.querySelector('[data-ciiw-method-evidence]') || container.querySelector('[data-ciiw-landmarks]');
   const results = container.querySelector('[data-ciiw-results]'); const transfer = container.querySelector('[data-ciiw-transfer]');
+  const executive = container.querySelector('[data-ciiw-executive]'); const deltas = container.querySelector('[data-ciiw-deltas]');
+  const reviewButton = container.querySelector('[data-ciiw-refresh-review]'); const acceptHigh = container.querySelector('[data-ciiw-accept-high]');
+  const acceptMedium = container.querySelector('[data-ciiw-accept-medium]'); const confidenceFilter = container.querySelector('[data-ciiw-confidence-filter]');
+  const searchInput = container.querySelector('[data-ciiw-search]'); const changedOnly = container.querySelector('[data-ciiw-changed-only]');
+  const csvButton = container.querySelector('[data-ciiw-export-csv]'); const jsonButton = container.querySelector('[data-ciiw-export-json]');
   if (!sourceInput || !targetInput || !inspectButton || !analyzeButton) return legacy;
   sourceInput.multiple = true;
   let disposed = false; let inspection = null; let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
-  let preview = null; let scopedPreview = null; const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map();
+  let preview = null; let scopedPreview = null; let reviewDirty = false;
+  const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const reviewDecisions = new Map();
+  const reviewFilters = { confidence: 'ALL', search: '', changedOnly: false };
 
   const authorityReady = () => allMembersHaveBase(inspection, selectedBySource, manualBySource);
   const refreshAnchorEvidence = () => {
     if (evidence && inspection) { evidence.innerHTML = renderMemberAnchors(inspection, selectedBySource, manualBySource, manualDraftBySource); bindAnchorActions(); }
     analyzeButton.disabled = !authorityReady();
   };
+  const renderTransfer = () => {
+    if (transfer && preview) { transfer.innerHTML = transferMarkup(preview, scopedPreview, reviewDirty); bindTransferActions(); }
+  };
+  const renderMultiReview = () => {
+    if (!preview) return;
+    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
+    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
+    if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
+    if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
+    if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
+  };
+  const markReviewDirty = (message) => {
+    reviewDirty = true; scopedPreview = null; renderMultiReview(); renderTransfer(); setMultiSourceStatus(container, message);
+  };
   const resetMulti = () => {
-    inspection = null; cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null;
-    selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear();
+    inspection = null; cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
+    selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear();
     if (multiSource(container)) {
       analyzeButton.disabled = true; setManualDisabled(container, true);
+      if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
       setMultiSourceStatus(container, `${selectedFiles(sourceInput).length} SOURCE CII files selected. Inspect each member, then select a qualified base or add a reviewed manual anchor per source.`);
     } else {
       analyzeButton.disabled = false; setManualDisabled(container, false);
@@ -187,7 +219,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
           if (!ciiQualifiedLoopsForSuggestion(suggestion).length) {
             manualDraftBySource.set(id, { sourceNodeId: String(suggestion.sourceNodeId), targetNodeId: String(suggestion.targetNodeId) });
             refreshAnchorEvidence();
-            setMultiSourceStatus(container, `${id}: manual fallback prefilled ${suggestion.sourceNodeId} ↔ ${suggestion.targetNodeId}. Review/edit both node IDs, then click Add reviewed anchor.`);
+            setMultiSourceStatus(container, `${id}: review-only manual fallback prefilled ${suggestion.sourceNodeId} ↔ ${suggestion.targetNodeId}. Review/edit both node IDs, then click Add reviewed anchor.`);
             return;
           }
           manualBySource.set(id, []); manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
@@ -207,7 +239,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         if (!pairs.some((pair) => `${pair.sourceNodeId}=>${pair.targetNodeId}` === key)) pairs.push({ sourceNodeId, targetNodeId });
         manualBySource.set(id, pairs); selectedBySource.set(id, new Set()); manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
         refreshAnchorEvidence();
-        setMultiSourceStatus(container, `${id}: reviewed manual anchor ${sourceNodeId} ↔ ${targetNodeId} locked. ${authorityReady() ? 'All SOURCE members now have base authority.' : 'Add/select base authority for the remaining SOURCE members.'}`);
+        setMultiSourceStatus(container, `${id}: reviewed manual anchor ${sourceNodeId} ↔ ${targetNodeId} locked. ${authorityReady() ? 'All SOURCE members now have base authority; click Compare models.' : 'Add/select base authority for the remaining SOURCE members.'}`);
       });
       section.querySelectorAll('[data-ciiw-ms-manual-remove]').forEach((button) => button.addEventListener('click', (event) => {
         event.preventDefault(); const index = Number(button.dataset.ciiwMsManualRemove); const pairs = manualRows(manualBySource, id); pairs.splice(index, 1); manualBySource.set(id, pairs); refreshAnchorEvidence();
@@ -226,51 +258,59 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       cachedSources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef); cachedTargetBytes = new Uint8Array(await targetFile.arrayBuffer()); cachedTargetName = targetFile.name;
       setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
       inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
-      if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear();
+      if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
       for (const item of inspection.memberInspections) { selectedBySource.set(item.sourceId, new Set()); manualBySource.set(item.sourceId, []); manualDraftBySource.set(item.sourceId, { sourceNodeId: '', targetNodeId: '' }); }
       refreshAnchorEvidence();
+      if (results) results.innerHTML = '<p>Set base authority for S1/S2/S3, then click Compare models to populate multi-source correspondence review.</p>';
       setMultiSourceStatus(container, `Source-set custody READY: ${inspection.sourceSet.memberCount} members in canonical S1/S2/S3 order. Select a qualified base or add a reviewed manual anchor independently for each source.`);
     } catch (error) {
       if (!disposed) { if (evidence) evidence.innerHTML = `<div class="ciiw-method-empty"><b>Multi-source intake blocked</b><p>${h(error?.message || error)}</p></div>`; setMultiSourceStatus(container, error?.message || String(error)); }
     }
   };
+  const previewInput = (reviewBySource = undefined) => ({
+    sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName,
+    baseLoopsBySource: selectedBaseLoopsBySource(inspection, selectedBySource),
+    anchorPairsBySource: manualAnchorPairsBySource(inspection, manualBySource),
+    ...(reviewBySource ? { reviewBySource } : {}),
+    acceptanceIdentityResolver: options.acceptanceIdentityResolver,
+  });
   const analyzeMultiSource = async (event) => {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     try {
       if (!inspection || !cachedSources || !cachedTargetBytes) throw new Error('Inspect the source set before Compare.');
-      const baseLoopsBySource = selectedBaseLoopsBySource(inspection, selectedBySource);
-      const anchorPairsBySource = manualAnchorPairsBySource(inspection, manualBySource);
-      if (!allMembersHaveBase(inspection, selectedBySource, manualBySource)) throw new Error('Each SOURCE requires either a qualified Method A/B base or at least one reviewed manual anchor.');
+      if (!authorityReady()) throw new Error('Each SOURCE requires either a qualified Method A/B base or at least one reviewed manual anchor.');
       setMultiSourceStatus(container, 'Building per-source correspondence with reviewed base authority and target conflict veto…');
-      const firstPass = await createCiiWriter2SourceSetPreviewWithVersionBridge({
-        sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName, baseLoopsBySource, anchorPairsBySource,
-        acceptanceIdentityResolver: options.acceptanceIdentityResolver,
-      }, { cryptoRef: options.cryptoRef });
-      const reviewBySource = buildAutomaticReview(firstPass);
-      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
-        sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName, baseLoopsBySource, anchorPairsBySource, reviewBySource,
-        acceptanceIdentityResolver: options.acceptanceIdentityResolver,
-      }, { cryptoRef: options.cryptoRef });
-      if (disposed) return; scopedPreview = null;
-      if (results) results.innerHTML = nodeNameChangesMarkup(preview);
-      if (transfer) { transfer.innerHTML = transferMarkup(preview, scopedPreview); bindTransferActions(); }
-      switchTab(container, 'compare');
-      setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}. Node Name changes ${nodeNameChangeRows(preview).length}; BM-001 expected ${preview.bm001Authority.rowCount}.`);
+      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef: options.cryptoRef });
+      if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      renderMultiReview(); renderTransfer(); switchTab(container, 'compare');
+      setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}: ${(preview.compareReview?.rows || []).length} review rows. Review/lock correspondence as needed, then Apply approvals to Transfer Preview.`);
     } catch (error) { if (!disposed) setMultiSourceStatus(container, error?.message || String(error)); }
+  };
+  const applyMultiSourceReview = async (event) => {
+    if (!multiSource(container) || !preview) return;
+    event?.preventDefault?.(); event?.stopImmediatePropagation?.();
+    try {
+      const reviewBySource = ciiMultiSourceReviewBySource(preview, reviewDecisions);
+      setMultiSourceStatus(container, 'Applying multi-source correspondence decisions and rebuilding Writer2 Transfer Preview…');
+      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef: options.cryptoRef });
+      if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      renderMultiReview(); renderTransfer();
+      setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
+    } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const bindExpectedScope = async () => {
     if (!preview) return;
     try {
+      if (reviewDirty) throw new Error('Apply correspondence approvals to Transfer Preview before binding expected Writer2 scope.');
       const exact = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef: options.cryptoRef });
       scopedPreview = bindCiiTransferScopeToPreview(preview, exact.selection);
-      if (transfer) { transfer.innerHTML = transferMarkup(preview, scopedPreview); bindTransferActions(); }
-      switchTab(container, 'transfer');
+      renderTransfer(); switchTab(container, 'transfer');
       setMultiSourceStatus(container, `Expected-only scope bound: ${exact.appliedOperationIds.length} APPLY; ${exact.excludedOperationIds.length} EXCLUDE. Writer2 ${scopedPreview.writerReadiness.status}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyScoped = async () => {
-    if (!scopedPreview?.writerReadiness?.ready) return;
+    if (reviewDirty || !scopedPreview?.writerReadiness?.ready) return;
     try {
       setMultiSourceStatus(container, 'Applying expected-only Writer2 NODENAME scope to one TARGET copy through the frozen V11↔V14 bridge…');
       const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, cachedTargetBytes, { cryptoRef: options.cryptoRef });
@@ -282,11 +322,46 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     transfer?.querySelector('[data-ciiw-ms-bind-expected]')?.addEventListener('click', () => { void bindExpectedScope(); });
     transfer?.querySelector('[data-ciiw-ms-apply]')?.addEventListener('click', () => { void applyScoped(); });
   }
+  const onMultiReviewDecision = (event) => {
+    if (!multiSource(container) || !preview || !event.target?.matches?.('[data-ciiw-ms-decision]')) return;
+    event.stopImmediatePropagation(); const id = event.target.dataset.ciiwMsDecision; const decision = event.target.value;
+    if (decision) reviewDecisions.set(id, decision); else reviewDecisions.delete(id);
+    markReviewDirty('Multi-source correspondence decision changed. Apply approvals to Transfer Preview to bind the review ledger.');
+  };
+  const onBulkHigh = (event) => {
+    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    const count = bulkAcceptCiiMultiSourceReview(preview, reviewDecisions, 'HIGH'); markReviewDirty(`${count} HIGH multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`);
+  };
+  const onBulkMedium = (event) => {
+    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    const count = bulkAcceptCiiMultiSourceReview(preview, reviewDecisions, 'MEDIUM'); markReviewDirty(`${count} MEDIUM multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`);
+  };
+  const onConfidenceFilter = (event) => {
+    if (!multiSource(container) || !preview) return; event.stopImmediatePropagation(); reviewFilters.confidence = event.target.value || 'ALL'; renderMultiReview();
+  };
+  const onSearchFilter = (event) => {
+    if (!multiSource(container) || !preview) return; event.stopImmediatePropagation(); reviewFilters.search = event.target.value || ''; renderMultiReview();
+  };
+  const onChangedFilter = (event) => {
+    if (!multiSource(container) || !preview) return; event.stopImmediatePropagation(); reviewFilters.changedOnly = Boolean(event.target.checked); renderMultiReview();
+  };
+  const onCsvExport = (event) => {
+    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    downloadPayload(container.ownerDocument, 'cii-multisource-correspondence.csv', preview.artifacts.correspondenceCsv, 'text/csv');
+  };
+  const onJsonExport = (event) => {
+    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    downloadPayload(container.ownerDocument, 'cii-multisource-audit.json', preview.artifacts.auditJson, 'application/json');
+  };
   const blockLegacyAnalyze = (event) => { if (multiSource(container)) { event.preventDefault(); event.stopImmediatePropagation(); } };
   sourceInput.addEventListener('change', resetMulti); targetInput.addEventListener('change', resetMulti);
   inspectButton.addEventListener('click', inspectMultiSource, true);
   analyzeButton.addEventListener('click', analyzeMultiSource, true);
   analyzeButton.addEventListener('click', blockLegacyAnalyze, true);
+  container.addEventListener('change', onMultiReviewDecision, true);
+  reviewButton?.addEventListener('click', applyMultiSourceReview, true); acceptHigh?.addEventListener('click', onBulkHigh, true); acceptMedium?.addEventListener('click', onBulkMedium, true);
+  confidenceFilter?.addEventListener('change', onConfidenceFilter, true); searchInput?.addEventListener('input', onSearchFilter, true); changedOnly?.addEventListener('change', onChangedFilter, true);
+  csvButton?.addEventListener('click', onCsvExport, true); jsonButton?.addEventListener('click', onJsonExport, true);
   resetMulti();
   return {
     ...legacy,
@@ -294,7 +369,10 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     destroy() {
       disposed = true; sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
       inspectButton.removeEventListener('click', inspectMultiSource, true); analyzeButton.removeEventListener('click', analyzeMultiSource, true);
-      analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); legacy.destroy();
+      analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
+      reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
+      confidenceFilter?.removeEventListener('change', onConfidenceFilter, true); searchInput?.removeEventListener('input', onSearchFilter, true); changedOnly?.removeEventListener('change', onChangedFilter, true);
+      csvButton?.removeEventListener('click', onCsvExport, true); jsonButton?.removeEventListener('click', onJsonExport, true); legacy.destroy();
     },
   };
 }
