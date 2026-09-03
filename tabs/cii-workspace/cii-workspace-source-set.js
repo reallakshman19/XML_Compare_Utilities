@@ -76,9 +76,10 @@ export async function intakeCiiWorkspaceSourceSet(input, options = {}) {
       sourceId: id,
       fileName,
       originalSha256: document.contentSha256,
-      normalizedSha256: document.contentSha256,
       originalVersion: document.summary?.neutralVersionMajor ?? null,
-      normalizedVersion: document.summary?.neutralVersionMajor ?? null,
+      normalizedSha256: null,
+      normalizedVersion: null,
+      normalizationStatus: 'NOT_RUN',
       document,
     }));
   }
@@ -96,6 +97,7 @@ function bridgeMember(source, index, inspection) {
     normalizedVersion: side.normalizedVersion,
     originalSha256: side.originalSha256,
     normalizedSha256: side.normalizedSha256,
+    normalizationStatus: 'PASS_BRIDGE_EVIDENCE',
     baselineCanonicalSha256: side.baselineCanonicalSha256,
     exactBaselineRoundTrip: side.exactBaselineRoundTrip,
     summary: inspection.source?.summary || null,
