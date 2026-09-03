@@ -14,7 +14,7 @@ function stylesheet(documentRef, id, relativeUrl) {
 function ensureStylesheet(documentRef) {
   stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
   stylesheet(documentRef, ENGINEERING_STYLE_ID, './cii-workspace-engineering-ui.css');
-  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css');
+  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css?v=20260903-scroll-state-2');
 }
 function installWriter1CSifContextControls(root, state) {
   const panel = root.querySelector('[data-ciiw-panel="inputs"]'); if (!panel) return () => {};
