@@ -3,6 +3,7 @@ import { ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
 import { ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
+import { ciiWriter2SourceSetNodeNameReadiness } from './cii-workspace-multisource-writer2-readiness.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
@@ -169,6 +170,9 @@ function readinessFor(preview, transferPlan) {
   if (preview?.writerVersion === '1B') return ciiWriter1BReadiness(transferPlan);
   if (preview?.writerVersion === '1C') return ciiWriterCompositeReadiness(transferPlan, preview.targetDocument);
   if (preview?.writerVersion === '2') {
+    if (transferPlan?.sourceAuthorityKind === 'SOURCE_SET') {
+      return ciiWriter2SourceSetNodeNameReadiness(transferPlan, preview.targetDocument);
+    }
     const targetGraph = adaptCiiDocumentToTopologyGraph(preview.targetDocument);
     return ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph);
   }
@@ -202,4 +206,4 @@ export function bindCiiTransferScopeToPreview(preview, selection = null) {
   return deepFreeze(result);
 }
 
-export const _test = Object.freeze({ mutableCandidateIds, normalizedSelection, summary, uniqueOperations, sourceAuthority, targetAuthority });
+export const _test = Object.freeze({ mutableCandidateIds, normalizedSelection, summary, uniqueOperations, sourceAuthority, targetAuthority, readinessFor });
