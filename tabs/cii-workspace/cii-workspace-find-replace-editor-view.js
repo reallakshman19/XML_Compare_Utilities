@@ -76,6 +76,10 @@ export function diagnosticRowsHtml(diagnostics) {
   </tr>`).join('');
 }
 
+function reviewCounts(summary) {
+  return `${summary.approved} approved, ${summary.rejected} rejected, ${summary.proposed} awaiting review`;
+}
+
 export function statusMessage(session, summary, diagnostics) {
   if (session.status === 'TARGET_VERSION_BLOCKED') return `Blocked: target is not CII v14 (${session.errors.join(', ')}).`;
   if (session.status === 'CSV_INVALID') return `CSV invalid: ${session.errors.join(', ')}`;
@@ -85,10 +89,13 @@ export function statusMessage(session, summary, diagnostics) {
   if (session.status === 'QUALIFIED_PREVIEW') return `Qualified preview: ${session.qualification.preimage.claims.length} TARGET0-relative claim(s). Click Apply to New Copy to explicitly release TARGET1; TARGET0 remains unchanged.`;
   if (!summary.targetLoaded) return 'Load a CII v14 target.';
   if (!session.rows.length) return 'Target loaded. Type or paste Find / Replace rows into the editor.';
-  if (summary.blocked) return `${summary.blocked} row(s) blocked. Resolve before validation.`;
-  if (summary.proposed) return `${summary.proposed} row(s) awaiting approval or rejection.`;
-  if (summary.canValidate) return 'Review complete. Validate & Preview to build a qualified in-memory TARGET1.';
-  return 'No approved replacement rows. Approve at least one row before validation.';
+  if (summary.blocked) return `${summary.blocked} row(s) blocked; ${reviewCounts(summary)}. Resolve blockers before validation.`;
+  if (summary.proposed) return `${reviewCounts(summary)}. Approve or reject every pending row before validation.`;
+  if (summary.canValidate) return `Review complete — ${summary.approved} approved, ${summary.rejected} rejected. Validate & Preview to build a qualified in-memory TARGET1.`;
+  if (summary.approved === 0 && summary.rejected === summary.total) {
+    return `All ${summary.rejected} replacement row(s) are rejected. Reset decisions or approve at least one row before validation.`;
+  }
+  return `Review incomplete — ${reviewCounts(summary)}. Approve at least one replacement row before validation.`;
 }
 
 export function previewText(session) {
@@ -98,4 +105,4 @@ export function previewText(session) {
   return target1.length <= limit ? target1 : `${target1.slice(0, limit)}\n\n… preview truncated; full postimage retained in memory.`;
 }
 
-export const _test = Object.freeze({ editorValue, decisionHtml, SUPPORTED_GRID_BLOCKS });
+export const _test = Object.freeze({ editorValue, decisionHtml, reviewCounts, SUPPORTED_GRID_BLOCKS });
