@@ -2,7 +2,7 @@
  * CII Find & Replace v14 panel markup.
  *
  * Direct file overwrite authority is intentionally absent. A qualified
- * TARGET1 must pass an explicit Apply-to-new-copy gate before download.
+ * TARGET1 must pass an explicit Apply-to-new-copy gate before export.
  */
 
 export function createFindReplaceAction() {
@@ -87,7 +87,7 @@ export function renderFindReplacePanel() {
               <tbody data-ciifr-preview-body></tbody>
             </table>
           </div>
-          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
+          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
 
           <details class="ciifr-target1-preview" open>
             <summary>Conflict, duplicate &amp; validation log — <span data-ciifr-diagnostic-summary>0 errors</span></summary>
@@ -103,13 +103,13 @@ export function renderFindReplacePanel() {
         <section class="ciifr-card ciifr-finalize">
           <div class="ciifr-finalize-head">
             <div>
-              <h3>4. Validate, Apply to New Copy, and Download</h3>
-              <p>Approve or reject current editor rows, validate TARGET1, then explicitly release it as a new output copy. TARGET0 is never overwritten.</p>
+              <h3>4. Validate, Apply to New Copy, and Export</h3>
+              <p>Approve or reject current editor rows, validate TARGET1, explicitly release it as a new output copy, then export the replaced CII. TARGET0 is never overwritten.</p>
             </div>
             <button type="button" class="ciifr-audit-button" data-ciifr-export-audit disabled>Export Audit JSON</button>
           </div>
 
-          <ol class="ciifr-finalize-steps" aria-label="Validate, apply, and download workflow">
+          <ol class="ciifr-finalize-steps" aria-label="Validate, apply, and export workflow">
             <li class="ciifr-finalize-step">
               <span class="ciifr-step-number" aria-hidden="true">1</span>
               <div class="ciifr-step-copy">
@@ -129,10 +129,10 @@ export function renderFindReplacePanel() {
             <li class="ciifr-finalize-step">
               <span class="ciifr-step-number" aria-hidden="true">3</span>
               <div class="ciifr-step-copy">
-                <strong>Download</strong>
-                <small>Download is enabled only after the Apply-to-new-copy release receipt is valid.</small>
+                <strong>Export Replaced CII</strong>
+                <small>Exports only the applied, independently revalidated TARGET1 as a new .CII file. Export remains disabled until the Apply-to-new-copy release receipt is valid.</small>
               </div>
-              <button type="button" data-ciifr-download disabled>Download Modified CII</button>
+              <button type="button" data-ciifr-download disabled title="Exports only the applied, independently revalidated TARGET1">Export Replaced CII</button>
             </li>
           </ol>
 

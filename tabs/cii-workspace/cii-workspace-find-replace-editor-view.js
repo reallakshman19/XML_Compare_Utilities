@@ -81,7 +81,7 @@ export function statusMessage(session, summary, diagnostics) {
   if (session.status === 'CSV_INVALID') return `CSV invalid: ${session.errors.join(', ')}`;
   if (diagnostics?.hasErrors) return `${diagnostics.counts.error} editor/validation error(s) logged. Resolve conflicts, duplicates, or blockers before validation.`;
   if (['VALIDATION_FAILED', 'POSTIMAGE_BLOCKED', 'QUALIFICATION_BLOCKED', 'APPLY_TO_NEW_COPY_BLOCKED'].includes(session.status)) return `Blocked: ${session.errors.join(', ')}`;
-  if (summary.appliedToNewCopy) return 'Applied to a new validated output copy. TARGET0 is unchanged; Download Modified CII is now available.';
+  if (summary.appliedToNewCopy) return 'Applied to a new validated output copy. TARGET0 is unchanged; Export Replaced CII is now available.';
   if (session.status === 'QUALIFIED_PREVIEW') return `Qualified preview: ${session.qualification.preimage.claims.length} TARGET0-relative claim(s). Click Apply to New Copy to explicitly release TARGET1; TARGET0 remains unchanged.`;
   if (!summary.targetLoaded) return 'Load a CII v14 target.';
   if (!session.rows.length) return 'Target loaded. Type or paste Find / Replace rows into the editor.';
