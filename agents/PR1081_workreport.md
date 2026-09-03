@@ -5,9 +5,9 @@
 - PR: `#1081`
 - Branch: `feature/cii-find-replace-finish-v14`
 - Base: `main@bfe3abbb67060c1212001f2e9d967c229a057640`
-- Product material head: `09c7c1aab70fab5d918065d11b557050205b97f0`
-- Latest material leg: `ML-CII-FR-0004`
-- Active successor endpoint: `EP-CII-FR-0023`
+- Product material head: `700e08a5be64a35bcc157554e809e97ba41bcace`
+- Latest material leg: `ML-CII-FR-0005`
+- Active successor endpoint: `EP-CII-FR-0026`
 - Merge authority: Owner-only; `MERGE_AUTHORIZED=FALSE`.
 
 ## Current Owner direction
@@ -18,16 +18,15 @@ universal block-wise Find & Replace
 universal element-wise Find & Replace
 do not change Node Name logic if no errors
 skip qualification, proceed next
-proceed next
+proceed phase-wise
 ```
 
 Disposition:
 
 - FORCE/FORCMNT remains de-scoped and is not a release dependency.
-- Node Name remains on its existing specialized fixed-field resolver/validator path.
-- Displacement semantics and endpoint identity checks are preserved.
+- Node Name remains on its existing specialized fixed-field resolver/validator path and was not changed.
+- Displacement semantics and endpoint identity checks remain preserved.
 - U1 qualification was explicitly skipped by the Owner and recorded as `NOT_REQUIRED`, not fabricated PASS.
-- The latest `proceed next` consumed EP-0021's exact next action and authorized bounded U2 field-aware mutation work only.
 - Merge remains Owner-only and unauthorized.
 
 ## Existing supported application surface
@@ -45,7 +44,7 @@ Target CII v14
 -> Download Modified CII / Audit JSON
 ```
 
-Backend U1/U2 now supports ownership + field-aware validation for generic auxiliary records, but UI/CSV generic block expansion is deliberately deferred pending retained-real evidence.
+Backend U1/U2 plus the compact-v14 correction supports ownership and field-aware validation for generic auxiliary records. UI/CSV generic block choices remain deliberately deferred until U4 remaining-family evidence is complete.
 
 Protected custody remains:
 
@@ -55,21 +54,20 @@ Direct Apply-to-source disabled
 Writer1/Writer2 not invoked
 Download requires released qualified TARGET1
 manual-grid dirty state invalidates stale qualification/release
+CONTROL / IEL mutation not authorized
+record clone/repoint not authorized
 ```
 
 ## Phase 1 — CSV/manual synchronization
 
 Phase 1 corrected `onCsvChange()` so already-synchronized clean manual rows remain in Preview/Validate custody when CSV is loaded or reloaded. Dirty manual rows are never auto-admitted and still require `Update Preview`.
 
-Material receipt: `agents/chains/CII-FIND-REPLACE-V14/material-legs/ML-CII-FR-0002.md`.
-
+Material receipt: `ML-CII-FR-0002`.
 Exact-source UI/static validation: **PASS 10/10**.
 
 ## U1 — universal v14 auxiliary ownership/cardinality foundation
 
 U1 completed at product material head `4f9e79fc899fd5e89c33267480208e25f8d627da`.
-
-`tabs/cii-workspace/cii-workspace-find-replace-v14-aux-authority.js` provides one immutable v14 registry for all 15 IEL auxiliary pointers, CONTROL count coordinates and v14 rows-per-record.
 
 Ownership proof is:
 
@@ -83,137 +81,136 @@ exact From/To ELEMENTS block
 => exact uniquely owned auxiliary record
 ```
 
-Version-specific v14 cardinalities include `ALLOWBLS=28`, `SIF&TEES=14`, `REDUCERS=2`; legacy 26/10/1 values are rejected. Blank physical payload rows are preserved, embedded comment ambiguity fails closed, and shared pointers fail closed. U1 never clones/repoints records or mutates CONTROL/IEL fields.
-
-Displacement consumes the shared U1 resolver before its existing endpoint validation. Node Name production logic was not changed. FORCE remains blocked.
+The registry pins all 15 IEL pointers and v14 cardinalities, including `ALLOWBLS=28`, `SIF&TEES=14`, `REDUCERS=2`. Shared pointers, pointer/count/cardinality mismatch and embedded comment ambiguity fail closed. Displacement consumes the common ownership gate before its existing endpoint check. Node Name remained specialized. FORCE remained blocked.
 
 Material receipt: `ML-CII-FR-0003`.
-
-Exact-source U1 focused validation: **PASS 17/17**.
+Exact-source focused validation: **PASS 17/17**.
 
 ## U2 — field-aware universal Element / auxiliary claims
 
 U2 completed at product material head `09c7c1aab70fab5d918065d11b557050205b97f0`.
 
-### U2 material paths
+Field-aware Element mutation permits only mutable numeric/text payloads while protecting FROM, TO, all 15 IEL pointers, text length/control columns and line endings. Generic auxiliary mutation first requires U1 ownership, then restricts claims to individual fields. Numeric postimages must remain finite/parseable; cross-field matches cannot create claims.
+
+Node Name continues through the existing specialized whole-field plan. FORCE/FORCMNT remains blocked. Executor/output custody is unchanged.
+
+Material receipt: `ML-CII-FR-0004`.
+Synthetic/focused exact-source validation: **PASS 19/19**.
+
+## U3 — retained native-v14 execution
+
+U3 reconstructed the retained benchmark exactly:
 
 ```text
-NEW     tabs/cii-workspace/cii-workspace-find-replace-v14-field-authority.js
-NEW     tabs/cii-workspace/cii-workspace-find-replace-v14-field-claims.js
-MODIFY  tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js
-MODIFY  tabs/cii-workspace/cii-workspace-find-replace-validator.js
-MODIFY  tests/cii-workspace-find-replace-scope-resolver.test.js
-NEW     tests/cii-workspace-find-replace-v14-field-authority.test.js
+repository    reallaksh19/3D_Converters
+commit        ca8d391ac5f829f53bebb3c37adf0547c34a67b4
+archive       Benchmarks/v11-v14.zip
+archive blob  8409e1c429665e34a83c2a464665ebf5d5f1b0a1
+member        SYS-0001-v14.CII
+bytes         168574
+line ending   CRLF
+SHA-256       d2d4316309d9b1aa34b55ad72f89193fd0e437930db203fecd9ede00e69b2faf
 ```
 
-### Element field authority
-
-U2 validator mutation spans permit:
+U1 ownership was retained-real clean across every represented generic pointer:
 
 ```text
-physical rows 1-9 numeric fields except row1 FROM/TO
-Element Name declared text payload
-Line Number declared text payload
-Line Color/Visibility numeric fields
+BEND         9/9
+RIGID       43/43
+RESTRANT    40/40
+SIF&TEES     2/2
+REDUCERS     1/1
+TOTAL       95/95
+shared       0
 ```
 
-and protect:
+Node Name resolver and claim validation passed **55/55** and reproduced no defect.
+
+U3 also found a real U2 defect: native v14 legitimately emits compact fixed-width numeric rows, while the original U2 field parser required all numeric rows to be 80 bytes. Before correction:
 
 ```text
-FROM selector
-TO selector
-all 15 IEL pointer fields
-text length/control columns
-line-ending bytes
+ELEMENT      0/112
+BEND          0/9
+RIGID         0/43
+RESTRANT      0/40
+SIF&TEES      2/2 PASS
+REDUCERS      0/1
 ```
 
-Rows 13-15 are parsed/validated as non-negative integral IEL pointer rows but expose no mutable spans.
+Failure evidence: `agents/evidence/PR1081_u3_native_v14_retained_real_execution.md`.
+Failure checkpoint: `EP-CII-FR-0024`.
 
-### Auxiliary field authority
+## Compact-v14 corrective leg
 
-Generic auxiliary mutation validation first requires the complete U1 ownership proof. Only the exact uniquely owned record proceeds to field parsing.
+The Owner's next progression authorized only the compact-row corrective field-authority leg. Product material head is now `700e08a5be64a35bcc157554e809e97ba41bcace`.
 
-U2 field schemas currently admit:
-
-- canonical fixed numeric fields;
-- length-prefixed text payloads such as RESTRANT Tag/GUID;
-- FLANGES A40 class text;
-- meaningful FLANGES blank physical rows as preserved non-mutable content.
-
-Numeric matches are field-contained. The validator rebuilds the complete numeric field in memory and requires it to remain finite/parseable after replacement. A literal crossing adjacent numeric fields cannot form a claim.
-
-All field-scoped CII mutation text must be ASCII and equal byte width. Line-ending search/replace remains blocked.
-
-### Compatibility boundary
-
-Default/raw calls to `resolveFindReplaceScope()` preserve U1 behavior. Generic auxiliary raw resolution still reports read-only ownership and `BLOCK_MUTATION_NOT_QUALIFIED:*`. Only the validator explicitly opts into `fieldAwareMutation` for claim generation.
-
-This keeps unrelated resolver consumers from silently acquiring generic mutation authority.
-
-Node Name continues through the existing specialized resolver/whole-field claim plan. FORCE/FORCMNT remains blocked. Executor/output custody is unchanged.
-
-### U2 exact-source execution
-
-Evidence: `agents/evidence/PR1081_universal_field_u2_exact_execution.md`.
-
-Remote exact blob closure:
+Changed material paths:
 
 ```text
-field-authority.js                   6626346a5d2b98603bd7235ceb24bc5bb0f028cb
-field-claims.js                      b76cb034dfd6e6c4859c65d87b050d94abe8f896
-scope-resolver.js                    e5294be666d235c85c69fe97a181db9fbc893fbe
-validator.js                         ce4c31b01ce522d8d0c39fd0cfafa698328b337a
-scope-resolver.test.js               748381089868f80f0be78ce9fefa4ba4af40648f
-v14-field-authority.test.js          4c5e163628335568cb030db9d33b4e4d5c25b143
+MODIFY tabs/cii-workspace/cii-workspace-find-replace-v14-field-authority.js
+MODIFY tests/cii-workspace/cii-workspace-find-replace-v14-field-authority.test.js
 ```
 
-Executed:
+Exact blobs:
 
 ```text
-node --check tabs/cii-workspace/cii-workspace-find-replace-v14-field-authority.js
-node --check tabs/cii-workspace/cii-workspace-find-replace-v14-field-claims.js
-node --check tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js
-node --check tabs/cii-workspace/cii-workspace-find-replace-validator.js
-
-node --test \
-  tests/cii-workspace-find-replace-validator.test.js \
-  tests/cii-workspace-find-replace-scope-resolver.test.js \
-  tests/cii-workspace-find-replace-v14-field-authority.test.js
+field-authority.js       1607a63ac29068eb74960eb755d047af21746840
+field-authority.test.js  a32a4134154267e8022c456274087261eca41785
 ```
 
-Observed:
+The parser now recognizes only canonical `(2X,n*13)` numeric widths:
 
 ```text
-19 PASS
+15, 28, 41, 54, 67, 80
+```
+
+Represented retained-real row-position schemas are pinned for Element, BEND, RIGID, RESTRANT, SIF&TEES and REDUCERS. Existing full-width synthetic rows are compatible only when fields beyond the row's v14 schema are zero/blank padding; those padding fields are not mutable. Malformed near-width records fail closed.
+
+Promoted exact-source focused execution:
+
+```text
+20 PASS
 0 FAIL
 0 SKIP
 ```
 
-The suite covers protected Element identity/pointers, Element numeric/text claims, invalid numeric postimages, cross-field falsification, U1 shared ownership, RESTRANT text, FLANGES A40/blank rows, all numeric generic v14 auxiliary families, FORCE exclusion and existing resolver/validator regressions.
+Promoted exact retained-native execution:
+
+```text
+Element field authority        PASS 112/112
+BEND ownership + fields        PASS 9/9
+RIGID ownership + fields       PASS 43/43
+RESTRANT ownership + fields    PASS 40/40
+SIF&TEES ownership + fields    PASS 2/2
+REDUCERS ownership + fields    PASS 1/1
+Generic represented ownership  PASS 95/95
+NODENAME resolver/claims       PASS 55/55
+FORCE/FORCMNT                  BLOCKED as required
+```
+
+Evidence: `agents/evidence/PR1081_compact_v14_corrective_exact_execution.md`.
+Material receipt: `ML-CII-FR-0005`.
+Successor endpoint: `EP-CII-FR-0026`.
+
+The dedicated U1 synthetic ownership suite was not rerun in this corrective reconstruction because that unchanged test file was absent locally; prior exact-source U1 **PASS 17/17** remains retained evidence and is not relabeled as a new run. The native audit independently reran U1 ownership behavior for all 95 represented pointers and passed 95/95.
 
 ## Validation truth
 
 ```text
-U2 exact-source focused field runtime                 PASS 19/19
-U1 exact-source focused resolver runtime              PASS 17/17
-PR1081 prior exact-source UI/static closure            PASS 10/10
-Merged non-benchmark Find & Replace                    PASS 33/33
-Merged focused Node Name                               PASS 4/4
+Compact-v14 promoted focused runtime                  PASS 20/20
+Native-v14 represented Element/aux runtime            PASS
+Native-v14 represented generic ownership              PASS 95/95
+NODENAME retained-real regression                     PASS 55/55
+Prior U1 exact-source focused runtime                 PASS 17/17 / retained
+PR1081 prior exact-source UI/static closure            PASS 10/10 / retained
+Merged non-benchmark Find & Replace                    PASS 33/33 / retained
+Merged focused Node Name                               PASS 4/4 / retained
 SOURCE 3 retained-real authored runtime                NOT_RUN
 Full repository suite                                  NOT_RUN
-Native-v14 archived fixture runtime                    NOT_RUN
 External CAESAR acceptance                             NOT_RUN
 ```
 
 No `NOT_RUN` state is promoted to PASS.
-
-## Local recovery ledger
-
-Ignored U2 local ledger:
-
-`.agent-worklogs/20260903_0315_u2-field-claims/`
-
-The ledger explicitly records one recovery caveat: its first three mandatory backups were created from behavior-equivalent local reconstruction preimages rather than byte-exact branch files. They are not treated as exact restore evidence. The exact pre-U2 Git blob SHAs are recorded in the module logs as authoritative recovery references.
 
 ## Current completion state
 
@@ -223,17 +220,17 @@ CSV_MANUAL_SYNC                   COMPLETE
 U1_V14_AUX_REGISTRY               COMPLETE
 U1_CONTROL_CORRELATION            COMPLETE
 U1_SHARED_POINTER_GATE            COMPLETE
-U2_ELEMENT_FIELD_AUTHORITY        COMPLETE_SYNTHETIC_FOCUSED
-U2_GENERIC_AUX_FIELD_AUTHORITY    COMPLETE_SYNTHETIC_FOCUSED
-U2_NUMERIC_POSTIMAGE_GATE         COMPLETE
-U2_CROSS_FIELD_GATE               COMPLETE
+U2_ELEMENT_FIELD_AUTHORITY        COMPLETE
+U2_GENERIC_AUX_FIELD_AUTHORITY    COMPLETE
+COMPACT_V14_RETAINED_REAL_FIX     COMPLETE
+NATIVE_REPRESENTED_FAMILIES       PASS
 NODE_NAME_LOGIC                   PRESERVED
 FORCE/FORCMNT                     DE_SCOPED_BY_OWNER
 UI_CSV_GENERIC_AUX_EXPANSION      NOT_STARTED
-RETAINED_REAL_U3                  NOT_RUN
+U4_REMAINING_V14_FAMILIES         NOT_STARTED
 DIRECT_TARGET0_OVERWRITE          DISABLED
 ```
 
 ## Exact next action
 
-On the next Owner progression, execute bounded U3 retained-real/native-v14 evidence from `EP-CII-FR-0023`. Reconstruct the archived native-v14 fixture and exercise U1+U2 ownership/field claims for available nonzero BEND, RIGID, RESTRANT, SIF&TEES and REDUCERS records, with Node Name regression only. Do not invent missing retained-real specimens, do not resume FORCE/FORCMNT, do not expand UI/CSV before that evidence leg, preserve all unexecuted gates, and do not merge PR #1081 without explicit Owner authorization.
+On the next Owner progression, execute bounded **U4 remaining-v14-family qualification/evidence** before UI/CSV expansion. Pin row-position field schemas and focused/spec-backed tests for EXPJT, UNIFORM, WIND, OFFSETS, ALLOWBLS, FLANGES and EQUIPMNT; search for retained-real v14 specimens for those families and DISPLMNT and execute them when available. Do not fabricate retained-real coverage. Preserve U1 ownership/cardinality/shared-owner gates, the compact-row correction, Node Name specialization, Displacement endpoint semantics, FORCE exclusion and all custody invariants. Do not expand generic UI/CSV choices or merge PR #1081 without separate Owner authorization.
