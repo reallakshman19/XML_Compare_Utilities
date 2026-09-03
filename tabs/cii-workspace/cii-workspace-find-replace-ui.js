@@ -42,10 +42,14 @@ function defaultDownloadText(documentRef, artifact) {
 }
 function shortHash(value) { const text = String(value || ''); return text ? `${text.slice(0, 16)}…` : '—'; }
 function rawReplacement(row) { return String(row?.rawReplaceText ?? row?.replaceText ?? row?.after ?? ''); }
-function operationSignature(value) {
+function operationSignature(value, mode = value?.scope || 'DOCUMENT') {
+  const scope = String(mode || value?.scope || 'DOCUMENT').trim().toUpperCase();
+  const hasRange = scope !== 'DOCUMENT';
+  const hasBlock = scope === 'BLOCK';
   return JSON.stringify([
     String(value?.findText ?? value?.before ?? ''), rawReplacement(value),
-    String(value?.from ?? ''), String(value?.to ?? ''), normalizeGridBlock(value?.block || ''),
+    hasRange ? String(value?.from ?? '') : '', hasRange ? String(value?.to ?? '') : '',
+    hasBlock ? normalizeGridBlock(value?.block || '') : '',
   ]);
 }
 function qualificationLabel(currentSession, summary) {
@@ -111,7 +115,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     let next = replaceFindReplaceEditorRows(session, active.map(({ input }) => input));
     next.rows.forEach((row, index) => {
       const before = previous[index];
-      if (!before || operationSignature(before) !== operationSignature(active[index]?.input)) return;
+      if (!before || operationSignature(before, session.mode) !== operationSignature(active[index]?.input, session.mode)) return;
       if (before.status === 'APPROVED' || before.status === 'REJECTED') next = decideFindReplaceRow(next, row.sequence, before.status);
     });
     session = next;
