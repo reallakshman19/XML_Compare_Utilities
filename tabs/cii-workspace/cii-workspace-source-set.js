@@ -1,6 +1,4 @@
-import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
-import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
-import { inspectCiiWorkspaceModelsWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
+import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-converter.js';
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
@@ -32,7 +30,7 @@ function sourceRows(input) {
 }
 
 function authoritySha(member) {
-  return String(member?.originalSha256 || member?.authoritySha256 || member?.contentSha256 || member?.document?.contentSha256 || '').trim();
+  return String(member?.originalSha256 || member?.authoritySha256 || member?.contentSha256 || '').trim();
 }
 
 export function canonicalCiiSourceSetPreimage(members) {
@@ -71,16 +69,14 @@ export async function intakeCiiWorkspaceSourceSet(input, options = {}) {
     const fileName = sourceFileName(source, index);
     const raw = sourceValue(source);
     if (raw == null) throw new Error(`CII_SOURCE_SET_SOURCE_BYTES_REQUIRED:${id}`);
-    const document = await intakeCiiWorkspaceDocument(raw, fileName, { side: 'SOURCE', cryptoRef: options.cryptoRef });
     members.push(Object.freeze({
       sourceId: id,
       fileName,
-      originalSha256: document.contentSha256,
-      originalVersion: document.summary?.neutralVersionMajor ?? null,
+      originalSha256: await ciiSha256(raw, options.cryptoRef),
+      originalVersion: detectCiiNeutralVersion(raw),
       normalizedSha256: null,
       normalizedVersion: null,
       normalizationStatus: 'NOT_RUN',
-      document,
     }));
   }
   const sourceSetSha256 = await ciiSourceSetSha256(members, options.cryptoRef);
@@ -119,6 +115,7 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
   const targetInput = value(input, 'target');
   if (targetInput == null) throw new Error('CII_SOURCE_SET_TARGET_REQUIRED');
   const targetFileName = String(input?.targetFileName || 'TARGET.CII');
+  const { inspectCiiWorkspaceModelsWithVersionBridge } = await import('./cii-workspace-writer-version-bridge.js');
   const inspections = [];
   for (let index = 0; index < sources.length; index += 1) {
     const source = sources[index];
