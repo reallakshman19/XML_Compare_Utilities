@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=standalone-20260903-ciiw-ms-review-refresh-1');
+  const module = await import('./core/app.js?v=standalone-20260903-ciiw-ms-compare-action-refresh-1');
   await module.init(startupMount());
 }
 
