@@ -199,3 +199,39 @@ test('FORCE stays excluded from U2 and field-scoped mutation requires ASCII', ()
   assert.equal(validation.status, 'FAIL');
   assert.ok(validation.blockers.some((item) => item.includes('CII_FIELD_ASCII_TEXT_REQUIRED')));
 });
+
+test('canonical compact v14 rows are admitted while malformed near-widths fail closed', () => {
+  const compactRow = (values, fieldCount) => CII_SIX_FIELD_WIDTHS.slice(0, fieldCount)
+    .map((width, index) => String(values[index] ?? 0).padStart(width, ' ')).join('');
+
+  let target0 = auxFixture({ block: 'RIGID', rows: [compactRow([555, 0], 2)] });
+  let validation = validateFindReplacePreimage(target0, [{
+    scope: 'BLOCK', block: 'RIGID', from: 10101, to: 20202,
+    findText: '555', replaceText: '666', expectedMatches: 1, status: 'APPROVED',
+  }]);
+  assert.equal(validation.status, 'PASS');
+
+  target0 = auxFixture({ block: 'RIGID', rows: [`${compactRow([555, 0], 2)} `] });
+  validation = validateFindReplacePreimage(target0, [{
+    scope: 'BLOCK', block: 'RIGID', from: 10101, to: 20202,
+    findText: '555', replaceText: '666', status: 'APPROVED',
+  }]);
+  assert.equal(validation.status, 'FAIL');
+  assert.ok(validation.blockers.some((item) => item.includes('AUX_FIELD_ROW_SCHEMA_UNRECOGNIZED:RIGID:0')));
+
+  const elementLines = elementFixture({ marker: 777 }).split('\r\n');
+  elementLines[1 + 8] = compactRow([0, 0, 0, 0, 0], 5);
+  elementLines[1 + 11] = compactRow([9, 1], 2);
+  elementLines[1 + 14] = compactRow([0, 0, 0], 3);
+  let resolved = resolveFindReplaceScope(elementLines.join('\r\n'), {
+    scope: 'ELEMENT', from: 10101, to: 20202,
+  }, { fieldAwareMutation: true });
+  assert.equal(resolved.status, 'PASS');
+
+  elementLines[1 + 8] += ' ';
+  resolved = resolveFindReplaceScope(elementLines.join('\r\n'), {
+    scope: 'ELEMENT', from: 10101, to: 20202,
+  }, { fieldAwareMutation: true });
+  assert.equal(resolved.status, 'BLOCKED');
+  assert.ok(resolved.blockers.includes('NUMERIC_FIELD_ROW_INVALID:ELEMENT_R9'));
+});
