@@ -64,6 +64,24 @@ export function bulkAcceptCiiMultiSourceReview(preview, decisions, confidence) {
   return count;
 }
 
+export function ciiMultiSourceLockedReviewCount(preview) {
+  return reviewRows(preview).filter((row) => row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED').length;
+}
+
+export function ciiMultiSourceBulkAcceptOutcome(preview, decisions, confidence) {
+  const label = String(confidence || '').toUpperCase();
+  const count = bulkAcceptCiiMultiSourceReview(preview, decisions, label);
+  const locked = ciiMultiSourceLockedReviewCount(preview);
+  if (count) return Object.freeze({
+    count, changed: true, locked,
+    message: `${count} ${label} multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`,
+  });
+  return Object.freeze({
+    count: 0, changed: false, locked,
+    message: `No ${label} correspondence rows are eligible. ${locked} reviewed anchor row(s) are already LOCKED; REVIEW/UNRESOLVED rows require explicit decisions. Transfer Preview was not changed.`,
+  });
+}
+
 export function ciiMultiSourceReviewMarkup(preview, decisions = new Map(), filters = {}) {
   const rows = reviewRows(preview).filter((row) => filterRow(row, filters));
   if (!reviewRows(preview).length) return '<p>No correspondence rows were produced. Recheck the per-source base authority and correspondence blockers.</p>';
