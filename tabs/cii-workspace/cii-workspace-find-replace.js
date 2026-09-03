@@ -45,7 +45,7 @@ export function renderFindReplacePanel() {
               <label><input type="radio" name="ciifr-scope" value="BLOCK" data-ciifr-scope> Block basis</label>
             </fieldset>
             <p><strong>Supported block scopes:</strong> Node Name and Displacement.</p>
-            <label>CSV file
+            <label>CSV file <span tabindex="0" role="img" aria-label="Expected CSV headings and sample data" title="Expected CSV headings and sample data&#10;&#10;DOCUMENT&#10;FindText,ReplaceText&#10;PS02500.1,/SL-101.6&#10;&#10;ELEMENT&#10;From,To,FindText,ReplaceText&#10;100,110,OLD_TEXT,NEW_TEXT&#10;&#10;BLOCK&#10;From,To,Block,FindText,ReplaceText&#10;100,110,NODENAME,PS02500.1,/SL-101.6&#10;&#10;Headings are matched case-insensitively.">ⓘ</span>
               <input type="file" accept=".csv,text/csv" data-ciifr-csv>
             </label>
             <p data-ciifr-csv-meta>No CSV loaded. Paste Find / Replace columns directly into the editor below.</p>
