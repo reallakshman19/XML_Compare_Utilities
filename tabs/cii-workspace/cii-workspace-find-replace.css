@@ -93,18 +93,24 @@
 .ciifr-section-head p { margin-bottom: .2rem; }
 .ciifr-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
 
-/* Editable Preview spreadsheet: table-first with a stable vertical scroll gutter. */
+/* Editable Preview spreadsheet: fixed viewport with an explicit visible vertical scrollbar. */
 .ciifr-sheet-wrap {
   width: 100%;
-  max-height: 390px;
+  height: clamp(240px, 42vh, 390px);
   overflow-x: auto;
   overflow-y: scroll;
   scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #8c959f #f6f8fa;
   border: 1px solid #9aa3ad;
   border-radius: 4px;
   background: #fff;
   box-shadow: inset 0 0 0 1px #fff;
 }
+.ciifr-sheet-wrap::-webkit-scrollbar { width: 14px; height: 14px; }
+.ciifr-sheet-wrap::-webkit-scrollbar-track { background: #f6f8fa; border-left: 1px solid #d0d7de; }
+.ciifr-sheet-wrap::-webkit-scrollbar-thumb { background: #8c959f; border: 3px solid #f6f8fa; border-radius: 8px; }
+.ciifr-sheet-wrap::-webkit-scrollbar-thumb:hover { background: #6e7781; }
 .ciifr-sheet {
   width: 100%;
   min-width: 760px;
@@ -322,6 +328,7 @@
   .ciifr-section-head,
   .ciifr-finalize-head { align-items: flex-start; flex-direction: column; }
   .ciifr-sheet { min-width: 680px; }
+  .ciifr-sheet-wrap { height: clamp(220px, 45vh, 340px); }
   .ciifr-finalize-step { grid-template-columns: 34px minmax(0, 1fr); }
   .ciifr-finalize-step button { grid-column: 1 / -1; width: 100%; justify-self: stretch; }
   .ciifr-status-panel { grid-template-columns: 1fr; }
