@@ -1,0 +1,51 @@
+name: CII Find Replace Smart Fields V2 Build
+
+on:
+  push:
+    branches:
+      - feature/ciifr-smart-semantic-fixed-width-v2
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/ciifr-smart-semantic-fixed-width-v2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Apply universal smart field patch
+        run: python3 .github/ciifr-smart-fields-v2-patch.py
+      - name: Syntax check changed modules
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-find-replace-scope-resolver.js
+          node --check tabs/cii-workspace/cii-workspace-find-replace-validator.js
+          node --check tabs/cii-workspace/cii-workspace-find-replace-editor-model.js
+          node --check tabs/cii-workspace/cii-workspace-find-replace.js
+          node --check tests/cii-workspace-find-replace-smart-fields-v2.test.js
+      - name: Run focused Find and Replace regressions
+        run: |
+          node --test \
+            tests/cii-workspace-find-replace-smart-fields-v2.test.js \
+            tests/cii-workspace-find-replace-smart-fixed-width.test.js \
+            tests/cii-workspace-find-replace-validator.test.js \
+            tests/cii-workspace-find-replace-scope-resolver.test.js \
+            tests/cii-workspace-find-replace-v14-field-authority.test.js \
+            tests/cii-workspace-find-replace-v14-version-record.test.js \
+            tests/cii-workspace-find-replace-review-sync.test.js \
+            tests/cii-workspace-find-replace-session.test.js \
+            tests/cii-workspace-find-replace-output.test.js \
+            tests/cii-workspace-find-replace-ui-registration.test.js
+      - name: Commit qualified feature and remove staging files
+        run: |
+          rm .github/ciifr-smart-fields-v2-patch.py
+          rm .github/workflows/ciifr-smart-fields-v2-build.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(ciifr): resolve qualified fixed-width fields semantically"
+          git push origin HEAD:feature/ciifr-smart-semantic-fixed-width-v2
