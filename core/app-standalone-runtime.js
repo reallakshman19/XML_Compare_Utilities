@@ -30,7 +30,7 @@ const TAB_ICON_SVGS = Object.freeze({
   gear: '<path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
   support: '<path d="M5 19h14M8 19l4-12 4 12M9.4 15h5.2"/><path d="M7 7h10"/>',
   map: '<path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2V6Z"/><path d="M9 4v14M15 6v14"/>',
-  xml: '<path d="m8 8-4 4 4 4M16 8l4-4-4-4M13 6l-2 12"/>',
+  xml: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/>',
   compare: '<path d="M7 5h10M7 19h10M8 5v14M16 5v14"/><path d="M4 9h7M13 15h7"/>',
   tool: '<path d="M14.5 5.5 18 2l4 4-3.5 3.5"/><path d="M15 6 5 16l-1 4 4-1L18 9"/>',
   json: '<path d="M8 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/><path d="M16 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2"/><path d="M10 8l-2 8M14 8l2 8M11 12h2"/>',
