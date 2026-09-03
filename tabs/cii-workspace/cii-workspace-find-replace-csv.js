@@ -1,8 +1,10 @@
+import { normalizeFindReplaceReplacement } from './cii-workspace-find-replace-editor-model.js';
+
 /*
  * CII v14 Find & Replace CSV/manual intake.
  *
  * Intake creates proposals only. It does not mutate CII file content and does not
- * call Writer1/Writer2. CSV and manual table rows share one operation contract.
+ * call Writer1/Writer2. CSV and editor rows share one operation contract.
  */
 
 const MODES = Object.freeze({ DOCUMENT: 'DOCUMENT', ELEMENT: 'ELEMENT', BLOCK: 'BLOCK' });
@@ -79,6 +81,7 @@ function optionalExpectedMatches(value) {
 function rowBlockers(mode, data) {
   const blockers = [];
   if (!data.findText) blockers.push('FIND_TEXT_REQUIRED');
+  if (data.normalization?.normalized && !data.normalization.valid) blockers.push('REPLACE_NORMALIZATION_EMPTY');
   if (data.findText === data.replaceText) blockers.push('NO_EFFECTIVE_TEXT_CHANGE');
   if (data.expectedMatches != null && !Number.isInteger(data.expectedMatches)) blockers.push('EXPECTED_MATCHES_MUST_BE_NON_NEGATIVE_INTEGER');
   if (mode !== MODES.DOCUMENT) {
@@ -97,12 +100,14 @@ export function createFindReplaceOperation(input = {}, mode = MODES.DOCUMENT, me
   if (!normalizedMode) throw new TypeError(`Unsupported Find & Replace mode: ${mode}`);
 
   const findText = String(input.findText ?? input.before ?? '');
-  const replaceText = String(input.replaceText ?? input.after ?? '');
+  const rawReplaceText = String(input.rawReplaceText ?? input.replaceText ?? input.after ?? '');
+  const normalization = normalizeFindReplaceReplacement(rawReplaceText);
+  const replaceText = normalization.effective;
   const from = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.from);
   const to = normalizedMode === MODES.DOCUMENT ? null : integerRange(input.to);
   const block = normalizedMode === MODES.BLOCK ? normalizeBlock(input.block) : null;
   const expectedMatches = optionalExpectedMatches(input.expectedMatches);
-  const data = { findText, replaceText, from, to, block, expectedMatches };
+  const data = { findText, replaceText, rawReplaceText, normalization, from, to, block, expectedMatches };
   const blockers = rowBlockers(normalizedMode, data);
 
   return Object.freeze({
@@ -119,6 +124,8 @@ export function createFindReplaceOperation(input = {}, mode = MODES.DOCUMENT, me
     after: replaceText,
     findText,
     replaceText,
+    rawReplaceText,
+    replacementNormalization: normalization.rule,
     expectedMatches: Number.isInteger(expectedMatches) ? expectedMatches : null,
     status: blockers.length ? 'BLOCKED' : 'PROPOSED',
     blockers: Object.freeze(blockers),

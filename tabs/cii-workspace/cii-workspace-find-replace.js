@@ -21,7 +21,7 @@ export function renderFindReplacePanel() {
       <header class="ciifr-header">
         <div>
           <h2><span aria-hidden="true">↔</span> CII Find &amp; Replace <small>V14</small></h2>
-          <p>CSV or editable spreadsheet replacement with mandatory preview, approval and TARGET0 validation.</p>
+          <p>Editable Preview table with Excel copy/paste, diagnostics, approval and TARGET0 validation.</p>
         </div>
         <button type="button" data-ciifr-close>Close</button>
       </header>
@@ -45,70 +45,66 @@ export function renderFindReplacePanel() {
               <label><input type="radio" name="ciifr-scope" value="BLOCK" data-ciifr-scope> Block basis</label>
             </fieldset>
             <p><strong>Supported block scopes:</strong> Node Name and Displacement.</p>
-            <label>CSV file
+            <label>CSV file <span tabindex="0" role="img" aria-label="Expected CSV headings and sample data" title="Expected CSV headings and sample data&#10;&#10;DOCUMENT&#10;FindText,ReplaceText&#10;PS02500.1,/SL-101.6&#10;&#10;ELEMENT&#10;From,To,FindText,ReplaceText&#10;100,110,OLD_TEXT,NEW_TEXT&#10;&#10;BLOCK&#10;From,To,Block,FindText,ReplaceText&#10;100,110,NODENAME,PS02500.1,/SL-101.6&#10;&#10;Headings are matched case-insensitively.">ⓘ</span>
               <input type="file" accept=".csv,text/csv" data-ciifr-csv>
             </label>
-            <p data-ciifr-csv-meta>No CSV loaded. Manual spreadsheet rows may be entered below.</p>
+            <p data-ciifr-csv-meta>No CSV loaded. Paste Find / Replace columns directly into the editor below.</p>
           </article>
         </section>
 
         <section class="ciifr-card ciifr-manual">
           <div class="ciifr-section-head">
             <div>
-              <h3>3. Manual table entry</h3>
-              <p>Editable Excel-style grid. Type directly or paste a rectangular range copied from Microsoft Excel.</p>
+              <h3>3. Find &amp; Replace Editor / Preview</h3>
+              <p>Preview is the editor. Type directly or paste a rectangular range copied from Microsoft Excel. Find and Replace are always the first two editable columns.</p>
             </div>
             <div class="ciifr-actions">
               <button type="button" data-ciifr-add-row>+ Row</button>
-              <button type="button" data-ciifr-clear-grid>Clear grid</button>
-              <button type="button" data-ciifr-sync-grid>Update Preview</button>
-            </div>
-          </div>
-          <div class="ciifr-sheet-wrap" role="region" aria-label="Manual Find and Replace spreadsheet" tabindex="0">
-            <table class="ciifr-sheet" data-ciifr-manual-grid>
-              <thead>
-                <tr>
-                  <th class="ciifr-sheet-row-number" aria-label="Row number">#</th>
-                  <th data-ciifr-grid-range>From</th>
-                  <th data-ciifr-grid-range>To</th>
-                  <th data-ciifr-grid-block>Block</th>
-                  <th>Find Text</th>
-                  <th>Replace Text</th>
-                  <th>Expected Matches <small>(optional)</small></th>
-                  <th aria-label="Row action"></th>
-                </tr>
-              </thead>
-              <tbody data-ciifr-manual-body></tbody>
-            </table>
-          </div>
-          <p class="ciifr-sheet-hint">Excel paste is supported: copy rows/cells, click the first destination cell, then paste. Tab moves across cells; Enter moves to the same column on the next row.</p>
-        </section>
-
-        <section class="ciifr-card">
-          <div class="ciifr-section-head">
-            <div><h3>4. Preview and approval</h3><p>CSV and manual spreadsheet rows are shown here before validation.</p></div>
-            <div class="ciifr-actions">
+              <button type="button" data-ciifr-clear-grid>Clear</button>
+              <button type="button" data-ciifr-copy-grid>Copy Find / Replace</button>
               <button type="button" data-ciifr-approve-all disabled>Approve all reviewable</button>
               <button type="button" data-ciifr-reset disabled>Reset decisions</button>
             </div>
           </div>
-          <div class="ciifr-table-wrap">
-            <table class="ciifr-table">
+
+          <div class="ciifr-sheet-wrap" role="region" aria-label="Editable Find and Replace Preview spreadsheet" tabindex="0">
+            <table class="ciifr-sheet" data-ciifr-editor-grid>
               <thead>
-                <tr><th>#</th><th>Source</th><th>Scope</th><th>Owner</th><th>Find</th><th>Replace</th><th>Status</th><th>Decision</th></tr>
+                <tr>
+                  <th class="ciifr-sheet-row-number" aria-label="Row number">#</th>
+                  <th>Find</th>
+                  <th>Replace</th>
+                  <th data-ciifr-grid-range>From</th>
+                  <th data-ciifr-grid-range>To</th>
+                  <th data-ciifr-grid-block>Block</th>
+                  <th>Source</th>
+                  <th>Status / effective value</th>
+                  <th>Log</th>
+                  <th>Decision</th>
+                  <th aria-label="Row action"></th>
+                </tr>
               </thead>
-              <tbody data-ciifr-preview-body>
-                <tr><td colspan="8">Load CSV or update the manual spreadsheet preview.</td></tr>
-              </tbody>
+              <tbody data-ciifr-preview-body></tbody>
             </table>
           </div>
+          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
+
+          <details class="ciifr-target1-preview" open>
+            <summary>Conflict, duplicate &amp; validation log — <span data-ciifr-diagnostic-summary>0 errors</span></summary>
+            <div class="ciifr-table-wrap">
+              <table class="ciifr-table" aria-label="Find and Replace diagnostic log">
+                <thead><tr><th>Severity</th><th>Code</th><th>Rows</th><th>Detail</th></tr></thead>
+                <tbody data-ciifr-diagnostic-log><tr><td colspan="4">No diagnostics yet.</td></tr></tbody>
+              </table>
+            </div>
+          </details>
         </section>
 
         <section class="ciifr-card ciifr-finalize">
           <div class="ciifr-finalize-head">
             <div>
-              <h3>5. Validate, Apply to New Copy, and Download</h3>
-              <p>Validate TARGET1 first, then explicitly release it as a new output copy. TARGET0 is never overwritten.</p>
+              <h3>4. Validate, Apply to New Copy, and Download</h3>
+              <p>Approve or reject current editor rows, validate TARGET1, then explicitly release it as a new output copy. TARGET0 is never overwritten.</p>
             </div>
             <button type="button" class="ciifr-audit-button" data-ciifr-export-audit disabled>Export Audit JSON</button>
           </div>
@@ -149,7 +145,7 @@ export function renderFindReplacePanel() {
             <div><dt>Source hash</dt><dd data-ciifr-source-hash>—</dd></div>
             <div><dt>Claims</dt><dd data-ciifr-claims>0</dd></div>
             <div><dt>Target hash</dt><dd data-ciifr-target-hash>—</dd></div>
-            <div><dt>Qualification</dt><dd data-ciifr-qualification>Pending</dd></div>
+            <div><dt>Qualification</dt><dd data-ciifr-qualification>NOT VALIDATED</dd></div>
           </dl>
 
           <details class="ciifr-target1-preview">

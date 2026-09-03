@@ -134,6 +134,13 @@ function withoutSequence(row) {
   return candidate;
 }
 
+function editorStatus(session, rows) {
+  const targetBlocked = Boolean(session.target && session.target.version !== 14);
+  if (targetBlocked) return 'TARGET_VERSION_BLOCKED';
+  if (rows.length) return 'PREVIEW_READY';
+  return session.target ? 'TARGET_READY' : 'EMPTY';
+}
+
 export function replaceFindReplaceManualRows(session, inputs = []) {
   const retained = (session.rows || [])
     .filter((row) => row.source !== 'MANUAL')
@@ -155,6 +162,22 @@ export function replaceFindReplaceManualRows(session, inputs = []) {
             ? 'TARGET_READY'
             : 'EMPTY',
     errors: targetBlocked ? targetErrors : csvInvalid ? [...session.errors] : [],
+  });
+}
+
+export function replaceFindReplaceEditorRows(session, inputs = []) {
+  const operations = (inputs || []).map((input) => createFindReplaceOperation(input, session.mode, {
+    source: input?.source || 'MANUAL',
+    rowNumber: input?.rowNumber ?? null,
+  }));
+  const rows = buildFindReplacePreview(operations);
+  const targetBlocked = Boolean(session.target && session.target.version !== 14);
+  const targetErrors = targetBlocked ? [`TARGET_V14_REQUIRED:${session.target.version ?? 'UNKNOWN'}`] : [];
+  return invalidate(session, {
+    rows,
+    csv: null,
+    status: editorStatus(session, rows),
+    errors: targetErrors,
   });
 }
 
