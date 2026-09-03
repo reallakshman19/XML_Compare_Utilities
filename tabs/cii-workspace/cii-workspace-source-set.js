@@ -82,7 +82,7 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
     inspections.push(await inspectCiiWorkspaceModelsWithVersionBridge({
       sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
       targetBytes: input?.targetBytes, targetText: input?.targetText, targetFileName,
-    }, options));
+    }, { ...options, writerVersion: '2' }));
   }
   assertSharedTargetCustody(inspections);
   const members = inspections.map((inspection, index) => bridgeMember(sources[index], index, inspection));
