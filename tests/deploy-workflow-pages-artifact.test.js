@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,6 +67,11 @@ if (optionalAppFiles.every((file) => fs.existsSync(path.join(root, file)))) {
   assertContains(utilities, 'Promise.allSettled', 'optional module isolation');
   assertContains(utilities, 'data-psnm-module-warning', 'visible optional-module diagnostics');
   if (/^import\s/m.test(utilities)) throw new Error('Utilities orchestrator must not have blocking static imports.');
+}
+
+const ciiWorkspaceTab = path.join(root, 'tabs/cii-workspace/cii-workspace-tab.js');
+if (fs.existsSync(ciiWorkspaceTab)) {
+  await import(`${pathToFileURL(ciiWorkspaceTab).href}?pages-graph=1`);
 }
 
 console.log('Explicit Pages deployment and resilient Utilities graph validation passed');

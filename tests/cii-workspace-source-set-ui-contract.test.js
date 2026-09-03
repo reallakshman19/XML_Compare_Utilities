@@ -5,18 +5,18 @@ const tab = await readFile(new URL('../tabs/cii-workspace/cii-workspace-tab.js',
 const wrapper = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js', import.meta.url), 'utf8');
 const sourceSet = await readFile(new URL('../tabs/cii-workspace/cii-workspace-source-set.js', import.meta.url), 'utf8');
 
-assert(tab.includes("import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js';"));
+assert(tab.includes("import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260903-ms-import-repair-1';"));
 assert(tab.includes("writerVersion === '2'"));
 assert(tab.includes('mountCiiWriter2MultiSourceShell'));
+assert(tab.includes('mountCiiWriter2MultiSourceNextStepShell'));
 assert(tab.includes('mountCiiWorkspaceScopedEngineeringShell'), 'legacy/single-source shell route must remain present');
 
 assert(wrapper.includes('sourceInput.multiple = true'));
-assert(wrapper.includes("analyze.disabled = multiSource"));
-assert(wrapper.includes("analyzeButton.addEventListener('click', blockMultiSourceAnalyze, true)"));
+assert(wrapper.includes("analyzeButton.addEventListener('click', analyzeMultiSource, true)"));
+assert(wrapper.includes("analyzeButton.addEventListener('click', blockLegacyAnalyze, true)"));
 assert(wrapper.includes("inspectButton.addEventListener('click', inspectMultiSource, true)"));
 assert(wrapper.includes('inspectCiiWorkspaceSourceSetWithVersionBridge'));
 assert(wrapper.includes('S1.CII') === false, 'source identities must come from selected files, not hard-coded fixture names');
-assert(wrapper.includes('Correspondence remains blocked until WP-002'));
 assert(wrapper.includes('Writer 2 multi-source custody'));
 assert(wrapper.includes('TARGET original SHA'));
 

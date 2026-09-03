@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { ciiMultiSourceAnchorLedgerMarkup } from '../tabs/cii-workspace/cii-workspace-multisource-anchor-ledger-ui.js';
-import { _test as writerUiTest } from '../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js';
+import { _test as nextStepTest } from '../tabs/cii-workspace/cii-workspace-multisource-next-step-shell.js';
 
 const inspection = { memberInspections: [
   { sourceId: 'S1', inspection: { baseAnchorSuggestions: [] } },
@@ -27,22 +27,20 @@ const incompleteMarkup = ciiMultiSourceAnchorLedgerMarkup(inspection, selected, 
 assert.match(incompleteMarkup, /Anchor authority incomplete/);
 assert.match(incompleteMarkup, /data-ciiw-ms-compare-now disabled/);
 
-const waitingReady = writerUiTest.transferWaitingMarkup(true);
+const waitingReady = nextStepTest.transferWaitingMarkup(true);
 assert.match(waitingReady, /Multi-source Writer2/);
 assert.match(waitingReady, /READY FOR COMPARE/);
 assert.match(waitingReady, /data-ciiw-ms-transfer-compare-now/);
 assert.match(waitingReady, /Writer1A is not used/);
 assert.doesNotMatch(waitingReady, /BLOCKED_WRITER_1A/);
 
-const waitingBlocked = writerUiTest.transferWaitingMarkup(false);
+const waitingBlocked = nextStepTest.transferWaitingMarkup(false);
 assert.match(waitingBlocked, /WAITING FOR ANCHORS/);
 assert.doesNotMatch(waitingBlocked, /data-ciiw-ms-transfer-compare-now/);
 
-const writerUi = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js', import.meta.url), 'utf8');
-const css = await readFile(new URL('../tabs/cii-workspace/cii-workspace-transfer-scope-ui.css', import.meta.url), 'utf8');
-assert.match(writerUi, /if \(stages\) stages\.hidden = true/);
-assert.match(writerUi, /if \(stages\) stages\.hidden = false/);
-assert.match(writerUi, /data-ciiw-ms-compare-now/);
-assert.match(css, /\.ciiw-stages\[hidden\]\{display:none!important\}/);
+const adapter = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-next-step-shell.js', import.meta.url), 'utf8');
+assert.match(adapter, /stages\.hidden = active/);
+assert.match(adapter, /data-ciiw-ms-compare-now/);
+assert.match(adapter, /data-ciiw-ms-transfer-compare-now/);
 
 console.log('CII Writer2 multi-source next-step / legacy stage chrome checks: PASS');

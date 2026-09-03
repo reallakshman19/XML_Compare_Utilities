@@ -1,5 +1,6 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
-import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js';
+import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260903-ms-import-repair-1';
+import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260903-ms-import-repair-1';
 import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260903-ciifr-export-refresh-1';
 
 const STYLE_ID = 'cii-workspace-style';
@@ -83,7 +84,7 @@ export function installCiiWorkspaceTile(container, context = {}) {
       targetCode: String(context.sifEngineeringContext?.targetCode || ''),
     };
     const mountEngineeringShell = writerVersion === '2'
-      ? mountCiiWriter2MultiSourceShell
+      ? (root, shellOptions) => mountCiiWriter2MultiSourceNextStepShell(root, shellOptions, mountCiiWriter2MultiSourceShell)
       : mountCiiWorkspaceScopedEngineeringShell;
     active = mountEngineeringShell(overlay, {
       close, showToast: context.showToast,
