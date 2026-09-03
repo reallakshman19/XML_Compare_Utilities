@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 const workflowPath = path.join(root, '.github/workflows/deploy.yml');
-const BUILD = 'standalone-20260903-ciifr-export-refresh-1';
+const BUILD = 'standalone-20260903-ciiw-ms-review-refresh-1';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
