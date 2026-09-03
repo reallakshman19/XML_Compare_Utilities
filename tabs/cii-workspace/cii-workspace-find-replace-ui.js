@@ -158,7 +158,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     root.querySelector('[data-ciifr-source-hash]').textContent = shortHash(summary.sourceHash);
     root.querySelector('[data-ciifr-claims]').textContent = String(session.qualification?.preimage?.claims?.length || 0);
     root.querySelector('[data-ciifr-target-hash]').textContent = shortHash(session.qualification?.postimage?.audit?.targetHash);
-    root.querySelector('[data-ciifr-qualification]').textContent = summary.appliedToNewCopy ? 'APPLIED TO NEW COPY' : summary.qualified ? 'QUALIFIED PREVIEW' : 'Pending';
+    root.querySelector('[data-ciifr-qualification]').textContent = summary.appliedToNewCopy ? 'APPLIED TO NEW COPY' : summary.qualified ? 'QUALIFIED PREVIEW' : 'NOT VALIDATED';
     root.querySelector('[data-ciifr-postimage-preview]').textContent = previewText(session);
   }
   function renderControlState(diag = diagnostics()) {
