@@ -7,9 +7,14 @@ const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
 const FIND_REPLACE_STYLE_ID = 'cii-workspace-find-replace-style';
 const SIF_CONTEXT_AUTHORITY = 'ENGINEER_ATTESTED_SAME_ACTIVE_PIPING_CODE';
 function stylesheet(documentRef, id, relativeUrl) {
-  if (documentRef.getElementById(id)) return;
+  const href = new URL(relativeUrl, import.meta.url).href;
+  const existing = documentRef.getElementById(id);
+  if (existing) {
+    if (existing.href !== href) existing.href = href;
+    return;
+  }
   const link = documentRef.createElement('link'); link.id = id; link.rel = 'stylesheet';
-  link.href = new URL(relativeUrl, import.meta.url).href; documentRef.head.appendChild(link);
+  link.href = href; documentRef.head.appendChild(link);
 }
 function ensureStylesheet(documentRef) {
   stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
