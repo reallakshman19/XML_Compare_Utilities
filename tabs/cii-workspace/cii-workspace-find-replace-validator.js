@@ -68,6 +68,24 @@ function nodeNameClaimPlan(target0, findText, replaceText, spans, sequence, scop
   return { matches, blockers, claims };
 }
 
+function smartDocumentNodeNamePlan(target0, operation, findText, replaceText, sequence) {
+  const resolution = resolveFindReplaceScope(target0, operation, {
+    fieldAwareMutation: true,
+    smartFixedWidth: 'NODENAME',
+  });
+  if (resolution?.status !== 'PASS') return null;
+  const plan = nodeNameClaimPlan(target0, findText, replaceText, resolution.spans, sequence, resolution);
+  if (!plan.matches.length) return null;
+  const blockers = [...plan.blockers];
+  if (asciiLength(findText) == null || asciiLength(replaceText) == null) blockers.unshift('NODENAME_ASCII_TEXT_REQUIRED');
+  return Object.freeze({
+    resolution,
+    matches: Object.freeze([...plan.matches]),
+    claims: Object.freeze([...plan.claims]),
+    blockers: Object.freeze([...new Set(blockers)]),
+  });
+}
+
 function overlapBlockers(claims) {
   const blockers = [];
   const ordered = [...claims].sort((a, b) => a.start - b.start || a.end - b.end || a.operationIndex - b.operationIndex);
@@ -98,22 +116,31 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
     const scopeToken = String(operation?.scope || 'DOCUMENT').trim().toUpperCase();
     const fieldScoped = scopeToken === 'ELEMENT' || (scopeToken === 'BLOCK' && !nodeName);
     const findBytes = byteLength(findText); const replaceBytes = byteLength(replaceText);
+    const unequalFixedWidth = requireEqualByteLength && findBytes != null && replaceBytes != null && findBytes !== replaceBytes;
     const operationBlockers = [];
     if (!findText) operationBlockers.push('FIND_TEXT_REQUIRED');
     if (findText.includes('\r') || findText.includes('\n') || replaceText.includes('\r') || replaceText.includes('\n')) operationBlockers.push('LINE_ENDING_TEXT_NOT_SUPPORTED');
+
+    let smartDocument = null;
+    if (!nodeName && scopeToken === 'DOCUMENT' && unequalFixedWidth && findBytes != null && replaceBytes != null) {
+      smartDocument = smartDocumentNodeNamePlan(target0, operation, findText, replaceText, sequence);
+    }
+
     if (nodeName) {
       if (asciiLength(findText) == null || asciiLength(replaceText) == null) operationBlockers.push('NODENAME_ASCII_TEXT_REQUIRED');
     } else {
       if (findBytes == null || replaceBytes == null) operationBlockers.push('NON_BYTE_TEXT_NOT_SUPPORTED');
-      if (requireEqualByteLength && findBytes != null && replaceBytes != null && findBytes !== replaceBytes) operationBlockers.push(`FIXED_WIDTH_LENGTH_MISMATCH:${findBytes}:${replaceBytes}`);
+      if (unequalFixedWidth && !smartDocument) operationBlockers.push(`FIXED_WIDTH_LENGTH_MISMATCH:${findBytes}:${replaceBytes}`);
       if (fieldScoped && (asciiLength(findText) == null || asciiLength(replaceText) == null)) operationBlockers.push('CII_FIELD_ASCII_TEXT_REQUIRED');
     }
 
-    const scopeResolution = resolveFindReplaceScope(target0, operation, { fieldAwareMutation: true });
+    const scopeResolution = smartDocument?.resolution || resolveFindReplaceScope(target0, operation, { fieldAwareMutation: true });
     if (scopeResolution?.status !== 'PASS') for (const blocker of scopeResolution?.blockers || ['SCOPE_RESOLUTION_FAILED']) operationBlockers.push(blocker);
 
     let matches = []; let preparedClaims = [];
-    if (!operationBlockers.length && nodeName) {
+    if (!operationBlockers.length && smartDocument) {
+      matches = [...smartDocument.matches]; operationBlockers.push(...smartDocument.blockers); preparedClaims = [...smartDocument.claims];
+    } else if (!operationBlockers.length && nodeName) {
       const plan = nodeNameClaimPlan(target0, findText, replaceText, scopeResolution.spans, sequence, scopeResolution);
       matches = plan.matches; operationBlockers.push(...plan.blockers); preparedClaims = plan.claims;
     } else if (!operationBlockers.length && scopeResolution?.fieldAware) {
@@ -130,7 +157,9 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
     }
     summaries.push(Object.freeze({
       sequence, status: operationBlockers.length ? 'BLOCKED' : 'VALID', scope: scopeToken,
-      block: operation?.block || null, matchCount: matches.length, scopeAuthority: scopeResolution?.authority || null,
+      block: smartDocument ? 'NODENAME' : operation?.block || null,
+      semanticMode: smartDocument ? 'AUTO_NODENAME_FIXED_WIDTH' : null,
+      matchCount: matches.length, scopeAuthority: scopeResolution?.authority || null,
       scopeEvidence: scopeResolution?.evidence || null, blockers: Object.freeze(operationBlockers),
     }));
   });

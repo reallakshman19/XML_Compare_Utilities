@@ -1,5 +1,5 @@
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFortranNumber } from '../../parser/fixed-field.js';
-import { resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
+import { resolveDocumentNodeNameScope, resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
 import { V14_AUX_BLOCKS, canonicalAuxBlock, readAuxPointer, resolveV14AuxiliaryRecord } from './cii-workspace-find-replace-v14-aux-authority.js';
 import { auxiliaryMutableFieldSpans, elementMutableFieldSpans } from './cii-workspace-find-replace-v14-field-authority.js';
 
@@ -205,6 +205,9 @@ export function resolveFindReplaceScope(target0Input, operation = {}, options = 
   const lines = physicalLines(target0Input);
   const scope = String(operation?.scope || 'DOCUMENT').trim().toUpperCase();
   if (scope === 'DOCUMENT') {
+    if (options.smartFixedWidth === 'NODENAME') {
+      return resolveDocumentNodeNameScope(lines, { sectionRefs, elementBlocks, exactElementBlock });
+    }
     return Object.freeze({ status: 'PASS', scope, authority: 'TARGET0_PHYSICAL_LINE_BODIES', spans: documentSpans(lines), evidence: Object.freeze({ lineCount: lines.length }), blockers: Object.freeze([]) });
   }
   if (scope === 'ELEMENT') return resolveElement(lines, operation, options);

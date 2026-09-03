@@ -56,7 +56,7 @@ export function renderFindReplacePanel() {
           <div class="ciifr-section-head">
             <div>
               <h3>3. Find &amp; Replace Editor / Preview</h3>
-              <p>Preview is the editor. Type directly or paste a rectangular range copied from Microsoft Excel. Find and Replace are always the first two editable columns.</p>
+              <p>Preview is the editor. Type directly or paste a rectangular range copied from Microsoft Excel. Find and Replace are always the first two editable columns. Enter logical values only — recognized fixed-width CII fields are padded and serialized automatically.</p>
             </div>
             <div class="ciifr-actions">
               <button type="button" data-ciifr-add-row>+ Row</button>
@@ -87,7 +87,7 @@ export function renderFindReplacePanel() {
               <tbody data-ciifr-preview-body></tbody>
             </table>
           </div>
-          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this fixed-height table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
+          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Do not add Fortran padding spaces; smart fixed-width formatting is automatic for recognized fields. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this fixed-height table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
 
           <details class="ciifr-target1-preview" open>
             <summary>Conflict, duplicate &amp; validation log — <span data-ciifr-diagnostic-summary>0 errors</span></summary>
