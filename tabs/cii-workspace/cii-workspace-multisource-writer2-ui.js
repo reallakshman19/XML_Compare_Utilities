@@ -1,5 +1,6 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
+import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {
   buildCiiSelectedBaseLoops,
   ciiQualifiedLoopsForSuggestion,
@@ -12,7 +13,8 @@ import { bindCiiTransferScopeToPreview } from './cii-workspace-transfer-scope.js
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 import {
-  bulkAcceptCiiMultiSourceReview,
+  ciiMultiSourceBulkAcceptOutcome,
+  ciiMultiSourceLockedReviewCount,
   ciiMultiSourceReviewBySource,
   ciiMultiSourceReviewMarkup,
   ciiMultiSourceReviewSummaryMarkup,
@@ -96,7 +98,8 @@ function manualAnchorMarkup(item, manualBySource, manualDraftBySource) {
 }
 function renderMemberAnchors(inspection, selectedBySource, manualBySource = new Map(), manualDraftBySource = new Map()) {
   const members = inspection?.memberInspections || [];
-  return `${ciiSourceSetCustodyMarkup(inspection)}${members.map((item) => {
+  const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource);
+  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
     return `<section class="ciiw-method-evidence" data-ciiw-ms-member="${h(item.sourceId)}"><h3>${h(item.sourceId)} · ${h(item.fileName)}</h3>${baseAnchorEvidenceMarkup(item.inspection, selected)}${manualAnchorMarkup(item, manualBySource, manualDraftBySource)}</section>`;
   }).join('')}`;
@@ -126,6 +129,9 @@ function allMembersHaveBase(inspection, selectedBySource, manualBySource = new M
 function validManualNode(value) {
   const text = String(value ?? '').trim(); const number = Number(text);
   return text && Number.isSafeInteger(number) ? String(number) : null;
+}
+function reviewConfidenceCount(preview, confidence) {
+  return (preview?.compareReview?.rows || []).filter((row) => row?.confidence === confidence).length;
 }
 function buildAutomaticReview(preview) {
   return Object.fromEntries((preview?.memberPreviews || []).map(({ sourceId, preview: member }) => {
@@ -209,6 +215,27 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   };
   function bindAnchorActions() {
     if (!evidence || !inspection) return;
+    evidence.querySelectorAll('[data-ciiw-ms-ledger-update]').forEach((button) => button.addEventListener('click', (event) => {
+      event.preventDefault(); const id = button.dataset.ciiwMsLedgerSourceId; const index = Number(button.dataset.ciiwMsLedgerIndex);
+      const sourceField = evidence.querySelector(`[data-ciiw-ms-ledger-source][data-ciiw-ms-ledger-source-id="${id}"][data-ciiw-ms-ledger-index="${index}"]`);
+      const targetField = evidence.querySelector(`[data-ciiw-ms-ledger-target][data-ciiw-ms-ledger-source-id="${id}"][data-ciiw-ms-ledger-index="${index}"]`);
+      const sourceNodeId = validManualNode(sourceField?.value); const targetNodeId = validManualNode(targetField?.value);
+      if (!sourceNodeId || !targetNodeId) { setMultiSourceStatus(container, `${id}: master ledger requires integer SOURCE and TARGET node IDs.`); return; }
+      const pairs = manualRows(manualBySource, id); const duplicate = pairs.some((pair, rowIndex) => rowIndex !== index && pair.sourceNodeId === sourceNodeId && pair.targetNodeId === targetNodeId);
+      if (duplicate) { setMultiSourceStatus(container, `${id}: ${sourceNodeId} ↔ ${targetNodeId} is already locked.`); return; }
+      pairs[index] = { sourceNodeId, targetNodeId }; manualBySource.set(id, pairs); refreshAnchorEvidence();
+      setMultiSourceStatus(container, `${id}: master anchor updated to ${sourceNodeId} ↔ ${targetNodeId}. Click Compare models to rebuild correspondence from this authority.`);
+    }));
+    evidence.querySelectorAll('[data-ciiw-ms-ledger-remove]').forEach((button) => button.addEventListener('click', (event) => {
+      event.preventDefault(); const id = button.dataset.ciiwMsLedgerSourceId; const index = Number(button.dataset.ciiwMsLedgerIndex);
+      const pairs = manualRows(manualBySource, id); pairs.splice(index, 1); manualBySource.set(id, pairs); refreshAnchorEvidence();
+      setMultiSourceStatus(container, `${id}: manual anchor removed from the master ledger.`);
+    }));
+    evidence.querySelectorAll('[data-ciiw-ms-ledger-auto-remove]').forEach((button) => button.addEventListener('click', (event) => {
+      event.preventDefault(); const id = button.dataset.ciiwMsLedgerSourceId; const key = button.dataset.ciiwMsLedgerSelectionKey;
+      const selected = selectedBySource.get(id) || new Set(); selected.delete(key); selectedBySource.set(id, selected); refreshAnchorEvidence();
+      setMultiSourceStatus(container, `${id}: method-qualified base removed from the master ledger.`);
+    }));
     evidence.querySelectorAll('[data-ciiw-ms-member]').forEach((section) => {
       const id = section.dataset.ciiwMsMember; const member = inspection.memberInspections.find((item) => item.sourceId === id);
       section.querySelectorAll('[data-ciiw-base-action]').forEach((button) => {
@@ -284,7 +311,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef: options.cryptoRef });
       if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); switchTab(container, 'compare');
-      setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}: ${(preview.compareReview?.rows || []).length} review rows. Review/lock correspondence as needed, then Apply approvals to Transfer Preview.`);
+      const locked = ciiMultiSourceLockedReviewCount(preview); const review = reviewConfidenceCount(preview, 'REVIEW');
+      setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}: ${locked} reviewed anchor row${locked === 1 ? '' : 's'} already LOCKED; ${review} REVIEW row${review === 1 ? '' : 's'} need explicit engineering review. HIGH/MEDIUM bulk actions affect only rows with those confidences.`);
     } catch (error) { if (!disposed) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyMultiSourceReview = async (event) => {
@@ -330,11 +358,13 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   };
   const onBulkHigh = (event) => {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
-    const count = bulkAcceptCiiMultiSourceReview(preview, reviewDecisions, 'HIGH'); markReviewDirty(`${count} HIGH multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`);
+    const outcome = ciiMultiSourceBulkAcceptOutcome(preview, reviewDecisions, 'HIGH');
+    if (outcome.changed) markReviewDirty(outcome.message); else setMultiSourceStatus(container, outcome.message);
   };
   const onBulkMedium = (event) => {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
-    const count = bulkAcceptCiiMultiSourceReview(preview, reviewDecisions, 'MEDIUM'); markReviewDirty(`${count} MEDIUM multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`);
+    const outcome = ciiMultiSourceBulkAcceptOutcome(preview, reviewDecisions, 'MEDIUM');
+    if (outcome.changed) markReviewDirty(outcome.message); else setMultiSourceStatus(container, outcome.message);
   };
   const onConfidenceFilter = (event) => {
     if (!multiSource(container) || !preview) return; event.stopImmediatePropagation(); reviewFilters.confidence = event.target.value || 'ALL'; renderMultiReview();
@@ -380,5 +410,5 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
 export const _test = Object.freeze({
   selectedFiles, sourceRows, sourceInputs, canonicalSourceIdForSha256, shortSha,
   selectedBaseLoopsBySource, manualAnchorPairsBySource, allMembersHaveBase, validManualNode,
-  buildAutomaticReview, nodeNameChangeRows,
+  buildAutomaticReview, nodeNameChangeRows, reviewConfidenceCount,
 });
