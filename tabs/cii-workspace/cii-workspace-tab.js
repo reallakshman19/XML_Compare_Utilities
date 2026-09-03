@@ -1,6 +1,6 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
 import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js';
-import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js';
+import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260903-ciifr-export-refresh-1';
 
 const STYLE_ID = 'cii-workspace-style';
 const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
