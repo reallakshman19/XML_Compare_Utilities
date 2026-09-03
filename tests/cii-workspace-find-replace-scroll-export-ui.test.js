@@ -2,18 +2,34 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
+const tab = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-tab.js', import.meta.url), 'utf8');
 const panel = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-find-replace.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-find-replace.css', import.meta.url), 'utf8');
 const ui = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-find-replace-ui.js', import.meta.url), 'utf8');
 const output = fs.readFileSync(new URL('../tabs/cii-workspace/cii-workspace-find-replace-output.js', import.meta.url), 'utf8');
 
-test('editable Preview reserves a dedicated vertical scrollbar for large batches', () => {
+test('editable Preview uses a fixed viewport with an explicit vertical scrollbar and cache-busted CSS', () => {
   const wrap = css.match(/\.ciifr-sheet-wrap\s*\{([\s\S]*?)\}/)?.[1] || '';
-  assert.match(wrap, /max-height:\s*390px/);
+  assert.match(wrap, /height:\s*clamp\(/);
   assert.match(wrap, /overflow-x:\s*auto/);
   assert.match(wrap, /overflow-y:\s*scroll/);
   assert.match(wrap, /scrollbar-gutter:\s*stable/);
-  assert.match(panel, /dedicated vertical scrollbar/);
+  assert.match(wrap, /scrollbar-color:/);
+  assert.match(css, /\.ciifr-sheet-wrap::\-webkit-scrollbar/);
+  assert.match(tab, /cii-workspace-find-replace\.css\?v=20260903-scroll-state-2/);
+  assert.match(panel, /fixed-height table with a dedicated vertical scrollbar/);
+});
+
+test('qualification KPI is neutral before validation and explicit after validation attempts', () => {
+  assert.match(panel, /data-ciifr-qualification>—<\/dd>/);
+  assert.doesNotMatch(panel, /NOT VALIDATED/);
+  assert.match(ui, /function qualificationLabel/);
+  assert.match(ui, /VALIDATION FAILED/);
+  assert.match(ui, /POSTIMAGE BLOCKED/);
+  assert.match(ui, /QUALIFICATION BLOCKED/);
+  assert.match(ui, /QUALIFIED PREVIEW/);
+  assert.match(ui, /APPLIED TO NEW COPY/);
+  assert.doesNotMatch(ui, /'NOT VALIDATED'/);
 });
 
 test('UI exposes replaced CII export only after Validate and Apply-to-new-copy custody', () => {
