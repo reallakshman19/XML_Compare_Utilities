@@ -7,4 +7,4 @@ import '../tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js?v=20
 
 installAppTabClickStateBridge();
 
-export { init, destroy } from './app-standalone-runtime.js?v=standalone-20260903-ciifr-export-refresh-1';
+export { init, destroy } from './app-standalone-runtime.js?v=standalone-20260903-ciiw-ms-review-refresh-1';
