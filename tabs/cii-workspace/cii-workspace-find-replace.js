@@ -87,7 +87,7 @@ export function renderFindReplacePanel() {
               <tbody data-ciifr-preview-body></tbody>
             </table>
           </div>
-          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
+          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this fixed-height table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
 
           <details class="ciifr-target1-preview" open>
             <summary>Conflict, duplicate &amp; validation log — <span data-ciifr-diagnostic-summary>0 errors</span></summary>
@@ -145,7 +145,7 @@ export function renderFindReplacePanel() {
             <div><dt>Source hash</dt><dd data-ciifr-source-hash>—</dd></div>
             <div><dt>Claims</dt><dd data-ciifr-claims>0</dd></div>
             <div><dt>Target hash</dt><dd data-ciifr-target-hash>—</dd></div>
-            <div><dt>Qualification</dt><dd data-ciifr-qualification>NOT VALIDATED</dd></div>
+            <div><dt>Qualification</dt><dd data-ciifr-qualification>—</dd></div>
           </dl>
 
           <details class="ciifr-target1-preview">
