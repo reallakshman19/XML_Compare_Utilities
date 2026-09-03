@@ -52,15 +52,20 @@ function versionSection(text) {
   return body.join('\n');
 }
 
+function versionFromRecord(section) {
+  const firstLine = String(section || '').split(/\r\n|\n|\r/, 1)[0] || '';
+  const values = firstLine.trim().split(/\s+/).map(Number);
+  if (values.length < 2 || !Number.isFinite(values[1])) return null;
+  const rounded = Math.round(values[1]);
+  return Math.abs(values[1] - rounded) <= 1e-6 ? rounded : null;
+}
+
 export function detectFindReplaceCiiVersion(text) {
   const section = versionSection(text);
+  const recordVersion = versionFromRecord(section);
+  if (recordVersion !== null) return recordVersion;
   const banner = section.match(/Neutral\s+file\s+interface\s+Ver\s+(\d+(?:\.\d+)?)/i);
-  if (banner) return Number(banner[1]);
-  for (const line of section.split(/\r\n|\n|\r/)) {
-    const values = line.trim().split(/\s+/).map(Number);
-    if (values.length >= 2 && Number.isFinite(values[1]) && Number.isInteger(Math.round(values[1]))) return Math.round(values[1]);
-  }
-  return null;
+  return banner ? Number(banner[1]) : null;
 }
 
 export function createFindReplaceSession() {
