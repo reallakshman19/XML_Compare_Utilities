@@ -8,7 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'Utilities resilient loader · 2026-07-31',
+  build: 'CII Find & Replace export refresh · 2026-09-03',
   defaultTab: 'xml-compare',
 });
 
@@ -16,7 +16,7 @@ const TAB_VISIBILITY_URL = new URL('../config/tab-visibility.json', import.meta.
 const APP_ICON_URL = new URL('../assets/app-icon.svg?v=standalone-1', import.meta.url).href;
 const ACTIVE_TAB_STORAGE_KEY = 'xml-compare-utilities.activeTabId';
 const PSNM_UTILITY_ENTRY_URL = new URL('../tabs/psnm-utility-pages-entry.js', import.meta.url);
-const PSNM_UTILITY_BUILD = 'standalone-20260731-pages-utilities-robust-1';
+const PSNM_UTILITY_BUILD = 'standalone-20260903-ciifr-export-refresh-1';
 let psnmUtilityImportAttempt = 0;
 const TAB_ID_ALIASES = new Map([
   ['xml-compare', 'xml-compare'],
