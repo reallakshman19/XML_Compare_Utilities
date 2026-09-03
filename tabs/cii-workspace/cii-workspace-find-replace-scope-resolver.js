@@ -1,6 +1,6 @@
 import { CII_SIX_FIELD_WIDTHS, decodeCiiNumericRow, decodeFixedFields, parseFortranNumber } from '../../parser/fixed-field.js';
 import { resolveDocumentNodeNameScope, resolveNodeNameScope } from './cii-workspace-find-replace-nodename-scope.js';
-import { V14_AUX_BLOCKS, canonicalAuxBlock, readAuxPointer, resolveV14AuxiliaryRecord } from './cii-workspace-find-replace-v14-aux-authority.js';
+import { buildAuxPointerOwners, physicalSectionRefs, readAuxControlCount, V14_AUX_BLOCKS, canonicalAuxBlock, readAuxPointer, resolveV14AuxiliaryRecord } from './cii-workspace-find-replace-v14-aux-authority.js';
 import { auxiliaryMutableFieldSpans, elementMutableFieldSpans } from './cii-workspace-find-replace-v14-field-authority.js';
 
 /*
@@ -193,6 +193,97 @@ function resolveForce() {
   });
 }
 
+function smartSpan(span, metadata = {}) {
+  return Object.freeze({ ...span, ...metadata });
+}
+
+function documentQualifiedFieldScope(lines) {
+  const parsedElements = elementBlocks(lines);
+  if (parsedElements.status !== 'PASS') return parsedElements;
+  const spans = [];
+  const skipped = [];
+
+  for (const element of parsedElements.blocks) {
+    const fields = elementMutableFieldSpans(element);
+    if (fields.status !== 'PASS') return fields;
+    for (const span of fields.spans) {
+      if (span.fieldKind !== 'NUMERIC') continue;
+      spans.push(smartSpan(span, {
+        block: 'ELEMENTS', smartKind: 'NUMERIC',
+        smartGroup: `ELEMENTS:${span.fieldIdentity || 'UNKNOWN'}`,
+      }));
+    }
+  }
+
+  const nodeNames = resolveDocumentNodeNameScope(lines, { sectionRefs, elementBlocks, exactElementBlock });
+  if (nodeNames.status === 'PASS') {
+    for (const span of nodeNames.spans) spans.push(smartSpan(span, {
+      block: 'NODENAME', smartKind: 'NODENAME', smartGroup: 'NODENAME',
+    }));
+  } else {
+    skipped.push(...(nodeNames.blockers || []).map((value) => `NODENAME:${value}`));
+  }
+
+  for (const [block, spec] of Object.entries(V14_AUX_BLOCKS)) {
+    if (block === 'NODENAME' || block === 'FORCMNT') continue;
+    const control = readAuxControlCount(lines, spec);
+    if (control.status !== 'PASS') {
+      skipped.push(...(control.blockers || []).map((value) => `${block}:${value}`));
+      continue;
+    }
+    if (control.count === 0) continue;
+    const section = physicalSectionRefs(lines, spec.section);
+    if (section.status !== 'PASS') {
+      skipped.push(...(section.blockers || []).map((value) => `${block}:${value}`));
+      continue;
+    }
+    const expectedRows = control.count * spec.rowsPerRecord;
+    if (section.refs.length !== expectedRows) {
+      skipped.push(`${block}:AUX_SECTION_CARDINALITY_MISMATCH:${section.refs.length}:${expectedRows}`);
+      continue;
+    }
+    const ownership = buildAuxPointerOwners(parsedElements.blocks, spec, control.count);
+    if (ownership.blockers.length) {
+      skipped.push(...ownership.blockers.map((value) => `${block}:${value}`));
+      continue;
+    }
+    for (let pointer = 1; pointer <= control.count; pointer += 1) {
+      const owners = ownership.owners.get(pointer) || [];
+      if (owners.length !== 1) {
+        if (owners.length > 1) skipped.push(`${block}:AUX_POINTER_SHARED:${pointer}:${owners.length}`);
+        continue;
+      }
+      const start = (pointer - 1) * spec.rowsPerRecord;
+      const refs = section.refs.slice(start, start + spec.rowsPerRecord);
+      const fields = auxiliaryMutableFieldSpans(block, refs);
+      if (fields.status !== 'PASS') {
+        skipped.push(...(fields.blockers || []).map((value) => `${block}:${pointer}:${value}`));
+        continue;
+      }
+      for (const span of fields.spans) {
+        if (span.fieldKind !== 'NUMERIC') continue;
+        spans.push(smartSpan(span, {
+          block, pointer, ownerElementIndex: owners[0].elementIndex,
+          smartKind: 'NUMERIC', smartGroup: `${block}:${span.fieldIdentity || 'UNKNOWN'}`,
+        }));
+      }
+    }
+  }
+
+  return Object.freeze({
+    status: 'PASS', scope: 'DOCUMENT', fieldAware: true, smartFieldAware: true,
+    authority: 'CII_V14_DOCUMENT_QUALIFIED_MUTABLE_FIELD_INDEX',
+    spans: Object.freeze(spans), blockers: Object.freeze([]),
+    evidence: Object.freeze({
+      elementCount: parsedElements.blocks.length,
+      mutableSmartFieldCount: spans.length,
+      skippedAuthorityCount: skipped.length,
+      skippedAuthority: Object.freeze(skipped),
+      excluded: Object.freeze(['FORCMNT', 'VARIABLE_LENGTH_TEXT']),
+    }),
+  });
+}
+
 function documentSpans(lines) {
   return Object.freeze(lines.filter((line) => line.body.length > 0).map((line) => Object.freeze({
     start: line.start, end: line.bodyEnd, lineIndex: lines.indexOf(line), section: 'DOCUMENT',
@@ -205,6 +296,7 @@ export function resolveFindReplaceScope(target0Input, operation = {}, options = 
   const lines = physicalLines(target0Input);
   const scope = String(operation?.scope || 'DOCUMENT').trim().toUpperCase();
   if (scope === 'DOCUMENT') {
+    if (options.smartFixedWidth === 'QUALIFIED_FIELDS') return documentQualifiedFieldScope(lines);
     if (options.smartFixedWidth === 'NODENAME') {
       return resolveDocumentNodeNameScope(lines, { sectionRefs, elementBlocks, exactElementBlock });
     }

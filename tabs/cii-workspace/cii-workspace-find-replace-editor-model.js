@@ -68,7 +68,18 @@ function diagnosticBlockerMessage(codeInput, sequence) {
   }
   const fixed = code.match(/^FIXED_WIDTH_LENGTH_MISMATCH:(\d+):(\d+)$/);
   if (fixed) {
-    return `Row ${sequence}: this unequal-length change did not resolve to a qualified smart fixed-width field. Do not add spaces manually; use an exact Node Name value or choose the appropriate Element/Block scope.`;
+    return `Row ${sequence}: this unequal-length change did not resolve to a qualified CII field. Do not add spaces manually; use an exact logical field value or narrow the scope.`;
+  }
+  const ambiguous = code.match(/^SMART_FIELD_AMBIGUOUS:(\d+):(.+)$/);
+  if (ambiguous) {
+    return `Row ${sequence}: this Find value occurs in ${ambiguous[1]} different qualified CII field types. Narrow to Element/Block scope so the intended engineering field is unambiguous.`;
+  }
+  const numericWide = code.match(/^SMART_NUMERIC_REPLACEMENT_TOO_WIDE:(\d+):(\d+):(.+)$/);
+  if (numericWide) {
+    return `Row ${sequence}: numeric replacement has ${numericWide[1]} characters but the matched CII field allows ${numericWide[2]}. Enter the logical number only; field spacing is automatic.`;
+  }
+  if (code.startsWith('SMART_NUMERIC_REPLACEMENT_REQUIRED')) {
+    return `Row ${sequence}: the matched CII field is numeric. Enter a valid logical number; fixed-width formatting is automatic.`;
   }
   if (code === 'NODENAME_ASCII_TEXT_REQUIRED') {
     return `Row ${sequence}: Node Name values must use ASCII text. Fixed-width padding is handled automatically.`;
@@ -156,8 +167,13 @@ export function analyzeFindReplaceEditorRows(rows = [], operationSummaries = [])
         severity: 'INFO', code: 'SMART_FIXED_WIDTH_NODENAME', sequences: [sequence],
         message: `Row ${sequence}: exact Node Name field resolved automatically. Fixed-width padding is handled by the CII serializer; no Fortran spacing is required.`,
       }));
+    } else if (summary?.semanticMode === 'AUTO_CII_NUMERIC_FIXED_WIDTH') {
+      entries.push(freezeEntry({
+        severity: 'INFO', code: 'SMART_FIXED_WIDTH_NUMERIC', sequences: [sequence],
+        message: `Row ${sequence}: exact numeric CII field resolved automatically. The logical number is serialized at the field's fixed physical width.`,
+      }));
     }
-    if (Number(summary?.matchCount) === 0) {
+    if (Number(summary?.matchCount) === 0 && !(summary?.blockers || []).length) {
       entries.push(freezeEntry({
         severity: 'ERROR', code: 'NO_MATCHES_IN_SCOPE', sequences: [sequence],
         message: `Row ${sequence}: Find value has no match in the resolved CII scope.`,

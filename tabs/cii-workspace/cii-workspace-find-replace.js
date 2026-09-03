@@ -87,7 +87,7 @@ export function renderFindReplacePanel() {
               <tbody data-ciifr-preview-body></tbody>
             </table>
           </div>
-          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Do not add Fortran padding spaces; smart fixed-width formatting is automatic for recognized fields. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this fixed-height table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
+          <p class="ciifr-sheet-hint">Excel paste: copy Find and Replace columns, click the first Find cell, then paste. Do not add Fortran padding spaces; qualified Node Name and numeric CII fields are serialized automatically. Ambiguous logical values must be narrowed with Element/Block scope. Tab moves across cells; Enter moves to the same column on the next row. Long batches remain inside this fixed-height table with a dedicated vertical scrollbar. Slash-list replacements use only the first token, for example “/SL-104.8, /X6” → “SL-104.8”.</p>
 
           <details class="ciifr-target1-preview" open>
             <summary>Conflict, duplicate &amp; validation log — <span data-ciifr-diagnostic-summary>0 errors</span></summary>

@@ -1,5 +1,6 @@
 import { sha256CiiByteString } from './cii-workspace-byte-sha256.js';
 import { resolveFindReplaceScope } from './cii-workspace-find-replace-scope-resolver.js';
+import { parseFortranNumber } from '../../parser/fixed-field.js';
 import { fieldAwareClaimPlan } from './cii-workspace-find-replace-v14-field-claims.js';
 
 /*
@@ -86,6 +87,83 @@ function smartDocumentNodeNamePlan(target0, operation, findText, replaceText, se
   });
 }
 
+function sameNumericValue(left, right) {
+  const a = parseFortranNumber(left); const b = parseFortranNumber(right);
+  return Number.isFinite(a) && Number.isFinite(b) && Object.is(a, b);
+}
+
+function serializeNumericLogicalValue(valueInput, width) {
+  const raw = String(valueInput ?? '').trim();
+  const parsed = parseFortranNumber(raw);
+  if (!Number.isFinite(parsed)) return { status: 'BLOCKED', blocker: 'SMART_NUMERIC_REPLACEMENT_REQUIRED' };
+  if (raw.length > width) return { status: 'BLOCKED', blocker: `SMART_NUMERIC_REPLACEMENT_TOO_WIDE:${raw.length}:${width}` };
+  return { status: 'PASS', value: raw.padStart(width, ' ') };
+}
+
+function smartDocumentQualifiedFieldPlan(target0, operation, findText, replaceText, sequence) {
+  const resolution = resolveFindReplaceScope(target0, operation, {
+    fieldAwareMutation: true,
+    smartFixedWidth: 'QUALIFIED_FIELDS',
+  });
+  if (resolution?.status !== 'PASS') return null;
+  const matched = [];
+  for (const span of resolution.spans || []) {
+    if (span.smartKind === 'NODENAME') {
+      if (String(span.semanticValue ?? '').trim() === findText) matched.push(span);
+      continue;
+    }
+    if (span.smartKind === 'NUMERIC' && sameNumericValue(span.semanticValue, findText)) matched.push(span);
+  }
+  if (!matched.length) return null;
+
+  const groups = new Map();
+  for (const span of matched) {
+    const group = String(span.smartGroup || `${span.block || span.section || 'UNKNOWN'}:${span.fieldIdentity || 'UNKNOWN'}`);
+    const list = groups.get(group) || [];
+    list.push(span); groups.set(group, list);
+  }
+  if (groups.size !== 1) {
+    return Object.freeze({
+      resolution, matches: Object.freeze(matched), claims: Object.freeze([]),
+      blockers: Object.freeze([`SMART_FIELD_AMBIGUOUS:${groups.size}:${[...groups.keys()].join('|')}`]),
+      semanticMode: 'AUTO_CII_FIXED_WIDTH', block: 'AMBIGUOUS',
+    });
+  }
+
+  const [group, spans] = [...groups.entries()][0];
+  if (group === 'NODENAME') {
+    const plan = nodeNameClaimPlan(target0, findText, replaceText, spans, sequence, resolution);
+    const blockers = [...plan.blockers];
+    if (asciiLength(findText) == null || asciiLength(replaceText) == null) blockers.unshift('NODENAME_ASCII_TEXT_REQUIRED');
+    return Object.freeze({
+      resolution, matches: Object.freeze([...plan.matches]), claims: Object.freeze([...plan.claims]),
+      blockers: Object.freeze([...new Set(blockers)]), semanticMode: 'AUTO_NODENAME_FIXED_WIDTH', block: 'NODENAME',
+    });
+  }
+
+  const claims = []; const blockers = [];
+  for (const span of spans) {
+    const start = Number(span.start); const end = Number(span.end); const width = end - start;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > target0.length) {
+      blockers.push(`SMART_FIELD_RANGE_INVALID:${span.fieldIdentity || 'UNKNOWN'}`); continue;
+    }
+    const serialized = serializeNumericLogicalValue(replaceText, width);
+    if (serialized.status !== 'PASS') { blockers.push(`${serialized.blocker}:${span.fieldIdentity || 'UNKNOWN'}`); continue; }
+    const before = target0.slice(start, end);
+    claims.push(Object.freeze({
+      operationIndex: sequence, start, end, before, after: serialized.value,
+      scope: 'DOCUMENT', block: span.block || span.section || null,
+      authority: resolution.authority || null, fieldIdentity: span.fieldIdentity || null,
+      fieldKind: 'NUMERIC', semanticGroup: group,
+    }));
+  }
+  return Object.freeze({
+    resolution, matches: Object.freeze(spans), claims: Object.freeze(claims),
+    blockers: Object.freeze([...new Set(blockers)]), semanticMode: 'AUTO_CII_NUMERIC_FIXED_WIDTH',
+    block: spans[0]?.block || spans[0]?.section || null,
+  });
+}
+
 function overlapBlockers(claims) {
   const blockers = [];
   const ordered = [...claims].sort((a, b) => a.start - b.start || a.end - b.end || a.operationIndex - b.operationIndex);
@@ -123,7 +201,7 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
 
     let smartDocument = null;
     if (!nodeName && scopeToken === 'DOCUMENT' && unequalFixedWidth && findBytes != null && replaceBytes != null) {
-      smartDocument = smartDocumentNodeNamePlan(target0, operation, findText, replaceText, sequence);
+      smartDocument = smartDocumentQualifiedFieldPlan(target0, operation, findText, replaceText, sequence);
     }
 
     if (nodeName) {
@@ -157,8 +235,8 @@ export function validateFindReplacePreimage(target0Input, operations = [], optio
     }
     summaries.push(Object.freeze({
       sequence, status: operationBlockers.length ? 'BLOCKED' : 'VALID', scope: scopeToken,
-      block: smartDocument ? 'NODENAME' : operation?.block || null,
-      semanticMode: smartDocument ? 'AUTO_NODENAME_FIXED_WIDTH' : null,
+      block: smartDocument ? smartDocument.block : operation?.block || null,
+      semanticMode: smartDocument ? smartDocument.semanticMode : null,
       matchCount: matches.length, scopeAuthority: scopeResolution?.authority || null,
       scopeEvidence: scopeResolution?.evidence || null, blockers: Object.freeze(operationBlockers),
     }));
@@ -196,4 +274,4 @@ export function validateFindReplacePostimage(target0Input, target1Input, preimag
   return Object.freeze({ status: blockers.length ? 'FAIL' : 'PASS', blockers: Object.freeze(blockers), unexpected: Object.freeze(unexpected) });
 }
 
-export const _test = Object.freeze({ byteLength, asciiLength, isNodeNameOperation, literalMatchesWithinSpans, nodeNameClaimPlan, overlapBlockers });
+export const _test = Object.freeze({ byteLength, asciiLength, isNodeNameOperation, literalMatchesWithinSpans, nodeNameClaimPlan, sameNumericValue, serializeNumericLogicalValue, overlapBlockers });
