@@ -48,6 +48,14 @@ function operationSignature(value) {
     String(value?.from ?? ''), String(value?.to ?? ''), normalizeGridBlock(value?.block || ''),
   ]);
 }
+function qualificationLabel(currentSession, summary) {
+  if (summary?.appliedToNewCopy) return 'APPLIED TO NEW COPY';
+  if (summary?.qualified) return 'QUALIFIED PREVIEW';
+  if (currentSession?.status === 'VALIDATION_FAILED') return 'VALIDATION FAILED';
+  if (currentSession?.status === 'POSTIMAGE_BLOCKED') return 'POSTIMAGE BLOCKED';
+  if (currentSession?.status === 'QUALIFICATION_BLOCKED') return 'QUALIFICATION BLOCKED';
+  return '—';
+}
 
 export function mountCiiFindReplaceShell(host, context = {}) {
   const documentRef = host.ownerDocument;
@@ -158,7 +166,7 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     root.querySelector('[data-ciifr-source-hash]').textContent = shortHash(summary.sourceHash);
     root.querySelector('[data-ciifr-claims]').textContent = String(session.qualification?.preimage?.claims?.length || 0);
     root.querySelector('[data-ciifr-target-hash]').textContent = shortHash(session.qualification?.postimage?.audit?.targetHash);
-    root.querySelector('[data-ciifr-qualification]').textContent = summary.appliedToNewCopy ? 'APPLIED TO NEW COPY' : summary.qualified ? 'QUALIFIED PREVIEW' : 'NOT VALIDATED';
+    root.querySelector('[data-ciifr-qualification]').textContent = qualificationLabel(session, summary);
     root.querySelector('[data-ciifr-postimage-preview]').textContent = previewText(session);
   }
   function renderControlState(diag = diagnostics()) {
@@ -266,4 +274,4 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   });
 }
 
-export const _test = Object.freeze({ operationSignature, rawReplacement });
+export const _test = Object.freeze({ operationSignature, rawReplacement, qualificationLabel });
