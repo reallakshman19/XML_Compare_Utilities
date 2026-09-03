@@ -93,11 +93,13 @@
 .ciifr-section-head p { margin-bottom: .2rem; }
 .ciifr-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
 
-/* Manual-entry spreadsheet: intentionally table-first rather than form-first. */
+/* Editable Preview spreadsheet: table-first with a stable vertical scroll gutter. */
 .ciifr-sheet-wrap {
   width: 100%;
   max-height: 390px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   border: 1px solid #9aa3ad;
   border-radius: 4px;
   background: #fff;
@@ -201,7 +203,7 @@
 .ciifr-table td:last-child { min-width: 150px; }
 .ciifr-table td:last-child button { margin: 0 .25rem .25rem 0; padding: .25rem .45rem; }
 
-/* Finalization workflow: keep Validate -> Apply-to-new-copy -> Download visually explicit. */
+/* Finalization workflow: keep Validate -> Apply-to-new-copy -> Export visually explicit. */
 .ciifr-finalize-head {
   display: flex;
   justify-content: space-between;
