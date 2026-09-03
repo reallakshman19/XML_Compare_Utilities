@@ -3,6 +3,7 @@ import { ciiWriter1AReadiness } from './cii-workspace-target-writer.js';
 import { ciiWriter1BReadiness } from './cii-workspace-target-writer-1b.js';
 import { ciiWriterCompositeReadiness } from './cii-workspace-target-writer-composite.js';
 import { ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
+import { ciiWriter2SourceSetNodeNameReadiness } from './cii-workspace-multisource-writer2-readiness.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
@@ -25,6 +26,26 @@ function decisionAccessor(decisions) {
   const object = decisions && typeof decisions === 'object' ? decisions : {};
   return (id) => object[id];
 }
+function sourceAuthority(plan) {
+  const sourceSetSha256 = text(plan?.sourceSetSha256 || plan?.sourceAuthority?.sourceSetSha256);
+  if (sourceSetSha256) return Object.freeze({ kind: 'SOURCE_SET', hash: sourceSetSha256, sourceSetSha256, sourceSha256: '' });
+  const sourceSha256 = text(plan?.sourceDocument?.contentSha256);
+  return Object.freeze({ kind: 'DOCUMENT', hash: sourceSha256, sourceSetSha256: '', sourceSha256 });
+}
+function targetAuthority(plan) {
+  const original = text(plan?.targetAuthority?.originalSha256);
+  if (plan?.targetAuthorityKind === 'ORIGINAL_TARGET' && original) {
+    return Object.freeze({ kind: 'ORIGINAL_TARGET', hash: original, targetSha256: original });
+  }
+  const targetSha256 = text(plan?.targetDocument?.contentSha256);
+  return Object.freeze({ kind: 'DOCUMENT', hash: targetSha256, targetSha256 });
+}
+function sourceScopeFields(plan) {
+  const authority = sourceAuthority(plan);
+  return authority.kind === 'SOURCE_SET'
+    ? { sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: authority.sourceSetSha256, sourceSha256: '' }
+    : { sourceAuthorityKind: 'DOCUMENT', sourceSha256: authority.sourceSha256 };
+}
 function summary(operations) {
   const byAction = {};
   for (const operation of operations || []) byAction[operation.action || 'UNKNOWN'] = (byAction[operation.action || 'UNKNOWN'] || 0) + 1;
@@ -37,12 +58,14 @@ function summary(operations) {
   });
 }
 function scopeRecord(plan, status, extra = {}) {
+  const target = targetAuthority(plan);
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferScope,
     mode: 'EXPLICIT_APPLY_EXCLUDE', status,
     authority: 'USER_EXPLICIT_OPERATION_SCOPE',
-    sourceSha256: plan?.sourceDocument?.contentSha256 || '',
-    targetSha256: plan?.targetDocument?.contentSha256 || '',
+    ...sourceScopeFields(plan),
+    targetAuthorityKind: target.kind,
+    targetSha256: target.targetSha256,
     candidateOperationIds: deepFreeze(mutableCandidateIds(plan)),
     ...extra,
   });
@@ -64,7 +87,8 @@ function normalizedSelection(selection) {
   if (!selection || selection.mode !== 'EXPLICIT_APPLY_EXCLUDE') return null;
   const rows = Array.isArray(selection.decisions) ? selection.decisions : [];
   return {
-    sourceSha256: text(selection.sourceSha256), targetSha256: text(selection.targetSha256),
+    sourceAuthorityKind: text(selection.sourceAuthorityKind || (selection.sourceSetSha256 ? 'SOURCE_SET' : 'DOCUMENT')).toUpperCase(),
+    sourceSha256: text(selection.sourceSha256), sourceSetSha256: text(selection.sourceSetSha256), targetSha256: text(selection.targetSha256),
     decisions: rows.map((item) => ({ operationId: text(item?.operationId), decision: text(item?.decision).toUpperCase() })),
   };
 }
@@ -74,26 +98,33 @@ export function createCiiTransferScopeSelection(plan, decisions = {}) {
     const id = operationId(operation); const decision = text(read(id)).toUpperCase();
     return Object.freeze({ operationId: id, decision: decision === 'APPLY' ? 'APPLY' : 'EXCLUDE' });
   });
+  const target = targetAuthority(plan);
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferScopeSelection,
     mode: 'EXPLICIT_APPLY_EXCLUDE',
-    sourceSha256: plan?.sourceDocument?.contentSha256 || '',
-    targetSha256: plan?.targetDocument?.contentSha256 || '',
+    ...sourceScopeFields(plan),
+    targetAuthorityKind: target.kind,
+    targetSha256: target.targetSha256,
     decisions: deepFreeze(rows),
   });
 }
 export function applyCiiTransferScope(plan, selection = null) {
   if (!plan) throw new Error('CII_TRANSFER_SCOPE_PLAN_REQUIRED');
+  const source = sourceAuthority(plan); const target = targetAuthority(plan);
   const mutableIds = mutableCandidateIds(plan);
   if (!mutableIds.length) return deepFreeze({ ...plan, excludedOperations: deepFreeze([]), transferScope: scopeRecord(plan, 'EMPTY', {
-    scopeId: stableId('transfer-scope', 'empty', plan?.sourceDocument?.contentSha256 || '', plan?.targetDocument?.contentSha256 || ''),
+    scopeId: stableId('transfer-scope', 'empty', source.kind, source.hash, target.kind, target.hash),
     appliedOperationIds: deepFreeze([]), excludedOperationIds: deepFreeze([]),
   }) });
   const normalized = normalizedSelection(selection);
   if (!normalized) return blockedPlan(plan, 'UNBOUND', ['TRANSFER_SCOPE_EXPLICIT_SELECTION_REQUIRED']);
   const scopeBlockers = [];
-  if (normalized.sourceSha256 !== text(plan?.sourceDocument?.contentSha256)) scopeBlockers.push('TRANSFER_SCOPE_SOURCE_HASH_MISMATCH');
-  if (normalized.targetSha256 !== text(plan?.targetDocument?.contentSha256)) scopeBlockers.push('TRANSFER_SCOPE_TARGET_HASH_MISMATCH');
+  if (source.kind === 'SOURCE_SET') {
+    if (normalized.sourceAuthorityKind !== 'SOURCE_SET' || normalized.sourceSetSha256 !== source.sourceSetSha256) {
+      scopeBlockers.push('TRANSFER_SCOPE_SOURCE_SET_HASH_MISMATCH');
+    }
+  } else if (normalized.sourceSha256 !== source.sourceSha256) scopeBlockers.push('TRANSFER_SCOPE_SOURCE_HASH_MISMATCH');
+  if (normalized.targetSha256 !== target.targetSha256) scopeBlockers.push('TRANSFER_SCOPE_TARGET_HASH_MISMATCH');
   const decisionMap = new Map();
   for (const row of normalized.decisions) {
     if (!row.operationId || !['APPLY', 'EXCLUDE'].includes(row.decision)) { scopeBlockers.push('TRANSFER_SCOPE_DECISION_INVALID'); continue; }
@@ -118,7 +149,7 @@ export function applyCiiTransferScope(plan, selection = null) {
   const excludedOperationIds = excludedOperations.map(operationId).sort();
   const blockers = [...(plan?.blockers || [])];
   if (!appliedOperationIds.length) blockers.push('TRANSFER_SCOPE_NO_APPLY_OPERATIONS');
-  const scopeId = stableId('transfer-scope', plan?.sourceDocument?.contentSha256 || '', plan?.targetDocument?.contentSha256 || '',
+  const scopeId = stableId('transfer-scope', source.kind, source.hash, target.kind, target.hash,
     [...decisionMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([id, decision]) => `${id}=${decision}`).join('|'));
   return deepFreeze({
     ...plan,
@@ -139,6 +170,9 @@ function readinessFor(preview, transferPlan) {
   if (preview?.writerVersion === '1B') return ciiWriter1BReadiness(transferPlan);
   if (preview?.writerVersion === '1C') return ciiWriterCompositeReadiness(transferPlan, preview.targetDocument);
   if (preview?.writerVersion === '2') {
+    if (transferPlan?.sourceAuthorityKind === 'SOURCE_SET') {
+      return ciiWriter2SourceSetNodeNameReadiness(transferPlan, preview.targetDocument);
+    }
     const targetGraph = adaptCiiDocumentToTopologyGraph(preview.targetDocument);
     return ciiWriter2CompositeReadiness(transferPlan, preview.targetDocument, targetGraph);
   }
@@ -172,4 +206,4 @@ export function bindCiiTransferScopeToPreview(preview, selection = null) {
   return deepFreeze(result);
 }
 
-export const _test = Object.freeze({ mutableCandidateIds, normalizedSelection, summary, uniqueOperations });
+export const _test = Object.freeze({ mutableCandidateIds, normalizedSelection, summary, uniqueOperations, sourceAuthority, targetAuthority, readinessFor });
