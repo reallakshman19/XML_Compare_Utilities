@@ -16,14 +16,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - name: Probe retained benchmark
+      - name: Run focused regressions
         run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import { detectFindReplaceCiiVersion, createFindReplaceSession, withFindReplaceTarget } from './tabs/cii-workspace/cii-workspace-find-replace-session.js';
-          const text = fs.readFileSync('Benchmark/T.CII', 'utf8');
-          const version = detectFindReplaceCiiVersion(text);
-          const session = withFindReplaceTarget(createFindReplaceSession(), { name: 'T.CII', text });
-          console.log(JSON.stringify({ version, status: session.status, errors: session.errors, prefix: text.slice(0, 240) }));
-          if (version !== 14 || session.status !== 'TARGET_READY') process.exit(1);
-          NODE
+          node --test \
+            tests/cii-workspace-find-replace-v14-version-record.test.js \
+            tests/cii-workspace-find-replace-session.test.js \
+            tests/cii-workspace-find-replace-output.test.js
