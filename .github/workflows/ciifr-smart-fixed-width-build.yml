@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+      - name: Preserve JS escape literals in generator
+        run: python3 .github/ciifr-smart-fixed-width-fix.py
       - name: Apply smart semantic patch
         run: python3 .github/ciifr-smart-fixed-width-patch.py
       - name: Syntax check changed modules
@@ -42,6 +44,7 @@ jobs:
             tests/cii-workspace-find-replace-ui-registration.test.js
       - name: Commit qualified feature and remove staging files
         run: |
+          rm .github/ciifr-smart-fixed-width-fix.py
           rm .github/ciifr-smart-fixed-width-patch.py
           rm .github/workflows/ciifr-smart-fixed-width-build.yml
           git config user.name "github-actions[bot]"
