@@ -40,6 +40,24 @@ test('DOCUMENT smart fixed-width replaces logical Node Name without user padding
   assert.ok(postimage.target1.includes('SL-123.7'));
 });
 
+test('DOCUMENT smart fixed-width accepts a copied 25-byte padded Node Name Find value', () => {
+  const paddedFind = 'PS02302.1'.padEnd(25, ' ');
+  assert.equal(paddedFind.length, 25);
+  const operation = approvedDocument(paddedFind, 'SL-123');
+  assert.equal(operation.replaceText.length, 6);
+
+  const preimage = validateFindReplacePreimage(target0, [operation]);
+  assert.equal(preimage.status, 'PASS', preimage.blockers.join('\n'));
+  assert.equal(preimage.operationSummaries[0].semanticMode, 'AUTO_NODENAME_FIXED_WIDTH');
+  assert.equal(preimage.operationSummaries[0].block, 'NODENAME');
+  assert.ok(preimage.claims.length >= 1);
+  assert.ok(!preimage.operationSummaries[0].blockers.some((value) => value.startsWith('FIXED_WIDTH_LENGTH_MISMATCH:')));
+  for (const claim of preimage.claims) {
+    assert.equal(claim.before.length, claim.after.length);
+    assert.equal(claim.after.trim(), 'SL-123');
+  }
+});
+
 test('smart fixed-width blocks overflow with a human-readable capacity error', () => {
   const operation = approvedDocument('PS02302.1', 'X'.repeat(40));
   const preimage = validateFindReplacePreimage(target0, [operation]);
