@@ -50,8 +50,8 @@ function edge(id, options = {}) {
 }
 
 // 250-series concept: topology/location can identify the same gang even when
-// both OD and wall materially change. Those changes lower confidence but are
-// not identity blockers.
+// OD changes above 50% are explicit REVIEW while the M1/M2-supported pair
+// remains identity-supported and reviewable. Wall remains downstream delta evidence.
 {
   const source = edge('S-250', { diameter: 60.3, wall: 3.9 });
   const target = edge('T-20250', { diameter: 114.3, wall: 4.7752 });
@@ -63,9 +63,10 @@ function edge(id, options = {}) {
   assert.strictEqual(evidence.methods.m2Network.pass, true);
   assert.strictEqual(evidence.dimensions.diameter.pass, false);
   assert.strictEqual(evidence.dimensions.wall.pass, false);
-  assert.strictEqual(evidence.identityConfidence, 'MEDIUM');
+  assert.strictEqual(evidence.identityConfidence, 'REVIEW');
+  assert.strictEqual(evidence.odConfidence.confidence, 'REVIEW');
   assert.strictEqual(evidence.hardFail, false);
-  assert(evidence.score >= 45 && evidence.score < 46);
+  assert(evidence.score >= 62 && evidence.score < 63);
 }
 
 // Same dimensions alone can never establish identity.
@@ -117,7 +118,7 @@ function edge(id, options = {}) {
   assert(tokens.every((token) => !/\|OD|\|WT/i.test(token)));
 }
 
-// Confidence remains the configured 50/30/30 engineering score, while path
+// Confidence scoring retains identity+OD weighting, while path
 // ranking retains method quality so repeated network regions do not tie.
 {
   const sourceLayers = [

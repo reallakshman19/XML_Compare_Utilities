@@ -66,6 +66,8 @@ function rawEdge(document, element, auxiliary) {
   const packetEvidence = uniqueStrings([isBend ? 'BEND' : '', isRigid ? 'RIGID' : '']);
   return {
     from: nodeId(element.from), to: nodeId(element.to),
+    fromNodeName: document?.nodeNames?.[nodeId(element.from)] || '',
+    toNodeName: document?.nodeNames?.[nodeId(element.to)] || '',
     canonicalFrom: nodeId(element.from), canonicalTo: nodeId(element.to), normalizedFromTo: `${nodeId(element.from)}->${nodeId(element.to)}`,
     dx: Number(element.dx || 0), dy: Number(element.dy || 0), dz: Number(element.dz || 0),
     lengthMm: Number(element.length || Math.hypot(element.dx || 0, element.dy || 0, element.dz || 0)),

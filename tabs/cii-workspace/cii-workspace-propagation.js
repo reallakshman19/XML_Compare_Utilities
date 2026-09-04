@@ -7,6 +7,14 @@ function sortedEdges(rows) { return [...(rows || [])].sort((a, b) => String(a.el
 function pairKey(sourceNode, targetNode) { return `${sourceNode}=>${targetNode}`; }
 function workflowStatus(confidence) { return confidence === 'HIGH' ? 'HIGH' : 'REVIEW'; }
 
+function singleAnchorMatchOptions(options) {
+  if (options?.geometryTransform) return options;
+  return Object.freeze({ ...options, geometryTransform: Object.freeze({
+    status: 'UNDERDETERMINED', mode: 'SINGLE_LOCKED_ANCHOR',
+    reason: 'ONE_ANCHOR_CANNOT_ESTABLISH_ROTATION',
+  }) });
+}
+
 function componentEdgeIds(graph, startNode) {
   const start = String(startNode); const nodes = new Set([start]); const edges = new Set(); const queue = [start];
   while (queue.length) {
@@ -43,16 +51,16 @@ function enumerateAssignments(matrix, targetCount, limit = 720) {
     || stableStringify(a.pairs.map((pair) => pair.target.elementId)).localeCompare(stableStringify(b.pairs.map((pair) => pair.target.elementId)), undefined, { numeric: true }));
 }
 
-function frontierAssignment(sourceEdges, targetEdges, options) {
+function frontierAssignment(sourceEdges, targetEdges, matchOptions) {
   if (sourceEdges.length !== targetEdges.length) return { status: 'BLOCKED', blocker: 'FRONTIER_CARDINALITY_MISMATCH' };
   if (!sourceEdges.length) return { status: 'EMPTY', pairs: [] };
-  const maxDegree = Number(options.maxPropagationFrontierDegree || 6);
+  const maxDegree = Number(matchOptions.maxPropagationFrontierDegree || 6);
   if (sourceEdges.length > maxDegree) return { status: 'BLOCKED', blocker: 'FRONTIER_DEGREE_LIMIT_EXCEEDED' };
-  const assignments = enumerateAssignments(candidateMatrix(sourceEdges, targetEdges, options), targetEdges.length, Number(options.maxFrontierAssignments || 720));
+  const assignments = enumerateAssignments(candidateMatrix(sourceEdges, targetEdges, matchOptions), targetEdges.length, Number(matchOptions.maxFrontierAssignments || 720));
   if (!assignments.length) return { status: 'BLOCKED', blocker: 'NO_SUPPORTED_FRONTIER_ASSIGNMENT' };
   const winner = assignments[0]; const runner = assignments[1] || null;
   const gap = runner ? winner.rankingScore - runner.rankingScore : 100;
-  const requiredGap = Number(options.frontierWinnerGap ?? options.winnerGap ?? 8);
+  const requiredGap = Number(matchOptions.frontierWinnerGap ?? matchOptions.winnerGap ?? 8);
   if (runner && gap < requiredGap) return { status: 'AMBIGUOUS', blocker: 'FRONTIER_WINNER_GAP_NOT_SATISFIED', winner, runner, gap, requiredGap };
   return { status: 'SUPPORTED', winner, runner, gap, requiredGap };
 }
@@ -89,6 +97,7 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
   const queue = [{ sourceNode: sourceAnchor, targetNode: targetAnchor, depth: 0 }];
   const elementRows = []; const nodeRows = [lockedRow]; const blockers = new Set(); const custodyConflicts = [];
   const maxPairs = Number(options.maxPropagationNodePairs || 10000);
+  const matchOptions = singleAnchorMatchOptions(options);
 
   while (queue.length && visitedPairs.size < maxPairs) {
     const current = queue.shift(); const currentKey = pairKey(current.sourceNode, current.targetNode);
@@ -97,12 +106,12 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     const targetEdges = sortedEdges(targetGraph.adjacency.get(current.targetNode)).filter((edge) => !targetEdgeCustody.has(edge.elementId));
     if (!sourceEdges.length && !targetEdges.length) continue;
 
-    const assignment = frontierAssignment(sourceEdges, targetEdges, options);
+    const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions);
     if (assignment.status !== 'SUPPORTED') {
       blockers.add(assignment.blocker || 'PROPAGATION_FRONTIER_UNRESOLVED');
       for (const source of sourceEdges) {
         blockedSourceEdges.add(source.elementId);
-        const initial = targetEdges.length ? buildCiiCandidateEvidence(source, targetEdges, null, options) : null;
+        const initial = targetEdges.length ? buildCiiCandidateEvidence(source, targetEdges, null, matchOptions) : null;
         elementRows.push(unresolvedElementRow(source, null, 'ANCHOR_PROPAGATION_FRONTIER_BLOCKED', {
           propagation: { sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth, assignmentStatus: assignment.status,
             assignmentGap: assignment.gap ?? null, requiredGap: assignment.requiredGap ?? null, blocker: assignment.blocker }, candidates: initial,
@@ -113,7 +122,7 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
 
     for (const selected of assignment.winner.pairs) {
       const source = selected.source; const target = selected.target;
-      const candidates = buildCiiCandidateEvidence(source, targetEdges, target.elementId, options);
+      const candidates = buildCiiCandidateEvidence(source, targetEdges, target.elementId, matchOptions);
       const propagationEvidence = { sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth,
         assignmentScore: assignment.winner.rankingScore, assignmentGap: assignment.gap, requiredGap: assignment.requiredGap };
       if (candidates.status !== 'SUPPORTED') {
