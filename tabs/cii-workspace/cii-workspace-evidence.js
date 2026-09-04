@@ -37,10 +37,10 @@ function rankingScore(evaluation) {
 /**
  * Candidate evidence contract.
  *
- * Identity is established only by M1 Spatial and/or M2 Network. OD and wall
- * are supporting revision evidence and can never establish identity by
- * themselves. `score` is the configured 50/30/30 confidence score;
- * `rankingScore` adds method quality only for candidate/path ordering.
+ * Identity is established only by M1 Spatial and/or M2 Network. OD is a
+ * graded corroboration axis (<10 HIGH, 10..50 MEDIUM, >50 REVIEW); wall
+ * remains downstream engineering-delta evidence. Node Name corroboration
+ * may strengthen an already-supported identity but never establishes it alone.
  */
 export function scoreCiiEdgeCandidate(source, target, options = {}) {
   const evaluation = evaluateCiiMatchMethods(source, target, options);
@@ -52,6 +52,9 @@ export function scoreCiiEdgeCandidate(source, target, options = {}) {
     identityConfidence: evaluation.identity.confidence,
     identitySupported: evaluation.identity.identitySupported,
     identityReasons: evaluation.identity.reasons,
+    odConfidence: evaluation.identity.odConfidence,
+    nodeNameEvidence: evaluation.nodeName,
+    corroborationBand: evaluation.identity.corroborationBand,
     methods: Object.freeze({
       m1Spatial: evaluation.m1Spatial,
       m2Network: evaluation.m2Network,

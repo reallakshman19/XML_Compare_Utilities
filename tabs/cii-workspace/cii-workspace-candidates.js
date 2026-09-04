@@ -17,6 +17,9 @@ function rankedRows(sourceEdge, targetEdges, options) {
       components: evidence.components,
       methods: evidence.methods,
       dimensions: evidence.dimensions,
+      odConfidence: evidence.odConfidence,
+      nodeNameEvidence: evidence.nodeNameEvidence,
+      corroborationBand: evidence.corroborationBand,
       identityConfidence: evidence.identityConfidence,
       identitySupported: evidence.identitySupported,
       identityReasons: evidence.identityReasons,
@@ -79,7 +82,7 @@ export function buildCiiCandidateEvidence(sourceEdge, targetEdges, expectedTarge
 
   let status = 'UNRESOLVED';
   if (winnerPasses) {
-    if (methodDisagreement || winner.identityConfidence === 'REVIEW') status = 'AMBIGUOUS';
+    if (methodDisagreement) status = 'AMBIGUOUS';
     else if (unique && expectedIsWinner) status = 'SUPPORTED';
     else status = 'AMBIGUOUS';
   }
@@ -106,6 +109,9 @@ export function buildCiiCandidateEvidence(sourceEdge, targetEdges, expectedTarge
     winnerScore: winner?.score || 0,
     winnerRankingScore: winner?.rankingScore || 0,
     winnerIdentityConfidence: winner?.identityConfidence || 'UNRESOLVED',
+    winnerOdConfidence: winner?.odConfidence || null,
+    winnerNodeNameEvidence: winner?.nodeNameEvidence || null,
+    winnerCorroborationBand: winner?.corroborationBand || null,
     runnerUpScore: runner?.score || 0,
     runnerUpRankingScore: runner?.rankingScore || 0,
     winnerGap: Number(gap.toFixed(1)),
@@ -126,9 +132,9 @@ export function candidateStatus(evidence, baseStatus) {
   if (!evidence) return baseStatus;
   if (evidence.status === 'AMBIGUOUS') return 'REVIEW';
   if (evidence.status === 'UNRESOLVED') return 'UNRESOLVED';
-  // MEDIUM is an engineering confidence band, while the existing workflow
-  // status remains REVIEW until an engineer accepts/locks the correspondence.
-  if (evidence.winnerIdentityConfidence === 'MEDIUM') return 'REVIEW';
+  // MEDIUM/REVIEW are confidence bands; both remain explicit-review workflow
+  // states even when the candidate is uniquely identity-supported.
+  if (['MEDIUM', 'REVIEW'].includes(evidence.winnerIdentityConfidence)) return 'REVIEW';
   return baseStatus;
 }
 

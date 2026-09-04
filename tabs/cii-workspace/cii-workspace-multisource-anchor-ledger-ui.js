@@ -2,6 +2,7 @@ import {
   ciiQualifiedLoopsForSuggestion,
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
+import { ciiEvidenceBandStyle, ciiNodeNameBandStyle } from './cii-workspace-evidence-band-style.js';
 
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -54,6 +55,14 @@ function manualAuthorityRows(inspection, manualBySource) {
 function fmt(value, digits = 3) {
   const number = Number(value); return Number.isFinite(number) ? Number(number.toFixed(digits)).toString() : '—';
 }
+function nodeNameBandClass(evidence) {
+  const kind = String(evidence?.kind || 'UNAVAILABLE').toLowerCase();
+  return ['exact', 'canonical', 'partial', 'none'].includes(kind) ? kind : 'unavailable';
+}
+function evidenceBandClass(band) {
+  const level = Math.max(0, Math.min(4, Number(band?.level || 0)));
+  return `level-${level}`;
+}
 function proposalRationaleRows(inspection) {
   return (inspection?.memberInspections || []).flatMap((member) => (member?.inspection?.baseAnchorSuggestions || []).map((row) => {
     const discovery = row?.candidateGeneration?.reviewDiscovery || null;
@@ -61,21 +70,28 @@ function proposalRationaleRows(inspection) {
     const sourceAxes = discovery?.sourceAxisCount ?? Number(row?.methodB?.source?.independentAxisRunCount || 0);
     const targetAxes = discovery?.targetAxisCount ?? Number(row?.methodB?.target?.independentAxisRunCount || 0);
     const network = discovery?.oneAxisCompatible
-      ? `${sourceRun?.axisLabel || 'axis'} ${fmt(discovery.sourceLengthMm)} mm ↔ ${targetRun?.axisLabel || 'axis'} ${fmt(discovery.targetLengthMm)} mm · Δ ${fmt(discovery.lengthDeltaMm)} mm · tol ${fmt(discovery.toleranceMm)} mm · terminators agree`
+      ? `${sourceRun?.axisLabel || 'axis'} ${fmt(discovery.sourceLengthMm)} mm ↔ ${targetRun?.axisLabel || 'axis'} ${fmt(discovery.targetLengthMm)} mm · Δ ${fmt(discovery.lengthDeltaMm)} mm · tol ${fmt(discovery.toleranceMm)} mm · 1/1 corroboration only`
       : (row?.methodB?.status === 'READY' ? `${sourceAxes}/${targetAxes} independent axes · Method B ${row?.basisMethod === 'METHOD_B_NETWORK' || row?.basisMethod === 'METHOD_A_AND_B' ? 'qualified' : 'review'}` : 'No qualified network corroboration');
+    const methodA = row?.methodA?.status === 'READY'
+      ? `PASS · registered max residual ${fmt(row?.methodA?.bestBase?.maxResidualMm)} mm`
+      : `N/A · ${String(row?.methodA?.reason || row?.methodA?.status || 'no qualified non-collinear base').replaceAll('_', ' ')}`;
     const authority = (row?.basisMethod === 'METHOD_A_SPATIAL' || row?.basisMethod === 'METHOD_B_NETWORK' || row?.basisMethod === 'METHOD_A_AND_B')
       ? `${row.confidence || 'REVIEW'} · ${String(row.basisMethod).replaceAll('_', ' ')}`
       : `REVIEW · ${sourceAxes}/${targetAxes} axes; automatic Method B requires at least 2/2`;
+    const nameEvidence = row?.nodeNameEvidence || discovery?.nodeNameEvidence || null;
+    const od = row?.odConfidence || discovery?.odConfidence || null;
     return {
       sourceId: String(member?.sourceId || ''), sourceNodeId: String(row?.sourceNodeId || ''), targetNodeId: String(row?.targetNodeId || ''),
-      nodeName: String(discovery?.nodeName || ''), network, authority, discovery: Boolean(discovery),
+      sourceNodeName: String(discovery?.sourceNodeName || nameEvidence?.sourceRaw || ''), targetNodeName: String(discovery?.targetNodeName || nameEvidence?.targetRaw || ''),
+      canonicalKey: String(discovery?.canonicalKey || nameEvidence?.canonicalKey || ''), nameEvidence, od, methodA, network, authority,
+      band: row?.corroborationBand || null, discovery: Boolean(discovery),
     };
   }));
 }
 function proposalRationaleMarkup(inspection) {
   const rows = proposalRationaleRows(inspection);
   if (!rows.length) return '';
-  return `<section class="ciiw-ms-proposal-rationale" data-ciiw-ms-proposal-rationale="1"><header><div><b>Anchor proposal rationale</b><span>Human-readable summary before technical Method A/B evidence</span></div><span class="ciiw-corroboration">WHY PROPOSED</span></header><p>Node Name may surface a review candidate but never creates correspondence identity authority. The automatic Method B gate remains at least two independent axes on SOURCE and TARGET.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Proposed pair</th><th>Node Name basis</th><th>Network basis</th><th>Authority</th></tr></thead><tbody>${rows.map((row) => `<tr><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.sourceNodeId)} ↔ ${h(row.targetNodeId)}</b></td><td>${row.discovery ? `<code>${h(row.nodeName)}</code><small>exact unique existing name · discovery only</small>` : '—'}</td><td>${h(row.network)}</td><td>${h(row.authority)}</td></tr>`).join('')}</tbody></table></section>`;
+  return `<section class="ciiw-ms-proposal-rationale" data-ciiw-ms-proposal-rationale="1"><header><div><b>Anchor proposal rationale</b><span>Every proposal shows the evidence that made it greener or kept it in review</span></div><span class="ciiw-corroboration">WHY PROPOSED</span></header><p>Node Name is corroboration/discovery only and never creates identity authority by itself. Smart normalization is conservative to SL/PS family + primary number. Automatic Method B still requires at least two independent axes on SOURCE and TARGET.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Proposed pair</th><th>Evidence band</th><th>Node Name</th><th>M1 spatial</th><th>M2 network</th><th>OD band</th><th>Authority</th></tr></thead><tbody>${rows.map((row) => `<tr><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.sourceNodeId)} ↔ ${h(row.targetNodeId)}</b></td><td><span class="ciiw-evidence-band ${evidenceBandClass(row.band)}" style="${ciiEvidenceBandStyle(row.band?.level)}">${h(row.band?.label || 'RED')} · ${h(row.band?.score ?? 0)}/${h(row.band?.max ?? 0)}</span></td><td>${row.nameEvidence?.available !== false ? `<span class="ciiw-name-band ${nodeNameBandClass(row.nameEvidence)}" style="${ciiNodeNameBandStyle(nodeNameBandClass(row.nameEvidence))}">${h(row.nameEvidence?.kind || 'NONE')}</span><small>${h(row.sourceNodeName || '—')} ↔ ${h(row.targetNodeName || '—')}${row.canonicalKey ? ` · ${h(row.canonicalKey)}` : ''}</small>` : '—'}</td><td>${h(row.methodA)}</td><td>${h(row.network)}</td><td>${row.od?.available ? `<span class="ciiw-confidence ${String(row.od.confidence || 'review').toLowerCase()}">${h(row.od.confidence)}</span><small>${h(row.od.percentError)}% · ${h(fmt(row.od.source))} ↔ ${h(fmt(row.od.target))}</small>` : '<span class="ciiw-confidence review">REVIEW</span><small>OD unavailable</small>'}</td><td>${h(row.authority)}</td></tr>`).join('')}</tbody></table></section>`;
 }
 
 export function ciiMultiSourceAnchorLedgerRows(inspection, selectedBySource, manualBySource) {
