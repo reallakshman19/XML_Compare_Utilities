@@ -58,6 +58,14 @@ test('DOCUMENT smart fixed-width accepts a copied 25-byte padded Node Name Find 
   }
 });
 
+test('all-space fixed-width Find input remains fail-closed', () => {
+  const operation = approvedDocument(' '.repeat(25), 'SL-123');
+  const preimage = validateFindReplacePreimage(target0, [operation]);
+  assert.equal(preimage.status, 'FAIL');
+  assert.equal(preimage.claims.length, 0);
+  assert.ok(preimage.operationSummaries[0].blockers.some((value) => value.startsWith('FIXED_WIDTH_LENGTH_MISMATCH:25:6')));
+});
+
 test('smart fixed-width blocks overflow with a human-readable capacity error', () => {
   const operation = approvedDocument('PS02302.1', 'X'.repeat(40));
   const preimage = validateFindReplacePreimage(target0, [operation]);
