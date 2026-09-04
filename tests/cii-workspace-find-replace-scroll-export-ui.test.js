@@ -16,7 +16,8 @@ test('editable Preview uses a fixed viewport with an explicit vertical scrollbar
   assert.match(wrap, /scrollbar-gutter:\s*stable/);
   assert.match(wrap, /scrollbar-color:/);
   assert.match(css, /\.ciifr-sheet-wrap::\-webkit-scrollbar/);
-  assert.match(tab, /cii-workspace-find-replace\.css\?v=20260903-scroll-state-2/);
+  assert.match(tab, /cii-workspace-find-replace\.css\?v=20260904-padded-find-scroll-1/);
+  assert.match(tab, /cii-workspace-find-replace-ui\.js\?v=20260904-padded-find-scroll-1/);
   assert.match(tab, /if \(existing\.href !== href\) existing\.href = href/);
   assert.match(panel, /fixed-height table with a dedicated vertical scrollbar/);
 });
