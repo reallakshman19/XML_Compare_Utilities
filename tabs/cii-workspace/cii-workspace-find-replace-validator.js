@@ -27,7 +27,11 @@ function isNodeNameOperation(operation) {
   return String(operation?.scope || '').trim().toUpperCase() === 'BLOCK' && blockToken(operation?.block) === 'NODENAME';
 }
 
-function logicalNodeName(value) { return String(value ?? '').trim(); }
+function logicalNodeName(value) {
+  const text = String(value ?? '');
+  const trimmed = text.trim();
+  return trimmed || text;
+}
 
 function literalMatchesWithinSpans(target0, needle, spans) {
   const matches = [];
