@@ -27,6 +27,12 @@ function isNodeNameOperation(operation) {
   return String(operation?.scope || '').trim().toUpperCase() === 'BLOCK' && blockToken(operation?.block) === 'NODENAME';
 }
 
+function logicalNodeName(value) {
+  const text = String(value ?? '');
+  const trimmed = text.trim();
+  return trimmed || text;
+}
+
 function literalMatchesWithinSpans(target0, needle, spans) {
   const matches = [];
   if (!needle) return matches;
@@ -48,11 +54,12 @@ function literalMatchesWithinSpans(target0, needle, spans) {
 function nodeNameClaimPlan(target0, findText, replaceText, spans, sequence, scopeResolution) {
   const matches = []; const blockers = []; const claims = [];
   const replacementLength = asciiLength(replaceText);
+  const logicalFind = logicalNodeName(findText);
   for (const span of spans || []) {
     const start = Number(span?.start); const end = Number(span?.end);
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > target0.length) continue;
     const before = target0.slice(start, end);
-    if (before.trim() !== findText) continue;
+    if (before.trim() !== logicalFind) continue;
     matches.push(span);
     const width = end - start;
     if (span?.fieldWidth != null && Number(span.fieldWidth) !== width) blockers.push(`NODENAME_FIELD_WIDTH_MISMATCH:${span.fieldIdentity || 'UNKNOWN'}:${span.fieldWidth}:${width}`);
@@ -107,9 +114,10 @@ function smartDocumentQualifiedFieldPlan(target0, operation, findText, replaceTe
   });
   if (resolution?.status !== 'PASS') return null;
   const matched = [];
+  const logicalFind = logicalNodeName(findText);
   for (const span of resolution.spans || []) {
     if (span.smartKind === 'NODENAME') {
-      if (String(span.semanticValue ?? '').trim() === findText) matched.push(span);
+      if (String(span.semanticValue ?? '').trim() === logicalFind) matched.push(span);
       continue;
     }
     if (span.smartKind === 'NUMERIC' && sameNumericValue(span.semanticValue, findText)) matched.push(span);
@@ -274,4 +282,4 @@ export function validateFindReplacePostimage(target0Input, target1Input, preimag
   return Object.freeze({ status: blockers.length ? 'FAIL' : 'PASS', blockers: Object.freeze(blockers), unexpected: Object.freeze(unexpected) });
 }
 
-export const _test = Object.freeze({ byteLength, asciiLength, isNodeNameOperation, literalMatchesWithinSpans, nodeNameClaimPlan, sameNumericValue, serializeNumericLogicalValue, overlapBlockers });
+export const _test = Object.freeze({ byteLength, asciiLength, isNodeNameOperation, logicalNodeName, literalMatchesWithinSpans, nodeNameClaimPlan, sameNumericValue, serializeNumericLogicalValue, overlapBlockers });

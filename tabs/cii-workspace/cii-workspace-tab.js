@@ -1,7 +1,7 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
 import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260903-ms-import-repair-1';
 import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260903-ms-import-repair-1';
-import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260903-ciifr-export-refresh-1';
+import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';
 
 const STYLE_ID = 'cii-workspace-style';
 const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
@@ -20,7 +20,7 @@ function stylesheet(documentRef, id, relativeUrl) {
 function ensureStylesheet(documentRef) {
   stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
   stylesheet(documentRef, ENGINEERING_STYLE_ID, './cii-workspace-engineering-ui.css');
-  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css?v=20260903-scroll-state-2');
+  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css?v=20260904-padded-find-scroll-1');
 }
 function installWriter1CSifContextControls(root, state) {
   const panel = root.querySelector('[data-ciiw-panel="inputs"]'); if (!panel) return () => {};
