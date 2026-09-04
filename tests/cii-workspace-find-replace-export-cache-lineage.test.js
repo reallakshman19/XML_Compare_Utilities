@@ -17,7 +17,7 @@ test('Pages and Utilities cache lineage forces the current CII Workspace control
   for (const source of sources) assert.match(source, new RegExp(BUILD));
 
   const workspace = read('tabs/cii-workspace/cii-workspace-tab.js');
-  assert.match(workspace, /cii-workspace-find-replace-ui\.js\?v=20260903-ciifr-export-refresh-1/);
+  assert.match(workspace, /cii-workspace-find-replace-ui\.js\?v=20260904-padded-find-scroll-1/);
 });
 
 test('current Find & Replace UI enables export only from the applied release state', () => {
