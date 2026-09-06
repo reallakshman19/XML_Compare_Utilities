@@ -83,12 +83,18 @@ export function seedCiiMultiSourceReviewDecisions(preview, decisions = new Map()
   return decisions;
 }
 
+function memberReviewLedgers(preview) {
+  return new Map((preview?.memberPreviews || []).map(({ sourceId, preview: member }) => [String(sourceId || ''), member?.review || null]));
+}
 export function ciiMultiSourceReviewBySource(preview, decisions) {
-  const result = {};
+  const ledgers = memberReviewLedgers(preview); const result = {};
   for (const row of reviewRows(preview)) {
     const sourceId = String(row?.sourceId || ''); const memberId = String(row?.memberCorrespondenceId || '');
     if (!sourceId || !memberId) continue;
-    if (!result[sourceId]) result[sourceId] = { reviewedCorrespondenceIds: [], lockedCorrespondenceIds: [], rejectedCorrespondenceIds: [] };
+    if (!result[sourceId]) result[sourceId] = {
+      ...(ledgers.get(sourceId) || {}),
+      reviewedCorrespondenceIds: [], lockedCorrespondenceIds: [], rejectedCorrespondenceIds: [],
+    };
     const decision = effectiveDecision(row, decisions);
     if (decision === 'LOCK') result[sourceId].lockedCorrespondenceIds.push(memberId);
     else if (decision === 'ACCEPT') result[sourceId].reviewedCorrespondenceIds.push(memberId);
@@ -142,4 +148,4 @@ export function ciiMultiSourceReviewSummaryMarkup(preview, decisions = new Map()
   return `<div class="ciiw-kpis" data-ciiw-ms-review-summary="1"><div><b>${h(rows.length)}</b><span>Rows</span></div><div><b>${h(counts.HIGH)}</b><span>HIGH</span></div><div><b>${h(counts.MEDIUM)}</b><span>MEDIUM</span></div><div><b>${h(counts.REVIEW)}</b><span>REVIEW</span></div><div><b>${h(counts.LOCKED)}</b><span>Locked</span></div><div><b>${h(counts.ACCEPT)}</b><span>Accepted</span></div><div><b>${h(counts.REJECT)}</b><span>Rejected</span></div><div><b>${h(counts.PENDING)}</b><span>Pending</span></div></div>`;
 }
 
-export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow });
+export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers });
