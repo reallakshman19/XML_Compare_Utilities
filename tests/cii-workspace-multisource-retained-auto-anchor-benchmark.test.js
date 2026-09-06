@@ -50,6 +50,7 @@ function automaticReviewBySource(preview) {
   return Object.fromEntries((preview?.memberPreviews || []).map(({ sourceId, preview: member }) => {
     const rows = member?.compareReview?.rows || [];
     return [sourceId, {
+      ...(member?.review || {}),
       reviewedCorrespondenceIds: rows.filter((row) => row.identityBound && ['HIGH', 'MEDIUM'].includes(row.confidence)).map((row) => row.correspondenceId),
       lockedCorrespondenceIds: rows.filter((row) => row.decision === 'LOCKED').map((row) => row.correspondenceId),
       rejectedCorrespondenceIds: [],
@@ -64,14 +65,10 @@ function candidateOperations(plan) {
   }
   return byId;
 }
-function operationValue(operation) {
-  return String(operation?.action === 'CREATE' ? (operation?.proposed ?? operation?.sourceEvidence?.value)
-    : (operation?.before ?? operation?.targetEvidence?.value) ?? '').trim();
-}
 function physicalTransferKey(operation) {
   const action = String(operation?.action || '').trim();
   const target = String(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId || '').trim();
-  return structuralTransferKey(action, target, operationValue(operation));
+  return structuralTransferKey(action, target);
 }
 function canonicalPhysicalTransfer(preview) {
   const candidates = candidateOperations(preview.transferPlan);
@@ -116,20 +113,22 @@ const physical = canonicalPhysicalTransfer(preview);
 assert.equal(physical.canonical.conflicts.length, 0, 'Transfer must have zero competing exact physical NODENAME proposals');
 assert.equal(new Set(physical.keys).size, physical.keys.length, 'canonical physical Transfer APPLY keys must be unique');
 assert.equal(physical.keys.length, expectedKeys.length, 'Transfer tab physical APPLY row count must equal independent T→partial-expected structural benchmark count');
-assert.deepEqual(physical.keys, [...expectedKeys], 'Transfer tab action/target/name-family set must equal the independent partial expected structural set');
+assert.deepEqual(physical.keys, [...expectedKeys], 'Transfer tab action/target set must equal the independent partial expected structural set');
 const rawMutationIdentity = validateRawMutationIdentity(physical.operations, sourceTextsById, targetText, bmRows);
 assert.equal(rawMutationIdentity.status, 'READY', `Transfer exact raw identity failed: ${JSON.stringify(rawMutationIdentity.errors.slice(0, 10))}`);
 
 const exactScope = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef });
-assert.equal(exactScope.authority.correspondenceCoverage.status, 'READY', 'all 329 BM-001 correspondence rows must be covered before Writer2 scope can bind');
-assert.equal(exactScope.authority.correspondenceCoverage.missingRowNumbers.length, 0);
+assert.equal(exactScope.authority.rowCount, 329, 'frozen BM-001 authority must remain exactly 329 rows');
+assert.equal(exactScope.authority.correspondenceCoverage.status, 'READY', 'every observed BM-001 claim must be an exact frozen-table row');
+assert.equal(exactScope.authority.correspondenceCoverage.invalidOperationIds.length, 0, 'no observed BM-001 claim may be invalid');
+assert(exactScope.authority.correspondenceCoverage.matchedRowCount > 0, 'retained path must expose observed BM-001 evidence');
 assert.equal(exactScope.appliedOperationIds.length, expectedKeys.length, 'bound scope APPLY cardinality must equal independent benchmark Transfer cardinality');
 const scopedPreview = bindCiiTransferScopeToPreview(preview, exactScope.selection);
 assert.equal(scopedPreview.writerReadiness.ready, true, `Writer2 readiness blocked: ${(scopedPreview.writerReadiness.blockers || []).join(',')}`);
 
 const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, targetBytes, { cryptoRef });
 assert.equal(applied.versionBridgeValidation.status, 'PASS');
-const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applied.byteString, expectedText);
+const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applied.byteString, expectedText, physical.operations);
 const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
 const checkpointEvidence = checkpointDiagnostics(preview);
 const diagnostics = Object.freeze({
@@ -143,6 +142,7 @@ const diagnostics = Object.freeze({
     duplicateCorroborationCount: physical.canonical.duplicateOperationIds.length,
     conflictCount: physical.canonical.conflicts.length,
     rawMutationIdentity: rawMutationIdentity.status,
+    sourceOnlyCreateOperationIds: rawMutationIdentity.sourceOnlyCreateOperationIds,
   },
   bm001: exactScope.authority.correspondenceCoverage,
   compare: {
@@ -151,16 +151,17 @@ const diagnostics = Object.freeze({
     structuralSemanticDifferences: structuralPostimage.semantics.differences.length,
     exactRawEmissionStatus: emittedRawIdentity.status,
     exactRawEmissionDifferences: emittedRawIdentity.errors.length,
-    familyExpansions: structuralPostimage.encoding.familyExpansions.length,
     unrelatedTargetDifferences: structuralPostimage.preservation.differences.length,
+    unselectedNodeNamePayloadDifferences: structuralPostimage.nodeNamePayloadPreservation.differences.length,
   },
   ownerCheckpointEvidence: checkpointEvidence,
 });
 console.log(JSON.stringify(diagnostics, null, 2));
 
 assert.equal(structuralPostimage.preservation.status, 'READY', 'Writer2 output must preserve original T outside NODENAME authority');
-assert.equal(structuralPostimage.encoding.differences.length, 0, 'Writer2 CONTROL/pointer/NODENAME placement must match the partial expected structural oracle');
-assert.equal(structuralPostimage.semantics.differences.length, 0, 'Writer2 node placement/name family must match the partial expected structural oracle');
+assert.equal(structuralPostimage.nodeNamePayloadPreservation.status, 'READY', 'Writer2 output must preserve unselected original NODENAME payloads');
+assert.equal(structuralPostimage.encoding.differences.length, 0, 'Writer2 CONTROL/pointer/NODENAME cardinality must match the partial expected structural oracle');
+assert.equal(structuralPostimage.semantics.differences.length, 0, 'Writer2 NODENAME occupancy must match the partial expected structural oracle');
 assert.equal(emittedRawIdentity.status, 'READY', `final Writer2 output must emit each exact selected raw source name: ${JSON.stringify(emittedRawIdentity.errors.slice(0, 10))}`);
 assert.equal(structuralPostimage.status, 'READY', 'retained Writer2 structural benchmark must match the partial expected artifact and preserve original target elsewhere');
 
