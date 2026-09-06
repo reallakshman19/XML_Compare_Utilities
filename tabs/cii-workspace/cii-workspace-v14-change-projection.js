@@ -249,9 +249,51 @@ function assertStableDuplicateMultiplicity(baselineUnits, modifiedUnits, section
   }
 }
 
-function projectCardinalityRun(output, originalUnits, modifiedUnits, sectionName, bStart, bEnd, mStart, mEnd, ledger) {
+function mergeNodeNameBlankTransition(original, baseline, modified, context) {
+  const ranges = [[2, 28, 'FROM'], [28, 53, 'TO']];
+  if (original.length !== baseline.length || baseline.length !== modified.length || baseline.length < 53) {
+    throw new Error(`CII_V14_PROJECTION_NODENAME_ROW_WIDTH_MISMATCH:${context}`);
+  }
+  if (baseline.slice(0, 2) !== modified.slice(0, 2) || baseline.slice(53) !== modified.slice(53)) {
+    throw new Error(`CII_V14_PROJECTION_NODENAME_OUTSIDE_FIELD_CHANGE:${context}`);
+  }
+  let row = original; const changedFields = [];
+  for (const [start, end, field] of ranges) {
+    const before = baseline.slice(start, end); const after = modified.slice(start, end);
+    if (before === after) continue;
+    if ((before.trim() === '') === (after.trim() === '')) {
+      throw new Error(`CII_V14_PROJECTION_NODENAME_NONBLANK_REPLACEMENT_NOT_AUTHORIZED:${context}:${field}`);
+    }
+    if (original.slice(start, end) !== before) {
+      throw new Error(`CII_V14_PROJECTION_NODENAME_CHANGED_FIELD_PREIMAGE_MISMATCH:${context}:${field}`);
+    }
+    row = `${row.slice(0, start)}${after}${row.slice(end)}`; changedFields.push(field);
+  }
+  if (!changedFields.length) throw new Error(`CII_V14_PROJECTION_NODENAME_CHANGE_UNRESOLVED:${context}`);
+  return Object.freeze({ row, changedFields: Object.freeze(changedFields) });
+}
+
+function projectNodeNameReplacementRun(output, originalUnits, baselineUnits, modifiedUnits, bStart, mStart, count, ledger) {
+  for (let offset = 0; offset < count; offset += 1) {
+    const original = originalUnits[bStart + offset].rows[0];
+    const baseline = baselineUnits[bStart + offset].rows[0];
+    const modified = modifiedUnits[mStart + offset].rows[0];
+    const merged = mergeNodeNameBlankTransition(original, baseline, modified, `NODENAME:${bStart + offset}`);
+    output.push(merged.row);
+    ledger.push(Object.freeze({
+      section: 'NODENAME', operation: 'MERGE_NODENAME_BLANK_TRANSITION',
+      baselineUnitStart: bStart + offset, modifiedUnitStart: mStart + offset, changedFields: merged.changedFields,
+    }));
+  }
+}
+
+function projectCardinalityRun(output, originalUnits, baselineUnits, modifiedUnits, sectionName, bStart, bEnd, mStart, mEnd, ledger) {
   const bCount = bEnd - bStart;
   const mCount = mEnd - mStart;
+  if (sectionName === 'NODENAME' && bCount > 0 && bCount === mCount) {
+    projectNodeNameReplacementRun(output, originalUnits, baselineUnits, modifiedUnits, bStart, mStart, bCount, ledger);
+    return;
+  }
   if (bCount === 0 && mCount > 0) {
     for (const unit of modifiedUnits.slice(mStart, mEnd)) output.push(...unit.rows);
     ledger.push(Object.freeze({ section: sectionName, operation: 'INSERT_UNITS', baselineUnitStart: bStart, modifiedUnitStart: mStart, count: mCount, unitRows: CARDINALITY_UNIT_ROWS[sectionName] }));
@@ -284,7 +326,7 @@ function projectChangedCardinality(original, baseline, modified, sectionName, le
   let previousB = 0;
   let previousM = 0;
   for (const [bIndex, mIndex] of [...matches, [baselineUnits.length, modifiedUnits.length]]) {
-    projectCardinalityRun(output, originalUnits, modifiedUnits, sectionName, previousB, bIndex, previousM, mIndex, ledger);
+    projectCardinalityRun(output, originalUnits, baselineUnits, modifiedUnits, sectionName, previousB, bIndex, previousM, mIndex, ledger);
     if (bIndex < baselineUnits.length && mIndex < modifiedUnits.length) output.push(...originalUnits[bIndex].rows);
     previousB = bIndex + 1;
     previousM = mIndex + 1;
