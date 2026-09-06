@@ -1,5 +1,5 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
-import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
+import { sha256CiiByteString } from './cii-workspace-byte-sha256.js';
 
 function rowIdentity(row) {
   return {
@@ -17,8 +17,14 @@ function rowIdentity(row) {
     evidence: row.evidence || null,
   };
 }
+function utf8ByteString(value) {
+  const bytes = new TextEncoder().encode(String(value ?? '')); let result = '';
+  const chunk = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunk) result += String.fromCharCode(...bytes.subarray(offset, offset + chunk));
+  return result;
+}
 
-export async function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, targetDocument, anchors, cryptoRef = globalThis.crypto) {
+export function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, targetDocument, anchors) {
   const material = {
     sourceContentSha256: sourceDocument?.contentSha256 || '',
     targetContentSha256: targetDocument?.contentSha256 || '',
@@ -29,6 +35,8 @@ export async function bindCiiCorrespondenceIdentity(correspondence, sourceDocume
     blockers: correspondence?.blockers || [],
     status: correspondence?.status || 'UNRESOLVED',
   };
-  const materialSha256 = await ciiSha256(stableStringify(material), cryptoRef);
+  const materialSha256 = sha256CiiByteString(utf8ByteString(stableStringify(material)));
   return deepFreeze({ ...correspondence, correspondenceIdentity: stableId('correspondence-v1', materialSha256) });
 }
+
+export const _test = Object.freeze({ rowIdentity, utf8ByteString });
