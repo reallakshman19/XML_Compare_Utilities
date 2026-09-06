@@ -70,7 +70,6 @@ function sourceSetPlan(mutations) {
   };
 }
 
-// Exact raw aliases remain the only BM-001 correspondence identity. Optional leading '/' is notation only.
 const exact = previewTest.inferredAcceptanceBinding(operation('SL-106.3', 'PS02494.1'), aliasSet);
 assert(exact, 'raw CII source name without Owner-table slash must bind its exact BM-001 alias');
 assert.deepStrictEqual(exact.sourceNames, ['SL-106.3']);
@@ -91,7 +90,6 @@ for (const sourceAlias of ['SL-104.8', 'X6']) {
     `${sourceAlias} must bind as an exact member of its multi-alias BM-001 row`);
 }
 
-// BM-001 validates correspondence coverage, not the CREATE/DELETE value pair itself.
 const authorityRows = [
   { rowNumber: 1, sourceNames: ['/SL-106.3'], targetName: 'PS02494.1' },
   { rowNumber: 2, sourceNames: ['/SL-104.8', '/X6'], targetName: 'PS02497.1' },
@@ -101,8 +99,18 @@ const covered = ciiBm001CorrespondenceCoverage({ operations: [
   correspondenceEvidence('E2', ['X6'], 'PS02497.1'),
 ] }, authorityRows);
 assert.equal(covered.status, 'READY');
+assert.equal(covered.observationStatus, 'COMPLETE');
 assert.equal(covered.matchedRowCount, 2);
 assert.deepStrictEqual(covered.missingRowNumbers, []);
+
+const partialCoverage = ciiBm001CorrespondenceCoverage({ operations: [
+  correspondenceEvidence('E1', ['SL-106.3'], 'PS02494.1'),
+] }, authorityRows);
+assert.equal(partialCoverage.status, 'READY', 'unobserved frozen BM rows are custody metadata, not invalid correspondence evidence');
+assert.equal(partialCoverage.observationStatus, 'PARTIAL');
+assert.equal(partialCoverage.matchedRowCount, 1);
+assert.deepStrictEqual(partialCoverage.missingRowNumbers, [2]);
+assert.deepStrictEqual(partialCoverage.invalidOperationIds, []);
 
 const familyOnlyCoverage = ciiBm001CorrespondenceCoverage({ operations: [
   correspondenceEvidence('E1', ['SL-106'], 'PS02494.1'),
@@ -118,8 +126,8 @@ const wrongSiblingCoverage = ciiBm001CorrespondenceCoverage({ operations: [
 ] }, authorityRows);
 assert.equal(wrongSiblingCoverage.status, 'BLOCKED');
 assert.deepStrictEqual(wrongSiblingCoverage.missingRowNumbers, [1]);
+assert.deepStrictEqual(wrongSiblingCoverage.invalidOperationIds, ['E1']);
 
-// Writer2 cardinality eligibility is resolved from the physical target mutation, independent of BM label pairing.
 const create = cardinalityOperation({ id: 'CREATE-S1' });
 assert.equal(ciiWriter2NodeNameCardinalityOperation(create), true);
 assert.equal(ciiExpectedNodeNameOperation(create), true);
@@ -133,7 +141,6 @@ assert.equal(ciiWriter2PhysicalMutationKey(deleteOp), 'NODE_NAME|DELETE|8870|PS0
 const overwrite = cardinalityOperation({ id: 'OVERWRITE', before: 'PS02494.1', proposed: 'SL-106.3' });
 assert.equal(ciiWriter2NodeNameCardinalityOperation(overwrite), false, 'same-row overwrite is not Writer2 cardinality authority');
 
-// Identical S1/S2 physical claims collapse to one APPLY; different dotted siblings conflict and are not selected.
 const corroborating = cardinalityOperation({ id: 'CREATE-S2', sourceId: 'S2' });
 const canonical = ciiCanonicalWriter2MutationSelection([corroborating, create]);
 assert.deepStrictEqual(canonical.appliedOperationIds, ['CREATE-S1']);
