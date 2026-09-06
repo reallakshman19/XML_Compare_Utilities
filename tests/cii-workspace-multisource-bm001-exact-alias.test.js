@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { _test as previewTest } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
-import { ciiExpectedNodeNameOperation } from '../tabs/cii-workspace/cii-workspace-multisource-scope.js';
+import {
+  ciiExpectedNodeNameOperation,
+  createCiiExpectedNodeNameSourceSetSelection,
+} from '../tabs/cii-workspace/cii-workspace-multisource-scope.js';
 import { _test as readinessTest } from '../tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js';
 import {
   ciiBm001CorrespondenceCoverage,
@@ -10,7 +13,12 @@ import {
   ciiWriter2PhysicalMutationKey,
 } from '../tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js';
 import { CII_WRITER_2_NODENAME_RELOCATION_POLICY } from '../tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js';
-import { ciiMsBm001AliasSet } from '../tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js';
+import {
+  CII_MS_SOURCE_SET_SHA256,
+  CII_MS_TARGET_SHA256,
+  ciiMsBm001AliasSet,
+  parseCiiMsBm001,
+} from '../tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js';
 
 const aliasSet = ciiMsBm001AliasSet();
 function operation(sourceValue, targetValue) {
@@ -22,6 +30,8 @@ function operation(sourceValue, targetValue) {
 function correspondenceEvidence(id, sourceNames, targetName) {
   return {
     operationId: id,
+    action: 'BLOCKED',
+    status: 'BLOCKED',
     bm001Acceptance: { benchmark: 'BM-001', status: 'BOUND', sourceNames, targetName },
   };
 }
@@ -39,6 +49,24 @@ function cardinalityOperation({ id, sourceId = 'S1', action = 'CREATE', target =
     sourceEvidence: { value: proposed },
     before,
     proposed,
+  };
+}
+function fullBmEvidence() {
+  return parseCiiMsBm001().map((row) => correspondenceEvidence(
+    `BM-${row.rowNumber}`,
+    [String(row.sourceNames[0]).replace(/^\//, '')],
+    row.targetName,
+  ));
+}
+function sourceSetPlan(mutations) {
+  return {
+    status: 'PREVIEW_READY',
+    sourceAuthorityKind: 'SOURCE_SET',
+    sourceSetSha256: CII_MS_SOURCE_SET_SHA256,
+    targetAuthorityKind: 'ORIGINAL_TARGET',
+    targetAuthority: { originalSha256: CII_MS_TARGET_SHA256 },
+    operations: [...fullBmEvidence(), ...mutations],
+    excludedOperations: [],
   };
 }
 
@@ -113,6 +141,15 @@ assert.deepStrictEqual(canonical.duplicateOperationIds, ['CREATE-S2']);
 assert.deepStrictEqual(canonical.corroborationGroups[0].sourceIds, ['S1', 'S2']);
 assert.deepStrictEqual(canonical.conflicts, []);
 
+const scopeSelection = await createCiiExpectedNodeNameSourceSetSelection(sourceSetPlan([create, corroborating]), { cryptoRef: globalThis.crypto });
+assert.equal(scopeSelection.authority.correspondenceCoverage.status, 'READY');
+assert.equal(scopeSelection.authority.correspondenceCoverage.matchedRowCount, 329);
+assert.deepStrictEqual(scopeSelection.appliedOperationIds, ['CREATE-S1']);
+assert.deepStrictEqual(scopeSelection.duplicateCorroborationOperationIds, ['CREATE-S2']);
+assert(scopeSelection.excludedOperationIds.includes('CREATE-S2'));
+assert.equal(scopeSelection.selection.decisions.find((row) => row.operationId === 'CREATE-S1')?.decision, 'APPLY');
+assert.equal(scopeSelection.selection.decisions.find((row) => row.operationId === 'CREATE-S2')?.decision, 'EXCLUDE');
+
 const wrongSiblingMutation = cardinalityOperation({ id: 'CREATE-S3', sourceId: 'S3', proposed: 'SL-106.4' });
 const siblingConflicts = ciiWriter2PhysicalMutationConflicts([create, wrongSiblingMutation]);
 assert.equal(siblingConflicts.length, 1);
@@ -126,5 +163,9 @@ assert.match(readinessTest.conflictingPhysicalMutationBlockers([
   { ...create, scopeDecision: 'APPLY' },
   { ...wrongSiblingMutation, scopeDecision: 'APPLY' },
 ])[0], /CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:NODE_NAME\|9040/);
+await assert.rejects(
+  createCiiExpectedNodeNameSourceSetSelection(sourceSetPlan([create, wrongSiblingMutation]), { cryptoRef: globalThis.crypto }),
+  /CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:NODE_NAME\|9040/,
+);
 
 console.log('CII multi-source BM correspondence / exact Writer2 cardinality checks passed.');
