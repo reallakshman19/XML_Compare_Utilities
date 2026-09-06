@@ -2,40 +2,48 @@
 
 ## Mission control
 - Mission: repair Utilities → **CII Writer 2 — V11 / V14** for frozen `S1.CII` + `S2.CII` + `S3.CII` applied to untouched `T.CII`.
-- Owner acceptance: preserve the benchmark placement/cardinality represented by `TEXPECTED-PARTIALLLYDONE.CII`, but replace partial family-only names such as `SL-106` with the exact selected source identity such as `SL-106.3`.
 - Issue: #1111; parent programme: #1083.
 - PR: #1112 — **DRAFT / OPEN / UNMERGED**.
 - Branch: `fix/cii-writer2-benchmark-exact-wp006`.
-- Pinned base/main: `96b09485b90f6bf92cc0716e2da0142d8cfd91c4`.
+- Pinned base/main: `96b09485b90f6bf92cc0716e2da0142d8cfd91c4` (live main rechecked 2026-09-06; no drift).
+- Browser-gate implementation checkpoint before this report refresh: `a2bf7f84ef7933e89bc7d9c0299cd41cc2fc467f`.
 - Takeover disposition: `SALVAGE_PARTIAL`.
-- Current qualification state: `PATCHED_PENDING_RETAINED_REAL_EXECUTION`.
+- Current qualification state: `FOCUSED_PASS_RETAINED_BROWSER_GATE_AUTHORED_NOT_RUN`.
 - Retained end-to-end verdict: **NOT_RUN**.
 - Merge authority: **OWNER_ONLY / NOT GRANTED**.
 
-## Corrected authority boundary — PB-0002
-The prior PR report treated `TEXPECTED-PARTIALLLYDONE.CII` as exact final NODENAME text. That is contradicted by the Owner's current instruction and by the retained file itself: TEXPECTED contains family-only values such as `SL-106`, while S1/S2/S3 and BM-001 contain distinct dotted siblings such as `SL-106.3` and `SL-106.4`.
+## Current authority boundary — PB-0002
+The retained expected file is intentionally partial and is **not raw NODENAME payload authority** for Writer2.
 
-Final authority is now split explicitly:
+Final authority is split as follows:
 
-1. **Partial TEXPECTED structural authority**
+1. **TEXPECTED structural authority only**
    - CONTROL.NONAM consequence;
-   - ELEMENT NODENAME-pointer placement;
-   - NODENAME row count/order;
-   - physical CREATE/DELETE target placement;
-   - exact text when TEXPECTED already contains an exact name;
-   - family-only structural identity when TEXPECTED intentionally contains a partial name such as `SL-106`.
+   - ELEMENT NODENAME pointer placement;
+   - physical NODENAME row cardinality/order consequence;
+   - Writer2 structural CREATE/DELETE action + target placement;
+   - no TEXPECTED NODENAME payload/name is used as final writable identity.
 2. **Exact writable raw-name authority**
    - exact raw NODENAME present in the selected S1/S2/S3 source member;
-   - exact BM-001 source-alias ↔ target-name pairing, allowing only the optional leading `/` notation difference;
-   - canonical family matching may corroborate review only and may never choose a sibling or become emitted text.
+   - if that exact source alias occurs in BM-001, the exact BM source-alias ↔ target-name row is required;
+   - if the exact source alias is absent from BM-001 entirely, source-only CREATE is allowed and recorded diagnostically;
+   - canonical/family matching may never choose a sibling or become emitted text.
 3. **Target-preservation authority**
-   - original `T.CII` remains exact authority outside Writer2 NODENAME CONTROL/pointer/NODENAME consequences.
-4. **Owner checkpoint values**
-   - `8870→9040`, `10350→10190`, `1005→925` are frozen acceptance diagnostics/tests only;
+   - original `T.CII` remains exact authority outside Writer2 NODENAME consequences;
+   - pre-existing target NODENAME payloads outside selected physical target IDs must remain byte-semantically unchanged.
+4. **Owner checkpoints**
+   - `8870→9040`, `10350→10190`, `1005→925` are diagnostic evidence only;
    - no production branch uses those IDs;
-   - their exact retained-real interpretation remains `NOT_RUN` until the full retained path executes.
+   - they do not generate acceptance keys.
 
-This correction is also recorded durably on Issue #1111.
+Retained T→TEXPECTED structural observation:
+- CONTROL.NONAM / physical NODENAME rows: `1265 → 1266`;
+- observed NODENAME semantic deltas: `36`;
+- Writer2 structural CREATE: `1` target `10330`;
+- DELETE: `0`;
+- same-cardinality REPLACE: `35` and explicitly outside Writer2 cardinality authority.
+
+The retained selected CREATE is expected to be sourced from exact S2 raw identity `SL-115A.4` at target `10330`. That alias is absent from BM-001, so it is a valid source-only CREATE under the authority rule above; BM must not invent a pairing.
 
 ## Frozen retained inputs
 | Role | Path | Git blob | Size |
@@ -46,193 +54,204 @@ This correction is also recorded durably on Issue #1111.
 | TARGET0 | `Benchmark/T.CII` | `96b4a4b12bf66bcb0264c56e7767a857c4cc11e6` | 2866002 |
 | PARTIAL EXPECTED | `Benchmark/TEXPECTED-PARTIALLLYDONE.CII` | `b7d0913a3827deb184d65c880594ca0667562167` | 2866022 |
 
-Benchmark/source files are unchanged in PR #1112.
+Benchmark/source files remain unchanged in PR #1112.
 
-Known retained structural metadata:
+## Implemented production repairs
+### P1 — compact correspondence identity
+`cii-workspace-identity.js` uses compact synchronous `correspondence-v1:<sha256>` IDs.
+
+### P2 — topology-only Auto Anchor
+Physical Method-A candidates require unique incident componentKind@length topology evidence. Review/name discovery cannot become base authority; ties remain fail-closed.
+
+### P3 — review ledger custody
+Multi-source review state preserves source/member review metadata rather than rebuilding bare decision objects at the qualification boundary.
+
+### P4 — BM observed-evidence semantics
+`cii-workspace-multisource-bm001-correspondence.js` retains the frozen 329-row authority table but treats unobserved rows as informational custody metadata.
+- `READY` means every **observed** BM claim is exact and valid.
+- `matchedRowCount` is observed exact evidence, not a 329-row completion requirement.
+- `observationStatus` reports `PARTIAL` or `COMPLETE`.
+- missing frozen rows are never synthesized into operation evidence.
+
+### P5 — partial TEXPECTED oracle split
+`tests/cii-workspace-multisource-partial-texpected-oracle.js`:
+- structural Writer2 identity is only `action|target` for CREATE/DELETE;
+- compares CONTROL count, ELEMENT NODENAME pointers, physical NODENAME row count/encoding and occupancy;
+- does not compare TEXPECTED NODENAME payload names;
+- verifies exact selected source raw identity;
+- requires exact BM target pairing only when the exact alias exists in BM;
+- verifies final exact raw emission;
+- verifies unselected target NODENAME payload preservation.
+
+### P6 — mixed physical NODENAME CREATE
+`cii-workspace-writer2-nodename-relocation.js` supports the qualified mixed case where:
+- a true zero-pointer owner proves cardinality append;
+- redundant existing spans for the target node are blank and non-foreign;
+- redundant blank fields are filled with the exact CREATE name;
+- one actual NODENAME row is appended for the zero-pointer owner;
+- nonblank existing fields remain Writer1C/fail-closed.
+
+### P7 — source-set and dual target custody
+Composite Writer2 and independent validation support:
+- `SOURCE_SET` source authority via exact source-set SHA;
+- original V14 target parent authority;
+- normalized V11 execution target hash separately;
+- legacy DOCUMENT custody compatibility.
+
+### P8 — NODENAME I13 validation
+Independent composite validation requires integer lexical encoding for NODENAME ELEMENT pointer fields; SIF pointer fields retain generic numeric/G13.6 rules.
+
+### P9 — duplicate NODENAME V14 projection
+Stable duplicate multiplicity is occurrence-qualified instead of blocked merely because duplicate unit keys exist. Multiplicity change and reorder remain fail-closed.
+
+### P10 — inherited frozen-source sentinel repair
+`tests/cii-workspace-v11-v14-frozen-source.test.js` was stale after commit `06a6f9c...`: production correctly compares `conversionInput` during exact round-trip validation. Only the sentinel regex was corrected; production was not rolled back.
+
+## Focused validation — owner-side Windows checkout
+Two execution checkpoints were used because the falsifier fixture correction was test-only.
+
+At `51a7d75ca9f909b42bb18d30d4dc35582ddff33b`:
+- `tests/cii-workspace-v11-v14-frozen-source.test.js` — **PASS**
+- `tests/cii-workspace-multisource-bm001-exact-alias.test.js` — **PASS**
+- `tests/cii-workspace-multisource-partial-texpected-oracle.test.js` — **PASS**
+- `tests/cii-workspace-multisource-texpected-benchmark.test.js` — **PASS**
+
+The first run of `cii-workspace-writer2-nodename-relocation-falsifiers.test.js` failed because its synthetic NODENAME fixture row was entirely spaces and therefore was correctly omitted by physical-row parsing. Production remained fail-closed. The fixture was repaired only.
+
+At `ebb1c342b42b28add476be6272aa63c5eea9fa75`:
+- `tests/cii-workspace-writer2-nodename-relocation-falsifiers.test.js` — **PASS**
+- `tests/cii-workspace-writer2-source-set-composite-custody.test.js` — **PASS**
+- `tests/cii-workspace-v14-change-projection.test.js` — **PASS**
+- `tests/cii-workspace-v14-duplicate-nodename-projection.test.js` — **PASS**
+
+The commits after `ebb1c342...` in this stage add browser-test infrastructure only; they do not modify those production/focused-test surfaces.
+
+## Retained Node gate runtime result
+Command:
 ```text
-T.CII CONTROL.NONAM                    = 1265
-TEXPECTED-PARTIALLLYDONE CONTROL.NONAM = 1266
+node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
 ```
-This is a net physical NODENAME-row consequence only; it is not by itself an APPLY-count oracle.
-
-## Production findings retained from the salvageable PR
-### F-001 — canonical family evidence could leak into base authority
-`cii-workspace-base-loop-selection.js` excludes review/discovery-only name evidence from Method A/B base selection. Canonical `SL-106` cannot become physical anchor authority.
-
-### F-002 — exact BM aliases are sibling-sensitive
-Optional leading `/` is treated as notation only. `SL-106`, `SL-106.3`, and `SL-106.4` remain different writable identities. A family-only or wrong-sibling value cannot bind the exact BM row for another sibling.
-
-### F-003 — correspondence coverage and mutation cardinality are separate
-`cii-workspace-multisource-bm001-correspondence.js` separates:
-- BM-001 correspondence coverage;
-- Writer2 CREATE/DELETE cardinality qualification;
-- exact physical mutation keys;
-- duplicate corroboration;
-- same-target competing exact-name conflicts.
-
-### F-004 — multi-source duplicates do not inflate APPLY
-Identical S1/S2/S3 claims collapse to one physical APPLY with provenance. Different dotted proposals for one physical target are a conflict and no proposal wins by source order.
-
-### F-005 — FORTRAN/fixed-column width is not the `.X` loss
-NODENAME FROM/TO fields are 26/25 characters. Existing branch regressions cover `SL-106.3` and two-digit suffixes such as `SL-121.14` without adjacent-column movement.
-
-### F-006 — Auto Anchor remains topology-only and fail-closed
-`ciiAutomaticBaseSelection()` ranks existing qualified topology evidence only. Review/name discovery is excluded; REVIEW remains manual; equally strong different topology outcomes are `AMBIGUOUS`.
-
-**UI auto-seeding remains deliberately disabled until retained-real qualification passes.**
-
-## New takeover repair — partial expected + exact raw identity oracle
-Added `tests/cii-workspace-multisource-partial-texpected-oracle.js`.
-
-It enforces two independent gates:
-
-### Structural gate
-The produced CII must reproduce the partial expected Writer2 consequence:
-- CONTROL.NONAM exact;
-- ELEMENT NODENAME pointers exact;
-- NODENAME physical row count/order exact;
-- exact name where TEXPECTED is exact;
-- only a same-family dotted expansion is allowed where TEXPECTED is family-only;
-- unrelated sections remain equal to original T.
-
-Example:
+Result on owner-side Node.js v26.3.0:
 ```text
-partial expected: SL-106
-actual:           SL-106.3   -> structural family expansion allowed
-actual:           SL-107.3   -> fail
-partial expected: SL-106.3
-actual:           SL-106.4   -> fail, wrong sibling
+ReferenceError: Worker is not defined
 ```
+Boundary:
+`cii-workspace-v11-v14-converter.js -> ensureWorker()` before retained product qualification executes.
 
-### Exact raw-name gate
-For each selected physical Writer2 mutation:
-- CREATE value must exist exactly in that operation's S1/S2/S3 source member;
-- CREATE value must match an exact BM-001 source alias for the operation's bound BM target name;
-- DELETE value must equal the exact target preimage name at the physical target node;
-- after Writer2 apply, each CREATE target node must contain the exact selected raw value;
-- a final family-only `SL-106` is therefore rejected when the selected raw source value is `SL-106.3`.
+Classification:
+- retained product verdict: **NOT_RUN**;
+- Node host compatibility: **FAIL_RUNTIME_HOST**;
+- this is not evidence of a Writer2 product defect;
+- no Node Worker shim/polyfill was added because repository policy forbids shims and the converter worker is browser/Pyodide runtime code.
 
-Valid Writer2 CREATE operations have an empty target preimage. The independent raw-name checker therefore reads the BM target name from `bm001Acceptance.targetName`, falling back to target evidence only when available. This mirrors the production contract without importing production selection logic.
+## Dedicated retained browser hard gate
+Added new files only:
+- `tests/browser/cii-writer2-static-server.mjs`
+- `playwright.cii-writer2-retained.config.mjs`
+- `tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs`
 
-## Retained hard gate correction
-`tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` now evaluates:
+Purpose:
+- execute the same retained S1/S2/S3 → T qualification inside Chromium;
+- use the real browser `Worker` and frozen Pyodide converter;
+- fetch the frozen retained CII artifacts from the repository-local HTTP server;
+- avoid modifying the existing Writer2 Playwright config;
+- avoid Python/`python3` launcher differences on Windows by using a small Node static server;
+- print transfer/BM/postimage/checkpoint diagnostics on success.
 
+The browser spec independently derives the structural Transfer key set from T→TEXPECTED. It does not regenerate expected data from product output.
+
+Published browser-gate checkpoint:
 ```text
-S1/S2/S3 exact retained sources
- -> topology Auto Anchor
- -> reviewed correspondence
- -> canonical physical Transfer set
- -> partial-TEXPECTED structural action/target/family equality
- -> exact S1/S2/S3 + BM raw-name identity
- -> 329-row BM correspondence coverage
- -> bound Writer2 scope/readiness
- -> V11/V14 apply to a target copy
- -> partial-TEXPECTED structural postimage equality
- -> exact raw dotted-name emission
- -> original-T preservation outside Writer2 authority
+a2bf7f84ef7933e89bc7d9c0299cd41cc2fc467f
 ```
 
-The three Owner checkpoint pairs are printed as diagnostics only; they do not enter production selection or acceptance key generation.
-
-`tests/cii-workspace-multisource-texpected-benchmark.test.js` was also corrected to call the TEXPECTED-derived set **structural**, not exact raw-name authority. It records S1/S2/S3 + BM-001 as the raw-name authority.
-
-## Independent retained-file observation
-A detached analysis commit projected the frozen TEXPECTED blob onto `Benchmark/T.CII` only to obtain a server-side Git diff. Observed:
-- 64 additions;
-- 63 deletions;
-- 127 changed lines.
-
-The diff includes the expected Writer2 NODENAME/CONTROL/pointer changes **and unrelated support/comment and ALLOWBLS edits**. Those foreign TEXPECTED edits are explicitly non-authoritative and are not reproduced by production.
-
-## Changed-file ledger
-### Production inherited/salvaged
-- `tabs/cii-workspace/cii-workspace-base-loop-selection.js`
-- `tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js`
-- `tabs/cii-workspace/cii-workspace-multisource-preview.js`
-- `tabs/cii-workspace/cii-workspace-multisource-scope.js`
-- `tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js`
-- `tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js`
-
-### Tests/evidence
-- `tests/cii-workspace-base-loop-selection.test.js`
-- `tests/cii-workspace-multisource-bm001-exact-alias.test.js`
-- `tests/cii-workspace-multisource-partial-texpected-oracle.js` — takeover addition
-- `tests/cii-workspace-multisource-partial-texpected-oracle.test.js` — takeover addition
-- `tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` — corrected retained acceptance boundary
-- `tests/cii-workspace-multisource-texpected-benchmark.test.js` — corrected partial/structural terminology and keying
-- `tests/cii-workspace-multisource-texpected-oracle-unit.test.js`
-- `tests/cii-workspace-multisource-texpected-oracle.js`
-- `tests/cii-workspace-multisource-transfer-cardinality-ui.test.js`
-- `tests/cii-workspace-writer2-nodename-dotted-regression.test.js`
-- `agents/PR1112_workreport.md`
-
-An inherited branch workflow modification was removed because repository policy forbids workflow changes without explicit Owner authorization. The current PR diff contains no workflow file.
-
-## Takeover qualification — Appendix A
-| Challenge | Score | Evidence |
-|---|---:|---|
-| A1 Production trace | 19/20 | source custody → topology base → correspondence → engineering delta/BM binding → transfer → scope/readiness → Writer2 relocation/write → V11/V14 apply traced in current branch |
-| A2 Current failure isolation | 19/20 | source/BM retain dotted names; fixed-column width is sufficient; stale retained oracle incorrectly promoted partial TEXPECTED family names to final exact-name authority |
-| A3 Authority / invariant | 20/20 | structural partial expected, exact source/BM raw identity, original-T outside authority, no canonical family write authority |
-| A4 Independent validation | 17/20 | retained blob server diff + isolated executed oracle harness; full retained application remains NOT_RUN |
-| A5 Minimal patch / no-patch boundary | 18/20 | production salvage retained; repair is test/oracle boundary plus stale retained benchmark test; benchmark and writer format are not altered |
-| **Total** | **93/100** | all individual challenges >=17/20 |
-
-Implementation-authority decision: `SALVAGE_PARTIAL` with fail-closed retained qualification.
+Validation in connector execution environment:
+- `node --check tests/browser/cii-writer2-static-server.mjs` equivalent draft — **PASS**
+- `node --check playwright.cii-writer2-retained.config.mjs` equivalent draft — **PASS**
+- `node --check tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs` equivalent draft — **PASS**
+- actual Chromium/Pyodide retained execution — **NOT_RUN_ENVIRONMENT** because this execution sandbox cannot access the required external Pyodide CDN.
 
 ## Validation ledger
 | Gate | Status | Observation / oracle |
 |---|---|---|
-| base/main + PR overlap grounding | PASS | live GitHub repository/PR inspection |
-| frozen benchmark files unchanged | PASS | Git blob inventory / PR changed-file list |
-| retained T vs partial TEXPECTED mixed-domain diff | PASS_SERVER_DIFF | independent Git object diff; no production code involved |
-| exact source/BM sibling authority inspection | PASS_INSPECTION | exact BM rows distinguish `.3`, `.4`, etc.; optional leading slash only |
-| new partial-expected oracle syntax | PASS_ISOLATED_EXECUTED | Node syntax check in isolated mirror |
-| partial family expansion / wrong-family / wrong-sibling tests | PASS_ISOLATED_EXECUTED | focused Node harness |
-| exact raw source/BM validation including empty CREATE preimage contract | PASS_ISOLATED_EXECUTED | focused Node harness |
-| truncated final `SL-106` rejected for selected `SL-106.3` | PASS_ISOLATED_EXECUTED | focused Node harness |
-| unrelated-section mutation rejected | PASS_ISOLATED_EXECUTED | focused Node harness |
-| inherited production regressions on current branch | NOT_RUN | no full repository checkout executor available in this connector session |
-| full retained S1/S2/S3 → T Auto Anchor/correspondence | NOT_RUN | no branch Actions run/status; no checkout executor |
-| exact retained Transfer structural set/cardinality | NOT_RUN | hard gate authored but not executed on retained files |
-| 329/329 BM retained production coverage | NOT_RUN | hard gate authored but not executed |
-| retained Writer2 V11/V14 apply | NOT_RUN | hard gate authored but not executed |
-| final exact dotted-name postimage | NOT_RUN | hard gate authored but not executed |
-| `8870→9040`, `10350→10190`, `1005→925` retained semantics/results | NOT_RUN | diagnostics authored; no retained execution |
-| browser/UI regression | NOT_RUN | no browser checkout executor in current connector path |
+| live main/base grounding | PASS | main remains pinned `96b09485...` |
+| active multisource PR overlap | PASS | only open matching multisource PR is #1112 |
+| frozen benchmark files unchanged | PASS | PR path inventory / retained blobs |
+| T→TEXPECTED structural census | PASS | independent retained-file oracle |
+| focused BM observed-evidence semantics | PASS | owner-side Node execution |
+| partial TEXPECTED structural/raw identity oracle | PASS | owner-side Node execution |
+| retained TEXPECTED benchmark census | PASS | owner-side Node execution: CREATE 1 / DELETE 0 / REPLACE 35 |
+| mixed NODENAME CREATE falsifiers | PASS | owner-side Node execution after fixture-only correction |
+| source-set composite custody + I13 | PASS | owner-side Node execution |
+| V14 change projection | PASS | owner-side Node execution |
+| duplicate NODENAME projection | PASS | owner-side Node execution |
+| retained Node end-to-end | NOT_RUN | browser Worker unavailable in Node; failed before retained product logic |
+| retained Chromium end-to-end | NOT_RUN | dedicated gate authored; sandbox CDN access unavailable |
+| BM frozen authority custody | PASS | authority table remains 329 rows |
+| retained **observed** BM exact evidence | NOT_RUN_END_TO_END | expected to be partial observation; zero invalid required |
+| final retained Writer2 structural postimage | NOT_RUN | requires Chromium retained gate |
+| final exact raw source emission | NOT_RUN | requires Chromium retained gate |
+| owner checkpoint diagnostics | NOT_RUN | emitted by Chromium retained gate |
 | merge | NOT_APPLICABLE | Owner authorization not granted |
 
-`PASS_ISOLATED_EXECUTED` must not be promoted to retained-real PASS.
+## Changed-file ledger — latest browser stage
+New files:
+- `tests/browser/cii-writer2-static-server.mjs`
+- `playwright.cii-writer2-retained.config.mjs`
+- `tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs`
+
+No production file, existing Playwright config, benchmark file, or workflow file was modified in this stage.
 
 ## Repository-local backup / patch ledger status
-The connected GitHub execution surface does not expose a writable repository filesystem, so `utils/backup.cjs` and the Git-ignored local `.agent-worklogs/` ledger cannot be executed or truthfully fabricated in this session. All GitHub writes were made as sequential branch commits and the limitation is explicitly recorded here. A real-checkout continuation must create/refresh the required local backup/worklog before any further product-file mutation.
+The connected GitHub execution surface still does not expose a writable repository checkout, so `utils/backup.cjs` and Git-ignored `.agent-worklogs/` cannot be truthfully executed here. This limitation is explicit rather than fabricated.
+
+For the latest browser stage all three implementation files are new, so no pre-existing file backup exists or is required for those files; undo is deletion of those exact new files after verifying no later change touched them. This report update itself is connector-authored durable handover state.
 
 ## Highest remaining risk
-The full retained Auto Anchor/correspondence may expose a non-suffix structural mismatch that isolated tests cannot reveal. If so, the first failing correspondence/Transfer boundary must be repaired generically; do not weaken the structural or raw-name oracle and do not enable automatic UI seeding merely to obtain a benchmark pass.
+The first real Chromium retained run may expose a product boundary after Worker/Pyodide initialization. If it fails:
+1. capture the first product-level assertion/error;
+2. repair only that demonstrated boundary;
+3. preserve the authority split above;
+4. do not weaken structural/raw-name/preservation checks;
+5. do not enable UI Auto Anchor merely to obtain a pass.
 
 ## Anti-gaming invariants
 - no benchmark CII file modified;
-- no production branch on `8870`, `9040`, `10350`, `10190`, `1005`, `925`;
+- no production branch on owner checkpoint IDs;
 - no production read/import of TEXPECTED;
+- no TEXPECTED NODENAME payload used as writable identity;
 - no expected-data regeneration from actual output;
-- no tolerance that accepts a wrong dotted sibling;
+- no tolerance accepting a wrong dotted sibling;
 - no canonical-family fallback as writable identity;
-- no reproduction of unrelated TEXPECTED support/ALLOWBLS edits;
-- no workflow-file change in the final PR diff;
+- no synthesis of missing BM rows into operation evidence;
+- no requirement that all 329 BM rows be observed in this retained source set;
+- no Node Worker shim/polyfill;
+- no workflow-file change;
 - no merge without separate explicit Owner authorization.
 
 ## EXACT_NEXT_ACTION
-From a real checkout of `fix/cii-writer2-benchmark-exact-wp006`, first create the repository-required local backup/worklog, then execute:
+From a current checkout of `fix/cii-writer2-benchmark-exact-wp006` with normal network access:
 
 ```text
-node tests/cii-workspace-base-loop-selection.test.js
-node tests/cii-workspace-multisource-bm001-exact-alias.test.js
-node tests/cii-workspace-multisource-transfer-cardinality-ui.test.js
-node tests/cii-workspace-writer2-nodename-dotted-regression.test.js
-node tests/cii-workspace-multisource-texpected-oracle-unit.test.js
-node tests/cii-workspace-multisource-partial-texpected-oracle.test.js
-node tests/cii-workspace-multisource-texpected-benchmark.test.js
-node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+git pull --ff-only
+npm ci
+npx playwright install chromium
+npx playwright test --config=playwright.cii-writer2-retained.config.mjs
 ```
 
-If the retained hard gate fails, repair only the first demonstrated production boundary and preserve every authority rule above. If it passes, record the exact Transfer count/set/hash and the three checkpoint diagnostics before considering any UI Auto Anchor seeding. Keep PR #1112 draft and unmerged until Owner review/authorization.
+The dedicated config starts its own repository-local Node HTTP server; no separate Python server is required.
+
+On success, record exactly:
+- Auto Anchor choices for S1/S2/S3;
+- correspondence READY/conflict count;
+- structural Transfer keys/count;
+- selected exact raw operation values;
+- BM `matchedRowCount`, `missingRowNumbers`, `invalidOperationIds`, `observationStatus`;
+- source-only CREATE operation IDs;
+- `versionBridgeValidation.status`;
+- structural encoding/semantic difference counts;
+- unrelated target and unselected NODENAME preservation differences;
+- exact raw emission status;
+- the three owner checkpoint diagnostics.
+
+Keep PR #1112 draft and unmerged until Owner review/authorization.
