@@ -63,6 +63,7 @@ function targetIdentity(operation) {
   return text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId);
 }
 export function ciiWriter2NodeNameCardinalityOperation(operation) {
+  if (!operationId(operation)) return false;
   if (operation?.family !== 'NODE_NAME' || operation?.property !== NODE_PROPERTY) return false;
   if (!['CREATE', 'DELETE'].includes(operation?.action) || operation?.status !== 'PREVIEW_READY') return false;
   if (operation?.policyAuthority !== CII_WRITER_2_NODENAME_RELOCATION_POLICY) return false;
@@ -79,14 +80,42 @@ export function ciiWriter2PhysicalMutationKey(operation) {
   const proposed = text(operation?.proposed ?? operation?.sourceEvidence?.value);
   return `NODE_NAME|${operation.action}|${targetIdentity(operation)}|${before}|${proposed}`;
 }
+function physicalTargetKey(operation) {
+  return ciiWriter2NodeNameCardinalityOperation(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
+}
+
+export function ciiWriter2PhysicalMutationConflicts(operations = []) {
+  const byTarget = new Map();
+  for (const operation of operations || []) {
+    const targetKey = physicalTargetKey(operation); const mutationKey = ciiWriter2PhysicalMutationKey(operation);
+    if (!targetKey || !mutationKey) continue;
+    if (!byTarget.has(targetKey)) byTarget.set(targetKey, new Map());
+    const mutations = byTarget.get(targetKey);
+    if (!mutations.has(mutationKey)) mutations.set(mutationKey, []);
+    mutations.get(mutationKey).push(operationId(operation));
+  }
+  const conflicts = [];
+  for (const [targetKey, mutations] of byTarget) {
+    if (mutations.size <= 1) continue;
+    conflicts.push(deepFreeze({
+      physicalTargetKey: targetKey,
+      mutationKeys: deepFreeze([...mutations.keys()].sort()),
+      operationIds: deepFreeze([...mutations.values()].flat().sort()),
+    }));
+  }
+  return deepFreeze(conflicts.sort((a, b) => a.physicalTargetKey.localeCompare(b.physicalTargetKey, undefined, { numeric: true })));
+}
 
 function operationRank(operation) {
   const authority = operation?.matchAuthority?.status === 'LOCKED' ? '0' : '1';
   return `${authority}|${text(operation?.sourceId)}|${operationId(operation)}`;
 }
 export function ciiCanonicalWriter2MutationSelection(operations = []) {
+  const conflicts = ciiWriter2PhysicalMutationConflicts(operations);
+  const conflictedOperationIds = new Set(conflicts.flatMap((item) => item.operationIds));
   const groups = new Map();
   for (const operation of operations || []) {
+    if (conflictedOperationIds.has(operationId(operation))) continue;
     const key = ciiWriter2PhysicalMutationKey(operation); if (!key) continue;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(operation);
@@ -108,10 +137,11 @@ export function ciiCanonicalWriter2MutationSelection(operations = []) {
     appliedOperationIds: deepFreeze(appliedOperationIds.sort()),
     duplicateOperationIds: deepFreeze(duplicateOperationIds.sort()),
     corroborationGroups: deepFreeze(corroborationGroups),
+    conflicts,
   });
 }
 
 export const _test = Object.freeze({
   text, operationId, sourceAliasCandidates, acceptanceSourceNames, acceptanceMatchesRow,
-  candidateOperations, targetIdentity, operationRank,
+  candidateOperations, targetIdentity, physicalTargetKey, operationRank,
 });
