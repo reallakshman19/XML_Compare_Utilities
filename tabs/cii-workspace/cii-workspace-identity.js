@@ -1,4 +1,5 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
+import { sha256CiiByteString } from './cii-workspace-byte-sha256.js';
 
 function rowIdentity(row) {
   return {
@@ -16,6 +17,12 @@ function rowIdentity(row) {
     evidence: row.evidence || null,
   };
 }
+function utf8ByteString(value) {
+  const bytes = new TextEncoder().encode(String(value ?? '')); let result = '';
+  const chunk = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunk) result += String.fromCharCode(...bytes.subarray(offset, offset + chunk));
+  return result;
+}
 
 export function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, targetDocument, anchors) {
   const material = {
@@ -28,5 +35,8 @@ export function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, ta
     blockers: correspondence?.blockers || [],
     status: correspondence?.status || 'UNRESOLVED',
   };
-  return deepFreeze({ ...correspondence, correspondenceIdentity: stableId('correspondence-v1', stableStringify(material)) });
+  const materialSha256 = sha256CiiByteString(utf8ByteString(stableStringify(material)));
+  return deepFreeze({ ...correspondence, correspondenceIdentity: stableId('correspondence-v1', materialSha256) });
 }
+
+export const _test = Object.freeze({ rowIdentity, utf8ByteString });

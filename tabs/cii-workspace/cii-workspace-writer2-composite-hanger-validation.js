@@ -89,14 +89,33 @@ function independentBoundScopeCustody(transferPlan, before) {
   if (!sameStrings(appliedIds, scopeAppliedIds)) errors.push('SCOPE_APPLY_SET_MISMATCH');
   if (!sameStrings(excludedIds, scopeExcludedIds)) errors.push('SCOPE_EXCLUDE_SET_MISMATCH');
   if (!sameStrings(candidateIds, scopeCandidateIds)) errors.push('SCOPE_CANDIDATE_SET_MISMATCH');
-  const sourceSha = text(transferPlan?.sourceDocument?.contentSha256);
-  const targetSha = text(transferPlan?.targetDocument?.contentSha256);
-  if (!sourceSha || sourceSha !== text(scope?.sourceSha256)) errors.push('SCOPE_SOURCE_HASH_MISMATCH');
-  if (!targetSha || targetSha !== text(scope?.targetSha256) || targetSha !== text(before?.contentSha256)) errors.push('SCOPE_TARGET_HASH_MISMATCH');
+
+  const sourceAuthorityKind = text(scope?.sourceAuthorityKind || transferPlan?.sourceAuthorityKind || 'DOCUMENT').toUpperCase();
+  let sourceSha256 = ''; let sourceSetSha256 = '';
+  if (sourceAuthorityKind === 'SOURCE_SET') {
+    sourceSetSha256 = text(transferPlan?.sourceSetSha256 || transferPlan?.sourceAuthority?.sourceSetSha256);
+    if (!sourceSetSha256 || sourceSetSha256 !== text(scope?.sourceSetSha256)) errors.push('SCOPE_SOURCE_SET_HASH_MISMATCH');
+  } else {
+    sourceSha256 = text(transferPlan?.sourceDocument?.contentSha256);
+    if (!sourceSha256 || sourceSha256 !== text(scope?.sourceSha256)) errors.push('SCOPE_SOURCE_HASH_MISMATCH');
+  }
+
+  const normalizedTargetSha256 = text(before?.contentSha256);
+  if (!normalizedTargetSha256 || (text(transferPlan?.targetDocument?.contentSha256) && text(transferPlan?.targetDocument?.contentSha256) !== normalizedTargetSha256)) {
+    errors.push('NORMALIZED_TARGET_HASH_MISMATCH');
+  }
+  const targetAuthorityKind = text(scope?.targetAuthorityKind || transferPlan?.targetAuthorityKind || 'DOCUMENT').toUpperCase();
+  let originalTargetSha256 = '';
+  if (targetAuthorityKind === 'ORIGINAL_TARGET') {
+    originalTargetSha256 = text(transferPlan?.targetAuthority?.originalSha256);
+    if (!originalTargetSha256 || originalTargetSha256 !== text(scope?.targetSha256)) errors.push('SCOPE_ORIGINAL_TARGET_HASH_MISMATCH');
+  } else if (text(scope?.targetSha256) !== normalizedTargetSha256) errors.push('SCOPE_TARGET_HASH_MISMATCH');
+
   return Object.freeze({
     errors: Object.freeze(errors),
     custody: Object.freeze({
-      parentScopeId: text(scope?.scopeId), sourceSha256: sourceSha, targetSha256: targetSha,
+      parentScopeId: text(scope?.scopeId), sourceAuthorityKind, sourceSha256, sourceSetSha256,
+      targetAuthorityKind, targetSha256: normalizedTargetSha256, originalTargetSha256, parentTargetSha256: text(scope?.targetSha256),
       candidateOperationIds: Object.freeze(candidateIds), appliedOperationIds: Object.freeze(appliedIds), excludedOperationIds: Object.freeze(excludedIds),
     }),
   });
@@ -187,7 +206,7 @@ function nodeExpectedClaims(before, plan) {
     }
     claims.push({
       authorityFamily: 'WRITER_2_NODENAME', kind: 'ELEMENT_NODENAME_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
-      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: numericField(change.newPointer),
+      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: integerField(change.newPointer),
     });
   }
   const envelope = sectionEnvelope(before, 'NODENAME');
@@ -370,7 +389,10 @@ function hangerPlanTestimony(plan) {
 function parentScopeTestimony(value) {
   if (!value) return null;
   return {
-    parentScopeId: text(value.parentScopeId), sourceSha256: text(value.sourceSha256), targetSha256: text(value.targetSha256),
+    parentScopeId: text(value.parentScopeId), sourceAuthorityKind: text(value.sourceAuthorityKind),
+    sourceSha256: text(value.sourceSha256), sourceSetSha256: text(value.sourceSetSha256),
+    targetAuthorityKind: text(value.targetAuthorityKind), targetSha256: text(value.targetSha256),
+    originalTargetSha256: text(value.originalTargetSha256), parentTargetSha256: text(value.parentTargetSha256),
     candidateOperationIds: [...(value.candidateOperationIds || [])], appliedOperationIds: [...(value.appliedOperationIds || [])], excludedOperationIds: [...(value.excludedOperationIds || [])],
   };
 }

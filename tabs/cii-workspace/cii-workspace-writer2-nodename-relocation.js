@@ -67,6 +67,21 @@ function incidentExactZeroBindings(custody, nodeId) {
     }))
     .sort((a, b) => a.parsedElementIndex - b.parsedElementIndex);
 }
+function blankRedundantCreateFields(custody, rows, nodeId) {
+  const fields = [];
+  for (const item of spansForNode(custody, nodeId)) {
+    const foreign = (item.span?.owners || []).filter((owner) => String(owner.nodeId) !== String(nodeId));
+    if (foreign.length) return Object.freeze({ qualified: false, fields: Object.freeze([]) });
+    for (const owner of item.owners) {
+      const rowIndex = Number(owner.rowIndex); const row = rows[rowIndex]; const end = owner.end;
+      if (!row || !['FROM', 'TO'].includes(end) || text(rowField(row.afterText, end))) {
+        return Object.freeze({ qualified: false, fields: Object.freeze([]) });
+      }
+      fields.push(Object.freeze({ rowIndex, end, spanKey: item.spanKey, oldPointer: Number(owner.pointer) }));
+    }
+  }
+  return Object.freeze({ qualified: true, fields: Object.freeze(fields) });
+}
 function controlEvidence(targetDocument, blockers) {
   const rows = ciiPhysicalSectionRows(targetDocument?.physicalFile, 'CONTROL');
   const row = rows[0]; const span = fieldSpan(CONTROL_NONAM_FIELD_INDEX);
@@ -153,17 +168,22 @@ export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transfer
   retainedRows.forEach((row, index) => { oldToNewPointer[row.oldPointer] = index + 1; });
   for (const pointer of deletedPointers) oldToNewPointer[pointer] = 0;
 
-  const createGroups = new Map();
+  const createGroups = new Map(); const redundantCreateClaims = [];
   for (const request of createRequests.sort((a, b) => numericKey(a.nodeId) - numericKey(b.nodeId) || a.nodeId.localeCompare(b.nodeId))) {
-    if (spansForNode(custody, request.nodeId).length) {
-      blockers.push(`WRITER_2_NODENAME_CREATE_EXISTING_FIELD_USE_WRITER_1C:${request.nodeId}`); continue;
-    }
     const candidates = incidentExactZeroBindings(custody, request.nodeId);
     if (!candidates.length) { blockers.push(`WRITER_2_NODENAME_CREATE_ZERO_POINTER_OWNER_REQUIRED:${request.nodeId}`); continue; }
+    const redundant = blankRedundantCreateFields(custody, rows, request.nodeId);
+    if (!redundant.qualified) {
+      blockers.push(`WRITER_2_NODENAME_CREATE_EXISTING_FIELD_USE_WRITER_1C:${request.nodeId}`); continue;
+    }
     const selected = candidates[0]; const index = selected.parsedElementIndex;
     const group = createGroups.get(index) || { parsedElementIndex: index, fromName: '', toName: '', operationIds: [] };
     const width = selected.end === 'FROM' ? FROM_END - FROM_START : TO_END - TO_START;
     const name = asciiName(request.operation.proposed, width, `WRITER_2_NODENAME_CREATE_NAME_INVALID:${request.nodeId}`, blockers);
+    for (const field of redundant.fields) {
+      const row = rows[field.rowIndex]; row.afterText = replaceRowField(row.afterText, field.end, name); row.touched = true;
+      redundantCreateClaims.push(Object.freeze({ nodeId: request.nodeId, oldPointer: field.oldPointer, rowIndex: field.rowIndex, end: field.end, spanKey: field.spanKey, operationId: request.operation.operationId }));
+    }
     if (selected.end === 'FROM') {
       if (group.fromName && group.fromName !== name) blockers.push(`WRITER_2_NODENAME_CREATE_OWNER_CONFLICT:${index}:FROM`);
       else group.fromName = name;
@@ -210,10 +230,11 @@ export function buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transfer
     rowCountBefore: rows.length, rowCountAfter: finalRows.length,
     controlCountBefore: control?.count ?? null, controlCountAfter: finalRows.length,
     oldToNewPointer: Object.freeze(oldToNewPointer), deletedPointers: Object.freeze([...deletedPointers].sort((a, b) => a - b)),
-    deletionClaims: Object.freeze(deletionClaims), appendedRows: Object.freeze(appendedRows), finalRows,
+    deletionClaims: Object.freeze(deletionClaims), redundantCreateClaims: Object.freeze(redundantCreateClaims),
+    appendedRows: Object.freeze(appendedRows), finalRows,
     pointerChanges: Object.freeze(pointerChanges), operationCount: operations.length,
     blockers: Object.freeze([...new Set(blockers)]),
   });
 }
 
-export const _test = Object.freeze({ canonicalRow, replaceRowField, rowField, isEmptyRow, fieldSpan });
+export const _test = Object.freeze({ canonicalRow, replaceRowField, rowField, isEmptyRow, fieldSpan, blankRedundantCreateFields });

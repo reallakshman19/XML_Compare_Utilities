@@ -1,35 +1,37 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
+import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
 import {
-  buildCiiWriter2NodeNameRelocationPlan,
-  CII_WRITER_2_NODENAME_RELOCATION_POLICY,
-} from './cii-workspace-writer2-nodename-relocation.js';
-import {
-  CII_MS_SOURCE_SET_SHA256,
-  CII_MS_TARGET_SHA256,
-  ciiMsBm001GroupedKey,
-  parseCiiMsBm001,
-} from './cii-workspace-multisource-nodename-authority.js';
+  ciiBm001CorrespondenceCoverage,
+  ciiWriter2NodeNameCardinalityOperation,
+  ciiWriter2PhysicalMutationConflicts,
+  ciiWriter2PhysicalMutationKey,
+} from './cii-workspace-multisource-bm001-correspondence.js';
+import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 
-const NODE_PROPERTY = 'Node name / to-name';
-const APPROVED = new Set(['REVIEWED', 'LOCKED']);
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
 function sameIds(left, right) {
   const a = [...left].sort(); const b = [...right].sort();
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
-function expectedGroups() { return new Set(parseCiiMsBm001().map((row) => ciiMsBm001GroupedKey(row.sourceNames, row.targetName))); }
-function isQualifiedExpectedApply(operation, groups) {
-  return operation?.scopeDecision === 'APPLY'
-    && operation?.family === 'NODE_NAME'
-    && operation?.property === NODE_PROPERTY
-    && ['CREATE', 'DELETE'].includes(operation?.action)
-    && operation?.status === 'PREVIEW_READY'
-    && operation?.policyAuthority === CII_WRITER_2_NODENAME_RELOCATION_POLICY
-    && APPROVED.has(operation?.matchAuthority?.status)
-    && operation?.bm001Acceptance?.benchmark === 'BM-001'
-    && operation?.bm001Acceptance?.status === 'BOUND'
-    && groups.has(text(operation?.bm001Acceptance?.groupedKey));
+function isQualifiedExpectedApply(operation) {
+  return operation?.scopeDecision === 'APPLY' && ciiWriter2NodeNameCardinalityOperation(operation);
+}
+function duplicatePhysicalMutationBlockers(operations) {
+  const byKey = new Map(); const blockers = [];
+  for (const operation of operations || []) {
+    const key = ciiWriter2PhysicalMutationKey(operation); if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(operationId(operation));
+  }
+  for (const [key, ids] of byKey) if (ids.length > 1) {
+    blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
+  }
+  return blockers;
+}
+function conflictingPhysicalMutationBlockers(operations) {
+  return ciiWriter2PhysicalMutationConflicts(operations)
+    .map((item) => `CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
 }
 function custodyBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
@@ -56,13 +58,21 @@ function custodyBlockers(transferPlan, targetDocument) {
 export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument) {
   const blockers = [...(transferPlan?.blockers || []), ...custodyBlockers(transferPlan, targetDocument)];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('CII_MS_WRITER2_TRANSFER_PLAN_NOT_PREVIEW_READY');
-  const groups = expectedGroups();
+
+  const correspondenceCoverage = ciiBm001CorrespondenceCoverage(transferPlan);
+  if (correspondenceCoverage.status !== 'READY') {
+    blockers.push(`CII_MS_WRITER2_BM001_CORRESPONDENCE_COVERAGE_REQUIRED:${correspondenceCoverage.matchedRowCount}/${correspondenceCoverage.expectedRowCount}`);
+  }
+
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
-  const qualified = applied.filter((operation) => isQualifiedExpectedApply(operation, groups));
-  for (const operation of applied) if (!isQualifiedExpectedApply(operation, groups)) {
+  const qualified = applied.filter(isQualifiedExpectedApply);
+  for (const operation of applied) if (!isQualifiedExpectedApply(operation)) {
     blockers.push(`CII_MS_WRITER2_UNAUTHORIZED_APPLY:${operationId(operation) || 'unknown'}`);
   }
+  blockers.push(...duplicatePhysicalMutationBlockers(qualified));
+  blockers.push(...conflictingPhysicalMutationBlockers(qualified));
   if (!qualified.length) blockers.push('CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS');
+
   const uniqueBeforePlan = [...new Set(blockers)];
   const planForRelocation = deepFreeze({ ...transferPlan, blockers: deepFreeze(uniqueBeforePlan) });
   const relocationPlan = buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: planForRelocation });
@@ -74,9 +84,12 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
     mutationCount: qualified.length, mutationOperationCount: qualified.length,
     familyMutationCounts: deepFreeze({ nodeName: qualified.length, sifDelete: 0, hangerDelete: 0, restraintDelete: 0 }),
     blockers: unique,
+    bm001CorrespondenceCoverage: correspondenceCoverage,
     components: deepFreeze({ nodeName: relocationPlan, sifDelete: null, hangerDeleteAll: null, hangerPartialDelete: null, restraintDelete: null }),
     sourceSetSha256: text(transferPlan?.sourceSetSha256), originalTargetSha256: text(transferPlan?.targetAuthority?.originalSha256),
   });
 }
 
-export const _test = Object.freeze({ sameIds, isQualifiedExpectedApply, custodyBlockers });
+export const _test = Object.freeze({
+  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers,
+});

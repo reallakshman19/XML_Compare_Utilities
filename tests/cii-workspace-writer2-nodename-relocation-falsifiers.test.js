@@ -30,12 +30,56 @@ function run(targetDocument, targetGraph, operations) {
   return buildCiiWriter2NodeNameRelocationPlan({ targetDocument, targetGraph,
     transferPlan: Object.freeze({ status: 'PREVIEW_READY', blockers: Object.freeze([]), operations: Object.freeze(operations), transferScope: Object.freeze({ status: 'BOUND' }) }) });
 }
-const blankRow = _test.canonicalRow('', '');
+const blankToRow = _test.canonicalRow('P10', '');
 
+// A blank existing redundant field alone is still Writer1C territory: Writer2 CREATE
+// requires a separate exact zero-pointer owner proving a real cardinality append.
 {
   const span = Object.freeze({ owners: Object.freeze([Object.freeze({ nodeId: '20', rowIndex: 0, end: 'TO', pointer: 1 })]) });
   const c = custody({ rowCount: 1, bindings: [{ parsedElementIndex: 0, blockIndex: 0, from: '10', to: '20', pointer: 1 }], spans: { '120:145': span } });
-  const result = run(document({ c, controlCount: 1, nodenameRows: [blankRow] }), { edges: [{ parsedElementIndex: 0, from: 10, to: 20 }] }, [op('C', 'CREATE', 20, '', 'P20')]);
+  const result = run(document({ c, controlCount: 1, nodenameRows: [blankToRow] }), { edges: [{ parsedElementIndex: 0, from: 10, to: 20 }] }, [op('C', 'CREATE', 20, '', 'P20')]);
+  assert.equal(result.ready, false);
+  assert(result.blockers.includes('WRITER_2_NODENAME_CREATE_ZERO_POINTER_OWNER_REQUIRED:20'));
+}
+
+// Mixed cardinality CREATE: the same node has an existing blank redundant field and
+// an independent exact zero pointer. Writer2 may atomically fill the blank and append
+// the new row; neither action exists without the cardinality proof.
+{
+  const span = Object.freeze({ owners: Object.freeze([Object.freeze({ nodeId: '20', rowIndex: 0, end: 'TO', pointer: 1 })]) });
+  const c = custody({
+    rowCount: 1,
+    bindings: [
+      { parsedElementIndex: 0, blockIndex: 0, from: '10', to: '20', pointer: 1 },
+      { parsedElementIndex: 1, blockIndex: 1, from: '20', to: '30', pointer: 0 },
+    ],
+    spans: { '120:145': span },
+  });
+  const result = run(document({ c, controlCount: 1, nodenameRows: [blankToRow] }), { edges: [] }, [op('C', 'CREATE', 20, '', 'P20')]);
+  assert.equal(result.ready, true, result.blockers.join('|'));
+  assert.equal(result.rowCountBefore, 1);
+  assert.equal(result.rowCountAfter, 2);
+  assert.equal(result.redundantCreateClaims.length, 1);
+  assert.equal(result.appendedRows.length, 1);
+  assert.equal(result.appendedRows[0].fromName, 'P20');
+  assert.equal(_test.rowField(result.finalRows[0].rowText, 'TO').trim(), 'P20');
+  assert(result.pointerChanges.some((change) => change.parsedElementIndex === 1 && change.oldPointer === 0 && change.newPointer === 2));
+}
+
+// A nonblank existing field cannot be overwritten merely because another incident
+// representation has a zero pointer.
+{
+  const row = _test.canonicalRow('', 'OLD20');
+  const span = Object.freeze({ owners: Object.freeze([Object.freeze({ nodeId: '20', rowIndex: 0, end: 'TO', pointer: 1 })]) });
+  const c = custody({
+    rowCount: 1,
+    bindings: [
+      { parsedElementIndex: 0, blockIndex: 0, from: '10', to: '20', pointer: 1 },
+      { parsedElementIndex: 1, blockIndex: 1, from: '20', to: '30', pointer: 0 },
+    ],
+    spans: { '120:145': span },
+  });
+  const result = run(document({ c, controlCount: 1, nodenameRows: [row] }), { edges: [] }, [op('C', 'CREATE', 20, '', 'P20')]);
   assert.equal(result.ready, false);
   assert(result.blockers.includes('WRITER_2_NODENAME_CREATE_EXISTING_FIELD_USE_WRITER_1C:20'));
 }
@@ -54,7 +98,7 @@ const blankRow = _test.canonicalRow('', '');
 
 {
   const c = custody({ rowCount: 1 });
-  const result = run(document({ c, controlCount: 2, nodenameRows: [blankRow] }), { edges: [] }, [op('D', 'DELETE', 20, '', '')]);
+  const result = run(document({ c, controlCount: 2, nodenameRows: [blankToRow] }), { edges: [] }, [op('D', 'DELETE', 20, '', '')]);
   assert.equal(result.ready, false);
   assert(result.blockers.includes('WRITER_2_NODENAME_CONTROL_COUNT_MISMATCH:2:1'));
 }

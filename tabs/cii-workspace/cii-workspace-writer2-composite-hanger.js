@@ -90,14 +90,39 @@ function assertBoundScopeCustody(transferPlan, targetDocument) {
   if (!sameStrings(appliedIds, scopeAppliedIds)) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_APPLY_SET_MISMATCH');
   if (!sameStrings(excludedIds, scopeExcludedIds)) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_EXCLUDE_SET_MISMATCH');
   if (!sameStrings(candidateIds, scopeCandidateIds)) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_CANDIDATE_SET_MISMATCH');
-  const sourceSha = text(transferPlan?.sourceDocument?.contentSha256);
-  const targetSha = text(transferPlan?.targetDocument?.contentSha256);
-  if (!sourceSha || sourceSha !== text(scope.sourceSha256)) throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_SOURCE_HASH_MISMATCH');
-  if (!targetSha || targetSha !== text(scope.targetSha256) || targetSha !== text(targetDocument?.contentSha256)) {
+
+  const sourceAuthorityKind = text(scope?.sourceAuthorityKind || transferPlan?.sourceAuthorityKind || 'DOCUMENT').toUpperCase();
+  let sourceSha256 = ''; let sourceSetSha256 = '';
+  if (sourceAuthorityKind === 'SOURCE_SET') {
+    sourceSetSha256 = text(transferPlan?.sourceSetSha256 || transferPlan?.sourceAuthority?.sourceSetSha256);
+    if (!sourceSetSha256 || sourceSetSha256 !== text(scope?.sourceSetSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_SOURCE_SET_HASH_MISMATCH');
+    }
+  } else {
+    sourceSha256 = text(transferPlan?.sourceDocument?.contentSha256);
+    if (!sourceSha256 || sourceSha256 !== text(scope?.sourceSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_SOURCE_HASH_MISMATCH');
+    }
+  }
+
+  const normalizedTargetSha256 = text(targetDocument?.contentSha256);
+  if (!normalizedTargetSha256 || (text(transferPlan?.targetDocument?.contentSha256) && text(transferPlan?.targetDocument?.contentSha256) !== normalizedTargetSha256)) {
+    throw new Error('CII_WRITER_2_COMPOSITE_HANGER_NORMALIZED_TARGET_HASH_MISMATCH');
+  }
+  const targetAuthorityKind = text(scope?.targetAuthorityKind || transferPlan?.targetAuthorityKind || 'DOCUMENT').toUpperCase();
+  let originalTargetSha256 = '';
+  if (targetAuthorityKind === 'ORIGINAL_TARGET') {
+    originalTargetSha256 = text(transferPlan?.targetAuthority?.originalSha256);
+    if (!originalTargetSha256 || originalTargetSha256 !== text(scope?.targetSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_ORIGINAL_TARGET_HASH_MISMATCH');
+    }
+  } else if (text(scope?.targetSha256) !== normalizedTargetSha256) {
     throw new Error('CII_WRITER_2_COMPOSITE_HANGER_SCOPE_TARGET_HASH_MISMATCH');
   }
   return deepFreeze({
-    parentScopeId: text(scope.scopeId), sourceSha256: sourceSha, targetSha256: targetSha,
+    parentScopeId: text(scope.scopeId), sourceAuthorityKind, sourceSha256, sourceSetSha256,
+    targetAuthorityKind, targetSha256: normalizedTargetSha256, originalTargetSha256,
+    parentTargetSha256: text(scope?.targetSha256),
     candidateOperationIds: deepFreeze(candidateIds), appliedOperationIds: deepFreeze(appliedIds), excludedOperationIds: deepFreeze(excludedIds),
   });
 }
@@ -146,13 +171,17 @@ function projectCanonicalFamilySubscope(transferPlan, predicate, family, parentC
   const candidateIds = Object.freeze([...appliedIds, ...excludedIds]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
   const childScopeId = `${parentCustody.parentScopeId}::${family}`;
+  const sourceFields = parentCustody.sourceAuthorityKind === 'SOURCE_SET'
+    ? { sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: parentCustody.sourceSetSha256, sourceSha256: '' }
+    : { sourceAuthorityKind: 'DOCUMENT', sourceSha256: parentCustody.sourceSha256 };
   return deepFreeze({
     ...transferPlan,
     operations: deepFreeze([...keeps, ...projectedApply]),
     excludedOperations: deepFreeze(projectedExcluded),
     transferScope: deepFreeze({
       status: 'BOUND', mode: SCOPE_MODE, authority: SCOPE_AUTHORITY, scopeId: childScopeId,
-      sourceSha256: parentCustody.sourceSha256, targetSha256: parentCustody.targetSha256,
+      ...sourceFields, targetAuthorityKind: 'DOCUMENT', targetSha256: parentCustody.targetSha256,
+      parentTargetAuthorityKind: parentCustody.targetAuthorityKind, parentTargetSha256: parentCustody.parentTargetSha256,
       candidateOperationIds: candidateIds, appliedOperationIds: deepFreeze(appliedIds), excludedOperationIds: deepFreeze(excludedIds),
     }),
     familyProjection: deepFreeze({
@@ -240,7 +269,6 @@ export function applyCiiWriter2CompositeWithHangerDeleteAll({ targetDocument, ta
   const hangerPartialPlan = hangerIsPartial
     ? projectCanonicalFamilySubscope(transferPlan, isHangerDelete, PARTIAL_HANGER_FAMILY, parentCustody) : null;
 
-  // All component writers dry-run from exactly the same untouched TARGET preimage.
   const nodeResult = nodePlan ? applyCiiWriter2NodeNameRelocation({ targetDocument, transferPlan: nodePlan }) : null;
   const sifResult = sifPlan ? applyCiiWriter2SifDeleteRelocation({ targetDocument, targetGraph, transferPlan: sifPlan }) : null;
   const hangerDeleteAllResult = hangerIsDeleteAll

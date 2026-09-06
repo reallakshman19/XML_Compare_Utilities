@@ -1,5 +1,6 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { suggestCiiBaseAnchorPairs as suggestCore, _test as coreTest } from './cii-workspace-anchor-suggestions-core.js';
+import { suggestCiiPhysicalMethodAAnchors, _test as physicalTest } from './cii-workspace-anchor-physical-candidates.js';
 import { ciiCorroborationBand } from './cii-workspace-confidence-bands.js';
 import { ciiAnchorNodeOdConfidence } from './cii-workspace-anchor-corroboration.js';
 import { ciiNodeNameUniqueKey, compareCiiNodeNames } from './cii-workspace-node-name-corroboration.js';
@@ -32,16 +33,26 @@ function enrich(row, sourceGraph, targetGraph, canonicalOnly, sourceNames, targe
     identityExclusions: Object.freeze([...new Set([...(row.identityExclusions || []), ...(reviewDiscovery ? ['NODE_NAME_USED_FOR_REVIEW_DISCOVERY_NOT_IDENTITY_AUTHORITY'] : [])])]),
   });
 }
+function addSuggestion(byPair, row, sourceGraph, targetGraph, sourceNames, targetNames) {
+  const key = pairKey(row); const existing = byPair.get(key);
+  if (existing?.methodA?.status === 'READY' && existing?.confidence !== 'REVIEW') return;
+  byPair.set(key, enrich(row, sourceGraph, targetGraph, false, sourceNames, targetNames));
+}
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
   const byPair = new Map(); const sourceNames = nodeNames(sourceGraph); const targetNames = nodeNames(targetGraph);
   for (const row of suggestCore(sourceGraph, targetGraph, options)) byPair.set(pairKey(row), enrich(row, sourceGraph, targetGraph, false, sourceNames, targetNames));
+  for (const row of suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, options)) addSuggestion(byPair, row, sourceGraph, targetGraph, sourceNames, targetNames);
   for (const row of suggestCore(canonicalGraph(sourceGraph), canonicalGraph(targetGraph), options)) {
     const key = pairKey(row); if (byPair.has(key)) continue;
     if (!compareCiiNodeNames(sourceNames.get(String(row.sourceNodeId)), targetNames.get(String(row.targetNodeId))).match) continue;
     byPair.set(key, enrich(row, sourceGraph, targetGraph, true, sourceNames, targetNames));
   }
-  return deepFreeze([...byPair.values()].slice(0, Math.max(1, Number(options.baseAnchorSuggestionLimit || 8))));
+  const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
+  const rows = [...byPair.values()].sort((a, b) => (order[a.confidence] - order[b.confidence])
+    || Number(b?.methodA?.bestBase?.weight?.total || 0) - Number(a?.methodA?.bestBase?.weight?.total || 0)
+    || Number(b.score || 0) - Number(a.score || 0));
+  return deepFreeze(rows.slice(0, Math.max(1, Number(options.baseAnchorSuggestionLimit || 8))));
 }
 
-export const _test = coreTest;
+export const _test = Object.freeze({ ...coreTest, ...physicalTest });
