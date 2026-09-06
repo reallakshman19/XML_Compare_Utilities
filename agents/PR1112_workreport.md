@@ -1,160 +1,274 @@
 # PR1112 — CII Writer2 benchmark-exact repair work report
 
-## PR Mission Control
-- Mission: repair Utilities → CII Writer 2 — V11/V14 so exact retained S1/S2/S3 → T can be proven against `Benchmark/TEXPECTED-PARTIALLLYDONE.CII`, with independently correct Auto Anchor/correspondence, exact Transfer APPLY set/cardinality, exact Compare result, and full raw dotted NODENAME identity.
-- Source task / issue: #1111; parent programme #1083.
-- PR: #1112 — DRAFT / OPEN / OWNER_ONLY_MERGE.
+## Mission control
+- Mission: repair Utilities → CII Writer 2 — V11/V14 for retained S1/S2/S3 → T, preserving exact dotted NODENAME identity, topology-driven correspondence, exact Transfer physical mutations, and a defensible Compare oracle.
+- Issue: #1111; parent programme: #1083.
+- PR: #1112 — DRAFT / OPEN / UNMERGED.
 - Branch: `fix/cii-writer2-benchmark-exact-wp006`.
 - Base commit: `96b09485b90f6bf92cc0716e2da0142d8cfd91c4`.
-- Product HEAD before this report refresh: `de5fd8f86a7f229028f20aa474999dfd93ee0e2c`.
-- Engineering status: PATCHED_PENDING_RETAINED_REAL_QUALIFICATION.
-- Validation status: focused isolated checks PASS; repository checkout / retained-real / CI NOT_RUN.
-- Merge authority: OWNER_ONLY; no merge is authorized.
+- Current qualification state: `PATCHED_PENDING_RETAINED_REAL_EXECUTION`.
+- Retained end-to-end verdict: `NOT_RUN`.
+- Auto Anchor UI state: selector implemented and tested in isolation, deliberately **not auto-enabled in the UI** until the retained end-to-end gate executes successfully.
+- Merge authority: none granted by this work package.
 
-## Handover in 60 Seconds
-The visible `.X` symptom was not a fixed-column width defect. Three generic authority defects were found and repaired:
+## Executive summary
+The `.X` symptom was not a fixed-width serialization defect. The repaired architecture now separates three kinds of authority that were previously able to bleed into one another:
 
-1. **Review-only canonical-name discovery could become automatic base authority.** `buildCiiSelectedBaseLoops()` accepted selected Method A/B-looking rows without rejecting `reviewOnly` / `EXISTING_NODE_NAME_REVIEW_DISCOVERY_ONLY` evidence. Canonical `SL-106` family matching could therefore influence physical correspondence.
-2. **BM-001 exact aliases use optional leading `/` notation.** Raw CII `SL-106.3` did not directly equal BM `/SL-106.3`; lexical slash normalization is now allowed while `.X` remains exact.
-3. **BM-001 correspondence and Writer2 cardinality were conflated.** BM-001 is the frozen 329-row `source alias -> target name` correspondence acceptance list. A Writer2 CREATE necessarily has blank target NODENAME and a DELETE necessarily has blank source NODENAME, so BM label-pair equality cannot itself be the CREATE/DELETE authorization rule. BM-001 now proves correspondence coverage; Writer2 CREATE/DELETE eligibility is separately derived from reviewed physical target cardinality.
+1. **Name-family corroboration** — canonical `SL-106` matching is discovery/review evidence only.
+2. **Physical correspondence** — BM-001 validates exact retained source-alias ↔ target-name correspondence, including exact dotted sibling identity; one optional leading `/` is notation only.
+3. **Writer2 mutation authority** — CREATE/DELETE is derived from reviewed physical target cardinality and exact raw proposed/before value, not from a BM label pair.
 
-Additional Transfer fixes:
-- identical S1/S2/S3 physical mutations collapse to one deterministic APPLY with corroborating provenance;
-- different dotted proposals for the same target (`SL-106.3` vs `SL-106.4`) are explicit conflicts and cannot auto-select;
-- scope and Writer2 readiness both re-check these invariants;
-- Transfer UI reports BM correspondence coverage separately from physical candidate/APPLY cardinality.
+Identical multi-source physical mutations collapse to one APPLY with provenance; different exact proposals for the same physical target are conflicts. Exact raw dotted names are preserved through mutation identity and the fixed-width writer regression.
 
-Core rule: **normalize notation for matching; preserve exact raw identity for writing.**
+A second benchmark issue was discovered: `TEXPECTED-PARTIALLLYDONE.CII` is a **mixed-domain artifact**. Git server-side comparison of frozen `T.CII` and TEXPECTED found 127 changed lines (64 additions / 63 deletions). The expected file contains Writer2 NODENAME changes, but it also contains changes outside Writer2 NODENAME authority, including support/comment and `ALLOWBLS` changes. Production was **not** modified to reproduce those unrelated fixture edits.
 
-## Frozen inputs / oracle
-Pinned at base commit `96b09485...`:
+The benchmark is therefore now evaluated with two simultaneous, non-weakening gates:
+- inside Writer2 NODENAME authority, actual output must match TEXPECTED exactly (CONTROL.NONAM, ELEMENT NODENAME pointers, NODENAME row count/order/fixed fields and exact physical names);
+- everywhere outside that authority, actual output must remain equal to original T.
+
+This preserves both benchmark intent and target semantic safety.
+
+## Frozen retained inputs
+Pinned at `96b09485...`:
 
 | Role | Path | Git blob | Size |
 |---|---|---|---:|
-| SOURCE S1 | `Benchmark/S1.CII` | `73c49165b9d33a8c776ef76f480efec3a90e0c93` | 108330 |
-| SOURCE S2 | `Benchmark/S2.CII` | `a04622553720cb41a6fc2a4b85d8290eac7a3b0a` | 90961 |
-| SOURCE S3 | `Benchmark/S3.CII` | `a20b1ab87dd4e854cf2f453f8fd206be4b566b42` | 90942 |
+| S1 | `Benchmark/S1.CII` | `73c49165b9d33a8c776ef76f480efec3a90e0c93` | 108330 |
+| S2 | `Benchmark/S2.CII` | `a04622553720cb41a6fc2a4b85d8290eac7a3b0a` | 90961 |
+| S3 | `Benchmark/S3.CII` | `a20b1ab87dd4e854cf2f453f8fd206be4b566b42` | 90942 |
 | TARGET0 | `Benchmark/T.CII` | `96b4a4b12bf66bcb0264c56e7767a857c4cc11e6` | 2866002 |
 | EXPECTED | `Benchmark/TEXPECTED-PARTIALLLYDONE.CII` | `b7d0913a3827deb184d65c880594ca0667562167` | 2866022 |
 
-Direct retained-file source inspection established:
+Known retained source identities include dotted siblings such as `SL-106.2`, `SL-106.3`, and `SL-106.4`; source data is not truncated.
 
+Known retained metadata:
 ```text
 T.CII CONTROL.NONAM                    = 1265
 TEXPECTED-PARTIALLLYDONE CONTROL.NONAM = 1266
 ```
+This proves net physical NODENAME-row cardinality +1 only; it does not by itself determine Transfer APPLY count.
 
-So the retained expected postimage has net NODENAME physical-row cardinality `+1`. This does **not** establish the total CREATE/DELETE APPLY count.
-
-Owner checkpoint pairs remain frozen but semantically unresolved until the independent retained benchmark test executes:
-
+Owner checkpoint pairs are retained diagnostics, not production authority:
 ```text
 8870 -> 9040
 10350 -> 10190
 1005 -> 925
 ```
+Their exact engineering meaning remains `NOT_RUN` until the retained end-to-end diagnostic executes. The test reports each pair both as a possible source→target correspondence and as a possible exact-name target relocation.
 
-They are not hard-coded into production logic.
+## Production findings and repairs
+### F-001 — canonical name review could leak into base authority
+`cii-workspace-base-loop-selection.js` now excludes review/discovery-only suggestions before projecting Method A/B base loops. Canonical-family equality cannot become physical identity authority.
 
-## Root-cause findings
-### F-001 — raw source data is exact
-Retained sources contain dotted sibling identities including `SL-106.2`, `SL-106.3`, and `SL-106.4`. Source fixture data is not truncated.
+### F-002 — BM slash notation was lexical, not semantic
+BM aliases such as `/SL-106.3` and raw CII `SL-106.3` are treated as the same lexical alias. `SL-106`, `SL-106.3`, and `SL-106.4` remain different writable identities.
 
-### F-002 — physical writer widths are sufficient
-NODENAME FROM/TO widths are 26/25 characters. `SL-106.3` and two-digit suffixes such as `SL-121.14` fit. Writer2 relocation helpers preserve field width and adjacent-column position.
+### F-003 — BM correspondence and Writer2 cardinality were conflated
+New `cii-workspace-multisource-bm001-correspondence.js` separates:
+- exact BM correspondence coverage;
+- Writer2 NODENAME cardinality qualification;
+- physical mutation keys;
+- duplicate corroboration grouping;
+- same-target competing-proposal conflicts.
 
-### F-003 — canonicalization is intentionally family-level
-`cii-workspace-node-name-corroboration.js` maps siblings such as `SL-106.3` and `.4` to family key `SL-106`. That remains legitimate only for review/corroboration discovery.
+### F-004 — duplicate corroboration could inflate Transfer cardinality
+Identical S1/S2/S3 physical mutations now select one deterministic APPLY. Other identical claims are retained as corroboration and explicitly excluded from mutation count.
 
-### F-004 — canonical discovery leaked into selectable base authority
-`cii-workspace-base-loop-selection.js` did not exclude review-only canonical discovery rows. Fixed by rejecting review-only/discovery-only authority before Method A/B loop projection.
+### F-005 — sibling conflicts need defense in depth
+`SL-106.3` and `SL-106.4` proposed for the same physical target remain separate physical keys and create a conflict. Scope binding and Writer2 readiness both block them.
 
-### F-005 — exact BM alias notation mismatch
-BM-001 stores aliases such as `/SL-106.3`; CII evidence may carry `SL-106.3`. Matching now treats one optional leading slash as lexical notation only. `SL-106`, `.3`, and `.4` remain different writable identities.
+### F-006 — physical writer width is not the suffix defect
+NODENAME FROM/TO fields are 26/25 characters. Regressions cover `SL-106.3` and `SL-121.14`, exact field width, and no adjacent-column shift.
 
-### F-006 — BM-001 is correspondence authority, not mutation value authority
-The frozen BM table is 329 rows of source aliases mapped to target names. It is now used to require full exact correspondence coverage. Writer2 CREATE/DELETE is separately qualified from exact reviewed target identity plus before/proposed cardinality.
+## Conservative Auto Anchor selector
+`ciiAutomaticBaseSelection()` was added at the existing base-selection boundary. It is generic and benchmark-independent.
 
-### F-007 — corroborating multi-source writes could inflate Transfer cardinality
-Identical physical mutation keys are now grouped as one APPLY. Duplicate source claims remain recorded as corroboration and are EXCLUDE in the explicit scope.
+Eligibility:
+- qualified Method A/B topology only;
+- review/name discovery excluded;
+- default minimum confidence MEDIUM;
+- REVIEW remains manual.
 
-### F-008 — same-target different aliases are conflicts
-Different exact proposals for one physical target are blocked at scope bind and re-blocked at Writer2 readiness. Family similarity never resolves the conflict.
+Ranking uses existing evidence only:
+1. HIGH > MEDIUM;
+2. Method A+B > Method A > Method B;
+3. strongest existing Method A/B weight;
+4. winner gap;
+5. structural score;
+6. deterministic ordering only after evidentiary equality.
 
-## Production changes
-| File | Purpose |
-|---|---|
-| `tabs/cii-workspace/cii-workspace-base-loop-selection.js` | prevent review-only canonical-name suggestions from becoming automatic base loops |
-| `tabs/cii-workspace/cii-workspace-multisource-preview.js` | exact BM alias binding with optional leading-slash notation only |
-| `tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js` | separate BM correspondence coverage, Writer2 cardinality qualification, physical mutation identity/dedupe/conflict |
-| `tabs/cii-workspace/cii-workspace-multisource-scope.js` | require full BM correspondence coverage; bind canonical physical CREATE/DELETE set; reject conflicts |
-| `tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js` | revalidate coverage, APPLY qualification, duplicates/conflicts and existing custody at apply time |
-| `tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js` | show correspondence coverage separately from physical candidates/APPLY; remove obsolete “BM-bound CREATE/DELETE” semantics |
+Safety behavior:
+- no qualified base → `REVIEW_REQUIRED`;
+- equally strong different topology outcomes → `AMBIGUOUS`;
+- equally strong cards resolving to the same physical Method-A base are equivalent and may resolve READY.
 
-Protected benchmark files, BM authority text/digest, converter, Writer1/Writer3, workflows, and unrelated CII sections are unchanged.
+**Important:** this selector is not yet auto-seeded into `selectedBySource` in the UI. That wiring is intentionally held behind the retained end-to-end benchmark gate. Existing manual/selected-base UI behavior remains in control.
 
-## Independent expected-data path
-`tests/cii-workspace-multisource-texpected-oracle.js` is deliberately test-only and does **not** import production Writer2 transfer/mutation selection helpers. It independently reads CII section geometry to derive:
-- target-node NODENAME CREATE/DELETE/REPLACE deltas;
-- exact raw-name relocations;
-- deterministic expected Transfer operation keys;
-- strict whole-file comparison that may classify only an exact same-stem missing numeric suffix as `suffixOnly`.
+## Transfer / readiness behavior
+The source-set scope now requires:
+- retained source-set/target custody;
+- transfer plan PREVIEW_READY;
+- complete exact BM-001 correspondence coverage;
+- no physical mutation conflicts;
+- exact Writer2 CREATE/DELETE cardinality operations only.
 
-A wrong target pointer, wrong sibling, line-count difference, non-NODENAME change, or outside-field change remains a real failure.
+Writer2 readiness independently revalidates those conditions at apply time.
 
-`tests/cii-workspace-multisource-texpected-benchmark.test.js` is the retained-real executable. From a normal repository checkout it reads `T.CII` and `TEXPECTED-PARTIALLLYDONE.CII`, asserts no same-node REPLACE requirement, derives the exact CREATE/DELETE key set/count/hash, and reports whether the three Owner checkpoint pairs are exact-name relocations.
+Transfer UI reports separately:
+- BM correspondence coverage;
+- canonical physical Writer2 candidates;
+- duplicate corroborations;
+- actual APPLY count;
+- EXCLUDE count.
 
-## Regression inventory
-- `tests/cii-workspace-base-loop-selection.test.js` — review-only canonical suggestion cannot produce base authority.
-- `tests/cii-workspace-multisource-bm001-exact-alias.test.js` — exact slash/dotted identity, family/sibling negatives, full 329-row synthetic BM coverage, physical CREATE/DELETE semantics, corroboration dedupe, same-target sibling conflict.
-- `tests/cii-workspace-writer2-nodename-dotted-regression.test.js` — `SL-106.3`, `SL-121.14`, field lengths, adjacent-column preservation.
-- `tests/cii-workspace-multisource-transfer-cardinality-ui.test.js` — UI shows canonical physical count; duplicate corroboration counts once.
-- `tests/cii-workspace-multisource-texpected-oracle-unit.test.js` — independent synthetic T/TEXPECTED parser/delta and strict suffix-only classifier.
-- `tests/cii-workspace-multisource-texpected-benchmark.test.js` — retained-real oracle/count/checkpoint derivation.
+Row count alone is never a benchmark PASS criterion; physical key-set equality is required.
+
+## Independent benchmark oracle
+Test-only `tests/cii-workspace-multisource-texpected-oracle.js` does not use production mutation selection to derive expected operations.
+
+It independently parses:
+- CONTROL.NONAM;
+- 15-row ELEMENT records and NODENAME pointer field;
+- fixed-width NODENAME FROM/TO fields;
+- physical node → exact raw name state.
+
+It derives:
+- CREATE / DELETE / REPLACE physical name delta;
+- exact-name relocations;
+- deterministic Transfer keys `ACTION|targetNode|exactName`;
+- Writer2-authorized encoding equality;
+- physical semantic equality;
+- preservation outside Writer2 authority.
+
+Suffix-only mode is diagnostic only: actual `SL-106` vs expected `SL-106.3` may be classified as suffix-only, but wrong sibling, wrong target/pointer, row count, other field, or unrelated section change remains a real failure.
+
+### Mixed-domain retained expected artifact
+An unattached Git analysis commit `d5304e82ee4257a513a86526e380b97b27893dfb` projected the frozen TEXPECTED blob onto `Benchmark/T.CII`, allowing GitHub to compare the two retained blobs server-side without modifying a branch or benchmark file.
+
+Observed retained diff:
+- 64 additions;
+- 63 deletions;
+- 127 changed lines.
+
+Besides Writer2 NODENAME/CONTROL/pointer changes, the diff contains unrelated changes including a support/comment record and `ALLOWBLS` values. These are recorded as foreign expected-file deltas, not mutation instructions.
+
+Final postimage acceptance is therefore:
+```text
+TEXPECTED exact equality inside Writer2 NODENAME authority
+AND
+original T exact preservation everywhere outside Writer2 NODENAME authority
+```
+
+## Retained end-to-end hard gate
+New:
+`tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js`
+
+It is designed to execute the complete retained path without manual benchmark anchors:
+1. load S1/S2/S3/T/TEXPECTED;
+2. inspect all three sources through the frozen V11↔V14 bridge;
+3. independently run conservative topology Auto Anchor for S1/S2/S3;
+4. require all three unique READY topology bases;
+5. build first production preview;
+6. auto-review only identity-bound HIGH/MEDIUM rows, preserving LOCKED and not auto-accepting REVIEW;
+7. rebuild production preview;
+8. require correspondence READY with zero conflicts;
+9. derive canonical physical Transfer mutation set;
+10. require exact row count and exact set equality to the independent T→TEXPECTED oracle;
+11. bind scope and require complete 329-row BM correspondence coverage;
+12. require Writer2 readiness;
+13. apply to a target copy through the frozen bridge;
+14. require exact TEXPECTED encoding/semantics inside Writer2 authority;
+15. require original-T preservation outside Writer2 authority;
+16. print Auto Anchor, correspondence, Transfer, BM, Compare, and owner-checkpoint diagnostics.
+
+This test contains no manual retained node anchors and does not use the three owner checkpoint pairs as authority.
+
+## Changed files
+### Production
+- `tabs/cii-workspace/cii-workspace-base-loop-selection.js`
+- `tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js`
+- `tabs/cii-workspace/cii-workspace-multisource-preview.js`
+- `tabs/cii-workspace/cii-workspace-multisource-scope.js`
+- `tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js`
+- `tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js`
+
+### Tests / evidence
+- `tests/cii-workspace-base-loop-selection.test.js`
+- `tests/cii-workspace-multisource-bm001-exact-alias.test.js`
+- `tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js`
+- `tests/cii-workspace-multisource-texpected-benchmark.test.js`
+- `tests/cii-workspace-multisource-texpected-oracle-unit.test.js`
+- `tests/cii-workspace-multisource-texpected-oracle.js`
+- `tests/cii-workspace-multisource-transfer-cardinality-ui.test.js`
+- `tests/cii-workspace-writer2-nodename-dotted-regression.test.js`
+- `agents/PR1112_workreport.md`
+
+Benchmark files, BM authority data/digest, workflows, Writer1/Writer3, and unrelated target data are not modified.
 
 ## Validation ledger
-| Validation | Status | Evidence |
+| Gate | Status | Evidence |
 |---|---|---|
-| retained source/BM dotted identity inspection | PASS | exact `.X` aliases observed in S1/S2/S3 and BM text |
-| base-loop review-only selection regression | PASS_ISOLATED | exact Git module/test mirror executed earlier; review-only candidate produced no qualified base loop |
-| independent TEXPECTED oracle synthetic suite | PASS_ISOLATED | synthetic fixed CII CREATE/DELETE relocation, wrong-pointer and wrong-sibling falsifiers passed |
-| repaired physical identity/cardinality logic | PASS_ISOLATED | current isolated mirror: identical claims dedupe; `.3` vs `.4` same target conflicts |
-| dotted fixed-column serialization | PASS_ISOLATED | current isolated mirror: `SL-106.3` and `SL-121.14` preserved; TO column not shifted |
-| full 329-row BM scope regression | AUTHORED_NOT_RUN | branch test exists; repository checkout execution unavailable in current connector runtime |
-| Transfer cardinality UI regression | AUTHORED_NOT_RUN | branch test exists; repository checkout execution unavailable |
-| retained-real `T -> TEXPECTED` benchmark | AUTHORED_NOT_RUN | full 2.86 MB private blobs could not be materialized into execution runtime |
-| exact Transfer APPLY count/set | NOT_RUN | will be emitted by retained benchmark + production E2E |
-| Owner checkpoint semantic derivation | NOT_RUN | retained benchmark executable probes all three pairs |
-| final production postimage Compare vs TEXPECTED | NOT_RUN | requires retained-real production E2E |
-| GitHub Actions / commit status | NOT_RUN | current PR head has zero workflow runs and zero statuses |
-| full repository / browser | NOT_RUN | no branch checkout executor available here |
-| external CAESAR acceptance | NOT_RUN | not executed |
+| retained source dotted-name inspection | PASS | exact dotted identities observed |
+| exact BM alias / family / sibling logic | PASS_ISOLATED | exact `.X` positive; family/wrong-sibling negatives |
+| BM correspondence vs cardinality separation | PASS_ISOLATED | helper/scope regressions authored; focused mirror executed |
+| duplicate corroboration / sibling conflict logic | PASS_ISOLATED | identical claims collapse; different aliases same target conflict |
+| dotted fixed-width serialization | PASS_ISOLATED | `.3` and `.14` preserved with stable columns |
+| canonical review-only base leak | PASS_ISOLATED | review-only row cannot project Method A/B base |
+| conservative Auto Anchor policy | PASS_ISOLATED | strongest/equivalent/ambiguous/review cases covered |
+| scoped benchmark oracle synthetic suite | PASS_ISOLATED | exact, suffix-only, wrong-pointer, wrong-sibling, foreign ALLOWBLS cases covered |
+| mixed-domain TEXPECTED discovery | PASS_SERVER_DIFF | frozen retained blobs compared server-side; 127-line mixed-domain diff |
+| full 329-row BM branch test | AUTHORED_NOT_RUN | repository checkout executor unavailable |
+| retained expected Transfer count/set/hash | AUTHORED_NOT_RUN | retained diagnostic test will derive it |
+| retained Auto Anchor → correspondence | AUTHORED_NOT_RUN | new hard-gate test exists |
+| retained Transfer exact set/cardinality | AUTHORED_NOT_RUN | new hard-gate test exists |
+| retained Writer2 apply / final Compare | AUTHORED_NOT_RUN | new hard-gate test exists |
+| owner checkpoint semantics | NOT_RUN | hard-gate diagnostic will derive evidence |
+| GitHub Actions / commit status | NOT_RUN | no PR workflow run/status observed |
+| full repository/browser regression | NOT_RUN | no branch checkout executor available in current environment |
+| external CAESAR validation | NOT_RUN | not executed |
+
+`PASS_ISOLATED` is not promoted to retained-real PASS.
 
 ## Current acceptance state
-### Proven by source inspection / focused repair
-- canonical family keys are no longer automatic anchor authority;
-- exact dotted aliases remain distinct through BM matching and physical mutation identity;
-- BM correspondence and Writer2 cardinality authorities are separated;
-- identical multi-source physical writes are deduped;
-- different dotted siblings for one target are conflicts;
-- physical NODENAME field width does not require suffix truncation;
-- no benchmark-specific production node/count/checkpoint branches were introduced.
+### Proven / implemented
+- exact dotted raw names are distinct writable identities;
+- canonical families cannot authorize physical anchors or writes;
+- BM correspondence and Writer2 mutation authority are separated;
+- duplicates do not inflate physical Transfer APPLY count;
+- competing exact siblings cannot silently win;
+- fixed-width writing retains suffixes;
+- benchmark expected data is not read by production;
+- mixed-domain TEXPECTED foreign edits do not authorize unrelated production mutations;
+- conservative topology-only Auto Anchor selection exists with ambiguity veto.
 
-### Still required before this PR can be called benchmark-exact
-1. Execute `node tests/cii-workspace-multisource-bm001-exact-alias.test.js` from the repository checkout.
-2. Execute `node tests/cii-workspace-multisource-transfer-cardinality-ui.test.js` and dotted-name regression.
-3. Execute `node tests/cii-workspace-multisource-texpected-benchmark.test.js` to derive exact expected APPLY count/set/hash and checkpoint semantics.
-4. Run real S1/S2/S3 + T through Auto Anchor/review → Transfer scope → Writer2 V11/V14 output.
-5. Compare production postimage to TEXPECTED with missing/unexpected/wrong-target/wrong-action/wrong-name/duplicate/conflict all zero.
-6. Run neighboring Writer2/bridge tests and broader repository/browser gates where available.
+### Explicitly not yet proven
+- exact expected Transfer APPLY count and set for the real retained files;
+- which exact Auto Anchor each S1/S2/S3 retained source chooses;
+- retained correspondence row set / zero-conflict result;
+- retained BM 329/329 coverage through the real production preview;
+- retained final Writer2 postimage;
+- exact meanings/results of `8870→9040`, `10350→10190`, `1005→925`;
+- exact Compare=0 result under the scoped three-way oracle.
 
-## Anti-gaming / rollback boundary
-- No `if (nodeId === 8870)` or equivalent exists.
-- Production does not read TEXPECTED or expected operation count.
-- BM-001 data/digest is unchanged.
-- TEXPECTED is not regenerated from production output.
-- Scope does not tolerate wrong sibling aliases or non-suffix structural differences.
-- If retained-real execution disproves the current authority split, rollback begins at the new multi-source BM correspondence/scope layer; do not weaken the independent oracle or fixed benchmark.
+## Anti-gaming boundary
+- no production branch on benchmark node IDs, checkpoint IDs, expected row count, or expected aliases;
+- production does not import or read TEXPECTED;
+- BM authority text/digest is unchanged;
+- no tolerance for wrong sibling or wrong target;
+- no attempt to copy TEXPECTED's unrelated support/ALLOWBLS edits;
+- Auto Anchor is not enabled in UI before retained qualification;
+- no merge/ready status until retained hard gate and neighboring regressions execute.
 
 ## Exact next action
-Obtain a repository checkout/CI execution path for the draft PR head, run the focused branch tests and retained benchmark, then use the independently derived expected key set to compare the real Transfer APPLY set and final postimage. Keep any unresolved checkpoint interpretation as `NOT_RUN` rather than fitting production code to the supplied numbers.
+Run the branch from a real repository checkout capable of reading the retained 2.86 MB files:
+```text
+node tests/cii-workspace-base-loop-selection.test.js
+node tests/cii-workspace-multisource-bm001-exact-alias.test.js
+node tests/cii-workspace-multisource-transfer-cardinality-ui.test.js
+node tests/cii-workspace-writer2-nodename-dotted-regression.test.js
+node tests/cii-workspace-multisource-texpected-oracle-unit.test.js
+node tests/cii-workspace-multisource-texpected-benchmark.test.js
+node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+```
+
+Only if the retained end-to-end gate passes should `ciiAutomaticBaseSelection()` be wired into the multi-source UI's `selectedBySource` seed. If it fails, use its stage diagnostics to repair the first wrong Auto Anchor/correspondence/Transfer boundary; do not weaken the oracle or hard-code the benchmark.
