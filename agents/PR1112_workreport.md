@@ -5,45 +5,32 @@
 - Issue: #1111; parent programme: #1083.
 - PR: #1112 — **DRAFT / OPEN / UNMERGED**.
 - Branch: `fix/cii-writer2-benchmark-exact-wp006`.
-- Pinned base/main: `96b09485b90f6bf92cc0716e2da0142d8cfd91c4` (live main rechecked 2026-09-06; no drift).
-- Browser-gate implementation checkpoint before this report refresh: `a2bf7f84ef7933e89bc7d9c0299cd41cc2fc467f`.
+- Pinned/live base: `96b09485b90f6bf92cc0716e2da0142d8cfd91c4`.
+- Latest implementation checkpoint before this report refresh: `d9899f810d7cbeb67af5a2efafcc2ac706859aa2`.
 - Takeover disposition: `SALVAGE_PARTIAL`.
-- Current qualification state: `FOCUSED_PASS_RETAINED_BROWSER_GATE_AUTHORED_NOT_RUN`.
-- Retained end-to-end verdict: **NOT_RUN**.
+- Current qualification state: `RETAINED_PRODUCT_PATH_PASS_EXACT_BROWSER_PYODIDE_NOT_RUN_ENVIRONMENT`.
 - Merge authority: **OWNER_ONLY / NOT GRANTED**.
 
-## Current authority boundary — PB-0002
-The retained expected file is intentionally partial and is **not raw NODENAME payload authority** for Writer2.
+## Authority boundary — PB-0002
+`TEXPECTED-PARTIALLLYDONE.CII` is intentionally partial and is **structural authority only** for Writer2 NODENAME.
 
-Final authority is split as follows:
-
-1. **TEXPECTED structural authority only**
+1. **TEXPECTED structural authority**
    - CONTROL.NONAM consequence;
-   - ELEMENT NODENAME pointer placement;
+   - ELEMENT NODENAME-pointer placement;
    - physical NODENAME row cardinality/order consequence;
    - Writer2 structural CREATE/DELETE action + target placement;
-   - no TEXPECTED NODENAME payload/name is used as final writable identity.
+   - TEXPECTED NODENAME payload text is not final writable identity.
 2. **Exact writable raw-name authority**
-   - exact raw NODENAME present in the selected S1/S2/S3 source member;
-   - if that exact source alias occurs in BM-001, the exact BM source-alias ↔ target-name row is required;
-   - if the exact source alias is absent from BM-001 entirely, source-only CREATE is allowed and recorded diagnostically;
-   - canonical/family matching may never choose a sibling or become emitted text.
+   - exact raw NODENAME from the selected S1/S2/S3 source member;
+   - if that exact alias occurs in BM-001, exact BM source-alias ↔ target-name pairing is required;
+   - if the exact alias is absent from BM-001 entirely, source-only exact CREATE is allowed and recorded diagnostically;
+   - canonical/family matching cannot choose or emit a sibling.
 3. **Target-preservation authority**
    - original `T.CII` remains exact authority outside Writer2 NODENAME consequences;
-   - pre-existing target NODENAME payloads outside selected physical target IDs must remain byte-semantically unchanged.
-4. **Owner checkpoints**
-   - `8870→9040`, `10350→10190`, `1005→925` are diagnostic evidence only;
-   - no production branch uses those IDs;
-   - they do not generate acceptance keys.
-
-Retained T→TEXPECTED structural observation:
-- CONTROL.NONAM / physical NODENAME rows: `1265 → 1266`;
-- observed NODENAME semantic deltas: `36`;
-- Writer2 structural CREATE: `1` target `10330`;
-- DELETE: `0`;
-- same-cardinality REPLACE: `35` and explicitly outside Writer2 cardinality authority.
-
-The retained selected CREATE is expected to be sourced from exact S2 raw identity `SL-115A.4` at target `10330`. That alias is absent from BM-001, so it is a valid source-only CREATE under the authority rule above; BM must not invent a pairing.
+   - unselected pre-existing NODENAME payloads must remain unchanged.
+4. **Owner checkpoint pairs**
+   - `8870→9040`, `10350→10190`, `1005→925` are diagnostics only;
+   - no production branch uses those IDs and they do not generate expected keys.
 
 ## Frozen retained inputs
 | Role | Path | Git blob | Size |
@@ -56,202 +43,261 @@ The retained selected CREATE is expected to be sourced from exact S2 raw identit
 
 Benchmark/source files remain unchanged in PR #1112.
 
+## Retained structural census
+Independent T→TEXPECTED inspection:
+- CONTROL.NONAM / physical NODENAME rows: `1265 → 1266`;
+- observed NODENAME semantic deltas: `36`;
+- Writer2 structural CREATE: `1` at target `10330`;
+- DELETE: `0`;
+- same-cardinality REPLACE: `35`, outside Writer2 cardinality authority.
+
+The retained selected Writer2 CREATE is exact S2 raw value `SL-115A.4` at target `10330`. That exact alias is absent from BM-001, therefore the operation is a legitimate source-only CREATE and BM must not invent a pairing.
+
 ## Implemented production repairs
-### P1 — compact correspondence identity
-`cii-workspace-identity.js` uses compact synchronous `correspondence-v1:<sha256>` IDs.
+- compact deterministic correspondence IDs;
+- topology-only physical Auto Anchor candidates;
+- review-ledger metadata preservation;
+- BM observed-evidence semantics (`PARTIAL`/`COMPLETE`) without synthesizing unobserved frozen rows;
+- canonical physical Transfer deduplication/conflict handling;
+- mixed NODENAME CREATE with true zero-pointer append custody and fail-closed Writer1C boundary;
+- SOURCE_SET source custody plus original-V14 / normalized-V11 target custody;
+- independent NODENAME I13 pointer lexical validation;
+- duplicate NODENAME V14 projection with multiplicity/reorder blockers retained;
+- inherited frozen-source sentinel corrected to the already-correct `conversionInput` production behavior;
+- V14 mixed-cardinality NODENAME projection now permits only blank↔nonblank field transitions within an otherwise cardinality-changing NODENAME section, while nonblank payload replacement remains blocked.
 
-### P2 — topology-only Auto Anchor
-Physical Method-A candidates require unique incident componentKind@length topology evidence. Review/name discovery cannot become base authority; ties remain fail-closed.
+No production code reads TEXPECTED or owner checkpoint IDs.
 
-### P3 — review ledger custody
-Multi-source review state preserves source/member review metadata rather than rebuilding bare decision objects at the qualification boundary.
+## Retained-real execution — product path PASS
+The connector environment contains the pinned Pages artifact at live base and all five retained Benchmark files. PR-changed modules participating in this path were overlaid and verified byte-for-byte by Git blob against PR head before execution. The frozen converter worker source and all six upstream Python converter files were also verified against their pinned Git blobs.
 
-### P4 — BM observed-evidence semantics
-`cii-workspace-multisource-bm001-correspondence.js` retains the frozen 329-row authority table but treats unobserved rows as informational custody metadata.
-- `READY` means every **observed** BM claim is exact and valid.
-- `matchedRowCount` is observed exact evidence, not a 329-row completion requirement.
-- `observationStatus` reports `PARTIAL` or `COMPLETE`.
-- missing frozen rows are never synthesized into operation evidence.
+Because this sandbox blocks the Pyodide CDN and browser network navigation, the converter Worker transport was replaced **only in the test host** with the same frozen Python converter engine. Product JS modules, benchmark inputs, authority logic, Writer2 code, V14 shadow, and projector were the exact branch implementations.
 
-### P5 — partial TEXPECTED oracle split
-`tests/cii-workspace-multisource-partial-texpected-oracle.js`:
-- structural Writer2 identity is only `action|target` for CREATE/DELETE;
-- compares CONTROL count, ELEMENT NODENAME pointers, physical NODENAME row count/encoding and occupancy;
-- does not compare TEXPECTED NODENAME payload names;
-- verifies exact selected source raw identity;
-- requires exact BM target pairing only when the exact alias exists in BM;
-- verifies final exact raw emission;
-- verifies unselected target NODENAME payload preservation.
-
-### P6 — mixed physical NODENAME CREATE
-`cii-workspace-writer2-nodename-relocation.js` supports the qualified mixed case where:
-- a true zero-pointer owner proves cardinality append;
-- redundant existing spans for the target node are blank and non-foreign;
-- redundant blank fields are filled with the exact CREATE name;
-- one actual NODENAME row is appended for the zero-pointer owner;
-- nonblank existing fields remain Writer1C/fail-closed.
-
-### P7 — source-set and dual target custody
-Composite Writer2 and independent validation support:
-- `SOURCE_SET` source authority via exact source-set SHA;
-- original V14 target parent authority;
-- normalized V11 execution target hash separately;
-- legacy DOCUMENT custody compatibility.
-
-### P8 — NODENAME I13 validation
-Independent composite validation requires integer lexical encoding for NODENAME ELEMENT pointer fields; SIF pointer fields retain generic numeric/G13.6 rules.
-
-### P9 — duplicate NODENAME V14 projection
-Stable duplicate multiplicity is occurrence-qualified instead of blocked merely because duplicate unit keys exist. Multiplicity change and reorder remain fail-closed.
-
-### P10 — inherited frozen-source sentinel repair
-`tests/cii-workspace-v11-v14-frozen-source.test.js` was stale after commit `06a6f9c...`: production correctly compares `conversionInput` during exact round-trip validation. Only the sentinel regex was corrected; production was not rolled back.
-
-## Focused validation — owner-side Windows checkout
-Two execution checkpoints were used because the falsifier fixture correction was test-only.
-
-At `51a7d75ca9f909b42bb18d30d4dc35582ddff33b`:
-- `tests/cii-workspace-v11-v14-frozen-source.test.js` — **PASS**
-- `tests/cii-workspace-multisource-bm001-exact-alias.test.js` — **PASS**
-- `tests/cii-workspace-multisource-partial-texpected-oracle.test.js` — **PASS**
-- `tests/cii-workspace-multisource-texpected-benchmark.test.js` — **PASS**
-
-The first run of `cii-workspace-writer2-nodename-relocation-falsifiers.test.js` failed because its synthetic NODENAME fixture row was entirely spaces and therefore was correctly omitted by physical-row parsing. Production remained fail-closed. The fixture was repaired only.
-
-At `ebb1c342b42b28add476be6272aa63c5eea9fa75`:
-- `tests/cii-workspace-writer2-nodename-relocation-falsifiers.test.js` — **PASS**
-- `tests/cii-workspace-writer2-source-set-composite-custody.test.js` — **PASS**
-- `tests/cii-workspace-v14-change-projection.test.js` — **PASS**
-- `tests/cii-workspace-v14-duplicate-nodename-projection.test.js` — **PASS**
-
-The commits after `ebb1c342...` in this stage add browser-test infrastructure only; they do not modify those production/focused-test surfaces.
-
-## Retained Node gate runtime result
-Command:
+Qualification class:
 ```text
-node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
-```
-Result on owner-side Node.js v26.3.0:
-```text
-ReferenceError: Worker is not defined
-```
-Boundary:
-`cii-workspace-v11-v14-converter.js -> ensureWorker()` before retained product qualification executes.
-
-Classification:
-- retained product verdict: **NOT_RUN**;
-- Node host compatibility: **FAIL_RUNTIME_HOST**;
-- this is not evidence of a Writer2 product defect;
-- no Node Worker shim/polyfill was added because repository policy forbids shims and the converter worker is browser/Pyodide runtime code.
-
-## Dedicated retained browser hard gate
-Added new files only:
-- `tests/browser/cii-writer2-static-server.mjs`
-- `playwright.cii-writer2-retained.config.mjs`
-- `tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs`
-
-Purpose:
-- execute the same retained S1/S2/S3 → T qualification inside Chromium;
-- use the real browser `Worker` and frozen Pyodide converter;
-- fetch the frozen retained CII artifacts from the repository-local HTTP server;
-- avoid modifying the existing Writer2 Playwright config;
-- avoid Python/`python3` launcher differences on Windows by using a small Node static server;
-- print transfer/BM/postimage/checkpoint diagnostics on success.
-
-The browser spec independently derives the structural Transfer key set from T→TEXPECTED. It does not regenerate expected data from product output.
-
-Published browser-gate checkpoint:
-```text
-a2bf7f84ef7933e89bc7d9c0299cd41cc2fc467f
+RETAINED_PRODUCT_PATH_WITH_PINNED_NATIVE_FROZEN_CONVERTER_TRANSPORT
 ```
 
-Validation in connector execution environment:
-- `node --check tests/browser/cii-writer2-static-server.mjs` equivalent draft — **PASS**
-- `node --check playwright.cii-writer2-retained.config.mjs` equivalent draft — **PASS**
-- `node --check tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs` equivalent draft — **PASS**
-- actual Chromium/Pyodide retained execution — **NOT_RUN_ENVIRONMENT** because this execution sandbox cannot access the required external Pyodide CDN.
+Transport label during the passing Node isolation run:
+```text
+NATIVE_FROZEN_PYTHON_CONTROL_NODE_ISOLATION
+```
+
+This is a retained-real product-path PASS, but it is **not** an exact browser Pyodide-Worker transport PASS.
+
+### Stage timing / termination evidence
+The final cached run completed, proving discovery/review are expensive but finite:
+```text
+inspect source set   ~6.4 s
+discovery preview   ~16.6 s
+reviewed preview    ~27.1 s
+scope               ~27.3 s
+apply               ~29.5 s
+complete            ~31.0 s
+```
+
+### Auto Anchor
+```text
+S1 READY MEDIUM  Method A  3830 -> 860
+S2 READY HIGH    Method A    90 -> 40060
+S3 READY MEDIUM  Method A  1410 -> 8780
+```
+
+All three source members resolved automatically without benchmark/manual anchor injection.
+
+### Correspondence
+```text
+status       READY
+node rows     95
+conflicts      0
+```
+
+### Canonical physical Transfer
+```text
+expected structural APPLY count   1
+actual physical APPLY count       1
+structural key                    CREATE|10330
+source                            S2
+exact raw value                   SL-115A.4
+duplicate corroborations          0
+raw mutation identity             READY
+source-only CREATE                yes
+```
+
+Operation:
+```text
+ms-op:S2:op:NODE_NAME:Node name / to-name:multi-base-node:420:10330
+```
+
+### BM-001 observed evidence
+```text
+frozen authority rows       329
+matched observed rows        18
+observationStatus       PARTIAL
+invalidOperationIds           0
+status                    READY
+```
+
+The 311 unobserved frozen rows are informational custody metadata and were not synthesized.
+
+### Final Writer2 postimage
+```text
+versionBridgeValidation.status             PASS
+versionBridgeValidation.path               V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11
+structural status                          READY
+structural encoding differences                0
+structural semantic differences                0
+exact raw emission status                  READY
+exact raw emission differences                 0
+unrelated target differences                   0
+unselected NODENAME payload differences        0
+```
+
+## Retained V14 projection blocker and repair
+Before the final PASS, the retained apply reached V14 projection and failed at:
+```text
+CII_V14_PROJECTION_NON_ISOLATED_CARDINALITY_RUN:NODENAME:1237:1:1237:1
+```
+
+Independent diagnostic of that exact run:
+```text
+baseline row 1237: FROM=''          TO='PS02315.1'
+modified row 1237: FROM='SL-115A.4' TO='PS02315.1'
+```
+
+A separate newly appended NODENAME row provides the physical cardinality increase. The existing projector understood pure insert/delete runs but interpreted the safe redundant blank-field fill as an unauthorized 1→1 replacement.
+
+Repair:
+- added `mergeNodeNameBlankTransition()`;
+- added `projectNodeNameReplacementRun()`;
+- `projectCardinalityRun()` permits equal-size unmatched runs **only for NODENAME** and only when every changed field crosses blank↔nonblank with exact original preimage equality;
+- nonblank→different-nonblank replacement throws `CII_V14_PROJECTION_NODENAME_NONBLANK_REPLACEMENT_NOT_AUTHORIZED`;
+- whole-section equal-cardinality NODENAME replacement remains blocked by the existing Writer1C boundary;
+- duplicate multiplicity and reorder blockers are unchanged.
+
+Published commits:
+```text
+b548541ac3b3ec28827757bd85ac2eea737db577  production projector
+d9899f810d7cbeb67af5a2efafcc2ac706859aa2  regression/falsifier
+```
+
+Published blobs:
+```text
+projector  5b294c8da36a2df48970f1ea603bddbed4b40748
+test       d78a63ac0205bf868a3805b96df9c2b36a167afb
+```
+
+## Focused validation
+Owner-side Windows checks before the retained projection repair:
+- frozen V11/V14 source/change-isolation custody — PASS;
+- BM exact-alias / observed-evidence — PASS;
+- partial TEXPECTED structural/raw identity oracle — PASS;
+- TEXPECTED retained census — PASS (`CREATE=1`, `DELETE=0`, `REPLACE=35`);
+- Writer2 NODENAME relocation falsifiers — PASS;
+- source-set composite custody + NODENAME I13 — PASS;
+- V14 change projection — PASS;
+- duplicate NODENAME projection — PASS.
+
+Current projection repair checks:
+- projector syntax — PASS;
+- duplicate NODENAME projection test with mixed blank-fill regression — PASS;
+- retained-shape blank fill + physical append — PASS;
+- nonblank NODENAME overwrite falsifier — PASS;
+- prior non-isolated 3→2 rewrite blocker — PASS;
+- prior whole-section equal-cardinality NODENAME replacement blocker — PASS;
+- full retained product path after repair — PASS under pinned native frozen converter transport.
+
+## Chromium evidence
+The sandbox Chromium is administratively blocked from all URL navigation, including loopback/data URLs. An `about:blank` page with injected import-map modules is allowed.
+
+A bundled exact-branch Chromium retained run entered the product path and reached discovery preview, but browser execution is extremely slow in this sandbox and could not complete within the execution wrapper. This is not claimed as PASS.
+
+The repaired V14 projector itself was executed inside installed Chromium using the published-equivalent exact module bytes:
+```text
+status                        PASS
+operations                    MERGE_NODENAME_BLANK_TRANSITION, INSERT_UNITS
+changed field                 FROM
+nonblank overwrite blocked    true
+```
+
+Exact Chromium + real Pyodide Worker retained end-to-end remains:
+```text
+NOT_RUN_ENVIRONMENT
+```
+
+Reasons: external Pyodide CDN unavailable and Chromium navigation administratively blocked. No repository Worker shim/polyfill was added.
+
+## Owner checkpoint diagnostics
+Final retained product-path output for the three diagnostic pairs:
+```text
+8870  -> 9040   correspondenceMatches=[]   exactNameRelocation=null
+10350 -> 10190  correspondenceMatches=[]   exactNameRelocation=null
+1005  -> 925    correspondenceMatches=[]   exactNameRelocation=null
+```
+
+These remain diagnostic-only and did not affect production selection or acceptance.
 
 ## Validation ledger
 | Gate | Status | Observation / oracle |
 |---|---|---|
-| live main/base grounding | PASS | main remains pinned `96b09485...` |
-| active multisource PR overlap | PASS | only open matching multisource PR is #1112 |
-| frozen benchmark files unchanged | PASS | PR path inventory / retained blobs |
-| T→TEXPECTED structural census | PASS | independent retained-file oracle |
-| focused BM observed-evidence semantics | PASS | owner-side Node execution |
-| partial TEXPECTED structural/raw identity oracle | PASS | owner-side Node execution |
-| retained TEXPECTED benchmark census | PASS | owner-side Node execution: CREATE 1 / DELETE 0 / REPLACE 35 |
-| mixed NODENAME CREATE falsifiers | PASS | owner-side Node execution after fixture-only correction |
-| source-set composite custody + I13 | PASS | owner-side Node execution |
-| V14 change projection | PASS | owner-side Node execution |
-| duplicate NODENAME projection | PASS | owner-side Node execution |
-| retained Node end-to-end | NOT_RUN | browser Worker unavailable in Node; failed before retained product logic |
-| retained Chromium end-to-end | NOT_RUN | dedicated gate authored; sandbox CDN access unavailable |
-| BM frozen authority custody | PASS | authority table remains 329 rows |
-| retained **observed** BM exact evidence | NOT_RUN_END_TO_END | expected to be partial observation; zero invalid required |
-| final retained Writer2 structural postimage | NOT_RUN | requires Chromium retained gate |
-| final exact raw source emission | NOT_RUN | requires Chromium retained gate |
-| owner checkpoint diagnostics | NOT_RUN | emitted by Chromium retained gate |
+| live main/base grounding | PASS | base remains `96b09485...` |
+| exact projector overlap search | PASS | no other open PR found by exact projector-path search |
+| frozen benchmark custody | PASS | retained artifact blobs/sizes verified |
+| focused phase-2 qualification | PASS | owner-side Node execution |
+| retained Auto Anchor/correspondence | PASS_NATIVE_FROZEN_TRANSPORT | exact branch product modules + pinned converter engine |
+| retained physical Transfer set | PASS_NATIVE_FROZEN_TRANSPORT | exactly `CREATE|10330` |
+| retained exact raw identity | PASS_NATIVE_FROZEN_TRANSPORT | S2 `SL-115A.4`, source-only BM absence handled |
+| BM observed evidence | PASS_NATIVE_FROZEN_TRANSPORT | 18/329 PARTIAL, invalid 0 |
+| Writer2 readiness/apply | PASS_NATIVE_FROZEN_TRANSPORT | bridge PASS |
+| final structural postimage | PASS_NATIVE_FROZEN_TRANSPORT | zero encoding/semantic differences |
+| exact raw final emission | PASS_NATIVE_FROZEN_TRANSPORT | READY / 0 differences |
+| target preservation | PASS_NATIVE_FROZEN_TRANSPORT | unrelated 0 / unselected NODENAME 0 |
+| mixed-cardinality projector regression | PASS | Node focused test |
+| mixed-cardinality projector Chromium | PASS | installed Chromium injected-module test |
+| exact Chromium + Pyodide retained E2E | NOT_RUN_ENVIRONMENT | browser/CDN administrative restrictions |
 | merge | NOT_APPLICABLE | Owner authorization not granted |
 
-## Changed-file ledger — latest browser stage
-New files:
-- `tests/browser/cii-writer2-static-server.mjs`
-- `playwright.cii-writer2-retained.config.mjs`
-- `tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs`
+## Local backup / patch ledger for latest production stage
+Local worklog:
+```text
+.agent-worklogs/20260906_2053_pr1112-v14-nodename-mixed-cardinality-projection/
+```
 
-No production file, existing Playwright config, benchmark file, or workflow file was modified in this stage.
+Backups:
+```text
+#1 projector before SHA-256 ff404ebf5f291f3671e2a777593ebc2933416cae3ea9aad27ff0fe86071fcf40
+#2 test      before SHA-256 3d1be4b9af50c8fd0976f63ecdcd1da6e1c863e9ce991ce75fa3c2c0ca38a2cc
+```
 
-## Repository-local backup / patch ledger status
-The connected GitHub execution surface still does not expose a writable repository checkout, so `utils/backup.cjs` and Git-ignored `.agent-worklogs/` cannot be truthfully executed here. This limitation is explicit rather than fabricated.
+Validated post-edit SHA-256:
+```text
+projector 165be2c28727915d3af6496a7a5f1d5128f2e7b241d60f5d0433e28502ade019
+test      7e51a9da6124ea19ac6bdb7f38a7a57212988200ee221dd86908d848c572ff0a
+```
 
-For the latest browser stage all three implementation files are new, so no pre-existing file backup exists or is required for those files; undo is deletion of those exact new files after verifying no later change touched them. This report update itself is connector-authored durable handover state.
-
-## Highest remaining risk
-The first real Chromium retained run may expose a product boundary after Worker/Pyodide initialization. If it fails:
-1. capture the first product-level assertion/error;
-2. repair only that demonstrated boundary;
-3. preserve the authority split above;
-4. do not weaken structural/raw-name/preservation checks;
-5. do not enable UI Auto Anchor merely to obtain a pass.
+The local module patch is generated from pre-edit backups, not Git history.
 
 ## Anti-gaming invariants
 - no benchmark CII file modified;
 - no production branch on owner checkpoint IDs;
 - no production read/import of TEXPECTED;
-- no TEXPECTED NODENAME payload used as writable identity;
+- no TEXPECTED payload used as writable identity;
 - no expected-data regeneration from actual output;
 - no tolerance accepting a wrong dotted sibling;
 - no canonical-family fallback as writable identity;
 - no synthesis of missing BM rows into operation evidence;
-- no requirement that all 329 BM rows be observed in this retained source set;
-- no Node Worker shim/polyfill;
-- no workflow-file change;
-- no merge without separate explicit Owner authorization.
+- no 329/329 retained-observation requirement;
+- no Worker shim/polyfill committed to the repository;
+- no workflow-file modification;
+- no merge without explicit Owner authorization.
 
 ## EXACT_NEXT_ACTION
-From a current checkout of `fix/cii-writer2-benchmark-exact-wp006` with normal network access:
+The implementation/product path is now retained-real qualified under the pinned native frozen converter transport. The remaining transport-specific gate is the already-authored exact Chromium + Pyodide Worker test:
 
 ```text
-git pull --ff-only
-npm ci
-npx playwright install chromium
 npx playwright test --config=playwright.cii-writer2-retained.config.mjs
 ```
 
-The dedicated config starts its own repository-local Node HTTP server; no separate Python server is required.
+Run it only in an environment where Chromium navigation and the pinned Pyodide CDN are reachable. If it passes, record the same retained diagnostics under `PASS_EXACT_BROWSER_PYODIDE`. If it exposes a new product-level failure, repair only the first demonstrated boundary and preserve all authority rules above.
 
-On success, record exactly:
-- Auto Anchor choices for S1/S2/S3;
-- correspondence READY/conflict count;
-- structural Transfer keys/count;
-- selected exact raw operation values;
-- BM `matchedRowCount`, `missingRowNumbers`, `invalidOperationIds`, `observationStatus`;
-- source-only CREATE operation IDs;
-- `versionBridgeValidation.status`;
-- structural encoding/semantic difference counts;
-- unrelated target and unselected NODENAME preservation differences;
-- exact raw emission status;
-- the three owner checkpoint diagnostics.
-
-Keep PR #1112 draft and unmerged until Owner review/authorization.
+Keep PR #1112 draft and unmerged until explicit Owner merge authorization.
