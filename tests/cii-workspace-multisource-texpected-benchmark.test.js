@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  compareOutsideWriter2NodeNameAuthority,
   deriveExactNameRelocations,
   deriveExpectedNodeNameDelta,
   expectedTransferKeys,
@@ -15,6 +16,8 @@ const expectedText = readFileSync(expectedPath, 'latin1');
 const delta = deriveExpectedNodeNameDelta(targetText, expectedText);
 const keys = expectedTransferKeys(delta.rows);
 const relocations = deriveExactNameRelocations(delta.rows);
+const foreignFixtureDelta = compareOutsideWriter2NodeNameAuthority(targetText, expectedText);
+const foreignSections = [...new Set(foreignFixtureDelta.differences.map((row) => row.section).filter(Boolean))].sort();
 const byAction = Object.fromEntries(['CREATE', 'DELETE', 'REPLACE'].map((action) => [
   action, delta.rows.filter((row) => row.action === action).length,
 ]));
@@ -27,6 +30,10 @@ const ownerCheckpointPairs = [
 const checkpointEvidence = ownerCheckpointPairs.map(([fromNodeId, toNodeId]) => ({
   fromNodeId,
   toNodeId,
+  fromBefore: delta.before.names.get(fromNodeId) || '',
+  fromExpected: delta.expected.names.get(fromNodeId) || '',
+  toBefore: delta.before.names.get(toNodeId) || '',
+  toExpected: delta.expected.names.get(toNodeId) || '',
   exactNameRelocation: relocations.find((row) => row.fromNodeId === fromNodeId && row.toNodeId === toNodeId) || null,
 }));
 
@@ -53,6 +60,9 @@ console.log(JSON.stringify({
   uniqueExactRelocationCount: relocations.length,
   expectedTransferKeySha256: keySha256,
   ownerCheckpointEvidence: checkpointEvidence,
+  retainedExpectedHasForeignTargetDelta: foreignFixtureDelta.status !== 'READY',
+  retainedExpectedForeignDifferenceCount: foreignFixtureDelta.differences.length,
+  retainedExpectedForeignSections: foreignSections,
 }, null, 2));
 
 console.log('CII retained-real TEXPECTED independent benchmark oracle checks passed.');
