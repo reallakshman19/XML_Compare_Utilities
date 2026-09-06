@@ -1,0 +1,71 @@
+name: CII Writer2 Retained Qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cii-writer2-retained-qualification.yml'
+      - 'tabs/cii-workspace/**'
+      - 'tests/cii-workspace-*.test.js'
+      - 'tests/cii-workspace-multisource-texpected-oracle.js'
+      - 'Benchmark/S1.CII'
+      - 'Benchmark/S2.CII'
+      - 'Benchmark/S3.CII'
+      - 'Benchmark/T.CII'
+      - 'Benchmark/TEXPECTED-PARTIALLLYDONE.CII'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: retained S1/S2/S3 -> T Writer2 gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Verify frozen retained inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object Benchmark/S1.CII)" = "73c49165b9d33a8c776ef76f480efec3a90e0c93"
+          test "$(git hash-object Benchmark/S2.CII)" = "a04622553720cb41a6fc2a4b85d8290eac7a3b0a"
+          test "$(git hash-object Benchmark/S3.CII)" = "a20b1ab87dd4e854cf2f453f8fd206be4b566b42"
+          test "$(git hash-object Benchmark/T.CII)" = "96b4a4b12bf66bcb0264c56e7767a857c4cc11e6"
+          test "$(git hash-object Benchmark/TEXPECTED-PARTIALLLYDONE.CII)" = "b7d0913a3827deb184d65c880594ca0667562167"
+
+      - name: Run neighboring Writer2 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-base-loop-selection.test.js
+          node tests/cii-workspace-multisource-bm001-exact-alias.test.js
+          node tests/cii-workspace-multisource-transfer-cardinality-ui.test.js
+          node tests/cii-workspace-writer2-nodename-dotted-regression.test.js
+          node tests/cii-workspace-multisource-texpected-oracle-unit.test.js
+          node tests/cii-workspace-multisource-texpected-benchmark.test.js
+
+      - name: Run retained end-to-end hard gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-evidence/cii-writer2
+          node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js \
+            2>&1 | tee qualification-evidence/cii-writer2/retained-benchmark.log
+
+      - name: Upload retained qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cii-writer2-retained-qualification
+          path: qualification-evidence/cii-writer2
+          if-no-files-found: warn
+          retention-days: 14
