@@ -9,6 +9,10 @@ export function ciiSuggestionSelectionKey(row) { return pairKey(row); }
 
 function methodIncludesA(method) { return method === 'METHOD_A_SPATIAL' || method === 'METHOD_A_AND_B'; }
 function methodIncludesB(method) { return method === 'METHOD_B_NETWORK' || method === 'METHOD_A_AND_B'; }
+function reviewDiscoveryOnly(row) {
+  return text(row?.candidateGeneration?.authorityRole) === 'REVIEW_DISCOVERY_ONLY_NOT_IDENTITY_AUTHORITY'
+    || row?.candidateGeneration?.reviewDiscovery?.reviewOnly === true;
+}
 function validAnchorPairs(rows) {
   return (rows || []).map((row) => pair(row?.sourceNodeId, row?.targetNodeId))
     .filter((row) => row.sourceNodeId && row.targetNodeId);
@@ -32,6 +36,7 @@ function methodBLoop(row) {
 }
 
 export function ciiQualifiedLoopsForSuggestion(row) {
+  if (reviewDiscoveryOnly(row)) return deepFreeze([]);
   return deepFreeze([methodALoop(row), methodBLoop(row)].filter(Boolean));
 }
 function loopKey(loop) {
@@ -64,4 +69,4 @@ export function ciiApplyBaseSelection(baseInput, baseLoops, legacyAnchorPairs) {
   return { ...rest, anchorPairs: legacyAnchorPairs };
 }
 
-export const _test = Object.freeze({ methodALoop, methodBLoop, loopKey, pairKey });
+export const _test = Object.freeze({ methodALoop, methodBLoop, loopKey, pairKey, reviewDiscoveryOnly });
