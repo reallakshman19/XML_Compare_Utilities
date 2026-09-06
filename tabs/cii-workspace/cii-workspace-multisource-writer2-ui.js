@@ -9,6 +9,10 @@ import {
 import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
+import {
+  ciiBm001CorrespondenceCoverage,
+  ciiCanonicalWriter2MutationSelection,
+} from './cii-workspace-multisource-bm001-correspondence.js';
 import { bindCiiTransferScopeToPreview } from './cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
@@ -150,18 +154,33 @@ function nodeNameChangesMarkup(preview) {
   const rows = nodeNameChangeRows(preview); const operations = new Map((preview?.transferPlan?.operations || [])
     .filter((operation) => operation?.engineeringDeltaId).map((operation) => [operation.engineeringDeltaId, operation]));
   if (!rows.length) return '<p>No qualified multi-source Node Name changes are currently available.</p>';
-  return `<table class="ciiw-grid"><thead><tr><th>Source</th><th>Correspondence</th><th>SOURCE candidate</th><th>Current TARGET</th><th>Writer2</th><th>BM-001</th></tr></thead><tbody>${rows.map((row) => {
+  return `<table class="ciiw-grid"><thead><tr><th>Source</th><th>Correspondence</th><th>SOURCE candidate</th><th>Current TARGET</th><th>Writer2</th><th>BM-001 correspondence</th></tr></thead><tbody>${rows.map((row) => {
     const operation = operations.get(row.deltaId); const acceptance = operation?.bm001Acceptance;
-    return `<tr><td><b>${h(row.sourceId)}</b></td><td>${h(row.sourceIdentity)} → ${h(row.targetIdentity)}</td><td>${h(row.sourceValue || '—')}</td><td>${h(row.targetValue || '—')}</td><td>${h(operation?.action || '—')}<small>${h(operation?.status || '—')}</small></td><td>${acceptance?.status === 'BOUND' ? `<b>BOUND</b><small>${h(acceptance.groupedKey)}</small>` : 'NOT BOUND'}</td></tr>`;
+    return `<tr><td><b>${h(row.sourceId)}</b></td><td>${h(row.sourceIdentity)} → ${h(row.targetIdentity)}</td><td>${h(row.sourceValue || '—')}</td><td>${h(row.targetValue || '—')}</td><td>${h(operation?.action || '—')}<small>${h(operation?.status || '—')}</small></td><td>${acceptance?.status === 'BOUND' ? `<b>BOUND</b><small>${h(acceptance.groupedKey)}</small>` : '—'}</td></tr>`;
   }).join('')}</tbody></table>`;
+}
+function transferMutationSummary(raw, scoped = null) {
+  const candidates = [...(raw?.transferPlan?.operations || []), ...(raw?.transferPlan?.excludedOperations || [])];
+  const canonical = ciiCanonicalWriter2MutationSelection(candidates);
+  const correspondence = scoped?.writerReadiness?.bm001CorrespondenceCoverage
+    || ciiBm001CorrespondenceCoverage(raw?.transferPlan || {});
+  const boundApplyCount = scoped?.transferPlan?.transferScope?.status === 'BOUND'
+    ? Number(scoped.transferPlan.transferScope.appliedOperationCount || 0) : null;
+  return Object.freeze({
+    physicalCandidateCount: canonical.appliedOperationIds.length,
+    duplicateCorroborationCount: canonical.duplicateOperationIds.length,
+    applyCount: boundApplyCount,
+    correspondence,
+  });
 }
 function transferMarkup(raw, scoped, reviewDirty = false) {
   const view = scoped || raw; const plan = view?.transferPlan; if (!plan) return '';
-  const scope = plan.transferScope; const candidates = [...(raw?.transferPlan?.operations || []), ...(raw?.transferPlan?.excludedOperations || [])];
-  const boundExpected = candidates.filter((item) => item?.bm001Acceptance?.status === 'BOUND' && ['CREATE', 'DELETE'].includes(item.action)).length;
+  const scope = plan.transferScope; const summary = transferMutationSummary(raw, scoped);
   const ready = !reviewDirty && scope?.status === 'BOUND' && view?.writerReadiness?.ready === true;
   const excluded = plan.excludedOperations?.length || 0;
-  return `<section class="ciiw-transfer-scope" data-ciiw-ms-transfer="1"><header><div><h3>Multi-source Writer2 exact scope</h3><p>Only BM-001-bound NODENAME CREATE/DELETE can become APPLY. All other mutable candidates are EXCLUDE.</p></div><div class="ciiw-transfer-scope-status">${h(scope?.status || 'UNBOUND')}</div></header><p><b>Source-set:</b> <code>${h(raw.sourceSetSha256)}</code><br><b>Original TARGET:</b> <code>${h(raw.targetAuthority?.originalSha256 || '—')}</code></p><p><b>BM-001:</b> ${h(raw.bm001Authority?.rowCount || 0)} expected rows · <b>bound Writer2 candidates:</b> ${h(boundExpected)} · <b>EXCLUDE:</b> ${h(excluded)}</p>${reviewDirty ? '<p><b>Correspondence review changed.</b> Apply approvals to Transfer Preview before binding Writer2 scope.</p>' : ''}<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-bind-expected ${!reviewDirty && raw.transferPlan?.status === 'PREVIEW_READY' ? '' : 'disabled'}>Bind expected Node Name changes only</button><button type="button" data-ciiw-ms-apply ${ready ? '' : 'disabled'}>Apply scoped Writer2 to TARGET copy</button></div>${scope?.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${view?.writerReadiness?.blockers?.length ? `<p><b>Writer blockers:</b> ${h(view.writerReadiness.blockers.join(' · '))}</p>` : ''}</section>`;
+  const coverage = `${summary.correspondence.matchedRowCount}/${summary.correspondence.expectedRowCount}`;
+  const applyText = summary.applyCount == null ? 'unbound' : String(summary.applyCount);
+  return `<section class="ciiw-transfer-scope" data-ciiw-ms-transfer="1"><header><div><h3>Multi-source Writer2 exact scope</h3><p>BM-001 proves reviewed source↔target correspondence. Writer2 CREATE/DELETE eligibility is derived separately from exact physical target cardinality. Identical corroborating writes collapse to one APPLY; different dotted siblings remain conflicts.</p></div><div class="ciiw-transfer-scope-status">${h(scope?.status || 'UNBOUND')}</div></header><p><b>Source-set:</b> <code>${h(raw.sourceSetSha256)}</code><br><b>Original TARGET:</b> <code>${h(raw.targetAuthority?.originalSha256 || '—')}</code></p><p><b>BM-001 correspondence:</b> ${h(coverage)} rows · <b>physical Writer2 candidates:</b> ${h(summary.physicalCandidateCount)} · <b>duplicate corroborations:</b> ${h(summary.duplicateCorroborationCount)} · <b>APPLY:</b> ${h(applyText)} · <b>EXCLUDE:</b> ${h(excluded)}</p>${reviewDirty ? '<p><b>Correspondence review changed.</b> Apply approvals to Transfer Preview before binding Writer2 scope.</p>' : ''}<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-bind-expected ${!reviewDirty && raw.transferPlan?.status === 'PREVIEW_READY' ? '' : 'disabled'}>Bind BM-correspondence-qualified Node Name changes</button><button type="button" data-ciiw-ms-apply ${ready ? '' : 'disabled'}>Apply scoped Writer2 to TARGET copy</button></div>${scope?.scopeId ? `<small>Scope ID: ${h(scope.scopeId)}</small>` : ''}${view?.writerReadiness?.blockers?.length ? `<p><b>Writer blockers:</b> ${h(view.writerReadiness.blockers.join(' · '))}</p>` : ''}</section>`;
 }
 function switchTab(container, name) { container.querySelector(`[data-ciiw-tab="${name}"]`)?.click(); }
 
@@ -330,17 +349,17 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const bindExpectedScope = async () => {
     if (!preview) return;
     try {
-      if (reviewDirty) throw new Error('Apply correspondence approvals to Transfer Preview before binding expected Writer2 scope.');
+      if (reviewDirty) throw new Error('Apply correspondence approvals to Transfer Preview before binding Writer2 scope.');
       const exact = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef: options.cryptoRef });
       scopedPreview = bindCiiTransferScopeToPreview(preview, exact.selection);
       renderTransfer(); switchTab(container, 'transfer');
-      setMultiSourceStatus(container, `Expected-only scope bound: ${exact.appliedOperationIds.length} APPLY; ${exact.excludedOperationIds.length} EXCLUDE. Writer2 ${scopedPreview.writerReadiness.status}.`);
+      setMultiSourceStatus(container, `BM-correspondence-qualified scope bound: ${exact.appliedOperationIds.length} physical APPLY; ${exact.duplicateCorroborationOperationIds.length} duplicate corroborations collapsed; ${exact.excludedOperationIds.length} EXCLUDE. Writer2 ${scopedPreview.writerReadiness.status}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyScoped = async () => {
     if (reviewDirty || !scopedPreview?.writerReadiness?.ready) return;
     try {
-      setMultiSourceStatus(container, 'Applying expected-only Writer2 NODENAME scope to one TARGET copy through the frozen V11↔V14 bridge…');
+      setMultiSourceStatus(container, 'Applying BM-correspondence-qualified Writer2 NODENAME scope to one TARGET copy through the frozen V11↔V14 bridge…');
       const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, cachedTargetBytes, { cryptoRef: options.cryptoRef });
       downloadApplied(container.ownerDocument, applied);
       setMultiSourceStatus(container, `Modified TARGET exported: ${applied.mutationCount} Writer2 field changes; version bridge ${applied.versionBridgeValidation.status}.`);
@@ -410,5 +429,5 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
 export const _test = Object.freeze({
   selectedFiles, sourceRows, sourceInputs, canonicalSourceIdForSha256, shortSha,
   selectedBaseLoopsBySource, manualAnchorPairsBySource, allMembersHaveBase, validManualNode,
-  buildAutomaticReview, nodeNameChangeRows, reviewConfidenceCount,
+  buildAutomaticReview, nodeNameChangeRows, reviewConfidenceCount, transferMutationSummary, transferMarkup,
 });
