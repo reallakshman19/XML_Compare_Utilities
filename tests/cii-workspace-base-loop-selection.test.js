@@ -48,6 +48,33 @@ assert.deepStrictEqual(conflictsPreserved.map((loop) => loop.anchorPairs[0].targ
 const landmark = row('700', '1700', 'LANDMARK_ONLY', { methodA: { status: 'UNAVAILABLE' }, methodB: methodB('READY') });
 assert.deepStrictEqual(ciiQualifiedLoopsForSuggestion(landmark), [], 'LANDMARK_ONLY must not silently become Method B even if local run math alone is READY');
 
+const canonicalReviewOnly = row('800', '1800', 'METHOD_B_NETWORK', {
+  methodA: { status: 'UNAVAILABLE' },
+  methodB: methodB('READY'),
+  candidateGeneration: {
+    method: 'SMART_NODE_NAME_REVIEW_DISCOVERY',
+    authorityRole: 'REVIEW_DISCOVERY_ONLY_NOT_IDENTITY_AUTHORITY',
+    reviewDiscovery: {
+      authority: 'EXISTING_NODE_NAME_REVIEW_DISCOVERY_ONLY',
+      reviewOnly: true,
+      sourceNodeName: 'SL-106.3',
+      targetNodeName: 'SL-106.4',
+      canonicalKey: 'SL-106',
+    },
+  },
+  identityExclusions: ['NODE_NAME_USED_FOR_REVIEW_DISCOVERY_NOT_IDENTITY_AUTHORITY'],
+});
+assert.deepStrictEqual(
+  ciiQualifiedLoopsForSuggestion(canonicalReviewOnly),
+  [],
+  'canonical Node Name review discovery must never project a Method A/B loop into correspondence authority',
+);
+assert.deepStrictEqual(
+  buildCiiSelectedBaseLoops([canonicalReviewOnly], new Set([ciiSuggestionSelectionKey(canonicalReviewOnly)])),
+  [],
+  'selecting a review-only canonical name card must remain a manual-review fallback, never automatic anchor authority',
+);
+
 const threeAnchorReview = row('1', '101', 'METHOD_A_SPATIAL', {
   methodA: methodABase('A_REVIEW_3', [['1','101'],['2','102'],['3','103']]), methodB: null,
 });
