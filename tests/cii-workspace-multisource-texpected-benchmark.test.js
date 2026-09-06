@@ -43,8 +43,10 @@ assert.equal(delta.before.controlNodeNameCount, delta.before.physicalNodeNameRow
   'TARGET0 CONTROL.NONAM must equal physical NODENAME row count');
 assert.equal(delta.expected.controlNodeNameCount, delta.expected.physicalNodeNameRowCount,
   'partial TEXPECTED CONTROL.NONAM must equal physical NODENAME row count');
-assert.equal(byAction.REPLACE, 0,
-  'retained Writer2 structural benchmark must not require same-node/same-cardinality NODENAME overwrite authority');
+assert(byAction.REPLACE > 0,
+  'the frozen partial TEXPECTED fixture must retain its known same-cardinality payload edits as non-Writer2 evidence');
+assert.equal(structuralKeys.length, byAction.CREATE + byAction.DELETE,
+  'Writer2 structural Transfer authority is exactly CREATE/DELETE cardinality and excludes all REPLACE rows');
 assert(structuralKeys.length > 0, 'T to partial TEXPECTED must derive a non-empty structural cardinality transfer set');
 assert.equal(new Set(structuralKeys).size, structuralKeys.length, 'independent structural Transfer keys must be unique');
 
@@ -54,8 +56,9 @@ console.log(JSON.stringify({
   controlNodeNameCountPartialExpected: delta.expected.controlNodeNameCount,
   physicalNodeNameRowsBefore: delta.before.physicalNodeNameRowCount,
   physicalNodeNameRowsPartialExpected: delta.expected.physicalNodeNameRowCount,
-  expectedNodeNameStructuralDeltaCount: delta.rows.length,
-  expectedStructuralTransferApplyRowCount: structuralKeys.length,
+  observedNodeNameDeltaCount: delta.rows.length,
+  writer2StructuralTransferApplyRowCount: structuralKeys.length,
+  nonWriter2SameCardinalityReplaceCount: byAction.REPLACE,
   byAction,
   uniquePartialNameRelocationCount: partialNameRelocations.length,
   expectedStructuralTransferKeySha256: keySha256,
@@ -63,7 +66,8 @@ console.log(JSON.stringify({
   retainedExpectedHasForeignTargetDelta: foreignFixtureDelta.status !== 'READY',
   retainedExpectedForeignDifferenceCount: foreignFixtureDelta.differences.length,
   retainedExpectedForeignSections: foreignSections,
-  rawNameAuthority: 'S1/S2/S3 exact NODENAME plus exact BM-001 source-alias/target pairing',
+  structuralAuthority: 'TEXPECTED CONTROL/NODENAME cardinality, ELEMENT pointer placement, action/target only',
+  rawNameAuthority: 'S1/S2/S3 exact NODENAME plus exact BM-001 source-alias/target pairing when represented',
 }, null, 2));
 
 console.log('CII retained-real partial TEXPECTED structural benchmark oracle checks passed.');
