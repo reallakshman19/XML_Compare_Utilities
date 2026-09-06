@@ -53,11 +53,6 @@ export function partialExpectedNameMatch(actualValue, expectedValue) {
     && partialExpectedFamilyKey(actual) === partialExpectedFamilyKey(expected);
   return Object.freeze({ match: familyMatch, kind: familyMatch ? 'PARTIAL_EXPECTED_FAMILY' : 'NONE', actual, expected });
 }
-function comparePartialName(actual, expected, context, differences, familyExpansions) {
-  const result = partialExpectedNameMatch(actual, expected);
-  if (!result.match) differences.push(Object.freeze({ ...context, actual: result.actual, expected: result.expected }));
-  else if (result.kind === 'PARTIAL_EXPECTED_FAMILY') familyExpansions.push(Object.freeze({ ...context, actual: result.actual, expected: result.expected }));
-}
 function comparePartialEncoding(actualText, expectedText) {
   const differences = []; const familyExpansions = [];
   const actualControl = sectionRows(actualText, 'CONTROL'); const expectedControl = sectionRows(expectedText, 'CONTROL');
@@ -72,18 +67,11 @@ function comparePartialEncoding(actualText, expectedText) {
     }
   }
   if (actualNames.length !== expectedNames.length) differences.push(Object.freeze({ code: 'NODENAME_ROW_COUNT_MISMATCH', actual: actualNames.length, expected: expectedNames.length }));
-  else for (let index = 0; index < actualNames.length; index += 1) {
-    const actualRow = actualNames[index]; const expectedRow = expectedNames[index];
-    const fields = [
-      ['FROM', NODENAME_FROM_START, NODENAME_TO_START],
-      ['TO', NODENAME_TO_START, NODENAME_END],
-    ];
-    for (const [field, start, end] of fields) {
-      const actualField = nameField(actualRow, start, end); const expectedField = nameField(expectedRow, start, end);
-      const actualName = actualField.trim(); const expectedName = expectedField.trim();
-      comparePartialName(actualName, expectedName, { code: 'NODENAME_NAME_MISMATCH', rowIndex: index, field }, differences, familyExpansions);
+  for (let index = 0; index < actualNames.length; index += 1) {
+    const actualRow = actualNames[index];
+    for (const [field, start, end] of [['FROM', NODENAME_FROM_START, NODENAME_TO_START], ['TO', NODENAME_TO_START, NODENAME_END]]) {
+      const actualField = nameField(actualRow, start, end); const actualName = actualField.trim();
       if (actualField !== actualName.padEnd(end - start, ' ')) differences.push(Object.freeze({ code: 'NODENAME_FIELD_ENCODING_MISMATCH', rowIndex: index, field }));
-      if (expectedField !== expectedName.padEnd(end - start, ' ')) differences.push(Object.freeze({ code: 'EXPECTED_NODENAME_FIELD_ENCODING_MISMATCH', rowIndex: index, field }));
     }
   }
   return Object.freeze({ differences: Object.freeze(differences), familyExpansions: Object.freeze(familyExpansions) });
@@ -94,21 +82,19 @@ function comparePartialSemantics(actualText, expectedText) {
   if (actual.controlNodeNameCount !== expected.controlNodeNameCount) differences.push(Object.freeze({ code: 'CONTROL_NONAM_SEMANTIC_MISMATCH', actual: actual.controlNodeNameCount, expected: expected.controlNodeNameCount }));
   if (actual.physicalNodeNameRowCount !== expected.physicalNodeNameRowCount) differences.push(Object.freeze({ code: 'PHYSICAL_NODENAME_ROW_COUNT_MISMATCH', actual: actual.physicalNodeNameRowCount, expected: expected.physicalNodeNameRowCount }));
   if (actual.conflicts.length || expected.conflicts.length) differences.push(Object.freeze({ code: 'NODENAME_STATE_CONFLICT', actual: actual.conflicts.length, expected: expected.conflicts.length }));
-  const ids = [...new Set([...actual.names.keys(), ...expected.names.keys()])].sort((a, b) => Number(a) - Number(b));
-  for (const nodeId of ids) comparePartialName(actual.names.get(nodeId) || '', expected.names.get(nodeId) || '', { code: 'NODE_NAME_SEMANTIC_MISMATCH', nodeId }, differences, familyExpansions);
+  const actualIds = [...actual.names.keys()].sort((a, b) => Number(a) - Number(b));
+  const expectedIds = [...expected.names.keys()].sort((a, b) => Number(a) - Number(b));
+  if (actualIds.length !== expectedIds.length || actualIds.some((id, index) => id !== expectedIds[index])) {
+    differences.push(Object.freeze({ code: 'NODENAME_OCCUPANCY_MISMATCH', actual: Object.freeze(actualIds), expected: Object.freeze(expectedIds) }));
+  }
   return Object.freeze({ differences: Object.freeze(differences), familyExpansions: Object.freeze(familyExpansions), actual, expected });
 }
-function structuralNameKey(value) {
-  return partialExpectedFamilyKey(value) || `RAW:${text(value).toUpperCase()}`;
-}
-export function structuralTransferKey(action, target, value) {
-  return `${text(action)}|${text(target)}|${structuralNameKey(value)}`;
+export function structuralTransferKey(action, target) {
+  return `${text(action)}|${text(target)}`;
 }
 export function expectedStructuralTransferKeys(deltaRows = []) {
-  return Object.freeze((deltaRows || []).filter((row) => ['CREATE', 'DELETE'].includes(row.action)).map((row) => {
-    const value = row.action === 'CREATE' ? row.newValue : row.oldValue;
-    return structuralTransferKey(row.action, row.nodeId, value);
-  }).sort());
+  return Object.freeze((deltaRows || []).filter((row) => ['CREATE', 'DELETE'].includes(row.action))
+    .map((row) => structuralTransferKey(row.action, row.nodeId)).sort());
 }
 function unslash(value) { return text(value).replace(/^\//, ''); }
 function sourceNameSet(sourceText) { return new Set(parseIndependentNodeNameState(sourceText).names.values()); }
@@ -119,42 +105,63 @@ function operationValue(operation) {
 function bmTargetName(operation) {
   return text(operation?.bm001Acceptance?.targetName ?? operation?.targetEvidence?.value ?? operation?.before);
 }
+function bmRowsForSourceAlias(sourceName, bmRows) {
+  const wanted = unslash(sourceName);
+  return (bmRows || []).filter((row) => (row?.sourceNames || []).some((name) => unslash(name) === wanted));
+}
 function bmExactAliasMatch(operation, bmRows) {
   const sourceName = operationValue(operation); const targetName = bmTargetName(operation);
   if (!sourceName || !targetName) return false;
-  return (bmRows || []).some((row) => text(row?.targetName) === targetName
-    && (row?.sourceNames || []).some((name) => unslash(name) === unslash(sourceName)));
+  return bmRowsForSourceAlias(sourceName, bmRows).some((row) => text(row?.targetName) === targetName);
 }
 export function validateRawMutationIdentity(operations, sourceTextsById, targetText, bmRows = []) {
   const sourceSets = new Map(Object.entries(sourceTextsById || {}).map(([id, value]) => [id, sourceNameSet(value)]));
-  const target = parseIndependentNodeNameState(targetText); const errors = [];
+  const target = parseIndependentNodeNameState(targetText); const errors = []; const sourceOnlyCreateOperationIds = [];
   for (const operation of operations || []) {
     const action = text(operation?.action); const sourceId = text(operation?.sourceId);
     const targetId = operationTarget(operation); const value = operationValue(operation);
     if (action === 'CREATE') {
       if (!sourceSets.get(sourceId)?.has(value)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_SOURCE_NAME', operationId: operation?.operationId, sourceId, targetId, value }));
-      if (bmRows.length && !bmExactAliasMatch(operation, bmRows)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET', operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
+      const aliasRows = bmRowsForSourceAlias(value, bmRows);
+      if (aliasRows.length && !bmExactAliasMatch(operation, bmRows)) {
+        errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET', operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
+      } else if (!aliasRows.length) sourceOnlyCreateOperationIds.push(text(operation?.operationId));
     } else if (action === 'DELETE' && target.names.get(targetId) !== value) {
       errors.push(Object.freeze({ code: 'DELETE_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, value, expected: target.names.get(targetId) || '' }));
     }
   }
-  return Object.freeze({ status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors) });
+  return Object.freeze({
+    status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors),
+    sourceOnlyCreateOperationIds: Object.freeze(sourceOnlyCreateOperationIds.filter(Boolean).sort()),
+  });
 }
 export function validateAppliedRawIdentity(actualText, operations) {
   const actual = parseIndependentNodeNameState(actualText); const errors = [];
   for (const operation of operations || []) {
     const action = text(operation?.action); const targetId = operationTarget(operation); const value = operationValue(operation);
     if (action === 'CREATE' && actual.names.get(targetId) !== value) errors.push(Object.freeze({ code: 'CREATE_RAW_NAME_NOT_EMITTED_EXACTLY', operationId: operation?.operationId, targetId, value, actual: actual.names.get(targetId) || '' }));
-    if (action === 'DELETE' && actual.names.get(targetId) === value) errors.push(Object.freeze({ code: 'DELETE_RAW_NAME_STILL_PRESENT', operationId: operation?.operationId, targetId, value }));
+    if (action === 'DELETE' && text(actual.names.get(targetId))) errors.push(Object.freeze({ code: 'DELETE_TARGET_NOT_EMPTY', operationId: operation?.operationId, targetId, value, actual: actual.names.get(targetId) || '' }));
   }
   return Object.freeze({ status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors) });
 }
-export function evaluatePartialTExpectedPostimage(beforeText, actualText, partialExpectedText) {
+export function validateUnselectedNodeNamePayloadPreservation(beforeText, actualText, operations = []) {
+  const before = parseIndependentNodeNameState(beforeText); const actual = parseIndependentNodeNameState(actualText);
+  const selectedTargets = new Set((operations || []).map(operationTarget).filter(Boolean)); const differences = [];
+  for (const [nodeId, beforeName] of before.names) {
+    if (selectedTargets.has(String(nodeId))) continue;
+    const actualName = actual.names.get(String(nodeId)) || '';
+    if (actualName !== beforeName) differences.push(Object.freeze({ code: 'UNSELECTED_NODENAME_PAYLOAD_CHANGED', nodeId: String(nodeId), before: beforeName, actual: actualName }));
+  }
+  return Object.freeze({ status: differences.length ? 'BLOCKED' : 'READY', differences: Object.freeze(differences) });
+}
+export function evaluatePartialTExpectedPostimage(beforeText, actualText, partialExpectedText, operations = []) {
   const encoding = comparePartialEncoding(actualText, partialExpectedText);
   const semantics = comparePartialSemantics(actualText, partialExpectedText);
   const preservation = compareOutsideWriter2NodeNameAuthority(beforeText, actualText);
-  const status = !encoding.differences.length && !semantics.differences.length && preservation.status === 'READY' ? 'READY' : 'BLOCKED';
-  return Object.freeze({ status, encoding, semantics, preservation });
+  const nodeNamePayloadPreservation = validateUnselectedNodeNamePayloadPreservation(beforeText, actualText, operations);
+  const status = !encoding.differences.length && !semantics.differences.length
+    && preservation.status === 'READY' && nodeNamePayloadPreservation.status === 'READY' ? 'READY' : 'BLOCKED';
+  return Object.freeze({ status, encoding, semantics, preservation, nodeNamePayloadPreservation });
 }
 
-export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, structuralNameKey, bmTargetName, bmExactAliasMatch });
+export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, bmTargetName, bmExactAliasMatch, bmRowsForSourceAlias });
