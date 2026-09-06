@@ -1,4 +1,5 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
+import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 
 function rowIdentity(row) {
   return {
@@ -17,7 +18,7 @@ function rowIdentity(row) {
   };
 }
 
-export function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, targetDocument, anchors) {
+export async function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, targetDocument, anchors, cryptoRef = globalThis.crypto) {
   const material = {
     sourceContentSha256: sourceDocument?.contentSha256 || '',
     targetContentSha256: targetDocument?.contentSha256 || '',
@@ -28,5 +29,6 @@ export function bindCiiCorrespondenceIdentity(correspondence, sourceDocument, ta
     blockers: correspondence?.blockers || [],
     status: correspondence?.status || 'UNRESOLVED',
   };
-  return deepFreeze({ ...correspondence, correspondenceIdentity: stableId('correspondence-v1', stableStringify(material)) });
+  const materialSha256 = await ciiSha256(stableStringify(material), cryptoRef);
+  return deepFreeze({ ...correspondence, correspondenceIdentity: stableId('correspondence-v1', materialSha256) });
 }
