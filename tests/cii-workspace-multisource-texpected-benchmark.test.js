@@ -6,22 +6,22 @@ import {
   compareOutsideWriter2NodeNameAuthority,
   deriveExactNameRelocations,
   deriveExpectedNodeNameDelta,
-  expectedTransferKeys,
 } from './cii-workspace-multisource-texpected-oracle.js';
+import { expectedStructuralTransferKeys } from './cii-workspace-multisource-partial-texpected-oracle.js';
 
 const targetPath = fileURLToPath(new URL('../Benchmark/T.CII', import.meta.url));
 const expectedPath = fileURLToPath(new URL('../Benchmark/TEXPECTED-PARTIALLLYDONE.CII', import.meta.url));
 const targetText = readFileSync(targetPath, 'latin1');
 const expectedText = readFileSync(expectedPath, 'latin1');
 const delta = deriveExpectedNodeNameDelta(targetText, expectedText);
-const keys = expectedTransferKeys(delta.rows);
-const relocations = deriveExactNameRelocations(delta.rows);
+const structuralKeys = expectedStructuralTransferKeys(delta.rows);
+const partialNameRelocations = deriveExactNameRelocations(delta.rows);
 const foreignFixtureDelta = compareOutsideWriter2NodeNameAuthority(targetText, expectedText);
 const foreignSections = [...new Set(foreignFixtureDelta.differences.map((row) => row.section).filter(Boolean))].sort();
 const byAction = Object.fromEntries(['CREATE', 'DELETE', 'REPLACE'].map((action) => [
   action, delta.rows.filter((row) => row.action === action).length,
 ]));
-const keySha256 = createHash('sha256').update(`${keys.join('\n')}\n`, 'utf8').digest('hex');
+const keySha256 = createHash('sha256').update(`${structuralKeys.join('\n')}\n`, 'utf8').digest('hex');
 const ownerCheckpointPairs = [
   ['8870', '9040'],
   ['10350', '10190'],
@@ -31,38 +31,39 @@ const checkpointEvidence = ownerCheckpointPairs.map(([fromNodeId, toNodeId]) => 
   fromNodeId,
   toNodeId,
   fromBefore: delta.before.names.get(fromNodeId) || '',
-  fromExpected: delta.expected.names.get(fromNodeId) || '',
+  fromPartialExpected: delta.expected.names.get(fromNodeId) || '',
   toBefore: delta.before.names.get(toNodeId) || '',
-  toExpected: delta.expected.names.get(toNodeId) || '',
-  exactNameRelocation: relocations.find((row) => row.fromNodeId === fromNodeId && row.toNodeId === toNodeId) || null,
+  toPartialExpected: delta.expected.names.get(toNodeId) || '',
+  partialNameRelocation: partialNameRelocations.find((row) => row.fromNodeId === fromNodeId && row.toNodeId === toNodeId) || null,
 }));
 
 assert.equal(delta.before.conflicts.length, 0, 'TARGET0 NODENAME ownership must be independently conflict-free');
-assert.equal(delta.expected.conflicts.length, 0, 'TEXPECTED NODENAME ownership must be independently conflict-free');
+assert.equal(delta.expected.conflicts.length, 0, 'partial TEXPECTED NODENAME ownership must be independently conflict-free');
 assert.equal(delta.before.controlNodeNameCount, delta.before.physicalNodeNameRowCount,
   'TARGET0 CONTROL.NONAM must equal physical NODENAME row count');
 assert.equal(delta.expected.controlNodeNameCount, delta.expected.physicalNodeNameRowCount,
-  'TEXPECTED CONTROL.NONAM must equal physical NODENAME row count');
+  'partial TEXPECTED CONTROL.NONAM must equal physical NODENAME row count');
 assert.equal(byAction.REPLACE, 0,
-  'retained Writer2 benchmark must not require same-node/same-cardinality NODENAME overwrite authority');
-assert(keys.length > 0, 'T to TEXPECTED must derive a non-empty cardinality transfer set');
-assert.equal(new Set(keys).size, keys.length, 'independent expected Transfer operation keys must be unique');
+  'retained Writer2 structural benchmark must not require same-node/same-cardinality NODENAME overwrite authority');
+assert(structuralKeys.length > 0, 'T to partial TEXPECTED must derive a non-empty structural cardinality transfer set');
+assert.equal(new Set(structuralKeys).size, structuralKeys.length, 'independent structural Transfer keys must be unique');
 
 console.log(JSON.stringify({
-  benchmark: 'T.CII -> TEXPECTED-PARTIALLLYDONE.CII',
+  benchmark: 'T.CII -> TEXPECTED-PARTIALLLYDONE.CII (partial structural oracle)',
   controlNodeNameCountBefore: delta.before.controlNodeNameCount,
-  controlNodeNameCountExpected: delta.expected.controlNodeNameCount,
+  controlNodeNameCountPartialExpected: delta.expected.controlNodeNameCount,
   physicalNodeNameRowsBefore: delta.before.physicalNodeNameRowCount,
-  physicalNodeNameRowsExpected: delta.expected.physicalNodeNameRowCount,
-  expectedNodeNameDeltaCount: delta.rows.length,
-  expectedTransferApplyRowCount: keys.length,
+  physicalNodeNameRowsPartialExpected: delta.expected.physicalNodeNameRowCount,
+  expectedNodeNameStructuralDeltaCount: delta.rows.length,
+  expectedStructuralTransferApplyRowCount: structuralKeys.length,
   byAction,
-  uniqueExactRelocationCount: relocations.length,
-  expectedTransferKeySha256: keySha256,
+  uniquePartialNameRelocationCount: partialNameRelocations.length,
+  expectedStructuralTransferKeySha256: keySha256,
   ownerCheckpointEvidence: checkpointEvidence,
   retainedExpectedHasForeignTargetDelta: foreignFixtureDelta.status !== 'READY',
   retainedExpectedForeignDifferenceCount: foreignFixtureDelta.differences.length,
   retainedExpectedForeignSections: foreignSections,
+  rawNameAuthority: 'S1/S2/S3 exact NODENAME plus exact BM-001 source-alias/target pairing',
 }, null, 2));
 
-console.log('CII retained-real TEXPECTED independent benchmark oracle checks passed.');
+console.log('CII retained-real partial TEXPECTED structural benchmark oracle checks passed.');
