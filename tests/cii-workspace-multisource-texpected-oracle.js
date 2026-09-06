@@ -156,4 +156,121 @@ export function comparePostimageAllowingOnlySuffix(actualText, expectedText) {
   return Object.freeze({ lineCountMatch: true, suffixOnly: Object.freeze(result.suffixOnly), nonSuffix: Object.freeze(result.nonSuffix) });
 }
 
-export const _test = Object.freeze({ sectionRows, numericField, namePair, suffixOnlyValue, controlNodeNameCount });
+function compareNodeNameStates(actual, expected, allowSuffixOnly = false) {
+  const suffixOnly = []; const nonSuffix = [];
+  if (actual.conflicts.length) nonSuffix.push(Object.freeze({ code: 'ACTUAL_NODENAME_CONFLICTS', count: actual.conflicts.length }));
+  if (expected.conflicts.length) nonSuffix.push(Object.freeze({ code: 'EXPECTED_NODENAME_CONFLICTS', count: expected.conflicts.length }));
+  if (actual.controlNodeNameCount !== expected.controlNodeNameCount) {
+    nonSuffix.push(Object.freeze({ code: 'CONTROL_NONAM_MISMATCH', actual: actual.controlNodeNameCount, expected: expected.controlNodeNameCount }));
+  }
+  if (actual.physicalNodeNameRowCount !== expected.physicalNodeNameRowCount) {
+    nonSuffix.push(Object.freeze({ code: 'PHYSICAL_NODENAME_ROW_COUNT_MISMATCH', actual: actual.physicalNodeNameRowCount, expected: expected.physicalNodeNameRowCount }));
+  }
+  const ids = [...new Set([...actual.names.keys(), ...expected.names.keys()])]
+    .sort((a, b) => Number(a) - Number(b));
+  for (const id of ids) {
+    const actualName = actual.names.get(id) || ''; const expectedName = expected.names.get(id) || '';
+    if (actualName === expectedName) continue;
+    const row = Object.freeze({ nodeId: id, actual: actualName, expected: expectedName });
+    if (allowSuffixOnly && suffixOnlyValue(actualName, expectedName)) suffixOnly.push(row);
+    else nonSuffix.push(row);
+  }
+  return Object.freeze({ suffixOnly: Object.freeze(suffixOnly), nonSuffix: Object.freeze(nonSuffix) });
+}
+
+export function compareWriter2NodeNameSemantics(actualText, expectedText, options = {}) {
+  const actual = parseIndependentNodeNameState(actualText);
+  const expected = parseIndependentNodeNameState(expectedText);
+  const result = compareNodeNameStates(actual, expected, options.allowSuffixOnly === true);
+  return Object.freeze({ ...result, actual, expected });
+}
+
+function sectionModel(text) {
+  const preamble = []; const sections = []; let active = null;
+  for (const line of lines(text)) {
+    const name = headerName(line);
+    if (name) {
+      active = { name, header: line, rows: [] };
+      sections.push(active);
+    } else if (active) active.rows.push(line);
+    else preamble.push(line);
+  }
+  return { preamble, sections };
+}
+function maskNumericField(row, index) {
+  const start = FIELD_PREFIX + (index * FIELD_WIDTH); const end = start + FIELD_WIDTH;
+  const padded = String(row ?? '').padEnd(end, ' ');
+  return `${padded.slice(0, start)}${' '.repeat(FIELD_WIDTH)}${padded.slice(end)}`;
+}
+function compareRowsExact(section, beforeRows, actualRows, differences) {
+  if (beforeRows.length !== actualRows.length) {
+    differences.push(Object.freeze({ section, code: 'ROW_COUNT_MISMATCH', before: beforeRows.length, actual: actualRows.length }));
+    return;
+  }
+  for (let index = 0; index < beforeRows.length; index += 1) if (beforeRows[index] !== actualRows[index]) {
+    differences.push(Object.freeze({ section, rowIndex: index, before: beforeRows[index], actual: actualRows[index] }));
+  }
+}
+function compareControlOutsideAuthority(beforeRows, actualRows, differences) {
+  if (beforeRows.length !== actualRows.length) {
+    differences.push(Object.freeze({ section: 'CONTROL', code: 'ROW_COUNT_MISMATCH', before: beforeRows.length, actual: actualRows.length }));
+    return;
+  }
+  for (let index = 0; index < beforeRows.length; index += 1) {
+    const before = index === 0 ? maskNumericField(beforeRows[index], 3) : beforeRows[index];
+    const actual = index === 0 ? maskNumericField(actualRows[index], 3) : actualRows[index];
+    if (before !== actual) differences.push(Object.freeze({ section: 'CONTROL', rowIndex: index, before: beforeRows[index], actual: actualRows[index] }));
+  }
+}
+function compareElementsOutsideAuthority(beforeRows, actualRows, differences) {
+  if (beforeRows.length !== actualRows.length) {
+    differences.push(Object.freeze({ section: 'ELEMENTS', code: 'ROW_COUNT_MISMATCH', before: beforeRows.length, actual: actualRows.length }));
+    return;
+  }
+  if (beforeRows.length % ELEMENT_ROWS !== 0) {
+    differences.push(Object.freeze({ section: 'ELEMENTS', code: 'ROW_COUNT_NOT_MULTIPLE_OF_15', count: beforeRows.length }));
+    return;
+  }
+  for (let index = 0; index < beforeRows.length; index += 1) {
+    const pointerRow = index % ELEMENT_ROWS === POINTER_ROW;
+    const before = pointerRow ? maskNumericField(beforeRows[index], POINTER_FIELD) : beforeRows[index];
+    const actual = pointerRow ? maskNumericField(actualRows[index], POINTER_FIELD) : actualRows[index];
+    if (before !== actual) differences.push(Object.freeze({ section: 'ELEMENTS', rowIndex: index, before: beforeRows[index], actual: actualRows[index] }));
+  }
+}
+
+export function compareOutsideWriter2NodeNameAuthority(beforeText, actualText) {
+  const before = sectionModel(beforeText); const actual = sectionModel(actualText); const differences = [];
+  if (before.preamble.length !== actual.preamble.length || before.preamble.some((line, index) => line !== actual.preamble[index])) {
+    differences.push(Object.freeze({ section: 'PREAMBLE', code: 'MISMATCH' }));
+  }
+  const beforeNames = before.sections.map((section) => section.name); const actualNames = actual.sections.map((section) => section.name);
+  if (beforeNames.length !== actualNames.length || beforeNames.some((name, index) => name !== actualNames[index])) {
+    differences.push(Object.freeze({ section: 'SECTIONS', code: 'ORDER_OR_SET_MISMATCH', before: beforeNames, actual: actualNames }));
+    return Object.freeze({ status: 'BLOCKED', differences: Object.freeze(differences) });
+  }
+  for (let index = 0; index < before.sections.length; index += 1) {
+    const left = before.sections[index]; const right = actual.sections[index];
+    if (left.header !== right.header) differences.push(Object.freeze({ section: left.name, code: 'HEADER_MISMATCH', before: left.header, actual: right.header }));
+    if (left.name === 'NODENAME') continue;
+    if (left.name === 'CONTROL') compareControlOutsideAuthority(left.rows, right.rows, differences);
+    else if (left.name === 'ELEMENTS') compareElementsOutsideAuthority(left.rows, right.rows, differences);
+    else compareRowsExact(left.name, left.rows, right.rows, differences);
+  }
+  return Object.freeze({ status: differences.length ? 'BLOCKED' : 'READY', differences: Object.freeze(differences) });
+}
+
+export function evaluateWriter2BenchmarkPostimage(beforeText, actualText, expectedText, options = {}) {
+  const benchmark = compareWriter2NodeNameSemantics(actualText, expectedText, options);
+  const preservation = compareOutsideWriter2NodeNameAuthority(beforeText, actualText);
+  return Object.freeze({
+    status: benchmark.nonSuffix.length === 0 && preservation.status === 'READY' ? 'READY' : 'BLOCKED',
+    benchmark,
+    preservation,
+  });
+}
+
+export const _test = Object.freeze({
+  sectionRows, numericField, namePair, suffixOnlyValue, controlNodeNameCount,
+  sectionModel, maskNumericField, compareNodeNameStates,
+});
