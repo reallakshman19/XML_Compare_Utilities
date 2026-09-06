@@ -3,6 +3,7 @@ import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-n
 import {
   ciiBm001CorrespondenceCoverage,
   ciiWriter2NodeNameCardinalityOperation,
+  ciiWriter2PhysicalMutationConflicts,
   ciiWriter2PhysicalMutationKey,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
@@ -27,6 +28,10 @@ function duplicatePhysicalMutationBlockers(operations) {
     blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
   }
   return blockers;
+}
+function conflictingPhysicalMutationBlockers(operations) {
+  return ciiWriter2PhysicalMutationConflicts(operations)
+    .map((item) => `CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
 }
 function custodyBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
@@ -65,6 +70,7 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
     blockers.push(`CII_MS_WRITER2_UNAUTHORIZED_APPLY:${operationId(operation) || 'unknown'}`);
   }
   blockers.push(...duplicatePhysicalMutationBlockers(qualified));
+  blockers.push(...conflictingPhysicalMutationBlockers(qualified));
   if (!qualified.length) blockers.push('CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS');
 
   const uniqueBeforePlan = [...new Set(blockers)];
@@ -84,4 +90,6 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
   });
 }
 
-export const _test = Object.freeze({ sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, custodyBlockers });
+export const _test = Object.freeze({
+  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers,
+});
