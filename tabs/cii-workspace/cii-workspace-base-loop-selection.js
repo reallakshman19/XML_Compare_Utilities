@@ -51,6 +51,68 @@ export function buildCiiSelectedBaseLoops(suggestions = [], selectedKeys = []) {
   }
   return deepFreeze([...loops.values()]);
 }
+
+const AUTO_CONFIDENCE_RANK = Object.freeze({ HIGH: 3, MEDIUM: 2, REVIEW: 1 });
+const AUTO_BASIS_RANK = Object.freeze({ METHOD_A_AND_B: 3, METHOD_A_SPATIAL: 2, METHOD_B_NETWORK: 1 });
+function autoStrength(row) {
+  return Math.max(Number(row?.methodA?.bestBase?.weight?.total || 0), Number(row?.methodBWeight?.total || 0));
+}
+function autoEvidenceTuple(row) {
+  return Object.freeze([
+    AUTO_CONFIDENCE_RANK[text(row?.confidence).toUpperCase()] || 0,
+    AUTO_BASIS_RANK[text(row?.basisMethod).toUpperCase()] || 0,
+    autoStrength(row),
+    Number(row?.winnerGap || 0),
+    Number(row?.score || 0),
+  ]);
+}
+function compareEvidenceTuple(left, right) {
+  for (let index = 0; index < left.length; index += 1) if (left[index] !== right[index]) return right[index] - left[index];
+  return 0;
+}
+function automaticCandidate(row, minimumConfidence) {
+  if (reviewDiscoveryOnly(row) || !ciiQualifiedLoopsForSuggestion(row).length) return false;
+  return (AUTO_CONFIDENCE_RANK[text(row?.confidence).toUpperCase()] || 0) >= minimumConfidence;
+}
+function autoOutcomeSignature(row) {
+  return ciiQualifiedLoopsForSuggestion(row).map(loopKey).sort().join('|');
+}
+function automaticCandidateOrder(left, right) {
+  return compareEvidenceTuple(autoEvidenceTuple(left), autoEvidenceTuple(right))
+    || autoOutcomeSignature(left).localeCompare(autoOutcomeSignature(right), undefined, { numeric: true })
+    || pairKey(left).localeCompare(pairKey(right), undefined, { numeric: true });
+}
+export function ciiAutomaticBaseSelection(suggestions = [], options = {}) {
+  const minimumName = text(options.minimumConfidence || 'MEDIUM').toUpperCase();
+  const minimumConfidence = AUTO_CONFIDENCE_RANK[minimumName] || AUTO_CONFIDENCE_RANK.MEDIUM;
+  const candidates = (suggestions || []).filter((row) => automaticCandidate(row, minimumConfidence)).sort(automaticCandidateOrder);
+  if (!candidates.length) return deepFreeze({
+    status: 'REVIEW_REQUIRED', reason: 'NO_HIGH_OR_MEDIUM_QUALIFIED_TOPOLOGY_BASE',
+    selectionKeys: deepFreeze([]), baseLoops: deepFreeze([]), candidates: deepFreeze([]),
+  });
+  const winner = candidates[0]; const winnerTuple = autoEvidenceTuple(winner);
+  const tied = candidates.filter((row) => compareEvidenceTuple(winnerTuple, autoEvidenceTuple(row)) === 0);
+  const outcomeSignatures = [...new Set(tied.map(autoOutcomeSignature))];
+  if (outcomeSignatures.length > 1) return deepFreeze({
+    status: 'AMBIGUOUS', reason: 'EQUALLY_STRONG_DIFFERENT_TOPOLOGY_OUTCOMES',
+    selectionKeys: deepFreeze([]), baseLoops: deepFreeze([]),
+    candidates: deepFreeze(tied.map((row) => deepFreeze({
+      selectionKey: ciiSuggestionSelectionKey(row), sourceNodeId: text(row?.sourceNodeId), targetNodeId: text(row?.targetNodeId),
+      confidence: text(row?.confidence), basisMethod: text(row?.basisMethod), outcomeSignature: autoOutcomeSignature(row),
+    }))),
+  });
+  const selectionKey = ciiSuggestionSelectionKey(winner);
+  const baseLoops = buildCiiSelectedBaseLoops(suggestions, [selectionKey]);
+  return deepFreeze({
+    status: 'READY', reason: 'STRONGEST_QUALIFIED_TOPOLOGY_BASE',
+    selectionKeys: deepFreeze([selectionKey]), baseLoops,
+    sourceNodeId: text(winner?.sourceNodeId), targetNodeId: text(winner?.targetNodeId),
+    confidence: text(winner?.confidence), basisMethod: text(winner?.basisMethod),
+    evidenceTuple: winnerTuple, outcomeSignature: autoOutcomeSignature(winner),
+    candidates: deepFreeze(candidates.map((row) => ciiSuggestionSelectionKey(row))),
+  });
+}
+
 export function ciiSelectedAnchorPairs(baseLoops = []) {
   const rows = new Map();
   for (const loop of baseLoops || []) for (const item of loop.anchorPairs || []) {
@@ -69,4 +131,7 @@ export function ciiApplyBaseSelection(baseInput, baseLoops, legacyAnchorPairs) {
   return { ...rest, anchorPairs: legacyAnchorPairs };
 }
 
-export const _test = Object.freeze({ methodALoop, methodBLoop, loopKey, pairKey, reviewDiscoveryOnly });
+export const _test = Object.freeze({
+  methodALoop, methodBLoop, loopKey, pairKey, reviewDiscoveryOnly,
+  autoStrength, autoEvidenceTuple, compareEvidenceTuple, automaticCandidate, autoOutcomeSignature, automaticCandidateOrder,
+});
