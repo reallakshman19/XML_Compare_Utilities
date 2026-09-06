@@ -239,6 +239,88 @@ function compareElementsOutsideAuthority(beforeRows, actualRows, differences) {
   }
 }
 
+function fixedField(row, index) {
+  const start = FIELD_PREFIX + (index * FIELD_WIDTH); const end = start + FIELD_WIDTH;
+  return String(row ?? '').padEnd(end, ' ').slice(start, end);
+}
+function singleSection(model, name, side, differences) {
+  const rows = model.sections.filter((section) => section.name === name);
+  if (rows.length !== 1) {
+    differences.push(Object.freeze({ code: 'AUTHORIZED_SECTION_CARDINALITY', side, section: name, count: rows.length }));
+    return null;
+  }
+  return rows[0];
+}
+function compareEncodedNameField(actualRow, expectedRow, start, end, rowIndex, fieldName, allowSuffixOnly, result) {
+  const actualField = String(actualRow ?? '').padEnd(end, ' ').slice(start, end);
+  const expectedField = String(expectedRow ?? '').padEnd(end, ' ').slice(start, end);
+  const actual = actualField.trim(); const expected = expectedField.trim();
+  if (actual === expected) {
+    if (actualField !== expectedField) result.nonSuffix.push(Object.freeze({
+      code: 'NODENAME_FIELD_ENCODING_MISMATCH', rowIndex, field: fieldName, actual: actualField, expected: expectedField,
+    }));
+    return;
+  }
+  const row = Object.freeze({ rowIndex, field: fieldName, actual, expected });
+  if (allowSuffixOnly && suffixOnlyValue(actual, expected)) result.suffixOnly.push(row);
+  else result.nonSuffix.push(row);
+}
+
+export function compareWriter2NodeNameEncoding(actualText, expectedText, options = {}) {
+  const actual = sectionModel(actualText); const expected = sectionModel(expectedText);
+  const result = { suffixOnly: [], nonSuffix: [] }; const allowSuffixOnly = options.allowSuffixOnly === true;
+  const actualControl = singleSection(actual, 'CONTROL', 'ACTUAL', result.nonSuffix);
+  const expectedControl = singleSection(expected, 'CONTROL', 'EXPECTED', result.nonSuffix);
+  const actualElements = singleSection(actual, 'ELEMENTS', 'ACTUAL', result.nonSuffix);
+  const expectedElements = singleSection(expected, 'ELEMENTS', 'EXPECTED', result.nonSuffix);
+  const actualNames = singleSection(actual, 'NODENAME', 'ACTUAL', result.nonSuffix);
+  const expectedNames = singleSection(expected, 'NODENAME', 'EXPECTED', result.nonSuffix);
+
+  if (actualControl && expectedControl) {
+    const actualField = fixedField(actualControl.rows[0], 3); const expectedField = fixedField(expectedControl.rows[0], 3);
+    if (actualField !== expectedField) result.nonSuffix.push(Object.freeze({
+      code: 'CONTROL_NONAM_ENCODING_MISMATCH', actual: actualField.trim(), expected: expectedField.trim(),
+    }));
+  }
+  if (actualElements && expectedElements) {
+    if (actualElements.rows.length !== expectedElements.rows.length) {
+      result.nonSuffix.push(Object.freeze({
+        code: 'ELEMENT_ROW_COUNT_MISMATCH', actual: actualElements.rows.length, expected: expectedElements.rows.length,
+      }));
+    } else if (actualElements.rows.length % ELEMENT_ROWS !== 0) {
+      result.nonSuffix.push(Object.freeze({ code: 'ELEMENT_ROW_COUNT_NOT_MULTIPLE_OF_15', count: actualElements.rows.length }));
+    } else {
+      for (let offset = POINTER_ROW; offset < actualElements.rows.length; offset += ELEMENT_ROWS) {
+        const actualField = fixedField(actualElements.rows[offset], POINTER_FIELD);
+        const expectedField = fixedField(expectedElements.rows[offset], POINTER_FIELD);
+        if (actualField !== expectedField) result.nonSuffix.push(Object.freeze({
+          code: 'ELEMENT_NODENAME_POINTER_MISMATCH', elementIndex: Math.floor(offset / ELEMENT_ROWS),
+          actual: actualField.trim(), expected: expectedField.trim(),
+        }));
+      }
+    }
+  }
+  if (actualNames && expectedNames) {
+    if (actualNames.rows.length !== expectedNames.rows.length) {
+      result.nonSuffix.push(Object.freeze({
+        code: 'NODENAME_ROW_COUNT_MISMATCH', actual: actualNames.rows.length, expected: expectedNames.rows.length,
+      }));
+    } else {
+      for (let index = 0; index < actualNames.rows.length; index += 1) {
+        const actualRow = actualNames.rows[index]; const expectedRow = expectedNames.rows[index];
+        compareEncodedNameField(actualRow, expectedRow, NODENAME_FROM_START, NODENAME_TO_START, index, 'FROM', allowSuffixOnly, result);
+        compareEncodedNameField(actualRow, expectedRow, NODENAME_TO_START, NODENAME_END, index, 'TO', allowSuffixOnly, result);
+        const actualOutside = `${actualRow.slice(0, NODENAME_FROM_START)}${actualRow.slice(NODENAME_END)}`;
+        const expectedOutside = `${expectedRow.slice(0, NODENAME_FROM_START)}${expectedRow.slice(NODENAME_END)}`;
+        if (actualOutside !== expectedOutside) result.nonSuffix.push(Object.freeze({
+          code: 'NODENAME_OUTSIDE_FIELD_MISMATCH', rowIndex: index, actual: actualOutside, expected: expectedOutside,
+        }));
+      }
+    }
+  }
+  return Object.freeze({ suffixOnly: Object.freeze(result.suffixOnly), nonSuffix: Object.freeze(result.nonSuffix) });
+}
+
 export function compareOutsideWriter2NodeNameAuthority(beforeText, actualText) {
   const before = sectionModel(beforeText); const actual = sectionModel(actualText); const differences = [];
   if (before.preamble.length !== actual.preamble.length || before.preamble.some((line, index) => line !== actual.preamble[index])) {
@@ -261,16 +343,16 @@ export function compareOutsideWriter2NodeNameAuthority(beforeText, actualText) {
 }
 
 export function evaluateWriter2BenchmarkPostimage(beforeText, actualText, expectedText, options = {}) {
-  const benchmark = compareWriter2NodeNameSemantics(actualText, expectedText, options);
+  const benchmark = compareWriter2NodeNameEncoding(actualText, expectedText, options);
+  const semantics = compareWriter2NodeNameSemantics(actualText, expectedText, options);
   const preservation = compareOutsideWriter2NodeNameAuthority(beforeText, actualText);
   return Object.freeze({
-    status: benchmark.nonSuffix.length === 0 && preservation.status === 'READY' ? 'READY' : 'BLOCKED',
-    benchmark,
-    preservation,
+    status: benchmark.nonSuffix.length === 0 && semantics.nonSuffix.length === 0 && preservation.status === 'READY' ? 'READY' : 'BLOCKED',
+    benchmark, semantics, preservation,
   });
 }
 
 export const _test = Object.freeze({
   sectionRows, numericField, namePair, suffixOnlyValue, controlNodeNameCount,
-  sectionModel, maskNumericField, compareNodeNameStates,
+  sectionModel, maskNumericField, compareNodeNameStates, fixedField, singleSection,
 });
