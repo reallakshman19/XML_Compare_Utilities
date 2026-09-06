@@ -33,6 +33,9 @@ export async function createCiiExpectedNodeNameSourceSetSelection(plan, options 
 
   const candidates = candidateOperations(plan);
   const canonical = ciiCanonicalWriter2MutationSelection(candidates);
+  if (canonical.conflicts.length) {
+    throw new Error(`CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${canonical.conflicts.map((item) => item.physicalTargetKey).join(',')}`);
+  }
   const applySet = new Set(canonical.appliedOperationIds);
   const decisions = {}; const applied = []; const excluded = [];
   for (const operation of candidates) {
@@ -52,6 +55,7 @@ export async function createCiiExpectedNodeNameSourceSetSelection(plan, options 
     excludedOperationIds: Object.freeze(excluded.sort()),
     corroborationGroups: canonical.corroborationGroups,
     duplicateCorroborationOperationIds: canonical.duplicateOperationIds,
+    physicalMutationConflicts: canonical.conflicts,
   });
 }
 
