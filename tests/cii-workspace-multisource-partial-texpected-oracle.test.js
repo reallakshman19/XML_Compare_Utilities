@@ -62,7 +62,8 @@ const operations = [
   },
   {
     operationId: 'create-source-name', sourceId: 'S1', action: 'CREATE', before: '', proposed: 'SL-106.3',
-    sourceEvidence: { value: 'SL-106.3' }, targetEvidence: { identity: '30', value: 'PS02494.1' },
+    sourceEvidence: { value: 'SL-106.3' }, targetEvidence: { identity: '30', value: '' },
+    bm001Acceptance: { benchmark: 'BM-001', status: 'BOUND', sourceNames: ['SL-106.3'], targetName: 'PS02494.1' },
   },
 ];
 const bmRows = [{ rowNumber: 1, sourceNames: ['/SL-106.3'], targetName: 'PS02494.1' }];
@@ -71,7 +72,12 @@ assert.equal(validateAppliedRawIdentity(exactActual, operations).status, 'READY'
 assert.equal(validateAppliedRawIdentity(truncatedActual, operations).status, 'BLOCKED',
   'matching the partial TEXPECTED family is insufficient when Writer2 truncates the exact selected raw source name');
 
-const wrongSibling = operations.map((row) => row.action === 'CREATE' ? { ...row, proposed: 'SL-106.4', sourceEvidence: { value: 'SL-106.4' } } : row);
+const wrongSibling = operations.map((row) => row.action === 'CREATE' ? {
+  ...row,
+  proposed: 'SL-106.4',
+  sourceEvidence: { value: 'SL-106.4' },
+  bm001Acceptance: { ...row.bm001Acceptance, sourceNames: ['SL-106.4'] },
+} : row);
 const wrongRaw = validateRawMutationIdentity(wrongSibling, { S1: source }, target, bmRows);
 assert.equal(wrongRaw.status, 'BLOCKED');
 assert(wrongRaw.errors.some((row) => row.code === 'CREATE_VALUE_NOT_EXACT_SOURCE_NAME'));
