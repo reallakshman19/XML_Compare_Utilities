@@ -6,6 +6,7 @@ import {
   ciiBm001CorrespondenceCoverage,
   ciiCanonicalWriter2MutationSelection,
   ciiWriter2NodeNameCardinalityOperation,
+  ciiWriter2PhysicalMutationConflicts,
   ciiWriter2PhysicalMutationKey,
 } from '../tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js';
 import { CII_WRITER_2_NODENAME_RELOCATION_POLICY } from '../tabs/cii-workspace/cii-workspace-writer2-nodename-relocation.js';
@@ -104,16 +105,26 @@ assert.equal(ciiWriter2PhysicalMutationKey(deleteOp), 'NODE_NAME|DELETE|8870|PS0
 const overwrite = cardinalityOperation({ id: 'OVERWRITE', before: 'PS02494.1', proposed: 'SL-106.3' });
 assert.equal(ciiWriter2NodeNameCardinalityOperation(overwrite), false, 'same-row overwrite is not Writer2 cardinality authority');
 
-// Identical S1/S2 physical claims collapse to one APPLY; different dotted siblings stay distinct.
+// Identical S1/S2 physical claims collapse to one APPLY; different dotted siblings conflict and are not selected.
 const corroborating = cardinalityOperation({ id: 'CREATE-S2', sourceId: 'S2' });
 const canonical = ciiCanonicalWriter2MutationSelection([corroborating, create]);
 assert.deepStrictEqual(canonical.appliedOperationIds, ['CREATE-S1']);
 assert.deepStrictEqual(canonical.duplicateOperationIds, ['CREATE-S2']);
 assert.deepStrictEqual(canonical.corroborationGroups[0].sourceIds, ['S1', 'S2']);
+assert.deepStrictEqual(canonical.conflicts, []);
 
 const wrongSiblingMutation = cardinalityOperation({ id: 'CREATE-S3', sourceId: 'S3', proposed: 'SL-106.4' });
+const siblingConflicts = ciiWriter2PhysicalMutationConflicts([create, wrongSiblingMutation]);
+assert.equal(siblingConflicts.length, 1);
+assert.equal(siblingConflicts[0].physicalTargetKey, 'NODE_NAME|9040');
+assert.deepStrictEqual(siblingConflicts[0].operationIds, ['CREATE-S1', 'CREATE-S3']);
 const siblingSelection = ciiCanonicalWriter2MutationSelection([create, wrongSiblingMutation]);
-assert.equal(siblingSelection.appliedOperationIds.length, 2, 'different dotted siblings are conflicting physical proposals, never corroborating duplicates');
+assert.deepStrictEqual(siblingSelection.appliedOperationIds, [], 'different dotted siblings for one physical target must block auto-selection');
+assert.equal(siblingSelection.conflicts.length, 1);
 assert.notEqual(ciiWriter2PhysicalMutationKey(create), ciiWriter2PhysicalMutationKey(wrongSiblingMutation));
+assert.match(readinessTest.conflictingPhysicalMutationBlockers([
+  { ...create, scopeDecision: 'APPLY' },
+  { ...wrongSiblingMutation, scopeDecision: 'APPLY' },
+])[0], /CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:NODE_NAME\|9040/);
 
 console.log('CII multi-source BM correspondence / exact Writer2 cardinality checks passed.');
