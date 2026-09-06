@@ -176,10 +176,9 @@ function assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName) {
 function rejectEqualCardinalityUnitMutation(baseline, modified, sectionName) {
   const baselineUnits = groupUnits(baseline, sectionName, 'BASELINE');
   const modifiedUnits = groupUnits(modified, sectionName, 'MODIFIED');
-  assertUniqueUnitKeys(baselineUnits, sectionName, 'BASELINE');
-  assertUniqueUnitKeys(modifiedUnits, sectionName, 'MODIFIED');
-  const baselineKeys = baselineUnits.map((unit) => unit.key);
-  const modifiedKeys = modifiedUnits.map((unit) => unit.key);
+  assertStableDuplicateMultiplicity(baselineUnits, modifiedUnits, sectionName);
+  const baselineKeys = occurrenceQualifiedUnitKeys(baselineUnits);
+  const modifiedKeys = occurrenceQualifiedUnitKeys(modifiedUnits);
   const matches = lcsMatches(baselineKeys, modifiedKeys, sectionName);
   assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName);
   throw new Error(`CII_V14_PROJECTION_EQUAL_CARDINALITY_UNIT_REPLACEMENT_NOT_AUTHORIZED:${sectionName}`);
@@ -223,11 +222,30 @@ function groupUnits(rows, sectionName, label) {
   return units;
 }
 
-function assertUniqueUnitKeys(units, sectionName, label) {
-  const seen = new Set();
-  for (const unit of units) {
-    if (seen.has(unit.key)) throw new Error(`CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT:${sectionName}:${label}`);
-    seen.add(unit.key);
+function unitKeyCounts(units) {
+  const counts = new Map();
+  for (const unit of units) counts.set(unit.key, (counts.get(unit.key) || 0) + 1);
+  return counts;
+}
+
+function occurrenceQualifiedUnitKeys(units) {
+  const seen = new Map();
+  return units.map((unit) => {
+    const ordinal = (seen.get(unit.key) || 0) + 1;
+    seen.set(unit.key, ordinal);
+    return `${unit.key}\u0000${ordinal}`;
+  });
+}
+
+function assertStableDuplicateMultiplicity(baselineUnits, modifiedUnits, sectionName) {
+  const baselineCounts = unitKeyCounts(baselineUnits);
+  const modifiedCounts = unitKeyCounts(modifiedUnits);
+  for (const key of new Set([...baselineCounts.keys(), ...modifiedCounts.keys()])) {
+    const baselineCount = baselineCounts.get(key) || 0;
+    const modifiedCount = modifiedCounts.get(key) || 0;
+    if (Math.max(baselineCount, modifiedCount) > 1 && baselineCount !== modifiedCount) {
+      throw new Error(`CII_V14_PROJECTION_AMBIGUOUS_DUPLICATE_UNIT_CARDINALITY:${sectionName}:${baselineCount}:${modifiedCount}`);
+    }
   }
 }
 
@@ -257,10 +275,9 @@ function projectChangedCardinality(original, baseline, modified, sectionName, le
   if (originalUnits.length !== baselineUnits.length) {
     throw new Error(`CII_V14_PROJECTION_BASELINE_ORIGINAL_UNIT_COUNT_MISMATCH:${sectionName}`);
   }
-  assertUniqueUnitKeys(baselineUnits, sectionName, 'BASELINE');
-  assertUniqueUnitKeys(modifiedUnits, sectionName, 'MODIFIED');
-  const baselineKeys = baselineUnits.map((unit) => unit.key);
-  const modifiedKeys = modifiedUnits.map((unit) => unit.key);
+  assertStableDuplicateMultiplicity(baselineUnits, modifiedUnits, sectionName);
+  const baselineKeys = occurrenceQualifiedUnitKeys(baselineUnits);
+  const modifiedKeys = occurrenceQualifiedUnitKeys(modifiedUnits);
   const matches = lcsMatches(baselineKeys, modifiedKeys, sectionName);
   assertNoUnitReorder(baselineKeys, modifiedKeys, matches, sectionName);
   const output = [];
