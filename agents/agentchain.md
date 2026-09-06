@@ -6,7 +6,7 @@ AGENTCHAIN_VERSION: 2
 
 | Chain | Mission | Latest endpoint | Endpoint file | PR | State | Authority domain | Next action |
 |---|---|---|---|---|---|---|---|
-| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0014 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0014.md | #1064 | QUALIFICATION_REQUIRED | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | Independently verify `CII-W2-QS-0014-gpt-5-6-sol-20260829-answer.md`; until a non-self `PASS_WRITE_ALLOWED` verdict exists, keep engineering-critical mutation READ_ONLY |
+| CII-WRITER2-RUNTIME-QUALIFICATION | Close Writer2 public runtime + retained-real benchmark qualification without widening CREATE/topology authority | EP-CII-W2-0015 | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0015.md | #1064 | BLOCKED_RUNTIME_ENVIRONMENT | Writer2 V11 public runtime, retained-real benchmark qualification, fixed-FORTRAN mutation custody | In an exact-checkout-capable substrate run unchanged `bash agents/evidence/PR1064_writer2_public_runtime_batch.sh`; `PASS_WRITE_ALLOWED` is already granted, but production patch authority remains conditional on the first reached authored assertion/product FAIL |
 
 ## ENDPOINT LOG
 
@@ -26,3 +26,4 @@ AGENTCHAIN_VERSION: 2
 | EP-CII-W2-0012 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-W2A-EXACT-PUBLIC-RUNTIME | 09e2c9116db6d35b30b2c0b78b5f7310a33c6cef | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0012.md |
 | EP-CII-W2-0013 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-W2A-PLUS-BM-PUBLIC-RUNTIME-BATCH-READY | 1e69fbfa6ee65c91fb320800a7281f6098675452 | BLOCKED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0013.md |
 | EP-CII-W2-0014 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-QUALIFICATION-FRESHNESS-RECOVERY | 6cfa288b02aecd1cec4de6398993a4bc7b47bf03 | QUALIFICATION_REQUIRED | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0014.md |
+| EP-CII-W2-0015 | CII-WRITER2-RUNTIME-QUALIFICATION | PR1064-QS0014-VERIFIED-RUNTIME-PENDING | fbe610b8d2679e411bc36c2ca5641b16debc669c | BLOCKED_RUNTIME_ENVIRONMENT | agents/agentchain/CII-WRITER2-RUNTIME-QUALIFICATION/EP-CII-W2-0015.md |
