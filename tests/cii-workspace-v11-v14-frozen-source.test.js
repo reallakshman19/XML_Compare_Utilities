@@ -86,7 +86,7 @@ assert.match(bridge, /ORIGINAL_V14_BYTES_PLUS_CANONICAL_WRITER_DELTA/);
 assert.match(bridge, /wholeFileCanonicalRewriteAllowed:\s*false/);
 assert.match(bridge, /canonicalBaselineUsedAsOutput:\s*false/);
 assert.match(bridge, /baselineCanonicalSha256:\s*up\.targetSha256/);
-assert.match(bridge, /exactRoundTrip:\s*ciiBytesEqual\(value, up\.outputBytes\)/);
+assert.match(bridge, /exactRoundTrip:\s*ciiBytesEqual\(conversionInput, up\.outputBytes\)/);
 assert.doesNotMatch(bridge, /BASELINE_ROUNDTRIP_NOT_EXACT/);
 assert.match(bridge, /CII_VERSION_BRIDGE_BASELINE_CANONICAL_SHA_MISMATCH/);
 assert.match(bridge, /CII_VERSION_BRIDGE_CANONICAL_MODIFIED_ROUNDTRIP_NOT_EXACT/);
