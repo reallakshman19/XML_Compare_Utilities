@@ -1,6 +1,9 @@
 name: CII Writer2 Retained Qualification
 
 on:
+  push:
+    branches:
+      - fix/cii-writer2-benchmark-exact-wp006
   pull_request:
     paths:
       - '.github/workflows/cii-writer2-retained-qualification.yml'
@@ -24,7 +27,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Checkout exact PR revision
+      - name: Checkout exact revision
         uses: actions/checkout@v6
 
       - name: Set up Node.js
