@@ -116,8 +116,11 @@ function operationTarget(operation) { return text(operation?.targetEvidence?.ide
 function operationValue(operation) {
   return text(operation?.action === 'CREATE' ? (operation?.proposed ?? operation?.sourceEvidence?.value) : (operation?.before ?? operation?.targetEvidence?.value));
 }
+function bmTargetName(operation) {
+  return text(operation?.bm001Acceptance?.targetName ?? operation?.targetEvidence?.value ?? operation?.before);
+}
 function bmExactAliasMatch(operation, bmRows) {
-  const sourceName = operationValue(operation); const targetName = text(operation?.targetEvidence?.value ?? operation?.before);
+  const sourceName = operationValue(operation); const targetName = bmTargetName(operation);
   if (!sourceName || !targetName) return false;
   return (bmRows || []).some((row) => text(row?.targetName) === targetName
     && (row?.sourceNames || []).some((name) => unslash(name) === unslash(sourceName)));
@@ -130,7 +133,7 @@ export function validateRawMutationIdentity(operations, sourceTextsById, targetT
     const targetId = operationTarget(operation); const value = operationValue(operation);
     if (action === 'CREATE') {
       if (!sourceSets.get(sourceId)?.has(value)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_SOURCE_NAME', operationId: operation?.operationId, sourceId, targetId, value }));
-      if (bmRows.length && !bmExactAliasMatch(operation, bmRows)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET', operationId: operation?.operationId, sourceId, targetId, value }));
+      if (bmRows.length && !bmExactAliasMatch(operation, bmRows)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET', operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
     } else if (action === 'DELETE' && target.names.get(targetId) !== value) {
       errors.push(Object.freeze({ code: 'DELETE_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, value, expected: target.names.get(targetId) || '' }));
     }
@@ -154,4 +157,4 @@ export function evaluatePartialTExpectedPostimage(beforeText, actualText, partia
   return Object.freeze({ status, encoding, semantics, preservation });
 }
 
-export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, structuralNameKey, bmExactAliasMatch });
+export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, structuralNameKey, bmTargetName, bmExactAliasMatch });
