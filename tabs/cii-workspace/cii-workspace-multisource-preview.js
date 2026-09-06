@@ -172,10 +172,17 @@ function normalizedAcceptanceBinding(value) {
   if (!sourceNames.length || !targetName) return null;
   return deepFreeze({ sourceNames: deepFreeze(sourceNames), targetName, groupedKey: ciiMsBm001GroupedKey(sourceNames, targetName) });
 }
+function bm001SourceAliasCandidates(sourceName) {
+  const value = text(sourceName);
+  if (!value) return [];
+  return value.startsWith('/') ? [value, value.slice(1)] : [value, `/${value}`];
+}
 function inferredAcceptanceBinding(operation, aliasSet) {
   const sourceName = text(operation?.sourceEvidence?.value ?? operation?.proposed);
   const targetName = text(operation?.targetEvidence?.value ?? operation?.before);
-  if (!sourceName || !targetName || !aliasSet.has(ciiMsBm001AliasKey(sourceName, targetName))) return null;
+  const matched = bm001SourceAliasCandidates(sourceName)
+    .some((candidate) => aliasSet.has(ciiMsBm001AliasKey(candidate, targetName)));
+  if (!sourceName || !targetName || !matched) return null;
   return normalizedAcceptanceBinding({ sourceNames: [sourceName], targetName });
 }
 function prefixOperation(operation, sourceIdValue, member, input, aliasSet) {
@@ -369,5 +376,5 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
 
 export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
-  normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts,
+  normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
 });
