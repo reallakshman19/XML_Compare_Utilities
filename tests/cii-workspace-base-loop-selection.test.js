@@ -1,11 +1,11 @@
 import assert from 'assert';
 import {
-  buildCiiSelectedBaseLoops, ciiApplyBaseSelection, ciiBaseSelectionSummary,
+  buildCiiSelectedBaseLoops, ciiApplyBaseSelection, ciiAutomaticBaseSelection, ciiBaseSelectionSummary,
   ciiQualifiedLoopsForSuggestion, ciiSelectedAnchorPairs, ciiSuggestionSelectionKey,
 } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 
-function methodABase(baseId = 'A_LOCAL_1', pairs = [['10','110'],['20','120'],['30','130'],['40','140']]) {
-  return { status: 'READY', bestBase: { baseId, anchorPairs: pairs.map(([sourceNodeId, targetNodeId]) => ({ sourceNodeId, targetNodeId })) } };
+function methodABase(baseId = 'A_LOCAL_1', pairs = [['10','110'],['20','120'],['30','130'],['40','140']], weight = 90) {
+  return { status: 'READY', bestBase: { baseId, weight: { total: weight }, anchorPairs: pairs.map(([sourceNodeId, targetNodeId]) => ({ sourceNodeId, targetNodeId })) } };
 }
 function methodB(status = 'READY') { return { status }; }
 function row(sourceNodeId, targetNodeId, basisMethod, overrides = {}) {
@@ -15,6 +15,9 @@ function row(sourceNodeId, targetNodeId, basisMethod, overrides = {}) {
     sourceNodeId, targetNodeId, basisMethod,
     methodA: hasA ? methodABase() : { status: 'UNAVAILABLE' },
     methodB: hasB ? methodB() : null,
+    methodBWeight: hasB ? { total: 85 } : null,
+    confidence: 'HIGH', winnerGap: 15, score: 90,
+    candidateGeneration: { authorityRole: 'CANDIDATE_GENERATION_ONLY' },
     ...overrides,
   };
 }
@@ -74,6 +77,49 @@ assert.deepStrictEqual(
   [],
   'selecting a review-only canonical name card must remain a manual-review fallback, never automatic anchor authority',
 );
+assert.strictEqual(
+  ciiAutomaticBaseSelection([canonicalReviewOnly]).status,
+  'REVIEW_REQUIRED',
+  'Auto Anchor must never promote canonical/exact-name review discovery into physical identity authority',
+);
+
+const automaticStrong = row('900', '1900', 'METHOD_A_AND_B', {
+  confidence: 'HIGH', winnerGap: 18, score: 94,
+  methodA: methodABase('AUTO_STRONG', [['900','1900'],['910','1910'],['920','1920'],['930','1930']], 95),
+  methodBWeight: { total: 92 },
+});
+const automaticWeaker = row('940', '1940', 'METHOD_B_NETWORK', {
+  confidence: 'MEDIUM', winnerGap: 10, score: 88, methodA: { status: 'UNAVAILABLE' }, methodBWeight: { total: 72 },
+});
+const automatic = ciiAutomaticBaseSelection([automaticWeaker, automaticStrong]);
+assert.strictEqual(automatic.status, 'READY');
+assert.deepStrictEqual(automatic.selectionKeys, ['900=>1900'], 'Auto Anchor must deterministically choose strongest qualified topology evidence, independent of input order');
+assert.strictEqual(automatic.baseLoops.length, 2, 'A+B Auto Anchor must retain both independently qualified loops');
+
+const reviewConfidence = row('950', '1950', 'METHOD_A_SPATIAL', { confidence: 'REVIEW' });
+assert.strictEqual(ciiAutomaticBaseSelection([reviewConfidence]).status, 'REVIEW_REQUIRED', 'REVIEW-confidence bases require human acceptance');
+
+const tiedB1 = row('960', '1960', 'METHOD_B_NETWORK', {
+  confidence: 'MEDIUM', winnerGap: 10, score: 80, methodA: { status: 'UNAVAILABLE' }, methodBWeight: { total: 75 },
+});
+const tiedB2 = row('970', '1970', 'METHOD_B_NETWORK', {
+  confidence: 'MEDIUM', winnerGap: 10, score: 80, methodA: { status: 'UNAVAILABLE' }, methodBWeight: { total: 75 },
+});
+const ambiguousAuto = ciiAutomaticBaseSelection([tiedB2, tiedB1]);
+assert.strictEqual(ambiguousAuto.status, 'AMBIGUOUS', 'equal-strength different physical topology outcomes must block automatic selection');
+assert.deepStrictEqual(ambiguousAuto.selectionKeys, []);
+
+const sameBase1 = row('980', '1980', 'METHOD_A_SPATIAL', {
+  confidence: 'MEDIUM', winnerGap: 9, score: 82,
+  methodA: methodABase('AUTO_EQUIVALENT', [['980','1980'],['981','1981'],['982','1982']], 80), methodBWeight: null,
+});
+const sameBase2 = row('981', '1981', 'METHOD_A_SPATIAL', {
+  confidence: 'MEDIUM', winnerGap: 9, score: 82,
+  methodA: methodABase('AUTO_EQUIVALENT', [['980','1980'],['981','1981'],['982','1982']], 80), methodBWeight: null,
+});
+const equivalentAuto = ciiAutomaticBaseSelection([sameBase2, sameBase1]);
+assert.strictEqual(equivalentAuto.status, 'READY', 'equal-strength cards that project the same spatial base are equivalent, not ambiguous');
+assert.strictEqual(equivalentAuto.outcomeSignature, 'A:AUTO_EQUIVALENT');
 
 const threeAnchorReview = row('1', '101', 'METHOD_A_SPATIAL', {
   methodA: methodABase('A_REVIEW_3', [['1','101'],['2','102'],['3','103']]), methodB: null,
