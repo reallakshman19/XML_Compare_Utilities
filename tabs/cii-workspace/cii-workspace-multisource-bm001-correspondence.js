@@ -47,15 +47,18 @@ export function ciiBm001CorrespondenceCoverage(plan, rows = parseCiiMsBm001()) {
   }
   const rowNumbers = authorityRows.map((row, index) => Number(row?.rowNumber) || index + 1);
   const missingRowNumbers = rowNumbers.filter((number) => !matched.has(number));
-  const status = missingRowNumbers.length || invalidOperationIds.length ? 'BLOCKED' : 'READY';
+  const invalidIds = [...new Set(invalidOperationIds)].sort();
+  const evidenceIds = [...new Set(evidenceOperationIds)].sort();
+  const status = invalidIds.length ? 'BLOCKED' : 'READY';
   return deepFreeze({
     schema: 'CIIWorkspaceBm001CorrespondenceCoverage.v1',
     benchmark: 'BM-001', status,
     expectedRowCount: authorityRows.length,
     matchedRowCount: matched.size,
+    observationStatus: missingRowNumbers.length ? 'PARTIAL' : 'COMPLETE',
     missingRowNumbers: deepFreeze(missingRowNumbers),
-    invalidOperationIds: deepFreeze([...new Set(invalidOperationIds)].sort()),
-    evidenceOperationIds: deepFreeze([...new Set(evidenceOperationIds)].sort()),
+    invalidOperationIds: deepFreeze(invalidIds),
+    evidenceOperationIds: deepFreeze(evidenceIds),
   });
 }
 
