@@ -110,16 +110,39 @@ export function assertBoundScopeCustody(transferPlan, targetDocument) {
     throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_CANDIDATE_SET_MISMATCH');
   }
   if (allIds.length !== all.length) throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_PLAN_OPERATION_CARDINALITY_MISMATCH');
-  const sourceSha = text(transferPlan?.sourceDocument?.contentSha256);
-  const targetSha = text(transferPlan?.targetDocument?.contentSha256);
-  if (!isCiiSha256Hex(sourceSha) || sourceSha !== text(scope.sourceSha256)) {
-    throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_SOURCE_HASH_MISMATCH');
+  const sourceAuthorityKind = text(scope?.sourceAuthorityKind || transferPlan?.sourceAuthorityKind || 'DOCUMENT').toUpperCase();
+  let sourceSha256 = ''; let sourceSetSha256 = '';
+  if (sourceAuthorityKind === 'SOURCE_SET') {
+    sourceSetSha256 = text(transferPlan?.sourceSetSha256 || transferPlan?.sourceAuthority?.sourceSetSha256);
+    if (!sourceSetSha256 || sourceSetSha256 !== text(scope?.sourceSetSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_SOURCE_SET_HASH_MISMATCH');
+    }
+  } else {
+    sourceSha256 = text(transferPlan?.sourceDocument?.contentSha256);
+    if (!isCiiSha256Hex(sourceSha256) || sourceSha256 !== text(scope?.sourceSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_SOURCE_HASH_MISMATCH');
+    }
   }
-  if (!targetSha || targetSha !== text(scope.targetSha256) || targetSha !== text(targetDocument?.contentSha256)) {
+
+  const normalizedTargetSha256 = text(targetDocument?.contentSha256);
+  if (!normalizedTargetSha256 || (text(transferPlan?.targetDocument?.contentSha256)
+    && text(transferPlan?.targetDocument?.contentSha256) !== normalizedTargetSha256)) {
+    throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_NORMALIZED_TARGET_HASH_MISMATCH');
+  }
+  const targetAuthorityKind = text(scope?.targetAuthorityKind || transferPlan?.targetAuthorityKind || 'DOCUMENT').toUpperCase();
+  let originalTargetSha256 = '';
+  if (targetAuthorityKind === 'ORIGINAL_TARGET') {
+    originalTargetSha256 = text(transferPlan?.targetAuthority?.originalSha256);
+    if (!originalTargetSha256 || originalTargetSha256 !== text(scope?.targetSha256)) {
+      throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_ORIGINAL_TARGET_HASH_MISMATCH');
+    }
+  } else if (text(scope?.targetSha256) !== normalizedTargetSha256) {
     throw new Error('CII_WRITER_2_COMPOSITE_RESTRAINT_SCOPE_TARGET_HASH_MISMATCH');
   }
   return deepFreeze({
-    parentScopeId: text(scope.scopeId), sourceSha256: sourceSha, targetSha256: targetSha,
+    parentScopeId: text(scope.scopeId), sourceAuthorityKind, sourceSha256, sourceSetSha256,
+    targetAuthorityKind, targetSha256: normalizedTargetSha256, originalTargetSha256,
+    parentTargetSha256: text(scope?.targetSha256),
     candidateOperationIds: candidateIds, appliedOperationIds: appliedIds, excludedOperationIds: excludedIds,
   });
 }
@@ -155,7 +178,11 @@ export function projectCanonicalSubscope(transferPlan, predicate, family, parent
     excludedOperations: deepFreeze(projectedExcluded),
     transferScope: deepFreeze({
       status: 'BOUND', mode: SCOPE_MODE, authority: SCOPE_AUTHORITY, scopeId: childScopeId,
-      sourceSha256: parentCustody.sourceSha256, targetSha256: parentCustody.targetSha256,
+      ...(parentCustody.sourceAuthorityKind === 'SOURCE_SET'
+        ? { sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: parentCustody.sourceSetSha256, sourceSha256: '' }
+        : { sourceAuthorityKind: 'DOCUMENT', sourceSha256: parentCustody.sourceSha256 }),
+      targetAuthorityKind: 'DOCUMENT', targetSha256: parentCustody.targetSha256,
+      parentTargetAuthorityKind: parentCustody.targetAuthorityKind, parentTargetSha256: parentCustody.parentTargetSha256,
       candidateOperationIds: candidateIds, appliedOperationIds: appliedIds, excludedOperationIds: excludedIds,
     }),
     familyProjection: deepFreeze({
