@@ -78,7 +78,7 @@ function sourceFacts(lines) {
   if (control.rows.length < 4) throw new Error(`BM_W2_03_ORACLE_CONTROL_ROWS:${control.rows.length}`);
   const numelt = integerI13(control.rows[0], 0, 'CONTROL_NUMELT').value;
   const numnoz = integerI13(control.rows[0], 1, 'CONTROL_NUMNOZ').value;
-  const nohgrs = integerI13(control.rows[0], CONTROL_HANGER_FIELD, 'CONTROL_NOHGRS');
+  const nohgrs = integerI13(control.rows[0], CONTROL_HANGER_FIELD, 'CONTROL_NOHGRS').value;
   const miscel = sectionEnvelope(lines, 'MISCEL_1');
   const rrmatRows = ceilDiv(numelt, 6);
   const nozzleRows = numnoz * 4;
