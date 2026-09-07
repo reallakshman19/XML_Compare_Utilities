@@ -147,6 +147,7 @@ export function nodeCreate() {
   return Object.freeze({
     operationId: 'CREATE-N80', family: 'NODE_NAME', property: 'Node name / to-name', action: 'CREATE',
     status: 'PREVIEW_READY', scopeDecision: 'APPLY', policyAuthority: CII_WRITER_2_NODENAME_RELOCATION_POLICY,
+    evidenceAuthority: 'CII_NODENAME_FIXED_LAYOUT',
     targetEvidence: Object.freeze({ identity: '80' }), before: '', proposed: 'N80', matchAuthority: Object.freeze({ status: 'REVIEWED' }),
   });
 }
