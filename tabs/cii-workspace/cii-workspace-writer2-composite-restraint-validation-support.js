@@ -97,13 +97,17 @@ export function independentCanonicalSubscope(transferPlan, predicate, family, pa
   }
   const candidateIds = Object.freeze(sorted([...appliedIds, ...excludedIds]));
   const scopeId = `${parentCustody.parentScopeId}::${family}`;
+  const sourceFields = parentCustody.sourceAuthorityKind === 'SOURCE_SET'
+    ? { sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: parentCustody.sourceSetSha256, sourceSha256: '' }
+    : { sourceAuthorityKind: 'DOCUMENT', sourceSha256: parentCustody.sourceSha256 };
   return Object.freeze({
     ...transferPlan,
     operations: Object.freeze([...keeps, ...projectedApply]),
     excludedOperations: Object.freeze(projectedExcluded),
     transferScope: Object.freeze({
       status: 'BOUND', mode: SCOPE_MODE, authority: SCOPE_AUTHORITY, scopeId,
-      sourceSha256: parentCustody.sourceSha256, targetSha256: parentCustody.targetSha256,
+      ...sourceFields, targetAuthorityKind: 'DOCUMENT', targetSha256: parentCustody.targetSha256,
+      parentTargetAuthorityKind: parentCustody.targetAuthorityKind, parentTargetSha256: parentCustody.parentTargetSha256,
       candidateOperationIds: candidateIds, appliedOperationIds: appliedIds, excludedOperationIds: excludedIds,
     }),
     familyProjection: Object.freeze({
