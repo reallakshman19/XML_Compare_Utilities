@@ -352,9 +352,9 @@ export function ciiWriter2CompositeReadiness(transferPlan, targetDocument, targe
   if (nodePlan && !nodePlan.ready) blockers.push(...nodePlan.blockers);
   if (sifPlan && !sifPlan.ready) blockers.push(...sifPlan.blockers);
   if (hangerPlan && !hangerPlan.ready) blockers.push(...hangerPlan.blockers);
-  if (sifPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_SIF_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
-  if (hangerPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_HANGER_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
-  if (restraintPlan?.createAuthority?.ready !== false) blockers.push('WRITER_2_RESTRAINT_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
+  if (sifPlan && sifPlan.createAuthority?.ready !== false) blockers.push('WRITER_2_SIF_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
+  if (hangerPlan && hangerPlan.createAuthority?.ready !== false) blockers.push('WRITER_2_HANGER_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
+  if (restraintPlan && restraintPlan.createAuthority?.ready !== false) blockers.push('WRITER_2_RESTRAINT_CREATE_AUTHORITY_UNEXPECTEDLY_READY');
   const hangerClass = hangerPlan?.ready ? hangerTransactionClass(hangerPlan) : null;
   if (hangerPlan?.ready && !hangerClass) blockers.push('WRITER_2_HANGER_PRODUCT_TRANSACTION_CLASS_UNQUALIFIED');
 
