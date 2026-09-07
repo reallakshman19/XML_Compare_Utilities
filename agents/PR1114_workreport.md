@@ -89,7 +89,7 @@ New test:
 
 ```text
 tests/cii-workspace-writer2-absent-family-readiness.test.js
-blob 58214182a2c132c9571c4c96d331fc294c951a66
+blob 9b63a362e116ff72a093d7301c5b7bdab499534b
 ```
 
 It proves a qualified RESTRAINT-only transaction:
@@ -98,6 +98,8 @@ It proves a qualified RESTRAINT-only transaction:
 - has no SIF or HANGER component plans;
 - retains a ready RESTRAINT delete component;
 - is not falsely blocked by absent-family CREATE-authority assertions.
+
+It also executes present-family SIF DELETE, HANGER DELETE, and RESTRAINT DELETE readiness and requires each present component to keep `createAuthority.ready === false`. The regression therefore proves the fix removes only absent-family false blockers and does not weaken CREATE protection.
 
 Observed local execution:
 
@@ -131,7 +133,8 @@ This is deliberately **not** represented as `PASS_EXACT_CURRENT_MAIN_GIT_CHECKOU
 
 | Gate | Result |
 |---|---|
-| Focused absent-family regression | PASS_EXECUTED_LOCAL_EXACT_PATCH_FILES |
+| Syntax checks: routing / fixture / focused regression | PASS |
+| Focused absent-family + present-family CREATE-block regression | PASS_EXECUTED_LOCAL_EXACT_PATCH_FILES |
 | W2 A current-main-equivalent executable graph | PASS |
 | W2 A authored completion marker | OBSERVED |
 | Exact current-main Git checkout W2 A | NOT_RUN_ENVIRONMENT — GitHub DNS unavailable |
