@@ -53,7 +53,7 @@ function pointerReplacements(before, plan) {
   return (plan.pointerChanges || []).map((change) => ({
     kind: 'ELEMENT_NODENAME_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
     byteStart: Number(change.pointerField?.byteStart), byteEnd: Number(change.pointerField?.byteEnd),
-    beforeField: bytes.slice(Number(change.pointerField?.byteStart), Number(change.pointerField?.byteEnd)), afterField: numericField(change.newPointer),
+    beforeField: bytes.slice(Number(change.pointerField?.byteStart), Number(change.pointerField?.byteEnd)), afterField: integerField(change.newPointer),
   }));
 }
 function nodenameReplacement(before, plan) {
