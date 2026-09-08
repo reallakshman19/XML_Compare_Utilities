@@ -172,7 +172,7 @@ function sifExpectedClaims(before, plan) {
     const byteStart = Number(change.pointerField?.byteStart); const byteEnd = Number(change.pointerField?.byteEnd);
     if (!Number.isSafeInteger(byteStart) || !Number.isSafeInteger(byteEnd) || byteEnd - byteStart !== WIDTH) throw new Error('WRITER_2_COMPOSITE_VALIDATOR_SIF_POINTER_SPAN');
     claims.push({ authorityFamily: 'WRITER_2_SIF_DELETE', kind: 'ELEMENT_SIF_TEE_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
-      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: numericField(change.newPointer) });
+      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: integerField(change.newPointer) });
   }
   const envelope = sectionEnvelope(before, ['SIF&TEES', 'SIF']);
   if (envelope.rows.length !== Number(plan.blockCountBefore) * SIF_ROWS) throw new Error('WRITER_2_COMPOSITE_VALIDATOR_SIF_PRECOUNT');
