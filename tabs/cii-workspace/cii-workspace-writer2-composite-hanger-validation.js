@@ -236,7 +236,7 @@ function sifExpectedClaims(before, plan) {
     }
     claims.push({
       authorityFamily: 'WRITER_2_SIF_DELETE', kind: 'ELEMENT_SIF_TEE_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
-      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: numericField(change.newPointer),
+      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: integerField(change.newPointer),
     });
   }
   const envelope = sectionEnvelope(before, ['SIF&TEES', 'SIF']);
