@@ -149,7 +149,7 @@ function nodeExpectedClaims(before, plan) {
     const byteStart = Number(change.pointerField?.byteStart); const byteEnd = Number(change.pointerField?.byteEnd);
     if (!Number.isSafeInteger(byteStart) || !Number.isSafeInteger(byteEnd) || byteEnd - byteStart !== WIDTH) throw new Error('WRITER_2_COMPOSITE_VALIDATOR_NODE_POINTER_SPAN');
     claims.push({ authorityFamily: 'WRITER_2_NODENAME', kind: 'ELEMENT_NODENAME_POINTER', parsedElementIndex: Number(change.parsedElementIndex),
-      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: numericField(change.newPointer) });
+      byteStart, byteEnd, beforeField: original.slice(byteStart, byteEnd), afterField: integerField(change.newPointer) });
   }
   const envelope = sectionEnvelope(before, 'NODENAME');
   if (envelope.rows.some((row) => !String(row.text || '').trim())) throw new Error('WRITER_2_COMPOSITE_VALIDATOR_BLANK_NODENAME_ROW');
