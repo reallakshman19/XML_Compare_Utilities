@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
+const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -31,5 +32,22 @@ for (const file of syntaxFiles) {
 }
 for (const file of ['index.html', 'main-rhbg-fitguard.js', 'core/app.js', 'tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js']) {
   assert.match(readFileSync(file, 'utf8'), new RegExp(CACHE_TOKEN), `${file} must carry the startup hotfix cache token`);
+}
+const supportReportEdges = [
+  ['tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', './support-report-addon.js'],
+  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-engine.js'],
+  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
+  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
+  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
+  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-clash-evidence.js'],
+  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-field-projection.js'],
+  ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
+  ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
+  ['tabs/support-steel-relationship-builder/support-report-view.js', './support-report-contract.js'],
+];
+for (const [file, modulePath] of supportReportEdges) {
+  const source = readFileSync(file, 'utf8');
+  assert.ok(source.includes(`${modulePath}?v=${SUPPORT_REPORT_PARITY_TOKEN}`),
+    `${file} must import ${modulePath} through the Support Report parity cache token`);
 }
 console.log(`startup module syntax gate passed for ${syntaxFiles.length} JavaScript files`);

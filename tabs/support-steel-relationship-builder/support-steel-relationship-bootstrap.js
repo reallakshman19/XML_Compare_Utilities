@@ -1,6 +1,6 @@
 import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-startup-parse-hotfix-1';
 import './support-restraint-function-addon.js?v=20260717-startup-parse-hotfix-1';
-import './support-report-addon.js?v=20260909-support-report-1';
+import './support-report-addon.js?v=20260909-support-report-parity-2';
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_VERSION = 'restraint-function-1';

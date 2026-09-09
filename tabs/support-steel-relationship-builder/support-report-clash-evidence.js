@@ -1,7 +1,7 @@
 import {
   SUPPORT_REPORT_DIAGNOSTICS,
   SUPPORT_REPORT_EVIDENCE_SCHEMA,
-} from './support-report-contract.js';
+} from './support-report-contract.js?v=20260909-support-report-parity-2';
 
 const FAMILY_RE = /(?:^|[^A-Z0-9])((?:PS|SL)-\d+[A-Z]?)(?=$|[^A-Z0-9])/i;
 const MEMBER_RE = /(?:^|[^A-Z0-9])((?:PS|SL)-\d+[A-Z]?(?:\.\d+)?)(?=$|[^A-Z0-9])/i;
