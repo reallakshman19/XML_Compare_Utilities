@@ -179,8 +179,9 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
     if (event.target !== sourceInput && event.target !== targetInput) return;
     resetGeneric();
     queueMicrotask(() => {
-      if (disposed || selectedFiles(sourceInput).length < 2) return;
-      setStatus(container, `${selectedFiles(sourceInput).length} SOURCE files selected. Inspect will use exact retained Writer2 mode only when frozen custody matches; otherwise it opens REVIEW ONLY.`);
+      const count = selectedFiles(sourceInput).length;
+      if (disposed || count < 2 || count === 3) return;
+      setStatus(container, `${count} SOURCE files selected. Inspect opens REVIEW ONLY because exact retained Writer2 write custody requires three members.`);
     });
   };
   container.addEventListener('click', onClickCapture, true);
