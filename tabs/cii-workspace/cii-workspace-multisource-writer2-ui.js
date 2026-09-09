@@ -3,6 +3,7 @@ import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {
   buildCiiSelectedBaseLoops,
+  ciiAutomaticBaseSelection,
   ciiQualifiedLoopsForSuggestion,
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
@@ -130,6 +131,23 @@ function allMembersHaveBase(inspection, selectedBySource, manualBySource = new M
   return (inspection?.memberInspections || []).length > 0
     && (inspection?.memberInspections || []).every((item) => (automatic[item.sourceId] || []).length > 0 || (manual[item.sourceId] || []).length > 0);
 }
+function buildAutomaticBaseSeed(inspection) {
+  const choicesBySource = {}; const selectionKeysBySource = {}; const readySourceIds = []; const unresolvedSourceIds = [];
+  for (const item of inspection?.memberInspections || []) {
+    const sourceId = String(item?.sourceId || '').trim(); if (!sourceId) continue;
+    const choice = ciiAutomaticBaseSelection(item.inspection?.baseAnchorSuggestions || []);
+    choicesBySource[sourceId] = choice;
+    const selectionKeys = choice.status === 'READY' ? [...(choice.selectionKeys || [])] : [];
+    selectionKeysBySource[sourceId] = Object.freeze(selectionKeys);
+    if (selectionKeys.length) readySourceIds.push(sourceId); else unresolvedSourceIds.push(sourceId);
+  }
+  return Object.freeze({
+    choicesBySource: Object.freeze(choicesBySource),
+    selectionKeysBySource: Object.freeze(selectionKeysBySource),
+    readySourceIds: Object.freeze(readySourceIds),
+    unresolvedSourceIds: Object.freeze(unresolvedSourceIds),
+  });
+}
 function validManualNode(value) {
   const text = String(value ?? '').trim(); const number = Number(text);
   return text && Number.isSafeInteger(number) ? String(number) : null;
@@ -227,7 +245,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (multiSource(container)) {
       analyzeButton.disabled = true; setManualDisabled(container, true);
       if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
-      setMultiSourceStatus(container, `${selectedFiles(sourceInput).length} SOURCE CII files selected. Inspect each member, then select a qualified base or add a reviewed manual anchor per source.`);
+      setMultiSourceStatus(container, `${selectedFiles(sourceInput).length} SOURCE CII files selected. Inspect exact retained S1/S2/S3 custody; deterministic READY Auto Anchor bases will be seeded automatically.`);
     } else {
       analyzeButton.disabled = false; setManualDisabled(container, false);
     }
@@ -305,10 +323,20 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
       inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
       if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
-      for (const item of inspection.memberInspections) { selectedBySource.set(item.sourceId, new Set()); manualBySource.set(item.sourceId, []); manualDraftBySource.set(item.sourceId, { sourceNodeId: '', targetNodeId: '' }); }
+      const automaticSeed = buildAutomaticBaseSeed(inspection);
+      for (const item of inspection.memberInspections) {
+        selectedBySource.set(item.sourceId, new Set(automaticSeed.selectionKeysBySource[item.sourceId] || []));
+        manualBySource.set(item.sourceId, []);
+        manualDraftBySource.set(item.sourceId, { sourceNodeId: '', targetNodeId: '' });
+      }
       refreshAnchorEvidence();
-      if (results) results.innerHTML = '<p>Set base authority for S1/S2/S3, then click Compare models to populate multi-source correspondence review.</p>';
-      setMultiSourceStatus(container, `Source-set custody READY: ${inspection.sourceSet.memberCount} members in canonical S1/S2/S3 order. Select a qualified base or add a reviewed manual anchor independently for each source.`);
+      if (automaticSeed.unresolvedSourceIds.length) {
+        if (results) results.innerHTML = `<p>Auto Anchor seeded ${automaticSeed.readySourceIds.length}/${inspection.sourceSet.memberCount} SOURCE members. Review and select a qualified base or add a reviewed manual anchor for ${h(automaticSeed.unresolvedSourceIds.join(', '))}, then click Compare models.</p>`;
+        setMultiSourceStatus(container, `Source-set custody READY. Auto Anchor seeded ${automaticSeed.readySourceIds.length}/${inspection.sourceSet.memberCount}; explicit base review is still required for ${automaticSeed.unresolvedSourceIds.join(', ')}.`);
+      } else {
+        if (results) results.innerHTML = '<p>Auto Anchor seeded deterministic qualified bases for S1/S2/S3. Review the selected base evidence, then click Compare models to populate multi-source correspondence review.</p>';
+        setMultiSourceStatus(container, `Source-set custody READY: ${inspection.sourceSet.memberCount} canonical S1/S2/S3 members. Auto Anchor seeded deterministic qualified bases for all sources; correspondence approval remains a separate review step.`);
+      }
     } catch (error) {
       if (!disposed) { if (evidence) evidence.innerHTML = `<div class="ciiw-method-empty"><b>Multi-source intake blocked</b><p>${h(error?.message || error)}</p></div>`; setMultiSourceStatus(container, error?.message || String(error)); }
     }
@@ -428,6 +456,6 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
 
 export const _test = Object.freeze({
   selectedFiles, sourceRows, sourceInputs, canonicalSourceIdForSha256, shortSha,
-  selectedBaseLoopsBySource, manualAnchorPairsBySource, allMembersHaveBase, validManualNode,
+  selectedBaseLoopsBySource, manualAnchorPairsBySource, allMembersHaveBase, buildAutomaticBaseSeed, validManualNode,
   buildAutomaticReview, nodeNameChangeRows, reviewConfidenceCount, transferMutationSummary, transferMarkup,
 });
