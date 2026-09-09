@@ -3,7 +3,13 @@ import {
   CII_MS_REVIEW_ONLY_WRITE_BLOCKER,
   createCiiMultiSourceReviewOnlyPreviewWithVersionBridge,
 } from './cii-workspace-multisource-review-only.js';
-import { ciiMultiSourceReviewMarkup, ciiMultiSourceReviewSummaryMarkup } from './cii-workspace-multisource-review-ui.js';
+import {
+  ciiMultiSourceBulkAcceptOutcome,
+  ciiMultiSourceReviewBySource,
+  ciiMultiSourceReviewMarkup,
+  ciiMultiSourceReviewSummaryMarkup,
+  seedCiiMultiSourceReviewDecisions,
+} from './cii-workspace-multisource-review-ui.js';
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 import { inspectCiiWorkspaceSourceSetWithVersionBridge, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
@@ -12,25 +18,18 @@ import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-wri
 const ROUTER_MODE = 'GENERIC_REVIEW_ONLY';
 
 function h(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  })[char]);
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
 function selectedFiles(input) { return Array.from(input?.files || []); }
 async function bytesForFile(file) { return new Uint8Array(await file.arrayBuffer()); }
 function sourceSetMembersForHashes(hashes) { return hashes.map((originalSha256, index) => ({ sourceId: `S${index + 1}`, originalSha256 })); }
 function threePermutations(values) {
   if (values.length !== 3) return [];
-  return [
-    [values[0], values[1], values[2]], [values[0], values[2], values[1]], [values[1], values[0], values[2]],
-    [values[1], values[2], values[0]], [values[2], values[0], values[1]], [values[2], values[1], values[0]],
-  ];
+  return [[values[0], values[1], values[2]], [values[0], values[2], values[1]], [values[1], values[0], values[2]],
+    [values[1], values[2], values[0]], [values[2], values[0], values[1]], [values[2], values[1], values[0]]];
 }
 async function retainedSourceHashSet(hashes, cryptoRef = globalThis.crypto) {
-  for (const permutation of threePermutations(hashes)) {
-    const digest = await ciiSourceSetSha256(sourceSetMembersForHashes(permutation), cryptoRef);
-    if (digest === CII_MS_SOURCE_SET_SHA256) return true;
-  }
+  for (const permutation of threePermutations(hashes)) if (await ciiSourceSetSha256(sourceSetMembersForHashes(permutation), cryptoRef) === CII_MS_SOURCE_SET_SHA256) return true;
   return false;
 }
 async function classifyMultiSourceFiles(sourceFiles, targetFile, cryptoRef = globalThis.crypto) {
@@ -101,59 +100,81 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   const acceptMedium = container.querySelector('[data-ciiw-accept-medium]'); const csvButton = container.querySelector('[data-ciiw-export-csv]'); const jsonButton = container.querySelector('[data-ciiw-export-json]');
   if (!sourceInput || !targetInput || !inspectButton || !analyzeButton) return retained;
 
-  let disposed = false; let state = null; let bypassRetainedInspect = false;
-  const disableWriteReviewControls = () => { if (reviewButton) reviewButton.disabled = true; if (acceptHigh) acceptHigh.disabled = true; if (acceptMedium) acceptMedium.disabled = true; };
-  const resetGeneric = () => { state = null; disableWriteReviewControls(); if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true; };
+  let disposed = false; let state = null; let bypassRetainedInspect = false; const reviewButtonLabel = reviewButton?.textContent || '';
+  const resetReviewControls = () => {
+    if (reviewButton) { reviewButton.disabled = true; reviewButton.textContent = reviewButtonLabel; }
+    if (acceptHigh) acceptHigh.disabled = true; if (acceptMedium) acceptMedium.disabled = true;
+  };
+  const resetGeneric = () => { state = null; resetReviewControls(); if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true; };
   const refreshAnchorUi = (message = null) => {
-    if (!state) return; state = { ...state, preview: null }; const authority = baseAuthorityState(state.auto, state.manualBySource);
+    if (!state) return; state = { ...state, preview: null, reviewDecisions: new Map(), reviewDirty: false }; const authority = baseAuthorityState(state.auto, state.manualBySource);
     if (evidence) evidence.innerHTML = inspectionMarkup(state);
     if (results) results.innerHTML = `<p>${authority.ready ? 'Base authority is ready. Click Compare review for read-only correspondence review.' : `Add a reviewed manual anchor for ${h(authority.unresolved.join(', '))}. No Writer2 authority is available.`}</p>`;
     if (executive) executive.innerHTML = ''; if (deltas) deltas.innerHTML = '<p>Engineering deltas will appear after read-only Compare.</p>'; if (transfer) transfer.innerHTML = waitingMarkup(state);
-    analyzeButton.disabled = !authority.ready; disableWriteReviewControls(); if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
+    analyzeButton.disabled = !authority.ready; resetReviewControls(); if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
     setStatus(container, message || (authority.ready ? 'Generic multi-source base authority READY. REVIEW ONLY Compare is enabled.' : `Generic multi-source base authority required for ${authority.unresolved.join(', ')}.`));
   };
   const inspectGeneric = async (classified, sourceFiles, targetFile) => {
     const sources = genericSources(sourceFiles, classified.sourceBytes); setStatus(container, `Inspecting ${sources.length} SOURCE members in REVIEW ONLY mode…`);
     const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII' }, { cryptoRef: options.cryptoRef });
     if (disposed) return; const auto = autoAnchorState(inspection);
-    state = { mode: ROUTER_MODE, sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII', inspection, auto, manualBySource: {}, preview: null };
+    state = { mode: ROUTER_MODE, sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII', inspection, auto, manualBySource: {}, preview: null, reviewDecisions: new Map(), reviewDirty: false };
     refreshAnchorUi(auto.ready ? `Generic multi-source custody READY for ${sources.length} members. REVIEW ONLY: Compare is enabled; Writer2 Apply remains unavailable.` : `Generic multi-source custody READY. Auto Anchor is unresolved for ${auto.unresolved.join(', ')}; add reviewed manual fallback authority.`);
+  };
+  const previewInput = (reviewBySource = undefined) => ({
+    sources: state.sources, targetBytes: state.targetBytes, targetFileName: state.targetFileName,
+    baseLoopsBySource: state.auto.baseLoopsBySource, anchorPairsBySource: manualAnchorPairsBySource(state.auto, state.manualBySource),
+    ...(reviewBySource ? { reviewBySource } : {}),
+  });
+  const renderGenericReview = () => {
+    const preview = state?.preview; if (!preview) return;
+    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, state.reviewDecisions);
+    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, state.reviewDecisions);
+    if (deltas) deltas.innerHTML = `<p><b>${h(preview.engineeringDeltas?.summary?.engineeringChangeCount || 0)}</b> engineering change rows are available for review/audit only.</p>`;
+    if (transfer) transfer.innerHTML = transferMarkup(preview);
+    if (reviewButton) { reviewButton.textContent = 'Bind review decisions'; reviewButton.disabled = !state.reviewDirty; }
+    if (acceptHigh) acceptHigh.disabled = false; if (acceptMedium) acceptMedium.disabled = false;
+    if (csvButton) csvButton.disabled = state.reviewDirty; if (jsonButton) jsonButton.disabled = state.reviewDirty;
+  };
+  const buildGenericPreview = async (reviewBySource = undefined) => {
+    const preview = await createCiiMultiSourceReviewOnlyPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef: options.cryptoRef });
+    const reviewDecisions = new Map(); seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+    state = { ...state, preview, reviewDecisions, reviewDirty: false }; renderGenericReview(); return preview;
   };
   const compareGeneric = async () => {
     const authority = state ? baseAuthorityState(state.auto, state.manualBySource) : { ready: false }; if (!authority.ready) return;
-    setStatus(container, 'Building generic multi-source correspondence in REVIEW ONLY mode…');
-    const preview = await createCiiMultiSourceReviewOnlyPreviewWithVersionBridge({
-      sources: state.sources, targetBytes: state.targetBytes, targetFileName: state.targetFileName,
-      baseLoopsBySource: state.auto.baseLoopsBySource, anchorPairsBySource: manualAnchorPairsBySource(state.auto, state.manualBySource),
-    }, { cryptoRef: options.cryptoRef });
-    if (disposed) return; state = { ...state, preview };
-    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, new Map());
-    if (results) { results.innerHTML = ciiMultiSourceReviewMarkup(preview, new Map()); results.querySelectorAll('[data-ciiw-ms-decision]').forEach((control) => { control.disabled = true; }); }
-    if (deltas) deltas.innerHTML = `<p><b>${h(preview.engineeringDeltas?.summary?.engineeringChangeCount || 0)}</b> engineering change rows are available for review/audit only.</p>`;
-    if (transfer) transfer.innerHTML = transferMarkup(preview); disableWriteReviewControls(); if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
-    setStatus(container, `Generic multi-source correspondence ${preview.correspondence.status}. REVIEW ONLY: Writer2 operations 0; write authority blocked.`);
+    try {
+      setStatus(container, 'Building generic multi-source correspondence in REVIEW ONLY mode…'); const preview = await buildGenericPreview(); if (disposed) return;
+      setStatus(container, `Generic multi-source correspondence ${preview.correspondence.status}. REVIEW ONLY: review decisions may be bound to audit; Writer2 operations 0.`);
+    } catch (error) { setStatus(container, error?.message || String(error)); }
   };
+  const bindGenericReview = async () => {
+    if (!state?.preview || !state.reviewDirty) return;
+    try {
+      const reviewBySource = ciiMultiSourceReviewBySource(state.preview, state.reviewDecisions);
+      setStatus(container, 'Binding generic correspondence decisions to REVIEW ONLY audit…'); const preview = await buildGenericPreview(reviewBySource); if (disposed) return;
+      setStatus(container, `Generic multi-source review bound to audit. Correspondence ${preview.correspondence.status}; Writer2 operations 0; write authority remains blocked.`);
+    } catch (error) { setStatus(container, error?.message || String(error)); }
+  };
+  const markReviewDirty = (message) => { state = { ...state, reviewDirty: true }; renderGenericReview(); setStatus(container, message); };
   const routeInspect = async () => {
     const sourceFiles = selectedFiles(sourceInput); const targetFile = selectedFiles(targetInput)[0]; if (!targetFile) { setStatus(container, 'TARGET CII file is required.'); return; }
     try {
       setStatus(container, 'Classifying multi-source custody…'); const classified = await classifyMultiSourceFiles(sourceFiles, targetFile, options.cryptoRef); if (disposed) return;
-      if (classified.retained) { state = null; bypassRetainedInspect = true; inspectButton.click(); return; }
-      await inspectGeneric(classified, sourceFiles, targetFile);
+      if (classified.retained) { state = null; bypassRetainedInspect = true; inspectButton.click(); return; } await inspectGeneric(classified, sourceFiles, targetFile);
     } catch (error) { setStatus(container, error?.message || String(error)); }
   };
   const mutateManual = (target) => {
     const section = target.closest('[data-ciiw-ms-review-only-manual-editor]'); const sourceId = section?.dataset?.ciiwSourceId; if (!section || !sourceId || !state) return false;
     const pairs = manualRows(state.manualBySource, sourceId);
     if (target.matches('[data-ciiw-ms-review-only-manual-add]')) {
-      const sourceNodeId = validManualNode(section.querySelector('[data-ciiw-ms-review-only-manual-source]')?.value);
-      const targetNodeId = validManualNode(section.querySelector('[data-ciiw-ms-review-only-manual-target]')?.value);
+      const sourceNodeId = validManualNode(section.querySelector('[data-ciiw-ms-review-only-manual-source]')?.value); const targetNodeId = validManualNode(section.querySelector('[data-ciiw-ms-review-only-manual-target]')?.value);
       if (!sourceNodeId || !targetNodeId) { setStatus(container, `${sourceId}: enter integer SOURCE and TARGET node IDs before adding the reviewed anchor.`); return true; }
       const key = `${sourceNodeId}=>${targetNodeId}`; if (!pairs.some((pair) => `${pair.sourceNodeId}=>${pair.targetNodeId}` === key)) pairs.push({ sourceNodeId, targetNodeId });
       state = { ...state, manualBySource: { ...state.manualBySource, [sourceId]: pairs } }; refreshAnchorUi(`${sourceId}: reviewed manual anchor ${sourceNodeId} ↔ ${targetNodeId} locked for REVIEW ONLY correspondence.`); return true;
     }
     if (target.matches('[data-ciiw-ms-review-only-manual-remove]')) { pairs.splice(Number(target.dataset.ciiwMsReviewOnlyManualRemove), 1); state = { ...state, manualBySource: { ...state.manualBySource, [sourceId]: pairs } }; refreshAnchorUi(`${sourceId}: manual anchor removed.`); return true; }
-    if (target.matches('[data-ciiw-ms-review-only-manual-clear]')) { state = { ...state, manualBySource: { ...state.manualBySource, [sourceId]: [] } }; refreshAnchorUi(`${sourceId}: manual anchors cleared.`); return true; }
-    return false;
+    if (target.matches('[data-ciiw-ms-review-only-manual-clear]')) { state = { ...state, manualBySource: { ...state.manualBySource, [sourceId]: [] } }; refreshAnchorUi(`${sourceId}: manual anchors cleared.`); return true; } return false;
   };
   const onClickCapture = (event) => {
     const target = event.target?.closest?.('button,select,a'); if (!target) return;
@@ -161,11 +182,21 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
     if (state?.mode !== ROUTER_MODE) return;
     if (target.matches('[data-ciiw-ms-review-only-manual-add],[data-ciiw-ms-review-only-manual-remove],[data-ciiw-ms-review-only-manual-clear]')) { stop(event); mutateManual(target); return; }
     if (target === analyzeButton || target.matches('[data-ciiw-ms-compare-now],[data-ciiw-ms-review-only-compare]')) { stop(event); void compareGeneric(); return; }
-    if (target === csvButton && state.preview) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-correspondence.csv', state.preview.artifacts.correspondenceCsv, 'text/csv'); return; }
-    if (target === jsonButton && state.preview) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-audit.json', state.preview.artifacts.auditJson, 'application/json'); return; }
-    if (target.matches('[data-ciiw-refresh-review],[data-ciiw-accept-high],[data-ciiw-accept-medium],[data-ciiw-ms-bind-expected],[data-ciiw-ms-apply]')) { stop(event); setStatus(container, `REVIEW ONLY: ${CII_MS_REVIEW_ONLY_WRITE_BLOCKER}. Exact retained BM-001 custody is required for Writer2 transfer.`); }
+    if (target === acceptHigh || target === acceptMedium) {
+      stop(event); if (!state.preview) return; const confidence = target === acceptHigh ? 'HIGH' : 'MEDIUM'; const outcome = ciiMultiSourceBulkAcceptOutcome(state.preview, state.reviewDecisions, confidence);
+      if (outcome.changed) markReviewDirty(`${outcome.message.replace('Apply approvals to Transfer Preview.', 'Bind review decisions to audit.')}`); else setStatus(container, outcome.message); return;
+    }
+    if (target === reviewButton) { stop(event); void bindGenericReview(); return; }
+    if (target === csvButton && state.preview && !state.reviewDirty) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-correspondence.csv', state.preview.artifacts.correspondenceCsv, 'text/csv'); return; }
+    if (target === jsonButton && state.preview && !state.reviewDirty) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-audit.json', state.preview.artifacts.auditJson, 'application/json'); return; }
+    if (target.matches('[data-ciiw-ms-bind-expected],[data-ciiw-ms-apply]')) { stop(event); setStatus(container, `REVIEW ONLY: ${CII_MS_REVIEW_ONLY_WRITE_BLOCKER}. Exact retained BM-001 custody is required for Writer2 transfer.`); }
   };
   const onChangeCapture = (event) => {
+    if (state?.mode === ROUTER_MODE && state.preview && event.target?.matches?.('[data-ciiw-ms-decision]')) {
+      event.stopImmediatePropagation(); const id = event.target.dataset.ciiwMsDecision; const decision = event.target.value;
+      if (decision) state.reviewDecisions.set(id, decision); else state.reviewDecisions.delete(id);
+      markReviewDirty('Generic correspondence decision changed. Bind review decisions to audit before exporting.'); return;
+    }
     if (event.target !== sourceInput && event.target !== targetInput) return; resetGeneric(); queueMicrotask(() => {
       const count = selectedFiles(sourceInput).length; if (disposed || count < 2 || count === 3) return;
       setStatus(container, `${count} SOURCE files selected. Inspect opens REVIEW ONLY because exact retained Writer2 write custody requires three members.`);
@@ -173,7 +204,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   };
   container.addEventListener('click', onClickCapture, true); container.addEventListener('change', onChangeCapture, true);
   const retainedDestroy = retained?.destroy?.bind(retained);
-  return { ...retained, destroy() { disposed = true; container.removeEventListener('click', onClickCapture, true); container.removeEventListener('change', onChangeCapture, true); retainedDestroy?.(); } };
+  return { ...retained, destroy() { disposed = true; container.removeEventListener('click', onClickCapture, true); container.removeEventListener('change', onChangeCapture, true); resetReviewControls(); retainedDestroy?.(); } };
 }
 
 export const _test = Object.freeze({ selectedFiles, sourceSetMembersForHashes, threePermutations, retainedSourceHashSet, classifyMultiSourceFiles,
