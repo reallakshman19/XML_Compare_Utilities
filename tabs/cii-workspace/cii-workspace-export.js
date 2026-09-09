@@ -42,6 +42,7 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
     const projection = reviewProjection(row, context.compareReview);
     return {
       kind: row.kind,
+      sourceId: row.sourceId || '',
       operation: rowOperation(row),
       confidence: projection?.confidence || row.status,
       workflowStatus: row.status,
@@ -59,7 +60,7 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       blockers: transfer.blockers,
     };
   });
-  const headers = ['kind', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
+  const headers = ['kind', 'sourceId', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }
 
