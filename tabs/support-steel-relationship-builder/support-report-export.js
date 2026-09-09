@@ -38,10 +38,15 @@ export function supportReportBundleToJson(bundle) {
   return JSON.stringify(bundle, null, 2);
 }
 
-function csvCell(value) {
+function spreadsheetSafeText(value) {
   const text = String(value ?? '');
+  return typeof value === 'string' && /^[=+\-@]/.test(text) ? `'${text}` : text;
+}
+function csvCell(value) {
+  const text = spreadsheetSafeText(value);
   return `"${text.replace(/"/g, '""')}"`;
 }
 function tsvCell(value) {
-  return String(value ?? '').replace(/[\t\r\n]+/g, ' ').trim();
+  const text = String(value ?? '').replace(/[\t\r\n]+/g, ' ').trim();
+  return spreadsheetSafeText(text);
 }
