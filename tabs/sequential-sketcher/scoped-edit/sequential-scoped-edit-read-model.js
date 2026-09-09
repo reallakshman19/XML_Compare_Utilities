@@ -11,6 +11,10 @@ import {
   assertSequentialEffectiveGeometryReadModel,
   isSequentialEffectiveGeometryReadModel,
 } from './sequential-effective-geometry-read-model.js';
+import {
+  assertSequentialEffectiveTopologyReadModel,
+  isSequentialEffectiveTopologyReadModel,
+} from './sequential-effective-topology-read-model.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1 = 'SequentialScopedEditReadModel.v1';
 export const SEQUENTIAL_SCOPED_EDIT_SELECTION_V1 = 'SequentialScopedEditSelection.v1';
@@ -121,6 +125,9 @@ export function createSequentialScopedEditReadModel(snapshot) {
   return buildCertified(snapshot);
 }
 export function assertSequentialScopedEditReadModel(value) {
+  if (isSequentialEffectiveTopologyReadModel(value)) {
+    return assertSequentialEffectiveTopologyReadModel(value);
+  }
   if (isSequentialEffectiveGeometryReadModel(value)) {
     return assertSequentialEffectiveGeometryReadModel(value);
   }

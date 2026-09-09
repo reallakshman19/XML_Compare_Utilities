@@ -9,6 +9,8 @@ import { createSequentialEditEligibility, inheritSequentialEditEligibility } fro
 import { projectSequentialEditableTopology } from './sequential-editable-topology-projection.js';
 import { applySequentialGeometryEditJournalToTopology } from './sequential-geometry-edit-projection.js';
 import { isSequentialEffectiveGeometryReadModel } from './sequential-effective-geometry-read-model.js';
+import { isSequentialEffectiveTopologyReadModel } from './sequential-effective-topology-read-model.js';
+import { applySequentialTopologyEditJournalToTopology } from './sequential-topology-edit-projection.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -150,18 +152,21 @@ function fingerprintMaterial(base) {
       repairs: base.repairs, openBoundaries: base.openBoundaries,
       selectionGroups: base.selectionGroups, supportCarriers: base.supportCarriers,
       supportAttachments: base.supportAttachments,
+      topologyEditJournalFingerprint: base.topologyEditJournalFingerprint || null,
     },
     geometry: {
       nodes: base.nodes.map((row) => [row.nodeId, row.position]),
       geometryParts: base.geometryParts,
       supports: base.supportAttachments.map((row) => [row.supportAttachmentId, row.position]),
       geometryEditJournalFingerprint: base.geometryEditJournalFingerprint || null,
+      topologyEditJournalFingerprint: base.topologyEditJournalFingerprint || null,
     },
     ancestry: {
       authority: base.authority,
       components: base.components.map((row) => [row.componentId, row.ancestry]),
       geometryParts: base.geometryParts.map((row) => [row.geometryPartId, row.sceneEntityId]),
       nonEditableEvidence: base.nonEditableEvidence,
+      topologySupersededComponents: base.topologySupersededComponents || [],
     },
   };
 }
@@ -183,6 +188,7 @@ function authorityRecord(readModel, authority, scene) {
     supportProjectionFingerprint: readModel.supportProjectionFingerprint,
     supportAdjustmentRegisterFingerprint: readModel.supportAdjustmentRegisterFingerprint,
     geometryEditJournalFingerprint: readModel.geometryEditJournalFingerprint || null,
+    topologyEditJournalFingerprint: readModel.topologyEditJournalFingerprint || null,
     sceneId: scene.sceneId,
     sceneFingerprint: sequentialSemanticFingerprint('SSKEDITSCENE', scene),
   };
@@ -226,31 +232,48 @@ function createBaseSnapshot(readModel) {
     nonEditableEvidence: nonEditableEvidence(authority),
   });
 }
-function createEffectiveSnapshot(readModel) {
+function stripFingerprints(value) {
+  const result = { ...value };
+  ['topologyFingerprint', 'geometryFingerprint', 'ancestryFingerprint',
+    'snapshotFingerprint', 'effectiveGeometryFingerprint',
+    'effectiveStructuralFingerprint'].forEach((key) => delete result[key]);
+  return result;
+}
+function createGeometrySnapshot(readModel) {
   const base = createBaseSnapshot(readModel.baseReadModel);
   const projected = applySequentialGeometryEditJournalToTopology(
     base,
     readModel.geometryEditJournal,
   );
   const authority = classifySequentialEngineeringSvgAuthority(readModel.baseReadModel.ownerSnapshot);
-  const scene = buildSequentialScopedEditEngineeringScene(readModel);
-  const effective = {
-    ...projected,
-    authority: authorityRecord(readModel, authority, scene),
+  return finalize({
+    ...stripFingerprints(projected),
+    authority: authorityRecord(readModel, authority,
+      buildSequentialScopedEditEngineeringScene(readModel)),
     geometryEditJournalFingerprint: readModel.geometryEditJournalFingerprint,
-  };
-  delete effective.topologyFingerprint;
-  delete effective.geometryFingerprint;
-  delete effective.ancestryFingerprint;
-  delete effective.snapshotFingerprint;
-  delete effective.effectiveGeometryFingerprint;
-  return finalize(effective);
+  });
+}
+function createStructuralSnapshot(readModel) {
+  const base = createSequentialEditableTopologySnapshot(readModel.topologyBaseReadModel);
+  const projected = applySequentialTopologyEditJournalToTopology(
+    base,
+    readModel.topologyEditJournal,
+  );
+  const authorityBase = readModel.topologyBaseReadModel.baseReadModel
+    || readModel.topologyBaseReadModel;
+  const authority = classifySequentialEngineeringSvgAuthority(authorityBase.ownerSnapshot);
+  return finalize({
+    ...stripFingerprints(projected),
+    authority: authorityRecord(readModel, authority,
+      buildSequentialScopedEditEngineeringScene(readModel)),
+    topologyEditJournalFingerprint: readModel.topologyEditJournalFingerprint,
+  });
 }
 export function createSequentialEditableTopologySnapshot(readModelInput) {
   const readModel = assertSequentialScopedEditReadModel(readModelInput);
-  return isSequentialEffectiveGeometryReadModel(readModel)
-    ? createEffectiveSnapshot(readModel)
-    : createBaseSnapshot(readModel);
+  if (isSequentialEffectiveTopologyReadModel(readModel)) return createStructuralSnapshot(readModel);
+  if (isSequentialEffectiveGeometryReadModel(readModel)) return createGeometrySnapshot(readModel);
+  return createBaseSnapshot(readModel);
 }
 export function assertSequentialEditableTopologySnapshot(value, readModelInput) {
   if (value?.schema !== SEQUENTIAL_EDITABLE_TOPOLOGY_SNAPSHOT_SCHEMA) {
