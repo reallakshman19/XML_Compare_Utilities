@@ -5,8 +5,8 @@ import test from 'node:test';
 
 const fixtureUrl = new URL('./fixtures/support-report/support-report-ps007-sl097.sanitized.xml', import.meta.url);
 const oracleUrl = new URL('./fixtures/support-report/support-report-ps007-sl097.golden.json', import.meta.url);
-const FIXTURE_SHA256 = 'a583d0e20a373c11885870ad7a05f941ac6a7752711869e53ddcf7ad486e9ea6';
-const ORACLE_SHA256 = 'ac1c4af5463e3b95e6ef87479172f319af60b40b6827ca27087b99f470cdb2dd';
+const FIXTURE_SHA256 = '0ed0f84249442f11dcf5a08ce57098b70c88460d90621ebeaf4b90178269b3ba';
+const ORACLE_SHA256 = 'f9123eb1224e2a0fc073cbeabac6e9bbeebb53e4b161d45821a0f7dd2c73cb93';
 const ORIGINAL_XML_SHA256 = '7738159bb96e2e38927a52fd6ebe625cf3f16eae0b7ad218652b799648736e62';
 const WORKBOOK_SHA256 = '16eb75d84bf31e9fa92ef26c0e73bf2cd6c5e71e1fcd047ffa27bb9094c36d56';
 
@@ -31,6 +31,7 @@ test('Support Report Owner fixture and golden oracle retain exact custody', asyn
   assert.match(oracle.sourceSupportReportXml.sanitization.join(' '), /no Support Report production code used/u);
 
   assert.equal((xml.match(/<clashresult\b/gu) || []).length, 20);
+  assert.equal((xml.match(/<node>\/ASIM-1835-CU-SU<\/node>/gu) || []).length, 20);
   assert.doesNotMatch(xml, /\bfilepath=/u);
   assert.match(xml, /\/PS-007\.7/u);
   assert.match(xml, /\/SL-097\.12/u);
