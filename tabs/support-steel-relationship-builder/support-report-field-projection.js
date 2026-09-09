@@ -57,12 +57,7 @@ export function projectSupportReportFields({ group, reportMembers, carrierRows, 
 }
 
 function memberAttribute(member, keys) { return firstAttribute([member?.attributes || {}], keys); }
-function supportType(member) {
-  const value = memberAttribute(member, SUPPORT_TYPE_KEYS);
-  if (value) return value;
-  const role = String(member?.semanticRole || '');
-  return role && role !== 'OTHER_FAMILY_MEMBER' ? role : '';
-}
+function supportType(member) { return memberAttribute(member, SUPPORT_TYPE_KEYS); }
 function firstAttribute(attributeRows, keys) {
   for (const attrs of attributeRows || []) {
     const normalized = normalizeAttributeMap(attrs);
