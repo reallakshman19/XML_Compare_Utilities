@@ -23,18 +23,31 @@ const STRESS_SYSTEM_KEYS = Object.freeze([
 ]);
 const NODE_NUMBER_KEYS = Object.freeze(['NODE_NO', 'NODE_NUMBER', 'STRESS_NODE', 'CAESAR_NODE']);
 const REVISION_KEYS = Object.freeze(['REVISION', 'REVISION_NO', 'REVISION_NUMBER', 'REV_NO', 'REV']);
+const CARRIER_FIELD_SPECS = Object.freeze([
+  Object.freeze({ field: 'size', keys: PIPE_SIZE_KEYS }),
+  Object.freeze({ field: 'pipeSchedule', keys: PIPE_SCHEDULE_KEYS }),
+  Object.freeze({ field: 'pipeInsulationThickness', keys: INSULATION_THICKNESS_KEYS }),
+  Object.freeze({ field: 'pipeInsulationType', keys: INSULATION_TYPE_KEYS }),
+  Object.freeze({ field: 'stressSystemNumber', keys: STRESS_SYSTEM_KEYS }),
+  Object.freeze({ field: 'nodeNumber', keys: NODE_NUMBER_KEYS }),
+  Object.freeze({ field: 'revision', keys: REVISION_KEYS }),
+]);
 
 export function projectSupportReportFields({ group, reportMembers, carrierRows, coordinatePoint }) {
-  const pipeAttrs = (carrierRows || []).map((row) => row.attributes || {});
   const primaryPath = choosePrimaryPath(group?.primaryPaths || []);
-  const insulationThickness = firstAttribute(pipeAttrs, INSULATION_THICKNESS_KEYS);
-  const insulationType = firstAttribute(pipeAttrs, INSULATION_TYPE_KEYS);
+  const size = resolveCarrierAttribute(carrierRows, PIPE_SIZE_KEYS);
+  const schedule = resolveCarrierAttribute(carrierRows, PIPE_SCHEDULE_KEYS);
+  const insulationThickness = resolveCarrierAttribute(carrierRows, INSULATION_THICKNESS_KEYS);
+  const insulationType = resolveCarrierAttribute(carrierRows, INSULATION_TYPE_KEYS);
+  const stressSystem = resolveCarrierAttribute(carrierRows, STRESS_SYSTEM_KEYS);
+  const nodeNumber = resolveCarrierAttribute(carrierRows, NODE_NUMBER_KEYS);
+  const revision = resolveCarrierAttribute(carrierRows, REVISION_KEYS);
   return Object.freeze({
     previousName: joinMemberValues(reportMembers, (member) => memberAttribute(member, PREVIOUS_NAME_KEYS)),
     scope: group?.scope || deriveScope(group?.fullLineTag),
     civilSecondarySupport: group?.secondarySupportFamilyId ? `${group.secondarySupportFamilyId}(REF)` : '',
     pipe: stripLeadingSlash(group?.fullLineTag),
-    size: firstAttribute(pipeAttrs, PIPE_SIZE_KEYS) || deriveNominalSizeMm(group?.fullLineTag),
+    size: size.conflict ? '' : (size.value || deriveNominalSizeMm(group?.fullLineTag)),
     pipingPrimarySupport: joinMemberValues(reportMembers, (member) => normalizeMemberId(member.memberId)),
     supportType: joinMemberValues(reportMembers, supportType),
     pipingPrimarySupportReference: joinMemberValues(reportMembers, (member) => memberAttribute(member, SUPPORT_REFERENCE_KEYS)),
@@ -46,13 +59,41 @@ export function projectSupportReportFields({ group, reportMembers, carrierRows, 
     primarySupportDescription: joinMemberValues(reportMembers, (member) => memberAttribute(member, DESCRIPTION_KEYS)),
     primarySupportZone: derivePrimarySupportZone(primaryPath, reportMembers),
     primarySupportSite: derivePrimarySupportSite(primaryPath, reportMembers),
-    pipeSchedule: firstAttribute(pipeAttrs, PIPE_SCHEDULE_KEYS),
-    pipeInsulationThickness: insulationThickness,
-    pipeInsulationType: insulationType,
-    pipeInsulationTypeAndThickness: [insulationType, insulationThickness].filter(Boolean).join(' '),
-    stressSystemNumber: firstAttribute(pipeAttrs, STRESS_SYSTEM_KEYS),
-    nodeNumber: firstAttribute(pipeAttrs, NODE_NUMBER_KEYS),
-    revision: firstAttribute(pipeAttrs, REVISION_KEYS),
+    pipeSchedule: schedule.value,
+    pipeInsulationThickness: insulationThickness.value,
+    pipeInsulationType: insulationType.value,
+    pipeInsulationTypeAndThickness: [insulationType.value, insulationThickness.value].filter(Boolean).join(' '),
+    stressSystemNumber: stressSystem.value,
+    nodeNumber: nodeNumber.value,
+    revision: revision.value,
+  });
+}
+
+export function supportReportCarrierAttributeConflicts(carrierRows = []) {
+  return CARRIER_FIELD_SPECS.map((spec) => {
+    const resolved = resolveCarrierAttribute(carrierRows, spec.keys);
+    if (!resolved.conflict) return null;
+    return Object.freeze({
+      field: spec.field,
+      values: resolved.values,
+      carrierValues: resolved.carrierValues,
+    });
+  }).filter(Boolean);
+}
+
+function resolveCarrierAttribute(carrierRows, keys) {
+  const carrierValues = (carrierRows || []).map((row) => ({
+    carrierObjectId: clean(row?.carrierObjectId),
+    value: firstAttribute([row?.attributes || {}], keys),
+  })).filter((row) => row.value)
+    .sort((left, right) => left.carrierObjectId.localeCompare(right.carrierObjectId)
+      || left.value.localeCompare(right.value));
+  const values = [...new Set(carrierValues.map((row) => row.value))].sort((a, b) => a.localeCompare(b));
+  return Object.freeze({
+    value: values.length === 1 ? values[0] : '',
+    conflict: values.length > 1,
+    values,
+    carrierValues,
   });
 }
 
@@ -125,4 +166,10 @@ function deriveScope(lineTag) { return stripLeadingSlash(lineTag).split('-')[0] 
 function stripLeadingSlash(value) { return clean(value).replace(/^\/+/, ''); }
 function clean(value) { return value == null ? '' : String(value).trim(); }
 
-export const _test = Object.freeze({ firstAttribute, deriveNominalSizeMm, formatHorizontalCoordinate, formatVerticalCoordinate });
+export const _test = Object.freeze({
+  firstAttribute,
+  resolveCarrierAttribute,
+  deriveNominalSizeMm,
+  formatHorizontalCoordinate,
+  formatVerticalCoordinate,
+});
