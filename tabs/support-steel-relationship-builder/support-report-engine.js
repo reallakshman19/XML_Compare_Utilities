@@ -134,12 +134,14 @@ export function buildSupportReportBundle(input = {}) {
     return {
       row,
       familyRank: familyEntry?.index ?? Number.MAX_SAFE_INTEGER,
+      familyToken: token(group.secondarySupportFamilyId),
       memberRank: memberOrderRank(family, selectedMembers),
       groupIndex,
     };
   });
   const rows = projections
     .sort((left, right) => left.familyRank - right.familyRank
+      || left.familyToken.localeCompare(right.familyToken)
       || left.memberRank - right.memberRank
       || left.groupIndex - right.groupIndex)
     .map((projection) => projection.row);
@@ -261,8 +263,8 @@ function normalizeKey(value) { return String(value || '').replace(/[\s./-]+/g, '
 function joinMemberValues(members, selector, options = {}) {
   const values = (members || []).map((member) => clean(selector(member)));
   if (options.keepBlanks) {
-    if (!values.some(Boolean)) return '';
-    return values.join(', ');
+    if (!values.length) return '';
+    return values.length === 1 ? values[0] : values.join(', ');
   }
   return values.filter(Boolean).join(', ');
 }
