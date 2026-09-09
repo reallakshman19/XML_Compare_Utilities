@@ -46,6 +46,12 @@ function mount(popup) {
 
   button.addEventListener('click', () => showPanel(popup));
   popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup));
+  popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => invalidate(popup, 'XML changed; rebuild the Support Report.'));
+  popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => invalidate(popup, 'Combined staged model changed; rebuild the Support Report.'));
+  popup.querySelectorAll('[data-ssrb-rule]').forEach((node) => {
+    const eventName = node.type === 'checkbox' || node.tagName === 'SELECT' ? 'change' : 'input';
+    node.addEventListener(eventName, () => invalidate(popup, 'Relationship rules changed; rebuild the Support Report.'));
+  });
   popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => run(popup));
   popup.querySelector('[data-ssr-download]')?.addEventListener('click', () => downloadCsv(popup));
   popup.querySelector('[data-ssr-copy]')?.addEventListener('click', () => void copyCsv(popup));
