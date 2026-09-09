@@ -2,7 +2,7 @@ import { buildSupportReportBundle } from './support-report-engine.js?v=20260909-
 import { supportReportToCsv } from './support-report-export.js?v=20260909-support-report-parity-2';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-parity-2';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260909-support-report-xlsx-3';
-import { parseSupportReportClashXml } from './support-report-clash-test-context.js?v=20260909-support-report-parser-4';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-safety-5';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 
