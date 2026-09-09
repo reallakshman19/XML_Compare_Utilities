@@ -28,8 +28,8 @@ WP003_MATERIAL_LEG: NONE
 WP003_EVIDENCE_FILE: agents/chains/SUPPORT-REPORT-1154/evidence/WP-003-parser-qualification.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0005_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5607355768
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -42,7 +42,7 @@ ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_COMMENT_SYNC
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
 - TASK-009 | PARTIAL | parser/field/carrier paths fail closed in several unsafe cases; full no-fabrication qualification remains open
-- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003 after Issue comment sync
+- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003
 
 # Input ledger
 
