@@ -1,6 +1,6 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260909-support-report-1';
-import { supportReportToCsv } from './support-report-export.js?v=20260909-support-report-1';
-import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-1';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260909-support-report-parity-2';
+import { supportReportToCsv } from './support-report-export.js?v=20260909-support-report-parity-2';
+import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-parity-2';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 
