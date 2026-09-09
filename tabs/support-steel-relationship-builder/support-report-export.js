@@ -47,6 +47,8 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 function tsvCell(value) {
-  const text = String(value ?? '').replace(/[\t\r\n]+/g, ' ').trim();
-  return spreadsheetSafeText(text);
+  const sanitized = typeof value === 'string'
+    ? value.replace(/[\t\r\n]+/g, ' ').trim()
+    : value;
+  return spreadsheetSafeText(sanitized);
 }
