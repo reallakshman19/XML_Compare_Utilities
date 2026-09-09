@@ -84,7 +84,7 @@ export function ciiWorkspaceArtifactBundle(result) {
   const review = result?.audit?.review || result?.review || {};
   const sourceSet = result?.sourceSet || result?.audit?.sourceSet || null;
   const targetDocument = result?.targetAuthority ? result?.targetDocument || null : null;
-  const targetAuthority = result?.targetAuthority || result?.transferPlan?.targetAuthority || null;
+  const targetAuthority = result?.targetAuthority || null;
   return Object.freeze({
     correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, {
       review,
