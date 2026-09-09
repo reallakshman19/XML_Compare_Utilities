@@ -1,7 +1,7 @@
 import {
   SUPPORT_REPORT_COLUMNS,
   supportReportColumnValue,
-} from './support-report-contract.js';
+} from './support-report-contract.js?v=20260909-support-report-parity-2';
 
 export function renderSupportReportWorkspace(report) {
   if (!report) return '<div class="ssrb-empty"><b>Support Report not built</b><span>Load Support Report clash XML, then build the report. Build Relationships first when a combined staged model is available to enrich complete member lists and native attributes.</span></div>';
