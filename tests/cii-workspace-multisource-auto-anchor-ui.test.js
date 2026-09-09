@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { _test as uiTest } from '../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js';
+import { CII_MS_TARGET_SHA256 } from '../tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js';
 
 function networkSuggestion(sourceNodeId, targetNodeId, confidence = 'HIGH', overrides = {}) {
   return {
@@ -14,6 +15,13 @@ function networkSuggestion(sourceNodeId, targetNodeId, confidence = 'HIGH', over
     candidateGeneration: { mutualBest: true },
     ...overrides,
   };
+}
+function cryptoForHex(hex) {
+  const digest = Uint8Array.from(hex.match(/../g) || [], (byte) => Number.parseInt(byte, 16));
+  return { subtle: { async digest() { return digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength); } } };
+}
+function fakeFile(name = 'candidate-target.CII') {
+  return { name, async arrayBuffer() { return Uint8Array.of(1, 2, 3).buffer; } };
 }
 
 const inspection = {
@@ -63,4 +71,13 @@ assert.deepEqual(retainedSeed.selectionKeysBySource, {
   S3: ['3=>1003'],
 });
 
-console.log('CII Writer2 multi-source Auto Anchor UI seeding checks: PASS');
+const retainedTarget = await uiTest.retainedTargetInput(fakeFile('renamed-retained-target.CII'), cryptoForHex(CII_MS_TARGET_SHA256));
+assert.equal(retainedTarget.fileName, 'renamed-retained-target.CII');
+assert.equal(retainedTarget.originalSha256, CII_MS_TARGET_SHA256);
+assert.deepEqual([...retainedTarget.bytes], [1, 2, 3]);
+await assert.rejects(
+  uiTest.retainedTargetInput(fakeFile('wrong-target.CII'), cryptoForHex('00'.repeat(32))),
+  /requires the exact retained T\.CII target/,
+);
+
+console.log('CII Writer2 multi-source Auto Anchor and TARGET intake custody checks: PASS');
