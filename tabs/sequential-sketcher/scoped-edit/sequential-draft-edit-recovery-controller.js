@@ -110,10 +110,10 @@ function pruneStaleInventory(state) {
 function validRecords(state, branchId) {
   const valid = [];
   for (const record of state.storage.forBranch(branchId)) {
-    let matches = false;
-    try { matches = sequentialDraftEditRecoveryContextMatches(record, currentContext(state, record.kind)); }
-    catch {}
-    if (matches) valid.push(record);
+    let context;
+    try { context = currentContext(state, record.kind); }
+    catch { continue; }
+    if (sequentialDraftEditRecoveryContextMatches(record, context)) valid.push(record);
     else {
       state.storage.remove(record.authority.branchId, record.kind);
       diagnostic(state, 'DRAFT_EDIT_RECOVERY_STALE_REMOVED',
