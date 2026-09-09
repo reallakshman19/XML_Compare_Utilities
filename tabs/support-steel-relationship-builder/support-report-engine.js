@@ -142,10 +142,15 @@ function selectMembersForGroup(family, group) {
 }
 
 function selectCarriersForGroup(carriers, group) {
-  const exact = (carriers || []).filter((carrier) => sameLine(carrier.lineContext?.fullLineTag, group.fullLineTag));
+  const candidates = carriers || [];
+  const exact = candidates.filter((carrier) => sameLine(carrier.lineContext?.fullLineTag, group.fullLineTag));
   if (exact.length) return exact;
   const branchTokens = new Set((group.branchNodes || []).map(token));
-  return (carriers || []).filter((carrier) => branchTokens.has(token(carrier.lineContext?.branchNode)));
+  return candidates.filter((carrier) => {
+    const context = carrier?.lineContext || {};
+    if (clean(context.fullLineTag)) return false;
+    return branchTokens.has(token(context.branchNode));
+  });
 }
 function memberMatchesLine(member, fullLineTag) {
   const context = member?.lineContext || {};

@@ -7,7 +7,7 @@ import {
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
 import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-field-authority-9';
-import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-line-custody-10';
+import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-carrier-custody-11';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
 import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
@@ -16,7 +16,7 @@ const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
 const SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN = '20260909-support-report-field-authority-9';
-const SUPPORT_REPORT_LINE_CUSTODY_TOKEN = '20260909-support-report-line-custody-10';
+const SUPPORT_REPORT_CARRIER_CUSTODY_TOKEN = '20260909-support-report-carrier-custody-11';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -86,8 +86,8 @@ for (const [source, edge, label] of [
   [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
   [addon, './support-report-engine.js', 'addon → engine'],
 ]) {
-  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_LINE_CUSTODY_TOKEN}`),
-    `Support Report ${label} must carry the member line custody cache token`);
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_CARRIER_CUSTODY_TOKEN}`),
+    `Support Report ${label} must carry the carrier line custody cache token`);
 }
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
