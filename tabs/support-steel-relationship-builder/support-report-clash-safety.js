@@ -31,19 +31,18 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     ...parsed.diagnostics,
     ...[...unsafeClashes.values()].map((item) => diagnostic('ERROR', item.code, item.message, item.extra)),
   ];
-  const deduplicated = deduplicateRows(rows);
-  if (deduplicated.duplicateCount) diagnostics.push(diagnostic(
+  const grouped = deduplicateGroupEvidence(groupSupportReportClashEvidence(rows));
+  if (grouped.duplicateCount) diagnostics.push(diagnostic(
     'WARN', DIAGNOSTICS.DUPLICATE_EVIDENCE,
-    `${deduplicated.duplicateCount} duplicate clash-member evidence row(s) were ignored for grouping.`,
-    { duplicateCount: deduplicated.duplicateCount },
+    `${grouped.duplicateCount} duplicate clash-member evidence row(s) were ignored within logical groups.`,
+    { duplicateCount: grouped.duplicateCount },
   ));
-  const groups = groupSupportReportClashEvidence(deduplicated.rows);
   return Object.freeze({
     ...parsed,
     rowCount: rows.length,
-    groupCount: groups.length,
+    groupCount: grouped.groups.length,
     rows,
-    groups,
+    groups: grouped.groups,
     diagnostics,
   });
 }
@@ -96,6 +95,20 @@ function classifyUnsafeClashes(source) {
   return unsafe;
 }
 
+function deduplicateGroupEvidence(groups) {
+  let duplicateCount = 0;
+  const output = groups.map((group) => {
+    const deduplicated = deduplicateRows(group.evidenceRows || []);
+    duplicateCount += deduplicated.duplicateCount;
+    return Object.freeze({
+      ...group,
+      evidenceRows: deduplicated.rows,
+      clashCount: deduplicated.rows.length,
+    });
+  });
+  return { groups: output, duplicateCount };
+}
+
 function deduplicateRows(rows) {
   const seen = new Set();
   const output = [];
@@ -131,4 +144,10 @@ function parseAttributes(raw) {
 function countMatches(source, regex) { return Array.from(String(source || '').matchAll(regex)).length; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
-export const _test = Object.freeze({ validateStructure, classifyUnsafeClashes, deduplicateRows, DIAGNOSTICS });
+export const _test = Object.freeze({
+  validateStructure,
+  classifyUnsafeClashes,
+  deduplicateGroupEvidence,
+  deduplicateRows,
+  DIAGNOSTICS,
+});
