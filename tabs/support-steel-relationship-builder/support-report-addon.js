@@ -3,6 +3,7 @@ import { supportReportToCsv } from './support-report-export.js?v=20260909-suppor
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-parity-2';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260909-support-report-xlsx-3';
 import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-safety-5';
+import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-ui-block-6';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 
@@ -89,7 +90,7 @@ function run(popup) {
         config: supportReportRules(popup),
       });
     }
-    const clashEvidence = parseSupportReportClashXml(xmlText);
+    const clashEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(xmlText));
     const report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
     state.report = report;
     host.innerHTML = renderSupportReportWorkspace(report);
