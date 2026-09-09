@@ -13,7 +13,7 @@ import {
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 import { inspectCiiWorkspaceSourceSetWithVersionBridge, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
-import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260909-ms-custody-auto-1';
+import { ciiSourceSetCustodyMarkup, mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260909-ms-custody-auto-1';
 
 const ROUTER_MODE = 'GENERIC_REVIEW_ONLY';
 
@@ -73,7 +73,7 @@ function inspectionMarkup(state) {
   const authority = baseAuthorityState(state.auto, state.manualBySource);
   const rows = state.auto.choices.map((choice) => `<tr><td><b>${h(choice.sourceId)}</b><small>${h(choice.fileName)}</small></td><td>${h(choice.status || 'REVIEW')}</td><td>${h(choice.sourceNodeId || '—')} ↔ ${h(choice.targetNodeId || '—')}</td><td>${h(choice.confidence || '—')}</td><td>${h(choice.basisMethod || choice.reason || '—')}</td></tr>`).join('');
   const compare = authority.ready ? '<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-review-only-compare>Compare review →</button></div>' : '';
-  return `<section class="ciiw-base-set" data-ciiw-ms-review-only-inspection="1"><header><div><b>Generic multi-source review only</b><span>${h(state.sources.length)} independent SOURCE members · no Writer2 write authority</span></div><span class="ciiw-corroboration">REVIEW ONLY</span></header><p>Each source is normalized independently against the same TARGET. Deterministic READY Auto Anchor is used when available; unresolved members require an engineer-reviewed manual anchor fallback.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Auto Anchor</th><th>Base pair</th><th>Confidence</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table><p><b>${authority.ready ? 'READY FOR REVIEW' : 'REVIEW BLOCKED'}</b>${authority.unresolved.length ? ` · base authority required for ${h(authority.unresolved.join(', '))}` : ''}</p>${manualEditorsMarkup(state)}${compare}</section>`;
+  return `${ciiSourceSetCustodyMarkup(state.inspection)}<section class="ciiw-base-set" data-ciiw-ms-review-only-inspection="1"><header><div><b>Generic multi-source review only</b><span>${h(state.sources.length)} independent SOURCE members · no Writer2 write authority</span></div><span class="ciiw-corroboration">REVIEW ONLY</span></header><p>Each source is normalized independently against the same TARGET. Deterministic READY Auto Anchor is used when available; unresolved members require an engineer-reviewed manual anchor fallback.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Auto Anchor</th><th>Base pair</th><th>Confidence</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table><p><b>${authority.ready ? 'READY FOR REVIEW' : 'REVIEW BLOCKED'}</b>${authority.unresolved.length ? ` · base authority required for ${h(authority.unresolved.join(', '))}` : ''}</p>${manualEditorsMarkup(state)}${compare}</section>`;
 }
 function waitingMarkup(state) {
   const authority = baseAuthorityState(state.auto, state.manualBySource);
