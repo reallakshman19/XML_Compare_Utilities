@@ -1,8 +1,8 @@
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseWithTestContext,
-} from './support-report-clash-test-context.js?v=20260909-support-report-parser-4';
-import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parity-2';
+} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
+import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
 
 export { groupSupportReportClashEvidence };
 

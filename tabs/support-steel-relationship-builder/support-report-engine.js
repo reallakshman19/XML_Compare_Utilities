@@ -6,7 +6,7 @@ import {
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
-} from './support-report-clash-safety.js?v=20260909-support-report-parser-safety-5';
+} from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 import { projectSupportReportFields } from './support-report-field-projection.js?v=20260909-support-report-parity-2';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
