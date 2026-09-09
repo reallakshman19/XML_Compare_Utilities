@@ -50,4 +50,19 @@ test('Utilities Writer2 tile seeds retained S1/S2/S3 Auto Anchor and stops at ex
 
   await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toHaveCount(0);
   await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toHaveCount(0);
+
+  await page.locator('[data-ciiw-ms-compare-now]').click();
+
+  const reviewTable = page.locator('[data-ciiw-ms-review-table="1"]');
+  await expect(reviewTable).toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-ciiw-status]')).toContainText('Multi-source correspondence READY');
+
+  const decisionControls = page.locator('[data-ciiw-ms-decision]');
+  expect(await decisionControls.count()).toBeGreaterThan(0);
+  const decisionValues = await decisionControls.evaluateAll((nodes) => nodes.map((node) => node.value));
+  expect(decisionValues.every((value) => value === '')).toBe(true);
+
+  await expect(page.locator('[data-ciiw-refresh-review]')).toBeEnabled();
+  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toBeVisible();
+  await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
 });
