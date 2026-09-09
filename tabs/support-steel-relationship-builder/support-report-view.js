@@ -1,4 +1,7 @@
-import { SUPPORT_REPORT_COLUMNS } from './support-report-contract.js';
+import {
+  SUPPORT_REPORT_COLUMNS,
+  supportReportColumnValue,
+} from './support-report-contract.js';
 
 export function renderSupportReportWorkspace(report) {
   if (!report) return '<div class="ssrb-empty"><b>Support Report not built</b><span>Load Support Report clash XML, then build the report. Build Relationships first when a combined staged model is available to enrich complete member lists and native attributes.</span></div>';
@@ -10,7 +13,7 @@ export function renderSupportReportTable(report) {
   const rows = report?.rows || [];
   if (!rows.length) return '<div class="ssrb-empty">No Support Report rows available.</div>';
   const headers = SUPPORT_REPORT_COLUMNS.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
-  const body = rows.map((row) => `<tr>${SUPPORT_REPORT_COLUMNS.map((column) => `<td>${escapeHtml(displayValue(row[column.key]))}</td>`).join('')}</tr>`).join('');
+  const body = rows.map((row) => `<tr>${SUPPORT_REPORT_COLUMNS.map((column) => `<td>${escapeHtml(displayValue(supportReportColumnValue(row, column)))}</td>`).join('')}</tr>`).join('');
   return `<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 

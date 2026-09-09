@@ -3,28 +3,38 @@ export const SUPPORT_REPORT_EVIDENCE_SCHEMA = 'SupportReportClashEvidence.v1';
 export const SUPPORT_REPORT_ROW_SCHEMA = 'SupportReportRow.v1';
 
 export const SUPPORT_REPORT_COLUMNS = Object.freeze([
+  Object.freeze({ key: 'previousName', label: 'PREV PRIMARY SUPPORT NAME' }),
   Object.freeze({ key: 'scope', label: 'SCOPE' }),
-  Object.freeze({ key: 'civilSecondarySupport', label: 'CIVILSECONDARYSUPPORT' }),
+  Object.freeze({ key: 'civilSecondarySupport', label: 'CIVIL SECONDARY SUPPORT (Tag provided by Civil)' }),
   Object.freeze({ key: 'pipe', label: 'PIPE' }),
   Object.freeze({ key: 'size', label: 'SIZE' }),
-  Object.freeze({ key: 'pipeSchedule', label: 'PIPE SCHEDULE' }),
-  Object.freeze({ key: 'pipeInsulationThickness', label: 'PIPE INSULATION THICKNESS' }),
-  Object.freeze({ key: 'pipeInsulationType', label: 'PIPE INSULATION TYPE' }),
   Object.freeze({ key: 'pipingPrimarySupport', label: 'PIPING PRIMARY SUPPORT' }),
   Object.freeze({ key: 'supportType', label: 'SUPPORT TYPE' }),
   Object.freeze({ key: 'pipingPrimarySupportReference', label: 'PIPING PRIMARY SUPPORT REFERENCE' }),
   Object.freeze({ key: 'eastWest', label: 'EAST/WEST' }),
   Object.freeze({ key: 'northSouth', label: 'NORTH/SOUTH' }),
   Object.freeze({ key: 'bopElevation', label: 'BOP ELEVATION' }),
-  Object.freeze({ key: 'stressSystemNumber', label: 'STRESS SYS.NO' }),
-  Object.freeze({ key: 'nodeNumber', label: 'NODE NO' }),
   Object.freeze({ key: 'totalSupportPointsOnSecondary', label: 'TOTAL SUPPORT POINTS ON SECONDARY' }),
-  Object.freeze({ key: 'previousName', label: 'PREV NAME' }),
+  Object.freeze({ key: 'remarks', label: 'REMARKS (IF ANY)' }),
   Object.freeze({ key: 'primarySupportDescription', label: 'PRIMARY SUPPORT DESCRIPTION' }),
   Object.freeze({ key: 'primarySupportZone', label: 'PRIMARY SUPPORT ZONE' }),
   Object.freeze({ key: 'primarySupportSite', label: 'PRIMARY SUPPORT SITE' }),
-  Object.freeze({ key: 'remarks', label: 'REMARKS' }),
+  Object.freeze({ key: 'pipeSchedule', label: 'PIPE SCHEDULE' }),
+  Object.freeze({ key: 'pipeInsulationTypeAndThickness', label: 'INSULATION TYPE AND THICKNESS' }),
+  Object.freeze({ key: 'stressSystemNumber', label: 'STRESS SYSTEM NUMBER' }),
+  Object.freeze({ key: 'nodeNumber', label: 'NODE NO' }),
+  Object.freeze({ key: 'revision', label: 'REVISION' }),
 ]);
+
+export function supportReportColumnValue(row, columnOrKey) {
+  const key = typeof columnOrKey === 'string' ? columnOrKey : columnOrKey?.key;
+  if (key === 'pipeInsulationTypeAndThickness') {
+    return [row?.pipeInsulationType, row?.pipeInsulationThickness]
+      .map((value) => String(value ?? '').trim()).filter(Boolean).join(' ');
+  }
+  if (key === 'revision') return row?.revision ?? '';
+  return row?.[key] ?? '';
+}
 
 export const SUPPORT_REPORT_DIAGNOSTICS = Object.freeze({
   EMPTY_XML: 'SUPPORT_REPORT_EMPTY_XML',
