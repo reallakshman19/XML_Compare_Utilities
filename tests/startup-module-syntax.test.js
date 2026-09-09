@@ -6,8 +6,8 @@ import {
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
-import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-field-authority-9';
-import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-member-carrier-12';
+import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-carrier-conflict-13';
+import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-carrier-conflict-13';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
 import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
@@ -15,8 +15,7 @@ const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
-const SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN = '20260909-support-report-field-authority-9';
-const SUPPORT_REPORT_MEMBER_CARRIER_TOKEN = '20260909-support-report-member-carrier-12';
+const SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN = '20260909-support-report-carrier-conflict-13';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -53,7 +52,6 @@ for (const file of ['index.html', 'main-rhbg-fitguard.js', 'core/app.js', 'tabs/
 const supportReportParityEdges = [
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
-  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
@@ -80,14 +78,14 @@ for (const [source, edge, label] of [
   assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_PRIMITIVES_TOKEN}`),
     `Support Report ${label} must carry the parser primitives cache token`);
 }
-assert.ok(engine.includes(`./support-report-field-projection.js?v=${SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN}`),
-  'Support Report engine must preserve the native field authority projection token');
 for (const [source, edge, label] of [
   [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
   [addon, './support-report-engine.js', 'addon → engine'],
+  [engine, './support-report-contract.js', 'engine → contract'],
+  [engine, './support-report-field-projection.js', 'engine → field projection'],
 ]) {
-  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_MEMBER_CARRIER_TOKEN}`),
-    `Support Report ${label} must carry the resolved member carrier cache token`);
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN}`),
+    `Support Report ${label} must carry the carrier conflict cache token`);
 }
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
