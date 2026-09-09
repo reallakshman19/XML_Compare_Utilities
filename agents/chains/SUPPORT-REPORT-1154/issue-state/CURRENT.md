@@ -19,12 +19,15 @@ COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
 MAIN_BASIS: 1cb32d99bedbc68f805e611089d4dd7543bb8726
 BRANCH: agent/support-report-1154
+PR: 1165
+PR_STATE: OPEN_DRAFT
+PR_MERGEABLE: TRUE
 LATEST_MATERIAL_LEG: LEG-001
 LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-001.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0003_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0003_COMMENT_AND_PR_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5606817303
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -72,7 +75,7 @@ POST_WP001_MAIN_DRIFT: later Owner-merged #1154 production hardening exists on m
 WP001_DRIFT_DISPOSITION: SAFE_DISJOINT
 COORDINATION_STATE: SAFE_DISJOINT_WP001_COMPLETE
 
-Current-main compare reports only chain relay files and WP-001 fixture/test additions. No `tabs/support-steel-relationship-builder/**` production diff belongs to this material leg.
+PR #1165 contains exactly 12 paths: chain relay/control-plane records plus the three WP-001 fixture/test paths. No `tabs/support-steel-relationship-builder/**` production diff belongs to this material leg. GitHub reports the draft PR mergeable. No workflow runs or commit-status checks are attached to the current PR head.
 
 # Open authority conflict
 
@@ -94,4 +97,4 @@ MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_WP001_CLOSEOUT
 
 # Exact next action
 
-Open/synchronize the WP-001 draft PR, then stop material progression. Await another exact Owner progression command before any WP-002-or-later production change.
+STOP_MATERIAL_PROGRESSION. Await another exact Owner progression command before any WP-002-or-later production change.
