@@ -36,6 +36,7 @@ test('native carrier attributes project revision and combined insulation without
     REVISION: '5',
   });
   assert.equal(fields.previousName, 'PS05503');
+  assert.equal(fields.supportType, 'SHOE-250');
   assert.equal(fields.pipeInsulationTypeAndThickness, 'HC 80mm');
   assert.equal(fields.stressSystemNumber, 'QSP-SYS-01');
   assert.equal(fields.nodeNumber, '280');
@@ -45,4 +46,19 @@ test('native carrier attributes project revision and combined insulation without
 test('missing revision stays blank rather than synthesized', () => {
   const fields = project({ PIPE_INSULATION_TYPE: 'HC', PIPE_INSULATION_THICKNESS: '80mm' });
   assert.equal(fields.revision, '');
+});
+
+test('semantic role does not synthesize SUPPORT TYPE when native type is missing', () => {
+  const classifiedMember = {
+    ...member,
+    semanticRole: 'PIPE_SHOE',
+    attributes: { PREV_NAME: 'PS05503' },
+  };
+  const fields = projectSupportReportFields({
+    group,
+    reportMembers: [classifiedMember],
+    carrierRows: [],
+    coordinatePoint: null,
+  });
+  assert.equal(fields.supportType, '');
 });
