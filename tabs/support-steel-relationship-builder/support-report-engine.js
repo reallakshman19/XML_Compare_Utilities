@@ -149,7 +149,7 @@ function selectCarriersForGroup(carriers, group) {
 }
 function memberMatchesLine(member, fullLineTag) {
   const context = member?.lineContext || {};
-  if (sameLine(context.fullLineTag, fullLineTag)) return true;
+  if (clean(context.fullLineTag)) return sameLine(context.fullLineTag, fullLineTag);
   return sameLine(lineFromBranch(context.branchNode || member?.sourceParentBranch), fullLineTag);
 }
 function memberMatchesBranches(member, group) {
