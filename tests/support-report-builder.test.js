@@ -70,6 +70,8 @@ test('Support Report clash adapter reduces 20 clashes to 10 family/line groups',
   assert.equal(parsed.groups.filter((row) => row.secondarySupportFamilyId === 'PS-007').length, 5);
   assert.equal(parsed.groups.filter((row) => row.secondarySupportFamilyId === 'SL-097').length, 5);
   assert.equal(parsed.groups.find((row) => row.secondarySupportFamilyId === 'PS-007' && row.fullLineTag === LINES.p10).totalSupportPointsOnSecondary, 5);
+  const xmlOnly = buildSupportReportBundle({ clashXmlText: clashXml() });
+  assert.ok(xmlOnly.rows.slice(0, 5).every((row) => row.civilSecondarySupport === 'PS-007(REF)'));
 });
 
 test('Support Report enrichment recovers native members omitted by clash XML', () => {
@@ -84,6 +86,7 @@ test('Support Report enrichment recovers native members omitted by clash XML', (
   assert.equal(ps10.eastWest, 'E 798423mm');
   assert.equal(ps10.northSouth, 'S 1125028mm');
   assert.equal(ps10.bopElevation, 'U 100100.45mm');
+  assert.equal(ps10.remarks, ', , ');
 });
 
 test('Support Report CSV preserves the 21-column workbook layout', () => {
