@@ -7,10 +7,11 @@ import { createSequentialDraftEditPackageRuntime } from './persistence/sequentia
 import { createSequentialDraftEditRecoveryStorage } from './persistence/sequential-draft-edit-recovery-storage.js?v=20260730-ssk-3d-p1-c';
 import { mountSequentialContinuityController } from './continuity/sequential-continuity-controller.js?v=20260717-ssk-continuity-geometry-1';
 import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequential-scoped-edit-production-shadow.js?v=20260727-ssk-ts-1b-shadow-1';
-import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260730-ssk-3d-p1-c';
+import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260731-ssk-ts-3q-reconcile';
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
 import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260730-ssk-3d-p1-a';
 import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260730-ssk-3d-p1-b';
+import { createSequentialTopologyEditBoundary } from './scoped-edit/sequential-topology-edit-boundary.js?v=20260731-ssk-ts-3q-reconcile';
 import { createSequentialDraftEdit3dPilotFeature } from './scoped-edit/sequential-draft-edit-3d-pilot-feature.js?v=20260730-ssk-3d-p0-a';
 
 const STYLE_ID = 'sequential-sketcher-style';
@@ -49,6 +50,7 @@ function destroyScoped(runtime) {
   runtime.pilotFeature?.destroy(); runtime.pilotFeature = null;
   runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
   runtime.draftEditRecoveryStorage?.destroy(); runtime.draftEditRecoveryStorage = null;
+  runtime.topologyEditBoundary?.destroy(); runtime.topologyEditBoundary = null;
   runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
   runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
   runtime.draftEditPackageRuntime = null;
@@ -125,6 +127,11 @@ function createBoundaries(runtime, overlay) {
     readBaseView: runtime.supportAdjustmentBoundary.readView,
     onPublished: () => runtime.draftEdit3dController?.refresh(),
   });
+  runtime.topologyEditBoundary = createSequentialTopologyEditBoundary({
+    readBaseState: runtime.geometryEditBoundary.readCurrentState,
+    readBaseView: runtime.geometryEditBoundary.readView,
+    onPublished: () => runtime.draftEdit3dController?.refresh(),
+  });
   createDraftEditPackageRuntime(runtime); return commandBoundary;
 }
 function mountPilot(runtime, overlay, commandBoundary) {
@@ -144,6 +151,7 @@ function mountDraftEdit(runtime, overlay, commandBoundary) {
     shadow: runtime.scopedEditShadow, workspace: runtime.active, commandBoundary,
     supportAdjustmentBoundary: runtime.supportAdjustmentBoundary,
     geometryEditBoundary: runtime.geometryEditBoundary,
+    topologyEditBoundary: runtime.topologyEditBoundary,
     recoveryStorage: runtime.draftEditRecoveryStorage,
     recoverySavedAtProvider: exactClock(context.sequentialDraftEditRecoverySavedAtProvider),
     onRecoveryDiagnostic: (diagnostic) => reportDraftRecoveryDiagnostic(runtime, diagnostic),
@@ -164,6 +172,7 @@ function mountScoped(runtime, overlay) {
     runtime.pilotFeature?.destroy(); runtime.pilotFeature = null;
     runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
     runtime.draftEditRecoveryStorage?.destroy(); runtime.draftEditRecoveryStorage = null;
+    runtime.topologyEditBoundary?.destroy(); runtime.topologyEditBoundary = null;
     runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
     runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
     runtime.draftEditPackageRuntime = null;
@@ -198,7 +207,7 @@ export function installSequentialSketcherTile(container, context = {}) {
   const runtime = { container, context, tile: createTile(container), overlay: null, active: null,
     redoController: null, projectExportController: null, persistenceController: null,
     continuityController: null, previewController: null, scopedEditShadow: null,
-    supportAdjustmentBoundary: null, geometryEditBoundary: null,
+    supportAdjustmentBoundary: null, geometryEditBoundary: null, topologyEditBoundary: null,
     draftEditPackageRuntime: null, draftEditRecoveryStorage: null,
     draftEdit3dController: null, pilotFeature: null, open: null };
   runtime.open = () => openWorkspace(runtime); runtime.tile.addEventListener('click', runtime.open);
