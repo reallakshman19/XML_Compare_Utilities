@@ -2,7 +2,10 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: ['cii-writer2-multisource-retained-benchmark.spec.mjs'],
+  testMatch: [
+    'cii-writer2-multisource-retained-benchmark.spec.mjs',
+    'cii-writer2-multisource-retained-tile-ui.spec.mjs',
+  ],
   timeout: 300_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
