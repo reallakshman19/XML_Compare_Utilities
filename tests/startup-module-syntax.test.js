@@ -6,6 +6,7 @@ import {
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
+import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-field-authority-9';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
 import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
@@ -13,6 +14,7 @@ const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
+const SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN = '20260909-support-report-field-authority-9';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -50,7 +52,6 @@ const supportReportParityEdges = [
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-field-projection.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
@@ -68,8 +69,6 @@ const safety = readFileSync('tabs/support-steel-relationship-builder/support-rep
 const context = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-test-context.js', 'utf8');
 const evidence = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-evidence.js', 'utf8');
 for (const [source, edge, label] of [
-  [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
-  [addon, './support-report-engine.js', 'addon → engine'],
   [addon, './support-report-clash-safety.js', 'addon → safety'],
   [engine, './support-report-clash-safety.js', 'engine → safety'],
   [safety, './support-report-clash-test-context.js', 'safety → test context'],
@@ -78,6 +77,14 @@ for (const [source, edge, label] of [
 ]) {
   assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_PRIMITIVES_TOKEN}`),
     `Support Report ${label} must carry the parser primitives cache token`);
+}
+for (const [source, edge, label] of [
+  [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
+  [addon, './support-report-engine.js', 'addon → engine'],
+  [engine, './support-report-field-projection.js', 'engine → field projection'],
+]) {
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN}`),
+    `Support Report ${label} must carry the field authority cache token`);
 }
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
@@ -119,6 +126,23 @@ assert.equal(captured.matrix[1][7], '=67127059/28670');
 const xlsxBytes = await supportReportToXlsxBytes(xlsxFixture, { XLSX: fakeXlsx });
 assert.deepEqual([...xlsxBytes], [80, 75, 3, 4]);
 assert.deepEqual(captured.write.options, { bookType: 'xlsx', type: 'array', compression: true });
+
+const fieldAuthorityGroup = {
+  scope: 'ASIM', secondarySupportFamilyId: 'PS-007', fullLineTag: 'ASIM-1885-PL-10"-S8810105-HOT-01',
+  totalSupportPointsOnSecondary: 1, primaryPaths: [],
+};
+const classifiedOnlyFields = projectSupportReportFields({
+  group: fieldAuthorityGroup,
+  reportMembers: [{ memberId: '/PS-007.7', semanticRole: 'PIPE_SHOE', attributes: {} }],
+  carrierRows: [], coordinatePoint: null,
+});
+assert.equal(classifiedOnlyFields.supportType, '');
+const nativeTypeFields = projectSupportReportFields({
+  group: fieldAuthorityGroup,
+  reportMembers: [{ memberId: '/PS-007.7', semanticRole: 'PIPE_SHOE', attributes: { CMPSUPTYPE: 'SHOE-250' } }],
+  carrierRows: [], coordinatePoint: null,
+});
+assert.equal(nativeTypeFields.supportType, 'SHOE-250');
 
 function clashObject(nodes, itemName) {
   return `<clashobject><pathlink>${nodes.map((node) => `<node>${node}</node>`).join('')}</pathlink><smarttags><smarttag><name>Item Name</name><value>${itemName}</value></smarttag></smarttags></clashobject>`;
