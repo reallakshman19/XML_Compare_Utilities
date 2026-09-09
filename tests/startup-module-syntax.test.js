@@ -7,6 +7,7 @@ import {
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
 import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-field-authority-9';
+import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-line-custody-10';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
 import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
@@ -15,6 +16,7 @@ const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
 const SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN = '20260909-support-report-field-authority-9';
+const SUPPORT_REPORT_LINE_CUSTODY_TOKEN = '20260909-support-report-line-custody-10';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -78,13 +80,14 @@ for (const [source, edge, label] of [
   assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_PRIMITIVES_TOKEN}`),
     `Support Report ${label} must carry the parser primitives cache token`);
 }
+assert.ok(engine.includes(`./support-report-field-projection.js?v=${SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN}`),
+  'Support Report engine must preserve the native field authority projection token');
 for (const [source, edge, label] of [
   [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
   [addon, './support-report-engine.js', 'addon → engine'],
-  [engine, './support-report-field-projection.js', 'engine → field projection'],
 ]) {
-  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_FIELD_AUTHORITY_TOKEN}`),
-    `Support Report ${label} must carry the field authority cache token`);
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_LINE_CUSTODY_TOKEN}`),
+    `Support Report ${label} must carry the member line custody cache token`);
 }
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
@@ -143,6 +146,29 @@ const nativeTypeFields = projectSupportReportFields({
   carrierRows: [], coordinatePoint: null,
 });
 assert.equal(nativeTypeFields.supportType, 'SHOE-250');
+
+const lineA = 'ASIM-1885-PL-10"-LINE-A';
+const lineB = 'ASIM-1885-PL-10"-LINE-B';
+const custodyGroup = {
+  fullLineTag: lineA,
+  branchNodes: [`/${lineA}/B1`],
+  primarySupportMemberIds: ['/PS-007.7'],
+};
+const lineMember = (memberId, fullLineTag) => ({
+  memberId,
+  semanticRole: 'OTHER_FAMILY_MEMBER',
+  lineContext: fullLineTag ? { fullLineTag, branchNode: `/${fullLineTag}/B1` } : {},
+  attributes: {},
+});
+const custodySelected = supportReportEngineTest.selectMembersForGroup({
+  members: [lineMember('/PS-007.6', lineA), lineMember('/PS-007.7', lineB)],
+}, custodyGroup);
+assert.deepEqual(custodySelected.map((member) => member.memberId), ['/PS-007.6']);
+assert.equal(supportReportEngineTest.memberContextConflictsGroup(lineMember('/PS-007.7', lineB), custodyGroup), true);
+const contextlessSelected = supportReportEngineTest.selectMembersForGroup({
+  members: [lineMember('/PS-007.7', '')],
+}, custodyGroup);
+assert.deepEqual(contextlessSelected.map((member) => member.memberId), ['/PS-007.7']);
 
 function clashObject(nodes, itemName) {
   return `<clashobject><pathlink>${nodes.map((node) => `<node>${node}</node>`).join('')}</pathlink><smarttags><smarttag><name>Item Name</name><value>${itemName}</value></smarttag></smarttags></clashobject>`;
