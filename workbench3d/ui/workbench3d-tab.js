@@ -11,6 +11,10 @@
  */
 
 import { parseInputXmlRecords, XML_SCHEMA_KINDS } from '../adapters/inputxml-adapter.js';
+import {
+  closeImportedInputXmlReviewRuntime, createImportedInputXmlReviewCollection,
+  importedInputXmlReviewReceiptJson, importedInputXmlReviewText, scheduleImportedInputXmlReview,
+} from './imported-inputxml-review.js';
 import { buildCanonicalGraph } from '../adapters/canonical-graph-builder.js';
 import { buildVisualModel } from '../adapters/visual-model-builder.js';
 import { runCompare } from '../compare/compare-engine.js';
@@ -66,6 +70,7 @@ function ensureState(container) {
   if (!container[STATE_KEY]) {
     container[STATE_KEY] = {
       sourceXml: '', targetXml: '', sourceName: '', targetName: '',
+      importedInputXmlReview: createImportedInputXmlReviewCollection(),
       config: { ...DEFAULT_COMPARE_CONFIG, canonicalNormalization: true },
       transferConfig: { ...DEFAULT_TRANSFER_CONFIG },
       manualOverrides: [],
@@ -90,6 +95,64 @@ function ensureState(container) {
     };
   }
   return container[STATE_KEY];
+}
+
+function importedInputXmlReviewSource(state, side) {
+  const sourceSide = side === 'target' ? 'target' : 'source';
+  return Object.freeze({
+    side: sourceSide,
+    text: String(sourceSide === 'source' ? state.sourceXml : state.targetXml),
+    filename: String(sourceSide === 'source' ? state.sourceName : state.targetName)
+      || `${sourceSide}-pasted.input.xml`,
+  });
+}
+
+function importedInputXmlReviewDownloadName(state, side, suffix) {
+  const source = importedInputXmlReviewSource(state, side);
+  const stem = source.filename.replace(/\.(xml|txt)$/i, '').replace(/[^A-Za-z0-9._-]+/g, '_')
+    || `${source.side}-imported`;
+  return `${stem}.${suffix}`;
+}
+
+function importedInputXmlReviewControlsHtml(state, side) {
+  const source = importedInputXmlReviewSource(state, side);
+  const review = state.importedInputXmlReview?.[side]
+    ?? createImportedInputXmlReviewCollection()[side];
+  const reviewText = importedInputXmlReviewText(source, review);
+  const cls = review.status === 'PASS' ? 'is-ok' : review.status === 'FAILED' ? 'is-bad' : '';
+  const message = review.status === 'PASS'
+    ? `Validated companion: ${Number(review.result?.summary?.categorizedElements || 0)} categorized element(s).`
+    : review.diagnostic?.message || (review.status === 'RUNNING'
+      ? 'Generating read-only categorized review companion…'
+      : 'Load or paste genuine CAESAR InputXML to generate a categorized review companion.');
+  const receiptDisabled = review.status === 'IDLE' ? 'disabled' : '';
+  const reviewDisabled = reviewText ? '' : 'disabled';
+  return `<div class="wb3d-import-review" data-wb3d-import-review="${side}">
+    <div><span class="wb3d-badge ${cls}">Categorized Review: ${esc(review.status)}</span>
+      <span class="wb3d-muted">${esc(message)}</span></div>
+    <div class="wb3d-toolbar">
+      <button class="wb3d-btn" data-action="download-imported-inputxml-review" data-side="${side}" ${reviewDisabled}>Download review</button>
+      <button class="wb3d-btn" data-action="download-imported-inputxml-review-receipt" data-side="${side}" ${receiptDisabled}>Download receipt</button>
+    </div>
+  </div>`;
+}
+
+function refreshImportedInputXmlReviewControls(container, state, side) {
+  const host = container.querySelector(`[data-wb3d-import-review="${side}"]`);
+  if (host) host.outerHTML = importedInputXmlReviewControlsHtml(state, side);
+}
+
+function scheduleWorkbenchImportedInputXmlReview(container, state, side, delayMs = 450) {
+  const source = importedInputXmlReviewSource(state, side);
+  return scheduleImportedInputXmlReview({
+    container,
+    state,
+    side,
+    text: source.text,
+    filename: source.filename,
+    delayMs,
+    onChange: () => refreshImportedInputXmlReviewControls(container, state, side),
+  });
 }
 
 function markerOptionsFromSettings(settings) {
@@ -219,11 +282,13 @@ function importSection(state) {
       <div>
         <label class="wb3d-file">Source XML/InputXML <input type="file" data-action="load-file" data-side="source" accept=".xml,.txt,text/xml,application/xml,text/plain"></label>
         ${schemaBadge('Detected', 'source', state.sourceXml)} ${state.sourceName ? `<span class="wb3d-muted">${esc(state.sourceName)}</span>` : ''}
+        ${importedInputXmlReviewControlsHtml(state, 'source')}
         <textarea data-field="sourceXml" spellcheck="false" placeholder="…or paste source XML here">${esc(state.sourceXml.length > 400000 ? '' : state.sourceXml)}</textarea>
       </div>
       <div>
         <label class="wb3d-file">Target XML/InputXML <input type="file" data-action="load-file" data-side="target" accept=".xml,.txt,text/xml,application/xml,text/plain"></label>
         ${schemaBadge('Detected', 'target', state.targetXml)} ${state.targetName ? `<span class="wb3d-muted">${esc(state.targetName)}</span>` : ''}
+        ${importedInputXmlReviewControlsHtml(state, 'target')}
         <textarea data-field="targetXml" spellcheck="false" placeholder="…or paste target XML here">${esc(state.targetXml.length > 400000 ? '' : state.targetXml)}</textarea>
       </div>
     </div>
@@ -821,7 +886,13 @@ function bindHandlers(container) {
   container.addEventListener('input', (event) => {
     const s = state();
     const field = event.target.dataset?.field;
-    if (field) s[field] = event.target.value;
+    if (field) {
+      s[field] = event.target.value;
+      if (field === 'sourceXml' || field === 'targetXml') {
+        const side = field === 'sourceXml' ? 'source' : 'target';
+        void scheduleWorkbenchImportedInputXmlReview(container, s, side);
+      }
+    }
     const config = event.target.dataset?.config;
     if (config) {
       s.config[config] = event.target.type === 'checkbox' ? event.target.checked : Number(event.target.value);
@@ -915,10 +986,12 @@ function bindHandlers(container) {
     const file = event.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    if (event.target.dataset.side === 'source') { s.sourceXml = text; s.sourceName = file.name; }
+    const side = event.target.dataset.side === 'source' ? 'source' : 'target';
+    if (side === 'source') { s.sourceXml = text; s.sourceName = file.name; }
     else { s.targetXml = text; s.targetName = file.name; }
-    s.status = `Loaded ${file.name} (${Math.round(text.length / 1024)} KB) as ${event.target.dataset.side}.`;
+    s.status = `Loaded ${file.name} (${Math.round(text.length / 1024)} KB) as ${side}.`;
     renderView(container, s);
+    void scheduleWorkbenchImportedInputXmlReview(container, s, side, 0);
   });
 
   // Double-click a transfer arrow (SVG overlay) → per-pair edit popup.
@@ -936,6 +1009,21 @@ function bindHandlers(container) {
     const btn = event.target.closest('[data-action]');
     if (!btn || btn.dataset.action === 'load-file') return;
     const action = btn.dataset.action;
+
+    if (action === 'download-imported-inputxml-review') {
+      const side = btn.dataset.side === 'target' ? 'target' : 'source';
+      const source = importedInputXmlReviewSource(state, side);
+      const text = importedInputXmlReviewText(source, state.importedInputXmlReview?.[side]);
+      if (text) downloadFile(importedInputXmlReviewDownloadName(state, side, 'categorized-review.xml'), text, 'application/xml;charset=utf-8');
+      return;
+    }
+    if (action === 'download-imported-inputxml-review-receipt') {
+      const side = btn.dataset.side === 'target' ? 'target' : 'source';
+      const source = importedInputXmlReviewSource(state, side);
+      const receipt = importedInputXmlReviewReceiptJson(source, state.importedInputXmlReview?.[side]);
+      downloadFile(importedInputXmlReviewDownloadName(state, side, 'categorized-review-receipt.json'), receipt, 'application/json;charset=utf-8');
+      return;
+    }
 
     if (action === 'run-compare') rerunCompare();
 
@@ -1358,6 +1446,8 @@ function bindHandlers(container) {
           state.activeView = 'compare';
           state.status = `Generated Rev ${pair.revA} (${pair.sourceNodes} node(s)) vs Rev ${pair.revB} (${pair.targetNodes} node(s)) — running node compare…`;
           renderView(container, state);
+          void scheduleWorkbenchImportedInputXmlReview(container, state, 'source', 0);
+          void scheduleWorkbenchImportedInputXmlReview(container, state, 'target', 0);
           rerunCompare();
         } catch (error) {
           setStatus(container, state, `Revision pair failed: ${error?.message || error}`);
@@ -1374,6 +1464,7 @@ function bindHandlers(container) {
         state.activeView = 'compare';
         state.status = `Loaded generated NodeSet XML as ${tx.active}.${bothLoaded ? ' Both sides ready — running node compare…' : ' Generate/load the other side, then run compare.'}`;
         renderView(container, state);
+        void scheduleWorkbenchImportedInputXmlReview(container, state, tx.active, 0);
         if (bothLoaded) rerunCompare();
         return;
       }
@@ -1396,6 +1487,7 @@ export function renderWorkbench3dTab(container) {
     container.__wb3dBound = true;
   }
   return () => {
+    closeImportedInputXmlReviewRuntime(container);
     state.viewer?.dispose();
     state.viewer = null;
   };
