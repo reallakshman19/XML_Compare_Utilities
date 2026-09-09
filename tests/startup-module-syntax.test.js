@@ -47,7 +47,6 @@ for (const file of ['index.html', 'main-rhbg-fitguard.js', 'core/app.js', 'tabs/
   assert.match(readFileSync(file, 'utf8'), new RegExp(CACHE_TOKEN), `${file} must carry the startup hotfix cache token`);
 }
 const supportReportParityEdges = [
-  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-engine.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
@@ -70,6 +69,8 @@ const engine = readFileSync('tabs/support-steel-relationship-builder/support-rep
 const safety = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-safety.js', 'utf8');
 assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
   'Support Report bootstrap must refresh the parser-safety-aware addon entry');
+assert.ok(addon.includes(`./support-report-engine.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
+  'Support Report addon must refresh the parser-safety-aware engine edge');
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
 assert.ok(addon.includes(`./support-report-clash-safety.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
@@ -134,8 +135,8 @@ assert.equal(malformed.rowCount, 0);
 assert.equal(malformed.diagnostics[0].code, 'SUPPORT_REPORT_MALFORMED_XML');
 assert.equal(malformed.diagnostics[0].severity, 'ERROR');
 
-const ambiguousXml = `<exchange><clashtest>${`<clashresult name="Ambiguous" guid="AMB"><clashobjects>${clashObject(['/ASIM-LINE-A', '/ASIM-LINE-A/B1', '/PS-007.1'], '/PS-007.1')}${clashObject(['/ASIM-LINE-B', '/ASIM-LINE-B/B2', '/PS-007.2'], '/PS-007.2')}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}</clashobjects></clashresult>`}</clashtest></exchange>`;
-const ambiguous = parseSupportReportClashXmlSafely(ambiguousXml);
+const ambiguousResult = `<clashresult name="Ambiguous" guid="AMB"><clashobjects>${clashObject(['/ASIM-LINE-A', '/ASIM-LINE-A/B1', '/PS-007.1'], '/PS-007.1')}${clashObject(['/ASIM-LINE-B', '/ASIM-LINE-B/B2', '/PS-007.2'], '/PS-007.2')}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}</clashobjects></clashresult>`;
+const ambiguous = parseSupportReportClashXmlSafely(`<exchange><clashtest>${ambiguousResult}</clashtest></exchange>`);
 assert.equal(ambiguous.rowCount, 0);
 assert.ok(ambiguous.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_AMBIGUOUS_PIPE_SIDE' && item.severity === 'ERROR'));
 
