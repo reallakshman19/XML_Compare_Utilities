@@ -7,11 +7,13 @@ import {
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-4';
+import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-safety-5';
 
 const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PARSER_TOKEN = '20260909-support-report-parser-4';
+const SUPPORT_REPORT_SAFETY_TOKEN = '20260909-support-report-parser-safety-5';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -26,6 +28,7 @@ const syntaxFiles = [
   'tabs/support-steel-relationship-builder/support-report-contract.js',
   'tabs/support-steel-relationship-builder/support-report-clash-evidence.js',
   'tabs/support-steel-relationship-builder/support-report-clash-test-context.js',
+  'tabs/support-steel-relationship-builder/support-report-clash-safety.js',
   'tabs/support-steel-relationship-builder/support-report-field-projection.js',
   'tabs/support-steel-relationship-builder/support-report-engine.js',
   'tabs/support-steel-relationship-builder/support-report-export.js',
@@ -43,32 +46,38 @@ for (const file of syntaxFiles) {
 for (const file of ['index.html', 'main-rhbg-fitguard.js', 'core/app.js', 'tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js']) {
   assert.match(readFileSync(file, 'utf8'), new RegExp(CACHE_TOKEN), `${file} must carry the startup hotfix cache token`);
 }
-const supportReportEdges = [
+const supportReportParityEdges = [
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-engine.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
   ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-clash-evidence.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-field-projection.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-test-context.js', './support-report-clash-evidence.js'],
+  ['tabs/support-steel-relationship-builder/support-report-clash-safety.js', './support-report-clash-evidence.js'],
   ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-view.js', './support-report-contract.js'],
 ];
-for (const [file, modulePath] of supportReportEdges) {
+for (const [file, modulePath] of supportReportParityEdges) {
   const source = readFileSync(file, 'utf8');
   assert.ok(source.includes(`${modulePath}?v=${SUPPORT_REPORT_PARITY_TOKEN}`),
     `${file} must import ${modulePath} through the Support Report parity cache token`);
 }
 const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'utf8');
 const addon = readFileSync('tabs/support-steel-relationship-builder/support-report-addon.js', 'utf8');
-assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
-  'Support Report bootstrap must refresh the clash-test-aware addon entry');
+const engine = readFileSync('tabs/support-steel-relationship-builder/support-report-engine.js', 'utf8');
+const safety = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-safety.js', 'utf8');
+assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
+  'Support Report bootstrap must refresh the parser-safety-aware addon entry');
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
-assert.ok(addon.includes(`./support-report-clash-test-context.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
-  'Support Report addon must load clash-test context through the parser cache token');
+assert.ok(addon.includes(`./support-report-clash-safety.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
+  'Support Report addon must load clash safety through the parser safety cache token');
+assert.ok(engine.includes(`./support-report-clash-safety.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
+  'Support Report engine must route direct XML parsing through clash safety');
+assert.ok(safety.includes(`./support-report-clash-test-context.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
+  'Support Report clash safety must preserve clash-test context parsing');
 
 const xlsxFixture = { rows: [{
   previousName: '', scope: 'ASIM', civilSecondarySupport: 'PS-007(REF)', pipe: 'ASIM-10"-LINE', size: 250,
@@ -104,8 +113,11 @@ const xlsxBytes = await supportReportToXlsxBytes(xlsxFixture, { XLSX: fakeXlsx }
 assert.deepEqual([...xlsxBytes], [80, 75, 3, 4]);
 assert.deepEqual(captured.write.options, { bookType: 'xlsx', type: 'array', compression: true });
 
+function clashObject(nodes, itemName) {
+  return `<clashobject><pathlink>${nodes.map((node) => `<node>${node}</node>`).join('')}</pathlink><smarttags><smarttag><name>Item Name</name><value>${itemName}</value></smarttag></smarttags></clashobject>`;
+}
 function clashResult(name, member) {
-  return `<clashresult name="${name}" guid="${name}-GUID"><clashobjects><clashobject><pathlink><node>/ASIM-CU-PL</node><node>/ASIM-LINE</node><node>/ASIM-LINE/B1</node><node>/${member}</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/${member}</value></smarttag></smarttags></clashobject><clashobject><pathlink><node>/ASIM-CU-SU</node><node>/PS-007</node></pathlink><smarttags><smarttag><name>Item Name</name><value>GENSEC of /PS-007</value></smarttag></smarttags></clashobject></clashobjects></clashresult>`;
+  return `<clashresult name="${name}" guid="${name}-GUID"><clashobjects>${clashObject(['/ASIM-CU-PL', '/ASIM-LINE', '/ASIM-LINE/B1', `/${member}`], `/${member}`)}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}</clashobjects></clashresult>`;
 }
 const multiTestXml = `<exchange units="m"><clashtest name="Test A" guid="TA">${clashResult('A1', 'PS-007.1')}</clashtest><clashtest name="Test B" guid="TB">${clashResult('B1', 'PS-007.2')}</clashtest></exchange>`;
 const multiTest = parseSupportReportClashXmlWithTestContext(multiTestXml);
@@ -116,4 +128,27 @@ assert.deepEqual(multiTest.rows.map((row) => row.clashTestName), ['Test A', 'Tes
 assert.deepEqual(multiTest.rows.map((row) => row.clashTestGuid), ['TA', 'TB']);
 assert.deepEqual(multiTest.rows.map((row) => row.clashTestIndex), [0, 1]);
 assert.deepEqual(multiTest.groups[0].evidenceRows.map((row) => row.clashTestName), ['Test A', 'Test B']);
+
+const malformed = parseSupportReportClashXmlSafely('<exchange><clashtest><clashresult name="Broken"></clashtest></exchange>');
+assert.equal(malformed.rowCount, 0);
+assert.equal(malformed.diagnostics[0].code, 'SUPPORT_REPORT_MALFORMED_XML');
+assert.equal(malformed.diagnostics[0].severity, 'ERROR');
+
+const ambiguousXml = `<exchange><clashtest>${`<clashresult name="Ambiguous" guid="AMB"><clashobjects>${clashObject(['/ASIM-LINE-A', '/ASIM-LINE-A/B1', '/PS-007.1'], '/PS-007.1')}${clashObject(['/ASIM-LINE-B', '/ASIM-LINE-B/B2', '/PS-007.2'], '/PS-007.2')}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}</clashobjects></clashresult>`}</clashtest></exchange>`;
+const ambiguous = parseSupportReportClashXmlSafely(ambiguousXml);
+assert.equal(ambiguous.rowCount, 0);
+assert.ok(ambiguous.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_AMBIGUOUS_PIPE_SIDE' && item.severity === 'ERROR'));
+
+const conflictingXml = `<exchange><clashtest><clashresult name="Conflict" guid="CON"><clashobjects>${clashObject(['/ASIM-LINE', '/ASIM-LINE/B1', '/PS-007.1'], '/PS-007.1')}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}${clashObject(['/ASIM-CU-SU', '/SL-097'], 'GENSEC of /SL-097')}</clashobjects></clashresult></clashtest></exchange>`;
+const conflicting = parseSupportReportClashXmlSafely(conflictingXml);
+assert.equal(conflicting.rowCount, 0);
+assert.ok(conflicting.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_CONFLICTING_SECONDARY_FAMILY' && item.severity === 'ERROR'));
+
+const duplicateXml = `<exchange><clashtest>${clashResult('D1', 'PS-007.1')}${clashResult('D2', 'PS-007.1')}</clashtest></exchange>`;
+const duplicate = parseSupportReportClashXmlSafely(duplicateXml);
+assert.equal(duplicate.rowCount, 2);
+assert.equal(duplicate.groupCount, 1);
+assert.equal(duplicate.groups[0].evidenceRows.length, 1);
+assert.equal(duplicate.groups[0].clashCount, 1);
+assert.ok(duplicate.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_DUPLICATE_EVIDENCE' && item.duplicateCount === 1));
 console.log(`startup module syntax gate passed for ${syntaxFiles.length} JavaScript files`);
