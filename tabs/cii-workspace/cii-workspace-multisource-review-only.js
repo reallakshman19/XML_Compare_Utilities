@@ -290,14 +290,5 @@ export async function createCiiMultiSourceReviewOnlyPreviewWithVersionBridge(inp
   return buildReviewOnlyResult(input, sources, memberPreviews, options);
 }
 
-export const _test = Object.freeze({
-  sourceRows,
-  targetCustodyKey,
-  prefixCorrespondenceRow,
-  combinedCorrespondence,
-  combinedReview,
-  combinedEngineeringDeltas,
-  combinedCompareReview,
-  reviewOnlyTransferPlan,
-  buildReviewOnlyResult,
-});
+export const _test = Object.freeze({ sourceRows, targetCustodyKey, prefixCorrespondenceRow, combinedCorrespondence,
+  combinedReview, combinedEngineeringDeltas, combinedCompareReview, reviewOnlyTransferPlan, buildReviewOnlyResult });
