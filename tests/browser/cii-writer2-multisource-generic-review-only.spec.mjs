@@ -5,7 +5,7 @@ const S1 = fileURLToPath(new URL('../../Benchmark/S1.CII', import.meta.url));
 const S2 = fileURLToPath(new URL('../../Benchmark/S2.CII', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../Benchmark/T.CII', import.meta.url));
 
-test('Utilities Writer2 generic REVIEW_ONLY binds correspondence review without write controls', async ({ page }) => {
+test('Utilities Writer2 generic REVIEW_ONLY binds and filters correspondence review without write controls', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
@@ -31,6 +31,22 @@ test('Utilities Writer2 generic REVIEW_ONLY binds correspondence review without 
   await expect(reviewTable).toBeVisible({ timeout: 120_000 });
   await expect(page.locator('[data-ciiw-status]')).toContainText('Writer2 operations 0');
   await expect(page.locator('[data-ciiw-ms-review-only-transfer="1"]')).toContainText('CII_MS_REVIEW_ONLY_WRITE_AUTHORITY_REQUIRED');
+
+  const allRows = reviewTable.locator('tbody tr');
+  const initialCount = await allRows.count();
+  expect(initialCount).toBeGreaterThan(0);
+  const confidence = page.locator('[data-ciiw-confidence-filter]');
+  await confidence.selectOption('HIGH');
+  expect(await reviewTable.locator('tbody tr:visible').count()).toBeGreaterThan(0);
+  await confidence.selectOption('ALL');
+
+  const search = page.locator('[data-ciiw-search]');
+  await search.fill('S1');
+  const s1Rows = reviewTable.locator('tbody tr:visible');
+  expect(await s1Rows.count()).toBeGreaterThan(0);
+  expect((await s1Rows.allTextContents()).every((text) => text.includes('S1'))).toBe(true);
+  await search.fill('');
+  await expect(reviewTable.locator('tbody tr:visible')).toHaveCount(initialCount);
 
   const decisionControls = page.locator('[data-ciiw-ms-decision]');
   expect(await decisionControls.count()).toBeGreaterThan(0);
