@@ -207,6 +207,53 @@ test('Support Report does not replace a missing resolved carrier with a line fal
     && item.severity === 'WARN'));
 });
 
+test('Support Report blanks conflicting equally authoritative carrier fields and exposes evidence', () => {
+  const carrierByMember = new Map([
+    ['/PS-007.6', '/PIPE-A'],
+    ['/PS-007.7', '/PIPE-B'],
+  ]);
+  const supportFamilies = relationshipBundle.supportFamilies.map((family) => ({
+    ...family,
+    members: family.members.map((item) => {
+      const carrierObjectId = carrierByMember.get(item.memberId);
+      return carrierObjectId ? {
+        ...item,
+        carrierResolution: {
+          resolutionStatus: 'RESOLVED_EXPLICIT_CARRIER',
+          physicalCarrierObjectAvailable: true,
+          carrierObjectId,
+        },
+      } : item;
+    }),
+  }));
+  const conflictBundle = {
+    ...relationshipBundle,
+    supportFamilies,
+    supportCarrierResolution: { carrierObjects: [
+      {
+        carrierObjectId: '/PIPE-A',
+        lineContext: { fullLineTag: LINES.p10 },
+        attributes: { ABORE: '250', PIPE_SCHEDULE: 'PIPE Sch 100', PIPE_INSULATION_TYPE: 'HC' },
+      },
+      {
+        carrierObjectId: '/PIPE-B',
+        lineContext: { fullLineTag: LINES.p10 },
+        attributes: { ABORE: '300', PIPE_SCHEDULE: 'PIPE Sch 120', PIPE_INSULATION_TYPE: 'HC' },
+      },
+    ] },
+  };
+  const report = buildSupportReportBundle({ clashXmlText: clashXml(), relationshipBundle: conflictBundle });
+  const ps10 = report.rows.find((row) => row.civilSecondarySupport === 'PS-007(REF)' && row.pipe === LINES.p10);
+  assert.equal(ps10.size, '');
+  assert.equal(ps10.pipeSchedule, '');
+  assert.equal(ps10.pipeInsulationType, 'HC');
+  assert.deepEqual(ps10.evidence.resolvedCarrierObjectIds, ['/PIPE-A', '/PIPE-B']);
+  assert.deepEqual(ps10.evidence.carrierObjectIds, ['/PIPE-A', '/PIPE-B']);
+  assert.deepEqual(ps10.evidence.carrierAttributeConflicts.map((item) => item.field), ['size', 'pipeSchedule']);
+  assert.ok(ps10.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_CARRIER_ATTRIBUTE_CONFLICT'
+    && item.severity === 'WARN'));
+});
+
 test('Support Report column contract matches the retained workbook header', () => {
   assert.equal(SUPPORT_REPORT_COLUMNS.length, 21);
   assert.deepEqual(SUPPORT_REPORT_COLUMNS.map((column) => column.label), retainedWorkbookHeader());
