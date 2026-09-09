@@ -16,6 +16,7 @@ const syntaxFiles = [
   'tabs/support-steel-relationship-builder/support-restraint-local-frame.js',
   'tabs/support-steel-relationship-builder/support-report-contract.js',
   'tabs/support-steel-relationship-builder/support-report-clash-evidence.js',
+  'tabs/support-steel-relationship-builder/support-report-field-projection.js',
   'tabs/support-steel-relationship-builder/support-report-engine.js',
   'tabs/support-steel-relationship-builder/support-report-export.js',
   'tabs/support-steel-relationship-builder/support-report-view.js',
