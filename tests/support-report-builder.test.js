@@ -6,7 +6,10 @@ import {
   SUPPORT_REPORT_COLUMNS,
   supportReportColumnValue,
 } from '../tabs/support-steel-relationship-builder/support-report-contract.js';
-import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js';
+import {
+  buildSupportReportBundle,
+  _test as supportReportEngineTest,
+} from '../tabs/support-steel-relationship-builder/support-report-engine.js';
 import { supportReportToCsv } from '../tabs/support-steel-relationship-builder/support-report-export.js';
 
 const LINES = Object.freeze({
@@ -101,6 +104,34 @@ test('Support Report enrichment recovers native members omitted by clash XML', (
   assert.equal(ps10.remarks, ', , ');
   assert.equal(supportReportColumnValue(ps10, 'pipeInsulationTypeAndThickness'), 'HC 120MM');
   assert.equal(supportReportColumnValue(ps10, 'revision'), '');
+});
+
+test('Support Report carrier branch fallback cannot override explicit full-line custody', () => {
+  const lineA = 'ASIM-1885-PL-10"-LINE-A';
+  const lineB = 'ASIM-1885-PL-10"-LINE-B';
+  const group = { fullLineTag: lineA, branchNodes: [`/${lineA}/B1`] };
+  const conflicting = {
+    carrierObjectId: '/PIPE-CONFLICT',
+    lineContext: { fullLineTag: lineB, branchNode: `/${lineA}/B1` },
+  };
+  const branchOnly = {
+    carrierObjectId: '/PIPE-BRANCH',
+    lineContext: { branchNode: `/${lineA}/B1` },
+  };
+  assert.deepEqual(
+    supportReportEngineTest.selectCarriersForGroup([conflicting, branchOnly], group)
+      .map((carrier) => carrier.carrierObjectId),
+    ['/PIPE-BRANCH'],
+  );
+  const exact = {
+    carrierObjectId: '/PIPE-EXACT',
+    lineContext: { fullLineTag: lineA, branchNode: `/${lineA}/B1` },
+  };
+  assert.deepEqual(
+    supportReportEngineTest.selectCarriersForGroup([conflicting, branchOnly, exact], group)
+      .map((carrier) => carrier.carrierObjectId),
+    ['/PIPE-EXACT'],
+  );
 });
 
 test('Support Report column contract matches the retained workbook header', () => {
