@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-evidence.js';
+import {
+  SUPPORT_REPORT_COLUMNS,
+  supportReportColumnValue,
+} from '../tabs/support-steel-relationship-builder/support-report-contract.js';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js';
 import { supportReportToCsv } from '../tabs/support-steel-relationship-builder/support-report-export.js';
 
@@ -63,6 +68,13 @@ const relationshipBundle = {
   }] },
 };
 
+function retainedWorkbookHeader() {
+  const sample = readFileSync('.preview-samples/wb3d-table7.txt', 'utf8');
+  const headerRecord = sample.slice(0, sample.indexOf('\nPS06855'));
+  return headerRecord.split('\t').slice(0, 21).map((value) => value
+    .replace(/^"|"$/g, '').replace(/\s+/g, ' ').trim());
+}
+
 test('Support Report clash adapter reduces 20 clashes to 10 family/line groups', () => {
   const parsed = parseSupportReportClashXml(clashXml());
   assert.equal(parsed.rowCount, 20);
@@ -87,12 +99,26 @@ test('Support Report enrichment recovers native members omitted by clash XML', (
   assert.equal(ps10.northSouth, 'S 1125028mm');
   assert.equal(ps10.bopElevation, 'U 100100.45mm');
   assert.equal(ps10.remarks, ', , ');
+  assert.equal(supportReportColumnValue(ps10, 'pipeInsulationTypeAndThickness'), 'HC 120MM');
+  assert.equal(supportReportColumnValue(ps10, 'revision'), '');
 });
 
-test('Support Report CSV preserves the 21-column workbook layout', () => {
+test('Support Report column contract matches the retained workbook header', () => {
+  assert.equal(SUPPORT_REPORT_COLUMNS.length, 21);
+  assert.deepEqual(SUPPORT_REPORT_COLUMNS.map((column) => column.label), retainedWorkbookHeader());
+  assert.equal(SUPPORT_REPORT_COLUMNS[0].key, 'previousName');
+  assert.equal(SUPPORT_REPORT_COLUMNS[17].key, 'pipeInsulationTypeAndThickness');
+  assert.equal(SUPPORT_REPORT_COLUMNS[20].key, 'revision');
+});
+
+test('Support Report CSV preserves 21 columns and blanks only legacy reference header', () => {
   const report = buildSupportReportBundle({ clashXmlText: clashXml(), relationshipBundle });
   const lines = supportReportToCsv(report, { legacyBlankPrimarySupportHeader: true }).split('\n');
   assert.equal(lines.length, 12);
   assert.equal((lines[0].match(/,/g) || []).length + 1, 21);
-  assert.match(lines[1], /"SCOPE","CIVILSECONDARYSUPPORT","PIPE"/);
+  assert.match(lines[1], /^"PREV PRIMARY SUPPORT NAME","SCOPE","CIVIL SECONDARY SUPPORT \(Tag provided by Civil\)"/);
+  const headers = lines[1].split(',');
+  assert.equal(headers[5], '"PIPING PRIMARY SUPPORT"');
+  assert.equal(headers[7], '""');
+  assert.equal(headers[20], '"REVISION"');
 });
