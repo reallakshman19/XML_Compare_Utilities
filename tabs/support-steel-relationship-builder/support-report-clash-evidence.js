@@ -2,6 +2,11 @@ import {
   SUPPORT_REPORT_DIAGNOSTICS,
   SUPPORT_REPORT_EVIDENCE_SCHEMA,
 } from './support-report-contract.js?v=20260909-support-report-parity-2';
+import {
+  decodeXmlEntities,
+  parseNumber,
+  stripLeadingSlash,
+} from '../ps-family-clash-audit/ps-family-token-utils.js';
 
 const FAMILY_RE = /(?:^|[^A-Z0-9])((?:PS|SL)-\d+[A-Z]?)(?=$|[^A-Z0-9])/i;
 const MEMBER_RE = /(?:^|[^A-Z0-9])((?:PS|SL)-\d+[A-Z]?(?:\.\d+)?)(?=$|[^A-Z0-9])/i;
@@ -235,21 +240,9 @@ function parseAttributes(text) {
   while ((match = regex.exec(String(text || '')))) attrs[match[1]] = decodeXmlEntities(match[2]);
   return attrs;
 }
-function decodeXmlEntities(value) {
-  return String(value || '')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-}
-function cleanName(value) { return decodeXmlEntities(value).trim().replace(/^\/+/, ''); }
+function cleanName(value) { return stripLeadingSlash(value); }
 function deriveScope(fullLineTag) {
   return cleanName(fullLineTag).split('-')[0] || '';
-}
-function parseNumber(value) {
-  const number = Number(String(value ?? '').replace(/,/g, '').trim());
-  return Number.isFinite(number) ? number : null;
 }
 function token(value) { return cleanName(value).replace(/\(REF\)$/iu, '').toUpperCase(); }
 function averagePoint(points) {
