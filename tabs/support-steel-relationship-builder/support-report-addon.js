@@ -6,6 +6,7 @@ import { parseSupportSteelJson } from './support-steel-source-utils.js?v=2026071
 
 const POPUP_SELECTOR = '[data-ssrb-popup="1"]';
 const TAB_KEY = 'support-report';
+const SUPPORT_REPORT_FAMILY_PATTERN = '^/((?:PS|SL)-[A-Z0-9_-]+)';
 const mounted = new WeakSet();
 const stateByPopup = new WeakMap();
 let observer = null;
@@ -51,7 +52,7 @@ function mount(popup) {
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes line ↔ secondary-support evidence. The staged-model relationship bundle enriches complete primary-support membership and native attributes.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)"><div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL members and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div></div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe line tag. If the combined staged model is loaded, the report recovers native family members that do not appear in the clash XML.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button><button type="button" data-ssr-download="1" disabled>Download CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Build Relationships/load the combined staged model for complete enrichment.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes line ↔ secondary-support evidence. The staged-model relationship bundle enriches complete PS/SL primary-support membership and native attributes.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)"><div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL members and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div></div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe line tag. If the combined staged model is loaded, the report rebuilds family evidence with PS + SL support-family recognition and recovers native members that do not appear in the clash XML.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button><button type="button" data-ssr-download="1" disabled>Download CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Load the combined staged model for complete PS/SL enrichment.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 
 async function readXmlFile(popup) {
@@ -76,7 +77,7 @@ function run(popup) {
       const combinedInput = parseSupportSteelJson(modelText, 'Combined staged model source');
       relationshipBundle = buildSupportSteelRelationshipBundle({
         combinedInput,
-        config: readExistingRules(popup),
+        config: supportReportRules(popup),
       });
     }
     const report = buildSupportReportBundle({ clashXmlText: xmlText, relationshipBundle });
@@ -99,6 +100,13 @@ function readExistingRules(popup) {
     values[key] = node.type === 'checkbox' ? node.checked : node.type === 'number' ? Number(node.value) : node.value;
   });
   return values;
+}
+
+function supportReportRules(popup) {
+  return {
+    ...readExistingRules(popup),
+    supportFamilyPattern: SUPPORT_REPORT_FAMILY_PATTERN,
+  };
 }
 
 function invalidate(popup, message) {
