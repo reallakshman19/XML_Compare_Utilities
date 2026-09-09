@@ -22,8 +22,8 @@ EP0005_MAIN_BASIS: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
 BRANCH: agent/support-report-1154
 PR: 1165
 PR_STATE: OPEN_DRAFT
-PR_HEAD_AT_RECONCILIATION: d0eac30a4e4794649f40ddfb8af85047200d1ead
-PR_MERGEABLE: FALSE_CONFLICTING_AT_FINAL_RECONCILIATION
+PR_HEAD_AT_RECONCILIATION: e0cc43512af34252324893aad01edd5413251122
+PR_MERGEABLE: TRUE_AT_LATEST_RECONCILIATION
 PR_REVIEW_COUNT: 1_COMMENTED
 PR_UNRESOLVED_REVIEW_THREADS: 0
 PR_REQUIRED_CHECKS_STATUS: NONE_ATTACHED_TO_RECONCILED_HEAD
@@ -47,7 +47,7 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
 - TASK-009 | PARTIAL | parser/field/carrier paths fail closed in several unsafe cases; full no-fabrication qualification remains open
-- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003; PR #1165 delivery branch is currently conflicting with main
+- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003; PR #1165 is open/draft/mergeable but merge remains Owner-only
 
 # Input ledger
 
@@ -89,9 +89,9 @@ CURRENT_MAIN: b1595d8f81cf2a2e1fafd33b03b18c3be362c785
 POST_EP0005_MAIN_DRIFT:
 - b1595d8f81cf2a2e1fafd33b03b18c3be362c785 — carrier-derived size/schedule/insulation/stress/node/revision now resolve by nonblank consensus and conflicting authoritative values blank only the conflicted field with `SUPPORT_REPORT_CARRIER_ATTRIBUTE_CONFLICT`; refs WP-004/WP-005; commit explicitly contains no clash parsing or grouping change
 POST_ENDPOINT_DRIFT_DISPOSITION: MATERIAL_WITHIN_LATER_WP004_WP005_BOUNDARY; DOES_NOT_INVALIDATE_WP003
-COORDINATION_STATE: WP003_SAFE_COMPLETE; PR1165_CONFLICTING_WITH_CURRENT_MAIN
+COORDINATION_STATE: WP003_SAFE_COMPLETE; PR1165_MERGEABLE_AT_LATEST_RECONCILIATION
 
-Compare `b1595d8f...` → PR head shows the branch's net diff remains chain/evidence/fixture/test additions only and contains no `tabs/support-steel-relationship-builder/**` production path. GitHub nevertheless reports PR #1165 mergeable=false after main advancement; do not infer parser failure from mergeability.
+Compare `b1595d8f...` → PR head shows the branch's net diff remains chain/evidence/fixture/test additions only and contains no `tabs/support-steel-relationship-builder/**` production path. GitHub briefly reported mergeable=false during recomputation after branch/main movement, then recomputed PR #1165 as mergeable=true on head `e0cc4351...`; the transient false value is not current truth.
 
 # Open authority conflict
 
@@ -113,4 +113,4 @@ MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_WP003_ADOPTION_NO_CHAIN_MATERIAL
 
 # Exact next action
 
-STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority. Also reconcile the now-conflicting WP-001 PR #1165 before any merge-readiness claim. Do not fabricate the staged model or resolve branch conflicts by guessing engineering intent.
+STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority. Re-check PR #1165 mergeability/reviews/checks before any merge-readiness claim. Do not fabricate the staged model.
