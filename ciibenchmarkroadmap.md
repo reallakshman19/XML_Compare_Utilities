@@ -65,10 +65,27 @@ Benchmark/CIICompare/Writer2/CII_WRITER2_BENCHMARKS.json
 input      BM_CII_SOURCE.CII
 operation  none
 expected   byte-identical identity
-state      PLANNED
+state      AUTHORED_SELF_CHECK
+runtime    SELF_CHECK_SOURCE_REVIEW
 ```
 
 Purpose: zero-delta intake/export custody.
+
+Independent byte-identity oracle:
+
+```text
+Benchmark/CIICompare/Writer2/cii-writer2-benchmark-identity-oracle.js
+blob 79a5242bea3a2ade5b72a343c135686a6c25e7ea
+```
+
+Authored self-check:
+
+```text
+tests/cii-workspace-writer2-benchmark-identity-control.test.js
+blob 0479cbe7db7cd02c9f85d63d538b1a1de52e10a6
+```
+
+The self-check binds the untouched frozen bytes as the independent postimage authority, requires unchanged topology/content hash, and proves that zero operations do not manufacture Writer2 mutation authority. This authored source-level self-check is not a public-product runtime PASS.
 
 ### BM-W2-01 — retained-real NODENAME CREATE
 
@@ -382,7 +399,7 @@ AUTHORED_PUBLIC_RUNTIME_NOT_RUN
 
 ### BM-W2-05 — tri-family one-preimage composite
 
-Only after BM-W2-01, BM-W2-02 and BM-W2-03 independently pass **public** runtime qualification:
+The tri-family self-check is authored from one original preimage. Public composite qualification still depends on BM-W2-01, BM-W2-02 and BM-W2-03 independently passing **public** runtime qualification:
 
 ```text
 NODENAME CREATE node10 -> BM-N10
@@ -400,17 +417,25 @@ SIF&TEES    9 -> 8
 NUMELT      40 -> 40
 ```
 
+Authored self-check:
+
+```text
+tests/cii-workspace-writer2-benchmark-trifamily-composite.test.js
+blob b21428dd68bcc7d147f192ff693187bd9db7b595
+```
+
 Current state:
 
 ```text
-BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
+AUTHORED_SELF_CHECK
+PUBLIC_RUNTIME_BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
 ```
 
-Do not author a composite merely to bypass an unexecuted public standalone gate.
+The authored self-check does not bypass or satisfy the standalone public-runtime gate.
 
 ### BM-W2-06 — four-family stress case
 
-After BM-W2-01/02/03/04 **public** runtime qualification:
+The four-family self-check is authored from one original preimage. Public composite qualification still depends on BM-W2-01/02/03/04 **public** runtime qualification:
 
 ```text
 NODENAME CREATE
@@ -429,11 +454,21 @@ Expected cardinality vector:
 | RESTRAINT | 7 | 6 |
 | SIF&TEES | 9 | 8 |
 
+Authored self-check:
+
+```text
+tests/cii-workspace-writer2-benchmark-fourfamily-composite.test.js
+blob a5a53ce9b7362b88a0c3525a5b654766d2a5a4e5
+```
+
 Current state:
 
 ```text
-BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
+AUTHORED_SELF_CHECK
+PUBLIC_RUNTIME_BLOCKED_ON_STANDALONE_PUBLIC_RUNTIME_QUALIFICATION
 ```
+
+The authored self-check does not bypass or satisfy the standalone public-runtime gate.
 
 ## Negative benchmark suite
 
@@ -476,6 +511,7 @@ Level-A repository oracles independently parse fixed sections and construct expe
 Current Level-A oracle set:
 
 ```text
+BM-W2-00  cii-writer2-benchmark-identity-oracle.js
 BM-W2-01  cii-writer2-benchmark-nodename-oracle.js
 BM-W2-02  cii-writer2-benchmark-sif-oracle.js
 BM-W2-03  cii-writer2-benchmark-hanger-oracle.js
@@ -545,7 +581,7 @@ Current state: `NOT_READY`.
 ```text
 Phase 1  benchmark custody + BM-W2-04 oracle        AUTHORED / public runtime NOT_RUN
 Phase 2  BM-W2-01/02/03/04 standalone families     FOCUSED EXACT RUNTIME PASS / public runtime NOT_RUN
-Phase 3  BM-W2-05/06 composites                     BLOCKED on standalone public runtime
+Phase 3  BM-W2-05/06 composites                     AUTHORED SELF_CHECK / public runtime BLOCKED
 Phase 4  generated V14                               AUTHORED gate / runtime NOT_RUN
 Phase 5  native V14                                  AUTHORED gate / runtime NOT_RUN
 Phase 6  release bundle                              NOT_READY
@@ -562,7 +598,7 @@ FOCUSED FAMILY RUNTIME       PASS for NODENAME/SIF/HANGER/RESTRAINT
 PUBLIC PRODUCT RUNTIME      NOT_RUN
 W2 A / W2 B                 NOT_RUN
 ADDITIONAL PRODUCTION FIX   requires a new reproduced product falsifier
-BM-W2-05 / BM-W2-06         blocked on standalone public runtime
+BM-W2-05 / BM-W2-06         SELF_CHECK AUTHORED / public runtime blocked on standalone public runtime
 RELEASE FREEZE              NOT_READY
 ```
 
@@ -576,7 +612,7 @@ The next legitimate runtime sequence remains:
 5. node tests/cii-workspace-writer2-benchmark-hanger-delete-all.test.js
 6. node tests/cii-workspace-writer2-benchmark-restraint-delete.test.js
 7. stop at first authored falsifier and isolate it
-8. only after standalone public PASS, author/run BM-W2-05 and BM-W2-06
+8. only after standalone public PASS, run/qualify the already-authored BM-W2-05 and BM-W2-06 self-check composites
 9. run playwright.cii-writer2.config.mjs for W2.35/W2.35a/W2.40
 ```
 
