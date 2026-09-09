@@ -2,12 +2,15 @@ import {
   SUPPORT_REPORT_DIAGNOSTICS,
   SUPPORT_REPORT_ROW_SCHEMA,
   SUPPORT_REPORT_SCHEMA,
-} from './support-report-contract.js?v=20260909-support-report-parity-2';
+} from './support-report-contract.js?v=20260909-support-report-carrier-conflict-13';
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
 } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
-import { projectSupportReportFields } from './support-report-field-projection.js?v=20260909-support-report-field-authority-9';
+import {
+  projectSupportReportFields,
+  supportReportCarrierAttributeConflicts,
+} from './support-report-field-projection.js?v=20260909-support-report-carrier-conflict-13';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 
@@ -95,6 +98,15 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       { fullLineTag: group.fullLineTag, resolvedCarrierObjectIds },
     ));
   }
+  const carrierAttributeConflicts = supportReportCarrierAttributeConflicts(carrierRows);
+  if (carrierAttributeConflicts.length) {
+    rowDiagnostics.push(diagnostic(
+      'WARN',
+      SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ATTRIBUTE_CONFLICT,
+      `Conflicting authoritative carrier metadata was found for ${carrierAttributeConflicts.map((item) => item.field).join(', ')}; conflicting report fields were left blank.`,
+      { fullLineTag: group.fullLineTag, carrierAttributeConflicts },
+    ));
+  }
 
   const representativeMember = chooseRepresentativeMember(reportMembers, clashIds);
   const nativePoint = representativeMember?.positionGlobal || null;
@@ -121,6 +133,7 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       branchNodes: group.branchNodes,
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
+      carrierAttributeConflicts,
       nativeCoordinateAvailable: Boolean(nativePoint),
       clashCoordinateFallbackUsed: !nativePoint && Boolean(coordinatePoint),
     }),
