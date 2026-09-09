@@ -71,7 +71,8 @@ function autoAnchorState(inspection) {
 }
 function inspectionMarkup(state) {
   const rows = state.auto.choices.map((choice) => `<tr><td><b>${h(choice.sourceId)}</b><small>${h(choice.fileName)}</small></td><td>${h(choice.status || 'REVIEW')}</td><td>${h(choice.sourceNodeId || '—')} ↔ ${h(choice.targetNodeId || '—')}</td><td>${h(choice.confidence || '—')}</td><td>${h(choice.basisMethod || choice.reason || '—')}</td></tr>`).join('');
-  return `<section class="ciiw-base-set" data-ciiw-ms-review-only-inspection="1"><header><div><b>Generic multi-source review only</b><span>${h(state.sources.length)} independent SOURCE members · no Writer2 write authority</span></div><span class="ciiw-corroboration">REVIEW ONLY</span></header><p>Each source is normalized and compared independently against the same TARGET. Only deterministic READY Auto Anchor bases are admitted in this generic UI path. No BM-001 scope or Writer2 Apply can be created.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Auto Anchor</th><th>Base pair</th><th>Confidence</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table><p><b>${state.auto.ready ? 'READY FOR REVIEW' : 'REVIEW BLOCKED'}</b>${state.auto.unresolved.length ? ` · deterministic base unresolved for ${h(state.auto.unresolved.join(', '))}` : ''}</p></section>`;
+  const compare = state.auto.ready ? '<div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-review-only-compare>Compare review →</button></div>' : '';
+  return `<section class="ciiw-base-set" data-ciiw-ms-review-only-inspection="1"><header><div><b>Generic multi-source review only</b><span>${h(state.sources.length)} independent SOURCE members · no Writer2 write authority</span></div><span class="ciiw-corroboration">REVIEW ONLY</span></header><p>Each source is normalized and compared independently against the same TARGET. Only deterministic READY Auto Anchor bases are admitted in this generic UI path. No BM-001 scope or Writer2 Apply can be created.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Auto Anchor</th><th>Base pair</th><th>Confidence</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table><p><b>${state.auto.ready ? 'READY FOR REVIEW' : 'REVIEW BLOCKED'}</b>${state.auto.unresolved.length ? ` · deterministic base unresolved for ${h(state.auto.unresolved.join(', '))}` : ''}</p>${compare}</section>`;
 }
 function waitingMarkup(state) {
   return `<section class="ciiw-transfer-scope" data-ciiw-ms-transfer="1" data-ciiw-ms-review-only-transfer="1"><header><div><h3>Multi-source review-only boundary</h3><p>Correspondence review is allowed; target mutation is blocked by design.</p></div><div class="ciiw-transfer-scope-status">${state.auto.ready ? 'READY FOR REVIEW' : 'BLOCKED'}</div></header><p><b>Writer2 blocker:</b> ${h(CII_MS_REVIEW_ONLY_WRITE_BLOCKER)}</p></section>`;
@@ -117,7 +118,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
     const auto = autoAnchorState(inspection);
     state = { mode: ROUTER_MODE, sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII', inspection, auto, preview: null };
     if (evidence) evidence.innerHTML = inspectionMarkup(state);
-    if (results) results.innerHTML = `<p>${auto.ready ? 'Deterministic base authority is ready. Click Compare models for read-only correspondence review.' : 'Generic review needs deterministic READY Auto Anchor bases for every source. No Writer2 authority is available.'}</p>`;
+    if (results) results.innerHTML = `<p>${auto.ready ? 'Deterministic base authority is ready. Click Compare review for read-only correspondence review.' : 'Generic review needs deterministic READY Auto Anchor bases for every source. No Writer2 authority is available.'}</p>`;
     if (executive) executive.innerHTML = '';
     if (deltas) deltas.innerHTML = '<p>Engineering deltas will appear after read-only Compare.</p>';
     if (transfer) transfer.innerHTML = waitingMarkup(state);
@@ -168,7 +169,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
       stop(event); void routeInspect(); return;
     }
     if (state?.mode !== ROUTER_MODE) return;
-    if (target === analyzeButton || target.matches('[data-ciiw-ms-compare-now]')) { stop(event); void compareGeneric(); return; }
+    if (target === analyzeButton || target.matches('[data-ciiw-ms-compare-now],[data-ciiw-ms-review-only-compare]')) { stop(event); void compareGeneric(); return; }
     if (target === csvButton && state.preview) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-correspondence.csv', state.preview.artifacts.correspondenceCsv, 'text/csv'); return; }
     if (target === jsonButton && state.preview) { stop(event); downloadPayload(container.ownerDocument, 'cii-multisource-review-only-audit.json', state.preview.artifacts.auditJson, 'application/json'); return; }
     if (target.matches('[data-ciiw-refresh-review],[data-ciiw-accept-high],[data-ciiw-accept-medium],[data-ciiw-ms-bind-expected],[data-ciiw-ms-apply]')) {
