@@ -2,12 +2,12 @@ import {
   SUPPORT_REPORT_DIAGNOSTICS,
   SUPPORT_REPORT_ROW_SCHEMA,
   SUPPORT_REPORT_SCHEMA,
-} from './support-report-contract.js';
+} from './support-report-contract.js?v=20260909-support-report-parity-2';
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
-} from './support-report-clash-evidence.js';
-import { projectSupportReportFields } from './support-report-field-projection.js';
+} from './support-report-clash-evidence.js?v=20260909-support-report-parity-2';
+import { projectSupportReportFields } from './support-report-field-projection.js?v=20260909-support-report-parity-2';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 
