@@ -31,6 +31,11 @@ function transferFields(row, transferPlan) {
 function reviewProjection(row, compareReview) {
   return (compareReview?.rows || []).find((item) => item.correspondenceId === row.correspondenceId) || null;
 }
+function sourceMember(row, sourceSet) {
+  const id = String(row?.sourceId || '');
+  if (!id) return null;
+  return (sourceSet?.members || []).find((member) => String(member?.sourceId || '') === id) || null;
+}
 
 export function correspondenceRowsToCsv(correspondence, context = {}) {
   const rows = [
@@ -40,9 +45,12 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
   ].map((row) => {
     const transfer = transferFields(row, context.transferPlan);
     const projection = reviewProjection(row, context.compareReview);
+    const member = sourceMember(row, context.sourceSet);
     return {
       kind: row.kind,
       sourceId: row.sourceId || '',
+      sourceFileName: member?.fileName || '',
+      sourceOriginalSha256: member?.originalSha256 || '',
       operation: rowOperation(row),
       confidence: projection?.confidence || row.status,
       workflowStatus: row.status,
@@ -60,7 +68,7 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       blockers: transfer.blockers,
     };
   });
-  const headers = ['kind', 'sourceId', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
+  const headers = ['kind', 'sourceId', 'sourceFileName', 'sourceOriginalSha256', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }
 
@@ -70,8 +78,14 @@ export function ciiWorkspaceAuditToJson(audit) {
 
 export function ciiWorkspaceArtifactBundle(result) {
   const review = result?.audit?.review || result?.review || {};
+  const sourceSet = result?.sourceSet || result?.audit?.sourceSet || null;
   return Object.freeze({
-    correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, { review, transferPlan: result?.transferPlan, compareReview: result?.compareReview }),
+    correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, {
+      review,
+      sourceSet,
+      transferPlan: result?.transferPlan,
+      compareReview: result?.compareReview,
+    }),
     auditJson: ciiWorkspaceAuditToJson(result?.audit),
     modifiedTargetCii: null,
   });
