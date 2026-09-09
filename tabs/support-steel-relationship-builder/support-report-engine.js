@@ -133,9 +133,10 @@ function selectMembersForGroup(family, group) {
   if (!family) return [];
   const candidates = (family.members || []).filter(isReportableMember);
   const exactLine = candidates.filter((member) => memberMatchesLine(member, group.fullLineTag));
-  const branchMatches = candidates.filter((member) => memberMatchesBranches(member, group.branchNodes));
+  const branchMatches = candidates.filter((member) => memberMatchesBranches(member, group));
   const directClash = candidates.filter((member) => group.primarySupportMemberIds
-    .some((id) => token(id) === token(member.memberId)));
+    .some((id) => token(id) === token(member.memberId)))
+    .filter((member) => !memberContextConflictsGroup(member, group));
   const selected = exactLine.length ? exactLine : branchMatches.length ? branchMatches : directClash;
   return uniqueMembers([...selected, ...directClash]);
 }
@@ -151,10 +152,21 @@ function memberMatchesLine(member, fullLineTag) {
   if (sameLine(context.fullLineTag, fullLineTag)) return true;
   return sameLine(lineFromBranch(context.branchNode || member?.sourceParentBranch), fullLineTag);
 }
-function memberMatchesBranches(member, branchNodes) {
-  const candidates = [member?.lineContext?.branchNode, member?.sourceParentBranch].filter(Boolean).map(token);
-  const branchTokens = new Set((branchNodes || []).map(token));
+function memberMatchesBranches(member, group) {
+  const context = member?.lineContext || {};
+  if (clean(context.fullLineTag) && !sameLine(context.fullLineTag, group?.fullLineTag)) return false;
+  const candidates = [context.branchNode, member?.sourceParentBranch].filter(Boolean).map(token);
+  const branchTokens = new Set((group?.branchNodes || []).map(token));
   return candidates.some((candidate) => branchTokens.has(candidate));
+}
+function memberContextConflictsGroup(member, group) {
+  const context = member?.lineContext || {};
+  const explicitLine = clean(context.fullLineTag);
+  if (explicitLine && !sameLine(explicitLine, group?.fullLineTag)) return true;
+  const branches = [context.branchNode, member?.sourceParentBranch].filter(Boolean).map(token);
+  const groupBranches = new Set((group?.branchNodes || []).map(token));
+  return !explicitLine && branches.length > 0 && groupBranches.size > 0
+    && !branches.some((branch) => groupBranches.has(branch));
 }
 function isReportableMember(member) {
   if (!member || SYMBOLIC_ROLES.has(String(member.semanticRole || '').toUpperCase())) return false;
@@ -211,4 +223,8 @@ function token(value) { return stripLeadingSlash(value).replace(/\(REF\)$/iu, ''
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
-export const _test = Object.freeze({ selectMembersForGroup, selectCarriersForGroup });
+export const _test = Object.freeze({
+  selectMembersForGroup,
+  selectCarriersForGroup,
+  memberContextConflictsGroup,
+});
