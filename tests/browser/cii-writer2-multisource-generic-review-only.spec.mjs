@@ -29,9 +29,9 @@ test('Utilities Writer2 routes a non-retained multi-source set to REVIEW_ONLY wi
   await expect(inspection).toContainText('Generic multi-source review only');
   await expect(inspection).toContainText('READY FOR REVIEW');
   await expect(page.locator('[data-ciiw-status]')).toContainText('REVIEW ONLY');
-  await expect(page.locator('[data-ciiw-analyze]')).toBeEnabled();
+  await expect(page.locator('[data-ciiw-ms-review-only-compare]')).toBeVisible();
 
-  await page.locator('[data-ciiw-analyze]').click();
+  await page.locator('[data-ciiw-ms-review-only-compare]').click();
   const reviewTable = page.locator('[data-ciiw-ms-review-table="1"]');
   await expect(reviewTable).toBeVisible({ timeout: 120_000 });
   await expect(page.locator('[data-ciiw-status]')).toContainText('Writer2 operations 0');
