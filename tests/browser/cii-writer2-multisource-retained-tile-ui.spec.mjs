@@ -6,7 +6,7 @@ const S2 = fileURLToPath(new URL('../../Benchmark/S2.CII', import.meta.url));
 const S3 = fileURLToPath(new URL('../../Benchmark/S3.CII', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../Benchmark/T.CII', import.meta.url));
 
-test('Utilities Writer2 tile seeds retained S1/S2/S3 Auto Anchor and stops at explicit Compare review', async ({ page }) => {
+test('Utilities Writer2 tile walks retained S1/S2/S3 from Auto Anchor through explicit review to bound Writer2 scope', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
@@ -65,4 +65,19 @@ test('Utilities Writer2 tile seeds retained S1/S2/S3 Auto Anchor and stops at ex
   await expect(page.locator('[data-ciiw-refresh-review]')).toBeEnabled();
   await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toBeVisible();
   await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
+
+  await page.locator('[data-ciiw-accept-high]').click();
+  await page.locator('[data-ciiw-accept-medium]').click();
+  await expect(page.locator('[data-ciiw-status]')).toContainText('Apply approvals to Transfer Preview');
+
+  await page.locator('[data-ciiw-refresh-review]').click();
+  await expect(page.locator('[data-ciiw-status]')).toContainText('Multi-source review bound', { timeout: 120_000 });
+
+  const bindScope = page.locator('[data-ciiw-ms-bind-expected]');
+  await expect(bindScope).toBeEnabled();
+  await bindScope.click();
+
+  await expect(page.locator('[data-ciiw-status]')).toContainText('BM-correspondence-qualified scope bound: 1 physical APPLY');
+  await expect(page.locator('[data-ciiw-ms-apply]')).toBeEnabled();
+  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toContainText('APPLY: 1');
 });
