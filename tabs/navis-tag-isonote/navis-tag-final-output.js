@@ -393,6 +393,7 @@ function decisionProjections(audit, config) {
       order: projections.length,
       decision,
       primary,
+      nearest,
       directKey: primary ? evidenceKey(primary) : '',
       score: finite(primary?.score ?? decision.confidenceScore, Number.NEGATIVE_INFINITY),
       normalizedGeometryRms: finite(primary?.normalizedGeometryRms),
@@ -462,27 +463,79 @@ function candidateReviewRows(audit, config) {
   return rows;
 }
 
-function nearestRejectedRows(audit, config) {
-  return [...nearestRejectedByTable(audit).values()].map((row) => ({
-    'Name of the element': exactCandidateIdentity(row),
-    PIPE: row.resolvedPipe || row.inputPipe || '',
-    POS: pointLabel(row.supportPosition),
-    'Navis Tag ID': text(row.tagId),
-    'Navis Tag POS': pointLabel(row.tagPosition),
-    Tag: baseTagText(row.commentBody, config),
+function nearestRejectedRow(candidate, config) {
+  return {
+    'Name of the element': exactCandidateIdentity(candidate),
+    PIPE: candidate.resolvedPipe || candidate.inputPipe || '',
+    POS: pointLabel(candidate.supportPosition),
+    'Navis Tag ID': text(candidate.tagId),
+    'Navis Tag POS': pointLabel(candidate.tagPosition),
+    Tag: baseTagText(candidate.commentBody, config),
     'Support ISONOTE': '',
     confidence: 'OUTSIDE_TOLERANCE',
-    'Anchor pair basis': row.anchorBasisLabel || '',
+    'Anchor pair basis': candidate.anchorBasisLabel || '',
     [ALTERNATE_MATCH_COLUMN]: '',
-    Basis: nearestRejectedFinalBasis(row, config),
-  }));
+    Basis: nearestRejectedFinalBasis(candidate, config),
+  };
+}
+
+function nearestRejectedRows(audit, config) {
+  return [...nearestRejectedByTable(audit).values()].map((candidate) => nearestRejectedRow(candidate, config));
+}
+
+function representedProjectionEvidence(projections) {
+  const keys = new Set();
+  const tagIds = new Set();
+  for (const projection of projections || []) {
+    if (projection.primary) addEvidence(projection.primary, keys, tagIds);
+    if (projection.nearest) addEvidence(projection.nearest, keys, tagIds);
+    for (const tagId of String(projection.row?.['Navis Tag ID'] || '').split('|')) {
+      const normalized = text(tagId);
+      if (normalized) tagIds.add(normalized);
+    }
+  }
+  return { keys, tagIds };
+}
+
+function nearestRejectedTagComparator(left, right) {
+  return finite(left.normalizedToleranceDistance) - finite(right.normalizedToleranceDistance)
+    || finite(left.spatialDistanceMm) - finite(right.spatialDistanceMm)
+    || finite(right.score, Number.NEGATIVE_INFINITY) - finite(left.score, Number.NEGATIVE_INFINITY)
+    || finite(left.tableRowIndex) - finite(right.tableRowIndex)
+    || exactCandidateIdentity(left).localeCompare(exactCandidateIdentity(right));
+}
+
+function unrepresentedNearestRejectedRows(audit, config, represented = { keys: new Set(), tagIds: new Set() }) {
+  const directlyMatched = directlyMatchedNavisEvidence(audit);
+  const bestByTag = new Map();
+  for (const candidate of audit?.candidateLedger || []) {
+    if (candidate.ledgerKind !== 'NEAREST_REJECTED') continue;
+    const key = evidenceKey(candidate);
+    const tagId = text(candidate.tagId);
+    if ((key && (represented.keys.has(key) || directlyMatched.keys.has(key)))
+      || (tagId && (represented.tagIds.has(tagId) || directlyMatched.tagIds.has(tagId)))) continue;
+    const groupKey = tagId ? `TAG_ID:${tagId}` : key;
+    if (!groupKey) continue;
+    const current = bestByTag.get(groupKey);
+    if (!current || nearestRejectedTagComparator(candidate, current) < 0) bestByTag.set(groupKey, candidate);
+  }
+  return [...bestByTag.values()]
+    .sort((left, right) => finite(left.tableRowIndex) - finite(right.tableRowIndex)
+      || text(left.tagId).localeCompare(text(right.tagId)))
+    .map((candidate) => nearestRejectedRow(candidate, config));
 }
 
 export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null) {
   const config = { ...inputConfig, ...(audit?.config || {}) };
   const parsed = navisParseForOutput(audit, config, navisParse);
-  const retained = consolidateDirectTagOwners(decisionProjections(audit, config)).map((projection) => projection.row);
-  return [...retained, ...unmatchedNavisRows(audit, parsed, config)];
+  const retainedProjections = consolidateDirectTagOwners(decisionProjections(audit, config));
+  const represented = representedProjectionEvidence(retainedProjections);
+  const rejected = unrepresentedNearestRejectedRows(audit, config, represented);
+  return [
+    ...retainedProjections.map((projection) => projection.row),
+    ...rejected,
+    ...unmatchedNavisRows(audit, parsed, config),
+  ];
 }
 
 export const _test = Object.freeze({
@@ -492,4 +545,6 @@ export const _test = Object.freeze({
   nearestRejectedRows, exactCandidateIdentity, sourceAnchorBases,
   candidateRowsByTable, candidateAlternates, decisionProjections,
   ownerComparator, consolidateDirectTagOwners, crossSupportSummary,
+  representedProjectionEvidence, nearestRejectedTagComparator,
+  unrepresentedNearestRejectedRows,
 });

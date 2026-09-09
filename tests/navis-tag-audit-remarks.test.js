@@ -69,6 +69,47 @@ assert.match(nearestRows[0].Basis, /OD-half-below vertical residual 111\.321 mm 
 assert.match(nearestRows[0].Basis, /NEAREST_REJECTED/);
 assert.ok(!nearestRows.some((row) => row['Name of the element'] === UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE));
 
+const tag34Position = { x: 173037.326, y: 709451.544, z: 1540.733 };
+const tag34Closest = {
+  ledgerId: 'ROW-11416:NEAREST-REJECTED', ledgerKind: 'NEAREST_REJECTED',
+  tableRowId: 'ROW-11416', tableRowIndex: 11416,
+  canonicalIdentity: 'PS-11416/DATUM', groupedIdentities: ['/PS-11416/DATUM'],
+  resolvedPipe: '/ASIM-1835-4"-W8810122-31441C4',
+  supportPosition: { x: 173209.151, y: 709460.9, z: 1544.64 },
+  evidenceId: 'VIEW:34', viewGuid: 'view-34', viewName: 'Tag View 34',
+  tagId: '34', commentId: '34', commentBody: 'R', tagPosition: tag34Position,
+  positionSource: 'RLTAG_POS3D', withinTolerance: false, accepted: false, candidateRank: 1, score: 0,
+  deltaEMm: -171.825, deltaNMm: -9.356, deltaElMm: -3.907,
+  verticalBasis: 'CENTRELINE', verticalResidualMm: 3.907,
+  normalizedToleranceDistance: 1.71825, spatialDistanceMm: 172.124,
+  failedAxes: ['E'], rejectionReasons: ['E_OUTSIDE_TOLERANCE'],
+  confidenceReasons: ['E_OUTSIDE_TOLERANCE'],
+  decisionStatus: 'UNRESOLVED', decisionReason: 'NO_IN_TOLERANCE_CANDIDATE',
+  anchorBasisLabel: 'Tag 23 ↔ /PS-11181/DATUM', anchorLoopRank: 1,
+};
+const tag34Farther = {
+  ...tag34Closest,
+  ledgerId: 'ROW-OTHER:NEAREST-REJECTED', tableRowId: 'ROW-OTHER', tableRowIndex: 12000,
+  canonicalIdentity: 'PS-OTHER/DATUM', groupedIdentities: ['/PS-OTHER/DATUM'],
+  supportPosition: { x: 173400, y: 709460.9, z: 1544.64 },
+  deltaEMm: -362.674, normalizedToleranceDistance: 3.62674, spatialDistanceMm: 362.816,
+};
+const tag34Rows = buildFinalOutputRows({
+  config: { eastingToleranceMm: 100, northingToleranceMm: 100, elevationToleranceMm: 100 },
+  decisions: [], candidateLedger: [tag34Farther, tag34Closest], propagationLedger: [],
+}, {}, {
+  tags: [{ evidenceId: 'VIEW:34', viewGuid: 'view-34', tagId: '34', commentId: '34', commentBody: 'R', position: tag34Position }],
+});
+assert.equal(tag34Rows.length, 1, 'an otherwise-unrepresented Tag must retain one closest rejected support row');
+assert.equal(tag34Rows[0]['Name of the element'], '/PS-11416/DATUM');
+assert.equal(tag34Rows[0]['Navis Tag ID'], '34');
+assert.equal(tag34Rows[0].confidence, 'OUTSIDE_TOLERANCE');
+assert.equal(tag34Rows[0]['Anchor pair basis'], 'Tag 23 ↔ /PS-11181/DATUM');
+assert.match(tag34Rows[0].Basis, /Tag 34 is the closest recorded candidate/);
+assert.match(tag34Rows[0].Basis, /easting exceeded the configured tolerance/);
+assert.ok(!tag34Rows.some((row) => row['Name of the element'] === UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE));
+assert.ok(!tag34Rows.some((row) => row['Name of the element'] === '/PS-OTHER/DATUM'));
+
 const transformedXml = `<exchange units="m"><view name="Tag View 165" guid="view-165"><comment id="165"><body>A2</body></comment><rltag id="165" commentid="165"><pos3d><pos3f x="244.529978" y="-1092.843749" z="101.070534"/></pos3d></rltag></view></exchange>`;
 globalThis.document = { querySelector: () => ({ value: transformedXml }) };
 const transformedRows = buildFinalOutputRows({
