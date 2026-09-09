@@ -17,11 +17,16 @@ MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
-MAIN_BASIS: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
+MAIN_BASIS: b1595d8f81cf2a2e1fafd33b03b18c3be362c785
+EP0005_MAIN_BASIS: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
 BRANCH: agent/support-report-1154
 PR: 1165
 PR_STATE: OPEN_DRAFT
-PR_MERGEABLE: TRUE_AT_EP0005_GROUNDING
+PR_HEAD_AT_RECONCILIATION: d0eac30a4e4794649f40ddfb8af85047200d1ead
+PR_MERGEABLE: FALSE_CONFLICTING_AT_FINAL_RECONCILIATION
+PR_REVIEW_COUNT: 1_COMMENTED
+PR_UNRESOLVED_REVIEW_THREADS: 0
+PR_REQUIRED_CHECKS_STATUS: NONE_ATTACHED_TO_RECONCILED_HEAD
 LATEST_MATERIAL_LEG: LEG-001
 LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-001.md
 WP003_MATERIAL_LEG: NONE
@@ -38,11 +43,11 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 - TASK-003 | COMPLETE_REUSE_BOUNDARY | governed PS-family XML/numeric primitives are reused; report-local PS/SL grammar remains scoped to Support Report semantics
 - TASK-004 | COMPLETE_PARSER_INTAKE | durable Owner XML is recoverable; parser shape and negative behavior are qualified against current main plus independent real-input oracle
 - TASK-005 | OPEN | exact 10-row production golden comparison not yet run
-- TASK-006 | PARTIAL | current main enforces native member/carrier line custody and resolved member→carrier authority; full native-only member recovery still requires authoritative staged-model input
+- TASK-006 | PARTIAL | current main enforces native member/carrier line custody, resolved member→carrier authority and carrier field conflict handling; full native-only member recovery still requires authoritative staged-model input
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
 - TASK-009 | PARTIAL | parser/field/carrier paths fail closed in several unsafe cases; full no-fabrication qualification remains open
-- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003
+- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003; PR #1165 delivery branch is currently conflicting with main
 
 # Input ledger
 
@@ -68,18 +73,6 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 Durable evidence: `agents/chains/SUPPORT-REPORT-1154/evidence/WP-003-parser-qualification.md`.
 
-Current-main parser ownership is bounded across clash evidence/grouping, clash-test context and fail-closed safety. Shared XML entity/numeric normalization is reused from PS-family.
-
-Required negative cases are fail-visible or fail-closed:
-- missing/no branch side;
-- multiple branch-bearing sides;
-- missing PS/SL member/family root;
-- conflicting opposite family roots;
-- malformed/truncated key tags;
-- duplicate evidence;
-- incomplete numeric point;
-- unrelated structural clash outside the report evidence pattern.
-
 Independent parse of the Owner original XML with Python standard-library ElementTree, without Support Report production code, produced:
 `20 clashresults -> 20/20 admissible -> 10 family+line groups; PS=5; SL=5; duplicate signatures=6; incomplete XYZ=0`.
 
@@ -91,13 +84,14 @@ WP003_PATCH_DECISION: NO_PATCH
 # Main drift / adopted production state
 
 FOUNDATION_MAIN_COMMIT: 9fae87ed935d1dfe32d9302140ea414799d26fed
-CURRENT_MAIN: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
-POST_WP002_MAIN_WORK_RELEVANT_TO_LATER_PACKAGES:
-- 7ff2e13b67d16513a88f59d97e2e8bd17deff133 — carrier explicit full-line custody / branch-only fallback hardening
-- d30f5a2bb4db1c46b8ed135613601a6c2f1584ad — selected native members' resolved physical carrier IDs outrank line/branch carrier heuristics and missing resolved catalog carriers fail closed
-COORDINATION_STATE: SAFE_RECONCILED_NO_DUPLICATE_PARSER_PATCH
+EP0005_CURRENT_MAIN: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
+CURRENT_MAIN: b1595d8f81cf2a2e1fafd33b03b18c3be362c785
+POST_EP0005_MAIN_DRIFT:
+- b1595d8f81cf2a2e1fafd33b03b18c3be362c785 — carrier-derived size/schedule/insulation/stress/node/revision now resolve by nonblank consensus and conflicting authoritative values blank only the conflicted field with `SUPPORT_REPORT_CARRIER_ATTRIBUTE_CONFLICT`; refs WP-004/WP-005; commit explicitly contains no clash parsing or grouping change
+POST_ENDPOINT_DRIFT_DISPOSITION: MATERIAL_WITHIN_LATER_WP004_WP005_BOUNDARY; DOES_NOT_INVALIDATE_WP003
+COORDINATION_STATE: WP003_SAFE_COMPLETE; PR1165_CONFLICTING_WITH_CURRENT_MAIN
 
-Draft PR #1165 remains WP-001 product material. WP-002/WP-003 additions on its chain branch are relay/qualification evidence only; the PR diff still contains no `tabs/support-steel-relationship-builder/**` production path.
+Compare `b1595d8f...` → PR head shows the branch's net diff remains chain/evidence/fixture/test additions only and contains no `tabs/support-steel-relationship-builder/**` production path. GitHub nevertheless reports PR #1165 mergeable=false after main advancement; do not infer parser failure from mergeability.
 
 # Open authority conflict
 
@@ -119,4 +113,4 @@ MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_WP003_ADOPTION_NO_CHAIN_MATERIAL
 
 # Exact next action
 
-STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority. Do not fabricate the staged model. If no authoritative staged-model source is durably available, distinguish current-main invariants that can be qualified from source/tests from parity claims blocked by INPUT-003.
+STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority. Also reconcile the now-conflicting WP-001 PR #1165 before any merge-readiness claim. Do not fabricate the staged model or resolve branch conflicts by guessing engineering intent.
