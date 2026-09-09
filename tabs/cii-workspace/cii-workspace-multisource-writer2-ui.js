@@ -10,6 +10,7 @@ import {
 import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
+import { CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 import {
   ciiBm001CorrespondenceCoverage,
   ciiCanonicalWriter2MutationSelection,
@@ -56,6 +57,14 @@ async function sourceInputs(files, cryptoRef = globalThis.crypto) {
     throw new Error(`Writer2 multi-source requires exact S1/S2/S3 custody. Missing: ${missing.join(', ') || 'none'}.`);
   }
   return CII_MS_CANONICAL_SOURCE_IDS.map((id) => byId.get(id));
+}
+async function retainedTargetInput(file, cryptoRef = globalThis.crypto) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sha256 = await ciiSha256(bytes, cryptoRef);
+  if (sha256 !== CII_MS_TARGET_SHA256) {
+    throw new Error(`Unrecognized TARGET file ${file.name}. This retained Writer2 route requires the exact retained T.CII target.`);
+  }
+  return Object.freeze({ fileName: file.name, bytes, originalSha256: sha256 });
 }
 function shortSha(value) {
   const text = String(value || '');
@@ -319,7 +328,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     event.preventDefault(); event.stopImmediatePropagation();
     try {
       const targetFile = selectedFiles(targetInput)[0]; if (!targetFile) throw new Error('TARGET CII file is required.');
-      cachedSources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef); cachedTargetBytes = new Uint8Array(await targetFile.arrayBuffer()); cachedTargetName = targetFile.name;
+      cachedSources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef);
+      const retainedTarget = await retainedTargetInput(targetFile, options.cryptoRef);
+      cachedTargetBytes = retainedTarget.bytes; cachedTargetName = retainedTarget.fileName;
       setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
       inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
       if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
@@ -455,7 +466,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
 }
 
 export const _test = Object.freeze({
-  selectedFiles, sourceRows, sourceInputs, canonicalSourceIdForSha256, shortSha,
+  selectedFiles, sourceRows, sourceInputs, retainedTargetInput, canonicalSourceIdForSha256, shortSha,
   selectedBaseLoopsBySource, manualAnchorPairsBySource, allMembersHaveBase, buildAutomaticBaseSeed, validManualNode,
   buildAutomaticReview, nodeNameChangeRows, reviewConfidenceCount, transferMutationSummary, transferMarkup,
 });
