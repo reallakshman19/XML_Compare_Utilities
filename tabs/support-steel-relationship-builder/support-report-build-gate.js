@@ -3,10 +3,13 @@ export function supportReportBlockingDiagnostic(diagnostics = []) {
 }
 
 export function assertSupportReportEvidenceReady(evidence = {}) {
-  const blocker = supportReportBlockingDiagnostic(evidence?.diagnostics || []);
-  if (!blocker) return evidence;
-  const message = blocker.message || blocker.code || 'Support Report clash evidence contains a blocking error.';
-  throw new Error(message);
+  const diagnostics = evidence?.diagnostics || [];
+  const blocker = supportReportBlockingDiagnostic(diagnostics);
+  if (blocker) throw new Error(blocker.message || blocker.code || 'Support Report clash evidence contains a blocking error.');
+  if (Array.isArray(evidence?.rows) && evidence.rows.length > 0) return evidence;
+  const context = diagnostics.find((item) => diagnosticLevel(item) === 'WARN') || diagnostics[0];
+  const detail = context?.message || context?.code || 'No usable PS/SL clash evidence was found.';
+  throw new Error(`Support Report has no usable clash evidence. ${detail}`);
 }
 
 function diagnosticLevel(item) {
