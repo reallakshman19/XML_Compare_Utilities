@@ -28,8 +28,8 @@ WP002_MATERIAL_LEG: NONE
 WP002_EVIDENCE_FILE: agents/chains/SUPPORT-REPORT-1154/evidence/WP-002-architecture-conformance.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0004_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0004_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5607215873
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -42,7 +42,7 @@ ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0004_COMMENT_SYNC
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
 - TASK-009 | PARTIAL | current main removes several unsafe fallbacks; full no-fabrication qualification remains open
-- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-002 after Issue comment sync
+- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-002
 
 # Input ledger
 
