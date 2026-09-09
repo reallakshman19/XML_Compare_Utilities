@@ -55,8 +55,23 @@ assert.deepEqual(routerTest.manualAnchorPairsBySource(auto, manualBySource), { S
 assert.equal(routerTest.manualAnchorPairsBySource(auto, { S1: [{ sourceNodeId: '10', targetNodeId: '20' }], S2: manualBySource.S2 }).S1, undefined,
   'manual input must not replace a deterministic automatic base');
 
-const state = { sources: [{}, {}], auto, manualBySource };
+const inspectionCustody = {
+  sourceSet: {
+    sourceSetSha256: 'source-set-sha',
+    members: [
+      { sourceId: 'S1', fileName: 'A.CII', originalVersion: 14, normalizedVersion: 11, originalSha256: 'a'.repeat(64), normalizedSha256: '1'.repeat(64) },
+      { sourceId: 'S2', fileName: 'B.CII', originalVersion: 11, normalizedVersion: 11, originalSha256: 'b'.repeat(64), normalizedSha256: '2'.repeat(64) },
+    ],
+  },
+  versionBridge: { target: { originalSha256: 't'.repeat(64) } },
+};
+const state = { sources: [{}, {}], inspection: inspectionCustody, auto, manualBySource };
 const inspection = routerTest.inspectionMarkup(state);
+assert.match(inspection, /Writer 2 multi-source custody/);
+assert.match(inspection, /source-set-sha/);
+assert.match(inspection, /A\.CII/);
+assert.match(inspection, /B\.CII/);
+assert.match(inspection, /TARGET original SHA/);
 assert.match(inspection, /S2 manual fallback/);
 assert.match(inspection, /USER LOCKED/);
 assert.match(inspection, /data-ciiw-ms-review-only-manual-add/);
@@ -73,7 +88,8 @@ assert.doesNotMatch(waiting, /data-ciiw-ms-bind-expected/);
 const routerSource = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-review-only-router.js', import.meta.url), 'utf8');
 assert(routerSource.split('\n').length < 300, 'review-only router must remain below 300 lines');
 assert(routerSource.includes('mountCiiWriter2MultiSourceShell'), 'exact retained route must still delegate to existing full Writer2 shell');
+assert(routerSource.includes('ciiSourceSetCustodyMarkup(state.inspection)'), 'generic REVIEW_ONLY inspection must expose bound source-set/target custody');
 assert(!routerSource.includes('applyCiiWorkspaceTargetWriter2'), 'generic router must not import Writer2 apply');
 assert(routerSource.includes('anchorPairsBySource: manualAnchorPairsBySource'), 'manual fallback must bind only as correspondence anchor-pair authority');
 
-console.log('CII Writer2 retained delegation + generic REVIEW_ONLY manual-anchor custody checks passed.');
+console.log('CII Writer2 retained delegation + generic REVIEW_ONLY custody/manual-anchor checks passed.');
