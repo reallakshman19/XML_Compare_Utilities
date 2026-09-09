@@ -83,6 +83,25 @@ assert.equal(stale.refresh(), null);
 assert.equal(storage.rows.size, 0);
 assert.match(stale.getState().notice, /STALE_REMOVED/);
 
+const transientStorage = memoryStorage();
+const transientCapture = createSequentialDraftEditRecoveryController({ root: root(), storage: transientStorage,
+  readContext: () => context, now: () => '2026-07-30T16:03:10.000Z', restoreHandlers: {} });
+transientCapture.capture('MOVE_COMPONENT', descriptor); transientCapture.destroy();
+let moveContextReadable = false;
+const transient = createSequentialDraftEditRecoveryController({ root: root(), storage: transientStorage,
+  readContext: (kind) => {
+    if (kind === 'MOVE_COMPONENT' && !moveContextReadable) throw new RangeError('geometry history is temporarily unavailable');
+    return context;
+  },
+  now: () => '2026-07-30T16:03:11.000Z', restoreHandlers: {} });
+assert.equal(transient.refresh(), null);
+assert.equal(transient.getState().record, null);
+assert.equal(transientStorage.rows.size, 1);
+moveContextReadable = true;
+assert.equal(transient.refresh().kind, 'MOVE_COMPONENT');
+assert.equal(transientStorage.rows.size, 1);
+transient.destroy();
+
 const driftStorage = memoryStorage();
 let liveContext = context; let driftRestored = 0;
 const driftCapture = createSequentialDraftEditRecoveryController({ root: root(), storage: driftStorage,
