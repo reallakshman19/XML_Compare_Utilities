@@ -32,6 +32,7 @@ const second = ciiWorkspaceArtifactBundle(result);
 assert.strictEqual(first.correspondenceCsv, second.correspondenceCsv, 'CSV bytes must be deterministic.');
 assert.strictEqual(first.auditJson, second.auditJson, 'Audit JSON bytes must be deterministic.');
 assert.strictEqual(first.modifiedTargetCii, null);
+assert(first.correspondenceCsv.startsWith('kind,sourceId,operation,'), 'CSV must expose source-member provenance without changing single-source semantics');
 assert(first.correspondenceCsv.includes('reviewDecision'));
 assert(first.correspondenceCsv.includes('SOURCE_1_TO_TARGET_N'));
 assert(first.correspondenceCsv.includes('ACCEPTED'));
@@ -41,4 +42,18 @@ assert(first.correspondenceCsv.includes('TARGET_PATH_SIZE_TRANSITION_UNREPRESENT
 assert(first.correspondenceCsv.includes('lengthDeltaMm'));
 assert(first.auditJson.includes('"stage06":"NOT_IMPLEMENTED"'));
 assert.strictEqual(correspondenceRowsToCsv(correspondence, { review, transferPlan }), first.correspondenceCsv);
+
+const ambiguousMultiSource = {
+  nodeRows: [
+    { sourceId: 'S1', correspondenceId: 'ms:S1:node:100:5000', kind: 'NODE', sourceNodeId: '100', targetNodeId: '5000', status: 'HIGH', authority: 'MULTISOURCE_REVIEW_ONLY' },
+    { sourceId: 'S2', correspondenceId: 'ms:S2:node:100:5000', kind: 'NODE', sourceNodeId: '100', targetNodeId: '5000', status: 'HIGH', authority: 'MULTISOURCE_REVIEW_ONLY' },
+  ],
+};
+const multiCsv = correspondenceRowsToCsv(ambiguousMultiSource);
+const multiLines = multiCsv.split('\n');
+assert.equal(multiLines.length, 3);
+assert(multiLines[1].includes('"S1"'), 'first ambiguous node row must retain S1 provenance');
+assert(multiLines[2].includes('"S2"'), 'second ambiguous node row must retain S2 provenance');
+assert.notEqual(multiLines[1], multiLines[2], 'overlapping source/target identities must remain distinguishable by source member');
+
 console.log('CII Workspace deterministic audit/export checks passed.');
