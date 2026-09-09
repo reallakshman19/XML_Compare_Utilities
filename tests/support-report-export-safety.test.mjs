@@ -59,6 +59,9 @@ test('CSV and TSV neutralize formula-leading text without mutating canonical JSO
 test('numeric values remain numeric-looking text rather than formula-escaped', () => {
   const report = { rows: [{ ...bundle().rows[0], totalSupportPointsOnSecondary: -5 }] };
   const csv = supportReportToCsv(report, { includeOrdinalRow: false });
+  const tsv = supportReportToTsv(report, { includeOrdinalRow: false });
   assert.match(csv, /"-5"/);
   assert.doesNotMatch(csv, /"'-5"/);
+  assert.match(tsv, /\t-5\t/);
+  assert.doesNotMatch(tsv, /\t'-5\t/);
 });
