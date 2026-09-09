@@ -1,7 +1,7 @@
 import {
   SUPPORT_REPORT_COLUMNS,
   supportReportColumnValue,
-} from './support-report-contract.js';
+} from './support-report-contract.js?v=20260909-support-report-parity-2';
 
 export function supportReportToCsv(bundle, options = {}) {
   const columns = SUPPORT_REPORT_COLUMNS;
