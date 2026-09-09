@@ -38,6 +38,8 @@ function sourceMember(row, sourceSet) {
 }
 
 export function correspondenceRowsToCsv(correspondence, context = {}) {
+  const targetFileName = context?.targetDocument?.fileName || '';
+  const targetOriginalSha256 = context?.targetAuthority?.originalSha256 || '';
   const rows = [
     ...(correspondence?.nodeRows || []),
     ...(correspondence?.elementRows || []),
@@ -51,6 +53,8 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       sourceId: row.sourceId || '',
       sourceFileName: member?.fileName || '',
       sourceOriginalSha256: member?.originalSha256 || '',
+      targetFileName,
+      targetOriginalSha256,
       operation: rowOperation(row),
       confidence: projection?.confidence || row.status,
       workflowStatus: row.status,
@@ -68,7 +72,7 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       blockers: transfer.blockers,
     };
   });
-  const headers = ['kind', 'sourceId', 'sourceFileName', 'sourceOriginalSha256', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
+  const headers = ['kind', 'sourceId', 'sourceFileName', 'sourceOriginalSha256', 'targetFileName', 'targetOriginalSha256', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }
 
@@ -79,10 +83,14 @@ export function ciiWorkspaceAuditToJson(audit) {
 export function ciiWorkspaceArtifactBundle(result) {
   const review = result?.audit?.review || result?.review || {};
   const sourceSet = result?.sourceSet || result?.audit?.sourceSet || null;
+  const targetDocument = result?.targetDocument || result?.audit?.target || null;
+  const targetAuthority = result?.targetAuthority || result?.transferPlan?.targetAuthority || null;
   return Object.freeze({
     correspondenceCsv: correspondenceRowsToCsv(result?.correspondence, {
       review,
       sourceSet,
+      targetDocument,
+      targetAuthority,
       transferPlan: result?.transferPlan,
       compareReview: result?.compareReview,
     }),
