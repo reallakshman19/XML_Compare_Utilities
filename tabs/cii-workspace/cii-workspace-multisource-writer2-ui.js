@@ -401,7 +401,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!multiSource(container) || !preview || !event.target?.matches?.('[data-ciiw-ms-decision]')) return;
     event.stopImmediatePropagation(); const id = event.target.dataset.ciiwMsDecision; const decision = event.target.value;
     if (decision) reviewDecisions.set(id, decision); else reviewDecisions.delete(id);
-    markReviewDirty('Multi-source correspondence decision changed. Apply approvals to Transfer Preview before binding the review ledger.');
+    markReviewDirty('Multi-source correspondence decision changed. Apply approvals to Transfer Preview to bind the review ledger.');
   };
   const onBulkHigh = (event) => {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
