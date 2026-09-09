@@ -65,7 +65,7 @@ function classifyUnsafeClashes(source) {
     const clashRegex = /<clashresult\b([^>]*)>([\s\S]*?)<\/clashresult>/gi;
     let match;
     while ((match = clashRegex.exec(test.body))) {
-      const attrs = parseAttributes(match[1]);
+      const attrs = clashParserTest.parseAttributes(match[1]);
       const clashName = attrs.name || '';
       const guid = attrs.guid || '';
       const objects = Array.from(match[2].matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi))
@@ -134,13 +134,6 @@ function extractTestBlocks(source) {
 }
 function clashKey(row) { return rawClashKey(row.clashTestIndex ?? 0, row.clashName || '', row.guid || ''); }
 function rawClashKey(testIndex, clashName, guid) { return `${testIndex}\u0000${guid || clashName}`.toUpperCase(); }
-function parseAttributes(raw) {
-  const attrs = {};
-  const regex = /([\w:-]+)\s*=\s*"([^"]*)"/g;
-  let match;
-  while ((match = regex.exec(String(raw || '')))) attrs[match[1]] = match[2];
-  return attrs;
-}
 function countMatches(source, regex) { return Array.from(String(source || '').matchAll(regex)).length; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
