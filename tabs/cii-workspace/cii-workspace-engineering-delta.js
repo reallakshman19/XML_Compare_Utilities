@@ -224,7 +224,50 @@ function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGra
   return deltas;
 }
 
-function sifTeeDeltas(row, sourceDocument, targetDocument, source, target) {
+const SIF_TEE_NODE_REFERENCE_ROWS = Object.freeze([0, 5]);
+function ciiNodeId(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number > 0 ? String(number) : null;
+}
+function uniqueBoundNodePairKeys(nodeRows) {
+  const sourceClaims = new Map(); const targetClaims = new Map();
+  for (const row of nodeRows || []) {
+    if (row?.kind !== 'NODE' || !ciiIdentityBound(row)) continue;
+    const sourceId = ciiNodeId(row.sourceNodeId); const targetId = ciiNodeId(row.targetNodeId);
+    if (!sourceId || !targetId) continue;
+    if (!sourceClaims.has(sourceId)) sourceClaims.set(sourceId, new Set());
+    if (!targetClaims.has(targetId)) targetClaims.set(targetId, new Set());
+    sourceClaims.get(sourceId).add(targetId); targetClaims.get(targetId).add(sourceId);
+  }
+  const keys = new Set();
+  for (const [sourceId, targets] of sourceClaims) {
+    if (targets.size !== 1) continue;
+    const [targetId] = targets;
+    if (targetClaims.get(targetId)?.size === 1) keys.add(`${sourceId}=>${targetId}`);
+  }
+  return keys;
+}
+function sifPayloadWithRawNodeReferences(record) {
+  if (!record) return null;
+  const payload = (record.normalizedPayload || []).map((row) => Array.isArray(row) ? [...row] : row);
+  if (Array.isArray(payload[0])) payload[0][0] = record.firstRowFields?.[0] ?? record.node ?? payload[0][0];
+  return payload;
+}
+function correspondenceNormalizedSifPayloads(sourceRecord, targetRecord, nodeRows) {
+  const sourcePayload = sifPayloadWithRawNodeReferences(sourceRecord);
+  const targetPayload = sifPayloadWithRawNodeReferences(targetRecord);
+  if (!sourcePayload || !targetPayload) return { sourcePayload, targetPayload };
+  const pairKeys = uniqueBoundNodePairKeys(nodeRows);
+  for (const rowIndex of SIF_TEE_NODE_REFERENCE_ROWS) {
+    const sourceId = ciiNodeId(sourcePayload[rowIndex]?.[0]);
+    const targetId = ciiNodeId(targetPayload[rowIndex]?.[0]);
+    if (sourceId && targetId && pairKeys.has(`${sourceId}=>${targetId}`)) {
+      sourcePayload[rowIndex][0] = null; targetPayload[rowIndex][0] = null;
+    }
+  }
+  return { sourcePayload, targetPayload };
+}
+function sifTeeDeltas(row, sourceDocument, targetDocument, source, target, nodeRows) {
   if (!pointerFamilyReady(sourceDocument, 'sifTee', '#SIF_TEE_POINTER')
     || !pointerFamilyReady(targetDocument, 'sifTee', '#SIF_TEE_POINTER')) return [];
   const sourceRecord = source?.sifTeeEvidence || null; const targetRecord = target?.sifTeeEvidence || null;
@@ -237,14 +280,15 @@ function sifTeeDeltas(row, sourceDocument, targetDocument, source, target) {
     evidenceStatus: 'PARTIAL', authority,
     limitations: ['The second numeric field is preserved as a raw code; its CAESAR semantic label is not asserted by the current source authority.'],
   }));
-  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee normalized raw payload', sourceRecord?.normalizedPayload ?? null, targetRecord?.normalizedPayload ?? null, {
+  const normalized = correspondenceNormalizedSifPayloads(sourceRecord, targetRecord, nodeRows);
+  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee normalized raw payload', normalized.sourcePayload, normalized.targetPayload, {
     evidenceStatus: 'PARTIAL', authority,
-    limitations: ['Node number is removed from the normalized first row so revision renumbering is not reported as a payload change.'],
+    limitations: ['Only the directly qualified V11 tee-slot Node fields (row 0 field 0 and row 5 field 0) are canonicalized, and only when the exact SOURCE/TARGET node pair has unique accepted correspondence; every other numeric payload field remains exact.'],
   }));
   return deltas;
 }
 
-function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
+function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, nodeRows, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const deltas = [];
   const geometryToleranceMm = Number(options.engineeringGeometryToleranceMm ?? 0.01);
   const valueTolerance = Number(options.engineeringNumericTolerance ?? 1e-9);
@@ -278,7 +322,7 @@ function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, target
         limitations: ['This value is qualified at its fixed ELEMENT field; a complete multi-case process/load-case model is not asserted.'],
       }));
     }
-    deltas.push(...sifTeeDeltas(row, sourceDocument, targetDocument, source, target));
+    deltas.push(...sifTeeDeltas(row, sourceDocument, targetDocument, source, target, nodeRows));
   }
   return deltas;
 }
@@ -355,7 +399,7 @@ function familyCounts(rows) {
 export function buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, options = {}) {
   const rows = [
     ...nodeDeltas(correspondence?.nodeRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
-    ...elementDeltas(correspondence?.elementRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
+    ...elementDeltas(correspondence?.elementRows, sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence?.nodeRows, options),
     ...componentDeltas(correspondence?.componentRows, correspondence?.elementRows, sourceGraph, targetGraph, options),
   ];
   rows.sort((a, b) => `${a.sourceIdentity}|${a.category}|${a.property}`.localeCompare(`${b.sourceIdentity}|${b.category}|${b.property}`, undefined, { numeric: true }));
