@@ -187,8 +187,33 @@
     {
       "id": "BM-W2-05",
       "family": "COMPOSITE",
-      "state": "BLOCKED_ON_BM_W2_01_02_03_PUBLIC_RUNTIME_PASS",
-      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE"
+      "state": "AUTHORED_SELF_CHECK",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE",
+      "candidate": {
+        "node": "10",
+        "name": "BM-N10",
+        "sifPointer": 1,
+        "hangerNode": "205"
+      },
+      "expected": {
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "sifTeeBlockCountBefore": 9,
+        "sifTeeBlockCountAfter": 8,
+        "hangerCountBefore": 1,
+        "hangerCountAfter": 0,
+        "restraintBlockCountBefore": 7,
+        "restraintBlockCountAfter": 7,
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "oneOriginalPreimage": true,
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-trifamily-composite.test.js",
+        "runtime": "SELF_CHECK_SOURCE_REVIEW"
+      }
     },
     {
       "id": "BM-W2-06",
@@ -258,14 +283,6 @@
   "versionGates": {
     "W2_A": { "role": "SYNTHETIC_PUBLIC_RUNTIME", "state": "NOT_RUN", "benchmarkDoesNotReplace": true },
     "W2_B": { "benchmarkCase": "BM-W2-04", "evidenceClass": "RETAINED_REAL_V11", "state": "NOT_RUN" },
-    "W2_35": { "benchmarkCase": "BM-W2-04", "evidenceClass": "CONVERTER_GENERATED_V14", "state": "NOT_RUN" },
-    "W2_35a": { "evidenceClass": "ISSUE_1042_GENERATED_V14_REGRESSION", "state": "NOT_RUN" },
-    "W2_40": {
-      "benchmarkCase": "BM-W2-04_EQUIVALENT",
-      "evidenceClass": "NATIVE_V14",
-      "converterGeneratedEvidenceForbiddenAsNative": true,
-      "state": "NOT_RUN"
-    },
-    "W2_H": { "state": "NOT_READY" }
+    "W2_C": { "benchmarkCase": "BM-W2-05", "evidenceClass": "RETAINED_REAL_V11_TRI_FAMILY", "state": "AUTHORED_SELF_CHECK" }
   }
 }
