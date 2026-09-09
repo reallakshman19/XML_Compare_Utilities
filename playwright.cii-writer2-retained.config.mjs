@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: [
     'cii-writer2-multisource-retained-benchmark.spec.mjs',
     'cii-writer2-multisource-retained-tile-ui.spec.mjs',
+    'cii-writer2-multisource-generic-review-only.spec.mjs',
   ],
   timeout: 300_000,
   expect: { timeout: 15_000 },
