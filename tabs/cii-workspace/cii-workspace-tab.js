@@ -1,6 +1,6 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
-import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260903-ms-import-repair-1';
-import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260903-ms-import-repair-1';
+import { mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260909-ms-custody-auto-1';
+import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260909-ms-custody-auto-1';
 import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';
 
 const STYLE_ID = 'cii-workspace-style';
