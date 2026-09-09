@@ -6,14 +6,13 @@ import {
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
-import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-4';
-import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-safety-5';
+import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
+import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
 const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
-const SUPPORT_REPORT_PARSER_TOKEN = '20260909-support-report-parser-4';
-const SUPPORT_REPORT_SAFETY_TOKEN = '20260909-support-report-parser-safety-5';
+const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -35,6 +34,7 @@ const syntaxFiles = [
   'tabs/support-steel-relationship-builder/support-report-xlsx.js',
   'tabs/support-steel-relationship-builder/support-report-view.js',
   'tabs/support-steel-relationship-builder/support-report-addon.js',
+  'tabs/ps-family-clash-audit/ps-family-token-utils.js',
   'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js',
   'tabs/ps-family-clash-audit/ps-family-native-audit-pipeline-addon.js',
   'tabs/ps-family-clash-audit/ps-family-restraint-function-addon.js',
@@ -52,8 +52,6 @@ const supportReportParityEdges = [
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-field-projection.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-clash-test-context.js', './support-report-clash-evidence.js'],
-  ['tabs/support-steel-relationship-builder/support-report-clash-safety.js', './support-report-clash-evidence.js'],
   ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-view.js', './support-report-contract.js'],
@@ -67,18 +65,26 @@ const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-
 const addon = readFileSync('tabs/support-steel-relationship-builder/support-report-addon.js', 'utf8');
 const engine = readFileSync('tabs/support-steel-relationship-builder/support-report-engine.js', 'utf8');
 const safety = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-safety.js', 'utf8');
-assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
-  'Support Report bootstrap must refresh the parser-safety-aware addon entry');
-assert.ok(addon.includes(`./support-report-engine.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
-  'Support Report addon must refresh the parser-safety-aware engine edge');
+const context = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-test-context.js', 'utf8');
+const evidence = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-evidence.js', 'utf8');
+for (const [source, edge, label] of [
+  [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
+  [addon, './support-report-engine.js', 'addon → engine'],
+  [addon, './support-report-clash-safety.js', 'addon → safety'],
+  [engine, './support-report-clash-safety.js', 'engine → safety'],
+  [safety, './support-report-clash-test-context.js', 'safety → test context'],
+  [safety, './support-report-clash-evidence.js', 'safety → evidence'],
+  [context, './support-report-clash-evidence.js', 'test context → evidence'],
+]) {
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_PRIMITIVES_TOKEN}`),
+    `Support Report ${label} must carry the parser primitives cache token`);
+}
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
-assert.ok(addon.includes(`./support-report-clash-safety.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
-  'Support Report addon must load clash safety through the parser safety cache token');
-assert.ok(engine.includes(`./support-report-clash-safety.js?v=${SUPPORT_REPORT_SAFETY_TOKEN}`),
-  'Support Report engine must route direct XML parsing through clash safety');
-assert.ok(safety.includes(`./support-report-clash-test-context.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
-  'Support Report clash safety must preserve clash-test context parsing');
+assert.ok(evidence.includes("../ps-family-clash-audit/ps-family-token-utils.js"),
+  'Support Report clash evidence must reuse governed PS-family XML/numeric primitives');
+assert.ok(context.includes("../ps-family-clash-audit/ps-family-token-utils.js"),
+  'Support Report clash-test context must reuse governed PS-family XML decoding');
 
 const xlsxFixture = { rows: [{
   previousName: '', scope: 'ASIM', civilSecondarySupport: 'PS-007(REF)', pipe: 'ASIM-10"-LINE', size: 250,
@@ -152,4 +158,12 @@ assert.equal(duplicate.groupCount, 1);
 assert.equal(duplicate.groups[0].evidenceRows.length, 1);
 assert.equal(duplicate.groups[0].clashCount, 1);
 assert.ok(duplicate.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_DUPLICATE_EVIDENCE' && item.duplicateCount === 1));
+
+const incompleteNumericResult = `<clashresult name="Numeric" guid="NUM"><clashpoint><pos3f x="1" y="2"/></clashpoint><clashobjects>${clashObject(['/ASIM-CU-PL', '/ASIM-LINE', '/ASIM-LINE/B1', '/PS-007A.1'], '/PS-007A.1')}${clashObject(['/ASIM-CU-SU', '/PS-007'], 'GENSEC of /PS-007')}</clashobjects></clashresult>`;
+const incompleteNumeric = parseSupportReportClashXmlSafely(`<exchange units="m"><clashtest name="Encoded &amp; Test">${incompleteNumericResult}</clashtest></exchange>`);
+assert.equal(incompleteNumeric.rowCount, 1);
+assert.equal(incompleteNumeric.rows[0].distanceSourceUnits, null);
+assert.equal(incompleteNumeric.rows[0].clashPointGlobalMm, null);
+assert.equal(incompleteNumeric.rows[0].primarySupportMemberId, 'PS-007A.1');
+assert.equal(incompleteNumeric.rows[0].clashTestName, 'Encoded & Test');
 console.log(`startup module syntax gate passed for ${syntaxFiles.length} JavaScript files`);
