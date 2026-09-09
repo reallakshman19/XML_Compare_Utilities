@@ -10,8 +10,9 @@ LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-00
 WP003_MATERIAL_LEG: NONE
 PR: 1165
 BRANCH: agent/support-report-1154
-HEAD_AT_ACTIVE_PROJECTION: 051eb370838ce1507f1ed5be88a8ee4c91fe4d90
-MAIN: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
+HEAD_AT_ACTIVE_PROJECTION: 3fc532e7ac992bf1e79866d6999c3233ec69202a
+MAIN: b1595d8f81cf2a2e1fafd33b03b18c3be362c785
+EP0005_MAIN_BASIS: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
 STATE: WP003_COMPLETE_AWAITING_NEXT_OWNER_PROGRESSION
 ENGINEERING_STATE: READY
 CUSTODY_STATE: HELD
@@ -21,10 +22,10 @@ WRITE_AUTHORITY_SCOPE: WP-003 complete by current-main adoption + independent re
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE_DRAFT_PR_AT_EP0005_GROUNDING
-REVIEW_COUNT: 1_COMMENTED_AT_PRIOR_GROUNDING
-UNRESOLVED_REVIEW_THREADS: 0_AT_PRIOR_GROUNDING
-REQUIRED_CHECKS_STATUS: NONE_ATTACHED_AT_PRIOR_GROUNDING
+MERGEABILITY: CONFLICTING_FALSE_AT_FINAL_RECONCILIATION
+REVIEW_COUNT: 1_COMMENTED
+UNRESOLVED_REVIEW_THREADS: 0
+REQUIRED_CHECKS_STATUS: NONE_ATTACHED_TO_RECONCILED_HEAD
 AUTHORITY_DOMAIN: Support Report parser intake qualified at relationship-evidence layer; staged-model enrichment parity and Owner XLSX contract remain open
 ACTIVE_CUSTODIAN: CURRENT_OWNER_AUTHORIZED_CHATGPT_SESSION
 AGENT_INSTANCE_ID: chatgpt:787fb18a-1c45-43d0-b8ad-7f23d3ce2106
@@ -44,13 +45,13 @@ ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
 ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5607355768
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 5
-COORDINATION_STATE: SAFE_RECONCILED_NO_DUPLICATE_PARSER_PATCH; current main parser obligations are qualified and later main hardening remains WP-004
+COORDINATION_STATE: WP003_SAFE_COMPLETE; PR1165_CONFLICTING_WITH_CURRENT_MAIN; post-endpoint main drift is later WP-004/WP-005 field-authority work and explicitly does not alter clash parsing/grouping
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
 ROADMAPS: issue #1154 execution plan snapshot 2026-09-09T16:10:53Z; Common@af4c5c73b87b26187aa6c930b60172cbb1f0f3e2; repository AGENTS.md@current-main reconciliation
 ROADMAP_REVIEW_STATUS: COMPLETE
-ROADMAP_ALIGNMENT: ALIGNED_THROUGH_WP003
+ROADMAP_ALIGNMENT: ALIGNED_THROUGH_WP003_WITH_LATER_WP004_WP005_DRIFT
 ROADMAP_MUTATION_AUTHORITY: NONE
 OWNER_INSTRUCTION: 2026-09-09T19:08:33Z proceed next
 OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
@@ -75,7 +76,7 @@ WP003_EVIDENCE_FILE: agents/chains/SUPPORT-REPORT-1154/evidence/WP-003-parser-qu
 WP003_DISPOSITION: COMPLETE_BY_CURRENT_MAIN_ADOPTION_PLUS_INDEPENDENT_FIXTURE_ORACLE
 WP003_PATCH_DECISION: NO_PATCH
 ADOPTED_MAIN_PARSER_WORK: parser primitives/test-context/safety already present on current main; no duplicate parser patch authored
-POST_WP002_MAIN_WORK: 7ff2e13b67d16513a88f59d97e2e8bd17deff133 carrier line custody; d30f5a2bb4db1c46b8ed135613601a6c2f1584ad resolved member-carrier authority; both WP-004 and later
+POST_EP0005_MAIN_DRIFT: b1595d8f81cf2a2e1fafd33b03b18c3be362c785 carrier field consensus/conflict diagnostics; refs WP-004/WP-005; no clash parsing/grouping change
 OWNER_ORACLE_CONTRACT_CONFLICT: OPEN — Owner XLSX A:U differs from current production contract; do not mutate the Owner oracle to fit production
 FOUNDATION_MAIN_COMMIT: 9fae87ed935d1dfe32d9302140ea414799d26fed
-EXACT_NEXT_ACTION: STOP_MATERIAL_PROGRESSION; on another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority; do not fabricate staged-model evidence
+EXACT_NEXT_ACTION: STOP_MATERIAL_PROGRESSION; on another exact Owner `proceed next`, re-ground current main, reconcile WP-004 grouping/enrichment against INPUT-003 authority, and separately reconcile conflicting PR #1165 before any merge-readiness claim; do not fabricate staged-model evidence or resolve conflicts by guessing engineering intent
