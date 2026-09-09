@@ -1,7 +1,8 @@
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseClashEvidence,
-} from './support-report-clash-evidence.js?v=20260909-support-report-parity-2';
+} from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
+import { decodeXmlEntities } from '../ps-family-clash-audit/ps-family-token-utils.js';
 
 export { groupSupportReportClashEvidence };
 
@@ -69,13 +70,8 @@ function parseAttributes(raw) {
   const attrs = {};
   const regex = /([\w:-]+)\s*=\s*"([^"]*)"/g;
   let match;
-  while ((match = regex.exec(String(raw || '')))) attrs[match[1]] = decodeEntities(match[2]);
+  while ((match = regex.exec(String(raw || '')))) attrs[match[1]] = decodeXmlEntities(match[2]);
   return attrs;
-}
-function decodeEntities(value) {
-  return String(value || '')
-    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 }
 
 export const _test = Object.freeze({ extractClashTests, exchangeUnits });
