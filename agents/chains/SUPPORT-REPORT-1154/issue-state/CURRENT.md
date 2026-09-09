@@ -17,7 +17,8 @@ MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
-MAIN_BASIS: 1ca7ddb01335d11619209975bc392b8d97c287db
+MAIN_BASIS: 7ff2e13b67d16513a88f59d97e2e8bd17deff133
+EP0004_MAIN_BASIS: 1ca7ddb01335d11619209975bc392b8d97c287db
 BRANCH: agent/support-report-1154
 PR: 1165
 PR_STATE: OPEN_DRAFT
@@ -38,7 +39,7 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 - TASK-003 | COMPLETE_REUSE_BOUNDARY | PR #1166 reuses governed PS-family XML/numeric/token primitives; report-local PS/SL grammar remains intentionally local where semantics differ
 - TASK-004 | PARTIAL | Owner XML evidence is durable; WP-003 independent production parser qualification remains next
 - TASK-005 | OPEN | exact 10-row production golden comparison not yet run
-- TASK-006 | PARTIAL | current main enforces native member line/branch custody; full native-only member recovery still requires authoritative staged-model input
+- TASK-006 | PARTIAL | current main enforces native member and carrier line/branch custody; full native-only member recovery still requires authoritative staged-model input
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
 - TASK-009 | PARTIAL | current main removes several unsafe fallbacks; full no-fabrication qualification remains open
@@ -65,21 +66,25 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 - BM-009 | NOT_RUN | browser workflow smoke under this chain
 
 WP-002 source-conformance inspection:
-- PASS | every audited `support-report-*.js` production module on main is below 300 physical lines
+- PASS | every audited `support-report-*.js` production module at EP-0004 basis is below 300 physical lines
 - PASS | shared `decodeXmlEntities`, `parseNumber`, `stripLeadingSlash` come from `ps-family-token-utils.js`
 - PASS | field projection, evidence parsing/grouping, engine orchestration, export/XLSX and UI are separate responsibility owners
 - PASS | no Support Report default export, hidden engineering singleton, unused production module or second relationship engine identified
-- INSPECTED_EXISTING / NOT_RUN | current `tests/startup-module-syntax.test.js` contains syntax and critical ownership-edge assertions, but this chain did not execute current-main tests in WP-002
+- INSPECTED_EXISTING / NOT_RUN | EP-0004 basis `tests/startup-module-syntax.test.js` contains syntax and critical ownership-edge assertions, but this chain did not execute current-main tests in WP-002
 
 # Main drift / adopted production state
 
 FOUNDATION_MAIN_COMMIT: 9fae87ed935d1dfe32d9302140ea414799d26fed
-CURRENT_MAIN: 1ca7ddb01335d11619209975bc392b8d97c287db
+EP0004_CURRENT_MAIN: 1ca7ddb01335d11619209975bc392b8d97c287db
+CURRENT_MAIN: 7ff2e13b67d16513a88f59d97e2e8bd17deff133
 ADOPTED_WP002_RELEVANT_MAIN:
 - PR1166@f807ce0a393b40de476264277aa6d428aed57a54 — PS-family parser primitive reuse
 - PR1167@756f3c48e033b130a4d8e56ef1e6cd9b78b66768 — native-only SUPPORT TYPE field authority
 - PR1168@1ca7ddb01335d11619209975bc392b8d97c287db — native member line custody
+POST_EP0004_MAIN_DRIFT:
+- 7ff2e13b67d16513a88f59d97e2e8bd17deff133 — carrier explicit full-line custody and branch-only fallback hardening; refs #1154 TASK-006 / WP-004 / TASK-009; no clash parsing/grouping/field projection/export change
 WP002_DISPOSITION: COMPLETE_BY_CURRENT_MAIN_ADOPTION
+POST_ENDPOINT_DRIFT_DISPOSITION: DOES_NOT_INVALIDATE_WP002
 COORDINATION_STATE: SAFE_RECONCILED_NO_DUPLICATE_PRODUCT_PATCH
 
 Draft PR #1165 remains WP-001 product material. WP-002 additions on its chain branch are relay/qualification evidence only; no `tabs/support-steel-relationship-builder/**` path was added to the PR diff.
