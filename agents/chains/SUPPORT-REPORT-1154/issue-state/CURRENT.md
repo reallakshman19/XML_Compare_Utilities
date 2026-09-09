@@ -1,10 +1,10 @@
 ISSUE_CURRENT_STATE_VERSION: 1
 ISSUE_BASIS_ID: IB-SUPPORT-REPORT-1154-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1154
-CURRENT_ENDPOINT: EP-SUPPORT-REPORT-1154-0004
-CURRENT_ENDPOINT_FILE: agents/chains/SUPPORT-REPORT-1154/endpoints/EP-SUPPORT-REPORT-1154-0004.md
+CURRENT_ENDPOINT: EP-SUPPORT-REPORT-1154-0005
+CURRENT_ENDPOINT_FILE: agents/chains/SUPPORT-REPORT-1154/endpoints/EP-SUPPORT-REPORT-1154-0005.md
 ISSUE_ROLE: PROGRAM_ROOT_SINGLE_CHAIN
-CURRENT_WORK_PACKAGE: WP-002_COMPLETE
+CURRENT_WORK_PACKAGE: WP-003_COMPLETE
 
 # Current state
 
@@ -17,33 +17,32 @@ MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
-MAIN_BASIS: 7ff2e13b67d16513a88f59d97e2e8bd17deff133
-EP0004_MAIN_BASIS: 1ca7ddb01335d11619209975bc392b8d97c287db
+MAIN_BASIS: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
 BRANCH: agent/support-report-1154
 PR: 1165
 PR_STATE: OPEN_DRAFT
-PR_MERGEABLE: TRUE_AT_EP0004_GROUNDING
+PR_MERGEABLE: TRUE_AT_EP0005_GROUNDING
 LATEST_MATERIAL_LEG: LEG-001
 LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-001.md
-WP002_MATERIAL_LEG: NONE
-WP002_EVIDENCE_FILE: agents/chains/SUPPORT-REPORT-1154/evidence/WP-002-architecture-conformance.md
+WP003_MATERIAL_LEG: NONE
+WP003_EVIDENCE_FILE: agents/chains/SUPPORT-REPORT-1154/evidence/WP-003-parser-qualification.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5607215873
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0005_COMMENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_COMMENT_SYNC
 
 # Original task / acceptance ledger
 
 - TASK-001 | PARTIAL | Support Report module exists on main; final production qualification remains open
 - TASK-002 | COMPLETE_ARCHITECTURE_REUSE | live addon consumes existing Support/Steel evidence-bundle construction; no parallel relationship engine is present
-- TASK-003 | COMPLETE_REUSE_BOUNDARY | PR #1166 reuses governed PS-family XML/numeric/token primitives; report-local PS/SL grammar remains intentionally local where semantics differ
-- TASK-004 | PARTIAL | Owner XML evidence is durable; WP-003 independent production parser qualification remains next
+- TASK-003 | COMPLETE_REUSE_BOUNDARY | governed PS-family XML/numeric primitives are reused; report-local PS/SL grammar remains scoped to Support Report semantics
+- TASK-004 | COMPLETE_PARSER_INTAKE | durable Owner XML is recoverable; parser shape and negative behavior are qualified against current main plus independent real-input oracle
 - TASK-005 | OPEN | exact 10-row production golden comparison not yet run
-- TASK-006 | PARTIAL | current main enforces native member and carrier line/branch custody; full native-only member recovery still requires authoritative staged-model input
+- TASK-006 | PARTIAL | current main enforces native member/carrier line custody and resolved member→carrier authority; full native-only member recovery still requires authoritative staged-model input
 - TASK-007 | PARTIAL | exact Owner 21-column oracle is durable; current production contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX code exists on main; independent Owner-oracle round-trip qualification remains open
-- TASK-009 | PARTIAL | current main removes several unsafe fallbacks; full no-fabrication qualification remains open
-- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-002
+- TASK-009 | PARTIAL | parser/field/carrier paths fail closed in several unsafe cases; full no-fabrication qualification remains open
+- TASK-010 | IN_PROGRESS | v2 chain/control-plane synchronized through WP-003 after Issue comment sync
 
 # Input ledger
 
@@ -55,39 +54,50 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Benchmark / validation ledger
 
-- BM-001 | PASS_WP001 | fixture retains exactly 20 clashresult records and 20 `/ASIM-1835-CU-SU` secondary-side paths
+- BM-001 | PASS_WP003 | independent Owner XML tree oracle: 20 clash results; all 20 have exactly two objects, exactly one branch-bearing side, exactly one opposite PS/SL family root and complete XYZ; 10 groups; PS-007=5; SL-097=5; six duplicate evidence signatures
 - BM-002 | PASS_WP001 | exact Owner workbook oracle has 21 columns
 - BM-003 | PASS_WP001 | 10 rows; PS-007=5; SL-097=5; total support points=5
 - BM-004 | NOT_RUN | exact production cell parity
-- BM-005 | NOT_RUN | complete missing-data negative controls against production
+- BM-005 | PARTIAL | parser negative controls inspected/proven in current source; complete no-fabrication production controls remain later
 - BM-006 | NOT_RUN | independent CSV/XLSX round-trip against Owner oracle
 - BM-007 | NOT_RUN | Support/Steel regressions under this chain
 - BM-008 | NOT_RUN | PS-family regressions under this chain
 - BM-009 | NOT_RUN | browser workflow smoke under this chain
 
-WP-002 source-conformance inspection:
-- PASS | every audited `support-report-*.js` production module at EP-0004 basis is below 300 physical lines
-- PASS | shared `decodeXmlEntities`, `parseNumber`, `stripLeadingSlash` come from `ps-family-token-utils.js`
-- PASS | field projection, evidence parsing/grouping, engine orchestration, export/XLSX and UI are separate responsibility owners
-- PASS | no Support Report default export, hidden engineering singleton, unused production module or second relationship engine identified
-- INSPECTED_EXISTING / NOT_RUN | EP-0004 basis `tests/startup-module-syntax.test.js` contains syntax and critical ownership-edge assertions, but this chain did not execute current-main tests in WP-002
+# WP-003 parser qualification
+
+Durable evidence: `agents/chains/SUPPORT-REPORT-1154/evidence/WP-003-parser-qualification.md`.
+
+Current-main parser ownership is bounded across clash evidence/grouping, clash-test context and fail-closed safety. Shared XML entity/numeric normalization is reused from PS-family.
+
+Required negative cases are fail-visible or fail-closed:
+- missing/no branch side;
+- multiple branch-bearing sides;
+- missing PS/SL member/family root;
+- conflicting opposite family roots;
+- malformed/truncated key tags;
+- duplicate evidence;
+- incomplete numeric point;
+- unrelated structural clash outside the report evidence pattern.
+
+Independent parse of the Owner original XML with Python standard-library ElementTree, without Support Report production code, produced:
+`20 clashresults -> 20/20 admissible -> 10 family+line groups; PS=5; SL=5; duplicate signatures=6; incomplete XYZ=0`.
+
+No real clash matches a current fail-closed unsafe condition. Duplicate consolidation is explicit and diagnostic, not a silent row loss.
+
+WP003_DISPOSITION: COMPLETE_BY_CURRENT_MAIN_ADOPTION_PLUS_INDEPENDENT_FIXTURE_ORACLE
+WP003_PATCH_DECISION: NO_PATCH
 
 # Main drift / adopted production state
 
 FOUNDATION_MAIN_COMMIT: 9fae87ed935d1dfe32d9302140ea414799d26fed
-EP0004_CURRENT_MAIN: 1ca7ddb01335d11619209975bc392b8d97c287db
-CURRENT_MAIN: 7ff2e13b67d16513a88f59d97e2e8bd17deff133
-ADOPTED_WP002_RELEVANT_MAIN:
-- PR1166@f807ce0a393b40de476264277aa6d428aed57a54 — PS-family parser primitive reuse
-- PR1167@756f3c48e033b130a4d8e56ef1e6cd9b78b66768 — native-only SUPPORT TYPE field authority
-- PR1168@1ca7ddb01335d11619209975bc392b8d97c287db — native member line custody
-POST_EP0004_MAIN_DRIFT:
-- 7ff2e13b67d16513a88f59d97e2e8bd17deff133 — carrier explicit full-line custody and branch-only fallback hardening; refs #1154 TASK-006 / WP-004 / TASK-009; no clash parsing/grouping/field projection/export change
-WP002_DISPOSITION: COMPLETE_BY_CURRENT_MAIN_ADOPTION
-POST_ENDPOINT_DRIFT_DISPOSITION: DOES_NOT_INVALIDATE_WP002
-COORDINATION_STATE: SAFE_RECONCILED_NO_DUPLICATE_PRODUCT_PATCH
+CURRENT_MAIN: d30f5a2bb4db1c46b8ed135613601a6c2f1584ad
+POST_WP002_MAIN_WORK_RELEVANT_TO_LATER_PACKAGES:
+- 7ff2e13b67d16513a88f59d97e2e8bd17deff133 — carrier explicit full-line custody / branch-only fallback hardening
+- d30f5a2bb4db1c46b8ed135613601a6c2f1584ad — selected native members' resolved physical carrier IDs outrank line/branch carrier heuristics and missing resolved catalog carriers fail closed
+COORDINATION_STATE: SAFE_RECONCILED_NO_DUPLICATE_PARSER_PATCH
 
-Draft PR #1165 remains WP-001 product material. WP-002 additions on its chain branch are relay/qualification evidence only; no `tabs/support-steel-relationship-builder/**` path was added to the PR diff.
+Draft PR #1165 remains WP-001 product material. WP-002/WP-003 additions on its chain branch are relay/qualification evidence only; the PR diff still contains no `tabs/support-steel-relationship-builder/**` production path.
 
 # Open authority conflict
 
@@ -96,17 +106,17 @@ Owner XLSX A:U begins with SCOPE, keeps PIPE SCHEDULE / PIPE INSULATION THICKNES
 
 # Qualification / Owner progression
 
-QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-REPORT-ARCHITECTURE-CONFORMANCE
-QUESTION_SET_ID: SUPPORT-REPORT-1154-QS-0003
+QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-REPORT-PARSER-HARDENING
+QUESTION_SET_ID: SUPPORT-REPORT-1154-QS-0004
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REFRESHED
 QUESTION_DISPLAY: SHOW
 TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
-OWNER_INSTRUCTION: 2026-09-09T18:51:27Z `proceed next`
+OWNER_INSTRUCTION: 2026-09-09T19:08:33Z `proceed next`
 OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
-MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_WP002_EXTERNAL_ADOPTION_NO_CHAIN_MATERIAL
+MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_WP003_ADOPTION_NO_CHAIN_MATERIAL
 
 # Exact next action
 
-STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-003 parser requirements against already-merged parser hardening and the durable Owner XML fixture before any new parser mutation.
+STOP_MATERIAL_PROGRESSION. On another exact Owner `proceed next`, re-ground current main and reconcile WP-004 grouping/enrichment against INPUT-003 authority. Do not fabricate the staged model. If no authoritative staged-model source is durably available, distinguish current-main invariants that can be qualified from source/tests from parity claims blocked by INPUT-003.
