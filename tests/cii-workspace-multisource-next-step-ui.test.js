@@ -29,12 +29,14 @@ assert.match(incompleteMarkup, /data-ciiw-ms-compare-now disabled/);
 
 const waitingReady = nextStepTest.transferWaitingMarkup(true);
 assert.match(waitingReady, /Multi-source Writer2/);
+assert.match(waitingReady, /Exact retained S1\/S2\/S3 custody is ready/);
 assert.match(waitingReady, /READY FOR COMPARE/);
 assert.match(waitingReady, /data-ciiw-ms-transfer-compare-now/);
 assert.match(waitingReady, /Writer1A is not used/);
 assert.doesNotMatch(waitingReady, /BLOCKED_WRITER_1A/);
 
 const waitingBlocked = nextStepTest.transferWaitingMarkup(false);
+assert.match(waitingBlocked, /exact retained S1\/S2\/S3 files/i);
 assert.match(waitingBlocked, /WAITING FOR ANCHORS/);
 assert.doesNotMatch(waitingBlocked, /data-ciiw-ms-transfer-compare-now/);
 
