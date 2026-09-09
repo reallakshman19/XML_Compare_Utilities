@@ -5,23 +5,18 @@ const S1 = fileURLToPath(new URL('../../Benchmark/S1.CII', import.meta.url));
 const S2 = fileURLToPath(new URL('../../Benchmark/S2.CII', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../Benchmark/T.CII', import.meta.url));
 
-test('Utilities Writer2 routes a non-retained multi-source set to REVIEW_ONLY with no write controls', async ({ page }) => {
+test('Utilities Writer2 generic REVIEW_ONLY binds correspondence review without write controls', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
   await page.evaluate(async () => {
     const { installCiiWorkspaceTile } = await import('/tabs/cii-workspace/cii-workspace-tab.js');
-    const host = document.createElement('section');
-    host.setAttribute('data-ciiw-generic-review-host', '1');
-    document.body.appendChild(host);
-    installCiiWorkspaceTile(host);
+    const host = document.createElement('section'); host.setAttribute('data-ciiw-generic-review-host', '1'); document.body.appendChild(host); installCiiWorkspaceTile(host);
   });
 
   await page.locator('[data-ciiw-open-writer2]').click();
-  const sourceInput = page.locator('[data-ciiw-source]');
-  const targetInput = page.locator('[data-ciiw-target]');
-  await sourceInput.setInputFiles([S1, S2]);
-  await targetInput.setInputFiles(TARGET);
+  await page.locator('[data-ciiw-source]').setInputFiles([S1, S2]);
+  await page.locator('[data-ciiw-target]').setInputFiles(TARGET);
 
   await page.locator('[data-ciiw-inspect]').click();
   const inspection = page.locator('[data-ciiw-ms-review-only-inspection="1"]');
@@ -39,9 +34,24 @@ test('Utilities Writer2 routes a non-retained multi-source set to REVIEW_ONLY wi
 
   const decisionControls = page.locator('[data-ciiw-ms-decision]');
   expect(await decisionControls.count()).toBeGreaterThan(0);
-  expect((await decisionControls.evaluateAll((nodes) => nodes.map((node) => node.disabled))).every(Boolean)).toBe(true);
-  await expect(page.locator('[data-ciiw-ms-bind-expected]')).toHaveCount(0);
-  await expect(page.locator('[data-ciiw-ms-apply]')).toHaveCount(0);
+  expect((await decisionControls.evaluateAll((nodes) => nodes.map((node) => node.disabled))).every((value) => value === false)).toBe(true);
+  const reviewButton = page.locator('[data-ciiw-refresh-review]');
+  await expect(reviewButton).toHaveText('Bind review decisions');
+  await expect(reviewButton).toBeDisabled();
   await expect(page.locator('[data-ciiw-export-csv]')).toBeEnabled();
   await expect(page.locator('[data-ciiw-export-json]')).toBeEnabled();
+
+  await decisionControls.first().selectOption('ACCEPT');
+  await expect(page.locator('[data-ciiw-status]')).toContainText('Bind review decisions to audit');
+  await expect(reviewButton).toBeEnabled();
+  await expect(page.locator('[data-ciiw-export-csv]')).toBeDisabled();
+  await expect(page.locator('[data-ciiw-export-json]')).toBeDisabled();
+
+  await reviewButton.click();
+  await expect(page.locator('[data-ciiw-status]')).toContainText('review bound to audit', { timeout: 120_000 });
+  await expect(page.locator('[data-ciiw-ms-review-only-transfer="1"]')).toContainText('Writer2 operations: 0');
+  await expect(page.locator('[data-ciiw-export-csv]')).toBeEnabled();
+  await expect(page.locator('[data-ciiw-export-json]')).toBeEnabled();
+  await expect(page.locator('[data-ciiw-ms-bind-expected]')).toHaveCount(0);
+  await expect(page.locator('[data-ciiw-ms-apply]')).toHaveCount(0);
 });
