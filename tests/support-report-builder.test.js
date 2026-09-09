@@ -134,6 +134,79 @@ test('Support Report carrier branch fallback cannot override explicit full-line 
   );
 });
 
+test('Support Report uses resolved member carrier authority before same-line catalog order', () => {
+  const resolvedCarrierId = '/PIPE-RESOLVED';
+  const supportFamilies = relationshipBundle.supportFamilies.map((family) => ({
+    ...family,
+    members: family.members.map((item) => item.memberId === '/PS-007.7'
+      ? {
+        ...item,
+        carrierResolution: {
+          resolutionStatus: 'RESOLVED_EXPLICIT_CARRIER',
+          physicalCarrierObjectAvailable: true,
+          carrierObjectId: resolvedCarrierId,
+        },
+      }
+      : item),
+  }));
+  const resolvedBundle = {
+    ...relationshipBundle,
+    supportFamilies,
+    supportCarrierResolution: { carrierObjects: [
+      {
+        carrierObjectId: '/PIPE-UNRELATED-FIRST',
+        lineContext: { fullLineTag: LINES.p10 },
+        attributes: { PIPE_SCHEDULE: 'WRONG SCHEDULE', ABORE: '999' },
+      },
+      {
+        carrierObjectId: resolvedCarrierId,
+        lineContext: { fullLineTag: LINES.p10 },
+        attributes: { PIPE_SCHEDULE: 'PIPE Sch 100', ABORE: '250' },
+      },
+    ] },
+  };
+  const report = buildSupportReportBundle({ clashXmlText: clashXml(), relationshipBundle: resolvedBundle });
+  const ps10 = report.rows.find((row) => row.civilSecondarySupport === 'PS-007(REF)' && row.pipe === LINES.p10);
+  assert.equal(ps10.pipeSchedule, 'PIPE Sch 100');
+  assert.equal(ps10.size, '250');
+  assert.deepEqual(ps10.evidence.resolvedCarrierObjectIds, [resolvedCarrierId]);
+  assert.deepEqual(ps10.evidence.carrierObjectIds, [resolvedCarrierId]);
+});
+
+test('Support Report does not replace a missing resolved carrier with a line fallback', () => {
+  const missingCarrierId = '/PIPE-MISSING';
+  const supportFamilies = relationshipBundle.supportFamilies.map((family) => ({
+    ...family,
+    members: family.members.map((item) => item.memberId === '/PS-007.7'
+      ? {
+        ...item,
+        carrierResolution: {
+          resolutionStatus: 'RESOLVED_EXPLICIT_CARRIER',
+          physicalCarrierObjectAvailable: true,
+          carrierObjectId: missingCarrierId,
+        },
+      }
+      : item),
+  }));
+  const missingBundle = {
+    ...relationshipBundle,
+    supportFamilies,
+    supportCarrierResolution: { carrierObjects: [{
+      carrierObjectId: '/PIPE-FALLBACK',
+      lineContext: { fullLineTag: LINES.p10 },
+      attributes: { PIPE_SCHEDULE: 'MUST NOT LEAK', ABORE: '999' },
+    }] },
+  };
+  const report = buildSupportReportBundle({ clashXmlText: clashXml(), relationshipBundle: missingBundle });
+  const ps10 = report.rows.find((row) => row.civilSecondarySupport === 'PS-007(REF)' && row.pipe === LINES.p10);
+  assert.equal(ps10.pipeSchedule, '');
+  assert.equal(ps10.size, '250');
+  assert.deepEqual(ps10.evidence.resolvedCarrierObjectIds, [missingCarrierId]);
+  assert.deepEqual(ps10.evidence.carrierObjectIds, []);
+  assert.ok(ps10.diagnostics.some((item) => item.code === 'SUPPORT_REPORT_CARRIER_ENRICHMENT_UNAVAILABLE'
+    && item.severity === 'WARN'));
+});
+
 test('Support Report column contract matches the retained workbook header', () => {
   assert.equal(SUPPORT_REPORT_COLUMNS.length, 21);
   assert.deepEqual(SUPPORT_REPORT_COLUMNS.map((column) => column.label), retainedWorkbookHeader());
