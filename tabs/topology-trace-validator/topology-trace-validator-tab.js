@@ -6,9 +6,8 @@ import { createTopologyEditController } from './topology-edit-controller.js?v=20
 import { createTopologySequentialMergeNodesController } from './topology-sequential-merge-nodes-controller.js';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260718-headless-autofix-v2';
+import { createTopologyWorkspaceController, workspaceMarkup } from './topology-svg-edit-routing.js?v=20260909-svg-edit-routing-v1';
 import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260718-headless-autofix-v2';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260718-headless-autofix-v2';
 import { createTopologyEditExtensions } from './topology-edit-extensions.js';
 
 const STYLE_ID = 'topology-trace-validator-style';
