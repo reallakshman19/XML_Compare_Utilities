@@ -6,10 +6,12 @@ import {
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
+import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-4';
 
 const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
+const SUPPORT_REPORT_PARSER_TOKEN = '20260909-support-report-parser-4';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -23,6 +25,7 @@ const syntaxFiles = [
   'tabs/support-steel-relationship-builder/support-restraint-local-frame.js',
   'tabs/support-steel-relationship-builder/support-report-contract.js',
   'tabs/support-steel-relationship-builder/support-report-clash-evidence.js',
+  'tabs/support-steel-relationship-builder/support-report-clash-test-context.js',
   'tabs/support-steel-relationship-builder/support-report-field-projection.js',
   'tabs/support-steel-relationship-builder/support-report-engine.js',
   'tabs/support-steel-relationship-builder/support-report-export.js',
@@ -48,6 +51,7 @@ const supportReportEdges = [
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-clash-evidence.js'],
   ['tabs/support-steel-relationship-builder/support-report-engine.js', './support-report-field-projection.js'],
   ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
+  ['tabs/support-steel-relationship-builder/support-report-clash-test-context.js', './support-report-clash-evidence.js'],
   ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
   ['tabs/support-steel-relationship-builder/support-report-view.js', './support-report-contract.js'],
@@ -59,10 +63,12 @@ for (const [file, modulePath] of supportReportEdges) {
 }
 const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'utf8');
 const addon = readFileSync('tabs/support-steel-relationship-builder/support-report-addon.js', 'utf8');
-assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
-  'Support Report bootstrap must refresh the XLSX-capable addon entry');
+assert.ok(bootstrap.includes(`./support-report-addon.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
+  'Support Report bootstrap must refresh the clash-test-aware addon entry');
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
+assert.ok(addon.includes(`./support-report-clash-test-context.js?v=${SUPPORT_REPORT_PARSER_TOKEN}`),
+  'Support Report addon must load clash-test context through the parser cache token');
 
 const xlsxFixture = { rows: [{
   previousName: '', scope: 'ASIM', civilSecondarySupport: 'PS-007(REF)', pipe: 'ASIM-10"-LINE', size: 250,
@@ -97,4 +103,17 @@ assert.equal(captured.matrix[1][7], '=67127059/28670');
 const xlsxBytes = await supportReportToXlsxBytes(xlsxFixture, { XLSX: fakeXlsx });
 assert.deepEqual([...xlsxBytes], [80, 75, 3, 4]);
 assert.deepEqual(captured.write.options, { bookType: 'xlsx', type: 'array', compression: true });
+
+function clashResult(name, member) {
+  return `<clashresult name="${name}" guid="${name}-GUID"><clashobjects><clashobject><pathlink><node>/ASIM-CU-PL</node><node>/ASIM-LINE</node><node>/ASIM-LINE/B1</node><node>/${member}</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/${member}</value></smarttag></smarttags></clashobject><clashobject><pathlink><node>/ASIM-CU-SU</node><node>/PS-007</node></pathlink><smarttags><smarttag><name>Item Name</name><value>GENSEC of /PS-007</value></smarttag></smarttags></clashobject></clashobjects></clashresult>`;
+}
+const multiTestXml = `<exchange units="m"><clashtest name="Test A" guid="TA">${clashResult('A1', 'PS-007.1')}</clashtest><clashtest name="Test B" guid="TB">${clashResult('B1', 'PS-007.2')}</clashtest></exchange>`;
+const multiTest = parseSupportReportClashXmlWithTestContext(multiTestXml);
+assert.equal(multiTest.clashTestCount, 2);
+assert.equal(multiTest.rowCount, 2);
+assert.equal(multiTest.groupCount, 1);
+assert.deepEqual(multiTest.rows.map((row) => row.clashTestName), ['Test A', 'Test B']);
+assert.deepEqual(multiTest.rows.map((row) => row.clashTestGuid), ['TA', 'TB']);
+assert.deepEqual(multiTest.rows.map((row) => row.clashTestIndex), [0, 1]);
+assert.deepEqual(multiTest.groups[0].evidenceRows.map((row) => row.clashTestName), ['Test A', 'Test B']);
 console.log(`startup module syntax gate passed for ${syntaxFiles.length} JavaScript files`);
