@@ -82,12 +82,18 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   const reportMembers = selectedMembers.length
     ? selectedMembers
     : clashIds.map((memberId) => ({ memberId, semanticRole: '', attributes: {}, lineContext: {}, positionGlobal: null }));
-  const carrierRows = selectCarriersForGroup(carriers, group);
+  const resolvedCarrierObjectIds = resolvedCarrierIdsForMembers(selectedMembers);
+  const carrierRows = selectCarriersForGroup(carriers, group, selectedMembers);
   if (relationshipBundle && !carrierRows.length) {
-    rowDiagnostics.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ENRICHMENT_UNAVAILABLE,
-      `No authoritative carrier object was line-matched for ${group.fullLineTag}; pipe metadata may be incomplete.`, {
-        fullLineTag: group.fullLineTag,
-      }));
+    const resolvedCarrierMismatch = resolvedCarrierObjectIds.length > 0;
+    rowDiagnostics.push(diagnostic(
+      resolvedCarrierMismatch ? 'WARN' : 'INFO',
+      SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ENRICHMENT_UNAVAILABLE,
+      resolvedCarrierMismatch
+        ? `Resolved carrier object(s) ${resolvedCarrierObjectIds.join(', ')} for selected support members are absent from the carrier catalog; line/branch fallback was not used.`
+        : `No authoritative carrier object was line-matched for ${group.fullLineTag}; pipe metadata may be incomplete.`,
+      { fullLineTag: group.fullLineTag, resolvedCarrierObjectIds },
+    ));
   }
 
   const representativeMember = chooseRepresentativeMember(reportMembers, clashIds);
@@ -113,6 +119,7 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       nativeOnlyMemberIds: nativeOnlyMembers,
       missingClashMemberIds: missingClashMembers,
       branchNodes: group.branchNodes,
+      resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
       nativeCoordinateAvailable: Boolean(nativePoint),
       clashCoordinateFallbackUsed: !nativePoint && Boolean(coordinatePoint),
@@ -141,8 +148,13 @@ function selectMembersForGroup(family, group) {
   return uniqueMembers([...selected, ...directClash]);
 }
 
-function selectCarriersForGroup(carriers, group) {
+function selectCarriersForGroup(carriers, group, selectedMembers = []) {
   const candidates = carriers || [];
+  const resolvedIds = resolvedCarrierIdsForMembers(selectedMembers).map(token);
+  if (resolvedIds.length) {
+    const resolvedSet = new Set(resolvedIds);
+    return candidates.filter((carrier) => resolvedSet.has(token(carrier?.carrierObjectId)));
+  }
   const exact = candidates.filter((carrier) => sameLine(carrier.lineContext?.fullLineTag, group.fullLineTag));
   if (exact.length) return exact;
   const branchTokens = new Set((group.branchNodes || []).map(token));
@@ -151,6 +163,14 @@ function selectCarriersForGroup(carriers, group) {
     if (clean(context.fullLineTag)) return false;
     return branchTokens.has(token(context.branchNode));
   });
+}
+function resolvedCarrierIdsForMembers(members) {
+  return unique((members || []).map((member) => {
+    const resolution = member?.carrierResolution || {};
+    return resolution.physicalCarrierObjectAvailable && clean(resolution.carrierObjectId)
+      ? resolution.carrierObjectId
+      : '';
+  }));
 }
 function memberMatchesLine(member, fullLineTag) {
   const context = member?.lineContext || {};
@@ -231,5 +251,6 @@ function diagnostic(severity, code, message, extra = {}) { return Object.freeze(
 export const _test = Object.freeze({
   selectMembersForGroup,
   selectCarriersForGroup,
+  resolvedCarrierIdsForMembers,
   memberContextConflictsGroup,
 });
