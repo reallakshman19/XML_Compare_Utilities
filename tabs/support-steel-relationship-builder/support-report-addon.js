@@ -1,6 +1,7 @@
 import { buildSupportReportBundle } from './support-report-engine.js?v=20260909-support-report-parity-2';
 import { supportReportToCsv } from './support-report-export.js?v=20260909-support-report-parity-2';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-parity-2';
+import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260909-support-report-xlsx-3';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 
@@ -53,12 +54,13 @@ function mount(popup) {
     node.addEventListener(eventName, () => invalidate(popup, 'Relationship rules changed; rebuild the Support Report.'));
   });
   popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => run(popup));
+  popup.querySelector('[data-ssr-download-xlsx]')?.addEventListener('click', () => void downloadXlsx(popup));
   popup.querySelector('[data-ssr-download]')?.addEventListener('click', () => downloadCsv(popup));
   popup.querySelector('[data-ssr-copy]')?.addEventListener('click', () => void copyCsv(popup));
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes line ↔ secondary-support evidence. The staged-model relationship bundle enriches complete PS/SL primary-support membership and native attributes.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)"><div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL members and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div></div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe line tag. If the combined staged model is loaded, the report rebuilds family evidence with PS + SL support-family recognition and recovers native members that do not appear in the clash XML.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button><button type="button" data-ssr-download="1" disabled>Download CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Load the combined staged model for complete PS/SL enrichment.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes line ↔ secondary-support evidence. The staged-model relationship bundle enriches complete PS/SL primary-support membership and native attributes.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)"><div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL members and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div></div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe line tag. If the combined staged model is loaded, the report rebuilds family evidence with PS + SL support-family recognition and recovers native members that do not appear in the clash XML.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Load the combined staged model for complete PS/SL enrichment.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 
 async function readXmlFile(popup) {
@@ -124,7 +126,7 @@ function invalidate(popup, message) {
 }
 
 function setExportEnabled(popup, enabled) {
-  for (const node of popup.querySelectorAll('[data-ssr-copy], [data-ssr-download]')) {
+  for (const node of popup.querySelectorAll('[data-ssr-copy], [data-ssr-download], [data-ssr-download-xlsx]')) {
     node.disabled = !enabled;
     node.setAttribute('aria-disabled', String(!enabled));
   }
@@ -136,14 +138,30 @@ async function copyCsv(popup) {
   await globalThis.navigator?.clipboard?.writeText(reportCsv(report));
 }
 
+async function downloadXlsx(popup) {
+  const report = stateByPopup.get(popup)?.report;
+  if (!report) return;
+  const runState = popup.querySelector('[data-ssr-run-state]');
+  try {
+    const bytes = await supportReportToXlsxBytes(report);
+    downloadBlob(popup, 'support-report.xlsx', bytes,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  } catch (error) {
+    if (runState) runState.innerHTML = `<b>XLSX export blocked</b><span>${h(error.message || error)}</span>`;
+  }
+}
+
 function downloadCsv(popup) {
   const report = stateByPopup.get(popup)?.report;
   if (!report) return;
-  const blob = new Blob([`\uFEFF${reportCsv(report)}`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
+  downloadBlob(popup, 'support-report.csv', `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
+}
+
+function downloadBlob(popup, name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = popup.ownerDocument.createElement('a');
   anchor.href = url;
-  anchor.download = 'support-report.csv';
+  anchor.download = name;
   anchor.click();
   URL.revokeObjectURL(url);
 }
