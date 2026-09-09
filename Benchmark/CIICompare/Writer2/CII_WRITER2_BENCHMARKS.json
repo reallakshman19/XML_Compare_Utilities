@@ -187,14 +187,75 @@
     {
       "id": "BM-W2-05",
       "family": "COMPOSITE",
-      "state": "BLOCKED_ON_BM_W2_01_02_03_PUBLIC_RUNTIME_PASS",
-      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE"
+      "state": "AUTHORED_SELF_CHECK",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE",
+      "candidate": {
+        "node": "10",
+        "name": "BM-N10",
+        "sifPointer": 1,
+        "sifOwnerFrom": "70",
+        "sifOwnerTo": "250",
+        "hangerNode": "205"
+      },
+      "expected": {
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "sifTeeBlockCountBefore": 9,
+        "sifTeeBlockCountAfter": 8,
+        "hangerCountBefore": 1,
+        "hangerCountAfter": 0,
+        "restraintBlockCountBefore": 7,
+        "restraintBlockCountAfter": 7,
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "oneOriginalPreimage": true,
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-trifamily-composite.test.js",
+        "gitBlob": "b21428dd68bcc7d147f192ff693187bd9db7b595",
+        "runtime": "SELF_CHECK_SOURCE_REVIEW"
+      }
     },
     {
       "id": "BM-W2-06",
       "family": "COMPOSITE",
-      "state": "BLOCKED_ON_BM_W2_01_02_03_04_PUBLIC_RUNTIME_PASS",
-      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE"
+      "state": "AUTHORED_SELF_CHECK",
+      "operation": "NODENAME_CREATE_PLUS_SIF_DELETE_PLUS_HANGER_DELETE_PLUS_RESTRAINT_DELETE",
+      "candidate": {
+        "node": "10",
+        "name": "BM-N10",
+        "sifPointer": 1,
+        "sifOwnerFrom": "70",
+        "sifOwnerTo": "250",
+        "hangerNode": "205",
+        "restraintPointer": 1,
+        "restraintSlot": 1,
+        "restraintNode": "190",
+        "restraintOwnerFrom": "180",
+        "restraintOwnerTo": "190"
+      },
+      "expected": {
+        "nodeNameCountBefore": 4,
+        "nodeNameCountAfter": 5,
+        "sifTeeBlockCountBefore": 9,
+        "sifTeeBlockCountAfter": 8,
+        "hangerCountBefore": 1,
+        "hangerCountAfter": 0,
+        "restraintBlockCountBefore": 7,
+        "restraintBlockCountAfter": 6,
+        "elementCountBefore": 40,
+        "elementCountAfter": 40,
+        "oneOriginalPreimage": true,
+        "topologyUnchanged": true,
+        "lexicalIntegerRequired": true
+      },
+      "test": {
+        "path": "tests/cii-workspace-writer2-benchmark-fourfamily-composite.test.js",
+        "gitBlob": "a5a53ce9b7362b88a0c3525a5b654766d2a5a4e5",
+        "runtime": "SELF_CHECK_SOURCE_REVIEW"
+      }
     }
   ],
   "focusedQualification": {
