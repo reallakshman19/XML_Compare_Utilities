@@ -22,7 +22,12 @@ function eventsForEdge(edge, sourceModel, targetModel, makeEvent, loadPolicy) {
   if (edge.cardinality === '1->1') return compareOneToOne(sources[0], targets[0], edge, makeEvent, loadPolicy);
   if (edge.cardinality === '1->N') return targets.flatMap((target) => replicationEvents(sources[0], target, edge, makeEvent, loadPolicy));
   if (edge.cardinality === 'N->1') return [makeEvent('COMMON_SUPPORT_CONSOLIDATED', sources[0], targets[0], edge, { remarkEligible: false, reasonCodes: ['STRUCTURAL_COMMON_SUPPORT_EVIDENCE'] })];
-  return [makeEvent('AMBIGUOUS_LINEAGE', sources[0], targets[0], edge, { remarkEligible: false, auditStatus: 'REVIEW_REQUIRED', reasonCodes: ['N_TO_M_REQUIRES_REVIEW'] })];
+  const reviewed = edge.reviewDecision === 'ACCEPTED';
+  return [makeEvent('AMBIGUOUS_LINEAGE', sources[0], targets[0], edge, {
+    remarkEligible: false,
+    auditStatus: reviewed ? 'REVIEWED_ACCEPTED' : 'REVIEW_REQUIRED',
+    reasonCodes: reviewed ? ['N_TO_M_REVIEW_ACCEPTED', ...(edge.reasonCodes || [])] : ['N_TO_M_REQUIRES_REVIEW'],
+  })];
 }
 
 function compareOneToOne(source, target, edge, makeEvent, loadPolicy) {
@@ -98,4 +103,4 @@ function multiset(components) { const result = {}; for (const key of components.
 function multisetKey(components) { return JSON.stringify(multiset(components)); }
 function summarize(events) { const byType = {}; for (const event of events) byType[event.type] = (byType[event.type] || 0) + 1; return Object.freeze({ total: events.length, remarkEligible: events.filter((event) => event.remarkEligible).length, reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length, byType: Object.freeze(byType) }); }
 
-export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation });
+export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge });
