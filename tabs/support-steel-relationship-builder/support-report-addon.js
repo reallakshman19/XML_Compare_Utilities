@@ -1,8 +1,8 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-owner-contract-15';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15&trace=20260910-support-report-json-trace-18';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260910-support-report-location-17';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
 import {
   supportReportCompleteness,
