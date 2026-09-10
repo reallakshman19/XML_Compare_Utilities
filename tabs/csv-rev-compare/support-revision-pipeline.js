@@ -3,6 +3,7 @@ import { buildCategorizedGraph } from '../../xml-compare/table-categorizer/table
 import { exportCategorizedGraphArtifacts } from '../../xml-compare/table-categorizer/table-categorized-xml-exporter.js';
 import { runCategorizerValidation } from '../../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 import { SUPPORT_REVISION_CSV_XML_PROFILE } from '../../xml-compare/table-categorizer/presets/support-revision/support-revision-profile.js';
+import { validateSupportRevisionPair } from './support-revision-pair-validation.js';
 import { inferRevisionValue, validateSupportRevisionSource } from './support-revision-schema.js';
 
 export const SUPPORT_REVISION_PIPELINE_SCHEMA = 'support-revision-pipeline/v1';
@@ -34,15 +35,18 @@ export function convertSupportRevisionPair(revision1Text, revision2Text, options
   const profile = options.profile || SUPPORT_REVISION_CSV_XML_PROFILE;
   const rev1 = convertSupportRevisionTable(revision1Text, revisionOptions(options.rev1, '1', 'R1', 'Revision 1 / Earlier', profile));
   const rev2 = convertSupportRevisionTable(revision2Text, revisionOptions(options.rev2, '2', 'R2', 'Revision 2 / Later', profile));
+  const pairValidation = validateSupportRevisionPair(rev1, rev2, options);
   return Object.freeze({
     schema: 'support-revision-pair/v1',
     profileId: profile.profileId,
     rev1,
     rev2,
-    ok: rev1.ok && rev2.ok,
+    pairValidation,
+    ok: rev1.ok && rev2.ok && pairValidation.ok,
     diagnostics: Object.freeze([
       ...revisionDiagnostics('1', rev1),
       ...revisionDiagnostics('2', rev2),
+      ...pairValidation.diagnostics.map((item) => Object.freeze({ revision: 'PAIR', ...item })),
     ]),
   });
 }
