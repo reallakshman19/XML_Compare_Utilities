@@ -6,7 +6,12 @@ on:
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
       - 'tests/support-report-typicality*.test.mjs'
       - 'tests/support-report-location-benchmarks.test.mjs'
+      - 'tests/browser/support-report-typicality.spec.mjs'
+      - 'tests/browser/support-steel-preview-staleness.spec.mjs'
+      - 'playwright.support-steel.config.mjs'
       - 'benchmarks/*.xml'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/support-report-typicality-qualification.yml'
   workflow_dispatch:
 
@@ -19,12 +24,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Run location + typicality qualification
         run: >-
@@ -36,3 +41,37 @@ jobs:
           tests/support-report-typicality-export.test.mjs
           tests/support-report-typicality-ui.test.mjs
           tests/support-report-typicality-negative.test.mjs
+
+  browser-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Support Steel browser qualification
+        run: npx playwright test --config=playwright.support-steel.config.mjs
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-browser-evidence
+          path: |
+            artifacts/support-steel-browser-results.json
+            playwright-report/support-steel
+            test-results/support-steel
+          if-no-files-found: warn
+          retention-days: 14
