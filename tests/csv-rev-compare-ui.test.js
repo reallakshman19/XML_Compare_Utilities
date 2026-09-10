@@ -102,10 +102,13 @@ test('audit/XML artifacts can remain available while primary CSV is gated', () =
   assert.equal(artifactDescriptor(result, 'rev1xml')?.type, 'application/xml');
 });
 
-test('structural N-to-M ambiguity is visible as an explicit review row', () => {
-  const rows = unresolvedReviewRows({ lineage: structuralAmbiguity() });
-  assert.equal(rows.filter((row) => row.kind === 'structural').length, 1);
-  assert.equal(rows.find((row) => row.kind === 'structural').cardinality, 'N->M');
+test('structural N-to-M ambiguity is one structural review item, not duplicate candidate work', () => {
+  const lineage = structuralAmbiguity();
+  const rows = unresolvedReviewRows({ lineage });
+  assert.equal(unresolvedLineageReviews(lineage).count, 1);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, 'structural');
+  assert.equal(rows[0].cardinality, 'N->M');
 });
 
 test('explicit structural acceptance resolves N-to-M review without pretending it was deterministic', () => {
@@ -124,7 +127,7 @@ test('explicit structural acceptance resolves N-to-M review without pretending i
   assert.equal(structuralEvent.auditStatus, 'REVIEWED_ACCEPTED');
 });
 
-test('explicit structural rejection removes the N-to-M edge and preserves no-successor semantics', () => {
+test('explicit structural rejection removes the edge and rejects its candidate evidence', () => {
   const source = model('R1', ['s1', 's2']);
   const target = model('R2', ['t1', 't2']);
   const lineage = resolveReviewedLineage(structuralAmbiguity(), source, target, [
@@ -132,6 +135,7 @@ test('explicit structural rejection removes the N-to-M edge and preserves no-suc
   ]);
   assert.equal(unresolvedLineageReviews(lineage).count, 0);
   assert.equal(lineage.edges.length, 0);
+  assert.equal(lineage.candidates.every((item) => item.outcome === 'NO_MATCH'), true);
   assert.deepEqual(lineage.removed, ['s1', 's2']);
   assert.deepEqual(lineage.added, ['t1', 't2']);
 });
