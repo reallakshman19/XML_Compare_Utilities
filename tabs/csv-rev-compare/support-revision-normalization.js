@@ -75,9 +75,6 @@ export function parseEngineeringCoordinate(rawValue, axis = '') {
   const explicitSign = Number.isFinite(number) ? Math.sign(number) || 1 : 0;
   const directionSign = ({ N: 1, E: 1, S: -1, W: -1 })[direction] || 0;
   const signedMm = Number.isFinite(number) ? number * factor : null;
-  // Direction is authoritative when it exists. This intentionally normalizes
-  // "N 1124807" and "N -1124807" to the same physical half-axis; a
-  // revision-level frame transform handles global N/S or E/W convention flips.
   const directedMm = magnitude == null ? null : (directionSign ? directionSign * magnitude : signedMm);
   const formatKey = `${direction || 'NONE'}|${explicitSign < 0 ? '-' : '+'}|${units}`;
   return Object.freeze({ raw, axis: upper(axis), direction, explicitSign, magnitude, units, mm: signedMm, directedMm, formatKey });
@@ -165,9 +162,12 @@ export function normalizeLoadVector(loadNodes = []) {
       sourceCellRef: clean(node?.sourceCellRef ?? node?.fields?.sourceCellRef),
     });
   });
-  const numericCount = slots.filter((slot) => slot.value != null).length;
-  const nonEmptyCount = slots.filter((slot) => slot.raw !== '').length;
-  const state = nonEmptyCount === 0 ? 'EMPTY' : numericCount === slots.length ? 'NUMERIC' : numericCount === 0 ? 'SYMBOLIC' : 'MIXED';
+  const nonEmptySlots = slots.filter((slot) => slot.raw !== '');
+  const numericCount = nonEmptySlots.filter((slot) => slot.value != null).length;
+  const state = nonEmptySlots.length === 0 ? 'EMPTY'
+    : numericCount === nonEmptySlots.length ? 'NUMERIC'
+      : numericCount === 0 ? 'SYMBOLIC'
+        : 'MIXED';
   return Object.freeze({ state, slots: Object.freeze(slots) });
 }
 
