@@ -62,8 +62,6 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run Support Steel browser qualification
-        id: browser_test
-        continue-on-error: true
         run: npx playwright test --config=playwright.support-steel.config.mjs
 
       - name: Print compact Playwright result
@@ -109,7 +107,3 @@ jobs:
             test-results/support-steel
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Fail when browser qualification failed
-        if: steps.browser_test.outcome != 'success'
-        run: exit 1
