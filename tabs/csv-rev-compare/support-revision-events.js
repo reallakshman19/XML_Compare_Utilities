@@ -49,7 +49,11 @@ function replicationEvents(source, targets, edge, policy, makeEvent) {
     const shared = source.persistentReferences.filter((ref) => target.persistentReferences.includes(ref));
     const coordinate = edge.coordinateEvidence?.find((row) => row.sourceNodeId === source.nodeId && row.targetNodeId === target.nodeId);
     if (shared.length && coordinate?.classification === 'ACTUAL_POSITION_CHANGED') events.push(makeEvent('COMMON_SUPPORT_ANCHOR_RELOCATED', source, target, edge, { remarkEligible: true, persistentReferences: shared, coordinateResidual: coordinate, reasonCodes: ['STRUCTURAL_COMMON_SUPPORT_EVIDENCE', 'PERSISTENT_REFERENCE_ANCHOR', 'NORMALIZED_POSITION_CHANGED'], normalizedState: { coordinateClassification: coordinate.classification, residualMm: coordinate.residualMm } }));
-    events.push(...compareComponents(source, target, edge, makeEvent));
+    // A structurally new replicated branch may legitimately own a different
+    // reference set. Do not turn that topology fact into a false Support Type
+    // Changes remark. Component deltas are evaluated only where at least one
+    // persistent component actually continues into this branch.
+    if (shared.length) events.push(...compareComponents(source, target, edge, makeEvent));
     events.push(...compareLoads(source, target, edge, policy, makeEvent));
   }
   return events;
