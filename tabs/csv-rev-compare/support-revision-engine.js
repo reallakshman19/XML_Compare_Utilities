@@ -9,7 +9,7 @@ import { buildRevisionOutputMatrix, buildSupportRevisionArtifacts } from './supp
 import { SUPPORT_REV_COMPARE_POLICY_V1 } from './support-revision-normalization.js';
 import { SUPPORT_REV_LOAD_POLICY_V1 } from './support-revision-loads.js';
 
-export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v2-lineage-eligibility';
+export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v3-review-barrier';
 
 export function runSupportRevisionCompare(revision1Text, revision2Text, options = {}) {
   const comparisonPolicy = options.policy || SUPPORT_REV_COMPARE_POLICY_V1;
@@ -26,15 +26,18 @@ export function runSupportRevisionCompare(revision1Text, revision2Text, options 
   const initialLineage = attachLineageEligibility(rawLineage, sourceEligibility, targetEligibility);
   const lineage = resolveReviewedLineage(initialLineage, sourceModel, targetModel, options.reviewDecisions || [], { policy: comparisonPolicy });
   const unresolvedReviews = unresolvedLineageReviews(lineage);
-  const ledger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy: comparisonPolicy, loadPolicy });
+  const reviewBlockers = (lineage.reviewDiagnostics || []).filter((item) => item.severity === 'blocker');
+  const reviewBlocked = unresolvedReviews.count > 0 || reviewBlockers.length > 0;
+  const ledger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy: comparisonPolicy, loadPolicy, reviewBlocked });
   const remarks = renderSupportRevisionRemarks(ledger, sourceModel, targetModel, remarkPolicy);
-  const output = buildRevisionOutputMatrix(pair.rev1.source, pair.rev2.source, remarks);
-  const exportReady = unresolvedReviews.count === 0 && !(lineage.reviewDiagnostics || []).some((item) => item.severity === 'blocker');
+  const output = reviewBlocked ? null : buildRevisionOutputMatrix(pair.rev1.source, pair.rev2.source, remarks);
+  const exportReady = !reviewBlocked;
   const core = Object.freeze({
     schema: SUPPORT_REVISION_ENGINE_SCHEMA,
     ok: exportReady,
     stage: exportReady ? 'READY_TO_EXPORT' : 'REVIEW_REQUIRED',
     exportReady,
+    reviewBlocked,
     policyId: comparisonPolicy.policyId,
     loadPolicyId: loadPolicy.policyId,
     remarkPolicyId: remarkPolicy.policyId,
@@ -53,7 +56,7 @@ export function runSupportRevisionCompare(revision1Text, revision2Text, options 
 }
 
 function conversionBlocked(pair, comparisonPolicy, loadPolicy, remarkPolicy) {
-  return Object.freeze({ schema: SUPPORT_REVISION_ENGINE_SCHEMA, ok: false, stage: 'CONVERSION_BLOCKED', exportReady: false, policyId: comparisonPolicy.policyId, loadPolicyId: loadPolicy.policyId, remarkPolicyId: remarkPolicy.policyId, pair, diagnostics: pair.diagnostics });
+  return Object.freeze({ schema: SUPPORT_REVISION_ENGINE_SCHEMA, ok: false, stage: 'CONVERSION_BLOCKED', exportReady: false, reviewBlocked: false, policyId: comparisonPolicy.policyId, loadPolicyId: loadPolicy.policyId, remarkPolicyId: remarkPolicy.policyId, pair, diagnostics: pair.diagnostics });
 }
 
 export const SUPPORT_REVISION_WORKFLOW_STAGES = Object.freeze([
