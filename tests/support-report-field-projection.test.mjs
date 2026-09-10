@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  projectSupportReportFieldProvenance,
   projectSupportReportFields,
+  SUPPORT_REPORT_FIELD_SOURCE_CLASSES,
   supportReportCarrierAttributeConflicts,
 } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js';
 
@@ -101,4 +103,77 @@ test('conflicting native size stays blank and is not replaced by line-tag deriva
   const fields = projectSupportReportFields({ group, reportMembers: [member], carrierRows: carriers, coordinatePoint: null });
   assert.equal(fields.size, '');
   assert.deepEqual(supportReportCarrierAttributeConflicts(carriers).map((item) => item.field), ['size']);
+});
+
+test('field provenance distinguishes native membership, carrier attributes and native coordinates', () => {
+  const carriers = [{
+    carrierObjectId: '/PIPE-10',
+    attributes: { ABORE: '250', PIPE_SCHEDULE: 'PIPE Sch 100', PIPE_INSULATION_TYPE: 'HC' },
+  }];
+  const evidence = projectSupportReportFieldProvenance({
+    group,
+    reportMembers: [member],
+    carrierRows: carriers,
+    coordinateSource: 'NATIVE_MEMBER_POSITION',
+    selectedNativeMemberCount: 1,
+  });
+  assert.equal(evidence.pipingPrimarySupport.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBERSHIP);
+  assert.equal(evidence.supportType.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_ATTRIBUTE);
+  assert.equal(evidence.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE);
+  assert.equal(evidence.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE);
+  assert.equal(evidence.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_POSITION);
+  assert.equal(evidence.primarySupportZone.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_PRIMARY_PATH);
+  assert.equal(evidence.revision.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
+  assert.equal(evidence.size.confidenceClass, 'AUTHORITATIVE');
+  assert.deepEqual(evidence.size.sourceIds, ['/PIPE-10']);
+});
+
+test('XML-only provenance labels clash fallbacks and deterministic line-size derivation', () => {
+  const clashMember = { memberId: '/PS-007.7', attributes: {}, sourcePath: [] };
+  const evidence = projectSupportReportFieldProvenance({
+    group,
+    reportMembers: [clashMember],
+    carrierRows: [],
+    coordinateSource: 'CLASH_POINT_FALLBACK',
+    selectedNativeMemberCount: 0,
+  });
+  assert.equal(evidence.pipingPrimarySupport.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_MEMBER_FALLBACK);
+  assert.equal(evidence.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.LINE_TAG_DERIVATION);
+  assert.equal(evidence.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_POINT_FALLBACK);
+  assert.equal(evidence.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
+  assert.equal(evidence.pipeSchedule.valueStatus, 'UNRESOLVED');
+  assert.equal(evidence.eastWest.confidenceClass, 'FALLBACK');
+});
+
+test('field provenance exposes authoritative conflicts without pseudo-confidence', () => {
+  const carriers = [
+    { carrierObjectId: '/PIPE-A', attributes: { ABORE: '250', PIPE_SCHEDULE: 'PIPE Sch 100' } },
+    { carrierObjectId: '/PIPE-B', attributes: { ABORE: '300', PIPE_SCHEDULE: 'PIPE Sch 120' } },
+  ];
+  const evidence = projectSupportReportFieldProvenance({
+    group,
+    reportMembers: [member],
+    carrierRows: carriers,
+    coordinateSource: 'UNRESOLVED',
+    selectedNativeMemberCount: 1,
+  });
+  assert.equal(evidence.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT);
+  assert.equal(evidence.size.confidenceClass, 'CONFLICT');
+  assert.deepEqual(evidence.size.sourceIds, ['/PIPE-A', '/PIPE-B']);
+  assert.deepEqual(evidence.size.values, ['250', '300']);
+  assert.equal(evidence.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT);
+  assert.equal(evidence.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
+});
+
+test('blank native remarks preserve membership structure without claiming an attribute value', () => {
+  const evidence = projectSupportReportFieldProvenance({
+    group,
+    reportMembers: [{ ...member, attributes: {} }],
+    carrierRows: [],
+    coordinateSource: 'UNRESOLVED',
+    selectedNativeMemberCount: 1,
+  });
+  assert.equal(evidence.remarks.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_LIST_STRUCTURE);
+  assert.equal(evidence.remarks.valueStatus, 'STRUCTURE_ONLY');
+  assert.equal(evidence.supportType.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
 });
