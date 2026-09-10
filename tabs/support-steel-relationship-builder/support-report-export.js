@@ -1,15 +1,13 @@
 import {
   SUPPORT_REPORT_COLUMNS,
+  supportReportColumnHeader,
   supportReportColumnValue,
-} from './support-report-contract.js?v=20260909-support-report-parity-2';
+} from './support-report-contract.js?v=20260910-support-report-owner-contract-15';
 
 export function supportReportToCsv(bundle, options = {}) {
   const columns = SUPPORT_REPORT_COLUMNS;
   const includeOrdinalRow = options.includeOrdinalRow !== false;
-  const legacyBlankPrimarySupportHeader = options.legacyBlankPrimarySupportHeader === true;
-  const headerLabels = columns.map((column) => (
-    legacyBlankPrimarySupportHeader && column.key === 'pipingPrimarySupportReference' ? '' : column.label
-  ));
+  const headerLabels = columns.map((column) => supportReportColumnHeader(column, options));
   const lines = [];
   if (includeOrdinalRow) lines.push(columns.map((_, index) => csvCell(index + 1)).join(','));
   lines.push(headerLabels.map(csvCell).join(','));
@@ -22,12 +20,9 @@ export function supportReportToCsv(bundle, options = {}) {
 export function supportReportToTsv(bundle, options = {}) {
   const columns = SUPPORT_REPORT_COLUMNS;
   const includeOrdinalRow = options.includeOrdinalRow !== false;
-  const legacyBlankPrimarySupportHeader = options.legacyBlankPrimarySupportHeader === true;
   const lines = [];
   if (includeOrdinalRow) lines.push(columns.map((_, index) => index + 1).join('\t'));
-  lines.push(columns.map((column) => tsvCell(
-    legacyBlankPrimarySupportHeader && column.key === 'pipingPrimarySupportReference' ? '' : column.label,
-  )).join('\t'));
+  lines.push(columns.map((column) => tsvCell(supportReportColumnHeader(column, options))).join('\t'));
   for (const row of bundle?.rows || []) {
     lines.push(columns.map((column) => tsvCell(supportReportColumnValue(row, column))).join('\t'));
   }

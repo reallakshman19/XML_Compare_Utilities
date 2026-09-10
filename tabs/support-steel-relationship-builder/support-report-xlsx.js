@@ -1,23 +1,28 @@
 import {
   SUPPORT_REPORT_COLUMNS,
+  supportReportColumnHeader,
   supportReportColumnValue,
-} from './support-report-contract.js?v=20260909-support-report-parity-2';
+} from './support-report-contract.js?v=20260910-support-report-owner-contract-15';
 
 const DEFAULT_SHEET_NAME = 'Support Report';
 const XLSX_MODULE_URL = 'https://esm.sh/xlsx@0.18.5';
 
 export function supportReportSpreadsheetMatrix(bundle, options = {}) {
-  const legacyBlankPrimarySupportHeader = options.legacyBlankPrimarySupportHeader === true;
-  const header = SUPPORT_REPORT_COLUMNS.map((column) => (
-    legacyBlankPrimarySupportHeader && column.key === 'pipingPrimarySupportReference' ? '' : column.label
-  ));
+  const includeOrdinalRow = options.includeOrdinalRow !== false;
+  const header = SUPPORT_REPORT_COLUMNS.map((column) => supportReportColumnHeader(column, {
+    ...options,
+    ownerWorkbookFidelity: options.ownerWorkbookFidelity !== false,
+  }));
   const rows = (bundle?.rows || []).map((row) => SUPPORT_REPORT_COLUMNS.map((column) => {
     const value = supportReportColumnValue(row, column);
     if (value == null) return '';
     if (typeof value === 'number') return Number.isFinite(value) ? value : '';
     return String(value);
   }));
-  return [header, ...rows];
+  const matrix = [];
+  if (includeOrdinalRow) matrix.push(SUPPORT_REPORT_COLUMNS.map((_, index) => index + 1));
+  matrix.push(header, ...rows);
+  return matrix;
 }
 
 export function createSupportReportWorkbook(bundle, XLSX, options = {}) {
@@ -27,7 +32,10 @@ export function createSupportReportWorkbook(bundle, XLSX, options = {}) {
   worksheet['!cols'] = SUPPORT_REPORT_COLUMNS.map((column) => ({
     wch: columnWidth(column.key),
   }));
-  if (matrix.length > 1) worksheet['!autofilter'] = { ref: `A1:U${matrix.length}` };
+  if ((bundle?.rows || []).length > 0) {
+    const headerRow = options.includeOrdinalRow === false ? 1 : 2;
+    worksheet['!autofilter'] = { ref: `A${headerRow}:U${matrix.length}` };
+  }
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName || DEFAULT_SHEET_NAME);
@@ -63,7 +71,7 @@ function columnWidth(key) {
   if (['pipe', 'primarySupportDescription', 'remarks'].includes(key)) return 42;
   if (['pipingPrimarySupport', 'supportType', 'pipingPrimarySupportReference'].includes(key)) return 34;
   if (['civilSecondarySupport', 'primarySupportZone', 'primarySupportSite'].includes(key)) return 28;
-  if (['pipeInsulationTypeAndThickness', 'stressSystemNumber'].includes(key)) return 24;
+  if (['pipeInsulationThickness', 'pipeInsulationType', 'stressSystemNumber'].includes(key)) return 24;
   return 18;
 }
 

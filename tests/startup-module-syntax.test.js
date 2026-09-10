@@ -5,7 +5,7 @@ import {
   createSupportReportWorkbook,
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
-} from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
+} from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
 import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
@@ -17,10 +17,10 @@ import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '
 
 const CACHE_TOKEN = '20260717-startup-parse-hotfix-1';
 const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
-const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
 const SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN = '20260909-support-report-carrier-conflict-13';
 const SUPPORT_REPORT_FIELD_PROVENANCE_TOKEN = '20260910-support-report-field-provenance-14';
+const SUPPORT_REPORT_OWNER_CONTRACT_TOKEN = '20260910-support-report-owner-contract-15';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -54,25 +54,17 @@ for (const file of syntaxFiles) {
 for (const file of ['index.html', 'main-rhbg-fitguard.js', 'core/app.js', 'tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js']) {
   assert.match(readFileSync(file, 'utf8'), new RegExp(CACHE_TOKEN), `${file} must carry the startup hotfix cache token`);
 }
-const supportReportParityEdges = [
-  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-export.js'],
-  ['tabs/support-steel-relationship-builder/support-report-addon.js', './support-report-view.js'],
-  ['tabs/support-steel-relationship-builder/support-report-clash-evidence.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-export.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-xlsx.js', './support-report-contract.js'],
-  ['tabs/support-steel-relationship-builder/support-report-view.js', './support-report-contract.js'],
-];
-for (const [file, modulePath] of supportReportParityEdges) {
-  const source = readFileSync(file, 'utf8');
-  assert.ok(source.includes(`${modulePath}?v=${SUPPORT_REPORT_PARITY_TOKEN}`),
-    `${file} must import ${modulePath} through the Support Report parity cache token`);
-}
+const clashEvidence = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-evidence.js', 'utf8');
+assert.ok(clashEvidence.includes(`./support-report-contract.js?v=${SUPPORT_REPORT_PARITY_TOKEN}`),
+  'Support Report clash evidence must retain the parser-era contract cache token');
 const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'utf8');
 const addon = readFileSync('tabs/support-steel-relationship-builder/support-report-addon.js', 'utf8');
 const engine = readFileSync('tabs/support-steel-relationship-builder/support-report-engine.js', 'utf8');
+const supportReportExport = readFileSync('tabs/support-steel-relationship-builder/support-report-export.js', 'utf8');
+const supportReportXlsx = readFileSync('tabs/support-steel-relationship-builder/support-report-xlsx.js', 'utf8');
+const supportReportView = readFileSync('tabs/support-steel-relationship-builder/support-report-view.js', 'utf8');
 const safety = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-safety.js', 'utf8');
 const context = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-test-context.js', 'utf8');
-const evidence = readFileSync('tabs/support-steel-relationship-builder/support-report-clash-evidence.js', 'utf8');
 for (const [source, edge, label] of [
   [addon, './support-report-clash-safety.js', 'addon → safety'],
   [engine, './support-report-clash-safety.js', 'engine → safety'],
@@ -86,16 +78,25 @@ for (const [source, edge, label] of [
 assert.ok(engine.includes(`./support-report-contract.js?v=${SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN}`),
   'Support Report engine must retain the carrier-conflict contract cache token');
 for (const [source, edge, label] of [
-  [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
   [addon, './support-report-engine.js', 'addon → engine'],
   [engine, './support-report-field-projection.js', 'engine → field projection'],
 ]) {
   assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_FIELD_PROVENANCE_TOKEN}`),
     `Support Report ${label} must carry the field provenance cache token`);
 }
-assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
-  'Support Report addon must load the XLSX writer through the XLSX cache token');
-assert.ok(evidence.includes("../ps-family-clash-audit/ps-family-token-utils.js"),
+for (const [source, edge, label] of [
+  [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
+  [addon, './support-report-export.js', 'addon → CSV export'],
+  [addon, './support-report-view.js', 'addon → view'],
+  [addon, './support-report-xlsx.js', 'addon → XLSX export'],
+  [supportReportExport, './support-report-contract.js', 'CSV export → contract'],
+  [supportReportXlsx, './support-report-contract.js', 'XLSX export → contract'],
+  [supportReportView, './support-report-contract.js', 'view → contract'],
+]) {
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_OWNER_CONTRACT_TOKEN}`),
+    `Support Report ${label} must carry the Owner contract cache token`);
+}
+assert.ok(clashEvidence.includes("../ps-family-clash-audit/ps-family-token-utils.js"),
   'Support Report clash evidence must reuse governed PS-family XML/numeric primitives');
 assert.ok(context.includes("../ps-family-clash-audit/ps-family-token-utils.js"),
   'Support Report clash-test context must reuse governed PS-family XML decoding');
@@ -109,13 +110,18 @@ const xlsxFixture = { rows: [{
   pipeInsulationType: 'HC', pipeInsulationThickness: '80mm', stressSystemNumber: 'QSP-SYS-01', nodeNumber: '280', revision: '5',
 }] };
 const matrix = supportReportSpreadsheetMatrix(xlsxFixture);
-assert.equal(matrix[0].length, 21);
-assert.equal(matrix[0][0], 'PREV PRIMARY SUPPORT NAME');
-assert.equal(matrix[0][20], 'REVISION');
-assert.equal(matrix[1][7], '=67127059/28670');
-assert.equal(matrix[1][17], 'HC 80mm');
-assert.equal(matrix[1][20], '5');
-assert.equal(matrix[1][4], 250);
+assert.deepEqual(matrix[0], Array.from({ length: 21 }, (_, index) => index + 1));
+assert.equal(matrix[1].length, 21);
+assert.equal(matrix[1][0], 'SCOPE');
+assert.equal(matrix[1][7], '');
+assert.equal(matrix[1][20], 'REMARKS');
+assert.equal(matrix[2][4], 'PIPE Sch 100');
+assert.equal(matrix[2][5], '80mm');
+assert.equal(matrix[2][6], 'HC');
+assert.equal(matrix[2][7], '/PS-007.7');
+assert.equal(matrix[2][9], '=67127059/28670');
+assert.equal(matrix[2][15], 5);
+assert.equal(matrix[2].includes('5'), false);
 const captured = {};
 const fakeXlsx = {
   utils: {
@@ -128,8 +134,8 @@ const fakeXlsx = {
 const workbook = createSupportReportWorkbook(xlsxFixture, fakeXlsx);
 assert.equal(workbook.sheets[0].name, 'Support Report');
 assert.equal(workbook.sheets[0].worksheet['!cols'].length, 21);
-assert.equal(workbook.sheets[0].worksheet['!autofilter'].ref, 'A1:U2');
-assert.equal(captured.matrix[1][7], '=67127059/28670');
+assert.equal(workbook.sheets[0].worksheet['!autofilter'].ref, 'A2:U3');
+assert.equal(captured.matrix[2][9], '=67127059/28670');
 const xlsxBytes = await supportReportToXlsxBytes(xlsxFixture, { XLSX: fakeXlsx });
 assert.deepEqual([...xlsxBytes], [80, 75, 3, 4]);
 assert.deepEqual(captured.write.options, { bookType: 'xlsx', type: 'array', compression: true });
