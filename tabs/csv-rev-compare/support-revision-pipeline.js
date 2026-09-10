@@ -3,8 +3,10 @@ import { buildCategorizedGraph } from '../../xml-compare/table-categorizer/table
 import { exportCategorizedGraphArtifacts } from '../../xml-compare/table-categorizer/table-categorized-xml-exporter.js';
 import { runCategorizerValidation } from '../../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 import { SUPPORT_REVISION_CSV_XML_PROFILE } from '../../xml-compare/table-categorizer/presets/support-revision/support-revision-profile.js';
+import { validateSupportRevisionPair } from './support-revision-pair-validation.js';
+import { inferRevisionValue, validateSupportRevisionSource } from './support-revision-schema.js';
 
-export const SUPPORT_REVISION_PIPELINE_SCHEMA = 'support-revision-pipeline/v2-header-aliases';
+export const SUPPORT_REVISION_PIPELINE_SCHEMA = 'support-revision-pipeline/v3-bore-alias';
 
 const HEADER_ALIASES = Object.freeze(new Map([
   ['PREV PRIMARY SUPPORT NAME', 'PREV NAME'],
@@ -14,6 +16,10 @@ const HEADER_ALIASES = Object.freeze(new Map([
   ['CIVILSECONDARYSUPPORT (GHTYPE-4PLOT/1885)', 'CIVILSECONDARYSUPPORT'],
   ['CIVIL SECONDARY SUPPORT (GHTYPE-4PLOT/1885)', 'CIVILSECONDARYSUPPORT'],
   ['PIPE', 'PIPE'],
+  ['SIZE (BORE)', 'SIZE'],
+  ['SIZE/BORE', 'SIZE'],
+  ['BORE', 'SIZE'],
+  ['SIZE', 'SIZE'],
   ['INSULATION TYPE AND THICKNESS', 'INSULATION'],
   ['INSULATION', 'INSULATION'],
 ]));
@@ -56,32 +62,19 @@ export function canonicalizeSupportRevisionSource(parsedSource) {
 
 export function convertSupportRevisionTable(tableText, options = {}) {
   const revision = String(options.revision || '1');
-  const sourceId = String(options.sourceId || `R${revision}`);
-  const sourceName = String(options.sourceName || `Revision ${revision}`);
-  const profile = options.profile || SUPPORT_REVISION_CSV_XML_PROFILE;
-  const parsedSource = parseTableSource(tableText, {
-    sourceId,
-    sourceName,
-    sourceType: options.sourceType || 'pasteText',
-    delimiterMode: options.delimiterMode || 'auto',
-    customDelimiter: options.customDelimiter || '',
-    firstRowIsHeader: options.firstRowIsHeader !== false,
-  });
+  const parsedSource = parseSupportSource(tableText, revision, options);
   const source = canonicalizeSupportRevisionSource(parsedSource);
+  const profile = options.profile || SUPPORT_REVISION_CSV_XML_PROFILE;
   const graph = buildCategorizedGraph(profile, [source]);
   const validationResults = Object.freeze([
-    ...(source.diagnostics || []),
+    ...validateSupportRevisionSource(source),
     ...runCategorizerValidation({ profile, sources: [source], graph, activeSourceId: source.sourceId }),
   ]);
-  const exportResult = exportCategorizedGraphArtifacts({
-    graph,
-    profile,
-    validationResults,
-    sources: [source],
-  });
+  const exportResult = exportCategorizedGraphArtifacts({ profile, graph, validationResults, sources: [source] });
   return Object.freeze({
     schema: SUPPORT_REVISION_PIPELINE_SCHEMA,
     revision,
+    inferredRevision: inferRevisionValue(source),
     source,
     profile,
     graph,
@@ -92,29 +85,44 @@ export function convertSupportRevisionTable(tableText, options = {}) {
 }
 
 export function convertSupportRevisionPair(revision1Text, revision2Text, options = {}) {
-  const rev1 = convertSupportRevisionTable(revision1Text, {
-    ...options.rev1,
-    revision: '1',
-    sourceId: options.rev1?.sourceId || 'R1',
-    sourceName: options.rev1?.sourceName || 'Revision 1 / Earlier',
-    profile: options.profile,
-  });
-  const rev2 = convertSupportRevisionTable(revision2Text, {
-    ...options.rev2,
-    revision: '2',
-    sourceId: options.rev2?.sourceId || 'R2',
-    sourceName: options.rev2?.sourceName || 'Revision 2 / Later',
-    profile: options.profile,
-  });
+  const profile = options.profile || SUPPORT_REVISION_CSV_XML_PROFILE;
+  const rev1 = convertSupportRevisionTable(revision1Text, revisionOptions(options.rev1, '1', 'R1', 'Revision 1 / Earlier', profile));
+  const rev2 = convertSupportRevisionTable(revision2Text, revisionOptions(options.rev2, '2', 'R2', 'Revision 2 / Later', profile));
+  const pairValidation = validateSupportRevisionPair(rev1, rev2, options);
   return Object.freeze({
     schema: 'support-revision-pair/v1',
-    profileId: (options.profile || SUPPORT_REVISION_CSV_XML_PROFILE).profileId,
+    profileId: profile.profileId,
     rev1,
     rev2,
-    ok: rev1.ok && rev2.ok,
+    pairValidation,
+    ok: rev1.ok && rev2.ok && pairValidation.ok,
     diagnostics: Object.freeze([
-      ...(rev1.validationResults || []).map((item) => ({ revision: '1', ...item })),
-      ...(rev2.validationResults || []).map((item) => ({ revision: '2', ...item })),
+      ...revisionDiagnostics('1', rev1),
+      ...revisionDiagnostics('2', rev2),
+      ...pairValidation.diagnostics.map((item) => Object.freeze({ revision: 'PAIR', ...item })),
     ]),
   });
+}
+
+function parseSupportSource(tableText, revision, options) {
+  return parseTableSource(tableText, {
+    sourceId: String(options.sourceId || `R${revision}`),
+    sourceName: String(options.sourceName || `Revision ${revision}`),
+    sourceType: options.sourceType || 'pasteText',
+    delimiterMode: options.delimiterMode || 'auto',
+    customDelimiter: options.customDelimiter || '',
+    firstRowIsHeader: options.firstRowIsHeader !== false,
+  });
+}
+
+function revisionOptions(input = {}, revision, sourceId, sourceName, profile) {
+  return { ...input, revision, sourceId: input?.sourceId || sourceId, sourceName: input?.sourceName || sourceName, profile };
+}
+
+function revisionDiagnostics(revision, conversion) {
+  return [
+    ...(conversion.source?.diagnostics || []),
+    ...(conversion.validationResults || []),
+    ...(conversion.graph?.diagnostics || []),
+  ].map((item) => Object.freeze({ revision, ...item }));
 }

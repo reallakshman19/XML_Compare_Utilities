@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { runSupportRevisionCompare } from '../tabs/csv-rev-compare/support-revision-engine.js';
 
 const H = [
-  'PREV NAME', 'CIVILSECONDARYSUPPORT', 'PIPE',
+  'PREV NAME', 'CIVILSECONDARYSUPPORT', 'PIPE', 'SIZE (BORE)',
   'PIPING PRIMARY SUPPORT', 'SUPPORT TYPE', 'PIPING PRIMARY SUPPORT REFERENCE',
   'EAST/WEST', 'NORTH/SOUTH', 'BOP ELEVATION', 'REMARKS (IF ANY)',
 ];
 
-function row({ prev = '', civil, pipe, members, types, refs, x, y, z = 'U 100652mm', remarks = '' }) {
-  return [prev, civil, pipe, members, types, refs, x, y, z, remarks];
+function row({ prev = '', civil, pipe, size = '8"', members, types, refs, x, y, z = 'U 100652mm', remarks = '' }) {
+  return [prev, civil, pipe, size, members, types, refs, x, y, z, remarks];
 }
 function csv(rows) {
   return [H, ...rows].map((cells) => cells.map((value) => {
@@ -18,6 +18,9 @@ function csv(rows) {
 }
 function remarkFor(result, target) {
   return result.remarks.targetRemarks[target.sourceRowId]?.remark || '';
+}
+function candidateFor(result, source, target) {
+  return result.lineage.candidates.find((candidate) => candidate.sourceNodeId === source.nodeId && candidate.targetNodeId === target.nodeId);
 }
 
 // Real R2/R3 false-positive pattern: the target has an exact Civil+PIPE
@@ -51,6 +54,7 @@ function remarkFor(result, target) {
   const source = result.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]);
   assert.equal(edge.matchingMethod, 'civil-pipe-location-identity');
   assert.equal(source.family, 'SL-111050(REF)');
+  assert.equal(target.size, '8"');
   assert.ok(!result.ledger.events.some((event) => event.type === 'SECONDARY_SUPPORT_FAMILY_CHANGED' && event.targetXmlNode === target.nodeId));
   assert.ok(!/\b(?:PS\s*No\.|Line\s*No\.)\s*(?:\/\s*Line\s*No\.\s*)?Change\b/i.test(remarkFor(result, target)));
 }
@@ -118,6 +122,93 @@ function remarkFor(result, target) {
   assert.equal(edge.matchingMethod, 'persistent-reference-overlap');
   assert.equal(edge.outcome, 'DETERMINISTIC');
   assert.match(remarkFor(result, activeTarget), /Line No\. Change\(Old Line No\. 8"-P-1110XXX-METALLIC\)/);
+}
+
+// SIZE (BORE) is canonicalized into the governed SIZE field and is a hard
+// compatibility gate. Even exact Civil+PIPE plus persistent reference evidence
+// cannot auto-link rows when both revisions explicitly disagree on bore.
+{
+  const pipe = 'AREA-1000-LINE-8"-P100-01';
+  const rev2 = csv([row({ civil: 'SL-BORE', pipe, size: '8"', members: '/SL-BORE.1', types: 'REST', refs: '=1/1', x: 'E 1000mm', y: 'N 1000mm' })]);
+  const rev3 = csv([row({ civil: 'SL-BORE', pipe, size: '10"', members: '/SL-BORE.1', types: 'REST', refs: '=1/1', x: 'E 1000mm', y: 'N 1000mm' })]);
+  const result = runSupportRevisionCompare(rev2, rev3);
+  const source = result.sourceModel.locations[0];
+  const target = result.targetModel.locations[0];
+  const candidate = candidateFor(result, source, target);
+  assert.equal(source.size, '8"');
+  assert.equal(target.size, '10"');
+  assert.equal(candidate.evidence.bore.status, 'MISMATCH');
+  assert.equal(candidate.eligible, false);
+  assert.equal(candidate.outcome, 'NO_MATCH');
+  assert.ok(candidate.reasonCodes.includes('BORE_MISMATCH_REJECTED'));
+  assert.ok(!result.lineage.edges.some((edge) => edge.sourceNodeIds.includes(source.nodeId) && edge.targetNodeIds.includes(target.nodeId)));
+}
+
+// Approximate lineage requires several independent signals. PREV NAME carries
+// explicit weight, matching bore is mandatory, and coordinate weight is based
+// on frame-normalized deltas from at least three trusted exact anchors.
+{
+  const anchors2 = [1, 2, 3].map((n) => row({
+    civil: `SL-A${n}`, pipe: `AREA-1000-LINE-8"-A${n}-01`, size: '8"', members: '', types: '', refs: '',
+    x: `E ${n * 1000}mm`, y: `N ${n * 2000}mm`, z: `U ${n * 3000}mm`,
+  }));
+  const anchors3 = [1, 2, 3].map((n) => row({
+    civil: `SL-A${n}`, pipe: `AREA-1000-LINE-8"-A${n}-01`, size: '8"', members: '', types: '', refs: '',
+    x: `E ${n * 1000 + 100}mm`, y: `N ${n * 2000 + 100}mm`, z: `U ${n * 3000 + 100}mm`,
+  }));
+  const approximatePipe = 'AREA-1000-LINE-8"-P900-01';
+  const rev2 = csv([...anchors2, row({ prev: 'PS-APPROX-01', civil: 'SL-OLD', pipe: approximatePipe, size: '8"', members: '', types: '', refs: '', x: 'E 4000mm', y: 'N 5000mm', z: 'U 6000mm' })]);
+  const rev3 = csv([...anchors3, row({ prev: 'PS-APPROX-01', civil: 'SL-NEW', pipe: approximatePipe, size: '8"', members: '', types: '', refs: '', x: 'E 4103mm', y: 'N 5102mm', z: 'U 6101mm' })]);
+  const result = runSupportRevisionCompare(rev2, rev3);
+  const source = result.sourceModel.locations.find((location) => location.family === 'SL-OLD');
+  const target = result.targetModel.locations.find((location) => location.family === 'SL-NEW');
+  const candidate = candidateFor(result, source, target);
+  const prevWeight = candidate.weightBreakdown.find((item) => item.signal === 'prev-name');
+  const boreWeight = candidate.weightBreakdown.find((item) => item.signal === 'bore');
+  const coordinateWeight = candidate.weightBreakdown.find((item) => item.signal === 'coordinate-delta');
+  assert.equal(result.lineage.coordinateFrame.anchorCount, 3);
+  assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, true);
+  assert.equal(candidate.scorePolicyId, 'SUPPORT_LINEAGE_SCORE_V2');
+  assert.equal(candidate.scorePolicyVersion, '2.1.0');
+  assert.equal(prevWeight.contribution, 18);
+  assert.equal(boreWeight.contribution, 12);
+  assert.equal(coordinateWeight.contribution, 12);
+  assert.deepEqual(candidate.evidence.coordinate.usableAxes, ['x', 'y', 'z']);
+  assert.ok(Math.abs(candidate.evidence.coordinate.deltas.x - 3) < 1e-9);
+  assert.ok(Math.abs(candidate.evidence.coordinate.deltas.y - 2) < 1e-9);
+  assert.ok(Math.abs(candidate.evidence.coordinate.deltas.z - 1) < 1e-9);
+  assert.ok(candidate.evidence.coordinate.scoringResidualMm < 5);
+  assert.equal(candidate.approximateSignalCount, 3);
+  assert.equal(candidate.approximateEligible, true);
+  assert.equal(candidate.outcome, 'LIKELY');
+}
+
+// A single exact anchor is insufficient to make coordinate proximity a scoring
+// signal. PREV NAME + same pipe + bore alone therefore remains below the
+// multi-signal approximation gate rather than being silently auto-linked.
+{
+  const anchorPipe = 'AREA-1000-LINE-8"-A1-01';
+  const approximatePipe = 'AREA-1000-LINE-8"-P901-01';
+  const rev2 = csv([
+    row({ civil: 'SL-A1', pipe: anchorPipe, size: '8"', members: '', types: '', refs: '', x: 'E 1000mm', y: 'N 2000mm', z: 'U 3000mm' }),
+    row({ prev: 'PS-ONLY-ONE-ANCHOR', civil: 'SL-X', pipe: approximatePipe, size: '8"', members: '', types: '', refs: '', x: 'E 4000mm', y: 'N 5000mm', z: 'U 6000mm' }),
+  ]);
+  const rev3 = csv([
+    row({ civil: 'SL-A1', pipe: anchorPipe, size: '8"', members: '', types: '', refs: '', x: 'E 1100mm', y: 'N 2100mm', z: 'U 3100mm' }),
+    row({ prev: 'PS-ONLY-ONE-ANCHOR', civil: 'SL-Y', pipe: approximatePipe, size: '8"', members: '', types: '', refs: '', x: 'E 4100mm', y: 'N 5100mm', z: 'U 6100mm' }),
+  ]);
+  const result = runSupportRevisionCompare(rev2, rev3);
+  const source = result.sourceModel.locations.find((location) => location.family === 'SL-X');
+  const target = result.targetModel.locations.find((location) => location.family === 'SL-Y');
+  const candidate = candidateFor(result, source, target);
+  const coordinateWeight = candidate.weightBreakdown.find((item) => item.signal === 'coordinate-delta');
+  assert.equal(result.lineage.coordinateFrame.anchorCount, 1);
+  assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, false);
+  assert.equal(coordinateWeight.contribution, 0);
+  assert.equal(coordinateWeight.reasonCode, 'COORDINATE_FRAME_UNPROVEN');
+  assert.equal(candidate.approximateSignalCount, 2);
+  assert.equal(candidate.approximateEligible, false);
+  assert.equal(candidate.outcome, 'NO_MATCH');
 }
 
 console.log('csv-rev-compare-phase1-real-patterns.test.js: all checks passed');

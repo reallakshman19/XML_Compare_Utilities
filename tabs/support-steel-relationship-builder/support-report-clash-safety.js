@@ -1,7 +1,7 @@
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseWithTestContext,
-} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
+} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
 import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
 
 export { groupSupportReportClashEvidence };
@@ -31,7 +31,7 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     ...parsed.diagnostics,
     ...[...unsafeClashes.values()].map((item) => diagnostic('ERROR', item.code, item.message, item.extra)),
   ];
-  const grouped = deduplicateGroupEvidence(groupSupportReportClashEvidence(rows));
+  const grouped = deduplicateGroupEvidence(groupSupportReportClashEvidence(rows, options));
   if (grouped.duplicateCount) diagnostics.push(diagnostic(
     'WARN', DIAGNOSTICS.DUPLICATE_EVIDENCE,
     `${grouped.duplicateCount} duplicate clash-member evidence row(s) were ignored within logical groups.`,

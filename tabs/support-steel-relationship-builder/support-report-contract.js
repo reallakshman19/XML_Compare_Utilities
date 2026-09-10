@@ -26,9 +26,25 @@ export const SUPPORT_REPORT_COLUMNS = Object.freeze([
   column('remarks', 'REMARKS'),
 ]);
 
+export const SUPPORT_REPORT_TYPICALITY_COLUMNS = Object.freeze([
+  column('typicalStructure', 'TYPICAL STRUCTURE (PS NO.)'),
+  column('pipingSupportArrangementMatch', 'PIPING SUPPORT ARRANGEMENT MATCH'),
+  column('typicalityAuditId', 'TYPICALITY AUDIT ID'),
+]);
+
+export const SUPPORT_REPORT_COMPARISON_COLUMNS = Object.freeze([
+  ...SUPPORT_REPORT_COLUMNS,
+  ...SUPPORT_REPORT_TYPICALITY_COLUMNS,
+]);
+
+export function supportReportColumns(bundle = null, options = {}) {
+  const enabled = options.includeTypicality === true || Boolean(bundle?.typicalityAudit);
+  return enabled ? SUPPORT_REPORT_COMPARISON_COLUMNS : SUPPORT_REPORT_COLUMNS;
+}
+
 export function supportReportColumnHeader(columnOrKey, options = {}) {
   const columnDef = typeof columnOrKey === 'string'
-    ? SUPPORT_REPORT_COLUMNS.find((column) => column.key === columnOrKey)
+    ? SUPPORT_REPORT_COMPARISON_COLUMNS.find((column) => column.key === columnOrKey)
     : columnOrKey;
   if (!columnDef) return '';
   if (options.ownerWorkbookFidelity === true) return columnDef.ownerWorkbookLabel;
