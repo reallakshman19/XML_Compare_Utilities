@@ -1,0 +1,69 @@
+name: Support Report Typicality ZIP Benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/1884.zip'
+      - 'benchmarks/1885.zip'
+      - 'tests/support-report-typicality-zip-benchmark.mjs'
+      - 'tests/support-report-typicality-zip-relaxed-diagnostic.mjs'
+      - 'tests/support-report-typicality-selected-families.mjs'
+      - '.github/workflows/support-report-typicality-zip-benchmark.yml'
+      - 'tabs/support-steel-relationship-builder/support-report-*.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Extract benchmark archives
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/typicality-1884 /tmp/typicality-1885
+          mkdir -p /tmp/typicality-1884 /tmp/typicality-1885
+          unzip -q benchmarks/1884.zip -d /tmp/typicality-1884
+          unzip -q benchmarks/1885.zip -d /tmp/typicality-1885
+          echo '1884 XML inventory:'
+          find /tmp/typicality-1884 -type f -iname '*.xml' -print | sort
+          echo '1885 XML inventory:'
+          find /tmp/typicality-1885 -type f -iname '*.xml' -print | sort
+
+      - name: Run 1884 vs 1885 benchmark
+        run: >-
+          node tests/support-report-typicality-zip-benchmark.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+          /tmp/typicality-1884-vs-1885.json
+
+      - name: Run diagnostic with pipe-class candidate gate relaxed
+        run: >-
+          node tests/support-report-typicality-zip-relaxed-diagnostic.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+
+      - name: Run selected family diagnostics
+        run: >-
+          node tests/support-report-typicality-selected-families.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+
+      - name: Upload benchmark evidence when quota permits
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: typicality-1884-vs-1885
+          path: /tmp/typicality-1884-vs-1885.json
+          if-no-files-found: error
+          retention-days: 30
