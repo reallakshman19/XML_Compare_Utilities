@@ -31,6 +31,7 @@ export function buildComparisonAudit(result) {
     remarkPolicyId: result.remarks.policyId,
     exportReady: Boolean(result.exportReady),
     unresolvedReviews: result.unresolvedReviews,
+    pairValidation: result.pair.pairValidation,
     source: conversionReceipt(result.pair.rev1),
     target: conversionReceipt(result.pair.rev2),
     coordinateFrame: result.lineage.coordinateFrame,
