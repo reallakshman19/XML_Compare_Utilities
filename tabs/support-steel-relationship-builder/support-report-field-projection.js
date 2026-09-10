@@ -97,7 +97,7 @@ export function projectSupportReportFieldProvenance(input = {}) {
     ? source(selectedNativeMemberCount ? SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBERSHIP
       : SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_MEMBER_FALLBACK, memberIds(reportMembers))
     : unresolved();
-  const coordinate = coordinateSource(input.coordinateSource, memberIds(reportMembers));
+  const coordinate = coordinateSource(input.coordinateSource, input.coordinateSourceIds || []);
   return Object.freeze({
     previousName: memberSource(reportMembers, PREVIOUS_NAME_KEYS),
     scope: group?.scope || group?.fullLineTag ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
