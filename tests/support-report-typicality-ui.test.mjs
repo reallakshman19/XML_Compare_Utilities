@@ -23,18 +23,30 @@ test('typicality configuration exposes active defaults and hard-coded policy hel
   assert.match(html, /data-ssr-typical-config/);
   assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceMm"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.assignmentWeights\.supportTypeMember"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.linearityToleranceMm"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.enforceMonotonic1D"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.evidenceWeights\.memberOrdinalPattern"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.evidenceWeights\.prevNamePattern"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.prevNamePatternScores\.onePositionDifferent"/);
   assert.match(html, /Dimensional resolution order/);
   assert.match(html, /3D → 2D → 1D/);
   assert.match(html, /Repeated member suffix evidence/);
   assert.match(html, /PREV NAME fuzzy evidence/);
+  assert.match(html, /Solver unmatched sentinel/);
+  assert.match(html, /1,000,000,000 cost units/);
+  assert.match(html, /Solver ineligible sentinel/);
   assert.match(html, /title="Hard family-level geometry gate\./);
   assert.match(html, />\(i\)<\/span>/);
 });
 
-test('typicality profile partial overrides preserve unrelated governed defaults', () => {
+test('typicality profile partial overrides preserve unrelated governed defaults including nested sequence scores', () => {
   const merged = mergeSupportReportTypicalityProfile({
     pipingLocation: {
       assignmentWeights: { supportTypeMember: 250000 },
+      structuredSequence: {
+        evidenceWeights: { prevNamePattern: 175 },
+        prevNamePatternScores: { sameTrailing3: 0.7 },
+      },
     },
   });
   assert.equal(merged.pipingLocation.assignmentWeights.supportTypeMember, 250000);
@@ -42,12 +54,22 @@ test('typicality profile partial overrides preserve unrelated governed defaults'
     merged.pipingLocation.assignmentWeights.memberMultiplicity,
     SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation.assignmentWeights.memberMultiplicity,
   );
+  assert.equal(merged.pipingLocation.structuredSequence.evidenceWeights.prevNamePattern, 175);
+  assert.equal(
+    merged.pipingLocation.structuredSequence.evidenceWeights.memberOrdinalPattern,
+    SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation.structuredSequence.evidenceWeights.memberOrdinalPattern,
+  );
+  assert.equal(merged.pipingLocation.structuredSequence.prevNamePatternScores.sameTrailing3, 0.7);
+  assert.equal(
+    merged.pipingLocation.structuredSequence.prevNamePatternScores.sameTrailing4,
+    SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation.structuredSequence.prevNamePatternScores.sameTrailing4,
+  );
   assert.equal(
     merged.structural.pairDistanceP95ToleranceMm,
     SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural.pairDistanceP95ToleranceMm,
   );
   assert.equal(profileValue(merged, 'pipingLocation.assignmentWeights.supportTypeMember'), 250000);
-  assert.ok(SUPPORT_REPORT_TYPICALITY_UI_SETTINGS.length >= 10);
+  assert.ok(SUPPORT_REPORT_TYPICALITY_UI_SETTINGS.length >= 25);
 });
 
 test('ready-state comparison text distinguishes legacy and comparison modes', () => {
