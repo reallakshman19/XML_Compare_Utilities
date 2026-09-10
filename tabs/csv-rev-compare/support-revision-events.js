@@ -151,7 +151,8 @@ function eventFactory(metadata) {
   });
 }
 
-function rawLocation(location) { return location ? { family: location.family, prevName: location.legacyIdentity, pipe: location.pipe.raw, position: Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])), components: location.components.map(componentRaw), loads: (location.loads?.slots || []).map((slot) => ({ sourceHeader: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw })) } : null; }
+function loadSlots(location) { return Array.isArray(location?.loads) ? location.loads : (location?.loads?.slots || []); }
+function rawLocation(location) { return location ? { family: location.family, prevName: location.legacyIdentity, pipe: location.pipe.raw, position: Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])), components: location.components.map(componentRaw), loads: loadSlots(location).map((slot) => ({ sourceHeader: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw ?? slot.fields?.raw ?? '' })) } : null; }
 function componentRaw(item) { return { reference: item.reference, memberId: item.memberId, supportType: item.supportType }; }
 function componentTrace(a,b) { return { sourceNodeId: a.nodeId, targetNodeId: b.nodeId, sourceCells: a.provenance, targetCells: b.provenance }; }
 function loadTrace(result) { return { sourceCells: result.before.slots.map((item) => item.sourceCellRef).filter(Boolean), targetCells: result.after.slots.map((item) => item.sourceCellRef).filter(Boolean) }; }
@@ -161,4 +162,4 @@ function multiset(components) { const result = {}; for (const key of components.
 function multisetKey(components) { return JSON.stringify(multiset(components)); }
 function summarize(events) { const byType = {}; for (const event of events) byType[event.type] = (byType[event.type] || 0) + 1; return Object.freeze({ total: events.length, remarkEligible: events.filter((event) => event.remarkEligible).length, reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length, byType: Object.freeze(byType) }); }
 
-export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge, candidateEvidenceIds, relocationEvents });
+export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge, candidateEvidenceIds, relocationEvents, loadSlots });
