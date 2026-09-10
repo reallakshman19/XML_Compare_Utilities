@@ -7,7 +7,7 @@ LATEST_MATERIAL_LEG: LEG-004
 LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-004.md
 PR: 1184
 BRANCH: issue-1181-csv-rev-compare-xml-v2
-HEAD: 0a3dd315d179ce0162dd95ad74b4094621ad713d
+HEAD: 4cf35b754999d65d4c3ac15c97121ed214322959
 MAIN_AT_ENDPOINT: a84e8258704d86c0454b813d720b975165076002
 STATE: LEG005_READY
 ENGINEERING_STATE: IN_PROGRESS
@@ -31,8 +31,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0005
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0005_PUBLICATION
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_PUBLICATION
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616676348
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 5
 COORDINATION_STATE: SAFE_FOR_LEG004; MAIN_DRIFT_RECHECK_REQUIRED_BEFORE_UI
 DEPENDENCIES: prerequisite complete; current main Support Report typicality changes inspected and non-overlapping with LEG-004 production paths
@@ -60,4 +60,4 @@ MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints
 INPUT_STATUS: INPUT001_002_003_005_AVAILABLE; INPUT004_OWNER_RAW_BENCHMARK_UNRESOLVED
 BENCHMARK_STATUS: BM001_BM015_NOT_RUN
 ENVIRONMENT_LIMITATION: raw network DNS cannot resolve github.com; local checkout/backups/.agent-worklogs/test execution unavailable
-EXACT_NEXT_ACTION: publish and synchronize EP-CSVRC-0005, then re-ground current main plus `tabs/psnm-utility-tab.js` and existing utility installer/UI patterns before LEG-005. Do not merge.
+EXACT_NEXT_ACTION: re-ground current main plus `tabs/psnm-utility-tab.js` and existing utility installer/revision-compare UI patterns before LEG-005. If coordination is safe, implement the staged UI strictly as a consumer of the XML-domain engine. Do not merge.
