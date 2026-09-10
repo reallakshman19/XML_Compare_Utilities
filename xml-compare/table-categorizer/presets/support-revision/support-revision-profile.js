@@ -29,6 +29,16 @@ export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
   presetType: 'built-in preset',
   duplicateKeyPolicy: 'merge-sourceRefs',
   multiValuePolicy: 'preserve-parallel-evidence',
+  coordinateCluster: Object.freeze({
+    unit: 'mm',
+    axisMapping: Object.freeze({ x: 'EAST/WEST', y: 'NORTH/SOUTH', z: 'BOP ELEVATION' }),
+    roundingPrecision: 3,
+    tolerance: 5,
+    clusterMethod: 'max-axis-delta',
+    originDatum: 'revision-source',
+    coordinateSource: 'sourceColumns',
+    failurePolicy: 'warn-and-fallback',
+  }),
   requiredColumns: Object.freeze([
     'CIVILSECONDARYSUPPORT',
     'PIPE',
