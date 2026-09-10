@@ -146,7 +146,7 @@ function candidateFor(result, source, target) {
 
 // Approximate lineage requires several independent signals. PREV NAME carries
 // explicit weight, matching bore is mandatory, and coordinate weight is based
-// on the frame-normalized delta learned from at least three exact anchors.
+// on frame-normalized deltas from at least three trusted exact anchors.
 {
   const anchors2 = [1, 2, 3].map((n) => row({
     civil: `SL-A${n}`, pipe: `AREA-1000-LINE-8"-A${n}-01`, size: '8"', members: '', types: '', refs: '',
@@ -169,14 +169,15 @@ function candidateFor(result, source, target) {
   assert.equal(result.lineage.coordinateFrame.anchorCount, 3);
   assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, true);
   assert.equal(candidate.scorePolicyId, 'SUPPORT_LINEAGE_SCORE_V2');
-  assert.equal(candidate.scorePolicyVersion, '2.0.0');
+  assert.equal(candidate.scorePolicyVersion, '2.1.0');
   assert.equal(prevWeight.contribution, 18);
   assert.equal(boreWeight.contribution, 12);
   assert.equal(coordinateWeight.contribution, 12);
+  assert.deepEqual(candidate.evidence.coordinate.usableAxes, ['x', 'y', 'z']);
   assert.ok(Math.abs(candidate.evidence.coordinate.deltas.x - 3) < 1e-9);
   assert.ok(Math.abs(candidate.evidence.coordinate.deltas.y - 2) < 1e-9);
   assert.ok(Math.abs(candidate.evidence.coordinate.deltas.z - 1) < 1e-9);
-  assert.ok(candidate.evidence.coordinate.residualMm < 5);
+  assert.ok(candidate.evidence.coordinate.scoringResidualMm < 5);
   assert.equal(candidate.approximateSignalCount, 3);
   assert.equal(candidate.approximateEligible, true);
   assert.equal(candidate.outcome, 'LIKELY');
