@@ -16,8 +16,12 @@ const summary = {
   compareStage: result.compareStage,
   compareOk: result.compareOk,
   metrics: result.metrics,
+  coordinateFrame: coordinateFrameSummary(result.compareResult?.lineage?.coordinateFrame),
   expectedItems: result.expected,
-  detectedItems: result.detected,
+  detectedItems: result.detected.map((item) => ({
+    ...item,
+    lineageEvidence: detectedLineageEvidence(item, result.compareResult),
+  })),
   mismatchDiagnostics: mismatchDiagnostics(result),
 };
 
@@ -27,6 +31,62 @@ if (outputPath) fs.writeFileSync(outputPath, `${json}\n`, 'utf8');
 if (result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
 if (!result.compareOk) process.exit(4);
 if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(5);
+
+function detectedLineageEvidence(item, compare) {
+  if (!compare?.sourceModel || !compare?.targetModel) return null;
+  const target = compare.targetModel.locations.find((location) => location.supportLocationIdentity === item.key) || null;
+  if (!target) return null;
+  const edge = (compare.lineage?.edges || []).find((row) => row.targetNodeIds.includes(target.nodeId)) || null;
+  if (!edge) return { target: locationSummary(target), edge: null, candidate: null };
+  const candidate = selectedCandidate(edge, compare.lineage?.candidates || [], target.nodeId);
+  return {
+    target: locationSummary(target),
+    source: edge.sourceNodeIds.length === 1 ? locationSummary(compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0])) : null,
+    edge: {
+      edgeId: edge.edgeId,
+      cardinality: edge.cardinality,
+      outcome: edge.outcome,
+      matchingMethod: edge.matchingMethod,
+      reasonCodes: edge.reasonCodes,
+      persistentReferences: edge.persistentReferences,
+      candidateScore: edge.candidateScore ?? candidate?.score ?? null,
+      scorePolicyId: edge.scorePolicyId || candidate?.scorePolicyId || '',
+      scorePolicyVersion: edge.scorePolicyVersion || candidate?.scorePolicyVersion || '',
+      coordinateEvidence: edge.coordinateEvidence || [],
+    },
+    candidate: candidateSummary(candidate),
+  };
+}
+
+function selectedCandidate(edge, candidates, targetNodeId) {
+  const candidateIds = new Set(edge?.candidateIds || []);
+  const byId = candidates.find((candidate) => candidateIds.has(candidate.candidateId));
+  if (byId) return byId;
+  if (edge?.sourceNodeIds?.length !== 1) return null;
+  return candidates.find((candidate) => candidate.sourceNodeId === edge.sourceNodeIds[0] && candidate.targetNodeId === targetNodeId) || null;
+}
+
+function candidateSummary(candidate) {
+  if (!candidate) return null;
+  return {
+    candidateId: candidate.candidateId,
+    outcome: candidate.outcome,
+    score: candidate.score,
+    eligible: candidate.eligible,
+    hardRejected: candidate.hardRejected,
+    strongEvidence: candidate.strongEvidence,
+    approximateEligible: candidate.approximateEligible,
+    approximateSignalCount: candidate.approximateSignalCount,
+    matchingMethod: candidate.matchingMethod,
+    reasonCodes: candidate.reasonCodes,
+    persistentReferences: candidate.persistentReferences,
+    scorePolicyId: candidate.scorePolicyId,
+    scorePolicyVersion: candidate.scorePolicyVersion,
+    weightBreakdown: candidate.weightBreakdown,
+    boreEvidence: candidate.evidence?.bore || null,
+    coordinateEvidence: candidate.evidence?.coordinate || null,
+  };
+}
 
 function mismatchDiagnostics(result) {
   const compare = result.compareResult;
@@ -48,12 +108,7 @@ function diagnoseTarget(item, compare) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
   const candidates = rawCandidates.map((candidate) => ({
-    candidateId: candidate.candidateId,
-    outcome: candidate.outcome,
-    score: candidate.score,
-    matchingMethod: candidate.matchingMethod,
-    reasonCodes: candidate.reasonCodes,
-    persistentReferences: candidate.persistentReferences,
+    ...candidateSummary(candidate),
     source: locationSummary(compare.sourceModel.locationByNodeId.get(candidate.sourceNodeId)),
   }));
   const sourceAlternatives = rawCandidates.map((candidate) => ({
@@ -63,12 +118,7 @@ function diagnoseTarget(item, compare) {
       .sort((a, b) => b.score - a.score || a.targetNodeId.localeCompare(b.targetNodeId))
       .slice(0, 8)
       .map((row) => ({
-        candidateId: row.candidateId,
-        outcome: row.outcome,
-        score: row.score,
-        matchingMethod: row.matchingMethod,
-        reasonCodes: row.reasonCodes,
-        persistentReferences: row.persistentReferences,
+        ...candidateSummary(row),
         target: locationSummary(compare.targetModel.locationByNodeId.get(row.targetNodeId)),
       })),
   }));
@@ -81,9 +131,24 @@ function diagnoseTarget(item, compare) {
       matchingMethod: edge.matchingMethod,
       reasonCodes: edge.reasonCodes,
       persistentReferences: edge.persistentReferences,
+      coordinateEvidence: edge.coordinateEvidence || [],
       sources: edge.sourceNodeIds.map((nodeId) => locationSummary(compare.sourceModel.locationByNodeId.get(nodeId))),
     }));
   return { item, target: locationSummary(target), candidates, sourceAlternatives, edges };
+}
+
+function coordinateFrameSummary(frame) {
+  if (!frame) return null;
+  return {
+    schema: frame.schema,
+    policyId: frame.policyId,
+    status: frame.status,
+    anchorCount: frame.anchorCount,
+    anchorBasis: frame.anchorBasis || '',
+    scoreMinimumAnchors: frame.scoreMinimumAnchors ?? null,
+    scoreFrameUsable: frame.scoreFrameUsable ?? false,
+    axes: frame.axes,
+  };
 }
 
 function locationSummary(location) {
@@ -94,6 +159,7 @@ function locationSummary(location) {
     identity: location.supportLocationIdentity,
     family: location.family,
     prevName: location.legacyIdentity,
+    size: location.size,
     pipe: location.pipe.raw,
     pipeCore: location.pipe.normalizedCore,
     references: location.persistentReferences,
