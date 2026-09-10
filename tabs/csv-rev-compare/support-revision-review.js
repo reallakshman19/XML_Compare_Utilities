@@ -64,20 +64,25 @@ function validateReviewDecisions(lineage, decisions) {
   const ambiguousPairs = new Set((lineage?.candidates || []).filter((item) => item.outcome === 'AMBIGUOUS').map((item) => decisionKey(item.sourceNodeId, item.targetNodeId)));
   const ambiguousEdges = new Set((lineage?.edges || []).filter((edge) => edge.outcome === 'AMBIGUOUS').map((edge) => edge.edgeId));
   const approvedSources = new Set();
+  const approvedTargets = new Set();
   const structuralEdges = new Set();
   const diagnostics = [];
   for (const decision of decisions) {
     if (decision.kind === 'structural') validateStructuralDecision(decision, ambiguousEdges, structuralEdges, diagnostics);
-    else validateCandidateDecision(decision, ambiguousPairs, approvedSources, diagnostics);
+    else validateCandidateDecision(decision, ambiguousPairs, approvedSources, approvedTargets, diagnostics);
   }
   return diagnostics;
 }
 
-function validateCandidateDecision(decision, ambiguousPairs, approvedSources, diagnostics) {
+function validateCandidateDecision(decision, ambiguousPairs, approvedSources, approvedTargets, diagnostics) {
   if (!['approve', 'reject'].includes(decision.action)) diagnostics.push(blocker(decision, 'review_action_invalid'));
   else if (!ambiguousPairs.has(decisionKey(decision.sourceNodeId, decision.targetNodeId))) diagnostics.push(blocker(decision, 'review_candidate_not_ambiguous'));
   else if (decision.action === 'approve' && approvedSources.has(decision.sourceNodeId)) diagnostics.push(blocker(decision, 'multiple_targets_approved_for_source'));
-  else if (decision.action === 'approve') approvedSources.add(decision.sourceNodeId);
+  else if (decision.action === 'approve' && approvedTargets.has(decision.targetNodeId)) diagnostics.push(blocker(decision, 'multiple_sources_approved_for_target'));
+  else if (decision.action === 'approve') {
+    approvedSources.add(decision.sourceNodeId);
+    approvedTargets.add(decision.targetNodeId);
+  }
 }
 
 function validateStructuralDecision(decision, ambiguousEdges, seenEdges, diagnostics) {
