@@ -32,15 +32,22 @@ export function typicalityAuditSpreadsheetMatrix(audit) {
     'Audit ID', 'Parent Audit ID', 'Left PS', 'Right PS', 'Left Location ID', 'Right Location ID',
     'Signal / Rule', 'Left Raw', 'Right Raw', 'Left Normalized', 'Right Normalized', 'Residual', 'Threshold',
     'Result', 'Reason Code', 'Source Evidence IDs', 'Profile Version',
+    'Matching Mode', 'Correspondence Status',
+    'Assignment Cost 3D/Global', 'Assignment Cost 2D', 'Assignment Cost 1D',
+    'First Passing Dimension', '3D Lattice Residual', '2D Lattice Residual', '1D Station Residual',
+    'Member Ordinal Pattern', 'Member Pattern Similarity',
+    'PREV NAME Class', 'PREV NAME Mask', 'PREV NAME Similarity',
+    'Effective Profile JSON',
   ];
   const rows = [];
+  const profileJson = auditCell(audit?.profileSnapshot);
   for (const comparison of audit?.familyComparisons || []) {
     for (const signal of comparison.signals || []) {
       rows.push([
         comparison.auditId, '', comparison.leftFamilyId, comparison.rightFamilyId, '', '',
         signal.reasonCode || 'STRUCTURAL_SIGNAL', auditCell(signal.left), auditCell(signal.right), '', '',
         auditCell(signal.residual), auditCell(signal.threshold), signal.result || '', signal.reasonCode || '', '',
-        audit?.profileId || '',
+        audit?.profileId || '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', profileJson,
       ]);
     }
   }
@@ -48,6 +55,7 @@ export function typicalityAuditSpreadsheetMatrix(audit) {
     const selectedById = new Map((assignment.selectedAssignments || [])
       .map((item) => [item.candidateId, item]));
     for (const candidate of assignment.candidatePairs || []) {
+      const sequence = candidate.signals?.structuredSequence;
       rows.push([
         selectedById.get(candidate.candidateId)?.auditId || candidate.candidateId,
         assignment.parentAuditId || '', assignment.leftFamilyId, assignment.rightFamilyId,
@@ -56,12 +64,24 @@ export function typicalityAuditSpreadsheetMatrix(audit) {
         auditCell(candidate.supportTypeComparison?.leftCanonical), auditCell(candidate.supportTypeComparison?.rightCanonical),
         candidate.assignmentCost, '',
         candidate.eligible ? (selectedById.has(candidate.candidateId) ? 'SELECTED' : 'ELIGIBLE') : 'INELIGIBLE',
-        candidate.signals?.pipeClass?.reasonCode || '',
+        candidateReasonCodes(candidate).join(', '),
         auditCell([...(candidate.sourceEvidence?.leftClashIds || []), ...(candidate.sourceEvidence?.rightClashIds || [])]),
-        audit?.profileId || '',
+        audit?.profileId || '', assignment.matchingMode || '', assignment.correspondenceStatus || '',
+        auditCell(candidate.assignmentCost), auditCell(candidate.assignmentCost2d), auditCell(candidate.assignmentCost1d),
+        sequence?.firstPassingDimension || '',
+        auditCell(sequenceStage(sequence, '3D')?.residual),
+        auditCell(sequenceStage(sequence, '2D')?.residual),
+        auditCell(sequenceStage(sequence, '1D')?.residual),
+        auditCell(candidate.signals?.memberOrdinalPattern?.result),
+        auditCell(candidate.signals?.memberOrdinalPattern?.similarity),
+        candidate.signals?.previousNamePattern?.class || '',
+        candidate.signals?.previousNamePattern?.wildcardMask || '',
+        auditCell(candidate.signals?.previousNamePattern?.similarity),
+        profileJson,
       ]);
     }
     for (const pair of assignment.selectedAssignments || []) {
+      const sequence = pair.signals?.structuredSequence;
       rows.push([
         pair.auditId || '', assignment.parentAuditId || '', assignment.leftFamilyId, assignment.rightFamilyId,
         pair.leftLocationId, pair.rightLocationId, 'PIPING_SUPPORT_ARRANGEMENT',
@@ -70,7 +90,18 @@ export function typicalityAuditSpreadsheetMatrix(audit) {
         auditCell(pair.signals?.geometry?.residual), auditCell(pair.signals?.geometry?.thresholdMm),
         pair.arrangementResult || '', arrangementReasonCodes(pair).join(', '),
         auditCell([...(pair.sourceEvidence?.leftClashIds || []), ...(pair.sourceEvidence?.rightClashIds || [])]),
-        audit?.profileId || '',
+        audit?.profileId || '', assignment.matchingMode || '', assignment.correspondenceStatus || '',
+        auditCell(pair.assignmentCost), auditCell(pair.assignmentCost2d), auditCell(pair.assignmentCost1d),
+        sequence?.firstPassingDimension || '',
+        auditCell(sequenceStage(sequence, '3D')?.residual),
+        auditCell(sequenceStage(sequence, '2D')?.residual),
+        auditCell(sequenceStage(sequence, '1D')?.residual),
+        auditCell(pair.signals?.memberOrdinalPattern?.result),
+        auditCell(pair.signals?.memberOrdinalPattern?.similarity),
+        pair.signals?.previousNamePattern?.class || '',
+        pair.signals?.previousNamePattern?.wildcardMask || '',
+        auditCell(pair.signals?.previousNamePattern?.similarity),
+        profileJson,
       ]);
     }
   }
@@ -136,7 +167,24 @@ function arrangementReasonCodes(pair) {
     pair?.signals?.pipeClass?.reasonCode,
     pair?.signals?.memberMultiplicity?.reasonCode,
     pair?.signals?.geometry?.reasonCode,
+    ...(pair?.signals?.structuredSequence?.stages || []).map((stage) => stage?.reasonCode),
+    pair?.signals?.memberOrdinalPattern?.reasonCode,
+    pair?.signals?.previousNamePattern?.reasonCode,
   ].filter(Boolean))];
+}
+function candidateReasonCodes(candidate) {
+  return [...new Set([
+    candidate?.signals?.pipeClass?.reasonCode,
+    candidate?.signals?.memberMultiplicity?.reasonCode,
+    candidate?.signals?.geometry?.reasonCode,
+    ...(candidate?.signals?.structuredSequence?.stages || []).map((stage) => stage?.reasonCode),
+    candidate?.signals?.memberOrdinalPattern?.reasonCode,
+    candidate?.signals?.previousNamePattern?.reasonCode,
+    ...(candidate?.supportTypeComparison?.reasonCodes || []),
+  ].filter(Boolean))];
+}
+function sequenceStage(sequence, dimension) {
+  return (sequence?.stages || []).find((stage) => stage?.dimension === dimension) || null;
 }
 function auditCell(value) {
   if (value == null) return '';
@@ -153,7 +201,10 @@ function columnLetter(index) {
   return output;
 }
 function auditColumnWidth(index) {
-  return [0, 1, 6, 14, 15].includes(index) ? 30 : [7, 8, 9, 10].includes(index) ? 38 : 20;
+  if ([0, 1, 6, 14, 15, 31].includes(index)) return 34;
+  if ([7, 8, 9, 10, 23, 24, 25].includes(index)) return 38;
+  if ([17, 18, 22, 26, 28, 29].includes(index)) return 26;
+  return 20;
 }
 function columnWidth(key) {
   if (['pipe', 'primarySupportDescription', 'remarks', 'pipingSupportArrangementMatch'].includes(key)) return 42;
@@ -163,4 +214,4 @@ function columnWidth(key) {
   return 18;
 }
 
-export const _test = Object.freeze({ columnWidth, columnLetter, XLSX_MODULE_URL });
+export const _test = Object.freeze({ columnWidth, columnLetter, XLSX_MODULE_URL, sequenceStage });
