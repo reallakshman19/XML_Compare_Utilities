@@ -27,8 +27,8 @@ LATEST_MATERIAL_LEG: LEG-002
 LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-002.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0007_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0007_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5610688524
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -41,7 +41,7 @@ ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0007_COMMENT_SYNC
 - TASK-007 | PARTIAL | frozen Owner 21-column oracle remains durable; production spreadsheet-contract conflict remains OPEN
 - TASK-008 | PARTIAL | XLSX path exists; independent Owner-oracle round-trip remains NOT_RUN
 - TASK-009 | PARTIAL | parser/member/carrier/field paths fail closed or fail visible in tested unsafe cases; real target no-fabrication qualification remains blocked by INPUT-003
-- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-002 / EP-0007 after Issue comment sync
+- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-002 / EP-0007
 
 # Input ledger
 
