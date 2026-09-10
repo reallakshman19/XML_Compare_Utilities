@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260910-support-report-location-17';
-import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260910-support-report-json-trace-18';
+import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from '../tabs/support-steel-relationship-builder/support-report-location-grouping.js?v=20260910-support-report-location-17';
 
 const ps12154Xml = readFileSync('benchmarks/SupportreportXML-PS-068_PS-12154.xml', 'utf8');
 const ps12120Xml = readFileSync('benchmarks/SupportreportXML-PS-12120.xml', 'utf8');
 const SAME_LOCATION_PIPE = 'ASIM-1885-2"-D8810003-11441T3-PP-01';
 const MULTI_LOCATION_PIPE = 'ASIM-1885-2"-P8810365-31441C4-HT-01';
+const SECOND_MULTI_LOCATION_PIPE = 'ASIM-1885-4"-W8810126-31441C4-01';
 
 test('PS-12154 REST/GUIDE pair stays one report location with no multi-location remark', () => {
   const parsed = parseSupportReportClashXml(ps12154Xml);
@@ -26,6 +27,40 @@ test('PS-12154 REST/GUIDE pair stays one report location with no multi-location 
   assert.equal(row.remarks.includes(SUPPORT_REPORT_MULTI_LOCATION_REMARK), false);
   assert.equal(row.primarySupportSite, 'ASIM-1885-CU-PI');
   assert.equal(row.primarySupportZone, 'ASIM-1885-CU-PI-D');
+});
+
+test('all PS-12154 rows recover discipline-neutral CU-PI Site/Zone', () => {
+  const report = buildSupportReportBundle({ clashXmlText: ps12154Xml });
+  const rows = report.rows.filter((row) => row.civilSecondarySupport === 'PS-12154(REF)');
+  assert.equal(rows.length, 6);
+  assert.ok(rows.every((row) => row.primarySupportSite === 'ASIM-1885-CU-PI'));
+  assert.ok(rows.every((row) => row.primarySupportZone.startsWith('ASIM-1885-CU-PI-')));
+  const sameLocation = rows.find((row) => row.pipe === SAME_LOCATION_PIPE);
+  assert.ok(sameLocation);
+  assert.equal(sameLocation.remarks, '');
+});
+
+test('PS-12120 full benchmark produces all location-aware report rows across all pipes', () => {
+  const parsed = parseSupportReportClashXml(ps12120Xml);
+  assert.equal(parsed.rows.length, 19);
+  const report = buildSupportReportBundle({ clashEvidence: parsed });
+  assert.equal(report.summary.clashEvidenceCount, 19);
+  assert.equal(report.summary.reportRowCount, 14);
+  assert.equal(new Set(report.rows.map((row) => row.pipe)).size, 9);
+  assert.ok(report.rows.every((row) => row.totalSupportPointsOnSecondary === 14));
+
+  const repeated = report.rows.filter((row) => row.pipe === MULTI_LOCATION_PIPE);
+  assert.equal(repeated.length, 5);
+  assert.ok(repeated.every((row) => row.remarks === SUPPORT_REPORT_MULTI_LOCATION_REMARK));
+
+  const secondRepeated = report.rows.filter((row) => row.pipe === SECOND_MULTI_LOCATION_PIPE);
+  assert.equal(secondRepeated.length, 2);
+  assert.ok(secondRepeated.every((row) => row.remarks === SUPPORT_REPORT_MULTI_LOCATION_REMARK));
+
+  const singleLocationRows = report.rows.filter((row) => ![MULTI_LOCATION_PIPE, SECOND_MULTI_LOCATION_PIPE].includes(row.pipe));
+  assert.equal(singleLocationRows.length, 7);
+  assert.ok(singleLocationRows.every((row) => !row.remarks.includes(SUPPORT_REPORT_MULTI_LOCATION_REMARK)));
+  assert.equal(report.summary.multiLocationRowCount, 7);
 });
 
 test('PS-12120 repeated pipe splits into five physical report locations', () => {
