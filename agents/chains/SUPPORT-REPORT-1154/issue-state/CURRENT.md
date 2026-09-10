@@ -1,10 +1,10 @@
 ISSUE_CURRENT_STATE_VERSION: 1
 ISSUE_BASIS_ID: IB-SUPPORT-REPORT-1154-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1154
-CURRENT_ENDPOINT: EP-SUPPORT-REPORT-1154-0012
-CURRENT_ENDPOINT_FILE: agents/chains/SUPPORT-REPORT-1154/endpoints/EP-SUPPORT-REPORT-1154-0012.md
+CURRENT_ENDPOINT: EP-SUPPORT-REPORT-1154-0014
+CURRENT_ENDPOINT_FILE: agents/chains/SUPPORT-REPORT-1154/endpoints/EP-SUPPORT-REPORT-1154-0014.md
 ISSUE_ROLE: PROGRAM_ROOT_SINGLE_CHAIN
-CURRENT_WORK_PACKAGE: WP-007_COMPLETE_WP-008_NEXT_BM004_BLOCKED_INPUT003
+CURRENT_WORK_PACKAGE: WP-008_COMPLETE_WP-009_NEXT_BM004_BLOCKED_INPUT003
 
 # Current state
 
@@ -14,37 +14,51 @@ QUALIFICATION_STATE: DEFERRED_QUESTION_DISPLAY_SUPPRESSED_BY_OWNER
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
+MERGE_AUTHORIZED: FALSE_FOR_FUTURE_WORK
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
-MAIN_BASIS_AT_EP0012: d09849d2596c14c19cf2a03b5d92d349280e6e58
+MAIN_BASIS_AT_EP0014: eaa322cbaf4c0aa0ff4e813a21e6812cdc05cf4d
 CHAIN_BRANCH: agent/support-report-1154
-PR_WP001: 1165
-PR_WP004: 1173
-PR_WP005: 1174
-PR_WP006: 1175
-PR_WP007: 1176
-WP007_BRANCH: agent/support-report-1154-wp007
-WP007_HEAD: 9b309763485c163a0666461346d20ce748244165
-LATEST_MATERIAL_LEG: LEG-005
-LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-005.md
+PR_WP001: 1165 MERGED
+PR_WP004: 1173 MERGED
+PR_WP005: 1174 MERGED
+PR_WP006: 1175 MERGED
+PR_WP007: 1176 MERGED
+PR_WP008: 1177 MERGED
+WP008_BRANCH: agent/support-report-1154-wp008
+WP008_HEAD: 3c9ab1f7fa80e5e2b98639bdf7755684c21dab23
+LATEST_MATERIAL_LEG: LEG-006
+LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-006.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5612786760
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC_AFTER_ACTIVE_COMMENT_REFRESH
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5613293029
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+
+# Owner-authorized merge sequence
+
+Owner instruction `2026-09-10T04:26:46Z merge if mergable, proceed next` authorized integration of mergeable work. Dependency order and merge commits:
+
+- PR #1165 -> `0f9b8a57950c478b389b9f9fd5935b5515d8e5fa`
+- PR #1173 -> `677fa4147a98cbec36000ad675fc562304b54ea9`
+- PR #1174 -> `70cc37f7f7d1b763ec3323d1543396999dbcb480`
+- PR #1175 -> `392ed9c8271e636629ef8a4bd6c4f9f0e9ffb338`
+- PR #1176 -> `fd25a7eeb3512a13fda73d4e9d7c67ac6e333fd5`
+- PR #1177 -> `eaa322cbaf4c0aa0ff4e813a21e6812cdc05cf4d`
+
+Upper stacked PRs were retargeted to main only after their dependency was merged. Every merge used an expected-head-SHA guard.
 
 # Acceptance ledger
 
-- TASK-001 | PARTIAL | Support Report production module exists; final browser/production qualification remains open
+- TASK-001 | PARTIAL | Support Report production module/UI exists; deployed browser workflow qualification remains open
 - TASK-002 | COMPLETE_ARCHITECTURE_REUSE | existing Support/Steel evidence bundle remains enrichment authority
 - TASK-003 | COMPLETE_REUSE_BOUNDARY | governed PS-family XML/numeric primitives reused where semantics align
 - TASK-004 | COMPLETE_PARSER_INTAKE | Owner XML independently qualified: 20 clashes -> 10 logical groups
 - TASK-005 | PARTIAL_LEDGER_READY | deterministic 10x21 comparator exists; exact target actual-value parity remains BLOCKED_INPUT003
 - TASK-006 | BLOCKED_INPUT003 | exact native-only target membership cannot be proven without authoritative staged-model input
 - TASK-007 | COMPLETE_CONTRACT_PARITY | Owner workbook 21-column A:U order/header semantics are production spreadsheet authority
-- TASK-008 | PARTIAL_XLSX_ROUNDTRIP | workbook-model XLSX read-back qualified independently; remote SheetJS network bytes and final 10-row target workbook remain not run
-- TASK-009 | PARTIAL | unsafe parser/member/carrier/field cases fail visible; real-target no-fabrication proof remains blocked by INPUT003
-- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-005 / EP-0012
+- TASK-008 | PARTIAL_EXPORT_QUALIFIED | offline XLSX round-trip and UI export-state behavior qualified; external SheetJS/browser workflow remains open
+- TASK-009 | PARTIAL | unsafe parser/member/carrier/field and partial-output presentation cases fail visible; real-target proof remains blocked by INPUT003
+- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-006 / EP-0014
 
 # Input ledger
 
@@ -60,43 +74,39 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC_AFTER_ACTIVE_COMMENT_REFRESH
 - BM-002 | PASS_WP005 | Owner 21-column A:U contract/header semantics aligned
 - BM-003 | PASS_WP001 | Owner oracle 10 rows; PS=5; SL=5; support points=5
 - BM-004 | NOT_RUN_BLOCKED_INPUT003 | exact production 210-cell parity against Owner oracle
-- BM-005 | PARTIAL_PASS | negative controls for parser/member/carrier/field safety; real target awaits INPUT003
-- BM-006 | PARTIAL_PASS_XLSX_ROUNDTRIP | canonical workbook model independently round-trips through real OOXML package; remote SheetJS bytes and full target workbook still not run
-- BM-007 | NOT_RUN_UNDER_CHAIN | full Support/Steel regressions
-- BM-008 | NOT_RUN_UNDER_CHAIN | full PS-family regressions
-- BM-009 | NOT_RUN | browser workflow smoke
+- BM-005 | PARTIAL_PASS | negative controls for parser/member/carrier/field/UI safety; real target awaits INPUT003
+- BM-006 | PARTIAL_PASS_XLSX_ROUNDTRIP_AND_UI_STATE | canonical workbook model independently round-trips and partial export labeling is qualified
+- BM-007 | ACTIVE_GRAPH_WIRED_NOT_FULLY_EXECUTED_UNDER_CHAIN | full Support/Steel regressions remain open for WP-009
+- BM-008 | ACTIVE_GRAPH_WIRED_NOT_FULLY_EXECUTED_UNDER_CHAIN | full PS-family regressions remain open for WP-009
+- BM-009 | NOT_RUN | deployed browser workflow smoke
 
-# WP-006 retained result
+# WP-008 result
 
-LEG-004 / PR #1175 adds validation-side parity mechanics only. Synthetic 10x21 = 210-cell reconciliation passes, with PASS/FAIL/UNRESOLVED_INPUT and duplicate/missing/extra row controls. It does not satisfy BM-004.
+Pre-work endpoint: `EP-SUPPORT-REPORT-1154-0013`.
+Material receipt: `agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-006.md`.
+Evidence: `agents/chains/SUPPORT-REPORT-1154/evidence/WP-008-ui-export-state.md`.
+Material branch/head: `agent/support-report-1154-wp008@3c9ab1f7fa80e5e2b98639bdf7755684c21dab23`.
+PR #1177 merged to main as `eaa322cbaf4c0aa0ff4e813a21e6812cdc05cf4d`.
 
-# WP-007 XLSX round-trip result
-
-Pre-work endpoint: `EP-SUPPORT-REPORT-1154-0011`.
-Material receipt: `agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-005.md`.
-Evidence: `agents/chains/SUPPORT-REPORT-1154/evidence/WP-007-xlsx-roundtrip.md`.
-Material branch/head: `agent/support-report-1154-wp007@9b309763485c163a0666461346d20ce748244165`.
-Draft stacked PR: #1176, based on WP-006 branch.
-
-LEG-005 is validation-only and adds two files:
-- test-only minimal OOXML adapter/reader, 226 lines;
-- XLSX round-trip test, 92 lines.
+Behavior now qualified:
+- `summary.xmlOnlyRowCount > 0` creates explicit PARTIAL presentation state;
+- run state says `Support Report ready — partial enrichment`;
+- view explains that unresolved native members/attributes are not complete engineering output;
+- partial XLSX/CSV filenames include `-partial`;
+- bundles with no XML-only rows retain prior filenames;
+- invalidation still clears report state and disables exports;
+- parser/build blocking remains unchanged;
+- active regression graph imports parity-ledger, XLSX round-trip, and UI/export-state tests.
 
 Validation actually executed:
-- both files `node --check` PASS;
-- focused XLSX round-trip suite 4/4 PASS;
-- Git blob identity matches locally executed bytes;
-- independent OOXML read-back reproduces all 3x21 cells;
-- independent artifact_tool import opens `Support Report!A1:U3` and reproduces the same matrix;
-- no formulas are present in A1:U3;
-- formula-like primary-support reference strings beginning `=` remain literal text;
-- ordinal mode yields `A2:U3` autofilter; no-ordinal mode yields `A1:U2`;
-- production import seam requests `https://esm.sh/xlsx@0.18.5`.
+- addon/view/bootstrap/UI-state helper `node --check` PASS;
+- active-test aggregator `node --check` PASS;
+- committed UI/export-state suite 5/5 PASS;
+- exact six-file WP-008 compare boundary;
+- PR #1177 mergeability TRUE before merge;
+- reviews 0; unresolved threads 0; attached status checks none; workflow runs none.
 
-Qualification boundary:
-- execution environment could not fetch the external esm.sh module; exact remote SheetJS serialization bytes and network availability are NOT_RUN;
-- no production file changed in WP-007;
-- no expected workbook cell became native engineering input.
+Not executed: full repository test suite, full Support/Steel suite, full PS-family suite, deployed browser workflow smoke, external SheetJS network execution.
 
 # Blocking fact
 
@@ -104,15 +114,15 @@ INPUT-003 remains unavailable. Target memberships requiring real native proof st
 
 # Owner progression / question display
 
-OWNER_INSTRUCTION: 2026-09-10T03:51:22Z `proceed next, no Qs further`
-OWNER_PROGRESSION_COMMAND: PROCEED_NEXT_NO_QS
+OWNER_INSTRUCTION: 2026-09-10T04:26:46Z `merge if mergable, proceed next`
+OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
 OWNER_QUESTION_DISPLAY_POLICY: HIDE_FURTHER
 QUESTION_DISPLAY: HIDE
 QUESTION_PACK_ACTION: SUPPRESSED_BY_OWNER
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: FALSE_QUESTION_PACK_SUPPRESSED_BY_OWNER
-MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_LEG005
+MATERIAL_PROGRESSION_AUTHORITY: CONSUMED_BY_LEG006
 
 # Exact next action
 
-On next Owner progression, advance WP-008 UI/export-state browser/static qualification that does not require INPUT-003. If INPUT-003 becomes available first, execute the real 210-cell BM-004 parity before claiming target completion. Never infer staged-model values from expected output.
+On the next Owner progression, execute WP-009: full Support/Steel and PS-family regression qualification, negative/performance/CI review, and deployed browser workflow smoke where available. If INPUT-003 becomes available first, execute the real 210-cell BM-004 parity before claiming target completion. Never infer staged-model values from expected output.
