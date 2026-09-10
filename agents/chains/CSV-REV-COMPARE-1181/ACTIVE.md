@@ -7,7 +7,7 @@ LATEST_MATERIAL_LEG: LEG-007
 LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-007.md
 PR: 1188
 BRANCH: issue-1181-phase1-current-main
-HEAD_AT_ENDPOINT: PENDING_RELAY_COMMIT
+HEAD_AT_ENDPOINT: f7a14aff853a5293e4851acd18c211e76a845eca
 MATERIAL_HEAD: ad0906521f15423d025b7d68b25f8cc2c15a36b8
 MAIN_AT_ENDPOINT: 419c94cca7649626e0b3e641f20d5261967347ba
 STATE: PHASE1_REGROUNDED_DRAFT
@@ -33,8 +33,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0008
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0008_PUBLICATION
-ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_UPDATED_ISSUE_SYNC_PENDING
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5621966705
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 8
 COORDINATION_STATE: CLEAN_CURRENT_MAIN_REGROUND
 DEPENDENCIES: material head parent is main 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825
@@ -69,5 +69,5 @@ PHASE1_RULES: support-location identity=CIVIL SECONDARY SUPPORT + PIPE; persiste
 STALE_QUALIFICATION_BRANCH: issue-1181-phase1-weighted-lineage / PR #1187 is evidence-only and not a delivery merge vehicle
 ENVIRONMENT_LIMITATION: exact PR #1188 head has no PR workflow run and connector exposes no dispatch action; workflow files not modified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but no repository-local backup/.agent-worklogs artifacts
-PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; 1 material commit ahead / 0 behind main before relay state commit; merge unauthorized
-EXACT_NEXT_ACTION: after issue endpoint/Active Handover synchronization reaches IN_SYNC, stop this bounded progression. On the next exact "proceed next", begin Phase 2 Support location change from PR #1188 while preserving the Phase 1 gate.
+PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; merge unauthorized
+EXACT_NEXT_ACTION: bounded progression complete and Issue control plane IN_SYNC. On the next exact "proceed next", begin Phase 2 Support location change from PR #1188 while preserving the Phase 1 gate.
