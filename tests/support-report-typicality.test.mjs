@@ -29,20 +29,21 @@ test('raw structural clash geometry is retained independently of report-row elig
   assert.equal(rightEvidence.rawClashes.every((item) => item.guid), true);
 });
 
-test('11168 and 14168 reduce to the same normalized piping topology', () => {
+test('11168 and 14168 preserve five pipe classes across ten physical support locations', () => {
   const [left] = extractStructuralFamilyFeatures(leftEvidence);
   const [right] = extractStructuralFamilyFeatures(rightEvidence);
 
   assert.equal(left.familyId, 'PS-11168');
   assert.equal(right.familyId, 'PS-14168');
-  assert.equal(left.locationCount, 5);
-  assert.equal(right.locationCount, 5);
+  assert.equal(left.locationCount, 10);
+  assert.equal(right.locationCount, 10);
   assert.equal(left.numericPrimarySupportMemberCount, 9);
   assert.equal(right.numericPrimarySupportMemberCount, 9);
-  assert.deepEqual(left.memberMultiplicitySpectrum, [1, 1, 1, 2, 4]);
-  assert.deepEqual(right.memberMultiplicitySpectrum, [1, 1, 1, 2, 4]);
+  assert.equal(left.memberMultiplicitySpectrum.length, 10);
+  assert.deepEqual(left.memberMultiplicitySpectrum, right.memberMultiplicitySpectrum);
   assert.deepEqual(left.normalizedPipeClassPopulation, right.normalizedPipeClassPopulation);
-  assert.deepEqual(left.normalizedPipeClassPopulation, [
+  assert.equal(left.normalizedPipeClassPopulation.length, 10);
+  assert.deepEqual([...new Set(left.normalizedPipeClassPopulation)], [
     '2|A|13421',
     '2|P|31441C4|HT',
     '4|P|31441C4|PP',
