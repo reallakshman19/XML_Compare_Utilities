@@ -143,6 +143,16 @@ export const SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES = deepFreeze([
     help: 'Pattern/fuzzy similarity such as one-position change, same trailing 4/3/2 characters, or wildcard-style masks is lower-authority evidence. It must never override incompatible structural or SUPPORT TYPE evidence.',
   },
   {
+    label: 'Solver unmatched sentinel',
+    value: '1,000,000,000 cost units',
+    help: 'Fixed internal safety sentinel, not an engineering tuning parameter. A real candidate must be cheaper than this value to beat an explicit unmatched assignment. It is intentionally far above normal weighted residual costs.',
+  },
+  {
+    label: 'Solver ineligible sentinel',
+    value: '1,000,000,000,000 cost units',
+    help: 'Fixed internal safety sentinel, not an engineering tuning parameter. Ineligible pairs are priced far above unmatched pairs so a square assignment matrix can never force an incompatible real match merely because row counts are equal.',
+  },
+  {
     label: 'Row order',
     value: 'Never used as identity',
     help: 'CSV/report/XML row ordinal is not a correspondence key. Assignment is based on engineering evidence and global consistency.',
