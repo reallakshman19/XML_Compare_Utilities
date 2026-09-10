@@ -56,4 +56,45 @@ const manyGraph = buildCategorizedGraph(rootWith({
 }), [manySource]);
 assert.equal(manyGraph.nodes.filter((node) => node.levelId === 'Tag').length, 3);
 
+const alignedSource = parseTableSource(
+  'ID,Members,Types,References\n1,"M1,M2","REST,GUIDE","R1,R2,R3"',
+  { sourceId: 'S1', delimiterMode: 'comma' },
+);
+const alignedGraph = buildCategorizedGraph(rootWith({
+  levelId: 'Component',
+  levelType: 'feature',
+  creationMode: 'many-per-row',
+  delimiter: ',',
+  listResolver: { op: 'trim', column: 'Members' },
+  parallelListResolvers: {
+    memberId: { op: 'trim', column: 'Members' },
+    supportType: { op: 'trim', column: 'Types' },
+    reference: { op: 'trim', column: 'References' },
+  },
+}), [alignedSource]);
+const alignedNodes = alignedGraph.nodes.filter((node) => node.levelId === 'Component');
+assert.equal(alignedNodes.length, 3, 'longest parallel list is preserved');
+assert.equal(alignedNodes[0].fields.memberId, 'M1');
+assert.equal(alignedNodes[0].fields.supportType, 'REST');
+assert.equal(alignedNodes[2].fields.memberId, '');
+assert.equal(alignedNodes[2].fields.reference, 'R3');
+assert.ok(alignedGraph.diagnostics.some((item) => item.code === 'many_per_row_parallel_list_length_mismatch'));
+
+const seriesSource = parseTableSource('ID,Fy,Fy,Fz\n1,-10,-20,5', { sourceId: 'S1', delimiterMode: 'comma' });
+const seriesGraph = buildCategorizedGraph(rootWith({
+  levelId: 'Load',
+  levelType: 'measure',
+  creationMode: 'many-per-row',
+  columnSeries: { headerPattern: '^[Ff][YyZz]$', includeBlank: true, valueType: 'number' },
+}), [seriesSource]);
+const seriesNodes = seriesGraph.nodes.filter((node) => node.levelId === 'Load');
+assert.deepEqual(seriesSource.columnIds, ['ID', 'Fy', 'Fy__2', 'Fz']);
+assert.equal(seriesNodes.length, 3);
+assert.equal(seriesNodes[0].fields.columnId, 'Fy');
+assert.equal(seriesNodes[0].fields.ordinal, 1);
+assert.equal(seriesNodes[1].fields.columnId, 'Fy__2');
+assert.equal(seriesNodes[1].fields.ordinal, 2);
+assert.equal(seriesNodes[1].fields.raw, '-20');
+assert.equal(seriesNodes[1].fields.sourceCellRef, 'S1:2:Fy__2');
+
 console.log('Table categorized creation mode tests passed');
