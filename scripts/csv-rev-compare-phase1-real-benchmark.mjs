@@ -18,9 +18,67 @@ const summary = {
   metrics: result.metrics,
   expectedItems: result.expected,
   detectedItems: result.detected,
+  mismatchDiagnostics: mismatchDiagnostics(result),
 };
 
 const json = JSON.stringify(summary, null, 2);
 console.log(json);
 if (outputPath) fs.writeFileSync(outputPath, `${json}\n`, 'utf8');
 if (result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
+
+function mismatchDiagnostics(result) {
+  const compare = result.compareResult;
+  if (!compare?.sourceModel || !compare?.targetModel) return null;
+  const falseNegativeKeys = new Set(result.metrics.falseNegativeKeys || []);
+  const falsePositiveKeys = new Set(result.metrics.falsePositiveKeys || []);
+  return {
+    falseNegatives: result.expected.filter((item) => falseNegativeKeys.has(item.key)).map((item) => diagnoseTarget(item, compare)),
+    falsePositives: result.detected.filter((item) => falsePositiveKeys.has(item.key)).map((item) => diagnoseTarget(item, compare)),
+    unresolvedAmbiguities: (compare.lineage?.ambiguous || []).length,
+  };
+}
+
+function diagnoseTarget(item, compare) {
+  const target = compare.targetModel.locations.find((location) => location.supportLocationIdentity === item.key) || null;
+  if (!target) return { item, target: null, candidates: [], edges: [] };
+  const candidates = (compare.lineage?.candidates || [])
+    .filter((candidate) => candidate.targetNodeId === target.nodeId)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map((candidate) => ({
+      candidateId: candidate.candidateId,
+      outcome: candidate.outcome,
+      score: candidate.score,
+      matchingMethod: candidate.matchingMethod,
+      reasonCodes: candidate.reasonCodes,
+      persistentReferences: candidate.persistentReferences,
+      source: locationSummary(compare.sourceModel.locationByNodeId.get(candidate.sourceNodeId)),
+    }));
+  const edges = (compare.lineage?.edges || [])
+    .filter((edge) => edge.targetNodeIds.includes(target.nodeId))
+    .map((edge) => ({
+      edgeId: edge.edgeId,
+      cardinality: edge.cardinality,
+      outcome: edge.outcome,
+      matchingMethod: edge.matchingMethod,
+      reasonCodes: edge.reasonCodes,
+      persistentReferences: edge.persistentReferences,
+      sources: edge.sourceNodeIds.map((nodeId) => locationSummary(compare.sourceModel.locationByNodeId.get(nodeId))),
+    }));
+  return { item, target: locationSummary(target), candidates, edges };
+}
+
+function locationSummary(location) {
+  if (!location) return null;
+  return {
+    nodeId: location.nodeId,
+    rowId: location.sourceRowId,
+    identity: location.supportLocationIdentity,
+    family: location.family,
+    prevName: location.legacyIdentity,
+    pipe: location.pipe.raw,
+    pipeCore: location.pipe.normalizedCore,
+    references: location.persistentReferences,
+    position: Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])),
+  };
+}
