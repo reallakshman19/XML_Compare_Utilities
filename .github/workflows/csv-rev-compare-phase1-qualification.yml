@@ -40,10 +40,14 @@ jobs:
       - name: Phase 1 PS No. change benchmark contract
         run: node tests/csv-rev-compare-phase1-ps-no-change.test.js
 
-      - name: CSV/XML revision compare regressions
-        run: |
-          node tests/csv-rev-compare-xml-based.test.js
-          node tests/csv-rev-compare-review.test.js
+      - name: CSV/XML revision compare regression
+        if: always()
+        run: node tests/csv-rev-compare-xml-based.test.js
+
+      - name: CSV/XML ambiguity review regression
+        if: always()
+        run: node tests/csv-rev-compare-review.test.js
 
       - name: Categorizer creation-mode regression
+        if: always()
         run: node tests/table-categorized-creation-modes.test.js
