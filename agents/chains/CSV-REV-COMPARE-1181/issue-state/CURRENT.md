@@ -1,8 +1,8 @@
 ISSUE_CURRENT_STATE_VERSION: 1
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0004
-UPDATED_AT: 2026-09-10T09:16:00Z
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0005
+UPDATED_AT: 2026-09-10T09:51:27Z
 
 # Original task / acceptance ledger
 
@@ -10,20 +10,23 @@ UPDATED_AT: 2026-09-10T09:16:00Z
 - TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | PARTIAL — LEG-001 implemented; validation NOT_RUN
 - TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | PARTIAL — LEG-002 implemented; validation NOT_RUN
 - TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | PARTIAL — LEG-003 implemented; validation NOT_RUN
-- TASK-021..TASK-023 | Support Report output and machine-audit/trace exports | OPEN
-- TASK-024..TASK-027 | staged workflow, benchmarks/negative controls, regression qualification and draft PR completion | OPEN
+- TASK-021..TASK-023 | later-revision CSV/XLSX, tombstone/replacement rows and machine-audit/trace exports | PARTIAL — LEG-004 implemented; validation NOT_RUN
+- TASK-024 | explicit staged workflow with review before export | PARTIAL — engine stages/review gate implemented; Utilities UI not yet implemented
+- TASK-025 | owner-listed benchmark behaviors and negative controls | PARTIAL — focused synthetic controls authored; all execution NOT_RUN and owner raw benchmark unresolved
+- TASK-026 | surgical implementation/no competing authorities | PARTIAL — preserved through LEG-004; final qualification pending
+- TASK-027 | focused draft PR / no unauthorized merge | PARTIAL — draft PR #1184 open; merge not authorized
 
 # Input ledger
 
 - INPUT-001 | Issue #1181 full specification | AVAILABLE | GitHub issue
 - INPUT-002 | Table-to-Categorized-XML contracts/tests | AVAILABLE | current repository authority
-- INPUT-003 | XML Compare / Revision Compare candidate-review contracts | AVAILABLE | reused by LEG-002 candidate hints
+- INPUT-003 | XML Compare / Revision Compare candidate-review contracts | AVAILABLE | existing candidate model reused by lineage; explicit review resolver added for support-revision candidate decisions
 - INPUT-004 | Owner raw REV1/REV2 benchmark files | UNRESOLVED | no durable attachment located
-- INPUT-005 | Support Report export patterns | AVAILABLE | current main
+- INPUT-005 | Support Report export patterns | AVAILABLE | current main re-read during LEG-004
 
 # Benchmark / oracle ledger
 
-- BM-001..BM-015 | NOT_RUN | focused conversion, lineage and event-policy fixtures are committed; execution evidence is unavailable in this session
+- BM-001..BM-015 | NOT_RUN | focused conversion, lineage, event-policy and operational/export fixtures are committed; execution evidence unavailable in this session
 
 # Roadmap ledger
 
@@ -52,13 +55,15 @@ MERGE_AUTHORIZED: FALSE
 PR: 1184
 PR_STATUS: OPEN_DRAFT_MERGEABLE_AT_LAST_RECONCILIATION
 BRANCH: issue-1181-csv-rev-compare-xml-v2
-MAIN_OBSERVED: 13e626b4c0b0922697640b6c6f0183acbc59b380
-MAIN_DRIFT: ONE_NONOVERLAPPING_SUPPORT_REPORT_COMMIT; REBASE_NOT_REQUIRED_FOR_COMPLETED_LEGS
-LATEST_MATERIAL_LEG: LEG-003
+MAIN_OBSERVED: a84e8258704d86c0454b813d720b975165076002
+MAIN_DRIFT: 22 commits beyond chain merge base; inspected as Support Report typicality/relationship-builder-only with no #1181 exact path overlap; current Support Report XLSX authority re-read; rebase not required for LEG-004
+LATEST_MATERIAL_LEG: LEG-004
 LEG001_VALIDATION: NOT_RUN
 LEG002_VALIDATION: NOT_RUN
 LEG003_VALIDATION: NOT_RUN
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616354577
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-CONTROL_PLANE_DEVIATION: LEG-003 began after immutable EP-0003 publication but before mutable Active comment update; recorded in LEG-003 receipt and corrected before EP-0004
-EXACT_NEXT_ACTION: LEG-004 operational Support Report CSV/XLSX and audit artifact/engine orchestration; re-ground main/PR first and do not begin UI work in that leg.
+LEG004_VALIDATION: NOT_RUN
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0005_PUBLICATION
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_PUBLICATION
+CONTROL_PLANE_DEVIATION: LEG-003 late mutable Active Issue synchronization recorded in LEG-003 receipt; corrected before EP-0004
+ENVIRONMENT_LIMITATION: raw network cannot resolve github.com, so local clone, repository backup/worklog generation and Node execution unavailable in this session
+EXACT_NEXT_ACTION: publish/synchronize EP-CSVRC-0005, then re-ground current main and Utilities UI authority before LEG-005; do not merge.
