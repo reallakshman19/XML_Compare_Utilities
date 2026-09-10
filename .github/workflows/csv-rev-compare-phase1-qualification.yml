@@ -1,0 +1,49 @@
+name: CSV Rev Compare Phase 1 Qualification
+
+on:
+  push:
+    branches:
+      - issue-1181-csv-rev-compare-xml
+    paths:
+      - 'tabs/csv-rev-compare/**'
+      - 'xml-compare/table-categorizer/**'
+      - 'tests/csv-rev-compare-*.test.js'
+      - 'tests/table-categorized-creation-modes.test.js'
+      - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
+  pull_request:
+    paths:
+      - 'tabs/csv-rev-compare/**'
+      - 'xml-compare/table-categorizer/**'
+      - 'tests/csv-rev-compare-*.test.js'
+      - 'tests/table-categorized-creation-modes.test.js'
+      - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  phase1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Phase 1 PS No. change benchmark contract
+        run: node tests/csv-rev-compare-phase1-ps-no-change.test.js
+
+      - name: CSV/XML revision compare regressions
+        run: |
+          node tests/csv-rev-compare-xml-based.test.js
+          node tests/csv-rev-compare-review.test.js
+
+      - name: Categorizer creation-mode regression
+        run: node tests/table-categorized-creation-modes.test.js
