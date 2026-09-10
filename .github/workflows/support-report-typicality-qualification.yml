@@ -1,0 +1,111 @@
+name: Support Report Typicality Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/support-steel-relationship-builder/support-report-*.js'
+      - 'tests/support-report-typicality*.test.mjs'
+      - 'tests/support-report-location-benchmarks.test.mjs'
+      - 'tests/browser/support-report-typicality.spec.mjs'
+      - 'tests/browser/support-steel-preview-staleness.spec.mjs'
+      - 'playwright.support-steel.config.mjs'
+      - 'benchmarks/*.xml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/support-report-typicality-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-node-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Run location + typicality qualification
+        run: >-
+          node --test
+          tests/support-report-location-benchmarks.test.mjs
+          tests/support-report-typicality.test.mjs
+          tests/support-report-typicality-location.test.mjs
+          tests/support-report-typicality-sequence.test.mjs
+          tests/support-report-typicality-calibration.test.mjs
+          tests/support-report-typicality-projection.test.mjs
+          tests/support-report-typicality-export.test.mjs
+          tests/support-report-typicality-ui.test.mjs
+          tests/support-report-typicality-negative.test.mjs
+
+  browser-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Support Steel browser qualification
+        run: npx playwright test --config=playwright.support-steel.config.mjs
+
+      - name: Print compact Playwright result
+        if: always()
+        run: |
+          if [ -f artifacts/support-steel-browser-results.json ]; then
+            node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('artifacts/support-steel-browser-results.json', 'utf8'));
+          const failures = [];
+          function walk(suite, parents = []) {
+            const path = [...parents, suite.title].filter(Boolean);
+            for (const spec of suite.specs || []) {
+              for (const test of spec.tests || []) {
+                for (const result of test.results || []) {
+                  if (result.status === 'passed' || result.status === 'skipped') continue;
+                  failures.push({
+                    title: [...path, spec.title].join(' > '),
+                    status: result.status,
+                    error: result.error?.message || result.errors?.map((e) => e.message).join('\n') || '',
+                  });
+                }
+              }
+            }
+            for (const child of suite.suites || []) walk(child, path);
+          }
+          for (const suite of data.suites || []) walk(suite);
+          console.log(JSON.stringify({ status: data.status, failures }, null, 2));
+          NODE
+          else
+            echo 'Playwright JSON result missing.'
+          fi
+
+      - name: Upload browser evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-browser-evidence
+          path: |
+            artifacts/support-steel-browser-results.json
+            playwright-report/support-steel
+            test-results/support-steel
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,21 +1,34 @@
 import {
-  groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseClashEvidence,
-} from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
+} from './support-report-clash-evidence.js?v=20260910-support-report-typicality-17';
+import {
+  groupSupportReportEvidenceByLocation,
+} from './support-report-location-grouping.js?v=20260910-support-report-location-17';
 import { decodeXmlEntities } from '../ps-family-clash-audit/ps-family-token-utils.js';
 
-export { groupSupportReportClashEvidence };
+export function groupSupportReportClashEvidence(rows = [], options = {}) {
+  return groupSupportReportEvidenceByLocation(rows, options);
+}
 
 export function parseSupportReportClashXml(xmlText, options = {}) {
   const source = String(xmlText || '');
   const tests = extractClashTests(source);
-  if (!tests.length) return parseClashEvidence(source, options);
+  if (!tests.length) return regroup(parseClashEvidence(source, options), options);
 
   const sourceUnits = exchangeUnits(source) || options.sourceUnits || 'm';
+  const rawClashes = [];
   const rows = [];
   const diagnostics = [];
   for (const test of tests) {
     const parsed = parseClashEvidence(test.body, { ...options, sourceUnits });
+    for (const rawClash of parsed.rawClashes || []) {
+      rawClashes.push(Object.freeze({
+        ...rawClash,
+        clashTestName: test.name,
+        clashTestGuid: test.guid,
+        clashTestIndex: test.index,
+      }));
+    }
     for (const row of parsed.rows || []) {
       rows.push(Object.freeze({
         ...row,
@@ -33,17 +46,24 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
       }));
     }
   }
-  const groups = groupSupportReportClashEvidence(rows);
+  const groups = groupSupportReportClashEvidence(rows, options);
   return Object.freeze({
     schema: rows[0]?.schema || parseClashEvidence('', options).schema,
     sourceUnits,
     clashTestCount: tests.length,
+    rawClashCount: rawClashes.length,
     rowCount: rows.length,
     groupCount: groups.length,
+    rawClashes,
     rows,
     groups,
     diagnostics,
   });
+}
+
+function regroup(parsed, options) {
+  const groups = groupSupportReportClashEvidence(parsed?.rows || [], options);
+  return Object.freeze({ ...parsed, groupCount: groups.length, groups });
 }
 
 function extractClashTests(source) {
@@ -74,4 +94,4 @@ function parseAttributes(raw) {
   return attrs;
 }
 
-export const _test = Object.freeze({ extractClashTests, exchangeUnits });
+export const _test = Object.freeze({ extractClashTests, exchangeUnits, regroup });

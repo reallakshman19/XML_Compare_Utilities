@@ -13,11 +13,14 @@ const isBlank=(line)=>cleanLine(line).trim()==='';
 
 export function parseTableSource(text,options={}){
   const cfg=sourceConfig(options);
-  const records=splitLogicalRecords(String(text??'').replace(/^\uFEFF/,''));
+  const input=String(text??'').replace(/^\uFEFF/,'');
+  const physicalRecords=splitPhysicalRecords(input);
+  const physicalContent=physicalRecords.filter((line)=>!isBlank(line));
+  if(!physicalContent.length)return emptySource(cfg,physicalRecords.length);
+  const delimiter=resolveDelimiter(physicalContent,cfg.delimiterMode,cfg.customDelimiter);
+  const records=splitLogicalRecords(input,delimiter.id);
   const contentLines=records.filter((line)=>!isBlank(line));
   const blankRowsSkipped=records.length-contentLines.length;
-  if(!contentLines.length)return emptySource(cfg,blankRowsSkipped);
-  const delimiter=resolveDelimiter(contentLines,cfg.delimiterMode,cfg.customDelimiter);
   const parsedLines=contentLines.map((line)=>splitTableLine(line,delimiter.id));
   const headers=cfg.firstRowIsHeader?parsedLines[0]||[]:defaultHeaders(parsedLines[0]?.length||0);
   const columnIds=createColumnIds(headers);
@@ -40,28 +43,42 @@ export function splitTableLine(line,delimiter){
 }
 export function buildSourceSummary(source){const headers=Array.isArray(source?.headers)?source.headers:[];const rows=Array.isArray(source?.rows)?source.rows:[];const warnings=(source?.diagnostics||[]).filter((d)=>d.severity==='WARNING').length;const errors=(source?.diagnostics||[]).filter((d)=>d.severity==='ERROR').length;return Object.freeze({sourceId:String(source?.sourceId||''),sourceName:String(source?.sourceName||''),rows:rows.length,columns:headers.length,status:errors?'Error':warnings?'Parsed with warnings':'Parsed'});}
 
-function splitLogicalRecords(text){
+function splitLogicalRecords(text,delimiter='comma'){
   const input=String(text??'');
+  const separator=delimiter==='comma'?',':delimiter==='semicolon'?';':null;
+  if(!separator)return splitPhysicalRecords(input);
   const records=[];
   let record='';
   let quoted=false;
+  let fieldStart=true;
   for(let index=0;index<input.length;index+=1){
     const char=input[index],next=input[index+1];
     if(char==='"'){
+      if(quoted&&next==='"'){record+=char+next;index+=1;fieldStart=false;continue;}
+      if(quoted){record+=char;quoted=false;fieldStart=false;continue;}
+      if(fieldStart){record+=char;quoted=true;fieldStart=false;continue;}
       record+=char;
-      if(quoted&&next==='"'){record+=next;index+=1;continue;}
-      quoted=!quoted;
+      fieldStart=false;
       continue;
     }
+    if(char===separator&&!quoted){record+=char;fieldStart=true;continue;}
     if((char==='\n'||char==='\r')&&!quoted){
       if(char==='\r'&&next==='\n')index+=1;
       records.push(record);
       record='';
+      fieldStart=true;
       continue;
     }
     record+=char;
+    if(quoted||!fieldStart||!/[ \t]/.test(char))fieldStart=false;
   }
   if(record!==''||!records.length)records.push(record);
+  return records.map(cleanLine);
+}
+function splitPhysicalRecords(text){
+  const input=String(text??'');
+  const records=input.split(/\r\n|\n|\r/);
+  if(records.length>1&&records[records.length-1]===''&&/(?:\r\n|\n|\r)$/.test(input))records.pop();
   return records.map(cleanLine);
 }
 function sourceConfig(options){const requested=String(options.delimiterMode||options.delimiter||'auto');const safe=DELIMITER_MODES.has(requested)?requested:'auto';return Object.freeze({sourceId:String(options.sourceId||'S1'),sourceName:String(options.sourceName||'Pasted Source 1'),sourceType:String(options.sourceType||'pasteText'),firstRowIsHeader:options.firstRowIsHeader!==false,delimiterMode:safe,requestedDelimiter:requested,customDelimiter:String(options.customDelimiter||'')});}
@@ -83,4 +100,4 @@ function duplicateHeaderDiagnostics(headers,columnIds){const seen=new Set();retu
 function columnCountDiagnostics(headers,rows){return rows.flatMap((row,index)=>row.rawCells.length===headers.length?[]:[diagnostic('WARNING',`row_${index+1}_column_count_mismatch`,`Row ${index+1} has ${row.rawCells.length} cell(s); expected ${headers.length}.`,{rowId:row.rowId,expected:headers.length,actual:row.rawCells.length})]);}
 function diagnostic(severity,code,message,details={}){return Object.freeze({severity,code,message,details:Object.freeze({...details})});}
 
-export const _test=Object.freeze({splitLogicalRecords});
+export const _test=Object.freeze({splitLogicalRecords,splitPhysicalRecords});

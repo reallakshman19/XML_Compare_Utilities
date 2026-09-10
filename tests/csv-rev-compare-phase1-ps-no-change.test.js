@@ -85,11 +85,14 @@ function csvCell(value) {
 }
 
 // Civil equality by itself is insufficient. Different PIPE and no persistent
-// reference remains removed+added instead of a false 1->1 continuation.
+// reference remains removed+added instead of a false 1->1 continuation. Keep
+// both revisions in the same area/scope so this exercises lineage rather than
+// the pair-compatibility gate.
 {
   const before = row({ [CIVIL_HEADER]: 'SL-SHARED', PIPE: 'BWGA-1000-4"-B1110103-11503-01', 'PIPING PRIMARY SUPPORT REFERENCE': '' });
-  const after = row({ [CIVIL_HEADER]: 'SL-SHARED', PIPE: 'OTHER-2000-12"-Z9999999-OTHER-99', 'PIPING PRIMARY SUPPORT REFERENCE': '', 'EAST/WEST': 'E 9000 mm', 'NORTH/SOUTH': 'N 9000 mm' });
+  const after = row({ [CIVIL_HEADER]: 'SL-SHARED', PIPE: 'BWGA-1000-12"-Z9999999-OTHER-99', 'PIPING PRIMARY SUPPORT REFERENCE': '', 'EAST/WEST': 'E 9000 mm', 'NORTH/SOUTH': 'N 9000 mm' });
   const result = runSupportRevisionCompare(table([before]), table([after]));
+  assert.equal(result.stage, 'READY_TO_EXPORT');
   assert.equal(result.lineage.edges.length, 0);
   assert.equal(result.lineage.removed.length, 1);
   assert.equal(result.lineage.added.length, 1);

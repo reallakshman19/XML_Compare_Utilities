@@ -3,7 +3,7 @@ import { coordinateDelta } from './support-revision-normalization.js';
 export const SUPPORT_LINEAGE_SCORE_POLICY_V2 = Object.freeze({
   schema: 'support-revision-lineage-score-policy/v2',
   policyId: 'SUPPORT_LINEAGE_SCORE_V2',
-  version: '2.1.0',
+  version: '2.2.0',
   minimumFrameAnchors: 3,
   minimumValidatedCoordinateAxes: 2,
   minimumApproximateSignals: 3,
@@ -34,7 +34,10 @@ export function scoreSupportRevisionCandidate(source, target, frame, comparePoli
   const sharedReferences = intersects(source?.persistentReferences, target?.persistentReferences);
   const union = new Set([...(source?.persistentReferences || []), ...(target?.persistentReferences || [])]).size;
   const referenceJaccard = union ? sharedReferences.length / union : 0;
-  const exactReferenceSet = Boolean(source?.referenceSetKey) && source.referenceSetKey === target?.referenceSetKey;
+  const sameReferenceSet = Boolean(source?.referenceSetKey) && source.referenceSetKey === target?.referenceSetKey;
+  const sameReferenceMultiplicity = !source?.referenceMultiplicityKey || !target?.referenceMultiplicityKey
+    || source.referenceMultiplicityKey === target.referenceMultiplicityKey;
+  const exactReferenceSet = sameReferenceSet && sameReferenceMultiplicity;
   const sameSupportLocationIdentity = Boolean(source?.supportLocationIdentity) && source.supportLocationIdentity === target.supportLocationIdentity;
   const samePrevName = Boolean(source?.legacyIdentity) && upper(source.legacyIdentity) === upper(target?.legacyIdentity);
   const sameFamily = Boolean(source?.family) && upper(source.family) === upper(target?.family);
@@ -65,6 +68,7 @@ export function scoreSupportRevisionCandidate(source, target, frame, comparePoli
   const score = breakdown.reduce((sum, item) => sum + item.contribution, 0);
   const reasonCodes = breakdown.filter((item) => item.active && item.reasonCode).map((item) => item.reasonCode);
   if (hardRejected) reasonCodes.push('BORE_MISMATCH_REJECTED');
+  if (sameReferenceSet && !sameReferenceMultiplicity) reasonCodes.push('PERSISTENT_REFERENCE_MULTIPLICITY_DIFFERS');
   if (!strongEvidence && !approximateEligible) reasonCodes.push('INSUFFICIENT_APPROXIMATE_CORROBORATION');
   const method = sameSupportLocationIdentity ? 'civil-pipe-location-identity'
     : exactReferenceSet ? 'persistent-reference-set'
@@ -89,6 +93,7 @@ export function scoreSupportRevisionCandidate(source, target, frame, comparePoli
     weightBreakdown: Object.freeze(breakdown),
     evidence: Object.freeze({
       exactReferenceSet,
+      sameReferenceMultiplicity,
       referenceJaccard,
       sameSupportLocationIdentity,
       samePrevName,
@@ -130,17 +135,30 @@ export function boreEvidence(location) {
 }
 
 export function buildTrustedCoordinateAnchors(sourceModel, targetModel) {
-  const sourceByIdentity = groupUniqueByIdentity(sourceModel?.locations || []);
-  const targetByIdentity = groupUniqueByIdentity(targetModel?.locations || []);
   const anchors = [];
-  for (const [identity, source] of sourceByIdentity) {
-    const target = targetByIdentity.get(identity);
+  const seenPairs = new Set();
+  appendUniqueAnchors(anchors, seenPairs,
+    groupUniqueByIdentity(sourceModel?.locations || []),
+    groupUniqueByIdentity(targetModel?.locations || []),
+    'UNIQUE_SUPPORT_LOCATION_IDENTITY');
+  appendUniqueAnchors(anchors, seenPairs,
+    groupUniqueByReferenceSet(sourceModel?.locations || []),
+    groupUniqueByReferenceSet(targetModel?.locations || []),
+    'UNIQUE_PERSISTENT_REFERENCE_SET');
+  return Object.freeze(anchors);
+}
+
+function appendUniqueAnchors(anchors, seenPairs, sourceGroups, targetGroups, basis) {
+  for (const [key, source] of sourceGroups) {
+    const target = targetGroups.get(key);
     if (!target) continue;
+    const pairKey = `${source.nodeId}=>${target.nodeId}`;
+    if (seenPairs.has(pairKey)) continue;
     const bore = compareBore(source, target);
     if (bore.status === 'MISMATCH') continue;
-    anchors.push(Object.freeze({ source, target, basis: 'UNIQUE_SUPPORT_LOCATION_IDENTITY', boreStatus: bore.status }));
+    seenPairs.add(pairKey);
+    anchors.push(Object.freeze({ source, target, basis, boreStatus: bore.status }));
   }
-  return Object.freeze(anchors);
 }
 
 function scoreCoordinate(source, target, frame, comparePolicy, scorePolicy) {
@@ -213,9 +231,17 @@ function parseBoreValue(raw, source) {
 }
 
 function groupUniqueByIdentity(locations) {
+  return groupUnique(locations, (location) => upper(location?.supportLocationIdentity));
+}
+
+function groupUniqueByReferenceSet(locations) {
+  return groupUnique(locations, (location) => clean(location?.referenceMultiplicityKey || location?.referenceSetKey));
+}
+
+function groupUnique(locations, keyOf) {
   const grouped = new Map();
   for (const location of locations) {
-    const key = upper(location?.supportLocationIdentity);
+    const key = keyOf(location);
     if (!key) continue;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(location);
@@ -223,4 +249,4 @@ function groupUniqueByIdentity(locations) {
   return new Map([...grouped.entries()].flatMap(([key, rows]) => rows.length === 1 ? [[key, rows[0]]] : []));
 }
 
-export const _test = Object.freeze({ parseBoreValue, groupUniqueByIdentity, scoreCoordinate });
+export const _test = Object.freeze({ parseBoreValue, groupUniqueByIdentity, groupUniqueByReferenceSet, scoreCoordinate });

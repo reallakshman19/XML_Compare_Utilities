@@ -22,6 +22,13 @@ function remarkFor(result, target) {
 function candidateFor(result, source, target) {
   return result.lineage.candidates.find((candidate) => candidate.sourceNodeId === source.nodeId && candidate.targetNodeId === target.nodeId);
 }
+function sameAreaContext() {
+  return row({
+    civil: 'SL-CONTEXT', pipe: 'BWGA-1000-8"-CONTEXT-01', size: '8"',
+    members: '/SL-CONTEXT.1', types: 'REST-200', refs: '=CTX/1',
+    x: 'E 150000mm', y: 'N 90000mm', z: 'U 100000mm',
+  });
+}
 
 // Real R2/R3 false-positive pattern: the target has an exact Civil+PIPE
 // predecessor and a different-Civil predecessor carrying its current component
@@ -62,10 +69,13 @@ function candidateFor(result, source, target) {
 // Real false-negative pattern: same Civil support, changed line/PIPE, and two
 // persistent components survive. This is deterministic fallback lineage and
 // produces the Phase 1 line-number-change token without consulting R3 remarks.
+// An unchanged same-area row supplies the pair-level context present in the
+// real workbook; it is not candidate evidence for SL-111001.
 {
   const oldPipe = '8"-P-1110XXX-METALLIC';
   const newPipe = 'BWGA-1000-FL-8"-M1610003-(FL-07)';
   const rev2 = csv([
+    sameAreaContext(),
     row({
       civil: 'SL-111001(REF)', pipe: oldPipe,
       members: '/SL-111001.1,/SL-111001.2,/SL-111001.3', types: 'REST-200,GUIDE-200,STOP-200',
@@ -73,6 +83,7 @@ function candidateFor(result, source, target) {
     }),
   ]);
   const rev3 = csv([
+    sameAreaContext(),
     row({
       prev: 'SL-111001.1', civil: 'SL-111001(REF)', pipe: newPipe,
       members: '/SL-111001.1,/SL-111001.4,/SL-111001.3', types: 'REST-200,GUIDE-200,STOP-200',
@@ -81,11 +92,11 @@ function candidateFor(result, source, target) {
   ]);
   const result = runSupportRevisionCompare(rev2, rev3);
   assert.equal(result.stage, 'READY_TO_EXPORT');
-  const target = result.targetModel.locations[0];
+  const target = result.targetModel.locations.find((location) => location.family === 'SL-111001(REF)');
   const edge = result.lineage.edges.find((candidate) => candidate.targetNodeIds.includes(target.nodeId));
   assert.equal(edge.matchingMethod, 'persistent-reference-overlap');
   assert.equal(edge.outcome, 'DETERMINISTIC');
-  const pipeEvent = result.ledger.events.find((event) => event.type === 'PIPE_IDENTITY_CHANGED');
+  const pipeEvent = result.ledger.events.find((event) => event.type === 'PIPE_IDENTITY_CHANGED' && event.targetXmlNode === target.nodeId);
   assert.equal(pipeEvent.remarkEligible, true);
   assert.equal(pipeEvent.normalizedState.projection, 'LINE_NUMBER_CHANGE');
   assert.match(remarkFor(result, target), /Line No\. Change\(Old Line No\. 8"-P-1110XXX-METALLIC\)/);
@@ -98,6 +109,7 @@ function candidateFor(result, source, target) {
   const oldPipe = '8"-P-1110XXX-METALLIC';
   const newPipe = 'BWGA-1000-FL-8"-M1610003-(FL-07)';
   const rev2 = csv([
+    sameAreaContext(),
     row({
       civil: 'SL-111001(REF)', pipe: oldPipe,
       members: '/SL-111001.1,/SL-111001.2,/SL-111001.3', types: 'REST-200,GUIDE-200,LINE-STOP-200',
@@ -105,6 +117,7 @@ function candidateFor(result, source, target) {
     }),
   ]);
   const rev3 = csv([
+    sameAreaContext(),
     row({ civil: 'SL-111001(REF)', pipe: oldPipe, members: '', types: '', refs: '', x: '', y: '', z: '' }),
     row({
       prev: 'SL-111001.1', civil: 'SL-111001(REF)', pipe: newPipe,
@@ -114,7 +127,7 @@ function candidateFor(result, source, target) {
   ]);
   const result = runSupportRevisionCompare(rev2, rev3);
   assert.equal(result.stage, 'READY_TO_EXPORT');
-  assert.equal(result.targetModel.locations.length, 2);
+  assert.equal(result.targetModel.locations.length, 3);
   assert.equal(result.lineage.comparisonEligibility.ignoredTargetLocations.length, 1);
   assert.equal(result.lineage.comparisonEligibility.ignoredTargetLocations[0].classification, 'IDENTITY_ONLY_SHELL');
   const activeTarget = result.targetModel.locations.find((location) => location.pipe.raw === newPipe);
