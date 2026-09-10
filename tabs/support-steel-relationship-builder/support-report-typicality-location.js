@@ -3,6 +3,13 @@ import {
   normalizePipeClass,
   supportTypeMultiset,
 } from './support-report-typicality.js?v=20260910-support-report-typicality-location-1';
+import {
+  buildStructuredSequenceContext,
+  compareMemberOrdinalPatterns,
+  comparePreviousNamePatterns,
+  compareStructuredSequenceCandidate,
+  orderedLocationIds,
+} from './support-report-typicality-sequence.js?v=20260910-structured-sequence-1';
 
 const INELIGIBLE_COST = 1e12;
 const UNMATCHED_COST = 1e9;
@@ -51,21 +58,25 @@ export function buildCanonicalTypicalityLocations(evidence = {}, reportBundle = 
 
 export function buildTypicalityLocationAssignment(leftEvidence, rightEvidence, options = {}) {
   const profile = options.profile?.pipingLocation || options.profile || {};
+  const sequenceProfile = profile.structuredSequence || {};
   const leftFamilyId = token(options.leftFamilyId);
   const rightFamilyId = token(options.rightFamilyId);
   const left = buildCanonicalTypicalityLocations(leftEvidence, options.leftReportBundle)
     .filter((location) => location.familyId === leftFamilyId);
   const right = buildCanonicalTypicalityLocations(rightEvidence, options.rightReportBundle)
     .filter((location) => location.familyId === rightFamilyId);
+  const leftSequence = buildStructuredSequenceContext(left, sequenceProfile);
+  const rightSequence = buildStructuredSequenceContext(right, sequenceProfile);
   const candidates = left.flatMap((leftLocation) => right.map((rightLocation) =>
-    compareLocationCandidate(leftLocation, rightLocation, profile)));
-  const solved = solveCandidateAssignment(left, right, candidates, profile);
+    compareLocationCandidate(leftLocation, rightLocation, profile, leftSequence, rightSequence)));
+  const solved = solveCandidateAssignment(left, right, candidates, profile, leftSequence, rightSequence);
   const selected = solved.selected.map((item, index) => Object.freeze({
     ...item,
     auditId: `${options.parentAuditId || familyAuditId(leftFamilyId, rightFamilyId)}-L${String(index + 1).padStart(2, '0')}`,
   }));
   const hasSupportTypes = selected.some((item) => item.supportTypeComparison?.result !== 'UNAVAILABLE');
-  const result = solved.ambiguous.length ? 'AMBIGUOUS'
+  const materialAmbiguity = solved.ambiguityClass === 'AMBIGUOUS_MATERIAL';
+  const result = materialAmbiguity ? 'AMBIGUOUS'
     : solved.unmatchedLeft.length || solved.unmatchedRight.length || selected.some((item) => item.arrangementResult === 'PARTIAL') ? 'PARTIAL'
       : hasSupportTypes ? 'EXACT' : 'TOPOLOGY_ONLY';
   return Object.freeze({
@@ -73,6 +84,16 @@ export function buildTypicalityLocationAssignment(leftEvidence, rightEvidence, o
     leftFamilyId,
     rightFamilyId,
     result,
+    correspondenceStatus: solved.ambiguityClass || 'DETERMINISTIC',
+    matchingMode: solved.matchingMode,
+    dimensionalEvidence: Object.freeze({
+      leftAvailableDimensions: leftSequence.availableDimensions,
+      rightAvailableDimensions: rightSequence.availableDimensions,
+      leftLineMaxResidualMm: leftSequence.lineMaxResidualMm,
+      rightLineMaxResidualMm: rightSequence.lineMaxResidualMm,
+      leftPlaneMaxResidualMm: leftSequence.planeMaxResidualMm,
+      rightPlaneMaxResidualMm: rightSequence.planeMaxResidualMm,
+    }),
     candidatePairs: Object.freeze(candidates),
     selectedAssignments: Object.freeze(selected),
     unmatchedLeftLocationIds: Object.freeze(solved.unmatchedLeft),
@@ -95,6 +116,7 @@ function locationBase(group, familyId, index, anchor, reportRows) {
     normalizedPipeClass: normalizePipeClass(group.fullLineTag),
     primarySupportMemberIds: Object.freeze(memberIds.sort()),
     memberMultiplicity: memberIds.length,
+    previousNamesRaw: Object.freeze(rawPreviousNames(reportRow?.previousName)),
     supportTypesRaw: Object.freeze(supportTypesRaw),
     supportTypeMultiset: supportTypeMultiset(supportTypesRaw),
     supportTypeSource: supportTypesRaw.length ? 'REPORT_ROW' : 'UNAVAILABLE',
@@ -104,7 +126,7 @@ function locationBase(group, familyId, index, anchor, reportRows) {
   });
 }
 
-function compareLocationCandidate(left, right, profile) {
+function compareLocationCandidate(left, right, profile, leftSequence, rightSequence) {
   const pipeExact = Boolean(left.normalizedPipeClass) && left.normalizedPipeClass === right.normalizedPipeClass;
   const memberMultiplicityDelta = Math.abs(left.memberMultiplicity - right.memberMultiplicity);
   const supportAvailable = left.supportTypesRaw.length > 0 && right.supportTypesRaw.length > 0;
@@ -114,13 +136,31 @@ function compareLocationCandidate(left, right, profile) {
   const supportTypeDelta = supportAvailable ? supportTypeDeltaCount(supportTypeComparison) : 0;
   const geometry = geometryFingerprintComparison(left.distanceFingerprintMm, right.distanceFingerprintMm,
     Number(profile.geometryFingerprintToleranceMm ?? 50));
+  const sequenceProfile = profile.structuredSequence || {};
+  const structuredSequence = compareStructuredSequenceCandidate(left, right, leftSequence, rightSequence, sequenceProfile);
+  const memberOrdinalPattern = compareMemberOrdinalPatterns(left.primarySupportMemberIds, right.primarySupportMemberIds, sequenceProfile);
+  const previousNamePattern = comparePreviousNamePatterns(left.previousNamesRaw, right.previousNamesRaw, sequenceProfile);
   const eligible = profile.requireCompatiblePipeClass === false || pipeExact;
   const weights = profile.assignmentWeights || {};
+  const evidenceWeights = sequenceProfile.evidenceWeights || {};
+  const memberPatternPenalty = similarityPenalty(memberOrdinalPattern.similarity, Number(evidenceWeights.memberOrdinalPattern ?? 0));
+  const previousNamePenalty = similarityPenalty(previousNamePattern.similarity, Number(evidenceWeights.prevNamePattern ?? 0));
   const assignmentCost = eligible
     ? (supportTypeDelta * Number(weights.supportTypeMember ?? 100000))
       + (memberMultiplicityDelta * Number(weights.memberMultiplicity ?? 10000))
       + ((Number(geometry.residual?.median) || 0) * Number(weights.geometryMedianMm ?? 1))
       + ((Number(geometry.residual?.max) || 0) * Number(weights.geometryMaxMm ?? 1))
+      + memberPatternPenalty
+      + previousNamePenalty
+    : INELIGIBLE_COST;
+  const stage2d = structuredSequence.stages.find((stage) => stage.dimension === '2D');
+  const stage1d = structuredSequence.stages.find((stage) => stage.dimension === '1D');
+  const refinementWeights = sequenceProfile.refinementWeights || {};
+  const assignmentCost2d = eligible
+    ? assignmentCost + residualPenalty(stage2d, Number(refinementWeights.geometry2dResidual ?? 0))
+    : INELIGIBLE_COST;
+  const assignmentCost1d = eligible
+    ? assignmentCost2d + residualPenalty(stage1d, Number(refinementWeights.station1dResidual ?? 0))
     : INELIGIBLE_COST;
   const arrangementResult = !eligible ? 'NO_MATCH'
     : supportAvailable && supportTypeComparison.result !== 'EXACT' ? 'PARTIAL'
@@ -133,10 +173,15 @@ function compareLocationCandidate(left, right, profile) {
     eligible,
     arrangementResult,
     assignmentCost,
+    assignmentCost2d,
+    assignmentCost1d,
     signals: Object.freeze({
       pipeClass: Object.freeze({ left: left.normalizedPipeClass, right: right.normalizedPipeClass, result: pipeExact ? 'PASS' : 'FAIL', reasonCode: pipeExact ? 'PIPE_CLASS_EXACT' : 'PIPE_CLASS_MISMATCH' }),
       memberMultiplicity: Object.freeze({ left: left.memberMultiplicity, right: right.memberMultiplicity, delta: memberMultiplicityDelta, result: memberMultiplicityDelta === 0 ? 'PASS' : 'FAIL', reasonCode: memberMultiplicityDelta === 0 ? 'PRIMARY_MEMBER_MULTIPLICITY_EXACT' : 'PRIMARY_MEMBER_MULTIPLICITY_CHANGED' }),
       geometry,
+      structuredSequence,
+      memberOrdinalPattern,
+      previousNamePattern,
     }),
     supportTypeComparison,
     sourceEvidence: Object.freeze({
@@ -144,39 +189,191 @@ function compareLocationCandidate(left, right, profile) {
       rightClashIds: right.clashEvidenceIds,
       leftSupportTypeSource: left.supportTypeSource,
       rightSupportTypeSource: right.supportTypeSource,
+      leftPreviousNames: left.previousNamesRaw,
+      rightPreviousNames: right.previousNamesRaw,
     }),
   });
 }
 
-function solveCandidateAssignment(left, right, candidates, profile) {
-  const byId = new Map(candidates.map((item) => [`${item.leftLocationId}\u0000${item.rightLocationId}`, item]));
-  const size = left.length + right.length;
-  if (!size) return { selected: [], unmatchedLeft: [], unmatchedRight: [], ambiguous: [], totalCost: 0 };
-  const matrix = Array.from({ length: size }, (_, row) => Array.from({ length: size }, (_, col) => {
-    if (row >= left.length && col >= right.length) return 0;
-    if (row >= left.length || col >= right.length) return UNMATCHED_COST;
-    return byId.get(`${left[row].locationId}\u0000${right[col].locationId}`)?.assignmentCost ?? INELIGIBLE_COST;
-  }));
-  const optimum = hungarian(matrix);
-  const selected = [];
-  const usedRight = new Set();
-  for (let row = 0; row < left.length; row += 1) {
-    const col = optimum.assignment[row];
-    if (col < 0 || col >= right.length || matrix[row][col] >= UNMATCHED_COST) continue;
-    const candidate = byId.get(`${left[row].locationId}\u0000${right[col].locationId}`);
-    if (candidate?.eligible) { selected.push(candidate); usedRight.add(col); }
-  }
-  const unmatchedLeft = left.filter((item) => !selected.some((candidate) => candidate.leftLocationId === item.locationId)).map((item) => item.locationId);
-  const unmatchedRight = right.filter((_, index) => !usedRight.has(index)).map((item) => item.locationId);
+function solveCandidateAssignment(left, right, candidates, profile, leftSequence, rightSequence) {
   const tolerance = Number(profile.ambiguityCostTolerance ?? 0.001);
-  const ambiguous = selected.filter((candidate) => {
+  const base = solveHungarianStage(left, right, candidates, 'assignmentCost', tolerance, '3D_GLOBAL');
+  if (!base.ambiguous.length) return withAmbiguityClass(base, candidates);
+
+  let refined = base;
+  if (leftSequence?.supports2d && rightSequence?.supports2d) {
+    const planar = solveHungarianStage(left, right, candidates, 'assignmentCost2d', tolerance, '2D_REFINEMENT');
+    refined = preferRefinement(refined, planar);
+    if (!refined.ambiguous.length) return withAmbiguityClass(refined, candidates);
+  }
+
+  const sequenceProfile = profile.structuredSequence || {};
+  const allLeftSequenced = orderedLocationIds(leftSequence).length === left.length;
+  const allRightSequenced = orderedLocationIds(rightSequence).length === right.length;
+  if (refined.ambiguous.length && leftSequence?.supports1d && rightSequence?.supports1d
+      && allLeftSequenced && allRightSequenced && sequenceProfile.enforceMonotonic1D !== false) {
+    const linear = solveMonotonicSequenceStage(left, right, candidates, sequenceProfile, tolerance, leftSequence, rightSequence);
+    refined = preferRefinement(refined, linear, true);
+  }
+  return withAmbiguityClass(refined, candidates);
+}
+
+function solveHungarianStage(left, right, candidates, costField, tolerance, matchingMode) {
+  const byId = candidateMap(candidates);
+  const matrix = assignmentMatrix(left, right, byId, costField);
+  if (!matrix.length) return { selected: [], unmatchedLeft: [], unmatchedRight: [], ambiguous: [], totalCost: 0, matchingMode };
+  const optimum = hungarian(matrix);
+  const result = decodeMatrixAssignment(left, right, byId, matrix, optimum.assignment);
+  const ambiguous = result.selected.filter((candidate) => {
     const row = left.findIndex((item) => item.locationId === candidate.leftLocationId);
     const col = right.findIndex((item) => item.locationId === candidate.rightLocationId);
     const alternate = matrix.map((values) => [...values]);
     alternate[row][col] = INELIGIBLE_COST;
     return hungarian(alternate).cost <= optimum.cost + tolerance;
   }).map((candidate) => candidate.leftLocationId);
-  return { selected, unmatchedLeft, unmatchedRight, ambiguous, totalCost: optimum.cost };
+  return { ...result, ambiguous, totalCost: optimum.cost, matchingMode };
+}
+
+function solveMonotonicSequenceStage(left, right, candidates, sequenceProfile, tolerance, leftSequence, rightSequence) {
+  const leftOrder = orderedLocationIds(leftSequence, 'FORWARD');
+  const forwardRight = orderedLocationIds(rightSequence, 'FORWARD');
+  const directions = [{ direction: 'FORWARD', rightOrder: forwardRight }];
+  if (sequenceProfile.evaluateReverse1D !== false) {
+    directions.push({ direction: 'REVERSE', rightOrder: orderedLocationIds(rightSequence, 'REVERSE') });
+  }
+  const solutions = directions.map(({ direction, rightOrder }) => ({
+    direction,
+    ...monotonicAlignment(leftOrder, rightOrder, candidates, 'assignmentCost1d'),
+  })).sort((a, b) => a.totalCost - b.totalCost || a.direction.localeCompare(b.direction));
+  const optimum = solutions[0] || { selected: [], unmatchedLeft: [...leftOrder], unmatchedRight: [...forwardRight], totalCost: 0, direction: 'FORWARD' };
+  const alternateOrientation = solutions.find((solution, index) => index > 0
+    && solution.totalCost <= optimum.totalCost + tolerance
+    && mappingSignature(solution.selected) !== mappingSignature(optimum.selected));
+  const ambiguous = new Set();
+  if (alternateOrientation) {
+    for (const leftId of changedLeftMappings(optimum.selected, alternateOrientation.selected)) ambiguous.add(leftId);
+  }
+  for (const candidate of optimum.selected) {
+    const forbidden = candidateKey(candidate.leftLocationId, candidate.rightLocationId);
+    const sameDirection = monotonicAlignment(leftOrder,
+      optimum.direction === 'REVERSE' ? orderedLocationIds(rightSequence, 'REVERSE') : forwardRight,
+      candidates, 'assignmentCost1d', forbidden);
+    if (sameDirection.totalCost <= optimum.totalCost + tolerance) ambiguous.add(candidate.leftLocationId);
+  }
+  return {
+    selected: optimum.selected,
+    unmatchedLeft: optimum.unmatchedLeft,
+    unmatchedRight: optimum.unmatchedRight,
+    ambiguous: [...ambiguous].sort(),
+    totalCost: optimum.totalCost,
+    matchingMode: `1D_SEQUENCE_${optimum.direction}`,
+    alternateOrientation: alternateOrientation?.direction || null,
+  };
+}
+
+function monotonicAlignment(leftOrder, rightOrder, candidates, costField, forbiddenPair = '') {
+  const byId = candidateMap(candidates);
+  const n = leftOrder.length;
+  const m = rightOrder.length;
+  const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(Infinity));
+  const move = Array.from({ length: n + 1 }, () => Array(m + 1).fill(null));
+  dp[0][0] = 0;
+  for (let i = 1; i <= n; i += 1) { dp[i][0] = i * UNMATCHED_COST; move[i][0] = 'SKIP_LEFT'; }
+  for (let j = 1; j <= m; j += 1) { dp[0][j] = j * UNMATCHED_COST; move[0][j] = 'SKIP_RIGHT'; }
+  for (let i = 1; i <= n; i += 1) {
+    for (let j = 1; j <= m; j += 1) {
+      const key = candidateKey(leftOrder[i - 1], rightOrder[j - 1]);
+      const candidate = byId.get(key);
+      const candidateCost = !candidate?.eligible || key === forbiddenPair ? INELIGIBLE_COST : Number(candidate[costField] ?? INELIGIBLE_COST);
+      const choices = [
+        { cost: dp[i - 1][j - 1] + candidateCost, move: 'MATCH', priority: 0 },
+        { cost: dp[i - 1][j] + UNMATCHED_COST, move: 'SKIP_LEFT', priority: 1 },
+        { cost: dp[i][j - 1] + UNMATCHED_COST, move: 'SKIP_RIGHT', priority: 2 },
+      ].sort((a, b) => a.cost - b.cost || a.priority - b.priority);
+      dp[i][j] = choices[0].cost;
+      move[i][j] = choices[0].move;
+    }
+  }
+  const selected = [];
+  const unmatchedLeft = [];
+  const unmatchedRight = [];
+  let i = n, j = m;
+  while (i > 0 || j > 0) {
+    const action = move[i][j];
+    if (action === 'MATCH') {
+      const candidate = byId.get(candidateKey(leftOrder[i - 1], rightOrder[j - 1]));
+      if (candidate?.eligible && candidateKey(candidate.leftLocationId, candidate.rightLocationId) !== forbiddenPair) selected.push(candidate);
+      else { unmatchedLeft.push(leftOrder[i - 1]); unmatchedRight.push(rightOrder[j - 1]); }
+      i -= 1; j -= 1;
+    } else if (action === 'SKIP_LEFT') {
+      unmatchedLeft.push(leftOrder[i - 1]); i -= 1;
+    } else {
+      unmatchedRight.push(rightOrder[j - 1]); j -= 1;
+    }
+  }
+  return {
+    selected: selected.reverse(),
+    unmatchedLeft: unmatchedLeft.reverse(),
+    unmatchedRight: unmatchedRight.reverse(),
+    totalCost: dp[n][m],
+  };
+}
+
+function preferRefinement(current, candidate, allowHigherAmbiguity = false) {
+  if (!candidate) return current;
+  if (!candidate.ambiguous.length && current.ambiguous.length) return candidate;
+  if (candidate.ambiguous.length < current.ambiguous.length) return candidate;
+  if (allowHigherAmbiguity && candidate.ambiguous.length === current.ambiguous.length && candidate.totalCost < current.totalCost) return candidate;
+  return current;
+}
+
+function withAmbiguityClass(solution, candidates) {
+  if (!solution.ambiguous?.length) return { ...solution, ambiguityClass: null };
+  return { ...solution, ambiguityClass: ambiguityMateriality(solution.ambiguous, solution.selected, candidates) };
+}
+
+function ambiguityMateriality(ambiguousLeftIds, selected, candidates) {
+  for (const leftId of ambiguousLeftIds) {
+    const chosen = selected.find((candidate) => candidate.leftLocationId === leftId);
+    if (!chosen) return 'AMBIGUOUS_MATERIAL';
+    const alternatives = candidates.filter((candidate) => candidate.leftLocationId === leftId
+      && candidate.rightLocationId !== chosen.rightLocationId && candidate.eligible);
+    if (alternatives.some((candidate) => !engineeringEquivalentCandidate(chosen, candidate))) return 'AMBIGUOUS_MATERIAL';
+  }
+  return 'AMBIGUOUS_EQUIVALENT';
+}
+
+function engineeringEquivalentCandidate(left, right) {
+  return left.arrangementResult === right.arrangementResult
+    && left.supportTypeComparison?.result === right.supportTypeComparison?.result
+    && left.signals?.memberMultiplicity?.delta === right.signals?.memberMultiplicity?.delta
+    && left.signals?.pipeClass?.result === right.signals?.pipeClass?.result;
+}
+
+function assignmentMatrix(left, right, byId, costField) {
+  const size = left.length + right.length;
+  if (!size) return [];
+  return Array.from({ length: size }, (_, row) => Array.from({ length: size }, (_, col) => {
+    if (row >= left.length && col >= right.length) return 0;
+    if (row >= left.length || col >= right.length) return UNMATCHED_COST;
+    return Number(byId.get(candidateKey(left[row].locationId, right[col].locationId))?.[costField] ?? INELIGIBLE_COST);
+  }));
+}
+
+function decodeMatrixAssignment(left, right, byId, matrix, assignment) {
+  const selected = [];
+  const usedRight = new Set();
+  for (let row = 0; row < left.length; row += 1) {
+    const col = assignment[row];
+    if (col < 0 || col >= right.length || matrix[row][col] >= UNMATCHED_COST) continue;
+    const candidate = byId.get(candidateKey(left[row].locationId, right[col].locationId));
+    if (candidate?.eligible) { selected.push(candidate); usedRight.add(col); }
+  }
+  return {
+    selected,
+    unmatchedLeft: left.filter((item) => !selected.some((candidate) => candidate.leftLocationId === item.locationId)).map((item) => item.locationId),
+    unmatchedRight: right.filter((_, index) => !usedRight.has(index)).map((item) => item.locationId),
+  };
 }
 
 function hungarian(cost) {
@@ -235,6 +432,17 @@ function pointDistance(a, b) { return validPoint(a) && validPoint(b) ? Math.hypo
 function normalizeMemberId(value) { const text = String(value || '').trim().replace(/^\/+/, '').toUpperCase(); return text ? `/${text}` : ''; }
 function supportTypeDeltaCount(comparison) { return [...(comparison?.missingFromRight || []), ...(comparison?.extraInRight || [])].reduce((sum, item) => sum + (Number(item?.count) || 0), 0); }
 function rawSupportTypes(value) { return String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean); }
+function rawPreviousNames(value) { return String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean); }
+function similarityPenalty(similarity, weight) { return Number.isFinite(similarity) ? Math.max(0, 1 - similarity) * Math.max(0, weight) : 0; }
+function residualPenalty(stage, weight) { return Number.isFinite(stage?.residual?.max) ? Math.max(0, stage.residual.max) * Math.max(0, weight) : 0; }
+function candidateMap(candidates) { return new Map((candidates || []).map((candidate) => [candidateKey(candidate.leftLocationId, candidate.rightLocationId), candidate])); }
+function candidateKey(left, right) { return `${left}\u0000${right}`; }
+function mappingSignature(selected) { return [...(selected || [])].map((candidate) => `${candidate.leftLocationId}->${candidate.rightLocationId}`).sort().join('|'); }
+function changedLeftMappings(left, right) {
+  const a = new Map((left || []).map((candidate) => [candidate.leftLocationId, candidate.rightLocationId]));
+  const b = new Map((right || []).map((candidate) => [candidate.leftLocationId, candidate.rightLocationId]));
+  return [...new Set([...a.keys(), ...b.keys()])].filter((id) => a.get(id) !== b.get(id));
+}
 function validPoint(point) { return point && [point.x, point.y, point.z].every(Number.isFinite); }
 function quantile(sorted, ratio) { if (!sorted.length) return null; return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1))]; }
 function candidateId(left, right) { return `PAIR-${left}--${right}`.replace(/[^A-Z0-9-]+/gi, '-'); }
@@ -242,4 +450,11 @@ function familyAuditId(left, right) { return `TYP-${left}--${right}`.replace(/[^
 function token(value) { return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase(); }
 function unique(values) { return [...new Set(values || [])]; }
 
-export const _test = Object.freeze({ hungarian, geometryFingerprintComparison });
+export const _test = Object.freeze({
+  ambiguityMateriality,
+  engineeringEquivalentCandidate,
+  geometryFingerprintComparison,
+  hungarian,
+  monotonicAlignment,
+  solveCandidateAssignment,
+});
