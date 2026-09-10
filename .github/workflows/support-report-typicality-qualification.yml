@@ -1,0 +1,38 @@
+name: Support Report Typicality Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/support-steel-relationship-builder/support-report-*.js'
+      - 'tests/support-report-typicality*.test.mjs'
+      - 'tests/support-report-location-benchmarks.test.mjs'
+      - 'benchmarks/*.xml'
+      - '.github/workflows/support-report-typicality-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-node-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run location + typicality qualification
+        run: >-
+          node --test
+          tests/support-report-location-benchmarks.test.mjs
+          tests/support-report-typicality.test.mjs
+          tests/support-report-typicality-location.test.mjs
+          tests/support-report-typicality-projection.test.mjs
+          tests/support-report-typicality-export.test.mjs
+          tests/support-report-typicality-ui.test.mjs
+          tests/support-report-typicality-negative.test.mjs
