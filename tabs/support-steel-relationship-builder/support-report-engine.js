@@ -11,11 +11,11 @@ import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
   supportReportCarrierAttributeConflicts,
-} from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14';
+} from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14&rca=20260910-bore-site-zone-19';
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
   resolveSupportReportRowMembers,
-} from './support-report-row-enrichment.js?v=20260910-support-report-json-trace-18';
+} from './support-report-row-enrichment.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 
