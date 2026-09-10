@@ -19,6 +19,7 @@ export function buildSupportRevisionModel(conversion) {
     schema: SUPPORT_REVISION_MODEL_SCHEMA,
     revision: String(conversion.revision || ''),
     profileId: graph.profileId,
+    profileVersion: String(conversion.profile?.version || ''),
     sourceId: source?.sourceId || graph.sourceIds?.[0] || '',
     locations: Object.freeze(locations),
     locationByNodeId: new Map(locations.map((location) => [location.nodeId, location])),
