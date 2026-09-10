@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { runPsNoChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase1-benchmark.js';
 import { runSupportLocationChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase2-benchmark.js';
 
-const DELIVERY_HEAD = '1e5aad7611cb7c5a36f2e62908a9e972f1289a1a';
+const DELIVERY_HEAD = 'd830e723eb7025382876553434b5b5724540880e';
 const [earlierPath, laterPath, outputPath] = process.argv.slice(2);
 if (!earlierPath || !laterPath) {
   console.error('usage: node scripts/csv-rev-compare-phase1-real-benchmark.mjs R2.csv R3.csv [output.json]');
