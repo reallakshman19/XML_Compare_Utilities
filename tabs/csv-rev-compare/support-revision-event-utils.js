@@ -33,7 +33,8 @@ export function createEventFactory(policy, profileId = 'support-revision-csv-xml
 
 export function compareOneToOne(source, target, edge, policy, makeEvent) {
   const events = [];
-  if (upper(source.family) !== upper(target.family)) events.push(makeEvent('SECONDARY_SUPPORT_FAMILY_CHANGED', source, target, edge, {
+  const familyChanged = upper(source.family) !== upper(target.family);
+  if (familyChanged) events.push(makeEvent('SECONDARY_SUPPORT_FAMILY_CHANGED', source, target, edge, {
     remarkEligible: true,
     normalizedState: { beforeFamily: source.family, afterFamily: target.family },
     reasonCodes: ['PROVEN_LINEAGE_DIFFERENT_FAMILY'],
@@ -43,10 +44,26 @@ export function compareOneToOne(source, target, edge, policy, makeEvent) {
     normalizedState: { beforeClass: source.familyClass, afterClass: target.familyClass },
   }));
   const pipeChanges = pipeTokenChanges(source.pipe, target.pipe);
-  if (pipeChanges.length) events.push(makeEvent('PIPE_IDENTITY_CHANGED', source, target, edge, {
-    remarkEligible: false,
-    normalizedState: { before: source.pipe.normalizedFull, after: target.pipe.normalizedFull, tokenChanges: pipeChanges },
-  }));
+  if (pipeChanges.length) {
+    const lineIdentityChanged = pipeChanges.some((change) => ['area', 'scope', 'nps', 'service', 'lineNumber'].includes(change.field));
+    const lineRemarkEligible = !familyChanged
+      && edge?.outcome === 'DETERMINISTIC'
+      && edge?.matchingMethod !== 'civil-pipe-location-identity'
+      && lineIdentityChanged;
+    events.push(makeEvent('PIPE_IDENTITY_CHANGED', source, target, edge, {
+      remarkEligible: lineRemarkEligible,
+      normalizedState: {
+        before: source.pipe.normalizedFull,
+        after: target.pipe.normalizedFull,
+        tokenChanges: pipeChanges,
+        lineIdentityChanged,
+        projection: lineRemarkEligible ? 'LINE_NUMBER_CHANGE' : 'AUDIT_ONLY',
+      },
+      reasonCodes: lineRemarkEligible
+        ? ['PROVEN_LINEAGE_PIPE_IDENTITY_CHANGED', ...(edge?.reasonCodes || [])]
+        : ['PIPE_TOKEN_DELTA_AUDIT_ONLY'],
+    }));
+  }
   events.push(...compareComponents(source, target, edge, makeEvent));
   events.push(...compareLoads(source, target, edge, policy, makeEvent));
   events.push(...compareSuppressedFields(source, target, edge, makeEvent));
