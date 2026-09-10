@@ -7,7 +7,7 @@ LATEST_MATERIAL_LEG: LEG-008
 LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-008.md
 PR: 1188
 BRANCH: issue-1181-phase1-current-main
-HEAD_AT_ENDPOINT: PENDING_RELAY_COMMIT
+HEAD_AT_ENDPOINT: 4e1e907ac6309e68fdca03585d9697defd4910a4
 MATERIAL_HEAD: 7e3732be5a2ac0cd97acdc2a1a3d1a7b5de52c51
 MAIN_AT_ENDPOINT: 419c94cca7649626e0b3e641f20d5261967347ba
 STATE: PHASE2_IMPLEMENTED_DRAFT
@@ -33,8 +33,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0009
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0009_PUBLICATION
-ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_UPDATED_ISSUE_SYNC_PENDING
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5622209744
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 9
 COORDINATION_STATE: CLEAN_CURRENT_MAIN_PHASE2
 DEPENDENCIES: material history remains based on main 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825
@@ -68,7 +68,7 @@ BENCHMARK_PHASE4: NOT_STARTED
 PHASE1_RULES: support-location identity=CIVIL SECONDARY SUPPORT + PIPE; persistent references may prove continuity when PIPE changes; PREV NAME weighted corroboration only; known SIZE/BORE mismatch rejects approximation; coordinates weighted only with >=3 anchors and >=2 validated axes; R3 remarks oracle-only; HOLD excluded
 PHASE2_RULES: relocation is state after accepted XML lineage; requires ACTUAL_POSITION_CHANGED under trusted frame with >=3 anchors and >=2 validated axes; common anchor also requires persistent-ref continuity; raw sign/text change and under-anchored movement do not emit relocation; renderer token=Relocated Support; Phase1 metrics gate Phase2 benchmark
 STALE_QUALIFICATION_BRANCH: issue-1181-phase1-weighted-lineage / PR #1187 is evidence-only and not a delivery merge vehicle
-ENVIRONMENT_LIMITATION: PR #1188 head has zero status checks/workflow runs; connector exposes no dispatch action; local checkout unavailable because raw GitHub DNS resolution fails; workflow files not modified without owner authorization
+ENVIRONMENT_LIMITATION: PR #1188 material head has zero status checks/workflow runs; connector exposes no dispatch action; local checkout unavailable because raw GitHub DNS resolution fails; workflow files not modified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but no repository-local backup/.agent-worklogs artifacts
 PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; merge unauthorized
-EXACT_NEXT_ACTION: publish EP-CSVRC-0009 to issue #1181, update mutable Active Handover, record comment ID and reach IN_SYNC, then stop. Next progression must obtain executable Phase 1+2 R2/R3 validation before Phase 3; do not modify workflow files without explicit owner authorization.
+EXACT_NEXT_ACTION: bounded progression complete and Issue control plane IN_SYNC. Subsequent material progression must first obtain executable Phase 1+2 R2/R3 validation; do not begin Phase 3 or modify workflow files without resolving that validation path/authority.

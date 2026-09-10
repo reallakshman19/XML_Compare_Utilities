@@ -2,7 +2,7 @@ ISSUE_CURRENT_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0009
-UPDATED_AT: 2026-09-10T20:42:00+04:00
+UPDATED_AT: 2026-09-10T20:44:00+04:00
 
 # Original task / acceptance ledger
 
@@ -68,15 +68,16 @@ PR: 1188
 PR_STATUS: OPEN_DRAFT_MERGEABLE
 BRANCH: issue-1181-phase1-current-main
 MATERIAL_HEAD: 7e3732be5a2ac0cd97acdc2a1a3d1a7b5de52c51
+ENDPOINT_RELAY_HEAD: 4e1e907ac6309e68fdca03585d9697defd4910a4
 MAIN_OBSERVED: 419c94cca7649626e0b3e641f20d5261967347ba
 LATEST_MATERIAL_LEG: LEG-008
 CURRENT_HEAD_VALIDATION: NOT_RUN
 PRIOR_PHASE1_QUALIFICATION: PASS_EVIDENCE_ONLY
 PHASE2_QUALIFICATION: NOT_RUN
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0009_PUBLICATION
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5622209744
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_UPDATED_ISSUE_SYNC_PENDING
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CONTROL_PLANE_RECOVERY: PR #1187/stale salvage history remains evidence-only; clean delivery and Phase 2 work are on PR #1188
-ENVIRONMENT_LIMITATION: current head has zero status checks/workflow runs; connector has no workflow-dispatch action; local checkout unavailable because GitHub DNS resolution fails; workflow files remain unmodified without owner authorization
+ENVIRONMENT_LIMITATION: current material head has zero status checks/workflow runs; connector has no workflow-dispatch action; local checkout unavailable because GitHub DNS resolution fails; workflow files remain unmodified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: Git blob pre-images available; repository-local backup/.agent-worklogs unavailable in connector-only execution
-EXACT_NEXT_ACTION: publish/synchronize EP-CSVRC-0009. Subsequent material progression must first obtain executable Phase 1+2 R2/R3 validation; do not begin Phase 3 or modify workflow files without resolving that validation path/authority.
+EXACT_NEXT_ACTION: control plane is synchronized at EP-CSVRC-0009. Subsequent material progression must first obtain executable Phase 1+2 R2/R3 validation; do not begin Phase 3 or modify workflow files without resolving that validation path/authority.
