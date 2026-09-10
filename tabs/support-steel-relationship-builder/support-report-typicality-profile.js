@@ -1,11 +1,8 @@
+import { PS_TYPICAL_V1_PROVISIONAL } from './support-report-typicality.js?v=20260910-support-report-typicality-profile-1';
+
 export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = deepFreeze({
+  ...PS_TYPICAL_V1_PROVISIONAL,
   profileId: 'PS_TYPICAL_V1_PROVISIONAL',
-  structural: {
-    geometryEnvelopeToleranceMm: 50,
-    pairDistanceMedianToleranceMm: 10,
-    pairDistanceP95ToleranceMm: 25,
-    pairDistanceMaxToleranceMm: 50,
-  },
   pipingLocation: {
     requireCompatiblePipeClass: true,
     geometryFingerprintToleranceMm: 50,
