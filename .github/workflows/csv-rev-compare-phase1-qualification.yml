@@ -7,6 +7,8 @@ on:
     paths:
       - 'tabs/csv-rev-compare/**'
       - 'xml-compare/table-categorizer/**'
+      - 'scripts/csv-rev-compare-phase1-real-benchmark.mjs'
+      - 'scripts/support-report-xlsx-zip-to-csv.py'
       - 'tests/csv-rev-compare-*.test.js'
       - 'tests/table-categorized-creation-modes.test.js'
       - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
@@ -14,13 +16,15 @@ on:
     paths:
       - 'tabs/csv-rev-compare/**'
       - 'xml-compare/table-categorizer/**'
+      - 'scripts/csv-rev-compare-phase1-real-benchmark.mjs'
+      - 'scripts/support-report-xlsx-zip-to-csv.py'
       - 'tests/csv-rev-compare-*.test.js'
       - 'tests/table-categorized-creation-modes.test.js'
       - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -31,6 +35,8 @@ jobs:
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v5
@@ -41,29 +47,27 @@ jobs:
         run: node tests/csv-rev-compare-phase1-ps-no-change.test.js
 
       - name: CSV/XML revision compare regression
-        if: always()
-        id: csv_regression
-        shell: bash
-        run: |
-          set +e
-          node tests/csv-rev-compare-xml-based.test.js > /tmp/csv-rev-regression.log 2>&1
-          status=$?
-          cat /tmp/csv-rev-regression.log
-          if [ "$status" -ne 0 ]; then
-            mkdir -p .ci-debug
-            cp /tmp/csv-rev-regression.log .ci-debug/csv-rev-regression.log
-            git config user.name github-actions
-            git config user.email github-actions@github.com
-            git add .ci-debug/csv-rev-regression.log
-            git commit -m "ci-debug: capture csv rev regression failure"
-            git push
-          fi
-          exit "$status"
+        run: node tests/csv-rev-compare-xml-based.test.js
 
       - name: CSV/XML ambiguity review regression
-        if: always()
         run: node tests/csv-rev-compare-review.test.js
 
       - name: Categorizer creation-mode regression
-        if: always()
         run: node tests/table-categorized-creation-modes.test.js
+
+      - name: Real R2 to R3 PS No. change benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/main:benchmarks/R2.zip > /tmp/R2.zip
+          git show origin/main:benchmarks/R3.zip > /tmp/R3.zip
+          python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R2.zip /tmp/R2.csv
+          python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R3.zip /tmp/R3.csv
+          node scripts/csv-rev-compare-phase1-real-benchmark.mjs /tmp/R2.csv /tmp/R3.csv /tmp/phase1-real-benchmark.json
+
+      - name: Upload real benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-rev-compare-phase1-real-benchmark
+          path: /tmp/phase1-real-benchmark.json
+          retention-days: 7
