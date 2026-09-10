@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js';
 import { buildSupportReportTypicalityAudit } from '../tabs/support-steel-relationship-builder/support-report-typicality.js';
+import { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL } from '../tabs/support-steel-relationship-builder/support-report-typicality-profile.js';
 import {
   buildCanonicalTypicalityLocations,
   buildTypicalityLocationAssignment,
@@ -40,7 +41,7 @@ test('11168 -> 14168 produces ten row-independent physical-location assignments'
   const right = parseSupportReportClashXml(readFileSync('benchmarks/14168.xml', 'utf8'));
   const familyAudit = buildSupportReportTypicalityAudit(left, right);
   const [assignment] = buildTypicalityLocationAssignmentsForMatches(left, right, familyAudit.matches, {
-    profile: { pipingLocation: { requireCompatiblePipeClass: true, geometryFingerprintToleranceMm: 100 } },
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   });
   const leftLocations = new Map(buildCanonicalTypicalityLocations(left).map((item) => [item.locationId, item]));
   const rightLocations = new Map(buildCanonicalTypicalityLocations(right).map((item) => [item.locationId, item]));
@@ -52,12 +53,16 @@ test('11168 -> 14168 produces ten row-independent physical-location assignments'
   assert.deepEqual(assignment.unmatchedRightLocationIds, []);
   assert.equal(leftLocations.size, 10);
   assert.equal(rightLocations.size, 10);
+  assert.ok(['3D_GLOBAL', '2D_REFINEMENT', '1D_SEQUENCE_FORWARD', '1D_SEQUENCE_REVERSE'].includes(assignment.matchingMode));
   for (const pair of assignment.selectedAssignments) {
     assert.equal(pair.signals.pipeClass.result, 'PASS');
     assert.equal(leftLocations.get(pair.leftLocationId).normalizedPipeClass,
       rightLocations.get(pair.rightLocationId).normalizedPipeClass);
     assert.ok(pair.sourceEvidence.leftClashIds.length > 0);
     assert.ok(pair.sourceEvidence.rightClashIds.length > 0);
+    assert.equal(pair.signals.structuredSequence.priority.join('>'), '3D>2D>1D');
+    assert.ok(pair.signals.memberOrdinalPattern);
+    assert.ok(pair.signals.previousNamePattern);
   }
 });
 
@@ -75,7 +80,7 @@ test('repeated pipe classes are assigned by structure geometry, not group order'
   const assignment = buildTypicalityLocationAssignment(left, right, {
     leftFamilyId: 'PS-1',
     rightFamilyId: 'PS-2',
-    profile: { requireCompatiblePipeClass: true, geometryFingerprintToleranceMm: 1 },
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
   });
 
   assert.equal(assignment.result, 'TOPOLOGY_ONLY');
@@ -87,17 +92,76 @@ test('repeated pipe classes are assigned by structure geometry, not group order'
   assert.deepEqual(assignment.ambiguousLocationIds, []);
 });
 
-test('equal-cost structural alternatives are exposed as ambiguous', () => {
+test('symmetric equal-cost goalposts remain typical with explicit equivalent correspondence ambiguity', () => {
   const left = syntheticEvidence('PS-3', [{ id: 'L-1', x: 0 }, { id: 'L-2', x: 1000 }]);
   const right = syntheticEvidence('PS-4', [{ id: 'R-1', x: 10000 }, { id: 'R-2', x: 11000 }]);
   const assignment = buildTypicalityLocationAssignment(left, right, {
     leftFamilyId: 'PS-3',
     rightFamilyId: 'PS-4',
-    profile: { requireCompatiblePipeClass: true, geometryFingerprintToleranceMm: 1 },
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
+  });
+
+  assert.equal(assignment.result, 'TOPOLOGY_ONLY');
+  assert.equal(assignment.correspondenceStatus, 'AMBIGUOUS_EQUIVALENT');
+  assert.deepEqual([...assignment.ambiguousLocationIds].sort(), ['L-1', 'L-2']);
+});
+
+test('equal-cost alternatives with materially different arrangements remain blocking ambiguity', () => {
+  const left = syntheticEvidence('PS-30', [{ id: 'L-1', x: 0 }, { id: 'L-2', x: 1000 }]);
+  const right = syntheticEvidence('PS-40', [{ id: 'R-1', x: 10000 }, { id: 'R-2', x: 11000 }]);
+  const profile = {
+    ...SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
+    assignmentWeights: {
+      ...SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation.assignmentWeights,
+      supportTypeMember: 0,
+    },
+  };
+  const assignment = buildTypicalityLocationAssignment(left, right, {
+    leftFamilyId: 'PS-30',
+    rightFamilyId: 'PS-40',
+    profile,
+    leftReportBundle: reportBundle([
+      { rowId: 'L-1', supportType: 'REST-50' },
+      { rowId: 'L-2', supportType: 'GUIDE-50' },
+    ]),
+    rightReportBundle: reportBundle([
+      { rowId: 'R-1', supportType: 'REST-50' },
+      { rowId: 'R-2', supportType: 'GUIDE-50' },
+    ]),
   });
 
   assert.equal(assignment.result, 'AMBIGUOUS');
-  assert.deepEqual([...assignment.ambiguousLocationIds].sort(), ['L-1', 'L-2']);
+  assert.equal(assignment.correspondenceStatus, 'AMBIGUOUS_MATERIAL');
+  assert.ok(assignment.ambiguousLocationIds.length > 0);
+});
+
+test('member suffix and PREV NAME evidence are audited on repetitive candidate pairs', () => {
+  const left = syntheticEvidence('PS-50', [
+    { id: 'L-A', x: 0, memberIds: ['/PS-50.2', '/PS-50.4'] },
+    { id: 'L-B', x: 1000, memberIds: ['/PS-50.1'] },
+  ]);
+  const right = syntheticEvidence('PS-60', [
+    { id: 'R-A', x: 10000, memberIds: ['/PS-60.2', '/PS-60.4'] },
+    { id: 'R-B', x: 11000, memberIds: ['/PS-60.1'] },
+  ]);
+  const assignment = buildTypicalityLocationAssignment(left, right, {
+    leftFamilyId: 'PS-50', rightFamilyId: 'PS-60',
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
+    leftReportBundle: reportBundle([
+      { rowId: 'L-A', supportType: 'REST-50, GUIDE-50', previousName: 'PS02005' },
+      { rowId: 'L-B', supportType: 'REST-50', previousName: 'PS02701' },
+    ]),
+    rightReportBundle: reportBundle([
+      { rowId: 'R-A', supportType: 'GUIDE-50, REST-50', previousName: 'PS02015' },
+      { rowId: 'R-B', supportType: 'REST-50', previousName: 'PS02701' },
+    ]),
+  });
+  const pair = assignment.selectedAssignments.find((item) => item.leftLocationId === 'L-A');
+  assert.ok(pair);
+  assert.equal(pair.rightLocationId, 'R-A');
+  assert.equal(pair.signals.memberOrdinalPattern.result, 'EXACT');
+  assert.equal(pair.signals.previousNamePattern.class, 'ONE_POSITION_DIFFERENT');
+  assert.equal(pair.signals.previousNamePattern.wildcardMask, 'PS020?5');
 });
 
 test('equal-size incompatible families remain unmatched instead of forcing a real pair', () => {
@@ -109,7 +173,7 @@ test('equal-size incompatible families remain unmatched instead of forcing a rea
   }]);
   const assignment = buildTypicalityLocationAssignment(left, right, {
     leftFamilyId: 'PS-7', rightFamilyId: 'PS-8',
-    profile: { requireCompatiblePipeClass: true },
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
   });
 
   assert.equal(assignment.selectedAssignments.length, 0);
@@ -123,6 +187,7 @@ test('SUPPORT TYPE evidence is order-independent and affects arrangement status'
   const right = syntheticEvidence('PS-6', [{ id: 'R', x: 5000 }]);
   const exact = buildTypicalityLocationAssignment(left, right, {
     leftFamilyId: 'PS-5', rightFamilyId: 'PS-6',
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
     leftReportBundle: reportBundle([{ rowId: 'L', supportType: 'REST-50, BP-50, GUIDE-50' }]),
     rightReportBundle: reportBundle([{ rowId: 'R', supportType: 'GUIDE-50, REST-50, BP-50' }]),
   });
@@ -131,6 +196,7 @@ test('SUPPORT TYPE evidence is order-independent and affects arrangement status'
 
   const partial = buildTypicalityLocationAssignment(left, right, {
     leftFamilyId: 'PS-5', rightFamilyId: 'PS-6',
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation,
     leftReportBundle: reportBundle([{ rowId: 'L', supportType: 'REST-50, BP-50, GUIDE-50' }]),
     rightReportBundle: reportBundle([{ rowId: 'R', supportType: 'REST-50, BP-50' }]),
   });
