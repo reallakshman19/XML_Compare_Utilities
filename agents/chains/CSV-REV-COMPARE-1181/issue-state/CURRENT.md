@@ -88,10 +88,10 @@ PHASE2_QUALIFICATION: NOT_RUN
 QUESTION_SET: QS-CSVRC-1181-0001 CURRENT / REUSED
 QUALIFICATION_SCOPE: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
 TAKEOVER_QUALIFICATION_READY: TRUE
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0010_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5623086351
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0010_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CONTROL_PLANE_RECOVERY: PR #1187/stale salvage history remains evidence-only; clean delivery and remediation work are on PR #1188
 ENVIRONMENT_LIMITATION: connector exposes no workflow-dispatch action; local checkout still fails because github.com cannot resolve; workflow files remain unmodified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but repository-local backup/.agent-worklogs cannot be created without an executable checkout
-EXACT_NEXT_ACTION: synchronize EP-CSVRC-0010 to the Issue Active Handover/endpoint comment, then author failing regression tests for the audited P0/P1 defects before production fixes. Do not begin Phase 3 or modify workflows.
+EXACT_NEXT_ACTION: author failing regression tests for the audited P0/P1 defects before production fixes, then patch the smallest owning seams. Do not begin Phase 3 or modify workflows.
