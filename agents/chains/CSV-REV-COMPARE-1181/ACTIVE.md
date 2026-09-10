@@ -33,8 +33,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0010
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0010_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: STALE
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5623086351
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 10
 COORDINATION_STATE: CLEAN_CURRENT_MAIN_REMEDIATION
 DEPENDENCIES: current main remains 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825; Phase 2 current-head execution remains NOT_RUN
@@ -56,7 +56,7 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
 CHAIN_HANDOVER_READY: TRUE
-HANDOVER_READY: FALSE_PENDING_ISSUE_SYNC_AND_VALIDATION
+HANDOVER_READY: FALSE_VALIDATION_NOT_RUN
 MATERIAL_HISTORY_ROOT_BASE: 4bc8bdbe0e8552e91a29d67e97931b6bbac8b0a3
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0010.md
 INPUT_STATUS: INPUT001_002_003_004_005_AVAILABLE
@@ -74,4 +74,4 @@ STALE_QUALIFICATION_BRANCH: issue-1181-phase1-weighted-lineage / PR #1187 is evi
 ENVIRONMENT_LIMITATION: connector exposes no workflow dispatch; local checkout fails because github.com cannot resolve; workflow files not modified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but no repository-local backup/.agent-worklogs artifacts
 PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; reviews none; unresolved threads none; merge unauthorized
-EXACT_NEXT_ACTION: synchronize EP-CSVRC-0010 Issue control plane, then author regression tests for audited P0/P1 defects before production repair. Keep validation truth NOT_RUN unless executable evidence is obtained; do not begin Phase 3 or modify workflows.
+EXACT_NEXT_ACTION: author regression tests for audited P0/P1 defects before production repair, then patch smallest owning seams. Keep validation truth NOT_RUN unless executable evidence is obtained; do not begin Phase 3 or modify workflows.
