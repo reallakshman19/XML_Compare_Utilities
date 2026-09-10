@@ -127,24 +127,35 @@ function conversionReceipt(conversion) {
 }
 
 function auditEventMatrix(ledger) {
-  const header = ['eventId','type','sourceXmlNode','targetXmlNode','sourceCsvRowId','targetCsvRowId','matchingMethod','reasonCodes','persistentReferences','coordinateResidualMm','loadDeltas','policyVersion','auditStatus','remarkEligible','lineageEdgeId','candidateIds'];
+  const header = [
+    'eventId','type','sourceXmlNode','targetXmlNode','sourceCsvRowId','targetCsvRowId',
+    'beforeRawState','afterRawState','normalizedState','matchingMethod','reasonCodes',
+    'persistentReferences','coordinateResidualMm','loadDeltas','policyVersion','auditStatus',
+    'remarkEligible','lineageEdgeId','candidateIds','trace',
+  ];
   return [header, ...(ledger?.events || []).map((event) => [
     event.eventId, event.type, event.sourceXmlNode || '', event.targetXmlNode || '',
-    event.sourceCsvRowId || '', event.targetCsvRowId || '', event.matchingMethod,
+    event.sourceCsvRowId || '', event.targetCsvRowId || '', auditCell(event.beforeRawState),
+    auditCell(event.afterRawState), auditCell(event.normalizedState), event.matchingMethod,
     (event.reasonCodes || []).join('|'), (event.persistentReferences || []).join('|'),
     event.coordinateResidual?.residualMm ?? '', auditCell(event.loadDeltas), event.policyVersion,
     event.auditStatus, event.remarkEligible ? 'true' : 'false', event.lineageEdgeId || '',
-    (event.candidateIds || []).join('|'),
+    (event.candidateIds || []).join('|'), auditCell(event.trace),
   ])];
 }
 
 function lineageMatrix(lineage) {
-  const header = ['edgeId','cardinality','outcome','matchingMethod','sourceNodeIds','targetNodeIds','reasonCodes','persistentReferences','candidateIds'];
+  const header = [
+    'edgeId','cardinality','outcome','matchingMethod','sourceNodeIds','targetNodeIds',
+    'reasonCodes','persistentReferences','candidateIds','candidateEvidence',
+  ];
+  const candidates = new Map((lineage?.candidates || []).map((candidate) => [candidate.candidateId, candidate]));
   return [header, ...(lineage?.edges || []).map((edge) => [
     edge.edgeId, edge.cardinality, edge.outcome, edge.matchingMethod,
     (edge.sourceNodeIds || []).join('|'), (edge.targetNodeIds || []).join('|'),
     (edge.reasonCodes || []).join('|'), (edge.persistentReferences || []).join('|'),
     (edge.candidateIds || []).join('|'),
+    auditCell((edge.candidateIds || []).map((id) => candidates.get(id)).filter(Boolean)),
   ])];
 }
 
