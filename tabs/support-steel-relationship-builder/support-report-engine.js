@@ -6,12 +6,16 @@ import {
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
-} from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
+} from './support-report-clash-safety.js?v=20260910-support-report-location-17';
 import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
   supportReportCarrierAttributeConflicts,
 } from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14';
+import {
+  buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
+  resolveSupportReportRowMembers,
+} from './support-report-row-enrichment.js?v=20260910-support-report-json-trace-18';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 
@@ -20,7 +24,7 @@ export function buildSupportReportBundle(input = {}) {
   const parsedEvidence = input.clashEvidence?.groups
     ? input.clashEvidence
     : parseSupportReportClashXml(input.clashXmlText || '', input.config || {});
-  const groups = parsedEvidence.groups || groupSupportReportClashEvidence(parsedEvidence.rows || []);
+  const groups = parsedEvidence.groups || groupSupportReportClashEvidence(parsedEvidence.rows || [], input.config || {});
   const diagnostics = [...(parsedEvidence.diagnostics || [])];
   if (!relationshipBundle) {
     diagnostics.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.RELATIONSHIP_BUNDLE_UNAVAILABLE,
@@ -51,6 +55,7 @@ export function buildSupportReportBundle(input = {}) {
       enrichedRowCount: rows.filter((row) => row.evidence.selectedNativeMemberIds.length > 0).length,
       xmlOnlyRowCount: rows.filter((row) => row.evidence.selectedNativeMemberIds.length === 0).length,
       nativeOnlyMemberCount: rows.reduce((sum, row) => sum + row.evidence.nativeOnlyMemberIds.length, 0),
+      multiLocationRowCount: rows.filter((row) => row.evidence.multipleLocationsOnPipe).length,
       diagnosticCount: diagnostics.length,
     }),
     rows,
@@ -65,49 +70,36 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   if (relationshipBundle && !family) {
     rowDiagnostics.push(diagnostic('WARN', SUPPORT_REPORT_DIAGNOSTICS.FAMILY_NOT_FOUND,
       `${group.secondarySupportFamilyId} is present in clash XML but not in the relationship bundle.`, {
-        secondarySupportFamilyId: group.secondarySupportFamilyId,
-        fullLineTag: group.fullLineTag,
+        secondarySupportFamilyId: group.secondarySupportFamilyId, fullLineTag: group.fullLineTag,
       }));
   }
 
-  const selectedMembers = selectMembersForGroup(family, group);
+  const familyMembers = selectMembersForGroup(family, group);
+  const resolution = resolveSupportReportRowMembers({ relationshipBundle, group, familyMembers });
+  const selectedMembers = resolution.members;
   const selectedIds = selectedMembers.map((member) => normalizeMemberId(member.memberId)).filter(Boolean);
   const clashIds = unique(group.primarySupportMemberIds.map(normalizeMemberId));
-  const missingClashMembers = clashIds.filter((id) => !selectedIds.some((selected) => token(selected) === token(id)));
+  const missingClashMembers = clashIds.filter((id) => !selectedIds.some((selected) => token(selected) === token(id))
+    && !resolution.resolvedObservedIds.has(token(id)));
   const nativeOnlyMembers = selectedIds.filter((id) => !clashIds.some((clash) => token(clash) === token(id)));
   if (family && !selectedMembers.length) {
     rowDiagnostics.push(diagnostic('WARN', SUPPORT_REPORT_DIAGNOSTICS.MEMBER_ENRICHMENT_INCOMPLETE,
       `No native family members could be line-matched for ${group.secondarySupportFamilyId} on ${group.fullLineTag}; clash members are retained as fallback.`, {
-        secondarySupportFamilyId: group.secondarySupportFamilyId,
-        fullLineTag: group.fullLineTag,
+        secondarySupportFamilyId: group.secondarySupportFamilyId, fullLineTag: group.fullLineTag,
       }));
   }
 
   const reportMembers = selectedMembers.length
     ? selectedMembers
     : clashIds.map((memberId) => ({ memberId, semanticRole: '', attributes: {}, lineContext: {}, positionGlobal: null }));
+  const projectedGroup = Object.freeze({ ...group, reportRemarks: resolution.reportRemarks });
   const resolvedCarrierObjectIds = resolvedCarrierIdsForMembers(selectedMembers);
   const carrierRows = selectCarriersForGroup(carriers, group, selectedMembers);
-  if (relationshipBundle && !carrierRows.length) {
-    const resolvedCarrierMismatch = resolvedCarrierObjectIds.length > 0;
-    rowDiagnostics.push(diagnostic(
-      resolvedCarrierMismatch ? 'WARN' : 'INFO',
-      SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ENRICHMENT_UNAVAILABLE,
-      resolvedCarrierMismatch
-        ? `Resolved carrier object(s) ${resolvedCarrierObjectIds.join(', ')} for selected support members are absent from the carrier catalog; line/branch fallback was not used.`
-        : `No authoritative carrier object was line-matched for ${group.fullLineTag}; pipe metadata may be incomplete.`,
-      { fullLineTag: group.fullLineTag, resolvedCarrierObjectIds },
-    ));
-  }
+  if (relationshipBundle && !carrierRows.length) addCarrierUnavailableDiagnostic(
+    rowDiagnostics, group, resolvedCarrierObjectIds,
+  );
   const carrierAttributeConflicts = supportReportCarrierAttributeConflicts(carrierRows);
-  if (carrierAttributeConflicts.length) {
-    rowDiagnostics.push(diagnostic(
-      'WARN',
-      SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ATTRIBUTE_CONFLICT,
-      `Conflicting authoritative carrier metadata was found for ${carrierAttributeConflicts.map((item) => item.field).join(', ')}; conflicting report fields were left blank.`,
-      { fullLineTag: group.fullLineTag, carrierAttributeConflicts },
-    ));
-  }
+  if (carrierAttributeConflicts.length) addCarrierConflictDiagnostic(rowDiagnostics, group, carrierAttributeConflicts);
 
   const representativeMember = chooseRepresentativeMember(reportMembers, clashIds);
   const nativePoint = representativeMember?.positionGlobal || null;
@@ -116,22 +108,25 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
     : coordinatePoint ? 'CLASH_POINT_FALLBACK' : 'UNRESOLVED';
   const coordinateSourceIds = nativePoint && representativeMember?.memberId
     ? [normalizeMemberId(representativeMember.memberId)] : [];
-  if (!nativePoint && coordinatePoint) {
-    rowDiagnostics.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.COORDINATE_FROM_CLASH_FALLBACK,
-      `Coordinates for ${group.secondarySupportFamilyId} / ${group.fullLineTag} use the clash point because no native support position was available.`, {
-        secondarySupportFamilyId: group.secondarySupportFamilyId,
-        fullLineTag: group.fullLineTag,
-      }));
-  }
-  const fieldProvenance = projectSupportReportFieldProvenance({
-    group, reportMembers, carrierRows, coordinateSource, coordinateSourceIds,
+  if (!nativePoint && coordinatePoint) addCoordinateFallbackDiagnostic(rowDiagnostics, group);
+
+  const baseFields = projectSupportReportFields({ group: projectedGroup, reportMembers, carrierRows, coordinatePoint });
+  const fields = enrichSupportReportProjectedFields(baseFields, {
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+  });
+  const baseProvenance = projectSupportReportFieldProvenance({
+    group: projectedGroup, reportMembers, carrierRows, coordinateSource, coordinateSourceIds,
     selectedNativeMemberCount: selectedMembers.length,
   });
+  const fieldProvenance = enrichSupportReportFieldProvenance(baseProvenance, baseFields, fields, {
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+  });
+  const jsonTrace = buildRowJsonTrace({ group: projectedGroup, resolution, reportMembers });
 
   const row = Object.freeze({
     schema: SUPPORT_REPORT_ROW_SCHEMA,
     rowId: group.groupId,
-    ...projectSupportReportFields({ group, reportMembers, carrierRows, coordinatePoint }),
+    ...fields,
     evidence: Object.freeze({
       evidenceMode: relationshipBundle ? 'CLASH_XML_PLUS_RELATIONSHIP_BUNDLE' : 'CLASH_XML_ONLY',
       clashCount: group.clashCount,
@@ -140,9 +135,14 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       nativeOnlyMemberIds: nativeOnlyMembers,
       missingClashMemberIds: missingClashMembers,
       branchNodes: group.branchNodes,
+      locationIndex: group.locationIndex ?? 0,
+      locationCountOnPipe: group.locationCountOnPipe ?? 1,
+      locationMergeToleranceMm: group.locationMergeToleranceMm ?? null,
+      multipleLocationsOnPipe: Boolean(group.multipleLocationsOnPipe),
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
       carrierAttributeConflicts,
+      jsonTrace,
       fieldProvenance,
       nativeCoordinateAvailable: Boolean(nativePoint),
       clashCoordinateFallbackUsed: !nativePoint && Boolean(coordinatePoint),
@@ -157,6 +157,28 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
     memberRank: memberOrderRank(family, selectedMembers),
     groupIndex,
   };
+}
+
+function addCarrierUnavailableDiagnostic(rows, group, resolvedIds) {
+  const mismatch = resolvedIds.length > 0;
+  rows.push(diagnostic(
+    mismatch ? 'WARN' : 'INFO', SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ENRICHMENT_UNAVAILABLE,
+    mismatch
+      ? `Resolved carrier object(s) ${resolvedIds.join(', ')} for selected support members are absent from the carrier catalog; line/branch fallback was not used.`
+      : `No authoritative carrier object was line-matched for ${group.fullLineTag}; pipe metadata may be incomplete.`,
+    { fullLineTag: group.fullLineTag, resolvedCarrierObjectIds: resolvedIds },
+  ));
+}
+function addCarrierConflictDiagnostic(rows, group, conflicts) {
+  rows.push(diagnostic('WARN', SUPPORT_REPORT_DIAGNOSTICS.CARRIER_ATTRIBUTE_CONFLICT,
+    `Conflicting authoritative carrier metadata was found for ${conflicts.map((item) => item.field).join(', ')}; conflicting report fields were left blank.`,
+    { fullLineTag: group.fullLineTag, carrierAttributeConflicts: conflicts }));
+}
+function addCoordinateFallbackDiagnostic(rows, group) {
+  rows.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.COORDINATE_FROM_CLASH_FALLBACK,
+    `Coordinates for ${group.secondarySupportFamilyId} / ${group.fullLineTag} use the clash point because no native support position was available.`, {
+      secondarySupportFamilyId: group.secondarySupportFamilyId, fullLineTag: group.fullLineTag,
+    }));
 }
 
 function selectMembersForGroup(family, group) {
@@ -191,8 +213,7 @@ function resolvedCarrierIdsForMembers(members) {
   return unique((members || []).map((member) => {
     const resolution = member?.carrierResolution || {};
     return resolution.physicalCarrierObjectAvailable && clean(resolution.carrierObjectId)
-      ? resolution.carrierObjectId
-      : '';
+      ? resolution.carrierObjectId : '';
   }));
 }
 function memberMatchesLine(member, fullLineTag) {
@@ -250,9 +271,7 @@ function memberOrderRank(family, selectedMembers) {
 }
 function normalizeBundle(bundle) {
   if (!bundle) return null;
-  if (typeof bundle === 'string') {
-    try { return JSON.parse(bundle); } catch { return null; }
-  }
+  if (typeof bundle === 'string') { try { return JSON.parse(bundle); } catch { return null; } }
   return typeof bundle === 'object' ? bundle : null;
 }
 function normalizeMemberId(value) {
@@ -272,8 +291,5 @@ function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
 export const _test = Object.freeze({
-  selectMembersForGroup,
-  selectCarriersForGroup,
-  resolvedCarrierIdsForMembers,
-  memberContextConflictsGroup,
+  selectMembersForGroup, selectCarriersForGroup, resolvedCarrierIdsForMembers, memberContextConflictsGroup,
 });
