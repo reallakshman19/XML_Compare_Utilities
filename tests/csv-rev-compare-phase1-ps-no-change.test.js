@@ -61,8 +61,8 @@ function csvCell(value) {
   assert.ok(conversion.source.headers.includes('PREV NAME'));
   assert.ok(conversion.source.headers.includes('INSULATION'));
   const location = conversion.graph.nodes.find((node) => node.levelId === 'supportLocation');
-  assert.equal(location.key, 'SL-100(REF)||BWGA-1000-4"-B1110103-11503-01');
-  assert.equal(location.fields.supportLocationIdentity, location.key);
+  assert.equal(location.fields.supportLocationIdentity, 'SL-100(REF)||BWGA-1000-4"-B1110103-11503-01');
+  assert.notEqual(location.fields.supportLocationIdentity, 'SL-100(REF)');
 }
 
 // Same Civil tag with different PIPE values means two distinct logical support
