@@ -2,11 +2,21 @@ import {
   SUPPORT_REPORT_COLUMNS,
   supportReportColumnValue,
 } from './support-report-contract.js?v=20260910-support-report-owner-contract-15';
+import { supportReportCompleteness } from './support-report-ui-state.js?v=20260910-support-report-ui-completeness-16';
 
 export function renderSupportReportWorkspace(report) {
   if (!report) return '<div class="ssrb-empty"><b>Support Report not built</b><span>Load Support Report clash XML, then build the report. Build Relationships first when a combined staged model is available to enrich complete member lists and native attributes.</span></div>';
   const summary = report.summary || {};
-  return `<div class="ssrb-report-summary">${summaryCard('Clash evidence', summary.clashEvidenceCount)}${summaryCard('Report rows', summary.reportRowCount)}${summaryCard('Secondary families', summary.secondarySupportFamilyCount)}${summaryCard('Enriched rows', summary.enrichedRowCount)}${summaryCard('XML-only rows', summary.xmlOnlyRowCount)}${summaryCard('Native-only members recovered', summary.nativeOnlyMemberCount)}</div>${renderSupportReportTable(report)}${renderSupportReportDiagnostics(report)}`;
+  return `<div class="ssrb-report-summary">${summaryCard('Clash evidence', summary.clashEvidenceCount)}${summaryCard('Report rows', summary.reportRowCount)}${summaryCard('Secondary families', summary.secondarySupportFamilyCount)}${summaryCard('Enriched rows', summary.enrichedRowCount)}${summaryCard('XML-only rows', summary.xmlOnlyRowCount)}${summaryCard('Native-only members recovered', summary.nativeOnlyMemberCount)}</div>${renderSupportReportCompleteness(report)}${renderSupportReportTable(report)}${renderSupportReportDiagnostics(report)}`;
+}
+
+export function renderSupportReportCompleteness(report) {
+  const completeness = supportReportCompleteness(report);
+  if (completeness.partial) {
+    const rows = completeness.xmlOnlyRowCount === 1 ? 'row remains' : 'rows remain';
+    return `<div class="ssrb-scope-note" data-ssr-completeness="partial"><b>Partial enrichment:</b> ${completeness.xmlOnlyRowCount} report ${rows} XML-only. Export is allowed for evidence review; unresolved native members or attributes are not complete engineering output.</div>`;
+  }
+  return '<div class="ssrb-scope-note" data-ssr-completeness="no-xml-only-rows"><b>Enrichment status:</b> no XML-only report rows remain in this bundle.</div>';
 }
 
 export function renderSupportReportTable(report) {
