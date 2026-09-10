@@ -45,7 +45,8 @@ jobs:
           /tmp/typicality-1885
           /tmp/typicality-1884-vs-1885.json
 
-      - name: Upload benchmark evidence
+      - name: Upload benchmark evidence when quota permits
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: typicality-1884-vs-1885
