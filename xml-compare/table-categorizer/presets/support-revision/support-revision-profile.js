@@ -13,19 +13,26 @@ const regex = (column, pattern, group = 1) => ({
   group,
   severity: 'INFO',
 });
+const supportLocationIdentityResolver = () => ({
+  op: 'concat',
+  separator: '||',
+  parts: [trim('CIVILSECONDARYSUPPORT'), trim('PIPE')],
+});
 
 /**
  * Governed Table-to-Categorized-XML profile for issue #1181.
  *
- * The profile intentionally preserves source strings as well as semantic pipe
- * tokens. Revision comparison consumes the resulting graph/XML; source rows
+ * Support-location identity is the composite of Civil Secondary Support + PIPE.
+ * The Civil tag remains a grouping parent only; it is never the location key by
+ * itself. The profile intentionally preserves source strings as well as semantic
+ * pipe tokens. Revision comparison consumes the resulting graph/XML; source rows
  * remain provenance only.
  */
 export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
   schema: 'UniversalCategorizerProfile.v1',
   profileId: SUPPORT_REVISION_PROFILE_ID,
   displayName: 'Support Revision CSV to XML',
-  version: '1.0.0',
+  version: '1.1.0',
   presetType: 'built-in preset',
   duplicateKeyPolicy: 'merge-sourceRefs',
   multiValuePolicy: 'preserve-parallel-evidence',
@@ -60,7 +67,7 @@ export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
     includeDiagnosticsElement: false,
     valueMode: 'attributes',
     attributeFields: Object.freeze([
-      'legacyIdentity', 'scope', 'civilSecondarySupport', 'size',
+      'legacyIdentity', 'scope', 'civilSecondarySupport', 'supportLocationIdentity', 'size',
       'raw', 'area', 'pipeScope', 'nps', 'service', 'lineNumber', 'qualifier', 'sequence',
       'eastWestRaw', 'northSouthRaw', 'bopRaw',
       'memberId', 'supportType', 'reference', 'manyOrdinal',
@@ -98,7 +105,9 @@ export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
               displayName: 'SupportLocation',
               levelType: 'occurrence',
               creationMode: 'one-per-row',
+              keyResolver: supportLocationIdentityResolver(),
               fieldResolvers: Object.freeze({
+                supportLocationIdentity: supportLocationIdentityResolver(),
                 legacyIdentity: trim('PREV NAME'),
                 scope: trim('SCOPE'),
                 civilSecondarySupport: trim('CIVILSECONDARYSUPPORT'),
