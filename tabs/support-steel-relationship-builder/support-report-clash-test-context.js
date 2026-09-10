@@ -1,6 +1,6 @@
 import {
   parseSupportReportClashXml as parseClashEvidence,
-} from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
+} from './support-report-clash-evidence.js?v=20260910-support-report-typicality-17';
 import {
   groupSupportReportEvidenceByLocation,
 } from './support-report-location-grouping.js?v=20260910-support-report-location-17';
@@ -16,10 +16,19 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
   if (!tests.length) return regroup(parseClashEvidence(source, options), options);
 
   const sourceUnits = exchangeUnits(source) || options.sourceUnits || 'm';
+  const rawClashes = [];
   const rows = [];
   const diagnostics = [];
   for (const test of tests) {
     const parsed = parseClashEvidence(test.body, { ...options, sourceUnits });
+    for (const rawClash of parsed.rawClashes || []) {
+      rawClashes.push(Object.freeze({
+        ...rawClash,
+        clashTestName: test.name,
+        clashTestGuid: test.guid,
+        clashTestIndex: test.index,
+      }));
+    }
     for (const row of parsed.rows || []) {
       rows.push(Object.freeze({
         ...row,
@@ -42,8 +51,10 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     schema: rows[0]?.schema || parseClashEvidence('', options).schema,
     sourceUnits,
     clashTestCount: tests.length,
+    rawClashCount: rawClashes.length,
     rowCount: rows.length,
     groupCount: groups.length,
+    rawClashes,
     rows,
     groups,
     diagnostics,
