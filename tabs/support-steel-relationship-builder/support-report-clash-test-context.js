@@ -1,15 +1,19 @@
 import {
-  groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseClashEvidence,
 } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
+import {
+  groupSupportReportEvidenceByLocation,
+} from './support-report-location-grouping.js?v=20260910-support-report-location-17';
 import { decodeXmlEntities } from '../ps-family-clash-audit/ps-family-token-utils.js';
 
-export { groupSupportReportClashEvidence };
+export function groupSupportReportClashEvidence(rows = [], options = {}) {
+  return groupSupportReportEvidenceByLocation(rows, options);
+}
 
 export function parseSupportReportClashXml(xmlText, options = {}) {
   const source = String(xmlText || '');
   const tests = extractClashTests(source);
-  if (!tests.length) return parseClashEvidence(source, options);
+  if (!tests.length) return regroup(parseClashEvidence(source, options), options);
 
   const sourceUnits = exchangeUnits(source) || options.sourceUnits || 'm';
   const rows = [];
@@ -33,7 +37,7 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
       }));
     }
   }
-  const groups = groupSupportReportClashEvidence(rows);
+  const groups = groupSupportReportClashEvidence(rows, options);
   return Object.freeze({
     schema: rows[0]?.schema || parseClashEvidence('', options).schema,
     sourceUnits,
@@ -44,6 +48,11 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     groups,
     diagnostics,
   });
+}
+
+function regroup(parsed, options) {
+  const groups = groupSupportReportClashEvidence(parsed?.rows || [], options);
+  return Object.freeze({ ...parsed, groupCount: groups.length, groups });
 }
 
 function extractClashTests(source) {
@@ -74,4 +83,4 @@ function parseAttributes(raw) {
   return attrs;
 }
 
-export const _test = Object.freeze({ extractClashTests, exchangeUnits });
+export const _test = Object.freeze({ extractClashTests, exchangeUnits, regroup });

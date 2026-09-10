@@ -1,8 +1,8 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-owner-contract-15';
-import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15&ui=20260910-support-report-ui-completeness-16';
+import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15&trace=20260910-support-report-json-trace-18';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
 import {
   supportReportCompleteness,
@@ -53,8 +53,12 @@ function mount(popup) {
 
   button.addEventListener('click', () => showPanel(popup));
   popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup));
+  popup.querySelector('[data-ssr-model-file]')?.addEventListener('change', () => void readModelFile(popup));
   popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => invalidate(popup, 'XML changed; rebuild the Support Report.'));
-  popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => invalidate(popup, 'Combined staged model changed; rebuild the Support Report.'));
+  popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => {
+    syncModelStatus(popup, 'Shared combined staged model changed; rebuild the Support Report.');
+    invalidate(popup, 'Combined staged model changed; rebuild the Support Report.');
+  });
   popup.querySelectorAll('[data-ssrb-rule]').forEach((node) => {
     const eventName = node.type === 'checkbox' || node.tagName === 'SELECT' ? 'change' : 'input';
     node.addEventListener(eventName, () => invalidate(popup, 'Relationship rules changed; rebuild the Support Report.'));
@@ -66,16 +70,39 @@ function mount(popup) {
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes line ↔ secondary-support evidence. The staged-model relationship bundle enriches complete PS/SL primary-support membership and native attributes.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)"><div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL members and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div></div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe line tag. If the combined staged model is loaded, the report rebuilds family evidence with PS + SL support-family recognition and recovers native members that do not appear in the clash XML.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Load the combined staged model for complete PS/SL enrichment.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes pipe, secondary family and support location. Optional staged JSON enriches current PS/SL identity, native attributes and POS evidence.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)">${xmlSourceCard()}${modelSourceCard()}</div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe + physical clash-location cluster. Direct staged PS/SL member ID is the preferred mapping basis; explicit PREV-NAME supports rename trace. Coordinate/base-anchor identity matching is reserved for a later qualified method.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Import staged JSON here or in the Input tab for native member/attribute enrichment and JSON trace evidence.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+}
+function xmlSourceCard() {
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL member evidence and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div>`;
+}
+function modelSourceCard() {
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Staged JSON trace source (optional)</b><label class="ssrb-file-button">Choose JSON<input type="file" accept=".json,application/json" data-ssr-model-file="1"></label></div><span>Uses the same combined staged-model source as the Input tab. Direct PS/SL identity is preferred; JSON trace records match and POS basis.</span><small data-ssr-model-status>No staged JSON imported from Support Report. Existing Input-tab model, if any, will still be used.</small></div>`;
 }
 
 async function readXmlFile(popup) {
-  const input = popup.querySelector('[data-ssr-file]');
-  const file = input?.files?.[0];
+  const file = popup.querySelector('[data-ssr-file]')?.files?.[0];
   if (!file) return;
   popup.querySelector('[data-ssr-xml]').value = await file.text();
   popup.querySelector('[data-ssr-file-status]').textContent = `${file.name} · ${file.size} bytes`;
   invalidate(popup, 'XML changed; rebuild the Support Report.');
+}
+
+async function readModelFile(popup) {
+  const file = popup.querySelector('[data-ssr-model-file]')?.files?.[0];
+  if (!file) return;
+  const text = await file.text();
+  const sharedInput = popup.querySelector('[data-ssrb-input="model"]');
+  if (!sharedInput) throw new Error('Combined staged model input is unavailable.');
+  sharedInput.value = text;
+  const sharedStatus = popup.querySelector('[data-ssrb-file-status="model"]');
+  if (sharedStatus) sharedStatus.textContent = `${file.name} · ${file.size} bytes · loaded from Support Report`;
+  popup.querySelector('[data-ssr-model-status]').textContent = `${file.name} · ${file.size} bytes · shared with Input tab`;
+  invalidate(popup, 'Staged JSON changed; rebuild the Support Report.');
+}
+
+function syncModelStatus(popup, message) {
+  const status = popup.querySelector('[data-ssr-model-status]');
+  if (status) status.textContent = message;
 }
 
 function run(popup) {
@@ -89,10 +116,7 @@ function run(popup) {
     let relationshipBundle = null;
     if (modelText.trim()) {
       const combinedInput = parseSupportSteelJson(modelText, 'Combined staged model source');
-      relationshipBundle = buildSupportSteelRelationshipBundle({
-        combinedInput,
-        config: supportReportRules(popup),
-      });
+      relationshipBundle = buildSupportSteelRelationshipBundle({ combinedInput, config: supportReportRules(popup) });
     }
     const clashEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(xmlText));
     const report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
@@ -111,10 +135,8 @@ function run(popup) {
 function renderReadyState(report) {
   const summary = report?.summary || {};
   const completeness = supportReportCompleteness(report);
-  const metrics = `${summary.clashEvidenceCount || 0} clash rows → ${summary.reportRowCount || 0} report rows · ${summary.enrichedRowCount || 0} enriched · ${summary.nativeOnlyMemberCount || 0} native-only members recovered`;
-  if (!completeness.partial) {
-    return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain</span>`;
-  }
+  const metrics = `${summary.clashEvidenceCount || 0} clash rows → ${summary.reportRowCount || 0} report rows · ${summary.enrichedRowCount || 0} enriched · ${summary.multiLocationRowCount || 0} multi-location rows`;
+  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain</span>`;
   return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain. Exports are evidence-review artifacts and may contain unresolved native fields.</span>`;
 }
 
@@ -126,13 +148,7 @@ function readExistingRules(popup) {
   });
   return values;
 }
-
-function supportReportRules(popup) {
-  return {
-    ...readExistingRules(popup),
-    supportFamilyPattern: SUPPORT_REPORT_FAMILY_PATTERN,
-  };
-}
+function supportReportRules(popup) { return { ...readExistingRules(popup), supportFamilyPattern: SUPPORT_REPORT_FAMILY_PATTERN }; }
 
 function invalidate(popup, message) {
   const state = stateByPopup.get(popup);
@@ -141,39 +157,31 @@ function invalidate(popup, message) {
   if (runState) runState.innerHTML = `<b>Inputs changed</b><span>${h(message)}</span>`;
   setExportEnabled(popup, false);
 }
-
 function setExportEnabled(popup, enabled) {
   for (const node of popup.querySelectorAll('[data-ssr-copy], [data-ssr-download], [data-ssr-download-xlsx]')) {
     node.disabled = !enabled;
     node.setAttribute('aria-disabled', String(!enabled));
   }
 }
-
 async function copyCsv(popup) {
   const report = stateByPopup.get(popup)?.report;
-  if (!report) return;
-  await globalThis.navigator?.clipboard?.writeText(reportCsv(report));
+  if (report) await globalThis.navigator?.clipboard?.writeText(reportCsv(report));
 }
-
 async function downloadXlsx(popup) {
   const report = stateByPopup.get(popup)?.report;
   if (!report) return;
   const runState = popup.querySelector('[data-ssr-run-state]');
   try {
     const bytes = await supportReportToXlsxBytes(report);
-    downloadBlob(popup, supportReportExportFileName(report, 'xlsx'), bytes,
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    downloadBlob(popup, supportReportExportFileName(report, 'xlsx'), bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   } catch (error) {
     if (runState) runState.innerHTML = `<b>XLSX export blocked</b><span>${h(error.message || error)}</span>`;
   }
 }
-
 function downloadCsv(popup) {
   const report = stateByPopup.get(popup)?.report;
-  if (!report) return;
-  downloadBlob(popup, supportReportExportFileName(report, 'csv'), `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
+  if (report) downloadBlob(popup, supportReportExportFileName(report, 'csv'), `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
 }
-
 function downloadBlob(popup, name, content, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = popup.ownerDocument.createElement('a');
@@ -182,14 +190,9 @@ function downloadBlob(popup, name, content, type) {
   anchor.click();
   URL.revokeObjectURL(url);
 }
-
 function reportCsv(report) {
-  return supportReportToCsv(report, {
-    includeOrdinalRow: true,
-    legacyBlankPrimarySupportHeader: true,
-  });
+  return supportReportToCsv(report, { includeOrdinalRow: true, legacyBlankPrimarySupportHeader: true });
 }
-
 function showPanel(popup) {
   popup.querySelectorAll('[data-ssrb-panel]').forEach((panel) => { panel.hidden = panel.dataset.ssrbPanel !== TAB_KEY; });
   popup.querySelectorAll('[data-ssrb-tab]').forEach((button) => {
@@ -198,7 +201,6 @@ function showPanel(popup) {
     button.setAttribute('aria-selected', String(active));
   });
 }
-
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
