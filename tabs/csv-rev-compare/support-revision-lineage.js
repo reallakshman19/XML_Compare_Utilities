@@ -1,6 +1,6 @@
 import { coordinateDelta, solveRevisionCoordinateFrame, SUPPORT_REV_COMPARE_POLICY_V1 } from './support-revision-normalization.js';
 
-export const SUPPORT_REVISION_LINEAGE_SCHEMA = 'support-revision-lineage/v1';
+export const SUPPORT_REVISION_LINEAGE_SCHEMA = 'support-revision-lineage/v2-composite-location-identity';
 export const LINEAGE_OUTCOMES = Object.freeze(['DETERMINISTIC', 'LIKELY', 'AMBIGUOUS', 'NO_MATCH']);
 
 const clean = (value) => String(value ?? '').trim();
@@ -64,6 +64,7 @@ export function detectCommonSupportClusters(model) {
       locations: Object.freeze(locations.map((location) => Object.freeze({
         nodeId: location.nodeId,
         family: location.family,
+        supportLocationIdentity: location.supportLocationIdentity,
         referenceSet: location.persistentReferences,
         position: location.position,
       }))),
@@ -127,7 +128,8 @@ function scoreCandidate(source, target, policy) {
   const sharedReferences = intersects(source.persistentReferences, target.persistentReferences);
   const union = new Set([...source.persistentReferences, ...target.persistentReferences]).size;
   const referenceJaccard = union ? sharedReferences.length / union : 0;
-  const exactReferenceSet = source.referenceSetKey && source.referenceSetKey === target.referenceSetKey;
+  const exactReferenceSet = Boolean(source.referenceSetKey) && source.referenceSetKey === target.referenceSetKey;
+  const sameSupportLocationIdentity = Boolean(source.supportLocationIdentity) && source.supportLocationIdentity === target.supportLocationIdentity;
   const sameLegacy = Boolean(source.legacyIdentity) && upper(source.legacyIdentity) === upper(target.legacyIdentity);
   const sameFamily = Boolean(source.family) && upper(source.family) === upper(target.family);
   const samePipeCore = Boolean(source.pipe.normalizedCore) && source.pipe.normalizedCore === target.pipe.normalizedCore;
@@ -137,21 +139,37 @@ function scoreCandidate(source, target, policy) {
   const reasonCodes = [];
   if (exactReferenceSet) { score += 100; reasonCodes.push('PERSISTENT_REFERENCE_SET_EXACT'); }
   else if (sharedReferences.length) { score += 72 + Math.round(referenceJaccard * 18); reasonCodes.push('PERSISTENT_REFERENCE_OVERLAP'); }
+  if (sameSupportLocationIdentity) { score += 60; reasonCodes.push('SUPPORT_LOCATION_IDENTITY_EXACT'); }
   if (sameLegacy) { score += 18; reasonCodes.push('LEGACY_IDENTITY_EQUAL'); }
   if (samePipeCore) { score += 18; reasonCodes.push('PIPE_CORE_EQUAL'); }
   else if (sameLine) { score += 10; reasonCodes.push('PIPE_LINE_EQUAL'); }
   if (sameFamily) { score += 8; reasonCodes.push('SECONDARY_FAMILY_EQUAL'); }
   if (provisionalDistance != null && provisionalDistance <= policy.candidate.coordinateNearMm) { score += 6; reasonCodes.push('COORDINATE_NEAR_PRE_FRAME'); }
-  const method = exactReferenceSet ? 'persistent-reference-set' : sharedReferences.length ? 'persistent-reference-overlap' : sameLegacy && samePipeCore ? 'legacy-pipe-structure' : samePipeCore ? 'pipe-structure' : 'structural-score';
-  return { source, target, score, method, reasonCodes, sharedReferences, evidence: { exactReferenceSet, referenceJaccard, sameLegacy, sameFamily, samePipeCore, sameLine, provisionalDistance } };
+  const method = exactReferenceSet ? 'persistent-reference-set'
+    : sharedReferences.length ? 'persistent-reference-overlap'
+      : sameSupportLocationIdentity ? 'civil-pipe-location-identity'
+        : sameLegacy && samePipeCore ? 'legacy-pipe-structure'
+          : samePipeCore ? 'pipe-structure'
+            : 'structural-score';
+  return {
+    source,
+    target,
+    score,
+    method,
+    reasonCodes,
+    sharedReferences,
+    evidence: { exactReferenceSet, referenceJaccard, sameSupportLocationIdentity, sameLegacy, sameFamily, samePipeCore, sameLine, provisionalDistance },
+  };
 }
 
 function candidateOutcome(top, second, policy) {
   if (!top || top.score < policy.candidate.likelyScore) return 'NO_MATCH';
-  const persistent = top.reasonCodes.includes('PERSISTENT_REFERENCE_SET_EXACT') || top.reasonCodes.includes('PERSISTENT_REFERENCE_OVERLAP');
+  const deterministicEvidence = top.reasonCodes.includes('PERSISTENT_REFERENCE_SET_EXACT')
+    || top.reasonCodes.includes('PERSISTENT_REFERENCE_OVERLAP')
+    || top.reasonCodes.includes('SUPPORT_LOCATION_IDENTITY_EXACT');
   const closeCompetitor = second && second.score >= policy.candidate.likelyScore && top.score - second.score <= policy.candidate.ambiguityMargin;
   if (closeCompetitor) return 'AMBIGUOUS';
-  return persistent ? 'DETERMINISTIC' : 'LIKELY';
+  return deterministicEvidence ? 'DETERMINISTIC' : 'LIKELY';
 }
 
 function rawCoordinateDistance(source, target) {
@@ -251,18 +269,6 @@ function enrichEdgeCoordinates(edge, sourceModel, targetModel, frame, policy) {
     }
   }
   return Object.freeze({ ...edge, coordinateEvidence: Object.freeze(pairDeltas) });
-}
-
-export function applyLineageReviewDecisions(lineage, decisions = []) {
-  const decisionBySource = new Map(decisions.filter((decision) => decision?.sourceNodeId).map((decision) => [decision.sourceNodeId, decision]));
-  const candidates = lineage.candidates.map((candidate) => {
-    const decision = decisionBySource.get(candidate.sourceNodeId);
-    if (!decision || candidate.outcome !== 'AMBIGUOUS') return candidate;
-    if (decision.targetNodeId === candidate.targetNodeId && decision.action === 'approve') return Object.freeze({ ...candidate, outcome: 'DETERMINISTIC', reviewRequired: false, reviewDecision: 'APPROVED' });
-    if (decision.action === 'reject' || decision.targetNodeId !== candidate.targetNodeId) return Object.freeze({ ...candidate, outcome: 'NO_MATCH', reviewRequired: false, reviewDecision: 'REJECTED' });
-    return candidate;
-  });
-  return Object.freeze({ ...lineage, candidates: Object.freeze(candidates), reviewDecisions: Object.freeze(decisions.map((item) => Object.freeze({ ...item }))) });
 }
 
 export const _test = Object.freeze({ commonGroupKey, hasCommonSupportStructure, scoreCandidate, candidateOutcome, rawCoordinateDistance });
