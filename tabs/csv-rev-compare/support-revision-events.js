@@ -10,10 +10,35 @@ export function buildSupportRevisionEventLedger(sourceModel, targetModel, lineag
   const makeEvent = eventFactory(sourceModel.profileId, options.policyId || 'SUPPORT_REV_COMPARE_POLICY_V1');
   const events = [];
   for (const edge of lineage.edges) events.push(...eventsForEdge(edge, sourceModel, targetModel, makeEvent, options.loadPolicy));
-  for (const id of lineage.removed) events.push(makeEvent('SUPPORT_LOCATION_REMOVED', sourceModel.locationByNodeId.get(id), null, null, { remarkEligible: true, reasonCodes: ['NO_LINEAGE_SUCCESSOR'] }));
-  for (const id of lineage.added) events.push(makeEvent('SUPPORT_LOCATION_ADDED', null, targetModel.locationByNodeId.get(id), null, { remarkEligible: false, reasonCodes: ['NO_LINEAGE_PREDECESSOR'] }));
+  for (const id of lineage.removed) events.push(noSuccessorEvent(id, sourceModel, lineage, makeEvent));
+  for (const id of lineage.added) events.push(noPredecessorEvent(id, targetModel, lineage, makeEvent));
   events.push(...ambiguousEvents(lineage, sourceModel, makeEvent));
   return Object.freeze({ schema: SUPPORT_REVISION_EVENT_LEDGER_SCHEMA, profileId: sourceModel.profileId, policyId: options.policyId || 'SUPPORT_REV_COMPARE_POLICY_V1', events: Object.freeze(events), summary: summarize(events) });
+}
+
+function noSuccessorEvent(id, sourceModel, lineage, makeEvent) {
+  const candidateIds = candidateEvidenceIds(lineage, 'source', id);
+  return makeEvent('SUPPORT_LOCATION_REMOVED', sourceModel.locationByNodeId.get(id), null, null, {
+    remarkEligible: true,
+    matchingMethod: 'candidate-exhaustion',
+    candidateIds,
+    reasonCodes: ['NO_LINEAGE_SUCCESSOR'],
+  });
+}
+
+function noPredecessorEvent(id, targetModel, lineage, makeEvent) {
+  const candidateIds = candidateEvidenceIds(lineage, 'target', id);
+  return makeEvent('SUPPORT_LOCATION_ADDED', null, targetModel.locationByNodeId.get(id), null, {
+    remarkEligible: false,
+    matchingMethod: 'candidate-exhaustion',
+    candidateIds,
+    reasonCodes: ['NO_LINEAGE_PREDECESSOR'],
+  });
+}
+
+function candidateEvidenceIds(lineage, side, nodeId) {
+  const field = side === 'target' ? 'targetNodeId' : 'sourceNodeId';
+  return Object.freeze((lineage?.candidates || []).filter((item) => item[field] === nodeId).map((item) => item.candidateId));
 }
 
 function eventsForEdge(edge, sourceModel, targetModel, makeEvent, loadPolicy) {
@@ -85,12 +110,12 @@ function suppressedFieldEvents(source, target, edge, makeEvent) {
 
 function ambiguousEvents(lineage, sourceModel, makeEvent) {
   const sourceIds = [...new Set(lineage.candidates.filter((item) => item.outcome === 'AMBIGUOUS').map((item) => item.sourceNodeId))];
-  return sourceIds.map((id) => makeEvent('AMBIGUOUS_LINEAGE', sourceModel.locationByNodeId.get(id), null, null, { remarkEligible: false, auditStatus: 'REVIEW_REQUIRED', matchingMethod: 'candidate-review', reasonCodes: ['MULTIPLE_CANDIDATES_WITHIN_AMBIGUITY_MARGIN'], normalizedState: { candidates: lineage.candidates.filter((item) => item.sourceNodeId === id && item.outcome === 'AMBIGUOUS').map((item) => ({ candidateId: item.candidateId, targetNodeId: item.targetNodeId, score: item.score })) } }));
+  return sourceIds.map((id) => makeEvent('AMBIGUOUS_LINEAGE', sourceModel.locationByNodeId.get(id), null, null, { remarkEligible: false, auditStatus: 'REVIEW_REQUIRED', matchingMethod: 'candidate-review', candidateIds: candidateEvidenceIds(lineage, 'source', id), reasonCodes: ['MULTIPLE_CANDIDATES_WITHIN_AMBIGUITY_MARGIN'], normalizedState: { candidates: lineage.candidates.filter((item) => item.sourceNodeId === id && item.outcome === 'AMBIGUOUS').map((item) => ({ candidateId: item.candidateId, targetNodeId: item.targetNodeId, score: item.score })) } }));
 }
 
 function eventFactory(profileVersion, policyVersion) {
   let index = 0;
-  return (type, source, target, edge, patch = {}) => Object.freeze({ eventId: `support-event:${String(++index).padStart(5,'0')}`, type, sourceXmlNode: source?.nodeId || null, targetXmlNode: target?.nodeId || null, sourceCsvRowId: source?.sourceRowId || null, targetCsvRowId: target?.sourceRowId || null, beforeRawState: patch.beforeRawState ?? rawLocation(source), afterRawState: patch.afterRawState ?? rawLocation(target), normalizedState: patch.normalizedState ?? null, matchingMethod: patch.matchingMethod || edge?.matchingMethod || 'none', reasonCodes: Object.freeze([...(patch.reasonCodes || edge?.reasonCodes || [])]), persistentReferences: Object.freeze([...(patch.persistentReferences || edge?.persistentReferences || [])]), coordinateResidual: patch.coordinateResidual || coordinateEvidence(edge, source, target), loadDeltas: Object.freeze([...(patch.loadDeltas || [])]), profileVersion, policyVersion, auditStatus: patch.auditStatus || (edge?.outcome === 'AMBIGUOUS' ? 'REVIEW_REQUIRED' : 'AUTO'), remarkEligible: Boolean(patch.remarkEligible), lineageEdgeId: edge?.edgeId || null, candidateIds: Object.freeze([...(edge?.candidateIds || [])]), trace: patch.trace || locationTrace(source, target) });
+  return (type, source, target, edge, patch = {}) => Object.freeze({ eventId: `support-event:${String(++index).padStart(5,'0')}`, type, sourceXmlNode: source?.nodeId || null, targetXmlNode: target?.nodeId || null, sourceCsvRowId: source?.sourceRowId || null, targetCsvRowId: target?.sourceRowId || null, beforeRawState: patch.beforeRawState ?? rawLocation(source), afterRawState: patch.afterRawState ?? rawLocation(target), normalizedState: patch.normalizedState ?? null, matchingMethod: patch.matchingMethod || edge?.matchingMethod || 'none', reasonCodes: Object.freeze([...(patch.reasonCodes || edge?.reasonCodes || [])]), persistentReferences: Object.freeze([...(patch.persistentReferences || edge?.persistentReferences || [])]), coordinateResidual: patch.coordinateResidual || coordinateEvidence(edge, source, target), loadDeltas: Object.freeze([...(patch.loadDeltas || [])]), profileVersion, policyVersion, auditStatus: patch.auditStatus || (edge?.outcome === 'AMBIGUOUS' ? 'REVIEW_REQUIRED' : 'AUTO'), remarkEligible: Boolean(patch.remarkEligible), lineageEdgeId: patch.lineageEdgeId || edge?.edgeId || null, candidateIds: Object.freeze([...(patch.candidateIds || edge?.candidateIds || [])]), trace: patch.trace || locationTrace(source, target) });
 }
 
 function rawLocation(location) { return location ? { family: location.family, prevName: location.legacyIdentity, pipe: location.pipe.raw, position: Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])), components: location.components.map(componentRaw), loads: location.loads.map((slot) => ({ sourceHeader: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw })) } : null; }
@@ -103,4 +128,4 @@ function multiset(components) { const result = {}; for (const key of components.
 function multisetKey(components) { return JSON.stringify(multiset(components)); }
 function summarize(events) { const byType = {}; for (const event of events) byType[event.type] = (byType[event.type] || 0) + 1; return Object.freeze({ total: events.length, remarkEligible: events.filter((event) => event.remarkEligible).length, reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length, byType: Object.freeze(byType) }); }
 
-export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge });
+export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge, candidateEvidenceIds });
