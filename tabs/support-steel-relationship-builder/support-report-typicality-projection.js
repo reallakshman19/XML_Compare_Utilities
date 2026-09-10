@@ -27,12 +27,14 @@ export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = Object.freeze({
 
 export function buildSupportReportTypicalityComparison(leftEvidence, rightEvidence, options = {}) {
   const profile = comparisonProfile(options.profile);
+  const leftReportBundle = withLocationRowAliases(options.leftReportBundle, leftEvidence);
+  const rightReportBundle = withLocationRowAliases(options.rightReportBundle, rightEvidence);
   const familyAudit = buildSupportReportTypicalityAudit(leftEvidence, rightEvidence, { ...options, profile });
   const locationAssignments = buildTypicalityLocationAssignmentsForMatches(
     leftEvidence,
     rightEvidence,
     familyAudit.matches,
-    { ...options, profile },
+    { ...options, profile, leftReportBundle, rightReportBundle },
   );
   const assignmentsByFamily = new Map(locationAssignments.map((item) => [token(item.leftFamilyId), item]));
   const resolvedMatches = familyAudit.matches.map((match) => resolveFamilyMatch(
@@ -50,7 +52,10 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
 }
 
 export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalityAudit, leftEvidence) {
-  const locations = buildCanonicalTypicalityLocations(leftEvidence, reportBundle);
+  const locations = buildCanonicalTypicalityLocations(
+    leftEvidence,
+    withLocationRowAliases(reportBundle, leftEvidence),
+  );
   const selectedByLocation = new Map();
   for (const assignment of typicalityAudit?.locationAssignments || []) {
     for (const pair of assignment.selectedAssignments || []) {
@@ -118,7 +123,23 @@ function resolveFamilyMatch(match, assignment) {
   return Object.freeze({ ...match, locationAssignmentResult: assignment.result });
 }
 
+function withLocationRowAliases(reportBundle, evidence) {
+  if (!reportBundle?.rows?.length) return reportBundle;
+  const locationByGroupId = new Map((evidence?.groups || []).map((group) => [
+    token(group.groupId),
+    String(group.locationId || group.groupId || ''),
+  ]));
+  const rows = reportBundle.rows.map((row) => {
+    const locationId = locationByGroupId.get(token(row.rowId));
+    if (!locationId || token(locationId) === token(row.rowId)) return row;
+    return Object.freeze({ ...row, rowId: locationId, sourceReportRowId: row.rowId });
+  });
+  return Object.freeze({ ...reportBundle, rows: Object.freeze(rows) });
+}
+
 function resolveRowLocation(row, locations) {
+  const sourceGroupExact = locations.find((item) => token(item.sourceGroupId) === token(row.rowId));
+  if (sourceGroupExact) return sourceGroupExact;
   const exact = locations.find((item) => token(item.locationId) === token(row.rowId));
   if (exact) return exact;
   const familyId = token(row.civilSecondarySupport);
@@ -152,4 +173,10 @@ function token(value) {
   return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
 }
 
-export const _test = Object.freeze({ arrangementLabel, comparisonProfile, resolveFamilyMatch });
+export const _test = Object.freeze({
+  arrangementLabel,
+  comparisonProfile,
+  resolveFamilyMatch,
+  resolveRowLocation,
+  withLocationRowAliases,
+});
