@@ -50,7 +50,8 @@ function lineage(rows1, rows2) {
   assert.notEqual(coordinateDelta(source.position, target.position, frame).classification, 'ACTUAL_POSITION_CHANGED');
 }
 
-// Persistent reference outranks member suffix: renumbering remains deterministic 1->1 lineage.
+// Composite Civil+PIPE is the location authority when unchanged; persistent
+// reference still proves the component survived a member suffix renumbering.
 {
   const before = row({ 'PIPING PRIMARY SUPPORT':'/SL-212.3', 'SUPPORT TYPE':'SHOE-250', 'PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641' });
   const after = row({ REVISION:'2', 'PIPING PRIMARY SUPPORT':'/SL-212.2', 'SUPPORT TYPE':'SHOE-250', 'PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641' });
@@ -59,7 +60,8 @@ function lineage(rows1, rows2) {
   assert.equal(target.locations[0].components[0].memberId, '/SL-212.2');
   assert.equal(result.edges.length, 1);
   assert.equal(result.edges[0].outcome, 'DETERMINISTIC');
-  assert.equal(result.edges[0].matchingMethod, 'persistent-reference-set');
+  assert.equal(result.edges[0].matchingMethod, 'civil-pipe-location-identity');
+  assert.ok(result.edges[0].reasonCodes.includes('SUPPORT_LOCATION_IDENTITY_EXACT'));
   assert.deepEqual(result.edges[0].persistentReferences, ['=1006649755/3641']);
 }
 
