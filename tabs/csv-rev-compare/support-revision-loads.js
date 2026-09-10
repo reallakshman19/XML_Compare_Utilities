@@ -1,6 +1,6 @@
 export const SUPPORT_REV_LOAD_POLICY_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_LOAD_POLICY_V1',
-  version: '1.0.0',
+  version: '1.1.0',
   absoluteTolerance: 0.001,
   relativeTolerance: 1e-9,
 });
@@ -51,7 +51,13 @@ function compareSlot(key, before, after, policy) {
   const equal = delta != null ? Math.abs(delta) <= tolerance : clean(before?.raw) === clean(after?.raw);
   return Object.freeze({ slotKey: key, before: before || null, after: after || null, delta, tolerance, equal });
 }
-function slotKey(slot) { return `${slot.sourceHeader.toUpperCase()}#${slot.ordinal}`; }
+function slotKey(slot) {
+  const columnId = clean(slot?.columnId);
+  if (columnId) return `COLUMN:${columnId.toUpperCase()}`;
+  const columnOrdinal = Number(slot?.columnOrdinal || 0);
+  if (columnOrdinal > 0) return `ORDINAL:${columnOrdinal}:${clean(slot?.sourceHeader).toUpperCase()}`;
+  return `${clean(slot?.sourceHeader).toUpperCase()}#${Number(slot?.ordinal || 0)}`;
+}
 function rawSignature(vector) { return vector.slots.map((slot) => `${slotKey(slot)}=${slot.raw}`).join('|'); }
 function result(classification, before, after, deltas) { return Object.freeze({ classification, before, after, deltas }); }
 
