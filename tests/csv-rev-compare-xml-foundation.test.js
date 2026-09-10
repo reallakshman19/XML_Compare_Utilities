@@ -58,7 +58,7 @@ function nodes(conversion, levelId) {
   assert.equal(loads.find((node) => node.fields.columnId === 'Fy__2')?.fields.ordinal, 2);
   assert.equal(loads.find((node) => node.fields.columnId === 'Fy__2')?.fields.raw, '-11594');
   assert.match(conversion.exportResult.xmlText, /columnId="Fy__2"/);
-  assert.match(conversion.exportResult.xmlText, /sourceCellRef="R1:2:Fy__2"/);
+  assert.match(conversion.exportResult.xmlText, /sourceCellRef="R1:1:Fy__2"/);
 }
 
 // Parallel support lists create aligned children and retain persistent references/member IDs.
