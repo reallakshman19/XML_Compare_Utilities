@@ -1,9 +1,13 @@
 import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-owner-contract-15';
-import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15';
+import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-ui-completeness-16';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
 import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
+import {
+  supportReportCompleteness,
+  supportReportExportFileName,
+} from './support-report-ui-state.js?v=20260910-support-report-ui-completeness-16';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 
@@ -94,7 +98,7 @@ function run(popup) {
     const report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
     state.report = report;
     host.innerHTML = renderSupportReportWorkspace(report);
-    runState.innerHTML = `<b>Support Report ready</b><span>${report.summary.clashEvidenceCount} clash rows → ${report.summary.reportRowCount} report rows · ${report.summary.enrichedRowCount} enriched · ${report.summary.nativeOnlyMemberCount} native-only members recovered</span>`;
+    runState.innerHTML = renderReadyState(report);
     setExportEnabled(popup, true);
   } catch (error) {
     state.report = null;
@@ -102,6 +106,16 @@ function run(popup) {
     runState.innerHTML = `<b>Build blocked</b><span>${h(error.message || error)}</span>`;
     setExportEnabled(popup, false);
   }
+}
+
+function renderReadyState(report) {
+  const summary = report?.summary || {};
+  const completeness = supportReportCompleteness(report);
+  const metrics = `${summary.clashEvidenceCount || 0} clash rows → ${summary.reportRowCount || 0} report rows · ${summary.enrichedRowCount || 0} enriched · ${summary.nativeOnlyMemberCount || 0} native-only members recovered`;
+  if (!completeness.partial) {
+    return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain</span>`;
+  }
+  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain. Exports are evidence-review artifacts and may contain unresolved native fields.</span>`;
 }
 
 function readExistingRules(popup) {
@@ -147,7 +161,7 @@ async function downloadXlsx(popup) {
   const runState = popup.querySelector('[data-ssr-run-state]');
   try {
     const bytes = await supportReportToXlsxBytes(report);
-    downloadBlob(popup, 'support-report.xlsx', bytes,
+    downloadBlob(popup, supportReportExportFileName(report, 'xlsx'), bytes,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   } catch (error) {
     if (runState) runState.innerHTML = `<b>XLSX export blocked</b><span>${h(error.message || error)}</span>`;
@@ -157,7 +171,7 @@ async function downloadXlsx(popup) {
 function downloadCsv(popup) {
   const report = stateByPopup.get(popup)?.report;
   if (!report) return;
-  downloadBlob(popup, 'support-report.csv', `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
+  downloadBlob(popup, supportReportExportFileName(report, 'csv'), `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
 }
 
 function downloadBlob(popup, name, content, type) {
