@@ -3,8 +3,9 @@ import { coordinateDelta } from './support-revision-normalization.js';
 export const SUPPORT_LINEAGE_SCORE_POLICY_V2 = Object.freeze({
   schema: 'support-revision-lineage-score-policy/v2',
   policyId: 'SUPPORT_LINEAGE_SCORE_V2',
-  version: '2.0.0',
+  version: '2.1.0',
   minimumFrameAnchors: 3,
+  minimumValidatedCoordinateAxes: 2,
   minimumApproximateSignals: 3,
   weights: Object.freeze({
     persistentReferenceSetExact: 100,
@@ -34,7 +35,7 @@ export function scoreSupportRevisionCandidate(source, target, frame, comparePoli
   const union = new Set([...(source?.persistentReferences || []), ...(target?.persistentReferences || [])]).size;
   const referenceJaccard = union ? sharedReferences.length / union : 0;
   const exactReferenceSet = Boolean(source?.referenceSetKey) && source.referenceSetKey === target?.referenceSetKey;
-  const sameSupportLocationIdentity = Boolean(source?.supportLocationIdentity) && source.supportLocationIdentity === target?.supportLocationIdentity;
+  const sameSupportLocationIdentity = Boolean(source?.supportLocationIdentity) && source.supportLocationIdentity === target.supportLocationIdentity;
   const samePrevName = Boolean(source?.legacyIdentity) && upper(source.legacyIdentity) === upper(target?.legacyIdentity);
   const sameFamily = Boolean(source?.family) && upper(source.family) === upper(target?.family);
   const samePipeCore = Boolean(source?.pipe?.normalizedCore) && source.pipe.normalizedCore === target?.pipe?.normalizedCore;
@@ -143,13 +144,61 @@ export function buildTrustedCoordinateAnchors(sourceModel, targetModel) {
 }
 
 function scoreCoordinate(source, target, frame, comparePolicy, scorePolicy) {
-  const delta = coordinateDelta(source?.position, target?.position, frame, comparePolicy);
-  const frameUsable = frame?.status === 'SOLVED' && Number(frame?.anchorCount || 0) >= scorePolicy.minimumFrameAnchors;
-  if (!frameUsable || delta.residualMm == null) return Object.freeze({ ...delta, frameUsable, contribution: 0, reasonCode: frameUsable ? 'COORDINATE_DELTA_UNAVAILABLE' : 'COORDINATE_FRAME_UNPROVEN' });
-  const band = scorePolicy.coordinateBands.find((item) => delta.residualMm <= item.maxResidualMm) || null;
+  const engineeringDelta = coordinateDelta(source?.position, target?.position, frame, comparePolicy);
+  const enoughAnchors = frame?.status === 'SOLVED' && Number(frame?.anchorCount || 0) >= scorePolicy.minimumFrameAnchors;
+  const axes = Object.freeze(['x', 'y', 'z'].map((axis) => {
+    const frameAxis = frame?.axes?.[axis] || null;
+    const sourceValue = engineeringDelta.source?.[axis];
+    const targetValue = engineeringDelta.target?.[axis];
+    const delta = engineeringDelta.deltas?.[axis];
+    const usable = enoughAnchors
+      && frameAxis?.status === 'VALIDATED'
+      && Number.isFinite(sourceValue)
+      && Number.isFinite(targetValue)
+      && Number.isFinite(delta);
+    return Object.freeze({
+      axis,
+      usable,
+      frameStatus: frameAxis?.status || 'MISSING',
+      anchorCount: Number(frameAxis?.anchorCount || 0),
+      frameMedianResidualMm: frameAxis?.medianResidualMm ?? null,
+      sourceMm: Number.isFinite(sourceValue) ? sourceValue : null,
+      targetMm: Number.isFinite(targetValue) ? targetValue : null,
+      deltaMm: Number.isFinite(delta) ? delta : null,
+    });
+  }));
+  const usableAxes = axes.filter((axis) => axis.usable);
+  const enoughAxes = usableAxes.length >= scorePolicy.minimumValidatedCoordinateAxes;
+  const scoringResidualMm = enoughAxes
+    ? Math.sqrt(usableAxes.reduce((sum, axis) => sum + (axis.deltaMm * axis.deltaMm), 0))
+    : null;
+  if (!enoughAnchors) return Object.freeze({
+    ...engineeringDelta,
+    frameUsable: false,
+    coordinateAxes: axes,
+    usableAxes: Object.freeze([]),
+    scoringResidualMm: null,
+    contribution: 0,
+    reasonCode: 'COORDINATE_FRAME_UNPROVEN',
+    band: null,
+  });
+  if (!enoughAxes) return Object.freeze({
+    ...engineeringDelta,
+    frameUsable: false,
+    coordinateAxes: axes,
+    usableAxes: Object.freeze(usableAxes.map((axis) => axis.axis)),
+    scoringResidualMm: null,
+    contribution: 0,
+    reasonCode: 'COORDINATE_FRAME_INSUFFICIENT_VALIDATED_AXES',
+    band: null,
+  });
+  const band = scorePolicy.coordinateBands.find((item) => scoringResidualMm <= item.maxResidualMm) || null;
   return Object.freeze({
-    ...delta,
-    frameUsable,
+    ...engineeringDelta,
+    frameUsable: true,
+    coordinateAxes: axes,
+    usableAxes: Object.freeze(usableAxes.map((axis) => axis.axis)),
+    scoringResidualMm,
     contribution: band?.weight || 0,
     reasonCode: band?.code || 'COORDINATE_FRAME_DELTA_GT_100MM',
     band: band ? Object.freeze({ ...band }) : null,
