@@ -1,25 +1,25 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
-MISSION: Implement issue #1181 CSV Rev Compare (XML Based) with governed categorized XML as comparison authority and auditable Support Report output
-ACTIVE_ENDPOINT: EP-CSVRC-0007
-ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0007.md
-LATEST_MATERIAL_LEG: LEG-006
-LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-006.md
-PR: 1184
-BRANCH: issue-1181-csv-rev-compare-xml-v2
-HEAD_AT_ENDPOINT: 800ad359c6c8a9642bb70c0212e88a90a1075ac8
-MATERIAL_HEAD: 3cad67abbc923411cd301db1445ed4e40315ce96
-MAIN_AT_ENDPOINT: 906df68d73fd5106b259a2d4a807ec3cb34af9ab
-STATE: MERGE_READY_OWNER_AUTHORIZED
-ENGINEERING_STATE: IMPLEMENTED_PENDING_MERGE
+MISSION: Implement and qualify issue #1181 CSV Rev Compare (XML Based) with governed categorized XML as comparison authority and auditable Support Report output
+ACTIVE_ENDPOINT: EP-CSVRC-0008
+ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0008.md
+LATEST_MATERIAL_LEG: LEG-007
+LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-007.md
+PR: 1188
+BRANCH: issue-1181-phase1-current-main
+HEAD_AT_ENDPOINT: PENDING_RELAY_COMMIT
+MATERIAL_HEAD: ad0906521f15423d025b7d68b25f8cc2c15a36b8
+MAIN_AT_ENDPOINT: 419c94cca7649626e0b3e641f20d5261967347ba
+STATE: PHASE1_REGROUNDED_DRAFT
+ENGINEERING_STATE: PHASE1_IMPLEMENTED_PHASE2_NOT_STARTED
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: NOT_RUN_ENVIRONMENT_LIMITED
+QUALIFICATION_STATE: PRIOR_PHASE1_PASS_CURRENT_HEAD_NOT_RUN
 WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: TRUE
-MERGE_AUTHORIZATION_BASIS: 2026-09-10T14:44+04:00 owner instruction "merge if mergable"
-AUTHORITY_DOMAIN: Table-to-Categorized-XML support revision profile/extensions; XML lineage/events/remarks; Support Report export/UI for issue #1181
+MERGE_AUTHORIZED: FALSE
+MERGE_AUTHORIZATION_BASIS: none for PR #1188; prior authorization applied only to merged PR #1184
+AUTHORITY_DOMAIN: issue #1181 post-merge bucket qualification; composite support-location identity; XML lineage scoring/events/remarks; benchmark harness
 ACTIVE_CUSTODIAN: CURRENT_OWNER_AUTHORIZED_CHATGPT_SESSION
 AGENT_INSTANCE_ID: chatgpt:d8a6364c-4d17-47b7-ae66-90a497ec5f2d
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -27,17 +27,17 @@ WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1181
 WORK_ITEM_MODE: EXCLUSIVE
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_BASIS_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-basis/IB-CSV-REV-COMPARE-1181-0001.md
-ISSUE_BASIS_STATUS: CURRENT
+ISSUE_BASIS_STATUS: CURRENT_WITH_OWNER_POSTMERGE_CLARIFICATIONS
 ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0007
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0008
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0007_PUBLICATION
-ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_SYNCED_ISSUE_COMMENT_PENDING
-CUSTODY_EPOCH: 7
-COORDINATION_STATE: SAFE_FOR_MERGE_AT_LAST_RECONCILIATION
-DEPENDENCIES: current main drift inspected through 906df68d73fd5106b259a2d4a807ec3cb34af9ab; main-only changes do not overlap #1181 production/test paths
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0008_PUBLICATION
+ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_UPDATED_ISSUE_SYNC_PENDING
+CUSTODY_EPOCH: 8
+COORDINATION_STATE: CLEAN_CURRENT_MAIN_REGROUND
+DEPENDENCIES: material head parent is main 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -45,7 +45,7 @@ ROADMAPS: issue #1181 execution plan; Common engineering-pr-delivery-v2; reposit
 ROADMAP_REVIEW_STATUS: COMPLETE
 ROADMAP_ALIGNMENT: ALIGNED
 ROADMAP_MUTATION_AUTHORITY: NONE
-OWNER_INSTRUCTION: 2026-09-10T14:44+04:00 UI wiring asked; merge authorized if mergeable
+OWNER_INSTRUCTION: 2026-09-10T20:01+04:00 exact command "proceed next"; bounded progression used to re-ground Phase 1 before Phase 2
 QUESTION_SET_ID: QS-CSVRC-1181-0001
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
 QUESTION_SET_STATUS: CURRENT
@@ -53,15 +53,21 @@ QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: focused tests committed for LEG-001..006; source-level acceptance sweep complete; execution unavailable in this session
+HANDOVER_VALIDATION_STATUS: CURRENT_HEAD_NOT_RUN
 CHAIN_HANDOVER_READY: TRUE
-HANDOVER_READY: TRUE_WITH_NOT_RUN_VALIDATION_DISCLOSURE
+HANDOVER_READY: TRUE_WITH_EXACT_HEAD_NOT_RUN_DISCLOSURE
 MATERIAL_HISTORY_ROOT_BASE: 4bc8bdbe0e8552e91a29d67e97931b6bbac8b0a3
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0006.md
-INPUT_STATUS: INPUT001_002_003_005_AVAILABLE; INPUT004_OWNER_RAW_BENCHMARK_UNRESOLVED
-BENCHMARK_STATUS: BM001_BM015_NOT_RUN
-ENVIRONMENT_LIMITATION: raw network DNS cannot resolve github.com; local checkout/backups/.agent-worklogs/Node/browser execution unavailable
-LOCAL_BACKUP_WORKLOG_DEFICIT: existing-file remote edits have blob SHA pre-images but no repository-required local backup/worklog artifacts
-PR_GATE_AT_OWNER_AUTHORIZATION: READY_FOR_REVIEW; MERGEABLE_TRUE; NO_STATUS_CHECKS; NO_PR_WORKFLOW_RUNS; NO_REVIEW_THREADS
-EXACT_NEXT_ACTION: publish EP-CSVRC-0007 to issue #1181 and update the mutable Active Handover, refresh PR #1184 description, recheck live PR head/main/mergeability, then merge only if mergeable remains TRUE and head is unchanged. After merge, record merged SHA and close/synchronize issue state.
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0007.md
+INPUT_STATUS: INPUT001_002_003_004_005_AVAILABLE
+OWNER_BENCHMARK: benchmarks/R2.zip -> benchmarks/R3.zip
+BENCHMARK_PHASE1_PRIOR_EVIDENCE: PASS; run 34499007825; expected=1 detected=1 TP=1 FP=0 FN=0 precision=1 recall=1 F1=1
+BENCHMARK_CURRENT_HEAD: NOT_RUN
+BENCHMARK_PHASE2: NOT_STARTED
+BENCHMARK_PHASE3: NOT_STARTED
+BENCHMARK_PHASE4: NOT_STARTED
+PHASE1_RULES: support-location identity=CIVIL SECONDARY SUPPORT + PIPE; persistent references may prove continuity when PIPE changes; PREV NAME weighted corroboration only; known SIZE/BORE mismatch rejects approximation; coordinates weighted only with >=3 anchors and >=2 validated axes; R3 remarks oracle-only; HOLD excluded
+STALE_QUALIFICATION_BRANCH: issue-1181-phase1-weighted-lineage / PR #1187 is evidence-only and not a delivery merge vehicle
+ENVIRONMENT_LIMITATION: exact PR #1188 head has no PR workflow run and connector exposes no dispatch action; workflow files not modified without owner authorization
+LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but no repository-local backup/.agent-worklogs artifacts
+PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; 1 material commit ahead / 0 behind main before relay state commit; merge unauthorized
+EXACT_NEXT_ACTION: after issue endpoint/Active Handover synchronization reaches IN_SYNC, stop this bounded progression. On the next exact "proceed next", begin Phase 2 Support location change from PR #1188 while preserving the Phase 1 gate.
