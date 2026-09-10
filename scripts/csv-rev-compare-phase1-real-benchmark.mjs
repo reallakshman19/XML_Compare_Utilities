@@ -25,6 +25,8 @@ const json = JSON.stringify(summary, null, 2);
 console.log(json);
 if (outputPath) fs.writeFileSync(outputPath, `${json}\n`, 'utf8');
 if (result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
+if (!result.compareOk) process.exit(4);
+if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(5);
 
 function mismatchDiagnostics(result) {
   const compare = result.compareResult;
