@@ -114,6 +114,8 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   const coordinatePoint = nativePoint || group.representativeClashPointGlobalMm || null;
   const coordinateSource = nativePoint ? 'NATIVE_MEMBER_POSITION'
     : coordinatePoint ? 'CLASH_POINT_FALLBACK' : 'UNRESOLVED';
+  const coordinateSourceIds = nativePoint && representativeMember?.memberId
+    ? [normalizeMemberId(representativeMember.memberId)] : [];
   if (!nativePoint && coordinatePoint) {
     rowDiagnostics.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.COORDINATE_FROM_CLASH_FALLBACK,
       `Coordinates for ${group.secondarySupportFamilyId} / ${group.fullLineTag} use the clash point because no native support position was available.`, {
@@ -122,7 +124,8 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       }));
   }
   const fieldProvenance = projectSupportReportFieldProvenance({
-    group, reportMembers, carrierRows, coordinateSource, selectedNativeMemberCount: selectedMembers.length,
+    group, reportMembers, carrierRows, coordinateSource, coordinateSourceIds,
+    selectedNativeMemberCount: selectedMembers.length,
   });
 
   const row = Object.freeze({
