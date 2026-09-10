@@ -3,7 +3,14 @@ import { supportReportToCsv } from './support-report-export.js?v=20260910-suppor
 import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,
-} from './support-report-typicality-projection.js?v=20260910-support-report-typicality-ui-1';
+} from './support-report-typicality-projection.js?v=20260910-support-report-typicality-ui-2';
+import {
+  SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES,
+  SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
+  SUPPORT_REPORT_TYPICALITY_UI_SETTINGS,
+  profileOverrideFromEntries,
+  profileValue,
+} from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-typicality-columns-1&trace=20260910-support-report-json-trace-18';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-typicality-columns-1';
 import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17&typicality=20260910-support-report-typicality-17';
@@ -40,6 +47,20 @@ function mount(popup) {
   const tabs = popup.querySelector('.ssrb-tabs');
   const workspace = popup.querySelector('.ssrb-workspace');
   if (!tabs || !workspace) return;
+
+  // Query-versioned ESM imports can create more than one addon module instance.
+  // DOM ownership is therefore the cross-instance idempotence authority, not this
+  // module's WeakSet alone. Preserve a complete existing mount; repair an orphaned
+  // half-mount before creating a new coherent tab/panel pair.
+  const existingButton = popup.querySelector(`[data-ssrb-tab="${TAB_KEY}"]`);
+  const existingPanel = popup.querySelector(`[data-ssrb-panel="${TAB_KEY}"]`);
+  if (existingButton && existingPanel) {
+    mounted.add(popup);
+    return;
+  }
+  existingButton?.remove();
+  existingPanel?.remove();
+
   mounted.add(popup);
   stateByPopup.set(popup, { report: null });
 
@@ -69,6 +90,10 @@ function mount(popup) {
     const eventName = node.type === 'checkbox' || node.tagName === 'SELECT' ? 'change' : 'input';
     node.addEventListener(eventName, () => invalidate(popup, 'Relationship rules changed; rebuild the Support Report.'));
   });
+  popup.querySelectorAll('[data-ssr-typical-setting]').forEach((node) => {
+    const eventName = node.type === 'checkbox' || node.tagName === 'SELECT' ? 'change' : 'input';
+    node.addEventListener(eventName, () => invalidate(popup, 'Typicality matching configuration changed; rebuild the Support Report.'));
+  });
   popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => run(popup));
   popup.querySelector('[data-ssr-download-xlsx]')?.addEventListener('click', () => void downloadXlsx(popup));
   popup.querySelector('[data-ssr-download]')?.addEventListener('click', () => downloadCsv(popup));
@@ -76,7 +101,7 @@ function mount(popup) {
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional staged JSON enriches current PS/SL identity and native attributes. Optional second XML enables auditable typical-structure comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Typicality is derived evidence only; spreadsheet row order and absolute global translation are never correspondence keys.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Staged JSON and typical-structure reference XML are optional evidence sources.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional staged JSON enriches current PS/SL identity and native attributes. Optional second XML enables auditable typical-structure comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div>${typicalityConfigCard()}<div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Typicality is derived evidence only; spreadsheet row order and absolute global translation are never correspondence keys.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Staged JSON and typical-structure reference XML are optional evidence sources.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 function xmlSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML used to build the operational Support Report and governed physical locations.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste primary SupportreportXML.xml"></textarea><small data-ssr-file-status>No primary Support Report XML selected</small></div>`;
@@ -86,6 +111,27 @@ function typicalSourceCard() {
 }
 function modelSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Staged JSON trace source (optional)</b><label class="ssrb-file-button">Choose JSON<input type="file" accept=".json,application/json" data-ssr-model-file="1"></label></div><span>Uses the same combined staged-model source as the Input tab. Direct PS/SL identity is preferred; JSON trace records match and POS basis.</span><small data-ssr-model-status>No staged JSON imported from Support Report. Existing Input-tab model, if any, will still be used.</small></div>`;
+}
+function typicalityConfigCard() {
+  const sections = new Map();
+  for (const setting of SUPPORT_REPORT_TYPICALITY_UI_SETTINGS) {
+    if (!sections.has(setting.section)) sections.set(setting.section, []);
+    sections.get(setting.section).push(setting);
+  }
+  const controls = [...sections.entries()].map(([section, settings]) => `<div class="ssrb-source-card"><b>${h(section)}</b>${settings.map(renderTypicalitySetting).join('')}</div>`).join('');
+  const policies = SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES.map((policy) => `<div><b>${h(policy.label)}</b>: ${h(policy.value)} ${infoIcon(policy.help)}</div>`).join('');
+  return `<details class="ssrb-card" data-ssr-typical-config><summary><b>Typicality matching configuration</b> ${infoIcon('Editable values below feed the comparison profile used in the audit. Defaults are provisional and remain visible rather than hidden in code.')}</summary><p>Active comparison controls. Changing any value invalidates the current report and requires rebuild.</p><div class="ssrb-input-grid">${controls}</div><div class="ssrb-source-card"><b>Declared matcher policies / next structured-sequence seam</b>${policies}</div></details>`;
+}
+function renderTypicalitySetting(setting) {
+  const value = profileValue(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL, setting.path);
+  const common = `data-ssr-typical-setting="${h(setting.path)}" aria-label="${h(setting.label)}"`;
+  const control = setting.type === 'checkbox'
+    ? `<input type="checkbox" ${common}${value ? ' checked' : ''}>`
+    : `<input type="number" ${common} value="${h(value)}"${setting.min != null ? ` min="${h(setting.min)}"` : ''}${setting.max != null ? ` max="${h(setting.max)}"` : ''}${setting.step != null ? ` step="${h(setting.step)}"` : ''}>`;
+  return `<label style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem;align-items:center;margin:.45rem 0"><span>${h(setting.label)}${setting.unit ? ` (${h(setting.unit)})` : ''} ${infoIcon(setting.help)}</span>${control}</label>`;
+}
+function infoIcon(help) {
+  return `<span role="img" aria-label="Information: ${h(help)}" title="${h(help)}" style="cursor:help;text-decoration:underline dotted">(i)</span>`;
 }
 
 async function readXmlFile(popup, kind) {
@@ -142,6 +188,7 @@ function run(popup) {
       const typicalityAudit = buildSupportReportTypicalityComparison(clashEvidence, referenceEvidence, {
         leftReportBundle: report,
         rightReportBundle: referenceReport,
+        profile: readTypicalityProfile(popup),
       });
       report = projectTypicalityOntoSupportReportBundle(report, typicalityAudit, clashEvidence);
     }
@@ -173,7 +220,7 @@ function comparisonReadyText(report) {
   const typical = matches.filter((item) => item.result === 'TYPICAL').length;
   const review = matches.filter((item) => item.result === 'REVIEW').length;
   const ambiguous = matches.filter((item) => item.result === 'AMBIGUOUS').length;
-  return ` · typicality: ${typical} typical, ${review} review, ${ambiguous} ambiguous · comparison columns 22–24 enabled`;
+  return ` · typicality: ${typical} typical, ${review} review, ${ambiguous} ambiguous · comparison columns 22–24 enabled · profile ${audit.profileId || 'unknown'}`;
 }
 
 function readExistingRules(popup) {
@@ -183,6 +230,14 @@ function readExistingRules(popup) {
     values[key] = node.type === 'checkbox' ? node.checked : node.type === 'number' ? Number(node.value) : node.value;
   });
   return values;
+}
+function readTypicalityProfile(popup) {
+  const entries = [...popup.querySelectorAll('[data-ssr-typical-setting]')].map((node) => {
+    const value = node.type === 'checkbox' ? node.checked : Number(node.value);
+    if (node.type !== 'checkbox' && !Number.isFinite(value)) throw new Error(`Invalid typicality setting: ${node.dataset.ssrTypicalSetting}`);
+    return { path: node.dataset.ssrTypicalSetting, value };
+  });
+  return profileOverrideFromEntries(entries);
 }
 function supportReportRules(popup) { return { ...readExistingRules(popup), supportFamilyPattern: SUPPORT_REPORT_FAMILY_PATTERN }; }
 
@@ -241,6 +296,13 @@ function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-export const _test = Object.freeze({ comparisonReadyText, renderPanel });
+export const _test = Object.freeze({
+  comparisonReadyText,
+  infoIcon,
+  readTypicalityProfile,
+  renderPanel,
+  renderTypicalitySetting,
+  typicalityConfigCard,
+});
 
 installSupportReportAddon();

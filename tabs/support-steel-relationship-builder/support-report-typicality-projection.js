@@ -1,38 +1,29 @@
 import {
   buildSupportReportTypicalityAudit,
   normalizePipeClass,
-  PS_TYPICAL_V1_PROVISIONAL,
-} from './support-report-typicality.js?v=20260910-support-report-typicality-projection-2';
+} from './support-report-typicality.js?v=20260910-support-report-typicality-projection-3';
+import {
+  SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
+  mergeSupportReportTypicalityProfile,
+} from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
 import {
   buildCanonicalTypicalityLocations,
   buildTypicalityLocationAssignmentsForMatches,
-} from './support-report-typicality-location.js?v=20260910-support-report-typicality-projection-2';
+} from './support-report-typicality-location.js?v=20260910-support-report-typicality-projection-3';
 
+export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
-export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = Object.freeze({
-  ...PS_TYPICAL_V1_PROVISIONAL,
-  profileId: 'PS_TYPICAL_V1_PROVISIONAL',
-  pipingLocation: Object.freeze({
-    requireCompatiblePipeClass: true,
-    geometryFingerprintToleranceMm: 50,
-    ambiguityCostTolerance: 0.001,
-    assignmentWeights: Object.freeze({
-      supportTypeMember: 100000,
-      memberMultiplicity: 10000,
-      geometryMedianMm: 1,
-      geometryMaxMm: 1,
-    }),
-  }),
-});
 
 export function buildSupportReportTypicalityComparison(leftEvidence, rightEvidence, options = {}) {
   const profile = comparisonProfile(options.profile);
+  const leftReportBundle = withLocationRowAliases(options.leftReportBundle, leftEvidence);
+  const rightReportBundle = withLocationRowAliases(options.rightReportBundle, rightEvidence);
   const familyAudit = buildSupportReportTypicalityAudit(leftEvidence, rightEvidence, { ...options, profile });
   const locationAssignments = buildTypicalityLocationAssignmentsForMatches(
     leftEvidence,
     rightEvidence,
     familyAudit.matches,
-    { ...options, profile },
+    { ...options, profile, leftReportBundle, rightReportBundle },
   );
   const assignmentsByFamily = new Map(locationAssignments.map((item) => [token(item.leftFamilyId), item]));
   const resolvedMatches = familyAudit.matches.map((match) => resolveFamilyMatch(
@@ -43,6 +34,7 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
     ...familyAudit,
     comparisonSchema: SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA,
     profileId: profile.profileId,
+    profileSnapshot: profile,
     structuralMatches: familyAudit.matches,
     matches: Object.freeze(resolvedMatches),
     locationAssignments,
@@ -50,7 +42,10 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
 }
 
 export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalityAudit, leftEvidence) {
-  const locations = buildCanonicalTypicalityLocations(leftEvidence, reportBundle);
+  const locations = buildCanonicalTypicalityLocations(
+    leftEvidence,
+    withLocationRowAliases(reportBundle, leftEvidence),
+  );
   const selectedByLocation = new Map();
   for (const assignment of typicalityAudit?.locationAssignments || []) {
     for (const pair of assignment.selectedAssignments || []) {
@@ -79,21 +74,7 @@ export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalit
 }
 
 function comparisonProfile(override = {}) {
-  const base = SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL;
-  return Object.freeze({
-    ...base,
-    ...override,
-    profileId: override.profileId || base.profileId,
-    structural: Object.freeze({ ...base.structural, ...(override.structural || {}) }),
-    pipingLocation: Object.freeze({
-      ...base.pipingLocation,
-      ...(override.pipingLocation || {}),
-      assignmentWeights: Object.freeze({
-        ...base.pipingLocation.assignmentWeights,
-        ...(override.pipingLocation?.assignmentWeights || {}),
-      }),
-    }),
-  });
+  return mergeSupportReportTypicalityProfile(override);
 }
 
 function resolveFamilyMatch(match, assignment) {
@@ -118,7 +99,23 @@ function resolveFamilyMatch(match, assignment) {
   return Object.freeze({ ...match, locationAssignmentResult: assignment.result });
 }
 
+function withLocationRowAliases(reportBundle, evidence) {
+  if (!reportBundle?.rows?.length) return reportBundle;
+  const locationByGroupId = new Map((evidence?.groups || []).map((group) => [
+    token(group.groupId),
+    String(group.locationId || group.groupId || ''),
+  ]));
+  const rows = reportBundle.rows.map((row) => {
+    const locationId = locationByGroupId.get(token(row.rowId));
+    if (!locationId || token(locationId) === token(row.rowId)) return row;
+    return Object.freeze({ ...row, rowId: locationId, sourceReportRowId: row.rowId });
+  });
+  return Object.freeze({ ...reportBundle, rows: Object.freeze(rows) });
+}
+
 function resolveRowLocation(row, locations) {
+  const sourceGroupExact = locations.find((item) => token(item.sourceGroupId) === token(row.rowId));
+  if (sourceGroupExact) return sourceGroupExact;
   const exact = locations.find((item) => token(item.locationId) === token(row.rowId));
   if (exact) return exact;
   const familyId = token(row.civilSecondarySupport);
@@ -152,4 +149,10 @@ function token(value) {
   return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
 }
 
-export const _test = Object.freeze({ arrangementLabel, comparisonProfile, resolveFamilyMatch });
+export const _test = Object.freeze({
+  arrangementLabel,
+  comparisonProfile,
+  resolveFamilyMatch,
+  resolveRowLocation,
+  withLocationRowAliases,
+});

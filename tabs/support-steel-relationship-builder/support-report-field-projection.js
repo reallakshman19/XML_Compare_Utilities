@@ -225,7 +225,7 @@ function normalizeKey(value) { return String(value || '').replace(/[\s./-]+/g, '
 function joinMemberValues(members, selector, options = {}) {
   const values = (members || []).map((member) => clean(selector(member)));
   if (options.keepBlanks) {
-    if (!values.length) return '';
+    if (!values.length || !values.some(Boolean)) return '';
     return values.length === 1 ? values[0] : values.join(', ');
   }
   return values.filter(Boolean).join(', ');
@@ -260,42 +260,51 @@ function supportPathHierarchy(path) {
   const siteIndex = nodes.findIndex((node) => /-CU-[A-Z0-9]+$/iu.test(node));
   if (siteIndex < 0) return Object.freeze({ site: '', zone: '' });
   const site = nodes[siteIndex];
-  const candidate = nodes[siteIndex + 1] || '';
-  const zone = candidate.toUpperCase().startsWith(`${site.toUpperCase()}-`) ? candidate : '';
+  const zone = nodes.slice(siteIndex + 1).find((node) => node.startsWith(`${site}-`)) || '';
   return Object.freeze({ site, zone });
 }
-function flattenPath(value) { return Array.isArray(value) ? value.flatMap(flattenPath) : value == null ? [] : [value]; }
-function deriveNominalSizeMm(lineTag) {
-  const match = String(lineTag || '').match(/-(\d+(?:\.\d+)?)"-/);
+function flattenPath(path) {
+  if (Array.isArray(path)) return path.flatMap(flattenPath);
+  if (!path) return [];
+  return String(path).split(/[\\/]+/).filter(Boolean);
+}
+function deriveScope(fullLineTag) {
+  const line = stripLeadingSlash(fullLineTag);
+  return line.includes('-') ? line.split('-')[0] : line;
+}
+function deriveNominalSizeMm(fullLineTag) {
+  const match = stripLeadingSlash(fullLineTag).match(/-(\d+(?:\.\d+)?)"-/u);
   if (!match) return '';
-  const inch = Number(match[1]);
-  const standard = new Map([[0.5, 15], [0.75, 20], [1, 25], [1.5, 40], [2, 50], [2.5, 65], [3, 80], [4, 100], [6, 150], [8, 200], [10, 250], [12, 300], [14, 350], [16, 400], [18, 450], [20, 500], [24, 600]]);
-  return standard.get(inch) ?? Math.round(inch * 25.4);
+  const nps = Number(match[1]);
+  if (!Number.isFinite(nps)) return '';
+  return Math.round(nps * 25.4);
 }
-function formatHorizontalCoordinate(value, positivePrefix, negativePrefix) {
+function formatHorizontalCoordinate(value, positive, negative) {
   if (!Number.isFinite(value)) return '';
-  return `${value >= 0 ? positivePrefix : negativePrefix} ${formatNumber(Math.abs(value))}mm`;
+  return `${value < 0 ? negative : positive} ${roundCoordinate(Math.abs(value))} mm`;
 }
-function formatVerticalCoordinate(value) { return Number.isFinite(value) ? `U ${formatNumber(value)}mm` : ''; }
-function formatNumber(value) {
-  const rounded = Math.round(Number(value) * 1000) / 1000;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/0+$/u, '').replace(/\.$/u, '');
+function formatVerticalCoordinate(value) {
+  if (!Number.isFinite(value)) return '';
+  return `U ${roundCoordinate(value)} mm`;
+}
+function roundCoordinate(value) {
+  return Math.round(Number(value) * 1000) / 1000;
 }
 function normalizeMemberId(value) {
   const text = clean(value).replace(/\(REF\)$/iu, '').replace(/^\/+/, '').toUpperCase();
   return text ? `/${text}` : '';
 }
-function deriveScope(lineTag) { return stripLeadingSlash(lineTag).split('-')[0] || ''; }
 function stripLeadingSlash(value) { return clean(value).replace(/^\/+/, ''); }
 function clean(value) { return value == null ? '' : String(value).trim(); }
 
 export const _test = Object.freeze({
+  deriveNominalSizeMm,
   firstAttribute,
+  formatHorizontalCoordinate,
+  formatVerticalCoordinate,
+  joinMemberValues,
   resolveCarrierAttribute,
   resolveCarrierSize,
   resolvePrimaryPathField,
   supportPathHierarchy,
-  deriveNominalSizeMm,
-  formatHorizontalCoordinate,
-  formatVerticalCoordinate,
 });

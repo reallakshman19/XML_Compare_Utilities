@@ -35,7 +35,7 @@ function syntheticEvidence(familyId, specs) {
 
 function reportBundle(rows) { return Object.freeze({ rows: Object.freeze(rows.map((row) => Object.freeze(row))) }); }
 
-test('11168 -> 14168 produces five row-independent topology assignments', () => {
+test('11168 -> 14168 produces ten row-independent physical-location assignments', () => {
   const left = parseSupportReportClashXml(readFileSync('benchmarks/11168.xml', 'utf8'));
   const right = parseSupportReportClashXml(readFileSync('benchmarks/14168.xml', 'utf8'));
   const familyAudit = buildSupportReportTypicalityAudit(left, right);
@@ -47,9 +47,11 @@ test('11168 -> 14168 produces five row-independent topology assignments', () => 
 
   assert.equal(assignment.leftFamilyId, 'PS-11168');
   assert.equal(assignment.rightFamilyId, 'PS-14168');
-  assert.equal(assignment.selectedAssignments.length, 5);
+  assert.equal(assignment.selectedAssignments.length, 10);
   assert.deepEqual(assignment.unmatchedLeftLocationIds, []);
   assert.deepEqual(assignment.unmatchedRightLocationIds, []);
+  assert.equal(leftLocations.size, 10);
+  assert.equal(rightLocations.size, 10);
   for (const pair of assignment.selectedAssignments) {
     assert.equal(pair.signals.pipeClass.result, 'PASS');
     assert.equal(leftLocations.get(pair.leftLocationId).normalizedPipeClass,
@@ -95,7 +97,7 @@ test('equal-cost structural alternatives are exposed as ambiguous', () => {
   });
 
   assert.equal(assignment.result, 'AMBIGUOUS');
-  assert.deepEqual(assignment.ambiguousLocationIds.sort(), ['L-1', 'L-2']);
+  assert.deepEqual([...assignment.ambiguousLocationIds].sort(), ['L-1', 'L-2']);
 });
 
 test('equal-size incompatible families remain unmatched instead of forcing a real pair', () => {

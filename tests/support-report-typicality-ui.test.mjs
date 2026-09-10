@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { _test as addonTest } from '../tabs/support-steel-relationship-builder/support-report-addon.js';
+import {
+  SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
+  SUPPORT_REPORT_TYPICALITY_UI_SETTINGS,
+  mergeSupportReportTypicalityProfile,
+  profileValue,
+} from '../tabs/support-steel-relationship-builder/support-report-typicality-profile.js';
 import { renderSupportReportTable, renderSupportReportWorkspace } from '../tabs/support-steel-relationship-builder/support-report-view.js';
 
 test('Support Report panel exposes optional second XML typicality input', () => {
@@ -12,10 +18,43 @@ test('Support Report panel exposes optional second XML typicality input', () => 
   assert.match(html, /comparison columns 22–24/i);
 });
 
+test('typicality configuration exposes active defaults and hard-coded policy help through info hovers', () => {
+  const html = addonTest.typicalityConfigCard();
+  assert.match(html, /data-ssr-typical-config/);
+  assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceMm"/);
+  assert.match(html, /data-ssr-typical-setting="pipingLocation\.assignmentWeights\.supportTypeMember"/);
+  assert.match(html, /Dimensional resolution order/);
+  assert.match(html, /3D → 2D → 1D/);
+  assert.match(html, /Repeated member suffix evidence/);
+  assert.match(html, /PREV NAME fuzzy evidence/);
+  assert.match(html, /title="Hard family-level geometry gate\./);
+  assert.match(html, />\(i\)<\/span>/);
+});
+
+test('typicality profile partial overrides preserve unrelated governed defaults', () => {
+  const merged = mergeSupportReportTypicalityProfile({
+    pipingLocation: {
+      assignmentWeights: { supportTypeMember: 250000 },
+    },
+  });
+  assert.equal(merged.pipingLocation.assignmentWeights.supportTypeMember, 250000);
+  assert.equal(
+    merged.pipingLocation.assignmentWeights.memberMultiplicity,
+    SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.pipingLocation.assignmentWeights.memberMultiplicity,
+  );
+  assert.equal(
+    merged.structural.pairDistanceP95ToleranceMm,
+    SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural.pairDistanceP95ToleranceMm,
+  );
+  assert.equal(profileValue(merged, 'pipingLocation.assignmentWeights.supportTypeMember'), 250000);
+  assert.ok(SUPPORT_REPORT_TYPICALITY_UI_SETTINGS.length >= 10);
+});
+
 test('ready-state comparison text distinguishes legacy and comparison modes', () => {
   assert.equal(addonTest.comparisonReadyText({}), ' · legacy 21-column mode');
   const text = addonTest.comparisonReadyText({
     typicalityAudit: {
+      profileId: 'PS_TYPICAL_V1_PROVISIONAL',
       matches: [
         { result: 'TYPICAL' },
         { result: 'REVIEW' },
@@ -25,6 +64,7 @@ test('ready-state comparison text distinguishes legacy and comparison modes', ()
   });
   assert.match(text, /1 typical, 1 review, 1 ambiguous/);
   assert.match(text, /columns 22–24 enabled/);
+  assert.match(text, /profile PS_TYPICAL_V1_PROVISIONAL/);
 });
 
 test('comparison report table renders derived columns while legacy table does not', () => {
