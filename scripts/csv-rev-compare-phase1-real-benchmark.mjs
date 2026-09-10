@@ -95,6 +95,11 @@ function locationSummary(location) {
     pipe: location.pipe.raw,
     pipeCore: location.pipe.normalizedCore,
     references: location.persistentReferences,
+    components: location.components.map((component) => ({ memberId: component.memberId, supportType: component.supportType, reference: component.reference })),
+    loadState: location.loads?.state || '',
+    loadSlots: (location.loads?.slots || []).filter((slot) => String(slot.raw ?? '').trim()).map((slot) => ({ header: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw })),
+    totalSupportPoints: location.sourceFields?.totalSupportPoints || '',
+    primarySupportDescription: location.sourceFields?.primarySupportDescription || '',
     position: Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])),
   };
 }
