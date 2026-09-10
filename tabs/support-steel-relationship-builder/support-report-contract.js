@@ -3,28 +3,38 @@ export const SUPPORT_REPORT_EVIDENCE_SCHEMA = 'SupportReportClashEvidence.v1';
 export const SUPPORT_REPORT_ROW_SCHEMA = 'SupportReportRow.v1';
 
 export const SUPPORT_REPORT_COLUMNS = Object.freeze([
-  Object.freeze({ key: 'previousName', label: 'PREV PRIMARY SUPPORT NAME' }),
-  Object.freeze({ key: 'scope', label: 'SCOPE' }),
-  Object.freeze({ key: 'civilSecondarySupport', label: 'CIVIL SECONDARY SUPPORT (Tag provided by Civil)' }),
-  Object.freeze({ key: 'pipe', label: 'PIPE' }),
-  Object.freeze({ key: 'size', label: 'SIZE' }),
-  Object.freeze({ key: 'pipingPrimarySupport', label: 'PIPING PRIMARY SUPPORT' }),
-  Object.freeze({ key: 'supportType', label: 'SUPPORT TYPE' }),
-  Object.freeze({ key: 'pipingPrimarySupportReference', label: 'PIPING PRIMARY SUPPORT REFERENCE' }),
-  Object.freeze({ key: 'eastWest', label: 'EAST/WEST' }),
-  Object.freeze({ key: 'northSouth', label: 'NORTH/SOUTH' }),
-  Object.freeze({ key: 'bopElevation', label: 'BOP ELEVATION' }),
-  Object.freeze({ key: 'totalSupportPointsOnSecondary', label: 'TOTAL SUPPORT POINTS ON SECONDARY' }),
-  Object.freeze({ key: 'remarks', label: 'REMARKS (IF ANY)' }),
-  Object.freeze({ key: 'primarySupportDescription', label: 'PRIMARY SUPPORT DESCRIPTION' }),
-  Object.freeze({ key: 'primarySupportZone', label: 'PRIMARY SUPPORT ZONE' }),
-  Object.freeze({ key: 'primarySupportSite', label: 'PRIMARY SUPPORT SITE' }),
-  Object.freeze({ key: 'pipeSchedule', label: 'PIPE SCHEDULE' }),
-  Object.freeze({ key: 'pipeInsulationTypeAndThickness', label: 'INSULATION TYPE AND THICKNESS' }),
-  Object.freeze({ key: 'stressSystemNumber', label: 'STRESS SYSTEM NUMBER' }),
-  Object.freeze({ key: 'nodeNumber', label: 'NODE NO' }),
-  Object.freeze({ key: 'revision', label: 'REVISION' }),
+  column('scope', 'SCOPE'),
+  column('civilSecondarySupport', 'CIVILSECONDARYSUPPORT'),
+  column('pipe', 'PIPE', 'PIPE\n'),
+  column('size', 'SIZE', 'SIZE\n'),
+  column('pipeSchedule', 'PIPE SCHEDULE', 'PIPE SCHEDULE\n'),
+  column('pipeInsulationThickness', 'PIPE INSULATION THICKNESS', 'PIPE INSULATION THICKNESS\n'),
+  column('pipeInsulationType', 'PIPE INSULATION TYPE', 'PIPE INSULATION TYPE\n'),
+  column('pipingPrimarySupport', 'PIPING PRIMARY SUPPORT', ''),
+  column('supportType', 'SUPPORT TYPE', 'SUPPORT TYPE\n'),
+  column('pipingPrimarySupportReference', 'PIPING PRIMARY SUPPORT REFERENCE', 'PIPING PRIMARY SUPPORT REFERENCE\n'),
+  column('eastWest', 'EAST/WEST'),
+  column('northSouth', 'NORTH/SOUTH'),
+  column('bopElevation', 'BOP ELEVATION'),
+  column('stressSystemNumber', 'STRESS SYS.NO', 'STRESS SYS.NO\n'),
+  column('nodeNumber', 'NODE NO', 'NODE NO\n'),
+  column('totalSupportPointsOnSecondary', 'TOTAL SUPPORT POINTS ON SECONDARY'),
+  column('previousName', 'PREV NAME'),
+  column('primarySupportDescription', 'PRIMARY SUPPORT DESCRIPTION'),
+  column('primarySupportZone', 'PRIMARY SUPPORT ZONE'),
+  column('primarySupportSite', 'PRIMARY SUPPORT SITE'),
+  column('remarks', 'REMARKS'),
 ]);
+
+export function supportReportColumnHeader(columnOrKey, options = {}) {
+  const columnDef = typeof columnOrKey === 'string'
+    ? SUPPORT_REPORT_COLUMNS.find((column) => column.key === columnOrKey)
+    : columnOrKey;
+  if (!columnDef) return '';
+  if (options.ownerWorkbookFidelity === true) return columnDef.ownerWorkbookLabel;
+  if (options.legacyBlankPrimarySupportHeader === true && columnDef.key === 'pipingPrimarySupport') return '';
+  return columnDef.label;
+}
 
 export function supportReportColumnValue(row, columnOrKey) {
   const key = typeof columnOrKey === 'string' ? columnOrKey : columnOrKey?.key;
@@ -34,6 +44,10 @@ export function supportReportColumnValue(row, columnOrKey) {
   }
   if (key === 'revision') return row?.revision ?? '';
   return row?.[key] ?? '';
+}
+
+function column(key, label, ownerWorkbookLabel = label) {
+  return Object.freeze({ key, label, ownerWorkbookLabel });
 }
 
 export const SUPPORT_REPORT_DIAGNOSTICS = Object.freeze({
