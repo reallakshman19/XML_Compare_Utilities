@@ -9,7 +9,7 @@ UPDATED_AT: 2026-09-10T09:16:00Z
 - TASK-001 | separate Utilities tile | OPEN
 - TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | PARTIAL — LEG-001 implemented; execution validation NOT_RUN
 - TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | PARTIAL — LEG-002 implemented; execution validation NOT_RUN
-- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | OPEN
+- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | IN_PROGRESS — LEG-003 material committed; validation NOT_RUN and receipt pending
 - TASK-021..TASK-023 | Support Report output and machine-audit/trace exports | OPEN
 - TASK-024..TASK-027 | staged workflow, benchmarks/negative controls, regression qualification and draft PR completion | OPEN
 
@@ -23,7 +23,7 @@ UPDATED_AT: 2026-09-10T09:16:00Z
 
 # Benchmark / oracle ledger
 
-- BM-001..BM-015 | NOT_RUN | focused conversion and lineage fixtures are committed; execution evidence is unavailable in this session
+- BM-001..BM-015 | NOT_RUN | focused conversion, lineage and event-policy fixtures are committed; execution evidence is unavailable in this session
 
 # Roadmap ledger
 
@@ -53,11 +53,13 @@ PR: 1184
 PR_STATUS: OPEN_DRAFT_MERGEABLE_AT_LAST_RECONCILIATION
 BRANCH: issue-1181-csv-rev-compare-xml-v2
 MAIN_OBSERVED: 13e626b4c0b0922697640b6c6f0183acbc59b380
-MAIN_DRIFT: ONE_NONOVERLAPPING_SUPPORT_REPORT_COMMIT; REBASE_NOT_REQUIRED_FOR_LEG003
-LATEST_MATERIAL_LEG: LEG-002
+MAIN_DRIFT: ONE_NONOVERLAPPING_SUPPORT_REPORT_COMMIT
+LATEST_COMPLETED_MATERIAL_LEG: LEG-002
+CURRENT_MATERIAL_LEG: LEG-003_IN_PROGRESS
 LEG001_VALIDATION: NOT_RUN
 LEG002_VALIDATION: NOT_RUN
-ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0003_COMMENT_SYNC
-SALVAGE_BRANCH: issue-1181-csv-rev-compare-xml@ff7396d6c5111b818f6915f77c0a3bec315863d8
-SALVAGE_DISPOSITION: DESIGN_AND_PATCH_SOURCE_ONLY
-EXACT_NEXT_ACTION: synchronize EP-CSVRC-0003 issue comments, then implement LEG-003 component/load events and deterministic remark renderer.
+LEG003_VALIDATION: NOT_RUN
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616305192
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC_AFTER_LATE_ACTIVE_CORRECTION
+CONTROL_PLANE_DEVIATION: EP-0003 endpoint comment preceded LEG-003 but mutable Active comment was synchronized after first LEG-003 material commit; repository prework endpoint remained valid; no further material progression permitted before LEG-003 receipt/endpoint sync
+EXACT_NEXT_ACTION: record LEG-003 material receipt and successor endpoint, synchronize issue state, then stop before LEG-004.
