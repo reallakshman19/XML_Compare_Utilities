@@ -46,6 +46,9 @@ jobs:
       - name: Phase 1 PS No. change benchmark contract
         run: node tests/csv-rev-compare-phase1-ps-no-change.test.js
 
+      - name: Phase 1 real mismatch regression patterns
+        run: node tests/csv-rev-compare-phase1-real-patterns.test.js
+
       - name: CSV/XML revision compare regression
         run: node tests/csv-rev-compare-xml-based.test.js
 
