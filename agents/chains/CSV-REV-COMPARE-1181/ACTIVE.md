@@ -1,25 +1,25 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
 MISSION: Implement and qualify issue #1181 CSV Rev Compare (XML Based) with governed categorized XML as comparison authority and auditable Support Report output
-ACTIVE_ENDPOINT: EP-CSVRC-0008
-ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0008.md
-LATEST_MATERIAL_LEG: LEG-007
-LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-007.md
+ACTIVE_ENDPOINT: EP-CSVRC-0009
+ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0009.md
+LATEST_MATERIAL_LEG: LEG-008
+LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-008.md
 PR: 1188
 BRANCH: issue-1181-phase1-current-main
-HEAD_AT_ENDPOINT: f7a14aff853a5293e4851acd18c211e76a845eca
-MATERIAL_HEAD: ad0906521f15423d025b7d68b25f8cc2c15a36b8
+HEAD_AT_ENDPOINT: 4e1e907ac6309e68fdca03585d9697defd4910a4
+MATERIAL_HEAD: 7e3732be5a2ac0cd97acdc2a1a3d1a7b5de52c51
 MAIN_AT_ENDPOINT: 419c94cca7649626e0b3e641f20d5261967347ba
-STATE: PHASE1_REGROUNDED_DRAFT
-ENGINEERING_STATE: PHASE1_IMPLEMENTED_PHASE2_NOT_STARTED
+STATE: PHASE2_IMPLEMENTED_DRAFT
+ENGINEERING_STATE: PHASE2_IMPLEMENTED_PHASE3_BLOCKED_PENDING_QUALIFICATION
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: PRIOR_PHASE1_PASS_CURRENT_HEAD_NOT_RUN
+QUALIFICATION_STATE: PRIOR_PHASE1_PASS_PHASE2_NOT_RUN
 WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 MERGE_AUTHORIZATION_BASIS: none for PR #1188; prior authorization applied only to merged PR #1184
-AUTHORITY_DOMAIN: issue #1181 post-merge bucket qualification; composite support-location identity; XML lineage scoring/events/remarks; benchmark harness
+AUTHORITY_DOMAIN: issue #1181 post-merge bucket qualification; composite support-location identity; XML lineage scoring/events/remarks; trusted-frame relocation; benchmark harness
 ACTIVE_CUSTODIAN: CURRENT_OWNER_AUTHORIZED_CHATGPT_SESSION
 AGENT_INSTANCE_ID: chatgpt:d8a6364c-4d17-47b7-ae66-90a497ec5f2d
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -30,14 +30,14 @@ ISSUE_BASIS_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-basis/IB-CSV-REV-COMP
 ISSUE_BASIS_STATUS: CURRENT_WITH_OWNER_POSTMERGE_CLARIFICATIONS
 ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0008
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0009
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5621966705
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5622209744
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-CUSTODY_EPOCH: 8
-COORDINATION_STATE: CLEAN_CURRENT_MAIN_REGROUND
-DEPENDENCIES: material head parent is main 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825
+CUSTODY_EPOCH: 9
+COORDINATION_STATE: CLEAN_CURRENT_MAIN_PHASE2
+DEPENDENCIES: material history remains based on main 419c94cca7649626e0b3e641f20d5261967347ba; Phase 1 isolated qualification evidence retained from PR #1187/run 34499007825
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -45,7 +45,7 @@ ROADMAPS: issue #1181 execution plan; Common engineering-pr-delivery-v2; reposit
 ROADMAP_REVIEW_STATUS: COMPLETE
 ROADMAP_ALIGNMENT: ALIGNED
 ROADMAP_MUTATION_AUTHORITY: NONE
-OWNER_INSTRUCTION: 2026-09-10T20:01+04:00 exact command "proceed next"; bounded progression used to re-ground Phase 1 before Phase 2
+OWNER_INSTRUCTION: 2026-09-10T20:28:53+04:00 exact command "proceed next"; bounded progression completed EP-0008 sync and Phase 2 implementation
 QUESTION_SET_ID: QS-CSVRC-1181-0001
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
 QUESTION_SET_STATUS: CURRENT
@@ -57,17 +57,18 @@ HANDOVER_VALIDATION_STATUS: CURRENT_HEAD_NOT_RUN
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_READY: TRUE_WITH_EXACT_HEAD_NOT_RUN_DISCLOSURE
 MATERIAL_HISTORY_ROOT_BASE: 4bc8bdbe0e8552e91a29d67e97931b6bbac8b0a3
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0007.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0008.md
 INPUT_STATUS: INPUT001_002_003_004_005_AVAILABLE
 OWNER_BENCHMARK: benchmarks/R2.zip -> benchmarks/R3.zip
 BENCHMARK_PHASE1_PRIOR_EVIDENCE: PASS; run 34499007825; expected=1 detected=1 TP=1 FP=0 FN=0 precision=1 recall=1 F1=1
 BENCHMARK_CURRENT_HEAD: NOT_RUN
-BENCHMARK_PHASE2: NOT_STARTED
+BENCHMARK_PHASE2: IMPLEMENTED_NOT_RUN
 BENCHMARK_PHASE3: NOT_STARTED
 BENCHMARK_PHASE4: NOT_STARTED
 PHASE1_RULES: support-location identity=CIVIL SECONDARY SUPPORT + PIPE; persistent references may prove continuity when PIPE changes; PREV NAME weighted corroboration only; known SIZE/BORE mismatch rejects approximation; coordinates weighted only with >=3 anchors and >=2 validated axes; R3 remarks oracle-only; HOLD excluded
+PHASE2_RULES: relocation is state after accepted XML lineage; requires ACTUAL_POSITION_CHANGED under trusted frame with >=3 anchors and >=2 validated axes; common anchor also requires persistent-ref continuity; raw sign/text change and under-anchored movement do not emit relocation; renderer token=Relocated Support; Phase1 metrics gate Phase2 benchmark
 STALE_QUALIFICATION_BRANCH: issue-1181-phase1-weighted-lineage / PR #1187 is evidence-only and not a delivery merge vehicle
-ENVIRONMENT_LIMITATION: exact PR #1188 head has no PR workflow run and connector exposes no dispatch action; workflow files not modified without owner authorization
+ENVIRONMENT_LIMITATION: PR #1188 material head has zero status checks/workflow runs; connector exposes no dispatch action; local checkout unavailable because raw GitHub DNS resolution fails; workflow files not modified without owner authorization
 LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but no repository-local backup/.agent-worklogs artifacts
 PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT; MERGEABLE_TRUE; merge unauthorized
-EXACT_NEXT_ACTION: bounded progression complete and Issue control plane IN_SYNC. On the next exact "proceed next", begin Phase 2 Support location change from PR #1188 while preserving the Phase 1 gate.
+EXACT_NEXT_ACTION: bounded progression complete and Issue control plane IN_SYNC. Subsequent material progression must first obtain executable Phase 1+2 R2/R3 validation; do not begin Phase 3 or modify workflow files without resolving that validation path/authority.
