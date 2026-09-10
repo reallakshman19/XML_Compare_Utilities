@@ -2,7 +2,7 @@ ISSUE_CURRENT_STATE_VERSION: 1
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0005
-UPDATED_AT: 2026-09-10T09:51:27Z
+UPDATED_AT: 2026-09-10T09:55:00Z
 
 # Original task / acceptance ledger
 
@@ -62,8 +62,9 @@ LEG001_VALIDATION: NOT_RUN
 LEG002_VALIDATION: NOT_RUN
 LEG003_VALIDATION: NOT_RUN
 LEG004_VALIDATION: NOT_RUN
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0005_PUBLICATION
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0005_PUBLICATION
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616676348
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CONTROL_PLANE_DEVIATION: LEG-003 late mutable Active Issue synchronization recorded in LEG-003 receipt; corrected before EP-0004
 ENVIRONMENT_LIMITATION: raw network cannot resolve github.com, so local clone, repository backup/worklog generation and Node execution unavailable in this session
-EXACT_NEXT_ACTION: publish/synchronize EP-CSVRC-0005, then re-ground current main and Utilities UI authority before LEG-005; do not merge.
+EXACT_NEXT_ACTION: re-ground current main and Utilities UI authority (`tabs/psnm-utility-tab.js` plus existing installer/revision-compare UI patterns) before LEG-005; do not merge.
