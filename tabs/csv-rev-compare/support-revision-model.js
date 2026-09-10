@@ -1,10 +1,11 @@
 import { graphChildren } from '../../xml-compare/table-categorizer/table-categorized-xml-graph-builder.js';
 import { parsePipeIdentity, parseSupportPosition } from './support-revision-normalization.js';
 
-export const SUPPORT_REVISION_MODEL_SCHEMA = 'support-revision-xml-model/v1';
+export const SUPPORT_REVISION_MODEL_SCHEMA = 'support-revision-xml-model/v2-composite-location-identity';
 
 const clean = (value) => String(value ?? '').trim();
 const upper = (value) => clean(value).toUpperCase();
+const normalizeIdentityPart = (value) => upper(value).replace(/\s+/g, ' ');
 
 export function buildSupportRevisionModel(conversion) {
   if (!conversion?.graph) throw new Error('A categorized support-revision graph is required.');
@@ -37,16 +38,20 @@ function buildLocation(graph, source, secondaryNode, locationNode) {
   const rowId = locationNode.sourceRefs?.[0] || '';
   const components = Object.freeze(componentNodes.map((node) => componentFromNode(source, rowId, node)));
   const persistentReferences = Object.freeze([...new Set(components.map((item) => item.reference).filter(Boolean))].sort());
+  const pipe = parsePipeIdentity(pipeNode?.fields?.raw || pipeNode?.key || '');
+  const supportLocationIdentity = compositeSupportLocationIdentity(family, pipe.raw);
   return Object.freeze({
     nodeId: locationNode.id,
     secondaryNodeId: secondaryNode.id,
     sourceRowId: rowId,
     family,
     familyClass: familyClass(family),
+    supportLocationIdentity,
+    supportLocationIdentityRaw: clean(locationNode.fields?.supportLocationIdentity || `${family}||${pipe.raw}`),
     legacyIdentity: clean(locationNode.fields?.legacyIdentity || secondaryNode.fields?.legacyIdentity),
     scope: clean(locationNode.fields?.scope),
     size: clean(locationNode.fields?.size),
-    pipe: parsePipeIdentity(pipeNode?.fields?.raw || pipeNode?.key || ''),
+    pipe,
     position: parseSupportPosition(positionNode?.fields || {}),
     components,
     persistentReferences,
@@ -55,6 +60,10 @@ function buildLocation(graph, source, secondaryNode, locationNode) {
     sourceFields: Object.freeze({ ...(locationNode.fields || {}) }),
     provenance: Object.freeze({ locationNodeId: locationNode.id, secondaryNodeId: secondaryNode.id, sourceRowId: rowId, cells: locationCellRefs(source, rowId) }),
   });
+}
+
+export function compositeSupportLocationIdentity(civilSecondarySupport, pipeRaw) {
+  return `${normalizeIdentityPart(civilSecondarySupport)}||${normalizeIdentityPart(pipeRaw)}`;
 }
 
 function componentFromNode(source, rowId, node) {
@@ -106,4 +115,4 @@ function cellRefs(source, rowId, header) {
   return Object.freeze((source.headers || []).flatMap((candidate, index) => candidate === header ? [`${rowId}:${source.columnIds?.[index] || header}`] : []));
 }
 
-export const _test = Object.freeze({ normalizeReference, memberFamily, familyClass, cellRefs });
+export const _test = Object.freeze({ normalizeReference, memberFamily, familyClass, cellRefs, normalizeIdentityPart });

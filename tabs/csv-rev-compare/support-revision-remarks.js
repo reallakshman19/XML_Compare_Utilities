@@ -5,6 +5,7 @@ export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
     'PREVIOUS_FAMILY_LINE',
+    'LINE_NUMBER_CHANGE',
     'COMMON_REPLICATED',
     'COMMON_RELOCATED',
     'SUPPORT_TYPE_CHANGES',
@@ -37,6 +38,9 @@ function projectEvent(event, sourceModel, targetModel) {
   if (event.type === 'LOAD_SIGNATURE_CHANGED' && target) return [token('target', target.sourceRowId, 'LOAD_CHANGE', 'Load change')];
   if (event.type === 'SUPPORT_LOCATION_REMOVED' && source) return [token('source', source.sourceRowId, 'REMOVED_UNSUPPORTED', 'Invalid Support, This pipe no longer supported')];
   if (event.type === 'SECONDARY_SUPPORT_FAMILY_CHANGED' && source && target) return familyChangeTokens(event, source, target);
+  if (event.type === 'PIPE_IDENTITY_CHANGED' && event.normalizedState?.projection === 'LINE_NUMBER_CHANGE' && source && target) {
+    return [token('target', target.sourceRowId, 'LINE_NUMBER_CHANGE', `Line No. Change(Old Line No. ${source.pipe.raw})`)];
+  }
   return [];
 }
 

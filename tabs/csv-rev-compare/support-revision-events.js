@@ -23,12 +23,10 @@ function noSuccessorEvent(id, sourceModel, lineage, makeEvent) {
   const candidateIds = candidateEvidenceIds(lineage, 'source', id);
   return makeEvent('SUPPORT_LOCATION_REMOVED', sourceModel.locationByNodeId.get(id), null, null, { remarkEligible: true, matchingMethod: 'candidate-exhaustion', candidateIds, reasonCodes: ['NO_LINEAGE_SUCCESSOR'] });
 }
-
 function noPredecessorEvent(id, targetModel, lineage, makeEvent) {
   const candidateIds = candidateEvidenceIds(lineage, 'target', id);
   return makeEvent('SUPPORT_LOCATION_ADDED', null, targetModel.locationByNodeId.get(id), null, { remarkEligible: false, matchingMethod: 'candidate-exhaustion', candidateIds, reasonCodes: ['NO_LINEAGE_PREDECESSOR'] });
 }
-
 function candidateEvidenceIds(lineage, side, nodeId) {
   const field = side === 'target' ? 'targetNodeId' : 'sourceNodeId';
   return Object.freeze((lineage?.candidates || []).filter((item) => item[field] === nodeId).map((item) => item.candidateId));
@@ -47,10 +45,18 @@ function eventsForEdge(edge, sourceModel, targetModel, makeEvent, loadPolicy) {
 function compareOneToOne(source, target, edge, makeEvent, loadPolicy) {
   if (!source || !target) return [];
   const events = [];
-  if (upper(source.family) !== upper(target.family)) events.push(makeEvent('SECONDARY_SUPPORT_FAMILY_CHANGED', source, target, edge, { remarkEligible: true, normalizedState: { beforeFamily: source.family, afterFamily: target.family }, reasonCodes: ['PROVEN_LINEAGE_DIFFERENT_FAMILY'] }));
+  const familyChanged = upper(source.family) !== upper(target.family);
+  if (familyChanged) events.push(makeEvent('SECONDARY_SUPPORT_FAMILY_CHANGED', source, target, edge, { remarkEligible: true, normalizedState: { beforeFamily: source.family, afterFamily: target.family }, reasonCodes: ['PROVEN_LINEAGE_DIFFERENT_FAMILY'] }));
   if (source.familyClass && target.familyClass && upper(source.familyClass) !== upper(target.familyClass)) events.push(makeEvent('SECONDARY_FAMILY_CLASS_CHANGED', source, target, edge, { remarkEligible: false, normalizedState: { beforeClass: source.familyClass, afterClass: target.familyClass } }));
   const pipeChanges = pipeTokenChanges(source.pipe, target.pipe);
-  if (pipeChanges.length) events.push(makeEvent('PIPE_IDENTITY_CHANGED', source, target, edge, { remarkEligible: false, normalizedState: { before: source.pipe.normalizedFull, after: target.pipe.normalizedFull, tokenChanges: pipeChanges } }));
+  if (pipeChanges.length) {
+    const lineIdentityChanged = !familyChanged && edge.outcome === 'DETERMINISTIC' && upper(source.pipe?.normalizedCore) !== upper(target.pipe?.normalizedCore);
+    events.push(makeEvent('PIPE_IDENTITY_CHANGED', source, target, edge, {
+      remarkEligible: lineIdentityChanged,
+      normalizedState: { before: source.pipe.normalizedFull, after: target.pipe.normalizedFull, tokenChanges: pipeChanges, projection: lineIdentityChanged ? 'LINE_NUMBER_CHANGE' : 'AUDIT_ONLY' },
+      reasonCodes: lineIdentityChanged ? ['PROVEN_LINEAGE_PIPE_IDENTITY_CHANGED','LINE_NUMBER_CHANGE'] : ['PIPE_TOKEN_DELTA_AUDIT_ONLY'],
+    }));
+  }
   events.push(...compareComponents(source, target, edge, makeEvent));
   events.push(...compareLoads(source, target, edge, makeEvent, loadPolicy));
   events.push(...suppressedFieldEvents(source, target, edge, makeEvent));

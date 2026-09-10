@@ -10,8 +10,8 @@ const clean = (value) => String(value ?? '').trim();
 export function normalizeLoadVector(loadNodes = []) {
   const slots = Object.freeze(loadNodes.map((node) => normalizeSlot(node)));
   const nonEmpty = slots.filter((slot) => slot.raw !== '').length;
-  const numeric = slots.filter((slot) => slot.value != null).length;
-  const state = nonEmpty === 0 ? 'EMPTY' : numeric === slots.length ? 'NUMERIC' : numeric === 0 ? 'SYMBOLIC' : 'MIXED';
+  const numeric = slots.filter((slot) => slot.raw !== '' && slot.value != null).length;
+  const state = nonEmpty === 0 ? 'EMPTY' : numeric === nonEmpty ? 'NUMERIC' : numeric === 0 ? 'SYMBOLIC' : 'MIXED';
   return Object.freeze({ state, slots });
 }
 
@@ -44,7 +44,6 @@ function loadDeltas(before, after, policy) {
   const b = new Map(after.slots.map((slot) => [slotKey(slot), slot]));
   return Object.freeze([...new Set([...a.keys(), ...b.keys()])].map((key) => compareSlot(key, a.get(key), b.get(key), policy)));
 }
-
 function compareSlot(key, before, after, policy) {
   const delta = before?.value != null && after?.value != null ? after.value - before.value : null;
   const scale = Math.max(Math.abs(before?.value || 0), Math.abs(after?.value || 0), 1);
@@ -52,7 +51,6 @@ function compareSlot(key, before, after, policy) {
   const equal = delta != null ? Math.abs(delta) <= tolerance : clean(before?.raw) === clean(after?.raw);
   return Object.freeze({ slotKey: key, before: before || null, after: after || null, delta, tolerance, equal });
 }
-
 function slotKey(slot) { return `${slot.sourceHeader.toUpperCase()}#${slot.ordinal}`; }
 function rawSignature(vector) { return vector.slots.map((slot) => `${slotKey(slot)}=${slot.raw}`).join('|'); }
 function result(classification, before, after, deltas) { return Object.freeze({ classification, before, after, deltas }); }

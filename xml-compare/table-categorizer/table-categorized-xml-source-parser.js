@@ -1,4 +1,4 @@
-export const TABLE_CATEGORIZED_XML_SOURCE_PARSER_SCHEMA='table-categorized-xml-source-parser/v2-engine-hardening';
+export const TABLE_CATEGORIZED_XML_SOURCE_PARSER_SCHEMA='table-categorized-xml-source-parser/v3-multiline-csv';
 
 const DELIMITER_CANDIDATES=Object.freeze([
   {id:'tab',label:'tab'},
@@ -13,9 +13,9 @@ const isBlank=(line)=>cleanLine(line).trim()==='';
 
 export function parseTableSource(text,options={}){
   const cfg=sourceConfig(options);
-  const lines=String(text??'').replace(/^\uFEFF/,'').split('\n').map(cleanLine);
-  const contentLines=lines.filter((line)=>!isBlank(line));
-  const blankRowsSkipped=lines.length-contentLines.length;
+  const records=splitLogicalRecords(String(text??'').replace(/^\uFEFF/,''));
+  const contentLines=records.filter((line)=>!isBlank(line));
+  const blankRowsSkipped=records.length-contentLines.length;
   if(!contentLines.length)return emptySource(cfg,blankRowsSkipped);
   const delimiter=resolveDelimiter(contentLines,cfg.delimiterMode,cfg.customDelimiter);
   const parsedLines=contentLines.map((line)=>splitTableLine(line,delimiter.id));
@@ -40,6 +40,30 @@ export function splitTableLine(line,delimiter){
 }
 export function buildSourceSummary(source){const headers=Array.isArray(source?.headers)?source.headers:[];const rows=Array.isArray(source?.rows)?source.rows:[];const warnings=(source?.diagnostics||[]).filter((d)=>d.severity==='WARNING').length;const errors=(source?.diagnostics||[]).filter((d)=>d.severity==='ERROR').length;return Object.freeze({sourceId:String(source?.sourceId||''),sourceName:String(source?.sourceName||''),rows:rows.length,columns:headers.length,status:errors?'Error':warnings?'Parsed with warnings':'Parsed'});}
 
+function splitLogicalRecords(text){
+  const input=String(text??'');
+  const records=[];
+  let record='';
+  let quoted=false;
+  for(let index=0;index<input.length;index+=1){
+    const char=input[index],next=input[index+1];
+    if(char==='"'){
+      record+=char;
+      if(quoted&&next==='"'){record+=next;index+=1;continue;}
+      quoted=!quoted;
+      continue;
+    }
+    if((char==='\n'||char==='\r')&&!quoted){
+      if(char==='\r'&&next==='\n')index+=1;
+      records.push(record);
+      record='';
+      continue;
+    }
+    record+=char;
+  }
+  if(record!==''||!records.length)records.push(record);
+  return records.map(cleanLine);
+}
 function sourceConfig(options){const requested=String(options.delimiterMode||options.delimiter||'auto');const safe=DELIMITER_MODES.has(requested)?requested:'auto';return Object.freeze({sourceId:String(options.sourceId||'S1'),sourceName:String(options.sourceName||'Pasted Source 1'),sourceType:String(options.sourceType||'pasteText'),firstRowIsHeader:options.firstRowIsHeader!==false,delimiterMode:safe,requestedDelimiter:requested,customDelimiter:String(options.customDelimiter||'')});}
 function emptySource(cfg,blankRowsSkipped){return Object.freeze({sourceId:cfg.sourceId,sourceName:cfg.sourceName,sourceType:cfg.sourceType,delimiter:'none',delimiterMode:cfg.delimiterMode,delimiterLabel:'none',headers:Object.freeze([]),columnIds:Object.freeze([]),rows:Object.freeze([]),diagnostics:Object.freeze([diagnostic('ERROR','empty_input','No table text was provided.'),diagnostic('INFO','blank_rows_skipped',`${blankRowsSkipped} blank row(s) skipped.`,{blankRowsSkipped})])});}
 function resolveDelimiter(lines,mode,custom=''){if(mode==='custom'&&custom)return Object.freeze({id:custom,label:`Custom (${custom})`,override:true});if(mode&&mode!=='auto'&&mode!=='custom')return Object.freeze({...DELIMITER_CANDIDATES.find((item)=>item.id===mode),override:true});return detectBestDelimiter(lines);}
@@ -58,3 +82,5 @@ function invalidDelimiterDiagnostic(args){return args.requestedDelimiter===args.
 function duplicateHeaderDiagnostics(headers,columnIds){const seen=new Set();return headers.flatMap((header)=>{if(!seen.has(header)){seen.add(header);return [];}return [diagnostic('WARNING','duplicate_header_preserved',`Duplicate header preserved: ${header}.`,{header,columnIds:columnIds.filter((id,index)=>headers[index]===header)})];});}
 function columnCountDiagnostics(headers,rows){return rows.flatMap((row,index)=>row.rawCells.length===headers.length?[]:[diagnostic('WARNING',`row_${index+1}_column_count_mismatch`,`Row ${index+1} has ${row.rawCells.length} cell(s); expected ${headers.length}.`,{rowId:row.rowId,expected:headers.length,actual:row.rawCells.length})]);}
 function diagnostic(severity,code,message,details={}){return Object.freeze({severity,code,message,details:Object.freeze({...details})});}
+
+export const _test=Object.freeze({splitLogicalRecords});
