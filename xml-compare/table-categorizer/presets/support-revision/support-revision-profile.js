@@ -144,14 +144,12 @@ export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
                   displayName: 'PrimarySupport',
                   levelType: 'feature',
                   creationMode: 'many-per-row',
-                  delimiter: /\s*,\s*/,
+                  delimiter: ',',
                   listResolver: trim('PIPING PRIMARY SUPPORT'),
                   parallelListResolvers: Object.freeze({
+                    memberId: trim('PIPING PRIMARY SUPPORT'),
                     supportType: trim('SUPPORT TYPE'),
                     reference: trim('PIPING PRIMARY SUPPORT REFERENCE'),
-                  }),
-                  fieldResolvers: Object.freeze({
-                    memberId: { op: 'literal', value: '' },
                   }),
                   children: Object.freeze([]),
                 }),
