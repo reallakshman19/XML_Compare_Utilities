@@ -86,6 +86,7 @@ PHASE3_QUALIFICATION: NOT_STARTED
 QUESTION_SET: QS-CSVRC-1181-0001 CURRENT / REUSED
 QUALIFICATION_SCOPE: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0012_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5623990967
+ISSUE_HANDOVER_SYNC_STATUS: SYNCED_EP0012
 ENVIRONMENT_LIMITATION: local checkout cannot resolve github.com; successful execution was obtained through existing qualification-only workflow without workflow mutation
 EXACT_NEXT_ACTION: stop at Phase 2. Await a new explicit Owner progression command before beginning Phase 3 `Load change`; before any Phase-3 production mutation, establish the required v2 pre-work endpoint and Issue checkpoint. Do not merge PR #1188 without explicit Owner merge authority.
