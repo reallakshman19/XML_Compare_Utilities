@@ -1,13 +1,14 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
-import {
-  parseSupportReportClashXml,
-} from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js';
+import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js';
 import {
   buildSupportReportTypicalityComparison,
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
 } from '../tabs/support-steel-relationship-builder/support-report-typicality-projection.js';
+import {
+  buildTypicalityLocationAssignment,
+} from '../tabs/support-steel-relationship-builder/support-report-typicality-location.js';
 import { extractStructuralFamilyFeatures } from '../tabs/support-steel-relationship-builder/support-report-typicality.js';
 
 const [leftRoot, rightRoot, outputPath = '/tmp/typicality-zip-benchmark.json'] = process.argv.slice(2);
@@ -34,8 +35,7 @@ function signal(comparison, code) {
 }
 
 function loadXml(path, root) {
-  const text = readFileSync(path, 'utf8');
-  const evidence = parseSupportReportClashXml(text);
+  const evidence = parseSupportReportClashXml(readFileSync(path, 'utf8'));
   const report = buildSupportReportBundle({ clashEvidence: evidence });
   const families = extractStructuralFamilyFeatures(evidence);
   return {
@@ -56,6 +56,11 @@ function loadXml(path, root) {
   };
 }
 
+function familyDigits(id) {
+  const match = String(id || '').match(/^([A-Z]+)-(\d+)$/u);
+  return match ? { prefix: match[1], digits: match[2], trailing3: match[2].slice(-3) } : null;
+}
+
 function selectedPairSummary(pair) {
   const sequence = pair?.signals?.structuredSequence || {};
   return {
@@ -67,12 +72,10 @@ function selectedPairSummary(pair) {
     assignmentCost1d: pair.assignmentCost1d ?? null,
     firstPassingDimension: sequence.firstPassingDimension || null,
     supportTypeResult: pair.supportTypeComparison?.result || 'UNAVAILABLE',
-    supportTypeReasonCodes: pair.supportTypeComparison?.reasonCodes || [],
     memberOrdinalResult: pair.signals?.memberOrdinalPattern?.result || 'UNAVAILABLE',
     memberOrdinalSimilarity: pair.signals?.memberOrdinalPattern?.similarity ?? null,
     prevNameClass: pair.signals?.previousNamePattern?.class || 'UNAVAILABLE',
     prevNameSimilarity: pair.signals?.previousNamePattern?.similarity ?? null,
-    prevNameMask: pair.signals?.previousNamePattern?.wildcardMask || '',
     pipeClassReasonCode: pair.signals?.pipeClass?.reasonCode || '',
     geometryResidual: pair.signals?.geometry?.residual || null,
   };
@@ -88,7 +91,6 @@ function summarizeComparison(left, right) {
     `${item.leftFamilyId}\u0000${item.rightFamilyId}`,
     item,
   ]));
-
   return {
     leftXml: left.name,
     rightXml: right.name,
@@ -112,19 +114,67 @@ function summarizeComparison(left, right) {
         selectedPairs: (assignment?.selectedAssignments || []).map(selectedPairSummary),
       };
     }),
-    familyComparisons: (audit.familyComparisons || []).map((comparison) => ({
-      leftFamilyId: comparison.leftFamilyId,
-      rightFamilyId: comparison.rightFamilyId,
-      result: comparison.result,
-      reasonCode: comparison.reasonCode,
-      geometryCostMm: comparison.geometryCostMm,
-      locationCount: signal(comparison, 'STRUCT_LOCATION_COUNT_EQUAL')?.result || null,
-      memberMultiplicity: signal(comparison, 'STRUCT_MEMBER_MULTIPLICITY_EQUAL')?.result || null,
-      pipeClassPopulation: signal(comparison, 'STRUCT_PIPE_CLASS_POPULATION_EQUAL')?.result || null,
-      rawPointCount: signal(comparison, 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL')?.result || null,
-      envelopeResidualMm: signal(comparison, 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE')?.residual ?? null,
-      pairDistanceResidualMm: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.residual || null,
-    })),
+    familyComparisons: (audit.familyComparisons || []).map((comparison) => {
+      const summary = {
+        leftFamilyId: comparison.leftFamilyId,
+        rightFamilyId: comparison.rightFamilyId,
+        result: comparison.result,
+        reasonCode: comparison.reasonCode,
+        geometryCostMm: comparison.geometryCostMm,
+        locationCount: signal(comparison, 'STRUCT_LOCATION_COUNT_EQUAL')?.result || null,
+        memberMultiplicity: signal(comparison, 'STRUCT_MEMBER_MULTIPLICITY_EQUAL')?.result || null,
+        pipeClassPopulation: signal(comparison, 'STRUCT_PIPE_CLASS_POPULATION_EQUAL')?.result || null,
+        rawPointCount: signal(comparison, 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL')?.result || null,
+        envelope: signal(comparison, 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE')?.result || null,
+        envelopeResidualMm: signal(comparison, 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE')?.residual ?? null,
+        pairDistance: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.result || null,
+        pairDistanceResidualMm: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.residual || null,
+      };
+      summary.exactTopologyPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation, summary.rawPointCount]
+        .filter((value) => value === 'PASS').length;
+      summary.allSignalPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation,
+        summary.rawPointCount, summary.envelope, summary.pairDistance].filter((value) => value === 'PASS').length;
+      const l = familyDigits(summary.leftFamilyId);
+      const r = familyDigits(summary.rightFamilyId);
+      summary.sameTrailing3 = Boolean(l && r && l.prefix === r.prefix && l.trailing3 === r.trailing3);
+      return summary;
+    }),
+  };
+}
+
+function locationDiagnostic(left, right, familyComparison) {
+  const assignment = buildTypicalityLocationAssignment(left.evidence, right.evidence, {
+    leftFamilyId: familyComparison.leftFamilyId,
+    rightFamilyId: familyComparison.rightFamilyId,
+    parentAuditId: `ZIP-${familyComparison.leftFamilyId}--${familyComparison.rightFamilyId}`,
+    leftReportBundle: left.report,
+    rightReportBundle: right.report,
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
+  });
+  const selected = assignment.selectedAssignments || [];
+  const supportTypeExact = selected.filter((pair) => pair.supportTypeComparison?.result === 'EXACT').length;
+  const supportTypePartial = selected.filter((pair) => pair.supportTypeComparison?.result === 'PARTIAL').length;
+  const supportTypeUnavailable = selected.filter((pair) => pair.supportTypeComparison?.result === 'UNAVAILABLE').length;
+  const memberExact = selected.filter((pair) => pair.signals?.memberOrdinalPattern?.result === 'EXACT').length;
+  const dimensions = Object.fromEntries(['3D', '2D', '1D'].map((dimension) => [dimension,
+    selected.filter((pair) => pair.signals?.structuredSequence?.firstPassingDimension === dimension).length]));
+  return {
+    ...familyComparison,
+    locationAssignment: {
+      result: assignment.result,
+      correspondenceStatus: assignment.correspondenceStatus,
+      matchingMode: assignment.matchingMode,
+      selectedCount: selected.length,
+      unmatchedLeftCount: assignment.unmatchedLeftLocationIds.length,
+      unmatchedRightCount: assignment.unmatchedRightLocationIds.length,
+      ambiguousCount: assignment.ambiguousLocationIds.length,
+      supportTypeExact,
+      supportTypePartial,
+      supportTypeUnavailable,
+      memberOrdinalExact: memberExact,
+      firstPassingDimensions: dimensions,
+      dimensionalEvidence: assignment.dimensionalEvidence,
+    },
   };
 }
 
@@ -139,8 +189,27 @@ for (const left of leftFiles) {
   for (const right of rightFiles) comparisons.push(summarizeComparison(left, right));
 }
 
+const firstLeft = leftFiles[0];
+const firstRight = rightFiles[0];
+const allFamilyComparisons = comparisons.flatMap((comparison) => comparison.familyComparisons);
+const rank = (a, b) => b.exactTopologyPassCount - a.exactTopologyPassCount
+  || b.allSignalPassCount - a.allSignalPassCount
+  || (Number(a.geometryCostMm) || Number.MAX_SAFE_INTEGER) - (Number(b.geometryCostMm) || Number.MAX_SAFE_INTEGER)
+  || a.leftFamilyId.localeCompare(b.leftFamilyId)
+  || a.rightFamilyId.localeCompare(b.rightFamilyId);
+const topNear = [...allFamilyComparisons].sort(rank).slice(0, 30);
+const sameTrailing3 = allFamilyComparisons.filter((item) => item.sameTrailing3).sort(rank);
+const diagnosticSeed = [...new Map([...sameTrailing3.slice(0, 30), ...topNear]
+  .map((item) => [`${item.leftFamilyId}\u0000${item.rightFamilyId}`, item])).values()].slice(0, 40);
+const locationDiagnostics = diagnosticSeed.map((item) => locationDiagnostic(firstLeft, firstRight, item));
+
+const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.allSignalPassCount === count).length]));
+const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.exactTopologyPassCount === count).length]));
+
 const result = {
-  schema: 'SupportReportTypicalityZipBenchmark.v1',
+  schema: 'SupportReportTypicalityZipBenchmark.v2',
   profileId: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.profileId,
   leftArchive: basename(leftRoot),
   rightArchive: basename(rightRoot),
@@ -149,15 +218,32 @@ const result = {
   leftInventory: leftFiles.map(({ name, familyInventory }) => ({ name, familyInventory })),
   rightInventory: rightFiles.map(({ name, familyInventory }) => ({ name, familyInventory })),
   comparisons,
+  diagnostics: {
+    familyComparisonCount: allFamilyComparisons.length,
+    acceptedStructuralCount: allFamilyComparisons.filter((item) => item.result === 'TYPICAL').length,
+    sameTrailing3CandidateCount: sameTrailing3.length,
+    allSignalPassHistogram: passHistogram,
+    exactTopologyPassHistogram: topologyHistogram,
+    topNearCandidates: topNear,
+    topSameTrailing3Candidates: sameTrailing3.slice(0, 40),
+    locationDiagnostics,
+  },
 };
 
 writeFileSync(outputPath, `${JSON.stringify(result, null, 2)}\n`);
-console.log(`ZIP_BENCHMARK_SUMMARY=${JSON.stringify({
+console.log(`ZIP_BENCHMARK_DIAGNOSTICS=${JSON.stringify({
+  schema: result.schema,
   profileId: result.profileId,
   leftXmlCount: result.leftXmlCount,
   rightXmlCount: result.rightXmlCount,
-  leftFamilies: result.leftInventory.flatMap((x) => x.familyInventory.map((f) => f.familyId)),
-  rightFamilies: result.rightInventory.flatMap((x) => x.familyInventory.map((f) => f.familyId)),
-  accepted: comparisons.flatMap((c) => c.familyMatches.filter((m) => m.result === 'TYPICAL').map((m) => ({ leftXml: c.leftXml, rightXml: c.rightXml, ...m }))),
-  reviewOrAmbiguous: comparisons.flatMap((c) => c.familyMatches.filter((m) => ['REVIEW', 'AMBIGUOUS'].includes(m.result)).map((m) => ({ leftXml: c.leftXml, rightXml: c.rightXml, ...m }))),
+  leftFamilyCount: result.leftInventory.reduce((sum, x) => sum + x.familyInventory.length, 0),
+  rightFamilyCount: result.rightInventory.reduce((sum, x) => sum + x.familyInventory.length, 0),
+  familyComparisonCount: result.diagnostics.familyComparisonCount,
+  acceptedStructuralCount: result.diagnostics.acceptedStructuralCount,
+  sameTrailing3CandidateCount: result.diagnostics.sameTrailing3CandidateCount,
+  allSignalPassHistogram: result.diagnostics.allSignalPassHistogram,
+  exactTopologyPassHistogram: result.diagnostics.exactTopologyPassHistogram,
+  topNearCandidates: result.diagnostics.topNearCandidates.slice(0, 20),
+  topSameTrailing3Candidates: result.diagnostics.topSameTrailing3Candidates.slice(0, 20),
+  locationDiagnostics: result.diagnostics.locationDiagnostics.slice(0, 25),
 })}`);
