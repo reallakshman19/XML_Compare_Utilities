@@ -1,6 +1,6 @@
 import { coordinateDelta, solveRevisionCoordinateFrame, SUPPORT_REV_COMPARE_POLICY_V1 } from './support-revision-normalization.js';
 
-export const SUPPORT_REVISION_LINEAGE_SCHEMA = 'support-revision-lineage/v2-composite-location-identity';
+export const SUPPORT_REVISION_LINEAGE_SCHEMA = 'support-revision-lineage/v3-location-first';
 export const LINEAGE_OUTCOMES = Object.freeze(['DETERMINISTIC', 'LIKELY', 'AMBIGUOUS', 'NO_MATCH']);
 
 const clean = (value) => String(value ?? '').trim();
@@ -12,11 +12,18 @@ export function buildSupportRevisionLineage(sourceModel, targetModel, options = 
   const sourceClusters = detectCommonSupportClusters(sourceModel);
   const targetClusters = detectCommonSupportClusters(targetModel);
   const candidates = buildCandidateLedger(sourceModel, targetModel, policy);
+
+  // Common-support topology remains higher-order structural evidence. Outside
+  // those clusters, the owner-defined logical location identity (Civil + PIPE)
+  // is bound before component-reference fallback. Persistent references are
+  // component identity and must not steal a target from its exact location.
   const structural = buildStructuralEdges(sourceModel, targetModel, sourceClusters, targetClusters, candidates);
   const usedSource = new Set(structural.edges.flatMap((edge) => edge.sourceNodeIds));
   const usedTarget = new Set(structural.edges.flatMap((edge) => edge.targetNodeIds));
+  const exact = buildExactLocationEdges(sourceModel, targetModel, candidates, usedSource, usedTarget);
   const ordinary = buildOrdinaryEdges(sourceModel, targetModel, candidates, usedSource, usedTarget, policy);
-  const edges = [...structural.edges, ...ordinary.edges];
+  const edges = [...structural.edges, ...exact.edges, ...ordinary.edges];
+
   const anchorPairs = edges.flatMap((edge) => edge.cardinality === '1->1' && edge.outcome === 'DETERMINISTIC' && edge.persistentReferences.length
     ? [{ source: sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]), target: targetModel.locationByNodeId.get(edge.targetNodeIds[0]) }]
     : []);
@@ -26,7 +33,9 @@ export function buildSupportRevisionLineage(sourceModel, targetModel, options = 
   const matchedTarget = new Set(enrichedEdges.flatMap((edge) => edge.targetNodeIds));
   const removed = Object.freeze(sourceModel.locations.filter((location) => !matchedSource.has(location.nodeId)).map((location) => location.nodeId));
   const added = Object.freeze(targetModel.locations.filter((location) => !matchedTarget.has(location.nodeId)).map((location) => location.nodeId));
-  const ambiguous = Object.freeze(candidates.filter((candidate) => candidate.outcome === 'AMBIGUOUS'));
+  const ambiguous = Object.freeze(candidates.filter((candidate) => candidate.outcome === 'AMBIGUOUS'
+    && !matchedSource.has(candidate.sourceNodeId)
+    && !matchedTarget.has(candidate.targetNodeId)));
   return Object.freeze({
     schema: SUPPORT_REVISION_LINEAGE_SCHEMA,
     policyId: policy.policyId,
@@ -145,9 +154,9 @@ function scoreCandidate(source, target, policy) {
   else if (sameLine) { score += 10; reasonCodes.push('PIPE_LINE_EQUAL'); }
   if (sameFamily) { score += 8; reasonCodes.push('SECONDARY_FAMILY_EQUAL'); }
   if (provisionalDistance != null && provisionalDistance <= policy.candidate.coordinateNearMm) { score += 6; reasonCodes.push('COORDINATE_NEAR_PRE_FRAME'); }
-  const method = exactReferenceSet ? 'persistent-reference-set'
-    : sharedReferences.length ? 'persistent-reference-overlap'
-      : sameSupportLocationIdentity ? 'civil-pipe-location-identity'
+  const method = sameSupportLocationIdentity ? 'civil-pipe-location-identity'
+    : exactReferenceSet ? 'persistent-reference-set'
+      : sharedReferences.length ? 'persistent-reference-overlap'
         : sameLegacy && samePipeCore ? 'legacy-pipe-structure'
           : samePipeCore ? 'pipe-structure'
             : 'structural-score';
@@ -163,6 +172,16 @@ function scoreCandidate(source, target, policy) {
 }
 
 function candidateOutcome(top, second, policy) {
+  if (!top || top.score < policy.candidate.likelyScore) return 'NO_MATCH';
+  const deterministicEvidence = top.reasonCodes.includes('PERSISTENT_REFERENCE_SET_EXACT')
+    || top.reasonCodes.includes('PERSISTENT_REFERENCE_OVERLAP')
+    || top.reasonCodes.includes('SUPPORT_LOCATION_IDENTITY_EXACT');
+  const closeCompetitor = second && second.score >= policy.candidate.likelyScore && top.score - second.score <= policy.candidate.ambiguityMargin;
+  if (closeCompetitor) return 'AMBIGUOUS';
+  return deterministicEvidence ? 'DETERMINISTIC' : 'LIKELY';
+}
+
+function candidateLedgerOutcome(top, second, policy) {
   if (!top || top.score < policy.candidate.likelyScore) return 'NO_MATCH';
   const deterministicEvidence = top.reasonCodes.includes('PERSISTENT_REFERENCE_SET_EXACT')
     || top.reasonCodes.includes('PERSISTENT_REFERENCE_OVERLAP')
@@ -230,25 +249,68 @@ function groupLocations(locations) {
   return groups;
 }
 
+function buildExactLocationEdges(sourceModel, targetModel, candidates, usedSource, usedTarget) {
+  const sourceByIdentity = groupByLocationIdentity(sourceModel.locations.filter((location) => !usedSource.has(location.nodeId)));
+  const targetByIdentity = groupByLocationIdentity(targetModel.locations.filter((location) => !usedTarget.has(location.nodeId)));
+  const edges = [];
+  let index = 0;
+  for (const [identity, sourceRows] of sourceByIdentity) {
+    const targetRows = targetByIdentity.get(identity) || [];
+    if (!identity || sourceRows.length !== 1 || targetRows.length !== 1) continue;
+    const source = sourceRows[0], target = targetRows[0];
+    const sharedReferences = intersects(source.persistentReferences, target.persistentReferences).sort();
+    const candidate = candidates.find((item) => item.sourceNodeId === source.nodeId && item.targetNodeId === target.nodeId) || null;
+    usedSource.add(source.nodeId);
+    usedTarget.add(target.nodeId);
+    edges.push(Object.freeze({
+      edgeId: `lineage:location:${String(++index).padStart(4, '0')}`,
+      cardinality: '1->1',
+      sourceNodeIds: Object.freeze([source.nodeId]),
+      targetNodeIds: Object.freeze([target.nodeId]),
+      outcome: 'DETERMINISTIC',
+      matchingMethod: 'civil-pipe-location-identity',
+      reasonCodes: Object.freeze(['SUPPORT_LOCATION_IDENTITY_EXACT']),
+      persistentReferences: Object.freeze(sharedReferences),
+      candidateIds: Object.freeze(candidate ? [candidate.candidateId] : []),
+    }));
+  }
+  return { edges };
+}
+
+function groupByLocationIdentity(locations) {
+  const groups = new Map();
+  for (const location of locations) {
+    const key = upper(location.supportLocationIdentity);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(location);
+  }
+  return groups;
+}
+
 function buildOrdinaryEdges(sourceModel, targetModel, candidates, usedSource, usedTarget, policy) {
   const edges = [];
   let index = 0;
   for (const source of sourceModel.locations) {
     if (usedSource.has(source.nodeId)) continue;
     const rows = candidates.filter((candidate) => candidate.sourceNodeId === source.nodeId && !usedTarget.has(candidate.targetNodeId)).sort((a, b) => b.score - a.score || a.targetNodeId.localeCompare(b.targetNodeId));
-    const top = rows[0];
-    if (!top || top.outcome === 'NO_MATCH' || top.outcome === 'AMBIGUOUS') continue;
+    const top = rows[0], second = rows[1];
+    const resolvedOutcome = candidateLedgerOutcome(top, second, policy);
+    if (!top || resolvedOutcome === 'NO_MATCH' || resolvedOutcome === 'AMBIGUOUS') continue;
     const target = targetModel.locationByNodeId.get(top.targetNodeId);
     if (!target) continue;
-    const sameTargetCandidates = candidates.filter((candidate) => candidate.targetNodeId === target.nodeId && !usedSource.has(candidate.sourceNodeId) && candidate.outcome !== 'NO_MATCH').sort((a, b) => b.score - a.score);
-    if (sameTargetCandidates[0]?.sourceNodeId !== source.nodeId) continue;
-    usedSource.add(source.nodeId); usedTarget.add(target.nodeId);
+    const competing = candidates
+      .filter((candidate) => candidate.targetNodeId === target.nodeId && !usedSource.has(candidate.sourceNodeId))
+      .sort((a, b) => b.score - a.score || a.sourceNodeId.localeCompare(b.sourceNodeId));
+    if (competing[0]?.sourceNodeId !== source.nodeId) continue;
+    usedSource.add(source.nodeId);
+    usedTarget.add(target.nodeId);
     edges.push(Object.freeze({
       edgeId: `lineage:ordinary:${String(++index).padStart(4, '0')}`,
       cardinality: '1->1',
       sourceNodeIds: Object.freeze([source.nodeId]),
       targetNodeIds: Object.freeze([target.nodeId]),
-      outcome: top.outcome,
+      outcome: resolvedOutcome,
       matchingMethod: top.matchingMethod,
       reasonCodes: top.reasonCodes,
       persistentReferences: top.persistentReferences,
@@ -271,4 +333,4 @@ function enrichEdgeCoordinates(edge, sourceModel, targetModel, frame, policy) {
   return Object.freeze({ ...edge, coordinateEvidence: Object.freeze(pairDeltas) });
 }
 
-export const _test = Object.freeze({ commonGroupKey, hasCommonSupportStructure, scoreCandidate, candidateOutcome, rawCoordinateDistance });
+export const _test = Object.freeze({ commonGroupKey, hasCommonSupportStructure, scoreCandidate, candidateOutcome, candidateLedgerOutcome, rawCoordinateDistance, groupByLocationIdentity });
