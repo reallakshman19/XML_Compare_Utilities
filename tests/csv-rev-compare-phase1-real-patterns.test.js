@@ -182,7 +182,7 @@ function sameAreaContext() {
   assert.equal(result.lineage.coordinateFrame.anchorCount, 3);
   assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, true);
   assert.equal(candidate.scorePolicyId, 'SUPPORT_LINEAGE_SCORE_V2');
-  assert.equal(candidate.scorePolicyVersion, '2.1.0');
+  assert.equal(candidate.scorePolicyVersion, '2.2.0');
   assert.equal(prevWeight.contribution, 18);
   assert.equal(boreWeight.contribution, 12);
   assert.equal(coordinateWeight.contribution, 12);
