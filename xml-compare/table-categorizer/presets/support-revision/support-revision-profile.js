@@ -23,10 +23,10 @@ const supportLocationIdentityResolver = () => ({
  * Governed Table-to-Categorized-XML profile for issue #1181.
  *
  * Support-location identity is the composite of Civil Secondary Support + PIPE.
- * The Civil tag remains a grouping parent only; it is never the location key by
- * itself. The profile intentionally preserves source strings as well as semantic
- * pipe tokens. Revision comparison consumes the resulting graph/XML; source rows
- * remain provenance only.
+ * The Civil tag remains a grouping parent only; it is never the logical location
+ * identity by itself. SupportLocation nodes keep row-unique technical graph keys
+ * so duplicate source evidence is preserved for audit/review, while the governed
+ * supportLocationIdentity field carries the engineering identity.
  */
 export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
   schema: 'UniversalCategorizerProfile.v1',
@@ -105,7 +105,6 @@ export const SUPPORT_REVISION_CSV_XML_PROFILE = Object.freeze({
               displayName: 'SupportLocation',
               levelType: 'occurrence',
               creationMode: 'one-per-row',
-              keyResolver: supportLocationIdentityResolver(),
               fieldResolvers: Object.freeze({
                 supportLocationIdentity: supportLocationIdentityResolver(),
                 legacyIdentity: trim('PREV NAME'),
