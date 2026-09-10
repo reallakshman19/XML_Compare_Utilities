@@ -62,10 +62,44 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run Support Steel browser qualification
+        id: browser_test
+        continue-on-error: true
         run: npx playwright test --config=playwright.support-steel.config.mjs
+
+      - name: Print compact Playwright result
+        if: always()
+        run: |
+          if [ -f artifacts/support-steel-browser-results.json ]; then
+            node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('artifacts/support-steel-browser-results.json', 'utf8'));
+          const failures = [];
+          function walk(suite, parents = []) {
+            const path = [...parents, suite.title].filter(Boolean);
+            for (const spec of suite.specs || []) {
+              for (const test of spec.tests || []) {
+                for (const result of test.results || []) {
+                  if (result.status === 'passed' || result.status === 'skipped') continue;
+                  failures.push({
+                    title: [...path, spec.title].join(' > '),
+                    status: result.status,
+                    error: result.error?.message || result.errors?.map((e) => e.message).join('\n') || '',
+                  });
+                }
+              }
+            }
+            for (const child of suite.suites || []) walk(child, path);
+          }
+          for (const suite of data.suites || []) walk(suite);
+          console.log(JSON.stringify({ status: data.status, failures }, null, 2));
+          NODE
+          else
+            echo 'Playwright JSON result missing.'
+          fi
 
       - name: Upload browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: support-report-typicality-browser-evidence
@@ -75,3 +109,7 @@ jobs:
             test-results/support-steel
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Fail when browser qualification failed
+        if: steps.browser_test.outcome != 'success'
+        run: exit 1
