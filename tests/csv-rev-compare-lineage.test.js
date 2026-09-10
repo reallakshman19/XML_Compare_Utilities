@@ -98,14 +98,19 @@ function lineage(rows1, rows2) {
   assert.ok(!result.edges.some((edge) => edge.cardinality === '1->N'));
 }
 
-// Equal fallback evidence on two targets is explicitly ambiguous; the engine must not select a winner.
+// PREV NAME is corroborating evidence only. Duplicate PREV NAME without enough
+// independent evidence must not create a lineage edge or even a review ambiguity.
 {
   const source = row({ 'PREV NAME':'PS-AMB', CIVILSECONDARYSUPPORT:'', 'PIPING PRIMARY SUPPORT':'', 'PIPING PRIMARY SUPPORT REFERENCE':'', 'EAST/WEST':'', 'NORTH/SOUTH':'', 'BOP ELEVATION':'' });
   const targetA = row({ 'PREV NAME':'PS-AMB', CIVILSECONDARYSUPPORT:'SL-X', REVISION:'2', 'PIPING PRIMARY SUPPORT':'', 'PIPING PRIMARY SUPPORT REFERENCE':'', 'EAST/WEST':'', 'NORTH/SOUTH':'', 'BOP ELEVATION':'' });
   const targetB = row({ 'PREV NAME':'PS-AMB', CIVILSECONDARYSUPPORT:'SL-Y', REVISION:'2', 'PIPING PRIMARY SUPPORT':'', 'PIPING PRIMARY SUPPORT REFERENCE':'', 'EAST/WEST':'', 'NORTH/SOUTH':'', 'BOP ELEVATION':'' });
   const { result } = lineage([source], [targetA,targetB]);
-  assert.ok(result.ambiguous.length >= 2);
+  const candidates = result.candidates.filter((candidate) => candidate.reasonCodes.includes('PREV_NAME_EXACT'));
+  assert.equal(result.ambiguous.length, 0);
   assert.equal(result.edges.length, 0);
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every((candidate) => candidate.outcome === 'NO_MATCH'));
+  assert.ok(candidates.every((candidate) => candidate.eligible === false));
 }
 
 console.log('csv-rev-compare lineage tests passed');
