@@ -151,10 +151,14 @@ function familyFeatures(evidence, familyId) {
 }
 
 function collectFamilyIds(evidence) {
-  const ids = [];
-  for (const group of evidence.groups || []) ids.push(group.secondarySupportFamilyId);
-  for (const clash of evidence.rawClashes || []) ids.push(...(clash.familyIds || []));
-  return unique(ids.map(token).filter(Boolean)).sort();
+  // Canonical physical-location groups define which PS/SL structures are comparison candidates.
+  // Raw clash family tokens remain evidence for those candidates, but they may also contain
+  // nested/legacy member-family names (for example /SL-147 under a governed PS-068 group).
+  // Promoting such raw-only tokens creates zero-location ghost families and false audit noise.
+  return unique((evidence.groups || [])
+    .map((group) => token(group.secondarySupportFamilyId))
+    .filter(Boolean))
+    .sort();
 }
 
 function envelopeSignal(left, right, toleranceMm) {

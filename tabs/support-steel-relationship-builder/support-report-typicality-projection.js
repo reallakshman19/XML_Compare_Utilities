@@ -9,7 +9,7 @@ import {
 import {
   buildCanonicalTypicalityLocations,
   buildTypicalityLocationAssignmentsForMatches,
-} from './support-report-typicality-location.js?v=20260910-support-report-typicality-projection-3';
+} from './support-report-typicality-location.js?v=20260910-support-report-structured-sequence-1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
@@ -84,19 +84,24 @@ function resolveFamilyMatch(match, assignment) {
     result: 'REVIEW',
     reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
   });
+  const lineage = {
+    locationAssignmentResult: assignment.result,
+    locationCorrespondenceStatus: assignment.correspondenceStatus,
+    locationMatchingMode: assignment.matchingMode,
+  };
   if (assignment.result === 'AMBIGUOUS') return Object.freeze({
     ...match,
+    ...lineage,
     result: 'AMBIGUOUS',
-    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_AMBIGUOUS',
-    locationAssignmentResult: assignment.result,
+    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_AMBIGUOUS_MATERIAL',
   });
   if (assignment.result === 'PARTIAL') return Object.freeze({
     ...match,
+    ...lineage,
     result: 'REVIEW',
     reasonCode: 'TYPICAL_REVIEW_SUPPORT_CONFIGURATION',
-    locationAssignmentResult: assignment.result,
   });
-  return Object.freeze({ ...match, locationAssignmentResult: assignment.result });
+  return Object.freeze({ ...match, ...lineage });
 }
 
 function withLocationRowAliases(reportBundle, evidence) {
@@ -127,11 +132,14 @@ function resolveRowLocation(row, locations) {
 
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
-  if (match.result === 'AMBIGUOUS') return 'AMBIGUOUS';
-  if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS';
+  if (match.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
+  if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
   if (!pair) return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
-  if (pair.arrangementResult === 'EXACT') return 'EXACT';
-  if (pair.arrangementResult === 'TOPOLOGY_ONLY') return 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE)';
+  const equivalent = assignment?.correspondenceStatus === 'AMBIGUOUS_EQUIVALENT';
+  if (pair.arrangementResult === 'EXACT') return equivalent ? 'EXACT (MULTIPLE EQUIVALENT MATCHES)' : 'EXACT';
+  if (pair.arrangementResult === 'TOPOLOGY_ONLY') return equivalent
+    ? 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE; MULTIPLE EQUIVALENT MATCHES)'
+    : 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE)';
   if (pair.arrangementResult !== 'PARTIAL') return pair.arrangementResult || '';
   const details = [];
   for (const item of pair.supportTypeComparison?.missingFromRight || []) {

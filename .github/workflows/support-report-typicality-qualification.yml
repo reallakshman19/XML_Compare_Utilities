@@ -37,6 +37,8 @@ jobs:
           tests/support-report-location-benchmarks.test.mjs
           tests/support-report-typicality.test.mjs
           tests/support-report-typicality-location.test.mjs
+          tests/support-report-typicality-sequence.test.mjs
+          tests/support-report-typicality-calibration.test.mjs
           tests/support-report-typicality-projection.test.mjs
           tests/support-report-typicality-export.test.mjs
           tests/support-report-typicality-ui.test.mjs
