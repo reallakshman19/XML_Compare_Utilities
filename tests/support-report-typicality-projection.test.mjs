@@ -23,7 +23,7 @@ test('comparison profile preserves structural defaults when only location tolera
   assert.equal(profile.pipingLocation.assignmentWeights.supportTypeMember, 100000);
 });
 
-test('11168 -> 14168 projects family and row audit links without row ordinal matching', () => {
+test('11168 -> 14168 projects ten physical-location audit links without row ordinal matching', () => {
   const leftEvidence = parseSupportReportClashXml(readFileSync('benchmarks/11168.xml', 'utf8'));
   const rightEvidence = parseSupportReportClashXml(readFileSync('benchmarks/14168.xml', 'utf8'));
   const leftReport = buildSupportReportBundle({ clashEvidence: leftEvidence });
@@ -37,8 +37,8 @@ test('11168 -> 14168 projects family and row audit links without row ordinal mat
   assert.equal(typicalityAudit.matches[0].result, 'TYPICAL');
   assert.equal(typicalityAudit.matches[0].rightFamilyId, 'PS-14168');
   assert.equal(typicalityAudit.locationAssignments.length, 1);
-  assert.equal(typicalityAudit.locationAssignments[0].selectedAssignments.length, 5);
-  assert.equal(projected.rows.length, 5);
+  assert.equal(typicalityAudit.locationAssignments[0].selectedAssignments.length, 10);
+  assert.equal(projected.rows.length, 10);
   assert.equal(projected.typicalityAudit, typicalityAudit);
 
   for (const row of projected.rows) {
