@@ -35,7 +35,11 @@ function csv(rows) {
 }
 function csvCell(value) { const text = String(value); return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; }
 function relocationEvents(result) { return (result?.ledger?.events || []).filter((event) => ['SUPPORT_LOCATION_RELOCATED', 'COMMON_SUPPORT_ANCHOR_RELOCATED'].includes(event.type)); }
+function renderedRelocations(result) { return Object.values(result.remarks.targetRemarks).filter((item) => item.remark.includes('Relocated Support')); }
 
+// Ordinary 1->1 movement stays in the lineage coordinate audit but is not a
+// user-facing Relocated Support event. Issue #1181 reserves that token for a
+// proven common-support anchor relocation.
 {
   const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
   const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
@@ -43,17 +47,13 @@ function relocationEvents(result) { return (result?.ledger?.events || []).filter
   const result = runSupportRevisionCompare(csv(earlierRows), csv(laterRows));
   assert.equal(result.ok, true);
   assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, true);
-  assert.ok(Object.values(result.lineage.coordinateFrame.axes).filter((axis) => axis.status === 'VALIDATED').length >= 2);
-  const events = relocationEvents(result);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].type, 'SUPPORT_LOCATION_RELOCATED');
-  assert.equal(events[0].coordinateResidual.classification, 'ACTUAL_POSITION_CHANGED');
-  assert.ok(events[0].reasonCodes.includes('TRUSTED_COORDINATE_FRAME'));
-  assert.ok(events[0].reasonCodes.includes('NORMALIZED_POSITION_CHANGED'));
-  const rendered = Object.values(result.remarks.targetRemarks).filter((item) => item.remark.includes('Relocated Support'));
-  assert.equal(rendered.length, 1);
+  const movedEdge = result.lineage.edges.find((edge) => edge.targetNodeIds.some((id) => result.targetModel.locationByNodeId.get(id)?.family === 'SL-104'));
+  assert.ok(movedEdge.coordinateEvidence[0].residualMm > 5, 'ordinary movement must remain visible in coordinate audit');
+  assert.equal(relocationEvents(result).length, 0);
+  assert.equal(renderedRelocations(result).length, 0);
 }
 
+// Direction/sign formatting normalization remains a negative control.
 {
   const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
   const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
@@ -65,6 +65,7 @@ function relocationEvents(result) { return (result?.ledger?.events || []).filter
   assert.equal(edge.coordinateEvidence[0].classification, 'FORMAT_CHANGED');
 }
 
+// Under-anchored movement cannot create a user-facing relocation.
 {
   const earlierRows = [1, 2].map((index) => row(index, 2));
   const laterRows = [1, 2].map((index) => row(index, 3));
@@ -75,12 +76,51 @@ function relocationEvents(result) { return (result?.ledger?.events || []).filter
   assert.equal(relocationEvents(result).length, 0, 'movement under an under-anchored frame must remain audit-only');
 }
 
+// A continuing anchor inside a proven 1->N common-support topology may project
+// Relocated Support. Four stable ordinary rows establish the revision frame;
+// the common anchor then moves while retaining its persistent component ref.
 {
   const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
   const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
-  laterRows[3]['EAST/WEST'] = 'E 1800';
-  laterRows[3]['REMARKS (IF ANY)'] = 'Support location change';
-  const benchmark = runSupportLocationChangeBenchmark(csv(earlierRows), csv(laterRows));
+  earlierRows.push(row(90, 2, {
+    'PREV NAME': 'PS-COMMON',
+    CIVILSECONDARYSUPPORT: 'SL-COMMON-A',
+    PIPE: 'AREA-01-MODEL-6-W900-A1-1',
+    'EAST/WEST': 'E 5000', 'NORTH/SOUTH': 'N 6000', 'BOP ELEVATION': '7000',
+    'PIPING PRIMARY SUPPORT': '/SL-COMMON-A.1', 'SUPPORT TYPE': 'GUIDE',
+    'PIPING PRIMARY SUPPORT REFERENCE': '=COMMON/1',
+  }));
+  laterRows.push(row(90, 3, {
+    'PREV NAME': 'PS-COMMON',
+    CIVILSECONDARYSUPPORT: 'SL-COMMON-A',
+    PIPE: 'AREA-01-MODEL-6-W900-A1-1',
+    'EAST/WEST': 'E 5100', 'NORTH/SOUTH': 'N 6000', 'BOP ELEVATION': '7000',
+    'PIPING PRIMARY SUPPORT': '/SL-COMMON-A.1', 'SUPPORT TYPE': 'GUIDE',
+    'PIPING PRIMARY SUPPORT REFERENCE': '=COMMON/1',
+    'REMARKS (IF ANY)': 'Support location change',
+  }));
+  laterRows.push(row(91, 3, {
+    'PREV NAME': 'PS-COMMON',
+    CIVILSECONDARYSUPPORT: 'SL-COMMON-B',
+    PIPE: 'AREA-01-MODEL-6-W900-A1-1',
+    'EAST/WEST': 'E 5500', 'NORTH/SOUTH': 'N 6500', 'BOP ELEVATION': '7100',
+    'PIPING PRIMARY SUPPORT': '/SL-COMMON-B.1', 'SUPPORT TYPE': 'GUIDE',
+    'PIPING PRIMARY SUPPORT REFERENCE': '=COMMON/2',
+  }));
+  const earlier = csv(earlierRows);
+  const later = csv(laterRows);
+  const result = runSupportRevisionCompare(earlier, later);
+  assert.equal(result.ok, true);
+  const commonEdge = result.lineage.edges.find((edge) => edge.cardinality === '1->N');
+  assert.ok(commonEdge, 'fixture must prove common-support 1->N topology');
+  const events = relocationEvents(result);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'COMMON_SUPPORT_ANCHOR_RELOCATED');
+  assert.ok(events[0].reasonCodes.includes('PERSISTENT_REFERENCE_ANCHOR'));
+  assert.ok(events[0].reasonCodes.includes('VALIDATED_AXES_ONLY'));
+  assert.equal(renderedRelocations(result).length, 1);
+
+  const benchmark = runSupportLocationChangeBenchmark(earlier, later);
   assert.equal(benchmark.metrics.expected, 1);
   assert.equal(benchmark.metrics.detected, 1);
   assert.equal(benchmark.metrics.truePositives, 1);
@@ -88,6 +128,37 @@ function relocationEvents(result) { return (result?.ledger?.events || []).filter
   assert.equal(benchmark.metrics.falseNegatives, 0);
   assert.equal(benchmark.phase1Guard.metrics.falsePositives, 0);
   assert.equal(benchmark.phase1Guard.metrics.falseNegatives, 0);
+}
+
+// A HIGH_RESIDUAL axis cannot trigger common-anchor relocation when the
+// remaining validated axes are stable. X has one extreme outlier; Y/Z define
+// the trustworthy frame and remain unchanged for the common anchor.
+{
+  const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
+  const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
+  laterRows[0]['EAST/WEST'] = 'E 10000';
+  laterRows[1]['EAST/WEST'] = 'E 20000';
+  earlierRows.push(row(92, 2, {
+    'PREV NAME': 'PS-COMMON-X', CIVILSECONDARYSUPPORT: 'SL-CX-A', PIPE: 'AREA-01-MODEL-6-W901-A1-1',
+    'EAST/WEST': 'E 5000', 'NORTH/SOUTH': 'N 6000', 'BOP ELEVATION': '7000',
+    'PIPING PRIMARY SUPPORT': '/SL-CX-A.1', 'SUPPORT TYPE': 'GUIDE', 'PIPING PRIMARY SUPPORT REFERENCE': '=CX/1',
+  }));
+  laterRows.push(row(92, 3, {
+    'PREV NAME': 'PS-COMMON-X', CIVILSECONDARYSUPPORT: 'SL-CX-A', PIPE: 'AREA-01-MODEL-6-W901-A1-1',
+    'EAST/WEST': 'E 9000', 'NORTH/SOUTH': 'N 6000', 'BOP ELEVATION': '7000',
+    'PIPING PRIMARY SUPPORT': '/SL-CX-A.1', 'SUPPORT TYPE': 'GUIDE', 'PIPING PRIMARY SUPPORT REFERENCE': '=CX/1',
+  }));
+  laterRows.push(row(93, 3, {
+    'PREV NAME': 'PS-COMMON-X', CIVILSECONDARYSUPPORT: 'SL-CX-B', PIPE: 'AREA-01-MODEL-6-W901-A1-1',
+    'EAST/WEST': 'E 9500', 'NORTH/SOUTH': 'N 6500', 'BOP ELEVATION': '7100',
+    'PIPING PRIMARY SUPPORT': '/SL-CX-B.1', 'SUPPORT TYPE': 'GUIDE', 'PIPING PRIMARY SUPPORT REFERENCE': '=CX/2',
+  }));
+  const result = runSupportRevisionCompare(csv(earlierRows), csv(laterRows));
+  assert.equal(result.ok, true);
+  assert.equal(result.lineage.coordinateFrame.axes.x.status, 'HIGH_RESIDUAL');
+  assert.equal(result.lineage.coordinateFrame.axes.y.status, 'VALIDATED');
+  assert.equal(result.lineage.coordinateFrame.axes.z.status, 'VALIDATED');
+  assert.equal(relocationEvents(result).length, 0, 'excluded X axis must not manufacture relocation');
 }
 
 console.log('csv-rev-compare Phase 2 support-location-change tests: PASS');
