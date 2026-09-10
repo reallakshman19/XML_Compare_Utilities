@@ -1,18 +1,18 @@
 ISSUE_CURRENT_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0009
-UPDATED_AT: 2026-09-10T20:44:00+04:00
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0010
+UPDATED_AT: 2026-09-10T21:50:04+04:00
 
 # Original task / acceptance ledger
 
 - TASK-001 | separate Utilities tile | MERGED — PR #1184
-- TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | MERGED — PR #1184
-- TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | MERGED — PR #1184; Phase 1 lineage hardening re-grounded in PR #1188
-- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | MERGED — PR #1184; Phase 1 line-change and Phase 2 relocation projection hardened in PR #1188
-- TASK-021..TASK-024 | later-revision output/audit/staged UI/review | MERGED — PR #1184
+- TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | MERGED — PR #1184; audit remediation active for parser physical-record integrity
+- TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | MERGED — PR #1184; P0/P1 lineage/common-support/candidate-authority remediation authorized in PR #1188
+- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | MERGED — PR #1184; P0/P1 ambiguity/event gating remediation authorized in PR #1188
+- TASK-021..TASK-024 | later-revision output/audit/staged UI/review | MERGED — PR #1184; provisional-output/review-integrity remediation authorized in PR #1188
 - TASK-025 | owner benchmark behaviors | IN_PROGRESS — Phase 1 has isolated real evidence; Phase 2 implementation/benchmark harness authored but current-head execution NOT_RUN; Phases 3..4 not started
-- TASK-026 | surgical implementation/no competing authorities | PRESERVED — governed categorized XML/graph and accepted lineage remain comparison authority
+- TASK-026 | surgical implementation/no competing authorities | REMEDIATION_IN_PROGRESS — audit found candidate-scoring/decision authority duplication to be consolidated onto existing XML Compare candidate/review authority
 - TASK-027 | owner-only merge | PRESERVED — PR #1188 draft; merge not authorized
 
 # Owner post-merge rules
@@ -24,6 +24,13 @@ UPDATED_AT: 2026-09-10T20:44:00+04:00
 - Coordinate deltas are auditable weighted evidence only after a trustworthy revision frame from >=3 anchors and >=2 validated axes.
 - R3 remarks are benchmark oracle labels only and are removed from comparison input. Unsupported labels such as HOLD are excluded from scoring.
 - Benchmark sequence: Phase 1 `PS No. change`; Phase 2 `Support location change`; Phase 3 `Load change`; Phase 4 `Total no of support change`.
+
+# Owner audit-remediation instruction
+
+- 2026-09-10T21:50:04+04:00 exact progression command: `proceed next`.
+- Owner explicitly authorized fixing the audited implementation flaws before further phase progression and pinned Common protocol `engineering-pr-delivery-v2` at `af4c5c73b87b26187aa6c930b60172cbb1f0f3e2`.
+- This bounded repair leg does not begin Phase 3, mutate benchmark/oracle authority, modify workflows, or authorize merge.
+- P0/P1 repair targets: parser inch-mark physical-record integrity; ambiguity hard barrier before events/output; single candidate/review authority; common-support cardinality/anchor semantics; review one-to-one conflict integrity; persistent-reference multiplicity; persistent-reference coordinate-frame anchors.
 
 # Phase 2 implementation contract
 
@@ -39,7 +46,7 @@ UPDATED_AT: 2026-09-10T20:44:00+04:00
 
 - INPUT-001 | Issue #1181 full specification | AVAILABLE
 - INPUT-002 | Table-to-Categorized-XML contracts/tests | AVAILABLE
-- INPUT-003 | XML Compare candidate/review contracts | AVAILABLE; `XmlCompareCandidatePairModel` reuse retained
+- INPUT-003 | XML Compare candidate/review contracts | AVAILABLE; `XmlCompareCandidatePairModel` reuse required as production authority
 - INPUT-004 | Owner real benchmark | AVAILABLE | `benchmarks/R2.zip` earlier vs `benchmarks/R3.zip` later
 - INPUT-005 | Support Report export patterns | AVAILABLE
 
@@ -54,12 +61,16 @@ UPDATED_AT: 2026-09-10T20:44:00+04:00
   - focused positive/negative fixture authored; executable status NOT_RUN
   - real R2.zip -> R3.zip benchmark harness authored; real execution NOT_RUN
   - Phase 1 guard included in the Phase 2 runner
-- PHASE-3 | `Load change` | NOT_STARTED / BLOCKED_BY_PHASE2_QUALIFICATION
+- REMEDIATION-P0P1 | audited correctness repair | PREWORK_READY / TESTS_NOT_RUN
+  - pre-work endpoint: EP-CSVRC-0010
+  - regression tests must be authored before production behavior changes
+  - executable local validation unavailable because github.com DNS resolution fails in the current environment
+- PHASE-3 | `Load change` | NOT_STARTED / DEFERRED_UNTIL_REMEDIATION_AND_PHASE2_QUALIFICATION
 - PHASE-4 | `Total no of support change` | NOT_STARTED
 
 # Current delivery status
 
-ENGINEERING_STATE: PHASE2_IMPLEMENTED_PHASE3_BLOCKED_PENDING_QUALIFICATION
+ENGINEERING_STATE: P0P1_REMEDIATION_PREWORK_READY
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED_FOR_OWNER_AUTHORIZED_ISSUE_SCOPE
 MERGE_AUTHORITY: OWNER_ONLY
@@ -67,17 +78,20 @@ MERGE_AUTHORIZED: FALSE
 PR: 1188
 PR_STATUS: OPEN_DRAFT_MERGEABLE
 BRANCH: issue-1181-phase1-current-main
+PREWORK_HEAD: 0337147dd6a20fc925aed5a383a111064f8bae4e
 MATERIAL_HEAD: 7e3732be5a2ac0cd97acdc2a1a3d1a7b5de52c51
-ENDPOINT_RELAY_HEAD: 4e1e907ac6309e68fdca03585d9697defd4910a4
 MAIN_OBSERVED: 419c94cca7649626e0b3e641f20d5261967347ba
 LATEST_MATERIAL_LEG: LEG-008
 CURRENT_HEAD_VALIDATION: NOT_RUN
 PRIOR_PHASE1_QUALIFICATION: PASS_EVIDENCE_ONLY
 PHASE2_QUALIFICATION: NOT_RUN
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5622209744
+QUESTION_SET: QS-CSVRC-1181-0001 CURRENT / REUSED
+QUALIFICATION_SCOPE: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
+TAKEOVER_QUALIFICATION_READY: TRUE
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0010_SYNC
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-CONTROL_PLANE_RECOVERY: PR #1187/stale salvage history remains evidence-only; clean delivery and Phase 2 work are on PR #1188
-ENVIRONMENT_LIMITATION: current material head has zero status checks/workflow runs; connector has no workflow-dispatch action; local checkout unavailable because GitHub DNS resolution fails; workflow files remain unmodified without owner authorization
-LOCAL_BACKUP_WORKLOG_DEFICIT: Git blob pre-images available; repository-local backup/.agent-worklogs unavailable in connector-only execution
-EXACT_NEXT_ACTION: control plane is synchronized at EP-CSVRC-0009. Subsequent material progression must first obtain executable Phase 1+2 R2/R3 validation; do not begin Phase 3 or modify workflow files without resolving that validation path/authority.
+ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0010_SYNC
+CONTROL_PLANE_RECOVERY: PR #1187/stale salvage history remains evidence-only; clean delivery and remediation work are on PR #1188
+ENVIRONMENT_LIMITATION: connector exposes no workflow-dispatch action; local checkout still fails because github.com cannot resolve; workflow files remain unmodified without owner authorization
+LOCAL_BACKUP_WORKLOG_DEFICIT: connector-only edits have Git blob pre-images but repository-local backup/.agent-worklogs cannot be created without an executable checkout
+EXACT_NEXT_ACTION: synchronize EP-CSVRC-0010 to the Issue Active Handover/endpoint comment, then author failing regression tests for the audited P0/P1 defects before production fixes. Do not begin Phase 3 or modify workflows.
