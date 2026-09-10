@@ -30,21 +30,33 @@ function mountWorkspace(doc, context, close) {
   const runButton = q('[data-csvrc-run]'), status = q('[data-csvrc-status]');
   const preview = q('[data-csvrc-preview]'), diagnostics = q('[data-csvrc-diagnostics]'), review = q('[data-csvrc-review]');
   let result = null;
+  let reviewDecisions = [];
   const setFromFile = async (input, area) => { const file = input.files?.[0]; if (file) area.value = await file.text(); };
+  const run = () => {
+    result = runSupportRevisionCompare(rev1.value, rev2.value, { reviewDecisions });
+    renderResult(result, { status, preview, diagnostics, review, root: overlay });
+    context.showToast?.(result.ok ? 'XML-based revision comparison ready.' : result.stage === 'REVIEW_REQUIRED' ? 'Ambiguous lineage requires review.' : 'Revision conversion is blocked.');
+  };
   q('[data-csvrc-file="1"]').addEventListener('change', (event) => setFromFile(event.currentTarget, rev1));
   q('[data-csvrc-file="2"]').addEventListener('change', (event) => setFromFile(event.currentTarget, rev2));
   q('[data-csvrc-close]').addEventListener('click', close);
-  runButton.addEventListener('click', () => {
-    result = runSupportRevisionCompare(rev1.value, rev2.value);
-    renderResult(result, { status, preview, diagnostics, review, root: overlay });
-    context.showToast?.(result.ok ? 'XML-based revision comparison ready.' : result.stage === 'REVIEW_REQUIRED' ? 'Ambiguous lineage requires review.' : 'Revision conversion is blocked.');
-  });
+  runButton.addEventListener('click', () => { reviewDecisions = []; run(); });
   overlay.addEventListener('click', async (event) => {
+    const reviewButton = event.target.closest('[data-csvrc-review-action]');
+    if (reviewButton && result) {
+      const action = reviewButton.dataset.csvrcReviewAction;
+      const sourceNodeId = reviewButton.dataset.sourceNodeId;
+      const targetNodeId = reviewButton.dataset.targetNodeId;
+      if (action === 'approve') reviewDecisions = [...reviewDecisions.filter((item) => item.sourceNodeId !== sourceNodeId), { sourceNodeId, targetNodeId, action }];
+      else if (action === 'reject') reviewDecisions = [...reviewDecisions.filter((item) => !(item.sourceNodeId === sourceNodeId && item.targetNodeId === targetNodeId)), { sourceNodeId, targetNodeId, action }];
+      run();
+      return;
+    }
     const button = event.target.closest('[data-csvrc-download]');
     if (!button || !result) return;
     const kind = button.dataset.csvrcDownload;
     if (kind === 'xlsx') {
-      if (!result.output) return;
+      if (!result.ok || !result.output) return;
       const bytes = await supportRevisionToXlsxBytes(result);
       downloadBlob(doc, 'support-revision-compare.xlsx', bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       return;
@@ -78,24 +90,24 @@ function renderResult(result, ui) {
   if (!result.pair?.ok) {
     ui.status.textContent = 'Conversion blocked. Inspect schema/diagnostics.';
     ui.preview.innerHTML = '';
-    setDownloads(ui.root, false, true);
+    setDownloads(ui.root, false, false);
     return;
   }
-  ui.status.textContent = result.stage === 'REVIEW_REQUIRED' ? `${result.lineage.ambiguous.length} ambiguous candidate(s) require review; automatic output is not qualified.` : `${result.ledger.events.length} structured event(s); output ready.`;
+  ui.status.textContent = result.stage === 'REVIEW_REQUIRED' ? `${result.lineage.ambiguous.length} ambiguous candidate(s) require review; CSV/XLSX remains blocked.` : `${result.ledger.events.length} structured event(s); output ready.`;
   ui.review.innerHTML = result.lineage.ambiguous.length ? candidateReviewHtml(result.lineage) : '<p>No ambiguous lineage candidates.</p>';
   ui.preview.innerHTML = outputTableHtml(result.output);
-  setDownloads(ui.root, true, false);
+  setDownloads(ui.root, true, result.ok);
 }
 function candidateReviewHtml(lineage) {
   const rows = lineage.candidates.filter((item) => item.outcome === 'AMBIGUOUS');
-  return `<p><b>Ambiguous lineage is never auto-selected.</b> Candidate evidence is retained in the audit for explicit disposition.</p><table><thead><tr><th>Source XML node</th><th>Target XML node</th><th>Score</th><th>Method</th><th>Reasons</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td>${h(row.score)}</td><td>${h(row.matchingMethod)}</td><td>${h(row.reasonCodes.join(', '))}</td></tr>`).join('')}</tbody></table>`;
+  return `<p><b>Ambiguous lineage is never auto-selected.</b> Approve one candidate or reject candidates explicitly; every disposition is retained in the audit.</p><table><thead><tr><th>Source XML node</th><th>Target XML node</th><th>Score</th><th>Method</th><th>Reasons</th><th>Decision</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td>${h(row.score)}</td><td>${h(row.matchingMethod)}</td><td>${h(row.reasonCodes.join(', '))}</td><td><button type="button" data-csvrc-review-action="approve" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Approve</button> <button type="button" data-csvrc-review-action="reject" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Reject</button></td></tr>`).join('')}</tbody></table>`;
 }
 function outputTableHtml(output) {
   const rows = output?.rows?.slice(0, 100) || [];
   if (!rows.length) return '<p>No output rows.</p>';
   return `<table><thead><tr>${output.headers.map((header) => `<th>${h(header)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.values.map((value) => `<td>${h(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>${output.rows.length > rows.length ? `<p>Previewing first ${rows.length} of ${output.rows.length} rows.</p>` : ''}`;
 }
-function setDownloads(root, conversionReady, conversionBlocked) { root.querySelectorAll('[data-csvrc-download]').forEach((button) => { const auditKind = !['csv','xlsx'].includes(button.dataset.csvrcDownload); button.disabled = conversionBlocked || (!conversionReady && !auditKind); }); }
+function setDownloads(root, conversionReady, qualified) { root.querySelectorAll('[data-csvrc-download]').forEach((button) => { const primary = ['csv','xlsx'].includes(button.dataset.csvrcDownload); button.disabled = primary ? !qualified : !conversionReady; }); }
 function artifactFor(result, kind) {
   const a = result.artifacts || {};
   const specs = { csv:['support-revision-compare.csv',a.outputCsv,'text/csv'], audit:['support-revision-comparison-audit.json',a.comparisonAuditJson,'application/json'], rev1xml:['support-revision-rev1.xml',a.rev1Xml,'application/xml'], rev2xml:['support-revision-rev2.xml',a.rev2Xml,'application/xml'], rev1graph:['support-revision-rev1-graph.json',a.rev1GraphJson,'application/json'], rev2graph:['support-revision-rev2-graph.json',a.rev2GraphJson,'application/json'], profile:['support-revision-csv-xml-v1.json',a.profileJson,'application/json'] };
@@ -104,4 +116,4 @@ function artifactFor(result, kind) {
 function downloadBlob(doc, name, content, type) { const blob = content instanceof Uint8Array ? new Blob([content], { type }) : new Blob([String(content ?? '')], { type }); const url = URL.createObjectURL(blob); const a = doc.createElement('a'); a.href = url; a.download = name; a.style.display = 'none'; doc.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 function h(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char])); }
 
-export const _test = Object.freeze({ artifactFor, outputTableHtml, candidateReviewHtml, workspaceHtml });
+export const _test = Object.freeze({ artifactFor, outputTableHtml, candidateReviewHtml, workspaceHtml, setDownloads });
