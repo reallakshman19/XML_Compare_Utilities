@@ -4,7 +4,7 @@ import { exportCategorizedGraphArtifacts } from '../../xml-compare/table-categor
 import { runCategorizerValidation } from '../../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 import { SUPPORT_REVISION_CSV_XML_PROFILE } from '../../xml-compare/table-categorizer/presets/support-revision/support-revision-profile.js';
 
-export const SUPPORT_REVISION_PIPELINE_SCHEMA = 'support-revision-pipeline/v2-header-aliases';
+export const SUPPORT_REVISION_PIPELINE_SCHEMA = 'support-revision-pipeline/v3-bore-alias';
 
 const HEADER_ALIASES = Object.freeze(new Map([
   ['PREV PRIMARY SUPPORT NAME', 'PREV NAME'],
@@ -14,6 +14,10 @@ const HEADER_ALIASES = Object.freeze(new Map([
   ['CIVILSECONDARYSUPPORT (GHTYPE-4PLOT/1885)', 'CIVILSECONDARYSUPPORT'],
   ['CIVIL SECONDARY SUPPORT (GHTYPE-4PLOT/1885)', 'CIVILSECONDARYSUPPORT'],
   ['PIPE', 'PIPE'],
+  ['SIZE (BORE)', 'SIZE'],
+  ['SIZE/BORE', 'SIZE'],
+  ['BORE', 'SIZE'],
+  ['SIZE', 'SIZE'],
   ['INSULATION TYPE AND THICKNESS', 'INSULATION'],
   ['INSULATION', 'INSULATION'],
 ]));
