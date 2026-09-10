@@ -40,20 +40,36 @@ function mismatchDiagnostics(result) {
 
 function diagnoseTarget(item, compare) {
   const target = compare.targetModel.locations.find((location) => location.supportLocationIdentity === item.key) || null;
-  if (!target) return { item, target: null, candidates: [], edges: [] };
-  const candidates = (compare.lineage?.candidates || [])
+  if (!target) return { item, target: null, candidates: [], sourceAlternatives: [], edges: [] };
+  const rawCandidates = (compare.lineage?.candidates || [])
     .filter((candidate) => candidate.targetNodeId === target.nodeId)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 8)
-    .map((candidate) => ({
-      candidateId: candidate.candidateId,
-      outcome: candidate.outcome,
-      score: candidate.score,
-      matchingMethod: candidate.matchingMethod,
-      reasonCodes: candidate.reasonCodes,
-      persistentReferences: candidate.persistentReferences,
-      source: locationSummary(compare.sourceModel.locationByNodeId.get(candidate.sourceNodeId)),
-    }));
+    .slice(0, 8);
+  const candidates = rawCandidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    outcome: candidate.outcome,
+    score: candidate.score,
+    matchingMethod: candidate.matchingMethod,
+    reasonCodes: candidate.reasonCodes,
+    persistentReferences: candidate.persistentReferences,
+    source: locationSummary(compare.sourceModel.locationByNodeId.get(candidate.sourceNodeId)),
+  }));
+  const sourceAlternatives = rawCandidates.map((candidate) => ({
+    source: locationSummary(compare.sourceModel.locationByNodeId.get(candidate.sourceNodeId)),
+    targets: (compare.lineage?.candidates || [])
+      .filter((row) => row.sourceNodeId === candidate.sourceNodeId)
+      .sort((a, b) => b.score - a.score || a.targetNodeId.localeCompare(b.targetNodeId))
+      .slice(0, 8)
+      .map((row) => ({
+        candidateId: row.candidateId,
+        outcome: row.outcome,
+        score: row.score,
+        matchingMethod: row.matchingMethod,
+        reasonCodes: row.reasonCodes,
+        persistentReferences: row.persistentReferences,
+        target: locationSummary(compare.targetModel.locationByNodeId.get(row.targetNodeId)),
+      })),
+  }));
   const edges = (compare.lineage?.edges || [])
     .filter((edge) => edge.targetNodeIds.includes(target.nodeId))
     .map((edge) => ({
@@ -65,7 +81,7 @@ function diagnoseTarget(item, compare) {
       persistentReferences: edge.persistentReferences,
       sources: edge.sourceNodeIds.map((nodeId) => locationSummary(compare.sourceModel.locationByNodeId.get(nodeId))),
     }));
-  return { item, target: locationSummary(target), candidates, edges };
+  return { item, target: locationSummary(target), candidates, sourceAlternatives, edges };
 }
 
 function locationSummary(location) {
