@@ -1,6 +1,7 @@
 import { convertSupportRevisionPair } from './support-revision-pipeline.js';
 import { buildSupportRevisionModel } from './support-revision-model.js';
 import { buildSupportRevisionLineage } from './support-revision-lineage.js';
+import { resolveReviewedLineage } from './support-revision-review.js';
 import { buildSupportRevisionEventLedger } from './support-revision-events.js';
 import { renderSupportRevisionRemarks } from './support-revision-remarks.js';
 import { buildRevisionOutputMatrix, buildSupportRevisionArtifacts } from './support-revision-export.js';
@@ -20,7 +21,8 @@ export function runSupportRevisionCompare(revision1Text, revision2Text, options 
   });
   const sourceModel = buildSupportRevisionModel(pair.rev1);
   const targetModel = buildSupportRevisionModel(pair.rev2);
-  const lineage = buildSupportRevisionLineage(sourceModel, targetModel, { policy });
+  const initialLineage = buildSupportRevisionLineage(sourceModel, targetModel, { policy });
+  const lineage = resolveReviewedLineage(initialLineage, sourceModel, targetModel, options.reviewDecisions || [], { policy });
   const ledger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy });
   const remarks = renderSupportRevisionRemarks(ledger, sourceModel, targetModel);
   const output = buildRevisionOutputMatrix(pair.rev1.source, pair.rev2.source, remarks);
