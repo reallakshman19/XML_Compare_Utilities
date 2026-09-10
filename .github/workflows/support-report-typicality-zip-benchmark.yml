@@ -6,6 +6,7 @@ on:
       - 'benchmarks/1884.zip'
       - 'benchmarks/1885.zip'
       - 'tests/support-report-typicality-zip-benchmark.mjs'
+      - 'tests/support-report-typicality-zip-relaxed-diagnostic.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
   workflow_dispatch:
@@ -44,6 +45,12 @@ jobs:
           /tmp/typicality-1884
           /tmp/typicality-1885
           /tmp/typicality-1884-vs-1885.json
+
+      - name: Run diagnostic with pipe-class candidate gate relaxed
+        run: >-
+          node tests/support-report-typicality-zip-relaxed-diagnostic.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
 
       - name: Upload benchmark evidence when quota permits
         continue-on-error: true
