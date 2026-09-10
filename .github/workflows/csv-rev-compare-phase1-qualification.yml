@@ -64,10 +64,3 @@ jobs:
           python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R2.zip /tmp/R2.csv
           python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R3.zip /tmp/R3.csv
           node scripts/csv-rev-compare-phase1-real-benchmark.mjs /tmp/R2.csv /tmp/R3.csv /tmp/phase1-real-benchmark.json
-
-      - name: Upload real benchmark result
-        uses: actions/upload-artifact@v4
-        with:
-          name: csv-rev-compare-phase1-real-benchmark
-          path: /tmp/phase1-real-benchmark.json
-          retention-days: 7
