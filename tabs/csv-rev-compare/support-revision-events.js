@@ -1,8 +1,9 @@
 import { componentByReference } from './support-revision-model.js';
 import { compareLoadVectors, SUPPORT_REV_LOAD_POLICY_V1 } from './support-revision-loads.js';
 import { pipeTokenChanges } from './support-revision-normalization.js';
+import { assessRelocationEvidence } from './support-revision-relocation.js';
 
-export const SUPPORT_REVISION_EVENT_LEDGER_SCHEMA = 'support-revision-event-ledger/v1';
+export const SUPPORT_REVISION_EVENT_LEDGER_SCHEMA = 'support-revision-event-ledger/v2-relocation';
 const clean = (value) => String(value ?? '').trim();
 const upper = (value) => clean(value).toUpperCase();
 
@@ -12,7 +13,7 @@ export function buildSupportRevisionEventLedger(sourceModel, targetModel, lineag
   const policyVersion = policy.version || options.policyVersion || '';
   const makeEvent = eventFactory({ profileId: sourceModel.profileId, profileVersion: sourceModel.profileVersion, policyId, policyVersion });
   const events = [];
-  for (const edge of lineage.edges) events.push(...eventsForEdge(edge, sourceModel, targetModel, makeEvent, options.loadPolicy));
+  for (const edge of lineage.edges) events.push(...eventsForEdge(edge, sourceModel, targetModel, makeEvent, options.loadPolicy, lineage.coordinateFrame));
   for (const id of lineage.removed) events.push(noSuccessorEvent(id, sourceModel, lineage, makeEvent));
   for (const id of lineage.added) events.push(noPredecessorEvent(id, targetModel, lineage, makeEvent));
   events.push(...ambiguousEvents(lineage, sourceModel, makeEvent));
@@ -32,17 +33,17 @@ function candidateEvidenceIds(lineage, side, nodeId) {
   return Object.freeze((lineage?.candidates || []).filter((item) => item[field] === nodeId).map((item) => item.candidateId));
 }
 
-function eventsForEdge(edge, sourceModel, targetModel, makeEvent, loadPolicy) {
+function eventsForEdge(edge, sourceModel, targetModel, makeEvent, loadPolicy, coordinateFrame) {
   const sources = edge.sourceNodeIds.map((id) => sourceModel.locationByNodeId.get(id)).filter(Boolean);
   const targets = edge.targetNodeIds.map((id) => targetModel.locationByNodeId.get(id)).filter(Boolean);
-  if (edge.cardinality === '1->1') return compareOneToOne(sources[0], targets[0], edge, makeEvent, loadPolicy);
-  if (edge.cardinality === '1->N') return targets.flatMap((target) => replicationEvents(sources[0], target, edge, makeEvent, loadPolicy));
+  if (edge.cardinality === '1->1') return compareOneToOne(sources[0], targets[0], edge, makeEvent, loadPolicy, coordinateFrame);
+  if (edge.cardinality === '1->N') return targets.flatMap((target) => replicationEvents(sources[0], target, edge, makeEvent, loadPolicy, coordinateFrame));
   if (edge.cardinality === 'N->1') return [makeEvent('COMMON_SUPPORT_CONSOLIDATED', sources[0], targets[0], edge, { remarkEligible: false, reasonCodes: ['STRUCTURAL_COMMON_SUPPORT_EVIDENCE'] })];
   const reviewed = edge.reviewDecision === 'ACCEPTED';
   return [makeEvent('AMBIGUOUS_LINEAGE', sources[0], targets[0], edge, { remarkEligible: false, auditStatus: reviewed ? 'REVIEWED_ACCEPTED' : 'REVIEW_REQUIRED', reasonCodes: reviewed ? ['N_TO_M_REVIEW_ACCEPTED', ...(edge.reasonCodes || [])] : ['N_TO_M_REQUIRES_REVIEW'] })];
 }
 
-function compareOneToOne(source, target, edge, makeEvent, loadPolicy) {
+function compareOneToOne(source, target, edge, makeEvent, loadPolicy, coordinateFrame) {
   if (!source || !target) return [];
   const events = [];
   const familyChanged = upper(source.family) !== upper(target.family);
@@ -57,21 +58,45 @@ function compareOneToOne(source, target, edge, makeEvent, loadPolicy) {
       reasonCodes: lineIdentityChanged ? ['PROVEN_LINEAGE_PIPE_IDENTITY_CHANGED','LINE_NUMBER_CHANGE'] : ['PIPE_TOKEN_DELTA_AUDIT_ONLY'],
     }));
   }
+  events.push(...relocationEvents(source, target, edge, coordinateFrame, makeEvent, 'SUPPORT_LOCATION_RELOCATED'));
   events.push(...compareComponents(source, target, edge, makeEvent));
   events.push(...compareLoads(source, target, edge, makeEvent, loadPolicy));
   events.push(...suppressedFieldEvents(source, target, edge, makeEvent));
   return events;
 }
 
-function replicationEvents(source, target, edge, makeEvent, loadPolicy) {
+function replicationEvents(source, target, edge, makeEvent, loadPolicy, coordinateFrame) {
   if (!source || !target) return [];
   const events = [makeEvent('COMMON_SUPPORT_REPLICATED', source, target, edge, { remarkEligible: true, reasonCodes: ['STRUCTURAL_COMMON_SUPPORT_EVIDENCE'] })];
   const shared = source.persistentReferences.filter((ref) => target.persistentReferences.includes(ref));
-  const coordinate = edge.coordinateEvidence?.find((item) => item.sourceNodeId === source.nodeId && item.targetNodeId === target.nodeId);
-  if (shared.length && coordinate?.classification === 'ACTUAL_POSITION_CHANGED') events.push(makeEvent('COMMON_SUPPORT_ANCHOR_RELOCATED', source, target, edge, { remarkEligible: true, persistentReferences: shared, coordinateResidual: coordinate, reasonCodes: ['PERSISTENT_REFERENCE_ANCHOR','NORMALIZED_POSITION_CHANGED'] }));
-  if (shared.length) events.push(...compareComponents(source, target, edge, makeEvent));
+  if (shared.length) {
+    events.push(...relocationEvents(source, target, edge, coordinateFrame, makeEvent, 'COMMON_SUPPORT_ANCHOR_RELOCATED', {
+      persistentReferences: shared,
+      reasonCodes: ['PERSISTENT_REFERENCE_ANCHOR'],
+    }));
+    events.push(...compareComponents(source, target, edge, makeEvent));
+  }
   events.push(...compareLoads(source, target, edge, makeEvent, loadPolicy));
   return events;
+}
+
+function relocationEvents(source, target, edge, coordinateFrame, makeEvent, type, options = {}) {
+  const assessment = assessRelocationEvidence(source, target, edge, coordinateFrame);
+  if (!assessment.relocated) return [];
+  return [makeEvent(type, source, target, edge, {
+    remarkEligible: true,
+    persistentReferences: options.persistentReferences || edge.persistentReferences || [],
+    coordinateResidual: assessment.coordinate,
+    normalizedState: {
+      coordinateClassification: assessment.coordinate.classification,
+      frameStatus: assessment.frameStatus,
+      frameTrusted: assessment.frameTrusted,
+      frameAnchorCount: assessment.anchorCount,
+      frameMinimumAnchors: assessment.minimumAnchors,
+      validatedAxes: assessment.validatedAxes,
+    },
+    reasonCodes: [...(options.reasonCodes || []), ...assessment.reasonCodes],
+  })];
 }
 
 export function compareComponents(source, target, edge, makeEvent) {
@@ -126,7 +151,7 @@ function eventFactory(metadata) {
   });
 }
 
-function rawLocation(location) { return location ? { family: location.family, prevName: location.legacyIdentity, pipe: location.pipe.raw, position: Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])), components: location.components.map(componentRaw), loads: location.loads.map((slot) => ({ sourceHeader: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw })) } : null; }
+function rawLocation(location) { return location ? { family: location.family, prevName: location.legacyIdentity, pipe: location.pipe.raw, position: Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || ''])), components: location.components.map(componentRaw), loads: (location.loads?.slots || []).map((slot) => ({ sourceHeader: slot.sourceHeader, ordinal: slot.ordinal, raw: slot.raw })) } : null; }
 function componentRaw(item) { return { reference: item.reference, memberId: item.memberId, supportType: item.supportType }; }
 function componentTrace(a,b) { return { sourceNodeId: a.nodeId, targetNodeId: b.nodeId, sourceCells: a.provenance, targetCells: b.provenance }; }
 function loadTrace(result) { return { sourceCells: result.before.slots.map((item) => item.sourceCellRef).filter(Boolean), targetCells: result.after.slots.map((item) => item.sourceCellRef).filter(Boolean) }; }
@@ -136,4 +161,4 @@ function multiset(components) { const result = {}; for (const key of components.
 function multisetKey(components) { return JSON.stringify(multiset(components)); }
 function summarize(events) { const byType = {}; for (const event of events) byType[event.type] = (byType[event.type] || 0) + 1; return Object.freeze({ total: events.length, remarkEligible: events.filter((event) => event.remarkEligible).length, reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length, byType: Object.freeze(byType) }); }
 
-export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge, candidateEvidenceIds });
+export const _test = Object.freeze({ multiset, multisetKey, summarize, rawLocation, eventsForEdge, candidateEvidenceIds, relocationEvents });
