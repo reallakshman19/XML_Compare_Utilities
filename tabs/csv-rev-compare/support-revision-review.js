@@ -35,12 +35,16 @@ export function resolveReviewedLineage(lineage, sourceModel, targetModel, decisi
 }
 
 export function unresolvedLineageReviews(lineage) {
-  const candidateSources = new Set((lineage?.candidates || []).filter((item) => item.outcome === 'AMBIGUOUS').map((item) => item.sourceNodeId));
-  const structuralEdges = (lineage?.edges || []).filter((edge) => edge.outcome === 'AMBIGUOUS').map((edge) => edge.edgeId);
+  const structural = (lineage?.edges || []).filter((edge) => edge.outcome === 'AMBIGUOUS');
+  const coveredCandidateIds = new Set(structural.flatMap((edge) => edge.candidateIds || []));
+  const candidateSources = new Set((lineage?.candidates || [])
+    .filter((item) => item.outcome === 'AMBIGUOUS' && !coveredCandidateIds.has(item.candidateId))
+    .map((item) => item.sourceNodeId));
+  const structuralEdgeIds = structural.map((edge) => edge.edgeId);
   return Object.freeze({
     candidateSourceNodeIds: Object.freeze([...candidateSources]),
-    structuralEdgeIds: Object.freeze(structuralEdges),
-    count: candidateSources.size + structuralEdges.length,
+    structuralEdgeIds: Object.freeze(structuralEdgeIds),
+    count: candidateSources.size + structuralEdgeIds.length,
   });
 }
 
@@ -102,9 +106,8 @@ function reviewStructuralEdges(edges, candidates, decisions) {
     })];
   });
   const reviewedCandidates = candidates.map((candidate) => {
-    if (candidate.outcome !== 'AMBIGUOUS') return candidate;
-    if (acceptedCandidateIds.has(candidate.candidateId)) return Object.freeze({ ...candidate, outcome: 'LIKELY', reviewRequired: false, reviewDecision: 'STRUCTURAL_ACCEPTED' });
     if (rejectedCandidateIds.has(candidate.candidateId)) return Object.freeze({ ...candidate, outcome: 'NO_MATCH', reviewRequired: false, reviewDecision: 'STRUCTURAL_REJECTED' });
+    if (acceptedCandidateIds.has(candidate.candidateId)) return Object.freeze({ ...candidate, outcome: candidate.outcome === 'AMBIGUOUS' ? 'LIKELY' : candidate.outcome, reviewRequired: false, reviewDecision: 'STRUCTURAL_ACCEPTED' });
     return candidate;
   });
   return Object.freeze({ edges: Object.freeze(reviewedEdges), candidates: Object.freeze(reviewedCandidates) });
