@@ -67,13 +67,13 @@ No multiple-location remark is emitted.
 
 **PS-12120 — multiple physical locations:**
 
-Pipe `/ASIM-1885-2"-P8810365-31441C4-HT-01` appears at multiple clash locations, including pairs separated by 300 mm and additional substantially separated locations. It must produce multiple report rows. Each split row carries exactly:
+Pipe `/ASIM-1885-2"-P8810365-31441C4-HT-01` appears at five materially distinct clash locations, including pairs separated by 300 mm and additional substantially separated locations. It must produce five report rows. Each split row carries exactly:
 
 ```text
 Pipe supported at multiple locations
 ```
 
-This remark describes row splitting by physical location; it is not triggered merely because two primary-support members share one row.
+The complete PS-12120 benchmark contains 19 clash rows and resolves to 14 location-aware report rows across 9 pipes. `ASIM-1885-4"-W8810126-31441C4-01` is also a valid multi-location pipe and resolves to two report rows. This remark describes row splitting by physical location; it is not triggered merely because two primary-support members share one row.
 
 ## 4. Duplicate evidence versus multiple locations
 
@@ -146,6 +146,7 @@ Requested fields and accepted authority direction:
 
 | Report field | Preferred staged evidence |
 |---|---|
+| SIZE | carrier/pipe `BORE` first; approved alternate bore aliases only when no `BORE` evidence exists; line-name regex only when staged bore evidence is absent |
 | SUPPORT TYPE | support member `CMPSUPTYPE`, `MDSSUPPTYPE`, `SUPPORT_TYPE`, approved aliases |
 | PIPING PRIMARY SUPPORT | resolved current native member IDs |
 | PIPING PRIMARY SUPPORT REFERENCE | member `REF` / approved reference aliases |
@@ -156,17 +157,23 @@ Requested fields and accepted authority direction:
 | PREV NAME | explicit previous-name attribute |
 | coordinates | native member position when available; clash point is explicit fallback |
 
+### 8.1 SIZE / Bore authority
+
+When staged JSON provides `Bore` / normalized `BORE`, that value is authoritative for report `SIZE`. It outranks `ABORE` and any nominal size parsed from the pipe name. Approved alternate staged bore aliases are consulted only when no `BORE` evidence exists anywhere in the selected authoritative carrier set.
+
+If authoritative `BORE` values conflict, `SIZE` remains blank/conflict and the application does **not** fall back to `ABORE` or pipe-name regex. Pipe-name regex is strictly an XML-only/no-staged-bore fallback.
+
 The system must **not** parse free-text DTXR or unrelated specification strings merely to manufacture pipe schedule or insulation type. Those fields stay blank/unresolved until an accepted source attribute is present.
 
 ## 9. Primary Support Site and Zone
 
-Primary Site/Zone come from the **primary pipe-side path** or equivalent native ownership evidence.
+Primary Site/Zone come from the primary pipe-side hierarchy or equivalent native ownership evidence. Native staged member `sourcePath` is preferred when it is available; clash primary path is the fallback. Conflicting native Site/Zone values remain blank/conflict and are not overwritten by clash fallback.
 
 The path grammar is discipline-neutral:
 
 ```text
 site: ...-CU-<discipline>
-zone: ...-CU-<discipline>-<zone>
+zone: immediate child ...-CU-<discipline>-<zone>
 ```
 
 Therefore both of these families are valid:
@@ -200,6 +207,7 @@ Every report row keeps field-level provenance. Key cases remain visible:
 - native member attribute;
 - native membership;
 - native position;
+- native member hierarchy/path;
 - authoritative carrier attribute;
 - clash relationship/group derivation;
 - clash member or coordinate fallback;
@@ -214,8 +222,8 @@ Location splitting, rename resolution and staged mapping add evidence; they do n
 |---|---|
 | `SL-097 and PS-007.xlsx` + frozen XML fixture | Owner 21-column contract and 10-row golden parity target |
 | `SupportreportXML-PS-068_PS-12154.xml` | family-name mismatch + same-location multiple-member control + CU-PI Site/Zone |
-| `SupportreportXML-PS-12120.xml` | same pipe supported at multiple physical locations |
-| `1885_NC.json` at Owner-provided 3D_Converters commit | real staged-model member/attribute/POS evidence |
+| `SupportreportXML-PS-12120.xml` | 19-clash → 14-row complete location-aware report; two multi-location pipe controls |
+| `1885_NC.json` at Owner-provided 3D_Converters commit | real staged-model member/attribute/POS/Bore evidence |
 
 ## 13. Remaining qualification boundary
 
