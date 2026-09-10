@@ -47,6 +47,20 @@ function mount(popup) {
   const tabs = popup.querySelector('.ssrb-tabs');
   const workspace = popup.querySelector('.ssrb-workspace');
   if (!tabs || !workspace) return;
+
+  // Query-versioned ESM imports can create more than one addon module instance.
+  // DOM ownership is therefore the cross-instance idempotence authority, not this
+  // module's WeakSet alone. Preserve a complete existing mount; repair an orphaned
+  // half-mount before creating a new coherent tab/panel pair.
+  const existingButton = popup.querySelector(`[data-ssrb-tab="${TAB_KEY}"]`);
+  const existingPanel = popup.querySelector(`[data-ssrb-panel="${TAB_KEY}"]`);
+  if (existingButton && existingPanel) {
+    mounted.add(popup);
+    return;
+  }
+  existingButton?.remove();
+  existingPanel?.remove();
+
   mounted.add(popup);
   stateByPopup.set(popup, { report: null });
 
