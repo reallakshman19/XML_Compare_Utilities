@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-json-trace-18';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-owner-contract-15';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15&trace=20260910-support-report-json-trace-18';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
