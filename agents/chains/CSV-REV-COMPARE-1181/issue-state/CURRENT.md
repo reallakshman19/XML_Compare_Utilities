@@ -1,24 +1,28 @@
 ISSUE_CURRENT_STATE_VERSION: 1
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0001
-UPDATED_AT: 2026-09-10T08:41:21Z
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0002
+UPDATED_AT: 2026-09-10T09:16:00Z
 
 # Original task / acceptance ledger
 
-TASK-001..TASK-027: OPEN — implementation has not yet been ported onto the compliant branch. See immutable Issue Basis for item text.
+- TASK-001 | separate Utilities tile | OPEN
+- TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | PARTIAL — LEG-001 implemented conversion authority; execution validation NOT_RUN
+- TASK-007..TASK-020 | XML lineage, coordinate/common-support, component/load events, remarks and suppression/Hold policy | OPEN
+- TASK-021..TASK-023 | Support Report output and machine-audit/trace exports | OPEN
+- TASK-024..TASK-027 | staged workflow, benchmarks/negative controls, regression qualification and focused draft PR completion | OPEN
 
 # Input ledger
 
 - INPUT-001 | Issue #1181 full specification | AVAILABLE | GitHub issue
-- INPUT-002 | Table-to-Categorized-XML contracts/tests | AVAILABLE | main@e325d9799bcdec9e5f9d9953679f295bb98beaf3
-- INPUT-003 | XML Compare / Revision Compare candidate-review contracts | AVAILABLE | main@e325d9799bcdec9e5f9d9953679f295bb98beaf3
+- INPUT-002 | Table-to-Categorized-XML contracts/tests | AVAILABLE | main@13e626b4c0b0922697640b6c6f0183acbc59b380; no overlapping main drift in categorizer paths
+- INPUT-003 | XML Compare / Revision Compare candidate-review contracts | AVAILABLE | repository authority
 - INPUT-004 | Owner raw REV1/REV2 benchmark files | UNRESOLVED | no durable attachment located
-- INPUT-005 | Support Report export patterns | AVAILABLE | main@e325d9799bcdec9e5f9d9953679f295bb98beaf3
+- INPUT-005 | Support Report export patterns | AVAILABLE | current main
 
 # Benchmark / oracle ledger
 
-BM-001..BM-015: NOT_RUN — no production material exists yet on this compliant branch. Synthetic fixtures may be added as implementation-coupled regression evidence but do not replace INPUT-004.
+- BM-001..BM-015 | NOT_RUN | focused fixture tests exist for conversion foundation only; no execution evidence is available in this session
 
 # Roadmap ledger
 
@@ -34,17 +38,25 @@ OWNER_QUALIFICATION_BASELINE_MANIFEST: agents/chains/CSV-REV-COMPARE-1181/qualif
 OWNER_QUALIFICATION_BASELINE_STATUS: SATISFIED
 QUESTION_SET_ID: QS-CSVRC-1181-0001
 QUESTION_SET_STATUS: CURRENT
+QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
 
 # Current delivery status
 
-ENGINEERING_STATE: READY
+ENGINEERING_STATE: IN_PROGRESS
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED_FOR_OWNER_AUTHORIZED_ISSUE_SCOPE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
+PR: 1184
+PR_STATUS: OPEN_DRAFT_MERGEABLE
 BRANCH: issue-1181-csv-rev-compare-xml-v2
-BASE_MAIN: e325d9799bcdec9e5f9d9953679f295bb98beaf3
+HEAD_AT_ENDPOINT: 2b701e5728af04e77c7d03523f9ab6b06c738ebd
+MAIN_OBSERVED: 13e626b4c0b0922697640b6c6f0183acbc59b380
+MAIN_DRIFT: ONE_NONOVERLAPPING_SUPPORT_REPORT_COMMIT; REBASE_NOT_REQUIRED_FOR_LEG002
+LATEST_MATERIAL_LEG: LEG-001
+LEG001_VALIDATION: NOT_RUN
+ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_COMMENT_UPDATE
 SALVAGE_BRANCH: issue-1181-csv-rev-compare-xml@ff7396d6c5111b818f6915f77c0a3bec315863d8
-SALVAGE_DISPOSITION: DESIGN_AND_PATCH_SOURCE_ONLY; re-ground each file against current main before porting
-EXACT_NEXT_ACTION: implement LEG-001 governed Table-to-Categorized-XML support-revision profile and generic aligned many-per-row/duplicate-column-series capability, then execute focused validation.
+SALVAGE_DISPOSITION: DESIGN_AND_PATCH_SOURCE_ONLY; re-ground each module before porting
+EXACT_NEXT_ACTION: synchronize EP-CSVRC-0002 to issue control plane, then implement LEG-002 XML semantic model/candidate lineage/coordinate/common-support foundation with focused tests.
