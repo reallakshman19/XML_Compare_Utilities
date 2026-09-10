@@ -16,8 +16,7 @@ function csv(rows) {
     return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   }).join(',')).join('\n');
 }
-function targetRemark(result) {
-  const target = result.targetModel.locations[0];
+function remarkFor(result, target) {
   return result.remarks.targetRemarks[target.sourceRowId]?.remark || '';
 }
 
@@ -53,7 +52,7 @@ function targetRemark(result) {
   assert.equal(edge.matchingMethod, 'civil-pipe-location-identity');
   assert.equal(source.family, 'SL-111050(REF)');
   assert.ok(!result.ledger.events.some((event) => event.type === 'SECONDARY_SUPPORT_FAMILY_CHANGED' && event.targetXmlNode === target.nodeId));
-  assert.ok(!/\b(?:PS\s*No\.|Line\s*No\.)\s*(?:\/\s*Line\s*No\.\s*)?Change\b/i.test(targetRemark(result)));
+  assert.ok(!/\b(?:PS\s*No\.|Line\s*No\.)\s*(?:\/\s*Line\s*No\.\s*)?Change\b/i.test(remarkFor(result, target)));
 }
 
 // Real false-negative pattern: same Civil support, changed line/PIPE, and two
@@ -85,7 +84,40 @@ function targetRemark(result) {
   const pipeEvent = result.ledger.events.find((event) => event.type === 'PIPE_IDENTITY_CHANGED');
   assert.equal(pipeEvent.remarkEligible, true);
   assert.equal(pipeEvent.normalizedState.projection, 'LINE_NUMBER_CHANGE');
-  assert.match(targetRemark(result), /Line No\. Change\(Old Line No\. 8"-P-1110XXX-METALLIC\)/);
+  assert.match(remarkFor(result, target), /Line No\. Change\(Old Line No\. 8"-P-1110XXX-METALLIC\)/);
+}
+
+// Real workbook shape: R3 can retain the old Civil+PIPE as an identity-only
+// shell while the active successor has the new PIPE and persistent references.
+// The shell stays in the model/output but cannot consume active-support lineage.
+{
+  const oldPipe = '8"-P-1110XXX-METALLIC';
+  const newPipe = 'BWGA-1000-FL-8"-M1610003-(FL-07)';
+  const rev2 = csv([
+    row({
+      civil: 'SL-111001(REF)', pipe: oldPipe,
+      members: '/SL-111001.1,/SL-111001.2,/SL-111001.3', types: 'REST-200,GUIDE-200,LINE-STOP-200',
+      refs: '=67133218/20,=67133218/21,=67141410/11', x: 'E 187110.232mm', y: 'N 103000.648mm', z: 'U 100656.05mm',
+    }),
+  ]);
+  const rev3 = csv([
+    row({ civil: 'SL-111001(REF)', pipe: oldPipe, members: '', types: '', refs: '', x: '', y: '', z: '' }),
+    row({
+      prev: 'SL-111001.1', civil: 'SL-111001(REF)', pipe: newPipe,
+      members: '/SL-111001.1,/SL-111001.2,/SL-111001.3', types: 'REST-200,GUIDE-200,LINE-STOP-200',
+      refs: '=67133218/20,=67133218/27,=67141410/11', x: 'E 187114mm', y: 'N 103001mm', z: 'U 100547mm',
+    }),
+  ]);
+  const result = runSupportRevisionCompare(rev2, rev3);
+  assert.equal(result.stage, 'READY_TO_EXPORT');
+  assert.equal(result.targetModel.locations.length, 2);
+  assert.equal(result.lineage.comparisonEligibility.ignoredTargetLocations.length, 1);
+  assert.equal(result.lineage.comparisonEligibility.ignoredTargetLocations[0].classification, 'IDENTITY_ONLY_SHELL');
+  const activeTarget = result.targetModel.locations.find((location) => location.pipe.raw === newPipe);
+  const edge = result.lineage.edges.find((candidate) => candidate.targetNodeIds.includes(activeTarget.nodeId));
+  assert.equal(edge.matchingMethod, 'persistent-reference-overlap');
+  assert.equal(edge.outcome, 'DETERMINISTIC');
+  assert.match(remarkFor(result, activeTarget), /Line No\. Change\(Old Line No\. 8"-P-1110XXX-METALLIC\)/);
 }
 
 console.log('csv-rev-compare-phase1-real-patterns.test.js: all checks passed');
