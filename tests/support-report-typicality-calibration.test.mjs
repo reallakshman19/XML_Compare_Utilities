@@ -120,7 +120,7 @@ test('known positive and negative XML benchmark controls retain expected classif
   assert.equal(negative.matches[0].result, 'NO_MATCH');
 });
 
-test('self controls never lose their own family as a valid structural comparison', () => {
+test('self controls never lose their own canonical family as a valid structural comparison', () => {
   for (const entry of observedCases.filter((item) => item.label.startsWith('SELF_CONTROL'))) {
     for (const family of entry.familyComparisons.filter((item) => item.leftFamilyId === item.rightFamilyId)) {
       assert.equal(family.result, 'TYPICAL');
@@ -130,8 +130,14 @@ test('self controls never lose their own family as a valid structural comparison
   }
 });
 
+test('raw member-family tokens do not become zero-location typicality candidates', () => {
+  const mixed = calibrationMatrix.familyInventory.filter((item) => item.sample === '12154-mixed');
+  assert.deepEqual(mixed.map((item) => item.familyId), ['PS-068', 'PS-12154']);
+  assert.ok(mixed.every((item) => item.locationCount > 0));
+});
+
 test('emit compact calibration matrix for current repository benchmark inventory', () => {
   console.log(`TYPICALITY_CALIBRATION_MATRIX_V1=${JSON.stringify(calibrationMatrix)}`);
   assert.equal(calibrationMatrix.profileId, 'PS_TYPICAL_V1_PROVISIONAL');
-  assert.ok(calibrationMatrix.familyInventory.length >= 5);
+  assert.equal(calibrationMatrix.familyInventory.length, 5);
 });
