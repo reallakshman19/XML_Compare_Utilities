@@ -16,8 +16,11 @@ export function buildWorkflowState({ rev1Loaded = false, rev2Loaded = false, res
 
   for (let index = 2; index <= 6; index += 1) states[index] = state(states[index], 'COMPLETE');
   const reviewCount = Number(result.unresolvedReviews?.count || 0);
-  states[7] = state(states[7], reviewCount ? 'ACTION_REQUIRED' : 'COMPLETE', reviewCount ? `${reviewCount} lineage review item(s) unresolved.` : 'No unresolved lineage review.');
-  if (reviewCount) {
+  const reviewBlockers = (result.lineage?.reviewDiagnostics || []).filter((item) => item.severity === 'blocker').length;
+  const reviewBlocked = reviewCount > 0 || reviewBlockers > 0;
+  const reviewDetail = reviewCount ? `${reviewCount} lineage review item(s) unresolved.` : reviewBlockers ? `${reviewBlockers} review decision error(s) must be corrected.` : 'No unresolved lineage review.';
+  states[7] = state(states[7], reviewBlocked ? 'ACTION_REQUIRED' : 'COMPLETE', reviewDetail);
+  if (reviewBlocked) {
     for (let index = 8; index < states.length; index += 1) states[index] = state(states[index], 'BLOCKED', 'Resolve ambiguous lineage first.');
     return Object.freeze(states.map(Object.freeze));
   }
@@ -44,16 +47,20 @@ function state(item, status, detail = '') {
 
 export function unresolvedReviewRows(result) {
   if (!result?.lineage) return Object.freeze([]);
-  const candidates = (result.lineage.candidates || []).filter((item) => item.outcome === 'AMBIGUOUS').map((item) => Object.freeze({
-    kind: 'candidate',
-    id: item.candidateId,
-    sourceNodeId: item.sourceNodeId,
-    targetNodeId: item.targetNodeId,
-    score: item.score,
-    matchingMethod: item.matchingMethod,
-    reasonCodes: Object.freeze([...(item.reasonCodes || [])]),
-  }));
-  const structural = (result.lineage.edges || []).filter((edge) => edge.outcome === 'AMBIGUOUS').map((edge) => Object.freeze({
+  const structuralEdges = (result.lineage.edges || []).filter((edge) => edge.outcome === 'AMBIGUOUS');
+  const structuralCandidateIds = new Set(structuralEdges.flatMap((edge) => edge.candidateIds || []));
+  const candidates = (result.lineage.candidates || [])
+    .filter((item) => item.outcome === 'AMBIGUOUS' && !structuralCandidateIds.has(item.candidateId))
+    .map((item) => Object.freeze({
+      kind: 'candidate',
+      id: item.candidateId,
+      sourceNodeId: item.sourceNodeId,
+      targetNodeId: item.targetNodeId,
+      score: item.score,
+      matchingMethod: item.matchingMethod,
+      reasonCodes: Object.freeze([...(item.reasonCodes || [])]),
+    }));
+  const structural = structuralEdges.map((edge) => Object.freeze({
     kind: 'structural',
     id: edge.edgeId,
     cardinality: edge.cardinality,
@@ -83,11 +90,13 @@ export function artifactDescriptor(result, kind) {
 export function comparisonSummary(result) {
   if (!result) return Object.freeze({ stage: 'WAITING', message: 'Load both revisions to begin.' });
   if (result.stage === 'CONVERSION_BLOCKED') return Object.freeze({ stage: result.stage, message: 'Conversion blocked. Inspect table schema and conversion diagnostics.' });
-  if (!result.exportReady) return Object.freeze({ stage: result.stage, message: `${result.unresolvedReviews?.count || 0} lineage review item(s) require an explicit decision.` });
-  return Object.freeze({
-    stage: result.stage,
-    message: `${result.ledger?.events?.length || 0} structured event(s); revision output is ready.`,
-  });
+  if (!result.exportReady) {
+    const count = Number(result.unresolvedReviews?.count || 0);
+    const blockers = (result.lineage?.reviewDiagnostics || []).filter((item) => item.severity === 'blocker').length;
+    const message = count ? `${count} lineage review item(s) require an explicit decision.` : `${blockers} review decision error(s) block export.`;
+    return Object.freeze({ stage: result.stage, message });
+  }
+  return Object.freeze({ stage: result.stage, message: `${result.ledger?.events?.length || 0} structured event(s); revision output is ready.` });
 }
 
 export const _test = Object.freeze({ conversionBlockedStates, state });
