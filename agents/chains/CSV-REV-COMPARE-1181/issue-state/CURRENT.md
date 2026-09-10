@@ -88,8 +88,8 @@ PHASE4_QUALIFICATION: NOT_STARTED_NOT_AUTHORIZED
 QUESTION_SET: QS-CSVRC-1181-0001 CURRENT / REUSED
 QUALIFICATION_SCOPE: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5623990967
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP0013_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5624236720
+ISSUE_HANDOVER_SYNC_STATUS: SYNCED_EP0013
 QUALIFICATION_VEHICLE: PR #1189 remains qualification-only and must never be merged as delivery
 ENVIRONMENT_LIMITATION: local checkout previously could not resolve github.com; existing qualification-only workflow lane may be reused without workflow mutation
 EXACT_NEXT_ACTION: author the Phase-3 `Load change` benchmark module and focused regressions first, preserving typed load events as detector authority and R3 remarks as stripped oracle-only labels. Execute real R2.zip->R3.zip through the existing qualification-only lane. If falsified, remain in Phase 3 and repair only the isolated load/event defect. Do not begin Phase 4 and do not merge PR #1188 without explicit Owner authority.
