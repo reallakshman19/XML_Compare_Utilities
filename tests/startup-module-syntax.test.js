@@ -6,8 +6,12 @@ import {
   supportReportSpreadsheetMatrix,
   supportReportToXlsxBytes,
 } from '../tabs/support-steel-relationship-builder/support-report-xlsx.js?v=20260909-support-report-xlsx-3';
-import { projectSupportReportFields } from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260909-support-report-carrier-conflict-13';
-import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260909-support-report-carrier-conflict-13';
+import {
+  projectSupportReportFieldProvenance,
+  projectSupportReportFields,
+  SUPPORT_REPORT_FIELD_SOURCE_CLASSES,
+} from '../tabs/support-steel-relationship-builder/support-report-field-projection.js?v=20260910-support-report-field-provenance-14';
+import { _test as supportReportEngineTest } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260910-support-report-field-provenance-14';
 import { parseSupportReportClashXml as parseSupportReportClashXmlWithTestContext } from '../tabs/support-steel-relationship-builder/support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8';
 import { parseSupportReportClashXml as parseSupportReportClashXmlSafely } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 
@@ -16,6 +20,7 @@ const SUPPORT_REPORT_PARITY_TOKEN = '20260909-support-report-parity-2';
 const SUPPORT_REPORT_XLSX_TOKEN = '20260909-support-report-xlsx-3';
 const SUPPORT_REPORT_PRIMITIVES_TOKEN = '20260909-support-report-parser-primitives-8';
 const SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN = '20260909-support-report-carrier-conflict-13';
+const SUPPORT_REPORT_FIELD_PROVENANCE_TOKEN = '20260910-support-report-field-provenance-14';
 const syntaxFiles = [
   'main-rhbg-fitguard.js',
   'core/app.js',
@@ -78,14 +83,15 @@ for (const [source, edge, label] of [
   assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_PRIMITIVES_TOKEN}`),
     `Support Report ${label} must carry the parser primitives cache token`);
 }
+assert.ok(engine.includes(`./support-report-contract.js?v=${SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN}`),
+  'Support Report engine must retain the carrier-conflict contract cache token');
 for (const [source, edge, label] of [
   [bootstrap, './support-report-addon.js', 'bootstrap → addon'],
   [addon, './support-report-engine.js', 'addon → engine'],
-  [engine, './support-report-contract.js', 'engine → contract'],
   [engine, './support-report-field-projection.js', 'engine → field projection'],
 ]) {
-  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_CARRIER_CONFLICT_TOKEN}`),
-    `Support Report ${label} must carry the carrier conflict cache token`);
+  assert.ok(source.includes(`${edge}?v=${SUPPORT_REPORT_FIELD_PROVENANCE_TOKEN}`),
+    `Support Report ${label} must carry the field provenance cache token`);
 }
 assert.ok(addon.includes(`./support-report-xlsx.js?v=${SUPPORT_REPORT_XLSX_TOKEN}`),
   'Support Report addon must load the XLSX writer through the XLSX cache token');
@@ -144,6 +150,17 @@ const nativeTypeFields = projectSupportReportFields({
   carrierRows: [], coordinatePoint: null,
 });
 assert.equal(nativeTypeFields.supportType, 'SHOE-250');
+const provenance = projectSupportReportFieldProvenance({
+  group: fieldAuthorityGroup,
+  reportMembers: [{ memberId: '/PS-007.7', attributes: { CMPSUPTYPE: 'SHOE-250' } }],
+  carrierRows: [{ carrierObjectId: '/PIPE-10', attributes: { ABORE: '250' } }],
+  coordinateSource: 'NATIVE_MEMBER_POSITION',
+  selectedNativeMemberCount: 1,
+});
+assert.equal(provenance.pipingPrimarySupport.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBERSHIP);
+assert.equal(provenance.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE);
+assert.equal(provenance.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_POSITION);
+assert.equal(provenance.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
 
 const lineA = 'ASIM-1885-PL-10"-LINE-A';
 const lineB = 'ASIM-1885-PL-10"-LINE-B';

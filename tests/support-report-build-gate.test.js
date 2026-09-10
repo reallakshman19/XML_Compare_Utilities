@@ -43,5 +43,5 @@ test('Support Report UI routes readiness through the gate before report construc
   assert.match(addon, /assertSupportReportEvidenceReady\(parseSupportReportClashXml\(xmlText\)\)/);
   assert.ok(addon.indexOf('assertSupportReportEvidenceReady(parseSupportReportClashXml(xmlText))')
     < addon.indexOf('buildSupportReportBundle({ clashEvidence, relationshipBundle })'));
-  assert.match(bootstrap, /support-report-addon\.js\?v=20260909-support-report-carrier-conflict-13/);
+  assert.match(bootstrap, /support-report-addon\.js\?v=20260910-support-report-field-provenance-14/);
 });

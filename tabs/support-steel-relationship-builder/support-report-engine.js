@@ -8,9 +8,10 @@ import {
   parseSupportReportClashXml,
 } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8';
 import {
+  projectSupportReportFieldProvenance,
   projectSupportReportFields,
   supportReportCarrierAttributeConflicts,
-} from './support-report-field-projection.js?v=20260909-support-report-carrier-conflict-13';
+} from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 
@@ -111,6 +112,10 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   const representativeMember = chooseRepresentativeMember(reportMembers, clashIds);
   const nativePoint = representativeMember?.positionGlobal || null;
   const coordinatePoint = nativePoint || group.representativeClashPointGlobalMm || null;
+  const coordinateSource = nativePoint ? 'NATIVE_MEMBER_POSITION'
+    : coordinatePoint ? 'CLASH_POINT_FALLBACK' : 'UNRESOLVED';
+  const coordinateSourceIds = nativePoint && representativeMember?.memberId
+    ? [normalizeMemberId(representativeMember.memberId)] : [];
   if (!nativePoint && coordinatePoint) {
     rowDiagnostics.push(diagnostic('INFO', SUPPORT_REPORT_DIAGNOSTICS.COORDINATE_FROM_CLASH_FALLBACK,
       `Coordinates for ${group.secondarySupportFamilyId} / ${group.fullLineTag} use the clash point because no native support position was available.`, {
@@ -118,6 +123,10 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
         fullLineTag: group.fullLineTag,
       }));
   }
+  const fieldProvenance = projectSupportReportFieldProvenance({
+    group, reportMembers, carrierRows, coordinateSource, coordinateSourceIds,
+    selectedNativeMemberCount: selectedMembers.length,
+  });
 
   const row = Object.freeze({
     schema: SUPPORT_REPORT_ROW_SCHEMA,
@@ -134,6 +143,7 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
       carrierAttributeConflicts,
+      fieldProvenance,
       nativeCoordinateAvailable: Boolean(nativePoint),
       clashCoordinateFallbackUsed: !nativePoint && Boolean(coordinatePoint),
     }),

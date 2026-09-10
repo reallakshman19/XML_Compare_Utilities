@@ -33,6 +33,24 @@ const CARRIER_FIELD_SPECS = Object.freeze([
   Object.freeze({ field: 'revision', keys: REVISION_KEYS }),
 ]);
 
+export const SUPPORT_REPORT_FIELD_SOURCE_CLASSES = Object.freeze({
+  NATIVE_MEMBER_ATTRIBUTE: 'AUTHORITATIVE_NATIVE_MEMBER_ATTRIBUTE',
+  NATIVE_MEMBERSHIP: 'AUTHORITATIVE_NATIVE_MEMBERSHIP',
+  NATIVE_MEMBER_LIST_STRUCTURE: 'AUTHORITATIVE_NATIVE_MEMBER_LIST_STRUCTURE',
+  NATIVE_MEMBER_POSITION: 'AUTHORITATIVE_NATIVE_MEMBER_POSITION',
+  NATIVE_MEMBER_PATH: 'AUTHORITATIVE_NATIVE_MEMBER_PATH',
+  CARRIER_ATTRIBUTE: 'AUTHORITATIVE_CARRIER_ATTRIBUTE',
+  SOURCE_CONFLICT: 'AUTHORITATIVE_SOURCE_CONFLICT',
+  CLASH_RELATIONSHIP: 'CLASH_RELATIONSHIP_EVIDENCE',
+  CLASH_GROUP_DERIVATION: 'CLASH_GROUP_DERIVATION',
+  CLASH_PRIMARY_PATH: 'CLASH_PRIMARY_PATH_DERIVATION',
+  CLASH_MEMBER_FALLBACK: 'CLASH_MEMBER_FALLBACK',
+  CLASH_POINT_FALLBACK: 'CLASH_POINT_FALLBACK',
+  LINE_TAG_DERIVATION: 'DETERMINISTIC_LINE_TAG_DERIVATION',
+  FIELD_COMPOSITION: 'DETERMINISTIC_FIELD_COMPOSITION',
+  UNRESOLVED: 'UNRESOLVED',
+});
+
 export function projectSupportReportFields({ group, reportMembers, carrierRows, coordinatePoint }) {
   const primaryPath = choosePrimaryPath(group?.primaryPaths || []);
   const size = resolveCarrierAttribute(carrierRows, PIPE_SIZE_KEYS);
@@ -69,34 +87,116 @@ export function projectSupportReportFields({ group, reportMembers, carrierRows, 
   });
 }
 
+export function projectSupportReportFieldProvenance(input = {}) {
+  const { group, reportMembers = [], carrierRows = [], selectedNativeMemberCount = 0 } = input;
+  const primaryPath = choosePrimaryPath(group?.primaryPaths || []);
+  const size = resolveCarrierAttribute(carrierRows, PIPE_SIZE_KEYS);
+  const insulationType = carrierSource(resolveCarrierAttribute(carrierRows, INSULATION_TYPE_KEYS));
+  const insulationThickness = carrierSource(resolveCarrierAttribute(carrierRows, INSULATION_THICKNESS_KEYS));
+  const membership = reportMembers.length
+    ? source(selectedNativeMemberCount ? SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBERSHIP
+      : SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_MEMBER_FALLBACK, memberIds(reportMembers))
+    : unresolved();
+  const coordinate = coordinateSource(input.coordinateSource, input.coordinateSourceIds || []);
+  return Object.freeze({
+    previousName: memberSource(reportMembers, PREVIOUS_NAME_KEYS),
+    scope: group?.scope || group?.fullLineTag ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
+    civilSecondarySupport: group?.secondarySupportFamilyId ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
+    pipe: group?.fullLineTag ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
+    size: size.conflict ? carrierSource(size) : size.value ? carrierSource(size)
+      : deriveNominalSizeMm(group?.fullLineTag) ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.LINE_TAG_DERIVATION) : unresolved(),
+    pipingPrimarySupport: membership,
+    supportType: memberSource(reportMembers, SUPPORT_TYPE_KEYS),
+    pipingPrimarySupportReference: memberSource(reportMembers, SUPPORT_REFERENCE_KEYS),
+    eastWest: coordinate,
+    northSouth: coordinate,
+    bopElevation: coordinate,
+    totalSupportPointsOnSecondary: Number.isFinite(group?.totalSupportPointsOnSecondary)
+      ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_GROUP_DERIVATION) : unresolved(),
+    remarks: memberSource(reportMembers, REMARK_KEYS, selectedNativeMemberCount > 0),
+    primarySupportDescription: memberSource(reportMembers, DESCRIPTION_KEYS),
+    primarySupportZone: pathSource(primaryPath, reportMembers, /-CU-PL-S(?:-|$)/i),
+    primarySupportSite: pathSource(primaryPath, reportMembers, /-CU-PL(?:-|$)/i, /-CU-PL-S(?:-|$)/i),
+    pipeSchedule: carrierSource(resolveCarrierAttribute(carrierRows, PIPE_SCHEDULE_KEYS)),
+    pipeInsulationThickness: insulationThickness,
+    pipeInsulationType: insulationType,
+    pipeInsulationTypeAndThickness: compositionSource(insulationType, insulationThickness),
+    stressSystemNumber: carrierSource(resolveCarrierAttribute(carrierRows, STRESS_SYSTEM_KEYS)),
+    nodeNumber: carrierSource(resolveCarrierAttribute(carrierRows, NODE_NUMBER_KEYS)),
+    revision: carrierSource(resolveCarrierAttribute(carrierRows, REVISION_KEYS)),
+  });
+}
+
 export function supportReportCarrierAttributeConflicts(carrierRows = []) {
   return CARRIER_FIELD_SPECS.map((spec) => {
     const resolved = resolveCarrierAttribute(carrierRows, spec.keys);
     if (!resolved.conflict) return null;
-    return Object.freeze({
-      field: spec.field,
-      values: resolved.values,
-      carrierValues: resolved.carrierValues,
-    });
+    return Object.freeze({ field: spec.field, values: resolved.values, carrierValues: resolved.carrierValues });
   }).filter(Boolean);
 }
 
-function resolveCarrierAttribute(carrierRows, keys) {
-  const carrierValues = (carrierRows || []).map((row) => ({
-    carrierObjectId: clean(row?.carrierObjectId),
-    value: firstAttribute([row?.attributes || {}], keys),
-  })).filter((row) => row.value)
-    .sort((left, right) => left.carrierObjectId.localeCompare(right.carrierObjectId)
-      || left.value.localeCompare(right.value));
-  const values = [...new Set(carrierValues.map((row) => row.value))].sort((a, b) => a.localeCompare(b));
+function carrierSource(resolved) {
+  if (resolved.conflict) return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT,
+    resolved.carrierValues.map((item) => item.carrierObjectId), { values: resolved.values });
+  return resolved.value ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE,
+    resolved.carrierValues.map((item) => item.carrierObjectId)) : unresolved();
+}
+function memberSource(members, keys, allowStructureOnly = false) {
+  const withValues = (members || []).filter((member) => memberAttribute(member, keys));
+  if (withValues.length) return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_ATTRIBUTE, memberIds(withValues));
+  if (allowStructureOnly && members.length) return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_LIST_STRUCTURE,
+    memberIds(members), { valueStatus: 'STRUCTURE_ONLY' });
+  return unresolved();
+}
+function coordinateSource(kind, ids) {
+  if (kind === 'NATIVE_MEMBER_POSITION') return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_POSITION, ids);
+  if (kind === 'CLASH_POINT_FALLBACK') return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_POINT_FALLBACK);
+  return unresolved();
+}
+function pathSource(path, members, include, exclude = null) {
+  const clashValue = findPathValue(path, include, exclude);
+  if (clashValue) return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_PRIMARY_PATH);
+  const nativeMembers = (members || []).filter((member) => findPathValue(flattenPath(member.sourcePath), include, exclude));
+  return nativeMembers.length ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_PATH, memberIds(nativeMembers)) : unresolved();
+}
+function compositionSource(...entries) {
+  return entries.some((entry) => entry.sourceClass !== SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED)
+    ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.FIELD_COMPOSITION, [], { dependsOn: ['pipeInsulationType', 'pipeInsulationThickness'] })
+    : unresolved();
+}
+function source(sourceClass, sourceIds = [], extra = {}) {
   return Object.freeze({
-    value: values.length === 1 ? values[0] : '',
-    conflict: values.length > 1,
-    values,
-    carrierValues,
+    sourceClass,
+    confidenceClass: confidenceClass(sourceClass),
+    valueStatus: extra.valueStatus || (sourceClass === SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT ? 'CONFLICT' : 'RESOLVED'),
+    sourceIds: Object.freeze([...new Set(sourceIds.filter(Boolean))]),
+    ...extra,
   });
 }
-
+function unresolved() {
+  return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED, [], { valueStatus: 'UNRESOLVED' });
+}
+function confidenceClass(sourceClass) {
+  if (sourceClass.startsWith('AUTHORITATIVE_') && !sourceClass.endsWith('_CONFLICT')) return 'AUTHORITATIVE';
+  if (sourceClass.startsWith('DETERMINISTIC_')) return 'DETERMINISTIC';
+  if (sourceClass === SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_MEMBER_FALLBACK
+    || sourceClass === SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_POINT_FALLBACK) return 'FALLBACK';
+  if (sourceClass === SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT) return 'CONFLICT';
+  if (sourceClass === SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED) return 'UNRESOLVED';
+  return 'EVIDENCE';
+}
+function memberIds(members) { return (members || []).map((member) => normalizeMemberId(member.memberId)).filter(Boolean); }
+function findPathValue(path, include, exclude = null) {
+  return (path || []).find((value) => include.test(String(value || '')) && (!exclude || !exclude.test(String(value || '')))) || '';
+}
+function resolveCarrierAttribute(carrierRows, keys) {
+  const carrierValues = (carrierRows || []).map((row) => ({
+    carrierObjectId: clean(row?.carrierObjectId), value: firstAttribute([row?.attributes || {}], keys),
+  })).filter((row) => row.value).sort((left, right) => left.carrierObjectId.localeCompare(right.carrierObjectId)
+    || left.value.localeCompare(right.value));
+  const values = [...new Set(carrierValues.map((row) => row.value))].sort((a, b) => a.localeCompare(b));
+  return Object.freeze({ value: values.length === 1 ? values[0] : '', conflict: values.length > 1, values, carrierValues });
+}
 function memberAttribute(member, keys) { return firstAttribute([member?.attributes || {}], keys); }
 function supportType(member) { return memberAttribute(member, SUPPORT_TYPE_KEYS); }
 function firstAttribute(attributeRows, keys) {

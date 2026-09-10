@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260909-support-report-carrier-conflict-13';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14';
 import { supportReportToCsv } from './support-report-export.js?v=20260909-support-report-parity-2';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260909-support-report-parity-2';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260909-support-report-xlsx-3';
