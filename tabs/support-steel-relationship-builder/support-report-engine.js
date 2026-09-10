@@ -6,7 +6,7 @@ import {
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
-} from './support-report-clash-safety.js?v=20260910-support-report-location-17';
+} from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
 import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
