@@ -29,8 +29,8 @@ LATEST_MATERIAL_LEG: LEG-003
 LATEST_MATERIAL_LEG_FILE: agents/chains/SUPPORT-REPORT-1154/material-legs/LEG-003.md
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5605124994
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5605121164
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0008
-ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0008_COMMENT
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5611561323
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -43,7 +43,7 @@ ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0008_COMMENT
 - TASK-007 | COMPLETE_CONTRACT_PARITY | frozen Owner 21-column A:U order/header semantics are now production spreadsheet authority; retained preview-sample layout removed as Support Report contract authority
 - TASK-008 | PARTIAL | XLSX matrix emits Owner ordinal/header/field order and correct header-row autofilter; independent full workbook round-trip remains NOT_RUN
 - TASK-009 | PARTIAL | parser/member/carrier/field paths fail closed or fail visible in tested unsafe cases; real target no-fabrication qualification remains blocked by INPUT-003
-- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-003 / EP-0008; issue endpoint comment synchronization pending in this projection
+- TASK-010 | IN_PROGRESS | v2 chain synchronized through LEG-003 / EP-0008
 
 # Input ledger
 
