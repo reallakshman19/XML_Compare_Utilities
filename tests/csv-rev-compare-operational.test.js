@@ -66,20 +66,27 @@ function rowsByDisposition(output, disposition) { return output.rows.filter((ite
   assert.match(result.artifacts.rev1GraphJson, /categorized-xml-graph/);
   assert.match(result.artifacts.profileJson, /support-revision-csv-xml\/v1/);
   assert.match(result.artifacts.comparisonAuditJson, /TABLE->CATEGORIZED_XML->XML_LINEAGE->EVENT_LEDGER->REVISION_OUTPUT/);
+  assert.match(result.artifacts.comparisonAuditJson, /pairValidation/);
   assert.match(result.artifacts.comparisonAuditJson, /sourceCellRef|sourceCells/);
   assert.equal(result.artifacts.outputCsv, revisionOutputToCsv(result.output));
 }
 
-// A source row with no successor is emitted as a tombstone after later-revision rows.
+// A source row with no successor is emitted as a tombstone after later-revision rows and traces to candidate exhaustion.
 {
   const rev1 = csv([row({ 'PREV NAME': 'PS-OLD', CIVILSECONDARYSUPPORT: 'SL-OLD', 'PIPING PRIMARY SUPPORT REFERENCE': '=OLD/1' })]);
-  const rev2 = csv([row({ REVISION: '2', 'PREV NAME': 'PS-NEW', CIVILSECONDARYSUPPORT: 'SL-NEW', PIPE: 'OTHER-AREA-XX-2"-Q100-01', 'PIPING PRIMARY SUPPORT REFERENCE': '=NEW/1', 'EAST/WEST': 'E 9000' })]);
+  const rev2 = csv([row({ REVISION: '2', 'PREV NAME': 'PS-NEW', CIVILSECONDARYSUPPORT: 'SL-NEW', PIPE: 'ASIM-1885-PL-2"-Q100-01', 'PIPING PRIMARY SUPPORT REFERENCE': '=NEW/1', 'EAST/WEST': 'E 9000' })]);
   const result = runSupportRevisionCompare(rev1, rev2);
   assert.equal(result.exportReady, true);
   assert.equal(rowsByDisposition(result.output, 'REV2').length, 1);
   const tombstones = rowsByDisposition(result.output, 'TOMBSTONE');
   assert.equal(tombstones.length, 1);
   assert.equal(tombstones[0].values[remarkIndex(result.output)], 'Invalid Support, This pipe no longer supported');
+  const removal = result.ledger.events.find((item) => item.type === 'SUPPORT_LOCATION_REMOVED');
+  assert.equal(removal.matchingMethod, 'candidate-exhaustion');
+  assert.ok(removal.candidateIds.length > 0);
+  const trace = result.remarks.trace.find((item) => item.eventId === removal.eventId);
+  assert.deepEqual(trace.candidateIds, removal.candidateIds);
+  assert.ok(trace.eventTrace.sourceCells.PIPE.length > 0);
 }
 
 // Proven family replacement creates both the old invalid row and successor history remark.
