@@ -38,6 +38,7 @@ function buildLocation(graph, source, secondaryNode, locationNode) {
   const rowId = locationNode.sourceRefs?.[0] || '';
   const components = Object.freeze(componentNodes.map((node) => componentFromNode(source, rowId, node)));
   const persistentReferences = Object.freeze([...new Set(components.map((item) => item.reference).filter(Boolean))].sort());
+  const referenceMultiplicity = Object.freeze(referenceMultiplicityOf(components));
   const pipe = parsePipeIdentity(pipeNode?.fields?.raw || pipeNode?.key || '');
   const supportLocationIdentity = compositeSupportLocationIdentity(family, pipe.raw);
   return Object.freeze({
@@ -55,7 +56,9 @@ function buildLocation(graph, source, secondaryNode, locationNode) {
     position: parseSupportPosition(positionNode?.fields || {}),
     components,
     persistentReferences,
+    referenceMultiplicity,
     referenceSetKey: persistentReferences.join('|'),
+    referenceMultiplicityKey: referenceMultiplicityKey(referenceMultiplicity),
     loads: loadNodes.map((node) => Object.freeze({ nodeId: node.id, sourceRefs: node.sourceRefs, ...node.fields })),
     sourceFields: Object.freeze({ ...(locationNode.fields || {}) }),
     provenance: Object.freeze({ locationNodeId: locationNode.id, secondaryNodeId: secondaryNode.id, sourceRowId: rowId, cells: locationCellRefs(source, rowId) }),
@@ -100,9 +103,22 @@ export function referenceIndex(model) {
 }
 
 export function componentByReference(location) {
-  return new Map((location?.components || []).filter((component) => component.reference).map((component) => [component.reference, component]));
+  const index = new Map();
+  for (const component of location?.components || []) {
+    if (!component.reference) continue;
+    if (!index.has(component.reference)) index.set(component.reference, []);
+    index.get(component.reference).push(component);
+  }
+  for (const [reference, components] of index) index.set(reference, Object.freeze([...components]));
+  return index;
 }
 
+function referenceMultiplicityOf(components) {
+  const counts = {};
+  for (const component of components || []) if (component.reference) counts[component.reference] = (counts[component.reference] || 0) + 1;
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+}
+function referenceMultiplicityKey(counts) { return Object.entries(counts || {}).map(([reference, count]) => `${reference}#${count}`).join('|'); }
 function normalizeReference(value) { return clean(value).replace(/\s+/g, ''); }
 function memberFamily(memberId) { const value = clean(memberId).replace(/^\//, ''); const dot = value.lastIndexOf('.'); return dot > 0 ? value.slice(0, dot) : value; }
 function familyClass(family) { const value = clean(family).replace(/^\//, ''); return value.replace(/[._-]?\d+$/i, '') || value; }
@@ -115,4 +131,4 @@ function cellRefs(source, rowId, header) {
   return Object.freeze((source.headers || []).flatMap((candidate, index) => candidate === header ? [`${rowId}:${source.columnIds?.[index] || header}`] : []));
 }
 
-export const _test = Object.freeze({ normalizeReference, memberFamily, familyClass, cellRefs, normalizeIdentityPart });
+export const _test = Object.freeze({ normalizeReference, memberFamily, familyClass, cellRefs, normalizeIdentityPart, referenceMultiplicityOf, referenceMultiplicityKey });

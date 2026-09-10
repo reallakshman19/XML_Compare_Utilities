@@ -1,6 +1,6 @@
 import { SUPPORT_REVISION_WORKFLOW_STAGES } from './support-revision-engine.js';
 
-export const CSV_REV_COMPARE_UI_SCHEMA = 'csv-rev-compare-ui/v1';
+export const CSV_REV_COMPARE_UI_SCHEMA = 'csv-rev-compare-ui/v2-review-evidence';
 
 export function buildWorkflowState({ rev1Loaded = false, rev2Loaded = false, result = null } = {}) {
   const states = SUPPORT_REVISION_WORKFLOW_STAGES.map((label, index) => ({
@@ -59,6 +59,9 @@ export function unresolvedReviewRows(result) {
       score: item.score,
       matchingMethod: item.matchingMethod,
       reasonCodes: Object.freeze([...(item.reasonCodes || [])]),
+      source: reviewLocation(result.sourceModel?.locationByNodeId?.get(item.sourceNodeId)),
+      target: reviewLocation(result.targetModel?.locationByNodeId?.get(item.targetNodeId)),
+      activeSignals: Object.freeze((item.weightBreakdown || []).filter((signal) => signal.active).map((signal) => Object.freeze({ signal: signal.signal, contribution: signal.contribution, reasonCode: signal.reasonCode }))),
     }));
   const structural = structuralEdges.map((edge) => Object.freeze({
     kind: 'structural',
@@ -68,8 +71,23 @@ export function unresolvedReviewRows(result) {
     targetNodeIds: Object.freeze([...(edge.targetNodeIds || [])]),
     matchingMethod: edge.matchingMethod,
     reasonCodes: Object.freeze([...(edge.reasonCodes || [])]),
+    sources: Object.freeze((edge.sourceNodeIds || []).map((id) => reviewLocation(result.sourceModel?.locationByNodeId?.get(id)))),
+    targets: Object.freeze((edge.targetNodeIds || []).map((id) => reviewLocation(result.targetModel?.locationByNodeId?.get(id)))),
   }));
   return Object.freeze([...candidates, ...structural]);
+}
+
+function reviewLocation(location) {
+  if (!location) return Object.freeze({ nodeId: '', family: '', pipe: '', size: '', references: Object.freeze([]), position: Object.freeze({}) });
+  return Object.freeze({
+    nodeId: location.nodeId,
+    family: location.family,
+    prevName: location.legacyIdentity,
+    pipe: location.pipe?.raw || '',
+    size: location.size || location.pipe?.nps || '',
+    references: Object.freeze([...(location.persistentReferences || [])]),
+    position: Object.freeze(Object.fromEntries(['x','y','z'].map((axis) => [axis, location.position?.[axis]?.raw || '']))),
+  });
 }
 
 export function artifactDescriptor(result, kind) {
@@ -99,4 +117,4 @@ export function comparisonSummary(result) {
   return Object.freeze({ stage: result.stage, message: `${result.ledger?.events?.length || 0} structured event(s); revision output is ready.` });
 }
 
-export const _test = Object.freeze({ conversionBlockedStates, state });
+export const _test = Object.freeze({ conversionBlockedStates, state, reviewLocation });
