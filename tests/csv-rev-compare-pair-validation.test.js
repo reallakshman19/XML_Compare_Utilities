@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { runSupportRevisionCompare } from '../tabs/csv-rev-compare/support-revision-engine.js';
 import { convertSupportRevisionPair } from '../tabs/csv-rev-compare/support-revision-pipeline.js';
 
 const HEADERS = [
@@ -49,13 +50,16 @@ test('explicit earlier/later inputs with overlapping categorized area/scope pass
 });
 
 test('disjoint categorized PIPE areas fail closed before lineage comparison', () => {
-  const pair = convertSupportRevisionPair(
-    csv([row({ REVISION: '1' })]),
-    csv([row({ REVISION: '2', PIPE: 'BETA-9999-PL-4"-M8810130-01' })]),
-  );
+  const source = csv([row({ REVISION: '1' })]);
+  const target = csv([row({ REVISION: '2', PIPE: 'BETA-9999-PL-4"-M8810130-01' })]);
+  const pair = convertSupportRevisionPair(source, target);
   assert.equal(pair.ok, false);
   assert.equal(pair.pairValidation.ok, false);
   assert.ok(pair.diagnostics.some((item) => item.code === 'support_revision_area_incompatible' && item.severity === 'BLOCKER'));
+  const result = runSupportRevisionCompare(source, target);
+  assert.equal(result.stage, 'CONVERSION_BLOCKED');
+  assert.equal(result.exportReady, false);
+  assert.ok(result.diagnostics.some((item) => item.code === 'support_revision_area_incompatible'));
 });
 
 test('disjoint categorized support scopes fail closed even when area matches', () => {
