@@ -5,8 +5,6 @@ import {
   supportReportFamilyMismatchMemberIds,
 } from './support-report-json-trace.js?v=20260910-support-report-json-trace-18';
 
-const CU_SITE_RE = /-CU-[A-Z0-9]+$/iu;
-const CU_ZONE_RE = /-CU-[A-Z0-9]+-[A-Z0-9][A-Z0-9_-]*$/iu;
 const INSULATION_THICKNESS_KEYS = Object.freeze([
   'PIPE_INSULATION_THICKNESS', 'INSULATION_THICKNESS', 'INS_THK', 'ITHK', 'THICKNESS_INSULATION', 'INSU',
 ]);
@@ -29,28 +27,22 @@ export function resolveSupportReportRowMembers({ relationshipBundle, group, fami
 }
 
 export function enrichSupportReportProjectedFields(fields, input = {}) {
-  const { group, reportMembers = [], reportRemarks = [] } = input;
-  const primaryPath = choosePrimaryPath(group?.primaryPaths || []);
+  const { reportMembers = [], reportRemarks = [] } = input;
   const nativeRemarks = clean(fields?.remarks);
   const derivedRemarks = reportRemarks.filter(Boolean).join('; ');
   return Object.freeze({
     ...fields,
     pipeInsulationThickness: fields?.pipeInsulationThickness || consistentMemberAttribute(reportMembers, INSULATION_THICKNESS_KEYS),
-    primarySupportZone: fields?.primarySupportZone || pathValue(primaryPath, CU_ZONE_RE),
-    primarySupportSite: fields?.primarySupportSite || pathValue(primaryPath, CU_SITE_RE),
     remarks: [nativeRemarks, derivedRemarks].filter(Boolean).join('; '),
   });
 }
 
 export function enrichSupportReportFieldProvenance(provenance, fields, enriched, input = {}) {
-  const { group, reportMembers = [], reportRemarks = [] } = input;
+  const { reportMembers = [], reportRemarks = [] } = input;
   const output = { ...(provenance || {}) };
   if (!clean(fields?.pipeInsulationThickness) && clean(enriched?.pipeInsulationThickness)) {
     output.pipeInsulationThickness = source('AUTHORITATIVE_NATIVE_MEMBER_ATTRIBUTE', memberIdsWithAttribute(reportMembers, INSULATION_THICKNESS_KEYS));
   }
-  const primaryPath = choosePrimaryPath(group?.primaryPaths || []);
-  if (!clean(fields?.primarySupportZone) && pathValue(primaryPath, CU_ZONE_RE)) output.primarySupportZone = source('CLASH_PRIMARY_PATH_DERIVATION');
-  if (!clean(fields?.primarySupportSite) && pathValue(primaryPath, CU_SITE_RE)) output.primarySupportSite = source('CLASH_PRIMARY_PATH_DERIVATION');
   if (reportRemarks.length && !clean(fields?.remarks)) output.remarks = source('CLASH_GROUP_DERIVATION');
   if (reportRemarks.length && clean(fields?.remarks)) output.remarks = source('DETERMINISTIC_FIELD_COMPOSITION');
   return Object.freeze(output);
@@ -94,11 +86,6 @@ function attribute(attrs, keys) {
   }
   return '';
 }
-function pathValue(path, pattern) {
-  const value = (path || []).find((node) => pattern.test(clean(node)));
-  return value ? clean(value).replace(/^\/+/, '') : '';
-}
-function choosePrimaryPath(paths) { return [...(paths || [])].sort((left, right) => right.length - left.length)[0] || []; }
 function source(sourceClass, sourceIds = []) {
   return Object.freeze({
     sourceClass,
