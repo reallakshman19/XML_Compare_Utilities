@@ -95,6 +95,6 @@ assert.equal(seriesNodes[0].fields.ordinal, 1);
 assert.equal(seriesNodes[1].fields.columnId, 'Fy__2');
 assert.equal(seriesNodes[1].fields.ordinal, 2);
 assert.equal(seriesNodes[1].fields.raw, '-20');
-assert.equal(seriesNodes[1].fields.sourceCellRef, 'S1:2:Fy__2');
+assert.equal(seriesNodes[1].fields.sourceCellRef, 'S1:1:Fy__2');
 
 console.log('Table categorized creation mode tests passed');
