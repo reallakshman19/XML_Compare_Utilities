@@ -1,15 +1,15 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
 MISSION: Implement issue #1181 CSV Rev Compare (XML Based) with governed categorized XML as comparison authority and auditable Support Report output
-ACTIVE_ENDPOINT: EP-CSVRC-0005
-ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0005.md
-LATEST_MATERIAL_LEG: LEG-004
-LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-004.md
+ACTIVE_ENDPOINT: EP-CSVRC-0006
+ACTIVE_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0006.md
+LATEST_MATERIAL_LEG: LEG-005
+LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-005.md
 PR: 1184
 BRANCH: issue-1181-csv-rev-compare-xml-v2
-HEAD: 4cf35b754999d65d4c3ac15c97121ed214322959
+HEAD: 20719e535cbfe5f4db154ac65987100ae3f5f349
 MAIN_AT_ENDPOINT: a84e8258704d86c0454b813d720b975165076002
-STATE: LEG005_READY
+STATE: LEG006_READY
 ENGINEERING_STATE: IN_PROGRESS
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: NOT_REQUIRED_FOR_CURRENT_CUSTODIAN
@@ -28,14 +28,14 @@ ISSUE_BASIS_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-basis/IB-CSV-REV-COMP
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0005
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616676348
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5616978742
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-CUSTODY_EPOCH: 5
-COORDINATION_STATE: SAFE_FOR_LEG004; MAIN_DRIFT_RECHECK_REQUIRED_BEFORE_UI
-DEPENDENCIES: prerequisite complete; current main Support Report typicality changes inspected and non-overlapping with LEG-004 production paths
+CUSTODY_EPOCH: 6
+COORDINATION_STATE: SAFE_FOR_LEG005_AT_LAST_RECONCILIATION; RECHECK_REQUIRED_BEFORE_FINAL_QUALIFICATION
+DEPENDENCIES: current main `a84e8258...`; Utilities installer pre-image matched main; no generic Revision Compare behavior changed
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -52,12 +52,13 @@ QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: focused tests committed for LEG-001/002/003/004; execution unavailable in this session
+HANDOVER_VALIDATION_EVIDENCE: focused tests committed for LEG-001/002/003/004/005; execution unavailable in this session
 CHAIN_HANDOVER_READY: TRUE
-HANDOVER_READY: FALSE_PENDING_MATERIAL_VALIDATION
+HANDOVER_READY: FALSE_PENDING_FINAL_QUALIFICATION
 MATERIAL_HISTORY_ROOT_BASE: 4bc8bdbe0e8552e91a29d67e97931b6bbac8b0a3
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0005.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/CSV-REV-COMPARE-1181/endpoints/EP-CSVRC-0006.md
 INPUT_STATUS: INPUT001_002_003_005_AVAILABLE; INPUT004_OWNER_RAW_BENCHMARK_UNRESOLVED
 BENCHMARK_STATUS: BM001_BM015_NOT_RUN
-ENVIRONMENT_LIMITATION: raw network DNS cannot resolve github.com; local checkout/backups/.agent-worklogs/test execution unavailable
-EXACT_NEXT_ACTION: re-ground current main plus `tabs/psnm-utility-tab.js` and existing utility installer/revision-compare UI patterns before LEG-005. If coordination is safe, implement the staged UI strictly as a consumer of the XML-domain engine. Do not merge.
+ENVIRONMENT_LIMITATION: raw network DNS cannot resolve github.com; local checkout/backups/.agent-worklogs/Node/browser execution unavailable
+LOCAL_BACKUP_WORKLOG_DEFICIT: existing-file remote edits have blob SHA pre-images but no repository-required local backup/worklog artifacts; final executable qualification must address/document this deficit
+EXACT_NEXT_ACTION: re-ground current main/PR and executable validation availability, then execute LEG-006 final benchmark/regression qualification and PR hardening; use owner raw benchmark if available; remediate defects only; do not merge.
