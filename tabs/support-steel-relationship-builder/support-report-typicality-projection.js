@@ -1,0 +1,155 @@
+import {
+  buildSupportReportTypicalityAudit,
+  normalizePipeClass,
+  PS_TYPICAL_V1_PROVISIONAL,
+} from './support-report-typicality.js?v=20260910-support-report-typicality-projection-2';
+import {
+  buildCanonicalTypicalityLocations,
+  buildTypicalityLocationAssignmentsForMatches,
+} from './support-report-typicality-location.js?v=20260910-support-report-typicality-projection-2';
+
+export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
+export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = Object.freeze({
+  ...PS_TYPICAL_V1_PROVISIONAL,
+  profileId: 'PS_TYPICAL_V1_PROVISIONAL',
+  pipingLocation: Object.freeze({
+    requireCompatiblePipeClass: true,
+    geometryFingerprintToleranceMm: 50,
+    ambiguityCostTolerance: 0.001,
+    assignmentWeights: Object.freeze({
+      supportTypeMember: 100000,
+      memberMultiplicity: 10000,
+      geometryMedianMm: 1,
+      geometryMaxMm: 1,
+    }),
+  }),
+});
+
+export function buildSupportReportTypicalityComparison(leftEvidence, rightEvidence, options = {}) {
+  const profile = comparisonProfile(options.profile);
+  const familyAudit = buildSupportReportTypicalityAudit(leftEvidence, rightEvidence, { ...options, profile });
+  const locationAssignments = buildTypicalityLocationAssignmentsForMatches(
+    leftEvidence,
+    rightEvidence,
+    familyAudit.matches,
+    { ...options, profile },
+  );
+  const assignmentsByFamily = new Map(locationAssignments.map((item) => [token(item.leftFamilyId), item]));
+  const resolvedMatches = familyAudit.matches.map((match) => resolveFamilyMatch(
+    match,
+    assignmentsByFamily.get(token(match.leftFamilyId)),
+  ));
+  return Object.freeze({
+    ...familyAudit,
+    comparisonSchema: SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA,
+    profileId: profile.profileId,
+    structuralMatches: familyAudit.matches,
+    matches: Object.freeze(resolvedMatches),
+    locationAssignments,
+  });
+}
+
+export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalityAudit, leftEvidence) {
+  const locations = buildCanonicalTypicalityLocations(leftEvidence, reportBundle);
+  const selectedByLocation = new Map();
+  for (const assignment of typicalityAudit?.locationAssignments || []) {
+    for (const pair of assignment.selectedAssignments || []) {
+      selectedByLocation.set(String(pair.leftLocationId), { assignment, pair });
+    }
+  }
+  const matchByFamily = new Map((typicalityAudit?.matches || [])
+    .map((item) => [token(item.leftFamilyId), item]));
+  const rows = (reportBundle?.rows || []).map((row) => {
+    const familyId = token(row.civilSecondarySupport);
+    const match = matchByFamily.get(familyId) || null;
+    const location = resolveRowLocation(row, locations);
+    const selected = location ? selectedByLocation.get(String(location.locationId)) : null;
+    return Object.freeze({
+      ...row,
+      typicalStructure: match?.result === 'TYPICAL' ? match.rightFamilyId : '',
+      pipingSupportArrangementMatch: arrangementLabel(match, selected?.assignment, selected?.pair),
+      typicalityAuditId: selected?.pair?.auditId || match?.auditId || '',
+    });
+  });
+  return Object.freeze({
+    ...reportBundle,
+    rows: Object.freeze(rows),
+    typicalityAudit,
+  });
+}
+
+function comparisonProfile(override = {}) {
+  const base = SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL;
+  return Object.freeze({
+    ...base,
+    ...override,
+    profileId: override.profileId || base.profileId,
+    structural: Object.freeze({ ...base.structural, ...(override.structural || {}) }),
+    pipingLocation: Object.freeze({
+      ...base.pipingLocation,
+      ...(override.pipingLocation || {}),
+      assignmentWeights: Object.freeze({
+        ...base.pipingLocation.assignmentWeights,
+        ...(override.pipingLocation?.assignmentWeights || {}),
+      }),
+    }),
+  });
+}
+
+function resolveFamilyMatch(match, assignment) {
+  if (!match || match.result !== 'TYPICAL') return match;
+  if (!assignment) return Object.freeze({
+    ...match,
+    result: 'REVIEW',
+    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
+  });
+  if (assignment.result === 'AMBIGUOUS') return Object.freeze({
+    ...match,
+    result: 'AMBIGUOUS',
+    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_AMBIGUOUS',
+    locationAssignmentResult: assignment.result,
+  });
+  if (assignment.result === 'PARTIAL') return Object.freeze({
+    ...match,
+    result: 'REVIEW',
+    reasonCode: 'TYPICAL_REVIEW_SUPPORT_CONFIGURATION',
+    locationAssignmentResult: assignment.result,
+  });
+  return Object.freeze({ ...match, locationAssignmentResult: assignment.result });
+}
+
+function resolveRowLocation(row, locations) {
+  const exact = locations.find((item) => token(item.locationId) === token(row.rowId));
+  if (exact) return exact;
+  const familyId = token(row.civilSecondarySupport);
+  const pipeClass = normalizePipeClass(row.pipe);
+  const candidates = locations.filter((item) => item.familyId === familyId
+    && item.normalizedPipeClass === pipeClass);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function arrangementLabel(match, assignment, pair) {
+  if (!match) return '';
+  if (match.result === 'AMBIGUOUS') return 'AMBIGUOUS';
+  if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS';
+  if (!pair) return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+  if (pair.arrangementResult === 'EXACT') return 'EXACT';
+  if (pair.arrangementResult === 'TOPOLOGY_ONLY') return 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE)';
+  if (pair.arrangementResult !== 'PARTIAL') return pair.arrangementResult || '';
+  const details = [];
+  for (const item of pair.supportTypeComparison?.missingFromRight || []) {
+    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} missing`);
+  }
+  for (const item of pair.supportTypeComparison?.extraInRight || []) {
+    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} extra`);
+  }
+  if (pair.signals?.memberMultiplicity?.result === 'FAIL') details.push('member multiplicity differs');
+  if (pair.signals?.geometry?.result === 'FAIL') details.push('relative location outside tolerance');
+  return details.length ? `PARTIAL: ${details.join('; ')}` : 'PARTIAL';
+}
+
+function token(value) {
+  return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
+}
+
+export const _test = Object.freeze({ arrangementLabel, comparisonProfile, resolveFamilyMatch });

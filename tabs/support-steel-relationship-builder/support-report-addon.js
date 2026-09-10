@@ -1,8 +1,12 @@
 import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
-import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-owner-contract-15';
-import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-owner-contract-15&trace=20260910-support-report-json-trace-18';
-import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-owner-contract-15';
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
+import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
+import {
+  buildSupportReportTypicalityComparison,
+  projectTypicalityOntoSupportReportBundle,
+} from './support-report-typicality-projection.js?v=20260910-support-report-typicality-ui-1';
+import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-typicality-columns-1&trace=20260910-support-report-json-trace-18';
+import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-typicality-columns-1';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17&typicality=20260910-support-report-typicality-17';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
 import {
   supportReportCompleteness,
@@ -52,9 +56,11 @@ function mount(popup) {
   workspace.appendChild(panel);
 
   button.addEventListener('click', () => showPanel(popup));
-  popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup));
+  popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup, 'primary'));
+  popup.querySelector('[data-ssr-typical-file]')?.addEventListener('change', () => void readXmlFile(popup, 'typical'));
   popup.querySelector('[data-ssr-model-file]')?.addEventListener('change', () => void readModelFile(popup));
-  popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => invalidate(popup, 'XML changed; rebuild the Support Report.'));
+  popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => invalidate(popup, 'Primary XML changed; rebuild the Support Report.'));
+  popup.querySelector('[data-ssr-typical-xml]')?.addEventListener('input', () => invalidate(popup, 'Typical-structure reference XML changed; rebuild the Support Report.'));
   popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => {
     syncModelStatus(popup, 'Shared combined staged model changed; rebuild the Support Report.');
     invalidate(popup, 'Combined staged model changed; rebuild the Support Report.');
@@ -70,21 +76,30 @@ function mount(popup) {
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Clash XML establishes pipe, secondary family and support location. Optional staged JSON enriches current PS/SL identity, native attributes and POS evidence.</span></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)">${xmlSourceCard()}${modelSourceCard()}</div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows are grouped by secondary support family + full pipe + physical clash-location cluster. Direct staged PS/SL member ID is the preferred mapping basis; explicit PREV-NAME supports rename trace. Coordinate/base-anchor identity matching is reserved for a later qualified method.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>XML-only mode is allowed. Import staged JSON here or in the Input tab for native member/attribute enrichment and JSON trace evidence.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional staged JSON enriches current PS/SL identity and native attributes. Optional second XML enables auditable typical-structure comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div><div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Typicality is derived evidence only; spreadsheet row order and absolute global translation are never correspondence keys.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Staged JSON and typical-structure reference XML are optional evidence sources.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 function xmlSourceCard() {
-  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML containing pipe-side PS/SL member evidence and secondary-support family objects.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste SupportreportXML.xml"></textarea><small data-ssr-file-status>No Support Report XML selected</small></div>`;
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML used to build the operational Support Report and governed physical locations.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste primary SupportreportXML.xml"></textarea><small data-ssr-file-status>No primary Support Report XML selected</small></div>`;
+}
+function typicalSourceCard() {
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Typical-structure reference XML</b><label class="ssrb-file-button">Choose second XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-typical-file="1"></label></div><span>Optional second-area XML. When present, family structural matching and row-independent piping-support correspondence add comparison columns 22–24.</span><textarea rows="12" data-ssr-typical-xml spellcheck="false" placeholder="Optional: paste reference/second SupportreportXML.xml"></textarea><small data-ssr-typical-file-status>No reference XML selected · legacy 21-column mode</small></div>`;
 }
 function modelSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Staged JSON trace source (optional)</b><label class="ssrb-file-button">Choose JSON<input type="file" accept=".json,application/json" data-ssr-model-file="1"></label></div><span>Uses the same combined staged-model source as the Input tab. Direct PS/SL identity is preferred; JSON trace records match and POS basis.</span><small data-ssr-model-status>No staged JSON imported from Support Report. Existing Input-tab model, if any, will still be used.</small></div>`;
 }
 
-async function readXmlFile(popup) {
-  const file = popup.querySelector('[data-ssr-file]')?.files?.[0];
+async function readXmlFile(popup, kind) {
+  const typical = kind === 'typical';
+  const input = popup.querySelector(typical ? '[data-ssr-typical-file]' : '[data-ssr-file]');
+  const file = input?.files?.[0];
   if (!file) return;
-  popup.querySelector('[data-ssr-xml]').value = await file.text();
-  popup.querySelector('[data-ssr-file-status]').textContent = `${file.name} · ${file.size} bytes`;
-  invalidate(popup, 'XML changed; rebuild the Support Report.');
+  const textarea = popup.querySelector(typical ? '[data-ssr-typical-xml]' : '[data-ssr-xml]');
+  if (textarea) textarea.value = await file.text();
+  const status = popup.querySelector(typical ? '[data-ssr-typical-file-status]' : '[data-ssr-file-status]');
+  if (status) status.textContent = `${file.name} · ${file.size} bytes`;
+  invalidate(popup, typical
+    ? 'Typical-structure reference XML changed; rebuild the Support Report.'
+    : 'Primary XML changed; rebuild the Support Report.');
 }
 
 async function readModelFile(popup) {
@@ -111,7 +126,7 @@ function run(popup) {
   const runState = popup.querySelector('[data-ssr-run-state]');
   try {
     const xmlText = popup.querySelector('[data-ssr-xml]')?.value || '';
-    if (!xmlText.trim()) throw new Error('Support Report clash XML is required.');
+    if (!xmlText.trim()) throw new Error('Primary Support Report clash XML is required.');
     const modelText = popup.querySelector('[data-ssrb-input="model"]')?.value || '';
     let relationshipBundle = null;
     if (modelText.trim()) {
@@ -119,7 +134,17 @@ function run(popup) {
       relationshipBundle = buildSupportSteelRelationshipBundle({ combinedInput, config: supportReportRules(popup) });
     }
     const clashEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(xmlText));
-    const report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
+    let report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
+    const referenceXmlText = popup.querySelector('[data-ssr-typical-xml]')?.value || '';
+    if (referenceXmlText.trim()) {
+      const referenceEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(referenceXmlText));
+      const referenceReport = buildSupportReportBundle({ clashEvidence: referenceEvidence });
+      const typicalityAudit = buildSupportReportTypicalityComparison(clashEvidence, referenceEvidence, {
+        leftReportBundle: report,
+        rightReportBundle: referenceReport,
+      });
+      report = projectTypicalityOntoSupportReportBundle(report, typicalityAudit, clashEvidence);
+    }
     state.report = report;
     host.innerHTML = renderSupportReportWorkspace(report);
     runState.innerHTML = renderReadyState(report);
@@ -136,8 +161,19 @@ function renderReadyState(report) {
   const summary = report?.summary || {};
   const completeness = supportReportCompleteness(report);
   const metrics = `${summary.clashEvidenceCount || 0} clash rows → ${summary.reportRowCount || 0} report rows · ${summary.enrichedRowCount || 0} enriched · ${summary.multiLocationRowCount || 0} multi-location rows`;
-  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain</span>`;
-  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain. Exports are evidence-review artifacts and may contain unresolved native fields.</span>`;
+  const comparison = comparisonReadyText(report);
+  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain${comparison}</span>`;
+  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain${comparison}. Exports are evidence-review artifacts and may contain unresolved native fields.</span>`;
+}
+
+function comparisonReadyText(report) {
+  const audit = report?.typicalityAudit;
+  if (!audit) return ' · legacy 21-column mode';
+  const matches = audit.matches || [];
+  const typical = matches.filter((item) => item.result === 'TYPICAL').length;
+  const review = matches.filter((item) => item.result === 'REVIEW').length;
+  const ambiguous = matches.filter((item) => item.result === 'AMBIGUOUS').length;
+  return ` · typicality: ${typical} typical, ${review} review, ${ambiguous} ambiguous · comparison columns 22–24 enabled`;
 }
 
 function readExistingRules(popup) {
@@ -204,5 +240,7 @@ function showPanel(popup) {
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
+
+export const _test = Object.freeze({ comparisonReadyText, renderPanel });
 
 installSupportReportAddon();

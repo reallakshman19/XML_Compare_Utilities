@@ -16,9 +16,10 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
   const source = String(xmlText || '');
   const diagnostics = [];
   const rows = [];
+  const rawClashes = [];
   if (!source.trim()) {
     diagnostics.push(diagnostic('ERROR', SUPPORT_REPORT_DIAGNOSTICS.EMPTY_XML, 'Support Report clash XML is empty.'));
-    return result(rows, diagnostics, source, options);
+    return result(rows, rawClashes, diagnostics, source, options);
   }
 
   const sourceUnits = readExchangeUnits(source) || options.sourceUnits || 'm';
@@ -27,9 +28,12 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
   while ((match = clashRegex.exec(source))) {
     const attrs = parseAttributes(match[1]);
     const body = match[2];
-    const clashName = attrs.name || `Clash${rows.length + 1}`;
+    const clashName = attrs.name || `Clash${rawClashes.length + 1}`;
     const objectXml = Array.from(body.matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi)).map((item) => item[1]);
     const objects = objectXml.map(parseClashObject);
+    const point = extractPoint(body, sourceUnits);
+    rawClashes.push(rawClashRecord({ attrs, clashName, objects, point, sourceUnits }));
+
     const pipeCandidates = objects.filter((object) => object.branchNode);
     if (!pipeCandidates.length) {
       diagnostics.push(diagnostic('WARN', SUPPORT_REPORT_DIAGNOSTICS.MISSING_PIPE_SIDE, `${clashName} has no clash object with a piping branch node.`, { clashName }));
@@ -50,7 +54,6 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     }
     if (!primarySupportMemberId || !secondarySupportFamilyId) continue;
 
-    const point = extractPoint(body, sourceUnits);
     rows.push(Object.freeze({
       schema: SUPPORT_REPORT_EVIDENCE_SCHEMA,
       clashName,
@@ -73,7 +76,7 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     }));
   }
   if (!rows.length) diagnostics.push(diagnostic('WARN', SUPPORT_REPORT_DIAGNOSTICS.NO_CLASH_RESULTS, 'No usable Support Report clash rows were found.'));
-  return result(rows, diagnostics, source, options, sourceUnits);
+  return result(rows, rawClashes, diagnostics, source, options, sourceUnits);
 }
 
 export function groupSupportReportClashEvidence(rows = []) {
@@ -113,16 +116,34 @@ export function groupSupportReportClashEvidence(rows = []) {
     }));
 }
 
-function result(rows, diagnostics, source, options, sourceUnits = readExchangeUnits(source) || options.sourceUnits || 'm') {
+function result(rows, rawClashes, diagnostics, source, options, sourceUnits = readExchangeUnits(source) || options.sourceUnits || 'm') {
   const groups = groupSupportReportClashEvidence(rows);
   return Object.freeze({
     schema: SUPPORT_REPORT_EVIDENCE_SCHEMA,
     sourceUnits,
+    rawClashCount: rawClashes.length,
     rowCount: rows.length,
     groupCount: groups.length,
+    rawClashes,
     rows,
     groups,
     diagnostics,
+  });
+}
+
+function rawClashRecord({ attrs, clashName, objects, point, sourceUnits }) {
+  return Object.freeze({
+    clashName,
+    guid: attrs.guid || '',
+    href: attrs.href || '',
+    status: attrs.status || '',
+    distanceSourceUnits: parseNumber(attrs.distance),
+    sourceUnits,
+    familyIds: uniqueTokens(objects.map((object) => object.familyId)),
+    memberIds: uniqueTokens(objects.map((object) => object.memberId)),
+    clashPointGlobalMm: point,
+    objectPaths: Object.freeze(objects.map((object) => Object.freeze([...(object.path || [])]))),
+    objectItemNames: Object.freeze(objects.map((object) => object.itemName).filter(Boolean)),
   });
 }
 
@@ -245,6 +266,9 @@ function deriveScope(fullLineTag) {
   return cleanName(fullLineTag).split('-')[0] || '';
 }
 function token(value) { return cleanName(value).replace(/\(REF\)$/iu, '').toUpperCase(); }
+function uniqueTokens(values) {
+  return Object.freeze([...new Set((values || []).map(token).filter(Boolean))].sort());
+}
 function averagePoint(points) {
   const valid = (points || []).filter((point) => point && [point.x, point.y, point.z].every(Number.isFinite));
   if (!valid.length) return null;

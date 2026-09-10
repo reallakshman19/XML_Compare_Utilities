@@ -1,13 +1,13 @@
 import {
-  SUPPORT_REPORT_COLUMNS,
+  supportReportColumns,
   supportReportColumnValue,
-} from './support-report-contract.js?v=20260910-support-report-owner-contract-15';
+} from './support-report-contract.js?v=20260910-support-report-typicality-columns-1';
 import { supportReportCompleteness } from './support-report-ui-state.js?v=20260910-support-report-ui-completeness-16';
 
 export function renderSupportReportWorkspace(report) {
   if (!report) return '<div class="ssrb-empty"><b>Support Report not built</b><span>Load Support Report clash XML, then build the report. Load staged JSON when native member/attribute evidence is available.</span></div>';
   const summary = report.summary || {};
-  return `<div class="ssrb-report-summary">${summaryCard('Clash evidence', summary.clashEvidenceCount)}${summaryCard('Report rows', summary.reportRowCount)}${summaryCard('Secondary families', summary.secondarySupportFamilyCount)}${summaryCard('Enriched rows', summary.enrichedRowCount)}${summaryCard('XML-only rows', summary.xmlOnlyRowCount)}${summaryCard('Multi-location rows', summary.multiLocationRowCount)}</div>${renderSupportReportCompleteness(report)}${renderSupportReportTable(report)}${renderSupportReportJsonTrace(report)}${renderSupportReportDiagnostics(report)}`;
+  return `<div class="ssrb-report-summary">${summaryCard('Clash evidence', summary.clashEvidenceCount)}${summaryCard('Report rows', summary.reportRowCount)}${summaryCard('Secondary families', summary.secondarySupportFamilyCount)}${summaryCard('Enriched rows', summary.enrichedRowCount)}${summaryCard('XML-only rows', summary.xmlOnlyRowCount)}${summaryCard('Multi-location rows', summary.multiLocationRowCount)}</div>${renderTypicalitySummary(report)}${renderSupportReportCompleteness(report)}${renderSupportReportTable(report)}${renderSupportReportJsonTrace(report)}${renderSupportReportDiagnostics(report)}`;
 }
 
 export function renderSupportReportCompleteness(report) {
@@ -22,8 +22,9 @@ export function renderSupportReportCompleteness(report) {
 export function renderSupportReportTable(report) {
   const rows = report?.rows || [];
   if (!rows.length) return '<div class="ssrb-empty">No Support Report rows available.</div>';
-  const headers = SUPPORT_REPORT_COLUMNS.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
-  const body = rows.map((row) => `<tr>${SUPPORT_REPORT_COLUMNS.map((column) => `<td>${escapeHtml(displayValue(supportReportColumnValue(row, column)))}</td>`).join('')}</tr>`).join('');
+  const columns = supportReportColumns(report);
+  const headers = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
+  const body = rows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(displayValue(supportReportColumnValue(row, column)))}</td>`).join('')}</tr>`).join('');
   return `<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -49,6 +50,16 @@ export function renderSupportReportDiagnostics(report) {
     return acc;
   }, {});
   return `<div class="ssrb-scope-note"><b>Support Report diagnostics:</b> ${counts.ERROR || 0} error · ${counts.WARN || counts.WARNING || 0} warn · ${counts.INFO || 0} info</div><div class="ssrb-diagnostic-list">${diagnostics.slice(0, 40).map((row) => `<div><b>${escapeHtml(row.code || row.severity || 'INFO')}</b><span>${escapeHtml(row.message || '')}</span></div>`).join('')}</div>`;
+}
+
+function renderTypicalitySummary(report) {
+  const audit = report?.typicalityAudit;
+  if (!audit) return '';
+  const matches = audit.matches || [];
+  const typical = matches.filter((item) => item.result === 'TYPICAL').length;
+  const review = matches.filter((item) => item.result === 'REVIEW').length;
+  const ambiguous = matches.filter((item) => item.result === 'AMBIGUOUS').length;
+  return `<div class="ssrb-scope-note" data-ssr-typicality-summary="1"><b>Typical-structure comparison:</b> ${typical} typical · ${review} review · ${ambiguous} ambiguous. Row decisions link to the exported Typicality Audit evidence.</div>`;
 }
 
 function positionText(point) {
