@@ -1,35 +1,88 @@
-export const SUPPORT_REVISION_RELOCATION_SCHEMA = 'support-revision-relocation-evidence/v1';
+export const SUPPORT_REVISION_RELOCATION_SCHEMA = 'support-revision-relocation-evidence/v2-validated-axes';
+export const SUPPORT_REVISION_RELOCATION_POLICY_V2 = Object.freeze({
+  policyId: 'SUPPORT_REV_RELOCATION_V2',
+  version: '2.0.0',
+  minimumAnchors: 3,
+  minimumValidatedAxes: 2,
+  roundingToleranceMm: 1,
+  relocationToleranceMm: 5,
+  eligibleCardinalities: Object.freeze(['1->N', 'N->1', 'N->M']),
+});
 
 /**
- * Relocation is state on an already accepted lineage edge, never an identity
- * signal. Raw coordinate text/sign changes are insufficient: the comparison
- * frame must be supported by enough independent anchors and validated axes.
+ * Relocation is a user-facing state only for a proven structural common-support
+ * anchor. Ordinary 1->1 coordinate movement remains auditable on the lineage
+ * edge but cannot project `Relocated Support`.
+ *
+ * Movement is classified only from axes validated by the revision frame. A
+ * HIGH_RESIDUAL axis is retained in the audit receipt but cannot trigger the
+ * relocation decision.
  */
-export function assessRelocationEvidence(source, target, edge, coordinateFrame) {
-  const coordinate = edge?.coordinateEvidence?.find((item) =>
+export function assessRelocationEvidence(source, target, edge, coordinateFrame, policy = SUPPORT_REVISION_RELOCATION_POLICY_V2) {
+  const rawCoordinate = edge?.coordinateEvidence?.find((item) =>
     item.sourceNodeId === source?.nodeId && item.targetNodeId === target?.nodeId) || null;
   const validatedAxes = Object.entries(coordinateFrame?.axes || {})
     .filter(([, axis]) => axis?.status === 'VALIDATED')
     .map(([axis]) => axis);
-  const minimumAnchors = Number(coordinateFrame?.scoreMinimumAnchors || 3);
+  const minimumAnchors = Math.max(Number(coordinateFrame?.scoreMinimumAnchors || 0), Number(policy.minimumAnchors || 0));
   const anchorCount = Number(coordinateFrame?.anchorCount || 0);
   const frameTrusted = Boolean(coordinateFrame?.scoreFrameUsable)
     && anchorCount >= minimumAnchors
-    && validatedAxes.length >= 2;
-  const relocated = frameTrusted && coordinate?.classification === 'ACTUAL_POSITION_CHANGED';
+    && validatedAxes.length >= Number(policy.minimumValidatedAxes || 2);
+  const structuralEligible = policy.eligibleCardinalities.includes(edge?.cardinality);
+  const coordinate = validatedCoordinateEvidence(rawCoordinate, validatedAxes, policy);
+  const relocated = structuralEligible && frameTrusted && coordinate?.classification === 'ACTUAL_POSITION_CHANGED';
   return Object.freeze({
     schema: SUPPORT_REVISION_RELOCATION_SCHEMA,
+    policyId: policy.policyId,
+    policyVersion: policy.version,
     relocated,
+    structuralEligible,
     coordinate,
     frameTrusted,
     frameStatus: coordinateFrame?.status || 'UNPROVEN_DEFAULT',
     anchorCount,
     minimumAnchors,
     validatedAxes: Object.freeze(validatedAxes),
-    reasonCodes: Object.freeze(relocated
-      ? ['TRUSTED_COORDINATE_FRAME', 'NORMALIZED_POSITION_CHANGED']
-      : frameTrusted
-        ? ['TRUSTED_COORDINATE_FRAME', coordinate?.classification || 'NO_COORDINATE_EVIDENCE']
-        : ['UNTRUSTED_COORDINATE_FRAME']),
+    excludedAxes: Object.freeze(['x', 'y', 'z'].filter((axis) => !validatedAxes.includes(axis))),
+    reasonCodes: Object.freeze(reasonCodes({ relocated, structuralEligible, frameTrusted, coordinate })),
   });
 }
+
+function validatedCoordinateEvidence(rawCoordinate, validatedAxes, policy) {
+  if (!rawCoordinate) return null;
+  const validatedDeltas = Object.freeze(Object.fromEntries(['x', 'y', 'z'].map((axis) => [
+    axis,
+    validatedAxes.includes(axis) && Number.isFinite(rawCoordinate.deltas?.[axis]) ? rawCoordinate.deltas[axis] : null,
+  ])));
+  const finite = Object.values(validatedDeltas).filter(Number.isFinite);
+  const validatedResidualMm = finite.length
+    ? Math.sqrt(finite.reduce((sum, value) => sum + (value * value), 0))
+    : null;
+  const classification = classify(rawCoordinate.rawChanged, validatedResidualMm, policy);
+  return Object.freeze({
+    ...rawCoordinate,
+    allAxisClassification: rawCoordinate.classification,
+    allAxisResidualMm: rawCoordinate.residualMm,
+    validatedDeltas,
+    validatedResidualMm,
+    residualMm: validatedResidualMm,
+    classification,
+  });
+}
+
+function classify(rawChanged, residualMm, policy) {
+  if (rawChanged && residualMm != null && residualMm <= policy.roundingToleranceMm) return 'FORMAT_CHANGED';
+  if (residualMm != null && residualMm <= policy.relocationToleranceMm) return residualMm > policy.roundingToleranceMm ? 'ROUNDING_ONLY' : 'UNCHANGED';
+  if (residualMm != null) return 'ACTUAL_POSITION_CHANGED';
+  return rawChanged ? 'FORMAT_CHANGED' : 'UNCHANGED';
+}
+
+function reasonCodes({ relocated, structuralEligible, frameTrusted, coordinate }) {
+  if (!structuralEligible) return ['ORDINARY_LOCATION_POSITION_AUDIT_ONLY'];
+  if (!frameTrusted) return ['UNTRUSTED_COORDINATE_FRAME'];
+  if (relocated) return ['TRUSTED_COORDINATE_FRAME', 'VALIDATED_AXES_ONLY', 'NORMALIZED_POSITION_CHANGED'];
+  return ['TRUSTED_COORDINATE_FRAME', 'VALIDATED_AXES_ONLY', coordinate?.classification || 'NO_COORDINATE_EVIDENCE'];
+}
+
+export const _test = Object.freeze({ validatedCoordinateEvidence, classify, reasonCodes });
