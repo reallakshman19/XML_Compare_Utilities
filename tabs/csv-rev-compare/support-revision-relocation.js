@@ -1,18 +1,19 @@
 export const SUPPORT_REVISION_RELOCATION_SCHEMA = 'support-revision-relocation-evidence/v2-validated-axes';
 export const SUPPORT_REVISION_RELOCATION_POLICY_V2 = Object.freeze({
   policyId: 'SUPPORT_REV_RELOCATION_V2',
-  version: '2.0.0',
+  version: '2.1.0',
   minimumAnchors: 3,
   minimumValidatedAxes: 2,
   roundingToleranceMm: 1,
   relocationToleranceMm: 5,
-  eligibleCardinalities: Object.freeze(['1->N', 'N->1', 'N->M']),
+  eligibleCardinalities: Object.freeze(['1->1', '1->N', 'N->1', 'N->M']),
 });
 
 /**
- * Relocation is a user-facing state only for a proven structural common-support
- * anchor. Ordinary 1->1 coordinate movement remains auditable on the lineage
- * edge but cannot project `Relocated Support`.
+ * Relocation is a user-facing state only on an accepted lineage edge when the
+ * revision frame is trusted and validated-axis evidence proves actual movement.
+ * Common-support anchors retain the same gate plus their persistent-reference
+ * continuity requirement in the event layer.
  *
  * Movement is classified only from axes validated by the revision frame. A
  * HIGH_RESIDUAL axis is retained in the audit receipt but cannot trigger the
@@ -79,7 +80,7 @@ function classify(rawChanged, residualMm, policy) {
 }
 
 function reasonCodes({ relocated, structuralEligible, frameTrusted, coordinate }) {
-  if (!structuralEligible) return ['ORDINARY_LOCATION_POSITION_AUDIT_ONLY'];
+  if (!structuralEligible) return ['LOCATION_CARDINALITY_NOT_ELIGIBLE'];
   if (!frameTrusted) return ['UNTRUSTED_COORDINATE_FRAME'];
   if (relocated) return ['TRUSTED_COORDINATE_FRAME', 'VALIDATED_AXES_ONLY', 'NORMALIZED_POSITION_CHANGED'];
   return ['TRUSTED_COORDINATE_FRAME', 'VALIDATED_AXES_ONLY', coordinate?.classification || 'NO_COORDINATE_EVIDENCE'];
