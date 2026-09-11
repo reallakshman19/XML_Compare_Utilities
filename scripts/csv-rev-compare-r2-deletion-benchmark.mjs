@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 
 import { runSupportRevisionCompare } from '../tabs/csv-rev-compare/support-revision-engine.js';
-import { SUPPORT_REV_DELETION_STATE_EVENT } from '../tabs/csv-rev-compare/support-revision-deletion-state.js';
+import { SUPPORT_REV_DELETION_STATE_EVENT, assessTargetDeletionState } from '../tabs/csv-rev-compare/support-revision-deletion-state.js';
 import { runTotalSupportPointChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase4-benchmark.js';
 
 const [earlierPath, laterPath] = process.argv.slice(2);
@@ -44,6 +44,28 @@ const detected = new Set(deletionEvents.flatMap((event) => {
 const truePositives = [...expected].filter((key) => detected.has(key)).sort();
 const falsePositives = [...detected].filter((key) => !expected.has(key)).sort();
 const falseNegatives = [...expected].filter((key) => !detected.has(key)).sort();
+
+const diagnostics = [...expected].sort().map((key) => {
+  const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
+  const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
+  const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
+  const assessment = source && target && edge ? assessTargetDeletionState(source, target, edge) : null;
+  return {
+    key,
+    targetRow: target?.sourceRowId || '',
+    sourceRow: source?.sourceRowId || '',
+    edge: edge ? { cardinality: edge.cardinality, outcome: edge.outcome, matchingMethod: edge.matchingMethod, sourceCount: edge.sourceNodeIds?.length || 0, targetCount: edge.targetNodeIds?.length || 0 } : null,
+    targetPrevName: target?.legacyIdentity || '',
+    targetPositionRaw: target ? { x: target.position?.x?.raw || '', y: target.position?.y?.raw || '', z: target.position?.z?.raw || '' } : null,
+    targetTotal: target?.sourceFields?.totalSupportPoints || '',
+    targetRefs: target?.persistentReferences || [],
+    sourceRefs: source?.persistentReferences || [],
+    assessment,
+  };
+});
+console.log('R2_DELETION_DIAGNOSTICS_START');
+for (const row of diagnostics) console.log(JSON.stringify(row));
+console.log('R2_DELETION_DIAGNOSTICS_END');
 
 const remarksIndex = compare.output.headers.indexOf('REMARKS (IF ANY)');
 const outputByRow = new Map(compare.output.rows.filter((row) => row.disposition === 'REV2').map((row) => [row.sourceRowId, row]));
