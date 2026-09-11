@@ -1,9 +1,11 @@
-export const SUPPORT_REPORT_JSON_TRACE_SCHEMA = 'SupportReportJsonTrace.v2';
+import {
+  supportReportPreviousNameAliases,
+  supportReportPreviousNameEvidence,
+} from './support-report-field-normalization.js?v=20260911-prevname-semantic-22';
+
+export const SUPPORT_REPORT_JSON_TRACE_SCHEMA = 'SupportReportJsonTrace.v3';
 export const SUPPORT_REPORT_POS_CLUSTER_PRECISION_MM = 0.001;
 
-const PREVIOUS_NAME_KEYS = Object.freeze([
-  'PREV_NAME', 'PREVIOUS_NAME', 'PREV_PRIMARY_SUPPORT_NAME', 'OLD_NAME', 'PREVIOUS_SUPPORT_NAME',
-]);
 const SUPPORT_TYPE_KEYS = Object.freeze(['CMPSUPTYPE', 'MDSSUPPTYPE', 'SUPPORT_TYPE', 'SUPTYPE']);
 const SUPPORT_REFERENCE_KEYS = Object.freeze([
   'PIPING_PRIMARY_SUPPORT_REFERENCE', 'PRIMARY_SUPPORT_REFERENCE', 'SUPPORT_REFERENCE', 'SUPPORT_REF', 'DBREF', 'REFNO', 'REFERENCE', 'REF',
@@ -133,13 +135,18 @@ function traceNativeMember(member, matchBasis, observedMemberId) {
     positionGlobal: validPoint(member.positionGlobal) ? Object.freeze({ ...member.positionGlobal }) : null,
     sourcePath: Object.freeze([...(member.sourcePath || [])]),
     lineContext: member.lineContext ? Object.freeze({ ...member.lineContext }) : null,
-    attributeEvidence: Object.freeze(curatedAttributes(member.attributes || {})),
+    attributeEvidence: Object.freeze(curatedAttributes(member)),
   });
 }
 
-function curatedAttributes(attrs) {
+function curatedAttributes(member) {
+  const attrs = member?.attributes || {};
+  const previous = supportReportPreviousNameEvidence(member);
   return {
-    previousName: attribute(attrs, PREVIOUS_NAME_KEYS),
+    previousName: previous.reportableTokens.join(', '),
+    previousNameRaw: previous.raw,
+    previousNameRejectedDbref: previous.rejectedDbrefTokens.join(', '),
+    previousNameSuppressedNoOp: previous.suppressedNoOpTokens.join(', '),
     supportType: attribute(attrs, SUPPORT_TYPE_KEYS),
     primarySupportReference: attribute(attrs, SUPPORT_REFERENCE_KEYS),
     description: attribute(attrs, DESCRIPTION_KEYS),
@@ -161,8 +168,7 @@ function memberContextConflicts(member, group) {
 }
 
 function previousNames(member) {
-  const value = attribute(member?.attributes || {}, PREVIOUS_NAME_KEYS);
-  return value ? String(value).split(/[,;]+/u).map((item) => normalizeMemberId(item)).filter(Boolean) : [];
+  return supportReportPreviousNameAliases(member);
 }
 function attribute(attrs, keys) {
   const normalized = new Map(Object.entries(attrs || {}).map(([key, value]) => [normalizeKey(key), value]));
@@ -195,4 +201,4 @@ function token(value) { return clean(value).replace(/\(REF\)$/iu, '').replace(/^
 function clean(value) { return value == null ? '' : String(value).trim(); }
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 
-export const _test = Object.freeze({ buildPosClusters, positionKey, roundedPoint });
+export const _test = Object.freeze({ buildPosClusters, positionKey, roundedPoint, previousNames, curatedAttributes });
