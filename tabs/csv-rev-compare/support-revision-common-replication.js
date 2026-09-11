@@ -1,3 +1,4 @@
+import { classifySupportLocationEvidence } from './support-revision-lineage-eligibility.js';
 import { projectSupportRevisionRemarkEvent } from './support-revision-remarks.js';
 
 const clean = (value) => String(value ?? '').trim();
@@ -27,11 +28,11 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
     const triggerEventIds = [...new Set(triggers.map((item) => item.eventId).filter(Boolean))].sort();
 
     for (const target of group.locations) {
-      // A sibling that already has its own visible remark is the cause, not a
-      // replication recipient. Internal audit-only bookkeeping (member renumbering
-      // and suppressed fields) does not make an otherwise unchanged row ineligible.
       if (directRemarks.has(target.nodeId)) continue;
       if ((blockingEvents.get(target.nodeId) || []).length) continue;
+
+      const targetEvidence = classifySupportLocationEvidence(target);
+      if (!hasIndependentActivePayload(targetEvidence)) continue;
 
       const predecessor = exactIdentityPredecessor(target, sourceModel, lineage);
       if (!predecessor) continue;
@@ -44,21 +45,14 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
         targetXmlNode: target.nodeId,
         sourceCsvRowId: predecessor.source.sourceRowId || null,
         targetCsvRowId: target.sourceRowId || null,
-        beforeRawState: Object.freeze({
-          family: predecessor.source.family,
-          pipe: predecessor.source.pipe?.raw || '',
-          supportLocationIdentity: predecessor.source.supportLocationIdentity,
-        }),
-        afterRawState: Object.freeze({
-          family: target.family,
-          pipe: target.pipe?.raw || '',
-          supportLocationIdentity: target.supportLocationIdentity,
-        }),
+        beforeRawState: Object.freeze({ family: predecessor.source.family, pipe: predecessor.source.pipe?.raw || '', supportLocationIdentity: predecessor.source.supportLocationIdentity }),
+        afterRawState: Object.freeze({ family: target.family, pipe: target.pipe?.raw || '', supportLocationIdentity: target.supportLocationIdentity }),
         normalizedState: Object.freeze({
           commonSupportFamily: group.family,
           triggerSiblingNodeIds: Object.freeze(triggerNodeIds),
           triggerSiblingRowIds: Object.freeze(triggerRowIds),
           triggerRemarkEventIds: Object.freeze(triggerEventIds),
+          recipientEvidence: targetEvidence.evidence,
         }),
         matchingMethod: 'common-support-sibling-remark-propagation',
         reasonCodes: Object.freeze([
@@ -66,6 +60,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           'DISTINCT_PIPE_SIBLINGS',
           'SIBLING_HAS_GENERATED_REMARK',
           'RECIPIENT_HAS_NO_MATERIAL_LOCAL_CHANGE',
+          'RECIPIENT_ACTIVE_NONCOMPONENT_PAYLOAD',
           'EXACT_CIVIL_PIPE_PREDECESSOR',
         ]),
         persistentReferences: Object.freeze([...sharedReferences]),
@@ -92,6 +87,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           triggerSiblingRowIds: Object.freeze(triggerRowIds),
           triggerRemarkEventIds: Object.freeze(triggerEventIds),
           ignoredAuditEventIds: Object.freeze(auditOnlyEventIdsForTarget(ledger, target.nodeId)),
+          recipientEvidence: targetEvidence.evidence,
           sourceCells: predecessor.source.provenance?.cells || {},
           targetCells: target.provenance?.cells || {},
         }),
@@ -101,12 +97,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
 
   if (!additions.length) return ledger;
   const events = Object.freeze([...(ledger?.events || []), ...additions]);
-  return Object.freeze({
-    ...ledger,
-    schema: 'support-revision-event-ledger/v6-common-support-remark-replication',
-    events,
-    summary: summarize(events),
-  });
+  return Object.freeze({ ...ledger, schema: 'support-revision-event-ledger/v6-common-support-remark-replication', events, summary: summarize(events) });
 }
 
 export function commonSupportSiblingGroups(model) {
@@ -117,7 +108,6 @@ export function commonSupportSiblingGroups(model) {
     if (!groups.has(family)) groups.set(family, []);
     groups.get(family).push(location);
   }
-
   return Object.freeze([...groups.entries()].flatMap(([family, locations]) => {
     const members = [...locations].sort((a, b) => clean(a.nodeId).localeCompare(clean(b.nodeId)));
     const distinctPipes = new Set(members.map(pipeSiblingKey).filter(Boolean));
@@ -130,20 +120,10 @@ function directTargetRemarkEvidence(ledger, sourceModel, targetModel) {
   const byNode = new Map();
   for (const event of ledger?.events || []) {
     if (!event.remarkEligible || event.type === COMMON_SUPPORT_REMARK_REPLICATED) continue;
-    const projections = projectSupportRevisionRemarkEvent(event, sourceModel, targetModel)
-      .filter((item) => item.side === 'target');
+    const projections = projectSupportRevisionRemarkEvent(event, sourceModel, targetModel).filter((item) => item.side === 'target');
     if (!projections.length || !event.targetXmlNode) continue;
     if (!byNode.has(event.targetXmlNode)) byNode.set(event.targetXmlNode, []);
-    for (const projection of projections) {
-      byNode.get(event.targetXmlNode).push(Object.freeze({
-        eventId: event.eventId,
-        eventType: event.type,
-        targetNodeId: event.targetXmlNode,
-        rowId: projection.rowId,
-        tokenKey: projection.key,
-        token: projection.text,
-      }));
-    }
+    for (const projection of projections) byNode.get(event.targetXmlNode).push(Object.freeze({ eventId: event.eventId, eventType: event.type, targetNodeId: event.targetXmlNode, rowId: projection.rowId, tokenKey: projection.key, token: projection.text }));
   }
   return byNode;
 }
@@ -160,10 +140,12 @@ function recipientBlockingEventEvidence(ledger) {
 }
 
 function auditOnlyEventIdsForTarget(ledger, targetNodeId) {
-  return (ledger?.events || [])
-    .filter((event) => event.targetXmlNode === targetNodeId && RECIPIENT_AUDIT_ONLY_EVENT_TYPES.has(event.type))
-    .map((event) => event.eventId || event.type)
-    .sort();
+  return (ledger?.events || []).filter((event) => event.targetXmlNode === targetNodeId && RECIPIENT_AUDIT_ONLY_EVENT_TYPES.has(event.type)).map((event) => event.eventId || event.type).sort();
+}
+
+function hasIndependentActivePayload(assessment) {
+  const evidence = assessment?.evidence || {};
+  return Boolean(evidence.hasCoordinateEvidence || evidence.hasLoadEvidence || evidence.hasSupportCountEvidence || evidence.hasDescriptionEvidence);
 }
 
 function exactIdentityPredecessor(target, sourceModel, lineage) {
@@ -181,26 +163,11 @@ function exactIdentityPredecessor(target, sourceModel, lineage) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-function pipeSiblingKey(location) {
-  return upper(location?.pipe?.normalizedCore || location?.pipe?.raw);
-}
-
+function pipeSiblingKey(location) { return upper(location?.pipe?.normalizedCore || location?.pipe?.raw); }
 function summarize(events) {
   const byType = {};
   for (const event of events) byType[event.type] = (byType[event.type] || 0) + 1;
-  return Object.freeze({
-    total: events.length,
-    remarkEligible: events.filter((event) => event.remarkEligible).length,
-    reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length,
-    byType: Object.freeze(byType),
-  });
+  return Object.freeze({ total: events.length, remarkEligible: events.filter((event) => event.remarkEligible).length, reviewRequired: events.filter((event) => event.auditStatus === 'REVIEW_REQUIRED').length, byType: Object.freeze(byType) });
 }
 
-export const _test = Object.freeze({
-  directTargetRemarkEvidence,
-  recipientBlockingEventEvidence,
-  auditOnlyEventIdsForTarget,
-  exactIdentityPredecessor,
-  pipeSiblingKey,
-  summarize,
-});
+export const _test = Object.freeze({ directTargetRemarkEvidence, recipientBlockingEventEvidence, auditOnlyEventIdsForTarget, hasIndependentActivePayload, exactIdentityPredecessor, pipeSiblingKey, summarize });
