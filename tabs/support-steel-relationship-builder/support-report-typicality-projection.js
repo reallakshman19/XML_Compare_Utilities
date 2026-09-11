@@ -1,7 +1,7 @@
 import {
   buildSupportReportTypicalityAudit,
   normalizePipeClass,
-} from './support-report-typicality.js?v=20260910-support-report-typicality-projection-3';
+} from './support-report-typicality.js?v=20260911-support-report-typicality-rca-2';
 import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   mergeSupportReportTypicalityProfile,
@@ -63,7 +63,10 @@ export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalit
       ...row,
       typicalStructure: match?.result === 'TYPICAL' ? match.rightFamilyId : '',
       pipingSupportArrangementMatch: arrangementLabel(match, selected?.assignment, selected?.pair),
-      typicalityAuditId: selected?.pair?.auditId || match?.auditId || '',
+      typicalityAuditId: selected?.pair?.auditId
+        || match?.auditId
+        || (match?.candidateAuditIds || []).join(' | ')
+        || '',
     });
   });
   return Object.freeze({
@@ -132,9 +135,12 @@ function resolveRowLocation(row, locations) {
 
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
-  if (match.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
+  if (match.result === 'AMBIGUOUS') return ambiguousLabel(match);
   if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
-  if (!pair) return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+  if (!pair) {
+    if (match.result === 'NO_MATCH') return noMatchLabel(match);
+    return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+  }
   const equivalent = assignment?.correspondenceStatus === 'AMBIGUOUS_EQUIVALENT';
   if (pair.arrangementResult === 'EXACT') return equivalent ? 'EXACT (MULTIPLE EQUIVALENT MATCHES)' : 'EXACT';
   if (pair.arrangementResult === 'TOPOLOGY_ONLY') return equivalent
@@ -153,13 +159,37 @@ function arrangementLabel(match, assignment, pair) {
   return details.length ? `PARTIAL: ${details.join('; ')}` : 'PARTIAL';
 }
 
+function noMatchLabel(match) {
+  const candidate = match?.bestCandidateFamilyId ? `best ${match.bestCandidateFamilyId}` : '';
+  const failures = (match?.failedReasonCodes || []).map(rejectionLabel).filter(Boolean);
+  const detail = [candidate, failures.length ? `failed ${failures.join(', ')}` : ''].filter(Boolean).join('; ');
+  return detail ? `NO_MATCH: ${detail}` : 'NO_MATCH';
+}
+function ambiguousLabel(match) {
+  const candidates = match?.candidateFamilyIds || [];
+  return candidates.length ? `AMBIGUOUS MATERIAL: ${candidates.join(', ')}` : 'AMBIGUOUS MATERIAL';
+}
+function rejectionLabel(code) {
+  const labels = {
+    STRUCT_LOCATION_COUNT_EQUAL: 'location count',
+    STRUCT_MEMBER_MULTIPLICITY_EQUAL: 'member multiplicity',
+    STRUCT_PIPE_CLASS_POPULATION_EQUAL: 'pipe class',
+    STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE: 'envelope',
+    STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE: 'pair distance',
+  };
+  return labels[code] || String(code || '').toLowerCase().replace(/^struct_/u, '').replaceAll('_', ' ');
+}
+
 function token(value) {
   return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
 }
 
 export const _test = Object.freeze({
+  ambiguousLabel,
   arrangementLabel,
   comparisonProfile,
+  noMatchLabel,
+  rejectionLabel,
   resolveFamilyMatch,
   resolveRowLocation,
   withLocationRowAliases,
