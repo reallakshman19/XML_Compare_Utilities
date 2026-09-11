@@ -22,6 +22,9 @@ QUESTION_PACK_ACTION: REFRESHED
 QUESTION_DISPLAY: HIDE
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
-ISSUE_HANDOVER_SYNC_STATUS: NOT_RUN
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5632285742
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 EXACT_NEXT_ACTION: execute R1 only: fix relocation oracle wording admission, restore trusted accepted `1->1` relocation, align Owner-visible relocation/load renderer tokens, add final rendered-output regression assertions, validate, record LEG-001 and successor endpoint, open draft PR, do not merge.
