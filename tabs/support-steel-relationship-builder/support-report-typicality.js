@@ -68,7 +68,8 @@ export function compareStructuralFamilyFeatures(left, right, profile = PS_TYPICA
     && memberMultiplicity.result === 'PASS'
     && pipeClasses.result === 'PASS'
     && envelope.result === 'PASS'
-    && pairDistance.result === 'PASS';
+    && pairDistance.result !== 'FAIL';
+  const familyName = familyNameEvidence(left.familyId, right.familyId);
 
   return Object.freeze({
     auditId: familyAuditId(left.familyId, right.familyId),
@@ -77,6 +78,7 @@ export function compareStructuralFamilyFeatures(left, right, profile = PS_TYPICA
     result: accepted ? 'TYPICAL' : 'NOT_TYPICAL',
     reasonCode: accepted ? 'TYPICAL_ACCEPTED' : rejectionReason(signals),
     geometryCostMm: geometryCost(envelope, pairDistance),
+    familyNameEvidence: familyName,
     signals,
   });
 }
@@ -116,25 +118,52 @@ export function compareSupportTypeMultisets(left, right) {
 }
 
 export function normalizePipeClass(fullLineTag) {
-  const text = clean(fullLineTag).replace(/^\/+/, '').toUpperCase();
-  const sizeMatch = text.match(/-(\d+(?:\.\d+)?)"-/);
+  const text = clean(fullLineTag).replace(/^\/+/, '').replace(/\/B(?:RANCH)?[-_A-Z0-9.]*$/iu, '').toUpperCase();
+  const sizeMatch = text.match(/-(\d+(?:\.\d+)?)"-/u);
   if (!sizeMatch) return text;
   const tail = text.slice((sizeMatch.index || 0) + sizeMatch[0].length);
-  const parts = tail.split('-').filter(Boolean);
-  const service = parts[0]?.match(/^([A-Z]+)/)?.[1] || '';
-  const specification = parts[1] || '';
-  const qualifiers = parts.slice(2, -1).filter((part) => !/^\d+$/.test(part));
+  const grammar = /^([A-Z]+)-?(\d[A-Z0-9]*)(?:-(.*))?$/u.exec(tail);
+  if (!grammar) return fallbackPipeClass(sizeMatch[1], tail);
+
+  const service = grammar[1] || '';
+  const lineSerial = grammar[2] || '';
+  const engineering = (grammar[3] || '').split('-').filter(Boolean);
+  if (engineering.length && /^\d{1,2}$/u.test(engineering[engineering.length - 1])) engineering.pop();
+  const specification = engineering.shift() || '';
+  const qualifiers = engineering.filter((part) => !isRevisionSequence(part));
+  if (!service || !lineSerial || !specification) return fallbackPipeClass(sizeMatch[1], tail);
   return [sizeMatch[1], service, specification, ...qualifiers].filter(Boolean).join('|');
+}
+
+export function familyNameEvidence(leftFamilyId, rightFamilyId) {
+  const left = token(leftFamilyId);
+  const right = token(rightFamilyId);
+  if (!left || !right) return nameEvidence('NONE', left, right, 0);
+  if (left === right) return nameEvidence('EXACT', left, right, 100);
+  if (left.length === right.length) {
+    const differenceCount = [...left].reduce((count, char, index) => count + (char === right[index] ? 0 : 1), 0);
+    if (differenceCount === 1) return nameEvidence('ONE_POSITION_DIFFERENT', left, right, 90);
+  }
+  for (const [length, rank] of [[4, 80], [3, 65], [2, 45], [1, 20]]) {
+    if (left.length >= length && right.length >= length && left.slice(-length) === right.slice(-length)) {
+      return nameEvidence(`SAME_TRAILING_${length}`, left, right, rank);
+    }
+  }
+  const leftPrefix = /^([A-Z]+)/u.exec(left)?.[1] || '';
+  const rightPrefix = /^([A-Z]+)/u.exec(right)?.[1] || '';
+  if (leftPrefix && leftPrefix === rightPrefix) return nameEvidence('PREFIX_ONLY', left, right, 10);
+  return nameEvidence('NONE', left, right, 0);
 }
 
 function familyFeatures(evidence, familyId) {
   const groups = (evidence.groups || []).filter((group) => token(group.secondarySupportFamilyId) === familyId);
   const rawClashes = (evidence.rawClashes || []).filter((clash) => (clash.familyIds || []).map(token).includes(familyId));
-  const points = rawClashes.map((clash) => clash.clashPointGlobalMm).filter(validPoint);
+  const rawPoints = rawClashes.map((clash) => clash.clashPointGlobalMm).filter(validPoint);
+  const points = groups.map((group) => group.representativeClashPointGlobalMm).filter(validPoint);
   const memberIds = unique(groups.flatMap((group) => group.primarySupportMemberIds || []).map(token)
-    .filter((value) => /\.\d+$/.test(value)));
+    .filter((value) => /\.\d+$/u.test(value)));
   const memberMultiplicitySpectrum = groups.map((group) => unique((group.primarySupportMemberIds || [])
-    .map(token).filter((value) => /\.\d+$/.test(value))).length).sort((a, b) => a - b);
+    .map(token).filter((value) => /\.\d+$/u.test(value))).length).sort((a, b) => a - b);
   const normalizedPipeClassPopulation = groups.map((group) => normalizePipeClass(group.fullLineTag)).sort();
   return Object.freeze({
     familyId,
@@ -143,7 +172,9 @@ function familyFeatures(evidence, familyId) {
     numericPrimarySupportMemberIds: Object.freeze(memberIds.sort()),
     memberMultiplicitySpectrum: Object.freeze(memberMultiplicitySpectrum),
     normalizedPipeClassPopulation: Object.freeze(normalizedPipeClassPopulation),
-    rawClashPointCount: points.length,
+    rawClashPointCount: rawPoints.length,
+    structuralGeometryPointCount: points.length,
+    structuralGeometrySource: 'CANONICAL_LOCATION_REPRESENTATIVES',
     geometryEnvelopeMm: geometryEnvelope(points),
     pairDistanceSpectrumMm: Object.freeze(pairDistanceSpectrum(points)),
     sourceClashGuids: Object.freeze(unique(rawClashes.map((clash) => clash.guid).filter(Boolean)).sort()),
@@ -152,7 +183,7 @@ function familyFeatures(evidence, familyId) {
 
 function collectFamilyIds(evidence) {
   // Canonical physical-location groups define which PS/SL structures are comparison candidates.
-  // Raw clash family tokens remain evidence for those candidates, but they may also contain
+  // Raw clash family tokens remain audit evidence for those candidates, but they may also contain
   // nested/legacy member-family names (for example /SL-147 under a governed PS-068 group).
   // Promoting such raw-only tokens creates zero-location ghost families and false audit noise.
   return unique((evidence.groups || [])
@@ -180,6 +211,13 @@ function envelopeSignal(left, right, toleranceMm) {
 }
 
 function pairDistanceSignal(left, right, thresholds) {
+  if (!left.length && !right.length) {
+    return signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', 0, 0, null, Object.freeze({
+      median: thresholds.pairDistanceMedianToleranceMm,
+      p95: thresholds.pairDistanceP95ToleranceMm,
+      max: thresholds.pairDistanceMaxToleranceMm,
+    }), 'UNAVAILABLE');
+  }
   if (!left.length || left.length !== right.length) {
     return signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, null, thresholds, 'FAIL');
   }
@@ -206,7 +244,7 @@ function signal(reasonCode, left, right, residual, threshold, result) {
   return Object.freeze({ reasonCode, left, right, residual, threshold, result });
 }
 function rejectionReason(signals) {
-  const failed = signals.find((item) => item.result === 'FAIL');
+  const failed = signals.find((item) => item.result === 'FAIL' && item.reasonCode !== 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL');
   if (!failed) return 'TYPICAL_REJECTED_TOPOLOGY';
   if (failed.reasonCode.includes('GEOMETRY') || failed.reasonCode.includes('DISTANCE')) return 'TYPICAL_REJECTED_GEOMETRY';
   return 'TYPICAL_REJECTED_TOPOLOGY';
@@ -218,19 +256,95 @@ function geometryCost(envelope, pairDistance) {
 }
 function selectFamilyMatch(leftFamilyId, comparisons) {
   const accepted = comparisons.filter((item) => item.result === 'TYPICAL')
-    .sort((a, b) => a.geometryCostMm - b.geometryCostMm || a.rightFamilyId.localeCompare(b.rightFamilyId));
-  if (accepted.length === 1) return Object.freeze({
-    leftFamilyId, rightFamilyId: accepted[0].rightFamilyId, auditId: accepted[0].auditId,
-    result: 'TYPICAL', reasonCode: 'TYPICAL_ACCEPTED',
-  });
-  if (accepted.length > 1) return Object.freeze({
-    leftFamilyId, rightFamilyId: '', auditId: '', result: 'AMBIGUOUS', reasonCode: 'TYPICAL_AMBIGUOUS',
-    candidateFamilyIds: Object.freeze(accepted.map((item) => item.rightFamilyId)),
-  });
+    .sort(familyComparisonRank);
+  if (accepted.length === 1) return acceptedMatch(leftFamilyId, accepted[0], 'TYPICAL_ACCEPTED');
+  if (accepted.length > 1) {
+    const strongestRank = accepted[0].familyNameEvidence?.rank || 0;
+    const strongest = accepted.filter((item) => (item.familyNameEvidence?.rank || 0) === strongestRank);
+    if (strongestRank >= 65 && strongest.length === 1) {
+      return acceptedMatch(leftFamilyId, strongest[0], 'TYPICAL_ACCEPTED_FAMILY_ID_TIEBREAK');
+    }
+    return Object.freeze({
+      leftFamilyId,
+      rightFamilyId: '',
+      auditId: '',
+      result: 'AMBIGUOUS',
+      reasonCode: 'TYPICAL_AMBIGUOUS',
+      candidateFamilyIds: Object.freeze(accepted.map((item) => item.rightFamilyId)),
+      candidateAuditIds: Object.freeze(accepted.map((item) => item.auditId)),
+    });
+  }
+
+  const rejected = [...comparisons].sort(rejectedComparisonRank);
+  const best = rejected[0] || null;
   return Object.freeze({
-    leftFamilyId, rightFamilyId: '', auditId: '', result: 'NO_MATCH', reasonCode: 'TYPICAL_REJECTED_TOPOLOGY',
+    leftFamilyId,
+    rightFamilyId: '',
+    auditId: best?.auditId || '',
+    result: 'NO_MATCH',
+    reasonCode: best?.reasonCode || 'TYPICAL_REJECTED_TOPOLOGY',
+    bestCandidateFamilyId: best?.rightFamilyId || '',
+    bestCandidateAuditId: best?.auditId || '',
+    bestCandidateFamilyNameEvidence: best?.familyNameEvidence || null,
+    failedReasonCodes: Object.freeze(requiredSignals(best).filter((item) => item.result === 'FAIL').map((item) => item.reasonCode)),
   });
 }
+
+function acceptedMatch(leftFamilyId, comparison, reasonCode) {
+  return Object.freeze({
+    leftFamilyId,
+    rightFamilyId: comparison.rightFamilyId,
+    auditId: comparison.auditId,
+    result: 'TYPICAL',
+    reasonCode,
+    familyNameEvidence: comparison.familyNameEvidence,
+  });
+}
+function familyComparisonRank(a, b) {
+  return (b.familyNameEvidence?.rank || 0) - (a.familyNameEvidence?.rank || 0)
+    || a.geometryCostMm - b.geometryCostMm
+    || a.rightFamilyId.localeCompare(b.rightFamilyId);
+}
+function rejectedComparisonRank(a, b) {
+  return requiredPassCount(b) - requiredPassCount(a)
+    || (b.familyNameEvidence?.rank || 0) - (a.familyNameEvidence?.rank || 0)
+    || a.geometryCostMm - b.geometryCostMm
+    || a.rightFamilyId.localeCompare(b.rightFamilyId);
+}
+function requiredPassCount(comparison) {
+  return requiredSignals(comparison).filter((item) => item.result === 'PASS' || item.result === 'UNAVAILABLE').length;
+}
+function requiredSignals(comparison) {
+  return (comparison?.signals || []).filter((item) => item.reasonCode !== 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL');
+}
+function nameEvidence(className, left, right, rank) {
+  return Object.freeze({
+    class: className,
+    rank,
+    left,
+    right,
+    wildcardMask: wildcardMask(left, right),
+  });
+}
+function wildcardMask(left, right) {
+  const max = Math.max(left.length, right.length);
+  const a = left.padStart(max, '*');
+  const b = right.padStart(max, '*');
+  return [...a].map((char, index) => char === b[index] ? char : '?').join('');
+}
+function fallbackPipeClass(size, tail) {
+  const parts = String(tail || '').split('-').filter(Boolean);
+  const first = parts.shift() || '';
+  const compact = /^([A-Z]+)(\d[A-Z0-9]*)$/u.exec(first);
+  const service = compact?.[1] || first.match(/^([A-Z]+)/u)?.[1] || '';
+  if (compact) parts.unshift(compact[2]);
+  if (parts.length && /^\d{1,2}$/u.test(parts[parts.length - 1])) parts.pop();
+  const lineSerialIndex = parts.findIndex((part) => /^\d{6,}[A-Z0-9]*$/u.test(part));
+  if (lineSerialIndex >= 0) parts.splice(lineSerialIndex, 1);
+  const specification = parts.shift() || '';
+  return [size, service, specification, ...parts.filter((part) => !isRevisionSequence(part))].filter(Boolean).join('|');
+}
+function isRevisionSequence(value) { return /^\d{1,2}$/u.test(String(value || '')); }
 
 function geometryEnvelope(points) {
   if (!points.length) return null;
@@ -278,4 +392,8 @@ function clean(value) { return value == null ? '' : String(value).trim(); }
 function token(value) { return clean(value).replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase(); }
 function unique(values) { return [...new Set(values || [])]; }
 
-export const _test = Object.freeze({ envelopeToleranceMm });
+export const _test = Object.freeze({
+  envelopeToleranceMm,
+  familyNameEvidence,
+  pairDistanceSignal,
+});
