@@ -123,6 +123,7 @@ jobs:
           node tests/support-report-typicality-ambiguity-diagnostic.mjs
           /tmp/typicality-1884
           /tmp/typicality-1885
+          /tmp/typicality-1884-vs-1885.json
 
       - name: Run diagnostic with pipe-class candidate gate relaxed
         run: >-
