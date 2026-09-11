@@ -110,6 +110,9 @@ test('trace summary makes unresolved member and POS evidence visible', () => {
     unresolvedMemberMatchCount: 1,
     rowsWithoutTraceCount: 0,
     multiLocationRowCount: 2,
+    sameConcreteMemberGroupingRowCount: 0,
+    within50mmGroupingRowCount: 0,
+    multiLocationObservedOnlyRowCount: 0,
   });
 });
 
