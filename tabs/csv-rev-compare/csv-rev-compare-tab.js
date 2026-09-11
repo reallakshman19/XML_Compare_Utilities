@@ -1,5 +1,6 @@
 import { runSupportRevisionCompare } from './support-revision-engine.js';
 import { supportRevisionToXlsxBytes } from './support-revision-export.js';
+import { readSupportRevisionFile } from './support-revision-xlsx-ingress.js';
 import {
   artifactDescriptor,
   buildWorkflowState,
@@ -72,8 +73,8 @@ function mountWorkspace(doc, context, close) {
     }
   };
 
-  bindFileInput(q('[data-csvrc-file="1"]'), rev1, state, render);
-  bindFileInput(q('[data-csvrc-file="2"]'), rev2, state, render);
+  bindFileInput(q('[data-csvrc-file="1"]'), rev1, { state, render, root: overlay, context });
+  bindFileInput(q('[data-csvrc-file="2"]'), rev2, { state, render, root: overlay, context });
   q('[data-csvrc-close]').addEventListener('click', close);
   q('[data-csvrc-run]').addEventListener('click', () => execute(true));
   overlay.addEventListener('click', (event) => handleWorkspaceClick(event, { doc, state, execute, context }));
@@ -81,14 +82,27 @@ function mountWorkspace(doc, context, close) {
   return () => overlay.remove();
 }
 
-function bindFileInput(input, textarea, state, render) {
+function bindFileInput(input, textarea, runtime) {
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    textarea.value = await file.text();
-    state.result = null;
-    state.reviewDecisions = [];
-    render();
+    try {
+      const loaded = await readSupportRevisionFile(file);
+      textarea.value = loaded.text;
+      runtime.state.result = null;
+      runtime.state.reviewDecisions = [];
+      runtime.render();
+      if (loaded.format === 'xlsx') {
+        runtime.context.showToast?.(`Loaded ${file.name}: ${loaded.sheetName}, ${loaded.rowCount} row(s) × ${loaded.columnCount} column(s).`);
+      }
+    } catch (error) {
+      textarea.value = '';
+      runtime.state.result = null;
+      runtime.state.reviewDecisions = [];
+      runtime.render();
+      renderFileError(runtime.root, file, error);
+      runtime.context.showToast?.(`Revision file load failed: ${error?.message || error}`);
+    }
   });
 }
 
@@ -151,7 +165,7 @@ function workspaceHtml() {
 }
 
 function revisionInputHtml(number, label, subtitle) {
-  return `<section class="csvrc-input-card"><div><p class="csvrc-kicker">${subtitle}</p><h3>${label}</h3></div><input type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" data-csvrc-file="${number}"><textarea data-csvrc-rev="${number}" rows="12" spellcheck="false" placeholder="Paste CSV, TSV, or table text supported by Table-to-Categorized-XML"></textarea></section>`;
+  return `<section class="csvrc-input-card"><div><p class="csvrc-kicker">${subtitle}</p><h3>${label}</h3></div><input type="file" accept=".csv,.tsv,.txt,.xlsx,text/csv,text/tab-separated-values,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-csvrc-file="${number}"><textarea data-csvrc-rev="${number}" rows="12" spellcheck="false" placeholder="Choose CSV/TSV/XLSX Support Report or paste CSV, TSV, or table text"></textarea></section>`;
 }
 
 function exportButtonsHtml() {
@@ -234,6 +248,12 @@ function setDownloadState(root, result) {
   });
 }
 
+function renderFileError(root, file, error) {
+  root.querySelector('[data-csvrc-status]').textContent = `File load failed: ${file?.name || 'revision input'}`;
+  root.querySelector('[data-csvrc-diagnostics]').textContent = error?.stack || String(error);
+  setDownloadState(root, null);
+}
+
 function renderRuntimeError(root, error) {
   root.querySelector('[data-csvrc-status]').textContent = `Comparison failed: ${error?.message || error}`;
   root.querySelector('[data-csvrc-diagnostics]').textContent = error?.stack || String(error);
@@ -257,4 +277,4 @@ function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-export const _test = Object.freeze({ nextReviewDecisions, reviewHtml, reviewSideHtml, outputPreviewHtml, setDownloadState, stageHtml, ensureStylesheet });
+export const _test = Object.freeze({ nextReviewDecisions, reviewHtml, reviewSideHtml, outputPreviewHtml, setDownloadState, stageHtml, ensureStylesheet, renderFileError });
