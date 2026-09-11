@@ -1,3 +1,9 @@
+import {
+  deriveSupportReportNominalSizeMm,
+  normalizeSupportReportSizeValue,
+  supportReportPreviousName,
+} from './support-report-field-normalization.js?v=20260911-support-report-pos-trace-20';
+
 const SUPPORT_TYPE_KEYS = Object.freeze([
   'CMPSUPTYPE', 'MDSSUPPTYPE', 'SUPPORT_TYPE', 'SUPTYPE', 'TYPE_TEXT', 'STYPE',
 ]);
@@ -6,13 +12,10 @@ const SUPPORT_REFERENCE_KEYS = Object.freeze([
   'SUPPORT_REF', 'DBREF', 'REFNO', 'REFERENCE', 'REF',
 ]);
 const DESCRIPTION_KEYS = Object.freeze(['DTXR', 'DESCRIPTION', 'DESC', 'LONG_DESCRIPTION']);
-const PREVIOUS_NAME_KEYS = Object.freeze([
-  'PREV_PRIMARY_SUPPORT_NAME', 'PREV_NAME', 'PREVIOUS_NAME', 'OLD_NAME', 'PREVIOUS_SUPPORT_NAME',
-]);
 const REMARK_KEYS = Object.freeze(['REMARKS', 'REMARK', 'STATUS_NOTE', 'COMMENTS', 'COMMENT']);
 const PIPE_SIZE_PRIMARY_KEYS = Object.freeze(['BORE']);
 const PIPE_SIZE_FALLBACK_KEYS = Object.freeze([
-  'ABORE', 'NOMINAL_BORE', 'NOMINAL_DIAMETER', 'DN', 'NPS', 'PIPE_SIZE', 'SIZE',
+  'ABORE', 'NOMINAL_BORE', 'NOMINAL_DIAMETER', 'DN', 'PIPE_SIZE', 'SIZE',
 ]);
 const PIPE_SCHEDULE_KEYS = Object.freeze(['PIPE_SCHEDULE', 'SCHEDULE', 'SCH', 'WALL_SCHEDULE', 'PIPE_SCH']);
 const INSULATION_THICKNESS_KEYS = Object.freeze([
@@ -64,7 +67,7 @@ export function projectSupportReportFields({ group, reportMembers, carrierRows, 
   const supportSite = resolvePrimaryPathField(primaryPath, reportMembers, 'site');
   const supportZone = resolvePrimaryPathField(primaryPath, reportMembers, 'zone');
   return Object.freeze({
-    previousName: joinMemberValues(reportMembers, (member) => memberAttribute(member, PREVIOUS_NAME_KEYS)),
+    previousName: joinMemberValues(reportMembers, supportReportPreviousName),
     scope: group?.scope || deriveScope(group?.fullLineTag),
     civilSecondarySupport: group?.secondarySupportFamilyId ? `${group.secondarySupportFamilyId}(REF)` : '',
     pipe: stripLeadingSlash(group?.fullLineTag),
@@ -104,7 +107,7 @@ export function projectSupportReportFieldProvenance(input = {}) {
     : unresolved();
   const coordinate = coordinateSource(input.coordinateSource, input.coordinateSourceIds || []);
   return Object.freeze({
-    previousName: memberSource(reportMembers, PREVIOUS_NAME_KEYS),
+    previousName: projectedMemberSource(reportMembers, supportReportPreviousName),
     scope: group?.scope || group?.fullLineTag ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
     civilSecondarySupport: group?.secondarySupportFamilyId ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
     pipe: group?.fullLineTag ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_RELATIONSHIP) : unresolved(),
@@ -153,6 +156,12 @@ function memberSource(members, keys, allowStructureOnly = false) {
     memberIds(members), { valueStatus: 'STRUCTURE_ONLY' });
   return unresolved();
 }
+function projectedMemberSource(members, selector) {
+  const withValues = (members || []).filter((member) => clean(selector(member)));
+  return withValues.length
+    ? source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_ATTRIBUTE, memberIds(withValues))
+    : unresolved();
+}
 function coordinateSource(kind, ids) {
   if (kind === 'NATIVE_MEMBER_POSITION') return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_POSITION, ids);
   if (kind === 'CLASH_POINT_FALLBACK') return source(SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_POINT_FALLBACK);
@@ -192,9 +201,18 @@ function confidenceClass(sourceClass) {
 }
 function memberIds(members) { return (members || []).map((member) => normalizeMemberId(member.memberId)).filter(Boolean); }
 function resolveCarrierSize(carrierRows) {
-  const bore = resolveCarrierAttribute(carrierRows, PIPE_SIZE_PRIMARY_KEYS);
+  const bore = resolveCarrierSizeValues(carrierRows, PIPE_SIZE_PRIMARY_KEYS);
   if (bore.value || bore.conflict) return bore;
-  return resolveCarrierAttribute(carrierRows, PIPE_SIZE_FALLBACK_KEYS);
+  return resolveCarrierSizeValues(carrierRows, PIPE_SIZE_FALLBACK_KEYS);
+}
+function resolveCarrierSizeValues(carrierRows, keys) {
+  const carrierValues = (carrierRows || []).map((row) => {
+    const raw = firstAttribute([row?.attributes || {}], keys);
+    return { carrierObjectId: clean(row?.carrierObjectId), value: normalizeSupportReportSizeValue(raw) };
+  }).filter((row) => row.value !== '').sort((left, right) => left.carrierObjectId.localeCompare(right.carrierObjectId)
+    || Number(left.value) - Number(right.value));
+  const values = [...new Set(carrierValues.map((row) => row.value))].sort((a, b) => Number(a) - Number(b));
+  return Object.freeze({ value: values.length === 1 ? values[0] : '', conflict: values.length > 1, values, carrierValues });
 }
 function resolveCarrierAttribute(carrierRows, keys) {
   const carrierValues = (carrierRows || []).map((row) => ({
@@ -272,13 +290,7 @@ function deriveScope(fullLineTag) {
   const line = stripLeadingSlash(fullLineTag);
   return line.includes('-') ? line.split('-')[0] : line;
 }
-function deriveNominalSizeMm(fullLineTag) {
-  const match = stripLeadingSlash(fullLineTag).match(/-(\d+(?:\.\d+)?)"-/u);
-  if (!match) return '';
-  const nps = Number(match[1]);
-  if (!Number.isFinite(nps)) return '';
-  return Math.round(nps * 25.4);
-}
+function deriveNominalSizeMm(fullLineTag) { return deriveSupportReportNominalSizeMm(fullLineTag); }
 function formatHorizontalCoordinate(value, positive, negative) {
   if (!Number.isFinite(value)) return '';
   return `${value < 0 ? negative : positive} ${roundCoordinate(Math.abs(value))} mm`;
@@ -287,9 +299,7 @@ function formatVerticalCoordinate(value) {
   if (!Number.isFinite(value)) return '';
   return `U ${roundCoordinate(value)} mm`;
 }
-function roundCoordinate(value) {
-  return Math.round(Number(value) * 1000) / 1000;
-}
+function roundCoordinate(value) { return Math.round(Number(value) * 1000) / 1000; }
 function normalizeMemberId(value) {
   const text = clean(value).replace(/\(REF\)$/iu, '').replace(/^\/+/, '').toUpperCase();
   return text ? `/${text}` : '';

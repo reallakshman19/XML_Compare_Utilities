@@ -3,7 +3,7 @@ import {
   buildSupportReportJsonTrace,
   resolveSupportReportObservedMembers,
   supportReportFamilyMismatchMemberIds,
-} from './support-report-json-trace.js?v=20260910-support-report-json-trace-18';
+} from './support-report-json-trace.js?v=20260911-support-report-pos-trace-20';
 
 const INSULATION_THICKNESS_KEYS = Object.freeze([
   'PIPE_INSULATION_THICKNESS', 'INSULATION_THICKNESS', 'INS_THK', 'ITHK', 'THICKNESS_INSULATION', 'INSU',
@@ -48,11 +48,11 @@ export function enrichSupportReportFieldProvenance(provenance, fields, enriched,
   return Object.freeze(output);
 }
 
-export function buildRowJsonTrace({ group, resolution, reportMembers } = {}) {
+export function buildRowJsonTrace({ group, resolution, nativeMembers = [] } = {}) {
   return buildSupportReportJsonTrace({
     group,
     observedMatches: resolution?.observedMatches || [],
-    reportMembers: reportMembers || [],
+    nativeMembers,
   });
 }
 

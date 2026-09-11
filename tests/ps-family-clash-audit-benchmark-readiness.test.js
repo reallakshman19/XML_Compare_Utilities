@@ -15,6 +15,7 @@ import './support-report-build-gate.test.js';
 import './support-report-location-benchmarks.test.mjs';
 import './support-report-json-trace.test.mjs';
 import './support-report-json-trace-ui.test.mjs';
+import './support-report-pos-trace-remediation.test.mjs';
 import './support-report-parity-ledger.test.mjs';
 import './support-report-xlsx-roundtrip.test.mjs';
 import './support-report-ui-export-state.test.mjs';

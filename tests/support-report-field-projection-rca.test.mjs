@@ -33,7 +33,7 @@ test('staged JSON BORE takes precedence over ABORE and line-tag regex', () => {
   const fields = project({
     carriers: [{ carrierObjectId: '/PIPE', attributes: { BORE: '80', ABORE: '50' } }],
   });
-  assert.equal(fields.size, '80');
+  assert.equal(fields.size, 80);
 });
 
 test('line-tag nominal size remains fallback only when staged bore evidence is absent', () => {
@@ -90,7 +90,7 @@ test('explicit BORE on one staged carrier outranks alternate ABORE evidence else
     { carrierObjectId: '/PIPE-B', attributes: { ABORE: '50' } },
   ];
   const fields = project({ carriers });
-  assert.equal(fields.size, '80');
+  assert.equal(fields.size, 80);
   const evidence = projectSupportReportFieldProvenance({
     group: baseGroup,
     reportMembers: [],
