@@ -30,8 +30,8 @@ ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-state/CURRENT
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0015
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5629151051
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_HOTFIX_ENDPOINT_PUBLICATION
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5631696133
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 15
 COORDINATION_STATE: CLEAN_HOTFIX_IMPLEMENTED_BROWSER_ACCEPTANCE_PENDING
 DEPENDENCIES: current main 136abb2f7bc371e1a622f5d69e7c326e42bdf3b6; hotfix material head 84a9073ac09bcb27724dca7a78d0e6f46c29c453; draft PR #1191; prior four-bucket receipt QR-CSVRC-1181-0001
@@ -70,5 +70,5 @@ HOTFIX_TESTS: PASS_7_OF_7_PLUS_NODE_CHECK
 MANUAL_BROWSER_ACCEPTANCE: PENDING_OWNER_R2_XLSX_R3_XLSX_RETRY
 DELIVERY_HISTORY: PR #1188 merged at 52a05713c662c76bf5e46f8de3819a4837e35a66; qualification-only PR #1189 closed unmerged
 ENVIRONMENT_LIMITATION: connector-only repository mutation; focused local tests executed against exact hotfix blobs; branch deployment preview is not available without merge/deployment path
-PR_GATE_AT_ENDPOINT: PR #1191 OPEN_DRAFT; material compare against current main is 1 commit ahead / 0 behind; merge unauthorized
+PR_GATE_AT_ENDPOINT: PR #1191 OPEN_DRAFT_MERGEABLE; reviews none; threads none; head statuses/workflows none; material compare against current main is 1 commit ahead / 0 behind; merge unauthorized
 EXACT_NEXT_ACTION: run Owner browser acceptance with actual R2.xlsx + R3.xlsx against a hotfix preview/deployment; if accepted, Owner may explicitly authorize merge of PR #1191.
