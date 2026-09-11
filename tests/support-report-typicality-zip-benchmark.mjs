@@ -102,6 +102,12 @@ function summarizeComparison(left, right) {
         rightFamilyId: match.rightFamilyId || '',
         result: match.result,
         reasonCode: match.reasonCode,
+        candidateFamilyIds: match.candidateFamilyIds || [],
+        candidateAuditIds: match.candidateAuditIds || [],
+        bestCandidateFamilyId: match.bestCandidateFamilyId || '',
+        bestCandidateAuditId: match.bestCandidateAuditId || '',
+        failedReasonCodes: match.failedReasonCodes || [],
+        familyNameEvidence: match.familyNameEvidence || match.bestCandidateFamilyNameEvidence || null,
         locationAssignmentResult: match.locationAssignmentResult || assignment?.result || null,
         correspondenceStatus: match.locationCorrespondenceStatus || assignment?.correspondenceStatus || null,
         matchingMode: match.locationMatchingMode || assignment?.matchingMode || null,
@@ -161,6 +167,7 @@ function locationDiagnostic(left, right, familyComparison) {
   const memberExact = selected.filter((pair) => pair.signals?.memberOrdinalPattern?.result === 'EXACT').length;
   const dimensions = Object.fromEntries(['3D', '2D', '1D'].map((dimension) => [dimension,
     selected.filter((pair) => pair.signals?.structuredSequence?.firstPassingDimension === dimension).length]));
+  const noPassingDimension = selected.filter((pair) => pair.signals?.structuredSequence?.firstPassingDimension == null).length;
   return {
     ...familyComparison,
     locationAssignment: {
@@ -176,9 +183,16 @@ function locationDiagnostic(left, right, familyComparison) {
       supportTypeUnavailable,
       memberOrdinalExact: memberExact,
       firstPassingDimensions: dimensions,
+      noPassingDimension,
       dimensionalEvidence: assignment.dimensionalEvidence,
     },
   };
+}
+
+function histogram(values) {
+  const counts = new Map();
+  for (const value of values) counts.set(String(value || 'UNSPECIFIED'), (counts.get(String(value || 'UNSPECIFIED')) || 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
 const leftFiles = xmlFiles(leftRoot).map((path) => loadXml(path, leftRoot));
@@ -219,7 +233,11 @@ const finalMatchResultHistogram = Object.fromEntries(['TYPICAL', 'REVIEW', 'AMBI
   resultName,
   allFamilyMatches.filter((item) => item.result === resultName).length,
 ]));
+const finalReasonCodeHistogram = histogram(allFamilyMatches.map((item) => item.reasonCode));
 const reviewMatches = allFamilyMatches.filter((item) => item.result === 'REVIEW');
+const ambiguousMatches = allFamilyMatches.filter((item) => item.result === 'AMBIGUOUS');
+const ambiguityReasonHistogram = histogram(ambiguousMatches.map((item) => item.reasonCode));
+const ambiguousCandidateCountHistogram = histogram(ambiguousMatches.map((item) => item.candidateFamilyIds?.length || 0));
 
 const result = {
   schema: 'SupportReportTypicalityZipBenchmark.v2',
@@ -236,12 +254,16 @@ const result = {
     acceptedStructuralCount: allFamilyComparisons.filter((item) => item.result === 'TYPICAL').length,
     finalFamilyDecisionCount: allFamilyMatches.length,
     finalMatchResultHistogram,
+    finalReasonCodeHistogram,
     finalResolvedCounterpartCount: allFamilyMatches.filter((item) => item.rightFamilyId).length,
     sameTrailing3CandidateCount: sameTrailing3.length,
     requiredSignalPassHistogram,
     requiredTopologyPassHistogram,
     allSignalPassHistogram: passHistogram,
     exactTopologyPassHistogram: topologyHistogram,
+    ambiguityReasonHistogram,
+    ambiguousCandidateCountHistogram,
+    ambiguousMatches,
     reviewMatches,
     topNearCandidates: topNear,
     topSameTrailing3Candidates: sameTrailing3.slice(0, 40),
@@ -261,12 +283,16 @@ console.log(`ZIP_BENCHMARK_DIAGNOSTICS=${JSON.stringify({
   acceptedStructuralCount: result.diagnostics.acceptedStructuralCount,
   finalFamilyDecisionCount: result.diagnostics.finalFamilyDecisionCount,
   finalMatchResultHistogram: result.diagnostics.finalMatchResultHistogram,
+  finalReasonCodeHistogram: result.diagnostics.finalReasonCodeHistogram,
   finalResolvedCounterpartCount: result.diagnostics.finalResolvedCounterpartCount,
   sameTrailing3CandidateCount: result.diagnostics.sameTrailing3CandidateCount,
   requiredSignalPassHistogram: result.diagnostics.requiredSignalPassHistogram,
   requiredTopologyPassHistogram: result.diagnostics.requiredTopologyPassHistogram,
   allSignalPassHistogram: result.diagnostics.allSignalPassHistogram,
   exactTopologyPassHistogram: result.diagnostics.exactTopologyPassHistogram,
+  ambiguityReasonHistogram: result.diagnostics.ambiguityReasonHistogram,
+  ambiguousCandidateCountHistogram: result.diagnostics.ambiguousCandidateCountHistogram,
+  ambiguousMatches: result.diagnostics.ambiguousMatches.slice(0, 20),
   reviewMatches: result.diagnostics.reviewMatches.slice(0, 20),
   topNearCandidates: result.diagnostics.topNearCandidates.slice(0, 20),
   topSameTrailing3Candidates: result.diagnostics.topSameTrailing3Candidates.slice(0, 20),
