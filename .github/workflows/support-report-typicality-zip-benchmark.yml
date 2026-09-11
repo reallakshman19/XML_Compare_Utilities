@@ -8,6 +8,7 @@ on:
       - 'tests/support-report-typicality-zip-benchmark.mjs'
       - 'tests/support-report-typicality-zip-relaxed-diagnostic.mjs'
       - 'tests/support-report-typicality-selected-families.mjs'
+      - 'tests/support-report-typicality-ambiguity-diagnostic.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
   workflow_dispatch:
@@ -116,6 +117,12 @@ jobs:
             ps10146Negative: negative,
           }, null, 2));
           NODE
+
+      - name: Diagnose ambiguous family candidates with location assignment
+        run: >-
+          node tests/support-report-typicality-ambiguity-diagnostic.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
 
       - name: Run diagnostic with pipe-class candidate gate relaxed
         run: >-
