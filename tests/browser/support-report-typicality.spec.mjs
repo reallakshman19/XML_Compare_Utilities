@@ -26,21 +26,34 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   const runState = modal.locator('[data-ssr-run-state]');
   const xlsx = modal.locator('[data-ssr-download-xlsx]');
   const csv = modal.locator('[data-ssr-download]');
+  const trace = modal.locator('[data-ssr-download-trace]');
+  const debug = modal.locator('[data-ssr-download-debug]');
 
   await primary.fill(primaryXml);
   await build.click();
 
   await expect(runState).toContainText('Support Report ready');
   await expect(runState).toContainText('legacy 21-column mode');
+  await expect(runState).toContainText('POS clusters');
+  await expect(runState).toContainText('unresolved member matches');
   await expect(modal.locator('.ssrb-report-table thead th')).toHaveCount(21);
   await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(10);
   await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toHaveCount(0);
   await expect(xlsx).toBeEnabled();
   await expect(csv).toBeEnabled();
+  await expect(trace).toBeEnabled();
+  await expect(debug).toBeEnabled();
+
+  const [traceDownload] = await Promise.all([page.waitForEvent('download'), trace.click()]);
+  expect(traceDownload.suggestedFilename()).toBe('support-report-trace-partial.csv');
+  const [debugDownload] = await Promise.all([page.waitForEvent('download'), debug.click()]);
+  expect(debugDownload.suggestedFilename()).toBe('support-report-debug-partial.json');
 
   await reference.fill(referenceXml);
   await expect(xlsx).toBeDisabled();
   await expect(csv).toBeDisabled();
+  await expect(trace).toBeDisabled();
+  await expect(debug).toBeDisabled();
   await build.click();
 
   await expect(runState).toContainText('comparison columns 22–24 enabled');
@@ -58,4 +71,6 @@ test('Support Report preserves legacy mode and enables audited typicality with s
 
   await expect(xlsx).toBeEnabled();
   await expect(csv).toBeEnabled();
+  await expect(trace).toBeEnabled();
+  await expect(debug).toBeEnabled();
 });
