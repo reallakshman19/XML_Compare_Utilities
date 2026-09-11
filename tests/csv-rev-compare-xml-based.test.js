@@ -104,7 +104,7 @@ function sourceRemark(result, family) {
   const setChange = result.ledger.events.find((event) => event.type === 'SUPPORT_COMPONENT_SET_CHANGED');
   assert.deepEqual(setChange.normalizedState.removedReferences, ['=1006649755/4596']);
   assert.match(targetRemark(result, 'SL-212'), /Support Type Changes/);
-  assert.match(targetRemark(result, 'SL-212'), /Load change/);
+  assert.match(targetRemark(result, 'SL-212'), /Minor Load change/);
   const renumber = result.ledger.events.find((event) => event.type === 'PRIMARY_MEMBER_RENUMBERED' && event.persistentReferences.includes('=1006649755/3641'));
   assert.equal(renumber.normalizedState.identity, 'SAME_COMPONENT');
 }
@@ -163,7 +163,7 @@ function sourceRemark(result, family) {
   const after = row({ CIVILSECONDARYSUPPORT: 'SL-N', 'PREV NAME': 'PS-N', REVISION: '2', 'PIPING PRIMARY SUPPORT REFERENCE': '=N/1', 'NORTH/SOUTH': 'N -1124807' });
   const result = runSupportRevisionCompare(table([before]), table([after]));
   assert.ok(!types(result).includes('COMMON_SUPPORT_ANCHOR_RELOCATED'));
-  assert.ok(!Object.values(result.remarks.targetRemarks).some((item) => /Relocated Support/.test(item.remark)));
+  assert.ok(!Object.values(result.remarks.targetRemarks).some((item) => /Support Relocated/.test(item.remark)));
 }
 
 // Removal without successor and proven replacement project different, deterministic tombstone/successor remarks.
@@ -190,7 +190,7 @@ function sourceRemark(result, family) {
   assert.deepEqual(a.ledger.events.map((event) => event.normalizedState), b.ledger.events.map((event) => event.normalizedState));
   assert.ok(!types(b).some((type) => /HOLD/i.test(type)));
   assert.ok(!Object.values(b.remarks.targetRemarks).some((item) => /Hold/i.test(item.remark)));
-  assert.equal(targetRemark(b, 'SL-H'), 'Load change');
+  assert.equal(targetRemark(b, 'SL-H'), 'Minor Load change');
 }
 
 // Every projected remark token traces through event/lineage/XML back to a source row/cell evidence bundle.
