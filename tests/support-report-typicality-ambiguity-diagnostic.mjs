@@ -2,16 +2,15 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js';
-import {
-  buildSupportReportTypicalityComparison,
-  SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
-} from '../tabs/support-steel-relationship-builder/support-report-typicality-projection.js';
+import { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL } from '../tabs/support-steel-relationship-builder/support-report-typicality-projection.js';
 import { buildTypicalityLocationAssignment } from '../tabs/support-steel-relationship-builder/support-report-typicality-location.js';
 
-const [leftRoot, rightRoot] = process.argv.slice(2);
-if (!leftRoot || !rightRoot) {
-  throw new Error('Usage: node support-report-typicality-ambiguity-diagnostic.mjs <leftDir> <rightDir>');
+const [leftRoot, rightRoot, benchmarkJson] = process.argv.slice(2);
+if (!leftRoot || !rightRoot || !benchmarkJson) {
+  throw new Error('Usage: node support-report-typicality-ambiguity-diagnostic.mjs <leftDir> <rightDir> <benchmarkJson>');
 }
+
+const MAX_CANDIDATES_TO_EVALUATE = 3;
 
 function xmlFiles(root) {
   const out = [];
@@ -34,8 +33,8 @@ function loadFirst(root) {
   return { evidence, report: buildSupportReportBundle({ clashEvidence: evidence }) };
 }
 
-function candidateSummary(left, right, comparison, match, rightFamilyId) {
-  const structural = comparison.familyComparisons.find((item) =>
+function candidateSummary(left, right, familyComparisons, match, rightFamilyId) {
+  const structural = familyComparisons.find((item) =>
     item.leftFamilyId === match.leftFamilyId && item.rightFamilyId === rightFamilyId);
   const assignment = buildTypicalityLocationAssignment(left.evidence, right.evidence, {
     leftFamilyId: match.leftFamilyId,
@@ -78,22 +77,38 @@ function histogram(values) {
   return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
+const benchmark = JSON.parse(readFileSync(benchmarkJson, 'utf8'));
+const comparison = benchmark.comparisons?.[0];
+if (!comparison) throw new Error('Benchmark JSON contains no comparison');
+const leftInventory = new Map((benchmark.leftInventory?.[0]?.familyInventory || [])
+  .map((item) => [item.familyId, item]));
+const ambiguous = (comparison.familyMatches || []).filter((match) => match.result === 'AMBIGUOUS');
+const evaluable = [];
+const skippedSingleLocation = [];
+const skippedLargeCandidateSet = [];
+for (const match of ambiguous) {
+  const locationCount = Number(leftInventory.get(match.leftFamilyId)?.locationCount || 0);
+  const candidateCount = match.candidateFamilyIds?.length || 0;
+  if (locationCount <= 1) {
+    skippedSingleLocation.push({ leftFamilyId: match.leftFamilyId, locationCount, candidateCount });
+  } else if (candidateCount > MAX_CANDIDATES_TO_EVALUATE) {
+    skippedLargeCandidateSet.push({ leftFamilyId: match.leftFamilyId, locationCount, candidateCount });
+  } else {
+    evaluable.push({ match, locationCount, candidateCount });
+  }
+}
+
 const left = loadFirst(leftRoot);
 const right = loadFirst(rightRoot);
-const comparison = buildSupportReportTypicalityComparison(left.evidence, right.evidence, {
-  leftReportBundle: left.report,
-  rightReportBundle: right.report,
-  profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
-});
-const ambiguous = (comparison.matches || []).filter((match) => match.result === 'AMBIGUOUS');
-const cases = ambiguous.map((match) => {
+const cases = evaluable.map(({ match, locationCount, candidateCount }) => {
   const candidates = (match.candidateFamilyIds || []).map((rightFamilyId) =>
-    candidateSummary(left, right, comparison, match, rightFamilyId));
+    candidateSummary(left, right, comparison.familyComparisons || [], match, rightFamilyId));
   const decisive = candidates.filter((item) => item.decisive);
   return {
     leftFamilyId: match.leftFamilyId,
     reasonCode: match.reasonCode,
-    candidateCount: candidates.length,
+    locationCount,
+    candidateCount,
     decisiveCandidateCount: decisive.length,
     uniqueDecisiveRightFamilyId: decisive.length === 1 ? decisive[0].rightFamilyId : '',
     candidates,
@@ -101,13 +116,26 @@ const cases = ambiguous.map((match) => {
 });
 
 const result = {
-  schema: 'SupportReportTypicalityAmbiguityDiagnostic.v1',
-  ambiguousFamilyCount: cases.length,
-  candidateCountHistogram: histogram(cases.map((item) => item.candidateCount)),
+  schema: 'SupportReportTypicalityAmbiguityDiagnostic.v2',
+  policy: {
+    maxCandidatesToEvaluate: MAX_CANDIDATES_TO_EVALUATE,
+    requireMultipleLocations: true,
+    decisiveDefinition: 'complete assignment + not AMBIGUOUS_MATERIAL + EXACT/TOPOLOGY_ONLY arrangement',
+    productionMatcherChanged: false,
+  },
+  ambiguousFamilyCount: ambiguous.length,
+  evaluatedCaseCount: cases.length,
+  evaluatedCandidateAssignmentCount: cases.reduce((sum, item) => sum + item.candidateCount, 0),
+  skippedSingleLocationCount: skippedSingleLocation.length,
+  skippedLargeCandidateSetCount: skippedLargeCandidateSet.length,
+  allAmbiguousCandidateCountHistogram: histogram(ambiguous.map((item) => item.candidateFamilyIds?.length || 0)),
+  evaluatedCandidateCountHistogram: histogram(cases.map((item) => item.candidateCount)),
   decisiveCandidateCountHistogram: histogram(cases.map((item) => item.decisiveCandidateCount)),
   uniquelyResolvableByCompleteLocationAssignmentCount: cases.filter((item) => item.decisiveCandidateCount === 1).length,
   unresolvedWithNoDecisiveCandidateCount: cases.filter((item) => item.decisiveCandidateCount === 0).length,
   unresolvedWithMultipleDecisiveCandidatesCount: cases.filter((item) => item.decisiveCandidateCount > 1).length,
+  skippedSingleLocation: skippedSingleLocation.slice(0, 20),
+  skippedLargeCandidateSet: skippedLargeCandidateSet.slice(0, 20),
   uniquelyResolvableCases: cases.filter((item) => item.decisiveCandidateCount === 1),
   representativeUnresolvedCases: cases.filter((item) => item.decisiveCandidateCount !== 1).slice(0, 20),
 };
