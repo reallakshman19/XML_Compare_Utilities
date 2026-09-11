@@ -1,6 +1,6 @@
 export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_REMARKS_V1',
-  version: '1.3.2',
+  version: '1.3.3',
   precedence: Object.freeze([
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
@@ -38,7 +38,10 @@ function projectEvent(event, sourceModel, targetModel) {
   if (event.type === 'COMMON_SUPPORT_REPLICATED' && target) return [token('target', target.sourceRowId, 'COMMON_REPLICATED', 'Replicated due to Common support')];
   if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Support Relocated')];
   if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Support Relocated')];
-  if (['SUPPORT_COMPONENT_SET_CHANGED','SUPPORT_COMPONENT_TYPE_CHANGED'].includes(event.type) && target) return [token('target', target.sourceRowId, 'SUPPORT_TYPE_CHANGES', 'Support Type Changes')];
+  // Component-set churn is structural graph evidence, not proof that a surviving
+  // primary support changed type. Only a same-reference type mutation is projected
+  // as the Owner-visible Support Type Changes remark.
+  if (event.type === 'SUPPORT_COMPONENT_TYPE_CHANGED' && target) return [token('target', target.sourceRowId, 'SUPPORT_TYPE_CHANGES', 'Support Type Changes')];
   if (event.type === 'TOTAL_SUPPORT_POINTS_CHANGED' && target) return [token('target', target.sourceRowId, 'TOTAL_SUPPORT_POINTS_CHANGED', 'Total No. of support changes')];
   if (event.type === 'LOAD_BECAME_NUMERIC' && target) return [token('target', target.sourceRowId, 'LOAD_STANDARDISED', 'load standardised')];
   if (event.type === 'LOAD_SIGNATURE_CHANGED' && target) return [token('target', target.sourceRowId, 'LOAD_CHANGE', 'Minor Load change')];
