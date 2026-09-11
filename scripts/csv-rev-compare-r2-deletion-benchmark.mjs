@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 
 import { runSupportRevisionCompare } from '../tabs/csv-rev-compare/support-revision-engine.js';
-import { SUPPORT_REV_DELETION_STATE_EVENT, assessTargetDeletionState } from '../tabs/csv-rev-compare/support-revision-deletion-state.js';
+import { SUPPORT_REV_LINE_IDENTITY_SHELL_EVENT } from '../tabs/csv-rev-compare/support-revision-line-identity-shell.js';
 import { runTotalSupportPointChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase4-benchmark.js';
 
 const [earlierPath, laterPath] = process.argv.slice(2);
@@ -15,109 +15,44 @@ if (!compare.exportReady) {
   process.exit(3);
 }
 
-const expected = new Set([
-  'SL-111043(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111051(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111054(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111058(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111063(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111067(REF)||BWGA-1000-2"-P8310001-13421-01',
-  'SL-111067(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-  'SL-111068(REF)||BWGA-1000-2"-P8310001-13421-01',
-  'SL-111068(REF)||BWGA-1000-3/4"-D8310024-253461P1-01',
-  'SL-111070(REF)||BWGA-1000-2"-P8310001-13421-01',
-  'SL-111071(REF)||BWGA-1000-2"-D8310001-13411-01',
-  'SL-111071(REF)||BWGA-1000-2"-D8310002-13411-01',
-  'SL-111071(REF)||BWGA-1000-3/4"-D8310023-13411-01',
-  'SL-111072(REF)||BWGA-1000-2"-D8310001-13411-01',
-  'SL-111072(REF)||BWGA-1000-2"-D8310002-13411-01',
-  'SL-111073(REF)||BWGA-1000-2"-P8310001-13421-01',
-  'SL-111073(REF)||BWGA-1000-2"-P8310007-253461P1-01',
-]);
-const invalidSupportKey = 'SL-111069(REF)||BWGA-1000-3/4"-D8310024-253461P1-01';
-
-const targetByNode = compare.targetModel.locationByNodeId;
-const deletionEvents = compare.ledger.events.filter((event) => event.type === SUPPORT_REV_DELETION_STATE_EVENT);
-const detected = new Set(deletionEvents.flatMap((event) => {
-  const target = targetByNode.get(event.targetXmlNode);
+const expectedKey = 'SL-111001(REF)||8"-P-1110XXX-METALLIC';
+const shellEvents = compare.ledger.events.filter((event) => event.type === SUPPORT_REV_LINE_IDENTITY_SHELL_EVENT);
+const detectedKeys = new Set(shellEvents.flatMap((event) => {
+  const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
   return target ? [target.supportLocationIdentity] : [];
 }));
-const truePositives = [...expected].filter((key) => detected.has(key)).sort();
-const falsePositives = [...detected].filter((key) => !expected.has(key)).sort();
-const falseNegatives = [...expected].filter((key) => !detected.has(key)).sort();
+const truePositive = detectedKeys.has(expectedKey);
+const falsePositives = [...detectedKeys].filter((key) => key !== expectedKey).sort();
+const falseNegatives = truePositive ? [] : [expectedKey];
 
-function simpleComponent(component) {
-  return `${component.reference || ''}|${component.supportTypeKey || component.supportType || ''}|${component.memberId || ''}`;
-}
-function finiteAxisCount(location) {
-  return ['x', 'y', 'z'].filter((axis) => Number.isFinite(location?.position?.[axis]?.directedMm)).length;
-}
-function pairEvents(source, target) {
-  if (!source || !target) return [];
-  return compare.ledger.events
-    .filter((event) => event.sourceXmlNode === source.nodeId && event.targetXmlNode === target.nodeId)
-    .map((event) => event.type)
-    .sort();
-}
-function diagnosticForKey(key) {
-  const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
-  const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
-  const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
-  const assessment = source && target && edge ? assessTargetDeletionState(source, target, edge) : null;
-  return {
-    key,
-    targetRow: target?.sourceRowId || '',
-    sourceRow: source?.sourceRowId || '',
-    edge: edge ? { cardinality: edge.cardinality, outcome: edge.outcome, matchingMethod: edge.matchingMethod, sourceCount: edge.sourceNodeIds?.length || 0, targetCount: edge.targetNodeIds?.length || 0 } : null,
-    targetPrevName: target?.legacyIdentity || '',
-    sourcePrevName: source?.legacyIdentity || '',
-    targetPositionRaw: target ? { x: target.position?.x?.raw || '', y: target.position?.y?.raw || '', z: target.position?.z?.raw || '' } : null,
-    sourcePositionRaw: source ? { x: source.position?.x?.raw || '', y: source.position?.y?.raw || '', z: source.position?.z?.raw || '' } : null,
-    targetTotal: target?.sourceFields?.totalSupportPoints || '',
-    sourceTotal: source?.sourceFields?.totalSupportPoints || '',
-    targetRefs: target?.persistentReferences || [],
-    sourceRefs: source?.persistentReferences || [],
-    targetComponents: (target?.components || []).map(simpleComponent).sort(),
-    sourceComponents: (source?.components || []).map(simpleComponent).sort(),
-    targetDescription: target?.sourceFields?.primaryDescription || '',
-    sourceDescription: source?.sourceFields?.primaryDescription || '',
-    pairEventTypes: pairEvents(source, target),
-    assessment,
-  };
-}
-
-const diagnostics = [...expected, invalidSupportKey].sort().map(diagnosticForKey);
-console.log('R2_DELETION_DIAGNOSTICS_START');
-for (const row of diagnostics) console.log(JSON.stringify(row));
-console.log('R2_DELETION_DIAGNOSTICS_END');
-
-const structuralCandidates = compare.lineage.edges.flatMap((edge) => {
-  if (edge.cardinality !== '1->1' || edge.outcome !== 'DETERMINISTIC' || edge.matchingMethod !== 'civil-pipe-location-identity') return [];
-  const source = compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds?.[0]);
-  const target = compare.targetModel.locationByNodeId.get(edge.targetNodeIds?.[0]);
-  if (!source || !target) return [];
-  const shared = (source.persistentReferences || []).filter((ref) => (target.persistentReferences || []).includes(ref));
-  const eligible = finiteAxisCount(source) >= 2
-    && finiteAxisCount(target) === 0
-    && !String(target.legacyIdentity || '').trim()
-    && shared.length > 0
-    && (target.components?.length || 0) > 0;
-  return eligible ? [diagnosticForKey(target.supportLocationIdentity)] : [];
-});
-console.log('R2_STRUCTURAL_CANDIDATES_START');
-for (const row of structuralCandidates) console.log(JSON.stringify(row));
-console.log('R2_STRUCTURAL_CANDIDATES_END');
+const expectedShellEvent = shellEvents.find((event) => {
+  const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
+  return target?.supportLocationIdentity === expectedKey;
+}) || null;
+const source = expectedShellEvent ? compare.sourceModel.locationByNodeId.get(expectedShellEvent.sourceXmlNode) || null : null;
+const shell = expectedShellEvent ? compare.targetModel.locationByNodeId.get(expectedShellEvent.targetXmlNode) || null : null;
+const activeTarget = expectedShellEvent
+  ? compare.targetModel.locationByNodeId.get(expectedShellEvent.normalizedState?.activeSuccessorTargetXmlNode) || null
+  : null;
+const activePipeEvent = source && activeTarget
+  ? compare.ledger.events.find((event) => event.type === 'PIPE_IDENTITY_CHANGED'
+      && event.sourceXmlNode === source.nodeId
+      && event.targetXmlNode === activeTarget.nodeId
+      && event.normalizedState?.projection === 'LINE_NUMBER_CHANGE') || null
+  : null;
 
 const remarksIndex = compare.output.headers.indexOf('REMARKS (IF ANY)');
-const outputByRow = new Map(compare.output.rows.filter((row) => row.disposition === 'REV2').map((row) => [row.sourceRowId, row]));
-const wrongRenderedRemarks = deletionEvents.flatMap((event) => {
-  const target = targetByNode.get(event.targetXmlNode);
-  const output = outputByRow.get(target?.sourceRowId);
-  const remark = output?.values?.[remarksIndex] || '';
-  return remark === 'Support deleted' ? [] : [{ key: target?.supportLocationIdentity || '', remark }];
+const outputByRow = new Map(compare.output.rows
+  .filter((row) => row.disposition === 'REV2')
+  .map((row) => [row.sourceRowId, row]));
+const shellRemark = shell ? outputByRow.get(shell.sourceRowId)?.values?.[remarksIndex] || '' : '';
+const activeRemark = activeTarget ? outputByRow.get(activeTarget.sourceRowId)?.values?.[remarksIndex] || '' : '';
+const wrongRenderedRemarks = shellEvents.flatMap((event) => {
+  const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
+  const remark = target ? outputByRow.get(target.sourceRowId)?.values?.[remarksIndex] || '' : '';
+  return remark === 'Invalid (Line No. Changed)' ? [] : [{ key: target?.supportLocationIdentity || '', remark }];
 });
 
-const invalidSupportNotCoerced = !detected.has(invalidSupportKey);
 const tombstoneWordingFailures = compare.ledger.events
   .filter((event) => event.type === 'SUPPORT_LOCATION_REMOVED')
   .flatMap((event) => {
@@ -129,19 +64,23 @@ const tombstoneWordingFailures = compare.ledger.events
 
 const guards = runTotalSupportPointChangeBenchmark(earlier, later);
 const result = {
-  deletion: {
-    expected: expected.size,
-    detected: detected.size,
-    truePositives: truePositives.length,
+  lineIdentityShell: {
+    expected: 1,
+    detected: detectedKeys.size,
+    truePositives: truePositive ? 1 : 0,
     falsePositives: falsePositives.length,
     falseNegatives: falseNegatives.length,
-    truePositiveKeys: truePositives,
+    detectedKeys: [...detectedKeys].sort(),
     falsePositiveKeys: falsePositives,
     falseNegativeKeys: falseNegatives,
+    shellRemark,
+    activeRemark,
+    activePipeEventPresent: Boolean(activePipeEvent),
+    sharedReferences: expectedShellEvent?.persistentReferences || [],
+    matchingMethod: expectedShellEvent?.matchingMethod || '',
+    reasonCodes: expectedShellEvent?.reasonCodes || [],
     wrongRenderedRemarks,
-    invalidSupportNotCoerced,
     tombstoneWordingFailures,
-    structuralCandidateCount: structuralCandidates.length,
   },
   regressionGuards: {
     phase1: guards.phase1Guard.metrics,
@@ -152,8 +91,12 @@ const result = {
 };
 console.log(JSON.stringify(result));
 
-if (falsePositives.length || falseNegatives.length || wrongRenderedRemarks.length || !invalidSupportNotCoerced || tombstoneWordingFailures.length) process.exit(10);
-if (guards.phase1Guard.metrics.falsePositives || guards.phase1Guard.metrics.falseNegatives) process.exit(11);
-if (guards.phase3Guard.metrics.falsePositives || guards.phase3Guard.metrics.falseNegatives) process.exit(12);
-if (guards.metrics.falsePositives || guards.metrics.falseNegatives) process.exit(13);
+if (!truePositive || falsePositives.length || falseNegatives.length) process.exit(10);
+if (shellRemark !== 'Invalid (Line No. Changed)' || wrongRenderedRemarks.length) process.exit(11);
+if (!activePipeEvent || !activeRemark.includes('Line No. Change(Old Line No. 8"-P-1110XXX-METALLIC)')) process.exit(12);
+if (!expectedShellEvent?.persistentReferences?.length) process.exit(13);
+if (tombstoneWordingFailures.length) process.exit(14);
+if (guards.phase1Guard.metrics.falsePositives || guards.phase1Guard.metrics.falseNegatives) process.exit(15);
+if (guards.phase3Guard.metrics.falsePositives || guards.phase3Guard.metrics.falseNegatives) process.exit(16);
+if (guards.metrics.falsePositives || guards.metrics.falseNegatives) process.exit(17);
 process.exit(0);
