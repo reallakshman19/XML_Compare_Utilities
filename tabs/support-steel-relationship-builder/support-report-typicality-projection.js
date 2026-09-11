@@ -8,8 +8,8 @@ import {
 } from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
 import {
   buildCanonicalTypicalityLocations,
-  buildTypicalityLocationAssignmentsForMatches,
-} from './support-report-typicality-location.js?v=20260910-support-report-structured-sequence-1';
+  buildTypicalityLocationAssignment,
+} from './support-report-typicality-location.js?v=20260911-support-report-review-assignment-1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
@@ -19,12 +19,16 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
   const leftReportBundle = withLocationRowAliases(options.leftReportBundle, leftEvidence);
   const rightReportBundle = withLocationRowAliases(options.rightReportBundle, rightEvidence);
   const familyAudit = buildSupportReportTypicalityAudit(leftEvidence, rightEvidence, { ...options, profile });
-  const locationAssignments = buildTypicalityLocationAssignmentsForMatches(
-    leftEvidence,
-    rightEvidence,
-    familyAudit.matches,
-    { ...options, profile, leftReportBundle, rightReportBundle },
-  );
+  const locationAssignments = Object.freeze((familyAudit.matches || [])
+    .filter((match) => ['TYPICAL', 'REVIEW'].includes(match?.result) && match.rightFamilyId)
+    .map((match) => buildTypicalityLocationAssignment(leftEvidence, rightEvidence, {
+      leftFamilyId: match.leftFamilyId,
+      rightFamilyId: match.rightFamilyId,
+      parentAuditId: match.auditId,
+      leftReportBundle,
+      rightReportBundle,
+      profile,
+    })));
   const assignmentsByFamily = new Map(locationAssignments.map((item) => [token(item.leftFamilyId), item]));
   const resolvedMatches = familyAudit.matches.map((match) => resolveFamilyMatch(
     match,
@@ -81,12 +85,15 @@ function comparisonProfile(override = {}) {
 }
 
 function resolveFamilyMatch(match, assignment) {
-  if (!match || match.result !== 'TYPICAL') return match;
-  if (!assignment) return Object.freeze({
-    ...match,
-    result: 'REVIEW',
-    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
-  });
+  if (!match || !['TYPICAL', 'REVIEW'].includes(match.result)) return match;
+  if (!assignment) {
+    if (match.result === 'REVIEW') return match;
+    return Object.freeze({
+      ...match,
+      result: 'REVIEW',
+      reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
+    });
+  }
   const lineage = {
     locationAssignmentResult: assignment.result,
     locationCorrespondenceStatus: assignment.correspondenceStatus,
@@ -98,6 +105,7 @@ function resolveFamilyMatch(match, assignment) {
     result: 'AMBIGUOUS',
     reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_AMBIGUOUS_MATERIAL',
   });
+  if (match.result === 'REVIEW') return Object.freeze({ ...match, ...lineage });
   if (assignment.result === 'PARTIAL') return Object.freeze({
     ...match,
     ...lineage,
