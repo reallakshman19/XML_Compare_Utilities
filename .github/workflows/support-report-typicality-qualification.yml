@@ -42,6 +42,7 @@ jobs:
           tests/support-report-typicality-projection.test.mjs
           tests/support-report-typicality-export.test.mjs
           tests/support-report-typicality-ui.test.mjs
+          tests/support-report-typicality-safety.test.mjs
           tests/support-report-typicality-negative.test.mjs
 
   browser-qualification:

@@ -80,6 +80,11 @@ function classifyUnsafeClashes(source) {
         });
         continue;
       }
+      // A clash with no piping branch is outside the Support Report evidence domain.
+      // The underlying parser already skips it with MISSING_PIPE_SIDE; do not promote
+      // unrelated PS/SL-vs-PS/SL evidence to a fatal secondary-family conflict.
+      if (!branchBearing.length) continue;
+
       const secondaryFamilies = [...new Set(objects
         .filter((object) => !object.branchNode && object.familyId)
         .map((object) => object.familyId.toUpperCase()))];

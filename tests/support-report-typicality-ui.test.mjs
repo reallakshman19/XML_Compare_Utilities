@@ -20,7 +20,7 @@ test('Support Report panel exposes optional second XML typicality input', () => 
 
 test('typicality configuration exposes active defaults and hard-coded policy help through info hovers', () => {
   const html = addonTest.typicalityConfigCard();
-  assert.match(html, /data-ssr-typical-config/);
+  assert.match(html, /<details class="ssrb-card" data-ssr-typical-config open>/);
   assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceMm"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.assignmentWeights\.supportTypeMember"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.linearityToleranceMm"/);
