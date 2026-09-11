@@ -80,7 +80,7 @@ function rowsByDisposition(output, disposition) { return output.rows.filter((ite
   assert.equal(rowsByDisposition(result.output, 'REV2').length, 1);
   const tombstones = rowsByDisposition(result.output, 'TOMBSTONE');
   assert.equal(tombstones.length, 1);
-  assert.equal(tombstones[0].values[remarkIndex(result.output)], 'Invalid Support, This pipe no longer supported');
+  assert.equal(tombstones[0].values[remarkIndex(result.output)], 'Invalid Support?, This pipe no longer reported in latest report');
   const removal = result.ledger.events.find((item) => item.type === 'SUPPORT_LOCATION_REMOVED');
   assert.equal(removal.matchingMethod, 'candidate-exhaustion');
   assert.ok(removal.candidateIds.length > 0);
