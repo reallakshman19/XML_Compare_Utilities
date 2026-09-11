@@ -58,7 +58,7 @@ function rowsByDisposition(output, disposition) { return output.rows.filter((ite
   assert.equal(result.exportReady, true);
   assert.equal(result.output.headers.filter((header) => header === 'Fy').length, 2);
   assert.equal(rowsByDisposition(result.output, 'REV2').length, 1);
-  assert.match(result.output.rows[0].values[remarkIndex(result.output)], /Load change/);
+  assert.equal(result.output.rows[0].values[remarkIndex(result.output)], 'Minor Load change');
   assert.ok(result.ledger.events.some((event) => event.type === 'PRIMARY_MEMBER_RENUMBERED'));
   assert.ok(result.ledger.events.some((event) => event.type === 'LOAD_SIGNATURE_CHANGED'));
   assert.match(result.artifacts.rev1Xml, /SupportRevision/);

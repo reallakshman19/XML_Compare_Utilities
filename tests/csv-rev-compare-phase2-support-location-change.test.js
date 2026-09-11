@@ -35,22 +35,40 @@ function csv(rows) {
 }
 function csvCell(value) { const text = String(value); return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; }
 function relocationEvents(result) { return (result?.ledger?.events || []).filter((event) => ['SUPPORT_LOCATION_RELOCATED', 'COMMON_SUPPORT_ANCHOR_RELOCATED'].includes(event.type)); }
-function renderedRelocations(result) { return Object.values(result.remarks.targetRemarks).filter((item) => item.remark.includes('Relocated Support')); }
+function renderedRelocations(result) { return Object.values(result.remarks.targetRemarks).filter((item) => item.remark.includes('Support Relocated')); }
+function outputRemark(result, family) {
+  const location = result.targetModel.locations.find((item) => item.family === family);
+  const remarkIndex = result.output?.headers?.indexOf('REMARKS (IF ANY)') ?? -1;
+  const outputRow = result.output?.rows?.find((item) => item.disposition === 'REV2' && item.sourceRowId === location?.sourceRowId);
+  return remarkIndex >= 0 ? outputRow?.values?.[remarkIndex] || '' : '';
+}
 
-// Ordinary 1->1 movement stays in the lineage coordinate audit but is not a
-// user-facing Relocated Support event. Issue #1181 reserves that token for a
-// proven common-support anchor relocation.
+// Accepted ordinary 1->1 movement may project Support Relocated only when a
+// trusted coordinate frame proves actual normalized position change.
 {
   const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
   const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
   laterRows[3]['EAST/WEST'] = 'E 1800';
-  const result = runSupportRevisionCompare(csv(earlierRows), csv(laterRows));
+  laterRows[3]['REMARKS (IF ANY)'] = 'Support Relocated';
+  const earlier = csv(earlierRows), later = csv(laterRows);
+  const result = runSupportRevisionCompare(earlier, later);
   assert.equal(result.ok, true);
   assert.equal(result.lineage.coordinateFrame.scoreFrameUsable, true);
   const movedEdge = result.lineage.edges.find((edge) => edge.targetNodeIds.some((id) => result.targetModel.locationByNodeId.get(id)?.family === 'SL-104'));
   assert.ok(movedEdge.coordinateEvidence[0].residualMm > 5, 'ordinary movement must remain visible in coordinate audit');
-  assert.equal(relocationEvents(result).length, 0);
-  assert.equal(renderedRelocations(result).length, 0);
+  const events = relocationEvents(result);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'SUPPORT_LOCATION_RELOCATED');
+  assert.ok(events[0].reasonCodes.includes('VALIDATED_AXES_ONLY'));
+  assert.equal(renderedRelocations(result).length, 1);
+  assert.equal(outputRemark(result, 'SL-104'), 'Support Relocated');
+
+  const benchmark = runSupportLocationChangeBenchmark(earlier, later);
+  assert.equal(benchmark.metrics.expected, 1, 'Owner wording Support Relocated must enter the oracle');
+  assert.equal(benchmark.metrics.detected, 1);
+  assert.equal(benchmark.metrics.truePositives, 1);
+  assert.equal(benchmark.metrics.falsePositives, 0);
+  assert.equal(benchmark.metrics.falseNegatives, 0);
 }
 
 // Direction/sign formatting normalization remains a negative control.
@@ -76,9 +94,8 @@ function renderedRelocations(result) { return Object.values(result.remarks.targe
   assert.equal(relocationEvents(result).length, 0, 'movement under an under-anchored frame must remain audit-only');
 }
 
-// A continuing anchor inside a proven 1->N common-support topology may project
-// Relocated Support. Four stable ordinary rows establish the revision frame;
-// the common anchor then moves while retaining its persistent component ref.
+// A continuing anchor inside a proven 1->N common-support topology uses the
+// same trusted-frame gate plus persistent-reference continuity.
 {
   const earlierRows = [1, 2, 3, 4].map((index) => row(index, 2));
   const laterRows = [1, 2, 3, 4].map((index) => row(index, 3));
@@ -97,7 +114,7 @@ function renderedRelocations(result) { return Object.values(result.remarks.targe
     'EAST/WEST': 'E 5100', 'NORTH/SOUTH': 'N 6000', 'BOP ELEVATION': '7000',
     'PIPING PRIMARY SUPPORT': '/SL-COMMON-A.1', 'SUPPORT TYPE': 'GUIDE',
     'PIPING PRIMARY SUPPORT REFERENCE': '=COMMON/1',
-    'REMARKS (IF ANY)': 'Support location change',
+    'REMARKS (IF ANY)': 'Support Relocated',
   }));
   laterRows.push(row(91, 3, {
     'PREV NAME': 'PS-COMMON',
@@ -119,6 +136,7 @@ function renderedRelocations(result) { return Object.values(result.remarks.targe
   assert.ok(events[0].reasonCodes.includes('PERSISTENT_REFERENCE_ANCHOR'));
   assert.ok(events[0].reasonCodes.includes('VALIDATED_AXES_ONLY'));
   assert.equal(renderedRelocations(result).length, 1);
+  assert.equal(outputRemark(result, 'SL-COMMON-A'), 'Support Relocated');
 
   const benchmark = runSupportLocationChangeBenchmark(earlier, later);
   assert.equal(benchmark.metrics.expected, 1);

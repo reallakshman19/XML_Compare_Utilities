@@ -47,7 +47,7 @@ function targetRemark(result, family) { const item = result.target.locations.fin
   assert.ok(renumber.persistentReferences.includes('=1006649755/3641'));
   assert.deepEqual(setChanged.normalizedState.removedReferences, ['=1006649755/4596']);
   assert.ok(event(result, 'LOAD_SIGNATURE_CHANGED'));
-  assert.equal(targetRemark(result, 'SL-212'), 'Support Type Changes, Load change');
+  assert.equal(targetRemark(result, 'SL-212'), 'Support Type Changes, Minor Load change');
 }
 
 // PS02039 EMPTY -> NUMERIC projects only the governed load-standardised token.
@@ -72,7 +72,7 @@ function targetRemark(result, family) { const item = result.target.locations.fin
 {
   const before = row({'PIPING PRIMARY SUPPORT':'/SL-212.3','SUPPORT TYPE':'SHOE-250','PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641','REMARKS (IF ANY)':'Support Hold'});
   const cleanTarget = row({REVISION:'2','PIPING PRIMARY SUPPORT':'/SL-212.3','SUPPORT TYPE':'SHOE-250','PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641','REMARKS (IF ANY)':''});
-  const poisonedTarget = row({REVISION:'2','PIPING PRIMARY SUPPORT':'/SL-212.3','SUPPORT TYPE':'SHOE-250','PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641','REMARKS (IF ANY)':'Relocated Support, Hold Removed'});
+  const poisonedTarget = row({REVISION:'2','PIPING PRIMARY SUPPORT':'/SL-212.3','SUPPORT TYPE':'SHOE-250','PIPING PRIMARY SUPPORT REFERENCE':'=1006649755/3641','REMARKS (IF ANY)':'Support Relocated, Hold Removed'});
   const a = compare([before], [cleanTarget]), b = compare([before], [poisonedTarget]);
   assert.deepEqual(a.ledger.events.map((item) => item.type), b.ledger.events.map((item) => item.type));
   assert.ok(!b.ledger.events.some((item) => /HOLD/.test(item.type)));

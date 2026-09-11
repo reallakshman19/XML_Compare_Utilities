@@ -73,7 +73,9 @@ export function detectedSupportLocationChanges(compareResult) {
 
 export function isSupportLocationChangeRemark(value) {
   const text = String(value ?? '');
-  return /\bSupport\s+location\s+change\b/i.test(text) || /\bRelocated\s+Support\b/i.test(text);
+  return /\bSupport\s+location\s+change\b/i.test(text)
+    || /\bRelocated\s+Support\b/i.test(text)
+    || /\bSupport\s+Relocated\b/i.test(text);
 }
 
 function parseBenchmarkSource(text, sourceId, sourceName) {

@@ -1,0 +1,45 @@
+# Active Handover — CSV-REV-REMARKS-1192
+
+ACTIVE_ENDPOINT: EP-CSVRMRK-0005
+WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1192
+PARENT_WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1181
+ISSUE_BASIS_ID: IB-CSV-REV-REMARKS-1192-0001
+PR: 1197
+BRANCH: issue-1192-remark-remediation
+LATEST_MATERIAL_LEG: LEG-001
+MATERIAL_HEAD: 81c727d3a5841b9b23ba54ad8738a33808f83921
+CURRENT_MAIN: ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac
+POST_BASIS_DRIFT: UNRELATED_MAIN_ADVANCE
+ENGINEERING_STATE: BLOCKED
+CUSTODY_STATE: HELD
+QUALIFICATION_STATE: FAIL
+WRITE_AUTHORITY: READ_ONLY
+AUTO_STATE: NOT_APPLICABLE
+MERGEABILITY: MERGEABLE_AT_FINAL_RECHECK
+MERGE_AUTHORITY: AUTHORIZED
+MERGE_AUTHORIZED: TRUE
+QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
+QUESTION_SET_ID: QS-CSVRC-1192-0001
+QUESTION_SET_STATUS: CURRENT
+QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
+CHAIN_HANDOVER_READY: TRUE
+TAKEOVER_QUALIFICATION_READY: TRUE
+HANDOVER_READY: FALSE
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5633695841
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0002.md
+QUALIFICATION_PR: 1200
+QUALIFICATION_HEAD: ea0a683e1fd0fb45915805624de4301a953bb0be
+QUALIFICATION_RUN: 34588601880
+QUALIFICATION_JOB: 103228446801
+
+R1 failure isolation is complete and no production detector patch followed. X remains `HIGH_RESIDUAL` (≈143.778 mm median residual vs 25 mm gate), Y/Z remain `VALIDATED`; all six Phase-2 false negatives are X-only exact Civil+PIPE `1->1` continuations, while several oracle-negative detections have strong continuity and material movement on validated Y/Z.
+
+Qualification truth remains Phase1 PASS 1/1; Phase2 FAIL expected13/detected14/TP7/FP7/FN6/F1≈0.5185; Phase3 PASS 2/2; Phase4 PASS 2/2 checkable with one unsupported no-predecessor item.
+
+Owner explicitly issued `merge` after this failed outcome was reported. Delivery PR #1197 is therefore merge-authorized as an Owner override; this does not convert qualification to PASS. Qualification-only PR #1200 must never merge.
+
+EXACT_NEXT_ACTION: merge exact delivery PR #1197 head only. Preserve QUALIFICATION_STATE=FAIL in post-merge reporting.
