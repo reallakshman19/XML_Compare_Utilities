@@ -3,7 +3,7 @@ export const SUPPORT_REPORT_TYPICALITY_AUDIT_SCHEMA = 'SupportReportTypicalityAu
 export const PS_TYPICAL_V1_PROVISIONAL = Object.freeze({
   profileId: 'PS_TYPICAL_V1_PROVISIONAL',
   structural: Object.freeze({
-    geometryEnvelopeToleranceMm: 50,
+    geometryEnvelopeToleranceMm: 25,
     pairDistanceMedianToleranceMm: 10,
     pairDistanceP95ToleranceMm: 25,
     pairDistanceMaxToleranceMm: 50,
@@ -59,7 +59,7 @@ export function compareStructuralFamilyFeatures(left, right, profile = PS_TYPICA
     'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL', left.rawClashPointCount, right.rawClashPointCount,
   );
   const envelope = envelopeSignal(left.geometryEnvelopeMm, right.geometryEnvelopeMm,
-    structural.geometryEnvelopeToleranceMm);
+    envelopeToleranceMm(structural));
   const pairDistance = pairDistanceSignal(left.pairDistanceSpectrumMm, right.pairDistanceSpectrumMm, structural);
   const signals = Object.freeze([
     locationCount, memberMultiplicity, pipeClasses, rawPointCount, envelope, pairDistance,
@@ -159,6 +159,11 @@ function collectFamilyIds(evidence) {
     .map((group) => token(group.secondarySupportFamilyId))
     .filter(Boolean))
     .sort();
+}
+
+function envelopeToleranceMm(structural = {}) {
+  const millimetres = Number(structural.geometryEnvelopeToleranceMm);
+  return Number.isFinite(millimetres) && millimetres >= 0 ? millimetres : 0;
 }
 
 function envelopeSignal(left, right, toleranceMm) {
@@ -272,3 +277,5 @@ function stable(value) { return JSON.stringify(value); }
 function clean(value) { return value == null ? '' : String(value).trim(); }
 function token(value) { return clean(value).replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase(); }
 function unique(values) { return [...new Set(values || [])]; }
+
+export const _test = Object.freeze({ envelopeToleranceMm });
