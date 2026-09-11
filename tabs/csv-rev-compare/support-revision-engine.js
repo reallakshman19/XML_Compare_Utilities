@@ -6,12 +6,13 @@ import { resolveReviewedLineage, unresolvedLineageReviews } from './support-revi
 import { buildSupportRevisionEventLedger } from './support-revision-events.js';
 import { augmentLineIdentityShellEvents } from './support-revision-line-identity-shell.js';
 import { augmentTotalSupportPointEvents } from './support-revision-total-points.js';
+import { augmentCommonSupportRemarkReplicationEvents } from './support-revision-common-replication.js';
 import { renderSupportRevisionRemarks, SUPPORT_REV_REMARKS_V1 } from './support-revision-remarks.js';
 import { buildRevisionOutputMatrix, buildSupportRevisionArtifacts } from './support-revision-export.js';
 import { SUPPORT_REV_COMPARE_POLICY_V1 } from './support-revision-normalization.js';
 import { SUPPORT_REV_LOAD_POLICY_V1 } from './support-revision-loads.js';
 
-export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v5-line-identity-shell';
+export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v6-common-support-remark-propagation';
 
 export function runSupportRevisionCompare(revision1Text, revision2Text, options = {}) {
   const comparisonPolicy = options.policy || SUPPORT_REV_COMPARE_POLICY_V1;
@@ -32,7 +33,8 @@ export function runSupportRevisionCompare(revision1Text, revision2Text, options 
   const reviewBlocked = unresolvedReviews.count > 0 || reviewBlockers.length > 0;
   const baseLedger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy: comparisonPolicy, loadPolicy, reviewBlocked });
   const lineIdentityLedger = reviewBlocked ? baseLedger : augmentLineIdentityShellEvents(baseLedger, sourceModel, targetModel, lineage);
-  const ledger = reviewBlocked ? lineIdentityLedger : augmentTotalSupportPointEvents(lineIdentityLedger, sourceModel, targetModel, lineage);
+  const totalSupportLedger = reviewBlocked ? lineIdentityLedger : augmentTotalSupportPointEvents(lineIdentityLedger, sourceModel, targetModel, lineage);
+  const ledger = reviewBlocked ? totalSupportLedger : augmentCommonSupportRemarkReplicationEvents(totalSupportLedger, sourceModel, targetModel, lineage);
   const remarks = renderSupportRevisionRemarks(ledger, sourceModel, targetModel, remarkPolicy);
   const output = reviewBlocked ? null : buildRevisionOutputMatrix(pair.rev1.source, pair.rev2.source, remarks);
   const exportReady = !reviewBlocked;
