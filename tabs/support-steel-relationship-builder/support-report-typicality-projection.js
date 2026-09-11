@@ -5,11 +5,11 @@ import {
 import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   mergeSupportReportTypicalityProfile,
-} from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
+} from './support-report-typicality-profile.js?v=20260911-support-report-typicality-profile-rca-1';
 import {
   buildCanonicalTypicalityLocations,
-  buildTypicalityLocationAssignment,
-} from './support-report-typicality-location.js?v=20260911-support-report-review-assignment-1';
+  buildTypicalityLocationAssignmentsForMatches,
+} from './support-report-typicality-location.js?v=20260911-support-report-location-rca-1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
@@ -19,16 +19,12 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
   const leftReportBundle = withLocationRowAliases(options.leftReportBundle, leftEvidence);
   const rightReportBundle = withLocationRowAliases(options.rightReportBundle, rightEvidence);
   const familyAudit = buildSupportReportTypicalityAudit(leftEvidence, rightEvidence, { ...options, profile });
-  const locationAssignments = Object.freeze((familyAudit.matches || [])
-    .filter((match) => ['TYPICAL', 'REVIEW'].includes(match?.result) && match.rightFamilyId)
-    .map((match) => buildTypicalityLocationAssignment(leftEvidence, rightEvidence, {
-      leftFamilyId: match.leftFamilyId,
-      rightFamilyId: match.rightFamilyId,
-      parentAuditId: match.auditId,
-      leftReportBundle,
-      rightReportBundle,
-      profile,
-    })));
+  const locationAssignments = buildTypicalityLocationAssignmentsForMatches(
+    leftEvidence,
+    rightEvidence,
+    familyAudit.matches,
+    { ...options, profile, leftReportBundle, rightReportBundle },
+  );
   const assignmentsByFamily = new Map(locationAssignments.map((item) => [token(item.leftFamilyId), item]));
   const resolvedMatches = familyAudit.matches.map((match) => resolveFamilyMatch(
     match,
