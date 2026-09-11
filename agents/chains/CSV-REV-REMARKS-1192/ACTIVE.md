@@ -1,15 +1,15 @@
 # Active Handover — CSV-REV-REMARKS-1192
 
-ACTIVE_ENDPOINT: EP-CSVRMRK-0007
+ACTIVE_ENDPOINT: EP-CSVRMRK-0008
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1192
 PARENT_WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1181
 ISSUE_BASIS_ID: IB-CSV-REV-REMARKS-1192-0001
 PR: 1203
 BRANCH: issue-1192-r2-deletion-state
-LATEST_MATERIAL_LEG: LEG-003
-MATERIAL_HEAD: a82858b8163e6a12c29490e3fc1a53587433e31f
-CURRENT_MAIN: 0391a88a3df9e480958d663681ac2773374e3bcb
-POST_BASIS_DRIFT: NONE_AT_CHECKPOINT
+LATEST_MATERIAL_LEG: LEG-004
+MATERIAL_HEAD: 7b592e27c0e35a717de587eda3c5348010b0b1d6
+CURRENT_MAIN: 2adda1a481b791d463ed40002670f2a5c9284f38
+POST_BASIS_DRIFT: NON_OVERLAPPING_PRODUCT_DRIFT_NOT_YET_RECONCILED
 ENGINEERING_STATE: ACTIVE
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: FAIL
@@ -29,22 +29,26 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5636657558
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5638002087
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R3-0001.md
-QUALIFICATION_PR: 1209
-QUALIFICATION_HEAD: 6f368efba97480c39d1d5f0bcc3281f673a1fd2a
-QUALIFICATION_RUN: 34615191091
-QUALIFICATION_JOB: 103315235519
+QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R4-0001.md
+QUALIFICATION_PR: 1214
+QUALIFICATION_HEAD: 6430448e89d75d73a36ef7fae84f3e1b40b105c0
+QUALIFICATION_RUN: 34623122780
+QUALIFICATION_JOB: 103341652708
 
-LEG-003 bounded qualification is PASS. Real R2→R3 has zero oracle-expected `Support Type Changes` rows. The prior renderer produced eight false positives, all from `SUPPORT_COMPONENT_SET_CHANGED` membership/reference churn and none from an actual `SUPPORT_COMPONENT_TYPE_CHANGED`.
+LEG-004 common-support sibling propagation is PASS. Owner-visible `Replicated due to Common support` is now a second-order sibling result: an otherwise materially unchanged continuing same-Civil/distinct-PIPE row receives the token only because another sibling has a direct generated remark. Structural `COMMON_SUPPORT_REPLICATED` lineage evidence no longer directly renders that wording.
 
-Draft delivery PR #1203 now renders `Support Type Changes` only for an actual same-persistent-reference type mutation. Structural set-change events remain in the typed ledger and continue to support graph reasoning/Phase4 attribution. Final qualification-only PR #1209 run `34615191091`/job `103315235519` passed with real expected0/detected0/FP0/FN0, retained structural set-change count8, and real type-change count0. Synthetic positive and negative projection controls passed. #1209 is closed unmerged and MUST NEVER MERGE.
+Audit-only `PRIMARY_MEMBER_RENUMBERED` and `SUPPRESSED_FIELD_CHANGED` do not block an otherwise unchanged recipient. The recipient must have an exact Civil+PIPE predecessor and independent active non-component payload, excluding component/reference-only retained shells without using target oracle text.
 
-Prior qualified corrections in #1203 remain: source no-successor wording and typed invalid old-line shell projection. The inferred target-side `Support deleted` experiment remains withdrawn.
+Qualification-only PR #1214 is CLOSED UNMERGED and MUST NEVER MERGE. Final run `34623122780` / job `103341652708`, head `6430448e89d75d73a36ef7fae84f3e1b40b105c0`, passed real expected1/detected1/TP1/FP0/FN0/precision1/recall1. TP recipient `SL-111012(REF)||BWGA-1000-2"-B1110103-11503-01` is triggered by sibling `SL-111012(REF)||BWGA-1000-2"-P1110105-256620-01`, whose direct generated remark is `Support Relocated`.
 
-Overall truth remains Phase1 PASS; Phase2 FAIL expected13/detected14/TP7/FP7/FN6/F1≈0.5185; Phase3 PASS; Phase4 PASS checkable2/2 with one unsupported no-predecessor oracle row. Current bounded leg does not reclassify Phase2.
+Prior qualified corrections in #1203 remain: source no-successor wording, typed invalid old-line shell projection, and support-type projection only from actual same-reference type mutation. The inferred target-side `Support deleted` experiment remains withdrawn.
 
-`main` remains `0391a88a3df9e480958d663681ac2773374e3bcb`. PR #1203 is draft/mergeable but `MERGE_AUTHORIZED=FALSE`; prior merge authorization was consumed by historical PR #1197.
+Overall truth remains Phase1 PASS; Phase2 FAIL expected13/detected14/TP7/FP7/FN6/F1≈0.5185; Phase3 PASS; Phase4 PASS checkable2/2 with one unsupported no-predecessor oracle row; support-type guard PASS expected0/detected0. Current bounded leg does not reclassify Phase2.
 
-EXACT_NEXT_ACTION: on another explicit `proceed next`, perform bounded common-support `Replicated due to Common support` false-positive/false-negative RCA/remediation. Preserve all protected evidence boundaries; do not merge #1203 without a new explicit Owner `merge`.
+`main` is now `2adda1a481b791d463ed40002670f2a5c9284f38`, 34 commits ahead of the LEG-004 material-base main. The drift is confined to Support Report/work-report paths and its qualification workflow with no changed-path overlap against #1203. It remains explicitly not yet reconciled.
+
+PR #1203 is draft/mergeable/unmerged with no reviews, no inline review threads, and no commit-status contexts on material head. `MERGE_AUTHORIZED=FALSE`; prior authorization was consumed by historical #1197.
+
+EXACT_NEXT_ACTION: on another explicit `proceed next`, reconcile #1203 against current main `2adda1a481b791d463ed40002670f2a5c9284f38`, re-check drift/path overlap, mergeability, reviews and checks, and rerun relevant qualification/regression evidence if reconciliation changes the delivery tree. Do not merge without a new explicit Owner `merge`.
