@@ -47,13 +47,16 @@ export function extractStructuralFamilyFeatures(evidence = {}) {
 export function compareStructuralFamilyFeatures(left, right, profile = PS_TYPICAL_V1_PROVISIONAL) {
   const structural = profile.structural || {};
   const locationCount = exactSignal('STRUCT_LOCATION_COUNT_EQUAL', left.locationCount, right.locationCount);
+  const uniqueMemberCount = exactSignal('STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+    left.numericPrimarySupportMemberCount, right.numericPrimarySupportMemberCount);
   const memberMultiplicity = exactSignal('STRUCT_MEMBER_MULTIPLICITY_EQUAL', left.memberMultiplicitySpectrum, right.memberMultiplicitySpectrum);
   const pipeClasses = exactSignal('STRUCT_PIPE_CLASS_POPULATION_EQUAL', left.normalizedPipeClassPopulation, right.normalizedPipeClassPopulation);
   const rawPointCount = exactSignal('STRUCT_RAW_CLASH_POINT_COUNT_EQUAL', left.rawClashPointCount, right.rawClashPointCount);
   const envelope = envelopeSignal(left.geometryEnvelopeMm, right.geometryEnvelopeMm, envelopeToleranceMm(structural));
   const pairDistance = pairDistanceSignal(left.pairDistanceSpectrumMm, right.pairDistanceSpectrumMm, structural);
-  const signals = Object.freeze([locationCount, memberMultiplicity, pipeClasses, rawPointCount, envelope, pairDistance]);
+  const signals = Object.freeze([locationCount, uniqueMemberCount, memberMultiplicity, pipeClasses, rawPointCount, envelope, pairDistance]);
   const accepted = locationCount.result === 'PASS'
+    && uniqueMemberCount.result === 'PASS'
     && memberMultiplicity.result === 'PASS'
     && pipeClasses.result === 'PASS'
     && envelope.result === 'PASS'
@@ -280,17 +283,29 @@ function selectFamilyMatch(leftFamilyId, comparisons) {
 function reviewCandidate(comparison) {
   if (!comparison || comparison.result !== 'NOT_TYPICAL' || (comparison.familyNameEvidence?.rank || 0) < 65) return false;
   const failed = requiredSignals(comparison).filter((item) => item.result === 'FAIL');
-  return failed.length === 1 && failed[0].reasonCode === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL';
+  const memberTopologyCodes = new Set([
+    'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+    'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+  ]);
+  return failed.length > 0 && failed.every((item) => memberTopologyCodes.has(item.reasonCode));
 }
 function reviewMatch(leftFamilyId, comparison) {
+  const failedReasonCodes = requiredSignals(comparison)
+    .filter((item) => item.result === 'FAIL')
+    .map((item) => item.reasonCode);
+  const reasonCode = failedReasonCodes.length === 1 && failedReasonCodes[0] === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL'
+    ? 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED'
+    : failedReasonCodes.length === 1 && failedReasonCodes[0] === 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL'
+      ? 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED'
+      : 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED';
   return Object.freeze({
     leftFamilyId,
     rightFamilyId: comparison.rightFamilyId,
     auditId: comparison.auditId,
     result: 'REVIEW',
-    reasonCode: 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED',
+    reasonCode,
     familyNameEvidence: comparison.familyNameEvidence,
-    failedReasonCodes: Object.freeze(['STRUCT_MEMBER_MULTIPLICITY_EQUAL']),
+    failedReasonCodes: Object.freeze(failedReasonCodes),
   });
 }
 function acceptedMatch(leftFamilyId, comparison, reasonCode) {
