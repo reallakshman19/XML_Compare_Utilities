@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 
+import { parseTableSource } from '../xml-compare/table-categorizer/table-categorized-xml-source-parser.js';
+import { canonicalizeSupportRevisionSource } from '../tabs/csv-rev-compare/support-revision-pipeline.js';
 import { runSupportRevisionCompare } from '../tabs/csv-rev-compare/support-revision-engine.js';
-import { SUPPORT_REV_LINE_IDENTITY_SHELL_EVENT } from '../tabs/csv-rev-compare/support-revision-line-identity-shell.js';
 import { runTotalSupportPointChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase4-benchmark.js';
 
 const [earlierPath, laterPath] = process.argv.slice(2);
@@ -9,78 +10,76 @@ if (!earlierPath || !laterPath) process.exit(2);
 
 const earlier = fs.readFileSync(earlierPath, 'utf8');
 const later = fs.readFileSync(laterPath, 'utf8');
-const compare = runSupportRevisionCompare(earlier, later);
+const earlierSource = parseBenchmarkSource(earlier, 'BENCHMARK_R2');
+const laterSource = parseBenchmarkSource(later, 'BENCHMARK_R3');
+const expected = expectedSupportTypeKeys(laterSource);
+const compare = runSupportRevisionCompare(sourceToCsv(earlierSource, true), sourceToCsv(laterSource, true));
 if (!compare.exportReady) {
   console.error(JSON.stringify({ stage: compare.stage, diagnostics: compare.diagnostics }, null, 2));
   process.exit(3);
 }
 
-const expectedKey = 'SL-111001(REF)||8"-P-1110XXX-METALLIC';
-const shellEvents = compare.ledger.events.filter((event) => event.type === SUPPORT_REV_LINE_IDENTITY_SHELL_EVENT);
-const detectedKeys = new Set(shellEvents.flatMap((event) => {
+const supportTypeEvents = compare.ledger.events.filter((event) =>
+  event.remarkEligible === true
+  && ['SUPPORT_COMPONENT_SET_CHANGED', 'SUPPORT_COMPONENT_TYPE_CHANGED'].includes(event.type)
+  && event.targetXmlNode
+);
+const detected = new Set(supportTypeEvents.flatMap((event) => {
   const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
   return target ? [target.supportLocationIdentity] : [];
 }));
-const truePositive = detectedKeys.has(expectedKey);
-const falsePositives = [...detectedKeys].filter((key) => key !== expectedKey).sort();
-const falseNegatives = truePositive ? [] : [expectedKey];
+const truePositiveKeys = [...expected].filter((key) => detected.has(key)).sort();
+const falsePositiveKeys = [...detected].filter((key) => !expected.has(key)).sort();
+const falseNegativeKeys = [...expected].filter((key) => !detected.has(key)).sort();
 
-const expectedShellEvent = shellEvents.find((event) => {
-  const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
-  return target?.supportLocationIdentity === expectedKey;
-}) || null;
-const source = expectedShellEvent ? compare.sourceModel.locationByNodeId.get(expectedShellEvent.sourceXmlNode) || null : null;
-const shell = expectedShellEvent ? compare.targetModel.locationByNodeId.get(expectedShellEvent.targetXmlNode) || null : null;
-const activeTarget = expectedShellEvent
-  ? compare.targetModel.locationByNodeId.get(expectedShellEvent.normalizedState?.activeSuccessorTargetXmlNode) || null
-  : null;
-const activePipeEvent = source && activeTarget
-  ? compare.ledger.events.find((event) => event.type === 'PIPE_IDENTITY_CHANGED'
-      && event.sourceXmlNode === source.nodeId
-      && event.targetXmlNode === activeTarget.nodeId
-      && event.normalizedState?.projection === 'LINE_NUMBER_CHANGE') || null
-  : null;
-
-const remarksIndex = compare.output.headers.indexOf('REMARKS (IF ANY)');
-const outputByRow = new Map(compare.output.rows
-  .filter((row) => row.disposition === 'REV2')
-  .map((row) => [row.sourceRowId, row]));
-const shellRemark = shell ? outputByRow.get(shell.sourceRowId)?.values?.[remarksIndex] || '' : '';
-const activeRemark = activeTarget ? outputByRow.get(activeTarget.sourceRowId)?.values?.[remarksIndex] || '' : '';
-const wrongRenderedRemarks = shellEvents.flatMap((event) => {
-  const target = compare.targetModel.locationByNodeId.get(event.targetXmlNode);
-  const remark = target ? outputByRow.get(target.sourceRowId)?.values?.[remarksIndex] || '' : '';
-  return remark === 'Invalid (Line No. Changed)' ? [] : [{ key: target?.supportLocationIdentity || '', remark }];
-});
-
-const tombstoneWordingFailures = compare.ledger.events
-  .filter((event) => event.type === 'SUPPORT_LOCATION_REMOVED')
-  .flatMap((event) => {
-    const remark = compare.remarks.sourceRemarks?.[event.sourceCsvRowId]?.remark || '';
-    return remark === 'Invalid Support?, This pipe no longer reported in latest report'
-      ? []
-      : [{ rowId: event.sourceCsvRowId, remark }];
-  });
+console.log('R3_SUPPORT_TYPE_DIAGNOSTICS_START');
+for (const key of [...new Set([...expected, ...detected])].sort()) {
+  const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
+  const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
+  const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
+  const pairEvents = source && target
+    ? compare.ledger.events.filter((event) => event.sourceXmlNode === source.nodeId && event.targetXmlNode === target.nodeId)
+    : [];
+  const componentEvents = pairEvents.filter((event) => ['SUPPORT_COMPONENT_SET_CHANGED', 'SUPPORT_COMPONENT_TYPE_CHANGED', 'PRIMARY_MEMBER_RENUMBERED'].includes(event.type));
+  console.log(JSON.stringify({
+    classification: expected.has(key) ? (detected.has(key) ? 'TP' : 'FN') : 'FP',
+    key,
+    sourceRowId: source?.sourceRowId || '',
+    targetRowId: target?.sourceRowId || '',
+    edge: edge ? {
+      cardinality: edge.cardinality,
+      outcome: edge.outcome,
+      matchingMethod: edge.matchingMethod,
+      persistentReferences: edge.persistentReferences || [],
+      reasonCodes: edge.reasonCodes || [],
+    } : null,
+    sourceComponents: simpleComponents(source),
+    targetComponents: simpleComponents(target),
+    componentEvents: componentEvents.map((event) => ({
+      type: event.type,
+      remarkEligible: event.remarkEligible,
+      persistentReferences: event.persistentReferences || [],
+      reasonCodes: event.reasonCodes || [],
+      normalizedState: event.normalizedState || null,
+      beforeRawState: event.beforeRawState || null,
+      afterRawState: event.afterRawState || null,
+    })),
+    allPairEventTypes: pairEvents.map((event) => event.type).sort(),
+  }));
+}
+console.log('R3_SUPPORT_TYPE_DIAGNOSTICS_END');
 
 const guards = runTotalSupportPointChangeBenchmark(earlier, later);
 const result = {
-  lineIdentityShell: {
-    expected: 1,
-    detected: detectedKeys.size,
-    truePositives: truePositive ? 1 : 0,
-    falsePositives: falsePositives.length,
-    falseNegatives: falseNegatives.length,
-    detectedKeys: [...detectedKeys].sort(),
-    falsePositiveKeys: falsePositives,
-    falseNegativeKeys: falseNegatives,
-    shellRemark,
-    activeRemark,
-    activePipeEventPresent: Boolean(activePipeEvent),
-    sharedReferences: expectedShellEvent?.persistentReferences || [],
-    matchingMethod: expectedShellEvent?.matchingMethod || '',
-    reasonCodes: expectedShellEvent?.reasonCodes || [],
-    wrongRenderedRemarks,
-    tombstoneWordingFailures,
+  supportType: {
+    expected: expected.size,
+    detected: detected.size,
+    truePositives: truePositiveKeys.length,
+    falsePositives: falsePositiveKeys.length,
+    falseNegatives: falseNegativeKeys.length,
+    truePositiveKeys,
+    falsePositiveKeys,
+    falseNegativeKeys,
   },
   regressionGuards: {
     phase1: guards.phase1Guard.metrics,
@@ -91,12 +90,50 @@ const result = {
 };
 console.log(JSON.stringify(result));
 
-if (!truePositive || falsePositives.length || falseNegatives.length) process.exit(10);
-if (shellRemark !== 'Invalid (Line No. Changed)' || wrongRenderedRemarks.length) process.exit(11);
-if (!activePipeEvent || !activeRemark.includes('Line No. Change(Old Line No. 8"-P-1110XXX-METALLIC)')) process.exit(12);
-if (!expectedShellEvent?.persistentReferences?.length) process.exit(13);
-if (tombstoneWordingFailures.length) process.exit(14);
-if (guards.phase1Guard.metrics.falsePositives || guards.phase1Guard.metrics.falseNegatives) process.exit(15);
-if (guards.phase3Guard.metrics.falsePositives || guards.phase3Guard.metrics.falseNegatives) process.exit(16);
-if (guards.metrics.falsePositives || guards.metrics.falseNegatives) process.exit(17);
+if (falsePositiveKeys.length || falseNegativeKeys.length) process.exit(20);
+if (guards.phase1Guard.metrics.falsePositives || guards.phase1Guard.metrics.falseNegatives) process.exit(21);
+if (guards.phase3Guard.metrics.falsePositives || guards.phase3Guard.metrics.falseNegatives) process.exit(22);
+if (guards.metrics.falsePositives || guards.metrics.falseNegatives) process.exit(23);
 process.exit(0);
+
+function parseBenchmarkSource(text, sourceId) {
+  return canonicalizeSupportRevisionSource(parseTableSource(text, {
+    sourceId,
+    sourceName: sourceId,
+    sourceType: 'benchmarkText',
+    delimiterMode: 'auto',
+    firstRowIsHeader: true,
+  }));
+}
+
+function expectedSupportTypeKeys(source) {
+  return new Set((source?.rows || []).flatMap((row) => {
+    const remark = String(row?.rawByHeader?.['REMARKS (IF ANY)'] ?? '');
+    if (!/\bSupport\s+Type\s+Changes?\b/i.test(remark)) return [];
+    const civil = String(row?.rawByHeader?.CIVILSECONDARYSUPPORT ?? '').trim();
+    const pipe = String(row?.rawByHeader?.PIPE ?? '').trim();
+    return civil && pipe ? [`${civil}||${pipe}`] : [];
+  }));
+}
+
+function sourceToCsv(source, blankRemarks) {
+  const headers = [...(source?.headers || [])];
+  const remarkIndexes = headers.flatMap((header, index) => header === 'REMARKS (IF ANY)' ? [index] : []);
+  const rows = (source?.rows || []).map((row) => (row.rawCells || []).map((value, index) => blankRemarks && remarkIndexes.includes(index) ? '' : value));
+  return [headers, ...rows].map((cells) => cells.map(csvCell).join(',')).join('\n');
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function simpleComponents(location) {
+  return (location?.components || []).map((component) => ({
+    memberId: component.memberId || '',
+    supportType: component.supportType || '',
+    supportTypeKey: component.supportTypeKey || '',
+    reference: component.reference || '',
+    ordinal: component.ordinal || 0,
+  }));
+}
