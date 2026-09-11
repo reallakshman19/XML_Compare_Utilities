@@ -29,16 +29,20 @@ export function renderSupportReportTable(report) {
 }
 
 export function renderSupportReportJsonTrace(report) {
-  const entries = (report?.rows || []).flatMap((row) => (row.evidence?.jsonTrace?.members || []).map((trace) => ({ row, trace })));
+  const entries = (report?.rows || []).flatMap((row) => traceClusters(row).map((cluster) => ({ row, cluster })));
   if (!entries.length) return '<div class="ssrb-scope-note"><b>Staged JSON trace:</b> no staged member trace is available for this report.</div>';
-  const headers = ['Secondary / pipe', 'Observed PS/SL', 'Resolved JSON member', 'Match basis', 'POS basis', 'Native POS', 'Support type', 'Reference', 'Description', 'INSU'];
-  const body = entries.map(({ row, trace }) => `<tr>${[
+  const headers = [
+    'Secondary / pipe', 'Report location', 'POS cluster', 'Native POS', 'Observed PS/SL',
+    'Resolved JSON member(s)', 'Match basis', 'Support type', 'Reference', 'Description', 'INSU',
+  ];
+  const body = entries.map(({ row, cluster }) => `<tr>${[
     `${row.civilSecondarySupport || ''} · ${row.pipe || ''}`,
-    trace.observedMemberId || '', trace.resolvedMemberId || '', trace.matchBasis || '', trace.positionBasis || '',
-    positionText(trace.positionGlobal), trace.attributeEvidence?.supportType || '', trace.attributeEvidence?.primarySupportReference || '',
-    trace.attributeEvidence?.description || '', trace.attributeEvidence?.insulationThickness || '',
+    reportLocationText(row), cluster.posClusterId || '', positionText(cluster.positionGlobal),
+    joinValues(cluster.observedMemberIds), joinValues(cluster.resolvedMemberIds), joinValues(cluster.matchBases),
+    clusterAttribute(cluster, 'supportType'), clusterAttribute(cluster, 'primarySupportReference'),
+    clusterAttribute(cluster, 'description'), clusterAttribute(cluster, 'insulationThickness'),
   ].map((value) => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`).join('');
-  return `<div class="ssrb-scope-note"><b>Staged JSON trace:</b> direct current PS/SL identity is preferred; PREV-NAME alias is explicit rename evidence. Coordinate/base-anchor identity matching is not active.</div><div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-trace-table"><thead><tr>${headers.map((value) => `<th>${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="ssrb-scope-note"><b>Staged JSON trace:</b> native members are grouped by exact staged POS evidence. POS clusters are audit/mapping evidence only; they do not merge separate Navisworks report locations and do not replace report E/W, N/S or BOP coordinates. Direct current PS/SL identity is preferred; PREV-NAME alias is explicit rename evidence. Coordinate/base-anchor identity matching remains inactive.</div><div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-trace-table"><thead><tr>${headers.map((value) => `<th>${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 export function renderSupportReportDiagnostics(report) {
@@ -52,6 +56,28 @@ export function renderSupportReportDiagnostics(report) {
   return `<div class="ssrb-scope-note"><b>Support Report diagnostics:</b> ${counts.ERROR || 0} error · ${counts.WARN || counts.WARNING || 0} warn · ${counts.INFO || 0} info</div><div class="ssrb-diagnostic-list">${diagnostics.slice(0, 40).map((row) => `<div><b>${escapeHtml(row.code || row.severity || 'INFO')}</b><span>${escapeHtml(row.message || '')}</span></div>`).join('')}</div>`;
 }
 
+function traceClusters(row) {
+  const trace = row?.evidence?.jsonTrace || {};
+  if (trace.posClusters?.length) return trace.posClusters;
+  return (trace.members || []).map((member, index) => ({
+    posClusterId: member.positionGlobal ? `LEGACY_POS_${index + 1}` : 'UNRESOLVED_POS',
+    positionGlobal: member.positionGlobal || null,
+    observedMemberIds: member.observedMemberId ? [member.observedMemberId] : [],
+    resolvedMemberIds: member.resolvedMemberId ? [member.resolvedMemberId] : [],
+    matchBases: member.matchBasis ? [member.matchBasis] : [],
+    members: [member],
+  }));
+}
+function clusterAttribute(cluster, key) {
+  return joinValues((cluster?.members || []).map((member) => member.attributeEvidence?.[key]).filter(Boolean));
+}
+function reportLocationText(row) {
+  return [row?.eastWest, row?.northSouth, row?.bopElevation].filter(Boolean).join(' · ');
+}
+function joinValues(values) {
+  if (!Array.isArray(values)) return values || '';
+  return [...new Set(values.filter(Boolean))].join(', ');
+}
 function renderTypicalitySummary(report) {
   const audit = report?.typicalityAudit;
   if (!audit) return '';
@@ -61,7 +87,6 @@ function renderTypicalitySummary(report) {
   const ambiguous = matches.filter((item) => item.result === 'AMBIGUOUS').length;
   return `<div class="ssrb-scope-note" data-ssr-typicality-summary="1"><b>Typical-structure comparison:</b> ${typical} typical · ${review} review · ${ambiguous} ambiguous. Row decisions link to the exported Typicality Audit evidence.</div>`;
 }
-
 function positionText(point) {
   if (!point || ![point.x, point.y, point.z].every(Number.isFinite)) return '';
   return `E ${point.x}mm · ${point.y < 0 ? 'S' : 'N'} ${Math.abs(point.y)}mm · U ${point.z}mm`;
