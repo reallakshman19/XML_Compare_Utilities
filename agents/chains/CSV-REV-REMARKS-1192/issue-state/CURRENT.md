@@ -8,12 +8,13 @@ CHAIN_ID: CSV-REV-REMARKS-1192
 ISSUE_BASIS_ID: IB-CSV-REV-REMARKS-1192-0001
 ISSUE_BASIS_FILE: agents/chains/CSV-REV-REMARKS-1192/issue-basis/IB-CSV-REV-REMARKS-1192-0001.md
 ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-REMARKS-1192/issue-state/CURRENT.md
-ACTIVE_ENDPOINT: EP-CSVRMRK-0002
+ACTIVE_ENDPOINT: EP-CSVRMRK-0003
 LATEST_MATERIAL_LEG: LEG-001
 PR: 1197
 BRANCH: issue-1192-remark-remediation
 MATERIAL_HEAD: 81c727d3a5841b9b23ba54ad8738a33808f83921
-CURRENT_MAIN: e1ccdf236588018f304be5942c92b587e3145f6e
+CURRENT_MAIN: 2b473ae1c4e93d92ad2af8e0716bd8e72ac2eab0
+POST_BASIS_DRIFT: METADATA_ONLY
 ENGINEERING_STATE: IN_PROGRESS
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: PENDING
@@ -32,7 +33,7 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5632384316
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5632410976
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ## Original task / current authority
@@ -52,5 +53,7 @@ Deletion-state projection, common-support replication redesign, support-type att
 ## Validation / blocker
 
 Executable qualification is PENDING / NOT_RUN. Exact material head has zero Actions runs and zero commit status contexts. This connector-only environment has no local checkout and cannot resolve github.com for local Node execution. Static patch reconciliation passed, but is not qualification.
+
+`main` advanced from `e1ccdf...` to `2b473a...` after R1 was authored. GitHub compare reports two history commits and `files=[]`; this is classified `METADATA_ONLY`, so the R1 material tree does not require alteration solely for that drift. PR #1197 remains mergeable.
 
 EXACT_NEXT_ACTION: obtain executable focused qualification for PR #1197/material head. If PASS, record qualification receipt and successor endpoint; only then may a new Owner progression begin R2 deletion-state projection. Do not merge without explicit Owner authorization.
