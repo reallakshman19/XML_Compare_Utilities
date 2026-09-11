@@ -40,6 +40,8 @@ console.log(JSON.stringify({
 }));
 for (const key of [...new Set([...expectedCommon, ...detectedCommon])].sort()) {
   const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
+  const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
+  const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
   const commonEvent = target
     ? commonEvents.find((event) => event.targetXmlNode === target.nodeId) || null
     : null;
@@ -54,9 +56,11 @@ for (const key of [...new Set([...expectedCommon, ...detectedCommon])].sort()) {
         key: item.supportLocationIdentity,
         rowId: item.sourceRowId,
         generatedRemark: compare.remarks.targetRemarks?.[item.sourceRowId]?.remark || '',
-        directEventTypes: compare.ledger.events
+        persistentReferences: item.persistentReferences,
+        components: simpleComponents(item),
+        directEvents: compare.ledger.events
           .filter((event) => event.targetXmlNode === item.nodeId && event.type !== 'COMMON_SUPPORT_REMARK_REPLICATED')
-          .map((event) => event.type),
+          .map(simpleEvent),
       }))
     : [];
   console.log(JSON.stringify({
@@ -67,14 +71,28 @@ for (const key of [...new Set([...expectedCommon, ...detectedCommon])].sort()) {
     rowId: target?.sourceRowId || '',
     oracleRemark: oracleRemarkForKey(laterSource, key),
     generatedRemark,
-    directEventTypes: directEvents.map((event) => event.type),
+    edge: edge ? {
+      cardinality: edge.cardinality,
+      outcome: edge.outcome,
+      matchingMethod: edge.matchingMethod || '',
+      persistentReferences: edge.persistentReferences || [],
+      reasonCodes: edge.reasonCodes || [],
+    } : null,
+    source: simpleLocation(source),
+    target: simpleLocation(target),
+    sharedPersistentReferences: source && target ? source.persistentReferences.filter((ref) => target.persistentReferences.includes(ref)) : [],
+    directEvents: directEvents.map(simpleEvent),
     replicationEvent: commonEvent ? {
       reasonCodes: commonEvent.reasonCodes || [],
       matchingMethod: commonEvent.matchingMethod || '',
+      persistentReferences: commonEvent.persistentReferences || [],
       triggerSiblingNodeIds: commonEvent.normalizedState?.triggerSiblingNodeIds || [],
       triggerSiblingRowIds: commonEvent.normalizedState?.triggerSiblingRowIds || [],
       triggerRemarkEventIds: commonEvent.normalizedState?.triggerRemarkEventIds || [],
+      ignoredAuditEventIds: commonEvent.trace?.ignoredAuditEventIds || [],
     } : null,
+    sourceRowWithoutRemark: rawRowWithoutRemark(earlierSource, source?.sourceRowId),
+    targetRowWithoutRemark: rawRowWithoutRemark(laterSource, target?.sourceRowId),
     siblings,
   }));
 }
@@ -147,6 +165,52 @@ function metrics(expected, detected) {
     falsePositiveKeys,
     falseNegativeKeys,
   };
+}
+
+function simpleComponents(location) {
+  return (location?.components || []).map((component) => ({
+    memberId: component.memberId || '',
+    supportType: component.supportType || '',
+    reference: component.reference || '',
+    ordinal: component.ordinal || 0,
+  }));
+}
+
+function simpleLocation(location) {
+  if (!location) return null;
+  return {
+    nodeId: location.nodeId,
+    rowId: location.sourceRowId,
+    family: location.family,
+    pipe: location.pipe?.raw || '',
+    scope: location.scope || '',
+    size: location.size || '',
+    legacyIdentity: location.legacyIdentity || '',
+    persistentReferences: location.persistentReferences || [],
+    referenceMultiplicityKey: location.referenceMultiplicityKey || '',
+    components: simpleComponents(location),
+    position: location.position || null,
+    sourceFields: location.sourceFields || {},
+  };
+}
+
+function simpleEvent(event) {
+  return {
+    eventId: event.eventId,
+    type: event.type,
+    remarkEligible: event.remarkEligible,
+    reasonCodes: event.reasonCodes || [],
+    persistentReferences: event.persistentReferences || [],
+    beforeRawState: event.beforeRawState || null,
+    afterRawState: event.afterRawState || null,
+    normalizedState: event.normalizedState || null,
+  };
+}
+
+function rawRowWithoutRemark(source, rowId) {
+  const row = (source?.rows || []).find((item) => item.rowId === rowId) || null;
+  if (!row) return null;
+  return Object.fromEntries(Object.entries(row.rawByHeader || {}).filter(([header]) => header !== 'REMARKS (IF ANY)'));
 }
 
 function oracleRemarkForKey(source, key) {
