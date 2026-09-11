@@ -7,6 +7,10 @@ import {
   resolveSupportReportObservedMembers,
   supportReportFamilyMismatchMemberIds,
 } from './support-report-json-trace.js?v=20260911-prevname-semantic-22';
+import {
+  supportReportMemberMatchesBranches,
+  supportReportMemberMatchesLine,
+} from './support-report-member-context.js?v=20260911-datum-metadata-23';
 
 const SUPPORT_TYPE_KEYS = Object.freeze([
   'CMPSUPTYPE', 'MDSSUPPTYPE', 'SUPPORT_TYPE', 'SUPTYPE', 'TYPE_TEXT', 'STYPE',
@@ -44,6 +48,20 @@ export function resolveSupportReportRowMembers({ relationshipBundle, group, fami
     resolvedObservedIds,
     reportRemarks: Object.freeze(reportRemarks),
     memberAttributionBasis: attribution.basis,
+  });
+}
+
+export function selectSupportReportDatumMetadataMembers({ family, group, selectedMembers = [] } = {}) {
+  if (selectedMembers.length) return Object.freeze({ members: Object.freeze([]), basis: 'CONCRETE_MEMBER_METADATA' });
+  if (Number(group?.locationCountOnPipe || 1) > 1) {
+    return Object.freeze({ members: Object.freeze([]), basis: 'MULTI_LOCATION_DATUM_METADATA_DISABLED' });
+  }
+  const members = (family?.members || []).filter((member) => String(member?.semanticRole || '').toUpperCase() === 'DATUM')
+    .filter((member) => supportReportMemberMatchesLine(member, group?.fullLineTag)
+      || supportReportMemberMatchesBranches(member, group));
+  return Object.freeze({
+    members: Object.freeze(members),
+    basis: members.length ? 'SINGLE_LOCATION_FAMILY_DATUM_METADATA' : 'NO_DATUM_METADATA',
   });
 }
 
