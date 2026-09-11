@@ -21,8 +21,8 @@ QUALIFICATION_STATE: FAIL
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGEABILITY: MERGEABLE_AT_FINAL_RECHECK
-MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
+MERGE_AUTHORITY: AUTHORIZED
+MERGE_AUTHORIZED: TRUE
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
 QUESTION_SET_ID: QS-CSVRC-1192-0001
 QUESTION_SET_STATUS: CURRENT
@@ -33,8 +33,8 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_CSVMRK_0005_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_FINAL_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5633695841
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0002.md
 QUALIFICATION_PR: 1200
 QUALIFICATION_HEAD: ea0a683e1fd0fb45915805624de4301a953bb0be
@@ -47,24 +47,22 @@ Remediate post-merge remark mismatches discovered by Owner comparison after #118
 
 ## R1 material state
 
-LEG-001 remains the latest production material. This bounded progression made no production detector patch because the diagnostic evidence does not support one within current R1 authority. R2 deletion-state projection, common-support replication redesign, support-type attribution, total-support logic, XLSX ingress, and production workflow files remain untouched.
+LEG-001 remains the latest production material. Failure-isolation made no production detector patch because the diagnostic evidence does not support one within current R1 authority. R2 deletion-state projection, common-support replication redesign, support-type attribution, total-support logic, XLSX ingress, and production workflow files remain untouched.
 
 ## Qualification truth / failure isolation
 
-Executable R1 qualification still FAILS only the relocation bucket:
+Executable R1 qualification remains FAIL only in relocation:
 - Phase 1: expected=1, detected=1, TP=1, FP=0, FN=0, PASS.
 - Phase 2: expected=13, detected=14, TP=7, FP=7, FN=6, precision=0.5, recall=0.5384615384615384, F1=0.5185185185185186, FAIL.
 - Phase 3: expected=2, detected=2, TP=2, FP=0, FN=0, PASS.
 - Phase 4: oracleExpected=3, unsupported=1, checkable expected=2, detected=2, TP=2, FP=0, FN=0, PASS.
 
-Qualification-only diagnostics prove the real frame has X=`HIGH_RESIDUAL` (median residual≈143.778 mm; admission limit=25 mm), while Y/Z are `VALIDATED`. All six Phase-2 false negatives are exact Civil+PIPE deterministic `1->1` pairs whose meaningful movement is X-only. Admitting those six requires a new high-residual-axis policy and is not merely restoration of the existing validated-axis R1 rule.
+X is `HIGH_RESIDUAL` (median residual≈143.778 mm; admission limit=25 mm), while Y/Z are `VALIDATED`. All six Phase-2 false negatives are exact Civil+PIPE deterministic `1->1` pairs whose meaningful movement is X-only. Several oracle-negative detections are also exact Civil+PIPE deterministic `1->1` pairs with strong persistent-reference continuity and material displacement on already validated Y/Z axes. No safe all-13 classifier was established without changing authority or oracle-fitting.
 
-Several oracle-negative detections are also exact Civil+PIPE deterministic `1->1` pairs with strong persistent-reference continuity and material displacement on already validated Y/Z axes. Therefore forcing all seven false positives away would require either unsupported semantic suppression or treating oracle absence as detector evidence. One non-exact-identity false positive is structurally separable, but no complete safe classifier exists for all 13 mismatches under current authority.
+## Owner merge override
 
-Diagnostic receipt: `agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0002.md`.
+After being shown the failed outcome, Owner explicitly issued `merge` on 2026-09-11. This grants merge authority for delivery PR #1197 despite QUALIFICATION_STATE remaining FAIL. This is an Owner override, not a qualification PASS. Qualification-only PR #1200 remains prohibited from merge.
 
-## Drift / blocker
+`main` was last observed at `ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac` through unrelated Support Report work. PR #1197 was mergeable at final pre-merge recheck with no reviews, no unresolved review threads, no commit statuses, and no PR-head workflow runs.
 
-`main` advanced independently to `ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac` through unrelated Support Report work; no `csv-rev-compare` paths were found in the observed compare from the prior main checkpoint. Final GitHub recheck reports PR #1197 mergeable, but qualification remains FAIL and merge is unauthorized.
-
-EXACT_NEXT_ACTION: OWNER_DECISION_REQUIRED. Either preserve the existing validated-axis contract and explicitly classify the six X-only Owner labels as unsupported/uncheckable under this frame, or explicitly authorize a new high-residual-axis relocation policy plus structural negative-evidence rules. After that decision, perform one new bounded R1 material leg and rerun qualification PR #1200. Do not begin R2 and do not merge #1197 or #1200; #1200 must never merge.
+EXACT_NEXT_ACTION: merge exact delivery PR #1197 head only under Owner override; never merge #1200. Preserve qualification truth as FAIL in post-merge reporting.
