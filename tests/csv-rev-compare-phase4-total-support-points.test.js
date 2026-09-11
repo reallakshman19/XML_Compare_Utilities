@@ -48,8 +48,10 @@ function totalEvents(result) {
   assert.equal(normalizeSupportPointCount('2.0').value, 2);
 }
 
-// Same CIVIL tag on two pipes is two distinct support locations. Only the Civil+PIPE
-// composite whose governed total-support field changed may produce the Phase 4 event.
+// Same CIVIL tag on two pipes is two distinct support locations. A governed total-support
+// field delta is attributable only when the exact Civil+PIPE lineage pair also carries a
+// local support-graph delta. PIPE-A changes both its total field and component reference;
+// PIPE-B is representation-only unchanged.
 {
   const earlier = csv([
     row(1, 2, { pipe: 'PIPE-A', reference: '=A/1', totalSupportPoints: '1' }),
@@ -57,7 +59,7 @@ function totalEvents(result) {
   ]);
   const later = csv([
     row(2, 3, { pipe: 'PIPE-B', reference: '=B/1', totalSupportPoints: '2.0' }),
-    row(1, 3, { pipe: 'PIPE-A', reference: '=A/1', totalSupportPoints: '2', remark: 'Total No. of support changes' }),
+    row(1, 3, { pipe: 'PIPE-A', reference: '=A/2', totalSupportPoints: '2', remark: 'Total No. of support changes' }),
   ]);
   const result = runSupportRevisionCompare(earlier, later);
   assert.equal(result.ok, true);
@@ -66,6 +68,7 @@ function totalEvents(result) {
   assert.equal(event.normalizedState.before, 1);
   assert.equal(event.normalizedState.after, 2);
   assert.equal(event.normalizedState.delta, 1);
+  assert.ok(event.reasonCodes.includes('LOCAL_SUPPORT_GRAPH_CHANGED'));
   const target = result.targetModel.locationByNodeId.get(event.targetXmlNode);
   assert.equal(target.supportLocationIdentity, 'SL-SHARED(REF)||PIPE-A');
   assert.match(result.remarks.targetRemarks[target.sourceRowId].remark, /Total No\. of support changes/);
@@ -78,6 +81,16 @@ function totalEvents(result) {
   assert.equal(benchmark.metrics.truePositives, 1);
   assert.equal(benchmark.metrics.falsePositives, 0);
   assert.equal(benchmark.metrics.falseNegatives, 0);
+}
+
+// Family/aggregate field ripple negative control: a raw total-support field delta without
+// any local support-component graph change must not be broadcast onto this Civil+PIPE item.
+{
+  const earlier = csv([row(30, 2, { family: 'SL-RIPPLE(REF)', pipe: 'PIPE-R', reference: '=R/1', totalSupportPoints: '4' })]);
+  const later = csv([row(30, 3, { family: 'SL-RIPPLE(REF)', pipe: 'PIPE-R', reference: '=R/1', totalSupportPoints: '5' })]);
+  const result = runSupportRevisionCompare(earlier, later);
+  assert.equal(result.ok, true);
+  assert.equal(totalEvents(result).length, 0);
 }
 
 // A target-only composite may carry an R3 oracle remark, but without an R2 predecessor
