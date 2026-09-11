@@ -64,6 +64,19 @@ function targetRemarks(result) {
   assert.equal(SUPPORT_REV_LOAD_POLICY_V1.policyId, 'SUPPORT_REV_LOAD_POLICY_V1');
 }
 
+// Workbook placeholders are semantic empties. Preserve their raw audit values,
+// but never manufacture a load-change event for R2 "-" versus an R3 blank cell.
+{
+  const before = [{ sourceHeader: 'Fy', ordinal: 1, columnId: 'Fy', raw: '-' }];
+  const after = [{ sourceHeader: 'Fy', ordinal: 1, columnId: 'Fy', raw: '' }];
+  const result = compareLoadVectors(before, after);
+  assert.equal(result.classification, 'UNCHANGED');
+  assert.equal(result.before.state, 'EMPTY');
+  assert.equal(result.after.state, 'EMPTY');
+  assert.equal(result.before.slots[0].raw, '-');
+  assert.equal(result.after.slots[0].raw, '');
+}
+
 // XML-lineage qualification fixture: standardisation, changed numeric signature,
 // unchanged numeric loads and HOLD-only remarks are all present together.
 {
