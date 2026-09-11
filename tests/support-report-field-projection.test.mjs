@@ -122,7 +122,7 @@ test('field provenance distinguishes native membership, carrier attributes and n
   assert.equal(evidence.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE);
   assert.equal(evidence.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CARRIER_ATTRIBUTE);
   assert.equal(evidence.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_POSITION);
-  assert.equal(evidence.primarySupportZone.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.CLASH_PRIMARY_PATH);
+  assert.equal(evidence.primarySupportZone.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.NATIVE_MEMBER_PATH);
   assert.equal(evidence.revision.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
   assert.equal(evidence.size.confidenceClass, 'AUTHORITATIVE');
   assert.deepEqual(evidence.size.sourceIds, ['/PIPE-10']);
