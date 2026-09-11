@@ -130,10 +130,13 @@ function summarizeComparison(left, right) {
         pairDistance: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.result || null,
         pairDistanceResidualMm: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.residual || null,
       };
-      summary.exactTopologyPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation, summary.rawPointCount]
+      summary.requiredTopologyPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation]
         .filter((value) => value === 'PASS').length;
-      summary.allSignalPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation,
-        summary.rawPointCount, summary.envelope, summary.pairDistance].filter((value) => value === 'PASS').length;
+      summary.requiredSignalPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation,
+        summary.envelope, summary.pairDistance].filter((value) => value === 'PASS').length;
+      summary.auditOnlyPassCount = [summary.rawPointCount].filter((value) => value === 'PASS').length;
+      summary.exactTopologyPassCount = summary.requiredTopologyPassCount + summary.auditOnlyPassCount;
+      summary.allSignalPassCount = summary.requiredSignalPassCount + summary.auditOnlyPassCount;
       const l = familyDigits(summary.leftFamilyId);
       const r = familyDigits(summary.rightFamilyId);
       summary.sameTrailing3 = Boolean(l && r && l.prefix === r.prefix && l.trailing3 === r.trailing3);
@@ -193,8 +196,8 @@ const firstLeft = leftFiles[0];
 const firstRight = rightFiles[0];
 const allFamilyComparisons = comparisons.flatMap((comparison) => comparison.familyComparisons);
 const allFamilyMatches = comparisons.flatMap((comparison) => comparison.familyMatches);
-const rank = (a, b) => b.exactTopologyPassCount - a.exactTopologyPassCount
-  || b.allSignalPassCount - a.allSignalPassCount
+const rank = (a, b) => b.requiredTopologyPassCount - a.requiredTopologyPassCount
+  || b.requiredSignalPassCount - a.requiredSignalPassCount
   || (Number(a.geometryCostMm) || Number.MAX_SAFE_INTEGER) - (Number(b.geometryCostMm) || Number.MAX_SAFE_INTEGER)
   || a.leftFamilyId.localeCompare(b.leftFamilyId)
   || a.rightFamilyId.localeCompare(b.rightFamilyId);
@@ -208,6 +211,10 @@ const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [c
   allFamilyComparisons.filter((item) => item.allSignalPassCount === count).length]));
 const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
   allFamilyComparisons.filter((item) => item.exactTopologyPassCount === count).length]));
+const requiredSignalPassHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.requiredSignalPassCount === count).length]));
+const requiredTopologyPassHistogram = Object.fromEntries([0, 1, 2, 3].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.requiredTopologyPassCount === count).length]));
 const finalMatchResultHistogram = Object.fromEntries(['TYPICAL', 'REVIEW', 'AMBIGUOUS', 'NO_MATCH'].map((resultName) => [
   resultName,
   allFamilyMatches.filter((item) => item.result === resultName).length,
@@ -231,6 +238,8 @@ const result = {
     finalMatchResultHistogram,
     finalResolvedCounterpartCount: allFamilyMatches.filter((item) => item.rightFamilyId).length,
     sameTrailing3CandidateCount: sameTrailing3.length,
+    requiredSignalPassHistogram,
+    requiredTopologyPassHistogram,
     allSignalPassHistogram: passHistogram,
     exactTopologyPassHistogram: topologyHistogram,
     reviewMatches,
@@ -254,6 +263,8 @@ console.log(`ZIP_BENCHMARK_DIAGNOSTICS=${JSON.stringify({
   finalMatchResultHistogram: result.diagnostics.finalMatchResultHistogram,
   finalResolvedCounterpartCount: result.diagnostics.finalResolvedCounterpartCount,
   sameTrailing3CandidateCount: result.diagnostics.sameTrailing3CandidateCount,
+  requiredSignalPassHistogram: result.diagnostics.requiredSignalPassHistogram,
+  requiredTopologyPassHistogram: result.diagnostics.requiredTopologyPassHistogram,
   allSignalPassHistogram: result.diagnostics.allSignalPassHistogram,
   exactTopologyPassHistogram: result.diagnostics.exactTopologyPassHistogram,
   reviewMatches: result.diagnostics.reviewMatches.slice(0, 20),
