@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { _test as addonTest } from '../tabs/support-steel-relationship-builder/support-report-addon.js';
 import {
+  compareStructuralFamilyFeatures,
+  _test as typicalityTest,
+} from '../tabs/support-steel-relationship-builder/support-report-typicality.js';
+import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   SUPPORT_REPORT_TYPICALITY_UI_SETTINGS,
   mergeSupportReportTypicalityProfile,
@@ -21,7 +25,9 @@ test('Support Report panel exposes optional second XML typicality input', () => 
 test('typicality configuration exposes active defaults and hard-coded policy help through info hovers', () => {
   const html = addonTest.typicalityConfigCard();
   assert.match(html, /<details class="ssrb-card" data-ssr-typical-config open>/);
-  assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceMm"/);
+  assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceM"/);
+  assert.match(html, /Envelope tolerance \(m\)/);
+  assert.match(html, /value="25"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.assignmentWeights\.supportTypeMember"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.linearityToleranceMm"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.enforceMonotonic1D"/);
@@ -35,8 +41,38 @@ test('typicality configuration exposes active defaults and hard-coded policy hel
   assert.match(html, /Solver unmatched sentinel/);
   assert.match(html, /1,000,000,000 cost units/);
   assert.match(html, /Solver ineligible sentinel/);
-  assert.match(html, /title="Hard family-level geometry gate\./);
+  assert.match(html, /Default 25 m/);
   assert.match(html, />\(i\)<\/span>/);
+});
+
+test('envelope tolerance is configured in metres and evaluated internally in millimetres', () => {
+  assert.equal(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural.geometryEnvelopeToleranceM, 25);
+  assert.equal(typicalityTest.envelopeToleranceMm(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural), 25000);
+
+  const feature = (familyId, spanX) => ({
+    familyId,
+    locationCount: 2,
+    memberMultiplicitySpectrum: [1, 1],
+    normalizedPipeClassPopulation: ['2|P|31441C4|PP', '4|P|31441C4|PP'],
+    rawClashPointCount: 2,
+    geometryEnvelopeMm: { span: { x: spanX, y: 0, z: 0 } },
+    pairDistanceSpectrumMm: [1000],
+  });
+  const profile = mergeSupportReportTypicalityProfile({
+    structural: {
+      geometryEnvelopeToleranceM: 25,
+      pairDistanceMedianToleranceMm: 100,
+      pairDistanceP95ToleranceMm: 100,
+      pairDistanceMaxToleranceMm: 100,
+    },
+  });
+  const within = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 24999), profile);
+  const outside = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 25001), profile);
+  const withinEnvelope = within.signals.find((item) => item.reasonCode === 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE');
+  const outsideEnvelope = outside.signals.find((item) => item.reasonCode === 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE');
+  assert.equal(withinEnvelope.threshold, 25000);
+  assert.equal(withinEnvelope.result, 'PASS');
+  assert.equal(outsideEnvelope.result, 'FAIL');
 });
 
 test('typicality profile partial overrides preserve unrelated governed defaults including nested sequence scores', () => {
