@@ -1,7 +1,7 @@
 import {
   buildSupportReportTypicalityAudit,
   normalizePipeClass,
-} from './support-report-typicality.js?v=20260911-support-report-typicality-rca-2';
+} from './support-report-typicality.js?v=20260911-support-report-typicality-rca-3';
 import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   mergeSupportReportTypicalityProfile,
@@ -61,7 +61,7 @@ export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalit
     const selected = location ? selectedByLocation.get(String(location.locationId)) : null;
     return Object.freeze({
       ...row,
-      typicalStructure: match?.result === 'TYPICAL' ? match.rightFamilyId : '',
+      typicalStructure: ['TYPICAL', 'REVIEW'].includes(match?.result) ? match.rightFamilyId : '',
       pipingSupportArrangementMatch: arrangementLabel(match, selected?.assignment, selected?.pair),
       typicalityAuditId: selected?.pair?.auditId
         || match?.auditId
@@ -139,6 +139,7 @@ function arrangementLabel(match, assignment, pair) {
   if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
   if (!pair) {
     if (match.result === 'NO_MATCH') return noMatchLabel(match);
+    if (match.result === 'REVIEW') return reviewLabel(match);
     return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
   }
   const equivalent = assignment?.correspondenceStatus === 'AMBIGUOUS_EQUIVALENT';
@@ -159,6 +160,12 @@ function arrangementLabel(match, assignment, pair) {
   return details.length ? `PARTIAL: ${details.join('; ')}` : 'PARTIAL';
 }
 
+function reviewLabel(match) {
+  if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
+    return 'REVIEW: member multiplicity differs';
+  }
+  return 'REVIEW';
+}
 function noMatchLabel(match) {
   const candidate = match?.bestCandidateFamilyId ? `best ${match.bestCandidateFamilyId}` : '';
   const failures = (match?.failedReasonCodes || []).map(rejectionLabel).filter(Boolean);
@@ -192,5 +199,6 @@ export const _test = Object.freeze({
   rejectionLabel,
   resolveFamilyMatch,
   resolveRowLocation,
+  reviewLabel,
   withLocationRowAliases,
 });
