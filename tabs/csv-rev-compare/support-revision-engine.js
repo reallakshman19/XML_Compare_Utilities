@@ -4,12 +4,13 @@ import { buildSupportRevisionLineage } from './support-revision-lineage.js';
 import { attachLineageEligibility, buildLineageEligibleModel } from './support-revision-lineage-eligibility.js';
 import { resolveReviewedLineage, unresolvedLineageReviews } from './support-revision-review.js';
 import { buildSupportRevisionEventLedger } from './support-revision-events.js';
+import { augmentTotalSupportPointEvents } from './support-revision-total-points.js';
 import { renderSupportRevisionRemarks, SUPPORT_REV_REMARKS_V1 } from './support-revision-remarks.js';
 import { buildRevisionOutputMatrix, buildSupportRevisionArtifacts } from './support-revision-export.js';
 import { SUPPORT_REV_COMPARE_POLICY_V1 } from './support-revision-normalization.js';
 import { SUPPORT_REV_LOAD_POLICY_V1 } from './support-revision-loads.js';
 
-export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v3-review-barrier';
+export const SUPPORT_REVISION_ENGINE_SCHEMA = 'support-revision-xml-compare-engine/v4-total-support-points';
 
 export function runSupportRevisionCompare(revision1Text, revision2Text, options = {}) {
   const comparisonPolicy = options.policy || SUPPORT_REV_COMPARE_POLICY_V1;
@@ -28,7 +29,8 @@ export function runSupportRevisionCompare(revision1Text, revision2Text, options 
   const unresolvedReviews = unresolvedLineageReviews(lineage);
   const reviewBlockers = (lineage.reviewDiagnostics || []).filter((item) => item.severity === 'blocker');
   const reviewBlocked = unresolvedReviews.count > 0 || reviewBlockers.length > 0;
-  const ledger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy: comparisonPolicy, loadPolicy, reviewBlocked });
+  const baseLedger = buildSupportRevisionEventLedger(sourceModel, targetModel, lineage, { policy: comparisonPolicy, loadPolicy, reviewBlocked });
+  const ledger = reviewBlocked ? baseLedger : augmentTotalSupportPointEvents(baseLedger, sourceModel, targetModel, lineage);
   const remarks = renderSupportRevisionRemarks(ledger, sourceModel, targetModel, remarkPolicy);
   const output = reviewBlocked ? null : buildRevisionOutputMatrix(pair.rev1.source, pair.rev2.source, remarks);
   const exportReady = !reviewBlocked;
@@ -72,6 +74,7 @@ export const SUPPORT_REVISION_WORKFLOW_STAGES = Object.freeze([
   'Normalize coordinate frame',
   'Detect common-support topology',
   'Compare support components',
+  'Compare total support points',
   'Compare load vectors',
   'Produce structured events',
   'Render human remarks',
