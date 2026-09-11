@@ -42,6 +42,9 @@ test('typicality configuration exposes active defaults and hard-coded policy hel
   assert.match(html, /1,000,000,000 cost units/);
   assert.match(html, /Solver ineligible sentinel/);
   assert.match(html, /Default 25 mm/);
+  assert.match(html, /Advisory family-level diagnostic/);
+  assert.match(html, /does not reject a structurally eligible family by itself/);
+  assert.match(html, /canonical physical-location/);
   assert.match(html, />\(i\)<\/span>/);
 });
 
@@ -73,6 +76,41 @@ test('envelope tolerance is configured and evaluated in millimetres', () => {
   assert.equal(withinEnvelope.threshold, 25);
   assert.equal(withinEnvelope.result, 'PASS');
   assert.equal(outsideEnvelope.result, 'FAIL');
+});
+
+test('pair-distance P95 is advisory while median and maximum remain hard', () => {
+  const feature = (familyId, distances) => ({
+    familyId,
+    locationCount: 3,
+    memberMultiplicitySpectrum: [1, 1, 1],
+    normalizedPipeClassPopulation: ['2|P|31441C4|HT', '2|P|31441C4|HT', '4|P|31441C4|PP'],
+    rawClashPointCount: 3,
+    geometryEnvelopeMm: { span: { x: 100, y: 100, z: 0 } },
+    pairDistanceSpectrumMm: distances,
+  });
+  const profile = mergeSupportReportTypicalityProfile({
+    structural: {
+      geometryEnvelopeToleranceMm: 25,
+      pairDistanceMedianToleranceMm: 10,
+      pairDistanceP95ToleranceMm: 25,
+      pairDistanceMaxToleranceMm: 50,
+    },
+  });
+  const comparison = compareStructuralFamilyFeatures(
+    feature('PS-1', [100, 200, 300]),
+    feature('PS-2', [100, 209, 349]),
+    profile,
+  );
+  const pair = comparison.signals.find((item) => item.reasonCode === 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE');
+  assert.equal(pair.residual.median, 9);
+  assert.ok(pair.residual.p95 > 25);
+  assert.equal(pair.residual.max, 49);
+  assert.equal(pair.policy.median, 'HARD');
+  assert.equal(pair.policy.p95, 'ADVISORY');
+  assert.equal(pair.policy.max, 'HARD');
+  assert.equal(pair.p95Result, 'ADVISORY_EXCEEDED');
+  assert.equal(pair.result, 'PASS');
+  assert.equal(comparison.result, 'TYPICAL');
 });
 
 test('typicality profile partial overrides preserve unrelated governed defaults including nested sequence scores', () => {
