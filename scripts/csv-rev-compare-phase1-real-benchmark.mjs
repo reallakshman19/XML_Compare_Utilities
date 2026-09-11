@@ -30,33 +30,30 @@ const phase4Trace = result.detected.map((detected) => {
   const event = result.compareResult.ledger.events.find((item) => item.eventId === detected.eventId);
   const source = result.compareResult.sourceModel.locationByNodeId.get(event?.sourceXmlNode);
   const target = result.compareResult.targetModel.locationByNodeId.get(event?.targetXmlNode);
-  const related = result.compareResult.ledger.events.filter((item) => item.type !== 'TOTAL_SUPPORT_POINTS_CHANGED' && (
-    (item.sourceXmlNode === source?.nodeId && item.targetXmlNode === target?.nodeId) ||
-    item.sourceXmlNode === source?.nodeId || item.targetXmlNode === target?.nodeId
-  ));
+  const pairEvents = result.compareResult.ledger.events.filter((item) => item.type !== 'TOTAL_SUPPORT_POINTS_CHANGED' && item.sourceXmlNode === source?.nodeId && item.targetXmlNode === target?.nodeId);
+  const structurallyCorroborated = pairEvents.some((item) => item.type === 'SUPPORT_COMPONENT_SET_CHANGED');
   return {
     key: detected.key,
     oracleRemark: oracleRemarkByKey.get(detected.key) || '',
     before: detected.before,
     after: detected.after,
     delta: detected.delta,
+    structurallyCorroborated,
+    structuralEventTypes: pairEvents.map((item) => item.type),
     sourceComponentCount: source?.components?.length ?? null,
     targetComponentCount: target?.components?.length ?? null,
     sourceReferences: source?.persistentReferences || [],
     targetReferences: target?.persistentReferences || [],
-    sourceMemberIds: (source?.components || []).map((item) => item.memberId),
-    targetMemberIds: (target?.components || []).map((item) => item.memberId),
-    sourcePosition: source?.position || null,
-    targetPosition: target?.position || null,
-    relatedEvents: related.map((item) => ({ type: item.type, sourceXmlNode: item.sourceXmlNode, targetXmlNode: item.targetXmlNode, normalizedState: item.normalizedState, reasonCodes: item.reasonCodes })),
   };
 });
+const structuralKeys = phase4Trace.filter((item) => item.structurallyCorroborated).map((item) => item.key).sort();
 console.log(JSON.stringify({
   phase1Metrics: result.phase1Guard.metrics,
   phase2Metrics: result.phase2Guard.metrics,
   phase3Metrics: result.phase3Guard.metrics,
   phase4Metrics: result.metrics,
   phase4Unsupported: result.unsupported,
+  structuralKeys,
   phase4Trace,
 }, null, 2));
 
