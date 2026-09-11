@@ -26,12 +26,16 @@ const phase4Evidence = phase4Oracle.map((oracleItem) => {
   const events = result.compareResult.ledger.events.filter((event) => event.targetXmlNode === target?.nodeId || sources.some((source) => event.sourceXmlNode === source.nodeId));
   return {
     ...oracleItem,
-    target: target ? { nodeId: target.nodeId, totalSupportPoints: target.sourceFields?.totalSupportPoints, componentCount: target.components.length, references: target.persistentReferences } : null,
-    edge: edge ? { edgeId: edge.edgeId, cardinality: edge.cardinality, outcome: edge.outcome, sourceNodeIds: edge.sourceNodeIds, targetNodeIds: edge.targetNodeIds } : null,
-    sources: sources.map((source) => ({ nodeId: source.nodeId, supportLocationIdentity: source.supportLocationIdentity, totalSupportPoints: source.sourceFields?.totalSupportPoints, componentCount: source.components.length, references: source.persistentReferences })),
+    target: summarize(target),
+    edge: edge ? { edgeId: edge.edgeId, cardinality: edge.cardinality, outcome: edge.outcome, sourceNodeIds: edge.sourceNodeIds, targetNodeIds: edge.targetNodeIds, evidence: edge.evidence } : null,
+    sources: sources.map(summarize),
     events: events.map((event) => ({ eventId: event.eventId, type: event.type, sourceXmlNode: event.sourceXmlNode, targetXmlNode: event.targetXmlNode, normalizedState: event.normalizedState, reasonCodes: event.reasonCodes })),
   };
 });
+const familyTrace = {
+  source: result.compareResult.sourceModel.locations.filter((item) => item.family === 'SL-111064(REF)').map(summarize),
+  target: result.compareResult.targetModel.locations.filter((item) => item.family === 'SL-111064(REF)').map(summarize),
+};
 console.log(JSON.stringify({
   compareOk: result.compareOk,
   compareStage: result.compareStage,
@@ -40,9 +44,25 @@ console.log(JSON.stringify({
   phase3Metrics: result.metrics,
   phase4Oracle,
   phase4Evidence,
+  familyTrace,
 }, null, 2));
 if (!result.compareOk || result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
 if (result.phase1Guard.metrics.falsePositives || result.phase1Guard.metrics.falseNegatives) process.exit(4);
 if (result.phase2Guard.metrics.falsePositives || result.phase2Guard.metrics.falseNegatives) process.exit(5);
 if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(6);
 process.exit(0);
+
+function summarize(item) {
+  if (!item) return null;
+  return {
+    nodeId: item.nodeId,
+    family: item.family,
+    supportLocationIdentity: item.supportLocationIdentity,
+    pipe: item.pipe?.raw,
+    totalSupportPoints: item.sourceFields?.totalSupportPoints,
+    componentCount: item.components?.length,
+    references: item.persistentReferences,
+    members: item.components?.map((component) => component.memberId),
+    position: item.position,
+  };
+}
