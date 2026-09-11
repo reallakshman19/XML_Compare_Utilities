@@ -46,24 +46,13 @@ export function extractStructuralFamilyFeatures(evidence = {}) {
 
 export function compareStructuralFamilyFeatures(left, right, profile = PS_TYPICAL_V1_PROVISIONAL) {
   const structural = profile.structural || {};
-  const locationCount = exactSignal(
-    'STRUCT_LOCATION_COUNT_EQUAL', left.locationCount, right.locationCount,
-  );
-  const memberMultiplicity = exactSignal(
-    'STRUCT_MEMBER_MULTIPLICITY_EQUAL', left.memberMultiplicitySpectrum, right.memberMultiplicitySpectrum,
-  );
-  const pipeClasses = exactSignal(
-    'STRUCT_PIPE_CLASS_POPULATION_EQUAL', left.normalizedPipeClassPopulation, right.normalizedPipeClassPopulation,
-  );
-  const rawPointCount = exactSignal(
-    'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL', left.rawClashPointCount, right.rawClashPointCount,
-  );
-  const envelope = envelopeSignal(left.geometryEnvelopeMm, right.geometryEnvelopeMm,
-    envelopeToleranceMm(structural));
+  const locationCount = exactSignal('STRUCT_LOCATION_COUNT_EQUAL', left.locationCount, right.locationCount);
+  const memberMultiplicity = exactSignal('STRUCT_MEMBER_MULTIPLICITY_EQUAL', left.memberMultiplicitySpectrum, right.memberMultiplicitySpectrum);
+  const pipeClasses = exactSignal('STRUCT_PIPE_CLASS_POPULATION_EQUAL', left.normalizedPipeClassPopulation, right.normalizedPipeClassPopulation);
+  const rawPointCount = exactSignal('STRUCT_RAW_CLASH_POINT_COUNT_EQUAL', left.rawClashPointCount, right.rawClashPointCount);
+  const envelope = envelopeSignal(left.geometryEnvelopeMm, right.geometryEnvelopeMm, envelopeToleranceMm(structural));
   const pairDistance = pairDistanceSignal(left.pairDistanceSpectrumMm, right.pairDistanceSpectrumMm, structural);
-  const signals = Object.freeze([
-    locationCount, memberMultiplicity, pipeClasses, rawPointCount, envelope, pairDistance,
-  ]);
+  const signals = Object.freeze([locationCount, memberMultiplicity, pipeClasses, rawPointCount, envelope, pairDistance]);
   const accepted = locationCount.result === 'PASS'
     && memberMultiplicity.result === 'PASS'
     && pipeClasses.result === 'PASS'
@@ -124,7 +113,6 @@ export function normalizePipeClass(fullLineTag) {
   const tail = text.slice((sizeMatch.index || 0) + sizeMatch[0].length);
   const grammar = /^([A-Z]+)-?(\d[A-Z0-9]*)(?:-(.*))?$/u.exec(tail);
   if (!grammar) return fallbackPipeClass(sizeMatch[1], tail);
-
   const service = grammar[1] || '';
   const lineSerial = grammar[2] || '';
   const engineering = (grammar[3] || '').split('-').filter(Boolean);
@@ -160,8 +148,7 @@ function familyFeatures(evidence, familyId) {
   const rawClashes = (evidence.rawClashes || []).filter((clash) => (clash.familyIds || []).map(token).includes(familyId));
   const rawPoints = rawClashes.map((clash) => clash.clashPointGlobalMm).filter(validPoint);
   const points = groups.map((group) => group.representativeClashPointGlobalMm).filter(validPoint);
-  const memberIds = unique(groups.flatMap((group) => group.primarySupportMemberIds || []).map(token)
-    .filter((value) => /\.\d+$/u.test(value)));
+  const memberIds = unique(groups.flatMap((group) => group.primarySupportMemberIds || []).map(token).filter((value) => /\.\d+$/u.test(value)));
   const memberMultiplicitySpectrum = groups.map((group) => unique((group.primarySupportMemberIds || [])
     .map(token).filter((value) => /\.\d+$/u.test(value))).length).sort((a, b) => a - b);
   const normalizedPipeClassPopulation = groups.map((group) => normalizePipeClass(group.fullLineTag)).sort();
@@ -182,10 +169,7 @@ function familyFeatures(evidence, familyId) {
 }
 
 function collectFamilyIds(evidence) {
-  return unique((evidence.groups || [])
-    .map((group) => token(group.secondarySupportFamilyId))
-    .filter(Boolean))
-    .sort();
+  return unique((evidence.groups || []).map((group) => token(group.secondarySupportFamilyId)).filter(Boolean)).sort();
 }
 
 function envelopeToleranceMm(structural = {}) {
@@ -212,17 +196,18 @@ function pairDistanceSignal(left, right, thresholds) {
     p95: Number(thresholds.pairDistanceP95ToleranceMm),
     max: Number(thresholds.pairDistanceMaxToleranceMm),
   });
+  const policy = Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' });
   if (!left.length && !right.length) {
     return Object.freeze({
       ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', 0, 0, null, threshold, 'UNAVAILABLE'),
-      policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+      policy,
       p95Result: 'UNAVAILABLE',
     });
   }
   if (!left.length || left.length !== right.length) {
     return Object.freeze({
       ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, null, threshold, 'FAIL'),
-      policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+      policy,
       p95Result: 'UNAVAILABLE',
     });
   }
@@ -232,13 +217,10 @@ function pairDistanceSignal(left, right, thresholds) {
     p95: quantile(residuals, 0.95),
     max: residuals[residuals.length - 1] || 0,
   });
-  // Canonical physical-location anchors have far fewer pair samples than raw clash clouds.
-  // Retain P95 as an advisory diagnostic. Median and maximum remain hard family gates,
-  // while the location solver independently re-checks detailed 3D/2D/1D fingerprints.
   const pass = stats.median <= threshold.median && stats.max <= threshold.max;
   return Object.freeze({
     ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, stats, threshold, pass ? 'PASS' : 'FAIL'),
-    policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+    policy,
     p95Result: stats.p95 <= threshold.p95 ? 'PASS' : 'ADVISORY_EXCEEDED',
   });
 }
@@ -261,24 +243,23 @@ function geometryCost(envelope, pairDistance) {
   return envelopeCost + (Number(pair.median) || 0) + (Number(pair.p95) || 0);
 }
 function selectFamilyMatch(leftFamilyId, comparisons) {
-  const accepted = comparisons.filter((item) => item.result === 'TYPICAL')
-    .sort(familyComparisonRank);
+  const accepted = comparisons.filter((item) => item.result === 'TYPICAL').sort(familyComparisonRank);
   if (accepted.length === 1) return acceptedMatch(leftFamilyId, accepted[0], 'TYPICAL_ACCEPTED');
   if (accepted.length > 1) {
     const strongestRank = accepted[0].familyNameEvidence?.rank || 0;
     const strongest = accepted.filter((item) => (item.familyNameEvidence?.rank || 0) === strongestRank);
+    if (strongestRank >= 65 && strongest.length === 1) return acceptedMatch(leftFamilyId, strongest[0], 'TYPICAL_ACCEPTED_FAMILY_ID_TIEBREAK');
+    return ambiguousMatch(leftFamilyId, accepted, 'TYPICAL_AMBIGUOUS');
+  }
+
+  const review = comparisons.filter(reviewCandidate).sort(familyComparisonRank);
+  if (review.length) {
+    const strongestRank = review[0].familyNameEvidence?.rank || 0;
+    const strongest = review.filter((item) => (item.familyNameEvidence?.rank || 0) === strongestRank);
     if (strongestRank >= 65 && strongest.length === 1) {
-      return acceptedMatch(leftFamilyId, strongest[0], 'TYPICAL_ACCEPTED_FAMILY_ID_TIEBREAK');
+      return reviewMatch(leftFamilyId, strongest[0]);
     }
-    return Object.freeze({
-      leftFamilyId,
-      rightFamilyId: '',
-      auditId: '',
-      result: 'AMBIGUOUS',
-      reasonCode: 'TYPICAL_AMBIGUOUS',
-      candidateFamilyIds: Object.freeze(accepted.map((item) => item.rightFamilyId)),
-      candidateAuditIds: Object.freeze(accepted.map((item) => item.auditId)),
-    });
+    if (strongestRank >= 65) return ambiguousMatch(leftFamilyId, strongest, 'TYPICAL_REVIEW_AMBIGUOUS');
   }
 
   const rejected = [...comparisons].sort(rejectedComparisonRank);
@@ -296,6 +277,22 @@ function selectFamilyMatch(leftFamilyId, comparisons) {
   });
 }
 
+function reviewCandidate(comparison) {
+  if (!comparison || comparison.result !== 'NOT_TYPICAL' || (comparison.familyNameEvidence?.rank || 0) < 65) return false;
+  const failed = requiredSignals(comparison).filter((item) => item.result === 'FAIL');
+  return failed.length === 1 && failed[0].reasonCode === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL';
+}
+function reviewMatch(leftFamilyId, comparison) {
+  return Object.freeze({
+    leftFamilyId,
+    rightFamilyId: comparison.rightFamilyId,
+    auditId: comparison.auditId,
+    result: 'REVIEW',
+    reasonCode: 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED',
+    familyNameEvidence: comparison.familyNameEvidence,
+    failedReasonCodes: Object.freeze(['STRUCT_MEMBER_MULTIPLICITY_EQUAL']),
+  });
+}
 function acceptedMatch(leftFamilyId, comparison, reasonCode) {
   return Object.freeze({
     leftFamilyId,
@@ -304,6 +301,17 @@ function acceptedMatch(leftFamilyId, comparison, reasonCode) {
     result: 'TYPICAL',
     reasonCode,
     familyNameEvidence: comparison.familyNameEvidence,
+  });
+}
+function ambiguousMatch(leftFamilyId, comparisons, reasonCode) {
+  return Object.freeze({
+    leftFamilyId,
+    rightFamilyId: '',
+    auditId: '',
+    result: 'AMBIGUOUS',
+    reasonCode,
+    candidateFamilyIds: Object.freeze(comparisons.map((item) => item.rightFamilyId)),
+    candidateAuditIds: Object.freeze(comparisons.map((item) => item.auditId)),
   });
 }
 function familyComparisonRank(a, b) {
@@ -324,13 +332,7 @@ function requiredSignals(comparison) {
   return (comparison?.signals || []).filter((item) => item.reasonCode !== 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL');
 }
 function nameEvidence(className, left, right, rank) {
-  return Object.freeze({
-    class: className,
-    rank,
-    left,
-    right,
-    wildcardMask: wildcardMask(left, right),
-  });
+  return Object.freeze({ class: className, rank, left, right, wildcardMask: wildcardMask(left, right) });
 }
 function wildcardMask(left, right) {
   const max = Math.max(left.length, right.length);
@@ -359,10 +361,7 @@ function geometryEnvelope(points) {
   const zs = points.map((point) => point.z);
   const min = Object.freeze({ x: Math.min(...xs), y: Math.min(...ys), z: Math.min(...zs) });
   const max = Object.freeze({ x: Math.max(...xs), y: Math.max(...ys), z: Math.max(...zs) });
-  return Object.freeze({
-    min, max,
-    span: Object.freeze({ x: max.x - min.x, y: max.y - min.y, z: max.z - min.z }),
-  });
+  return Object.freeze({ min, max, span: Object.freeze({ x: max.x - min.x, y: max.y - min.y, z: max.z - min.z }) });
 }
 function pairDistanceSpectrum(points) {
   const distances = [];
@@ -402,4 +401,5 @@ export const _test = Object.freeze({
   envelopeToleranceMm,
   familyNameEvidence,
   pairDistanceSignal,
+  reviewCandidate,
 });
