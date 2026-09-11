@@ -1,10 +1,11 @@
-export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v2';
-export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v2';
+export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v3';
+export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v3';
 
 export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'TRACE SCHEMA', 'REPORT SCHEMA', 'EVIDENCE MODE', 'REPORT ROW ID', 'CIVIL SECONDARY SUPPORT', 'PIPE',
   'LOCATION INDEX', 'LOCATION COUNT ON PIPE', 'LOCATION MERGE TOLERANCE MM', 'LOCATION GROUPING BASIS',
-  'MEMBER ATTRIBUTION BASIS', 'MULTI-LOCATION',
+  'MEMBER ATTRIBUTION BASIS', 'METADATA ATTRIBUTION BASIS', 'DATUM METADATA SOURCE IDS', 'DATUM METADATA CONFLICTS',
+  'DATUM METADATA CONTEXTS', 'MULTI-LOCATION',
   'REPORT E/W', 'REPORT N/S', 'REPORT BOP', 'REPORT COORDINATE BASIS',
   'POS CLUSTER ID', 'POS BASIS', 'NATIVE POS X MM', 'NATIVE POS Y MM', 'NATIVE POS Z MM',
   'OBSERVED PS/SL IDS', 'RESOLVED JSON MEMBER IDS', 'MATCH BASIS', 'TRACE MEMBER COUNT',
@@ -51,6 +52,8 @@ export function supportReportTraceSummary(bundle) {
     within50mmGroupingRowCount: rows.filter((row) => locationGroupingBasis(row).includes('WITHIN_50MM')).length,
     multiLocationObservedOnlyRowCount: rows.filter((row) => memberAttributionBasis(row).startsWith('MULTI_LOCATION_')).length,
     rejectedPreviousNameDbrefCount: traces.filter((trace) => clean(trace?.attributeEvidence?.previousNameRejectedDbref)).length,
+    datumMetadataRowCount: rows.filter((row) => metadataAttributionBasis(row) === 'SINGLE_LOCATION_FAMILY_DATUM_METADATA').length,
+    datumMetadataConflictRowCount: rows.filter((row) => metadataConflicts(row).length > 0).length,
   });
 }
 
@@ -87,6 +90,10 @@ function traceRow(bundle, row, cluster) {
     'LOCATION MERGE TOLERANCE MM': evidence.locationMergeToleranceMm ?? '',
     'LOCATION GROUPING BASIS': join(locationGroupingBasis(row)),
     'MEMBER ATTRIBUTION BASIS': memberAttributionBasis(row),
+    'METADATA ATTRIBUTION BASIS': metadataAttributionBasis(row),
+    'DATUM METADATA SOURCE IDS': join(metadataSourceIds(row)),
+    'DATUM METADATA CONFLICTS': compactJson(metadataConflicts(row)),
+    'DATUM METADATA CONTEXTS': compactJson(row?.evidence?.jsonTrace?.metadataSources || []),
     'MULTI-LOCATION': evidence.multipleLocationsOnPipe ? 'TRUE' : 'FALSE',
     'REPORT E/W': row?.eastWest || '',
     'REPORT N/S': row?.northSouth || '',
@@ -107,10 +114,10 @@ function traceRow(bundle, row, cluster) {
     'MISSING CLASH MEMBER IDS': join(evidence.missingClashMemberIds),
     'PREV NAME': clusterAttribute(cluster, 'previousName'),
     'REJECTED PREV NAME DBREF': clusterAttribute(cluster, 'previousNameRejectedDbref'),
-    'SUPPORT TYPE': clusterAttribute(cluster, 'supportType'),
-    'PRIMARY SUPPORT REFERENCE': clusterAttribute(cluster, 'primarySupportReference'),
-    DESCRIPTION: clusterAttribute(cluster, 'description'),
-    INSU: clusterAttribute(cluster, 'insulationThickness'),
+    'SUPPORT TYPE': clusterAttribute(cluster, 'supportType') || row?.supportType || '',
+    'PRIMARY SUPPORT REFERENCE': clusterAttribute(cluster, 'primarySupportReference') || row?.pipingPrimarySupportReference || '',
+    DESCRIPTION: clusterAttribute(cluster, 'description') || row?.primarySupportDescription || '',
+    INSU: clusterAttribute(cluster, 'insulationThickness') || row?.pipeInsulationThickness || '',
     'SOURCE PATHS': join(members.map((member) => (member.sourcePath || []).join(' > '))),
     'LINE CONTEXTS': join(members.map((member) => compactJson(member.lineContext)).filter(Boolean)),
     'FIELD PROVENANCE': compactJson(evidence.fieldProvenance),
@@ -140,14 +147,21 @@ function traceClusters(row) {
   }];
 }
 
-function traceMembers(row) {
-  return row?.evidence?.jsonTrace?.members || [];
-}
+function traceMembers(row) { return row?.evidence?.jsonTrace?.members || []; }
 function locationGroupingBasis(row) {
   return row?.evidence?.jsonTrace?.locationGroupingBasis || row?.evidence?.locationGroupingBasis || [];
 }
 function memberAttributionBasis(row) {
   return row?.evidence?.jsonTrace?.memberAttributionBasis || row?.evidence?.memberAttributionBasis || '';
+}
+function metadataAttributionBasis(row) {
+  return row?.evidence?.jsonTrace?.metadataAttributionBasis || row?.evidence?.metadataAttributionBasis || '';
+}
+function metadataSourceIds(row) {
+  return row?.evidence?.jsonTrace?.metadataSourceMemberIds || row?.evidence?.metadataSourceMemberIds || [];
+}
+function metadataConflicts(row) {
+  return row?.evidence?.jsonTrace?.metadataAttributeConflicts || row?.evidence?.metadataAttributeConflicts || [];
 }
 function resolutionState(cluster, evidence) {
   const resolved = (cluster?.resolvedMemberIds || []).length > 0;
@@ -164,12 +178,8 @@ function unresolvedBasis(value) {
 function clusterAttribute(cluster, key) {
   return join((cluster?.members || []).map((member) => member?.attributeEvidence?.[key]).filter(Boolean));
 }
-function numericPoint(point, key) {
-  return validPoint(point) ? Number(point[key]) : '';
-}
-function validPoint(point) {
-  return Boolean(point && [point.x, point.y, point.z].every(Number.isFinite));
-}
+function numericPoint(point, key) { return validPoint(point) ? Number(point[key]) : ''; }
+function validPoint(point) { return Boolean(point && [point.x, point.y, point.z].every(Number.isFinite)); }
 function join(values) {
   return [...new Set((Array.isArray(values) ? values : []).filter((value) => value !== '' && value != null).map(String))].join(' | ');
 }
@@ -196,4 +206,6 @@ function csvCell(value) {
 }
 function clean(value) { return value == null ? '' : String(value).trim(); }
 
-export const _test = Object.freeze({ resolutionState, traceClusters, stableValue, locationGroupingBasis, memberAttributionBasis });
+export const _test = Object.freeze({
+  resolutionState, traceClusters, stableValue, locationGroupingBasis, memberAttributionBasis, metadataAttributionBasis,
+});
