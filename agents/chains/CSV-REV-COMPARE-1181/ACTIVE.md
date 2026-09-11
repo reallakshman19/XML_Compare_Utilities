@@ -30,10 +30,10 @@ ISSUE_CURRENT_STATE_FILE: agents/chains/CSV-REV-COMPARE-1181/issue-state/CURRENT
 ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0014
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0014_COMMENT_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0014_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5629151051
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 CUSTODY_EPOCH: 14
-COORDINATION_STATE: CLEAN_FOUR_BUCKET_QUALIFIED_PENDING_ISSUE_SYNC
+COORDINATION_STATE: CLEAN_FOUR_BUCKET_QUALIFIED_IN_SYNC
 DEPENDENCIES: current main 419c94cca7649626e0b3e641f20d5261967347ba; delivery material head ce9210b8f1b9ba835e4e3ce12c78c61c7a45df15; qualification-only PR #1189; final qualification run 34559399072
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: af4c5c73b87b26187aa6c930b60172cbb1f0f3e2
@@ -49,7 +49,7 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS
 CHAIN_HANDOVER_READY: TRUE
-HANDOVER_READY: FALSE_PENDING_ISSUE_SYNC
+HANDOVER_READY: TRUE
 OWNER_BENCHMARK: benchmarks/R2.zip -> benchmarks/R3.zip
 BENCHMARK_R2_BLOB: e80acc441108fbf5bdb4639b5c9a94f292258e68
 BENCHMARK_R3_BLOB: fb1ecd917e083a9543e394cc23aa3f938d8d87fb
@@ -66,4 +66,4 @@ PHASE4_RULE: total-support field delta is remark-eligible only when exact accept
 QUALIFICATION_VEHICLE: PR #1189 / issue-1181-remediation-qualification is qualification-only, never delivery/merge
 ENVIRONMENT_LIMITATION: local checkout previously could not resolve github.com; connector/qualification-only lane used; no workflow-file mutation
 PR_GATE_AT_ENDPOINT: PR #1188 OPEN_DRAFT_MERGEABLE; reviews none; threads none; delivery-head statuses/workflows none; merge unauthorized
-EXACT_NEXT_ACTION: synchronize EP-CSVRC-0014 to Issue #1181, then await Owner review and explicit merge/next-scope authorization. Do not merge or begin new material work without Owner authority.
+EXACT_NEXT_ACTION: await Owner review and explicit merge/next-scope authorization. Do not merge or begin new material work without Owner authority.
