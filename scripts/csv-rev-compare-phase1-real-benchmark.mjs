@@ -5,7 +5,6 @@ import { runSupportLocationChangeBenchmark } from '../tabs/csv-rev-compare/suppo
 
 const [earlierPath, laterPath] = process.argv.slice(2);
 if (!earlierPath || !laterPath) process.exit(2);
-
 for (const test of [
   'tests/csv-rev-compare-events.test.js',
   'tests/csv-rev-compare-phase2-support-location-change.test.js',
@@ -18,19 +17,12 @@ const later = fs.readFileSync(laterPath, 'utf8');
 const result = runTotalSupportPointChangeBenchmark(earlier, later);
 const phase2 = runSupportLocationChangeBenchmark(earlier, later);
 const frame = phase2.compareResult?.lineage?.coordinateFrame || {};
-
 console.log(JSON.stringify({
   phase1Metrics: result.phase1Guard.metrics,
   phase2Metrics: result.phase2Guard.metrics,
   phase3Metrics: result.phase3Guard.metrics,
   phase4Metrics: result.metrics,
-  coordinateFrame: {
-    status: frame.status,
-    anchorCount: frame.anchorCount,
-    anchorBasis: frame.anchorBasis,
-    scoreFrameUsable: frame.scoreFrameUsable,
-    axes: frame.axes,
-  },
+  coordinateFrame: { status: frame.status, anchorCount: frame.anchorCount, anchorBasis: frame.anchorBasis, scoreFrameUsable: frame.scoreFrameUsable, axes: frame.axes },
   phase2CompactTrace: compactTrace(phase2),
 }, null, 2));
 
@@ -42,6 +34,14 @@ if (result.phase3Guard.metrics.falsePositives || result.phase3Guard.metrics.fals
 if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(7);
 process.exit(0);
 
+function position(location) {
+  return Object.fromEntries(['x','y','z'].map((axis) => [axis, {
+    raw: location?.position?.[axis]?.raw || '',
+    directedMm: location?.position?.[axis]?.directedMm ?? null,
+    direction: location?.position?.[axis]?.direction || '',
+    explicitSign: location?.position?.[axis]?.explicitSign ?? 0,
+  }]));
+}
 function compactTrace(phase2) {
   const m = phase2.metrics;
   const classes = new Map([
@@ -53,50 +53,23 @@ function compactTrace(phase2) {
   return [...classes].sort(([a], [b]) => a.localeCompare(b)).map(([key, classification]) => {
     const target = (compare?.targetModel?.locations || []).find((item) => item.supportLocationIdentity === key) || null;
     const edge = target ? (compare?.lineage?.edges || []).find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
-    const sources = (edge?.sourceNodeIds || []).map((id) => compare?.sourceModel?.locationByNodeId?.get(id)).filter(Boolean);
+    const source = edge?.sourceNodeIds?.length === 1 ? compare?.sourceModel?.locationByNodeId?.get(edge.sourceNodeIds[0]) : null;
     const targetEvents = target ? (compare?.ledger?.events || []).filter((event) => event.targetXmlNode === target.nodeId) : [];
-    const relocation = targetEvents.find((event) => event.type === 'SUPPORT_LOCATION_RELOCATED' || event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED') || null;
-    const refs = new Set(target?.persistentReferences || []);
-    const sourceSummaries = sources.map((source) => {
-      const overlap = (source.persistentReferences || []).filter((ref) => refs.has(ref));
-      const coord = (edge?.coordinateEvidence || []).find((item) => item.sourceNodeId === source.nodeId && item.targetNodeId === target?.nodeId) || null;
-      return {
-        id: source.nodeId,
-        key: source.supportLocationIdentity,
-        identityExact: source.supportLocationIdentity === target?.supportLocationIdentity,
-        familyEqual: source.family === target?.family,
-        pipeCoreEqual: source.pipe?.normalizedCore === target?.pipe?.normalizedCore,
-        refCount: source.persistentReferences?.length || 0,
-        overlapCount: overlap.length,
-        refSetExact: source.referenceMultiplicityKey === target?.referenceMultiplicityKey,
-        delta: coord?.deltas || null,
-        residualMm: coord?.residualMm ?? null,
-        coordClass: coord?.classification || null,
-      };
-    });
+    const coord = source ? (edge?.coordinateEvidence || []).find((item) => item.sourceNodeId === source.nodeId && item.targetNodeId === target?.nodeId) || null : null;
     return {
       class: classification,
       key,
-      targetNode: target?.nodeId || null,
-      edge: edge ? {
-        id: edge.edgeId,
-        cardinality: edge.cardinality,
-        outcome: edge.outcome,
-        method: edge.matchingMethod,
-        reviewDecision: edge.reviewDecision || null,
-        sourceCount: edge.sourceNodeIds?.length || 0,
-        targetCount: edge.targetNodeIds?.length || 0,
-        reasonCodes: edge.reasonCodes || [],
-      } : null,
-      targetRefCount: target?.persistentReferences?.length || 0,
-      sources: sourceSummaries,
+      method: edge?.matchingMethod || null,
+      identityExact: source?.supportLocationIdentity === target?.supportLocationIdentity,
+      sourcePosition: position(source),
+      targetPosition: position(target),
+      rawDeltas: Object.fromEntries(['x','y','z'].map((axis) => [axis,
+        Number.isFinite(source?.position?.[axis]?.directedMm) && Number.isFinite(target?.position?.[axis]?.directedMm)
+          ? target.position[axis].directedMm - source.position[axis].directedMm : null])),
+      framedDeltas: coord?.deltas || null,
+      sourceRefs: source?.persistentReferences || [],
+      targetRefs: target?.persistentReferences || [],
       events: targetEvents.map((event) => event.type),
-      relocation: relocation ? {
-        type: relocation.type,
-        validatedAxes: relocation.normalizedState?.validatedAxes || [],
-        validatedDeltas: relocation.coordinateResidual?.validatedDeltas || null,
-        residualMm: relocation.coordinateResidual?.validatedResidualMm ?? relocation.coordinateResidual?.residualMm ?? null,
-      } : null,
     };
   });
 }
