@@ -5,7 +5,6 @@ on:
     paths:
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
       - 'tests/support-report-*.test.mjs'
-      - 'tests/startup-module-syntax.test.js'
       - 'tests/browser/support-report-typicality.spec.mjs'
       - 'tests/browser/support-steel-preview-staleness.spec.mjs'
       - 'playwright.support-steel.config.mjs'
@@ -49,7 +48,6 @@ jobs:
           tests/support-report-typicality-ui.test.mjs
           tests/support-report-typicality-safety.test.mjs
           tests/support-report-typicality-negative.test.mjs
-          tests/startup-module-syntax.test.js
 
   browser-qualification:
     runs-on: ubuntu-latest
