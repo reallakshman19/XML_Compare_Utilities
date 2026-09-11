@@ -182,10 +182,6 @@ function familyFeatures(evidence, familyId) {
 }
 
 function collectFamilyIds(evidence) {
-  // Canonical physical-location groups define which PS/SL structures are comparison candidates.
-  // Raw clash family tokens remain audit evidence for those candidates, but they may also contain
-  // nested/legacy member-family names (for example /SL-147 under a governed PS-068 group).
-  // Promoting such raw-only tokens creates zero-location ghost families and false audit noise.
   return unique((evidence.groups || [])
     .map((group) => token(group.secondarySupportFamilyId))
     .filter(Boolean))
@@ -211,15 +207,24 @@ function envelopeSignal(left, right, toleranceMm) {
 }
 
 function pairDistanceSignal(left, right, thresholds) {
+  const threshold = Object.freeze({
+    median: Number(thresholds.pairDistanceMedianToleranceMm),
+    p95: Number(thresholds.pairDistanceP95ToleranceMm),
+    max: Number(thresholds.pairDistanceMaxToleranceMm),
+  });
   if (!left.length && !right.length) {
-    return signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', 0, 0, null, Object.freeze({
-      median: thresholds.pairDistanceMedianToleranceMm,
-      p95: thresholds.pairDistanceP95ToleranceMm,
-      max: thresholds.pairDistanceMaxToleranceMm,
-    }), 'UNAVAILABLE');
+    return Object.freeze({
+      ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', 0, 0, null, threshold, 'UNAVAILABLE'),
+      policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+      p95Result: 'UNAVAILABLE',
+    });
   }
   if (!left.length || left.length !== right.length) {
-    return signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, null, thresholds, 'FAIL');
+    return Object.freeze({
+      ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, null, threshold, 'FAIL'),
+      policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+      p95Result: 'UNAVAILABLE',
+    });
   }
   const residuals = left.map((value, index) => Math.abs(value - right[index])).sort((a, b) => a - b);
   const stats = Object.freeze({
@@ -227,14 +232,15 @@ function pairDistanceSignal(left, right, thresholds) {
     p95: quantile(residuals, 0.95),
     max: residuals[residuals.length - 1] || 0,
   });
-  const pass = stats.median <= thresholds.pairDistanceMedianToleranceMm
-    && stats.p95 <= thresholds.pairDistanceP95ToleranceMm
-    && stats.max <= thresholds.pairDistanceMaxToleranceMm;
-  return signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, stats, Object.freeze({
-    median: thresholds.pairDistanceMedianToleranceMm,
-    p95: thresholds.pairDistanceP95ToleranceMm,
-    max: thresholds.pairDistanceMaxToleranceMm,
-  }), pass ? 'PASS' : 'FAIL');
+  // Canonical physical-location anchors have far fewer pair samples than raw clash clouds.
+  // Retain P95 as an advisory diagnostic. Median and maximum remain hard family gates,
+  // while the location solver independently re-checks detailed 3D/2D/1D fingerprints.
+  const pass = stats.median <= threshold.median && stats.max <= threshold.max;
+  return Object.freeze({
+    ...signal('STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE', left.length, right.length, stats, threshold, pass ? 'PASS' : 'FAIL'),
+    policy: Object.freeze({ median: 'HARD', p95: 'ADVISORY', max: 'HARD' }),
+    p95Result: stats.p95 <= threshold.p95 ? 'PASS' : 'ADVISORY_EXCEEDED',
+  });
 }
 
 function exactSignal(reasonCode, left, right) {
