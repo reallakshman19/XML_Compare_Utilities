@@ -1,4 +1,4 @@
-import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from './support-report-location-grouping.js?v=20260910-support-report-location-17';
+import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from './support-report-location-grouping.js?v=20260911-support-report-location-attribution-22';
 import {
   buildSupportReportJsonTrace,
   resolveSupportReportObservedMembers,
@@ -15,7 +15,8 @@ export function resolveSupportReportRowMembers({ relationshipBundle, group, fami
     group?.primarySupportMemberIds || [],
     group,
   );
-  const members = uniqueMembers([...familyMembers, ...observed.members]);
+  const attribution = locationScopedFamilyMembers(group, familyMembers);
+  const members = uniqueMembers([...attribution.members, ...observed.members]);
   const resolvedObservedIds = new Set(observed.matches.filter((match) => match.member).map((match) => token(match.observedMemberId)));
   const reportRemarks = rowRemarks(group, observed.matches);
   return Object.freeze({
@@ -23,6 +24,7 @@ export function resolveSupportReportRowMembers({ relationshipBundle, group, fami
     observedMatches: observed.matches,
     resolvedObservedIds,
     reportRemarks: Object.freeze(reportRemarks),
+    memberAttributionBasis: attribution.basis,
   });
 }
 
@@ -49,11 +51,32 @@ export function enrichSupportReportFieldProvenance(provenance, fields, enriched,
 }
 
 export function buildRowJsonTrace({ group, resolution, nativeMembers = [] } = {}) {
-  return buildSupportReportJsonTrace({
+  const trace = buildSupportReportJsonTrace({
     group,
     observedMatches: resolution?.observedMatches || [],
     nativeMembers,
   });
+  return Object.freeze({
+    ...trace,
+    locationGroupingBasis: Object.freeze([...(group?.locationGroupingBasis || [])]),
+    memberAttributionBasis: resolution?.memberAttributionBasis || '',
+  });
+}
+
+function locationScopedFamilyMembers(group, familyMembers) {
+  const members = familyMembers || [];
+  if (Number(group?.locationCountOnPipe || 1) <= 1) {
+    return {
+      members,
+      basis: members.length ? 'SINGLE_LOCATION_FAMILY_LINE_ENRICHMENT' : 'OBSERVED_MEMBER_RESOLUTION_ONLY',
+    };
+  }
+  const observed = new Set((group?.primarySupportMemberIds || []).map(token).filter(Boolean));
+  const direct = members.filter((member) => observed.has(token(member?.memberId)));
+  return {
+    members: direct,
+    basis: direct.length ? 'MULTI_LOCATION_OBSERVED_MEMBER_ONLY' : 'MULTI_LOCATION_OBSERVED_RESOLUTION_ONLY',
+  };
 }
 
 function rowRemarks(group, matches) {
@@ -108,3 +131,5 @@ function normalizeKey(value) { return String(value || '').replace(/[\s./-]+/g, '
 function token(value) { return clean(value).replace(/\(REF\)$/iu, '').replace(/^\/+/, '').toUpperCase(); }
 function clean(value) { return value == null ? '' : String(value).trim(); }
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
+
+export const _test = Object.freeze({ locationScopedFamilyMembers });
