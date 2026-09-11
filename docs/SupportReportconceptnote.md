@@ -23,8 +23,8 @@ Authority is deliberately split.
 
 | Evidence | Authority | Not authority for |
 |---|---|---|
-| Navisworks clash XML | pipe ↔ secondary-family relationship, observed primary member token, branch/line path, clash point | complete native membership, engineering attributes |
-| Combined staged-model JSON | current PS/SL member identity, native attributes, native position, ownership/line context, carrier evidence | expected workbook values |
+| Navisworks clash XML | pipe ↔ secondary-family relationship, observed primary member token, branch/line path, clash/report location | complete native membership, engineering attributes |
+| Combined staged-model JSON | current PS/SL member identity, native attributes, native position, ownership/line context, carrier evidence | expected workbook values; report-coordinate replacement without a separately qualified frame/base-anchor mapping |
 | Owner XLSX benchmark | output schema and expected result for a qualified benchmark | staged-model engineering source |
 
 No output workbook cell may be fed back into production as native source data.
@@ -51,7 +51,7 @@ locationMergeToleranceMm = 50
 
 This tolerance is **only a report-row clustering tolerance**. It is not the Support/Steel analytical member-contact, carrier-contact or topology tolerance.
 
-Rows whose clash points are within the same 50 mm location component remain one report row. Distinct components produce distinct rows.
+Rows whose clash points are within the same 50 mm location component remain one report row. Distinct components produce distinct rows. Repeated contact points from the same concrete PS/SL member are also treated as one physical support location even when those individual contact points are more than 50 mm apart; this identity edge does not apply to family-only or unresolved tokens.
 
 ### 3.2 Real benchmark controls
 
@@ -80,8 +80,11 @@ The complete PS-12120 benchmark contains 19 clash rows and resolves to 14 locati
 These concepts must stay separate:
 
 - repeated clash evidence for the same member/line/location is duplicate evidence and may be deduplicated;
+- repeated contact points from the same concrete member remain one physical location even when the contact points themselves are spread beyond 50 mm;
 - REST/GUIDE or other multiple primary members at the same report location belong in one member list;
 - the same pipe at separate location clusters produces separate report rows.
+
+For genuinely split multi-location rows, staged members are attributed only when they are directly observed/resolved for that location. Line-wide staged family membership is not broadcast into every split row. `PREV-NAME` may still resolve an observed old member to its authoritative current member. Single-location rows may retain family-line enrichment.
 
 `TOTAL SUPPORT POINTS ON SECONDARY` follows the final location-aware report-row count for the secondary family.
 
@@ -98,6 +101,8 @@ Preferred staged-model resolution order:
 3. unresolved clash-only identity.
 
 If a staged current member explicitly declares the observed old ID as its previous name, the current member becomes `PIPING PRIMARY SUPPORT`, the old identity is preserved in `PREV NAME`, and the JSON trace records `PREVIOUS_NAME_ALIAS`.
+
+`PREV-NAME` is semantically typed for reporting and alias matching. Internal database-reference values beginning `=` are retained as raw trace/debug evidence but are not displayed as previous support names and cannot become rename aliases. Legitimate slash PS/SL names, legacy names such as `PS02689.1`, and `Copy-of-...` names remain eligible.
 
 If no authoritative rename evidence exists, the observed member remains and the report carries a visible family-mismatch/rename-required remark. The application never invents the new PS number.
 
@@ -132,13 +137,15 @@ For each observed/resolved support member, the report evidence view should expos
 - observed clash member ID;
 - resolved staged current member ID;
 - mapping basis (`DIRECT_MEMBER_ID`, `PREVIOUS_NAME_ALIAS`, `FAMILY_LINE_ENRICHMENT`, unresolved/conflict basis);
-- position basis (`NATIVE_MEMBER_POSITION` or clash fallback at row level);
+- position basis (`NATIVE_MEMBER_POSITION` or unresolved for staged member evidence);
 - native POS when available;
 - owner branch/full line context;
 - source path in the staged JSON hierarchy;
-- curated raw attributes relevant to report fields.
+- curated raw attributes relevant to report fields;
+- report-location grouping basis and per-row member-attribution basis;
+- metadata-only DATUM source IDs/context, attribution basis and conflicts when that fallback is used.
 
-This trace is evidence. It must not recalculate report engineering values in the UI.
+Native staged POS is trace evidence only. Navisworks clash/report location remains the operational report-coordinate authority until coordinate-frame/base-anchor matching has separate qualification.
 
 ## 8. Field population from staged JSON
 
@@ -147,15 +154,15 @@ Requested fields and accepted authority direction:
 | Report field | Preferred staged evidence |
 |---|---|
 | SIZE | carrier/pipe `BORE` first; approved alternate bore aliases only when no `BORE` evidence exists; line-name regex only when staged bore evidence is absent |
-| SUPPORT TYPE | support member `CMPSUPTYPE`, `MDSSUPPTYPE`, `SUPPORT_TYPE`, approved aliases |
-| PIPING PRIMARY SUPPORT | resolved current native member IDs |
-| PIPING PRIMARY SUPPORT REFERENCE | member `REF` / approved reference aliases |
+| SUPPORT TYPE | concrete support member attribute first; qualified family DATUM metadata fallback only under §8.2 |
+| PIPING PRIMARY SUPPORT | resolved current concrete native member IDs only; DATUM is never identity |
+| PIPING PRIMARY SUPPORT REFERENCE | concrete member reference first; qualified family DATUM metadata fallback only under §8.2 |
 | PIPE SCHEDULE | authoritative carrier/pipe schedule attribute only |
-| PIPE INSULATION THICKNESS | authoritative insulation-thickness key; `INSU` is accepted as a staged-model thickness attribute |
+| PIPE INSULATION THICKNESS | authoritative carrier/member insulation-thickness key; qualified DATUM `INSU`/explicit alias fallback only under §8.2 |
 | PIPE INSULATION TYPE | authoritative insulation-type key only |
-| PRIMARY SUPPORT DESCRIPTION | member `DTXR` / approved description alias |
-| PREV NAME | explicit previous-name attribute |
-| coordinates | native member position when available; clash point is explicit fallback |
+| PRIMARY SUPPORT DESCRIPTION | concrete member `DTXR` / approved description alias; qualified family DATUM fallback only under §8.2 |
+| PREV NAME | explicit reportable previous-name attribute; DBREF-form `=...` tokens are trace-only |
+| coordinates | Navisworks clash/report location; native staged POS is retained as trace evidence only |
 
 ### 8.1 SIZE / Bore authority
 
@@ -164,6 +171,28 @@ When staged JSON provides `Bore` / normalized `BORE`, that value is authoritativ
 If authoritative `BORE` values conflict, `SIZE` remains blank/conflict and the application does **not** fall back to `ABORE` or pipe-name regex. Pipe-name regex is strictly an XML-only/no-staged-bore fallback.
 
 The system must **not** parse free-text DTXR or unrelated specification strings merely to manufacture pipe schedule or insulation type. Those fields stay blank/unresolved until an accepted source attribute is present.
+
+### 8.2 Family DATUM is metadata-only authority
+
+The Support/Steel source reader preserves `/PS-.../DATUM` and `/SL-.../DATUM` records as semantic role `DATUM`. That role is intentionally **not** a reportable primary-support identity.
+
+A DATUM record may supply metadata only when all of these conditions hold:
+
+1. no concrete native report member has been selected for the row;
+2. the row has one physical report location (`locationCountOnPipe <= 1`);
+3. the DATUM record is compatible with the report line/branch context;
+4. the requested field resolves unambiguously across all compatible DATUM evidence.
+
+The allowed metadata-only fallback fields are limited to:
+
+- `SUPPORT TYPE`;
+- `PIPING PRIMARY SUPPORT REFERENCE`;
+- `PRIMARY SUPPORT DESCRIPTION`;
+- `PIPE INSULATION THICKNESS` (`INSU` and the already governed explicit thickness aliases).
+
+Concrete member attributes and existing carrier authority remain higher-precedence sources. DATUM never becomes `PIPING PRIMARY SUPPORT`, never participates in PREV-NAME rename matching, and never supplies coordinate identity. Multi-location rows deliberately disable DATUM fallback because a family-level DATUM cannot yet be attributed to one split physical location without a separately qualified mapping basis.
+
+If compatible DATUM records disagree for a field, that field remains blank and provenance records an authoritative source conflict. Trace CSV and Debug JSON record the metadata attribution basis, DATUM source IDs/context and conflict evidence. A row enriched only through DATUM metadata remains partial with respect to concrete primary-member resolution.
 
 ## 9. Primary Support Site and Zone
 
@@ -188,7 +217,7 @@ ASIM-1885-CU-PI-D
 
 This corrects the previous PL-only projection that left PS-12154 Site/Zone blank despite CU-PI path evidence being present in the clash XML.
 
-## 10. UI workflow
+## 10. UI and export workflow
 
 Inside **Support / Steel Relationship Builder → Support Report**:
 
@@ -196,7 +225,9 @@ Inside **Support / Steel Relationship Builder → Support Report**:
 2. Optionally import the combined staged-model JSON from the Support Report panel. This writes to the same shared staged-model source used by the Input tab.
 3. Build Support Report.
 4. Review row table, completeness state, diagnostics and JSON trace evidence.
-5. Export CSV/XLSX.
+5. Export the Owner-contract Report CSV/XLSX, deterministic Trace CSV, or lossless Debug JSON.
+
+The 21-column report artifact remains deliberately compact. Trace/debug sidecars carry the decision trail, including location grouping, member attribution, native POS, rejected PREV-NAME DBREF values and metadata-only DATUM attribution.
 
 XML-only reports remain allowed but are labeled partial. Staged-model changes invalidate existing report/export state until rebuilt.
 
@@ -204,17 +235,18 @@ XML-only reports remain allowed but are labeled partial. Staged-model changes in
 
 Every report row keeps field-level provenance. Key cases remain visible:
 
-- native member attribute;
+- native concrete member attribute;
 - native membership;
-- native position;
+- native position as trace evidence;
 - native member hierarchy/path;
+- authoritative family DATUM metadata attribute;
 - authoritative carrier attribute;
 - clash relationship/group derivation;
 - clash member or coordinate fallback;
 - source conflict;
 - unresolved.
 
-Location splitting, rename resolution and staged mapping add evidence; they do not weaken existing fail-closed parser/member/carrier rules.
+Location splitting, member attribution, rename resolution, DATUM metadata recovery and staged mapping add evidence; they do not weaken existing fail-closed parser/member/carrier rules.
 
 ## 12. Benchmark matrix
 
@@ -223,10 +255,10 @@ Location splitting, rename resolution and staged mapping add evidence; they do n
 | `SL-097 and PS-007.xlsx` + frozen XML fixture | Owner 21-column contract and 10-row golden parity target |
 | `SupportreportXML-PS-068_PS-12154.xml` | family-name mismatch + same-location multiple-member control + CU-PI Site/Zone |
 | `SupportreportXML-PS-12120.xml` | 19-clash → 14-row complete location-aware report; two multi-location pipe controls |
-| `1885_NC.json` at Owner-provided 3D_Converters commit | real staged-model member/attribute/POS/Bore evidence |
+| `1885_NC.json` at Owner-provided 3D_Converters commit | real staged-model member/attribute/POS/Bore/DATUM evidence |
 
 ## 13. Remaining qualification boundary
 
-The Support Report architecture can now be exercised with real repository benchmark XML and staged JSON evidence. Full cell-for-cell parity for any workbook remains benchmark-specific and must be proven from the corresponding authoritative staged source. External SheetJS/browser deployment checks remain separate delivery qualifications.
+The Support Report architecture can now be exercised with real repository benchmark XML and staged JSON evidence. Full cell-for-cell parity for any workbook remains benchmark-specific and must be proven from the corresponding authoritative staged source. Coordinate/base-anchor member identity remains intentionally inactive. External SheetJS/browser deployment checks remain separate delivery qualifications.
 
 The final rule remains simple: **show evidence, preserve uncertainty, and never fill an engineering cell merely because a value looks plausible.**
