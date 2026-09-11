@@ -1,6 +1,13 @@
 import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
 import {
+  supportReportDebugExportFileName,
+  supportReportDebugToJson,
+  supportReportTraceExportFileName,
+  supportReportTraceSummary,
+  supportReportTraceToCsv,
+} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21';
+import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,
 } from './support-report-typicality-projection.js?v=20260910-support-report-typicality-ui-2';
@@ -97,11 +104,13 @@ function mount(popup) {
   popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => run(popup));
   popup.querySelector('[data-ssr-download-xlsx]')?.addEventListener('click', () => void downloadXlsx(popup));
   popup.querySelector('[data-ssr-download]')?.addEventListener('click', () => downloadCsv(popup));
+  popup.querySelector('[data-ssr-download-trace]')?.addEventListener('click', () => downloadTraceCsv(popup));
+  popup.querySelector('[data-ssr-download-debug]')?.addEventListener('click', () => downloadDebugJson(popup));
   popup.querySelector('[data-ssr-copy]')?.addEventListener('click', () => void copyCsv(popup));
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional staged JSON enriches current PS/SL identity and native attributes. Optional second XML enables auditable typical-structure comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div>${typicalityConfigCard()}<div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Staged native POS is grouped in JSON Trace for evidence only and does not replace Navisworks report coordinates. Typicality is derived evidence only; spreadsheet row order and absolute global translation are never correspondence keys.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download CSV</button><button type="button" data-ssr-copy="1" disabled>Copy CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Staged JSON and typical-structure reference XML are optional evidence sources.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional staged JSON enriches current PS/SL identity and native attributes. Optional second XML enables auditable typical-structure comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div>${typicalityConfigCard()}<div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Staged native POS is grouped in JSON Trace for evidence only and does not replace Navisworks report coordinates. Typicality is derived evidence only; spreadsheet row order and absolute global translation are never correspondence keys.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download Report CSV</button><button type="button" data-ssr-download-trace="1" disabled>Download Trace CSV</button><button type="button" data-ssr-download-debug="1" disabled>Download Debug JSON</button><button type="button" data-ssr-copy="1" disabled>Copy Report CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Staged JSON and typical-structure reference XML are optional evidence sources.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 function xmlSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML used to build the operational Support Report and governed physical locations.</span><textarea rows="12" data-ssr-xml spellcheck="false" placeholder="Paste primary SupportreportXML.xml"></textarea><small data-ssr-file-status>No primary Support Report XML selected</small></div>`;
@@ -206,11 +215,13 @@ function run(popup) {
 
 function renderReadyState(report) {
   const summary = report?.summary || {};
+  const trace = supportReportTraceSummary(report);
   const completeness = supportReportCompleteness(report);
   const metrics = `${summary.clashEvidenceCount || 0} clash rows → ${summary.reportRowCount || 0} report rows · ${summary.enrichedRowCount || 0} enriched · ${summary.multiLocationRowCount || 0} multi-location rows`;
+  const traceMetrics = `${trace.posClusterCount} POS clusters · ${trace.unresolvedPosClusterCount} unresolved POS · ${trace.unresolvedMemberMatchCount} unresolved member matches`;
   const comparison = comparisonReadyText(report);
-  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · no XML-only rows remain${comparison}</span>`;
-  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain${comparison}. Exports are evidence-review artifacts and may contain unresolved native fields.</span>`;
+  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · ${traceMetrics} · no XML-only rows remain${comparison}</span>`;
+  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${traceMetrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain${comparison}. Report CSV preserves the Owner contract; Trace CSV and Debug JSON expose the decision trail.</span>`;
 }
 
 function comparisonReadyText(report) {
@@ -249,7 +260,7 @@ function invalidate(popup, message) {
   setExportEnabled(popup, false);
 }
 function setExportEnabled(popup, enabled) {
-  for (const node of popup.querySelectorAll('[data-ssr-copy], [data-ssr-download], [data-ssr-download-xlsx]')) {
+  for (const node of popup.querySelectorAll('[data-ssr-copy], [data-ssr-download], [data-ssr-download-xlsx], [data-ssr-download-trace], [data-ssr-download-debug]')) {
     node.disabled = !enabled;
     node.setAttribute('aria-disabled', String(!enabled));
   }
@@ -272,6 +283,14 @@ async function downloadXlsx(popup) {
 function downloadCsv(popup) {
   const report = stateByPopup.get(popup)?.report;
   if (report) downloadBlob(popup, supportReportExportFileName(report, 'csv'), `\uFEFF${reportCsv(report)}`, 'text/csv;charset=utf-8');
+}
+function downloadTraceCsv(popup) {
+  const report = stateByPopup.get(popup)?.report;
+  if (report) downloadBlob(popup, supportReportTraceExportFileName(report), `\uFEFF${supportReportTraceToCsv(report)}`, 'text/csv;charset=utf-8');
+}
+function downloadDebugJson(popup) {
+  const report = stateByPopup.get(popup)?.report;
+  if (report) downloadBlob(popup, supportReportDebugExportFileName(report), supportReportDebugToJson(report), 'application/json;charset=utf-8');
 }
 function downloadBlob(popup, name, content, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -301,6 +320,7 @@ export const _test = Object.freeze({
   infoIcon,
   readTypicalityProfile,
   renderPanel,
+  renderReadyState,
   renderTypicalitySetting,
   typicalityConfigCard,
 });
