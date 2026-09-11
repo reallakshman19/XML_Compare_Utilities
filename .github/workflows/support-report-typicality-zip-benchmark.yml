@@ -55,7 +55,9 @@ jobs:
           const data = JSON.parse(readFileSync('/tmp/typicality-1884-vs-1885.json', 'utf8'));
           assert.ok(data.diagnostics.acceptedStructuralCount > 0,
             `expected non-zero accepted structural comparisons, got ${data.diagnostics.acceptedStructuralCount}`);
+          assert.equal(data.diagnostics.finalFamilyDecisionCount, 351);
           const comparison = data.comparisons[0];
+
           const match = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10076');
           assert.ok(match, 'PS-10076 family match missing');
           assert.equal(match.result, 'TYPICAL');
@@ -69,15 +71,34 @@ jobs:
           assert.equal(structural.envelope, 'PASS');
           assert.equal(structural.pairDistance, 'PASS');
           assert.ok(structural.envelopeResidualMm <= 25);
+
+          const review = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10669');
+          assert.ok(review, 'PS-10669 family decision missing');
+          assert.equal(review.result, 'REVIEW');
+          assert.equal(review.rightFamilyId, 'PS-12669');
+          assert.equal(review.locationAssignmentResult, 'PARTIAL');
+          assert.equal(review.correspondenceStatus, 'DETERMINISTIC');
+          assert.equal(review.selectedCount, 5);
+          assert.equal(review.unmatchedLeftCount, 0);
+          assert.equal(review.unmatchedRightCount, 0);
+          assert.equal(review.selectedPairs.length, 5);
+          assert.equal(review.selectedPairs.every((pair) => pair.pipeClassReasonCode === 'PIPE_CLASS_EXACT'), true);
+
           const negative = comparison.familyComparisons.find((item) =>
             item.leftFamilyId === 'PS-10146' && item.rightFamilyId === 'PS-12146');
           assert.ok(negative, 'PS-10146 -> PS-12146 negative control missing');
           assert.equal(negative.result, 'NOT_TYPICAL');
           assert.equal(negative.locationCount, 'FAIL');
+          const negativeDecision = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10146');
+          assert.notEqual(negativeDecision?.result, 'TYPICAL');
+          assert.notEqual(negativeDecision?.result, 'REVIEW');
+
           console.log(JSON.stringify({
             acceptedStructuralCount: data.diagnostics.acceptedStructuralCount,
+            finalMatchResultHistogram: data.diagnostics.finalMatchResultHistogram,
             ps10076: match,
-            ps10076Structural: structural,
+            ps10669Review: review,
+            ps10146Decision: negativeDecision,
             ps10146Negative: negative,
           }, null, 2));
           NODE
@@ -93,12 +114,3 @@ jobs:
           node tests/support-report-typicality-selected-families.mjs
           /tmp/typicality-1884
           /tmp/typicality-1885
-
-      - name: Upload benchmark evidence when quota permits
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: typicality-1884-vs-1885
-          path: /tmp/typicality-1884-vs-1885.json
-          if-no-files-found: error
-          retention-days: 30
