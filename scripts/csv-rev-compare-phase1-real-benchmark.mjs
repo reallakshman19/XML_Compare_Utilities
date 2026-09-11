@@ -16,13 +16,10 @@ const earlier = fs.readFileSync(earlierPath, 'utf8');
 const later = fs.readFileSync(laterPath, 'utf8');
 const result = runTotalSupportPointChangeBenchmark(earlier, later);
 const phase2 = runSupportLocationChangeBenchmark(earlier, later);
-console.log(JSON.stringify({
-  phase1Metrics: result.phase1Guard.metrics,
-  phase2Metrics: result.phase2Guard.metrics,
-  phase3Metrics: result.phase3Guard.metrics,
-  phase4Metrics: result.metrics,
-  phase2SemanticTrace: semanticTrace(phase2),
-}, null, 2));
+console.log('PHASE2_SEMANTIC_TRACE_START');
+for (const row of semanticTrace(phase2)) console.log(JSON.stringify(row));
+console.log('PHASE2_SEMANTIC_TRACE_END');
+console.log(JSON.stringify({phase1:result.phase1Guard.metrics, phase2:result.phase2Guard.metrics, phase3:result.phase3Guard.metrics, phase4:result.metrics}));
 
 if (!result.compareOk || result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
 if (result.phase1Guard.metrics.falsePositives || result.phase1Guard.metrics.falseNegatives) process.exit(4);
@@ -40,49 +37,25 @@ function semanticTrace(phase2) {
     ...(m.falseNegativeKeys || []).map((key) => [key, 'FN']),
   ]);
   const compare = phase2.compareResult;
-  return [...classes].sort(([a], [b]) => a.localeCompare(b)).map(([key, classification]) => {
-    const target = (compare?.targetModel?.locations || []).find((item) => item.supportLocationIdentity === key) || null;
-    const edge = target ? (compare?.lineage?.edges || []).find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
-    const source = edge?.sourceNodeIds?.length === 1 ? compare?.sourceModel?.locationByNodeId?.get(edge.sourceNodeIds[0]) : null;
+  return [...classes].sort(([a],[b]) => a.localeCompare(b)).map(([key, classification]) => {
+    const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
+    const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
+    const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) : null;
     return {
-      class: classification,
-      key,
-      method: edge?.matchingMethod || null,
-      source: summarize(source),
-      target: summarize(target),
-      changedSourceFields: changedFields(source?.sourceFields, target?.sourceFields),
-      componentDelta: {
-        source: (source?.components || []).map(c => ({ memberId:c.memberId, supportType:c.supportType, reference:c.reference })),
-        target: (target?.components || []).map(c => ({ memberId:c.memberId, supportType:c.supportType, reference:c.reference })),
-      },
+      c: classification, k: key, method: edge?.matchingMethod || '',
+      srow: source?.sourceRowId || '', trow: target?.sourceRowId || '',
+      sfam: source?.family || '', tfam: target?.family || '',
+      slegacy: source?.legacyIdentity || '', tlegacy: target?.legacyIdentity || '',
+      sscope: source?.scope || '', tscope: target?.scope || '',
+      ssize: source?.size || '', tsize: target?.size || '',
+      stotal: source?.sourceFields?.totalSupportPoints || '', ttotal: target?.sourceFields?.totalSupportPoints || '',
+      sdesc: source?.sourceFields?.primarySupportDescription || '', tdesc: target?.sourceFields?.primarySupportDescription || '',
+      szone: source?.sourceFields?.primarySupportZone || '', tzone: target?.sourceFields?.primarySupportZone || '',
+      ssite: source?.sourceFields?.primarySupportSite || '', tsite: target?.sourceFields?.primarySupportSite || '',
+      snode: source?.sourceFields?.nodeNo || '', tnode: target?.sourceFields?.nodeNo || '',
+      srefs: source?.persistentReferences || [], trefs: target?.persistentReferences || [],
+      smembers: (source?.components || []).map(c => `${c.memberId}|${c.supportType}|${c.reference}`),
+      tmembers: (target?.components || []).map(c => `${c.memberId}|${c.supportType}|${c.reference}`),
     };
   });
-}
-function summarize(location) {
-  if (!location) return null;
-  const fields = location.sourceFields || {};
-  return {
-    family: location.family,
-    familyClass: location.familyClass,
-    legacyIdentity: location.legacyIdentity,
-    scope: location.scope,
-    size: location.size,
-    pipe: location.pipe?.raw,
-    pipeCore: location.pipe?.normalizedCore,
-    prevName: fields.prevName ?? fields['PREV NAME'] ?? '',
-    totalSupportPoints: fields.totalSupportPoints ?? fields['TOTAL SUPPORT POINTS ON SECONDARY'] ?? '',
-    primarySupportDescription: fields.primarySupportDescription ?? '',
-    primarySupportZone: fields.primarySupportZone ?? '',
-    primarySupportSite: fields.primarySupportSite ?? '',
-    pipeSchedule: fields.pipeSchedule ?? '',
-    insulation: fields.insulation ?? '',
-    stressSystemNumber: fields.stressSystemNumber ?? '',
-    nodeNo: fields.nodeNo ?? '',
-    sourceFields: Object.fromEntries(Object.entries(fields).filter(([k]) => !/remark/i.test(k))),
-  };
-}
-function changedFields(before={}, after={}) {
-  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
-    .filter(k => !/remark/i.test(k) && String(before[k] ?? '').trim() !== String(after[k] ?? '').trim())
-    .map(k => ({ field:k, before:before[k] ?? '', after:after[k] ?? '' }));
 }
