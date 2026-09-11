@@ -119,7 +119,11 @@ test('structural review candidate keeps deterministic location-level audit', () 
 
   const audit = buildSupportReportTypicalityComparison(left, right);
   assert.equal(audit.structuralMatches[0].result, 'REVIEW');
-  assert.equal(audit.structuralMatches[0].reasonCode, 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED');
+  assert.equal(audit.structuralMatches[0].reasonCode, 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED');
+  assert.deepEqual(audit.structuralMatches[0].failedReasonCodes, [
+    'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+    'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+  ]);
   assert.equal(audit.matches[0].result, 'REVIEW');
   assert.equal(audit.matches[0].rightFamilyId, 'PS-12669');
   assert.equal(audit.matches[0].locationAssignmentResult, 'PARTIAL');
