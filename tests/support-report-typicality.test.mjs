@@ -108,6 +108,7 @@ test('11168 -> 14168 benchmark is accepted from auditable structural signals', (
   const comparison = audit.familyComparisons[0];
   assert.equal(comparison.result, 'TYPICAL');
   assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_LOCATION_COUNT_EQUAL').result, 'PASS');
+  assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL').result, 'PASS');
   assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL').result, 'PASS');
   assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_PIPE_CLASS_POPULATION_EQUAL').result, 'PASS');
   assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE').result, 'PASS');
@@ -194,21 +195,48 @@ test('strong counterpart with only member multiplicity changed is REVIEW, never 
   const left = familyEvidence([{
     familyId: 'PS-10010',
     pipeTag: 'ASIM-1884-2"-A8010545-13421',
-    points: [{ x: 0, y: 0, z: 0 }],
-    members: [['/PS-10010.1', '/PS-10010.2']],
+    points: [{ x: 0, y: 0, z: 0 }, { x: 1000, y: 0, z: 0 }],
+    members: [['/PS-10010.1', '/PS-10010.2'], []],
   }]);
   const right = familyEvidence([{
     familyId: 'PS-12010',
     pipeTag: 'ASIM-1885-2"-A8010745-13421-01',
-    points: [{ x: 2000, y: -3000, z: 500 }],
-    members: [['/PS-12010.1']],
+    points: [{ x: 2000, y: -3000, z: 500 }, { x: 3000, y: -3000, z: 500 }],
+    members: [['/PS-12010.1'], ['/PS-12010.2']],
   }]);
   const audit = buildSupportReportTypicalityAudit(left, right);
-  assert.equal(audit.familyComparisons[0].result, 'NOT_TYPICAL');
+  const comparison = audit.familyComparisons[0];
+  assert.equal(comparison.result, 'NOT_TYPICAL');
+  assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL').result, 'PASS');
+  assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL').result, 'FAIL');
   assert.equal(audit.matches[0].result, 'REVIEW');
   assert.equal(audit.matches[0].rightFamilyId, 'PS-12010');
   assert.equal(audit.matches[0].reasonCode, 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED');
   assert.deepEqual(audit.matches[0].failedReasonCodes, ['STRUCT_MEMBER_MULTIPLICITY_EQUAL']);
+});
+
+test('same multiplicity with different unique member reuse is REVIEW, never TYPICAL', () => {
+  const left = familyEvidence([{
+    familyId: 'PS-10020',
+    pipeTag: 'ASIM-1884-2"-A8010545-13421',
+    points: [{ x: 0, y: 0, z: 0 }, { x: 1000, y: 0, z: 0 }],
+    members: [['/PS-10020.1'], ['/PS-10020.1']],
+  }]);
+  const right = familyEvidence([{
+    familyId: 'PS-12020',
+    pipeTag: 'ASIM-1885-2"-A8010745-13421-01',
+    points: [{ x: 2000, y: 1000, z: 500 }, { x: 3000, y: 1000, z: 500 }],
+    members: [['/PS-12020.1'], ['/PS-12020.2']],
+  }]);
+  const audit = buildSupportReportTypicalityAudit(left, right);
+  const comparison = audit.familyComparisons[0];
+  assert.equal(comparison.result, 'NOT_TYPICAL');
+  assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL').result, 'FAIL');
+  assert.equal(comparison.signals.find((item) => item.reasonCode === 'STRUCT_MEMBER_MULTIPLICITY_EQUAL').result, 'PASS');
+  assert.equal(audit.matches[0].result, 'REVIEW');
+  assert.equal(audit.matches[0].rightFamilyId, 'PS-12020');
+  assert.equal(audit.matches[0].reasonCode, 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED');
+  assert.deepEqual(audit.matches[0].failedReasonCodes, ['STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL']);
 });
 
 test('NO_MATCH retains the best rejected candidate audit trail when family-name evidence is weak', () => {
@@ -222,7 +250,10 @@ test('NO_MATCH retains the best rejected candidate audit trail when family-name 
   assert.equal(audit.matches[0].result, 'NO_MATCH');
   assert.equal(audit.matches[0].bestCandidateFamilyId, 'PS-13011');
   assert.equal(audit.matches[0].auditId, 'TYP-PS-10010--PS-13011');
-  assert.deepEqual(audit.matches[0].failedReasonCodes, ['STRUCT_MEMBER_MULTIPLICITY_EQUAL']);
+  assert.deepEqual(audit.matches[0].failedReasonCodes, [
+    'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+    'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+  ]);
 });
 
 test('SUPPORT TYPE canonicalization is order-independent and duplicate-sensitive', () => {
