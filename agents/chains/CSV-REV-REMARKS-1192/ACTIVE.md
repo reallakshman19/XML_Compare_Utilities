@@ -15,7 +15,7 @@ CUSTODY_STATE: HELD
 QUALIFICATION_STATE: FAIL
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
-MERGEABILITY: NOT_MERGEABLE_AT_CHECKPOINT
+MERGEABILITY: MERGEABLE_AT_FINAL_RECHECK
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
@@ -40,6 +40,6 @@ R1 failure isolation is complete and produced an authority conflict rather than 
 
 No production patch was made: admitting the six X-only labels would weaken the R1 validated-axis contract, while suppressing validated-axis detections solely to fit blank oracle cells would use oracle absence as detector authority. Phase1/3/4 remain clean; Phase2 remains expected13/detected14/TP7/FP7/FN6/F1≈0.5185.
 
-`main` advanced independently to `ec01dc8...` via unrelated Support Report changes and GitHub currently reports PR #1197 not mergeable. Conflict resolution is deferred while R1 is blocked and merge is unauthorized.
+`main` advanced independently to `ec01dc8...` via unrelated Support Report changes. Final GitHub recheck reports PR #1197 mergeable, but qualification is FAIL and merge remains unauthorized.
 
 EXACT_NEXT_ACTION: OWNER_DECISION_REQUIRED — either preserve the validated-axis contract and classify the six X-only labels unsupported/uncheckable, or explicitly authorize a high-residual-axis relocation policy plus structural negative-evidence rules. Then perform one new bounded R1 material leg and rerun qualification-only PR #1200. Do not begin R2. Do not merge #1197 or #1200; #1200 must never merge.
