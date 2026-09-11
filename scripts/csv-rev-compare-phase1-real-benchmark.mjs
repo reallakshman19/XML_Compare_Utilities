@@ -17,12 +17,20 @@ const earlier = fs.readFileSync(earlierPath, 'utf8');
 const later = fs.readFileSync(laterPath, 'utf8');
 const result = runTotalSupportPointChangeBenchmark(earlier, later);
 const phase2 = runSupportLocationChangeBenchmark(earlier, later);
+const frame = phase2.compareResult?.lineage?.coordinateFrame || {};
 
 console.log(JSON.stringify({
   phase1Metrics: result.phase1Guard.metrics,
   phase2Metrics: result.phase2Guard.metrics,
   phase3Metrics: result.phase3Guard.metrics,
   phase4Metrics: result.metrics,
+  coordinateFrame: {
+    status: frame.status,
+    anchorCount: frame.anchorCount,
+    anchorBasis: frame.anchorBasis,
+    scoreFrameUsable: frame.scoreFrameUsable,
+    axes: frame.axes,
+  },
   phase2CompactTrace: compactTrace(phase2),
 }, null, 2));
 
