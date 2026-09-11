@@ -1,7 +1,7 @@
 import {
   buildSupportReportTypicalityAudit,
   normalizePipeClass,
-} from './support-report-typicality.js?v=20260911-support-report-typicality-rca-3';
+} from './support-report-typicality.js?v=20260911-support-report-typicality-member-count-1';
 import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   mergeSupportReportTypicalityProfile,
@@ -168,6 +168,12 @@ function reviewLabel(match) {
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
     return 'REVIEW: member multiplicity differs';
   }
+  if (match?.reasonCode === 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED') {
+    return 'REVIEW: unique primary member count differs';
+  }
+  if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED') {
+    return 'REVIEW: primary member topology differs';
+  }
   return 'REVIEW';
 }
 function noMatchLabel(match) {
@@ -183,6 +189,7 @@ function ambiguousLabel(match) {
 function rejectionLabel(code) {
   const labels = {
     STRUCT_LOCATION_COUNT_EQUAL: 'location count',
+    STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL: 'unique primary member count',
     STRUCT_MEMBER_MULTIPLICITY_EQUAL: 'member multiplicity',
     STRUCT_PIPE_CLASS_POPULATION_EQUAL: 'pipe class',
     STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE: 'envelope',
