@@ -1,8 +1,7 @@
 export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_REMARKS_V1',
-  version: '1.4.0',
+  version: '1.3.1',
   precedence: Object.freeze([
-    'SUPPORT_DELETED',
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
     'PREVIOUS_FAMILY_LINE',
@@ -34,7 +33,6 @@ export function renderSupportRevisionRemarks(ledger, sourceModel, targetModel, p
 function projectEvent(event, sourceModel, targetModel) {
   const source = sourceModel?.locationByNodeId?.get(event.sourceXmlNode) || null;
   const target = targetModel?.locationByNodeId?.get(event.targetXmlNode) || null;
-  if (event.type === 'SUPPORT_DELETED_IN_LATEST_REPORT' && target) return [token('target', target.sourceRowId, 'SUPPORT_DELETED', 'Support deleted')];
   if (event.type === 'COMMON_SUPPORT_REPLICATED' && target) return [token('target', target.sourceRowId, 'COMMON_REPLICATED', 'Replicated due to Common support')];
   if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Support Relocated')];
   if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Support Relocated')];
