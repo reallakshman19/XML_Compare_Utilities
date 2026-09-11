@@ -3,6 +3,8 @@ import { stripLeadingSlash } from '../ps-family-clash-audit/ps-family-token-util
 export const SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM = 50;
 export const SUPPORT_REPORT_MULTI_LOCATION_REMARK = 'Pipe supported at multiple locations';
 
+const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
+
 export function groupSupportReportEvidenceByLocation(rows = [], options = {}) {
   const toleranceMm = locationTolerance(options);
   const baseGroups = groupByFamilyAndLine(rows);
@@ -57,7 +59,7 @@ function connectedComponents(rows, toleranceMm) {
       const current = queue.shift();
       component.push(current);
       for (let next = 0; next < rows.length; next += 1) {
-        if (visited.has(next) || !withinTolerance(rows[current].row, rows[next].row, toleranceMm)) continue;
+        if (visited.has(next) || !locationAdjacencyBasis(rows[current].row, rows[next].row, toleranceMm)) continue;
         visited.add(next);
         queue.push(next);
       }
@@ -99,6 +101,7 @@ function buildLocationGroup(base, cluster, locationIndex, locationCount, toleran
     locationIndex,
     locationCountOnPipe: locationCount,
     locationMergeToleranceMm: toleranceMm,
+    locationGroupingBasis: Object.freeze(clusterGroupingBasis(rows, toleranceMm)),
     multipleLocationsOnPipe: locationCount > 1,
     totalSupportPointsOnSecondary: 0,
   });
@@ -113,6 +116,28 @@ function applyFamilyCounts(groups) {
   }));
 }
 
+function locationAdjacencyBasis(left, right, toleranceMm) {
+  if (sameConcreteMember(left, right)) return 'SAME_CONCRETE_MEMBER';
+  if (withinTolerance(left, right, toleranceMm)) {
+    return toleranceMm === SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM
+      ? 'WITHIN_50MM'
+      : 'WITHIN_LOCATION_TOLERANCE';
+  }
+  return '';
+}
+
+function clusterGroupingBasis(rows, toleranceMm) {
+  if (rows.length <= 1) return ['SINGLE_EVIDENCE_POINT'];
+  const bases = [];
+  for (let left = 0; left < rows.length; left += 1) {
+    for (let right = left + 1; right < rows.length; right += 1) {
+      const basis = locationAdjacencyBasis(rows[left], rows[right], toleranceMm);
+      if (basis) bases.push(basis);
+    }
+  }
+  return unique(bases).length ? unique(bases) : ['TRANSITIVE_CLUSTER'];
+}
+
 function withinTolerance(left, right, toleranceMm) {
   const a = left.clashPointGlobalMm;
   const b = right.clashPointGlobalMm;
@@ -120,8 +145,16 @@ function withinTolerance(left, right, toleranceMm) {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= toleranceMm;
 }
 
+function sameConcreteMember(left, right) {
+  const leftId = normalizeMemberId(left?.primarySupportMemberId);
+  const rightId = normalizeMemberId(right?.primarySupportMemberId);
+  return isConcreteSupportMemberId(leftId)
+    && isConcreteSupportMemberId(rightId)
+    && token(leftId) === token(rightId);
+}
+
 function sameContext(left, right) {
-  if (token(left.primarySupportMemberId) === token(right.primarySupportMemberId)) return true;
+  if (sameConcreteMember(left, right)) return true;
   return token(left.branchNode) === token(right.branchNode);
 }
 
@@ -153,9 +186,10 @@ function uniquePaths(paths) {
   }).map((path) => [...path]);
 }
 function normalizeMemberId(value) {
-  const clean = stripLeadingSlash(value).toUpperCase();
-  return clean ? `/${clean}` : '';
+  const cleanValue = stripLeadingSlash(value).toUpperCase();
+  return cleanValue ? `/${cleanValue}` : '';
 }
+function isConcreteSupportMemberId(value) { return CONCRETE_SUPPORT_MEMBER_RE.test(normalizeMemberId(value)); }
 function memberCompare(left, right) {
   const a = Number(String(left || '').match(/\.(\d+)$/)?.[1]);
   const b = Number(String(right || '').match(/\.(\d+)$/)?.[1]);
@@ -165,3 +199,9 @@ function memberCompare(left, right) {
 function minimumIndex(cluster) { return Math.min(...cluster.map((entry) => entry.rowIndex)); }
 function token(value) { return stripLeadingSlash(value).replace(/\(REF\)$/iu, '').toUpperCase(); }
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
+
+export const _test = Object.freeze({
+  locationAdjacencyBasis,
+  sameConcreteMember,
+  clusterGroupingBasis,
+});
