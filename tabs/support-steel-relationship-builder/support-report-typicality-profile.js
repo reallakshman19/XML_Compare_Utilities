@@ -51,9 +51,9 @@ export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = deepFreeze({
 export const SUPPORT_REPORT_TYPICALITY_UI_SETTINGS = deepFreeze([
   {
     section: 'Structural gates',
-    path: 'structural.geometryEnvelopeToleranceM',
-    label: 'Envelope tolerance', type: 'number', unit: 'm', min: 0, step: 1,
-    help: 'Hard family-level geometry gate. Maximum allowed difference between the two structure bounding-envelope spans. Default 25 m. Internally converted to 25,000 mm before comparison. Lower values reject more aggressively.',
+    path: 'structural.geometryEnvelopeToleranceMm',
+    label: 'Envelope tolerance', type: 'number', unit: 'mm', min: 0, step: 1,
+    help: 'Hard family-level geometry gate. Maximum allowed difference between the two structure bounding-envelope spans. Default 25 mm. Lower values reject more aggressively.',
   },
   {
     section: 'Structural gates',
