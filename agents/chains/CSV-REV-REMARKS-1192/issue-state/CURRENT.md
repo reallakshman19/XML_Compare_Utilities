@@ -20,7 +20,7 @@ CUSTODY_STATE: HELD
 QUALIFICATION_STATE: FAIL
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
-MERGEABILITY: NOT_MERGEABLE_AT_CHECKPOINT
+MERGEABILITY: MERGEABLE_AT_FINAL_RECHECK
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
@@ -65,6 +65,6 @@ Diagnostic receipt: `agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1
 
 ## Drift / blocker
 
-`main` advanced independently to `ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac` through unrelated Support Report work; no `csv-rev-compare` paths were found in the observed compare from the prior main checkpoint. GitHub currently reports PR #1197 as not mergeable. Merge conflict resolution is deferred because R1 is not qualification-ready and merge is not authorized.
+`main` advanced independently to `ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac` through unrelated Support Report work; no `csv-rev-compare` paths were found in the observed compare from the prior main checkpoint. Final GitHub recheck reports PR #1197 mergeable, but qualification remains FAIL and merge is unauthorized.
 
 EXACT_NEXT_ACTION: OWNER_DECISION_REQUIRED. Either preserve the existing validated-axis contract and explicitly classify the six X-only Owner labels as unsupported/uncheckable under this frame, or explicitly authorize a new high-residual-axis relocation policy plus structural negative-evidence rules. After that decision, perform one new bounded R1 material leg and rerun qualification PR #1200. Do not begin R2 and do not merge #1197 or #1200; #1200 must never merge.
