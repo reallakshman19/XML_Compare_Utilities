@@ -7,7 +7,8 @@ import {
 } from '../tabs/csv-rev-compare/support-revision-common-replication.js';
 import { renderSupportRevisionRemarks } from '../tabs/csv-rev-compare/support-revision-remarks.js';
 
-function location(nodeId, rowId, family, pipe, refs = []) {
+function location(nodeId, rowId, family, pipe, refs = [], options = {}) {
+  const activePayload = options.activePayload !== false;
   return Object.freeze({
     nodeId,
     sourceRowId: rowId,
@@ -15,6 +16,23 @@ function location(nodeId, rowId, family, pipe, refs = []) {
     supportLocationIdentity: `${family.toUpperCase()}||${pipe.toUpperCase()}`,
     pipe: Object.freeze({ raw: pipe, normalizedCore: pipe.toUpperCase() }),
     persistentReferences: Object.freeze([...refs]),
+    components: Object.freeze(refs.map((reference, index) => Object.freeze({
+      nodeId: `${nodeId}:component:${index + 1}`,
+      memberId: `/${family}.${index + 1}`,
+      supportType: 'REST',
+      reference,
+      ordinal: index + 1,
+    }))),
+    position: Object.freeze({
+      x: Object.freeze({ raw: activePayload ? 'E 100 mm' : '', directedMm: activePayload ? 100 : null }),
+      y: Object.freeze({ raw: '', directedMm: null }),
+      z: Object.freeze({ raw: '', directedMm: null }),
+    }),
+    loads: Object.freeze({ slots: Object.freeze([]) }),
+    sourceFields: Object.freeze({
+      totalSupportPoints: activePayload ? '1' : '',
+      primarySupportDescription: activePayload ? 'Active support' : '',
+    }),
     provenance: Object.freeze({ cells: Object.freeze({}) }),
   });
 }
@@ -96,7 +114,6 @@ function fixture(pipe3 = null) {
   assert.equal(replicated[0].targetXmlNode, 't1');
   assert.deepEqual(replicated[0].normalizedState.triggerSiblingNodeIds, ['t2']);
   assert.deepEqual(replicated[0].normalizedState.triggerRemarkEventIds, ['e-load']);
-
   const remarks = renderSupportRevisionRemarks(augmented, fx.sourceModel, fx.targetModel);
   assert.equal(remarks.targetRemarks['R2-1'].remark, 'Replicated due to Common support');
   assert.equal(remarks.targetRemarks['R2-2'].remark, 'Minor Load change');
@@ -115,11 +132,7 @@ function fixture(pipe3 = null) {
   const fx = fixture('LINE-3');
   const base = ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', fx.source.s2, fx.target.t2)]);
   const augmented = augmentCommonSupportRemarkReplicationEvents(base, fx.sourceModel, fx.targetModel, fx.lineage);
-  const replicatedTargets = augmented.events
-    .filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED)
-    .map((item) => item.targetXmlNode)
-    .sort();
-  assert.deepEqual(replicatedTargets, ['t1', 't3']);
+  assert.deepEqual(augmented.events.filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED).map((item) => item.targetXmlNode).sort(), ['t1', 't3']);
 }
 
 {
@@ -161,31 +174,44 @@ function fixture(pipe3 = null) {
 }
 
 {
-  const s1 = location('s1', 'R1-1', 'SL-101', 'LINE-1');
-  const s2 = location('s2', 'R1-2', 'SL-102', 'LINE-2');
-  const t1 = location('t1', 'R2-1', 'SL-101', 'LINE-1');
-  const t2 = location('t2', 'R2-2', 'SL-102', 'LINE-2');
+  const s1 = location('s1', 'R1-1', 'SL-101', 'LINE-1', ['REF-1']);
+  const s2 = location('s2', 'R1-2', 'SL-102', 'LINE-2', ['REF-2']);
+  const t1 = location('t1', 'R2-1', 'SL-101', 'LINE-1', ['REF-1']);
+  const t2 = location('t2', 'R2-2', 'SL-102', 'LINE-2', ['REF-2']);
   const sourceModel = model([s1, s2]);
   const targetModel = model([t1, t2]);
   const lineage = Object.freeze({ edges: Object.freeze([edge(1, s1, t1), edge(2, s2, t2)]) });
   assert.equal(commonSupportSiblingGroups(targetModel).length, 0);
-  const augmented = augmentCommonSupportRemarkReplicationEvents(
-    ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', s2, t2)]), sourceModel, targetModel, lineage,
-  );
+  const augmented = augmentCommonSupportRemarkReplicationEvents(ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', s2, t2)]), sourceModel, targetModel, lineage);
   assert.equal(augmented.events.filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED).length, 0);
 }
 
 {
-  const s1 = location('s1', 'R1-1', 'SL-101', 'LINE-1');
-  const t1 = location('t1', 'R2-1', 'SL-101', 'LINE-1');
-  const t2 = location('t2', 'R2-2', 'SL-101', 'LINE-2');
+  const s1 = location('s1', 'R1-1', 'SL-101', 'LINE-1', ['REF-1']);
+  const t1 = location('t1', 'R2-1', 'SL-101', 'LINE-1', ['REF-1']);
+  const t2 = location('t2', 'R2-2', 'SL-101', 'LINE-2', ['REF-2']);
   const sourceModel = model([s1]);
   const targetModel = model([t1, t2]);
   const lineage = Object.freeze({ edges: Object.freeze([edge(1, s1, t1)]) });
-  const base = ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', s1, t1)]);
-  const augmented = augmentCommonSupportRemarkReplicationEvents(base, sourceModel, targetModel, lineage);
+  const augmented = augmentCommonSupportRemarkReplicationEvents(ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', s1, t1)]), sourceModel, targetModel, lineage);
   assert.equal(augmented.events.filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED).length, 0,
     'a newly added sibling without an exact Civil+PIPE predecessor is not an unchanged recipient');
+}
+
+{
+  const s1 = location('s1', 'R1-1', 'SL-101', 'LINE-1', ['REF-1']);
+  const s2 = location('s2', 'R1-2', 'SL-101', 'LINE-2', ['REF-2']);
+  const t1 = location('t1', 'R2-1', 'SL-101', 'LINE-1', ['REF-1'], { activePayload: false });
+  const t2 = location('t2', 'R2-2', 'SL-101', 'LINE-2', ['REF-2']);
+  const sourceModel = model([s1, s2]);
+  const targetModel = model([t1, t2]);
+  const lineage = Object.freeze({ edges: Object.freeze([edge(1, s1, t1), edge(2, s2, t2)]) });
+  const augmented = augmentCommonSupportRemarkReplicationEvents(ledger([
+    event('e-suppressed', 'SUPPRESSED_FIELD_CHANGED', s1, t1, false),
+    event('e-load', 'LOAD_SIGNATURE_CHANGED', s2, t2),
+  ]), sourceModel, targetModel, lineage);
+  assert.equal(augmented.events.filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED).length, 0,
+    'component-only retained shells must not inherit a sibling remark');
 }
 
 console.log('csv-rev-compare common-support sibling replication tests: PASS');
