@@ -82,8 +82,10 @@ CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS
+HANDOVER_READY: TRUE
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0014_COMMENT_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: STALE_PENDING_EP0014_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5629151051
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUALIFICATION_VEHICLE: PR #1189 remains qualification-only and must never be merged as delivery
-EXACT_NEXT_ACTION: synchronize EP-CSVRC-0014 to GitHub Issue #1181, then await Owner review and explicit merge/next-scope authorization. Do not merge or begin new material work without Owner authority.
+EXACT_NEXT_ACTION: await Owner review and explicit merge/next-scope authorization. Do not merge or begin new material work without Owner authority.
