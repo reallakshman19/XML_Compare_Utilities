@@ -1,6 +1,6 @@
 export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_REMARKS_V1',
-  version: '1.1.0',
+  version: '1.2.0',
   precedence: Object.freeze([
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
@@ -10,6 +10,7 @@ export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
     'LOCATION_RELOCATED',
     'COMMON_RELOCATED',
     'SUPPORT_TYPE_CHANGES',
+    'TOTAL_SUPPORT_POINTS_CHANGED',
     'LOAD_STANDARDISED',
     'LOAD_CHANGE',
   ]),
@@ -36,6 +37,7 @@ function projectEvent(event, sourceModel, targetModel) {
   if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Relocated Support')];
   if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Relocated Support')];
   if (['SUPPORT_COMPONENT_SET_CHANGED','SUPPORT_COMPONENT_TYPE_CHANGED'].includes(event.type) && target) return [token('target', target.sourceRowId, 'SUPPORT_TYPE_CHANGES', 'Support Type Changes')];
+  if (event.type === 'TOTAL_SUPPORT_POINTS_CHANGED' && target) return [token('target', target.sourceRowId, 'TOTAL_SUPPORT_POINTS_CHANGED', 'Total No. of support changes')];
   if (event.type === 'LOAD_BECAME_NUMERIC' && target) return [token('target', target.sourceRowId, 'LOAD_STANDARDISED', 'load standardised')];
   if (event.type === 'LOAD_SIGNATURE_CHANGED' && target) return [token('target', target.sourceRowId, 'LOAD_CHANGE', 'Load change')];
   if (event.type === 'SUPPORT_LOCATION_REMOVED' && source) return [token('source', source.sourceRowId, 'REMOVED_UNSUPPORTED', 'Invalid Support, This pipe no longer supported')];
