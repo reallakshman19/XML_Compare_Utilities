@@ -6,6 +6,7 @@ export const SUPPORT_REV_TOTAL_POINTS_FIELD = 'TOTAL SUPPORT POINTS ON SECONDARY
 
 export function augmentTotalSupportPointEvents(ledger, sourceModel, targetModel, lineage) {
   const additions = [];
+  const graphChangedPairs = localGraphChangedPairs(ledger);
   let nextIndex = ledger?.events?.length || 0;
   for (const edge of lineage?.edges || []) {
     if (edge.outcome === 'AMBIGUOUS') continue;
@@ -13,6 +14,10 @@ export function augmentTotalSupportPointEvents(ledger, sourceModel, targetModel,
       const before = normalizeSupportPointCount(source?.sourceFields?.totalSupportPoints);
       const after = normalizeSupportPointCount(target?.sourceFields?.totalSupportPoints);
       if (sameSupportPointCount(before, after)) continue;
+      // TOTAL SUPPORT POINTS ON SECONDARY can be repeated family-level metadata. A raw
+      // field delta is attributable to a Civil+PIPE item only when the already-built XML
+      // event ledger proves a local component-graph change on this exact lineage pair.
+      if (!graphChangedPairs.has(pairKey(source.nodeId, target.nodeId))) continue;
       additions.push(Object.freeze({
         eventId: `support-event:${String(++nextIndex).padStart(5, '0')}`,
         type: SUPPORT_REV_TOTAL_POINTS_EVENT,
@@ -24,7 +29,7 @@ export function augmentTotalSupportPointEvents(ledger, sourceModel, targetModel,
         afterRawState: Object.freeze({ field: SUPPORT_REV_TOTAL_POINTS_FIELD, value: after.raw }),
         normalizedState: Object.freeze({ before: before.value, after: after.value, delta: before.value != null && after.value != null ? after.value - before.value : null }),
         matchingMethod: edge.matchingMethod || 'lineage-edge',
-        reasonCodes: Object.freeze(['TOTAL_SUPPORT_POINTS_DELTA']),
+        reasonCodes: Object.freeze(['TOTAL_SUPPORT_POINTS_DELTA', 'LOCAL_SUPPORT_GRAPH_CHANGED']),
         persistentReferences: Object.freeze(sharedReferences(source, target, edge)),
         coordinateResidual: null,
         loadDeltas: Object.freeze([]),
@@ -53,7 +58,7 @@ export function augmentTotalSupportPointEvents(ledger, sourceModel, targetModel,
   const events = Object.freeze([...(ledger?.events || []), ...additions]);
   return Object.freeze({
     ...ledger,
-    schema: 'support-revision-event-ledger/v4-total-support-points',
+    schema: 'support-revision-event-ledger/v5-local-total-support-points',
     events,
     summary: summarize(events),
   });
@@ -68,6 +73,18 @@ export function normalizeSupportPointCount(value) {
 
 export function sameSupportPointCount(before, after) {
   return before?.value === after?.value;
+}
+
+function localGraphChangedPairs(ledger) {
+  return new Set((ledger?.events || []).flatMap((event) => (
+    event.type === 'SUPPORT_COMPONENT_SET_CHANGED' && event.sourceXmlNode && event.targetXmlNode
+      ? [pairKey(event.sourceXmlNode, event.targetXmlNode)]
+      : []
+  )));
+}
+
+function pairKey(sourceNodeId, targetNodeId) {
+  return `${clean(sourceNodeId)}\u0000${clean(targetNodeId)}`;
 }
 
 function continuingPairs(edge, sourceModel, targetModel) {
@@ -126,4 +143,4 @@ function summarize(events) {
   });
 }
 
-export const _test = Object.freeze({ continuingPairs, selectContinuingPeer, pairStructuralContinuations, summarize });
+export const _test = Object.freeze({ localGraphChangedPairs, pairKey, continuingPairs, selectContinuingPeer, pairStructuralContinuations, summarize });
