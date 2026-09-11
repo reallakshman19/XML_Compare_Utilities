@@ -43,6 +43,11 @@ function loadEvents(result) {
 function targetRemarks(result) {
   return Object.values(result?.remarks?.targetRemarks || {}).map((item) => item.remark);
 }
+function outputRemarks(result) {
+  const remarkIndex = result.output?.headers?.indexOf('REMARKS (IF ANY)') ?? -1;
+  if (remarkIndex < 0) return [];
+  return (result.output?.rows || []).filter((row) => row.disposition === 'REV2').map((row) => row.values[remarkIndex]);
+}
 
 // Stable column IDs, not array order or duplicate header text, own slot identity.
 {
@@ -89,14 +94,15 @@ function targetRemarks(result) {
   const later = csv([
     row(104, 3, { loads: ['40', '50', '60'], remark: 'HOLD' }),
     row(103, 3, { loads: ['10', '20', '30'] }),
-    row(102, 3, { loads: ['-14000', '-11594', '25'], remark: 'Load change' }),
+    row(102, 3, { loads: ['-14000', '-11594', '25'], remark: 'Minor Load change' }),
     row(101, 3, { loads: ['-13623', '-11594', '0'], remark: 'load standardised' }),
   ]);
   const result = runSupportRevisionCompare(earlier, later);
   assert.equal(result.ok, true);
   assert.deepEqual(loadEvents(result).map((event) => event.type).sort(), ['LOAD_BECAME_NUMERIC', 'LOAD_SIGNATURE_CHANGED']);
   assert.ok(targetRemarks(result).includes('load standardised'));
-  assert.ok(targetRemarks(result).includes('Load change'));
+  assert.ok(targetRemarks(result).includes('Minor Load change'));
+  assert.ok(outputRemarks(result).includes('Minor Load change'), 'final REV2 output must carry Owner load vocabulary');
   assert.ok(!result.ledger.events.some((event) => /HOLD/.test(event.type)));
 
   const benchmark = runLoadChangeBenchmark(earlier, later);
@@ -111,11 +117,11 @@ function targetRemarks(result) {
   assert.equal(benchmark.phase2Guard.metrics.falseNegatives, 0);
 }
 
-// Oracle poisoning is a negative control: an R3 Load change label on unchanged
+// Oracle poisoning is a negative control: an R3 load-change label on unchanged
 // numeric XML state must remain a benchmark FN, never comparison evidence.
 {
   const earlier = csv([row(201, 2, { loads: ['1', '2', '3'] })]);
-  const later = csv([row(201, 3, { loads: ['1', '2', '3'], remark: 'Load change' })]);
+  const later = csv([row(201, 3, { loads: ['1', '2', '3'], remark: 'Minor Load change' })]);
   const benchmark = runLoadChangeBenchmark(earlier, later);
   assert.equal(benchmark.metrics.expected, 1);
   assert.equal(benchmark.metrics.detected, 0);
