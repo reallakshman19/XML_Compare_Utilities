@@ -18,6 +18,10 @@ export const SUPPORT_REPORT_NPS_TO_DN_MM = Object.freeze({
   '24': 600,
 });
 
+const PREVIOUS_NAME_KEYS = Object.freeze([
+  'PREV_PRIMARY_SUPPORT_NAME', 'PREV_NAME', 'PREVIOUS_NAME', 'OLD_NAME', 'PREVIOUS_SUPPORT_NAME',
+]);
+
 export function normalizeSupportReportSizeValue(value) {
   if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? round(value) : '';
   const text = clean(value);
@@ -36,22 +40,46 @@ export function deriveSupportReportNominalSizeMm(fullLineTag) {
 }
 
 export function supportReportPreviousName(member) {
+  return supportReportPreviousNameEvidence(member).reportableTokens.join(', ');
+}
+
+export function supportReportPreviousNameAliases(member) {
+  return supportReportPreviousNameEvidence(member).reportableTokens;
+}
+
+export function supportReportPreviousNameEvidence(member) {
   const raw = firstPreviousName(member?.attributes || {});
-  if (!raw) return '';
   const current = normalizeMemberId(member?.memberId);
-  const values = raw.split(/[,;]+/u).map(clean).filter(Boolean)
-    .filter((value) => normalizeMemberId(value) !== current);
-  return values.join(', ');
+  const reportableTokens = [];
+  const rejectedDbrefTokens = [];
+  const suppressedNoOpTokens = [];
+  for (const value of splitPreviousNames(raw)) {
+    if (isSupportReportPreviousNameDbref(value)) rejectedDbrefTokens.push(value);
+    else if (normalizeMemberId(value) === current) suppressedNoOpTokens.push(value);
+    else reportableTokens.push(value);
+  }
+  return Object.freeze({
+    raw,
+    reportableTokens: Object.freeze(reportableTokens),
+    rejectedDbrefTokens: Object.freeze(rejectedDbrefTokens),
+    suppressedNoOpTokens: Object.freeze(suppressedNoOpTokens),
+  });
+}
+
+export function isSupportReportPreviousNameDbref(value) {
+  return /^'?=/u.test(clean(value));
 }
 
 function firstPreviousName(attrs) {
-  const keys = ['PREV_PRIMARY_SUPPORT_NAME', 'PREV_NAME', 'PREVIOUS_NAME', 'OLD_NAME', 'PREVIOUS_SUPPORT_NAME'];
   const normalized = new Map(Object.entries(attrs || {}).map(([key, value]) => [normalizeKey(key), value]));
-  for (const key of keys) {
+  for (const key of PREVIOUS_NAME_KEYS) {
     const value = clean(normalized.get(normalizeKey(key)));
     if (value) return value;
   }
   return '';
+}
+function splitPreviousNames(value) {
+  return clean(value).split(/[,;]+/u).map(clean).filter(Boolean);
 }
 function normalizeMemberId(value) {
   const text = clean(value).replace(/\(REF\)$/iu, '').replace(/^\/+/, '').toUpperCase();
