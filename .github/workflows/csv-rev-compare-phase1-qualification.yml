@@ -1,25 +1,13 @@
-name: CSV Rev Compare Phase 1 Qualification
+name: CSV Rev Compare R2 Deletion Qualification
 
 on:
-  push:
-    branches:
-      - issue-1181-csv-rev-compare-xml
-    paths:
-      - 'tabs/csv-rev-compare/**'
-      - 'xml-compare/table-categorizer/**'
-      - 'scripts/csv-rev-compare-phase1-real-benchmark.mjs'
-      - 'scripts/support-report-xlsx-zip-to-csv.py'
-      - 'tests/csv-rev-compare-*.test.js'
-      - 'tests/table-categorized-creation-modes.test.js'
-      - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
   pull_request:
     paths:
       - 'tabs/csv-rev-compare/**'
       - 'xml-compare/table-categorizer/**'
-      - 'scripts/csv-rev-compare-phase1-real-benchmark.mjs'
+      - 'scripts/csv-rev-compare-r2-deletion-benchmark.mjs'
       - 'scripts/support-report-xlsx-zip-to-csv.py'
       - 'tests/csv-rev-compare-*.test.js'
-      - 'tests/table-categorized-creation-modes.test.js'
       - '.github/workflows/csv-rev-compare-phase1-qualification.yml'
   workflow_dispatch:
 
@@ -30,7 +18,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  phase1:
+  r2-deletion:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact revision
@@ -43,11 +31,8 @@ jobs:
         with:
           node-version: 24
 
-      - name: Phase 1 PS No. change benchmark contract
-        run: node tests/csv-rev-compare-phase1-ps-no-change.test.js
-
-      - name: Phase 1 real mismatch regression patterns
-        run: node tests/csv-rev-compare-phase1-real-patterns.test.js
+      - name: R2 deletion-state regression
+        run: node tests/csv-rev-compare-deletion-state.test.js
 
       - name: CSV/XML revision compare regression
         run: node tests/csv-rev-compare-xml-based.test.js
@@ -55,10 +40,13 @@ jobs:
       - name: CSV/XML ambiguity review regression
         run: node tests/csv-rev-compare-review.test.js
 
-      - name: Categorizer creation-mode regression
-        run: node tests/table-categorized-creation-modes.test.js
+      - name: Phase 3 load regression
+        run: node tests/csv-rev-compare-phase3-load-change.test.js
 
-      - name: Real R2 to R3 PS No. change benchmark
+      - name: Phase 4 total-support regression
+        run: node tests/csv-rev-compare-phase4-total-support-points.test.js
+
+      - name: Real R2 to R3 deletion-state benchmark
         shell: bash
         run: |
           set -euo pipefail
@@ -66,4 +54,4 @@ jobs:
           git show origin/main:benchmarks/R3.zip > /tmp/R3.zip
           python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R2.zip /tmp/R2.csv
           python3 scripts/support-report-xlsx-zip-to-csv.py /tmp/R3.zip /tmp/R3.csv
-          node scripts/csv-rev-compare-phase1-real-benchmark.mjs /tmp/R2.csv /tmp/R3.csv /tmp/phase1-real-benchmark.json
+          node scripts/csv-rev-compare-r2-deletion-benchmark.mjs /tmp/R2.csv /tmp/R3.csv
