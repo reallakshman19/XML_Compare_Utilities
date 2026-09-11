@@ -25,8 +25,8 @@ test('Support Report panel exposes optional second XML typicality input', () => 
 test('typicality configuration exposes active defaults and hard-coded policy help through info hovers', () => {
   const html = addonTest.typicalityConfigCard();
   assert.match(html, /<details class="ssrb-card" data-ssr-typical-config open>/);
-  assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceM"/);
-  assert.match(html, /Envelope tolerance \(m\)/);
+  assert.match(html, /data-ssr-typical-setting="structural\.geometryEnvelopeToleranceMm"/);
+  assert.match(html, /Envelope tolerance \(mm\)/);
   assert.match(html, /value="25"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.assignmentWeights\.supportTypeMember"/);
   assert.match(html, /data-ssr-typical-setting="pipingLocation\.structuredSequence\.linearityToleranceMm"/);
@@ -41,13 +41,13 @@ test('typicality configuration exposes active defaults and hard-coded policy hel
   assert.match(html, /Solver unmatched sentinel/);
   assert.match(html, /1,000,000,000 cost units/);
   assert.match(html, /Solver ineligible sentinel/);
-  assert.match(html, /Default 25 m/);
+  assert.match(html, /Default 25 mm/);
   assert.match(html, />\(i\)<\/span>/);
 });
 
-test('envelope tolerance is configured in metres and evaluated internally in millimetres', () => {
-  assert.equal(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural.geometryEnvelopeToleranceM, 25);
-  assert.equal(typicalityTest.envelopeToleranceMm(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural), 25000);
+test('envelope tolerance is configured and evaluated in millimetres', () => {
+  assert.equal(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural.geometryEnvelopeToleranceMm, 25);
+  assert.equal(typicalityTest.envelopeToleranceMm(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.structural), 25);
 
   const feature = (familyId, spanX) => ({
     familyId,
@@ -60,17 +60,17 @@ test('envelope tolerance is configured in metres and evaluated internally in mil
   });
   const profile = mergeSupportReportTypicalityProfile({
     structural: {
-      geometryEnvelopeToleranceM: 25,
+      geometryEnvelopeToleranceMm: 25,
       pairDistanceMedianToleranceMm: 100,
       pairDistanceP95ToleranceMm: 100,
       pairDistanceMaxToleranceMm: 100,
     },
   });
-  const within = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 24999), profile);
-  const outside = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 25001), profile);
+  const within = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 24.999), profile);
+  const outside = compareStructuralFamilyFeatures(feature('PS-1', 0), feature('PS-2', 25.001), profile);
   const withinEnvelope = within.signals.find((item) => item.reasonCode === 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE');
   const outsideEnvelope = outside.signals.find((item) => item.reasonCode === 'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE');
-  assert.equal(withinEnvelope.threshold, 25000);
+  assert.equal(withinEnvelope.threshold, 25);
   assert.equal(withinEnvelope.result, 'PASS');
   assert.equal(outsideEnvelope.result, 'FAIL');
 });
