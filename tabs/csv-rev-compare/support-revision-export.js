@@ -28,13 +28,15 @@ export function buildComparisonAudit(result) {
     invariant: 'TABLE->CATEGORIZED_XML->XML_LINEAGE->EVENT_LEDGER->REVISION_OUTPUT',
     profileId: result.pair.profileId,
     comparisonPolicyId: result.lineage.policyId,
-    remarkPolicyId: result.remarks.policyId,
+    remarkPolicyId: result.remarks?.policyId || result.remarkPolicyId || '',
     exportReady: Boolean(result.exportReady),
     unresolvedReviews: result.unresolvedReviews,
     pairValidation: result.pair.pairValidation,
     source: conversionReceipt(result.pair.rev1),
     target: conversionReceipt(result.pair.rev2),
     coordinateFrame: result.lineage.coordinateFrame,
+    candidatePairSchema: result.lineage.candidatePairSchema || '',
+    candidatePairAuthority: result.lineage.candidatePairAuthority || null,
     candidatePairs: result.lineage.candidates,
     locationLineage: result.lineage.edges,
     commonSupportClusters: Object.freeze({
@@ -42,8 +44,8 @@ export function buildComparisonAudit(result) {
       target: result.lineage.targetClusters,
     }),
     eventLedger: result.ledger,
-    remarkTrace: result.remarks.trace,
-    outputRows: result.output.rows,
+    remarkTrace: result.remarks?.trace || Object.freeze([]),
+    outputRows: Object.freeze([...(result.output?.rows || [])]),
   });
 }
 

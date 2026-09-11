@@ -1,65 +1,91 @@
-ISSUE_CURRENT_STATE_VERSION: 1
+ISSUE_CURRENT_STATE_VERSION: 3
 CHAIN_ID: CSV-REV-COMPARE-1181
 ISSUE_BASIS_ID: IB-CSV-REV-COMPARE-1181-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0007
-UPDATED_AT: 2026-09-10T14:44:00+04:00
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CSVRC-0014
+UPDATED_AT: 2026-09-11T07:42:00+04:00
 
 # Original task / acceptance ledger
 
-- TASK-001 | separate Utilities tile | IMPLEMENTED — LEG-005; execution NOT_RUN
-- TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | IMPLEMENTED — LEG-001; execution NOT_RUN
-- TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | IMPLEMENTED — LEG-002; execution NOT_RUN
-- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | IMPLEMENTED — LEG-003; execution NOT_RUN
-- TASK-021..TASK-023 | later-revision CSV/XLSX, tombstone/replacement rows and machine-audit/trace exports | IMPLEMENTED — LEG-004; execution NOT_RUN
-- TASK-024 | explicit staged workflow with review before export | IMPLEMENTED — LEG-005; all 17 stages plus candidate and N->M review; execution NOT_RUN
-- TASK-025 | owner-listed benchmark behaviors and negative controls | PARTIAL — focused controls authored and source-inspected; executable validation NOT_RUN; owner raw benchmark unresolved
-- TASK-026 | surgical implementation/no competing authorities | IMPLEMENTED by inspection; XML/categorized graph remains comparison authority
-- TASK-027 | focused PR / owner-only merge | READY — PR #1184 ready-for-review and GitHub mergeable TRUE at owner merge gate; owner authorized merge if mergeable
+- TASK-001 | separate Utilities tile | MERGED — PR #1184
+- TASK-002..TASK-006 | XML-first conversion/profile/parser/duplicate/parallel-list foundation | MERGED — PR #1184; parser physical-record integrity repaired in LEG-009
+- TASK-007..TASK-013 | XML hierarchy, persistent identity, candidate outcomes/cardinality, semantic PIPE, coordinate frame, common-support topology | MERGED — PR #1184; audited lineage/common-support/candidate-authority defects repaired in LEG-009
+- TASK-014..TASK-020 | component/load event semantics, structured event ledger, deterministic remarks, Hold exclusion and suppressed-field policy | MERGED — PR #1184; ambiguity event/output barrier and multiplicity fixes repaired in LEG-009; load semantic-null and total-support attribution hardened in LEG-010
+- TASK-021..TASK-024 | later-revision output/audit/staged UI/review | MERGED — PR #1184; review integrity/evidence and blocked-preview fixes repaired in LEG-009
+- TASK-025 | owner benchmark behaviors | COMPLETE_QUALIFIED — all four ordered R2->R3 buckets qualified; one Phase-4 R3 oracle row explicitly unsupported because no R2 composite predecessor exists
+- TASK-026 | surgical implementation/no competing authorities | REMEDIATED_AND_REGRESSION_QUALIFIED — existing XML Compare candidate-pair authority supplies candidate pairs/IDs; Phase-4 uses existing exact-pair component-graph events rather than a parallel row matcher
+- TASK-027 | owner-only merge | PRESERVED — PR #1188 remains draft; merge not authorized
 
-# Input ledger
+# Owner benchmark authority
 
-- INPUT-001 | Issue #1181 full specification | AVAILABLE | GitHub issue
-- INPUT-002 | Table-to-Categorized-XML contracts/tests | AVAILABLE | current repository authority
-- INPUT-003 | XML Compare / Revision Compare candidate-review contracts | AVAILABLE | candidate primitive reused; support-revision review resolver handles candidate and N->M structural decisions
-- INPUT-004 | Owner raw REV1/REV2 benchmark files | UNRESOLVED | no durable attachment located
-- INPUT-005 | Support Report export patterns | AVAILABLE | current main inspected
+- Unique SupportLocation item = `CIVIL SECONDARY SUPPORT (Tag provided by Civil) + PIPE`; Civil alone is not unique and must not be used as support-location identity.
+- PIPE may change across revisions only when stronger lineage evidence establishes continuity, such as persistent primary-support reference overlap plus corroboration.
+- R3 `REMARKS (IF ANY)` is benchmark/oracle only and is blanked from both revisions before production comparison.
+- Unsupported/non-mechanically-verifiable labels such as HOLD/Hold Removed are excluded from comparison evidence.
+- Bucket order: Phase 1 `PS No. change`; Phase 2 `Support location change`; Phase 3 `Load change`; Phase 4 `Total no of support change`.
+- Owner `proceed next` at 2026-09-11T03:36:20Z / 07:36:20+04:00 authorized one bounded progression to correct the remaining Phase-4 attribution defect, re-run the four-bucket gate and checkpoint. It did not authorize merge.
 
-# Benchmark / oracle ledger
+# Material history
 
-- BM-001..BM-015 | NOT_RUN | focused conversion, lineage, event-policy, operational/export, pair-validation and UI/review fixtures committed; execution unavailable in this session
+LATEST_MATERIAL_LEG: LEG-010
+LATEST_MATERIAL_LEG_FILE: agents/chains/CSV-REV-COMPARE-1181/material-legs/LEG-010.md
+MATERIAL_HEAD: ce9210b8f1b9ba835e4e3ce12c78c61c7a45df15
 
-# Roadmap ledger
+LEG-010 completed Phase 3 and Phase 4 benchmark work. Phase 3 repaired semantic-empty load equivalence (`-` versus blank) while preserving raw audit values. Phase 4 repaired aggregate/family-field broadcast by requiring the governed total-support field delta to be corroborated by an exact source->target `SUPPORT_COMPONENT_SET_CHANGED` XML graph event on the same accepted lineage pair.
 
-- RM-001 | issue #1181 execution plan | ISSUE_EXECUTION_PLAN | PRIMARY | ALIGNED
-- RM-002 | Common engineering-pr-delivery-v2@af4c5c73b87b26187aa6c930b60172cbb1f0f3e2 | PROCESS_CUSTODY | CURRENT
-- RM-003 | repository AGENTS.md@main | PROJECT_OVERLAY | CURRENT
-- RM-004 | Owner Roadmap registry | NOT_APPLICABLE
+# Qualification evidence
+
+QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-COMPARE-1181/QR-CSVRC-1181-0001.md
+QUALIFICATION_RUN: 34559399072
+QUALIFICATION_JOB: 103138837486
+QUALIFICATION_CONCLUSION: SUCCESS
+QUALIFICATION_VEHICLE: PR #1189 / `issue-1181-remediation-qualification` — qualification-only; never delivery/merge
+QUALIFICATION_HEAD: fab90ca9e61a28fc29f428f0c174955384ef16da
+DELIVERY_MATERIAL_HEAD: ce9210b8f1b9ba835e4e3ce12c78c61c7a45df15
+R2_EXTRACT: `Load Data-Rev 2`, 144 rows x 36 columns
+R3_EXTRACT: `Load Data-Rev 3`, 43 rows x 36 columns
+
+# Benchmark ledger
+
+- PHASE-1 | `PS No. change` | PASS
+  - expected=1, detected=1, TP=1, FP=0, FN=0, precision=1, recall=1, F1=1
+  - TP composite key: `SL-111001(REF)||BWGA-1000-FL-8"-M1610003-(FL-07)`
+- PHASE-2 | `Support location change` | PASS
+  - real benchmark expected=0, detected=0, FP=0, FN=0; real data is a negative control
+  - dedicated executable positive relocation regression: PASS
+- PHASE-3 | `Load change` | PASS
+  - expected=2, detected=2, TP=2, FP=0, FN=0, precision=1, recall=1, F1=1
+  - keys: `SL-111001(REF)||BWGA-1000-FL-8"-M1610003-(FL-07)::LOAD_SIGNATURE_CHANGED`; `SL-111009(REF)||/BWGA-1000-8"-P1110101-1006520P5-01::LOAD_SIGNATURE_CHANGED`
+- PHASE-4 | `Total no of support change` | PASS_WITH_EXPLICIT_UNSUPPORTED_ORACLE
+  - oracleExpected=3, unsupported=1, checkable expected=2, detected=2, TP=2, FP=0, FN=0, precision=1, recall=1, F1=1
+  - TP: `SL-111064(REF)||BWGA-1000-2"-P8310001-13421-01` (1 -> 2)
+  - TP: `SL-111069(REF)||BWGA-1000-2"-P8310007-253461P1-01` (2 -> 1)
+  - unsupported: `SL-111064(REF)||BWGA-1000-3/4"-D8310024-253461P1-01` — `NO_LINEAGE_PREDECESSOR`; no R2 Civil+PIPE predecessor, therefore not mechanically checkable and not comparison evidence
 
 # Current delivery status
 
-ENGINEERING_STATE: IMPLEMENTED_PENDING_MERGE
+ENGINEERING_STATE: COMPLETE
 CUSTODY_STATE: HELD
-WRITE_AUTHORITY: WRITE_ALLOWED_FOR_OWNER_AUTHORIZED_ISSUE_SCOPE
+QUALIFICATION_STATE: PASS
+WRITE_AUTHORITY: READ_ONLY
+AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: TRUE
-MERGE_AUTHORIZATION_BASIS: 2026-09-10T14:44+04:00 owner instruction "merge if mergable"
-PR: 1184
-PR_STATUS: OPEN_READY_MERGEABLE_AT_OWNER_GATE
-BRANCH: issue-1181-csv-rev-compare-xml-v2
-MAIN_OBSERVED: 906df68d73fd5106b259a2d4a807ec3cb34af9ab
-MAIN_DRIFT: 38 commits beyond original branch point; main-only changed paths are Support Report typicality/configuration/tests and benchmark ZIPs, with no #1181 production/test path overlap
-LATEST_MATERIAL_LEG: LEG-006
-LEG001_VALIDATION: NOT_RUN
-LEG002_VALIDATION: NOT_RUN
-LEG003_VALIDATION: NOT_RUN
-LEG004_VALIDATION: NOT_RUN
-LEG005_VALIDATION: NOT_RUN
-LEG006_VALIDATION: NOT_RUN_SOURCE_INSPECTION_ONLY
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0007_PUBLICATION
+MERGE_AUTHORIZED: FALSE
+PR: 1188
+PR_STATUS: OPEN_DRAFT_MERGEABLE
+BRANCH: issue-1181-phase1-current-main
+ACTIVE_ENDPOINT: EP-CSVRC-0014
+MAIN_OBSERVED: 419c94cca7649626e0b3e641f20d5261967347ba
+CURRENT_HEAD_VALIDATION: FOUR_BUCKET_QUALIFICATION_PASS
+QUESTION_SET: QS-CSVRC-1181-0001 CURRENT / REUSED
+QUALIFICATION_SCOPE: QSCOPE-XMLCOMPARE-1181-CSV-XML-LINEAGE
+CHAIN_HANDOVER_READY: TRUE
+TAKEOVER_QUALIFICATION_READY: TRUE
+HANDOVER_CONTENT_READY: TRUE
+HANDOVER_VALIDATION_STATUS: PASS
+HANDOVER_READY: TRUE
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5615805173
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5615807778
-ISSUE_HANDOVER_SYNC_STATUS: REPOSITORY_SYNCED_ISSUE_COMMENT_PENDING
-CONTROL_PLANE_DEVIATION: LEG-003 late mutable Active Issue synchronization recorded in LEG-003 receipt; corrected before EP-0004
-ENVIRONMENT_LIMITATION: raw network cannot resolve github.com from execution container, so local clone, backup/worklog generation and Node/browser execution unavailable
-LOCAL_BACKUP_WORKLOG_DEFICIT: existing-file edits in remote-only session have GitHub blob pre-images but no repository-required local `utils/backup.cjs` / `.agent-worklogs` evidence
-QUALIFICATION_HARDENING: same-area/scope gate, revision ordering, structural-review accounting, candidate-exhaustion trace, audit pair evidence, governed event versions added in LEG-006
-EXACT_NEXT_ACTION: publish/synchronize EP-CSVRC-0007, refresh PR body, recheck live head/main/mergeability/checks/reviews, and merge PR #1184 only if mergeable remains TRUE. After merge, record merged SHA and synchronize final issue/chain state.
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5629151051
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+QUALIFICATION_VEHICLE: PR #1189 remains qualification-only and must never be merged as delivery
+EXACT_NEXT_ACTION: await Owner review and explicit merge/next-scope authorization. Do not merge or begin new material work without Owner authority.

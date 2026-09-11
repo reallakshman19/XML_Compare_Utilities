@@ -8,7 +8,7 @@ import {
 } from './csv-rev-compare-ui-model.js';
 
 const STYLE_ID = 'csv-rev-compare-style';
-const STYLE_URL = './csv-rev-compare.css?v=20260910-issue1181-leg005';
+const STYLE_URL = './csv-rev-compare.css?v=20260910-issue1181-remediation';
 
 export function installCsvRevCompareTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
@@ -171,7 +171,7 @@ function renderWorkspace(root, state, rev1Text, rev2Text) {
   root.querySelector('[data-csvrc-review]').innerHTML = reviewHtml(unresolvedReviewRows(state.result));
   root.querySelector('[data-csvrc-structure]').innerHTML = structuralSummaryHtml(state.result);
   root.querySelector('[data-csvrc-events]').innerHTML = eventSummaryHtml(state.result);
-  root.querySelector('[data-csvrc-preview]').innerHTML = outputPreviewHtml(state.result?.output);
+  root.querySelector('[data-csvrc-preview]').innerHTML = outputPreviewHtml(state.result?.output, state.result);
   setDownloadState(root, state.result);
 }
 
@@ -182,14 +182,24 @@ function renderDiagnostics(root, result) {
 
 function reviewHtml(rows) {
   if (!rows.length) return '<p>No unresolved ambiguous lineage.</p>';
-  return `<p><b>No candidate is silently selected.</b> Review the XML-derived evidence and make an explicit decision.</p><div class="csvrc-review-list">${rows.map(reviewRowHtml).join('')}</div>`;
+  return `<p><b>No candidate is silently selected.</b> Review family, PIPE, bore, persistent references, coordinates, and scoring evidence before deciding.</p><div class="csvrc-review-list">${rows.map(reviewRowHtml).join('')}</div>`;
 }
 
 function reviewRowHtml(row) {
   if (row.kind === 'structural') {
-    return `<article class="csvrc-review-item"><b>N→M structural transition · ${h(row.id)}</b><p>${h(row.sourceNodeIds.join(', '))} → ${h(row.targetNodeIds.join(', '))}</p><small>${h(row.reasonCodes.join(', '))}</small><div><button type="button" data-csvrc-review-action="accept" data-review-kind="structural" data-edge-id="${h(row.id)}">Accept structural lineage</button><button type="button" data-csvrc-review-action="reject" data-review-kind="structural" data-edge-id="${h(row.id)}">Reject lineage</button></div></article>`;
+    return `<article class="csvrc-review-item"><b>${h(row.cardinality || 'N→M')} structural transition · ${h(row.id)}</b>${reviewSideHtml('Source', row.sources)}${reviewSideHtml('Target', row.targets)}<small>${h(row.matchingMethod)} · ${h(row.reasonCodes.join(', '))}</small><div><button type="button" data-csvrc-review-action="accept" data-review-kind="structural" data-edge-id="${h(row.id)}">Accept structural lineage</button><button type="button" data-csvrc-review-action="reject" data-review-kind="structural" data-edge-id="${h(row.id)}">Reject lineage</button></div></article>`;
   }
-  return `<article class="csvrc-review-item"><b>Candidate · ${h(row.id)}</b><p>${h(row.sourceNodeId)} → ${h(row.targetNodeId)} · score ${h(row.score)}</p><small>${h(row.matchingMethod)} · ${h(row.reasonCodes.join(', '))}</small><div><button type="button" data-csvrc-review-action="approve" data-review-kind="candidate" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Approve</button><button type="button" data-csvrc-review-action="reject" data-review-kind="candidate" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Reject</button></div></article>`;
+  const signals = (row.activeSignals || []).map((item) => `${item.signal} +${item.contribution}`).join(', ');
+  return `<article class="csvrc-review-item"><b>Candidate · ${h(row.id)} · score ${h(row.score)}</b>${reviewSideHtml('Source', [row.source])}${reviewSideHtml('Target', [row.target])}<small>${h(row.matchingMethod)} · ${h(row.reasonCodes.join(', '))}${signals ? ` · ${h(signals)}` : ''}</small><div><button type="button" data-csvrc-review-action="approve" data-review-kind="candidate" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Approve</button><button type="button" data-csvrc-review-action="reject" data-review-kind="candidate" data-source-node-id="${h(row.sourceNodeId)}" data-target-node-id="${h(row.targetNodeId)}">Reject</button></div></article>`;
+}
+
+function reviewSideHtml(label, locations = []) {
+  const rows = locations.filter(Boolean).map((location) => {
+    const refs = (location.references || []).join(', ') || 'none';
+    const pos = Object.entries(location.position || {}).filter(([, value]) => value).map(([axis, value]) => `${axis.toUpperCase()}=${value}`).join(', ') || 'none';
+    return `<li><code>${h(location.nodeId)}</code> · family ${h(location.family)} · PIPE ${h(location.pipe)} · bore ${h(location.size || 'unknown')} · refs ${h(refs)} · coord ${h(pos)}</li>`;
+  }).join('');
+  return `<p><b>${h(label)} evidence</b></p><ul>${rows || '<li>none</li>'}</ul>`;
 }
 
 function structuralSummaryHtml(result) {
@@ -200,10 +210,12 @@ function structuralSummaryHtml(result) {
 function eventSummaryHtml(result) {
   if (!result?.ledger) return '<p>Run the comparison to inspect events.</p>';
   const types = Object.entries(result.ledger.summary?.byType || {}).map(([type, count]) => `<li><code>${h(type)}</code><span>${count}</span></li>`).join('');
-  return `<p><b>${result.ledger.events.length}</b> event(s), <b>${result.ledger.summary?.remarkEligible || 0}</b> remark-eligible.</p><ul class="csvrc-event-list">${types || '<li>No engineering state changes.</li>'}</ul>`;
+  const prefix = result.reviewBlocked ? '<p><b>Review-only audit ledger.</b> Operational engineering events are withheld until lineage is resolved.</p>' : '';
+  return `${prefix}<p><b>${result.ledger.events.length}</b> event(s), <b>${result.ledger.summary?.remarkEligible || 0}</b> remark-eligible.</p><ul class="csvrc-event-list">${types || '<li>No engineering state changes.</li>'}</ul>`;
 }
 
-function outputPreviewHtml(output) {
+function outputPreviewHtml(output, result = null) {
+  if (result?.stage === 'REVIEW_REQUIRED') return '<p><b>Revision output is blocked.</b> Resolve ambiguous lineage before remarks, tombstones, or REV2 output are generated.</p>';
   if (!output?.rows?.length) return '<p>No revision output rows available.</p>';
   const rows = output.rows.slice(0, 80);
   const table = `<table><thead><tr><th>Disposition</th>${output.headers.map((header) => `<th>${h(header)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.disposition)}</td>${row.values.map((value) => `<td>${h(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
@@ -245,4 +257,4 @@ function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-export const _test = Object.freeze({ nextReviewDecisions, reviewHtml, outputPreviewHtml, setDownloadState, stageHtml, ensureStylesheet });
+export const _test = Object.freeze({ nextReviewDecisions, reviewHtml, reviewSideHtml, outputPreviewHtml, setDownloadState, stageHtml, ensureStylesheet });
