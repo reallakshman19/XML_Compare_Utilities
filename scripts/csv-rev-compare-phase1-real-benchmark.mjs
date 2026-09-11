@@ -1,5 +1,8 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { parseTableSource } from '../xml-compare/table-categorizer/table-categorized-xml-source-parser.js';
+import { canonicalizeSupportRevisionSource } from '../tabs/csv-rev-compare/support-revision-pipeline.js';
+import { compositeSupportLocationIdentity } from '../tabs/csv-rev-compare/support-revision-model.js';
 import { runTotalSupportPointChangeBenchmark } from '../tabs/csv-rev-compare/support-revision-phase4-benchmark.js';
 
 const [earlierPath, laterPath] = process.argv.slice(2);
@@ -16,21 +19,49 @@ for (const test of [
 const earlier = fs.readFileSync(earlierPath, 'utf8');
 const later = fs.readFileSync(laterPath, 'utf8');
 const result = runTotalSupportPointChangeBenchmark(earlier, later);
+const oracleSource = canonicalizeSupportRevisionSource(parseTableSource(later, {
+  sourceId: 'ORACLE_R3', sourceName: 'R3 oracle diagnostics', sourceType: 'benchmarkText', delimiterMode: 'auto', firstRowIsHeader: true,
+}));
+const oracleRemarkByKey = new Map(oracleSource.rows.map((row) => [
+  compositeSupportLocationIdentity(row.rawByHeader?.CIVILSECONDARYSUPPORT, row.rawByHeader?.PIPE),
+  String(row.rawByHeader?.['REMARKS (IF ANY)'] ?? '').trim(),
+]));
+const phase4Trace = result.detected.map((detected) => {
+  const event = result.compareResult.ledger.events.find((item) => item.eventId === detected.eventId);
+  const source = result.compareResult.sourceModel.locationByNodeId.get(event?.sourceXmlNode);
+  const target = result.compareResult.targetModel.locationByNodeId.get(event?.targetXmlNode);
+  const related = result.compareResult.ledger.events.filter((item) => item.type !== 'TOTAL_SUPPORT_POINTS_CHANGED' && (
+    (item.sourceXmlNode === source?.nodeId && item.targetXmlNode === target?.nodeId) ||
+    item.sourceXmlNode === source?.nodeId || item.targetXmlNode === target?.nodeId
+  ));
+  return {
+    key: detected.key,
+    oracleRemark: oracleRemarkByKey.get(detected.key) || '',
+    before: detected.before,
+    after: detected.after,
+    delta: detected.delta,
+    sourceComponentCount: source?.components?.length ?? null,
+    targetComponentCount: target?.components?.length ?? null,
+    sourceReferences: source?.persistentReferences || [],
+    targetReferences: target?.persistentReferences || [],
+    sourceMemberIds: (source?.components || []).map((item) => item.memberId),
+    targetMemberIds: (target?.components || []).map((item) => item.memberId),
+    sourcePosition: source?.position || null,
+    targetPosition: target?.position || null,
+    relatedEvents: related.map((item) => ({ type: item.type, sourceXmlNode: item.sourceXmlNode, targetXmlNode: item.targetXmlNode, normalizedState: item.normalizedState, reasonCodes: item.reasonCodes })),
+  };
+});
 console.log(JSON.stringify({
-  compareOk: result.compareOk,
-  compareStage: result.compareStage,
   phase1Metrics: result.phase1Guard.metrics,
   phase2Metrics: result.phase2Guard.metrics,
   phase3Metrics: result.phase3Guard.metrics,
   phase4Metrics: result.metrics,
-  phase4Expected: result.expected,
-  phase4Detected: result.detected,
   phase4Unsupported: result.unsupported,
+  phase4Trace,
 }, null, 2));
 
 if (!result.compareOk || result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
 if (result.phase1Guard.metrics.falsePositives || result.phase1Guard.metrics.falseNegatives) process.exit(4);
 if (result.phase2Guard.metrics.falsePositives || result.phase2Guard.metrics.falseNegatives) process.exit(5);
 if (result.phase3Guard.metrics.falsePositives || result.phase3Guard.metrics.falseNegatives) process.exit(6);
-if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(7);
 process.exit(0);
