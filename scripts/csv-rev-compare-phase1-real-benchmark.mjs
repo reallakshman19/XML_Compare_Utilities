@@ -6,6 +6,8 @@ const [earlierPath, laterPath] = process.argv.slice(2);
 if (!earlierPath || !laterPath) process.exit(2);
 
 for (const test of [
+  'tests/csv-rev-compare-events.test.js',
+  'tests/csv-rev-compare-operational.test.js',
   'tests/csv-rev-compare-phase2-support-location-change.test.js',
   'tests/csv-rev-compare-phase3-load-change.test.js',
   'tests/csv-rev-compare-phase4-total-support-points.test.js',
@@ -27,6 +29,7 @@ console.log(JSON.stringify({
 
 if (!result.compareOk || result.compareStage === 'CONVERSION_BLOCKED') process.exit(3);
 if (result.phase1Guard.metrics.falsePositives || result.phase1Guard.metrics.falseNegatives) process.exit(4);
+if (!result.phase2Guard.metrics.expected) process.exit(8);
 if (result.phase2Guard.metrics.falsePositives || result.phase2Guard.metrics.falseNegatives) process.exit(5);
 if (result.phase3Guard.metrics.falsePositives || result.phase3Guard.metrics.falseNegatives) process.exit(6);
 if (result.metrics.falsePositives || result.metrics.falseNegatives) process.exit(7);
