@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
 import {
   supportReportDebugExportFileName,
@@ -6,7 +6,7 @@ import {
   supportReportTraceExportFileName,
   supportReportTraceSummary,
   supportReportTraceToCsv,
-} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21';
+} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21&location=20260911-support-report-location-attribution-22';
 import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,
@@ -20,7 +20,7 @@ import {
 } from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
 import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-typicality-columns-1&trace=20260910-support-report-json-trace-18&pos=20260911-support-report-pos-trace-20';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-typicality-columns-1';
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17&typicality=20260910-support-report-typicality-17';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&typicality=20260910-support-report-typicality-17';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
 import {
   supportReportCompleteness,
