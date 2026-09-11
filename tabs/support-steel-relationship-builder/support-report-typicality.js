@@ -3,8 +3,7 @@ export const SUPPORT_REPORT_TYPICALITY_AUDIT_SCHEMA = 'SupportReportTypicalityAu
 export const PS_TYPICAL_V1_PROVISIONAL = Object.freeze({
   profileId: 'PS_TYPICAL_V1_PROVISIONAL',
   structural: Object.freeze({
-    geometryEnvelopeToleranceM: 25,
-    geometryEnvelopeToleranceMm: 25000,
+    geometryEnvelopeToleranceMm: 25,
     pairDistanceMedianToleranceMm: 10,
     pairDistanceP95ToleranceMm: 25,
     pairDistanceMaxToleranceMm: 50,
@@ -163,8 +162,6 @@ function collectFamilyIds(evidence) {
 }
 
 function envelopeToleranceMm(structural = {}) {
-  const metres = Number(structural.geometryEnvelopeToleranceM);
-  if (Number.isFinite(metres) && metres >= 0) return metres * 1000;
   const millimetres = Number(structural.geometryEnvelopeToleranceMm);
   return Number.isFinite(millimetres) && millimetres >= 0 ? millimetres : 0;
 }
