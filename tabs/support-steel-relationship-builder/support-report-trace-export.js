@@ -3,7 +3,8 @@ export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v1';
 
 export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'TRACE SCHEMA', 'REPORT SCHEMA', 'EVIDENCE MODE', 'REPORT ROW ID', 'CIVIL SECONDARY SUPPORT', 'PIPE',
-  'LOCATION INDEX', 'LOCATION COUNT ON PIPE', 'LOCATION MERGE TOLERANCE MM', 'MULTI-LOCATION',
+  'LOCATION INDEX', 'LOCATION COUNT ON PIPE', 'LOCATION MERGE TOLERANCE MM', 'LOCATION GROUPING BASIS',
+  'MEMBER ATTRIBUTION BASIS', 'MULTI-LOCATION',
   'REPORT E/W', 'REPORT N/S', 'REPORT BOP', 'REPORT COORDINATE BASIS',
   'POS CLUSTER ID', 'POS BASIS', 'NATIVE POS X MM', 'NATIVE POS Y MM', 'NATIVE POS Z MM',
   'OBSERVED PS/SL IDS', 'RESOLVED JSON MEMBER IDS', 'MATCH BASIS', 'TRACE MEMBER COUNT',
@@ -33,8 +34,9 @@ export function supportReportTraceSummary(bundle) {
   const traces = (bundle?.rows || []).flatMap((row) => traceMembers(row));
   const clusters = (bundle?.rows || []).flatMap((row) => traceClusters(row));
   const countBasis = (basis) => traces.filter((trace) => trace.matchBasis === basis).length;
+  const rows = bundle?.rows || [];
   return Object.freeze({
-    reportRowCount: bundle?.rows?.length || 0,
+    reportRowCount: rows.length,
     enrichedRowCount: Number(bundle?.summary?.enrichedRowCount || 0),
     xmlOnlyRowCount: Number(bundle?.summary?.xmlOnlyRowCount || 0),
     posClusterCount: clusters.length,
@@ -43,8 +45,11 @@ export function supportReportTraceSummary(bundle) {
     previousNameAliasMatchCount: countBasis('PREVIOUS_NAME_ALIAS'),
     familyLineEnrichmentCount: countBasis('FAMILY_LINE_ENRICHMENT'),
     unresolvedMemberMatchCount: traces.filter((trace) => unresolvedBasis(trace.matchBasis)).length,
-    rowsWithoutTraceCount: (bundle?.rows || []).filter((row) => traceMembers(row).length === 0).length,
+    rowsWithoutTraceCount: rows.filter((row) => traceMembers(row).length === 0).length,
     multiLocationRowCount: Number(bundle?.summary?.multiLocationRowCount || 0),
+    sameConcreteMemberGroupingRowCount: rows.filter((row) => locationGroupingBasis(row).includes('SAME_CONCRETE_MEMBER')).length,
+    within50mmGroupingRowCount: rows.filter((row) => locationGroupingBasis(row).includes('WITHIN_50MM')).length,
+    multiLocationObservedOnlyRowCount: rows.filter((row) => memberAttributionBasis(row).startsWith('MULTI_LOCATION_')).length,
   });
 }
 
@@ -79,6 +84,8 @@ function traceRow(bundle, row, cluster) {
     'LOCATION INDEX': evidence.locationIndex ?? '',
     'LOCATION COUNT ON PIPE': evidence.locationCountOnPipe ?? '',
     'LOCATION MERGE TOLERANCE MM': evidence.locationMergeToleranceMm ?? '',
+    'LOCATION GROUPING BASIS': join(locationGroupingBasis(row)),
+    'MEMBER ATTRIBUTION BASIS': memberAttributionBasis(row),
     'MULTI-LOCATION': evidence.multipleLocationsOnPipe ? 'TRUE' : 'FALSE',
     'REPORT E/W': row?.eastWest || '',
     'REPORT N/S': row?.northSouth || '',
@@ -133,6 +140,12 @@ function traceClusters(row) {
 function traceMembers(row) {
   return row?.evidence?.jsonTrace?.members || [];
 }
+function locationGroupingBasis(row) {
+  return row?.evidence?.jsonTrace?.locationGroupingBasis || row?.evidence?.locationGroupingBasis || [];
+}
+function memberAttributionBasis(row) {
+  return row?.evidence?.jsonTrace?.memberAttributionBasis || row?.evidence?.memberAttributionBasis || '';
+}
 function resolutionState(cluster, evidence) {
   const resolved = (cluster?.resolvedMemberIds || []).length > 0;
   const observed = (cluster?.observedMemberIds || []).length > 0;
@@ -179,4 +192,4 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-export const _test = Object.freeze({ resolutionState, traceClusters, stableValue });
+export const _test = Object.freeze({ resolutionState, traceClusters, stableValue, locationGroupingBasis, memberAttributionBasis });
