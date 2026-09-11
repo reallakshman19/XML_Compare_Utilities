@@ -18,6 +18,7 @@ function bundle() {
     sourcePath: ['/ASIM-1885-CU-PI', '/ASIM-1885-CU-PI-D', resolved].filter(Boolean),
     lineContext: { fullLineTag: 'ASIM-LINE' },
     attributeEvidence: {
+      previousName: '', previousNameRaw: '', previousNameRejectedDbref: '', previousNameSuppressedNoOp: '',
       supportType: resolved ? 'PG-50' : '',
       primarySupportReference: resolved ? '=1/2' : '',
       description: resolved ? 'GUIDE' : '',
@@ -113,14 +114,15 @@ test('trace summary makes unresolved member and POS evidence visible', () => {
     sameConcreteMemberGroupingRowCount: 0,
     within50mmGroupingRowCount: 0,
     multiLocationObservedOnlyRowCount: 0,
+    rejectedPreviousNameDbrefCount: 0,
   });
 });
 
 test('debug JSON is lossless around the canonical report bundle and includes trace summary', () => {
   const source = bundle();
   const parsed = JSON.parse(supportReportDebugToJson(source));
-  assert.equal(parsed.schema, 'SupportReportDebugExport.v1');
-  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v1');
+  assert.equal(parsed.schema, 'SupportReportDebugExport.v2');
+  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v2');
   assert.equal(parsed.traceSummary.unresolvedPosClusterCount, 1);
   assert.deepEqual(parsed.reportBundle, source);
 });

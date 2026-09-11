@@ -1,9 +1,12 @@
 import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from './support-report-location-grouping.js?v=20260911-support-report-location-attribution-22';
 import {
+  supportReportPreviousName,
+} from './support-report-field-normalization.js?v=20260911-prevname-semantic-22';
+import {
   buildSupportReportJsonTrace,
   resolveSupportReportObservedMembers,
   supportReportFamilyMismatchMemberIds,
-} from './support-report-json-trace.js?v=20260911-support-report-pos-trace-20';
+} from './support-report-json-trace.js?v=20260911-prevname-semantic-22';
 
 const INSULATION_THICKNESS_KEYS = Object.freeze([
   'PIPE_INSULATION_THICKNESS', 'INSULATION_THICKNESS', 'INS_THK', 'ITHK', 'THICKNESS_INSULATION', 'INSU',
@@ -34,6 +37,7 @@ export function enrichSupportReportProjectedFields(fields, input = {}) {
   const derivedRemarks = reportRemarks.filter(Boolean).join('; ');
   return Object.freeze({
     ...fields,
+    previousName: reportablePreviousNames(reportMembers),
     pipeInsulationThickness: fields?.pipeInsulationThickness || consistentMemberAttribute(reportMembers, INSULATION_THICKNESS_KEYS),
     remarks: [nativeRemarks, derivedRemarks].filter(Boolean).join('; '),
   });
@@ -42,6 +46,11 @@ export function enrichSupportReportProjectedFields(fields, input = {}) {
 export function enrichSupportReportFieldProvenance(provenance, fields, enriched, input = {}) {
   const { reportMembers = [], reportRemarks = [] } = input;
   const output = { ...(provenance || {}) };
+  const previousNameMemberIds = reportMembers.filter((member) => supportReportPreviousName(member))
+    .map((member) => normalizeMemberId(member.memberId));
+  output.previousName = previousNameMemberIds.length
+    ? source('AUTHORITATIVE_NATIVE_MEMBER_ATTRIBUTE', previousNameMemberIds)
+    : unresolvedSource();
   if (!clean(fields?.pipeInsulationThickness) && clean(enriched?.pipeInsulationThickness)) {
     output.pipeInsulationThickness = source('AUTHORITATIVE_NATIVE_MEMBER_ATTRIBUTE', memberIdsWithAttribute(reportMembers, INSULATION_THICKNESS_KEYS));
   }
@@ -94,6 +103,9 @@ function rowRemarks(group, matches) {
   return unique(remarks);
 }
 
+function reportablePreviousNames(members) {
+  return (members || []).map(supportReportPreviousName).map(clean).filter(Boolean).join(', ');
+}
 function consistentMemberAttribute(members, keys) {
   const values = unique((members || []).map((member) => attribute(member?.attributes || {}, keys)).filter(Boolean));
   return values.length === 1 ? values[0] : '';
@@ -112,9 +124,15 @@ function attribute(attrs, keys) {
 function source(sourceClass, sourceIds = []) {
   return Object.freeze({
     sourceClass,
-    confidenceClass: sourceClass.startsWith('AUTHORITATIVE_') ? 'AUTHORITATIVE' : sourceClass.startsWith('DETERMINISTIC_') ? 'DETERMINISTIC' : 'EVIDENCE',
+    confidenceClass: sourceClass.startsWith('AUTHORITATIVE_') ? 'AUTHORITATIVE'
+      : sourceClass.startsWith('DETERMINISTIC_') ? 'DETERMINISTIC' : 'EVIDENCE',
     valueStatus: 'RESOLVED',
     sourceIds: Object.freeze(unique(sourceIds)),
+  });
+}
+function unresolvedSource() {
+  return Object.freeze({
+    sourceClass: 'UNRESOLVED', confidenceClass: 'UNRESOLVED', valueStatus: 'UNRESOLVED', sourceIds: Object.freeze([]),
   });
 }
 function uniqueMembers(members) {
@@ -132,4 +150,4 @@ function token(value) { return clean(value).replace(/\(REF\)$/iu, '').replace(/^
 function clean(value) { return value == null ? '' : String(value).trim(); }
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 
-export const _test = Object.freeze({ locationScopedFamilyMembers });
+export const _test = Object.freeze({ locationScopedFamilyMembers, reportablePreviousNames });

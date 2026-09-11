@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
 import {
   supportReportDebugExportFileName,
@@ -6,7 +6,7 @@ import {
   supportReportTraceExportFileName,
   supportReportTraceSummary,
   supportReportTraceToCsv,
-} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21&location=20260911-support-report-location-attribution-22';
+} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
 import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,

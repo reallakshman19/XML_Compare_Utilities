@@ -1,5 +1,5 @@
-export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v1';
-export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v1';
+export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v2';
+export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v2';
 
 export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'TRACE SCHEMA', 'REPORT SCHEMA', 'EVIDENCE MODE', 'REPORT ROW ID', 'CIVIL SECONDARY SUPPORT', 'PIPE',
@@ -9,8 +9,8 @@ export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'POS CLUSTER ID', 'POS BASIS', 'NATIVE POS X MM', 'NATIVE POS Y MM', 'NATIVE POS Z MM',
   'OBSERVED PS/SL IDS', 'RESOLVED JSON MEMBER IDS', 'MATCH BASIS', 'TRACE MEMBER COUNT',
   'CLASH MEMBER IDS', 'SELECTED NATIVE MEMBER IDS', 'NATIVE-ONLY MEMBER IDS', 'MISSING CLASH MEMBER IDS',
-  'SUPPORT TYPE', 'PRIMARY SUPPORT REFERENCE', 'DESCRIPTION', 'INSU', 'SOURCE PATHS', 'LINE CONTEXTS',
-  'FIELD PROVENANCE', 'CARRIER OBJECT IDS', 'CARRIER ATTRIBUTE CONFLICTS',
+  'PREV NAME', 'REJECTED PREV NAME DBREF', 'SUPPORT TYPE', 'PRIMARY SUPPORT REFERENCE', 'DESCRIPTION', 'INSU',
+  'SOURCE PATHS', 'LINE CONTEXTS', 'FIELD PROVENANCE', 'CARRIER OBJECT IDS', 'CARRIER ATTRIBUTE CONFLICTS',
   'ROW DIAGNOSTIC CODES', 'ROW DIAGNOSTIC MESSAGES', 'RESOLUTION STATE',
 ]);
 
@@ -50,6 +50,7 @@ export function supportReportTraceSummary(bundle) {
     sameConcreteMemberGroupingRowCount: rows.filter((row) => locationGroupingBasis(row).includes('SAME_CONCRETE_MEMBER')).length,
     within50mmGroupingRowCount: rows.filter((row) => locationGroupingBasis(row).includes('WITHIN_50MM')).length,
     multiLocationObservedOnlyRowCount: rows.filter((row) => memberAttributionBasis(row).startsWith('MULTI_LOCATION_')).length,
+    rejectedPreviousNameDbrefCount: traces.filter((trace) => clean(trace?.attributeEvidence?.previousNameRejectedDbref)).length,
   });
 }
 
@@ -104,6 +105,8 @@ function traceRow(bundle, row, cluster) {
     'SELECTED NATIVE MEMBER IDS': join(evidence.selectedNativeMemberIds),
     'NATIVE-ONLY MEMBER IDS': join(evidence.nativeOnlyMemberIds),
     'MISSING CLASH MEMBER IDS': join(evidence.missingClashMemberIds),
+    'PREV NAME': clusterAttribute(cluster, 'previousName'),
+    'REJECTED PREV NAME DBREF': clusterAttribute(cluster, 'previousNameRejectedDbref'),
     'SUPPORT TYPE': clusterAttribute(cluster, 'supportType'),
     'PRIMARY SUPPORT REFERENCE': clusterAttribute(cluster, 'primarySupportReference'),
     DESCRIPTION: clusterAttribute(cluster, 'description'),
@@ -191,5 +194,6 @@ function csvCell(value) {
   const text = spreadsheetSafeText(value);
   return `"${text.replace(/"/g, '""')}"`;
 }
+function clean(value) { return value == null ? '' : String(value).trim(); }
 
 export const _test = Object.freeze({ resolutionState, traceClusters, stableValue, locationGroupingBasis, memberAttributionBasis });

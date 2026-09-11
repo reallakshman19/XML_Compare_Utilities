@@ -15,7 +15,7 @@ import {
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
   resolveSupportReportRowMembers,
-} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22';
+} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
