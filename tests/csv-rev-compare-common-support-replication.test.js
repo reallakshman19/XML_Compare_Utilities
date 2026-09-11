@@ -113,9 +113,7 @@ function fixture(pipe3 = null) {
 
 {
   const fx = fixture('LINE-3');
-  const base = ledger([
-    event('e-load', 'LOAD_SIGNATURE_CHANGED', fx.source.s2, fx.target.t2),
-  ]);
+  const base = ledger([event('e-load', 'LOAD_SIGNATURE_CHANGED', fx.source.s2, fx.target.t2)]);
   const augmented = augmentCommonSupportRemarkReplicationEvents(base, fx.sourceModel, fx.targetModel, fx.lineage);
   const replicatedTargets = augmented.events
     .filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED)
@@ -127,12 +125,26 @@ function fixture(pipe3 = null) {
 {
   const fx = fixture();
   const base = ledger([
-    event('e-audit-change', 'SUPPRESSED_FIELD_CHANGED', fx.source.s1, fx.target.t1, false),
+    event('e-member', 'PRIMARY_MEMBER_RENUMBERED', fx.source.s1, fx.target.t1, false),
+    event('e-suppressed', 'SUPPRESSED_FIELD_CHANGED', fx.source.s1, fx.target.t1, false),
+    event('e-load', 'LOAD_SIGNATURE_CHANGED', fx.source.s2, fx.target.t2),
+  ]);
+  const augmented = augmentCommonSupportRemarkReplicationEvents(base, fx.sourceModel, fx.targetModel, fx.lineage);
+  const replicated = augmented.events.find((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED) || null;
+  assert.ok(replicated, 'audit-only housekeeping must not block an otherwise unchanged common-support sibling');
+  assert.equal(replicated.targetXmlNode, 't1');
+  assert.deepEqual(replicated.trace.ignoredAuditEventIds, ['e-member', 'e-suppressed']);
+}
+
+{
+  const fx = fixture();
+  const base = ledger([
+    event('e-set-change', 'SUPPORT_COMPONENT_SET_CHANGED', fx.source.s1, fx.target.t1, true),
     event('e-load', 'LOAD_SIGNATURE_CHANGED', fx.source.s2, fx.target.t2),
   ]);
   const augmented = augmentCommonSupportRemarkReplicationEvents(base, fx.sourceModel, fx.targetModel, fx.lineage);
   assert.equal(augmented.events.filter((item) => item.type === COMMON_SUPPORT_REMARK_REPLICATED).length, 0,
-    'a row with its own local change must not be labelled as an unchanged replicated sibling');
+    'material structural change on the recipient must block an unchanged-sibling replication label');
 }
 
 {
