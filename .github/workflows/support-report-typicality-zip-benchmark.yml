@@ -98,6 +98,16 @@ jobs:
           assert.equal(review.selectedPairs.length, 5);
           assert.equal(review.selectedPairs.every((pair) => pair.pipeClassReasonCode === 'PIPE_CLASS_EXACT'), true);
 
+          const mixedPipeMatch = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10092');
+          assert.ok(mixedPipeMatch, 'PS-10092 family match missing');
+          assert.equal(mixedPipeMatch.rightFamilyId, 'PS-12092');
+          assert.equal(mixedPipeMatch.selectedCount, 5);
+          assert.equal(mixedPipeMatch.unmatchedLeftCount, 0);
+          assert.equal(mixedPipeMatch.unmatchedRightCount, 0);
+          assert.equal(mixedPipeMatch.selectedPairs.length, 5);
+          assert.equal(mixedPipeMatch.selectedPairs.every((pair) => pair.pipeClassReasonCode === 'PIPE_CLASS_EXACT'), true,
+            'normal matcher must never cross-pair incompatible pipe classes');
+
           const negative = comparison.familyComparisons.find((item) =>
             item.leftFamilyId === 'PS-10146' && item.rightFamilyId === 'PS-12146');
           assert.ok(negative, 'PS-10146 -> PS-12146 negative control missing');
@@ -111,6 +121,7 @@ jobs:
             acceptedStructuralCount: data.diagnostics.acceptedStructuralCount,
             finalMatchResultHistogram: data.diagnostics.finalMatchResultHistogram,
             ps10076: match,
+            ps10092: mixedPipeMatch,
             ps10669Review: review,
             ps10669Structural: reviewStructural,
             ps10146Decision: negativeDecision,
