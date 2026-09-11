@@ -1,6 +1,6 @@
 export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_REMARKS_V1',
-  version: '1.3.3',
+  version: '1.4.0',
   precedence: Object.freeze([
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
@@ -23,7 +23,7 @@ export function renderSupportRevisionRemarks(ledger, sourceModel, targetModel, p
   const trace = [];
   for (const event of ledger?.events || []) {
     if (!event.remarkEligible) continue;
-    for (const projection of projectEvent(event, sourceModel, targetModel)) {
+    for (const projection of projectSupportRevisionRemarkEvent(event, sourceModel, targetModel)) {
       addToken(projection.side === 'source' ? sourceTokens : targetTokens, projection);
       trace.push(Object.freeze({ eventId: event.eventId, side: projection.side, rowId: projection.rowId, tokenKey: projection.key, token: projection.text, sourceXmlNode: event.sourceXmlNode, targetXmlNode: event.targetXmlNode, lineageEdgeId: event.lineageEdgeId, candidateIds: event.candidateIds, eventTrace: event.trace }));
     }
@@ -31,11 +31,11 @@ export function renderSupportRevisionRemarks(ledger, sourceModel, targetModel, p
   return Object.freeze({ schema: 'support-revision-remark-render/v1', policyId: policy.policyId, sourceRemarks: freezeRemarkMap(sourceTokens, policy), targetRemarks: freezeRemarkMap(targetTokens, policy), trace: Object.freeze(trace) });
 }
 
-function projectEvent(event, sourceModel, targetModel) {
+export function projectSupportRevisionRemarkEvent(event, sourceModel, targetModel) {
   const source = sourceModel?.locationByNodeId?.get(event.sourceXmlNode) || null;
   const target = targetModel?.locationByNodeId?.get(event.targetXmlNode) || null;
   if (event.type === 'PIPE_IDENTITY_SHELL_INVALIDATED' && target) return [token('target', target.sourceRowId, 'LINE_NUMBER_INVALID', 'Invalid (Line No. Changed)')];
-  if (event.type === 'COMMON_SUPPORT_REPLICATED' && target) return [token('target', target.sourceRowId, 'COMMON_REPLICATED', 'Replicated due to Common support')];
+  if (event.type === 'COMMON_SUPPORT_REMARK_REPLICATED' && target) return [token('target', target.sourceRowId, 'COMMON_REPLICATED', 'Replicated due to Common support')];
   if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Support Relocated')];
   if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Support Relocated')];
   // Component-set churn is structural graph evidence, not proof that a surviving
@@ -76,4 +76,4 @@ function freezeRemarkMap(map, policy) {
   })));
 }
 
-export const _test = Object.freeze({ projectEvent, freezeRemarkMap, familyChangeTokens });
+export const _test = Object.freeze({ projectEvent: projectSupportRevisionRemarkEvent, freezeRemarkMap, familyChangeTokens });
