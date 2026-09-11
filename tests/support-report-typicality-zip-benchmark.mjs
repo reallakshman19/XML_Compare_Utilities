@@ -192,6 +192,7 @@ for (const left of leftFiles) {
 const firstLeft = leftFiles[0];
 const firstRight = rightFiles[0];
 const allFamilyComparisons = comparisons.flatMap((comparison) => comparison.familyComparisons);
+const allFamilyMatches = comparisons.flatMap((comparison) => comparison.familyMatches);
 const rank = (a, b) => b.exactTopologyPassCount - a.exactTopologyPassCount
   || b.allSignalPassCount - a.allSignalPassCount
   || (Number(a.geometryCostMm) || Number.MAX_SAFE_INTEGER) - (Number(b.geometryCostMm) || Number.MAX_SAFE_INTEGER)
@@ -207,6 +208,11 @@ const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [c
   allFamilyComparisons.filter((item) => item.allSignalPassCount === count).length]));
 const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
   allFamilyComparisons.filter((item) => item.exactTopologyPassCount === count).length]));
+const finalMatchResultHistogram = Object.fromEntries(['TYPICAL', 'REVIEW', 'AMBIGUOUS', 'NO_MATCH'].map((resultName) => [
+  resultName,
+  allFamilyMatches.filter((item) => item.result === resultName).length,
+]));
+const reviewMatches = allFamilyMatches.filter((item) => item.result === 'REVIEW');
 
 const result = {
   schema: 'SupportReportTypicalityZipBenchmark.v2',
@@ -221,9 +227,13 @@ const result = {
   diagnostics: {
     familyComparisonCount: allFamilyComparisons.length,
     acceptedStructuralCount: allFamilyComparisons.filter((item) => item.result === 'TYPICAL').length,
+    finalFamilyDecisionCount: allFamilyMatches.length,
+    finalMatchResultHistogram,
+    finalResolvedCounterpartCount: allFamilyMatches.filter((item) => item.rightFamilyId).length,
     sameTrailing3CandidateCount: sameTrailing3.length,
     allSignalPassHistogram: passHistogram,
     exactTopologyPassHistogram: topologyHistogram,
+    reviewMatches,
     topNearCandidates: topNear,
     topSameTrailing3Candidates: sameTrailing3.slice(0, 40),
     locationDiagnostics,
@@ -240,9 +250,13 @@ console.log(`ZIP_BENCHMARK_DIAGNOSTICS=${JSON.stringify({
   rightFamilyCount: result.rightInventory.reduce((sum, x) => sum + x.familyInventory.length, 0),
   familyComparisonCount: result.diagnostics.familyComparisonCount,
   acceptedStructuralCount: result.diagnostics.acceptedStructuralCount,
+  finalFamilyDecisionCount: result.diagnostics.finalFamilyDecisionCount,
+  finalMatchResultHistogram: result.diagnostics.finalMatchResultHistogram,
+  finalResolvedCounterpartCount: result.diagnostics.finalResolvedCounterpartCount,
   sameTrailing3CandidateCount: result.diagnostics.sameTrailing3CandidateCount,
   allSignalPassHistogram: result.diagnostics.allSignalPassHistogram,
   exactTopologyPassHistogram: result.diagnostics.exactTopologyPassHistogram,
+  reviewMatches: result.diagnostics.reviewMatches.slice(0, 20),
   topNearCandidates: result.diagnostics.topNearCandidates.slice(0, 20),
   topSameTrailing3Candidates: result.diagnostics.topSameTrailing3Candidates.slice(0, 20),
   locationDiagnostics: result.diagnostics.locationDiagnostics.slice(0, 25),
