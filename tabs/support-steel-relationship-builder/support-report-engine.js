@@ -11,7 +11,7 @@ import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
   supportReportCarrierAttributeConflicts,
-} from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14&rca=20260910-bore-site-zone-19';
+} from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20';
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
   resolveSupportReportRowMembers,
