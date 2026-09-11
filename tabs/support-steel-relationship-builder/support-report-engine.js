@@ -6,7 +6,7 @@ import {
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml,
-} from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260910-support-report-location-17';
+} from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22';
 import {
   projectSupportReportFieldProvenance,
   projectSupportReportFields,
@@ -15,7 +15,7 @@ import {
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
   resolveSupportReportRowMembers,
-} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20';
+} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
@@ -137,6 +137,8 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       locationIndex: group.locationIndex ?? 0,
       locationCountOnPipe: group.locationCountOnPipe ?? 1,
       locationMergeToleranceMm: group.locationMergeToleranceMm ?? null,
+      locationGroupingBasis: Object.freeze([...(group.locationGroupingBasis || [])]),
+      memberAttributionBasis: resolution.memberAttributionBasis || '',
       multipleLocationsOnPipe: Boolean(group.multipleLocationsOnPipe),
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),

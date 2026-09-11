@@ -34,9 +34,12 @@ jobs:
         run: >-
           node --test
           tests/support-report-location-benchmarks.test.mjs
+          tests/support-report-location-attribution.test.mjs
+          tests/support-report-prev-name-semantics.test.mjs
           tests/support-report-json-trace.test.mjs
           tests/support-report-json-trace-ui.test.mjs
           tests/support-report-pos-trace-remediation.test.mjs
+          tests/support-report-trace-export.test.mjs
           tests/support-report-field-projection.test.mjs
           tests/support-report-field-projection-rca.test.mjs
           tests/support-report-typicality.test.mjs
