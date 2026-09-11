@@ -115,8 +115,10 @@ test('11168 -> 14168 benchmark is accepted from auditable structural signals', (
   const distance = comparison.signals.find((item) => item.reasonCode === 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE');
   assert.equal(distance.result, 'PASS');
   assert.ok(distance.residual.median <= 10);
-  assert.ok(distance.residual.p95 <= 25);
+  assert.ok(distance.residual.p95 > 25);
   assert.ok(distance.residual.max <= 50);
+  assert.equal(distance.p95Result, 'ADVISORY_EXCEEDED');
+  assert.deepEqual(distance.policy, { median: 'HARD', p95: 'ADVISORY', max: 'HARD' });
 });
 
 test('canonical pipe line uses the parent piping-line node instead of branch spelling', () => {
@@ -159,6 +161,7 @@ test('single-location family pair-distance is unavailable and non-blocking', () 
   assert.equal(audit.matches[0].result, 'TYPICAL');
   const pair = audit.familyComparisons[0].signals.find((item) => item.reasonCode === 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE');
   assert.equal(pair.result, 'UNAVAILABLE');
+  assert.equal(pair.p95Result, 'UNAVAILABLE');
 });
 
 test('strong PS family-name evidence breaks ties only after structural eligibility', () => {
