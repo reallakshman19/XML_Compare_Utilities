@@ -160,7 +160,7 @@ test('field provenance exposes authoritative conflicts without pseudo-confidence
   assert.equal(evidence.size.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT);
   assert.equal(evidence.size.confidenceClass, 'CONFLICT');
   assert.deepEqual(evidence.size.sourceIds, ['/PIPE-A', '/PIPE-B']);
-  assert.deepEqual(evidence.size.values, ['250', '300']);
+  assert.deepEqual(evidence.size.values, [250, 300]);
   assert.equal(evidence.pipeSchedule.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.SOURCE_CONFLICT);
   assert.equal(evidence.eastWest.sourceClass, SUPPORT_REPORT_FIELD_SOURCE_CLASSES.UNRESOLVED);
 });
