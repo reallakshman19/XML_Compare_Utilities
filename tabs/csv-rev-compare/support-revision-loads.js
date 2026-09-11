@@ -6,18 +6,22 @@ export const SUPPORT_REV_LOAD_POLICY_V1 = Object.freeze({
 });
 
 const clean = (value) => String(value ?? '').trim();
+const semanticRaw = (value) => {
+  const raw = clean(value);
+  return raw === '-' ? '' : raw;
+};
 
 export function normalizeLoadVector(loadNodes = []) {
   const slots = Object.freeze(loadNodes.map((node) => normalizeSlot(node)));
-  const nonEmpty = slots.filter((slot) => slot.raw !== '').length;
-  const numeric = slots.filter((slot) => slot.raw !== '' && slot.value != null).length;
+  const nonEmpty = slots.filter((slot) => semanticRaw(slot.raw) !== '').length;
+  const numeric = slots.filter((slot) => semanticRaw(slot.raw) !== '' && slot.value != null).length;
   const state = nonEmpty === 0 ? 'EMPTY' : numeric === nonEmpty ? 'NUMERIC' : numeric === 0 ? 'SYMBOLIC' : 'MIXED';
   return Object.freeze({ state, slots });
 }
 
 function normalizeSlot(node = {}) {
   const raw = clean(node.raw ?? node.fields?.raw);
-  const number = raw === '' ? Number.NaN : Number(raw);
+  const number = semanticRaw(raw) === '' ? Number.NaN : Number(raw);
   return Object.freeze({
     ordinal: Number(node.ordinal ?? node.fields?.ordinal ?? 0),
     columnOrdinal: Number(node.columnOrdinal ?? node.fields?.columnOrdinal ?? 0),
@@ -48,7 +52,7 @@ function compareSlot(key, before, after, policy) {
   const delta = before?.value != null && after?.value != null ? after.value - before.value : null;
   const scale = Math.max(Math.abs(before?.value || 0), Math.abs(after?.value || 0), 1);
   const tolerance = Math.max(policy.absoluteTolerance, scale * policy.relativeTolerance);
-  const equal = delta != null ? Math.abs(delta) <= tolerance : clean(before?.raw) === clean(after?.raw);
+  const equal = delta != null ? Math.abs(delta) <= tolerance : semanticRaw(before?.raw) === semanticRaw(after?.raw);
   return Object.freeze({ slotKey: key, before: before || null, after: after || null, delta, tolerance, equal });
 }
 function slotKey(slot) {
@@ -58,7 +62,7 @@ function slotKey(slot) {
   if (columnOrdinal > 0) return `ORDINAL:${columnOrdinal}:${clean(slot?.sourceHeader).toUpperCase()}`;
   return `${clean(slot?.sourceHeader).toUpperCase()}#${Number(slot?.ordinal || 0)}`;
 }
-function rawSignature(vector) { return vector.slots.map((slot) => `${slotKey(slot)}=${slot.raw}`).join('|'); }
+function rawSignature(vector) { return vector.slots.map((slot) => `${slotKey(slot)}=${semanticRaw(slot.raw)}`).join('|'); }
 function result(classification, before, after, deltas) { return Object.freeze({ classification, before, after, deltas }); }
 
-export const _test = Object.freeze({ normalizeSlot, slotKey, rawSignature, loadDeltas });
+export const _test = Object.freeze({ normalizeSlot, slotKey, rawSignature, loadDeltas, semanticRaw });
