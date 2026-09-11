@@ -1,6 +1,6 @@
 # Active Handover — CSV-REV-REMARKS-1192
 
-ACTIVE_ENDPOINT: EP-CSVRMRK-0004
+ACTIVE_ENDPOINT: EP-CSVRMRK-0005
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1192
 PARENT_WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1181
 ISSUE_BASIS_ID: IB-CSV-REV-REMARKS-1192-0001
@@ -8,14 +8,14 @@ PR: 1197
 BRANCH: issue-1192-remark-remediation
 LATEST_MATERIAL_LEG: LEG-001
 MATERIAL_HEAD: 81c727d3a5841b9b23ba54ad8738a33808f83921
-CURRENT_MAIN: 2b473ae1c4e93d92ad2af8e0716bd8e72ac2eab0
-POST_BASIS_DRIFT: METADATA_ONLY
-ENGINEERING_STATE: IN_PROGRESS
+CURRENT_MAIN: ec01dc8b67055e8c3de90f3b9d5fa89a386dc0ac
+POST_BASIS_DRIFT: UNRELATED_MAIN_ADVANCE
+ENGINEERING_STATE: BLOCKED
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: FAIL
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
-MERGEABILITY: MERGEABLE
+MERGEABILITY: NOT_MERGEABLE_AT_CHECKPOINT
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
@@ -28,16 +28,18 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5632771313
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0001.md
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_CSVMRK_0005_COMMENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_FINAL_COMMENT_SYNC
+QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0002.md
 QUALIFICATION_PR: 1200
-QUALIFICATION_HEAD: fcc572b77fdf7e8dae5ee7fe78d020f1dadd47ab
-QUALIFICATION_RUN: 34586607702
-QUALIFICATION_JOB: 103222162057
+QUALIFICATION_HEAD: ea0a683e1fd0fb45915805624de4301a953bb0be
+QUALIFICATION_RUN: 34588601880
+QUALIFICATION_JOB: 103228446801
 
-R1 executable qualification reached the real R2→R3 oracle and failed only the relocation bucket: Phase1 PASS 1/1; Phase2 FAIL expected13/detected14/TP7/FP7/FN6/F1=0.5185185185; Phase3 PASS 2/2; Phase4 PASS 2/2 checkable with one known unsupported no-predecessor row.
+R1 failure isolation is complete and produced an authority conflict rather than a safe production predicate. X is `HIGH_RESIDUAL` (≈143.778 mm median residual vs 25 mm gate), Y/Z are `VALIDATED`; all six Phase-2 false negatives are exact Civil+PIPE `1->1` rows whose meaningful movement is X-only. Several oracle-negative detections are also exact Civil+PIPE `1->1` rows with strong persistent-reference continuity and material movement on validated Y/Z axes.
 
-The previous vacuous Phase-2 benchmark is fixed. The current R1 relocation detector is not acceptable: trusted `1->1` eligibility is over-broad and simultaneously misses six expected rows. R2+ mismatch classes remain untouched.
+No production patch was made: admitting the six X-only labels would weaken the R1 validated-axis contract, while suppressing validated-axis detections solely to fit blank oracle cells would use oracle absence as detector authority. Phase1/3/4 remain clean; Phase2 remains expected13/detected14/TP7/FP7/FN6/F1≈0.5185.
 
-EXACT_NEXT_ACTION: await a new Owner progression for R1 failure isolation. Trace the seven FP and six FN against lineage/cardinality/coordinate-frame evidence, derive a narrow event rule without using target remarks as evidence, patch R1, and rerun the same qualification-only gate. Do not begin R2 and do not merge #1197 or #1200.
+`main` advanced independently to `ec01dc8...` via unrelated Support Report changes and GitHub currently reports PR #1197 not mergeable. Conflict resolution is deferred while R1 is blocked and merge is unauthorized.
+
+EXACT_NEXT_ACTION: OWNER_DECISION_REQUIRED — either preserve the validated-axis contract and classify the six X-only labels unsupported/uncheckable, or explicitly authorize a high-residual-axis relocation policy plus structural negative-evidence rules. Then perform one new bounded R1 material leg and rerun qualification-only PR #1200. Do not begin R2. Do not merge #1197 or #1200; #1200 must never merge.
