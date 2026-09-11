@@ -1,3 +1,4 @@
+import { classifySupportLocationEvidence } from './support-revision-lineage-eligibility.js';
 import { projectSupportRevisionRemarkEvent } from './support-revision-remarks.js';
 
 const clean = (value) => String(value ?? '').trim();
@@ -33,6 +34,12 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
       if (directRemarks.has(target.nodeId)) continue;
       if ((blockingEvents.get(target.nodeId) || []).length) continue;
 
+      // A component-only retained row can still carry persistent-reference evidence,
+      // but it is not a complete continuing sibling row. Require independent active
+      // payload beyond components before inheriting a sibling's visible remark.
+      const targetEvidence = classifySupportLocationEvidence(target);
+      if (!hasIndependentActivePayload(targetEvidence)) continue;
+
       const predecessor = exactIdentityPredecessor(target, sourceModel, lineage);
       if (!predecessor) continue;
 
@@ -59,6 +66,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           triggerSiblingNodeIds: Object.freeze(triggerNodeIds),
           triggerSiblingRowIds: Object.freeze(triggerRowIds),
           triggerRemarkEventIds: Object.freeze(triggerEventIds),
+          recipientEvidence: targetEvidence.evidence,
         }),
         matchingMethod: 'common-support-sibling-remark-propagation',
         reasonCodes: Object.freeze([
@@ -66,6 +74,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           'DISTINCT_PIPE_SIBLINGS',
           'SIBLING_HAS_GENERATED_REMARK',
           'RECIPIENT_HAS_NO_MATERIAL_LOCAL_CHANGE',
+          'RECIPIENT_ACTIVE_NONCOMPONENT_PAYLOAD',
           'EXACT_CIVIL_PIPE_PREDECESSOR',
         ]),
         persistentReferences: Object.freeze([...sharedReferences]),
@@ -92,6 +101,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           triggerSiblingRowIds: Object.freeze(triggerRowIds),
           triggerRemarkEventIds: Object.freeze(triggerEventIds),
           ignoredAuditEventIds: Object.freeze(auditOnlyEventIdsForTarget(ledger, target.nodeId)),
+          recipientEvidence: targetEvidence.evidence,
           sourceCells: predecessor.source.provenance?.cells || {},
           targetCells: target.provenance?.cells || {},
         }),
@@ -166,6 +176,16 @@ function auditOnlyEventIdsForTarget(ledger, targetNodeId) {
     .sort();
 }
 
+function hasIndependentActivePayload(assessment) {
+  const evidence = assessment?.evidence || {};
+  return Boolean(
+    evidence.hasCoordinateEvidence
+    || evidence.hasLoadEvidence
+    || evidence.hasSupportCountEvidence
+    || evidence.hasDescriptionEvidence
+  );
+}
+
 function exactIdentityPredecessor(target, sourceModel, lineage) {
   if (!target?.nodeId || !target.supportLocationIdentity) return null;
   const matches = [];
@@ -200,6 +220,7 @@ export const _test = Object.freeze({
   directTargetRemarkEvidence,
   recipientBlockingEventEvidence,
   auditOnlyEventIdsForTarget,
+  hasIndependentActivePayload,
   exactIdentityPredecessor,
   pipeSiblingKey,
   summarize,
