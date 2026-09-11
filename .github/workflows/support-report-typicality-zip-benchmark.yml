@@ -66,6 +66,7 @@ jobs:
             item.leftFamilyId === 'PS-10076' && item.rightFamilyId === 'PS-12076');
           assert.ok(structural, 'PS-10076 -> PS-12076 structural comparison missing');
           assert.equal(structural.locationCount, 'PASS');
+          assert.equal(structural.uniqueMemberCount, 'PASS');
           assert.equal(structural.memberMultiplicity, 'PASS');
           assert.equal(structural.pipeClassPopulation, 'PASS');
           assert.equal(structural.envelope, 'PASS');
@@ -76,6 +77,18 @@ jobs:
           assert.ok(review, 'PS-10669 family decision missing');
           assert.equal(review.result, 'REVIEW');
           assert.equal(review.rightFamilyId, 'PS-12669');
+          assert.equal(review.reasonCode, 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED');
+          assert.deepEqual(review.failedReasonCodes, [
+            'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+            'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+          ]);
+          const reviewStructural = comparison.familyComparisons.find((item) =>
+            item.leftFamilyId === 'PS-10669' && item.rightFamilyId === 'PS-12669');
+          assert.ok(reviewStructural, 'PS-10669 -> PS-12669 structural comparison missing');
+          assert.equal(reviewStructural.uniqueMemberCount, 'FAIL');
+          assert.equal(reviewStructural.uniqueMemberCountLeft, 6);
+          assert.equal(reviewStructural.uniqueMemberCountRight, 5);
+          assert.equal(reviewStructural.memberMultiplicity, 'FAIL');
           assert.equal(review.locationAssignmentResult, 'PARTIAL');
           assert.equal(review.correspondenceStatus, 'DETERMINISTIC');
           assert.equal(review.selectedCount, 5);
@@ -98,6 +111,7 @@ jobs:
             finalMatchResultHistogram: data.diagnostics.finalMatchResultHistogram,
             ps10076: match,
             ps10669Review: review,
+            ps10669Structural: reviewStructural,
             ps10146Decision: negativeDecision,
             ps10146Negative: negative,
           }, null, 2));
