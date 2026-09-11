@@ -121,6 +121,7 @@ function summarizeComparison(left, right) {
       };
     }),
     familyComparisons: (audit.familyComparisons || []).map((comparison) => {
+      const uniqueMemberCountSignal = signal(comparison, 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL');
       const summary = {
         leftFamilyId: comparison.leftFamilyId,
         rightFamilyId: comparison.rightFamilyId,
@@ -128,6 +129,9 @@ function summarizeComparison(left, right) {
         reasonCode: comparison.reasonCode,
         geometryCostMm: comparison.geometryCostMm,
         locationCount: signal(comparison, 'STRUCT_LOCATION_COUNT_EQUAL')?.result || null,
+        uniqueMemberCount: uniqueMemberCountSignal?.result || null,
+        uniqueMemberCountLeft: uniqueMemberCountSignal?.left ?? null,
+        uniqueMemberCountRight: uniqueMemberCountSignal?.right ?? null,
         memberMultiplicity: signal(comparison, 'STRUCT_MEMBER_MULTIPLICITY_EQUAL')?.result || null,
         pipeClassPopulation: signal(comparison, 'STRUCT_PIPE_CLASS_POPULATION_EQUAL')?.result || null,
         rawPointCount: signal(comparison, 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL')?.result || null,
@@ -136,10 +140,11 @@ function summarizeComparison(left, right) {
         pairDistance: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.result || null,
         pairDistanceResidualMm: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.residual || null,
       };
-      summary.requiredTopologyPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation]
+      summary.requiredTopologyPassCount = [summary.locationCount, summary.uniqueMemberCount,
+        summary.memberMultiplicity, summary.pipeClassPopulation].filter((value) => value === 'PASS').length;
+      summary.requiredSignalPassCount = [summary.locationCount, summary.uniqueMemberCount,
+        summary.memberMultiplicity, summary.pipeClassPopulation, summary.envelope, summary.pairDistance]
         .filter((value) => value === 'PASS').length;
-      summary.requiredSignalPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation,
-        summary.envelope, summary.pairDistance].filter((value) => value === 'PASS').length;
       summary.auditOnlyPassCount = [summary.rawPointCount].filter((value) => value === 'PASS').length;
       summary.exactTopologyPassCount = summary.requiredTopologyPassCount + summary.auditOnlyPassCount;
       summary.allSignalPassCount = summary.requiredSignalPassCount + summary.auditOnlyPassCount;
@@ -221,13 +226,13 @@ const diagnosticSeed = [...new Map([...sameTrailing3.slice(0, 30), ...topNear]
   .map((item) => [`${item.leftFamilyId}\u0000${item.rightFamilyId}`, item])).values()].slice(0, 40);
 const locationDiagnostics = diagnosticSeed.map((item) => locationDiagnostic(firstLeft, firstRight, item));
 
-const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [count,
+const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((count) => [count,
   allFamilyComparisons.filter((item) => item.allSignalPassCount === count).length]));
-const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
+const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5].map((count) => [count,
   allFamilyComparisons.filter((item) => item.exactTopologyPassCount === count).length]));
-const requiredSignalPassHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5].map((count) => [count,
+const requiredSignalPassHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [count,
   allFamilyComparisons.filter((item) => item.requiredSignalPassCount === count).length]));
-const requiredTopologyPassHistogram = Object.fromEntries([0, 1, 2, 3].map((count) => [count,
+const requiredTopologyPassHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
   allFamilyComparisons.filter((item) => item.requiredTopologyPassCount === count).length]));
 const finalMatchResultHistogram = Object.fromEntries(['TYPICAL', 'REVIEW', 'AMBIGUOUS', 'NO_MATCH'].map((resultName) => [
   resultName,
