@@ -190,17 +190,38 @@ test('strong PS family-name evidence breaks ties only after structural eligibili
   assert.equal(familyNameEvidence('PS-10076', 'PS-12076').class, 'ONE_POSITION_DIFFERENT');
 });
 
-test('NO_MATCH retains the best rejected candidate audit trail', () => {
+test('strong counterpart with only member multiplicity changed is REVIEW, never TYPICAL', () => {
+  const left = familyEvidence([{
+    familyId: 'PS-10010',
+    pipeTag: 'ASIM-1884-2"-A8010545-13421',
+    points: [{ x: 0, y: 0, z: 0 }],
+    members: [['/PS-10010.1', '/PS-10010.2']],
+  }]);
+  const right = familyEvidence([{
+    familyId: 'PS-12010',
+    pipeTag: 'ASIM-1885-2"-A8010745-13421-01',
+    points: [{ x: 2000, y: -3000, z: 500 }],
+    members: [['/PS-12010.1']],
+  }]);
+  const audit = buildSupportReportTypicalityAudit(left, right);
+  assert.equal(audit.familyComparisons[0].result, 'NOT_TYPICAL');
+  assert.equal(audit.matches[0].result, 'REVIEW');
+  assert.equal(audit.matches[0].rightFamilyId, 'PS-12010');
+  assert.equal(audit.matches[0].reasonCode, 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED');
+  assert.deepEqual(audit.matches[0].failedReasonCodes, ['STRUCT_MEMBER_MULTIPLICITY_EQUAL']);
+});
+
+test('NO_MATCH retains the best rejected candidate audit trail when family-name evidence is weak', () => {
   const left = familyEvidence([{
     familyId: 'PS-10010', pipeTag: 'ASIM-1884-2"-A8010545-13421', points: [{ x: 0, y: 0, z: 0 }], members: [['/PS-10010.1']],
   }]);
   const right = familyEvidence([{
-    familyId: 'PS-12010', pipeTag: 'ASIM-1885-2"-A8010745-13421-01', points: [{ x: 0, y: 0, z: 0 }], members: [[]],
+    familyId: 'PS-13011', pipeTag: 'ASIM-1885-2"-A8010745-13421-01', points: [{ x: 0, y: 0, z: 0 }], members: [[]],
   }]);
   const audit = buildSupportReportTypicalityAudit(left, right);
   assert.equal(audit.matches[0].result, 'NO_MATCH');
-  assert.equal(audit.matches[0].bestCandidateFamilyId, 'PS-12010');
-  assert.equal(audit.matches[0].auditId, 'TYP-PS-10010--PS-12010');
+  assert.equal(audit.matches[0].bestCandidateFamilyId, 'PS-13011');
+  assert.equal(audit.matches[0].auditId, 'TYP-PS-10010--PS-13011');
   assert.deepEqual(audit.matches[0].failedReasonCodes, ['STRUCT_MEMBER_MULTIPLICITY_EQUAL']);
 });
 
