@@ -120,7 +120,7 @@ function typicalityConfigCard() {
   }
   const controls = [...sections.entries()].map(([section, settings]) => `<div class="ssrb-source-card"><b>${h(section)}</b>${settings.map(renderTypicalitySetting).join('')}</div>`).join('');
   const policies = SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES.map((policy) => `<div><b>${h(policy.label)}</b>: ${h(policy.value)} ${infoIcon(policy.help)}</div>`).join('');
-  return `<details class="ssrb-card" data-ssr-typical-config><summary><b>Typicality matching configuration</b> ${infoIcon('Editable values below feed the comparison profile used in the audit. Defaults are provisional and remain visible rather than hidden in code.')}</summary><p>Active comparison controls. Changing any value invalidates the current report and requires rebuild.</p><div class="ssrb-input-grid">${controls}</div><div class="ssrb-source-card"><b>Declared matcher policies / next structured-sequence seam</b>${policies}</div></details>`;
+  return `<details class="ssrb-card" data-ssr-typical-config open><summary><b>Typicality matching configuration</b> ${infoIcon('Editable values below feed the comparison profile used in the audit. Defaults are provisional and remain visible rather than hidden in code.')}</summary><p>Active comparison controls. Changing any value invalidates the current report and requires rebuild.</p><div class="ssrb-input-grid">${controls}</div><div class="ssrb-source-card"><b>Declared matcher policies / next structured-sequence seam</b>${policies}</div></details>`;
 }
 function renderTypicalitySetting(setting) {
   const value = profileValue(SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL, setting.path);
