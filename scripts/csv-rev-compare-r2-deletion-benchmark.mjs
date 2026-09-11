@@ -34,6 +34,7 @@ const expected = new Set([
   'SL-111073(REF)||BWGA-1000-2"-P8310001-13421-01',
   'SL-111073(REF)||BWGA-1000-2"-P8310007-253461P1-01',
 ]);
+const invalidSupportKey = 'SL-111069(REF)||BWGA-1000-3/4"-D8310024-253461P1-01';
 
 const targetByNode = compare.targetModel.locationByNodeId;
 const deletionEvents = compare.ledger.events.filter((event) => event.type === SUPPORT_REV_DELETION_STATE_EVENT);
@@ -45,7 +46,20 @@ const truePositives = [...expected].filter((key) => detected.has(key)).sort();
 const falsePositives = [...detected].filter((key) => !expected.has(key)).sort();
 const falseNegatives = [...expected].filter((key) => !detected.has(key)).sort();
 
-const diagnostics = [...expected].sort().map((key) => {
+function simpleComponent(component) {
+  return `${component.reference || ''}|${component.supportTypeKey || component.supportType || ''}|${component.memberId || ''}`;
+}
+function finiteAxisCount(location) {
+  return ['x', 'y', 'z'].filter((axis) => Number.isFinite(location?.position?.[axis]?.directedMm)).length;
+}
+function pairEvents(source, target) {
+  if (!source || !target) return [];
+  return compare.ledger.events
+    .filter((event) => event.sourceXmlNode === source.nodeId && event.targetXmlNode === target.nodeId)
+    .map((event) => event.type)
+    .sort();
+}
+function diagnosticForKey(key) {
   const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
   const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
   const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
@@ -56,16 +70,43 @@ const diagnostics = [...expected].sort().map((key) => {
     sourceRow: source?.sourceRowId || '',
     edge: edge ? { cardinality: edge.cardinality, outcome: edge.outcome, matchingMethod: edge.matchingMethod, sourceCount: edge.sourceNodeIds?.length || 0, targetCount: edge.targetNodeIds?.length || 0 } : null,
     targetPrevName: target?.legacyIdentity || '',
+    sourcePrevName: source?.legacyIdentity || '',
     targetPositionRaw: target ? { x: target.position?.x?.raw || '', y: target.position?.y?.raw || '', z: target.position?.z?.raw || '' } : null,
+    sourcePositionRaw: source ? { x: source.position?.x?.raw || '', y: source.position?.y?.raw || '', z: source.position?.z?.raw || '' } : null,
     targetTotal: target?.sourceFields?.totalSupportPoints || '',
+    sourceTotal: source?.sourceFields?.totalSupportPoints || '',
     targetRefs: target?.persistentReferences || [],
     sourceRefs: source?.persistentReferences || [],
+    targetComponents: (target?.components || []).map(simpleComponent).sort(),
+    sourceComponents: (source?.components || []).map(simpleComponent).sort(),
+    targetDescription: target?.sourceFields?.primaryDescription || '',
+    sourceDescription: source?.sourceFields?.primaryDescription || '',
+    pairEventTypes: pairEvents(source, target),
     assessment,
   };
-});
+}
+
+const diagnostics = [...expected, invalidSupportKey].sort().map(diagnosticForKey);
 console.log('R2_DELETION_DIAGNOSTICS_START');
 for (const row of diagnostics) console.log(JSON.stringify(row));
 console.log('R2_DELETION_DIAGNOSTICS_END');
+
+const structuralCandidates = compare.lineage.edges.flatMap((edge) => {
+  if (edge.cardinality !== '1->1' || edge.outcome !== 'DETERMINISTIC' || edge.matchingMethod !== 'civil-pipe-location-identity') return [];
+  const source = compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds?.[0]);
+  const target = compare.targetModel.locationByNodeId.get(edge.targetNodeIds?.[0]);
+  if (!source || !target) return [];
+  const shared = (source.persistentReferences || []).filter((ref) => (target.persistentReferences || []).includes(ref));
+  const eligible = finiteAxisCount(source) >= 2
+    && finiteAxisCount(target) === 0
+    && !String(target.legacyIdentity || '').trim()
+    && shared.length > 0
+    && (target.components?.length || 0) > 0;
+  return eligible ? [diagnosticForKey(target.supportLocationIdentity)] : [];
+});
+console.log('R2_STRUCTURAL_CANDIDATES_START');
+for (const row of structuralCandidates) console.log(JSON.stringify(row));
+console.log('R2_STRUCTURAL_CANDIDATES_END');
 
 const remarksIndex = compare.output.headers.indexOf('REMARKS (IF ANY)');
 const outputByRow = new Map(compare.output.rows.filter((row) => row.disposition === 'REV2').map((row) => [row.sourceRowId, row]));
@@ -76,9 +117,7 @@ const wrongRenderedRemarks = deletionEvents.flatMap((event) => {
   return remark === 'Support deleted' ? [] : [{ key: target?.supportLocationIdentity || '', remark }];
 });
 
-const invalidSupportKey = 'SL-111069(REF)||BWGA-1000-3/4"-D8310024-253461P1-01';
 const invalidSupportNotCoerced = !detected.has(invalidSupportKey);
-
 const tombstoneWordingFailures = compare.ledger.events
   .filter((event) => event.type === 'SUPPORT_LOCATION_REMOVED')
   .flatMap((event) => {
@@ -102,6 +141,7 @@ const result = {
     wrongRenderedRemarks,
     invalidSupportNotCoerced,
     tombstoneWordingFailures,
+    structuralCandidateCount: structuralCandidates.length,
   },
   regressionGuards: {
     phase1: guards.phase1Guard.metrics,
