@@ -1,4 +1,5 @@
-export const SUPPORT_REPORT_JSON_TRACE_SCHEMA = 'SupportReportJsonTrace.v1';
+export const SUPPORT_REPORT_JSON_TRACE_SCHEMA = 'SupportReportJsonTrace.v2';
+export const SUPPORT_REPORT_POS_CLUSTER_PRECISION_MM = 0.001;
 
 const PREVIOUS_NAME_KEYS = Object.freeze([
   'PREV_NAME', 'PREVIOUS_NAME', 'PREV_PRIMARY_SUPPORT_NAME', 'OLD_NAME', 'PREVIOUS_SUPPORT_NAME',
@@ -19,18 +20,20 @@ export function resolveSupportReportObservedMembers(relationshipBundle, observed
   return Object.freeze({ matches: Object.freeze(matches), members: Object.freeze(members) });
 }
 
-export function buildSupportReportJsonTrace({ group, observedMatches = [], reportMembers = [] } = {}) {
+export function buildSupportReportJsonTrace({ group, observedMatches = [], nativeMembers = [] } = {}) {
   const resolvedIds = new Set(observedMatches.filter((match) => match.member).map((match) => token(match.member.memberId)));
   const memberRows = observedMatches.map(traceObservedMatch);
-  for (const member of reportMembers || []) {
+  for (const member of nativeMembers || []) {
     if (!member?.memberId || resolvedIds.has(token(member.memberId))) continue;
     memberRows.push(traceNativeMember(member, 'FAMILY_LINE_ENRICHMENT', ''));
   }
+  const frozenMembers = Object.freeze(memberRows);
   return Object.freeze({
     schema: SUPPORT_REPORT_JSON_TRACE_SCHEMA,
     secondarySupportFamilyId: group?.secondarySupportFamilyId || '',
     fullLineTag: group?.fullLineTag || '',
-    members: Object.freeze(memberRows),
+    members: frozenMembers,
+    posClusters: buildPosClusters(frozenMembers),
   });
 }
 
@@ -40,6 +43,46 @@ export function supportReportFamilyMismatchMemberIds(group = {}) {
     const memberFamily = familyRoot(memberId);
     return family && memberFamily && memberFamily !== family;
   });
+}
+
+function buildPosClusters(memberRows) {
+  const clusters = new Map();
+  for (const trace of memberRows || []) {
+    const key = validPoint(trace.positionGlobal) ? positionKey(trace.positionGlobal) : 'UNRESOLVED_POS';
+    if (!clusters.has(key)) clusters.set(key, []);
+    clusters.get(key).push(trace);
+  }
+  return Object.freeze([...clusters.entries()].map(([key, rows]) => freezeCluster(key, rows)));
+}
+function freezeCluster(key, rows) {
+  const point = key === 'UNRESOLVED_POS' ? null : roundedPoint(rows[0]?.positionGlobal);
+  return Object.freeze({
+    posClusterId: key,
+    positionBasis: point ? 'NATIVE_MEMBER_POSITION' : 'UNRESOLVED',
+    positionGlobal: point ? Object.freeze(point) : null,
+    resolvedMemberIds: Object.freeze(unique(rows.map((row) => row.resolvedMemberId).filter(Boolean))),
+    observedMemberIds: Object.freeze(unique(rows.map((row) => row.observedMemberId).filter(Boolean))),
+    matchBases: Object.freeze(unique(rows.map((row) => row.matchBasis).filter(Boolean))),
+    members: Object.freeze([...rows]),
+  });
+}
+function positionKey(point) {
+  const value = roundedPoint(point);
+  return `POS:${numberText(value.x)}|${numberText(value.y)}|${numberText(value.z)}`;
+}
+function roundedPoint(point) {
+  return {
+    x: roundToPrecision(point.x),
+    y: roundToPrecision(point.y),
+    z: roundToPrecision(point.z),
+  };
+}
+function roundToPrecision(value) {
+  const scale = 1 / SUPPORT_REPORT_POS_CLUSTER_PRECISION_MM;
+  return Math.round(Number(value) * scale) / scale;
+}
+function numberText(value) {
+  return Number(value).toFixed(3).replace(/\.000$/u, '').replace(/(\.\d*?)0+$/u, '$1');
 }
 
 function buildMemberIndex(bundle) {
@@ -150,3 +193,6 @@ function normalizeKey(value) { return String(value || '').replace(/[\s./-]+/g, '
 function validPoint(point) { return Boolean(point && [point.x, point.y, point.z].every(Number.isFinite)); }
 function token(value) { return clean(value).replace(/\(REF\)$/iu, '').replace(/^\/+/, '').toUpperCase(); }
 function clean(value) { return value == null ? '' : String(value).trim(); }
+function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
+
+export const _test = Object.freeze({ buildPosClusters, positionKey, roundedPoint });
