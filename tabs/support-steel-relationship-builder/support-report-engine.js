@@ -14,8 +14,8 @@ import {
 } from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20';
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
-  resolveSupportReportRowMembers,
-} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
+  resolveSupportReportDatumMetadata, resolveSupportReportRowMembers,
+} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
@@ -57,6 +57,7 @@ export function buildSupportReportBundle(input = {}) {
       xmlOnlyRowCount: rows.filter((row) => row.evidence.selectedNativeMemberIds.length === 0).length,
       nativeOnlyMemberCount: rows.reduce((sum, row) => sum + row.evidence.nativeOnlyMemberIds.length, 0),
       multiLocationRowCount: rows.filter((row) => row.evidence.multipleLocationsOnPipe).length,
+      datumMetadataRowCount: rows.filter((row) => row.evidence.metadataAttributionBasis === 'SINGLE_LOCATION_FAMILY_DATUM_METADATA').length,
       diagnosticCount: diagnostics.length,
     }),
     rows,
@@ -78,6 +79,14 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   const familyMembers = selectMembersForGroup(family, group);
   const resolution = resolveSupportReportRowMembers({ relationshipBundle, group, familyMembers });
   const selectedMembers = resolution.members;
+  const metadataMembers = !selectedMembers.length && Number(group?.locationCountOnPipe || 1) <= 1
+    ? (family?.members || []).filter((member) => String(member?.semanticRole || '').toUpperCase() === 'DATUM')
+      .filter((member) => memberMatchesLine(member, group.fullLineTag) || memberMatchesBranches(member, group))
+    : [];
+  const datumMetadata = resolveSupportReportDatumMetadata(metadataMembers);
+  const metadataAttributionBasis = selectedMembers.length ? 'CONCRETE_MEMBER_METADATA'
+    : Number(group?.locationCountOnPipe || 1) > 1 ? 'MULTI_LOCATION_DATUM_METADATA_DISABLED'
+      : metadataMembers.length ? 'SINGLE_LOCATION_FAMILY_DATUM_METADATA' : 'NO_DATUM_METADATA';
   const selectedIds = selectedMembers.map((member) => normalizeMemberId(member.memberId)).filter(Boolean);
   const observedClashIds = unique(group.primarySupportMemberIds.map(normalizeMemberId));
   const clashIds = observedClashIds.filter(isConcreteSupportMemberId);
@@ -111,16 +120,18 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
 
   const baseFields = projectSupportReportFields({ group: projectedGroup, reportMembers, carrierRows, coordinatePoint });
   const fields = enrichSupportReportProjectedFields(baseFields, {
-    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks, datumMetadata,
   });
   const baseProvenance = projectSupportReportFieldProvenance({
     group: projectedGroup, reportMembers, carrierRows, coordinateSource, coordinateSourceIds: [],
     selectedNativeMemberCount: selectedMembers.length,
   });
   const fieldProvenance = enrichSupportReportFieldProvenance(baseProvenance, baseFields, fields, {
-    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks, datumMetadata,
   });
-  const jsonTrace = buildRowJsonTrace({ group: projectedGroup, resolution, nativeMembers: selectedMembers });
+  const jsonTrace = buildRowJsonTrace({
+    group: projectedGroup, resolution, nativeMembers: selectedMembers, metadataMembers, datumMetadata, metadataAttributionBasis,
+  });
 
   const row = Object.freeze({
     schema: SUPPORT_REPORT_ROW_SCHEMA,
@@ -139,6 +150,9 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       locationMergeToleranceMm: group.locationMergeToleranceMm ?? null,
       locationGroupingBasis: Object.freeze([...(group.locationGroupingBasis || [])]),
       memberAttributionBasis: resolution.memberAttributionBasis || '',
+      metadataAttributionBasis,
+      metadataSourceMemberIds: Object.freeze([...(datumMetadata.sourceIds || [])]),
+      metadataAttributeConflicts: Object.freeze([...(datumMetadata.conflicts || [])]),
       multipleLocationsOnPipe: Boolean(group.multipleLocationsOnPipe),
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
