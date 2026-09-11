@@ -10,73 +10,84 @@ const [earlierPath, laterPath] = process.argv.slice(2);
 if (!earlierPath || !laterPath) process.exit(2);
 
 execFileSync(process.execPath, ['tests/csv-rev-compare-support-type-projection.test.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['tests/csv-rev-compare-common-support-replication.test.js'], { stdio: 'inherit' });
 
 const earlier = fs.readFileSync(earlierPath, 'utf8');
 const later = fs.readFileSync(laterPath, 'utf8');
 const earlierSource = parseBenchmarkSource(earlier, 'BENCHMARK_R2');
 const laterSource = parseBenchmarkSource(later, 'BENCHMARK_R3');
-const expected = expectedSupportTypeKeys(laterSource);
+const expectedCommon = expectedRemarkKeys(laterSource, /\bReplicated\s+due\s+to\s+Common\s+support\b/i);
+const expectedSupportType = expectedRemarkKeys(laterSource, /\bSupport\s+Type\s+Changes?\b/i);
 const compare = runSupportRevisionCompare(sourceToCsv(earlierSource, true), sourceToCsv(laterSource, true));
 if (!compare.exportReady) {
   console.error(JSON.stringify({ stage: compare.stage, diagnostics: compare.diagnostics }, null, 2));
   process.exit(3);
 }
 
-const detected = new Set(compare.targetModel.locations.flatMap((target) => {
-  const tokens = compare.remarks.targetRemarks?.[target.sourceRowId]?.tokens || [];
-  return tokens.some((token) => token.key === 'SUPPORT_TYPE_CHANGES') ? [target.supportLocationIdentity] : [];
-}));
-const structuralSetChangeKeys = eventTargetKeys(compare, 'SUPPORT_COMPONENT_SET_CHANGED');
-const actualTypeChangeKeys = eventTargetKeys(compare, 'SUPPORT_COMPONENT_TYPE_CHANGED');
-const truePositiveKeys = [...expected].filter((key) => detected.has(key)).sort();
-const falsePositiveKeys = [...detected].filter((key) => !expected.has(key)).sort();
-const falseNegativeKeys = [...expected].filter((key) => !detected.has(key)).sort();
+const detectedCommon = renderedTokenKeys(compare, 'COMMON_REPLICATED');
+const detectedSupportType = renderedTokenKeys(compare, 'SUPPORT_TYPE_CHANGES');
+const commonEvents = compare.ledger.events.filter((event) => event.type === 'COMMON_SUPPORT_REMARK_REPLICATED');
+const legacyStructuralReplicationEvents = compare.ledger.events.filter((event) => event.type === 'COMMON_SUPPORT_REPLICATED');
+const commonMetrics = metrics(expectedCommon, detectedCommon);
+const supportTypeMetrics = metrics(expectedSupportType, detectedSupportType);
 
-console.log('R3_SUPPORT_TYPE_FINAL_DIAGNOSTICS_START');
+console.log('R3_COMMON_SUPPORT_REPLICATION_DIAGNOSTICS_START');
 console.log(JSON.stringify({
-  expectedKeys: [...expected].sort(),
-  renderedDetectedKeys: [...detected].sort(),
-  structuralSetChangeKeys: [...structuralSetChangeKeys].sort(),
-  actualTypeChangeKeys: [...actualTypeChangeKeys].sort(),
+  expectedCommonKeys: [...expectedCommon].sort(),
+  renderedCommonKeys: [...detectedCommon].sort(),
+  commonEventCount: commonEvents.length,
+  legacyStructuralReplicationEventCount: legacyStructuralReplicationEvents.length,
 }));
-for (const key of [...structuralSetChangeKeys].sort()) {
+for (const key of [...new Set([...expectedCommon, ...detectedCommon])].sort()) {
   const target = compare.targetModel.locations.find((item) => item.supportLocationIdentity === key) || null;
-  const edge = target ? compare.lineage.edges.find((item) => item.targetNodeIds?.includes(target.nodeId)) || null : null;
-  const source = edge?.sourceNodeIds?.length === 1 ? compare.sourceModel.locationByNodeId.get(edge.sourceNodeIds[0]) || null : null;
-  const pairEvents = source && target
-    ? compare.ledger.events.filter((event) => event.sourceXmlNode === source.nodeId && event.targetXmlNode === target.nodeId)
+  const commonEvent = target
+    ? commonEvents.find((event) => event.targetXmlNode === target.nodeId) || null
+    : null;
+  const generatedRemark = target ? compare.remarks.targetRemarks?.[target.sourceRowId]?.remark || '' : '';
+  const directEvents = target
+    ? compare.ledger.events.filter((event) => event.targetXmlNode === target.nodeId && event.type !== 'COMMON_SUPPORT_REMARK_REPLICATED')
+    : [];
+  const siblings = target
+    ? compare.targetModel.locations
+      .filter((item) => normalizePart(item.family) === normalizePart(target.family) && item.nodeId !== target.nodeId)
+      .map((item) => ({
+        key: item.supportLocationIdentity,
+        rowId: item.sourceRowId,
+        generatedRemark: compare.remarks.targetRemarks?.[item.sourceRowId]?.remark || '',
+        directEventTypes: compare.ledger.events
+          .filter((event) => event.targetXmlNode === item.nodeId && event.type !== 'COMMON_SUPPORT_REMARK_REPLICATED')
+          .map((event) => event.type),
+      }))
     : [];
   console.log(JSON.stringify({
+    classification: expectedCommon.has(key) ? (detectedCommon.has(key) ? 'TP' : 'FN') : 'FP',
     key,
-    renderedSupportType: detected.has(key),
-    oracleExpectedSupportType: expected.has(key),
-    matchingMethod: edge?.matchingMethod || '',
-    sharedPersistentReferences: source && target
-      ? source.persistentReferences.filter((reference) => target.persistentReferences.includes(reference)).sort()
-      : [],
-    sourceComponents: simpleComponents(source),
-    targetComponents: simpleComponents(target),
-    componentEventTypes: pairEvents
-      .filter((event) => ['SUPPORT_COMPONENT_SET_CHANGED','SUPPORT_COMPONENT_TYPE_CHANGED','PRIMARY_MEMBER_RENUMBERED'].includes(event.type))
-      .map((event) => event.type),
+    family: target?.family || '',
+    pipe: target?.pipe?.raw || '',
+    rowId: target?.sourceRowId || '',
+    oracleRemark: oracleRemarkForKey(laterSource, key),
+    generatedRemark,
+    directEventTypes: directEvents.map((event) => event.type),
+    replicationEvent: commonEvent ? {
+      reasonCodes: commonEvent.reasonCodes || [],
+      matchingMethod: commonEvent.matchingMethod || '',
+      triggerSiblingNodeIds: commonEvent.normalizedState?.triggerSiblingNodeIds || [],
+      triggerSiblingRowIds: commonEvent.normalizedState?.triggerSiblingRowIds || [],
+      triggerRemarkEventIds: commonEvent.normalizedState?.triggerRemarkEventIds || [],
+    } : null,
+    siblings,
   }));
 }
-console.log('R3_SUPPORT_TYPE_FINAL_DIAGNOSTICS_END');
+console.log('R3_COMMON_SUPPORT_REPLICATION_DIAGNOSTICS_END');
 
 const guards = runTotalSupportPointChangeBenchmark(earlier, later);
 const result = {
-  supportType: {
-    expected: expected.size,
-    detected: detected.size,
-    truePositives: truePositiveKeys.length,
-    falsePositives: falsePositiveKeys.length,
-    falseNegatives: falseNegativeKeys.length,
-    truePositiveKeys,
-    falsePositiveKeys,
-    falseNegativeKeys,
-    structuralSetChangeCount: structuralSetChangeKeys.size,
-    actualTypeChangeCount: actualTypeChangeKeys.size,
+  commonSupportReplication: {
+    ...commonMetrics,
+    eventCount: commonEvents.length,
+    legacyStructuralReplicationEventCount: legacyStructuralReplicationEvents.length,
   },
+  supportTypeGuard: supportTypeMetrics,
   regressionGuards: {
     phase1: guards.phase1Guard.metrics,
     phase2KnownR1State: guards.phase2Guard.metrics,
@@ -86,9 +97,8 @@ const result = {
 };
 console.log(JSON.stringify(result));
 
-if (falsePositiveKeys.length || falseNegativeKeys.length) process.exit(20);
-if (expected.size !== 0 || detected.size !== 0) process.exit(24);
-if (structuralSetChangeKeys.size < 1) process.exit(25);
+if (commonMetrics.falsePositives || commonMetrics.falseNegatives) process.exit(20);
+if (supportTypeMetrics.falsePositives || supportTypeMetrics.falseNegatives) process.exit(24);
 if (guards.phase1Guard.metrics.falsePositives || guards.phase1Guard.metrics.falseNegatives) process.exit(21);
 if (guards.phase3Guard.metrics.falsePositives || guards.phase3Guard.metrics.falseNegatives) process.exit(22);
 if (guards.metrics.falsePositives || guards.metrics.falseNegatives) process.exit(23);
@@ -104,22 +114,55 @@ function parseBenchmarkSource(text, sourceId) {
   }));
 }
 
-function expectedSupportTypeKeys(source) {
+function expectedRemarkKeys(source, pattern) {
   return new Set((source?.rows || []).flatMap((row) => {
     const remark = String(row?.rawByHeader?.['REMARKS (IF ANY)'] ?? '');
-    if (!/\bSupport\s+Type\s+Changes?\b/i.test(remark)) return [];
+    if (!pattern.test(remark)) return [];
     const civil = String(row?.rawByHeader?.CIVILSECONDARYSUPPORT ?? '').trim();
     const pipe = String(row?.rawByHeader?.PIPE ?? '').trim();
-    return civil && pipe ? [`${civil}||${pipe}`] : [];
+    return civil && pipe ? [supportLocationKey(civil, pipe)] : [];
   }));
 }
 
-function eventTargetKeys(compareResult, eventType) {
-  return new Set(compareResult.ledger.events.flatMap((event) => {
-    if (event.type !== eventType || !event.targetXmlNode) return [];
-    const target = compareResult.targetModel.locationByNodeId.get(event.targetXmlNode);
-    return target ? [target.supportLocationIdentity] : [];
+function renderedTokenKeys(compareResult, tokenKey) {
+  return new Set(compareResult.targetModel.locations.flatMap((target) => {
+    const tokens = compareResult.remarks.targetRemarks?.[target.sourceRowId]?.tokens || [];
+    return tokens.some((token) => token.key === tokenKey) ? [target.supportLocationIdentity] : [];
   }));
+}
+
+function metrics(expected, detected) {
+  const truePositiveKeys = [...expected].filter((key) => detected.has(key)).sort();
+  const falsePositiveKeys = [...detected].filter((key) => !expected.has(key)).sort();
+  const falseNegativeKeys = [...expected].filter((key) => !detected.has(key)).sort();
+  return {
+    expected: expected.size,
+    detected: detected.size,
+    truePositives: truePositiveKeys.length,
+    falsePositives: falsePositiveKeys.length,
+    falseNegatives: falseNegativeKeys.length,
+    precision: detected.size ? truePositiveKeys.length / detected.size : (expected.size ? 0 : 1),
+    recall: expected.size ? truePositiveKeys.length / expected.size : 1,
+    truePositiveKeys,
+    falsePositiveKeys,
+    falseNegativeKeys,
+  };
+}
+
+function oracleRemarkForKey(source, key) {
+  const row = (source?.rows || []).find((item) => supportLocationKey(
+    String(item?.rawByHeader?.CIVILSECONDARYSUPPORT ?? ''),
+    String(item?.rawByHeader?.PIPE ?? ''),
+  ) === key);
+  return String(row?.rawByHeader?.['REMARKS (IF ANY)'] ?? '');
+}
+
+function supportLocationKey(civil, pipe) {
+  return `${normalizePart(civil)}||${normalizePart(pipe)}`;
+}
+
+function normalizePart(value) {
+  return String(value ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function sourceToCsv(source, blankRemarks) {
@@ -132,12 +175,4 @@ function sourceToCsv(source, blankRemarks) {
 function csvCell(value) {
   const text = String(value ?? '');
   return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function simpleComponents(location) {
-  return (location?.components || []).map((component) => ({
-    memberId: component.memberId || '',
-    supportType: component.supportType || '',
-    reference: component.reference || '',
-  }));
 }
