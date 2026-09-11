@@ -16,8 +16,8 @@ QUALIFICATION_STATE: FAIL
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGEABILITY: MERGEABLE_AT_FINAL_RECHECK
-MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
+MERGE_AUTHORITY: AUTHORIZED
+MERGE_AUTHORIZED: TRUE
 QUALIFICATION_SCOPE_ID: QSCOPE-XMLCOMPARE-1192-REMARK-CORRECTNESS
 QUESTION_SET_ID: QS-CSVRC-1192-0001
 QUESTION_SET_STATUS: CURRENT
@@ -28,18 +28,18 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5632283999
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5632287201
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_CSVMRK_0005_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_FINAL_COMMENT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5633695841
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUALIFICATION_RECEIPT: agents/qualifications/CSV-REV-REMARKS-1192/QR-CSVRC-1192-R1-0002.md
 QUALIFICATION_PR: 1200
 QUALIFICATION_HEAD: ea0a683e1fd0fb45915805624de4301a953bb0be
 QUALIFICATION_RUN: 34588601880
 QUALIFICATION_JOB: 103228446801
 
-R1 failure isolation is complete and produced an authority conflict rather than a safe production predicate. X is `HIGH_RESIDUAL` (≈143.778 mm median residual vs 25 mm gate), Y/Z are `VALIDATED`; all six Phase-2 false negatives are exact Civil+PIPE `1->1` rows whose meaningful movement is X-only. Several oracle-negative detections are also exact Civil+PIPE `1->1` rows with strong persistent-reference continuity and material movement on validated Y/Z axes.
+R1 failure isolation is complete and no production detector patch followed. X remains `HIGH_RESIDUAL` (≈143.778 mm median residual vs 25 mm gate), Y/Z remain `VALIDATED`; all six Phase-2 false negatives are X-only exact Civil+PIPE `1->1` continuations, while several oracle-negative detections have strong continuity and material movement on validated Y/Z.
 
-No production patch was made: admitting the six X-only labels would weaken the R1 validated-axis contract, while suppressing validated-axis detections solely to fit blank oracle cells would use oracle absence as detector authority. Phase1/3/4 remain clean; Phase2 remains expected13/detected14/TP7/FP7/FN6/F1≈0.5185.
+Qualification truth remains Phase1 PASS 1/1; Phase2 FAIL expected13/detected14/TP7/FP7/FN6/F1≈0.5185; Phase3 PASS 2/2; Phase4 PASS 2/2 checkable with one unsupported no-predecessor item.
 
-`main` advanced independently to `ec01dc8...` via unrelated Support Report changes. Final GitHub recheck reports PR #1197 mergeable, but qualification is FAIL and merge remains unauthorized.
+Owner explicitly issued `merge` after this failed outcome was reported. Delivery PR #1197 is therefore merge-authorized as an Owner override; this does not convert qualification to PASS. Qualification-only PR #1200 must never merge.
 
-EXACT_NEXT_ACTION: OWNER_DECISION_REQUIRED — either preserve the validated-axis contract and classify the six X-only labels unsupported/uncheckable, or explicitly authorize a high-residual-axis relocation policy plus structural negative-evidence rules. Then perform one new bounded R1 material leg and rerun qualification-only PR #1200. Do not begin R2. Do not merge #1197 or #1200; #1200 must never merge.
+EXACT_NEXT_ACTION: merge exact delivery PR #1197 head only. Preserve QUALIFICATION_STATE=FAIL in post-merge reporting.
