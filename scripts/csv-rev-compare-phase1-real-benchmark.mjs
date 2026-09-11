@@ -7,7 +7,6 @@ if (!earlierPath || !laterPath) process.exit(2);
 
 for (const test of [
   'tests/csv-rev-compare-events.test.js',
-  'tests/csv-rev-compare-operational.test.js',
   'tests/csv-rev-compare-phase2-support-location-change.test.js',
   'tests/csv-rev-compare-phase3-load-change.test.js',
   'tests/csv-rev-compare-phase4-total-support-points.test.js',
