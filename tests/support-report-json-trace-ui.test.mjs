@@ -10,7 +10,7 @@ test('Support Report panel exposes staged JSON import without creating a second 
   assert.match(addon, /same combined staged-model source as the Input tab/i);
   assert.match(addon, /popup\.querySelector\('\[data-ssrb-input="model"\]'\)/);
   assert.doesNotMatch(addon, /data-ssr-model[^-]/);
-  assert.match(addon, /Coordinate\/base-anchor identity matching is reserved/);
+  assert.match(addon, /Staged native POS is grouped in JSON Trace for evidence only/);
 });
 
 test('JSON trace view renders one auditable row per POS cluster and keeps report location separate', () => {
