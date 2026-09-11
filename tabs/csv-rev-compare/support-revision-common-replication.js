@@ -2,6 +2,10 @@ import { projectSupportRevisionRemarkEvent } from './support-revision-remarks.js
 
 const clean = (value) => String(value ?? '').trim();
 const upper = (value) => clean(value).toUpperCase().replace(/\s+/g, ' ');
+const RECIPIENT_AUDIT_ONLY_EVENT_TYPES = Object.freeze(new Set([
+  'PRIMARY_MEMBER_RENUMBERED',
+  'SUPPRESSED_FIELD_CHANGED',
+]));
 
 export const COMMON_SUPPORT_REMARK_REPLICATED = 'COMMON_SUPPORT_REMARK_REPLICATED';
 
@@ -10,7 +14,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
   if (!groups.length) return ledger;
 
   const directRemarks = directTargetRemarkEvidence(ledger, sourceModel, targetModel);
-  const localEvents = targetLocalEventEvidence(ledger);
+  const blockingEvents = recipientBlockingEventEvidence(ledger);
   const additions = [];
   let nextIndex = ledger?.events?.length || 0;
 
@@ -23,8 +27,11 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
     const triggerEventIds = [...new Set(triggers.map((item) => item.eventId).filter(Boolean))].sort();
 
     for (const target of group.locations) {
+      // A sibling that already has its own visible remark is the cause, not a
+      // replication recipient. Internal audit-only bookkeeping (member renumbering
+      // and suppressed fields) does not make an otherwise unchanged row ineligible.
       if (directRemarks.has(target.nodeId)) continue;
-      if ((localEvents.get(target.nodeId) || []).length) continue;
+      if ((blockingEvents.get(target.nodeId) || []).length) continue;
 
       const predecessor = exactIdentityPredecessor(target, sourceModel, lineage);
       if (!predecessor) continue;
@@ -58,7 +65,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           'COMMON_CIVIL_SUPPORT_FAMILY',
           'DISTINCT_PIPE_SIBLINGS',
           'SIBLING_HAS_GENERATED_REMARK',
-          'RECIPIENT_HAS_NO_LOCAL_CHANGE',
+          'RECIPIENT_HAS_NO_MATERIAL_LOCAL_CHANGE',
           'EXACT_CIVIL_PIPE_PREDECESSOR',
         ]),
         persistentReferences: Object.freeze([...sharedReferences]),
@@ -84,6 +91,7 @@ export function augmentCommonSupportRemarkReplicationEvents(ledger, sourceModel,
           triggerSiblingNodeIds: Object.freeze(triggerNodeIds),
           triggerSiblingRowIds: Object.freeze(triggerRowIds),
           triggerRemarkEventIds: Object.freeze(triggerEventIds),
+          ignoredAuditEventIds: Object.freeze(auditOnlyEventIdsForTarget(ledger, target.nodeId)),
           sourceCells: predecessor.source.provenance?.cells || {},
           targetCells: target.provenance?.cells || {},
         }),
@@ -140,14 +148,22 @@ function directTargetRemarkEvidence(ledger, sourceModel, targetModel) {
   return byNode;
 }
 
-function targetLocalEventEvidence(ledger) {
+function recipientBlockingEventEvidence(ledger) {
   const byNode = new Map();
   for (const event of ledger?.events || []) {
     if (!event.targetXmlNode || event.type === COMMON_SUPPORT_REMARK_REPLICATED) continue;
+    if (RECIPIENT_AUDIT_ONLY_EVENT_TYPES.has(event.type)) continue;
     if (!byNode.has(event.targetXmlNode)) byNode.set(event.targetXmlNode, []);
     byNode.get(event.targetXmlNode).push(event.eventId || event.type);
   }
   return byNode;
+}
+
+function auditOnlyEventIdsForTarget(ledger, targetNodeId) {
+  return (ledger?.events || [])
+    .filter((event) => event.targetXmlNode === targetNodeId && RECIPIENT_AUDIT_ONLY_EVENT_TYPES.has(event.type))
+    .map((event) => event.eventId || event.type)
+    .sort();
 }
 
 function exactIdentityPredecessor(target, sourceModel, lineage) {
@@ -182,7 +198,8 @@ function summarize(events) {
 
 export const _test = Object.freeze({
   directTargetRemarkEvidence,
-  targetLocalEventEvidence,
+  recipientBlockingEventEvidence,
+  auditOnlyEventIdsForTarget,
   exactIdentityPredecessor,
   pipeSiblingKey,
   summarize,
