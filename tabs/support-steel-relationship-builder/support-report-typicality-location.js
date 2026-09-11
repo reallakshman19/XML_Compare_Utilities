@@ -2,7 +2,7 @@ import {
   compareSupportTypeMultisets,
   normalizePipeClass,
   supportTypeMultiset,
-} from './support-report-typicality.js?v=20260910-support-report-typicality-location-1';
+} from './support-report-typicality.js?v=20260911-support-report-typicality-rca-3';
 import {
   buildStructuredSequenceContext,
   compareMemberOrdinalPatterns,
@@ -15,7 +15,7 @@ const INELIGIBLE_COST = 1e12;
 const UNMATCHED_COST = 1e9;
 
 export function buildTypicalityLocationAssignmentsForMatches(leftEvidence, rightEvidence, matches = [], options = {}) {
-  return Object.freeze((matches || []).filter((match) => match?.result === 'TYPICAL' && match.rightFamilyId)
+  return Object.freeze((matches || []).filter((match) => ['TYPICAL', 'REVIEW'].includes(match?.result) && match.rightFamilyId)
     .map((match) => buildTypicalityLocationAssignment(leftEvidence, rightEvidence, {
       leftFamilyId: match.leftFamilyId,
       rightFamilyId: match.rightFamilyId,
@@ -37,10 +37,11 @@ export function buildCanonicalTypicalityLocations(evidence = {}, reportBundle = 
   }
   const output = [];
   for (const [familyId, groups] of familyGroups) {
+    const canonicalPoints = groups.map(groupPoint).filter(validPoint);
     const familyRawPoints = (evidence.rawClashes || [])
       .filter((clash) => (clash.familyIds || []).map(token).includes(familyId))
       .map((clash) => clash.clashPointGlobalMm).filter(validPoint);
-    const anchor = averagePoint(familyRawPoints) || averagePoint(groups.map(groupPoint).filter(Boolean));
+    const anchor = averagePoint(canonicalPoints) || averagePoint(familyRawPoints);
     const ordered = [...groups].sort(groupCompare);
     const bases = ordered.map((group, index) => locationBase(group, familyId, index, anchor, rows));
     for (const location of bases) {
