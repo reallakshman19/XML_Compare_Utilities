@@ -1,6 +1,6 @@
 export const SUPPORT_REV_REMARKS_V1 = Object.freeze({
   policyId: 'SUPPORT_REV_REMARKS_V1',
-  version: '1.2.0',
+  version: '1.3.0',
   precedence: Object.freeze([
     'REMOVED_REPLACED',
     'REMOVED_UNSUPPORTED',
@@ -34,12 +34,12 @@ function projectEvent(event, sourceModel, targetModel) {
   const source = sourceModel?.locationByNodeId?.get(event.sourceXmlNode) || null;
   const target = targetModel?.locationByNodeId?.get(event.targetXmlNode) || null;
   if (event.type === 'COMMON_SUPPORT_REPLICATED' && target) return [token('target', target.sourceRowId, 'COMMON_REPLICATED', 'Replicated due to Common support')];
-  if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Relocated Support')];
-  if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Relocated Support')];
+  if (event.type === 'SUPPORT_LOCATION_RELOCATED' && target) return [token('target', target.sourceRowId, 'LOCATION_RELOCATED', 'Support Relocated')];
+  if (event.type === 'COMMON_SUPPORT_ANCHOR_RELOCATED' && target) return [token('target', target.sourceRowId, 'COMMON_RELOCATED', 'Support Relocated')];
   if (['SUPPORT_COMPONENT_SET_CHANGED','SUPPORT_COMPONENT_TYPE_CHANGED'].includes(event.type) && target) return [token('target', target.sourceRowId, 'SUPPORT_TYPE_CHANGES', 'Support Type Changes')];
   if (event.type === 'TOTAL_SUPPORT_POINTS_CHANGED' && target) return [token('target', target.sourceRowId, 'TOTAL_SUPPORT_POINTS_CHANGED', 'Total No. of support changes')];
   if (event.type === 'LOAD_BECAME_NUMERIC' && target) return [token('target', target.sourceRowId, 'LOAD_STANDARDISED', 'load standardised')];
-  if (event.type === 'LOAD_SIGNATURE_CHANGED' && target) return [token('target', target.sourceRowId, 'LOAD_CHANGE', 'Load change')];
+  if (event.type === 'LOAD_SIGNATURE_CHANGED' && target) return [token('target', target.sourceRowId, 'LOAD_CHANGE', 'Minor Load change')];
   if (event.type === 'SUPPORT_LOCATION_REMOVED' && source) return [token('source', source.sourceRowId, 'REMOVED_UNSUPPORTED', 'Invalid Support, This pipe no longer supported')];
   if (event.type === 'SECONDARY_SUPPORT_FAMILY_CHANGED' && source && target) return familyChangeTokens(event, source, target);
   if (event.type === 'PIPE_IDENTITY_CHANGED' && event.normalizedState?.projection === 'LINE_NUMBER_CHANGE' && source && target) {
