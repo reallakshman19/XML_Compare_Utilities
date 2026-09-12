@@ -1,11 +1,11 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: ARCH-RECOVERY-1215
 MISSION: Restore authoritative release/runtime state across Support/Steel, PS/SL Evidence Audit, and CSV Rev Compare without collapsing merged code into acceptance
-ACTIVE_ENDPOINT: EP-ARCH-RECOVERY-1215-0001
-ACTIVE_ENDPOINT_FILE: agents/chains/ARCH-RECOVERY-1215/endpoints/EP-ARCH-RECOVERY-1215-0001.md
+ACTIVE_ENDPOINT: EP-ARCH-RECOVERY-1215-0002
+ACTIVE_ENDPOINT_FILE: agents/chains/ARCH-RECOVERY-1215/endpoints/EP-ARCH-RECOVERY-1215-0002.md
 PR: NONE
 BRANCH: issue-1216-support-steel-architecture-recovery
-HEAD: ffd982149ac2211ad82b7dde6bbda732aa37c206
+HEAD: 052b1d0a18b1e75dd01ef374f8013f38fd4f6822
 MAIN_AT_ENDPOINT: c7d4afa4c2bab4528c6d499e9ceabe058e376348
 ENGINEERING_STATE: IN_PROGRESS
 CUSTODY_STATE: HELD
@@ -20,9 +20,9 @@ AGENT_INSTANCE_ID: chatgpt:b9c8c233-41c5-40a8-9f9f-4ebcdfcc7505
 WORK_ITEM_SOURCE: GITHUB_ISSUE
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1215
 WORK_ITEM_MODE: EXCLUSIVE
-CUSTODY_EPOCH: 1
-COORDINATION_STATE: PROGRAM_ROOT_CHILD_1216_SELECTED
-DEPENDENCIES: #1216 P0 -> #1217 P1; #1218 separate P2 domain shares program release gate
+CUSTODY_EPOCH: 2
+COORDINATION_STATE: P0_CHILD_ARCH_FREEZE_COMPLETE_EXECUTION_PENDING
+DEPENDENCIES: #1216 exact-tree execution -> #1217 P1; #1218 separate P2 domain shares program release gate
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: 734286a3da99133c0f16faa29bb641103e29ada0
 COMMON_PROTOCOL_STATUS: CURRENT
@@ -32,10 +32,10 @@ ISSUE_BASIS_FILE: agents/chains/ARCH-RECOVERY-1215/issue-basis/IB-ARCH-RECOVERY-
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/ARCH-RECOVERY-1215/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-ARCH-RECOVERY-1215-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-ARCH-RECOVERY-1215-0001
+ISSUE_CURRENT_STATE_ENDPOINT: EP-ARCH-RECOVERY-1215-0002
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5644091268
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5644090646
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5644092084
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5644151171
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUESTION_SET_ID: NOT_APPLICABLE_PROGRAM_ROOT
 QUALIFICATION_SCOPE_ID: NOT_APPLICABLE_PROGRAM_ROOT
@@ -45,9 +45,9 @@ QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS
-HANDOVER_VALIDATION_EVIDENCE: issue/main/workflow source inspection recorded in EP-ARCH-RECOVERY-1215-0001
+HANDOVER_VALIDATION_EVIDENCE: EP-ARCH-RECOVERY-1215-0002 + synchronized program projection
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_READY: FALSE
-CURRENT_BLOCKER: current main deploy failed at Upload Pages artifact; runtime identity remains split from last successful Pages SHA
-LEG_DIAGNOSIS: program root is established and synchronized; bounded material authority belongs to child #1216, not a micro defect patch
-EXACT_NEXT_ACTION: execute #1216 LEG-001 broad input/schema/authority/determinism batch; do not start #1217 engineering changes until #1216 producer contract is frozen.
+CURRENT_BLOCKER: source/deployment split remains; #1216 exact PR-tree tests remain NOT_RUN; runtime manifest/module-graph recovery not yet implemented
+LEG_DIAGNOSIS: first architecture batch successfully froze the upstream producer authority without touching production behavior; next gate is execution, not another micro patch
+EXACT_NEXT_ACTION: execute #1216 PR #1219 focused tests on the exact tree. Do not begin #1217 engineering progression until producer execution is qualified. Parent runtime/deployment recovery remains a separate #1215 work package.
