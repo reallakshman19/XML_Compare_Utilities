@@ -33,10 +33,10 @@ ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/ARCH-RECOVERY-1215/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-ARCH-RECOVERY-1215-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-ARCH-RECOVERY-1215-0001
-ISSUE_CHAIN_ROOT_COMMENT_ID: PENDING
-ISSUE_ACTIVE_HANDOVER_COMMENT_ID: PENDING
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING
-ISSUE_HANDOVER_SYNC_STATUS: NOT_RUN
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5644091268
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5644090646
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5644092084
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUESTION_SET_ID: NOT_APPLICABLE_PROGRAM_ROOT
 QUALIFICATION_SCOPE_ID: NOT_APPLICABLE_PROGRAM_ROOT
 QUESTION_SET_STATUS: NOT_APPLICABLE
@@ -46,8 +46,8 @@ TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS
 HANDOVER_VALIDATION_EVIDENCE: issue/main/workflow source inspection recorded in EP-ARCH-RECOVERY-1215-0001
-CHAIN_HANDOVER_READY: FALSE
+CHAIN_HANDOVER_READY: TRUE
 HANDOVER_READY: FALSE
 CURRENT_BLOCKER: current main deploy failed at Upload Pages artifact; runtime identity remains split from last successful Pages SHA
-LEG_DIAGNOSIS: program root is established; next bounded material authority belongs to child #1216, not a micro defect patch
-EXACT_NEXT_ACTION: bootstrap and activate the exclusive #1216 Support/Steel chain with current Issue Basis, current-state ledger, Parser/Topology qualification pack, and architecture inventory before any product mutation.
+LEG_DIAGNOSIS: program root is established and synchronized; bounded material authority belongs to child #1216, not a micro defect patch
+EXACT_NEXT_ACTION: execute #1216 LEG-001 broad input/schema/authority/determinism batch; do not start #1217 engineering changes until #1216 producer contract is frozen.
