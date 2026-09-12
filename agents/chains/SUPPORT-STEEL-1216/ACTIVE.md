@@ -48,10 +48,10 @@ ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-STEEL-1216/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-STEEL-1216-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-STEEL-1216-0001
-ISSUE_CHAIN_ROOT_COMMENT_ID: PENDING
-ISSUE_ACTIVE_HANDOVER_COMMENT_ID: PENDING
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING
-ISSUE_HANDOVER_SYNC_STATUS: NOT_RUN
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5644093739
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5644092898
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5644094903
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 QUESTION_SET_ID: QS-SSRB-1216-0001
 QUALIFICATION_SCOPE_ID: QSCOPE-SSRB-1216-PARSER-TOPOLOGY-AUTHORITY
 QUESTION_SET_STATUS: CURRENT
@@ -61,8 +61,8 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PASS
 HANDOVER_VALIDATION_EVIDENCE: EP-SUPPORT-STEEL-1216-0001 + SSRB-ARCH-INVENTORY-0001
-CHAIN_HANDOVER_READY: FALSE
-HANDOVER_READY: FALSE
+CHAIN_HANDOVER_READY: TRUE
+HANDOVER_READY: TRUE
 CURRENT_BLOCKER: deployed qualification blocked by #1215 current-main Pages artifact-upload failure; #1154 exact target staged input remains unresolved
-LEG_DIAGNOSIS: producer architecture is now frozen enough to begin one broad LEG-001 input/schema/authority/determinism batch; do not return to one-error micro patches
+LEG_DIAGNOSIS: producer architecture is frozen enough to begin one broad LEG-001 input/schema/authority/determinism batch; do not return to one-error micro patches
 EXACT_NEXT_ACTION: LEG-001 freeze a durable production-shaped combined-input fixture/manifest, complete emitted-schema/public-API and source->candidate->gate->result matrices, and execute focused positive/negative/determinism producer tests on exact branch SHA before any behavior change.
