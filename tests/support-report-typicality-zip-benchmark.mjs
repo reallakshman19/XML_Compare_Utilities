@@ -102,6 +102,12 @@ function summarizeComparison(left, right) {
         rightFamilyId: match.rightFamilyId || '',
         result: match.result,
         reasonCode: match.reasonCode,
+        candidateFamilyIds: match.candidateFamilyIds || [],
+        candidateAuditIds: match.candidateAuditIds || [],
+        bestCandidateFamilyId: match.bestCandidateFamilyId || '',
+        bestCandidateAuditId: match.bestCandidateAuditId || '',
+        failedReasonCodes: match.failedReasonCodes || [],
+        familyNameEvidence: match.familyNameEvidence || match.bestCandidateFamilyNameEvidence || null,
         locationAssignmentResult: match.locationAssignmentResult || assignment?.result || null,
         correspondenceStatus: match.locationCorrespondenceStatus || assignment?.correspondenceStatus || null,
         matchingMode: match.locationMatchingMode || assignment?.matchingMode || null,
@@ -115,6 +121,7 @@ function summarizeComparison(left, right) {
       };
     }),
     familyComparisons: (audit.familyComparisons || []).map((comparison) => {
+      const uniqueMemberCountSignal = signal(comparison, 'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL');
       const summary = {
         leftFamilyId: comparison.leftFamilyId,
         rightFamilyId: comparison.rightFamilyId,
@@ -122,6 +129,9 @@ function summarizeComparison(left, right) {
         reasonCode: comparison.reasonCode,
         geometryCostMm: comparison.geometryCostMm,
         locationCount: signal(comparison, 'STRUCT_LOCATION_COUNT_EQUAL')?.result || null,
+        uniqueMemberCount: uniqueMemberCountSignal?.result || null,
+        uniqueMemberCountLeft: uniqueMemberCountSignal?.left ?? null,
+        uniqueMemberCountRight: uniqueMemberCountSignal?.right ?? null,
         memberMultiplicity: signal(comparison, 'STRUCT_MEMBER_MULTIPLICITY_EQUAL')?.result || null,
         pipeClassPopulation: signal(comparison, 'STRUCT_PIPE_CLASS_POPULATION_EQUAL')?.result || null,
         rawPointCount: signal(comparison, 'STRUCT_RAW_CLASH_POINT_COUNT_EQUAL')?.result || null,
@@ -130,10 +140,14 @@ function summarizeComparison(left, right) {
         pairDistance: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.result || null,
         pairDistanceResidualMm: signal(comparison, 'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE')?.residual || null,
       };
-      summary.exactTopologyPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation, summary.rawPointCount]
+      summary.requiredTopologyPassCount = [summary.locationCount, summary.uniqueMemberCount,
+        summary.memberMultiplicity, summary.pipeClassPopulation].filter((value) => value === 'PASS').length;
+      summary.requiredSignalPassCount = [summary.locationCount, summary.uniqueMemberCount,
+        summary.memberMultiplicity, summary.pipeClassPopulation, summary.envelope, summary.pairDistance]
         .filter((value) => value === 'PASS').length;
-      summary.allSignalPassCount = [summary.locationCount, summary.memberMultiplicity, summary.pipeClassPopulation,
-        summary.rawPointCount, summary.envelope, summary.pairDistance].filter((value) => value === 'PASS').length;
+      summary.auditOnlyPassCount = [summary.rawPointCount].filter((value) => value === 'PASS').length;
+      summary.exactTopologyPassCount = summary.requiredTopologyPassCount + summary.auditOnlyPassCount;
+      summary.allSignalPassCount = summary.requiredSignalPassCount + summary.auditOnlyPassCount;
       const l = familyDigits(summary.leftFamilyId);
       const r = familyDigits(summary.rightFamilyId);
       summary.sameTrailing3 = Boolean(l && r && l.prefix === r.prefix && l.trailing3 === r.trailing3);
@@ -158,6 +172,7 @@ function locationDiagnostic(left, right, familyComparison) {
   const memberExact = selected.filter((pair) => pair.signals?.memberOrdinalPattern?.result === 'EXACT').length;
   const dimensions = Object.fromEntries(['3D', '2D', '1D'].map((dimension) => [dimension,
     selected.filter((pair) => pair.signals?.structuredSequence?.firstPassingDimension === dimension).length]));
+  const noPassingDimension = selected.filter((pair) => pair.signals?.structuredSequence?.firstPassingDimension == null).length;
   return {
     ...familyComparison,
     locationAssignment: {
@@ -173,9 +188,16 @@ function locationDiagnostic(left, right, familyComparison) {
       supportTypeUnavailable,
       memberOrdinalExact: memberExact,
       firstPassingDimensions: dimensions,
+      noPassingDimension,
       dimensionalEvidence: assignment.dimensionalEvidence,
     },
   };
+}
+
+function histogram(values) {
+  const counts = new Map();
+  for (const value of values) counts.set(String(value || 'UNSPECIFIED'), (counts.get(String(value || 'UNSPECIFIED')) || 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
 const leftFiles = xmlFiles(leftRoot).map((path) => loadXml(path, leftRoot));
@@ -192,8 +214,9 @@ for (const left of leftFiles) {
 const firstLeft = leftFiles[0];
 const firstRight = rightFiles[0];
 const allFamilyComparisons = comparisons.flatMap((comparison) => comparison.familyComparisons);
-const rank = (a, b) => b.exactTopologyPassCount - a.exactTopologyPassCount
-  || b.allSignalPassCount - a.allSignalPassCount
+const allFamilyMatches = comparisons.flatMap((comparison) => comparison.familyMatches);
+const rank = (a, b) => b.requiredTopologyPassCount - a.requiredTopologyPassCount
+  || b.requiredSignalPassCount - a.requiredSignalPassCount
   || (Number(a.geometryCostMm) || Number.MAX_SAFE_INTEGER) - (Number(b.geometryCostMm) || Number.MAX_SAFE_INTEGER)
   || a.leftFamilyId.localeCompare(b.leftFamilyId)
   || a.rightFamilyId.localeCompare(b.rightFamilyId);
@@ -203,10 +226,23 @@ const diagnosticSeed = [...new Map([...sameTrailing3.slice(0, 30), ...topNear]
   .map((item) => [`${item.leftFamilyId}\u0000${item.rightFamilyId}`, item])).values()].slice(0, 40);
 const locationDiagnostics = diagnosticSeed.map((item) => locationDiagnostic(firstLeft, firstRight, item));
 
-const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [count,
+const passHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((count) => [count,
   allFamilyComparisons.filter((item) => item.allSignalPassCount === count).length]));
-const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
+const topologyHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5].map((count) => [count,
   allFamilyComparisons.filter((item) => item.exactTopologyPassCount === count).length]));
+const requiredSignalPassHistogram = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.requiredSignalPassCount === count).length]));
+const requiredTopologyPassHistogram = Object.fromEntries([0, 1, 2, 3, 4].map((count) => [count,
+  allFamilyComparisons.filter((item) => item.requiredTopologyPassCount === count).length]));
+const finalMatchResultHistogram = Object.fromEntries(['TYPICAL', 'REVIEW', 'AMBIGUOUS', 'NO_MATCH'].map((resultName) => [
+  resultName,
+  allFamilyMatches.filter((item) => item.result === resultName).length,
+]));
+const finalReasonCodeHistogram = histogram(allFamilyMatches.map((item) => item.reasonCode));
+const reviewMatches = allFamilyMatches.filter((item) => item.result === 'REVIEW');
+const ambiguousMatches = allFamilyMatches.filter((item) => item.result === 'AMBIGUOUS');
+const ambiguityReasonHistogram = histogram(ambiguousMatches.map((item) => item.reasonCode));
+const ambiguousCandidateCountHistogram = histogram(ambiguousMatches.map((item) => item.candidateFamilyIds?.length || 0));
 
 const result = {
   schema: 'SupportReportTypicalityZipBenchmark.v2',
@@ -221,9 +257,19 @@ const result = {
   diagnostics: {
     familyComparisonCount: allFamilyComparisons.length,
     acceptedStructuralCount: allFamilyComparisons.filter((item) => item.result === 'TYPICAL').length,
+    finalFamilyDecisionCount: allFamilyMatches.length,
+    finalMatchResultHistogram,
+    finalReasonCodeHistogram,
+    finalResolvedCounterpartCount: allFamilyMatches.filter((item) => item.rightFamilyId).length,
     sameTrailing3CandidateCount: sameTrailing3.length,
+    requiredSignalPassHistogram,
+    requiredTopologyPassHistogram,
     allSignalPassHistogram: passHistogram,
     exactTopologyPassHistogram: topologyHistogram,
+    ambiguityReasonHistogram,
+    ambiguousCandidateCountHistogram,
+    ambiguousMatches,
+    reviewMatches,
     topNearCandidates: topNear,
     topSameTrailing3Candidates: sameTrailing3.slice(0, 40),
     locationDiagnostics,
@@ -240,9 +286,19 @@ console.log(`ZIP_BENCHMARK_DIAGNOSTICS=${JSON.stringify({
   rightFamilyCount: result.rightInventory.reduce((sum, x) => sum + x.familyInventory.length, 0),
   familyComparisonCount: result.diagnostics.familyComparisonCount,
   acceptedStructuralCount: result.diagnostics.acceptedStructuralCount,
+  finalFamilyDecisionCount: result.diagnostics.finalFamilyDecisionCount,
+  finalMatchResultHistogram: result.diagnostics.finalMatchResultHistogram,
+  finalReasonCodeHistogram: result.diagnostics.finalReasonCodeHistogram,
+  finalResolvedCounterpartCount: result.diagnostics.finalResolvedCounterpartCount,
   sameTrailing3CandidateCount: result.diagnostics.sameTrailing3CandidateCount,
+  requiredSignalPassHistogram: result.diagnostics.requiredSignalPassHistogram,
+  requiredTopologyPassHistogram: result.diagnostics.requiredTopologyPassHistogram,
   allSignalPassHistogram: result.diagnostics.allSignalPassHistogram,
   exactTopologyPassHistogram: result.diagnostics.exactTopologyPassHistogram,
+  ambiguityReasonHistogram: result.diagnostics.ambiguityReasonHistogram,
+  ambiguousCandidateCountHistogram: result.diagnostics.ambiguousCandidateCountHistogram,
+  ambiguousMatches: result.diagnostics.ambiguousMatches.slice(0, 20),
+  reviewMatches: result.diagnostics.reviewMatches.slice(0, 20),
   topNearCandidates: result.diagnostics.topNearCandidates.slice(0, 20),
   topSameTrailing3Candidates: result.diagnostics.topSameTrailing3Candidates.slice(0, 20),
   locationDiagnostics: result.diagnostics.locationDiagnostics.slice(0, 25),

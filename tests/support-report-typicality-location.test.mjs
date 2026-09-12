@@ -66,6 +66,46 @@ test('11168 -> 14168 produces ten row-independent physical-location assignments'
   }
 });
 
+test('canonical local coordinates are invariant to raw clash-density noise', () => {
+  const clean = syntheticEvidence('PS-9', [
+    { id: 'L-1', x: 0 },
+    { id: 'L-2', x: 100 },
+  ]);
+  const contaminated = Object.freeze({
+    ...clean,
+    rawClashes: Object.freeze([
+      ...clean.rawClashes,
+      Object.freeze({ guid: 'noise-1', familyIds: Object.freeze(['PS-9']), clashPointGlobalMm: Object.freeze({ x: 100000, y: 200000, z: -300000 }) }),
+      Object.freeze({ guid: 'noise-2', familyIds: Object.freeze(['PS-9']), clashPointGlobalMm: Object.freeze({ x: 100000, y: 200000, z: -300000 }) }),
+    ]),
+  });
+  const cleanLocations = buildCanonicalTypicalityLocations(clean);
+  const noisyLocations = buildCanonicalTypicalityLocations(contaminated);
+  assert.deepEqual(noisyLocations.map((item) => item.localPointMm), cleanLocations.map((item) => item.localPointMm));
+  assert.deepEqual(cleanLocations.map((item) => item.localPointMm), [
+    { x: -50, y: 0, z: 0 },
+    { x: 50, y: 0, z: 0 },
+  ]);
+});
+
+test('review family decisions are included by the reusable location-assignment helper', () => {
+  const left = syntheticEvidence('PS-10', [{ id: 'L', x: 0 }]);
+  const right = syntheticEvidence('PS-20', [{ id: 'R', x: 5000 }]);
+  const assignments = buildTypicalityLocationAssignmentsForMatches(left, right, [Object.freeze({
+    leftFamilyId: 'PS-10',
+    rightFamilyId: 'PS-20',
+    auditId: 'TYP-PS-10--PS-20',
+    result: 'REVIEW',
+  })], {
+    profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
+  });
+  assert.equal(assignments.length, 1);
+  assert.equal(assignments[0].parentAuditId, 'TYP-PS-10--PS-20');
+  assert.equal(assignments[0].leftFamilyId, 'PS-10');
+  assert.equal(assignments[0].rightFamilyId, 'PS-20');
+  assert.equal(assignments[0].selectedAssignments.length, 1);
+});
+
 test('repeated pipe classes are assigned by structure geometry, not group order', () => {
   const left = syntheticEvidence('PS-1', [
     { id: 'L-A', x: 0 },

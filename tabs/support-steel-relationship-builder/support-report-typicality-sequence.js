@@ -87,7 +87,7 @@ export function compareStructuredSequenceCandidate(leftLocation, rightLocation, 
   if (leftContext?.supports1d && rightContext?.supports1d) {
     stages.push(fingerprintStage('1D', left?.fingerprint1dMm || [], right?.fingerprint1dMm || [], finite(profile.stationFingerprintToleranceMm, Infinity)));
   }
-  const firstPassing = stages.find((stage) => stage.result === 'PASS') || stages[0];
+  const firstPassing = stages.find((stage) => stage.result === 'PASS') || null;
   return Object.freeze({
     schema: STRUCTURED_SEQUENCE_SCHEMA,
     priority: Object.freeze(['3D', '2D', '1D']),

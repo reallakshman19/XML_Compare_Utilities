@@ -96,3 +96,40 @@ test('family match becomes review rather than typical when piping arrangement is
   assert.equal(resolved.result, 'REVIEW');
   assert.equal(resolved.reasonCode, 'TYPICAL_REVIEW_SUPPORT_CONFIGURATION');
 });
+
+test('structural review candidate keeps deterministic location-level audit', () => {
+  const point = (x) => Object.freeze({ x, y: 0, z: 0 });
+  const family = (familyId, area, members) => Object.freeze({
+    groups: Object.freeze([
+      Object.freeze({
+        groupId: `${familyId}::PIPE::L1`, locationId: `${familyId}::PIPE::L1`, secondarySupportFamilyId: familyId,
+        fullLineTag: `ASIM-${area}-3"-D8810524-11261M7-PP${area === '1885' ? '-01' : ''}`,
+        primarySupportMemberIds: Object.freeze(members[0]), representativeClashPointGlobalMm: point(0), evidenceRows: Object.freeze([]),
+      }),
+      Object.freeze({
+        groupId: `${familyId}::PIPE::L2`, locationId: `${familyId}::PIPE::L2`, secondarySupportFamilyId: familyId,
+        fullLineTag: `ASIM-${area}-3"-D8810524-11261M7-PP${area === '1885' ? '-01' : ''}`,
+        primarySupportMemberIds: Object.freeze(members[1]), representativeClashPointGlobalMm: point(1000), evidenceRows: Object.freeze([]),
+      }),
+    ]),
+    rawClashes: Object.freeze([]),
+  });
+  const left = family('PS-10669', '1884', [['/PS-10669.1', '/PS-10669.11'], []]);
+  const right = family('PS-12669', '1885', [['/PS-12669.4'], []]);
+
+  const audit = buildSupportReportTypicalityComparison(left, right);
+  assert.equal(audit.structuralMatches[0].result, 'REVIEW');
+  assert.equal(audit.structuralMatches[0].reasonCode, 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED');
+  assert.deepEqual(audit.structuralMatches[0].failedReasonCodes, [
+    'STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL',
+    'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+  ]);
+  assert.equal(audit.matches[0].result, 'REVIEW');
+  assert.equal(audit.matches[0].rightFamilyId, 'PS-12669');
+  assert.equal(audit.matches[0].locationAssignmentResult, 'PARTIAL');
+  assert.equal(audit.matches[0].locationCorrespondenceStatus, 'DETERMINISTIC');
+  assert.equal(audit.locationAssignments.length, 1);
+  assert.equal(audit.locationAssignments[0].selectedAssignments.length, 2);
+  assert.equal(audit.locationAssignments[0].selectedAssignments.filter((pair) => pair.signals.memberMultiplicity.result === 'FAIL').length, 1);
+  assert.equal(audit.locationAssignments[0].selectedAssignments.every((pair) => pair.signals.pipeClass.result === 'PASS'), true);
+});

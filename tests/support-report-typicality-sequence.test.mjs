@@ -85,6 +85,24 @@ test('3D then lower-dimensional fingerprints compare translated goalpost rows wi
   assert.equal(comparison.stages[0].result, 'PASS');
   assert.equal(comparison.stages.at(-1).dimension, '1D');
   assert.equal(comparison.stages.at(-1).result, 'PASS');
+  assert.equal(comparison.firstPassingDimension, '3D');
+});
+
+test('structured sequence reports no passing dimension when every evaluated stage fails', () => {
+  const leftLocations = [
+    location('L1', 0, 0, 0),
+    location('L2', 100, 0, 0),
+    location('L3', 300, 0, 0),
+  ];
+  const rightLocations = [
+    location('R1', 10000, 0, 0),
+    location('R2', 11000, 0, 0),
+  ];
+  const left = buildStructuredSequenceContext(leftLocations, sequenceProfile);
+  const right = buildStructuredSequenceContext(rightLocations, sequenceProfile);
+  const comparison = compareStructuredSequenceCandidate(leftLocations[0], rightLocations[0], left, right, sequenceProfile);
+  assert.equal(comparison.stages.every((stage) => stage.result !== 'PASS'), true);
+  assert.equal(comparison.firstPassingDimension, null);
 });
 
 test('member ordinal repetition such as .2/.4 is exact supporting evidence, not raw member-name identity', () => {

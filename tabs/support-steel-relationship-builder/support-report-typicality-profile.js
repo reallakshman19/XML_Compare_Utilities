@@ -1,4 +1,4 @@
-import { PS_TYPICAL_V1_PROVISIONAL } from './support-report-typicality.js?v=20260910-support-report-typicality-profile-1';
+import { PS_TYPICAL_V1_PROVISIONAL } from './support-report-typicality.js?v=20260911-support-report-typicality-rca-3';
 
 export const SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL = deepFreeze({
   ...PS_TYPICAL_V1_PROVISIONAL,
@@ -53,25 +53,25 @@ export const SUPPORT_REPORT_TYPICALITY_UI_SETTINGS = deepFreeze([
     section: 'Structural gates',
     path: 'structural.geometryEnvelopeToleranceMm',
     label: 'Envelope tolerance', type: 'number', unit: 'mm', min: 0, step: 1,
-    help: 'Hard family-level geometry gate. Maximum allowed difference between the two structure bounding-envelope spans. Default 25 mm. Lower values reject more aggressively.',
+    help: 'Hard family-level geometry gate. Maximum allowed difference between bounding-envelope spans derived from canonical physical-location representatives. Default 25 mm. Lower values reject more aggressively.',
   },
   {
     section: 'Structural gates',
     path: 'structural.pairDistanceMedianToleranceMm',
     label: 'Pair-distance median tolerance', type: 'number', unit: 'mm', min: 0, step: 1,
-    help: 'Hard family-level geometry gate. Median residual allowed between translation/rotation/order-invariant clash-point pair-distance spectra. Default 10 mm.',
+    help: 'Hard family-level geometry gate. Median residual allowed between translation/rotation/order-invariant pair-distance spectra of canonical physical-location representatives. Default 10 mm.',
   },
   {
     section: 'Structural gates',
     path: 'structural.pairDistanceP95ToleranceMm',
     label: 'Pair-distance P95 tolerance', type: 'number', unit: 'mm', min: 0, step: 1,
-    help: 'Hard family-level geometry gate. 95th-percentile residual allowed between pair-distance spectra. Default 25 mm.',
+    help: 'Advisory family-level diagnostic on canonical physical-location pair-distance spectra. Default 25 mm. Exceeding P95 is reported in the audit but does not reject a structurally eligible family by itself; median and maximum remain hard pair-distance gates.',
   },
   {
     section: 'Structural gates',
     path: 'structural.pairDistanceMaxToleranceMm',
     label: 'Pair-distance maximum tolerance', type: 'number', unit: 'mm', min: 0, step: 1,
-    help: 'Hard family-level geometry gate. Largest allowed pair-distance residual. Default 50 mm.',
+    help: 'Hard family-level geometry gate. Largest allowed residual between canonical physical-location pair-distance spectra. Default 50 mm.',
   },
   {
     section: 'Location gates',

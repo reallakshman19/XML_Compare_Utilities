@@ -1,15 +1,15 @@
 import {
   buildSupportReportTypicalityAudit,
   normalizePipeClass,
-} from './support-report-typicality.js?v=20260910-support-report-typicality-projection-3';
+} from './support-report-typicality.js?v=20260911-support-report-typicality-member-count-1';
 import {
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   mergeSupportReportTypicalityProfile,
-} from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
+} from './support-report-typicality-profile.js?v=20260911-support-report-typicality-profile-rca-1';
 import {
   buildCanonicalTypicalityLocations,
   buildTypicalityLocationAssignmentsForMatches,
-} from './support-report-typicality-location.js?v=20260910-support-report-structured-sequence-1';
+} from './support-report-typicality-location.js?v=20260911-support-report-location-rca-1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
@@ -61,9 +61,12 @@ export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalit
     const selected = location ? selectedByLocation.get(String(location.locationId)) : null;
     return Object.freeze({
       ...row,
-      typicalStructure: match?.result === 'TYPICAL' ? match.rightFamilyId : '',
+      typicalStructure: ['TYPICAL', 'REVIEW'].includes(match?.result) ? match.rightFamilyId : '',
       pipingSupportArrangementMatch: arrangementLabel(match, selected?.assignment, selected?.pair),
-      typicalityAuditId: selected?.pair?.auditId || match?.auditId || '',
+      typicalityAuditId: selected?.pair?.auditId
+        || match?.auditId
+        || (match?.candidateAuditIds || []).join(' | ')
+        || '',
     });
   });
   return Object.freeze({
@@ -78,12 +81,15 @@ function comparisonProfile(override = {}) {
 }
 
 function resolveFamilyMatch(match, assignment) {
-  if (!match || match.result !== 'TYPICAL') return match;
-  if (!assignment) return Object.freeze({
-    ...match,
-    result: 'REVIEW',
-    reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
-  });
+  if (!match || !['TYPICAL', 'REVIEW'].includes(match.result)) return match;
+  if (!assignment) {
+    if (match.result === 'REVIEW') return match;
+    return Object.freeze({
+      ...match,
+      result: 'REVIEW',
+      reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE',
+    });
+  }
   const lineage = {
     locationAssignmentResult: assignment.result,
     locationCorrespondenceStatus: assignment.correspondenceStatus,
@@ -95,6 +101,7 @@ function resolveFamilyMatch(match, assignment) {
     result: 'AMBIGUOUS',
     reasonCode: 'TYPICAL_LOCATION_ASSIGNMENT_AMBIGUOUS_MATERIAL',
   });
+  if (match.result === 'REVIEW') return Object.freeze({ ...match, ...lineage });
   if (assignment.result === 'PARTIAL') return Object.freeze({
     ...match,
     ...lineage,
@@ -132,9 +139,13 @@ function resolveRowLocation(row, locations) {
 
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
-  if (match.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
+  if (match.result === 'AMBIGUOUS') return ambiguousLabel(match);
   if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
-  if (!pair) return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+  if (!pair) {
+    if (match.result === 'NO_MATCH') return noMatchLabel(match);
+    if (match.result === 'REVIEW') return reviewLabel(match);
+    return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+  }
   const equivalent = assignment?.correspondenceStatus === 'AMBIGUOUS_EQUIVALENT';
   if (pair.arrangementResult === 'EXACT') return equivalent ? 'EXACT (MULTIPLE EQUIVALENT MATCHES)' : 'EXACT';
   if (pair.arrangementResult === 'TOPOLOGY_ONLY') return equivalent
@@ -153,14 +164,52 @@ function arrangementLabel(match, assignment, pair) {
   return details.length ? `PARTIAL: ${details.join('; ')}` : 'PARTIAL';
 }
 
+function reviewLabel(match) {
+  if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
+    return 'REVIEW: member multiplicity differs';
+  }
+  if (match?.reasonCode === 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED') {
+    return 'REVIEW: unique primary member count differs';
+  }
+  if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED') {
+    return 'REVIEW: primary member topology differs';
+  }
+  return 'REVIEW';
+}
+function noMatchLabel(match) {
+  const candidate = match?.bestCandidateFamilyId ? `best ${match.bestCandidateFamilyId}` : '';
+  const failures = (match?.failedReasonCodes || []).map(rejectionLabel).filter(Boolean);
+  const detail = [candidate, failures.length ? `failed ${failures.join(', ')}` : ''].filter(Boolean).join('; ');
+  return detail ? `NO_MATCH: ${detail}` : 'NO_MATCH';
+}
+function ambiguousLabel(match) {
+  const candidates = match?.candidateFamilyIds || [];
+  return candidates.length ? `AMBIGUOUS MATERIAL: ${candidates.join(', ')}` : 'AMBIGUOUS MATERIAL';
+}
+function rejectionLabel(code) {
+  const labels = {
+    STRUCT_LOCATION_COUNT_EQUAL: 'location count',
+    STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL: 'unique primary member count',
+    STRUCT_MEMBER_MULTIPLICITY_EQUAL: 'member multiplicity',
+    STRUCT_PIPE_CLASS_POPULATION_EQUAL: 'pipe class',
+    STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE: 'envelope',
+    STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE: 'pair distance',
+  };
+  return labels[code] || String(code || '').toLowerCase().replace(/^struct_/u, '').replaceAll('_', ' ');
+}
+
 function token(value) {
   return String(value || '').trim().replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
 }
 
 export const _test = Object.freeze({
+  ambiguousLabel,
   arrangementLabel,
   comparisonProfile,
+  noMatchLabel,
+  rejectionLabel,
   resolveFamilyMatch,
   resolveRowLocation,
+  reviewLabel,
   withLocationRowAliases,
 });
