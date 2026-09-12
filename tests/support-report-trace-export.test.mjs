@@ -40,8 +40,10 @@ function bundle() {
           selectedNativeMemberIds: ['/PS-12005.1'], nativeOnlyMemberIds: [], missingClashMemberIds: [],
           locationIndex: 0, locationCountOnPipe: 2, locationMergeToleranceMm: 50, multipleLocationsOnPipe: true,
           reportCoordinateBasis: 'NAVISWORKS_CLASH_LOCATION', carrierObjectIds: ['/PIPE-1'], carrierAttributeConflicts: [],
+          metadataAttributionBasis: 'CONCRETE_MEMBER_METADATA', metadataSourceMemberIds: [], metadataAttributeConflicts: [],
           fieldProvenance: { eastWest: { sourceClass: 'CLASH_POINT_FALLBACK' } },
           jsonTrace: {
+            metadataAttributionBasis: 'CONCRETE_MEMBER_METADATA', metadataSourceMemberIds: [], metadataAttributeConflicts: [], metadataSources: [],
             members: [resolved],
             posClusters: [{
               posClusterId: 'POS:10|-20|30', positionBasis: 'NATIVE_MEMBER_POSITION', positionGlobal: { x: 10, y: -20, z: 30 },
@@ -59,8 +61,10 @@ function bundle() {
           selectedNativeMemberIds: [], nativeOnlyMemberIds: [], missingClashMemberIds: ['/PS-12005'],
           locationIndex: 1, locationCountOnPipe: 2, locationMergeToleranceMm: 50, multipleLocationsOnPipe: true,
           reportCoordinateBasis: 'NAVISWORKS_CLASH_LOCATION', carrierObjectIds: [], carrierAttributeConflicts: [],
+          metadataAttributionBasis: 'MULTI_LOCATION_DATUM_METADATA_DISABLED', metadataSourceMemberIds: [], metadataAttributeConflicts: [],
           fieldProvenance: {},
           jsonTrace: {
+            metadataAttributionBasis: 'MULTI_LOCATION_DATUM_METADATA_DISABLED', metadataSourceMemberIds: [], metadataAttributeConflicts: [], metadataSources: [],
             members: [unresolved],
             posClusters: [{
               posClusterId: 'UNRESOLVED_POS', positionBasis: 'UNRESOLVED', positionGlobal: null,
@@ -115,14 +119,16 @@ test('trace summary makes unresolved member and POS evidence visible', () => {
     within50mmGroupingRowCount: 0,
     multiLocationObservedOnlyRowCount: 0,
     rejectedPreviousNameDbrefCount: 0,
+    datumMetadataRowCount: 0,
+    datumMetadataConflictRowCount: 0,
   });
 });
 
 test('debug JSON is lossless around the canonical report bundle and includes trace summary', () => {
   const source = bundle();
   const parsed = JSON.parse(supportReportDebugToJson(source));
-  assert.equal(parsed.schema, 'SupportReportDebugExport.v2');
-  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v2');
+  assert.equal(parsed.schema, 'SupportReportDebugExport.v3');
+  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v3');
   assert.equal(parsed.traceSummary.unresolvedPosClusterCount, 1);
   assert.deepEqual(parsed.reportBundle, source);
 });

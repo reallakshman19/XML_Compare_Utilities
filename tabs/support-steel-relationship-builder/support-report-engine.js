@@ -14,8 +14,13 @@ import {
 } from './support-report-field-projection.js?v=20260910-support-report-field-provenance-14&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20';
 import {
   buildRowJsonTrace, enrichSupportReportFieldProvenance, enrichSupportReportProjectedFields,
-  resolveSupportReportRowMembers,
-} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22';
+  resolveSupportReportDatumMetadata, resolveSupportReportRowMembers, selectSupportReportDatumMetadataMembers,
+} from './support-report-row-enrichment.js?v=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23';
+import {
+  supportReportMemberContextConflicts as memberContextConflictsGroup,
+  supportReportMemberMatchesBranches as memberMatchesBranches,
+  supportReportMemberMatchesLine as memberMatchesLine,
+} from './support-report-member-context.js?v=20260911-datum-metadata-23';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
@@ -57,6 +62,7 @@ export function buildSupportReportBundle(input = {}) {
       xmlOnlyRowCount: rows.filter((row) => row.evidence.selectedNativeMemberIds.length === 0).length,
       nativeOnlyMemberCount: rows.reduce((sum, row) => sum + row.evidence.nativeOnlyMemberIds.length, 0),
       multiLocationRowCount: rows.filter((row) => row.evidence.multipleLocationsOnPipe).length,
+      datumMetadataRowCount: rows.filter((row) => row.evidence.metadataAttributionBasis === 'SINGLE_LOCATION_FAMILY_DATUM_METADATA').length,
       diagnosticCount: diagnostics.length,
     }),
     rows,
@@ -78,6 +84,9 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
   const familyMembers = selectMembersForGroup(family, group);
   const resolution = resolveSupportReportRowMembers({ relationshipBundle, group, familyMembers });
   const selectedMembers = resolution.members;
+  const metadataAttribution = selectSupportReportDatumMetadataMembers({ family, group, selectedMembers });
+  const metadataMembers = metadataAttribution.members;
+  const datumMetadata = resolveSupportReportDatumMetadata(metadataMembers);
   const selectedIds = selectedMembers.map((member) => normalizeMemberId(member.memberId)).filter(Boolean);
   const observedClashIds = unique(group.primarySupportMemberIds.map(normalizeMemberId));
   const clashIds = observedClashIds.filter(isConcreteSupportMemberId);
@@ -111,16 +120,19 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
 
   const baseFields = projectSupportReportFields({ group: projectedGroup, reportMembers, carrierRows, coordinatePoint });
   const fields = enrichSupportReportProjectedFields(baseFields, {
-    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks, datumMetadata,
   });
   const baseProvenance = projectSupportReportFieldProvenance({
     group: projectedGroup, reportMembers, carrierRows, coordinateSource, coordinateSourceIds: [],
     selectedNativeMemberCount: selectedMembers.length,
   });
   const fieldProvenance = enrichSupportReportFieldProvenance(baseProvenance, baseFields, fields, {
-    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks,
+    group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks, datumMetadata,
   });
-  const jsonTrace = buildRowJsonTrace({ group: projectedGroup, resolution, nativeMembers: selectedMembers });
+  const jsonTrace = buildRowJsonTrace({
+    group: projectedGroup, resolution, nativeMembers: selectedMembers, metadataMembers, datumMetadata,
+    metadataAttributionBasis: metadataAttribution.basis,
+  });
 
   const row = Object.freeze({
     schema: SUPPORT_REPORT_ROW_SCHEMA,
@@ -139,6 +151,9 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
       locationMergeToleranceMm: group.locationMergeToleranceMm ?? null,
       locationGroupingBasis: Object.freeze([...(group.locationGroupingBasis || [])]),
       memberAttributionBasis: resolution.memberAttributionBasis || '',
+      metadataAttributionBasis: metadataAttribution.basis,
+      metadataSourceMemberIds: Object.freeze([...(datumMetadata.sourceIds || [])]),
+      metadataAttributeConflicts: Object.freeze([...(datumMetadata.conflicts || [])]),
       multipleLocationsOnPipe: Boolean(group.multipleLocationsOnPipe),
       resolvedCarrierObjectIds,
       carrierObjectIds: carrierRows.map((carrier) => carrier.carrierObjectId).filter(Boolean),
@@ -222,27 +237,6 @@ function resolvedCarrierIdsForMembers(members) {
     return resolution.physicalCarrierObjectAvailable && clean(resolution.carrierObjectId)
       ? resolution.carrierObjectId : '';
   }));
-}
-function memberMatchesLine(member, fullLineTag) {
-  const context = member?.lineContext || {};
-  if (clean(context.fullLineTag)) return sameLine(context.fullLineTag, fullLineTag);
-  return sameLine(lineFromBranch(context.branchNode || member?.sourceParentBranch), fullLineTag);
-}
-function memberMatchesBranches(member, group) {
-  const context = member?.lineContext || {};
-  if (clean(context.fullLineTag) && !sameLine(context.fullLineTag, group?.fullLineTag)) return false;
-  const candidates = [context.branchNode, member?.sourceParentBranch].filter(Boolean).map(token);
-  const branchTokens = new Set((group?.branchNodes || []).map(token));
-  return candidates.some((candidate) => branchTokens.has(candidate));
-}
-function memberContextConflictsGroup(member, group) {
-  const context = member?.lineContext || {};
-  const explicitLine = clean(context.fullLineTag);
-  if (explicitLine && !sameLine(explicitLine, group?.fullLineTag)) return true;
-  const branches = [context.branchNode, member?.sourceParentBranch].filter(Boolean).map(token);
-  const groupBranches = new Set((group?.branchNodes || []).map(token));
-  return !explicitLine && branches.length > 0 && groupBranches.size > 0
-    && !branches.some((branch) => groupBranches.has(branch));
 }
 function isReportableMember(member) {
   if (!member || SYMBOLIC_ROLES.has(String(member.semanticRole || '').toUpperCase())) return false;

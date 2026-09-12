@@ -36,6 +36,7 @@ jobs:
           tests/support-report-location-benchmarks.test.mjs
           tests/support-report-location-attribution.test.mjs
           tests/support-report-prev-name-semantics.test.mjs
+          tests/support-report-datum-metadata.test.mjs
           tests/support-report-json-trace.test.mjs
           tests/support-report-json-trace-ui.test.mjs
           tests/support-report-pos-trace-remediation.test.mjs
