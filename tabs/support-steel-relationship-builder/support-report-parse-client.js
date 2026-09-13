@@ -10,18 +10,18 @@ export async function parseSupportReportXmlAsync(source, options = {}, runtime =
   const WorkerCtor = Object.prototype.hasOwnProperty.call(runtime, 'WorkerCtor')
     ? runtime.WorkerCtor
     : globalThis.Worker;
+  let worker = null;
   let workerStartupError = null;
   if (typeof WorkerCtor === 'function') {
     try {
-      const worker = new WorkerCtor(
+      worker = new WorkerCtor(
         runtime.workerUrl || new URL('./support-report-parse-worker.js', import.meta.url),
         { type: 'module' },
       );
-      return await parseWithWorker(worker, source, options, runtime.signal);
     } catch (error) {
-      if (error?.name === 'AbortError') throw error;
       workerStartupError = error;
     }
+    if (worker) return parseWithWorker(worker, source, options, runtime.signal);
   }
 
   if (sourceSize(source) > SUPPORT_REPORT_INLINE_PARSE_MAX_BYTES) {
