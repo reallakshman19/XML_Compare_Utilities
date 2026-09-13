@@ -1,6 +1,6 @@
 import {
   parseSupportReportClashXml as parseClashEvidence,
-} from './support-report-clash-evidence.js?v=20260911-support-report-typicality-rca-1';
+} from './support-report-clash-evidence.js?v=20260911-support-report-typicality-rca-1&perf=20260913-support-report-large-xml-1';
 import {
   groupSupportReportEvidenceByLocation,
 } from './support-report-location-grouping.js?v=20260911-support-report-location-attribution-22';

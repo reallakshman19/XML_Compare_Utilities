@@ -19,6 +19,7 @@ import './support-report-pos-trace-remediation.test.mjs';
 import './support-report-parity-ledger.test.mjs';
 import './support-report-xlsx-roundtrip.test.mjs';
 import './support-report-ui-export-state.test.mjs';
+import './support-report-large-xml-intake.test.mjs';
 import './startup-module-syntax.test.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

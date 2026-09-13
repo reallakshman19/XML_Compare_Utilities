@@ -132,6 +132,7 @@ function result(rows, rawClashes, diagnostics, source, options, sourceUnits = re
 }
 
 function rawClashRecord({ attrs, clashName, objects, point, sourceUnits }) {
+  const branchBearingObjects = objects.filter((object) => object.branchNode);
   return Object.freeze({
     clashName,
     guid: attrs.guid || '',
@@ -141,6 +142,8 @@ function rawClashRecord({ attrs, clashName, objects, point, sourceUnits }) {
     sourceUnits,
     familyIds: uniqueTokens(objects.map((object) => object.familyId)),
     memberIds: uniqueTokens(objects.map((object) => object.memberId)),
+    branchBearingObjectCount: branchBearingObjects.length,
+    secondaryFamilyIds: uniqueTokens(objects.filter((object) => !object.branchNode).map((object) => object.familyId), false),
     clashPointGlobalMm: point,
     objectPaths: Object.freeze(objects.map((object) => Object.freeze([...(object.path || [])]))),
     objectItemNames: Object.freeze(objects.map((object) => object.itemName).filter(Boolean)),
@@ -266,8 +269,10 @@ function deriveScope(fullLineTag) {
   return cleanName(fullLineTag).split('-')[0] || '';
 }
 function token(value) { return cleanName(value).replace(/\(REF\)$/iu, '').toUpperCase(); }
-function uniqueTokens(values) {
-  return Object.freeze([...new Set((values || []).map(token).filter(Boolean))].sort());
+function uniqueTokens(values, sort = true) {
+  const tokens = [...new Set((values || []).map(token).filter(Boolean))];
+  if (sort) tokens.sort();
+  return Object.freeze(tokens);
 }
 function averagePoint(points) {
   const valid = (points || []).filter((point) => point && [point.x, point.y, point.z].every(Number.isFinite));

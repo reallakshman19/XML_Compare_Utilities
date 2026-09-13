@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const primaryXml = readFileSync('benchmarks/11168.xml', 'utf8');
 const referenceXml = readFileSync('benchmarks/14168.xml', 'utf8');
 
-test('Support Report preserves legacy mode and enables audited typicality with second XML', async ({ page }) => {
+async function openSupportReport(page) {
   await page.goto('/index.html');
   await expect(page.getByRole('navigation', { name: 'Application tabs' })).toBeVisible();
 
@@ -19,6 +19,11 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   await expect(modal).toBeVisible();
   await expect(modal.locator('[data-ssrb-tab="support-report"]')).toBeVisible();
   await modal.locator('[data-ssrb-tab="support-report"]').click();
+  return modal;
+}
+
+test('Support Report preserves legacy mode and enables audited typicality with second XML', async ({ page }) => {
+  const modal = await openSupportReport(page);
 
   const primary = modal.locator('[data-ssr-xml]');
   const reference = modal.locator('[data-ssr-typical-xml]');
@@ -73,4 +78,26 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   await expect(csv).toBeEnabled();
   await expect(trace).toBeEnabled();
   await expect(debug).toBeEnabled();
+});
+
+test('large Support Report XML import stays blob-backed and builds in the worker', async ({ page }) => {
+  const modal = await openSupportReport(page);
+  const largeXml = `${primaryXml}\n<!--${'x'.repeat(1100000)}-->`;
+  const fileInput = modal.locator('[data-ssr-file]');
+  const textarea = modal.locator('[data-ssr-xml]');
+  const status = modal.locator('[data-ssr-file-status]');
+  const build = modal.locator('[data-ssr-build]');
+  const runState = modal.locator('[data-ssr-run-state]');
+
+  await fileInput.setInputFiles({
+    name: 'large-support-report.xml',
+    mimeType: 'application/xml',
+    buffer: Buffer.from(largeXml),
+  });
+
+  await expect(status).toContainText('staged for background parsing (text preview omitted)');
+  await expect(textarea).toHaveValue('');
+  await build.click();
+  await expect(runState).toContainText('Support Report ready');
+  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(10);
 });

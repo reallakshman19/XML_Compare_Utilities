@@ -1,8 +1,8 @@
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseWithTestContext,
-} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22';
-import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8';
+} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&perf=20260913-support-report-large-xml-1';
+import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8&perf=20260913-support-report-large-xml-1';
 
 export { groupSupportReportClashEvidence };
 
@@ -24,8 +24,8 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
     });
   }
 
-  const unsafeClashes = classifyUnsafeClashes(source);
   const parsed = parseWithTestContext(source, options);
+  const unsafeClashes = classifyUnsafeClashes(parsed.rawClashes || []);
   const rows = parsed.rows.filter((row) => !unsafeClashes.has(clashKey(row)));
   const diagnostics = [
     ...parsed.diagnostics,
@@ -48,55 +48,56 @@ export function parseSupportReportClashXml(xmlText, options = {}) {
 }
 
 function validateStructure(source) {
-  for (const tag of ['clashtest', 'clashresult', 'clashobject']) {
-    const opens = countMatches(source, new RegExp(`<${tag}\\b`, 'gi'));
-    const closes = countMatches(source, new RegExp(`</${tag}>`, 'gi'));
-    if (opens !== closes) return {
+  const counts = new Map([
+    ['clashtest', { opens: 0, closes: 0 }],
+    ['clashresult', { opens: 0, closes: 0 }],
+    ['clashobject', { opens: 0, closes: 0 }],
+  ]);
+  const regex = /<\s*(\/?)\s*(clashtest|clashresult|clashobject)\b/gi;
+  let match;
+  while ((match = regex.exec(String(source || '')))) {
+    const entry = counts.get(match[2].toLowerCase());
+    if (match[1]) entry.closes += 1;
+    else entry.opens += 1;
+  }
+  for (const [tag, entry] of counts) {
+    if (entry.opens !== entry.closes) return {
       ok: false,
-      message: `Malformed Support Report XML: <${tag}> count ${opens} does not match closing count ${closes}.`,
+      message: `Malformed Support Report XML: <${tag}> count ${entry.opens} does not match closing count ${entry.closes}.`,
     };
   }
   return { ok: true, message: '' };
 }
 
-function classifyUnsafeClashes(source) {
+function classifyUnsafeClashes(rawClashes = []) {
   const unsafe = new Map();
-  extractTestBlocks(source).forEach((test, testIndex) => {
-    const clashRegex = /<clashresult\b([^>]*)>([\s\S]*?)<\/clashresult>/gi;
-    let match;
-    while ((match = clashRegex.exec(test.body))) {
-      const attrs = clashParserTest.parseAttributes(match[1]);
-      const clashName = attrs.name || '';
-      const guid = attrs.guid || '';
-      const objects = Array.from(match[2].matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi))
-        .map((item) => clashParserTest.parseClashObject(item[1]));
-      const branchBearing = objects.filter((object) => object.branchNode);
-      const key = rawClashKey(testIndex, clashName, guid);
-      if (branchBearing.length > 1) {
-        unsafe.set(key, {
-          code: DIAGNOSTICS.AMBIGUOUS_PIPE_SIDE,
-          message: `${clashName || 'Clash'} has multiple branch-bearing objects; no pipe side was selected.`,
-          extra: { clashName, guid, clashTestIndex: testIndex },
-        });
-        continue;
-      }
-      // A clash with no piping branch is outside the Support Report evidence domain.
-      // The underlying parser already skips it with MISSING_PIPE_SIDE; do not promote
-      // unrelated PS/SL-vs-PS/SL evidence to a fatal secondary-family conflict.
-      if (!branchBearing.length) continue;
-
-      const secondaryFamilies = [...new Set(objects
-        .filter((object) => !object.branchNode && object.familyId)
-        .map((object) => object.familyId.toUpperCase()))];
-      if (secondaryFamilies.length > 1) {
-        unsafe.set(key, {
-          code: DIAGNOSTICS.CONFLICTING_SECONDARY_FAMILY,
-          message: `${clashName || 'Clash'} has conflicting non-pipe PS/SL family roots: ${secondaryFamilies.join(', ')}.`,
-          extra: { clashName, guid, clashTestIndex: testIndex, secondaryFamilies },
-        });
-      }
+  for (const rawClash of rawClashes || []) {
+    const clashName = rawClash?.clashName || '';
+    const guid = rawClash?.guid || '';
+    const testIndex = Number.isInteger(rawClash?.clashTestIndex) ? rawClash.clashTestIndex : 0;
+    const key = rawClashKey(testIndex, clashName, guid);
+    const branchBearingCount = Number(rawClash?.branchBearingObjectCount) || 0;
+    if (branchBearingCount > 1) {
+      unsafe.set(key, {
+        code: DIAGNOSTICS.AMBIGUOUS_PIPE_SIDE,
+        message: `${clashName || 'Clash'} has multiple branch-bearing objects; no pipe side was selected.`,
+        extra: { clashName, guid, clashTestIndex: testIndex },
+      });
+      continue;
     }
-  });
+    if (!branchBearingCount) continue;
+
+    const secondaryFamilies = [...new Set((rawClash?.secondaryFamilyIds || [])
+      .map((value) => clashParserTest.extractFamilyRoot(value) || String(value || '').toUpperCase())
+      .filter(Boolean))];
+    if (secondaryFamilies.length > 1) {
+      unsafe.set(key, {
+        code: DIAGNOSTICS.CONFLICTING_SECONDARY_FAMILY,
+        message: `${clashName || 'Clash'} has conflicting non-pipe PS/SL family roots: ${secondaryFamilies.join(', ')}.`,
+        extra: { clashName, guid, clashTestIndex: testIndex, secondaryFamilies },
+      });
+    }
+  }
   return unsafe;
 }
 
@@ -130,16 +131,8 @@ function deduplicateRows(rows) {
   return { rows: output, duplicateCount };
 }
 
-function extractTestBlocks(source) {
-  const tests = [];
-  const regex = /<clashtest\b[^>]*>([\s\S]*?)<\/clashtest>/gi;
-  let match;
-  while ((match = regex.exec(source))) tests.push({ body: match[1] });
-  return tests.length ? tests : [{ body: source }];
-}
 function clashKey(row) { return rawClashKey(row.clashTestIndex ?? 0, row.clashName || '', row.guid || ''); }
 function rawClashKey(testIndex, clashName, guid) { return `${testIndex}\u0000${guid || clashName}`.toUpperCase(); }
-function countMatches(source, regex) { return Array.from(String(source || '').matchAll(regex)).length; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
 export const _test = Object.freeze({
