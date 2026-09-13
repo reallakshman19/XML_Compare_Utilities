@@ -4,6 +4,9 @@ import {
 } from './support-report-contract.js?v=20260910-support-report-typicality-columns-1';
 import { supportReportCompleteness } from './support-report-ui-state.js?v=20260910-support-report-ui-completeness-16';
 
+export const SUPPORT_REPORT_TABLE_PREVIEW_LIMIT = 500;
+export const SUPPORT_REPORT_TRACE_PREVIEW_LIMIT = 500;
+
 export function renderSupportReportWorkspace(report) {
   if (!report) return '<div class="ssrb-empty"><b>Support Report not built</b><span>Load Support Report clash XML, then build the report. Load staged JSON when native member/attribute evidence is available.</span></div>';
   const summary = report.summary || {};
@@ -23,13 +26,18 @@ export function renderSupportReportTable(report) {
   const rows = report?.rows || [];
   if (!rows.length) return '<div class="ssrb-empty">No Support Report rows available.</div>';
   const columns = supportReportColumns(report);
+  const visibleRows = rows.slice(0, SUPPORT_REPORT_TABLE_PREVIEW_LIMIT);
   const headers = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
-  const body = rows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(displayValue(supportReportColumnValue(row, column)))}</td>`).join('')}</tr>`).join('');
-  return `<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const body = visibleRows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(displayValue(supportReportColumnValue(row, column)))}</td>`).join('')}</tr>`).join('');
+  const notice = rows.length > visibleRows.length
+    ? `<div class="ssrb-scope-note" data-ssr-preview-limited="report"><b>Large report preview:</b> showing the first ${visibleRows.length} of ${rows.length} rows. CSV, XLSX and Debug exports still contain the complete report.</div>`
+    : '';
+  return `${notice}<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 export function renderSupportReportJsonTrace(report) {
-  const entries = (report?.rows || []).flatMap((row) => traceClusters(row).map((cluster) => ({ row, cluster })));
+  const collected = collectTraceEntries(report?.rows || [], SUPPORT_REPORT_TRACE_PREVIEW_LIMIT);
+  const entries = collected.entries;
   if (!entries.length) return '<div class="ssrb-scope-note"><b>Staged JSON trace:</b> no staged member trace is available for this report.</div>';
   const headers = [
     'Secondary / pipe', 'Report location', 'POS cluster', 'Native POS', 'Observed PS/SL',
@@ -42,7 +50,10 @@ export function renderSupportReportJsonTrace(report) {
     clusterAttribute(cluster, 'supportType'), clusterAttribute(cluster, 'primarySupportReference'),
     clusterAttribute(cluster, 'description'), clusterAttribute(cluster, 'insulationThickness'),
   ].map((value) => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`).join('');
-  return `<div class="ssrb-scope-note"><b>Staged JSON trace:</b> native members are grouped by exact staged POS evidence. POS clusters are audit/mapping evidence only; they do not merge separate Navisworks report locations and do not replace report E/W, N/S or BOP coordinates. Direct current PS/SL identity is preferred; PREV-NAME alias is explicit rename evidence. Coordinate/base-anchor identity matching remains inactive.</div><div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-trace-table"><thead><tr>${headers.map((value) => `<th>${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const previewNotice = collected.truncated
+    ? `<div class="ssrb-scope-note" data-ssr-preview-limited="trace"><b>Large trace preview:</b> showing the first ${entries.length} trace rows. Trace CSV and Debug JSON still contain the complete decision trail.</div>`
+    : '';
+  return `<div class="ssrb-scope-note"><b>Staged JSON trace:</b> native members are grouped by exact staged POS evidence. POS clusters are audit/mapping evidence only; they do not merge separate Navisworks report locations and do not replace report E/W, N/S or BOP coordinates. Direct current PS/SL identity is preferred; PREV-NAME alias is explicit rename evidence. Coordinate/base-anchor identity matching remains inactive.</div>${previewNotice}<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-report-trace-table"><thead><tr>${headers.map((value) => `<th>${escapeHtml(value)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 export function renderSupportReportDiagnostics(report) {
@@ -56,6 +67,16 @@ export function renderSupportReportDiagnostics(report) {
   return `<div class="ssrb-scope-note"><b>Support Report diagnostics:</b> ${counts.ERROR || 0} error · ${counts.WARN || counts.WARNING || 0} warn · ${counts.INFO || 0} info</div><div class="ssrb-diagnostic-list">${diagnostics.slice(0, 40).map((row) => `<div><b>${escapeHtml(row.code || row.severity || 'INFO')}</b><span>${escapeHtml(row.message || '')}</span></div>`).join('')}</div>`;
 }
 
+function collectTraceEntries(rows, limit) {
+  const entries = [];
+  for (const row of rows || []) {
+    for (const cluster of traceClusters(row)) {
+      if (entries.length >= limit) return { entries, truncated: true };
+      entries.push({ row, cluster });
+    }
+  }
+  return { entries, truncated: false };
+}
 function traceClusters(row) {
   const trace = row?.evidence?.jsonTrace || {};
   if (trace.posClusters?.length) return trace.posClusters;
@@ -102,3 +123,5 @@ function displayValue(value) {
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
+
+export const _test = Object.freeze({ collectTraceEntries });
