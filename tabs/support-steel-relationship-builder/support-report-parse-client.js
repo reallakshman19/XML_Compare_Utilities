@@ -10,6 +10,7 @@ export async function parseSupportReportXmlAsync(source, options = {}, runtime =
   const WorkerCtor = Object.prototype.hasOwnProperty.call(runtime, 'WorkerCtor')
     ? runtime.WorkerCtor
     : globalThis.Worker;
+  let workerStartupError = null;
   if (typeof WorkerCtor === 'function') {
     try {
       const worker = new WorkerCtor(
@@ -19,14 +20,13 @@ export async function parseSupportReportXmlAsync(source, options = {}, runtime =
       return await parseWithWorker(worker, source, options, runtime.signal);
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
-      if (sourceSize(source) > SUPPORT_REPORT_INLINE_PARSE_MAX_BYTES) {
-        throw new Error(`Large Support Report XML requires a browser module worker. Background parser startup failed: ${error?.message || error}`);
-      }
+      workerStartupError = error;
     }
   }
 
   if (sourceSize(source) > SUPPORT_REPORT_INLINE_PARSE_MAX_BYTES) {
-    throw new Error('Large Support Report XML requires browser module-worker support; refusing a main-thread parse that can freeze the page.');
+    const suffix = workerStartupError ? ` Background parser startup failed: ${workerStartupError?.message || workerStartupError}` : '';
+    throw new Error(`Large Support Report XML requires browser module-worker support; refusing a main-thread parse that can freeze the page.${suffix}`);
   }
   const text = await sourceText(source);
   if (runtime.signal?.aborted) throw abortError();
