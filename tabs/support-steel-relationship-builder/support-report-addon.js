@@ -18,9 +18,13 @@ import {
   profileOverrideFromEntries,
   profileValue,
 } from './support-report-typicality-profile.js?v=20260910-support-report-typicality-profile-ui-1';
-import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-typicality-columns-1&trace=20260910-support-report-json-trace-18&pos=20260911-support-report-pos-trace-20';
+import { renderSupportReportWorkspace } from './support-report-view.js?v=20260910-support-report-typicality-columns-1&trace=20260910-support-report-json-trace-18&pos=20260911-support-report-pos-trace-20&perf=20260913-support-report-large-xml-1';
 import { supportReportToXlsxBytes } from './support-report-xlsx.js?v=20260910-support-report-typicality-columns-1';
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&typicality=20260910-support-report-typicality-17';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&typicality=20260910-support-report-typicality-17&perf=20260913-support-report-large-xml-1';
+import {
+  parseSupportReportXmlAsync,
+  SUPPORT_REPORT_XML_TEXTAREA_PREVIEW_BYTES,
+} from './support-report-parse-client.js?v=20260913-support-report-large-xml-1';
 import { assertSupportReportEvidenceReady } from './support-report-build-gate.js?v=20260909-support-report-empty-block-7';
 import {
   supportReportCompleteness,
@@ -69,7 +73,11 @@ function mount(popup) {
   existingPanel?.remove();
 
   mounted.add(popup);
-  stateByPopup.set(popup, { report: null });
+  stateByPopup.set(popup, {
+    report: null,
+    runAbort: null,
+    xmlFiles: { primary: null, typical: null },
+  });
 
   const button = popup.ownerDocument.createElement('button');
   button.type = 'button';
@@ -87,8 +95,14 @@ function mount(popup) {
   popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup, 'primary'));
   popup.querySelector('[data-ssr-typical-file]')?.addEventListener('change', () => void readXmlFile(popup, 'typical'));
   popup.querySelector('[data-ssr-model-file]')?.addEventListener('change', () => void readModelFile(popup));
-  popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => invalidate(popup, 'Primary XML changed; rebuild the Support Report.'));
-  popup.querySelector('[data-ssr-typical-xml]')?.addEventListener('input', () => invalidate(popup, 'Typical-structure reference XML changed; rebuild the Support Report.'));
+  popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => {
+    clearImportedXml(popup, 'primary');
+    invalidate(popup, 'Primary XML changed; rebuild the Support Report.');
+  });
+  popup.querySelector('[data-ssr-typical-xml]')?.addEventListener('input', () => {
+    clearImportedXml(popup, 'typical');
+    invalidate(popup, 'Typical-structure reference XML changed; rebuild the Support Report.');
+  });
   popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => {
     syncModelStatus(popup, 'Shared combined staged model changed; rebuild the Support Report.');
     invalidate(popup, 'Combined staged model changed; rebuild the Support Report.');
@@ -101,7 +115,7 @@ function mount(popup) {
     const eventName = node.type === 'checkbox' || node.tagName === 'SELECT' ? 'change' : 'input';
     node.addEventListener(eventName, () => invalidate(popup, 'Typicality matching configuration changed; rebuild the Support Report.'));
   });
-  popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => run(popup));
+  popup.querySelector('[data-ssr-build]')?.addEventListener('click', () => void run(popup));
   popup.querySelector('[data-ssr-download-xlsx]')?.addEventListener('click', () => void downloadXlsx(popup));
   popup.querySelector('[data-ssr-download]')?.addEventListener('click', () => downloadCsv(popup));
   popup.querySelector('[data-ssr-download-trace]')?.addEventListener('click', () => downloadTraceCsv(popup));
@@ -148,10 +162,25 @@ async function readXmlFile(popup, kind) {
   const input = popup.querySelector(typical ? '[data-ssr-typical-file]' : '[data-ssr-file]');
   const file = input?.files?.[0];
   if (!file) return;
+  const state = stateByPopup.get(popup);
+  if (!state) return;
+  state.xmlFiles[kind] = file;
+
   const textarea = popup.querySelector(typical ? '[data-ssr-typical-xml]' : '[data-ssr-xml]');
-  if (textarea) textarea.value = await file.text();
+  if (textarea) {
+    if (file.size <= SUPPORT_REPORT_XML_TEXTAREA_PREVIEW_BYTES) {
+      const text = await file.text();
+      if (state.xmlFiles[kind] !== file) return;
+      textarea.value = text;
+    } else {
+      textarea.value = '';
+      textarea.placeholder = `${file.name} is staged for background parsing; large-file text preview is intentionally omitted.`;
+    }
+  }
   const status = popup.querySelector(typical ? '[data-ssr-typical-file-status]' : '[data-ssr-file-status]');
-  if (status) status.textContent = `${file.name} · ${file.size} bytes`;
+  if (status) status.textContent = file.size > SUPPORT_REPORT_XML_TEXTAREA_PREVIEW_BYTES
+    ? `${file.name} · ${file.size} bytes · staged for background parsing (text preview omitted)`
+    : `${file.name} · ${file.size} bytes`;
   invalidate(popup, typical
     ? 'Typical-structure reference XML changed; rebuild the Support Report.'
     : 'Primary XML changed; rebuild the Support Report.');
@@ -175,24 +204,44 @@ function syncModelStatus(popup, message) {
   if (status) status.textContent = message;
 }
 
-function run(popup) {
+async function run(popup) {
   const state = stateByPopup.get(popup);
   const host = popup.querySelector('[data-ssr-results]');
   const runState = popup.querySelector('[data-ssr-run-state]');
+  if (!state || !host || !runState) return;
+
+  state.runAbort?.abort();
+  const controller = new AbortController();
+  state.runAbort = controller;
+  setBuildBusy(popup, true);
+  setExportEnabled(popup, false);
+  runState.innerHTML = '<b>Building Support Report</b><span>Parsing Support Report XML in a background worker…</span>';
+  await nextPaint();
+
   try {
-    const xmlText = popup.querySelector('[data-ssr-xml]')?.value || '';
-    if (!xmlText.trim()) throw new Error('Primary Support Report clash XML is required.');
+    const primarySource = xmlSource(popup, 'primary');
+    if (!hasXmlSource(primarySource)) throw new Error('Primary Support Report clash XML is required.');
     const modelText = popup.querySelector('[data-ssrb-input="model"]')?.value || '';
     let relationshipBundle = null;
     if (modelText.trim()) {
       const combinedInput = parseSupportSteelJson(modelText, 'Combined staged model source');
       relationshipBundle = buildSupportSteelRelationshipBundle({ combinedInput, config: supportReportRules(popup) });
     }
-    const clashEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(xmlText));
+    const clashEvidence = assertSupportReportEvidenceReady(await parseSupportReportXmlAsync(primarySource, {}, {
+      signal: controller.signal,
+      fallbackParser: parseSupportReportClashXml,
+    }));
+    if (controller.signal.aborted) return;
+
     let report = buildSupportReportBundle({ clashEvidence, relationshipBundle });
-    const referenceXmlText = popup.querySelector('[data-ssr-typical-xml]')?.value || '';
-    if (referenceXmlText.trim()) {
-      const referenceEvidence = assertSupportReportEvidenceReady(parseSupportReportClashXml(referenceXmlText));
+    const referenceSource = xmlSource(popup, 'typical');
+    if (hasXmlSource(referenceSource)) {
+      runState.innerHTML = '<b>Building Support Report</b><span>Parsing typical-structure reference XML in a background worker…</span>';
+      const referenceEvidence = assertSupportReportEvidenceReady(await parseSupportReportXmlAsync(referenceSource, {}, {
+        signal: controller.signal,
+        fallbackParser: parseSupportReportClashXml,
+      }));
+      if (controller.signal.aborted) return;
       const referenceReport = buildSupportReportBundle({ clashEvidence: referenceEvidence });
       const typicalityAudit = buildSupportReportTypicalityComparison(clashEvidence, referenceEvidence, {
         leftReportBundle: report,
@@ -201,15 +250,22 @@ function run(popup) {
       });
       report = projectTypicalityOntoSupportReportBundle(report, typicalityAudit, clashEvidence);
     }
+    if (controller.signal.aborted) return;
     state.report = report;
     host.innerHTML = renderSupportReportWorkspace(report);
     runState.innerHTML = renderReadyState(report);
     setExportEnabled(popup, true);
   } catch (error) {
+    if (error?.name === 'AbortError') return;
     state.report = null;
     host.innerHTML = `<div class="ssrb-empty"><b>Support Report blocked</b><br>${h(error.message || error)}</div>`;
     runState.innerHTML = `<b>Build blocked</b><span>${h(error.message || error)}</span>`;
     setExportEnabled(popup, false);
+  } finally {
+    if (state.runAbort === controller) {
+      state.runAbort = null;
+      setBuildBusy(popup, false);
+    }
   }
 }
 
@@ -252,11 +308,43 @@ function readTypicalityProfile(popup) {
 }
 function supportReportRules(popup) { return { ...readExistingRules(popup), supportFamilyPattern: SUPPORT_REPORT_FAMILY_PATTERN }; }
 
+function clearImportedXml(popup, kind) {
+  const state = stateByPopup.get(popup);
+  if (state?.xmlFiles) state.xmlFiles[kind] = null;
+}
+function xmlSource(popup, kind) {
+  const state = stateByPopup.get(popup);
+  const file = state?.xmlFiles?.[kind];
+  if (file) return file;
+  const selector = kind === 'typical' ? '[data-ssr-typical-xml]' : '[data-ssr-xml]';
+  return popup.querySelector(selector)?.value || '';
+}
+function hasXmlSource(source) {
+  if (typeof source === 'string') return Boolean(source.trim());
+  return Boolean(source && typeof source.text === 'function' && Number(source.size) > 0);
+}
+function setBuildBusy(popup, busy) {
+  const button = popup.querySelector('[data-ssr-build]');
+  if (!button) return;
+  button.disabled = Boolean(busy);
+  button.setAttribute('aria-busy', String(Boolean(busy)));
+}
+function nextPaint() {
+  return new Promise((resolve) => {
+    if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(() => resolve());
+    else globalThis.setTimeout(resolve, 0);
+  });
+}
 function invalidate(popup, message) {
   const state = stateByPopup.get(popup);
-  if (state) state.report = null;
+  if (state) {
+    state.runAbort?.abort();
+    state.runAbort = null;
+    state.report = null;
+  }
   const runState = popup.querySelector('[data-ssr-run-state]');
   if (runState) runState.innerHTML = `<b>Inputs changed</b><span>${h(message)}</span>`;
+  setBuildBusy(popup, false);
   setExportEnabled(popup, false);
 }
 function setExportEnabled(popup, enabled) {
@@ -317,6 +405,7 @@ function h(value) {
 
 export const _test = Object.freeze({
   comparisonReadyText,
+  hasXmlSource,
   infoIcon,
   readTypicalityProfile,
   renderPanel,
