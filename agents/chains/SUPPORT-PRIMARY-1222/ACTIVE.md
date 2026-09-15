@@ -2,47 +2,44 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0011
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0011.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0012
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0012.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-006 prework active; use branch ref for exact live SHA
+HEAD: LEG-007 prework active; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
-AGENT_INSTANCE_ID: chatgpt:dc64d516-9c68-47d5-98f5-64cc74bb093c
 WORK_ITEM_SOURCE: GITHUB_ISSUE
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_ITEM_MODE: EXCLUSIVE
-CUSTODY_EPOCH: 7
+CUSTODY_EPOCH: 8
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
 ENGINEERING_STATE: ACTIVE
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: NOT_REQUIRED
 WRITE_AUTHORITY: WRITE_ALLOWED
-AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at prework observation
-REVIEWS: NONE at prior endpoint
-UNRESOLVED_REVIEW_THREADS: NONE at prior endpoint
-REQUIRED_CHECKS: GitHub Actions remains non-executing; no product result unless steps execute
+MERGEABILITY: TRUE — PR #1223 draft/open at LEG-006 closeout observation
+REVIEWS: NONE
+UNRESOLVED_REVIEW_THREADS: NONE
+REQUIRED_CHECKS: latest Actions jobs fail before steps (`steps=null`); product qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0011
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0012
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5681571415
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0012_COMMENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0012_SYNC
 
-OWNER_PROGRESSION_COMMAND: proceed next
+OWNER_PROGRESSION_COMMAND: fix, proceed next
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -52,12 +49,12 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0011.md
-LATEST_MATERIAL_LEG: LEG-005
-LATEST_MATERIAL_HEAD: 26c512ecc62585735a18ed82649a33fab0c3e2da
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-005.md
-NEXT_MATERIAL_LEG: LEG-006
+LATEST_MATERIAL_LEG: LEG-006
+LATEST_MATERIAL_HEAD: 5d77236b997d131a4c67e450358894d55be7b26a
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-006.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0012.md
+NEXT_MATERIAL_LEG: LEG-007
 
-CURRENT_BLOCKER: Real 1835 relationship XML and executing Actions runner remain unavailable; neither blocks no-semantic-change source hardening.
-LEG_DIAGNOSIS: Harden shared geometry exports, popup-scoped config, count provenance and nested cache routing before Owner qualification. No matching/count policy change is authorized.
-EXACT_NEXT_ACTION: Implement LEG-006 per EP-0011 allowed paths; stop with material receipt + successor endpoint. No Column 22 and no merge.
+CURRENT_BLOCKER: real 1835 relationship XML and executing Actions runner remain unavailable. Relationship typicality must therefore treat absent explicit topology as UNAVAILABLE, not mismatch.
+LEG_DIAGNOSIS: Add RELATIONSHIP_TOPOLOGY_V1 beside the frozen structural matcher and expose an explicit fail-visible consensus signal. Do not modify structural matcher scoring/gates and do not implement Axis Typicality yet.
+EXACT_NEXT_ACTION: Implement LEG-007 per EP-0012, add focused tests, inspect structural-output invariance, then stop with material receipt + successor endpoint. No merge.
