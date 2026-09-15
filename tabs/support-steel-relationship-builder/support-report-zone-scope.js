@@ -23,6 +23,13 @@ export function discoverSupportReportZones(rows = []) {
   });
 }
 
+export function deriveSupportReportReferenceZoneScope(rows = []) {
+  return normalizeSupportReportZoneScope({
+    primaryZoneIds: deepestZonesBySide(rows, 'primary'),
+    secondaryZoneIds: deepestZonesBySide(rows, 'secondary'),
+  });
+}
+
 export function scopeSupportReportRows(rows = [], scopeInput = {}) {
   const scope = normalizeSupportReportZoneScope(scopeInput);
   if (!scope.active) return Object.freeze([...(rows || [])]);
@@ -78,6 +85,17 @@ function discoverSide(rows, side) {
     .sort((left, right) => left.zoneId.localeCompare(right.zoneId));
 }
 
+function deepestZonesBySide(rows, side) {
+  const zones = new Set();
+  for (const row of rows || []) {
+    for (const path of rowPaths(row, side)) {
+      const candidates = (path || []).map(canonicalZoneId).filter((zoneId) => zoneId && isZoneCandidate(zoneId));
+      if (candidates.length) zones.add(candidates[candidates.length - 1]);
+    }
+  }
+  return [...zones].sort();
+}
+
 function rowPaths(row, side) {
   const plural = row?.[`${side}Paths`];
   if (Array.isArray(plural) && plural.length) return plural.filter((path) => Array.isArray(path) && path.length);
@@ -112,6 +130,7 @@ function canonicalZoneId(value) {
 
 export const _test = Object.freeze({
   canonicalZoneId,
+  deepestZonesBySide,
   isZoneCandidate,
   pathsContainAny,
   rowPaths,
