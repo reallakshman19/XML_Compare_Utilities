@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0009_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0009_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5680577079
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -110,7 +110,8 @@ PASS:
 - Issue #1222 exact orphan profile/branch-override policy re-read;
 - live main and PR state reconciled;
 - EP-0008 repository/Issue handover was IN_SYNC before new prework;
-- immutable EP-0009 created before any LEG-005 product mutation.
+- immutable EP-0009 created before any LEG-005 product mutation;
+- EP-0009 endpoint + mutable Active Handover comments synchronized to Issue #1222.
 
 NOT_RUN:
 - LEG-005 focused/repository tests;
@@ -120,4 +121,4 @@ NOT_RUN:
 
 # Exact next action
 
-Synchronize EP-0009 to Issue #1222, then implement LEG-005 within its allowed paths. Stop after a material receipt + successor endpoint. Do not touch Column 22, #1216 producer semantics, normal grouping tolerances, workflows, or merge state.
+Implement LEG-005 within EP-0009 allowed paths. Stop after a material receipt + successor endpoint. Do not touch Column 22, #1216 producer semantics, normal grouping tolerances, workflows, or merge state.
