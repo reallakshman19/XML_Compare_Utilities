@@ -2,13 +2,13 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0014
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0014.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0015
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0015.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-008 prework active; use branch ref for exact live SHA
+HEAD: LEG-008 complete; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: ACTIVE
+STATE: READY
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -18,29 +18,29 @@ CUSTODY_EPOCH: 9
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
-ENGINEERING_STATE: ACTIVE
+ENGINEERING_STATE: READY
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at LEG-007 closeout
-REVIEWS: COMMENT review 5212200167 records LEG-007 source/material review; no approval/change-request review
-UNRESOLVED_REVIEW_THREADS: NONE
-REQUIRED_CHECKS: latest Actions jobs fail before steps (`steps=null`); product execution qualification remains NOT_RUN
+MERGEABILITY: TRUE — PR #1223 draft/open at material review
+REVIEWS: COMMENT reviews 5212200167 (LEG-007) and 5212752129 (LEG-008); no approval/change-request review
+UNRESOLVED_REVIEW_THREADS: NONE at LEG-008 material review
+REQUIRED_CHECKS: Actions at LEG-008 material head fail before steps (`steps=null`); product execution qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0014
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0015
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5683638328
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5683900993
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-RELATED_TYPICALITY_STATUS_COMMENT_ID: 5683641129
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5683905631
 
-OWNER_PROGRESSION_COMMAND: proceed next
+OWNER_PROGRESSION_COMMAND: proceed next — completed LEG-008
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -50,12 +50,12 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: LEG-007
-LATEST_MATERIAL_HEAD: a42a3e12cb6369b8c26f02a593ef0264860e3501
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-007.md
+LATEST_MATERIAL_LEG: LEG-008
+LATEST_MATERIAL_HEAD: c738c03ef0036fba37a23490f83990e5a19fccc5
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-008.md
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0014.md
-NEXT_MATERIAL_LEG: LEG-008
+NEXT_MATERIAL_LEG: UNALLOCATED
 
-CURRENT_BLOCKER: executing Actions runner remains unavailable. Axis typicality must therefore be source/material qualified unless steps actually execute.
-LEG_DIAGNOSIS: Add AXIS_TYPICALITY_V1 as a third independent channel using intrinsic axis-relative geometry only. Never compare raw global axis vectors across XMLs.
-EXACT_NEXT_ACTION: Implement LEG-008 per EP-0014, add focused rotation/reflection/unavailability/conflict controls, inspect matcher independence, then stop with material receipt + successor endpoint. No merge.
+CURRENT_BLOCKER: executing Actions runner remains unavailable; real 1835 relationship XML remains unpinned; reference-side explicit relationship input is not yet implemented.
+LEG_DIAGNOSIS: LEG-008 closed. Axis Typicality V1 is independent and fail-closed; three-channel consensus is in place.
+EXACT_NEXT_ACTION: On fresh Owner progression, prework a bounded reference-side Primary Support Relationship XML/input leg before any new product mutation. No merge.
