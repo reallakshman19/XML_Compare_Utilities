@@ -8,6 +8,7 @@ const POPUP_SELECTOR = '[data-ssrb-popup="1"]';
 const PANEL_SELECTOR = '[data-ssrb-panel="support-report"]';
 const mounted = new WeakSet();
 let observer = null;
+let activeBuildPopup = null;
 
 export function installSupportPrimaryOrphanUiAddon() {
   const doc = globalThis.document;
@@ -15,7 +16,11 @@ export function installSupportPrimaryOrphanUiAddon() {
   mountAll(doc);
   observer = new MutationObserver(() => mountAll(doc));
   observer.observe(doc.documentElement, { childList: true, subtree: true });
-  return () => { observer?.disconnect(); observer = null; };
+  return () => {
+    observer?.disconnect();
+    observer = null;
+    releaseBuildLease(activeBuildPopup);
+  };
 }
 
 function mountAll(doc) {
@@ -29,7 +34,7 @@ function mount(popup) {
   const existing = popup.querySelector('[data-ssr-orphan-config]');
   if (existing) {
     mounted.add(popup);
-    syncRuntimeConfig(popup);
+    if (!activeBuildPopup) syncRuntimeConfig(popup);
     return;
   }
 
@@ -43,17 +48,18 @@ function mount(popup) {
   else panel.querySelector('.ssrb-build-grid')?.before(card);
 
   mounted.add(popup);
-  setSupportPrimaryOrphanRecoveryRuntimeConfig(readOrphanRecoveryConfig(popup));
+  if (!activeBuildPopup) syncRuntimeConfig(popup);
   for (const node of popup.querySelectorAll('[data-ssr-orphan-setting]')) {
     const eventName = node.type === 'checkbox' ? 'change' : 'input';
     node.addEventListener(eventName, () => {
-      if (isBuildBusy(popup)) return;
+      if (isBuildBusy(popup) || (activeBuildPopup && activeBuildPopup !== popup)) return;
       syncRuntimeConfig(popup);
       invalidateVisibleReport(popup);
     });
   }
   const build = popup.querySelector('[data-ssr-build]');
   if (build) {
+    build.addEventListener('click', (event) => acquireBuildLease(popup, event), { capture: true });
     const busyObserver = new MutationObserver(() => syncBusyState(popup));
     busyObserver.observe(build, { attributes: true, attributeFilter: ['aria-busy', 'disabled'] });
   }
@@ -82,9 +88,41 @@ function syncRuntimeConfig(popup) {
   return setSupportPrimaryOrphanRecoveryRuntimeConfig(readOrphanRecoveryConfig(popup));
 }
 
+function acquireBuildLease(popup, event) {
+  if (activeBuildPopup && activeBuildPopup !== popup) {
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+    return false;
+  }
+  activeBuildPopup = popup;
+  syncRuntimeConfig(popup);
+  setOtherPopupLockedState(popup, true);
+  return true;
+}
+
+function releaseBuildLease(popup) {
+  if (!popup || activeBuildPopup !== popup) return;
+  activeBuildPopup = null;
+  setOtherPopupLockedState(popup, false);
+}
+
+function setOtherPopupLockedState(ownerPopup, locked) {
+  const doc = ownerPopup?.ownerDocument || globalThis.document;
+  for (const popup of doc?.querySelectorAll?.(POPUP_SELECTOR) || []) {
+    if (popup === ownerPopup) continue;
+    const build = popup.querySelector('[data-ssr-build]');
+    if (build) build.disabled = locked || build.getAttribute('aria-busy') === 'true';
+    for (const node of popup.querySelectorAll('[data-ssr-orphan-setting]')) {
+      node.disabled = locked || isBuildBusy(popup);
+    }
+  }
+}
+
 function syncBusyState(popup) {
   const busy = isBuildBusy(popup);
-  for (const node of popup.querySelectorAll('[data-ssr-orphan-setting]')) node.disabled = busy;
+  const lockedByOtherPopup = Boolean(activeBuildPopup && activeBuildPopup !== popup);
+  for (const node of popup.querySelectorAll('[data-ssr-orphan-setting]')) node.disabled = busy || lockedByOtherPopup;
+  if (!busy && activeBuildPopup === popup) releaseBuildLease(popup);
 }
 
 function isBuildBusy(popup) {
@@ -120,6 +158,8 @@ function h(value) {
 export const _test = Object.freeze({
   renderOrphanRecoveryConfigCard,
   readOrphanRecoveryConfig,
+  acquireBuildLease,
+  releaseBuildLease,
 });
 
 installSupportPrimaryOrphanUiAddon();
