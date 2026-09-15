@@ -4,6 +4,10 @@ ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIMARY-1222-0001.md
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0001
 LAST_UPDATED: 2026-09-15
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678834311
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -18,7 +22,7 @@ LAST_UPDATED: 2026-09-15
 | TASK-007 | OPEN | no count migration in first slice |
 | TASK-008 | OPEN | no Column 22 authority mutation in first slice |
 | TASK-009 | OPEN | benchmark truth retained; all new issue benchmarks currently NOT_RUN |
-| TASK-010 | IN_PROGRESS | v2 custody being established on feature branch; merge Owner-only |
+| TASK-010 | IN_PROGRESS | v2 custody + issue control plane established; merge Owner-only |
 
 # Input ledger
 
@@ -76,15 +80,17 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REFRESHED_INITIAL
 TAKEOVER_QUALIFICATION_READY: TRUE for future candidate admission; no takeover has occurred.
+CHAIN_HANDOVER_READY: TRUE
 OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 
 # Validation truth
 
 Protocol/reference grounding: PASS by source inspection.
 Live main / issue / PR overlap reconciliation: PASS by GitHub inspection.
+Issue control-plane synchronization: PASS; CHAIN_ROOT/ACTIVE/ENDPOINT comment IDs recorded.
 Product tests for issue #1222: NOT_RUN.
 1835 relationship XML qualification: BLOCKED on INPUT-002 real file locator.
 
 # Exact next action
 
-Commit the immutable prework endpoint and ACTIVE custody on this branch, synchronize CHAIN_ROOT/ACTIVE/ENDPOINT comments to issue #1222, then begin only WP-PSA-001/002/004 first-slice material work: semantic rename, shared member-pair parsing seam, pure deterministic assembly builder and focused tests. Do not migrate final count or Column 22 decision authority yet.
+Begin only WP-PSA-001/002/004 first-slice material work after the committed prework endpoint: semantic rename, shared member-pair parsing seam, pure deterministic assembly builder and focused tests. Do not migrate final count or Column 22 decision authority yet.
