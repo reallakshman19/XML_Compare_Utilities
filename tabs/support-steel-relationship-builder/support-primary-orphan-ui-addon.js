@@ -2,7 +2,7 @@ import {
   normalizeSupportPrimaryOrphanRecoveryConfig,
   setSupportPrimaryOrphanRecoveryRuntimeConfig,
   SUPPORT_PRIMARY_ORPHAN_RECOVERY_DEFAULTS,
-} from './support-primary-orphan-recovery.js?v=20260915-support-primary-orphan-1';
+} from './support-primary-orphan-recovery.js?v=20260915-support-primary-hardening-1';
 
 const POPUP_SELECTOR = '[data-ssrb-popup="1"]';
 const PANEL_SELECTOR = '[data-ssrb-panel="support-report"]';
