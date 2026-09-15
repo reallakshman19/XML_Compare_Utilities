@@ -26,27 +26,18 @@ ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0014_SYNC
 
 # Completed material legs
 
-- LEG-001 explicit member topology.
-- LEG-002 topology/location reconciliation.
-- LEG-003 final assembly count projection.
-- LEG-004 exact zone scope + optional relationship XML UI/input.
-- LEG-005 conservative orphan recovery.
-- LEG-006 release hardening.
-- LEG-007 independent `RELATIONSHIP_TOPOLOGY_V1` + conservative consensus.
-
-LEG-007 material receipt: `agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-007.md`.
-Material head: `a42a3e12cb6369b8c26f02a593ef0264860e3501`.
+LEG-001 through LEG-007 are materially closed. LEG-007 material receipt: `agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-007.md`; material head `a42a3e12cb6369b8c26f02a593ef0264860e3501`.
 
 # LEG-008 frozen scope
 
 Add `AXIS_TYPICALITY_V1` as a third independent family-level evidence channel. Existing structural and relationship matchers remain read-only decision channels.
 
 Intrinsic signature only:
-- trusted local traversal axes derived through the canonical Support Report axis helper;
-- DN-normalized along-axis/lateral support spacing spectra;
-- unsigned relative traversal-axis angle spectrum `acos(|T1 dot T2|)` computed only inside each model;
-- locations-per-traversal / traversal-cardinality and return/revisit topology descriptors;
-- explicit evidence-availability metadata.
+- trusted local traversal axes from canonical Support Report axis geometry;
+- DN-normalized along/lateral location-spacing spectra;
+- unsigned relative traversal-axis angle spectrum `acos(|T1 dot T2|)` computed inside each model only;
+- traversal cardinality / locations-per-traversal / return-revisit topology descriptors;
+- trusted/unavailable axis and normalized-pair availability metadata.
 
 Hard invariant: raw global axis vectors from different XMLs are never compared.
 
@@ -62,11 +53,9 @@ Consensus:
 - axis unavailable retains prior structural/relationship consensus;
 - axis-only candidate cannot promote structural rejection/ambiguity in LEG-008.
 
-# Benchmark/oracle ledger
+# Protected oracle ledger
 
-Protected count expectations remain PS-11167=6, PS-11236=4, PS-12060=1, PS-12877=4, PS-12860=6, PS-12120=14. The 11168->14168 structural positive control remains protected.
-
-Axis-focused synthetic controls must include arbitrary rigid rotation/translation, axis sign reversal/reflection, spacing mismatch, relative-axis-angle mismatch, insufficient-axis evidence and traversal/return mismatch.
+Count expectations remain PS-11167=6, PS-11236=4, PS-12060=1, PS-12877=4, PS-12860=6, PS-12120=14. The 11168->14168 structural positive control remains protected.
 
 # Validation truth entering LEG-008
 
