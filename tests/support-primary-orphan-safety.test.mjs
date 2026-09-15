@@ -7,20 +7,22 @@ import { _test as locationTest } from '../tabs/support-steel-relationship-builde
 
 const line = 'ASIM-1885-10"-S8810101-91261M7-HC-01';
 
-function group(id, memberId, point) {
+function group(id, memberId, point, options = {}) {
+  const familyId = options.familyId || 'PS-11167';
+  const branch = options.branch || 'B4';
   return {
     groupId: id,
-    secondarySupportFamilyId: 'PS-11167',
+    secondarySupportFamilyId: familyId,
     fullLineTag: line,
-    branchNodes: ['B4'],
+    branchNodes: [branch],
     primarySupportMemberIds: [memberId],
     representativeClashPointGlobalMm: point,
     locationNominalBoreMm: 250,
     evidenceRows: [{
-      secondarySupportFamilyId: 'PS-11167',
+      secondarySupportFamilyId: familyId,
       primarySupportMemberId: memberId,
       fullLineTag: line,
-      branchNode: 'B4',
+      branchNode: branch,
       clashPointGlobalMm: point,
     }],
   };
@@ -57,4 +59,28 @@ test('no-explicit fallback preserves non-recoverable legacy groups while dedupli
   assert.equal(counted.familySummaries[0].legacyGeometryCount, 2);
   assert.equal(counted.familySummaries[0].totalSupportPointsOnSecondary, 2);
   assert.equal(counted.familySummaries[0].legacyFallbackOccurrenceIds.length, 2);
+});
+
+test('provisional geometry recovery cannot collapse known different traversals even with a trusted pipe-wide axis', () => {
+  const groups = [
+    group('G1', '/PS-12877.1', { x: 0, y: 0, z: 0 }, { familyId: 'PS-12877', branch: 'B1' }),
+    group('G2', '/PS-12877.2', { x: 0, y: 50, z: 0 }, { familyId: 'PS-12877', branch: 'B2' }),
+    group('G3', '/PS-12877.3', { x: 5000, y: 0, z: 0 }, { familyId: 'PS-12877', branch: 'B3' }),
+  ];
+  const counted = applySupportPrimaryAssemblyCounts({
+    locationGroups: groups,
+    relationshipBundle: null,
+    orphanRecoveryConfig: {},
+  });
+  const g1 = counted.groups.find((row) => row.groupId === 'G1');
+  const g2 = counted.groups.find((row) => row.groupId === 'G2');
+  assert.equal(counted.familySummaries[0].legacyGeometryCount, 3);
+  assert.equal(counted.familySummaries[0].totalSupportPointsOnSecondary, 3);
+  assert.equal(g1.primarySupportOrphanRecoveryStatus, 'ORPHAN_UNRESOLVED');
+  assert.equal(g2.primarySupportOrphanRecoveryStatus, 'ORPHAN_UNRESOLVED');
+  assert.equal(g1.primarySupportOrphanRecoveryBasis, 'DIFFERENT_TRAVERSAL_GEOMETRY_RECOVERY_WITHHELD');
+  assert.equal(g2.primarySupportOrphanRecoveryBasis, 'DIFFERENT_TRAVERSAL_GEOMETRY_RECOVERY_WITHHELD');
+  assert.equal(counted.orphanRecovery.summary.crossTraversalGeometryWithheldCount, 2);
+  assert.equal(counted.summary.orphanCrossTraversalGeometryWithheldCount, 2);
+  assert.equal(counted.diagnostics.filter((row) => row.code === 'ORPHAN_CROSS_TRAVERSAL_GEOMETRY_WITHHELD').length, 2);
 });
