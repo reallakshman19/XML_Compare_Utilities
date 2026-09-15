@@ -43,8 +43,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0009_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0009_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5680577079
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -74,4 +74,4 @@ NEXT_MATERIAL_LEG: LEG-005
 
 CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned; GitHub Actions runner remains non-executing. Neither blocks isolated orphan-resolver implementation.
 LEG_DIAGNOSIS: Remaining fallback defect is unresolved/provisional geometry groups split outside the normal lateral window. Issue #1222 authorizes a second-pass resolver only, not global tolerance widening.
-EXACT_NEXT_ACTION: Synchronize EP-0009 to Issue #1222, then implement LEG-005: enabled default, 1.0x axial / 2.0x lateral, configurable Same Family / Same PIPE / Same Bore ON, unique target fixed, branch override only with all three enabled+passing guards, explicit components immutable. No Column 22. Do not merge.
+EXACT_NEXT_ACTION: Implement LEG-005: enabled default, 1.0x axial / 2.0x lateral, configurable Same Family / Same PIPE / Same Bore ON, unique target fixed, branch override only with all three enabled+passing guards, explicit components immutable. No Column 22. Do not merge.
