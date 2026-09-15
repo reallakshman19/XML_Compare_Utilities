@@ -21,7 +21,9 @@ MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0014_COMMENT
+ISSUE_ENDPOINT_COMMENT_ID: 5683638328
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5683641129
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # LEG-008 prework — Axis Typicality V1
 
@@ -40,7 +42,7 @@ This leg adds a third independent family-level typicality evidence channel named
 
 ## Intended intrinsic family signature
 
-- trusted local traversal axis evidence from canonical traversal geometry;
+- trusted local traversal axis evidence from canonical Support Report axis geometry;
 - DN-normalized along-axis/lateral support-spacing spectrum (`A/Bore`, `L/Bore`);
 - unsigned relative traversal-axis angle spectrum `acos(|T1 dot T2|)` computed only within each model;
 - traversal cardinality / locations-per-traversal / return-revisit descriptors;
