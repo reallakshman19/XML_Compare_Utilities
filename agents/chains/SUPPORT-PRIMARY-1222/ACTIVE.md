@@ -43,8 +43,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0004
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0004_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0004_COMMENT
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679296382
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -56,7 +56,7 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: FALSE — EP-0004 issue synchronization pending
+CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
 HANDOVER_VALIDATION_EVIDENCE: isolated parser + reconciliation harnesses PASS; repository tests/CI NOT_RUN
@@ -71,4 +71,4 @@ LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-00
 
 CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned, so PS-11167=6 and PS-11236=4 real relationship qualification remains NOT_RUN. GitHub Actions runner remains non-executing.
 LEG_DIAGNOSIS: Explicit assembly topology now reconciles against existing geometry groups without altering count authority; exact/partial/conflict/geometry-only states are separated fail-closed.
-EXACT_NEXT_ACTION: Synchronize EP-0004 and PR #1223 state. Next material leg, if authorized by progression, must prework count migration using distinct countable reconciled assembly IDs while preserving PS-12060=1, PS-12877=4, PS-12860=6 and PS-12120=14. Do not merge.
+EXACT_NEXT_ACTION: Stop at EP-0004. A future bounded progression may prework final count migration from distinct countable reconciled assembly IDs with protected controls PS-12060=1, PS-12877=4, PS-12860=6 and PS-12120=14. Do not merge.
