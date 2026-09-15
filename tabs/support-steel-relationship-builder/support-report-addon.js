@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260910-support-report-field-provenance-14&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&primary=20260915-support-primary-count-1';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260915-support-primary-hardening-1&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&primary=20260915-support-primary-hardening-1';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
 import {
   supportReportDebugExportFileName,
@@ -36,6 +36,7 @@ import {
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 import { buildSupportPrimaryRelationshipInput } from './support-primary-input.js?v=20260915-support-primary-zone-ui-1';
+import { readOrphanRecoveryConfig } from './support-primary-orphan-ui-addon.js?v=20260915-support-primary-hardening-1';
 import {
   discoverSupportReportZones,
   normalizeSupportReportZoneScope,
@@ -406,6 +407,7 @@ async function run(popup) {
     const primarySource = xmlSource(popup, 'primary');
     if (!hasXmlSource(primarySource)) throw new Error('Primary Support Report clash XML is required.');
     const zoneScope = readZoneScope(popup);
+    const orphanRecoveryConfig = readOrphanRecoveryConfig(popup);
     const modelText = popup.querySelector('[data-ssrb-input="model"]')?.value || '';
     let relationshipBundle = null;
     if (modelText.trim()) {
@@ -444,7 +446,12 @@ async function run(popup) {
       primaryRelationshipBundle = primaryRelationshipInput.bundle;
     }
 
-    let report = buildSupportReportBundle({ clashEvidence, relationshipBundle, primaryRelationshipBundle });
+    let report = buildSupportReportBundle({
+      clashEvidence,
+      relationshipBundle,
+      primaryRelationshipBundle,
+      orphanRecoveryConfig,
+    });
     const referenceSource = xmlSource(popup, 'typical');
     if (hasXmlSource(referenceSource)) {
       runState.innerHTML = '<b>Building Support Report</b><span>Parsing typical-structure reference XML in a background worker…</span>';
@@ -453,7 +460,7 @@ async function run(popup) {
         fallbackParser: parseSupportReportClashXml,
       }));
       if (controller.signal.aborted) return;
-      const referenceReport = buildSupportReportBundle({ clashEvidence: referenceEvidence });
+      const referenceReport = buildSupportReportBundle({ clashEvidence: referenceEvidence, orphanRecoveryConfig });
       const typicalityAudit = buildSupportReportTypicalityComparison(clashEvidence, referenceEvidence, {
         leftReportBundle: report,
         rightReportBundle: referenceReport,
