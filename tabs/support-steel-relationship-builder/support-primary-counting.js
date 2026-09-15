@@ -72,6 +72,7 @@ function buildFamilyCountSummary({ familyId, locationGroups, assignments, recove
     ? (relationshipFamily.assemblies || []).filter((row) => row?.countable).map((row) => clean(row.assemblyId)).filter(Boolean).sort()
     : [];
   const explicitSet = new Set(explicitAssemblyIds);
+  const assignmentByGroupId = new Map((assignments || []).map((row) => [clean(row.groupId), row]));
   const recoveryByGroupId = new Map((recoveries || []).map((row) => [clean(row.groupId), row]));
   const geometryOnlyAssignments = assignments.filter((row) => row.status === 'GEOMETRY_ONLY');
   const partialAssignments = assignments.filter((row) => row.status === 'PARTIAL_EXPLICIT');
@@ -82,6 +83,16 @@ function buildFamilyCountSummary({ familyId, locationGroups, assignments, recove
     const recovery = recoveryByGroupId.get(clean(row.groupId));
     return clean(recovery?.effectiveAssemblyId || row.primarySupportAssemblyId || row.provisionalAssemblyId);
   }).filter(Boolean)).sort();
+  const legacyFallbackOccurrenceIds = unique(locationGroups.map((group) => {
+    const groupId = clean(group?.groupId);
+    const assignment = assignmentByGroupId.get(groupId) || null;
+    const recovery = recoveryByGroupId.get(groupId) || null;
+    if (assignment?.status === 'GEOMETRY_ONLY') {
+      const effective = clean(recovery?.effectiveAssemblyId || assignment.primarySupportAssemblyId || assignment.provisionalAssemblyId);
+      return effective ? `RECOVERABLE::${effective}` : `LEGACY_GROUP::${groupId}`;
+    }
+    return `LEGACY_GROUP::${groupId}`;
+  }).filter(Boolean)).sort();
   const additionalGeometryOccurrenceIds = geometryOccurrenceIds.filter((id) => !explicitSet.has(id));
   const recoveredRows = (recoveries || []).filter((row) => isRecovered(row?.recoveryStatus));
   const ambiguousRows = (recoveries || []).filter((row) => row?.recoveryStatus === 'ORPHAN_AMBIGUOUS');
@@ -89,7 +100,7 @@ function buildFamilyCountSummary({ familyId, locationGroups, assignments, recove
   const recoveryApplied = recoveredRows.length > 0;
 
   if (!explicitRelationshipFamilyAvailable) {
-    const total = geometryOccurrenceIds.length || legacyGeometryCount;
+    const total = legacyFallbackOccurrenceIds.length;
     return freezeFamilySummary({
       familyId,
       totalSupportPointsOnSecondary: total,
@@ -98,6 +109,7 @@ function buildFamilyCountSummary({ familyId, locationGroups, assignments, recove
       explicitAssemblyIds: [],
       geometryOnlyGroupIds: geometryOnlyAssignments.map((row) => clean(row.groupId)).filter(Boolean),
       geometryOccurrenceIds,
+      legacyFallbackOccurrenceIds,
       ambiguityCount: 0,
       explicitRelationshipFamilyAvailable: false,
       orphanRecovery,
@@ -137,6 +149,7 @@ function buildFamilyCountSummary({ familyId, locationGroups, assignments, recove
     explicitAssemblyIds,
     geometryOnlyGroupIds,
     geometryOccurrenceIds,
+    legacyFallbackOccurrenceIds: [],
     ambiguityCount,
     explicitRelationshipFamilyAvailable: true,
     orphanRecovery,
@@ -158,6 +171,7 @@ function freezeFamilySummary(input) {
     explicitAssemblyIds: Object.freeze([...(input.explicitAssemblyIds || [])]),
     geometryOnlyGroupIds: Object.freeze([...(input.geometryOnlyGroupIds || [])]),
     geometryOccurrenceIds: Object.freeze([...(input.geometryOccurrenceIds || [])]),
+    legacyFallbackOccurrenceIds: Object.freeze([...(input.legacyFallbackOccurrenceIds || [])]),
     ambiguityCount: input.ambiguityCount || 0,
     explicitRelationshipFamilyAvailable: Boolean(input.explicitRelationshipFamilyAvailable),
     orphanRecoverySchema: input.orphanRecovery?.schema || '',
