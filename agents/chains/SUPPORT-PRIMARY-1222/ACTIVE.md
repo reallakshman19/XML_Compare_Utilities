@@ -38,10 +38,10 @@ ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0001
-ISSUE_CHAIN_ROOT_COMMENT_ID: PENDING_SYNC
-ISSUE_ACTIVE_HANDOVER_COMMENT_ID: PENDING_SYNC
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: NOT_RUN
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678834311
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -53,11 +53,11 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REFRESHED_INITIAL
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: FALSE — issue comment synchronization pending
+CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
 HANDOVER_VALIDATION_EVIDENCE: product tests not yet run
-HANDOVER_READY: FALSE
+HANDOVER_READY: FALSE — engineering validation for material slice not yet run
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0001.md
@@ -65,4 +65,4 @@ PREWORK_QUALIFICATION_READY: TRUE
 
 CURRENT_BLOCKER: No blocker for first slice. Real Owner Clash-within-Supports XML file for 1835 is not yet pinned, so real relationship benchmark remains NOT_RUN.
 LEG_DIAGNOSIS: Structural authority seam is missing; current count/typicality still depend on location/member inference. First slice establishes the explicit assembly model without migrating decisions.
-EXACT_NEXT_ACTION: Synchronize CHAIN_ROOT/ACTIVE/ENDPOINT comments, record comment IDs, then implement only semantic rename + shared raw member-edge seam + pure deterministic assembly builder + focused tests.
+EXACT_NEXT_ACTION: Implement only semantic rename + shared raw member-edge seam + pure deterministic assembly builder + focused tests. Do not migrate final count or Column 22 decision authority yet.
