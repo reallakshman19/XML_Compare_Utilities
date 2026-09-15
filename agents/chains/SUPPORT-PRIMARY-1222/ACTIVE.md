@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0002
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0002.md
-PR: PENDING_DRAFT_CREATION
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0003
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0003.md
+PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: branch contains LEG-001 plus relay state through EP-0002; use branch ref for exact live SHA
+HEAD: prework relay state for LEG-002; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -15,7 +15,7 @@ AGENT_INSTANCE_ID: chatgpt:dc64d516-9c68-47d5-98f5-64cc74bb093c
 WORK_ITEM_SOURCE: GITHUB_ISSUE
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_ITEM_MODE: EXCLUSIVE
-CUSTODY_EPOCH: 1
+CUSTODY_EPOCH: 2
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
@@ -26,7 +26,10 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: UNKNOWN — draft PR not yet created
+MERGEABILITY: TRUE — PR #1223 remains draft/open
+REVIEWS: NONE
+UNRESOLVED_REVIEW_THREADS: NONE
+REQUIRED_CHECKS: workflow jobs fail before steps; product validation remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
@@ -37,11 +40,11 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0002
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0003
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678994794
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0003_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0003_COMMENT
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -51,20 +54,22 @@ ROADMAP_MUTATION_AUTHORITY: NONE
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
-QUESTION_PACK_ACTION: REFRESHED_INITIAL
+QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: TRUE
+CHAIN_HANDOVER_READY: FALSE — issue endpoint comment synchronization pending
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
 HANDOVER_VALIDATION_EVIDENCE: isolated parser smoke PASS; repository tests/CI NOT_RUN
-HANDOVER_READY: FALSE — repository qualification not yet executed
+HANDOVER_READY: FALSE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0001.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0003.md
 PREWORK_QUALIFICATION_READY: TRUE
 LATEST_MATERIAL_LEG: LEG-001
 LATEST_MATERIAL_HEAD: 2c065b69ed94dae63d531c0660103486d5447691
+NEXT_MATERIAL_LEG: LEG-002
+NEXT_MATERIAL_BASE: cc074770646882ccb9c8852bb72755e106eae9ae
 
-CURRENT_BLOCKER: No blocker for draft PR creation. Real Owner Clash-within-Supports XML file for 1835 remains unpinned, so real PS-11167/PS-11236 relationship qualification remains NOT_RUN.
-LEG_DIAGNOSIS: First structural seam is implemented; explicit member topology now has a typed canonical bundle without altering final count/typicality authority.
-EXACT_NEXT_ACTION: Open a draft PR, inspect actual GitHub Actions execution, and reconcile only real executed failures. Do not merge. Do not begin final count or Column 22 migration until first-slice qualification is reconciled.
+CURRENT_BLOCKER: No blocker for LEG-002 pure reconciliation seam. Real Owner Clash-within-Supports XML for 1835 remains unpinned, so real PS-11167/PS-11236 relationship qualification remains NOT_RUN.
+LEG_DIAGNOSIS: Explicit topology exists but current geometry/location groups are not yet mapped to stable assembly IDs. LEG-002 will add only that pure reconciliation seam.
+EXACT_NEXT_ACTION: Synchronize EP-0003 to issue #1222, then implement pure explicit-assembly/location-group reconciliation plus focused tests. Do not change final count, Column 22, tolerances, zone UI or Support/Steel producer authority. Do not merge.
