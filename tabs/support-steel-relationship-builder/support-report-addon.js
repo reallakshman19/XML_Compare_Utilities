@@ -35,7 +35,10 @@ import {
 } from './support-report-ui-state.js?v=20260910-support-report-ui-completeness-16';
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js?v=20260909-support-report-1';
 import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
-import { buildSupportPrimaryRelationshipInput } from './support-primary-input.js?v=20260915-support-primary-zone-ui-1';
+import {
+  buildReferenceSupportPrimaryRelationshipInput,
+  buildSupportPrimaryRelationshipInput,
+} from './support-primary-input.js?v=20260915-reference-relationship-v1';
 import { readOrphanRecoveryConfig } from './support-primary-orphan-ui-addon.js?v=20260915-support-primary-hardening-1';
 import {
   discoverSupportReportZones,
@@ -88,7 +91,7 @@ function mount(popup) {
     primaryDiscoverySource: null,
     zoneCatalog: { primaryZones: [], secondaryZones: [] },
     zoneSelections: { primary: new Set(), secondary: new Set() },
-    xmlFiles: { primary: null, typical: null, relationship: null },
+    xmlFiles: { primary: null, typical: null, relationship: null, referenceRelationship: null },
   });
 
   const button = popup.ownerDocument.createElement('button');
@@ -106,7 +109,8 @@ function mount(popup) {
   button.addEventListener('click', () => showPanel(popup));
   popup.querySelector('[data-ssr-file]')?.addEventListener('change', () => void readXmlFile(popup, 'primary'));
   popup.querySelector('[data-ssr-typical-file]')?.addEventListener('change', () => void readXmlFile(popup, 'typical'));
-  popup.querySelector('[data-ssr-relationship-file]')?.addEventListener('change', () => void readRelationshipFile(popup));
+  popup.querySelector('[data-ssr-relationship-file]')?.addEventListener('change', () => void readRelationshipFile(popup, 'relationship'));
+  popup.querySelector('[data-ssr-reference-relationship-file]')?.addEventListener('change', () => void readRelationshipFile(popup, 'referenceRelationship'));
   popup.querySelector('[data-ssr-model-file]')?.addEventListener('change', () => void readModelFile(popup));
   popup.querySelector('[data-ssr-xml]')?.addEventListener('input', () => {
     clearImportedXml(popup, 'primary');
@@ -120,6 +124,10 @@ function mount(popup) {
   popup.querySelector('[data-ssr-relationship-xml]')?.addEventListener('input', () => {
     clearImportedXml(popup, 'relationship');
     invalidate(popup, 'Primary-support relationship XML changed; rebuild the Support Report.');
+  });
+  popup.querySelector('[data-ssr-reference-relationship-xml]')?.addEventListener('input', () => {
+    clearImportedXml(popup, 'referenceRelationship');
+    invalidate(popup, 'Reference Primary Support relationship XML changed; rebuild the Support Report.');
   });
   popup.querySelector('[data-ssrb-input="model"]')?.addEventListener('input', () => {
     syncModelStatus(popup, 'Shared combined staged model changed; rebuild the Support Report.');
@@ -158,22 +166,25 @@ function mount(popup) {
 }
 
 function renderPanel() {
-  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional Clash-within-Supports XML establishes explicit primary-support member connectivity. Exact parent-zone scope can be selected before build. Optional staged JSON enriches native attributes; optional second XML enables typicality comparison.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${relationshipSourceCard()}${typicalSourceCard()}${modelSourceCard()}</div>${zoneScopeCard()}${typicalityConfigCard()}<div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. When optional support-member relationship evidence is supplied, stable Primary Support Assembly IDs become count evidence. Empty zone selections preserve the current all-zone behavior.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download Report CSV</button><button type="button" data-ssr-download-trace="1" disabled>Download Trace CSV</button><button type="button" data-ssr-download-debug="1" disabled>Download Debug JSON</button><button type="button" data-ssr-copy="1" disabled>Copy Report CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Zone scope, relationship XML, staged JSON and typical-structure reference XML are optional evidence/configuration.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
+  return `<section class="ssrb-card ssrb-results-card"><header><div><span class="ssrb-step">R</span><b>Build Support Report from Navisworks clash evidence</b></div><span class="ssrb-panel-note">Primary clash XML establishes pipe, secondary family and physical support location. Optional current/reference Clash-within-Supports XML establishes explicit primary-support member connectivity. Exact current-area parent-zone scope can be selected before build; reference relationship scope is derived independently from exact reference-report ancestry.</span></header><div class="ssrb-input-grid">${xmlSourceCard()}${relationshipSourceCard()}${typicalSourceCard()}${referenceRelationshipSourceCard()}${modelSourceCard()}</div>${zoneScopeCard()}${typicalityConfigCard()}<div class="ssrb-build-grid"><div><h3>SupportReportBundle.v1</h3><p>Rows use the governed family + pipe + physical clash-location model. Optional support-member relationship evidence adds stable Primary Support Assembly IDs. Current and reference relationship evidence are independently scoped.</p><div class="ssrb-dialog-actions"><button type="button" class="ssrb-primary" data-ssr-build="1">Build Support Report</button><button type="button" class="ssrb-primary" data-ssr-download-xlsx="1" disabled>Download XLSX</button><button type="button" data-ssr-download="1" disabled>Download Report CSV</button><button type="button" data-ssr-download-trace="1" disabled>Download Trace CSV</button><button type="button" data-ssr-download-debug="1" disabled>Download Debug JSON</button><button type="button" data-ssr-copy="1" disabled>Copy Report CSV</button></div></div><div class="ssrb-run-state" data-ssr-run-state><b>Not built</b><span>Load the primary XML. Zone scope, current/reference relationship XML, staged JSON and typical-structure reference XML are optional evidence/configuration.</span></div></div><div data-ssr-results>${renderSupportReportWorkspace(null)}</div></section>`;
 }
 function xmlSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Report clash XML</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-file="1"></label></div><span>Navisworks clash/clearance XML used to build operational support locations and discover exact primary/secondary parent zones.</span><textarea rows="10" data-ssr-xml spellcheck="false" placeholder="Paste primary SupportreportXML.xml"></textarea><small data-ssr-file-status>No primary Support Report XML selected</small></div>`;
 }
 function relationshipSourceCard() {
-  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Relationship XML (optional)</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-relationship-file="1"></label></div><span>Optional Navisworks “Clash within Supports” XML. Establishes PS/SL member-to-member Primary Support Assembly connectivity before count projection. It does not become Support/Steel carrier authority.</span><textarea rows="10" data-ssr-relationship-xml spellcheck="false" placeholder="Optional: paste Clash within Supports XML"></textarea><small data-ssr-relationship-file-status>No primary-support relationship XML selected · geometry fallback remains active</small></div>`;
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Primary Support Relationship XML (optional)</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-relationship-file="1"></label></div><span>Optional current-area Navisworks “Clash within Supports” XML. Establishes PS/SL member-to-member Primary Support Assembly connectivity before count projection. It does not become Support/Steel carrier authority.</span><textarea rows="10" data-ssr-relationship-xml spellcheck="false" placeholder="Optional: paste current-area Clash within Supports XML"></textarea><small data-ssr-relationship-file-status>No current primary-support relationship XML selected · geometry fallback remains active</small></div>`;
 }
 function typicalSourceCard() {
-  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Typical-structure reference XML</b><label class="ssrb-file-button">Choose second XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-typical-file="1"></label></div><span>Optional second-area XML. When present, family structural matching and row-independent piping-support correspondence add comparison columns 22–24.</span><textarea rows="10" data-ssr-typical-xml spellcheck="false" placeholder="Optional: paste reference/second SupportreportXML.xml"></textarea><small data-ssr-typical-file-status>No reference XML selected · legacy 21-column mode</small></div>`;
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Typical-structure reference XML</b><label class="ssrb-file-button">Choose second XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-typical-file="1"></label></div><span>Optional second-area Support Report XML. When present, family structural matching and row-independent piping-support correspondence add comparison columns 22–24.</span><textarea rows="10" data-ssr-typical-xml spellcheck="false" placeholder="Optional: paste reference/second SupportreportXML.xml"></textarea><small data-ssr-typical-file-status>No reference XML selected · legacy 21-column mode</small></div>`;
+}
+function referenceRelationshipSourceCard() {
+  return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Reference Primary Support Relationship XML (optional)</b><label class="ssrb-file-button">Choose XML<input type="file" accept=".xml,text/xml,application/xml" data-ssr-reference-relationship-file="1"></label></div><span>Optional reference-area Navisworks “Clash within Supports” XML. It is scoped automatically from exact ancestor zones discovered in the reference Support Report XML; current-area zone selections are never reused.</span><textarea rows="10" data-ssr-reference-relationship-xml spellcheck="false" placeholder="Optional: paste reference-area Clash within Supports XML"></textarea><small data-ssr-reference-relationship-file-status>No reference primary-support relationship XML selected · relationship topology may be unavailable on the reference side</small></div>`;
 }
 function modelSourceCard() {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>Staged JSON trace source (optional)</b><label class="ssrb-file-button">Choose JSON<input type="file" accept=".json,application/json" data-ssr-model-file="1"></label></div><span>Uses the same combined staged-model source as the Input tab. Direct PS/SL identity is preferred; JSON trace groups native evidence by staged POS while preserving observed-member mappings.</span><small data-ssr-model-status>No staged JSON imported from Support Report. Existing Input-tab model, if any, will still be used.</small></div>`;
 }
 function zoneScopeCard() {
-  return `<details class="ssrb-card" data-ssr-zone-scope open><summary><b>Support Report zone scope</b> ${infoIcon('Zones are discovered from exact ancestor nodes in the current primary Support Report XML. Empty selections mean no restriction. When both columns have selections, a report row must match both sides.')}</summary><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-discover="1">Discover zones from primary XML</button><span data-ssr-zone-discovery-status>No zones discovered yet.</span></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:.75rem"><div class="ssrb-source-card"><b>Primary / piping-support zones</b><input type="search" data-ssr-zone-search="primary" placeholder="Search primary zones" aria-label="Search primary piping-support zones"><select multiple size="8" data-ssr-zone-select="primary" aria-label="Primary piping-support zones" style="width:100%;margin-top:.45rem"></select><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-clear="primary">Clear selection</button><small data-ssr-zone-status="primary">No restriction</small></div></div><div class="ssrb-source-card"><b>Secondary / support zones</b><input type="search" data-ssr-zone-search="secondary" placeholder="Search secondary zones" aria-label="Search secondary support zones"><select multiple size="8" data-ssr-zone-select="secondary" aria-label="Secondary support zones" style="width:100%;margin-top:.45rem"></select><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-clear="secondary">Clear selection</button><small data-ssr-zone-status="secondary">No restriction</small></div></div></div></details>`;
+  return `<details class="ssrb-card" data-ssr-zone-scope open><summary><b>Support Report zone scope</b> ${infoIcon('Zones are discovered from exact ancestor nodes in the current primary Support Report XML. Empty selections mean no restriction. When both columns have selections, a current report row must match both sides. Reference relationship scope is derived independently from reference evidence.')}</summary><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-discover="1">Discover zones from primary XML</button><span data-ssr-zone-discovery-status>No zones discovered yet.</span></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:.75rem"><div class="ssrb-source-card"><b>Primary / piping-support zones</b><input type="search" data-ssr-zone-search="primary" placeholder="Search primary zones" aria-label="Search primary piping-support zones"><select multiple size="8" data-ssr-zone-select="primary" aria-label="Primary piping-support zones" style="width:100%;margin-top:.45rem"></select><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-clear="primary">Clear selection</button><small data-ssr-zone-status="primary">No restriction</small></div></div><div class="ssrb-source-card"><b>Secondary / support zones</b><input type="search" data-ssr-zone-search="secondary" placeholder="Search secondary zones" aria-label="Search secondary support zones"><select multiple size="8" data-ssr-zone-select="secondary" aria-label="Secondary support zones" style="width:100%;margin-top:.45rem"></select><div class="ssrb-dialog-actions"><button type="button" data-ssr-zone-clear="secondary">Clear selection</button><small data-ssr-zone-status="secondary">No restriction</small></div></div></div></details>`;
 }
 function typicalityConfigCard() {
   const sections = new Map();
@@ -228,13 +239,14 @@ async function readXmlFile(popup, kind) {
   if (!typical) void discoverZones(popup, { quiet: true });
 }
 
-async function readRelationshipFile(popup) {
-  const file = popup.querySelector('[data-ssr-relationship-file]')?.files?.[0];
+async function readRelationshipFile(popup, kind = 'relationship') {
+  const reference = kind === 'referenceRelationship';
+  const file = popup.querySelector(reference ? '[data-ssr-reference-relationship-file]' : '[data-ssr-relationship-file]')?.files?.[0];
   if (!file) return;
   const state = stateByPopup.get(popup);
   if (!state) return;
-  state.xmlFiles.relationship = file;
-  const textarea = popup.querySelector('[data-ssr-relationship-xml]');
+  state.xmlFiles[kind] = file;
+  const textarea = popup.querySelector(reference ? '[data-ssr-reference-relationship-xml]' : '[data-ssr-relationship-xml]');
   if (textarea) {
     if (file.size <= SUPPORT_REPORT_XML_TEXTAREA_PREVIEW_BYTES) textarea.value = await file.text();
     else {
@@ -242,9 +254,11 @@ async function readRelationshipFile(popup) {
       textarea.placeholder = `${file.name} is staged; large relationship XML preview is omitted.`;
     }
   }
-  const status = popup.querySelector('[data-ssr-relationship-file-status]');
-  if (status) status.textContent = `${file.name} · ${file.size} bytes · optional Primary Support relationship evidence`;
-  invalidate(popup, 'Primary-support relationship XML changed; rebuild the Support Report.');
+  const status = popup.querySelector(reference ? '[data-ssr-reference-relationship-file-status]' : '[data-ssr-relationship-file-status]');
+  if (status) status.textContent = `${file.name} · ${file.size} bytes · optional ${reference ? 'reference' : 'current'} Primary Support relationship evidence`;
+  invalidate(popup, reference
+    ? 'Reference Primary Support relationship XML changed; rebuild the Support Report.'
+    : 'Primary-support relationship XML changed; rebuild the Support Report.');
 }
 
 async function readModelFile(popup) {
@@ -452,6 +466,7 @@ async function run(popup) {
       primaryRelationshipBundle,
       orphanRecoveryConfig,
     });
+    let referenceRelationshipInput = null;
     const referenceSource = xmlSource(popup, 'typical');
     if (hasXmlSource(referenceSource)) {
       runState.innerHTML = '<b>Building Support Report</b><span>Parsing typical-structure reference XML in a background worker…</span>';
@@ -460,7 +475,26 @@ async function run(popup) {
         fallbackParser: parseSupportReportClashXml,
       }));
       if (controller.signal.aborted) return;
-      const referenceReport = buildSupportReportBundle({ clashEvidence: referenceEvidence, orphanRecoveryConfig });
+
+      let referencePrimaryRelationshipBundle = null;
+      const referenceRelationshipSource = xmlSource(popup, 'referenceRelationship');
+      if (hasXmlSource(referenceRelationshipSource)) {
+        runState.innerHTML = '<b>Building Support Report</b><span>Building automatically scoped reference Primary Support relationship graph…</span>';
+        const referenceRelationshipText = await sourceText(referenceRelationshipSource);
+        if (controller.signal.aborted) return;
+        referenceRelationshipInput = buildReferenceSupportPrimaryRelationshipInput(
+          referenceRelationshipText,
+          referenceEvidence,
+          { parserOptions: supportReportRules(popup) },
+        );
+        referencePrimaryRelationshipBundle = referenceRelationshipInput.bundle;
+      }
+
+      const referenceReport = buildSupportReportBundle({
+        clashEvidence: referenceEvidence,
+        primaryRelationshipBundle: referencePrimaryRelationshipBundle,
+        orphanRecoveryConfig,
+      });
       const typicalityAudit = buildSupportReportTypicalityComparison(clashEvidence, referenceEvidence, {
         leftReportBundle: report,
         rightReportBundle: referenceReport,
@@ -474,6 +508,7 @@ async function run(popup) {
       zoneCatalog: state.zoneCatalog,
       zoneScopeSummary: clashEvidence.zoneScopeSummary,
       primaryRelationshipInput,
+      referenceRelationshipInput,
     });
     state.report = report;
     host.innerHTML = renderSupportReportWorkspace(report);
@@ -493,8 +528,25 @@ async function run(popup) {
   }
 }
 
+function relationshipInputAudit(relation, side) {
+  if (!relation) return null;
+  return Object.freeze({
+    side,
+    schema: relation.schema,
+    scopeBasis: relation.scopeBasis || '',
+    scopeAvailable: relation.scopeAvailable !== false,
+    zoneScope: relation.zoneScope || null,
+    zoneCatalog: relation.zoneCatalog || null,
+    parsedRowCount: relation.parsedRowCount,
+    scopedRowCount: relation.scopedRowCount,
+    excludedByZoneCount: relation.excludedByZoneCount,
+    parsedDiagnostics: relation.parsedDiagnostics,
+    bundleSchema: relation.bundle?.schema || '',
+    bundleSummary: relation.bundle?.summary || null,
+  });
+}
+
 function attachSupportPrimaryInputAudit(report, input = {}) {
-  const relation = input.primaryRelationshipInput;
   return Object.freeze({
     ...report,
     zoneScope: input.zoneScope,
@@ -503,15 +555,8 @@ function attachSupportPrimaryInputAudit(report, input = {}) {
       primaryZones: Object.freeze([...(input.zoneCatalog?.primaryZones || [])]),
       secondaryZones: Object.freeze([...(input.zoneCatalog?.secondaryZones || [])]),
     }),
-    primaryRelationshipInput: relation ? Object.freeze({
-      schema: relation.schema,
-      parsedRowCount: relation.parsedRowCount,
-      scopedRowCount: relation.scopedRowCount,
-      excludedByZoneCount: relation.excludedByZoneCount,
-      parsedDiagnostics: relation.parsedDiagnostics,
-      bundleSchema: relation.bundle?.schema || '',
-      bundleSummary: relation.bundle?.summary || null,
-    }) : null,
+    primaryRelationshipInput: relationshipInputAudit(input.primaryRelationshipInput, 'CURRENT'),
+    referenceRelationshipInput: relationshipInputAudit(input.referenceRelationshipInput, 'REFERENCE'),
   });
 }
 
@@ -527,11 +572,15 @@ function renderReadyState(report) {
     : ' · all zones';
   const rel = report?.primaryRelationshipInput;
   const relationshipMetrics = rel
-    ? ` · support relationships: ${rel.scopedRowCount}/${rel.parsedRowCount} scoped row(s)`
-    : ' · support relationships: geometry fallback';
+    ? ` · current relationships: ${rel.scopedRowCount}/${rel.parsedRowCount} scoped row(s)`
+    : ' · current relationships: geometry fallback';
+  const referenceRel = report?.referenceRelationshipInput;
+  const referenceRelationshipMetrics = referenceRel
+    ? ` · reference relationships: ${referenceRel.scopedRowCount}/${referenceRel.parsedRowCount} scoped row(s)`
+    : report?.typicalityAudit ? ' · reference relationships: unavailable' : '';
   const comparison = comparisonReadyText(report);
-  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · ${traceMetrics}${scopeMetrics}${relationshipMetrics} · no XML-only rows remain${comparison}</span>`;
-  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${traceMetrics}${scopeMetrics}${relationshipMetrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain${comparison}. Report CSV preserves the Owner contract; Trace CSV and Debug JSON expose the decision trail.</span>`;
+  if (!completeness.partial) return `<b>Support Report ready</b><span>${metrics} · ${traceMetrics}${scopeMetrics}${relationshipMetrics}${referenceRelationshipMetrics} · no XML-only rows remain${comparison}</span>`;
+  return `<b>Support Report ready — partial enrichment</b><span>${metrics} · ${traceMetrics}${scopeMetrics}${relationshipMetrics}${referenceRelationshipMetrics} · ${completeness.xmlOnlyRowCount} XML-only row${completeness.xmlOnlyRowCount === 1 ? '' : 's'} remain${comparison}. Report CSV preserves the Owner contract; Trace CSV and Debug JSON expose the decision trail.</span>`;
 }
 
 function comparisonReadyText(report) {
@@ -574,6 +623,7 @@ function xmlSource(popup, kind) {
     primary: '[data-ssr-xml]',
     typical: '[data-ssr-typical-xml]',
     relationship: '[data-ssr-relationship-xml]',
+    referenceRelationship: '[data-ssr-reference-relationship-xml]',
   };
   return popup.querySelector(selectors[kind])?.value || '';
 }
@@ -676,6 +726,8 @@ export const _test = Object.freeze({
   hasXmlSource,
   infoIcon,
   readTypicalityProfile,
+  referenceRelationshipSourceCard,
+  relationshipInputAudit,
   renderPanel,
   renderReadyState,
   renderTypicalitySetting,
