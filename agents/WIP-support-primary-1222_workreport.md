@@ -72,63 +72,30 @@ Independent family matcher with `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`.
 Signals include effective/explicit assembly count, concrete-member-count spectrum, normalized pipe-class population and nominal-bore population. Missing explicit authority is `UNAVAILABLE`; partial authority is `REVIEW`. Relationship-only evidence cannot promote structural rejection.
 
 ### LEG-008 — `AXIS_TYPICALITY_V1`
-Independent intrinsic-geometry matcher using:
-- DN-normalized axial/lateral support spacing;
-- unsigned intra-model relative-axis angles `acos(|T1 dot T2|)`;
-- traversal count, locations-per-traversal and return multiplicity;
-- trusted/unavailable-axis and missing-bore metadata.
-
-No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW; insufficient evidence -> UNAVAILABLE. Axis-only evidence cannot promote structural rejection. All three channels agreeing can yield `VERY_HIGH`; informed contradiction is fail-visible conflict/review.
+Independent intrinsic-geometry matcher using DN-normalized axial/lateral support spacing, unsigned intra-model relative-axis angles `acos(|T1 dot T2|)`, traversal count, locations-per-traversal and return multiplicity. No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW; insufficient evidence -> UNAVAILABLE. Axis-only evidence cannot promote structural rejection. All three channels agreeing can yield `VERY_HIGH`; informed contradiction is fail-visible conflict/review.
 
 ### LEG-009 — symmetric reference-side relationship input
 - optional `Reference Primary Support Relationship XML` UI input;
-- reference Support Report evidence parsed first;
-- reference relationship scope derived independently from the **deepest exact zone candidate on each reference path**;
-- current-area selected zones are never reused on reference side;
-- no exact reference zone => relationship rows parsed for diagnostics but zero authority;
-- typed reference `SupportPrimaryRelationshipBundle.v1` feeds only the reference report;
-- CURRENT and REFERENCE input audits remain separate;
-- existing relationship matcher becomes capable of an informed two-sided verdict without matcher modification.
+- reference scope derived independently from the deepest exact zone candidate on each reference path;
+- current-area selections are never reused on the reference side;
+- no exact reference zone => parsed diagnostics only, zero topology authority;
+- typed reference `SupportPrimaryRelationshipBundle.v1` feeds the reference report;
+- CURRENT and REFERENCE input audits stay separate.
 
 ### LEG-010 — three-channel qualification + Column 22/23 publication governance
-Added an explicit publication seam above the frozen matchers.
+Added explicit publication governance above the frozen matchers.
 
 `SupportReportTypicalityPublication.v1` policy:
 - final `TYPICAL` + retained structural candidate -> Column 22 `PUBLISHED`;
-- `REVIEW` -> Column 22 `WITHHELD`;
-- `AMBIGUOUS` -> `WITHHELD`;
-- `NO_MATCH` -> `WITHHELD`;
-- absent/non-typical -> `WITHHELD`;
-- relationship-only or axis-only candidates cannot populate Column 22.
+- `REVIEW`, `AMBIGUOUS`, `NO_MATCH`, absent/non-typical, and secondary-only candidates -> `WITHHELD`.
 
 This removes the prior behavior where `REVIEW` could populate `TYPICAL STRUCTURE (PS NO.)`.
 
-`SupportReportTypicalityRowAudit.v1` preserves independently:
-- original structural matcher;
-- arrangement-resolved structural result;
-- relationship topology result/candidate/audit/failed signals;
-- axis typicality result/candidate/audit/failed signals;
-- final `TypicalityConsensusV1` result/confidence/basis;
-- final result/reason/candidate;
-- Column 22 publication status/reason.
+`SupportReportTypicalityRowAudit.v1` preserves structural, arrangement-resolved structural, relationship topology, axis typicality, final consensus/result and publication independently.
 
-Column 23 wording now distinguishes:
-- all three channels agree;
-- structural + axis agree with relationship unavailable;
-- structural + relationship agree with axis unavailable;
-- structural-only acceptance with both secondary channels unavailable;
-- relationship conflict;
-- axis conflict;
-- multi-channel conflict;
-- incomplete relationship/axis evidence.
+Column 23 distinguishes all-channel agreement, limited evidence, relationship conflict, axis conflict, multi-channel conflict, and incomplete channel evidence. A retained review candidate is explicitly described as withheld.
 
-For retained review candidates, Column 23 explicitly says the candidate is withheld.
-
-Trace/debug contracts intentionally advance to:
-- `SupportReportTraceCsv.v4`;
-- `SupportReportDebugExport.v4`.
-
-Trace v4 exposes Column 22/23 values, final result/reason, consensus result/confidence, publication status/reason and compact independent channel audit. Operational Owner report CSV/XLSX columns remain unchanged.
+Trace/debug contracts intentionally advance to `SupportReportTraceCsv.v4` and `SupportReportDebugExport.v4`; the operational Owner report CSV/XLSX columns remain unchanged.
 
 ## Protected benchmark/oracle ledger
 
@@ -140,11 +107,9 @@ Trace v4 exposes Column 22/23 values, final result/reason, consensus result/conf
 | PS-12877 | 4 | return/revisit protection unchanged; real suite NOT_RUN |
 | PS-12860 | 6 | first-pass grouper unchanged; real suite NOT_RUN |
 | PS-12120 | 14 | first-pass grouper unchanged; real suite NOT_RUN |
-| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; source control remains; repository execution NOT_RUN |
+| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; repository execution NOT_RUN |
 
-## Focused controls committed
-
-Primary structure/count/zone/orphan/hardening controls remain in the existing `support-primary-*` and Support Report focused test files.
+## Focused controls
 
 Typicality/reference/publication controls include:
 - `tests/support-report-relationship-typicality.test.mjs`;
@@ -152,52 +117,25 @@ Typicality/reference/publication controls include:
 - `tests/support-report-axis-consensus.test.mjs`;
 - `tests/support-report-reference-relationship-integration.test.mjs`;
 - `tests/support-report-typicality-publication.test.mjs`;
-- updated `tests/support-report-trace-export.test.mjs`;
-- updated current/reference input and zone UI controls.
+- updated `tests/support-report-trace-export.test.mjs`.
 
-LEG-010 A-J controls cover:
-- all-three agreement;
-- one/both secondary channels unavailable;
-- relationship conflict;
-- axis conflict;
-- multi-channel conflict;
-- structural/location REVIEW;
-- structural AMBIGUOUS / NO_MATCH;
-- secondary-only non-promotion;
-- Column 23 agreement/limitation/conflict wording;
-- row-level channel/consensus/publication audit;
-- Trace/Debug v4 publication evidence.
+LEG-010 A-J controls cover all-three agreement, unavailable secondary channels, relationship/axis/multi-channel conflicts, structural review/ambiguity/no-match, secondary-only non-promotion, Column 23 wording, row audit, and Trace/Debug v4 publication evidence.
 
 ## Validation truth
 
-PASS by source/material review through LEG-010:
-- engineering-pr-delivery-v2 prework ordering preserved;
-- material legs stayed inside authorized boundaries;
-- structural matcher implementation unchanged by relationship/axis/publication legs;
-- relationship matcher semantics unchanged by axis/publication legs;
-- axis matcher semantics/thresholds unchanged by publication leg;
-- grouping/count/orphan semantics unchanged by typicality publication work;
-- #1216 producer authority unchanged;
-- raw global axis vectors never compared across XMLs;
-- missing/partial secondary evidence fails closed;
-- secondary matchers cannot promote a structural rejection/ambiguity;
-- Column 22 now publishes final `TYPICAL` only;
-- browser cache routing reaches current modules;
-- no unresolved inline review threads at LEG-010 material review.
+PASS by source/material review through LEG-010. Matcher independence, #1216 authority, fail-closed secondary evidence, no raw cross-XML axis-vector comparison, and final-TYPICAL-only Column 22 publication are preserved.
 
-PR COMMENT review records:
+PR COMMENT reviews:
 - LEG-007 `5212200167`;
 - LEG-008 `5212752129`;
 - LEG-009 `5212927412`;
-- LEG-010 `5213502126`;
-- no approval/requested-changes review.
+- LEG-010 `5213502126`.
 
 NOT_RUN:
-- committed Node tests under an executing GitHub runner;
+- Node tests under an executing GitHub runner;
 - browser/deployed qualification;
 - ZIP benchmark execution;
-- real two-sided Owner relationship XML benchmark;
-- real three-channel positive/negative qualification;
+- real Owner two-sided relationship and three-channel qualification;
 - real PS-11167/PS-11236 relationship qualification.
 
 Actions at LEG-010 material head:
@@ -214,7 +152,7 @@ These are infrastructure/non-execution results, not product failures.
 - normal bore-axis grouping tolerance is not globally widened.
 - explicit distinct assembly IDs cannot be joined by orphan recovery.
 - current and reference relationship scopes are independent.
-- structural, relationship and axis matchers remain independently auditable.
+- structural, relationship and axis matchers remain separately auditable.
 - unavailable evidence never fabricates mismatch.
 - secondary matchers cannot promote structural rejection/ambiguity.
 - Column 22 publishes only final `TYPICAL`.
@@ -224,18 +162,17 @@ These are infrastructure/non-execution results, not product failures.
 
 1. Real Owner Clash-within-Supports XML remains unpinned.
 2. Repository/browser execution remains blocked by Actions jobs failing before steps.
-3. Axis V1 still uses branch-global traversal axes; strongly bent local-axis refinement should be benchmark-driven.
+3. Axis V1 uses branch-global traversal axes; strongly bent local-axis refinement remains benchmark-driven.
 4. Axis thresholds remain provisional/auditable rather than normal-UI editable.
 
 ## Recommended next bounded work
 
 Prework **release-readiness / qualification consolidation for PR #1223** rather than another matcher:
-- re-ground current `main` and PR diff;
-- sweep protected count oracles and 11168->14168 positive control across touched seams;
-- verify Owner report CSV/XLSX column contract stays stable while Trace/Debug intentionally remain v4;
-- static invariant sweep for #1216 authority, explicit-topology precedence, DATUM non-countability, orphan fail-closed behavior, no secondary promotion and no raw axis-vector cross-comparison;
-- browser contract review for current/reference relationship inputs, zones, orphan settings and Column 22/23 publication;
-- rerun Actions if infrastructure begins executing steps;
+- re-ground current main and PR diff;
+- sweep protected count oracles and 11168->14168 positive control;
+- verify Owner report CSV/XLSX contract stays stable while Trace/Debug intentionally remain v4;
+- static invariant and browser/UI contract sweep;
+- re-run Actions if infrastructure begins executing steps;
 - decide whether PR #1223 may leave draft state.
 
 ## EXACT_NEXT_ACTION
