@@ -11,10 +11,12 @@ export function buildSupportPrimaryRelationshipBundle(input = {}) {
   const familyIds = unique(edges.map((edge) => edge.familyId)).sort();
   const families = familyIds.map((familyId) => buildFamily(familyId, edges, diagnostics));
   const assemblies = families.flatMap((family) => family.assemblies);
+  const zoneScope = freezeZoneScope(input.zoneScope);
   return Object.freeze({
     schema: SUPPORT_PRIMARY_RELATIONSHIP_SCHEMA,
     profileId: SUPPORT_PRIMARY_RELATIONSHIP_PROFILE,
     evidenceMode: edges.length ? 'EXPLICIT_SUPPORT_RELATIONSHIP' : 'UNAVAILABLE',
+    zoneScope,
     families: Object.freeze(families),
     assemblies: Object.freeze(assemblies),
     diagnostics: Object.freeze(diagnostics),
@@ -201,6 +203,16 @@ function relationshipEvidenceId(row, index, pair) {
 function sourcePaths(row) {
   const paths = [row?.objectA?.path, row?.objectB?.path].filter((path) => Array.isArray(path) && path.length);
   return paths.map((path) => Object.freeze([...path]));
+}
+
+function freezeZoneScope(scope) {
+  if (!scope || typeof scope !== 'object') return null;
+  return Object.freeze({
+    schema: clean(scope.schema),
+    active: Boolean(scope.active),
+    primaryZoneIds: Object.freeze([...(scope.primaryZoneIds || [])]),
+    secondaryZoneIds: Object.freeze([...(scope.secondaryZoneIds || [])]),
+  });
 }
 
 function diagnostic(code, row, details = {}) {
