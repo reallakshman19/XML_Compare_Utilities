@@ -18,8 +18,8 @@ export function normalizeSupportReportZoneScope(input = {}) {
 export function discoverSupportReportZones(rows = []) {
   return Object.freeze({
     schema: SUPPORT_REPORT_ZONE_SCOPE_SCHEMA,
-    primaryZones: Object.freeze(discoverSide(rows, 'primaryPaths')),
-    secondaryZones: Object.freeze(discoverSide(rows, 'secondaryPaths')),
+    primaryZones: Object.freeze(discoverSide(rows, 'primary')),
+    secondaryZones: Object.freeze(discoverSide(rows, 'secondary')),
   });
 }
 
@@ -29,8 +29,8 @@ export function scopeSupportReportRows(rows = [], scopeInput = {}) {
   const primarySet = new Set(scope.primaryZoneIds);
   const secondarySet = new Set(scope.secondaryZoneIds);
   return Object.freeze((rows || []).filter((row) => {
-    const primaryPass = !primarySet.size || pathsContainAny(row?.primaryPaths || [], primarySet);
-    const secondaryPass = !secondarySet.size || pathsContainAny(row?.secondaryPaths || [], secondarySet);
+    const primaryPass = !primarySet.size || pathsContainAny(rowPaths(row, 'primary'), primarySet);
+    const secondaryPass = !secondarySet.size || pathsContainAny(rowPaths(row, 'secondary'), secondarySet);
     return primaryPass && secondaryPass;
   }));
 }
@@ -60,11 +60,11 @@ export function supportReportZoneScopeSummary(rows = [], scopeInput = {}) {
   });
 }
 
-function discoverSide(rows, field) {
+function discoverSide(rows, side) {
   const counts = new Map();
   for (const row of rows || []) {
     const seenForRow = new Set();
-    for (const path of row?.[field] || []) {
+    for (const path of rowPaths(row, side)) {
       for (const node of path || []) {
         const zoneId = canonicalZoneId(node);
         if (!zoneId || !isZoneCandidate(zoneId) || seenForRow.has(zoneId)) continue;
@@ -76,6 +76,13 @@ function discoverSide(rows, field) {
   return [...counts.entries()]
     .map(([zoneId, evidenceRowCount]) => Object.freeze({ zoneId, evidenceRowCount }))
     .sort((left, right) => left.zoneId.localeCompare(right.zoneId));
+}
+
+function rowPaths(row, side) {
+  const plural = row?.[`${side}Paths`];
+  if (Array.isArray(plural) && plural.length) return plural.filter((path) => Array.isArray(path) && path.length);
+  const singular = row?.[`${side}Path`];
+  return Array.isArray(singular) && singular.length ? [singular] : [];
 }
 
 function pathsContainAny(paths, selected) {
@@ -107,4 +114,5 @@ export const _test = Object.freeze({
   canonicalZoneId,
   isZoneCandidate,
   pathsContainAny,
+  rowPaths,
 });
