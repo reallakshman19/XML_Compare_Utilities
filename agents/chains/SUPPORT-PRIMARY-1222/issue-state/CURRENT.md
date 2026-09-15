@@ -9,6 +9,7 @@ ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
 ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5683900993
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 RELATED_TYPICALITY_STATUS_COMMENT_ID: 5683905631
+PR_LEG_008_REVIEW_ID: 5212752129
 
 # Acceptance ledger
 
@@ -34,16 +35,14 @@ Latest material head: `c738c03ef0036fba37a23490f83990e5a19fccc5`.
 
 # Current architecture
 
-Support Report now follows:
-
 `zone -> PS/SL family -> Primary Support Assembly -> count/recovery -> structural matcher + relationship matcher + axis matcher -> TypicalityConsensusV1`
 
-Independent typicality channels:
-- existing structural/location matcher — unchanged by LEG-007/008;
-- `RELATIONSHIP_TOPOLOGY_V1` — explicit topology when both sides have authority;
-- `AXIS_TYPICALITY_V1` — intrinsic axis-relative geometry only.
+Independent channels:
+- existing structural/location matcher;
+- `RELATIONSHIP_TOPOLOGY_V1`;
+- `AXIS_TYPICALITY_V1`.
 
-Axis channel invariants:
+Axis invariants:
 - no raw global axis-vector comparison across XMLs;
 - DN-normalized along/lateral spacing;
 - unsigned intra-model relative-axis angles;
