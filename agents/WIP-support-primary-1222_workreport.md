@@ -3,106 +3,155 @@
 WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1222
 CHAIN: SUPPORT-PRIMARY-1222
 BRANCH: feature/support-primary-assembly-graph
+PR: 1223
 BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
+LATEST_MATERIAL_LEG: LEG-003
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 
 ## Mission
 
-Introduce an auditable primary-support assembly graph upstream of Support Report count/typicality, using optional explicit SupportChain clash evidence plus canonical staged relationship evidence and geometry fallback. Preserve #1216 Support/Steel producer authority.
+Move Support Report from flat location-count inference toward an auditable hierarchy:
 
-## Current implementation state
+`zone -> PS/SL family -> Primary Support Assembly -> concrete/symbolic members -> pipe/carrier evidence`.
 
-First material slice is implemented and recorded as `LEG-001`.
+Optional Clash-within-Supports XML supplies support-member connectivity only. It must not replace #1216 Support/Steel carrier/steel producer authority. Existing bore-axis grouping remains fallback evidence.
 
-Implemented:
-1. user-facing remark value is now `Multiple primary support`; legacy constant name remains a compatibility alias;
-2. `parseSupportMemberRelationshipXml()` reuses the PS/SL legacy parser owner and retains SupportChain member pairs even when pipe context is unavailable;
-3. existing `parseSupportChangeXml()` remains pipe-required for current legacy audit callers;
-4. new `SupportPrimaryRelationshipBundle.v1` builds deterministic family-scoped connected components from explicit support-member edges;
-5. concrete numeric members are countable; `DATUM` / `STRUCTURAL_REFERENCE` are symbolic and non-countable;
-6. cross-family edges are excluded with diagnostics;
-7. explicit components are topology-only and cannot be merged by coincident XYZ;
-8. focused tests cover no-pipe parser retention, pipe-context retention, PS-11167 deterministic assembly ID, PS-11236 DATUM semantics, coincident explicit components, cross-family failure, and remark rename.
+## Implemented through LEG-003
 
-Not implemented in this slice:
-- final `TOTAL SUPPORT POINTS ON SECONDARY` migration;
-- zone multiselect UI;
-- orphan resolver;
-- relationship-topology Column 22 matcher;
-- consensus integration.
+### LEG-001 — explicit assembly topology
 
-## Active findings / decisions
+- User-facing remark value is `Multiple primary support`; legacy exported constant remains an alias.
+- `parseSupportMemberRelationshipXml()` reuses the existing PS/SL legacy parser owner but may retain SupportChain member-to-member edges when pipe context is unavailable.
+- Existing `parseSupportChangeXml()` remains pipe-required for legacy audit callers.
+- `SupportPrimaryRelationshipBundle.v1` / `SUPPORT_PRIMARY_REL_V1` builds deterministic family-scoped connected components and stable IDs such as `PSA::PS-11167::M-2+11`.
+- Concrete numeric members are countable; `DATUM` / `STRUCTURAL_REFERENCE` are symbolic and non-countable.
+- Cross-family edges fail visibly.
+- Explicit connectivity does not use XYZ adjacency; coincident explicit components remain separate.
 
-- Current legacy `parseSupportChangeXml()` previously dropped any support relationship lacking line context at `if (!pipe) return null`. The new entrypoint changes only the new Support Report evidence seam; existing callers keep their current gate.
-- Explicit member connectivity is now represented separately from carrier/steel authority. A member edge can be valid while `pipeContextStatus=UNAVAILABLE`.
-- The assembly model deliberately ignores geometry for component connectivity. XYZ is source evidence only in this slice.
-- #1216/PR #1219 remains protected: no Support/Steel carrier/steel producer file or tolerance was modified.
-- #1179 current structural matcher is untouched.
+### LEG-002 — topology/location reconciliation
 
-## Authority / invariants
+`SupportPrimaryReconciliation.v1` maps existing Support Report location groups against explicit topology without changing the bore-axis grouper.
 
-- Explicit support-member connectivity != carrier/steel authority.
-- DATUM/reference nodes are symbolic and non-countable.
-- Geometry fallback cannot merge two distinct explicit assembly IDs.
-- Missing evidence remains unresolved.
-- No global tolerance widening for benchmark convenience.
-- UI/export cannot create engineering relationships.
-- Current Support Report count and Column 22 decisions are unchanged except the displayed remark text.
+States:
+- `EXPLICIT_ASSEMBLY`: all observed concrete members map to one explicit assembly;
+- `GEOMETRY_ONLY`: no explicit mapping; existing geometry stays fallback authority;
+- `PARTIAL_EXPLICIT`: only part of observed concrete membership maps; automatic exact assignment withheld;
+- `CONFLICT`: evidence spans multiple explicit assemblies; exact assignment withheld;
+- `SYMBOLIC_ONLY`: non-countable DATUM/reference evidence.
+
+Unsupported/unversioned relationship bundle shapes cannot acquire explicit-assignment authority.
+
+### LEG-003 — Support Report count migration
+
+Introduces `SupportPrimaryCountProjection.v1` and wires it before Support Report row projection.
+
+Final family count policy:
+1. No valid explicit relationship family -> preserve existing geometry-group count exactly.
+2. Valid explicit family -> count every countable explicit assembly, including explicit assemblies not currently observed by a Support Report location group.
+3. Each `GEOMETRY_ONLY` group contributes one fallback occurrence.
+4. Multiple geometry groups resolving to one explicit assembly ID deduplicate.
+5. DATUM/reference-only evidence contributes zero.
+6. `PARTIAL_EXPLICIT` / `CONFLICT` activates an ambiguity floor; new total cannot fall below legacy geometry count.
+7. Unsupported relationship schema has no count authority.
+8. `Multiple primary support` is driven by final family count >1; legacy `multipleLocationsOnPipe` remains independent audit evidence.
+
+Support Report engine now accepts optional `primaryRelationshipBundle` separately from existing staged Support/Steel `relationshipBundle` and emits:
+- primary relationship schema/evidence mode;
+- count projection schema;
+- family count summaries;
+- row-level assembly ID/status/basis/candidate/provisional IDs;
+- family explicit assembly IDs, geometry fallback groups and ambiguity count;
+- the same evidence in JSON Trace.
+
+## Benchmark/oracle disposition
+
+Owner-governed counts:
+
+| Family | Expected | Current disposition |
+|---|---:|---|
+| PS-11167 | 6 | synthetic 7->6 explicit-dedupe control committed; real relationship XML NOT_RUN |
+| PS-11236 | 4 | synthetic unobserved `.4/.5 + DATUM` assembly control committed; real relationship XML NOT_RUN |
+| PS-12060 | 1 | protected by no-explicit geometry fallback policy; real suite NOT_RUN |
+| PS-12877 | 4 | synthetic four-group engine fallback control committed; real suite NOT_RUN |
+| PS-12860 | 6 | protected by no-explicit geometry fallback policy; real suite NOT_RUN |
+| PS-12120 | 14 | protected by no-explicit geometry fallback policy; real suite NOT_RUN |
+
+Typicality `11168 <-> 14168` is untouched in these legs.
 
 ## Validation truth
 
 PASS:
-- Common v2 protocol/references: source inspected.
-- Repository overlay: source inspected.
-- Work-item collision: no pre-existing canonical #1222 chain found.
-- Main/active PR reconciliation: no exact first-slice conflict with PR #1219.
-- Branch diff against `main@242fc1b1...`: first slice limited to parser, assembly module, remark constant, focused test plus relay files.
-- Isolated Node v22 parser harness: legacy parser rejected a no-pipe edge while new relationship parser retained it with `pipeContextStatus=UNAVAILABLE`.
+- Common engineering-pr-delivery-v2 grounding and custody ordering;
+- live main/PR authority reconciliation before each material leg;
+- LEG-001 isolated parser behavior;
+- LEG-002 isolated reconciliation behavior including conflict/partial/DATUM/wrong-schema cases;
+- LEG-003 isolated count-policy harness: legacy 1/4 preservation, explicit 7->6 dedupe, unobserved explicit component inclusion and ambiguity flooring;
+- material diff inspections show no Support/Steel producer, grouping-tolerance, Column 22, workflow or zone-UI mutation.
 
 NOT_RUN:
-- repository `tests/support-primary-relationship.test.mjs` execution;
-- legacy PS/SL parser regression suite;
-- Support Report benchmark suite;
-- GitHub Actions / browser qualification.
+- committed repository topology/reconciliation/count tests under an executing repository runner;
+- complete Support Report benchmark suite;
+- real PS-11167/PS-11236 relationship qualification;
+- browser/deployed qualification.
 
-BLOCKED:
-- real 1835 Clash-within-Supports benchmark remains blocked on the real Owner relationship XML locator.
-- therefore PS-11167=6 and PS-11236=4 remain frozen expectations, not PASS claims.
+Infrastructure truth:
+- GitHub Actions jobs continue to fail before checkout/test execution with `steps=null` / previously observed `runner_id=0`.
+- These are infrastructure failures, not product-test results.
 
-## Changed-file ledger
+Input blocker:
+- `benchmarks/1835.zip` contains only primary Support Report `1835.xml`.
+- Real Owner 1835 Clash-within-Supports relationship XML is not pinned, therefore PS-11167=6 and PS-11236=4 are not claimed as real-input PASS.
 
-Production:
+## Current production files changed by the chain
+
 - `tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js`
-  - adds separate relationship parser policy/entrypoint; legacy behavior retained.
 - `tabs/support-steel-relationship-builder/support-primary-relationship.js`
-  - new pure `SupportPrimaryRelationshipBundle.v1` topology seam.
+- `tabs/support-steel-relationship-builder/support-primary-reconciliation.js`
+- `tabs/support-steel-relationship-builder/support-primary-counting.js`
 - `tabs/support-steel-relationship-builder/support-report-location-grouping.js`
-  - exports `SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK = 'Multiple primary support'` and keeps legacy alias.
+- `tabs/support-steel-relationship-builder/support-report-engine.js`
+- `tabs/support-steel-relationship-builder/support-report-row-enrichment.js`
 
-Qualification:
+Focused tests:
 - `tests/support-primary-relationship.test.mjs`
+- `tests/support-primary-reconciliation.test.mjs`
+- `tests/support-primary-counting.test.mjs`
+- `tests/support-primary-count-engine.test.mjs`
 
-Relay/control plane:
-- `agents/chains/SUPPORT-PRIMARY-1222/**`
-- `agents/qualifications/SUPPORT-PRIMARY-1222/**`
-- this workreport
+## Authority / safety invariants
 
-## Code-quality note
+- Explicit support-member connectivity is not carrier/steel authority.
+- #1216 remains canonical for Support/Steel production relationships.
+- DATUM/reference nodes never inflate primary-support count.
+- Geometry cannot merge two different explicit assembly IDs.
+- Missing/ambiguous evidence remains visible.
+- No global tolerance widening has been introduced.
+- No Column 22 decision-authority mutation has occurred.
+- Merge remains Owner-only.
 
-`support-primary-relationship.js` is 237 physical lines, within the Common review threshold. It is intentionally a staged prerequisite without a runtime count/typicality consumer yet; issue #1222 §17 explicitly authorizes that sequence. The next production consumer must use this canonical seam rather than reimplementing connected components.
+## Known follow-up caveats
 
-## Highest risk
+1. The Support Report UI does not yet let the user load/build/pass `primaryRelationshipBundle`; the current engine capability is not yet end-to-end accessible from the normal UI.
+2. `totalSupportPointsOnSecondary` field-level provenance still reports the older clash-group source class; detailed row/JSON trace now carries the actual assembly count basis. Align field provenance before release.
+3. Count deduplication does not collapse existing report rows that happen to resolve to one assembly. LEG-003 changes the family count, not row cardinality.
+4. Browser import/query cache-bust propagation for the new engine dependency should be completed before release qualification.
+5. Orphan resolver and zone scoping are not yet implemented.
 
-The next integration step could accidentally let explicit support-member clash evidence become carrier/steel authority. That remains prohibited. Count migration must join assemblies to pipe/report evidence without changing #1216 ownership.
+## Recommended next bounded leg
 
-## Exact work location
+WP-PSA-003:
+- discover exact ancestor zone paths from loaded evidence;
+- add two-column searchable multi-select for Primary/Piping-support zones and Secondary/Support zones;
+- add optional Clash-within-Supports relationship XML input;
+- parse/build `SupportPrimaryRelationshipBundle.v1` through the existing typed seams;
+- pass it into Support Report as `primaryRelationshipBundle`;
+- invalidate stale relationship/report state when zone/input selection changes;
+- keep exact ancestor matching, not loose substring matching.
 
-Material leg `LEG-001`:
-- material base `54a088f478b69d8b0412f36db3558083446aec06`
-- material head `2c065b69ed94dae63d531c0660103486d5447691`
-- receipt `agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-001.md`
+After that, implement the conservative orphan resolver as a separate bounded fallback leg. Relationship-aware Column 22 should remain later until the input -> relationship -> count path is auditable end-to-end.
 
 ## EXACT_NEXT_ACTION
 
-Create `EP-SUPPORT-PRIMARY-1222-0002`, synchronize current/ACTIVE issue state, open a draft PR, and inspect actual CI execution. Do not report repository tests as PASS unless they execute. Do not merge. If the first slice qualifies, the next material work is zone-scope discovery/UI and assembly-to-report reconciliation before count migration.
+Synchronize EP-SUPPORT-PRIMARY-1222-0006 across issue/ACTIVE/CURRENT/PR. Stop there. On the next Owner `proceed`, prework WP-PSA-003 before any UI/product mutation. Do not merge.
