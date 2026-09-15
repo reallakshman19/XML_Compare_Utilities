@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0010_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0010_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5681522101
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -103,6 +103,7 @@ UNRESOLVED_REVIEW_THREADS: NONE
 LEG_005_MATERIAL_HEAD: 26c512ecc62585735a18ed82649a33fab0c3e2da
 LEG_005_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-005.md
 ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
+ISSUE_ENDPOINT_COMMENT: 5681522101
 CHECKS: workflow `34978272498` and ZIP workflow `34978272204` fail before steps; jobs expose `steps=null`, so product qualification remains NOT_RUN.
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
@@ -137,4 +138,4 @@ NOT_RUN:
 
 # Exact next action
 
-Stop at EP-0010 and synchronize Issue/PR metadata. On future Owner `proceed`, prework a bounded release-hardening leg for shared geometry exports, popup-scoped orphan config, count provenance and nested cache tokens before Owner qualification. Then proceed to Column 22 `RELATIONSHIP_TOPOLOGY_V1` + consensus as a separate independent matcher. Do not merge.
+Stop at EP-0010. On future Owner `proceed`, prework a bounded release-hardening leg for shared geometry exports, popup-scoped orphan config, count provenance and nested cache tokens before Owner qualification. Then proceed to Column 22 `RELATIONSHIP_TOPOLOGY_V1` + consensus as a separate independent matcher. Do not merge.
