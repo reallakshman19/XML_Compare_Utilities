@@ -57,5 +57,5 @@ MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints
 NEXT_MATERIAL_LEG: UNALLOCATED
 
 CURRENT_BLOCKER: executing Actions runner remains unavailable; real Owner Clash-within-Supports benchmark inputs remain unpinned.
-LEG_DIAGNOSIS: LEG-010 closed. Three-channel matcher outputs are now governed by an explicit publication seam: Column 22 accepts final TYPICAL only, while review/conflict context remains visible in Column 23 and trace/debug audit.
+LEG_DIAGNOSIS: LEG-010 closed. Three-channel matcher outputs are governed by an explicit publication seam: Column 22 accepts final TYPICAL only, while review/conflict context remains visible in Column 23 and trace/debug audit.
 EXACT_NEXT_ACTION: On fresh Owner progression, prework release-readiness/qualification consolidation for PR #1223. Do not add a new authority source or retune matchers merely to force agreement. No merge without fresh Owner authorization.
