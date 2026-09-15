@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0002
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0002_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_ENDPOINT_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678994794
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -22,7 +22,7 @@ ISSUE_HANDOVER_SYNC_STATUS: PENDING_ENDPOINT_SYNC
 | TASK-007 | OPEN | no final count migration; current count logic unchanged |
 | TASK-008 | OPEN | no Column 22 relationship matcher/consensus change |
 | TASK-009 | OPEN | focused tests committed; repository/CI execution NOT_RUN; governed family benchmarks NOT_RUN |
-| TASK-010 | IN_PROGRESS | LEG-001 receipt + EP-0002 durable; draft PR next; merge Owner-only |
+| TASK-010 | IN_PROGRESS | LEG-001 receipt + EP-0002 durable and issue-synced; draft PR next; merge Owner-only |
 
 # Input ledger
 
@@ -83,7 +83,7 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REFRESHED_INITIAL
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: TRUE after EP-0002 issue sync
+CHAIN_HANDOVER_READY: TRUE
 OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 
 # Validation truth
@@ -106,4 +106,4 @@ BLOCKED:
 
 # Exact next action
 
-Synchronize EP-SUPPORT-PRIMARY-1222-0002 to the issue and mutable Active Handover, then open a draft PR and inspect actual CI execution. Do not claim committed tests as PASS until they run. Do not merge. Do not start count/Column22 migration until first-slice qualification is reconciled.
+Open a draft PR and inspect actual CI execution. Do not claim committed tests as PASS until they run. Do not merge. Do not start count/Column22 migration until first-slice qualification is reconciled.
