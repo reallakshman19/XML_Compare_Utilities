@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0012
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0012.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0013
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0013.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-007 prework active; use branch ref for exact live SHA
+HEAD: LEG-007 materially closed; use branch ref for exact live control-plane SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -23,23 +23,23 @@ CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at LEG-006 closeout observation
-REVIEWS: NONE
+MERGEABILITY: TRUE — PR #1223 draft/open at LEG-007 closeout
+REVIEWS: COMMENT review 5212200167 records LEG-007 source/material review; no approval/change-request review
 UNRESOLVED_REVIEW_THREADS: NONE
-REQUIRED_CHECKS: latest Actions jobs fail before steps (`steps=null`); product qualification remains NOT_RUN
+REQUIRED_CHECKS: latest Actions jobs fail before steps (`steps=null`); product execution qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0012
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0013
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5682464869
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5683170584
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
-OWNER_PROGRESSION_COMMAND: fix, proceed next
+OWNER_PROGRESSION_COMMAND: proceed next
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -49,12 +49,12 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: LEG-006
-LATEST_MATERIAL_HEAD: 5d77236b997d131a4c67e450358894d55be7b26a
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-006.md
+LATEST_MATERIAL_LEG: LEG-007
+LATEST_MATERIAL_HEAD: a42a3e12cb6369b8c26f02a593ef0264860e3501
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-007.md
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0012.md
-NEXT_MATERIAL_LEG: LEG-007
+NEXT_MATERIAL_LEG: LEG-008
 
-CURRENT_BLOCKER: real 1835 relationship XML and executing Actions runner remain unavailable. Relationship typicality must therefore treat absent explicit topology as UNAVAILABLE, not mismatch.
-LEG_DIAGNOSIS: Add RELATIONSHIP_TOPOLOGY_V1 beside the frozen structural matcher and expose an explicit fail-visible consensus signal. Do not modify structural matcher scoring/gates and do not implement Axis Typicality yet.
-EXACT_NEXT_ACTION: Implement LEG-007 per EP-0012, add focused tests, inspect structural-output invariance, then stop with material receipt + successor endpoint. No merge.
+CURRENT_BLOCKER: real 1835 relationship XML and executing Actions runner remain unavailable. Reference-side explicit relationship input is also not yet implemented, so real two-sided relationship topology may remain UNAVAILABLE.
+LEG_DIAGNOSIS: LEG-007 closed. Next architecture item is Axis Typicality V1 as an independent channel using intrinsic relative geometry only.
+EXACT_NEXT_ACTION: Create a fresh prework endpoint for LEG-008 Axis Typicality V1 before product mutation. Do not compare raw global axis vectors; do not change structural matcher scoring/gates; no merge.
