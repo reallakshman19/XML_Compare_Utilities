@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0006_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0006_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679785306
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -96,7 +96,8 @@ PASS:
 - EP-0005 prework committed before LEG-003 production mutation;
 - LEG-003 material diff remains inside approved count/engine/remark/test paths;
 - isolated count-policy harness covers legacy 1/4 preservation, explicit 7->6 dedupe, unobserved explicit assembly and ambiguity floor;
-- engine/row patch inspection confirms separate authority inputs and audit propagation.
+- engine/row patch inspection confirms separate authority inputs and audit propagation;
+- EP-0006 issue/active handover synchronization complete.
 
 NOT_RUN:
 - committed repository count tests under an executing repository runner;
@@ -113,4 +114,4 @@ NOT_RUN:
 
 # Exact next action
 
-Stop at EP-0006 and synchronize the endpoint to issue #1222/PR #1223. Recommended next bounded leg: WP-PSA-003 exact zone discovery, two-column searchable multi-select, and optional relationship XML/bundle UI plumbing. Then qualify real relationship input when pinned. Orphan resolver is subsequent fallback work; Column 22 remains untouched until this input/count path is auditable end-to-end.
+Stop at EP-0006. Recommended next bounded leg: WP-PSA-003 exact zone discovery, two-column searchable multi-select, and optional relationship XML/bundle UI plumbing. Then qualify real relationship input when pinned. Orphan resolver is subsequent fallback work; Column 22 remains untouched until this input/count path is auditable end-to-end.
