@@ -373,6 +373,12 @@ function minimumIndex(cluster) { return Math.min(...cluster.map((entry) => entry
 function token(value) { return stripLeadingSlash(value).replace(/\(REF\)$/iu, '').toUpperCase(); }
 function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 
+export {
+  buildTraversalGeometryIndex as buildSupportReportTraversalGeometryIndex,
+  principalAxisModel as buildSupportReportPrincipalAxisModel,
+  derivedNominalBoreMm as deriveSupportReportLocationNominalBoreMm,
+};
+
 export const _test = Object.freeze({
   locationAdjacencyBasis,
   sameConcreteMember,
