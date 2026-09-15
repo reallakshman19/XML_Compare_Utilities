@@ -2,13 +2,13 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0020
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0020.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0021
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0021.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-011 release-readiness audit in progress; use branch ref for exact live SHA
+HEAD: LEG-011 materially closed with HOLD_DRAFT; use branch ref for exact live control-plane SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: ACTIVE
+STATE: READY
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -18,29 +18,29 @@ CUSTODY_EPOCH: 12
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
-ENGINEERING_STATE: ACTIVE
+ENGINEERING_STATE: READY
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at LEG-011 prework
-REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009), 5213502126 (LEG-010); no approval/change-request review
-UNRESOLVED_REVIEW_THREADS: NONE at LEG-010 closeout; re-check required in LEG-011
-REQUIRED_CHECKS: product execution qualification remains NOT_RUN unless current-head Actions execute steps
+MERGEABILITY: TRUE — PR #1223 remains draft/open/mergeable
+REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009), 5213502126 (LEG-010), 5213748178 (LEG-011); no approval/change-request review
+UNRESOLVED_REVIEW_THREADS: NONE at LEG-011 material review
+REQUIRED_CHECKS: material-head Actions fail before steps (`steps=null`); Node/browser/ZIP execution qualification is NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0020
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0021
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5685007080
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5685189566
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-RELATED_TYPICALITY_STATUS_COMMENT_ID: 5685008909
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5685191925
 
-OWNER_PROGRESSION_COMMAND: proceed next — LEG-011 release-readiness / qualification consolidation
+OWNER_PROGRESSION_COMMAND: proceed next — completed LEG-011 release-readiness audit
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -50,12 +50,12 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: LEG-010
-LATEST_MATERIAL_HEAD: a47af97cda0539751bfad2de5f8ee0844ce83fc6
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-010.md
+LATEST_MATERIAL_LEG: LEG-011
+LATEST_MATERIAL_HEAD: c65b58f17e2e455c9a507137c5ef945c13c58c53
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-011.md
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0020.md
-NEXT_MATERIAL_LEG: LEG-011
+NEXT_MATERIAL_LEG: UNALLOCATED
 
-CURRENT_BLOCKER: executing Actions runner may still be unavailable; real Owner Clash-within-Supports benchmark inputs remain unpinned.
-LEG_DIAGNOSIS: LEG-011 is an audit/readiness leg. No new matcher or authority source is authorized. Technical readiness may be declared, but mark-ready and merge transitions require separate fresh Owner authorization.
-EXACT_NEXT_ACTION: Re-ground the full PR diff, audit authority/report/browser contracts and protected oracles, re-check reviews/Actions, then issue READY_FOR_REVIEW or HOLD_DRAFT with exact evidence. Do not merge or mark ready.
+CURRENT_BLOCKER: HOLD_DRAFT — exact-head Actions execute no steps; addon -> engine hot-cache URL is not advanced to traversal-safety v1; real Owner 1835 relationship XML remains unpinned.
+LEG_DIAGNOSIS: Release-readiness found and fixed cross-traversal provisional geometry count authority. Source/material contracts otherwise pass, but release qualification is incomplete.
+EXACT_NEXT_ACTION: On fresh Owner progression, safely advance bootstrap -> addon -> engine cache routing for traversal-safety v1 and obtain an executing qualification path. Re-run focused Node/browser/1885 ZIP controls and the real 1835 relationship benchmark when available. Repeat readiness disposition. Do not mark ready or merge without fresh explicit Owner authorization.
