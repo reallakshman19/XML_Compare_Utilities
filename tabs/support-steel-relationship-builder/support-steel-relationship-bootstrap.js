@@ -1,6 +1,6 @@
 import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-startup-parse-hotfix-1';
 import './support-restraint-function-addon.js?v=20260717-startup-parse-hotfix-1';
-import './support-report-addon.js?v=20260915-support-primary-hardening-1&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&typicalityui=20260911-config-visible-1&pos=20260911-support-report-pos-trace-20&debug=20260911-support-report-trace-export-21&location=20260915-support-report-bore-axis-occurrence-1&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&perf=20260913-support-report-large-xml-1&orphan=20260915-support-primary-hardening-1&relationshipTopology=20260915-relationship-topology-1';
+import './support-report-addon.js?v=20260915-support-primary-hardening-1&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&typicalityui=20260911-config-visible-1&pos=20260911-support-report-pos-trace-20&debug=20260911-support-report-trace-export-21&location=20260915-support-report-bore-axis-occurrence-1&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&perf=20260913-support-report-large-xml-1&orphan=20260915-support-primary-hardening-1&relationshipTopology=20260915-relationship-topology-1&axisTypicality=20260915-axis-typicality-1';
 import './support-primary-orphan-ui-addon.js?v=20260915-support-primary-hardening-1';
 
 const ROOT_SELECTOR = '.psnm-root';
