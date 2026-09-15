@@ -20,6 +20,8 @@ import {
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
 export const SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA = 'TypicalityConsensusV1';
+export const SUPPORT_REPORT_TYPICALITY_PUBLICATION_SCHEMA = 'SupportReportTypicalityPublication.v1';
+export const SUPPORT_REPORT_TYPICALITY_ROW_AUDIT_SCHEMA = 'SupportReportTypicalityRowAudit.v1';
 
 export function buildSupportReportTypicalityComparison(leftEvidence, rightEvidence, options = {}) {
   const profile = comparisonProfile(options.profile);
@@ -87,27 +89,106 @@ export function projectTypicalityOntoSupportReportBundle(reportBundle, typicalit
       selectedByLocation.set(String(pair.leftLocationId), { assignment, pair });
     }
   }
-  const matchByFamily = new Map((typicalityAudit?.matches || [])
-    .map((item) => [token(item.leftFamilyId), item]));
+  const matchByFamily = keyedByFamily(typicalityAudit?.matches || []);
+  const structuralByFamily = keyedByFamily(typicalityAudit?.structuralMatches || []);
+  const arrangementStructuralByFamily = keyedByFamily(typicalityAudit?.arrangementResolvedStructuralMatches || []);
   const rows = (reportBundle?.rows || []).map((row) => {
     const familyId = token(row.civilSecondarySupport);
     const match = matchByFamily.get(familyId) || null;
+    const structuralMatch = structuralByFamily.get(familyId) || null;
+    const arrangementStructuralMatch = arrangementStructuralByFamily.get(familyId) || null;
     const location = resolveRowLocation(row, locations);
     const selected = location ? selectedByLocation.get(String(location.locationId)) : null;
+    const publication = typicalityPublicationDecision(match);
+    const decisionAudit = buildRowTypicalityDecisionAudit(
+      match,
+      structuralMatch,
+      arrangementStructuralMatch,
+      publication,
+    );
     return Object.freeze({
       ...row,
-      typicalStructure: ['TYPICAL', 'REVIEW'].includes(match?.result) ? match.rightFamilyId : '',
+      typicalStructure: publication.status === 'PUBLISHED' ? publication.candidateFamilyId : '',
       pipingSupportArrangementMatch: arrangementLabel(match, selected?.assignment, selected?.pair),
       typicalityAuditId: selected?.pair?.auditId
         || match?.auditId
         || (match?.candidateAuditIds || []).join(' | ')
         || '',
+      typicalityPublication: publication,
+      typicalityDecisionAudit: decisionAudit,
     });
   });
   return Object.freeze({
     ...reportBundle,
     rows: Object.freeze(rows),
     typicalityAudit,
+  });
+}
+
+function keyedByFamily(items = []) {
+  return new Map((items || []).map((item) => [token(item?.leftFamilyId), item]));
+}
+
+function typicalityPublicationDecision(match) {
+  const candidateFamilyId = match?.rightFamilyId || '';
+  if (match?.result === 'TYPICAL' && candidateFamilyId) return Object.freeze({
+    schema: SUPPORT_REPORT_TYPICALITY_PUBLICATION_SCHEMA,
+    status: 'PUBLISHED',
+    reasonCode: 'TYPICAL_PUBLICATION_FINAL_TYPICAL',
+    candidateFamilyId,
+    finalResult: match.result,
+    finalReasonCode: match.reasonCode || '',
+  });
+  const reasonCode = match?.result === 'REVIEW'
+    ? 'TYPICAL_PUBLICATION_WITHHELD_REVIEW'
+    : match?.result === 'AMBIGUOUS'
+      ? 'TYPICAL_PUBLICATION_WITHHELD_AMBIGUOUS'
+      : match?.result === 'NO_MATCH'
+        ? 'TYPICAL_PUBLICATION_WITHHELD_NO_MATCH'
+        : match
+          ? 'TYPICAL_PUBLICATION_WITHHELD_NOT_TYPICAL'
+          : 'TYPICAL_PUBLICATION_WITHHELD_NO_RESULT';
+  return Object.freeze({
+    schema: SUPPORT_REPORT_TYPICALITY_PUBLICATION_SCHEMA,
+    status: 'WITHHELD',
+    reasonCode,
+    candidateFamilyId,
+    finalResult: match?.result || 'UNAVAILABLE',
+    finalReasonCode: match?.reasonCode || '',
+  });
+}
+
+function buildRowTypicalityDecisionAudit(match, structuralMatch, arrangementStructuralMatch, publication) {
+  return Object.freeze({
+    schema: SUPPORT_REPORT_TYPICALITY_ROW_AUDIT_SCHEMA,
+    leftFamilyId: match?.leftFamilyId || structuralMatch?.leftFamilyId || '',
+    structural: compactChannel(structuralMatch),
+    arrangementResolvedStructural: compactChannel(arrangementStructuralMatch),
+    relationshipTopology: match?.relationshipTopology || null,
+    axisTypicality: match?.axisTypicality || null,
+    consensus: match?.typicalityConsensus || null,
+    final: Object.freeze({
+      result: match?.result || 'UNAVAILABLE',
+      reasonCode: match?.reasonCode || '',
+      candidateFamilyId: match?.rightFamilyId || '',
+      auditId: match?.auditId || '',
+      candidateFamilyIds: Object.freeze([...(match?.candidateFamilyIds || [])]),
+      candidateAuditIds: Object.freeze([...(match?.candidateAuditIds || [])]),
+    }),
+    publication,
+  });
+}
+
+function compactChannel(match) {
+  if (!match) return null;
+  return Object.freeze({
+    result: match.result || '',
+    reasonCode: match.reasonCode || '',
+    candidateFamilyId: match.rightFamilyId || '',
+    auditId: match.auditId || '',
+    candidateFamilyIds: Object.freeze([...(match.candidateFamilyIds || [])]),
+    candidateAuditIds: Object.freeze([...(match.candidateAuditIds || [])]),
+    failedReasonCodes: Object.freeze([...(match.failedReasonCodes || [])]),
   });
 }
 
@@ -412,9 +493,25 @@ function arrangementLabel(match, assignment, pair) {
 }
 
 function matchedLabel(match, equivalent = false) {
-  const candidate = match?.rightFamilyId ? ` ${match.rightFamilyId}` : '';
+  const candidate = match?.rightFamilyId || '';
   const suffix = equivalent ? ' Multiple equivalent location assignments remain.' : '';
-  return `MATCHED — Support arrangement matches${candidate}.${suffix}`;
+  const consensus = match?.typicalityConsensus?.result || '';
+  const relationshipResult = match?.relationshipTopology?.result || 'UNAVAILABLE';
+  const axisResult = match?.axisTypicality?.result || 'UNAVAILABLE';
+  if (consensus === 'ALL_CHANNELS_AGREE') {
+    return `MATCHED — Structural, relationship-topology and pipe-axis comparisons agree on ${candidate}.${suffix}`;
+  }
+  if (consensus === 'STRUCTURAL_AXIS_AGREE' && relationshipResult === 'UNAVAILABLE') {
+    return `MATCHED — Structural and pipe-axis comparisons agree on ${candidate}; relationship topology unavailable.${suffix}`;
+  }
+  if (consensus === 'AGREE' && axisResult === 'UNAVAILABLE') {
+    return `MATCHED — Structural and relationship-topology comparisons agree on ${candidate}; pipe-axis evidence unavailable.${suffix}`;
+  }
+  if (consensus === 'RELATIONSHIP_UNAVAILABLE' && axisResult === 'UNAVAILABLE') {
+    return `MATCHED — Structural comparison matches ${candidate}; relationship topology and pipe-axis evidence unavailable.${suffix}`;
+  }
+  const candidateText = candidate ? ` ${candidate}` : '';
+  return `MATCHED — Support arrangement matches${candidateText}.${suffix}`;
 }
 
 function limitedCheckLabel(equivalent = false) {
@@ -423,34 +520,35 @@ function limitedCheckLabel(equivalent = false) {
 }
 
 function reviewLabel(match) {
+  const candidate = match?.rightFamilyId ? `Candidate ${match.rightFamilyId} withheld: ` : '';
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_MULTI_CHANNEL_CONFLICT') {
-    return 'REVIEW — Typicality evidence channels disagree.';
+    return `REVIEW — ${candidate}structural, relationship-topology and pipe-axis evidence disagree.`;
   }
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_AXIS_CONFLICT') {
-    return 'REVIEW — Structural and pipe-axis typicality comparisons disagree.';
+    return `REVIEW — ${candidate}structural and pipe-axis typicality comparisons disagree.`;
   }
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_AXIS_REVIEW') {
-    return 'REVIEW — Pipe-axis typicality evidence is incomplete or ambiguous.';
+    return `REVIEW — ${candidate}pipe-axis typicality evidence is incomplete or ambiguous.`;
   }
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT') {
-    return 'REVIEW — Structural and relationship-topology comparisons disagree.';
+    return `REVIEW — ${candidate}structural and relationship-topology comparisons disagree.`;
   }
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW') {
-    return 'REVIEW — Relationship-topology evidence is incomplete or ambiguous.';
+    return `REVIEW — ${candidate}relationship-topology evidence is incomplete or ambiguous.`;
   }
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
-    return 'REVIEW — Member count per support location differs.';
+    return `REVIEW — ${candidate}member count per support location differs.`;
   }
   if (match?.reasonCode === 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED') {
-    return 'REVIEW — Unique primary-member count differs.';
+    return `REVIEW — ${candidate}unique primary-member count differs.`;
   }
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED') {
-    return 'REVIEW — Primary-member topology differs.';
+    return `REVIEW — ${candidate}primary-member topology differs.`;
   }
   if (match?.reasonCode === 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE') {
-    return 'REVIEW — Typical family found, but no location counterpart could be assigned.';
+    return `REVIEW — ${candidate || 'Typical family withheld: '}no location counterpart could be assigned.`;
   }
-  return 'REVIEW — Comparison requires engineering review.';
+  return `REVIEW — ${candidate}comparison requires engineering review.`;
 }
 
 function noMatchLabel(match) {
@@ -501,6 +599,7 @@ export const _test = Object.freeze({
   applyRelationshipTopologyConsensus,
   arrangementLabel,
   axisComparisonForMatch,
+  buildRowTypicalityDecisionAudit,
   comparisonProfile,
   limitedCheckLabel,
   matchedLabel,
@@ -511,5 +610,6 @@ export const _test = Object.freeze({
   resolveRowLocation,
   reviewLabel,
   sentenceList,
+  typicalityPublicationDecision,
   withLocationRowAliases,
 });
