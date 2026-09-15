@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0008
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0008.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0009.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-004 complete plus relay state; use branch ref for exact live SHA
+HEAD: LEG-005 prework active; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -15,7 +15,7 @@ AGENT_INSTANCE_ID: chatgpt:dc64d516-9c68-47d5-98f5-64cc74bb093c
 WORK_ITEM_SOURCE: GITHUB_ISSUE
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_ITEM_MODE: EXCLUSIVE
-CUSTODY_EPOCH: 5
+CUSTODY_EPOCH: 6
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
@@ -26,10 +26,10 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 remains draft/open at LEG-004 observation
-REVIEWS: NONE
-UNRESOLVED_REVIEW_THREADS: NONE
-REQUIRED_CHECKS: LEG-004 workflow jobs failed before steps (`steps=null`); repository qualification remains NOT_RUN
+MERGEABILITY: TRUE — PR #1223 draft/open at prework observation
+REVIEWS: NONE at prior endpoint
+UNRESOLVED_REVIEW_THREADS: NONE at prior endpoint
+REQUIRED_CHECKS: GitHub Actions runner previously non-executing; no product result inferred unless steps execute
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
@@ -40,35 +40,38 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0008
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5680123570
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0009_COMMENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0009_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
 ROADMAP_ALIGNMENT: ALIGNED
 ROADMAP_MUTATION_AUTHORITY: NONE
 
+OWNER_PROGRESSION_COMMAND: proceed next
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
-HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser, LEG-002 reconciliation, LEG-003 count and LEG-004 exact-zone isolated harnesses PASS; repository/browser/real-input qualification NOT_RUN
+HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser, LEG-002 reconciliation, LEG-003 count and LEG-004 zone/input isolated harnesses PASS; repository/browser/real-input qualification NOT_RUN
 HANDOVER_READY: FALSE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0007.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0009.md
 PREWORK_QUALIFICATION_READY: TRUE
 LATEST_MATERIAL_LEG: LEG-004
 LATEST_MATERIAL_HEAD: b58b1a223f2992d46646b6779705067d7631d947
 LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-004.md
+NEXT_MATERIAL_LEG: LEG-005
 
-CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned; GitHub Actions runner remains non-executing. Browser UI qualification has not run.
-LEG_DIAGNOSIS: Exact current-area zone scoping and optional Clash-within-Supports input are now wired end-to-end into the Primary Support Assembly count path. The raw parser path-shape mismatch found during review was corrected before receipt.
-EXACT_NEXT_ACTION: Stop at EP-0008. Recommended next bounded leg is WP-PSA-005 configurable conservative orphan recovery (1x axial / 2x lateral; Same Family / Same PIPE / Same Bore ON; unique target required). Column 22 remains untouched. Do not merge.
+CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned; GitHub Actions runner remains non-executing. Neither blocks isolated orphan-resolver implementation.
+LEG_DIAGNOSIS: Remaining fallback defect is unresolved/provisional geometry groups split outside the normal lateral window. Issue #1222 authorizes a second-pass resolver only, not global tolerance widening.
+EXACT_NEXT_ACTION: Synchronize EP-0009 to Issue #1222, then implement LEG-005: enabled default, 1.0x axial / 2.0x lateral, configurable Same Family / Same PIPE / Same Bore ON, unique target fixed, branch override only with all three enabled+passing guards, explicit components immutable. No Column 22. Do not merge.
