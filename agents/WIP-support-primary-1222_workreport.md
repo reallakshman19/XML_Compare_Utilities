@@ -1,72 +1,54 @@
 # WIP-support-primary-1222 workreport
 
-WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1222
-CHAIN: SUPPORT-PRIMARY-1222
-BRANCH: feature/support-primary-assembly-graph
-PR: 1223
-BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
-LATEST_MATERIAL_LEG: LEG-005
-MERGE_AUTHORITY: OWNER_ONLY
+WORK_ITEM: github:reallaksh19/XML_Compare_Utilities#1222  
+RELATED_TYPICALITY_ISSUE: #1179  
+CHAIN: SUPPORT-PRIMARY-1222  
+BRANCH: feature/support-primary-assembly-graph  
+PR: 1223  
+BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581  
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0013  
+LATEST_MATERIAL_LEG: LEG-007  
+LATEST_MATERIAL_HEAD: a42a3e12cb6369b8c26f02a593ef0264860e3501  
+MERGE_AUTHORITY: OWNER_ONLY  
 MERGE_AUTHORIZED: FALSE
 
 ## Mission
 
 Move Support Report from flat location-count inference toward an auditable hierarchy:
 
-`zone -> PS/SL family -> Primary Support Assembly -> concrete/symbolic members -> pipe/carrier evidence`.
+`zone -> PS/SL family -> Primary Support Assembly -> members -> pipe/carrier evidence -> independent typicality channels -> consensus`.
 
-Optional Clash-within-Supports XML supplies support-member connectivity only. It does not replace #1216 Support/Steel carrier/steel producer authority. Existing bore-axis grouping remains the first geometry authority; LEG-005 adds only a guarded second-pass fallback.
+Optional Clash-within-Supports XML supplies support-member connectivity only. It does not replace #1216 Support/Steel carrier/steel producer authority.
 
 ## Implemented material legs
 
 ### LEG-001 — explicit assembly topology
-
-- `parseSupportMemberRelationshipXml()` retains SupportChain member relationships even when pipe context is absent.
-- legacy `parseSupportChangeXml()` remains pipe-required.
-- `SupportPrimaryRelationshipBundle.v1` builds deterministic family-scoped components such as `PSA::PS-11167::M-2+11`.
-- numeric members are countable; DATUM / STRUCTURAL_REFERENCE are symbolic and non-countable.
-- explicit topology never uses XYZ proximity.
-- user-facing remark is `Multiple primary support`.
+- retained PS/SL member-to-member SupportChain evidence without mandatory pipe context;
+- deterministic `SupportPrimaryRelationshipBundle.v1` assembly IDs;
+- numeric members countable; DATUM/reference nodes symbolic and non-countable;
+- renamed report wording to `Multiple primary support`.
 
 ### LEG-002 — topology/location reconciliation
+- `SupportPrimaryReconciliation.v1` maps geometry groups to explicit assemblies;
+- explicit, geometry-only, partial, conflict and symbolic states remain visible;
+- unsupported relationship bundle schemas have no authority.
 
-`SupportPrimaryReconciliation.v1` maps current location groups to explicit topology with states:
-- `EXPLICIT_ASSEMBLY`;
-- `GEOMETRY_ONLY`;
-- `PARTIAL_EXPLICIT`;
-- `CONFLICT`;
-- `SYMBOLIC_ONLY`.
-
-Unsupported relationship bundle schemas have no authority.
-
-### LEG-003 — family count migration
-
-`SupportPrimaryCountProjection.v1` supplies the final `TOTAL SUPPORT POINTS ON SECONDARY` value.
-
-- no valid explicit family => existing geometry count;
-- explicit components deduplicate location groups sharing one assembly;
-- countable unobserved explicit assemblies contribute;
-- DATUM/reference-only evidence contributes zero;
-- geometry-only groups remain fallback occurrences;
-- PARTIAL/CONFLICT ambiguity cannot lower below legacy geometry evidence;
-- `Multiple primary support` follows final family count >1.
+### LEG-003 — final family count projection
+- `SupportPrimaryCountProjection.v1` supplies `TOTAL SUPPORT POINTS ON SECONDARY`;
+- explicit components deduplicate geometry groups;
+- unobserved countable explicit assemblies contribute;
+- ambiguity cannot lower the count below legacy geometry evidence.
 
 ### LEG-004 — exact zone scope + optional relationship XML UI
-
-- `SupportReportZoneScope.v1` discovers/scopes exact ancestor identities, not substrings;
-- handles raw `primaryPath`/`secondaryPath` and grouped plural paths;
-- Support Report UI has searchable Primary/piping-support and Secondary/support multi-selects;
-- empty selections preserve all-zone behavior;
-- optional `Primary Support Relationship XML / Clash within Supports` input is parsed, exact-path scoped, then converted into `SupportPrimaryRelationshipBundle.v1`;
-- scope/catalog/input summaries are retained in report/debug state;
-- typical-reference XML is not zone-filtered in this leg.
+- exact ancestor-zone discovery/scoping;
+- searchable two-column Primary/piping-support and Secondary/support multi-select UI;
+- optional current-side `Primary Support Relationship XML / Clash within Supports` input;
+- empty zone selections preserve all-zone behavior.
 
 ### LEG-005 — conservative orphan recovery
+`SupportPrimaryOrphanRecovery.v1` runs only after normal grouping and explicit reconciliation.
 
-Introduces `SupportPrimaryOrphanRecovery.v1` after explicit reconciliation and before final count projection.
-
-Governed defaults:
+Defaults:
 ```text
 Enable orphan resolver            ON
 Axial multiplier                  1.0
@@ -77,54 +59,60 @@ Same Bore                         ON
 Require unique target             ALWAYS ON
 ```
 
-Safety rules:
-- source must be `GEOMETRY_ONLY`;
+Safety:
+- only geometry-only sources recover;
 - explicit/partial/conflict/symbolic assignments are immutable;
-- enabled missing gate evidence fails closed;
-- multiple target identities => `ORPHAN_AMBIGUOUS`, no merge;
-- provisional-to-provisional recovery requires reciprocal unique targeting;
-- distinct explicit assemblies never join;
-- different branch/traversal nodes can only recover when all three compatibility gates are enabled and pass;
-- pipe-wide branch-override axis must contain >=3 independent points, so the source/target pair cannot define its own axis.
+- missing enabled-gate evidence fails closed;
+- ambiguity never chooses nearest automatically;
+- provisional pairing requires reciprocal uniqueness;
+- branch override requires all three compatibility gates plus >=3-point pipe-axis evidence.
 
-Geometry uses the same bore-axis model:
-```text
-axialMm   = |D dot T|
-lateralMm = |D - (D dot T)T|
-base axial   = 4 * Bore
-base lateral = 0.5 * Bore + 25 mm
-recovery axial   = base axial * multiplier
-recovery lateral = base lateral * multiplier
-```
+### LEG-006 — release hardening
+- production-named shared bore/axis exports;
+- popup-scoped orphan config passed explicitly into builds;
+- field-level total-support count provenance aligned to assembly/orphan count basis;
+- nested browser cache routing hardened;
+- focused hardening tests committed.
 
-Count integration:
-- unique explicit recovery contributes no extra geometry occurrence;
-- reciprocal recovered geometry pair shares one deterministic occurrence ID;
-- non-recoverable/unrelated legacy groups remain independently countable;
-- ambiguity floor remains intact.
+### LEG-007 — `RELATIONSHIP_TOPOLOGY_V1`
+Introduces a second independent family-level typicality channel beside the existing structural matcher.
 
-UI/audit:
-- new `Conservative orphan recovery` card exposes requested editable controls and fixed unique-target policy;
-- engine accepts explicit `orphanRecoveryConfig`;
-- report top-level exposes orphan schema/profile/config/summary;
-- row evidence/debug JSON exposes recovery status, basis, targets/candidates, axial/lateral residuals, base/recovery thresholds, axis basis/confidence and branch relationship.
+Relationship decision contract:
+- `MATCH` — both sides complete explicit authority and intrinsic signatures agree;
+- `NO_MATCH` — both sides complete explicit authority and material topology differs;
+- `REVIEW` — partial/ambiguous explicit authority or required intrinsic signal unavailable;
+- `UNAVAILABLE` — explicit relationship authority missing on either side.
 
-## Benchmark/oracle disposition
+Current intrinsic signals:
+- effective Primary Support Assembly count;
+- explicit assembly count;
+- concrete-member-count spectrum across explicit assemblies;
+- normalized pipe-class population;
+- nominal-bore population.
 
-| Family | Expected | Current disposition |
+`TypicalityConsensusV1` sits above the unchanged structural/location result:
+- independent agreement raises confidence;
+- relationship `UNAVAILABLE` preserves structural candidate at reduced confidence;
+- informed contradiction produces fail-visible `REVIEW / CONFLICT`;
+- relationship-only match cannot promote a structural rejection/ambiguity in the first integration.
+
+Human-facing Column 23 wording now distinguishes relationship conflict/incomplete evidence while machine reason codes remain authoritative.
+
+## Protected benchmark/oracle ledger
+
+| Family / control | Expected | Current disposition |
 |---|---:|---|
-| PS-11167 | 6 | synthetic explicit/orphan controls committed; real relationship input NOT_RUN |
-| PS-11236 | 4 | synthetic explicit unobserved assembly control committed; real relationship input NOT_RUN |
+| PS-11167 | 6 | synthetic topology/orphan controls committed; real relationship input NOT_RUN |
+| PS-11236 | 4 | synthetic explicit-unobserved control committed; real relationship input NOT_RUN |
 | PS-12060 | 1 | normal grouper unchanged; real suite NOT_RUN |
-| PS-12877 | 4 | return/revisit protected negative; real suite NOT_RUN |
+| PS-12877 | 4 | return/revisit protection unchanged; real suite NOT_RUN |
 | PS-12860 | 6 | normal grouper unchanged; real suite NOT_RUN |
 | PS-12120 | 14 | normal grouper unchanged; real suite NOT_RUN |
-
-Typicality `11168 <-> 14168` remains untouched through LEG-005.
+| PS-11168 -> PS-14168 | structural positive typicality | existing structural matcher protected; relationship channel may be UNAVAILABLE until both sides have explicit relationship input |
 
 ## Focused controls committed
 
-Topology/count/zone:
+Primary structure/count/zone/orphan:
 - `tests/support-primary-relationship.test.mjs`
 - `tests/support-primary-reconciliation.test.mjs`
 - `tests/support-primary-counting.test.mjs`
@@ -132,71 +120,90 @@ Topology/count/zone:
 - `tests/support-report-zone-scope.test.mjs`
 - `tests/support-primary-input.test.mjs`
 - `tests/support-primary-zone-ui.test.mjs`
-
-Orphan recovery:
 - `tests/support-primary-orphan-recovery.test.mjs`
 - `tests/support-primary-orphan-safety.test.mjs`
 - `tests/support-primary-orphan-ui.test.mjs`
 - `tests/support-primary-orphan-engine-audit.test.mjs`
+- `tests/support-primary-release-hardening.test.mjs`
+
+Relationship typicality:
+- `tests/support-report-relationship-typicality.test.mjs`
+
+LEG-007 focused controls cover:
+- topology match across different family IDs;
+- assembly-count mismatch;
+- member-count-spectrum mismatch;
+- missing explicit authority => `UNAVAILABLE`;
+- partial explicit authority => `REVIEW`;
+- structural matcher output reproducibility;
+- structural candidate retained when relationship is unavailable;
+- informed contradiction => `REVIEW / CONFLICT`;
+- relationship-only candidate cannot promote structural rejection.
 
 ## Validation truth
 
 PASS by source/material review:
-- engineering-pr-delivery-v2 custody/prework ordering;
-- EP-0009 and Issue mirror existed before LEG-005 product mutation;
-- material diff stayed inside the preworked orphan/count/UI/audit boundary;
-- no normal grouping acceptance/tolerance mutation;
-- explicit topology immutability, unique-target and reciprocal safety logic reviewed;
-- branch override requires all guards plus >=3-point pipe axis;
-- unrelated legacy groups remain countable;
-- engine explicit config/audit path committed;
-- PR observed draft/open/mergeable with no reviews or unresolved threads at LEG-005 material review.
+- engineering-pr-delivery-v2 prework ordering through LEG-007;
+- structural matcher file `support-report-typicality.js` was not modified in LEG-007;
+- normal support grouping/count/orphan semantics were not modified in LEG-007;
+- relationship absence is explicitly unavailable rather than mismatch;
+- consensus conflict is fail-visible;
+- browser cache route reaches bootstrap -> addon -> projection;
+- PR #1223 observed draft/open/mergeable;
+- no unresolved review threads.
+
+Review record:
+- COMMENT review `5212200167` records LEG-007 source/material review;
+- no approval or requested-changes review.
 
 NOT_RUN:
-- committed repository tests under an executing GitHub runner;
+- committed Node tests under an executing GitHub runner;
 - browser/deployed qualification;
-- complete real Support Report benchmark suite;
-- real PS-11167/PS-11236 relationship qualification.
+- complete protected Support Report benchmark suite;
+- real PS-11167/PS-11236 relationship qualification;
+- real two-sided `RELATIONSHIP_TOPOLOGY_V1` benchmark.
 
-Infrastructure:
-- LEG-005 qualification workflow `34978272498` and ZIP workflow `34978272204` fail before any steps (`steps=null`). These are not product test results.
+Infrastructure at LEG-007 material head:
+- qualification workflow `34989138496`: focused-node/browser jobs `steps=null`;
+- ZIP workflow `34989137742`: benchmark job `steps=null`.
 
-Input blocker:
-- `benchmarks/1835.zip` contains only primary `1835.xml`;
-- real Owner 1835 Clash-within-Supports XML remains unpinned.
+These are not product test failures.
+
+## Current limitations
+
+1. Actual 1835 Clash-within-Supports XML remains unpinned.
+2. Reference-side relationship XML input is not yet implemented; real two-sided relationship topology can therefore be `UNAVAILABLE`.
+3. Relationship topology currently uses assembly count/member spectra plus report-derived pipe/bore populations; richer explicit edge-degree/connectivity descriptors can be added later.
+4. Count deduplication changes family totals but does not collapse report row cardinality.
+5. Axis Typicality V1 is not yet implemented.
+6. Repository/browser test execution remains blocked by Actions jobs failing before steps.
 
 ## Authority / safety invariants
 
 - #1216 remains canonical for Support/Steel production relationships.
 - explicit support-member topology outranks geometric recovery.
-- DATUM/reference nodes never inflate count or become recovery sources.
-- normal grouping tolerance is not globally widened.
-- explicit different assembly IDs cannot be joined by recovery.
-- unique target is fixed; ambiguity remains visible.
+- DATUM/reference nodes never inflate primary-support count.
+- normal bore-axis grouping tolerance is not globally widened.
+- explicit different assembly IDs cannot be joined by orphan recovery.
+- unique orphan target remains mandatory.
 - branch return/revisit protection remains mandatory.
-- no Column 22 decision-authority mutation has occurred.
+- structural typicality matcher remains an independent frozen channel.
+- relationship topology is independent and cannot silently overwrite structural conclusions.
 - merge remains Owner-only.
-
-## Known release-hardening caveats
-
-1. Orphan recovery currently consumes shared axis/bore helpers through `support-report-location-grouping.js`'s `_test` namespace. It reuses the canonical implementation but should move to production-named exports.
-2. Normal UI mirrors orphan config through module-global runtime state. The engine now supports explicit `orphanRecoveryConfig`; popup-scoped passing should replace the runtime mirror before hardening.
-3. Nested engine/count query tokens need hot-session browser cache hardening; fresh-page source correctness is unaffected.
-4. `totalSupportPointsOnSecondary` field-level provenance still uses the older clash-group source class; row/debug audit contains the newer assembly/orphan count basis.
-5. Count deduplication changes family totals but not report row cardinality.
-6. Real relationship input and browser interaction qualification remain unavailable/NOT_RUN.
 
 ## Recommended next bounded work
 
-Before Owner qualification of this PR, use one separate release-hardening leg to:
-- expose production-named shared bore/axis geometry helpers;
-- pass popup-scoped orphan configuration directly into the build;
-- align field-level count provenance;
-- propagate nested browser cache tokens;
-- rerun real/focused qualification if runner/input become available.
+**LEG-008 — Axis Typicality V1**, after a new prework endpoint is committed.
 
-After that, proceed to Column 22 `RELATIONSHIP_TOPOLOGY_V1` as an **independent** matcher and feed it into the planned TypicalityConsensus layer. Do not retune/overwrite the existing matcher merely to force agreement.
+Use intrinsic relative geometry only:
+- local pipe/traversal axes;
+- relative axis angles;
+- axial/lateral spacing descriptors;
+- pipe return/traversal topology;
+- DN/bore-normalized ratios.
+
+Do not compare raw global axis vectors across XMLs. Ambiguous or insufficient axis evidence must produce `UNAVAILABLE`, not rejection. Keep Axis Typicality independent and integrate it through consensus only after its own audit exists.
 
 ## EXACT_NEXT_ACTION
 
-Stop at EP-SUPPORT-PRIMARY-1222-0010 and synchronize Issue #1222 + PR #1223. Do not merge without fresh Owner authorization.
+Create LEG-008 prework endpoint for Axis Typicality V1 before any production mutation. Do not merge without fresh Owner authorization.
