@@ -58,7 +58,7 @@ function rigidTransform(point) {
 }
 
 function reflect(point) {
-  return { x: -point.x + 50, y: point.y + 25, z: -point.z + 10 };
+  return { x: -point.x + 50, y: point.y + 25, z: point.z + 10 };
 }
 
 test('same intrinsic geometry matches after arbitrary rigid rotation and translation', () => {
@@ -76,7 +76,7 @@ test('same intrinsic geometry matches after arbitrary rigid rotation and transla
     audit.rightFamilies[0].relativeAxisAngleSpectrumDeg);
 });
 
-test('axis sign reversal and reflected coordinates preserve intrinsic match', () => {
+test('axis sign reversal and true reflected coordinates preserve intrinsic match', () => {
   const audit = buildSupportReportAxisTypicalityAudit(
     baseline('PS-1'),
     baseline('PS-2', reflect),
