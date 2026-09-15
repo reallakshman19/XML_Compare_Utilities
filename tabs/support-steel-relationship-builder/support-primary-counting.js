@@ -11,11 +11,12 @@ export function applySupportPrimaryAssemblyCounts(input = {}) {
   const locationGroups = Array.isArray(input.locationGroups) ? input.locationGroups : [];
   const relationshipBundle = input.relationshipBundle || null;
   const reconciliation = reconcileSupportPrimaryAssemblies({ locationGroups, relationshipBundle });
-  const orphanRecovery = resolveSupportPrimaryOrphans({
+  const rawOrphanRecovery = resolveSupportPrimaryOrphans({
     locationGroups,
     reconciliation,
     config: input.orphanRecoveryConfig,
   });
+  const orphanRecovery = enforceOrphanTraversalSafety(rawOrphanRecovery);
   const relationshipFamilies = relationshipFamilyIndex(relationshipBundle);
   const assignmentsByFamily = groupAssignments(reconciliation.assignments);
   const recoveryByFamily = groupRecoveryRows(orphanRecovery.resolutions);
@@ -62,6 +63,48 @@ export function applySupportPrimaryAssemblyCounts(input = {}) {
       orphanRecoveredGroupCount: orphanRecovery.summary.recoveredExplicitCount + orphanRecovery.summary.recoveredGeometryCount,
       orphanAmbiguousGroupCount: orphanRecovery.summary.ambiguousCount,
       orphanUnresolvedGroupCount: orphanRecovery.summary.unresolvedCount + orphanRecovery.summary.nonReciprocalCount,
+      orphanCrossTraversalGeometryWithheldCount: orphanRecovery.summary.crossTraversalGeometryWithheldCount || 0,
+    }),
+  });
+}
+
+function enforceOrphanTraversalSafety(recovery) {
+  if (!recovery || !Array.isArray(recovery.resolutions)) return recovery;
+  const withheld = [];
+  const resolutions = recovery.resolutions.map((row) => {
+    if (row?.recoveryStatus !== 'ORPHAN_RECOVERED_GEOMETRY'
+      || row?.branchRelationship !== 'DIFFERENT_TRAVERSAL') return row;
+    const guarded = Object.freeze({
+      ...row,
+      recoveryStatus: 'ORPHAN_UNRESOLVED',
+      recoveryBasis: 'DIFFERENT_TRAVERSAL_GEOMETRY_RECOVERY_WITHHELD',
+      effectiveAssemblyId: row.originalAssemblyId || row.effectiveAssemblyId || '',
+    });
+    withheld.push(guarded);
+    return guarded;
+  });
+  const withheldCount = withheld.length;
+  const diagnostics = [
+    ...(recovery.diagnostics || []),
+    ...withheld.map((row) => Object.freeze({
+      severity: 'INFO',
+      code: 'ORPHAN_CROSS_TRAVERSAL_GEOMETRY_WITHHELD',
+      groupId: row.groupId,
+      familyId: row.familyId,
+      candidateTargetIds: row.candidateTargetIds,
+      candidateTargetGroupIds: row.candidateTargetGroupIds,
+      message: 'Provisional geometry recovery crossed known pipe traversals and was withheld from count authority; explicit assembly evidence is required to override traversal separation.',
+    })),
+  ];
+  return Object.freeze({
+    ...recovery,
+    resolutions: Object.freeze(resolutions),
+    diagnostics: Object.freeze(diagnostics),
+    summary: Object.freeze({
+      ...(recovery.summary || {}),
+      recoveredGeometryCount: Math.max(0, Number(recovery.summary?.recoveredGeometryCount || 0) - withheldCount),
+      unresolvedCount: Number(recovery.summary?.unresolvedCount || 0) + withheldCount,
+      crossTraversalGeometryWithheldCount: withheldCount,
     }),
   });
 }
@@ -281,6 +324,7 @@ function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 
 export const _test = Object.freeze({
   buildFamilyCountSummary,
+  enforceOrphanTraversalSafety,
   relationshipFamilyIndex,
   groupRecoveryRows,
 });
