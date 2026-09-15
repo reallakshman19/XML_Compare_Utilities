@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0009.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0010.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-005 prework active; use branch ref for exact live SHA
+HEAD: LEG-005 complete plus relay state; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -26,10 +26,10 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at prework observation
-REVIEWS: NONE at prior endpoint
-UNRESOLVED_REVIEW_THREADS: NONE at prior endpoint
-REQUIRED_CHECKS: GitHub Actions runner previously non-executing; no product result inferred unless steps execute
+MERGEABILITY: TRUE — PR #1223 remained draft/open at LEG-005 review
+REVIEWS: NONE
+UNRESOLVED_REVIEW_THREADS: NONE
+REQUIRED_CHECKS: LEG-005 workflows fail before steps (`steps=null`); repository qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
@@ -40,11 +40,11 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0009
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5680577079
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0010_COMMENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0010_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -61,17 +61,16 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
-HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser, LEG-002 reconciliation, LEG-003 count and LEG-004 zone/input isolated harnesses PASS; repository/browser/real-input qualification NOT_RUN
+HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser, LEG-002 reconciliation, LEG-003 count, LEG-004 zone/input and LEG-005 orphan policy/source review PASS; repository/browser/real-input qualification NOT_RUN
 HANDOVER_READY: FALSE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0009.md
 PREWORK_QUALIFICATION_READY: TRUE
-LATEST_MATERIAL_LEG: LEG-004
-LATEST_MATERIAL_HEAD: b58b1a223f2992d46646b6779705067d7631d947
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-004.md
-NEXT_MATERIAL_LEG: LEG-005
+LATEST_MATERIAL_LEG: LEG-005
+LATEST_MATERIAL_HEAD: 26c512ecc62585735a18ed82649a33fab0c3e2da
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-005.md
 
-CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned; GitHub Actions runner remains non-executing. Neither blocks isolated orphan-resolver implementation.
-LEG_DIAGNOSIS: Remaining fallback defect is unresolved/provisional geometry groups split outside the normal lateral window. Issue #1222 authorizes a second-pass resolver only, not global tolerance widening.
-EXACT_NEXT_ACTION: Implement LEG-005: enabled default, 1.0x axial / 2.0x lateral, configurable Same Family / Same PIPE / Same Bore ON, unique target fixed, branch override only with all three enabled+passing guards, explicit components immutable. No Column 22. Do not merge.
+CURRENT_BLOCKER: Real Owner 1835 Clash-within-Supports XML remains unpinned; GitHub Actions runner remains non-executing; browser interaction qualification NOT_RUN.
+LEG_DIAGNOSIS: Conservative orphan recovery is implemented as a second pass with governed 1x axial / 2x lateral defaults, unique-target safety, reciprocal provisional matching, guarded branch override and explicit topology immutability. Normal grouping remains unchanged.
+EXACT_NEXT_ACTION: Stop at EP-0010 and finish Issue/PR synchronization. On future Owner `proceed`, recommended next bounded leg is Primary Support release hardening (production-named shared geometry exports, popup-scoped orphan config, count provenance, nested cache routing), then Column 22 Relationship Topology V1. Do not merge.
