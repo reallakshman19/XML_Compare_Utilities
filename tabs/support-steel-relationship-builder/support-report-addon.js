@@ -10,7 +10,7 @@ import {
 import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,
-} from './support-report-typicality-projection.js?v=20260915-relationship-topology-v1';
+} from './support-report-typicality-projection.js?v=20260915-axis-typicality-v1';
 import {
   SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES,
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
