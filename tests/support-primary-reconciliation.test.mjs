@@ -120,3 +120,18 @@ test('DATUM-only location evidence stays non-countable even when it belongs to a
   assert.deepEqual(assignment.observedSymbolicMemberIds, ['/PS-11236/DATUM']);
   assert.deepEqual(assignment.symbolicCandidateAssemblyIds, ['PSA::PS-11236::M-4']);
 });
+
+test('unsupported relationship schema cannot acquire explicit assembly authority', () => {
+  const valid = relationshipBundle([
+    ['/PS-11167.2', '/PS-11167.11'],
+  ]);
+  const wrongSchema = { ...valid, schema: 'SupportPrimaryRelationshipBundle.v999' };
+  const result = reconcileSupportPrimaryAssemblies({
+    relationshipBundle: wrongSchema,
+    locationGroups: [locationGroup('G-SCHEMA', 'PS-11167', ['/PS-11167.2'])],
+  });
+
+  assert.equal(result.relationshipEvidenceAvailable, false);
+  assert.equal(result.assignments[0].status, 'GEOMETRY_ONLY');
+  assert.equal(result.assignments[0].candidateAssemblyIds.length, 0);
+});
