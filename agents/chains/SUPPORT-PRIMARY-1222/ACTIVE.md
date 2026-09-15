@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0013
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0013.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0014
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0014.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-007 materially closed; use branch ref for exact live control-plane SHA
+HEAD: LEG-008 prework active; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -14,7 +14,7 @@ ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 WORK_ITEM_SOURCE: GITHUB_ISSUE
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_ITEM_MODE: EXCLUSIVE
-CUSTODY_EPOCH: 8
+CUSTODY_EPOCH: 9
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
@@ -33,11 +33,11 @@ COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0013
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0014
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5683170584
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0014_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0014_SYNC
 
 OWNER_PROGRESSION_COMMAND: proceed next
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
@@ -52,9 +52,9 @@ MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 LATEST_MATERIAL_LEG: LEG-007
 LATEST_MATERIAL_HEAD: a42a3e12cb6369b8c26f02a593ef0264860e3501
 LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-007.md
-MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0012.md
+MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0014.md
 NEXT_MATERIAL_LEG: LEG-008
 
-CURRENT_BLOCKER: real 1835 relationship XML and executing Actions runner remain unavailable. Reference-side explicit relationship input is also not yet implemented, so real two-sided relationship topology may remain UNAVAILABLE.
-LEG_DIAGNOSIS: LEG-007 closed. Next architecture item is Axis Typicality V1 as an independent channel using intrinsic relative geometry only.
-EXACT_NEXT_ACTION: Create a fresh prework endpoint for LEG-008 Axis Typicality V1 before product mutation. Do not compare raw global axis vectors; do not change structural matcher scoring/gates; no merge.
+CURRENT_BLOCKER: executing Actions runner remains unavailable. Axis typicality must therefore be source/material qualified unless steps actually execute.
+LEG_DIAGNOSIS: Add AXIS_TYPICALITY_V1 as a third independent channel using intrinsic axis-relative geometry only. Never compare raw global axis vectors across XMLs.
+EXACT_NEXT_ACTION: Implement LEG-008 per EP-0014, add focused rotation/reflection/unavailability/conflict controls, inspect matcher independence, then stop with material receipt + successor endpoint. No merge.
