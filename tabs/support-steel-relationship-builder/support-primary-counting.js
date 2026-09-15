@@ -3,7 +3,7 @@ import { reconcileSupportPrimaryAssemblies } from './support-primary-reconciliat
 import {
   resolveSupportPrimaryOrphans,
   SUPPORT_PRIMARY_ORPHAN_RECOVERY_SCHEMA,
-} from './support-primary-orphan-recovery.js?v=20260915-support-primary-orphan-1';
+} from './support-primary-orphan-recovery.js?v=20260915-support-primary-hardening-1';
 
 export const SUPPORT_PRIMARY_COUNT_SCHEMA = 'SupportPrimaryCountProjection.v1';
 
