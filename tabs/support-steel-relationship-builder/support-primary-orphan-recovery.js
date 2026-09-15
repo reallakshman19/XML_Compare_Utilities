@@ -70,7 +70,12 @@ export function resolveSupportPrimaryOrphans(input = {}) {
     sourceEvaluations.set(groupId, evaluateSource(group, assignment, context));
   }
 
-  const resolutions = locationGroups.map((group) => resolveGroup(group, assignmentByGroupId.get(clean(group?.groupId)) || null, sourceEvaluations, context));
+  const resolutions = locationGroups.map((group) => resolveGroup(
+    group,
+    assignmentByGroupId.get(clean(group?.groupId)) || null,
+    sourceEvaluations,
+    context,
+  ));
   const diagnostics = resolutions.flatMap((row) => resolutionDiagnostics(row));
   return Object.freeze({
     schema: SUPPORT_PRIMARY_ORPHAN_RECOVERY_SCHEMA,
@@ -426,14 +431,16 @@ function buildPipeGeometryIndex(rows = []) {
 
 function selectAxisModel(sourceGroup, targetGroup, context, branches, samePipe) {
   const sourcePipe = token(sourceGroup?.fullLineTag);
-  if (samePipe && branches.different) {
-    const pipeModel = context.pipeGeometry.get(sourcePipe);
-    return pipeModel?.trusted ? pipeModel : null;
-  }
+  if (samePipe && branches.different) return trustedPipeModel(context.pipeGeometry.get(sourcePipe));
   const traversalModel = trustedTraversalModel(sourceGroup, context.traversalGeometry);
   if (traversalModel?.trusted) return traversalModel;
-  const pipeModel = context.pipeGeometry.get(sourcePipe);
-  return pipeModel?.trusted ? pipeModel : null;
+  return trustedPipeModel(context.pipeGeometry.get(sourcePipe));
+}
+
+function trustedPipeModel(model) {
+  // A two-point pipe-wide model could be nothing more than the orphan/target pair.
+  // Require a third independent point before pipe-level evidence can override traversal separation.
+  return model?.trusted && Number(model?.pointCount || 0) >= 3 ? model : null;
 }
 
 function trustedTraversalModel(group, index) {
@@ -578,4 +585,5 @@ export const _test = Object.freeze({
   recoveredPairAssemblyId,
   recoveryBoreMm,
   selectAxisModel,
+  trustedPipeModel,
 });
