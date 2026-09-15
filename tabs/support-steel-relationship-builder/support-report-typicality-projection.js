@@ -13,6 +13,9 @@ import {
 import {
   buildSupportReportRelationshipTopologyAudit,
 } from './support-report-relationship-typicality.js?v=20260915-relationship-topology-v1';
+import {
+  buildSupportReportAxisTypicalityAudit,
+} from './support-report-axis-typicality.js?v=20260915-axis-typicality-v1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
@@ -34,14 +37,27 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
     match,
     assignmentsByFamily.get(token(match.leftFamilyId)),
   ));
+
   const relationshipTopologyAudit = buildSupportReportRelationshipTopologyAudit(leftReportBundle, rightReportBundle);
   const relationshipMatchByFamily = new Map((relationshipTopologyAudit.matches || [])
     .map((item) => [token(item.leftFamilyId), item]));
-  const consensusMatches = resolvedMatches.map((match) => applyRelationshipTopologyConsensus(
+  const relationshipConsensusMatches = resolvedMatches.map((match) => applyRelationshipTopologyConsensus(
     match,
     relationshipMatchByFamily.get(token(match.leftFamilyId)) || null,
     relationshipTopologyAudit,
   ));
+
+  const axisTypicalityAudit = buildSupportReportAxisTypicalityAudit(leftEvidence, rightEvidence, {
+    profile: options.axisTypicalityProfile || options.profile?.axisTypicality || {},
+  });
+  const axisMatchByFamily = new Map((axisTypicalityAudit.matches || [])
+    .map((item) => [token(item.leftFamilyId), item]));
+  const consensusMatches = relationshipConsensusMatches.map((match) => applyAxisTypicalityConsensus(
+    match,
+    axisMatchByFamily.get(token(match.leftFamilyId)) || null,
+    axisTypicalityAudit,
+  ));
+
   return Object.freeze({
     ...familyAudit,
     comparisonSchema: SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA,
@@ -51,6 +67,9 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
     arrangementResolvedStructuralMatches: Object.freeze(resolvedMatches),
     relationshipTopologyAudit,
     relationshipTopologyMatches: relationshipTopologyAudit.matches,
+    relationshipConsensusMatches: Object.freeze(relationshipConsensusMatches),
+    axisTypicalityAudit,
+    axisTypicalityMatches: axisTypicalityAudit.matches,
     typicalityConsensusSchema: SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA,
     matches: Object.freeze(consensusMatches),
     locationAssignments,
@@ -208,6 +227,113 @@ function applyRelationshipTopologyConsensus(match, relationshipMatch, relationsh
   });
 }
 
+function applyAxisTypicalityConsensus(match, axisMatch, axisAudit) {
+  if (!match) return match;
+  const pair = axisComparisonForMatch(match, axisAudit);
+  const channelResult = pair?.result || axisMatch?.result || 'UNAVAILABLE';
+  const channelReasonCode = pair?.reasonCode || axisMatch?.reasonCode || 'AXIS_TYPICALITY_UNAVAILABLE';
+  const axisTypicality = Object.freeze({
+    result: channelResult,
+    reasonCode: channelReasonCode,
+    auditId: pair?.auditId || axisMatch?.auditId || '',
+    selectedResult: axisMatch?.result || 'UNAVAILABLE',
+    selectedFamilyId: axisMatch?.rightFamilyId || '',
+    selectedCandidateFamilyIds: Object.freeze([...(axisMatch?.candidateFamilyIds || [])]),
+    failedReasonCodes: Object.freeze([...(pair?.failedReasonCodes || axisMatch?.failedReasonCodes || [])]),
+  });
+
+  if (!['TYPICAL', 'REVIEW'].includes(match.result) || !match.rightFamilyId) {
+    const axisOnlyMatch = axisMatch?.result === 'MATCH';
+    return Object.freeze({
+      ...match,
+      axisTypicality,
+      typicalityConsensus: axisOnlyMatch
+        ? freezeConsensus(
+          'STRUCTURAL_RESULT_RETAINED_AXIS_ONLY_MATCH_WITHHELD',
+          'LOW',
+          'Axis typicality found a candidate, but this conservative integration does not promote a structural rejection/ambiguity.',
+        )
+        : match.typicalityConsensus,
+    });
+  }
+
+  if (channelResult === 'NO_MATCH') {
+    const priorRelationshipConflict = match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT';
+    return Object.freeze({
+      ...match,
+      result: 'REVIEW',
+      reasonCode: priorRelationshipConflict
+        ? 'TYPICAL_CONSENSUS_MULTI_CHANNEL_CONFLICT'
+        : 'TYPICAL_CONSENSUS_AXIS_CONFLICT',
+      axisTypicality,
+      typicalityConsensus: freezeConsensus(
+        priorRelationshipConflict ? 'MULTI_CHANNEL_CONFLICT' : 'AXIS_CONFLICT',
+        'LOW',
+        priorRelationshipConflict
+          ? 'Structural candidate is contradicted by both relationship topology and axis typicality.'
+          : 'Structural/location comparison selected a candidate that axis typicality rejects.',
+      ),
+    });
+  }
+
+  if (channelResult === 'REVIEW') {
+    if (match.result === 'REVIEW') return Object.freeze({
+      ...match,
+      axisTypicality,
+      typicalityConsensus: match.typicalityConsensus || freezeConsensus(
+        'REVIEW_REQUIRED',
+        'LOW',
+        'Existing review state retained; axis typicality is also incomplete or ambiguous.',
+      ),
+    });
+    return Object.freeze({
+      ...match,
+      result: 'REVIEW',
+      reasonCode: 'TYPICAL_CONSENSUS_AXIS_REVIEW',
+      axisTypicality,
+      typicalityConsensus: freezeConsensus(
+        'AXIS_REVIEW_REQUIRED',
+        'LOW',
+        'Axis typicality is partial, ambiguous or missing a required intrinsic descriptor.',
+      ),
+    });
+  }
+
+  if (channelResult === 'MATCH') {
+    const uniquelyAgrees = axisMatch?.result === 'MATCH'
+      && token(axisMatch.rightFamilyId) === token(match.rightFamilyId);
+    if (match.result === 'REVIEW') return Object.freeze({
+      ...match,
+      axisTypicality,
+      typicalityConsensus: Object.freeze({
+        ...(match.typicalityConsensus || freezeConsensus('REVIEW_REQUIRED', 'LOW', 'Prior review state retained.')),
+        axisAgreement: uniquelyAgrees ? 'AGREE' : 'COMPATIBLE_NOT_UNIQUE',
+      }),
+    });
+    const relationshipConsensus = match.typicalityConsensus?.result || '';
+    const allChannelsAgree = uniquelyAgrees && relationshipConsensus === 'AGREE';
+    return Object.freeze({
+      ...match,
+      axisTypicality,
+      typicalityConsensus: freezeConsensus(
+        allChannelsAgree
+          ? 'ALL_CHANNELS_AGREE'
+          : uniquelyAgrees
+            ? 'STRUCTURAL_AXIS_AGREE'
+            : 'AXIS_COMPATIBLE_NOT_UNIQUE',
+        allChannelsAgree ? 'VERY_HIGH' : uniquelyAgrees ? 'HIGH' : (match.typicalityConsensus?.confidence || 'MEDIUM'),
+        allChannelsAgree
+          ? 'Structural/location, relationship-topology and axis-typicality channels independently select the same candidate.'
+          : uniquelyAgrees
+            ? 'Structural/location and axis-typicality channels independently select the same candidate.'
+            : 'The structural candidate is axis-compatible, but axis typicality does not uniquely select it.',
+      ),
+    });
+  }
+
+  return Object.freeze({ ...match, axisTypicality });
+}
+
 function freezeConsensus(result, confidence, basis) {
   return Object.freeze({
     schema: SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA,
@@ -218,6 +344,12 @@ function freezeConsensus(result, confidence, basis) {
 }
 
 function relationshipComparisonForMatch(match, audit) {
+  if (!match?.rightFamilyId) return null;
+  return (audit?.familyComparisons || []).find((item) => token(item.leftFamilyId) === token(match.leftFamilyId)
+    && token(item.rightFamilyId) === token(match.rightFamilyId)) || null;
+}
+
+function axisComparisonForMatch(match, audit) {
   if (!match?.rightFamilyId) return null;
   return (audit?.familyComparisons || []).find((item) => token(item.leftFamilyId) === token(match.leftFamilyId)
     && token(item.rightFamilyId) === token(match.rightFamilyId)) || null;
@@ -252,7 +384,10 @@ function resolveRowLocation(row, locations) {
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
   if (match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT'
-    || match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW') return reviewLabel(match);
+    || match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW'
+    || match.reasonCode === 'TYPICAL_CONSENSUS_AXIS_CONFLICT'
+    || match.reasonCode === 'TYPICAL_CONSENSUS_AXIS_REVIEW'
+    || match.reasonCode === 'TYPICAL_CONSENSUS_MULTI_CHANNEL_CONFLICT') return reviewLabel(match);
   if (match.result === 'AMBIGUOUS') return ambiguousLabel(match);
   if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return ambiguousAssignmentLabel(match);
   if (!pair) {
@@ -288,6 +423,15 @@ function limitedCheckLabel(equivalent = false) {
 }
 
 function reviewLabel(match) {
+  if (match?.reasonCode === 'TYPICAL_CONSENSUS_MULTI_CHANNEL_CONFLICT') {
+    return 'REVIEW — Typicality evidence channels disagree.';
+  }
+  if (match?.reasonCode === 'TYPICAL_CONSENSUS_AXIS_CONFLICT') {
+    return 'REVIEW — Structural and pipe-axis typicality comparisons disagree.';
+  }
+  if (match?.reasonCode === 'TYPICAL_CONSENSUS_AXIS_REVIEW') {
+    return 'REVIEW — Pipe-axis typicality evidence is incomplete or ambiguous.';
+  }
   if (match?.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT') {
     return 'REVIEW — Structural and relationship-topology comparisons disagree.';
   }
@@ -353,8 +497,10 @@ function token(value) {
 export const _test = Object.freeze({
   ambiguousAssignmentLabel,
   ambiguousLabel,
+  applyAxisTypicalityConsensus,
   applyRelationshipTopologyConsensus,
   arrangementLabel,
+  axisComparisonForMatch,
   comparisonProfile,
   limitedCheckLabel,
   matchedLabel,
