@@ -2,8 +2,10 @@ import {
   SUPPORT_REPORT_AXIAL_BORE_FACTOR,
   SUPPORT_REPORT_LATERAL_ALLOWANCE_MM,
   SUPPORT_REPORT_LATERAL_BORE_FACTOR,
-  _test as locationGeometry,
-} from './support-report-location-grouping.js?v=20260915-support-report-bore-axis-occurrence-1';
+  buildSupportReportPrincipalAxisModel,
+  buildSupportReportTraversalGeometryIndex,
+  deriveSupportReportLocationNominalBoreMm,
+} from './support-report-location-grouping.js?v=20260915-support-primary-hardening-1';
 
 export const SUPPORT_PRIMARY_ORPHAN_RECOVERY_SCHEMA = 'SupportPrimaryOrphanRecovery.v1';
 export const SUPPORT_PRIMARY_ORPHAN_RECOVERY_PROFILE = 'SUPPORT_PRIMARY_ORPHAN_V1';
@@ -51,7 +53,7 @@ export function resolveSupportPrimaryOrphans(input = {}) {
   const assignmentByGroupId = new Map(assignments.map((row) => [clean(row?.groupId), row]));
   const groupById = new Map(locationGroups.map((row) => [clean(row?.groupId), row]));
   const evidenceRows = locationGroups.flatMap((group) => Array.isArray(group?.evidenceRows) ? group.evidenceRows : []);
-  const traversalGeometry = locationGeometry.buildTraversalGeometryIndex(evidenceRows);
+  const traversalGeometry = buildSupportReportTraversalGeometryIndex(evidenceRows);
   const pipeGeometry = buildPipeGeometryIndex(evidenceRows);
   const context = Object.freeze({
     config,
@@ -425,7 +427,7 @@ function buildPipeGeometryIndex(rows = []) {
     buckets.get(key).push(row.clashPointGlobalMm);
   }
   const output = new Map();
-  for (const [key, points] of buckets) output.set(key, locationGeometry.principalAxisModel(points));
+  for (const [key, points] of buckets) output.set(key, buildSupportReportPrincipalAxisModel(points));
   return output;
 }
 
@@ -470,7 +472,7 @@ function normalizedBranches(group) {
 function groupBoreMm(group) {
   const direct = Number(group?.locationNominalBoreMm);
   if (positive(direct)) return direct;
-  const derived = Number(locationGeometry.derivedNominalBoreMm(group?.fullLineTag));
+  const derived = Number(deriveSupportReportLocationNominalBoreMm(group?.fullLineTag));
   return positive(derived) ? derived : null;
 }
 
