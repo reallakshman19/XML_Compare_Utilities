@@ -1,7 +1,7 @@
 import {
   groupSupportReportClashEvidence,
   parseSupportReportClashXml as parseWithTestContext,
-} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&perf=20260913-support-report-large-xml-1';
+} from './support-report-clash-test-context.js?v=20260909-support-report-parser-primitives-8&location=20260915-support-report-bore-axis-occurrence-1&perf=20260913-support-report-large-xml-1';
 import { _test as clashParserTest } from './support-report-clash-evidence.js?v=20260909-support-report-parser-primitives-8&perf=20260913-support-report-large-xml-1';
 
 export { groupSupportReportClashEvidence };
