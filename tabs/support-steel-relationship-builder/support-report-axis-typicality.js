@@ -14,12 +14,6 @@ export const SUPPORT_REPORT_AXIS_TYPICALITY_PROFILE = Object.freeze({
 });
 
 const EPSILON = 1e-9;
-const HARD_TOPOLOGY_CODES = Object.freeze([
-  'AXIS_LOCATION_COUNT_EQUAL',
-  'AXIS_TRAVERSAL_COUNT_EQUAL',
-  'AXIS_LOCATIONS_PER_TRAVERSAL_EQUAL',
-  'AXIS_RETURN_MULTIPLICITY_EQUAL',
-]);
 
 export function buildSupportReportAxisTypicalityAudit(leftEvidence, rightEvidence, options = {}) {
   const profile = axisProfile(options.profile);
@@ -103,15 +97,9 @@ export function compareAxisTypicalityFamilies(left, right, profile = SUPPORT_REP
 
 export function selectAxisTypicalityMatch(leftFamilyId, comparisons = []) {
   const matches = comparisons.filter((item) => item.result === 'MATCH').sort(comparisonRank);
-  if (matches.length === 1) return Object.freeze({
-    leftFamilyId,
-    rightFamilyId: matches[0].rightFamilyId,
-    auditId: matches[0].auditId,
-    result: 'MATCH',
-    reasonCode: 'AXIS_TYPICALITY_MATCH',
-    confidence: 'HIGH',
-    candidateFamilyIds: Object.freeze([matches[0].rightFamilyId]),
-  });
+  const reviews = comparisons.filter((item) => item.result === 'REVIEW').sort(comparisonRank);
+  const unavailable = comparisons.filter((item) => item.result === 'UNAVAILABLE').sort(comparisonRank);
+
   if (matches.length > 1) return Object.freeze({
     leftFamilyId,
     rightFamilyId: '',
@@ -122,8 +110,34 @@ export function selectAxisTypicalityMatch(leftFamilyId, comparisons = []) {
     candidateFamilyIds: Object.freeze(matches.map((item) => item.rightFamilyId)),
     candidateAuditIds: Object.freeze(matches.map((item) => item.auditId)),
   });
+  if (matches.length === 1 && (reviews.length || unavailable.length)) return Object.freeze({
+    leftFamilyId,
+    rightFamilyId: '',
+    auditId: matches[0].auditId,
+    result: 'REVIEW',
+    reasonCode: 'AXIS_TYPICALITY_REVIEW_UNASSESSED_CANDIDATES',
+    confidence: 'LOW',
+    candidateFamilyIds: Object.freeze(unique([
+      matches[0].rightFamilyId,
+      ...reviews.map((item) => item.rightFamilyId),
+      ...unavailable.map((item) => item.rightFamilyId),
+    ])),
+    candidateAuditIds: Object.freeze(unique([
+      matches[0].auditId,
+      ...reviews.map((item) => item.auditId),
+      ...unavailable.map((item) => item.auditId),
+    ])),
+  });
+  if (matches.length === 1) return Object.freeze({
+    leftFamilyId,
+    rightFamilyId: matches[0].rightFamilyId,
+    auditId: matches[0].auditId,
+    result: 'MATCH',
+    reasonCode: 'AXIS_TYPICALITY_MATCH',
+    confidence: 'HIGH',
+    candidateFamilyIds: Object.freeze([matches[0].rightFamilyId]),
+  });
 
-  const reviews = comparisons.filter((item) => item.result === 'REVIEW').sort(comparisonRank);
   if (reviews.length) return Object.freeze({
     leftFamilyId,
     rightFamilyId: reviews.length === 1 ? reviews[0].rightFamilyId : '',
@@ -135,7 +149,6 @@ export function selectAxisTypicalityMatch(leftFamilyId, comparisons = []) {
     candidateAuditIds: Object.freeze(reviews.map((item) => item.auditId)),
   });
 
-  const unavailable = comparisons.filter((item) => item.result === 'UNAVAILABLE').sort(comparisonRank);
   if (unavailable.length) return Object.freeze({
     leftFamilyId,
     rightFamilyId: '',
@@ -378,9 +391,12 @@ function unsignedAxisAngleDeg(left, right) {
 function groupTraversal(group) {
   const fullLineTag = clean(group?.fullLineTag);
   if (!fullLineTag) return null;
-  const branches = unique(group?.branchNodes || []).map(token).filter(Boolean);
+  const branches = unique([
+    ...(group?.branchNodes || []),
+    ...(group?.evidenceRows || []).map((row) => row?.branchNode),
+  ]).map(token).filter(Boolean);
   if (branches.length > 1) return null;
-  const branchNode = branches[0] || token(group?.evidenceRows?.find((row) => row?.branchNode)?.branchNode) || '';
+  const branchNode = branches[0] || '';
   return Object.freeze({
     fullLineTag,
     branchNode,
