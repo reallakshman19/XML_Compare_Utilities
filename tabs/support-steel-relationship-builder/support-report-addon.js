@@ -6,11 +6,11 @@ import {
   supportReportTraceExportFileName,
   supportReportTraceSummary,
   supportReportTraceToCsv,
-} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23';
+} from './support-report-trace-export.js?v=20260911-support-report-trace-export-21&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&typicalityPublication=20260915-column22-publication-v1';
 import {
   buildSupportReportTypicalityComparison,
   projectTypicalityOntoSupportReportBundle,
-} from './support-report-typicality-projection.js?v=20260915-axis-typicality-v1';
+} from './support-report-typicality-projection.js?v=20260915-axis-typicality-v1&publication=20260915-column22-publication-v1';
 import {
   SUPPORT_REPORT_TYPICALITY_FIXED_POLICIES,
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
@@ -590,7 +590,9 @@ function comparisonReadyText(report) {
   const typical = matches.filter((item) => item.result === 'TYPICAL').length;
   const review = matches.filter((item) => item.result === 'REVIEW').length;
   const ambiguous = matches.filter((item) => item.result === 'AMBIGUOUS').length;
-  return ` · typicality: ${typical} typical, ${review} review, ${ambiguous} ambiguous · comparison columns 22–24 enabled · profile ${audit.profileId || 'unknown'}`;
+  const published = (report?.rows || []).filter((row) => row?.typicalityPublication?.status === 'PUBLISHED').length;
+  const withheld = (report?.rows || []).filter((row) => row?.typicalityPublication?.status === 'WITHHELD').length;
+  return ` · typicality: ${typical} typical, ${review} review, ${ambiguous} ambiguous · Column 22: ${published} published / ${withheld} withheld row(s) · comparison columns 22–24 enabled · profile ${audit.profileId || 'unknown'}`;
 }
 
 function readExistingRules(popup) {
