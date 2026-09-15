@@ -1,4 +1,5 @@
 import { stripLeadingSlash } from '../ps-family-clash-audit/ps-family-token-utils.js';
+import { deriveSupportReportNominalSizeMm } from './support-report-field-normalization.js?v=20260910-support-report-field-provenance-14';
 
 export const SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM = 50;
 export const SUPPORT_REPORT_MULTI_LOCATION_REMARK = 'Pipe supported at multiple locations';
@@ -8,7 +9,6 @@ export const SUPPORT_REPORT_LATERAL_ALLOWANCE_MM = 25;
 export const SUPPORT_REPORT_AXIS_CONFIDENCE_MIN = 8;
 
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
-const INCH_SIZE_RE = /(?:^|-)\s*(\d+(?:\.\d+)?)\s*"(?:-|$)/u;
 const EPSILON = 1e-9;
 
 export function groupSupportReportEvidenceByLocation(rows = [], options = {}) {
@@ -120,7 +120,7 @@ function buildLocationGroup(base, cluster, locationIndex, locationCount, toleran
     locationMergeToleranceMm: toleranceMm,
     locationGroupingModel: 'BRANCH_BORE_AXIS_V1',
     locationNominalBoreMm: nominalBoreMm,
-    locationBoreBasis: nominalBoreMm ? 'LINE_TAG_NOMINAL_DIAMETER' : 'UNAVAILABLE',
+    locationBoreBasis: nominalBoreMm ? 'LINE_TAG_DERIVED_DN' : 'UNAVAILABLE',
     locationAxialToleranceMm: nominalBoreMm ? nominalBoreMm * SUPPORT_REPORT_AXIAL_BORE_FACTOR : null,
     locationLateralToleranceMm: nominalBoreMm
       ? nominalBoreMm * SUPPORT_REPORT_LATERAL_BORE_FACTOR + SUPPORT_REPORT_LATERAL_ALLOWANCE_MM
@@ -326,10 +326,8 @@ function compatibleDerivedNominalBoreMm(left, right) {
 }
 
 function derivedNominalBoreMm(fullLineTag) {
-  const match = String(fullLineTag || '').match(INCH_SIZE_RE);
-  if (!match) return null;
-  const inches = Number(match[1]);
-  return Number.isFinite(inches) && inches > 0 ? inches * 25.4 : null;
+  const nominalSizeMm = Number(deriveSupportReportNominalSizeMm(fullLineTag));
+  return Number.isFinite(nominalSizeMm) && nominalSizeMm > 0 ? nominalSizeMm : null;
 }
 
 function locationTolerance(options) {
