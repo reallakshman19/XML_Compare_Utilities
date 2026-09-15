@@ -2,13 +2,13 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0001
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0001.md
-PR: NONE
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0002
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0002.md
+PR: PENDING_DRAFT_CREATION
 BRANCH: feature/support-primary-assembly-graph
-HEAD: relay-only prework state after main@242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581; use branch ref for exact live SHA
+HEAD: branch contains LEG-001 plus relay state through EP-0002; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: READY
+STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 AGENT_INSTANCE_ID: chatgpt:dc64d516-9c68-47d5-98f5-64cc74bb093c
@@ -19,14 +19,14 @@ CUSTODY_EPOCH: 1
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
-ENGINEERING_STATE: READY
+ENGINEERING_STATE: ACTIVE
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: NOT_REQUIRED
 WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: UNKNOWN — no PR yet
+MERGEABILITY: UNKNOWN — draft PR not yet created
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
@@ -37,10 +37,10 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0001
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0002
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678834311
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5678994794
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
@@ -55,14 +55,16 @@ QUESTION_PACK_ACTION: REFRESHED_INITIAL
 TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: product tests not yet run
-HANDOVER_READY: FALSE — engineering validation for material slice not yet run
+HANDOVER_VALIDATION_STATUS: PARTIAL
+HANDOVER_VALIDATION_EVIDENCE: isolated parser smoke PASS; repository tests/CI NOT_RUN
+HANDOVER_READY: FALSE — repository qualification not yet executed
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0001.md
 PREWORK_QUALIFICATION_READY: TRUE
+LATEST_MATERIAL_LEG: LEG-001
+LATEST_MATERIAL_HEAD: 2c065b69ed94dae63d531c0660103486d5447691
 
-CURRENT_BLOCKER: No blocker for first slice. Real Owner Clash-within-Supports XML file for 1835 is not yet pinned, so real relationship benchmark remains NOT_RUN.
-LEG_DIAGNOSIS: Structural authority seam is missing; current count/typicality still depend on location/member inference. First slice establishes the explicit assembly model without migrating decisions.
-EXACT_NEXT_ACTION: Implement only semantic rename + shared raw member-edge seam + pure deterministic assembly builder + focused tests. Do not migrate final count or Column 22 decision authority yet.
+CURRENT_BLOCKER: No blocker for draft PR creation. Real Owner Clash-within-Supports XML file for 1835 remains unpinned, so real PS-11167/PS-11236 relationship qualification remains NOT_RUN.
+LEG_DIAGNOSIS: First structural seam is implemented; explicit member topology now has a typed canonical bundle without altering final count/typicality authority.
+EXACT_NEXT_ACTION: Open a draft PR, inspect actual GitHub Actions execution, and reconcile only real executed failures. Do not merge. Do not begin final count or Column 22 migration until first-slice qualification is reconciled.
