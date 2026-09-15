@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0008
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0008_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0008_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5680123570
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -99,10 +99,11 @@ PASS:
 - isolated Node zone harness passes the real raw-row shape and exact scoping rules;
 - raw-vs-grouped path mismatch was detected in review and corrected before receipt;
 - PR mergeability/review/thread observations recorded;
-- #1216 authority boundary preserved.
+- #1216 authority boundary preserved;
+- issue root/active handover/endpoint comment synchronized to EP-0008.
 
 PROCEDURAL NOTE:
-- GitHub issue Active Handover mirroring lagged during material work; branch-local prework existed before mutation and issue comments are synchronized during EP-0008 closeout. No pre-mutation issue-comment sync is claimed.
+- GitHub issue Active Handover mirroring lagged during material work; branch-local prework existed before mutation and issue comments were synchronized during EP-0008 closeout. No pre-mutation issue-comment sync is claimed.
 
 NOT_RUN:
 - committed repository zone/input/UI tests under executing GitHub runner;
