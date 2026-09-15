@@ -1,6 +1,7 @@
 import { parseSupportMemberRelationshipXml } from '../ps-family-clash-audit/ps-family-psclash-xml-parser.js';
 import { buildSupportPrimaryRelationshipBundle } from './support-primary-relationship.js';
 import {
+  deriveSupportReportReferenceZoneScope,
   discoverSupportReportZones,
   normalizeSupportReportZoneScope,
   scopeSupportRelationshipRows,
@@ -25,10 +26,7 @@ export function buildSupportPrimaryRelationshipInput(xmlText, options = {}) {
 
 export function buildReferenceSupportPrimaryRelationshipInput(xmlText, referenceEvidence, options = {}) {
   const zoneCatalog = discoverSupportReportZones(referenceEvidence?.rows || []);
-  const zoneScope = normalizeSupportReportZoneScope({
-    primaryZoneIds: (zoneCatalog.primaryZones || []).map((item) => item.zoneId),
-    secondaryZoneIds: (zoneCatalog.secondaryZones || []).map((item) => item.zoneId),
-  });
+  const zoneScope = deriveSupportReportReferenceZoneScope(referenceEvidence?.rows || []);
   const parsed = parseSupportMemberRelationshipXml(
     String(xmlText || ''),
     options.parserOptions || {},
