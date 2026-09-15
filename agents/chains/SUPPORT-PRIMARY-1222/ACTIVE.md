@@ -43,8 +43,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0010
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0010_COMMENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0010_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5681522101
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -73,4 +73,4 @@ LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-00
 
 CURRENT_BLOCKER: Real Owner 1835 Clash-within-Supports XML remains unpinned; GitHub Actions runner remains non-executing; browser interaction qualification NOT_RUN.
 LEG_DIAGNOSIS: Conservative orphan recovery is implemented as a second pass with governed 1x axial / 2x lateral defaults, unique-target safety, reciprocal provisional matching, guarded branch override and explicit topology immutability. Normal grouping remains unchanged.
-EXACT_NEXT_ACTION: Stop at EP-0010 and finish Issue/PR synchronization. On future Owner `proceed`, recommended next bounded leg is Primary Support release hardening (production-named shared geometry exports, popup-scoped orphan config, count provenance, nested cache routing), then Column 22 Relationship Topology V1. Do not merge.
+EXACT_NEXT_ACTION: Stop at EP-0010. On future Owner `proceed`, recommended next bounded leg is Primary Support release hardening (production-named shared geometry exports, popup-scoped orphan config, count provenance, nested cache routing), then Column 22 Relationship Topology V1. Do not merge.
