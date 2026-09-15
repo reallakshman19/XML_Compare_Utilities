@@ -11,42 +11,57 @@ import {
 const primaryZone = '/ASIM-1835-CU-PI-P';
 const secondaryZone = '/ASIM-1835-CU-SU';
 
-function reportRow(id, pZone = primaryZone, sZone = secondaryZone) {
+function rawReportRow(id, pZone = primaryZone, sZone = secondaryZone) {
   return {
     id,
-    primaryPaths: [[
+    primaryPath: [
       '/ASIM-1835-CU-PI',
       pZone,
       '/ASIM-1835-2"-P8810320-31441C4-HT-01',
       '/B4',
       `/PS-11167.${id}`,
-    ]],
-    secondaryPaths: [[
+    ],
+    secondaryPath: [
       sZone,
       '/PS-11167',
-    ]],
+    ],
   };
 }
 
-test('discovers exact parent zone nodes independently for primary and secondary paths', () => {
-  const discovered = discoverSupportReportZones([reportRow(1), reportRow(2)]);
+function groupedReportRow(id, pZone = primaryZone, sZone = secondaryZone) {
+  const raw = rawReportRow(id, pZone, sZone);
+  return {
+    id,
+    primaryPaths: [raw.primaryPath],
+    secondaryPaths: [raw.secondaryPath],
+  };
+}
+
+test('discovers exact parent zones from raw Support Report rows', () => {
+  const discovered = discoverSupportReportZones([rawReportRow(1), rawReportRow(2)]);
   assert.ok(discovered.primaryZones.some((row) => row.zoneId === primaryZone && row.evidenceRowCount === 2));
   assert.ok(discovered.secondaryZones.some((row) => row.zoneId === secondaryZone && row.evidenceRowCount === 2));
   assert.equal(discovered.primaryZones.some((row) => row.zoneId.includes('P8810320')), false);
 });
 
-test('empty zone selection preserves every report row', () => {
-  const rows = [reportRow(1), reportRow(2, '/ASIM-1835-CU-PI-D')];
+test('grouped plural paths remain supported for downstream audit callers', () => {
+  const discovered = discoverSupportReportZones([groupedReportRow(1)]);
+  assert.ok(discovered.primaryZones.some((row) => row.zoneId === primaryZone));
+  assert.ok(discovered.secondaryZones.some((row) => row.zoneId === secondaryZone));
+});
+
+test('empty zone selection preserves every raw report row', () => {
+  const rows = [rawReportRow(1), rawReportRow(2, '/ASIM-1835-CU-PI-D')];
   assert.deepEqual(scopeSupportReportRows(rows, {}), rows);
   assert.equal(normalizeSupportReportZoneScope({}).active, false);
 });
 
-test('report row zone gates are exact and conjunctive across enabled sides', () => {
+test('raw report row zone gates are exact and conjunctive across enabled sides', () => {
   const rows = [
-    reportRow(1),
-    reportRow(2, '/ASIM-1835-CU-PI-D'),
-    reportRow(3, primaryZone, '/ASIM-1835-CU-SU-OTHER'),
-    reportRow(4, '/ASIM-1835-CU-PI-P-EXTRA'),
+    rawReportRow(1),
+    rawReportRow(2, '/ASIM-1835-CU-PI-D'),
+    rawReportRow(3, primaryZone, '/ASIM-1835-CU-SU-OTHER'),
+    rawReportRow(4, '/ASIM-1835-CU-PI-P-EXTRA'),
   ];
   const scoped = scopeSupportReportRows(rows, {
     primaryZoneIds: [primaryZone],
