@@ -2,26 +2,26 @@ CHAIN_ID: SUPPORT-PRIMARY-1222
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIMARY-1222-0001.md
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0007
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
 ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679785306
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0007_SYNC
 
 # Original task / acceptance ledger
 
 | ID | Current status | Evidence / next gate |
 |---|---|---|
-| TASK-001 | IMPLEMENTED_PENDING_REPO_QUALIFICATION | `Multiple primary support` now triggers from final family assembly count >1; repository suites not executing |
-| TASK-002 | PARTIAL | explicit member-pair parser seam implemented; real Owner relationship XML locator unresolved |
+| TASK-001 | IMPLEMENTED_PENDING_REPO_QUALIFICATION | `Multiple primary support` follows final family assembly count >1 |
+| TASK-002 | PARTIAL_ADVANCED | explicit member-pair parser and scoped relationship-input seam exist; real 1835 relationship XML locator unresolved |
 | TASK-003 | PASS_LEG_001_002_003 | #1216 Support/Steel carrier/steel producer authority untouched |
-| TASK-004 | OPEN_NEXT | exact zone discovery + two-column multiselect and input plumbing is recommended next bounded leg |
-| TASK-005 | IMPLEMENTED_EXPLICIT_PATH | explicit topology + location reconciliation + final count projection exist; orphan fallback remains separate |
-| TASK-006 | OPEN | orphan resolver not implemented |
-| TASK-007 | IMPLEMENTED_PENDING_REPO_QUALIFICATION | final `TOTAL SUPPORT POINTS ON SECONDARY` consumer now uses assembly count projection |
-| TASK-008 | OPEN | Column 22 relationship matcher/consensus unchanged |
-| TASK-009 | IN_PROGRESS | focused synthetic count controls committed / isolated policy PASS; real repository benchmarks NOT_RUN |
+| TASK-004 | IN_PROGRESS_PREWORKED | EP-0007 authorizes exact zone discovery, two-column searchable multi-select and optional relationship XML UI plumbing |
+| TASK-005 | IMPLEMENTED_EXPLICIT_PATH | topology + reconciliation + final count projection exist |
+| TASK-006 | OPEN | orphan resolver remains out of LEG-004 |
+| TASK-007 | IMPLEMENTED_PENDING_REPO_QUALIFICATION | `TOTAL SUPPORT POINTS ON SECONDARY` consumes assembly count projection |
+| TASK-008 | OPEN | Column 22 relationship matcher/consensus remains out of LEG-004 |
+| TASK-009 | IN_PROGRESS | focused synthetic count controls retained; zone/input tests being added; real repo/benchmark execution still NOT_RUN |
 | TASK-010 | IN_PROGRESS | draft PR #1223 remains Owner-only; no merge authorization |
 
 # Input ledger
@@ -29,41 +29,37 @@ ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 | ID | Current status | Evidence / disposition |
 |---|---|---|
 | INPUT-001 | AVAILABLE | `benchmarks/1835.zip` contains only primary Support Report `1835.xml` |
-| INPUT-002 | UNRESOLVED_FILE_LOCATOR | real 1835 Clash-within-Supports XML still not pinned; PS-11167/11236 real-input qualification blocked |
-| INPUT-003 | AVAILABLE_CONTRACT | #1216 staged Support/Steel relationship authority remains separate from new `primaryRelationshipBundle` input |
-| INPUT-004 | AVAILABLE_IN_XML / UI_OPEN | exact path ancestry retained; zone-selection UI not implemented |
-| INPUT-005 | AVAILABLE / UNTOUCHED | 11168/14168 typicality controls; no Column 22 mutation in LEG-003 |
+| INPUT-002 | UNRESOLVED_FILE_LOCATOR | real 1835 Clash-within-Supports XML not pinned; new UI will make this optional source loadable when available |
+| INPUT-003 | AVAILABLE_CONTRACT | #1216 staged Support/Steel relationship authority remains a separate input/contract |
+| INPUT-004 | AVAILABLE_IN_XML / IMPLEMENTING_UI | exact primary/secondary path ancestry is retained and now has a pure exact-zone scope helper |
+| INPUT-005 | AVAILABLE / UNTOUCHED | 11168/14168 typicality controls; no Column 22 mutation |
 | INPUT-006 | AVAILABLE | existing bore-axis location groups remain fallback count evidence |
 
 # Benchmark / oracle ledger
 
 | ID | Current status | Evidence |
 |---|---|---|
-| BM-001 PS-11167=6 | SYNTHETIC_COUNT_CONTROL_COMMITTED / REAL_INPUT_NOT_RUN | 7 geometry groups + explicit `.2/.11` dedupe -> 6 in focused count test |
-| BM-002 PS-11236=4 | SYNTHETIC_COUNT_CONTROL_COMMITTED / REAL_INPUT_NOT_RUN | observed geometry + unobserved `.4/.5 + DATUM` explicit assembly -> 4 in focused count test |
-| BM-003 PS-12060=1 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | no valid explicit evidence => location-group count unchanged |
-| BM-004 PS-12877=4 | SYNTHETIC_ENGINE_FALLBACK_CONTROL_COMMITTED / REAL_SUITE_NOT_RUN | 4 geometry groups remain total 4; revisit grouper unchanged |
-| BM-005 PS-12860=6 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | no-explicit path unchanged |
-| BM-006 PS-12120=14 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | no-explicit path unchanged |
-| BM-007 11168->14168 typical | NOT_RUN_THIS_LEG | Column 22 unchanged |
-| BM-008 explicit components separate at coincident XYZ | PRIOR_CONTROL_RETAINED | topology connectivity remains geometry-independent |
-| BM-009 multi-target orphan ambiguous | NOT_RUN | orphan resolver not implemented |
-| BM-010 DATUM non-countability | COUNT_CONTROL_COMMITTED / REAL_REPO_NOT_RUN | symbolic reference excluded from explicit assembly count |
+| BM-001 PS-11167=6 | SYNTHETIC_COUNT_CONTROL_COMMITTED / REAL_INPUT_NOT_RUN | explicit `.2/.11` dedupe control retained |
+| BM-002 PS-11236=4 | SYNTHETIC_COUNT_CONTROL_COMMITTED / REAL_INPUT_NOT_RUN | unobserved `.4/.5 + DATUM` explicit assembly control retained |
+| BM-003 PS-12060=1 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | grouping unchanged |
+| BM-004 PS-12877=4 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | return/revisit grouping unchanged |
+| BM-005 PS-12860=6 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | grouping unchanged |
+| BM-006 PS-12120=14 | PROTECTED_BY_FALLBACK_POLICY / REAL_SUITE_NOT_RUN | grouping unchanged |
+| BM-007 11168->14168 typical | NOT_RUN_THIS_LEG | Column 22 untouched |
+| BM-008 exact zone filtering | TEST_COMMITTED / REPO_NOT_RUN | exact ancestor, conjunctive report-side scope, empty-scope preservation |
+| BM-009 relationship-row zone scope | TEST_COMMITTED / REPO_NOT_RUN | exact source-path intersection before bundle authority |
+| BM-010 DATUM non-countability | PRIOR_CONTROL_RETAINED | no topology change in LEG-004 |
 
-# LEG-003 final count behavior
+# LEG-004 frozen UI/input policy
 
-`SupportPrimaryCountProjection.v1` is now the family count seam.
-
-- No valid `SupportPrimaryRelationshipBundle.v1` family => exact current geometry-group count.
-- Valid explicit family => count all countable explicit assembly IDs plus current `GEOMETRY_ONLY` groups.
-- Multiple location groups that resolve to one explicit assembly ID deduplicate.
-- Countable explicit assemblies with no current Support Report location group still contribute.
-- DATUM/reference-only evidence contributes zero.
-- PARTIAL/CONFLICT assignments activate `EXPLICIT_ASSEMBLY_PLUS_GEOMETRY_AMBIGUITY_FLOOR`; result cannot fall below legacy geometry count.
-- Unsupported/unversioned relationship bundle cannot acquire count authority.
-- Existing `multipleLocationsOnPipe` remains row audit evidence; `Multiple primary support` now follows final family count >1.
-
-Support Report engine now accepts `primaryRelationshipBundle` separately from the existing staged Support/Steel `relationshipBundle` and exposes assembly/count audit fields at report and row/JSON-trace levels.
+- Empty zone selection on a side means unrestricted and preserves existing behavior.
+- Selected Primary/piping-support and Secondary/support zones are exact normalized ancestor identities, never substring matches.
+- When both sides are selected, report rows must satisfy both sides.
+- Optional Clash-within-Supports XML is parsed through the existing shared parser and zone-scoped before `SupportPrimaryRelationshipBundle.v1` construction.
+- Relationship XML remains support-member connectivity evidence only.
+- Current-area zone scope does not filter the typical-reference XML in this leg.
+- Selection changes invalidate the built report.
+- No orphan/tolerance/Column 22 changes.
 
 # Live repository / PR state
 
@@ -73,10 +69,10 @@ PR_STATE: OPEN_DRAFT
 PR_MERGEABLE_LAST_OBSERVED: TRUE
 REVIEWS: NONE at last observation
 UNRESOLVED_REVIEW_THREADS: NONE at last observation
-LEG_003_MATERIAL_HEAD: bc0fdb6f4582ccdfcbef301d7abbb458fa5d179c
 LEG_003_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-003.md
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
-CHECKS: latest LEG-003 workflows `34965697692` and `34965697685` failed before execution with `steps=null`; no product test result exists.
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0007
+NEXT_MATERIAL_LEG: LEG-004
+CHECKS: GitHub Actions remains non-executing; no product result inferred from zero-step failures.
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 
@@ -90,28 +86,20 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
 OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 
-# Validation truth
+# Validation truth entering LEG-004
 
 PASS:
-- EP-0005 prework committed before LEG-003 production mutation;
-- LEG-003 material diff remains inside approved count/engine/remark/test paths;
-- isolated count-policy harness covers legacy 1/4 preservation, explicit 7->6 dedupe, unobserved explicit assembly and ambiguity floor;
-- engine/row patch inspection confirms separate authority inputs and audit propagation;
-- EP-0006 issue/active handover synchronization complete.
+- main/PR re-grounding;
+- EP-0007 committed before LEG-004 production/UI mutation;
+- prior LEG-001/002/003 isolated parser/reconciliation/count policy behavior;
+- pure exact zone-scope and scoped relationship-input tests committed.
 
 NOT_RUN:
-- committed repository count tests under an executing repository runner;
-- real benchmark suite PS-12060/12877/12860/12120;
+- committed repository zone/input tests under executing runner;
+- browser UI qualification;
 - real relationship benchmark PS-11167/PS-11236;
-- browser/deployed qualification.
-
-# Known follow-up caveats
-
-- Support Report UI does not yet construct/pass `primaryRelationshipBundle`; WP-PSA-003 is needed for end-to-end user access.
-- Field-level provenance for `totalSupportPointsOnSecondary` still uses the older `CLASH_GROUP_DERIVATION` class; detailed row/JSON trace carries the new assembly count basis. Align field-level provenance before release.
-- Count migration deduplicates family totals but does not collapse two existing report rows that map to the same assembly; row-collapse semantics are not part of LEG-003.
-- Browser module cache-bust propagation for this new engine dependency should be completed before release qualification.
+- full Support Report benchmark suite.
 
 # Exact next action
 
-Stop at EP-0006. Recommended next bounded leg: WP-PSA-003 exact zone discovery, two-column searchable multi-select, and optional relationship XML/bundle UI plumbing. Then qualify real relationship input when pinned. Orphan resolver is subsequent fallback work; Column 22 remains untouched until this input/count path is auditable end-to-end.
+Synchronize EP-0007 to the issue handover, then finish UI wiring: searchable two-column zone selectors, zone discovery from parsed current Support Report XML, optional Clash-within-Supports file/text input, scoped bundle construction, report audit snapshot and cache/version propagation. Inspect diff, create LEG-004 receipt + EP-0008. Do not implement orphan resolver or Column 22 and do not merge.
