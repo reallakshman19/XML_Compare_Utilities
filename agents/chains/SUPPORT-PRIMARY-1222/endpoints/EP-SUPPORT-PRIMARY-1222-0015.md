@@ -22,7 +22,10 @@ MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0015_SYNC
+ISSUE_ENDPOINT_COMMENT_ID: 5683900993
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5683905631
+PR_REVIEW_RECORD_ID: 5212752129
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # LEG-008 closeout — Axis Typicality V1
 
@@ -53,7 +56,8 @@ Invariants preserved:
 Validation truth:
 - source/material review PASS;
 - repository Node/browser/ZIP execution NOT_RUN because Actions jobs at material head have `steps=null`;
-- PR remains draft/open/mergeable with no unresolved inline review threads;
+- qualification run `34994156760`; ZIP run `34994156668`;
+- PR remains draft/open/mergeable with no unresolved inline review threads at material review;
 - no merge authorization.
 
 Known V1 limits:
@@ -63,13 +67,13 @@ Known V1 limits:
 
 # Recommended next bounded work
 
-Before further matcher sophistication, add **symmetric reference-side Primary Support Relationship XML input and bundle plumbing**:
-- reference-side optional Clash-within-Supports XML;
-- reference-side exact zone scope strategy without changing current-side report scope authority;
-- build a typed `primaryRelationshipBundle` for the reference report;
-- pass both left/right report bundles with explicit topology into `RELATIONSHIP_TOPOLOGY_V1`;
-- preserve absence as `UNAVAILABLE`;
-- add UI/audit evidence for which side supplied explicit topology;
-- then qualify three-channel consensus on positive/negative benchmarks.
+Add **symmetric reference-side Primary Support Relationship XML input and bundle plumbing** before further matcher sophistication:
+- optional reference Clash-within-Supports XML;
+- governed reference-side zone-scope strategy;
+- typed reference `primaryRelationshipBundle`;
+- two-sided explicit topology into `RELATIONSHIP_TOPOLOGY_V1`;
+- missing reference relationship evidence remains `UNAVAILABLE`;
+- UI/audit evidence identifies which side supplied explicit topology;
+- then qualify the three-channel consensus on governed positive/negative benchmarks.
 
 Do not start this next leg without a fresh bounded prework endpoint. Do not merge without fresh Owner authorization.
