@@ -21,10 +21,11 @@ import {
   supportReportMemberMatchesBranches as memberMatchesBranches,
   supportReportMemberMatchesLine as memberMatchesLine,
 } from './support-report-member-context.js?v=20260911-datum-metadata-23';
-import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260915-support-primary-count-1';
+import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260915-support-primary-hardening-1';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
+const PRIMARY_SUPPORT_COUNT_SOURCE_CLASS = 'DETERMINISTIC_PRIMARY_SUPPORT_ASSEMBLY_COUNT';
 
 export function buildSupportReportBundle(input = {}) {
   const relationshipBundle = normalizeBundle(input.relationshipBundle);
@@ -149,9 +150,10 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
     group: projectedGroup, reportMembers, carrierRows, coordinateSource, coordinateSourceIds: [],
     selectedNativeMemberCount: selectedMembers.length,
   });
-  const fieldProvenance = enrichSupportReportFieldProvenance(baseProvenance, baseFields, fields, {
+  const enrichedProvenance = enrichSupportReportFieldProvenance(baseProvenance, baseFields, fields, {
     group: projectedGroup, reportMembers, reportRemarks: resolution.reportRemarks, datumMetadata,
   });
+  const fieldProvenance = alignPrimarySupportCountProvenance(enrichedProvenance, projectedGroup);
   const jsonTrace = buildRowJsonTrace({
     group: projectedGroup, resolution, nativeMembers: selectedMembers, metadataMembers, datumMetadata,
     metadataAttributionBasis: metadataAttribution.basis,
@@ -223,6 +225,21 @@ function projectGroup({ group, groupIndex, relationshipBundle, familyIndex, carr
     memberRank: memberOrderRank(family, selectedMembers),
     groupIndex,
   };
+}
+
+function alignPrimarySupportCountProvenance(provenance, group) {
+  if (!Number.isFinite(group?.totalSupportPointsOnSecondary)) return provenance;
+  return Object.freeze({
+    ...provenance,
+    totalSupportPointsOnSecondary: Object.freeze({
+      sourceClass: PRIMARY_SUPPORT_COUNT_SOURCE_CLASS,
+      confidenceClass: 'DETERMINISTIC',
+      valueStatus: 'RESOLVED',
+      sourceIds: Object.freeze([]),
+      countBasis: clean(group?.primarySupportAssemblyCountBasis) || 'LEGACY_GEOMETRY_GROUP_COUNT',
+      orphanRecoveryStatus: clean(group?.primarySupportOrphanRecoveryStatus),
+    }),
+  });
 }
 
 function addCarrierUnavailableDiagnostic(rows, group, resolvedIds) {
@@ -341,6 +358,7 @@ function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 function diagnostic(severity, code, message, extra = {}) { return Object.freeze({ severity, code, message, ...extra }); }
 
 export const _test = Object.freeze({
+  alignPrimarySupportCountProvenance,
   selectMembersForGroup, selectCarriersForGroup, resolvedCarrierIdsForMembers, memberContextConflictsGroup,
   isConcreteSupportMemberId,
 });
