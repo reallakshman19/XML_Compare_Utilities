@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0004
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0004_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0004_COMMENT
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679296382
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -22,7 +22,7 @@ ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0004_COMMENT
 | TASK-007 | OPEN | final count migration intentionally deferred to a separately preworked leg |
 | TASK-008 | OPEN | Column 22 relationship matcher/consensus unchanged |
 | TASK-009 | IN_PROGRESS | synthetic topology + reconciliation tests committed; isolated reconciliation harness PASS; repository/CI test execution NOT_RUN |
-| TASK-010 | IN_PROGRESS | draft PR #1223 open/mergeable; LEG-002 receipt + EP-0004 durable; merge Owner-only |
+| TASK-010 | IN_PROGRESS | draft PR #1223 open/mergeable; LEG-002 receipt + EP-0004 issue-synced; merge Owner-only |
 
 # Input ledger
 
@@ -89,7 +89,7 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: FALSE pending EP-0004 issue-comment synchronization
+CHAIN_HANDOVER_READY: TRUE
 OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 
 # Validation truth
@@ -98,7 +98,8 @@ PASS:
 - current main/PR/review reconciliation;
 - PR mergeability observation;
 - LEG-002 prework ordering and material diff scope;
-- isolated Node syntax/behavior harness for reconciliation: explicit dedupe, conflict, partial withholding, DATUM non-countability, unsupported-schema fallback.
+- isolated Node syntax/behavior harness for reconciliation: explicit dedupe, conflict, partial withholding, DATUM non-countability, unsupported-schema fallback;
+- issue control-plane synchronization for EP-0004.
 
 NOT_RUN:
 - committed repository reconciliation/topology tests under repository runner;
@@ -112,4 +113,4 @@ BLOCKED:
 
 # Exact next action
 
-Synchronize EP-0004/PR #1223 to issue state and stop this bounded progression. A future material leg may migrate `TOTAL SUPPORT POINTS ON SECONDARY` to distinct countable reconciled assembly IDs only after a new prework endpoint and explicit preservation tests for PS-12060=1, PS-12877=4, PS-12860=6 and PS-12120=14. Column 22 remains untouched.
+Stop this bounded progression at EP-0004. A future material leg may migrate `TOTAL SUPPORT POINTS ON SECONDARY` to distinct countable reconciled assembly IDs only after a new prework endpoint and explicit preservation tests for PS-12060=1, PS-12877=4, PS-12860=6 and PS-12120=14. Column 22 remains untouched.
