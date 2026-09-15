@@ -2,11 +2,11 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0005
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0005.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0006.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-003 prework committed after branch head 966ff3ce319867e6c06d4844f29b674b89f88568; use branch ref for exact live SHA
+HEAD: LEG-003 complete plus relay state; use branch ref for exact live SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 STATE: ACTIVE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
@@ -26,10 +26,10 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 remains draft/open
+MERGEABILITY: TRUE — PR #1223 remains draft/open at last observation
 REVIEWS: NONE
 UNRESOLVED_REVIEW_THREADS: NONE
-REQUIRED_CHECKS: GitHub Actions runner remains non-executing (`steps=[]`, `runner_id=0`); product validation is not inferred from workflow failure
+REQUIRED_CHECKS: latest workflows on LEG-003 material head fail before steps (`steps=null`); product repository qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
@@ -40,11 +40,11 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1222/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0005
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679296382
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0005_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0006_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0006_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -59,16 +59,16 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
-HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser + LEG-002 reconciliation isolated harnesses PASS; repository suites/CI execution NOT_RUN
+HANDOVER_VALIDATION_EVIDENCE: LEG-001 parser, LEG-002 reconciliation and LEG-003 isolated count-policy harnesses PASS; repository suites/CI execution NOT_RUN
 HANDOVER_READY: FALSE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0005.md
 PREWORK_QUALIFICATION_READY: TRUE
-LATEST_MATERIAL_LEG: LEG-002
-LATEST_MATERIAL_HEAD: ddbc793ab8b7a96fb152549015a23c330795d763
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-002.md
+LATEST_MATERIAL_LEG: LEG-003
+LATEST_MATERIAL_HEAD: bc0fdb6f4582ccdfcbef301d7abbb458fa5d179c
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-003.md
 
 CURRENT_BLOCKER: Real Owner Clash-within-Supports XML for 1835 remains unpinned, so PS-11167=6 and PS-11236=4 real-input qualification remains NOT_RUN. GitHub Actions runner remains non-executing.
-LEG_DIAGNOSIS: LEG-003 will migrate family count authority through the typed assembly/reconciliation seam while preserving no-explicit-input geometry counts exactly and keeping ambiguity fail-visible.
-EXACT_NEXT_ACTION: Implement LEG-003 count projection only within EP-0005 policy; add protected synthetic/fallback tests; do not touch Column 22, orphan resolver, zone UI, or merge.
+LEG_DIAGNOSIS: Final Support Report family count now consumes canonical assembly/reconciliation evidence. Explicit duplicate geometry groups deduplicate, unobserved explicit assemblies contribute, ambiguity cannot lower the legacy geometry count, and no-explicit families preserve the geometry count contract.
+EXACT_NEXT_ACTION: Stop at EP-0006. Recommended next bounded leg is WP-PSA-003 exact zone-scope discovery plus two-column multi-select and optional relationship XML/bundle UI plumbing. Orphan resolver follows as a later bounded fallback leg. Column 22 remains untouched. Do not merge.
