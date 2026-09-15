@@ -121,9 +121,9 @@ test('PS-12060 multi-member benchmark geometry resolves to one bore-axis occurre
   assert.equal(groups[0].totalSupportPointsOnSecondary, 1);
   assert.deepEqual(groups[0].primarySupportMemberIds, ['/PS-12060.1', '/PS-12060.2', '/PS-12060.6']);
   assert.ok(groups[0].locationGroupingBasis.includes('WITHIN_BORE_AXIS_WINDOW'));
-  assert.equal(groups[0].locationNominalBoreMm, 254);
-  assert.equal(groups[0].locationAxialToleranceMm, 1016);
-  assert.equal(groups[0].locationLateralToleranceMm, 152);
+  assert.equal(groups[0].locationNominalBoreMm, 250);
+  assert.equal(groups[0].locationAxialToleranceMm, 1000);
+  assert.equal(groups[0].locationLateralToleranceMm, 150);
 });
 
 test('multi-location rows receive only staged members attributable to that location', () => {
