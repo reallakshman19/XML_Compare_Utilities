@@ -10,9 +10,13 @@ import {
   buildCanonicalTypicalityLocations,
   buildTypicalityLocationAssignmentsForMatches,
 } from './support-report-typicality-location.js?v=20260911-support-report-location-rca-1';
+import {
+  buildSupportReportRelationshipTopologyAudit,
+} from './support-report-relationship-typicality.js?v=20260915-relationship-topology-v1';
 
 export { SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL };
 export const SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA = 'SupportReportTypicalityComparison.v1';
+export const SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA = 'TypicalityConsensusV1';
 
 export function buildSupportReportTypicalityComparison(leftEvidence, rightEvidence, options = {}) {
   const profile = comparisonProfile(options.profile);
@@ -30,13 +34,25 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
     match,
     assignmentsByFamily.get(token(match.leftFamilyId)),
   ));
+  const relationshipTopologyAudit = buildSupportReportRelationshipTopologyAudit(leftReportBundle, rightReportBundle);
+  const relationshipMatchByFamily = new Map((relationshipTopologyAudit.matches || [])
+    .map((item) => [token(item.leftFamilyId), item]));
+  const consensusMatches = resolvedMatches.map((match) => applyRelationshipTopologyConsensus(
+    match,
+    relationshipMatchByFamily.get(token(match.leftFamilyId)) || null,
+    relationshipTopologyAudit,
+  ));
   return Object.freeze({
     ...familyAudit,
     comparisonSchema: SUPPORT_REPORT_TYPICALITY_COMPARISON_SCHEMA,
     profileId: profile.profileId,
     profileSnapshot: profile,
     structuralMatches: familyAudit.matches,
-    matches: Object.freeze(resolvedMatches),
+    arrangementResolvedStructuralMatches: Object.freeze(resolvedMatches),
+    relationshipTopologyAudit,
+    relationshipTopologyMatches: relationshipTopologyAudit.matches,
+    typicalityConsensusSchema: SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA,
+    matches: Object.freeze(consensusMatches),
     locationAssignments,
   });
 }
@@ -111,6 +127,102 @@ function resolveFamilyMatch(match, assignment) {
   return Object.freeze({ ...match, ...lineage });
 }
 
+function applyRelationshipTopologyConsensus(match, relationshipMatch, relationshipAudit) {
+  if (!match) return match;
+  const pair = relationshipComparisonForMatch(match, relationshipAudit);
+  const channelResult = pair?.result || relationshipMatch?.result || 'UNAVAILABLE';
+  const channelReasonCode = pair?.reasonCode || relationshipMatch?.reasonCode || 'REL_TOPOLOGY_UNAVAILABLE';
+  const relationshipTopology = Object.freeze({
+    result: channelResult,
+    reasonCode: channelReasonCode,
+    auditId: pair?.auditId || relationshipMatch?.auditId || '',
+    selectedResult: relationshipMatch?.result || 'UNAVAILABLE',
+    selectedFamilyId: relationshipMatch?.rightFamilyId || '',
+    selectedCandidateFamilyIds: Object.freeze([...(relationshipMatch?.candidateFamilyIds || [])]),
+    failedReasonCodes: Object.freeze([...(pair?.failedReasonCodes || relationshipMatch?.failedReasonCodes || [])]),
+  });
+
+  if (!['TYPICAL', 'REVIEW'].includes(match.result) || !match.rightFamilyId) {
+    const relationshipOnlyMatch = relationshipMatch?.result === 'MATCH';
+    return Object.freeze({
+      ...match,
+      relationshipTopology,
+      typicalityConsensus: freezeConsensus(
+        relationshipOnlyMatch ? 'STRUCTURAL_RESULT_RETAINED_RELATIONSHIP_ONLY_MATCH_WITHHELD' : 'STRUCTURAL_RESULT_RETAINED',
+        relationshipOnlyMatch ? 'LOW' : 'UNAVAILABLE',
+        relationshipOnlyMatch
+          ? 'Relationship topology found a candidate, but this conservative integration does not promote a structural rejection/ambiguity.'
+          : 'No structural candidate is eligible for relationship-topology confirmation.',
+      ),
+    });
+  }
+
+  if (channelResult === 'NO_MATCH') return Object.freeze({
+    ...match,
+    result: 'REVIEW',
+    reasonCode: 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT',
+    relationshipTopology,
+    typicalityConsensus: freezeConsensus(
+      'CONFLICT',
+      'LOW',
+      'Structural/location comparison selected a candidate that relationship topology rejects.',
+    ),
+  });
+
+  if (channelResult === 'REVIEW') return Object.freeze({
+    ...match,
+    result: 'REVIEW',
+    reasonCode: 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW',
+    relationshipTopology,
+    typicalityConsensus: freezeConsensus(
+      'REVIEW_REQUIRED',
+      'LOW',
+      'Relationship topology is partial, ambiguous or missing a required intrinsic signal.',
+    ),
+  });
+
+  if (channelResult === 'MATCH') {
+    const uniquelyAgrees = relationshipMatch?.result === 'MATCH'
+      && token(relationshipMatch.rightFamilyId) === token(match.rightFamilyId);
+    return Object.freeze({
+      ...match,
+      relationshipTopology,
+      typicalityConsensus: freezeConsensus(
+        uniquelyAgrees ? 'AGREE' : 'COMPATIBLE_NOT_UNIQUE',
+        uniquelyAgrees && match.result === 'TYPICAL' ? 'HIGH' : 'MEDIUM',
+        uniquelyAgrees
+          ? 'Structural/location and relationship-topology channels independently select the same candidate.'
+          : 'The structural candidate is relationship-topology compatible, but relationship topology does not uniquely select it.',
+      ),
+    });
+  }
+
+  return Object.freeze({
+    ...match,
+    relationshipTopology,
+    typicalityConsensus: freezeConsensus(
+      'RELATIONSHIP_UNAVAILABLE',
+      match.result === 'TYPICAL' ? 'MEDIUM' : 'LOW',
+      'Structural/location result retained because explicit relationship-topology evidence is unavailable.',
+    ),
+  });
+}
+
+function freezeConsensus(result, confidence, basis) {
+  return Object.freeze({
+    schema: SUPPORT_REPORT_TYPICALITY_CONSENSUS_SCHEMA,
+    result,
+    confidence,
+    basis,
+  });
+}
+
+function relationshipComparisonForMatch(match, audit) {
+  if (!match?.rightFamilyId) return null;
+  return (audit?.familyComparisons || []).find((item) => token(item.leftFamilyId) === token(match.leftFamilyId)
+    && token(item.rightFamilyId) === token(match.rightFamilyId)) || null;
+}
+
 function withLocationRowAliases(reportBundle, evidence) {
   if (!reportBundle?.rows?.length) return reportBundle;
   const locationByGroupId = new Map((evidence?.groups || []).map((group) => [
@@ -139,6 +251,8 @@ function resolveRowLocation(row, locations) {
 
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
+  if (match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT'
+    || match.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW') return reviewLabel(match);
   if (match.result === 'AMBIGUOUS') return ambiguousLabel(match);
   if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return ambiguousAssignmentLabel(match);
   if (!pair) {
@@ -174,6 +288,12 @@ function limitedCheckLabel(equivalent = false) {
 }
 
 function reviewLabel(match) {
+  if (match?.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT') {
+    return 'REVIEW — Structural and relationship-topology comparisons disagree.';
+  }
+  if (match?.reasonCode === 'TYPICAL_CONSENSUS_RELATIONSHIP_REVIEW') {
+    return 'REVIEW — Relationship-topology evidence is incomplete or ambiguous.';
+  }
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
     return 'REVIEW — Member count per support location differs.';
   }
@@ -233,12 +353,14 @@ function token(value) {
 export const _test = Object.freeze({
   ambiguousAssignmentLabel,
   ambiguousLabel,
+  applyRelationshipTopologyConsensus,
   arrangementLabel,
   comparisonProfile,
   limitedCheckLabel,
   matchedLabel,
   noMatchLabel,
   rejectionLabel,
+  relationshipComparisonForMatch,
   resolveFamilyMatch,
   resolveRowLocation,
   reviewLabel,
