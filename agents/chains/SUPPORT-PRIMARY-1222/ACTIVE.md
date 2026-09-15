@@ -43,8 +43,8 @@ ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0003
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0003_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0003_COMMENT
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679206713
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ROADMAPS: github:#1154; github:#1179; github:#1215; github:#1216; github:#1222
 ROADMAP_REVIEW_STATUS: COMPLETE
@@ -56,7 +56,7 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: FALSE — issue endpoint comment synchronization pending
+CHAIN_HANDOVER_READY: TRUE
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: PARTIAL
 HANDOVER_VALIDATION_EVIDENCE: isolated parser smoke PASS; repository tests/CI NOT_RUN
@@ -72,4 +72,4 @@ NEXT_MATERIAL_BASE: cc074770646882ccb9c8852bb72755e106eae9ae
 
 CURRENT_BLOCKER: No blocker for LEG-002 pure reconciliation seam. Real Owner Clash-within-Supports XML for 1835 remains unpinned, so real PS-11167/PS-11236 relationship qualification remains NOT_RUN.
 LEG_DIAGNOSIS: Explicit topology exists but current geometry/location groups are not yet mapped to stable assembly IDs. LEG-002 will add only that pure reconciliation seam.
-EXACT_NEXT_ACTION: Synchronize EP-0003 to issue #1222, then implement pure explicit-assembly/location-group reconciliation plus focused tests. Do not change final count, Column 22, tolerances, zone UI or Support/Steel producer authority. Do not merge.
+EXACT_NEXT_ACTION: Implement pure explicit-assembly/location-group reconciliation plus focused tests. Do not change final count, Column 22, tolerances, zone UI or Support/Steel producer authority. Do not merge.
