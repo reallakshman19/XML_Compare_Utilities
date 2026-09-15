@@ -21,12 +21,13 @@ MERGE_AUTHORIZED: FALSE
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0014_COMMENT
 
 # LEG-008 prework — Axis Typicality V1
 
 Owner progression command: `proceed next`.
 
-This leg adds a **third independent family-level typicality evidence channel** named `AXIS_TYPICALITY_V1`. It must reuse the canonical Support Report pipe-axis primitive but compare only intrinsic, translation/rotation/reflection-safe descriptors. The existing structural matcher and `RELATIONSHIP_TOPOLOGY_V1` remain read-only decision channels.
+This leg adds a third independent family-level typicality evidence channel named `AXIS_TYPICALITY_V1`. It reuses the canonical Support Report pipe-axis primitive but compares only intrinsic translation/rotation/reflection-safe descriptors. The existing structural matcher and `RELATIONSHIP_TOPOLOGY_V1` remain read-only decision channels.
 
 ## Core invariants
 
@@ -39,100 +40,48 @@ This leg adds a **third independent family-level typicality evidence channel** n
 
 ## Intended intrinsic family signature
 
-For each PS/SL family, derive per-location/traversal descriptors using current logical support groups and report rows:
-
-1. **Trusted local traversal axis evidence**
-   - bucket raw/evidence points by normalized pipe + branch/traversal identity;
-   - reuse `buildSupportReportTraversalGeometryIndex()` / canonical principal-axis confidence;
-   - only trusted axes contribute orientation-sensitive descriptors.
-
-2. **DN-normalized along/lateral spacing fingerprint**
-   - for pairs of support locations on a trusted common traversal, decompose delta against the local axis:
-     - `A = |D dot T|`
-     - `L = |D - (D dot T)T|`
-   - normalize by nominal bore where available: `A/Bore`, `L/Bore`;
-   - store sorted, directionless pair descriptors.
-
-3. **Relative axis-angle spectrum**
-   - for trusted traversal axes within a family, compare axes only to each other inside the same model;
-   - use unsigned angle `acos(|T1 dot T2|)` so axis sign and model reflection do not matter;
-   - store sorted angle spectrum, never raw vectors.
-
-4. **Traversal / return topology**
-   - counts/spectra of locations per traversal;
-   - branch/traversal cardinality;
-   - repeated normalized pipe-class traversal population where available;
-   - retain return/revisit ambiguity as explicit evidence, not an automatic merge.
-
-5. **Availability metadata**
-   - trusted-axis count;
-   - unavailable-axis count;
-   - DN-normalized pair count;
-   - source location count and source traversal count.
+- trusted local traversal axis evidence from canonical traversal geometry;
+- DN-normalized along-axis/lateral support-spacing spectrum (`A/Bore`, `L/Bore`);
+- unsigned relative traversal-axis angle spectrum `acos(|T1 dot T2|)` computed only within each model;
+- traversal cardinality / locations-per-traversal / return-revisit descriptors;
+- trusted/unavailable axis counts and normalized-pair availability metadata.
 
 ## Decision contract
 
-Matcher/channel schema target: `SupportReportAxisTypicalityAudit.v1`; profile ID `AXIS_TYPICALITY_V1`.
-
+Schema: `SupportReportAxisTypicalityAudit.v1`; profile: `AXIS_TYPICALITY_V1`.
 Result enum: `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`.
 
-Initial conservative rules:
 - insufficient trusted axis/pair evidence on either side -> `UNAVAILABLE`;
-- materially incomplete family evidence -> `REVIEW` if enough informed evidence exists but required descriptors are missing;
-- exact traversal-cardinality/location-per-traversal descriptors plus intrinsic spectra within governed tolerances -> `MATCH`;
+- materially incomplete informed evidence -> `REVIEW`;
+- intrinsic topology exact + spectra within named/versioned tolerances -> `MATCH`;
 - informed hard descriptor mismatch -> `NO_MATCH`.
 
-Thresholds must be named/versioned, not inline. Initial values may be provisional and must be surfaced in the audit.
+## Consensus integration
 
-## Consensus integration boundary
+- structural + relationship + axis same candidate -> strongest confidence;
+- structural + axis same candidate while relationship unavailable -> confidence rises over structural-only;
+- axis unavailable -> retain prior structural/relationship consensus;
+- informed axis contradiction -> `REVIEW / CONFLICT`;
+- relationship/axis-only candidate cannot promote structural rejection in LEG-008.
 
-Extend `TypicalityConsensusV1` above all channels while retaining each original result independently.
+## Allowed paths
 
-Conservative policy:
-- structural candidate + relationship same candidate + axis same candidate -> strongest confidence;
-- structural candidate + relationship unavailable + axis same candidate -> higher confidence than structural-only;
-- structural candidate + axis `UNAVAILABLE` -> retain current consensus result;
-- structural candidate + informed axis contradiction -> `REVIEW / CONFLICT`;
-- relationship/axis-only candidate must not promote a structural rejection in LEG-008.
+- new `support-report-axis-typicality.js`;
+- `support-report-typicality-projection.js` consensus attachment only;
+- addon/bootstrap cache routing only if required;
+- focused tests and engineering control-plane files.
 
-Column 23 may expose a concise human-readable reason for axis conflict/unavailability, while machine audit fields remain authoritative.
+## Required controls
 
-## Allowed production paths
-
-- new `tabs/support-steel-relationship-builder/support-report-axis-typicality.js`;
-- `support-report-typicality-projection.js` for attaching axis audit + consensus only;
-- `support-report-addon.js` / bootstrap only for cache routing if required;
-- focused tests;
-- chain/workreport/Issue/PR control-plane files.
-
-Read-only reference paths:
-- `support-report-typicality.js`;
-- `support-report-relationship-typicality.js` except import/reference behavior only if absolutely required;
-- `support-report-location-grouping.js` canonical geometry implementation;
-- `support-report-typicality-location.js` existing assignment engine;
-- support primary grouping/count/orphan modules.
-
-## Hard prohibitions
-
-- no raw global axis-vector equality or dot-product comparison across the two XMLs;
-- no structural matcher retuning;
-- no first-pass grouping/orphan/count mutation;
-- no relationship-topology decision-policy mutation;
-- no #1216 producer mutation;
-- no workflow mutation;
-- no merge.
-
-## Required focused controls
-
-1. same intrinsic geometry under translation + arbitrary 3D rotation -> axis `MATCH`;
-2. axis sign reversal / reflected coordinate orientation -> still `MATCH`;
-3. same location count but materially different DN-normalized axial/lateral spacing -> `NO_MATCH`;
-4. same spacing but different relative traversal-angle spectrum -> `NO_MATCH`;
-5. insufficient/low-confidence axis evidence on either side -> `UNAVAILABLE`, not mismatch;
-6. traversal/return topology mismatch -> informed `NO_MATCH` or `REVIEW` according to availability;
-7. structural matcher output remains byte-for-byte reproducible when axis channel is attached;
-8. existing relationship matcher output remains reproducible when axis channel is attached;
-9. structural candidate + axis contradiction -> fail-visible `REVIEW / CONFLICT`;
+1. arbitrary rigid rotation + translation preserves `MATCH`;
+2. axis sign reversal/reflection preserves `MATCH`;
+3. DN-normalized spacing mismatch -> `NO_MATCH`;
+4. relative traversal-angle mismatch -> `NO_MATCH`;
+5. insufficient axis evidence -> `UNAVAILABLE`;
+6. traversal/return mismatch -> informed mismatch/review;
+7. structural matcher output invariant;
+8. relationship matcher output invariant;
+9. structural candidate + axis contradiction -> conflict review;
 10. axis-only candidate cannot promote structural rejection.
 
-Repository/browser/real benchmark execution remains NOT_RUN unless actual runner steps execute. No merge.
+No workflows and no merge.
