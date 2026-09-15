@@ -2,22 +2,36 @@ import { stripLeadingSlash } from '../ps-family-clash-audit/ps-family-token-util
 
 export const SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM = 50;
 export const SUPPORT_REPORT_MULTI_LOCATION_REMARK = 'Pipe supported at multiple locations';
+export const SUPPORT_REPORT_AXIAL_BORE_FACTOR = 4;
+export const SUPPORT_REPORT_LATERAL_BORE_FACTOR = 0.5;
+export const SUPPORT_REPORT_LATERAL_ALLOWANCE_MM = 25;
+export const SUPPORT_REPORT_AXIS_CONFIDENCE_MIN = 8;
 
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
+const INCH_SIZE_RE = /(?:^|-)\s*(\d+(?:\.\d+)?)\s*"(?:-|$)/u;
+const EPSILON = 1e-9;
 
 export function groupSupportReportEvidenceByLocation(rows = [], options = {}) {
   const toleranceMm = locationTolerance(options);
+  const geometryIndex = buildTraversalGeometryIndex(rows);
   const baseGroups = groupByFamilyAndLine(rows);
   const located = [];
   for (const base of baseGroups.values()) {
-    const clusters = clusterRows(base.rows, toleranceMm);
-    clusters.forEach((cluster, index) => located.push(buildLocationGroup(base, cluster, index, clusters.length, toleranceMm)));
+    const clusters = clusterRows(base.rows, toleranceMm, geometryIndex);
+    clusters.forEach((cluster, index) => located.push(
+      buildLocationGroup(base, cluster, index, clusters.length, toleranceMm, geometryIndex),
+    ));
   }
   return applyFamilyCounts(located);
 }
 
 export function clusterSupportReportRowsByLocation(rows = [], toleranceMm = SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM) {
-  return clusterRows(rows, nonNegative(toleranceMm, SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM));
+  const indexed = (rows || []).map((row, rowIndex) => ({ row, rowIndex }));
+  return clusterRows(
+    indexed,
+    nonNegative(toleranceMm, SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM),
+    buildTraversalGeometryIndex(rows),
+  );
 }
 
 function groupByFamilyAndLine(rows) {
@@ -37,17 +51,17 @@ function groupByFamilyAndLine(rows) {
   return groups;
 }
 
-function clusterRows(indexedRows, toleranceMm) {
+function clusterRows(indexedRows, toleranceMm, geometryIndex = new Map()) {
   if (!indexedRows.length) return [];
   const withPoint = indexedRows.filter(({ row }) => validPoint(row.clashPointGlobalMm));
   if (!withPoint.length) return [indexedRows];
-  const components = connectedComponents(withPoint, toleranceMm);
+  const components = connectedComponents(withPoint, toleranceMm, geometryIndex);
   const clusters = components.map((component) => component.map((index) => withPoint[index]));
   attachPointlessRows(clusters, indexedRows.filter(({ row }) => !validPoint(row.clashPointGlobalMm)));
   return clusters.sort((left, right) => minimumIndex(left) - minimumIndex(right));
 }
 
-function connectedComponents(rows, toleranceMm) {
+function connectedComponents(rows, toleranceMm, geometryIndex) {
   const visited = new Set();
   const components = [];
   for (let start = 0; start < rows.length; start += 1) {
@@ -59,7 +73,8 @@ function connectedComponents(rows, toleranceMm) {
       const current = queue.shift();
       component.push(current);
       for (let next = 0; next < rows.length; next += 1) {
-        if (visited.has(next) || !locationAdjacencyBasis(rows[current].row, rows[next].row, toleranceMm)) continue;
+        if (visited.has(next)
+          || !locationAdjacencyBasis(rows[current].row, rows[next].row, toleranceMm, geometryIndex)) continue;
         visited.add(next);
         queue.push(next);
       }
@@ -78,13 +93,15 @@ function attachPointlessRows(clusters, rows) {
   }
 }
 
-function buildLocationGroup(base, cluster, locationIndex, locationCount, toleranceMm) {
+function buildLocationGroup(base, cluster, locationIndex, locationCount, toleranceMm, geometryIndex) {
   const rows = cluster.sort((left, right) => left.rowIndex - right.rowIndex).map((entry) => entry.row);
   const points = rows.map((row) => row.clashPointGlobalMm).filter(validPoint);
   const primaryPaths = uniquePaths(rows.map((row) => row.primaryPath));
   const secondaryPaths = uniquePaths(rows.map((row) => row.secondaryPath));
   const members = unique(rows.map((row) => normalizeMemberId(row.primarySupportMemberId))).sort(memberCompare);
   const branchNodes = unique(rows.map((row) => row.branchNode)).sort();
+  const nominalBoreMm = derivedNominalBoreMm(base.fullLineTag);
+  const axisModel = rows.length ? geometryIndex.get(traversalKey(rows[0])) || null : null;
   return Object.freeze({
     groupId: locationCount > 1 ? `${base.key}::LOC-${locationIndex + 1}` : base.key,
     secondarySupportFamilyId: base.secondarySupportFamilyId,
@@ -101,7 +118,16 @@ function buildLocationGroup(base, cluster, locationIndex, locationCount, toleran
     locationIndex,
     locationCountOnPipe: locationCount,
     locationMergeToleranceMm: toleranceMm,
-    locationGroupingBasis: Object.freeze(clusterGroupingBasis(rows, toleranceMm)),
+    locationGroupingModel: 'BRANCH_BORE_AXIS_V1',
+    locationNominalBoreMm: nominalBoreMm,
+    locationBoreBasis: nominalBoreMm ? 'LINE_TAG_NOMINAL_DIAMETER' : 'UNAVAILABLE',
+    locationAxialToleranceMm: nominalBoreMm ? nominalBoreMm * SUPPORT_REPORT_AXIAL_BORE_FACTOR : null,
+    locationLateralToleranceMm: nominalBoreMm
+      ? nominalBoreMm * SUPPORT_REPORT_LATERAL_BORE_FACTOR + SUPPORT_REPORT_LATERAL_ALLOWANCE_MM
+      : null,
+    locationAxisBasis: axisModel?.basis || 'UNAVAILABLE',
+    locationAxisConfidenceRatio: Number.isFinite(axisModel?.confidenceRatio) ? axisModel.confidenceRatio : null,
+    locationGroupingBasis: Object.freeze(clusterGroupingBasis(rows, toleranceMm, geometryIndex)),
     multipleLocationsOnPipe: locationCount > 1,
     totalSupportPointsOnSecondary: 0,
   });
@@ -116,22 +142,31 @@ function applyFamilyCounts(groups) {
   }));
 }
 
-function locationAdjacencyBasis(left, right, toleranceMm) {
-  if (sameConcreteMember(left, right)) return 'SAME_CONCRETE_MEMBER';
+function locationAdjacencyBasis(left, right, toleranceMm, geometryIndex = new Map()) {
+  if (!sameTraversal(left, right)) return '';
+
+  const sameMember = sameConcreteMember(left, right);
   if (withinTolerance(left, right, toleranceMm)) {
+    if (sameMember) return 'SAME_CONCRETE_MEMBER';
     return toleranceMm === SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM
       ? 'WITHIN_50MM'
       : 'WITHIN_LOCATION_TOLERANCE';
   }
+
+  const boreMm = compatibleDerivedNominalBoreMm(left, right);
+  const axisModel = geometryIndex.get(traversalKey(left));
+  if (boreMm && axisModel?.trusted && withinBoreAxisWindow(left, right, axisModel.axis, boreMm)) {
+    return sameMember ? 'SAME_CONCRETE_MEMBER' : 'WITHIN_BORE_AXIS_WINDOW';
+  }
   return '';
 }
 
-function clusterGroupingBasis(rows, toleranceMm) {
+function clusterGroupingBasis(rows, toleranceMm, geometryIndex = new Map()) {
   if (rows.length <= 1) return ['SINGLE_EVIDENCE_POINT'];
   const bases = [];
   for (let left = 0; left < rows.length; left += 1) {
     for (let right = left + 1; right < rows.length; right += 1) {
-      const basis = locationAdjacencyBasis(rows[left], rows[right], toleranceMm);
+      const basis = locationAdjacencyBasis(rows[left], rows[right], toleranceMm, geometryIndex);
       if (basis) bases.push(basis);
     }
   }
@@ -145,6 +180,119 @@ function withinTolerance(left, right, toleranceMm) {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= toleranceMm;
 }
 
+function withinBoreAxisWindow(left, right, axis, boreMm) {
+  const a = left?.clashPointGlobalMm;
+  const b = right?.clashPointGlobalMm;
+  if (!validPoint(a) || !validPoint(b) || !validAxis(axis) || !Number.isFinite(boreMm) || boreMm <= 0) return false;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dz = b.z - a.z;
+  const signedAxial = dx * axis.x + dy * axis.y + dz * axis.z;
+  const axialMm = Math.abs(signedAxial);
+  const distanceSquared = dx * dx + dy * dy + dz * dz;
+  const lateralMm = Math.sqrt(Math.max(0, distanceSquared - signedAxial * signedAxial));
+  return axialMm <= boreMm * SUPPORT_REPORT_AXIAL_BORE_FACTOR
+    && lateralMm <= boreMm * SUPPORT_REPORT_LATERAL_BORE_FACTOR + SUPPORT_REPORT_LATERAL_ALLOWANCE_MM;
+}
+
+function buildTraversalGeometryIndex(rows = []) {
+  const buckets = new Map();
+  for (const row of rows || []) {
+    if (!validPoint(row?.clashPointGlobalMm)) continue;
+    const key = traversalKey(row);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(row.clashPointGlobalMm);
+  }
+  const output = new Map();
+  for (const [key, points] of buckets) output.set(key, principalAxisModel(points));
+  return output;
+}
+
+function principalAxisModel(points = []) {
+  const uniquePoints = deduplicatePoints(points);
+  if (uniquePoints.length < 2) return Object.freeze({
+    axis: null, trusted: false, confidenceRatio: 0, pointCount: uniquePoints.length, basis: 'INSUFFICIENT_POINTS',
+  });
+  if (uniquePoints.length === 2) {
+    const axis = normalizeVector({
+      x: uniquePoints[1].x - uniquePoints[0].x,
+      y: uniquePoints[1].y - uniquePoints[0].y,
+      z: uniquePoints[1].z - uniquePoints[0].z,
+    });
+    return Object.freeze({
+      axis,
+      trusted: Boolean(axis),
+      confidenceRatio: axis ? Number.POSITIVE_INFINITY : 0,
+      pointCount: 2,
+      basis: axis ? 'TWO_POINT_AXIS' : 'DEGENERATE_POINTS',
+    });
+  }
+
+  const center = averagePoint(uniquePoints);
+  const covariance = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const point of uniquePoints) {
+    const d = [point.x - center.x, point.y - center.y, point.z - center.z];
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 3; column += 1) covariance[row][column] += d[row] * d[column];
+    }
+  }
+
+  const diagonal = [covariance[0][0], covariance[1][1], covariance[2][2]];
+  const initialIndex = diagonal.indexOf(Math.max(...diagonal));
+  let vector = [0, 0, 0];
+  vector[initialIndex] = 1;
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    const next = multiplyMatrixVector(covariance, vector);
+    const magnitude = Math.hypot(...next);
+    if (magnitude <= EPSILON) break;
+    vector = next.map((value) => value / magnitude);
+  }
+
+  const projected = multiplyMatrixVector(covariance, vector);
+  const lambda1 = Math.max(0, vector[0] * projected[0] + vector[1] * projected[1] + vector[2] * projected[2]);
+  const trace = covariance[0][0] + covariance[1][1] + covariance[2][2];
+  const residual = Math.max(0, trace - lambda1);
+  const confidenceRatio = lambda1 <= EPSILON ? 0 : residual <= EPSILON ? Number.POSITIVE_INFINITY : lambda1 / residual;
+  const axis = normalizeVector({ x: vector[0], y: vector[1], z: vector[2] });
+  return Object.freeze({
+    axis,
+    trusted: Boolean(axis) && confidenceRatio >= SUPPORT_REPORT_AXIS_CONFIDENCE_MIN,
+    confidenceRatio,
+    pointCount: uniquePoints.length,
+    basis: 'PCA_BRANCH_AXIS',
+  });
+}
+
+function multiplyMatrixVector(matrix, vector) {
+  return [
+    matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+    matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+    matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2],
+  ];
+}
+
+function normalizeVector(vector) {
+  const magnitude = Math.hypot(vector?.x || 0, vector?.y || 0, vector?.z || 0);
+  if (magnitude <= EPSILON) return null;
+  return { x: vector.x / magnitude, y: vector.y / magnitude, z: vector.z / magnitude };
+}
+
+function validAxis(axis) {
+  return Boolean(axis && [axis.x, axis.y, axis.z].every(Number.isFinite)
+    && Math.hypot(axis.x, axis.y, axis.z) > EPSILON);
+}
+
+function deduplicatePoints(points = []) {
+  const seen = new Set();
+  return (points || []).filter((point) => {
+    if (!validPoint(point)) return false;
+    const key = `${point.x}\u0000${point.y}\u0000${point.z}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function sameConcreteMember(left, right) {
   const leftId = normalizeMemberId(left?.primarySupportMemberId);
   const rightId = normalizeMemberId(right?.primarySupportMemberId);
@@ -153,9 +301,35 @@ function sameConcreteMember(left, right) {
     && token(leftId) === token(rightId);
 }
 
+function sameTraversal(left, right) {
+  const leftBranch = token(left?.branchNode);
+  const rightBranch = token(right?.branchNode);
+  if (leftBranch && rightBranch) return leftBranch === rightBranch;
+  return token(left?.fullLineTag) === token(right?.fullLineTag);
+}
+
 function sameContext(left, right) {
+  if (!sameTraversal(left, right)) return false;
   if (sameConcreteMember(left, right)) return true;
   return token(left.branchNode) === token(right.branchNode);
+}
+
+function traversalKey(row) {
+  return `${token(row?.fullLineTag)}::${token(row?.branchNode) || 'UNRESOLVED_BRANCH'}`;
+}
+
+function compatibleDerivedNominalBoreMm(left, right) {
+  const leftBore = derivedNominalBoreMm(left?.fullLineTag);
+  const rightBore = derivedNominalBoreMm(right?.fullLineTag);
+  if (!leftBore || !rightBore || Math.abs(leftBore - rightBore) > EPSILON) return null;
+  return leftBore;
+}
+
+function derivedNominalBoreMm(fullLineTag) {
+  const match = String(fullLineTag || '').match(INCH_SIZE_RE);
+  if (!match) return null;
+  const inches = Number(match[1]);
+  return Number.isFinite(inches) && inches > 0 ? inches * 25.4 : null;
 }
 
 function locationTolerance(options) {
@@ -203,5 +377,10 @@ function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 export const _test = Object.freeze({
   locationAdjacencyBasis,
   sameConcreteMember,
+  sameTraversal,
   clusterGroupingBasis,
+  withinBoreAxisWindow,
+  buildTraversalGeometryIndex,
+  principalAxisModel,
+  derivedNominalBoreMm,
 });
