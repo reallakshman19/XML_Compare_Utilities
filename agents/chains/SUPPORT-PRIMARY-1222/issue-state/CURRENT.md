@@ -6,8 +6,8 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0003
 LAST_UPDATED: 2026-09-15
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0003_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0003_COMMENT
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5679206713
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 # Original task / acceptance ledger
 
@@ -22,7 +22,7 @@ ISSUE_HANDOVER_SYNC_STATUS: OUT_OF_SYNC_PENDING_EP_0003_COMMENT
 | TASK-007 | OPEN | final count migration remains intentionally deferred |
 | TASK-008 | OPEN | Column 22 relationship matcher/consensus remains unchanged |
 | TASK-009 | OPEN | focused tests committed but repository execution NOT_RUN; governed family benchmarks NOT_RUN |
-| TASK-010 | IN_PROGRESS | draft PR #1223 open/mergeable; LEG-002 prework endpoint committed; merge Owner-only |
+| TASK-010 | IN_PROGRESS | draft PR #1223 open/mergeable; LEG-002 prework endpoint issue-synced; merge Owner-only |
 
 # Input ledger
 
@@ -90,7 +90,7 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
 TAKEOVER_QUALIFICATION_READY: TRUE
-CHAIN_HANDOVER_READY: FALSE pending EP-0003 issue-comment synchronization
+CHAIN_HANDOVER_READY: TRUE
 OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 
 # Validation truth
@@ -98,6 +98,7 @@ OWNER_QUALIFICATION_BASELINE_STATUS: NOT_APPLICABLE
 PASS:
 - current main/PR/review reconciliation;
 - PR mergeability observation;
+- issue control-plane synchronization for EP-0003;
 - existing isolated parser smoke.
 
 NOT_RUN:
@@ -112,4 +113,4 @@ BLOCKED:
 
 # Exact next action
 
-Synchronize EP-0003 to issue #1222, then implement only the LEG-002 pure reconciliation seam: explicit assembly mapping for existing Support Report geometry/location groups plus focused synthetic tests. Preserve existing grouping/count/Column22/tolerance/zone/Support-Steel authority.
+Implement only the LEG-002 pure reconciliation seam: explicit assembly mapping for existing Support Report geometry/location groups plus focused synthetic tests. Preserve existing grouping/count/Column22/tolerance/zone/Support-Steel authority.
