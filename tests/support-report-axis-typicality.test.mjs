@@ -5,6 +5,7 @@ import {
   buildSupportReportAxisTypicalityAudit,
   compareAxisTypicalityFamilies,
   extractAxisTypicalityFamilyFeatures,
+  selectAxisTypicalityMatch,
 } from '../tabs/support-steel-relationship-builder/support-report-axis-typicality.js';
 
 function evidence(familyId, traversals) {
@@ -145,4 +146,21 @@ test('partial axis coverage is review, not mismatch', () => {
   const comparison = compareAxisTypicalityFamilies(left, right);
   assert.equal(comparison.result, 'REVIEW');
   assert.equal(comparison.reasonCode, 'AXIS_TYPICALITY_REVIEW_PARTIAL_EVIDENCE');
+});
+
+test('an unavailable competing candidate blocks authoritative unique axis selection', () => {
+  const selected = selectAxisTypicalityMatch('PS-1', [
+    Object.freeze({
+      auditId: 'AXISTYP-PS-1--PS-2', leftFamilyId: 'PS-1', rightFamilyId: 'PS-2',
+      result: 'MATCH', reasonCode: 'AXIS_TYPICALITY_MATCH', mismatchCount: 0, unavailableReasonCodes: Object.freeze([]),
+    }),
+    Object.freeze({
+      auditId: 'AXISTYP-PS-1--PS-3', leftFamilyId: 'PS-1', rightFamilyId: 'PS-3',
+      result: 'UNAVAILABLE', reasonCode: 'AXIS_TYPICALITY_UNAVAILABLE', mismatchCount: 0, unavailableReasonCodes: Object.freeze([]),
+    }),
+  ]);
+  assert.equal(selected.result, 'REVIEW');
+  assert.equal(selected.rightFamilyId, '');
+  assert.equal(selected.reasonCode, 'AXIS_TYPICALITY_REVIEW_UNASSESSED_CANDIDATES');
+  assert.deepEqual(selected.candidateFamilyIds, ['PS-2', 'PS-3']);
 });
