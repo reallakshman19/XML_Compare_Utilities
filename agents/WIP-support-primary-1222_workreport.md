@@ -6,9 +6,9 @@ CHAIN: SUPPORT-PRIMARY-1222
 BRANCH: feature/support-primary-assembly-graph  
 PR: 1223  
 BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581  
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0017  
-LATEST_MATERIAL_LEG: LEG-009  
-LATEST_MATERIAL_HEAD: 18938c15695453b476192f21b742fe57caae7754  
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0019  
+LATEST_MATERIAL_LEG: LEG-010  
+LATEST_MATERIAL_HEAD: a47af97cda0539751bfad2de5f8ee0844ce83fc6  
 MERGE_AUTHORITY: OWNER_ONLY  
 MERGE_AUTHORIZED: FALSE
 
@@ -16,7 +16,7 @@ MERGE_AUTHORIZED: FALSE
 
 Move Support Report from flat location inference to an auditable hierarchy:
 
-`zone -> PS/SL family -> Primary Support Assembly -> count/recovery -> structural + relationship + axis typicality -> TypicalityConsensusV1`.
+`zone -> PS/SL family -> Primary Support Assembly -> count/recovery -> structural + relationship + axis typicality -> TypicalityConsensusV1 -> governed publication`.
 
 Optional Clash-within-Supports XML supplies PS/SL member connectivity only. It does not replace #1216 Support/Steel carrier/steel producer authority.
 
@@ -26,7 +26,7 @@ Optional Clash-within-Supports XML supplies PS/SL member connectivity only. It d
 - `SupportPrimaryRelationshipBundle.v1` with deterministic assembly IDs;
 - numeric members countable; DATUM/reference nodes symbolic/non-countable;
 - support-member edges retained without mandatory pipe context;
-- user wording changed to `Multiple primary support`.
+- wording changed to `Multiple primary support`.
 
 ### LEG-002 — topology/location reconciliation
 - explicit, geometry-only, partial, conflict and symbolic states;
@@ -38,9 +38,9 @@ Optional Clash-within-Supports XML supplies PS/SL member connectivity only. It d
 - unobserved countable explicit assemblies contribute;
 - ambiguity cannot lower below legacy geometry evidence.
 
-### LEG-004 — current-side exact zone scope + optional relationship XML
+### LEG-004 — exact zone scope + current relationship XML
 - two-column searchable Primary/piping-support and Secondary/support zone selectors;
-- exact ancestor matching, not substring matching;
+- exact ancestor matching;
 - optional current-area Clash-within-Supports input.
 
 ### LEG-005 — conservative orphan recovery
@@ -57,23 +57,22 @@ Same Bore                         ON
 Require unique target             ALWAYS ON
 ```
 
-Explicit/partial/conflict/symbolic assignments are immutable; enabled missing gates fail closed; provisional pairing requires reciprocal uniqueness; branch override requires guarded >=3-point axis evidence.
+Explicit/partial/conflict/symbolic assignments are immutable; missing enabled-gate evidence fails closed; provisional pairing requires reciprocal uniqueness; branch override requires guarded >=3-point axis evidence.
 
 ### LEG-006 — release hardening
 - production-named shared axis/bore exports;
 - popup-scoped orphan config;
+- multi-popup build lease;
 - count field provenance aligned;
 - nested browser cache routing hardened.
 
 ### LEG-007 — `RELATIONSHIP_TOPOLOGY_V1`
-Independent matcher with `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`.
+Independent family matcher with `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`.
 
 Signals include effective/explicit assembly count, concrete-member-count spectrum, normalized pipe-class population and nominal-bore population. Missing explicit authority is `UNAVAILABLE`; partial authority is `REVIEW`. Relationship-only evidence cannot promote structural rejection.
 
 ### LEG-008 — `AXIS_TYPICALITY_V1`
-Independent intrinsic-geometry matcher.
-
-Evidence:
+Independent intrinsic-geometry matcher using:
 - DN-normalized axial/lateral support spacing;
 - unsigned intra-model relative-axis angles `acos(|T1 dot T2|)`;
 - traversal count, locations-per-traversal and return multiplicity;
@@ -82,14 +81,54 @@ Evidence:
 No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW; insufficient evidence -> UNAVAILABLE. Axis-only evidence cannot promote structural rejection. All three channels agreeing can yield `VERY_HIGH`; informed contradiction is fail-visible conflict/review.
 
 ### LEG-009 — symmetric reference-side relationship input
-- new optional `Reference Primary Support Relationship XML` UI input;
-- reference Support Report evidence is parsed first;
-- reference relationship scope is derived independently using the **deepest exact zone candidate on each reference path**;
-- current-area selected zones are never reused on the reference side;
-- no exact reference zone => relationship rows parsed for diagnostics but zero rows receive authority;
-- typed reference `SupportPrimaryRelationshipBundle.v1` is passed only to the right/reference report;
-- CURRENT and REFERENCE input audits retain scope basis/availability, exact zones, parsed/scoped/excluded counts and bundle summary;
-- existing `RELATIONSHIP_TOPOLOGY_V1` becomes capable of an informed two-sided verdict without matcher modification.
+- optional `Reference Primary Support Relationship XML` UI input;
+- reference Support Report evidence parsed first;
+- reference relationship scope derived independently from the **deepest exact zone candidate on each reference path**;
+- current-area selected zones are never reused on reference side;
+- no exact reference zone => relationship rows parsed for diagnostics but zero authority;
+- typed reference `SupportPrimaryRelationshipBundle.v1` feeds only the reference report;
+- CURRENT and REFERENCE input audits remain separate;
+- existing relationship matcher becomes capable of an informed two-sided verdict without matcher modification.
+
+### LEG-010 — three-channel qualification + Column 22/23 publication governance
+Added an explicit publication seam above the frozen matchers.
+
+`SupportReportTypicalityPublication.v1` policy:
+- final `TYPICAL` + retained structural candidate -> Column 22 `PUBLISHED`;
+- `REVIEW` -> Column 22 `WITHHELD`;
+- `AMBIGUOUS` -> `WITHHELD`;
+- `NO_MATCH` -> `WITHHELD`;
+- absent/non-typical -> `WITHHELD`;
+- relationship-only or axis-only candidates cannot populate Column 22.
+
+This removes the prior behavior where `REVIEW` could populate `TYPICAL STRUCTURE (PS NO.)`.
+
+`SupportReportTypicalityRowAudit.v1` preserves independently:
+- original structural matcher;
+- arrangement-resolved structural result;
+- relationship topology result/candidate/audit/failed signals;
+- axis typicality result/candidate/audit/failed signals;
+- final `TypicalityConsensusV1` result/confidence/basis;
+- final result/reason/candidate;
+- Column 22 publication status/reason.
+
+Column 23 wording now distinguishes:
+- all three channels agree;
+- structural + axis agree with relationship unavailable;
+- structural + relationship agree with axis unavailable;
+- structural-only acceptance with both secondary channels unavailable;
+- relationship conflict;
+- axis conflict;
+- multi-channel conflict;
+- incomplete relationship/axis evidence.
+
+For retained review candidates, Column 23 explicitly says the candidate is withheld.
+
+Trace/debug contracts intentionally advance to:
+- `SupportReportTraceCsv.v4`;
+- `SupportReportDebugExport.v4`.
+
+Trace v4 exposes Column 22/23 values, final result/reason, consensus result/confidence, publication status/reason and compact independent channel audit. Operational Owner report CSV/XLSX columns remain unchanged.
 
 ## Protected benchmark/oracle ledger
 
@@ -101,60 +140,69 @@ No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW;
 | PS-12877 | 4 | return/revisit protection unchanged; real suite NOT_RUN |
 | PS-12860 | 6 | first-pass grouper unchanged; real suite NOT_RUN |
 | PS-12120 | 14 | first-pass grouper unchanged; real suite NOT_RUN |
-| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; three-channel execution NOT_RUN |
+| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; source control remains; repository execution NOT_RUN |
 
 ## Focused controls committed
 
-Core assembly/count/zone/orphan/hardening tests remain in the `support-primary-*` and Support Report focused test files.
+Primary structure/count/zone/orphan/hardening controls remain in the existing `support-primary-*` and Support Report focused test files.
 
-Typicality/reference controls include:
+Typicality/reference/publication controls include:
 - `tests/support-report-relationship-typicality.test.mjs`;
 - `tests/support-report-axis-typicality.test.mjs`;
 - `tests/support-report-axis-consensus.test.mjs`;
 - `tests/support-report-reference-relationship-integration.test.mjs`;
-- updated `tests/support-primary-input.test.mjs` and `tests/support-primary-zone-ui.test.mjs`.
+- `tests/support-report-typicality-publication.test.mjs`;
+- updated `tests/support-report-trace-export.test.mjs`;
+- updated current/reference input and zone UI controls.
 
-LEG-009 controls cover:
-- reference relationship input absent -> existing behavior preserved;
-- reference relationship scope derived from reference evidence, not current selected zones;
-- deepest-zone scoping excludes sibling zones sharing broad parents;
-- no discoverable reference zone fails closed;
-- side-specific CURRENT/REFERENCE audit metadata;
-- typed right-side explicit bundle reaches the reference report;
-- existing relationship matcher becomes informed on both sides without matcher-code changes.
+LEG-010 A-J controls cover:
+- all-three agreement;
+- one/both secondary channels unavailable;
+- relationship conflict;
+- axis conflict;
+- multi-channel conflict;
+- structural/location REVIEW;
+- structural AMBIGUOUS / NO_MATCH;
+- secondary-only non-promotion;
+- Column 23 agreement/limitation/conflict wording;
+- row-level channel/consensus/publication audit;
+- Trace/Debug v4 publication evidence.
 
 ## Validation truth
 
-PASS by source/material review through LEG-009:
+PASS by source/material review through LEG-010:
 - engineering-pr-delivery-v2 prework ordering preserved;
-- LEG-009 diff stayed inside input/scope/UI/cache/test/control-plane boundary;
-- structural matcher unchanged;
-- relationship matcher unchanged;
-- axis matcher unchanged;
-- consensus policy unchanged;
-- grouping/count/orphan semantics unchanged;
+- material legs stayed inside authorized boundaries;
+- structural matcher implementation unchanged by relationship/axis/publication legs;
+- relationship matcher semantics unchanged by axis/publication legs;
+- axis matcher semantics/thresholds unchanged by publication leg;
+- grouping/count/orphan semantics unchanged by typicality publication work;
 - #1216 producer authority unchanged;
-- broad-parent reference scope leakage found during review and corrected to deepest exact zones;
-- PR #1223 observed draft/open/mergeable;
-- no unresolved inline review threads.
+- raw global axis vectors never compared across XMLs;
+- missing/partial secondary evidence fails closed;
+- secondary matchers cannot promote a structural rejection/ambiguity;
+- Column 22 now publishes final `TYPICAL` only;
+- browser cache routing reaches current modules;
+- no unresolved inline review threads at LEG-010 material review.
 
-PR source-review records:
-- LEG-007 COMMENT review `5212200167`;
-- LEG-008 COMMENT review `5212752129`;
-- LEG-009 COMMENT review `5212927412`;
+PR COMMENT review records:
+- LEG-007 `5212200167`;
+- LEG-008 `5212752129`;
+- LEG-009 `5212927412`;
+- LEG-010 `5213502126`;
 - no approval/requested-changes review.
 
 NOT_RUN:
 - committed Node tests under an executing GitHub runner;
 - browser/deployed qualification;
 - ZIP benchmark execution;
-- real two-sided relationship XML benchmark;
+- real two-sided Owner relationship XML benchmark;
 - real three-channel positive/negative qualification;
 - real PS-11167/PS-11236 relationship qualification.
 
-Actions at LEG-009 material head:
-- qualification run `34995811707`: focused-node/browser jobs `steps=null`;
-- ZIP run `34995811885`: benchmark job `steps=null`.
+Actions at LEG-010 material head:
+- qualification run `35000814103`: focused-node/browser jobs `steps=null`;
+- ZIP run `35000814152`: benchmark job `steps=null`.
 
 These are infrastructure/non-execution results, not product failures.
 
@@ -169,6 +217,7 @@ These are infrastructure/non-execution results, not product failures.
 - structural, relationship and axis matchers remain independently auditable.
 - unavailable evidence never fabricates mismatch.
 - secondary matchers cannot promote structural rejection/ambiguity.
+- Column 22 publishes only final `TYPICAL`.
 - merge remains Owner-only.
 
 ## Current limitations
@@ -177,17 +226,18 @@ These are infrastructure/non-execution results, not product failures.
 2. Repository/browser execution remains blocked by Actions jobs failing before steps.
 3. Axis V1 still uses branch-global traversal axes; strongly bent local-axis refinement should be benchmark-driven.
 4. Axis thresholds remain provisional/auditable rather than normal-UI editable.
-5. Full three-channel Column 22/23 publication behavior still needs a dedicated qualification/presentation audit.
 
 ## Recommended next bounded work
 
-Prework a **three-channel qualification + Column 22/23 publication/presentation** leg:
-- synthetic A/B/C/D matrix for agreement, conflict and unavailable combinations;
-- verify exact Column 22 candidate-publication rules under `TypicalityConsensusV1`;
-- verify Column 23 human wording for all agreement/conflict/unavailable states;
-- ensure Debug JSON/Trace exposes each channel and final consensus independently;
-- preserve matcher outputs and thresholds; do not retune merely to force agreement.
+Prework **release-readiness / qualification consolidation for PR #1223** rather than another matcher:
+- re-ground current `main` and PR diff;
+- sweep protected count oracles and 11168->14168 positive control across touched seams;
+- verify Owner report CSV/XLSX column contract stays stable while Trace/Debug intentionally remain v4;
+- static invariant sweep for #1216 authority, explicit-topology precedence, DATUM non-countability, orphan fail-closed behavior, no secondary promotion and no raw axis-vector cross-comparison;
+- browser contract review for current/reference relationship inputs, zones, orphan settings and Column 22/23 publication;
+- rerun Actions if infrastructure begins executing steps;
+- decide whether PR #1223 may leave draft state.
 
 ## EXACT_NEXT_ACTION
 
-Stop at `EP-SUPPORT-PRIMARY-1222-0017`. On fresh Owner progression, create a new prework endpoint for the qualification/presentation leg before any product mutation. Do not merge without fresh Owner authorization.
+Stop at `EP-SUPPORT-PRIMARY-1222-0019`. On fresh Owner progression, create a new prework endpoint for release-readiness/qualification consolidation. Do not mark ready or merge without explicit Owner authorization.
