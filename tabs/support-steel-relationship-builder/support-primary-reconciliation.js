@@ -32,6 +32,7 @@ export function reconcileSupportPrimaryAssemblies(input = {}) {
 
 function buildAssemblyIndex(bundle) {
   const families = new Map();
+  if (bundle?.schema !== SUPPORT_PRIMARY_RELATIONSHIP_SCHEMA) return families;
   for (const family of bundle?.families || []) {
     const familyId = normalizeFamilyId(family?.familyId);
     if (!familyId) continue;
