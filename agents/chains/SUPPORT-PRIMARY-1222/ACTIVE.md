@@ -2,13 +2,13 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0018
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0018.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0019
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0019.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-010 prework; use branch ref for exact live SHA
+HEAD: LEG-010 materially closed; use branch ref for exact live control-plane SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: ACTIVE
+STATE: READY
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -18,29 +18,29 @@ CUSTODY_EPOCH: 11
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
-ENGINEERING_STATE: ACTIVE
+ENGINEERING_STATE: READY
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 draft/open at LEG-010 prework
-REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009); no approval/change-request review
-UNRESOLVED_REVIEW_THREADS: NONE at LEG-009 closeout
-REQUIRED_CHECKS: Actions continue failing before steps (`steps=null`); product execution qualification remains NOT_RUN
+MERGEABILITY: TRUE — PR #1223 draft/open at LEG-010 material review
+REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009), 5213502126 (LEG-010); no approval/change-request review
+UNRESOLVED_REVIEW_THREADS: NONE at LEG-010 material review
+REQUIRED_CHECKS: Actions at LEG-010 material head fail before steps (`steps=null`); product execution qualification remains NOT_RUN
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0018
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0019
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_LEG_010_PREWORK_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: PENDING_EP_0018_SYNC
-RELATED_TYPICALITY_STATUS_COMMENT_ID: PENDING_EP_0018_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5684858038
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5684860299
 
-OWNER_PROGRESSION_COMMAND: proceed next — LEG-010 authorized
+OWNER_PROGRESSION_COMMAND: proceed next — completed LEG-010
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -50,12 +50,12 @@ TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: LEG-009
-LATEST_MATERIAL_HEAD: 18938c15695453b476192f21b742fe57caae7754
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-009.md
+LATEST_MATERIAL_LEG: LEG-010
+LATEST_MATERIAL_HEAD: a47af97cda0539751bfad2de5f8ee0844ce83fc6
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-010.md
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0018.md
-NEXT_MATERIAL_LEG: LEG-010
+NEXT_MATERIAL_LEG: UNALLOCATED
 
-CURRENT_BLOCKER: executing Actions runner remains unavailable; real Owner relationship benchmark inputs remain unpinned.
-LEG_DIAGNOSIS: LEG-010 preworked. Govern Column 22/23 publication and audit visibility without retuning any matcher.
-EXACT_NEXT_ACTION: Synchronize #1222/#1179 to EP-0018, inspect the projection/trace/export seam, then implement only the minimum deterministic publication/audit changes. No merge.
+CURRENT_BLOCKER: executing Actions runner remains unavailable; real Owner Clash-within-Supports benchmark inputs remain unpinned.
+LEG_DIAGNOSIS: LEG-010 closed. Three-channel matcher outputs are now governed by an explicit publication seam: Column 22 accepts final TYPICAL only, while review/conflict context remains visible in Column 23 and trace/debug audit.
+EXACT_NEXT_ACTION: On fresh Owner progression, prework release-readiness/qualification consolidation for PR #1223. Do not add a new authority source or retune matchers merely to force agreement. No merge without fresh Owner authorization.
