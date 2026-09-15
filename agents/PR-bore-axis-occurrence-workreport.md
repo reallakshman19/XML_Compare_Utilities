@@ -31,12 +31,30 @@ Correct `TOTAL SUPPORT POINTS ON SECONDARY` so multi-member contacts can collaps
 
 Location groups expose the grouping model, derived nominal DN, axial/lateral tolerances, axis basis and axis-confidence ratio in addition to the existing grouping basis.
 
+## Human-readable Column 23 remarks
+
+Typicality reason codes and audit records remain unchanged, but user-facing `PIPING SUPPORT ARRANGEMENT MATCH` wording is now generated separately:
+
+- `MATCHED — Support arrangement matches PS-xxxxx.`
+- `NOT MATCHED — Closest candidate PS-xxxxx was rejected: ... .`
+- `AMBIGUOUS — N candidates remain: ... .`
+- `LIMITED CHECK — Support type unavailable; topology-only comparison used.`
+- `PARTIAL MATCH — Differences: ... .`
+- `REVIEW — ... .`
+
+The display layer no longer exposes internal labels such as `NO_MATCH: best ...` or `AMBIGUOUS MATERIAL`, while machine-readable status/reason codes remain available in the audit object.
+
+## Column 22 axis-aware follow-on
+
+GitHub issue #1179 now contains the implementation plan for reusing the refined branch-local pipe axis in `TYPICAL STRUCTURE (PS NO.)` identification. The planned signals are rigid-transform invariant: pipe-axis angle relationships, axis-relative axial/lateral spacing, and traversal topology. Raw global axis direction will not be compared across XMLs.
+
 ## Regression coverage
 
 - Synthetic PS-12060 coordinates assert `.1/.2/.6` collapse to one occurrence with DN 250, axial tolerance 1000 mm and lateral tolerance 150 mm.
 - Coincident contacts on different pipe traversals assert they remain separate.
 - The real `benchmarks/1885.zip` archive is decompressed in the Node benchmark test with built-in `zlib`; the four owner counts are asserted directly from the production parser/grouping path.
 - Existing PS-12154 and PS-12120 location controls remain in the focused qualification suite.
+- Typicality projection tests lock the new human-readable Column 23 wording while leaving reason codes machine-readable.
 
 ## Qualification environment
 
