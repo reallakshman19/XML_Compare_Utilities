@@ -21,7 +21,7 @@ import {
   supportReportMemberMatchesBranches as memberMatchesBranches,
   supportReportMemberMatchesLine as memberMatchesLine,
 } from './support-report-member-context.js?v=20260911-datum-metadata-23';
-import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260915-support-primary-hardening-1';
+import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260915-support-primary-traversal-safety-1';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
@@ -86,6 +86,7 @@ export function buildSupportReportBundle(input = {}) {
       primarySupportOrphanRecoveredGroupCount: countProjection.summary.orphanRecoveredGroupCount,
       primarySupportOrphanAmbiguousGroupCount: countProjection.summary.orphanAmbiguousGroupCount,
       primarySupportOrphanUnresolvedGroupCount: countProjection.summary.orphanUnresolvedGroupCount,
+      primarySupportOrphanCrossTraversalGeometryWithheldCount: countProjection.summary.orphanCrossTraversalGeometryWithheldCount || 0,
       datumMetadataRowCount: rows.filter((row) => row.evidence.metadataAttributionBasis === 'SINGLE_LOCATION_FAMILY_DATUM_METADATA').length,
       diagnosticCount: diagnostics.length,
     }),
