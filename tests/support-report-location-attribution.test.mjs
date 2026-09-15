@@ -10,16 +10,19 @@ import { supportReportTraceRows } from '../tabs/support-steel-relationship-build
 const line = 'ASIM-1885-2"-D8810242-11441T3-PP-01';
 const branch = `/${line}/B4`;
 
-function clashRow(memberId, point) {
+function clashRow(memberId, point, overrides = {}) {
+  const fullLineTag = overrides.fullLineTag || line;
+  const branchNode = overrides.branchNode || `/${fullLineTag}/B4`;
+  const secondarySupportFamilyId = overrides.secondarySupportFamilyId || 'PS-12005';
   return {
-    secondarySupportFamilyId: 'PS-12005',
-    fullLineTag: line,
+    secondarySupportFamilyId,
+    fullLineTag,
     scope: 'ASIM',
-    branchNode: branch,
+    branchNode,
     primarySupportMemberId: memberId,
     clashPointGlobalMm: point,
-    primaryPath: ['/ASIM-1885-CU-PI', '/ASIM-1885-CU-PI-D', `/${line}`, branch, memberId],
-    secondaryPath: ['/ASIM-1885-CU-SU', '/PS-12005'],
+    primaryPath: ['/ASIM-1885-CU-PI', '/ASIM-1885-CU-PI-D', `/${fullLineTag}`, branchNode, memberId],
+    secondaryPath: ['/ASIM-1885-CU-SU', `/${secondarySupportFamilyId}`],
   };
 }
 
@@ -79,21 +82,48 @@ test('same concrete support member joins contact points beyond 50 mm into one ph
   assert.ok(groups[0].locationGroupingBasis.includes('SAME_CONCRETE_MEMBER'));
 });
 
-test('different members still obey 50 mm location tolerance', () => {
+test('different members use the bore-axis window on the same traversal', () => {
   const far = groupSupportReportEvidenceByLocation([
     clashRow('/PS-12005.1', { x: 0, y: 0, z: 0 }),
-    clashRow('/PS-12005.2', { x: 80, y: 0, z: 0 }),
+    clashRow('/PS-12005.2', { x: 300, y: 0, z: 0 }),
   ]);
   assert.equal(far.length, 2);
   assert.ok(far.every((group) => group.multipleLocationsOnPipe));
 
   const near = groupSupportReportEvidenceByLocation([
     clashRow('/PS-12005.1', { x: 0, y: 0, z: 0 }),
-    clashRow('/PS-12005.2', { x: 38, y: 0, z: 0 }),
+    clashRow('/PS-12005.2', { x: 80, y: 0, z: 0 }),
   ]);
   assert.equal(near.length, 1);
   assert.deepEqual(near[0].primarySupportMemberIds, ['/PS-12005.1', '/PS-12005.2']);
-  assert.ok(near[0].locationGroupingBasis.includes('WITHIN_50MM'));
+  assert.ok(near[0].locationGroupingBasis.includes('WITHIN_BORE_AXIS_WINDOW'));
+});
+
+test('different pipe traversals remain separate even at coincident coordinates', () => {
+  const point = { x: 605291, y: -1107599, z: 101674 };
+  const groups = groupSupportReportEvidenceByLocation([
+    clashRow('/PS-12005.1', point, { branchNode: `/${line}/B4` }),
+    clashRow('/PS-12005.2', point, { branchNode: `/${line}/B5` }),
+  ]);
+  assert.equal(groups.length, 2);
+  assert.ok(groups.every((group) => group.locationCountOnPipe === 2));
+});
+
+test('PS-12060 multi-member benchmark geometry resolves to one bore-axis occurrence', () => {
+  const fullLineTag = 'ASIM-1885-10"-S8810101-91261M7-HC-01';
+  const branchNode = `/${fullLineTag}/B1`;
+  const groups = groupSupportReportEvidenceByLocation([
+    clashRow('/PS-12060.1', { x: 593503, y: 1120926, z: 102894 }, { secondarySupportFamilyId: 'PS-12060', fullLineTag, branchNode }),
+    clashRow('/PS-12060.2', { x: 593439, y: 1120926, z: 102894 }, { secondarySupportFamilyId: 'PS-12060', fullLineTag, branchNode }),
+    clashRow('/PS-12060.6', { x: 593553, y: 1120765, z: 102894 }, { secondarySupportFamilyId: 'PS-12060', fullLineTag, branchNode }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].totalSupportPointsOnSecondary, 1);
+  assert.deepEqual(groups[0].primarySupportMemberIds, ['/PS-12060.1', '/PS-12060.2', '/PS-12060.6']);
+  assert.ok(groups[0].locationGroupingBasis.includes('WITHIN_BORE_AXIS_WINDOW'));
+  assert.equal(groups[0].locationNominalBoreMm, 250);
+  assert.equal(groups[0].locationAxialToleranceMm, 1000);
+  assert.equal(groups[0].locationLateralToleranceMm, 150);
 });
 
 test('multi-location rows receive only staged members attributable to that location', () => {

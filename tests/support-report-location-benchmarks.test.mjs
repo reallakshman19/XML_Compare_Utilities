@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { inflateRawSync } from 'node:zlib';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260910-support-report-location-17';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
 import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from '../tabs/support-steel-relationship-builder/support-report-location-grouping.js?v=20260910-support-report-location-17';
 
 const ps12154Xml = readFileSync('benchmarks/SupportreportXML-PS-068_PS-12154.xml', 'utf8');
 const ps12120Xml = readFileSync('benchmarks/SupportreportXML-PS-12120.xml', 'utf8');
+const xml1885 = readZipTextEntry('benchmarks/1885.zip', '1885.xml');
 const SAME_LOCATION_PIPE = 'ASIM-1885-2"-D8810003-11441T3-PP-01';
 const MULTI_LOCATION_PIPE = 'ASIM-1885-2"-P8810365-31441C4-HT-01';
 const SECOND_MULTI_LOCATION_PIPE = 'ASIM-1885-4"-W8810126-31441C4-01';
@@ -78,6 +80,22 @@ test('PS-12120 repeated pipe splits into five physical report locations', () => 
   assert.ok(rows.every((row) => row.evidence.multipleLocationsOnPipe));
 });
 
+test('1885 bore-axis occurrence calibration preserves owner support counts', () => {
+  const parsed = parseSupportReportClashXml(xml1885);
+  const expectedCounts = new Map([
+    ['PS-12060', 1],
+    ['PS-12877', 4],
+    ['PS-12860', 6],
+    ['PS-12120', 14],
+  ]);
+
+  for (const [familyId, expectedCount] of expectedCounts) {
+    const groups = parsed.groups.filter((group) => familyToken(group.secondarySupportFamilyId) === familyId);
+    assert.equal(groups.length, expectedCount, `${familyId} physical occurrence count`);
+    assert.ok(groups.every((group) => group.totalSupportPointsOnSecondary === expectedCount), `${familyId} total support count`);
+  }
+});
+
 test('PS-068 family mismatch remains visible and is not silently renamed', () => {
   const report = buildSupportReportBundle({ clashXmlText: ps12154Xml });
   const row = report.rows.find((item) => item.pipingPrimarySupport === '/SL-147.1');
@@ -85,3 +103,48 @@ test('PS-068 family mismatch remains visible and is not silently renamed', () =>
   assert.match(row.remarks, /Primary support family mismatch: \/SL-147\.1 under PS-068; rename required/);
   assert.equal(row.previousName, '');
 });
+
+function familyToken(value) {
+  return String(value || '').replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
+}
+
+function readZipTextEntry(path, entryName) {
+  const zip = readFileSync(path);
+  const eocd = findSignatureFromEnd(zip, 0x06054b50);
+  assert.notEqual(eocd, -1, `${path} has no ZIP end-of-central-directory record`);
+  let cursor = zip.readUInt32LE(eocd + 16);
+  const entryCount = zip.readUInt16LE(eocd + 10);
+
+  for (let index = 0; index < entryCount; index += 1) {
+    assert.equal(zip.readUInt32LE(cursor), 0x02014b50, `${path} has an invalid central-directory entry`);
+    const method = zip.readUInt16LE(cursor + 10);
+    const compressedSize = zip.readUInt32LE(cursor + 20);
+    const fileNameLength = zip.readUInt16LE(cursor + 28);
+    const extraLength = zip.readUInt16LE(cursor + 30);
+    const commentLength = zip.readUInt16LE(cursor + 32);
+    const localHeaderOffset = zip.readUInt32LE(cursor + 42);
+    const nameStart = cursor + 46;
+    const name = zip.subarray(nameStart, nameStart + fileNameLength).toString('utf8');
+
+    if (name === entryName) {
+      assert.equal(zip.readUInt32LE(localHeaderOffset), 0x04034b50, `${entryName} has an invalid local ZIP header`);
+      const localNameLength = zip.readUInt16LE(localHeaderOffset + 26);
+      const localExtraLength = zip.readUInt16LE(localHeaderOffset + 28);
+      const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+      const compressed = zip.subarray(dataStart, dataStart + compressedSize);
+      if (method === 0) return compressed.toString('utf8');
+      if (method === 8) return inflateRawSync(compressed).toString('utf8');
+      throw new Error(`Unsupported ZIP compression method ${method} for ${entryName}`);
+    }
+
+    cursor = nameStart + fileNameLength + extraLength + commentLength;
+  }
+  throw new Error(`${entryName} not found in ${path}`);
+}
+
+function findSignatureFromEnd(buffer, signature) {
+  for (let offset = buffer.length - 22; offset >= Math.max(0, buffer.length - 0x10016); offset -= 1) {
+    if (buffer.readUInt32LE(offset) === signature) return offset;
+  }
+  return -1;
+}

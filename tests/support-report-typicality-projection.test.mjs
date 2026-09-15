@@ -43,9 +43,31 @@ test('11168 -> 14168 projects ten physical-location audit links without row ordi
 
   for (const row of projected.rows) {
     assert.equal(row.typicalStructure, 'PS-14168');
-    assert.equal(row.pipingSupportArrangementMatch, 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE)');
+    assert.equal(row.pipingSupportArrangementMatch,
+      'LIMITED CHECK — Support type unavailable; topology-only comparison used.');
     assert.match(row.typicalityAuditId, /^TYP-PS-11168--PS-14168-L\d{2}$/);
   }
+});
+
+test('typicality display remarks are human-friendly while reason codes stay machine-readable', () => {
+  assert.equal(_test.matchedLabel({ rightFamilyId: 'PS-14168' }),
+    'MATCHED — Support arrangement matches PS-14168.');
+  assert.equal(_test.limitedCheckLabel(),
+    'LIMITED CHECK — Support type unavailable; topology-only comparison used.');
+  assert.equal(_test.noMatchLabel({
+    bestCandidateFamilyId: 'PS-10661',
+    failedReasonCodes: [
+      'STRUCT_MEMBER_MULTIPLICITY_EQUAL',
+      'STRUCT_PIPE_CLASS_POPULATION_EQUAL',
+      'STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE',
+      'STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE',
+    ],
+  }), 'NOT MATCHED — Closest candidate PS-10661 was rejected: member count per support location, pipe class population, overall geometry envelope and relative spacing.');
+  assert.equal(_test.ambiguousLabel({ candidateFamilyIds: ['PS-1943', 'PS-10048'] }),
+    'AMBIGUOUS — 2 candidates remain: PS-1943, PS-10048.');
+  assert.equal(_test.reviewLabel({ reasonCode: 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED' }),
+    'REVIEW — Member count per support location differs.');
+  assert.equal(_test.sentenceList(['a', 'b', 'c']), 'a, b and c');
 });
 
 test('location-aware group IDs bridge report support types and projection for repeated pipes', () => {

@@ -15,7 +15,7 @@ export async function parseSupportReportXmlAsync(source, options = {}, runtime =
   if (typeof WorkerCtor === 'function') {
     try {
       worker = new WorkerCtor(
-        runtime.workerUrl || new URL('./support-report-parse-worker.js', import.meta.url),
+        runtime.workerUrl || new URL('./support-report-parse-worker.js?v=20260915-support-report-bore-axis-occurrence-1', import.meta.url),
         { type: 'module' },
       );
     } catch (error) {
@@ -70,7 +70,7 @@ function parseWithWorker(worker, source, options, signal) {
 
 async function fallbackParser(runtime) {
   if (typeof runtime.fallbackParser === 'function') return runtime.fallbackParser;
-  const module = await import('./support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&perf=20260913-support-report-large-xml-1');
+  const module = await import('./support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260915-support-report-bore-axis-occurrence-1&perf=20260913-support-report-large-xml-1');
   return module.parseSupportReportClashXml;
 }
 

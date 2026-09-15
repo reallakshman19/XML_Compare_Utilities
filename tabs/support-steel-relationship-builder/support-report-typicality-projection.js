@@ -140,62 +140,90 @@ function resolveRowLocation(row, locations) {
 function arrangementLabel(match, assignment, pair) {
   if (!match) return '';
   if (match.result === 'AMBIGUOUS') return ambiguousLabel(match);
-  if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return 'AMBIGUOUS MATERIAL';
+  if (match.result === 'REVIEW' && assignment?.result === 'AMBIGUOUS') return ambiguousAssignmentLabel(match);
   if (!pair) {
     if (match.result === 'NO_MATCH') return noMatchLabel(match);
     if (match.result === 'REVIEW') return reviewLabel(match);
-    return match.result === 'TYPICAL' ? 'NO MATCH' : match.result;
+    return match.result === 'TYPICAL' ? 'NOT MATCHED — No location counterpart was assigned.' : match.result;
   }
   const equivalent = assignment?.correspondenceStatus === 'AMBIGUOUS_EQUIVALENT';
-  if (pair.arrangementResult === 'EXACT') return equivalent ? 'EXACT (MULTIPLE EQUIVALENT MATCHES)' : 'EXACT';
-  if (pair.arrangementResult === 'TOPOLOGY_ONLY') return equivalent
-    ? 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE; MULTIPLE EQUIVALENT MATCHES)'
-    : 'TOPOLOGY ONLY (SUPPORT TYPE UNAVAILABLE)';
+  if (pair.arrangementResult === 'EXACT') return matchedLabel(match, equivalent);
+  if (pair.arrangementResult === 'TOPOLOGY_ONLY') return limitedCheckLabel(equivalent);
   if (pair.arrangementResult !== 'PARTIAL') return pair.arrangementResult || '';
   const details = [];
   for (const item of pair.supportTypeComparison?.missingFromRight || []) {
-    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} missing`);
+    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} missing from candidate`);
   }
   for (const item of pair.supportTypeComparison?.extraInRight || []) {
-    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} extra`);
+    details.push(`${item.type}${item.count > 1 ? ` x${item.count}` : ''} extra in candidate`);
   }
-  if (pair.signals?.memberMultiplicity?.result === 'FAIL') details.push('member multiplicity differs');
-  if (pair.signals?.geometry?.result === 'FAIL') details.push('relative location outside tolerance');
-  return details.length ? `PARTIAL: ${details.join('; ')}` : 'PARTIAL';
+  if (pair.signals?.memberMultiplicity?.result === 'FAIL') details.push('member count per support location differs');
+  if (pair.signals?.geometry?.result === 'FAIL') details.push('relative support spacing is outside tolerance');
+  return details.length ? `PARTIAL MATCH — Differences: ${details.join('; ')}.` : 'PARTIAL MATCH — Review required.';
+}
+
+function matchedLabel(match, equivalent = false) {
+  const candidate = match?.rightFamilyId ? ` ${match.rightFamilyId}` : '';
+  const suffix = equivalent ? ' Multiple equivalent location assignments remain.' : '';
+  return `MATCHED — Support arrangement matches${candidate}.${suffix}`;
+}
+
+function limitedCheckLabel(equivalent = false) {
+  const suffix = equivalent ? ' Multiple equivalent location assignments remain.' : '';
+  return `LIMITED CHECK — Support type unavailable; topology-only comparison used.${suffix}`;
 }
 
 function reviewLabel(match) {
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED') {
-    return 'REVIEW: member multiplicity differs';
+    return 'REVIEW — Member count per support location differs.';
   }
   if (match?.reasonCode === 'TYPICAL_REVIEW_UNIQUE_MEMBER_COUNT_CHANGED') {
-    return 'REVIEW: unique primary member count differs';
+    return 'REVIEW — Unique primary-member count differs.';
   }
   if (match?.reasonCode === 'TYPICAL_REVIEW_MEMBER_TOPOLOGY_CHANGED') {
-    return 'REVIEW: primary member topology differs';
+    return 'REVIEW — Primary-member topology differs.';
   }
-  return 'REVIEW';
+  if (match?.reasonCode === 'TYPICAL_LOCATION_ASSIGNMENT_UNAVAILABLE') {
+    return 'REVIEW — Typical family found, but no location counterpart could be assigned.';
+  }
+  return 'REVIEW — Comparison requires engineering review.';
 }
+
 function noMatchLabel(match) {
-  const candidate = match?.bestCandidateFamilyId ? `best ${match.bestCandidateFamilyId}` : '';
+  const candidate = match?.bestCandidateFamilyId || '';
   const failures = (match?.failedReasonCodes || []).map(rejectionLabel).filter(Boolean);
-  const detail = [candidate, failures.length ? `failed ${failures.join(', ')}` : ''].filter(Boolean).join('; ');
-  return detail ? `NO_MATCH: ${detail}` : 'NO_MATCH';
+  if (candidate && failures.length) return `NOT MATCHED — Closest candidate ${candidate} was rejected: ${sentenceList(failures)}.`;
+  if (candidate) return `NOT MATCHED — Closest candidate ${candidate} was rejected.`;
+  return 'NOT MATCHED — No structurally acceptable candidate was found.';
 }
+
 function ambiguousLabel(match) {
   const candidates = match?.candidateFamilyIds || [];
-  return candidates.length ? `AMBIGUOUS MATERIAL: ${candidates.join(', ')}` : 'AMBIGUOUS MATERIAL';
+  if (!candidates.length) return 'AMBIGUOUS — Multiple structural candidates remain.';
+  return `AMBIGUOUS — ${candidates.length} candidate${candidates.length === 1 ? '' : 's'} remain: ${candidates.join(', ')}.`;
 }
+
+function ambiguousAssignmentLabel(match) {
+  const candidate = match?.rightFamilyId ? ` for ${match.rightFamilyId}` : '';
+  return `AMBIGUOUS — Multiple equivalent support-location assignments remain${candidate}.`;
+}
+
 function rejectionLabel(code) {
   const labels = {
-    STRUCT_LOCATION_COUNT_EQUAL: 'location count',
-    STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL: 'unique primary member count',
-    STRUCT_MEMBER_MULTIPLICITY_EQUAL: 'member multiplicity',
-    STRUCT_PIPE_CLASS_POPULATION_EQUAL: 'pipe class',
-    STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE: 'envelope',
-    STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE: 'pair distance',
+    STRUCT_LOCATION_COUNT_EQUAL: 'support-location count',
+    STRUCT_UNIQUE_PRIMARY_MEMBER_COUNT_EQUAL: 'unique primary-member count',
+    STRUCT_MEMBER_MULTIPLICITY_EQUAL: 'member count per support location',
+    STRUCT_PIPE_CLASS_POPULATION_EQUAL: 'pipe class population',
+    STRUCT_GEOMETRY_ENVELOPE_WITHIN_TOLERANCE: 'overall geometry envelope',
+    STRUCT_PAIR_DISTANCE_WITHIN_TOLERANCE: 'relative spacing',
   };
   return labels[code] || String(code || '').toLowerCase().replace(/^struct_/u, '').replaceAll('_', ' ');
+}
+
+function sentenceList(values) {
+  if (values.length <= 1) return values[0] || '';
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
 }
 
 function token(value) {
@@ -203,13 +231,17 @@ function token(value) {
 }
 
 export const _test = Object.freeze({
+  ambiguousAssignmentLabel,
   ambiguousLabel,
   arrangementLabel,
   comparisonProfile,
+  limitedCheckLabel,
+  matchedLabel,
   noMatchLabel,
   rejectionLabel,
   resolveFamilyMatch,
   resolveRowLocation,
   reviewLabel,
+  sentenceList,
   withLocationRowAliases,
 });

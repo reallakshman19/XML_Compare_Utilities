@@ -1,4 +1,4 @@
-import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260911-support-report-location-attribution-22&perf=20260913-support-report-large-xml-1';
+import { parseSupportReportClashXml } from './support-report-clash-safety.js?v=20260909-support-report-parser-primitives-8&location=20260915-support-report-bore-axis-occurrence-1&perf=20260913-support-report-large-xml-1';
 
 async function sourceText(source) {
   if (typeof source === 'string') return source;

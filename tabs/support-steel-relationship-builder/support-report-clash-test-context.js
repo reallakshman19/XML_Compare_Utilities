@@ -3,7 +3,7 @@ import {
 } from './support-report-clash-evidence.js?v=20260911-support-report-typicality-rca-1&perf=20260913-support-report-large-xml-1';
 import {
   groupSupportReportEvidenceByLocation,
-} from './support-report-location-grouping.js?v=20260911-support-report-location-attribution-22';
+} from './support-report-location-grouping.js?v=20260915-support-report-bore-axis-occurrence-1';
 import { decodeXmlEntities } from '../ps-family-clash-audit/ps-family-token-utils.js';
 
 const BRANCH_SUFFIX_RE = /\/B(?:RANCH)?[-_A-Z0-9.]*$/iu;
