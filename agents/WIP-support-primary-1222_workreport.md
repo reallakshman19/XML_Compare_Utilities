@@ -6,9 +6,10 @@ CHAIN: SUPPORT-PRIMARY-1222
 BRANCH: feature/support-primary-assembly-graph  
 PR: 1223  
 BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581  
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0019  
-LATEST_MATERIAL_LEG: LEG-010  
-LATEST_MATERIAL_HEAD: a47af97cda0539751bfad2de5f8ee0844ce83fc6  
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0021  
+LATEST_MATERIAL_LEG: LEG-011  
+LATEST_MATERIAL_HEAD: c65b58f17e2e455c9a507137c5ef945c13c58c53  
+TECHNICAL_DISPOSITION: HOLD_DRAFT  
 MERGE_AUTHORITY: OWNER_ONLY  
 MERGE_AUTHORIZED: FALSE
 
@@ -39,7 +40,7 @@ Optional Clash-within-Supports XML supplies PS/SL member connectivity only. It d
 - ambiguity cannot lower below legacy geometry evidence.
 
 ### LEG-004 — exact zone scope + current relationship XML
-- two-column searchable Primary/piping-support and Secondary/support zone selectors;
+- searchable two-column Primary/piping-support and Secondary/support zone selectors;
 - exact ancestor matching;
 - optional current-area Clash-within-Supports input.
 
@@ -57,124 +58,125 @@ Same Bore                         ON
 Require unique target             ALWAYS ON
 ```
 
-Explicit/partial/conflict/symbolic assignments are immutable; missing enabled-gate evidence fails closed; provisional pairing requires reciprocal uniqueness; branch override requires guarded >=3-point axis evidence.
+Explicit/partial/conflict/symbolic assignments are immutable; missing enabled-gate evidence fails closed; provisional pairing requires reciprocal uniqueness; branch override uses guarded axis evidence.
 
 ### LEG-006 — release hardening
 - production-named shared axis/bore exports;
 - popup-scoped orphan config;
 - multi-popup build lease;
-- count field provenance aligned;
-- nested browser cache routing hardened.
+- count provenance aligned;
+- nested browser cache routing hardened for then-current modules.
 
 ### LEG-007 — `RELATIONSHIP_TOPOLOGY_V1`
-Independent family matcher with `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`.
-
-Signals include effective/explicit assembly count, concrete-member-count spectrum, normalized pipe-class population and nominal-bore population. Missing explicit authority is `UNAVAILABLE`; partial authority is `REVIEW`. Relationship-only evidence cannot promote structural rejection.
+Independent family matcher with `MATCH | NO_MATCH | REVIEW | UNAVAILABLE`. Missing explicit authority is `UNAVAILABLE`; partial authority is `REVIEW`; relationship-only evidence cannot promote structural rejection.
 
 ### LEG-008 — `AXIS_TYPICALITY_V1`
-Independent intrinsic-geometry matcher using DN-normalized axial/lateral support spacing, unsigned intra-model relative-axis angles `acos(|T1 dot T2|)`, traversal count, locations-per-traversal and return multiplicity. No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW; insufficient evidence -> UNAVAILABLE. Axis-only evidence cannot promote structural rejection. All three channels agreeing can yield `VERY_HIGH`; informed contradiction is fail-visible conflict/review.
+Independent intrinsic-geometry matcher using DN-normalized axial/lateral spacing, unsigned intra-model relative-axis angles, traversal count, locations-per-traversal and return multiplicity. No raw global axis vectors are compared across XMLs. Partial evidence -> REVIEW; insufficient evidence -> UNAVAILABLE; axis-only evidence cannot promote structural rejection.
 
 ### LEG-009 — symmetric reference-side relationship input
-- optional `Reference Primary Support Relationship XML` UI input;
-- reference scope derived independently from the deepest exact zone candidate on each reference path;
-- current-area selections are never reused on the reference side;
-- no exact reference zone => parsed diagnostics only, zero topology authority;
-- typed reference `SupportPrimaryRelationshipBundle.v1` feeds the reference report;
-- CURRENT and REFERENCE input audits stay separate.
+- optional `Reference Primary Support Relationship XML`;
+- reference scope independently derived from deepest exact reference zone ancestry;
+- current zone selections never reused on the reference side;
+- no exact reference zone => zero topology authority;
+- typed right-side relationship bundle feeds the reference report.
 
-### LEG-010 — three-channel qualification + Column 22/23 publication governance
-Added explicit publication governance above the frozen matchers.
+### LEG-010 — Column 22/23 publication governance
+`SupportReportTypicalityPublication.v1` publishes Column 22 only for final `TYPICAL`; REVIEW/conflict/AMBIGUOUS/NO_MATCH/secondary-only candidates are withheld. `SupportReportTypicalityRowAudit.v1` preserves structural, arrangement-resolved structural, relationship, axis, consensus/final and publication evidence. Trace/Debug intentionally advance to `SupportReportTraceCsv.v4` / `SupportReportDebugExport.v4`; operational report columns remain unchanged.
 
-`SupportReportTypicalityPublication.v1` policy:
-- final `TYPICAL` + retained structural candidate -> Column 22 `PUBLISHED`;
-- `REVIEW`, `AMBIGUOUS`, `NO_MATCH`, absent/non-typical, and secondary-only candidates -> `WITHHELD`.
+### LEG-011 — release-readiness / qualification consolidation
+Release-readiness found a count-authority defect: provisional geometry-only orphan recovery could cross **known different pipe traversals** when a trusted pipe-wide axis existed, weakening the original PS-12877 return/revisit protection.
 
-This removes the prior behavior where `REVIEW` could populate `TYPICAL STRUCTURE (PS NO.)`.
+Count authority now applies a traversal safety guard:
+```text
+ORPHAN_RECOVERED_GEOMETRY + DIFFERENT_TRAVERSAL
+    -> ORPHAN_UNRESOLVED
+       DIFFERENT_TRAVERSAL_GEOMETRY_RECOVERY_WITHHELD
+```
 
-`SupportReportTypicalityRowAudit.v1` preserves structural, arrangement-resolved structural, relationship topology, axis typicality, final consensus/result and publication independently.
+Explicit assembly recovery remains permitted across traversal separation because explicit support-member topology outranks geometry.
 
-Column 23 distinguishes all-channel agreement, limited evidence, relationship conflict, axis conflict, multi-channel conflict, and incomplete channel evidence. A retained review candidate is explicitly described as withheld.
+Added:
+- `ORPHAN_CROSS_TRAVERSAL_GEOMETRY_WITHHELD` diagnostic;
+- `orphanCrossTraversalGeometryWithheldCount` summary;
+- PS-12877-style >=3-point synthetic return/revisit control;
+- nested engine -> count cache token `20260915-support-primary-traversal-safety-1`.
 
-Trace/debug contracts intentionally advance to `SupportReportTraceCsv.v4` and `SupportReportDebugExport.v4`; the operational Owner report CSV/XLSX columns remain unchanged.
+Technical disposition after the readiness sweep: **HOLD_DRAFT**.
 
 ## Protected benchmark/oracle ledger
 
 | Family / control | Expected | Disposition |
 |---|---:|---|
-| PS-11167 | 6 | synthetic topology/orphan controls committed; real relationship input NOT_RUN |
-| PS-11236 | 4 | synthetic explicit-unobserved control committed; real relationship input NOT_RUN |
-| PS-12060 | 1 | first-pass grouper unchanged; real suite NOT_RUN |
-| PS-12877 | 4 | return/revisit protection unchanged; real suite NOT_RUN |
-| PS-12860 | 6 | first-pass grouper unchanged; real suite NOT_RUN |
-| PS-12120 | 14 | first-pass grouper unchanged; real suite NOT_RUN |
-| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; repository execution NOT_RUN |
+| PS-11167 | 6 | synthetic explicit-topology control committed; real relationship input NOT_RUN |
+| PS-11236 | 4 | synthetic explicit-unobserved + DATUM control committed; real relationship input NOT_RUN |
+| PS-12060 | 1 | existing real 1885 first-pass benchmark; exact final-path execution NOT_RUN |
+| PS-12877 | 4 | existing real 1885 first-pass benchmark + new cross-traversal orphan guard; exact final-path execution NOT_RUN |
+| PS-12860 | 6 | existing real 1885 first-pass benchmark; exact final-path execution NOT_RUN |
+| PS-12120 | 14 | existing real 1885 first-pass benchmark; exact final-path execution NOT_RUN |
+| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; exact execution NOT_RUN |
 
-## Focused controls
+## Contract / authority audit
 
-Typicality/reference/publication controls include:
-- `tests/support-report-relationship-typicality.test.mjs`;
-- `tests/support-report-axis-typicality.test.mjs`;
-- `tests/support-report-axis-consensus.test.mjs`;
-- `tests/support-report-reference-relationship-integration.test.mjs`;
-- `tests/support-report-typicality-publication.test.mjs`;
-- updated `tests/support-report-trace-export.test.mjs`.
-
-LEG-010 A-J controls cover all-three agreement, unavailable secondary channels, relationship/axis/multi-channel conflicts, structural review/ambiguity/no-match, secondary-only non-promotion, Column 23 wording, row audit, and Trace/Debug v4 publication evidence.
-
-## Validation truth
-
-PASS by source/material review through LEG-010. Matcher independence, #1216 authority, fail-closed secondary evidence, no raw cross-XML axis-vector comparison, and final-TYPICAL-only Column 22 publication are preserved.
+PASS by source/material review through LEG-011:
+- current `main` is unchanged; feature branch has no base divergence;
+- #1216 Support/Steel producer authority is untouched;
+- first-pass bore-axis grouping constants/traversal decisions are unchanged;
+- DATUM/reference nodes are non-countable;
+- partial/conflicting explicit evidence cannot reduce below legacy geometry evidence;
+- provisional geometry cannot override known traversal separation for final count;
+- explicit topology remains the permitted stronger override;
+- structural, relationship and axis matchers remain separately auditable;
+- secondary channels cannot promote structural rejection/ambiguity;
+- Column 22 publishes only final `TYPICAL`;
+- `support-report-contract.js`, `support-report-export.js`, and `support-report-xlsx.js` are not changed by PR #1223, so Owner operational report column identity/order is preserved;
+- Trace/Debug v4 is diagnostic-only versioning;
+- current/reference relationship scopes remain independent;
+- no unresolved PR review threads at LEG-011 material review.
 
 PR COMMENT reviews:
 - LEG-007 `5212200167`;
 - LEG-008 `5212752129`;
 - LEG-009 `5212927412`;
-- LEG-010 `5213502126`.
+- LEG-010 `5213502126`;
+- LEG-011 `5213748178`.
 
-NOT_RUN:
-- Node tests under an executing GitHub runner;
-- browser/deployed qualification;
-- ZIP benchmark execution;
-- real Owner two-sided relationship and three-channel qualification;
-- real PS-11167/PS-11236 relationship qualification.
+No approval/requested-changes review has been submitted.
 
-Actions at LEG-010 material head:
-- qualification run `35000814103`: focused-node/browser jobs `steps=null`;
-- ZIP run `35000814152`: benchmark job `steps=null`.
+## Validation truth
 
-These are infrastructure/non-execution results, not product failures.
+Material head: `c65b58f17e2e455c9a507137c5ef945c13c58c53`.
 
-## Authority / safety invariants
+Actions:
+- qualification run `35003063812`:
+  - focused-node `104495939947`: `steps=null`;
+  - browser `104495940313`: `steps=null`;
+- ZIP benchmark run `35003063942`:
+  - benchmark `104495940581`: `steps=null`.
 
-- #1216 remains canonical for Support/Steel production relationships.
-- explicit support-member topology outranks geometric recovery.
-- DATUM/reference nodes never inflate count.
-- normal bore-axis grouping tolerance is not globally widened.
-- explicit distinct assembly IDs cannot be joined by orphan recovery.
-- current and reference relationship scopes are independent.
-- structural, relationship and axis matchers remain separately auditable.
-- unavailable evidence never fabricates mismatch.
-- secondary matchers cannot promote structural rejection/ambiguity.
-- Column 22 publishes only final `TYPICAL`.
-- merge remains Owner-only.
+Therefore focused Node, browser and ZIP execution remain **NOT_RUN**. These workflow failures are infrastructure/non-execution results, not product failures.
 
-## Current limitations
+Local public checkout is also unavailable in the execution environment due GitHub DNS failure, so no independent Node/ZIP result exists.
 
-1. Real Owner Clash-within-Supports XML remains unpinned.
-2. Repository/browser execution remains blocked by Actions jobs failing before steps.
-3. Axis V1 uses branch-global traversal axes; strongly bent local-axis refinement remains benchmark-driven.
-4. Axis thresholds remain provisional/auditable rather than normal-UI editable.
+Real Owner 1835 Clash-within-Supports XML remains unpinned, therefore real PS-11167/PS-11236 relationship qualification is NOT_RUN.
 
-## Recommended next bounded work
+## Current release blockers
 
-Prework **release-readiness / qualification consolidation for PR #1223** rather than another matcher:
-- re-ground current main and PR diff;
-- sweep protected count oracles and 11168->14168 positive control;
-- verify Owner report CSV/XLSX contract stays stable while Trace/Debug intentionally remain v4;
-- static invariant and browser/UI contract sweep;
-- re-run Actions if infrastructure begins executing steps;
-- decide whether PR #1223 may leave draft state.
+1. **Hot-browser cache propagation:** `support-report-engine.js` now references the traversal-safe count token, but `support-report-addon.js` still imports the engine using the prior engine query URL. A fresh load sees current source; an already-open module graph can retain the pre-guard engine/count module. Bootstrap -> addon -> engine cache routing must be advanced.
+2. **No executing qualification:** current-head Node/browser/ZIP Actions execute zero steps.
+3. **Real relationship benchmark unavailable:** 1835 Clash-within-Supports input is not pinned.
+
+## Current disposition
+
+Source/material architecture after the traversal fix: **PASS WITH QUALIFICATION BLOCKERS**.  
+Leave-draft / release disposition: **HOLD_DRAFT**.
+
+PR #1223 must remain draft. This is not merge authorization.
 
 ## EXACT_NEXT_ACTION
 
-Stop at `EP-SUPPORT-PRIMARY-1222-0019`. On fresh Owner progression, create a new prework endpoint for release-readiness/qualification consolidation. Do not mark ready or merge without explicit Owner authorization.
+On fresh Owner progression:
+1. safely advance bootstrap -> addon -> engine browser cache routing for traversal-safety v1;
+2. obtain an executing qualification path and run focused Node + browser + real 1885 ZIP controls on the exact resulting head;
+3. when available, pin/run real 1835 relationship XML for PS-11167=6 and PS-11236=4;
+4. repeat release-readiness disposition;
+5. mark-ready and merge remain separate Owner-authorized transitions.
