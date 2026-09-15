@@ -2,7 +2,8 @@ import { stripLeadingSlash } from '../ps-family-clash-audit/ps-family-token-util
 import { deriveSupportReportNominalSizeMm } from './support-report-field-normalization.js?v=20260910-support-report-field-provenance-14';
 
 export const SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM = 50;
-export const SUPPORT_REPORT_MULTI_LOCATION_REMARK = 'Pipe supported at multiple locations';
+export const SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK = 'Multiple primary support';
+export const SUPPORT_REPORT_MULTI_LOCATION_REMARK = SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK;
 export const SUPPORT_REPORT_AXIAL_BORE_FACTOR = 4;
 export const SUPPORT_REPORT_LATERAL_BORE_FACTOR = 0.5;
 export const SUPPORT_REPORT_LATERAL_ALLOWANCE_MM = 25;
