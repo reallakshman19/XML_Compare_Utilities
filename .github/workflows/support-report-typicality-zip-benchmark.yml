@@ -11,6 +11,8 @@ on:
       - 'tests/support-report-typicality-ambiguity-diagnostic.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
+      - 'tabs/support-steel-relationship-builder/support-primary-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js'
   workflow_dispatch:
 
 permissions:
