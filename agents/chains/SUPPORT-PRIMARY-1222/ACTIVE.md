@@ -24,7 +24,7 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 MERGEABILITY: TRUE — PR #1223 draft/open/mergeable at LEG-015 closeout
-REVIEWS: COMMENT reviews through LEG-014; LEG-015 validation recorded on issue; no approval/change-request review
+REVIEWS: COMMENT reviews through LEG-015; no approval/change-request review
 UNRESOLVED_REVIEW_THREADS: NONE at LEG-015 closeout
 REQUIRED_CHECKS: governed real 1885 ZIP; browser qualification; real 1835 relationship when authoritative input exists
 
