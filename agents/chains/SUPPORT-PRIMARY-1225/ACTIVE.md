@@ -2,8 +2,8 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1225
 MISSION: Close Primary Support Assembly release hardening and governed qualification without reopening protected algorithms absent a concrete failing case.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0002
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0003
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0003.md
 MATERIAL_HISTORY_ROOT_BASE: 759612b4e355a585aed7d64b566f199340429bdf
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
 PR: 1223
@@ -19,7 +19,7 @@ WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: MERGEABLE at observation
+MERGEABILITY: MERGEABLE at latest observation
 REVIEW_COUNT: COMMENT-only history; no approval relied upon
 UNRESOLVED_REVIEW_THREADS: 0 at bootstrap observation
 REQUIRED_CHECKS_STATUS: NOT_RUN
@@ -44,12 +44,12 @@ ROADMAP_MUTATION_AUTHORITY: NONE
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1225-RELEASE-HARDENING
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1225-0001
 QUESTION_SET_STATUS: CURRENT
-QUESTION_PACK_ACTION: REFRESHED
-QUESTION_DISPLAY: SHOW
+QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
 OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: RC identity/source state verified; governed execution not yet run
+HANDOVER_VALIDATION_EVIDENCE: focused-node retry on RC_SHA run 35074828791 job 104777649437 had steps=[]; no log blob; zero artifacts; no Checkout/test execution
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_READY: FALSE
@@ -65,11 +65,11 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1225-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0002
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0003
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5696690531
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP_0003_PUBLICATION
+ISSUE_HANDOVER_SYNC_STATUS: STALE_UNTIL_EP_0003_PUBLICATION
 
 PROGRAM_ID: SUPPORT-PRIMARY-1222
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
@@ -83,9 +83,9 @@ INHERITED_PROGRAM_BASIS_REVISION: #1222 current chain state at RC_SHA
 PR_STATUS: OPEN_DRAFT
 PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
 MAIN_HEAD_OBSERVED: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-ORIGINAL_TASK_STATUS: TASK-001 RC freeze COMPLETE; TASK-002..TASK-011 remain OPEN/BLOCKED as materialized in CURRENT.md
+ORIGINAL_TASK_STATUS: RC freeze COMPLETE; focused Node attempted but NOT_RUN — infrastructure; remaining gates OPEN/BLOCKED as materialized in CURRENT.md
 INPUT_STATUS: real 1884/1885 available; trusted executing environment unresolved; real 1835 relationship XML absent
-BENCHMARK_STATUS: governed #1225 Node/ZIP/browser/1835 execution NOT_RUN
-CURRENT_BLOCKER: no trusted governed execution receipt yet; separate authoritative real 1835 relationship XML absent
-LEG_DIAGNOSIS: control plane is synchronized and RC is frozen; source architecture remains no-patch absent a concrete failing case
-EXACT_NEXT_ACTION: execute the hardened focused Node qualification against exactly 759612b4e355a585aed7d64b566f199340429bdf. A run that does not reach Checkout/test is NOT_RUN — infrastructure. Do not mutate product algorithms unless actual execution isolates a reproducible first wrong production boundary.
+BENCHMARK_STATUS: focused Node NOT_RUN — infrastructure; ZIP/browser/1835 NOT_RUN
+CURRENT_BLOCKER: hosted runner still completes before repository execution; separate authoritative real 1835 relationship XML absent
+LEG_DIAGNOSIS: no product test executed and no product defect was demonstrated; do not reopen algorithms for infrastructure non-execution
+EXACT_NEXT_ACTION: attempt the real repository 1884/1885 ZIP qualification against exactly RC_SHA 759612b4e355a585aed7d64b566f199340429bdf. Preserve NOT_RUN if Checkout/benchmark execution does not occur; do not substitute synthetic/reconstructed benchmark data.
