@@ -144,7 +144,7 @@ test('informed relationship contradiction downgrades structural candidate to rev
   assert.equal(comparison.matches[0].reasonCode, 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT');
   assert.equal(comparison.matches[0].typicalityConsensus.result, 'CONFLICT');
   assert.equal(projectionTest.reviewLabel(comparison.matches[0]),
-    'REVIEW — Structural and relationship-topology comparisons disagree.');
+    'REVIEW — Candidate PS-14168 withheld: structural and relationship-topology comparisons disagree.');
 });
 
 test('relationship-only candidate never promotes a structural rejection in conservative integration', () => {
