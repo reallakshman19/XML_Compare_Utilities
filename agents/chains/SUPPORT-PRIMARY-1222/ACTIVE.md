@@ -24,7 +24,7 @@ WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 MERGEABILITY: TRUE — PR #1223 draft/open/mergeable at LEG-012 closeout
-REVIEWS: COMMENT reviews through LEG-011; LEG-012 closeout review to be recorded; no approval/change-request review
+REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009), 5213502126 (LEG-010), 5213748178 (LEG-011), 5217444302 (LEG-012); no approval/change-request review
 UNRESOLVED_REVIEW_THREADS: NONE at LEG-012 closeout
 REQUIRED_CHECKS: focused Node/browser/ZIP reruns still NOT_RUN because all rerun jobs return `steps=null`
 
