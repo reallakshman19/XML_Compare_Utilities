@@ -36,9 +36,9 @@ ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0022
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_LEG_012_PREWORK_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: STALE
-RELATED_TYPICALITY_STATUS_COMMENT_ID: 5685191925
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5690418888
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5690420195
 
 OWNER_PROGRESSION_COMMAND: proceed next — LEG-012 traversal-safety cache qualification
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
@@ -58,4 +58,4 @@ NEXT_MATERIAL_LEG: LEG-012
 
 CURRENT_BLOCKER: HOLD_DRAFT entering LEG-012 — addon -> engine hot-cache URL not advanced; executing Actions path unproven; real Owner 1835 relationship XML unpinned.
 LEG_DIAGNOSIS: LEG-012 is cache-routing + qualification only. No matcher/count/orphan semantic change is authorized.
-EXACT_NEXT_ACTION: Synchronize EP-0022 to Issue control plane, safely propagate traversal-safety cache tokens if connector capability permits non-destructive editing, rerun exact-head qualification, and close READY_FOR_REVIEW or HOLD_DRAFT. Do not mark ready or merge.
+EXACT_NEXT_ACTION: Safely propagate traversal-safety cache tokens if connector capability permits non-destructive editing, rerun exact-head qualification, and close READY_FOR_REVIEW or HOLD_DRAFT. Do not mark ready or merge.
