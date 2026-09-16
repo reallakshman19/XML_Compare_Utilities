@@ -6,10 +6,10 @@ CHAIN: SUPPORT-PRIMARY-1222
 BRANCH: feature/support-primary-assembly-graph  
 PR: 1223  
 BASE_MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581  
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0025  
-LATEST_MATERIAL_LEG: LEG-013  
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0027  
+LATEST_MATERIAL_LEG: LEG-014  
 LATEST_PRODUCT_MATERIAL_HEAD: efecd8f7cf90e4d5b2dd9d264064f37c3cf50140  
-TECHNICAL_DISPOSITION: HOLD_DRAFT_EXTERNAL_QUALIFICATION  
+TECHNICAL_DISPOSITION: HOLD_DRAFT_PARTIAL_QUALIFICATION  
 MERGE_AUTHORITY: OWNER_ONLY  
 MERGE_AUTHORIZED: FALSE
 
@@ -68,37 +68,41 @@ Explicit assembly evidence remains the stronger permitted override. A >=3-point 
 No product mutation. Actions reruns still received no runner/steps. The large addon cache change was deferred rather than blindly reconstructed.
 
 ### LEG-013 — robust cache verification + blocker classification
-The cache blocker was removed using a proof-gated temporary branch instead of an unverified production replacement.
+The cache blocker was removed using a proof-gated temporary branch. GitHub compare proved the large-addon verification commit changed exactly one file with 1 addition / 1 deletion before promotion. Bootstrap -> addon -> engine -> counting now shares traversal-safety token `20260915-support-primary-traversal-safety-1`; a regression locks the route. No matcher/count/orphan/publication semantics changed.
 
-- exact addon source reconstructed from bounded reads all reporting blob `c356f0081e4e7157b5b1bd8a59b77e10771976dc`;
-- temporary branch `verify/leg013-cache-token` created from clean feature head;
-- addon change only adds `count=20260915-support-primary-traversal-safety-1` to the engine import;
-- verification commit `86224f50380e22b6eb5f53a4e7da449f2f855fef`;
-- GitHub compare proved exactly one changed file, 1 addition / 1 deletion;
-- feature branch fast-forwarded to that verified commit;
-- bootstrap now adds `traversalSafety=20260915-support-primary-traversal-safety-1` to the addon import;
-- engine already imports counting with the same traversal-safety token;
-- `tests/support-primary-release-hardening.test.mjs` asserts the complete bootstrap -> addon -> engine -> counting token route.
+### LEG-014 — independent executable qualification
+No product mutation. A disposable Node 22 workspace was assembled from authenticated reads of the PR-head production modules. The final aggregate qualification executed **27 tests / 27 pass / 0 fail**.
 
-No matcher, count-policy, orphan-eligibility, or Column 22 publication semantics changed in LEG-013.
+Executed high-risk seams:
+- Primary Support Assembly graph/reconciliation/count authority;
+- PS-11167 explicit `.2/.11` synthetic 7 -> 6;
+- PS-11236 synthetic unobserved `.4/.5 + DATUM` -> 4;
+- ambiguity floor and unsupported-schema fail closed;
+- actual orphan resolver default 1× axial / 2× lateral, same Family/PIPE/Bore gates, ambiguity and reciprocal uniqueness;
+- >=3-point branch override, two-point rejection, and final cross-traversal geometry withholding;
+- explicit assembly override across traversal;
+- RELATIONSHIP_TOPOLOGY_V1 MATCH/NO_MATCH/REVIEW/UNAVAILABLE and unique-selection rules;
+- AXIS_TYPICALITY_V1 intrinsic geometry, rotation/reflection invariance and unassessed-candidate safety;
+- TypicalityConsensusV1 all-channel agreement, relationship/axis conflicts, and secondary-channel non-promotion;
+- final-TYPICAL-only Column 22 publication and Column 23 conflict wording.
 
-Three temporary control-plane scratch files were accidentally created and immediately deleted while selecting the branch-creation tool. They produced no product-file delta and are recorded transparently in `LEG-013.md`. The verification branch remains because the connector does not expose branch-ref deletion.
+Qualification-only source mirror was tied to authenticated repository blob identities and was not committed to product source. One initial disposable reconciliation mirror had a transcription syntax error and was corrected against the repository before qualification; it was not a product failure.
 
 ## Protected benchmark/oracle ledger
 
-| Family / control | Expected | Disposition |
+| Family / control | Expected | Current evidence |
 |---|---:|---|
-| PS-11167 | 6 | synthetic explicit-topology controls committed; real relationship source absent |
-| PS-11236 | 4 | synthetic explicit-unobserved + DATUM controls committed; real relationship source absent |
-| PS-12060 | 1 | existing real 1885 first-pass benchmark; exact execution NOT_RUN |
-| PS-12877 | 4 | existing real 1885 benchmark + cross-traversal authority guard; exact execution NOT_RUN |
-| PS-12860 | 6 | existing real 1885 first-pass benchmark; exact execution NOT_RUN |
-| PS-12120 | 14 | existing real 1885 first-pass benchmark; exact execution NOT_RUN |
-| PS-11168 -> PS-14168 | positive structural typicality | structural matcher protected; exact execution NOT_RUN |
+| PS-11167 | 6 | executable synthetic explicit-topology control PASS; real relationship source absent |
+| PS-11236 | 4 | executable synthetic explicit-unobserved + DATUM control PASS; real relationship source absent |
+| PS-12060 | 1 | independent geometry-count preservation control PASS; governed real 1885 ZIP NOT_RUN |
+| PS-12877 | 4 | independent geometry-count + actual traversal-safety controls PASS; governed real 1885 ZIP NOT_RUN |
+| PS-12860 | 6 | governed real 1885 ZIP NOT_RUN |
+| PS-12120 | 14 | existing XML/ZIP repository tests; governed real 1885 ZIP exact-head run NOT_RUN |
+| PS-11168 -> PS-14168 | positive structural typicality | matcher/consensus decision channels executable PASS; governed full structural/browser path NOT_RUN |
 
 ## Authority / contract audit
 
-PASS by source/material review:
+PASS by source/material review and executable logic qualification:
 - `main` unchanged; branch ahead-only/behind 0;
 - #1216 Support/Steel producer authority untouched;
 - first-pass bore-axis grouping constants/traversal decisions unchanged;
@@ -109,54 +113,72 @@ PASS by source/material review:
 - structural, relationship and axis matchers remain separately auditable;
 - secondary channels cannot promote structural rejection/ambiguity;
 - Column 22 publishes final `TYPICAL` only;
-- `support-report-contract.js`, `support-report-export.js`, `support-report-xlsx.js` remain outside PR #1223, preserving Owner operational report column identity/order;
-- Trace/Debug v4 is diagnostic-only versioning;
+- Owner operational report column identity/order remains unchanged; Trace/Debug v4 is diagnostic versioning;
 - current/reference relationship scopes remain independent;
-- cache route now explicitly reaches traversal-safe counting;
-- no unresolved PR review threads at LEG-013 closeout.
+- cache route reaches traversal-safe counting;
+- no unresolved PR review threads at LEG-014 closeout.
 
 ## Validation truth
 
-Latest product material head: `efecd8f7cf90e4d5b2dd9d264064f37c3cf50140`.
+### Independent executable qualification
 
-Automatically triggered exact-head Actions:
+Final aggregate:
+
+```text
+27 tests
+27 pass
+0 fail
+0 skipped
+```
+
+This is real execution evidence for the high-risk new logic seams. It is not represented as a substitute for the governed binary/browser gates listed below.
+
+### GitHub Actions infrastructure
+
+Exact product-head Actions still allocate no runner:
 - qualification run `35043776094`
-  - focused-node `104629105069`: completed/failure, `runner_id=0`, `steps=[]`;
-  - browser `104629105169`: completed/failure, `runner_id=0`, `steps=[]`;
+  - focused-node `104629105069`: `runner_id=0`, `steps=[]`;
+  - browser `104629105169`: `runner_id=0`, `steps=[]`;
 - ZIP run `35043776109`
-  - benchmark `104629105083`: completed/failure, `runner_id=0`, `steps=[]`.
+  - benchmark `104629105083`: `runner_id=0`, `steps=[]`.
 
-Job-log retrieval for focused-node returns BlobNotFound because no job log exists. Workflow source remains a conventional `ubuntu-latest` checkout/setup-node/test definition. Therefore repository execution is **NOT_RUN**, not product FAIL. This is classified as external runner-allocation/account/repository infrastructure; do not mutate correct product/test logic to chase it.
+These remain infrastructure **NOT_RUN**, not product FAIL.
 
-## Real 1835 relationship input search
+### Governed real `1885.zip`
 
-Repository/default-branch code search, branch search, commit search, benchmark-directory inspection and #1222 issue-comment inspection found no real 1835 Clash-within-Supports/support-to-support XML, no attachment link, and no `PS-11167.11` fixture.
+Repository binary exists at Git blob `5f27f2d6736693eb21dc2e7981fecad22952819a`, size 585,880 bytes. The isolated container cannot receive this private binary through available network/connector boundaries; no substitute ZIP was used. Exact-head real ZIP qualification therefore remains **NOT_RUN**.
 
-`benchmarks/1835.zip` remains the existing primary Support Report archive rather than the required support-to-support relationship source.
+### Browser
 
-Real PS-11167/PS-11236 relationship qualification therefore remains NOT_RUN due missing authoritative Owner input. Synthetic controls remain implementation regression evidence only.
+No served executable PR checkout is available and Actions browser runner does not allocate. Browser qualification remains **NOT_RUN**.
+
+### Real 1835 relationship input
+
+Repository/history/issue searches found no authoritative 1835 Clash-within-Supports/support-to-support XML and no `/PS-11167.11` real fixture. Real PS-11167/PS-11236 relationship qualification remains **NOT_RUN** due missing Owner input.
 
 ## Reviews / merge state
 
-PR COMMENT reviews include:
+PR COMMENT reviews:
 - LEG-007 `5212200167`;
 - LEG-008 `5212752129`;
 - LEG-009 `5212927412`;
 - LEG-010 `5213502126`;
 - LEG-011 `5213748178`;
 - LEG-012 `5217444302`;
-- LEG-013 `5217561622`.
+- LEG-013 `5217561622`;
+- LEG-014 `5218485242`.
 
 No approval/request-changes review; no unresolved threads. Merge authority remains Owner-only and merge authorized FALSE.
 
 ## Current disposition
 
-Known product/cache blockers: **NONE**.  
+Known product/source blockers: **NONE**.  
 Source/material architecture: **PASS**.  
-Executable qualification: **BLOCKED_EXTERNALLY / NOT_RUN**.  
-Real relationship benchmark: **BLOCKED_BY_MISSING_OWNER_INPUT**.  
-PR disposition: **HOLD_DRAFT** until qualification gates are satisfied.
+Independent executable high-risk logic: **PASS 27/27**.  
+Governed real ZIP/browser qualification: **NOT_RUN / environment blocked**.  
+Real relationship benchmark: **NOT_RUN / missing Owner input**.  
+PR disposition: **HOLD_DRAFT** pending remaining governed gates or fresh Owner direction.
 
 ## EXACT_NEXT_ACTION
 
-Do not reopen algorithms for the two external blockers. Obtain an executing trusted qualification path (restore GitHub-hosted runner allocation or use a trusted connected/local checkout) and run focused Node/browser/1885 ZIP controls on product head `efecd8f7...`. Separately pin the real 1835 support-to-support XML when available and run PS-11167=6 / PS-11236=4 qualification. Then repeat release-readiness. Mark-ready and merge remain separate Owner-authorized transitions.
+Do not reopen algorithms without a concrete failing case. Obtain an executing trusted runner/checkout that can receive the governed `1885.zip` and serve browser tests, then run the remaining real ZIP/browser gates. Separately pin the real 1835 support-to-support XML when available and execute PS-11167=6 / PS-11236=4 on real evidence. Then repeat release-readiness. Mark-ready and merge remain separate fresh Owner-authorized transitions.
