@@ -68,13 +68,13 @@ ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1225-0001
 ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0002
-ISSUE_ENDPOINT_COMMENT_ID: PENDING_PUBLICATION
+ISSUE_ENDPOINT_COMMENT_ID: 5696690531
 PREVIOUS_ISSUE_ENDPOINT_COMMENT_ID: 5696676510
-ISSUE_HANDOVER_SYNC_STATUS: STALE_UNTIL_ENDPOINT_PUBLICATION
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ### This leg completed
 - Created canonical #1225 Issue Basis/current-state/qualification/endpoint/Active artifacts on custody branch `agent/support-primary-1225`.
-- Published immutable Chain Root comment `5696671763`, mutable Active comment `5696674044`, and bootstrap endpoint comment `5696676510`.
+- Published Chain Root comment `5696671763`, mutable Active comment `5696674044`, bootstrap endpoint comment `5696676510`, and this endpoint comment `5696690531`.
 - Re-fetched PR #1223 after bootstrap. It remained draft/open/mergeable at `759612b4e355a585aed7d64b566f199340429bdf`.
 - Frozen release candidate: `RC_SHA=759612b4e355a585aed7d64b566f199340429bdf`.
 - No production/test/workflow files changed; custody branch is separate from PR #1223.
