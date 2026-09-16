@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0005
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0006
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,7 +10,7 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5692668553
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694253623
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ## Current state
@@ -30,23 +30,27 @@ OVERLAP: SAFE_SERIALIZED; predecessor #1111 terminal/merged, no open exact CII W
 POST_BASIS_DRIFT: NONE
 OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
 OWNER_BENCHMARK_AUTHORITY: 2026-09-16T05:38:48Z fix and run benchmark
-OWNER_CONTINUATION: 2026-09-16T06:06:19Z proceed; execution-surface recovery only
+OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
+OWNER_PROGRESSION_COMMAND: 2026-09-16T08:03:43Z proceed next
+QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
 BENCHMARK_DEFINITION_STATUS: READY_PB0003
-BENCHMARK_EXECUTION_STATUS: NOT_RUN_ENVIRONMENT
-GITHUB_ACTIONS_EXECUTION_STATUS: BLOCKED_PRE_RUNNER
-CURRENT_BLOCKER: run 35060526042 attempts 1-2 created jobs but never allocated a runner or steps; connected GitHub app cannot read/change Actions administration or billing; browser connector is disconnected; no matching existing Netlify project is connected
-EXACT_NEXT_ACTION: restore GitHub Actions runner/account provisioning or provide/connect a real repository checkout/build surface; rerun retained baseline + PB-0003 benchmark; capture actual output; then request independent Q1..Q5 verdict
+BENCHMARK_EXECUTION_STATUS: PARTIAL_LOCAL_EXECUTION_RETAINED_REAL_NOT_RUN
+GITHUB_ACTIONS_EXECUTION_STATUS: SKIPPED_BY_OWNER_STRATEGY_AFTER_PRE_RUNNER_FAILURES
+LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
+CURRENT_BLOCKER: focused exact-blob local execution is available, but the shell has no authenticated GitHub repository transport and the exact retained S1/S2/S3/T/TEXPECTED checkout is not hydrated locally; therefore the retained structural baseline and PB-0003 multisource benchmark still cannot be truthfully executed end-to-end
+EXACT_NEXT_ACTION: obtain an authenticated full checkout/build surface or otherwise hydrate the exact retained repository inputs byte-faithfully; run retained structural baseline + PB-0003 benchmark directly under Node without CI; capture actual stdout/assertion output; then obtain the independent Q1..Q5 verdict
 
 ## Original task / acceptance ledger
 
 TASK-R1-001 | independent S1/S2/S3 → untouched T | OPEN | issue #1224
 TASK-R1-002 | selected NodeName REPLACE + CREATE/DELETE | OPEN | issue #1224
-TASK-R1-003 | source-subgraph correspondence survives extra target-only branches | OPEN | issue #1224
+TASK-R1-003 | source-subgraph correspondence survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__CANDIDATE_PASS | local exact-blob evidence BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-004 | exact raw source name remains writable identity | OPEN | issue #1224
 TASK-R1-005 | TEXPECTED is partial lower-bound benchmark | OPEN | issue #1224 / PB-0003
-TASK-R1-006 | pure REPLACE exact equal-width preimage byte patch | OPEN | issue #1224
+TASK-R1-006 | pure REPLACE exact equal-width preimage byte patch | PROTECTED_PRIMITIVE_LOCAL_PASS | exact Writer1C local evidence BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-007 | CREATE/DELETE count-pointer-cardinality consistency | OPEN | issue #1224
-TASK-R1-008 | zero unrelated SIF/TEE/section drift | OPEN | issue #1224
+TASK-R1-008 | zero unrelated SIF/TEE/section drift | PARTIAL_LOCAL_WRITER1C_PASS | selected-span Writer1C test preserved unrelated suffix bytes
 TASK-R1-009 | FORTRAN fixed-field authority preserved | OPEN | issue #1224
 TASK-R1-010 | dynamic MISC/control tally from qualified postimage; ambiguity blocks | OPEN | issue #1224
 TASK-R1-011 | anti-gaming: no benchmark-specific production branches | OPEN | issue #1224
@@ -54,14 +58,14 @@ TASK-R1-012 | Owner-only merge | OPEN | issue #1224
 
 ## Input ledger
 
-INPUT-001 | S1.CII exact retained hash | AVAILABLE | PB-0003
-INPUT-002 | S2.CII exact retained hash | AVAILABLE | PB-0003
-INPUT-003 | S3.CII exact retained hash | AVAILABLE | PB-0003
-INPUT-004 | T.CII exact retained hash | AVAILABLE | PB-0003
+INPUT-001 | S1.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
+INPUT-002 | S2.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
+INPUT-003 | S3.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
+INPUT-004 | T.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
 INPUT-005 | canonical source-set hash | READY | PB-0003
 INPUT-006 | frozen parent BM-001 | READY | parent #1083
 INPUT-007 | frozen V11↔V14 converter source | AVAILABLE | predecessor authority
-INPUT-008 | TEXPECTED-PARTIALLLYDONE.CII | AVAILABLE / PARTIAL_OWNER_BENCHMARK | PB-0003
+INPUT-008 | TEXPECTED-PARTIALLLYDONE.CII | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL / PARTIAL_OWNER_BENCHMARK | PB-0003
 
 ## Benchmark / oracle ledger
 
@@ -71,18 +75,19 @@ BM-003 | source custody | READY
 BM-004 | original-T byte negative assurance | NOT_RUN_ENVIRONMENT
 BM-005 | transfer-scope revision regression | NOT_RUN_ENVIRONMENT
 BM-006 | structural bridge revision regression | NOT_RUN_ENVIRONMENT
-BM-007 | TEXPECTED partial census/lower-bound | DEFINITION_READY_NOT_EXECUTED
-BM-008 | injective source-subgraph correspondence | NOT_RUN_ENVIRONMENT
-BM-009 | unrelated-section/SIF exact byte invariance | NOT_RUN_ENVIRONMENT
+BM-007 | TEXPECTED partial census/lower-bound | DEFINITION_READY_RETAINED_REAL_NOT_EXECUTED
+BM-008 | injective source-subgraph correspondence | CURRENT_PRODUCT_FAIL_LOCAL_EXACT_BLOB__MINIMAL_CANDIDATE_PASS_LOCAL
+BM-009 | unrelated-section/SIF exact byte invariance | PARTIAL_LOCAL_WRITER1C_SELECTED_SPAN_PASS__RETAINED_REAL_NOT_RUN
 BENCHMARK_READINESS_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-READINESS-0001.md
 BENCHMARK_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-EXEC-0001.md
+LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
 BENCHMARK_WORKFLOW: .github/workflows/cii-w2-r1-benchmark.yml
 PB0003_TEST: tests/cii-workspace-multisource-pb0003-benchmark.test.js
 ACTIONS_RUN: 35060526042
 ACTIONS_ATTEMPT_1_JOB: 104679688785 | BLOCKED_PRE_RUNNER | steps=[]
 ACTIONS_ATTEMPT_2_JOB: 104680068971 | BLOCKED_PRE_RUNNER | steps=[]
 
-Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. Actual benchmark execution: NOT_RUN_ENVIRONMENT because both workflow attempts failed before runner allocation. The red workflow badge is not product/test FAIL evidence.
+Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. GitHub Actions is no longer relied upon per Owner strategy. Focused local execution against exact production blobs is now available for BM-008 and Writer1C; the retained S1/S2/S3/T/TEXPECTED benchmark remains NOT_RUN_ENVIRONMENT because the local runtime lacks an authenticated byte-faithful full checkout.
 
 ## Roadmap ledger
 
@@ -101,15 +106,16 @@ QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 CANDIDATE_ANSWER_STATUS: COMPLETE
-INDEPENDENT_VERDICT_STATUS: DEFERRED_UNTIL_EXECUTABLE_BENCHMARK_EVIDENCE
+INDEPENDENT_VERDICT_STATUS: DEFERRED_UNTIL_EXECUTABLE_RETAINED_BENCHMARK_EVIDENCE
 QUESTION_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH.md
 ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB-R1-QS-0001-answer.md
 
 ## Technical qualification findings
 
-- strict `sourceEdges.length !== targetEdges.length` and `TARGET_COMPONENT_NOT_FULLY_CLAIMED` are the first proven embedded-subgraph blockers;
-- existing assignment enumeration is already injective and should be reused;
-- Writer1C existing-row COPY is the exact-span REPLACE authority;
+- exact production propagation blob locally reproduces the strict `sourceEdges.length !== targetEdges.length` embedded-subgraph failure;
+- a non-committed three-line local candidate proves source-subset injection can pass while missing-required-edge and injective-competition negatives still block;
+- existing assignment enumeration remains injective and should be reused;
+- exact Writer1C existing-row NodeName planner/writer blobs pass local equal-width byte-preservation and fail-closed preimage/alias/overflow/non-ASCII checks; no low-level Writer1C patch is justified;
 - Writer2 relocation remains CREATE/DELETE authority;
 - multisource canonical selection currently filters to CREATE/DELETE and must be revised after qualification;
 - pure V14 REPLACE must bypass broad V14 projection;
@@ -120,8 +126,11 @@ ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB
 
 Question-set admission: PASS_OWNER_ADMISSION.
 Candidate Q1-Q5 answers: COMPLETE.
-Owner sequencing at 2026-09-16T05:30:55Z: BENCHMARK FIRST, THEN INDEPENDENT VERDICT.
+Owner sequencing: BENCHMARK FIRST, THEN INDEPENDENT VERDICT.
 PB-0003 benchmark definition: READY.
-GitHub Actions execution attempts: BLOCKED_PRE_RUNNER; no Node command or assertion executed.
-Independent qualification verdict: DEFERRED / NOT_RUN pending executable benchmark evidence.
-No production source or frozen CII input was modified during this continuation.
+Focused local exact-blob execution: COMPLETE for BM-008 current behavior + minimal candidate and Writer1C protected primitive.
+Retained-real multisource benchmark: NOT_RUN_ENVIRONMENT.
+Independent qualification verdict: DEFERRED / NOT_RUN pending retained-real executable benchmark evidence.
+Production source mutation: NONE.
+Frozen CII input/oracle mutation: NONE.
+Workflow/CI reliance for current evidence: NONE.
