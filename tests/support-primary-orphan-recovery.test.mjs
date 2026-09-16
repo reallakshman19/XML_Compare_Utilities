@@ -116,24 +116,31 @@ test('one orphan with two qualifying target identities stays ambiguous and unmer
   assert.ok(counted.diagnostics.some((row) => row.code === 'ORPHAN_AMBIGUOUS'));
 });
 
-test('different branch nodes may recover only while all three compatibility guards are enabled and passing', () => {
+test('raw cross-branch geometry recovery is diagnosable but final count authority withholds it', () => {
   const anchor = axisAnchorGroup('A', 'B4');
   const orphan = orphanGroup('B', 200, 'B5');
-  const enabled = applySupportPrimaryAssemblyCounts({
-    locationGroups: [anchor, orphan],
+  const locationGroups = [anchor, orphan];
+  const reconciliation = reconcileSupportPrimaryAssemblies({ locationGroups, relationshipBundle: null });
+  const rawRecovery = resolveSupportPrimaryOrphans({ locationGroups, reconciliation, config: {} });
+  assert.equal(rawRecovery.summary.recoveredGeometryCount, 2);
+  assert.equal(rawRecovery.resolutions.find((row) => row.groupId === 'B').branchRelationship, 'DIFFERENT_TRAVERSAL');
+
+  const counted = applySupportPrimaryAssemblyCounts({
+    locationGroups,
     relationshipBundle: null,
     orphanRecoveryConfig: {},
   });
-  assert.equal(enabled.familySummaries[0].totalSupportPointsOnSecondary, 1);
-  assert.equal(enabled.groups[1].primarySupportOrphanRecoveryBranchRelationship, 'DIFFERENT_TRAVERSAL');
+  assert.equal(counted.familySummaries[0].totalSupportPointsOnSecondary, 2);
+  assert.equal(counted.groups.find((row) => row.groupId === 'B').primarySupportOrphanRecoveryStatus, 'ORPHAN_UNRESOLVED');
+  assert.equal(counted.groups.find((row) => row.groupId === 'B').primarySupportOrphanRecoveryBasis, 'DIFFERENT_TRAVERSAL_GEOMETRY_RECOVERY_WITHHELD');
+  assert.equal(counted.orphanRecovery.summary.crossTraversalGeometryWithheldCount, 2);
 
-  const guardDisabled = applySupportPrimaryAssemblyCounts({
-    locationGroups: [anchor, orphan],
-    relationshipBundle: null,
-    orphanRecoveryConfig: { requireSameBore: false },
+  const guardedOff = resolveSupportPrimaryOrphans({
+    locationGroups,
+    reconciliation,
+    config: { requireSameBore: false },
   });
-  assert.equal(guardDisabled.familySummaries[0].totalSupportPointsOnSecondary, 2);
-  assert.equal(guardDisabled.orphanRecovery.summary.recoveredGeometryCount, 0);
+  assert.equal(guardedOff.summary.recoveredGeometryCount, 0);
 });
 
 test('geometry-only orphan can recover to one explicit assembly without changing explicit topology', () => {
@@ -166,8 +173,8 @@ test('geometry-only orphan can recover to one explicit assembly without changing
 
 test('distinct explicit assembly IDs are immutable and a geometry orphan between them is ambiguous', () => {
   const a = group('A', { x: 0, y: 0, z: 0 }, ['/PS-11167.1'], [
-    evidence({ x: -500, y: 0, z: 0 }, '/PS-11167.1'),
-    evidence({ x: 500, y: 0, z: 0 }, '/PS-11167.1'),
+    evidence({ x: -1000, y: 0, z: 0 }, '/PS-11167.1'),
+    evidence({ x: 1000, y: 0, z: 0 }, '/PS-11167.1'),
   ]);
   const b = orphanGroup('B', 320, 'B4', '/PS-11167.2');
   const orphan = orphanGroup('O', 160, 'B4', '/PS-11167.99');
