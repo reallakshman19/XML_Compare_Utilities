@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0006
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0007
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,14 +10,14 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694253623
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694643094
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_ACTIVE_SYNC
 
 ## Current state
 
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_BENCHMARK
+QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_RETAINED_BENCHMARK
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
@@ -31,15 +31,16 @@ POST_BASIS_DRIFT: NONE
 OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
 OWNER_BENCHMARK_AUTHORITY: 2026-09-16T05:38:48Z fix and run benchmark
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
-OWNER_PROGRESSION_COMMAND: 2026-09-16T08:03:43Z proceed next
+OWNER_PROGRESSION_COMMAND: 2026-09-16T08:32:11Z proceed next
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 BENCHMARK_DEFINITION_STATUS: READY_PB0003
 BENCHMARK_EXECUTION_STATUS: PARTIAL_LOCAL_EXECUTION_RETAINED_REAL_NOT_RUN
 GITHUB_ACTIONS_EXECUTION_STATUS: SKIPPED_BY_OWNER_STRATEGY_AFTER_PRE_RUNNER_FAILURES
 LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
-CURRENT_BLOCKER: focused exact-blob local execution is available, but the shell has no authenticated GitHub repository transport and the exact retained S1/S2/S3/T/TEXPECTED checkout is not hydrated locally; therefore the retained structural baseline and PB-0003 multisource benchmark still cannot be truthfully executed end-to-end
-EXACT_NEXT_ACTION: obtain an authenticated full checkout/build surface or otherwise hydrate the exact retained repository inputs byte-faithfully; run retained structural baseline + PB-0003 benchmark directly under Node without CI; capture actual stdout/assertion output; then obtain the independent Q1..Q5 verdict
+LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
+CURRENT_BLOCKER: local Node/Git works and the authenticated connector can read retained blobs byte-faithfully, but no supported connector-to-local filesystem bridge/repository archive is exposed; shell GitHub networking is unavailable, Opera is disconnected, and the predecessor pinned Pages artifact is no longer retained; exact S1/S2/S3/T/TEXPECTED checkout therefore remains unavailable locally
+EXACT_NEXT_ACTION: provide or mount a byte-faithful repository checkout containing the retained benchmark inputs; run retained structural baseline + PB-0003 benchmark directly under Node; capture actual output; then obtain the independent Q1..Q5 verdict
 
 ## Original task / acceptance ledger
 
@@ -47,10 +48,10 @@ TASK-R1-001 | independent S1/S2/S3 → untouched T | OPEN | issue #1224
 TASK-R1-002 | selected NodeName REPLACE + CREATE/DELETE | OPEN | issue #1224
 TASK-R1-003 | source-subgraph correspondence survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__CANDIDATE_PASS | local exact-blob evidence BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-004 | exact raw source name remains writable identity | OPEN | issue #1224
-TASK-R1-005 | TEXPECTED is partial lower-bound benchmark | OPEN | issue #1224 / PB-0003
+TASK-R1-005 | TEXPECTED is partial lower-bound benchmark | DEFINITION_READY_RETAINED_REAL_NOT_RUN | issue #1224 / PB-0003
 TASK-R1-006 | pure REPLACE exact equal-width preimage byte patch | PROTECTED_PRIMITIVE_LOCAL_PASS | exact Writer1C local evidence BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-007 | CREATE/DELETE count-pointer-cardinality consistency | OPEN | issue #1224
-TASK-R1-008 | zero unrelated SIF/TEE/section drift | PARTIAL_LOCAL_WRITER1C_PASS | selected-span Writer1C test preserved unrelated suffix bytes
+TASK-R1-008 | zero unrelated SIF/TEE/section drift | PARTIAL_LOCAL_WRITER1C_PASS | selected-span Writer1C test preserved unrelated bytes
 TASK-R1-009 | FORTRAN fixed-field authority preserved | OPEN | issue #1224
 TASK-R1-010 | dynamic MISC/control tally from qualified postimage; ambiguity blocks | OPEN | issue #1224
 TASK-R1-011 | anti-gaming: no benchmark-specific production branches | OPEN | issue #1224
@@ -58,14 +59,14 @@ TASK-R1-012 | Owner-only merge | OPEN | issue #1224
 
 ## Input ledger
 
-INPUT-001 | S1.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
-INPUT-002 | S2.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
-INPUT-003 | S3.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
-INPUT-004 | T.CII exact retained hash | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL | PB-0003
+INPUT-001 | S1.CII exact retained hash | CONNECTOR_EXACT_ACCESS__NOT_HYDRATED_LOCAL | PB-0003
+INPUT-002 | S2.CII exact retained hash | CONNECTOR_EXACT_ACCESS__NOT_HYDRATED_LOCAL | PB-0003
+INPUT-003 | S3.CII exact retained hash | CONNECTOR_EXACT_ACCESS__NOT_HYDRATED_LOCAL | PB-0003
+INPUT-004 | T.CII exact retained hash | CONNECTOR_EXACT_ACCESS__NOT_HYDRATED_LOCAL | PB-0003
 INPUT-005 | canonical source-set hash | READY | PB-0003
 INPUT-006 | frozen parent BM-001 | READY | parent #1083
 INPUT-007 | frozen V11↔V14 converter source | AVAILABLE | predecessor authority
-INPUT-008 | TEXPECTED-PARTIALLLYDONE.CII | AVAILABLE_IN_REPO_NOT_HYDRATED_LOCAL / PARTIAL_OWNER_BENCHMARK | PB-0003
+INPUT-008 | TEXPECTED-PARTIALLLYDONE.CII | CONNECTOR_EXACT_ACCESS__NOT_HYDRATED_LOCAL / PARTIAL_OWNER_BENCHMARK | PB-0003
 
 ## Benchmark / oracle ledger
 
@@ -81,13 +82,15 @@ BM-009 | unrelated-section/SIF exact byte invariance | PARTIAL_LOCAL_WRITER1C_SE
 BENCHMARK_READINESS_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-READINESS-0001.md
 BENCHMARK_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-EXEC-0001.md
 LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
+LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
 BENCHMARK_WORKFLOW: .github/workflows/cii-w2-r1-benchmark.yml
 PB0003_TEST: tests/cii-workspace-multisource-pb0003-benchmark.test.js
 ACTIONS_RUN: 35060526042
 ACTIONS_ATTEMPT_1_JOB: 104679688785 | BLOCKED_PRE_RUNNER | steps=[]
 ACTIONS_ATTEMPT_2_JOB: 104680068971 | BLOCKED_PRE_RUNNER | steps=[]
+HISTORICAL_PINNED_PAGES_RUN: 34011857737 | SUCCESS | ARTIFACT_LIST_NOW_EMPTY
 
-Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. GitHub Actions is no longer relied upon per Owner strategy. Focused local execution against exact production blobs is now available for BM-008 and Writer1C; the retained S1/S2/S3/T/TEXPECTED benchmark remains NOT_RUN_ENVIRONMENT because the local runtime lacks an authenticated byte-faithful full checkout.
+Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. GitHub Actions is not relied upon per Owner strategy. Focused local execution against exact production blobs is available for BM-008 and Writer1C. Connector-side exact retained-blob access is proven, but no supported byte-faithful bridge into the local filesystem exists in this session; retained S1/S2/S3/T/TEXPECTED benchmark remains NOT_RUN_ENVIRONMENT.
 
 ## Roadmap ledger
 
@@ -126,9 +129,11 @@ ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB
 
 Question-set admission: PASS_OWNER_ADMISSION.
 Candidate Q1-Q5 answers: COMPLETE.
+Latest Owner progression: `proceed next`; current set reused/hidden.
 Owner sequencing: BENCHMARK FIRST, THEN INDEPENDENT VERDICT.
 PB-0003 benchmark definition: READY.
 Focused local exact-blob execution: COMPLETE for BM-008 current behavior + minimal candidate and Writer1C protected primitive.
+Connector exact retained-blob read access: READY; local byte-faithful hydration: NOT_AVAILABLE_IN_CONNECTED_SURFACE.
 Retained-real multisource benchmark: NOT_RUN_ENVIRONMENT.
 Independent qualification verdict: DEFERRED / NOT_RUN pending retained-real executable benchmark evidence.
 Production source mutation: NONE.
