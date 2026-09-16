@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0009
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0010
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,14 +10,14 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5696473452
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5697328479
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_ACTIVE_HANDOVER_SYNC
 
 ## Current state
 
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_RETAINED_BENCHMARK
+QUALIFICATION_STATE: DEFERRED
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
@@ -26,12 +26,13 @@ PR: NONE
 BRANCH: revision/cii-writer2-nodename-byte-r1-1224
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 COMMON_PROTOCOL_STATUS: CURRENT
-OVERLAP: SAFE_SERIALIZED; 2026-09-16T11:36Z recheck found no open CII Writer2 PR; predecessor #1111 remains terminal/merged
+OVERLAP: SAFE_SERIALIZED; latest recheck found no open CII Writer2 PR; predecessor #1111 remains terminal/merged
 POST_BASIS_DRIFT: NONE
 OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
 OWNER_PROGRESSION_COMMAND: 2026-09-16T11:35:52Z proceed next
-PROGRESSION_RESULT: NO_AUTHORITY_TRANSITION__RETAINED_CHECKOUT_AND_INDEPENDENT_VERDICT_STILL_ABSENT
+OWNER_FIX_INSTRUCTION: 2026-09-16T12:17:09Z fix it
+PROGRESSION_RESULT: OWNER_FIX_REQUEST_ACCEPTED__PRODUCT_WRITE_BLOCKED__CANDIDATE_FIX_PACKAGED
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 BENCHMARK_DEFINITION_STATUS: READY_PB0003
@@ -41,15 +42,15 @@ LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM
 LOCAL_ORCHESTRATION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0002.md
 LOCAL_MIXED_ORCHESTRATION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0003.md
 LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
-LOCAL_SURFACE_RECHECK: 2026-09-16T11:36Z no conversation files, no retained CII files under /mnt/data, and no local git checkout
-CURRENT_BLOCKER: exact retained S1/S2/S3/T/TEXPECTED checkout is not mounted locally; retained structural baseline and full PB-0003 end-to-end benchmark remain unexecuted
-EXACT_NEXT_ACTION: mount/provide byte-faithful retained checkout; run retained structural baseline + PB-0003 benchmark directly under Node; capture custody hashes/stdout/stderr; obtain independent Q1-Q5 verdict; reconcile main/overlap; perform required backup/patch custody before any production mutation
+CANDIDATE_FIX_PACKAGE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/CANDIDATE-CII-W2-NB-R1-FIX-0001.md
+CURRENT_BLOCKER: exact retained S1/S2/S3/T/TEXPECTED checkout is not mounted locally; independent qualification is DEFERRED; mandatory local backup and .agent-worklogs cannot be performed, so production WRITE_ALLOWED is prohibited
+EXACT_NEXT_ACTION: mount/provide byte-faithful retained checkout; run retained structural baseline + PB-0003 benchmark directly under Node; capture custody hashes/stdout/stderr; obtain independent Q1-Q5 PASS; reconcile main/overlap; perform required backup/patch custody; apply candidate fix starting with propagation
 
 ## Acceptance ledger
 
 TASK-R1-001 | independent S1/S2/S3 -> untouched T | OPEN
-TASK-R1-002 | reviewed NodeName REPLACE + CREATE/DELETE | LOCAL_ORCHESTRATION_FAIL_REPRODUCED__MIXED_COORDINATOR_BOUNDARY_PROVEN
-TASK-R1-003 | source-subgraph survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__MINIMAL_CANDIDATE_PASS
+TASK-R1-002 | reviewed NodeName REPLACE + CREATE/DELETE | LOCAL_ORCHESTRATION_FAIL_REPRODUCED__CANDIDATE_FIX_PACKAGED
+TASK-R1-003 | source-subgraph survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__MINIMAL_CANDIDATE_PASS__PATCH_PACKAGED
 TASK-R1-004 | exact raw source name writable identity | OPEN
 TASK-R1-005 | TEXPECTED partial lower-bound | DEFINITION_READY_RETAINED_REAL_NOT_RUN
 TASK-R1-006 | pure REPLACE exact equal-width preimage patch | PROTECTED_PRIMITIVE_LOCAL_PASS
@@ -60,26 +61,15 @@ TASK-R1-010 | dynamic MISC/control tally ambiguity block | OPEN
 TASK-R1-011 | anti-gaming | OPEN
 TASK-R1-012 | Owner-only merge | OPEN
 
-## Focused findings
+## Candidate fix boundary
 
-- propagation strict frontier equality is a proven first-wrong boundary for embedded source subgraphs;
-- generic explicit transfer scope already carries non-KEEP COPY/REPLACE candidates and is not the REPLACE defect;
-- multisource canonical selection and source-set Writer2 readiness filter to Writer2 CREATE/DELETE, causing reviewed Writer1C REPLACE to be dropped/rejected;
-- multisource preview conflict detection currently ignores conflicting REPLACE proposals because it filters to CREATE/DELETE;
-- transfer policy already supports narrow reviewed overwrite opt-in with Writer1C authority; global overwrite broadening is unnecessary;
-- Writer2 routing deliberately blocks overwrite and remains CREATE/DELETE authority;
-- Writer1C/lower composite already provides immutable-preimage exact-span arbitration, overlap veto, stale-preimage checks, and byte-length preservation;
-- core exposes Writer1C and Writer2 as distinct apply paths; no mixed source-set coordinator currently exists;
-- V14 projector deliberately blocks nonblank NodeName replacement; pure V14 REPLACE must bypass broad projection rather than weakening that blocker.
+- `cii-workspace-propagation.js`: exact three-line source-subset injection correction already locally executed against the exact production blob.
+- `cii-workspace-multisource-preview.js`: physical conflict arbitration must include reviewed NodeName COPY/REPLACE as well as CREATE/DELETE.
+- `cii-workspace-multisource-bm001-correspondence.js`: keep Writer2 predicates unchanged; add separate mixed source-set NodeName predicates/physical keys/canonical selection.
+- `cii-workspace-multisource-scope.js`: use mixed canonical selection instead of Writer2-only selection.
+- new/adjacent mixed source-set coordinator/readiness: partition Writer1C REPLACE from Writer2 structural operations, apply Writer1C against TARGET0, re-intake/rebind, then Writer2 relocation, then independent byte oracle.
 
-## Future authorized implementation surface
-
-1. `cii-workspace-propagation.js`: source-subset injective frontier matching.
-2. multisource preview/arbitration: include reviewed Writer1C REPLACE in physical same-target conflict detection.
-3. multisource source-set canonicalization/readiness: represent both Writer1C REPLACE and Writer2 CREATE/DELETE with separate policy authority.
-4. high-level mixed NodeName coordinator: bind selection to immutable TARGET0; partition; apply Writer1C REPLACE; re-intake; rebind structural subplan; apply Writer2 relocation; independent final byte oracle.
-
-Protected NO-PATCH unless separately falsified: generic transfer scope; Writer1C low-level/composite; Writer2 NodeName routing/relocation; V14 nonblank-replacement projection blocker.
+Protected NO-PATCH unless separately falsified: generic transfer scope; Writer1C low-level/composite; Writer2 NodeName routing/relocation; V14 nonblank-replacement projection blocker; retained CII inputs/oracles; workflows.
 
 ## Qualification / validation truth
 
@@ -92,6 +82,7 @@ QUESTION_DISPLAY: HIDE
 CANDIDATE_ANSWER_STATUS: COMPLETE
 INDEPENDENT_VERDICT_STATUS: DEFERRED_UNTIL_EXECUTABLE_RETAINED_BENCHMARK_EVIDENCE
 Retained-real multisource benchmark: NOT_RUN_ENVIRONMENT
+Candidate fix package: NOT_APPLIED_PRODUCT
 Production source mutation: NONE
 Frozen CII input/oracle mutation: NONE
-Workflow/CI reliance for current evidence: NONE
+Workflow mutation: NONE
