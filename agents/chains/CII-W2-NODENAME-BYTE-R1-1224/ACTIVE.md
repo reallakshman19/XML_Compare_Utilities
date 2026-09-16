@@ -1,18 +1,18 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-W2-NODENAME-BYTE-R1-1224
 MISSION: Revise CII Writer2 multisource NodeName workflow for injective source-subgraph correspondence, reviewed REPLACE+CREATE/DELETE transfer, and byte-preserving FORTRAN fixed-format output
-ACTIVE_ENDPOINT: EP-CII-W2-NB-R1-0006
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/endpoints/EP-CII-W2-NB-R1-0006.md
+ACTIVE_ENDPOINT: EP-CII-W2-NB-R1-0007
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/endpoints/EP-CII-W2-NB-R1-0007.md
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 LATEST_MATERIAL_LEG: NONE
 LATEST_MATERIAL_LEG_FILE: NONE
 PR: NONE
 BRANCH: revision/cii-writer2-nodename-byte-r1-1224
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: LOCAL_EXECUTABLE_EVIDENCE_CAPTURED_RETAINED_BENCHMARK_PENDING
+STATE: LOCAL_RETAINED_TRANSPORT_BOUNDARY_EXHAUSTED
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_BENCHMARK
+QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_RETAINED_BENCHMARK
 WRITE_AUTHORITY: READ_ONLY
 WRITE_AUTHORITY_SCOPE: NO_PRODUCTION_MUTATION until retained-real executable benchmark evidence, independent qualification PASS, and post-basis reconciliation
 AUTO_STATE: NOT_APPLICABLE
@@ -45,11 +45,11 @@ ISSUE_BASIS_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/issue-basis/IB-CII-
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-CII-W2-NB-R1-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CII-W2-NB-R1-0006
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CII-W2-NB-R1-0007
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694253623
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694643094
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_ACTIVE_COMMENT_SYNC
 CUSTODY_EPOCH: 1
 COORDINATION_STATE: SAFE_SERIALIZED; predecessor #1111 terminal/merged; no open exact CII Writer2 production PR observed
 COMMON_PROTOCOL: engineering-pr-delivery-v2
@@ -62,8 +62,8 @@ ROADMAP_MUTATION_AUTHORITY: NONE
 OWNER_INSTRUCTION: 2026-09-16T05:30:55Z benchmark first, then independent qualification verdict
 OWNER_BENCHMARK_AUTHORITY: 2026-09-16T05:38:48Z fix and run benchmark
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
-OWNER_PROGRESSION_COMMAND: 2026-09-16T08:03:43Z proceed next
-MATERIAL_PROGRESSION_AUTHORITY: LOCAL_EXECUTION_EVIDENCE_AND_STATE_SYNC_ONLY; no production mutation
+OWNER_PROGRESSION_COMMAND: 2026-09-16T08:32:11Z proceed next
+MATERIAL_PROGRESSION_AUTHORITY: LOCAL_RETAINED_TRANSPORT_RECOVERY_AND_STATE_SYNC_ONLY; no production mutation
 QUALIFICATION_SCOPE_ID: QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH
 QUESTION_SET_ID: CII-W2-NB-R1-QS-0001
 QUESTION_SET_STATUS: CURRENT
@@ -82,15 +82,16 @@ BENCHMARK_EXECUTION_STATUS: PARTIAL_LOCAL_EXECUTION_RETAINED_REAL_NOT_RUN
 GITHUB_ACTIONS_EXECUTION_STATUS: SKIPPED_BY_OWNER_STRATEGY_AFTER_PRE_RUNNER_FAILURES
 BENCHMARK_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-EXEC-0001.md
 LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
+LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
 PB0003_BM004_009: BM008_CURRENT_PRODUCT_FAIL_LOCAL_EXACT_BLOB__MINIMAL_CANDIDATE_PASS_LOCAL; BM009_PARTIAL_LOCAL_WRITER1C_PASS; BM004_007_RETAINED_REAL_NOT_RUN
 HANDOVER_PROTOCOL_VERSION: 2
 HANDOVER_CONTENT_READY: TRUE
-HANDOVER_VALIDATION_STATUS: PASS_PROCESS_AND_FOCUSED_LOCAL_EXECUTION_ONLY
+HANDOVER_VALIDATION_STATUS: PASS_PROCESS_FOCUSED_LOCAL_EXECUTION_AND_TRANSPORT_DIAGNOSIS_ONLY
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
-INPUT_STATUS: EXACT_RETAINED_IDENTITIES_INHERITED_PB0003; full retained inputs not hydrated in local shell
-BENCHMARK_STATUS: PB-0003 definition ready; focused exact-blob local execution captured for propagation/Writer1C; retained structural baseline and retained S1/S2/S3/T/TEXPECTED PB-0003 test remain NOT_RUN_ENVIRONMENT
+INPUT_STATUS: EXACT_RETAINED_IDENTITIES_AVAILABLE_THROUGH_CONNECTOR; no supported byte-faithful connector-to-local hydration path in current session
+BENCHMARK_STATUS: PB-0003 definition ready; focused exact-blob local execution captured for propagation/Writer1C; exact connector retained-blob access verified; retained structural baseline and full PB-0003 retained-real test remain NOT_RUN_ENVIRONMENT
 POST_BASIS_DRIFT: NONE
-CURRENT_BLOCKER: local Node execution works and exact production modules can be hydrated through the connector, but the shell has no authenticated repository transport and the exact retained S1/S2/S3/T/TEXPECTED repository checkout is not hydrated byte-faithfully; retained-real end-to-end benchmark therefore remains unexecuted
-EXACT_NEXT_ACTION: obtain an authenticated full checkout/build surface or otherwise hydrate the exact retained repository inputs byte-faithfully; run retained structural baseline + tests/cii-workspace-multisource-pb0003-benchmark.test.js directly under Node without CI; capture stdout/assertion output; then obtain independent Q1..Q5 verdict
+CURRENT_BLOCKER: local Node/Git works and authenticated connector reads exact retained blobs, but no supported connector-to-local filesystem bridge/repository archive exists; shell GitHub networking is unavailable; Opera is disconnected; historical pinned Pages artifact has expired/empty artifact list; therefore exact retained checkout is not locally executable
+EXACT_NEXT_ACTION: provide or mount a byte-faithful local checkout containing exact retained inputs; run `node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` and `node tests/cii-workspace-multisource-pb0003-benchmark.test.js`; capture stdout/stderr and custody hashes; then obtain independent Q1..Q5 verdict
