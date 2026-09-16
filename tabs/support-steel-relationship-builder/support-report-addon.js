@@ -1,4 +1,4 @@
-import { buildSupportReportBundle } from './support-report-engine.js?v=20260915-support-primary-hardening-1&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&primary=20260915-support-primary-hardening-1';
+import { buildSupportReportBundle } from './support-report-engine.js?v=20260915-support-primary-hardening-1&trace=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19&pos=20260911-support-report-pos-trace-20&location=20260911-support-report-location-attribution-22&prev=20260911-prevname-semantic-22&datum=20260911-datum-metadata-23&primary=20260915-support-primary-hardening-1&count=20260915-support-primary-traversal-safety-1';
 import { supportReportToCsv } from './support-report-export.js?v=20260910-support-report-typicality-columns-1';
 import {
   supportReportDebugExportFileName,
