@@ -2,13 +2,13 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1222
 MISSION: Build hierarchical primary-support assembly evidence for Support Report counting and typicality.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0022
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0022.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0023
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0023.md
 PR: 1223
 BRANCH: feature/support-primary-assembly-graph
-HEAD: LEG-012 traversal-safety cache propagation + exact-head qualification in progress; use branch ref for exact live SHA
+HEAD: LEG-012 closed HOLD_DRAFT; use branch ref for exact live control-plane SHA
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: ACTIVE
+STATE: READY
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 WORK_ITEM_SOURCE: GITHUB_ISSUE
@@ -18,29 +18,29 @@ CUSTODY_EPOCH: 13
 COORDINATION_STATE: SAFE
 DEPENDENCIES: #1154; #1179; #1215; #1216; PR #1219
 
-ENGINEERING_STATE: IN_PROGRESS
+ENGINEERING_STATE: READY
 CUSTODY_STATE: HELD
 WRITE_AUTHORITY: WRITE_ALLOWED
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: TRUE — PR #1223 remains draft/open/mergeable entering LEG-012
-REVIEWS: COMMENT reviews 5212200167 (LEG-007), 5212752129 (LEG-008), 5212927412 (LEG-009), 5213502126 (LEG-010), 5213748178 (LEG-011); no approval/change-request review
-UNRESOLVED_REVIEW_THREADS: NONE at LEG-011 closeout; re-check required in LEG-012
-REQUIRED_CHECKS: exact-head Node/browser/ZIP execution must be classified from actual job steps; previous runs were NOT_RUN (`steps=null`)
+MERGEABILITY: TRUE — PR #1223 draft/open/mergeable at LEG-012 closeout
+REVIEWS: COMMENT reviews through LEG-011; LEG-012 closeout review to be recorded; no approval/change-request review
+UNRESOLVED_REVIEW_THREADS: NONE at LEG-012 closeout
+REQUIRED_CHECKS: focused Node/browser/ZIP reruns still NOT_RUN because all rerun jobs return `steps=null`
 
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1222-0001
 ISSUE_BASIS_STATUS: CURRENT
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0022
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0023
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5690418888
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5690449285
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
-RELATED_TYPICALITY_STATUS_COMMENT_ID: 5690420195
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5690450632
 
-OWNER_PROGRESSION_COMMAND: proceed next — LEG-012 traversal-safety cache qualification
+OWNER_PROGRESSION_COMMAND: proceed next — completed LEG-012 cache qualification attempt
 QUALIFICATION_SCOPE_ID: QSCOPE-SUPPORT-PRIMARY-1222-ASSEMBLY-SEAM
 QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1222-0001
 QUESTION_SET_STATUS: CURRENT
@@ -48,14 +48,15 @@ QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 PREWORK_QUALIFICATION_READY: TRUE
+CHAIN_HANDOVER_READY: TRUE
 
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: LEG-011
+LATEST_MATERIAL_LEG: LEG-012
 LATEST_MATERIAL_HEAD: c65b58f17e2e455c9a507137c5ef945c13c58c53
-LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-011.md
+LATEST_MATERIAL_RECEIPT: agents/chains/SUPPORT-PRIMARY-1222/material-legs/LEG-012.md
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1222/endpoints/EP-SUPPORT-PRIMARY-1222-0022.md
-NEXT_MATERIAL_LEG: LEG-012
+NEXT_MATERIAL_LEG: UNALLOCATED
 
-CURRENT_BLOCKER: HOLD_DRAFT entering LEG-012 — addon -> engine hot-cache URL not advanced; executing Actions path unproven; real Owner 1835 relationship XML unpinned.
-LEG_DIAGNOSIS: LEG-012 is cache-routing + qualification only. No matcher/count/orphan semantic change is authorized.
-EXACT_NEXT_ACTION: Safely propagate traversal-safety cache tokens if connector capability permits non-destructive editing, rerun exact-head qualification, and close READY_FOR_REVIEW or HOLD_DRAFT. Do not mark ready or merge.
+CURRENT_BLOCKER: HOLD_DRAFT — surgical addon cache edit unavailable with current tools; exact-head rerun jobs still `steps=null`; real Owner 1835 relationship XML unpinned.
+LEG_DIAGNOSIS: LEG-012 made no product mutation. It verified tool/write limitations and retried qualification without execution.
+EXACT_NEXT_ACTION: On fresh Owner progression, only if a non-destructive surgical edit path is available, advance addon -> engine and bootstrap -> addon cache tokens, then rerun exact-head qualification. Otherwise preserve HOLD_DRAFT. Do not mark ready or merge without fresh explicit Owner authorization.
