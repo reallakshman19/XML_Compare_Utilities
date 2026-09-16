@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
+      - 'tabs/support-steel-relationship-builder/support-primary-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js'
       - 'tests/support-report-*.test.mjs'
+      - 'tests/support-primary-*.test.mjs'
       - 'tests/browser/support-report-typicality.spec.mjs'
       - 'tests/browser/support-steel-preview-staleness.spec.mjs'
       - 'playwright.support-steel.config.mjs'
@@ -33,6 +36,7 @@ jobs:
       - name: Run Support Report focused qualification
         run: >-
           node --test
+          tests/support-primary-*.test.mjs
           tests/support-report-location-benchmarks.test.mjs
           tests/support-report-location-attribution.test.mjs
           tests/support-report-prev-name-semantics.test.mjs
@@ -52,6 +56,12 @@ jobs:
           tests/support-report-typicality-ui.test.mjs
           tests/support-report-typicality-safety.test.mjs
           tests/support-report-typicality-negative.test.mjs
+          tests/support-report-axis-consensus.test.mjs
+          tests/support-report-axis-typicality.test.mjs
+          tests/support-report-reference-relationship-integration.test.mjs
+          tests/support-report-relationship-typicality.test.mjs
+          tests/support-report-typicality-publication.test.mjs
+          tests/support-report-zone-scope.test.mjs
 
   browser-qualification:
     runs-on: ubuntu-latest
