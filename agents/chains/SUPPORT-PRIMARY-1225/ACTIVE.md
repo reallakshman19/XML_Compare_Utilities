@@ -2,8 +2,8 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1225
 MISSION: Close Primary Support Assembly release hardening and governed qualification without reopening protected algorithms absent a concrete failing case.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0003
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0003.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0004
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0004.md
 MATERIAL_HISTORY_ROOT_BASE: 759612b4e355a585aed7d64b566f199340429bdf
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
 PR: 1223
@@ -49,7 +49,7 @@ QUESTION_DISPLAY: HIDE
 OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: focused-node retry on RC_SHA run 35074828791 job 104777649437 had steps=[]; no log blob; zero artifacts; no Checkout/test execution
+HANDOVER_VALIDATION_EVIDENCE: focused-node retry run 35074828791 job 104777649437 and ZIP retry run 35074828886 job 104782606659 both completed with steps=[]; no log blobs/artifacts; no repository execution
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_READY: FALSE
@@ -65,10 +65,10 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1225-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0003
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0004
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5696829095
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5697005283
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 PROGRAM_ID: SUPPORT-PRIMARY-1222
@@ -83,9 +83,9 @@ INHERITED_PROGRAM_BASIS_REVISION: #1222 current chain state at RC_SHA
 PR_STATUS: OPEN_DRAFT
 PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
 MAIN_HEAD_OBSERVED: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-ORIGINAL_TASK_STATUS: RC freeze COMPLETE; focused Node attempted but NOT_RUN — infrastructure; remaining gates OPEN/BLOCKED as materialized in CURRENT.md
-INPUT_STATUS: real 1884/1885 available; trusted executing environment unresolved; real 1835 relationship XML absent
-BENCHMARK_STATUS: focused Node NOT_RUN — infrastructure; ZIP/browser/1835 NOT_RUN
+ORIGINAL_TASK_STATUS: RC freeze COMPLETE; focused Node and real ZIP attempted but NOT_RUN — infrastructure; browser OPEN; real 1835 BLOCKED_INPUT
+INPUT_STATUS: real 1884/1885 inputs governed/available but benchmark execution did not occur; trusted executing environment unresolved; real 1835 relationship XML absent
+BENCHMARK_STATUS: focused Node NOT_RUN — infrastructure; real 1884/1885 NOT_RUN — infrastructure; browser/1835 NOT_RUN
 CURRENT_BLOCKER: hosted runner still completes before repository execution; separate authoritative real 1835 relationship XML absent
-LEG_DIAGNOSIS: no product test executed and no product defect was demonstrated; do not reopen algorithms for infrastructure non-execution
-EXACT_NEXT_ACTION: attempt the real repository 1884/1885 ZIP qualification against exactly RC_SHA 759612b4e355a585aed7d64b566f199340429bdf. Preserve NOT_RUN if Checkout/benchmark execution does not occur; do not substitute synthetic/reconstructed benchmark data.
+LEG_DIAGNOSIS: no product test/benchmark executed and no product defect was demonstrated; do not reopen algorithms for infrastructure non-execution
+EXACT_NEXT_ACTION: attempt the Playwright/browser qualification against exactly RC_SHA 759612b4e355a585aed7d64b566f199340429bdf, including current/reference relationship scoping, popup config isolation, rebuild invalidation, Column 22/23 publication and Debug/Trace evidence. Preserve NOT_RUN if Checkout/browser tests do not execute.
