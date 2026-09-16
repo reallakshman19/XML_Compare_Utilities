@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0007
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0008
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,8 +10,8 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5694643094
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5695668946
+ISSUE_HANDOVER_SYNC_STATUS: PENDING_ACTIVE_COMMENT_REFRESH
 
 ## Current state
 
@@ -32,25 +32,27 @@ OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
 OWNER_BENCHMARK_AUTHORITY: 2026-09-16T05:38:48Z fix and run benchmark
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
 OWNER_PROGRESSION_COMMAND: 2026-09-16T09:11:33Z proceed next
-PROGRESSION_RESULT: NO_AUTHORITY_TRANSITION__BLOCKER_RECONFIRMED
+OWNER_CONTINUE_INSTRUCTION: 2026-09-16T09:58:41Z ok, proceed with next
+PROGRESSION_RESULT: NONCANONICAL_CONTINUE__READ_ONLY_EVIDENCE_ADVANCED
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 BENCHMARK_DEFINITION_STATUS: READY_PB0003
 BENCHMARK_EXECUTION_STATUS: PARTIAL_LOCAL_EXECUTION_RETAINED_REAL_NOT_RUN
 GITHUB_ACTIONS_EXECUTION_STATUS: SKIPPED_BY_OWNER_STRATEGY_AFTER_PRE_RUNNER_FAILURES
 LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
+LOCAL_ORCHESTRATION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0002.md
 LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
-CURRENT_BLOCKER: fresh 2026-09-16T09:12Z recheck found no mounted checkout or conversation files; local Node/Git works and the authenticated connector can read retained blobs byte-faithfully, but no supported connector-to-local filesystem bridge/repository archive is exposed; shell GitHub networking is unavailable, Opera is disconnected, and the predecessor pinned Pages artifact is no longer retained; exact S1/S2/S3/T/TEXPECTED checkout therefore remains unavailable locally
+CURRENT_BLOCKER: exact retained checkout still unavailable locally; focused local evidence now proves both propagation and REPLACE orchestration first-wrong boundaries, but retained structural baseline and full PB-0003 S1/S2/S3/T/TEXPECTED benchmark remain unexecuted
 EXACT_NEXT_ACTION: provide or mount a byte-faithful repository checkout containing the retained benchmark inputs; run retained structural baseline + PB-0003 benchmark directly under Node; capture actual output; then obtain the independent Q1..Q5 verdict
 
 ## Original task / acceptance ledger
 
 TASK-R1-001 | independent S1/S2/S3 → untouched T | OPEN | issue #1224
-TASK-R1-002 | selected NodeName REPLACE + CREATE/DELETE | OPEN | issue #1224
-TASK-R1-003 | source-subgraph correspondence survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__CANDIDATE_PASS | local exact-blob evidence BM-CII-W2-NB-R1-LOCAL-0001
+TASK-R1-002 | selected NodeName REPLACE + CREATE/DELETE | LOCAL_ORCHESTRATION_FAIL_REPRODUCED__PATCH_SURFACE_NARROWED | BM-CII-W2-NB-R1-LOCAL-0002
+TASK-R1-003 | source-subgraph correspondence survives extra target-only branches | LOCAL_PRODUCT_FAIL_REPRODUCED__CANDIDATE_PASS | BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-004 | exact raw source name remains writable identity | OPEN | issue #1224
 TASK-R1-005 | TEXPECTED is partial lower-bound benchmark | DEFINITION_READY_RETAINED_REAL_NOT_RUN | issue #1224 / PB-0003
-TASK-R1-006 | pure REPLACE exact equal-width preimage byte patch | PROTECTED_PRIMITIVE_LOCAL_PASS | exact Writer1C local evidence BM-CII-W2-NB-R1-LOCAL-0001
+TASK-R1-006 | pure REPLACE exact equal-width preimage byte patch | PROTECTED_PRIMITIVE_LOCAL_PASS | BM-CII-W2-NB-R1-LOCAL-0001
 TASK-R1-007 | CREATE/DELETE count-pointer-cardinality consistency | OPEN | issue #1224
 TASK-R1-008 | zero unrelated SIF/TEE/section drift | PARTIAL_LOCAL_WRITER1C_PASS | selected-span Writer1C test preserved unrelated bytes
 TASK-R1-009 | FORTRAN fixed-field authority preserved | OPEN | issue #1224
@@ -75,7 +77,7 @@ BM-001 | frozen Owner mapping | READY
 BM-002 | focused NodeName CREATE oracle | READY
 BM-003 | source custody | READY
 BM-004 | original-T byte negative assurance | NOT_RUN_ENVIRONMENT
-BM-005 | transfer-scope revision regression | NOT_RUN_ENVIRONMENT
+BM-005 | transfer-scope revision regression | CURRENT_REPLACE_ORCHESTRATION_FAIL_LOCAL_EXTRACTED_FUNCTIONS
 BM-006 | structural bridge revision regression | NOT_RUN_ENVIRONMENT
 BM-007 | TEXPECTED partial census/lower-bound | DEFINITION_READY_RETAINED_REAL_NOT_EXECUTED
 BM-008 | injective source-subgraph correspondence | CURRENT_PRODUCT_FAIL_LOCAL_EXACT_BLOB__MINIMAL_CANDIDATE_PASS_LOCAL
@@ -83,6 +85,7 @@ BM-009 | unrelated-section/SIF exact byte invariance | PARTIAL_LOCAL_WRITER1C_SE
 BENCHMARK_READINESS_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-READINESS-0001.md
 BENCHMARK_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-EXEC-0001.md
 LOCAL_EXECUTION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0001.md
+LOCAL_ORCHESTRATION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0002.md
 LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
 BENCHMARK_WORKFLOW: .github/workflows/cii-w2-r1-benchmark.yml
 PB0003_TEST: tests/cii-workspace-multisource-pb0003-benchmark.test.js
@@ -91,7 +94,7 @@ ACTIONS_ATTEMPT_1_JOB: 104679688785 | BLOCKED_PRE_RUNNER | steps=[]
 ACTIONS_ATTEMPT_2_JOB: 104680068971 | BLOCKED_PRE_RUNNER | steps=[]
 HISTORICAL_PINNED_PAGES_RUN: 34011857737 | SUCCESS | ARTIFACT_LIST_NOW_EMPTY
 
-Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. GitHub Actions is not relied upon per Owner strategy. Focused local execution against exact production blobs is available for BM-008 and Writer1C. Connector-side exact retained-blob access is proven, but no supported byte-faithful bridge into the local filesystem exists in this session; retained S1/S2/S3/T/TEXPECTED benchmark remains NOT_RUN_ENVIRONMENT.
+Retained benchmark harness inspection: PASS_READ_ONLY. PB-0003 benchmark definition: READY. GitHub Actions is not relied upon per Owner strategy. Focused local execution now covers the propagation BM-008 failure, protected Writer1C fixed-span behavior, Writer2-only cardinality selection, REPLACE conflict omission in multisource preview, and narrow transfer-policy overwrite opt-in. These focused tests are not promoted to the retained-real benchmark.
 
 ## Roadmap ledger
 
@@ -118,10 +121,11 @@ ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB
 
 - exact production propagation blob locally reproduces the strict `sourceEdges.length !== targetEdges.length` embedded-subgraph failure;
 - a non-committed three-line local candidate proves source-subset injection can pass while missing-required-edge and injective-competition negatives still block;
-- existing assignment enumeration remains injective and should be reused;
 - exact Writer1C existing-row NodeName planner/writer blobs pass local equal-width byte-preservation and fail-closed preimage/alias/overflow/non-ASCII checks; no low-level Writer1C patch is justified;
-- Writer2 relocation remains CREATE/DELETE authority;
-- multisource canonical selection currently filters to CREATE/DELETE and must be revised after qualification;
+- `ciiWriter2NodeNameCardinalityOperation()` and `ciiCanonicalWriter2MutationSelection()` intentionally admit Writer2 CREATE/DELETE only; reviewed Writer1C COPY/REPLACE is dropped from this canonical selection;
+- multisource preview `targetMutationConflicts()` currently filters to CREATE/DELETE, so conflicting same-target REPLACE proposals are not detected;
+- transfer policy already supports narrow `allowNodeNameOverwrite=true` for fixed-layout nonblank→different-nonblank COPY, producing `PREVIEW_READY` with Writer1C authority while default behavior remains blocked;
+- therefore future authorized integration must add a distinct Writer1C REPLACE claim/selection path and include REPLACE in physical conflict arbitration, while preserving Writer2 CREATE/DELETE authority separation;
 - pure V14 REPLACE must bypass broad V14 projection;
 - mixed REPLACE + structural mutation requires re-intake/rebinding or a separately proven single-preimage composite;
 - independent oracle must byte-compare SIF&TEES and all unrelated sections exactly against TARGET0.
@@ -130,13 +134,11 @@ ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB
 
 Question-set admission: PASS_OWNER_ADMISSION.
 Candidate Q1-Q5 answers: COMPLETE.
-Latest Owner progression: `proceed next` at 2026-09-16T09:11:33Z; current set reused/hidden.
+Latest canonical Owner progression remains `proceed next` at 2026-09-16T09:11:33Z; current set reused/hidden.
+Latest noncanonical continuation: `ok, proceed with next` at 2026-09-16T09:58:41Z; used only for bounded read-only evidence work.
 Owner sequencing: BENCHMARK FIRST, THEN INDEPENDENT VERDICT.
 PB-0003 benchmark definition: READY.
-Focused local exact-blob execution: COMPLETE for BM-008 current behavior + minimal candidate and Writer1C protected primitive.
-Fresh local surface recheck: no checkout and no conversation files available.
-Fresh main/overlap recheck: main unchanged at `242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581`; no open competing CII Writer2 PR surfaced.
-Connector exact retained-blob read access: READY; local byte-faithful hydration: NOT_AVAILABLE_IN_CONNECTED_SURFACE.
+Focused local executable evidence: propagation first-wrong boundary + Writer1C protected primitive + REPLACE orchestration/conflict/policy boundaries captured.
 Retained-real multisource benchmark: NOT_RUN_ENVIRONMENT.
 Independent qualification verdict: DEFERRED / NOT_RUN pending retained-real executable benchmark evidence.
 Production source mutation: NONE.
