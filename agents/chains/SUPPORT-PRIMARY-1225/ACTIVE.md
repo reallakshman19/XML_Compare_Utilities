@@ -2,8 +2,8 @@ CHAIN_STATE_VERSION: 3
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1225
 MISSION: Close Primary Support Assembly release hardening and governed qualification without reopening protected algorithms absent a concrete failing case.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0005
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0005.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0006
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0006.md
 MATERIAL_HISTORY_ROOT_BASE: 759612b4e355a585aed7d64b566f199340429bdf
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
 PR: 1223
@@ -19,10 +19,10 @@ WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
-MERGEABILITY: MERGEABLE at latest observation
-REVIEW_COUNT: COMMENT-only history; re-fetch in final reconciliation
-UNRESOLVED_REVIEW_THREADS: 0 at bootstrap observation; re-fetch in final reconciliation
-REQUIRED_CHECKS_STATUS: NOT_RUN
+MERGEABILITY: MERGEABLE
+REVIEW_COUNT: 13 COMMENTED; 0 APPROVED; 0 CHANGES_REQUESTED
+UNRESOLVED_REVIEW_THREADS: 0
+REQUIRED_CHECKS_STATUS: NOT_RUN_INFRASTRUCTURE
 AUTHORITY_DOMAIN: SUPPORT_REPORT_PRIMARY_SUPPORT_ASSEMBLY_RELEASE_QUALIFICATION
 ACTIVE_CUSTODIAN: ChatGPT GPT-5.6 Sol
 AGENT_INSTANCE_ID: chatgpt:b9aad2dc-f140-42c6-b6af-01e9569c0b73
@@ -46,10 +46,10 @@ QUESTION_SET_ID: QS-SUPPORT-PRIMARY-1225-0001
 QUESTION_SET_STATUS: CURRENT
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
-OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
+OWNER_PROGRESSION_COMMAND: FIX_PROCEED_NEXT
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: focused-node job 104777649437, ZIP job 104782606659, and browser job 104789949548 all ended before repository execution with empty steps/no usable logs or artifacts.
+HANDOVER_VALIDATION_EVIDENCE: exact-RC focused Node, real ZIP, and browser gates did not reach repository execution; earlier independent logic evidence retained separately because 4e2b845..RC changes only chain docs/runbook
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_READY: FALSE
@@ -65,10 +65,10 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1225-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0005
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5697301140
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5697521092
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 PROGRAM_ID: SUPPORT-PRIMARY-1222
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
@@ -79,11 +79,17 @@ PREDECESSOR_WORK_ITEM_KEY: NONE
 REVISION_SEQUENCE: 0
 INHERITED_PROGRAM_BASIS_REVISION: #1222 current chain state at RC_SHA
 PR_STATUS: OPEN_DRAFT
+PR_MERGED: FALSE
 PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
+RC_HEAD_MATCH: TRUE
 MAIN_HEAD_OBSERVED: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-ORIGINAL_TASK_STATUS: RC freeze COMPLETE; focused Node, real ZIP, and browser attempted but NOT_RUN — infrastructure; final reconciliation OPEN; real 1835 BLOCKED_INPUT.
+ORIGINAL_TASK_STATUS: RC freeze and final reconciliation COMPLETE; focused Node, real ZIP, browser NOT_RUN — infrastructure; real 1835 BLOCKED_INPUT; release disposition HOLD_DRAFT.
 INPUT_STATUS: real 1884/1885 governed inputs available but not executed; browser fixtures present but not executed; real 1835 relationship XML absent.
 BENCHMARK_STATUS: focused Node NOT_RUN — infrastructure; real 1884/1885 NOT_RUN — infrastructure; browser NOT_RUN — infrastructure; real 1835 NOT_RUN/BLOCKED_INPUT.
-CURRENT_BLOCKER: hosted runner still completes before repository execution; separate authoritative real 1835 relationship XML absent.
-LEG_DIAGNOSIS: no product test/benchmark/browser assertion executed and no product defect was demonstrated; do not reopen algorithms for infrastructure non-execution.
-EXACT_NEXT_ACTION: perform final release/readiness reconciliation on the unchanged RC SHA: re-fetch PR head, reviews, unresolved threads and current checks/runs; verify head still equals RC_SHA or invalidate receipts; verify #1216 authority remains protected; keep all unexecuted gates NOT_RUN and keep PR draft/unmerged without fresh Owner authorization.
+RETAINED_EVIDENCE: LEG-014 27/27 and LEG-017 13/13 remain technical evidence because compare 4e2b845..RC contains only chain documentation/bookkeeping and runbook changes; they are not substitutes for #1225 governed execution.
+AUTHORITY_STATUS: #1216 re-fetched open and still explicitly authoritative for Support / Steel production relationships; protected.
+CURRENT_BLOCKER: external execution/input only; hosted runner never reaches repository execution; separate authoritative real 1835 relationship XML absent; question-set admission pending independent admission.
+LEG_DIAGNOSIS: no executed product defect; GitHub UI check failures classify as qualification NOT_RUN because steps/logs/artifacts prove non-execution.
+PRODUCT_FIX_DECISION: NO-PATCH
+RELEASE_DISPOSITION: HOLD_DRAFT
+EXACT_NEXT_ACTION: do not repeat identical hosted retries. Execute agents/chains/SUPPORT-PRIMARY-1222/QUALIFICATION-RUNBOOK.md on a clean trusted checkout that actually runs at exact RC_SHA 759612b4e355a585aed7d64b566f199340429bdf, and separately supply/pin the authoritative real 1835 relationship XML. Keep PR draft/unmerged without fresh explicit Owner readiness/merge authorization.
