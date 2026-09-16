@@ -1,21 +1,22 @@
 # Current Issue State — SUPPORT-PRIMARY-1225
 
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1225-0001
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0001
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0002
 UPDATED_AT_HEAD: 759612b4e355a585aed7d64b566f199340429bdf
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1225
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_PACKAGE_ID: WP-QUAL-001
 PARTITION_KEY: SUPPORT-PRIMARY-1222/RELEASE-HARDENING
+RC_SHA: 759612b4e355a585aed7d64b566f199340429bdf
 
 ### Original task / acceptance ledger
-TASK-001 | Freeze one immutable RC_SHA for governed receipts. | OPEN | next action
+TASK-001 | Freeze one immutable RC_SHA for governed receipts. | COMPLETE | RC_SHA=759612b4e355a585aed7d64b566f199340429bdf, re-fetched after bootstrap
 TASK-002 | Prove popup orphan config is invocation-scoped. | OPEN | browser + focused regression
 TASK-003 | Prove build invalidation is popup-local. | OPEN | browser regression
 TASK-004 | Prove nested ESM cache propagation coherence. | OPEN | source/test verification
 TASK-005 | Prove final count provenance matches assembly/orphan authority. | OPEN | focused Node + debug audit
 TASK-006 | Prove structural outputs are invariant under relationship/axis enrichment. | OPEN | focused Node invariance regression
-TASK-007 | Execute hardened focused Node on RC_SHA. | OPEN | actual execution required
+TASK-007 | Execute hardened focused Node on RC_SHA. | OPEN | exact next action
 TASK-008 | Execute real 1884/1885 ZIP benchmark on RC_SHA. | OPEN | actual repository ZIP execution required
 TASK-009 | Execute Playwright browser qualification. | OPEN | actual browser execution required
 TASK-010 | Real 1835 relationship qualification. | BLOCKED_INPUT | authoritative Owner relationship XML absent
@@ -24,7 +25,7 @@ TASK-012 | Do not patch product algorithms without a concrete failing case. | AC
 TASK-013 | Keep PR draft/unmerged without fresh Owner authorization. | ACTIVE_GUARD | Owner-only
 
 ### Input ledger
-INPUT-001 | PR #1223 source | AVAILABLE | observed release candidate source head 759612b4e355a585aed7d64b566f199340429bdf
+INPUT-001 | PR #1223 source at RC_SHA | AVAILABLE | 759612b4e355a585aed7d64b566f199340429bdf
 INPUT-002 | benchmarks/1884.zip | AVAILABLE | real governed repository input
 INPUT-003 | benchmarks/1885.zip | AVAILABLE | real governed repository input
 INPUT-004 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | absent
@@ -39,7 +40,7 @@ BM-004 | PS-12120=14 | NOT_RUN | real 1885 required
 BM-005 | PS-11168 -> PS-14168 structural control | NOT_RUN for #1225 | governed structural control
 BM-006 | PS-11167=6 real relationship | NOT_RUN | blocked by missing authoritative 1835 relationship XML
 BM-007 | PS-11236=4 real relationship | NOT_RUN | blocked by missing authoritative 1835 relationship XML
-BM-008 | hardened focused Node | NOT_RUN | no #1225 execution receipt yet
+BM-008 | hardened focused Node | NOT_RUN | next gate
 BM-009 | Playwright browser | NOT_RUN | no #1225 execution receipt yet
 
 ### Roadmap ledger
@@ -58,16 +59,22 @@ QUESTION_SET_STATUS: CURRENT
 QUESTION_SET_ADMISSION_STATUS: PENDING_INDEPENDENT_ADMISSION
 TAKEOVER_QUALIFICATION_READY: FALSE
 
+### Issue synchronization
+ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
+ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5696690531
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+
 ### Current release state
 PR: #1223
 PR_STATUS: OPEN_DRAFT
 PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
 MAIN_HEAD_OBSERVED: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MERGEABILITY: MERGEABLE at observation
-UNRESOLVED_REVIEW_THREADS: 0 at observation
+UNRESOLVED_REVIEW_THREADS: 0 at bootstrap observation
 REQUIRED_CHECKS_STATUS: NOT_RUN for governed #1225 gates
 MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 
 ### Exact next action
-Freeze `759612b4e355a585aed7d64b566f199340429bdf` as the initial RC_SHA if PR #1223 still points to it after control-plane bootstrap, then execute the hardened focused Node gate first. If the PR head has moved, freeze the newly observed head instead and invalidate any pre-freeze qualification claim.
+Execute the hardened focused Node qualification against exactly `759612b4e355a585aed7d64b566f199340429bdf`. Record PASS/FAIL only from actual execution; no Checkout/test step means `NOT_RUN — infrastructure`. Do not patch product algorithms unless a concrete reproducible failing case isolates the first wrong production boundary.
