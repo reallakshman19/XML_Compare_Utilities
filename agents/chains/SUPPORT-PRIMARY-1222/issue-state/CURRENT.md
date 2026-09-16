@@ -6,9 +6,9 @@ ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1222-0022
 LAST_UPDATED: 2026-09-16
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5678826053
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5678831292
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_LEG_012_PREWORK_SYNC
-ISSUE_HANDOVER_SYNC_STATUS: STALE
-RELATED_TYPICALITY_STATUS_COMMENT_ID: 5685191925
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5690418888
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+RELATED_TYPICALITY_STATUS_COMMENT_ID: 5690420195
 PR_LEG_010_REVIEW_ID: 5213502126
 PR_LEG_011_REVIEW_ID: 5213748178
 
@@ -53,4 +53,4 @@ LEG-011 source/material contract review passed after traversal-safety fix. Exact
 
 # Exact next action
 
-Synchronize EP-0022 to the Issue control plane, safely advance cache routing if connector capability permits a non-destructive edit, rerun exact-head qualification, then close LEG-012 with READY_FOR_REVIEW or HOLD_DRAFT technical disposition. No mark-ready or merge without fresh explicit Owner authorization.
+Safely advance cache routing if connector capability permits a non-destructive edit, rerun exact-head qualification, then close LEG-012 with READY_FOR_REVIEW or HOLD_DRAFT technical disposition. No mark-ready or merge without fresh explicit Owner authorization.
