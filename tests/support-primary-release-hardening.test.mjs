@@ -12,6 +12,7 @@ import {
 import { setSupportPrimaryOrphanRecoveryRuntimeConfig } from '../tabs/support-steel-relationship-builder/support-primary-orphan-recovery.js';
 
 const line10 = 'ASIM-1885-10"-S8810101-91261M7-HC-01';
+const TRAVERSAL_SAFETY_TOKEN = '20260915-support-primary-traversal-safety-1';
 
 function evidence(point, memberId) {
   return {
@@ -109,8 +110,15 @@ test('browser cache route advances through addon, engine, count, orphan and geom
     assert.match(text, /20260915-support-primary-hardening-1/, file);
   }
 
+  const bootstrap = await readFile(new URL('../tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', import.meta.url), 'utf8');
   const addon = await readFile(new URL('../tabs/support-steel-relationship-builder/support-report-addon.js', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('../tabs/support-steel-relationship-builder/support-report-engine.js', import.meta.url), 'utf8');
+
+  assert.match(bootstrap, new RegExp(`support-report-addon\\.js[^'\"]*traversalSafety=${TRAVERSAL_SAFETY_TOKEN}`));
+  assert.match(addon, new RegExp(`support-report-engine\\.js[^'\"]*count=${TRAVERSAL_SAFETY_TOKEN}`));
+  assert.match(engine, new RegExp(`support-primary-counting\\.js[^'\"]*${TRAVERSAL_SAFETY_TOKEN}`));
+
   assert.match(addon, /const orphanRecoveryConfig = readOrphanRecoveryConfig\(popup\);/);
   assert.match(addon, /primaryRelationshipBundle,\s*orphanRecoveryConfig,/s);
-  assert.match(addon, /clashEvidence: referenceEvidence, orphanRecoveryConfig/);
+  assert.match(addon, /clashEvidence: referenceEvidence,\s*primaryRelationshipBundle: referencePrimaryRelationshipBundle,\s*orphanRecoveryConfig,/s);
 });
