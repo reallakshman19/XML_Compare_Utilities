@@ -1,7 +1,7 @@
 # Current Issue State — SUPPORT-PRIMARY-1225
 
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1225-0001
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0003
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0004
 UPDATED_AT_HEAD: 759612b4e355a585aed7d64b566f199340429bdf
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1225
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
@@ -17,8 +17,8 @@ TASK-004 | Prove nested ESM cache propagation coherence. | OPEN | source/test ve
 TASK-005 | Prove final count provenance matches assembly/orphan authority. | OPEN | focused Node + debug audit
 TASK-006 | Prove structural outputs are invariant under relationship/axis enrichment. | OPEN | focused Node invariance regression
 TASK-007 | Execute hardened focused Node on RC_SHA. | NOT_RUN_INFRASTRUCTURE | run 35074828791 retry job 104777649437: steps=[]; no log blob; zero artifacts; no Checkout/test execution
-TASK-008 | Execute real 1884/1885 ZIP benchmark on RC_SHA. | OPEN | exact next gate; actual repository ZIP execution required
-TASK-009 | Execute Playwright browser qualification. | OPEN | actual browser execution required
+TASK-008 | Execute real 1884/1885 ZIP benchmark on RC_SHA. | NOT_RUN_INFRASTRUCTURE | run 35074828886 retry job 104782606659: steps=[]; no log blob; zero artifacts; no Checkout/benchmark execution
+TASK-009 | Execute Playwright browser qualification. | OPEN | exact next gate; actual browser execution required
 TASK-010 | Real 1835 relationship qualification. | BLOCKED_INPUT | authoritative Owner relationship XML absent
 TASK-011 | Final #1216/review/check/readiness reconciliation. | OPEN | after executable gates
 TASK-012 | Do not patch product algorithms without a concrete failing case. | ACTIVE_GUARD | no product defect currently proven
@@ -26,22 +26,22 @@ TASK-013 | Keep PR draft/unmerged without fresh Owner authorization. | ACTIVE_GU
 
 ### Input ledger
 INPUT-001 | PR #1223 source at RC_SHA | AVAILABLE | 759612b4e355a585aed7d64b566f199340429bdf
-INPUT-002 | benchmarks/1884.zip | AVAILABLE | real governed repository input
-INPUT-003 | benchmarks/1885.zip | AVAILABLE | real governed repository input
+INPUT-002 | benchmarks/1884.zip | AVAILABLE | real governed repository input; binary connector cannot substitute for execution
+INPUT-003 | benchmarks/1885.zip | AVAILABLE | real governed repository input; binary connector cannot substitute for execution
 INPUT-004 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | absent
 INPUT-005 | browser regression fixtures | AVAILABLE | source present; execution pending
-INPUT-006 | clean trusted executing Node/browser environment | UNRESOLVED | fresh hosted focused-node retry again failed before Checkout/test
+INPUT-006 | clean trusted executing Node/browser environment | UNRESOLVED | fresh hosted focused-node and ZIP retries both failed before Checkout/test
 
 ### Benchmark / oracle ledger
-BM-001 | PS-12060=1 | NOT_RUN | real 1885 required
-BM-002 | PS-12877=4 | NOT_RUN | real 1885 required
-BM-003 | PS-12860=6 | NOT_RUN | real 1885 required
-BM-004 | PS-12120=14 | NOT_RUN | real 1885 required
-BM-005 | PS-11168 -> PS-14168 structural control | NOT_RUN for #1225 | governed structural control
+BM-001 | PS-12060=1 | NOT_RUN | real 1885 benchmark never executed; ZIP retry infrastructure NOT_RUN
+BM-002 | PS-12877=4 | NOT_RUN | real 1885 benchmark never executed; ZIP retry infrastructure NOT_RUN
+BM-003 | PS-12860=6 | NOT_RUN | real 1885 benchmark never executed; ZIP retry infrastructure NOT_RUN
+BM-004 | PS-12120=14 | NOT_RUN | real 1885 benchmark never executed; ZIP retry infrastructure NOT_RUN
+BM-005 | PS-11168 -> PS-14168 structural control | NOT_RUN for #1225 | benchmark/browser governed execution not completed
 BM-006 | PS-11167=6 real relationship | NOT_RUN | blocked by missing authoritative 1835 relationship XML
 BM-007 | PS-11236=4 real relationship | NOT_RUN | blocked by missing authoritative 1835 relationship XML
 BM-008 | hardened focused Node | NOT_RUN_INFRASTRUCTURE | run 35074828791; retry job 104777649437; steps=[]; no logs; artifacts=[]
-BM-009 | Playwright browser | NOT_RUN | no #1225 execution receipt yet
+BM-009 | Playwright browser | NOT_RUN | exact next gate; no #1225 execution receipt yet
 
 ### Roadmap ledger
 RM-001 | #1222 parent Primary Support Assembly program | ALIGNED | mutation authority NONE
@@ -63,7 +63,7 @@ TAKEOVER_QUALIFICATION_READY: FALSE
 ### Issue synchronization
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5696829095
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5697005283
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ### Current release state
@@ -78,4 +78,4 @@ MERGE_AUTHORITY: OWNER_ONLY
 MERGE_AUTHORIZED: FALSE
 
 ### Exact next action
-Attempt the real repository `benchmarks/1884.zip` / `benchmarks/1885.zip` qualification against exactly `759612b4e355a585aed7d64b566f199340429bdf`. The real benchmark gate remains `NOT_RUN` unless actual repository ZIP execution occurs; a no-Checkout hosted job remains `NOT_RUN — infrastructure`, and synthetic/reconstructed input cannot substitute.
+Attempt the Playwright/browser qualification against exactly `759612b4e355a585aed7d64b566f199340429bdf`. Exercise independent current/reference relationship scoping, popup configuration isolation, same-popup rebuild invalidation, Column 22/23 publication and Debug/Trace downloads. Record PASS/FAIL only from actual browser execution; no Checkout/test step means `NOT_RUN — infrastructure`.
