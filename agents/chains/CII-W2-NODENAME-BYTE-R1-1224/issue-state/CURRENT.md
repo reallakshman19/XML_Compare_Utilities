@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0003
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0004
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,14 +10,14 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5692472054
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0004
+ISSUE_HANDOVER_SYNC_STATUS: STALE_ENDPOINT_COMMENT_PENDING
 
 ## Current state
 
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: PENDING_INDEPENDENT_VERDICT
+QUALIFICATION_STATE: ANSWER_COMPLETE_VERDICT_DEFERRED_FOR_BENCHMARK
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
@@ -28,8 +28,10 @@ MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 COMMON_PROTOCOL_STATUS: CURRENT
 OVERLAP: SAFE_SERIALIZED; predecessor #1111 terminal/merged, no open exact CII Writer2 production PR observed
 POST_BASIS_DRIFT: NONE
-CURRENT_BLOCKER: independent qualification verdict not yet recorded; canonical `proceed next` does not waive this gate
-EXACT_NEXT_ACTION: independent verifier or Owner explicitly acting as qualification authority reviews CII-W2-NB-R1-QS-0001-answer.md and records a version-3 verdict with Q1..Q5 scores; WRITE_ALLOWED only after threshold PASS plus fresh reconciliation
+OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
+BENCHMARK_READINESS: BLOCKED_BY_EXECUTION_ENVIRONMENT
+CURRENT_BLOCKER: fresh PB-0003 benchmark execution unavailable in connected session; independent verdict intentionally deferred until benchmark evidence exists
+EXACT_NEXT_ACTION: execute retained baseline and PB-0003 BM-004..009 from a real repository checkout/execution surface; record exact output/failure evidence; then request independent Q1..Q5 verdict
 
 ## Original task / acceptance ledger
 
@@ -62,12 +64,15 @@ INPUT-008 | TEXPECTED-PARTIALLLYDONE.CII | AVAILABLE / PARTIAL_OWNER_BENCHMARK |
 BM-001 | frozen Owner mapping | READY
 BM-002 | focused NodeName CREATE oracle | READY
 BM-003 | source custody | READY
-BM-004 | original-T byte negative assurance | NOT_RUN
-BM-005 | transfer-scope revision regression | NOT_RUN
-BM-006 | structural bridge revision regression | NOT_RUN
-BM-007 | TEXPECTED partial census/lower-bound | NOT_RUN
-BM-008 | injective source-subgraph correspondence | NOT_RUN
-BM-009 | unrelated-section/SIF exact byte invariance | NOT_RUN
+BM-004 | original-T byte negative assurance | NOT_RUN_ENVIRONMENT
+BM-005 | transfer-scope revision regression | NOT_RUN_ENVIRONMENT
+BM-006 | structural bridge revision regression | NOT_RUN_ENVIRONMENT
+BM-007 | TEXPECTED partial census/lower-bound | NOT_RUN_ENVIRONMENT
+BM-008 | injective source-subgraph correspondence | NOT_RUN_ENVIRONMENT
+BM-009 | unrelated-section/SIF exact byte invariance | NOT_RUN_ENVIRONMENT
+BENCHMARK_READINESS_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-READINESS-0001.md
+
+Retained benchmark harness inspection: PASS_READ_ONLY. Full PB-0003 coverage: INCOMPLETE. The current harness derives exact structural APPLY keys from partial TEXPECTED CREATE/DELETE rows and therefore cannot serve as the revision's full-discovery upper bound.
 
 ## Roadmap ledger
 
@@ -86,7 +91,7 @@ QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 TAKEOVER_QUALIFICATION_READY: TRUE
 CANDIDATE_ANSWER_STATUS: COMPLETE
-INDEPENDENT_VERDICT_STATUS: PENDING
+INDEPENDENT_VERDICT_STATUS: DEFERRED_UNTIL_BENCHMARK_EVIDENCE
 QUESTION_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH.md
 ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB-R1-QS-0001-answer.md
 
@@ -105,6 +110,7 @@ ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB
 
 Question-set admission: PASS_OWNER_ADMISSION.
 Candidate Q1-Q5 answers: COMPLETE.
-Independent qualification verdict: NOT_RUN / PENDING.
-Owner command `proceed next` at 2026-09-16T05:21:26Z was reconciled against Common and does not constitute a verifier verdict.
-No new revision product test has been executed. Historical PR #1112 evidence remains predecessor evidence only and is not promoted to PB-0003 PASS.
+Owner sequencing at 2026-09-16T05:30:55Z: BENCHMARK FIRST, THEN INDEPENDENT VERDICT.
+Independent qualification verdict: DEFERRED / NOT_RUN pending benchmark evidence.
+Fresh PB-0003 product benchmark: NOT_RUN_ENVIRONMENT in this connected session.
+No production, test, benchmark input/oracle, converter, or workflow file has been modified.
