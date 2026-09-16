@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0001
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0002
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,14 +10,14 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5692082655
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: PENDING_EP0002_SYNC
+ISSUE_HANDOVER_SYNC_STATUS: STALE
 
 ## Current state
 
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
-QUALIFICATION_STATE: PENDING_ADMISSION
+QUALIFICATION_STATE: PENDING_INDEPENDENT_VERDICT
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
@@ -27,8 +27,8 @@ BRANCH: revision/cii-writer2-nodename-byte-r1-1224
 MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 COMMON_PROTOCOL_STATUS: CURRENT
 OVERLAP: SAFE_SERIALIZED; predecessor #1111 terminal/merged, no open exact CII Writer2 production PR observed
-CURRENT_BLOCKER: refreshed qualification pack cannot be self-admitted/self-verified by its candidate
-EXACT_NEXT_ACTION: Owner or independent authority adopts/admit CII-W2-NB-R1-QS-0001; candidate then answers Q1-Q5 and receives an independent verdict before production mutation
+CURRENT_BLOCKER: independent qualification verdict not yet recorded
+EXACT_NEXT_ACTION: independent verifier/Owner qualification authority reviews CII-W2-NB-R1-QS-0001-answer.md and records verdict; WRITE_ALLOWED only after threshold PASS plus fresh reconciliation
 
 ## Original task / acceptance ledger
 
@@ -79,13 +79,30 @@ RM-004 | Common engineering-pr-delivery-v2@fed57820909f4984a97d67437340df952b73a
 
 QUALIFICATION_SCOPE_ID: QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH
 QUESTION_SET_ID: CII-W2-NB-R1-QS-0001
-QUESTION_SET_STATUS: REFRESHED_PENDING_ADMISSION
-QUESTION_SET_ADMISSION_STATUS: PENDING_OWNER_OR_INDEPENDENT_ADMISSION
-QUESTION_PACK_ACTION: REFRESHED
-QUESTION_DISPLAY: SHOW
-TAKEOVER_QUALIFICATION_READY: FALSE
-QUALIFICATION_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH.md
+QUESTION_SET_STATUS: CURRENT
+QUESTION_SET_ADMISSION_STATUS: VALID_BY_OWNER_PROGRESSION
+QUESTION_PACK_ACTION: REUSED
+QUESTION_DISPLAY: HIDE
+TAKEOVER_QUALIFICATION_READY: TRUE
+CANDIDATE_ANSWER_STATUS: COMPLETE
+INDEPENDENT_VERDICT_STATUS: PENDING
+QUESTION_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH.md
+ANSWER_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/qualifications/CII-W2-NB-R1-QS-0001-answer.md
+
+## Technical qualification findings
+
+- strict `sourceEdges.length !== targetEdges.length` and `TARGET_COMPONENT_NOT_FULLY_CLAIMED` are the first proven embedded-subgraph blockers;
+- existing assignment enumeration is already injective and should be reused;
+- Writer1C existing-row COPY is the exact-span REPLACE authority;
+- Writer2 relocation remains CREATE/DELETE authority;
+- multisource canonical selection currently filters to CREATE/DELETE and must be revised after qualification;
+- pure V14 REPLACE must bypass broad V14 projection;
+- mixed REPLACE + structural mutation requires re-intake/rebinding or a separately proven single-preimage composite;
+- independent oracle must byte-compare SIF&TEES and all unrelated sections exactly against TARGET0.
 
 ## Validation truth
 
-No new revision product test has been executed. Source inspection from the preceding audit is evidence for hypotheses only, not PASS. Historical PR #1112 PASS evidence remains historical predecessor evidence and is not promoted to PB-0003 PASS.
+Question-set admission: PASS_OWNER_ADMISSION (Owner canonical progression after full pack display).
+Candidate Q1-Q5 answers: COMPLETE.
+Independent qualification verdict: NOT_RUN / PENDING.
+No new revision product test has been executed. Historical PR #1112 evidence remains predecessor evidence only and is not promoted to PB-0003 PASS.
