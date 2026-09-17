@@ -1,7 +1,7 @@
 # Current Issue State — SUPPORT-PRIMARY-1225
 
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1225-0001
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0008
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0009
 UPDATED_AT_HEAD: 759612b4e355a585aed7d64b566f199340429bdf
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1225
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
@@ -28,9 +28,9 @@ TASK-013 | Keep PR draft/unmerged without fresh Owner authorization. | ACTIVE_GU
 INPUT-001 | PR #1223 source at RC_SHA | AVAILABLE | exact PR head still 759612b4e355a585aed7d64b566f199340429bdf
 INPUT-002 | benchmarks/1884.zip | AVAILABLE | real governed repository input; benchmark execution did not occur
 INPUT-003 | benchmarks/1885.zip | AVAILABLE | real governed repository input; benchmark execution did not occur
-INPUT-004 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | absent; no new Owner input observed at endpoint 0008
+INPUT-004 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | absent; no new Owner input observed at endpoint 0009
 INPUT-005 | browser regression fixtures | AVAILABLE | source present; browser execution did not occur
-INPUT-006 | clean trusted executing Node/browser environment | UNRESOLVED | no material runner/execution change observed at endpoint 0008; hosted Node/ZIP/browser remain non-executing
+INPUT-006 | clean trusted executing Node/browser environment | UNRESOLVED | no material runner/execution change observed at endpoint 0009; hosted Node/ZIP/browser remain non-executing
 
 ### Benchmark / oracle ledger
 BM-001 | PS-12060=1 | NOT_RUN | real 1885 governed benchmark never executed
@@ -68,7 +68,7 @@ TAKEOVER_QUALIFICATION_READY: FALSE
 ### Issue synchronization
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5709705885
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5709737680
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ### Current release state
@@ -90,7 +90,7 @@ MERGE_AUTHORIZED: FALSE
 PRODUCT_FIX_DECISION: NO-PATCH
 
 ### Latest progression observation
-Endpoint `EP-SUPPORT-PRIMARY-1225-0008` rechecked the external execution/input boundary without burning a redundant retry. No new exact-RC executing receipt or authoritative real 1835 relationship input was observed. PR #1223 remains exact-RC, open/draft/unmerged and mergeable. The release state and qualification truth therefore remain unchanged.
+Endpoint `EP-SUPPORT-PRIMARY-1225-0009` rechecked the external execution/input boundary without burning a redundant retry. No new exact-RC executing receipt or authoritative real 1835 relationship input was observed. PR #1223 remains exact-RC, open/draft/unmerged and mergeable. The release state and qualification truth therefore remain unchanged.
 
 ### Current blocker
 External execution/input only: no trusted environment has actually executed the frozen-RC governed Node/ZIP/browser gates; separate authoritative real 1835 relationship XML is absent. Question-set admission also remains pending independent admission.
