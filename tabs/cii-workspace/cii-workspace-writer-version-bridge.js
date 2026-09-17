@@ -4,6 +4,7 @@ import {
   inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
+import { applyCiiSourceSetMixedNodeNameWithVersionBridge } from './cii-workspace-multisource-mixed-apply.js';
 import { projectCanonicalV14WriterDelta } from './cii-workspace-v14-change-projection.js';
 import { assertCiiV14Writer2FixedFieldAuthority } from './cii-workspace-v14-writer2-fixed-field-authority.js';
 import {
@@ -236,6 +237,8 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
 export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, targetInput, options = {}) {
   const bridge = preview?.versionBridge;
   if (!bridge) throw new Error('CII_VERSION_BRIDGE_PREVIEW_REQUIRED');
+  const mixed = await applyCiiSourceSetMixedNodeNameWithVersionBridge(preview, targetInput, options);
+  if (mixed) return mixed;
   const normalized = await normalizeCurrentTarget(preview, targetInput, options);
   const v11Result = await applyCiiWorkspaceTargetWriter2(preview, normalized.bytes, options);
   if (Number(bridge.target?.originalVersion) === 11) {
@@ -309,7 +312,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     versionBridgeValidation: Object.freeze({
       schema: 'CIIWorkspaceWriterVersionBridgeValidation.v2',
       status: 'PASS',
-      path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_VIA_V11',
+      path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_V14_VIA_V11',
       baselineExactRoundTrip: normalized.baselineExactRoundTrip,
       baselineRoundTripAuthority: bridge.target?.writer2Shadow?.enabled ? 'CONVERSION_SHADOW' : 'ORIGINAL_TARGET',
       canonicalModifiedRoundTripExact: true,
