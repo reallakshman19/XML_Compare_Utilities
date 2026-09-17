@@ -1,3 +1,28 @@
 schema_version: relay-v2.5
-nodes: []
-relationships: []
+progress_basis:
+  id: PB-0002
+  roadmap_revision: RM-0002
+overall: {earned_weight: 10, total_weight: 100, percent: 10}
+objectives:
+  - {id: OBJ-CII-W2-NB-R1-1224, earned_weight: 10, total_weight: 100, percent: 10}
+phases:
+  - {id: PH-V25-MIGRATION, earned_weight: 100, total_weight: 100, percent: 100}
+  - {id: PH-ARCHITECTURE, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: PH-IMPLEMENTATION, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: PH-DELIVERY, earned_weight: 0, total_weight: 100, percent: 0}
+work_packages:
+  - {id: WP-V25-MIGRATION-001, earned_weight: 100, total_weight: 100, percent: 100}
+  - {id: WP-ARCH-001, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: WP-ORACLE-001, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: WP-IMPL-001, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: WP-RET-001, earned_weight: 0, total_weight: 100, percent: 0}
+  - {id: WP-DELIVERY-001, earned_weight: 0, total_weight: 100, percent: 0}
+execution_packages:
+  - {id: EP-CII-W2-NB-R1-V25-0001, earned_weight: 0, total_weight: 100, percent: 0}
+implementation_steps:
+  - {id: STEP-01, ep_id: EP-CII-W2-NB-R1-V25-0001, earned_weight: 0, total_weight: 50, percent: 0}
+  - {id: STEP-02, ep_id: EP-CII-W2-NB-R1-V25-0001, earned_weight: 0, total_weight: 50, percent: 0}
+acceptance_criteria:
+  - {id: AC-01, ep_id: EP-CII-W2-NB-R1-V25-0001, status: NOT_STARTED, earned_weight: 0, total_weight: 40, percent: 0, basis: []}
+  - {id: AC-02, ep_id: EP-CII-W2-NB-R1-V25-0001, status: NOT_STARTED, earned_weight: 0, total_weight: 30, percent: 0, basis: []}
+  - {id: AC-03, ep_id: EP-CII-W2-NB-R1-V25-0001, status: NOT_STARTED, earned_weight: 0, total_weight: 30, percent: 0, basis: []}
