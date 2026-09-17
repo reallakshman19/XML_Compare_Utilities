@@ -2,7 +2,7 @@ import { createCiiTransferScopeSelection } from './cii-workspace-transfer-scope.
 import { assertCiiMsBm001Authority } from './cii-workspace-multisource-nodename-authority.js';
 import {
   ciiBm001CorrespondenceCoverage,
-  ciiCanonicalWriter2MutationSelection,
+  ciiCanonicalNodeNameMutationSelection,
   ciiNodeNameMutationOperation,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 
@@ -32,9 +32,9 @@ export async function createCiiExpectedNodeNameSourceSetSelection(plan, options 
   }
 
   const candidates = candidateOperations(plan);
-  const canonical = ciiCanonicalWriter2MutationSelection(candidates);
+  const canonical = ciiCanonicalNodeNameMutationSelection(candidates);
   if (canonical.conflicts.length) {
-    throw new Error(`CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${canonical.conflicts.map((item) => item.physicalTargetKey).join(',')}`);
+    throw new Error(`CII_MS_NODENAME_PHYSICAL_MUTATION_CONFLICT:${canonical.conflicts.map((item) => item.physicalTargetKey).join(',')}`);
   }
   const applySet = new Set(canonical.appliedOperationIds);
   const decisions = {}; const applied = []; const excluded = [];
