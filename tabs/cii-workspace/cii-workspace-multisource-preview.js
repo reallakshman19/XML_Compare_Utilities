@@ -2,8 +2,12 @@ import { deepFreeze, stableId } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import { intakeCiiWorkspaceSourceSet } from './cii-workspace-source-set.js';
-import { ciiWriter2CompositeReadiness } from './cii-workspace-writer2-composite-routing.js';
+import { ciiWriter2SourceSetNodeNameReadiness } from './cii-workspace-multisource-writer2-readiness.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
+import {
+  ciiNodeNameMutationOperation,
+  ciiWriter1CNodeNameReplacementOperation,
+} from './cii-workspace-multisource-bm001-correspondence.js';
 import {
   assertCiiMsBm001Authority,
   ciiMsBm001AliasKey,
@@ -46,6 +50,14 @@ function assertSameTarget(memberPreviews) {
     preview?.versionBridge?.target?.baselineCanonicalSha256,
   ].join('|')));
   if (keys.size !== 1 || [...keys][0].includes('undefined')) throw new Error('CII_MS_PREVIEW_TARGET_CUSTODY_MISMATCH');
+}
+function assertSameMemberCorrespondence(sourceIdValue, preview, replacementPreview) {
+  const left = text(preview?.correspondence?.correspondenceIdentity);
+  const right = text(replacementPreview?.correspondence?.correspondenceIdentity);
+  if (!left || left !== right) throw new Error(`CII_MS_MIXED_WRITER_CORRESPONDENCE_MISMATCH:${sourceIdValue}`);
+  if (preview?.targetDocument?.contentSha256 !== replacementPreview?.targetDocument?.contentSha256) {
+    throw new Error(`CII_MS_MIXED_WRITER_TARGET_MISMATCH:${sourceIdValue}`);
+  }
 }
 function prefixedRow(row, sourceIdValue, memberCorrespondenceIdentity) {
   const originalId = text(row?.correspondenceId);
@@ -214,14 +226,20 @@ function prefixOperation(operation, sourceIdValue, member, input, aliasSet) {
     }) : null,
   });
 }
+function memberMixedOperations(member) {
+  const writer2 = member?.preview?.transferPlan?.operations || [];
+  const replacements = new Map((member?.replacementPreview?.transferPlan?.operations || [])
+    .filter(ciiWriter1CNodeNameReplacementOperation)
+    .map((operation) => [text(operation.operationId), operation]));
+  return writer2.map((operation) => replacements.get(text(operation?.operationId)) || operation);
+}
 function targetMutationConflicts(operations) {
   const byTarget = new Map(); const conflicts = [];
   for (const operation of operations) {
-    if (operation?.family !== 'NODE_NAME' || operation?.property !== 'Node name / to-name') continue;
-    if (!['CREATE', 'DELETE'].includes(operation?.action) || operation?.status !== 'PREVIEW_READY') continue;
+    if (!ciiNodeNameMutationOperation(operation)) continue;
     const target = text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId || operation?.matchAuthority?.correspondenceId);
     if (!target) continue;
-    const proposal = JSON.stringify(operation?.proposed ?? null);
+    const proposal = JSON.stringify(operation?.proposed ?? operation?.sourceEvidence?.value ?? null);
     if (!byTarget.has(target)) byTarget.set(target, []);
     byTarget.get(target).push({ operation, proposal });
   }
@@ -238,20 +256,21 @@ function targetMutationConflicts(operations) {
 }
 function combinedTransferPlan(memberPreviews, sourceSet, targetDocument, targetAuthority, input, aliasSet, correspondence) {
   const memberById = new Map(sourceSet.members.map((member) => [member.sourceId, { ...member, sourceSetSha256: sourceSet.sourceSetSha256 }]));
-  const operations = memberPreviews.flatMap(({ sourceId: id, preview }) => (preview?.transferPlan?.operations || [])
-    .map((operation) => prefixOperation(operation, id, memberById.get(id), input, aliasSet)));
+  const operations = memberPreviews.flatMap((member) => memberMixedOperations(member)
+    .map((operation) => prefixOperation(operation, member.sourceId, memberById.get(member.sourceId), input, aliasSet)));
   const conflicts = targetMutationConflicts(operations);
   const preservedBlockers = memberPreviews.flatMap(({ sourceId: id, preview }) => (preview?.transferPlan?.blockers || [])
-    .filter((blocker) => !['NO_WRITER_2_COMPOSITE_TRANSFERABLE_OPERATIONS', 'NO_TRANSFERABLE_PREVIEW_OPERATIONS'].includes(blocker))
+    .filter((blocker) => !['NO_WRITER_2_COMPOSITE_TRANSFERABLE_OPERATIONS', 'NO_WRITER_2_NODENAME_TRANSFERABLE_OPERATIONS', 'NO_TRANSFERABLE_PREVIEW_OPERATIONS'].includes(blocker))
     .map((blocker) => `${id}:${blocker}`));
   if (correspondence.status !== 'READY') preservedBlockers.push('MULTISOURCE_CORRESPONDENCE_NOT_READY');
   if (conflicts.length) preservedBlockers.push('MULTISOURCE_TARGET_MUTATION_CONFLICT');
   const blockers = [...new Set(preservedBlockers)];
   const byAction = {};
   for (const operation of operations) byAction[operation.action || 'UNKNOWN'] = (byAction[operation.action || 'UNKNOWN'] || 0) + 1;
+  const replacementCount = operations.filter(ciiWriter1CNodeNameReplacementOperation).length;
   return deepFreeze({
     schema: 'CIIWorkspaceTransferPlan.v1', direction: 'SOURCE_TO_TARGET', inputAuthority: 'MULTISOURCE_ENGINEERING_DELTA_SET',
-    mutationAuthority: blockers.length ? 'BLOCKED' : 'WRITER_2_COMPOSITE_CARDINALITY_CONDITIONAL',
+    mutationAuthority: blockers.length ? 'BLOCKED' : 'WRITER_1C_REPLACE_PLUS_WRITER_2_CARDINALITY_CONDITIONAL',
     sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: sourceSet.sourceSetSha256,
     sourceAuthority: deepFreeze({ kind: 'SOURCE_SET', sourceSetSha256: sourceSet.sourceSetSha256, members: sourceSet.members }),
     targetAuthorityKind: 'ORIGINAL_TARGET',
@@ -260,7 +279,8 @@ function combinedTransferPlan(memberPreviews, sourceSet, targetDocument, targetA
     operations: deepFreeze(operations), excludedOperations: deepFreeze([]),
     conflicts: deepFreeze(conflicts), status: blockers.length ? 'BLOCKED' : 'PREVIEW_READY', blockers: deepFreeze(blockers),
     policy: deepFreeze({
-      nodeNameMutation: 'CREATE_DELETE_RELOCATION_ONLY', nodeNameOverwrite: 'WRITER_1C_ONLY',
+      nodeNameMutation: 'WRITER_1C_REPLACE_OR_WRITER_2_CREATE_DELETE', nodeNameOverwrite: 'WRITER_1C_ONLY',
+      structuralNodeNameMutation: 'WRITER_2_CREATE_DELETE_RELOCATION_ONLY',
       processDefault: 'BLOCKED_WRITER_2_COMPOSITE', topologyMutation: 'BLOCKED_WRITER_3_ONLY',
     }),
     summary: deepFreeze({
@@ -269,6 +289,7 @@ function combinedTransferPlan(memberPreviews, sourceSet, targetDocument, targetA
       blockedCount: operations.filter((item) => item.status === 'BLOCKED').length,
       protectedCount: operations.filter((item) => item.status === 'PROTECTED').length,
       byAction: deepFreeze(byAction),
+      nodeNameReplacementCount: replacementCount,
       bm001BoundCount: operations.filter((item) => item.bm001Acceptance?.status === 'BOUND').length,
     }),
   });
@@ -297,7 +318,7 @@ function versionBridgeEvidence(sourceSet, memberPreviews) {
   const first = memberPreviews[0].preview.versionBridge;
   return deepFreeze({
     schema: 'CIIWorkspaceWriterVersionBridge.v2',
-    mode: 'MULTI_SOURCE_SET_CHANGE_ISOLATED_V14_VIA_V11',
+    mode: 'MULTI_SOURCE_SET_MIXED_NODENAME_V14_VIA_V11',
     sourceAuthorityKind: 'SOURCE_SET', sourceSetSha256: sourceSet.sourceSetSha256,
     sourceSet: deepFreeze({
       sourceSetSha256: sourceSet.sourceSetSha256,
@@ -312,8 +333,21 @@ function versionBridgeEvidence(sourceSet, memberPreviews) {
     }),
     target: first.target,
     conversionSource: first.conversionSource,
-    v14WritePolicy: first.v14WritePolicy,
+    v14WritePolicy: deepFreeze({
+      ...first.v14WritePolicy,
+      nodeNameReplacementAuthority: 'WRITER_1C_ORIGINAL_BYTES_EXACT_SPAN',
+      structuralNodeNameAuthority: 'WRITER_2_V11_RELOCATION_PROJECTED_TO_REPLACEMENT_POSTIMAGE',
+    }),
   });
+}
+function memberInput(input, source, id, index) {
+  return {
+    sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
+    targetBytes: input?.targetBytes, targetText: input?.targetText, targetFileName: input?.targetFileName || 'T.CII',
+    ...(memberBaseLoops(input, source, id) ? { baseLoops: memberBaseLoops(input, source, id) } : {}),
+    ...(memberAnchorPairs(input, source, id) ? { anchorPairs: memberAnchorPairs(input, source, id) } : {}),
+    ...(memberReview(input, id) ? { review: memberReview(input, id) } : {}),
+  };
 }
 
 export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, options = {}) {
@@ -327,15 +361,13 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
   const aliasSet = ciiMsBm001AliasSet(bm001Authority.rows);
   const memberPreviews = [];
   for (let index = 0; index < sources.length; index += 1) {
-    const source = sources[index]; const id = sourceId(source, index);
-    const preview = await createCiiWorkspacePreviewWithVersionBridge({
-      sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
-      targetBytes: input?.targetBytes, targetText: input?.targetText, targetFileName: input?.targetFileName || 'T.CII',
-      ...(memberBaseLoops(input, source, id) ? { baseLoops: memberBaseLoops(input, source, id) } : {}),
-      ...(memberAnchorPairs(input, source, id) ? { anchorPairs: memberAnchorPairs(input, source, id) } : {}),
-      ...(memberReview(input, id) ? { review: memberReview(input, id) } : {}),
-    }, { ...options, writerVersion: '2' });
-    memberPreviews.push(deepFreeze({ sourceId: id, preview }));
+    const source = sources[index]; const id = sourceId(source, index); const payload = memberInput(input, source, id, index);
+    const preview = await createCiiWorkspacePreviewWithVersionBridge(payload, { ...options, writerVersion: '2' });
+    const replacementPreview = await createCiiWorkspacePreviewWithVersionBridge(payload, {
+      ...options, writerVersion: '1C', allowNodeNameOverwrite: true,
+    });
+    assertSameMemberCorrespondence(id, preview, replacementPreview);
+    memberPreviews.push(deepFreeze({ sourceId: id, preview, replacementPreview }));
   }
   assertSameTarget(memberPreviews);
   const memberCorrespondences = memberPreviews.map(({ sourceId: id, preview }) => prefixedCorrespondence(id, preview));
@@ -353,13 +385,14 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
   };
   const transferPlan = combinedTransferPlan(memberPreviews, sourceSet, targetDocument, targetAuthority, input, aliasSet, correspondence);
   const versionBridge = versionBridgeEvidence(sourceSet, memberPreviews);
-  const writerReadiness = ciiWriter2CompositeReadiness(transferPlan, targetDocument, null);
+  const writerReadiness = ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument);
   const audit = deepFreeze({
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
-    memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview }) => deepFreeze({
+    memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
       sourceId: id, correspondenceStatus: preview.correspondence?.status, transferPlanStatus: preview.transferPlan?.status,
+      replacementTransferPlanStatus: replacementPreview.transferPlan?.status,
       originalSha256: preview.versionBridge?.source?.originalSha256, normalizedSha256: preview.versionBridge?.source?.normalizedSha256,
     }))),
     correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan, writerReadiness, versionBridge,
@@ -377,4 +410,5 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
 export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
   normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
+  memberMixedOperations,
 });
