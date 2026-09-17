@@ -10,7 +10,7 @@
 - Progress basis: `PB-0003`
 - Objective: `OBJ-CII-W2-NB-R1-1224`
 - Phase/work package: `PH-IMPLEMENTATION / WP-RET-001`
-- Draft PR: `#1228`, mergeable, merge authority `OWNER_ONLY`
+- PR: `#1228`, `READY_FOR_REVIEW`, mergeable, auto-merge disabled, merge authority `OWNER_ONLY`
 
 ## Product state
 
@@ -28,15 +28,16 @@ Owner-directed implementation is present on `revision/cii-writer2-nodename-byte-
 
 `EP-CII-W2-NB-R1-V25-0002` is validation/delivery reconciliation only and prohibits further production mutation. A concrete failing executable test must create a bounded repair successor EP before production code changes again.
 
-## Environment truth
+## Validation truth
 
 Executable retained validation is still `NOT_RUN_ENVIRONMENT`:
 
-- Actions run `35266182142`: `runner_id=0`, `steps=[]`.
-- Actions run `35266754547`: `runner_id=0`, `steps=[]`.
+- Actions run `35266182142`: failed before runner assignment, `runner_id=0`, `steps=[]`.
+- Actions run `35266754547`, attempt 1: failed before runner assignment, `runner_id=0`, `steps=[]`.
+- Actions run `35266754547`, attempt 2: failed before runner assignment again and executed zero steps.
 - No byte-faithful repository checkout is mounted in the current execution environment.
 
-These are infrastructure failures before test execution, not product test failures.
+Limited local evidence is available: a Node predicate reproduction of the current propagation/M2 logic passed the intended source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier, and ambiguity falsifiers. Static review also confirmed the Writer1C replacement-only and Writer2 structural-only subset plans preserve explicit APPLY scope authority. This evidence does **not** replace retained S1/S2/S3/T execution.
 
 ## Exact next action
 
@@ -48,4 +49,4 @@ node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
 node tests/cii-workspace-multisource-pb0003-benchmark.test.js
 ```
 
-If all pass, run the retained browser benchmark when Playwright is available, update the relay evidence, and prepare PR #1228 for owner review. If any command fails, record the exact failure and create a failure-specific repair EP before changing production code.
+If all pass, run the retained browser benchmark when Playwright is available, reconcile final evidence, and leave the merge decision to the owner. If any command fails, record the exact failure and create a failure-specific repair EP before changing production code.
