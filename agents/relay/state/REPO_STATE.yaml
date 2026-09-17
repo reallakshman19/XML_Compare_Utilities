@@ -1,0 +1,42 @@
+schema_version: engineering-pr-delivery-v2.5
+repository:
+  name: XML_Compare_Utilities
+  path: .
+protocol:
+  source_repository: reallaksh19/Common
+  skill_path: skills/engineering-pr-delivery-v2.5/SKILL.md
+  basis_commit: feae969b860b83ee3df230fef1a162d4a4e7968e
+lifecycle_state: INITIALIZING
+material_authority: NONE
+active_execution_package: null
+roadmap:
+  id: ROADMAP-XMLCU-V25-1224
+  objective_id: OBJ-CII-W2-NB-R1-1224
+  phase_id: PH-V25-MIGRATION
+  work_package_id: WP-V25-MIGRATION-001
+  progress_percent: 0
+progress_summary:
+  objective_percent: 0
+  phase_percent: 0
+  work_package_percent: 0
+  material_steps_complete: 0
+  material_steps_total: 0
+migration:
+  required: true
+  legacy_protocol: engineering-pr-delivery-v2
+  legacy_chain: CII-W2-NODENAME-BYTE-R1-1224
+  legacy_branch: revision/cii-writer2-nodename-byte-r1-1224
+  legacy_head: 956db6b33d15874678851f20f7c8b6573c9d25e0
+  legacy_execution_authority_promoted: false
+  owner_intent_issue: github:reallaksh19/XML_Compare_Utilities#1224
+  owner_intent_comment: https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224#issuecomment-5712756544
+truth_boundary:
+  production_fix: NOT_APPLIED_PRODUCT
+  retained_real_benchmark: NOT_RUN_ENVIRONMENT
+  independent_qualification: NOT_ESTABLISHED_V25
+  latest_actions_attempt: PRE_RUNNER_FAILURE_ZERO_STEPS
+controls:
+  allow_material_write: false
+  allow_product_write: false
+  allow_merge: false
+  next_authority_gate: MIGRATION_INVENTORY_RECONCILIATION

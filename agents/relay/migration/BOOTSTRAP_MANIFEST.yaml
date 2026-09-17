@@ -1,0 +1,35 @@
+schema_version: engineering-pr-delivery-v2.5
+manifest_id: BOOTSTRAP-XMLCU-V25-1224-0001
+created_for: github:reallaksh19/XML_Compare_Utilities#1224
+protocol_basis:
+  repository: reallaksh19/Common
+  commit: feae969b860b83ee3df230fef1a162d4a4e7968e
+  skill: skills/engineering-pr-delivery-v2.5/SKILL.md
+owner_intent:
+  issue_comment_id: 5712756544
+  url: https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224#issuecomment-5712756544
+legacy_source:
+  protocol: engineering-pr-delivery-v2
+  chain_id: CII-W2-NODENAME-BYTE-R1-1224
+  branch: revision/cii-writer2-nodename-byte-r1-1224
+  head: 956db6b33d15874678851f20f7c8b6573c9d25e0
+  main_observed: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
+  active_endpoint_reported: EP-CII-W2-NB-R1-0012
+migration_policy:
+  auto_promote_legacy_endpoint: false
+  preserve_legacy_history: true
+  material_authority_after_bootstrap: NONE
+  lifecycle_after_bootstrap: INITIALIZING
+  first_work_package: WP-V25-MIGRATION-001
+known_truth:
+  production_fix: NOT_APPLIED_PRODUCT
+  retained_real_benchmark: NOT_RUN_ENVIRONMENT
+  qualification: REVALIDATE_UNDER_V25
+  actions_run_id: 35060526042
+  latest_actions_attempt: 3
+  latest_actions_result: PRE_RUNNER_FAILURE_ZERO_STEPS
+scope_guards:
+  production_modules_changed: false
+  benchmark_inputs_changed: false
+  workflow_changed: false
+  protected_converter_changed: false

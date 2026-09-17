@@ -1,0 +1,27 @@
+schema_version: engineering-pr-delivery-v2.5
+roadmap_id: ROADMAP-XMLCU-V25-1224
+current:
+  objective_id: OBJ-CII-W2-NB-R1-1224
+  phase_id: PH-V25-MIGRATION
+  work_package_id: WP-V25-MIGRATION-001
+  status: ACTIVE
+  progress_percent: 0
+execution:
+  active_execution_package: null
+  material_authority: NONE
+  material_steps_complete: 0
+  material_steps_total: 0
+completed: []
+blocked:
+  - id: RETAINED_EXECUTION
+    status: NOT_RUN_ENVIRONMENT
+    reason: GitHub Actions attempts fail before runner assignment and no byte-faithful checkout is mounted locally.
+  - id: PRODUCTION_MUTATION
+    status: BLOCKED
+    reason: V2.5 DISC/qualification/transaction-contract/EP authority has not been reconstructed.
+next:
+  id: MIGRATION_INVENTORY_RECONCILIATION
+  description: >-
+    Inventory the legacy CII-W2-NODENAME-BYTE-R1-1224 artifacts and classify each authoritative
+    category as adopt, revalidate, supersede, or archive; then create repository-native discovery
+    evidence for the current architecture findings.

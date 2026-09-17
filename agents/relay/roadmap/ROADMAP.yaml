@@ -1,0 +1,59 @@
+schema_version: engineering-pr-delivery-v2.5
+roadmap_id: ROADMAP-XMLCU-V25-1224
+goal: >-
+  Complete issue #1224 under engineering-pr-delivery-v2.5 while preserving legacy V2 evidence,
+  reconstructing execution authority from repository custody, and proving byte-preserving mixed
+  NodeName transfer before any production merge.
+source_intent:
+  issue: github:reallaksh19/XML_Compare_Utilities#1224
+  protocol_adoption_comment: https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224#issuecomment-5712756544
+objectives:
+  - id: OBJ-CII-W2-NB-R1-1224
+    title: CII Writer2 full NodeName byte-preserving revision
+    status: ACTIVE
+    progress_percent: 0
+    phases:
+      - id: PH-V25-MIGRATION
+        title: V2.5 migration and authority reconstruction
+        status: ACTIVE
+        progress_percent: 0
+        work_packages:
+          - id: WP-V25-MIGRATION-001
+            title: Inventory and reconcile legacy V2 evidence for #1224
+            status: ACTIVE
+            progress_percent: 0
+            exit_criteria:
+              - Legacy V2 artifacts classified adopt/revalidate/supersede/archive without auto-promoting an EP.
+              - Current technical first-wrong-boundary findings are represented in repository DISC evidence.
+              - Applicable qualification obligations are reconstructed under V2.5.
+              - A transaction contract is established before any material product write.
+      - id: PH-ARCHITECTURE
+        title: Architecture and independent oracle qualification
+        status: BLOCKED_BY_PREDECESSOR
+        progress_percent: 0
+        work_packages:
+          - id: WP-ARCH-001
+            title: Prove source-subgraph propagation and raw-plan mixed NodeName orchestration boundaries
+            status: BLOCKED_BY_PREDECESSOR
+            progress_percent: 0
+          - id: WP-ORACLE-001
+            title: Establish independent raw-byte mutation closure oracle
+            status: BLOCKED_BY_PREDECESSOR
+            progress_percent: 0
+      - id: PH-IMPLEMENTATION
+        title: Material implementation and retained qualification
+        status: BLOCKED_BY_PREDECESSOR
+        progress_percent: 0
+        work_packages:
+          - id: WP-IMPL-001
+            title: Implement qualified production repair and focused regressions
+            status: BLOCKED_BY_PREDECESSOR
+            progress_percent: 0
+          - id: WP-RET-001
+            title: Execute retained mixed end-to-end benchmark and independent postimage validation
+            status: BLOCKED_BY_PREDECESSOR
+            progress_percent: 0
+      - id: PH-DELIVERY
+        title: Review, PR, and owner merge decision
+        status: BLOCKED_BY_PREDECESSOR
+        progress_percent: 0
