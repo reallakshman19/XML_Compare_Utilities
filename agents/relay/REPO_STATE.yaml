@@ -1,0 +1,29 @@
+schema_version: relay-v2.5-bootstrap
+repository:
+  name: XML_Compare_Utilities
+  remote: reallaksh19/XML_Compare_Utilities
+  repository_type: application
+  default_branch: main
+relay_protocol:
+  basis_ref: reallaksh19/Common@feae969b860b83ee3df230fef1a162d4a4e7968e
+roadmap:
+  id: ROADMAP-XMLCU-V25-1224
+  revision: RM-0001
+  title: CII Writer2 NodeName byte-preserving revision delivery
+initial_position:
+  objective:
+    id: OBJ-CII-W2-NB-R1-1224
+    title: Complete CII Writer2 full NodeName byte-preserving revision
+  phase:
+    id: PH-V25-MIGRATION
+    title: V2.5 migration and authority reconstruction
+  work_package:
+    id: WP-V25-MIGRATION-001
+    title: Inventory and reconcile legacy V2 evidence for issue 1224
+initialization:
+  next_action: Reconcile legacy V2 evidence for issue 1224, establish repository-native discovery and qualification boundaries, and compute an executable frontier without promoting any legacy endpoint.
+  notes:
+    - Legacy chain CII-W2-NODENAME-BYTE-R1-1224 is migration evidence only.
+    - Production fix remains NOT_APPLIED_PRODUCT.
+    - Retained-real benchmark remains NOT_RUN_ENVIRONMENT.
+    - Latest GitHub Actions retry failed before runner assignment with zero steps.
