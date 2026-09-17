@@ -3,6 +3,7 @@ import { ciiMsBm001AliasKey, parseCiiMsBm001 } from './cii-workspace-multisource
 import { CII_WRITER_2_NODENAME_RELOCATION_POLICY } from './cii-workspace-writer2-nodename-relocation.js';
 
 const NODE_PROPERTY = 'Node name / to-name';
+const WRITER_1C_NODENAME_POLICY = 'CII_WRITER_1C_NODENAME_EXISTING_ROW_FIELD';
 const APPROVED = new Set(['REVIEWED', 'LOCKED']);
 
 function text(value) { return String(value ?? '').trim(); }
@@ -65,26 +66,43 @@ export function ciiBm001CorrespondenceCoverage(plan, rows = parseCiiMsBm001()) {
 function targetIdentity(operation) {
   return text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId);
 }
+function beforeName(operation) {
+  return text(operation?.before ?? operation?.targetEvidence?.value);
+}
+function proposedName(operation) {
+  return text(operation?.proposed ?? operation?.sourceEvidence?.value);
+}
 export function ciiWriter2NodeNameCardinalityOperation(operation) {
   if (!operationId(operation)) return false;
   if (operation?.family !== 'NODE_NAME' || operation?.property !== NODE_PROPERTY) return false;
   if (!['CREATE', 'DELETE'].includes(operation?.action) || operation?.status !== 'PREVIEW_READY') return false;
   if (operation?.policyAuthority !== CII_WRITER_2_NODENAME_RELOCATION_POLICY) return false;
   if (!APPROVED.has(operation?.matchAuthority?.status) || !targetIdentity(operation)) return false;
-  const before = text(operation?.before ?? operation?.targetEvidence?.value);
-  const proposed = text(operation?.proposed ?? operation?.sourceEvidence?.value);
+  const before = beforeName(operation); const proposed = proposedName(operation);
   if (operation.action === 'CREATE') return !before && Boolean(proposed);
   return Boolean(before) && !proposed;
 }
 
+export function ciiWriter1CNodeNameReplacementOperation(operation) {
+  if (!operationId(operation)) return false;
+  if (operation?.family !== 'NODE_NAME' || operation?.property !== NODE_PROPERTY) return false;
+  if (operation?.action !== 'COPY' || operation?.status !== 'PREVIEW_READY') return false;
+  if (operation?.policyAuthority !== WRITER_1C_NODENAME_POLICY) return false;
+  if (!APPROVED.has(operation?.matchAuthority?.status) || !targetIdentity(operation)) return false;
+  const before = beforeName(operation); const proposed = proposedName(operation);
+  return Boolean(before) && Boolean(proposed) && before !== proposed;
+}
+
+export function ciiNodeNameMutationOperation(operation) {
+  return ciiWriter2NodeNameCardinalityOperation(operation) || ciiWriter1CNodeNameReplacementOperation(operation);
+}
+
 export function ciiWriter2PhysicalMutationKey(operation) {
-  if (!ciiWriter2NodeNameCardinalityOperation(operation)) return null;
-  const before = text(operation?.before ?? operation?.targetEvidence?.value);
-  const proposed = text(operation?.proposed ?? operation?.sourceEvidence?.value);
-  return `NODE_NAME|${operation.action}|${targetIdentity(operation)}|${before}|${proposed}`;
+  if (!ciiNodeNameMutationOperation(operation)) return null;
+  return `NODE_NAME|${targetIdentity(operation)}|${beforeName(operation)}|${proposedName(operation)}`;
 }
 function physicalTargetKey(operation) {
-  return ciiWriter2NodeNameCardinalityOperation(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
+  return ciiNodeNameMutationOperation(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
 }
 
 export function ciiWriter2PhysicalMutationConflicts(operations = []) {
@@ -146,5 +164,5 @@ export function ciiCanonicalWriter2MutationSelection(operations = []) {
 
 export const _test = Object.freeze({
   text, operationId, sourceAliasCandidates, acceptanceSourceNames, acceptanceMatchesRow,
-  candidateOperations, targetIdentity, physicalTargetKey, operationRank,
+  candidateOperations, targetIdentity, physicalTargetKey, operationRank, beforeName, proposedName,
 });
