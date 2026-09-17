@@ -3,7 +3,7 @@ import { assertCiiMsBm001Authority } from './cii-workspace-multisource-nodename-
 import {
   ciiBm001CorrespondenceCoverage,
   ciiCanonicalWriter2MutationSelection,
-  ciiWriter2NodeNameCardinalityOperation,
+  ciiNodeNameMutationOperation,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 
 function text(value) { return String(value ?? '').trim(); }
@@ -17,7 +17,7 @@ function candidateOperations(plan) {
 }
 
 export function ciiExpectedNodeNameOperation(operation) {
-  return ciiWriter2NodeNameCardinalityOperation(operation);
+  return ciiNodeNameMutationOperation(operation);
 }
 
 export async function createCiiExpectedNodeNameSourceSetSelection(plan, options = {}) {
