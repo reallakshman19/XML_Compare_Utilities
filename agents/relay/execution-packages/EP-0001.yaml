@@ -95,6 +95,7 @@ inputs:
   description: Repository-owned test selection that defines the workflow-equivalent Node surface for this diagnostic EP.
   authority: Frozen RC repository source
   source: .github/workflows/support-report-typicality-qualification.yml@759612b4e355a585aed7d64b566f199340429bdf
+  resolution_method: Fetch the exact RC workflow file and parse the Run Support Report focused qualification node --test selectors.
   type: workflow_definition
   units: NA
   editable: false
@@ -135,7 +136,7 @@ benchmarks:
   name: Workflow-equivalent focused Node result
   purpose: Determine whether the repository-owned focused Node surface reproduces a product/test failure locally.
   source: Frozen workflow command plus exact-RC test and production files
-  oracle_class: EXECUTABLE_TEST
+  oracle_class: FROZEN_GOLDEN
   payload: Run the resolved node --test selection under Node 22 and retain raw test totals/failures/not-run reasons.
   expected: All resolvable workflow-selected tests pass; any unresolved dependency or transport limitation is classified NOT_RUN and is not upgraded to PASS.
   tolerance: null
