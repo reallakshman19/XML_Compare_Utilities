@@ -1,7 +1,7 @@
 # Current Issue State — SUPPORT-PRIMARY-1225
 
 ISSUE_BASIS_ID: IB-SUPPORT-PRIMARY-1225-0001
-CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0011
+CURRENT_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0012
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1225
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 WORK_PACKAGE_ID: WP-QUAL-001
@@ -11,7 +11,7 @@ PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
 PR_BASE_AT_RC_FREEZE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MAIN_HEAD_LIVE: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
 CUSTODY_BRANCH: agent/support-primary-1225
-CUSTODY_HEAD_BASIS: fb22bea6e36587fb9698e77ead24fb16f589b8ef
+CUSTODY_HEAD_BASIS: f15e0678fecf4af041d9a60bed9bb3684931d61d
 IDENTITY_RULE: RC_SHA is immutable product qualification identity; custody branch tip is separate mutable documentation identity
 
 ### Original task / acceptance ledger
@@ -42,19 +42,22 @@ RUNNER-001 | Exact-RC focused Node | NOT_RUN_INFRASTRUCTURE | 104789950832; no e
 RUNNER-002 | Exact-RC browser | NOT_RUN_INFRASTRUCTURE | 104789949548; no executable steps
 RUNNER-003 | Exact-RC ZIP benchmark | NOT_RUN_INFRASTRUCTURE | 104782606659; no executable steps
 RUNNER-004 | Later unrelated repository workflow probe | SAME_FAILURE_MODE | CII run 35164318442 job 105021868415: steps=[]; runner_id=0
+RUNNER-005 | Exact-RC workflow recheck at EP-0012 | NO_NEW_RECEIPT | only runs 35074828791 and 35074828886 remain associated with RC
 RUNNER_CONDITION_CHANGE: FALSE
 HOSTED_RETRY_DECISION: DO_NOT_RETRY_IDENTICAL_RC_WORKFLOWS
 LOCAL_CONTAINER_CHECKOUT: ABSENT
-LOCAL_EXACT_CHECKOUT_GATE: UNAVAILABLE | unauthenticated network git unavailable; reconstructed workspace cannot close governed gate
+CONNECTOR_TREE_ACCESS: AVAILABLE | recursive exact-RC Git tree and individual contents readable
+AUTHENTICATED_CHECKOUT_TRANSPORT: UNAVAILABLE | connector exposes no authenticated repository archive/checkout transport into execution container
+LOCAL_EXACT_CHECKOUT_GATE: UNAVAILABLE | selected-blob reconstruction is not accepted as governed clean checkout
 
 ### Input ledger
 INPUT-001 | PR #1223 source at RC_SHA | AVAILABLE | exact PR head still RC_SHA
 INPUT-002 | benchmarks/1884.zip | AVAILABLE_PINNED | blob 63acc3c0b413f6ee727189ec36d4b76fba44d73a; size 122756
 INPUT-003 | benchmarks/1885.zip | AVAILABLE_PINNED | blob 5f27f2d6736693eb21dc2e7981fecad22952819a; size 585880
 INPUT-004 | benchmarks/1835.zip | AVAILABLE_PINNED | blob c42aafae408caafd5197574834a81654ab04bb2b; size 551568
-INPUT-005 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | separate authoritative Owner XML absent from RC benchmark inventory and issue inputs
+INPUT-005 | real 1835 Clash-within-Supports relationship XML | UNRESOLVED | no issue input after EP-0011 supplied authoritative Owner XML
 INPUT-006 | browser regression fixtures | AVAILABLE | source present; browser execution did not occur
-INPUT-007 | clean trusted executing Node/browser environment | UNRESOLVED | hosted jobs still fail before runner allocation
+INPUT-007 | clean trusted executing Node/browser environment | UNRESOLVED | hosted jobs still fail before runner allocation; connector cannot materialize governed checkout
 
 ### Benchmark / oracle ledger
 BM-001 | PS-12060=1 | NOT_RUN | real 1885 governed benchmark never executed
@@ -70,6 +73,7 @@ RET-001 | LEG-014 independent high-risk logic | RETAINED | 27/27 pass; not a #12
 RET-002 | LEG-017 narrower partial execution | RETAINED | 13/13 pass with documented caveats; not a #1225 governed-gate substitute
 RET-003 | Frozen RC continuity | VERIFIED | PR #1223 head still exactly RC_SHA
 RET-004 | EP-0009 correction | SUPERSEDED_STATE | stale main=242fc1 claim replaced by live main=3ee90ca and explicit RC/custody identity separation
+RET-005 | Connector execution-route assessment | VERIFIED_LIMITATION | source tree readable, but no clean authenticated checkout transport into execution container
 
 ### Roadmap / authority ledger
 RM-001 | #1222 parent Primary Support Assembly program | ALIGNED | mutation authority NONE absent executed defect
@@ -91,8 +95,8 @@ TAKEOVER_QUALIFICATION_READY: FALSE
 ### Issue synchronization
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5710123451
-ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5710946555
+ISSUE_HANDOVER_SYNC_STATUS: SYNCHRONIZING_EP_0012
 
 ### Current release state
 PR: #1223
@@ -101,16 +105,15 @@ PR_MERGED: FALSE
 RC_HEAD_MATCH: TRUE
 MAIN_HEAD_OBSERVED: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
 MERGEABILITY: MERGEABLE
-UNRESOLVED_REVIEW_THREADS: 0
 REQUIRED_CHECKS_STATUS: NOT_RUN_INFRASTRUCTURE
 RELEASE_DISPOSITION: HOLD_DRAFT
 PRODUCT_FIX_DECISION: NO-PATCH
 
 ### Latest progression observation
-EP-0011 revalidated the execution/input boundary after EP-0010 corrected stale control-plane state. No newer exact-RC receipt exists. A later unrelated repository workflow demonstrates the same pre-runner failure mode, so runner conditions have not materially changed and no redundant hosted retry was launched. Governed benchmark blob identities are pinned directly at the RC. No authoritative real-1835 relationship XML was found or supplied.
+EP-0012 rechecked both legitimate unblock channels and evaluated a connector-mediated local execution route. No newer exact-RC receipt or repository-wide runner recovery evidence exists, no new authoritative 1835 relationship input was supplied, and live PR/main state is unchanged. The connected GitHub API can expose exact-RC tree metadata and individual contents, but cannot provide the clean authenticated checkout transport required for governed execution. No redundant retry or product mutation was performed.
 
 ### Current blocker
 External execution/input only: no trusted environment has actually executed the frozen-RC governed Node/ZIP/browser gates; separate authoritative real 1835 relationship XML is absent.
 
 ### Exact next action
-Wait for a material boundary change rather than burn another identical hosted retry. When a trusted environment can obtain and execute a clean exact checkout of RC_SHA, run repository-owned focused Node first, then real 1884/1885, then Playwright/browser against that same RC with raw evidence retained. Separately, when authoritative real 1835 relationship XML is supplied, pin it and execute parser -> exact zone scope -> relationship bundle -> reconciliation -> orphan/count. Any product failure must be reproduced and localized to the first wrong production boundary before a minimal regression-backed patch is permitted; a product patch creates a new RC.
+Remain at the external execution/input boundary. When a trusted environment can obtain and execute a clean exact checkout of RC_SHA, run repository-owned focused Node first, then real 1884/1885, then Playwright/browser against that same RC with raw evidence retained. Separately, when authoritative real 1835 relationship XML is supplied, pin it and execute parser -> exact zone scope -> relationship bundle -> reconciliation -> orphan/count. Any product failure must be reproduced and localized to the first wrong production boundary before a minimal regression-backed patch is permitted; a product patch creates a new RC.
