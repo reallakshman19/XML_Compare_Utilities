@@ -145,8 +145,8 @@ const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applie
 const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
 const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows);
 const byteClosure = validateIndependentMixedNodeNameByteClosure(targetText, applied.byteString, {
+  expectedDeltas: expectedDelta.rows,
   expectedRowDelta: createCount - deleteCount,
-  deleteCount,
 });
 const checkpointEvidence = checkpointDiagnostics(preview);
 const diagnostics = Object.freeze({
