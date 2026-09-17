@@ -1,0 +1,22 @@
+schema_version: relay-v2.5
+roadmap:
+  id: RM-SUPPORT-PRIMARY-1225-V25
+  revision: RM-0001
+  title: Primary Support Assembly release hardening and governed qualification
+objectives:
+- id: OBJ-001
+  title: Govern Primary Support Assembly release qualification
+  state: ACTIVE
+  definition: PARTIALLY_DEFINED
+  phases:
+  - id: PHASE-001
+    title: Reconcile V2 custody into V2.5 authority
+    state: PLANNED
+    definition: OWNER_REVIEW_REQUIRED
+    work_packages:
+    - id: WP-001
+      title: Reconcile legacy custody and compute executable frontier
+      state: PLANNED
+      definition: OWNER_REVIEW_REQUIRED
+      execution_status: WAITING
+      depends_on: []
