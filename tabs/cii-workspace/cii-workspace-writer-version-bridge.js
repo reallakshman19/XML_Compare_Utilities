@@ -312,7 +312,7 @@ export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, t
     versionBridgeValidation: Object.freeze({
       schema: 'CIIWorkspaceWriterVersionBridgeValidation.v2',
       status: 'PASS',
-      path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_V14_VIA_V11',
+      path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_VIA_V11',
       baselineExactRoundTrip: normalized.baselineExactRoundTrip,
       baselineRoundTripAuthority: bridge.target?.writer2Shadow?.enabled ? 'CONVERSION_SHADOW' : 'ORIGINAL_TARGET',
       canonicalModifiedRoundTripExact: true,
