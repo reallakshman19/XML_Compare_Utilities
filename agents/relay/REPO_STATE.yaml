@@ -77,10 +77,8 @@ projection:
   receipt: null
   basis: []
 relay_readiness:
-  baton_ready: false
+  baton_ready: true
   projection_ready: true
-  handover_ready: false
-  reasons:
-  - EP-0001 has been created from the computed frontier, but cold-start/semantic baton validation and route/candidate takeover certification have not yet been completed.
-  - Material authority remains READ_ONLY until candidate-specific DISC/TC evidence and live material_write_ready validation succeed.
+  handover_ready: true
+  reasons: []
 chat_context_required: false
