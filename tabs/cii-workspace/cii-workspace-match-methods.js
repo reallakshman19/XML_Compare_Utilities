@@ -75,7 +75,7 @@ function stationFraction(edge) {
 }
 function networkBlockers(source, target) {
   const blockers = []; const s = endpointDegrees(source); const t = endpointDegrees(target);
-  if ((s[1] >= 3) !== (t[1] >= 3)) blockers.push('BRANCH_TOPOLOGY_INCOMPATIBLE');
+  if (s[1] >= 3 && t[1] < 3) blockers.push('SOURCE_BRANCH_REQUIRES_TARGET_BRANCH_SUPPORT');
   if ((source?.componentKind === 'RIGID') !== (target?.componentKind === 'RIGID')) blockers.push('RIGID_COMPONENT_KIND_INCOMPATIBLE');
   return blockers;
 }
