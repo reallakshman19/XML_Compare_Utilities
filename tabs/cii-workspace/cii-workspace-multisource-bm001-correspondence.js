@@ -97,18 +97,17 @@ export function ciiNodeNameMutationOperation(operation) {
   return ciiWriter2NodeNameCardinalityOperation(operation) || ciiWriter1CNodeNameReplacementOperation(operation);
 }
 
-export function ciiWriter2PhysicalMutationKey(operation) {
-  if (!ciiNodeNameMutationOperation(operation)) return null;
+function physicalMutationKey(operation, predicate) {
+  if (!predicate(operation)) return null;
   return `NODE_NAME|${targetIdentity(operation)}|${beforeName(operation)}|${proposedName(operation)}`;
 }
-function physicalTargetKey(operation) {
-  return ciiNodeNameMutationOperation(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
+function physicalTargetKey(operation, predicate) {
+  return predicate(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
 }
-
-export function ciiWriter2PhysicalMutationConflicts(operations = []) {
+function physicalMutationConflicts(operations, predicate, keyFunction) {
   const byTarget = new Map();
   for (const operation of operations || []) {
-    const targetKey = physicalTargetKey(operation); const mutationKey = ciiWriter2PhysicalMutationKey(operation);
+    const targetKey = physicalTargetKey(operation, predicate); const mutationKey = keyFunction(operation);
     if (!targetKey || !mutationKey) continue;
     if (!byTarget.has(targetKey)) byTarget.set(targetKey, new Map());
     const mutations = byTarget.get(targetKey);
@@ -127,17 +126,29 @@ export function ciiWriter2PhysicalMutationConflicts(operations = []) {
   return deepFreeze(conflicts.sort((a, b) => a.physicalTargetKey.localeCompare(b.physicalTargetKey, undefined, { numeric: true })));
 }
 
+export function ciiWriter2PhysicalMutationKey(operation) {
+  return physicalMutationKey(operation, ciiWriter2NodeNameCardinalityOperation);
+}
+export function ciiWriter2PhysicalMutationConflicts(operations = []) {
+  return physicalMutationConflicts(operations, ciiWriter2NodeNameCardinalityOperation, ciiWriter2PhysicalMutationKey);
+}
+export function ciiNodeNamePhysicalMutationKey(operation) {
+  return physicalMutationKey(operation, ciiNodeNameMutationOperation);
+}
+export function ciiNodeNamePhysicalMutationConflicts(operations = []) {
+  return physicalMutationConflicts(operations, ciiNodeNameMutationOperation, ciiNodeNamePhysicalMutationKey);
+}
+
 function operationRank(operation) {
   const authority = operation?.matchAuthority?.status === 'LOCKED' ? '0' : '1';
   return `${authority}|${text(operation?.sourceId)}|${operationId(operation)}`;
 }
-export function ciiCanonicalWriter2MutationSelection(operations = []) {
-  const conflicts = ciiWriter2PhysicalMutationConflicts(operations);
+function canonicalSelection(operations, conflicts, keyFunction) {
   const conflictedOperationIds = new Set(conflicts.flatMap((item) => item.operationIds));
   const groups = new Map();
   for (const operation of operations || []) {
     if (conflictedOperationIds.has(operationId(operation))) continue;
-    const key = ciiWriter2PhysicalMutationKey(operation); if (!key) continue;
+    const key = keyFunction(operation); if (!key) continue;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(operation);
   }
@@ -161,8 +172,15 @@ export function ciiCanonicalWriter2MutationSelection(operations = []) {
     conflicts,
   });
 }
+export function ciiCanonicalWriter2MutationSelection(operations = []) {
+  return canonicalSelection(operations, ciiWriter2PhysicalMutationConflicts(operations), ciiWriter2PhysicalMutationKey);
+}
+export function ciiCanonicalNodeNameMutationSelection(operations = []) {
+  return canonicalSelection(operations, ciiNodeNamePhysicalMutationConflicts(operations), ciiNodeNamePhysicalMutationKey);
+}
 
 export const _test = Object.freeze({
   text, operationId, sourceAliasCandidates, acceptanceSourceNames, acceptanceMatchesRow,
   candidateOperations, targetIdentity, physicalTargetKey, operationRank, beforeName, proposedName,
+  physicalMutationKey, physicalMutationConflicts, canonicalSelection,
 });
