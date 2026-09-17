@@ -1,0 +1,27 @@
+schema_version: relay-v2.5-bootstrap
+repository:
+  name: XML_Compare_Utilities
+  remote: reallaksh19/XML_Compare_Utilities
+  repository_type: application
+  default_branch: main
+relay_protocol:
+  basis_ref: feae969b860b83ee3df230fef1a162d4a4e7968e
+roadmap:
+  id: RM-SUPPORT-PRIMARY-1225-V25
+  revision: RM-0001
+  title: Primary Support Assembly release hardening and governed qualification
+initial_position:
+  objective:
+    id: OBJ-001
+    title: Govern Primary Support Assembly release qualification
+  phase:
+    id: PHASE-001
+    title: Reconcile V2 custody into V2.5 authority
+  work_package:
+    id: WP-001
+    title: Reconcile legacy custody and compute executable frontier
+initialization:
+  next_action: Reconcile #1225 Owner intent and legacy evidence into V2.5 roadmap authority, compute the executable frontier, and do not create an EP until cold-start inputs are complete.
+  notes:
+  - Frozen product RC 759612b4e355a585aed7d64b566f199340429bdf remains read-only during relay migration.
+  - Preserve all V2 endpoints as history/context; do not auto-promote EP-0012.
