@@ -1,5 +1,5 @@
 schema_version: relay-v2.5
-graph_revision: IG-0002
+graph_revision: IG-0003
 nodes:
   - id: ISSUE-1224
     state: ACTIVE
@@ -7,5 +7,20 @@ nodes:
     github:
       issue_number: 1224
       url: https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224
-    roadmap_node: WP-ARCH-001
-relationships: []
+      latest_projection_comment_id: 5720299025
+    roadmap_node: WP-RET-001
+  - id: PR-1228
+    state: DRAFT
+    github_state: OPEN
+    mergeable: true
+    merge_authority: OWNER_ONLY
+    github:
+      pr_number: 1228
+      url: https://github.com/reallaksh19/XML_Compare_Utilities/pull/1228
+    roadmap_node: WP-DELIVERY-001
+relationships:
+  - {from: ISSUE-1224, to: PR-1228, type: IMPLEMENTED_BY}
+  - {from: WP-RET-001, to: PR-1228, type: VALIDATES_BEFORE_OWNER_REVIEW}
+notes:
+  - PR 1228 contains the owner-directed product implementation and remains draft while executable retained validation is NOT_RUN_ENVIRONMENT.
+  - GitHub Actions runs 35266182142 and 35266754547 both executed zero steps because no runner was assigned.
