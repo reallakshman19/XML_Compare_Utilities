@@ -4,10 +4,10 @@ import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-n
 import {
   ciiBm001CorrespondenceCoverage,
   ciiNodeNameMutationOperation,
+  ciiNodeNamePhysicalMutationConflicts,
+  ciiNodeNamePhysicalMutationKey,
   ciiWriter1CNodeNameReplacementOperation,
   ciiWriter2NodeNameCardinalityOperation,
-  ciiWriter2PhysicalMutationConflicts,
-  ciiWriter2PhysicalMutationKey,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 
@@ -23,18 +23,18 @@ function isQualifiedExpectedApply(operation) {
 function duplicatePhysicalMutationBlockers(operations) {
   const byKey = new Map(); const blockers = [];
   for (const operation of operations || []) {
-    const key = ciiWriter2PhysicalMutationKey(operation); if (!key) continue;
+    const key = ciiNodeNamePhysicalMutationKey(operation); if (!key) continue;
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(operationId(operation));
   }
   for (const [key, ids] of byKey) if (ids.length > 1) {
-    blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
+    blockers.push(`CII_MS_NODENAME_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
   }
   return blockers;
 }
 function conflictingPhysicalMutationBlockers(operations) {
-  return ciiWriter2PhysicalMutationConflicts(operations)
-    .map((item) => `CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
+  return ciiNodeNamePhysicalMutationConflicts(operations)
+    .map((item) => `CII_MS_NODENAME_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
 }
 function custodyBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
@@ -95,7 +95,7 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
     const uniqueBeforePlan = [...new Set(blockers)];
     const structuralTransferPlan = deepFreeze({
       ...familyPlan(transferPlan, ciiWriter2NodeNameCardinalityOperation),
-      blockers: deepFreeze(uniqueBeforePlan.filter((item) => !String(item).startsWith('CII_MS_WRITER1C_REPLACE:'))),
+      blockers: deepFreeze(uniqueBeforePlan.filter((item) => !String(item).startsWith('CII_MS_WRITER1C_REPLACE:')),
     });
     relocationPlan = buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: structuralTransferPlan });
     if (!relocationPlan.ready) blockers.push(...relocationPlan.blockers);
