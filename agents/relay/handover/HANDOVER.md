@@ -2,38 +2,50 @@
 
 ## Current relay state
 
-- Lifecycle: `INITIALIZING`
-- Material authority: `NONE`
-- Active EP: none
+- Lifecycle: `ACTIVE` with validation stop `ESSENTIAL_INPUT_MISSING`
+- Material authority: `READ_ONLY`
+- Active EP: `EP-CII-W2-NB-R1-V25-0002`
+- Last checkpoint: `CP-CII-W2-NB-R1-V25-0001`
+- Roadmap: `ROADMAP-XMLCU-V25-1224@RM-0003`
+- Progress basis: `PB-0003`
 - Objective: `OBJ-CII-W2-NB-R1-1224`
-- Phase: `PH-V25-MIGRATION`
-- Work package: `WP-V25-MIGRATION-001`
-- Progress: `0%`
+- Phase/work package: `PH-IMPLEMENTATION / WP-RET-001`
+- Draft PR: `#1228`, mergeable, merge authority `OWNER_ONLY`
 
-## Source custody
+## Product state
 
-Owner adoption instruction is recorded at:
-`https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224#issuecomment-5712756544`
+Owner-directed implementation is present on `revision/cii-writer2-nodename-byte-r1-1224-v25-migration`:
 
-V2.5 protocol basis:
-`reallaksh19/Common@feae969b860b83ee3df230fef1a162d4a4e7968e:skills/engineering-pr-delivery-v2.5/SKILL.md`
+1. SOURCE correspondence can map injectively into a larger TARGET subgraph while missing SOURCE support and ambiguous TARGET choices remain fail-closed.
+2. Same-cardinality NodeName REPLACE is recovered as Writer1C exact-span authority before multisource aggregation; direct Writer2 overwrite authority remains unchanged.
+3. Mixed source-set apply performs Writer1C replacement, re-intake/revalidation, then Writer2 structural NodeName relocation. V14 structural deltas are projected onto the replacement postimage rather than using the broad bridge for pure replacement.
+4. Retained expected semantics are 35 REPLACE + 1 CREATE + 0 DELETE.
+5. The independent retained byte oracle authorizes only the expected NodeName fields, required CONTROL.NONAM count, and independently derived affected ELEMENT pointer field; unrelated NODENAME bytes/padding, pointer fields, sections, and CR/LF bytes must remain exact.
 
-Legacy V2 source branch/head:
-`revision/cii-writer2-nodename-byte-r1-1224@956db6b33d15874678851f20f7c8b6573c9d25e0`
+## Qualification truth
 
-Legacy EP12, ACTIVE/CURRENT state, candidate package, QSET answer, and benchmark evidence are migration evidence/context only until reconciled. They are not an executable V2.5 EP.
+`EP-CII-W2-NB-R1-V25-0001` required independent DISC/QUAL/TC before product mutation. Product mutation occurred after the owner instructed the active session to fix and proceed, without fabricating those missing certifications. This governance deviation is explicitly recorded in `CP-CII-W2-NB-R1-V25-0001`; it has **not** been retroactively certified.
 
-## Technical truth carried as discovery leads, not promoted authority
-
-1. Current propagation requires equal source/target frontier cardinality and later treats unmatched target component edges as blockers, conflicting with required injective source-subgraph matching.
-2. Current Writer2 member preview contracts nonblank-to-different-nonblank NodeName REPLACE to `BLOCKED` before multisource aggregation, so downstream multisource selection changes alone cannot recover Writer1C COPY authority.
-3. Writer1C same-cardinality fixed-span mutation and Writer2 structural relocation remain protected low-level domains pending V2.5 qualification.
-4. The current PB-0003 retained benchmark is lower-bound selectability evidence, not a complete mixed-transaction postimage proof.
+`EP-CII-W2-NB-R1-V25-0002` is validation/delivery reconciliation only and prohibits further production mutation. A concrete failing executable test must create a bounded repair successor EP before production code changes again.
 
 ## Environment truth
 
-Retained-real execution remains `NOT_RUN_ENVIRONMENT`. GitHub Actions run `35060526042`, attempt 3, failed before runner assignment (`runner_id=0`, no steps). No byte-faithful repository checkout is mounted in the local execution environment.
+Executable retained validation is still `NOT_RUN_ENVIRONMENT`:
 
-## Exact next node
+- Actions run `35266182142`: `runner_id=0`, `steps=[]`.
+- Actions run `35266754547`: `runner_id=0`, `steps=[]`.
+- No byte-faithful repository checkout is mounted in the current execution environment.
 
-Perform migration inventory/reconciliation for the legacy #1224 chain, then create repository-native V2.5 DISC evidence. Do not create a material EP or modify production code before the reconstructed authority chain permits it.
+These are infrastructure failures before test execution, not product test failures.
+
+## Exact next action
+
+Run, in a byte-faithful checkout or functioning runner:
+
+```text
+node tests/cii-workspace-source-subgraph-propagation.test.js
+node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+node tests/cii-workspace-multisource-pb0003-benchmark.test.js
+```
+
+If all pass, run the retained browser benchmark when Playwright is available, update the relay evidence, and prepare PR #1228 for owner review. If any command fails, record the exact failure and create a failure-specific repair EP before changing production code.
