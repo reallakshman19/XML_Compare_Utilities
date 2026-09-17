@@ -172,11 +172,13 @@ function canonicalSelection(operations, conflicts, keyFunction) {
     conflicts,
   });
 }
-export function ciiCanonicalWriter2MutationSelection(operations = []) {
-  return canonicalSelection(operations, ciiWriter2PhysicalMutationConflicts(operations), ciiWriter2PhysicalMutationKey);
-}
 export function ciiCanonicalNodeNameMutationSelection(operations = []) {
   return canonicalSelection(operations, ciiNodeNamePhysicalMutationConflicts(operations), ciiNodeNamePhysicalMutationKey);
+}
+export function ciiCanonicalWriter2MutationSelection(operations = []) {
+  return (operations || []).some(ciiWriter1CNodeNameReplacementOperation)
+    ? ciiCanonicalNodeNameMutationSelection(operations)
+    : canonicalSelection(operations, ciiWriter2PhysicalMutationConflicts(operations), ciiWriter2PhysicalMutationKey);
 }
 
 export const _test = Object.freeze({
