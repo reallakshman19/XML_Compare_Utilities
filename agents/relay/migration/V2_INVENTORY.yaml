@@ -1,0 +1,37 @@
+schema_version: relay-v2.5-migration-inventory
+source_protocol: engineering-pr-delivery-v2
+source_root: .
+categories:
+  active_chain_state:
+  - agents/chains/SUPPORT-PRIMARY-1225/ACTIVE.md
+  issue_basis:
+  - agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIMARY-1225-0001.md
+  issue_current:
+  - agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
+  endpoints:
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0001.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0003.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0004.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0005.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0006.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0007.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0008.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0009.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0010.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0011.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0012.md
+  material_legs: []
+  qualifications: []
+counts:
+  active_chain_state: 1
+  issue_basis: 1
+  issue_current: 1
+  endpoints: 12
+  material_legs: 0
+  qualifications: 0
+migration_rules:
+- Inventory is evidence discovery only; no listed artifact is automatically authoritative V2.5 state.
+- A V2 endpoint may seed history/context but is never automatically promoted to a V2.5 EP.
+- Owner intent, roadmap topology, current frontier, acceptance, progress basis, and successor readiness must be reconciled explicitly.
+- Do not copy narrative progress percentages into V2.5 calculated progress.
