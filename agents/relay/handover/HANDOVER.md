@@ -1,52 +1,48 @@
-# V2.5 handover — #1224
+# V2.5 terminal handover — #1224
 
-## Current relay state
+## Terminal state
 
-- Lifecycle: `ACTIVE` with validation stop `ESSENTIAL_INPUT_MISSING`
-- Material authority: `READ_ONLY`
-- Active EP: `EP-CII-W2-NB-R1-V25-0002`
-- Last checkpoint: `CP-CII-W2-NB-R1-V25-0001`
-- Roadmap: `ROADMAP-XMLCU-V25-1224@RM-0003`
-- Progress basis: `PB-0003`
+- Lifecycle: `TERMINAL`
+- Material authority: `NONE`
+- Active EP: none
+- Last checkpoint: `CP-CII-W2-NB-R1-V25-0002`
+- Roadmap: `ROADMAP-XMLCU-V25-1224@RM-0004`
+- Progress basis: `PB-0004`
 - Objective: `OBJ-CII-W2-NB-R1-1224`
-- Phase/work package: `PH-IMPLEMENTATION / WP-RET-001`
-- PR: `#1228`, `READY_FOR_REVIEW`, mergeable, auto-merge disabled, merge authority `OWNER_ONLY`
+- Terminal phase/work package: `PH-DELIVERY / WP-DELIVERY-001`
+- PR `#1228`: `MERGED`
+- Merge commit: `45f2a3ed7bbb186030e141a8313ccc04ddc997cb`
+- Issue `#1224`: `CLOSED`
 
-## Product state
+## Delivered product state
 
-Owner-directed implementation is present on `revision/cii-writer2-nodename-byte-r1-1224-v25-migration`:
+The merged implementation provides:
 
-1. SOURCE correspondence can map injectively into a larger TARGET subgraph while missing SOURCE support and ambiguous TARGET choices remain fail-closed.
-2. Same-cardinality NodeName REPLACE is recovered as Writer1C exact-span authority before multisource aggregation; direct Writer2 overwrite authority remains unchanged.
-3. Mixed source-set apply performs Writer1C replacement, re-intake/revalidation, then Writer2 structural NodeName relocation. V14 structural deltas are projected onto the replacement postimage rather than using the broad bridge for pure replacement.
-4. Retained expected semantics are 35 REPLACE + 1 CREATE + 0 DELETE.
-5. The independent retained byte oracle authorizes only the expected NodeName fields, required CONTROL.NONAM count, and independently derived affected ELEMENT pointer field; unrelated NODENAME bytes/padding, pointer fields, sections, and CR/LF bytes must remain exact.
+1. injective SOURCE-subgraph mapping into a larger TARGET while preserving missing-source-support and ambiguity fail-closed behavior;
+2. Writer1C exact-span same-cardinality NodeName REPLACE without broadening direct Writer2 overwrite authority;
+3. mixed Writer1C replacement -> re-intake -> Writer2 structural CREATE/DELETE relocation, with V14 structural projection applied to the replacement postimage;
+4. retained known-positive representation of 35 REPLACE + 1 CREATE + 0 DELETE;
+5. an independent retained byte oracle that limits changes to expected NodeName fields, required CONTROL.NONAM and independently derived affected ELEMENT pointer fields while checking unrelated bytes and CR/LF preservation.
 
-## Qualification truth
+## Evidence truth
 
-`EP-CII-W2-NB-R1-V25-0001` required independent DISC/QUAL/TC before product mutation. Product mutation occurred after the owner instructed the active session to fix and proceed, without fabricating those missing certifications. This governance deviation is explicitly recorded in `CP-CII-W2-NB-R1-V25-0001`; it has **not** been retroactively certified.
+Retained Node execution never ran:
 
-`EP-CII-W2-NB-R1-V25-0002` is validation/delivery reconciliation only and prohibits further production mutation. A concrete failing executable test must create a bounded repair successor EP before production code changes again.
+- Actions run `35266182142`: no runner, zero steps.
+- Actions run `35266754547`, attempt 1: no runner, zero steps.
+- Actions run `35266754547`, attempt 2: no runner, zero steps.
+- No byte-faithful checkout was available locally.
 
-## Validation truth
+Therefore retained S1/S2/S3/T validation remains `NOT_RUN_ENVIRONMENT`; it is not recorded as PASS or FAIL.
 
-Executable retained validation is still `NOT_RUN_ENVIRONMENT`:
+Limited local evidence: a standalone Node predicate reproduction of current propagation/M2 logic passed the source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier and ambiguity cases. Static review confirmed Writer1C/Writer2 subset-scope decomposition and the tightened raw-byte oracle. This does not replace retained execution.
 
-- Actions run `35266182142`: failed before runner assignment, `runner_id=0`, `steps=[]`.
-- Actions run `35266754547`, attempt 1: failed before runner assignment, `runner_id=0`, `steps=[]`.
-- Actions run `35266754547`, attempt 2: failed before runner assignment again and executed zero steps.
-- No byte-faithful repository checkout is mounted in the current execution environment.
+## Governance truth
 
-Limited local evidence is available: a Node predicate reproduction of the current propagation/M2 logic passed the intended source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier, and ambiguity falsifiers. Static review also confirmed the Writer1C replacement-only and Writer2 structural-only subset plans preserve explicit APPLY scope authority. This evidence does **not** replace retained S1/S2/S3/T execution.
+`EP-CII-W2-NB-R1-V25-0001` required independent DISC/QUAL/TC before product mutation. The owner later instructed the active session to fix/proceed; implementation was performed and the missing certification was never fabricated. That deviation remains explicitly recorded.
 
-## Exact next action
+The owner then instructed progression after the environment-blocked validation state was disclosed. PR #1228 was marked ready for review and merged under `OWNER_ONLY` authority. Terminal closure is therefore an owner-accepted environment exception, not a technical claim that the retained benchmark passed.
 
-Run, in a byte-faithful checkout or functioning runner:
+## Follow-up
 
-```text
-node tests/cii-workspace-source-subgraph-propagation.test.js
-node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
-node tests/cii-workspace-multisource-pb0003-benchmark.test.js
-```
-
-If all pass, run the retained browser benchmark when Playwright is available, reconcile final evidence, and leave the merge decision to the owner. If any command fails, record the exact failure and create a failure-specific repair EP before changing production code.
+No material work remains scheduled under issue #1224. If retained execution is required later, reopen it as a new owner-directed follow-up with a functioning runner or byte-faithful checkout and preserve the current merge/evidence history.

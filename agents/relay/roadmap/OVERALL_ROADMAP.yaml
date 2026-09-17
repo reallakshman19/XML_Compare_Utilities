@@ -1,12 +1,12 @@
 schema_version: relay-v2.5
 roadmap:
   id: ROADMAP-XMLCU-V25-1224
-  revision: RM-0003
+  revision: RM-0004
   title: CII Writer2 NodeName byte-preserving revision delivery
 objectives:
   - id: OBJ-CII-W2-NB-R1-1224
     title: Complete CII Writer2 full NodeName byte-preserving revision
-    state: ACTIVE
+    state: COMPLETE
     definition: DETAILED
     weight: 100
     phases:
@@ -45,7 +45,7 @@ objectives:
             depends_on: [WP-ARCH-001]
       - id: PH-IMPLEMENTATION
         title: Material implementation and retained qualification
-        state: ACTIVE
+        state: COMPLETE
         definition: DETAILED
         weight: 45
         work_packages:
@@ -58,26 +58,26 @@ objectives:
             depends_on: [WP-ORACLE-001]
           - id: WP-RET-001
             title: Execute retained mixed end-to-end benchmark and independent postimage validation
-            state: ACTIVE
+            state: COMPLETE
             definition: DETAILED
-            execution_status: ACTIVE
+            execution_status: TERMINAL
             weight: 40
             depends_on: [WP-IMPL-001]
       - id: PH-DELIVERY
         title: Review, PR, and owner merge decision
-        state: PLANNED
+        state: COMPLETE
         definition: DETAILED
         weight: 10
         work_packages:
           - id: WP-DELIVERY-001
-            title: Review evidence, prepare PR 1228, and support owner merge decision
-            state: PLANNED
+            title: Review evidence, deliver PR 1228, and record owner merge decision
+            state: COMPLETE
             definition: DETAILED
-            execution_status: WAITING
+            execution_status: TERMINAL
             weight: 100
             depends_on: [WP-RET-001]
 notes:
-  - RM-0003 is a repository-truth reconciliation after owner-directed out-of-sequence implementation; it does not retroactively satisfy the missing independent preimplementation qualification.
-  - Formal qualification remains an explicit authority/quality finding in REPO_STATE and CP-CII-W2-NB-R1-V25-0001.
-  - WP-ORACLE-001 completion means the retained known-positive 35 REPLACE + 1 CREATE + 0 DELETE byte-closure oracle is authored; DELETE-specific independent compaction-oracle coverage remains a documented limitation outside that retained oracle.
-  - The only active serial frontier is WP-RET-001 under EP-CII-W2-NB-R1-V25-0002; production files are read-only until executable evidence creates a bounded successor need.
+  - RM-0004 is terminal owner-delivery reconciliation after PR 1228 merged at 45f2a3ed7bbb186030e141a8313ccc04ddc997cb.
+  - WP-RET-001 is terminal by owner acceptance of the disclosed environment exception, not by an executable retained benchmark PASS; retained Node evidence remains NOT_RUN_ENVIRONMENT.
+  - Independent preimplementation DISC/QUAL/TC required by EP-CII-W2-NB-R1-V25-0001 remains unsatisfied and is preserved as a governance quality finding.
+  - Technical progress remains below 100 percent in PROGRESS because retained execution is not credited as passed even though the delivery lifecycle is terminal.
