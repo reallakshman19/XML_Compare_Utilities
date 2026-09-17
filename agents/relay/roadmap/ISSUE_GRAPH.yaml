@@ -1,26 +1,11 @@
 schema_version: relay-v2.5
-progress_basis:
-  id: PB-0001
-  roadmap_revision: RM-0001
-overall:
-  earned_weight: 0
-  total_weight: 0
-  percent: 0
-objectives:
-  - id: OBJ-CII-W2-NB-R1-1224
-    earned_weight: 0
-    total_weight: 0
-    percent: 0
-phases:
-  - id: PH-V25-MIGRATION
-    earned_weight: 0
-    total_weight: 0
-    percent: 0
-work_packages:
-  - id: WP-V25-MIGRATION-001
-    earned_weight: 0
-    total_weight: 0
-    percent: 0
-execution_packages: []
-implementation_steps: []
-acceptance_criteria: []
+graph_revision: IG-0002
+nodes:
+  - id: ISSUE-1224
+    state: ACTIVE
+    github_state: OPEN
+    github:
+      issue_number: 1224
+      url: https://github.com/reallaksh19/XML_Compare_Utilities/issues/1224
+    roadmap_node: WP-ARCH-001
+relationships: []
