@@ -1,0 +1,54 @@
+schema_version: relay-v2.5-migration-reconciliation
+status: NEEDS_RECONCILIATION
+source_inventory: agents/relay/migration/V2_INVENTORY.yaml
+source_evidence:
+  active_chain_state:
+  - agents/chains/SUPPORT-PRIMARY-1225/ACTIVE.md
+  issue_basis:
+  - agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIMARY-1225-0001.md
+  issue_current:
+  - agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
+  endpoints:
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0001.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0003.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0004.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0005.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0006.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0007.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0008.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0009.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0010.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0011.md
+  - agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0012.md
+  material_legs: []
+  qualifications: []
+owner_intent:
+  authoritative_sources: []
+  unresolved_questions: []
+roadmap_mapping:
+  objectives: []
+  phases: []
+  work_packages: []
+current_position:
+  objective: null
+  phase: null
+  work_package: null
+durable_inputs: []
+benchmarks: []
+history_to_preserve:
+  checkpoints: []
+  evidence: []
+  decisions: []
+unresolved_work: []
+first_v25_ep:
+  create_only_after:
+  - owner intent reconciled
+  - current roadmap revision established
+  - executable frontier computed
+  - scope and acceptance made self-contained
+  - cold-start inputs complete
+  ep_id: null
+notes:
+- Legacy files are evidence/context only; no V2 endpoint is automatically executable as V2.5.
+- Progress must be recalculated from an explicit V2.5 basis rather than copied from narrative history.
