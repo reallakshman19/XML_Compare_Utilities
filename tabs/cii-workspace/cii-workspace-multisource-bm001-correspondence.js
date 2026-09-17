@@ -99,7 +99,7 @@ export function ciiNodeNameMutationOperation(operation) {
 
 function physicalMutationKey(operation, predicate) {
   if (!predicate(operation)) return null;
-  return `NODE_NAME|${targetIdentity(operation)}|${beforeName(operation)}|${proposedName(operation)}`;
+  return `NODE_NAME|${text(operation?.action)}|${targetIdentity(operation)}|${beforeName(operation)}|${proposedName(operation)}`;
 }
 function physicalTargetKey(operation, predicate) {
   return predicate(operation) ? `NODE_NAME|${targetIdentity(operation)}` : null;
