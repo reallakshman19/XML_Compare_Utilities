@@ -1,29 +1,81 @@
-schema_version: relay-v2.5-bootstrap
+schema_version: relay-v2.5
+relay_state: ACTIVE
 repository:
   name: XML_Compare_Utilities
   remote: reallaksh19/XML_Compare_Utilities
-  repository_type: application
-  default_branch: main
 relay_protocol:
+  version: '2.5'
   basis_ref: reallaksh19/Common@feae969b860b83ee3df230fef1a162d4a4e7968e
 roadmap:
   id: ROADMAP-XMLCU-V25-1224
-  revision: RM-0001
-  title: CII Writer2 NodeName byte-preserving revision delivery
-initial_position:
-  objective:
-    id: OBJ-CII-W2-NB-R1-1224
-    title: Complete CII Writer2 full NodeName byte-preserving revision
-  phase:
-    id: PH-V25-MIGRATION
-    title: V2.5 migration and authority reconstruction
-  work_package:
-    id: WP-V25-MIGRATION-001
-    title: Inventory and reconcile legacy V2 evidence for issue 1224
-initialization:
-  next_action: Reconcile legacy V2 evidence for issue 1224, establish repository-native discovery and qualification boundaries, and compute an executable frontier without promoting any legacy endpoint.
-  notes:
-    - Legacy chain CII-W2-NODENAME-BYTE-R1-1224 is migration evidence only.
-    - Production fix remains NOT_APPLIED_PRODUCT.
-    - Retained-real benchmark remains NOT_RUN_ENVIRONMENT.
-    - Latest GitHub Actions retry failed before runner assignment with zero steps.
+  revision: RM-0002
+  path: agents/relay/roadmap/OVERALL_ROADMAP.yaml
+current_position:
+  objective: OBJ-CII-W2-NB-R1-1224
+  phase: PH-ARCHITECTURE
+  work_package: WP-ARCH-001
+  work_packages: []
+execution_policy:
+  mode: SERIAL
+active_ep:
+  id: EP-CII-W2-NB-R1-V25-0001
+  path: agents/relay/execution-packages/EP-CII-W2-NB-R1-V25-0001.yaml
+  state: ACTIVE
+  continuity_receipt: null
+last_checkpoint:
+  id: NONE
+  path: null
+predecessor_join:
+  id: null
+  path: null
+predecessor_replan:
+  id: null
+  path: null
+takeover_admissions: []
+progress:
+  overall_percent: 10
+  phase_percent: 0
+  ep_percent: 0
+  basis_revision: PB-0002
+status_planes:
+  execution:
+    state: ACTIVE
+    can_continue: true
+    material_authority: READ_ONLY
+    next_action: An independent candidate must reconstruct EP-CII-W2-NB-R1-V25-0001 from repository state and publish DISC, QUAL Q1-Q5 and TC evidence before any product-file write.
+  quality:
+    state: NEEDS_ATTENTION
+    findings:
+      - Production NodeName fix remains unapplied.
+      - Current architecture loses Writer1C REPLACE intent at Writer2 contraction before multisource aggregation.
+      - Propagation currently rejects valid SOURCE-subgraph mappings with extra TARGET-only branches.
+  evidence:
+    state: PARTIAL
+    summary: Current source-path architecture is repository-grounded; retained real benchmark still has no executed runner evidence.
+    not_run:
+      - id: RETAINED-STRUCTURAL
+        reason: Latest GitHub Actions retry failed before runner assignment with zero steps.
+        cause: INFRASTRUCTURE
+      - id: RETAINED-PB0003
+        reason: Latest GitHub Actions retry failed before runner assignment with zero steps.
+        cause: INFRASTRUCTURE
+  stop:
+    active: false
+    category: NONE
+    reason: ''
+    basis: []
+projection:
+  required: false
+  state: NOT_REQUIRED
+  operation_id: null
+  target: null
+  roadmap_revision: RM-0002
+  execution_ref: EP-CII-W2-NB-R1-V25-0001
+  receipt: null
+  basis: []
+relay_readiness:
+  baton_ready: true
+  projection_ready: true
+  handover_ready: true
+  reasons: []
+chat_context_required: false
