@@ -46,23 +46,24 @@ status_planes:
   quality:
     state: NEEDS_ATTENTION
     findings:
-      - Owner-directed production implementation is applied in draft PR 1228 and checkpointed at CP-CII-W2-NB-R1-V25-0001, but it has no executable retained test result yet.
+      - Owner-directed production implementation is applied in PR 1228, checkpointed at CP-CII-W2-NB-R1-V25-0001, and the PR is READY_FOR_REVIEW; executable retained validation is still unavailable.
       - EP-CII-W2-NB-R1-V25-0001 required independent DISC/QUAL/TC before product mutation; that preimplementation qualification remains unsatisfied and the deviation is explicitly recorded rather than retroactively certified.
-      - The independent retained byte-closure oracle now checks exact expected NodeName fields, CONTROL.NONAM, affected ELEMENT pointers, unrelated NodeName bytes, unrelated pointers, section bytes, and CR/LF bytes for the known-positive 35 REPLACE + 1 CREATE + 0 DELETE path.
+      - A local Node predicate reproduction of the current propagation/M2 logic passed the source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier, and ambiguity falsifiers; this is limited predicate evidence, not the retained benchmark.
+      - The independent retained byte-closure oracle checks exact expected NodeName fields, CONTROL.NONAM, affected ELEMENT pointers, unrelated NodeName bytes, unrelated pointers, section bytes, and CR/LF bytes for the known-positive 35 REPLACE + 1 CREATE + 0 DELETE path.
       - DELETE remains supported by existing Writer2 relocation authority, but the new retained byte-closure oracle intentionally fails closed for DELETE until a dedicated independent compaction oracle is established.
-      - PR 1228 is mergeable but remains draft; merge authority is OWNER_ONLY.
+      - PR 1228 is mergeable and ready for review; auto-merge is disabled and merge authority is OWNER_ONLY.
   evidence:
     state: PARTIAL
-    summary: Product implementation and strict retained oracle are repository-resident; GitHub Actions has twice failed before runner assignment, so no Node benchmark step has executed.
+    summary: Product implementation and strict retained oracle are repository-resident; Actions runs 35266182142 and 35266754547 attempt 1 plus run 35266754547 attempt 2 all failed before runner assignment, so no retained Node benchmark step has executed. Limited local propagation/M2 predicate proof passed.
     not_run:
       - id: RETAINED-SOURCE-SUBGRAPH
-        reason: No byte-faithful local checkout is mounted and the dedicated workflow does not include this focused test.
+        reason: No byte-faithful local checkout is mounted; only a standalone predicate reproduction was executable locally.
         cause: ENVIRONMENT
       - id: RETAINED-STRUCTURAL-MIXED
-        reason: GitHub Actions runs 35266182142 and 35266754547 failed before runner assignment; both jobs have runner_id=0 and steps=[].
+        reason: GitHub Actions run 35266754547 attempt 2 again failed before runner assignment with steps=[].
         cause: INFRASTRUCTURE
       - id: RETAINED-PB0003
-        reason: GitHub Actions runs 35266182142 and 35266754547 failed before runner assignment; both jobs have runner_id=0 and steps=[].
+        reason: GitHub Actions run 35266754547 attempt 2 again failed before runner assignment with steps=[].
         cause: INFRASTRUCTURE
   stop:
     active: true
@@ -70,7 +71,8 @@ status_planes:
     reason: No functioning Actions runner or mounted byte-faithful repository checkout is available to execute the mandatory retained Node tests.
     basis:
       - actions:35266182142
-      - actions:35266754547
+      - actions:35266754547:attempt-1
+      - actions:35266754547:attempt-2
       - agents/relay/checkpoints/CP-CII-W2-NB-R1-V25-0001.yaml
 projection:
   required: false
@@ -87,5 +89,6 @@ relay_readiness:
   handover_ready: true
   reasons:
     - Implementation and governance deviation are checkpointed.
+    - PR 1228 is ready for review with environment-blocked retained validation explicitly disclosed.
     - Current validation commands and environment blocker are self-contained in EP-CII-W2-NB-R1-V25-0002.
 chat_context_required: false
