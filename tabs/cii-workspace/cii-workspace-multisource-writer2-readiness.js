@@ -28,13 +28,13 @@ function duplicatePhysicalMutationBlockers(operations) {
     byKey.get(key).push(operationId(operation));
   }
   for (const [key, ids] of byKey) if (ids.length > 1) {
-    blockers.push(`CII_MS_NODENAME_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
+    blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
   }
   return blockers;
 }
 function conflictingPhysicalMutationBlockers(operations) {
   return ciiNodeNamePhysicalMutationConflicts(operations)
-    .map((item) => `CII_MS_NODENAME_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
+    .map((item) => `CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
 }
 function custodyBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
