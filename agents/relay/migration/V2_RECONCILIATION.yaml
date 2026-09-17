@@ -1,5 +1,5 @@
 schema_version: relay-v2.5-migration-reconciliation
-status: NEEDS_RECONCILIATION
+status: RECONCILED
 source_inventory: agents/relay/migration/V2_INVENTORY.yaml
 source_evidence:
   active_chain_state:
@@ -33,22 +33,30 @@ owner_intent:
   unresolved_questions: []
 roadmap_mapping:
   objectives:
-  - OBJ-001: Govern Primary Support Assembly release qualification without reopening protected algorithms absent a concrete reproducible defect.
+  - OBJ-001: Close Primary Support Assembly release qualification on the frozen RC without reopening protected algorithms absent a concrete reproducible defect.
   phases:
-  - PHASE-001: Reconcile V2 custody into V2.5 authority while preserving frozen-RC evidence semantics.
+  - PHASE-001: Execute frozen-RC qualification and preserve release controls.
   work_packages:
-  - WP-001: Reconcile legacy custody and compute the first admissible executable frontier.
+  - WP-001: Complete local exact-source focused Node diagnostic execution.
+  - WP-002: Execute governed real 1884/1885 ZIP benchmark on a trusted exact-RC checkout.
+  - WP-003: Execute Playwright browser qualification on the frozen RC.
+  - WP-004: Execute real 1835 relationship qualification when authoritative Owner XML is supplied.
+  - WP-005: Reconcile final readiness and Owner-only merge disposition.
 current_position:
   objective: OBJ-001
   phase: PHASE-001
   work_package: WP-001
 durable_inputs:
 - Frozen product RC 759612b4e355a585aed7d64b566f199340429bdf; PR #1223 head must remain identical unless a reproducible product defect creates a new RC.
+- Frozen focused Node workflow .github/workflows/support-report-typicality-qualification.yml at RC_SHA.
+- Local Node 22 runtime for reconstructed exact-source diagnostics; this does not substitute for a governed clean checkout.
 - benchmarks/1884.zip Git blob 63acc3c0b413f6ee727189ec36d4b76fba44d73a.
 - benchmarks/1885.zip Git blob 5f27f2d6736693eb21dc2e7981fecad22952819a.
 - benchmarks/1835.zip Git blob c42aafae408caafd5197574834a81654ab04bb2b; this archive is not the missing authoritative support-to-support relationship XML.
 - Repository-coded current/reference Support Report relationship/browser fixtures are retained source inputs; governed browser execution remains outstanding.
 benchmarks:
+- Exact-source Git object identity for every text file actually executed in WP-001.
+- Workflow-equivalent focused Node outcome under Node 22 with explicit PASS/FAIL/NOT_RUN classification.
 - Real 1885 PS-12060 expected 1; governed status NOT_RUN.
 - Real 1885 PS-12877 expected 4; governed status NOT_RUN.
 - Real 1885 PS-12860 expected 6; governed status NOT_RUN.
@@ -63,14 +71,16 @@ history_to_preserve:
   evidence:
   - LEG-014 retained technical evidence: 27/27 independent high-risk logic pass; not a governed #1225 gate substitute.
   - LEG-017 retained technical evidence: 13/13 narrower partial pass with documented caveats; not a governed #1225 gate substitute.
-  - Local reconstructed exact-source diagnostics under Node 22 produced additional passing parser/relationship/reconciliation/input signal; diagnostic only, not clean-checkout governed evidence.
+  - Local reconstructed exact-source diagnostics under Node 22 produced passing parser/relationship/reconciliation/input signal; diagnostic only, not clean-checkout governed evidence.
   decisions:
   - PRODUCT_FIX_DECISION=NO-PATCH until a reproducible first-wrong-production-boundary failure exists.
   - RELEASE_DISPOSITION=HOLD_DRAFT.
   - MERGE_AUTHORITY=OWNER_ONLY and MERGE_AUTHORIZED=FALSE.
   - Base drift from freeze base to live main was classified NON_INTERFERING_FILESET; retain frozen RC rather than rebase solely for main movement.
 unresolved_work:
-- Execute repository-owned focused Node qualification on a trusted clean exact checkout of the frozen RC and retain raw receipts.
+- Complete EP-0001 takeover/discovery certification before material relay writes under the active execution package.
+- Execute the full resolvable workflow-equivalent focused Node surface from exact RC text sources and retain raw diagnostic evidence.
+- Execute repository-owned focused Node qualification on a trusted clean exact checkout of the frozen RC and retain raw governed receipts.
 - Execute real repository 1884/1885 ZIP benchmark on the same RC and retain protected family-count observations.
 - Execute Playwright/browser qualification on the same RC, including popup isolation, independent current/reference relationship scoping, publication withholding, Debug/Trace, and rebuild invalidation.
 - Obtain and pin authoritative real 1835 Clash-within-Supports/support-to-support relationship XML, then execute the production parser -> exact zone scope -> relationship bundle -> reconciliation -> orphan/count path.
@@ -82,8 +92,12 @@ first_v25_ep:
   - executable frontier computed
   - scope and acceptance made self-contained
   - cold-start inputs complete
-  ep_id: null
+  ep_id: EP-0001
+  path: agents/relay/execution-packages/EP-0001.yaml
+  roadmap_revision: RM-0002
+  frontier_work_package: WP-001
 notes:
-- Legacy files are evidence/context only; no V2 endpoint is automatically executable as V2.5.
-- Progress must be recalculated from an explicit V2.5 basis rather than copied from narrative history.
-- This reconciliation records durable facts only; it does not grant material write authority or upgrade NOT_RUN qualification evidence.
+- Legacy files are evidence/context only; no V2 endpoint was auto-promoted to V2.5.
+- Progress was recalculated from explicit RM-0002/PB-0002 authority and not copied from narrative history.
+- EP-0001 authorizes diagnostic execution only after candidate takeover/material-write readiness; product/test/workflow/oracle/merge domains remain protected.
+- Local reconstructed diagnostics remain a distinct evidence class from governed clean-checkout qualification.
