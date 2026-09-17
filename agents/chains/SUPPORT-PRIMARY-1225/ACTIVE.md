@@ -1,9 +1,9 @@
-CHAIN_STATE_VERSION: 4
+CHAIN_STATE_VERSION: 5
 HANDOVER_PROTOCOL_VERSION: 2
 CHAIN_ID: SUPPORT-PRIMARY-1225
 MISSION: Close Primary Support Assembly release hardening and governed qualification without reopening protected algorithms absent a concrete failing case.
-ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0010
-ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0010.md
+ACTIVE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0011
+ACTIVE_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0011.md
 MATERIAL_HISTORY_ROOT_BASE: 759612b4e355a585aed7d64b566f199340429bdf
 MATERIAL_LEG_PREWORK_ENDPOINT_FILE: agents/chains/SUPPORT-PRIMARY-1225/endpoints/EP-SUPPORT-PRIMARY-1225-0002.md
 PR: 1223
@@ -13,7 +13,7 @@ HEAD: 759612b4e355a585aed7d64b566f199340429bdf
 HEAD_SEMANTICS: QUALIFICATION_RC
 RC_SHA: 759612b4e355a585aed7d64b566f199340429bdf
 PR_HEAD_OBSERVED: 759612b4e355a585aed7d64b566f199340429bdf
-CUSTODY_HEAD_BASIS: 6759ce224ce3a992e48bec868db919b47df62a51
+CUSTODY_HEAD_BASIS: fb22bea6e36587fb9698e77ead24fb16f589b8ef
 CUSTODY_HEAD_SEMANTICS: mutable custody/documentation tip; advances independently of immutable RC_SHA
 PR_BASE_AT_RC_FREEZE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
 MAIN: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
@@ -56,7 +56,7 @@ QUESTION_DISPLAY: HIDE
 OWNER_PROGRESSION_COMMAND: PROCEED_NEXT
 HANDOVER_CONTENT_READY: TRUE
 HANDOVER_VALIDATION_STATUS: NOT_RUN
-HANDOVER_VALIDATION_EVIDENCE: EP-0010 corrected live main/custody identity; governed execution still pending
+HANDOVER_VALIDATION_EVIDENCE: EP-0011 revalidated execution/input boundary; no newer exact-RC execution receipt; runner condition unchanged
 CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: FALSE
 HANDOVER_READY: FALSE
@@ -72,30 +72,33 @@ ISSUE_BASIS_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-basis/IB-SUPPORT-PRIM
 ISSUE_BASIS_STATUS: CURRENT
 ISSUE_CURRENT_STATE_FILE: agents/chains/SUPPORT-PRIMARY-1225/issue-state/CURRENT.md
 ISSUE_CURRENT_STATE_BASIS: IB-SUPPORT-PRIMARY-1225-0001
-ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0010
+ISSUE_CURRENT_STATE_ENDPOINT: EP-SUPPORT-PRIMARY-1225-0011
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5696671763
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5696674044
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5710082129
-ISSUE_HANDOVER_SYNC_STATUS: SYNCHRONIZING_EP_0010
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5710123451
+ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 PROGRAM_ID: SUPPORT-PRIMARY-1222
 PROGRAM_WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1222
 ISSUE_ROLE: WORK_PACKAGE
 WORK_PACKAGE_ID: WP-QUAL-001
 PARTITION_KEY: SUPPORT-PRIMARY-1222/RELEASE-HARDENING
 PREDECESSOR_WORK_ITEM_KEY: NONE
-REVISION_SEQUENCE: 1
+REVISION_SEQUENCE: 2
 INHERITED_PROGRAM_BASIS_REVISION: #1222 frozen RC material basis retained; live main drift classified separately
 PR_STATUS: OPEN_DRAFT
 PR_MERGED: FALSE
 RC_HEAD_MATCH: TRUE
-ORIGINAL_TASK_STATUS: control-plane correction COMPLETE at EP-0010; frozen RC retained; focused Node, real ZIP, browser NOT_RUN — infrastructure; real 1835 BLOCKED_INPUT; release disposition HOLD_DRAFT.
-INPUT_STATUS: real 1884/1885 governed inputs available but not executed; browser fixtures present but not executed; real 1835 relationship XML absent.
+ORIGINAL_TASK_STATUS: EP-0010 control-plane correction complete; EP-0011 execution-boundary revalidation complete; focused Node, real ZIP, browser NOT_RUN — infrastructure; real 1835 BLOCKED_INPUT; release HOLD_DRAFT.
+INPUT_STATUS: 1835.zip/1884.zip/1885.zip pinned at RC; real 1835 relationship XML absent; clean trusted executing checkout unresolved.
 BENCHMARK_STATUS: focused Node NOT_RUN — infrastructure; real 1884/1885 NOT_RUN — infrastructure; protected real-1885 observations PS-12060=1 / PS-12877=4 / PS-12860=6 / PS-12120=14 remain NOT_RUN; browser NOT_RUN — infrastructure; real 1835 NOT_RUN/BLOCKED_INPUT.
-RETAINED_EVIDENCE: LEG-014 27/27 and LEG-017 13/13 remain technical evidence only; they are not substitutes for #1225 governed execution.
-BASE_DRIFT_EVIDENCE: 242fc1..3ee90ca is 86 commits ahead with returned changed files confined to CII Writer2/#1224 workflow/custody/evidence/program/test files; no Support Primary/Support Report governed surface overlap observed.
+BENCHMARK_BLOBS: 1835=c42aafae408caafd5197574834a81654ab04bb2b; 1884=63acc3c0b413f6ee727189ec36d4b76fba44d73a; 1885=5f27f2d6736693eb21dc2e7981fecad22952819a
+RUNNER_STATUS: exact-RC checks unchanged; later unrelated run 35164318442 job 105021868415 also steps=[]/runner_id=0; RUNNER_CONDITION_CHANGE=FALSE
+HOSTED_RETRY_DECISION: DO_NOT_RETRY_IDENTICAL_RC_WORKFLOWS
+RETAINED_EVIDENCE: LEG-014 27/27 and LEG-017 13/13 remain technical evidence only; not substitutes for #1225 governed execution.
+BASE_DRIFT_EVIDENCE: 242fc1..3ee90ca is 86 commits ahead with returned changed files confined to CII Writer2/#1224 workstream; no governed Support Primary/Support Report overlap observed.
 AUTHORITY_STATUS: #1216 producer authority remains protected; no mutation authorized.
-CURRENT_BLOCKER: external execution/input only; hosted governed jobs never reach repository execution; authoritative real 1835 relationship XML absent.
-LEG_DIAGNOSIS: EP-0009 had stale main-head/final-reconciliation metadata; corrected without product mutation. No executed product defect.
+CURRENT_BLOCKER: external execution/input only; no trusted environment has executed exact RC; authoritative real 1835 relationship XML absent.
+LEG_DIAGNOSIS: no executed product defect. EP-0009 stale main/custody state corrected; runner non-allocation persists.
 PRODUCT_FIX_DECISION: NO-PATCH
 RELEASE_DISPOSITION: HOLD_DRAFT
-EXACT_NEXT_ACTION: inspect exact-RC check/workflow state for a genuinely executing receipt. Do not repeat identical hosted retries unless runner conditions materially change. When a trusted environment is available, execute repository-owned focused Node first at exact RC_SHA, then real 1884/1885 benchmark, then browser/Playwright on that same RC; separately obtain/pin authoritative real 1835 relationship XML and execute the production parser -> zone scope -> relationship bundle -> reconciliation -> orphan/count path. Any product patch requires a reproducible first-wrong-boundary failure and creates a new RC.
+EXACT_NEXT_ACTION: wait for a material boundary change rather than burn another identical hosted retry. When a trusted environment can obtain and execute a clean exact RC checkout, run repository-owned focused Node first, then real 1884/1885, then browser/Playwright against that same RC with raw evidence retained. Separately, when authoritative real 1835 relationship XML is supplied, pin it and execute parser -> exact zone scope -> relationship bundle -> reconciliation -> orphan/count. Any product patch requires a reproducible first-wrong-boundary failure and creates a new RC.
