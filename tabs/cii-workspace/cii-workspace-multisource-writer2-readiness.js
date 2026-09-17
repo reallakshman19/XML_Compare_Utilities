@@ -1,7 +1,10 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
+import { buildWriter1CNodeNamePlan } from './cii-workspace-writer1c-nodename.js';
 import { buildCiiWriter2NodeNameRelocationPlan } from './cii-workspace-writer2-nodename-relocation.js';
 import {
   ciiBm001CorrespondenceCoverage,
+  ciiNodeNameMutationOperation,
+  ciiWriter1CNodeNameReplacementOperation,
   ciiWriter2NodeNameCardinalityOperation,
   ciiWriter2PhysicalMutationConflicts,
   ciiWriter2PhysicalMutationKey,
@@ -15,7 +18,7 @@ function sameIds(left, right) {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 function isQualifiedExpectedApply(operation) {
-  return operation?.scopeDecision === 'APPLY' && ciiWriter2NodeNameCardinalityOperation(operation);
+  return operation?.scopeDecision === 'APPLY' && ciiNodeNameMutationOperation(operation);
 }
 function duplicatePhysicalMutationBlockers(operations) {
   const byKey = new Map(); const blockers = [];
@@ -54,6 +57,12 @@ function custodyBlockers(transferPlan, targetDocument) {
   if (!sameIds(excluded.map(operationId), scope?.excludedOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_EXCLUDE_SET_MISMATCH');
   return blockers;
 }
+function familyPlan(transferPlan, predicate) {
+  return deepFreeze({
+    ...transferPlan,
+    operations: deepFreeze((transferPlan?.operations || []).filter((operation) => operation?.action === 'KEEP' || predicate(operation))),
+  });
+}
 
 export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument) {
   const blockers = [...(transferPlan?.blockers || []), ...custodyBlockers(transferPlan, targetDocument)];
@@ -66,6 +75,8 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
 
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
   const qualified = applied.filter(isQualifiedExpectedApply);
+  const replacements = qualified.filter(ciiWriter1CNodeNameReplacementOperation);
+  const structural = qualified.filter(ciiWriter2NodeNameCardinalityOperation);
   for (const operation of applied) if (!isQualifiedExpectedApply(operation)) {
     blockers.push(`CII_MS_WRITER2_UNAUTHORIZED_APPLY:${operationId(operation) || 'unknown'}`);
   }
@@ -73,23 +84,45 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
   blockers.push(...conflictingPhysicalMutationBlockers(qualified));
   if (!qualified.length) blockers.push('CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS');
 
-  const uniqueBeforePlan = [...new Set(blockers)];
-  const planForRelocation = deepFreeze({ ...transferPlan, blockers: deepFreeze(uniqueBeforePlan) });
-  const relocationPlan = buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: planForRelocation });
-  if (!relocationPlan.ready) blockers.push(...relocationPlan.blockers);
+  let replacementPlan = null;
+  if (replacements.length) {
+    replacementPlan = buildWriter1CNodeNamePlan({ transferPlan: familyPlan(transferPlan, ciiWriter1CNodeNameReplacementOperation), targetDocument });
+    if (!replacementPlan.ready) blockers.push(...replacementPlan.blockers.map((item) => `CII_MS_WRITER1C_REPLACE:${item}`));
+  }
+
+  let relocationPlan = null;
+  if (structural.length) {
+    const uniqueBeforePlan = [...new Set(blockers)];
+    const structuralTransferPlan = deepFreeze({
+      ...familyPlan(transferPlan, ciiWriter2NodeNameCardinalityOperation),
+      blockers: deepFreeze(uniqueBeforePlan.filter((item) => !String(item).startsWith('CII_MS_WRITER1C_REPLACE:'))),
+    });
+    relocationPlan = buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: structuralTransferPlan });
+    if (!relocationPlan.ready) blockers.push(...relocationPlan.blockers);
+  }
+
   const unique = deepFreeze([...new Set(blockers)]);
   return deepFreeze({
-    schema: 'CIIWorkspaceWriter2SourceSetNodeNameReadiness.v1',
+    schema: 'CIIWorkspaceWriter2SourceSetNodeNameReadiness.v2',
     status: unique.length ? 'BLOCKED' : 'READY', ready: unique.length === 0,
     mutationCount: qualified.length, mutationOperationCount: qualified.length,
-    familyMutationCounts: deepFreeze({ nodeName: qualified.length, sifDelete: 0, hangerDelete: 0, restraintDelete: 0 }),
+    familyMutationCounts: deepFreeze({
+      nodeName: qualified.length,
+      nodeNameReplace: replacements.length,
+      nodeNameStructural: structural.length,
+      sifDelete: 0, hangerDelete: 0, restraintDelete: 0,
+    }),
     blockers: unique,
     bm001CorrespondenceCoverage: correspondenceCoverage,
-    components: deepFreeze({ nodeName: relocationPlan, sifDelete: null, hangerDeleteAll: null, hangerPartialDelete: null, restraintDelete: null }),
+    components: deepFreeze({
+      writer1CNodeNameReplacement: replacementPlan,
+      nodeName: relocationPlan,
+      sifDelete: null, hangerDeleteAll: null, hangerPartialDelete: null, restraintDelete: null,
+    }),
     sourceSetSha256: text(transferPlan?.sourceSetSha256), originalTargetSha256: text(transferPlan?.targetAuthority?.originalSha256),
   });
 }
 
 export const _test = Object.freeze({
-  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers,
+  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers, familyPlan,
 });
