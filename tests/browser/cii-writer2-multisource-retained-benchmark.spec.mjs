@@ -174,8 +174,8 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
     const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
     const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows);
     const byteClosure = validateIndependentMixedNodeNameByteClosure(targetText, applied.byteString, {
+      expectedDeltas: expectedDelta.rows,
       expectedRowDelta: createCount - deleteCount,
-      deleteCount,
     });
     equal(structuralPostimage.preservation.status, 'READY', 'output must preserve target outside NodeName mutation authority');
     equal(structuralPostimage.nodeNamePayloadPreservation.status, 'READY', 'unselected target NODENAME payloads must be unchanged');
