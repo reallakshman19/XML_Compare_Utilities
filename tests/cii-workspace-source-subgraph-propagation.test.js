@@ -28,7 +28,7 @@ const anchor = (sourceNodeId, targetNodeId) => ({ sourceNodeId: String(sourceNod
   const source = edge('S', 2, 3, { fromDegree: 2, toDegree: 1 });
   const target = edge('T', 102, 103, { fromDegree: 3, toDegree: 1 });
   const result = evaluateCiiNetworkMethod(source, target);
-  assert.equal(result.blockers.includes('SOURCE_BRANCH_REQUIRES_TARGET_BRANCH_SUPPORT'), false);
+  assert.equal(result.blockers.includes('BRANCH_TOPOLOGY_INCOMPATIBLE'), false);
   assert.equal(result.pass, true);
 }
 
