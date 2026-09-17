@@ -1,22 +1,46 @@
 schema_version: relay-v2.5
 roadmap:
   id: RM-SUPPORT-PRIMARY-1225-V25
-  revision: RM-0001
+  revision: RM-0002
   title: Primary Support Assembly release hardening and governed qualification
 objectives:
 - id: OBJ-001
-  title: Govern Primary Support Assembly release qualification
+  title: Close Primary Support Assembly release qualification on the frozen RC
   state: ACTIVE
-  definition: PARTIALLY_DEFINED
+  definition: DEFINED
   phases:
   - id: PHASE-001
-    title: Reconcile V2 custody into V2.5 authority
-    state: PLANNED
-    definition: OWNER_REVIEW_REQUIRED
+    title: Execute frozen-RC qualification and preserve release controls
+    state: ACTIVE
+    definition: DETAILED
     work_packages:
     - id: WP-001
-      title: Reconcile legacy custody and compute executable frontier
+      title: Complete local exact-source focused Node diagnostic execution
+      state: ACTIVE
+      definition: DETAILED
+      execution_status: EXECUTABLE
+      depends_on: []
+    - id: WP-002
+      title: Execute governed real 1884/1885 ZIP benchmark on a trusted exact-RC checkout
       state: PLANNED
-      definition: OWNER_REVIEW_REQUIRED
+      definition: DETAILED
+      execution_status: WAITING
+      depends_on: [WP-001]
+    - id: WP-003
+      title: Execute Playwright browser qualification on the frozen RC
+      state: PLANNED
+      definition: DETAILED
+      execution_status: WAITING
+      depends_on: [WP-001]
+    - id: WP-004
+      title: Execute real 1835 relationship qualification when authoritative Owner XML is supplied
+      state: PLANNED
+      definition: DISCOVERY_REQUIRED
       execution_status: WAITING
       depends_on: []
+    - id: WP-005
+      title: Reconcile final readiness and Owner-only merge disposition
+      state: PLANNED
+      definition: DETAILED
+      execution_status: WAITING
+      depends_on: [WP-002, WP-003, WP-004]
