@@ -1,8 +1,32 @@
 schema_version: relay-v2.5
 repository_type: application
 default_branch: main
-important_paths: {}
-commands: {}
-protected_domains: []
+important_paths:
+  source:
+  - tabs/support-steel-relationship-builder
+  - tabs/ps-family-clash-audit
+  tests:
+  - tests
+  - tests/browser
+  workflows:
+  - .github/workflows/support-report-typicality-qualification.yml
+  - .github/workflows/support-report-typicality-zip-benchmark.yml
+  benchmarks:
+  - benchmarks
+  legacy_custody:
+  - agents/chains/SUPPORT-PRIMARY-1225
+  relay:
+  - agents/relay
+commands:
+  node_runtime: node --version
+  focused_node_qualification: node --test tests/support-primary-*.test.mjs tests/support-report-location-benchmarks.test.mjs tests/support-report-location-attribution.test.mjs tests/support-report-prev-name-semantics.test.mjs tests/support-report-axis-consensus.test.mjs tests/support-report-axis-typicality.test.mjs tests/support-report-reference-relationship-integration.test.mjs tests/support-report-relationship-typicality.test.mjs tests/support-report-typicality-publication.test.mjs tests/support-report-zone-scope.test.mjs
+  browser_qualification: npx playwright test -c playwright.support-steel.config.mjs
+protected_domains:
+- Frozen RC 759612b4e355a585aed7d64b566f199340429bdf is immutable qualification material.
+- Product, tests, workflows, benchmark oracles and PR readiness remain read-only unless a reproducible failure authorizes a new RC.
+- Merge authority is Owner-only.
 generated_paths: []
-repository_rules: []
+repository_rules:
+- Distinguish frozen product RC, live main and mutable custody branch identities.
+- Reconstructed local execution is diagnostic unless the governed clean-checkout contract is satisfied.
+- Missing authoritative 1835 relationship XML remains NOT_RUN/BLOCKED_INPUT and may not be substituted.
