@@ -52,7 +52,7 @@ function enumerateAssignments(matrix, targetCount, limit = 720) {
 }
 
 function frontierAssignment(sourceEdges, targetEdges, matchOptions) {
-  if (sourceEdges.length !== targetEdges.length) return { status: 'BLOCKED', blocker: 'FRONTIER_CARDINALITY_MISMATCH' };
+  if (sourceEdges.length > targetEdges.length) return { status: 'BLOCKED', blocker: 'FRONTIER_CARDINALITY_MISMATCH' };
   if (!sourceEdges.length) return { status: 'EMPTY', pairs: [] };
   const maxDegree = Number(matchOptions.maxPropagationFrontierDegree || 6);
   if (sourceEdges.length > maxDegree) return { status: 'BLOCKED', blocker: 'FRONTIER_DEGREE_LIMIT_EXCEEDED' };
@@ -104,7 +104,7 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     if (visitedPairs.has(currentKey)) continue; visitedPairs.add(currentKey);
     const sourceEdges = sortedEdges(sourceGraph.adjacency.get(current.sourceNode)).filter((edge) => !sourceEdgeCustody.has(edge.elementId) && !blockedSourceEdges.has(edge.elementId));
     const targetEdges = sortedEdges(targetGraph.adjacency.get(current.targetNode)).filter((edge) => !targetEdgeCustody.has(edge.elementId));
-    if (!sourceEdges.length && !targetEdges.length) continue;
+    if (!sourceEdges.length) continue;
 
     const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions);
     if (assignment.status !== 'SUPPORTED') {
@@ -169,7 +169,6 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
   const unmatchedSource = [...sourceComponent.edges].filter((id) => !sourceEdgeCustody.has(id));
   const unmatchedTarget = [...targetComponent.edges].filter((id) => !targetEdgeCustody.has(id));
   if (unmatchedSource.length) blockers.add('SOURCE_COMPONENT_NOT_FULLY_PROPAGATED');
-  if (unmatchedTarget.length) blockers.add('TARGET_COMPONENT_NOT_FULLY_CLAIMED');
   if (elementRows.some((row) => row.status === 'UNRESOLVED')) blockers.add('PROPAGATION_AMBIGUITY_RETAINED');
 
   elementRows.sort((a, b) => String(a.sourceElementId || '').localeCompare(String(b.sourceElementId || ''), undefined, { numeric: true }));

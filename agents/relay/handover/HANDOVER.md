@@ -1,0 +1,52 @@
+# V2.5 handover — #1224
+
+## Current relay state
+
+- Lifecycle: `ACTIVE` with validation stop `ESSENTIAL_INPUT_MISSING`
+- Material authority: `READ_ONLY`
+- Active EP: `EP-CII-W2-NB-R1-V25-0002`
+- Last checkpoint: `CP-CII-W2-NB-R1-V25-0001`
+- Roadmap: `ROADMAP-XMLCU-V25-1224@RM-0003`
+- Progress basis: `PB-0003`
+- Objective: `OBJ-CII-W2-NB-R1-1224`
+- Phase/work package: `PH-IMPLEMENTATION / WP-RET-001`
+- PR: `#1228`, `READY_FOR_REVIEW`, mergeable, auto-merge disabled, merge authority `OWNER_ONLY`
+
+## Product state
+
+Owner-directed implementation is present on `revision/cii-writer2-nodename-byte-r1-1224-v25-migration`:
+
+1. SOURCE correspondence can map injectively into a larger TARGET subgraph while missing SOURCE support and ambiguous TARGET choices remain fail-closed.
+2. Same-cardinality NodeName REPLACE is recovered as Writer1C exact-span authority before multisource aggregation; direct Writer2 overwrite authority remains unchanged.
+3. Mixed source-set apply performs Writer1C replacement, re-intake/revalidation, then Writer2 structural NodeName relocation. V14 structural deltas are projected onto the replacement postimage rather than using the broad bridge for pure replacement.
+4. Retained expected semantics are 35 REPLACE + 1 CREATE + 0 DELETE.
+5. The independent retained byte oracle authorizes only the expected NodeName fields, required CONTROL.NONAM count, and independently derived affected ELEMENT pointer field; unrelated NODENAME bytes/padding, pointer fields, sections, and CR/LF bytes must remain exact.
+
+## Qualification truth
+
+`EP-CII-W2-NB-R1-V25-0001` required independent DISC/QUAL/TC before product mutation. Product mutation occurred after the owner instructed the active session to fix and proceed, without fabricating those missing certifications. This governance deviation is explicitly recorded in `CP-CII-W2-NB-R1-V25-0001`; it has **not** been retroactively certified.
+
+`EP-CII-W2-NB-R1-V25-0002` is validation/delivery reconciliation only and prohibits further production mutation. A concrete failing executable test must create a bounded repair successor EP before production code changes again.
+
+## Validation truth
+
+Executable retained validation is still `NOT_RUN_ENVIRONMENT`:
+
+- Actions run `35266182142`: failed before runner assignment, `runner_id=0`, `steps=[]`.
+- Actions run `35266754547`, attempt 1: failed before runner assignment, `runner_id=0`, `steps=[]`.
+- Actions run `35266754547`, attempt 2: failed before runner assignment again and executed zero steps.
+- No byte-faithful repository checkout is mounted in the current execution environment.
+
+Limited local evidence is available: a Node predicate reproduction of the current propagation/M2 logic passed the intended source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier, and ambiguity falsifiers. Static review also confirmed the Writer1C replacement-only and Writer2 structural-only subset plans preserve explicit APPLY scope authority. This evidence does **not** replace retained S1/S2/S3/T execution.
+
+## Exact next action
+
+Run, in a byte-faithful checkout or functioning runner:
+
+```text
+node tests/cii-workspace-source-subgraph-propagation.test.js
+node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+node tests/cii-workspace-multisource-pb0003-benchmark.test.js
+```
+
+If all pass, run the retained browser benchmark when Playwright is available, reconcile final evidence, and leave the merge decision to the owner. If any command fails, record the exact failure and create a failure-specific repair EP before changing production code.

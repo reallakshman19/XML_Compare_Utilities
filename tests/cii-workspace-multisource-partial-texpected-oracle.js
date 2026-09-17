@@ -96,12 +96,19 @@ export function expectedStructuralTransferKeys(deltaRows = []) {
   return Object.freeze((deltaRows || []).filter((row) => ['CREATE', 'DELETE'].includes(row.action))
     .map((row) => structuralTransferKey(row.action, row.nodeId)).sort());
 }
+export function expectedNodeNameTransferKeys(deltaRows = []) {
+  return Object.freeze((deltaRows || []).map((row) => structuralTransferKey(row.action === 'REPLACE' ? 'COPY' : row.action, row.nodeId)).sort());
+}
 function unslash(value) { return text(value).replace(/^\//, ''); }
 function sourceNameSet(sourceText) { return new Set(parseIndependentNodeNameState(sourceText).names.values()); }
 function operationTarget(operation) { return text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId); }
 function operationValue(operation) {
-  return text(operation?.action === 'CREATE' ? (operation?.proposed ?? operation?.sourceEvidence?.value) : (operation?.before ?? operation?.targetEvidence?.value));
+  const action = text(operation?.action);
+  return text(['CREATE', 'COPY'].includes(action)
+    ? (operation?.proposed ?? operation?.sourceEvidence?.value)
+    : (operation?.before ?? operation?.targetEvidence?.value));
 }
+function operationBefore(operation) { return text(operation?.before ?? operation?.targetEvidence?.value); }
 function bmTargetName(operation) {
   return text(operation?.bm001Acceptance?.targetName ?? operation?.targetEvidence?.value ?? operation?.before);
 }
@@ -119,13 +126,19 @@ export function validateRawMutationIdentity(operations, sourceTextsById, targetT
   const target = parseIndependentNodeNameState(targetText); const errors = []; const sourceOnlyCreateOperationIds = [];
   for (const operation of operations || []) {
     const action = text(operation?.action); const sourceId = text(operation?.sourceId);
-    const targetId = operationTarget(operation); const value = operationValue(operation);
-    if (action === 'CREATE') {
-      if (!sourceSets.get(sourceId)?.has(value)) errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_SOURCE_NAME', operationId: operation?.operationId, sourceId, targetId, value }));
+    const targetId = operationTarget(operation); const value = operationValue(operation); const before = operationBefore(operation);
+    if (['CREATE', 'COPY'].includes(action)) {
+      if (!sourceSets.get(sourceId)?.has(value)) errors.push(Object.freeze({ code: `${action}_VALUE_NOT_EXACT_SOURCE_NAME`, operationId: operation?.operationId, sourceId, targetId, value }));
+      if (action === 'CREATE' && text(target.names.get(targetId))) {
+        errors.push(Object.freeze({ code: 'CREATE_TARGET_PREIMAGE_NOT_BLANK', operationId: operation?.operationId, targetId, actual: target.names.get(targetId) }));
+      }
+      if (action === 'COPY' && target.names.get(targetId) !== before) {
+        errors.push(Object.freeze({ code: 'COPY_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, before, expected: target.names.get(targetId) || '' }));
+      }
       const aliasRows = bmRowsForSourceAlias(value, bmRows);
       if (aliasRows.length && !bmExactAliasMatch(operation, bmRows)) {
-        errors.push(Object.freeze({ code: 'CREATE_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET', operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
-      } else if (!aliasRows.length) sourceOnlyCreateOperationIds.push(text(operation?.operationId));
+        errors.push(Object.freeze({ code: `${action}_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET`, operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
+      } else if (action === 'CREATE' && !aliasRows.length) sourceOnlyCreateOperationIds.push(text(operation?.operationId));
     } else if (action === 'DELETE' && target.names.get(targetId) !== value) {
       errors.push(Object.freeze({ code: 'DELETE_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, value, expected: target.names.get(targetId) || '' }));
     }
@@ -139,10 +152,23 @@ export function validateAppliedRawIdentity(actualText, operations) {
   const actual = parseIndependentNodeNameState(actualText); const errors = [];
   for (const operation of operations || []) {
     const action = text(operation?.action); const targetId = operationTarget(operation); const value = operationValue(operation);
-    if (action === 'CREATE' && actual.names.get(targetId) !== value) errors.push(Object.freeze({ code: 'CREATE_RAW_NAME_NOT_EMITTED_EXACTLY', operationId: operation?.operationId, targetId, value, actual: actual.names.get(targetId) || '' }));
+    if (['CREATE', 'COPY'].includes(action) && actual.names.get(targetId) !== value) {
+      errors.push(Object.freeze({ code: `${action}_RAW_NAME_NOT_EMITTED_EXACTLY`, operationId: operation?.operationId, targetId, value, actual: actual.names.get(targetId) || '' }));
+    }
     if (action === 'DELETE' && text(actual.names.get(targetId))) errors.push(Object.freeze({ code: 'DELETE_TARGET_NOT_EMPTY', operationId: operation?.operationId, targetId, value, actual: actual.names.get(targetId) || '' }));
   }
   return Object.freeze({ status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors) });
+}
+export function validateKnownPositiveNodeNames(actualText, deltaRows = []) {
+  const actual = parseIndependentNodeNameState(actualText); const differences = [];
+  for (const row of deltaRows || []) {
+    const nodeId = text(row.nodeId); const expected = text(row.newValue);
+    const observed = text(actual.names.get(nodeId));
+    if (observed !== expected) differences.push(Object.freeze({
+      code: 'KNOWN_POSITIVE_NODENAME_MISMATCH', nodeId, action: row.action, expected, actual: observed,
+    }));
+  }
+  return Object.freeze({ status: differences.length ? 'BLOCKED' : 'READY', differences: Object.freeze(differences) });
 }
 export function validateUnselectedNodeNamePayloadPreservation(beforeText, actualText, operations = []) {
   const before = parseIndependentNodeNameState(beforeText); const actual = parseIndependentNodeNameState(actualText);
@@ -164,4 +190,4 @@ export function evaluatePartialTExpectedPostimage(beforeText, actualText, partia
   return Object.freeze({ status, encoding, semantics, preservation, nodeNamePayloadPreservation });
 }
 
-export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, bmTargetName, bmExactAliasMatch, bmRowsForSourceAlias });
+export const _test = Object.freeze({ sectionRows, fixedField, isFamilyOnly, bmTargetName, bmExactAliasMatch, bmRowsForSourceAlias, operationValue, operationBefore });

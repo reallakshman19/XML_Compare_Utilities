@@ -1,0 +1,94 @@
+schema_version: relay-v2.5
+relay_state: ACTIVE
+repository:
+  name: XML_Compare_Utilities
+  remote: reallaksh19/XML_Compare_Utilities
+relay_protocol:
+  version: '2.5'
+  basis_ref: reallaksh19/Common@feae969b860b83ee3df230fef1a162d4a4e7968e
+roadmap:
+  id: ROADMAP-XMLCU-V25-1224
+  revision: RM-0003
+  path: agents/relay/roadmap/OVERALL_ROADMAP.yaml
+current_position:
+  objective: OBJ-CII-W2-NB-R1-1224
+  phase: PH-IMPLEMENTATION
+  work_package: WP-RET-001
+  work_packages: [WP-RET-001]
+execution_policy:
+  mode: SERIAL
+active_ep:
+  id: EP-CII-W2-NB-R1-V25-0002
+  path: agents/relay/execution-packages/EP-CII-W2-NB-R1-V25-0002.yaml
+  state: ACTIVE
+  continuity_receipt: null
+last_checkpoint:
+  id: CP-CII-W2-NB-R1-V25-0001
+  path: agents/relay/checkpoints/CP-CII-W2-NB-R1-V25-0001.yaml
+predecessor_join:
+  id: null
+  path: null
+predecessor_replan:
+  id: null
+  path: null
+takeover_admissions: []
+progress:
+  overall_percent: 74
+  phase_percent: 64
+  ep_percent: 10
+  basis_revision: PB-0003
+status_planes:
+  execution:
+    state: BLOCKED_ENVIRONMENT
+    can_continue: false
+    material_authority: READ_ONLY
+    next_action: Execute the focused source-subgraph test, retained Auto Anchor mixed benchmark, and PB-0003 benchmark in a byte-faithful checkout or functioning GitHub runner; patch production only through a new failure-specific successor EP if a concrete test fails.
+  quality:
+    state: NEEDS_ATTENTION
+    findings:
+      - Owner-directed production implementation is applied in PR 1228, checkpointed at CP-CII-W2-NB-R1-V25-0001, and the PR is READY_FOR_REVIEW; executable retained validation is still unavailable.
+      - EP-CII-W2-NB-R1-V25-0001 required independent DISC/QUAL/TC before product mutation; that preimplementation qualification remains unsatisfied and the deviation is explicitly recorded rather than retroactively certified.
+      - A local Node predicate reproduction of the current propagation/M2 logic passed the source-subgraph positive, missing-target-support negative, injectivity, insufficient-frontier, and ambiguity falsifiers; this is limited predicate evidence, not the retained benchmark.
+      - The independent retained byte-closure oracle checks exact expected NodeName fields, CONTROL.NONAM, affected ELEMENT pointers, unrelated NodeName bytes, unrelated pointers, section bytes, and CR/LF bytes for the known-positive 35 REPLACE + 1 CREATE + 0 DELETE path.
+      - DELETE remains supported by existing Writer2 relocation authority, but the new retained byte-closure oracle intentionally fails closed for DELETE until a dedicated independent compaction oracle is established.
+      - PR 1228 is mergeable and ready for review; auto-merge is disabled and merge authority is OWNER_ONLY.
+  evidence:
+    state: PARTIAL
+    summary: Product implementation and strict retained oracle are repository-resident; Actions runs 35266182142 and 35266754547 attempt 1 plus run 35266754547 attempt 2 all failed before runner assignment, so no retained Node benchmark step has executed. Limited local propagation/M2 predicate proof passed.
+    not_run:
+      - id: RETAINED-SOURCE-SUBGRAPH
+        reason: No byte-faithful local checkout is mounted; only a standalone predicate reproduction was executable locally.
+        cause: ENVIRONMENT
+      - id: RETAINED-STRUCTURAL-MIXED
+        reason: GitHub Actions run 35266754547 attempt 2 again failed before runner assignment with steps=[].
+        cause: INFRASTRUCTURE
+      - id: RETAINED-PB0003
+        reason: GitHub Actions run 35266754547 attempt 2 again failed before runner assignment with steps=[].
+        cause: INFRASTRUCTURE
+  stop:
+    active: true
+    category: ESSENTIAL_INPUT_MISSING
+    reason: No functioning Actions runner or mounted byte-faithful repository checkout is available to execute the mandatory retained Node tests.
+    basis:
+      - actions:35266182142
+      - actions:35266754547:attempt-1
+      - actions:35266754547:attempt-2
+      - agents/relay/checkpoints/CP-CII-W2-NB-R1-V25-0001.yaml
+projection:
+  required: false
+  state: NOT_REQUIRED
+  operation_id: null
+  target: null
+  roadmap_revision: RM-0003
+  execution_ref: EP-CII-W2-NB-R1-V25-0002
+  receipt: null
+  basis: []
+relay_readiness:
+  baton_ready: true
+  projection_ready: true
+  handover_ready: true
+  reasons:
+    - Implementation and governance deviation are checkpointed.
+    - PR 1228 is ready for review with environment-blocked retained validation explicitly disclosed.
+    - Current validation commands and environment blocker are self-contained in EP-CII-W2-NB-R1-V25-0002.
+chat_context_required: false

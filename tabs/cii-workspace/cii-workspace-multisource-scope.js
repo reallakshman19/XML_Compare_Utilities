@@ -2,8 +2,8 @@ import { createCiiTransferScopeSelection } from './cii-workspace-transfer-scope.
 import { assertCiiMsBm001Authority } from './cii-workspace-multisource-nodename-authority.js';
 import {
   ciiBm001CorrespondenceCoverage,
-  ciiCanonicalWriter2MutationSelection,
-  ciiWriter2NodeNameCardinalityOperation,
+  ciiCanonicalNodeNameMutationSelection,
+  ciiNodeNameMutationOperation,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 
 function text(value) { return String(value ?? '').trim(); }
@@ -17,7 +17,7 @@ function candidateOperations(plan) {
 }
 
 export function ciiExpectedNodeNameOperation(operation) {
-  return ciiWriter2NodeNameCardinalityOperation(operation);
+  return ciiNodeNameMutationOperation(operation);
 }
 
 export async function createCiiExpectedNodeNameSourceSetSelection(plan, options = {}) {
@@ -32,7 +32,7 @@ export async function createCiiExpectedNodeNameSourceSetSelection(plan, options 
   }
 
   const candidates = candidateOperations(plan);
-  const canonical = ciiCanonicalWriter2MutationSelection(candidates);
+  const canonical = ciiCanonicalNodeNameMutationSelection(candidates);
   if (canonical.conflicts.length) {
     throw new Error(`CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${canonical.conflicts.map((item) => item.physicalTargetKey).join(',')}`);
   }

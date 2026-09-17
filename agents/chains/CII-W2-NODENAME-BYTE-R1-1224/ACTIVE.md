@@ -1,15 +1,15 @@
 CHAIN_STATE_VERSION: 3
 CHAIN_ID: CII-W2-NODENAME-BYTE-R1-1224
 MISSION: Revise CII Writer2 multisource NodeName workflow for injective source-subgraph correspondence, reviewed REPLACE+CREATE/DELETE transfer, and byte-preserving FORTRAN fixed-format output
-ACTIVE_ENDPOINT: EP-CII-W2-NB-R1-0011
-ACTIVE_ENDPOINT_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/endpoints/EP-CII-W2-NB-R1-0011.md
+ACTIVE_ENDPOINT: EP-CII-W2-NB-R1-0012
+ACTIVE_ENDPOINT_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/endpoints/EP-CII-W2-NB-R1-0012.md
 MATERIAL_HISTORY_ROOT_BASE: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-LATEST_MATERIAL_LEG: NONE
+LATEST_MATERIAL_LEG: PR-1227
 LATEST_MATERIAL_LEG_FILE: NONE
-PR: NONE ACTIVE; accidental placeholder PR #1226 CLOSED UNMERGED and MUST_NOT_USE
+PR: #1227 MERGED at 3ee90ca25368f69d42f44cbe967d5bbc81972f77; no active PR; accidental #1226 CLOSED UNMERGED MUST_NOT_USE
 BRANCH: revision/cii-writer2-nodename-byte-r1-1224
-MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
-STATE: OWNER_FIX_AND_RUN_REQUESTED__LOCAL_SCRATCH_CANDIDATE_PASS__WRITE_GATES_BLOCK_PRODUCT_MUTATION
+MAIN: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
+STATE: POST_MERGE_RECONCILED__BENCHMARK_SCAFFOLDING_MERGED__PRODUCTION_FIX_PENDING
 ENGINEERING_STATE: READY_READ_ONLY
 CUSTODY_STATE: HELD
 QUALIFICATION_STATE: DEFERRED
@@ -17,7 +17,7 @@ WRITE_AUTHORITY: READ_ONLY
 WRITE_AUTHORITY_SCOPE: NO_PRODUCTION_MUTATION until retained-real executable benchmark evidence, independent qualification PASS, post-basis reconciliation, and required backup/patch custody
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
+MERGE_AUTHORIZED: CONDITIONAL_OWNER_INTENT_RESTATED_2026-09-16T23:52:03Z__NO_ACTIVE_PR
 MERGEABILITY: NOT_APPLICABLE_NO_ACTIVE_PR
 REVIEW_COUNT: 0
 UNRESOLVED_REVIEW_THREADS: 0
@@ -37,20 +37,21 @@ REVISION_SEQUENCE: 1
 INHERITED_PROGRAM_BASIS_REVISION: PB-0003
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 ISSUE_CURRENT_STATE_FILE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/issue-state/CURRENT.md
-ISSUE_CURRENT_STATE_ENDPOINT: EP-CII-W2-NB-R1-0011
+ISSUE_CURRENT_STATE_ENDPOINT: EP-CII-W2-NB-R1-0012
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5703302365
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5706274726
+ISSUE_LATEST_MERGE_CHECKPOINT_COMMENT_ID: 5703972545
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 COMMON_PROTOCOL: engineering-pr-delivery-v2
 COMMON_PROTOCOL_BASIS: fed57820909f4984a97d67437340df952b73a5ab
 COMMON_PROTOCOL_STATUS: CURRENT
 PROGRAM_BASIS_FILE: agents/programs/PGM-XMLCU-CII-W2-MS-NODENAME/basis/PB-0003.md
-OWNER_INSTRUCTION: 2026-09-16T19:24:26Z fix and run
+OWNER_INSTRUCTION: 2026-09-16T23:52:03Z merge proceed next
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
-OWNER_PROGRESSION_COMMAND: 2026-09-16T12:32:05Z proceed next
-PROGRESSION_RESULT: OWNER_FIX_AND_RUN_ACCEPTED__LOCAL_SCRATCH_CANDIDATE_PASS__RETAINED_EXECUTION_AND_PRODUCT_WRITE_STILL_BLOCKED
-MATERIAL_PROGRESSION_AUTHORITY: LOCAL_SCRATCH_CANDIDATE_VALIDATION_AND_STATE_SYNC_ONLY; no production mutation
+OWNER_PROGRESSION_COMMAND: 2026-09-16T23:52:03Z proceed next within combined merge/progression instruction
+PROGRESSION_RESULT: POST_MERGE_RECONCILIATION__NO_NEW_MERGE_TARGET__NO_AUTHORITY_TRANSITION
+MATERIAL_PROGRESSION_AUTHORITY: POST_MERGE_BRANCH_RECONCILIATION_AND_STATE_SYNC_ONLY; no production mutation
 QUALIFICATION_SCOPE_ID: QSCOPE-CII-W2-NB-R1-FIXED-FORMAT-SUBGRAPH
 QUESTION_SET_ID: CII-W2-NB-R1-QS-0001
 QUESTION_SET_STATUS: CURRENT
@@ -79,8 +80,8 @@ CHAIN_HANDOVER_READY: TRUE
 TAKEOVER_QUALIFICATION_READY: TRUE
 HANDOVER_READY: FALSE
 POST_BASIS_DRIFT: NONE
-OVERLAP_RECHECK: main unchanged at 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581; no competing open CII Writer2 production PR observed before accidental placeholder event
-LOCAL_SURFACE_RECHECK: 2026-09-16T19:24Z no retained checkout or CII inputs mounted locally
-ACCIDENTAL_PR_EVENT: PR #1226 opened unintentionally while recording read-only evidence; closed immediately unmerged; branch unchanged; MUST_NOT_USE
+OVERLAP_RECHECK: main at 3ee90ca25368f69d42f44cbe967d5bbc81972f77; PR #1227 merged; no newer open PR for revision branch
+LOCAL_SURFACE_RECHECK: retained checkout or CII inputs still not mounted in current environment
+ACCIDENTAL_PR_EVENT: PR #1226 closed unmerged and MUST_NOT_USE
 CURRENT_BLOCKER: exact retained S1/S2/S3/T/TEXPECTED checkout is not mounted locally; independent qualification is DEFERRED; mandatory local backup and .agent-worklogs cannot be performed; product WRITE_ALLOWED is therefore prohibited
-EXACT_NEXT_ACTION: mount byte-faithful retained checkout; run `node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` and `node tests/cii-workspace-multisource-pb0003-benchmark.test.js`; capture custody hashes/stdout/stderr; obtain independent Q1..Q5 PASS; reconcile current main/overlap; run required backup/patch custody; apply CANDIDATE-CII-W2-NB-R1-FIX-0001 starting with propagation
+EXACT_NEXT_ACTION: mount byte-faithful retained checkout; run `node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` and `node tests/cii-workspace-multisource-pb0003-benchmark.test.js`; capture custody hashes/stdout/stderr; obtain independent Q1..Q5 PASS; run required backup/patch custody; apply CANDIDATE-CII-W2-NB-R1-FIX-0001 starting with propagation

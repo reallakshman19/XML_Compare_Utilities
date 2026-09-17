@@ -2,7 +2,7 @@
 
 ISSUE_BASIS_ID: IB-CII-W2-NB-R1-0001
 WORK_ITEM_KEY: github:reallaksh19/XML_Compare_Utilities#1224
-CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0011
+CURRENT_ENDPOINT: EP-CII-W2-NB-R1-0012
 PROGRAM_ID: PGM-XMLCU-CII-W2-MS-NODENAME
 PROGRAM_BASIS_REVISION: PB-0003
 WORK_PACKAGE_ID: WP-006
@@ -10,7 +10,8 @@ REVISION_SEQUENCE: 1
 PARTITION_KEY: PGM-XMLCU-CII-W2-MS-NODENAME/WP-006
 ISSUE_CHAIN_ROOT_COMMENT_ID: 5692081242
 ISSUE_ACTIVE_HANDOVER_COMMENT_ID: 5692079955
-ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5703302365
+ISSUE_LATEST_ENDPOINT_COMMENT_ID: 5706274726
+ISSUE_LATEST_MERGE_CHECKPOINT_COMMENT_ID: 5703972545
 ISSUE_HANDOVER_SYNC_STATUS: IN_SYNC
 
 ## Current state
@@ -21,18 +22,17 @@ QUALIFICATION_STATE: DEFERRED
 WRITE_AUTHORITY: READ_ONLY
 AUTO_STATE: NOT_APPLICABLE
 MERGE_AUTHORITY: OWNER_ONLY
-MERGE_AUTHORIZED: FALSE
-PR: NONE ACTIVE; accidental placeholder PR #1226 CLOSED UNMERGED and MUST_NOT_USE
+MERGE_AUTHORIZED: CONDITIONAL_OWNER_INTENT_RESTATED_2026-09-16T23:52:03Z__NO_ACTIVE_PR
+PR: #1227 MERGED at 3ee90ca25368f69d42f44cbe967d5bbc81972f77; no active PR; accidental #1226 CLOSED UNMERGED MUST_NOT_USE
 BRANCH: revision/cii-writer2-nodename-byte-r1-1224
-MAIN: 242fc1b1df7e398b64e15a1fd3e2f87d1ff5b581
+MAIN: 3ee90ca25368f69d42f44cbe967d5bbc81972f77
 COMMON_PROTOCOL_STATUS: CURRENT
-OVERLAP: SAFE_SERIALIZED before accidental placeholder event; no competing open CII Writer2 production PR observed; predecessor #1111 terminal/merged
+OVERLAP: SAFE_SERIALIZED; PR #1227 merged; no newer open revision PR observed
 POST_BASIS_DRIFT: NONE
 OWNER_SEQUENCE: BENCHMARK_FIRST_THEN_INDEPENDENT_QUALIFICATION_VERDICT
 OWNER_LOCAL_STRATEGY: 2026-09-16T07:39:25Z skip workflow, check locally, proceed robustly rather than relying on workflow/CI
-OWNER_PROGRESSION_COMMAND: 2026-09-16T12:32:05Z proceed next
-OWNER_FIX_INSTRUCTION: 2026-09-16T19:24:26Z fix and run
-PROGRESSION_RESULT: OWNER_FIX_AND_RUN_ACCEPTED__LOCAL_SCRATCH_CANDIDATE_PASS__RETAINED_EXECUTION_AND_PRODUCT_WRITE_STILL_BLOCKED
+OWNER_COMBINED_INSTRUCTION: 2026-09-16T23:52:03Z merge proceed next
+PROGRESSION_RESULT: POST_MERGE_RECONCILIATION__NO_NEW_MERGE_TARGET__NO_AUTHORITY_TRANSITION
 QUESTION_PACK_ACTION: REUSED
 QUESTION_DISPLAY: HIDE
 BENCHMARK_DEFINITION_STATUS: READY_PB0003
@@ -44,10 +44,10 @@ LOCAL_MIXED_ORCHESTRATION_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/e
 LOCAL_FIX_AND_RUN_SCRATCH_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-0004.md
 LOCAL_TRANSPORT_EVIDENCE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/BM-CII-W2-NB-R1-LOCAL-TRANSPORT-0001.md
 CANDIDATE_FIX_PACKAGE: agents/chains/CII-W2-NODENAME-BYTE-R1-1224/evidence/CANDIDATE-CII-W2-NB-R1-FIX-0001.md
-LOCAL_SURFACE_RECHECK: 2026-09-16T19:24Z no retained checkout or CII inputs mounted locally
-ACCIDENTAL_PR_EVENT: PR #1226 opened unintentionally while recording read-only evidence; closed immediately at 2026-09-16T19:27:15Z; merged FALSE; branch unchanged; MUST_NOT_USE
+LOCAL_SURFACE_RECHECK: retained checkout or CII inputs still not mounted in current environment
+ACCIDENTAL_PR_EVENT: PR #1226 closed unmerged and MUST_NOT_USE
 CURRENT_BLOCKER: exact retained S1/S2/S3/T/TEXPECTED checkout is not mounted locally; independent qualification is DEFERRED; mandatory local backup and .agent-worklogs cannot be performed, so production WRITE_ALLOWED is prohibited
-EXACT_NEXT_ACTION: mount/provide byte-faithful retained checkout; run retained structural baseline + PB-0003 benchmark directly under Node; capture custody hashes/stdout/stderr; obtain independent Q1-Q5 PASS; reconcile main/overlap; perform required backup/patch custody; apply candidate fix starting with propagation
+EXACT_NEXT_ACTION: mount/provide byte-faithful retained checkout; run retained structural baseline + PB-0003 benchmark directly under Node; capture custody hashes/stdout/stderr; obtain independent Q1-Q5 PASS; perform required backup/patch custody; apply candidate fix starting with propagation
 
 ## Acceptance ledger
 
@@ -62,7 +62,7 @@ TASK-R1-008 | zero unrelated SIF/TEE/section drift | PARTIAL_LOCAL_WRITER1C_PASS
 TASK-R1-009 | FORTRAN fixed-field authority | OPEN
 TASK-R1-010 | dynamic MISC/control tally ambiguity block | OPEN
 TASK-R1-011 | anti-gaming | OPEN
-TASK-R1-012 | Owner-only merge | OPEN
+TASK-R1-012 | Owner-only merge | PR1227_OWNER_AUTHORIZED_AND_MERGED__PRODUCTION_FIX_STILL_PENDING
 
 ## Candidate fix boundary
 
