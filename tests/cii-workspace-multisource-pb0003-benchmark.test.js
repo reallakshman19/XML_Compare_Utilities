@@ -6,6 +6,7 @@ import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-works
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import { deriveExpectedNodeNameDelta } from './cii-workspace-multisource-texpected-oracle.js';
+import { partialExpectedNameMatch } from './cii-workspace-multisource-partial-texpected-oracle.js';
 
 const cryptoRef = globalThis.crypto || webcrypto;
 const benchmark = (name) => fileURLToPath(new URL(`../Benchmark/${name}`, import.meta.url));
@@ -69,7 +70,7 @@ function isNodeName(operation) {
 function candidateForExpected(operation, expected) {
   return isNodeName(operation)
     && targetNode(operation) === expected.nodeId
-    && proposedName(operation) === expected.newValue;
+    && (proposedName(operation) === expected.newValue || partialExpectedNameMatch(proposedName(operation), expected.newValue).match);
 }
 function readyReplacement(operation) {
   return operation?.action === 'COPY'

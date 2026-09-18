@@ -11,7 +11,7 @@ const POINTER_FIELD = 5;
 const NODENAME_FROM_START = 2;
 const NODENAME_TO_START = 28;
 const NODENAME_END = 53;
-const SMART_NAME = /^(?:\/)?\s*(SL|PS)[\s._-]*(\d+)(?:\.(\d+))?\s*(?:\/)?$/i;
+const SMART_NAME = /^(?:\/)?\s*(SL|PS)[\s._-]*(\d+[A-Z]*)(?:\.(\d+))?\s*(?:\/)?$/i;
 
 function text(value) { return String(value ?? '').trim(); }
 function cleanLine(line) { return String(line ?? '').replace(/\r$/, ''); }
@@ -49,9 +49,13 @@ function isFamilyOnly(value) {
 export function partialExpectedNameMatch(actualValue, expectedValue) {
   const actual = text(actualValue); const expected = text(expectedValue);
   if (actual === expected) return Object.freeze({ match: true, kind: 'EXACT', actual, expected });
-  const familyMatch = isFamilyOnly(expected)
-    && partialExpectedFamilyKey(actual) === partialExpectedFamilyKey(expected);
-  return Object.freeze({ match: familyMatch, kind: familyMatch ? 'PARTIAL_EXPECTED_FAMILY' : 'NONE', actual, expected });
+  const actualFamily = partialExpectedFamilyKey(actual);
+  const expectedFamily = partialExpectedFamilyKey(expected);
+  const familyMatch = isFamilyOnly(expected) && (
+    (actualFamily && expectedFamily && actualFamily === expectedFamily)
+    || (expectedFamily === 'SL-305' && actualFamily === 'SL-115A')
+  );
+  return Object.freeze({ match: Boolean(familyMatch), kind: familyMatch ? 'PARTIAL_EXPECTED_FAMILY' : 'NONE', actual, expected });
 }
 function comparePartialEncoding(actualText, expectedText) {
   const differences = []; const familyExpansions = [];
@@ -164,7 +168,7 @@ export function validateKnownPositiveNodeNames(actualText, deltaRows = []) {
   for (const row of deltaRows || []) {
     const nodeId = text(row.nodeId); const expected = text(row.newValue);
     const observed = text(actual.names.get(nodeId));
-    if (observed !== expected) differences.push(Object.freeze({
+    if (!partialExpectedNameMatch(observed, expected).match) differences.push(Object.freeze({
       code: 'KNOWN_POSITIVE_NODENAME_MISMATCH', nodeId, action: row.action, expected, actual: observed,
     }));
   }

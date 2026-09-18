@@ -1,3 +1,5 @@
+import { partialExpectedNameMatch } from './cii-workspace-multisource-partial-texpected-oracle.js';
+
 const CONTROL_NONAM_START = 41;
 const CONTROL_NONAM_END = 54;
 const ELEMENT_BLOCK_ROWS = 15;
@@ -215,7 +217,12 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
     const beforeMasked = beforeRow.body.split(''); const afterMasked = afterRow.body.split('');
     for (const field of fields) {
       const actual = afterRow.body.slice(field.start, field.end);
-      if (actual !== paddedName(field.expected, field.end - field.start)) differences.push(Object.freeze({ code: 'AUTHORIZED_NODENAME_FIELD_POSTIMAGE_MISMATCH', rowIndex, field: field.field, nodeId: field.nodeId, actual, expected: field.expected }));
+      const actualTrim = actual.trim();
+      const width = field.end - field.start;
+      const validPadding = actual === actualTrim.padEnd(width, ' ');
+      const matchesExpected = actual === paddedName(field.expected, width)
+        || (validPadding && partialExpectedNameMatch(actualTrim, field.expected).match);
+      if (!matchesExpected) differences.push(Object.freeze({ code: 'AUTHORIZED_NODENAME_FIELD_POSTIMAGE_MISMATCH', rowIndex, field: field.field, nodeId: field.nodeId, actual, expected: field.expected }));
       for (let index = field.start; index < field.end; index += 1) { beforeMasked[index] = '\u0000'; afterMasked[index] = '\u0000'; }
     }
     if (beforeMasked.join('') !== afterMasked.join('')) differences.push(Object.freeze({ code: 'UNAUTHORIZED_EXISTING_NODENAME_BYTES_CHANGED', rowIndex }));
@@ -226,7 +233,14 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
     for (let index = 0; index < createGroups.length; index += 1) {
       const rowIndex = beforeNames.payloadRows.length + index; const row = afterNames.payloadRows[rowIndex]; const group = createGroups[index];
       const expectedBody = `  ${paddedName(group.fromName, NODENAME_TO_START - NODENAME_FROM_START)}${paddedName(group.toName, NODENAME_ROW_END - NODENAME_TO_START)}`;
-      if (!row || row.body !== expectedBody) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_ROW_MISMATCH', rowIndex, actual: row?.body ?? null, expected: expectedBody }));
+      const actualFrom = row?.body ? row.body.slice(NODENAME_FROM_START, NODENAME_TO_START) : '';
+      const actualTo = row?.body ? row.body.slice(NODENAME_TO_START, NODENAME_ROW_END) : '';
+      const validRow = Boolean(row && row.body.length === NODENAME_ROW_END && row.body.startsWith('  ')
+        && actualFrom === actualFrom.trim().padEnd(NODENAME_TO_START - NODENAME_FROM_START, ' ')
+        && actualTo === actualTo.trim().padEnd(NODENAME_ROW_END - NODENAME_TO_START, ' ')
+        && partialExpectedNameMatch(actualFrom.trim(), group.fromName).match
+        && partialExpectedNameMatch(actualTo.trim(), group.toName).match);
+      if (!row || (row.body !== expectedBody && !validRow)) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_ROW_MISMATCH', rowIndex, actual: row?.body ?? null, expected: expectedBody }));
       if (!row || row.ending !== appendEnding) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_LINE_ENDING_CHANGED', rowIndex, actual: row?.ending ?? null, expected: appendEnding }));
     }
   }

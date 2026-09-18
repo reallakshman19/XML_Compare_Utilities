@@ -33,7 +33,8 @@ function frozenAudit(audit) {
   return audit ? Object.freeze({ ...audit }) : null;
 }
 function writer2TargetShadowEnabled(side, options = {}) {
-  return side === 'TARGET' && String(options?.writerVersion || '') === '2';
+  const version = String(options?.writerVersion || '');
+  return side === 'TARGET' && (version === '2' || version === '1C' || version.startsWith('1'));
 }
 
 async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}) {

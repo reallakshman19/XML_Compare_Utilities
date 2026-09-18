@@ -95,7 +95,7 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
     const uniqueBeforePlan = [...new Set(blockers)];
     const structuralTransferPlan = deepFreeze({
       ...familyPlan(transferPlan, ciiWriter2NodeNameCardinalityOperation),
-      blockers: deepFreeze(uniqueBeforePlan.filter((item) => !String(item).startsWith('CII_MS_WRITER1C_REPLACE:')),
+      blockers: deepFreeze(uniqueBeforePlan.filter((item) => !String(item).startsWith('CII_MS_WRITER1C_REPLACE:'))),
     });
     relocationPlan = buildCiiWriter2NodeNameRelocationPlan({ targetDocument, transferPlan: structuralTransferPlan });
     if (!relocationPlan.ready) blockers.push(...relocationPlan.blockers);
