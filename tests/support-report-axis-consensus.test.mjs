@@ -138,7 +138,7 @@ test('informed axis contradiction downgrades an eligible structural candidate to
   assert.equal(resolved.reasonCode, 'TYPICAL_CONSENSUS_AXIS_CONFLICT');
   assert.equal(resolved.typicalityConsensus.result, 'AXIS_CONFLICT');
   assert.equal(projectionTest.reviewLabel(resolved),
-    'REVIEW — Structural and pipe-axis typicality comparisons disagree.');
+    'REVIEW — Candidate PS-2 withheld: structural and pipe-axis typicality comparisons disagree.');
 });
 
 test('axis-only candidate never promotes structural rejection', () => {

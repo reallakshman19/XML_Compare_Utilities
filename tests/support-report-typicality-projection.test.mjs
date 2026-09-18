@@ -23,7 +23,7 @@ test('comparison profile preserves structural defaults when only location tolera
   assert.equal(profile.pipingLocation.assignmentWeights.supportTypeMember, 100000);
 });
 
-test('11168 -> 14168 projects ten physical-location audit links without row ordinal matching', () => {
+test('11168 -> 14168 preserves six structural location links while consensus withholds publication for axis review', () => {
   const leftEvidence = parseSupportReportClashXml(readFileSync('benchmarks/11168.xml', 'utf8'));
   const rightEvidence = parseSupportReportClashXml(readFileSync('benchmarks/14168.xml', 'utf8'));
   const leftReport = buildSupportReportBundle({ clashEvidence: leftEvidence });
@@ -34,17 +34,21 @@ test('11168 -> 14168 projects ten physical-location audit links without row ordi
   const projected = projectTypicalityOntoSupportReportBundle(leftReport, typicalityAudit, leftEvidence);
 
   assert.equal(typicalityAudit.structuralMatches[0].result, 'TYPICAL');
-  assert.equal(typicalityAudit.matches[0].result, 'TYPICAL');
+  assert.equal(typicalityAudit.matches[0].result, 'REVIEW');
+  assert.equal(typicalityAudit.matches[0].reasonCode, 'TYPICAL_CONSENSUS_AXIS_REVIEW');
+  assert.equal(typicalityAudit.matches[0].typicalityConsensus.result, 'AXIS_REVIEW_REQUIRED');
   assert.equal(typicalityAudit.matches[0].rightFamilyId, 'PS-14168');
   assert.equal(typicalityAudit.locationAssignments.length, 1);
-  assert.equal(typicalityAudit.locationAssignments[0].selectedAssignments.length, 10);
-  assert.equal(projected.rows.length, 10);
+  assert.equal(typicalityAudit.locationAssignments[0].selectedAssignments.length, 6);
+  assert.equal(projected.rows.length, 6);
   assert.equal(projected.typicalityAudit, typicalityAudit);
 
   for (const row of projected.rows) {
-    assert.equal(row.typicalStructure, 'PS-14168');
+    assert.equal(row.typicalStructure, '');
+    assert.equal(row.typicalityPublication.status, 'WITHHELD');
+    assert.equal(row.typicalityPublication.reasonCode, 'TYPICAL_PUBLICATION_WITHHELD_REVIEW');
     assert.equal(row.pipingSupportArrangementMatch,
-      'LIMITED CHECK — Support type unavailable; topology-only comparison used.');
+      'REVIEW — Candidate PS-14168 withheld: pipe-axis typicality evidence is incomplete or ambiguous.');
     assert.match(row.typicalityAuditId, /^TYP-PS-11168--PS-14168-L\d{2}$/);
   }
 });
@@ -66,7 +70,7 @@ test('typicality display remarks are human-friendly while reason codes stay mach
   assert.equal(_test.ambiguousLabel({ candidateFamilyIds: ['PS-1943', 'PS-10048'] }),
     'AMBIGUOUS — 2 candidates remain: PS-1943, PS-10048.');
   assert.equal(_test.reviewLabel({ reasonCode: 'TYPICAL_REVIEW_MEMBER_MULTIPLICITY_CHANGED' }),
-    'REVIEW — Member count per support location differs.');
+    'REVIEW — member count per support location differs.');
   assert.equal(_test.sentenceList(['a', 'b', 'c']), 'a, b and c');
 });
 
