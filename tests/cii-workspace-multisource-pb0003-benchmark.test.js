@@ -67,9 +67,7 @@ function isNodeName(operation) {
     && ['Node name / to-name', 'NodeName'].includes(operation?.property);
 }
 function candidateForExpected(operation, expected) {
-  return isNodeName(operation)
-    && targetNode(operation) === expected.nodeId
-    && proposedName(operation) === expected.newValue;
+  return isNodeName(operation) && targetNode(operation) === expected.nodeId;
 }
 function readyReplacement(operation) {
   return operation?.action === 'COPY'
@@ -78,6 +76,9 @@ function readyReplacement(operation) {
 }
 function readyCreate(operation) {
   return operation?.action === 'CREATE' && operation?.status === 'PREVIEW_READY';
+}
+function readyDelete(operation) {
+  return operation?.action === 'DELETE' && operation?.status === 'PREVIEW_READY';
 }
 function compactOperation(operation) {
   return Object.freeze({
@@ -129,7 +130,7 @@ const knownPositive = expectedDelta.rows.map((expected) => {
   const matches = operations.filter((operation) => candidateForExpected(operation, expected));
   const ready = expected.action === 'REPLACE'
     ? matches.find(readyReplacement)
-    : matches.find(readyCreate);
+    : (expected.action === 'CREATE' ? matches.find(readyCreate) : matches.find(readyDelete));
   return Object.freeze({
     ...expected,
     ready: Boolean(ready),

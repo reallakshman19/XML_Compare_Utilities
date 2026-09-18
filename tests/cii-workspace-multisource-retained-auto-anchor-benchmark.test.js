@@ -143,9 +143,10 @@ const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPrev
 assert.equal(applied.versionBridgeValidation.status, 'PASS');
 const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applied.byteString, expectedText, physical.operations);
 const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
-const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows);
+const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows, physical.operations);
 const byteClosure = validateIndependentMixedNodeNameByteClosure(targetText, applied.byteString, {
   expectedDeltas: expectedDelta.rows,
+  selectedOperations: physical.operations,
   expectedRowDelta: createCount - deleteCount,
 });
 const checkpointEvidence = checkpointDiagnostics(preview);

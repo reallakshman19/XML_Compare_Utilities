@@ -8,11 +8,11 @@ function pairKey(sourceNode, targetNode) { return `${sourceNode}=>${targetNode}`
 function workflowStatus(confidence) { return confidence === 'HIGH' ? 'HIGH' : 'REVIEW'; }
 
 function singleAnchorMatchOptions(options) {
-  if (options?.geometryTransform) return options;
-  return Object.freeze({ ...options, geometryTransform: Object.freeze({
+  const geometryTransform = options?.geometryTransform || Object.freeze({
     status: 'UNDERDETERMINED', mode: 'SINGLE_LOCKED_ANCHOR',
     reason: 'ONE_ANCHOR_CANNOT_ESTABLISH_ROTATION',
-  }) });
+  });
+  return Object.freeze({ ...options, propagation: true, geometryTransform });
 }
 
 function componentEdgeIds(graph, startNode) {

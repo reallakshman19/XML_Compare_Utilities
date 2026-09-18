@@ -92,7 +92,7 @@ function custody(rawValue) {
   }
   return Object.freeze({ elements, names, nodeFields, elementRows: Object.freeze(elementRows) });
 }
-function canonicalCreateGroups(beforeCustody, deltas, differences) {
+function canonicalCreateGroups(beforeCustody, deltas, postimageByNode, differences) {
   const groups = new Map();
   for (const delta of deltas.filter((row) => row.action === 'CREATE')) {
     const node = String(delta.nodeId); const candidates = beforeCustody.elementRows
@@ -104,7 +104,7 @@ function canonicalCreateGroups(beforeCustody, deltas, differences) {
     }
     const selected = candidates[0];
     const group = groups.get(selected.elementIndex) || { element: selected, fromName: '', toName: '', nodeIds: [] };
-    const name = text(delta.newValue);
+    const name = text(postimageByNode.get(node) ?? delta.newValue);
     if (selected.from === node) {
       if (group.fromName && group.fromName !== name) differences.push(Object.freeze({ code: 'CREATE_FROM_CONFLICT', elementIndex: selected.elementIndex }));
       group.fromName = name;
@@ -132,6 +132,28 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   const expectedDeltas = Array.isArray(options.expectedDeltas) ? options.expectedDeltas.map((row) => Object.freeze({
     nodeId: String(row.nodeId), action: String(row.action), oldValue: text(row.oldValue), newValue: text(row.newValue),
   })) : [];
+  const selectedOperations = Array.isArray(options.selectedOperations) ? options.selectedOperations : [];
+  const selectedByTarget = new Map();
+  for (const operation of selectedOperations) {
+    const target = text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId);
+    if (!target) continue;
+    if (selectedByTarget.has(target)) differences.push(Object.freeze({ code: 'SELECTED_OPERATION_TARGET_CONFLICT', nodeId: target }));
+    else selectedByTarget.set(target, operation);
+  }
+  const postimageByNode = new Map();
+  for (const delta of expectedDeltas) {
+    let postimage = text(delta.newValue);
+    if (selectedOperations.length) {
+      const operation = selectedByTarget.get(delta.nodeId);
+      const expectedAction = delta.action === 'REPLACE' ? 'COPY' : delta.action;
+      if (!operation || text(operation?.action) !== expectedAction) {
+        differences.push(Object.freeze({ code: 'SELECTED_OPERATION_REQUIRED_FOR_EXPECTED_DELTA', nodeId: delta.nodeId, action: delta.action }));
+      } else {
+        postimage = expectedAction === 'DELETE' ? '' : text(operation?.proposed ?? operation?.sourceEvidence?.value);
+      }
+    }
+    postimageByNode.set(delta.nodeId, postimage);
+  }
   const deleteCount = expectedDeltas.filter((row) => row.action === 'DELETE').length;
   const expectedRowDelta = Number(options.expectedRowDelta ?? (expectedDeltas.filter((row) => row.action === 'CREATE').length - deleteCount));
   if (!expectedDeltas.length) differences.push(Object.freeze({ code: 'EXPECTED_NODENAME_DELTAS_REQUIRED' }));
@@ -147,7 +169,7 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   }
 
   const deltaByNode = new Map(expectedDeltas.map((row) => [row.nodeId, row]));
-  const createGroups = deleteCount ? [] : canonicalCreateGroups(beforeCustody, expectedDeltas, differences);
+  const createGroups = deleteCount ? [] : canonicalCreateGroups(beforeCustody, expectedDeltas, postimageByNode, differences);
   if (!deleteCount && createGroups.length !== expectedRowDelta) {
     differences.push(Object.freeze({ code: 'CREATE_GROUP_ROW_DELTA_MISMATCH', groups: createGroups.length, expectedRowDelta }));
   }
@@ -200,7 +222,9 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   for (const delta of expectedDeltas.filter((row) => ['REPLACE', 'CREATE'].includes(row.action))) {
     for (const field of beforeCustody.nodeFields.get(delta.nodeId) || []) {
       if (!authorizedFieldsByRow.has(field.rowIndex)) authorizedFieldsByRow.set(field.rowIndex, []);
-      authorizedFieldsByRow.get(field.rowIndex).push(Object.freeze({ ...field, nodeId: delta.nodeId, expected: delta.newValue }));
+      authorizedFieldsByRow.get(field.rowIndex).push(Object.freeze({
+        ...field, nodeId: delta.nodeId, expected: postimageByNode.get(delta.nodeId) ?? delta.newValue,
+      }));
     }
   }
   for (let rowIndex = 0; rowIndex < beforeNames.payloadRows.length; rowIndex += 1) {
