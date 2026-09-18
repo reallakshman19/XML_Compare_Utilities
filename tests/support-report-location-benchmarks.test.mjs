@@ -4,7 +4,7 @@ import test from 'node:test';
 import { inflateRawSync } from 'node:zlib';
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js?v=20260910-support-report-location-17';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js?v=20260910-support-report-json-trace-18&rca=20260910-bore-site-zone-19';
-import { SUPPORT_REPORT_MULTI_LOCATION_REMARK } from '../tabs/support-steel-relationship-builder/support-report-location-grouping.js?v=20260910-support-report-location-17';
+import { SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK } from '../tabs/support-steel-relationship-builder/support-report-location-grouping.js?v=20260910-support-report-location-17';
 
 const ps12154Xml = readFileSync('benchmarks/SupportreportXML-PS-068_PS-12154.xml', 'utf8');
 const ps12120Xml = readFileSync('benchmarks/SupportreportXML-PS-12120.xml', 'utf8');
@@ -13,7 +13,7 @@ const SAME_LOCATION_PIPE = 'ASIM-1885-2"-D8810003-11441T3-PP-01';
 const MULTI_LOCATION_PIPE = 'ASIM-1885-2"-P8810365-31441C4-HT-01';
 const SECOND_MULTI_LOCATION_PIPE = 'ASIM-1885-4"-W8810126-31441C4-01';
 
-test('PS-12154 REST/GUIDE pair stays one report location with no multi-location remark', () => {
+test('PS-12154 REST/GUIDE pair stays one report location while retaining multiple-primary-support family remark', () => {
   const parsed = parseSupportReportClashXml(ps12154Xml);
   const groups = parsed.groups.filter((group) => group.fullLineTag === SAME_LOCATION_PIPE);
   assert.equal(groups.length, 1);
@@ -26,7 +26,7 @@ test('PS-12154 REST/GUIDE pair stays one report location with no multi-location 
   const row = report.rows.find((item) => item.pipe === SAME_LOCATION_PIPE);
   assert.ok(row);
   assert.equal(row.pipingPrimarySupport, '/PS-12154.2, /PS-12154.5');
-  assert.equal(row.remarks.includes(SUPPORT_REPORT_MULTI_LOCATION_REMARK), false);
+  assert.equal(row.remarks, SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK);
   assert.equal(row.primarySupportSite, 'ASIM-1885-CU-PI');
   assert.equal(row.primarySupportZone, 'ASIM-1885-CU-PI-D');
 });
@@ -39,7 +39,7 @@ test('all PS-12154 rows recover discipline-neutral CU-PI Site/Zone', () => {
   assert.ok(rows.every((row) => row.primarySupportZone.startsWith('ASIM-1885-CU-PI-')));
   const sameLocation = rows.find((row) => row.pipe === SAME_LOCATION_PIPE);
   assert.ok(sameLocation);
-  assert.equal(sameLocation.remarks, '');
+  assert.equal(sameLocation.remarks, SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK);
 });
 
 test('PS-12120 full benchmark produces all location-aware report rows across all pipes', () => {
@@ -53,15 +53,16 @@ test('PS-12120 full benchmark produces all location-aware report rows across all
 
   const repeated = report.rows.filter((row) => row.pipe === MULTI_LOCATION_PIPE);
   assert.equal(repeated.length, 5);
-  assert.ok(repeated.every((row) => row.remarks === SUPPORT_REPORT_MULTI_LOCATION_REMARK));
+  assert.ok(repeated.every((row) => row.remarks === SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK));
 
   const secondRepeated = report.rows.filter((row) => row.pipe === SECOND_MULTI_LOCATION_PIPE);
   assert.equal(secondRepeated.length, 2);
-  assert.ok(secondRepeated.every((row) => row.remarks === SUPPORT_REPORT_MULTI_LOCATION_REMARK));
+  assert.ok(secondRepeated.every((row) => row.remarks === SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK));
 
   const singleLocationRows = report.rows.filter((row) => ![MULTI_LOCATION_PIPE, SECOND_MULTI_LOCATION_PIPE].includes(row.pipe));
   assert.equal(singleLocationRows.length, 7);
-  assert.ok(singleLocationRows.every((row) => !row.remarks.includes(SUPPORT_REPORT_MULTI_LOCATION_REMARK)));
+  assert.ok(singleLocationRows.every((row) => row.remarks === SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK));
+  assert.ok(singleLocationRows.every((row) => !row.evidence.multipleLocationsOnPipe));
   assert.equal(report.summary.multiLocationRowCount, 7);
 });
 
@@ -76,12 +77,13 @@ test('PS-12120 repeated pipe splits into five physical report locations', () => 
   const report = buildSupportReportBundle({ clashEvidence: parsed });
   const rows = report.rows.filter((row) => row.pipe === MULTI_LOCATION_PIPE);
   assert.equal(rows.length, 5);
-  assert.ok(rows.every((row) => row.remarks === SUPPORT_REPORT_MULTI_LOCATION_REMARK));
+  assert.ok(rows.every((row) => row.remarks === SUPPORT_REPORT_MULTIPLE_PRIMARY_SUPPORT_REMARK));
   assert.ok(rows.every((row) => row.evidence.multipleLocationsOnPipe));
 });
 
-test('1885 bore-axis occurrence calibration preserves owner support counts', () => {
+test('1885 assembly-count projection preserves owner support counts after raw location grouping', () => {
   const parsed = parseSupportReportClashXml(xml1885);
+  const report = buildSupportReportBundle({ clashEvidence: parsed });
   const expectedCounts = new Map([
     ['PS-12060', 1],
     ['PS-12877', 4],
@@ -90,10 +92,22 @@ test('1885 bore-axis occurrence calibration preserves owner support counts', () 
   ]);
 
   for (const [familyId, expectedCount] of expectedCounts) {
-    const groups = parsed.groups.filter((group) => familyToken(group.secondarySupportFamilyId) === familyId);
-    assert.equal(groups.length, expectedCount, `${familyId} physical occurrence count`);
-    assert.ok(groups.every((group) => group.totalSupportPointsOnSecondary === expectedCount), `${familyId} total support count`);
+    const summary = report.primarySupportFamilySummaries.find((item) => familyToken(item.familyId) === familyId);
+    assert.ok(summary, `${familyId} primary-support count summary`);
+    assert.equal(summary.totalSupportPointsOnSecondary, expectedCount, `${familyId} owner support count`);
+
+    const rows = report.rows.filter((row) => familyToken(row.civilSecondarySupport) === familyId);
+    assert.ok(rows.length > 0, `${familyId} report rows`);
+    assert.ok(rows.every((row) => row.totalSupportPointsOnSecondary === expectedCount),
+      `${familyId} projected owner support count`);
   }
+
+  const rawPs12877Groups = parsed.groups.filter((group) => familyToken(group.secondarySupportFamilyId) === 'PS-12877');
+  assert.equal(rawPs12877Groups.length, 5, 'PS-12877 raw geometry groups remain auditable before assembly recovery');
+  const ps12877Summary = report.primarySupportFamilySummaries.find((item) => familyToken(item.familyId) === 'PS-12877');
+  assert.equal(ps12877Summary.legacyGeometryCount, 5);
+  assert.equal(ps12877Summary.countBasis, 'GEOMETRY_ORPHAN_RECOVERY');
+  assert.equal(ps12877Summary.totalSupportPointsOnSecondary, 4);
 });
 
 test('PS-068 family mismatch remains visible and is not silently renamed', () => {
