@@ -100,7 +100,6 @@ test('browser cache route advances through addon, engine, count, orphan and geom
   const files = [
     'tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js',
     'tabs/support-steel-relationship-builder/support-report-addon.js',
-    'tabs/support-steel-relationship-builder/support-report-engine.js',
     'tabs/support-steel-relationship-builder/support-primary-counting.js',
     'tabs/support-steel-relationship-builder/support-primary-orphan-recovery.js',
     'tabs/support-steel-relationship-builder/support-primary-orphan-ui-addon.js',
