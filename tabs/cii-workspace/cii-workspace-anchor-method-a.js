@@ -166,13 +166,16 @@ function baseEvidence(base) {
 export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates = [], options = {}) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
   const seedLimit = Math.max(3, Number(options.methodASeedPairLimit ?? 16));
+  const expansionLimit = Math.max(seedLimit, Number(options.methodAExpansionPairLimit ?? 64));
   const baseLimit = Math.max(1, Number(options.methodABaseSuggestionLimit ?? 24));
   const resolved = pairCandidates.map((pair) => resolvedPair(sourceNodes, targetNodes, sourceGraph, pair)).filter(Boolean);
-  const eligible = diversifiedCandidates(resolved, seedLimit); const seeds = combinations3(eligible); const basesById = new Map();
+  const seedEligible = diversifiedCandidates(resolved, seedLimit);
+  const expansionEligible = diversifiedCandidates(resolved, expansionLimit);
+  const seeds = combinations3(seedEligible); const basesById = new Map();
   for (const seed of seeds) {
     const seedGeometry = qualifyCiiGeometryTransform(seed.map(geometryPair), options);
     if (seedGeometry.status !== 'READY') continue;
-    const expansion = spatialExpansion(seedGeometry, eligible, options);
+    const expansion = spatialExpansion(seedGeometry, expansionEligible, options);
     if (expansion.pairs.length < 3) continue;
     const expansionId = baseId(expansion.pairs); const existing = basesById.get(expansionId);
     if (existing) { addSeed(existing, seed); continue; }
@@ -183,7 +186,8 @@ export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates
   const bases = [...basesById.values()].sort(rankBases).slice(0, baseLimit).map(baseEvidence);
   return deepFreeze({
     status: bases.length ? 'READY' : 'UNAVAILABLE', method: 'METHOD_A_SPATIAL',
-    candidatePairCount: pairCandidates.length, eligiblePairCount: eligible.length, seedPairLimit: seedLimit,
+    candidatePairCount: pairCandidates.length, eligiblePairCount: seedEligible.length, expansionPairCount: expansionEligible.length,
+    seedPairLimit: seedLimit, expansionPairLimit: expansionLimit,
     seedSelectionPolicy: 'ROUND_ROBIN_BY_SOURCE_CANDIDATE_RANK', seedTripletCount: seeds.length,
     qualifiedBaseCount: bases.length, bases,
     reason: bases.length ? 'AT_LEAST_ONE_AUTOMATIC_LOCAL_METHOD_A_BASE_READY' : 'NO_AUTOMATIC_LOCAL_METHOD_A_BASE_READY',

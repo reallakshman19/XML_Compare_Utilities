@@ -57,6 +57,29 @@ function baseContainsExactly(base, sourceIds) {
   assert.strictEqual(evidence.confidence, 'HIGH');
 }
 
+// Seed selection remains bounded while a qualified transform may expand across a larger compatible candidate pool.
+{
+  const positions = [
+    point(0, 0, 0), point(1000, 0, 0), point(0, 1000, 0), point(0, 0, 1000),
+    point(1000, 1000, 0), point(1000, 0, 1000), point(0, 1000, 1000), point(1000, 1000, 1000),
+  ];
+  const source = graph(positions.map((position, index) => ({
+    id: index + 1, position, vectors: [point(100, 0, 0)],
+  })));
+  const shift = point(2500, -750, 125);
+  const target = graph(positions.map((position, index) => ({
+    id: `1${index + 1}`, position: add(position, shift), vectors: [point(100, 0, 0)],
+  })));
+  const discovery = discoverCiiMethodABases(source, target, pairRows([1, 2, 3, 4, 5, 6, 7, 8], '1'), {
+    methodASeedPairLimit: 4,
+    methodAExpansionPairLimit: 8,
+  });
+  const expanded = discovery.bases.find((base) => base.anchorCount === 8);
+  assert(expanded, 'Method A must expand a seed-qualified rigid transform across compatible candidates without hard-coded route anchors');
+  assert.strictEqual(discovery.eligiblePairCount, 4);
+  assert.strictEqual(discovery.expansionPairCount, 8);
+}
+
 // Three points still define the rigid transform mathematically, but automatic discovery caps confidence at REVIEW until another pair validates it.
 {
   const source = graph([

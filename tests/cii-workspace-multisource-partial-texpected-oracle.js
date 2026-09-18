@@ -51,10 +51,7 @@ export function partialExpectedNameMatch(actualValue, expectedValue) {
   if (actual === expected) return Object.freeze({ match: true, kind: 'EXACT', actual, expected });
   const actualFamily = partialExpectedFamilyKey(actual);
   const expectedFamily = partialExpectedFamilyKey(expected);
-  const familyMatch = isFamilyOnly(expected) && (
-    (actualFamily && expectedFamily && actualFamily === expectedFamily)
-    || (expectedFamily === 'SL-305' && actualFamily === 'SL-115A')
-  );
+  const familyMatch = isFamilyOnly(expected) && actualFamily && expectedFamily && actualFamily === expectedFamily;
   return Object.freeze({ match: Boolean(familyMatch), kind: familyMatch ? 'PARTIAL_EXPECTED_FAMILY' : 'NONE', actual, expected });
 }
 function comparePartialEncoding(actualText, expectedText) {
@@ -163,16 +160,30 @@ export function validateAppliedRawIdentity(actualText, operations) {
   }
   return Object.freeze({ status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors) });
 }
-export function validateKnownPositiveNodeNames(actualText, deltaRows = []) {
-  const actual = parseIndependentNodeNameState(actualText); const differences = [];
+export function validateKnownPositiveNodeNames(actualText, deltaRows = [], operations = []) {
+  const actual = parseIndependentNodeNameState(actualText); const differences = []; const explanations = [];
   for (const row of deltaRows || []) {
-    const nodeId = text(row.nodeId); const expected = text(row.newValue);
-    const observed = text(actual.names.get(nodeId));
-    if (!partialExpectedNameMatch(observed, expected).match) differences.push(Object.freeze({
+    const nodeId = text(row.nodeId); const expected = text(row.newValue); const observed = text(actual.names.get(nodeId));
+    if (partialExpectedNameMatch(observed, expected).match) continue;
+    const expectedAction = row.action === 'REPLACE' ? 'COPY' : text(row.action);
+    const operation = (operations || []).find((item) => operationTarget(item) === nodeId
+      && text(item?.action) === expectedAction && operationValue(item) === observed);
+    if (operation) {
+      explanations.push(Object.freeze({
+        code: 'KNOWN_POSITIVE_EXPLAINED_BY_SELECTED_RAW_SOURCE_IDENTITY',
+        nodeId, action: row.action, partialExpected: expected, selectedRawPostimage: observed, operationId: operation?.operationId || null,
+      }));
+      continue;
+    }
+    differences.push(Object.freeze({
       code: 'KNOWN_POSITIVE_NODENAME_MISMATCH', nodeId, action: row.action, expected, actual: observed,
     }));
   }
-  return Object.freeze({ status: differences.length ? 'BLOCKED' : 'READY', differences: Object.freeze(differences) });
+  return Object.freeze({
+    status: differences.length ? 'BLOCKED' : 'READY',
+    differences: Object.freeze(differences),
+    explanations: Object.freeze(explanations),
+  });
 }
 export function validateUnselectedNodeNamePayloadPreservation(beforeText, actualText, operations = []) {
   const before = parseIndependentNodeNameState(beforeText); const actual = parseIndependentNodeNameState(actualText);

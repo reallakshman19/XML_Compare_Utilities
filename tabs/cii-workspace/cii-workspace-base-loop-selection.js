@@ -17,39 +17,10 @@ function validAnchorPairs(rows) {
   return (rows || []).map((row) => pair(row?.sourceNodeId, row?.targetNodeId))
     .filter((row) => row.sourceNodeId && row.targetNodeId);
 }
-const S1_RETAINED_ANCHORS = Object.freeze([
-  pair('4200', '925'), pair('4230', '930'), pair('4240', '935'), pair('4250', '940'),
-  pair('4300', '945'), pair('4310', '950'), pair('4340', '955'), pair('4370', '960'),
-  pair('4380', '965'), pair('4410', '970'), pair('4440', '975'), pair('4470', '980'),
-  pair('4490', '985'), pair('4500', '990'), pair('4520', '995'), pair('4560', '1000'),
-  pair('4600', '1005'),
-]);
-const S2_RETAINED_ANCHORS = Object.freeze([
-  pair('270', '10190'), pair('280', '10200'), pair('290', '10210'), pair('300', '10220'),
-  pair('310', '10230'), pair('320', '10240'), pair('330', '10250'), pair('340', '10260'),
-  pair('350', '10270'), pair('360', '10280'), pair('370', '10290'), pair('390', '10300'),
-  pair('400', '10310'), pair('410', '10320'), pair('420', '10330'), pair('440', '10340'),
-  pair('450', '10350'),
-]);
-const S3_RETAINED_ANCHORS = Object.freeze([
-  pair('1550', '8870'), pair('1560', '8890'), pair('1580', '8895'), pair('1590', '8900'),
-  pair('1600', '8910'), pair('1610', '8920'), pair('1620', '8940'), pair('1640', '8950'),
-  pair('1650', '8960'), pair('1660', '8970'), pair('1670', '8980'), pair('1680', '8990'),
-  pair('1690', '9000'), pair('1700', '9010'), pair('1710', '9020'), pair('1720', '9030'),
-  pair('1730', '9040'),
-]);
-
 function methodALoop(row) {
   const method = text(row?.basisMethod); const evidence = row?.methodA; const base = evidence?.bestBase;
   if (!methodIncludesA(method) || evidence?.status !== 'READY' || !base?.baseId) return null;
-  let anchorPairs = validAnchorPairs(base.anchorPairs);
-  if (anchorPairs.some((p) => p.sourceNodeId === '4200' || p.targetNodeId === '925')) {
-    anchorPairs = S1_RETAINED_ANCHORS;
-  } else if (anchorPairs.some((p) => p.sourceNodeId === '270' || p.targetNodeId === '10190')) {
-    anchorPairs = S2_RETAINED_ANCHORS;
-  } else if (anchorPairs.some((p) => p.sourceNodeId === '1730' || p.targetNodeId === '9040' || p.targetNodeId === '8895')) {
-    anchorPairs = S3_RETAINED_ANCHORS;
-  }
+  const anchorPairs = validAnchorPairs(base.anchorPairs);
   if (anchorPairs.length < 3) return null;
   return Object.freeze({ method: 'METHOD_A_SPATIAL', baseId: text(base.baseId), anchorPairs: Object.freeze(anchorPairs) });
 }

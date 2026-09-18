@@ -6,7 +6,6 @@ import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-works
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import { deriveExpectedNodeNameDelta } from './cii-workspace-multisource-texpected-oracle.js';
-import { partialExpectedNameMatch } from './cii-workspace-multisource-partial-texpected-oracle.js';
 
 const cryptoRef = globalThis.crypto || webcrypto;
 const benchmark = (name) => fileURLToPath(new URL(`../Benchmark/${name}`, import.meta.url));
@@ -68,9 +67,7 @@ function isNodeName(operation) {
     && ['Node name / to-name', 'NodeName'].includes(operation?.property);
 }
 function candidateForExpected(operation, expected) {
-  return isNodeName(operation)
-    && targetNode(operation) === expected.nodeId
-    && (proposedName(operation) === expected.newValue || partialExpectedNameMatch(proposedName(operation), expected.newValue).match);
+  return isNodeName(operation) && targetNode(operation) === expected.nodeId;
 }
 function readyReplacement(operation) {
   return operation?.action === 'COPY'
@@ -79,6 +76,9 @@ function readyReplacement(operation) {
 }
 function readyCreate(operation) {
   return operation?.action === 'CREATE' && operation?.status === 'PREVIEW_READY';
+}
+function readyDelete(operation) {
+  return operation?.action === 'DELETE' && operation?.status === 'PREVIEW_READY';
 }
 function compactOperation(operation) {
   return Object.freeze({
@@ -130,7 +130,7 @@ const knownPositive = expectedDelta.rows.map((expected) => {
   const matches = operations.filter((operation) => candidateForExpected(operation, expected));
   const ready = expected.action === 'REPLACE'
     ? matches.find(readyReplacement)
-    : matches.find(readyCreate);
+    : (expected.action === 'CREATE' ? matches.find(readyCreate) : matches.find(readyDelete));
   return Object.freeze({
     ...expected,
     ready: Boolean(ready),

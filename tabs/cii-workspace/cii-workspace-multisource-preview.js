@@ -189,32 +189,13 @@ function bm001SourceAliasCandidates(sourceName) {
   if (!value) return [];
   return value.startsWith('/') ? [value, value.slice(1)] : [value, `/${value}`];
 }
-function bm001TargetAliasCandidates(targetName) {
-  const value = text(targetName);
-  if (!value) return [];
-  const candidates = [value];
-  if (value.startsWith('PS20')) {
-    candidates.push(`PS02${value.slice(4)}`);
-  } else if (value.startsWith('PS02')) {
-    candidates.push(`PS20${value.slice(4)}`);
-  }
-  return candidates;
-}
 function inferredAcceptanceBinding(operation, aliasSet) {
   const sourceName = text(operation?.sourceEvidence?.value ?? operation?.proposed);
   const targetName = text(operation?.targetEvidence?.value ?? operation?.before);
-  if (!sourceName || !targetName) return null;
-  const sourceCandidates = bm001SourceAliasCandidates(sourceName);
-  const targetCandidates = bm001TargetAliasCandidates(targetName);
-  let boundTarget = null;
-  for (const tCand of targetCandidates) {
-    if (sourceCandidates.some((sCand) => aliasSet.has(ciiMsBm001AliasKey(sCand, tCand)))) {
-      boundTarget = tCand;
-      break;
-    }
-  }
-  if (!boundTarget) return null;
-  return normalizedAcceptanceBinding({ sourceNames: [sourceName], targetName: boundTarget });
+  const matched = bm001SourceAliasCandidates(sourceName)
+    .some((candidate) => aliasSet.has(ciiMsBm001AliasKey(candidate, targetName)));
+  if (!sourceName || !targetName || !matched) return null;
+  return normalizedAcceptanceBinding({ sourceNames: [sourceName], targetName });
 }
 function prefixOperation(operation, sourceIdValue, member, input, aliasSet) {
   const originalId = text(operation?.operationId);

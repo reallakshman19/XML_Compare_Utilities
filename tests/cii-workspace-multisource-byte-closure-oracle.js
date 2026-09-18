@@ -1,5 +1,3 @@
-import { partialExpectedNameMatch } from './cii-workspace-multisource-partial-texpected-oracle.js';
-
 const CONTROL_NONAM_START = 41;
 const CONTROL_NONAM_END = 54;
 const ELEMENT_BLOCK_ROWS = 15;
@@ -94,7 +92,7 @@ function custody(rawValue) {
   }
   return Object.freeze({ elements, names, nodeFields, elementRows: Object.freeze(elementRows) });
 }
-function canonicalCreateGroups(beforeCustody, deltas, differences) {
+function canonicalCreateGroups(beforeCustody, deltas, postimageByNode, differences) {
   const groups = new Map();
   for (const delta of deltas.filter((row) => row.action === 'CREATE')) {
     const node = String(delta.nodeId); const candidates = beforeCustody.elementRows
@@ -106,7 +104,7 @@ function canonicalCreateGroups(beforeCustody, deltas, differences) {
     }
     const selected = candidates[0];
     const group = groups.get(selected.elementIndex) || { element: selected, fromName: '', toName: '', nodeIds: [] };
-    const name = text(delta.newValue);
+    const name = text(postimageByNode.get(node) ?? delta.newValue);
     if (selected.from === node) {
       if (group.fromName && group.fromName !== name) differences.push(Object.freeze({ code: 'CREATE_FROM_CONFLICT', elementIndex: selected.elementIndex }));
       group.fromName = name;
@@ -134,6 +132,28 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   const expectedDeltas = Array.isArray(options.expectedDeltas) ? options.expectedDeltas.map((row) => Object.freeze({
     nodeId: String(row.nodeId), action: String(row.action), oldValue: text(row.oldValue), newValue: text(row.newValue),
   })) : [];
+  const selectedOperations = Array.isArray(options.selectedOperations) ? options.selectedOperations : [];
+  const selectedByTarget = new Map();
+  for (const operation of selectedOperations) {
+    const target = text(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId);
+    if (!target) continue;
+    if (selectedByTarget.has(target)) differences.push(Object.freeze({ code: 'SELECTED_OPERATION_TARGET_CONFLICT', nodeId: target }));
+    else selectedByTarget.set(target, operation);
+  }
+  const postimageByNode = new Map();
+  for (const delta of expectedDeltas) {
+    let postimage = text(delta.newValue);
+    if (selectedOperations.length) {
+      const operation = selectedByTarget.get(delta.nodeId);
+      const expectedAction = delta.action === 'REPLACE' ? 'COPY' : delta.action;
+      if (!operation || text(operation?.action) !== expectedAction) {
+        differences.push(Object.freeze({ code: 'SELECTED_OPERATION_REQUIRED_FOR_EXPECTED_DELTA', nodeId: delta.nodeId, action: delta.action }));
+      } else {
+        postimage = expectedAction === 'DELETE' ? '' : text(operation?.proposed ?? operation?.sourceEvidence?.value);
+      }
+    }
+    postimageByNode.set(delta.nodeId, postimage);
+  }
   const deleteCount = expectedDeltas.filter((row) => row.action === 'DELETE').length;
   const expectedRowDelta = Number(options.expectedRowDelta ?? (expectedDeltas.filter((row) => row.action === 'CREATE').length - deleteCount));
   if (!expectedDeltas.length) differences.push(Object.freeze({ code: 'EXPECTED_NODENAME_DELTAS_REQUIRED' }));
@@ -149,7 +169,7 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   }
 
   const deltaByNode = new Map(expectedDeltas.map((row) => [row.nodeId, row]));
-  const createGroups = deleteCount ? [] : canonicalCreateGroups(beforeCustody, expectedDeltas, differences);
+  const createGroups = deleteCount ? [] : canonicalCreateGroups(beforeCustody, expectedDeltas, postimageByNode, differences);
   if (!deleteCount && createGroups.length !== expectedRowDelta) {
     differences.push(Object.freeze({ code: 'CREATE_GROUP_ROW_DELTA_MISMATCH', groups: createGroups.length, expectedRowDelta }));
   }
@@ -202,7 +222,9 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
   for (const delta of expectedDeltas.filter((row) => ['REPLACE', 'CREATE'].includes(row.action))) {
     for (const field of beforeCustody.nodeFields.get(delta.nodeId) || []) {
       if (!authorizedFieldsByRow.has(field.rowIndex)) authorizedFieldsByRow.set(field.rowIndex, []);
-      authorizedFieldsByRow.get(field.rowIndex).push(Object.freeze({ ...field, nodeId: delta.nodeId, expected: delta.newValue }));
+      authorizedFieldsByRow.get(field.rowIndex).push(Object.freeze({
+        ...field, nodeId: delta.nodeId, expected: postimageByNode.get(delta.nodeId) ?? delta.newValue,
+      }));
     }
   }
   for (let rowIndex = 0; rowIndex < beforeNames.payloadRows.length; rowIndex += 1) {
@@ -217,12 +239,7 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
     const beforeMasked = beforeRow.body.split(''); const afterMasked = afterRow.body.split('');
     for (const field of fields) {
       const actual = afterRow.body.slice(field.start, field.end);
-      const actualTrim = actual.trim();
-      const width = field.end - field.start;
-      const validPadding = actual === actualTrim.padEnd(width, ' ');
-      const matchesExpected = actual === paddedName(field.expected, width)
-        || (validPadding && partialExpectedNameMatch(actualTrim, field.expected).match);
-      if (!matchesExpected) differences.push(Object.freeze({ code: 'AUTHORIZED_NODENAME_FIELD_POSTIMAGE_MISMATCH', rowIndex, field: field.field, nodeId: field.nodeId, actual, expected: field.expected }));
+      if (actual !== paddedName(field.expected, field.end - field.start)) differences.push(Object.freeze({ code: 'AUTHORIZED_NODENAME_FIELD_POSTIMAGE_MISMATCH', rowIndex, field: field.field, nodeId: field.nodeId, actual, expected: field.expected }));
       for (let index = field.start; index < field.end; index += 1) { beforeMasked[index] = '\u0000'; afterMasked[index] = '\u0000'; }
     }
     if (beforeMasked.join('') !== afterMasked.join('')) differences.push(Object.freeze({ code: 'UNAUTHORIZED_EXISTING_NODENAME_BYTES_CHANGED', rowIndex }));
@@ -233,14 +250,7 @@ export function validateIndependentMixedNodeNameByteClosure(beforeRaw, afterRaw,
     for (let index = 0; index < createGroups.length; index += 1) {
       const rowIndex = beforeNames.payloadRows.length + index; const row = afterNames.payloadRows[rowIndex]; const group = createGroups[index];
       const expectedBody = `  ${paddedName(group.fromName, NODENAME_TO_START - NODENAME_FROM_START)}${paddedName(group.toName, NODENAME_ROW_END - NODENAME_TO_START)}`;
-      const actualFrom = row?.body ? row.body.slice(NODENAME_FROM_START, NODENAME_TO_START) : '';
-      const actualTo = row?.body ? row.body.slice(NODENAME_TO_START, NODENAME_ROW_END) : '';
-      const validRow = Boolean(row && row.body.length === NODENAME_ROW_END && row.body.startsWith('  ')
-        && actualFrom === actualFrom.trim().padEnd(NODENAME_TO_START - NODENAME_FROM_START, ' ')
-        && actualTo === actualTo.trim().padEnd(NODENAME_ROW_END - NODENAME_TO_START, ' ')
-        && partialExpectedNameMatch(actualFrom.trim(), group.fromName).match
-        && partialExpectedNameMatch(actualTo.trim(), group.toName).match);
-      if (!row || (row.body !== expectedBody && !validRow)) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_ROW_MISMATCH', rowIndex, actual: row?.body ?? null, expected: expectedBody }));
+      if (!row || row.body !== expectedBody) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_ROW_MISMATCH', rowIndex, actual: row?.body ?? null, expected: expectedBody }));
       if (!row || row.ending !== appendEnding) differences.push(Object.freeze({ code: 'APPENDED_NODENAME_LINE_ENDING_CHANGED', rowIndex, actual: row?.ending ?? null, expected: appendEnding }));
     }
   }

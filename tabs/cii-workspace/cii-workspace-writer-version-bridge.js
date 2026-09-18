@@ -34,7 +34,7 @@ function frozenAudit(audit) {
 }
 function writer2TargetShadowEnabled(side, options = {}) {
   const version = String(options?.writerVersion || '');
-  return side === 'TARGET' && (version === '2' || version === '1C' || version.startsWith('1'));
+  return side === 'TARGET' && (version === '2' || version === '1C');
 }
 
 async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}) {
