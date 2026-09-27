@@ -99,7 +99,7 @@ async function writePagesMetadata(generated) {
   await fs.writeFile(path.join(docsRoot, '.nojekyll'), '');
   await fs.writeFile(path.join(docsRoot, 'pages-deployment.json'), `${JSON.stringify({
     repository: 'reallaksh19/XML_Compare_Utilities',
-    sha: gitSha(),
+    source_sha: gitSha(),
     build: token,
     mode: 'branch-docs',
   }, null, 2)}\n`);
