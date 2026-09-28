@@ -50,11 +50,13 @@ function dedupeAnchors(pairs) {
 function inputPayload(input, side) {
   return input?.[`${side}Bytes`] ?? input?.[`${side}Text`];
 }
-async function intakePair(input, options) {
-  const sourceDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef });
-  const targetDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'target'), input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef });
-  return { sourceDocument, targetDocument,
-    sourceGraph: adaptCiiDocumentToTopologyGraph(sourceDocument), targetGraph: adaptCiiDocumentToTopologyGraph(targetDocument) };
+async function intakePair(input, options, prepared = {}) {
+  const sourceDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
+  const targetDocument = prepared.targetDocument
+    || await intakeCiiWorkspaceDocument(inputPayload(input, 'target'), input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
+  const sourceGraph = adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
+  const targetGraph = prepared.targetGraph || adaptCiiDocumentToTopologyGraph(targetDocument, { instrumentation: options.instrumentation });
+  return { sourceDocument, targetDocument, sourceGraph, targetGraph };
 }
 function sourceOdAtNode(graph, nodeId) {
   const values = [...(graph?.adjacency?.get(String(nodeId)) || [])].map((edge) => Number(edge.diameter)).filter((value) => Number.isFinite(value) && value > 0);
@@ -187,15 +189,20 @@ function compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence) {
     reason: loops.length ? 'CORRESPONDENCE_HAS_NO_SINGLE_METHOD_A_TRANSFORM' : 'NO_CONTRIBUTING_BASE_LOOP' });
 }
 
-export async function inspectCiiWorkspaceModels(input, options = {}) {
-  const pair = await intakePair(input, options);
-  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.inspection,
-    source: inspectionSide(pair.sourceDocument, pair.sourceGraph, options), target: inspectionSide(pair.targetDocument, pair.targetGraph, options),
-    baseAnchorSuggestions: suggestCiiBaseAnchorPairs(pair.sourceGraph, pair.targetGraph, options) });
+export async function inspectCiiWorkspaceModels(input, options = {}, prepared = {}) {
+  const pair = await intakePair(input, options, prepared);
+  const inspectionSideStartedAt = performance.now();
+  const source = inspectionSide(pair.sourceDocument, pair.sourceGraph, options);
+  const target = inspectionSide(pair.targetDocument, pair.targetGraph, options);
+  options.instrumentation?.record?.('INSPECTION_SIDE_MS', performance.now() - inspectionSideStartedAt);
+  const anchorSuggestionsStartedAt = performance.now();
+  const baseAnchorSuggestions = suggestCiiBaseAnchorPairs(pair.sourceGraph, pair.targetGraph, options);
+  options.instrumentation?.record?.('ANCHOR_SUGGESTIONS_MS', performance.now() - anchorSuggestionsStartedAt);
+  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.inspection, source, target, baseAnchorSuggestions });
 }
 
-export async function createCiiWorkspacePreview(input, options = {}) {
-  const { sourceDocument, targetDocument, sourceGraph, targetGraph } = await intakePair(input, options);
+export async function createCiiWorkspacePreview(input, options = {}, prepared = {}) {
+  const { sourceDocument, targetDocument, sourceGraph, targetGraph } = await intakePair(input, options, prepared);
   const version = writerVersion(options); const anchors = acceptedAnchors(input);
   const landmarks = deepFreeze({ source: suggestCiiLandmarks(sourceGraph, options), target: suggestCiiLandmarks(targetGraph, options) });
   const multiBaseAuthority = workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options);
