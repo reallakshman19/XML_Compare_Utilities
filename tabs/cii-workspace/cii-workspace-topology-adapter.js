@@ -152,10 +152,14 @@ function contextFor(node, adjacency) {
   });
 }
 
-function attachContexts(edges, adjacency) {
+function contextIndex(orderedNodes, adjacency) {
+  return new Map(orderedNodes.map((id) => [id, contextFor(id, adjacency)]));
+}
+
+function attachContexts(edges, contexts) {
   for (const edge of edges) {
-    edge.fromContext = contextFor(edge.from, adjacency);
-    edge.toContext = contextFor(edge.to, adjacency);
+    edge.fromContext = contexts.get(edge.from);
+    edge.toContext = contexts.get(edge.to);
     edge.anchorFlags = uniqueStrings([
       edge.fromContext.degree === 1 ? 'FROM_TERMINAL' : '', edge.toContext.degree === 1 ? 'TO_TERMINAL' : '',
       edge.fromContext.degree >= 3 ? 'FROM_BRANCH' : '', edge.toContext.degree >= 3 ? 'TO_BRANCH' : '',
@@ -172,14 +176,15 @@ export function adaptCiiDocumentToTopologyGraph(document) {
   if (rigidCapability?.state === 'PARSE_ERROR') throw new Error('CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED');
   const edges = canonicalizeElements(document);
   const adjacency = buildIncidence(edges);
-  attachContexts(edges, adjacency);
   const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
+  const contexts = contextIndex(orderedNodes, adjacency);
+  attachContexts(edges, contexts);
   return {
     schema: CII_WORKSPACE_SCHEMAS.graph, side: document.side, documentId: `${document.side}:${document.contentSha256}`,
     edges, adjacency,
     nodes: orderedNodes.map((id) => Object.freeze({
       id, degree: adjacency.get(id).length, position: document.parsed.nodes?.[id] || null,
-      nodeName: document.nodeNames?.[id] || '', neighbourhoodLayers: neighbourhoodLayers(id, adjacency),
+      nodeName: document.nodeNames?.[id] || '', neighbourhoodLayers: contexts.get(id).neighbourhoodLayers,
     })),
     summary: Object.freeze({ nodeCount: orderedNodes.length, elementCount: edges.length }),
   };
