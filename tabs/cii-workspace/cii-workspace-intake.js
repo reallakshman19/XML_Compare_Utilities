@@ -40,6 +40,7 @@ function parsedDetailCount(capability, key) {
 }
 
 export async function intakeCiiWorkspaceDocument(rawInput, fileName, options = {}) {
+  const intakeStartedAt = performance.now();
   const physicalFile = createCiiPhysicalFile(rawInput); const sourceText = physicalFile.text;
   if (!sourceText.trim()) throw new Error('CII_WORKSPACE_EMPTY_INPUT');
   if (!/^#\$\s*(VERSION|CONTROL|ELEMENTS)/m.test(sourceText)) throw new Error('CII_WORKSPACE_NEUTRAL_CII_REQUIRED');
@@ -57,7 +58,9 @@ export async function intakeCiiWorkspaceDocument(rawInput, fileName, options = {
   const auxiliaryCapabilities = applyCiiAuxiliaryCapabilities(baselineCapabilities, auxiliaryEvidence);
   const capabilities = applyCiiHangerCapabilities(auxiliaryCapabilities, hangerEvidence);
   const families = capabilities.families;
-  options.instrumentation?.record?.(options.side === 'TARGET' ? 'TARGET_INTAKE' : 'SOURCE_INTAKE');
+  const intakeStage = options.side === 'TARGET' ? 'TARGET_INTAKE' : 'SOURCE_INTAKE';
+  options.instrumentation?.record?.(intakeStage);
+  options.instrumentation?.record?.(`${intakeStage}_MS`, performance.now() - intakeStartedAt);
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.document,
     side: options.side === 'TARGET' ? 'TARGET' : 'SOURCE',

@@ -191,9 +191,14 @@ function compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence) {
 
 export async function inspectCiiWorkspaceModels(input, options = {}, prepared = {}) {
   const pair = await intakePair(input, options, prepared);
-  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.inspection,
-    source: inspectionSide(pair.sourceDocument, pair.sourceGraph, options), target: inspectionSide(pair.targetDocument, pair.targetGraph, options),
-    baseAnchorSuggestions: suggestCiiBaseAnchorPairs(pair.sourceGraph, pair.targetGraph, options) });
+  const inspectionSideStartedAt = performance.now();
+  const source = inspectionSide(pair.sourceDocument, pair.sourceGraph, options);
+  const target = inspectionSide(pair.targetDocument, pair.targetGraph, options);
+  options.instrumentation?.record?.('INSPECTION_SIDE_MS', performance.now() - inspectionSideStartedAt);
+  const anchorSuggestionsStartedAt = performance.now();
+  const baseAnchorSuggestions = suggestCiiBaseAnchorPairs(pair.sourceGraph, pair.targetGraph, options);
+  options.instrumentation?.record?.('ANCHOR_SUGGESTIONS_MS', performance.now() - anchorSuggestionsStartedAt);
+  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.inspection, source, target, baseAnchorSuggestions });
 }
 
 export async function createCiiWorkspacePreview(input, options = {}, prepared = {}) {

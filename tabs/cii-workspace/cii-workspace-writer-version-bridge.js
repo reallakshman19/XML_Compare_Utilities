@@ -40,11 +40,13 @@ function writer2TargetShadowEnabled(side, options = {}) {
 }
 
 async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}) {
-  options.instrumentation?.record?.(side === 'TARGET' ? 'TARGET_NORMALIZE' : 'SOURCE_NORMALIZE');
+  const stage = side === 'TARGET' ? 'TARGET_NORMALIZE' : 'SOURCE_NORMALIZE';
+  options.instrumentation?.record?.(stage);
+  const normalizeStartedAt = performance.now();
   const version = detectCiiNeutralVersion(value);
   if (version === 11) {
     const sourceSha256 = await ciiSha256(value, cryptoRef);
-    return Object.freeze({
+    const result = Object.freeze({
       side,
       originalVersion: 11,
       normalizedVersion: 11,
@@ -57,6 +59,8 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
       exactRoundTrip: true,
       writer2Shadow: null,
     });
+    options.instrumentation?.record?.(`${stage}_MS`, performance.now() - normalizeStartedAt);
+    return result;
   }
 
   const originalSha256 = await ciiSha256(value, cryptoRef);
@@ -76,9 +80,13 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
     }
   }
 
+  const downStartedAt = performance.now();
   const down = await convertCiiNeutralVersionLossless(conversionInput, 11, { fileName, cryptoRef });
+  options.instrumentation?.record?.(`${stage}_CONVERT_DOWN_MS`, performance.now() - downStartedAt);
+  const upStartedAt = performance.now();
   const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName, cryptoRef });
-  return Object.freeze({
+  options.instrumentation?.record?.(`${stage}_CONVERT_UP_MS`, performance.now() - upStartedAt);
+  const result = Object.freeze({
     side,
     originalVersion: 14,
     normalizedVersion: 11,
@@ -91,14 +99,18 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
     exactRoundTrip: ciiBytesEqual(conversionInput, up.outputBytes),
     writer2Shadow,
   });
+  options.instrumentation?.record?.(`${stage}_MS`, performance.now() - normalizeStartedAt);
+  return result;
 }
 
 async function normalizePairInput(input, options = {}) {
   const sourceValue = sideInput(input, 'source');
   const targetValue = sideInput(input, 'target');
   if (sourceValue == null || targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options);
-  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef, options);
+  const [source, target] = await Promise.all([
+    normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options),
+    normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef, options),
+  ]);
   let normalizedInput = withoutSideText(input, 'source', source.normalizedBytes);
   normalizedInput = withoutSideText(normalizedInput, 'target', target.normalizedBytes);
   return Object.freeze({ source, target, normalizedInput });
