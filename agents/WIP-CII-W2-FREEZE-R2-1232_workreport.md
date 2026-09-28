@@ -108,6 +108,48 @@ Implemented in this checkpoint, on top of the topology memoization
   "Compare amplification" (multisource-preview.js Writer2/Writer1C double
   preview) — that is FT-1232-004, still pending.
 
+### Real-retained execution results (this checkpoint)
+
+This host actually executed the two real-retained regression tests to
+completion for the first time (both launched pre-edit, at commit `49ce11b9`,
+before any FT-1232-003 file was touched):
+
+- `tests/cii-workspace-multisource-pb0003-benchmark.test.js`: ran 43m24s,
+  then **FAILED** —
+  `assert.deepEqual(automatic.choices.map(c => c.status), ['READY','READY','READY'])`
+  got `['REVIEW_REQUIRED', 'READY', 'READY']`. (Its process exit code was
+  misreported as 0 by this session's own shell pipeline — `... | tail -60`
+  swallows Node's real non-zero exit — an error in how the command was
+  invoked, not in the test; the actual stdout content clearly shows an
+  uncaught `AssertionError`. Corrected for all runs described below.)
+- `tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js`:
+  ran ~44 min, then **FAILED** with the same root cause, spelled out
+  explicitly: `S1 Auto Anchor must resolve a unique HIGH/MEDIUM topology
+  base: NO_HIGH_OR_MEDIUM_QUALIFIED_TOPOLOGY_BASE`, `actual: 'REVIEW_REQUIRED'`.
+
+**Root-cause isolation (this checkpoint):** built an isolated `git worktree`
+at `main` (`300c05dd...`, before #1224/#1228/#1230/WP-007 existed) and ran a
+targeted single-pair `inspectCiiWorkspaceModelsWithVersionBridge(S1, T)` +
+`ciiAutomaticBaseSelection()` script against real `Benchmark/S1.CII` /
+`Benchmark/T.CII`, once on `main` and once on this branch's current head
+(`d1413021` + FT-1232-003). Results were **byte-identical**: both produced
+`status: 'REVIEW_REQUIRED'`, `reason: 'NO_HIGH_OR_MEDIUM_QUALIFIED_TOPOLOGY_BASE'`,
+`baseAnchorSuggestions.length: 5`, empty `selectionKeys`/`baseLoops`/
+`candidates`, and near-identical elapsed time (~3,326,851 ms vs. ~3,314,828 ms,
+i.e. ~55.3 minutes both times).
+
+**Conclusion:** the `REVIEW_REQUIRED` result for retained S1 is **pre-existing
+on `main`, unaffected by `d1413021` and unaffected by FT-1232-003.** Neither
+this branch's topology-context memoization nor its shared-TARGET prepared-
+model refactor changed this outcome by so much as one byte. This is a
+real, separate, pre-existing product gap in automatic base-anchor selection
+for retained S1 against T — not a WP-007 regression, and not something this
+issue's scope (freeze/performance/runtime-reuse) authorizes fixing. It should
+be reported/owned separately (it means both of this repo's only real-retained
+CI-gating tests are currently red on `main` itself, independent of any CII
+Writer2 freeze work). FT-1232-003 stands validated: it provably does not
+alter this or any other observed outcome relative to the unmodified code.
+
 ### Browser acceptance gap
 
 The retained tile Playwright test allows up to 120 seconds for Inspect, Compare/review rebuild and Apply milestones, but contains no independent event-loop heartbeat or long-task responsiveness assertion. Eventual completion can therefore pass while the app is functionally frozen for a long interval.
@@ -118,9 +160,27 @@ SOURCE_TRACE_HYPOTHESIS: CONFIRMED
 
 Confirmed meaning: repeated TARGET/common-analysis work exists exactly where the implementation plan predicts.
 
-RUNTIME_DOMINANT_STAGE: NOT_RUN_ENVIRONMENT
+RUNTIME_DOMINANT_STAGE: PARTIALLY_MEASURED — end-to-end only, per-stage attribution still NOT_RUN
 
-The relative wall-clock contribution of parser intake, topology traversal, anchor discovery, deep-freeze traversal, converter wait and DOM rendering still requires runtime instrumentation before attribution.
+This checkpoint executed real retained-data runs to completion for the first
+time (see "Real-retained execution results" below). A single-pair S1-vs-T
+`inspectCiiWorkspaceModelsWithVersionBridge()` call took ~55.3 minutes
+wall-clock in this host (Node child-process Python conversion fallback, not
+the browser Worker path). That number is real and reproducible (measured
+twice, on two different branches, within ~12 seconds of each other), but it
+is an **end-to-end** figure. The relative contribution of the Python V14↔V11
+conversion subprocess versus synchronous JS parser/topology/anchor/
+correspondence work is still not separately instrumented — Phase 1 of the
+approved plan ("add non-semantic performance instrumentation... distinguish
+repeated TARGET work; one intrinsically long synchronous TARGET stage;
+converter wait; DOM/render cost") has still not actually been executed with
+real per-stage timestamps; the diagnosis above was, and remains, inferred
+from source reading plus this one end-to-end number, not measured per stage.
+This matters because the Python conversion runs in a Worker in the real
+browser (off the main thread) — if it dominates the ~55 minutes, it would
+not itself be the main-thread freeze cause, only the JS-side share would be.
+Recommend real per-stage instrumentation as the next concrete step before
+further architectural work, per the existing Phase 1 of the approved plan.
 
 ## Current execution-environment limitation
 
@@ -151,7 +211,9 @@ Repository policy requires the repo backup utility and local `.agent-worklogs/` 
 | existing source-set custody regression (real S1/S2/S3/T hashes) | PASS | re-executed this run, 0.098s |
 | source-set UI wiring contract test | FAIL_PRE_EXISTING_UNRELATED | re-confirmed via `git stash` bisection against the exact pre-edit branch head; identical failure with or without this change; out of WP-007 scope, not fixed here |
 | existing browser responsiveness assertion | FAIL_AS_COVERAGE_GAP | no heartbeat/long-task assertion present (unchanged; still pending, see FT-1232-005) |
-| retained real-benchmark timing/correctness (PB-0003 + auto-anchor, real 2.87 MB TARGET) | IN_PROGRESS_NOT_RUN_YET | launched pre-edit as baseline on this host (unlike the prior ChatGPT host, this one can execute them); both still running after 25+ min of ~100% single-core CPU with zero output, which is itself corroborating evidence for the repeated-TARGET-work diagnosis; will be updated to PASS/FAIL only once actually complete, never inferred |
+| retained real-benchmark correctness (PB-0003 + auto-anchor, real 2.87 MB TARGET) | FAIL_PRE_EXISTING_ON_MAIN | both ran to completion pre-edit (43–44 min each) and FAILED on `REVIEW_REQUIRED` vs `READY` for S1; isolated via a `main`-branch worktree re-run of the identical single-pair call — byte-identical failure on `main` (before #1224/WP-007 existed) proves this is unrelated to `d1413021` and unrelated to FT-1232-003; reported separately below, not owned by this issue |
+| FT-1232-003 non-regression against real retained data | PASS | the same isolation re-run also proves FT-1232-003 (this branch's head) produces byte-identical `baseAnchorSuggestions`/status/timing to unmodified `main` for real S1-vs-T — i.e. this checkpoint changed zero observable behavior on real data, only construction counts |
+| real single-pair Inspect wall-clock (S1 vs T, Node child-process Python conversion fallback) | MEASURED_END_TO_END_ONLY | ~55.3 minutes, measured twice (main and this branch), consistent to within 12s; per-stage (Python conversion vs. JS topology/anchor/correspondence) attribution still NOT_RUN — see RUNTIME_DOMINANT_STAGE |
 | retained Chromium + real Pyodide on WP-007 | NOT_RUN_ENVIRONMENT | still not attempted this checkpoint; this host has a real Chromium binary available and is a credible candidate to finally execute this, but it was not yet attempted in favor of landing FT-1232-003 first |
 | production mutation | IN_PROGRESS | topology memoization (`d1413021`) + shared-TARGET prepared-model architecture (this checkpoint) committed; Compare-side reuse (FT-1232-004) and UI generation/cancellation + Chromium heartbeat (FT-1232-005) remain pending |
 
@@ -206,35 +268,43 @@ Shared-TARGET prepared-model custody completed before each existing-file edit (t
 
 ## Highest risk
 
-FT-1232-003 (this checkpoint) is validated against a real small fixture with
-exact construction-count and prepared/legacy parity assertions, all passing.
-The remaining risk is that this has *not yet* been proven against the full
-real retained 2.87 MB TARGET end-to-end (that run was launched pre-edit and is
-still IN_PROGRESS at the time of this checkpoint — see Validation status). Do
-not treat the small-fixture PASS as a substitute for that real-retained
-result once it lands; append it here and to the PR/issue the moment it
-completes, whichever way it goes. FT-1232-004 (Compare-side reuse) and
-FT-1232-005 (UI generation/cancellation + Chromium heartbeat) are unstarted
-and are larger, more engineering-sensitive slices than this one; they should
-each get their own construction-count/parity proof before being claimed done,
-for the same reason this one did.
+FT-1232-003 is now validated two ways: (1) exact construction-count and
+prepared/legacy parity assertions on a real small fixture, and (2) a
+byte-identical-output isolation proof against real retained S1-vs-T data
+versus unmodified `main`. Both passed; this checkpoint is not the source of
+the retained-benchmark failures. The actual highest risk is now scope
+confusion, not correctness: the two real-retained "authoritative" tests
+(PB-0003, auto-anchor) fail on `main` itself, before WP-007 existed, for a
+reason (`NO_HIGH_OR_MEDIUM_QUALIFIED_TOPOLOGY_BASE` on retained S1) that has
+nothing to do with the freeze/performance boundary this issue owns. Do not
+let a future session (or an eager AUTO-MODE-style continuation) try to "fix"
+that classification gap under issue #1232 — it is a different owned outcome
+and needs its own issue/authorization. Separately, per RUNTIME_DOMINANT_STAGE
+above, the ~55-minute single-pair figure is real but not yet decomposed by
+stage, so it is not yet known how much of it is addressable by further JS-side
+orchestration work (FT-1232-004/005) versus dominated by the frozen,
+out-of-scope Python conversion engine running in a Worker off the main thread.
 
 ## EXACT_NEXT_ACTION
 
-1. Await/record the real-retained PB-0003 and auto-anchor benchmark results
-   (already running; append PASS/FAIL + timing to this report and to issue
-   #1232 the moment each finishes — do not infer or backfill).
-2. If both PASS: proceed to FT-1232-004 — reuse prepared SOURCE/TARGET models
-   from Inspect in Compare (`cii-workspace-multisource-preview.js`), and split
-   common correspondence/engineering analysis from Writer1C/Writer2 writer
-   projection, each with its own construction-count/parity regression before
-   being claimed done.
-3. If either real-retained benchmark FAILs (not just "slow"): stop, do not
-   proceed to FT-1232-004, and treat it as a `PLAN_UPDATE`-triggering
-   falsifier per the approved implementation plan — diagnose against the
-   *unmodified* single-pair API path first (still available and untouched)
-   before assuming this checkpoint's change is the cause.
+1. Report the retained-benchmark failure and its `main`-branch isolation
+   proof to issue #1232 as a separate, non-WP-007-owned finding (done by this
+   checkpoint — see the TASK_EVIDENCE comment posted alongside this report).
+   Do not fix it from this PR.
+2. Recommended next technical step, before FT-1232-004: add minimal,
+   non-semantic per-stage wall-clock instrumentation (Python conversion wait
+   vs. intake/parse vs. topology build vs. anchor-suggestion vs.
+   correspondence) around one real single-pair Inspect call, per Phase 1 of
+   the approved plan, which has still never actually been executed with real
+   numbers. This is cheap to add and directly resolves whether FT-1232-004
+   (Compare-side JS reuse) is high-value or whether attention belongs on the
+   conversion layer / Workerization instead.
+3. Once that attribution exists: proceed to FT-1232-004 (reuse prepared
+   SOURCE/TARGET models from Inspect in Compare; split common analysis from
+   Writer1C/Writer2 projection) only if JS-side work is shown to be a
+   material share of wall-clock time — with its own construction-count/parity
+   regression before being claimed done, as FT-1232-003 required of itself.
 4. FT-1232-005 (UI operation-generation/cancellation guards, retained
    Chromium event-loop heartbeat probe) remains the last owned outcome and is
    unstarted; this host has a real Chromium binary and could be the first to
-   actually execute it, once FT-1232-004 lands.
+   actually execute it.
