@@ -219,25 +219,37 @@ function reviewDiscoveryStrength(suggestion) {
 }
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
+  const instrumentation = options.instrumentation;
+  const stageStartedAt = performance.now();
   const limit = Math.max(1, Number(options.baseAnchorSuggestionLimit || 8));
   const poolLimit = Math.max(limit * 2, Number(options.baseAnchorCandidatePool || 16));
   const requiredGap = Math.max(0, Number(options.baseAnchorWinnerGap ?? 8));
   const minimumScore = Math.max(0, Number(options.baseAnchorMinimumScore ?? 65));
   const methodAMinimumScore = Math.max(0, Number(options.methodAMinimumCandidateScore ?? Math.min(minimumScore, 55)));
   const source = structuralCandidates(sourceGraph, poolLimit); const target = structuralCandidates(targetGraph, poolLimit);
+  instrumentation?.record?.('ANCHOR_STRUCTURAL_CANDIDATES_MS', performance.now() - stageStartedAt);
+  const rankingsStartedAt = performance.now();
   const sourceRankings = new Map(source.map((item) => [item.nodeId, rankedForSource(item, target)]));
   const targetRankings = new Map(target.map((item) => [item.nodeId, rankedForSource(item, source)]));
   const mutualRows = mutualBestHypotheses(source, sourceRankings, targetRankings, minimumScore);
   const methodASourceLimit = Math.max(3, Number(options.methodASourceCandidateLimit ?? limit));
   const methodASources = source.slice(0, Math.min(source.length, methodASourceLimit));
   const methodARows = methodACandidateHypotheses(methodASources, sourceRankings, targetRankings, methodAMinimumScore, options);
+  instrumentation?.record?.('ANCHOR_RANKINGS_MS', performance.now() - rankingsStartedAt);
+  const methodADiscoveryStartedAt = performance.now();
   const methodADiscovery = discoverCiiMethodABases(sourceGraph, targetGraph, methodARows.map((row) => ({
     sourceNodeId: row.item.nodeId, targetNodeId: row.winner.target.nodeId, score: row.winner.score, winnerGap: row.winnerGap,
     sourceRank: row.sourceRank, targetRank: row.targetRank, mutualBest: row.mutualBest,
   })), options);
+  instrumentation?.record?.('ANCHOR_METHOD_A_DISCOVERY_MS', performance.now() - methodADiscoveryStartedAt);
   const structuralHypotheses = surfacedHypotheses(mutualRows, methodARows, methodADiscovery);
+  const reviewStartedAt = performance.now();
   const reviewHypotheses = exactNameReviewHypotheses(sourceGraph, targetGraph, minimumScore);
+  instrumentation?.record?.('ANCHOR_REVIEW_HYPOTHESES_MS', performance.now() - reviewStartedAt);
+  instrumentation?.record?.('ANCHOR_REVIEW_HYPOTHESES_COUNT', reviewHypotheses.length);
   const hypotheses = mergeReviewHypotheses(structuralHypotheses, reviewHypotheses);
+  instrumentation?.record?.('ANCHOR_HYPOTHESES_COUNT', hypotheses.length);
+  const projectionStartedAt = performance.now();
   const suggestions = hypotheses.map((row) => {
     const sourceNodeId = row.item.nodeId; const targetNodeId = row.winner.target.nodeId;
     const methodA = projectCiiMethodAEvidence(methodADiscovery, sourceNodeId, targetNodeId);
@@ -270,6 +282,7 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
         ...(row.reviewDiscovery ? ['EXACT_NODE_NAME_USED_FOR_REVIEW_DISCOVERY_NOT_IDENTITY_AUTHORITY'] : [])]),
     });
   });
+  instrumentation?.record?.('ANCHOR_PROJECTION_MS', performance.now() - projectionStartedAt);
   const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
   suggestions.sort((a, b) => (order[a.confidence] - order[b.confidence])
     || Number(b.basisMethod === 'METHOD_A_AND_B') - Number(a.basisMethod === 'METHOD_A_AND_B')
