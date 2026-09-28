@@ -170,7 +170,7 @@ function attachContexts(edges, contexts) {
   }
 }
 
-export function adaptCiiDocumentToTopologyGraph(document) {
+export function adaptCiiDocumentToTopologyGraph(document, options = {}) {
   if (document?.schema !== CII_WORKSPACE_SCHEMAS.document) throw new Error('CII_WORKSPACE_DOCUMENT_REQUIRED');
   const rigidCapability = capability(document, 'rigidMass');
   if (rigidCapability?.state === 'PARSE_ERROR') throw new Error('CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED');
@@ -179,6 +179,7 @@ export function adaptCiiDocumentToTopologyGraph(document) {
   const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
   const contexts = contextIndex(orderedNodes, adjacency);
   attachContexts(edges, contexts);
+  options.instrumentation?.record?.(document.side === 'TARGET' ? 'TARGET_TOPOLOGY' : 'SOURCE_TOPOLOGY');
   return {
     schema: CII_WORKSPACE_SCHEMAS.graph, side: document.side, documentId: `${document.side}:${document.contentSha256}`,
     edges, adjacency,

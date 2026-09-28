@@ -57,6 +57,7 @@ export async function intakeCiiWorkspaceDocument(rawInput, fileName, options = {
   const auxiliaryCapabilities = applyCiiAuxiliaryCapabilities(baselineCapabilities, auxiliaryEvidence);
   const capabilities = applyCiiHangerCapabilities(auxiliaryCapabilities, hangerEvidence);
   const families = capabilities.families;
+  options.instrumentation?.record?.(options.side === 'TARGET' ? 'TARGET_INTAKE' : 'SOURCE_INTAKE');
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.document,
     side: options.side === 'TARGET' ? 'TARGET' : 'SOURCE',
