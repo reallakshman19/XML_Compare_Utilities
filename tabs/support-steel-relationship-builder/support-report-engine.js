@@ -21,7 +21,7 @@ import {
   supportReportMemberMatchesBranches as memberMatchesBranches,
   supportReportMemberMatchesLine as memberMatchesLine,
 } from './support-report-member-context.js?v=20260911-datum-metadata-23';
-import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260915-support-primary-traversal-safety-1';
+import { applySupportPrimaryAssemblyCounts } from './support-primary-counting.js?v=20260929-support-primary-maintainability-1';
 
 const SYMBOLIC_ROLES = new Set(['DATUM', 'STRUCTURAL_REFERENCE']);
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
