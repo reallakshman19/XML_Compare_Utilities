@@ -9,6 +9,10 @@ function nodeNames(graph) { return new Map((graph?.nodes || []).map((node) => [S
 function canonicalGraph(graph) { return { ...graph, nodes: (graph?.nodes || []).map((node) => ({ ...node, nodeName: ciiNodeNameUniqueKey(node.nodeName) || node.nodeName || '' })) }; }
 function pairKey(row) { return `${row.sourceNodeId}=>${row.targetNodeId}`; }
 function hasMethodB(row) { return ['METHOD_B_NETWORK', 'METHOD_A_AND_B'].includes(row?.basisMethod); }
+function displayLimit(options) {
+  const requested = Number(options.baseAnchorDisplayLimit ?? options.baseAnchorSuggestionLimit ?? 8);
+  return Math.max(1, Number.isFinite(requested) ? Math.floor(requested) : 8);
+}
 function enrich(row, sourceGraph, targetGraph, canonicalOnly, sourceNames, targetNames) {
   const sourceName = sourceNames.get(String(row.sourceNodeId)) || ''; const targetName = targetNames.get(String(row.targetNodeId)) || '';
   const nodeNameEvidence = compareCiiNodeNames(sourceName, targetName);
@@ -65,7 +69,7 @@ export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}
   const rows = [...byPair.values()].sort((a, b) => (order[a.confidence] - order[b.confidence])
     || Number(b?.methodA?.bestBase?.weight?.total || 0) - Number(a?.methodA?.bestBase?.weight?.total || 0)
     || Number(b.score || 0) - Number(a.score || 0));
-  return deepFreeze(rows.slice(0, Math.max(1, Number(options.baseAnchorSuggestionLimit || 8))));
+  return deepFreeze(rows.slice(0, displayLimit(options)));
 }
 
-export const _test = Object.freeze({ ...coreTest, ...physicalTest });
+export const _test = Object.freeze({ ...coreTest, ...physicalTest, displayLimit });
