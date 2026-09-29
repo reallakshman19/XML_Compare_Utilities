@@ -49,7 +49,9 @@ function twoLocationEvidenceWithAxisRows(familyId, rawAxisPoints) {
     branchNodes: Object.freeze([branch]),
     representativeClashPointGlobalMm: Object.freeze({ ...point }),
     locationNominalBoreMm: 50,
-    evidenceRows: Object.freeze(index === 0 && rows.length > 2 ? rows.slice(0, -1) : [rows[rows.length - 1]]),
+    evidenceRows: Object.freeze(rows.length > 2
+      ? index === 0 ? rows.slice(0, -1) : [rows[rows.length - 1]]
+      : [rows[index]]),
   }));
   return Object.freeze({ groups: Object.freeze(groups), rawClashes: Object.freeze([]) });
 }
