@@ -75,14 +75,15 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
   const sources = sourceRows(input); const targetInput = value(input, 'target');
   if (targetInput == null) throw new Error('CII_SOURCE_SET_TARGET_REQUIRED');
   const targetFileName = String(input?.targetFileName || 'TARGET.CII');
-  const { inspectCiiWorkspaceModelsWithVersionBridge } = await import('./cii-workspace-writer-version-bridge.js');
+  const { prepareCiiWorkspaceTargetWithVersionBridge, inspectCiiWorkspaceModelsWithPreparedTarget } =
+    await import('./cii-workspace-writer-version-bridge.js');
+  const preparedTarget = await prepareCiiWorkspaceTargetWithVersionBridge(targetInput, targetFileName, { ...options, writerVersion: '2' });
   const inspections = [];
   for (let index = 0; index < sources.length; index += 1) {
     const source = sources[index];
-    inspections.push(await inspectCiiWorkspaceModelsWithVersionBridge({
+    inspections.push(await inspectCiiWorkspaceModelsWithPreparedTarget({
       sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
-      targetBytes: input?.targetBytes, targetText: input?.targetText, targetFileName,
-    }, { ...options, writerVersion: '2' }));
+    }, preparedTarget, { ...options, writerVersion: '2' }));
   }
   assertSharedTargetCustody(inspections);
   const members = inspections.map((inspection, index) => bridgeMember(sources[index], index, inspection));

@@ -37,8 +37,8 @@ function robustReasons(node, incident) {
   if (node?.nodeName) reasons.push('NAMED_NODE');
   return reasons;
 }
-function structuralEvidence(graph, node) {
-  const nodes = nodeMap(graph); const nodeId = String(node.id); const incident = [...(graph?.adjacency?.get(nodeId) || [])];
+function structuralEvidence(graph, node, nodes = nodeMap(graph)) {
+  const nodeId = String(node.id); const incident = [...(graph?.adjacency?.get(nodeId) || [])];
   const neighbourDegrees = incident.map((edge) => Number(nodes.get(String(otherNode(edge, nodeId)))?.degree || 0)).sort((a, b) => a - b);
   const reasons = robustReasons(node, incident);
   return { nodeId, nodeName: String(node?.nodeName || '').trim(), degree: Number(node.degree || 0), componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
@@ -46,7 +46,8 @@ function structuralEvidence(graph, node) {
     salience: reasons.reduce((best, reason) => Math.max(best, REASON_WEIGHT[reason] || 0), 0) };
 }
 function structuralCandidates(graph, limit) {
-  return (graph?.nodes || []).map((node) => structuralEvidence(graph, node)).filter((item) => item.robustReasons.length)
+  const nodes = nodeMap(graph);
+  return (graph?.nodes || []).map((node) => structuralEvidence(graph, node, nodes)).filter((item) => item.robustReasons.length)
     .sort((a, b) => b.salience - a.salience || compareNodeIds(a.nodeId, b.nodeId)).slice(0, limit);
 }
 function pairEvidence(source, target) {
@@ -106,11 +107,12 @@ function surfacedHypotheses(mutualRows, methodARows, discovery) {
   return [...byKey.values()];
 }
 function uniqueNamedStructuralEvidence(graph) {
+  const nodes = nodeMap(graph);
   const byName = new Map();
   for (const node of graph?.nodes || []) {
     const name = String(node?.nodeName || '').trim(); if (!name) continue;
     if (!byName.has(name)) byName.set(name, []);
-    byName.get(name).push(structuralEvidence(graph, node));
+    byName.get(name).push(structuralEvidence(graph, node, nodes));
   }
   return new Map([...byName.entries()].filter(([, rows]) => rows.length === 1).map(([name, rows]) => [name, rows[0]]));
 }

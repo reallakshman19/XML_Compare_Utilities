@@ -4,6 +4,9 @@ import {
   inspectCiiWorkspaceModels,
 } from './cii-workspace-core.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
+import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
+import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
+import { applyCiiSourceSetMixedNodeNameWithVersionBridge } from './cii-workspace-multisource-mixed-apply.js';
 import { projectCanonicalV14WriterDelta } from './cii-workspace-v14-change-projection.js';
 import { assertCiiV14Writer2FixedFieldAuthority } from './cii-workspace-v14-writer2-fixed-field-authority.js';
 import {
@@ -32,14 +35,18 @@ function frozenAudit(audit) {
   return audit ? Object.freeze({ ...audit }) : null;
 }
 function writer2TargetShadowEnabled(side, options = {}) {
-  return side === 'TARGET' && String(options?.writerVersion || '') === '2';
+  const version = String(options?.writerVersion || '');
+  return side === 'TARGET' && (version === '2' || version === '1C');
 }
 
 async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}) {
+  const stage = side === 'TARGET' ? 'TARGET_NORMALIZE' : 'SOURCE_NORMALIZE';
+  options.instrumentation?.record?.(stage);
+  const normalizeStartedAt = performance.now();
   const version = detectCiiNeutralVersion(value);
   if (version === 11) {
     const sourceSha256 = await ciiSha256(value, cryptoRef);
-    return Object.freeze({
+    const result = Object.freeze({
       side,
       originalVersion: 11,
       normalizedVersion: 11,
@@ -52,6 +59,8 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
       exactRoundTrip: true,
       writer2Shadow: null,
     });
+    options.instrumentation?.record?.(`${stage}_MS`, performance.now() - normalizeStartedAt);
+    return result;
   }
 
   const originalSha256 = await ciiSha256(value, cryptoRef);
@@ -71,9 +80,13 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
     }
   }
 
+  const downStartedAt = performance.now();
   const down = await convertCiiNeutralVersionLossless(conversionInput, 11, { fileName, cryptoRef });
+  options.instrumentation?.record?.(`${stage}_CONVERT_DOWN_MS`, performance.now() - downStartedAt);
+  const upStartedAt = performance.now();
   const up = await convertCiiNeutralVersionLossless(down.outputBytes, 14, { fileName, cryptoRef });
-  return Object.freeze({
+  options.instrumentation?.record?.(`${stage}_CONVERT_UP_MS`, performance.now() - upStartedAt);
+  const result = Object.freeze({
     side,
     originalVersion: 14,
     normalizedVersion: 11,
@@ -86,17 +99,32 @@ async function normalizeSideToV11(value, fileName, side, cryptoRef, options = {}
     exactRoundTrip: ciiBytesEqual(conversionInput, up.outputBytes),
     writer2Shadow,
   });
+  options.instrumentation?.record?.(`${stage}_MS`, performance.now() - normalizeStartedAt);
+  return result;
 }
 
 async function normalizePairInput(input, options = {}) {
   const sourceValue = sideInput(input, 'source');
   const targetValue = sideInput(input, 'target');
   if (sourceValue == null || targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options);
-  const target = await normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef, options);
+  const [source, target] = await Promise.all([
+    normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options),
+    normalizeSideToV11(targetValue, input?.targetFileName || 'target.cii', 'TARGET', options.cryptoRef, options),
+  ]);
   let normalizedInput = withoutSideText(input, 'source', source.normalizedBytes);
   normalizedInput = withoutSideText(normalizedInput, 'target', target.normalizedBytes);
   return Object.freeze({ source, target, normalizedInput });
+}
+
+export async function prepareCiiWorkspaceTargetWithVersionBridge(targetValue, targetFileName, options = {}) {
+  if (targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
+  const fileName = targetFileName || 'target.cii';
+  const target = await normalizeSideToV11(targetValue, fileName, 'TARGET', options.cryptoRef, options);
+  const targetDocument = await intakeCiiWorkspaceDocument(target.normalizedBytes, fileName, {
+    side: 'TARGET', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation,
+  });
+  const targetGraph = adaptCiiDocumentToTopologyGraph(targetDocument, { instrumentation: options.instrumentation });
+  return Object.freeze({ target, targetDocument, targetGraph });
 }
 
 function bridgeSideEvidence(side) {
@@ -155,6 +183,25 @@ export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options 
   return Object.freeze({
     ...inspection,
     versionBridge: buildVersionBridgeEvidence(normalized.source, normalized.target),
+  });
+}
+
+export async function inspectCiiWorkspaceModelsWithPreparedTarget(input, preparedTarget, options = {}) {
+  if (!preparedTarget?.target || !preparedTarget?.targetDocument || !preparedTarget?.targetGraph) {
+    throw new Error('CII_VERSION_BRIDGE_PREPARED_TARGET_REQUIRED');
+  }
+  const sourceValue = sideInput(input, 'source');
+  if (sourceValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
+  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options);
+  const normalizedInput = withoutSideText({ ...(input || {}) }, 'source', source.normalizedBytes);
+  const inspection = await inspectCiiWorkspaceModels(normalizedInput, options, {
+    targetDocument: preparedTarget.targetDocument,
+    targetGraph: preparedTarget.targetGraph,
+  });
+  assertNormalizedIntakeHashes(inspection, source, preparedTarget.target, 'INSPECTION');
+  return Object.freeze({
+    ...inspection,
+    versionBridge: buildVersionBridgeEvidence(source, preparedTarget.target),
   });
 }
 
@@ -236,6 +283,8 @@ async function normalizeCurrentTarget(preview, targetInput, options = {}) {
 export async function applyCiiWorkspaceTargetWriter2WithVersionBridge(preview, targetInput, options = {}) {
   const bridge = preview?.versionBridge;
   if (!bridge) throw new Error('CII_VERSION_BRIDGE_PREVIEW_REQUIRED');
+  const mixed = await applyCiiSourceSetMixedNodeNameWithVersionBridge(preview, targetInput, options);
+  if (mixed) return mixed;
   const normalized = await normalizeCurrentTarget(preview, targetInput, options);
   const v11Result = await applyCiiWorkspaceTargetWriter2(preview, normalized.bytes, options);
   if (Number(bridge.target?.originalVersion) === 11) {

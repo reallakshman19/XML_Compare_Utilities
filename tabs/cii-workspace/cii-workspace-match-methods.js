@@ -73,9 +73,9 @@ function stationFraction(edge) {
   const total = number(edge.pathTotalLengthMm || edge.pathTotalVectorLengthMm || 0);
   return total > 0 ? number(edge.pathStationMidMm) / total : null;
 }
-function networkBlockers(source, target) {
+function networkBlockers(source, target, options = {}) {
   const blockers = []; const s = endpointDegrees(source); const t = endpointDegrees(target);
-  if ((s[1] >= 3) !== (t[1] >= 3)) blockers.push('BRANCH_TOPOLOGY_INCOMPATIBLE');
+  if (!options?.propagation && s[1] >= 3 && t[1] < 3) blockers.push('BRANCH_TOPOLOGY_INCOMPATIBLE');
   if ((source?.componentKind === 'RIGID') !== (target?.componentKind === 'RIGID')) blockers.push('RIGID_COMPONENT_KIND_INCOMPATIBLE');
   return blockers;
 }
@@ -110,7 +110,7 @@ export function evaluateCiiSpatialMethod(source, target, options = {}) {
 }
 
 export function evaluateCiiNetworkMethod(source, target, options = {}) {
-  const blockers = networkBlockers(source, target); const sDegrees = endpointDegrees(source); const tDegrees = endpointDegrees(target);
+  const blockers = networkBlockers(source, target, options); const sDegrees = endpointDegrees(source); const tDegrees = endpointDegrees(target);
   const sourceStation = stationFraction(source); const targetStation = stationFraction(target);
   const components = {
     topology: 20 * Number(sDegrees[0] === tDegrees[0] && sDegrees[1] === tDegrees[1]),
