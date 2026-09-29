@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildStructuralAxisDisagreementMatrix,
   classifyStructuralAxisDisagreement,
+  summarizeAxisTypicalityAudit,
 } from './support-report-typicality-disagreement-matrix.mjs';
 
 const structural = (result, rightFamilyId = '', extra = {}) => Object.freeze({
@@ -53,4 +54,54 @@ test('matrix exposes B/C cases as the priority calibration set', () => {
     C_STRUCTURAL_REJECT_AXIS_MATCH: 1,
   });
   assert.deepEqual(matrix.priorityCalibrationCases.map((item) => item.leftFamilyId), ['PS-1', 'PS-2']);
+});
+
+test('axis audit diagnostics distinguish missing feature authority from candidate-selection review', () => {
+  const diagnostics = summarizeAxisTypicalityAudit({
+    leftFamilies: [
+      {
+        authorityStatus: 'UNAVAILABLE', trustedTraversalCount: 0, normalizedPairCount: 0,
+        relativeAxisAngleCount: 0, unavailableTraversalCount: 1, ambiguousGroupTraversalCount: 0,
+        missingBorePairOpportunityCount: 0,
+      },
+      {
+        authorityStatus: 'COMPLETE', trustedTraversalCount: 2, normalizedPairCount: 1,
+        relativeAxisAngleCount: 1, unavailableTraversalCount: 0, ambiguousGroupTraversalCount: 0,
+        missingBorePairOpportunityCount: 0,
+      },
+    ],
+    rightFamilies: [{
+      authorityStatus: 'PARTIAL', trustedTraversalCount: 1, normalizedPairCount: 1,
+      relativeAxisAngleCount: 0, unavailableTraversalCount: 1, ambiguousGroupTraversalCount: 0,
+      missingBorePairOpportunityCount: 1,
+    }],
+    familyComparisons: [
+      { result: 'UNAVAILABLE', reasonCode: 'AXIS_TYPICALITY_UNAVAILABLE', availability: { result: 'UNAVAILABLE' } },
+      { result: 'REVIEW', reasonCode: 'AXIS_TYPICALITY_REVIEW_PARTIAL_EVIDENCE', availability: { result: 'REVIEW' } },
+      { result: 'MATCH', reasonCode: 'AXIS_TYPICALITY_MATCH', availability: { result: 'AVAILABLE' } },
+    ],
+    matches: [
+      { result: 'UNAVAILABLE', reasonCode: 'AXIS_TYPICALITY_UNAVAILABLE', candidateFamilyIds: [] },
+      { result: 'REVIEW', reasonCode: 'AXIS_TYPICALITY_AMBIGUOUS_MATCHES', candidateFamilyIds: ['PS-2', 'PS-3'] },
+    ],
+  });
+
+  assert.deepEqual(diagnostics.leftAuthorityStatusHistogram, { COMPLETE: 1, UNAVAILABLE: 1 });
+  assert.deepEqual(diagnostics.leftEvidenceGapFlagHistogram, {
+    COMPLETE_AUTHORITY: 1,
+    NO_INTRINSIC_GEOMETRY: 1,
+    NO_TRUSTED_TRAVERSAL_AXIS: 1,
+    UNAVAILABLE_TRAVERSAL: 1,
+  });
+  assert.deepEqual(diagnostics.rightEvidenceGapFlagHistogram, {
+    MISSING_BORE_PAIR_OPPORTUNITY: 1,
+    UNAVAILABLE_TRAVERSAL: 1,
+  });
+  assert.deepEqual(diagnostics.pairResultHistogram, { MATCH: 1, REVIEW: 1, UNAVAILABLE: 1 });
+  assert.deepEqual(diagnostics.pairAvailabilityHistogram, { AVAILABLE: 1, REVIEW: 1, UNAVAILABLE: 1 });
+  assert.deepEqual(diagnostics.selectedReasonHistogram, {
+    AXIS_TYPICALITY_AMBIGUOUS_MATCHES: 1,
+    AXIS_TYPICALITY_UNAVAILABLE: 1,
+  });
+  assert.deepEqual(diagnostics.selectedCandidateCountHistogram, { '0': 1, '2': 1 });
 });
