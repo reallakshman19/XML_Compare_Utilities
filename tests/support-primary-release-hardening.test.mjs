@@ -12,7 +12,9 @@ import {
 import { setSupportPrimaryOrphanRecoveryRuntimeConfig } from '../tabs/support-steel-relationship-builder/support-primary-orphan-recovery.js';
 
 const line10 = 'ASIM-1885-10"-S8810101-91261M7-HC-01';
-const TRAVERSAL_SAFETY_TOKEN = '20260915-support-primary-traversal-safety-1';
+const MAINTAINABILITY_TOKEN = '20260929-support-primary-maintainability-1';
+const ORPHAN_SPLIT_TOKEN = '20260929-support-primary-orphan-split-1';
+const COUNT_PROJECTION_TOKEN = '20260929-support-primary-count-projection-1';
 
 function evidence(point, memberId) {
   return {
@@ -96,26 +98,24 @@ test('TOTAL SUPPORT POINTS provenance carries effective assembly count basis', (
   assert.equal(provenance.totalSupportPointsOnSecondary.orphanRecoveryStatus, 'ORPHAN_RECOVERED_GEOMETRY');
 });
 
-test('browser cache route advances through addon, engine, count, orphan and geometry modules', async () => {
-  const files = [
-    'tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js',
-    'tabs/support-steel-relationship-builder/support-report-addon.js',
-    'tabs/support-steel-relationship-builder/support-primary-counting.js',
-    'tabs/support-steel-relationship-builder/support-primary-orphan-recovery.js',
-    'tabs/support-steel-relationship-builder/support-primary-orphan-ui-addon.js',
-  ];
-  for (const file of files) {
-    const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
-    assert.match(text, /20260915-support-primary-hardening-1/, file);
-  }
-
+test('browser cache route advances through addon, engine, count and split orphan modules', async () => {
   const bootstrap = await readFile(new URL('../tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', import.meta.url), 'utf8');
   const addon = await readFile(new URL('../tabs/support-steel-relationship-builder/support-report-addon.js', import.meta.url), 'utf8');
   const engine = await readFile(new URL('../tabs/support-steel-relationship-builder/support-report-engine.js', import.meta.url), 'utf8');
+  const counting = await readFile(new URL('../tabs/support-steel-relationship-builder/support-primary-counting.js', import.meta.url), 'utf8');
+  const orphanRecovery = await readFile(new URL('../tabs/support-steel-relationship-builder/support-primary-orphan-recovery.js', import.meta.url), 'utf8');
+  const orphanUi = await readFile(new URL('../tabs/support-steel-relationship-builder/support-primary-orphan-ui-addon.js', import.meta.url), 'utf8');
 
-  assert.match(bootstrap, new RegExp(`support-report-addon\\.js[^'\"]*traversalSafety=${TRAVERSAL_SAFETY_TOKEN}`));
-  assert.match(addon, new RegExp(`support-report-engine\\.js[^'\"]*count=${TRAVERSAL_SAFETY_TOKEN}`));
-  assert.match(engine, new RegExp(`support-primary-counting\\.js[^'\"]*${TRAVERSAL_SAFETY_TOKEN}`));
+  assert.match(bootstrap, new RegExp(`support-report-addon\\.js[^'\"]*maintainability=${MAINTAINABILITY_TOKEN}`));
+  assert.match(bootstrap, new RegExp(`support-primary-orphan-ui-addon\\.js\\?v=${MAINTAINABILITY_TOKEN}`));
+  assert.match(addon, new RegExp(`support-report-engine\\.js[^'\"]*maintainability=${MAINTAINABILITY_TOKEN}`));
+  assert.match(addon, new RegExp(`support-primary-orphan-ui-addon\\.js\\?v=${MAINTAINABILITY_TOKEN}`));
+  assert.match(engine, new RegExp(`support-primary-counting\\.js\\?v=${MAINTAINABILITY_TOKEN}`));
+  assert.match(counting, new RegExp(`support-primary-orphan-recovery\\.js\\?v=${ORPHAN_SPLIT_TOKEN}`));
+  assert.match(counting, new RegExp(`support-primary-count-projection\\.js\\?v=${COUNT_PROJECTION_TOKEN}`));
+  assert.match(orphanRecovery, new RegExp(`support-primary-orphan-geometry\\.js\\?v=${ORPHAN_SPLIT_TOKEN}`));
+  assert.match(orphanRecovery, new RegExp(`support-primary-orphan-candidates\\.js\\?v=${ORPHAN_SPLIT_TOKEN}`));
+  assert.match(orphanUi, new RegExp(`support-primary-orphan-recovery\\.js\\?v=${ORPHAN_SPLIT_TOKEN}`));
 
   assert.match(addon, /const orphanRecoveryConfig = readOrphanRecoveryConfig\(popup\);/);
   assert.match(addon, /primaryRelationshipBundle,\s*orphanRecoveryConfig,/s);
