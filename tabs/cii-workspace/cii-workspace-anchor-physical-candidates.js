@@ -31,10 +31,14 @@ export function uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph) {
   }
   return deepFreeze(rows.sort((a, b) => compareNodeIds(a.sourceNodeId, b.sourceNodeId) || compareNodeIds(a.targetNodeId, b.targetNodeId)));
 }
-function physicalSearchLimit(options) {
-  const requested = Number(options.methodAPhysicalCandidateLimit ?? DEFAULT_PHYSICAL_SEARCH_LIMIT);
-  const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_PHYSICAL_SEARCH_LIMIT;
+function boundedPhysicalLimit(value) {
+  const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_PHYSICAL_SEARCH_LIMIT;
   return Math.max(3, Math.min(MAX_PHYSICAL_SEARCH_LIMIT, finite));
+}
+function physicalSearchLimit(options) { return boundedPhysicalLimit(options.methodAPhysicalCandidateLimit ?? DEFAULT_PHYSICAL_SEARCH_LIMIT); }
+function boundedDiscoveryLimit(value, physicalLimit) {
+  const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : physicalLimit;
+  return Math.max(3, Math.min(physicalLimit, finite));
 }
 function candidatePriority(graph, nodeId) {
   const edges = [...(graph?.adjacency?.get(String(nodeId)) || [])];
@@ -58,7 +62,7 @@ function spreadScore(pair, selected, sourcePositions, targetPositions) {
     + squaredDistance(targetPositions.get(pair.targetNodeId), targetPositions.get(row.targetNodeId))));
 }
 export function selectPhysicalCandidatePairs(sourceGraph, targetGraph, pairs, requestedLimit) {
-  const limit = Math.max(3, Math.min(MAX_PHYSICAL_SEARCH_LIMIT, Math.floor(Number(requestedLimit) || DEFAULT_PHYSICAL_SEARCH_LIMIT)));
+  const limit = boundedPhysicalLimit(requestedLimit);
   if ((pairs || []).length <= limit) return deepFreeze([...(pairs || [])]);
   const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
   const remaining = [...pairs].sort((a, b) => comparePriority(a, b, sourceGraph)); const selected = [remaining.shift()];
@@ -84,8 +88,8 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
   if (pairs.length < 3) return deepFreeze([]);
   const discovery = discoverCiiMethodABases(sourceGraph, targetGraph, pairs, {
     ...options,
-    methodASeedPairLimit: Math.min(limit, Number(options.methodASeedPairLimit ?? limit)),
-    methodAExpansionPairLimit: Math.min(limit, Number(options.methodAExpansionPairLimit ?? limit)),
+    methodASeedPairLimit: boundedDiscoveryLimit(options.methodASeedPairLimit, limit),
+    methodAExpansionPairLimit: boundedDiscoveryLimit(options.methodAExpansionPairLimit, limit),
   });
   const rows = pairs.flatMap((pair) => {
     const methodA = projectCiiMethodAEvidence(discovery, pair.sourceNodeId, pair.targetNodeId);
@@ -109,4 +113,4 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
   return deepFreeze(rows);
 }
 
-export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, physicalSearchLimit, candidatePriority, spreadScore });
+export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit, candidatePriority, spreadScore });
