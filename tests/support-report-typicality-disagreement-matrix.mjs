@@ -31,8 +31,8 @@ export function classifyStructuralAxisDisagreement(structural, axis) {
 }
 
 export function buildStructuralAxisDisagreementMatrix(structuralMatches = [], axisMatches = []) {
-  const structuralByFamily = new Map((structuralMatches || []).map((item) => [token(item?.leftFamilyId), item]));
-  const axisByFamily = new Map((axisMatches || []).map((item) => [token(item?.leftFamilyId), item]));
+  const structuralByFamily = new Map((structuralMatches || []).map((item) => [familyKey(item?.leftFamilyId), item]));
+  const axisByFamily = new Map((axisMatches || []).map((item) => [familyKey(item?.leftFamilyId), item]));
   const familyIds = [...new Set([...structuralByFamily.keys(), ...axisByFamily.keys()])].filter(Boolean).sort();
   const entries = familyIds.map((leftFamilyId) => {
     const structural = structuralByFamily.get(leftFamilyId) || null;
@@ -76,6 +76,10 @@ function histogram(values) {
   const counts = new Map();
   for (const value of values || []) counts.set(value, (counts.get(value) || 0) + 1);
   return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function familyKey(value) {
+  return String(value || '').trim().toUpperCase();
 }
 
 function token(value) {
