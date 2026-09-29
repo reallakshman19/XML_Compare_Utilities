@@ -4,6 +4,12 @@ import {
   resolveSupportPrimaryOrphans,
   SUPPORT_PRIMARY_ORPHAN_RECOVERY_SCHEMA,
 } from './support-primary-orphan-recovery.js?v=20260915-support-primary-hardening-1';
+import {
+  buildSupportPrimaryCountProjection,
+  buildFamilyCountSummary,
+  relationshipFamilyIndex,
+  groupRecoveryRows,
+} from './support-primary-count-projection.js?v=20260929-support-primary-count-projection-1';
 
 export const SUPPORT_PRIMARY_COUNT_SCHEMA = 'SupportPrimaryCountProjection.v1';
 
@@ -17,34 +23,15 @@ export function applySupportPrimaryAssemblyCounts(input = {}) {
     config: input.orphanRecoveryConfig,
   });
   const orphanRecovery = enforceOrphanTraversalSafety(rawOrphanRecovery);
-  const relationshipFamilies = relationshipFamilyIndex(relationshipBundle);
-  const assignmentsByFamily = groupAssignments(reconciliation.assignments);
-  const recoveryByFamily = groupRecoveryRows(orphanRecovery.resolutions);
-  const groupsByFamily = groupLocationRows(locationGroups);
-  const familyIds = unique([
-    ...groupsByFamily.keys(),
-    ...relationshipFamilies.keys(),
-  ]).sort();
-  const familySummaries = familyIds.map((familyId) => buildFamilyCountSummary({
-    familyId,
-    locationGroups: groupsByFamily.get(familyId) || [],
-    assignments: assignmentsByFamily.get(familyId) || [],
-    recoveries: recoveryByFamily.get(familyId) || [],
-    relationshipFamily: relationshipFamilies.get(familyId) || null,
+  const projection = buildSupportPrimaryCountProjection({
+    locationGroups,
+    relationshipBundle,
+    reconciliation,
     orphanRecovery,
-  }));
-  const summaryByFamily = new Map(familySummaries.map((row) => [row.familyId, row]));
-  const assignmentByGroupId = new Map(reconciliation.assignments.map((row) => [clean(row.groupId), row]));
-  const recoveryByGroupId = new Map(orphanRecovery.resolutions.map((row) => [clean(row.groupId), row]));
-  const groups = locationGroups.map((group) => projectCountedGroup(
-    group,
-    assignmentByGroupId.get(clean(group?.groupId)) || null,
-    recoveryByGroupId.get(clean(group?.groupId)) || null,
-    summaryByFamily.get(normalizeFamilyId(group?.secondarySupportFamilyId)) || null,
-  ));
+  });
   const diagnostics = [
     ...(orphanRecovery.diagnostics || []),
-    ...familySummaries.flatMap((row) => row.diagnostics),
+    ...projection.familySummaries.flatMap((row) => row.diagnostics),
   ];
   return Object.freeze({
     schema: SUPPORT_PRIMARY_COUNT_SCHEMA,
@@ -53,13 +40,13 @@ export function applySupportPrimaryAssemblyCounts(input = {}) {
     orphanRecoverySchema: SUPPORT_PRIMARY_ORPHAN_RECOVERY_SCHEMA,
     orphanRecovery,
     reconciliation,
-    groups: Object.freeze(groups),
-    familySummaries: Object.freeze(familySummaries),
+    groups: projection.groups,
+    familySummaries: projection.familySummaries,
     diagnostics: Object.freeze(diagnostics),
     summary: Object.freeze({
-      familyCount: familySummaries.length,
-      explicitAuthorityFamilyCount: familySummaries.filter((row) => row.explicitRelationshipFamilyAvailable).length,
-      ambiguityFamilyCount: familySummaries.filter((row) => row.ambiguityCount > 0).length,
+      familyCount: projection.familySummaries.length,
+      explicitAuthorityFamilyCount: projection.familySummaries.filter((row) => row.explicitRelationshipFamilyAvailable).length,
+      ambiguityFamilyCount: projection.familySummaries.filter((row) => row.ambiguityCount > 0).length,
       orphanRecoveredGroupCount: orphanRecovery.summary.recoveredExplicitCount + orphanRecovery.summary.recoveredGeometryCount,
       orphanAmbiguousGroupCount: orphanRecovery.summary.ambiguousCount,
       orphanUnresolvedGroupCount: orphanRecovery.summary.unresolvedCount + orphanRecovery.summary.nonReciprocalCount,
@@ -108,219 +95,6 @@ function enforceOrphanTraversalSafety(recovery) {
     }),
   });
 }
-
-function buildFamilyCountSummary({ familyId, locationGroups, assignments, recoveries, relationshipFamily, orphanRecovery }) {
-  const legacyGeometryCount = locationGroups.length;
-  const explicitAssemblyIds = relationshipFamily
-    ? (relationshipFamily.assemblies || []).filter((row) => row?.countable).map((row) => clean(row.assemblyId)).filter(Boolean).sort()
-    : [];
-  const explicitSet = new Set(explicitAssemblyIds);
-  const assignmentByGroupId = new Map((assignments || []).map((row) => [clean(row.groupId), row]));
-  const recoveryByGroupId = new Map((recoveries || []).map((row) => [clean(row.groupId), row]));
-  const geometryOnlyAssignments = assignments.filter((row) => row.status === 'GEOMETRY_ONLY');
-  const partialAssignments = assignments.filter((row) => row.status === 'PARTIAL_EXPLICIT');
-  const conflictAssignments = assignments.filter((row) => row.status === 'CONFLICT');
-  const ambiguityCount = partialAssignments.length + conflictAssignments.length;
-  const explicitRelationshipFamilyAvailable = Boolean(relationshipFamily);
-  const geometryOccurrenceIds = unique(geometryOnlyAssignments.map((row) => {
-    const recovery = recoveryByGroupId.get(clean(row.groupId));
-    return clean(recovery?.effectiveAssemblyId || row.primarySupportAssemblyId || row.provisionalAssemblyId);
-  }).filter(Boolean)).sort();
-  const legacyFallbackOccurrenceIds = unique(locationGroups.map((group) => {
-    const groupId = clean(group?.groupId);
-    const assignment = assignmentByGroupId.get(groupId) || null;
-    const recovery = recoveryByGroupId.get(groupId) || null;
-    if (assignment?.status === 'GEOMETRY_ONLY') {
-      const effective = clean(recovery?.effectiveAssemblyId || assignment.primarySupportAssemblyId || assignment.provisionalAssemblyId);
-      return effective ? `RECOVERABLE::${effective}` : `LEGACY_GROUP::${groupId}`;
-    }
-    return `LEGACY_GROUP::${groupId}`;
-  }).filter(Boolean)).sort();
-  const additionalGeometryOccurrenceIds = geometryOccurrenceIds.filter((id) => !explicitSet.has(id));
-  const recoveredRows = (recoveries || []).filter((row) => isRecovered(row?.recoveryStatus));
-  const ambiguousRows = (recoveries || []).filter((row) => row?.recoveryStatus === 'ORPHAN_AMBIGUOUS');
-  const unresolvedRows = (recoveries || []).filter((row) => ['ORPHAN_UNRESOLVED', 'ORPHAN_NONRECIPROCAL'].includes(row?.recoveryStatus));
-  const recoveryApplied = recoveredRows.length > 0;
-
-  if (!explicitRelationshipFamilyAvailable) {
-    const total = legacyFallbackOccurrenceIds.length;
-    return freezeFamilySummary({
-      familyId,
-      totalSupportPointsOnSecondary: total,
-      countBasis: recoveryApplied ? 'GEOMETRY_ORPHAN_RECOVERY' : 'LEGACY_GEOMETRY_GROUP_COUNT',
-      legacyGeometryCount,
-      explicitAssemblyIds: [],
-      geometryOnlyGroupIds: geometryOnlyAssignments.map((row) => clean(row.groupId)).filter(Boolean),
-      geometryOccurrenceIds,
-      legacyFallbackOccurrenceIds,
-      ambiguityCount: 0,
-      explicitRelationshipFamilyAvailable: false,
-      orphanRecovery,
-      recoveries,
-      recoveredRows,
-      ambiguousRows,
-      unresolvedRows,
-      diagnostics: [],
-    });
-  }
-
-  const geometryOnlyGroupIds = geometryOnlyAssignments.map((row) => clean(row.groupId)).filter(Boolean);
-  const derivedMinimumCount = explicitAssemblyIds.length + additionalGeometryOccurrenceIds.length;
-  const total = ambiguityCount
-    ? Math.max(legacyGeometryCount, derivedMinimumCount)
-    : derivedMinimumCount;
-  const countBasis = ambiguityCount
-    ? 'EXPLICIT_ASSEMBLY_PLUS_GEOMETRY_AMBIGUITY_FLOOR'
-    : recoveryApplied ? 'EXPLICIT_ASSEMBLY_PLUS_ORPHAN_RECOVERY' : 'EXPLICIT_ASSEMBLY_PLUS_GEOMETRY';
-  const diagnostics = ambiguityCount ? [Object.freeze({
-    level: 'WARN',
-    code: 'PRIMARY_ASSEMBLY_COUNT_AMBIGUITY_FLOOR',
-    familyId,
-    legacyGeometryCount,
-    derivedMinimumCount,
-    totalSupportPointsOnSecondary: total,
-    partialExplicitGroupIds: Object.freeze(partialAssignments.map((row) => clean(row.groupId)).filter(Boolean)),
-    conflictGroupIds: Object.freeze(conflictAssignments.map((row) => clean(row.groupId)).filter(Boolean)),
-    message: 'Primary-support topology contains partial/conflicting location evidence; total count is conservatively floored so it cannot fall below existing geometry evidence.',
-  })] : [];
-
-  return freezeFamilySummary({
-    familyId,
-    totalSupportPointsOnSecondary: total,
-    countBasis,
-    legacyGeometryCount,
-    explicitAssemblyIds,
-    geometryOnlyGroupIds,
-    geometryOccurrenceIds,
-    legacyFallbackOccurrenceIds: [],
-    ambiguityCount,
-    explicitRelationshipFamilyAvailable: true,
-    orphanRecovery,
-    recoveries,
-    recoveredRows,
-    ambiguousRows,
-    unresolvedRows,
-    diagnostics,
-  });
-}
-
-function freezeFamilySummary(input) {
-  return Object.freeze({
-    familyId: input.familyId,
-    totalSupportPointsOnSecondary: input.totalSupportPointsOnSecondary,
-    multiplePrimarySupport: input.totalSupportPointsOnSecondary > 1,
-    countBasis: input.countBasis,
-    legacyGeometryCount: input.legacyGeometryCount,
-    explicitAssemblyIds: Object.freeze([...(input.explicitAssemblyIds || [])]),
-    geometryOnlyGroupIds: Object.freeze([...(input.geometryOnlyGroupIds || [])]),
-    geometryOccurrenceIds: Object.freeze([...(input.geometryOccurrenceIds || [])]),
-    legacyFallbackOccurrenceIds: Object.freeze([...(input.legacyFallbackOccurrenceIds || [])]),
-    ambiguityCount: input.ambiguityCount || 0,
-    explicitRelationshipFamilyAvailable: Boolean(input.explicitRelationshipFamilyAvailable),
-    orphanRecoverySchema: input.orphanRecovery?.schema || '',
-    orphanRecoveryProfileId: input.orphanRecovery?.profileId || '',
-    orphanRecoveryConfig: input.orphanRecovery?.config || null,
-    orphanRecoveredGroupIds: Object.freeze((input.recoveredRows || []).map((row) => clean(row.groupId)).filter(Boolean)),
-    orphanAmbiguousGroupIds: Object.freeze((input.ambiguousRows || []).map((row) => clean(row.groupId)).filter(Boolean)),
-    orphanUnresolvedGroupIds: Object.freeze((input.unresolvedRows || []).map((row) => clean(row.groupId)).filter(Boolean)),
-    orphanRecoveryResolutions: Object.freeze([...(input.recoveries || [])]),
-    diagnostics: Object.freeze([...(input.diagnostics || [])]),
-  });
-}
-
-function projectCountedGroup(group, assignment, recovery, familySummary) {
-  const total = familySummary?.totalSupportPointsOnSecondary
-    ?? Number(group?.totalSupportPointsOnSecondary || 0);
-  const effectiveAssemblyId = clean(recovery?.effectiveAssemblyId || assignment?.primarySupportAssemblyId);
-  const recoveryCandidateIds = recovery?.candidateTargetIds || [];
-  const assignmentCandidateIds = assignment?.candidateAssemblyIds || [];
-  const recovered = isRecovered(recovery?.recoveryStatus);
-  return Object.freeze({
-    ...group,
-    totalSupportPointsOnSecondary: total,
-    multiplePrimarySupport: total > 1,
-    primarySupportAssemblyId: effectiveAssemblyId,
-    primarySupportAssemblyOriginalId: clean(assignment?.primarySupportAssemblyId),
-    primarySupportAssemblyStatus: assignment?.status || 'GEOMETRY_ONLY',
-    primarySupportAssemblyBasis: recovered
-      ? recovery.recoveryBasis : assignment?.assignmentBasis || 'LEGACY_GEOMETRY_GROUP',
-    primarySupportAssemblyCandidateIds: Object.freeze(unique([
-      ...assignmentCandidateIds,
-      ...recoveryCandidateIds,
-    ]).sort()),
-    primarySupportAssemblyProvisionalId: clean(assignment?.provisionalAssemblyId),
-    primarySupportAssemblyCountBasis: familySummary?.countBasis || 'LEGACY_GEOMETRY_GROUP_COUNT',
-    primarySupportFamilyExplicitAssemblyIds: Object.freeze([...(familySummary?.explicitAssemblyIds || [])]),
-    primarySupportFamilyGeometryOnlyGroupIds: Object.freeze([...(familySummary?.geometryOnlyGroupIds || [])]),
-    primarySupportFamilyGeometryOccurrenceIds: Object.freeze([...(familySummary?.geometryOccurrenceIds || [])]),
-    primarySupportFamilyAmbiguityCount: familySummary?.ambiguityCount || 0,
-    primarySupportOrphanRecoveryStatus: recovery?.recoveryStatus || 'NOT_RUN',
-    primarySupportOrphanRecoveryBasis: recovery?.recoveryBasis || '',
-    primarySupportOrphanRecoveryTargetAssemblyId: clean(recovery?.targetAssemblyId),
-    primarySupportOrphanRecoveryTargetGroupIds: Object.freeze([...(recovery?.targetGroupIds || [])]),
-    primarySupportOrphanRecoveryCandidateTargetIds: Object.freeze([...(recovery?.candidateTargetIds || [])]),
-    primarySupportOrphanRecoveryCandidateTargetGroupIds: Object.freeze([...(recovery?.candidateTargetGroupIds || [])]),
-    primarySupportOrphanRecoveryAxialMm: recovery?.axialMm ?? null,
-    primarySupportOrphanRecoveryLateralMm: recovery?.lateralMm ?? null,
-    primarySupportOrphanRecoveryBaseAxialToleranceMm: recovery?.baseAxialToleranceMm ?? null,
-    primarySupportOrphanRecoveryBaseLateralToleranceMm: recovery?.baseLateralToleranceMm ?? null,
-    primarySupportOrphanRecoveryAxialToleranceMm: recovery?.recoveryAxialToleranceMm ?? null,
-    primarySupportOrphanRecoveryLateralToleranceMm: recovery?.recoveryLateralToleranceMm ?? null,
-    primarySupportOrphanRecoveryAxisBasis: recovery?.axisBasis || '',
-    primarySupportOrphanRecoveryAxisConfidenceRatio: recovery?.axisConfidenceRatio ?? null,
-    primarySupportOrphanRecoveryBranchRelationship: recovery?.branchRelationship || '',
-  });
-}
-
-function relationshipFamilyIndex(bundle) {
-  const output = new Map();
-  if (bundle?.schema !== SUPPORT_PRIMARY_RELATIONSHIP_SCHEMA) return output;
-  for (const family of bundle?.families || []) {
-    const familyId = normalizeFamilyId(family?.familyId);
-    if (familyId && !output.has(familyId)) output.set(familyId, family);
-  }
-  return output;
-}
-
-function groupAssignments(rows = []) {
-  const output = new Map();
-  for (const row of rows) {
-    const familyId = normalizeFamilyId(row?.familyId);
-    if (!familyId) continue;
-    if (!output.has(familyId)) output.set(familyId, []);
-    output.get(familyId).push(row);
-  }
-  return output;
-}
-
-function groupRecoveryRows(rows = []) {
-  const output = new Map();
-  for (const row of rows) {
-    const familyId = normalizeFamilyId(row?.familyId);
-    if (!familyId) continue;
-    if (!output.has(familyId)) output.set(familyId, []);
-    output.get(familyId).push(row);
-  }
-  return output;
-}
-
-function groupLocationRows(rows = []) {
-  const output = new Map();
-  for (const row of rows) {
-    const familyId = normalizeFamilyId(row?.secondarySupportFamilyId);
-    if (!familyId) continue;
-    if (!output.has(familyId)) output.set(familyId, []);
-    output.get(familyId).push(row);
-  }
-  return output;
-}
-
-function normalizeFamilyId(value) {
-  return clean(value).replace(/^\/+/, '').replace(/\(REF\)$/iu, '').toUpperCase();
-}
-function isRecovered(status) { return status === 'ORPHAN_RECOVERED_EXPLICIT' || status === 'ORPHAN_RECOVERED_GEOMETRY'; }
-function clean(value) { return value == null ? '' : String(value).trim(); }
-function unique(values) { return [...new Set((values || []).filter(Boolean))]; }
 
 export const _test = Object.freeze({
   buildFamilyCountSummary,
