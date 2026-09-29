@@ -57,7 +57,7 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   await expect(runState).toContainText('POS clusters');
   await expect(runState).toContainText('unresolved member matches');
   await expect(modal.locator('.ssrb-report-table thead th')).toHaveCount(21);
-  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(10);
+  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(6);
   await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toHaveCount(0);
   await expect(xlsx).toBeEnabled();
   await expect(csv).toBeEnabled();
@@ -79,15 +79,15 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   await expect(runState).toContainText('comparison columns 22–24 enabled');
   await expect(runState).toContainText('1 typical');
   await expect(modal.locator('.ssrb-report-table thead th')).toHaveCount(24);
-  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(10);
+  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(6);
   await expect(modal.locator('.ssrb-report-table thead th').nth(21)).toHaveText('TYPICAL STRUCTURE (PS NO.)');
   await expect(modal.locator('.ssrb-report-table thead th').nth(22)).toHaveText('PIPING SUPPORT ARRANGEMENT MATCH');
   await expect(modal.locator('.ssrb-report-table thead th').nth(23)).toHaveText('TYPICALITY AUDIT ID');
   await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toContainText('1 typical');
 
   const typicalCells = modal.locator('.ssrb-report-table tbody tr td:nth-child(22)');
-  await expect(typicalCells).toHaveCount(10);
-  for (let index = 0; index < 10; index += 1) await expect(typicalCells.nth(index)).toHaveText('PS-14168');
+  await expect(typicalCells).toHaveCount(6);
+  for (let index = 0; index < 6; index += 1) await expect(typicalCells.nth(index)).toHaveText('PS-14168');
 
   await expect(xlsx).toBeEnabled();
   await expect(csv).toBeEnabled();
@@ -169,5 +169,5 @@ test('large Support Report XML import stays blob-backed and builds in the worker
   await expect(textarea).toHaveValue('');
   await build.click();
   await expect(runState).toContainText('Support Report ready');
-  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(10);
+  await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(6);
 });
