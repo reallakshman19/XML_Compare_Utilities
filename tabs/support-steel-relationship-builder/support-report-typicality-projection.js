@@ -30,8 +30,8 @@ export function buildSupportReportTypicalityComparison(leftEvidence, rightEviden
   const profile = comparisonProfile(options.profile);
   const leftReportBundle = withLocationRowAliases(options.leftReportBundle, leftEvidence);
   const rightReportBundle = withLocationRowAliases(options.rightReportBundle, rightEvidence);
-  const leftStructuralEvidence = withLegacyStructuralTypicalityGroups(leftEvidence);
-  const rightStructuralEvidence = withLegacyStructuralTypicalityGroups(rightEvidence);
+  const leftStructuralEvidence = withStructuralTypicalityCompatibilityGroups(leftEvidence);
+  const rightStructuralEvidence = withStructuralTypicalityCompatibilityGroups(rightEvidence);
   const familyAudit = buildSupportReportTypicalityAudit(
     leftStructuralEvidence,
     rightStructuralEvidence,
@@ -597,39 +597,46 @@ function sentenceList(values) {
   return `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
 }
 
-function withLegacyStructuralTypicalityGroups(evidence = {}) {
-  const rows = Array.isArray(evidence?.rows) ? evidence.rows : [];
-  if (!rows.length) return evidence;
+function withStructuralTypicalityCompatibilityGroups(evidence = {}) {
+  const sourceGroups = Array.isArray(evidence?.groups) ? evidence.groups : [];
+  if (!sourceGroups.length) return evidence;
+  const groups = [];
+  let changed = false;
+  for (const group of sourceGroups) {
+    const split = splitMemberlessBoreAxisStructuralGroup(group);
+    if (split.length !== 1 || split[0] !== group) changed = true;
+    groups.push(...split);
+  }
+  if (!changed) return evidence;
   return Object.freeze({
     ...evidence,
-    groups: Object.freeze(buildLegacyStructuralTypicalityGroups(rows)),
-    structuralTypicalityGroupingModel: 'LEGACY_MEMBER_OR_50MM_V1',
+    groups: Object.freeze(groups),
+    structuralTypicalityGroupingModel: 'BORE_AXIS_WITH_MEMBERLESS_50MM_COMPAT_V1',
   });
 }
 
-function buildLegacyStructuralTypicalityGroups(rows = []) {
-  const bases = new Map();
-  for (const [rowIndex, row] of (rows || []).entries()) {
-    if (!row?.secondarySupportFamilyId || !row?.fullLineTag) continue;
-    const key = `${token(row.secondarySupportFamilyId)}::${token(row.fullLineTag)}`;
-    if (!bases.has(key)) bases.set(key, {
-      key,
-      secondarySupportFamilyId: row.secondarySupportFamilyId,
-      fullLineTag: row.fullLineTag,
-      scope: row.scope,
-      rows: [],
-    });
-    bases.get(key).rows.push({ row, rowIndex });
-  }
+function splitMemberlessBoreAxisStructuralGroup(group) {
+  const rows = Array.isArray(group?.evidenceRows) ? group.evidenceRows : [];
+  if (group?.locationGroupingModel !== 'BRANCH_BORE_AXIS_V1' || rows.length < 2) return [group];
 
-  const located = [];
-  for (const base of bases.values()) {
-    const clusters = legacyStructuralClusters(base.rows);
-    clusters.forEach((cluster, index) => located.push(
-      buildLegacyStructuralGroup(base, cluster, index, clusters.length),
-    ));
-  }
-  return located;
+  const concreteIds = uniqueStrings(rows
+    .map((row) => normalizeStructuralMemberId(row?.primarySupportMemberId))
+    .filter((id) => CONCRETE_SUPPORT_MEMBER_RE.test(id)));
+  const hasMemberless = rows.some((row) => !CONCRETE_SUPPORT_MEMBER_RE.test(
+    normalizeStructuralMemberId(row?.primarySupportMemberId),
+  ));
+  if (concreteIds.length !== 1 || !hasMemberless) return [group];
+
+  const indexedRows = rows.map((row, rowIndex) => ({ row, rowIndex }));
+  const clusters = legacyStructuralClusters(indexedRows);
+  if (clusters.length !== 2) return [group];
+
+  const concreteCounts = clusters.map((cluster) => uniqueStrings(cluster
+    .map(({ row }) => normalizeStructuralMemberId(row?.primarySupportMemberId))
+    .filter((id) => CONCRETE_SUPPORT_MEMBER_RE.test(id))).length).sort((a, b) => a - b);
+  if (concreteCounts[0] !== 0 || concreteCounts[1] !== 1) return [group];
+
+  return clusters.map((cluster, index) => buildCompatibilityStructuralGroup(group, cluster, index, clusters.length));
 }
 
 function legacyStructuralClusters(indexedRows) {
@@ -688,7 +695,7 @@ function legacyStructuralSameConcreteMember(left, right) {
     && token(leftId) === token(rightId);
 }
 
-function buildLegacyStructuralGroup(base, cluster, locationIndex, locationCount) {
+function buildCompatibilityStructuralGroup(source, cluster, locationIndex, locationCount) {
   const ordered = [...cluster].sort((left, right) => left.rowIndex - right.rowIndex);
   const rows = ordered.map((entry) => entry.row);
   const points = rows.map((row) => row.clashPointGlobalMm).filter(validStructuralPoint);
@@ -696,11 +703,12 @@ function buildLegacyStructuralGroup(base, cluster, locationIndex, locationCount)
   const branchNodes = uniqueStrings(rows.map((row) => row.branchNode)).sort();
   const primaryPaths = uniqueStructuralPaths(rows.map((row) => row.primaryPath));
   const secondaryPaths = uniqueStructuralPaths(rows.map((row) => row.secondaryPath));
+  const baseKey = `${token(source.secondarySupportFamilyId)}::${token(source.fullLineTag)}`;
   return Object.freeze({
-    groupId: locationCount > 1 ? `${base.key}::LOC-${locationIndex + 1}` : base.key,
-    secondarySupportFamilyId: base.secondarySupportFamilyId,
-    fullLineTag: base.fullLineTag,
-    scope: base.scope,
+    groupId: `${baseKey}::LOC-${locationIndex + 1}`,
+    secondarySupportFamilyId: source.secondarySupportFamilyId,
+    fullLineTag: source.fullLineTag,
+    scope: source.scope,
     branchNodes,
     primarySupportMemberIds: members,
     clashPointsGlobalMm: points,
@@ -712,10 +720,10 @@ function buildLegacyStructuralGroup(base, cluster, locationIndex, locationCount)
     locationIndex,
     locationCountOnPipe: locationCount,
     locationMergeToleranceMm: LEGACY_STRUCTURAL_LOCATION_TOLERANCE_MM,
-    locationGroupingModel: 'LEGACY_MEMBER_OR_50MM_V1',
+    locationGroupingModel: 'STRUCTURAL_MEMBERLESS_50MM_COMPAT_V1',
     locationGroupingBasis: Object.freeze(legacyStructuralGroupingBasis(rows)),
     multipleLocationsOnPipe: locationCount > 1,
-    totalSupportPointsOnSecondary: 0,
+    totalSupportPointsOnSecondary: source.totalSupportPointsOnSecondary || 0,
   });
 }
 
@@ -774,7 +782,7 @@ export const _test = Object.freeze({
   applyRelationshipTopologyConsensus,
   arrangementLabel,
   axisComparisonForMatch,
-  buildLegacyStructuralTypicalityGroups,
+  buildCompatibilityStructuralGroup,
   buildRowTypicalityDecisionAudit,
   comparisonProfile,
   legacyStructuralAdjacent,
@@ -787,7 +795,8 @@ export const _test = Object.freeze({
   resolveRowLocation,
   reviewLabel,
   sentenceList,
+  splitMemberlessBoreAxisStructuralGroup,
   typicalityPublicationDecision,
-  withLegacyStructuralTypicalityGroups,
   withLocationRowAliases,
+  withStructuralTypicalityCompatibilityGroups,
 });
