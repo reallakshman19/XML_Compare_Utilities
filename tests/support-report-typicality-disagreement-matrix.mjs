@@ -57,6 +57,25 @@ export function buildStructuralAxisDisagreementMatrix(structuralMatches = [], ax
   });
 }
 
+export function summarizeAxisTypicalityAudit(audit = {}) {
+  const leftFamilies = audit.leftFamilies || [];
+  const rightFamilies = audit.rightFamilies || [];
+  const comparisons = audit.familyComparisons || [];
+  const matches = audit.matches || [];
+  return Object.freeze({
+    leftAuthorityStatusHistogram: Object.freeze(histogram(leftFamilies.map((item) => item.authorityStatus || 'UNAVAILABLE'))),
+    rightAuthorityStatusHistogram: Object.freeze(histogram(rightFamilies.map((item) => item.authorityStatus || 'UNAVAILABLE'))),
+    leftEvidenceGapFlagHistogram: Object.freeze(featureGapHistogram(leftFamilies)),
+    rightEvidenceGapFlagHistogram: Object.freeze(featureGapHistogram(rightFamilies)),
+    pairResultHistogram: Object.freeze(histogram(comparisons.map((item) => item.result || 'UNAVAILABLE'))),
+    pairReasonHistogram: Object.freeze(histogram(comparisons.map((item) => item.reasonCode || 'UNSPECIFIED'))),
+    pairAvailabilityHistogram: Object.freeze(histogram(comparisons.map((item) => item.availability?.result || 'UNAVAILABLE'))),
+    selectedResultHistogram: Object.freeze(histogram(matches.map((item) => item.result || 'UNAVAILABLE'))),
+    selectedReasonHistogram: Object.freeze(histogram(matches.map((item) => item.reasonCode || 'UNSPECIFIED'))),
+    selectedCandidateCountHistogram: Object.freeze(histogram(matches.map((item) => String((item.candidateFamilyIds || []).length)))),
+  });
+}
+
 function compactChannel(match) {
   if (!match) return Object.freeze({
     result: 'UNAVAILABLE', reasonCode: '', candidateFamilyId: '', candidateFamilyIds: Object.freeze([]),
@@ -72,9 +91,34 @@ function compactChannel(match) {
   });
 }
 
+function featureGapHistogram(families) {
+  const flags = [];
+  for (const family of families || []) {
+    if (!Number(family?.trustedTraversalCount || 0)) flags.push('NO_TRUSTED_TRAVERSAL_AXIS');
+    if (!Number(family?.normalizedPairCount || 0) && !Number(family?.relativeAxisAngleCount || 0)) {
+      flags.push('NO_INTRINSIC_GEOMETRY');
+    }
+    if (Number(family?.unavailableTraversalCount || 0) > 0) flags.push('UNAVAILABLE_TRAVERSAL');
+    if (Number(family?.ambiguousGroupTraversalCount || 0) > 0) flags.push('AMBIGUOUS_GROUP_TRAVERSAL');
+    if (Number(family?.missingBorePairOpportunityCount || 0) > 0) flags.push('MISSING_BORE_PAIR_OPPORTUNITY');
+    if (family?.authorityStatus === 'COMPLETE') flags.push('COMPLETE_AUTHORITY');
+  }
+  return histogram(flags);
+}
+
 function histogram(values) {
   const counts = new Map();
   for (const value of values || []) counts.set(value, (counts.get(value) || 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function mergeHistograms(items, key) {
+  const counts = new Map();
+  for (const item of items || []) {
+    for (const [label, count] of Object.entries(item?.[key] || {})) {
+      counts.set(label, (counts.get(label) || 0) + Number(count || 0));
+    }
+  }
   return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
@@ -120,6 +164,7 @@ function summarizePair(left, right) {
     rightXml: right.name,
     profileId: audit.profileId,
     matrix: buildStructuralAxisDisagreementMatrix(audit.structuralMatches, audit.axisTypicalityMatches),
+    axisDiagnostics: summarizeAxisTypicalityAudit(audit.axisTypicalityAudit),
   });
 }
 
@@ -139,6 +184,7 @@ export function runStructuralAxisDisagreementMatrix(leftRoot, rightRoot) {
     ...entry,
   })));
   const priorityCalibrationCases = entries.filter((item) => item.priorityCalibration);
+  const axisDiagnostics = comparisons.map((item) => item.axisDiagnostics);
   return Object.freeze({
     schema: SUPPORT_REPORT_TYPICALITY_DISAGREEMENT_MATRIX_SCHEMA,
     profileId: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.profileId,
@@ -152,6 +198,18 @@ export function runStructuralAxisDisagreementMatrix(leftRoot, rightRoot) {
       classificationHistogram: Object.freeze(histogram(entries.map((item) => item.classification))),
       priorityCalibrationCaseCount: priorityCalibrationCases.length,
       priorityCalibrationCases: Object.freeze(priorityCalibrationCases),
+      axis: Object.freeze({
+        leftAuthorityStatusHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'leftAuthorityStatusHistogram')),
+        rightAuthorityStatusHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'rightAuthorityStatusHistogram')),
+        leftEvidenceGapFlagHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'leftEvidenceGapFlagHistogram')),
+        rightEvidenceGapFlagHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'rightEvidenceGapFlagHistogram')),
+        pairResultHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'pairResultHistogram')),
+        pairReasonHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'pairReasonHistogram')),
+        pairAvailabilityHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'pairAvailabilityHistogram')),
+        selectedResultHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedResultHistogram')),
+        selectedReasonHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedReasonHistogram')),
+        selectedCandidateCountHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedCandidateCountHistogram')),
+      }),
     }),
   });
 }
@@ -170,6 +228,7 @@ function main() {
     classificationHistogram: result.diagnostics.classificationHistogram,
     priorityCalibrationCaseCount: result.diagnostics.priorityCalibrationCaseCount,
     priorityCalibrationCases: result.diagnostics.priorityCalibrationCases.slice(0, 50),
+    axis: result.diagnostics.axis,
   })}`);
 }
 
