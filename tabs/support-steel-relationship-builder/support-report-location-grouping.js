@@ -10,6 +10,7 @@ export const SUPPORT_REPORT_LATERAL_ALLOWANCE_MM = 25;
 export const SUPPORT_REPORT_AXIS_CONFIDENCE_MIN = 8;
 
 const CONCRETE_SUPPORT_MEMBER_RE = /^\/(?:PS|SL)-\d+[A-Z]?\.\d+$/iu;
+const SYMBOLIC_SUPPORT_REFERENCE_RE = /(?:^|\/)(?:DATUM|STRUCTURAL_REFERENCE)(?:$|\/)/iu;
 const EPSILON = 1e-9;
 
 export function groupSupportReportEvidenceByLocation(rows = [], options = {}) {
@@ -158,12 +159,11 @@ function locationAdjacencyBasis(left, right, toleranceMm, geometryIndex = new Ma
 
   const boreMm = compatibleDerivedNominalBoreMm(left, right);
   const axisModel = geometryIndex.get(traversalKey(left));
-  const memberlessSelfDefinedAxis = axisModel?.pointCount === 2
-    && (!isConcreteSupportMemberId(left?.primarySupportMemberId)
-      || !isConcreteSupportMemberId(right?.primarySupportMemberId));
+  const nonSymbolicFallback = [left, right].some((row) =>
+    !isConcreteSupportMemberId(row?.primarySupportMemberId) && !isSymbolicSupportReference(row));
   if (boreMm
     && axisModel?.trusted
-    && !memberlessSelfDefinedAxis
+    && !nonSymbolicFallback
     && withinBoreAxisWindow(left, right, axisModel.axis, boreMm)) {
     return 'WITHIN_BORE_AXIS_WINDOW';
   }
@@ -310,6 +310,13 @@ function sameConcreteMember(left, right) {
     && token(leftId) === token(rightId);
 }
 
+function isSymbolicSupportReference(row) {
+  const candidates = [row?.primaryItemName, ...(row?.primaryPath || [])]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+  return candidates.some((value) => SYMBOLIC_SUPPORT_REFERENCE_RE.test(value.replace(/\\/gu, '/')));
+}
+
 function sameTraversal(left, right) {
   const leftBranch = token(left?.branchNode);
   const rightBranch = token(right?.branchNode);
@@ -391,6 +398,7 @@ export const _test = Object.freeze({
   locationAdjacencyBasis,
   sameConcreteMember,
   sameTraversal,
+  isSymbolicSupportReference,
   clusterGroupingBasis,
   withinBoreAxisWindow,
   buildTraversalGeometryIndex,
