@@ -1,6 +1,9 @@
 import { CII_WORKSPACE_SCHEMAS, compareNodeIds, deepFreeze } from './cii-workspace-contracts.js';
 import { discoverCiiMethodABases, projectCiiMethodAEvidence } from './cii-workspace-anchor-method-a.js';
 
+const DEFAULT_PHYSICAL_SEARCH_LIMIT = 10;
+const MAX_PHYSICAL_SEARCH_LIMIT = 24;
+
 function componentLengthToken(edge) {
   const length = Number(edge?.lengthMm);
   if (!Number.isFinite(length)) return null;
@@ -28,6 +31,44 @@ export function uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph) {
   }
   return deepFreeze(rows.sort((a, b) => compareNodeIds(a.sourceNodeId, b.sourceNodeId) || compareNodeIds(a.targetNodeId, b.targetNodeId)));
 }
+function physicalSearchLimit(options) {
+  const requested = Number(options.methodAPhysicalCandidateLimit ?? DEFAULT_PHYSICAL_SEARCH_LIMIT);
+  const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_PHYSICAL_SEARCH_LIMIT;
+  return Math.max(3, Math.min(MAX_PHYSICAL_SEARCH_LIMIT, finite));
+}
+function candidatePriority(graph, nodeId) {
+  const edges = [...(graph?.adjacency?.get(String(nodeId)) || [])];
+  const kinds = new Set(edges.map((edge) => String(edge?.componentKind || 'UNKNOWN')));
+  return { degree: edges.length, kindCount: kinds.size };
+}
+function comparePriority(left, right, sourceGraph) {
+  const l = candidatePriority(sourceGraph, left.sourceNodeId); const r = candidatePriority(sourceGraph, right.sourceNodeId);
+  return r.degree - l.degree || r.kindCount - l.kindCount
+    || compareNodeIds(left.sourceNodeId, right.sourceNodeId) || compareNodeIds(left.targetNodeId, right.targetNodeId);
+}
+function positionMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node?.position])); }
+function squaredDistance(left, right) {
+  if (!left || !right) return 0;
+  const dx = Number(left.x) - Number(right.x); const dy = Number(left.y) - Number(right.y); const dz = Number(left.z) - Number(right.z);
+  return [dx, dy, dz].every(Number.isFinite) ? dx * dx + dy * dy + dz * dz : 0;
+}
+function spreadScore(pair, selected, sourcePositions, targetPositions) {
+  if (!selected.length) return 0;
+  return Math.min(...selected.map((row) => squaredDistance(sourcePositions.get(pair.sourceNodeId), sourcePositions.get(row.sourceNodeId))
+    + squaredDistance(targetPositions.get(pair.targetNodeId), targetPositions.get(row.targetNodeId))));
+}
+export function selectPhysicalCandidatePairs(sourceGraph, targetGraph, pairs, requestedLimit) {
+  const limit = Math.max(3, Math.min(MAX_PHYSICAL_SEARCH_LIMIT, Math.floor(Number(requestedLimit) || DEFAULT_PHYSICAL_SEARCH_LIMIT)));
+  if ((pairs || []).length <= limit) return deepFreeze([...(pairs || [])]);
+  const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
+  const remaining = [...pairs].sort((a, b) => comparePriority(a, b, sourceGraph)); const selected = [remaining.shift()];
+  while (selected.length < limit && remaining.length) {
+    remaining.sort((a, b) => spreadScore(b, selected, sourcePositions, targetPositions) - spreadScore(a, selected, sourcePositions, targetPositions)
+      || comparePriority(a, b, sourceGraph));
+    selected.push(remaining.shift());
+  }
+  return deepFreeze(selected);
+}
 function methodABasis(methodA) {
   const base = methodA?.bestBase;
   if (!base) return ['Method A unavailable'];
@@ -35,9 +76,17 @@ function methodABasis(methodA) {
     `registered max residual ${Number(base.maxResidualMm || 0).toFixed(3)} mm; normalized ${Number(base.maxNormalizedResidual || 0).toFixed(3)}`];
 }
 export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, options = {}) {
-  const pairs = uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph);
+  const allPairs = uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph); const limit = physicalSearchLimit(options);
+  const pairs = selectPhysicalCandidatePairs(sourceGraph, targetGraph, allPairs, limit); const instrumentation = options.instrumentation;
+  instrumentation?.record?.('ANCHOR_PHYSICAL_CANDIDATE_COUNT', allPairs.length);
+  instrumentation?.record?.('ANCHOR_PHYSICAL_SEARCH_LIMIT', limit);
+  instrumentation?.record?.('ANCHOR_PHYSICAL_SELECTED_COUNT', pairs.length);
   if (pairs.length < 3) return deepFreeze([]);
-  const discovery = discoverCiiMethodABases(sourceGraph, targetGraph, pairs, options);
+  const discovery = discoverCiiMethodABases(sourceGraph, targetGraph, pairs, {
+    ...options,
+    methodASeedPairLimit: Math.min(limit, Number(options.methodASeedPairLimit ?? limit)),
+    methodAExpansionPairLimit: Math.min(limit, Number(options.methodAExpansionPairLimit ?? limit)),
+  });
   const rows = pairs.flatMap((pair) => {
     const methodA = projectCiiMethodAEvidence(discovery, pair.sourceNodeId, pair.targetNodeId);
     if (methodA.status !== 'READY') return [];
@@ -60,4 +109,4 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
   return deepFreeze(rows);
 }
 
-export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint });
+export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, physicalSearchLimit, candidatePriority, spreadScore });
