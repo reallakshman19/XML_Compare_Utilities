@@ -11,6 +11,7 @@ on:
       - 'tests/support-report-typicality-ambiguity-diagnostic.mjs'
       - 'tests/support-report-typicality-disagreement-matrix.mjs'
       - 'tests/support-report-typicality-disagreement-matrix.test.mjs'
+      - 'tests/support-report-axis-c-calibration-diagnostic.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
       - 'tabs/support-steel-relationship-builder/support-primary-*.js'
@@ -76,6 +77,23 @@ jobs:
         with:
           name: support-report-typicality-disagreement-matrix
           path: /tmp/typicality-1884-vs-1885-disagreement-matrix.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run axis C-case calibration ledger
+        run: >-
+          node tests/support-report-axis-c-calibration-diagnostic.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+          /tmp/support-report-axis-c-calibration.json
+
+      - name: Upload axis C-case calibration evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-axis-c-calibration
+          path: /tmp/support-report-axis-c-calibration.json
           if-no-files-found: warn
           retention-days: 14
 
