@@ -158,7 +158,13 @@ function locationAdjacencyBasis(left, right, toleranceMm, geometryIndex = new Ma
 
   const boreMm = compatibleDerivedNominalBoreMm(left, right);
   const axisModel = geometryIndex.get(traversalKey(left));
-  if (boreMm && axisModel?.trusted && withinBoreAxisWindow(left, right, axisModel.axis, boreMm)) {
+  const memberlessSelfDefinedAxis = axisModel?.pointCount === 2
+    && (!isConcreteSupportMemberId(left?.primarySupportMemberId)
+      || !isConcreteSupportMemberId(right?.primarySupportMemberId));
+  if (boreMm
+    && axisModel?.trusted
+    && !memberlessSelfDefinedAxis
+    && withinBoreAxisWindow(left, right, axisModel.axis, boreMm)) {
     return 'WITHIN_BORE_AXIS_WINDOW';
   }
   return '';
