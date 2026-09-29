@@ -9,6 +9,8 @@ on:
       - 'tests/support-report-typicality-zip-relaxed-diagnostic.mjs'
       - 'tests/support-report-typicality-selected-families.mjs'
       - 'tests/support-report-typicality-ambiguity-diagnostic.mjs'
+      - 'tests/support-report-typicality-disagreement-matrix.mjs'
+      - 'tests/support-report-typicality-disagreement-matrix.test.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
       - 'tabs/support-steel-relationship-builder/support-primary-*.js'
@@ -57,6 +59,23 @@ jobs:
         with:
           name: support-report-typicality-zip-evidence
           path: /tmp/typicality-1884-vs-1885.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run structural vs axis disagreement matrix
+        run: >-
+          node tests/support-report-typicality-disagreement-matrix.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+          /tmp/typicality-1884-vs-1885-disagreement-matrix.json
+
+      - name: Upload disagreement matrix evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-disagreement-matrix
+          path: /tmp/typicality-1884-vs-1885-disagreement-matrix.json
           if-no-files-found: warn
           retention-days: 14
 
