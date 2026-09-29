@@ -7,6 +7,7 @@ on:
       - 'tabs/support-steel-relationship-builder/support-primary-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js'
       - 'tests/support-report-*.test.mjs'
+      - 'tests/support-report-typicality-disagreement-matrix.mjs'
       - 'tests/support-primary-*.test.mjs'
       - 'tests/browser/support-report-typicality.spec.mjs'
       - 'tests/browser/support-steel-preview-staleness.spec.mjs'
