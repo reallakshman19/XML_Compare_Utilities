@@ -82,6 +82,18 @@ test('same concrete support member joins contact points beyond 50 mm into one ph
   assert.ok(groups[0].locationGroupingBasis.includes('SAME_CONCRETE_MEMBER'));
 });
 
+test('same concrete support member remains one physical location across branch labels', () => {
+  const groups = groupSupportReportEvidenceByLocation([
+    clashRow('/PS-12005.1', { x: 605291, y: -1107599, z: 101674 }, { branchNode: `/${line}/B4` }),
+    clashRow('/PS-12005.1', { x: 606291, y: -1107599, z: 101674 }, { branchNode: `/${line}/B5` }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].locationCountOnPipe, 1);
+  assert.deepEqual(groups[0].branchNodes, [`/${line}/B4`, `/${line}/B5`]);
+  assert.deepEqual(groups[0].primarySupportMemberIds, ['/PS-12005.1']);
+  assert.ok(groups[0].locationGroupingBasis.includes('SAME_CONCRETE_MEMBER'));
+});
+
 test('different members use the bore-axis window on the same traversal', () => {
   const far = groupSupportReportEvidenceByLocation([
     clashRow('/PS-12005.1', { x: 0, y: 0, z: 0 }),
