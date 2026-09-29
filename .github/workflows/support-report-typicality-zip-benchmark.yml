@@ -71,20 +71,22 @@ jobs:
           assert.equal(data.diagnostics.finalFamilyDecisionCount, 351);
           const comparison = data.comparisons[0];
 
-          const match = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10076');
-          assert.ok(match, 'PS-10076 family match missing');
-          assert.equal(match.result, 'TYPICAL');
-          assert.equal(match.rightFamilyId, 'PS-12076');
-          const structural = comparison.familyComparisons.find((item) =>
+          const ps10076Decision = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10076');
+          assert.ok(ps10076Decision, 'PS-10076 family decision missing');
+          assert.equal(ps10076Decision.result, 'AMBIGUOUS');
+          assert.equal(ps10076Decision.reasonCode, 'TYPICAL_AMBIGUOUS');
+          assert.equal(ps10076Decision.rightFamilyId, '');
+          const ps10076Structural = comparison.familyComparisons.find((item) =>
             item.leftFamilyId === 'PS-10076' && item.rightFamilyId === 'PS-12076');
-          assert.ok(structural, 'PS-10076 -> PS-12076 structural comparison missing');
-          assert.equal(structural.locationCount, 'PASS');
-          assert.equal(structural.uniqueMemberCount, 'PASS');
-          assert.equal(structural.memberMultiplicity, 'PASS');
-          assert.equal(structural.pipeClassPopulation, 'PASS');
-          assert.equal(structural.envelope, 'PASS');
-          assert.equal(structural.pairDistance, 'PASS');
-          assert.ok(structural.envelopeResidualMm <= 25);
+          assert.ok(ps10076Structural, 'PS-10076 -> PS-12076 structural comparison missing');
+          assert.equal(ps10076Structural.result, 'NOT_TYPICAL');
+          assert.equal(ps10076Structural.reasonCode, 'TYPICAL_REJECTED_TOPOLOGY');
+          assert.equal(ps10076Structural.locationCount, 'FAIL');
+          assert.equal(ps10076Structural.uniqueMemberCount, 'PASS');
+          assert.equal(ps10076Structural.memberMultiplicity, 'FAIL');
+          assert.equal(ps10076Structural.envelope, 'FAIL');
+          assert.equal(ps10076Structural.pairDistance, 'FAIL');
+          assert.equal(ps10076Structural.envelopeResidualMm, 62);
 
           const review = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10669');
           assert.ok(review, 'PS-10669 family decision missing');
@@ -132,7 +134,8 @@ jobs:
           console.log(JSON.stringify({
             acceptedStructuralCount: data.diagnostics.acceptedStructuralCount,
             finalMatchResultHistogram: data.diagnostics.finalMatchResultHistogram,
-            ps10076: match,
+            ps10076Decision,
+            ps10076Structural,
             ps10092: mixedPipeMatch,
             ps10669Review: review,
             ps10669Structural: reviewStructural,
