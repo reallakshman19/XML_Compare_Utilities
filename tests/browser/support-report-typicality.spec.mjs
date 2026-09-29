@@ -77,17 +77,20 @@ test('Support Report preserves legacy mode and enables audited typicality with s
   await build.click();
 
   await expect(runState).toContainText('comparison columns 22–24 enabled');
-  await expect(runState).toContainText('1 typical');
+  await expect(runState).toContainText('0 typical');
+  await expect(runState).toContainText('1 review');
+  await expect(runState).toContainText('Column 22: 0 published / 6 withheld');
   await expect(modal.locator('.ssrb-report-table thead th')).toHaveCount(24);
   await expect(modal.locator('.ssrb-report-table tbody tr')).toHaveCount(6);
   await expect(modal.locator('.ssrb-report-table thead th').nth(21)).toHaveText('TYPICAL STRUCTURE (PS NO.)');
   await expect(modal.locator('.ssrb-report-table thead th').nth(22)).toHaveText('PIPING SUPPORT ARRANGEMENT MATCH');
   await expect(modal.locator('.ssrb-report-table thead th').nth(23)).toHaveText('TYPICALITY AUDIT ID');
-  await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toContainText('1 typical');
+  await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toContainText('0 typical');
+  await expect(modal.locator('[data-ssr-typicality-summary="1"]')).toContainText('1 review');
 
   const typicalCells = modal.locator('.ssrb-report-table tbody tr td:nth-child(22)');
   await expect(typicalCells).toHaveCount(6);
-  for (let index = 0; index < 6; index += 1) await expect(typicalCells.nth(index)).toHaveText('PS-14168');
+  for (let index = 0; index < 6; index += 1) await expect(typicalCells.nth(index)).toHaveText('');
 
   await expect(xlsx).toBeEnabled();
   await expect(csv).toBeEnabled();
