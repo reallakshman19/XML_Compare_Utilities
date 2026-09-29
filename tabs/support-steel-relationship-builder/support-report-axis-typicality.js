@@ -106,7 +106,7 @@ export function compareAxisTypicalityFamilies(left, right, profile = SUPPORT_REP
     result: 'MATCH',
     reasonCode: 'AXIS_TYPICALITY_MATCH',
     availability,
-    signals: Object.freeze([...topologySignals, ...geometrySignals]),
+    signals: Object.freeze([...topologySignals, ...geometrySignals, positiveEvidence]),
   });
 }
 
@@ -327,9 +327,19 @@ function positiveMatchEvidenceSignal(left, right) {
   const rightAxes = right?.traversalAxisEvidence || [];
   const independentlySupported = (axes) => axes.length > 0 && axes.every((item) =>
     item?.axisBasis === 'PCA_BRANCH_AXIS' && Number(item?.axisPointCount || 0) >= 3);
-  const pass = independentlySupported(leftAxes) && independentlySupported(rightAxes);
+  const relativeAngleInformed = Number(left?.relativeAxisAngleCount || 0) > 0
+    && Number(right?.relativeAxisAngleCount || 0) > 0;
+  const independentPcaSupported = independentlySupported(leftAxes) && independentlySupported(rightAxes);
+  const pass = relativeAngleInformed || independentPcaSupported;
   return Object.freeze({
-    reasonCode: 'AXIS_POSITIVE_EVIDENCE_INDEPENDENT_AXIS_SUPPORTED',
+    reasonCode: 'AXIS_POSITIVE_EVIDENCE_SUFFICIENT',
+    basis: relativeAngleInformed
+      ? 'RELATIVE_AXIS_ANGLE_INFORMED'
+      : independentPcaSupported
+        ? 'INDEPENDENT_PCA_AXES'
+        : 'INSUFFICIENT',
+    leftRelativeAxisAngleCount: Number(left?.relativeAxisAngleCount || 0),
+    rightRelativeAxisAngleCount: Number(right?.relativeAxisAngleCount || 0),
     left: Object.freeze(leftAxes.map((item) => Object.freeze({
       axisBasis: item.axisBasis,
       axisPointCount: item.axisPointCount,
