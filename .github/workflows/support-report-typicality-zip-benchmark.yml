@@ -50,6 +50,16 @@ jobs:
           /tmp/typicality-1885
           /tmp/typicality-1884-vs-1885.json
 
+      - name: Upload benchmark evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-zip-evidence
+          path: /tmp/typicality-1884-vs-1885.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Validate RCA regression controls
         run: |
           node --input-type=module <<'NODE'
