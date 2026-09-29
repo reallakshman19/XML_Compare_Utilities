@@ -145,6 +145,7 @@ jobs:
           /tmp/typicality-1885
 
       - name: Run selected family diagnostics
+        if: ${{ always() }}
         run: >-
           node tests/support-report-typicality-selected-families.mjs
           /tmp/typicality-1884
