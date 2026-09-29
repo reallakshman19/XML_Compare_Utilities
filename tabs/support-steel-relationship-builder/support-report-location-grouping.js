@@ -144,11 +144,13 @@ function applyFamilyCounts(groups) {
 }
 
 function locationAdjacencyBasis(left, right, toleranceMm, geometryIndex = new Map()) {
+  // Concrete member identity is stronger than traversal spelling. This preserves the
+  // #1205 physical-location contract while traversal guards continue to protect
+  // geometry-only merging between different support members.
+  if (sameConcreteMember(left, right)) return 'SAME_CONCRETE_MEMBER';
   if (!sameTraversal(left, right)) return '';
 
-  const sameMember = sameConcreteMember(left, right);
   if (withinTolerance(left, right, toleranceMm)) {
-    if (sameMember) return 'SAME_CONCRETE_MEMBER';
     return toleranceMm === SUPPORT_REPORT_LOCATION_MERGE_TOLERANCE_MM
       ? 'WITHIN_50MM'
       : 'WITHIN_LOCATION_TOLERANCE';
@@ -157,7 +159,7 @@ function locationAdjacencyBasis(left, right, toleranceMm, geometryIndex = new Ma
   const boreMm = compatibleDerivedNominalBoreMm(left, right);
   const axisModel = geometryIndex.get(traversalKey(left));
   if (boreMm && axisModel?.trusted && withinBoreAxisWindow(left, right, axisModel.axis, boreMm)) {
-    return sameMember ? 'SAME_CONCRETE_MEMBER' : 'WITHIN_BORE_AXIS_WINDOW';
+    return 'WITHIN_BORE_AXIS_WINDOW';
   }
   return '';
 }
