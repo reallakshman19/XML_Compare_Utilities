@@ -70,7 +70,15 @@ function parseClashObject(clashObjectXml, options) {
   const itemName = extractSmartTagValue(clashObjectXml, 'Item Name') || findFamilyLeaf(path, path[path.length - 1] || '', options);
   const branchNode = findLineBranchNode(path);
   const pipe = branchNode ? parsePipeTag(branchNode) : null;
-  return { itemName: makeDisplayName(itemName), exactMemberKey: makeExactMemberKey(itemName), familyRoot: extractFamilyRoot(itemName, options), objectType: classifyObject(itemName, path, options), branchNode, pipe, path };
+  return {
+    itemName: makeDisplayName(itemName),
+    exactMemberKey: makeExactMemberKey(itemName),
+    familyRoot: extractFamilyRoot(itemName, options),
+    objectType: classifyObject(itemName, path, options),
+    branchNode,
+    pipe,
+    path,
+  };
 }
 
 function clashNumber(name) {
@@ -82,16 +90,18 @@ function lineContext(objects) {
   return objects.find((item) => item.pipe)?.pipe || null;
 }
 
-function edgeFromObjects(attrs, body, objects, sourceInput) {
+function edgeFromObjects(attrs, body, objects, sourceInput, parserPolicy = {}) {
   if (objects.length < 2) return null;
   const pipe = lineContext(objects);
+  if (parserPolicy.requirePipe !== false && !pipe) return null;
   const [a, b] = objects;
-  if (!pipe) return null;
   const supportObjects = objects.filter((item) => item.objectType === 'Support');
   const structuralObjects = objects.filter((item) => item.objectType === 'StructuralGroup');
   const edgeType = structuralObjects.length ? 'StructuralContact' : 'SupportChain';
+  if (parserPolicy.supportChainOnly && edgeType !== 'SupportChain') return null;
+  if (edgeType === 'SupportChain' && supportObjects.length < 2) return null;
   const root = supportObjects[0]?.familyRoot || structuralObjects[0]?.familyRoot || '';
-  return {
+  const row = {
     sourceInput,
     clashName: attrs.name || 'clash',
     supportChangeName: clashNumber(attrs.name || 'clash'),
@@ -107,15 +117,24 @@ function edgeFromObjects(attrs, body, objects, sourceInput) {
     psRoot: root,
     structuralRoot: structuralObjects[0]?.familyRoot || '',
     supportRoots: supportObjects.map((item) => item.familyRoot).filter(Boolean),
-    lineFamily: pipe.lineFamily,
-    fullLineTag: pipe.fullLineTag,
-    branchNode: pipe.fullBranchNode,
-    supportGroup: pipe.lineFamily && root ? `${pipe.lineFamily}_${root}` : '',
-    parsedEdge: edgeType === 'StructuralContact' ? `${structuralObjects[0]?.itemName || a.itemName} ↔ ${supportObjects[0]?.itemName || b.itemName}` : `${a.itemName} ↔ ${b.itemName}`,
+    lineFamily: pipe?.lineFamily || '',
+    fullLineTag: pipe?.fullLineTag || '',
+    branchNode: pipe?.fullBranchNode || '',
+    supportGroup: pipe?.lineFamily && root ? `${pipe.lineFamily}_${root}` : '',
+    parsedEdge: edgeType === 'StructuralContact'
+      ? `${structuralObjects[0]?.itemName || a.itemName} ↔ ${supportObjects[0]?.itemName || b.itemName}`
+      : `${a.itemName} ↔ ${b.itemName}`,
+  };
+  if (!parserPolicy.relationshipMetadata) return row;
+  return {
+    ...row,
+    relationshipBasis: ['EXPLICIT_SUPPORT_CLASH'],
+    relationshipEvidenceId: `${sourceInput}:${attrs.name || 'clash'}`,
+    pipeContextStatus: pipe ? 'RESOLVED' : 'UNAVAILABLE',
   };
 }
 
-export function parseSupportChangeXml(xmlText, options = {}, sourceInput = 'SupportChangeXML') {
+function parseRows(xmlText, options, sourceInput, parserPolicy, emptyDiagnostic) {
   const source = String(xmlText || '');
   const rows = [];
   const diagnostics = [];
@@ -126,11 +145,35 @@ export function parseSupportChangeXml(xmlText, options = {}, sourceInput = 'Supp
     const attrs = parseAttributes(match[1]);
     const objectXml = Array.from(match[2].matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi)).map((item) => item[1]);
     const objects = objectXml.map((xml) => parseClashObject(xml, options));
-    const row = edgeFromObjects(attrs, match[2], objects, sourceInput);
+    const row = edgeFromObjects(attrs, match[2], objects, sourceInput, parserPolicy);
     if (row) rows.push(row);
   }
-  if (!rows.length) diagnostics.push({ level: 'WARN', code: 'NO_SUPPORT_CHANGE_ROWS', message: 'No SupportChangeXML rows were found.' });
+  if (!rows.length) diagnostics.push(emptyDiagnostic);
   return { rows, diagnostics };
+}
+
+export function parseSupportChangeXml(xmlText, options = {}, sourceInput = 'SupportChangeXML') {
+  return parseRows(xmlText, options, sourceInput, { requirePipe: true }, {
+    level: 'WARN',
+    code: 'NO_SUPPORT_CHANGE_ROWS',
+    message: 'No SupportChangeXML rows were found.',
+  });
+}
+
+export function parseSupportMemberRelationshipXml(
+  xmlText,
+  options = {},
+  sourceInput = 'Clash within Supports',
+) {
+  return parseRows(xmlText, options, sourceInput, {
+    requirePipe: false,
+    supportChainOnly: true,
+    relationshipMetadata: true,
+  }, {
+    level: 'WARN',
+    code: 'NO_SUPPORT_MEMBER_RELATIONSHIP_ROWS',
+    message: 'No support-member relationship rows were found.',
+  });
 }
 
 export function parsePsClashXml(xmlText, options = {}) { return parseSupportChangeXml(xmlText, options, 'PSClash XML'); }

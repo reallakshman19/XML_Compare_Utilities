@@ -53,6 +53,12 @@ function compare(leftId, rightId, label) {
     left: leftId,
     right: rightId,
     profileId: audit.profileId,
+    structuralMatches: audit.structuralMatches.map((item) => ({
+      leftFamilyId: item.leftFamilyId,
+      rightFamilyId: item.rightFamilyId,
+      result: item.result,
+      reasonCode: item.reasonCode,
+    })),
     matches: audit.matches.map((item) => ({
       leftFamilyId: item.leftFamilyId,
       rightFamilyId: item.rightFamilyId,
@@ -115,8 +121,12 @@ test('known positive and negative XML benchmark controls retain expected classif
   const positive = observedCases.find((item) => item.label === 'KNOWN_POSITIVE');
   const positiveReverse = observedCases.find((item) => item.label === 'KNOWN_POSITIVE_REVERSE');
   const negative = observedCases.find((item) => item.label === 'KNOWN_NEGATIVE');
-  assert.equal(positive.matches[0].result, 'TYPICAL');
-  assert.equal(positiveReverse.matches[0].result, 'TYPICAL');
+  assert.equal(positive.structuralMatches[0].result, 'TYPICAL');
+  assert.equal(positiveReverse.structuralMatches[0].result, 'TYPICAL');
+  assert.equal(positive.matches[0].result, 'REVIEW');
+  assert.equal(positive.matches[0].reasonCode, 'TYPICAL_CONSENSUS_AXIS_REVIEW');
+  assert.equal(positiveReverse.matches[0].result, 'REVIEW');
+  assert.equal(positiveReverse.matches[0].reasonCode, 'TYPICAL_CONSENSUS_AXIS_REVIEW');
   assert.equal(negative.matches[0].result, 'NO_MATCH');
 });
 

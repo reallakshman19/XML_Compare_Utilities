@@ -18,6 +18,7 @@ const [leftRoot, rightRoot] = process.argv.slice(2);
 if (!leftRoot || !rightRoot) throw new Error('left/right extracted ZIP directories required');
 
 const requested = [
+  ['PS-10076', 'PS-12076'],
   ['PS-10669', 'PS-12669'],
   ['PS-10146', 'PS-12146'],
   ['PS-10231', 'PS-12231'],

@@ -1,5 +1,5 @@
-export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v3';
-export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v3';
+export const SUPPORT_REPORT_TRACE_EXPORT_SCHEMA = 'SupportReportTraceCsv.v4';
+export const SUPPORT_REPORT_DEBUG_EXPORT_SCHEMA = 'SupportReportDebugExport.v4';
 
 export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'TRACE SCHEMA', 'REPORT SCHEMA', 'EVIDENCE MODE', 'REPORT ROW ID', 'CIVIL SECONDARY SUPPORT', 'PIPE',
@@ -13,6 +13,10 @@ export const SUPPORT_REPORT_TRACE_COLUMNS = Object.freeze([
   'PREV NAME', 'REJECTED PREV NAME DBREF', 'SUPPORT TYPE', 'PRIMARY SUPPORT REFERENCE', 'DESCRIPTION', 'INSU',
   'SOURCE PATHS', 'LINE CONTEXTS', 'FIELD PROVENANCE', 'CARRIER OBJECT IDS', 'CARRIER ATTRIBUTE CONFLICTS',
   'ROW DIAGNOSTIC CODES', 'ROW DIAGNOSTIC MESSAGES', 'RESOLUTION STATE',
+  'TYPICAL STRUCTURE', 'PIPING SUPPORT ARRANGEMENT MATCH', 'TYPICALITY AUDIT ID',
+  'TYPICALITY FINAL RESULT', 'TYPICALITY FINAL REASON CODE',
+  'TYPICALITY CONSENSUS RESULT', 'TYPICALITY CONSENSUS CONFIDENCE',
+  'TYPICALITY PUBLICATION STATUS', 'TYPICALITY PUBLICATION REASON', 'TYPICALITY CHANNEL AUDIT',
 ]);
 
 export function supportReportTraceRows(bundle) {
@@ -54,6 +58,9 @@ export function supportReportTraceSummary(bundle) {
     rejectedPreviousNameDbrefCount: traces.filter((trace) => clean(trace?.attributeEvidence?.previousNameRejectedDbref)).length,
     datumMetadataRowCount: rows.filter((row) => metadataAttributionBasis(row) === 'SINGLE_LOCATION_FAMILY_DATUM_METADATA').length,
     datumMetadataConflictRowCount: rows.filter((row) => metadataConflicts(row).length > 0).length,
+    typicalityPublishedRowCount: rows.filter((row) => row?.typicalityPublication?.status === 'PUBLISHED').length,
+    typicalityWithheldRowCount: rows.filter((row) => row?.typicalityPublication?.status === 'WITHHELD').length,
+    typicalityReviewWithheldRowCount: rows.filter((row) => row?.typicalityPublication?.reasonCode === 'TYPICAL_PUBLICATION_WITHHELD_REVIEW').length,
   });
 }
 
@@ -78,6 +85,9 @@ export function supportReportDebugExportFileName(bundle) {
 function traceRow(bundle, row, cluster) {
   const evidence = row?.evidence || {};
   const members = cluster?.members || [];
+  const decision = row?.typicalityDecisionAudit || null;
+  const publication = row?.typicalityPublication || decision?.publication || null;
+  const consensus = decision?.consensus || null;
   return {
     'TRACE SCHEMA': SUPPORT_REPORT_TRACE_EXPORT_SCHEMA,
     'REPORT SCHEMA': bundle?.schema || row?.schema || '',
@@ -126,6 +136,16 @@ function traceRow(bundle, row, cluster) {
     'ROW DIAGNOSTIC CODES': join((row?.diagnostics || []).map((item) => item.code || item.severity)),
     'ROW DIAGNOSTIC MESSAGES': join((row?.diagnostics || []).map((item) => item.message)),
     'RESOLUTION STATE': resolutionState(cluster, evidence),
+    'TYPICAL STRUCTURE': row?.typicalStructure || '',
+    'PIPING SUPPORT ARRANGEMENT MATCH': row?.pipingSupportArrangementMatch || '',
+    'TYPICALITY AUDIT ID': row?.typicalityAuditId || '',
+    'TYPICALITY FINAL RESULT': decision?.final?.result || '',
+    'TYPICALITY FINAL REASON CODE': decision?.final?.reasonCode || '',
+    'TYPICALITY CONSENSUS RESULT': consensus?.result || '',
+    'TYPICALITY CONSENSUS CONFIDENCE': consensus?.confidence || '',
+    'TYPICALITY PUBLICATION STATUS': publication?.status || '',
+    'TYPICALITY PUBLICATION REASON': publication?.reasonCode || '',
+    'TYPICALITY CHANNEL AUDIT': compactJson(decision),
   };
 }
 

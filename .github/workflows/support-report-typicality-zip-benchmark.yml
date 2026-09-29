@@ -9,8 +9,13 @@ on:
       - 'tests/support-report-typicality-zip-relaxed-diagnostic.mjs'
       - 'tests/support-report-typicality-selected-families.mjs'
       - 'tests/support-report-typicality-ambiguity-diagnostic.mjs'
+      - 'tests/support-report-typicality-disagreement-matrix.mjs'
+      - 'tests/support-report-typicality-disagreement-matrix.test.mjs'
+      - 'tests/support-report-axis-c-calibration-diagnostic.mjs'
       - '.github/workflows/support-report-typicality-zip-benchmark.yml'
       - 'tabs/support-steel-relationship-builder/support-report-*.js'
+      - 'tabs/support-steel-relationship-builder/support-primary-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js'
   workflow_dispatch:
 
 permissions:
@@ -48,6 +53,50 @@ jobs:
           /tmp/typicality-1885
           /tmp/typicality-1884-vs-1885.json
 
+      - name: Upload benchmark evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-zip-evidence
+          path: /tmp/typicality-1884-vs-1885.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run structural vs axis disagreement matrix
+        run: >-
+          node tests/support-report-typicality-disagreement-matrix.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+          /tmp/typicality-1884-vs-1885-disagreement-matrix.json
+
+      - name: Upload disagreement matrix evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-typicality-disagreement-matrix
+          path: /tmp/typicality-1884-vs-1885-disagreement-matrix.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run axis C-case calibration ledger
+        run: >-
+          node tests/support-report-axis-c-calibration-diagnostic.mjs
+          /tmp/typicality-1884
+          /tmp/typicality-1885
+          /tmp/support-report-axis-c-calibration.json
+
+      - name: Upload axis C-case calibration evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-report-axis-c-calibration
+          path: /tmp/support-report-axis-c-calibration.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Validate RCA regression controls
         run: |
           node --input-type=module <<'NODE'
@@ -59,20 +108,22 @@ jobs:
           assert.equal(data.diagnostics.finalFamilyDecisionCount, 351);
           const comparison = data.comparisons[0];
 
-          const match = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10076');
-          assert.ok(match, 'PS-10076 family match missing');
-          assert.equal(match.result, 'TYPICAL');
-          assert.equal(match.rightFamilyId, 'PS-12076');
-          const structural = comparison.familyComparisons.find((item) =>
+          const ps10076Decision = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10076');
+          assert.ok(ps10076Decision, 'PS-10076 family decision missing');
+          assert.equal(ps10076Decision.result, 'AMBIGUOUS');
+          assert.equal(ps10076Decision.reasonCode, 'TYPICAL_AMBIGUOUS');
+          assert.equal(ps10076Decision.rightFamilyId, '');
+          const ps10076Structural = comparison.familyComparisons.find((item) =>
             item.leftFamilyId === 'PS-10076' && item.rightFamilyId === 'PS-12076');
-          assert.ok(structural, 'PS-10076 -> PS-12076 structural comparison missing');
-          assert.equal(structural.locationCount, 'PASS');
-          assert.equal(structural.uniqueMemberCount, 'PASS');
-          assert.equal(structural.memberMultiplicity, 'PASS');
-          assert.equal(structural.pipeClassPopulation, 'PASS');
-          assert.equal(structural.envelope, 'PASS');
-          assert.equal(structural.pairDistance, 'PASS');
-          assert.ok(structural.envelopeResidualMm <= 25);
+          assert.ok(ps10076Structural, 'PS-10076 -> PS-12076 structural comparison missing');
+          assert.equal(ps10076Structural.result, 'NOT_TYPICAL');
+          assert.equal(ps10076Structural.reasonCode, 'TYPICAL_REJECTED_TOPOLOGY');
+          assert.equal(ps10076Structural.locationCount, 'FAIL');
+          assert.equal(ps10076Structural.uniqueMemberCount, 'PASS');
+          assert.equal(ps10076Structural.memberMultiplicity, 'FAIL');
+          assert.equal(ps10076Structural.envelope, 'FAIL');
+          assert.equal(ps10076Structural.pairDistance, 'FAIL');
+          assert.equal(ps10076Structural.envelopeResidualMm, 62);
 
           const review = comparison.familyMatches.find((item) => item.leftFamilyId === 'PS-10669');
           assert.ok(review, 'PS-10669 family decision missing');
@@ -120,7 +171,8 @@ jobs:
           console.log(JSON.stringify({
             acceptedStructuralCount: data.diagnostics.acceptedStructuralCount,
             finalMatchResultHistogram: data.diagnostics.finalMatchResultHistogram,
-            ps10076: match,
+            ps10076Decision,
+            ps10076Structural,
             ps10092: mixedPipeMatch,
             ps10669Review: review,
             ps10669Structural: reviewStructural,
@@ -143,6 +195,7 @@ jobs:
           /tmp/typicality-1885
 
       - name: Run selected family diagnostics
+        if: ${{ always() }}
         run: >-
           node tests/support-report-typicality-selected-families.mjs
           /tmp/typicality-1884

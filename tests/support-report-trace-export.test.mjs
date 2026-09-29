@@ -27,6 +27,24 @@ function bundle() {
   });
   const resolved = member('/PS-12005.1', '/PS-12005.1', 'DIRECT_MEMBER_ID', { x: 10, y: -20, z: 30 });
   const unresolved = member('/PS-12005', '', 'UNRESOLVED', null);
+  const publishedAudit = {
+    schema: 'SupportReportTypicalityRowAudit.v1',
+    structural: { result: 'TYPICAL', candidateFamilyId: 'PS-14168', auditId: 'STRUCT-1' },
+    relationshipTopology: { result: 'MATCH', selectedFamilyId: 'PS-14168', auditId: 'REL-1', failedReasonCodes: [] },
+    axisTypicality: { result: 'MATCH', selectedFamilyId: 'PS-14168', auditId: 'AXIS-1', failedReasonCodes: [] },
+    consensus: { schema: 'TypicalityConsensusV1', result: 'ALL_CHANNELS_AGREE', confidence: 'VERY_HIGH', basis: 'All channels agree.' },
+    final: { result: 'TYPICAL', reasonCode: 'TYPICAL_MATCH', candidateFamilyId: 'PS-14168', auditId: 'FINAL-1' },
+    publication: { schema: 'SupportReportTypicalityPublication.v1', status: 'PUBLISHED', reasonCode: 'TYPICAL_PUBLICATION_FINAL_TYPICAL', candidateFamilyId: 'PS-14168' },
+  };
+  const withheldAudit = {
+    schema: 'SupportReportTypicalityRowAudit.v1',
+    structural: { result: 'TYPICAL', candidateFamilyId: 'PS-14168', auditId: 'STRUCT-2' },
+    relationshipTopology: { result: 'NO_MATCH', selectedFamilyId: '', auditId: 'REL-2', failedReasonCodes: ['REL_ASSEMBLY_COUNT_EQUAL'] },
+    axisTypicality: { result: 'MATCH', selectedFamilyId: 'PS-14168', auditId: 'AXIS-2', failedReasonCodes: [] },
+    consensus: { schema: 'TypicalityConsensusV1', result: 'CONFLICT', confidence: 'LOW', basis: 'Relationship conflict.' },
+    final: { result: 'REVIEW', reasonCode: 'TYPICAL_CONSENSUS_RELATIONSHIP_CONFLICT', candidateFamilyId: 'PS-14168', auditId: 'FINAL-2' },
+    publication: { schema: 'SupportReportTypicalityPublication.v1', status: 'WITHHELD', reasonCode: 'TYPICAL_PUBLICATION_WITHHELD_REVIEW', candidateFamilyId: 'PS-14168' },
+  };
   return {
     schema: 'SupportReportBundle.v1',
     evidenceMode: 'CLASH_XML_PLUS_RELATIONSHIP_BUNDLE',
@@ -35,6 +53,8 @@ function bundle() {
       {
         schema: 'SupportReportRow.v1', rowId: 'ROW-A', civilSecondarySupport: 'PS-12005(REF)', pipe: 'ASIM-LINE',
         eastWest: 'E 100 mm', northSouth: 'S 200 mm', bopElevation: 'U 300 mm',
+        typicalStructure: 'PS-14168', pipingSupportArrangementMatch: 'MATCHED — all channels agree.', typicalityAuditId: 'FINAL-1',
+        typicalityPublication: publishedAudit.publication, typicalityDecisionAudit: publishedAudit,
         evidence: {
           evidenceMode: 'CLASH_XML_PLUS_RELATIONSHIP_BUNDLE', clashMemberIds: ['/PS-12005.1'],
           selectedNativeMemberIds: ['/PS-12005.1'], nativeOnlyMemberIds: [], missingClashMemberIds: [],
@@ -56,6 +76,8 @@ function bundle() {
       {
         schema: 'SupportReportRow.v1', rowId: 'ROW-B', civilSecondarySupport: 'PS-12005(REF)', pipe: 'ASIM-LINE',
         eastWest: 'E 100 mm', northSouth: 'S 280 mm', bopElevation: 'U 300 mm',
+        typicalStructure: '', pipingSupportArrangementMatch: 'REVIEW — Candidate PS-14168 withheld.', typicalityAuditId: 'FINAL-2',
+        typicalityPublication: withheldAudit.publication, typicalityDecisionAudit: withheldAudit,
         evidence: {
           evidenceMode: 'CLASH_XML_PLUS_RELATIONSHIP_BUNDLE', clashMemberIds: ['/PS-12005'],
           selectedNativeMemberIds: [], nativeOnlyMemberIds: [], missingClashMemberIds: ['/PS-12005'],
@@ -93,6 +115,22 @@ test('trace CSV exposes row location, native POS cluster and mapping basis witho
   assert.equal(rows[1]['RESOLUTION STATE'], 'UNRESOLVED_MEMBER');
 });
 
+test('trace v4 exposes Column 22 publication and independent typicality-channel audit', () => {
+  const rows = supportReportTraceRows(bundle());
+  assert.equal(rows[0]['TRACE SCHEMA'], 'SupportReportTraceCsv.v4');
+  assert.equal(rows[0]['TYPICAL STRUCTURE'], 'PS-14168');
+  assert.equal(rows[0]['TYPICALITY FINAL RESULT'], 'TYPICAL');
+  assert.equal(rows[0]['TYPICALITY CONSENSUS RESULT'], 'ALL_CHANNELS_AGREE');
+  assert.equal(rows[0]['TYPICALITY CONSENSUS CONFIDENCE'], 'VERY_HIGH');
+  assert.equal(rows[0]['TYPICALITY PUBLICATION STATUS'], 'PUBLISHED');
+  assert.match(rows[0]['TYPICALITY CHANNEL AUDIT'], /"relationshipTopology"/);
+  assert.match(rows[0]['TYPICALITY CHANNEL AUDIT'], /"axisTypicality"/);
+  assert.equal(rows[1]['TYPICAL STRUCTURE'], '');
+  assert.equal(rows[1]['TYPICALITY FINAL RESULT'], 'REVIEW');
+  assert.equal(rows[1]['TYPICALITY PUBLICATION STATUS'], 'WITHHELD');
+  assert.equal(rows[1]['TYPICALITY PUBLICATION REASON'], 'TYPICAL_PUBLICATION_WITHHELD_REVIEW');
+});
+
 test('trace CSV has deterministic column order and spreadsheet-safe quoting', () => {
   const csv = supportReportTraceToCsv(bundle());
   const firstLine = csv.split('\n')[0];
@@ -101,7 +139,7 @@ test('trace CSV has deterministic column order and spreadsheet-safe quoting', ()
   assert.match(csv, /"'=1\/2"/);
 });
 
-test('trace summary makes unresolved member and POS evidence visible', () => {
+test('trace summary makes unresolved member, POS and typicality publication evidence visible', () => {
   const summary = supportReportTraceSummary(bundle());
   assert.deepEqual(summary, {
     reportRowCount: 2,
@@ -121,14 +159,18 @@ test('trace summary makes unresolved member and POS evidence visible', () => {
     rejectedPreviousNameDbrefCount: 0,
     datumMetadataRowCount: 0,
     datumMetadataConflictRowCount: 0,
+    typicalityPublishedRowCount: 1,
+    typicalityWithheldRowCount: 1,
+    typicalityReviewWithheldRowCount: 1,
   });
 });
 
 test('debug JSON is lossless around the canonical report bundle and includes trace summary', () => {
   const source = bundle();
   const parsed = JSON.parse(supportReportDebugToJson(source));
-  assert.equal(parsed.schema, 'SupportReportDebugExport.v3');
-  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v3');
+  assert.equal(parsed.schema, 'SupportReportDebugExport.v4');
+  assert.equal(parsed.traceExportSchema, 'SupportReportTraceCsv.v4');
   assert.equal(parsed.traceSummary.unresolvedPosClusterCount, 1);
+  assert.equal(parsed.traceSummary.typicalityPublishedRowCount, 1);
   assert.deepEqual(parsed.reportBundle, source);
 });

@@ -143,6 +143,16 @@ export function buildRowJsonTrace({ group, resolution, nativeMembers = [], metad
     metadataSourceMemberIds: Object.freeze([...(datumMetadata?.sourceIds || [])]),
     metadataAttributeConflicts: Object.freeze([...(datumMetadata?.conflicts || [])]),
     metadataSources: Object.freeze((metadataMembers || []).map(metadataSourceEvidence)),
+    primarySupportAssemblyId: clean(group?.primarySupportAssemblyId),
+    primarySupportAssemblyStatus: clean(group?.primarySupportAssemblyStatus),
+    primarySupportAssemblyBasis: clean(group?.primarySupportAssemblyBasis),
+    primarySupportAssemblyCandidateIds: Object.freeze([...(group?.primarySupportAssemblyCandidateIds || [])]),
+    primarySupportAssemblyProvisionalId: clean(group?.primarySupportAssemblyProvisionalId),
+    primarySupportAssemblyCountBasis: clean(group?.primarySupportAssemblyCountBasis),
+    primarySupportFamilyExplicitAssemblyIds: Object.freeze([...(group?.primarySupportFamilyExplicitAssemblyIds || [])]),
+    primarySupportFamilyGeometryOnlyGroupIds: Object.freeze([...(group?.primarySupportFamilyGeometryOnlyGroupIds || [])]),
+    primarySupportFamilyAmbiguityCount: Number(group?.primarySupportFamilyAmbiguityCount || 0),
+    multiplePrimarySupport: Boolean(group?.multiplePrimarySupport),
   });
 }
 
@@ -164,7 +174,7 @@ function locationScopedFamilyMembers(group, familyMembers) {
 
 function rowRemarks(group, matches) {
   const remarks = [];
-  if (group?.multipleLocationsOnPipe) remarks.push(SUPPORT_REPORT_MULTI_LOCATION_REMARK);
+  if (group?.multiplePrimarySupport) remarks.push(SUPPORT_REPORT_MULTI_LOCATION_REMARK);
   const mismatches = supportReportFamilyMismatchMemberIds(group);
   for (const memberId of mismatches) {
     const resolved = matches.find((match) => token(match.observedMemberId) === token(memberId));
