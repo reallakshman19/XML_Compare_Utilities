@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import { parseSupportReportClashXml } from '../tabs/support-steel-relationship-builder/support-report-clash-safety.js';
 import { buildSupportReportBundle } from '../tabs/support-steel-relationship-builder/support-report-engine.js';
+import { selectAxisTypicalityMatch } from '../tabs/support-steel-relationship-builder/support-report-axis-typicality.js';
 import {
   buildSupportReportTypicalityComparison,
   SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
@@ -57,6 +58,109 @@ export function buildStructuralAxisDisagreementMatrix(structuralMatches = [], ax
   });
 }
 
+export function classifyConservativeTopologyExclusion(left, right) {
+  if (!left || !right) return Object.freeze({ excluded: false, reasonCode: 'AXIS_TOPOLOGY_RETAIN_MISSING_FEATURES' });
+  if (Number(left.sourceLocationCount || 0) !== Number(right.sourceLocationCount || 0)) return Object.freeze({
+    excluded: true,
+    reasonCode: 'AXIS_TOPOLOGY_SAFE_EXCLUDE_LOCATION_COUNT',
+  });
+
+  if (!traversalTopologyComplete(left) || !traversalTopologyComplete(right)) return Object.freeze({
+    excluded: false,
+    reasonCode: 'AXIS_TOPOLOGY_RETAIN_TRAVERSAL_INCOMPLETE',
+  });
+  if (Number(left.sourceTraversalCount || 0) !== Number(right.sourceTraversalCount || 0)) return Object.freeze({
+    excluded: true,
+    reasonCode: 'AXIS_TOPOLOGY_SAFE_EXCLUDE_TRAVERSAL_COUNT',
+  });
+  if (!sameArray(left.locationsPerTraversalSpectrum, right.locationsPerTraversalSpectrum)) return Object.freeze({
+    excluded: true,
+    reasonCode: 'AXIS_TOPOLOGY_SAFE_EXCLUDE_LOCATIONS_PER_TRAVERSAL',
+  });
+
+  if (!returnTopologyComplete(left) || !returnTopologyComplete(right)) return Object.freeze({
+    excluded: false,
+    reasonCode: 'AXIS_TOPOLOGY_RETAIN_RETURN_INCOMPLETE',
+  });
+  if (!sameArray(left.returnMultiplicitySpectrum, right.returnMultiplicitySpectrum)) return Object.freeze({
+    excluded: true,
+    reasonCode: 'AXIS_TOPOLOGY_SAFE_EXCLUDE_RETURN_MULTIPLICITY',
+  });
+  return Object.freeze({ excluded: false, reasonCode: 'AXIS_TOPOLOGY_COMPATIBLE' });
+}
+
+export function buildTopologyScreenedAxisSelection(audit = {}) {
+  const leftFamilies = audit.leftFamilies || [];
+  const rightByFamily = new Map((audit.rightFamilies || []).map((item) => [familyKey(item?.familyId), item]));
+  const currentByFamily = new Map((audit.matches || []).map((item) => [familyKey(item?.leftFamilyId), item]));
+  const comparisonsByFamily = new Map();
+  for (const comparison of audit.familyComparisons || []) {
+    const key = familyKey(comparison?.leftFamilyId);
+    if (!comparisonsByFamily.has(key)) comparisonsByFamily.set(key, []);
+    comparisonsByFamily.get(key).push(comparison);
+  }
+
+  const familyDiagnostics = [];
+  for (const left of leftFamilies) {
+    const leftFamilyId = familyKey(left?.familyId);
+    const comparisons = comparisonsByFamily.get(leftFamilyId) || [];
+    const retained = [];
+    const excluded = [];
+    let unassessedCandidateCount = 0;
+
+    for (const comparison of comparisons) {
+      const unassessed = comparison?.result === 'REVIEW' || comparison?.result === 'UNAVAILABLE';
+      if (unassessed) unassessedCandidateCount += 1;
+      const right = rightByFamily.get(familyKey(comparison?.rightFamilyId)) || null;
+      const exclusion = unassessed
+        ? classifyConservativeTopologyExclusion(left, right)
+        : Object.freeze({ excluded: false, reasonCode: 'AXIS_TOPOLOGY_ALREADY_ASSESSED' });
+      if (unassessed && exclusion.excluded) {
+        excluded.push(Object.freeze({
+          rightFamilyId: comparison?.rightFamilyId || '',
+          comparisonResult: comparison?.result || 'UNAVAILABLE',
+          comparisonReasonCode: comparison?.reasonCode || '',
+          rightAuthorityStatus: right?.authorityStatus || 'UNAVAILABLE',
+          reasonCode: exclusion.reasonCode,
+        }));
+      } else {
+        retained.push(comparison);
+      }
+    }
+
+    const current = currentByFamily.get(leftFamilyId) || null;
+    const screened = selectAxisTypicalityMatch(left?.familyId || leftFamilyId, retained);
+    const currentResult = current?.result || 'UNAVAILABLE';
+    const decisivenessUnlocked = ['REVIEW', 'UNAVAILABLE'].includes(currentResult)
+      && ['MATCH', 'NO_MATCH'].includes(screened.result);
+    familyDiagnostics.push(Object.freeze({
+      leftFamilyId,
+      leftAuthorityStatus: left?.authorityStatus || 'UNAVAILABLE',
+      current: compactChannel(current),
+      screened: compactChannel(screened),
+      unassessedCandidateCount,
+      safelyExcludedCandidateCount: excluded.length,
+      retainedUnassessedCandidateCount: retained.filter((item) => item?.result === 'REVIEW' || item?.result === 'UNAVAILABLE').length,
+      exclusionReasonHistogram: Object.freeze(histogram(excluded.map((item) => item.reasonCode))),
+      excludedCandidates: Object.freeze(excluded),
+      decisivenessUnlocked,
+    }));
+  }
+
+  const unlocked = familyDiagnostics.filter((item) => item.decisivenessUnlocked);
+  return Object.freeze({
+    familyCount: familyDiagnostics.length,
+    unassessedCandidateCount: sum(familyDiagnostics.map((item) => item.unassessedCandidateCount)),
+    safelyExcludedCandidateCount: sum(familyDiagnostics.map((item) => item.safelyExcludedCandidateCount)),
+    retainedUnassessedCandidateCount: sum(familyDiagnostics.map((item) => item.retainedUnassessedCandidateCount)),
+    exclusionReasonHistogram: Object.freeze(mergeHistograms(familyDiagnostics, 'exclusionReasonHistogram')),
+    currentSelectedResultHistogram: Object.freeze(histogram(familyDiagnostics.map((item) => item.current.result || 'UNAVAILABLE'))),
+    screenedSelectedResultHistogram: Object.freeze(histogram(familyDiagnostics.map((item) => item.screened.result || 'UNAVAILABLE'))),
+    decisivenessUnlockedCount: unlocked.length,
+    decisivenessUnlockedFamilies: Object.freeze(unlocked),
+  });
+}
+
 export function summarizeAxisTypicalityAudit(audit = {}) {
   const leftFamilies = audit.leftFamilies || [];
   const rightFamilies = audit.rightFamilies || [];
@@ -73,19 +177,21 @@ export function summarizeAxisTypicalityAudit(audit = {}) {
     selectedResultHistogram: Object.freeze(histogram(matches.map((item) => item.result || 'UNAVAILABLE'))),
     selectedReasonHistogram: Object.freeze(histogram(matches.map((item) => item.reasonCode || 'UNSPECIFIED'))),
     selectedCandidateCountHistogram: Object.freeze(histogram(matches.map((item) => String((item.candidateFamilyIds || []).length)))),
+    topologyScreen: buildTopologyScreenedAxisSelection(audit),
   });
 }
 
 function compactChannel(match) {
   if (!match) return Object.freeze({
     result: 'UNAVAILABLE', reasonCode: '', candidateFamilyId: '', candidateFamilyIds: Object.freeze([]),
-    bestCandidateFamilyId: '', failedReasonCodes: Object.freeze([]),
+    unavailableCandidateFamilyIds: Object.freeze([]), bestCandidateFamilyId: '', failedReasonCodes: Object.freeze([]),
   });
   return Object.freeze({
     result: match.result || 'UNAVAILABLE',
     reasonCode: match.reasonCode || '',
     candidateFamilyId: match.rightFamilyId || '',
     candidateFamilyIds: Object.freeze([...(match.candidateFamilyIds || [])]),
+    unavailableCandidateFamilyIds: Object.freeze([...(match.unavailableCandidateFamilyIds || [])]),
     bestCandidateFamilyId: match.bestCandidateFamilyId || '',
     failedReasonCodes: Object.freeze([...(match.failedReasonCodes || [])]),
   });
@@ -120,6 +226,24 @@ function mergeHistograms(items, key) {
     }
   }
   return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function traversalTopologyComplete(family) {
+  return Number(family?.ambiguousGroupTraversalCount || 0) === 0
+    && Number(family?.sourceTraversalCount || 0) > 0;
+}
+
+function returnTopologyComplete(family) {
+  if (!traversalTopologyComplete(family)) return false;
+  return sum(family?.returnMultiplicitySpectrum || []) === Number(family?.sourceTraversalCount || 0);
+}
+
+function sameArray(left, right) {
+  return JSON.stringify(left || []) === JSON.stringify(right || []);
+}
+
+function sum(values) {
+  return (values || []).reduce((total, value) => total + Number(value || 0), 0);
 }
 
 function familyKey(value) {
@@ -185,6 +309,7 @@ export function runStructuralAxisDisagreementMatrix(leftRoot, rightRoot) {
   })));
   const priorityCalibrationCases = entries.filter((item) => item.priorityCalibration);
   const axisDiagnostics = comparisons.map((item) => item.axisDiagnostics);
+  const topologyScreens = axisDiagnostics.map((item) => item.topologyScreen);
   return Object.freeze({
     schema: SUPPORT_REPORT_TYPICALITY_DISAGREEMENT_MATRIX_SCHEMA,
     profileId: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL.profileId,
@@ -209,6 +334,16 @@ export function runStructuralAxisDisagreementMatrix(leftRoot, rightRoot) {
         selectedResultHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedResultHistogram')),
         selectedReasonHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedReasonHistogram')),
         selectedCandidateCountHistogram: Object.freeze(mergeHistograms(axisDiagnostics, 'selectedCandidateCountHistogram')),
+        topologyScreen: Object.freeze({
+          unassessedCandidateCount: sum(topologyScreens.map((item) => item?.unassessedCandidateCount)),
+          safelyExcludedCandidateCount: sum(topologyScreens.map((item) => item?.safelyExcludedCandidateCount)),
+          retainedUnassessedCandidateCount: sum(topologyScreens.map((item) => item?.retainedUnassessedCandidateCount)),
+          exclusionReasonHistogram: Object.freeze(mergeHistograms(topologyScreens, 'exclusionReasonHistogram')),
+          currentSelectedResultHistogram: Object.freeze(mergeHistograms(topologyScreens, 'currentSelectedResultHistogram')),
+          screenedSelectedResultHistogram: Object.freeze(mergeHistograms(topologyScreens, 'screenedSelectedResultHistogram')),
+          decisivenessUnlockedCount: sum(topologyScreens.map((item) => item?.decisivenessUnlockedCount)),
+          decisivenessUnlockedFamilies: Object.freeze(topologyScreens.flatMap((item) => item?.decisivenessUnlockedFamilies || [])),
+        }),
       }),
     }),
   });
