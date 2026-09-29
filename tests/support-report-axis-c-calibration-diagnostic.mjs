@@ -76,6 +76,35 @@ function compactDecision(decision) {
   });
 }
 
+function histogram(values) {
+  const counts = new Map();
+  for (const value of values || []) counts.set(value, (counts.get(value) || 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function matchEvidenceStrength(axisComparison, leftFeatures, rightFeatures) {
+  const angleSignal = (axisComparison?.signals || []).find((item) =>
+    item.reasonCode === 'AXIS_RELATIVE_ANGLE_WITHIN_TOLERANCE');
+  if (angleSignal && angleSignal.result !== 'UNAVAILABLE') return 'RELATIVE_ANGLE_INFORMED';
+
+  const bases = [
+    ...(leftFeatures?.traversalAxisEvidence || []),
+    ...(rightFeatures?.traversalAxisEvidence || []),
+  ].map((item) => item.axisBasis).filter(Boolean);
+  if (bases.length && bases.every((item) => item === 'TWO_POINT_AXIS')) return 'SINGLE_TRAVERSAL_TWO_POINT_ONLY';
+  if (bases.some((item) => item === 'PCA_BRANCH_AXIS')) return 'SINGLE_TRAVERSAL_PCA_BACKED';
+  return 'OTHER_AXIS_EVIDENCE';
+}
+
+function structuralRelation(structuralDecision, rightFamilyId) {
+  if (structuralDecision?.result === 'TYPICAL' && structuralDecision?.rightFamilyId === rightFamilyId) {
+    return 'STRUCTURAL_MATCH_SAME_CANDIDATE';
+  }
+  if (structuralDecision?.result === 'NO_MATCH') return 'STRUCTURAL_NO_MATCH';
+  if (structuralDecision?.result === 'TYPICAL') return 'STRUCTURAL_MATCH_DIFFERENT_CANDIDATE';
+  return `STRUCTURAL_${String(structuralDecision?.result || 'UNAVAILABLE')}`;
+}
+
 export function buildAxisCCalibrationLedger(left, right) {
   const audit = buildSupportReportTypicalityComparison(left.evidence, right.evidence, {
     leftReportBundle: left.report,
@@ -83,14 +112,20 @@ export function buildAxisCCalibrationLedger(left, right) {
     profile: SUPPORT_REPORT_TYPICALITY_PROFILE_V1_PROVISIONAL,
   });
 
+  const leftFeaturesByFamily = new Map(audit.axisTypicalityAudit.leftFamilies.map((item) => [item.familyId, item]));
+  const rightFeaturesByFamily = new Map(audit.axisTypicalityAudit.rightFamilies.map((item) => [item.familyId, item]));
+  const structuralDecisionByFamily = new Map(audit.structuralMatches.map((item) => [item.leftFamilyId, item]));
+  const structuralComparisonByPair = new Map(audit.familyComparisons.map((item) => [
+    `${item.leftFamilyId}::${item.rightFamilyId}`, item,
+  ]));
+
   const cases = TARGETS.map((target) => {
-    const leftFeatures = audit.axisTypicalityAudit.leftFamilies.find((item) => item.familyId === target.leftFamilyId) || null;
-    const rightFeatures = audit.axisTypicalityAudit.rightFamilies.find((item) => item.familyId === target.rightFamilyId) || null;
+    const leftFeatures = leftFeaturesByFamily.get(target.leftFamilyId) || null;
+    const rightFeatures = rightFeaturesByFamily.get(target.rightFamilyId) || null;
     const axisComparison = audit.axisTypicalityAudit.familyComparisons.find((item) =>
       item.leftFamilyId === target.leftFamilyId && item.rightFamilyId === target.rightFamilyId) || null;
-    const structuralComparison = audit.familyComparisons.find((item) =>
-      item.leftFamilyId === target.leftFamilyId && item.rightFamilyId === target.rightFamilyId) || null;
-    const structuralDecision = audit.structuralMatches.find((item) => item.leftFamilyId === target.leftFamilyId) || null;
+    const structuralComparison = structuralComparisonByPair.get(`${target.leftFamilyId}::${target.rightFamilyId}`) || null;
+    const structuralDecision = structuralDecisionByFamily.get(target.leftFamilyId) || null;
     const axisDecision = audit.axisTypicalityMatches.find((item) => item.leftFamilyId === target.leftFamilyId) || null;
 
     if (!leftFeatures || !rightFeatures || !axisComparison || !structuralComparison || !structuralDecision || !axisDecision) {
@@ -105,8 +140,31 @@ export function buildAxisCCalibrationLedger(left, right) {
       structuralPairComparison: structuralComparison,
       structuralFamilyDecision: compactDecision(structuralDecision),
       currentAxisFamilyDecision: compactDecision(axisDecision),
+      evidenceStrength: matchEvidenceStrength(axisComparison, leftFeatures, rightFeatures),
     });
   });
+
+  const availableAxisMatches = audit.axisTypicalityAudit.familyComparisons
+    .filter((item) => item.result === 'MATCH')
+    .map((axisComparison) => {
+      const leftFeatures = leftFeaturesByFamily.get(axisComparison.leftFamilyId) || null;
+      const rightFeatures = rightFeaturesByFamily.get(axisComparison.rightFamilyId) || null;
+      const structuralDecision = structuralDecisionByFamily.get(axisComparison.leftFamilyId) || null;
+      const structuralComparison = structuralComparisonByPair.get(
+        `${axisComparison.leftFamilyId}::${axisComparison.rightFamilyId}`) || null;
+      const evidenceStrength = matchEvidenceStrength(axisComparison, leftFeatures, rightFeatures);
+      return Object.freeze({
+        leftFamilyId: axisComparison.leftFamilyId,
+        rightFamilyId: axisComparison.rightFamilyId,
+        evidenceStrength,
+        structuralRelation: structuralRelation(structuralDecision, axisComparison.rightFamilyId),
+        leftAxisFeatures: compactFamilyFeatures(leftFeatures),
+        rightAxisFeatures: compactFamilyFeatures(rightFeatures),
+        axisPairComparison: axisComparison,
+        structuralPairComparison: structuralComparison,
+        structuralFamilyDecision: compactDecision(structuralDecision),
+      });
+    });
 
   return Object.freeze({
     schema: SUPPORT_REPORT_AXIS_C_CALIBRATION_SCHEMA,
@@ -114,6 +172,12 @@ export function buildAxisCCalibrationLedger(left, right) {
     leftXml: left.name,
     rightXml: right.name,
     cases: Object.freeze(cases),
+    matchSufficiency: Object.freeze({
+      availableAxisMatchCount: availableAxisMatches.length,
+      evidenceStrengthHistogram: Object.freeze(histogram(availableAxisMatches.map((item) => item.evidenceStrength))),
+      structuralRelationHistogram: Object.freeze(histogram(availableAxisMatches.map((item) => item.structuralRelation))),
+      pairs: Object.freeze(availableAxisMatches),
+    }),
   });
 }
 
@@ -133,8 +197,14 @@ function main() {
       structuralResult: item.structuralFamilyDecision?.result || '',
       axisPairResult: item.axisPairComparison?.result || '',
       axisPairReasonCode: item.axisPairComparison?.reasonCode || '',
+      evidenceStrength: item.evidenceStrength,
       signals: item.axisPairComparison?.signals || [],
     })),
+    matchSufficiency: {
+      availableAxisMatchCount: result.matchSufficiency.availableAxisMatchCount,
+      evidenceStrengthHistogram: result.matchSufficiency.evidenceStrengthHistogram,
+      structuralRelationHistogram: result.matchSufficiency.structuralRelationHistogram,
+    },
   })}`);
 }
 
