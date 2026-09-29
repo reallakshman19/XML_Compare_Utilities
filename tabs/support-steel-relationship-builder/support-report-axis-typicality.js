@@ -87,9 +87,24 @@ export function compareAxisTypicalityFamilies(left, right, profile = SUPPORT_REP
     signals: Object.freeze([...topologySignals, ...geometrySignals]),
   });
   const geometryFailed = availableGeometry.filter((item) => item.result === 'FAIL');
+  if (geometryFailed.length) return freezeComparison(left, right, profile, {
+    result: 'NO_MATCH',
+    reasonCode: 'AXIS_TYPICALITY_GEOMETRY_MISMATCH',
+    availability,
+    signals: Object.freeze([...topologySignals, ...geometrySignals]),
+  });
+
+  const positiveEvidence = positiveMatchEvidenceSignal(left, right);
+  if (positiveEvidence.result === 'UNAVAILABLE') return freezeComparison(left, right, profile, {
+    result: 'UNAVAILABLE',
+    reasonCode: 'AXIS_TYPICALITY_UNAVAILABLE_INSUFFICIENT_POSITIVE_EVIDENCE',
+    availability,
+    signals: Object.freeze([...topologySignals, ...geometrySignals, positiveEvidence]),
+  });
+
   return freezeComparison(left, right, profile, {
-    result: geometryFailed.length ? 'NO_MATCH' : 'MATCH',
-    reasonCode: geometryFailed.length ? 'AXIS_TYPICALITY_GEOMETRY_MISMATCH' : 'AXIS_TYPICALITY_MATCH',
+    result: 'MATCH',
+    reasonCode: 'AXIS_TYPICALITY_MATCH',
     availability,
     signals: Object.freeze([...topologySignals, ...geometrySignals]),
   });
@@ -307,6 +322,27 @@ function comparisonAvailability(left, right) {
   return Object.freeze({ result: 'AVAILABLE', left: left.authorityStatus, right: right.authorityStatus });
 }
 
+function positiveMatchEvidenceSignal(left, right) {
+  const leftAxes = left?.traversalAxisEvidence || [];
+  const rightAxes = right?.traversalAxisEvidence || [];
+  const independentlySupported = (axes) => axes.length > 0 && axes.every((item) =>
+    item?.axisBasis === 'PCA_BRANCH_AXIS' && Number(item?.axisPointCount || 0) >= 3);
+  const pass = independentlySupported(leftAxes) && independentlySupported(rightAxes);
+  return Object.freeze({
+    reasonCode: 'AXIS_POSITIVE_EVIDENCE_INDEPENDENT_AXIS_SUPPORTED',
+    left: Object.freeze(leftAxes.map((item) => Object.freeze({
+      axisBasis: item.axisBasis,
+      axisPointCount: item.axisPointCount,
+    }))),
+    right: Object.freeze(rightAxes.map((item) => Object.freeze({
+      axisBasis: item.axisBasis,
+      axisPointCount: item.axisPointCount,
+    }))),
+    comparison: 'AUTHORITY',
+    result: pass ? 'PASS' : 'UNAVAILABLE',
+  });
+}
+
 function normalizedSpacingSignal(left, right, profile) {
   if (!left.length && !right.length) return unavailableSignal('AXIS_DN_NORMALIZED_SPACING_WITHIN_TOLERANCE', left, right, {
     axialRatioTolerance: profile.axialRatioTolerance,
@@ -486,5 +522,6 @@ export const _test = Object.freeze({
   groupTraversal,
   normalizedPairDescriptor,
   normalizedSpacingSignal,
+  positiveMatchEvidenceSignal,
   unsignedAxisAngleDeg,
 });
