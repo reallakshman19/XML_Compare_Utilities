@@ -9,7 +9,7 @@
 - `MERGE_AUTHORITY`: OWNER_ONLY / NOT_GRANTED
 - `BASE`: `main@b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08`
 - `BRANCH`: `fix/cii-writer2-evidence-qualified-review-1239`
-- `MATERIAL_HEAD_BEFORE_REPORT_REFRESH`: `23b22a21b184d9c7bef2b64f12281fa36905c994`
+- `MATERIAL_HEAD_BEFORE_REPORT_REFRESH`: `9f8215b094c3b7150892e85549e2de78b002ffbb`
 - `PR_STATE`: OPEN / DRAFT / UNMERGED
 
 ## Owner correction: audit before implementation
@@ -20,49 +20,21 @@ Owner explicitly required **audit first, then implement**. Further product mutat
 
 ### A1 — adjacent boundary is a legitimate composite HIGH authority
 
-`cii-workspace-alignment.js#boundaryRow()` independently scores the matched element on each side of a shared node. It emits authority `ADJACENT_MATCH_BOUNDARY` and status HIGH only when both adjacent element evidences have explicit HIGH identity confidence. The proof is stored as:
-
-```text
-evidence.leftElement
-evidence.rightElement
-```
-
-It is not direct NODE M1/M2 evidence.
+`cii-workspace-alignment.js#boundaryRow()` independently scores the matched element on each side of a shared node. It emits authority `ADJACENT_MATCH_BOUNDARY` and status HIGH only when both adjacent element evidences have explicit HIGH identity confidence. The proof is stored as `evidence.leftElement` + `evidence.rightElement`; it is not direct NODE M1/M2 evidence.
 
 ### A2 — first repair still leaked workflow HIGH into review confidence
 
-The first #1240 implementation recognized adjacent consensus but still allowed ordinary rows to fall through to the global `ciiIdentityConfidence(row)`, whose legacy shortcut includes:
-
-```text
-row.status === HIGH -> HIGH
-```
-
-That was a real residual defect. The review layer must derive confidence from recognized evidence, not workflow labels.
+The first #1240 implementation recognized adjacent consensus but still allowed ordinary rows to fall through to the global `ciiIdentityConfidence(row)`, whose legacy shortcut includes `row.status === HIGH -> HIGH`. That was a residual defect. Compare Review now derives confidence from recognized evidence rather than workflow labels.
 
 ### A3 — HIGH must imply normalized identity binding
 
-After removing the status fallback, a second fail-closed invariant was identified:
+The fail-closed invariant is now `review HIGH => identityBound`. An explicit-looking HIGH token cannot be rendered as evidence-qualified HIGH when the relevant candidate/direct/composite authority does not actually bind identity.
 
-```text
-review HIGH => identityBound
-```
+### A4 — RIGID component status is a legitimate derivative authority
 
-An explicit-looking HIGH token cannot be rendered as evidence-qualified HIGH when the relevant candidate/direct/composite authority does not actually bind identity.
+`cii-workspace-components.js` creates `POINTER_BOUND_RIGID_COMPONENT_CONTEXT` rows whose status follows the parent element unless rigid pointer custody conflicts. The row points to `parentElementCorrespondenceId` and intentionally does not duplicate parent M1/M2 identity evidence. Existing `engineering-delta.js#componentDeltas()` already derives component legitimacy from a bound parent plus no pointer-custody blockers.
 
-### A4 — RIGID component status is a second legitimate derivative authority
-
-Producer audit found one additional inherited-status path relevant to Compare Review:
-
-`cii-workspace-components.js` creates `POINTER_BOUND_RIGID_COMPONENT_CONTEXT` rows with:
-
-```text
-status = parent element status unless rigid pointer custody conflicts
-parentElementCorrespondenceId = parent element correspondence
-```
-
-The component row intentionally does not duplicate parent M1/M2 identity evidence. Existing `engineering-delta.js#componentDeltas()` already derives component legitimacy from the bound parent element plus no rigid pointer-custody blockers.
-
-Therefore RIGID component review authority is normalized as:
+Compare Review therefore normalizes the same contract:
 
 ```text
 qualified parent ELEMENT identity
@@ -70,22 +42,20 @@ qualified parent ELEMENT identity
 = derivative component identity
 ```
 
-This preserves legitimate component behavior without restoring status-as-proof.
-
 ### Audit disposition
 
-`CONTINUE` with the repair restricted to Compare Review evidence projection, review rendering and bulk eligibility. No correspondence producer, global engineering-delta authority, writer, bridge, Method-A/B algorithm, benchmark or transfer-scope change is authorized in this PR.
+`CONTINUE` with this PR restricted to Compare Review evidence normalization, review rendering and bulk eligibility. No correspondence producer, global engineering-delta authority, writer, bridge, Method-A/B algorithm, benchmark or transfer-scope change is authorized.
 
 ## Implemented after audit
 
-### `tabs/cii-workspace/cii-workspace-compare-review.js`
+### Compare Review normalization
 
-The projector now owns an explicit review authority normalization:
+`tabs/cii-workspace/cii-workspace-compare-review.js` now applies:
 
 ```text
 LOCKED authority                    -> LOCKED / BOUND
 candidate.status != SUPPORTED       -> REVIEW/UNRESOLVED / unbound
-candidate.status == SUPPORTED       -> bound; confidence comes from explicit winner evidence
+candidate.status == SUPPORTED       -> bound; confidence from explicit winner evidence
 ADJACENT_MATCH_BOUNDARY             -> HIGH only for 2/2 identity-supported HIGH adjacent elements
 explicit direct identity evidence   -> HIGH only when explicit HIGH + identitySupported=true
 naked workflow status HIGH          -> REVIEW / unbound
@@ -93,71 +63,51 @@ unbound row                         -> never review HIGH
 RIGID component                     -> parent evidence-qualified identity + valid pointer custody
 ```
 
-Specific changes:
+The projector exposes `identityEvidenceBasis`, `adjacentBoundary`, and `componentIdentity` so UI/bulk behavior consumes one normalized authority result.
 
-- removed Compare Review dependency on global `ciiIdentityConfidence()` / `ciiIdentityBound()` status shortcuts;
-- added explicit candidate winner/confidence extraction;
-- added `ADJACENT_EDGE_CONSENSUS` normalization and LEFT/RIGHT evidence summaries;
-- separated identity binding from confidence;
-- enforced HIGH => bound;
-- added `PARENT_ELEMENT_PLUS_POINTER_CUSTODY` normalization for RIGID component rows;
-- exposed `identityEvidenceBasis`, `adjacentBoundary`, and `componentIdentity` for audit/UI use;
-- retained manual LOCKED authority.
+### Review UI
 
-### `tabs/cii-workspace/cii-workspace-multisource-review-ui.js`
+`tabs/cii-workspace/cii-workspace-multisource-review-ui.js` now:
 
-- adjacent nodes render `ADJACENT CONSENSUS · 2/2 HIGH` with LEFT/RIGHT M1/M2/OD evidence;
-- adjacent nodes no longer render false `RED · 0/0` or pretend direct NODE M1/M2 proof;
-- RIGID components render `RIGID COMPONENT · PARENT <confidence> · POINTER CUSTODY PASS/BLOCKED`;
-- RIGID rationale names parent identity and pointer-custody authority rather than rendering RED/0-of-0;
-- generic HIGH wording claims direct M1+M2 only when projected M1 and M2 actually pass;
-- Bulk Accept success messaging now states that Accept decisions are pending and `Apply approvals to Transfer Preview` performs the rebuild.
+- renders adjacent NODE proof as `ADJACENT CONSENSUS · 2/2 HIGH` with LEFT/RIGHT M1/M2/OD summaries;
+- does not claim direct NODE M1/M2 evidence for an adjacent boundary;
+- renders RIGID derivative proof as `RIGID COMPONENT · PARENT <confidence> · POINTER CUSTODY PASS/BLOCKED`;
+- uses evidence-specific rationale rather than `RED 0/0` for recognized derivative authorities;
+- only uses the generic direct M1+M2 HIGH explanation when both projected methods actually pass;
+- makes Bulk Accept messaging explicit that Accept marks decisions first and `Apply approvals to Transfer Preview` rebuilds correspondence/scope.
 
-### `tests/cii-workspace-adjacent-boundary-review.test.mjs`
+### Focused deterministic regression
 
-Deterministic review-boundary falsifiers cover:
+`tests/cii-workspace-adjacent-boundary-review.test.mjs` covers:
 
-1. legitimate `340→10260`-style adjacent 2/2 HIGH consensus remains HIGH/BOUND and bulk-HIGH eligible;
-2. naked workflow HIGH becomes REVIEW/unbound;
-3. SUPPORTED candidate without explicit confidence remains BOUND but not HIGH;
-4. explicit direct `identitySupported=true + identityConfidence=HIGH` remains HIGH/BOUND;
-5. explicit HIGH with `identitySupported=false` is REVIEW/unbound;
-6. RIGID component with HIGH/BOUND parent + valid pointer custody is derivative HIGH/BOUND;
-7. RIGID component cannot inherit HIGH when its parent has status HIGH but no qualified evidence;
-8. RIGID pointer-custody conflict is unbound/UNRESOLVED;
+1. valid `340→10260`-style adjacent 2/2 HIGH => HIGH/BOUND + bulk eligible;
+2. naked workflow HIGH => REVIEW/unbound;
+3. SUPPORTED candidate without explicit confidence => BOUND but not HIGH;
+4. explicit direct supported HIGH => HIGH/BOUND;
+5. explicit HIGH without binding support => REVIEW/unbound;
+6. valid RIGID parent+pointer custody => derivative HIGH/BOUND;
+7. RIGID cannot inherit HIGH from a parent that only has workflow HIGH and no evidence;
+8. RIGID pointer-custody conflict => UNRESOLVED/unbound;
 9. manual LOCKED remains LOCKED/BOUND;
-10. composite/derivative UI evidence does not fall back to RED 0/0.
+10. recognized composite/derivative UI does not render the misleading `RED 0/0` direct-evidence presentation.
 
-A weak guarded producer-integration assertion was deliberately removed during audit because it could pass without proving the scorer path. No pseudo-PASS is retained.
+A weak guarded producer-integration assertion was deliberately removed because it could pass without executing the scorer. No pseudo-PASS is retained.
 
 ## Producer audit result
 
-Default-branch search/inspection found the relevant HIGH producers used by this projection boundary:
+Default-branch search/inspection found the relevant authority forms at this review boundary:
 
-- path/alignment ELEMENT rows carry the actual scored edge evidence including `identityConfidence` and `identitySupported`;
+- scored path/alignment ELEMENT rows carry explicit identity evidence;
+- propagated ELEMENT/NODE rows carry candidate/direct evidence;
 - `ADJACENT_MATCH_BOUNDARY` is the recognized left/right composite authority;
-- propagated ELEMENT/NODE rows carry supported candidate evidence;
 - `POINTER_BOUND_RIGID_COMPONENT_CONTEXT` is the recognized parent-derived component authority;
-- manual anchor nodes are LOCKED authority.
+- manual anchors are LOCKED authority.
 
-No additional inherited `status: row.status` producer relevant to this Compare Review path was found beyond RIGID component context.
+No additional relevant inherited `status: row.status` producer was found beyond RIGID component context.
 
 ## Protected invariants / negative assurance
 
-No change to:
-
-- correspondence generation;
-- `cii-workspace-engineering-delta.js` global semantics;
-- Writer2 CREATE/DELETE authority;
-- Writer1C exact-span mutation semantics;
-- V11↔V14 normalization, target shadow, or projector;
-- Method-A/B matching mathematics;
-- anchor discovery/search budget (#1234);
-- transfer-scope authority;
-- frozen Benchmark files or benchmark answers;
-- workflow or deployment files.
-
-No benchmark IDs or expected answers are read by production code in this patch.
+No change to correspondence generation, `cii-workspace-engineering-delta.js` global semantics, Writer2 CREATE/DELETE, Writer1C exact-span mutation, V11↔V14, Method-A/B matching/discovery, #1234 search budget, transfer-scope authority, frozen Benchmark files/answers, workflows or deployment. Production code reads no benchmark IDs or expected answers.
 
 ## Current diff boundary
 
@@ -168,68 +118,50 @@ Against `main`, PR #1240 changes only:
 3. `tabs/cii-workspace/cii-workspace-multisource-review-ui.js`
 4. `tests/cii-workspace-adjacent-boundary-review.test.mjs`
 
-PR #1234 remains an upstream performance/search-budget responsibility with no exact production-file overlap in this slice.
+PR #1234 has no exact production-file overlap with this slice.
 
 ## Validation truth
 
 | Gate | Status | Observation / oracle |
 |---|---|---|
-| live main grounding | PASS | `main@b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08` |
-| #1239 contract audit | PASS | issue + correction readback |
-| adjacent-boundary producer trace | PASS | exact default-branch producer inspection |
-| status-fallback audit | FAIL → FIXED | review projection previously inherited workflow HIGH fallback |
-| HIGH-without-binding audit | FAIL → FIXED | projector now enforces HIGH => bound |
-| RIGID inherited-status audit | FAIL → FIXED | explicit parent+pointer-custody derivative contract added |
-| producer search for other inherited-status paths | PASS (static) | no additional relevant `status: row.status` producer found |
-| branch diff boundary | PASS | 2 production review/UI modules + focused test + report |
-| deterministic test design inspection | PASS | no benchmark hard-coding or guarded pseudo-pass |
-| exact-head commit statuses | NOT_RUN / none instantiated | GitHub reports zero statuses on `23b22a21…` |
-| exact-head workflow runs | NOT_RUN / none instantiated | GitHub reports zero workflow runs on `23b22a21…` |
-| focused imported Node test execution | NOT_RUN | no full authenticated checkout available in this connector session |
-| existing review/confidence regressions | NOT_RUN | same environment boundary |
-| retained S1/S2/S3→T browser benchmark | NOT_RUN | not claimed on this head |
-| byte closure / V11↔V14 retained qualification | NOT_RUN | not claimed on this head |
+| live main grounding | PASS | exact GitHub readback |
+| #1239 contract + correction audit | PASS | issue readback |
+| adjacent-boundary producer trace | PASS | exact source inspection |
+| status-fallback audit | FAIL → FIXED | review no longer inherits workflow HIGH |
+| HIGH-without-binding audit | FAIL → FIXED | HIGH now requires normalized binding |
+| RIGID inherited-status audit | FAIL → FIXED | explicit parent+pointer-custody contract |
+| producer search for other inherited-status paths | PASS (static) | none found at this review boundary |
+| diff scope | PASS | 2 production modules + focused test + report |
+| test design inspection | PASS | no benchmark hard-coding / guarded pseudo-pass |
+| GitHub statuses on prior product/test head `23b22a21…` | NOT_RUN / none instantiated | statuses=[] |
+| GitHub workflow runs on prior product/test head `23b22a21…` | NOT_RUN / none instantiated | workflow_runs=[] |
+| focused imported Node execution | NOT_RUN | no full authenticated checkout in connector session |
+| existing review/confidence/rigid regressions | NOT_RUN | same environment boundary |
+| retained S1/S2/S3→T browser benchmark | NOT_RUN | not claimed |
+| byte closure / V11↔V14 retained qualification | NOT_RUN | not claimed |
 | merge | NOT_APPLICABLE | Owner authorization not granted |
 
 ## MATERIAL_FRONTIER
 
-```text
-Compare Review evidence normalization
-+ multi-source review evidence rendering
-+ bulk-HIGH eligibility projection
-```
-
-No Writer2 mutation or transfer-scope authority has crossed the material frontier.
+`Compare Review evidence normalization + review rendering + bulk-HIGH eligibility` only.
 
 ## SEMANTIC_EVIDENCE_FRONTIER
 
-```text
-PASS: producer/static contract audit
-PASS: deterministic falsifier design/readback
-NOT_RUN: exact imported Node execution
-NOT_RUN: retained Chromium S1/S2/S3→T product benchmark
-NOT_RUN: retained byte closure / V11↔V14 execution
-```
+Static producer/authority audit is PASS. Exact imported Node, retained Chromium, byte closure and V11↔V14 execution remain NOT_RUN.
 
 ## Follow-on — not implemented in this first PR
 
-After executable validation of this authority slice, issue #1239 retains:
-
-1. full `Correspondence → Source vs Target` census/export, including unmatched source nodes;
-2. partial-TEXPECTED 36-delta known-positive overlay, never a negative oracle;
-3. direct proposal `Use / Review & Lock / Reject` actions;
-4. causal blocker tree and suppression of no-scope hash mismatch noise;
-5. hash-keyed Writer2 session persistence.
+After executable validation of this authority slice, #1239 retains: full `Correspondence → Source vs Target` census/export; partial-TEXPECTED 36-delta positive overlay; direct proposal `Use / Review & Lock / Reject`; causal blocker tree/no-scope hash-noise suppression; hash-keyed Writer2 session persistence.
 
 Issue #1237 remains the broader anchor-seed/cardinality specification. PR #1238 must not independently alter this active review-authority slice.
 
 ## Highest remaining risk
 
-Executable compatibility remains the principal risk. The review projection is intentionally stricter than `main`; a checkout-capable run must prove legitimate existing producers satisfy one of the explicit contracts above. If another legitimate producer is discovered that relies only on workflow HIGH, add a named evidence contract for that producer rather than restoring `status === HIGH` as authority.
+Executable compatibility. If a legitimate producer is later found to rely only on workflow HIGH, add a named evidence contract for that producer rather than restoring status-as-proof.
 
 ## EXACT_NEXT_ACTION
 
-On the final exact PR head after this report refresh, run:
+On the final exact PR head after this report refresh:
 
 ```text
 node tests/cii-workspace-adjacent-boundary-review.test.mjs
@@ -237,4 +169,4 @@ relevant existing compare-review/confidence/rigid-custody tests
 retained S1/S2/S3 -> T browser benchmark
 ```
 
-Record every command as PASS / FAIL / NOT_RUN. If any legitimate HIGH row is demoted, isolate its producer and evidence contract. Keep PR #1240 draft and unmerged until explicit Owner authorization.
+Record PASS / FAIL / NOT_RUN truth. Keep PR #1240 draft and unmerged until explicit Owner authorization.
