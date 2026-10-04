@@ -27,9 +27,7 @@ function duplicatePhysicalMutationBlockers(operations) {
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(operationId(operation));
   }
-  for (const [key, ids] of byKey) if (ids.length > 1) {
-    blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
-  }
+  for (const [key, ids] of byKey) if (ids.length > 1) blockers.push(`CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:${key}:${ids.sort().join(',')}`);
   return blockers;
 }
 function conflictingPhysicalMutationBlockers(operations) {
@@ -42,12 +40,8 @@ function custodyBlockers(transferPlan, targetDocument) {
   if (text(transferPlan?.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) blockers.push('CII_MS_WRITER2_SOURCE_SET_HASH_MISMATCH');
   if (text(transferPlan?.targetAuthority?.originalSha256) !== CII_MS_TARGET_SHA256) blockers.push('CII_MS_WRITER2_ORIGINAL_TARGET_HASH_MISMATCH');
   if (text(transferPlan?.targetAuthority?.normalizedSha256) !== text(targetDocument?.contentSha256)) blockers.push('CII_MS_WRITER2_NORMALIZED_TARGET_HASH_MISMATCH');
-  if (scope?.status !== 'BOUND' || scope?.mode !== 'EXPLICIT_APPLY_EXCLUDE' || scope?.authority !== 'USER_EXPLICIT_OPERATION_SCOPE') {
-    blockers.push('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED');
-  }
-  if (scope?.sourceAuthorityKind !== 'SOURCE_SET' || text(scope?.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) {
-    blockers.push('CII_MS_WRITER2_SCOPE_SOURCE_SET_HASH_MISMATCH');
-  }
+  if (scope?.status !== 'BOUND' || scope?.mode !== 'EXPLICIT_APPLY_EXCLUDE' || scope?.authority !== 'USER_EXPLICIT_OPERATION_SCOPE') blockers.push('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED');
+  if (scope?.sourceAuthorityKind !== 'SOURCE_SET' || text(scope?.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) blockers.push('CII_MS_WRITER2_SCOPE_SOURCE_SET_HASH_MISMATCH');
   if (text(scope?.targetSha256) !== CII_MS_TARGET_SHA256) blockers.push('CII_MS_WRITER2_SCOPE_TARGET_HASH_MISMATCH');
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY' && operation?.action !== 'KEEP');
   const excluded = (transferPlan?.excludedOperations || []).filter((operation) => operation?.scopeDecision === 'EXCLUDE' && operation?.action !== 'KEEP');
@@ -58,28 +52,48 @@ function custodyBlockers(transferPlan, targetDocument) {
   return blockers;
 }
 function familyPlan(transferPlan, predicate) {
-  return deepFreeze({
-    ...transferPlan,
-    operations: deepFreeze((transferPlan?.operations || []).filter((operation) => operation?.action === 'KEEP' || predicate(operation))),
-  });
+  return deepFreeze({ ...transferPlan, operations: deepFreeze((transferPlan?.operations || []).filter((operation) => operation?.action === 'KEEP' || predicate(operation))) });
+}
+function firstGroup(rows, predicate) { return rows.filter(predicate); }
+export function ciiWriter2RootBlockers(rawBlockers) {
+  const rows = [...new Set((rawBlockers || []).map(String).filter(Boolean))];
+  if (!rows.length) return deepFreeze([]);
+  const member = firstGroup(rows, (item) => /^S\d+:/.test(item));
+  if (member.length) return deepFreeze(member);
+  const correspondenceConflict = firstGroup(rows, (item) => [
+    'MULTISOURCE_TARGET_CUSTODY_CONFLICT', 'MULTISOURCE_TARGET_MUTATION_CONFLICT',
+  ].includes(item));
+  if (correspondenceConflict.length) return deepFreeze(correspondenceConflict);
+  if (rows.includes('MULTISOURCE_CORRESPONDENCE_NOT_READY')) return deepFreeze(['MULTISOURCE_CORRESPONDENCE_NOT_READY']);
+  const custody = firstGroup(rows, (item) => [
+    'CII_MS_WRITER2_SOURCE_SET_AUTHORITY_REQUIRED', 'CII_MS_WRITER2_SOURCE_SET_HASH_MISMATCH',
+    'CII_MS_WRITER2_ORIGINAL_TARGET_HASH_MISMATCH', 'CII_MS_WRITER2_NORMALIZED_TARGET_HASH_MISMATCH',
+  ].includes(item));
+  if (custody.length) return deepFreeze(custody);
+  const mutationConflict = firstGroup(rows, (item) => item.startsWith('CII_MS_WRITER2_DUPLICATE_PHYSICAL_MUTATION:')
+    || item.startsWith('CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:') || item.startsWith('CII_MS_WRITER2_UNAUTHORIZED_APPLY:'));
+  if (mutationConflict.length) return deepFreeze(mutationConflict);
+  const bmCoverage = firstGroup(rows, (item) => item.startsWith('CII_MS_WRITER2_BM001_CORRESPONDENCE_COVERAGE_REQUIRED:'));
+  if (bmCoverage.length) return deepFreeze(bmCoverage);
+  if (rows.includes('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED')) return deepFreeze(['CII_MS_WRITER2_BOUND_SCOPE_REQUIRED']);
+  const scopeSet = firstGroup(rows, (item) => item.startsWith('CII_MS_WRITER2_SCOPE_'));
+  if (scopeSet.length) return deepFreeze(scopeSet);
+  if (rows.includes('CII_MS_WRITER2_TRANSFER_PLAN_NOT_PREVIEW_READY')) return deepFreeze(['CII_MS_WRITER2_TRANSFER_PLAN_NOT_PREVIEW_READY']);
+  if (rows.includes('CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS')) return deepFreeze(['CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS']);
+  return deepFreeze(rows);
 }
 
 export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument) {
   const blockers = [...(transferPlan?.blockers || []), ...custodyBlockers(transferPlan, targetDocument)];
   if (transferPlan?.status !== 'PREVIEW_READY') blockers.push('CII_MS_WRITER2_TRANSFER_PLAN_NOT_PREVIEW_READY');
-
   const correspondenceCoverage = ciiBm001CorrespondenceCoverage(transferPlan);
-  if (correspondenceCoverage.status !== 'READY') {
-    blockers.push(`CII_MS_WRITER2_BM001_CORRESPONDENCE_COVERAGE_REQUIRED:${correspondenceCoverage.matchedRowCount}/${correspondenceCoverage.expectedRowCount}`);
-  }
+  if (correspondenceCoverage.status !== 'READY') blockers.push(`CII_MS_WRITER2_BM001_CORRESPONDENCE_COVERAGE_REQUIRED:${correspondenceCoverage.matchedRowCount}/${correspondenceCoverage.expectedRowCount}`);
 
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY');
   const qualified = applied.filter(isQualifiedExpectedApply);
   const replacements = qualified.filter(ciiWriter1CNodeNameReplacementOperation);
   const structural = qualified.filter(ciiWriter2NodeNameCardinalityOperation);
-  for (const operation of applied) if (!isQualifiedExpectedApply(operation)) {
-    blockers.push(`CII_MS_WRITER2_UNAUTHORIZED_APPLY:${operationId(operation) || 'unknown'}`);
-  }
+  for (const operation of applied) if (!isQualifiedExpectedApply(operation)) blockers.push(`CII_MS_WRITER2_UNAUTHORIZED_APPLY:${operationId(operation) || 'unknown'}`);
   blockers.push(...duplicatePhysicalMutationBlockers(qualified));
   blockers.push(...conflictingPhysicalMutationBlockers(qualified));
   if (!qualified.length) blockers.push('CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS');
@@ -101,28 +115,22 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
     if (!relocationPlan.ready) blockers.push(...relocationPlan.blockers);
   }
 
-  const unique = deepFreeze([...new Set(blockers)]);
+  const machineBlockers = deepFreeze([...new Set(blockers)]);
+  const rootBlockers = ciiWriter2RootBlockers(machineBlockers);
   return deepFreeze({
     schema: 'CIIWorkspaceWriter2SourceSetNodeNameReadiness.v2',
-    status: unique.length ? 'BLOCKED' : 'READY', ready: unique.length === 0,
+    status: machineBlockers.length ? 'BLOCKED' : 'READY', ready: machineBlockers.length === 0,
     mutationCount: qualified.length, mutationOperationCount: qualified.length,
-    familyMutationCounts: deepFreeze({
-      nodeName: qualified.length,
-      nodeNameReplace: replacements.length,
-      nodeNameStructural: structural.length,
-      sifDelete: 0, hangerDelete: 0, restraintDelete: 0,
-    }),
-    blockers: unique,
+    familyMutationCounts: deepFreeze({ nodeName: qualified.length, nodeNameReplace: replacements.length, nodeNameStructural: structural.length, sifDelete: 0, hangerDelete: 0, restraintDelete: 0 }),
+    blockers: rootBlockers,
+    rootBlockers,
+    machineBlockers,
     bm001CorrespondenceCoverage: correspondenceCoverage,
-    components: deepFreeze({
-      writer1CNodeNameReplacement: replacementPlan,
-      nodeName: relocationPlan,
-      sifDelete: null, hangerDeleteAll: null, hangerPartialDelete: null, restraintDelete: null,
-    }),
+    components: deepFreeze({ writer1CNodeNameReplacement: replacementPlan, nodeName: relocationPlan, sifDelete: null, hangerDeleteAll: null, hangerPartialDelete: null, restraintDelete: null }),
     sourceSetSha256: text(transferPlan?.sourceSetSha256), originalTargetSha256: text(transferPlan?.targetAuthority?.originalSha256),
   });
 }
 
 export const _test = Object.freeze({
-  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers, familyPlan,
+  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers, familyPlan, ciiWriter2RootBlockers,
 });
