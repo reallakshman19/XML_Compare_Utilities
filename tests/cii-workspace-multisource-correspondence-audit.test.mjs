@@ -25,7 +25,7 @@ const preview = {
   memberPreviews: [
     member('S1', ['1', '2', '3', '4'], [
       { kind: 'NODE', source: '1', target: '101', confidence: 'HIGH', workflowStatus: 'HIGH', authority: 'ADJACENT_MATCH_BOUNDARY', identityEvidenceBasis: 'ADJACENT_EDGE_CONSENSUS', decision: 'REVIEW', identityBound: true, changeCount: 1, changeFamilies: ['NODE_NAME'] },
-      { kind: 'NODE', source: '2', target: '102', confidence: 'REVIEW', workflowStatus: 'REVIEW', authority: 'PATH', decision: 'REVIEW', identityBound: false, changeCount: 0, changeFamilies: [] },
+      { kind: 'NODE', source: '2', target: '102', confidence: 'HIGH', workflowStatus: 'HIGH', authority: 'PATH', decision: 'REVIEW', identityBound: true, changeCount: 0, changeFamilies: [] },
       { kind: 'NODE', source: '2', target: '103', confidence: 'REVIEW', workflowStatus: 'CONFLICT', authority: 'PATH_ALT', decision: 'REVIEW', identityBound: false, changeCount: 1, changeFamilies: ['GEOMETRY'] },
       { kind: 'ELEMENT', source: 'E1', target: 'TE1', confidence: 'HIGH', identityBound: true },
     ]),
@@ -52,7 +52,7 @@ assert.deepEqual(one.targetNodeIds, ['101']);
 assert.deepEqual(one.targetNodeNames, ['T-101']);
 assert.deepEqual(one.evidenceBasis, ['ADJACENT_EDGE_CONSENSUS']);
 const two = audit.rows.find((row) => row.auditRowId === 'S1:2');
-assert.equal(two.status, 'UNRESOLVED', 'conflicting multi-emission source node must remain auditable');
+assert.equal(two.status, 'UNRESOLVED', 'competing TARGET claims must outrank a single bound row');
 assert.equal(two.emittedRowCount, 2);
 assert.deepEqual(two.targetNodeIds, ['102', '103']);
 const three = audit.rows.find((row) => row.auditRowId === 'S1:3');
