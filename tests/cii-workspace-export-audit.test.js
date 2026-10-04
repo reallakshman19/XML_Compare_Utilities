@@ -15,10 +15,17 @@ const correspondence = {
 const review = { reviewedCorrespondenceIds: ['path:E1:E9:E10'], rejectedCorrespondenceIds: [] };
 const transferPlan = {
   operations: [
-    { operationId: 'op:P1:path:E1:E9:E10', property: 'P1', custody: 'ELEMENT_PATH', status: 'PREVIEW_READY', blockers: [], matchAuthority: { correspondenceId: 'path:E1:E9:E10' } },
-    { operationId: 'op:T1:path:E1:E9:E10', property: 'T1', custody: 'ELEMENT_PATH', status: 'BLOCKED', blockers: ['TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE'], matchAuthority: { correspondenceId: 'path:E1:E9:E10' } },
+    { operationId: 'op:N1:node:100:5000', property: 'Node name / to-name', custody: 'NODE', action: 'COPY', status: 'PREVIEW_READY', blockers: [],
+      bm001Acceptance: { status: 'BOUND', groupedKey: 'S1|100|5000' }, matchAuthority: { correspondenceId: 'node:100:5000' } },
+    { operationId: 'op:P1:path:E1:E9:E10', property: 'P1', custody: 'ELEMENT_PATH', action: 'COPY', status: 'PREVIEW_READY', blockers: [], matchAuthority: { correspondenceId: 'path:E1:E9:E10' } },
+    { operationId: 'op:T1:path:E1:E9:E10', property: 'T1', custody: 'ELEMENT_PATH', action: 'KEEP', status: 'BLOCKED', blockers: ['TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE'], matchAuthority: { correspondenceId: 'path:E1:E9:E10' } },
   ],
 };
+const compareReview = { rows: [
+  { correspondenceId: 'node:100:5000', confidence: 'LOCKED', identityBound: true, changeCount: 1, changeFamilies: ['NODE_NAME'],
+    changes: [{ category: 'NODE_NAME', property: 'Node name / to-name', sourceValue: 'SL-100', targetValue: 'OLD-5000', changed: true }] },
+  { correspondenceId: 'path:E1:E9:E10', confidence: 'HIGH', identityBound: true, changeCount: 1, changeFamilies: ['PIPE'], changes: [] },
+] };
 const audit = {
   schema: 'CIIWorkspaceAudit.v1',
   target: { contentSha256: 'target-sha', fileName: 'target.cii' },
@@ -26,7 +33,7 @@ const audit = {
   review,
   mutationAuthority: { modifiedTargetCiiExport: 'BLOCKED', stage06: 'NOT_IMPLEMENTED' },
 };
-const result = { correspondence, transferPlan, audit };
+const result = { correspondence, transferPlan, compareReview, audit };
 const first = ciiWorkspaceArtifactBundle(result);
 const second = ciiWorkspaceArtifactBundle(result);
 assert.strictEqual(first.correspondenceCsv, second.correspondenceCsv, 'CSV bytes must be deterministic.');
@@ -34,15 +41,13 @@ assert.strictEqual(first.auditJson, second.auditJson, 'Audit JSON bytes must be 
 assert.strictEqual(first.modifiedTargetCii, null);
 assert(first.correspondenceCsv.startsWith('kind,sourceId,sourceFileName,sourceOriginalSha256,targetFileName,targetOriginalSha256,operation,'),
   'CSV must expose multi-source source/target custody without changing single-source semantics');
-assert(first.correspondenceCsv.includes('reviewDecision'));
-assert(first.correspondenceCsv.includes('SOURCE_1_TO_TARGET_N'));
-assert(first.correspondenceCsv.includes('ACCEPTED'));
-assert(first.correspondenceCsv.includes('P1|T1'));
-assert(first.correspondenceCsv.includes('ELEMENT_PATH'));
-assert(first.correspondenceCsv.includes('TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE'));
-assert(first.correspondenceCsv.includes('lengthDeltaMm'));
+for (const token of [
+  'reviewDecision', 'sourceNodeName', 'targetNodeName', 'identityBound', 'transferActions', 'bm001Statuses',
+  'SOURCE_1_TO_TARGET_N', 'ACCEPTED', 'P1|T1', 'ELEMENT_PATH', 'TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE',
+  'lengthDeltaMm', 'SL-100', 'OLD-5000', 'COPY', 'BOUND',
+]) assert(first.correspondenceCsv.includes(token), token);
 assert(first.auditJson.includes('"stage06":"NOT_IMPLEMENTED"'));
-assert.strictEqual(correspondenceRowsToCsv(correspondence, { review, transferPlan }), first.correspondenceCsv);
+assert.strictEqual(correspondenceRowsToCsv(correspondence, { review, transferPlan, compareReview }), first.correspondenceCsv);
 
 const ambiguousMultiSource = {
   nodeRows: [
@@ -77,4 +82,4 @@ assert(multiLines[2].includes('"review-target.CII"') && multiLines[2].includes(`
   'all member rows must bind to the same original TARGET custody');
 assert.notEqual(multiLines[1], multiLines[2], 'overlapping source/target identities must remain distinguishable by durable source custody');
 
-console.log('CII Workspace deterministic audit/export checks passed.');
+console.log('CII Workspace deterministic Source-vs-Target audit/export checks passed.');
