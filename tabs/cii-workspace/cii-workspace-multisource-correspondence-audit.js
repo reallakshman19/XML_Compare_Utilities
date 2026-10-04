@@ -19,8 +19,10 @@ function nodeRows(memberPreview) {
 function decision(row) { return text(row?.decision || (row?.workflowStatus === 'LOCKED' ? 'LOCKED' : 'REVIEW')); }
 function classification(rows) {
   if (!rows.length) return 'UNEMITTED';
-  if (rows.some((row) => row?.identityBound === true)) return 'BOUND';
+  const targetNodeIds = unique(rows.map((row) => row?.target));
+  if (targetNodeIds.length > 1) return 'UNRESOLVED';
   if (rows.some((row) => row?.confidence === 'UNRESOLVED' || ['UNRESOLVED', 'CONFLICT'].includes(row?.workflowStatus))) return 'UNRESOLVED';
+  if (rows.some((row) => row?.identityBound === true)) return 'BOUND';
   return 'REVIEW';
 }
 function auditRow(sourceId, sourceDocument, targetDocument, sourceNodeId, rows) {
