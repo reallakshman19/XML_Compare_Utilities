@@ -103,4 +103,11 @@ assert.match(markup, /Export census JSON/);
 assert.match(markup, /data:text\/csv;charset=utf-8/);
 assert.match(markup, /data:application\/json;charset=utf-8/);
 
+const pending = new Map([[s1Unresolved.correspondenceId, 'REJECT']]);
+const pendingAudit = buildCiiSourceTargetAudit({ ...preview, reviewDecisionOverrides: pending });
+assert.deepEqual(pendingAudit.rows.find((row) => row.rowKey === 'S1:2').reviewDecisions, ['REJECT']);
+const pendingMarkup = ciiMultiSourceSourceTargetAuditMarkup(preview, pending);
+assert.match(pendingMarkup, /REJECT/);
+assert.doesNotMatch(pendingMarkup, /S1:2[^]*>REVIEW</);
+
 console.log('CII Source vs Target census audit checks: PASS');
