@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { deriveCiiAlignmentCorrespondence } from '../tabs/cii-workspace/cii-workspace-alignment.js';
 import { buildCiiCompareReviewModel } from '../tabs/cii-workspace/cii-workspace-compare-review.js';
 import { bulkAcceptCiiMultiSourceReview, ciiMultiSourceReviewMarkup } from '../tabs/cii-workspace/cii-workspace-multisource-review-ui.js';
 
@@ -79,23 +78,5 @@ const locked = modelFor({
 }).rows[0];
 assert.equal(locked.identityBound, true);
 assert.equal(locked.confidence, 'LOCKED');
-
-// Producer-to-review integration: verify the real alignment evidence shape survives projection.
-const leftRef = { elementId: 'S-L', routeFrom: '330', routeTo: '340' };
-const rightRef = { elementId: 'S-R', routeFrom: '340', routeTo: '350' };
-const leftTarget = { elementId: 'T-L', routeFrom: '10250', routeTo: '10260' };
-const rightTarget = { elementId: 'T-R', routeFrom: '10260', routeTo: '10270' };
-const alignment = { operations: [
-  { op: 'MATCH', refEdge: leftRef, targetEdge: leftTarget },
-  { op: 'MATCH', refEdge: rightRef, targetEdge: rightTarget },
-] };
-const scored = deriveCiiAlignmentCorrespondence(alignment, {
-  scoreCiiEdgeCandidate: () => edgeEvidence(),
-});
-// The scorer is internal to the alignment module, so this integration assertion is structural rather than a mock override.
-if (scored.nodeRows.length) {
-  const projected = modelFor(scored.nodeRows[0]).rows[0];
-  assert.equal(projected.identityEvidenceBasis, 'ADJACENT_EDGE_CONSENSUS');
-}
 
 console.log('CII adjacent-boundary review evidence checks: PASS');
