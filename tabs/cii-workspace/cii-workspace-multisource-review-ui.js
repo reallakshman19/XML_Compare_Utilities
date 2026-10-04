@@ -28,12 +28,18 @@ function fmt(value, digits = 1) {
 }
 function confidenceReason(row) {
   if (row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED') return 'Manual reviewed anchor authority.';
+  if (row?.adjacentBoundary) {
+    const boundary = row.adjacentBoundary;
+    if (row?.confidence === 'HIGH') return `HIGH: ${boundary.highCount}/${boundary.requiredHighCount} adjacent matched elements independently carry HIGH identity evidence; this NODE is their shared boundary.`;
+    return `REVIEW: adjacent boundary consensus is ${boundary.highCount}/${boundary.requiredHighCount} HIGH; explicit engineering review is required.`;
+  }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName;
   if (row?.confidence === 'HIGH') {
     if (m1?.available === false) return name?.match
       ? 'HIGH: M1 registration is underdetermined; M2 + OD <10% + Node Name corroboration agree.'
       : 'HIGH: M1 registration is underdetermined; strong M2 network evidence + OD <10% agree.';
-    return 'HIGH: independent M1 and M2 identity evidence agree and OD error is <10%.';
+    if (m1?.pass && m2?.pass) return 'HIGH: independent M1 and M2 identity evidence agree and OD error is <10%.';
+    return 'HIGH: identity is bound by qualified evidence; direct M1/M2 detail is not projected on this row.';
   }
   if (row?.confidence === 'MEDIUM') {
     if (od?.confidence === 'MEDIUM') return 'MEDIUM: identity is supported, but OD error is between 10% and 50%.';
@@ -47,7 +53,20 @@ function confidenceReason(row) {
   if (!row?.identityBound) return 'REVIEW: correspondence identity is not bound by qualified evidence.';
   return 'REVIEW: explicit engineering decision required.';
 }
+function boundarySideLabel(label, side) {
+  if (!side) return `${label} unavailable`;
+  const m1 = side.m1Pass == null ? 'M1 —' : `M1 ${side.m1Pass ? 'PASS' : 'FAIL'}`;
+  const m2 = side.m2Pass == null ? 'M2 —' : `M2 ${side.m2Pass ? 'PASS' : 'FAIL'}`;
+  const od = side.odConfidence ? `OD ${side.odConfidence}${side.odPercentError == null ? '' : ` ${fmt(side.odPercentError)}%`}` : 'OD —';
+  return `${label} ${side.confidence} · ${m1} · ${m2} · ${od}`;
+}
 function evidenceMarkup(row) {
+  if (row?.adjacentBoundary) {
+    const boundary = row.adjacentBoundary;
+    const band = { level: row?.confidence === 'HIGH' ? 4 : 2 };
+    const label = `ADJACENT CONSENSUS · ${boundary.highCount}/${boundary.requiredHighCount} HIGH`;
+    return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass(band)}" style="${ciiEvidenceBandStyle(band.level)}">${h(label)}</span></div><small>${h(boundarySideLabel('LEFT', boundary.left))}</small><small>${h(boundarySideLabel('RIGHT', boundary.right))}</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
+  }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName; const band = row?.corroborationBand;
   const m1Label = !m1 ? 'M1 —' : (m1.available === false ? `M1 N/A${m1.registrationStatus ? ` ${m1.registrationStatus}` : ''}` : `M1 ${m1.pass ? 'PASS' : 'FAIL'} ${fmt(m1.distanceMm)} / ${fmt(m1.toleranceMm)} mm`);
   const m2Label = !m2 ? 'M2 —' : `M2 ${m2.pass ? 'PASS' : 'FAIL'} ${fmt(m2.score)} / ${fmt(m2.threshold)}`;
@@ -65,7 +84,7 @@ function filterRow(row, filters = {}) {
   if (filters.changedOnly && !row?.changeCount) return false;
   const search = String(filters.search || '').trim().toLowerCase();
   if (!search) return true;
-  const haystack = [row?.sourceId, row?.source, row?.target, row?.kind, row?.confidence, row?.nodeName?.kind, ...(row?.identityReasons || []), ...(row?.changeFamilies || [])].join(' ').toLowerCase();
+  const haystack = [row?.sourceId, row?.source, row?.target, row?.kind, row?.confidence, row?.identityEvidenceBasis, row?.nodeName?.kind, ...(row?.identityReasons || []), ...(row?.changeFamilies || [])].join(' ').toLowerCase();
   return haystack.includes(search);
 }
 function decisionControl(row, decisions) {
@@ -122,7 +141,7 @@ export function ciiMultiSourceBulkAcceptOutcome(preview, decisions, confidence) 
   const locked = ciiMultiSourceLockedReviewCount(preview);
   if (count) return Object.freeze({
     count, changed: true, locked,
-    message: `${count} ${label} multi-source correspondence rows marked Accept. Apply approvals to Transfer Preview.`,
+    message: `${count} ${label} correspondence rows marked Accept. Decisions are pending. Apply approvals to Transfer Preview to rebuild correspondence and Writer2 scope.`,
   });
   return Object.freeze({
     count: 0, changed: false, locked,
