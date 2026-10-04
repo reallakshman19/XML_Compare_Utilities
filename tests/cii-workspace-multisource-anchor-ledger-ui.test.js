@@ -29,7 +29,11 @@ assert.equal(rows.length, 3);
 assert(rows.some((row) => row.sourceId === 'S1' && row.authority === 'METHOD B'));
 assert(rows.some((row) => row.sourceId === 'S2' && row.authority === 'USER LOCKED'));
 const markup = ciiMultiSourceAnchorLedgerMarkup(inspection, selected, manual);
-for (const token of ['Source-set Anchor Authority', 'MASTER LEDGER', '120', '40070', '1890', '21890', 'data-ciiw-ms-ledger-update', 'data-ciiw-ms-ledger-auto-remove']) assert(markup.includes(token), token);
+for (const token of [
+  'Source-set Anchor Authority', 'MASTER LEDGER', '120', '40070', '1890', '21890',
+  'data-ciiw-ms-ledger-update', 'data-ciiw-ms-ledger-auto-remove',
+  '2 manual locked', '1 automatic bases', '3 anchor pairs', 'seed authority, not transfer mutations',
+]) assert(markup.includes(token), token);
 
 const preview = { compareReview: { rows: [
   { correspondenceId: 'a1', decision: 'LOCKED', workflowStatus: 'LOCKED', confidence: 'LOCKED', identityBound: true },
