@@ -72,6 +72,14 @@ const explicitHigh = modelFor({
 assert.equal(explicitHigh.identityBound, true);
 assert.equal(explicitHigh.confidence, 'HIGH');
 
+const explicitHighUnbound = modelFor({
+  correspondenceId: 'element:E3:T3', kind: 'ELEMENT', sourceElementId: 'E3', targetElementIds: ['T3'],
+  status: 'HIGH', authority: 'DIRECT_EVIDENCE', evidence: { identitySupported: false, identityConfidence: 'HIGH' },
+}).rows[0];
+assert.equal(explicitHighUnbound.identityBound, false, 'explicit HIGH token must not bind identity by itself');
+assert.equal(explicitHighUnbound.confidence, 'REVIEW', 'review HIGH is forbidden when normalized identity is unbound');
+assert.equal(bulkAcceptCiiMultiSourceReview({ compareReview: { rows: [{ ...explicitHighUnbound, sourceId: 'S1', memberCorrespondenceId: 'element:E3:T3' }] } }, new Map(), 'HIGH'), 0);
+
 const locked = modelFor({
   correspondenceId: 'node:3910:875', kind: 'NODE', sourceNodeId: '3910', targetNodeId: '875',
   status: 'LOCKED', authority: 'USER_LOCKED_ANCHOR', evidence: {},
