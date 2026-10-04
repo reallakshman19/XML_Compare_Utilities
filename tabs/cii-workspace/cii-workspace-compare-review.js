@@ -52,6 +52,28 @@ function reviewConfidence(row, candidates, boundary, identityBound) {
   if (['MEDIUM', 'REVIEW'].includes(confidence)) return confidence;
   return 'REVIEW';
 }
+function normalizedIdentity(row) {
+  const candidates = candidateEvidence(row); const boundary = adjacentBoundaryEvidence(row);
+  const identityBound = reviewIdentityBound(row, candidates, boundary);
+  return Object.freeze({ candidates, boundary, identityBound, confidence: reviewConfidence(row, candidates, boundary, identityBound) });
+}
+function rigidComponentIdentity(row, rowById) {
+  if (row?.kind !== 'COMPONENT' || row?.authority !== 'POINTER_BOUND_RIGID_COMPONENT_CONTEXT') return null;
+  const parentId = String(row?.parentElementCorrespondenceId || ''); const parent = rowById?.get(parentId) || null;
+  const blockers = [...(row?.evidence?.blockers || [])];
+  if (!parent) blockers.push('PARENT_ELEMENT_CORRESPONDENCE_NOT_FOUND');
+  const parentIdentity = parent ? normalizedIdentity(parent) : Object.freeze({ identityBound: false, confidence: 'UNRESOLVED' });
+  const pointerCustodyQualified = blockers.length === 0; const identityBound = pointerCustodyQualified && parentIdentity.identityBound;
+  let confidence = 'REVIEW';
+  if (row?.status === 'CONFLICT') confidence = 'UNRESOLVED';
+  else if (identityBound && ['HIGH', 'LOCKED'].includes(parentIdentity.confidence)) confidence = 'HIGH';
+  else if (identityBound && parentIdentity.confidence === 'MEDIUM') confidence = 'MEDIUM';
+  return Object.freeze({
+    basis: 'PARENT_ELEMENT_PLUS_POINTER_CUSTODY', parentCorrespondenceId: parentId || null,
+    parentIdentityBound: parentIdentity.identityBound, parentConfidence: parentIdentity.confidence,
+    pointerCustodyQualified, blockers: Object.freeze(blockers), identityBound, confidence,
+  });
+}
 function winnerEvidence(row) {
   const candidates = candidateEvidence(row);
   if (!candidates) return row?.evidence?.element || row?.evidence || null;
@@ -73,9 +95,11 @@ function byCorrespondence(deltaSet) {
   }
   return map;
 }
-function projection(row, review, changeMap) {
-  const candidates = candidateEvidence(row); const winner = winnerEvidence(row); const boundary = adjacentBoundaryEvidence(row);
-  const identityBound = reviewIdentityBound(row, candidates, boundary);
+function projection(row, review, changeMap, rowById) {
+  const normalized = normalizedIdentity(row); const componentIdentity = rigidComponentIdentity(row, rowById);
+  const candidates = normalized.candidates; const winner = winnerEvidence(row); const boundary = normalized.boundary;
+  const identityBound = componentIdentity?.identityBound ?? normalized.identityBound;
+  const confidence = componentIdentity?.confidence ?? normalized.confidence;
   const changes = (changeMap.get(row.correspondenceId) || []).filter((item) => item.changed);
   const m1 = winner?.methods?.m1Spatial || row?.evidence?.methods?.m1Spatial || null;
   const m2 = winner?.methods?.m2Network || row?.evidence?.methods?.m2Network || null;
@@ -83,11 +107,13 @@ function projection(row, review, changeMap) {
   return deepFreeze({
     correspondenceId: row.correspondenceId,
     kind: row.kind,
+    componentKind: row.componentKind || null,
     workflowStatus: row.status,
-    confidence: reviewConfidence(row, candidates, boundary, identityBound),
+    confidence,
     identityBound,
-    identityEvidenceBasis: boundary?.basis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
+    identityEvidenceBasis: componentIdentity?.basis || boundary?.basis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
     adjacentBoundary: boundary,
+    componentIdentity,
     source: rowSource(row), target: rowTarget(row),
     methodA: m1 ? Object.freeze({
       pass: Boolean(m1.pass), available: m1.available !== false, score: m1.score ?? 0, distanceMm: m1.distanceMm ?? null, toleranceMm: m1.toleranceMm ?? null,
@@ -157,7 +183,8 @@ export function buildCiiCompareReviewModel(sourceDocument, targetDocument, corre
     ...(correspondence?.elementRows || []),
     ...(correspondence?.componentRows || []),
   ];
-  const rows = rawRows.map((row) => projection(row, review, changeMap));
+  const rowById = new Map(rawRows.map((row) => [String(row?.correspondenceId || ''), row]));
+  const rows = rawRows.map((row) => projection(row, review, changeMap, rowById));
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.compareReview,
     source: Object.freeze({ fileName: sourceDocument?.fileName || '', nodeCount: sourceDocument?.summary?.nodeCount ?? null, elementCount: sourceDocument?.summary?.elementCount ?? null }),
