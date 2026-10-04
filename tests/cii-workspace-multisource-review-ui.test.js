@@ -55,7 +55,7 @@ for (const token of [
   '3870', '870', '120', '40070', '1890', '21890', 'SL-097.19', 'OLD-870',
   'ANCHOR_PROPAGATED_M1_M2', 'COPY · PREVIEW_READY', 'BOUND · 1', 'AMBIGUOUS_REGION',
   'data-ciiw-ms-decision', 'NodeName differences', 'writer candidates', 'BM-001-bound ops',
-  'retained 36-mutation benchmark is proved independently from T → TEXPECTED',
+  'retained mutation benchmark is proved independently from T → TEXPECTED',
 ]) assert.ok(markup.includes(token), token);
 assert.ok(ciiMultiSourceReviewMarkup(preview, decisions, { confidence: 'REVIEW', search: 'does-not-exist', changedOnly: false }).includes('No correspondence rows match'));
 
