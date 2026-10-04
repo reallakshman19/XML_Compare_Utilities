@@ -17,17 +17,6 @@ function reviewDecision(row, review) {
   if ((review?.reviewedCorrespondenceIds || []).includes(id)) return 'ACCEPTED';
   return 'UNREVIEWED';
 }
-function transferFields(row, transferPlan) {
-  const operations = (transferPlan?.operations || [])
-    .filter((item) => item.matchAuthority?.correspondenceId === row.correspondenceId)
-    .sort((a, b) => String(a.operationId).localeCompare(String(b.operationId)));
-  return {
-    properties: uniqueStrings(operations.map((item) => item.property)).join('|'),
-    custodies: uniqueStrings(operations.map((item) => item.custody)).join('|'),
-    statuses: uniqueStrings(operations.map((item) => item.status)).join('|'),
-    blockers: uniqueStrings(operations.flatMap((item) => item.blockers || [])).join('|'),
-  };
-}
 function reviewProjection(row, compareReview) {
   return (compareReview?.rows || []).find((item) => item.correspondenceId === row.correspondenceId) || null;
 }
@@ -36,12 +25,25 @@ function sourceMember(row, sourceSet) {
   if (!id) return null;
   return (sourceSet?.members || []).find((member) => String(member?.sourceId || '') === id) || null;
 }
+function nodeNameProjection(projection) {
+  return (projection?.changes || []).find((item) => item?.category === 'NODE_NAME' && item?.property === 'Node name / to-name') || null;
+}
+function transferProjection(operations) {
+  return {
+    properties: uniqueStrings(operations.map((item) => item.property)).join('|'),
+    custodies: uniqueStrings(operations.map((item) => item.custody)).join('|'),
+    actions: uniqueStrings(operations.map((item) => item.action)).join('|'),
+    statuses: uniqueStrings(operations.map((item) => item.status)).join('|'),
+    bm001Statuses: uniqueStrings(operations.map((item) => item?.bm001Acceptance?.status).filter(Boolean)).join('|'),
+    blockers: uniqueStrings(operations.flatMap((item) => item.blockers || [])).join('|'),
+  };
+}
 
 export function correspondenceRowsToCsv(correspondence, context = {}) {
   const targetFileName = context?.targetDocument?.fileName || '';
   const targetOriginalSha256 = context?.targetAuthority?.originalSha256 || '';
   const operationsByCorrespondenceId = new Map();
-  for (const item of context?.transferPlan?.operations || []) {
+  for (const item of [...(context?.transferPlan?.operations || []), ...(context?.transferPlan?.excludedOperations || [])]) {
     const id = item?.matchAuthority?.correspondenceId;
     if (!id) continue;
     let list = operationsByCorrespondenceId.get(id);
@@ -57,19 +59,11 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
     ...(correspondence?.elementRows || []),
     ...(correspondence?.componentRows || []),
   ].map((row) => {
-    const directOps = operationsByCorrespondenceId.get(row.correspondenceId);
-    const operations = directOps
-      ? [...directOps].sort((a, b) => String(a.operationId).localeCompare(String(b.operationId)))
-      : (context?.transferPlan ? [] : (context?.transferPlan?.operations || [])
-        .filter((item) => item.matchAuthority?.correspondenceId === row.correspondenceId)
-        .sort((a, b) => String(a.operationId).localeCompare(String(b.operationId))));
-    const transfer = {
-      properties: uniqueStrings(operations.map((item) => item.property)).join('|'),
-      custodies: uniqueStrings(operations.map((item) => item.custody)).join('|'),
-      statuses: uniqueStrings(operations.map((item) => item.status)).join('|'),
-      blockers: uniqueStrings(operations.flatMap((item) => item.blockers || [])).join('|'),
-    };
+    const operations = [...(operationsByCorrespondenceId.get(row.correspondenceId) || [])]
+      .sort((a, b) => String(a.operationId).localeCompare(String(b.operationId)));
+    const transfer = transferProjection(operations);
     const projection = reviewProjectionByCorrespondenceId.get(row.correspondenceId) || reviewProjection(row, context.compareReview);
+    const nodeName = nodeNameProjection(projection);
     const member = sourceMember(row, context.sourceSet);
     return {
       kind: row.kind,
@@ -83,19 +77,29 @@ export function correspondenceRowsToCsv(correspondence, context = {}) {
       workflowStatus: row.status,
       source: rowSource(row),
       target: rowTarget(row),
+      sourceNodeName: nodeName?.sourceValue ?? '',
+      targetNodeName: nodeName?.targetValue ?? '',
       correspondenceId: row.correspondenceId,
       authority: row.authority || '',
+      identityBound: projection?.identityBound === true ? 'BOUND' : (projection ? 'REVIEW' : ''),
       reviewDecision: reviewDecision(row, context.review),
       engineeringChangeCount: projection?.changeCount || 0,
       engineeringChangeFamilies: (projection?.changeFamilies || []).join('|'),
       evidence: row.evidence ? stableStringify(row.evidence) : '',
       transferProperties: transfer.properties,
       transferCustodies: transfer.custodies,
+      transferActions: transfer.actions,
       transferStatuses: transfer.statuses,
+      bm001Statuses: transfer.bm001Statuses,
       blockers: transfer.blockers,
     };
   });
-  const headers = ['kind', 'sourceId', 'sourceFileName', 'sourceOriginalSha256', 'targetFileName', 'targetOriginalSha256', 'operation', 'confidence', 'workflowStatus', 'source', 'target', 'correspondenceId', 'authority', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies', 'evidence', 'transferProperties', 'transferCustodies', 'transferStatuses', 'blockers'];
+  const headers = [
+    'kind', 'sourceId', 'sourceFileName', 'sourceOriginalSha256', 'targetFileName', 'targetOriginalSha256',
+    'operation', 'confidence', 'workflowStatus', 'source', 'target', 'sourceNodeName', 'targetNodeName',
+    'correspondenceId', 'authority', 'identityBound', 'reviewDecision', 'engineeringChangeCount', 'engineeringChangeFamilies',
+    'evidence', 'transferProperties', 'transferCustodies', 'transferActions', 'transferStatuses', 'bm001Statuses', 'blockers',
+  ];
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }
 
@@ -125,9 +129,7 @@ export function ciiWorkspaceArtifactBundle(result) {
       return _csv;
     },
     get auditJson() {
-      if (_json === undefined) {
-        _json = ciiWorkspaceAuditToJson(result?.audit);
-      }
+      if (_json === undefined) _json = ciiWorkspaceAuditToJson(result?.audit);
       return _json;
     },
     modifiedTargetCii: null,
