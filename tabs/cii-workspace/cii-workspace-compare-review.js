@@ -40,15 +40,16 @@ function reviewIdentityBound(row, candidates, boundary) {
   const evidence = row?.evidence?.element || row?.evidence;
   return evidence?.identitySupported === true;
 }
-function reviewConfidence(row, candidates, boundary) {
+function reviewConfidence(row, candidates, boundary, identityBound) {
   if (row?.status === 'LOCKED') return 'LOCKED';
   if (['UNRESOLVED', 'CONFLICT', 'DELETED', 'INSERTED'].includes(row?.status)) return 'UNRESOLVED';
   if (row?.evidence?.nodeCustodyGate) return 'REVIEW';
   if (candidates?.status === 'AMBIGUOUS') return 'REVIEW';
   if (candidates?.status === 'UNRESOLVED') return 'UNRESOLVED';
-  if (boundary) return boundary.highCount === boundary.requiredHighCount ? 'HIGH' : 'REVIEW';
+  if (boundary) return identityBound ? 'HIGH' : 'REVIEW';
   const confidence = explicitConfidence(row, candidates);
-  if (['HIGH', 'MEDIUM', 'REVIEW'].includes(confidence)) return confidence;
+  if (confidence === 'HIGH') return identityBound ? 'HIGH' : 'REVIEW';
+  if (['MEDIUM', 'REVIEW'].includes(confidence)) return confidence;
   return 'REVIEW';
 }
 function winnerEvidence(row) {
@@ -74,6 +75,7 @@ function byCorrespondence(deltaSet) {
 }
 function projection(row, review, changeMap) {
   const candidates = candidateEvidence(row); const winner = winnerEvidence(row); const boundary = adjacentBoundaryEvidence(row);
+  const identityBound = reviewIdentityBound(row, candidates, boundary);
   const changes = (changeMap.get(row.correspondenceId) || []).filter((item) => item.changed);
   const m1 = winner?.methods?.m1Spatial || row?.evidence?.methods?.m1Spatial || null;
   const m2 = winner?.methods?.m2Network || row?.evidence?.methods?.m2Network || null;
@@ -82,8 +84,8 @@ function projection(row, review, changeMap) {
     correspondenceId: row.correspondenceId,
     kind: row.kind,
     workflowStatus: row.status,
-    confidence: reviewConfidence(row, candidates, boundary),
-    identityBound: reviewIdentityBound(row, candidates, boundary),
+    confidence: reviewConfidence(row, candidates, boundary, identityBound),
+    identityBound,
     identityEvidenceBasis: boundary?.basis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
     adjacentBoundary: boundary,
     source: rowSource(row), target: rowTarget(row),
