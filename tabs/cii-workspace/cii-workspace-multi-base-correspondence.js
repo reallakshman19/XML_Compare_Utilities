@@ -23,6 +23,7 @@ function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
 function buildLegacyCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (!anchors.length) return blockedCorrespondence('LOCKED_ANCHOR_PAIR_REQUIRED');
+  if (anchors.length === 1) return propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options);
   return propagateLockedCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
 }
 function loopCorrespondence(sourceGraph, targetGraph, loop, options) {
