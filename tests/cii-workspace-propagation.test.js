@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
-import { propagateSingleCiiAnchorCorrespondence } from '../tabs/cii-workspace/cii-workspace-propagation.js';
+import { propagateLockedCiiAnchorCorrespondence, propagateSingleCiiAnchorCorrespondence } from '../tabs/cii-workspace/cii-workspace-propagation.js';
 
 const point = (x = 0, y = 0, z = 0) => ({ x, y, z });
 function segment(from, to, fromPos, toPos, od = 88.9, wall = 5.5, positions = true) {
@@ -24,7 +24,7 @@ function graph(side, id, elements) {
 }
 const anchor = (sourceNodeId, targetNodeId) => ({ sourceNodeId: String(sourceNodeId), targetNodeId: String(targetNodeId), locked: true });
 
-// Multi-hop propagation still traverses the complete unambiguous chain.
+// One trusted anchor must remain a seed, not a one-mutation limit: it expands over the complete unambiguous chain.
 {
   const source = graph('SOURCE', 'chain-s', [
     segment(10, 20, point(0), point(1000)), segment(20, 30, point(1000), point(2000)),
@@ -36,7 +36,9 @@ const anchor = (sourceNodeId, targetNodeId) => ({ sourceNodeId: String(sourceNod
   ]);
   const result = propagateSingleCiiAnchorCorrespondence(source, target, anchor(10, 110));
   assert.equal(result.status, 'READY');
+  assert.equal(result.propagation.anchorCount, 1);
   assert.equal(result.propagation.matchedEdgeCount, 4);
+  assert.equal(result.propagation.matchedNodeCount, 5);
   assert(result.elementRows.every((row) => row.status === 'HIGH'));
 }
 
@@ -79,23 +81,44 @@ const anchor = (sourceNodeId, targetNodeId) => ({ sourceNodeId: String(sourceNod
   assert(result.elementRows.every((row) => row.evidence.candidates.winnerIdentityConfidence === 'REVIEW'));
 }
 
-// Equal topology branches remain fail-closed; no arbitrary target arm is chosen.
+const symmetricSource = graph('SOURCE', 'amb-s', [
+  segment(1, 2, point(0), point(1000), 273, 8, false),
+  segment(2, 3, point(1000), point(2000), 273, 8, false),
+  segment(2, 4, point(1000), point(2000), 273, 8, false),
+]);
+const symmetricTarget = graph('TARGET', 'amb-t', [
+  segment(101, 102, point(0), point(1000), 273, 8, false),
+  segment(102, 103, point(1000), point(2000), 273, 8, false),
+  segment(102, 104, point(1000), point(2000), 273, 8, false),
+]);
+
+// Equal topology branches remain fail-closed with one seed; no arbitrary target arm is chosen.
 {
-  const source = graph('SOURCE', 'amb-s', [
-    segment(1, 2, point(0), point(1000), 273, 8, false),
-    segment(2, 3, point(1000), point(2000), 273, 8, false),
-    segment(2, 4, point(1000), point(2000), 273, 8, false),
-  ]);
-  const target = graph('TARGET', 'amb-t', [
-    segment(101, 102, point(0), point(1000), 273, 8, false),
-    segment(102, 103, point(1000), point(2000), 273, 8, false),
-    segment(102, 104, point(1000), point(2000), 273, 8, false),
-  ]);
-  const result = propagateSingleCiiAnchorCorrespondence(source, target, anchor(1, 101), { winnerGap: 8 });
+  const result = propagateSingleCiiAnchorCorrespondence(symmetricSource, symmetricTarget, anchor(1, 101), { winnerGap: 8 });
   assert.equal(result.status, 'UNRESOLVED');
   assert(result.blockers.includes('FRONTIER_WINNER_GAP_NOT_SATISFIED'));
   assert(result.blockers.includes('PROPAGATION_AMBIGUITY_RETAINED'));
   assert.equal(result.propagation.matchedEdgeCount, 1);
+}
+
+// A second reviewed anchor is a disambiguation constraint, not a second mutation: it resolves the symmetric branch
+// and propagation still discovers the remaining unanchored pair.
+{
+  const result = propagateLockedCiiAnchorCorrespondence(symmetricSource, symmetricTarget,
+    [anchor(1, 101), anchor(3, 103)], { winnerGap: 8 });
+  assert.equal(result.status, 'READY');
+  assert.equal(result.propagation.anchorCount, 2);
+  assert.equal(result.propagation.matchedEdgeCount, 3);
+  assert.equal(result.propagation.matchedNodeCount, 4);
+  assert(result.nodeRows.some((row) => row.sourceNodeId === '4' && row.targetNodeId === '104'));
+}
+
+// Contradictory reviewed anchor authority must fail before propagation rather than selecting a preferred claim.
+{
+  const result = propagateLockedCiiAnchorCorrespondence(symmetricSource, symmetricTarget,
+    [anchor(1, 101), anchor(1, 201)]);
+  assert.equal(result.status, 'BLOCKED');
+  assert(result.blockers.includes('LOCKED_ANCHOR_NODE_NOT_FOUND') || result.blockers.includes('CONFLICTING_LOCKED_ANCHOR_AUTHORITY'));
 }
 
 console.log('CII anchor-seeded propagation checks passed.');
