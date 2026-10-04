@@ -165,7 +165,7 @@ export function ciiMultiSourceBulkAcceptOutcome(preview, decisions, confidence) 
 }
 
 export function ciiMultiSourceReviewMarkup(preview, decisions = new Map(), filters = {}) {
-  const auditMarkup = ciiMultiSourceSourceTargetAuditMarkup(preview);
+  const auditMarkup = ciiMultiSourceSourceTargetAuditMarkup(preview, decisions);
   const rows = reviewRows(preview).filter((row) => filterRow(row, filters));
   if (!reviewRows(preview).length) return `<p>No correspondence rows were produced. Recheck the per-source base authority and correspondence blockers.</p>${auditMarkup}`;
   if (!rows.length) return `<p>No correspondence rows match the current filters.</p>${auditMarkup}`;
