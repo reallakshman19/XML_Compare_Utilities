@@ -105,11 +105,17 @@ function summary(inspection, rows) {
   const memberIds = (inspection?.memberInspections || []).map((item) => String(item.sourceId || ''));
   const covered = new Set(rows.map((row) => row.sourceId));
   const manualCount = rows.filter((row) => row.authority === 'USER LOCKED').length;
+  const automaticRows = rows.filter((row) => row.authority !== 'USER LOCKED');
+  const automaticBaseCount = new Set(automaticRows.map((row) => `${row.sourceId}|${row.selectionKey}|${row.baseId}|${row.authority}`)).size;
+  const automaticPairCount = automaticRows.length;
   return {
     memberCount: memberIds.length,
     coveredCount: memberIds.filter((id) => covered.has(id)).length,
     manualCount,
-    automaticCount: rows.length - manualCount,
+    automaticBaseCount,
+    automaticPairCount,
+    anchorPairCount: rows.length,
+    automaticCount: automaticPairCount,
   };
 }
 
@@ -121,7 +127,7 @@ function manualRowMarkup(row) {
 }
 
 function automaticRowMarkup(row) {
-  return `<tr data-ciiw-ms-anchor-ledger-row="automatic"><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.authority)}</b><small>${h(row.baseId || 'qualified base')}</small></td><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td><b>SELECTED</b><small>method-qualified</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-auto-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-selection-key="${h(row.selectionKey)}">Remove base</button></td></tr>`;
+  return `<tr data-ciiw-ms-anchor-ledger-row="automatic"><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.authority)}</b><small>${h(row.baseId || 'qualified base')}</small></td><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td><b>SELECTED</b><small>anchor pair from method-qualified base</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-auto-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-selection-key="${h(row.selectionKey)}">Remove base</button></td></tr>`;
 }
 
 export function ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource) {
@@ -132,7 +138,7 @@ export function ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, m
     : '<p class="ciiw-ms-anchor-ledger-empty">No anchor authority selected yet. Choose a qualified Method A/B base or add a reviewed manual anchor below.</p>';
   const ready = counts.memberCount > 0 && counts.coveredCount === counts.memberCount;
   const next = `<div class="ciiw-ms-next-step"><div><b>${ready ? 'Anchor authority READY' : 'Anchor authority incomplete'}</b><span>${ready ? 'Next: build S1/S2/S3 correspondence. The Compare Review tab is navigation only.' : 'Cover every SOURCE member before comparison.'}</span></div><button type="button" data-ciiw-ms-compare-now ${ready ? '' : 'disabled'}>Compare models →</button></div>`;
-  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(counts.coveredCount)} / ${h(counts.memberCount)} SOURCE members covered · ${h(counts.manualCount)} manual locked · ${h(counts.automaticCount)} method-qualified</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This is the authoritative list of anchors currently chosen for S1/S2/S3. Manual rows are editable here; updating a row changes the next Compare input. A review-only proposal appears here only after you click <b>Add reviewed anchor</b>.</p>${body}${next}</section>${proposalRationaleMarkup(inspection)}`;
+  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(counts.coveredCount)} / ${h(counts.memberCount)} SOURCE members covered · ${h(counts.manualCount)} manual locked · ${h(counts.automaticBaseCount)} automatic bases · ${h(counts.anchorPairCount)} anchor pairs</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This ledger lists seed authority, not transfer mutations. One selected base can expand to several anchor pairs, and a small trusted anchor set can propagate to many SOURCE↔TARGET correspondences. Manual rows are editable here; updating a row changes the next Compare input.</p>${body}${next}</section>${proposalRationaleMarkup(inspection)}`;
 }
 
 export const _test = Object.freeze({ automaticAuthorityRows, manualAuthorityRows, summary, proposalRationaleRows, proposalRationaleMarkup });
