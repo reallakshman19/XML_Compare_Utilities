@@ -243,7 +243,12 @@ export function propagateLockedCiiAnchorCorrespondence(sourceGraph, targetGraph,
   if (elementRows.some((row) => row.status === 'UNRESOLVED')) blockers.add('PROPAGATION_AMBIGUITY_RETAINED');
 
   elementRows.sort((a, b) => String(a.sourceElementId || '').localeCompare(String(b.sourceElementId || ''), undefined, { numeric: true }));
-  nodeRows.sort((a, b) => a.status === 'LOCKED' ? -1 : (b.status === 'LOCKED' ? 1 : String(a.sourceNodeId || '').localeCompare(String(b.sourceNodeId || ''), undefined, { numeric: true })));
+  nodeRows.sort((a, b) => {
+    const aLocked = a.status === 'LOCKED'; const bLocked = b.status === 'LOCKED';
+    if (aLocked !== bLocked) return aLocked ? -1 : 1;
+    return String(a.sourceNodeId || '').localeCompare(String(b.sourceNodeId || ''), undefined, { numeric: true })
+      || String(a.targetNodeId || '').localeCompare(String(b.targetNodeId || ''), undefined, { numeric: true });
+  });
   const blockerRows = [...blockers].sort(); const status = blockerRows.length ? 'UNRESOLVED' : 'READY';
   return deepFreeze({
     schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: Object.freeze(blockerRows), ambiguityRetained: elementRows.some((row) => row.status === 'UNRESOLVED'),
