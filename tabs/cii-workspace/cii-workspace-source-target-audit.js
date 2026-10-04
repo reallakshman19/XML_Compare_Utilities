@@ -37,6 +37,11 @@ function operationsForRows(transferPlan, correspondenceIds) {
   const ids = new Set(correspondenceIds);
   return (transferPlan?.operations || []).filter((operation) => ids.has(text(operation?.matchAuthority?.correspondenceId)));
 }
+function reviewDecision(row, overrides) {
+  const id = text(row?.correspondenceId);
+  const override = overrides?.get?.(id) ?? (id ? overrides?.[id] : undefined);
+  return text(override || row?.decision);
+}
 function confidenceFor(rows) {
   return [...(rows || [])].map((row) => text(row?.confidence) || 'UNRESOLVED')
     .sort((a, b) => (CONFIDENCE_RANK[b] || 0) - (CONFIDENCE_RANK[a] || 0) || a.localeCompare(b))[0] || 'UNRESOLVED';
@@ -92,7 +97,7 @@ function censusRow(sourceId, sourceDocument, targetDocument, sourceNodeId, conte
     workflowStatuses: deepFreeze(unique(reviewRows.map((row) => row?.workflowStatus))),
     authorities: deepFreeze(unique(reviewRows.map((row) => row?.authority))),
     evidenceBases: deepFreeze(unique(reviewRows.map((row) => row?.identityEvidenceBasis))),
-    reviewDecisions: deepFreeze(unique(reviewRows.map((row) => row?.decision))),
+    reviewDecisions: deepFreeze(unique(reviewRows.map((row) => reviewDecision(row, context.reviewDecisionOverrides))),
     writerActions: deepFreeze(unique(operations.map((operation) => operation?.action))),
     writerStatuses: deepFreeze(unique(operations.map((operation) => operation?.status))),
     reasons: reasonsFor(state, reviewRows),
@@ -160,4 +165,4 @@ export function ciiSourceTargetAuditToCsv(audit) {
 
 export function ciiSourceTargetAuditToJson(audit) { return stableStringify(audit); }
 
-export const _test = Object.freeze({ documentNodeIds, nodeReviewRows, stateFor, confidenceFor, countStates });
+export const _test = Object.freeze({ documentNodeIds, nodeReviewRows, reviewDecision, stateFor, confidenceFor, countStates });
