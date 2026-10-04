@@ -8,6 +8,32 @@ export function transferWaitingMarkup(authorityReady) {
 function compareTarget(event) {
   return event.target?.closest?.('[data-ciiw-ms-compare-now], [data-ciiw-ms-transfer-compare-now]') || null;
 }
+function proposalTarget(event) {
+  return event.target?.closest?.('[data-ciiw-ms-proposal-use-qualified], [data-ciiw-ms-proposal-auto-remove], [data-ciiw-ms-proposal-lock]') || null;
+}
+function memberSection(container, sourceId) {
+  return [...container.querySelectorAll('[data-ciiw-ms-member]')].find((section) => section.dataset.ciiwMsMember === sourceId) || null;
+}
+function invokeProposalAction(container, button) {
+  const sourceId = button?.dataset?.ciiwMsProposalSourceId || ''; const section = memberSection(container, sourceId);
+  if (!section) return false;
+  if (button.matches('[data-ciiw-ms-proposal-lock]')) {
+    const sourceField = section.querySelector('[data-ciiw-ms-manual-source]');
+    const targetField = section.querySelector('[data-ciiw-ms-manual-target]');
+    const addButton = section.querySelector('[data-ciiw-ms-manual-add]');
+    if (!sourceField || !targetField || !addButton) return false;
+    sourceField.value = button.dataset.ciiwMsProposalSourceNode || '';
+    targetField.value = button.dataset.ciiwMsProposalTargetNode || '';
+    addButton.click();
+    return true;
+  }
+  const selectionKey = button.dataset.ciiwMsProposalSelectionKey || '';
+  const baseButton = [...section.querySelectorAll('[data-ciiw-base-action]')]
+    .find((candidate) => candidate.dataset.ciiwSelectionKey === selectionKey);
+  if (!baseButton) return false;
+  baseButton.click();
+  return true;
+}
 
 export function mountCiiWriter2MultiSourceNextStepShell(container, options, mountCore) {
   if (typeof mountCore !== 'function') throw new Error('CII_MS_WRITER2_CORE_MOUNT_REQUIRED');
@@ -36,6 +62,10 @@ export function mountCiiWriter2MultiSourceNextStepShell(container, options, moun
   };
 
   const onClick = (event) => {
+    const proposal = proposalTarget(event);
+    if (proposal && multiSource(container)) {
+      event.preventDefault(); event.stopImmediatePropagation(); invokeProposalAction(container, proposal); return;
+    }
     const button = compareTarget(event);
     if (!button || !multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
@@ -64,4 +94,4 @@ export function mountCiiWriter2MultiSourceNextStepShell(container, options, moun
   };
 }
 
-export const _test = Object.freeze({ selectedFiles, multiSource, transferWaitingMarkup, compareTarget });
+export const _test = Object.freeze({ selectedFiles, multiSource, transferWaitingMarkup, compareTarget, proposalTarget, memberSection, invokeProposalAction });
