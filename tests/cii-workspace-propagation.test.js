@@ -116,9 +116,9 @@ const symmetricTarget = graph('TARGET', 'amb-t', [
 // Contradictory reviewed anchor authority must fail before propagation rather than selecting a preferred claim.
 {
   const result = propagateLockedCiiAnchorCorrespondence(symmetricSource, symmetricTarget,
-    [anchor(1, 101), anchor(1, 201)]);
+    [anchor(1, 101), anchor(1, 102)]);
   assert.equal(result.status, 'BLOCKED');
-  assert(result.blockers.includes('LOCKED_ANCHOR_NODE_NOT_FOUND') || result.blockers.includes('CONFLICTING_LOCKED_ANCHOR_AUTHORITY'));
+  assert(result.blockers.includes('CONFLICTING_LOCKED_ANCHOR_AUTHORITY'));
 }
 
 console.log('CII anchor-seeded propagation checks passed.');
