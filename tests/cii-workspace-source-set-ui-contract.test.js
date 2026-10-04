@@ -8,7 +8,7 @@ const wrapper = await readFile(new URL('../tabs/cii-workspace/cii-workspace-mult
 const sourceSet = await readFile(new URL('../tabs/cii-workspace/cii-workspace-source-set.js', import.meta.url), 'utf8');
 
 assert(tab.includes("import { mountCiiWriter2MultiSourceReviewRouter } from './cii-workspace-multisource-review-only-filter-shell.js?v=20260909-ms-review-filters-1';"));
-assert(tab.includes("import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260909-ms-custody-auto-1';"));
+assert(tab.includes("import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20261004-source-target-audit-1';"));
 assert(tab.includes("writerVersion === '2'"));
 assert(tab.includes('mountCiiWriter2MultiSourceReviewRouter'));
 assert(tab.includes('mountCiiWriter2MultiSourceNextStepShell'));
