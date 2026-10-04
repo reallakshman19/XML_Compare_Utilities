@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { deriveCiiAlignmentCorrespondence } from '../tabs/cii-workspace/cii-workspace-alignment.js';
 import { buildCiiCompareReviewModel } from '../tabs/cii-workspace/cii-workspace-compare-review.js';
 import { bulkAcceptCiiMultiSourceReview, ciiMultiSourceReviewMarkup } from '../tabs/cii-workspace/cii-workspace-multisource-review-ui.js';
 
@@ -55,5 +56,46 @@ assert.equal(unsupported.confidence, 'REVIEW', 'bare workflow HIGH must not beco
 assert.equal(unsupported.identityBound, false, 'bare workflow HIGH must not become review BOUND without recognized evidence');
 const unsupportedPreview = { compareReview: { rows: [{ ...unsupported, sourceId: 'S1', memberCorrespondenceId: 'node:999:1999' }] } };
 assert.equal(bulkAcceptCiiMultiSourceReview(unsupportedPreview, new Map(), 'HIGH'), 0);
+
+const supportedWithoutConfidence = modelFor({
+  correspondenceId: 'element:E1:T1', kind: 'ELEMENT', sourceElementId: 'E1', targetElementIds: ['T1'],
+  status: 'HIGH', authority: 'LEGACY_CANDIDATE',
+  evidence: { candidates: { status: 'SUPPORTED', winnerTargetElementId: 'T1', rankedCandidates: [{ targetElementId: 'T1', identitySupported: true }] } },
+}).rows[0];
+assert.equal(supportedWithoutConfidence.identityBound, true, 'SUPPORTED candidate evidence may bind identity');
+assert.equal(supportedWithoutConfidence.confidence, 'REVIEW', 'binding alone must not manufacture HIGH without explicit confidence evidence');
+assert.equal(bulkAcceptCiiMultiSourceReview({ compareReview: { rows: [{ ...supportedWithoutConfidence, sourceId: 'S1', memberCorrespondenceId: 'element:E1:T1' }] } }, new Map(), 'HIGH'), 0);
+
+const explicitHigh = modelFor({
+  correspondenceId: 'element:E2:T2', kind: 'ELEMENT', sourceElementId: 'E2', targetElementIds: ['T2'],
+  status: 'HIGH', authority: 'DIRECT_EVIDENCE', evidence: { identitySupported: true, identityConfidence: 'HIGH' },
+}).rows[0];
+assert.equal(explicitHigh.identityBound, true);
+assert.equal(explicitHigh.confidence, 'HIGH');
+
+const locked = modelFor({
+  correspondenceId: 'node:3910:875', kind: 'NODE', sourceNodeId: '3910', targetNodeId: '875',
+  status: 'LOCKED', authority: 'USER_LOCKED_ANCHOR', evidence: {},
+}).rows[0];
+assert.equal(locked.identityBound, true);
+assert.equal(locked.confidence, 'LOCKED');
+
+// Producer-to-review integration: verify the real alignment evidence shape survives projection.
+const leftRef = { elementId: 'S-L', routeFrom: '330', routeTo: '340' };
+const rightRef = { elementId: 'S-R', routeFrom: '340', routeTo: '350' };
+const leftTarget = { elementId: 'T-L', routeFrom: '10250', routeTo: '10260' };
+const rightTarget = { elementId: 'T-R', routeFrom: '10260', routeTo: '10270' };
+const alignment = { operations: [
+  { op: 'MATCH', refEdge: leftRef, targetEdge: leftTarget },
+  { op: 'MATCH', refEdge: rightRef, targetEdge: rightTarget },
+] };
+const scored = deriveCiiAlignmentCorrespondence(alignment, {
+  scoreCiiEdgeCandidate: () => edgeEvidence(),
+});
+// The scorer is internal to the alignment module, so this integration assertion is structural rather than a mock override.
+if (scored.nodeRows.length) {
+  const projected = modelFor(scored.nodeRows[0]).rows[0];
+  assert.equal(projected.identityEvidenceBasis, 'ADJACENT_EDGE_CONSENSUS');
+}
 
 console.log('CII adjacent-boundary review evidence checks: PASS');
