@@ -1,4 +1,5 @@
 import { ciiEvidenceBandStyle, ciiNodeNameBandStyle } from './cii-workspace-evidence-band-style.js';
+import { ciiMultiSourceSourceTargetAuditMarkup } from './cii-workspace-source-target-audit-ui.js';
 
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -164,10 +165,12 @@ export function ciiMultiSourceBulkAcceptOutcome(preview, decisions, confidence) 
 }
 
 export function ciiMultiSourceReviewMarkup(preview, decisions = new Map(), filters = {}) {
+  const auditMarkup = ciiMultiSourceSourceTargetAuditMarkup(preview);
   const rows = reviewRows(preview).filter((row) => filterRow(row, filters));
-  if (!reviewRows(preview).length) return '<p>No correspondence rows were produced. Recheck the per-source base authority and correspondence blockers.</p>';
-  if (!rows.length) return '<p>No correspondence rows match the current filters.</p>';
-  return `<table class="ciiw-grid" data-ciiw-ms-review-table="1"><thead><tr><th>Decision</th><th>Source set member</th><th>Kind</th><th>Confidence</th><th>Evidence basis</th><th>SOURCE</th><th>TARGET</th><th>Changed</th><th>Identity</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${decisionControl(row, decisions)}</td><td><b>${h(row.sourceId)}</b></td><td>${h(row.kind || '—')}</td><td><span class="ciiw-confidence ${String(row.confidence || 'review').toLowerCase()}">${h(row.confidence || '—')}</span><small>${h(row.workflowStatus || row.decision || '—')}</small></td><td>${evidenceMarkup(row)}</td><td>${h(row.source || '—')}</td><td>${h(row.target || '—')}</td><td>${row.changeCount ? `<b>${h(row.changeCount)}</b><small>${h((row.changeFamilies || []).join(', '))}</small>` : '—'}</td><td>${row.identityBound ? 'BOUND' : 'REVIEW'}</td></tr>`).join('')}</tbody></table>`;
+  if (!reviewRows(preview).length) return `<p>No correspondence rows were produced. Recheck the per-source base authority and correspondence blockers.</p>${auditMarkup}`;
+  if (!rows.length) return `<p>No correspondence rows match the current filters.</p>${auditMarkup}`;
+  const reviewTable = `<table class="ciiw-grid" data-ciiw-ms-review-table="1"><thead><tr><th>Decision</th><th>Source set member</th><th>Kind</th><th>Confidence</th><th>Evidence basis</th><th>SOURCE</th><th>TARGET</th><th>Changed</th><th>Identity</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${decisionControl(row, decisions)}</td><td><b>${h(row.sourceId)}</b></td><td>${h(row.kind || '—')}</td><td><span class="ciiw-confidence ${String(row.confidence || 'review').toLowerCase()}">${h(row.confidence || '—')}</span><small>${h(row.workflowStatus || row.decision || '—')}</small></td><td>${evidenceMarkup(row)}</td><td>${h(row.source || '—')}</td><td>${h(row.target || '—')}</td><td>${row.changeCount ? `<b>${h(row.changeCount)}</b><small>${h((row.changeFamilies || []).join(', '))}</small>` : '—'}</td><td>${row.identityBound ? 'BOUND' : 'REVIEW'}</td></tr>`).join('')}</tbody></table>`;
+  return `${reviewTable}${auditMarkup}`;
 }
 
 export function ciiMultiSourceReviewSummaryMarkup(preview, decisions = new Map()) {
