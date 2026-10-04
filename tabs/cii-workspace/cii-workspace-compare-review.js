@@ -1,16 +1,42 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
-import { ciiIdentityBound, ciiIdentityConfidence } from './cii-workspace-engineering-delta.js';
+import { ciiIdentityConfidence } from './cii-workspace-engineering-delta.js';
 
 function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
 function rowTarget(row) { return row.targetNodeId || row.targetComponentId || row.targetElementIds?.join('|') || ''; }
 function candidateEvidence(row) { return row?.evidence?.candidates || row?.evidence?.element?.candidates || null; }
-function reviewConfidence(row, candidates) {
+function adjacentBoundaryEvidence(row) {
+  const evidence = row?.evidence;
+  if (row?.authority !== 'ADJACENT_MATCH_BOUNDARY' || !evidence?.leftElement || !evidence?.rightElement) return null;
+  const summarize = (item) => Object.freeze({
+    confidence: item?.identityConfidence || 'UNRESOLVED',
+    identitySupported: item?.identitySupported === true,
+    m1Pass: item?.methods?.m1Spatial?.pass ?? null,
+    m2Pass: item?.methods?.m2Network?.pass ?? null,
+    odConfidence: item?.odConfidence?.confidence || null,
+    odPercentError: item?.odConfidence?.percentError ?? null,
+  });
+  const left = summarize(evidence.leftElement); const right = summarize(evidence.rightElement);
+  const highCount = [left, right].filter((item) => item.identitySupported && item.confidence === 'HIGH').length;
+  return Object.freeze({ basis: 'ADJACENT_EDGE_CONSENSUS', highCount, requiredHighCount: 2, left, right });
+}
+function reviewIdentityBound(row, candidates, boundary) {
+  if (row?.status === 'LOCKED') return true;
+  if (['UNRESOLVED', 'CONFLICT', 'DELETED', 'INSERTED'].includes(row?.status)) return false;
+  if (row?.evidence?.nodeCustodyGate) return false;
+  if (candidates) return candidates.status === 'SUPPORTED';
+  if (boundary) return boundary.highCount === boundary.requiredHighCount;
+  const evidence = row?.evidence?.element || row?.evidence;
+  return evidence?.identitySupported === true;
+}
+function reviewConfidence(row, candidates, boundary) {
   if (row?.status === 'LOCKED') return 'LOCKED';
   if (['UNRESOLVED', 'CONFLICT', 'DELETED', 'INSERTED'].includes(row?.status)) return 'UNRESOLVED';
   if (row?.evidence?.nodeCustodyGate) return 'REVIEW';
   if (candidates?.status === 'AMBIGUOUS') return 'REVIEW';
   if (candidates?.status === 'UNRESOLVED') return 'UNRESOLVED';
-  return ciiIdentityConfidence(row);
+  if (boundary) return boundary.highCount === boundary.requiredHighCount ? 'HIGH' : 'REVIEW';
+  const confidence = ciiIdentityConfidence(row);
+  return confidence === 'HIGH' && !reviewIdentityBound(row, candidates, boundary) ? 'REVIEW' : confidence;
 }
 function winnerEvidence(row) {
   const candidates = candidateEvidence(row);
@@ -36,7 +62,7 @@ function byCorrespondence(deltaSet) {
   return map;
 }
 function projection(row, review, changeMap) {
-  const candidates = candidateEvidence(row); const winner = winnerEvidence(row);
+  const candidates = candidateEvidence(row); const winner = winnerEvidence(row); const boundary = adjacentBoundaryEvidence(row);
   const changes = (changeMap.get(row.correspondenceId) || []).filter((item) => item.changed);
   const m1 = winner?.methods?.m1Spatial || row?.evidence?.methods?.m1Spatial || null;
   const m2 = winner?.methods?.m2Network || row?.evidence?.methods?.m2Network || null;
@@ -45,8 +71,10 @@ function projection(row, review, changeMap) {
     correspondenceId: row.correspondenceId,
     kind: row.kind,
     workflowStatus: row.status,
-    confidence: reviewConfidence(row, candidates),
-    identityBound: ciiIdentityBound(row),
+    confidence: reviewConfidence(row, candidates, boundary),
+    identityBound: reviewIdentityBound(row, candidates, boundary),
+    identityEvidenceBasis: boundary?.basis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
+    adjacentBoundary: boundary,
     source: rowSource(row), target: rowTarget(row),
     methodA: m1 ? Object.freeze({
       pass: Boolean(m1.pass), available: m1.available !== false, score: m1.score ?? 0, distanceMm: m1.distanceMm ?? null, toleranceMm: m1.toleranceMm ?? null,
