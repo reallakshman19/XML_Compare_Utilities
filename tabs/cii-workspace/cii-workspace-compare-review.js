@@ -1,9 +1,21 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
-import { ciiIdentityConfidence } from './cii-workspace-engineering-delta.js';
 
 function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
 function rowTarget(row) { return row.targetNodeId || row.targetComponentId || row.targetElementIds?.join('|') || ''; }
 function candidateEvidence(row) { return row?.evidence?.candidates || row?.evidence?.element?.candidates || null; }
+function candidateWinner(candidates) {
+  return candidates?.rankedCandidates?.find((item) => item.targetElementId === candidates.winnerTargetElementId)
+    || candidates?.rankedCandidates?.[0]
+    || null;
+}
+function explicitConfidence(row, candidates) {
+  const winner = candidateWinner(candidates);
+  return candidates?.winnerIdentityConfidence
+    || winner?.identityConfidence
+    || row?.evidence?.identityConfidence
+    || row?.evidence?.element?.identityConfidence
+    || null;
+}
 function adjacentBoundaryEvidence(row) {
   const evidence = row?.evidence;
   if (row?.authority !== 'ADJACENT_MATCH_BOUNDARY' || !evidence?.leftElement || !evidence?.rightElement) return null;
@@ -35,15 +47,14 @@ function reviewConfidence(row, candidates, boundary) {
   if (candidates?.status === 'AMBIGUOUS') return 'REVIEW';
   if (candidates?.status === 'UNRESOLVED') return 'UNRESOLVED';
   if (boundary) return boundary.highCount === boundary.requiredHighCount ? 'HIGH' : 'REVIEW';
-  const confidence = ciiIdentityConfidence(row);
-  return confidence === 'HIGH' && !reviewIdentityBound(row, candidates, boundary) ? 'REVIEW' : confidence;
+  const confidence = explicitConfidence(row, candidates);
+  if (['HIGH', 'MEDIUM', 'REVIEW'].includes(confidence)) return confidence;
+  return 'REVIEW';
 }
 function winnerEvidence(row) {
   const candidates = candidateEvidence(row);
   if (!candidates) return row?.evidence?.element || row?.evidence || null;
-  return candidates.rankedCandidates?.find((item) => item.targetElementId === candidates.winnerTargetElementId)
-    || candidates.rankedCandidates?.[0]
-    || null;
+  return candidateWinner(candidates);
 }
 function decision(review, row) {
   if (row.status === 'LOCKED') return 'LOCKED';
