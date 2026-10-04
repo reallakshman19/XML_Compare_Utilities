@@ -11,7 +11,7 @@ Implement issue #1237: keep anchor authority, correspondence cardinality, and Wr
 - Protocol: `reallaksh19/Common@149770a21ca073df49717a96e2106c967adddc2d:skills/engineering-pr-delivery-v3.2`
 - Base: `main@b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08`
 - Branch: `issue1237-anchor-correspondence-propagation`
-- Current material head before this report update: `67d3bcecaf338d5d7c513352ef9262f9c7d19ccd`
+- Material head before this report checkpoint: `027b56f4c2b2a721a84d6560b1f73d174822a29e`
 - Merge authority: OWNER_ONLY
 - Related draft PR: #1234, performance/search-budget responsibility under #1232.
 
@@ -32,19 +32,21 @@ At the inspected base:
 - Method B one-anchor loop -> propagation;
 - Method A loop -> locked-span correspondence under qualified geometry.
 
-### A2 — Failure isolation
+### A2 — Failure isolation / implemented correction
 
 The repository already had recursive single-anchor component propagation. The first concrete semantic defect was that multiple reviewed/manual anchors stopped being propagation seeds and were collapsed to span comparison.
 
-Implemented correction:
+Implemented U2 correction:
 
 - new `propagateLockedCiiAnchorCorrespondence()` accepts one or more reviewed anchors;
-- all locked pairs pre-seed one-to-one SOURCE/TARGET node custody;
-- all anchors enter the propagation queue as seed/validation authority;
-- candidate frontier assignments that contradict any locked mapping are removed before winner selection;
-- contradictory manual authority fails closed as `CONFLICTING_LOCKED_ANCHOR_AUTHORITY`;
-- one-anchor legacy behavior remains routed through the original single-anchor wrapper to preserve its underdetermined-rotation semantics;
+- every locked pair pre-seeds one-to-one SOURCE/TARGET node custody;
+- every locked pair enters the propagation queue as seed/validation authority;
+- frontier assignments contradicting any locked mapping are removed before winner selection;
+- contradictory reviewed authority fails closed as `CONFLICTING_LOCKED_ANCHOR_AUTHORITY`;
+- one-anchor legacy behavior remains routed through the original single-anchor wrapper, preserving its underdetermined-rotation semantics;
 - Method A and Method B routing/qualification are unchanged.
+
+A local isolated mechanics probe with stubbed scoring verified the specific queue/custody behavior: one seed leaves a symmetric branch unresolved; adding a second locked seed resolves that branch and discovers an additional unanchored node; contradictory locked mappings block. This is **not** a repository test or retained-fixture PASS.
 
 Arbitration's treatment of partially unresolved base loops remains a separate risk to revisit only if retained/manual execution proves the multi-seed correction is insufficient.
 
@@ -60,29 +62,48 @@ Arbitration's treatment of partially unresolved base loops remains a separate ri
 
 The retained browser oracle independently derives `T -> TEXPECTED-PARTIALLLYDONE` and requires 36 known-positive mutations: 35 REPLACE + 1 CREATE + 0 DELETE.
 
-New focused static regression intent:
+Focused regression code now asserts:
 
 1. one anchor expands across a four-edge chain and yields five matched nodes;
 2. a one-anchor symmetric branch remains unresolved/fail-closed;
 3. a second reviewed anchor constrains that same symmetric branch and permits propagation to discover an additional unanchored node pair;
 4. contradictory reviewed anchors fail closed;
-5. legacy/manual two-anchor input now yields more correspondence than manual authority rows instead of switching to span-only output semantics.
+5. legacy/manual two-anchor input yields more correspondence than manual authority rows instead of switching to span-only output semantics.
 
-Execution status remains `NOT_RUN` because this connector session has no repository checkout/runner and GitHub instantiated no Actions run/status for the current head. Local `node --check` over the four authored JS/test files is PASS for syntax only; it is not test execution.
+Execution remains `NOT_RUN` because this connector session has no repository checkout/runner and GitHub has instantiated no Actions run/status for the observed branch heads. Local `node --check` over the U2 authored JS/test files is PASS for syntax only; it is not repository test execution.
 
-### A5 — Minimal patch
+### A5 — Minimal patch / overlap control
 
-Changed production files in U2 only:
+Changed U2 production files:
 
 - `tabs/cii-workspace/cii-workspace-propagation.js`
 - `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js`
 
-Focused tests changed:
+Focused U2 tests:
 
 - `tests/cii-workspace-propagation.test.js`
 - `tests/cii-workspace-multi-base-correspondence.test.js`
 
+U3 additionally changes only the non-#1234-owned anchor-ledger projection and its focused test.
+
 No #1234 search-budget file, geometry implementation, workflow file, Writer1C/Writer2 mutation module, or benchmark fixture was changed.
+
+## U3 — cardinality and proposal authority UX
+
+Implemented:
+
+- master ledger now reports separately:
+  - manual locked anchors;
+  - selected automatic bases;
+  - expanded anchor pairs;
+- the old `method-qualified = expanded pair rows` wording is removed from the summary;
+- ledger copy explicitly says these are seed authorities, not transfer mutations;
+- each proposal-rationale row now has an **Approve anchor** action;
+- approval reuses the existing reviewed-manual-anchor event path by presenting the exact SOURCE/TARGET proposal as the manual-add payload inside the corresponding SOURCE member scope;
+- the existing manual-add handler creates exact USER LOCKED authority, clears automatic base selection for that SOURCE, and rebuilds the ledger;
+- no NodeName match is promoted into automatic identity authority by this action.
+
+Focused static contract coverage verifies that rationale markup exposes the exact approval payload and that the existing multi-source shell binds `data-ciiw-ms-manual-add` inside `data-ciiw-ms-member` scopes.
 
 ## Declared denominator
 
@@ -90,12 +111,12 @@ No #1234 search-budget file, geometry implementation, workflow file, Writer1C/Wr
 |---|---|---|
 | U1 Grounding / recovery surface | COMPLETE | #1237 IMPLEMENTATION_PLAN + PR1238 report |
 | U2 Anchor-seed correspondence semantics | IMPLEMENTED / RUNTIME EVIDENCE PENDING | multi-seed constrained propagation + focused regression code |
-| U3 Cardinality / proposal authority UX | PENDING | misleading expanded-pair count already isolated in ledger UI |
-| U4 Source-vs-Target audit | PENDING | combined correspondence model already exposes per-source node rows |
+| U3 Cardinality / proposal authority UX | IMPLEMENTED / RUNTIME EVIDENCE PENDING | distinct counts + direct proposal approval wiring + focused static contract |
+| U4 Source-vs-Target audit | PENDING | combined correspondence model already exposes per-source rows; dedicated projection not yet added |
 | U5 Root blocker projection | PENDING | raw root member blockers are available before downstream transfer blockers |
 | U6 Retained qualification / delivery evidence | PENDING | independent oracle identified; runtime NOT_RUN |
 
-Progress credit remains conservative: U1 is complete; U2 does not receive evidenced-complete credit until executable qualification supports the implementation.
+Progress credit remains conservative: U1 is complete. U2/U3 are materially implemented but are not evidenced complete until executable qualification is available.
 
 ## Current hypothesis / falsifier
 
@@ -105,7 +126,7 @@ Falsifier: retained/manual S1 execution shows the relevant frontier remains unre
 
 ## Active overlap
 
-PR #1234 changes Method-A physical search and overlaps `cii-workspace-source-set.js` / multi-source filter UI. Classification: `COORDINATION_REQUIRED`. PR #1238 has not modified any #1234 changed production file in U2.
+PR #1234 changes Method-A physical search and overlaps `cii-workspace-source-set.js` / multi-source filter UI. Classification: `COORDINATION_REQUIRED`. PR #1238 has not modified any #1234 changed production file through U3.
 
 ## Validation truth
 
@@ -113,10 +134,12 @@ PR #1234 changes Method-A physical search and overlaps `cii-workspace-source-set
 - Repository instructions: PASS — `AGENTS.md` read at exact base.
 - Code production trace: PASS — exact-base source inspection.
 - PR diff review of U2: PASS — no protected production surface outside propagation/orchestration changed.
-- JS syntax for four authored production/test files: PASS — `node --check` only.
-- Focused Node tests: NOT_RUN — no repository execution environment.
-- GitHub Actions for current head: NOT_RUN / none instantiated.
-- Commit statuses for current head: NOT_RUN / none present.
+- JS syntax for U2 production/test files: PASS — `node --check` only.
+- Isolated multi-seed mechanics probe: PASS — stubbed local probe; not repository/fixture evidence.
+- U3 markup/static wiring readback: PASS — exact branch source + focused test contract.
+- Focused repository Node tests: NOT_RUN — no repository execution environment.
+- GitHub Actions: NOT_RUN / none instantiated for observed branch head.
+- Commit statuses: NOT_RUN / none present for observed branch head.
 - Retained S1/S2/S3 -> T browser benchmark: NOT_RUN.
 - PB-0003 byte closure / negative assurance: NOT_RUN.
 - V11/V14 product bridge validation: NOT_RUN.
@@ -124,6 +147,8 @@ PR #1234 changes Method-A physical search and overlaps `cii-workspace-source-set
 ## Highest risk
 
 Incorrect multi-seed constraint handling could convert ambiguity into false correspondence. Only explicit locked SOURCE↔TARGET node custody narrows candidate assignments; NodeName or mere reachability does not become authority.
+
+The proposal-approval path intentionally reuses the existing manual-authority handler instead of introducing a parallel state store. Browser execution still must verify the click/refresh lifecycle on the rendered table.
 
 ## Connector / local-ledger limitation
 
@@ -133,4 +158,4 @@ The V3.2 `implementation-start` local continuity command likewise could not be r
 
 ## EXACT_NEXT_ACTION
 
-Proceed to U3 on a non-#1234-owned surface: correct the master-ledger cardinality labels so selected automatic bases and expanded anchor pairs are distinct, then wire an explicit proposal-to-manual-authority approval action. After that, add the Source-vs-Target row model/audit without creating a second correspondence datastore.
+U4: project the existing combined correspondence rows as a dedicated Source-vs-Target audit without creating a second correspondence datastore, including row-level authority/evidence/bound/change/writer-action visibility and benchmark recovered/missing/unexpected summary. Then U5 should collapse downstream Writer2 blocker cascades into a root-cause display while preserving complete machine blockers.
