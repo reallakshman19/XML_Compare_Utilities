@@ -5,6 +5,7 @@ const tab = await readFile(new URL('../tabs/cii-workspace/cii-workspace-tab.js',
 const filters = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js', import.meta.url), 'utf8');
 const router = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-review-only-router.js', import.meta.url), 'utf8');
 const wrapper = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js', import.meta.url), 'utf8');
+const nextStep = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-next-step-shell.js', import.meta.url), 'utf8');
 const sourceSet = await readFile(new URL('../tabs/cii-workspace/cii-workspace-source-set.js', import.meta.url), 'utf8');
 
 assert(tab.includes("import { mountCiiWriter2MultiSourceReviewRouter } from './cii-workspace-multisource-review-only-filter-shell.js?v=20260909-ms-review-filters-1';"));
@@ -38,6 +39,14 @@ assert(wrapper.includes('inspectCiiWorkspaceSourceSetWithVersionBridge'));
 assert(wrapper.includes('S1.CII') === false, 'retained source identities must still come from selected bytes, not hard-coded fixture names');
 assert(wrapper.includes('Writer 2 multi-source custody'));
 assert(wrapper.includes('TARGET original SHA'));
+
+assert(nextStep.includes('ciiMultiSourceCorrespondenceAudit'));
+assert(nextStep.includes('getMultiSourcePreview'));
+assert(nextStep.includes('[data-ciiw-ms-correspondence-audit-csv]'));
+assert(nextStep.includes('[data-ciiw-ms-correspondence-audit-json]'));
+assert(nextStep.includes('cii-source-vs-target-correspondence.csv'));
+assert(nextStep.includes('cii-source-vs-target-correspondence.json'));
+assert(!nextStep.includes('TEXPECTED-PARTIALLLYDONE'), 'production audit shell must not import or reference benchmark expected output');
 
 assert(sourceSet.includes("await import('./cii-workspace-writer-version-bridge.js')"));
 assert(sourceSet.includes('inspectCiiWorkspaceModelsWithVersionBridge'));
