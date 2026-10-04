@@ -63,8 +63,10 @@ function evidenceBandClass(band) {
   const level = Math.max(0, Math.min(4, Number(band?.level || 0)));
   return `level-${level}`;
 }
-function proposalRationaleRows(inspection) {
+function proposalRationaleRows(inspection, selectedBySource = new Map(), manualBySource = new Map()) {
   return (inspection?.memberInspections || []).flatMap((member) => (member?.inspection?.baseAnchorSuggestions || []).map((row) => {
+    const sourceId = String(member?.sourceId || '');
+    const sourceNodeId = String(row?.sourceNodeId || ''); const targetNodeId = String(row?.targetNodeId || '');
     const discovery = row?.candidateGeneration?.reviewDiscovery || null;
     const sourceRun = row?.methodB?.source?.runs?.[0] || null; const targetRun = row?.methodB?.target?.runs?.[0] || null;
     const sourceAxes = discovery?.sourceAxisCount ?? Number(row?.methodB?.source?.independentAxisRunCount || 0);
@@ -80,18 +82,29 @@ function proposalRationaleRows(inspection) {
       : `REVIEW · ${sourceAxes}/${targetAxes} axes; automatic Method B requires at least 2/2`;
     const nameEvidence = row?.nodeNameEvidence || discovery?.nodeNameEvidence || null;
     const od = row?.odConfidence || discovery?.odConfidence || null;
+    const selectionKey = ciiSuggestionSelectionKey(row); const qualified = ciiQualifiedLoopsForSuggestion(row).length > 0;
+    const selected = qualified && Boolean(selectedBySource?.get?.(sourceId)?.has?.(selectionKey));
+    const locked = manualPairs(manualBySource, sourceId).some((pair) => String(pair.sourceNodeId) === sourceNodeId && String(pair.targetNodeId) === targetNodeId);
     return {
-      sourceId: String(member?.sourceId || ''), sourceNodeId: String(row?.sourceNodeId || ''), targetNodeId: String(row?.targetNodeId || ''),
+      sourceId, sourceNodeId, targetNodeId, selectionKey, qualified, selected, locked,
       sourceNodeName: String(discovery?.sourceNodeName || nameEvidence?.sourceRaw || ''), targetNodeName: String(discovery?.targetNodeName || nameEvidence?.targetRaw || ''),
       canonicalKey: String(discovery?.canonicalKey || nameEvidence?.canonicalKey || ''), nameEvidence, od, methodA, network, authority,
       band: row?.corroborationBand || null, discovery: Boolean(discovery),
     };
   }));
 }
-function proposalRationaleMarkup(inspection) {
-  const rows = proposalRationaleRows(inspection);
+function proposalActionMarkup(row) {
+  if (row.qualified) {
+    if (row.selected) return `<span class="ciiw-pill">Selected ✓</span><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-proposal-auto-remove data-ciiw-ms-proposal-source-id="${h(row.sourceId)}" data-ciiw-ms-proposal-selection-key="${h(row.selectionKey)}">Remove</button>`;
+    return `<button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-proposal-use-qualified data-ciiw-ms-proposal-source-id="${h(row.sourceId)}" data-ciiw-ms-proposal-selection-key="${h(row.selectionKey)}">Use qualified base</button>`;
+  }
+  if (row.locked) return '<span class="ciiw-pill">Locked ✓</span>';
+  return `<button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-proposal-lock data-ciiw-ms-proposal-source-id="${h(row.sourceId)}" data-ciiw-ms-proposal-source-node="${h(row.sourceNodeId)}" data-ciiw-ms-proposal-target-node="${h(row.targetNodeId)}">Review &amp; lock</button>`;
+}
+function proposalRationaleMarkup(inspection, selectedBySource = new Map(), manualBySource = new Map()) {
+  const rows = proposalRationaleRows(inspection, selectedBySource, manualBySource);
   if (!rows.length) return '';
-  return `<section class="ciiw-ms-proposal-rationale" data-ciiw-ms-proposal-rationale="1"><header><div><b>Anchor proposal rationale</b><span>Every proposal shows the evidence that made it greener or kept it in review</span></div><span class="ciiw-corroboration">WHY PROPOSED</span></header><p>Node Name is corroboration/discovery only and never creates identity authority by itself. Smart normalization is conservative to SL/PS family + primary number. Automatic Method B still requires at least two independent axes on SOURCE and TARGET.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Proposed pair</th><th>Evidence band</th><th>Node Name</th><th>M1 spatial</th><th>M2 network</th><th>OD band</th><th>Authority</th></tr></thead><tbody>${rows.map((row) => `<tr><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.sourceNodeId)} ↔ ${h(row.targetNodeId)}</b></td><td><span class="ciiw-evidence-band ${evidenceBandClass(row.band)}" style="${ciiEvidenceBandStyle(row.band?.level)}">${h(row.band?.label || 'RED')} · ${h(row.band?.score ?? 0)}/${h(row.band?.max ?? 0)}</span></td><td>${row.nameEvidence?.available !== false ? `<span class="ciiw-name-band ${nodeNameBandClass(row.nameEvidence)}" style="${ciiNodeNameBandStyle(nodeNameBandClass(row.nameEvidence))}">${h(row.nameEvidence?.kind || 'NONE')}</span><small>${h(row.sourceNodeName || '—')} ↔ ${h(row.targetNodeName || '—')}${row.canonicalKey ? ` · ${h(row.canonicalKey)}` : ''}</small>` : '—'}</td><td>${h(row.methodA)}</td><td>${h(row.network)}</td><td>${row.od?.available ? `<span class="ciiw-confidence ${String(row.od.confidence || 'review').toLowerCase()}">${h(row.od.confidence)}</span><small>${h(row.od.percentError)}% · ${h(fmt(row.od.source))} ↔ ${h(fmt(row.od.target))}</small>` : '<span class="ciiw-confidence review">REVIEW</span><small>OD unavailable</small>'}</td><td>${h(row.authority)}</td></tr>`).join('')}</tbody></table></section>`;
+  return `<section class="ciiw-ms-proposal-rationale" data-ciiw-ms-proposal-rationale="1"><header><div><b>Anchor proposal rationale</b><span>Every proposal shows the evidence that made it greener or kept it in review</span></div><span class="ciiw-corroboration">WHY PROPOSED</span></header><p>Node Name is corroboration/discovery only and never creates identity authority by itself. Smart normalization is conservative to SL/PS family + primary number. Automatic Method B still requires at least two independent axes on SOURCE and TARGET. Review-only rows become authority only when you explicitly click <b>Review &amp; lock</b>.</p><table class="ciiw-mini-grid"><thead><tr><th>Source</th><th>Proposed pair</th><th>Evidence band</th><th>Node Name</th><th>M1 spatial</th><th>M2 network</th><th>OD band</th><th>Authority</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.sourceNodeId)} ↔ ${h(row.targetNodeId)}</b></td><td><span class="ciiw-evidence-band ${evidenceBandClass(row.band)}" style="${ciiEvidenceBandStyle(row.band?.level)}">${h(row.band?.label || 'RED')} · ${h(row.band?.score ?? 0)}/${h(row.band?.max ?? 0)}</span></td><td>${row.nameEvidence?.available !== false ? `<span class="ciiw-name-band ${nodeNameBandClass(row.nameEvidence)}" style="${ciiNodeNameBandStyle(nodeNameBandClass(row.nameEvidence))}">${h(row.nameEvidence?.kind || 'NONE')}</span><small>${h(row.sourceNodeName || '—')} ↔ ${h(row.targetNodeName || '—')}${row.canonicalKey ? ` · ${h(row.canonicalKey)}` : ''}</small>` : '—'}</td><td>${h(row.methodA)}</td><td>${h(row.network)}</td><td>${row.od?.available ? `<span class="ciiw-confidence ${String(row.od.confidence || 'review').toLowerCase()}">${h(row.od.confidence)}</span><small>${h(row.od.percentError)}% · ${h(fmt(row.od.source))} ↔ ${h(fmt(row.od.target))}</small>` : '<span class="ciiw-confidence review">REVIEW</span><small>OD unavailable</small>'}</td><td>${h(row.authority)}</td><td class="ciiw-ms-ledger-actions">${proposalActionMarkup(row)}</td></tr>`).join('')}</tbody></table></section>`;
 }
 
 export function ciiMultiSourceAnchorLedgerRows(inspection, selectedBySource, manualBySource) {
@@ -132,7 +145,7 @@ export function ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, m
     : '<p class="ciiw-ms-anchor-ledger-empty">No anchor authority selected yet. Choose a qualified Method A/B base or add a reviewed manual anchor below.</p>';
   const ready = counts.memberCount > 0 && counts.coveredCount === counts.memberCount;
   const next = `<div class="ciiw-ms-next-step"><div><b>${ready ? 'Anchor authority READY' : 'Anchor authority incomplete'}</b><span>${ready ? 'Next: build S1/S2/S3 correspondence. The Compare Review tab is navigation only.' : 'Cover every SOURCE member before comparison.'}</span></div><button type="button" data-ciiw-ms-compare-now ${ready ? '' : 'disabled'}>Compare models →</button></div>`;
-  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(counts.coveredCount)} / ${h(counts.memberCount)} SOURCE members covered · ${h(counts.manualCount)} manual locked · ${h(counts.automaticCount)} method-qualified</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This is the authoritative list of anchors currently chosen for S1/S2/S3. Manual rows are editable here; updating a row changes the next Compare input. A review-only proposal appears here only after you click <b>Add reviewed anchor</b>.</p>${body}${next}</section>${proposalRationaleMarkup(inspection)}`;
+  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(counts.coveredCount)} / ${h(counts.memberCount)} SOURCE members covered · ${h(counts.manualCount)} manual locked · ${h(counts.automaticCount)} method-qualified</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This is the authoritative list of anchors currently chosen for S1/S2/S3. Manual rows are editable here; updating a row changes the next Compare input. Review-only proposals can be locked directly in the rationale table below.</p>${body}${next}</section>${proposalRationaleMarkup(inspection, selectedBySource, manualBySource)}`;
 }
 
-export const _test = Object.freeze({ automaticAuthorityRows, manualAuthorityRows, summary, proposalRationaleRows, proposalRationaleMarkup });
+export const _test = Object.freeze({ automaticAuthorityRows, manualAuthorityRows, summary, proposalRationaleRows, proposalRationaleMarkup, proposalActionMarkup });
