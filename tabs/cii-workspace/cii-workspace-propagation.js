@@ -7,10 +7,22 @@ function sortedEdges(rows) { return [...(rows || [])].sort((a, b) => String(a.el
 function pairKey(sourceNode, targetNode) { return `${sourceNode}=>${targetNode}`; }
 function workflowStatus(confidence) { return confidence === 'HIGH' ? 'HIGH' : 'REVIEW'; }
 
-function singleAnchorMatchOptions(options) {
+function normalizedAnchors(anchors) {
+  const rows = []; const seen = new Set();
+  for (const anchor of anchors || []) {
+    const sourceNodeId = String(anchor?.sourceNodeId ?? '').trim(); const targetNodeId = String(anchor?.targetNodeId ?? '').trim();
+    if (!sourceNodeId || !targetNodeId) continue;
+    const key = pairKey(sourceNodeId, targetNodeId); if (seen.has(key)) continue; seen.add(key);
+    rows.push({ sourceNodeId, targetNodeId });
+  }
+  return rows.sort((a, b) => a.sourceNodeId.localeCompare(b.sourceNodeId, undefined, { numeric: true })
+    || a.targetNodeId.localeCompare(b.targetNodeId, undefined, { numeric: true }));
+}
+
+function anchorMatchOptions(options, anchorCount) {
   const geometryTransform = options?.geometryTransform || Object.freeze({
-    status: 'UNDERDETERMINED', mode: 'SINGLE_LOCKED_ANCHOR',
-    reason: 'ONE_ANCHOR_CANNOT_ESTABLISH_ROTATION',
+    status: 'UNDERDETERMINED', mode: anchorCount === 1 ? 'SINGLE_LOCKED_ANCHOR' : 'LOCKED_ANCHOR_SET',
+    reason: anchorCount === 1 ? 'ONE_ANCHOR_CANNOT_ESTABLISH_ROTATION' : 'GEOMETRY_TRANSFORM_NOT_SUPPLIED',
   });
   return Object.freeze({ ...options, propagation: true, geometryTransform });
 }
@@ -27,8 +39,27 @@ function componentEdgeIds(graph, startNode) {
   return { nodes, edges };
 }
 
-function candidateMatrix(sourceEdges, targetEdges, options) {
-  return sourceEdges.map((source) => targetEdges.map((target) => ({ source, target, evidence: scoreCiiEdgeCandidate(source, target, options) })));
+function componentUnion(graph, nodeIds) {
+  const nodes = new Set(); const edges = new Set();
+  for (const nodeId of nodeIds) {
+    const component = componentEdgeIds(graph, nodeId);
+    for (const node of component.nodes) nodes.add(node);
+    for (const edge of component.edges) edges.add(edge);
+  }
+  return { nodes, edges };
+}
+
+function candidateRespectsLockedCustody(source, target, constraints) {
+  const nextSource = otherNode(source, constraints.sourceNode); const nextTarget = otherNode(target, constraints.targetNode);
+  const sourceClaim = constraints.sourceNodeCustody.get(nextSource); const targetClaim = constraints.targetNodeCustody.get(nextTarget);
+  return (!sourceClaim || sourceClaim === nextTarget) && (!targetClaim || targetClaim === nextSource);
+}
+
+function candidateMatrix(sourceEdges, targetEdges, options, constraints) {
+  return sourceEdges.map((source) => targetEdges.map((target) => ({
+    source, target, constraintCompatible: candidateRespectsLockedCustody(source, target, constraints),
+    evidence: scoreCiiEdgeCandidate(source, target, options),
+  })));
 }
 
 function enumerateAssignments(matrix, targetCount, limit = 720) {
@@ -42,7 +73,7 @@ function enumerateAssignments(matrix, targetCount, limit = 720) {
     for (let targetIndex = 0; targetIndex < targetCount; targetIndex += 1) {
       if (used.has(targetIndex)) continue;
       const pair = matrix[sourceIndex][targetIndex];
-      if (!pair?.evidence?.identitySupported || pair.evidence.hardFail) continue;
+      if (!pair?.constraintCompatible || !pair?.evidence?.identitySupported || pair.evidence.hardFail) continue;
       used.add(targetIndex); selected.push(pair); walk(sourceIndex + 1); selected.pop(); used.delete(targetIndex);
     }
   }
@@ -51,13 +82,20 @@ function enumerateAssignments(matrix, targetCount, limit = 720) {
     || stableStringify(a.pairs.map((pair) => pair.target.elementId)).localeCompare(stableStringify(b.pairs.map((pair) => pair.target.elementId)), undefined, { numeric: true }));
 }
 
-function frontierAssignment(sourceEdges, targetEdges, matchOptions) {
+function frontierAssignment(sourceEdges, targetEdges, matchOptions, constraints) {
   if (sourceEdges.length > targetEdges.length) return { status: 'BLOCKED', blocker: 'FRONTIER_CARDINALITY_MISMATCH' };
   if (!sourceEdges.length) return { status: 'EMPTY', pairs: [] };
   const maxDegree = Number(matchOptions.maxPropagationFrontierDegree || 6);
   if (sourceEdges.length > maxDegree) return { status: 'BLOCKED', blocker: 'FRONTIER_DEGREE_LIMIT_EXCEEDED' };
-  const assignments = enumerateAssignments(candidateMatrix(sourceEdges, targetEdges, matchOptions), targetEdges.length, Number(matchOptions.maxFrontierAssignments || 720));
-  if (!assignments.length) return { status: 'BLOCKED', blocker: 'NO_SUPPORTED_FRONTIER_ASSIGNMENT' };
+  const matrix = candidateMatrix(sourceEdges, targetEdges, matchOptions, constraints);
+  const supported = matrix.flat().filter((pair) => pair?.evidence?.identitySupported && !pair.evidence.hardFail);
+  const constrained = supported.filter((pair) => pair.constraintCompatible);
+  const assignments = enumerateAssignments(matrix, targetEdges.length, Number(matchOptions.maxFrontierAssignments || 720));
+  if (!assignments.length) {
+    const blocker = supported.length && constrained.length < supported.length
+      ? 'NO_LOCK_CONSISTENT_FRONTIER_ASSIGNMENT' : 'NO_SUPPORTED_FRONTIER_ASSIGNMENT';
+    return { status: 'BLOCKED', blocker };
+  }
   const winner = assignments[0]; const runner = assignments[1] || null;
   const gap = runner ? winner.rankingScore - runner.rankingScore : 100;
   const requiredGap = Number(matchOptions.frontierWinnerGap ?? matchOptions.winnerGap ?? 8);
@@ -73,31 +111,62 @@ function unresolvedElementRow(source, target, authority, evidence) {
   });
 }
 
-function correspondenceIdentity(sourceGraph, targetGraph, anchor, elementRows) {
+function correspondenceIdentity(sourceGraph, targetGraph, anchors, elementRows) {
   return stableId('correspondence', sourceGraph.documentId, targetGraph.documentId,
-    stableStringify([{ sourceNodeId: String(anchor.sourceNodeId), targetNodeId: String(anchor.targetNodeId), locked: true }]),
+    stableStringify(anchors.map((anchor) => ({ sourceNodeId: anchor.sourceNodeId, targetNodeId: anchor.targetNodeId, locked: true }))),
     stableStringify(elementRows.map((row) => row.correspondenceId)));
 }
 
-export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchor, options = {}) {
-  const sourceAnchor = String(anchor?.sourceNodeId ?? ''); const targetAnchor = String(anchor?.targetNodeId ?? '');
-  const lockedRow = deepFreeze({
-    correspondenceId: stableId('node', sourceAnchor, targetAnchor), kind: 'NODE', sourceNodeId: sourceAnchor, targetNodeId: targetAnchor,
+function lockedNodeRows(anchors) {
+  return anchors.map((anchor) => deepFreeze({
+    correspondenceId: stableId('node', anchor.sourceNodeId, anchor.targetNodeId), kind: 'NODE',
+    sourceNodeId: anchor.sourceNodeId, targetNodeId: anchor.targetNodeId,
     status: 'LOCKED', authority: 'USER_LOCKED_ANCHOR', anchorSchema: 'CIIWorkspaceAnchor.v1',
+  }));
+}
+
+function lockedAnchorCustody(anchors) {
+  const sourceNodeCustody = new Map(); const targetNodeCustody = new Map(); const conflicts = [];
+  for (const anchor of anchors) {
+    const sourceClaim = sourceNodeCustody.get(anchor.sourceNodeId); const targetClaim = targetNodeCustody.get(anchor.targetNodeId);
+    if ((sourceClaim && sourceClaim !== anchor.targetNodeId) || (targetClaim && targetClaim !== anchor.sourceNodeId)) {
+      conflicts.push({ sourceNodeId: anchor.sourceNodeId, targetNodeId: anchor.targetNodeId,
+        sourceClaim: sourceClaim || null, targetClaim: targetClaim || null });
+      continue;
+    }
+    sourceNodeCustody.set(anchor.sourceNodeId, anchor.targetNodeId); targetNodeCustody.set(anchor.targetNodeId, anchor.sourceNodeId);
+  }
+  return { sourceNodeCustody, targetNodeCustody, conflicts };
+}
+
+function blockedAnchorSet(anchors, blocker, conflicts = []) {
+  return deepFreeze({
+    schema: 'CIIWorkspaceCorrespondence.v1', status: 'BLOCKED', blockers: Object.freeze([blocker]),
+    ambiguityRetained: Boolean(conflicts.length), targetCustodyConflicts: Object.freeze(conflicts),
+    nodeRows: Object.freeze(lockedNodeRows(anchors)), elementRows: Object.freeze([]),
   });
-  if (!sourceGraph?.adjacency?.has(sourceAnchor) || !targetGraph?.adjacency?.has(targetAnchor)) {
-    return deepFreeze({ schema: 'CIIWorkspaceCorrespondence.v1', status: 'BLOCKED', blockers: Object.freeze(['LOCKED_ANCHOR_NODE_NOT_FOUND']),
-      targetCustodyConflicts: Object.freeze([]), nodeRows: Object.freeze([lockedRow]), elementRows: Object.freeze([]) });
+}
+
+export function propagateLockedCiiAnchorCorrespondence(sourceGraph, targetGraph, anchorPairs, options = {}) {
+  const anchors = normalizedAnchors(anchorPairs);
+  if (!anchors.length) return blockedAnchorSet([], 'LOCKED_ANCHOR_PAIR_REQUIRED');
+  if (anchors.some((anchor) => !sourceGraph?.adjacency?.has(anchor.sourceNodeId) || !targetGraph?.adjacency?.has(anchor.targetNodeId))) {
+    return blockedAnchorSet(anchors, 'LOCKED_ANCHOR_NODE_NOT_FOUND');
   }
 
-  const sourceComponent = componentEdgeIds(sourceGraph, sourceAnchor); const targetComponent = componentEdgeIds(targetGraph, targetAnchor);
+  const custody = lockedAnchorCustody(anchors);
+  if (custody.conflicts.length) return blockedAnchorSet(anchors, 'CONFLICTING_LOCKED_ANCHOR_AUTHORITY', custody.conflicts);
+
+  const sourceComponent = componentUnion(sourceGraph, anchors.map((anchor) => anchor.sourceNodeId));
+  const targetComponent = componentUnion(targetGraph, anchors.map((anchor) => anchor.targetNodeId));
   const sourceEdgeCustody = new Map(); const targetEdgeCustody = new Map();
-  const sourceNodeCustody = new Map([[sourceAnchor, targetAnchor]]); const targetNodeCustody = new Map([[targetAnchor, sourceAnchor]]);
-  const blockedSourceEdges = new Set(); const visitedPairs = new Set(); const queuedPairs = new Set([pairKey(sourceAnchor, targetAnchor)]);
-  const queue = [{ sourceNode: sourceAnchor, targetNode: targetAnchor, depth: 0 }];
-  const elementRows = []; const nodeRows = [lockedRow]; const blockers = new Set(); const custodyConflicts = [];
+  const { sourceNodeCustody, targetNodeCustody } = custody;
+  const blockedSourceEdges = new Set(); const visitedPairs = new Set();
+  const queuedPairs = new Set(anchors.map((anchor) => pairKey(anchor.sourceNodeId, anchor.targetNodeId)));
+  const queue = anchors.map((anchor) => ({ sourceNode: anchor.sourceNodeId, targetNode: anchor.targetNodeId, depth: 0 }));
+  const elementRows = []; const nodeRows = lockedNodeRows(anchors); const blockers = new Set(); const custodyConflicts = [];
   const maxPairs = Number(options.maxPropagationNodePairs || 10000);
-  const matchOptions = singleAnchorMatchOptions(options);
+  const matchOptions = anchorMatchOptions(options, anchors.length);
 
   while (queue.length && visitedPairs.size < maxPairs) {
     const current = queue.shift(); const currentKey = pairKey(current.sourceNode, current.targetNode);
@@ -106,7 +175,9 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     const targetEdges = sortedEdges(targetGraph.adjacency.get(current.targetNode)).filter((edge) => !targetEdgeCustody.has(edge.elementId));
     if (!sourceEdges.length) continue;
 
-    const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions);
+    const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions, {
+      sourceNode: current.sourceNode, targetNode: current.targetNode, sourceNodeCustody, targetNodeCustody,
+    });
     if (assignment.status !== 'SUPPORTED') {
       blockers.add(assignment.blocker || 'PROPAGATION_FRONTIER_UNRESOLVED');
       for (const source of sourceEdges) {
@@ -176,10 +247,14 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
   const blockerRows = [...blockers].sort(); const status = blockerRows.length ? 'UNRESOLVED' : 'READY';
   return deepFreeze({
     schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: Object.freeze(blockerRows), ambiguityRetained: elementRows.some((row) => row.status === 'UNRESOLVED'),
-    targetCustodyConflicts: Object.freeze(custodyConflicts), correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, anchor, elementRows),
-    propagation: deepFreeze({ sourceComponentEdgeCount: sourceComponent.edges.size, targetComponentEdgeCount: targetComponent.edges.size,
+    targetCustodyConflicts: Object.freeze(custodyConflicts), correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, anchors, elementRows),
+    propagation: deepFreeze({ anchorCount: anchors.length, sourceComponentEdgeCount: sourceComponent.edges.size, targetComponentEdgeCount: targetComponent.edges.size,
       matchedEdgeCount: sourceEdgeCustody.size, matchedNodeCount: sourceNodeCustody.size, visitedNodePairCount: visitedPairs.size,
       unmatchedSourceElementIds: Object.freeze(unmatchedSource.sort()), unmatchedTargetElementIds: Object.freeze(unmatchedTarget.sort()) }),
     nodeRows: Object.freeze(nodeRows), elementRows: Object.freeze(elementRows),
   });
+}
+
+export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchor, options = {}) {
+  return propagateLockedCiiAnchorCorrespondence(sourceGraph, targetGraph, [anchor], options);
 }
