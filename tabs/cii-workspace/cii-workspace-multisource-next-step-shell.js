@@ -43,12 +43,17 @@ export function mountCiiWriter2MultiSourceNextStepShell(container, options, moun
   const renderAudit = () => {
     auditQueued = false;
     if (disposed || !results) return;
+    const existing = results.querySelector('[data-ciiw-ms-correspondence-audit]');
     if (!multiSource(container)) {
-      results.querySelector('[data-ciiw-ms-correspondence-audit]')?.remove();
+      existing?.remove();
       return;
     }
-    if (results.querySelector('[data-ciiw-ms-correspondence-audit]')) return;
-    const audit = currentAudit(); if (!audit) return;
+    const audit = currentAudit();
+    if (!audit) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
     results.insertAdjacentHTML('afterbegin', ciiMultiSourceCorrespondenceAuditMarkup(audit));
   };
   const queueAudit = () => {
