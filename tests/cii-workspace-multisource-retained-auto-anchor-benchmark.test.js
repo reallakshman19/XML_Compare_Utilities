@@ -10,6 +10,7 @@ import { parseCiiMsBm001 } from '../tabs/cii-workspace/cii-workspace-multisource
 import { createCiiExpectedNodeNameSourceSetSelection } from '../tabs/cii-workspace/cii-workspace-multisource-scope.js';
 import { bindCiiTransferScopeToPreview } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
+import { ciiMultiSourceCorrespondenceAudit } from '../tabs/cii-workspace/cii-workspace-multisource-correspondence-audit.js';
 import {
   deriveExactNameRelocations,
   deriveExpectedNodeNameDelta,
@@ -23,6 +24,7 @@ import {
   validateRawMutationIdentity,
 } from './cii-workspace-multisource-partial-texpected-oracle.js';
 import { validateIndependentMixedNodeNameByteClosure } from './cii-workspace-multisource-byte-closure-oracle.js';
+import { ciiSourceTargetKnownPositiveCoverage } from './cii-workspace-source-target-texpected-coverage.js';
 
 const cryptoRef = globalThis.crypto || webcrypto;
 const benchmark = (name) => fileURLToPath(new URL(`../Benchmark/${name}`, import.meta.url));
@@ -118,6 +120,15 @@ const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewI
 assert.equal(preview.correspondence.status, 'READY', `Auto Anchor correspondence must be READY: ${(preview.correspondence.blockers || []).join(',')}`);
 assert.equal(preview.correspondence.conflicts.length, 0, 'Auto Anchor correspondence must not accept cross-source target conflicts');
 
+const sourceTargetAudit = ciiMultiSourceCorrespondenceAudit(preview);
+const knownPositiveCoverage = ciiSourceTargetKnownPositiveCoverage(sourceTargetAudit, expectedDelta.rows);
+assert.equal(knownPositiveCoverage.expectedTargetNodeCount, expectedDelta.rows.length,
+  'Source→Target audit benchmark denominator must be the independent T→partial-TEXPECTED target-node delta list');
+assert.equal(knownPositiveCoverage.coveredTargetNodeCount, expectedDelta.rows.length,
+  `Source→Target audit must cover every partial-TEXPECTED known-positive target node; missing ${knownPositiveCoverage.missingTargetNodeIds.join(',')}`);
+assert.equal(knownPositiveCoverage.missingTargetNodeCount, 0,
+  `Source→Target audit has missing partial-TEXPECTED known-positive target nodes: ${knownPositiveCoverage.missingTargetNodeIds.join(',')}`);
+
 const physical = canonicalPhysicalTransfer(preview);
 assert.equal(physical.canonical.conflicts.length, 0, 'Transfer must have zero competing exact physical NODENAME proposals');
 assert.equal(new Set(physical.keys).size, physical.keys.length, 'canonical physical Transfer APPLY keys must be unique');
@@ -156,6 +167,14 @@ const diagnostics = Object.freeze({
     confidence: choice.confidence, basisMethod: choice.basisMethod, outcomeSignature: choice.outcomeSignature,
   })),
   correspondence: { status: preview.correspondence.status, nodeRows: preview.correspondence.nodeRows.length, conflicts: preview.correspondence.conflicts.length },
+  sourceTargetAudit: {
+    summary: sourceTargetAudit.summary,
+    knownPositiveExpectedTargetNodes: knownPositiveCoverage.expectedTargetNodeCount,
+    knownPositiveCoveredTargetNodes: knownPositiveCoverage.coveredTargetNodeCount,
+    knownPositiveBoundTargetNodes: knownPositiveCoverage.boundTargetNodeCount,
+    knownPositiveReviewOnlyTargetNodes: knownPositiveCoverage.reviewOnlyTargetNodeCount,
+    knownPositiveMissingTargetNodes: knownPositiveCoverage.missingTargetNodeIds,
+  },
   transfer: {
     expectedApplyRowCount: expectedKeys.length, actualApplyRowCount: physical.keys.length,
     replacementCount: physical.operations.filter((operation) => operation.action === 'COPY').length,
@@ -192,4 +211,4 @@ assert.equal(knownPositiveNames.status, 'READY', `all 35 REPLACE + 1 CREATE lowe
 assert.equal(byteClosure.status, 'READY', `independent raw-byte closure failed: ${JSON.stringify(byteClosure.differences.slice(0, 10))}`);
 assert.equal(structuralPostimage.status, 'READY', 'retained mixed Writer1C/Writer2 benchmark must match the partial expected artifact and preserve original target elsewhere');
 
-console.log('CII retained-real Auto Anchor -> Transfer -> Writer1C REPLACE + Writer2 structural -> partial-expected + raw-byte closure benchmark passed.');
+console.log('CII retained-real Auto Anchor -> Source/Target audit -> Transfer -> Writer1C REPLACE + Writer2 structural -> partial-expected + raw-byte closure benchmark passed.');
