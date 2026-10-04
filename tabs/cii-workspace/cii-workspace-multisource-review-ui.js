@@ -33,6 +33,13 @@ function confidenceReason(row) {
     if (row?.confidence === 'HIGH') return `HIGH: ${boundary.highCount}/${boundary.requiredHighCount} adjacent matched elements independently carry HIGH identity evidence; this NODE is their shared boundary.`;
     return `REVIEW: adjacent boundary consensus is ${boundary.highCount}/${boundary.requiredHighCount} HIGH; explicit engineering review is required.`;
   }
+  if (row?.componentIdentity) {
+    const component = row.componentIdentity;
+    if (!component.pointerCustodyQualified) return `REVIEW: RIGID pointer custody is not qualified${component.blockers?.length ? ` (${component.blockers.join(', ')})` : ''}.`;
+    if (!component.parentIdentityBound) return 'REVIEW: parent ELEMENT identity is not bound by qualified evidence.';
+    if (row?.confidence === 'HIGH') return `HIGH: parent ELEMENT identity is ${component.parentConfidence} and RIGID pointer custody is qualified on both sides.`;
+    return `REVIEW: RIGID component follows a bound parent ELEMENT at ${component.parentConfidence}; explicit engineering review remains required.`;
+  }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName;
   if (row?.confidence === 'HIGH') {
     if (m1?.available === false) return name?.match
@@ -66,6 +73,13 @@ function evidenceMarkup(row) {
     const band = { level: row?.confidence === 'HIGH' ? 4 : 2 };
     const label = `ADJACENT CONSENSUS · ${boundary.highCount}/${boundary.requiredHighCount} HIGH`;
     return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass(band)}" style="${ciiEvidenceBandStyle(band.level)}">${h(label)}</span></div><small>${h(boundarySideLabel('LEFT', boundary.left))}</small><small>${h(boundarySideLabel('RIGHT', boundary.right))}</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
+  }
+  if (row?.componentIdentity) {
+    const component = row.componentIdentity;
+    const level = row?.confidence === 'HIGH' ? 4 : (row?.confidence === 'MEDIUM' ? 3 : 2);
+    const pointer = component.pointerCustodyQualified ? 'POINTER CUSTODY PASS' : 'POINTER CUSTODY BLOCKED';
+    const label = `RIGID COMPONENT · PARENT ${component.parentConfidence} · ${pointer}`;
+    return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass({ level })}" style="${ciiEvidenceBandStyle(level)}">${h(label)}</span></div><small>Parent ${h(component.parentCorrespondenceId || '—')} · ${component.parentIdentityBound ? 'BOUND' : 'UNBOUND'}</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
   }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName; const band = row?.corroborationBand;
   const m1Label = !m1 ? 'M1 —' : (m1.available === false ? `M1 N/A${m1.registrationStatus ? ` ${m1.registrationStatus}` : ''}` : `M1 ${m1.pass ? 'PASS' : 'FAIL'} ${fmt(m1.distanceMm)} / ${fmt(m1.toleranceMm)} mm`);
