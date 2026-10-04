@@ -2,7 +2,13 @@
 
 ## Mission
 
-Implement issue #1237: keep anchor authority, correspondence cardinality, and Writer2 NodeName mutation cardinality as distinct concepts. A small trusted anchor set must seed governed correspondence propagation; the retained 36 NodeName changes remain an output oracle, not an anchor requirement.
+Implement issue #1237 without conflating three different cardinalities:
+
+```text
+anchor authority ≠ SOURCE↔TARGET correspondence ≠ NodeName mutation output
+```
+
+A small trusted anchor set must seed governed correspondence propagation. The retained T→TEXPECTED oracle remains the independent known-positive Writer2 output check; it is not an anchor-count rule.
 
 ## Protocol / live basis
 
@@ -11,151 +17,230 @@ Implement issue #1237: keep anchor authority, correspondence cardinality, and Wr
 - Protocol: `reallaksh19/Common@149770a21ca073df49717a96e2106c967adddc2d:skills/engineering-pr-delivery-v3.2`
 - Base: `main@b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08`
 - Branch: `issue1237-anchor-correspondence-propagation`
-- Material head before this report checkpoint: `027b56f4c2b2a721a84d6560b1f73d174822a29e`
+- Material head entering this checkpoint: `f8265618a8f0b5abaafcd8b832d5473913c9e829`
 - Merge authority: OWNER_ONLY
-- Related draft PR: #1234, performance/search-budget responsibility under #1232.
+- Related open draft: PR #1234 under #1232.
 
-## Takeover / implementation qualification
+## Takeover qualification
 
-`TAKEOVER_AUTHORITY = READ_ONLY` was used for initial grounding. Disposition: `CONTINUE`.
+Initial takeover was read-only. `AGENTS.md`, #1237, #1232/#1234 overlap, retained tests and the production path were inspected before material edits. Disposition: `CONTINUE`.
 
-### A1 — Production trace
+### A1 — production trace
 
-Baseline path:
+Baseline production path:
 
-`createCiiWorkspacePreview()` -> `workspaceMultiBaseAuthority()` -> `buildCiiMultiBaseCorrespondence()`.
+`createCiiWorkspacePreview()` → `workspaceMultiBaseAuthority()` → `buildCiiMultiBaseCorrespondence()`.
 
-At the inspected base:
+At the base commit:
 
-- one legacy/manual anchor -> `propagateSingleCiiAnchorCorrespondence()`;
-- multiple legacy/manual anchors -> `compareLockedCiiAnchorSpan()`;
-- Method B one-anchor loop -> propagation;
-- Method A loop -> locked-span correspondence under qualified geometry.
+- one USER LOCKED / legacy anchor → recursive `propagateSingleCiiAnchorCorrespondence()`;
+- multiple USER LOCKED / legacy anchors → `compareLockedCiiAnchorSpan()`;
+- Method B one-anchor loop → recursive propagation;
+- Method A 3+ anchor loop → qualified locked-span comparison.
 
-### A2 — Failure isolation / implemented correction
+### A2 — isolated semantic defect
 
-The repository already had recursive single-anchor component propagation. The first concrete semantic defect was that multiple reviewed/manual anchors stopped being propagation seeds and were collapsed to span comparison.
+The engine already knew how to expand one trusted seed. The concrete defect was that adding more reviewed/manual anchors changed the algorithmic meaning: the set stopped acting as seeds and was collapsed into locked-span comparison.
 
-Implemented U2 correction:
+This is exactly the wrong cardinality boundary for #1237: extra anchors should constrain/disambiguate propagation, not become a proxy for output rows.
 
-- new `propagateLockedCiiAnchorCorrespondence()` accepts one or more reviewed anchors;
-- every locked pair pre-seeds one-to-one SOURCE/TARGET node custody;
-- every locked pair enters the propagation queue as seed/validation authority;
-- frontier assignments contradicting any locked mapping are removed before winner selection;
-- contradictory reviewed authority fails closed as `CONFLICTING_LOCKED_ANCHOR_AUTHORITY`;
-- one-anchor legacy behavior remains routed through the original single-anchor wrapper, preserving its underdetermined-rotation semantics;
-- Method A and Method B routing/qualification are unchanged.
-
-A local isolated mechanics probe with stubbed scoring verified the specific queue/custody behavior: one seed leaves a symmetric branch unresolved; adding a second locked seed resolves that branch and discovers an additional unanchored node; contradictory locked mappings block. This is **not** a repository test or retained-fixture PASS.
-
-Arbitration's treatment of partially unresolved base loops remains a separate risk to revisit only if retained/manual execution proves the multi-seed correction is insufficient.
-
-### A3 — Protected authority
-
-- NodeName equality remains corroboration/discovery only.
-- Method-B independent-axis authority was not weakened.
-- Method-A geometry mathematics was not changed.
-- No retained benchmark node identity was hard-coded.
-- V11/V14, Writer1C, Writer2 structural mutation semantics and retained fixture bytes are untouched.
-
-### A4 — Independent validation
-
-The retained browser oracle independently derives `T -> TEXPECTED-PARTIALLLYDONE` and requires 36 known-positive mutations: 35 REPLACE + 1 CREATE + 0 DELETE.
-
-Focused regression code now asserts:
-
-1. one anchor expands across a four-edge chain and yields five matched nodes;
-2. a one-anchor symmetric branch remains unresolved/fail-closed;
-3. a second reviewed anchor constrains that same symmetric branch and permits propagation to discover an additional unanchored node pair;
-4. contradictory reviewed anchors fail closed;
-5. legacy/manual two-anchor input yields more correspondence than manual authority rows instead of switching to span-only output semantics.
-
-Execution remains `NOT_RUN` because this connector session has no repository checkout/runner and GitHub has instantiated no Actions run/status for the observed branch heads. Local `node --check` over the U2 authored JS/test files is PASS for syntax only; it is not repository test execution.
-
-### A5 — Minimal patch / overlap control
-
-Changed U2 production files:
-
-- `tabs/cii-workspace/cii-workspace-propagation.js`
-- `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js`
-
-Focused U2 tests:
-
-- `tests/cii-workspace-propagation.test.js`
-- `tests/cii-workspace-multi-base-correspondence.test.js`
-
-U3 additionally changes only the non-#1234-owned anchor-ledger projection and its focused test.
-
-No #1234 search-budget file, geometry implementation, workflow file, Writer1C/Writer2 mutation module, or benchmark fixture was changed.
-
-## U3 — cardinality and proposal authority UX
+## U2 — anchor-seed correspondence semantics
 
 Implemented:
 
-- master ledger now reports separately:
+- added `propagateLockedCiiAnchorCorrespondence()` for one-or-many reviewed anchors;
+- all locked pairs pre-seed one-to-one SOURCE/TARGET node custody;
+- all anchors enter the propagation queue as seed/validation authority;
+- candidate frontier assignments contradicting a locked mapping are removed before winner selection;
+- contradictory manual authority fails closed as `CONFLICTING_LOCKED_ANCHOR_AUTHORITY`;
+- single-anchor legacy input still uses the previous single-anchor wrapper, preserving underdetermined-rotation behavior;
+- Method A and Method B qualification/routing are unchanged;
+- locked-node output ordering is deterministic by locked-state, SOURCE node, then TARGET node.
+
+Focused regression code covers:
+
+1. one anchor expanding across multiple node/element correspondences;
+2. a symmetric branch staying unresolved with insufficient authority;
+3. a second reviewed anchor resolving that branch while propagation discovers another unanchored pair;
+4. contradictory reviewed anchors blocking rather than picking a winner;
+5. a two-anchor legacy/manual set producing correspondence beyond the two anchor rows.
+
+## A3 — protected authority
+
+Preserved:
+
+- NodeName is corroboration/discovery only;
+- Method B independent-axis authority is unchanged;
+- Method A geometry mathematics is unchanged;
+- V11↔V14 bridge semantics are unchanged;
+- Writer1C / Writer2 mutation semantics are unchanged;
+- benchmark CII bytes are unchanged;
+- no retained node identity is hard-coded into production correspondence logic.
+
+## U3 — cardinality + proposal authority UX
+
+Implemented in the existing anchor-ledger model:
+
+- summary now separates:
   - manual locked anchors;
   - selected automatic bases;
   - expanded anchor pairs;
-- the old `method-qualified = expanded pair rows` wording is removed from the summary;
-- ledger copy explicitly says these are seed authorities, not transfer mutations;
-- each proposal-rationale row now has an **Approve anchor** action;
-- approval reuses the existing reviewed-manual-anchor event path by presenting the exact SOURCE/TARGET proposal as the manual-add payload inside the corresponding SOURCE member scope;
-- the existing manual-add handler creates exact USER LOCKED authority, clears automatic base selection for that SOURCE, and rebuilds the ledger;
-- no NodeName match is promoted into automatic identity authority by this action.
+- removed the misleading implication that expanded pair rows are the number of selected method bases;
+- copy explicitly says the ledger represents **seed authority, not transfer mutations**;
+- `Anchor proposal rationale` now exposes **Approve anchor** per proposal;
+- approval reuses the existing manual-authority handler with the exact SOURCE/TARGET pair;
+- approving a proposal creates explicit USER LOCKED authority for that pair and does not promote NodeName equality into automatic identity authority.
 
-Focused static contract coverage verifies that rationale markup exposes the exact approval payload and that the existing multi-source shell binds `data-ciiw-ms-manual-add` inside `data-ciiw-ms-member` scopes.
+No second anchor state model was introduced.
+
+## U4 — Correspondence → Source vs Target audit/export
+
+Implemented from the existing compare-review, engineering-delta and transfer-plan objects; no second correspondence datastore was introduced.
+
+The dedicated audit projection now shows:
+
+- SOURCE and TARGET node IDs;
+- SOURCE and TARGET NodeName values where a NodeName engineering delta exists;
+- current evidence / proof authority;
+- confidence / bound state;
+- whether engineering data changed;
+- Writer action/status;
+- BM-001 binding status;
+- row-level ambiguity / insufficient-evidence / operation blockers.
+
+Summary counts deliberately separate:
+
+- correspondence NODE pairs;
+- bound NODE pairs;
+- NodeName differences;
+- Writer NodeName candidates;
+- BM-001-bound operations.
+
+CSV export was extended from the same model with Source/Target NodeName, identity-bound state, Writer actions and BM-001 statuses while retaining source-file/hash custody.
+
+The UI text refers to the retained mutation benchmark generically; its cardinality is not hard-coded into production audit logic.
+
+Remaining U4 gap: the issue-requested benchmark-mode `expected / recovered / missing / unexpected` projection still requires an externally supplied retained oracle set. Production must not invent or hard-code that set. The existing retained test already derives expected operations independently from T→TEXPECTED; wiring those derived keys into an explicit benchmark-mode UI remains pending executable retained-harness integration.
+
+## U5 — root blocker projection
+
+Implemented `ciiWriter2RootBlockers()`.
+
+The full gate still evaluates the complete blocker set, now retained as `machineBlockers`. The user-facing `blockers` / `rootBlockers` projection shows the first actionable semantic cause instead of presenting derivative consequences as peers.
+
+Example from the owner report:
+
+```text
+S1:CORRESPONDENCE_NOT_READY
+MULTISOURCE_CORRESPONDENCE_NOT_READY
+CII_MS_WRITER2_BOUND_SCOPE_REQUIRED
+CII_MS_WRITER2_SCOPE_SOURCE_SET_HASH_MISMATCH
+CII_MS_WRITER2_SCOPE_TARGET_HASH_MISMATCH
+CII_MS_WRITER2_TRANSFER_PLAN_NOT_PREVIEW_READY
+CII_MS_WRITER2_NO_EXPECTED_NODENAME_MUTATIONS
+```
+
+projects to:
+
+```text
+S1:CORRESPONDENCE_NOT_READY
+```
+
+while the complete machine list remains available for diagnostics and still controls `ready/status`.
+
+## U6 — retained qualification surfaces authored
+
+Added `tests/cii-workspace-retained-s1-manual-anchor-propagation.test.js` using the real retained files:
+
+- `Benchmark/S1.CII`
+- `Benchmark/T.CII`
+
+Scenario A:
+
+```text
+3910 → 875
+```
+
+Scenario B:
+
+```text
+3910 → 875
+3940 → 880
+3870 → 870
+```
+
+The test is designed to prove/falsify, from the retained fixture:
+
+- one anchor remains one seed but expands beyond one node pair where governed evidence permits;
+- three reviewed anchors remain three explicit locked authorities;
+- three anchors do not cap correspondence/mutation cardinality at three;
+- repeated identical input yields deterministic correspondence identity and SOURCE↔TARGET pairs.
+
+The existing independent retained multisource benchmark remains unchanged and continues to derive the known-positive mutation set from T→TEXPECTED rather than from production anchor identities.
+
+### A4 — validation truth
+
+PASS / observed:
+
+- live `main` / base / branch / PR grounding;
+- exact-base production trace;
+- protected-surface diff review;
+- U2 isolated mechanics probe with stubbed scoring (mechanics only, not fixture evidence);
+- branch source readback of U3/U4/U5 contracts;
+- overlap review: PR #1238 and PR #1234 currently share **zero changed files**.
+
+NOT_RUN:
+
+- focused repository Node tests on the final branch;
+- retained one-anchor vs three-anchor S1 test;
+- retained S1/S2/S3→T browser benchmark;
+- Chromium proposal-approval / Source-vs-Target audit interaction test;
+- PB-0003 byte closure / negative assurance;
+- V11↔V14 product bridge validation.
+
+Reason: this session has GitHub connector mutation/readback but no repository execution checkout. The existing CII benchmark workflow is branch-scoped to the earlier revision branch and does not instantiate for PR #1238. No workflow file is changed merely to manufacture evidence.
+
+`NOT_RUN` is not represented as PASS.
+
+### A5 — patch / overlap discipline
+
+PR #1238 production changes are limited to existing CII Workspace correspondence, audit/export, ledger/review projection and Writer2-readiness modules plus focused tests/workreport.
+
+PR #1234 changed files are:
+
+- `cii-workspace-anchor-physical-candidates.js`
+- `cii-workspace-anchor-suggestions-core.js`
+- `cii-workspace-anchor-suggestions.js`
+- `cii-workspace-multisource-review-only-filter-shell.js`
+- `cii-workspace-source-set.js`
+- its workreport/test.
+
+PR #1238 currently changes none of those paths.
 
 ## Declared denominator
 
-| Unit | State | Evidence |
+| Unit | Material state | Evidence state |
 |---|---|---|
-| U1 Grounding / recovery surface | COMPLETE | #1237 IMPLEMENTATION_PLAN + PR1238 report |
-| U2 Anchor-seed correspondence semantics | IMPLEMENTED / RUNTIME EVIDENCE PENDING | multi-seed constrained propagation + focused regression code |
-| U3 Cardinality / proposal authority UX | IMPLEMENTED / RUNTIME EVIDENCE PENDING | distinct counts + direct proposal approval wiring + focused static contract |
-| U4 Source-vs-Target audit | PENDING | combined correspondence model already exposes per-source rows; dedicated projection not yet added |
-| U5 Root blocker projection | PENDING | raw root member blockers are available before downstream transfer blockers |
-| U6 Retained qualification / delivery evidence | PENDING | independent oracle identified; runtime NOT_RUN |
+| U1 Grounding / recovery surface | COMPLETE | COMPLETE |
+| U2 Anchor-seed correspondence semantics | IMPLEMENTED | runtime evidence pending |
+| U3 Cardinality / proposal authority UX | IMPLEMENTED | browser evidence pending |
+| U4 Source-vs-Target audit/export | IMPLEMENTED except benchmark-mode recovered/missing/unexpected wiring | retained-harness evidence pending |
+| U5 Root blocker projection | IMPLEMENTED | focused runtime evidence pending |
+| U6 Retained qualification / delivery evidence | TESTS/ORACLES AUTHORED | NOT_RUN |
 
-Progress credit remains conservative: U1 is complete. U2/U3 are materially implemented but are not evidenced complete until executable qualification is available.
+Progress remains conservative: material implementation is substantially ahead of exact-head execution evidence. This is a semantic/evidence frontier gap, not a production stop signal under V3.2.
 
-## Current hypothesis / falsifier
+## Highest risks / falsifiers
 
-Hypothesis: S1 reviewed-anchor behavior is degraded in part because multi-anchor authority switches to locked-span semantics instead of treating each reviewed pair as seed/validation constraints. Multi-seed propagation with locked custody constraints should let an extra anchor resolve a concrete ambiguous branch without requiring one anchor per mutation.
-
-Falsifier: retained/manual S1 execution shows the relevant frontier remains unresolved for reasons independent of anchor constraints. If falsified, stop this direction and publish the first unresolved evidence boundary rather than weakening geometry/evidence rules.
-
-## Active overlap
-
-PR #1234 changes Method-A physical search and overlaps `cii-workspace-source-set.js` / multi-source filter UI. Classification: `COORDINATION_REQUIRED`. PR #1238 has not modified any #1234 changed production file through U3.
-
-## Validation truth
-
-- Live main grounding: PASS — GitHub readback.
-- Repository instructions: PASS — `AGENTS.md` read at exact base.
-- Code production trace: PASS — exact-base source inspection.
-- PR diff review of U2: PASS — no protected production surface outside propagation/orchestration changed.
-- JS syntax for U2 production/test files: PASS — `node --check` only.
-- Isolated multi-seed mechanics probe: PASS — stubbed local probe; not repository/fixture evidence.
-- U3 markup/static wiring readback: PASS — exact branch source + focused test contract.
-- Focused repository Node tests: NOT_RUN — no repository execution environment.
-- GitHub Actions: NOT_RUN / none instantiated for observed branch head.
-- Commit statuses: NOT_RUN / none present for observed branch head.
-- Retained S1/S2/S3 -> T browser benchmark: NOT_RUN.
-- PB-0003 byte closure / negative assurance: NOT_RUN.
-- V11/V14 product bridge validation: NOT_RUN.
-
-## Highest risk
-
-Incorrect multi-seed constraint handling could convert ambiguity into false correspondence. Only explicit locked SOURCE↔TARGET node custody narrows candidate assignments; NodeName or mere reachability does not become authority.
-
-The proposal-approval path intentionally reuses the existing manual-authority handler instead of introducing a parallel state store. Browser execution still must verify the click/refresh lifecycle on the rendered table.
+1. Retained S1 one-anchor execution may show a different first unresolved cause than manual multi-anchor routing. If so, do not weaken evidence rules; record the actual frontier.
+2. Multi-seed constraints must never turn NodeName or proximity into identity authority.
+3. The benchmark-mode recovered/missing/unexpected UI must consume independently derived expected keys; production must not hard-code retained expected identities/cardinality.
+4. Browser execution must confirm proposal approval uses the existing manual-authority lifecycle exactly as intended.
 
 ## Connector / local-ledger limitation
 
-This responsibility is being mutated through the GitHub connector; no repository checkout is exposed for the repository-local backup helper or git-ignored `.agent-worklogs/` ledger. Git blob SHAs and branch commits provide durable preimages, but no claim is made that the local backup/patch-ledger requirement was executed.
-
-The V3.2 `implementation-start` local continuity command likewise could not be run because no responsibility continuity snapshot/repository execution environment is available here. This is recorded as an observability limitation, not a production blocker.
+No repository filesystem is exposed in this connector session for the local backup helper, `.agent-worklogs/`, V3.2 continuity script, Node/Playwright execution, or local HTTP browser run. Git commits provide durable material preimages, but no claim is made that those local-only steps ran.
 
 ## EXACT_NEXT_ACTION
 
-U4: project the existing combined correspondence rows as a dedicated Source-vs-Target audit without creating a second correspondence datastore, including row-level authority/evidence/bound/change/writer-action visibility and benchmark recovered/missing/unexpected summary. Then U5 should collapse downstream Writer2 blocker cascades into a root-cause display while preserving complete machine blockers.
+Run the authored focused + retained tests at the exact PR head. If the retained one-vs-three S1 test passes, feed the independently derived T→TEXPECTED expected-operation keys into the dedicated benchmark-mode audit to display expected/recovered/missing/unexpected without fixture-specific production constants. If it fails, use its reported S1 correspondence/blocker frontier as the next engineering basis rather than increasing anchor count or weakening authority.
