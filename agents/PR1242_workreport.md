@@ -19,6 +19,8 @@ PR #1242 supplies the missing source-first correspondence audit for retained S1/
 
 This PR is intentionally stacked on #1240 because it consumes the corrected evidence-basis fields introduced there. It must not be merged independently of #1240.
 
+The Owner-requested benchmark-first lane is now also authored test-only: T.CII and TEXPECTED-PARTIALLLYDONE.CII are compared by the existing independent oracle to derive the exact changed TARGET-node list at runtime, and the retained-real benchmark now requires the Source→Target audit to cover every one of those known-positive target nodes. No benchmark answer is imported by production code.
+
 ## Product contract
 
 For every SOURCE node across S1/S2/S3, the audit emits one stable row containing:
@@ -33,7 +35,7 @@ For every SOURCE node across S1/S2/S3, the audit emits one stable row containing
 - changed-delta count and families;
 - stable `SOURCE:node` audit identity.
 
-Multiple correspondence rows for the same source node are retained as multiplicity and target arrays. The audit never silently selects one target.
+Multiple correspondence rows for the same source node are retained as multiplicity and target arrays. Distinct competing TARGET IDs force `UNRESOLVED` even if one of the rows is individually bound; the audit never silently selects one target.
 
 ## SOURCE census authority
 
@@ -54,6 +56,7 @@ New pure module:
 - left join to NODE Compare Review rows;
 - aggregate and per-member summaries;
 - stable row IDs;
+- competing-target fail-closed classification;
 - deterministic complete CSV;
 - deterministic JSON with source-set/target custody hashes;
 - audit UI markup with explicit `UNEMITTED` rows;
@@ -77,25 +80,64 @@ Small retained Writer2 wrapper extension:
 
 Updates only the next-step shell cache token so browsers receive the audit wrapper.
 
-### Tests
+## Tests and benchmark lane
 
-`tests/cii-workspace-multisource-correspondence-audit.test.mjs` proves:
+### `tests/cii-workspace-multisource-correspondence-audit.test.mjs`
+
+Proves:
 
 - 6 SOURCE nodes with only 3 emitted source-node correspondences still produce 6 audit rows;
 - 3 nodes are explicitly `UNEMITTED`;
-- one source with two emitted rows retains both target IDs and is `UNRESOLVED` rather than silently collapsed;
+- one source with two different TARGET claims remains `UNRESOLVED` even when one claim is individually bound;
 - aggregate counts reconcile;
 - CSV contains header + all source nodes;
 - JSON retains custody hashes;
 - UI preview cap does not imply export truncation.
 
-`tests/cii-workspace-source-set-ui-contract.test.js` pins:
+### `tests/cii-workspace-source-set-ui-contract.test.js`
+
+Pins:
 
 - cache token routing;
 - audit helper registration;
 - current-preview use;
 - CSV/JSON export controls and filenames;
 - explicit negative assurance that the production audit shell does not reference `TEXPECTED-PARTIALLLYDONE`.
+
+### `tests/cii-workspace-source-target-texpected-coverage.js`
+
+Test-only coverage helper. It takes an audit and independently derived T→TEXPECTED delta rows and reports:
+
+- denominator / covered target nodes;
+- bound target nodes;
+- review-only target nodes;
+- missing target nodes and exact missing IDs.
+
+Authority is explicitly labelled `TEST_ONLY_PARTIAL_TEXPECTED_KNOWN_POSITIVE`.
+
+### `tests/cii-workspace-source-target-texpected-benchmark.test.js`
+
+Benchmark-first census requested by Owner:
+
+- reads frozen `Benchmark/T.CII` and `Benchmark/TEXPECTED-PARTIALLLYDONE.CII`;
+- uses existing `deriveExpectedNodeNameDelta()` independent oracle;
+- derives the full changed TARGET-node list at runtime;
+- asserts 1265→1266 physical NODENAME rows;
+- asserts exactly 36 observed NodeName changes: 35 REPLACE + 1 CREATE + 0 DELETE;
+- prints machine-readable target node/action/before-name/partial-expected-name rows;
+- exercises the coverage classifier without feeding answers to production.
+
+No target-node answer list is hard-coded in production.
+
+### Existing retained benchmark strengthened
+
+`tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js` now builds the real Source→Target audit from the retained preview and requires:
+
+- known-positive denominator equals the independent T→TEXPECTED delta count;
+- every known-positive TARGET node is present in the audit;
+- missing known-positive target count is zero.
+
+Its diagnostics now expose total audit census plus known-positive covered/bound/review-only/missing counts. This benchmark remains expensive and has **not** executed on the current head in this session.
 
 ## Benchmark / anti-gaming boundary
 
@@ -107,7 +149,7 @@ The independent T→TEXPECTED known-positive lower bound remains:
 - 1 structural CREATE at target 10330;
 - 0 DELETE.
 
-`TEXPECTED-PARTIALLLYDONE.CII` is partial validation authority only. No production module in this PR imports, fetches, parses, or hard-codes it. A benchmark reconciliation may consume this audit in tests/validation only; it must never create correspondence, promote confidence, bind transfer scope, or choose Writer2 mutations.
+`TEXPECTED-PARTIALLLYDONE.CII` is partial validation authority only. No production module in this PR imports, fetches, parses, or hard-codes it. Benchmark reconciliation exists under `tests/**` only and must never create correspondence, promote confidence, bind transfer scope, or choose Writer2 mutations.
 
 ## Protected scope / negative assurance
 
@@ -124,22 +166,39 @@ No change to:
 - workflow/deployment files;
 - local-storage/session persistence.
 
+## Current stacked changed-file ledger
+
+Relative to dependency head `8eb2685a...`:
+
+1. `agents/PR1242_workreport.md`
+2. `tabs/cii-workspace/cii-workspace-multisource-correspondence-audit.js`
+3. `tabs/cii-workspace/cii-workspace-multisource-next-step-shell.js`
+4. `tabs/cii-workspace/cii-workspace-tab.js`
+5. `tests/cii-workspace-multisource-correspondence-audit.test.mjs`
+6. `tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js`
+7. `tests/cii-workspace-source-set-ui-contract.test.js`
+8. `tests/cii-workspace-source-target-texpected-benchmark.test.js`
+9. `tests/cii-workspace-source-target-texpected-coverage.js`
+
 ## Validation ledger
 
 | Gate | Status | Observation / oracle |
 |---|---|---|
 | stack base exactness | PASS | #1240 exact head `8eb2685a...` |
-| stacked diff boundary | PASS | six audit/UI/test/report files only |
-| source-first census model | PASS_ISOLATED | exact pure-module test fixture |
+| stacked diff boundary | PASS | 9 audit/UI/test/report files only |
+| source-first census model | PASS_ISOLATED | exact pure-module test fixture before final conflict hardening |
 | N>K source/emitted falsifier | PASS_ISOLATED | 6 source nodes / 3 emitted -> 6 rows / 3 UNEMITTED |
-| multi-emission custody | PASS_ISOLATED | one source retains targets 102 + 103 and remains UNRESOLVED |
+| multi-emission custody | AUTHORED / NOT_RUN_EXACT_HEAD | final test now includes one bound + one competing target and requires UNRESOLVED |
 | deterministic CSV/JSON | PASS_ISOLATED | complete row count + hashes asserted |
 | UI bounded/export-complete contract | PASS_ISOLATED | 2-row UI test cap with 6-row export statement |
 | stale-preview cleanup | SOURCE_INSPECTED | committed guard removes audit when current preview is absent |
 | routing/cache audit registration | SOURCE_INSPECTED | static test authored; full repo execution not available |
+| T→TEXPECTED changed-node census | AUTHORED / NOT_RUN_EXACT_HEAD | real frozen files + existing independent oracle; derives 36-node list at runtime |
+| audit known-positive coverage helper | AUTHORED / NOT_RUN_EXACT_HEAD | test-only; no production authority |
+| retained-real audit 36/36 coverage gate | AUTHORED / NOT_RUN_EXACT_HEAD | existing expensive retained benchmark strengthened |
 | full repository focused suite | NOT_RUN | no authenticated complete checkout in this session |
 | retained S1/S2/S3→T browser path | NOT_RUN | not claimed on this head |
-| T→TEXPECTED audit reconciliation | NOT_RUN | intentionally separate test/validation slice |
+| GitHub Actions/status | NONE_INSTANTIATED at last observation | do not treat as PASS |
 | merge | NOT_APPLICABLE | Owner authorization not granted |
 
 ## Environment limitation
@@ -152,4 +211,4 @@ PR #1242 currently targets the #1240 branch to isolate its own delta. If #1240 l
 
 ## EXACT_NEXT_ACTION
 
-Keep #1242 draft. Add a separate test/validation-only benchmark reconciliation lane that consumes the source-first audit and the existing independent T→TEXPECTED oracle to report known-positive correspondence coverage without importing benchmark answers into production. Then execute the focused audit/routing tests and retained browser path in a checkout-capable environment before any readiness claim.
+Keep #1242 draft. Execute, on exact head, the pure audit test, T→TEXPECTED census test, source-set UI contract, and retained-real Auto Anchor benchmark with its new 36/36 audit gate. Then run the retained browser path. If the 36/36 gate fails, use the emitted missing TARGET IDs to diagnose correspondence coverage; do not patch expected data or feed TEXPECTED answers into production. Only after those gates pass should blocker presentation, anchor proposal actions, or persistence proceed.
