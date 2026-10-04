@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildCiiSourceTargetAudit, ciiSourceTargetAuditToCsv, ciiSourceTargetAuditToJson } from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
+import { ciiMultiSourceSourceTargetAuditMarkup } from '../tabs/cii-workspace/cii-workspace-source-target-audit-ui.js';
 
 function document(fileName, nodeCount, elements, nodeNames = {}) {
   return {
@@ -33,7 +34,7 @@ const s2AmbiguousA = reviewRow('S2', 10, 201, { identityBound: false, confidence
 const s2AmbiguousB = reviewRow('S2', 10, 202, { identityBound: false, confidence: 'REVIEW', decision: 'REVIEW' });
 const s2Bound = reviewRow('S2', 20, 202, { confidence: 'LOCKED', workflowStatus: 'LOCKED', decision: 'LOCKED' });
 
-const audit = buildCiiSourceTargetAudit({
+const preview = {
   sourceSetSha256: 'source-set-sha',
   memberPreviews: [
     { sourceId: 'S1', preview: { sourceDocument: s1 } },
@@ -47,7 +48,8 @@ const audit = buildCiiSourceTargetAudit({
   transferPlan: { operations: [{
     operationId: 'op-s1-1', action: 'COPY', status: 'PREVIEW_READY', matchAuthority: { correspondenceId: s1Bound.correspondenceId },
   }] },
-});
+};
+const audit = buildCiiSourceTargetAudit(preview);
 
 assert.equal(audit.schema, 'CIIWorkspaceSourceTargetAudit.v1');
 assert.equal(audit.rows.length, 5, 'every SOURCE node must appear exactly once in the census');
@@ -90,5 +92,15 @@ assert.match(csv, /MULTIPLE_TARGET_NODE_CLAIMS/);
 const json = ciiSourceTargetAuditToJson(audit);
 assert.match(json, /CIIWorkspaceSourceTargetAudit\.v1/);
 assert.match(json, /"totalSourceNodes":5/);
+
+const markup = ciiMultiSourceSourceTargetAuditMarkup(preview);
+assert.match(markup, /Correspondence → Source vs Target/);
+assert.match(markup, /Complete SOURCE-node census/);
+assert.match(markup, /data-ciiw-source-target-row="S1:3"/);
+assert.match(markup, /UNEMITTED/);
+assert.match(markup, /Export census CSV/);
+assert.match(markup, /Export census JSON/);
+assert.match(markup, /data:text\/csv;charset=utf-8/);
+assert.match(markup, /data:application\/json;charset=utf-8/);
 
 console.log('CII Source vs Target census audit checks: PASS');
