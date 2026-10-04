@@ -32,7 +32,8 @@ const markup = ciiMultiSourceAnchorLedgerMarkup(inspection, selected, manual);
 for (const token of [
   'Source-set Anchor Authority', 'MASTER LEDGER', '120', '40070', '1890', '21890',
   'data-ciiw-ms-ledger-update', 'data-ciiw-ms-ledger-auto-remove',
-  '2 manual locked', '1 automatic bases', '3 anchor pairs', 'seed authority, not transfer mutations',
+  '2 manual locked', 'automatic bases: 1', 'anchor pairs: 3', 'seed authority, not transfer mutations',
+  'data-ciiw-ms-proposal-approve="1"', 'Approve anchor', 'data-ciiw-ms-manual-source', 'data-ciiw-ms-manual-target',
 ]) assert(markup.includes(token), token);
 
 const preview = { compareReview: { rows: [
@@ -62,6 +63,9 @@ assert.equal(highDecisions.get('h1'), 'ACCEPT');
 
 const shell = await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js', import.meta.url), 'utf8');
 assert(shell.includes('ciiMultiSourceAnchorLedgerMarkup'));
+assert(shell.includes("evidence.querySelectorAll('[data-ciiw-ms-member]')"));
+assert(shell.includes("section.querySelector('[data-ciiw-ms-manual-add]')"));
+assert(shell.includes('selectedBySource.set(id, new Set())'));
 assert(shell.includes('if (outcome.changed) markReviewDirty(outcome.message); else setMultiSourceStatus(container, outcome.message);'));
 
-console.log('CII Writer2 source-set anchor master ledger + zero-count bulk no-op: PASS');
+console.log('CII Writer2 source-set anchor master ledger + proposal approval + zero-count bulk no-op: PASS');
