@@ -13,14 +13,19 @@ function edgeEvidence(confidence = 'HIGH') {
     odConfidence: { confidence: 'HIGH', percentError: 0 },
   };
 }
-function modelFor(row) {
+function modelForRows({ nodeRows = [], elementRows = [], componentRows = [] }) {
   return buildCiiCompareReviewModel(
     { fileName: 'S.CII', summary: { nodeCount: 3, elementCount: 2 } },
     { fileName: 'T.CII', summary: { nodeCount: 3, elementCount: 2 } },
-    { status: 'READY', nodeRows: [row], elementRows: [], componentRows: [] },
+    { status: 'READY', nodeRows, elementRows, componentRows },
     { reviewedCorrespondenceIds: [], lockedCorrespondenceIds: [], rejectedCorrespondenceIds: [] },
     { rows: [], summary: {}, limitations: [] },
   );
+}
+function modelFor(row) {
+  if (row.kind === 'NODE') return modelForRows({ nodeRows: [row] });
+  if (row.kind === 'COMPONENT') return modelForRows({ componentRows: [row] });
+  return modelForRows({ elementRows: [row] });
 }
 
 const boundary = modelFor({
@@ -79,6 +84,43 @@ const explicitHighUnbound = modelFor({
 assert.equal(explicitHighUnbound.identityBound, false, 'explicit HIGH token must not bind identity by itself');
 assert.equal(explicitHighUnbound.confidence, 'REVIEW', 'review HIGH is forbidden when normalized identity is unbound');
 assert.equal(bulkAcceptCiiMultiSourceReview({ compareReview: { rows: [{ ...explicitHighUnbound, sourceId: 'S1', memberCorrespondenceId: 'element:E3:T3' }] } }, new Map(), 'HIGH'), 0);
+
+const parent = {
+  correspondenceId: 'element:R1:TR1', kind: 'ELEMENT', sourceElementId: 'R1', targetElementIds: ['TR1'],
+  status: 'HIGH', authority: 'PATH_SEQUENCE_ALIGNMENT', evidence: edgeEvidence(),
+};
+const rigid = {
+  correspondenceId: 'component:R1:TR1', kind: 'COMPONENT', componentKind: 'RIGID',
+  sourceElementId: 'R1', targetElementIds: ['TR1'], sourceComponentId: 'RIGID_PTR@1', targetComponentId: 'RIGID_PTR@2',
+  status: 'HIGH', authority: 'POINTER_BOUND_RIGID_COMPONENT_CONTEXT', parentElementCorrespondenceId: parent.correspondenceId,
+  evidence: { blockers: [] },
+};
+const rigidModel = modelForRows({ elementRows: [parent], componentRows: [rigid] });
+const rigidReview = rigidModel.rows.find((row) => row.kind === 'COMPONENT');
+assert.equal(rigidReview.identityBound, true, 'RIGID component binds only through qualified parent identity plus pointer custody');
+assert.equal(rigidReview.confidence, 'HIGH');
+assert.equal(rigidReview.identityEvidenceBasis, 'PARENT_ELEMENT_PLUS_POINTER_CUSTODY');
+assert.equal(rigidReview.componentIdentity.parentConfidence, 'HIGH');
+assert.equal(rigidReview.componentIdentity.pointerCustodyQualified, true);
+const rigidMarkup = ciiMultiSourceReviewMarkup({ compareReview: { rows: [{ ...rigidReview, sourceId: 'S1', memberCorrespondenceId: rigidReview.correspondenceId }] } }, new Map());
+assert.match(rigidMarkup, /RIGID COMPONENT · PARENT HIGH · POINTER CUSTODY PASS/);
+assert.match(rigidMarkup, /parent ELEMENT identity is HIGH and RIGID pointer custody is qualified/);
+assert.doesNotMatch(rigidMarkup, /RED · 0\/0/);
+
+const rigidWithoutParentProof = modelForRows({
+  elementRows: [{ ...parent, evidence: {}, authority: 'STATUS_ONLY_PARENT' }],
+  componentRows: [rigid],
+}).rows.find((row) => row.kind === 'COMPONENT');
+assert.equal(rigidWithoutParentProof.identityBound, false, 'inherited component status must not replace parent evidence');
+assert.equal(rigidWithoutParentProof.confidence, 'REVIEW');
+
+const rigidBlocked = modelForRows({
+  elementRows: [parent],
+  componentRows: [{ ...rigid, status: 'CONFLICT', evidence: { blockers: ['RIGID_COMPONENT_POINTER_CUSTODY_UNAVAILABLE'] } }],
+}).rows.find((row) => row.kind === 'COMPONENT');
+assert.equal(rigidBlocked.identityBound, false);
+assert.equal(rigidBlocked.confidence, 'UNRESOLVED');
+assert.equal(rigidBlocked.componentIdentity.pointerCustodyQualified, false);
 
 const locked = modelFor({
   correspondenceId: 'node:3910:875', kind: 'NODE', sourceNodeId: '3910', targetNodeId: '875',
