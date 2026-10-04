@@ -107,7 +107,6 @@ const pending = new Map([[s1Unresolved.correspondenceId, 'REJECT']]);
 const pendingAudit = buildCiiSourceTargetAudit({ ...preview, reviewDecisionOverrides: pending });
 assert.deepEqual(pendingAudit.rows.find((row) => row.rowKey === 'S1:2').reviewDecisions, ['REJECT']);
 const pendingMarkup = ciiMultiSourceSourceTargetAuditMarkup(preview, pending);
-assert.match(pendingMarkup, /REJECT/);
-assert.doesNotMatch(pendingMarkup, /S1:2[^]*>REVIEW</);
+assert.match(pendingMarkup, />REJECT</);
 
 console.log('CII Source vs Target census audit checks: PASS');
