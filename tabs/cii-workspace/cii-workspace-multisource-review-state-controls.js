@@ -28,7 +28,7 @@ export function ciiReviewControlProjection(state, transferDirty = false) {
   });
 }
 
-function workspaceFor(host) { return host.closest?.('.ciiw-workspace') || host.ownerDocument; }
+function workspaceFor(host) { return host.closest?.('.ciiw-backdrop') || host.closest?.('.ciiw-workspace') || host.ownerDocument; }
 function transferDirty(workspace) {
   const transfer = workspace?.querySelector?.('[data-ciiw-ms-transfer="1"]');
   return Boolean(transfer?.textContent?.includes('Correspondence review changed.'));
@@ -62,4 +62,4 @@ if (typeof globalThis.HTMLElement !== 'undefined' && globalThis.customElements &
   globalThis.customElements.define(HOST_TAG, CiiMsReviewStateControls);
 }
 
-export const _test = Object.freeze({ HOST_TAG, transferDirty, applyProjection });
+export const _test = Object.freeze({ HOST_TAG, workspaceFor, transferDirty, applyProjection });
