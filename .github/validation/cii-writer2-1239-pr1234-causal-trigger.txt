@@ -1,0 +1,4 @@
+validation-only causal trigger
+product head: ea2556d99a71f87241aa8538f2b7609c186b9d3d
+pr1234 exact head: b7fb3513eabbac786a7d095c1be96fcfbbcac8e6
+overlay commit: 86415c1b0efae6fb4bde8eedcb21e97984b87fa6
