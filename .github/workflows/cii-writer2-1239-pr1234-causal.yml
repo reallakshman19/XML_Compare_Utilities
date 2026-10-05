@@ -1,0 +1,182 @@
+name: CII Writer2 #1239 PR1234 Causal Runtime
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-1239-pr1234-causal
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cii-writer2-1239-pr1234-causal
+  cancel-in-progress: false
+
+jobs:
+  causal-node:
+    name: PR1234 causal Node runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout causal validation tree
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prove bounded causal overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_SHA=ea2556d99a71f87241aa8538f2b7609c186b9d3d
+          test "$(git merge-base "$PRODUCT_SHA" HEAD)" = "$PRODUCT_SHA"
+          git diff --name-only "$PRODUCT_SHA" HEAD | tee causal-delta.log
+          mapfile -t unexpected < <(git diff --name-only "$PRODUCT_SHA" HEAD | grep -Ev '^(tabs/cii-workspace/cii-workspace-anchor-physical-candidates\.js|tabs/cii-workspace/cii-workspace-anchor-suggestions-core\.js|tabs/cii-workspace/cii-workspace-anchor-suggestions\.js|tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell\.js|tabs/cii-workspace/cii-workspace-source-set\.js|tests/cii-workspace-anchor-search-budget\.test\.js|\.github/workflows/cii-writer2-1239-pr1234-causal\.yml|\.github/validation/cii-writer2-1239-pr1234-causal-trigger\.txt)$' || true)
+          if [ "${#unexpected[@]}" -ne 0 ]; then
+            printf 'UNEXPECTED_CAUSAL_OVERLAY_DRIFT\n%s\n' "${unexpected[@]}"
+            exit 1
+          fi
+
+      - name: Syntax-check causal overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js \
+            tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js \
+            tabs/cii-workspace/cii-workspace-anchor-suggestions.js \
+            tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js \
+            tabs/cii-workspace/cii-workspace-source-set.js \
+            tests/cii-workspace-anchor-search-budget.test.js; do
+            node --check "$file"
+          done
+
+      - name: Run PR1234 focused search-budget regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-anchor-search-budget.test.js 2>&1 | tee anchor-search-budget.log
+
+      - name: Run retained auto-anchor benchmark with causal budget
+        shell: bash
+        run: |
+          set -o pipefail
+          start=$(date +%s)
+          set +e
+          timeout 600s node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js 2>&1 | tee retained-auto-anchor-causal.log
+          status=${PIPESTATUS[0]}
+          set -e
+          end=$(date +%s)
+          echo "ELAPSED_SECONDS=$((end-start))" | tee retained-auto-anchor-causal-summary.log
+          echo "EXIT_STATUS=$status" | tee -a retained-auto-anchor-causal-summary.log
+          if [ "$status" -eq 124 ]; then
+            echo 'CAUSAL_RETAINED_RUNTIME_TIMEOUT=1' | tee -a retained-auto-anchor-causal-summary.log
+            exit 124
+          fi
+          exit "$status"
+
+      - name: Cross-check retained lower-bound oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-benchmark-overlay.test.js 2>&1 | tee benchmark-overlay-causal.log
+
+      - name: Upload causal Node evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-pr1234-causal-node
+          path: |
+            causal-delta.log
+            anchor-search-budget.log
+            retained-auto-anchor-causal.log
+            retained-auto-anchor-causal-summary.log
+            benchmark-overlay-causal.log
+          if-no-files-found: warn
+
+  causal-browser:
+    name: PR1234 causal retained Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout causal validation tree
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create causal browser config
+        shell: bash
+        run: |
+          cat > playwright.cii-writer2-pr1234-causal.generated.mjs <<'EOF'
+          import { defineConfig, devices } from '@playwright/test';
+          export default defineConfig({
+            testDir: './tests/browser',
+            testMatch: [
+              'cii-writer2-multisource-retained-benchmark.spec.mjs',
+              'cii-writer2-multisource-retained-tile-ui.spec.mjs',
+              'cii-writer2-multisource-generic-review-only.spec.mjs',
+            ],
+            fullyParallel: false,
+            workers: 1,
+            timeout: 300_000,
+            expect: { timeout: 60_000 },
+            reporter: [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+            use: {
+              ...devices['Desktop Chrome'],
+              browserName: 'chromium',
+              headless: true,
+              viewport: { width: 1280, height: 800 },
+              baseURL: 'http://127.0.0.1:4174',
+              trace: 'retain-on-failure',
+              screenshot: 'only-on-failure',
+            },
+            webServer: {
+              command: 'node tests/browser/cii-writer2-static-server.mjs 4174',
+              url: 'http://127.0.0.1:4174/',
+              timeout: 120_000,
+              reuseExistingServer: false,
+            },
+          });
+          EOF
+
+      - name: Run causal retained browser subset
+        shell: bash
+        run: |
+          set -o pipefail
+          start=$(date +%s)
+          npx playwright test --config=playwright.cii-writer2-pr1234-causal.generated.mjs 2>&1 | tee causal-browser.log
+          status=${PIPESTATUS[0]}
+          end=$(date +%s)
+          echo "ELAPSED_SECONDS=$((end-start))" | tee causal-browser-summary.log
+          echo "EXIT_STATUS=$status" | tee -a causal-browser-summary.log
+          exit "$status"
+
+      - name: Upload causal browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-pr1234-causal-browser
+          path: |
+            causal-browser.log
+            causal-browser-summary.log
+            playwright-report
+            test-results
+          if-no-files-found: warn
