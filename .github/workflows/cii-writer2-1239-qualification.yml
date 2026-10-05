@@ -1,0 +1,208 @@
+name: CII Writer2 #1239 Qualification v3
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-full-qualification-1239-v3
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cii-writer2-1239-qualification-v3
+  cancel-in-progress: false
+
+jobs:
+  syntax-and-focused-node:
+    name: Syntax + bounded focused Node qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout validation commit with history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prove product-tree equivalence and syntax-check cumulative #1239 JS/MJS delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA=b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08
+          PRODUCT_SHA=ea2556d99a71f87241aa8538f2b7609c186b9d3d
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          mapfile -t non_runner_delta < <(git diff --name-only "$PRODUCT_SHA" HEAD | grep -v '^\.github/workflows/cii-writer2-1239-qualification.yml$' || true)
+          if [ "${#non_runner_delta[@]}" -ne 0 ]; then
+            printf 'VALIDATION_BRANCH_PRODUCT_DRIFT\n%s\n' "${non_runner_delta[@]}"
+            exit 1
+          fi
+          : > syntax-check.log
+          status=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "CHECK $file" | tee -a syntax-check.log
+            node --check "$file" 2>&1 | tee -a syntax-check.log || status=1
+          done < <(git diff --name-only "$BASE_SHA" "$PRODUCT_SHA" -- '*.js' '*.mjs')
+          exit "$status"
+
+      - name: Run bounded focused deterministic Writer2 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=(
+            tests/cii-workspace-adjacent-boundary-review.test.mjs
+            tests/cii-workspace-source-target-audit.test.js
+            tests/cii-workspace-benchmark-overlay.test.js
+            tests/cii-workspace-benchmark-overlay-host.test.js
+            tests/cii-workspace-benchmark-overlay-ui.test.js
+            tests/cii-workspace-anchor-proposal-actions.test.js
+            tests/cii-workspace-manual-seed-arbitration.test.js
+            tests/cii-workspace-multisource-review-state.test.js
+            tests/cii-workspace-multisource-blocker-causality.test.js
+            tests/cii-workspace-multisource-session-persistence.test.js
+            tests/cii-workspace-multisource-lower-bound-helpers.test.js
+          )
+          : > focused-node.log
+          status=0
+          for test_file in "${tests[@]}"; do
+            echo "===== $test_file =====" | tee -a focused-node.log
+            node "$test_file" 2>&1 | tee -a focused-node.log || status=1
+          done
+          exit "$status"
+
+      - name: Upload focused logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-focused-node-v3
+          path: |
+            syntax-check.log
+            focused-node.log
+          if-no-files-found: error
+
+  retained-oracle:
+    name: Fresh retained T to TEXPECTED oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact validation commit
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Derive retained oracle facts from fixture bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'EOF' | tee retained-oracle.log
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { deriveExpectedNodeNameDelta } from './tests/cii-workspace-multisource-texpected-oracle.js';
+
+          const before = readFileSync('./Benchmark/T.CII', 'latin1');
+          const expected = readFileSync('./Benchmark/TEXPECTED-PARTIALLLYDONE.CII', 'latin1');
+          const delta = deriveExpectedNodeNameDelta(before, expected);
+          assert.equal(delta.before.conflicts.length, 0, 'T.CII independent NodeName parse conflicts');
+          assert.equal(delta.expected.conflicts.length, 0, 'TEXPECTED independent NodeName parse conflicts');
+          const byAction = Object.fromEntries(['REPLACE', 'CREATE', 'DELETE'].map((action) => [
+            action,
+            delta.rows.filter((row) => row.action === action).length,
+          ]));
+          const result = {
+            beforeControlNodeNameCount: delta.before.controlNodeNameCount,
+            expectedControlNodeNameCount: delta.expected.controlNodeNameCount,
+            beforePhysicalNodeNameRowCount: delta.before.physicalNodeNameRowCount,
+            expectedPhysicalNodeNameRowCount: delta.expected.physicalNodeNameRowCount,
+            totalDeltaCount: delta.rows.length,
+            byAction,
+            createRows: delta.rows.filter((row) => row.action === 'CREATE'),
+            deleteRows: delta.rows.filter((row) => row.action === 'DELETE'),
+          };
+          assert.ok(result.totalDeltaCount > 0, 'retained oracle must contain known-positive NodeName deltas');
+          console.log(JSON.stringify(result, null, 2));
+          EOF
+
+      - name: Cross-check production benchmark derivation against independent retained oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-benchmark-overlay.test.js 2>&1 | tee production-benchmark-overlay.log
+
+      - name: Upload retained oracle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-retained-oracle-v3
+          path: |
+            retained-oracle.log
+            production-benchmark-overlay.log
+          if-no-files-found: error
+
+  repository-baseline-attribution:
+    name: Attribute repository-wide Navis static sentinel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validation commit with history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Compare failing sentinel at product head versus main baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA=b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08
+          PRODUCT_SHA=ea2556d99a71f87241aa8538f2b7609c186b9d3d
+          git worktree add --detach /tmp/xml-main "$BASE_SHA"
+          set +e
+          git show "$PRODUCT_SHA:tests/navis-tag-isonote-static.test.js" > /tmp/head-test.js
+          node /tmp/head-test.js > head-navis-static.log 2>&1
+          head_status=$?
+          (cd /tmp/xml-main && node tests/navis-tag-isonote-static.test.js > "$GITHUB_WORKSPACE/main-navis-static.log" 2>&1)
+          main_status=$?
+          set -e
+          echo "HEAD_STATUS=$head_status" | tee baseline-attribution.log
+          echo "MAIN_STATUS=$main_status" | tee -a baseline-attribution.log
+          echo "Relevant changed files:" | tee -a baseline-attribution.log
+          git diff --name-only "$BASE_SHA" "$PRODUCT_SHA" -- 'tests/navis-tag-isonote-static.test.js' 'tabs/navis-tag-*' | tee -a baseline-attribution.log
+          if [ "$head_status" -ne 0 ] && [ "$main_status" -eq 0 ]; then
+            echo 'HEAD_ONLY_REGRESSION=1' | tee -a baseline-attribution.log
+            exit 1
+          fi
+          if [ "$head_status" -ne 0 ] && [ "$main_status" -ne 0 ]; then
+            echo 'PREEXISTING_BASELINE_FAILURE=1' | tee -a baseline-attribution.log
+          else
+            echo 'PREEXISTING_BASELINE_FAILURE=0' | tee -a baseline-attribution.log
+          fi
+
+      - name: Upload baseline attribution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-baseline-attribution-v3
+          path: |
+            baseline-attribution.log
+            head-navis-static.log
+            main-navis-static.log
+          if-no-files-found: warn
