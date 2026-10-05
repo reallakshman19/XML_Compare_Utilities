@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   CII_MS_SESSION_SCHEMA,
   ciiWriter2SessionCustody,
+  ciiWriter2SessionStorage,
   ciiWriter2SessionStorageKey,
   createCiiWriter2SessionSnapshot,
   loadCiiWriter2Session,
@@ -81,5 +82,6 @@ assert.equal(saveCiiWriter2Session(storage, custody.storageKey, snapshot), true)
 assert.deepEqual(loadCiiWriter2Session(storage, custody.storageKey), JSON.parse(JSON.stringify(snapshot)));
 memory.set(custody.storageKey, '{broken');
 assert.equal(loadCiiWriter2Session(storage, custody.storageKey), null, 'corrupt storage must fail closed');
+assert.equal(ciiWriter2SessionStorage({ get localStorage() { throw new Error('blocked'); } }), null, 'restricted browser storage must fail closed instead of breaking Writer2');
 
 console.log('CII Writer2 multi-source session persistence contract checks: PASS');
