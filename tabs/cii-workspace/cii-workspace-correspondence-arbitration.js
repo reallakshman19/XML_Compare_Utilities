@@ -23,6 +23,7 @@ function methodBasis(rows) {
   if (methods.has('METHOD_A_SPATIAL') && methods.has('METHOD_B_NETWORK')) return 'METHOD_A_AND_B';
   if (methods.has('METHOD_A_SPATIAL')) return 'METHOD_A_SPATIAL';
   if (methods.has('METHOD_B_NETWORK')) return 'METHOD_B_NETWORK';
+  if (methods.has('USER_LOCKED_SEED')) return 'USER_LOCKED_SEED';
   if (methods.has('USER_LOCKED_LEGACY')) return 'USER_LOCKED_LEGACY';
   return 'MULTI_BASE';
 }
@@ -116,3 +117,53 @@ export function arbitrateCiiLoopCorrespondences(loopResults = []) {
     nodeRows: deepFreeze(canonicalRows(ready, 'nodeRows')), elementRows: deepFreeze(canonicalRows(ready, 'elementRows')),
   });
 }
+
+function resolvedSourceElements(loopResults) {
+  return new Set(elementClaims(loopResults).map((claim) => claim.sourceElementId));
+}
+function resolvedSourceNodes(loopResults) {
+  return new Set(nodeClaims(loopResults).map((claim) => claim.sourceNodeId));
+}
+function pruneSeedRows(loopResults) {
+  const resolvedElements = resolvedSourceElements(loopResults); const resolvedNodes = resolvedSourceNodes(loopResults);
+  return loopResults.map((item) => {
+    const correspondence = item.correspondence || {};
+    const elementRows = (correspondence.elementRows || []).filter((row) => row.status !== 'UNRESOLVED'
+      || !sourceElementIds(row).some((id) => resolvedElements.has(id)));
+    const nodeRows = (correspondence.nodeRows || []).filter((row) => row.status !== 'UNRESOLVED'
+      || row.sourceNodeId == null || !resolvedNodes.has(String(row.sourceNodeId)));
+    return { ...item, correspondence: { ...correspondence, elementRows, nodeRows } };
+  });
+}
+function seedCoverage(loopResults) {
+  const resolved = resolvedSourceElements(loopResults);
+  const expected = Math.max(0, ...(loopResults || []).map((item) => Number(item?.correspondence?.propagation?.sourceComponentEdgeCount || 0)));
+  return deepFreeze({ expectedSourceElementCount: expected, resolvedSourceElementCount: resolved.size,
+    complete: expected > 0 && resolved.size >= expected });
+}
+
+export function arbitrateCiiSeedCorrespondences(loopResults = []) {
+  const usable = (loopResults || []).filter((item) => item?.loop?.status === 'READY'
+    && item?.correspondence?.status !== 'BLOCKED');
+  const pruned = pruneSeedRows(usable); const conflicts = correspondenceConflicts(pruned); const coverage = seedCoverage(pruned);
+  const unresolvedRows = pruned.flatMap((item) => [
+    ...(item.correspondence?.nodeRows || []), ...(item.correspondence?.elementRows || []),
+  ]).filter((row) => row?.status === 'UNRESOLVED');
+  const unresolvedLoops = usable.filter((item) => item?.correspondence?.status !== 'READY');
+  const seedDiagnostics = unresolvedLoops.flatMap((item) => (item.correspondence?.blockers || []).map((blocker) => `${item.loop.loopId}:${blocker}`));
+  const blockers = conflicts.length ? ['CROSS_SEED_CORRESPONDENCE_CONFLICT']
+    : (!usable.length ? ['NO_USABLE_MANUAL_SEED_CORRESPONDENCE']
+      : (!coverage.complete || unresolvedRows.length ? ['MANUAL_SEED_PROPAGATION_INCOMPLETE'] : []));
+  const status = conflicts.length ? 'AMBIGUOUS' : (blockers.length ? 'UNRESOLVED' : 'READY');
+  return deepFreeze({
+    schema: CII_WORKSPACE_SCHEMAS.correspondence, status, combination: 'INDEPENDENT_MANUAL_SEEDS_WITH_CONFLICT_VETO',
+    blockers: deepFreeze(blockers), ambiguityRetained: Boolean(conflicts.length || unresolvedRows.length),
+    conflicts: deepFreeze(conflicts), readyLoopCount: usable.filter((item) => item.correspondence?.status === 'READY').length,
+    unresolvedReadyBaseLoopCount: unresolvedLoops.length, contributingLoopIds: deepFreeze(usable.map((item) => String(item.loop.loopId))),
+    loopResults: deepFreeze(loopResults), targetCustodyConflicts: deepFreeze(usable.flatMap((item) => item.correspondence?.targetCustodyConflicts || [])),
+    seedDiagnostics: deepFreeze(seedDiagnostics), seedCoverage: coverage,
+    nodeRows: deepFreeze(canonicalRows(pruned, 'nodeRows')), elementRows: deepFreeze(canonicalRows(pruned, 'elementRows')),
+  });
+}
+
+export const _test = Object.freeze({ claimKey, canonicalId, correspondenceConflicts, pruneSeedRows, seedCoverage });
