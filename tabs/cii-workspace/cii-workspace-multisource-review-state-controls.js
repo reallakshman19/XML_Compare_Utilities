@@ -29,6 +29,7 @@ export function ciiReviewControlProjection(state, transferDirty = false) {
 }
 
 function workspaceFor(host) { return host.closest?.('.ciiw-backdrop') || host.closest?.('.ciiw-workspace') || host.ownerDocument; }
+function reviewOnlyRoute(workspace) { return Boolean(workspace?.querySelector?.('[data-ciiw-ms-review-only-transfer="1"]')); }
 function transferDirty(workspace) {
   const transfer = workspace?.querySelector?.('[data-ciiw-ms-transfer="1"]');
   return Boolean(transfer?.textContent?.includes('Correspondence review changed.'));
@@ -36,7 +37,8 @@ function transferDirty(workspace) {
 function applyProjection(host) {
   const token = String(host.dataset.ciiwReviewStateToken || ''); const state = contexts.get(token);
   if (!state) return;
-  const workspace = workspaceFor(host); const projection = ciiReviewControlProjection(state, transferDirty(workspace));
+  const workspace = workspaceFor(host); if (reviewOnlyRoute(workspace)) return;
+  const projection = ciiReviewControlProjection(state, transferDirty(workspace));
   const high = workspace?.querySelector?.('[data-ciiw-accept-high]');
   const medium = workspace?.querySelector?.('[data-ciiw-accept-medium]');
   const apply = workspace?.querySelector?.('[data-ciiw-refresh-review]');
@@ -53,7 +55,6 @@ export function ciiMultiSourceReviewStateControlHostMarkup(state) {
 if (typeof globalThis.HTMLElement !== 'undefined' && globalThis.customElements && !globalThis.customElements.get(HOST_TAG)) {
   class CiiMsReviewStateControls extends globalThis.HTMLElement {
     connectedCallback() {
-      applyProjection(this);
       const schedule = this.ownerDocument?.defaultView?.queueMicrotask || globalThis.queueMicrotask || ((callback) => Promise.resolve().then(callback));
       schedule(() => { if (this.isConnected) applyProjection(this); });
     }
@@ -62,4 +63,4 @@ if (typeof globalThis.HTMLElement !== 'undefined' && globalThis.customElements &
   globalThis.customElements.define(HOST_TAG, CiiMsReviewStateControls);
 }
 
-export const _test = Object.freeze({ HOST_TAG, workspaceFor, transferDirty, applyProjection });
+export const _test = Object.freeze({ HOST_TAG, workspaceFor, reviewOnlyRoute, transferDirty, applyProjection });
