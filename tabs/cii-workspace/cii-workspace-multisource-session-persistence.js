@@ -7,6 +7,8 @@ import {
 export const CII_MS_SESSION_SCHEMA = 'CIIWorkspaceWriter2Session.v1';
 const STORAGE_PREFIX = 'cii-writer2-session-v1:';
 const REVIEW_DECISIONS = new Set(['LOCK', 'ACCEPT', 'REJECT']);
+const REVIEW_CONFIDENCE_FILTERS = new Set(['ALL', 'HIGH', 'MEDIUM', 'REVIEW', 'UNRESOLVED', 'LOCKED']);
+const SCOPE_INTENTS = new Set(['BOUND_EXPECTED_NODENAME']);
 
 function text(value) { return String(value ?? '').trim(); }
 function objectEntries(value) {
@@ -22,6 +24,18 @@ function validNode(value) {
   return raw && Number.isSafeInteger(number) ? String(number) : null;
 }
 function frozenObject(entries) { return deepFreeze(Object.fromEntries(entries)); }
+function normalizedFilters(value = {}) {
+  const confidence = text(value?.confidence || 'ALL').toUpperCase();
+  return deepFreeze({
+    confidence: REVIEW_CONFIDENCE_FILTERS.has(confidence) ? confidence : 'ALL',
+    search: String(value?.search || '').slice(0, 256),
+    changedOnly: Boolean(value?.changedOnly),
+  });
+}
+function normalizedScopeIntent(value) {
+  const intent = text(value).toUpperCase();
+  return SCOPE_INTENTS.has(intent) ? intent : null;
+}
 
 export function ciiWriter2SessionStorage(windowRef = globalThis) {
   try { return windowRef?.localStorage || null; } catch { return null; }
@@ -72,6 +86,8 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     selectedBySource: selectedObject(input.selectedBySource),
     manualBySource: manualObject(input.manualBySource),
     manualDraftBySource: draftObject(input.manualDraftBySource),
+    reviewFilters: normalizedFilters(input.reviewFilters),
+    scopeIntent: normalizedScopeIntent(input.scopeIntent),
     review: deepFreeze({
       correspondenceIdentity: text(input.correspondenceIdentity),
       decisions: reviewObject(input.reviewDecisions),
@@ -127,6 +143,8 @@ export function restoreCiiWriter2AnchorSnapshot(snapshot, custody, sourceIds = [
     selectedBySource: frozenObject(Object.entries(selected)),
     manualBySource: frozenObject(Object.entries(manual)),
     manualDraftBySource: frozenObject(Object.entries(drafts)),
+    reviewFilters: normalizedFilters(snapshot?.reviewFilters),
+    scopeIntent: normalizedScopeIntent(snapshot?.scopeIntent),
     staleSelectionSourceIds: deepFreeze(staleSelectionSourceIds),
   });
 }
@@ -162,4 +180,7 @@ export function saveCiiWriter2Session(storage, storageKey, snapshot) {
   try { storage.setItem(storageKey, JSON.stringify(snapshot)); return true; } catch { return false; }
 }
 
-export const _test = Object.freeze({ validNode, selectedObject, manualObject, draftObject, reviewObject, custodyMatches, validSelectionKeysBySource });
+export const _test = Object.freeze({
+  validNode, selectedObject, manualObject, draftObject, reviewObject, custodyMatches, validSelectionKeysBySource,
+  normalizedFilters, normalizedScopeIntent,
+});
