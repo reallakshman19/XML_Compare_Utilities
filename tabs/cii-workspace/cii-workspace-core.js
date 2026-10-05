@@ -171,10 +171,41 @@ function legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options) {
     authority: 'USER_LOCKED_LEGACY', inputMode: 'LEGACY_ANCHOR_PAIRS', readyLoopCount: 1, loopCount: 1,
     methodAReadyCount: 0, methodBReadyCount: 0, loops: deepFreeze([loop]), conflicts: deepFreeze([]), reason: 'LEGACY_LOCKED_BASE_READY' });
 }
+function manualSeedIdentityConflicts(anchors) {
+  const sourceClaims = new Map(); const targetClaims = new Map(); const conflicts = [];
+  for (const pair of anchors) {
+    const source = String(pair.sourceNodeId); const target = String(pair.targetNodeId);
+    if (!sourceClaims.has(source)) sourceClaims.set(source, new Set()); sourceClaims.get(source).add(target);
+    if (!targetClaims.has(target)) targetClaims.set(target, new Set()); targetClaims.get(target).add(source);
+  }
+  for (const [source, targets] of sourceClaims) if (targets.size > 1) conflicts.push(deepFreeze({
+    kind: 'SOURCE_TO_MULTIPLE_TARGETS', key: source, values: deepFreeze([...targets].sort()),
+  }));
+  for (const [target, sources] of targetClaims) if (sources.size > 1) conflicts.push(deepFreeze({
+    kind: 'TARGET_TO_MULTIPLE_SOURCES', key: target, values: deepFreeze([...sources].sort()),
+  }));
+  return deepFreeze(conflicts);
+}
+function independentManualSeedAuthority(anchors) {
+  if (!anchors.length) return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: 'UNAVAILABLE', combination: 'INDEPENDENT_MANUAL_SEEDS_WITH_CONFLICT_VETO',
+    authority: 'USER_LOCKED_SEEDS', inputMode: 'INDEPENDENT_MANUAL_SEEDS', readyLoopCount: 0, loopCount: 0,
+    methodAReadyCount: 0, methodBReadyCount: 0, manualSeedReadyCount: 0, loops: deepFreeze([]), conflicts: deepFreeze([]), reason: 'LOCKED_ANCHOR_PAIR_REQUIRED' });
+  const conflicts = manualSeedIdentityConflicts(anchors);
+  const loops = anchors.map((pair, index) => deepFreeze({
+    loopId: `USER_LOCKED_SEED_${index + 1}`, method: 'USER_LOCKED_SEED', combination: 'INDEPENDENT_OR_LOOP', status: 'READY',
+    confidence: 'USER_LOCKED', weight: null,
+    anchorPairs: deepFreeze([{ sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }]),
+  }));
+  return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: conflicts.length ? 'AMBIGUOUS' : 'READY',
+    combination: 'INDEPENDENT_MANUAL_SEEDS_WITH_CONFLICT_VETO', authority: 'USER_LOCKED_SEEDS', inputMode: 'INDEPENDENT_MANUAL_SEEDS',
+    readyLoopCount: conflicts.length ? 0 : loops.length, loopCount: loops.length, methodAReadyCount: 0, methodBReadyCount: 0,
+    manualSeedReadyCount: conflicts.length ? 0 : loops.length, loops: deepFreeze(loops), conflicts,
+    reason: conflicts.length ? 'MANUAL_SEED_IDENTITY_CONFLICT' : 'INDEPENDENT_MANUAL_SEEDS_READY' });
+}
 function workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options) {
-  return Array.isArray(input?.baseLoops)
-    ? explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options)
-    : legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options);
+  if (Array.isArray(input?.baseLoops)) return explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options);
+  if (String(input?.anchorPairMode || '').toUpperCase() === 'INDEPENDENT_SEEDS') return independentManualSeedAuthority(anchors);
+  return legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options);
 }
 function compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence) {
   const contributing = new Set(multiBaseCorrespondence?.contributingLoopIds || []);
