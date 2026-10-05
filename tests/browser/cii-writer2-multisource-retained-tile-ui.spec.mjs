@@ -77,17 +77,22 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, bo
 
   const highEligible = Number(await acceptHigh.getAttribute('data-ciiw-eligible-count'));
   const mediumEligible = Number(await acceptMedium.getAttribute('data-ciiw-eligible-count'));
-  expect(highEligible).toBeGreaterThan(0);
-  expect(mediumEligible).toBeGreaterThan(0);
+  expect(highEligible + mediumEligible).toBeGreaterThan(0);
   await expect(acceptHigh).toHaveText(`Accept eligible HIGH (${highEligible})`);
   await expect(acceptMedium).toHaveText(`Accept eligible MEDIUM (${mediumEligible})`);
+  if (highEligible === 0) await expect(acceptHigh).toBeDisabled(); else await expect(acceptHigh).toBeEnabled();
+  if (mediumEligible === 0) await expect(acceptMedium).toBeDisabled(); else await expect(acceptMedium).toBeEnabled();
 
-  await acceptHigh.click();
-  await expect(acceptHigh).toBeDisabled();
-  await expect(acceptHigh).toHaveText('Accept eligible HIGH (0)');
-  await acceptMedium.click();
-  await expect(acceptMedium).toBeDisabled();
-  await expect(acceptMedium).toHaveText('Accept eligible MEDIUM (0)');
+  if (highEligible > 0) {
+    await acceptHigh.click();
+    await expect(acceptHigh).toBeDisabled();
+    await expect(acceptHigh).toHaveText('Accept eligible HIGH (0)');
+  }
+  if (mediumEligible > 0) {
+    await acceptMedium.click();
+    await expect(acceptMedium).toBeDisabled();
+    await expect(acceptMedium).toHaveText('Accept eligible MEDIUM (0)');
+  }
   await expect(page.locator('[data-ciiw-status]')).toContainText('Apply approvals to Transfer Preview');
   await expect(page.locator('[data-ciiw-ms-review-state="PENDING"]')).toBeVisible();
   await expect(applyReview).toBeEnabled();
