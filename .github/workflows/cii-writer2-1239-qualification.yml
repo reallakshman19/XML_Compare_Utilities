@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           BASE_SHA=b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08
           PRODUCT_SHA=ea2556d99a71f87241aa8538f2b7609c186b9d3d
-          test "$(git rev-parse HEAD^)" = "$PRODUCT_SHA"
+          test "$(git merge-base "$PRODUCT_SHA" HEAD)" = "$PRODUCT_SHA"
           mapfile -t non_runner_delta < <(git diff --name-only "$PRODUCT_SHA" HEAD | grep -v '^\.github/workflows/cii-writer2-1239-qualification.yml$' || true)
           if [ "${#non_runner_delta[@]}" -ne 0 ]; then
             printf 'VALIDATION_BRANCH_PRODUCT_DRIFT\n%s\n' "${non_runner_delta[@]}"
@@ -82,7 +82,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cii-writer2-1239-focused-node-v2
+          name: cii-writer2-1239-focused-node-v3
           path: |
             syntax-check.log
             focused-node.log
