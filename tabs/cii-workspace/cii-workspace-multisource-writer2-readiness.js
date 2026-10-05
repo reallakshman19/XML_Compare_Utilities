@@ -10,6 +10,7 @@ import {
   ciiWriter2NodeNameCardinalityOperation,
 } from './cii-workspace-multisource-bm001-correspondence.js';
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
+import { ciiMultiSourceBlockerCausality } from './cii-workspace-multisource-blocker-causality.js';
 
 function text(value) { return String(value ?? '').trim(); }
 function operationId(operation) { return text(operation?.operationId); }
@@ -36,25 +37,29 @@ function conflictingPhysicalMutationBlockers(operations) {
   return ciiNodeNamePhysicalMutationConflicts(operations)
     .map((item) => `CII_MS_WRITER2_PHYSICAL_MUTATION_CONFLICT:${item.physicalTargetKey}:${item.operationIds.join(',')}`);
 }
+function boundScope(scope) {
+  return scope?.status === 'BOUND' && scope?.mode === 'EXPLICIT_APPLY_EXCLUDE' && scope?.authority === 'USER_EXPLICIT_OPERATION_SCOPE';
+}
 function custodyBlockers(transferPlan, targetDocument) {
   const blockers = []; const scope = transferPlan?.transferScope;
   if (transferPlan?.sourceAuthorityKind !== 'SOURCE_SET') blockers.push('CII_MS_WRITER2_SOURCE_SET_AUTHORITY_REQUIRED');
   if (text(transferPlan?.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) blockers.push('CII_MS_WRITER2_SOURCE_SET_HASH_MISMATCH');
   if (text(transferPlan?.targetAuthority?.originalSha256) !== CII_MS_TARGET_SHA256) blockers.push('CII_MS_WRITER2_ORIGINAL_TARGET_HASH_MISMATCH');
   if (text(transferPlan?.targetAuthority?.normalizedSha256) !== text(targetDocument?.contentSha256)) blockers.push('CII_MS_WRITER2_NORMALIZED_TARGET_HASH_MISMATCH');
-  if (scope?.status !== 'BOUND' || scope?.mode !== 'EXPLICIT_APPLY_EXCLUDE' || scope?.authority !== 'USER_EXPLICIT_OPERATION_SCOPE') {
+  if (!boundScope(scope)) {
     blockers.push('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED');
+    return blockers;
   }
-  if (scope?.sourceAuthorityKind !== 'SOURCE_SET' || text(scope?.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) {
+  if (scope.sourceAuthorityKind !== 'SOURCE_SET' || text(scope.sourceSetSha256) !== CII_MS_SOURCE_SET_SHA256) {
     blockers.push('CII_MS_WRITER2_SCOPE_SOURCE_SET_HASH_MISMATCH');
   }
-  if (text(scope?.targetSha256) !== CII_MS_TARGET_SHA256) blockers.push('CII_MS_WRITER2_SCOPE_TARGET_HASH_MISMATCH');
+  if (text(scope.targetSha256) !== CII_MS_TARGET_SHA256) blockers.push('CII_MS_WRITER2_SCOPE_TARGET_HASH_MISMATCH');
   const applied = (transferPlan?.operations || []).filter((operation) => operation?.scopeDecision === 'APPLY' && operation?.action !== 'KEEP');
   const excluded = (transferPlan?.excludedOperations || []).filter((operation) => operation?.scopeDecision === 'EXCLUDE' && operation?.action !== 'KEEP');
   const candidateIds = [...applied, ...excluded].map(operationId).filter(Boolean);
-  if (!sameIds(candidateIds, scope?.candidateOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_CANDIDATE_SET_MISMATCH');
-  if (!sameIds(applied.map(operationId), scope?.appliedOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_APPLY_SET_MISMATCH');
-  if (!sameIds(excluded.map(operationId), scope?.excludedOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_EXCLUDE_SET_MISMATCH');
+  if (!sameIds(candidateIds, scope.candidateOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_CANDIDATE_SET_MISMATCH');
+  if (!sameIds(applied.map(operationId), scope.appliedOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_APPLY_SET_MISMATCH');
+  if (!sameIds(excluded.map(operationId), scope.excludedOperationIds || [])) blockers.push('CII_MS_WRITER2_SCOPE_EXCLUDE_SET_MISMATCH');
   return blockers;
 }
 function familyPlan(transferPlan, predicate) {
@@ -102,6 +107,7 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
   }
 
   const unique = deepFreeze([...new Set(blockers)]);
+  const blockerCausality = ciiMultiSourceBlockerCausality(transferPlan, unique);
   return deepFreeze({
     schema: 'CIIWorkspaceWriter2SourceSetNodeNameReadiness.v2',
     status: unique.length ? 'BLOCKED' : 'READY', ready: unique.length === 0,
@@ -113,6 +119,7 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
       sifDelete: 0, hangerDelete: 0, restraintDelete: 0,
     }),
     blockers: unique,
+    blockerCausality,
     bm001CorrespondenceCoverage: correspondenceCoverage,
     components: deepFreeze({
       writer1CNodeNameReplacement: replacementPlan,
@@ -124,5 +131,5 @@ export function ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocumen
 }
 
 export const _test = Object.freeze({
-  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, custodyBlockers, familyPlan,
+  sameIds, isQualifiedExpectedApply, duplicatePhysicalMutationBlockers, conflictingPhysicalMutationBlockers, boundScope, custodyBlockers, familyPlan,
 });
