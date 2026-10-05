@@ -1,5 +1,6 @@
 import { ciiEvidenceBandStyle, ciiNodeNameBandStyle } from './cii-workspace-evidence-band-style.js';
 import { ciiMultiSourceSourceTargetAuditMarkup } from './cii-workspace-source-target-audit-ui.js';
+import { ciiMultiSourceReviewStateControlHostMarkup } from './cii-workspace-multisource-review-state-controls.js';
 
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -16,6 +17,11 @@ function effectiveDecision(row, decisions) {
   return decisions?.get?.(String(row?.correspondenceId || '')) || decisionFromRow(row);
 }
 function reviewRows(preview) { return preview?.compareReview?.rows || []; }
+function lockedRow(row) { return row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED'; }
+function bulkEligible(row, decisions, confidence) {
+  return row?.confidence === confidence && row?.identityBound === true && !lockedRow(row)
+    && effectiveDecision(row, decisions) !== 'ACCEPT';
+}
 function evidenceBandClass(band) {
   const level = Math.max(0, Math.min(4, Number(band?.level || 0)));
   return `level-${level}`;
@@ -137,30 +143,63 @@ export function ciiMultiSourceReviewBySource(preview, decisions) {
   return result;
 }
 
-export function bulkAcceptCiiMultiSourceReview(preview, decisions, confidence) {
-  let count = 0;
-  for (const row of reviewRows(preview)) {
-    if (row?.confidence !== confidence || !row?.identityBound || row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED') continue;
-    decisions.set(String(row.correspondenceId), 'ACCEPT'); count += 1;
+export function ciiMultiSourceBulkEligibleRows(preview, decisions, confidence) {
+  const label = String(confidence || '').toUpperCase();
+  return Object.freeze(reviewRows(preview).filter((row) => bulkEligible(row, decisions, label)));
+}
+
+export function ciiMultiSourceReviewState(preview, decisions = new Map()) {
+  const rows = reviewRows(preview);
+  const confidence = { HIGH: 0, MEDIUM: 0, REVIEW: 0, UNRESOLVED: 0 };
+  const current = { ACCEPT: 0, LOCK: 0, REJECT: 0, PENDING: 0 };
+  const changed = { ACCEPT: 0, LOCK: 0, REJECT: 0, PENDING: 0 };
+  let locked = 0; let changedDecisionCount = 0;
+  for (const row of rows) {
+    if (lockedRow(row)) locked += 1;
+    else confidence[row?.confidence] = (confidence[row?.confidence] || 0) + 1;
+    const baseline = decisionFromRow(row); const effective = effectiveDecision(row, decisions); const key = effective || 'PENDING';
+    current[key] = (current[key] || 0) + 1;
+    if (baseline !== effective) {
+      changedDecisionCount += 1; changed[key] = (changed[key] || 0) + 1;
+    }
   }
-  return count;
+  const eligible = Object.freeze({
+    HIGH: ciiMultiSourceBulkEligibleRows(preview, decisions, 'HIGH').length,
+    MEDIUM: ciiMultiSourceBulkEligibleRows(preview, decisions, 'MEDIUM').length,
+  });
+  return Object.freeze({
+    rowCount: rows.length,
+    confidence: Object.freeze(confidence),
+    locked,
+    eligible,
+    current: Object.freeze(current),
+    changed: Object.freeze(changed),
+    changedDecisionCount,
+    synchronized: changedDecisionCount === 0,
+  });
+}
+
+export function bulkAcceptCiiMultiSourceReview(preview, decisions, confidence) {
+  const rows = ciiMultiSourceBulkEligibleRows(preview, decisions, confidence);
+  for (const row of rows) decisions.set(String(row.correspondenceId), 'ACCEPT');
+  return rows.length;
 }
 
 export function ciiMultiSourceLockedReviewCount(preview) {
-  return reviewRows(preview).filter((row) => row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED').length;
+  return reviewRows(preview).filter(lockedRow).length;
 }
 
 export function ciiMultiSourceBulkAcceptOutcome(preview, decisions, confidence) {
   const label = String(confidence || '').toUpperCase();
   const count = bulkAcceptCiiMultiSourceReview(preview, decisions, label);
-  const locked = ciiMultiSourceLockedReviewCount(preview);
+  const state = ciiMultiSourceReviewState(preview, decisions);
   if (count) return Object.freeze({
-    count, changed: true, locked,
-    message: `${count} ${label} correspondence rows marked Accept. Decisions are pending. Apply approvals to Transfer Preview to rebuild correspondence and Writer2 scope.`,
+    count, changed: true, locked: state.locked, state,
+    message: `${count} eligible ${label} correspondence row${count === 1 ? '' : 's'} marked Accept. ${state.changedDecisionCount} decision change${state.changedDecisionCount === 1 ? '' : 's'} remain unapplied. Apply approvals to Transfer Preview to rebuild correspondence and Writer2 scope.`,
   });
   return Object.freeze({
-    count: 0, changed: false, locked,
-    message: `No ${label} correspondence rows are eligible. ${locked} reviewed anchor row(s) are already LOCKED; REVIEW/UNRESOLVED rows require explicit decisions. Transfer Preview was not changed.`,
+    count: 0, changed: false, locked: state.locked, state,
+    message: `No ${label} correspondence rows would change. ${state.locked} reviewed anchor row(s) are LOCKED; already-accepted rows are not counted as eligible. Transfer Preview was not changed.`,
   });
 }
 
@@ -174,14 +213,11 @@ export function ciiMultiSourceReviewMarkup(preview, decisions = new Map(), filte
 }
 
 export function ciiMultiSourceReviewSummaryMarkup(preview, decisions = new Map()) {
-  const rows = reviewRows(preview); const counts = { HIGH: 0, MEDIUM: 0, REVIEW: 0, UNRESOLVED: 0, LOCKED: 0, ACCEPT: 0, REJECT: 0, PENDING: 0 };
-  for (const row of rows) {
-    if (row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED') counts.LOCKED += 1;
-    else counts[row?.confidence] = (counts[row?.confidence] || 0) + 1;
-    const decision = effectiveDecision(row, decisions);
-    if (decision === 'ACCEPT') counts.ACCEPT += 1; else if (decision === 'REJECT') counts.REJECT += 1; else if (!decision) counts.PENDING += 1;
-  }
-  return `<div class="ciiw-kpis" data-ciiw-ms-review-summary="1"><div><b>${h(rows.length)}</b><span>Rows</span></div><div><b>${h(counts.HIGH)}</b><span>HIGH</span></div><div><b>${h(counts.MEDIUM)}</b><span>MEDIUM</span></div><div><b>${h(counts.REVIEW)}</b><span>REVIEW</span></div><div><b>${h(counts.LOCKED)}</b><span>Locked</span></div><div><b>${h(counts.ACCEPT)}</b><span>Accepted</span></div><div><b>${h(counts.REJECT)}</b><span>Rejected</span></div><div><b>${h(counts.PENDING)}</b><span>Pending</span></div></div>`;
+  const state = ciiMultiSourceReviewState(preview, decisions);
+  const pending = state.changedDecisionCount
+    ? `<p class="ciiw-family-summary" data-ciiw-ms-review-state="PENDING"><b>${h(state.changedDecisionCount)} unapplied decision change${state.changedDecisionCount === 1 ? '' : 's'}.</b> Pending delta: Accept ${h(state.changed.ACCEPT)} · Lock ${h(state.changed.LOCK)} · Reject ${h(state.changed.REJECT)}. Apply approvals to Transfer Preview before binding Writer2 scope.</p>`
+    : '<p class="ciiw-family-summary" data-ciiw-ms-review-state="SYNCHRONIZED"><b>Review decisions synchronized with the current Transfer Preview.</b></p>';
+  return `<div class="ciiw-kpis" data-ciiw-ms-review-summary="1"><div><b>${h(state.rowCount)}</b><span>Rows</span></div><div><b>${h(state.confidence.HIGH || 0)}</b><span>HIGH</span></div><div><b>${h(state.eligible.HIGH)}</b><span>HIGH eligible</span></div><div><b>${h(state.confidence.MEDIUM || 0)}</b><span>MEDIUM</span></div><div><b>${h(state.eligible.MEDIUM)}</b><span>MEDIUM eligible</span></div><div><b>${h(state.confidence.REVIEW || 0)}</b><span>REVIEW</span></div><div><b>${h(state.locked)}</b><span>Locked</span></div><div><b>${h(state.current.ACCEPT)}</b><span>Accepted</span></div><div><b>${h(state.current.REJECT)}</b><span>Rejected</span></div><div><b>${h(state.current.PENDING)}</b><span>Undecided</span></div><div><b>${h(state.changedDecisionCount)}</b><span>Unapplied</span></div></div>${pending}${ciiMultiSourceReviewStateControlHostMarkup(state)}`;
 }
 
-export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers });
+export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers, lockedRow, bulkEligible });
