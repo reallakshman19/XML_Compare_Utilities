@@ -60,8 +60,7 @@ export function ciiMultiSourceBlockerCausality(transferPlan, readinessBlockers =
       primary.push(entry('CORRESPONDENCE_AGGREGATE', 'PRIMARY', 'MULTISOURCE_CORRESPONDENCE_NOT_READY'));
       consumed.add('MULTISOURCE_CORRESPONDENCE_NOT_READY');
     }
-    const aggregateDependency = memberRoots.length ? ['MULTISOURCE_CORRESPONDENCE_NOT_READY'] : ['MULTISOURCE_CORRESPONDENCE_NOT_READY'];
-    derived.push(entry('TRANSFER_PREVIEW', 'DERIVED', 'CII_MS_CAUSAL_TRANSFER_UNAVAILABLE', aggregateDependency));
+    derived.push(entry('TRANSFER_PREVIEW', 'DERIVED', 'CII_MS_CAUSAL_TRANSFER_UNAVAILABLE', ['MULTISOURCE_CORRESPONDENCE_NOT_READY']));
     derived.push(entry('TRANSFER_SCOPE', 'DERIVED', 'CII_MS_CAUSAL_SCOPE_NOT_BINDABLE', ['CII_MS_CAUSAL_TRANSFER_UNAVAILABLE']));
     derived.push(entry('WRITER2', 'DERIVED', 'CII_MS_CAUSAL_WRITER_UNAVAILABLE', ['CII_MS_CAUSAL_SCOPE_NOT_BINDABLE']));
   }
@@ -78,7 +77,13 @@ export function ciiMultiSourceBlockerCausality(transferPlan, readinessBlockers =
   }
 
   const bound = scopeBound(transferPlan?.transferScope);
-  const upstreamBlocked = correspondenceBlocked || transferPlan?.status !== 'PREVIEW_READY';
+  const transferBlocked = transferPlan?.status !== 'PREVIEW_READY';
+  const upstreamBlocked = correspondenceBlocked || transferBlocked;
+  if (transferBlocked && !correspondenceBlocked) {
+    const transferRoots = primary.filter((row) => row.stage === 'TRANSFER_PREVIEW').map((row) => row.code);
+    derived.push(entry('TRANSFER_SCOPE', 'DERIVED', 'CII_MS_CAUSAL_SCOPE_NOT_BINDABLE', transferRoots));
+    derived.push(entry('WRITER2', 'DERIVED', 'CII_MS_CAUSAL_WRITER_UNAVAILABLE', ['CII_MS_CAUSAL_SCOPE_NOT_BINDABLE']));
+  }
   if (!bound && !upstreamBlocked && rawBlockers.includes('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED')) {
     primary.push(entry('TRANSFER_SCOPE', 'PRIMARY', 'CII_MS_WRITER2_BOUND_SCOPE_REQUIRED'));
     consumed.add('CII_MS_WRITER2_BOUND_SCOPE_REQUIRED');
