@@ -7,6 +7,7 @@ import {
   createCiiWriter2SessionSnapshot,
   loadCiiWriter2Session,
   restoreCiiWriter2AnchorSession,
+  restoreCiiWriter2AnchorSnapshot,
   restoreCiiWriter2ReviewDecisions,
   saveCiiWriter2Session,
 } from '../tabs/cii-workspace/cii-workspace-multisource-session-persistence.js';
@@ -62,6 +63,13 @@ assert.deepEqual(restoredAnchors.selectedBySource.S1, [], 'manual authority must
 assert.deepEqual(restoredAnchors.manualBySource.S1, [{ sourceNodeId: '3910', targetNodeId: '875' }], 'manual pairs must restore duplicate-safe');
 assert.deepEqual(restoredAnchors.selectedBySource.S2, ['20=>200']);
 assert.deepEqual(restoredAnchors.manualDraftBySource.S1, { sourceNodeId: '3940', targetNodeId: '880' });
+assert.deepEqual(restoredAnchors.staleSelectionSourceIds, ['S1'], 'stale automatic keys must be explicit instead of silently becoming authority');
+
+const directProjection = restoreCiiWriter2AnchorSnapshot(snapshot, custody, ['S1', 'S2'], {
+  S1: ['10=>100'], S2: ['20=>200'],
+});
+assert.deepEqual(directProjection.manualBySource.S1, [{ sourceNodeId: '3910', targetNodeId: '875' }]);
+assert.deepEqual(directProjection.staleSelectionSourceIds, ['S1']);
 
 const wrongCustody = restoreCiiWriter2AnchorSession({ ...snapshot, targetOriginalSha256: 'other-target' }, inspection);
 assert.equal(wrongCustody, null, 'different target custody must never restore session authority');
