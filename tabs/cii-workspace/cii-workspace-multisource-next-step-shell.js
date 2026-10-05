@@ -1,5 +1,3 @@
-import { mountCiiWriter2SessionPersistenceShell } from './cii-workspace-multisource-session-shell.js';
-
 function selectedFiles(input) { return [...(input?.files || [])]; }
 function multiSource(container) { return selectedFiles(container.querySelector('[data-ciiw-source]')).length > 1; }
 
@@ -14,7 +12,6 @@ function compareTarget(event) {
 export function mountCiiWriter2MultiSourceNextStepShell(container, options, mountCore) {
   if (typeof mountCore !== 'function') throw new Error('CII_MS_WRITER2_CORE_MOUNT_REQUIRED');
   const core = mountCore(container, options);
-  const persistence = mountCiiWriter2SessionPersistenceShell(container, core);
   const sourceInput = container.querySelector('[data-ciiw-source]');
   const analyzeButton = container.querySelector('[data-ciiw-analyze]');
   const evidence = container.querySelector('[data-ciiw-method-evidence]') || container.querySelector('[data-ciiw-landmarks]');
@@ -59,7 +56,6 @@ export function mountCiiWriter2MultiSourceNextStepShell(container, options, moun
     destroy() {
       disposed = true;
       observer?.disconnect();
-      persistence?.destroy?.();
       container.removeEventListener('click', onClick, true);
       sourceInput?.removeEventListener('change', onSourceChange);
       if (stages) stages.hidden = false;
