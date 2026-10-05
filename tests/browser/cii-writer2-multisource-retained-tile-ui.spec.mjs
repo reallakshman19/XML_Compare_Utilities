@@ -66,16 +66,39 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, bo
   const decisionValues = await decisionControls.evaluateAll((nodes) => nodes.map((node) => node.value));
   expect(decisionValues.every((value) => value === '')).toBe(true);
 
-  await expect(page.locator('[data-ciiw-refresh-review]')).toBeEnabled();
+  const applyReview = page.locator('[data-ciiw-refresh-review]');
+  const acceptHigh = page.locator('[data-ciiw-accept-high]');
+  const acceptMedium = page.locator('[data-ciiw-accept-medium]');
+  await expect(applyReview).toBeDisabled();
+  await expect(applyReview).toHaveText('Review synchronized with Transfer Preview');
+  await expect(page.locator('[data-ciiw-ms-review-state="SYNCHRONIZED"]')).toBeVisible();
   await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toBeVisible();
   await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
 
-  await page.locator('[data-ciiw-accept-high]').click();
-  await page.locator('[data-ciiw-accept-medium]').click();
-  await expect(page.locator('[data-ciiw-status]')).toContainText('Apply approvals to Transfer Preview');
+  const highEligible = Number(await acceptHigh.getAttribute('data-ciiw-eligible-count'));
+  const mediumEligible = Number(await acceptMedium.getAttribute('data-ciiw-eligible-count'));
+  expect(highEligible).toBeGreaterThan(0);
+  expect(mediumEligible).toBeGreaterThan(0);
+  await expect(acceptHigh).toHaveText(`Accept eligible HIGH (${highEligible})`);
+  await expect(acceptMedium).toHaveText(`Accept eligible MEDIUM (${mediumEligible})`);
 
-  await page.locator('[data-ciiw-refresh-review]').click();
+  await acceptHigh.click();
+  await expect(acceptHigh).toBeDisabled();
+  await expect(acceptHigh).toHaveText('Accept eligible HIGH (0)');
+  await acceptMedium.click();
+  await expect(acceptMedium).toBeDisabled();
+  await expect(acceptMedium).toHaveText('Accept eligible MEDIUM (0)');
+  await expect(page.locator('[data-ciiw-status]')).toContainText('Apply approvals to Transfer Preview');
+  await expect(page.locator('[data-ciiw-ms-review-state="PENDING"]')).toBeVisible();
+  await expect(applyReview).toBeEnabled();
+  await expect(applyReview).toContainText('pending decision');
+  expect(Number(await applyReview.getAttribute('data-ciiw-pending-decision-count'))).toBe(highEligible + mediumEligible);
+
+  await applyReview.click();
   await expect(page.locator('[data-ciiw-status]')).toContainText('Multi-source review bound', { timeout: 120_000 });
+  await expect(applyReview).toBeDisabled();
+  await expect(applyReview).toHaveText('Review synchronized with Transfer Preview');
+  await expect(page.locator('[data-ciiw-ms-review-state="SYNCHRONIZED"]')).toBeVisible();
 
   const bindScope = page.locator('[data-ciiw-ms-bind-expected]');
   await expect(bindScope).toBeEnabled();
