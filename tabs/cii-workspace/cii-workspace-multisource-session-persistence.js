@@ -99,14 +99,16 @@ function custodyMatches(snapshot, custody) {
     && text(snapshot?.targetOriginalSha256) === text(custody?.targetOriginalSha256);
 }
 
-export function restoreCiiWriter2AnchorSession(snapshot, inspection) {
-  const custody = ciiWriter2SessionCustody(inspection);
+export function restoreCiiWriter2AnchorSnapshot(snapshot, custody, sourceIds = [], rawValidSelectionKeysBySource = {}) {
   if (!custody || !custodyMatches(snapshot, custody)) return null;
-  const validKeys = validSelectionKeysBySource(inspection); const selected = {}; const manual = {}; const drafts = {};
-  for (const member of inspection?.memberInspections || []) {
-    const sourceId = text(member?.sourceId); if (!sourceId) continue;
-    const allowed = validKeys[sourceId] || new Set();
-    selected[sourceId] = deepFreeze(arrayValue(snapshot?.selectedBySource?.[sourceId]).map(text).filter((key) => allowed.has(key)));
+  const selected = {}; const manual = {}; const drafts = {}; const staleSelectionSourceIds = [];
+  for (const rawSourceId of sourceIds || []) {
+    const sourceId = text(rawSourceId); if (!sourceId) continue;
+    const allowedRaw = rawValidSelectionKeysBySource?.[sourceId];
+    const allowed = allowedRaw instanceof Set ? allowedRaw : new Set(arrayValue(allowedRaw).map(text).filter(Boolean));
+    const persistedKeys = arrayValue(snapshot?.selectedBySource?.[sourceId]).map(text).filter(Boolean);
+    if (persistedKeys.some((key) => !allowed.has(key))) staleSelectionSourceIds.push(sourceId);
+    selected[sourceId] = deepFreeze(persistedKeys.filter((key) => allowed.has(key)));
     const seen = new Set();
     manual[sourceId] = deepFreeze(arrayValue(snapshot?.manualBySource?.[sourceId]).flatMap((row) => {
       const sourceNodeId = validNode(row?.sourceNodeId); const targetNodeId = validNode(row?.targetNodeId);
@@ -120,7 +122,19 @@ export function restoreCiiWriter2AnchorSession(snapshot, inspection) {
     });
     if (manual[sourceId].length) selected[sourceId] = deepFreeze([]);
   }
-  return deepFreeze({ custody, selectedBySource: frozenObject(Object.entries(selected)), manualBySource: frozenObject(Object.entries(manual)), manualDraftBySource: frozenObject(Object.entries(drafts)) });
+  return deepFreeze({
+    custody,
+    selectedBySource: frozenObject(Object.entries(selected)),
+    manualBySource: frozenObject(Object.entries(manual)),
+    manualDraftBySource: frozenObject(Object.entries(drafts)),
+    staleSelectionSourceIds: deepFreeze(staleSelectionSourceIds),
+  });
+}
+
+export function restoreCiiWriter2AnchorSession(snapshot, inspection) {
+  const custody = ciiWriter2SessionCustody(inspection);
+  const sourceIds = (inspection?.memberInspections || []).map((member) => text(member?.sourceId)).filter(Boolean);
+  return restoreCiiWriter2AnchorSnapshot(snapshot, custody, sourceIds, validSelectionKeysBySource(inspection));
 }
 
 export function restoreCiiWriter2ReviewDecisions(snapshot, correspondenceIdentity, validCorrespondenceIds = []) {
