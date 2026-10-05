@@ -1,0 +1,191 @@
+name: CII Writer2 #1239 Qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-full-qualification-1239
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cii-writer2-1239-qualification
+  cancel-in-progress: false
+
+jobs:
+  syntax-and-focused-node:
+    name: Syntax + focused Node qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout validation commit
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax-check cumulative #1239 JS/MJS delta
+        shell: bash
+        run: |
+          set -o pipefail
+          BASE_SHA=b2ff4c67fe6b1ad1e9d4a0be182d6aa3dc53ac08
+          : > syntax-check.log
+          status=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "CHECK $file" | tee -a syntax-check.log
+            node --check "$file" 2>&1 | tee -a syntax-check.log || status=1
+          done < <(git diff --name-only "$BASE_SHA" HEAD -- '*.js' '*.mjs')
+          exit "$status"
+
+      - name: Run focused deterministic Writer2 tests
+        shell: bash
+        run: |
+          set -o pipefail
+          tests=(
+            tests/cii-workspace-adjacent-boundary-review.test.mjs
+            tests/cii-workspace-source-target-audit.test.js
+            tests/cii-workspace-benchmark-overlay.test.js
+            tests/cii-workspace-benchmark-overlay-host.test.js
+            tests/cii-workspace-benchmark-overlay-ui.test.js
+            tests/cii-workspace-anchor-proposal-actions.test.js
+            tests/cii-workspace-manual-seed-arbitration.test.js
+            tests/cii-workspace-multisource-review-state.test.js
+            tests/cii-workspace-multisource-blocker-causality.test.js
+            tests/cii-workspace-multisource-session-persistence.test.js
+            tests/cii-workspace-multisource-lower-bound-helpers.test.js
+            tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          )
+          : > focused-node.log
+          status=0
+          for test_file in "${tests[@]}"; do
+            echo "===== $test_file =====" | tee -a focused-node.log
+            node "$test_file" 2>&1 | tee -a focused-node.log || status=1
+          done
+          exit "$status"
+
+      - name: Upload focused logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-focused-node
+          path: |
+            syntax-check.log
+            focused-node.log
+          if-no-files-found: error
+
+  full-node-regression:
+    name: Full repository Node regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout validation commit
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run repository test suite
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee full-node-regression.log
+
+      - name: Upload full regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-full-node
+          path: full-node-regression.log
+          if-no-files-found: warn
+
+  retained-browser:
+    name: Retained Chromium + persistence + cardinality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout validation commit
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create runner-only broad Writer2 config
+        shell: bash
+        run: |
+          cat > playwright.cii-writer2-qualification.generated.mjs <<'EOF'
+          import { defineConfig, devices } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './tests/browser',
+            testMatch: [
+              'cii-writer2-multisource-retained-benchmark.spec.mjs',
+              'cii-writer2-multisource-retained-tile-ui.spec.mjs',
+              'cii-writer2-multisource-generic-review-only.spec.mjs',
+              'cii-writer2-multisource-session-persistence.spec.mjs',
+              'cii-writer2-session-persistence.spec.mjs',
+              'cii-writer2-manual-anchor-cardinality.spec.mjs',
+            ],
+            fullyParallel: false,
+            workers: 1,
+            timeout: 180_000,
+            expect: { timeout: 30_000 },
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: 'playwright-report', open: 'never' }],
+            ],
+            use: {
+              ...devices['Desktop Chrome'],
+              browserName: 'chromium',
+              headless: true,
+              viewport: { width: 1280, height: 800 },
+              baseURL: 'http://127.0.0.1:4174',
+              trace: 'retain-on-failure',
+              screenshot: 'only-on-failure',
+            },
+            webServer: {
+              command: 'node tests/browser/cii-writer2-static-server.mjs 4174',
+              url: 'http://127.0.0.1:4174/',
+              timeout: 120_000,
+              reuseExistingServer: false,
+            },
+          });
+          EOF
+
+      - name: Run retained Writer2 browser qualification
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test --config=playwright.cii-writer2-qualification.generated.mjs 2>&1 | tee browser-qualification.log
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-browser
+          path: |
+            browser-qualification.log
+            playwright-report
+            test-results
+          if-no-files-found: warn
