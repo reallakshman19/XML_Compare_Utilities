@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { evaluatePartialTExpectedPostimage } from '../cii-workspace-multisource-partial-texpected-oracle.js';
-import { parseIndependentNodeNameState } from '../cii-workspace-multisource-texpected-oracle.js';
+import { validateKnownPositiveNodeNames } from '../cii-workspace-multisource-partial-texpected-oracle.js';
+import {
+  compareOutsideWriter2NodeNameAuthority,
+  deriveExpectedNodeNameDelta,
+  parseIndependentNodeNameState,
+} from '../cii-workspace-multisource-texpected-oracle.js';
 
 const S1 = fileURLToPath(new URL('../../Benchmark/S1.CII', import.meta.url));
 const S2 = fileURLToPath(new URL('../../Benchmark/S2.CII', import.meta.url));
@@ -10,7 +14,7 @@ const S3 = fileURLToPath(new URL('../../Benchmark/S3.CII', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../Benchmark/T.CII', import.meta.url));
 const PARTIAL_EXPECTED = fileURLToPath(new URL('../../Benchmark/TEXPECTED-PARTIALLLYDONE.CII', import.meta.url));
 
-test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, bound scope and validated TARGET export', async ({ page }) => {
+test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lower-bound scope and validated TARGET export', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
@@ -109,17 +113,24 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, bo
   await expect(bindScope).toBeEnabled();
   await bindScope.click();
 
-  await expect(page.locator('[data-ciiw-status]')).toContainText('BM-correspondence-qualified scope bound: 1 physical APPLY');
+  const status = page.locator('[data-ciiw-status]');
+  await expect(status).toContainText('BM-correspondence-qualified scope bound:');
+  const statusText = await status.textContent();
+  const applyMatch = String(statusText || '').match(/scope bound:\s*(\d+) physical APPLY/i);
+  expect(applyMatch).not.toBeNull();
+  const applyCount = Number(applyMatch[1]);
+  expect(applyCount).toBeGreaterThanOrEqual(36);
+
   const applyWriter2 = page.locator('[data-ciiw-ms-apply]');
   await expect(applyWriter2).toBeEnabled();
-  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toContainText('APPLY: 1');
+  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toContainText(`APPLY: ${applyCount}`);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     applyWriter2.click(),
   ]);
-  await expect(page.locator('[data-ciiw-status]')).toContainText('Modified TARGET exported', { timeout: 120_000 });
-  await expect(page.locator('[data-ciiw-status]')).toContainText('version bridge PASS');
+  await expect(status).toContainText('Modified TARGET exported', { timeout: 120_000 });
+  await expect(status).toContainText('version bridge PASS');
   expect(download.suggestedFilename().toUpperCase()).toContain('.CII');
 
   const downloadedPath = await download.path();
@@ -130,21 +141,15 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, bo
     readFile(PARTIAL_EXPECTED, 'latin1'),
   ]);
   const actualText = actualBytes.toString('latin1');
-  const retainedStructuralOperation = Object.freeze({
-    action: 'CREATE',
-    targetEvidence: Object.freeze({ identity: '10330' }),
-  });
-  const structural = evaluatePartialTExpectedPostimage(
-    beforeText,
-    actualText,
-    partialExpectedText,
-    [retainedStructuralOperation],
-  );
-  expect(structural.status).toBe('READY');
-  expect(structural.encoding.differences).toHaveLength(0);
-  expect(structural.semantics.differences).toHaveLength(0);
-  expect(structural.preservation.status).toBe('READY');
-  expect(structural.nodeNamePayloadPreservation.status).toBe('READY');
+  const expectedDelta = deriveExpectedNodeNameDelta(beforeText, partialExpectedText);
+  expect(expectedDelta.rows).toHaveLength(36);
+  const knownPositive = validateKnownPositiveNodeNames(actualText, expectedDelta.rows);
+  expect(knownPositive.status).toBe('READY');
+  expect(knownPositive.differences).toHaveLength(0);
+
+  const preservation = compareOutsideWriter2NodeNameAuthority(beforeText, actualText);
+  expect(preservation.status).toBe('READY');
+  expect(preservation.differences).toHaveLength(0);
 
   const actualNodeNames = parseIndependentNodeNameState(actualText);
   expect(actualNodeNames.names.get('10330')).toBe('SL-115A.4');

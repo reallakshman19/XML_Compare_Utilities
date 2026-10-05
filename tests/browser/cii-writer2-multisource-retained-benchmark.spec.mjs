@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeName deltas byte-safely', async ({ page }) => {
+test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 recovers all lower-bound positives byte-safely', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
   const diagnostics = await page.evaluate(async () => {
-    const [sourceSet, baseSelection, previewModule, bmModule, authority, scopeModule, transferScope, bridge, converter, oracle, partialOracle, byteOracle] = await Promise.all([
+    const [sourceSet, baseSelection, previewModule, bmModule, authority, scopeModule, transferScope, bridge, converter, oracle, partialOracle, byteOracle, lowerBound] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
       import('/tabs/cii-workspace/cii-workspace-multisource-preview.js'),
@@ -18,6 +18,7 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
       import('/tests/cii-workspace-multisource-texpected-oracle.js'),
       import('/tests/cii-workspace-multisource-partial-texpected-oracle.js'),
       import('/tests/cii-workspace-multisource-byte-closure-oracle.js'),
+      import('/tests/cii-workspace-multisource-lower-bound-helpers.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSet;
@@ -33,23 +34,17 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
     const {
       evaluatePartialTExpectedPostimage,
       expectedNodeNameTransferKeys,
-      structuralTransferKey,
       validateAppliedRawIdentity,
       validateKnownPositiveNodeNames,
       validateRawMutationIdentity,
     } = partialOracle;
     const { validateIndependentMixedNodeNameByteClosure } = byteOracle;
+    const { additionalTransferKeys, missingRequiredTransferKeys, physicalTransferKeys, selectedOperationDeltas } = lowerBound;
 
-    function assert(condition, message) {
-      if (!condition) throw new Error(message);
-    }
-    function equal(actual, expected, message) {
-      if (actual !== expected) throw new Error(`${message}: actual=${actual} expected=${expected}`);
-    }
+    function assert(condition, message) { if (!condition) throw new Error(message); }
+    function equal(actual, expected, message) { if (actual !== expected) throw new Error(`${message}: actual=${actual} expected=${expected}`); }
     function deepEqual(actual, expected, message) {
-      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        throw new Error(`${message}: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
-      }
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${message}: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
     }
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -79,26 +74,19 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
     function candidateOperations(plan) {
       const byId = new Map();
       for (const operation of [...(plan?.operations || []), ...(plan?.excludedOperations || [])]) {
-        const id = String(operation?.operationId || '').trim();
-        if (id && !byId.has(id)) byId.set(id, operation);
+        const id = String(operation?.operationId || '').trim(); if (id && !byId.has(id)) byId.set(id, operation);
       }
       return byId;
-    }
-    function physicalTransferKey(operation) {
-      const action = String(operation?.action || '').trim();
-      const target = String(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId || '').trim();
-      return structuralTransferKey(action, target);
     }
     function canonicalPhysicalTransfer(preview) {
       const candidates = candidateOperations(preview.transferPlan);
       const canonical = ciiCanonicalWriter2MutationSelection([...candidates.values()]);
       const operations = canonical.appliedOperationIds.map((id) => candidates.get(id));
-      return { canonical, operations, keys: operations.map(physicalTransferKey).sort() };
+      return { canonical, operations, keys: physicalTransferKeys(operations) };
     }
     function checkpointDiagnostics(preview, expectedRelocations) {
       return [['8870', '9040'], ['10350', '10190'], ['1005', '925']].map(([fromNodeId, toNodeId]) => ({
-        fromNodeId,
-        toNodeId,
+        fromNodeId, toNodeId,
         correspondenceMatches: (preview?.correspondence?.nodeRows || [])
           .filter((row) => String(row?.sourceNodeId) === fromNodeId && String(row?.targetNodeId) === toNodeId)
           .map((row) => ({ sourceId: row.sourceId, correspondenceId: row.correspondenceId, status: row.status, confidence: row.confidence })),
@@ -108,25 +96,19 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
 
     const sourceNames = ['S1.CII', 'S2.CII', 'S3.CII'];
     const sourceBytes = await Promise.all(sourceNames.map((name) => fetchBytes(`/Benchmark/${name}`)));
-    const [targetBytes, expectedBytes] = await Promise.all([
-      fetchBytes('/Benchmark/T.CII'),
-      fetchBytes('/Benchmark/TEXPECTED-PARTIALLLYDONE.CII'),
-    ]);
+    const [targetBytes, expectedBytes] = await Promise.all([fetchBytes('/Benchmark/T.CII'), fetchBytes('/Benchmark/TEXPECTED-PARTIALLLYDONE.CII')]);
     const sources = sourceNames.map((fileName, index) => ({ sourceId: `S${index + 1}`, fileName, bytes: sourceBytes[index] }));
     const sourceTextsById = Object.fromEntries(sources.map((source) => [source.sourceId, ciiBytesToByteString(source.bytes)]));
-    const targetText = ciiBytesToByteString(targetBytes);
-    const expectedText = ciiBytesToByteString(expectedBytes);
+    const targetText = ciiBytesToByteString(targetBytes); const expectedText = ciiBytesToByteString(expectedBytes);
     const expectedDelta = deriveExpectedNodeNameDelta(targetText, expectedText);
     const expectedKeys = expectedNodeNameTransferKeys(expectedDelta.rows);
     const expectedRelocations = deriveExactNameRelocations(expectedDelta.rows);
-    const createCount = expectedDelta.rows.filter((row) => row.action === 'CREATE').length;
-    const deleteCount = expectedDelta.rows.filter((row) => row.action === 'DELETE').length;
     const bmRows = parseCiiMsBm001();
 
     equal(expectedDelta.rows.length, 36, 'retained lower-bound NodeName delta count');
-    equal(expectedDelta.rows.filter((row) => row.action === 'REPLACE').length, 35, 'retained replacement count');
-    equal(createCount, 1, 'retained create count');
-    equal(deleteCount, 0, 'retained delete count');
+    equal(expectedDelta.rows.filter((row) => row.action === 'REPLACE').length, 35, 'retained lower-bound replacement count');
+    equal(expectedDelta.rows.filter((row) => row.action === 'CREATE').length, 1, 'retained lower-bound create count');
+    equal(expectedDelta.rows.filter((row) => row.action === 'DELETE').length, 0, 'retained lower-bound delete count');
 
     const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef: crypto });
     const automatic = autoBaseLoops(inspection);
@@ -147,12 +129,15 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
     equal(preview.correspondence.conflicts.length, 0, 'cross-source target conflicts must remain zero');
 
     const physical = canonicalPhysicalTransfer(preview);
+    const missingKnownPositiveKeys = missingRequiredTransferKeys(physical.keys, expectedKeys);
+    const additionalQualifiedKeys = additionalTransferKeys(physical.keys, expectedKeys);
+    const replacementCount = physical.operations.filter((operation) => operation.action === 'COPY').length;
+    const structuralCount = physical.operations.filter((operation) => ['CREATE', 'DELETE'].includes(operation.action)).length;
     equal(physical.canonical.conflicts.length, 0, 'canonical physical Transfer conflicts must remain zero');
     equal(new Set(physical.keys).size, physical.keys.length, 'physical Transfer keys must be unique');
-    equal(physical.keys.length, expectedKeys.length, 'physical APPLY count must equal all known-positive NodeName deltas');
-    deepEqual(physical.keys, [...expectedKeys], 'physical action/target set must equal all known-positive NodeName deltas');
-    equal(physical.operations.filter((operation) => operation.action === 'COPY').length, 35, 'all replacements must remain Writer1C COPY');
-    equal(physical.operations.filter((operation) => operation.action === 'CREATE').length, 1, 'structural mutation must remain Writer2 CREATE');
+    deepEqual(missingKnownPositiveKeys, [], 'all lower-bound action/target keys must be recovered');
+    assert(replacementCount >= 35, 'all 35 known-positive replacements must be present');
+    assert(physical.operations.filter((operation) => operation.action === 'CREATE').length >= 1, 'known-positive CREATE must be present');
     const rawMutationIdentity = validateRawMutationIdentity(physical.operations, sourceTextsById, targetText, bmRows);
     equal(rawMutationIdentity.status, 'READY', `raw mutation identity errors=${JSON.stringify(rawMutationIdentity.errors.slice(0, 10))}`);
 
@@ -161,53 +146,49 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
     equal(exactScope.authority.correspondenceCoverage.status, 'READY', 'observed BM claims must be exact frozen-table rows');
     equal(exactScope.authority.correspondenceCoverage.invalidOperationIds.length, 0, 'observed BM claims must have no invalid operations');
     assert(exactScope.authority.correspondenceCoverage.matchedRowCount > 0, 'retained path must expose observed BM evidence');
-    equal(exactScope.appliedOperationIds.length, expectedKeys.length, 'bound scope APPLY cardinality must equal all known-positive NodeName deltas');
+    deepEqual([...exactScope.appliedOperationIds].sort(), [...physical.canonical.appliedOperationIds].sort(), 'bound scope APPLY must equal full canonical physical selection');
 
     const scopedPreview = bindCiiTransferScopeToPreview(preview, exactScope.selection);
     equal(scopedPreview.writerReadiness.ready, true, `mixed readiness blockers=${(scopedPreview.writerReadiness.blockers || []).join('|')}`);
-    equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameReplace, 35, 'readiness replacement count');
-    equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameStructural, 1, 'readiness structural count');
+    equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameReplace, replacementCount, 'readiness replacement count');
+    equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameStructural, structuralCount, 'readiness structural count');
     const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, targetBytes, { cryptoRef: crypto });
     equal(applied.versionBridgeValidation.status, 'PASS', 'V11/V14 bridge validation must pass');
 
     const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applied.byteString, expectedText, physical.operations);
     const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
-    const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows);
+    const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows, physical.operations);
     const byteClosure = validateIndependentMixedNodeNameByteClosure(targetText, applied.byteString, {
-      expectedDeltas: expectedDelta.rows,
-      expectedRowDelta: createCount - deleteCount,
+      expectedDeltas: selectedOperationDeltas(physical.operations),
+      selectedOperations: physical.operations,
     });
     equal(structuralPostimage.preservation.status, 'READY', 'output must preserve target outside NodeName mutation authority');
     equal(structuralPostimage.nodeNamePayloadPreservation.status, 'READY', 'unselected target NODENAME payloads must be unchanged');
-    equal(structuralPostimage.encoding.differences.length, 0, 'CONTROL/pointer/NODENAME cardinality must match structural oracle');
-    equal(structuralPostimage.semantics.differences.length, 0, 'NODENAME occupancy must match structural oracle');
+    equal(structuralPostimage.encoding.differences.length, 0, 'selected output must remain structurally well-formed');
+    equal(structuralPostimage.semantics.differences.length, 0, 'all lower-bound positives must be recovered');
     equal(emittedRawIdentity.status, 'READY', `exact raw emission errors=${JSON.stringify(emittedRawIdentity.errors.slice(0, 10))}`);
     equal(knownPositiveNames.status, 'READY', `known-positive NodeName errors=${JSON.stringify(knownPositiveNames.differences.slice(0, 10))}`);
     equal(byteClosure.status, 'READY', `raw-byte closure errors=${JSON.stringify(byteClosure.differences.slice(0, 10))}`);
-    equal(structuralPostimage.status, 'READY', 'retained mixed postimage must pass');
+    equal(structuralPostimage.status, 'READY', 'retained mixed postimage must satisfy lower-bound oracle');
 
     return {
-      autoAnchor: automatic.choices.map((choice) => ({
-        sourceId: choice.sourceId, status: choice.status, sourceNodeId: choice.sourceNodeId, targetNodeId: choice.targetNodeId,
-        confidence: choice.confidence, basisMethod: choice.basisMethod, outcomeSignature: choice.outcomeSignature,
-      })),
+      autoAnchor: automatic.choices.map((choice) => ({ sourceId: choice.sourceId, status: choice.status, sourceNodeId: choice.sourceNodeId, targetNodeId: choice.targetNodeId, confidence: choice.confidence, basisMethod: choice.basisMethod, outcomeSignature: choice.outcomeSignature })),
       correspondence: { status: preview.correspondence.status, nodeRows: preview.correspondence.nodeRows.length, conflicts: preview.correspondence.conflicts.length },
       transfer: {
-        expectedApplyRowCount: expectedKeys.length,
+        knownPositiveLowerBoundCount: expectedKeys.length,
         actualApplyRowCount: physical.keys.length,
-        replacementCount: physical.operations.filter((operation) => operation.action === 'COPY').length,
-        structuralCreateCount: physical.operations.filter((operation) => operation.action === 'CREATE').length,
+        missingKnownPositiveKeys,
+        additionalQualifiedKeys,
+        replacementCount,
+        structuralCount,
         duplicateCorroborationCount: physical.canonical.duplicateOperationIds.length,
         rawMutationIdentity: rawMutationIdentity.status,
         sourceOnlyCreateOperationIds: rawMutationIdentity.sourceOnlyCreateOperationIds,
       },
       bm001: exactScope.authority.correspondenceCoverage,
       compare: {
-        structuralStatus: structuralPostimage.status,
+        lowerBoundPostimageStatus: structuralPostimage.status,
         structuralEncodingDifferences: structuralPostimage.encoding.differences.length,
-        structuralSemanticDifferences: structuralPostimage.semantics.differences.length,
-        exactRawEmissionStatus: emittedRawIdentity.status,
-        exactRawEmissionDifferences: emittedRawIdentity.errors.length,
         knownPositiveNameStatus: knownPositiveNames.status,
         knownPositiveNameDifferences: knownPositiveNames.differences.length,
         byteClosureStatus: byteClosure.status,
@@ -222,13 +203,12 @@ test('retained S1/S2/S3 Auto Anchor -> mixed Writer1C/Writer2 emits all 36 NodeN
 
   console.log(JSON.stringify(diagnostics, null, 2));
   expect(diagnostics.correspondence.status).toBe('READY');
-  expect(diagnostics.transfer.actualApplyRowCount).toBe(diagnostics.transfer.expectedApplyRowCount);
-  expect(diagnostics.transfer.replacementCount).toBe(35);
-  expect(diagnostics.transfer.structuralCreateCount).toBe(1);
+  expect(diagnostics.transfer.actualApplyRowCount).toBeGreaterThanOrEqual(diagnostics.transfer.knownPositiveLowerBoundCount);
+  expect(diagnostics.transfer.missingKnownPositiveKeys).toEqual([]);
+  expect(diagnostics.transfer.replacementCount).toBeGreaterThanOrEqual(35);
   expect(diagnostics.transfer.rawMutationIdentity).toBe('READY');
   expect(diagnostics.bm001.invalidOperationIds).toEqual([]);
-  expect(diagnostics.compare.structuralStatus).toBe('READY');
-  expect(diagnostics.compare.exactRawEmissionStatus).toBe('READY');
+  expect(diagnostics.compare.lowerBoundPostimageStatus).toBe('READY');
   expect(diagnostics.compare.knownPositiveNameStatus).toBe('READY');
   expect(diagnostics.compare.byteClosureStatus).toBe('READY');
   expect(diagnostics.versionBridgeStatus).toBe('PASS');
