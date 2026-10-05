@@ -1,0 +1,54 @@
+name: CII Writer2 #1239 Method-A Budget 11
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-1239-pr1234-budget-11
+
+permissions:
+  contents: read
+
+jobs:
+  budget11:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run retained auto-base qualification at limit 11
+        shell: bash
+        env:
+          CII_METHOD_A_LIMIT: 11
+        run: |
+          set -o pipefail
+          node --input-type=module <<'EOF' 2>&1 | tee budget-11.log
+          import { webcrypto } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+          import { performance } from 'node:perf_hooks';
+          import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './tabs/cii-workspace/cii-workspace-source-set.js';
+          import { ciiAutomaticBaseSelection } from './tabs/cii-workspace/cii-workspace-base-loop-selection.js';
+          const limit = 11;
+          const cryptoRef = globalThis.crypto || webcrypto;
+          const sources = ['S1.CII','S2.CII','S3.CII'].map((fileName,index)=>({sourceId:`S${index+1}`,fileName,bytes:readFileSync(`./Benchmark/${fileName}`)}));
+          const targetBytes = readFileSync('./Benchmark/T.CII');
+          const started = performance.now();
+          const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({sources,targetBytes,targetFileName:'T.CII'},{cryptoRef,methodAPhysicalCandidateLimit:limit});
+          const choices = inspection.memberInspections.map((member)=>{
+            const suggestions = member.inspection?.baseAnchorSuggestions || [];
+            const choice = ciiAutomaticBaseSelection(suggestions);
+            return {sourceId:member.sourceId,status:choice.status,reason:choice.reason,sourceNodeId:choice.sourceNodeId??null,targetNodeId:choice.targetNodeId??null,confidence:choice.confidence??null,basisMethod:choice.basisMethod??null,selectionKeys:choice.selectionKeys||[],baseLoopCount:choice.baseLoops?.length||0};
+          });
+          const result={limit,elapsedMs:Math.round(performance.now()-started),allReady:choices.length===3&&choices.every((row)=>row.status==='READY'),choices};
+          console.log('BUDGET_RESULT='+JSON.stringify(result));
+          if(!result.allReady) process.exitCode=2;
+          EOF
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-budget-11
+          path: budget-11.log
+          if-no-files-found: warn
