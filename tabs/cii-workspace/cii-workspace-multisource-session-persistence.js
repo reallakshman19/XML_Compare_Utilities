@@ -23,6 +23,10 @@ function validNode(value) {
 }
 function frozenObject(entries) { return deepFreeze(Object.fromEntries(entries)); }
 
+export function ciiWriter2SessionStorage(windowRef = globalThis) {
+  try { return windowRef?.localStorage || null; } catch { return null; }
+}
+
 export function ciiWriter2SessionStorageKey(sourceSetSha256, targetOriginalSha256) {
   const source = text(sourceSetSha256); const target = text(targetOriginalSha256);
   if (!source || !target) return null;
