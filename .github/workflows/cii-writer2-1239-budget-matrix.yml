@@ -1,0 +1,99 @@
+name: CII Writer2 #1239 Method-A Budget Matrix
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-1239-pr1234-budget-matrix
+
+permissions:
+  contents: read
+
+jobs:
+  budget:
+    name: Method-A retained limit ${{ matrix.limit }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        limit: [10, 12, 14, 16, 18, 20, 22, 24]
+    steps:
+      - name: Checkout exact causal overlay plus runner
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run retained auto-base qualification at limit ${{ matrix.limit }}
+        shell: bash
+        env:
+          CII_METHOD_A_LIMIT: ${{ matrix.limit }}
+        run: |
+          set -o pipefail
+          node --input-type=module <<'EOF' 2>&1 | tee budget-${CII_METHOD_A_LIMIT}.log
+          import { webcrypto } from 'node:crypto';
+          import { readFileSync } from 'node:fs';
+          import { performance } from 'node:perf_hooks';
+          import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './tabs/cii-workspace/cii-workspace-source-set.js';
+          import { ciiAutomaticBaseSelection } from './tabs/cii-workspace/cii-workspace-base-loop-selection.js';
+
+          const limit = Number(process.env.CII_METHOD_A_LIMIT);
+          const cryptoRef = globalThis.crypto || webcrypto;
+          const sourceNames = ['S1.CII', 'S2.CII', 'S3.CII'];
+          const sources = sourceNames.map((fileName, index) => ({
+            sourceId: `S${index + 1}`,
+            fileName,
+            bytes: readFileSync(`./Benchmark/${fileName}`),
+          }));
+          const targetBytes = readFileSync('./Benchmark/T.CII');
+          const started = performance.now();
+          const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge(
+            { sources, targetBytes, targetFileName: 'T.CII' },
+            { cryptoRef, methodAPhysicalCandidateLimit: limit },
+          );
+          const choices = (inspection.memberInspections || []).map((member) => {
+            const suggestions = member.inspection?.baseAnchorSuggestions || [];
+            const choice = ciiAutomaticBaseSelection(suggestions);
+            const bands = {};
+            for (const row of suggestions) {
+              const key = `${String(row?.confidence || 'NONE')}|${String(row?.basisMethod || 'NONE')}`;
+              bands[key] = (bands[key] || 0) + 1;
+            }
+            return {
+              sourceId: member.sourceId,
+              suggestionCount: suggestions.length,
+              suggestionBands: bands,
+              status: choice.status,
+              reason: choice.reason,
+              sourceNodeId: choice.sourceNodeId ?? null,
+              targetNodeId: choice.targetNodeId ?? null,
+              confidence: choice.confidence ?? null,
+              basisMethod: choice.basisMethod ?? null,
+              selectionKeys: choice.selectionKeys || [],
+              baseLoopCount: choice.baseLoops?.length || 0,
+              outcomeSignature: choice.outcomeSignature ?? null,
+            };
+          });
+          const result = {
+            limit,
+            elapsedMs: Math.round(performance.now() - started),
+            allReady: choices.length === 3 && choices.every((choice) => choice.status === 'READY'),
+            choices,
+          };
+          console.log('BUDGET_RESULT=' + JSON.stringify(result));
+          if (!result.allReady) process.exitCode = 2;
+          EOF
+
+      - name: Upload per-limit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-budget-${{ matrix.limit }}
+          path: budget-${{ matrix.limit }}.log
+          if-no-files-found: warn
