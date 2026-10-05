@@ -49,38 +49,42 @@ export function cachedCiiBenchmarkForTarget(targetDocument) {
 
 if (typeof globalThis.HTMLElement !== 'undefined' && globalThis.customElements && !globalThis.customElements.get(HOST_TAG)) {
   class CiiBenchmarkOverlayHost extends globalThis.HTMLElement {
-    connectedCallback() {
-      const token = String(this.dataset.ciiwBenchmarkToken || ''); const context = contexts.get(token);
-      if (!context) return;
-      const cached = benchmarkByTargetSha.get(targetKey(context.targetDocument)) || null;
-      this.innerHTML = hostShell(context, cached);
-      if (cached) {
-        const overlay = buildCiiSourceTargetBenchmarkOverlay(context.audit, cached);
+    context() { return contexts.get(String(this.dataset.ciiwBenchmarkToken || '')) || null; }
+    render(benchmark = null) {
+      const context = this.context(); if (!context) return;
+      this.innerHTML = hostShell(context, benchmark);
+      if (benchmark) {
+        const overlay = buildCiiSourceTargetBenchmarkOverlay(context.audit, benchmark);
         const runtime = this.querySelector('[data-ciiw-benchmark-runtime]');
-        if (runtime) runtime.innerHTML = ciiSourceTargetBenchmarkOverlayMarkup(context.audit, cached);
+        if (runtime) runtime.innerHTML = ciiSourceTargetBenchmarkOverlayMarkup(context.audit, benchmark);
         applyAnnotations(this, overlay);
       }
-      this.querySelector('[data-ciiw-benchmark-file]')?.addEventListener('change', async (event) => {
-        const file = event.target?.files?.[0]; if (!file) return;
-        const runtime = this.querySelector('[data-ciiw-benchmark-runtime]');
-        try {
-          if (runtime) runtime.textContent = 'Deriving TARGET → partial expected benchmark…';
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          const benchmark = await deriveCiiNodeNameBenchmarkDeltaFromCii(null, bytes, {
-            beforeDocument: context.targetDocument,
-            expectedFileName: file.name,
-            cryptoRef: globalThis.crypto,
-          });
-          benchmarkByTargetSha.set(targetKey(context.targetDocument), benchmark);
-          const overlay = buildCiiSourceTargetBenchmarkOverlay(context.audit, benchmark);
-          this.innerHTML = hostShell(context, benchmark);
-          const output = this.querySelector('[data-ciiw-benchmark-runtime]');
-          if (output) output.innerHTML = ciiSourceTargetBenchmarkOverlayMarkup(context.audit, benchmark);
-          applyAnnotations(this, overlay);
-        } catch (error) {
-          if (runtime) runtime.textContent = `Benchmark audit blocked: ${error?.message || String(error)}`;
-        }
-      }, { once: true });
+      this.bindInput();
+    }
+    bindInput() {
+      this.querySelector('[data-ciiw-benchmark-file]')?.addEventListener('change', (event) => { void this.loadFile(event); });
+    }
+    async loadFile(event) {
+      const context = this.context(); const file = event.target?.files?.[0];
+      if (!context || !file) return;
+      const runtime = this.querySelector('[data-ciiw-benchmark-runtime]');
+      try {
+        if (runtime) runtime.textContent = 'Deriving TARGET → partial expected benchmark…';
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const benchmark = await deriveCiiNodeNameBenchmarkDeltaFromCii(null, bytes, {
+          beforeDocument: context.targetDocument,
+          expectedFileName: file.name,
+          cryptoRef: globalThis.crypto,
+        });
+        benchmarkByTargetSha.set(targetKey(context.targetDocument), benchmark);
+        this.render(benchmark);
+      } catch (error) {
+        if (runtime) runtime.textContent = `Benchmark audit blocked: ${error?.message || String(error)}`;
+      }
+    }
+    connectedCallback() {
+      const context = this.context(); if (!context) return;
+      this.render(benchmarkByTargetSha.get(targetKey(context.targetDocument)) || null);
     }
     disconnectedCallback() {
       contexts.delete(String(this.dataset.ciiwBenchmarkToken || ''));
