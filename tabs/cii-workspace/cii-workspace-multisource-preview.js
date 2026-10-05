@@ -341,11 +341,12 @@ function versionBridgeEvidence(sourceSet, memberPreviews) {
   });
 }
 function memberInput(input, source, id, index) {
+  const baseLoops = memberBaseLoops(input, source, id); const anchors = memberAnchorPairs(input, source, id);
   return {
     sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
     targetBytes: input?.targetBytes, targetText: input?.targetText, targetFileName: input?.targetFileName || 'T.CII',
-    ...(memberBaseLoops(input, source, id) ? { baseLoops: memberBaseLoops(input, source, id) } : {}),
-    ...(memberAnchorPairs(input, source, id) ? { anchorPairs: memberAnchorPairs(input, source, id) } : {}),
+    ...(baseLoops ? { baseLoops } : {}),
+    ...(anchors ? { anchorPairs: anchors, anchorPairMode: 'INDEPENDENT_SEEDS' } : {}),
     ...(memberReview(input, id) ? { review: memberReview(input, id) } : {}),
   };
 }
@@ -410,5 +411,5 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
 export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
   normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
-  memberMixedOperations,
+  memberMixedOperations, memberInput,
 });
