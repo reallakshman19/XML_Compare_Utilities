@@ -11,12 +11,14 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       multiPreviewModule,
       censusModule,
       benchmarkModule,
+      physicalCandidatesModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
       import('/tabs/cii-workspace/cii-workspace-multisource-preview.js'),
       import('/tabs/cii-workspace/cii-workspace-source-target-audit.js'),
       import('/tabs/cii-workspace/cii-workspace-benchmark-overlay.js'),
+      import('/tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSetModule;
@@ -27,6 +29,10 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       deriveCiiNodeNameBenchmarkDeltaFromCii,
       buildCiiSourceTargetBenchmarkOverlay,
     } = benchmarkModule;
+    const {
+      uniqueIncidentComponentLengthPairs,
+      selectPhysicalCandidatePairs,
+    } = physicalCandidatesModule;
 
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -286,6 +292,57 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
     const budget10 = await inspectAtBudget(10);
     const budget11 = await inspectAtBudget(11);
 
+    const s1InspectionForCandidates = budget11.inspection?.memberInspections
+      ?.find((member) => member.sourceId === 'S1')?.inspection;
+    const rawPhysicalPairs = uniqueIncidentComponentLengthPairs(
+      s1InspectionForCandidates?.sourceGraph,
+      s1InspectionForCandidates?.targetGraph,
+    );
+    const selectedPhysical = Object.fromEntries([10, 11, 24].map((limit) => [
+      String(limit),
+      selectPhysicalCandidatePairs(
+        s1InspectionForCandidates?.sourceGraph,
+        s1InspectionForCandidates?.targetGraph,
+        rawPhysicalPairs,
+        limit,
+      ).map((row) => ({
+        sourceNodeId: row.sourceNodeId,
+        targetNodeId: row.targetNodeId,
+        fingerprint: row.physicalFingerprint?.fingerprint || null,
+      })),
+    ]));
+    const diagnosticAnchors = [
+      ['3910', '875'],
+      ['3940', '880'],
+      ['3870', '870'],
+      ['4930', '1055'],
+      ['5040', '1080'],
+      ['5070', '1085'],
+      ['5080', '1090'],
+      ['5140', '1100'],
+    ];
+    const pairKey = (s, t) => String(s) + '=>' + String(t);
+    const rawKeys = new Set(rawPhysicalPairs.map((row) => pairKey(row.sourceNodeId, row.targetNodeId)));
+    const selectedKeys = Object.fromEntries(Object.entries(selectedPhysical)
+      .map(([limit, rows]) => [limit, new Set(rows.map((row) => pairKey(row.sourceNodeId, row.targetNodeId)))]));
+    const physicalCandidateTrace = {
+      rawCount: rawPhysicalPairs.length,
+      rawPairs: rawPhysicalPairs.map((row) => ({
+        sourceNodeId: row.sourceNodeId,
+        targetNodeId: row.targetNodeId,
+        fingerprint: row.physicalFingerprint?.fingerprint || null,
+      })),
+      selected: selectedPhysical,
+      diagnosticPairMembership: diagnosticAnchors.map(([sourceNodeId, targetNodeId]) => ({
+        sourceNodeId,
+        targetNodeId,
+        inRawUniquePhysicalPool: rawKeys.has(pairKey(sourceNodeId, targetNodeId)),
+        selectedAt10: selectedKeys['10'].has(pairKey(sourceNodeId, targetNodeId)),
+        selectedAt11: selectedKeys['11'].has(pairKey(sourceNodeId, targetNodeId)),
+        selectedAt24: selectedKeys['24'].has(pairKey(sourceNodeId, targetNodeId)),
+      })),
+    };
+
     let automatic11 = null;
     if (budget11.auto.loops.S1 && budget11.auto.loops.S2 && budget11.auto.loops.S3) {
       const discovery = await createCiiWriter2SourceSetPreviewWithVersionBridge({
@@ -337,6 +394,7 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
         expectedCount: benchmark.summary?.expectedCount ?? benchmark.rows?.length ?? null,
         actionCounts: benchmark.summary?.byAction ?? null,
       },
+      physicalCandidateTrace,
       automatic: {
         budget10: {
           elapsedMs: budget10.elapsedMs,
