@@ -17,7 +17,7 @@ test('R2.2 prototypes bridge-resistant coherent components without product mutat
     const { convertCiiNeutralVersionLossless } = converter;
     const { intakeCiiWorkspaceDocument } = intakeModule;
     const { adaptCiiDocumentToTopologyGraph } = topologyModule;
-    const { prepareCiiWorkspaceTargetWithVersionBridge } = bridgeModule;
+    const { prepareCiiWorkspaceTargetWithVersionBridge, createCiiWorkspacePreviewWithVersionBridge } = bridgeModule;
     const { uniqueIncidentComponentLengthPairs, _test: physicalTest } = physicalModule;
     const { discoverCiiMethodABases } = methodAModule;
 
@@ -158,15 +158,63 @@ test('R2.2 prototypes bridge-resistant coherent components without product mutat
       allocation('PRIMARY_6_SECONDARY_4', 6, 4, coherentComponents, sourceGraph, targetGraph, rawPairs),
       allocation('PRIMARY_5_SECONDARY_5', 5, 5, coherentComponents, sourceGraph, targetGraph, rawPairs),
     ];
-    const methodA = {};
+    const methodA = {}; const discoveries = {};
     for (const item of allocations) {
       const started = performance.now();
       const discovery = discoverCiiMethodABases(sourceGraph, targetGraph, item.selected, {
         methodASeedPairLimit: item.selected.length,
         methodAExpansionPairLimit: item.selected.length,
       });
+      discoveries[item.label] = discovery;
       methodA[item.label] = { elapsedMs: Number((performance.now() - started).toFixed(3)), ...baseSummary(discovery) };
     }
+
+    function reviewSummary(preview) {
+      const rows = preview?.compareReview?.rows || [];
+      return {
+        correspondenceStatus: preview?.correspondence?.status || 'UNKNOWN',
+        primaryRows: rows.filter((row) => row.kind !== 'COMPONENT').length,
+        identityBound: rows.filter((row) => row.kind !== 'COMPONENT' && row.identityBound).length,
+        highMediumBound: rows.filter((row) => row.kind !== 'COMPONENT' && row.identityBound && ['HIGH', 'MEDIUM'].includes(row.confidence)).length,
+        unresolved: rows.filter((row) => row.kind !== 'COMPONENT' && !row.identityBound).length,
+        qualifiedChanges: rows.filter((row) => row.kind !== 'COMPONENT' && row.identityBound && row.changeCount > 0).length,
+        confidence: preview?.compareReview?.summary?.correspondence?.confidence || null,
+      };
+    }
+    async function downstreamFor(label) {
+      const base = discoveries[label]?.bases?.[0];
+      if (!base) return { available: false };
+      const baseLoops = [{
+        baseId: `R2_2_${label}`,
+        method: 'METHOD_A_SPATIAL',
+        anchorPairs: base.anchorPairs.map((row) => ({ sourceNodeId: row.sourceNodeId, targetNodeId: row.targetNodeId })),
+      }];
+      const input = { sourceBytes, targetBytes, sourceFileName: 'S1.CII', targetFileName: 'T.CII', baseLoops };
+      const discoveryPreview = await createCiiWorkspacePreviewWithVersionBridge(input, { writerVersion: '2', cryptoRef: crypto });
+      const accepted = (discoveryPreview?.compareReview?.rows || [])
+        .filter((row) => row.identityBound && ['HIGH', 'MEDIUM'].includes(row.confidence))
+        .map((row) => row.correspondenceId);
+      const reviewedPreview = await createCiiWorkspacePreviewWithVersionBridge({
+        ...input,
+        review: {
+          reviewedCorrespondenceIds: accepted,
+          lockedCorrespondenceIds: [],
+          rejectedCorrespondenceIds: [],
+        },
+      }, { writerVersion: '2', cryptoRef: crypto });
+      return {
+        available: true,
+        base: baseSummary({ status: 'READY', candidatePairCount: base.anchorPairs.length, qualifiedBaseCount: 1, bases: [base] }).bases[0],
+        discovery: reviewSummary(discoveryPreview),
+        reviewed: reviewSummary(reviewedPreview),
+        reviewedOperationCount: reviewedPreview?.transferPlan?.operations?.length || 0,
+        reviewedTransferStatus: reviewedPreview?.transferPlan?.status || 'UNKNOWN',
+      };
+    }
+    const downstream = {
+      PRIMARY_10: await downstreamFor('PRIMARY_10'),
+      PRIMARY_7_SECONDARY_3: await downstreamFor('PRIMARY_7_SECONDARY_3'),
+    };
 
     const bridgeEdges = [...clique(0, 6), ...clique(6, 5), [5, 6]];
     const bridgeBase = syntheticAdjacency(11, bridgeEdges);
@@ -185,6 +233,7 @@ test('R2.2 prototypes bridge-resistant coherent components without product mutat
       graphElapsedMs: Number(graphElapsedMs.toFixed(3)),
       allocations: Object.fromEntries(allocations.map((item) => [item.label, item.keys])),
       methodA,
+      downstream,
       synthetic: {
         bridgeCliqueComponentSizes: syntheticComponentSizes(bridgeTri),
         sparseChainComponentSizes: syntheticComponentSizes(triangleSupported(chainBase).adjacency),
@@ -206,4 +255,7 @@ test('R2.2 prototypes bridge-resistant coherent components without product mutat
   expect(diagnostics.synthetic.sparseChainComponentSizes).toEqual([]);
   expect(diagnostics.synthetic.minimumTriangleComponentSizes).toEqual([3]);
   expect(diagnostics.methodA.PRIMARY_7_SECONDARY_3.status).toBe('READY');
+  expect(diagnostics.downstream.PRIMARY_10.available).toBe(true);
+  expect(diagnostics.downstream.PRIMARY_10.reviewed.identityBound)
+    .toBeGreaterThan(diagnostics.downstream.PRIMARY_7_SECONDARY_3.reviewed.identityBound);
 });
