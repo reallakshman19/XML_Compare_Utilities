@@ -1,0 +1,31 @@
+name: CII D3.1 inherited Method-B baseline
+
+on:
+  push:
+    branches:
+      - validation/cii-method-b-baseline-1276
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard untouched base
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=a7e96865301a09865e0b4126c38310d7b1c8d421
+          test "$(git diff --name-only "$BASE"...HEAD)" = ".github/workflows/cii-method-b-baseline-1276.yml"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fdedb84add2faac6b38bff9300fe79224c8808e5"
+          test "$(git hash-object tests/cii-workspace-multi-base-correspondence.test.js)" = "bf5304efb01acc0ec597ca4903551fd6ee315f1b"
+      - run: npm ci
+      - name: Run untouched multi-base test
+        run: node tests/cii-workspace-multi-base-correspondence.test.js
