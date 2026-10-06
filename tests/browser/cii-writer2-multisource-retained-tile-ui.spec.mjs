@@ -76,8 +76,22 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
   await expect(applyReview).toBeDisabled();
   await expect(applyReview).toHaveText('Review synchronized with Transfer Preview');
   await expect(page.locator('[data-ciiw-ms-review-state="SYNCHRONIZED"]')).toBeVisible();
-  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toBeVisible();
+
+  const compareTab = page.locator('[data-ciiw-tab="compare"]');
+  const transferTab = page.locator('[data-ciiw-tab="transfer"]');
+  const transferScope = page.locator('[data-ciiw-ms-transfer="1"]');
+  await expect(compareTab).toHaveAttribute('aria-current', 'page');
+  await expect(transferScope).toHaveCount(1);
+  await expect(transferScope).toBeHidden();
+
+  await transferTab.click();
+  await expect(transferTab).toHaveAttribute('aria-current', 'page');
+  await expect(transferScope).toBeVisible();
   await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
+
+  await compareTab.click();
+  await expect(compareTab).toHaveAttribute('aria-current', 'page');
+  await expect(reviewTable).toBeVisible();
 
   const highEligible = Number(await acceptHigh.getAttribute('data-ciiw-eligible-count'));
   const mediumEligible = Number(await acceptMedium.getAttribute('data-ciiw-eligible-count'));
@@ -108,6 +122,12 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
   await expect(applyReview).toBeDisabled();
   await expect(applyReview).toHaveText('Review synchronized with Transfer Preview');
   await expect(page.locator('[data-ciiw-ms-review-state="SYNCHRONIZED"]')).toBeVisible();
+  await expect(compareTab).toHaveAttribute('aria-current', 'page');
+  await expect(transferScope).toBeHidden();
+
+  await transferTab.click();
+  await expect(transferTab).toHaveAttribute('aria-current', 'page');
+  await expect(transferScope).toBeVisible();
 
   const bindScope = page.locator('[data-ciiw-ms-bind-expected]');
   await expect(bindScope).toBeEnabled();
@@ -123,7 +143,7 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
 
   const applyWriter2 = page.locator('[data-ciiw-ms-apply]');
   await expect(applyWriter2).toBeEnabled();
-  await expect(page.locator('[data-ciiw-ms-transfer="1"]')).toContainText(`APPLY: ${applyCount}`);
+  await expect(transferScope).toContainText(`APPLY: ${applyCount}`);
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
