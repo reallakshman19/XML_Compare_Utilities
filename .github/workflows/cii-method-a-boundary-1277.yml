@@ -1,0 +1,45 @@
+name: CII D3.2 Method-A boundary provenance isolated
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-boundary-1277
+  workflow_dispatch:
+
+jobs:
+  d3-2-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard exact D3.2 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=24870ad88f644b2a0b73225678ec9b42f8fd3e5b
+          BASE=a7e96865301a09865e0b4126c38310d7b1c8d421
+          test "$(git diff --name-only "$PRODUCT"...HEAD)" = ".github/workflows/cii-method-a-boundary-1277.yml"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "adf5c71f189f564cea87e38f55f62a36817e9d20"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git hash-object tests/cii-workspace-method-a-anchor-provenance.test.js)" = "2462f0571a27b1b3c960baafd7cc718d08cc2316"
+          test "$(git hash-object tests/cii-workspace-method-a-boundary-provenance.test.js)" = "70e1407ddc94feb64b87a6079ea41442ed9dca78"
+          test "$(git hash-object tests/cii-workspace-multi-base-correspondence.test.js)" = "bf5304efb01acc0ec597ca4903551fd6ee315f1b"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- Benchmark)"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- tabs/cii-workspace/cii-workspace-geometry.js)"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)"
+          echo D3_2_GUARD_PASS
+      - run: npm ci
+      - name: Run isolated D3.1 + D3.2 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          node --check tests/cii-workspace-method-a-anchor-provenance.test.js
+          node --check tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
