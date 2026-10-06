@@ -41,6 +41,21 @@ function qualifiedMethodABoundaryIdentity(correspondence, row) {
     && item?.rowAuthority === 'ADJACENT_MATCH_BOUNDARY');
 }
 
+function qualifiedMethodABaseAnchorIdentity(correspondence, row) {
+  if (correspondence?.status !== 'READY') return false;
+  if ((correspondence?.conflicts || []).length || (correspondence?.targetCustodyConflicts || []).length) return false;
+  if (row?.kind !== 'NODE' || row?.status !== 'REVIEW') return false;
+  if (!['METHOD_A_SPATIAL', 'METHOD_A_AND_B'].includes(row?.basisMethod)) return false;
+  const evidence = row?.evidence;
+  if (evidence?.identitySupported !== true || !['HIGH', 'MEDIUM'].includes(evidence?.identityConfidence)) return false;
+  if (evidence?.identityEvidenceBasis !== 'METHOD_A_QUALIFIED_BASE_ANCHOR') return false;
+  return (evidence?.multiBaseProvenance || []).some((item) =>
+    item?.method === 'METHOD_A_SPATIAL'
+    && ['HIGH', 'MEDIUM'].includes(item?.baseConfidence)
+    && item?.rowStatus === 'REVIEW'
+    && item?.rowAuthority === 'METHOD_A_QUALIFIED_ANCHOR');
+}
+
 function winnerGapOnlyReview(row) {
   if (row?.status !== 'REVIEW') return false;
   const candidates = row?.evidence?.candidates;
@@ -52,9 +67,10 @@ function winnerGapOnlyReview(row) {
   return reasons.length === 1 && reasons[0] === 'WINNER_GAP_NOT_SATISFIED';
 }
 
-function preservesQualifiedMethodABoundary(correspondence, row, affectedRows) {
+function preservesQualifiedMethodAIdentity(correspondence, row, affectedRows) {
   return affectedRows.length > 0
-    && qualifiedMethodABoundaryIdentity(correspondence, row)
+    && (qualifiedMethodABoundaryIdentity(correspondence, row)
+      || qualifiedMethodABaseAnchorIdentity(correspondence, row))
     && affectedRows.every(winnerGapOnlyReview);
 }
 
@@ -67,7 +83,7 @@ export function applyCiiNodeCustodyGates(correspondence, sourceGraph) {
     const affected = incident.filter((edge) => riskyIds.has(edge.elementId)).map((edge) => edge.elementId).sort();
     if (!affected.length) return row;
     const affectedRows = risky.filter((item) => rowSourceIds(item).some((id) => affected.includes(id)));
-    if (preservesQualifiedMethodABoundary(correspondence, row, affectedRows)) return row;
+    if (preservesQualifiedMethodAIdentity(correspondence, row, affectedRows)) return row;
     const linkedCandidates = affectedRows.map((item) => Object.freeze({
       correspondenceId: item.correspondenceId,
       status: item.status,
