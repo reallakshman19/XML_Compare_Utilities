@@ -1,0 +1,90 @@
+name: CII F4V retained tile tab-contract qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-retained-tile-tab-contract-1310
+  workflow_dispatch:
+
+jobs:
+  f4v-tile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation-only tile correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASIS=7f47bb4a41f0fc360f3a3ceace03886cc4973e70
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-retained-tile-tab-contract-1310.yml' \
+            'tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs' | sort)"
+          test "$(git diff --name-only "$BASIS"...HEAD | sort)" = "$expected"
+
+          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs)" = "afd05605ccbfa911126ba4f04438737807ea7bb0"
+          test "$(git hash-object tests/cii-workspace-multisource-partial-texpected-oracle.js)" = "5d9c925b7b9c58a2db1e0ffc05027ec468f48b60"
+          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs)" = "d86fc7ac94a5f22a24946e68b49036f9b749069e"
+
+          if git diff --name-only "$BASIS"...HEAD -- tabs/cii-workspace Benchmark | grep -q .; then
+            echo "Product/Benchmark mutation forbidden in F4V"
+            exit 1
+          fi
+
+          # The correction must exercise real tabs; it must not unhide panels directly.
+          grep -q 'data-ciiw-tab="compare"' tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs
+          grep -q 'data-ciiw-tab="transfer"' tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs
+          if grep -E '\.hidden\s*=|removeAttribute\(.hidden|style\.display' tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs; then
+            echo "Direct visibility mutation forbidden"
+            exit 1
+          fi
+
+          echo "F4V_TILE_CONTRACT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create tile-only Playwright config
+        shell: bash
+        run: |
+          cat > playwright.f4v-tile-1310.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-multisource-retained-tile-ui.spec.mjs'],
+            timeout: 360_000,
+            expect: { timeout: 25_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-f4v-tile-1310',
+          };
+          EOF
+
+      - name: Run corrected retained tile proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.f4v-tile-1310.config.mjs 2>&1 | tee f4v-tile-1310.log
+
+      - name: Upload F4V evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-f4v-tile-1310
+          path: |
+            f4v-tile-1310.log
+            test-results/cii-writer2-f4v-tile-1310
+          if-no-files-found: warn
