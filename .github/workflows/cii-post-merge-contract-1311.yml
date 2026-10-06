@@ -1,0 +1,119 @@
+name: CII post-merge contract qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-post-merge-contract-1311
+  workflow_dispatch:
+
+jobs:
+  qualify-post-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact PR #1311 head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact post-merge landing composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_BASE=d7db95bdfecc76d6613d19e3121de41fa53c0a38
+          PR_HEAD=cd68eebc358368a3354c841b9781608e2f65c957
+
+          test "$(git diff --name-only "$PR_HEAD"...HEAD | sort)" = ".github/workflows/cii-post-merge-contract-1311.yml"
+
+          expected_pr="$(printf '%s\n' \
+            'tabs/cii-workspace/cii-workspace-source-target-audit.js' \
+            'tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs' \
+            'tests/cii-workspace-multisource-bm001-live-preimage.test.js' \
+            'tests/cii-workspace-multisource-partial-texpected-oracle.js' | sort)"
+          test "$(git diff --name-only "$MAIN_BASE" "$PR_HEAD" | sort)" = "$expected_pr"
+
+          test "$(git rev-parse "$PR_HEAD:tabs/cii-workspace/cii-workspace-source-target-audit.js")" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+          test "$(git rev-parse "$PR_HEAD:tests/cii-workspace-multisource-partial-texpected-oracle.js")" = "5d9c925b7b9c58a2db1e0ffc05027ec468f48b60"
+          test "$(git rev-parse "$PR_HEAD:tests/cii-workspace-multisource-bm001-live-preimage.test.js")" = "6ff1ba3b4066d3ea323213b86b9e13c10e44c656"
+          test "$(git rev-parse "$PR_HEAD:tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs")" = "a96edf94a6c2c400bf6933eaabe0fafe846cc7f9"
+
+          # Final retained product composition from the authoritative F4 proof.
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "1512858f06cd6cc47c221cac306c4846302cde50"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-node-custody.js)" = "cf08a90b97d022432237593eafd665066155d6d6"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-alignment.js)" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-benchmark-overlay.js)" = "0bc83e1b747725a3c0e7e5cbd147aded421f10c4"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js)" = "12a282b4d6da6e42a1cecc374e86de06794b1822"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js)" = "15b451c84cfa11838004e58feb4c169069d82ef2"
+
+          # Final proof lanes.
+          test "$(git hash-object tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js)" = "362481e07c510e3d8c7cc8b59727a367b156aa29"
+          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs)" = "d86fc7ac94a5f22a24946e68b49036f9b749069e"
+          test "$(git hash-object tests/cii-workspace-multisource-lower-bound-helpers.test.js)" = "17d9eb0e98edc1cb01b230aaf040eb1e4be6e1d2"
+          test "$(git hash-object tests/cii-workspace-multisource-byte-closure-oracle.js)" = "d7eeec4e71d92bd8bc1138961ad25b9f10045e17"
+
+          if git diff --name-only "$MAIN_BASE" "$PR_HEAD" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          echo "POST_MERGE_CONTRACT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check repaired source-target audit
+        run: node --check tabs/cii-workspace/cii-workspace-source-target-audit.js
+
+      - name: Run BM live-preimage focused contract
+        run: node tests/cii-workspace-multisource-bm001-live-preimage.test.js
+
+      - name: Run lower-bound helper denominator
+        run: node tests/cii-workspace-multisource-lower-bound-helpers.test.js
+
+      - name: Run retained Node auto-anchor full-proof lane
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create post-merge Playwright config
+        shell: bash
+        run: |
+          cat > playwright.post-merge-1311.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: [
+              'cii-writer2-multisource-retained-benchmark.spec.mjs',
+              'cii-writer2-multisource-retained-tile-ui.spec.mjs',
+            ],
+            timeout: 360_000,
+            expect: { timeout: 25_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-post-merge-1311',
+          };
+          EOF
+
+      - name: Run full retained Chromium + tile lanes
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.post-merge-1311.config.mjs 2>&1 | tee post-merge-1311.log
+
+      - name: Upload post-merge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-post-merge-contract-1311
+          path: |
+            post-merge-1311.log
+            test-results/cii-post-merge-1311
+          if-no-files-found: warn
