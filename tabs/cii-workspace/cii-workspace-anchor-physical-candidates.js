@@ -57,8 +57,10 @@ function squaredDistance(left, right) {
   return [dx, dy, dz].every(Number.isFinite) ? dx * dx + dy * dy + dz * dz : 0;
 }
 function pointDistanceMm(left, right) {
-  const squared = squaredDistance(left, right);
-  return Number.isFinite(squared) ? Math.sqrt(squared) : null;
+  if (!left || !right) return null;
+  const values = [left.x, left.y, left.z, right.x, right.y, right.z].map(Number);
+  if (!values.every(Number.isFinite)) return null;
+  return Math.hypot(values[0] - values[3], values[1] - values[4], values[2] - values[5]);
 }
 function positiveNumber(value) {
   const parsed = Number(value);
