@@ -1,0 +1,20 @@
+name: CII P3.2 main control
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-session-main-control-1320
+
+jobs:
+  shared-target-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Reproduce shared-target construction test on untouched main
+        run: node tests/cii-workspace-source-set-shared-target-construction-count.test.js
