@@ -1,0 +1,124 @@
+name: CII Writer2 S1 D5.4 retained qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s1-d5-4-1285
+  workflow_dispatch:
+
+jobs:
+  d5-4-retained:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout retained validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact D5.3 product overlay and retained stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          RETAINED_BASE=8103d860d3d284c32fdcc5d61419b873114bc3b3
+          D5_HEAD=d919446c09237558da57b01bf9168985bf6d73db
+
+          git fetch origin fix/cii-method-a-boundary-custody-1284:refs/remotes/origin/fix/cii-method-a-boundary-custody-1284
+          test "$(git rev-parse refs/remotes/origin/fix/cii-method-a-boundary-custody-1284)" = "$D5_HEAD"
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-writer2-s1-d5-4-1285.yml' \
+            'tabs/cii-workspace/cii-workspace-node-custody.js' | sort)"
+          actual="$(git diff --name-only "$RETAINED_BASE"...HEAD | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-node-custody.js)" = "6e7cb74f9533cde025bee083cdc8ac2b0b05cb25"
+          test "$(git rev-parse "$D5_HEAD:tabs/cii-workspace/cii-workspace-node-custody.js")" = "6e7cb74f9533cde025bee083cdc8ac2b0b05cb25"
+          test "$(git rev-parse "$D5_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js")" = "030156fd8ee0fda90413a202d6c8f1cc2693ca33"
+          test "$(git rev-parse "$D5_HEAD:agents/WIP-1284-node-custody_workreport.md")" = "37db5ffc6ae6eb6967bf4846187d2c682088fb70"
+
+          # Retained D4 specification and correctness stack remain exact.
+          test "$(git hash-object tests/browser/cii-writer2-s1-d4-method-a-provenance.spec.mjs)" = "09277285218be101f9a83f0d6a10dc98a7a0ae92"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fbfa4b32fd2c4db9da0aa50f9b23bc1c54191a5d"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js)" = "1037163d7ace8f91cc889108c044d1d2e9884d58"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions.js)" = "48ac451a7084873a8f48b6a48237627ba0a4786c"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-source-set.js)" = "f4d36814c34a20b194389eebe7ed7ec52e42ba3b"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-benchmark-overlay.js)" = "0bc83e1b747725a3c0e7e5cbd147aded421f10c4"
+          test "$(git hash-object tests/cii-workspace-multisource-lower-bound-helpers.js)" = "55bbe07def93c2d922854fcf98af8a54effb2308"
+
+          if git diff --name-only "$RETAINED_BASE"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          changed_tabs="$(git diff --name-only "$RETAINED_BASE"...HEAD -- tabs/cii-workspace | sort)"
+          test "$changed_tabs" = "tabs/cii-workspace/cii-workspace-node-custody.js"
+
+          echo "S1_D5_4_EXACT_OVERLAY_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize and run exact D5.3 focused repair test
+        shell: bash
+        run: |
+          set -euo pipefail
+          D5_HEAD=d919446c09237558da57b01bf9168985bf6d73db
+          git show "$D5_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js" > tests/.d5-4-node-custody-1285.test.js
+          node tests/.d5-4-node-custody-1285.test.js
+
+      - name: Run retained stack focused regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-anchor-search-budget.test.js
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
+          node tests/cii-workspace-correspondence-arbitration.test.js
+          node tests/cii-workspace-engineering-delta.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create focused Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s1-d5-4.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s1-d4-method-a-provenance.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-s1-d5-4',
+          };
+          EOF
+
+      - name: Run D5.4 retained qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s1-d5-4.config.mjs 2>&1 | tee s1-d5-4.log
+
+      - name: Upload D5.4 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s1-d5-4-retained
+          path: |
+            s1-d5-4.log
+            test-results/cii-writer2-s1-d5-4
+          if-no-files-found: warn
