@@ -1,0 +1,79 @@
+name: CII Writer2 S1 D2 local-span strategy design
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-method-a-design-1267
+  workflow_dispatch:
+
+jobs:
+  d2-local-span-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout design head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard design-only composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c81536753958be57a280a65246f1caa4a12192a8
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-s1-method-a-design-1267.yml' \
+            'tests/browser/cii-s1-method-a-design-1267.spec.mjs' | sort)"
+          test "$changed" = "$expected"
+          if git diff --name-only "$BASE"...HEAD -- Benchmark tabs/cii-workspace | grep -q .; then
+            echo "Product/benchmark mutation forbidden in D2"
+            exit 1
+          fi
+          echo "S1_D2_DESIGN_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create D2 Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s1-d2.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-s1-method-a-design-1267.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-s1-d2',
+          };
+          EOF
+
+      - name: Run D2 strategy comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s1-d2.config.mjs 2>&1 | tee s1-d2.log
+
+      - name: Upload D2 design evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-s1-d2-local-span-design
+          path: |
+            s1-d2.log
+            s1-d2-local-span-strategies.json
+            test-results/cii-s1-d2
+          if-no-files-found: warn
