@@ -38,6 +38,7 @@ jobs:
           tabs/cii-workspace/cii-workspace-source-set.js
           tabs/cii-workspace/cii-workspace-source-target-audit.js
           tests/browser/cii-writer2-manual-anchor-frontier-diagnostic.spec.mjs
+          tests/browser/cii-writer2-manual-anchor-frontier-counterfactual.spec.mjs
           EOF
           )
 
@@ -89,6 +90,7 @@ jobs:
           node --check tabs/cii-workspace/cii-workspace-source-target-audit.js
           node --check tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs
           node --check tests/browser/cii-writer2-manual-anchor-frontier-diagnostic.spec.mjs
+          node --check tests/browser/cii-writer2-manual-anchor-frontier-counterfactual.spec.mjs
           node tests/cii-workspace-manual-seed-arbitration.test.js
 
       - name: Create Slice 5 browser config
@@ -139,6 +141,30 @@ jobs:
           set -euo pipefail
           npx playwright test --config=playwright.slice5-frontier.config.mjs 2>&1 | tee slice5-frontier.log
 
+      - name: Create Slice 5 counterfactual config
+        shell: bash
+        run: |
+          cat > playwright.slice5-counterfactual.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-manual-anchor-frontier-counterfactual.spec.mjs'],
+            timeout: 300_000,
+            expect: { timeout: 15_000 },
+            workers: 1,
+            retries: 0,
+            outputDir: 'test-results/cii-writer2-slice5-counterfactual',
+            reporter: [['list']],
+          };
+          EOF
+
+      - name: Run retained boundary-seed counterfactuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.slice5-counterfactual.config.mjs 2>&1 | tee slice5-counterfactual.log
+
       - name: Upload Slice 5 evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -147,8 +173,11 @@ jobs:
           path: |
             slice5-cardinality.log
             slice5-frontier.log
+            slice5-counterfactual.log
             playwright.slice5-cardinality.config.mjs
             playwright.slice5-frontier.config.mjs
+            playwright.slice5-counterfactual.config.mjs
             test-results/cii-writer2-slice5-cardinality
             test-results/cii-writer2-slice5-frontier
+            test-results/cii-writer2-slice5-counterfactual
           if-no-files-found: warn
