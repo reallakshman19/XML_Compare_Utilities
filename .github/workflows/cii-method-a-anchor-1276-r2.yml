@@ -1,0 +1,55 @@
+name: CII D3.1 Method-A anchor provenance isolated
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-anchor-1276-r2
+  workflow_dispatch:
+
+jobs:
+  d3-1-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact D3.1 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=42aaabca976783c41a3af2a07ea70b0260d3dbfa
+          BASE=a7e96865301a09865e0b4126c38310d7b1c8d421
+          changed="$(git diff --name-only "$PRODUCT"...HEAD | sort)"
+          test "$changed" = ".github/workflows/cii-method-a-anchor-1276-r2.yml"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "553d9c2645173419e5856004345ccbe4bcce846e"
+          test "$(git hash-object tests/cii-workspace-method-a-anchor-provenance.test.js)" = "2462f0571a27b1b3c960baafd7cc718d08cc2316"
+          test "$(git hash-object tests/cii-workspace-multi-base-correspondence.test.js)" = "bf5304efb01acc0ec597ca4903551fd6ee315f1b"
+
+          product_changed="$(git diff --name-only "$BASE"..."$PRODUCT" | sort)"
+          expected="$(printf '%s\n'             'agents/PR1280_workreport.md'             'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js'             'tests/cii-workspace-method-a-anchor-provenance.test.js' | sort)"
+          test "$product_changed" = "$expected"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- Benchmark)"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- tabs/cii-workspace/cii-workspace-geometry.js)"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)"
+          echo "D3_1_ISOLATED_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run isolated D3.1 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          node --check tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
