@@ -192,7 +192,7 @@ assert.equal(physicalTest.componentIsComplete([0, 1, 2, 3], fourCycle), false,
   'non-complete cycle must not qualify as a coherent component');
 
 assert.deepEqual(
-  physicalTest.connectedComponents([5, 4, 3, 2, 1, 0], prunedCliques),
+  physicalTest.connectedComponents([5, 4, 3, 2, 1, 0], prunedCliques).sort((left, right) => left[0] - right[0]),
   [[0, 1, 2], [3, 4, 5]],
   'component membership must not depend on input index ordering',
 );
