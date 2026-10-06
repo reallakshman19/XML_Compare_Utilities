@@ -55,6 +55,7 @@ const EXCLUDED_NON_ANALYSIS_OPTION_KEYS = new Set([
   'baseAnchorDisplayLimit',
   'baseAnchorSuggestionLimit',
   'cryptoRef',
+  'diameterToleranceRatio',
   'instrumentation',
   'methodAPhysicalCandidateLimit',
   'minimumAutomaticConfidence',
@@ -63,6 +64,7 @@ const EXCLUDED_NON_ANALYSIS_OPTION_KEYS = new Set([
   'targetGraph',
   'texpectedRows',
   'bm001ExpectedRows',
+  'wallToleranceRatio',
   'writerVersion',
 ]);
 
