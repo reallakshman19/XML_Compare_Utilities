@@ -164,6 +164,16 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
   const expectedDelta = deriveExpectedNodeNameDelta(beforeText, partialExpectedText);
   expect(expectedDelta.rows).toHaveLength(36);
   const knownPositive = validateKnownPositiveNodeNames(actualText, expectedDelta.rows);
+  const transferText = await transferScope.textContent();
+  const finalStatusText = await status.textContent();
+  console.log('F4V_TILE_DIAGNOSTIC=' + JSON.stringify({
+    applyCount,
+    transferText,
+    finalStatusText,
+    knownPositiveStatus: knownPositive.status,
+    knownPositiveDifferences: knownPositive.differences,
+    expectedRows: expectedDelta.rows.length,
+  }));
   expect(knownPositive.status).toBe('READY');
   expect(knownPositive.differences).toHaveLength(0);
 
