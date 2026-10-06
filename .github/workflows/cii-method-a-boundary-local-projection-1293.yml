@@ -1,0 +1,90 @@
+name: CII U4.2 Method-A boundary-local projection qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-boundary-local-projection-1293
+  workflow_dispatch:
+
+jobs:
+  u4-2-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact U4.2 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_BASE=82b238a7521acdca2072727cd6438f73ad593593
+          PRODUCT_HEAD=02e17c61f238dbdfa1a9d1bb5707ec0f235a330b
+
+          actual_validation="$(git diff --name-only "$PRODUCT_HEAD"...HEAD | sort)"
+          test "$actual_validation" = ".github/workflows/cii-method-a-boundary-local-projection-1293.yml"
+
+          expected_product="$(printf '%s\n' \
+            'agents/WIP-1293-boundary-local-projection_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js' \
+            'tests/cii-workspace-method-a-boundary-local-projection.test.js' | sort)"
+          actual_product="$(git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" | sort)"
+          test "$actual_product" = "$expected_product"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-multi-base-correspondence.js")" = "00b8fc6054b14afd8b6b299d477c940843cb2b85"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-local-projection.test.js")" = "aaef0c3ed47f804d3b1917f24fcc527d3e4614eb"
+          test "$(git rev-parse "$PRODUCT_HEAD:agents/WIP-1293-boundary-local-projection_workreport.md")" = "3be583aa4b231d36350391660f12b041c567a4e0"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-alignment.js")" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-node-custody.js")" = "6e7cb74f9533cde025bee083cdc8ac2b0b05cb25"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-boundary-local-endpoint.test.js")" = "e829342e2bd3a1a4ea4a9bf64ef7049e488760cb"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js")" = "70e1407ddc94feb64b87a6079ea41442ed9dca78"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-projection-integration.test.js")" = "742e6f26d524fddc72f7f1b1f95ca0687d4c4954"
+
+          if git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          for protected in \
+            tabs/cii-workspace/cii-workspace-alignment.js \
+            tabs/cii-workspace/cii-workspace-node-custody.js \
+            tabs/cii-workspace/cii-workspace-correspondence-arbitration.js \
+            tabs/cii-workspace/cii-workspace-geometry.js \
+            tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js \
+            tabs/cii-workspace/cii-workspace-candidates.js \
+            tabs/cii-workspace/cii-workspace-writer-version-bridge.js; do
+            if git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- "$protected" | grep -q .; then
+              echo "Protected product surface changed: $protected"
+              exit 1
+            fi
+          done
+
+          echo "U4_2_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check U4.2 product
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          node --check tests/cii-workspace-method-a-boundary-local-projection.test.js
+
+      - name: Run U4.2 focused projection contract
+        run: node tests/cii-workspace-method-a-boundary-local-projection.test.js
+
+      - name: Run U4.1 raw boundary-local regression
+        run: node tests/cii-workspace-boundary-local-endpoint.test.js
+
+      - name: Run inherited D3 boundary regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
