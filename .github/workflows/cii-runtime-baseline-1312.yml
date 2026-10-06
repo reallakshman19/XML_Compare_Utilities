@@ -1,0 +1,82 @@
+name: CII P1 landed-main runtime baseline
+
+on:
+  push:
+    branches:
+      - validation/cii-runtime-baseline-1312
+  workflow_dispatch:
+
+jobs:
+  p1-runtime-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation-only composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c1998df47e4183e6d54c30555cbc022742ffebc5
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-runtime-baseline-1312.yml' \
+            'tests/browser/cii-writer2-runtime-baseline-1312.spec.mjs' | sort)"
+          test "$(git diff --name-only "$BASE"...HEAD | sort)" = "$expected"
+          if git diff --name-only "$BASE"...HEAD -- tabs/cii-workspace Benchmark | grep -q .; then
+            echo "P1 is validation-only; product/Benchmark mutation forbidden"
+            exit 1
+          fi
+          test "$(git rev-parse "$BASE:tabs/cii-workspace/cii-workspace-source-set.js")" = "f4d36814c34a20b194389eebe7ed7ec52e42ba3b"
+          test "$(git rev-parse "$BASE:tabs/cii-workspace/cii-workspace-multisource-preview.js")" = "46a688489977c9a4025781a7ccc45cc2724e94a0"
+          test "$(git rev-parse "$BASE:tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js")" = "c8930d581d1a234e2f1c07fefc476331cd843506"
+          test "$(git rev-parse "$BASE:tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs")" = "d86fc7ac94a5f22a24946e68b49036f9b749069e"
+          echo "P1_VALIDATION_ONLY_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check P1 diagnostic
+        run: node --check tests/browser/cii-writer2-runtime-baseline-1312.spec.mjs
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create P1 Playwright config
+        shell: bash
+        run: |
+          cat > playwright.p1-runtime-1312.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-runtime-baseline-1312.spec.mjs'],
+            timeout: 900_000,
+            expect: { timeout: 30_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-p1-runtime-1312',
+          };
+          EOF
+
+      - name: Run retained P1 baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.p1-runtime-1312.config.mjs 2>&1 | tee p1-runtime-1312.log
+
+      - name: Upload P1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-p1-runtime-baseline-1312
+          path: |
+            p1-runtime-1312.log
+            test-results/cii-p1-runtime-1312
+          if-no-files-found: warn
