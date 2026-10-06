@@ -128,6 +128,18 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
       });
       return { ...correspondence, nodeRows };
     }
+    function semanticRowAuthority(row, authority) {
+      return row?.authority === authority || (row?.evidence?.multiBaseProvenance || []).some((item) => item?.rowAuthority === authority);
+    }
+    function boundaryIdentityBound(row) {
+      if (!semanticRowAuthority(row, 'ADJACENT_MATCH_BOUNDARY')) return false;
+      const left = row?.evidence?.leftElement; const right = row?.evidence?.rightElement;
+      return [left, right].every((item) => item?.identitySupported === true && item?.identityConfidence === 'HIGH');
+    }
+    function evidenceIdentityBound(row) {
+      if (row?.evidence?.identitySupported === true) return true;
+      return boundaryIdentityBound(row);
+    }
     function buildStrategy(name, pairs, anchors, sourceGraph, targetGraph, geometry, confidence, sourceDocument, targetDocument) {
       const spanResults = pairs.map(([left, right], index) => {
         const anchorPairs = [anchors[left], anchors[right]];
@@ -146,6 +158,11 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
           ? [{ sourceNodeId: String(row.source), targetNodeId: String(row.target), confidence: row.confidence,
               workflowStatus: row.workflowStatus, identityEvidenceBasis: row.identityEvidenceBasis }]
           : []);
+      const provenanceAwareBoundClaims = (union?.nodeRows || []).flatMap((row) =>
+        row?.sourceNodeId != null && row?.targetNodeId != null && evidenceIdentityBound(row)
+          ? [{ sourceNodeId: String(row.sourceNodeId), targetNodeId: String(row.targetNodeId),
+              authority: row.authority, semanticBoundary: semanticRowAuthority(row, 'ADJACENT_MATCH_BOUNDARY') }]
+          : []);
       return {
         name,
         pairIndexes: pairs,
@@ -157,6 +174,7 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
         conflicts: union.conflicts || [],
         claims: normalizedClaims(union),
         boundNodeClaims,
+        provenanceAwareBoundClaims,
         lockedReviewRows: (review.rows || []).filter((row) => row.workflowStatus === 'LOCKED' || row.confidence === 'LOCKED').length,
       };
     }
@@ -213,6 +231,8 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
         strategy.claims.some((claim) => claim.sourceNodeId === sourceNodeId && claim.targetNodeId === expected.targetNodeId)));
       const boundSupports = s1Expected.filter((expected) => expected.sourceNodeIds.some((sourceNodeId) =>
         strategy.boundNodeClaims.some((claim) => claim.sourceNodeId === sourceNodeId && claim.targetNodeId === expected.targetNodeId)));
+      const provenanceAwareSupports = s1Expected.filter((expected) => expected.sourceNodeIds.some((sourceNodeId) =>
+        strategy.provenanceAwareBoundClaims.some((claim) => claim.sourceNodeId === sourceNodeId && claim.targetNodeId === expected.targetNodeId)));
       return {
         name: strategy.name,
         pairIndexes: strategy.pairIndexes,
@@ -225,8 +245,10 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
         nodeClaimCount: strategy.claims.length,
         s1AttributedClaimPresence: supports.length,
         s1AttributedIdentityBound: boundSupports.length,
+        s1AttributedProvenanceAwareBound: provenanceAwareSupports.length,
         recoveredTargets: supports.map((row) => row.targetNodeId),
         boundTargets: boundSupports.map((row) => row.targetNodeId),
+        provenanceAwareBoundTargets: provenanceAwareSupports.map((row) => row.targetNodeId),
         lockedReviewRows: strategy.lockedReviewRows,
       };
     });
