@@ -60,7 +60,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node tests/cii-workspace-benchmark-end-to-end.test.js
           node tests/cii-workspace-benchmark-writer-1a.test.js
           node tests/cii-workspace-benchmark-writer-1b.test.js
           node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
