@@ -39,10 +39,32 @@ No preview execution.
 No UI.
 No Benchmark mutation.
 
+## Implemented material
+
+Production helper:
+- `tabs/cii-workspace/cii-workspace-common-analysis-key.js@5d55637bb482091592805084c4dfcf24479822a7`
+
+Focused generic test:
+- `tests/cii-workspace-common-analysis-authority-key.test.js@eb59e3347d8be7aee95e752a613f586844ad49ad`
+
+Implemented:
+- deterministic canonical preimage;
+- SHA-256 key;
+- explicit writer-independent option allowlist;
+- canonical Method-A / Method-B loops;
+- canonical independent manual seeds / legacy anchors;
+- prepared SOURCE/TARGET custody identity;
+- exclusion of review/writer/display/oracle/UI state.
+
+No cache object or preview call is introduced.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: pure authority key helper + generic falsifiers
+STATE: PRODUCT_AUTHORED
+CACHE: NONE
+PREVIEW_EXECUTION: NONE
+UI: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: open stacked draft PR and qualify exact head
 ```
