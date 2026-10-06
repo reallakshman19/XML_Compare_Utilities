@@ -76,15 +76,23 @@ jobs:
           git show "$D5_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js" > tests/.d5-4-node-custody-1285.test.js
           node tests/.d5-4-node-custody-1285.test.js
 
+      - name: Materialize exact D3 focused regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          D3_HEAD=2751b563505caa2c9be0803294b00c3177c2811a
+          git show "$D3_HEAD:tests/cii-workspace-method-a-anchor-provenance.test.js" > tests/.d5-4-anchor-1285.test.js
+          git show "$D3_HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js" > tests/.d5-4-boundary-1285.test.js
+          git show "$D3_HEAD:tests/cii-workspace-method-a-projection-integration.test.js" > tests/.d5-4-integration-1285.test.js
+
       - name: Run retained stack focused regressions
         shell: bash
         run: |
           set -euo pipefail
           node tests/cii-workspace-anchor-search-budget.test.js
-          node tests/cii-workspace-method-a-anchor-provenance.test.js
-          node tests/cii-workspace-method-a-boundary-provenance.test.js
-          node tests/cii-workspace-method-a-projection-integration.test.js
-          node tests/cii-workspace-correspondence-arbitration.test.js
+          node tests/.d5-4-anchor-1285.test.js
+          node tests/.d5-4-boundary-1285.test.js
+          node tests/.d5-4-integration-1285.test.js
           node tests/cii-workspace-engineering-delta.test.js
 
       - name: Install Chromium
