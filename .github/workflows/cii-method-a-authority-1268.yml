@@ -1,0 +1,59 @@
+name: CII Method-A authority projection D3 focused
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-authority-1268
+  workflow_dispatch:
+
+jobs:
+  d3-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact D3 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=320ab2bc3cd235776dfb2d86cdfe7c0107cfcf6d
+          BASE=a7e96865301a09865e0b4126c38310d7b1c8d421
+          changed="$(git diff --name-only "$PRODUCT"...HEAD | sort)"
+          test "$changed" = ".github/workflows/cii-method-a-authority-1268.yml"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "f8cf24b4e1e2221bf1fd87e405148de621f52996"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "ff0f41c3e9f93e4a36f757ccb84a4f0472ff3301"
+          test "$(git hash-object tests/cii-workspace-multi-base-correspondence.test.js)" = "1f32991dc17ebf3c4e7a427b476a798ca34bf50f"
+
+          product_changed="$(git diff --name-only "$BASE"..."$PRODUCT" | sort)"
+          expected="$(printf '%s\n'             'agents/PR1281_workreport.md'             'tabs/cii-workspace/cii-workspace-correspondence-arbitration.js'             'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js'             'tests/cii-workspace-multi-base-correspondence.test.js' | sort)"
+          test "$product_changed" = "$expected"
+
+          if git diff --name-only "$BASE"..."$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-geometry.js; then
+            :
+          fi
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- Benchmark)"
+          test -z "$(git diff --name-only "$BASE"..."$PRODUCT" -- tabs/cii-workspace/cii-workspace-geometry.js)"
+          echo "D3_FOCUSED_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax and focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          node --check tabs/cii-workspace/cii-workspace-correspondence-arbitration.js
+          node --check tests/cii-workspace-multi-base-correspondence.test.js
+          node tests/cii-workspace-multi-base-correspondence.test.js
