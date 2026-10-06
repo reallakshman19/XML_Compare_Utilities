@@ -1,0 +1,125 @@
+name: CII Writer2 Slice 5 cardinality qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-slice5-cardinality-1239
+  workflow_dispatch:
+
+jobs:
+  slice5-cardinality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard Slice 5 validation overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          SLICE5=695e555f57eb0c7c1549a00307c5797e71c67470
+          PERF=b7fb3513eabbac786a7d095c1be96fcfbbcac8e6
+
+          allowed=$(cat <<'EOF'
+          .github/workflows/cii-writer2-slice5-cardinality.yml
+          tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions.js
+          tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+          tabs/cii-workspace/cii-workspace-source-set.js
+          tabs/cii-workspace/cii-workspace-source-target-audit.js
+          EOF
+          )
+
+          changed="$(git diff --name-only "$SLICE5"...HEAD | sort)"
+          printf '%s\n' "$changed"
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed" | sed 's/^          //' | sort) || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected validation drift:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          for file in \
+            tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js \
+            tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js \
+            tabs/cii-workspace/cii-workspace-anchor-suggestions.js \
+            tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js \
+            tabs/cii-workspace/cii-workspace-source-set.js
+          do
+            current="$(git hash-object "$file")"
+            expected="$(git show "$PERF:$file" | git hash-object --stdin)"
+            test "$current" = "$expected"
+            echo "PERF_OVERLAY_OK $file $current"
+          done
+
+          audit_sha="$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)"
+          test "$audit_sha" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+          echo "KNOWN_PARSE_REPAIR_OK $audit_sha"
+
+          git diff --exit-code "$SLICE5" -- \
+            tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs \
+            tests/cii-workspace-manual-seed-arbitration.test.js \
+            tabs/cii-workspace/cii-workspace-correspondence-arbitration.js \
+            tabs/cii-workspace/cii-workspace-multi-base-correspondence.js \
+            tabs/cii-workspace/cii-workspace-multisource-preview.js
+          echo "SLICE5_SEMANTICS_UNTOUCHED"
+          echo "VALIDATION_HEAD=$(git rev-parse HEAD)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Syntax + deterministic Slice 5 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-source-target-audit.js
+          node --check tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs
+          node tests/cii-workspace-manual-seed-arbitration.test.js
+
+      - name: Create Slice 5 browser config
+        shell: bash
+        run: |
+          cat > playwright.slice5-cardinality.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-manual-anchor-cardinality.spec.mjs'],
+            timeout: 300_000,
+            expect: { timeout: 15_000 },
+            workers: 1,
+            retries: 0,
+            outputDir: 'test-results/cii-writer2-slice5-cardinality',
+            reporter: [['list']],
+          };
+          EOF
+
+      - name: Run retained ONE TWO THREE experiment
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.slice5-cardinality.config.mjs 2>&1 | tee slice5-cardinality.log
+
+      - name: Upload Slice 5 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-slice5-cardinality
+          path: |
+            slice5-cardinality.log
+            playwright.slice5-cardinality.config.mjs
+            test-results/cii-writer2-slice5-cardinality
+          if-no-files-found: warn
