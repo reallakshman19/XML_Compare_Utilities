@@ -10,10 +10,27 @@ function blockedCorrespondence(reason) {
 function anchorPairs(loop) {
   return (loop?.anchorPairs || []).map((pair) => ({ sourceNodeId: String(pair.sourceNodeId), targetNodeId: String(pair.targetNodeId) }));
 }
+function methodAConfidence(loop) {
+  return ['HIGH', 'MEDIUM'].includes(loop?.confidence) ? loop.confidence : null;
+}
+function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
+function projectMethodAAnchorRow(row, loop, anchorKeys) {
+  if (row?.kind !== 'NODE' || !anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId))) return row;
+  const confidence = methodAConfidence(loop); const loopId = String(loop?.loopId || loop?.baseId || '');
+  return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
+    evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
+      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId }) });
+}
+function projectMethodAAnchorAuthority(correspondence, loop, anchors) {
+  const anchorKeys = new Set(anchors.map((pair) => anchorPairKey(pair.sourceNodeId, pair.targetNodeId)));
+  return deepFreeze({ ...correspondence,
+    nodeRows: deepFreeze((correspondence?.nodeRows || []).map((row) => projectMethodAAnchorRow(row, loop, anchorKeys))) });
+}
 function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (anchors.length < 3) return blockedCorrespondence('METHOD_A_READY_LOOP_REQUIRES_THREE_ANCHORS');
-  return compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  return projectMethodAAnchorAuthority(correspondence, loop, anchors);
 }
 function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
