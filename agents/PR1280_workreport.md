@@ -95,13 +95,27 @@ Compensation:
 |---|---|
 | D2 hosted design | PASS |
 | final PR #1265 C4 frontier | PASS as evidence / C4 acceptance NOT_ACHIEVED |
-| D3.1 implementation | PASS — direct implementation inspection; hosted isolated test pending |
+| D3.1 implementation | PASS — hosted isolated run 37510261973 |
 | inherited broad multi-base baseline | FAIL on untouched #1265 — Method-B-only assertion, run 37509033803 |
 | D3.2 | NOT_RUN |
 | D3.3 | NOT_RUN |
 | D3.4 | NOT_RUN |
 | retained D4 | NOT_RUN |
 
+## D3.1 exact validation
+
+- validated product/report head: `42aaabca976783c41a3af2a07ea70b0260d3dbfa`
+- validation branch: `validation/cii-method-a-anchor-1276-r2`
+- validation head: `fe23efac937e80b9a8c424d514a58dbf0acabef9`
+- hosted run: `37510261973`
+- job: `112429267289`
+- conclusion: PASS
+- product blob: `553d9c2645173419e5856004345ccbe4bcce846e`
+- isolated test blob: `2462f0571a27b1b3c960baafd7cc718d08cc2316`
+- inherited broad test blob: `bf5304efb01acc0ec597ca4903551fd6ee315f1b`
+
+The broad inherited test remains red on untouched #1265 because of a Method-B-only assertion (baseline run `37509033803`). It is not modified or claimed green by D3.1.
+
 ## EXACT_NEXT_ACTION
 
-Create a fresh validation-only branch from the exact refreshed PR #1280 head and run only `node tests/cii-workspace-method-a-anchor-provenance.test.js` with exact product/test hash guards. Do not run #1277 until #1276 TASK_RESULT is published.
+After #1276 TASK_RESULT is durably published, begin #1277 only. Re-ground PR #1280 first and preserve the D3.1 product/test blobs unless #1277's approved boundary explicitly requires a further change.
