@@ -1,0 +1,65 @@
+name: CII U4.1 boundary-local endpoint qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-boundary-local-endpoint-1292
+  workflow_dispatch:
+
+jobs:
+  u4-1-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact U4.1 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d919446c09237558da57b01bf9168985bf6d73db
+          PRODUCT=82b238a7521acdca2072727cd6438f73ad593593
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-boundary-local-endpoint-1292.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1292-boundary-local-endpoint_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-alignment.js' \
+            'tests/cii-workspace-boundary-local-endpoint.test.js' | sort)"
+          actual="$(git diff --name-only "$BASE" "$PRODUCT" | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-alignment.js")" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-boundary-local-endpoint.test.js")" = "e829342e2bd3a1a4ea4a9bf64ef7049e488760cb"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1292-boundary-local-endpoint_workreport.md")" = "a216a763b49372e9c7b4f055b9f2c5c1ad80f540"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          changed_tabs="$(git diff --name-only "$BASE" "$PRODUCT" -- tabs/cii-workspace | sort)"
+          test "$changed_tabs" = "tabs/cii-workspace/cii-workspace-alignment.js"
+
+          echo "U4_1_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-alignment.js
+          node --check tests/cii-workspace-boundary-local-endpoint.test.js
+
+      - name: Run U4.1 focused boundary-local tests
+        run: node tests/cii-workspace-boundary-local-endpoint.test.js
+
+      - name: Run inherited alignment semantics
+        run: node tests/cii-workspace-alignment-semantics.test.js
