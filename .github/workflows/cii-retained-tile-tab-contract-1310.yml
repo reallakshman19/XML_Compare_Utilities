@@ -31,7 +31,7 @@ jobs:
             'tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs' | sort)"
           test "$(git diff --name-only "$BASIS"...HEAD | sort)" = "$expected"
 
-          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs)" = "c3fb835774243c08e5bf2bb758a6d6d786d91f05"
+          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs)" = "a96edf94a6c2c400bf6933eaabe0fafe846cc7f9"
           test "$(git hash-object tests/cii-workspace-multisource-partial-texpected-oracle.js)" = "5d9c925b7b9c58a2db1e0ffc05027ec468f48b60"
           test "$(git hash-object tests/browser/cii-writer2-multisource-retained-benchmark.spec.mjs)" = "d86fc7ac94a5f22a24946e68b49036f9b749069e"
 
