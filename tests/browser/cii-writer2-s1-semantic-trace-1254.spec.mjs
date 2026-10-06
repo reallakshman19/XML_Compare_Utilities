@@ -12,6 +12,10 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       censusModule,
       benchmarkModule,
       physicalCandidatesModule,
+      bridgeModule,
+      intakeModule,
+      topologyModule,
+      converterModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
@@ -19,6 +23,10 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       import('/tabs/cii-workspace/cii-workspace-source-target-audit.js'),
       import('/tabs/cii-workspace/cii-workspace-benchmark-overlay.js'),
       import('/tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js'),
+      import('/tabs/cii-workspace/cii-workspace-writer-version-bridge.js'),
+      import('/tabs/cii-workspace/cii-workspace-intake.js'),
+      import('/tabs/cii-workspace/cii-workspace-topology-adapter.js'),
+      import('/tabs/cii-workspace/cii-workspace-v11-v14-converter.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSetModule;
@@ -33,6 +41,10 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       uniqueIncidentComponentLengthPairs,
       selectPhysicalCandidatePairs,
     } = physicalCandidatesModule;
+    const { prepareCiiWorkspaceTargetWithVersionBridge } = bridgeModule;
+    const { intakeCiiWorkspaceDocument } = intakeModule;
+    const { adaptCiiDocumentToTopologyGraph } = topologyModule;
+    const { detectCiiNeutralVersion, convertCiiNeutralVersionLossless } = converterModule;
 
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -292,17 +304,34 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
     const budget10 = await inspectAtBudget(10);
     const budget11 = await inspectAtBudget(11);
 
-    const s1InspectionForCandidates = budget11.inspection?.memberInspections
-      ?.find((member) => member.sourceId === 'S1')?.inspection;
+    const preparedTargetForCandidates = await prepareCiiWorkspaceTargetWithVersionBridge(
+      targetBytes,
+      'T.CII',
+      { cryptoRef: crypto, writerVersion: '2' },
+    );
+    const s1Version = detectCiiNeutralVersion(sourceBytes[0]);
+    const s1NormalizedBytes = s1Version === 11
+      ? sourceBytes[0]
+      : (await convertCiiNeutralVersionLossless(sourceBytes[0], 11, {
+        fileName: 'S1.CII',
+        cryptoRef: crypto,
+      })).outputBytes;
+    const s1CandidateDocument = await intakeCiiWorkspaceDocument(
+      s1NormalizedBytes,
+      'S1.CII',
+      { side: 'SOURCE', cryptoRef: crypto },
+    );
+    const s1CandidateGraph = adaptCiiDocumentToTopologyGraph(s1CandidateDocument);
+    const targetCandidateGraph = preparedTargetForCandidates.targetGraph;
     const rawPhysicalPairs = uniqueIncidentComponentLengthPairs(
-      s1InspectionForCandidates?.sourceGraph,
-      s1InspectionForCandidates?.targetGraph,
+      s1CandidateGraph,
+      targetCandidateGraph,
     );
     const selectedPhysical = Object.fromEntries([10, 11, 24].map((limit) => [
       String(limit),
       selectPhysicalCandidatePairs(
-        s1InspectionForCandidates?.sourceGraph,
-        s1InspectionForCandidates?.targetGraph,
+        s1CandidateGraph,
+        targetCandidateGraph,
         rawPhysicalPairs,
         limit,
       ).map((row) => ({
