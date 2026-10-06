@@ -32,7 +32,7 @@ jobs:
           actual="$(git diff --name-only "$D4"...HEAD | sort)"
           test "$actual" = "$expected"
 
-          test "$(git hash-object tests/browser/cii-writer2-s1-d5-1-causal-trace.spec.mjs)" = "cd811f8a58ece8a475ecfda1ce940b0ee49e85d6"
+          test "$(git hash-object tests/browser/cii-writer2-s1-d5-1-causal-trace.spec.mjs)" = "a05bd228525cc8c0cc96f16c087172862f4e0631"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fbfa4b32fd2c4db9da0aa50f9b23bc1c54191a5d"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
