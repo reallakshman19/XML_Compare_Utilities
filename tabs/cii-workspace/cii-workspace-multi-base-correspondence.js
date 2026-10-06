@@ -22,10 +22,28 @@ function projectMethodAAnchorRow(row, loop, anchorKeys) {
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
       identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId }) });
 }
+function highIdentityEvidence(evidence) {
+  return evidence?.identitySupported === true && evidence?.identityConfidence === 'HIGH';
+}
+function projectMethodABoundaryRow(row, loop) {
+  if (row?.kind !== 'NODE' || row.authority !== 'ADJACENT_MATCH_BOUNDARY') return row;
+  if (['CONFLICT', 'UNRESOLVED'].includes(row.status)) return row;
+  const confidence = methodAConfidence(loop);
+  const supported = Boolean(confidence) && highIdentityEvidence(row.evidence?.leftElement)
+    && highIdentityEvidence(row.evidence?.rightElement);
+  const loopId = String(loop?.loopId || loop?.baseId || '');
+  return deepFreeze({ ...row, status: 'REVIEW',
+    evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: supported,
+      identityConfidence: supported ? confidence : 'REVIEW',
+      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId }) });
+}
 function projectMethodAAnchorAuthority(correspondence, loop, anchors) {
   const anchorKeys = new Set(anchors.map((pair) => anchorPairKey(pair.sourceNodeId, pair.targetNodeId)));
-  return deepFreeze({ ...correspondence,
-    nodeRows: deepFreeze((correspondence?.nodeRows || []).map((row) => projectMethodAAnchorRow(row, loop, anchorKeys))) });
+  const nodeRows = (correspondence?.nodeRows || []).map((row) => {
+    const anchorRow = projectMethodAAnchorRow(row, loop, anchorKeys);
+    return projectMethodABoundaryRow(anchorRow, loop);
+  });
+  return deepFreeze({ ...correspondence, nodeRows: deepFreeze(nodeRows) });
 }
 function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
@@ -79,3 +97,5 @@ export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiB
   }));
   return legacySingleLoopResult(loopResults) || arbitrateCiiLoopCorrespondences(loopResults);
 }
+
+export const _test = Object.freeze({ projectMethodABoundaryRow });
