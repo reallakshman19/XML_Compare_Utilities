@@ -1,0 +1,70 @@
+name: CII P3.3-A authority-key requalification
+
+on:
+  push:
+    branches:
+      - validation/cii-common-analysis-authority-key-1325-v2
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-a-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact current P3.3-A product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c637db92295d379ca6cc3b8aa69d7ace8ff51b5f
+          PRODUCT=1ed6ec3d79665946c6fb08feabd339d9e9f9a680
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-common-analysis-authority-key-1325-v2.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1325-common-analysis-authority-key_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-common-analysis-key.js' \
+            'tests/cii-workspace-common-analysis-authority-key.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-common-analysis-key.js")" = "6baf90caff8c457fa64e1ac859b5f3d3127063c3"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-common-analysis-authority-key.test.js")" = "458e3e8c4dccfe2e6faa1616774f808687388513"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1325-common-analysis-authority-key_workreport.md")" = "9bcc6d09a7d4ddc02873d837e9076eaec88127f7"
+
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-source-set-session.test.js")" = "e332fe805902121265b11799f20e179e062f98d1"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-common-analysis-projection.test.js")" = "6d79df9acf458fd7cce97f4636159e2619d72788"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js")" = "362481e07c510e3d8c7cc8b59727a367b156aa29"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-multisource-preview.js tabs/cii-workspace/cii-workspace-multisource-review-only.js tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js | grep -q .; then
+            echo "P3.3-A scope violation"
+            exit 1
+          fi
+          echo "P3_3_A_V2_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-common-analysis-key.js
+          node --check tests/cii-workspace-common-analysis-authority-key.test.js
+
+      - name: Run refined deterministic authority-key falsifiers
+        run: node tests/cii-workspace-common-analysis-authority-key.test.js
+
+      - name: Run prepared-session custody regression
+        run: node tests/cii-workspace-prepared-source-set-session.test.js
+
+      - name: Run common-analysis split regression
+        run: node tests/cii-workspace-common-analysis-projection.test.js
+
+      - name: Run retained semantic full-proof regression
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
