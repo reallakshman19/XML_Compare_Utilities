@@ -42,6 +42,16 @@ assert.strictEqual(aCorrespondence.status, 'READY');
 assert.deepStrictEqual(aCorrespondence.contributingLoopIds, ['A-L']);
 assert(aCorrespondence.nodeRows.some((row) => row.sourceNodeId === '20' && row.targetNodeId === '120'));
 
+const rawMethodA = aCorrespondence.loopResults[0].correspondence;
+const automaticAnchorRows = rawMethodA.nodeRows.filter((row) => row.authority === 'METHOD_A_QUALIFIED_ANCHOR');
+assert.strictEqual(automaticAnchorRows.length, 3, 'all qualified Method-A base anchors must be projected away from USER_LOCKED authority');
+assert(automaticAnchorRows.every((row) => row.status === 'REVIEW'));
+assert(automaticAnchorRows.every((row) => row.evidence?.identityConfidence === aAuthority.loops[0].confidence));
+assert(automaticAnchorRows.every((row) => row.evidence?.identityEvidenceBasis === 'METHOD_A_QUALIFIED_BASE_ANCHOR'));
+assert(automaticAnchorRows.every((row) => row.evidence?.identitySupported === ['HIGH', 'MEDIUM'].includes(aAuthority.loops[0].confidence)));
+assert(!rawMethodA.nodeRows.some((row) => row.authority === 'USER_LOCKED_ANCHOR'),
+  'automatic Method-A correspondence must not surface manual USER_LOCKED authority');
+
 // Method B alone: a genuine X+Y local run basis at the central node must qualify and propagate independently.
 const bAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
   methodBAnchors: [{ baseId: 'B-L', sourceNodeId: '20', targetNodeId: '120' }] });
@@ -76,6 +86,21 @@ assert.strictEqual(central.evidence.multiBaseProvenance.length, 2);
     direct.nodeRows.map((row) => [row.correspondenceId, row.authority]));
   assert.deepStrictEqual(routed.elementRows.map((row) => [row.correspondenceId, row.authority]),
     direct.elementRows.map((row) => [row.correspondenceId, row.authority]));
+  assert(direct.nodeRows.some((row) => row.authority === 'USER_LOCKED_ANCHOR' && row.status === 'LOCKED'),
+    'manual legacy span must retain explicit USER_LOCKED authority');
+}
+
+{
+  const reviewLoop = { ...aAuthority.loops[0], loopId: 'A-REVIEW', status: 'READY', confidence: 'REVIEW' };
+  const reviewAuthority = { status: 'READY', loops: [reviewLoop] };
+  const reviewCorrespondence = buildCiiMultiBaseCorrespondence(source, target, reviewAuthority);
+  const reviewRaw = reviewCorrespondence.loopResults[0].correspondence;
+  const reviewAnchors = reviewRaw.nodeRows.filter((row) => row.authority === 'METHOD_A_QUALIFIED_ANCHOR');
+  assert.strictEqual(reviewAnchors.length, 3);
+  assert(reviewAnchors.every((row) => row.status === 'REVIEW'));
+  assert(reviewAnchors.every((row) => row.evidence?.identityConfidence === 'REVIEW'));
+  assert(reviewAnchors.every((row) => row.evidence?.identitySupported === false),
+    'REVIEW-confidence Method-A bases must not manufacture automatic identity support');
 }
 
 function mockLoop(loopId, method, correspondence) { return { loop: { loopId, method, status: 'READY' }, correspondence }; }
