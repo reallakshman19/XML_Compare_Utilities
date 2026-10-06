@@ -1,0 +1,117 @@
+name: CII U4.4 combined S2/S3 generic qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-s23-u4-combined-1295
+  workflow_dispatch:
+
+jobs:
+  u4-4-combined:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact combined U4 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_BASE=d919446c09237558da57b01bf9168985bf6d73db
+          PRODUCT_HEAD=4c96220447315d538dd85b3a4db5a9cce6eeac77
+
+          actual_validation="$(git diff --name-only "$PRODUCT_HEAD"...HEAD | sort)"
+          test "$actual_validation" = ".github/workflows/cii-s23-u4-combined-1295.yml"
+
+          expected_product="$(printf '%s\n' \
+            'agents/WIP-1292-boundary-local-endpoint_workreport.md' \
+            'agents/WIP-1293-boundary-local-projection_workreport.md' \
+            'agents/WIP-1294-base-anchor-custody_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-alignment.js' \
+            'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js' \
+            'tabs/cii-workspace/cii-workspace-node-custody.js' \
+            'tests/cii-workspace-boundary-local-endpoint.test.js' \
+            'tests/cii-workspace-method-a-boundary-local-projection.test.js' \
+            'tests/cii-workspace-method-a-base-anchor-custody.test.js' | sort)"
+          actual_product="$(git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" | sort)"
+          test "$actual_product" = "$expected_product"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-alignment.js")" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-multi-base-correspondence.js")" = "00b8fc6054b14afd8b6b299d477c940843cb2b85"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-node-custody.js")" = "221ae3dd5ea6f1e98afaf763646885db91e51ff2"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-boundary-local-endpoint.test.js")" = "e829342e2bd3a1a4ea4a9bf64ef7049e488760cb"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-local-projection.test.js")" = "aaef0c3ed47f804d3b1917f24fcc527d3e4614eb"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-base-anchor-custody.test.js")" = "a01f9e216dd3c21cbd95baf60d763b2d6746d28a"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-anchor-search-budget.test.js")" = "0dd1b002b15e8b49e077f5091bf0ec3b29890b79"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-anchor-provenance.test.js")" = "2462f0571a27b1b3c960baafd7cc718d08cc2316"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js")" = "70e1407ddc94feb64b87a6079ea41442ed9dca78"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-projection-integration.test.js")" = "742e6f26d524fddc72f7f1b1f95ca0687d4c4954"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js")" = "030156fd8ee0fda90413a202d6c8f1cc2693ca33"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-base-anchor-method-fusion.test.js")" = "ed2f4a093bcc9473b8f19adbbd2ade867354484b"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-single-anchor.test.js")" = "4a0dbca9cb611829b017aecbb74f0a75eb6005f7"
+
+          if git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          changed_tabs="$(git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- tabs/cii-workspace | sort)"
+          expected_tabs="$(printf '%s\n' \
+            'tabs/cii-workspace/cii-workspace-alignment.js' \
+            'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js' \
+            'tabs/cii-workspace/cii-workspace-node-custody.js' | sort)"
+          test "$changed_tabs" = "$expected_tabs"
+
+          echo "U4_4_EXACT_COMBINED_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax and size checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-alignment.js
+          node --check tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          node --check tabs/cii-workspace/cii-workspace-node-custody.js
+          node --check tests/cii-workspace-boundary-local-endpoint.test.js
+          node --check tests/cii-workspace-method-a-boundary-local-projection.test.js
+          node --check tests/cii-workspace-method-a-base-anchor-custody.test.js
+
+          test "$(wc -l < tabs/cii-workspace/cii-workspace-alignment.js)" -lt 300
+          test "$(wc -l < tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" -lt 250
+          test "$(wc -l < tabs/cii-workspace/cii-workspace-node-custody.js)" -lt 250
+
+      - name: Run U4 R1/R2 focused falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-boundary-local-endpoint.test.js
+          node tests/cii-workspace-method-a-boundary-local-projection.test.js
+          node tests/cii-workspace-method-a-base-anchor-custody.test.js
+
+      - name: Run inherited preselection and D3/D5 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-anchor-search-budget.test.js
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
+          node tests/cii-workspace-method-a-boundary-node-custody.test.js
+
+      - name: Run Method-B, manual and custody controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-base-anchor-method-fusion.test.js
+          node tests/cii-workspace-single-anchor.test.js
