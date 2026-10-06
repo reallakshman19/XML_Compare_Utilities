@@ -197,6 +197,74 @@ assert.deepEqual(
   'component membership must not depend on input index ordering',
 );
 
+const regionSource = pointGraph({
+  1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 },
+  3: { x: 0, y: 100, z: 0 }, 4: { x: 100, y: 100, z: 0 },
+  5: { x: 1000, y: 1000, z: 0 },
+}, 100);
+const regionTarget = pointGraph({
+  101: { x: 500, y: 200, z: 0 }, 102: { x: 600, y: 200, z: 0 },
+  103: { x: 500, y: 300, z: 0 }, 104: { x: 600, y: 300, z: 0 },
+  105: { x: 5000, y: 5000, z: 0 },
+}, 100);
+const regionPairs = [1, 2, 3, 4, 5].map((id) => candidate(id, id + 100, { tag: `R${id}` }));
+const regionEvents = [];
+const regionSelected = selectPhysicalCandidatePairs(regionSource, regionTarget, regionPairs, 5, {
+  instrumentation: { record: (name, value) => regionEvents.push([name, value]) },
+});
+assert.deepEqual(regionSelected.map((row) => row.tag).sort(), ['R1', 'R2', 'R3', 'R4'],
+  'unique coherent region must not be refilled from an outside candidate even when budget has spare capacity');
+assert.deepEqual(regionEvents, [
+  ['ANCHOR_PHYSICAL_COHERENT_COMPONENT_COUNT', 1],
+  ['ANCHOR_PHYSICAL_PRESELECTION_AMBIGUOUS', 0],
+  ['ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE', 4],
+]);
+
+const sixSource = pointGraph({
+  1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 }, 3: { x: 0, y: 100, z: 0 },
+  4: { x: 100, y: 100, z: 0 }, 5: { x: 50, y: 50, z: 80 }, 6: { x: 150, y: 50, z: 25 },
+}, 100);
+const sixTarget = pointGraph({
+  101: { x: 700, y: -300, z: 20 }, 102: { x: 800, y: -300, z: 20 }, 103: { x: 700, y: -200, z: 20 },
+  104: { x: 800, y: -200, z: 20 }, 105: { x: 750, y: -250, z: 100 }, 106: { x: 850, y: -250, z: 45 },
+}, 100);
+const sixPairs = [1, 2, 3, 4, 5, 6].map((id) => candidate(id, id + 100, { tag: `C${id}` }));
+const sixSelected = selectPhysicalCandidatePairs(sixSource, sixTarget, sixPairs, 4);
+assert.equal(sixSelected.length, 4, 'winning coherent component must still obey the configured hard budget');
+assert.equal(sixSelected.every((row) => row.tag.startsWith('C')), true);
+
+const tiedSource = pointGraph({
+  1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 }, 3: { x: 0, y: 100, z: 0 },
+  4: { x: 10000, y: 0, z: 0 }, 5: { x: 10100, y: 0, z: 0 }, 6: { x: 10000, y: 100, z: 0 },
+}, 100);
+const tiedTarget = pointGraph({
+  101: { x: 500, y: 500, z: 0 }, 102: { x: 600, y: 500, z: 0 }, 103: { x: 500, y: 600, z: 0 },
+  104: { x: 50000, y: 0, z: 0 }, 105: { x: 50100, y: 0, z: 0 }, 106: { x: 50000, y: 100, z: 0 },
+}, 100);
+const tiedPairs = [1, 2, 3, 4, 5, 6].map((id) => candidate(id, id + 100, { tag: `T${id}` }));
+const tiedEvents = [];
+assert.deepEqual(
+  selectPhysicalCandidatePairs(tiedSource, tiedTarget, tiedPairs, 10, {
+    instrumentation: { record: (name, value) => tiedEvents.push([name, value]) },
+  }),
+  [],
+  'equal strongest complete regions must fail closed instead of using a stable ID as semantic authority',
+);
+assert(tiedEvents.some(([name, value]) => name === 'ANCHOR_PHYSICAL_PRESELECTION_AMBIGUOUS' && value === 1));
+
+const noneSource = pointGraph(Object.fromEntries(Array.from({ length: 6 }, (_, index) => [
+  String(index + 1), { x: index * 100, y: (index % 2) * 60, z: 0 },
+])), 100);
+const noneTarget = pointGraph(Object.fromEntries(Array.from({ length: 6 }, (_, index) => [
+  String(index + 101), { x: index * 250, y: (index % 2) * 170, z: 0 },
+])), 100);
+const nonePairs = [1, 2, 3, 4, 5, 6].map((id) => candidate(id, id + 100, { tag: `N${id}` }));
+assert.deepEqual(
+  selectPhysicalCandidatePairs(noneSource, noneTarget, nonePairs, 4).map((row) => row.tag),
+  physicalTest.selectByGlobalSpread(noneSource, noneTarget, nonePairs, 4).map((row) => row.tag),
+  'NONE coherent state must preserve exact #1234 bounded global-spread fallback',
+);
+
 assert.equal(suggestionTest.displayLimit({ baseAnchorSuggestionLimit: 12, baseAnchorDisplayLimit: 5 }), 5,
   'display limit must be independent from the discovery suggestion limit');
 assert.equal(suggestionTest.displayLimit({ baseAnchorSuggestionLimit: 12 }), 12,
