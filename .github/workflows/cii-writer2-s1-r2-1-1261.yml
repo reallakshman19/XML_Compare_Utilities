@@ -1,0 +1,84 @@
+name: CII Writer2 S1 R2.1 pairwise census
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-r2-1-1261
+  workflow_dispatch:
+
+jobs:
+  r2-1-pairwise-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard diagnostic-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=997cdbf7feb7d33d5b550d47c0b54ed05b284bb6
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          printf '%s\n' "$changed"
+          expected="$(printf '%s\n'             '.github/workflows/cii-writer2-s1-r2-1-1261.yml'             'tests/browser/cii-writer2-s1-r2-1-pairwise-census.spec.mjs' | sort)"
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$expected") || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected R2.1 drift:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "e9ee2ec6046a7772ae70f73de83ece6724d7865c"
+          if git diff --name-only "$BASE"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+          echo "S1_R2_1_DIAGNOSTIC_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create focused Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s1-r2-1.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s1-r2-1-pairwise-census.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-s1-r2-1',
+          };
+          EOF
+
+      - name: Run R2.1 retained pairwise census
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s1-r2-1.config.mjs 2>&1 | tee s1-r2-1.log
+
+      - name: Upload R2.1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s1-r2-1-pairwise-census
+          path: |
+            s1-r2-1.log
+            s1-r2-1-pairwise-census.json
+            test-results/cii-writer2-s1-r2-1
+          if-no-files-found: warn
