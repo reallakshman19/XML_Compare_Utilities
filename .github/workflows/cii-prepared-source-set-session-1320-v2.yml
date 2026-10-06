@@ -1,0 +1,69 @@
+name: CII P3.2 prepared source-set session qualification v2
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-source-set-session-1320-v2
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-2-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Q1 exact P3.2 product guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d3a468bd56e67c6ac84c7bbe004bfd35ad50f67f
+          PRODUCT=c637db92295d379ca6cc3b8aa69d7ace8ff51b5f
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-prepared-source-set-session-1320-v2.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1320-prepared-source-set-session_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-core.js' \
+            'tabs/cii-workspace/cii-workspace-source-set.js' \
+            'tabs/cii-workspace/cii-workspace-writer-version-bridge.js' \
+            'tests/cii-workspace-prepared-source-set-session.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-core.js")" = "66907edfd390c0148b5d939c13ac15107a4d625e"
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-writer-version-bridge.js")" = "65cb9c193255f881f672e88501fe06c58654d27a"
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-source-set.js")" = "54b9fe20887346ce9d113eb8c472cedd1b4b486d"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-source-set-session.test.js")" = "e332fe805902121265b11799f20e179e062f98d1"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1320-prepared-source-set-session_workreport.md")" = "ac85e002c51a54f188efacf0acf3a228e9faf54c"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-multisource-preview.js tabs/cii-workspace/cii-workspace-multisource-review-only.js tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js tabs/cii-workspace/cii-workspace-multisource-review-only-router.js | grep -q .; then
+            echo "P3.2 scope violation"
+            exit 1
+          fi
+          echo "P3_2_Q1_EXACT_HEAD_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Q2 syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-core.js
+          node --check tabs/cii-workspace/cii-workspace-writer-version-bridge.js
+          node --check tabs/cii-workspace/cii-workspace-source-set.js
+          node --check tests/cii-workspace-prepared-source-set-session.test.js
+
+      - name: Q2 prepared-session + identical-policy pair parity
+        run: node tests/cii-workspace-prepared-source-set-session.test.js
+
+      - name: Q3 P3.1 common-analysis parity
+        run: node tests/cii-workspace-common-analysis-projection.test.js
+
+      - name: Q3 retained S1 S2 S3 full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
