@@ -1,4 +1,4 @@
-name: CII Writer2 S1 semantic trace #1254
+name: CII Writer2 S1 semantic trace 1254
 
 on:
   push:
@@ -31,15 +31,17 @@ jobs:
           printf '%s\n' "$changed"
 
           cat > /tmp/allowed <<'EOF'
-.github/workflows/cii-writer2-s1-semantic-trace-1254.yml
-tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
-tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js
-tabs/cii-workspace/cii-workspace-anchor-suggestions.js
-tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
-tabs/cii-workspace/cii-workspace-source-set.js
-tabs/cii-workspace/cii-workspace-source-target-audit.js
-tests/browser/cii-writer2-s1-semantic-trace-1254.spec.mjs
-EOF
+          .github/workflows/cii-writer2-s1-semantic-trace-1254.yml
+          tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions.js
+          tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+          tabs/cii-workspace/cii-workspace-source-set.js
+          tabs/cii-workspace/cii-workspace-source-target-audit.js
+          tests/browser/cii-writer2-s1-semantic-trace-1254.spec.mjs
+          EOF
+          sed -i 's/^          //' /tmp/allowed
+
           unexpected="$(comm -23 <(printf '%s\n' "$changed") <(sort /tmp/allowed) || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected validation drift:"
@@ -54,7 +56,14 @@ EOF
           test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-source-set.js)" = "f4d36814c34a20b194389eebe7ed7ec52e42ba3b"
           test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
 
-          git diff --exit-code "$BASE" --             tabs/cii-workspace/cii-workspace-core.js             tabs/cii-workspace/cii-workspace-correspondence-arbitration.js             tabs/cii-workspace/cii-workspace-multi-base-correspondence.js             tabs/cii-workspace/cii-workspace-multisource-preview.js             tabs/cii-workspace/cii-workspace-propagation.js             tabs/cii-workspace/cii-workspace-engineering-delta.js             tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs
+          git diff --exit-code "$BASE" -- \
+            tabs/cii-workspace/cii-workspace-core.js \
+            tabs/cii-workspace/cii-workspace-correspondence-arbitration.js \
+            tabs/cii-workspace/cii-workspace-multi-base-correspondence.js \
+            tabs/cii-workspace/cii-workspace-multisource-preview.js \
+            tabs/cii-workspace/cii-workspace-propagation.js \
+            tabs/cii-workspace/cii-workspace-engineering-delta.js \
+            tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs
 
           echo "S1_TRACE_PRODUCT_SEMANTICS_UNTOUCHED"
           echo "VALIDATION_HEAD=$(git rev-parse HEAD)"
