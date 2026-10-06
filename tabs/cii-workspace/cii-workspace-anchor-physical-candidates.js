@@ -3,9 +3,8 @@ import { discoverCiiMethodABases, projectCiiMethodAEvidence } from './cii-worksp
 
 const DEFAULT_PHYSICAL_SEARCH_LIMIT = 10;
 const MAX_PHYSICAL_SEARCH_LIMIT = 24;
-const PRESELECTION_RELATIVE_DISTANCE_TOLERANCE = 0.01;
-const PRESELECTION_OD_DISTANCE_FACTOR = 0.25;
-const PRESELECTION_MIN_COMPONENT_DENSITY = 0.75;
+const PRESELECTION_RELATIVE_ERROR_MAX = 0.001;
+const PRESELECTION_SOURCE_OD_NORMALIZED_DELTA_MAX = 0.1;
 
 function componentLengthToken(edge) {
   const length = Number(edge?.lengthMm);
@@ -74,30 +73,29 @@ function incidentOdMm(graph, nodeId) {
     .map((edge) => positiveNumber(edge?.diameter ?? edge?.od)).filter((value) => value != null);
   return values.length ? Math.min(...values) : null;
 }
-function coherenceToleranceMm(sourceGraph, left, right) {
-  const ods = [incidentOdMm(sourceGraph, left.sourceNodeId), incidentOdMm(sourceGraph, right.sourceNodeId)]
-    .filter((value) => value != null);
-  return ods.length ? PRESELECTION_OD_DISTANCE_FACTOR * Math.min(...ods) : null;
-}
 function distinctCandidateClaims(left, right) {
-  return String(left.sourceNodeId) !== String(right.sourceNodeId) && String(left.targetNodeId) !== String(right.targetNodeId);
+  return String(left.sourceNodeId) !== String(right.sourceNodeId)
+    && String(left.targetNodeId) !== String(right.targetNodeId);
 }
 function pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, left, right) {
   if (!distinctCandidateClaims(left, right)) return false;
   const sourceDistance = pointDistanceMm(sourcePositions.get(left.sourceNodeId), sourcePositions.get(right.sourceNodeId));
   const targetDistance = pointDistanceMm(targetPositions.get(left.targetNodeId), targetPositions.get(right.targetNodeId));
-  const toleranceMm = coherenceToleranceMm(sourceGraph, left, right);
-  if (sourceDistance == null || targetDistance == null || toleranceMm == null || Math.max(sourceDistance, targetDistance) <= 1e-9) return false;
+  const sourceOds = [incidentOdMm(sourceGraph, left.sourceNodeId), incidentOdMm(sourceGraph, right.sourceNodeId)];
+  if (sourceDistance == null || targetDistance == null || sourceOds.some((value) => value == null)) return false;
+  const span = Math.max(sourceDistance, targetDistance);
+  if (!(span > 1e-9)) return false;
   const deltaMm = Math.abs(sourceDistance - targetDistance);
-  const relativeError = deltaMm / Math.max(sourceDistance, targetDistance);
-  return deltaMm <= toleranceMm && relativeError <= PRESELECTION_RELATIVE_DISTANCE_TOLERANCE;
+  const odRefMm = Math.min(...sourceOds);
+  return deltaMm / span <= PRESELECTION_RELATIVE_ERROR_MAX
+    && deltaMm / odRefMm <= PRESELECTION_SOURCE_OD_NORMALIZED_DELTA_MAX;
 }
 function coherenceGraph(sourceGraph, targetGraph, pairs) {
   const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
   const neighbours = (pairs || []).map(() => new Set());
-  for (let a = 0; a < pairs.length - 1; a += 1) for (let b = a + 1; b < pairs.length; b += 1) {
-    if (!pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, pairs[a], pairs[b])) continue;
-    neighbours[a].add(b); neighbours[b].add(a);
+  for (let left = 0; left < pairs.length - 1; left += 1) for (let right = left + 1; right < pairs.length; right += 1) {
+    if (!pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, pairs[left], pairs[right])) continue;
+    neighbours[left].add(right); neighbours[right].add(left);
   }
   return neighbours;
 }
@@ -121,92 +119,69 @@ function withoutBridgeEdges(neighbours) {
   return neighbours.map((items, index) => new Set([...items].filter((next) => !bridges.has(graphEdgeKey(index, next)))));
 }
 function connectedComponents(indexes, neighbours) {
-  const allowed = new Set(indexes); const unseen = new Set(indexes); const components = [];
+  const allowed = new Set(indexes); const unseen = new Set(indexes); const rows = [];
   while (unseen.size) {
     const first = unseen.values().next().value; const queue = [first]; const component = []; unseen.delete(first);
     while (queue.length) {
       const index = queue.shift(); component.push(index);
       for (const next of neighbours[index]) if (allowed.has(next) && unseen.delete(next)) queue.push(next);
     }
-    components.push(component);
+    rows.push(component.sort((a, b) => a - b));
   }
-  return components;
+  return rows;
 }
 function componentStrength(component, neighbours) {
   const members = new Set(component); let links = 0;
   for (const index of component) for (const next of neighbours[index]) if (members.has(next)) links += 1;
   return links / 2;
 }
-function componentDensity(component, neighbours) {
-  const possible = component.length * (component.length - 1) / 2;
-  return possible ? componentStrength(component, neighbours) / possible : 0;
+function componentIsComplete(component, neighbours) {
+  return componentStrength(component, neighbours) === component.length * (component.length - 1) / 2;
 }
-function componentKey(component, pairs) {
-  return component.map((index) => `${pairs[index].sourceNodeId}=>${pairs[index].targetNodeId}`).sort().join('|');
+function completeCoherentComponentRanks(sourceGraph, targetGraph, pairs) {
+  if ((pairs || []).length < 3) return [];
+  const pruned = withoutBridgeEdges(coherenceGraph(sourceGraph, targetGraph, pairs));
+  return connectedComponents(pairs.map((_, index) => index), pruned)
+    .filter((component) => component.length >= 3 && componentIsComplete(component, pruned))
+    .map((component) => ({ component, size: component.length, edgeCount: componentStrength(component, pruned) }));
 }
-function componentRank(component, neighbours, pairs, sourceGraph) {
-  const priority = component.reduce((sum, index) => {
-    const item = candidatePriority(sourceGraph, pairs[index].sourceNodeId);
-    return { degree: sum.degree + item.degree, kinds: sum.kinds + item.kindCount };
-  }, { degree: 0, kinds: 0 });
-  return { component, size: component.length, density: componentDensity(component, neighbours),
-    degree: priority.degree, kinds: priority.kinds, key: componentKey(component, pairs) };
+function completeCoherentComponents(sourceGraph, targetGraph, pairs) {
+  return completeCoherentComponentRanks(sourceGraph, targetGraph, pairs).map((row) => row.component);
 }
-function compareComponentRank(left, right) {
-  return right.size - left.size || right.density - left.density || right.degree - left.degree || right.kinds - left.kinds
-    || left.key.localeCompare(right.key, undefined, { numeric: true });
-}
-function sameSemanticRank(left, right) {
-  return left && right && left.size === right.size && left.density === right.density
-    && left.degree === right.degree && left.kinds === right.kinds;
-}
-function coherentClusterDecision(sourceGraph, targetGraph, pairs) {
-  if ((pairs || []).length < 3) return { rows: [], ambiguous: false, componentCount: 0 };
-  const neighbours = withoutBridgeEdges(coherenceGraph(sourceGraph, targetGraph, pairs));
-  const indexes = pairs.map((_, index) => index);
-  const ranked = connectedComponents(indexes, neighbours)
-    .filter((component) => component.length >= 3 && componentDensity(component, neighbours) >= PRESELECTION_MIN_COMPONENT_DENSITY)
-    .map((component) => componentRank(component, neighbours, pairs, sourceGraph)).sort(compareComponentRank);
-  if (!ranked.length) return { rows: [], ambiguous: false, componentCount: 0 };
-  if (sameSemanticRank(ranked[0], ranked[1])) return { rows: [], ambiguous: true, componentCount: ranked.length };
-  const rows = ranked[0].component.map((index) => pairs[index]).sort((a, b) => comparePriority(a, b, sourceGraph));
-  return { rows, ambiguous: false, componentCount: ranked.length };
-}
-function strongestCoherentCluster(sourceGraph, targetGraph, pairs) {
-  return coherentClusterDecision(sourceGraph, targetGraph, pairs).rows;
+function coherentPoolDecision(sourceGraph, targetGraph, pairs) {
+  const ranked = completeCoherentComponentRanks(sourceGraph, targetGraph, pairs)
+    .sort((left, right) => right.size - left.size || right.edgeCount - left.edgeCount);
+  if (!ranked.length) return { status: 'NONE', rows: [], componentCount: 0 };
+  const best = ranked[0];
+  const tied = ranked.filter((row) => row.size === best.size && row.edgeCount === best.edgeCount);
+  if (tied.length > 1) return { status: 'PRESELECTION_AMBIGUOUS', rows: [], componentCount: ranked.length };
+  return { status: 'READY', rows: best.component.map((index) => pairs[index]), componentCount: ranked.length };
 }
 function spreadScore(pair, selected, sourcePositions, targetPositions) {
   if (!selected.length) return 0;
   return Math.min(...selected.map((row) => squaredDistance(sourcePositions.get(pair.sourceNodeId), sourcePositions.get(row.sourceNodeId))
     + squaredDistance(targetPositions.get(pair.targetNodeId), targetPositions.get(row.targetNodeId))));
 }
-function fillBySpread(sourceGraph, targetGraph, candidates, count, seed = []) {
-  if (count <= 0 || !candidates.length) return [];
+function selectByGlobalSpread(sourceGraph, targetGraph, pairs, limit) {
+  if ((pairs || []).length <= limit) return [...(pairs || [])];
   const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
-  const selected = [...seed]; const added = []; const remaining = [...candidates];
-  while (added.length < count && remaining.length) {
-    remaining.sort((a, b) => selected.length
-      ? spreadScore(b, selected, sourcePositions, targetPositions) - spreadScore(a, selected, sourcePositions, targetPositions)
-        || comparePriority(a, b, sourceGraph)
-      : comparePriority(a, b, sourceGraph));
-    const next = remaining.shift(); selected.push(next); added.push(next);
+  const remaining = [...pairs].sort((a, b) => comparePriority(a, b, sourceGraph)); const selected = [remaining.shift()];
+  while (selected.length < limit && remaining.length) {
+    remaining.sort((a, b) => spreadScore(b, selected, sourcePositions, targetPositions) - spreadScore(a, selected, sourcePositions, targetPositions)
+      || comparePriority(a, b, sourceGraph));
+    selected.push(remaining.shift());
   }
-  return added;
+  return selected;
 }
 export function selectPhysicalCandidatePairs(sourceGraph, targetGraph, pairs, requestedLimit, options = {}) {
   const limit = boundedPhysicalLimit(requestedLimit); const input = [...(pairs || [])];
-  if (input.length <= limit) return deepFreeze(input);
-  const coherence = coherentClusterDecision(sourceGraph, targetGraph, input);
-  const coherent = coherence.rows;
-  const reserved = fillBySpread(sourceGraph, targetGraph, coherent, Math.min(limit, coherent.length));
-  const reservedKeys = new Set(reserved.map((row) => `${row.sourceNodeId}=>${row.targetNodeId}`));
-  const remaining = input.filter((row) => !reservedKeys.has(`${row.sourceNodeId}=>${row.targetNodeId}`));
-  const fill = fillBySpread(sourceGraph, targetGraph, remaining, limit - reserved.length, reserved);
-  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_COMPONENT_COUNT', coherence.componentCount);
-  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_AMBIGUOUS_TOP', coherence.ambiguous ? 1 : 0);
-  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE', coherent.length);
-  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_RESERVED_COUNT', reserved.length);
-  return deepFreeze([...reserved, ...fill]);
+  const decision = coherentPoolDecision(sourceGraph, targetGraph, input);
+  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_COMPONENT_COUNT', decision.componentCount);
+  options.instrumentation?.record?.('ANCHOR_PHYSICAL_PRESELECTION_AMBIGUOUS', decision.status === 'PRESELECTION_AMBIGUOUS' ? 1 : 0);
+  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE', decision.rows.length);
+  if (decision.status === 'PRESELECTION_AMBIGUOUS') return deepFreeze([]);
+  const pool = decision.status === 'READY' ? decision.rows : input;
+  return deepFreeze(selectByGlobalSpread(sourceGraph, targetGraph, pool, limit));
 }
 function methodABasis(methodA) {
   const base = methodA?.bestBase;
@@ -250,6 +225,7 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
 
 export const _test = Object.freeze({
   componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit,
-  candidatePriority, pointDistanceMm, coherenceToleranceMm, distinctCandidateClaims, pairDistanceCompatible, coherenceGraph,
-  bridgeEdgeKeys, withoutBridgeEdges, componentDensity, coherentClusterDecision, strongestCoherentCluster, fillBySpread, spreadScore,
+  candidatePriority, pointDistanceMm, incidentOdMm, distinctCandidateClaims, pairDistanceCompatible, coherenceGraph,
+  bridgeEdgeKeys, withoutBridgeEdges, connectedComponents, componentStrength, componentIsComplete, completeCoherentComponentRanks,
+  completeCoherentComponents, coherentPoolDecision, selectByGlobalSpread, spreadScore,
 });
