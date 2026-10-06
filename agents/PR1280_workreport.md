@@ -30,7 +30,9 @@ Serial children:
 ## Current state
 
 Current unit:
-`#1276 D3.1 — automatic Method-A anchor provenance only`.
+`#1277 D3.2 — qualified Method-A adjacent-boundary projection only`.
+
+#1276 D3.1 is complete with hosted isolated PASS run `37510261973`.
 
 Material frontier before this report refresh:
 - PR #1280 head: `c75c22200720dcf6929a7be6446ba66d4369f93d`
@@ -74,8 +76,9 @@ No changes to:
 
 | File | Role | Status |
 |---|---|---|
-| `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js` | D3.1 Method-A automatic anchor projection | completed for D3.1 |
-| `tests/cii-workspace-method-a-anchor-provenance.test.js` | isolated D3.1 provenance contract | authored |
+| `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js` | D3.1 anchor projection + D3.2 adjacent-boundary projection | D3.2 implemented / hosted validation pending |
+| `tests/cii-workspace-method-a-anchor-provenance.test.js` | isolated D3.1 provenance contract | PASS hosted |
+| `tests/cii-workspace-method-a-boundary-provenance.test.js` | isolated D3.2 boundary contract | authored / hosted pending |
 | `tests/cii-workspace-multi-base-correspondence.test.js` | inherited broad suite | restored unchanged to base |
 | `agents/PR1280_workreport.md` | recovery surface | active |
 
@@ -97,7 +100,7 @@ Compensation:
 | final PR #1265 C4 frontier | PASS as evidence / C4 acceptance NOT_ACHIEVED |
 | D3.1 implementation | PASS — hosted isolated run 37510261973 |
 | inherited broad multi-base baseline | FAIL on untouched #1265 — Method-B-only assertion, run 37509033803 |
-| D3.2 | NOT_RUN |
+| D3.2 | implementation authored; hosted isolated validation pending |
 | D3.3 | NOT_RUN |
 | D3.4 | NOT_RUN |
 | retained D4 | NOT_RUN |
@@ -116,6 +119,20 @@ Compensation:
 
 The broad inherited test remains red on untouched #1265 because of a Method-B-only assertion (baseline run `37509033803`). It is not modified or claimed green by D3.1.
 
+## D3.2 material frontier before hosted validation
+
+- PR head before this report refresh: `8db51a3dc69d6e0848be5135ca87e9f5518e3d49`
+- combined D3 product blob: `adf5c71f189f564cea87e38f55f62a36817e9d20`
+- D3.1 isolated test blob: `2462f0571a27b1b3c960baafd7cc718d08cc2316`
+- D3.2 isolated test blob: `70e1407ddc94feb64b87a6079ea41442ed9dca78`
+- inherited broad test blob: `bf5304efb01acc0ec597ca4903551fd6ee315f1b` (unchanged #1265 baseline)
+
+D3.2 adds no spans and does not edit arbitration. It projects only raw Method-A `ADJACENT_MATCH_BOUNDARY` rows with fail-closed evidence rules.
+
 ## EXACT_NEXT_ACTION
 
-After #1276 TASK_RESULT is durably published, begin #1277 only. Re-ground PR #1280 first and preserve the D3.1 product/test blobs unless #1277's approved boundary explicitly requires a further change.
+Create a validation-only branch from the refreshed PR #1280 head and execute only:
+- `node tests/cii-workspace-method-a-anchor-provenance.test.js`
+- `node tests/cii-workspace-method-a-boundary-provenance.test.js`
+
+with exact product/test hash guards. Do not start #1278 until #1277 TASK_RESULT is published.
