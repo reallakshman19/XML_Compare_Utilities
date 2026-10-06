@@ -100,7 +100,7 @@ Compensation:
 | final PR #1265 C4 frontier | PASS as evidence / C4 acceptance NOT_ACHIEVED |
 | D3.1 implementation | PASS — hosted isolated run 37510261973 |
 | inherited broad multi-base baseline | FAIL on untouched #1265 — Method-B-only assertion, run 37509033803 |
-| D3.2 | implementation authored; hosted isolated validation pending |
+| D3.2 | PASS — hosted isolated run 37510992374 |
 | D3.3 | NOT_RUN |
 | D3.4 | NOT_RUN |
 | retained D4 | NOT_RUN |
@@ -129,10 +129,19 @@ The broad inherited test remains red on untouched #1265 because of a Method-B-on
 
 D3.2 adds no spans and does not edit arbitration. It projects only raw Method-A `ADJACENT_MATCH_BOUNDARY` rows with fail-closed evidence rules.
 
+## D3.2 exact validation
+
+- validated product/report head: `24870ad88f644b2a0b73225678ec9b42f8fd3e5b`
+- validation branch: `validation/cii-method-a-boundary-1277`
+- validation head: `e720e0f0b05483120b367f684f9a32722062993f`
+- hosted run: `37510992374`
+- job: `112431775104`
+- conclusion: PASS
+- combined D3 product blob: `adf5c71f189f564cea87e38f55f62a36817e9d20`
+- D3.1 test blob: `2462f0571a27b1b3c960baafd7cc718d08cc2316`
+- D3.2 test blob: `70e1407ddc94feb64b87a6079ea41442ed9dca78`
+- arbitration blob: `ff26a1921dc527a7d7cef2e9a94c56b92651484f` (unchanged)
+
 ## EXACT_NEXT_ACTION
 
-Create a validation-only branch from the refreshed PR #1280 head and execute only:
-- `node tests/cii-workspace-method-a-anchor-provenance.test.js`
-- `node tests/cii-workspace-method-a-boundary-provenance.test.js`
-
-with exact product/test hash guards. Do not start #1278 until #1277 TASK_RESULT is published.
+After #1277 TASK_RESULT is published, begin #1278 only. Prove whether D3.1/D3.2 evidence survives the unchanged arbitration path and reaches generic identity/engineering consumers before proposing any arbitration product change.
