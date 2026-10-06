@@ -40,6 +40,26 @@ function qualifiedMethodABoundaryIdentity(correspondence, row) {
     && item?.rowStatus === 'REVIEW'
     && item?.rowAuthority === 'ADJACENT_MATCH_BOUNDARY');
 }
+function qualifiedMethodABoundaryLocalIdentity(correspondence, row) {
+  if (correspondence?.status !== 'READY') return false;
+  if ((correspondence?.conflicts || []).length || (correspondence?.targetCustodyConflicts || []).length) return false;
+  if (row?.kind !== 'NODE' || row?.status !== 'REVIEW') return false;
+  if (!['METHOD_A_SPATIAL', 'METHOD_A_AND_B'].includes(row?.basisMethod)) return false;
+  const evidence = row?.evidence;
+  if (evidence?.identitySupported !== true || !['HIGH', 'MEDIUM'].includes(evidence?.identityConfidence)) return false;
+  if (evidence?.identityEvidenceBasis !== 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY') return false;
+  const boundary = evidence?.boundaryIdentity;
+  if (boundary?.identitySupported !== true || boundary?.reason !== 'REGISTERED_ENDPOINT_M2_OD_SUPPORTED') return false;
+  if (String(boundary?.sourceNodeId || '') !== String(row.sourceNodeId || '')) return false;
+  if (String(boundary?.targetNodeId || '') !== String(row.targetNodeId || '')) return false;
+  if (!Number.isFinite(Number(boundary?.supportCount)) || Number(boundary.supportCount) < 1) return false;
+  if (!Array.isArray(boundary?.supportingSides) || boundary.supportingSides.length < 1) return false;
+  return (evidence?.multiBaseProvenance || []).some((item) =>
+    item?.method === 'METHOD_A_SPATIAL'
+    && ['HIGH', 'MEDIUM'].includes(item?.baseConfidence)
+    && item?.rowStatus === 'REVIEW'
+    && item?.rowAuthority === 'ADJACENT_MATCH_BOUNDARY');
+}
 
 function qualifiedMethodABaseAnchorIdentity(correspondence, row) {
   if (correspondence?.status !== 'READY') return false;
@@ -67,9 +87,18 @@ function winnerGapOnlyReview(row) {
   return reasons.length === 1 && reasons[0] === 'WINNER_GAP_NOT_SATISFIED';
 }
 
+function reviewOnlyAmbiguousElement(row) {
+  return row?.status === 'REVIEW'
+    && row?.evidence?.hardFail !== true
+    && row?.evidence?.candidates?.status === 'AMBIGUOUS';
+}
+
 function preservesQualifiedMethodAIdentity(correspondence, row, affectedRows) {
-  return affectedRows.length > 0
-    && (qualifiedMethodABoundaryIdentity(correspondence, row)
+  if (affectedRows.length < 1) return false;
+  if (qualifiedMethodABoundaryLocalIdentity(correspondence, row)) {
+    return affectedRows.every(reviewOnlyAmbiguousElement);
+  }
+  return (qualifiedMethodABoundaryIdentity(correspondence, row)
       || qualifiedMethodABaseAnchorIdentity(correspondence, row))
     && affectedRows.every(winnerGapOnlyReview);
 }
