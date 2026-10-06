@@ -101,3 +101,37 @@ Exact-head qualification must prove:
 3. focused deterministic key contract;
 4. P3.2 prepared-session custody remains PASS;
 5. no Benchmark/multisource-preview/UI mutation.
+
+
+## Qualification iteration
+
+Validation v3:
+- run `37547723699`;
+- exact diff/blob guard: PASS;
+- syntax: PASS;
+- focused key test: FAIL at explicit-default equivalence.
+
+Root cause:
+```text
+raw options.limit
+  -> normalized landmarkLimit
+  -> also classified as unknown extra option
+
+raw options.coordinateToleranceMm
+  -> normalized spatialToleranceMm
+  -> also classified as unknown extra option
+```
+
+That double-counted aliases and produced a false cache miss between omitted defaults and explicitly supplied equivalent defaults.
+
+Repair:
+- classify `limit` and `coordinateToleranceMm` as normalized aliases excluded from the future-option bucket;
+- no authority/custody/cache/preview behavior changed.
+
+Updated key helper blob:
+`db8573e6cca0cff6bbf7fbeef97c3690418d5688`
+
+Focused test remains:
+`458e3e8c4dccfe2e6faa1616774f808687388513`
+
+Next: fresh exact-head qualification on a new validation branch.
