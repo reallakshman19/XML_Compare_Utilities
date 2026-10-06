@@ -1,7 +1,7 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
 import { compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
-import { arbitrateCiiLoopCorrespondences } from './cii-workspace-correspondence-arbitration.js';
+import { arbitrateCiiLoopCorrespondences, arbitrateCiiSeedCorrespondences } from './cii-workspace-correspondence-arbitration.js';
 
 function blockedCorrespondence(reason) {
   return deepFreeze({ schema: 'CIIWorkspaceCorrespondence.v1', status: 'BLOCKED', blockers: Object.freeze([reason]),
@@ -20,6 +20,11 @@ function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   if (anchors.length !== 1) return blockedCorrespondence('METHOD_B_READY_LOOP_REQUIRES_ONE_ANCHOR_PAIR');
   return propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options);
 }
+function buildUserLockedSeedCorrespondence(sourceGraph, targetGraph, loop, options) {
+  const anchors = anchorPairs(loop);
+  if (anchors.length !== 1) return blockedCorrespondence('USER_LOCKED_SEED_REQUIRES_ONE_ANCHOR_PAIR');
+  return propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options);
+}
 function buildLegacyCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (!anchors.length) return blockedCorrespondence('LOCKED_ANCHOR_PAIR_REQUIRED');
@@ -29,6 +34,7 @@ function buildLegacyCorrespondence(sourceGraph, targetGraph, loop, options) {
 function loopCorrespondence(sourceGraph, targetGraph, loop, options) {
   if (loop.method === 'METHOD_A_SPATIAL') return buildMethodACorrespondence(sourceGraph, targetGraph, loop, options);
   if (loop.method === 'METHOD_B_NETWORK') return buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options);
+  if (loop.method === 'USER_LOCKED_SEED') return buildUserLockedSeedCorrespondence(sourceGraph, targetGraph, loop, options);
   if (loop.method === 'USER_LOCKED_LEGACY') return buildLegacyCorrespondence(sourceGraph, targetGraph, loop, options);
   return blockedCorrespondence(`UNSUPPORTED_MULTI_BASE_LOOP_METHOD:${loop.method || 'UNKNOWN'}`);
 }
@@ -38,6 +44,14 @@ function legacySingleLoopResult(loopResults) {
   return deepFreeze({ ...item.correspondence, combination: 'LEGACY_SINGLE_LOOP_COMPATIBILITY',
     readyLoopCount: ready ? 1 : 0, unresolvedReadyBaseLoopCount: ready ? 0 : 1,
     contributingLoopIds: Object.freeze(ready ? [String(item.loop.loopId)] : []), loopResults: deepFreeze(loopResults),
+    conflicts: Object.freeze([]) });
+}
+function singleSeedLoopResult(loopResults) {
+  if (loopResults.length !== 1 || loopResults[0].loop.method !== 'USER_LOCKED_SEED') return null;
+  const item = loopResults[0]; const ready = item.correspondence?.status === 'READY';
+  return deepFreeze({ ...item.correspondence, combination: 'INDEPENDENT_MANUAL_SEED',
+    readyLoopCount: ready ? 1 : 0, unresolvedReadyBaseLoopCount: ready ? 0 : 1,
+    contributingLoopIds: Object.freeze([String(item.loop.loopId)]), loopResults: deepFreeze(loopResults),
     conflicts: Object.freeze([]) });
 }
 function unresolvedAuthorityCorrespondence(multiBaseAuthority) {
@@ -59,5 +73,8 @@ export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiB
   const loopResults = (multiBaseAuthority.loops || []).filter((loop) => loop.status === 'READY').map((loop) => deepFreeze({
     loop, correspondence: loopCorrespondence(sourceGraph, targetGraph, loop, options),
   }));
-  return legacySingleLoopResult(loopResults) || arbitrateCiiLoopCorrespondences(loopResults);
+  const legacy = legacySingleLoopResult(loopResults); if (legacy) return legacy;
+  const singleSeed = singleSeedLoopResult(loopResults); if (singleSeed) return singleSeed;
+  const seedOnly = loopResults.length > 1 && loopResults.every((item) => item.loop.method === 'USER_LOCKED_SEED');
+  return seedOnly ? arbitrateCiiSeedCorrespondences(loopResults) : arbitrateCiiLoopCorrespondences(loopResults);
 }
