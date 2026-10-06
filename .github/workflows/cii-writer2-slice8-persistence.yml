@@ -38,7 +38,7 @@ jobs:
           EOF
           )
           changed="$(git diff --name-only "$BASE"...HEAD | sort)"
-          unexpected="$(comm -23 <(echo \"$changed\") <(echo \"$allowed\" | sed 's/^          //' | sort) || true)"
+          unexpected="$(comm -23 <(git diff --name-only "$BASE"...HEAD | sort) <(echo "$allowed" | sed 's/^          //' | sort) || true)"
           if [ -n "$unexpected" ]; then echo "Unexpected drift $unexpected"; exit 1; fi
           for file in tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js tabs/cii-workspace/cii-workspace-anchor-suggestions.js tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js tabs/cii-workspace/cii-workspace-source-set.js; do
             current="$(git hash-object "$file")"
