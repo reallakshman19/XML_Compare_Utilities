@@ -29,7 +29,8 @@ jobs:
           BASE=aac6b0cd64eec22026a57aecc014b4545d64a1d8
           changed="$(git diff --name-only "$BASE"...HEAD | sort)"
           printf '%s\n' "$changed"
-          expected="$(printf '%s\n'             '.github/workflows/cii-writer2-s1-r2-2-1262.yml'             'tests/browser/cii-writer2-s1-r2-2-design.spec.mjs' | sort)"
+          expected="$(printf '%s\n'             '.github/workflows/cii-writer2-s1-r2-2-1262.yml'             'tests/browser/cii-writer2-s1-r2-2-design.spec.mjs' \\
+            'tests/browser/cii-writer2-s1-r2-2-rev2-rule-selection.spec.mjs' | sort)"
           unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$expected") || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected R2.2 drift:"
@@ -56,7 +57,7 @@ jobs:
           import base from './playwright.cii-writer2-retained.config.mjs';
           export default {
             ...base,
-            testMatch: ['cii-writer2-s1-r2-2-design.spec.mjs'],
+            testMatch: ['cii-writer2-s1-r2-2-design.spec.mjs', 'cii-writer2-s1-r2-2-rev2-rule-selection.spec.mjs'],
             timeout: 240_000,
             expect: { timeout: 20_000 },
             workers: 1,
@@ -80,5 +81,6 @@ jobs:
           path: |
             s1-r2-2.log
             s1-r2-2-design-prototype.json
+            s1-r2-2-rev2-rule-selection.json
             test-results/cii-writer2-s1-r2-2
           if-no-files-found: warn
