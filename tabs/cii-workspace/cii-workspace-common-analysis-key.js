@@ -55,6 +55,7 @@ const EXCLUDED_NON_ANALYSIS_OPTION_KEYS = new Set([
   'baseAnchorDisplayLimit',
   'baseAnchorSuggestionLimit',
   'coordinateToleranceMm',
+  'coordinateToleranceMm',
   'cryptoRef',
   'diameterToleranceRatio',
   'instrumentation',
