@@ -1,0 +1,63 @@
+name: CII P3.3-B prepared Writer2 preview qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-writer2-preview-1326
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact P3.3-B product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=3e1a1abf97758cc3d1d0c76c98dad08f49ce9325
+          PRODUCT=e45c0978e31d9d958c05a061ca775058a5e262b7
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-prepared-writer2-preview-1326.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1326-prepared-writer2-preview_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multisource-preview.js' \
+            'tests/cii-workspace-prepared-writer2-preview.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-preview.js")" = "86a86f0471632a46266710d9e71b058d66c13a73"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-writer2-preview.test.js")" = "347bd70ded059ae35bba3416efdf17f6598eabfd"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1326-prepared-writer2-preview_workreport.md")" = "fd5862853bab37d93301e67d181623adfcef8d27"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-multisource-review-only.js tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js tabs/cii-workspace/cii-workspace-multisource-review-only-router.js | grep -q .; then
+            echo "P3.3-B scope violation"
+            exit 1
+          fi
+          echo "P3_3_B_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-preview.js
+          node --check tests/cii-workspace-prepared-writer2-preview.test.js
+
+      - name: Run prepared Writer2 construction/parity contract
+        run: node tests/cii-workspace-prepared-writer2-preview.test.js
+
+      - name: Run prepared-session custody regression
+        run: node tests/cii-workspace-prepared-source-set-session.test.js
+
+      - name: Run retained legacy semantic full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
