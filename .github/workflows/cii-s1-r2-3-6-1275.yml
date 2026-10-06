@@ -1,0 +1,86 @@
+name: CII S1 R2.3.6 exact-head qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-r2-3-6-1275
+  workflow_dispatch:
+
+jobs:
+  exact-head-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact product composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=a7e96865301a09865e0b4126c38310d7b1c8d421
+          BASE=b7fb3513eabbac786a7d095c1be96fcfbbcac8e6
+
+          validation_changed="$(git diff --name-only "$PRODUCT"...HEAD | sort)"
+          test "$validation_changed" = ".github/workflows/cii-s1-r2-3-6-1275.yml"
+
+          product_changed="$(git diff --name-only "$BASE"...$PRODUCT | sort)"
+          expected="$(printf '%s\n'             'agents/PR1265_workreport.md'             'tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js'             'tests/cii-workspace-anchor-search-budget.test.js' | sort)"
+          test "$product_changed" = "$expected"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
+          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "0dd1b002b15e8b49e077f5091bf0ec3b29890b79"
+
+          if git diff --name-only "$BASE"...$PRODUCT -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          forbidden="$(git diff "$BASE"...$PRODUCT -- tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js             | grep '^+' | grep -Ev '^\+\+\+' | grep -E '3910|3940|3870|TEXPECTED|knownPositive|USER_LOCKED' || true)"
+          if [ -n "$forbidden" ]; then
+            echo "Forbidden selector authority/input detected"
+            printf '%s\n' "$forbidden"
+            exit 1
+          fi
+
+          echo "R2_3_6_COMPOSITION_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check syntax and size contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+          node --check tests/cii-workspace-anchor-search-budget.test.js
+          lines="$(wc -l < tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)"
+          test "$lines" -lt 300
+
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const file = 'tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js';
+          const lines = (await readFile(file, 'utf8')).split('\n');
+          const starts = [];
+          for (let index = 0; index < lines.length; index += 1) {
+            if (/^(?:export\s+)?function\s+\w+/.test(lines[index])) starts.push(index);
+          }
+          starts.push(lines.findIndex((line) => /^export const _test/.test(line)) >= 0
+            ? lines.findIndex((line) => /^export const _test/.test(line)) : lines.length);
+          for (let index = 0; index < starts.length - 1; index += 1) {
+            const count = starts[index + 1] - starts[index];
+            if (count > 40) throw new Error(`FUNCTION_SPAN_GT_40:${lines[starts[index]]}:${count}`);
+          }
+          console.log('R2_3_6_FUNCTION_SIZE_PASS');
+          NODE
+
+      - name: Run canonical bounded-search regression
+        run: node tests/cii-workspace-anchor-search-budget.test.js
