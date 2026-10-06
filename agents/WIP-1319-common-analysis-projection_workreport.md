@@ -34,10 +34,30 @@ No prepared-session, multi-source adapter, or UI work.
 
 `cii-workspace-core.js@093551ee05def641d9d0927a14d6a4005acbb52f`
 
+## Implemented material
+
+Production:
+- `tabs/cii-workspace/cii-workspace-core.js@c7550892ca886a56754f5c612dc5c270a02844a2`
+
+Focused regression:
+- `tests/cii-workspace-common-analysis-projection.test.js@6d79df9acf458fd7cce97f4636159e2619d72788`
+
+Implemented:
+- `createCiiWorkspaceCommonAnalysis()`;
+- `projectCiiWorkspacePreviewFromCommonAnalysis()`;
+- legacy `createCiiWorkspacePreview()` remains the compatibility wrapper;
+- counters `CII_COMMON_ANALYSIS` and `CII_WRITER_PROJECTION_<version>`.
+
+No operation order or writer policy was intentionally changed.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: factor current createCiiWorkspacePreview body without semantic reordering
+STATE: PRODUCT_AUTHORED
+GENERIC_HOSTED_QUALIFICATION: NOT_YET_RUN
+PREPARED_SESSION_WORK: NONE
+MULTISOURCE_WORK: NONE
+UI_WORK: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: open draft PR and qualify exact head
 ```
