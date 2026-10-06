@@ -1,0 +1,32 @@
+name: CII D3.1 Method-A anchor provenance
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-anchor-1276
+  workflow_dispatch:
+
+jobs:
+  d3-1-anchor-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard exact D3.1 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=df23b5f19588f32f183fcef387cd91604766a0ae
+          test "$(git diff --name-only "$BASE"...HEAD)" = ".github/workflows/cii-method-a-anchor-1276.yml"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "04c6aa72f177c50aaee1dcfb5c7de2c4dba1ea19"
+          test "$(git hash-object tests/cii-workspace-multi-base-correspondence.test.js)" = "82652bf8a32a432615dfae4760c306e08de20edf"
+          if git diff --name-only "$BASE"...HEAD -- Benchmark | grep -q .; then exit 1; fi
+      - run: npm ci
+      - name: Run focused multi-base correspondence test
+        run: node tests/cii-workspace-multi-base-correspondence.test.js
