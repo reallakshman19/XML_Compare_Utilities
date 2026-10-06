@@ -1,0 +1,79 @@
+name: CII U9 boundary-local node custody qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-boundary-local-node-custody-1302
+  workflow_dispatch:
+
+jobs:
+  u9-generic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact U8 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_BASE=4c96220447315d538dd85b3a4db5a9cce6eeac77
+          PRODUCT_HEAD=9843020050d55cb43e1390341312b680a4cd0c40
+
+          test "$(git diff --name-only "$PRODUCT_HEAD"...HEAD | sort)" = ".github/workflows/cii-boundary-local-node-custody-1302.yml"
+
+          expected_product="$(printf '%s\n'             'agents/WIP-1301-boundary-local-node-custody_workreport.md'             'tabs/cii-workspace/cii-workspace-node-custody.js'             'tests/cii-workspace-method-a-boundary-local-node-custody.test.js' | sort)"
+          test "$(git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" | sort)" = "$expected_product"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-node-custody.js")" = "cf08a90b97d022432237593eafd665066155d6d6"
+          test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-local-node-custody.test.js")" = "568c5d8fbabee18e89d650ffd50812ff9bc4f70b"
+          test "$(git rev-parse "$PRODUCT_HEAD:agents/WIP-1301-boundary-local-node-custody_workreport.md")" = "ebd4d3ec54aa6de7fbfac44b917a11301316d997"
+
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-alignment.js")" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-multi-base-correspondence.js")" = "00b8fc6054b14afd8b6b299d477c940843cb2b85"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-correspondence-arbitration.js")" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js")" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
+
+          if git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          echo "U9_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax checks
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-node-custody.js
+          node --check tests/cii-workspace-method-a-boundary-local-node-custody.test.js
+
+      - name: Run selected U8 repair falsifiers
+        run: node tests/cii-workspace-method-a-boundary-local-node-custody.test.js
+
+      - name: Run inherited custody and projection regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-method-a-base-anchor-custody.test.js
+          node tests/cii-workspace-method-a-boundary-node-custody.test.js
+          node tests/cii-workspace-method-a-boundary-local-projection.test.js
+          node tests/cii-workspace-boundary-local-endpoint.test.js
+
+      - name: Run inherited Method-A and arbitration controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
+          node tests/cii-workspace-anchor-search-budget.test.js
+          node tests/cii-workspace-base-anchor-method-fusion.test.js
