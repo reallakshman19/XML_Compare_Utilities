@@ -90,6 +90,60 @@ function pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, l
   return deltaMm / span <= PRESELECTION_RELATIVE_ERROR_MAX
     && deltaMm / odRefMm <= PRESELECTION_SOURCE_OD_NORMALIZED_DELTA_MAX;
 }
+function coherenceGraph(sourceGraph, targetGraph, pairs) {
+  const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
+  const neighbours = (pairs || []).map(() => new Set());
+  for (let left = 0; left < pairs.length - 1; left += 1) for (let right = left + 1; right < pairs.length; right += 1) {
+    if (!pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, pairs[left], pairs[right])) continue;
+    neighbours[left].add(right); neighbours[right].add(left);
+  }
+  return neighbours;
+}
+function graphEdgeKey(left, right) { return left < right ? `${left}:${right}` : `${right}:${left}`; }
+function bridgeEdgeKeys(neighbours) {
+  const discovered = neighbours.map(() => -1); const low = neighbours.map(() => 0); const bridges = new Set(); let tick = 0;
+  const visit = (node, parent = -1) => {
+    discovered[node] = low[node] = tick++;
+    for (const next of neighbours[node]) {
+      if (next === parent) continue;
+      if (discovered[next] >= 0) { low[node] = Math.min(low[node], discovered[next]); continue; }
+      visit(next, node); low[node] = Math.min(low[node], low[next]);
+      if (low[next] > discovered[node]) bridges.add(graphEdgeKey(node, next));
+    }
+  };
+  for (let index = 0; index < neighbours.length; index += 1) if (discovered[index] < 0) visit(index);
+  return bridges;
+}
+function withoutBridgeEdges(neighbours) {
+  const bridges = bridgeEdgeKeys(neighbours);
+  return neighbours.map((items, index) => new Set([...items].filter((next) => !bridges.has(graphEdgeKey(index, next)))));
+}
+function connectedComponents(indexes, neighbours) {
+  const allowed = new Set(indexes); const unseen = new Set(indexes); const rows = [];
+  while (unseen.size) {
+    const first = unseen.values().next().value; const queue = [first]; const component = []; unseen.delete(first);
+    while (queue.length) {
+      const index = queue.shift(); component.push(index);
+      for (const next of neighbours[index]) if (allowed.has(next) && unseen.delete(next)) queue.push(next);
+    }
+    rows.push(component.sort((a, b) => a - b));
+  }
+  return rows;
+}
+function componentStrength(component, neighbours) {
+  const members = new Set(component); let links = 0;
+  for (const index of component) for (const next of neighbours[index]) if (members.has(next)) links += 1;
+  return links / 2;
+}
+function componentIsComplete(component, neighbours) {
+  return componentStrength(component, neighbours) === component.length * (component.length - 1) / 2;
+}
+function completeCoherentComponents(sourceGraph, targetGraph, pairs) {
+  if ((pairs || []).length < 3) return [];
+  const pruned = withoutBridgeEdges(coherenceGraph(sourceGraph, targetGraph, pairs));
+  return connectedComponents(pairs.map((_, index) => index), pruned)
+    .filter((component) => component.length >= 3 && componentIsComplete(component, pruned));
+}
 function spreadScore(pair, selected, sourcePositions, targetPositions) {
   if (!selected.length) return 0;
   return Math.min(...selected.map((row) => squaredDistance(sourcePositions.get(pair.sourceNodeId), sourcePositions.get(row.sourceNodeId))
@@ -149,5 +203,7 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
 
 export const _test = Object.freeze({
   componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit,
-  candidatePriority, pointDistanceMm, incidentOdMm, distinctCandidateClaims, pairDistanceCompatible, spreadScore,
+  candidatePriority, pointDistanceMm, incidentOdMm, distinctCandidateClaims, pairDistanceCompatible, coherenceGraph,
+  bridgeEdgeKeys, withoutBridgeEdges, connectedComponents, componentStrength, componentIsComplete, completeCoherentComponents,
+  spreadScore,
 });
