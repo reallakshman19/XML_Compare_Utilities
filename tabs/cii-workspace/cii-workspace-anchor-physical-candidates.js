@@ -56,22 +56,105 @@ function squaredDistance(left, right) {
   const dx = Number(left.x) - Number(right.x); const dy = Number(left.y) - Number(right.y); const dz = Number(left.z) - Number(right.z);
   return [dx, dy, dz].every(Number.isFinite) ? dx * dx + dy * dy + dz * dz : 0;
 }
+function pointDistanceMm(left, right) {
+  const squared = squaredDistance(left, right);
+  return Number.isFinite(squared) ? Math.sqrt(squared) : null;
+}
+function positiveNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+function incidentOdMm(graph, nodeId) {
+  const values = [...(graph?.adjacency?.get(String(nodeId)) || [])]
+    .map((edge) => positiveNumber(edge?.diameter ?? edge?.od)).filter((value) => value != null);
+  return values.length ? Math.min(...values) : null;
+}
+function coherenceToleranceMm(sourceGraph, left, right, options = {}) {
+  const factor = positiveNumber(options.methodAPreselectionOdToleranceFactor ?? options.odToleranceFactor) ?? 2;
+  const ods = [incidentOdMm(sourceGraph, left.sourceNodeId), incidentOdMm(sourceGraph, right.sourceNodeId)]
+    .filter((value) => value != null);
+  return ods.length ? factor * Math.min(...ods) : 1e-6;
+}
+function distinctCandidateClaims(left, right) {
+  return String(left.sourceNodeId) !== String(right.sourceNodeId) && String(left.targetNodeId) !== String(right.targetNodeId);
+}
+function pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, left, right, options) {
+  if (!distinctCandidateClaims(left, right)) return false;
+  const sourceDistance = pointDistanceMm(sourcePositions.get(left.sourceNodeId), sourcePositions.get(right.sourceNodeId));
+  const targetDistance = pointDistanceMm(targetPositions.get(left.targetNodeId), targetPositions.get(right.targetNodeId));
+  if (sourceDistance == null || targetDistance == null) return false;
+  return Math.abs(sourceDistance - targetDistance) <= coherenceToleranceMm(sourceGraph, left, right, options);
+}
+function coherenceGraph(sourceGraph, targetGraph, pairs, options) {
+  const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
+  const neighbours = (pairs || []).map(() => new Set());
+  for (let a = 0; a < pairs.length - 1; a += 1) for (let b = a + 1; b < pairs.length; b += 1) {
+    if (!pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, pairs[a], pairs[b], options)) continue;
+    neighbours[a].add(b); neighbours[b].add(a);
+  }
+  return neighbours;
+}
+function connectedComponents(indexes, neighbours) {
+  const allowed = new Set(indexes); const unseen = new Set(indexes); const components = [];
+  while (unseen.size) {
+    const first = unseen.values().next().value; const queue = [first]; const component = []; unseen.delete(first);
+    while (queue.length) {
+      const index = queue.shift(); component.push(index);
+      for (const next of neighbours[index]) if (allowed.has(next) && unseen.delete(next)) queue.push(next);
+    }
+    components.push(component);
+  }
+  return components;
+}
+function componentStrength(component, neighbours) {
+  const members = new Set(component); let links = 0;
+  for (const index of component) for (const next of neighbours[index]) if (members.has(next)) links += 1;
+  return links / 2;
+}
+function componentKey(component, pairs) {
+  return component.map((index) => `${pairs[index].sourceNodeId}=>${pairs[index].targetNodeId}`).sort().join('|');
+}
+function strongestCoherentCluster(sourceGraph, targetGraph, pairs, options = {}) {
+  if ((pairs || []).length < 3) return [];
+  const neighbours = coherenceGraph(sourceGraph, targetGraph, pairs, options);
+  const supports = neighbours.map((items) => items.size); const maximum = Math.max(...supports, 0);
+  if (maximum < 2) return [];
+  const floor = Math.max(2, Math.ceil(maximum * 0.75));
+  const eligible = supports.flatMap((count, index) => count >= floor ? [index] : []);
+  const components = connectedComponents(eligible, neighbours).filter((component) => component.length >= 3);
+  components.sort((a, b) => b.length - a.length || componentStrength(b, neighbours) - componentStrength(a, neighbours)
+    || componentKey(a, pairs).localeCompare(componentKey(b, pairs), undefined, { numeric: true }));
+  return (components[0] || []).map((index) => pairs[index]).sort((a, b) => comparePriority(a, b, sourceGraph));
+}
 function spreadScore(pair, selected, sourcePositions, targetPositions) {
   if (!selected.length) return 0;
   return Math.min(...selected.map((row) => squaredDistance(sourcePositions.get(pair.sourceNodeId), sourcePositions.get(row.sourceNodeId))
     + squaredDistance(targetPositions.get(pair.targetNodeId), targetPositions.get(row.targetNodeId))));
 }
-export function selectPhysicalCandidatePairs(sourceGraph, targetGraph, pairs, requestedLimit) {
-  const limit = boundedPhysicalLimit(requestedLimit);
-  if ((pairs || []).length <= limit) return deepFreeze([...(pairs || [])]);
+function fillBySpread(sourceGraph, targetGraph, candidates, count, seed = []) {
+  if (count <= 0 || !candidates.length) return [];
   const sourcePositions = positionMap(sourceGraph); const targetPositions = positionMap(targetGraph);
-  const remaining = [...pairs].sort((a, b) => comparePriority(a, b, sourceGraph)); const selected = [remaining.shift()];
-  while (selected.length < limit && remaining.length) {
-    remaining.sort((a, b) => spreadScore(b, selected, sourcePositions, targetPositions) - spreadScore(a, selected, sourcePositions, targetPositions)
-      || comparePriority(a, b, sourceGraph));
-    selected.push(remaining.shift());
+  const selected = [...seed]; const added = []; const remaining = [...candidates];
+  while (added.length < count && remaining.length) {
+    remaining.sort((a, b) => selected.length
+      ? spreadScore(b, selected, sourcePositions, targetPositions) - spreadScore(a, selected, sourcePositions, targetPositions)
+        || comparePriority(a, b, sourceGraph)
+      : comparePriority(a, b, sourceGraph));
+    const next = remaining.shift(); selected.push(next); added.push(next);
   }
-  return deepFreeze(selected);
+  return added;
+}
+export function selectPhysicalCandidatePairs(sourceGraph, targetGraph, pairs, requestedLimit, options = {}) {
+  const limit = boundedPhysicalLimit(requestedLimit); const input = [...(pairs || [])];
+  if (input.length <= limit) return deepFreeze(input);
+  const coherent = strongestCoherentCluster(sourceGraph, targetGraph, input, options);
+  const reserved = fillBySpread(sourceGraph, targetGraph, coherent, Math.min(limit, coherent.length));
+  const reservedKeys = new Set(reserved.map((row) => `${row.sourceNodeId}=>${row.targetNodeId}`));
+  const remaining = input.filter((row) => !reservedKeys.has(`${row.sourceNodeId}=>${row.targetNodeId}`));
+  const fill = fillBySpread(sourceGraph, targetGraph, remaining, limit - reserved.length, reserved);
+  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE', coherent.length);
+  options.instrumentation?.record?.('ANCHOR_PHYSICAL_COHERENT_RESERVED_COUNT', reserved.length);
+  return deepFreeze([...reserved, ...fill]);
 }
 function methodABasis(methodA) {
   const base = methodA?.bestBase;
@@ -81,7 +164,7 @@ function methodABasis(methodA) {
 }
 export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, options = {}) {
   const allPairs = uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph); const limit = physicalSearchLimit(options);
-  const pairs = selectPhysicalCandidatePairs(sourceGraph, targetGraph, allPairs, limit); const instrumentation = options.instrumentation;
+  const pairs = selectPhysicalCandidatePairs(sourceGraph, targetGraph, allPairs, limit, options); const instrumentation = options.instrumentation;
   instrumentation?.record?.('ANCHOR_PHYSICAL_CANDIDATE_COUNT', allPairs.length);
   instrumentation?.record?.('ANCHOR_PHYSICAL_SEARCH_LIMIT', limit);
   instrumentation?.record?.('ANCHOR_PHYSICAL_SELECTED_COUNT', pairs.length);
@@ -113,4 +196,4 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
   return deepFreeze(rows);
 }
 
-export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit, candidatePriority, spreadScore });
+export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit, candidatePriority, pointDistanceMm, coherenceToleranceMm, distinctCandidateClaims, coherenceGraph, strongestCoherentCluster, fillBySpread, spreadScore });
