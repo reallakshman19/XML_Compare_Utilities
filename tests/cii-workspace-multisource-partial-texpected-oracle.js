@@ -81,15 +81,26 @@ function bmRowsForSourceAlias(sourceName, bmRows) {
   const wanted = unslash(sourceName);
   return (bmRows || []).filter((row) => (row?.sourceNames || []).some((name) => unslash(name) === wanted));
 }
-function bmExactAliasMatch(operation, bmRows) {
+function liveTargetNameSet(targetState) {
+  return new Set([...(targetState?.names?.values?.() || [])].map(text).filter(Boolean));
+}
+function liveBmRowsForSourceAlias(sourceName, bmRows, targetNames) {
+  const live = targetNames instanceof Set ? targetNames : new Set(targetNames || []);
+  return bmRowsForSourceAlias(sourceName, bmRows).filter((row) => live.has(text(row?.targetName)));
+}
+function bmExactAliasMatch(operation, bmRows, targetNames = null) {
   const sourceName = operationValue(operation); const targetName = bmTargetName(operation);
   if (!sourceName || !targetName) return false;
-  return bmRowsForSourceAlias(sourceName, bmRows).some((row) => text(row?.targetName) === targetName);
+  const rows = targetNames == null
+    ? bmRowsForSourceAlias(sourceName, bmRows)
+    : liveBmRowsForSourceAlias(sourceName, bmRows, targetNames);
+  return rows.some((row) => text(row?.targetName) === targetName);
 }
 
 export function validateRawMutationIdentity(operations, sourceTextsById, targetText, bmRows = []) {
   const sourceSets = new Map(Object.entries(sourceTextsById || {}).map(([id, value]) => [id, sourceNameSet(value)]));
   const target = parseIndependentNodeNameState(targetText); const errors = []; const sourceOnlyCreateOperationIds = [];
+  const nonApplicableBmAliasOperationIds = []; const targetNames = liveTargetNameSet(target);
   for (const operation of operations || []) {
     const action = text(operation?.action); const sourceId = text(operation?.sourceId);
     const targetId = operationTarget(operation); const value = operationValue(operation); const before = operationBefore(operation);
@@ -102,8 +113,11 @@ export function validateRawMutationIdentity(operations, sourceTextsById, targetT
         errors.push(Object.freeze({ code: 'COPY_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, before, expected: target.names.get(targetId) || '' }));
       }
       const aliasRows = bmRowsForSourceAlias(value, bmRows);
-      if (aliasRows.length && !bmExactAliasMatch(operation, bmRows)) {
+      const liveAliasRows = liveBmRowsForSourceAlias(value, bmRows, targetNames);
+      if (liveAliasRows.length && !bmExactAliasMatch(operation, bmRows, targetNames)) {
         errors.push(Object.freeze({ code: `${action}_VALUE_NOT_EXACT_BM_ALIAS_FOR_TARGET`, operationId: operation?.operationId, sourceId, targetId, value, targetName: bmTargetName(operation) }));
+      } else if (aliasRows.length && !liveAliasRows.length) {
+        nonApplicableBmAliasOperationIds.push(text(operation?.operationId));
       } else if (action === 'CREATE' && !aliasRows.length) sourceOnlyCreateOperationIds.push(text(operation?.operationId));
     } else if (action === 'DELETE' && target.names.get(targetId) !== value) {
       errors.push(Object.freeze({ code: 'DELETE_VALUE_NOT_EXACT_TARGET_PREIMAGE', operationId: operation?.operationId, targetId, value, expected: target.names.get(targetId) || '' }));
@@ -112,6 +126,7 @@ export function validateRawMutationIdentity(operations, sourceTextsById, targetT
   return Object.freeze({
     status: errors.length ? 'BLOCKED' : 'READY', errors: Object.freeze(errors),
     sourceOnlyCreateOperationIds: Object.freeze(sourceOnlyCreateOperationIds.filter(Boolean).sort()),
+    nonApplicableBmAliasOperationIds: Object.freeze(nonApplicableBmAliasOperationIds.filter(Boolean).sort()),
   });
 }
 export function validateAppliedRawIdentity(actualText, operations) {
@@ -210,5 +225,6 @@ export function evaluatePartialTExpectedPostimage(beforeText, actualText, partia
 
 export const _test = Object.freeze({
   sectionRows, fixedField, isFamilyOnly, bmTargetName, bmExactAliasMatch, bmRowsForSourceAlias,
+  liveTargetNameSet, liveBmRowsForSourceAlias,
   operationValue, operationBefore, integerField, validateActualNodeNameEncoding,
 });

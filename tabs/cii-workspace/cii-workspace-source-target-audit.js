@@ -97,7 +97,7 @@ function censusRow(sourceId, sourceDocument, targetDocument, sourceNodeId, conte
     workflowStatuses: deepFreeze(unique(reviewRows.map((row) => row?.workflowStatus))),
     authorities: deepFreeze(unique(reviewRows.map((row) => row?.authority))),
     evidenceBases: deepFreeze(unique(reviewRows.map((row) => row?.identityEvidenceBasis))),
-    reviewDecisions: deepFreeze(unique(reviewRows.map((row) => reviewDecision(row, context.reviewDecisionOverrides))),
+    reviewDecisions: deepFreeze(unique(reviewRows.map((row) => reviewDecision(row, context.reviewDecisionOverrides)))),
     writerActions: deepFreeze(unique(operations.map((operation) => operation?.action))),
     writerStatuses: deepFreeze(unique(operations.map((operation) => operation?.status))),
     reasons: reasonsFor(state, reviewRows),
