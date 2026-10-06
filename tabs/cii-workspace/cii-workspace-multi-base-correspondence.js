@@ -15,7 +15,8 @@ function methodAConfidence(loop) {
 }
 function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
 function projectMethodAAnchorRow(row, loop, anchorKeys) {
-  if (row?.kind !== 'NODE' || !anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId))) return row;
+  const isAnchor = row?.kind === 'NODE' && anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId));
+  if (!isAnchor || row.status !== 'LOCKED' || row.authority !== 'USER_LOCKED_ANCHOR') return row;
   const confidence = methodAConfidence(loop); const loopId = String(loop?.loopId || loop?.baseId || '');
   return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
