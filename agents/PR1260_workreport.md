@@ -24,15 +24,35 @@ Implement #1257 / parent #1256 C3: repair only the bounded physical Method-A can
 
 ## Current implementation state
 
-`C3-A` control plane and Appendix A are complete.
+C3 rev1 was completed at `b4749227bf0610c6d866ba8bfd8550c6fc3b5c76` and independently falsified by #1258 C4 run `37480828337`: retained S1 remained in the distal 4930…5140 family with 0 S1 known-positive mutation recovery. The rev1 graph formed an over-broad 21/23 component because it reused Method-A's 2×OD tolerance.
 
-`C3-B` pure coherence primitive and generic fixtures are implemented.
+Rev2 decomposition:
+- #1261 R2.1: hosted unlabeled pairwise census PASS; exact head `aac6b0cd64eec22026a57aecc014b4545d64a1d8`; result `GENERIC_THRESHOLD_SEPARATION_EXISTS`.
+- #1262 R2.2: selected generic rule `CONJUNCTIVE_RELATIVE_1PCT_AND_SOURCE_OD_QUARTER + BRIDGE_PRUNED_DENSE_COMPONENT + AMBIGUOUS_TOP_COMPONENT_GLOBAL_FALLBACK`.
+- #1263 R2.3: product revision implemented.
 
-`C3-C` bounded coherent-cluster reservation is integrated into the #1234 selector. Existing global SOURCE+TARGET spatial diversity is reused to fill any remaining budget.
+Current rev2 product:
+- product blob `3653736b11df7c46813f5fb336ed141ee46a75bc`;
+- focused test blob `0c54e2f547e31df661d1b3238563d21a36b36f5a`;
+- branch material head before this report update: `20b2fa0787f2cd9312ee0599257cbc73454705b5`.
 
-`C3-D` focused generic execution, syntax, size, forbidden-input and protected-file audits are complete.
+Rev2 behavior:
+1. preselection distance coherence is decoupled from Method-A's final 2×OD tolerance;
+2. pairwise relation requires <=1% relative distance error AND <=0.25 × minimum positive SOURCE OD absolute delta;
+3. graph bridges are removed before component extraction;
+4. coherent components require size >=3 and density >=0.75;
+5. exact semantic tie between top components yields no exclusive coherent reserve and falls back to existing global spatial spread;
+6. Method A / Method B / geometry / confidence / Writer / benchmark authority remain unchanged.
 
-`C3-E` product implementation is ready for exact-head handoff to #1258. C3 does not claim retained acceptance.
+Direct execution of the actual product blob PASS:
+- long-span relative-only trap rejected;
+- short-span OD-only trap rejected;
+- single bridge identified/pruned;
+- sparse cycle fails density criterion;
+- equal semantic components return ambiguous/global fallback;
+- missing OD fails closed for coherence reservation.
+
+Normal repository ESM test command remains NOT_RUN in #1263; #1264 owns hosted exact-head execution.
 
 ## Root classification
 
@@ -73,7 +93,7 @@ Protected:
 
 | File | Planned role | Status |
 |---|---|---|
-| `tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js` | coherence helpers + bounded reservation + existing diversity fill | completed |
+| `tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js` | rev2 conjunctive coherence + bridge/density safeguards | completed |
 | `tests/cii-workspace-anchor-search-budget.test.js` | generic deterministic/invariance/adversarial contracts | completed |
 | `agents/PR1260_workreport.md` | recovery-first control surface | active |
 
@@ -161,4 +181,4 @@ A coherence heuristic could accidentally become a hidden identity rule or over-c
 
 ## EXACT_NEXT_ACTION
 
-Publish C3 STEP TASK_EVIDENCE/TASK_RESULT with the final PR head, then start #1258 validation from that exact head. Do not merge PR #1260.
+#1264: compose a validation-only exact-head runner for the current PR #1260 head, execute the authored Node test unchanged, audit protected paths/forbidden inputs, and only then hand the exact product head to #1258 C4 retained validation.
