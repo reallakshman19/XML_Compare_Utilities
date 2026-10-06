@@ -16,6 +16,7 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       intakeModule,
       topologyModule,
       converterModule,
+      methodAModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
@@ -27,6 +28,7 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
       import('/tabs/cii-workspace/cii-workspace-intake.js'),
       import('/tabs/cii-workspace/cii-workspace-topology-adapter.js'),
       import('/tabs/cii-workspace/cii-workspace-v11-v14-converter.js'),
+      import('/tabs/cii-workspace/cii-workspace-anchor-method-a.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSetModule;
@@ -45,6 +47,7 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
     const { intakeCiiWorkspaceDocument } = intakeModule;
     const { adaptCiiDocumentToTopologyGraph } = topologyModule;
     const { detectCiiNeutralVersion, convertCiiNeutralVersionLossless } = converterModule;
+    const { discoverCiiMethodABases } = methodAModule;
 
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -354,7 +357,41 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
     const rawKeys = new Set(rawPhysicalPairs.map((row) => pairKey(row.sourceNodeId, row.targetNodeId)));
     const selectedKeys = Object.fromEntries(Object.entries(selectedPhysical)
       .map(([limit, rows]) => [limit, new Set(rows.map((row) => pairKey(row.sourceNodeId, row.targetNodeId)))]));
+    const fullRawDiscoveryStarted = performance.now();
+    const fullRawDiscovery = discoverCiiMethodABases(
+      s1CandidateGraph,
+      targetCandidateGraph,
+      rawPhysicalPairs,
+      {
+        methodASeedPairLimit: rawPhysicalPairs.length,
+        methodAExpansionPairLimit: rawPhysicalPairs.length,
+        methodABaseSuggestionLimit: 24,
+      },
+    );
+    const fullRawDiscoveryElapsedMs = Number((performance.now() - fullRawDiscoveryStarted).toFixed(1));
+    const compactRawBase = (base) => ({
+      baseId: base.baseId,
+      confidence: base.confidence,
+      anchorCount: base.anchorCount,
+      validationAnchorCount: base.validationAnchorCount,
+      maxResidualMm: base.maxResidualMm,
+      maxNormalizedResidual: base.maxNormalizedResidual,
+      weightTotal: base.weight?.total ?? null,
+      anchorPairs: (base.anchorPairs || []).map((pair) => ({
+        sourceNodeId: pair.sourceNodeId,
+        targetNodeId: pair.targetNodeId,
+      })),
+    });
+
     const physicalCandidateTrace = {
+      rawDiscovery: {
+        elapsedMs: fullRawDiscoveryElapsedMs,
+        status: fullRawDiscovery.status,
+        candidatePairCount: fullRawDiscovery.candidatePairCount,
+        seedTripletCount: fullRawDiscovery.seedTripletCount,
+        qualifiedBaseCount: fullRawDiscovery.qualifiedBaseCount,
+        bases: (fullRawDiscovery.bases || []).map(compactRawBase),
+      },
       rawCount: rawPhysicalPairs.length,
       rawPairs: rawPhysicalPairs.map((row) => ({
         sourceNodeId: row.sourceNodeId,
