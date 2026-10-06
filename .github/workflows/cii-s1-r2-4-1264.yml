@@ -1,0 +1,76 @@
+name: CII S1 R2.4 exact-head qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-r2-4-1264
+  workflow_dispatch:
+
+jobs:
+  r2-4-exact-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation composition and product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=3326c1f4515b82d790f6b823b2386bf62588b806
+          SUBSTRATE=b7fb3513eabbac786a7d095c1be96fcfbbcac8e6
+
+          changed_validation="$(git diff --name-only "$PRODUCT"...HEAD | sort)"
+          expected_validation=".github/workflows/cii-s1-r2-4-1264.yml"
+          test "$changed_validation" = "$expected_validation"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "3653736b11df7c46813f5fb336ed141ee46a75bc"
+          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "0c54e2f547e31df661d1b3238563d21a36b36f5a"
+
+          changed_product="$(git diff --name-only "$SUBSTRATE"..."$PRODUCT" | sort)"
+          printf '%s\n' "$changed_product"
+          expected_product="$(printf '%s\n'             'agents/PR1260_workreport.md'             'tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js'             'tests/cii-workspace-anchor-search-budget.test.js' | sort)"
+          test "$changed_product" = "$expected_product"
+
+          if git diff --name-only "$SUBSTRATE"..."$PRODUCT" --             Benchmark             .github/workflows             tabs/cii-workspace/cii-workspace-geometry.js             tabs/cii-workspace/cii-workspace-anchor-method-a.js             tabs/cii-workspace/cii-workspace-pipe-runs.js             tabs/cii-workspace/cii-workspace-base-loop-selection.js             tabs/cii-workspace/cii-workspace-multisource-preview.js             tabs/cii-workspace/cii-workspace-writer-version-bridge.js | grep -q .; then
+            echo "Protected product drift detected"
+            exit 1
+          fi
+
+          if grep -E 'TEXPECTED|knownPositive|USER_LOCKED|3910|3940|3870'             tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js; then
+            echo "Forbidden retained/manual/benchmark authority input in preselector"
+            exit 1
+          fi
+
+          echo "S1_R2_4_EXACT_HEAD_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static syntax checks
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+          node --check tests/cii-workspace-anchor-search-budget.test.js
+
+      - name: Run authored focused test
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-anchor-search-budget.test.js 2>&1 | tee s1-r2-4.log
+
+      - name: Upload focused qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-s1-r2-4-exact-head
+          path: s1-r2-4.log
+          if-no-files-found: warn
