@@ -1,0 +1,90 @@
+name: CII Writer2 S2/S3 U6 post-U4 causal trace
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s23-u6-1299
+  workflow_dispatch:
+
+jobs:
+  u6-causal-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact U6 validation basis
+        shell: bash
+        run: |
+          set -euo pipefail
+          U5=60dea2ba7168fa7f785ed8a166ee98574d6a1cfa
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-writer2-s23-u6-1299.yml' \
+            'tests/browser/cii-writer2-s23-u6-post-u4-causal-trace.spec.mjs' | sort)"
+          actual="$(git diff --name-only "$U5"...HEAD | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git hash-object tests/browser/cii-writer2-s23-u6-post-u4-causal-trace.spec.mjs)" = "e9f16301e638e234da269f7f932cf8cf4b23fe9f"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-alignment.js)" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "1512858f06cd6cc47c221cac306c4846302cde50"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-node-custody.js)" = "221ae3dd5ea6f1e98afaf763646885db91e51ff2"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-benchmark-overlay.js)" = "0bc83e1b747725a3c0e7e5cbd147aded421f10c4"
+
+          if git diff --name-only "$U5"...HEAD -- tabs/cii-workspace Benchmark | grep -q .; then
+            echo "U6 product/benchmark mutation forbidden"
+            exit 1
+          fi
+
+          echo "U6_DIAGNOSTIC_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check U6 diagnostic
+        run: node --check tests/browser/cii-writer2-s23-u6-post-u4-causal-trace.spec.mjs
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create focused Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s23-u6.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s23-u6-post-u4-causal-trace.spec.mjs'],
+            timeout: 300_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-s23-u6',
+          };
+          EOF
+
+      - name: Run U6 causal trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s23-u6.config.mjs 2>&1 | tee s23-u6.log
+
+      - name: Upload U6 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s23-u6-causal-trace
+          path: |
+            s23-u6.log
+            test-results/cii-writer2-s23-u6
+          if-no-files-found: warn
