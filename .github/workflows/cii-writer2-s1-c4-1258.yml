@@ -1,9 +1,6 @@
 name: CII Writer2 S1 C4 coherent preselection
 
 on:
-  push:
-    branches:
-      - validation/cii-writer2-s1-c4-1258
   workflow_dispatch:
 
 jobs:
