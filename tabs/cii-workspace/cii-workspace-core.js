@@ -51,10 +51,11 @@ function inputPayload(input, side) {
   return input?.[`${side}Bytes`] ?? input?.[`${side}Text`];
 }
 async function intakePair(input, options, prepared = {}) {
-  const sourceDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
+  const sourceDocument = prepared.sourceDocument
+    || await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
   const targetDocument = prepared.targetDocument
     || await intakeCiiWorkspaceDocument(inputPayload(input, 'target'), input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
-  const sourceGraph = adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
+  const sourceGraph = prepared.sourceGraph || adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
   const targetGraph = prepared.targetGraph || adaptCiiDocumentToTopologyGraph(targetDocument, { instrumentation: options.instrumentation });
   return { sourceDocument, targetDocument, sourceGraph, targetGraph };
 }
