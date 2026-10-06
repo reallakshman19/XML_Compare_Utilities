@@ -10,10 +10,26 @@ function blockedCorrespondence(reason) {
 function anchorPairs(loop) {
   return (loop?.anchorPairs || []).map((pair) => ({ sourceNodeId: String(pair.sourceNodeId), targetNodeId: String(pair.targetNodeId) }));
 }
+function anchorPairKey(pair) { return `${String(pair.sourceNodeId)}=>${String(pair.targetNodeId)}`; }
+function methodAIdentityConfidence(loop) {
+  return ['HIGH', 'MEDIUM'].includes(loop?.confidence) ? loop.confidence : 'REVIEW';
+}
+function projectMethodAAnchorRows(correspondence, anchors, loop) {
+  const keys = new Set(anchors.map(anchorPairKey)); const confidence = methodAIdentityConfidence(loop);
+  const nodeRows = (correspondence?.nodeRows || []).map((row) => {
+    if (!keys.has(anchorPairKey(row)) || row.status !== 'LOCKED' || row.authority !== 'USER_LOCKED_ANCHOR') return row;
+    return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
+      evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: ['HIGH', 'MEDIUM'].includes(confidence),
+        identityConfidence: confidence, identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR',
+        methodALoopId: String(loop?.loopId || loop?.baseId || '') }) });
+  });
+  return deepFreeze({ ...correspondence, nodeRows: deepFreeze(nodeRows) });
+}
 function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (anchors.length < 3) return blockedCorrespondence('METHOD_A_READY_LOOP_REQUIRES_THREE_ANCHORS');
-  return compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  const raw = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  return projectMethodAAnchorRows(raw, anchors, loop);
 }
 function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
