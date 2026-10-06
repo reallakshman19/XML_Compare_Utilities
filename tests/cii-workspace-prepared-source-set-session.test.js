@@ -7,6 +7,7 @@ import {
   prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge,
 } from '../tabs/cii-workspace/cii-workspace-source-set.js';
 import { createCiiWorkspaceCommonAnalysis } from '../tabs/cii-workspace/cii-workspace-core.js';
+import { inspectCiiWorkspaceModelsWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
 
 const cryptoRef = globalThis.crypto || webcrypto;
 const fixture = await readFile(new URL('../Benchmark/Pipeline/CII', import.meta.url), 'utf8');
@@ -82,6 +83,40 @@ assert.equal(legacy.status, prepared.inspection.status);
 assert.equal(legacy.sourceSet.sourceSetSha256, prepared.inspection.sourceSet.sourceSetSha256);
 assert.deepEqual(legacy.baseAnchorSuggestionsBySource, prepared.inspection.baseAnchorSuggestionsBySource);
 assert.equal(Object.hasOwn(legacy, 'preparedSession'), false);
+
+// Pair-oriented parity remains exact when the pair API is evaluated under the
+// same source-set search/display policy. The historical shared-target test
+// omitted baseAnchorDisplayLimit and therefore compares source-set top-5 to
+// legacy-pair default top-8.
+for (let index = 0; index < sources.length; index += 1) {
+  const source = sources[index];
+  const pair = await inspectCiiWorkspaceModelsWithVersionBridge({
+    sourceText: source.text,
+    sourceFileName: source.fileName,
+    targetText: fixture,
+    targetFileName: 'T.CII',
+  }, {
+    cryptoRef,
+    writerVersion: '2',
+    methodAPhysicalCandidateLimit: 10,
+    baseAnchorDisplayLimit: 5,
+  });
+  assert.deepEqual(
+    prepared.inspection.memberInspections[index].inspection.source,
+    pair.source,
+    source.sourceId + ': prepared SOURCE inspection must match pair API',
+  );
+  assert.deepEqual(
+    prepared.inspection.memberInspections[index].inspection.target,
+    pair.target,
+    source.sourceId + ': prepared TARGET inspection must match pair API',
+  );
+  assert.deepEqual(
+    prepared.inspection.memberInspections[index].inspection.baseAnchorSuggestions,
+    pair.baseAnchorSuggestions,
+    source.sourceId + ': prepared anchor suggestions must match pair API under identical limits',
+  );
+}
 
 // Later common analysis can consume retained SOURCE+TARGET models without
 // another intake/topology construction.
