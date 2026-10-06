@@ -15,6 +15,7 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
       topologyAdapterModule,
       topologyModule,
       arbitrationModule,
+      compareReviewModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
@@ -24,6 +25,7 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
       import('/tabs/cii-workspace/cii-workspace-topology-adapter.js'),
       import('/tabs/cii-workspace/cii-workspace-topology.js'),
       import('/tabs/cii-workspace/cii-workspace-correspondence-arbitration.js'),
+      import('/tabs/cii-workspace/cii-workspace-compare-review.js'),
     ]);
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSetModule;
     const { ciiAutomaticBaseSelection } = baseSelectionModule;
@@ -33,6 +35,7 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
     const { adaptCiiDocumentToTopologyGraph } = topologyAdapterModule;
     const { compareLockedCiiAnchorSpan } = topologyModule;
     const { arbitrateCiiLoopCorrespondences } = arbitrationModule;
+    const { buildCiiCompareReviewModel } = compareReviewModule;
 
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -105,22 +108,44 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
       }
       return rows;
     }
-    function buildStrategy(name, pairs, anchors, sourceGraph, targetGraph, geometry, confidence) {
+    function methodAQualifiedCorrespondence(correspondence, anchorPairs, confidence, loopId) {
+      const anchors = new Set(anchorPairs.map((row) => row.sourceNodeId + '=>' + row.targetNodeId));
+      const nodeRows = (correspondence?.nodeRows || []).map((row) => {
+        const key = String(row.sourceNodeId) + '=>' + String(row.targetNodeId);
+        if (!anchors.has(key) || row.status !== 'LOCKED' || row.authority !== 'USER_LOCKED_ANCHOR') return row;
+        return {
+          ...row,
+          status: 'REVIEW',
+          authority: 'METHOD_A_QUALIFIED_ANCHOR',
+          evidence: {
+            ...(row.evidence || {}),
+            identitySupported: ['HIGH', 'MEDIUM'].includes(confidence),
+            identityConfidence: confidence,
+            identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR',
+            methodALoopId: loopId,
+          },
+        };
+      });
+      return { ...correspondence, nodeRows };
+    }
+    function buildStrategy(name, pairs, anchors, sourceGraph, targetGraph, geometry, confidence, sourceDocument, targetDocument) {
       const spanResults = pairs.map(([left, right], index) => {
         const anchorPairs = [anchors[left], anchors[right]];
-        const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs, { geometryTransform: geometry });
+        const loopId = 'D2_' + name + '_' + index;
+        const raw = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs, { geometryTransform: geometry });
+        const correspondence = methodAQualifiedCorrespondence(raw, anchorPairs, confidence, loopId);
         return {
-          loop: {
-            loopId: 'D2_' + name + '_' + index,
-            method: 'METHOD_A_SPATIAL',
-            status: 'READY',
-            confidence,
-            anchorPairs,
-          },
+          loop: { loopId, method: 'METHOD_A_SPATIAL', status: 'READY', confidence, anchorPairs },
           correspondence,
         };
       });
       const union = arbitrateCiiLoopCorrespondences(spanResults);
+      const review = buildCiiCompareReviewModel(sourceDocument, targetDocument, union, {}, { rows: [] });
+      const boundNodeClaims = (review.rows || []).flatMap((row) =>
+        row.kind === 'NODE' && row.identityBound && row.source && row.target
+          ? [{ sourceNodeId: String(row.source), targetNodeId: String(row.target), confidence: row.confidence,
+              workflowStatus: row.workflowStatus, identityEvidenceBasis: row.identityEvidenceBasis }]
+          : []);
       return {
         name,
         pairIndexes: pairs,
@@ -131,6 +156,8 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
         unionStatus: union.status,
         conflicts: union.conflicts || [],
         claims: normalizedClaims(union),
+        boundNodeClaims,
+        lockedReviewRows: (review.rows || []).filter((row) => row.workflowStatus === 'LOCKED' || row.confidence === 'LOCKED').length,
       };
     }
 
@@ -162,11 +189,11 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
     }));
     const n = anchors.length;
     const strategies = [
-      buildStrategy('CURRENT_FIRST_LAST', [[0, n - 1]], anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence),
-      buildStrategy('ANCHOR_ORDER_CHAIN', Array.from({ length: n - 1 }, (_, index) => [index, index + 1]), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence),
-      buildStrategy('WINNER_STAR', Array.from({ length: n - 1 }, (_, index) => [0, index + 1]), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence),
-      buildStrategy('SOURCE_DISTANCE_MST', mstPairs(anchors, sourceGraph), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence),
-      buildStrategy('ALL_PAIRS', allPairs(n), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence),
+      buildStrategy('CURRENT_FIRST_LAST', [[0, n - 1]], anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence, s1Member.sourceDocument, s1Member.targetDocument),
+      buildStrategy('ANCHOR_ORDER_CHAIN', Array.from({ length: n - 1 }, (_, index) => [index, index + 1]), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence, s1Member.sourceDocument, s1Member.targetDocument),
+      buildStrategy('WINNER_STAR', Array.from({ length: n - 1 }, (_, index) => [0, index + 1]), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence, s1Member.sourceDocument, s1Member.targetDocument),
+      buildStrategy('SOURCE_DISTANCE_MST', mstPairs(anchors, sourceGraph), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence, s1Member.sourceDocument, s1Member.targetDocument),
+      buildStrategy('ALL_PAIRS', allPairs(n), anchors, sourceGraph, targetGraph, methodALoop.geometry, automatic.choices.S1.confidence, s1Member.sourceDocument, s1Member.targetDocument),
     ];
 
     // Benchmark joins only after all candidate strategy correspondences exist.
@@ -184,6 +211,8 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
     const results = strategies.map((strategy) => {
       const supports = s1Expected.filter((expected) => expected.sourceNodeIds.some((sourceNodeId) =>
         strategy.claims.some((claim) => claim.sourceNodeId === sourceNodeId && claim.targetNodeId === expected.targetNodeId)));
+      const boundSupports = s1Expected.filter((expected) => expected.sourceNodeIds.some((sourceNodeId) =>
+        strategy.boundNodeClaims.some((claim) => claim.sourceNodeId === sourceNodeId && claim.targetNodeId === expected.targetNodeId)));
       return {
         name: strategy.name,
         pairIndexes: strategy.pairIndexes,
@@ -194,8 +223,11 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
         unionStatus: strategy.unionStatus,
         conflictCount: strategy.conflicts.length,
         nodeClaimCount: strategy.claims.length,
-        s1AttributedIdentityRecovery: supports.length,
+        s1AttributedClaimPresence: supports.length,
+        s1AttributedIdentityBound: boundSupports.length,
         recoveredTargets: supports.map((row) => row.targetNodeId),
+        boundTargets: boundSupports.map((row) => row.targetNodeId),
+        lockedReviewRows: strategy.lockedReviewRows,
       };
     });
 
@@ -212,5 +244,6 @@ test('D2 compares authority-safe Method-A local-span strategies', async ({ page 
   console.log('S1_D2_LOCAL_SPAN_STRATEGIES=' + JSON.stringify(diagnostics));
 
   expect(diagnostics.anchorCount).toBe(10);
-  expect(diagnostics.results.find((row) => row.name === 'ALL_PAIRS').s1AttributedIdentityRecovery).toBe(12);
+  expect(diagnostics.results.find((row) => row.name === 'ALL_PAIRS').s1AttributedClaimPresence).toBe(12);
+  expect(diagnostics.results.every((row) => row.lockedReviewRows === 0)).toBe(true);
 });
