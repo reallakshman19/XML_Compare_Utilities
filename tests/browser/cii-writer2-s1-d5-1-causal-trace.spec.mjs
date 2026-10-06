@@ -12,6 +12,7 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
       censusModule,
       benchmarkModule,
       engineeringModule,
+      arbitrationModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
@@ -19,6 +20,7 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
       import('/tabs/cii-workspace/cii-workspace-source-target-audit.js'),
       import('/tabs/cii-workspace/cii-workspace-benchmark-overlay.js'),
       import('/tabs/cii-workspace/cii-workspace-engineering-delta.js'),
+      import('/tabs/cii-workspace/cii-workspace-correspondence-arbitration.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSet;
@@ -30,6 +32,7 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
       buildCiiSourceTargetBenchmarkOverlay,
     } = benchmarkModule;
     const { ciiIdentityBound, ciiIdentityConfidence } = engineeringModule;
+    const { arbitrateCiiLoopCorrespondences } = arbitrationModule;
 
     async function fetchBytes(path) {
       const response = await fetch(path, { cache: 'no-store' });
@@ -99,6 +102,19 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
           rowStatus: row.rowStatus,
           rowAuthority: row.rowAuthority,
         })),
+        nodeCustodyGate: evidence.nodeCustodyGate ? {
+          status: evidence.nodeCustodyGate.status || null,
+          blocker: evidence.nodeCustodyGate.blocker || null,
+          sourceElementIds: evidence.nodeCustodyGate.sourceElementIds || [],
+          linkedCandidateEvidence: (evidence.nodeCustodyGate.linkedCandidateEvidence || []).map((item) => ({
+            correspondenceId: item.correspondenceId || null,
+            status: item.status || null,
+            candidateStatus: item.candidates?.status || null,
+            winnerIdentityConfidence: item.candidates?.winnerIdentityConfidence || null,
+            winnerTargetElementId: item.candidates?.winnerTargetElementId || null,
+            reasons: item.candidates?.reasons || [],
+          })),
+        } : null,
       };
     }
     function nodeRowSummary(row) {
@@ -135,6 +151,22 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
         reasons: row.reasons || [],
         identityReasons: row.identityReasons || [],
         adjacentBoundary: row.adjacentBoundary || null,
+      };
+    }
+    function elementRowSummary(row) {
+      if (!row) return null;
+      return {
+        correspondenceId: row.correspondenceId || null,
+        sourceElementIds: (row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : [])).map(String),
+        targetElementIds: (row.targetElementIds || (row.targetElementId ? [row.targetElementId] : [])).map(String),
+        status: row.status || null,
+        authority: row.authority || null,
+        candidateStatus: row.evidence?.candidates?.status || null,
+        winnerIdentityConfidence: row.evidence?.candidates?.winnerIdentityConfidence || null,
+        winnerTargetElementId: row.evidence?.candidates?.winnerTargetElementId || null,
+        winnerGap: row.evidence?.candidates?.winnerGap ?? null,
+        requiredWinnerGap: row.evidence?.candidates?.requiredWinnerGap ?? null,
+        reasons: row.evidence?.candidates?.reasons || [],
       };
     }
     function deltaSummary(row) {
@@ -190,14 +222,32 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
     }
     function classify(trace) {
       const raw = trace.rawLoopRows || [];
-      if (!raw.length) return 'RAW_CORRESPONDENCE_MISSING';
-      if (!raw.some((row) => row.row?.genericIdentityBound === true)) return 'RAW_IDENTITY_UNSUPPORTED';
-      if (!trace.canonicalRows.some((row) => row.genericIdentityBound === true)) return 'ARBITRATION_EVIDENCE_LOSS';
-      if (!trace.reviewRows.some((row) => row.identityBound === true)) return 'REVIEW_IDENTITY_GATE';
-      if (!trace.nodeNameDeltas.some((row) => row.changed === true)) return 'ENGINEERING_DELTA_MISSING';
-      if (!trace.combinedTransferOperations.length) return 'TRANSFER_SELECTION_GATE';
-      if (trace.audit.state !== 'BOUND' || !trace.overlay.mutationRecovered) return 'SOURCE_TARGET_AUDIT_JOIN_DEFECT';
-      return 'OTHER_WITH_EXACT_MECHANISM';
+      if (!raw.length) return { class: 'RAW_CORRESPONDENCE_MISSING', mechanism: null };
+      if (!raw.some((row) => row.row?.genericIdentityBound === true)) {
+        return { class: 'RAW_IDENTITY_UNSUPPORTED', mechanism: null };
+      }
+      if (!trace.arbitrationRows.some((row) => row.genericIdentityBound === true)) {
+        return { class: 'ARBITRATION_EVIDENCE_LOSS', mechanism: null };
+      }
+      if (!trace.postCustodyRows.some((row) => row.genericIdentityBound === true)) {
+        const gate = trace.postCustodyRows.find((row) => row.evidence?.nodeCustodyGate);
+        return gate
+          ? { class: 'OTHER_WITH_EXACT_MECHANISM', mechanism: 'POST_ARBITRATION_NODE_CUSTODY_GATE' }
+          : { class: 'OTHER_WITH_EXACT_MECHANISM', mechanism: 'POST_ARBITRATION_PRE_REVIEW_IDENTITY_LOSS' };
+      }
+      if (!trace.reviewRows.some((row) => row.identityBound === true)) {
+        return { class: 'REVIEW_IDENTITY_GATE', mechanism: null };
+      }
+      if (!trace.nodeNameDeltas.some((row) => row.changed === true)) {
+        return { class: 'ENGINEERING_DELTA_MISSING', mechanism: null };
+      }
+      if (!trace.combinedTransferOperations.length) {
+        return { class: 'TRANSFER_SELECTION_GATE', mechanism: null };
+      }
+      if (trace.audit.state !== 'BOUND' || !trace.overlay.mutationRecovered) {
+        return { class: 'SOURCE_TARGET_AUDIT_JOIN_DEFECT', mechanism: null };
+      }
+      return { class: 'OTHER_WITH_EXACT_MECHANISM', mechanism: 'NO_LOSS_CONTROL_ROW' };
     }
 
     const sourceNames = ['S1.CII', 'S2.CII', 'S3.CII'];
@@ -248,7 +298,12 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
       const replacementPreview = member?.replacementPreview;
       const sourceNodeId = String(auditRow.sourceNodeId || '');
       const targetNodeId = String(overlayRow.nodeId || auditRow.targetNodeId || '');
-      const canonicalRows = (preview?.correspondence?.nodeRows || [])
+      const directArbitration = arbitrateCiiLoopCorrespondences(preview?.correspondence?.loopResults || []);
+      const arbitrationRows = (directArbitration?.nodeRows || [])
+        .filter((row) => String(row?.sourceNodeId || '') === sourceNodeId
+          && String(row?.targetNodeId || '') === targetNodeId)
+        .map(nodeRowSummary);
+      const postCustodyRows = (preview?.correspondence?.nodeRows || [])
         .filter((row) => String(row?.sourceNodeId || '') === sourceNodeId
           && String(row?.targetNodeId || '') === targetNodeId)
         .map(nodeRowSummary);
@@ -260,7 +315,16 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
             loop: loopSummary(item.loop),
             row: nodeRowSummary(row),
           })));
-      const correspondenceIds = new Set(canonicalRows.map((row) => row.correspondenceId).filter(Boolean));
+      const correspondenceIds = new Set(postCustodyRows.map((row) => row.correspondenceId).filter(Boolean));
+      const gatedSourceElementIds = new Set(postCustodyRows
+        .flatMap((row) => row.evidence?.nodeCustodyGate?.sourceElementIds || [])
+        .map(String));
+      const affectedElementRows = (preview?.correspondence?.elementRows || [])
+        .filter((row) => {
+          const ids = (row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : [])).map(String);
+          return ids.some((id) => gatedSourceElementIds.has(id));
+        })
+        .map(elementRowSummary);
       const reviewRows = (preview?.compareReview?.rows || [])
         .filter((row) => String(row?.source || '') === sourceNodeId
           && String(row?.target || '') === targetNodeId)
@@ -327,14 +391,16 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
           reasons: auditRow.reasons || [],
         },
         rawLoopRows,
-        canonicalRows,
+        arbitrationRows,
+        postCustodyRows,
+        affectedElementRows,
         reviewRows,
         nodeNameDeltas,
         memberTransferOperations,
         replacementTransferOperations,
         combinedTransferOperations,
       };
-      return { ...trace, earliestClass: classify(trace) };
+      return { ...trace, classification: classify(trace) };
     }
 
     function traceOverlayRow(overlayRow) {
@@ -399,6 +465,10 @@ test('D5.1 traces final S1 mutation losses through production correspondence-rev
   expect(diagnostics.controls.recoveredPreD3).not.toBeNull();
   for (const row of diagnostics.missingS1) {
     expect(row.traces.length).toBeGreaterThan(0);
-    for (const trace of row.traces) expect(trace.earliestClass).toBeTruthy();
+    for (const trace of row.traces) {
+      expect(trace.classification?.class).toBeTruthy();
+      expect(trace.arbitrationRows.length).toBeGreaterThan(0);
+      expect(trace.postCustodyRows.length).toBeGreaterThan(0);
+    }
   }
 });
