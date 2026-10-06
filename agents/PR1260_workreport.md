@@ -30,9 +30,9 @@ Implement #1257 / parent #1256 C3: repair only the bounded physical Method-A can
 
 `C3-C` bounded coherent-cluster reservation is integrated into the #1234 selector. Existing global SOURCE+TARGET spatial diversity is reused to fill any remaining budget.
 
-Current PR head: `4248c12acdb6722d69d26f363de165737fda827f`.
+`C3-D` focused generic execution, syntax, size, forbidden-input and protected-file audits are complete.
 
-Next material unit is `C3-D`: finish focused syntax/contract evidence, update the durable patch/undo ledger, and hand the exact head to #1258 for independent retained qualification.
+`C3-E` product implementation is ready for exact-head handoff to #1258. C3 does not claim retained acceptance.
 
 ## Root classification
 
@@ -97,7 +97,8 @@ This limitation is **observability/recovery tooling**, not permission to weaken 
 | Appendix A | PASS | 98/100; min 19/20 | repository/current evidence |
 | product module syntax | PASS | actual PR blob parsed after import/export normalization in connector V8 | implementation-coupled |
 | generic coherence execution | PASS | actual PR product blob executed against rigid-transform/permutation/renumbering/inconsistent-distance/authority-noise fixtures | implementation-coupled |
-| focused Node test file | NOT_RUN as repository Node command | normal checkout unavailable; authored test blob inspected separately | implementation-coupled |
+| focused test module syntax | PASS | actual test blob parsed with top-level-await-aware wrapper | implementation-coupled |
+| focused repository Node command | NOT_RUN | normal checkout unavailable; no hosted run instantiated on C3 head | implementation-coupled |
 | retained S1 | NOT_RUN in C3 | owned by C4 | independent retained |
 | S2/S3 non-regression | NOT_RUN | owned by C4 | independent retained |
 | Chromium/runtime | NOT_RUN | owned by C4 | independent retained |
@@ -138,6 +139,18 @@ Existing C2 artifact `11403293444` was inspected during C3. It records:
 
 This is historical exact C2 evidence, not C3 exact-head qualification. #1258 owns the latter.
 
+## Final C3 delta audit
+
+PASS:
+- #1234 exact head remained `b7fb3513eabbac786a7d095c1be96fcfbbcac8e6`;
+- PR #1260 remains stacked on that exact head;
+- changed paths are only the work report, physical selector module, and focused test;
+- added production lines contain no retained manual node IDs;
+- added production lines contain no TEXPECTED / known-positive references;
+- added production lines contain no USER_LOCKED/manual authority;
+- added production lines contain no NodeName identity input;
+- geometry, Method-B, confidence, Writer, V11/V14, benchmark and workflow files are untouched.
+
 ## Highest risk
 
 A coherence heuristic could accidentally become a hidden identity rule or over-concentrate the budget on repetitive geometry. Generic adversarial tests and explicit candidate-generation-only metadata are required before retained acceptance.
@@ -148,4 +161,4 @@ A coherence heuristic could accidentally become a hidden identity rule or over-c
 
 ## EXACT_NEXT_ACTION
 
-Complete C3-D focused validation/readback and publish exact-head TASK_EVIDENCE. Then hand PR #1260 exact head to #1258; do not run or claim retained acceptance inside C3.
+Publish C3 STEP TASK_EVIDENCE/TASK_RESULT with the final PR head, then start #1258 validation from that exact head. Do not merge PR #1260.
