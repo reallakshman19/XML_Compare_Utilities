@@ -1,0 +1,51 @@
+name: CII D3.3 Method-A projection integration
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-projection-1278
+  workflow_dispatch:
+
+jobs:
+  d3-3-projection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact D3.3 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c8ec47cd8b3aee5ec4e942a8ef78dfe157712ada
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          expected=".github/workflows/cii-method-a-projection-1278.yml"
+          test "$changed" = "$expected"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "adf5c71f189f564cea87e38f55f62a36817e9d20"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git hash-object tests/cii-workspace-method-a-anchor-provenance.test.js)" = "2462f0571a27b1b3c960baafd7cc718d08cc2316"
+          test "$(git hash-object tests/cii-workspace-method-a-boundary-provenance.test.js)" = "70e1407ddc94feb64b87a6079ea41442ed9dca78"
+          test "$(git hash-object tests/cii-workspace-method-a-projection-integration.test.js)" = "742e6f26d524fddc72f7f1b1f95ca0687d4c4954"
+          if git diff --name-only a7e96865301a09865e0b4126c38310d7b1c8d421...c8ec47cd8b3aee5ec4e942a8ef78dfe157712ada -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+          echo "D3_3_PROJECTION_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run D3 isolated projection contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-method-a-anchor-provenance.test.js
+          node tests/cii-workspace-method-a-boundary-provenance.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
