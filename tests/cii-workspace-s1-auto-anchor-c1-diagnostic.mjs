@@ -11,7 +11,6 @@ import { prepareCiiWorkspaceTargetWithVersionBridge } from '../tabs/cii-workspac
 import {
   uniqueIncidentComponentLengthPairs,
   selectPhysicalCandidatePairs,
-  suggestCiiPhysicalMethodAAnchors,
 } from '../tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js';
 import { suggestCiiBaseAnchorPairs } from '../tabs/cii-workspace/cii-workspace-anchor-suggestions.js';
 import {
@@ -21,7 +20,7 @@ import {
 
 const S1_PATH = new URL('../Benchmark/S1.CII', import.meta.url);
 const T_PATH = new URL('../Benchmark/T.CII', import.meta.url);
-const budgets = [3, 5, 10, 11, 12, 15, 24];
+const budgets = [10, 11, 12, 15];
 const manualDiagnosticKeys = new Set(['3910=>875', '3940=>880', '3870=>870']);
 
 function pairKey(row) {
@@ -48,6 +47,7 @@ function suggestionSummary(row) {
       status: String(row?.methodB?.status || ''),
       weight: Number(row?.methodBWeight?.total || 0),
     },
+    candidateMethod: String(row?.candidateGeneration?.method || ''),
     qualifiedLoopCount: loops.length,
     qualifiedLoops: loops.map((loop) => ({
       method: loop.method,
@@ -59,24 +59,11 @@ function suggestionSummary(row) {
     manualDiagnosticKey: manualDiagnosticKeys.has(pairKey(row)),
   };
 }
-
 async function normalizeSource(bytes, fileName) {
   const version = detectCiiNeutralVersion(bytes);
   if (version === 11) return { version, bytes };
   const down = await convertCiiNeutralVersionLossless(bytes, 11, { fileName });
   return { version, bytes: down.outputBytes };
-}
-
-function instrumentationLedger() {
-  const rows = [];
-  return {
-    rows,
-    instrumentation: {
-      record(name, value = null) {
-        rows.push([String(name), value == null ? null : Number(value)]);
-      },
-    },
-  };
 }
 
 const sourceRaw = readFileSync(S1_PATH);
@@ -91,32 +78,21 @@ const allPhysicalPairs = uniqueIncidentComponentLengthPairs(sourceGraph, targetG
 const matrix = [];
 for (const budget of budgets) {
   const selectedPairs = selectPhysicalCandidatePairs(sourceGraph, targetGraph, allPhysicalPairs, budget);
-  const physicalStarted = performance.now();
-  const physicalRows = suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, {
-    methodAPhysicalCandidateLimit: budget,
-  });
-  const physicalMs = performance.now() - physicalStarted;
-
-  const productLedger = instrumentationLedger();
-  const productStarted = performance.now();
-  const productSuggestions = suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, {
-    methodAPhysicalCandidateLimit: budget,
-    baseAnchorSuggestionLimit: 8,
-    baseAnchorDisplayLimit: 5,
-    instrumentation: productLedger.instrumentation,
-  });
-  const productMs = performance.now() - productStarted;
-
-  const expandedStarted = performance.now();
+  const startedAt = performance.now();
   const expandedSuggestions = suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, {
     methodAPhysicalCandidateLimit: budget,
     baseAnchorSuggestionLimit: 8,
     baseAnchorDisplayLimit: 24,
   });
-  const expandedMs = performance.now() - expandedStarted;
+  const elapsedMs = performance.now() - startedAt;
 
-  const productChoice = ciiAutomaticBaseSelection(productSuggestions);
+  const productTop5 = expandedSuggestions.slice(0, 5);
+  const productChoice = ciiAutomaticBaseSelection(productTop5);
   const expandedChoice = ciiAutomaticBaseSelection(expandedSuggestions);
+  const selectedKeys = new Set(selectedPairs.map(pairKey));
+  const surfacedSelectedPhysical = expandedSuggestions
+    .filter((row) => selectedKeys.has(pairKey(row)))
+    .map(suggestionSummary);
 
   matrix.push({
     budget,
@@ -124,10 +100,8 @@ for (const budget of budgets) {
     selectedPhysicalCandidateCount: selectedPairs.length,
     selectedPhysicalPairs: selectedPairs.map(pairKey),
     selectedManualDiagnosticKeys: selectedPairs.map(pairKey).filter((key) => manualDiagnosticKeys.has(key)),
-    physicalQualifiedSuggestionCount: physicalRows.length,
-    physicalQualifiedSuggestions: physicalRows.map(suggestionSummary),
-    productTop5: productSuggestions.map(suggestionSummary),
-    expandedSuggestions: expandedSuggestions.map(suggestionSummary),
+    surfacedSelectedPhysical,
+    productTop5: productTop5.map(suggestionSummary),
     hiddenAfterTop5: expandedSuggestions.slice(5).map(suggestionSummary),
     productAutomaticChoice: productChoice,
     expandedAutomaticChoice: expandedChoice,
@@ -135,17 +109,12 @@ for (const budget of budgets) {
       productChoice.status === expandedChoice.status
       && String(productChoice.sourceNodeId || '') === String(expandedChoice.sourceNodeId || '')
       && String(productChoice.targetNodeId || '') === String(expandedChoice.targetNodeId || ''),
-    timingsMs: {
-      physicalOnly: Number(physicalMs.toFixed(3)),
-      productWrapper: Number(productMs.toFixed(3)),
-      expandedWrapper: Number(expandedMs.toFixed(3)),
-    },
-    instrumentation: productLedger.rows,
+    wrapperMs: Number(elapsedMs.toFixed(3)),
   });
 }
 
-const output = {
-  schema: 'CIIWriter2S1AutomaticAnchorC1Diagnostic.v1',
+console.log('S1_C1_DIAGNOSTIC=' + JSON.stringify({
+  schema: 'CIIWriter2S1AutomaticAnchorC1Diagnostic.v2',
   sourceVersion: sourceNormalized.version,
   targetVersion: targetPrepared.target.originalVersion,
   sourceNodeCount: sourceGraph.nodes?.length || 0,
@@ -157,6 +126,4 @@ const output = {
     present: allPhysicalPairs.some((row) => pairKey(row) === key),
   })),
   matrix,
-};
-
-console.log('S1_C1_DIAGNOSTIC=' + JSON.stringify(output));
+}));
