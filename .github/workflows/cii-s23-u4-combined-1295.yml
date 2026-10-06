@@ -58,6 +58,11 @@ jobs:
           test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js")" = "030156fd8ee0fda90413a202d6c8f1cc2693ca33"
           test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-base-anchor-method-fusion.test.js")" = "ed2f4a093bcc9473b8f19adbbd2ade867354484b"
           test "$(git rev-parse "$PRODUCT_HEAD:tests/cii-workspace-single-anchor.test.js")" = "4a0dbca9cb611829b017aecbb74f0a75eb6005f7"
+          test "$(git rev-parse "$PRODUCT_BASE:tests/cii-workspace-single-anchor.test.js")" = "4a0dbca9cb611829b017aecbb74f0a75eb6005f7"
+          test "$(git rev-parse "$PRODUCT_BASE:tabs/cii-workspace/cii-workspace-topology.js")" = "9ce89073a104d7a7313d3c8a95ea927f65daaca9"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-topology.js")" = "9ce89073a104d7a7313d3c8a95ea927f65daaca9"
+          test "$(git rev-parse "$PRODUCT_BASE:tabs/cii-workspace/cii-workspace-topology-adapter.js")" = "ca542fa579cb1445951bf8af33f7bec5968b179c"
+          test "$(git rev-parse "$PRODUCT_HEAD:tabs/cii-workspace/cii-workspace-topology-adapter.js")" = "ca542fa579cb1445951bf8af33f7bec5968b179c"
 
           if git diff --name-only "$PRODUCT_BASE" "$PRODUCT_HEAD" -- Benchmark | grep -q .; then
             echo "Benchmark mutation forbidden"
@@ -109,9 +114,25 @@ jobs:
           node tests/cii-workspace-method-a-projection-integration.test.js
           node tests/cii-workspace-method-a-boundary-node-custody.test.js
 
-      - name: Run Method-B, manual and custody controls
+      - name: Run Method-B and manual/conflict controls
         shell: bash
         run: |
           set -euo pipefail
           node tests/cii-workspace-base-anchor-method-fusion.test.js
-          node tests/cii-workspace-single-anchor.test.js
+          node tests/cii-workspace-method-a-projection-integration.test.js
+
+      - name: Classify inherited single-anchor baseline assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_BASE=d919446c09237558da57b01bf9168985bf6d73db
+          git worktree add --detach /tmp/u4-preimage "$PRODUCT_BASE"
+          set +e
+          baseline_output="$(cd /tmp/u4-preimage && node tests/cii-workspace-single-anchor.test.js 2>&1)"
+          baseline_status=$?
+          set -e
+          printf '%s\n' "$baseline_output"
+          test "$baseline_status" -ne 0
+          grep -Fq "TARGET_CUSTODY_AMBIGUOUS" <<< "$baseline_output"
+          git worktree remove --force /tmp/u4-preimage
+          echo "PRE_EXISTING_BASELINE_SINGLE_ANCHOR_ASSERTION_CONFIRMED"
