@@ -10,10 +10,46 @@ function blockedCorrespondence(reason) {
 function anchorPairs(loop) {
   return (loop?.anchorPairs || []).map((pair) => ({ sourceNodeId: String(pair.sourceNodeId), targetNodeId: String(pair.targetNodeId) }));
 }
+function methodAConfidence(loop) {
+  return ['HIGH', 'MEDIUM'].includes(loop?.confidence) ? loop.confidence : null;
+}
+function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
+function projectMethodAAnchorRow(row, loop, anchorKeys) {
+  const isAnchor = row?.kind === 'NODE' && anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId));
+  if (!isAnchor || row.status !== 'LOCKED' || row.authority !== 'USER_LOCKED_ANCHOR') return row;
+  const confidence = methodAConfidence(loop); const loopId = String(loop?.loopId || loop?.baseId || '');
+  return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
+    evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
+      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId }) });
+}
+function highIdentityEvidence(evidence) {
+  return evidence?.identitySupported === true && evidence?.identityConfidence === 'HIGH';
+}
+function projectMethodABoundaryRow(row, loop) {
+  if (row?.kind !== 'NODE' || row.authority !== 'ADJACENT_MATCH_BOUNDARY') return row;
+  if (['CONFLICT', 'UNRESOLVED'].includes(row.status)) return row;
+  const confidence = methodAConfidence(loop);
+  const supported = Boolean(confidence) && highIdentityEvidence(row.evidence?.leftElement)
+    && highIdentityEvidence(row.evidence?.rightElement);
+  const loopId = String(loop?.loopId || loop?.baseId || '');
+  return deepFreeze({ ...row, status: 'REVIEW',
+    evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: supported,
+      identityConfidence: supported ? confidence : 'REVIEW',
+      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId }) });
+}
+function projectMethodAAnchorAuthority(correspondence, loop, anchors) {
+  const anchorKeys = new Set(anchors.map((pair) => anchorPairKey(pair.sourceNodeId, pair.targetNodeId)));
+  const nodeRows = (correspondence?.nodeRows || []).map((row) => {
+    const anchorRow = projectMethodAAnchorRow(row, loop, anchorKeys);
+    return projectMethodABoundaryRow(anchorRow, loop);
+  });
+  return deepFreeze({ ...correspondence, nodeRows: deepFreeze(nodeRows) });
+}
 function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (anchors.length < 3) return blockedCorrespondence('METHOD_A_READY_LOOP_REQUIRES_THREE_ANCHORS');
-  return compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
+  return projectMethodAAnchorAuthority(correspondence, loop, anchors);
 }
 function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
@@ -78,3 +114,5 @@ export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiB
   const seedOnly = loopResults.length > 1 && loopResults.every((item) => item.loop.method === 'USER_LOCKED_SEED');
   return seedOnly ? arbitrateCiiSeedCorrespondences(loopResults) : arbitrateCiiLoopCorrespondences(loopResults);
 }
+
+export const _test = Object.freeze({ projectMethodABoundaryRow });
