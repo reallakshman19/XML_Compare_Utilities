@@ -30,9 +30,12 @@ Serial children:
 ## Current state
 
 Current unit:
-`#1277 D3.2 — qualified Method-A adjacent-boundary projection only`.
+`#1278 D3.3 — arbitration + generic identity/engineering integration proof`.
 
-#1276 D3.1 is complete with hosted isolated PASS run `37510261973`.
+#1276 D3.1 hosted PASS: run `37510261973`.
+#1277 D3.2 hosted PASS: run `37510992374`.
+
+No #1278 production code change has been made; the child currently adds an integration test only.
 
 Material frontier before this report refresh:
 - PR #1280 head: `c75c22200720dcf6929a7be6446ba66d4369f93d`
@@ -78,7 +81,8 @@ No changes to:
 |---|---|---|
 | `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js` | D3.1 anchor projection + D3.2 adjacent-boundary projection | D3.2 implemented / hosted validation pending |
 | `tests/cii-workspace-method-a-anchor-provenance.test.js` | isolated D3.1 provenance contract | PASS hosted |
-| `tests/cii-workspace-method-a-boundary-provenance.test.js` | isolated D3.2 boundary contract | authored / hosted pending |
+| `tests/cii-workspace-method-a-boundary-provenance.test.js` | isolated D3.2 boundary contract | PASS hosted |
+| `tests/cii-workspace-method-a-projection-integration.test.js` | D3.3 arbitration/identity/engineering integration | authored / hosted pending |
 | `tests/cii-workspace-multi-base-correspondence.test.js` | inherited broad suite | restored unchanged to base |
 | `agents/PR1280_workreport.md` | recovery surface | active |
 
@@ -101,7 +105,7 @@ Compensation:
 | D3.1 implementation | PASS — hosted isolated run 37510261973 |
 | inherited broad multi-base baseline | FAIL on untouched #1265 — Method-B-only assertion, run 37509033803 |
 | D3.2 | PASS — hosted isolated run 37510992374 |
-| D3.3 | NOT_RUN |
+| D3.3 | integration test authored; product arbitration unchanged; hosted validation pending |
 | D3.4 | NOT_RUN |
 | retained D4 | NOT_RUN |
 
@@ -142,6 +146,22 @@ D3.2 adds no spans and does not edit arbitration. It projects only raw Method-A 
 - D3.2 test blob: `70e1407ddc94feb64b87a6079ea41442ed9dca78`
 - arbitration blob: `ff26a1921dc527a7d7cef2e9a94c56b92651484f` (unchanged)
 
+## D3.3 material frontier before hosted validation
+
+- PR head before this report refresh: `65556bf69334fc0765df884110dd45bd7fe214fb`
+- combined D3 product blob: `adf5c71f189f564cea87e38f55f62a36817e9d20`
+- arbitration blob: `ff26a1921dc527a7d7cef2e9a94c56b92651484f` (unchanged from #1265)
+- D3.3 integration test blob: `742e6f26d524fddc72f7f1b1f95ca0687d4c4954`
+- inherited broad test blob: `bf5304efb01acc0ec597ca4903551fd6ee315f1b` (unchanged #1265 baseline)
+
+The integration test uses a non-anchor interior path boundary and asserts generic:
+- arbitration evidence preservation;
+- `ciiIdentityBound / ciiIdentityConfidence`;
+- NodeName engineering delta;
+- compare-review workflow;
+- manual-lock preservation;
+- conflict veto.
+
 ## EXACT_NEXT_ACTION
 
-After #1277 TASK_RESULT is published, begin #1278 only. Prove whether D3.1/D3.2 evidence survives the unchanged arbitration path and reaches generic identity/engineering consumers before proposing any arbitration product change.
+Create a validation-only branch from the refreshed PR #1280 head and run the D3.3 integration test with exact production/arbitration/test hash guards. If it passes, do not modify arbitration; publish #1278 TASK_RESULT before #1279.
