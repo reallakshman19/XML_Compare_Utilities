@@ -3,6 +3,8 @@ import { discoverCiiMethodABases, projectCiiMethodAEvidence } from './cii-worksp
 
 const DEFAULT_PHYSICAL_SEARCH_LIMIT = 10;
 const MAX_PHYSICAL_SEARCH_LIMIT = 24;
+const PRESELECTION_RELATIVE_ERROR_MAX = 0.001;
+const PRESELECTION_SOURCE_OD_NORMALIZED_DELTA_MAX = 0.1;
 
 function componentLengthToken(edge) {
   const length = Number(edge?.lengthMm);
@@ -55,6 +57,38 @@ function squaredDistance(left, right) {
   if (!left || !right) return 0;
   const dx = Number(left.x) - Number(right.x); const dy = Number(left.y) - Number(right.y); const dz = Number(left.z) - Number(right.z);
   return [dx, dy, dz].every(Number.isFinite) ? dx * dx + dy * dy + dz * dz : 0;
+}
+function pointDistanceMm(left, right) {
+  if (!left || !right) return null;
+  const values = [left.x, left.y, left.z, right.x, right.y, right.z].map(Number);
+  if (!values.every(Number.isFinite)) return null;
+  return Math.hypot(values[0] - values[3], values[1] - values[4], values[2] - values[5]);
+}
+function positiveNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+function incidentOdMm(graph, nodeId) {
+  const values = [...(graph?.adjacency?.get(String(nodeId)) || [])]
+    .map((edge) => positiveNumber(edge?.diameter ?? edge?.od)).filter((value) => value != null);
+  return values.length ? Math.min(...values) : null;
+}
+function distinctCandidateClaims(left, right) {
+  return String(left.sourceNodeId) !== String(right.sourceNodeId)
+    && String(left.targetNodeId) !== String(right.targetNodeId);
+}
+function pairDistanceCompatible(sourceGraph, sourcePositions, targetPositions, left, right) {
+  if (!distinctCandidateClaims(left, right)) return false;
+  const sourceDistance = pointDistanceMm(sourcePositions.get(left.sourceNodeId), sourcePositions.get(right.sourceNodeId));
+  const targetDistance = pointDistanceMm(targetPositions.get(left.targetNodeId), targetPositions.get(right.targetNodeId));
+  const sourceOds = [incidentOdMm(sourceGraph, left.sourceNodeId), incidentOdMm(sourceGraph, right.sourceNodeId)];
+  if (sourceDistance == null || targetDistance == null || sourceOds.some((value) => value == null)) return false;
+  const span = Math.max(sourceDistance, targetDistance);
+  if (!(span > 1e-9)) return false;
+  const deltaMm = Math.abs(sourceDistance - targetDistance);
+  const odRefMm = Math.min(...sourceOds);
+  return deltaMm / span <= PRESELECTION_RELATIVE_ERROR_MAX
+    && deltaMm / odRefMm <= PRESELECTION_SOURCE_OD_NORMALIZED_DELTA_MAX;
 }
 function spreadScore(pair, selected, sourcePositions, targetPositions) {
   if (!selected.length) return 0;
@@ -113,4 +147,7 @@ export function suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, optio
   return deepFreeze(rows);
 }
 
-export const _test = Object.freeze({ componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit, candidatePriority, spreadScore });
+export const _test = Object.freeze({
+  componentLengthToken, incidentFingerprint, uniqueByFingerprint, boundedPhysicalLimit, physicalSearchLimit, boundedDiscoveryLimit,
+  candidatePriority, pointDistanceMm, incidentOdMm, distinctCandidateClaims, pairDistanceCompatible, spreadScore,
+});
