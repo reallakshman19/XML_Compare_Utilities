@@ -1,0 +1,98 @@
+name: CII Writer2 Slice 8 persistence qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-slice8-persistence-1239
+  workflow_dispatch:
+
+jobs:
+  slice8-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard validation deltas
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=89857fa9a606eff7324a2029ff2e34b5b817c24d
+          PERF=b7fb3513eabbac786a7d095c1be96fcfbbcac8e6
+          allowed=$(cat <<'EOF'
+          .github/workflows/cii-writer2-slice8-persistence.yml
+          tests/browser/cii-writer2-slice8-reload-validation.spec.mjs
+          tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js
+          tabs/cii-workspace/cii-workspace-anchor-suggestions.js
+          tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+          tabs/cii-workspace/cii-workspace-source-set.js
+          tabs/cii-workspace/cii-workspace-source-target-audit.js
+          EOF
+          )
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          unexpected="$(comm -23 <(printf '%s\\n' "$changed") <(printf '%s\\n' "$allowed" | sed 's/^          //' | sort) || true)"
+          if [ -n "$unexpected" ]; then echo "Unexpected drift $unexpected"; exit 1; fi
+          for file in tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js tabs/cii-workspace/cii-workspace-anchor-suggestions.js tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js tabs/cii-workspace/cii-workspace-source-set.js; do
+            current="$(git hash-object "$file")"
+            expected="$(git show "$PERF:$file" | git hash-object --stdin)"
+            test "$current" = "$expected"
+          done
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)" = 8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91
+          git diff --exit-code "$BASE" -- \
+            tabs/cii-workspace/cii-workspace-multisource-session-persistence.js \
+            tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js \
+            tests/cii-workspace-multisource-session-persistence.test.js \
+            tests/browser/cii-writer2-multisource-session-persistence.spec.mjs \
+            tests/browser/cii-writer2-session-persistence.spec.mjs
+          echo "SLICE8_PRODUCT_SEMANTICS_UNTOUCHED"
+          echo "VALIDATION_HEAD=$(git rev-parse HEAD)"
+      - name: Install
+        run: npm ci
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Deterministic persistence contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-session-persistence.js
+          node --check tabs/cii-workspace/cii-workspace-source-target-audit.js
+          node tests/cii-workspace-multisource-session-persistence.test.js
+      - name: Browser config
+        shell: bash
+        run: |
+          cat > playwright.slice8-persistence.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-multisource-session-persistence.spec.mjs', 'cii-writer2-slice8-reload-validation.spec.mjs'],
+            timeout: 300_000,
+            expect: { timeout: 25000 },
+            workers: 1, retries: 0,
+            outputDir: 'test-results/cii-writer2-slice8-persistence',
+            reporter: [['list']],
+          };
+          EOF
+      - name: Retained close reopen and reload
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.slice8-persistence.config.mjs 2>&1 | tee slice8-persistence.log
+      - name: Upload Slice 8 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-slice8-persistence
+          path: |
+            slice8-persistence.log
+            playwright.slice8-persistence.config.mjs
+            test-results/cii-writer2-slice8-persistence
+          if-no-files-found: warn

@@ -4,6 +4,26 @@ export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
 export const CII_SOURCE_SET_WP2_BLOCKER = 'MULTISOURCE_CORRESPONDENCE_REQUIRES_WP_002';
 
+const DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT = 10;
+const MAX_METHOD_A_PHYSICAL_SEARCH_LIMIT = 24;
+const DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT = 5;
+let multiSourceMethodAPhysicalCandidateLimit = DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
+
+function boundedSearchLimit(value) {
+  const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
+  return Math.max(3, Math.min(MAX_METHOD_A_PHYSICAL_SEARCH_LIMIT, finite));
+}
+export function setCiiMultiSourceMethodAPhysicalCandidateLimit(value) {
+  multiSourceMethodAPhysicalCandidateLimit = boundedSearchLimit(value);
+  return multiSourceMethodAPhysicalCandidateLimit;
+}
+function sourceSetInspectionOptions(options = {}) {
+  return {
+    ...options,
+    methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
+    baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
+  };
+}
 function value(input, key) {
   return input?.[`${key}Bytes`] ?? input?.[`${key}Text`];
 }
@@ -74,16 +94,16 @@ function assertSharedTargetCustody(inspections) {
 export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, options = {}) {
   const sources = sourceRows(input); const targetInput = value(input, 'target');
   if (targetInput == null) throw new Error('CII_SOURCE_SET_TARGET_REQUIRED');
-  const targetFileName = String(input?.targetFileName || 'TARGET.CII');
+  const targetFileName = String(input?.targetFileName || 'TARGET.CII'); const inspectionOptions = sourceSetInspectionOptions(options);
   const { prepareCiiWorkspaceTargetWithVersionBridge, inspectCiiWorkspaceModelsWithPreparedTarget } =
     await import('./cii-workspace-writer-version-bridge.js');
-  const preparedTarget = await prepareCiiWorkspaceTargetWithVersionBridge(targetInput, targetFileName, { ...options, writerVersion: '2' });
+  const preparedTarget = await prepareCiiWorkspaceTargetWithVersionBridge(targetInput, targetFileName, { ...inspectionOptions, writerVersion: '2' });
   const inspections = [];
   for (let index = 0; index < sources.length; index += 1) {
     const source = sources[index];
     inspections.push(await inspectCiiWorkspaceModelsWithPreparedTarget({
       sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
-    }, preparedTarget, { ...options, writerVersion: '2' }));
+    }, preparedTarget, { ...inspectionOptions, writerVersion: '2' }));
   }
   assertSharedTargetCustody(inspections);
   const members = inspections.map((inspection, index) => bridgeMember(sources[index], index, inspection));
@@ -105,4 +125,4 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
   });
 }
 
-export const _test = Object.freeze({ authoritySha, sourceId, sourceRows, targetCustodyKey });
+export const _test = Object.freeze({ authoritySha, sourceId, sourceRows, targetCustodyKey, boundedSearchLimit, sourceSetInspectionOptions });
