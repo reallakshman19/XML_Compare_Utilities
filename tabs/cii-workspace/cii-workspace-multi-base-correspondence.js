@@ -29,8 +29,10 @@ function projectMethodABoundaryRow(row, loop) {
   if (row?.kind !== 'NODE' || row.authority !== 'ADJACENT_MATCH_BOUNDARY') return row;
   if (['CONFLICT', 'UNRESOLVED'].includes(row.status)) return row;
   const confidence = methodAConfidence(loop);
-  const supported = Boolean(confidence) && highIdentityEvidence(row.evidence?.leftElement)
+  const wholeEdgeSupported = highIdentityEvidence(row.evidence?.leftElement)
     && highIdentityEvidence(row.evidence?.rightElement);
+  const boundaryLocalSupported = row.evidence?.boundaryIdentity?.identitySupported === true;
+  const supported = Boolean(confidence) && (wholeEdgeSupported || boundaryLocalSupported);
   const loopId = String(loop?.loopId || loop?.baseId || '');
   return deepFreeze({ ...row, status: 'REVIEW',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: supported,
