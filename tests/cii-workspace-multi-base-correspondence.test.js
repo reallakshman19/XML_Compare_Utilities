@@ -4,6 +4,7 @@ import { qualifyCiiMultiBaseAuthority } from '../tabs/cii-workspace/cii-workspac
 import { buildCiiMultiBaseCorrespondence } from '../tabs/cii-workspace/cii-workspace-multi-base-correspondence.js';
 import { arbitrateCiiLoopCorrespondences } from '../tabs/cii-workspace/cii-workspace-correspondence-arbitration.js';
 import { compareLockedCiiAnchorSpan } from '../tabs/cii-workspace/cii-workspace-topology.js';
+import { ciiIdentityBound, ciiIdentityConfidence } from '../tabs/cii-workspace/cii-workspace-engineering-delta.js';
 
 function point(x = 0, y = 0, z = 0) { return { x, y, z }; }
 function segment(from, to, fromPos, toPos, od = 100, wall = 6) {
@@ -103,6 +104,26 @@ assert.strictEqual(central.evidence.multiBaseProvenance.length, 2);
     'REVIEW-confidence Method-A bases must not manufacture automatic identity support');
 }
 
+{
+  const mediumLoop = { ...aAuthority.loops[0], loopId: 'A-MEDIUM', status: 'READY', confidence: 'MEDIUM' };
+  const mediumCorrespondence = buildCiiMultiBaseCorrespondence(source, target, { status: 'READY', loops: [mediumLoop] });
+  const endpoint = mediumCorrespondence.nodeRows.find((row) => row.sourceNodeId === '10' && row.targetNodeId === '110');
+  assert(endpoint, 'Method-A endpoint must survive canonical arbitration');
+  assert.strictEqual(endpoint.status, 'REVIEW');
+  assert.strictEqual(endpoint.evidence?.identityEvidenceBasis, 'METHOD_A_QUALIFIED_BASE_ANCHOR');
+  assert.strictEqual(ciiIdentityBound(endpoint), true);
+  assert.strictEqual(ciiIdentityConfidence(endpoint), 'MEDIUM');
+
+  const boundary = mediumCorrespondence.nodeRows.find((row) => row.sourceNodeId === '20' && row.targetNodeId === '120');
+  assert(boundary, 'Method-A adjacent boundary must survive canonical arbitration');
+  assert.strictEqual(boundary.evidence?.identityEvidenceBasis, 'METHOD_A_ADJACENT_MATCH_BOUNDARY');
+  assert.strictEqual(boundary.evidence?.identitySupported, true);
+  assert.strictEqual(boundary.evidence?.identityConfidence, 'HIGH');
+  assert.strictEqual(ciiIdentityBound(boundary), true);
+  assert.strictEqual(ciiIdentityConfidence(boundary), 'HIGH');
+  assert(boundary.evidence?.multiBaseProvenance?.some((row) => row.rowAuthority === 'ADJACENT_MATCH_BOUNDARY'));
+}
+
 function mockLoop(loopId, method, correspondence) { return { loop: { loopId, method, status: 'READY' }, correspondence }; }
 function mockCorrespondence(nodeRows = [], elementRows = [], status = 'READY') {
   return { schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: [], nodeRows, elementRows };
@@ -113,6 +134,23 @@ function nodeRow(sourceNodeId, targetNodeId) {
 function elementRow(sourceElementId, targetElementId) {
   return { correspondenceId: `e:${sourceElementId}:${targetElementId}`, kind: 'ELEMENT', sourceElementId,
     targetElementIds: [targetElementId], status: 'HIGH', authority: 'TEST' };
+}
+
+// Boundary-shaped evidence from a non-Method-A loop must not be promoted by the Method-A adapter.
+{
+  const boundaryEvidence = {
+    leftElement: { identitySupported: true, identityConfidence: 'HIGH' },
+    rightElement: { identitySupported: true, identityConfidence: 'HIGH' },
+  };
+  const result = arbitrateCiiLoopCorrespondences([
+    mockLoop('B-BOUNDARY', 'METHOD_B_NETWORK', mockCorrespondence([{
+      correspondenceId: 'n:b:1:101', kind: 'NODE', sourceNodeId: '1', targetNodeId: '101',
+      status: 'REVIEW', authority: 'ADJACENT_MATCH_BOUNDARY', evidence: boundaryEvidence,
+    }], [])),
+  ]);
+  assert.strictEqual(result.status, 'READY');
+  assert.strictEqual(result.nodeRows[0].evidence?.identitySupported, undefined);
+  assert.strictEqual(ciiIdentityBound(result.nodeRows[0]), false);
 }
 
 // Cross-loop source-node collision: no majority/first-loop winner is permitted.
