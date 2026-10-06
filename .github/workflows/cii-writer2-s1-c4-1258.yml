@@ -1,9 +1,9 @@
-name: CII Writer2 S1 C4 rev2 coherent preselection
+name: CII Writer2 S1 C4 final coherent preselection
 
 on:
   push:
     branches:
-      - validation/cii-writer2-s1-c4-r2-1258
+      - validation/cii-writer2-s1-c4-final-1258
   workflow_dispatch:
 
 jobs:
@@ -48,8 +48,8 @@ jobs:
             exit 1
           fi
 
-          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "3653736b11df7c46813f5fb336ed141ee46a75bc"
-          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "0c54e2f547e31df661d1b3238563d21a36b36f5a"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
+          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "0dd1b002b15e8b49e077f5091bf0ec3b29890b79"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js)" = "1037163d7ace8f91cc889108c044d1d2e9884d58"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions.js)" = "48ac451a7084873a8f48b6a48237627ba0a4786c"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js)" = "ebe18d2dc2ffe3ac8dd60b8e330aca25cfb01c28"
