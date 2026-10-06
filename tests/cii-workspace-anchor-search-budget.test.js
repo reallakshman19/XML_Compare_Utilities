@@ -28,6 +28,23 @@ function fanGraph(count = 12, offset = { x: 0, y: 0, z: 0 }) {
   }));
   return { nodes, edges, adjacency };
 }
+function pointGraph(points, od = 100) {
+  const entries = Object.entries(points); const adjacency = new Map();
+  const nodes = entries.map(([id, position]) => ({ id: String(id), degree: 1, neighbourhoodLayers: [], position }));
+  for (const [id] of entries) adjacency.set(String(id), [{
+    from: String(id), to: `stub-${id}`, componentKind: 'PIPE', diameter: od, lengthMm: 100,
+  }]);
+  return { nodes, edges: [], adjacency };
+}
+function candidate(sourceNodeId, targetNodeId, extra = {}) {
+  return {
+    sourceNodeId: String(sourceNodeId), targetNodeId: String(targetNodeId),
+    score: 100, winnerGap: 0, sourceRank: 1, targetRank: 1, mutualBest: true, ...extra,
+  };
+}
+function positionMapForTest(graph) {
+  return new Map((graph?.nodes || []).map((node) => [String(node.id), node.position]));
+}
 
 assert.equal(physicalTest.boundedPhysicalLimit(undefined), 10, 'physical Method-A search must default to 10 pairs');
 assert.equal(physicalTest.boundedPhysicalLimit(1), 3, 'physical Method-A search must retain the three-anchor minimum');
@@ -46,6 +63,76 @@ assert.deepEqual(
   selected.map((row) => `${row.sourceNodeId}=>${row.targetNodeId}`),
   selectPhysicalCandidatePairs(source, target, candidates, 10).map((row) => `${row.sourceNodeId}=>${row.targetNodeId}`),
   'bounded candidate selection must be deterministic',
+);
+
+const exactSource = pointGraph({
+  1: { x: 0, y: 0, z: 0 },
+  2: { x: 1000, y: 0, z: 0 },
+});
+const exactTarget = pointGraph({
+  101: { x: 500, y: -200, z: 30 },
+  102: { x: 1500, y: -200, z: 30 },
+});
+assert.equal(
+  physicalTest.pairDistanceCompatible(exactSource, positionMapForTest(exactSource), positionMapForTest(exactTarget),
+    candidate(1, 101), candidate(2, 102)),
+  true,
+  'exact rigid pair distance must be compatible',
+);
+
+const longSpanSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100000, y: 0, z: 0 } }, 100);
+const longSpanTarget = pointGraph({ 101: { x: 0, y: 0, z: 0 }, 102: { x: 100050, y: 0, z: 0 } }, 100);
+assert.equal(
+  physicalTest.pairDistanceCompatible(longSpanSource, positionMapForTest(longSpanSource), positionMapForTest(longSpanTarget),
+    candidate(1, 101), candidate(2, 102)),
+  false,
+  'long-span relation that passes relative tolerance must still fail the 0.1-OD gate',
+);
+
+const shortSpanSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 } }, 100);
+const shortSpanTarget = pointGraph({ 101: { x: 0, y: 0, z: 0 }, 102: { x: 105, y: 0, z: 0 } }, 100);
+assert.equal(
+  physicalTest.pairDistanceCompatible(shortSpanSource, positionMapForTest(shortSpanSource), positionMapForTest(shortSpanTarget),
+    candidate(1, 101), candidate(2, 102)),
+  false,
+  'short-span relation that passes the 0.1-OD gate must still fail the 0.1-percent relative gate',
+);
+
+const missingOdSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 } }, 0);
+assert.equal(
+  physicalTest.pairDistanceCompatible(missingOdSource, positionMapForTest(missingOdSource), positionMapForTest(exactTarget),
+    candidate(1, 101), candidate(2, 102)),
+  false,
+  'missing positive SOURCE OD must fail closed',
+);
+
+const missingCoordinateSource = pointGraph({ 1: null, 2: { x: 100, y: 0, z: 0 } }, 100);
+assert.equal(
+  physicalTest.pairDistanceCompatible(missingCoordinateSource, positionMapForTest(missingCoordinateSource), positionMapForTest(exactTarget),
+    candidate(1, 101), candidate(2, 102)),
+  false,
+  'missing coordinates must fail closed',
+);
+
+assert.equal(
+  physicalTest.pairDistanceCompatible(exactSource, positionMapForTest(exactSource), positionMapForTest(exactTarget),
+    candidate(1, 101), candidate(1, 102)),
+  false,
+  'duplicate SOURCE claim must not count as independent pairwise coherence',
+);
+assert.equal(
+  physicalTest.pairDistanceCompatible(exactSource, positionMapForTest(exactSource), positionMapForTest(exactTarget),
+    candidate(1, 101), candidate(2, 101)),
+  false,
+  'duplicate TARGET claim must not count as independent pairwise coherence',
+);
+
+const noisyLeft = candidate(1, 101, { nodeName: 'LEAK', expectedTarget: 'EXPECTED', userLocked: true, confidence: 'HIGH' });
+const noisyRight = candidate(2, 102, { nodeName: 'LEAK2', expectedTarget: 'EXPECTED2', userLocked: true, confidence: 'HIGH' });
+assert.equal(
+  physicalTest.pairDistanceCompatible(exactSource, positionMapForTest(exactSource), positionMapForTest(exactTarget), noisyLeft, noisyRight),
+  true,
+  'NodeName/manual/benchmark/confidence-shaped metadata must not affect pairwise physical compatibility',
 );
 
 assert.equal(suggestionTest.displayLimit({ baseAnchorSuggestionLimit: 12, baseAnchorDisplayLimit: 5 }), 5,
