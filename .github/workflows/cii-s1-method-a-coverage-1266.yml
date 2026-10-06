@@ -1,0 +1,81 @@
+name: CII Writer2 S1 D1 Method-A coverage diagnostic
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-method-a-coverage-1266
+  workflow_dispatch:
+
+jobs:
+  d1-method-a-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout diagnostic head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation-only composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=0ab70d25ec7b7645d06b3f6dced5d113bff43e90
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-s1-method-a-coverage-1266.yml' \
+            'tests/browser/cii-s1-method-a-coverage-1266.spec.mjs' | sort)"
+          test "$changed" = "$expected"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "3653736b11df7c46813f5fb336ed141ee46a75bc"
+          if git diff --name-only "$BASE"...HEAD -- Benchmark tabs/cii-workspace | grep -q .; then
+            echo "Product/benchmark mutation forbidden in D1"
+            exit 1
+          fi
+          echo "S1_D1_VALIDATION_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create D1 Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s1-d1.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-s1-method-a-coverage-1266.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-s1-d1',
+          };
+          EOF
+
+      - name: Run D1 retained coverage diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s1-d1.config.mjs 2>&1 | tee s1-d1.log
+
+      - name: Upload D1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-s1-d1-method-a-coverage
+          path: |
+            s1-d1.log
+            s1-d1-method-a-coverage.json
+            test-results/cii-s1-d1
+          if-no-files-found: warn
