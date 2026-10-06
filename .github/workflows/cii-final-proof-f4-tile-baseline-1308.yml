@@ -1,0 +1,74 @@
+name: CII F4 tile baseline reproduction
+
+on:
+  push:
+    branches:
+      - validation/cii-final-proof-f4-tile-baseline-1308
+  workflow_dispatch:
+
+jobs:
+  tile-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact pre-F3V semantic basis
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASIS=25fe367817e1987468d02b538995ebe30ca29065
+          test "$(git diff --name-only "$BASIS"...HEAD | sort)" = ".github/workflows/cii-final-proof-f4-tile-baseline-1308.yml"
+          test "$(git hash-object tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs)" = "54deec5eb1d77f519667b783b89e3cdb65d75c55"
+          test "$(git hash-object tests/cii-workspace-multisource-partial-texpected-oracle.js)" = "a42fe06e71edd1e1ad9e3bb00ef5e04313877cac"
+          if git diff --name-only "$BASIS"...HEAD -- tabs/cii-workspace Benchmark tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs | grep -q .; then
+            echo "Baseline product/test mutation forbidden"
+            exit 1
+          fi
+          echo "F4_TILE_BASELINE_EXACT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create tile-only Playwright config
+        shell: bash
+        run: |
+          cat > playwright.tile-baseline-1308.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-multisource-retained-tile-ui.spec.mjs'],
+            timeout: 360_000,
+            expect: { timeout: 25_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-f4-tile-baseline',
+          };
+          EOF
+
+      - name: Reproduce exact tile lane on pre-F3V head
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.tile-baseline-1308.config.mjs 2>&1 | tee tile-baseline-1308.log
+
+      - name: Upload baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-f4-tile-baseline-1308
+          path: |
+            tile-baseline-1308.log
+            test-results/cii-writer2-f4-tile-baseline
+          if-no-files-found: warn
