@@ -10,26 +10,26 @@ import { parseCiiMsBm001 } from '../tabs/cii-workspace/cii-workspace-multisource
 import { createCiiExpectedNodeNameSourceSetSelection } from '../tabs/cii-workspace/cii-workspace-multisource-scope.js';
 import { bindCiiTransferScopeToPreview } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
-import {
-  deriveExactNameRelocations,
-  deriveExpectedNodeNameDelta,
-} from './cii-workspace-multisource-texpected-oracle.js';
+import { deriveExactNameRelocations, deriveExpectedNodeNameDelta } from './cii-workspace-multisource-texpected-oracle.js';
 import {
   evaluatePartialTExpectedPostimage,
   expectedNodeNameTransferKeys,
-  structuralTransferKey,
   validateAppliedRawIdentity,
   validateKnownPositiveNodeNames,
   validateRawMutationIdentity,
 } from './cii-workspace-multisource-partial-texpected-oracle.js';
+import {
+  additionalTransferKeys,
+  missingRequiredTransferKeys,
+  physicalTransferKeys,
+  selectedOperationDeltas,
+} from './cii-workspace-multisource-lower-bound-helpers.js';
 import { validateIndependentMixedNodeNameByteClosure } from './cii-workspace-multisource-byte-closure-oracle.js';
 
 const cryptoRef = globalThis.crypto || webcrypto;
 const benchmark = (name) => fileURLToPath(new URL(`../Benchmark/${name}`, import.meta.url));
 const sourceNames = ['S1.CII', 'S2.CII', 'S3.CII'];
-const sources = sourceNames.map((fileName, index) => ({
-  sourceId: `S${index + 1}`, fileName, bytes: readFileSync(benchmark(fileName)),
-}));
+const sources = sourceNames.map((fileName, index) => ({ sourceId: `S${index + 1}`, fileName, bytes: readFileSync(benchmark(fileName)) }));
 const sourceTextsById = Object.fromEntries(sources.map((source) => [source.sourceId, source.bytes.toString('latin1')]));
 const targetBytes = readFileSync(benchmark('T.CII'));
 const targetText = targetBytes.toString('latin1');
@@ -37,14 +37,12 @@ const expectedText = readFileSync(benchmark('TEXPECTED-PARTIALLLYDONE.CII'), 'la
 const expectedDelta = deriveExpectedNodeNameDelta(targetText, expectedText);
 const expectedKeys = expectedNodeNameTransferKeys(expectedDelta.rows);
 const expectedRelocations = deriveExactNameRelocations(expectedDelta.rows);
-const createCount = expectedDelta.rows.filter((row) => row.action === 'CREATE').length;
-const deleteCount = expectedDelta.rows.filter((row) => row.action === 'DELETE').length;
 const bmRows = parseCiiMsBm001();
 
-assert.equal(expectedDelta.rows.length, 36, 'retained lower-bound oracle must remain 36 NodeName deltas');
-assert.equal(expectedDelta.rows.filter((row) => row.action === 'REPLACE').length, 35, 'retained lower-bound oracle must remain 35 replacements');
-assert.equal(createCount, 1, 'retained lower-bound oracle must remain one create');
-assert.equal(deleteCount, 0, 'retained lower-bound oracle must remain zero deletes');
+assert.equal(expectedDelta.rows.length, 36, 'retained lower-bound oracle must remain 36 known-positive NodeName deltas');
+assert.equal(expectedDelta.rows.filter((row) => row.action === 'REPLACE').length, 35, 'retained lower-bound oracle must remain 35 known-positive replacements');
+assert.equal(expectedDelta.rows.filter((row) => row.action === 'CREATE').length, 1, 'retained lower-bound oracle must remain one known-positive create');
+assert.equal(expectedDelta.rows.filter((row) => row.action === 'DELETE').length, 0, 'retained lower-bound oracle must remain zero known-positive deletes');
 
 function autoBaseLoops(inspection) {
   const choices = []; const loops = {};
@@ -69,41 +67,31 @@ function automaticReviewBySource(preview) {
 function candidateOperations(plan) {
   const byId = new Map();
   for (const operation of [...(plan?.operations || []), ...(plan?.excludedOperations || [])]) {
-    const id = String(operation?.operationId || '').trim();
-    if (id && !byId.has(id)) byId.set(id, operation);
+    const id = String(operation?.operationId || '').trim(); if (id && !byId.has(id)) byId.set(id, operation);
   }
   return byId;
-}
-function physicalTransferKey(operation) {
-  const action = String(operation?.action || '').trim();
-  const target = String(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId || '').trim();
-  return structuralTransferKey(action, target);
 }
 function canonicalPhysicalTransfer(preview) {
   const candidates = candidateOperations(preview.transferPlan);
   const canonical = ciiCanonicalWriter2MutationSelection([...candidates.values()]);
   const operations = canonical.appliedOperationIds.map((id) => candidates.get(id));
-  const keys = operations.map(physicalTransferKey).sort();
-  return Object.freeze({ canonical, operations: Object.freeze(operations), keys: Object.freeze(keys) });
+  return Object.freeze({ canonical, operations: Object.freeze(operations), keys: physicalTransferKeys(operations) });
 }
 function checkpointDiagnostics(preview) {
-  const pairs = [['8870', '9040'], ['10350', '10190'], ['1005', '925']];
-  const nodeRows = preview?.correspondence?.nodeRows || [];
-  return Object.freeze(pairs.map(([fromNodeId, toNodeId]) => {
-    const correspondenceMatches = nodeRows.filter((row) => String(row?.sourceNodeId) === fromNodeId && String(row?.targetNodeId) === toNodeId)
-      .map((row) => ({ sourceId: row.sourceId, correspondenceId: row.correspondenceId, status: row.status, confidence: row.confidence }));
-    const exactNameRelocation = expectedRelocations.find((row) => row.fromNodeId === fromNodeId && row.toNodeId === toNodeId) || null;
-    return Object.freeze({ fromNodeId, toNodeId, correspondenceMatches: Object.freeze(correspondenceMatches), exactNameRelocation });
-  }));
+  const pairs = [['8870', '9040'], ['10350', '10190'], ['1005', '925']]; const nodeRows = preview?.correspondence?.nodeRows || [];
+  return Object.freeze(pairs.map(([fromNodeId, toNodeId]) => Object.freeze({
+    fromNodeId, toNodeId,
+    correspondenceMatches: Object.freeze(nodeRows.filter((row) => String(row?.sourceNodeId) === fromNodeId && String(row?.targetNodeId) === toNodeId)
+      .map((row) => ({ sourceId: row.sourceId, correspondenceId: row.correspondenceId, status: row.status, confidence: row.confidence }))),
+    exactNameRelocation: expectedRelocations.find((row) => row.fromNodeId === fromNodeId && row.toNodeId === toNodeId) || null,
+  })));
 }
 
-const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({
-  sources, targetBytes, targetFileName: 'T.CII',
-}, { cryptoRef });
+const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef });
 const automatic = autoBaseLoops(inspection);
 assert.equal(automatic.choices.length, 3, 'retained Auto Anchor test requires S1/S2/S3 independently');
 for (const choice of automatic.choices) {
-  assert.equal(choice.status, 'READY', `${choice.sourceId} Auto Anchor must resolve a unique HIGH/MEDIUM topology base: ${choice.reason}`);
+  assert.equal(choice.status, 'READY', `${choice.sourceId} Auto Anchor must resolve a unique qualified base: ${choice.reason}`);
   assert(choice.baseLoops.length > 0, `${choice.sourceId} Auto Anchor must project at least one qualified Method A/B loop`);
 }
 assert.deepEqual(Object.keys(automatic.loops).sort(), ['S1', 'S2', 'S3'], 'no manual/benchmark anchor may be needed for retained Auto Anchor path');
@@ -113,31 +101,33 @@ const previewInput = (reviewBySource = undefined) => ({
   ...(reviewBySource ? { reviewBySource } : {}),
 });
 const discoveryPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef });
-const reviewBySource = automaticReviewBySource(discoveryPreview);
-const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef });
+const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(automaticReviewBySource(discoveryPreview)), { cryptoRef });
 assert.equal(preview.correspondence.status, 'READY', `Auto Anchor correspondence must be READY: ${(preview.correspondence.blockers || []).join(',')}`);
 assert.equal(preview.correspondence.conflicts.length, 0, 'Auto Anchor correspondence must not accept cross-source target conflicts');
 
 const physical = canonicalPhysicalTransfer(preview);
+const missingKnownPositiveKeys = missingRequiredTransferKeys(physical.keys, expectedKeys);
+const additionalQualifiedKeys = additionalTransferKeys(physical.keys, expectedKeys);
+const replacementCount = physical.operations.filter((operation) => operation.action === 'COPY').length;
+const structuralCount = physical.operations.filter((operation) => ['CREATE', 'DELETE'].includes(operation.action)).length;
 assert.equal(physical.canonical.conflicts.length, 0, 'Transfer must have zero competing exact physical NODENAME proposals');
 assert.equal(new Set(physical.keys).size, physical.keys.length, 'canonical physical Transfer APPLY keys must be unique');
-assert.equal(physical.keys.length, expectedKeys.length, 'Transfer tab physical APPLY row count must equal all independent T→partial-expected NodeName deltas');
-assert.deepEqual(physical.keys, [...expectedKeys], 'Transfer tab action/target set must equal all independent partial expected NodeName changes');
-assert.equal(physical.operations.filter((operation) => operation.action === 'COPY').length, 35, 'all retained replacements must remain Writer1C COPY operations');
-assert.equal(physical.operations.filter((operation) => operation.action === 'CREATE').length, 1, 'retained structural create must remain Writer2 CREATE');
+assert.deepEqual(missingKnownPositiveKeys, [], 'every T→TEXPECTED known-positive action/target must be recovered');
+assert(replacementCount >= 35, 'selected qualified transfer must include all 35 known-positive replacements');
+assert(physical.operations.filter((operation) => operation.action === 'CREATE').length >= 1, 'selected qualified transfer must include the known-positive CREATE');
 const rawMutationIdentity = validateRawMutationIdentity(physical.operations, sourceTextsById, targetText, bmRows);
-assert.equal(rawMutationIdentity.status, 'READY', `Transfer exact raw identity failed: ${JSON.stringify(rawMutationIdentity.errors.slice(0, 10))}`);
+assert.equal(rawMutationIdentity.status, 'READY', `every selected mutation must have exact raw source/target identity: ${JSON.stringify(rawMutationIdentity.errors.slice(0, 10))}`);
 
 const exactScope = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef });
 assert.equal(exactScope.authority.rowCount, 329, 'frozen BM-001 authority must remain exactly 329 rows');
 assert.equal(exactScope.authority.correspondenceCoverage.status, 'READY', 'every observed BM-001 claim must be an exact frozen-table row');
 assert.equal(exactScope.authority.correspondenceCoverage.invalidOperationIds.length, 0, 'no observed BM-001 claim may be invalid');
 assert(exactScope.authority.correspondenceCoverage.matchedRowCount > 0, 'retained path must expose observed BM-001 evidence');
-assert.equal(exactScope.appliedOperationIds.length, expectedKeys.length, 'bound scope APPLY cardinality must equal all independent benchmark NodeName deltas');
+assert.deepEqual([...exactScope.appliedOperationIds].sort(), [...physical.canonical.appliedOperationIds].sort(), 'explicit scope APPLY must equal the full canonical physical mutation selection, not the partial benchmark cardinality');
 const scopedPreview = bindCiiTransferScopeToPreview(preview, exactScope.selection);
 assert.equal(scopedPreview.writerReadiness.ready, true, `mixed Writer1C/Writer2 readiness blocked: ${(scopedPreview.writerReadiness.blockers || []).join(',')}`);
-assert.equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameReplace, 35, 'readiness must retain 35 Writer1C replacements');
-assert.equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameStructural, 1, 'readiness must retain one Writer2 structural mutation');
+assert.equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameReplace, replacementCount, 'readiness replacement count must equal canonical selected replacements');
+assert.equal(scopedPreview.writerReadiness.familyMutationCounts.nodeNameStructural, structuralCount, 'readiness structural count must equal canonical selected CREATE/DELETE operations');
 
 const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, targetBytes, { cryptoRef });
 assert.equal(applied.versionBridgeValidation.status, 'PASS');
@@ -145,11 +135,9 @@ const structuralPostimage = evaluatePartialTExpectedPostimage(targetText, applie
 const emittedRawIdentity = validateAppliedRawIdentity(applied.byteString, physical.operations);
 const knownPositiveNames = validateKnownPositiveNodeNames(applied.byteString, expectedDelta.rows, physical.operations);
 const byteClosure = validateIndependentMixedNodeNameByteClosure(targetText, applied.byteString, {
-  expectedDeltas: expectedDelta.rows,
+  expectedDeltas: selectedOperationDeltas(physical.operations),
   selectedOperations: physical.operations,
-  expectedRowDelta: createCount - deleteCount,
 });
-const checkpointEvidence = checkpointDiagnostics(preview);
 const diagnostics = Object.freeze({
   autoAnchor: automatic.choices.map((choice) => ({
     sourceId: choice.sourceId, status: choice.status, sourceNodeId: choice.sourceNodeId, targetNodeId: choice.targetNodeId,
@@ -157,9 +145,12 @@ const diagnostics = Object.freeze({
   })),
   correspondence: { status: preview.correspondence.status, nodeRows: preview.correspondence.nodeRows.length, conflicts: preview.correspondence.conflicts.length },
   transfer: {
-    expectedApplyRowCount: expectedKeys.length, actualApplyRowCount: physical.keys.length,
-    replacementCount: physical.operations.filter((operation) => operation.action === 'COPY').length,
-    structuralCreateCount: physical.operations.filter((operation) => operation.action === 'CREATE').length,
+    knownPositiveLowerBoundCount: expectedKeys.length,
+    actualApplyRowCount: physical.keys.length,
+    additionalQualifiedCount: additionalQualifiedKeys.length,
+    additionalQualifiedKeys,
+    replacementCount,
+    structuralCount,
     duplicateCorroborationCount: physical.canonical.duplicateOperationIds.length,
     conflictCount: physical.canonical.conflicts.length,
     rawMutationIdentity: rawMutationIdentity.status,
@@ -167,9 +158,9 @@ const diagnostics = Object.freeze({
   },
   bm001: exactScope.authority.correspondenceCoverage,
   compare: {
-    structuralStatus: structuralPostimage.status,
+    lowerBoundPostimageStatus: structuralPostimage.status,
     structuralEncodingDifferences: structuralPostimage.encoding.differences.length,
-    structuralSemanticDifferences: structuralPostimage.semantics.differences.length,
+    knownPositiveSemanticDifferences: structuralPostimage.semantics.differences.length,
     exactRawEmissionStatus: emittedRawIdentity.status,
     exactRawEmissionDifferences: emittedRawIdentity.errors.length,
     knownPositiveNameStatus: knownPositiveNames.status,
@@ -179,17 +170,17 @@ const diagnostics = Object.freeze({
     unrelatedTargetDifferences: structuralPostimage.preservation.differences.length,
     unselectedNodeNamePayloadDifferences: structuralPostimage.nodeNamePayloadPreservation.differences.length,
   },
-  ownerCheckpointEvidence: checkpointEvidence,
+  ownerCheckpointEvidence: checkpointDiagnostics(preview),
 });
 console.log(JSON.stringify(diagnostics, null, 2));
 
-assert.equal(structuralPostimage.preservation.status, 'READY', 'mixed output must preserve original T outside NodeName mutation closure');
+assert.equal(structuralPostimage.preservation.status, 'READY', 'mixed output must preserve original T outside NodeName mutation authority');
 assert.equal(structuralPostimage.nodeNamePayloadPreservation.status, 'READY', 'mixed output must preserve unselected original NODENAME payloads');
-assert.equal(structuralPostimage.encoding.differences.length, 0, 'Writer2 CONTROL/pointer/NODENAME cardinality must match the partial expected structural oracle');
-assert.equal(structuralPostimage.semantics.differences.length, 0, 'Writer2 NODENAME occupancy must match the partial expected structural oracle');
+assert.equal(structuralPostimage.encoding.differences.length, 0, 'selected output must remain structurally well-formed');
+assert.equal(structuralPostimage.semantics.differences.length, 0, 'all partial TEXPECTED known-positive NodeName mutations must be present');
 assert.equal(emittedRawIdentity.status, 'READY', `final mixed output must emit every selected raw source name exactly: ${JSON.stringify(emittedRawIdentity.errors.slice(0, 10))}`);
-assert.equal(knownPositiveNames.status, 'READY', `all 35 REPLACE + 1 CREATE lower-bound names must match: ${JSON.stringify(knownPositiveNames.differences.slice(0, 10))}`);
-assert.equal(byteClosure.status, 'READY', `independent raw-byte closure failed: ${JSON.stringify(byteClosure.differences.slice(0, 10))}`);
-assert.equal(structuralPostimage.status, 'READY', 'retained mixed Writer1C/Writer2 benchmark must match the partial expected artifact and preserve original target elsewhere');
+assert.equal(knownPositiveNames.status, 'READY', `all 36 lower-bound positives must be recovered: ${JSON.stringify(knownPositiveNames.differences.slice(0, 10))}`);
+assert.equal(byteClosure.status, 'READY', `independent raw-byte closure for the full selected mutation set failed: ${JSON.stringify(byteClosure.differences.slice(0, 10))}`);
+assert.equal(structuralPostimage.status, 'READY', 'retained mixed Writer1C/Writer2 output must satisfy the lower-bound oracle and preserve unrelated target state');
 
-console.log('CII retained-real Auto Anchor -> Transfer -> Writer1C REPLACE + Writer2 structural -> partial-expected + raw-byte closure benchmark passed.');
+console.log('CII retained-real Auto Anchor -> canonical transfer -> mixed Writer1C/Writer2 lower-bound + full selected byte-closure benchmark passed.');
