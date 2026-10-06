@@ -37,6 +37,7 @@ jobs:
           tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
           tabs/cii-workspace/cii-workspace-source-set.js
           tabs/cii-workspace/cii-workspace-source-target-audit.js
+          tests/browser/cii-writer2-slice6-review-state-validation.spec.mjs
           EOF
           )
 
@@ -88,6 +89,7 @@ jobs:
           node --check tabs/cii-workspace/cii-workspace-multisource-review-state-controls.js
           node --check tabs/cii-workspace/cii-workspace-multisource-review-ui.js
           node --check tests/browser/cii-writer2-multisource-retained-tile-ui.spec.mjs
+          node --check tests/browser/cii-writer2-slice6-review-state-validation.spec.mjs
           node tests/cii-workspace-multisource-review-state.test.js
 
       - name: Create Slice 6 browser config
@@ -98,7 +100,7 @@ jobs:
 
           export default {
             ...base,
-            testMatch: ['cii-writer2-multisource-retained-tile-ui.spec.mjs'],
+            testMatch: ['cii-writer2-slice6-review-state-validation.spec.mjs'],
             timeout: 300_000,
             expect: { timeout: 30_000 },
             workers: 1,
@@ -108,7 +110,7 @@ jobs:
           };
           EOF
 
-      - name: Run retained Slice 6 Writer2 UX regression
+      - name: Run focused retained Slice 6 Writer2 UX falsifier
         shell: bash
         run: |
           set -euo pipefail
