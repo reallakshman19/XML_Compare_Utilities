@@ -29,8 +29,12 @@ jobs:
           BASE=aac6b0cd64eec22026a57aecc014b4545d64a1d8
           changed="$(git diff --name-only "$BASE"...HEAD | sort)"
           printf '%s\n' "$changed"
-          expected="$(printf '%s\n'             '.github/workflows/cii-writer2-s1-r2-2-1262.yml'             'tests/browser/cii-writer2-s1-r2-2-design.spec.mjs' \\
-            'tests/browser/cii-writer2-s1-r2-2-rev2-rule-selection.spec.mjs' | sort)"
+          expected="$(cat <<'EOF' | sort
+          .github/workflows/cii-writer2-s1-r2-2-1262.yml
+          tests/browser/cii-writer2-s1-r2-2-design.spec.mjs
+          tests/browser/cii-writer2-s1-r2-2-rev2-rule-selection.spec.mjs
+          EOF
+          )"
           unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$expected") || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected R2.2 drift:"
