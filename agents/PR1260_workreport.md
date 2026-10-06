@@ -26,9 +26,13 @@ Implement #1257 / parent #1256 C3: repair only the bounded physical Method-A can
 
 `C3-A` control plane and Appendix A are complete.
 
-No product file has been modified yet. Draft PR #1260 has been allocated for this C3 responsibility.
+`C3-B` pure coherence primitive and generic fixtures are implemented.
 
-Next material unit is `C3-B`: implement pure benchmark-blind pairwise rigid-distance coherence helpers and generic tests, then integrate only after the helper contract is coherent.
+`C3-C` bounded coherent-cluster reservation is integrated into the #1234 selector. Existing global SOURCE+TARGET spatial diversity is reused to fill any remaining budget.
+
+Current PR head: `4248c12acdb6722d69d26f363de165737fda827f`.
+
+Next material unit is `C3-D`: finish focused syntax/contract evidence, update the durable patch/undo ledger, and hand the exact head to #1258 for independent retained qualification.
 
 ## Root classification
 
@@ -69,9 +73,9 @@ Protected:
 
 | File | Planned role | Status |
 |---|---|---|
-| `tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js` | coherence helpers + bounded reservation + existing diversity fill | planned |
-| `tests/cii-workspace-anchor-search-budget.test.js` | generic deterministic/invariance/adversarial contracts | planned |
-| `agents/WIP-1256-c3_workreport.md` | recovery-first control surface | active |
+| `tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js` | coherence helpers + bounded reservation + existing diversity fill | completed |
+| `tests/cii-workspace-anchor-search-budget.test.js` | generic deterministic/invariance/adversarial contracts | completed |
+| `agents/PR1260_workreport.md` | recovery-first control surface | active |
 
 ## Local backup / patch-ledger state
 
@@ -91,11 +95,48 @@ This limitation is **observability/recovery tooling**, not permission to weaken 
 |---|---|---|---|
 | live main / #1234 / overlap grounding | PASS | GitHub readback | provider truth |
 | Appendix A | PASS | 98/100; min 19/20 | repository/current evidence |
-| product change | NOT_RUN | no product edit yet | n/a |
-| focused Node tests | NOT_RUN | no executable checkout | implementation-coupled |
+| product module syntax | PASS | actual PR blob parsed after import/export normalization in connector V8 | implementation-coupled |
+| generic coherence execution | PASS | actual PR product blob executed against rigid-transform/permutation/renumbering/inconsistent-distance/authority-noise fixtures | implementation-coupled |
+| focused Node test file | NOT_RUN as repository Node command | normal checkout unavailable; authored test blob inspected separately | implementation-coupled |
 | retained S1 | NOT_RUN in C3 | owned by C4 | independent retained |
 | S2/S3 non-regression | NOT_RUN | owned by C4 | independent retained |
 | Chromium/runtime | NOT_RUN | owned by C4 | independent retained |
+
+## Implemented algorithm
+
+The selector now:
+1. builds an O(n²) pairwise compatibility graph using SOURCE-vs-TARGET inter-candidate distance preservation;
+2. scales candidate-only compatibility tolerance from existing SOURCE incident OD evidence;
+3. rejects same-SOURCE or same-TARGET pairs as independent coherence support;
+4. filters to the high-support portion of the compatibility graph;
+5. selects the strongest deterministic connected coherent component;
+6. reserves that component within the unchanged configured budget using existing spread logic;
+7. fills any remaining slots with the existing global spread ranking.
+
+New instrumentation:
+- `ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE`
+- `ANCHOR_PHYSICAL_COHERENT_RESERVED_COUNT`
+
+No Method-A geometry or confidence code changed.
+
+## Exact preimage / final blobs / undo
+
+| File | Preimage blob | Current blob | Undo |
+|---|---|---|---|
+| `tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js` | `18e04998fdf48368f56ff5bf975671075d90cd84` | `e9ee2ec6046a7772ae70f73de83ece6724d7865c` | only after current-blob check, restore exact preimage content from #1234 head |
+| `tests/cii-workspace-anchor-search-budget.test.js` | `2bbee4654d1d9ee08e7986d9a5cc5bd6b8f6ad1c` | `f8d235ac64c8d64ba4822bd24ba79e01aa5862b9` | only after current-blob check, restore exact preimage content from #1234 head |
+
+Do not use reset/checkout/revert to undo this responsibility. Preserve the #1234 substrate.
+
+## Retained evidence reused, not re-executed
+
+Existing C2 artifact `11403293444` was inspected during C3. It records:
+- 23 raw physical pairs;
+- nine-pair proximal raw family;
+- unchanged Method A on that family: READY / HIGH / 9 anchors / 0 mm max residual / weight 99.994;
+- selected-11 mixed pool: distal five-anchor MEDIUM / 300 mm max residual / weight 76.408.
+
+This is historical exact C2 evidence, not C3 exact-head qualification. #1258 owns the latter.
 
 ## Highest risk
 
@@ -107,4 +148,4 @@ A coherence heuristic could accidentally become a hidden identity rule or over-c
 
 ## EXACT_NEXT_ACTION
 
-Create the pure O(n^2) pairwise distance-coherence helpers, expose them only through `_test`, then extend the generic search-budget fixture before integrating coherent reservation into the selector.
+Complete C3-D focused validation/readback and publish exact-head TASK_EVIDENCE. Then hand PR #1260 exact head to #1258; do not run or claim retained acceptance inside C3.
