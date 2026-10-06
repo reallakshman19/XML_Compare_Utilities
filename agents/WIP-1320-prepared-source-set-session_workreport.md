@@ -33,10 +33,32 @@ Legacy source-set inspection output must remain unchanged.
 - no generation/cancellation;
 - no Benchmark mutation.
 
+## Implemented material
+
+Production:
+- `tabs/cii-workspace/cii-workspace-core.js@66907edfd390c0148b5d939c13ac15107a4d625e`
+- `tabs/cii-workspace/cii-workspace-writer-version-bridge.js@65cb9c193255f881f672e88501fe06c58654d27a`
+- `tabs/cii-workspace/cii-workspace-source-set.js@54b9fe20887346ce9d113eb8c472cedd1b4b486d`
+
+Focused regression:
+- `tests/cii-workspace-prepared-source-set-session.test.js@447edec5732bbdac2b895ce4b03367d695944d88`
+
+Implemented:
+- symmetric prepared SOURCE consumption in `intakePair()`;
+- `prepareCiiWorkspaceSourceWithVersionBridge()`;
+- strict `inspectCiiWorkspaceModelsWithPreparedPair()`;
+- `prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge()`;
+- immutable `CIIWorkspacePreparedSourceSetSession.v1`;
+- legacy `inspectCiiWorkspaceSourceSetWithVersionBridge()` remains inspection-only.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: add symmetric prepared SOURCE custody + prepared source-set session
+STATE: PRODUCT_AUTHORED
+GENERIC_HOSTED_QUALIFICATION: NOT_YET_RUN
+MULTISOURCE_PREVIEW_CACHE: NONE
+UI_WIRING: NONE
+GENERATION_CANCEL: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: open stacked draft PR and qualify exact head
 ```
