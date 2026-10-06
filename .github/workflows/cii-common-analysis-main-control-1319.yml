@@ -1,0 +1,20 @@
+name: CII P3.1 main control
+
+on:
+  push:
+    branches:
+      - validation/cii-common-analysis-main-control-1319
+
+jobs:
+  stale-test-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Reproduce benchmark-end-to-end on untouched main
+        run: node tests/cii-workspace-benchmark-end-to-end.test.js
