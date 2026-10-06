@@ -1,0 +1,46 @@
+name: CII Writer2 #1239 THREE Seed Diagnostic
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-1239-three-seed-diagnostic
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prove validation-only diagnostic delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OVERLAY_SHA=86415c1b0efae6fb4bde8eedcb21e97984b87fa6
+          test "$(git merge-base "$OVERLAY_SHA" HEAD)" = "$OVERLAY_SHA"
+          mapfile -t unexpected < <(git diff --name-only "$OVERLAY_SHA" HEAD | grep -Ev '^(\.github/validation/cii-writer2-three-seed-diagnostic\.mjs|\.github/workflows/cii-writer2-1239-three-seed-diagnostic\.yml)$' || true)
+          if [ "${#unexpected[@]}" -ne 0 ]; then
+            printf 'UNEXPECTED_THREE_SEED_DIAGNOSTIC_DRIFT\n%s\n' "${unexpected[@]}"
+            exit 1
+          fi
+      - name: Run exact THREE-seed propagation diagnostic
+        shell: bash
+        run: |
+          set -o pipefail
+          node .github/validation/cii-writer2-three-seed-diagnostic.mjs 2>&1 | tee three-seed-diagnostic.log
+          exit ${PIPESTATUS[0]}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-three-seed-diagnostic
+          path: three-seed-diagnostic.log
+          if-no-files-found: warn
