@@ -41,11 +41,28 @@ function canonicalId(row) {
   if (sourceIds.length || targetIds.length) return stableId('multi-base-element', sourceIds.join(','), targetIds.join(','));
   return stableId('multi-base-row', row?.correspondenceId || stableStringify(row));
 }
+function highIdentityEvidence(evidence) {
+  return evidence?.identitySupported === true && evidence?.identityConfidence === 'HIGH';
+}
+function methodABoundaryEvidence(rows) {
+  const supporting = rows.find((item) => item.loop?.method === 'METHOD_A_SPATIAL'
+    && item.row?.authority === 'ADJACENT_MATCH_BOUNDARY'
+    && highIdentityEvidence(item.row?.evidence?.leftElement)
+    && highIdentityEvidence(item.row?.evidence?.rightElement));
+  if (!supporting) return null;
+  return {
+    identitySupported: true,
+    identityConfidence: 'HIGH',
+    identityEvidenceBasis: 'METHOD_A_ADJACENT_MATCH_BOUNDARY',
+    methodALoopId: String(supporting.loop?.loopId || ''),
+  };
+}
 function canonicalizeGroup(group) {
   const ordered = [...group].sort((a, b) => rowStatusRank(b.row) - rowStatusRank(a.row)
     || String(a.loop?.loopId || '').localeCompare(String(b.loop?.loopId || ''), undefined, { numeric: true }));
   const winner = ordered[0].row; const provenanceRows = ordered.map((item) => provenance(item, item.row));
-  const evidence = deepFreeze({ ...(winner.evidence || {}), multiBaseProvenance: deepFreeze(provenanceRows) });
+  const boundary = methodABoundaryEvidence(ordered);
+  const evidence = deepFreeze({ ...(winner.evidence || {}), ...(boundary || {}), multiBaseProvenance: deepFreeze(provenanceRows) });
   return deepFreeze({ ...winner, correspondenceId: canonicalId(winner),
     authority: ordered.length > 1 ? 'MULTI_BASE_CORROBORATED' : 'MULTI_BASE_LOOP', basisMethod: methodBasis(ordered), evidence });
 }
