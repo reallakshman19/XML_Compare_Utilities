@@ -1,0 +1,98 @@
+name: CII D3.4 #1252 stack compatibility
+
+on:
+  push:
+    branches:
+      - validation/cii-method-a-d3-stack-1279
+  workflow_dispatch:
+
+jobs:
+  d3-4-stack-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout validation overlay
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact D3 product and #1252 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE1252=a217c0ed90a486252a3d20533c256284b65ebed2
+          D3BASE=a7e96865301a09865e0b4126c38310d7b1c8d421
+          D3HEAD=2751b563505caa2c9be0803294b00c3177c2811a
+
+          git fetch origin fix/cii-method-a-provenance-1268:refs/remotes/origin/fix/cii-method-a-provenance-1268
+          test "$(git rev-parse refs/remotes/origin/fix/cii-method-a-provenance-1268)" = "$D3HEAD"
+
+          expected_d3="$(printf '%s\n'             'agents/PR1280_workreport.md'             'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js'             'tests/cii-workspace-method-a-anchor-provenance.test.js'             'tests/cii-workspace-method-a-boundary-provenance.test.js'             'tests/cii-workspace-method-a-projection-integration.test.js' | sort)"
+          actual_d3="$(git diff --name-only "$D3BASE" "$D3HEAD" | sort)"
+          test "$actual_d3" = "$expected_d3"
+
+          test "$(git rev-parse "$D3HEAD:tabs/cii-workspace/cii-workspace-multi-base-correspondence.js")" = "adf5c71f189f564cea87e38f55f62a36817e9d20"
+          test "$(git rev-parse "$D3HEAD:tabs/cii-workspace/cii-workspace-correspondence-arbitration.js")" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git rev-parse "$D3HEAD:tests/cii-workspace-method-a-anchor-provenance.test.js")" = "2462f0571a27b1b3c960baafd7cc718d08cc2316"
+          test "$(git rev-parse "$D3HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js")" = "70e1407ddc94feb64b87a6079ea41442ed9dca78"
+          test "$(git rev-parse "$D3HEAD:tests/cii-workspace-method-a-projection-integration.test.js")" = "742e6f26d524fddc72f7f1b1f95ca0687d4c4954"
+          test "$(git rev-parse "$D3HEAD:agents/PR1280_workreport.md")" = "b937c338273363c9442c749daa348af1c47c1edc"
+
+          expected_overlay="$(printf '%s\n'             '.github/workflows/cii-method-a-d3-stack-1279.yml'             'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js'             'tests/cii-workspace-method-a-d3-stack-compat-1279.test.js' | sort)"
+          actual_overlay="$(git diff --name-only "$BASE1252"...HEAD | sort)"
+          test "$actual_overlay" = "$expected_overlay"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fbfa4b32fd2c4db9da0aa50f9b23bc1c54191a5d"
+          test "$(git hash-object tests/cii-workspace-method-a-d3-stack-compat-1279.test.js)" = "70766d81f9075073b6803024ee1f9f1f59ac23a2"
+
+          grep -q "USER_LOCKED_SEED" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "arbitrateCiiSeedCorrespondences" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "METHOD_A_QUALIFIED_BASE_ANCHOR" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "METHOD_A_QUALIFIED_ADJACENT_BOUNDARY" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+
+          if git diff --name-only "$BASE1252"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+          if git diff --name-only "$D3BASE" "$D3HEAD" --             tabs/cii-workspace/cii-workspace-geometry.js             tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js             tabs/cii-workspace/cii-workspace-correspondence-arbitration.js             tabs/cii-workspace/cii-workspace-engineering-delta.js             tabs/cii-workspace/cii-workspace-compare-review.js             tabs/cii-workspace/cii-workspace-writer-version-bridge.js | grep -q .; then
+            echo "Protected D3 surface changed"
+            exit 1
+          fi
+
+          echo "D3_4_STACK_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize exact D3 focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          D3HEAD=2751b563505caa2c9be0803294b00c3177c2811a
+          git show "$D3HEAD:tests/cii-workspace-method-a-anchor-provenance.test.js" > tests/.d3-anchor-1279.test.js
+          git show "$D3HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js" > tests/.d3-boundary-1279.test.js
+          git show "$D3HEAD:tests/cii-workspace-method-a-projection-integration.test.js" > tests/.d3-integration-1279.test.js
+
+      - name: Run D3 focused contracts on #1252 stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/.d3-anchor-1279.test.js
+          node tests/.d3-boundary-1279.test.js
+          node tests/.d3-integration-1279.test.js
+          node tests/cii-workspace-method-a-d3-stack-compat-1279.test.js
+
+      - name: Run #1239 seed and validation regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-manual-seed-arbitration.test.js
+          node tests/cii-workspace-multisource-lower-bound-helpers.test.js
+          node tests/cii-workspace-adjacent-boundary-review.test.mjs
+          node tests/cii-workspace-engineering-delta.test.js
