@@ -62,3 +62,45 @@ GENERATION_CANCEL: NONE
 BENCHMARK_MUTATION: NONE
 NEXT: open stacked draft PR and qualify exact head
 ```
+
+
+## Qualification refinement
+
+Initial hosted qualification run `37545764222`:
+- exact product guard: PASS;
+- syntax: PASS;
+- focused prepared-session custody: PASS;
+- historical shared-target construction test: FAIL at suggestion-list deep equality.
+
+Untouched-main control run `37545875712` reproduced the same failure.
+
+Root cause:
+```text
+source-set inspection policy:
+  methodAPhysicalCandidateLimit = 10
+  baseAnchorDisplayLimit        = 5
+
+historical pair control:
+  methodAPhysicalCandidateLimit = 10
+  baseAnchorDisplayLimit        = default 8
+```
+
+Therefore the old assertion compares source-set top-5 suggestions with legacy-pair top-8 suggestions and is independently stale.
+
+The P3.2 focused test was strengthened, without product-semantic change, to compare prepared source-set inspection against the pair API under the identical 10-search / 5-display policy.
+
+Updated focused test blob:
+`e332fe805902121265b11799f20e179e062f98d1`
+
+No production blob changed during this refinement.
+
+## Next qualification
+
+Use the refreshed exact product head and run serial gates:
+
+```text
+Q1 exact diff/blob/scope guard
+Q2 focused prepared-session + identical-policy pair parity
+Q3 P3.1 parity + retained S1/S2/S3 full-proof
+Q4 publish final evidence
+```
