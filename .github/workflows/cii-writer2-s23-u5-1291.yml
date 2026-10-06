@@ -1,0 +1,143 @@
+name: CII Writer2 S2/S3 U5 retained 36-of-36
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s23-u5-1291
+  workflow_dispatch:
+
+jobs:
+  u5-retained-36:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout U5 validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact retained/U4 composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          RETAINED_BASE=bd353b9e747ca322bba0aa2f609b0eae140df3ff
+          U4_HEAD=4c96220447315d538dd85b3a4db5a9cce6eeac77
+
+          git fetch origin fix/cii-method-a-base-anchor-custody-1294:refs/remotes/origin/fix/cii-method-a-base-anchor-custody-1294
+          test "$(git rev-parse refs/remotes/origin/fix/cii-method-a-base-anchor-custody-1294)" = "$U4_HEAD"
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-writer2-s23-u5-1291.yml' \
+            'tabs/cii-workspace/cii-workspace-alignment.js' \
+            'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js' \
+            'tabs/cii-workspace/cii-workspace-node-custody.js' \
+            'tests/browser/cii-writer2-s23-u5-mandatory-36.spec.mjs' | sort)"
+          actual="$(git diff --name-only "$RETAINED_BASE"...HEAD | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-alignment.js)" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "1512858f06cd6cc47c221cac306c4846302cde50"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-node-custody.js)" = "221ae3dd5ea6f1e98afaf763646885db91e51ff2"
+          test "$(git hash-object tests/browser/cii-writer2-s23-u5-mandatory-36.spec.mjs)" = "1ebe345e56d2aad1e35cbe39317508b7f4e814df"
+
+          test "$(git rev-parse "$U4_HEAD:tabs/cii-workspace/cii-workspace-alignment.js")" = "cfdbd033c2852627908874e2542de0e0c33f3014"
+          test "$(git rev-parse "$U4_HEAD:tabs/cii-workspace/cii-workspace-multi-base-correspondence.js")" = "00b8fc6054b14afd8b6b299d477c940843cb2b85"
+          test "$(git rev-parse "$U4_HEAD:tabs/cii-workspace/cii-workspace-node-custody.js")" = "221ae3dd5ea6f1e98afaf763646885db91e51ff2"
+
+          grep -q "USER_LOCKED_SEED" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "arbitrateCiiSeedCorrespondences" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "boundaryLocalSupported" tabs/cii-workspace/cii-workspace-multi-base-correspondence.js
+          grep -q "METHOD_A_QUALIFIED_BASE_ANCHOR" tabs/cii-workspace/cii-workspace-node-custody.js
+
+          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "0dd1b002b15e8b49e077f5091bf0ec3b29890b79"
+          test "$(git hash-object tests/cii-workspace-manual-seed-arbitration.test.js)" = "68ff018d2ed82b1fcc1b667c895afa1da886ded7"
+          test "$(git hash-object tests/cii-workspace-multisource-lower-bound-helpers.test.js)" = "17d9eb0e98edc1cb01b230aaf040eb1e4be6e1d2"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-benchmark-overlay.js)" = "0bc83e1b747725a3c0e7e5cbd147aded421f10c4"
+
+          if git diff --name-only "$RETAINED_BASE"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          changed_tabs="$(git diff --name-only "$RETAINED_BASE"...HEAD -- tabs/cii-workspace | sort)"
+          expected_tabs="$(printf '%s\n' \
+            'tabs/cii-workspace/cii-workspace-alignment.js' \
+            'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js' \
+            'tabs/cii-workspace/cii-workspace-node-custody.js' | sort)"
+          test "$changed_tabs" = "$expected_tabs"
+
+          echo "U5_EXACT_RETAINED_COMPOSITION_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize exact U4/D3/D5 focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          U4_HEAD=4c96220447315d538dd85b3a4db5a9cce6eeac77
+          git show "$U4_HEAD:tests/cii-workspace-boundary-local-endpoint.test.js" > tests/.u5-u41.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-boundary-local-projection.test.js" > tests/.u5-u42.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-base-anchor-custody.test.js" > tests/.u5-u43.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-anchor-provenance.test.js" > tests/.u5-d3-anchor.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-boundary-provenance.test.js" > tests/.u5-d3-boundary.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-projection-integration.test.js" > tests/.u5-d3-integration.test.js
+          git show "$U4_HEAD:tests/cii-workspace-method-a-boundary-node-custody.test.js" > tests/.u5-d53-custody.test.js
+
+      - name: Run U4/D3/D5 generic contracts on retained stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/.u5-u41.test.js
+          node tests/.u5-u42.test.js
+          node tests/.u5-u43.test.js
+          node tests/.u5-d3-anchor.test.js
+          node tests/.u5-d3-boundary.test.js
+          node tests/.u5-d3-integration.test.js
+          node tests/.u5-d53-custody.test.js
+          node tests/cii-workspace-anchor-search-budget.test.js
+          node tests/cii-workspace-manual-seed-arbitration.test.js
+          node tests/cii-workspace-multisource-lower-bound-helpers.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create U5 Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s23-u5.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s23-u5-mandatory-36.spec.mjs'],
+            timeout: 300_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-s23-u5',
+          };
+          EOF
+
+      - name: Run U5 retained 36-of-36 qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s23-u5.config.mjs 2>&1 | tee s23-u5.log
+
+      - name: Upload U5 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s23-u5-retained-36
+          path: |
+            s23-u5.log
+            test-results/cii-writer2-s23-u5
+          if-no-files-found: warn
