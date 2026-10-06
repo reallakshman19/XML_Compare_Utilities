@@ -45,6 +45,11 @@ function candidate(sourceNodeId, targetNodeId, extra = {}) {
 function positionMapForTest(graph) {
   return new Map((graph?.nodes || []).map((node) => [String(node.id), node.position]));
 }
+function neighbourGraph(size, edges) {
+  const neighbours = Array.from({ length: size }, () => new Set());
+  for (const [left, right] of edges) { neighbours[left].add(right); neighbours[right].add(left); }
+  return neighbours;
+}
 
 assert.equal(physicalTest.boundedPhysicalLimit(undefined), 10, 'physical Method-A search must default to 10 pairs');
 assert.equal(physicalTest.boundedPhysicalLimit(1), 3, 'physical Method-A search must retain the three-anchor minimum');
@@ -133,6 +138,63 @@ assert.equal(
   physicalTest.pairDistanceCompatible(exactSource, positionMapForTest(exactSource), positionMapForTest(exactTarget), noisyLeft, noisyRight),
   true,
   'NodeName/manual/benchmark/confidence-shaped metadata must not affect pairwise physical compatibility',
+);
+
+const triangleSource = pointGraph({
+  1: { x: 0, y: 0, z: 0 },
+  2: { x: 100, y: 0, z: 0 },
+  3: { x: 0, y: 100, z: 0 },
+}, 100);
+const triangleTarget = pointGraph({
+  101: { x: 500, y: 200, z: 0 },
+  102: { x: 600, y: 200, z: 0 },
+  103: { x: 500, y: 300, z: 0 },
+}, 100);
+const triangleCandidates = [candidate(1, 101), candidate(2, 102), candidate(3, 103)];
+assert.deepEqual(
+  physicalTest.coherenceGraph(triangleSource, triangleTarget, triangleCandidates).map((items) => items.size),
+  [2, 2, 2],
+  'exact rigid triangle must form a complete compatibility graph',
+);
+assert.deepEqual(
+  physicalTest.completeCoherentComponents(triangleSource, triangleTarget, triangleCandidates),
+  [[0, 1, 2]],
+  'minimum three-member complete component must be retained',
+);
+assert.deepEqual(
+  physicalTest.completeCoherentComponents(triangleSource, triangleTarget, triangleCandidates.slice(0, 2)),
+  [],
+  'two-member component is below the Method-A coherent-pool minimum',
+);
+
+const bridgedCliques = neighbourGraph(6, [
+  [0, 1], [0, 2], [1, 2],
+  [3, 4], [3, 5], [4, 5],
+  [2, 3],
+]);
+assert.deepEqual([...physicalTest.bridgeEdgeKeys(bridgedCliques)], ['2:3'],
+  'single bridge joining two complete regions must be detected');
+const prunedCliques = physicalTest.withoutBridgeEdges(bridgedCliques);
+assert.deepEqual(
+  physicalTest.connectedComponents([0, 1, 2, 3, 4, 5], prunedCliques),
+  [[0, 1, 2], [3, 4, 5]],
+  'bridge removal must keep the dense regions independent',
+);
+assert.equal(physicalTest.componentIsComplete([0, 1, 2], prunedCliques), true);
+assert.equal(physicalTest.componentIsComplete([3, 4, 5], prunedCliques), true);
+
+const sparseChain = neighbourGraph(4, [[0, 1], [1, 2], [2, 3]]);
+assert.equal(physicalTest.componentIsComplete([0, 1, 2, 3], sparseChain), false,
+  'sparse chain must not qualify as a complete coherent component');
+
+const fourCycle = neighbourGraph(4, [[0, 1], [1, 2], [2, 3], [3, 0]]);
+assert.equal(physicalTest.componentIsComplete([0, 1, 2, 3], fourCycle), false,
+  'non-complete cycle must not qualify as a coherent component');
+
+assert.deepEqual(
+  physicalTest.connectedComponents([5, 4, 3, 2, 1, 0], prunedCliques),
+  [[0, 1, 2], [3, 4, 5]],
+  'component membership must not depend on input index ordering',
 );
 
 assert.equal(suggestionTest.displayLimit({ baseAnchorSuggestionLimit: 12, baseAnchorDisplayLimit: 5 }), 5,
