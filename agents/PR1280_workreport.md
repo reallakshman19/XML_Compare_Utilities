@@ -30,12 +30,13 @@ Serial children:
 ## Current state
 
 Current unit:
-`#1278 D3.3 — arbitration + generic identity/engineering integration proof`.
+`#1279 D3.4 — exact-head + #1239-stack compatibility qualification`.
 
 #1276 D3.1 hosted PASS: run `37510261973`.
 #1277 D3.2 hosted PASS: run `37510992374`.
+#1278 D3.3 hosted PASS: authoritative cleaned run `37511739302`.
 
-No #1278 production code change has been made; the child currently adds an integration test only.
+#1278 made no production or arbitration change. Existing arbitration preserved projected Method-A evidence generically. A duplicate D3.3 integration fixture created during overlapping execution was removed; `tests/cii-workspace-method-a-projection-integration.test.js` is the sole authoritative D3.3 integration test.
 
 Material frontier before this report refresh:
 - PR #1280 head: `c75c22200720dcf6929a7be6446ba66d4369f93d`
@@ -79,10 +80,10 @@ No changes to:
 
 | File | Role | Status |
 |---|---|---|
-| `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js` | D3.1 anchor projection + D3.2 adjacent-boundary projection | D3.2 implemented / hosted validation pending |
+| `tabs/cii-workspace/cii-workspace-multi-base-correspondence.js` | D3.1 anchor projection + D3.2 adjacent-boundary projection | PASS through D3.3 integration |
 | `tests/cii-workspace-method-a-anchor-provenance.test.js` | isolated D3.1 provenance contract | PASS hosted |
 | `tests/cii-workspace-method-a-boundary-provenance.test.js` | isolated D3.2 boundary contract | PASS hosted |
-| `tests/cii-workspace-method-a-projection-integration.test.js` | D3.3 arbitration/identity/engineering integration | authored / hosted pending |
+| `tests/cii-workspace-method-a-projection-integration.test.js` | D3.3 arbitration/identity/engineering integration | PASS hosted |
 | `tests/cii-workspace-multi-base-correspondence.test.js` | inherited broad suite | restored unchanged to base |
 | `agents/PR1280_workreport.md` | recovery surface | active |
 
@@ -105,8 +106,8 @@ Compensation:
 | D3.1 implementation | PASS — hosted isolated run 37510261973 |
 | inherited broad multi-base baseline | FAIL on untouched #1265 — Method-B-only assertion, run 37509033803 |
 | D3.2 | PASS — hosted isolated run 37510992374 |
-| D3.3 | integration test authored; product arbitration unchanged; hosted validation pending |
-| D3.4 | NOT_RUN |
+| D3.3 | PASS — hosted cleaned integration run 37511739302; arbitration unchanged |
+| D3.4 | NEXT / NOT_RUN |
 | retained D4 | NOT_RUN |
 
 ## D3.1 exact validation
@@ -162,6 +163,29 @@ The integration test uses a non-anchor interior path boundary and asserts generi
 - manual-lock preservation;
 - conflict veto.
 
+## D3.3 exact validation
+
+- cleaned product head before this report refresh: `c8ec47cd8b3aee5ec4e942a8ef78dfe157712ada`
+- validation branch: `validation/cii-method-a-projection-1278`
+- validation head: `5e5a3ff006e3f9fb33681ee54595f503ac1d2bd9`
+- hosted run: `37511739302`
+- job: `112434355144`
+- conclusion: PASS
+- combined D3 product blob: `adf5c71f189f564cea87e38f55f62a36817e9d20`
+- arbitration blob: `ff26a1921dc527a7d7cef2e9a94c56b92651484f` (unchanged)
+- D3.3 integration test blob: `742e6f26d524fddc72f7f1b1f95ca0687d4c4954`
+
+PASS proves:
+- projected non-anchor boundary evidence survives `MULTI_BASE_LOOP` canonicalization;
+- `ciiIdentityBound / ciiIdentityConfidence` consume it generically;
+- compare-review remains REVIEW, never LOCKED;
+- NodeName engineering delta is emitted for the bound node;
+- REVIEW-confidence Method-A stays unbound;
+- manual USER_LOCKED remains unchanged;
+- conflict veto remains AMBIGUOUS on contradictory claims.
+
+No arbitration modification was required.
+
 ## EXACT_NEXT_ACTION
 
-Create a validation-only branch from the refreshed PR #1280 head and run the D3.3 integration test with exact production/arbitration/test hash guards. If it passes, do not modify arbitration; publish #1278 TASK_RESULT before #1279.
+#1279 only: qualify the exact refreshed PR #1280 head and prove the D3 hunk applies cleanly to the #1239/#1252 scoring stack before #1269 retained D4. Do not start retained D4 until #1279 publishes TASK_RESULT.
