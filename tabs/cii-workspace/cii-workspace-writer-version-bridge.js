@@ -116,6 +116,17 @@ async function normalizePairInput(input, options = {}) {
   return Object.freeze({ source, target, normalizedInput });
 }
 
+export async function prepareCiiWorkspaceSourceWithVersionBridge(sourceValue, sourceFileName, options = {}) {
+  if (sourceValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
+  const fileName = sourceFileName || 'source.cii';
+  const source = await normalizeSideToV11(sourceValue, fileName, 'SOURCE', options.cryptoRef, options);
+  const sourceDocument = await intakeCiiWorkspaceDocument(source.normalizedBytes, fileName, {
+    side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation,
+  });
+  const sourceGraph = adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
+  return Object.freeze({ source, sourceDocument, sourceGraph });
+}
+
 export async function prepareCiiWorkspaceTargetWithVersionBridge(targetValue, targetFileName, options = {}) {
   if (targetValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
   const fileName = targetFileName || 'target.cii';
@@ -186,23 +197,49 @@ export async function inspectCiiWorkspaceModelsWithVersionBridge(input, options 
   });
 }
 
-export async function inspectCiiWorkspaceModelsWithPreparedTarget(input, preparedTarget, options = {}) {
+function assertPreparedSource(preparedSource) {
+  if (!preparedSource?.source || !preparedSource?.sourceDocument || !preparedSource?.sourceGraph) {
+    throw new Error('CII_VERSION_BRIDGE_PREPARED_SOURCE_REQUIRED');
+  }
+  if (preparedSource.sourceDocument.contentSha256 !== preparedSource.source.normalizedSha256) {
+    throw new Error('CII_VERSION_BRIDGE_PREPARED_SOURCE_NORMALIZED_HASH_MISMATCH');
+  }
+}
+function assertPreparedTarget(preparedTarget) {
   if (!preparedTarget?.target || !preparedTarget?.targetDocument || !preparedTarget?.targetGraph) {
     throw new Error('CII_VERSION_BRIDGE_PREPARED_TARGET_REQUIRED');
   }
-  const sourceValue = sideInput(input, 'source');
-  if (sourceValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
-  const source = await normalizeSideToV11(sourceValue, input?.sourceFileName || 'source.cii', 'SOURCE', options.cryptoRef, options);
-  const normalizedInput = withoutSideText({ ...(input || {}) }, 'source', source.normalizedBytes);
-  const inspection = await inspectCiiWorkspaceModels(normalizedInput, options, {
+  if (preparedTarget.targetDocument.contentSha256 !== preparedTarget.target.normalizedSha256) {
+    throw new Error('CII_VERSION_BRIDGE_PREPARED_TARGET_NORMALIZED_HASH_MISMATCH');
+  }
+}
+
+export async function inspectCiiWorkspaceModelsWithPreparedPair(preparedSource, preparedTarget, options = {}) {
+  assertPreparedSource(preparedSource);
+  assertPreparedTarget(preparedTarget);
+  const inspection = await inspectCiiWorkspaceModels({}, options, {
+    sourceDocument: preparedSource.sourceDocument,
+    sourceGraph: preparedSource.sourceGraph,
     targetDocument: preparedTarget.targetDocument,
     targetGraph: preparedTarget.targetGraph,
   });
-  assertNormalizedIntakeHashes(inspection, source, preparedTarget.target, 'INSPECTION');
+  assertNormalizedIntakeHashes(inspection, preparedSource.source, preparedTarget.target, 'INSPECTION');
   return Object.freeze({
     ...inspection,
-    versionBridge: buildVersionBridgeEvidence(source, preparedTarget.target),
+    versionBridge: buildVersionBridgeEvidence(preparedSource.source, preparedTarget.target),
   });
+}
+
+export async function inspectCiiWorkspaceModelsWithPreparedTarget(input, preparedTarget, options = {}) {
+  assertPreparedTarget(preparedTarget);
+  const sourceValue = sideInput(input, 'source');
+  if (sourceValue == null) throw new Error('CII_VERSION_BRIDGE_SOURCE_TARGET_REQUIRED');
+  const preparedSource = await prepareCiiWorkspaceSourceWithVersionBridge(
+    sourceValue,
+    input?.sourceFileName || 'source.cii',
+    options,
+  );
+  return inspectCiiWorkspaceModelsWithPreparedPair(preparedSource, preparedTarget, options);
 }
 
 export async function createCiiWorkspacePreviewWithVersionBridge(input, options = {}) {
