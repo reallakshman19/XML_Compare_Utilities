@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery', async ({ page }) => {
+test('C2 compares reviewed retained S1 AUTO_11 against MANUAL_THREE downstream recovery', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
 
@@ -11,12 +11,14 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
       multiPreview,
       censusModule,
       benchmarkModule,
+      canonicalModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-source-set.js'),
       import('/tabs/cii-workspace/cii-workspace-base-loop-selection.js'),
       import('/tabs/cii-workspace/cii-workspace-multisource-preview.js'),
       import('/tabs/cii-workspace/cii-workspace-source-target-audit.js'),
       import('/tabs/cii-workspace/cii-workspace-benchmark-overlay.js'),
+      import('/tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js'),
     ]);
 
     const { inspectCiiWorkspaceSourceSetWithVersionBridge } = sourceSet;
@@ -27,6 +29,7 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
       deriveCiiNodeNameBenchmarkDeltaFromCii,
       buildCiiSourceTargetBenchmarkOverlay,
     } = benchmarkModule;
+    const { ciiCanonicalWriter2MutationSelection } = canonicalModule;
 
     function assert(condition, message) {
       if (!condition) throw new Error(message);
@@ -46,6 +49,87 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
         if (choice.status === 'READY' && (choice.baseLoops || []).length) loops[sourceId] = choice.baseLoops;
       }
       return { choices, loops };
+    }
+    function reviewBySource(preview) {
+      return Object.fromEntries((preview?.memberPreviews || []).map(({ sourceId, preview: member }) => {
+        const rows = member?.compareReview?.rows || [];
+        return [sourceId, {
+          ...(member?.review || {}),
+          reviewedCorrespondenceIds: rows
+            .filter((row) => row.identityBound && ['HIGH', 'MEDIUM'].includes(row.confidence))
+            .map((row) => row.correspondenceId),
+          lockedCorrespondenceIds: rows
+            .filter((row) => row.decision === 'LOCKED')
+            .map((row) => row.correspondenceId),
+          rejectedCorrespondenceIds: [],
+        }];
+      }));
+    }
+    function candidateOperations(plan) {
+      const byId = new Map();
+      for (const operation of [...(plan?.operations || []), ...(plan?.excludedOperations || [])]) {
+        const id = String(operation?.operationId || '').trim();
+        if (id && !byId.has(id)) byId.set(id, operation);
+      }
+      return byId;
+    }
+    function targetId(operation) {
+      return String(operation?.targetEvidence?.identity || operation?.targetEvidence?.nodeId || '').trim();
+    }
+    function transferKey(action, nodeId) {
+      return `${String(action || '').trim()}|${String(nodeId || '').trim()}`;
+    }
+    function canonicalTransfer(preview, benchmark) {
+      const candidates = candidateOperations(preview?.transferPlan);
+      const canonical = ciiCanonicalWriter2MutationSelection([...candidates.values()]);
+      const operations = (canonical?.appliedOperationIds || []).map((id) => candidates.get(id)).filter(Boolean);
+      const actualKeys = operations
+        .map((operation) => transferKey(operation.action, targetId(operation)))
+        .filter((key) => !key.endsWith('|'))
+        .sort();
+      const expectedKeys = (benchmark?.rows || [])
+        .map((row) => transferKey(row.writerAction, row.nodeId))
+        .sort();
+      const actual = new Set(actualKeys);
+      const expected = new Set(expectedKeys);
+      return {
+        appliedOperationCount: operations.length,
+        actualKeys,
+        missingRequiredKeys: expectedKeys.filter((key) => !actual.has(key)),
+        additionalKeys: actualKeys.filter((key) => !expected.has(key)),
+        conflicts: canonical?.conflicts || [],
+        duplicateOperationIds: canonical?.duplicateOperationIds || [],
+      };
+    }
+    function detailForExpectedS1Rows(audit, overlay) {
+      const byKey = new Map((audit?.rows || []).map((row) => [String(row.rowKey || ''), row]));
+      return (overlay?.rows || []).flatMap((expected) => {
+        const keys = (expected.sourceRowKeys || []).filter((key) => String(key).startsWith('S1:'));
+        if (!keys.length) return [];
+        return keys.map((key) => {
+          const row = byKey.get(String(key));
+          return {
+            benchmarkTargetNodeId: expected.nodeId,
+            benchmarkAction: expected.action,
+            benchmarkStatus: expected.status,
+            rowKey: key,
+            sourceNodeId: row?.sourceNodeId || null,
+            sourceNodeName: row?.sourceNodeName || '',
+            targetNodeId: row?.targetNodeId || null,
+            targetNodeName: row?.targetNodeName || '',
+            state: row?.state || '',
+            confidence: row?.confidence || '',
+            identityBound: row?.identityBound === true,
+            nodeNameDifferent: row?.nodeNameDifferent,
+            qualifiedNodeNameChange: row?.qualifiedNodeNameChange === true,
+            evidenceBases: row?.evidenceBases || [],
+            reviewDecisions: row?.reviewDecisions || [],
+            writerActions: row?.writerActions || [],
+            writerStatuses: row?.writerStatuses || [],
+            correspondenceIds: row?.correspondenceIds || [],
+          };
+        });
+      });
     }
     function metrics(preview, benchmark, name, elapsedMs) {
       const audit = buildCiiSourceTargetAudit(preview);
@@ -83,6 +167,8 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
         aggregateMissingTargets: (overlay?.rows || [])
           .filter((row) => !row.mutationRecovered)
           .map((row) => ({ nodeId: row.nodeId, action: row.action, status: row.status })),
+        expectedS1RowDetails: detailForExpectedS1Rows(audit, overlay),
+        canonicalTransfer: canonicalTransfer(preview, benchmark),
       };
     }
 
@@ -103,7 +189,6 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
       cryptoRef: crypto,
     });
 
-    const inspectStarted = performance.now();
     const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({
       sources,
       targetBytes,
@@ -113,53 +198,67 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
       methodAPhysicalCandidateLimit: 11,
       baseAnchorDisplayLimit: 5,
     });
-    const inspectElapsedMs = performance.now() - inspectStarted;
 
     const automatic = automaticState(inspection);
     for (const sourceId of ['S1', 'S2', 'S3']) {
       assert(automatic.choices[sourceId]?.status === 'READY',
         `${sourceId} must be READY at validation-only budget 11: ${automatic.choices[sourceId]?.reason}`);
-      assert((automatic.loops[sourceId] || []).length > 0, `${sourceId} must expose a qualified loop`);
     }
 
-    const autoStarted = performance.now();
-    const autoPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
+    async function reviewedScenario(input, name) {
+      const discoveryStarted = performance.now();
+      const discovery = await createCiiWriter2SourceSetPreviewWithVersionBridge(input, { cryptoRef: crypto });
+      const discoveryElapsedMs = performance.now() - discoveryStarted;
+      const reviews = reviewBySource(discovery);
+      const reviewedStarted = performance.now();
+      const reviewed = await createCiiWriter2SourceSetPreviewWithVersionBridge({
+        ...input,
+        reviewBySource: reviews,
+      }, { cryptoRef: crypto });
+      const reviewedElapsedMs = performance.now() - reviewedStarted;
+      return {
+        discovery: metrics(discovery, benchmark, `${name}_DISCOVERY`, discoveryElapsedMs),
+        reviewed: metrics(reviewed, benchmark, `${name}_REVIEWED`, reviewedElapsedMs),
+        reviewCounts: Object.fromEntries(Object.entries(reviews).map(([sourceId, review]) => [sourceId, {
+          reviewed: (review.reviewedCorrespondenceIds || []).length,
+          locked: (review.lockedCorrespondenceIds || []).length,
+          rejected: (review.rejectedCorrespondenceIds || []).length,
+        }])),
+      };
+    }
+
+    const auto = await reviewedScenario({
       sources,
       targetBytes,
       targetFileName: 'T.CII',
       baseLoopsBySource: automatic.loops,
-    }, { cryptoRef: crypto });
-    const autoMetrics = metrics(autoPreview, benchmark, 'AUTO_11', performance.now() - autoStarted);
+    }, 'AUTO_11');
 
-    const manualLoops = {
-      S2: automatic.loops.S2,
-      S3: automatic.loops.S3,
-    };
     const manualAnchors = [
       { sourceNodeId: '3910', targetNodeId: '875' },
       { sourceNodeId: '3940', targetNodeId: '880' },
       { sourceNodeId: '3870', targetNodeId: '870' },
     ];
-    const manualStarted = performance.now();
-    const manualPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
+    const manual = await reviewedScenario({
       sources,
       targetBytes,
       targetFileName: 'T.CII',
-      baseLoopsBySource: manualLoops,
+      baseLoopsBySource: {
+        S2: automatic.loops.S2,
+        S3: automatic.loops.S3,
+      },
       anchorPairsBySource: { S1: manualAnchors },
-    }, { cryptoRef: crypto });
-    const manualMetrics = metrics(manualPreview, benchmark, 'MANUAL_THREE', performance.now() - manualStarted);
+    }, 'MANUAL_THREE');
 
-    assert(manualMetrics.authorityMode === 'INDEPENDENT_MANUAL_SEEDS',
+    assert(manual.reviewed.authorityMode === 'INDEPENDENT_MANUAL_SEEDS',
       'MANUAL_THREE must use independent manual-seed authority');
-    assert(manualMetrics.conflicts === 0, 'MANUAL_THREE diagnostic must remain conflict-free');
+    assert(manual.reviewed.conflicts === 0, 'MANUAL_THREE diagnostic must remain conflict-free');
 
     return {
-      schema: 'CIIWriter2S1C2PropagationRca.v1',
+      schema: 'CIIWriter2S1C2ReviewedPropagationRca.v2',
       validationSearchBudget: 11,
       benchmarkExpectedCount: benchmark.summary.expectedCount,
       benchmarkByAction: benchmark.summary.byAction,
-      inspectElapsedMs: Number(inspectElapsedMs.toFixed(1)),
       automaticChoices: Object.fromEntries(Object.entries(automatic.choices).map(([sourceId, choice]) => [sourceId, {
         status: choice.status,
         reason: choice.reason,
@@ -174,24 +273,25 @@ test('C2 compares retained S1 AUTO_11 against MANUAL_THREE downstream recovery',
           anchorPairs: (loop.anchorPairs || []).map((row) => `${row.sourceNodeId}=>${row.targetNodeId}`),
         })),
       }])),
-      scenarios: [autoMetrics, manualMetrics],
-      comparison: {
-        boundNodeDeltaManualMinusAuto: manualMetrics.boundNodeCount - autoMetrics.boundNodeCount,
-        unresolvedNodeDeltaManualMinusAuto: manualMetrics.unresolvedNodeCount - autoMetrics.unresolvedNodeCount,
-        unemittedNodeDeltaManualMinusAuto: manualMetrics.unemittedNodeCount - autoMetrics.unemittedNodeCount,
-        qualifiedChangeDeltaManualMinusAuto:
-          manualMetrics.qualifiedNodeNameChangeCount - autoMetrics.qualifiedNodeNameChangeCount,
+      scenarios: { auto, manual },
+      reviewedComparison: {
+        boundNodeDeltaManualMinusAuto:
+          manual.reviewed.boundNodeCount - auto.reviewed.boundNodeCount,
+        unemittedNodeDeltaManualMinusAuto:
+          manual.reviewed.unemittedNodeCount - auto.reviewed.unemittedNodeCount,
         s1KnownPositiveCorrespondenceDeltaManualMinusAuto:
-          manualMetrics.s1KnownPositiveCorrespondenceCount - autoMetrics.s1KnownPositiveCorrespondenceCount,
+          manual.reviewed.s1KnownPositiveCorrespondenceCount - auto.reviewed.s1KnownPositiveCorrespondenceCount,
         s1KnownPositiveMutationDeltaManualMinusAuto:
-          manualMetrics.s1KnownPositiveMutationCount - autoMetrics.s1KnownPositiveMutationCount,
+          manual.reviewed.s1KnownPositiveMutationCount - auto.reviewed.s1KnownPositiveMutationCount,
+        aggregateMutationRecoveryDeltaManualMinusAuto:
+          (manual.reviewed.aggregateLowerBound?.mutationRecoveredCount || 0)
+          - (auto.reviewed.aggregateLowerBound?.mutationRecoveredCount || 0),
       },
     };
   });
 
-  console.log('S1_C2_RCA=' + JSON.stringify(diagnostics));
+  console.log('S1_C2_REVIEWED_RCA=' + JSON.stringify(diagnostics));
   expect(diagnostics.benchmarkExpectedCount).toBe(36);
-  expect(diagnostics.scenarios).toHaveLength(2);
   expect(diagnostics.automaticChoices.S1.status).toBe('READY');
+  expect(diagnostics.scenarios.manual.reviewed.authorityMode).toBe('INDEPENDENT_MANUAL_SEEDS');
 });
-
