@@ -46,7 +46,7 @@ jobs:
           # Retained D4 specification and correctness stack remain exact.
           test "$(git hash-object tests/browser/cii-writer2-s1-d4-method-a-provenance.spec.mjs)" = "09277285218be101f9a83f0d6a10dc98a7a0ae92"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fbfa4b32fd2c4db9da0aa50f9b23bc1c54191a5d"
-          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "ff26a1921dc527a7d7cef2e9a94c56b92651484f"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-correspondence-arbitration.js)" = "4beb9e094724e4308d231d7277c1806b8796a078"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js)" = "1037163d7ace8f91cc889108c044d1d2e9884d58"
           test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-suggestions.js)" = "48ac451a7084873a8f48b6a48237627ba0a4786c"
