@@ -1,0 +1,73 @@
+name: CII F3V live BM target applicability qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-bm001-live-preimage-1309
+  workflow_dispatch:
+
+jobs:
+  f3v-bm-applicability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact validation-only reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASIS=25fe367817e1987468d02b538995ebe30ca29065
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-bm001-live-preimage-1309.yml' \
+            'tests/cii-workspace-multisource-bm001-live-preimage.test.js' \
+            'tests/cii-workspace-multisource-partial-texpected-oracle.js' | sort)"
+          actual="$(git diff --name-only "$BASIS"...HEAD | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git hash-object tests/cii-workspace-multisource-partial-texpected-oracle.js)" = "5d9c925b7b9c58a2db1e0ffc05027ec468f48b60"
+          test "$(git hash-object tests/cii-workspace-multisource-bm001-live-preimage.test.js)" = "6ff1ba3b4066d3ea323213b86b9e13c10e44c656"
+
+          # Frozen authority and product composition must remain exact.
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js)" = "12a282b4d6da6e42a1cecc374e86de06794b1822"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js)" = "15b451c84cfa11838004e58feb4c169069d82ef2"
+          test "$(git hash-object tests/cii-workspace-multisource-bm001-exact-alias.test.js)" = "a67c039f97a9fa1fc781471640eca988afb639cc"
+          test "$(git hash-object tests/cii-workspace-multisource-lower-bound-helpers.js)" = "55bbe07def93c2d922854fcf98af8a54effb2308"
+
+          if git diff --name-only "$BASIS"...HEAD -- tabs/cii-workspace | grep -q .; then
+            echo "Product mutation forbidden in F3V"
+            exit 1
+          fi
+          if git diff --name-only "$BASIS"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden in F3V"
+            exit 1
+          fi
+
+          echo "F3V_EXACT_VALIDATION_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check validation authority
+        run: |
+          node --check tests/cii-workspace-multisource-partial-texpected-oracle.js
+          node --check tests/cii-workspace-multisource-bm001-live-preimage.test.js
+
+      - name: Run live-target BM applicability contract
+        run: node tests/cii-workspace-multisource-bm001-live-preimage.test.js
+
+      - name: Run inherited raw identity and BM exact-alias contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-multisource-partial-texpected-oracle.test.js
+          node tests/cii-workspace-multisource-bm001-exact-alias.test.js
+          node tests/cii-workspace-multisource-lower-bound-helpers.test.js
