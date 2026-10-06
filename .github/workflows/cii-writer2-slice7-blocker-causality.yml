@@ -1,0 +1,102 @@
+name: CII Writer2 Slice 7 blocker causality qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-slice7-blocker-causality-1239
+  workflow_dispatch:
+
+jobs:
+  slice7-blocker-causality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard Slice 7 validation-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SLICE7=b13da2c55d998ce25705677f93b9d93648bde6a1
+
+          allowed=$(cat <<'EOF'
+          .github/workflows/cii-writer2-slice7-blocker-causality.yml
+          tests/browser/cii-writer2-slice7-blocker-causality-validation.spec.mjs
+          EOF
+          )
+
+          changed="$(git diff --name-only "$SLICE7"...HEAD | sort)"
+          printf '%s\n' "$changed"
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed" | sed 's/^          //' | sort) || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected validation drift:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          git diff --exit-code "$SLICE7" -- \
+            tabs/cii-workspace/cii-workspace-multisource-blocker-causality.js \
+            tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js \
+            tests/cii-workspace-multisource-blocker-causality.test.js
+          echo "SLICE7_SEMANTICS_UNTOUCHED"
+          echo "VALIDATION_HEAD=$(git rev-parse HEAD)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Syntax + authored deterministic Slice 7 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-multisource-blocker-causality.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-readiness.js
+          node --check tests/cii-workspace-multisource-blocker-causality.test.js
+          node --check tests/browser/cii-writer2-slice7-blocker-causality-validation.spec.mjs
+          node tests/cii-workspace-multisource-blocker-causality.test.js
+
+      - name: Create Slice 7 browser config
+        shell: bash
+        run: |
+          cat > playwright.slice7-blocker-causality.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-slice7-blocker-causality-validation.spec.mjs'],
+            timeout: 120_000,
+            expect: { timeout: 15_000 },
+            workers: 1,
+            retries: 0,
+            outputDir: 'test-results/cii-writer2-slice7-blocker-causality',
+            reporter: [['list']],
+          };
+          EOF
+
+      - name: Run browser-runtime Slice 7 causality projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.slice7-blocker-causality.config.mjs 2>&1 | tee slice7-blocker-causality.log
+
+      - name: Upload Slice 7 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-slice7-blocker-causality
+          path: |
+            slice7-blocker-causality.log
+            playwright.slice7-blocker-causality.config.mjs
+            test-results/cii-writer2-slice7-blocker-causality
+          if-no-files-found: warn
