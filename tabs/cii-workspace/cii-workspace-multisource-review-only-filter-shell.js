@@ -1,4 +1,5 @@
 import { mountCiiWriter2MultiSourceReviewRouter as mountReviewRouter } from './cii-workspace-multisource-review-only-router.js?v=20260909-ms-review-decisions-1';
+import { setCiiMultiSourceMethodAPhysicalCandidateLimit } from './cii-workspace-source-set.js';
 
 function genericReviewActive(container) {
   return Boolean(container.querySelector('[data-ciiw-ms-review-only-transfer="1"]') && container.querySelector('[data-ciiw-ms-review-table="1"]'));
@@ -18,6 +19,17 @@ function rowMatches(row, filters = {}) {
   const search = String(filters.search || '').trim().toLowerCase();
   return !search || String(row?.textContent || '').toLowerCase().includes(search);
 }
+function mountMethodASearchControl(container, initialValue = 10) {
+  const inspectButton = container.querySelector('[data-ciiw-inspect]'); const documentRef = container.ownerDocument;
+  if (!inspectButton || !documentRef || container.querySelector('[data-ciiw-method-a-search-limit]')) return () => {};
+  const label = documentRef.createElement('label'); label.className = 'ciiw-ms-anchor-search-limit';
+  label.innerHTML = '<span><b>Method-A search pairs</b><small>Limits expensive physical candidate search; 10 recommended.</small></span><input type="number" min="3" max="24" step="1" data-ciiw-method-a-search-limit aria-label="Method-A physical candidate search limit">';
+  const input = label.querySelector('[data-ciiw-method-a-search-limit]');
+  input.value = String(setCiiMultiSourceMethodAPhysicalCandidateLimit(initialValue));
+  const onChange = () => { input.value = String(setCiiMultiSourceMethodAPhysicalCandidateLimit(input.value)); };
+  input.addEventListener('change', onChange); inspectButton.parentNode?.insertBefore(label, inspectButton);
+  return () => { input.removeEventListener('change', onChange); label.remove(); };
+}
 export function applyCiiGenericReviewDomFilters(container) {
   if (!genericReviewActive(container)) return Object.freeze({ active: false, total: 0, visible: 0 });
   const confidence = container.querySelector('[data-ciiw-confidence-filter]')?.value || 'ALL';
@@ -34,6 +46,7 @@ export function applyCiiGenericReviewDomFilters(container) {
 
 export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) {
   const core = mountReviewRouter(container, options);
+  const disposeSearchControl = mountMethodASearchControl(container, options.methodAPhysicalCandidateLimit ?? 10);
   const confidence = container.querySelector('[data-ciiw-confidence-filter]');
   const search = container.querySelector('[data-ciiw-search]');
   const changedOnly = container.querySelector('[data-ciiw-changed-only]');
@@ -62,11 +75,11 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   return {
     ...core,
     destroy() {
-      disposed = true; observer?.disconnect();
+      disposed = true; observer?.disconnect(); disposeSearchControl();
       container.removeEventListener('change', onChange, true); container.removeEventListener('input', onInput, true);
       core?.destroy?.();
     },
   };
 }
 
-export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches });
+export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches, mountMethodASearchControl });

@@ -1,0 +1,103 @@
+name: CII Writer2 S1 semantic trace #1254
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s1-semantic-trace-1254
+  workflow_dispatch:
+
+jobs:
+  s1-semantic-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation-only composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=695e555f57eb0c7c1549a00307c5797e71c67470
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          printf '%s\n' "$changed"
+
+          cat > /tmp/allowed <<'EOF'
+.github/workflows/cii-writer2-s1-semantic-trace-1254.yml
+tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js
+tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js
+tabs/cii-workspace/cii-workspace-anchor-suggestions.js
+tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+tabs/cii-workspace/cii-workspace-source-set.js
+tabs/cii-workspace/cii-workspace-source-target-audit.js
+tests/browser/cii-writer2-s1-semantic-trace-1254.spec.mjs
+EOF
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(sort /tmp/allowed) || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected validation drift:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "18e04998fdf48368f56ff5bf975671075d90cd84"
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-anchor-suggestions-core.js)" = "1037163d7ace8f91cc889108c044d1d2e9884d58"
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-anchor-suggestions.js)" = "48ac451a7084873a8f48b6a48237627ba0a4786c"
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js)" = "ebe18d2dc2ffe3ac8dd60b8e330aca25cfb01c28"
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-source-set.js)" = "f4d36814c34a20b194389eebe7ed7ec52e42ba3b"
+          test "$(git rev-parse HEAD:tabs/cii-workspace/cii-workspace-source-target-audit.js)" = "8787fe0f09215ccd4e6bcc337f6d88a8f31d6d91"
+
+          git diff --exit-code "$BASE" --             tabs/cii-workspace/cii-workspace-core.js             tabs/cii-workspace/cii-workspace-correspondence-arbitration.js             tabs/cii-workspace/cii-workspace-multi-base-correspondence.js             tabs/cii-workspace/cii-workspace-multisource-preview.js             tabs/cii-workspace/cii-workspace-propagation.js             tabs/cii-workspace/cii-workspace-engineering-delta.js             tests/browser/cii-writer2-manual-anchor-cardinality.spec.mjs
+
+          echo "S1_TRACE_PRODUCT_SEMANTICS_UNTOUCHED"
+          echo "VALIDATION_HEAD=$(git rev-parse HEAD)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Syntax check trace
+        run: node --check tests/browser/cii-writer2-s1-semantic-trace-1254.spec.mjs
+
+      - name: Create trace config
+        shell: bash
+        run: |
+          cat > playwright.s1-semantic-trace.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s1-semantic-trace-1254.spec.mjs'],
+            timeout: 600_000,
+            expect: { timeout: 30_000 },
+            workers: 1,
+            retries: 0,
+            outputDir: 'test-results/cii-writer2-s1-semantic-trace-1254',
+            reporter: [['list']],
+          };
+          EOF
+
+      - name: Run retained S1 semantic trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s1-semantic-trace.config.mjs 2>&1 | tee s1-semantic-trace.log
+
+      - name: Upload trace evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s1-semantic-trace-1254
+          path: |
+            s1-semantic-trace.log
+            playwright.s1-semantic-trace.config.mjs
+            test-results/cii-writer2-s1-semantic-trace-1254
+          if-no-files-found: warn
