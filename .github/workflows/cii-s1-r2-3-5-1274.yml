@@ -1,0 +1,43 @@
+name: CII S1 R2.3.5 generic adversarial contracts
+
+on:
+  push:
+    branches:
+      - validation/cii-s1-r2-3-5-1274
+  workflow_dispatch:
+
+jobs:
+  adversarial-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard validation-only composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d05ba44051dcfeee4999b13391182fb3b57b0670
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          expected="$(printf '%s\n'             '.github/workflows/cii-s1-r2-3-5-1274.yml'             'tests/cii-workspace-anchor-coherence-adversarial-1274.test.js' | sort)"
+          test "$changed" = "$expected"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js)" = "ce3326a86f9e8fd88f26e583e27bf8147d0b39dd"
+          test "$(git hash-object tests/cii-workspace-anchor-search-budget.test.js)" = "60b565ae661276bc556233342fb96126a0fdb003"
+          if git diff --name-only "$BASE"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+          echo "R2_3_5_GUARD_PASS"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run authored bounded-search regression
+        run: node tests/cii-workspace-anchor-search-budget.test.js
+      - name: Run full generic adversarial matrix
+        run: node tests/cii-workspace-anchor-coherence-adversarial-1274.test.js
