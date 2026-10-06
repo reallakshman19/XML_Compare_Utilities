@@ -16,5 +16,5 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Reproduce benchmark-end-to-end on untouched main
-        run: node tests/cii-workspace-benchmark-end-to-end.test.js
+      - name: Reproduce Writer2 restraint product test on untouched main
+        run: node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
