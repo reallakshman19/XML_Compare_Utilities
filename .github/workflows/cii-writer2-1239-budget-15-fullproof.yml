@@ -1,0 +1,42 @@
+name: CII Writer2 #1239 Budget 15 Full Retained Proof
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-1239-pr1234-budget-15-fullproof
+
+permissions:
+  contents: read
+
+jobs:
+  full-retained:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run unchanged retained benchmark with validation-only budget 15
+        shell: bash
+        env:
+          CII_METHOD_A_PHYSICAL_LIMIT: 15
+        run: |
+          set -o pipefail
+          start=$(date +%s)
+          node --import ./.github/validation/cii-writer2-method-a-budget-preload.mjs tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js 2>&1 | tee full-retained-budget-15.log
+          status=${PIPESTATUS[0]}
+          end=$(date +%s)
+          echo "ELAPSED_SECONDS=$((end-start))" | tee full-retained-budget-15-summary.log
+          echo "EXIT_STATUS=$status" | tee -a full-retained-budget-15-summary.log
+          exit "$status"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-1239-budget-15-fullproof
+          path: |
+            full-retained-budget-15.log
+            full-retained-budget-15-summary.log
+          if-no-files-found: warn
