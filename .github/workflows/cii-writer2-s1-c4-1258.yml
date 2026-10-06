@@ -1,12 +1,15 @@
-name: CII Writer2 S1 C4 coherent preselection
+name: CII Writer2 S1 C4 pairwise coherence diagnostic
 
 on:
+  push:
+    branches:
+      - validation/cii-writer2-s1-c4-1258
   workflow_dispatch:
 
 jobs:
-  c4-coherent-preselection:
+  c4-pairwise-coherence:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - name: Checkout validation head
         uses: actions/checkout@v4
@@ -19,7 +22,7 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Guard validation-only composition
+      - name: Guard validation-only diagnostic composition
         shell: bash
         run: |
           set -euo pipefail
@@ -34,6 +37,7 @@ jobs:
           tabs/cii-workspace/cii-workspace-source-target-audit.js
           tests/cii-workspace-anchor-search-budget.test.js
           tests/browser/cii-writer2-s1-c4-coherent-preselection.spec.mjs
+          tests/browser/cii-writer2-s1-c4-coherence-diagnostic.spec.mjs
           EOF
           )
           changed="$(git diff --name-only "$BASE"...HEAD | sort)"
@@ -57,13 +61,10 @@ jobs:
             echo "Benchmark mutation forbidden"
             exit 1
           fi
-          echo "S1_C4_VALIDATION_GUARD_PASS"
+          echo "S1_C4_PAIRWISE_DIAGNOSTIC_GUARD_PASS"
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run focused bounded-preselection test
-        run: node tests/cii-workspace-anchor-search-budget.test.js
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -71,32 +72,32 @@ jobs:
       - name: Create focused Playwright config
         shell: bash
         run: |
-          cat > playwright.s1-c4.config.mjs <<'EOF'
+          cat > playwright.s1-c4-diagnostic.config.mjs <<'EOF'
           import base from './playwright.cii-writer2-retained.config.mjs';
           export default {
             ...base,
-            testMatch: ['cii-writer2-s1-c4-coherent-preselection.spec.mjs'],
-            timeout: 240_000,
+            testMatch: ['cii-writer2-s1-c4-coherence-diagnostic.spec.mjs'],
+            timeout: 180_000,
             expect: { timeout: 20_000 },
             workers: 1,
             retries: 0,
             reporter: [['list']],
-            outputDir: 'test-results/cii-writer2-s1-c4',
+            outputDir: 'test-results/cii-writer2-s1-c4-diagnostic',
           };
           EOF
 
-      - name: Run C4 retained qualification
+      - name: Run C4 pairwise coherence diagnostic
         shell: bash
         run: |
           set -euo pipefail
-          npx playwright test --config=playwright.s1-c4.config.mjs 2>&1 | tee s1-c4.log
+          npx playwright test --config=playwright.s1-c4-diagnostic.config.mjs 2>&1 | tee s1-c4-diagnostic.log
 
-      - name: Upload C4 evidence
+      - name: Upload C4 diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cii-writer2-s1-c4-coherent-preselection
+          name: cii-writer2-s1-c4-pairwise-coherence
           path: |
-            s1-c4.log
-            test-results/cii-writer2-s1-c4
+            s1-c4-diagnostic.log
+            test-results/cii-writer2-s1-c4-diagnostic
           if-no-files-found: warn
