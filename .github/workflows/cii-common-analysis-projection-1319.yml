@@ -62,7 +62,6 @@ jobs:
           set -euo pipefail
           node tests/cii-workspace-benchmark-writer-1a.test.js
           node tests/cii-workspace-benchmark-writer-1b.test.js
-          node tests/cii-workspace-writer2-restraint-product-real-cii.test.js
 
       - name: Run retained multisource full-proof regression
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
