@@ -14,6 +14,33 @@ const S3 = fileURLToPath(new URL('../../Benchmark/S3.CII', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../Benchmark/T.CII', import.meta.url));
 const PARTIAL_EXPECTED = fileURLToPath(new URL('../../Benchmark/TEXPECTED-PARTIALLLYDONE.CII', import.meta.url));
 
+function uiSelectedNodeNameOperations(scopeText, sourceTextsById, targetText) {
+  const text = String(scopeText || '').replace(/^Scope ID:\s*/, '');
+  const match = text.match(/^transfer-scope:SOURCE_SET:[^:]+:ORIGINAL_TARGET:[^:]+:(.*)$/);
+  if (!match) throw new Error('F4V_TILE_SCOPE_ID_PARSE_FAILED');
+  const target = parseIndependentNodeNameState(targetText);
+  const sources = Object.fromEntries(Object.entries(sourceTextsById)
+    .map(([sourceId, sourceText]) => [sourceId, parseIndependentNodeNameState(sourceText)]));
+  return match[1].split('|').filter((entry) => entry.endsWith('=APPLY')).map((entry) => {
+    const operationId = entry.slice(0, -'=APPLY'.length);
+    const op = operationId.match(/^ms-op:(S[123]):op:NODE_NAME:Node name \/ to-name:multi-base-node:([^:]+):([^:]+)$/);
+    if (!op) throw new Error(`F4V_TILE_NON_NODENAME_APPLY:${operationId}`);
+    const [, sourceId, sourceNodeId, targetNodeId] = op;
+    const sourceValue = String(sources[sourceId]?.names?.get(sourceNodeId) || '').trim();
+    if (!sourceValue) throw new Error(`F4V_TILE_SOURCE_NAME_MISSING:${sourceId}:${sourceNodeId}`);
+    const before = String(target.names.get(targetNodeId) || '').trim();
+    return {
+      operationId,
+      sourceId,
+      action: before ? 'COPY' : 'CREATE',
+      proposed: sourceValue,
+      before,
+      sourceEvidence: { value: sourceValue },
+      targetEvidence: { identity: targetNodeId, nodeId: targetNodeId, value: before },
+    };
+  });
+}
+
 test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lower-bound scope and validated TARGET export', async ({ page }) => {
   await page.goto('/tests/browser/cii-writer2-bridge-fixture.html');
   await expect(page.locator('[data-cii-writer2-bridge-fixture="1"]')).toBeVisible();
@@ -144,6 +171,8 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
   const applyWriter2 = page.locator('[data-ciiw-ms-apply]');
   await expect(applyWriter2).toBeEnabled();
   await expect(transferScope).toContainText(`APPLY: ${applyCount}`);
+  const scopeIdText = await transferScope.locator('small').textContent();
+  expect(scopeIdText).toContain('Scope ID: transfer-scope:');
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -155,15 +184,24 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
 
   const downloadedPath = await download.path();
   expect(downloadedPath).toBeTruthy();
-  const [actualBytes, beforeText, partialExpectedText] = await Promise.all([
+  const [actualBytes, beforeText, partialExpectedText, s1Text, s2Text, s3Text] = await Promise.all([
     readFile(downloadedPath),
     readFile(TARGET, 'latin1'),
     readFile(PARTIAL_EXPECTED, 'latin1'),
+    readFile(S1, 'latin1'),
+    readFile(S2, 'latin1'),
+    readFile(S3, 'latin1'),
   ]);
   const actualText = actualBytes.toString('latin1');
   const expectedDelta = deriveExpectedNodeNameDelta(beforeText, partialExpectedText);
   expect(expectedDelta.rows).toHaveLength(36);
-  const knownPositive = validateKnownPositiveNodeNames(actualText, expectedDelta.rows);
+  const selectedOperations = uiSelectedNodeNameOperations(scopeIdText, {
+    S1: s1Text,
+    S2: s2Text,
+    S3: s3Text,
+  }, beforeText);
+  expect(selectedOperations).toHaveLength(applyCount);
+  const knownPositive = validateKnownPositiveNodeNames(actualText, expectedDelta.rows, selectedOperations);
   const transferText = await transferScope.textContent();
   const finalStatusText = await status.textContent();
   console.log('F4V_TILE_DIAGNOSTIC=' + JSON.stringify({
@@ -172,6 +210,8 @@ test('Utilities Writer2 tile walks retained S1/S2/S3 through explicit review, lo
     finalStatusText,
     knownPositiveStatus: knownPositive.status,
     knownPositiveDifferences: knownPositive.differences,
+    knownPositiveExplanations: knownPositive.explanations,
+    selectedOperationCount: selectedOperations.length,
     expectedRows: expectedDelta.rows.length,
   }));
   expect(knownPositive.status).toBe('READY');
