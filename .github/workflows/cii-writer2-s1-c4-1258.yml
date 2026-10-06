@@ -40,15 +40,11 @@ jobs:
           EOF
           )
           changed="$(git diff --name-only "$BASE"...HEAD | sort)"
-          printf '%s
-' "$changed"
-          unexpected="$(comm -23 <(printf '%s
-' "$changed") <(printf '%s
-' "$allowed" | sed 's/^          //' | sort) || true)"
+          printf '%s\n' "$changed"
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed" | sed 's/^          //' | sort) || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected validation drift:"
-            printf '%s
-' "$unexpected"
+            printf '%s\n' "$unexpected"
             exit 1
           fi
 
