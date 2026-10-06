@@ -236,6 +236,16 @@ test('Phase A retained S1 semantic trace', async ({ page }) => {
         },
         qualifiedS1,
         knownPositiveS1,
+        expectedAll: overlay.rows.map((row) => ({
+          targetNodeId: row.nodeId,
+          action: row.action,
+          status: row.status,
+          correspondenceRecovered: row.correspondenceRecovered,
+          mutationRecovered: row.mutationRecovered,
+          sourceRowKeys: row.sourceRowKeys,
+          boundSourceRowKeys: row.boundSourceRowKeys,
+          mutationSourceRowKeys: row.mutationSourceRowKeys,
+        })),
         overlaySummary: overlay.summary,
       };
     }
