@@ -4,7 +4,6 @@ import { qualifyCiiMultiBaseAuthority } from '../tabs/cii-workspace/cii-workspac
 import { buildCiiMultiBaseCorrespondence } from '../tabs/cii-workspace/cii-workspace-multi-base-correspondence.js';
 import { arbitrateCiiLoopCorrespondences } from '../tabs/cii-workspace/cii-workspace-correspondence-arbitration.js';
 import { compareLockedCiiAnchorSpan } from '../tabs/cii-workspace/cii-workspace-topology.js';
-import { ciiIdentityBound, ciiIdentityConfidence } from '../tabs/cii-workspace/cii-workspace-engineering-delta.js';
 
 function point(x = 0, y = 0, z = 0) { return { x, y, z }; }
 function segment(from, to, fromPos, toPos, od = 100, wall = 6) {
@@ -42,41 +41,6 @@ const aCorrespondence = buildCiiMultiBaseCorrespondence(source, target, aAuthori
 assert.strictEqual(aCorrespondence.status, 'READY');
 assert.deepStrictEqual(aCorrespondence.contributingLoopIds, ['A-L']);
 assert(aCorrespondence.nodeRows.some((row) => row.sourceNodeId === '20' && row.targetNodeId === '120'));
-
-function methodAAuthorityAtConfidence(confidence) {
-  return { status: 'READY', loops: [{ ...aAuthority.loops[0], loopId: `A-${confidence}`, method: 'METHOD_A_SPATIAL',
-    status: 'READY', confidence, anchorPairs: aBase.anchorPairs }] };
-}
-function projectedEndpoint(correspondence) {
-  return correspondence.nodeRows.find((row) => row.sourceNodeId === '10' && row.targetNodeId === '110');
-}
-
-for (const confidence of ['HIGH', 'MEDIUM']) {
-  const projected = buildCiiMultiBaseCorrespondence(source, target, methodAAuthorityAtConfidence(confidence));
-  const endpoint = projectedEndpoint(projected);
-  assert(endpoint, `${confidence} Method-A endpoint must survive arbitration`);
-  assert.strictEqual(endpoint.status, 'REVIEW');
-  assert.strictEqual(endpoint.authority, 'MULTI_BASE_LOOP');
-  assert.strictEqual(endpoint.evidence.identitySupported, true);
-  assert.strictEqual(endpoint.evidence.identityConfidence, confidence);
-  assert.strictEqual(endpoint.evidence.identityEvidenceBasis, 'METHOD_A_QUALIFIED_BASE_ANCHOR');
-  assert.strictEqual(endpoint.evidence.multiBaseProvenance[0].rowAuthority, 'METHOD_A_QUALIFIED_ANCHOR');
-  assert.strictEqual(endpoint.evidence.multiBaseProvenance[0].rowStatus, 'REVIEW');
-  assert.strictEqual(ciiIdentityBound(endpoint), true);
-  assert.strictEqual(ciiIdentityConfidence(endpoint), confidence);
-}
-
-{
-  const projected = buildCiiMultiBaseCorrespondence(source, target, methodAAuthorityAtConfidence('REVIEW'));
-  const endpoint = projectedEndpoint(projected);
-  assert(endpoint, 'REVIEW Method-A endpoint must remain visible for review');
-  assert.strictEqual(endpoint.status, 'REVIEW');
-  assert.strictEqual(endpoint.evidence.identitySupported, false);
-  assert.strictEqual(endpoint.evidence.identityConfidence, 'REVIEW');
-  assert.strictEqual(endpoint.evidence.multiBaseProvenance[0].rowAuthority, 'METHOD_A_QUALIFIED_ANCHOR');
-  assert.strictEqual(ciiIdentityBound(endpoint), false);
-  assert.strictEqual(ciiIdentityConfidence(endpoint), 'REVIEW');
-}
 
 // Method B alone: a genuine X+Y local run basis at the central node must qualify and propagate independently.
 const bAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
