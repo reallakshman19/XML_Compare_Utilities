@@ -1,0 +1,91 @@
+name: CII Writer2 S2/S3 U2 no-row path trace
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s23-u2-1288
+  workflow_dispatch:
+
+jobs:
+  u2-no-row-path:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact retained diagnostic basis
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=bd353b9e747ca322bba0aa2f609b0eae140df3ff
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-writer2-s23-u2-1288.yml' \
+            'tests/browser/cii-writer2-s23-u2-no-row-path.spec.mjs' | sort)"
+          actual="$(git diff --name-only "$BASE"...HEAD | sort)"
+          test "$actual" = "$expected"
+
+          test "$(git hash-object tests/browser/cii-writer2-s23-u2-no-row-path.spec.mjs)" = "ef991329cfac19b7f7583f2dd8f310e8aaa5a529"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-node-custody.js)" = "6e7cb74f9533cde025bee083cdc8ac2b0b05cb25"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multi-base-correspondence.js)" = "fbfa4b32fd2c4db9da0aa50f9b23bc1c54191a5d"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-topology.js)" = "9ce89073a104d7a7313d3c8a95ea927f65daaca9"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-alignment.js)" = "d4e297006bd6470592c5bf252fff1a66eeebfede"
+
+          if git diff --name-only "$BASE"...HEAD -- tabs/cii-workspace | grep -q .; then
+            echo "Production mutation forbidden in U2"
+            exit 1
+          fi
+          if git diff --name-only "$BASE"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden in U2"
+            exit 1
+          fi
+
+          echo "S23_U2_PATH_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create focused Playwright config
+        shell: bash
+        run: |
+          cat > playwright.s23-u2.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-s23-u2-no-row-path.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-writer2-s23-u2',
+          };
+          EOF
+
+      - name: Run U2 no-row path trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.s23-u2.config.mjs 2>&1 | tee s23-u2.log
+
+      - name: Upload U2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-writer2-s23-u2-no-row-path
+          path: |
+            s23-u2.log
+            test-results/cii-writer2-s23-u2
+          if-no-files-found: warn
