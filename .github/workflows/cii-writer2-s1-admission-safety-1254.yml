@@ -1,0 +1,52 @@
+name: CII Writer2 S1 admission safety 1254
+
+on:
+  push:
+    branches:
+      - validation/cii-writer2-s1-admission-safety-1254
+  workflow_dispatch:
+
+jobs:
+  admission-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact validation head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Guard validation-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=695e555f57eb0c7c1549a00307c5797e71c67470
+          changed="$(git diff --name-only "$BASE"...HEAD | sort)"
+          printf '%s\n' "$changed"
+          allowed=$'.github/workflows/cii-writer2-s1-admission-safety-1254.yml\ntests/cii-writer2-s1-admission-safety-1254.test.js'
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$allowed" | sort) || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected validation drift:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+          git diff --exit-code "$BASE" -- tabs/cii-workspace tests/cii-workspace-manual-seed-arbitration.test.js tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
+          echo "S1_ADMISSION_PRODUCT_SEMANTICS_UNTOUCHED"
+
+      - name: Syntax
+        run: |
+          node --check tests/cii-writer2-s1-admission-safety-1254.test.js
+
+      - name: Run existing seed arbitration contract
+        run: node tests/cii-workspace-manual-seed-arbitration.test.js
+
+      - name: Run B1-B5 admission safety matrix
+        run: node tests/cii-writer2-s1-admission-safety-1254.test.js
+
+      - name: Run B6 restraint CREATE authority falsifier
+        run: node tests/cii-workspace-writer2-composite-restraint-falsifiers.test.js
