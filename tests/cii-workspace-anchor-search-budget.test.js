@@ -53,6 +53,12 @@ function rigidTransform(points, angleDeg, offset) {
 function selectedTags(sourceGraph, targetGraph, rows, limit, options = {}) {
   return selectPhysicalCandidatePairs(sourceGraph, targetGraph, rows, limit, options).map((row) => row.tag);
 }
+function positions(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node.position])); }
+function neighbourGraph(size, edges) {
+  const rows = Array.from({ length: size }, () => new Set());
+  for (const [left, right] of edges) { rows[left].add(right); rows[right].add(left); }
+  return rows;
+}
 
 assert.equal(physicalTest.boundedPhysicalLimit(undefined), 10, 'physical Method-A search must default to 10 pairs');
 assert.equal(physicalTest.boundedPhysicalLimit(1), 3, 'physical Method-A search must retain the three-anchor minimum');
@@ -102,6 +108,8 @@ assert.deepEqual(
   'tight bounded search must preserve the strongest rigidly coherent physical candidate cluster',
 );
 assert.deepEqual(coherenceEvents, [
+  ['ANCHOR_PHYSICAL_COHERENT_COMPONENT_COUNT', 1],
+  ['ANCHOR_PHYSICAL_COHERENT_AMBIGUOUS_TOP', 0],
   ['ANCHOR_PHYSICAL_COHERENT_CLUSTER_SIZE', 5],
   ['ANCHOR_PHYSICAL_COHERENT_RESERVED_COUNT', 5],
 ]);
@@ -128,6 +136,75 @@ assert.deepEqual(
   selectedTags(pointGraph(renumberedSourcePoints), pointGraph(renumberedTargetPoints), renumberedCandidates, 5).sort(),
   ['C1', 'C2', 'C3', 'C4', 'C5'],
   'node renumbering must not change logical coherent-cluster selection',
+);
+
+const longSpanSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100000, y: 0, z: 0 } }, 100);
+const longSpanTarget = pointGraph({ 101: { x: 0, y: 0, z: 0 }, 102: { x: 100500, y: 0, z: 0 } }, 100);
+assert.equal(
+  physicalTest.pairDistanceCompatible(longSpanSource, positions(longSpanSource), positions(longSpanTarget),
+    candidate(1, 101, 'L1'), candidate(2, 102, 'L2')),
+  false,
+  'long-span small-relative-error relation must still fail the quarter-OD absolute gate',
+);
+
+const shortSpanSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 } }, 100);
+const shortSpanTarget = pointGraph({ 101: { x: 0, y: 0, z: 0 }, 102: { x: 120, y: 0, z: 0 } }, 100);
+assert.equal(
+  physicalTest.pairDistanceCompatible(shortSpanSource, positions(shortSpanSource), positions(shortSpanTarget),
+    candidate(1, 101, 'S1'), candidate(2, 102, 'S2')),
+  false,
+  'short-span small-OD-normalized relation must still fail the one-percent relative gate',
+);
+
+const bridgeGraph = neighbourGraph(6, [
+  [0, 1], [0, 2], [1, 2],
+  [3, 4], [3, 5], [4, 5],
+  [2, 3],
+]);
+assert.deepEqual([...physicalTest.bridgeEdgeKeys(bridgeGraph)].sort(), ['2:3'],
+  'a single compatibility bridge between dense components must be identified');
+const bridgePruned = physicalTest.withoutBridgeEdges(bridgeGraph);
+assert.equal(bridgePruned[2].has(3), false);
+assert.equal(bridgePruned[3].has(2), false);
+
+const sparseCycle = neighbourGraph(4, [[0, 1], [1, 2], [2, 3], [3, 0]]);
+assert.equal(physicalTest.componentDensity([0, 1, 2, 3], sparseCycle) < 0.75, true,
+  'sparse cycle must fail the dense-component threshold');
+
+const tiedSourcePoints = {
+  1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 },
+  3: { x: 0, y: 100, z: 0 }, 4: { x: 100, y: 100, z: 0 },
+  5: { x: 1000, y: 0, z: 0 }, 6: { x: 1100, y: 0, z: 0 },
+  7: { x: 1000, y: 100, z: 0 }, 8: { x: 1100, y: 100, z: 0 },
+};
+const tiedTargetPoints = {
+  101: { x: 500, y: 500, z: 0 }, 102: { x: 600, y: 500, z: 0 },
+  103: { x: 500, y: 600, z: 0 }, 104: { x: 600, y: 600, z: 0 },
+  105: { x: 3500, y: -500, z: 0 }, 106: { x: 3600, y: -500, z: 0 },
+  107: { x: 3500, y: -400, z: 0 }, 108: { x: 3600, y: -400, z: 0 },
+};
+const tiedCandidates = Array.from({ length: 8 }, (_, index) => candidate(index + 1, index + 101, `T${index + 1}`));
+const tiedDecision = physicalTest.coherentClusterDecision(pointGraph(tiedSourcePoints, 100), pointGraph(tiedTargetPoints, 100), tiedCandidates);
+assert.equal(tiedDecision.ambiguous, true, 'semantically tied coherent components must not be broken by retained/stable IDs');
+assert.equal(tiedDecision.rows.length, 0, 'exact semantic tie must fall back to ordinary global spread');
+assert.equal(tiedDecision.componentCount, 2);
+
+const missingOdSource = pointGraph({ 1: { x: 0, y: 0, z: 0 }, 2: { x: 100, y: 0, z: 0 }, 3: { x: 0, y: 100, z: 0 } }, 0);
+const missingOdTarget = pointGraph({ 101: { x: 500, y: 0, z: 0 }, 102: { x: 600, y: 0, z: 0 }, 103: { x: 500, y: 100, z: 0 } }, 0);
+assert.equal(
+  physicalTest.strongestCoherentCluster(missingOdSource, missingOdTarget,
+    [candidate(1, 101, 'M1'), candidate(2, 102, 'M2'), candidate(3, 103, 'M3')]).length,
+  0,
+  'missing SOURCE OD must fail closed for coherence reservation',
+);
+
+const missingCoordinateSource = pointGraph({ 1: null, 2: { x: 100, y: 0, z: 0 }, 3: { x: 0, y: 100, z: 0 } }, 100);
+const missingCoordinateTarget = pointGraph({ 101: { x: 500, y: 0, z: 0 }, 102: { x: 600, y: 0, z: 0 }, 103: { x: 500, y: 100, z: 0 } }, 100);
+assert.equal(
+  physicalTest.strongestCoherentCluster(missingCoordinateSource, missingCoordinateTarget,
+    [candidate(1, 101, 'Q1'), candidate(2, 102, 'Q2'), candidate(3, 103, 'Q3')]).length,
+  0,
+  'missing coordinates must fail closed for coherence reservation',
 );
 
 const scaledTarget = pointGraph(Object.fromEntries(Object.entries(clusterSourcePoints).map(([id, point]) => [String(Number(id) + 100), {
