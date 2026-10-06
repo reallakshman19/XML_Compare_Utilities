@@ -9,12 +9,14 @@ test('C2 isolates whether proximal retained S1 raw physical candidates can form 
       converter,
       intakeModule,
       topologyModule,
+      bridgeModule,
       physicalModule,
       methodAModule,
     ] = await Promise.all([
       import('/tabs/cii-workspace/cii-workspace-v11-v14-converter.js'),
       import('/tabs/cii-workspace/cii-workspace-intake.js'),
       import('/tabs/cii-workspace/cii-workspace-topology-adapter.js'),
+      import('/tabs/cii-workspace/cii-workspace-writer-version-bridge.js'),
       import('/tabs/cii-workspace/cii-workspace-anchor-physical-candidates.js'),
       import('/tabs/cii-workspace/cii-workspace-anchor-method-a.js'),
     ]);
@@ -24,6 +26,7 @@ test('C2 isolates whether proximal retained S1 raw physical candidates can form 
     } = converter;
     const { intakeCiiWorkspaceDocument } = intakeModule;
     const { adaptCiiDocumentToTopologyGraph } = topologyModule;
+    const { prepareCiiWorkspaceTargetWithVersionBridge } = bridgeModule;
     const {
       uniqueIncidentComponentLengthPairs,
       selectPhysicalCandidatePairs,
@@ -35,7 +38,7 @@ test('C2 isolates whether proximal retained S1 raw physical candidates can form 
       if (!response.ok) throw new Error(`HTTP:${path}:${response.status}`);
       return new Uint8Array(await response.arrayBuffer());
     }
-    async function normalized(bytes, fileName) {
+    async function normalizedSource(bytes, fileName) {
       if (detectCiiNeutralVersion(bytes) === 11) return bytes;
       const conversion = await convertCiiNeutralVersionLossless(bytes, 11, { fileName });
       return conversion.outputBytes;
@@ -69,16 +72,19 @@ test('C2 isolates whether proximal retained S1 raw physical candidates can form 
       fetchBytes('/Benchmark/S1.CII'),
       fetchBytes('/Benchmark/T.CII'),
     ]);
-    const [sourceBytes, targetBytes] = await Promise.all([
-      normalized(sourceRaw, 'S1.CII'),
-      normalized(targetRaw, 'T.CII'),
+    const [sourceBytes, preparedTarget] = await Promise.all([
+      normalizedSource(sourceRaw, 'S1.CII'),
+      prepareCiiWorkspaceTargetWithVersionBridge(targetRaw, 'T.CII', {
+        writerVersion: '2',
+        cryptoRef: crypto,
+      }),
     ]);
-    const [sourceDoc, targetDoc] = await Promise.all([
-      intakeCiiWorkspaceDocument(sourceBytes, 'S1.CII', { side: 'SOURCE', cryptoRef: crypto }),
-      intakeCiiWorkspaceDocument(targetBytes, 'T.CII', { side: 'TARGET', cryptoRef: crypto }),
-    ]);
+    const sourceDoc = await intakeCiiWorkspaceDocument(sourceBytes, 'S1.CII', {
+      side: 'SOURCE',
+      cryptoRef: crypto,
+    });
     const sourceGraph = adaptCiiDocumentToTopologyGraph(sourceDoc);
-    const targetGraph = adaptCiiDocumentToTopologyGraph(targetDoc);
+    const targetGraph = preparedTarget.targetGraph;
     const raw = uniqueIncidentComponentLengthPairs(sourceGraph, targetGraph);
     const byKey = new Map(raw.map((row) => [key(row), row]));
 
@@ -110,7 +116,7 @@ test('C2 isolates whether proximal retained S1 raw physical candidates can form 
     }
 
     return {
-      schema: 'CIIWriter2S1C2MethodALocality.v1',
+      schema: 'CIIWriter2S1C2MethodALocality.v2',
       rawPhysicalPairCount: raw.length,
       rawPhysicalPairs: raw.map(key),
       selected11: selected11.map(key),
