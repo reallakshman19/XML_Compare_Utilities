@@ -1,0 +1,42 @@
+name: CII B1 prepared topology freeze diagnostic
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-topology-freeze-1332
+  workflow_dispatch:
+
+jobs:
+  diagnose-b1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard validation-only diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=e45c0978e31d9d958c05a061ca775058a5e262b7
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-prepared-topology-freeze-1332.yml' \
+            'tests/cii-workspace-prepared-topology-freeze-1332.test.js' | sort)"
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = "$expected"
+          if git diff --name-only "$PRODUCT"...HEAD -- tabs/cii-workspace Benchmark | grep -q .; then
+            echo "B1 must remain validation-only"
+            exit 1
+          fi
+          echo "B1_VALIDATION_ONLY_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run topology freeze stage diagnostic
+        run: node tests/cii-workspace-prepared-topology-freeze-1332.test.js
