@@ -1,0 +1,88 @@
+name: CII final proof F1 BM001 diagnostic
+
+on:
+  push:
+    branches:
+      - validation/cii-final-proof-bm001-f1-1305
+  workflow_dispatch:
+
+jobs:
+  f1-bm001:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact retained diagnostic basis
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASIS=25fe367817e1987468d02b538995ebe30ca29065
+
+          expected="$(printf '%s\n' \
+            '.github/workflows/cii-final-proof-bm001-f1-1305.yml' \
+            'tests/browser/cii-writer2-final-proof-bm001-f1.spec.mjs' | sort)"
+          test "$(git diff --name-only "$BASIS"...HEAD | sort)" = "$expected"
+
+          test "$(git hash-object tests/browser/cii-writer2-final-proof-bm001-f1.spec.mjs)" = "66a518b611b47f88448300a8d909129a74b3cb92"
+
+          if git diff --name-only "$BASIS"...HEAD -- tabs/cii-workspace | grep -q .; then
+            echo "Product mutation forbidden in F1"
+            exit 1
+          fi
+          if git diff --name-only "$BASIS"...HEAD -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden in F1"
+            exit 1
+          fi
+
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js)" = "15b451c84cfa11838004e58feb4c169069d82ef2"
+          test "$(git hash-object tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js)" = "12a282b4d6da6e42a1cecc374e86de06794b1822"
+          test "$(git hash-object tests/cii-workspace-multisource-partial-texpected-oracle.js)" = "a42fe06e71edd1e1ad9e3bb00ef5e04313877cac"
+
+          echo "F1_EXACT_DIAGNOSTIC_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create focused Playwright config
+        shell: bash
+        run: |
+          cat > playwright.f1-bm001.config.mjs <<'EOF'
+          import base from './playwright.cii-writer2-retained.config.mjs';
+          export default {
+            ...base,
+            testMatch: ['cii-writer2-final-proof-bm001-f1.spec.mjs'],
+            timeout: 240_000,
+            expect: { timeout: 20_000 },
+            workers: 1,
+            retries: 0,
+            reporter: [['list']],
+            outputDir: 'test-results/cii-final-proof-f1',
+          };
+          EOF
+
+      - name: Run F1 BM001 raw identity trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --config=playwright.f1-bm001.config.mjs 2>&1 | tee f1-bm001.log
+
+      - name: Upload F1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-final-proof-f1-bm001
+          path: |
+            f1-bm001.log
+            test-results/cii-final-proof-f1
+          if-no-files-found: warn
