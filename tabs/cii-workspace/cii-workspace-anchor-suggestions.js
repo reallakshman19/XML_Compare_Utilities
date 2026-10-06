@@ -9,6 +9,10 @@ function nodeNames(graph) { return new Map((graph?.nodes || []).map((node) => [S
 function canonicalGraph(graph) { return { ...graph, nodes: (graph?.nodes || []).map((node) => ({ ...node, nodeName: ciiNodeNameUniqueKey(node.nodeName) || node.nodeName || '' })) }; }
 function pairKey(row) { return `${row.sourceNodeId}=>${row.targetNodeId}`; }
 function hasMethodB(row) { return ['METHOD_B_NETWORK', 'METHOD_A_AND_B'].includes(row?.basisMethod); }
+function displayLimit(options) {
+  const requested = Number(options.baseAnchorDisplayLimit ?? options.baseAnchorSuggestionLimit ?? 8);
+  return Math.max(1, Number.isFinite(requested) ? Math.floor(requested) : 8);
+}
 function enrich(row, sourceGraph, targetGraph, canonicalOnly, sourceNames, targetNames) {
   const sourceName = sourceNames.get(String(row.sourceNodeId)) || ''; const targetName = targetNames.get(String(row.targetNodeId)) || '';
   const nodeNameEvidence = compareCiiNodeNames(sourceName, targetName);
@@ -40,19 +44,32 @@ function addSuggestion(byPair, row, sourceGraph, targetGraph, sourceNames, targe
 }
 
 export function suggestCiiBaseAnchorPairs(sourceGraph, targetGraph, options = {}) {
+  const instrumentation = options.instrumentation;
   const byPair = new Map(); const sourceNames = nodeNames(sourceGraph); const targetNames = nodeNames(targetGraph);
+  const rawCoreStartedAt = performance.now();
   for (const row of suggestCore(sourceGraph, targetGraph, options)) byPair.set(pairKey(row), enrich(row, sourceGraph, targetGraph, false, sourceNames, targetNames));
-  for (const row of suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, options)) addSuggestion(byPair, row, sourceGraph, targetGraph, sourceNames, targetNames);
-  for (const row of suggestCore(canonicalGraph(sourceGraph), canonicalGraph(targetGraph), options)) {
+  instrumentation?.record?.('ANCHOR_WRAPPER_RAW_CORE_MS', performance.now() - rawCoreStartedAt);
+  const physicalStartedAt = performance.now();
+  const physicalRows = suggestCiiPhysicalMethodAAnchors(sourceGraph, targetGraph, options);
+  instrumentation?.record?.('ANCHOR_WRAPPER_PHYSICAL_CANDIDATES_MS', performance.now() - physicalStartedAt);
+  const physicalEnrichStartedAt = performance.now();
+  for (const row of physicalRows) addSuggestion(byPair, row, sourceGraph, targetGraph, sourceNames, targetNames);
+  instrumentation?.record?.('ANCHOR_WRAPPER_PHYSICAL_ENRICH_MS', performance.now() - physicalEnrichStartedAt);
+  const canonicalGraphStartedAt = performance.now();
+  const canonicalSource = canonicalGraph(sourceGraph); const canonicalTarget = canonicalGraph(targetGraph);
+  instrumentation?.record?.('ANCHOR_WRAPPER_CANONICAL_GRAPH_MS', performance.now() - canonicalGraphStartedAt);
+  const canonicalCoreStartedAt = performance.now();
+  for (const row of suggestCore(canonicalSource, canonicalTarget, options)) {
     const key = pairKey(row); if (byPair.has(key)) continue;
     if (!compareCiiNodeNames(sourceNames.get(String(row.sourceNodeId)), targetNames.get(String(row.targetNodeId))).match) continue;
     byPair.set(key, enrich(row, sourceGraph, targetGraph, true, sourceNames, targetNames));
   }
+  instrumentation?.record?.('ANCHOR_WRAPPER_CANONICAL_CORE_MS', performance.now() - canonicalCoreStartedAt);
   const order = { HIGH: 0, MEDIUM: 1, REVIEW: 2 };
   const rows = [...byPair.values()].sort((a, b) => (order[a.confidence] - order[b.confidence])
     || Number(b?.methodA?.bestBase?.weight?.total || 0) - Number(a?.methodA?.bestBase?.weight?.total || 0)
     || Number(b.score || 0) - Number(a.score || 0));
-  return deepFreeze(rows.slice(0, Math.max(1, Number(options.baseAnchorSuggestionLimit || 8))));
+  return deepFreeze(rows.slice(0, displayLimit(options)));
 }
 
-export const _test = Object.freeze({ ...coreTest, ...physicalTest });
+export const _test = Object.freeze({ ...coreTest, ...physicalTest, displayLimit });
