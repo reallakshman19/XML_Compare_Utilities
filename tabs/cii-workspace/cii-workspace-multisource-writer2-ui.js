@@ -551,7 +551,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     ...legacy,
     getMultiSourcePreview() { return scopedPreview || preview; },
     destroy() {
-      disposed = true; sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
+      disposed = true; inspection = null; preparedSession = null; commonAnalysisCache = null;
+      cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null;
+      sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
       inspectButton.removeEventListener('click', inspectMultiSource, true); analyzeButton.removeEventListener('click', analyzeMultiSource, true);
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
