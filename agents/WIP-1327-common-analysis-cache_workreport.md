@@ -34,10 +34,33 @@ Cache invariants:
 - no geometry/correspondence/Writer policy change;
 - no Benchmark mutation.
 
+## Implemented material
+
+Production:
+- `tabs/cii-workspace/cii-workspace-multisource-preview.js@d8d669b174c97a543cfd139df7d14e6bd71b76ce`
+
+Focused retained cache test:
+- `tests/cii-workspace-common-analysis-cache.test.js@d4958bf9e7513176d23499c3f3bedb72b05542b2`
+
+Implemented:
+- `createCiiCommonAnalysisCache()`;
+- canonical prepared-session cache identity based on P3.3-A custody;
+- one `Map` entry per sourceId;
+- per-member `ciiCommonAnalysisAuthorityKey()` lookup;
+- hit/miss/reset instrumentation;
+- full-session reset when custody identity changes;
+- source authority change replaces only that source entry.
+
+No cache supplied preserves P3.3-B behavior.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: explicit cache state + hit/miss/reset instrumentation + focused retained test
+STATE: PRODUCT_AUTHORED
+HOSTED_QUALIFICATION: NOT_YET_RUN
+CACHE_BOUND: ONE_ENTRY_PER_SOURCE
+REVIEW_ONLY_PATH: NONE
+UI_WIRING: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: stacked draft PR + exact-head qualification
 ```
