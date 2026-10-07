@@ -8,7 +8,7 @@ import {
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
 import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
-import { createCiiCommonAnalysisCache, createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
+import { createCiiCommonAnalysisCache, createCiiWriter2SourceSetPreviewFromPreparedSession } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
 import { CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 import {
@@ -430,7 +430,6 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     }
   };
   const previewInput = (reviewBySource = undefined) => ({
-    sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName,
     baseLoopsBySource: selectedBaseLoopsBySource(inspection, selectedBySource),
     anchorPairsBySource: manualAnchorPairsBySource(inspection, manualBySource),
     ...(reviewBySource ? { reviewBySource } : {}),
@@ -440,10 +439,12 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     try {
-      if (!inspection || !cachedSources || !cachedTargetBytes) throw new Error('Inspect the source set before Compare.');
+      if (!inspection || !preparedSession || !commonAnalysisCache) throw new Error('Inspect the source set before Compare.');
       if (!authorityReady()) throw new Error('Each SOURCE requires either a qualified Method A/B base or at least one reviewed manual anchor.');
       setMultiSourceStatus(container, 'Building per-source correspondence with reviewed base authority and target conflict veto…');
-      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef: options.cryptoRef });
+      preview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(), {
+        cryptoRef: options.cryptoRef, commonAnalysisCache,
+      });
       if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       let restoredDecisionCount = 0; let restoredMatched = false;
       if (reviewRestoreAllowed && loadedSession) {
@@ -472,7 +473,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     try {
       const reviewBySource = ciiMultiSourceReviewBySource(preview, reviewDecisions);
       setMultiSourceStatus(container, 'Applying multi-source correspondence decisions and rebuilding Writer2 Transfer Preview…');
-      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef: options.cryptoRef });
+      preview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(reviewBySource), {
+        cryptoRef: options.cryptoRef, commonAnalysisCache,
+      });
       if (disposed) return; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); persistSession();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
