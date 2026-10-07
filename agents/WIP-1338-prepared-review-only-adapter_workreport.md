@@ -34,10 +34,34 @@ It returns only the source descriptors and member previews needed by the existin
 - no UI;
 - no Benchmark mutation.
 
+## Implemented material
+
+Production:
+- `tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js@2eccf41ad9d33377de8045b5f0e01eebe79c6461`
+- 195 lines
+
+Focused retained test:
+- `tests/cii-workspace-prepared-review-only-adapter.test.js@ea9e25a4a3415fa10d5a5a5e31306fe52907ce35`
+
+Implemented:
+- strict prepared-session/member/model/bridge custody;
+- same P3.3-A authority key;
+- same P3.3-C cache schema/state contract;
+- first/repeat/review/base-change/reset behavior;
+- one Writer2-format projection per member for review evidence only;
+- no Writer1C replacement projection;
+- no BM001/mixed Writer2 multi-source call;
+- returns only `{sources, memberPreviews}`.
+
+The existing 295-line review-only aggregation module remains unchanged.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: adapter module + focused retained cache/custody test
+STATE: PRODUCT_AUTHORED
+HOSTED_QUALIFICATION: NOT_YET_RUN
+REVIEW_ONLY_CORE_CHANGE: NONE
+UI: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: stacked draft PR + exact-head qualification
 ```
