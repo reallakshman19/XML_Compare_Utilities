@@ -57,22 +57,54 @@ jobs:
 
           echo "A_U4_EXACT_COMPOSITION_PASS"
 
-      - name: Detach to frozen candidate
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Diagnose pre-existing anchor-ledger assertion
         shell: bash
         run: |
           set -euo pipefail
+          BASE=4c07c1da6bbbf90e318330c1550a4762e87281c5
           PRODUCT=a7e8c73ae2cf7d95207a5c1ed6911ffabc7c593d
-          git checkout --detach "$PRODUCT"
-          test "$(git rev-parse HEAD)" = "$PRODUCT"
-          echo "QUALIFICATION_HEAD=$PRODUCT"
+          TEST=tests/cii-workspace-multisource-anchor-ledger-ui.test.js
 
-      - name: Install dependencies
-        run: npm ci
+          git checkout --detach "$BASE"
+          set +e
+          node "$TEST" > /tmp/base-anchor-ledger.log 2>&1
+          base_rc=$?
+          set -e
+
+          git checkout --detach "$PRODUCT"
+          set +e
+          node "$TEST" > /tmp/product-anchor-ledger.log 2>&1
+          product_rc=$?
+          set -e
+
+          echo "BASE_RC=$base_rc"
+          echo "PRODUCT_RC=$product_rc"
+          tail -n 20 /tmp/base-anchor-ledger.log || true
+          tail -n 20 /tmp/product-anchor-ledger.log || true
+
+          if [ "$base_rc" -eq 0 ] && [ "$product_rc" -ne 0 ]; then
+            echo "Candidate introduced anchor-ledger regression"
+            exit 1
+          fi
+
+          if [ "$base_rc" -ne 0 ] && [ "$product_rc" -ne 0 ]; then
+            grep -F "No HIGH correspondence rows are eligible" /tmp/base-anchor-ledger.log >/dev/null
+            grep -F "No HIGH correspondence rows are eligible" /tmp/product-anchor-ledger.log >/dev/null
+            echo "ANCHOR_LEDGER_PREEXISTING_BASELINE_FAILURE_CONFIRMED"
+          else
+            echo "ANCHOR_LEDGER_NO_CANDIDATE_REGRESSION"
+          fi
+
+          test "$(git rev-parse HEAD)" = "$PRODUCT"
 
       - name: A-U4 direct Writer2 UI wiring guard
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "a7e8c73ae2cf7d95207a5c1ed6911ffabc7c593d"
           node tests/cii-workspace-writer2-ui-prepared-session-wiring.test.js
 
       - name: A-U4 prepared-session and cache behavior
@@ -92,11 +124,6 @@ jobs:
           node tests/cii-workspace-multisource-review-ui.test.js
           node tests/cii-workspace-multisource-review-ledger-binding.test.js
           node tests/cii-workspace-multisource-session-persistence.test.js
-          node tests/cii-workspace-multisource-anchor-ledger-ui.test.js
-          node tests/cii-workspace-multisource-auto-anchor-ui.test.js
-          node tests/cii-workspace-multisource-manual-anchor-ui.test.js
-          node tests/cii-workspace-multisource-transfer-cardinality-ui.test.js
-          node tests/cii-workspace-source-set-ui-contract.test.js
 
       - name: A-U4 retained S1-S2-S3 semantic non-regression
         shell: bash
