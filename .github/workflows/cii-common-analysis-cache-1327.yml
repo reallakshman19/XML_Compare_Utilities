@@ -1,0 +1,72 @@
+name: CII P3.3-C common-analysis cache qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-common-analysis-cache-1327
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact P3.3-C product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=836d2d18ddbf199b5643a226d05649c4a6ce03be
+          PRODUCT=331824975d3e6233b335af9c619696fe854f70b9
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-common-analysis-cache-1327.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1327-common-analysis-cache_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multisource-preview.js' \
+            'tests/cii-workspace-common-analysis-cache.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-preview.js")" = "d8d669b174c97a543cfd139df7d14e6bd71b76ce"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-common-analysis-cache.test.js")" = "d4958bf9e7513176d23499c3f3bedb72b05542b2"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1327-common-analysis-cache_workreport.md")" = "1eb57ccaa21a70eedfde1c5b5da350918475ef1f"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-multisource-review-only.js tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js tabs/cii-workspace/cii-workspace-multisource-review-only-router.js | grep -q .; then
+            echo "P3.3-C scope violation"
+            exit 1
+          fi
+          echo "P3_3_C_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-preview.js
+          node --check tests/cii-workspace-common-analysis-cache.test.js
+
+      - name: Q1 bounded cache count contract
+        run: node tests/cii-workspace-common-analysis-cache.test.js
+
+      - name: Q2 prepared Writer2 one-common-analysis regression
+        run: node tests/cii-workspace-prepared-writer2-preview.test.js
+
+      - name: Q3 key and prepared-session regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-common-analysis-authority-key.test.js
+          node tests/cii-workspace-prepared-source-set-session.test.js
+          node tests/cii-workspace-common-analysis-projection.test.js
+          node tests/xml-cii-inputxml-path-aligner-purity.test.js
+
+      - name: Q4 retained semantic full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
