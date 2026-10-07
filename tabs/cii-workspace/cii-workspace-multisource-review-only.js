@@ -2,6 +2,7 @@ import { deepFreeze, stableId } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { CII_SOURCE_SET_SCHEMA, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
+import { createPreparedReviewOnlyMemberPreviews } from './cii-workspace-multisource-review-only-prepared.js';
 
 export const CII_MS_REVIEW_ONLY_SCHEMA = 'CIIWorkspaceMultiSourceReviewOnlyPreview.v1';
 export const CII_MS_REVIEW_ONLY_WRITE_BLOCKER = 'CII_MS_REVIEW_ONLY_WRITE_AUTHORITY_REQUIRED';
@@ -290,5 +291,8 @@ export async function createCiiMultiSourceReviewOnlyPreviewWithVersionBridge(inp
   return buildReviewOnlyResult(input, sources, memberPreviews, options);
 }
 
+export async function createCiiMultiSourceReviewOnlyPreviewFromPreparedSession(preparedSession, input = {}, options = {}) {
+  const prepared = await createPreparedReviewOnlyMemberPreviews(preparedSession, input, options); return buildReviewOnlyResult(input, prepared.sources, prepared.memberPreviews, options);
+}
 export const _test = Object.freeze({ sourceRows, targetCustodyKey, prefixCorrespondenceRow, combinedCorrespondence,
   combinedReview, combinedEngineeringDeltas, combinedCompareReview, reviewOnlyTransferPlan, buildReviewOnlyResult });
