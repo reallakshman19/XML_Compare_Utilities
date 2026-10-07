@@ -39,11 +39,36 @@ No changes to:
 - generation/cancellation;
 - Benchmark.
 
+## Implemented material
+
+Production:
+- `tabs/cii-workspace/cii-workspace-multisource-review-only.js@86f8b1827e73c27c0a71d78985542eced50565c5`
+- 299 lines
+
+Focused integration test:
+- `tests/cii-workspace-prepared-review-only-thin-integration.test.js@6afdda26e68f02b96ebcb517b081ede2176620a7`
+- 118 lines
+
+Inherited qualified D0 adapter:
+- `tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js@2eccf41ad9d33377de8045b5f0e01eebe79c6461`
+
+## Implemented behavior
+
+The prepared-session entrypoint:
+- delegates member analysis to D0;
+- passes D0's `{sources, memberPreviews}` directly to existing `buildReviewOnlyResult()`;
+- duplicates no custody/cache/projection/aggregation policy;
+- keeps the legacy raw-byte entrypoint unchanged.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-CURRENT_UNIT: D-U1
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: add thin prepared API delegation only
+STATE: PRODUCT_AUTHORED
+COMPLETED_MATERIAL_UNITS: D-U1 / D-U2 / D-U3
+EXACT_HEAD_QUALIFICATION: NOT_YET_RUN
+MODULE_SIZE_GUARD: 299 < 300
+BENCHMARK_MUTATION: NONE
+NEXT: open stacked draft PR and execute D-U4 only
 ```
+
+Do not edit production after the qualification candidate is frozen; publish exact-head evidence on #1328.
