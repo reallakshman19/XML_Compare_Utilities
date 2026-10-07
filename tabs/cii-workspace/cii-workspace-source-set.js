@@ -2,6 +2,7 @@ import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-conv
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
+export const CII_PREPARED_SOURCE_SET_SESSION_SCHEMA = 'CIIWorkspacePreparedSourceSetSession.v1';
 export const CII_SOURCE_SET_WP2_BLOCKER = 'MULTISOURCE_CORRESPONDENCE_REQUIRES_WP_002';
 
 const DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT = 10;
@@ -91,19 +92,63 @@ function assertSharedTargetCustody(inspections) {
   const keys = new Set(inspections.map(targetCustodyKey));
   if (keys.size !== 1 || [...keys][0].includes('undefined')) throw new Error('CII_SOURCE_SET_TARGET_CUSTODY_MISMATCH');
 }
-export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, options = {}) {
+function preparedSourceMember(source, index, preparedSource, inspection) {
+  const bridge = inspection?.versionBridge?.source;
+  if (!bridge?.originalSha256 || !bridge?.normalizedSha256) {
+    throw new Error(`CII_PREPARED_SOURCE_SET_SOURCE_BRIDGE_REQUIRED:${sourceId(source, index)}`);
+  }
+  if (preparedSource?.sourceDocument?.contentSha256 !== bridge.normalizedSha256 || !preparedSource?.sourceGraph) {
+    throw new Error(`CII_PREPARED_SOURCE_SET_SOURCE_CUSTODY_MISMATCH:${sourceId(source, index)}`);
+  }
+  return Object.freeze({
+    sourceId: sourceId(source, index),
+    fileName: sourceFileName(source, index),
+    originalVersion: bridge.originalVersion,
+    normalizedVersion: bridge.normalizedVersion,
+    originalSha256: bridge.originalSha256,
+    normalizedSha256: bridge.normalizedSha256,
+    baselineCanonicalSha256: bridge.baselineCanonicalSha256,
+    sourceDocument: preparedSource.sourceDocument,
+    sourceGraph: preparedSource.sourceGraph,
+    bridge: Object.freeze({ ...bridge }),
+  });
+}
+function preparedTargetSession(targetFileName, preparedTarget, firstInspection) {
+  const bridge = firstInspection?.versionBridge?.target;
+  if (!bridge?.originalSha256 || !bridge?.normalizedSha256) throw new Error('CII_PREPARED_SOURCE_SET_TARGET_BRIDGE_REQUIRED');
+  if (preparedTarget?.targetDocument?.contentSha256 !== bridge.normalizedSha256 || !preparedTarget?.targetGraph) {
+    throw new Error('CII_PREPARED_SOURCE_SET_TARGET_CUSTODY_MISMATCH');
+  }
+  return Object.freeze({
+    fileName: targetFileName,
+    originalVersion: bridge.originalVersion,
+    normalizedVersion: bridge.normalizedVersion,
+    originalSha256: bridge.originalSha256,
+    normalizedSha256: bridge.normalizedSha256,
+    baselineCanonicalSha256: bridge.baselineCanonicalSha256,
+    targetDocument: preparedTarget.targetDocument,
+    targetGraph: preparedTarget.targetGraph,
+    bridge: Object.freeze({ ...bridge }),
+  });
+}
+
+export async function prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge(input, options = {}) {
   const sources = sourceRows(input); const targetInput = value(input, 'target');
   if (targetInput == null) throw new Error('CII_SOURCE_SET_TARGET_REQUIRED');
   const targetFileName = String(input?.targetFileName || 'TARGET.CII'); const inspectionOptions = sourceSetInspectionOptions(options);
-  const { prepareCiiWorkspaceTargetWithVersionBridge, inspectCiiWorkspaceModelsWithPreparedTarget } =
-    await import('./cii-workspace-writer-version-bridge.js');
+  const {
+    prepareCiiWorkspaceSourceWithVersionBridge,
+    prepareCiiWorkspaceTargetWithVersionBridge,
+    inspectCiiWorkspaceModelsWithPreparedPair,
+  } = await import('./cii-workspace-writer-version-bridge.js');
   const preparedTarget = await prepareCiiWorkspaceTargetWithVersionBridge(targetInput, targetFileName, { ...inspectionOptions, writerVersion: '2' });
-  const inspections = [];
+  const inspections = []; const preparedSources = [];
   for (let index = 0; index < sources.length; index += 1) {
-    const source = sources[index];
-    inspections.push(await inspectCiiWorkspaceModelsWithPreparedTarget({
-      sourceBytes: source?.bytes, sourceText: source?.text, sourceFileName: sourceFileName(source, index),
-    }, preparedTarget, { ...inspectionOptions, writerVersion: '2' }));
+    const source = sources[index]; const id = sourceId(source, index); const fileName = sourceFileName(source, index); const raw = sourceValue(source);
+    if (raw == null) throw new Error(`CII_SOURCE_SET_SOURCE_BYTES_REQUIRED:${id}`);
+    const preparedSource = await prepareCiiWorkspaceSourceWithVersionBridge(raw, fileName, { ...inspectionOptions, writerVersion: '2' });
+    const inspection = await inspectCiiWorkspaceModelsWithPreparedPair(preparedSource, preparedTarget, { ...inspectionOptions, writerVersion: '2' });
+    preparedSources.push(preparedSource); inspections.push(inspection);
   }
   assertSharedTargetCustody(inspections);
   const members = inspections.map((inspection, index) => bridgeMember(sources[index], index, inspection));
@@ -113,7 +158,7 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
     sourceId: sourceId(sources[index], index), fileName: sourceFileName(sources[index], index), inspection,
   })));
   const first = inspections[0];
-  return Object.freeze({
+  const inspection = Object.freeze({
     schema: CII_SOURCE_SET_INSPECTION_SCHEMA, status: 'CORRESPONDENCE_INPUT_READY', sourceSet, target: first.target,
     memberInspections,
     baseAnchorSuggestionsBySource: Object.freeze(Object.fromEntries(memberInspections.map((item) => [item.sourceId, item.inspection.baseAnchorSuggestions || Object.freeze([])]))),
@@ -123,6 +168,33 @@ export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, optio
     }),
     baseAnchorSuggestions: Object.freeze([]), blockers: Object.freeze([]),
   });
+  const preparedMembers = Object.freeze(preparedSources.map((preparedSource, index) =>
+    preparedSourceMember(sources[index], index, preparedSource, inspections[index])));
+  const preparedSession = Object.freeze({
+    schema: CII_PREPARED_SOURCE_SET_SESSION_SCHEMA,
+    status: 'PREPARED',
+    authority: 'IMMUTABLE_NORMALIZED_MODEL_CUSTODY',
+    sourceSetSha256,
+    sourceSet,
+    target: preparedTargetSession(targetFileName, preparedTarget, first),
+    members: preparedMembers,
+    versionBridge: Object.freeze({
+      schema: 'CIIWorkspacePreparedSourceSetVersionBridge.v1',
+      sourceSetSha256,
+      target: first.versionBridge.target,
+      conversionSource: first.versionBridge.conversionSource,
+      v14WritePolicy: first.versionBridge.v14WritePolicy,
+    }),
+  });
+  return Object.freeze({ inspection, preparedSession });
 }
 
-export const _test = Object.freeze({ authoritySha, sourceId, sourceRows, targetCustodyKey, boundedSearchLimit, sourceSetInspectionOptions });
+export async function inspectCiiWorkspaceSourceSetWithVersionBridge(input, options = {}) {
+  const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge(input, options);
+  return prepared.inspection;
+}
+
+export const _test = Object.freeze({
+  authoritySha, sourceId, sourceRows, targetCustodyKey, boundedSearchLimit, sourceSetInspectionOptions,
+  preparedSourceMember, preparedTargetSession,
+});

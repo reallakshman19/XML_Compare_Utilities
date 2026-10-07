@@ -114,7 +114,7 @@ function walkPath(startNode, firstEdge, graph, visited, pathId, toleranceMm) {
 }
 export function buildElementPaths(graph, options = {}) {
   const toleranceMm = Number(options.lengthToleranceMm || DEFAULT_LENGTH_TOL_MM);
-  const edges = graph?.edges || [];
+  const edges = (graph?.edges || []).map((edge) => ({ ...edge }));
   const adjacency = buildAdjacency(edges);
   const anchors = anchorNodesFor(edges, adjacency);
   const pathGraph = { adjacency, anchors };

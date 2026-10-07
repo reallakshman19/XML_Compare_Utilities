@@ -51,10 +51,11 @@ function inputPayload(input, side) {
   return input?.[`${side}Bytes`] ?? input?.[`${side}Text`];
 }
 async function intakePair(input, options, prepared = {}) {
-  const sourceDocument = await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
+  const sourceDocument = prepared.sourceDocument
+    || await intakeCiiWorkspaceDocument(inputPayload(input, 'source'), input?.sourceFileName, { side: 'SOURCE', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
   const targetDocument = prepared.targetDocument
     || await intakeCiiWorkspaceDocument(inputPayload(input, 'target'), input?.targetFileName, { side: 'TARGET', cryptoRef: options.cryptoRef, instrumentation: options.instrumentation });
-  const sourceGraph = adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
+  const sourceGraph = prepared.sourceGraph || adaptCiiDocumentToTopologyGraph(sourceDocument, { instrumentation: options.instrumentation });
   const targetGraph = prepared.targetGraph || adaptCiiDocumentToTopologyGraph(targetDocument, { instrumentation: options.instrumentation });
   return { sourceDocument, targetDocument, sourceGraph, targetGraph };
 }
@@ -232,9 +233,12 @@ export async function inspectCiiWorkspaceModels(input, options = {}, prepared = 
   return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.inspection, source, target, baseAnchorSuggestions });
 }
 
-export async function createCiiWorkspacePreview(input, options = {}, prepared = {}) {
+export const CII_WORKSPACE_COMMON_ANALYSIS_SCHEMA = 'CIIWorkspaceCommonAnalysis.v1';
+
+export async function createCiiWorkspaceCommonAnalysis(input, options = {}, prepared = {}) {
+  options.instrumentation?.record?.('CII_COMMON_ANALYSIS');
   const { sourceDocument, targetDocument, sourceGraph, targetGraph } = await intakePair(input, options, prepared);
-  const version = writerVersion(options); const anchors = acceptedAnchors(input);
+  const anchors = acceptedAnchors(input);
   const landmarks = deepFreeze({ source: suggestCiiLandmarks(sourceGraph, options), target: suggestCiiLandmarks(targetGraph, options) });
   const multiBaseAuthority = workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options);
   const multiBaseCorrespondence = buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, options);
@@ -244,17 +248,42 @@ export async function createCiiWorkspacePreview(input, options = {}, prepared = 
   const nodeGatedCorrespondence = applyCiiNodeCustodyGates(multiBaseCorrespondence, sourceGraph);
   const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
+  const baseEngineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence,
+    { ...options, geometryTransform: geometry });
+  return deepFreeze({
+    schema: CII_WORKSPACE_COMMON_ANALYSIS_SCHEMA,
+    sourceDocument, targetDocument, sourceGraph, targetGraph, anchors, landmarks,
+    multiBaseAuthority, multiBaseCorrespondence, geometry, pathAudit, correspondence, baseEngineeringDeltas,
+  });
+}
+
+function assertCommonAnalysis(common) {
+  if (common?.schema !== CII_WORKSPACE_COMMON_ANALYSIS_SCHEMA
+    || !common?.sourceDocument || !common?.targetDocument
+    || !common?.sourceGraph || !common?.targetGraph
+    || !common?.correspondence || !common?.baseEngineeringDeltas) {
+    throw new Error('CII_WORKSPACE_COMMON_ANALYSIS_REQUIRED');
+  }
+}
+
+export function projectCiiWorkspacePreviewFromCommonAnalysis(common, input = {}, options = {}) {
+  assertCommonAnalysis(common);
+  const {
+    sourceDocument, targetDocument, sourceGraph, targetGraph, anchors, landmarks,
+    multiBaseAuthority, multiBaseCorrespondence, geometry, pathAudit, correspondence, baseEngineeringDeltas,
+  } = common;
+  const version = writerVersion(options);
+  options.instrumentation?.record?.(`CII_WRITER_PROJECTION_${version}`);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
-  const baseDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
   let engineeringDeltas;
   if (version === '2') {
     engineeringDeltas = augmentCiiEngineeringDeltasWithRestraintSlots(
-      baseDeltas, sourceDocument, targetDocument, correspondence,
+      baseEngineeringDeltas, sourceDocument, targetDocument, correspondence,
       sourceDocument.physicalFile.text, targetDocument.physicalFile.text, options,
     );
   } else {
     const extendedWriter = version !== '1A';
-    const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseDeltas, sourceGraph, targetGraph, correspondence, options) : baseDeltas;
+    const fieldDeltas = extendedWriter ? augmentCiiEngineeringDeltasWithWriter1BFields(baseEngineeringDeltas, sourceGraph, targetGraph, correspondence, options) : baseEngineeringDeltas;
     const pairedDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(fieldDeltas, sourceDocument, targetDocument, correspondence, options);
     const slotDeltas = extendedWriter
       ? augmentCiiEngineeringDeltasWithRestraintSlots(pairedDeltas, sourceDocument, targetDocument, correspondence,
@@ -277,6 +306,11 @@ export async function createCiiWorkspacePreview(input, options = {}, prepared = 
     geometry, multiBaseAuthority, multiBaseCorrespondence, correspondence, review, engineeringDeltas, compareReview, transferPlan, writerReadiness, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);
+}
+
+export async function createCiiWorkspacePreview(input, options = {}, prepared = {}) {
+  const common = await createCiiWorkspaceCommonAnalysis(input, options, prepared);
+  return projectCiiWorkspacePreviewFromCommonAnalysis(common, input, options);
 }
 
 async function currentTargetFor(preview, targetInput, options, label) {

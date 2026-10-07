@@ -1,7 +1,19 @@
-import { deepFreeze, stableId } from './cii-workspace-contracts.js';
+import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
-import { intakeCiiWorkspaceSourceSet } from './cii-workspace-source-set.js';
+import {
+  CII_PREPARED_SOURCE_SET_SESSION_SCHEMA,
+  CII_SOURCE_SET_SCHEMA,
+  intakeCiiWorkspaceSourceSet,
+} from './cii-workspace-source-set.js';
+import {
+  createCiiWorkspaceCommonAnalysis,
+  projectCiiWorkspacePreviewFromCommonAnalysis,
+} from './cii-workspace-core.js';
+import {
+  canonicalCiiPreparedCommonAnalysisCustody,
+  ciiCommonAnalysisAuthorityKey,
+} from './cii-workspace-common-analysis-key.js';
 import { ciiWriter2SourceSetNodeNameReadiness } from './cii-workspace-multisource-writer2-readiness.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import {
@@ -18,6 +30,15 @@ import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 
 export const CII_MS_PREVIEW_SCHEMA = 'CIIWorkspaceMultiSourcePreview.v1';
 export const CII_MS_CORRESPONDENCE_SCHEMA = 'CIIWorkspaceMultiSourceCorrespondence.v1';
+export const CII_COMMON_ANALYSIS_CACHE_SCHEMA = 'CIIWorkspaceCommonAnalysisCache.v1';
+
+export function createCiiCommonAnalysisCache() {
+  return {
+    schema: CII_COMMON_ANALYSIS_CACHE_SCHEMA,
+    sessionIdentity: null,
+    entries: new Map(),
+  };
+}
 
 function text(value) { return String(value ?? '').trim(); }
 function sourceRows(input) {
@@ -351,6 +372,219 @@ function memberInput(input, source, id, index) {
   };
 }
 
+function preparedSessionSourceSet(preparedSession) {
+  if (preparedSession?.schema !== CII_PREPARED_SOURCE_SET_SESSION_SCHEMA || preparedSession?.status !== 'PREPARED') {
+    throw new Error('CII_MS_PREVIEW_PREPARED_SESSION_REQUIRED');
+  }
+  const sourceSetSha256 = text(preparedSession.sourceSetSha256);
+  if (!sourceSetSha256) throw new Error('CII_MS_PREVIEW_PREPARED_SOURCE_SET_SHA_REQUIRED');
+  const members = (preparedSession.members || []).map((member) => deepFreeze({
+    sourceId: text(member?.sourceId),
+    fileName: text(member?.fileName),
+    originalSha256: text(member?.originalSha256),
+    originalVersion: Number(member?.originalVersion),
+    normalizedSha256: null,
+    normalizedVersion: null,
+    normalizationStatus: 'NOT_RUN',
+  }));
+  if (members.length < 2 || members.some((member) => !member.sourceId || !member.originalSha256)) {
+    throw new Error('CII_MS_PREVIEW_PREPARED_SOURCE_MEMBERS_REQUIRED');
+  }
+  if (new Set(members.map((member) => member.sourceId)).size !== members.length) {
+    throw new Error('CII_MS_PREVIEW_PREPARED_DUPLICATE_SOURCE_ID');
+  }
+  return deepFreeze({
+    schema: CII_SOURCE_SET_SCHEMA,
+    status: 'CUSTODY_READY',
+    authority: 'INDEPENDENT_SOURCE_MEMBERS',
+    mode: 'RAW_MEMBER_CUSTODY',
+    memberCount: members.length,
+    sourceSetSha256,
+    members: deepFreeze(members),
+  });
+}
+function preparedMemberInput(input, id) {
+  const baseLoops = input?.baseLoopsBySource?.[id];
+  const anchors = input?.anchorPairsBySource?.[id];
+  return {
+    ...(baseLoops ? { baseLoops } : {}),
+    ...(anchors ? { anchorPairs: anchors, anchorPairMode: 'INDEPENDENT_SEEDS' } : {}),
+    ...(memberReview(input, id) ? { review: memberReview(input, id) } : {}),
+  };
+}
+function preparedMemberVersionBridge(preparedSession, member) {
+  const source = member?.bridge; const target = preparedSession?.target?.bridge;
+  const shared = preparedSession?.versionBridge;
+  if (!source?.originalSha256 || !source?.normalizedSha256 || !target?.originalSha256 || !target?.normalizedSha256) {
+    throw new Error(`CII_MS_PREVIEW_PREPARED_BRIDGE_REQUIRED:${text(member?.sourceId)}`);
+  }
+  if (!shared?.conversionSource || !shared?.v14WritePolicy) {
+    throw new Error('CII_MS_PREVIEW_PREPARED_BRIDGE_POLICY_REQUIRED');
+  }
+  const mode = target?.writer2Shadow?.enabled
+    ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11'
+    : (Number(source.originalVersion) === 11 && Number(target.originalVersion) === 11
+      ? 'DIRECT_V11' : 'CHANGE_ISOLATED_V14_VIA_V11');
+  return deepFreeze({
+    schema: 'CIIWorkspaceWriterVersionBridge.v2',
+    mode,
+    source,
+    target,
+    conversionSource: shared.conversionSource,
+    v14WritePolicy: shared.v14WritePolicy,
+  });
+}
+function attachPreparedVersionBridge(preview, versionBridge) {
+  const audit = deepFreeze({ ...(preview?.audit || {}), versionBridge });
+  const result = { ...preview, versionBridge, audit };
+  result.artifacts = ciiWorkspaceArtifactBundle(result);
+  return deepFreeze(result);
+}
+function preparedMemberModels(preparedSession, member) {
+  const target = preparedSession?.target;
+  if (!member?.sourceDocument || !member?.sourceGraph || !target?.targetDocument || !target?.targetGraph) {
+    throw new Error(`CII_MS_PREVIEW_PREPARED_MODELS_REQUIRED:${text(member?.sourceId)}`);
+  }
+  if (member.sourceDocument.contentSha256 !== member.normalizedSha256) {
+    throw new Error(`CII_MS_PREVIEW_PREPARED_SOURCE_HASH_MISMATCH:${text(member?.sourceId)}`);
+  }
+  if (target.targetDocument.contentSha256 !== target.normalizedSha256) {
+    throw new Error('CII_MS_PREVIEW_PREPARED_TARGET_HASH_MISMATCH');
+  }
+  return {
+    sourceDocument: member.sourceDocument,
+    sourceGraph: member.sourceGraph,
+    targetDocument: target.targetDocument,
+    targetGraph: target.targetGraph,
+  };
+}
+function analysisOptionsWithoutCache(options = {}) {
+  const { commonAnalysisCache: _cache, ...analysisOptions } = options || {};
+  return analysisOptions;
+}
+function preparedSessionCacheIdentity(preparedSession) {
+  const ids = (preparedSession?.members || []).map((member) => text(member?.sourceId)).filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (!ids.length) throw new Error('CII_COMMON_ANALYSIS_CACHE_SOURCE_MEMBER_REQUIRED');
+  return stableStringify(canonicalCiiPreparedCommonAnalysisCustody(preparedSession, ids[0]));
+}
+function commonAnalysisCache(options = {}) {
+  const cache = options?.commonAnalysisCache;
+  if (cache == null) return null;
+  if (cache?.schema !== CII_COMMON_ANALYSIS_CACHE_SCHEMA || !(cache.entries instanceof Map)) {
+    throw new Error('CII_COMMON_ANALYSIS_CACHE_REQUIRED');
+  }
+  if (cache.sessionIdentity == null && cache.entries.size) {
+    throw new Error('CII_COMMON_ANALYSIS_CACHE_STATE_INVALID');
+  }
+  return cache;
+}
+function ensureCommonAnalysisCacheSession(cache, sessionIdentity, instrumentation) {
+  if (!cache) return;
+  if (cache.sessionIdentity == null) {
+    cache.sessionIdentity = sessionIdentity;
+    return;
+  }
+  if (cache.sessionIdentity === sessionIdentity) return;
+  cache.entries.clear();
+  cache.sessionIdentity = sessionIdentity;
+  instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_RESET', 1);
+}
+async function preparedMemberCommonAnalysis(preparedSession, member, payload, options, cache, sessionIdentity) {
+  const analysisOptions = analysisOptionsWithoutCache(options);
+  if (!cache) {
+    return createCiiWorkspaceCommonAnalysis(payload, analysisOptions, preparedMemberModels(preparedSession, member));
+  }
+  ensureCommonAnalysisCacheSession(cache, sessionIdentity, analysisOptions.instrumentation);
+  const id = text(member?.sourceId);
+  const key = await ciiCommonAnalysisAuthorityKey({
+    preparedSession,
+    sourceId: id,
+    input: payload,
+    options: analysisOptions,
+  }, analysisOptions.cryptoRef);
+  const existing = cache.entries.get(id);
+  if (existing?.key === key && existing?.commonAnalysis) {
+    analysisOptions.instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_HIT', 1);
+    return existing.commonAnalysis;
+  }
+  analysisOptions.instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_MISS', 1);
+  const common = await createCiiWorkspaceCommonAnalysis(
+    payload,
+    analysisOptions,
+    preparedMemberModels(preparedSession, member),
+  );
+  cache.entries.set(id, { key, commonAnalysis: common });
+  return common;
+}
+
+export async function createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, input = {}, options = {}) {
+  const sourceSet = preparedSessionSourceSet(preparedSession);
+  const cache = commonAnalysisCache(options);
+  const sessionIdentity = cache ? preparedSessionCacheIdentity(preparedSession) : null;
+  ensureCommonAnalysisCacheSession(cache, sessionIdentity, options.instrumentation);
+  const originalTargetSha256 = text(preparedSession?.target?.originalSha256);
+  if (!originalTargetSha256) throw new Error('CII_MS_PREVIEW_PREPARED_TARGET_SHA_REQUIRED');
+  const bm001Authority = await assertCiiMsBm001Authority(sourceSet.sourceSetSha256, originalTargetSha256, options.cryptoRef);
+  const aliasSet = ciiMsBm001AliasSet(bm001Authority.rows);
+  const memberPreviews = [];
+  for (const member of preparedSession.members || []) {
+    const id = text(member?.sourceId);
+    const payload = preparedMemberInput(input, id);
+    const common = await preparedMemberCommonAnalysis(preparedSession, member, payload, options, cache, sessionIdentity);
+    const versionBridge = preparedMemberVersionBridge(preparedSession, member);
+    const preview = attachPreparedVersionBridge(
+      projectCiiWorkspacePreviewFromCommonAnalysis(common, payload, { ...options, writerVersion: '2' }),
+      versionBridge,
+    );
+    const replacementPreview = attachPreparedVersionBridge(
+      projectCiiWorkspacePreviewFromCommonAnalysis(common, payload, {
+        ...options, writerVersion: '1C', allowNodeNameOverwrite: true,
+      }),
+      versionBridge,
+    );
+    assertSameMemberCorrespondence(id, preview, replacementPreview);
+    memberPreviews.push(deepFreeze({ sourceId: id, preview, replacementPreview }));
+  }
+  assertSameTarget(memberPreviews);
+  const memberCorrespondences = memberPreviews.map(({ sourceId: id, preview }) => prefixedCorrespondence(id, preview));
+  const correspondence = combinedCorrespondence(sourceSet.sourceSetSha256, memberCorrespondences);
+  const review = combinedReview(memberPreviews);
+  const engineeringDeltas = combinedEngineeringDeltas(memberPreviews);
+  const compareReview = combinedCompareReview(memberPreviews, engineeringDeltas);
+  const targetDocument = memberPreviews[0].preview.targetDocument;
+  const firstTargetBridge = memberPreviews[0].preview.versionBridge.target;
+  const targetAuthority = {
+    kind: 'ORIGINAL_TARGET', originalSha256: firstTargetBridge.originalSha256,
+    originalVersion: firstTargetBridge.originalVersion,
+    normalizedSha256: firstTargetBridge.normalizedSha256,
+    baselineCanonicalSha256: firstTargetBridge.baselineCanonicalSha256,
+  };
+  const transferPlan = combinedTransferPlan(memberPreviews, sourceSet, targetDocument, targetAuthority, input, aliasSet, correspondence);
+  const versionBridge = versionBridgeEvidence(sourceSet, memberPreviews);
+  const writerReadiness = ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument);
+  const audit = deepFreeze({
+    schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
+    sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
+    bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
+    memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
+      sourceId: id, correspondenceStatus: preview.correspondence?.status, transferPlanStatus: preview.transferPlan?.status,
+      replacementTransferPlanStatus: replacementPreview.transferPlan?.status,
+      originalSha256: preview.versionBridge?.source?.originalSha256, normalizedSha256: preview.versionBridge?.source?.normalizedSha256,
+    }))),
+    correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan, writerReadiness, versionBridge,
+  });
+  const result = {
+    schema: CII_MS_PREVIEW_SCHEMA, writerVersion: '2', sourceSet, sourceSetSha256: sourceSet.sourceSetSha256,
+    memberPreviews: deepFreeze(memberPreviews), targetDocument, targetAuthority: deepFreeze(targetAuthority),
+    correspondence, review, engineeringDeltas, compareReview, transferPlan, writerReadiness, versionBridge, audit,
+    stages: createCiiWorkspaceStageModel(writerReadiness), bm001Authority,
+  };
+  result.artifacts = ciiWorkspaceArtifactBundle(result);
+  return deepFreeze(result);
+}
+
+
 export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, options = {}) {
   const sources = sourceRows(input); const target = targetBytes(input);
   if (target == null) throw new Error('CII_MS_PREVIEW_TARGET_REQUIRED');
@@ -411,5 +645,7 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
 export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
   normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
-  memberMixedOperations, memberInput,
+  memberMixedOperations, memberInput, preparedSessionSourceSet, preparedMemberInput,
+  preparedMemberVersionBridge, preparedMemberModels, analysisOptionsWithoutCache,
+  preparedSessionCacheIdentity, commonAnalysisCache, ensureCommonAnalysisCacheSession,
 });
