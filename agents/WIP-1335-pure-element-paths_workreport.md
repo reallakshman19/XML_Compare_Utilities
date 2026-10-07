@@ -24,10 +24,30 @@ Path construction must operate on shallow path-local edge copies. The caller gra
 
 No path scoring, ordering, alignment, geometry, candidate, Writer or benchmark policy change.
 
+## Implemented material
+
+Production:
+- `tabs/model-converters/xml-cii-inputxml-path-aligner.js@d54f4faa2a40b461b892e7b8b9fd2ebf84b70672`
+
+Focused test:
+- `tests/xml-cii-inputxml-path-aligner-purity.test.js@9a7752cbc2ea7d7a8a498ace2731b7097b52b983`
+
+Behavior:
+- `buildElementPaths()` clones input edge records before adding path metadata;
+- caller graph edges remain unchanged;
+- frozen graphs are accepted;
+- repeated calls are deterministic;
+- returned path-local edges still carry the existing pathId/station/coordinate metadata.
+
+No scoring/alignment/topology/geometry policy change.
+
 ## Current state
 
 ```text
-STATE: RECOVERY_SURFACE_CREATED
-PRODUCT_EDIT: NOT_YET_MADE
-NEXT: path-local edge copy + focused immutability/repeatability test
+STATE: PRODUCT_AUTHORED
+PREPARED_WRITER2_REQUALIFICATION: NOT_YET_RUN
+CACHE: NONE
+UI: NONE
+BENCHMARK_MUTATION: NONE
+NEXT: stacked draft PR + exact-head qualification
 ```
