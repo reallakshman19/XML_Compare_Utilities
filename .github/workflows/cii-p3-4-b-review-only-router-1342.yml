@@ -1,0 +1,102 @@
+name: CII P3.4-B review-only router exact-head qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-review-only-router-prepared-session-1342
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-4-b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: B-U4 exact composition and blob guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=a7e8c73ae2cf7d95207a5c1ed6911ffabc7c593d
+          PRODUCT=62ab95b28cc6913d3ca525d5f427685157f8bc9f
+          WORKFLOW=.github/workflows/cii-p3-4-b-review-only-router-1342.yml
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = "$WORKFLOW"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1342-review-only-router-prepared-session_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multisource-review-only-router.js' \
+            'tests/cii-workspace-review-only-router-prepared-session-wiring.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1342-review-only-router-prepared-session_workreport.md")" = "8d6a9c3b5a5a325d4ffe0243cf31617ff1d944ba"
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-review-only-router.js")" = "c95d135e7e9bfbaf78d51cbb6979ae2d19d1400f"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-review-only-router-prepared-session-wiring.test.js")" = "a536ac26faf4d196cb41203778e41274d6cd1f96"
+
+          test "$(git diff --numstat "$BASE" "$PRODUCT" -- tabs/cii-workspace/cii-workspace-multisource-review-only-router.js)" = $'11\t8\ttabs/cii-workspace/cii-workspace-multisource-review-only-router.js'
+          git diff --check "$BASE" "$PRODUCT"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- \
+            tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js \
+            tabs/cii-workspace/cii-workspace-core.js \
+            tabs/cii-workspace/cii-workspace-writer-version-bridge.js \
+            tabs/cii-workspace/cii-workspace-source-set.js \
+            tabs/cii-workspace/cii-workspace-multisource-preview.js \
+            tabs/cii-workspace/cii-workspace-multisource-review-only.js \
+            tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js \
+            Benchmark | grep -q .; then
+            echo "Protected Writer2/P3.3/Benchmark surface changed"
+            exit 1
+          fi
+
+          echo "B_U4_EXACT_COMPOSITION_PASS"
+
+      - name: Detach to frozen candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT=62ab95b28cc6913d3ca525d5f427685157f8bc9f
+          git checkout --detach "$PRODUCT"
+          test "$(git rev-parse HEAD)" = "$PRODUCT"
+          echo "QUALIFICATION_HEAD=$PRODUCT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: B-U4 generic prepared router counts and wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-review-only-router-prepared-session-wiring.test.js
+          node tests/cii-workspace-multisource-review-only-router.test.js
+
+      - name: B-U4 zero-write prepared review-only regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-prepared-review-only-adapter.test.js
+          node tests/cii-workspace-prepared-review-only-thin-integration.test.js
+          node tests/cii-workspace-multisource-review-only.test.js
+          node tests/cii-workspace-multisource-review-state.test.js
+          node tests/cii-workspace-multisource-session-persistence.test.js
+
+      - name: B-U4 retained S1-S2-S3 route semantic non-regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+
+      - name: B-U4 final exact-head assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "62ab95b28cc6913d3ca525d5f427685157f8bc9f"
+          git diff --quiet
+          echo "P3_4_B_EXACT_HEAD_QUALIFICATION_PASS"
