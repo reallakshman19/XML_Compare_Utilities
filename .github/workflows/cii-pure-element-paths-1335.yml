@@ -1,0 +1,73 @@
+name: CII P3.3-B0 immutable path qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-pure-element-paths-1335
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-b0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact B0 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=e45c0978e31d9d958c05a061ca775058a5e262b7
+          PRODUCT=836d2d18ddbf199b5643a226d05649c4a6ce03be
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-pure-element-paths-1335.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1335-pure-element-paths_workreport.md' \
+            'tabs/model-converters/xml-cii-inputxml-path-aligner.js' \
+            'tests/xml-cii-inputxml-path-aligner-purity.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/model-converters/xml-cii-inputxml-path-aligner.js")" = "d54f4faa2a40b461b892e7b8b9fd2ebf84b70672"
+          test "$(git rev-parse "$PRODUCT:tests/xml-cii-inputxml-path-aligner-purity.test.js")" = "9a7752cbc2ea7d7a8a498ace2731b7097b52b983"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1335-pure-element-paths_workreport.md")" = "ec81647aeeda1ad26042a6a51f689dd60e7b737b"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-preview.js")" = "86a86f0471632a46266710d9e71b058d66c13a73"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-writer2-preview.test.js")" = "347bd70ded059ae35bba3416efdf17f6598eabfd"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace | grep -q .; then
+            echo "B0 scope violation"
+            exit 1
+          fi
+          echo "P3_3_B0_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/model-converters/xml-cii-inputxml-path-aligner.js
+          node --check tests/xml-cii-inputxml-path-aligner-purity.test.js
+
+      - name: Q1 path immutability and repeatability
+        run: node tests/xml-cii-inputxml-path-aligner-purity.test.js
+
+      - name: Q2 prepared Writer2 one-common-analysis contract
+        run: node tests/cii-workspace-prepared-writer2-preview.test.js
+
+      - name: Q3 prepared-session and common-analysis regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-prepared-source-set-session.test.js
+          node tests/cii-workspace-common-analysis-projection.test.js
+
+      - name: Q4 retained semantic full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
