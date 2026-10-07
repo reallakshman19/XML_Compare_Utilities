@@ -1,0 +1,83 @@
+name: CII P3.3-D thin prepared review-only qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-review-only-thin-1328
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact P3.3-D product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=8564e99c8587cd248ce3a3b0e03030856fb076a3
+          PRODUCT=4c07c1da6bbbf90e318330c1550a4762e87281c5
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-prepared-review-only-thin-1328.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1328-prepared-review-only-thin_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multisource-review-only.js' \
+            'tests/cii-workspace-prepared-review-only-thin-integration.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-review-only.js")" = "86f8b1827e73c27c0a71d78985542eced50565c5"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-review-only-thin-integration.test.js")" = "6afdda26e68f02b96ebcb517b081ede2176620a7"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1328-prepared-review-only-thin_workreport.md")" = "4185902cca67f1d8d7a331421b1937eb33b3bad9"
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js")" = "2eccf41ad9d33377de8045b5f0e01eebe79c6461"
+
+          lines="$(wc -l < tabs/cii-workspace/cii-workspace-multisource-review-only.js)"
+          test "$lines" -lt 300
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark | grep -q .; then
+            echo "Benchmark mutation forbidden"
+            exit 1
+          fi
+
+          echo "P3_3_D_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-only.js
+          node --check tests/cii-workspace-prepared-review-only-thin-integration.test.js
+
+      - name: Q1 thin prepared parity and module guard
+        run: node tests/cii-workspace-prepared-review-only-thin-integration.test.js
+
+      - name: Q2 inherited D0 and zero-write review-only core
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-prepared-review-only-adapter.test.js
+          node tests/cii-workspace-multisource-review-only.test.js
+
+      - name: Q3 prepared/cache/key/path regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-common-analysis-cache.test.js
+          node tests/cii-workspace-prepared-writer2-preview.test.js
+          node tests/cii-workspace-common-analysis-authority-key.test.js
+          node tests/cii-workspace-prepared-source-set-session.test.js
+          node tests/cii-workspace-common-analysis-projection.test.js
+          node tests/xml-cii-inputxml-path-aligner-purity.test.js
+
+      - name: Q4 retained semantic full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
