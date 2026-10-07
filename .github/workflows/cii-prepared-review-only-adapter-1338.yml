@@ -1,0 +1,78 @@
+name: CII P3.3-D0 prepared review-only adapter qualification
+
+on:
+  push:
+    branches:
+      - validation/cii-prepared-review-only-adapter-1338
+  workflow_dispatch:
+
+jobs:
+  qualify-p3-3-d0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Guard exact P3.3-D0 product
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=331824975d3e6233b335af9c619696fe854f70b9
+          PRODUCT=8564e99c8587cd248ce3a3b0e03030856fb076a3
+
+          test "$(git diff --name-only "$PRODUCT"...HEAD | sort)" = ".github/workflows/cii-prepared-review-only-adapter-1338.yml"
+
+          expected="$(printf '%s\n' \
+            'agents/WIP-1338-prepared-review-only-adapter_workreport.md' \
+            'tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js' \
+            'tests/cii-workspace-prepared-review-only-adapter.test.js' | sort)"
+          test "$(git diff --name-only "$BASE" "$PRODUCT" | sort)" = "$expected"
+
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js")" = "2eccf41ad9d33377de8045b5f0e01eebe79c6461"
+          test "$(git rev-parse "$PRODUCT:tests/cii-workspace-prepared-review-only-adapter.test.js")" = "ea9e25a4a3415fa10d5a5a5e31306fe52907ce35"
+          test "$(git rev-parse "$PRODUCT:agents/WIP-1338-prepared-review-only-adapter_workreport.md")" = "55a24cf6501c14743e2a397942e4917fb0ddb6d2"
+          test "$(git rev-parse "$PRODUCT:tabs/cii-workspace/cii-workspace-multisource-review-only.js")" = "c9146deb2ae2f598b2f7a661a77003b67ea6c0a2"
+
+          if git diff --name-only "$BASE" "$PRODUCT" -- Benchmark tabs/cii-workspace/cii-workspace-multisource-review-only.js tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js tabs/cii-workspace/cii-workspace-multisource-review-only-router.js | grep -q .; then
+            echo "P3.3-D0 scope violation"
+            exit 1
+          fi
+
+          test "$(wc -l < tabs/cii-workspace/cii-workspace-multisource-review-only.js)" -lt 300
+          ! grep -q 'assertCiiMsBm001Authority' tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js
+          ! grep -q 'createCiiWriter2SourceSetPreview' tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js
+          ! grep -q "writerVersion: '1C'" tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js
+          echo "P3_3_D0_EXACT_PRODUCT_GUARD_PASS"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-only-prepared.js
+          node --check tests/cii-workspace-prepared-review-only-adapter.test.js
+
+      - name: Q1 prepared review-only adapter cache/custody
+        run: node tests/cii-workspace-prepared-review-only-adapter.test.js
+
+      - name: Q2 inherited zero-write review-only core
+        run: node tests/cii-workspace-multisource-review-only.test.js
+
+      - name: Q3 prepared/cache/key/path regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/cii-workspace-common-analysis-cache.test.js
+          node tests/cii-workspace-common-analysis-authority-key.test.js
+          node tests/cii-workspace-prepared-source-set-session.test.js
+          node tests/xml-cii-inputxml-path-aligner-purity.test.js
+
+      - name: Q4 retained semantic full-proof
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
