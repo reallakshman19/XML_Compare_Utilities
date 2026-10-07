@@ -1,4 +1,4 @@
-import { deepFreeze, stableId } from './cii-workspace-contracts.js';
+import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import {
@@ -10,6 +10,10 @@ import {
   createCiiWorkspaceCommonAnalysis,
   projectCiiWorkspacePreviewFromCommonAnalysis,
 } from './cii-workspace-core.js';
+import {
+  canonicalCiiPreparedCommonAnalysisCustody,
+  ciiCommonAnalysisAuthorityKey,
+} from './cii-workspace-common-analysis-key.js';
 import { ciiWriter2SourceSetNodeNameReadiness } from './cii-workspace-multisource-writer2-readiness.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import {
@@ -26,6 +30,15 @@ import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 
 export const CII_MS_PREVIEW_SCHEMA = 'CIIWorkspaceMultiSourcePreview.v1';
 export const CII_MS_CORRESPONDENCE_SCHEMA = 'CIIWorkspaceMultiSourceCorrespondence.v1';
+export const CII_COMMON_ANALYSIS_CACHE_SCHEMA = 'CIIWorkspaceCommonAnalysisCache.v1';
+
+export function createCiiCommonAnalysisCache() {
+  return {
+    schema: CII_COMMON_ANALYSIS_CACHE_SCHEMA,
+    sessionIdentity: null,
+    entries: new Map(),
+  };
+}
 
 function text(value) { return String(value ?? '').trim(); }
 function sourceRows(input) {
@@ -445,9 +458,71 @@ function preparedMemberModels(preparedSession, member) {
     targetGraph: target.targetGraph,
   };
 }
+function analysisOptionsWithoutCache(options = {}) {
+  const { commonAnalysisCache: _cache, ...analysisOptions } = options || {};
+  return analysisOptions;
+}
+function preparedSessionCacheIdentity(preparedSession) {
+  const ids = (preparedSession?.members || []).map((member) => text(member?.sourceId)).filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (!ids.length) throw new Error('CII_COMMON_ANALYSIS_CACHE_SOURCE_MEMBER_REQUIRED');
+  return stableStringify(canonicalCiiPreparedCommonAnalysisCustody(preparedSession, ids[0]));
+}
+function commonAnalysisCache(options = {}) {
+  const cache = options?.commonAnalysisCache;
+  if (cache == null) return null;
+  if (cache?.schema !== CII_COMMON_ANALYSIS_CACHE_SCHEMA || !(cache.entries instanceof Map)) {
+    throw new Error('CII_COMMON_ANALYSIS_CACHE_REQUIRED');
+  }
+  if (cache.sessionIdentity == null && cache.entries.size) {
+    throw new Error('CII_COMMON_ANALYSIS_CACHE_STATE_INVALID');
+  }
+  return cache;
+}
+function ensureCommonAnalysisCacheSession(cache, sessionIdentity, instrumentation) {
+  if (!cache) return;
+  if (cache.sessionIdentity == null) {
+    cache.sessionIdentity = sessionIdentity;
+    return;
+  }
+  if (cache.sessionIdentity === sessionIdentity) return;
+  cache.entries.clear();
+  cache.sessionIdentity = sessionIdentity;
+  instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_RESET', 1);
+}
+async function preparedMemberCommonAnalysis(preparedSession, member, payload, options, cache, sessionIdentity) {
+  const analysisOptions = analysisOptionsWithoutCache(options);
+  if (!cache) {
+    return createCiiWorkspaceCommonAnalysis(payload, analysisOptions, preparedMemberModels(preparedSession, member));
+  }
+  ensureCommonAnalysisCacheSession(cache, sessionIdentity, analysisOptions.instrumentation);
+  const id = text(member?.sourceId);
+  const key = await ciiCommonAnalysisAuthorityKey({
+    preparedSession,
+    sourceId: id,
+    input: payload,
+    options: analysisOptions,
+  }, analysisOptions.cryptoRef);
+  const existing = cache.entries.get(id);
+  if (existing?.key === key && existing?.commonAnalysis) {
+    analysisOptions.instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_HIT', 1);
+    return existing.commonAnalysis;
+  }
+  analysisOptions.instrumentation?.record?.('CII_COMMON_ANALYSIS_CACHE_MISS', 1);
+  const common = await createCiiWorkspaceCommonAnalysis(
+    payload,
+    analysisOptions,
+    preparedMemberModels(preparedSession, member),
+  );
+  cache.entries.set(id, { key, commonAnalysis: common });
+  return common;
+}
 
 export async function createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, input = {}, options = {}) {
   const sourceSet = preparedSessionSourceSet(preparedSession);
+  const cache = commonAnalysisCache(options);
+  const sessionIdentity = cache ? preparedSessionCacheIdentity(preparedSession) : null;
+  ensureCommonAnalysisCacheSession(cache, sessionIdentity, options.instrumentation);
   const originalTargetSha256 = text(preparedSession?.target?.originalSha256);
   if (!originalTargetSha256) throw new Error('CII_MS_PREVIEW_PREPARED_TARGET_SHA_REQUIRED');
   const bm001Authority = await assertCiiMsBm001Authority(sourceSet.sourceSetSha256, originalTargetSha256, options.cryptoRef);
@@ -456,7 +531,7 @@ export async function createCiiWriter2SourceSetPreviewFromPreparedSession(prepar
   for (const member of preparedSession.members || []) {
     const id = text(member?.sourceId);
     const payload = preparedMemberInput(input, id);
-    const common = await createCiiWorkspaceCommonAnalysis(payload, options, preparedMemberModels(preparedSession, member));
+    const common = await preparedMemberCommonAnalysis(preparedSession, member, payload, options, cache, sessionIdentity);
     const versionBridge = preparedMemberVersionBridge(preparedSession, member);
     const preview = attachPreparedVersionBridge(
       projectCiiWorkspacePreviewFromCommonAnalysis(common, payload, { ...options, writerVersion: '2' }),
@@ -571,5 +646,6 @@ export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
   normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
   memberMixedOperations, memberInput, preparedSessionSourceSet, preparedMemberInput,
-  preparedMemberVersionBridge, preparedMemberModels,
+  preparedMemberVersionBridge, preparedMemberModels, analysisOptionsWithoutCache,
+  preparedSessionCacheIdentity, commonAnalysisCache, ensureCommonAnalysisCacheSession,
 });
