@@ -7,8 +7,8 @@ import {
   ciiQualifiedLoopsForSuggestion,
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
-import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
-import { createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
+import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
+import { createCiiCommonAnalysisCache, createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
 import { CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
 import {
@@ -240,7 +240,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   if (!sourceInput || !targetInput || !inspectButton || !analyzeButton) return legacy;
   sourceInput.multiple = true;
   const persistenceStorage = writer2PersistenceStorage(container, options);
-  let disposed = false; let inspection = null; let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
+  let disposed = false; let inspection = null; let preparedSession = null; let commonAnalysisCache = null;
+  let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const reviewDecisions = new Map();
@@ -299,7 +300,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     reviewDirty = true; scopedPreview = null; restoredScopeIntent = null; renderMultiReview(); renderTransfer(); persistSession(); setMultiSourceStatus(container, message);
   };
   const resetMulti = () => {
-    inspection = null; cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
+    inspection = null; preparedSession = null; commonAnalysisCache = null;
+    cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
     sessionCustody = null; loadedSession = null; reviewRestoreAllowed = false; restoredScopeIntent = null;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear();
     reviewFilters.confidence = 'ALL'; reviewFilters.search = ''; reviewFilters.changedOnly = false; syncFilterControls();
@@ -384,7 +386,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       const retainedTarget = await retainedTargetInput(targetFile, options.cryptoRef);
       cachedTargetBytes = retainedTarget.bytes; cachedTargetName = retainedTarget.fileName;
       setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
-      inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
+      const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
+      inspection = prepared.inspection; preparedSession = prepared.preparedSession; commonAnalysisCache = createCiiCommonAnalysisCache();
       if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
       sessionCustody = ciiWriter2SessionCustody(inspection); loadedSession = sessionCustody ? loadCiiWriter2Session(persistenceStorage, sessionCustody.storageKey) : null;
       const restored = loadedSession ? restoreCiiWriter2AnchorSession(loadedSession, inspection) : null;
