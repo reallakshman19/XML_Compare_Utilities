@@ -1,0 +1,49 @@
+{
+  "schema": "SupportSteelFixtureManifest.v1",
+  "fixtureId": "SSRB-PS14259-COMBINED-DEMO-0001",
+  "fixturePath": "tests/fixtures/support-steel/support-steel-ps14259-combined.json",
+  "sha256": "472e68d9c4999d5f485090a77cb33670fe1ff46dbaa3c7d7875271a56eef440e",
+  "byteLength": 4071,
+  "sourcePath": "tabs/support-steel-relationship-builder/support-steel-relationship-samples.js",
+  "sourceBlobSha": "355ec33e09914955cdf91bc4e2fdce92f362f521",
+  "sourceBasisMain": "c7d4afa4c2bab4528c6d499e9ceabe058e376348",
+  "classification": "PRODUCTION_SHAPED_DEMO",
+  "authority": "DETERMINISTIC_ARCHITECTURE_FIXTURE_NOT_OWNER_PRODUCTION_INPUT",
+  "inputMode": "COMBINED_STAGED_MODEL",
+  "expectedCanonicalSchemas": {
+    "relationship": "SupportSteelRelationshipBundle.v1",
+    "steelGeometry": "SupportSteelAnalyticalGeometry.v1",
+    "memberChain": "SupportMemberChainBundle.v1",
+    "memberGeometry": "SupportMemberAnalyticalGeometry.v1",
+    "carrierResolution": "SupportCarrierResolution.v1",
+    "carrierCatalog": "SupportCarrierCatalog.v1",
+    "carrierAttachment": "SupportCarrierAttachmentBundle.v1",
+    "carrierGeometry": "SupportCarrierAnalyticalGeometry.v1",
+    "carrierTopologyCatalog": "SupportCarrierTopologyCatalog.v1",
+    "carrierTopology": "SupportCarrierTopologyBundle.v1",
+    "carrierToStructurePath": "SupportCarrierToStructurePathBundle.v1"
+  },
+  "positiveControls": [
+    "/PS-14259",
+    "/SL-4201",
+    "/SL-4201/BEAM-01",
+    "/ASIM-1836-6\"-P9001001/B1"
+  ],
+  "negativeControls": [
+    "/PS-14260",
+    "/SL-4202"
+  ],
+  "allowedUse": [
+    "current-source Support/Steel input-contract qualification",
+    "schema and deterministic serialization qualification",
+    "positive and fail-visible relationship/path regression tests",
+    "downstream consumer-contract tests"
+  ],
+  "forbiddenUse": [
+    "Owner-production acceptance evidence",
+    "native source for the #1154 PS-007/SL-097 workbook oracle",
+    "replacement for historical PS-14396 validation evidence",
+    "proof that a deployed browser is running current main",
+    "production default runtime data"
+  ]
+}
