@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseIndependentNodeNameState } from './cii-workspace-multisource-texpected-oracle.js';
-import { reconcileCiiOwnerLexicalGolden, CII_OWNER_GOLDEN_STATUS, CII_OWNER_GOLDEN_SCHEMA } from './cii-workspace-owner-lexical-golden.js';
+import { reconcileCiiOwnerLexicalGolden, CII_OWNER_GOLDEN_STATUS, CII_OWNER_GOLDEN_SCHEMA, ciiOwnerLexicalGoldenToCsv } from './cii-workspace-owner-lexical-golden.js';
 
 const expected = Object.freeze({
   S1:'9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b',
@@ -77,10 +77,11 @@ const report={
 const dir=fileURLToPath(new URL('../test-results/cii-method-a-qualification/',import.meta.url));
 mkdirSync(dir,{recursive:true});
 writeFileSync(join(dir,'owner-golden-readiness.json'),JSON.stringify(report,null,2)+'\n','utf8');
+writeFileSync(join(dir,'owner-golden-readiness.csv'),ciiOwnerLexicalGoldenToCsv(report)+'\n','utf8');
 console.log(JSON.stringify({
  schema:report.schema,status:report.status,blockers:report.blockers,
  sourcePopulation:report.evidenceContext.physicalSourceRows,
- ownerRows:result.observedRowCount||0,summary:result.summary,
+ ownerRows:result.observedRowCount||0,summary:result.summary,qualificationSummary:result.qualificationSummary||null,
  evidenceStatus:hasGolden?'OWNER_FILE_SUPPLIED_UNATTESTED':'OWNER_FILE_NOT_SUPPLIED',
  ownerAccepted:false,writer2Authority:false,
 },null,2));
