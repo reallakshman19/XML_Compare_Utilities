@@ -13,6 +13,22 @@ function anchorPairs(loop) {
 function methodAConfidence(loop) {
   return ['HIGH', 'MEDIUM'].includes(loop?.confidence) ? loop.confidence : null;
 }
+function methodAQualification(loop) {
+  const weight = loop?.weight;
+  if (!weight || !Number.isFinite(Number(weight.total))) return null;
+  return deepFreeze({
+    loopId: String(loop?.loopId || loop?.baseId || ''),
+    score: Number(weight.total),
+    highThreshold: Number(weight.confidenceThresholds?.high ?? 85),
+    mediumThreshold: Number(weight.confidenceThresholds?.medium ?? 70),
+    anchorCount: (loop?.anchorPairs || []).length,
+    residualQuality: weight.residualQuality,
+    conditioning: weight.conditioning,
+    spatialExtent: weight.spatialExtent,
+    redundancy: weight.redundancy,
+    basisConsensus: weight.basisConsensus,
+  });
+}
 function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
 function projectMethodAAnchorRow(row, loop, anchorKeys) {
   const isAnchor = row?.kind === 'NODE' && anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId));
@@ -20,7 +36,8 @@ function projectMethodAAnchorRow(row, loop, anchorKeys) {
   const confidence = methodAConfidence(loop); const loopId = String(loop?.loopId || loop?.baseId || '');
   return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
-      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId }) });
+      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId,
+      methodAQualification: methodAQualification(loop) }) });
 }
 function highIdentityEvidence(evidence) {
   return evidence?.identitySupported === true && evidence?.identityConfidence === 'HIGH';
@@ -37,7 +54,8 @@ function projectMethodABoundaryRow(row, loop) {
   return deepFreeze({ ...row, status: 'REVIEW',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: supported,
       identityConfidence: supported ? confidence : 'REVIEW',
-      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId }) });
+      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId,
+      methodAQualification: methodAQualification(loop) }) });
 }
 function projectMethodAAnchorAuthority(correspondence, loop, anchors) {
   const anchorKeys = new Set(anchors.map((pair) => anchorPairKey(pair.sourceNodeId, pair.targetNodeId)));
