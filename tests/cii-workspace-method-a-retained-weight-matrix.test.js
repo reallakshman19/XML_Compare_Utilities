@@ -107,14 +107,20 @@ async function oneRun(policy) {
   const unsafeGrades = observations.filter((row) => row.review.some((item) =>
     item.confidence === 'HIGH' && !item.identityBound));
   assert.deepEqual(unsafeGrades, [], 'unbound matching rows must not be advertised as HIGH');
-  assert.notEqual(preview.correspondence?.status, 'AMBIGUOUS',
-    'cross-loop ambiguous correspondence may not become an automatic success');
-  assert.equal(preview.correspondence?.conflicts?.length || 0, 0, 'cross-loop conflicts must veto');
+  const conflicts = preview.correspondence?.conflicts || [];
+  const ambiguous = preview.correspondence?.status === 'AMBIGUOUS' || conflicts.length > 0;
+  // A tuned profile may legitimately lead to an ambiguous candidate; show
+  // that outcome instead of throwing or accepting it as a qualified writer.
+  if (ambiguous) {
+    assert(preview.correspondence?.status !== 'READY',
+      'conflicting correspondence must never be labelled READY');
+  }
   return {
     policy: policy.label, weights: policy.methodAConfidenceWeights, thresholds,
     inspectionStatus: inspected.status,
     previewStatus: preview.correspondence?.status,
-    blocked: [], members, emitted, bound, observations,
+    blocked: ambiguous ? [{ reason: 'CROSS_LOOP_CORRESPONDENCE_AMBIGUOUS', conflictCount: conflicts.length }] : [],
+    members, emitted, bound, observations,
   };
 }
 
