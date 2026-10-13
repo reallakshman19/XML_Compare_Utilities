@@ -207,7 +207,7 @@ export function reconcileCiiOwnerLexicalGolden({
     total:results.length, resolved:counts.MATCHED,
     high:results.filter((row)=>row.disposition==='MATCHED' && row.observedConfidence==='HIGH').length,
     medium:results.filter((row)=>row.disposition==='MATCHED' && row.observedConfidence==='MEDIUM').length,
-    review:results.filter((row)=>row.disposition==='REVIEWABLE' || row.observedConfidence==='REVIEW').length,
+    review:results.filter((row)=>row.disposition==='REVIEWABLE' || (row.disposition==='MATCHED' && row.observedConfidence==='REVIEW')).length,
     ambiguous:counts.AMBIGUOUS, missing:counts.MISSING, invalid:counts.INVALID,
     duplicates:results.filter((row)=>row.reasons.includes('DUPLICATE_OWNER_RELATION_PRESERVED')).length,
     byMember:frozen(perMember),
