@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { CII_OWNER_GOLDEN_STATUS, reconcileCiiOwnerLexicalGolden } from './cii-workspace-owner-lexical-golden.js';
+import { CII_OWNER_GOLDEN_STATUS, reconcileCiiOwnerLexicalGolden, ciiOwnerLexicalGoldenToCsv } from './cii-workspace-owner-lexical-golden.js';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const retainedSourceSet = '5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3';
@@ -58,6 +58,21 @@ assert.equal(call({goldenBytes:badUtf8,declaredSha256:digest(badUtf8),declaredRo
 const result=call();
 assert.equal(result.status,CII_OWNER_GOLDEN_STATUS.EXCEPTIONS);
 assert.equal(result.rows.length,10);
+assert.equal(result.qualificationSummary.total,10);
+assert.equal(result.qualificationSummary.resolved,3);
+assert.equal(result.qualificationSummary.review,1);
+assert.equal(result.qualificationSummary.ambiguous,4);
+assert.equal(result.qualificationSummary.missing,1);
+assert.equal(result.qualificationSummary.invalid,1);
+assert.equal(result.qualificationSummary.duplicates,1);
+assert.equal(result.qualificationSummary.byMember.reduce((sum,row)=>sum+row.total,0),10);
+assert(result.qualificationSummary.byMember.some((row)=>row.sourceId==='UNSPECIFIED' && row.total===1));
+const csv=ciiOwnerLexicalGoldenToCsv(result);
+assert.equal(csv.split('\\n').length,11,'every input row needs an independent CSV record');
+assert.equal(ciiOwnerLexicalGoldenToCsv(result),csv,'golden CSV output must be deterministic');
+assert(csv.includes('SL-263..5') && csv.includes('SL-275-A.8'));
+assert(csv.includes('DUPLICATE_OWNER_RELATION_PRESERVED'));
+
 assert.deepEqual(result.summary,{MATCHED:3,REVIEWABLE:1,AMBIGUOUS:4,MISSING:1,INVALID:1});
 assert.equal(result.rows[0].disposition,'MATCHED');
 assert.equal(result.rows[1].disposition,'REVIEWABLE');
