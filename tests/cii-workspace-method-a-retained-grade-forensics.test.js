@@ -83,6 +83,67 @@ assert.deepEqual(JSON.parse(preview.artifacts.auditJson)?.methodAConfidencePolic
 assert.deepEqual(preview.audit?.methodAConfidenceWeights, CII_METHOD_A_WEIGHT_DEFAULTS);
 assert.deepEqual(JSON.parse(preview.artifacts.auditJson)?.methodAConfidenceWeights,
   CII_METHOD_A_WEIGHT_DEFAULTS, 'downloadable JSON audit must retain weight custody');
+
+function focusedS3AlignmentTrace(memberPreviews) {
+  const member = (memberPreviews || []).find((row) => row.sourceId === 'S3')?.preview;
+  const results = member?.multiBaseCorrespondence?.loopResults || [];
+  const selected = results.find((row) => row.loop?.method === 'METHOD_A_SPATIAL') || null;
+  const correspondence = selected?.correspondence;
+  const sourceEdges = correspondence?.sourcePath?.elements || [];
+  const targetEdges = correspondence?.targetPath?.elements || [];
+  const operations = correspondence?.alignment?.operations || [];
+  const focus = new Set(['1740', '1750', '1760', '1770']);
+  const sourceLocal = sourceEdges.filter((edge) => focus.has(String(edge.routeFrom)) || focus.has(String(edge.routeTo)));
+  const sourceLocalIds = new Set(sourceLocal.map((edge) => String(edge.elementId)));
+  const operationIndexes = operations.flatMap((operation, index) =>
+    sourceLocalIds.has(String(operation.sourceElementId || '')) ? [index] : []);
+  const selectedIndexes = new Set(operationIndexes.flatMap((index) =>
+    [index - 3, index - 2, index - 1, index, index + 1, index + 2, index + 3]
+      .filter((value) => value >= 0 && value < operations.length)));
+  const focusedOperations = operations.flatMap((operation, index) =>
+    selectedIndexes.has(index) ? [{ index, ...operation }] : []);
+  return {
+    evidenceStatus: 'READ_ONLY_ALIGNMENT_OPERATION_TRACE_NOT_IDENTITY_AUTHORITY',
+    selectedLoopMethod: selected?.loop?.method || null,
+    selectedLoopStatus: correspondence?.status || null,
+    selectedLoopId: selected?.loop?.loopId || null,
+    selectedSourcePath: {
+      startNode: correspondence?.sourcePath?.startNode || null,
+      endNode: correspondence?.sourcePath?.endNode || null,
+      edgeCount: sourceEdges.length,
+    },
+    selectedTargetPath: {
+      startNode: correspondence?.targetPath?.startNode || null,
+      endNode: correspondence?.targetPath?.endNode || null,
+      edgeCount: targetEdges.length,
+    },
+    sourceLocalEdges: sourceLocal.map((edge) => ({
+      elementId: edge.elementId, routeFrom: edge.routeFrom, routeTo: edge.routeTo,
+      componentKind: edge.componentKind, diameter: edge.diameter, lengthMm: edge.lengthMm,
+    })),
+    targetLocalEdges: targetEdges.filter((edge) => focusedOperations.some((operation) =>
+      String(operation.targetElementId || '') === String(edge.elementId))).map((edge) => ({
+      elementId: edge.elementId, routeFrom: edge.routeFrom, routeTo: edge.routeTo,
+      componentKind: edge.componentKind, diameter: edge.diameter, lengthMm: edge.lengthMm,
+    })),
+    operationCount: operations.length,
+    operationIndexCount: operationIndexes.length,
+    focusedOperations,
+    matchedNodeRows: (correspondence?.nodeRows || []).filter((row) => focus.has(String(row.sourceNodeId)))
+      .map((row) => ({
+        sourceNodeId: row.sourceNodeId, targetNodeId: row.targetNodeId,
+        status: row.status, authority: row.authority,
+        identityEvidenceBasis: row.evidence?.identityEvidenceBasis || null,
+        boundaryIdentity: row.evidence?.boundaryIdentity || null,
+      })),
+    pathGate: correspondence?.pathGate ? {
+      status: correspondence.pathGate.status,
+      blockers: correspondence.pathGate.blockers || [],
+    } : null,
+  };
+}
+const s3InteriorAlignmentTrace = focusedS3AlignmentTrace(preview.memberPreviews);
+
 const observed = ciiForensicRowObservations(preview, requested);
 assert.equal(observed.length, 11, 'all owner-reported Phase 1 NODE pairs must appear in forensic output');
 console.log(JSON.stringify({
@@ -90,6 +151,7 @@ console.log(JSON.stringify({
   evidenceStatus: 'FORENSIC_REPORT_ONLY_NOT_ACCEPTANCE',
   sourceSetSha256: inspection.sourceSet?.sourceSetSha256,
   confidencePolicy: policy, baseEvidence, baseSelection,
+  s3InteriorAlignmentTrace,
   inspectionStatus: inspection.status, previewStatus: preview.correspondence?.status,
   emitted: observed.filter((row) => row.status === 'EMITTED').length,
   unEmitted: observed.filter((row) => row.status !== 'EMITTED').length,
