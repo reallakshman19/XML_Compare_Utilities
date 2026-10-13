@@ -1,6 +1,7 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { resolveCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
+import { resolveCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import {
   CII_PREPARED_SOURCE_SET_SESSION_SCHEMA,
@@ -567,6 +568,7 @@ export async function createCiiWriter2SourceSetPreviewFromPreparedSession(prepar
   const audit = deepFreeze({
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
     methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
+    methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
     memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
@@ -626,6 +628,7 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
   const audit = deepFreeze({
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
     methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
+    methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
     memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
