@@ -92,6 +92,12 @@ function evidenceMarkup(row) {
     const label = `RIGID COMPONENT · PARENT ${component.parentConfidence} · ${pointer}`;
     return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass({ level })}" style="${ciiEvidenceBandStyle(level)}">${h(label)}</span></div><small>Parent ${h(component.parentCorrespondenceId || '—')} · ${component.parentIdentityBound ? 'BOUND' : 'UNBOUND'}</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
   }
+  if (row?.methodABase && ['HIGH', 'MEDIUM'].includes(row?.confidence)) {
+    const base = row.methodABase;
+    const level = row.confidence === 'HIGH' ? 4 : 3;
+    const band = { level };
+    return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass(band)}" style="${ciiEvidenceBandStyle(level)}">METHOD A BASE · ${h(fmt(base.score))}/100 · ${h(row.confidence)}</span></div><small>Qualified ${h(base.anchorCount)} anchors · HIGH ≥ ${h(fmt(base.highThreshold))} · MEDIUM ≥ ${h(fmt(base.mediumThreshold))}</small><small>Direct M1/M2/OD corroboration not projected on this anchor row.</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
+  }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName; const band = row?.corroborationBand;
   const m1Label = !m1 ? 'M1 —' : (m1.available === false ? `M1 N/A${m1.registrationStatus ? ` ${m1.registrationStatus}` : ''}` : `M1 ${m1.pass ? 'PASS' : 'FAIL'} ${fmt(m1.distanceMm)} / ${fmt(m1.toleranceMm)} mm`);
   const m2Label = !m2 ? 'M2 —' : `M2 ${m2.pass ? 'PASS' : 'FAIL'} ${fmt(m2.score)} / ${fmt(m2.threshold)}`;
