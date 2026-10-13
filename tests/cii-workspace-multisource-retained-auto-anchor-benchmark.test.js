@@ -3,7 +3,8 @@ import { webcrypto } from 'node:crypto';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import { ciiRetainedMethodATerminalForensics } from './cii-workspace-method-a-terminal-continuation-forensics.js';
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import { ciiCanonicalWriter2MutationSelection } from '../tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js';
@@ -91,7 +92,8 @@ function checkpointDiagnostics(preview) {
   })));
 }
 
-const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef });
+const { inspection, preparedSession } = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge(
+  { sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef });
 const automatic = autoBaseLoops(inspection);
 assert.equal(automatic.choices.length, 3, 'retained Auto Anchor test requires S1/S2/S3 independently');
 for (const choice of automatic.choices) {
@@ -204,6 +206,22 @@ console.log(JSON.stringify({
   })),
 }, null, 2));
 
+const terminalForensics = ciiRetainedMethodATerminalForensics(preparedSession, preview, sourceAudit);
+const terminalEvidenceDir = fileURLToPath(new URL('../test-results/cii-method-a-qualification/', import.meta.url));
+mkdirSync(terminalEvidenceDir, { recursive: true });
+writeFileSync(join(terminalEvidenceDir, 'terminal-tail-forensics.json'),
+  JSON.stringify(terminalForensics, null, 2) + '\n', 'utf8');
+console.log(JSON.stringify({
+  terminalTraceSchema: terminalForensics.schema, status: terminalForensics.evidenceStatus,
+  regionCount: terminalForensics.groupedRegionCount,
+  exteriorUnemittedCount: terminalForensics.actualExteriorUnemittedRowCount,
+  regions: terminalForensics.regions.map((row) => ({
+    sourceId: row.sourceId, side: row.side, sourceRoot: row.sourceRoot,
+    targetRoot: row.targetRoot, unEmittedCount: row.unemittedExteriorRowKeys.length,
+    sourceLegs: row.sourceExterior.paths.length, targetLegs: row.targetExterior.paths.length,
+    localFirstEdgeQualifying: row.firstEdgeCandidateEvidence.filter((item) => item?.identitySupported).length,
+  })),
+}, null, 2));
 const censusCsv = ciiSourceTargetAuditToCsv(sourceAudit);
 const censusJson = ciiSourceTargetAuditToJson(sourceAudit);
 assert.equal(censusCsv.split('\n').length, 151, 'CSV must expose all 150 rows, not only displayed review matches');
