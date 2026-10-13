@@ -58,7 +58,7 @@ try {
   }
   controls.residualQuality.value = '40';
   controls.residualQuality.input();
-  assert.match(total.textContent, /105\\/100/);
+  assert.match(total.textContent, /105\/100/);
   assert.equal(events.length, 0, 'draft editing must not invalidate previous results');
   apply.click();
   assert.equal(events.length, 0, 'invalid sum cannot modify effective weights');
