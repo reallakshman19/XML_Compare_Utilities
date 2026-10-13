@@ -52,6 +52,34 @@ function reviewConfidence(row, candidates, boundary, identityBound) {
   if (['MEDIUM', 'REVIEW'].includes(confidence)) return confidence;
   return 'REVIEW';
 }
+function methodABoundaryDiagnostics(row) {
+  const evidence = row?.evidence;
+  if (row?.kind !== 'NODE' || evidence?.identityEvidenceBasis !== 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY') return null;
+  const edge = (item) => item ? Object.freeze({
+    identitySupported: item.identitySupported === true,
+    confidence: item.identityConfidence || null,
+  }) : null;
+  const boundary = evidence.boundaryIdentity;
+  const custody = evidence.nodeCustodyGate;
+  // Observability only. Neither this diagnostic nor its consumer can create
+  // correspondence authority or bypass candidate, topology or custody vetoes.
+  return Object.freeze({
+    upstreamIdentitySupported: evidence.identitySupported === true,
+    upstreamConfidence: evidence.identityConfidence || null,
+    localBoundary: boundary ? Object.freeze({
+      identitySupported: boundary.identitySupported === true,
+      reason: boundary.reason || null,
+      supportCount: Number.isFinite(Number(boundary.supportCount)) ? Number(boundary.supportCount) : null,
+      supportingSides: Object.freeze([...(boundary.supportingSides || [])]),
+    }) : null,
+    leftElement: edge(evidence.leftElement),
+    rightElement: edge(evidence.rightElement),
+    custodyVeto: custody ? Object.freeze({
+      blocker: custody.blocker || custody.status || 'CUSTODY_REVIEW_REQUIRED',
+      sourceElementIds: Object.freeze([...(custody.sourceElementIds || [])]),
+    }) : null,
+  });
+}
 function normalizedIdentity(row) {
   const candidates = candidateEvidence(row); const boundary = adjacentBoundaryEvidence(row);
   const identityBound = reviewIdentityBound(row, candidates, boundary);
@@ -114,6 +142,7 @@ function projection(row, review, changeMap, rowById) {
     identityEvidenceBasis: componentIdentity?.basis || boundary?.basis || row?.evidence?.identityEvidenceBasis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
     methodABase: row?.evidence?.methodAQualification || null,
     adjacentBoundary: boundary,
+    methodABoundaryDiagnostics: methodABoundaryDiagnostics(row),
     componentIdentity,
     source: rowSource(row), target: rowTarget(row),
     methodA: m1 ? Object.freeze({
