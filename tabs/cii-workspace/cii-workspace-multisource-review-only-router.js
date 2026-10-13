@@ -11,7 +11,7 @@ import {
   seedCiiMultiSourceReviewDecisions,
 } from './cii-workspace-multisource-review-ui.js';
 import { CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
-import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
+import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge, ciiSourceSetSha256, getCiiMultiSourceMethodAConfidenceOptions } from './cii-workspace-source-set.js';
 import { createCiiCommonAnalysisCache } from './cii-workspace-multisource-preview.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 import { ciiSourceSetCustodyMarkup, mountCiiWriter2MultiSourceShell } from './cii-workspace-multisource-writer2-ui.js?v=20260909-ms-custody-auto-1';
@@ -117,10 +117,11 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   };
   const inspectGeneric = async (classified, sourceFiles, targetFile) => {
     const sources = genericSources(sourceFiles, classified.sourceBytes); setStatus(container, `Inspecting ${sources.length} SOURCE members in REVIEW ONLY mode…`);
-    const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII' }, { cryptoRef: options.cryptoRef });
+    const methodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
+    const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes: classified.targetBytes, targetFileName: targetFile.name || 'TARGET.CII' }, { cryptoRef: options.cryptoRef, ...methodAConfidenceOptions });
     if (disposed) return; const inspection = prepared.inspection; const auto = autoAnchorState(inspection);
     state = { mode: ROUTER_MODE, sources, targetFileName: targetFile.name || 'TARGET.CII', inspection, preparedSession: prepared.preparedSession,
-      commonAnalysisCache: createCiiCommonAnalysisCache(), auto, manualBySource: {}, preview: null, reviewDecisions: new Map(), reviewDirty: false };
+      commonAnalysisCache: createCiiCommonAnalysisCache(), methodAConfidenceOptions, auto, manualBySource: {}, preview: null, reviewDecisions: new Map(), reviewDirty: false };
     refreshAnchorUi(auto.ready ? `Generic multi-source custody READY for ${sources.length} members. REVIEW ONLY: Compare is enabled; Writer2 Apply remains unavailable.` : `Generic multi-source custody READY. Auto Anchor is unresolved for ${auto.unresolved.join(', ')}; add reviewed manual fallback authority.`);
   };
   const previewInput = (reviewBySource = undefined) => ({
@@ -139,7 +140,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   };
   const buildGenericPreview = async (reviewBySource = undefined) => {
     const preview = await createCiiMultiSourceReviewOnlyPreviewFromPreparedSession(state.preparedSession, previewInput(reviewBySource), {
-      cryptoRef: options.cryptoRef, commonAnalysisCache: state.commonAnalysisCache,
+      cryptoRef: options.cryptoRef, commonAnalysisCache: state.commonAnalysisCache, ...state.methodAConfidenceOptions,
     });
     const reviewDecisions = new Map(); seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
     state = { ...state, preview, reviewDecisions, reviewDirty: false }; renderGenericReview(); return preview;
