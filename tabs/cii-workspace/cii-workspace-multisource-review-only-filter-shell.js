@@ -2,8 +2,103 @@ import { mountCiiWriter2MultiSourceReviewRouter as mountReviewRouter } from './c
 import {
   setCiiMultiSourceMethodAPhysicalCandidateLimit,
   setCiiMultiSourceMethodAConfidenceThresholds,
+  setCiiMultiSourceMethodAConfidenceWeights,
   getCiiMultiSourceMethodAConfidenceOptions,
 } from './cii-workspace-source-set.js';
+
+import {
+  CII_METHOD_A_WEIGHT_KEYS,
+  CII_METHOD_A_WEIGHT_DEFAULTS,
+} from './cii-workspace-method-a-weights.js';
+
+function weightPolicyEqual(a, b) {
+  return CII_METHOD_A_WEIGHT_KEYS.every((key) => a?.[key] === b?.[key]);
+}
+
+// Advanced controls are transactional: editing a text field never modifies the
+// effective Inspect/Compare policy until Apply is explicitly selected.
+function mountMethodAWeightControls(container) {
+  const inspectButton = container.querySelector('[data-ciiw-inspect]');
+  const documentRef = container.ownerDocument;
+  if (!inspectButton || !documentRef || container.querySelector('[data-ciiw-method-a-apply-weights]')) return () => {};
+  const wrapper = documentRef.createElement('div');
+  wrapper.className = 'ciiw-ms-anchor-search-limit';
+  wrapper.setAttribute('data-ciiw-method-a-weight-config', '1');
+  const labels = {
+    residualQuality: ['Residual quality', 'Measured rigid-registration residual'],
+    conditioning: ['Conditioning', 'Anchor non-collinearity'],
+    spatialExtent: ['Spatial extent', 'Geometric span relative to source OD'],
+    redundancy: ['Anchor redundancy', 'Additional corroborating anchor pairs'],
+    basisConsensus: ['Basis consensus', 'Independent admissible bases agree'],
+  };
+  const fields = CII_METHOD_A_WEIGHT_KEYS.map((key) => {
+    const [name, help] = labels[key];
+    return '<label><span><b>' + name + '</b><small>' + help + ' · default '
+      + CII_METHOD_A_WEIGHT_DEFAULTS[key] + '/100</small></span>'
+      + '<input type="number" min="0" max="100" step="1" data-ciiw-method-a-weight-'
+      + key + ' aria-label="Method A ' + name + ' weight"></label>';
+  }).join('');
+  wrapper.innerHTML = '<details><summary><b>Advanced: Method A score weights</b> (100 points total)</summary>'
+    + '<p>Weights only grade already-qualified rigid bases. They do not bypass geometry, conflict veto, or review approval.</p>'
+    + fields
+    + '<small data-ciiw-method-a-weight-total aria-live="polite"></small>'
+    + '<button type="button" data-ciiw-method-a-apply-weights>Apply weights</button>'
+    + '<button type="button" data-ciiw-method-a-reset-weights>Reset defaults</button>'
+    + '<small data-ciiw-method-a-weight-status role="status" aria-live="polite"></small></details>';
+  const inputs = Object.fromEntries(CII_METHOD_A_WEIGHT_KEYS.map((key) =>
+    [key, wrapper.querySelector('[data-ciiw-method-a-weight-' + key + ']')]));
+  const apply = wrapper.querySelector('[data-ciiw-method-a-apply-weights]');
+  const reset = wrapper.querySelector('[data-ciiw-method-a-reset-weights]');
+  const total = wrapper.querySelector('[data-ciiw-method-a-weight-total]');
+  const status = wrapper.querySelector('[data-ciiw-method-a-weight-status]');
+  const displayPolicy = (weights) => {
+    for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].value = String(weights[key]);
+  };
+  const readDraft = () => Object.fromEntries(CII_METHOD_A_WEIGHT_KEYS.map((key) =>
+    [key, inputs[key].value]));
+  const onInput = () => {
+    const draft = readDraft();
+    const sum = CII_METHOD_A_WEIGHT_KEYS.reduce((value, key) => value + Number(draft[key] || 0), 0);
+    if (total) total.textContent = 'Draft total ' + sum.toFixed(2).replace(/\\.00$/, '') + '/100';
+    if (status) status.textContent = 'Draft not applied. Apply all five weights together.';
+  };
+  const onApply = () => {
+    try {
+      const before = getCiiMultiSourceMethodAConfidenceOptions();
+      const next = setCiiMultiSourceMethodAConfidenceWeights(readDraft());
+      const changed = !weightPolicyEqual(before.methodAConfidenceWeights, next);
+      displayPolicy(next); onInput();
+      for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].setAttribute('aria-invalid', 'false');
+      if (status) status.textContent = changed
+        ? 'Weights applied. Previous Inspect/Compare and Writer2 scope invalidated; run Inspect again.'
+        : 'Weights unchanged.';
+      if (changed) {
+        const CustomEventRef = documentRef.defaultView?.CustomEvent || globalThis.CustomEvent;
+        container.dispatchEvent(new CustomEventRef('ciiw-method-a-confidence-changed', {
+          detail: {
+            high: before.methodAHighConfidenceThreshold,
+            medium: before.methodAMediumConfidenceThreshold,
+            weights: next,
+          },
+        }));
+      }
+    } catch (error) {
+      for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].setAttribute('aria-invalid', 'true');
+      if (status) status.textContent = error?.message || 'Invalid weight configuration.';
+    }
+  };
+  const onReset = () => { displayPolicy(CII_METHOD_A_WEIGHT_DEFAULTS); onApply(); };
+  displayPolicy(getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights);
+  onInput();
+  for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].addEventListener('input', onInput);
+  apply.addEventListener('click', onApply); reset.addEventListener('click', onReset);
+  inspectButton.parentNode?.insertBefore(wrapper, inspectButton);
+  return () => {
+    for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].removeEventListener('input', onInput);
+    apply.removeEventListener('click', onApply); reset.removeEventListener('click', onReset);
+    wrapper.remove();
+  };
+}
 
 function genericReviewActive(container) {
   return Boolean(container.querySelector('[data-ciiw-ms-review-only-transfer="1"]') && container.querySelector('[data-ciiw-ms-review-table="1"]'));
@@ -99,6 +194,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   const core = mountReviewRouter(container, options);
   const disposeSearchControl = mountMethodASearchControl(container, options.methodAPhysicalCandidateLimit ?? 10);
   const disposeConfidenceControl = mountMethodAConfidenceControls(container, options);
+  const disposeWeightControl = mountMethodAWeightControls(container);
   const confidence = container.querySelector('[data-ciiw-confidence-filter]');
   const search = container.querySelector('[data-ciiw-search]');
   const changedOnly = container.querySelector('[data-ciiw-changed-only]');
@@ -127,11 +223,11 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   return {
     ...core,
     destroy() {
-      disposed = true; observer?.disconnect(); disposeSearchControl(); disposeConfidenceControl();
+      disposed = true; observer?.disconnect(); disposeSearchControl(); disposeConfidenceControl(); disposeWeightControl();
       container.removeEventListener('change', onChange, true); container.removeEventListener('input', onInput, true);
       core?.destroy?.();
     },
   };
 }
 
-export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches, mountMethodASearchControl, mountMethodAConfidenceControls });
+export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches, mountMethodASearchControl, mountMethodAConfidenceControls, mountMethodAWeightControls });
