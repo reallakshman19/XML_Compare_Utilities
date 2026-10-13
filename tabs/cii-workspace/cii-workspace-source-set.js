@@ -1,4 +1,5 @@
 import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-converter.js';
+import { CII_METHOD_A_CONFIDENCE_DEFAULTS, resolveCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
@@ -9,6 +10,7 @@ const DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT = 10;
 const MAX_METHOD_A_PHYSICAL_SEARCH_LIMIT = 24;
 const DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT = 5;
 let multiSourceMethodAPhysicalCandidateLimit = DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
+let multiSourceMethodAConfidenceThresholds = CII_METHOD_A_CONFIDENCE_DEFAULTS;
 
 function boundedSearchLimit(value) {
   const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
@@ -18,10 +20,27 @@ export function setCiiMultiSourceMethodAPhysicalCandidateLimit(value) {
   multiSourceMethodAPhysicalCandidateLimit = boundedSearchLimit(value);
   return multiSourceMethodAPhysicalCandidateLimit;
 }
+export function getCiiMultiSourceMethodAConfidenceOptions() {
+  return Object.freeze({
+    methodAHighConfidenceThreshold: multiSourceMethodAConfidenceThresholds.high,
+    methodAMediumConfidenceThreshold: multiSourceMethodAConfidenceThresholds.medium,
+  });
+}
+export function setCiiMultiSourceMethodAConfidenceThresholds({ high, medium } = {}) {
+  const candidate = resolveCiiMethodAConfidenceThresholds({
+    methodAHighConfidenceThreshold: high ?? multiSourceMethodAConfidenceThresholds.high,
+    methodAMediumConfidenceThreshold: medium ?? multiSourceMethodAConfidenceThresholds.medium,
+  });
+  multiSourceMethodAConfidenceThresholds = candidate;
+  return candidate;
+}
 function sourceSetInspectionOptions(options = {}) {
   return {
     ...options,
     methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
+    ...getCiiMultiSourceMethodAConfidenceOptions(),
+    ...((options.methodAHighConfidenceThreshold != null || options.methodAMediumConfidenceThreshold != null)
+      ? { ...getCiiMultiSourceMethodAConfidenceOptions(), ...options } : {}),
     baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
   };
 }
