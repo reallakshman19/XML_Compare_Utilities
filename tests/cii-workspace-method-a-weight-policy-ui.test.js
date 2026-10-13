@@ -23,13 +23,12 @@ const wrapper = {
   className: '', attributes: new Map(), innerHTML: '', removed: false,
   setAttribute(key, value) { this.attributes.set(key, value); },
   querySelector(selector) {
-    const match = selector.match(/^\[data-ciiw-method-a-weight-(.*?)\]$/);
-    if (match) return controls[match[1]] || null;
     if (selector === '[data-ciiw-method-a-apply-weights]') return apply;
     if (selector === '[data-ciiw-method-a-reset-weights]') return reset;
     if (selector === '[data-ciiw-method-a-weight-total]') return total;
     if (selector === '[data-ciiw-method-a-weight-status]') return status;
-    return null;
+    const match = selector.match(/^\[data-ciiw-method-a-weight-(.*?)\]$/);
+    return match ? controls[match[1]] || null : null;
   },
   remove() { this.removed = true; },
 };
