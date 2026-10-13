@@ -1,3 +1,4 @@
+import { CII_METHOD_A_WEIGHT_DEFAULTS, CII_METHOD_A_WEIGHT_KEYS, validateCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 import { deepFreeze } from './cii-workspace-contracts.js';
 import {
   ciiQualifiedLoopsForSuggestion,
@@ -83,7 +84,11 @@ export function ciiWriter2SessionPolicyMatches(snapshot, policy) {
   return stored != null && policy != null
     && Number.isFinite(stored.high) && Number.isFinite(stored.medium)
     && stored.high === Number(policy.methodAHighConfidenceThreshold)
-    && stored.medium === Number(policy.methodAMediumConfidenceThreshold);
+    && stored.medium === Number(policy.methodAMediumConfidenceThreshold)
+    && stored.weights && policy.methodAConfidenceWeights
+    && CII_METHOD_A_WEIGHT_KEYS.every((key) =>
+      Number.isFinite(stored.weights[key])
+      && stored.weights[key] === policy.methodAConfidenceWeights[key]);
 }
 
 export function createCiiWriter2SessionSnapshot(input = {}) {
@@ -96,6 +101,9 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     ...(input.confidencePolicy ? { confidencePolicy: deepFreeze({
       high: Number(input.confidencePolicy.methodAHighConfidenceThreshold),
       medium: Number(input.confidencePolicy.methodAMediumConfidenceThreshold),
+      weights: input.confidencePolicy.methodAConfidenceWeights
+        ? validateCiiMethodAConfidenceWeights(input.confidencePolicy.methodAConfidenceWeights)
+        : CII_METHOD_A_WEIGHT_DEFAULTS,
     }) } : {}),
     selectedBySource: selectedObject(input.selectedBySource),
     manualBySource: manualObject(input.manualBySource),
