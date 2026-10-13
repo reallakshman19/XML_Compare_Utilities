@@ -39,6 +39,7 @@ jobs:
           node tests/cii-workspace-method-a-forensic-selection.test.js
           node tests/cii-workspace-multisource-target-node-custody.test.js
           node tests/cii-workspace-method-a-terminal-retained-opt-in.test.js
+          node tests/cii-workspace-owner-lexical-golden.test.js
 
   retained-forensics:
     name: Genuine S1-S3 / T grade and weight matrix
@@ -88,6 +89,8 @@ jobs:
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
       - name: Qualify opt-in terminal node Writer2 byte closure
         run: node tests/cii-workspace-multisource-retained-terminal-optin-byte-closure.test.js
+      - name: Audit Owner complete-golden intake readiness (explicit missing-input hold)
+        run: node tests/cii-workspace-owner-golden-retained-gate.mjs
       - name: Upload 150-node SOURCE census evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,6 +102,7 @@ jobs:
             test-results/cii-method-a-qualification/source-target-census-optin.json
             test-results/cii-method-a-qualification/source-target-census-optin.csv
             test-results/cii-method-a-qualification/terminal-tail-forensics.json
+            test-results/cii-method-a-qualification/owner-golden-readiness.json
           if-no-files-found: warn
           retention-days: 14
 
