@@ -1,4 +1,5 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
+import { resolveCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 
 function finitePoint(point) {
   return point && [point.x, point.y, point.z].every((value) => Number.isFinite(Number(value)));
@@ -170,19 +171,22 @@ function selectHypothesis(admissible) {
     || b.minimumAnchorSinAngle - a.minimumAnchorSinAngle || compareIndexes(a.anchorIndexes, b.anchorIndexes))[0];
 }
 function methodAWeight(selected, pairs, policy, options = {}) {
-  const residualQuality = 35 * (1 - clamp(selected.maxNormalizedResidual));
-  const conditioning = 25 * clamp(selected.minimumAnchorSinAngle);
+  // Score weights can be tuned only after a rigid 3D transform is qualified.
+  // Preserve geometric admission, multi-basis veto, and original default score.
+  const weights = resolveCiiMethodAConfidenceWeights(options);
+  const residualQuality = weights.residualQuality * (1 - clamp(selected.maxNormalizedResidual));
+  const conditioning = weights.conditioning * clamp(selected.minimumAnchorSinAngle);
   const spanMm = sourceSpan(pairs); const spanRatioOd = spanMm / Math.max(policy.odReferenceMm, 1e-9);
-  const spatialExtent = 20 * clamp(spanRatioOd / 10);
-  const redundancy = clamp(2 + 3 * Math.max(0, pairs.length - 3), 0, 10);
-  const basisConsensus = 10;
+  const spatialExtent = weights.spatialExtent * clamp(spanRatioOd / 10);
+  const redundancy = weights.redundancy * clamp((2 + 3 * Math.max(0, pairs.length - 3)) / 10);
+  const basisConsensus = weights.basisConsensus;
   const total = residualQuality + conditioning + spatialExtent + redundancy + basisConsensus;
   const thresholds = resolveCiiMethodAConfidenceThresholds(options);
   const confidence = total >= thresholds.high ? 'HIGH' : (total >= thresholds.medium ? 'MEDIUM' : 'REVIEW');
   return Object.freeze({
     residualQuality: Number(residualQuality.toFixed(3)), conditioning: Number(conditioning.toFixed(3)),
     spatialExtent: Number(spatialExtent.toFixed(3)), redundancy: Number(redundancy.toFixed(3)), basisConsensus,
-    total: Number(total.toFixed(3)), confidence, confidenceThresholds: thresholds,
+    total: Number(total.toFixed(3)), confidence, confidenceThresholds: thresholds, confidenceWeights: weights,
     spanMm: Number(spanMm.toFixed(6)), spanRatioOd: Number(spanRatioOd.toFixed(6)),
   });
 }
