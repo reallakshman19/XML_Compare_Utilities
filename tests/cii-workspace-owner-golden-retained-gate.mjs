@@ -40,8 +40,12 @@ assert.deepEqual(targetState.conflicts,[],'original TARGET lexical conflicts');
 const targetIds=[...new Set(targetState.elements.flatMap((edge)=>[edge.from,edge.to]))];
 const targetNodes=targetIds.map((id)=>({id,nodeName:targetState.names.get(id)||''}));
 const flags=process.argv.slice(2);
-if (flags.some((part)=>part!=='--golden' && part!=='--manifest' && !flags.includes('--golden') && !flags.includes('--manifest'))) {
-  throw new Error('OWNER_GOLDEN_UNEXPECTED_CLI_ARGUMENT');
+if (flags.length && (flags.length!==4
+  || new Set([flags[0],flags[2]]).size!==2
+  || !['--golden','--manifest'].includes(flags[0])
+  || !['--golden','--manifest'].includes(flags[2])
+  || !flags[1] || !flags[3])) {
+  throw new Error('OWNER_GOLDEN_REQUIRES_EXACT_GOLDEN_PATH_AND_MANIFEST_PATH');
 }
 const value=(name)=>{
   const i=flags.indexOf(name);
@@ -57,8 +61,8 @@ const result=reconcileCiiOwnerLexicalGolden({
   goldenBytes,declaredSha256:manifest?.rawSha256,declaredRowCount:manifest?.relationCount,
   ownerEvidenceRef:manifest?.ownerEvidenceRef,
   sourceRows:census.rows,targetNodes,
-  sourceSetSha256:expected.sourceSet,requiredSourceSetSha256:manifest?.sourceSetSha256 || expected.sourceSet,
-  targetOriginalSha256:expected.T,requiredTargetOriginalSha256:manifest?.targetOriginalSha256 || expected.T,
+  sourceSetSha256:expected.sourceSet,requiredSourceSetSha256:manifest ? manifest.sourceSetSha256 : expected.sourceSet,
+  targetOriginalSha256:expected.T,requiredTargetOriginalSha256:manifest ? manifest.targetOriginalSha256 : expected.T,
 });
 const report={
   ...result, evidenceContext:{
