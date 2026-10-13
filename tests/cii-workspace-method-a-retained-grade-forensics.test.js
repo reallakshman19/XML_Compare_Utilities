@@ -170,6 +170,20 @@ function focusedS3AlignmentTrace(memberPreviews) {
 }
 const s3InteriorAlignmentTrace = focusedS3AlignmentTrace(preview.memberPreviews);
 
+// Independent registered endpoint after a skipped SOURCE segment may be bound,
+// but the skipped segment's other endpoint must never inherit its identity.
+const s3Preview = (preview.memberPreviews || []).find((item) => item.sourceId === 'S3')?.preview;
+assert(s3Preview, 'S3 retained member preview required');
+const s3ReviewRows = (s3Preview.compareReview?.rows || []).filter((row) => row.kind === 'NODE');
+const recovered = s3ReviewRows.filter((row) => String(row.source) === '1760' && String(row.target) === '9060');
+assert.equal(recovered.length, 1, 'S3 1760 must project exactly one registered endpoint correspondence');
+assert.equal(recovered[0].identityBound, true, 'S3 1760 must be physically bound');
+assert.equal(recovered[0].confidence, 'MEDIUM', 'Method A base ceiling must remain MEDIUM');
+assert.equal(recovered[0].methodABoundaryDiagnostics?.localBoundary?.reason,
+  'REGISTERED_ENDPOINT_M2_OD_SUPPORTED');
+assert.equal(s3ReviewRows.some((row) => String(row.source) === '1750'), false,
+  'S3 1750 must not inherit TARGET 9060 across the deleted segment');
+
 const observed = ciiForensicRowObservations(preview, requested);
 assert.equal(observed.length, 11, 'all owner-reported Phase 1 NODE pairs must appear in forensic output');
 console.log(JSON.stringify({
