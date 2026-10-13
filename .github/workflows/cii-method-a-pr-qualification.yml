@@ -86,6 +86,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Run retained Auto Anchor through Writer2 byte closure
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: Qualify opt-in terminal node Writer2 byte closure
+        run: node tests/cii-workspace-multisource-retained-terminal-optin-byte-closure.test.js
       - name: Upload 150-node SOURCE census evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,6 +96,8 @@ jobs:
           path: |
             test-results/cii-method-a-qualification/source-target-census.json
             test-results/cii-method-a-qualification/source-target-census.csv
+            test-results/cii-method-a-qualification/source-target-census-optin.json
+            test-results/cii-method-a-qualification/source-target-census-optin.csv
             test-results/cii-method-a-qualification/terminal-tail-forensics.json
           if-no-files-found: warn
           retention-days: 14
