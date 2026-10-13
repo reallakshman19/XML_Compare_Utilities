@@ -38,6 +38,7 @@ jobs:
           node tests/cii-workspace-method-a-canonical-review-parity.test.js
           node tests/cii-workspace-method-a-forensic-selection.test.js
           node tests/cii-workspace-multisource-target-node-custody.test.js
+          node tests/cii-workspace-method-a-terminal-retained-opt-in.test.js
 
   retained-forensics:
     name: Genuine S1-S3 / T grade and weight matrix
