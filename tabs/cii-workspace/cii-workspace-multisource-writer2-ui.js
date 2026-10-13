@@ -29,6 +29,7 @@ import {
 } from './cii-workspace-multisource-review-ui.js';
 import {
   ciiWriter2SessionCustody,
+  ciiWriter2SessionPolicyMatches,
   ciiWriter2SessionStorage,
   createCiiWriter2SessionSnapshot,
   loadCiiWriter2Session,
@@ -243,6 +244,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let disposed = false; let inspection = null; let preparedSession = null; let commonAnalysisCache = null;
   let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
+  let confidenceEpoch = 0;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const reviewDecisions = new Map();
@@ -271,6 +273,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       targetOriginalSha256: sessionCustody.targetOriginalSha256,
       selectedBySource, manualBySource, manualDraftBySource,
       reviewFilters, scopeIntent, correspondenceIdentity, reviewDecisions: decisions,
+      confidencePolicy: activeMethodAConfidenceOptions,
     });
     if (!snapshot) return false;
     const saved = saveCiiWriter2Session(persistenceStorage, sessionCustody.storageKey, snapshot);
@@ -381,6 +384,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const inspectMultiSource = async (event) => {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
+    const runEpoch = confidenceEpoch;
     try {
       const targetFile = selectedFiles(targetInput)[0]; if (!targetFile) throw new Error('TARGET CII file is required.');
       cachedSources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef);
@@ -388,10 +392,13 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       cachedTargetBytes = retainedTarget.bytes; cachedTargetName = retainedTarget.fileName;
       setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
       activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
-       const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef, ...activeMethodAConfidenceOptions });
+      const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef, ...activeMethodAConfidenceOptions });
+      if (disposed || runEpoch !== confidenceEpoch) return;
       inspection = prepared.inspection; preparedSession = prepared.preparedSession; commonAnalysisCache = createCiiCommonAnalysisCache();
       if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
-      sessionCustody = ciiWriter2SessionCustody(inspection); loadedSession = sessionCustody ? loadCiiWriter2Session(persistenceStorage, sessionCustody.storageKey) : null;
+      sessionCustody = ciiWriter2SessionCustody(inspection);
+      loadedSession = sessionCustody ? loadCiiWriter2Session(persistenceStorage, sessionCustody.storageKey) : null;
+      if (!ciiWriter2SessionPolicyMatches(loadedSession, activeMethodAConfidenceOptions)) loadedSession = null;
       const restored = loadedSession ? restoreCiiWriter2AnchorSession(loadedSession, inspection) : null;
       const automaticSeed = buildAutomaticBaseSeed(inspection);
       reviewRestoreAllowed = Boolean(restored && !restored.staleSelectionSourceIds.length);
@@ -440,14 +447,16 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const analyzeMultiSource = async (event) => {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
+    const runEpoch = confidenceEpoch;
     try {
       if (!inspection || !preparedSession || !commonAnalysisCache) throw new Error('Inspect the source set before Compare.');
       if (!authorityReady()) throw new Error('Each SOURCE requires either a qualified Method A/B base or at least one reviewed manual anchor.');
       setMultiSourceStatus(container, 'Building per-source correspondence with reviewed base authority and target conflict veto…');
-      preview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(), {
+      const nextPreview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(), {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
-      if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      if (disposed || runEpoch !== confidenceEpoch) return;
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       let restoredDecisionCount = 0; let restoredMatched = false;
       if (reviewRestoreAllowed && loadedSession) {
         const validIds = (preview?.compareReview?.rows || []).map((row) => row?.correspondenceId).filter(Boolean);
@@ -472,22 +481,26 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const applyMultiSourceReview = async (event) => {
     if (!multiSource(container) || !preview) return;
     event?.preventDefault?.(); event?.stopImmediatePropagation?.();
+    const runEpoch = confidenceEpoch;
     try {
       const reviewBySource = ciiMultiSourceReviewBySource(preview, reviewDecisions);
       setMultiSourceStatus(container, 'Applying multi-source correspondence decisions and rebuilding Writer2 Transfer Preview…');
-      preview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(reviewBySource), {
+      const nextPreview = await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession, previewInput(reviewBySource), {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
-      if (disposed) return; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      if (disposed || runEpoch !== confidenceEpoch) return;
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); persistSession();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const bindExpectedScope = async () => {
     if (!preview) return;
+    const runEpoch = confidenceEpoch;
     try {
       if (reviewDirty) throw new Error('Apply correspondence approvals to Transfer Preview before binding Writer2 scope.');
       const exact = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef: options.cryptoRef });
+      if (disposed || runEpoch !== confidenceEpoch) return;
       scopedPreview = bindCiiTransferScopeToPreview(preview, exact.selection); restoredScopeIntent = 'BOUND_EXPECTED_NODENAME';
       renderTransfer(); switchTab(container, 'transfer'); persistSession();
       setMultiSourceStatus(container, `BM-correspondence-qualified scope bound: ${exact.appliedOperationIds.length} physical APPLY; ${exact.duplicateCorroborationOperationIds.length} duplicate corroborations collapsed; ${exact.excludedOperationIds.length} EXCLUDE. Writer2 ${scopedPreview.writerReadiness.status}.`);
@@ -495,9 +508,11 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   };
   const applyScoped = async () => {
     if (reviewDirty || !scopedPreview?.writerReadiness?.ready) return;
+    const runEpoch = confidenceEpoch;
     try {
       setMultiSourceStatus(container, 'Applying BM-correspondence-qualified Writer2 NODENAME scope to one TARGET copy through the frozen V11↔V14 bridge…');
       const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, cachedTargetBytes, { cryptoRef: options.cryptoRef });
+      if (disposed || runEpoch !== confidenceEpoch) return;
       downloadApplied(container.ownerDocument, applied);
       setMultiSourceStatus(container, `Modified TARGET exported: ${applied.mutationCount} Writer2 field changes; version bridge ${applied.versionBridgeValidation.status}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
@@ -539,8 +554,20 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
     downloadPayload(container.ownerDocument, 'cii-multisource-audit.json', preview.artifacts.auditJson, 'application/json');
   };
+  const onConfidencePolicyChange = () => {
+    confidenceEpoch += 1;
+    if (!multiSource(container)) return;
+    resetMulti();
+    if (evidence) evidence.innerHTML = '';
+    if (results) results.innerHTML = '<p>Method A confidence policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
+    if (executive) executive.innerHTML = '';
+    if (deltas) deltas.innerHTML = '';
+    if (transfer) transfer.innerHTML = '';
+    setMultiSourceStatus(container, 'Method A confidence policy changed. Stale correspondence, review approvals and Writer2 scope are invalid; run Inspect again.');
+  };
   const blockLegacyAnalyze = (event) => { if (multiSource(container)) { event.preventDefault(); event.stopImmediatePropagation(); } };
   sourceInput.addEventListener('change', resetMulti); targetInput.addEventListener('change', resetMulti);
+  container.addEventListener('ciiw-method-a-confidence-changed', onConfidencePolicyChange);
   inspectButton.addEventListener('click', inspectMultiSource, true);
   analyzeButton.addEventListener('click', analyzeMultiSource, true);
   analyzeButton.addEventListener('click', blockLegacyAnalyze, true);
@@ -556,6 +583,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       disposed = true; inspection = null; preparedSession = null; commonAnalysisCache = null;
       cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null;
       sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
+      container.removeEventListener('ciiw-method-a-confidence-changed', onConfidencePolicyChange);
       inspectButton.removeEventListener('click', inspectMultiSource, true); analyzeButton.removeEventListener('click', analyzeMultiSource, true);
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
