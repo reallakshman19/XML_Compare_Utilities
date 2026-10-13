@@ -103,6 +103,7 @@ jobs:
             test-results/cii-method-a-qualification/source-target-census-optin.csv
             test-results/cii-method-a-qualification/terminal-tail-forensics.json
             test-results/cii-method-a-qualification/owner-golden-readiness.json
+            test-results/cii-method-a-qualification/owner-golden-readiness.csv
           if-no-files-found: warn
           retention-days: 14
 
