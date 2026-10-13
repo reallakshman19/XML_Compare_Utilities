@@ -43,7 +43,8 @@ function mountMethodAConfidenceControls(container, initialOptions = {}) {
   settings.setAttribute('data-ciiw-method-a-confidence-config', '1');
   settings.innerHTML = '<label><span><b>Method A HIGH score</b><small>Default 85 / 100; raise for stricter qualification.</small></span><input type="number" min="1" max="100" step="1" data-ciiw-method-a-high-threshold aria-label="Method A HIGH minimum score"></label>'
     + '<label><span><b>Method A MEDIUM score</b><small>Default 70 / 100; must remain below HIGH.</small></span><input type="number" min="0" max="99" step="1" data-ciiw-method-a-medium-threshold aria-label="Method A MEDIUM minimum score"></label>'
-    + '<small>Geometry confidence only. Changing this policy requires Inspect again; it does not override conflicting identity or approve changes.</small>';
+    + '<small>Geometry confidence only. Changing this policy invalidates previous Inspect/Compare and Writer2 scope; it does not override conflicting identity or approve changes.</small>'
+    + '<small data-ciiw-method-a-policy-status role="status" aria-live="polite"></small>';
   const high = settings.querySelector('[data-ciiw-method-a-high-threshold]');
   const medium = settings.querySelector('[data-ciiw-method-a-medium-threshold]');
   const initial = setCiiMultiSourceMethodAConfidenceThresholds({
@@ -51,16 +52,26 @@ function mountMethodAConfidenceControls(container, initialOptions = {}) {
     medium: initialOptions.methodAMediumConfidenceThreshold ?? getCiiMultiSourceMethodAConfidenceOptions().methodAMediumConfidenceThreshold,
   });
   high.value = String(initial.high); medium.value = String(initial.medium);
+  const status = settings.querySelector('[data-ciiw-method-a-policy-status]');
   const onChange = () => {
-    const nextHigh = Number(high.value), nextMedium = Number(medium.value);
-    if (!Number.isFinite(nextHigh) || !Number.isFinite(nextMedium) || nextHigh <= nextMedium
-      || nextMedium < 0 || nextHigh > 100) {
-      high.value = String(getCiiMultiSourceMethodAConfidenceOptions().methodAHighConfidenceThreshold);
-      medium.value = String(getCiiMultiSourceMethodAConfidenceOptions().methodAMediumConfidenceThreshold);
-      return;
+    try {
+      const before = getCiiMultiSourceMethodAConfidenceOptions();
+      const next = setCiiMultiSourceMethodAConfidenceThresholds({ high: high.value, medium: medium.value });
+      high.value = String(next.high); medium.value = String(next.medium);
+      high.setAttribute('aria-invalid', 'false'); medium.setAttribute('aria-invalid', 'false');
+      const changed = next.high !== before.methodAHighConfidenceThreshold
+        || next.medium !== before.methodAMediumConfidenceThreshold;
+      if (status) status.textContent = changed ? 'Policy updated. Previous correspondence and Writer2 scope invalidated; run Inspect again.' : 'Policy unchanged.';
+      if (changed) {
+        const CustomEventRef = documentRef.defaultView?.CustomEvent || globalThis.CustomEvent;
+        container.dispatchEvent(new CustomEventRef('ciiw-method-a-confidence-changed', {
+          detail: { high: next.high, medium: next.medium },
+        }));
+      }
+    } catch (error) {
+      high.setAttribute('aria-invalid', 'true'); medium.setAttribute('aria-invalid', 'true');
+      if (status) status.textContent = error?.message || 'Invalid confidence thresholds.';
     }
-    const next = setCiiMultiSourceMethodAConfidenceThresholds({ high: nextHigh, medium: nextMedium });
-    high.value = String(next.high); medium.value = String(next.medium);
   };
   high.addEventListener('change', onChange);
   medium.addEventListener('change', onChange);
