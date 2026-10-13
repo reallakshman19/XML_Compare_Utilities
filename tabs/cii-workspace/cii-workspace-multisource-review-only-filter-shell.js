@@ -59,7 +59,7 @@ function mountMethodAWeightControls(container) {
   const onInput = () => {
     const draft = readDraft();
     const sum = CII_METHOD_A_WEIGHT_KEYS.reduce((value, key) => value + Number(draft[key] || 0), 0);
-    if (total) total.textContent = 'Draft total ' + sum.toFixed(2).replace(/\\.00$/, '') + '/100';
+    if (total) total.textContent = 'Draft total ' + sum.toFixed(2).replace(/\.00$/, '') + '/100';
     if (status) status.textContent = 'Draft not applied. Apply all five weights together.';
   };
   const onApply = () => {
