@@ -30,6 +30,16 @@ export function resolveCiiMethodAConfidenceThresholds(options = {}) {
   if (high <= medium) return CII_METHOD_A_CONFIDENCE_DEFAULTS;
   return Object.freeze({ high, medium });
 }
+// Strict admission for interactive and externally supplied confidence policy. The
+// tolerant resolver above is retained for legacy/default call sites only.
+export function validateCiiMethodAConfidenceThresholds({ high, medium } = {}) {
+  const valid = (value) => value != null && String(value).trim() !== ''
+    && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
+  if (!valid(high) || !valid(medium) || Number(high) <= Number(medium)) {
+    throw new RangeError('METHOD_A_CONFIDENCE_THRESHOLDS_INVALID: 0 <= MEDIUM < HIGH <= 100');
+  }
+  return Object.freeze({ high: Number(high), medium: Number(medium) });
+}
 function rms(values) { return Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / Math.max(values.length, 1)); }
 
 function positiveNumber(value) {
