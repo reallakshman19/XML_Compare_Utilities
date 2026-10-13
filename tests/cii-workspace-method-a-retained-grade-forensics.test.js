@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
+import { CII_METHOD_A_WEIGHT_DEFAULTS } from '../tabs/cii-workspace/cii-workspace-method-a-weights.js';
+import { ciiForensicSelectedBaseEvidence, ciiForensicRowObservations } from './cii-workspace-method-a-forensic-selection.js';
 
 // Owner Phase 1 assertions are treated as hypotheses: this script measures each
 // grade and its geometric causes rather than force-promoting any NODE identity.
@@ -37,32 +39,39 @@ const sources = ['S1', 'S2', 'S3'].map((sourceId) => ({
 }));
 const targetBytes = fixture('T.CII');
 const cryptoRef = globalThis.crypto || webcrypto;
-const policy = Object.freeze({ methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70 });
+const policy = Object.freeze({
+  methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70,
+  methodAConfidenceWeights: CII_METHOD_A_WEIGHT_DEFAULTS,
+});
 const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge(
   { sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef, ...policy },
 );
 assert.equal(inspection.memberInspections.length, 3);
 const baseLoopsBySource = {};
 const baseEvidence = {};
+const baseSelection = {};
 for (const member of inspection.memberInspections) {
-  const choice = ciiAutomaticBaseSelection(member.inspection?.baseAnchorSuggestions || []);
+  const suggestions = member.inspection?.baseAnchorSuggestions || [];
+  const choice = ciiAutomaticBaseSelection(suggestions);
+  baseSelection[member.sourceId] = {
+    status: choice.status, reason: choice.reason,
+    selectedSourceNodeId: choice.sourceNodeId || null,
+    selectedTargetNodeId: choice.targetNodeId || null,
+    evidenceTuple: choice.evidenceTuple || null,
+    candidateCount: choice.candidates?.length || 0,
+    outcomeSignature: choice.outcomeSignature || null,
+  };
   baseLoopsBySource[member.sourceId] = choice.baseLoops || [];
-  baseEvidence[member.sourceId] = (choice.baseLoops || []).map((loop) => ({
-    loopId: loop.loopId, method: loop.method, status: loop.status,
-    confidence: loop.confidence, anchorCount: loop.anchorPairs?.length || 0,
-    score: loop.weight?.total ?? null,
-    components: loop.weight ? {
-      residualQuality: loop.weight.residualQuality,
-      conditioning: loop.weight.conditioning,
-      spatialExtent: loop.weight.spatialExtent,
-      redundancy: loop.weight.redundancy,
-      basisConsensus: loop.weight.basisConsensus,
-    } : null,
-    thresholds: loop.weight?.confidenceThresholds || null,
-    maxResidualMm: loop.geometry?.maxResidualMm ?? null,
-    maxNormalizedResidual: loop.geometry?.maxNormalizedResidual ?? null,
-    selectedBasisId: loop.geometry?.selectedBasisId ?? null,
-  }));
+  const selectedEvidence = ciiForensicSelectedBaseEvidence(suggestions, choice);
+  // A selected Method A invocation descriptor must be traceable to original
+  // base evidence. Null scores are a report defect, not a passed qualification.
+  for (const base of selectedEvidence.filter((item) => item.method === 'METHOD_A_SPATIAL')) {
+    assert.equal(base.evidenceStatus, 'READY',
+      `Selected Method A base evidence missing for ${member.sourceId}:${base.baseId}`);
+    assert(Number.isFinite(base.score), 'Selected Method A score must be finite');
+    assert(base.weights, 'Selected Method A score weights must be reported');
+  }
+  baseEvidence[member.sourceId] = selectedEvidence;
 }
 const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
   sources, targetBytes, targetFileName: 'T.CII', baseLoopsBySource,
@@ -70,37 +79,17 @@ const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
 assert.deepEqual(preview.audit?.methodAConfidencePolicy, { high: 85, medium: 70 },
   'retained audit must serialize the applied default confidence policy');
 assert.deepEqual(JSON.parse(preview.artifacts.auditJson)?.methodAConfidencePolicy,
-  { high: 85, medium: 70 }, 'downloadable JSON audit must retain policy custody');
-const observed = requested.map(([sourceId, sourceNodeId, targetNodeId, intendedGrade]) => {
-  const member = (preview.memberPreviews || []).find((item) => item.sourceId === sourceId)?.preview;
-  const candidateRows = member?.correspondence?.nodeRows || [];
-  const exactRows = candidateRows.filter((row) => String(row.sourceNodeId) === sourceNodeId
-    && String(row.targetNodeId) === targetNodeId);
-  const aggregateRows = (preview.correspondence?.nodeRows || []).filter((row) =>
-    row.sourceId === sourceId && String(row.sourceNodeId) === sourceNodeId && String(row.targetNodeId) === targetNodeId);
-  const matches = exactRows.length ? exactRows : aggregateRows;
-  return {
-    sourceId, sourceNodeId, targetNodeId, ownerIntendedGrade: intendedGrade,
-    status: matches.length ? 'EMITTED' : 'NOT_EMITTED',
-    observed: matches.map((row) => ({
-      correspondenceId: row.correspondenceId,
-      status: row.status, authority: row.authority,
-      basisMethod: row.basisMethod,
-      identitySupported: row.evidence?.identitySupported ?? null,
-      confidence: row.evidence?.identityConfidence || row.confidence || 'REVIEW',
-      evidenceBasis: row.evidence?.identityEvidenceBasis || null,
-      methodAQualification: row.evidence?.methodAQualification || null,
-      multiBaseProvenance: row.evidence?.multiBaseProvenance || [],
-      nodeCustodyGate: row.evidence?.nodeCustodyGate || null,
-    })),
-  };
-});
+  { high: 85, medium: 70 }, 'downloadable JSON audit must retain threshold custody');
+assert.deepEqual(preview.audit?.methodAConfidenceWeights, CII_METHOD_A_WEIGHT_DEFAULTS);
+assert.deepEqual(JSON.parse(preview.artifacts.auditJson)?.methodAConfidenceWeights,
+  CII_METHOD_A_WEIGHT_DEFAULTS, 'downloadable JSON audit must retain weight custody');
+const observed = ciiForensicRowObservations(preview, requested);
 assert.equal(observed.length, 11, 'all owner-reported Phase 1 NODE pairs must appear in forensic output');
 console.log(JSON.stringify({
   schema: 'CiiPhase1MethodAGradeForensics.v1',
   evidenceStatus: 'FORENSIC_REPORT_ONLY_NOT_ACCEPTANCE',
   sourceSetSha256: inspection.sourceSet?.sourceSetSha256,
-  confidencePolicy: policy, baseEvidence,
+  confidencePolicy: policy, baseEvidence, baseSelection,
   inspectionStatus: inspection.status, previewStatus: preview.correspondence?.status,
   emitted: observed.filter((row) => row.status === 'EMITTED').length,
   unEmitted: observed.filter((row) => row.status !== 'EMITTED').length,
