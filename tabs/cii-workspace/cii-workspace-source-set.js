@@ -35,12 +35,16 @@ export function setCiiMultiSourceMethodAConfidenceThresholds({ high, medium } = 
   return candidate;
 }
 function sourceSetInspectionOptions(options = {}) {
+  const current = getCiiMultiSourceMethodAConfidenceOptions();
+  const thresholds = resolveCiiMethodAConfidenceThresholds({
+    methodAHighConfidenceThreshold: options.methodAHighConfidenceThreshold ?? current.methodAHighConfidenceThreshold,
+    methodAMediumConfidenceThreshold: options.methodAMediumConfidenceThreshold ?? current.methodAMediumConfidenceThreshold,
+  });
   return {
     ...options,
+    methodAHighConfidenceThreshold: thresholds.high,
+    methodAMediumConfidenceThreshold: thresholds.medium,
     methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
-    ...getCiiMultiSourceMethodAConfidenceOptions(),
-    ...((options.methodAHighConfidenceThreshold != null || options.methodAMediumConfidenceThreshold != null)
-      ? { ...getCiiMultiSourceMethodAConfidenceOptions(), ...options } : {}),
     baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
   };
 }
