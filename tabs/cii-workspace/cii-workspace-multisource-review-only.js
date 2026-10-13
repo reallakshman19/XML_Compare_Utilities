@@ -1,6 +1,7 @@
 import { deepFreeze, stableId } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
 import { resolveCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
+import { resolveCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 import { CII_SOURCE_SET_SCHEMA, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { createPreparedReviewOnlyMemberPreviews } from './cii-workspace-multisource-review-only-prepared.js';
@@ -234,6 +235,7 @@ async function buildReviewOnlyResult(input, sources, memberPreviews, options = {
     writerVersion: '2',
     mode: 'REVIEW_ONLY',
     methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
+    methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
     sourceSet,
     target: deepFreeze({ fileName: targetDocument.fileName || input?.targetFileName || 'TARGET.CII', originalSha256: targetAuthority.originalSha256 }),
     correspondence,
