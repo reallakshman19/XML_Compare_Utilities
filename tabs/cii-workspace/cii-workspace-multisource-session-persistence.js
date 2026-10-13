@@ -76,6 +76,16 @@ function reviewObject(value) {
   }));
 }
 
+// Old sessions have no policy custody and cannot safely restore confidence-based
+// approvals after the grading policy becomes configurable.
+export function ciiWriter2SessionPolicyMatches(snapshot, policy) {
+  const stored = snapshot?.confidencePolicy;
+  return stored != null && policy != null
+    && Number.isFinite(stored.high) && Number.isFinite(stored.medium)
+    && stored.high === Number(policy.methodAHighConfidenceThreshold)
+    && stored.medium === Number(policy.methodAMediumConfidenceThreshold);
+}
+
 export function createCiiWriter2SessionSnapshot(input = {}) {
   const sourceSetSha256 = text(input.sourceSetSha256); const targetOriginalSha256 = text(input.targetOriginalSha256);
   if (!ciiWriter2SessionStorageKey(sourceSetSha256, targetOriginalSha256)) return null;
@@ -83,6 +93,10 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     schema: CII_MS_SESSION_SCHEMA,
     sourceSetSha256,
     targetOriginalSha256,
+    ...(input.confidencePolicy ? { confidencePolicy: deepFreeze({
+      high: Number(input.confidencePolicy.methodAHighConfidenceThreshold),
+      medium: Number(input.confidencePolicy.methodAMediumConfidenceThreshold),
+    }) } : {}),
     selectedBySource: selectedObject(input.selectedBySource),
     manualBySource: manualObject(input.manualBySource),
     manualDraftBySource: draftObject(input.manualDraftBySource),
