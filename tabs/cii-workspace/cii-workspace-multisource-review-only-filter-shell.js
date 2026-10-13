@@ -29,7 +29,7 @@ function mountMethodAWeightControls(container) {
     conditioning: ['Conditioning', 'Anchor non-collinearity'],
     spatialExtent: ['Spatial extent', 'Geometric span relative to source OD'],
     redundancy: ['Anchor redundancy', 'Additional corroborating anchor pairs'],
-    basisConsensus: ['Basis consensus', 'Independent admissible bases agree'],
+    basisConsensus: ['Basis consensus', 'No conflicting admissible registration bases'],
   };
   const fields = CII_METHOD_A_WEIGHT_KEYS.map((key) => {
     const [name, help] = labels[key];
@@ -90,6 +90,7 @@ function mountMethodAWeightControls(container) {
   const onReset = () => { displayPolicy(CII_METHOD_A_WEIGHT_DEFAULTS); onApply(); };
   displayPolicy(getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights);
   onInput();
+  if (status) status.textContent = 'Applied profile shown. Edit and select Apply weights to recalculate.';
   for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].addEventListener('input', onInput);
   apply.addEventListener('click', onApply); reset.addEventListener('click', onReset);
   inspectButton.parentNode?.insertBefore(wrapper, inspectButton);
