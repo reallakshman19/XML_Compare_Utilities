@@ -88,11 +88,26 @@ function matchInsertBoundary(match, insert, side, options) {
     evidence: { leftElement: left ? matched.elementEvidence : null, rightElement: left ? null : matched.elementEvidence,
       boundaryIdentity: local } };
 }
+// A source-only skipped segment must not erase a separately qualified physical
+// endpoint at the start of the following matched element. This does NOT assign
+// a TARGET identity to the deleted segment's other endpoint or make a write.
+function deleteMatchBoundary(deleted, match, options) {
+  const sourceNodeId = String(deleted?.refEdge?.routeTo ?? '');
+  const matchedSourceNodeId = String(match?.refEdge?.routeFrom ?? '');
+  const targetNodeId = String(match?.targetEdge?.routeFrom ?? '');
+  if (!sourceNodeId || !targetNodeId || sourceNodeId !== matchedSourceNodeId) return null;
+  const supported = matchedEndpointEvidence(match, 'FROM', options);
+  if (supported?.identitySupported !== true) return null;
+  return { sourceNodeId, targetNodeId, status: 'REVIEW',
+    evidence: { leftElement: null, rightElement: supported.elementEvidence,
+      boundaryIdentity: boundaryIdentity(sourceNodeId, targetNodeId, [supported]) } };
+}
 function boundaryRow(left, right, options) {
   let projected = null;
   if (left?.op === 'MATCH' && right?.op === 'MATCH') projected = matchMatchBoundary(left, right, options);
   else if (left?.op === 'MATCH' && right?.op === 'INSERT_TARGET') projected = matchInsertBoundary(left, right, 'LEFT', options);
   else if (left?.op === 'INSERT_TARGET' && right?.op === 'MATCH') projected = matchInsertBoundary(right, left, 'RIGHT', options);
+  else if (left?.op === 'DELETE_REFERENCE' && right?.op === 'MATCH') projected = deleteMatchBoundary(left, right, options);
   if (!projected) return null;
   return deepFreeze({ correspondenceId: stableId('node', projected.sourceNodeId, projected.targetNodeId), kind: 'NODE',
     sourceNodeId: projected.sourceNodeId, targetNodeId: projected.targetNodeId, status: projected.status,
