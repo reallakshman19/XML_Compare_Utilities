@@ -23,7 +23,7 @@ const wrapper = {
   className: '', attributes: new Map(), innerHTML: '', removed: false,
   setAttribute(key, value) { this.attributes.set(key, value); },
   querySelector(selector) {
-    const match = selector.match(/^\\[data-ciiw-method-a-weight-(.*?)\\]$/);
+    const match = selector.match(/^\[data-ciiw-method-a-weight-(.*?)\]$/);
     if (match) return controls[match[1]] || null;
     if (selector === '[data-ciiw-method-a-apply-weights]') return apply;
     if (selector === '[data-ciiw-method-a-reset-weights]') return reset;
