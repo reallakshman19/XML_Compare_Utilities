@@ -92,6 +92,7 @@ jobs:
           path: |
             test-results/cii-method-a-qualification/source-target-census.json
             test-results/cii-method-a-qualification/source-target-census.csv
+            test-results/cii-method-a-qualification/terminal-tail-forensics.json
           if-no-files-found: warn
           retention-days: 14
 
