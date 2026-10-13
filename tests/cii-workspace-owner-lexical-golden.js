@@ -154,6 +154,9 @@ export function reconcileCiiOwnerLexicalGolden({
       .map((targetNodeId) => frozen({
         sourceKey: row.rowKey, targetNodeId: exact(targetNodeId),
         bound: row.identityBound === true, confidence: row.confidence || 'UNRESOLVED',
+        physicalCensusState: row.state || (row.identityBound ? 'BOUND' : 'UNRESOLVED'),
+        correspondenceIds: frozen([...(row.correspondenceIds || [])]),
+        evidenceBasis: frozen([...(row.evidenceBases || [])]),
       })));
     let disposition;
     if (record.invalidReasons.length) disposition = 'INVALID';
@@ -175,9 +178,16 @@ export function reconcileCiiOwnerLexicalGolden({
     }
     return frozen({
       ...record, relationId: 'OWNER-ROW-' + String(record.ordinal).padStart(6,'0'),
-      disposition, reasons: frozen(reasons),
+      disposition, discrepancyType: disposition,
+      reasons: frozen(reasons),
+      expectedLabelTargetCardinality: nameSet.size,
+      sourcePhysicalCandidateCount: candidateSourceKeys.length,
+      targetPhysicalCandidateCount: candidateTargetNodeIds.length,
       sourcePhysicalNodeKeys: frozen(candidateSourceKeys),
       targetPhysicalNodeIds: frozen(candidateTargetNodeIds),
+      observedConfidence: disposition === 'MATCHED'
+        ? (observed.find((claim) => claim.bound && candidateTargetNodeIds.includes(claim.targetNodeId))
+          ?.confidence || 'REVIEW') : 'REVIEW',
       observedPhysicalClaims: frozen(observed),
       // Lexical anomaly flags are NOT auto-corrected; they need Owner review.
       ownerAdjudicationRequired: record.lexicalAnomalies.length > 0
@@ -185,6 +195,23 @@ export function reconcileCiiOwnerLexicalGolden({
     });
   });
   const counts = frozen(countSummary(results));
+  const perMember = [...new Set(results.map((row)=>row.sourceId || 'UNSPECIFIED'))].sort()
+    .map((sourceId) => {
+      const scoped=results.filter((row)=>(row.sourceId || 'UNSPECIFIED')===sourceId);
+      return frozen({
+        sourceId, total:scoped.length, ...countSummary(scoped),
+        duplicates:scoped.filter((row)=>row.reasons.includes('DUPLICATE_OWNER_RELATION_PRESERVED')).length,
+      });
+    });
+  const qualificationSummary = frozen({
+    total:results.length, resolved:counts.MATCHED,
+    high:results.filter((row)=>row.disposition==='MATCHED' && row.observedConfidence==='HIGH').length,
+    medium:results.filter((row)=>row.disposition==='MATCHED' && row.observedConfidence==='MEDIUM').length,
+    review:results.filter((row)=>row.disposition==='REVIEWABLE' || row.observedConfidence==='REVIEW').length,
+    ambiguous:counts.AMBIGUOUS, missing:counts.MISSING, invalid:counts.INVALID,
+    duplicates:results.filter((row)=>row.reasons.includes('DUPLICATE_OWNER_RELATION_PRESERVED')).length,
+    byMember:frozen(perMember),
+  });
   const blockers = [];
   if (counts.AMBIGUOUS || counts.MISSING || counts.INVALID) blockers.push('OWNER_GOLDEN_LEXICAL_EXCEPTIONS_REQUIRE_ADJUDICATION');
   if (results.some((row) => row.ownerAdjudicationRequired))
@@ -196,11 +223,26 @@ export function reconcileCiiOwnerLexicalGolden({
     authority: 'TEST_ONLY_UNATTESTED_OWNER_INPUT_NEVER_PHYSICAL_BIND_AUTHORITY',
     ownerAccepted: false, mergerAuthority: false, canAuthorizeWriter2: false,
     custody, observedRowCount: records.length,
-    summary: counts, blockers: frozen(blockers),
+    summary: counts, qualificationSummary, blockers: frozen(blockers),
     rows: frozen(results),
     observedSourcePopulation: (sourceRows || []).length,
     // A file whose checksum equals its declared digest is internally intact;
     // it is NOT proof that an Owner supplied or approved it or that no row was omitted.
     completenessProof: 'PINNED_DECLARED_ROW_COUNT_ONLY_EXTERNAL_OWNER_ATTESTATION_REQUIRED',
   });
+}
+
+const csvEscape = (value) => '"' + String(value == null ? '' : value).replace(/"/g,'""') + '"';
+export function ciiOwnerLexicalGoldenToCsv(report) {
+  const keys = [
+    'relationId','ordinal','physicalLine','sourceId','sourceLabel','targetLabel',
+    'disposition','observedConfidence','expectedLabelTargetCardinality',
+    'sourcePhysicalCandidateCount','targetPhysicalCandidateCount',
+    'sourcePhysicalNodeKeys','targetPhysicalNodeIds','observedPhysicalClaims',
+    'reasons','lexicalAnomalies','ownerAdjudicationRequired','rawLine',
+  ];
+  const arrayColumns=new Set(['sourcePhysicalNodeKeys','targetPhysicalNodeIds',
+    'observedPhysicalClaims','reasons','lexicalAnomalies']);
+  return [keys.join(','),...(report?.rows || []).map((row)=>
+    keys.map((k)=>csvEscape(arrayColumns.has(k)?JSON.stringify(row[k]||[]):row[k])).join(','))].join('\\n');
 }
