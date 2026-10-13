@@ -207,6 +207,39 @@ console.log(JSON.stringify({
 }, null, 2));
 
 const terminalForensics = ciiRetainedMethodATerminalForensics(preparedSession, preview, sourceAudit);
+// REC-03 exact fixture regression. These remain *non-binding forensic candidates*
+// until cross-source target custody, candidate arbitration and approval are defined.
+assert.equal(terminalForensics.groupedRegionCount, 6, 'all six exterior regions must be probed');
+assert.equal(terminalForensics.actualExteriorUnemittedRowCount, 33,
+  'original exterior physical SOURCE denominator cannot drift');
+const locallyQualified = terminalForensics.regions.flatMap((region) =>
+  region.qualifiedPrefix.qualifiedNodePairs.map((pair) =>
+    region.sourceId + ':' + pair.sourceNodeId + '=>' + pair.targetNodeId));
+assert.deepEqual([...locallyQualified].sort(), [
+  'S1:3830=>860', 'S1:4960=>1060',
+  'S2:50=>40040', 'S2:620=>10460', 'S2:80=>40050',
+  'S3:1920=>21920',
+].sort(), 'strict M1+M2+OD and topology prefixes must stay physical-evidence qualified');
+assert.equal(new Set(locallyQualified).size, 6, 'no duplicate source prefix claims');
+const terminalTargetIds = terminalForensics.regions.flatMap((region) =>
+  region.qualifiedPrefix.qualifiedNodePairs.map((pair) => pair.targetNodeId));
+assert.equal(new Set(terminalTargetIds).size, 6, 'candidate target prefixes must be unique across all three sources');
+for (const region of terminalForensics.regions) {
+  const count = region.qualifiedPrefix.qualifiedNodePairs.length;
+  const next = region.qualifiedPrefix.edgeChecks[count];
+  assert(next && next.supported === false,
+    region.sourceId + ':' + region.side + ' must retain first non-qualifying edge');
+  if (next.failedPredicates) assert(next.failedPredicates.length > 0,
+    region.sourceId + ':' + region.side + ' failure must retain explicit physical evidence');
+  for (const pair of region.qualifiedPrefix.qualifiedNodePairs) {
+    const row = sourceAudit.rows.find((item) => item.rowKey === region.sourceId + ':' + pair.sourceNodeId);
+    assert(row && row.state === 'UNEMITTED',
+      region.sourceId + ':' + pair.sourceNodeId + ' is only a probe, never auto-bound');
+    assert.equal(boundTargets.has(pair.targetNodeId), false,
+      pair.targetNodeId + ' cannot steal an existing physically bound TARGET');
+  }
+}
+
 const terminalEvidenceDir = fileURLToPath(new URL('../test-results/cii-method-a-qualification/', import.meta.url));
 mkdirSync(terminalEvidenceDir, { recursive: true });
 writeFileSync(join(terminalEvidenceDir, 'terminal-tail-forensics.json'),
