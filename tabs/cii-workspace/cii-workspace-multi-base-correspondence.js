@@ -1,6 +1,7 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
 import { compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
+import { qualifyCiiMethodATerminalContinuation } from './cii-workspace-terminal-continuation.js';
 import { arbitrateCiiLoopCorrespondences, arbitrateCiiSeedCorrespondences } from './cii-workspace-correspondence-arbitration.js';
 
 function blockedCorrespondence(reason) {
@@ -70,7 +71,17 @@ function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (anchors.length < 3) return blockedCorrespondence('METHOD_A_READY_LOOP_REQUIRES_THREE_ANCHORS');
   const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
-  return projectMethodAAnchorAuthority(correspondence, loop, anchors);
+  // Opt-in until authentic cross-source, review and Writer2 qualification passes.
+  // No new authority is produced by ordinary existing callers.
+  if (options.methodATerminalContinuation !== true) {
+    return projectMethodAAnchorAuthority(correspondence, loop, anchors);
+  }
+  const extension = qualifyCiiMethodATerminalContinuation(sourceGraph, targetGraph, loop, correspondence, options);
+  const withTerminals = deepFreeze({
+    ...correspondence, nodeRows: deepFreeze([...(correspondence.nodeRows || []), ...extension.nodeRows]),
+    methodATerminalContinuation: extension,
+  });
+  return projectMethodAAnchorAuthority(withTerminals, loop, anchors);
 }
 function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
