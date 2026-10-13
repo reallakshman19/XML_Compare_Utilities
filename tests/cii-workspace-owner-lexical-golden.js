@@ -244,5 +244,5 @@ export function ciiOwnerLexicalGoldenToCsv(report) {
   const arrayColumns=new Set(['sourcePhysicalNodeKeys','targetPhysicalNodeIds',
     'observedPhysicalClaims','reasons','lexicalAnomalies']);
   return [keys.join(','),...(report?.rows || []).map((row)=>
-    keys.map((k)=>csvEscape(arrayColumns.has(k)?JSON.stringify(row[k]||[]):row[k])).join(','))].join('\\n');
+    keys.map((k)=>csvEscape(arrayColumns.has(k)?JSON.stringify(row[k]||[]):row[k])).join(','))].join('\n');
 }
