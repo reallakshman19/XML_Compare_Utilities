@@ -88,6 +88,33 @@ branchedTarget.adjacency.set(endId,[...targetGraph.adjacency.get(endId),fakeTarg
 assert.equal(asPairs(negativeRows(s1Graph,branchedTarget,s1Loop.loop,sourceSpan))
   .includes('4960=>1060'),false,'TARGET root branch must halt exterior propagation');
 
+// An off-route TARGET EDGE is a real alternative even when the selected
+// TARGET anchor's outgoing adjacency remains unique. A singleton candidate
+// list would incorrectly bind 3830 here; competing spatial edges must veto.
+const selected860 = positiveNative.nodeRows.find((row) => String(row.sourceNodeId) === '3830');
+assert(selected860?.evidence?.terminalStep?.targetElementId);
+const primaryEdge = targetGraph.edges.find((edge) =>
+  String(edge.elementId) === selected860.evidence.terminalStep.targetElementId);
+assert(primaryEdge, 'retained physical target edge for 3830 required');
+const cloneEdge = (n) => ({ ...primaryEdge, elementId: 'REC03_COMPETING_OFF_ROUTE_EDGE_' + n });
+const offRouteCandidate = { ...targetGraph, edges: [...targetGraph.edges, cloneEdge(1)] };
+const challenged = qualifyCiiMethodATerminalContinuation(s1Graph, offRouteCandidate, s1Loop.loop, sourceSpan);
+assert.equal(asPairs(challenged.nodeRows).includes('3830=>860'), false,
+  'spatially competing off-route target EDGE must veto singleton assumption');
+const challengedStart = challenged.regions.find((row) => row.side === 'START');
+assert.equal(challengedStart.steps[0]?.spatialCandidateCount, 2,
+  'candidate set must contain chosen and off-route physical TARGET edges');
+assert.equal(challengedStart.steps[0]?.candidateStatus, 'AMBIGUOUS',
+  'two equally qualified candidate elements must trigger real winner-gap veto');
+const manyCompetitors = { ...targetGraph,
+  edges: [...targetGraph.edges, ...Array.from({length:33}, (_,i)=>cloneEdge(i+1))] };
+const overflow = qualifyCiiMethodATerminalContinuation(s1Graph, manyCompetitors, s1Loop.loop, sourceSpan);
+assert.equal(asPairs(overflow.nodeRows).includes('3830=>860'), false,
+  'bounded candidate overflow must fail closed instead of truncating challengers');
+assert.equal(overflow.regions.find((row)=>row.side==='START').steps[0]?.spatialCandidateSetStatus,
+  'SPATIAL_CANDIDATE_SET_OVERFLOW');
+
+
 const extracted = trial.memberPreviews.map(({sourceId,preview}) => ({
   sourceId,
   correspondenceStatus: preview.correspondence?.status,
@@ -127,6 +154,14 @@ assert.deepEqual(discovered.sort((a,b)=>a.join('|').localeCompare(b.join('|'))),
   'only six strict, registered M1+M2+OD exterior pairs may emit');
 for(const [sourceId,sourceNodeId,targetNodeId] of expected) {
   const row = after.rows.find((candidate) => candidate.rowKey === sourceId + ':' + sourceNodeId);
+  const terminal = trial.memberPreviews.find((member)=>member.sourceId === sourceId)?.preview
+    ?.multiBaseCorrespondence?.loopResults?.filter(({loop})=>loop.method==='METHOD_A_SPATIAL')
+    .flatMap(({correspondence})=>correspondence.methodATerminalContinuation?.nodeRows || [])
+    .find((item)=>String(item.sourceNodeId)===sourceNodeId);
+  assert(terminal?.evidence?.terminalCandidate?.status==='SUPPORTED');
+  assert.equal(terminal.evidence.terminalStep.spatialCandidateCount,
+    terminal.evidence.terminalCandidate.candidateCount,
+    'candidate arbitration must include all spatially eligible physical elements');
   assert.equal(row?.state, 'BOUND', sourceId + ':' + sourceNodeId + ' physically qualified terminal must be BOUND');
   assert.equal(String(row?.targetNodeId), targetNodeId);
   assert.equal(row.confidence, sourceId === 'S2' ? 'HIGH' : 'MEDIUM',
