@@ -163,6 +163,47 @@ const missingPositiveBoundTargets = expectedDelta.rows.filter((row) => !boundTar
   .map((row) => row.nodeId);
 assert.deepEqual(missingPositiveBoundTargets, [],
   'all 36 known-positive target mutations need a bound SOURCE physical correspondence');
+// REC-02: the complete real retained 11-row unresolved set must expose the
+// *individual failed predicates* before anyone considers changing identity rules.
+const expectedUnboundBoundaryNodes = [
+  'S1:3970', 'S1:4020', 'S1:4050', 'S1:4060',
+  'S2:210', 'S2:220', 'S2:230',
+  'S3:1800', 'S3:1810', 'S3:1820', 'S3:1840',
+];
+const unboundBoundaries = sourceAudit.rows.filter((row) =>
+  expectedUnboundBoundaryNodes.includes(row.rowKey));
+assert.equal(unboundBoundaries.length, expectedUnboundBoundaryNodes.length,
+  'every retained Method A boundary review case must appear in the physical SOURCE census');
+for (const row of unboundBoundaries) {
+  assert.equal(row.state, 'UNRESOLVED', row.rowKey + ' must not be auto-promoted by diagnostic projection');
+  assert.equal(row.methodABoundaryDiagnostics?.length, 1, row.rowKey + ' must retain one Method A boundary diagnosis');
+  const evidence = row.methodABoundaryDiagnostics[0];
+  assert.equal(evidence.upstreamIdentitySupported, false, row.rowKey + ' upstream identity must remain unsupported');
+  assert.equal(evidence.localBoundary?.identitySupported, false, row.rowKey + ' local boundary is not qualified');
+  const checks = evidence.localBoundary?.endpointChecks || [];
+  assert.equal(checks.length, 2, row.rowKey + ' must retain both TO/FROM endpoint checks');
+  assert(checks.some((item) => !item.identitySupported && item.failedPredicates.length > 0),
+    row.rowKey + ' must report a first failing M1/M2/OD predicate');
+  for (const check of checks) {
+    assert.equal(typeof check.m1Available, 'boolean');
+    assert.equal(typeof check.m2Pass, 'boolean');
+    assert.equal(typeof check.odPass, 'boolean');
+    assert(Array.isArray(check.failedPredicates));
+    assert(check.sourceElementId && check.targetElementId, row.rowKey + ' checked edge custody must be known');
+  }
+}
+console.log(JSON.stringify({
+  schema: 'CiiMethodABoundaryPredicateReconciliation.v1',
+  evidenceStatus: 'ACTUAL_RETAINED_SOURCE_LEVEL_FORENSICS_NOT_BIND_AUTHORITY',
+  headSource: 'native retained S1/S2/S3 to T auto-anchor preview',
+  unboundCount: unboundBoundaries.length,
+  rows: unboundBoundaries.map((row) => ({
+    rowKey: row.rowKey, targetNodeId: row.targetNodeId, state: row.state,
+    custodyVeto: row.methodABoundaryDiagnostics[0]?.custodyVeto || null,
+    localBoundary: row.methodABoundaryDiagnostics[0]?.localBoundary || null,
+  })),
+}, null, 2));
+
 const censusCsv = ciiSourceTargetAuditToCsv(sourceAudit);
 const censusJson = ciiSourceTargetAuditToJson(sourceAudit);
 assert.equal(censusCsv.split('\n').length, 151, 'CSV must expose all 150 rows, not only displayed review matches');
