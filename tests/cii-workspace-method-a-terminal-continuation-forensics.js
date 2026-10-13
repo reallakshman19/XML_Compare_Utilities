@@ -76,6 +76,50 @@ function spatialCandidates(sourceNodeId, sourceGraph, targetGraph, geometry, tar
       ...row, distanceMm: Number(row.distanceMm.toFixed(3)) })),
   };
 }
+// Read-only strict prefix probe. A prefix stops at its *first* failed edge;
+// a later geometrically similar node cannot jump over an unsupported segment.
+function qualifiedPrefix(sourceGraph, targetGraph, source, target, geometry, ownerSet) {
+  if (source.paths.length !== 1 || target.paths.length !== 1) {
+    return { status: 'ROOT_BRANCH_OR_MISSING', qualifiedNodePairs: [], edgeChecks: [] };
+  }
+  const se = source.paths[0].edges; const te = target.paths[0].edges;
+  const checks = []; const qualified = [];
+  for (let i = 0; i < se.length; i += 1) {
+    const currentSource = se[i]; const currentTarget = te[i] || null;
+    if (!currentTarget) { checks.push({ step: i + 1, sourceNodeId: currentSource.to,
+      status: 'TARGET_TERMINAL_BEFORE_SOURCE', supported: false }); break; }
+    const e = firstEdgeScore(sourceGraph, targetGraph, currentSource.from, currentTarget.from,
+      currentSource.elementId, currentTarget.elementId, geometry);
+    const nearest = spatialCandidates(currentSource.to, sourceGraph, targetGraph, geometry, ownerSet);
+    const nearestTarget = nearest.nearest?.[0];
+    const unique = nearest.candidateCountWithin100Mm === 1
+      && nearestTarget?.targetNodeId === currentTarget.to;
+    const endpoints = e?.m1?.endpointDistancesMm || [];
+    const pass = e?.m1?.available === true && e?.m1?.basis === 'REGISTERED'
+      && e?.m1?.orientation === 'DIRECT' && e?.m1?.pass === true
+      && endpoints.length === 2 && endpoints.every((v) => Number.isFinite(Number(v)) && v <= 100)
+      && e?.m2?.pass === true && e?.od?.pass === true && !e?.hardFail
+      && unique && ownerSet.has(currentTarget.to) === false;
+    const failed = [
+      ...(!e?.m1?.pass ? ['M1_NOT_PASS'] : []),
+      ...(!e?.m2?.pass ? ['M2_NOT_PASS'] : []),
+      ...(!e?.od?.pass ? ['OD_NOT_PASS'] : []),
+      ...(!unique ? ['REGISTERED_TARGET_NONUNIQUE_OR_OUT_OF_TOLERANCE'] : []),
+      ...(ownerSet.has(currentTarget.to) ? ['TARGET_ALREADY_CLAIMED'] : []),
+      ...(e?.hardFail ? ['HARD_FAIL'] : []),
+    ];
+    checks.push({ step: i + 1, sourceNodeId: currentSource.to,
+      targetNodeId: currentTarget.to, nearestTarget, supported: pass,
+      failedPredicates: failed, edge: e });
+    if (!pass) break;
+    qualified.push({ sourceNodeId: currentSource.to, targetNodeId: currentTarget.to,
+      sourceElementId: currentSource.elementId, targetElementId: currentTarget.elementId });
+  }
+  return { status: qualified.length === se.length ? 'COMPLETE_QUALIFIED_PREFIX' : 'PREFIX_HALTED',
+    qualifiedNodePairs: qualified, edgeChecks: checks,
+    sourceStepCount: se.length, targetStepCount: te.length };
+}
+
 export function ciiRetainedMethodATerminalForensics(preparedSession, preview, sourceAudit) {
   const targetGraph = preparedSession.target?.targetGraph;
   const ownerSet = new Set((sourceAudit.rows || []).filter((row) => row.state === 'BOUND')
@@ -112,6 +156,8 @@ export function ciiRetainedMethodATerminalForensics(preparedSession, preview, so
         sourceExteriorNodeCount: sourceExteriorNodes.length,
         unemittedExteriorRowKeys: physicalGapRows.map((row) => row.rowKey).sort(byId),
         firstEdgeCandidateEvidence: edgeEvidence,
+        qualifiedPrefix: qualifiedPrefix(sourceGraph, targetGraph, source, target,
+          selected.loop.geometry, ownerSet),
         registeredNearestForUnemitted: physicalGapRows.map((row) => spatialCandidates(
           row.sourceNodeId, sourceGraph, targetGraph, selected.loop.geometry, ownerSet)),
       });
