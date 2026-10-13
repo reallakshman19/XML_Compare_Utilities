@@ -67,6 +67,10 @@ for (const member of inspection.memberInspections) {
 const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
   sources, targetBytes, targetFileName: 'T.CII', baseLoopsBySource,
 }, { cryptoRef, ...policy });
+assert.deepEqual(preview.audit?.methodAConfidencePolicy, { high: 85, medium: 70 },
+  'retained audit must serialize the applied default confidence policy');
+assert.deepEqual(JSON.parse(preview.artifacts.auditJson)?.methodAConfidencePolicy,
+  { high: 85, medium: 70 }, 'downloadable JSON audit must retain policy custody');
 const observed = requested.map(([sourceId, sourceNodeId, targetNodeId, intendedGrade]) => {
   const member = (preview.memberPreviews || []).find((item) => item.sourceId === sourceId)?.preview;
   const candidateRows = member?.correspondence?.nodeRows || [];
