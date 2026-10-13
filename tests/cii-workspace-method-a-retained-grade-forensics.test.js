@@ -1,0 +1,104 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createHash, webcrypto } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
+import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
+
+// Owner Phase 1 assertions are treated as hypotheses: this script measures each
+// grade and its geometric causes rather than force-promoting any NODE identity.
+const expectedSha = Object.freeze({
+  'S1.CII': '9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b',
+  'S2.CII': '7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd',
+  'S3.CII': 'c2143b31c482158ac5514d2709406c14a9179e656277c654e932bb845d090caa',
+  'T.CII': 'abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060',
+});
+const requested = Object.freeze([
+  ['S1', '4410', '970', 'HIGH'],
+  ['S1', '4440', '975', 'HIGH'],
+  ['S1', '4470', '980', 'HIGH'],
+  ['S1', '4490', '985', 'HIGH'],
+  ['S2', '360', '10280', 'HIGH'],
+  ['S2', '370', '10290', 'HIGH'],
+  ['S2', '390', '10300', 'HIGH'],
+  ['S2', '400', '10310', 'HIGH'],
+  ['S3', '1610', '8920', 'HIGH'],
+  ['S3', '1620', '8940', 'HIGH'],
+  ['S3', '1640', '8950', 'HIGH'],
+]);
+
+const fixture = (name) => readFileSync(fileURLToPath(new URL(`../Benchmark/${name}`, import.meta.url)));
+for (const [fileName, sha] of Object.entries(expectedSha)) {
+  assert.equal(createHash('sha256').update(fixture(fileName)).digest('hex'), sha, `${fileName} fixture changed`);
+}
+const sources = ['S1', 'S2', 'S3'].map((sourceId) => ({
+  sourceId, fileName: `${sourceId}.CII`, bytes: fixture(`${sourceId}.CII`),
+}));
+const targetBytes = fixture('T.CII');
+const cryptoRef = globalThis.crypto || webcrypto;
+const policy = Object.freeze({ methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70 });
+const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge(
+  { sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef, ...policy },
+);
+assert.equal(inspection.memberInspections.length, 3);
+const baseLoopsBySource = {};
+const baseEvidence = {};
+for (const member of inspection.memberInspections) {
+  const choice = ciiAutomaticBaseSelection(member.inspection?.baseAnchorSuggestions || []);
+  baseLoopsBySource[member.sourceId] = choice.baseLoops || [];
+  baseEvidence[member.sourceId] = (choice.baseLoops || []).map((loop) => ({
+    loopId: loop.loopId, method: loop.method, status: loop.status,
+    confidence: loop.confidence, anchorCount: loop.anchorPairs?.length || 0,
+    score: loop.weight?.total ?? null,
+    components: loop.weight ? {
+      residualQuality: loop.weight.residualQuality,
+      conditioning: loop.weight.conditioning,
+      spatialExtent: loop.weight.spatialExtent,
+      redundancy: loop.weight.redundancy,
+      basisConsensus: loop.weight.basisConsensus,
+    } : null,
+    thresholds: loop.weight?.confidenceThresholds || null,
+    maxResidualMm: loop.geometry?.maxResidualMm ?? null,
+    maxNormalizedResidual: loop.geometry?.maxNormalizedResidual ?? null,
+    selectedBasisId: loop.geometry?.selectedBasisId ?? null,
+  }));
+}
+const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge({
+  sources, targetBytes, targetFileName: 'T.CII', baseLoopsBySource,
+}, { cryptoRef, ...policy });
+const observed = requested.map(([sourceId, sourceNodeId, targetNodeId, intendedGrade]) => {
+  const member = (preview.memberPreviews || []).find((item) => item.sourceId === sourceId)?.preview;
+  const candidateRows = member?.correspondence?.nodeRows || [];
+  const exactRows = candidateRows.filter((row) => String(row.sourceNodeId) === sourceNodeId
+    && String(row.targetNodeId) === targetNodeId);
+  const aggregateRows = (preview.correspondence?.nodeRows || []).filter((row) =>
+    row.sourceId === sourceId && String(row.sourceNodeId) === sourceNodeId && String(row.targetNodeId) === targetNodeId);
+  const matches = exactRows.length ? exactRows : aggregateRows;
+  return {
+    sourceId, sourceNodeId, targetNodeId, ownerIntendedGrade: intendedGrade,
+    status: matches.length ? 'EMITTED' : 'NOT_EMITTED',
+    observed: matches.map((row) => ({
+      correspondenceId: row.correspondenceId,
+      status: row.status, authority: row.authority,
+      basisMethod: row.basisMethod,
+      identitySupported: row.evidence?.identitySupported ?? null,
+      confidence: row.evidence?.identityConfidence || row.confidence || 'REVIEW',
+      evidenceBasis: row.evidence?.identityEvidenceBasis || null,
+      methodAQualification: row.evidence?.methodAQualification || null,
+      multiBaseProvenance: row.evidence?.multiBaseProvenance || [],
+      nodeCustodyGate: row.evidence?.nodeCustodyGate || null,
+    })),
+  };
+});
+assert.equal(observed.length, 11, 'all owner-reported Phase 1 NODE pairs must appear in forensic output');
+console.log(JSON.stringify({
+  schema: 'CiiPhase1MethodAGradeForensics.v1',
+  evidenceStatus: 'FORENSIC_REPORT_ONLY_NOT_ACCEPTANCE',
+  sourceSetSha256: inspection.sourceSet?.sourceSetSha256,
+  confidencePolicy: policy, baseEvidence,
+  inspectionStatus: inspection.status, previewStatus: preview.correspondence?.status,
+  emitted: observed.filter((row) => row.status === 'EMITTED').length,
+  unEmitted: observed.filter((row) => row.status !== 'EMITTED').length,
+  observations: observed,
+}, null, 2));
