@@ -48,6 +48,10 @@ function confidenceReason(row) {
     return `REVIEW: RIGID component follows a bound parent ELEMENT at ${component.parentConfidence}; explicit engineering review remains required.`;
   }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName;
+  const base = row?.methodABase;
+  if (base && ['HIGH', 'MEDIUM'].includes(row?.confidence)) {
+    return `${row.confidence}: qualified Method A base ${fmt(base.score)}/100 from ${base.anchorCount} anchors (HIGH ≥ ${fmt(base.highThreshold)}, MEDIUM ≥ ${fmt(base.mediumThreshold)}). Geometry: residual ${fmt(base.residualQuality)}, conditioning ${fmt(base.conditioning)}, extent ${fmt(base.spatialExtent)}, redundancy ${fmt(base.redundancy)}, consensus ${fmt(base.basisConsensus)}.`;
+  }
   if (row?.confidence === 'HIGH') {
     if (m1?.available === false) return name?.match
       ? 'HIGH: M1 registration is underdetermined; M2 + OD <10% + Node Name corroboration agree.'
