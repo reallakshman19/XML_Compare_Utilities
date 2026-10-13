@@ -55,12 +55,13 @@ const reviewMarkup = ciiMultiSourceReviewMarkup({
       highThreshold: 85, mediumThreshold: 70,
       residualQuality: baseline.weight.residualQuality, conditioning: baseline.weight.conditioning,
       spatialExtent: baseline.weight.spatialExtent, redundancy: baseline.weight.redundancy,
-      basisConsensus: baseline.weight.basisConsensus },
+      basisConsensus: baseline.weight.basisConsensus, weights: baseline.weight.confidenceWeights },
   }] },
 }, new Map());
 assert.match(reviewMarkup, /METHOD A BASE/);
 assert.match(reviewMarkup, /HIGH ≥ 85/);
 assert.match(reviewMarkup, /residual/);
+assert.match(reviewMarkup, /Applied weightage: 35 \/ 25 \/ 20 \/ 10 \/ 10/, 'visible review must show actual applied score weights');
 assert.doesNotMatch(reviewMarkup, /RED · 0\/0/, 'missing direct M1\/M2 evidence must not obscure qualified Method A score');
 
 
