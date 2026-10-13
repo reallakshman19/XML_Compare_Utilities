@@ -42,6 +42,39 @@ function uniqueRegisteredTarget(sourceGraph, targetGraph, geometry, sourceNodeId
   }
   return matches === 1 && expected;
 }
+// Candidate evidence must compare the chosen physical edge against OTHER
+// spatially admissible TARGET elements, not only the preselected route edge.
+// The spatial prefilter is independent of names and bounds work in large graphs.
+// Overflow is fail-closed rather than silently omitting possible competitors.
+function spatialTargetEdgeCandidates(targetGraph, sourceEdge, geometry, toleranceMm) {
+  const sourceFrom = registeredCiiPoint(geometry, sourceEdge.fromPos);
+  const sourceTo = registeredCiiPoint(geometry, sourceEdge.toPos);
+  const maxCandidates = 32;
+  const valid = (point) => point && [point.x, point.y, point.z].every(Number.isFinite);
+  if (!valid(sourceFrom) || !valid(sourceTo) || !(toleranceMm > 0) || !Number.isFinite(toleranceMm)
+    || !Array.isArray(targetGraph?.edges)) {
+    return { status: 'SPATIAL_CANDIDATE_INPUT_UNAVAILABLE', edges: [] };
+  }
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  const matches = [];
+  const seen = new Set();
+  for (const edge of targetGraph.edges) {
+    if (!valid(edge?.fromPos) || !valid(edge?.toPos) || !edge.elementId) continue;
+    const direct = Math.max(dist(sourceFrom, edge.fromPos), dist(sourceTo, edge.toPos));
+    const reverse = Math.max(dist(sourceFrom, edge.toPos), dist(sourceTo, edge.fromPos));
+    if (Math.min(direct, reverse) > toleranceMm) continue;
+    const id = nodeId(edge.elementId);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (matches.length >= maxCandidates) return {
+      status: 'SPATIAL_CANDIDATE_SET_OVERFLOW', edges: [], candidateCountLowerBound: maxCandidates + 1,
+    };
+    matches.push(oriented(edge, direct <= reverse ? edge.from : edge.to));
+  }
+  return { status: 'READY', edges: matches.sort((a, b) => sortIds(a.elementId, b.elementId)),
+    candidateCount: matches.length };
+}
+
 function existingClaims(correspondence) {
   const sources = new Set(); const targets = new Set();
   const sourceEdges = new Set(); const targetEdges = new Set();
@@ -91,8 +124,10 @@ function extendFlank(sourceGraph, targetGraph, loop, correspondence, side, claim
     const scored = scoreCiiEdgeCandidate(sEdge, tEdge, { ...options, geometryTransform: loop.geometry });
     const m1 = scored.methods?.m1Spatial; const m2 = scored.methods?.m2Network;
     const od = scored.dimensions?.diameter;
-    const candidates = buildCiiCandidateEvidence(sEdge, [tEdge], nodeId(tEdge.elementId),
-      { ...options, geometryTransform: loop.geometry });
+    const spatialCandidateSet = spatialTargetEdgeCandidates(targetGraph, sEdge, loop.geometry,
+      Number(m1?.toleranceMm));
+    const candidates = buildCiiCandidateEvidence(sEdge, spatialCandidateSet.edges,
+      nodeId(tEdge.elementId), { ...options, geometryTransform: loop.geometry });
     const uniqueRegistered = uniqueRegisteredTarget(sourceGraph, targetGraph, loop.geometry,
       sTo, tTo, Number(m1?.toleranceMm));
     const supported = scored.hardFail !== true
@@ -102,6 +137,8 @@ function extendFlank(sourceGraph, targetGraph, loop, correspondence, side, claim
       && (m1.endpointDistancesMm || []).every((distance) => Number.isFinite(distance)
         && distance <= Number(m1.toleranceMm))
       && m2?.pass === true && od?.pass === true && uniqueRegistered
+      && spatialCandidateSet.status === 'READY'
+      && spatialCandidateSet.candidateCount >= 1
       && candidates.status === 'SUPPORTED'
       && nodeId(candidates.winnerTargetElementId) === nodeId(tEdge.elementId);
     const stepEvidence = deepFreeze({
@@ -115,6 +152,13 @@ function extendFlank(sourceGraph, targetGraph, loop, correspondence, side, claim
       m2Pass: m2?.pass === true, m2Score: m2?.score ?? null,
       m2Threshold: m2?.threshold ?? null, odPass: od?.pass === true,
       candidateStatus: candidates.status,
+      spatialCandidateSetStatus: spatialCandidateSet.status,
+      spatialCandidateCount: spatialCandidateSet.candidateCount ?? null,
+      candidateWinnerGap: candidates.winnerGap,
+      candidateRequiredWinnerGap: candidates.requiredWinnerGap,
+      candidateMethodDisagreement: candidates.methodWinners?.disagree === true,
+      candidateRunnerUpTargetElementId: candidates.rankedCandidates?.find((row) =>
+        nodeId(row.targetElementId) !== nodeId(candidates.winnerTargetElementId))?.targetElementId || null,
       candidateWinnerTargetElementId: candidates.winnerTargetElementId || null,
       uniqueRegisteredTarget: uniqueRegistered,
       identitySupported: supported,
