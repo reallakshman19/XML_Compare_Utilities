@@ -151,6 +151,10 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
     const authority = state ? baseAuthorityState(state.auto, state.manualBySource) : { ready: false }; if (!authority.ready) return;
     try {
       setStatus(container, 'Building generic multi-source correspondence in REVIEW ONLY mode…'); const preview = await buildGenericPreview(); if (disposed || !preview) return;
+      // The rendered Compare Review table lives in the compare panel. Keep
+      // generic REVIEW_ONLY navigation in parity with the retained Writer2 path;
+      // a hidden review table is not an actionable result for the engineer.
+      container.querySelector('[data-ciiw-tab="compare"]')?.click();
       setStatus(container, `Generic multi-source correspondence ${preview.correspondence.status}. REVIEW ONLY: review decisions may be bound to audit; Writer2 operations 0.`);
     } catch (error) { setStatus(container, error?.message || String(error)); }
   };
