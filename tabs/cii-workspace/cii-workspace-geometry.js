@@ -16,6 +16,20 @@ function transpose(matrix) { return matrix[0].map((_, column) => matrix.map((row
 function matMul(a, b) { const bt = transpose(b); return a.map((row) => bt.map((column) => dot(row, column))); }
 function basisMatrix(e1, e2, e3) { return transpose([e1, e2, e3]); }
 function clamp(value, low = 0, high = 1) { return Math.max(low, Math.min(high, value)); }
+
+export const CII_METHOD_A_CONFIDENCE_DEFAULTS = Object.freeze({ high: 85, medium: 70 });
+export function resolveCiiMethodAConfidenceThresholds(options = {}) {
+  const read = (value, fallback) => {
+    if (value == null || String(value).trim() === '') return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : fallback;
+  };
+  const medium = read(options.methodAMediumConfidenceThreshold, CII_METHOD_A_CONFIDENCE_DEFAULTS.medium);
+  const high = read(options.methodAHighConfidenceThreshold, CII_METHOD_A_CONFIDENCE_DEFAULTS.high);
+  // Invalid/conflicting configuration must never silently make HIGH easier to attain.
+  if (high <= medium) return CII_METHOD_A_CONFIDENCE_DEFAULTS;
+  return Object.freeze({ high, medium });
+}
 function rms(values) { return Math.sqrt(values.reduce((sum, value) => sum + value * value, 0) / Math.max(values.length, 1)); }
 
 function positiveNumber(value) {
@@ -145,7 +159,7 @@ function selectHypothesis(admissible) {
     || a.rmsNormalizedResidual - b.rmsNormalizedResidual
     || b.minimumAnchorSinAngle - a.minimumAnchorSinAngle || compareIndexes(a.anchorIndexes, b.anchorIndexes))[0];
 }
-function methodAWeight(selected, pairs, policy) {
+function methodAWeight(selected, pairs, policy, options = {}) {
   const residualQuality = 35 * (1 - clamp(selected.maxNormalizedResidual));
   const conditioning = 25 * clamp(selected.minimumAnchorSinAngle);
   const spanMm = sourceSpan(pairs); const spanRatioOd = spanMm / Math.max(policy.odReferenceMm, 1e-9);
@@ -153,11 +167,13 @@ function methodAWeight(selected, pairs, policy) {
   const redundancy = clamp(2 + 3 * Math.max(0, pairs.length - 3), 0, 10);
   const basisConsensus = 10;
   const total = residualQuality + conditioning + spatialExtent + redundancy + basisConsensus;
-  const confidence = total >= 85 ? 'HIGH' : (total >= 70 ? 'MEDIUM' : 'REVIEW');
+  const thresholds = resolveCiiMethodAConfidenceThresholds(options);
+  const confidence = total >= thresholds.high ? 'HIGH' : (total >= thresholds.medium ? 'MEDIUM' : 'REVIEW');
   return Object.freeze({
     residualQuality: Number(residualQuality.toFixed(3)), conditioning: Number(conditioning.toFixed(3)),
     spatialExtent: Number(spatialExtent.toFixed(3)), redundancy: Number(redundancy.toFixed(3)), basisConsensus,
-    total: Number(total.toFixed(3)), confidence, spanMm: Number(spanMm.toFixed(6)), spanRatioOd: Number(spanRatioOd.toFixed(6)),
+    total: Number(total.toFixed(3)), confidence, confidenceThresholds: thresholds,
+    spanMm: Number(spanMm.toFixed(6)), spanRatioOd: Number(spanRatioOd.toFixed(6)),
   });
 }
 function diagnosticHypothesis(item) { return Object.freeze({ ...item, admissible: item.maxNormalizedResidual <= 1 }); }
@@ -207,7 +223,7 @@ export function qualifyCiiGeometryTransform(anchorPairs, options = {}) {
     conflictingBasisComparisons: agreement.conflicts, basisHypotheses: diagnostics,
     tolerancePolicy: policy, registeredWeight: 0,
   });
-  const selected = selectHypothesis(admissible); const weight = methodAWeight(selected, pairs, policy);
+  const selected = selectHypothesis(admissible); const weight = methodAWeight(selected, pairs, policy, options);
   return deepFreeze({
     status: 'READY', mode: 'RIGID_3D', rotation: selected.rotation, translation: selected.translation,
     anchorIndexes: selected.anchorIndexes, selectedBasisId: selected.basisId,
