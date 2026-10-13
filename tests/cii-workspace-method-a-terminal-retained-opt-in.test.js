@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { webcrypto } from 'node:crypto';
 import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
 import { qualifyCiiMethodATerminalContinuation } from '../tabs/cii-workspace/cii-workspace-terminal-continuation.js';
+import { compareLockedCiiAnchorSpan } from '../tabs/cii-workspace/cii-workspace-topology.js';
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import { buildCiiSourceTargetAudit } from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
@@ -40,12 +41,19 @@ const s1Loop = baseline.memberPreviews.find((member) => member.sourceId === 'S1'
 assert(s1Member && s1Loop, 'authentic selected S1 Method A loop expected');
 const s1Graph = s1Member.sourceGraph;
 const targetGraph = preparedSession.target.targetGraph;
-const sourceSpan = s1Loop.correspondence;
+const sourceSpan = compareLockedCiiAnchorSpan(s1Graph, targetGraph, s1Loop.loop.anchorPairs,
+  {cryptoRef, geometryTransform:s1Loop.loop.geometry});
 const negativeRows = (source, target, loop, correspondence) =>
   qualifyCiiMethodATerminalContinuation(source, target, loop, correspondence).nodeRows;
 const asPairs = (rows) => rows.map((row) => String(row.sourceNodeId) + '=>' + String(row.targetNodeId));
-assert.deepEqual(asPairs(negativeRows(s1Graph,targetGraph,s1Loop.loop,sourceSpan)).sort(),
-  ['3830=>860','4960=>1060'].sort());
+const positiveNative = qualifyCiiMethodATerminalContinuation(s1Graph,targetGraph,s1Loop.loop,sourceSpan);
+assert.deepEqual(asPairs(positiveNative.nodeRows).sort(),
+  ['3830=>860','4960=>1060'].sort(),
+  'pre-projection compareLocked Method A source diagnostic: ' + JSON.stringify({
+    method:s1Loop.loop.method, confidence:s1Loop.loop.confidence,
+    geometry:s1Loop.loop.geometry?.status, spanStatus:sourceSpan.status,
+    gateStatus:sourceSpan.pathGate?.status, regions:positiveNative.regions,
+  }));
 assert.deepEqual(negativeRows(s1Graph,targetGraph,{ ...s1Loop.loop,confidence:'REVIEW' },sourceSpan),[],
   'unqualified base confidence must not create terminal ownership');
 assert.deepEqual(negativeRows(s1Graph,targetGraph,{ ...s1Loop.loop,geometry:{status:'AMBIGUOUS'} },sourceSpan),[],
