@@ -85,10 +85,10 @@ export function ciiWriter2SessionPolicyMatches(snapshot, policy) {
     && Number.isFinite(stored.high) && Number.isFinite(stored.medium)
     && stored.high === Number(policy.methodAHighConfidenceThreshold)
     && stored.medium === Number(policy.methodAMediumConfidenceThreshold)
-    && stored.weights && policy.methodAConfidenceWeights
+    && Boolean(stored.weights)
     && CII_METHOD_A_WEIGHT_KEYS.every((key) =>
       Number.isFinite(stored.weights[key])
-      && stored.weights[key] === policy.methodAConfidenceWeights[key]);
+      && stored.weights[key] === (policy.methodAConfidenceWeights ?? CII_METHOD_A_WEIGHT_DEFAULTS)[key]);
 }
 
 export function createCiiWriter2SessionSnapshot(input = {}) {
