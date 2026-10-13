@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { ciiMultiSourceReviewMarkup } from '../tabs/cii-workspace/cii-workspace-multisource-review-ui.js';
 import {
   CII_METHOD_A_CONFIDENCE_DEFAULTS,
   qualifyCiiGeometryTransform,
@@ -43,4 +44,21 @@ try {
     high: saved.methodAHighConfidenceThreshold, medium: saved.methodAMediumConfidenceThreshold,
   });
 }
+const reviewMarkup = ciiMultiSourceReviewMarkup({
+  compareReview: { rows: [{
+    correspondenceId: 'S1-4410-970', sourceId: 'S1', kind: 'NODE',
+    source: '4410', target: '970', confidence: 'MEDIUM',
+    identityBound: true, workflowStatus: 'REVIEW', decision: 'REVIEW',
+    methodABase: { score: baseline.weight.total, anchorCount: 10,
+      highThreshold: 85, mediumThreshold: 70,
+      residualQuality: baseline.weight.residualQuality, conditioning: baseline.weight.conditioning,
+      spatialExtent: baseline.weight.spatialExtent, redundancy: baseline.weight.redundancy,
+      basisConsensus: baseline.weight.basisConsensus },
+  }] },
+}, new Map());
+assert.match(reviewMarkup, /METHOD A BASE/);
+assert.match(reviewMarkup, /HIGH ≥ 85/);
+assert.match(reviewMarkup, /residual/);
+assert.doesNotMatch(reviewMarkup, /RED · 0\/0/, 'missing direct M1\/M2 evidence must not obscure qualified Method A score');
+
 console.log('CII Method A configurable confidence thresholds: PASS');
