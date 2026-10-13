@@ -84,6 +84,16 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Run retained Auto Anchor through Writer2 byte closure
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: Upload 150-node SOURCE census evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-source-target-census-${{ github.sha }}
+          path: |
+            test-results/cii-method-a-qualification/source-target-census.json
+            test-results/cii-method-a-qualification/source-target-census.csv
+          if-no-files-found: warn
+          retention-days: 14
 
   chromium-ui:
     name: Chromium retained Inspect / Compare / Review
