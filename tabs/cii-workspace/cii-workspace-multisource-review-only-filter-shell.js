@@ -39,7 +39,7 @@ function mountMethodAWeightControls(container) {
       + key + ' aria-label="Method A ' + name + ' weight"></label>';
   }).join('');
   wrapper.innerHTML = '<details><summary><b>Advanced: Method A score weights</b> (100 points total)</summary>'
-    + '<p>Weights only grade already-qualified rigid bases. They do not bypass geometry, conflict veto, or review approval.</p>'
+    + '<p>Weights re-score qualified rigid bases and may change automatic base ranking. Apply requires a fresh Inspect and review; geometry, custody and conflict vetoes still apply.</p>'
     + fields
     + '<small data-ciiw-method-a-weight-total aria-live="polite"></small>'
     + '<button type="button" data-ciiw-method-a-apply-weights>Apply weights</button>'
