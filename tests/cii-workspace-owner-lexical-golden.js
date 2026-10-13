@@ -141,6 +141,7 @@ export function reconcileCiiOwnerLexicalGolden({
     const nameSet = targetNamesBySource.get(record.sourceId + '|' + record.sourceLabel);
     if (duplicateIndex) reasons.push('DUPLICATE_OWNER_RELATION_PRESERVED');
     if (nameSet.size > 1) reasons.push('ONE_SOURCE_LABEL_MULTIPLE_EXPECTED_TARGET_LABELS');
+    if (!record.sourceId) reasons.push('SOURCE_MEMBER_PROVENANCE_NOT_SUPPLIED');
     if (candidateSources.length > 1) reasons.push('SOURCE_LABEL_REUSED_ON_MULTIPLE_PHYSICAL_NODES');
     if (candidateTargets.length > 1) reasons.push('TARGET_LABEL_REUSED_ON_MULTIPLE_PHYSICAL_NODES');
     if (!record.sourceId && candidateSources.length) {
@@ -160,6 +161,7 @@ export function reconcileCiiOwnerLexicalGolden({
     else if (reasons.some((reason) => [
       'DUPLICATE_OWNER_RELATION_PRESERVED',
       'ONE_SOURCE_LABEL_MULTIPLE_EXPECTED_TARGET_LABELS',
+      'SOURCE_MEMBER_PROVENANCE_NOT_SUPPLIED',
       'SOURCE_LABEL_REUSED_ON_MULTIPLE_PHYSICAL_NODES',
       'TARGET_LABEL_REUSED_ON_MULTIPLE_PHYSICAL_NODES',
       'SOURCE_MEMBER_PROVENANCE_AMBIGUOUS',
