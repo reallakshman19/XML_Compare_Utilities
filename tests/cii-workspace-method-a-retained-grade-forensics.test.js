@@ -126,6 +126,32 @@ function focusedS3AlignmentTrace(memberPreviews) {
       elementId: edge.elementId, routeFrom: edge.routeFrom, routeTo: edge.routeTo,
       componentKind: edge.componentKind, diameter: edge.diameter, lengthMm: edge.lengthMm,
     })),
+    localElementRows: (correspondence?.elementRows || [])
+      .filter((row) => sourceLocalIds.has(String(row.sourceElementId || '')))
+      .map((row) => {
+        const original = row.evidence?.element || row.evidence || {};
+        const m1 = original.methods?.m1Spatial || {};
+        const m2 = original.methods?.m2Network || {};
+        const od = original.dimensions?.diameter || {};
+        return {
+          sourceElementId: row.sourceElementId, targetElementIds: row.targetElementIds,
+          status: row.status, candidateStatus: row.evidence?.candidates?.status || null,
+          original: {
+            hardFail: original.hardFail === true,
+            identitySupported: original.identitySupported === true,
+            identityConfidence: original.identityConfidence || null,
+            m1Available: m1.available === true, m1Pass: m1.pass === true,
+            m1Basis: m1.basis || null, m1Orientation: m1.orientation || null,
+            m1EndpointDistancesMm: m1.endpointDistancesMm || [],
+            m1ToleranceMm: m1.toleranceMm ?? null,
+            m2Pass: m2.pass === true, m2Score: m2.score ?? null,
+            m2Threshold: m2.threshold ?? null, m2Blockers: m2.blockers || [],
+            odAvailable: od.available === true, odPass: od.pass === true,
+            odSource: od.source ?? null, odTarget: od.target ?? null,
+            odRelativeDelta: od.relativeDelta ?? null,
+          },
+        };
+      }),
     operationCount: operations.length,
     operationIndexCount: operationIndexes.length,
     focusedOperations,
