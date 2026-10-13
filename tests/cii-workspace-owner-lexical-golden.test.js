@@ -68,7 +68,7 @@ assert.equal(result.qualificationSummary.duplicates,1);
 assert.equal(result.qualificationSummary.byMember.reduce((sum,row)=>sum+row.total,0),10);
 assert(result.qualificationSummary.byMember.some((row)=>row.sourceId==='UNSPECIFIED' && row.total===1));
 const csv=ciiOwnerLexicalGoldenToCsv(result);
-assert.equal(csv.split('\\n').length,11,'every input row needs an independent CSV record');
+assert.equal(csv.split('\n').length,11,'every input row needs an independent CSV record');
 assert.equal(ciiOwnerLexicalGoldenToCsv(result),csv,'golden CSV output must be deterministic');
 assert(csv.includes('SL-263..5') && csv.includes('SL-275-A.8'));
 assert(csv.includes('DUPLICATE_OWNER_RELATION_PRESERVED'));
