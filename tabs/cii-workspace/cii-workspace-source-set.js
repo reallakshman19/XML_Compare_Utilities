@@ -1,5 +1,5 @@
 import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-converter.js';
-import { CII_METHOD_A_CONFIDENCE_DEFAULTS, resolveCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
+import { CII_METHOD_A_CONFIDENCE_DEFAULTS, resolveCiiMethodAConfidenceThresholds, validateCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
@@ -27,18 +27,18 @@ export function getCiiMultiSourceMethodAConfidenceOptions() {
   });
 }
 export function setCiiMultiSourceMethodAConfidenceThresholds({ high, medium } = {}) {
-  const candidate = resolveCiiMethodAConfidenceThresholds({
-    methodAHighConfidenceThreshold: high ?? multiSourceMethodAConfidenceThresholds.high,
-    methodAMediumConfidenceThreshold: medium ?? multiSourceMethodAConfidenceThresholds.medium,
+  const candidate = validateCiiMethodAConfidenceThresholds({
+    high: high ?? multiSourceMethodAConfidenceThresholds.high,
+    medium: medium ?? multiSourceMethodAConfidenceThresholds.medium,
   });
   multiSourceMethodAConfidenceThresholds = candidate;
   return candidate;
 }
 function sourceSetInspectionOptions(options = {}) {
   const current = getCiiMultiSourceMethodAConfidenceOptions();
-  const thresholds = resolveCiiMethodAConfidenceThresholds({
-    methodAHighConfidenceThreshold: options.methodAHighConfidenceThreshold ?? current.methodAHighConfidenceThreshold,
-    methodAMediumConfidenceThreshold: options.methodAMediumConfidenceThreshold ?? current.methodAMediumConfidenceThreshold,
+  const thresholds = validateCiiMethodAConfidenceThresholds({
+    high: options.methodAHighConfidenceThreshold ?? current.methodAHighConfidenceThreshold,
+    medium: options.methodAMediumConfidenceThreshold ?? current.methodAMediumConfidenceThreshold,
   });
   return {
     ...options,
