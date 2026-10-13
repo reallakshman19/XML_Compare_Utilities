@@ -49,8 +49,13 @@ function confidenceReason(row) {
   }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName;
   const base = row?.methodABase;
+  const weightage = base?.weights ? ' Applied weights: residual ' + fmt(base.weights.residualQuality)
+    + ', conditioning ' + fmt(base.weights.conditioning)
+    + ', extent ' + fmt(base.weights.spatialExtent)
+    + ', redundancy ' + fmt(base.weights.redundancy)
+    + ', consensus ' + fmt(base.weights.basisConsensus) + '.' : '';
   if (base && ['HIGH', 'MEDIUM'].includes(row?.confidence)) {
-    return `${row.confidence}: qualified Method A base ${fmt(base.score)}/100 from ${base.anchorCount} anchors (HIGH ≥ ${fmt(base.highThreshold)}, MEDIUM ≥ ${fmt(base.mediumThreshold)}). Geometry: residual ${fmt(base.residualQuality)}, conditioning ${fmt(base.conditioning)}, extent ${fmt(base.spatialExtent)}, redundancy ${fmt(base.redundancy)}, consensus ${fmt(base.basisConsensus)}.`;
+    return `${row.confidence}: qualified Method A base ${fmt(base.score)}/100 from ${base.anchorCount} anchors (HIGH ≥ ${fmt(base.highThreshold)}, MEDIUM ≥ ${fmt(base.mediumThreshold)}). Geometry: residual ${fmt(base.residualQuality)}, conditioning ${fmt(base.conditioning)}, extent ${fmt(base.spatialExtent)}, redundancy ${fmt(base.redundancy)}, consensus ${fmt(base.basisConsensus)}.${weightage}`;
   }
   if (row?.confidence === 'HIGH') {
     if (m1?.available === false) return name?.match
@@ -96,7 +101,7 @@ function evidenceMarkup(row) {
     const base = row.methodABase;
     const level = row.confidence === 'HIGH' ? 4 : 3;
     const band = { level };
-    return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass(band)}" style="${ciiEvidenceBandStyle(level)}">METHOD A BASE · ${h(fmt(base.score))}/100 · ${h(row.confidence)}</span></div><small>Qualified ${h(base.anchorCount)} anchors · HIGH ≥ ${h(fmt(base.highThreshold))} · MEDIUM ≥ ${h(fmt(base.mediumThreshold))}</small><small>Direct M1/M2/OD corroboration not projected on this anchor row.</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
+    return `<div class="ciiw-evidence-stack"><div><span class="ciiw-evidence-band ${evidenceBandClass(band)}" style="${ciiEvidenceBandStyle(level)}">METHOD A BASE · ${h(fmt(base.score))}/100 · ${h(row.confidence)}</span></div><small>Qualified ${h(base.anchorCount)} anchors · HIGH ≥ ${h(fmt(base.highThreshold))} · MEDIUM ≥ ${h(fmt(base.mediumThreshold))}</small><small>Applied weightage: ${h(base.weights ? Object.values(base.weights).join(' / ') : 'default 35 / 25 / 20 / 10 / 10')} (residual / conditioning / extent / redundancy / consensus).</small><small>Direct M1/M2/OD corroboration not projected on this anchor row.</small><small class="ciiw-confidence-reason">${h(confidenceReason(row))}</small></div>`;
   }
   const m1 = row?.methodA; const m2 = row?.methodB; const od = row?.od; const name = row?.nodeName; const band = row?.corroborationBand;
   const m1Label = !m1 ? 'M1 —' : (m1.available === false ? `M1 N/A${m1.registrationStatus ? ` ${m1.registrationStatus}` : ''}` : `M1 ${m1.pass ? 'PASS' : 'FAIL'} ${fmt(m1.distanceMm)} / ${fmt(m1.toleranceMm)} mm`);
