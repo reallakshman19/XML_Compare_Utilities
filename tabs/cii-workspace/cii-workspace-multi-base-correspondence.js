@@ -27,6 +27,7 @@ function methodAQualification(loop) {
     spatialExtent: weight.spatialExtent,
     redundancy: weight.redundancy,
     basisConsensus: weight.basisConsensus,
+    weights: weight.confidenceWeights || null,
   });
 }
 function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
