@@ -1,5 +1,9 @@
 import { mountCiiWriter2MultiSourceReviewRouter as mountReviewRouter } from './cii-workspace-multisource-review-only-router.js?v=20260909-ms-review-decisions-1';
-import { setCiiMultiSourceMethodAPhysicalCandidateLimit } from './cii-workspace-source-set.js';
+import {
+  setCiiMultiSourceMethodAPhysicalCandidateLimit,
+  setCiiMultiSourceMethodAConfidenceThresholds,
+  getCiiMultiSourceMethodAConfidenceOptions,
+} from './cii-workspace-source-set.js';
 
 function genericReviewActive(container) {
   return Boolean(container.querySelector('[data-ciiw-ms-review-only-transfer="1"]') && container.querySelector('[data-ciiw-ms-review-table="1"]'));
@@ -30,6 +34,42 @@ function mountMethodASearchControl(container, initialValue = 10) {
   input.addEventListener('change', onChange); inspectButton.parentNode?.insertBefore(label, inspectButton);
   return () => { input.removeEventListener('change', onChange); label.remove(); };
 }
+function mountMethodAConfidenceControls(container, initialOptions = {}) {
+  const inspectButton = container.querySelector('[data-ciiw-inspect]');
+  const documentRef = container.ownerDocument;
+  if (!inspectButton || !documentRef || container.querySelector('[data-ciiw-method-a-high-threshold]')) return () => {};
+  const settings = documentRef.createElement('div');
+  settings.className = 'ciiw-ms-anchor-search-limit';
+  settings.setAttribute('data-ciiw-method-a-confidence-config', '1');
+  settings.innerHTML = '<label><span><b>Method A HIGH score</b><small>Default 85 / 100; raise for stricter qualification.</small></span><input type="number" min="1" max="100" step="1" data-ciiw-method-a-high-threshold aria-label="Method A HIGH minimum score"></label>'
+    + '<label><span><b>Method A MEDIUM score</b><small>Default 70 / 100; must remain below HIGH.</small></span><input type="number" min="0" max="99" step="1" data-ciiw-method-a-medium-threshold aria-label="Method A MEDIUM minimum score"></label>'
+    + '<small>Geometry confidence only. Changing this policy requires Inspect again; it does not override conflicting identity or approve changes.</small>';
+  const high = settings.querySelector('[data-ciiw-method-a-high-threshold]');
+  const medium = settings.querySelector('[data-ciiw-method-a-medium-threshold]');
+  const initial = setCiiMultiSourceMethodAConfidenceThresholds({
+    high: initialOptions.methodAHighConfidenceThreshold ?? getCiiMultiSourceMethodAConfidenceOptions().methodAHighConfidenceThreshold,
+    medium: initialOptions.methodAMediumConfidenceThreshold ?? getCiiMultiSourceMethodAConfidenceOptions().methodAMediumConfidenceThreshold,
+  });
+  high.value = String(initial.high); medium.value = String(initial.medium);
+  const onChange = () => {
+    const nextHigh = Number(high.value), nextMedium = Number(medium.value);
+    if (!Number.isFinite(nextHigh) || !Number.isFinite(nextMedium) || nextHigh <= nextMedium
+      || nextMedium < 0 || nextHigh > 100) {
+      high.value = String(getCiiMultiSourceMethodAConfidenceOptions().methodAHighConfidenceThreshold);
+      medium.value = String(getCiiMultiSourceMethodAConfidenceOptions().methodAMediumConfidenceThreshold);
+      return;
+    }
+    const next = setCiiMultiSourceMethodAConfidenceThresholds({ high: nextHigh, medium: nextMedium });
+    high.value = String(next.high); medium.value = String(next.medium);
+  };
+  high.addEventListener('change', onChange);
+  medium.addEventListener('change', onChange);
+  inspectButton.parentNode?.insertBefore(settings, inspectButton);
+  return () => {
+    high.removeEventListener('change', onChange); medium.removeEventListener('change', onChange);
+    settings.remove();
+  };
+}
 export function applyCiiGenericReviewDomFilters(container) {
   if (!genericReviewActive(container)) return Object.freeze({ active: false, total: 0, visible: 0 });
   const confidence = container.querySelector('[data-ciiw-confidence-filter]')?.value || 'ALL';
@@ -47,6 +87,7 @@ export function applyCiiGenericReviewDomFilters(container) {
 export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) {
   const core = mountReviewRouter(container, options);
   const disposeSearchControl = mountMethodASearchControl(container, options.methodAPhysicalCandidateLimit ?? 10);
+  const disposeConfidenceControl = mountMethodAConfidenceControls(container, options);
   const confidence = container.querySelector('[data-ciiw-confidence-filter]');
   const search = container.querySelector('[data-ciiw-search]');
   const changedOnly = container.querySelector('[data-ciiw-changed-only]');
@@ -75,11 +116,11 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   return {
     ...core,
     destroy() {
-      disposed = true; observer?.disconnect(); disposeSearchControl();
+      disposed = true; observer?.disconnect(); disposeSearchControl(); disposeConfidenceControl();
       container.removeEventListener('change', onChange, true); container.removeEventListener('input', onInput, true);
       core?.destroy?.();
     },
   };
 }
 
-export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches, mountMethodASearchControl });
+export const _test = Object.freeze({ genericReviewActive, confidenceForRow, changedRow, rowMatches, mountMethodASearchControl, mountMethodAConfidenceControls });
