@@ -63,7 +63,8 @@ assert.equal(snapshot.scopeIntent, 'BOUND_EXPECTED_NODENAME');
 
 const restoredAnchors = restoreCiiWriter2AnchorSession(snapshot, inspection);
 assert.ok(restoredAnchors);
-assert.deepEqual(restoredAnchors.selectedBySource.S1, [], 'manual authority must suppress automatic selection for the same SOURCE');
+assert.deepEqual(restoredAnchors.selectedBySource.S1, ['10=>100'], 'inactive automatic evidence must survive a manual-active restored session');
+assert.equal(restoredAnchors.authorityModeBySource.S1, 'MANUAL', 'legacy saved session still executes manual authority by default');
 assert.deepEqual(restoredAnchors.manualBySource.S1, [{ sourceNodeId: '3910', targetNodeId: '875' }], 'manual pairs must restore duplicate-safe');
 assert.deepEqual(restoredAnchors.selectedBySource.S2, ['20=>200']);
 assert.deepEqual(restoredAnchors.manualDraftBySource.S1, { sourceNodeId: '3940', targetNodeId: '880' });

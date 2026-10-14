@@ -64,6 +64,12 @@ function manualObject(value) {
     return sourceNodeId && targetNodeId ? [deepFreeze({ sourceNodeId, targetNodeId })] : [];
   }))]));
 }
+function modeObject(value) {
+  return frozenObject(objectEntries(value).map(([sourceId,mode])=>{
+    if(mode!=='AUTO'&&mode!=='MANUAL')throw Error('CII_MS_UNKNOWN_ANCHOR_MODE');
+    return [text(sourceId),mode];
+  }));
+}
 function draftObject(value) {
   return frozenObject(objectEntries(value).map(([sourceId, row]) => [text(sourceId), deepFreeze({
     sourceNodeId: text(row?.sourceNodeId).slice(0, 64),
@@ -107,6 +113,7 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     }) } : {}),
     selectedBySource: selectedObject(input.selectedBySource),
     manualBySource: manualObject(input.manualBySource),
+    authorityModeBySource: modeObject(input.authorityModeBySource),
     manualDraftBySource: draftObject(input.manualDraftBySource),
     reviewFilters: normalizedFilters(input.reviewFilters),
     scopeIntent: normalizedScopeIntent(input.scopeIntent),
@@ -139,7 +146,7 @@ function custodyMatches(snapshot, custody) {
 
 export function restoreCiiWriter2AnchorSnapshot(snapshot, custody, sourceIds = [], rawValidSelectionKeysBySource = {}) {
   if (!custody || !custodyMatches(snapshot, custody)) return null;
-  const selected = {}; const manual = {}; const drafts = {}; const staleSelectionSourceIds = [];
+  const selected = {}; const manual = {}; const drafts = {}; const authorityModeBySource = {}; const staleSelectionSourceIds = [];
   for (const rawSourceId of sourceIds || []) {
     const sourceId = text(rawSourceId); if (!sourceId) continue;
     const allowedRaw = rawValidSelectionKeysBySource?.[sourceId];
@@ -158,12 +165,17 @@ export function restoreCiiWriter2AnchorSnapshot(snapshot, custody, sourceIds = [
       sourceNodeId: text(snapshot?.manualDraftBySource?.[sourceId]?.sourceNodeId).slice(0, 64),
       targetNodeId: text(snapshot?.manualDraftBySource?.[sourceId]?.targetNodeId).slice(0, 64),
     });
-    if (manual[sourceId].length) selected[sourceId] = deepFreeze([]);
+    const originalMode = snapshot?.authorityModeBySource?.[sourceId];
+    // Old persisted sessions deliberately favoured manual if it was present.
+    // Preserve that effective mode, but stop discarding qualified saved auto evidence.
+    authorityModeBySource[sourceId] = originalMode === 'AUTO' || originalMode === 'MANUAL'
+      ? originalMode : manual[sourceId].length ? 'MANUAL' : 'AUTO';
   }
   return deepFreeze({
     custody,
     selectedBySource: frozenObject(Object.entries(selected)),
     manualBySource: frozenObject(Object.entries(manual)),
+    authorityModeBySource: frozenObject(Object.entries(authorityModeBySource)),
     manualDraftBySource: frozenObject(Object.entries(drafts)),
     reviewFilters: normalizedFilters(snapshot?.reviewFilters),
     scopeIntent: normalizedScopeIntent(snapshot?.scopeIntent),

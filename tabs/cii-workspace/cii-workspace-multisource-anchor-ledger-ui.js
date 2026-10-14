@@ -1,3 +1,4 @@
+import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
 import {
   ciiQualifiedLoopsForSuggestion,
   ciiSuggestionSelectionKey,
@@ -139,26 +140,33 @@ function summary(inspection, rows) {
   };
 }
 
-function manualRowMarkup(row) {
-  return `<tr data-ciiw-ms-anchor-ledger-row="manual"><td><b>${h(row.sourceId)}</b></td><td><span class="ciiw-corroboration">USER LOCKED</span></td>
+function manualRowMarkup(row, active) {
+  return `<tr data-ciiw-ms-anchor-ledger-row="manual" data-ciiw-ms-ledger-lane="${active ? 'ACTIVE' : 'RETAINED'}"><td><b>${h(row.sourceId)}</b></td><td><span class="ciiw-corroboration">USER LOCKED</span></td>
 <td><input class="ciiw-ms-ledger-node" type="text" inputmode="numeric" value="${h(row.sourceNodeId)}" aria-label="${h(row.sourceId)} SOURCE anchor node" data-ciiw-ms-ledger-source data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}"></td>
 <td><input class="ciiw-ms-ledger-node" type="text" inputmode="numeric" value="${h(row.targetNodeId)}" aria-label="${h(row.sourceId)} TARGET anchor node" data-ciiw-ms-ledger-target data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}"></td>
-<td><b>LOCKED</b><small>reviewed node pair</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-update data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}">Update</button><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}">Remove</button></td></tr>`;
+<td><b>${active ? 'ACTIVE' : 'RETAINED'}</b><small>user-reviewed pair, not certified identity</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-update data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}">Update</button><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-index="${h(row.manualIndex)}">Remove</button></td></tr>`;
 }
 
-function automaticRowMarkup(row) {
-  return `<tr data-ciiw-ms-anchor-ledger-row="automatic"><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.authority)}</b><small>${h(row.baseId || 'qualified base')}</small></td><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td><b>SELECTED</b><small>method-qualified</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-auto-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-selection-key="${h(row.selectionKey)}">Remove base</button></td></tr>`;
+function automaticRowMarkup(row, active) {
+  return `<tr data-ciiw-ms-anchor-ledger-row="automatic" data-ciiw-ms-ledger-lane="${active ? 'ACTIVE' : 'RETAINED'}"><td><b>${h(row.sourceId)}</b></td><td><b>${h(row.authority)}</b><small>${h(row.baseId || 'qualified base')}</small></td><td>${h(row.sourceNodeId)}</td><td>${h(row.targetNodeId)}</td><td><b>${active ? 'ACTIVE' : 'RETAINED'}</b><small>method-qualified; not certified identity</small></td><td class="ciiw-ms-ledger-actions"><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-ledger-auto-remove data-ciiw-ms-ledger-source-id="${h(row.sourceId)}" data-ciiw-ms-ledger-selection-key="${h(row.selectionKey)}">Remove base</button></td></tr>`;
 }
 
-export function ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource) {
+export function ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource, modeBySource = new Map()) {
   const rows = ciiMultiSourceAnchorLedgerRows(inspection, selectedBySource, manualBySource);
   const counts = summary(inspection, rows);
+  const projection = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
+  const activeModeBySource = new Map(projection.rows.map((item) => [item.sourceId, item.activeMode]));
+  const activeCount = projection.rows.filter((item) => item.activeReady).length;
   const body = rows.length
-    ? `<table class="ciiw-mini-grid ciiw-ms-anchor-ledger-table"><thead><tr><th>Source</th><th>Authority</th><th>SOURCE node</th><th>TARGET node</th><th>State</th><th>Action</th></tr></thead><tbody>${rows.map((row) => row.authority === 'USER LOCKED' ? manualRowMarkup(row) : automaticRowMarkup(row)).join('')}</tbody></table>`
-    : '<p class="ciiw-ms-anchor-ledger-empty">No anchor authority selected yet. Choose a qualified Method A/B base or add a reviewed manual anchor below.</p>';
-  const ready = counts.memberCount > 0 && counts.coveredCount === counts.memberCount;
-  const next = `<div class="ciiw-ms-next-step"><div><b>${ready ? 'Anchor authority READY' : 'Anchor authority incomplete'}</b><span>${ready ? 'Next: build S1/S2/S3 correspondence. The Compare Review tab is navigation only.' : 'Cover every SOURCE member before comparison.'}</span></div><button type="button" data-ciiw-ms-compare-now ${ready ? '' : 'disabled'}>Compare models →</button></div>`;
-  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(counts.coveredCount)} / ${h(counts.memberCount)} SOURCE members covered · ${h(counts.manualCount)} manual locked · ${h(counts.automaticBaseCount)} automatic bases · ${h(counts.automaticPairCount)} anchor pairs</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This is the authoritative list of anchors currently chosen for S1/S2/S3. Manual rows are editable here; updating a row changes the next Compare input. A review-only proposal becomes authority only through <b>Approve anchor</b> or <b>Add reviewed anchor</b>, both of which create an exact USER LOCKED pair.</p>${body}${next}</section>${proposalRationaleMarkup(inspection, manualBySource)}`;
+    ? `<table class="ciiw-mini-grid ciiw-ms-anchor-ledger-table"><thead><tr><th>Source</th><th>Authority</th><th>SOURCE node</th><th>TARGET node</th><th>State</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
+      const mode = activeModeBySource.get(row.sourceId);
+      const active = mode === (row.authority === 'USER LOCKED' ? 'MANUAL' : 'AUTO');
+      return row.authority === 'USER LOCKED' ? manualRowMarkup(row, active) : automaticRowMarkup(row, active);
+    }).join('')}</tbody></table>`
+    : '<p class="ciiw-ms-anchor-ledger-empty">No anchor evidence selected yet. Choose a qualified Method A/B base or add a reviewed manual anchor below.</p>';
+  const ready = projection.ready;
+  const next = `<div class="ciiw-ms-next-step"><div><b>${ready ? 'Anchor authority READY' : 'Anchor authority incomplete'}</b><span>${ready ? 'Active authority is available per SOURCE. Build S1/S2/S3 correspondence; physical certification remains separate.' : 'Select a nonempty ACTIVE authority lane for every SOURCE before Compare.'}</span></div><button type="button" data-ciiw-ms-compare-now ${ready ? '' : 'disabled'}>Compare models →</button></div>`;
+  return `<section class="ciiw-base-set ciiw-ms-anchor-ledger" data-ciiw-ms-anchor-ledger="1"><header><div><b>Source-set Anchor Authority</b><span>${h(activeCount)} / ${h(counts.memberCount)} SOURCE members covered by ACTIVE authority · ${h(counts.manualCount)} manual locked · ${h(counts.automaticBaseCount)} automatic bases · ${h(counts.automaticPairCount)} anchor pairs retained</span></div><span class="ciiw-corroboration">MASTER LEDGER</span></header><p>This ledger preserves both source-evidence lanes, but Compare uses only the ACTIVE lane of each SOURCE. RETAINED evidence is not applied. LOCKED and method-qualified do not mean independently certified physical identity. Editing a row invalidates prior Compare and Writer scope.</p>${body}${next}</section>${proposalRationaleMarkup(inspection, manualBySource)}`;
 }
 
 export const _test = Object.freeze({ automaticAuthorityRows, manualAuthorityRows, summary, proposalSessionKey, approvedProposalKeys, proposalRationaleRows, proposalRationaleMarkup });
