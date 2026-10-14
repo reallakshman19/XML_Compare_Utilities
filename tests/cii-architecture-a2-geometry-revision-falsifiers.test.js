@@ -684,8 +684,8 @@ const a208Synthetic=syntheticA207();
 // The A2-07 minimal fixture predates A2-06's explicit island-count receipt;
 // make it a fully schema-consistent independent A2-08 input.
 a208Synthetic.triage.summary.missingIslandCount=1;
+a208Synthetic.triage.missingIslands[0].missingElementCount=2;
 const a208SyntheticAudit=investigateCiiA207IndependentRoutes(a208Synthetic);
-console.log('A208_SYNTHETIC_DIAGNOSTIC',JSON.stringify(a208SyntheticAudit.islands.map(x=>({status:x.status,missing:x.missingElementCount,ids:x.orderedSourceElementIds,nodes:x.physicalSourceNodePath,anchors:x.startingTargetCandidates}))));
 const a208S=investigateCiiA208GeometryRevision({
   routeAudit:a208SyntheticAudit,...a208Synthetic,
 });
