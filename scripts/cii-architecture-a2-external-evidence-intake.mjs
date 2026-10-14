@@ -160,7 +160,8 @@ function rootsOf(roots){
  const m=new Map();
  for(const root of roots){
   if(!keys(root,['keyId','publicKeyPem'])||!str(root.keyId,96)
-   ||typeof root.publicKeyPem!=='string'||root.publicKeyPem.length>8192\n   ||!root.publicKeyPem.includes('-----BEGIN PUBLIC KEY-----')||m.has(root.keyId))fail('INVALID_TRUST_ROOT');
+   ||typeof root.publicKeyPem!=='string'||root.publicKeyPem.length>8192
+   ||!root.publicKeyPem.includes('-----BEGIN PUBLIC KEY-----')||m.has(root.keyId))fail('INVALID_TRUST_ROOT');
   m.set(root.keyId,root.publicKeyPem);
  }
  return m;
