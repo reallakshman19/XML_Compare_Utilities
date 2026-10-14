@@ -1,0 +1,42 @@
+name: CII A2 Missing Endpoint Frontier Recovery
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow04-frontier-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-frontier-recovery.mjs'
+      - 'tests/cii-architecture-a2-frontier-recovery.test.js'
+      - '.github/workflows/cii-architecture-a2-frontier-recovery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-shadow-frontier:
+    name: Authentic 49-factor frontier and provisional recovery (no Writer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-01 additive candidate evidence precondition
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 physical NODE/ELEMENT/PATH constraint baseline
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global CSP no-writer and completeness baseline
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 bounded speculative frontier and real original CII falsifiers
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js --out=test-results/cii-a2-04/frontier-recovery-original.json
+      - name: Retain exact 49-factor and 22-proposal full JSON forensic receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-04-frontier-recovery-evidence
+          path: test-results/cii-a2-04/frontier-recovery-original.json
+          if-no-files-found: warn
+          retention-days: 14
