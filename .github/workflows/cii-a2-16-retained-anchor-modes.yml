@@ -6,9 +6,11 @@ on:
   pull_request:
     paths:
       - 'tabs/cii-workspace/cii-workspace-multisource-anchor-mode.js'
+      - 'tabs/cii-workspace/cii-workspace-multisource-anchor-ledger-ui.js'
       - 'tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js'
       - 'tabs/cii-workspace/cii-workspace-multisource-session-persistence.js'
       - 'tests/cii-workspace-multisource-anchor-mode.test.js'
+      - 'tests/cii-workspace-multisource-ledger-active-readiness.test.js'
       - 'tests/cii-workspace-multisource-manual-anchor-ui.test.js'
       - 'tests/cii-workspace-multisource-session-persistence.test.js'
       - '.github/workflows/cii-a2-16-retained-anchor-modes.yml'
@@ -37,6 +39,8 @@ jobs:
           node --check tabs/cii-workspace/cii-workspace-multisource-session-persistence.js
       - name: A2-16 explicit authority evidence ledger and persistence
         run: node tests/cii-workspace-multisource-anchor-mode.test.js
+      - name: A2-16 master-ledger active-vs-retained authority readiness
+        run: node tests/cii-workspace-multisource-ledger-active-readiness.test.js
       - name: Retained manual-source mapping and SHA
         run: node tests/cii-workspace-multisource-manual-anchor-ui.test.js
       - name: Restored hash-bound writer session
