@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: A2-08 geometry revision forensic counterfactual and negative controls
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js --out=test-results/cii-a2-08/original-geometry-revision.json
       - name: A2-01 authentic original joint hypotheses
         run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
       - name: A2-02 authentic physical path factors
@@ -38,8 +40,6 @@ jobs:
         run: node tests/cii-architecture-a2-island-triage.test.js
       - name: A2-07 original dual/single island route witnesses
         run: node tests/cii-architecture-a2-independent-island-routes.test.js
-      - name: A2-08 geometry revision forensic counterfactual and negative controls
-        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js --out=test-results/cii-a2-08/original-geometry-revision.json
       - name: Retain full SHA-bound original vector, bend and revision sensitivity ledger
         if: always()
         uses: actions/upload-artifact@v4
