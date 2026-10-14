@@ -30,7 +30,7 @@ const DEFAULT=Object.freeze({
  maxHeldOutSourceNodes:32,
  triangleDistanceToleranceMm:25,minTriangleSine:0.03,
  heldOutToleranceMm:25,ambiguousDistanceGapMm:3,
- minHeldOutMatches:2,minHeldOutOutOfPlaneMm:5,
+ minHeldOutMatches:2,minHeldOutOutOfPlaneMm:5,minHeldOutCoverageFraction:0.9,
 });
 function policyOf(o={}){
  const p={...DEFAULT,...o};
@@ -42,6 +42,7 @@ function policyOf(o={}){
  ['minTriangleSine',0.000001,1],['heldOutToleranceMm',0,5000],
  ['ambiguousDistanceGapMm',0,1000],['minHeldOutMatches',2,30],
  ['minHeldOutOutOfPlaneMm',0.000001,100000],
+ ['minHeldOutCoverageFraction',0.5,1],
  ]){
   if(!Number.isFinite(p[key])||p[key]<lo||p[key]>hi
     ||(key.startsWith('max')||key==='minHeldOutMatches')&&!Number.isSafeInteger(p[key]))
@@ -163,7 +164,11 @@ function evaluateTriple(s,t,sNodes,tNodes,p){
  const fitSource=new Set(sNodes.map(x=>x.id)),fitTarget=new Set(tNodes.map(x=>x.id));
  const held=matchHeldOut({...transformResult,targetRowsBySignature:t.bySignature},
     s,fitSource,fitTarget,p);
+ const heldOutCoverageFraction=held.heldoutSourceRowsInspected>0
+  ?held.matches.length/held.heldoutSourceRowsInspected:0;
  const qualified=held.matches.length>=p.minHeldOutMatches
+  &&heldOutCoverageFraction>=p.minHeldOutCoverageFraction
+  &&!held.heldoutScanTruncated
   &&held.maxOutOfPlaneMm>=p.minHeldOutOutOfPlaneMm;
  return {
   sourceFitNodes:sNodes.map(x=>x.id),targetFitNodes:tNodes.map(x=>x.id),
@@ -174,6 +179,7 @@ function evaluateTriple(s,t,sNodes,tNodes,p){
   translationMm:transformResult.rot.map((row,i)=>
     round(transformResult.tf.origin[i]-dot(row,transformResult.sf.origin))),
   heldOut:held,
+  heldOutCoverageFraction:round(heldOutCoverageFraction),
   distinctHeldOutMatchedCount:held.matches.length,
   evaluation:qualified?'BOUNDED_TOPOLOGY_HELDOUT_SUPPORTED_NOT_CERTIFIED':
     'INSUFFICIENT_INDEPENDENT_3D_HELDOUT_GEOMETRIC_SUPPORT',
@@ -301,7 +307,7 @@ export function discoverCiiA210NativeGeometryHypotheses({
    'HOLDOUT_MATCHES_DERIVED_FROM_SAME_UNQUALIFIED_GEOMETRY_NOT_INDEPENDENT_SURVEY',
    'TOPOLOGY_SIGNATURE_AND_BOUNDS_MAY_EXCLUDE_GENUINE_GEOMETRY_REVISIONS',
    'SOURCE_TRIANGLE_AND_TARGET_CANDIDATE_SAMPLING_ARE_INCOMPLETE_BY_DESIGN',
-   'REFLECTION_OR_MIRROR_SYMMETRY_NEEDS_NONCOPLANAR_HELDOUT',
+   'REFLECTION_OR_MIRROR_SYMMETRY_NEEDS_NONCOPLANAR_HELDOUT_AND_HIGH_COVERAGE',
    'ZERO_NODE_ELEMENT_CERTIFICATIONS_ZERO_WRITER_SCOPE',
   ],
  });
