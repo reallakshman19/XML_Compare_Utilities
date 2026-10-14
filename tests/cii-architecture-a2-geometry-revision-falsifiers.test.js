@@ -685,6 +685,7 @@ const a208Synthetic=syntheticA207();
 // make it a fully schema-consistent independent A2-08 input.
 a208Synthetic.triage.summary.missingIslandCount=1;
 const a208SyntheticAudit=investigateCiiA207IndependentRoutes(a208Synthetic);
+console.log('A208_SYNTHETIC_DIAGNOSTIC',JSON.stringify(a208SyntheticAudit.islands.map(x=>({status:x.status,missing:x.missingElementCount,ids:x.orderedSourceElementIds,nodes:x.physicalSourceNodePath,anchors:x.startingTargetCandidates}))));
 const a208S=investigateCiiA208GeometryRevision({
   routeAudit:a208SyntheticAudit,...a208Synthetic,
 });
