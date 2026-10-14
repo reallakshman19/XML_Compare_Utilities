@@ -201,7 +201,7 @@ function zoneEvidence({name,sourceIds,missing,source,target,assigned,discrepancy
   targetPathParts.push(shortestPath(target,a.targetNodeHypothesis,b.targetNodeHypothesis,
    p.maxPhysicalEdgesPerPath,p.maxShortestPathVisits));
  }
- const pathComplete=sourcePathParts.every(x=>x.nodes.length>0)
+ const pathComplete=sourcePathParts.length>0&&sourcePathParts.every(x=>x.nodes.length>0)
   &&targetPathParts.every(x=>x.nodes.length>0);
  const R=discrepancy.reviewCandidate?.rotationRows;
  const srcDisp=source.nodes.has(selected[0])&&source.nodes.has(selected.at(-1))
@@ -242,7 +242,8 @@ function zoneEvidence({name,sourceIds,missing,source,target,assigned,discrepancy
  const independentClosure=distinctBoundaryEnds.size>=p.minIndependentBoundaryEnds
   &&outside.every(x=>x.hasStrictPhysicalBoundaryWitness)
   &&conflicts.length===0;
- const coherentTranslation=len(centroid)>=p.translationMagnitudeMinimumMm
+ const coherentTranslation=members.length>=3
+  &&len(centroid)>=p.translationMagnitudeMinimumMm
   &&maxSpread<=p.coherentTranslationToleranceMm;
  return freeze({
   zoneName:name,originalSourceNodes:selected,
