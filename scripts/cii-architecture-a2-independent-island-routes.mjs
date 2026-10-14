@@ -203,7 +203,23 @@ function projectIsland(island,sourceIndex,target,rows,p,globalCounts){
     boundaryAnchors:[],targetEndBoundaryCandidates:finish,
     fullRouteWitnesses:[],maximumCompletedSourceEdges:0,truncated:false,
   });
-  const startNodes=new Set(startingCandidates);
+  const firstPhysicalSourceEdge=source.ordered[0];
+  const firstBoundaryNeighbourhood=startingCandidates.map(anchor=>({
+    anchor,
+    sourceFirstElementId:firstPhysicalSourceEdge.sourceElementId,
+    sourceFirstLengthMm:firstPhysicalSourceEdge.lengthMm,
+    sourceFirstComponentKind:firstPhysicalSourceEdge.kind,
+    targetIncidentPhysicalElements:[...(target.g.adjacency.get(anchor)||[])]
+      .sort((a,b)=>cmp(eid(a),eid(b))).slice(0,20).map(e=>({
+        elementId:eid(e),otherTargetNode:nextNode(e,anchor),
+        lengthMm:len(e),componentKind:str(e.componentKind),
+        lengthDeltaMm:Math.abs(len(e)-firstPhysicalSourceEdge.lengthMm),
+        couldBeSingleEdgeLengthCompatible:Math.abs(len(e)-firstPhysicalSourceEdge.lengthMm)
+          <=Math.min(p.lengthToleranceMm,
+             Math.max(0.001,p.relativeLengthTolerance*firstPhysicalSourceEdge.lengthMm))+1e-8,
+      })),
+    incidentListTruncated:(target.g.adjacency.get(anchor)||[]).length>20,
+  }));
   const resourcesReserved=new Map();
   for(const row of rows.values())for(const t of row.targets||[]){
     if(!resourcesReserved.has(t))resourcesReserved.set(t,[]);
@@ -243,9 +259,13 @@ function projectIsland(island,sourceIndex,target,rows,p,globalCounts){
         if(depth===source.ordered.length-1&&isDual&&!finish.includes(option.end)){
           rejection.rejectedEndpointNotInBoundaryCandidates++;continue;
         }
-        const realOriginal=resourcesReserved.get(option.end)||[];
         const correctKey=island.sourceMember+':'+edge.to;
-        const knownOther=realOriginal.filter(key=>key!==correctKey);
+        // Watch every TARGET node in the newly selected path, not only the
+        // endpoint. An intermediate subdivision NODE already claimed as a
+        // physical SOURCE NODE elsewhere must remain an explicit conflict.
+        const knownOther=sorted(new Set(option.nodes.slice(1)
+          .flatMap(node=>resourcesReserved.get(node)||[])
+          .filter(key=>key!==correctKey)));
         // This is an *advisory conflict*, not a categorical identity veto;
         // do not pretend we independently know which existing claim is correct.
         let turn=null;
@@ -318,6 +338,7 @@ function projectIsland(island,sourceIndex,target,rows,p,globalCounts){
     boundaryMode:isDual?'DUAL_BOUNDARY':'SINGLE_BOUNDARY',
     startingBoundarySourceNode:source.nodes[0],endingBoundarySourceNode:source.nodes.at(-1),
     startingTargetCandidates:begin,endingTargetCandidates:finish,
+    firstBoundaryNeighbourhood,
     missingElementCount:island.missingElementCount,
     maximumCompletedSourceEdges:maxCompleted,
     fullRouteWitnesses:witnesses,
