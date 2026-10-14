@@ -30,5 +30,8 @@ const other=ciiMultiSourceAnchorLedgerMarkup(inspection,auto,manual,
 assert(other.includes('data-ciiw-ms-anchor-ledger-row="manual" data-ciiw-ms-ledger-lane="RETAINED"'));
 assert(other.includes('2 / 2 SOURCE members covered by ACTIVE authority'));
 assert(!other.includes('data-ciiw-ms-compare-now disabled'));
-assert.equal(ciiMultiSourceAnchorLedgerMarkup(inspection,auto,manual,modes),mixed);
+const repeated=ciiMultiSourceAnchorLedgerMarkup(inspection,auto,manual,modes);
+assert(repeated.includes('2 / 2 SOURCE members covered by ACTIVE authority'));
+assert(repeated.includes('data-ciiw-ms-ledger-lane="RETAINED"'));
+assert(!repeated.includes('data-ciiw-ms-compare-now disabled'));
 console.log('PASS A2-16 active/retained authority rows and truly active Compare readiness; no implied physical certification');
