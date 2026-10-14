@@ -69,11 +69,12 @@ assert.equal(oneToOne.edgeRows[0].pathWitnesses[0].relation,'ELEMENT_1_TO_1');
 
 const odBad=inspectCiiA2PhysicalConstraints({...base,targetGraph:graph('TARGET',h('3'),
   [['ET1','X','M',4,200],['ET2','M','Y',6,200]])});
-assert.equal(odBad.edgeRows[0].status,'NO_COMPATIBLE_BOUNDED_PATH');
-assert(odBad.edgeRows[0].invalidCandidatePairs[0].reasons.includes('ELEMENT_OD_MISMATCH'));
+assert.equal(odBad.edgeRows[0].status,'LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS');
+assert(odBad.edgeRows[0].pathWitnesses[0].propertyWarnings.includes('ELEMENT_OD_ENGINEERING_REVISION_DIFFERENCE'));
 const wallBad=inspectCiiA2PhysicalConstraints({...base,targetGraph:graph('TARGET',h('3'),
   [['ET1','X','M',4,100,15],['ET2','M','Y',6,100,15]])});
-assert(wallBad.edgeRows[0].invalidCandidatePairs[0].reasons.includes('ELEMENT_WALL_MISMATCH'));
+assert.equal(wallBad.edgeRows[0].status,'LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS');
+assert(wallBad.edgeRows[0].pathWitnesses[0].propertyWarnings.includes('ELEMENT_WALL_ENGINEERING_REVISION_DIFFERENCE'));
 const lengthBad=inspectCiiA2PhysicalConstraints({...base,targetGraph:graph('TARGET',h('3'),
   [['ET1','X','M',40],['ET2','M','Y',60]])});
 assert(lengthBad.edgeRows[0].invalidCandidatePairs[0].reasons.includes('PATH_LENGTH_MISMATCH'));
@@ -175,6 +176,8 @@ console.log('A2P_ORIGINAL_FORENSICS',JSON.stringify({
       status:x.status,pairs:x.candidatePairCount,
       invalid:x.invalidCandidatePairs.slice(0,3)})),
 }));
+assert(real.edgeRows.some(x=>x.status==='LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS'),
+  'authentic T wall-revision differences must be observations, not a blanket physical identity veto');
 assert(real.edgeRows.some(x=>x.candidatePairCount>0),
   'authentic SOURCE set should contain a physical edge with two NODE candidate endpoints');
 assert.equal(real.writerReady,false);
