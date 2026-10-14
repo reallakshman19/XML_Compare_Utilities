@@ -438,6 +438,18 @@ assert(giantA207.firstBoundaryNeighbourhood.length>=1,
 assert(giantA207.firstBoundaryNeighbourhood.every(x=>x.sourceFirstElementId
   ===giantA207.orderedSourceElementIds[0]));
 assert(giantA207.firstBoundaryNeighbourhood.every(x=>x.sourceFirstLengthMm>0));
+assert.equal(giantA207.firstBoundaryNeighbourhood.length,1);
+assert.equal(giantA207.firstBoundaryNeighbourhood[0].anchor,'1060');
+assert.equal(giantA207.firstBoundaryNeighbourhood[0].sourceFirstElementId,'E42:4960->4970');
+assert.equal(giantA207.firstBoundaryNeighbourhood[0].sourceFirstComponentKind,'BEND');
+assert.equal(giantA207.firstBoundaryNeighbourhood[0].sourceFirstLengthMm,3027);
+const actualS1TargetIncidents=giantA207.firstBoundaryNeighbourhood[0].targetIncidentPhysicalElements;
+assert.deepEqual(actualS1TargetIncidents.map(e=>e.elementId),
+  ['E212:1055->1060','E213:1060->1065']);
+assert.deepEqual(actualS1TargetIncidents.map(e=>[e.componentKind,e.lengthMm,e.lengthDeltaMm]),
+  [['PIPE',6500,3473],['BEND',2727,300]]);
+assert(actualS1TargetIncidents.every(e=>e.couldBeSingleEdgeLengthCompatible===false),
+  'source BEND 3027mm must not be silently treated as the 2727mm target BEND');
 assert(giantA207.firstBoundaryNeighbourhood.every(x=>
   x.targetIncidentPhysicalElements.every(e=>e.lengthMm>0&&e.elementId)));
 for(const island of originalRoutes.islands){
