@@ -2,6 +2,7 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
+import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
 import {
   buildCiiSelectedBaseLoops,
   ciiAutomaticBaseSelection,
@@ -131,7 +132,7 @@ function renderMemberAnchors(inspection, selectedBySource, manualBySource = new 
   const members = inspection?.memberInspections || [];
   const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource, modeBySource);
   const effective = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
-  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${members.map((item) => {
+  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}<div data-ciiw-geometry-review-host="1"></div>${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
     const authority = effective.rows.find((row) => row.sourceId === item.sourceId);
     const warning = authority?.contradictoryManualPairs.length
@@ -246,6 +247,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   sourceInput.multiple = true;
   const persistenceStorage = writer2PersistenceStorage(container, options);
   let disposed = false; let inspection = null; let preparedSession = null; let commonAnalysisCache = null;
+  const geometryReviewState = {draft:{...CII_A217_DEFAULT_DRAFT},receipt:null};
   let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
@@ -303,7 +305,11 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const activeAnchorPlan = () => buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, authorityModeBySource);
   const authorityReady = () => activeAnchorPlan().ready;
   const refreshAnchorEvidence = () => {
-    if (evidence && inspection) { evidence.innerHTML = renderMemberAnchors(inspection, selectedBySource, manualBySource, manualDraftBySource, authorityModeBySource); bindAnchorActions(); }
+    if (evidence && inspection) {
+      evidence.innerHTML = renderMemberAnchors(inspection, selectedBySource, manualBySource, manualDraftBySource, authorityModeBySource);
+      if (preparedSession) renderCiiGeometryDiscrepancyReviewPanel(evidence.querySelector('[data-ciiw-geometry-review-host]'),preparedSession,geometryReviewState);
+      bindAnchorActions();
+    }
     analyzeButton.disabled = !authorityReady();
   };
   const renderTransfer = () => {
@@ -322,6 +328,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     reviewDirty = true; scopedPreview = null; restoredScopeIntent = null; renderMultiReview(); renderTransfer(); persistSession(); setMultiSourceStatus(container, message);
   };
   const resetMulti = () => {
+    Object.assign(geometryReviewState.draft,CII_A217_DEFAULT_DRAFT);
+    geometryReviewState.receipt=null;
+    if(evidence)evidence.innerHTML='';
     inspection = null; preparedSession = null; commonAnalysisCache = null;
     cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
     sessionCustody = null; loadedSession = null; reviewRestoreAllowed = false; restoredScopeIntent = null;
