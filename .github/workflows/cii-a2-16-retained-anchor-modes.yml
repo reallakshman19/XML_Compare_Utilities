@@ -12,6 +12,9 @@ on:
       - 'tests/cii-workspace-multisource-manual-anchor-ui.test.js'
       - 'tests/cii-workspace-multisource-session-persistence.test.js'
       - '.github/workflows/cii-a2-16-retained-anchor-modes.yml'
+      - 'tests/browser/cii-writer2-a2-16-anchor-modes.spec.mjs'
+      - 'tests/browser/cii-writer2-multisource-session-persistence.spec.mjs'
+      - 'playwright.cii-a2-16.config.mjs'
 
 permissions:
   contents: read
@@ -52,3 +55,31 @@ jobs:
         run: node tests/cii-workspace-multisource-review-only-router.test.js
       - name: Retained independent partial expected target benchmark
         run: node tests/cii-workspace-multisource-texpected-benchmark.test.js
+
+  browser-anchor-lifecycle:
+    name: Real Chromium retained and manual authority mode lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked JS dependencies
+        run: npm ci --ignore-scripts
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser A2-16 mode switching and restored session
+        run: npx playwright test --config=playwright.cii-a2-16.config.mjs
+      - name: Retain Chromium failures and JSON receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-16-chromium-review
+          path: |
+            test-results/cii-a2-16-browser
+            test-results/cii-a2-16-browser.json
+          if-no-files-found: warn
+          retention-days: 14
