@@ -31,6 +31,7 @@ const DEFAULT=Object.freeze({
  triangleDistanceToleranceMm:25,minTriangleSine:0.03,
  heldOutToleranceMm:25,ambiguousDistanceGapMm:3,
  minHeldOutMatches:2,minHeldOutOutOfPlaneMm:5,minHeldOutCoverageFraction:0.9,
+ minHeldOutEdgeChecks:2,minHeldOutEdgeAgreementFraction:0.95,
 });
 function policyOf(o={}){
  const p={...DEFAULT,...o};
@@ -43,6 +44,7 @@ function policyOf(o={}){
  ['ambiguousDistanceGapMm',0,1000],['minHeldOutMatches',2,30],
  ['minHeldOutOutOfPlaneMm',0.000001,100000],
  ['minHeldOutCoverageFraction',0.5,1],
+ ['minHeldOutEdgeChecks',1,100],['minHeldOutEdgeAgreementFraction',0.5,1],
  ]){
   if(!Number.isFinite(p[key])||p[key]<lo||p[key]>hi
     ||(key.startsWith('max')||key==='minHeldOutMatches')&&!Number.isSafeInteger(p[key]))
@@ -157,6 +159,29 @@ function matchHeldOut(t,s,fitSourceIds,fitTargetIds,p){
   heldoutSourceRowsInspected:sRows.length,heldoutScanTruncated:
     [...s.nodes.values()].filter(x=>x.pos&&!fitSourceIds.has(x.id)).length>sRows.length};
 }
+function heldOutEdgeAgreement(source,target,fitSourceNodes,fitTargetNodes,heldOutMatches){
+ const assigned=new Map(fitSourceNodes.map((x,i)=>[x.id,fitTargetNodes[i].id]));
+ const held=new Set(heldOutMatches.map(x=>x.sourceNodeId));
+ for(const match of heldOutMatches)assigned.set(match.sourceNodeId,match.targetNodeId);
+ const checks=[];
+ for(const edge of source.edges.values()){
+  const a=String(edge.from),b=String(edge.to);
+  if(!assigned.has(a)||!assigned.has(b)||!(held.has(a)||held.has(b)))continue;
+  const ta=assigned.get(a),tb=assigned.get(b);
+  const found=(target.adjacency.get(ta)||[]).some(e=>{
+   const first=String(e.from),last=String(e.to);
+   return ((first===ta&&last===tb)||(first===tb&&last===ta))
+    &&String(e.componentKind)===String(edge.componentKind);
+  });
+  checks.push({sourceElementId:String(edge.elementId),
+   sourceEndpointIds:[a,b],targetEndpointIds:[ta,tb],
+   componentKind:String(edge.componentKind),topologyAgreement:found});
+ }
+ return {independentSourceEdgesChecked:checks.length,
+  compatibleSourceEdges:checks.filter(x=>x.topologyAgreement).length,
+  agreementFraction:checks.length?round(checks.filter(x=>x.topologyAgreement).length/checks.length):0,
+  checks:checks.slice(0,40),edgeEvidenceTruncated:checks.length>40};
+}
 function evaluateTriple(s,t,sNodes,tNodes,p){
  const sPositions=sNodes.map(x=>x.pos),tPositions=tNodes.map(x=>x.pos);
  const transformResult=transform(sPositions,tPositions,p);
@@ -166,10 +191,13 @@ function evaluateTriple(s,t,sNodes,tNodes,p){
     s,fitSource,fitTarget,p);
  const heldOutCoverageFraction=held.heldoutSourceRowsInspected>0
   ?held.matches.length/held.heldoutSourceRowsInspected:0;
+ const topology=heldOutEdgeAgreement(s,t,sNodes,tNodes,held.matches);
  const qualified=held.matches.length>=p.minHeldOutMatches
   &&heldOutCoverageFraction>=p.minHeldOutCoverageFraction
   &&!held.heldoutScanTruncated
-  &&held.maxOutOfPlaneMm>=p.minHeldOutOutOfPlaneMm;
+  &&held.maxOutOfPlaneMm>=p.minHeldOutOutOfPlaneMm
+  &&topology.independentSourceEdgesChecked>=p.minHeldOutEdgeChecks
+  &&topology.agreementFraction>=p.minHeldOutEdgeAgreementFraction;
  return {
   sourceFitNodes:sNodes.map(x=>x.id),targetFitNodes:tNodes.map(x=>x.id),
   fitResidualsMm:transformResult.residual.map(round),
@@ -178,7 +206,7 @@ function evaluateTriple(s,t,sNodes,tNodes,p){
   rotationRows:transformResult.rot.map(row=>row.map(round)),
   translationMm:transformResult.rot.map((row,i)=>
     round(transformResult.tf.origin[i]-dot(row,transformResult.sf.origin))),
-  heldOut:held,
+  heldOut:held,heldOutTopology:topology,
   heldOutCoverageFraction:round(heldOutCoverageFraction),
   distinctHeldOutMatchedCount:held.matches.length,
   evaluation:qualified?'BOUNDED_TOPOLOGY_HELDOUT_SUPPORTED_NOT_CERTIFIED':
@@ -305,6 +333,7 @@ export function discoverCiiA210NativeGeometryHypotheses({
    'NO_INDEPENDENT_SURVEY_OR_EXTERNAL_NODE_PAIR_AUTHORITY',
    'NATIVE_SHAPE_SEEDS_DO_NOT_PROVE_TARGET_IDENTITY',
    'HOLDOUT_MATCHES_DERIVED_FROM_SAME_UNQUALIFIED_GEOMETRY_NOT_INDEPENDENT_SURVEY',
+   'HELDOUT_PHYSICAL_EDGES_CHECKED_WITHOUT_FIT_TRIANGLE_EDGE_LEAKAGE',
    'TOPOLOGY_SIGNATURE_AND_BOUNDS_MAY_EXCLUDE_GENUINE_GEOMETRY_REVISIONS',
    'SOURCE_TRIANGLE_AND_TARGET_CANDIDATE_SAMPLING_ARE_INCOMPLETE_BY_DESIGN',
    'REFLECTION_OR_MIRROR_SYMMETRY_NEEDS_NONCOPLANAR_HELDOUT_AND_HIGH_COVERAGE',
