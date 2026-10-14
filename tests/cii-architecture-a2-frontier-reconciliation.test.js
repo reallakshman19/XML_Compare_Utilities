@@ -243,7 +243,7 @@ const repeat=reconcileCiiA2RecoveredFrontier(originalOpts);
 assert.equal(JSON.stringify(evaluated),JSON.stringify(repeat));
 
 const alteredTarget=structuredClone(real);
-alteredTarget.originalTargetSha256='f'.repeat(64);
+alteredTarget.proposals[0].originalTargetSha256='f'.repeat(64);
 assert.throws(()=>reconcileCiiA2RecoveredFrontier({...originalOpts,frontier:alteredTarget}),
   /FRONTIER_CLAIM_IDENTITY_OR_EVIDENCE_DIGEST_INVALID|FRONTIER_PROVENANCE_OR_POLICY_STALE/);
 const staleDigest=structuredClone(real);
