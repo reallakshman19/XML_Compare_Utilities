@@ -92,4 +92,11 @@ for(const token of ['data-ciiw-ms-authority-switch','activeAnchorPlan().baseLoop
  assert(ui.includes(token),'UI authority separation '+token);
 assert(!ui.includes('selectedBySource.set(id, new Set());'));
 assert(!ui.includes('manualBySource.set(id, []); manualDraftBySource'));
+for(const token of ['data-ciiw-ms-authority-conflict',
+ 'confidenceEpoch += 1;', 'reviewDecisions.clear(); commonAnalysisCache = createCiiCommonAnalysisCache();',
+ 'if (reviewButton) reviewButton.disabled = true;',
+ 'if (csvButton) csvButton.disabled = true;',
+ 'if (jsonButton) jsonButton.disabled = true;',
+ "Anchor authority changed. Compare models again before reviewing or applying any transfer."])
+ assert(ui.includes(token),'authority change must immediately invalidate stale review/scope: '+token);
 console.log('PASS A2-16: both anchor evidence ledgers retained; explicit single authority routed; stale mode/review fail closed; no certification/Writer');
