@@ -17,6 +17,7 @@ on:
       - 'tabs/cii-workspace/cii-workspace-anchor-local-evidence.js'
       - 'tabs/cii-workspace/cii-workspace-bounded-path-recovery.js'
       - 'tests/cii-workspace-bounded-path-recovery.test.js'
+      - 'tests/cii-workspace-bounded-path-recovery-retained-parity.test.js'
       - '.github/workflows/cii-writer2-frontier-diagnostics.yml'
 
 permissions:
@@ -64,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          node tests/cii-workspace-bounded-path-recovery-retained-parity.test.js
           node tests/cii-workspace-multisource-texpected-benchmark.test.js
   legacy-anchor-differential:
     name: Unchanged main versus PR legacy single-anchor custody check
