@@ -11,7 +11,7 @@ const H=/^[a-f0-9]{64}$/i;
 const fail=s=>{throw Error('A214_'+s);};
 const cmp=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
-const pos=x=>Array.isArray(x)&&x.length===3&&x.every(finite)?x:null;
+const pos=x=>{const a=Array.isArray(x)?x:[x?.x,x?.y,x?.z];return a?.length===3&&a.every(finite)?[...a]:null;};
 const minus=(a,b)=>a.map((v,i)=>v-b[i]);
 const norm=x=>Math.hypot(...x);
 const round=x=>Math.abs(x)<0.0000005?0:Number(x.toFixed(6));
@@ -32,7 +32,7 @@ function physicalGraph(graph,side,sha){
   const id=String(e.elementId),a=String(e.from),b=String(e.to);
   if(!id||edges.has(id)||a===b||!nodes.has(a)||!nodes.has(b)
    ||!finite(Number(e.lengthMm))||Number(e.lengthMm)<=0
-   ||!['PIPE','BEND','RIGID'].includes(String(e.componentKind))
+   ||!String(e.componentKind||'').trim()
    ||!(graph.adjacency.get(a)||[]).some(z=>String(z.elementId)===id)
    ||!(graph.adjacency.get(b)||[]).some(z=>String(z.elementId)===id))
    fail('INVALID_ELEMENT_'+side);
