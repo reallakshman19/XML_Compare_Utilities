@@ -265,6 +265,11 @@ export function reconcileCiiA2RecoveredFrontier({
     joint:augmented,sourceGraphsById,targetGraph,normalizedSourceShaById,
     normalizedTargetSha256,policy:pathPolicy,
   });
+  // Re-evaluate the original GLOBAL result using the same policy. This is a
+  // paired, exact-input control; no comparison against remembered CI counts.
+  const originalGlobal=solveCiiA2GlobalShadow({
+    joint,pathAudit:originalPathAudit,policy:globalPolicy,
+  });
   const revisedGlobal=solveCiiA2GlobalShadow({joint:augmented,pathAudit:revisedPathAudit,policy:globalPolicy});
   const statuses=(audit)=>Object.fromEntries(sorted(new Set(audit.edgeRows.map(x=>x.status))).map(status=>
     [status,audit.edgeRows.filter(x=>x.status===status).length]));
@@ -299,7 +304,12 @@ export function reconcileCiiA2RecoveredFrontier({
     recomputedEndpointMissingFactors:missingAfter,
     factorStatusChanges:comparison.filter(x=>x.statusChanged),
     allFactorComparisons:comparison,
-    originalGlobalComponentCounts:null,
+    originalGlobalComponentCounts:originalGlobal.componentStates,
+    originalGlobalComponents:originalGlobal.components.map(x=>({
+      sourceNodes:x.sourceNodes.length,sourceElements:x.sourceElements.length,
+      status:x.status,incompleteFactors:x.factorsNotQualified?.length||0,
+      solutionWitnesses:x.distinctSolutionWitnesses,
+    })),
     recomputedGlobalComponentCounts:revisedGlobal.componentStates,
     recomputedGlobalComponents:revisedGlobal.components.map(x=>({
       sourceNodes:x.sourceNodes.length,sourceElements:x.sourceElements.length,
