@@ -95,6 +95,23 @@ const symmetric=inspectCiiA2PhysicalConstraints({...base,targetGraph:graph('TARG
 assert.equal(symmetric.edgeRows[0].status,'LOCAL_PATH_AMBIGUOUS');
 assert.equal(symmetric.edgeRows[0].pathWitnesses.length,2);
 assert.equal(symmetric.certifiedElementCount,0);
+const ambiguityBudget=inspectCiiA2PhysicalConstraints({...base,
+  targetGraph:graph('TARGET',h('3'),[
+    ['A1','X','M',4],['A2','M','Y',6],['B1','X','N',4],['B2','N','Y',6],
+  ]),policy:{maxPathWitnesses:1}});
+assert.equal(ambiguityBudget.edgeRows[0].status,'SEARCH_INCOMPLETE',
+  'a truncated set of symmetric physical paths must never be mistaken for unique support');
+const brokenAdj=graph('TARGET',h('3'),[['ET1','X','M',4],['ET2','M','Y',6]]);
+brokenAdj.adjacency.get('M').splice(0,1);
+assert.throws(()=>inspectCiiA2PhysicalConstraints({...base,targetGraph:brokenAdj}),
+  /PHYSICAL_EDGE_ADJACENCY_MISMATCH/);
+const pairBound=inspectCiiA2PhysicalConstraints({...base,
+  joint:joint({nodes:[
+    ['S1','A','X'],['S1','A','W1'],['S1','A','W2'],
+    ['S1','B','Y'],['S1','B','W3'],['S1','B','W4'],
+  ]}),policy:{maxPairCombinations:2}});
+assert.equal(pairBound.edgeRows[0].status,'SEARCH_INCOMPLETE');
+assert(pairBound.edgeRows[0].blockers.includes('CANDIDATE_PAIR_BOUND_EXCEEDED'));
 const bounded=inspectCiiA2PhysicalConstraints({...base,policy:{maxTraversalVisits:1}});
 assert.equal(bounded.edgeRows[0].status,'SEARCH_INCOMPLETE');
 assert.equal(bounded.edgeRows[0].truncated,true);
@@ -180,6 +197,24 @@ assert(real.edgeRows.some(x=>x.status==='LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARN
   'authentic T wall-revision differences must be observations, not a blanket physical identity veto');
 assert(real.edgeRows.some(x=>x.candidatePairCount>0),
   'authentic SOURCE set should contain a physical edge with two NODE candidate endpoints');
+const exactRetainedSubdivisions=[
+  ['S2','E25:360->370',['E998:10280->10285','E999:10285->10290']],
+  ['S3','E15:1550->1560',['E955:8870->8880','E956:8880->8890']],
+];
+for(const [sourceMember,sourceElementId,expectedOrderedTargetEdges] of exactRetainedSubdivisions){
+  const sourceEdge=real.edgeRows.find(row=>row.sourceMember===sourceMember
+    && row.sourceElementId===sourceElementId);
+  assert(sourceEdge,sourceMember+': original subdivided SOURCE element must exist');
+  assert(sourceEdge.pathWitnesses.some(w=>w.relation==='SOURCE_ELEMENT_TO_SUBDIVIDED_TARGET_PATH'
+    && JSON.stringify(w.targetElementIds)===JSON.stringify(expectedOrderedTargetEdges)),
+  sourceMember+': exact original PIPE target 1→many ordered physical path must not drift');
+}
+assert.equal(real.summary.ENDPOINT_CANDIDATE_MISSING,49,
+  'retained original SOURCE elements missing one/both endpoint candidates');
+assert.equal(real.summary.LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS,98,
+  'retained SOURCE elements with bounded structural path evidence and wall/OD engineering revisions');
+assert.equal(real.sourceElementCountExamined,147,
+  'raw SOURCE ELEMENT physical census differs from source NODE count 150');
 assert.equal(real.writerReady,false);
 assert.equal(real.certifiedNodeCount,0);
 assert.equal(real.certifiedElementCount,0);
@@ -201,4 +236,4 @@ console.log(JSON.stringify({
       targetElementIds:w.targetElementIds}))).slice(0,5),
   physicallyCertifiedNodes:0,writerReady:false,
 },null,2));
-console.log('PASS A2-02: bounded NODE/ELEMENT/PATH physical constraints, 1:many synthetic qualification, ambiguous/OD/wall/length/branch/custody/overflow veto and authentic SHA-bound CII fixture shadow replay');
+console.log('PASS A2-02: bounded NODE/ELEMENT/PATH physical constraints, 1:many synthetic qualification, ambiguous/length/branch/custody/overflow veto and OD/wall as engineering revision warnings and authentic SHA-bound CII fixture shadow replay');
