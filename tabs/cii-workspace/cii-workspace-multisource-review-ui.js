@@ -70,7 +70,23 @@ function confidenceReason(row) {
     if (m1 && !m1.pass && m2?.pass) return 'MEDIUM: network identity passes while qualified spatial evidence indicates geometry change.';
     return 'MEDIUM: identity is supported but the evidence set is not strong enough for HIGH.';
   }
-  if (row?.candidateStatus === 'AMBIGUOUS') return `REVIEW: candidate is ambiguous${row?.winnerGap != null ? `; winner gap ${fmt(row.winnerGap)} < required ${fmt(row.requiredWinnerGap)}` : ''}.`;
+  if (row?.candidateStatus === 'AMBIGUOUS' || row?.frontierBlocker) {
+    const notes = [];
+    const gap = (value, required, label) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)
+        || typeof required !== 'number' || !Number.isFinite(required)) return null;
+      return `${label} gap ${fmt(value)} ${value < required ? '<' : '≥'} required ${fmt(required)}`;
+    };
+    const frontierGap = gap(row?.frontierGap, row?.frontierRequiredGap, 'frontier winner');
+    const candidateGap = gap(row?.winnerGap, row?.requiredWinnerGap, 'candidate winner');
+    if (frontierGap) notes.push(frontierGap);
+    if (candidateGap) notes.push(candidateGap);
+    if (row?.frontierBlocker) notes.push(`frontier blocker: ${row.frontierBlocker}`);
+    const reasons = Array.isArray(row?.reasons) ? row.reasons.filter(Boolean) : [];
+    if (reasons.length) notes.push(`candidate reasons: ${reasons.join(', ')}`);
+    if (row?.frontierBlocker && !row?.target) notes.push('no TARGET ELEMENT assigned at this frontier');
+    return `REVIEW: ${row?.frontierBlocker ? 'propagation frontier blocked' : 'candidate is ambiguous'}${notes.length ? `; ${notes.join('; ')}` : '; specific cause unavailable'}.`;
+  }
   if (od?.confidence === 'REVIEW') return `REVIEW: OD evidence is ${od?.available ? `outside 50% (${fmt(od.percentError)}%)` : 'unavailable'}.`;
   if (m1?.pass && !m2?.pass) return 'REVIEW: M1 passes but M2 network does not independently support the pair.';
   if (!row?.identityBound) return 'REVIEW: correspondence identity is not bound by qualified evidence.';
