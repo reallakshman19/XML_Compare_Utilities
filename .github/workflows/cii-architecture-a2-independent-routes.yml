@@ -1,0 +1,48 @@
+name: CII A2 Independent Island Physical Routes
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow07-route-witness-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-independent-island-routes.mjs'
+      - 'tests/cii-architecture-a2-independent-island-routes.test.js'
+      - '.github/workflows/cii-architecture-a2-independent-routes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-independent-routes:
+    name: Original CII eight islands, dual-boundary target routes and no Writer
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-01 original joint hypotheses
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 original bounded element paths
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global constraint solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 original missing frontier
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 original candidate-independent recheck
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-06 source islands and exact TARGET custody
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-07 bounded dual/single anchor path witness falsifiers and original SOURCE graph
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js --out=test-results/cii-a2-07/original-island-routes.json
+      - name: Retain complete original physical-route witnesses, ambiguity and limits
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-07-original-physical-route-witnesses
+          path: test-results/cii-a2-07/original-island-routes.json
+          if-no-files-found: warn
+          retention-days: 14
