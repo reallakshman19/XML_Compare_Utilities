@@ -65,7 +65,8 @@ assert.equal(JSON.stringify(investigateCiiArchitectureA0b(evidence)), JSON.strin
   'forensics must be deterministic for same A0 snapshot');
 const tamperedManual = structuredClone(evidence);
 tamperedManual.modes[1].reviewed.physicalNodes.find((x) => x.rowKey === 'S3:1580').targetNodeId = '8895';
-assert.throws(() => investigateCiiArchitectureA0b(tamperedManual), /A0B_MANUAL_ASSERTION_NOT_RETAINED_EXACTLY/);
+assert.throws(() => investigateCiiArchitectureA0b(tamperedManual), /A0B_(INDEPENDENT_DIFF_NOT_EQUAL_PREDECESSOR|MANUAL_ASSERTION_NOT_RETAINED_EXACTLY)/,
+  'mutating a locked physical assignment must fail either the independent census comparison or exact manual assertion guard');
 const tamperedSource = structuredClone(evidence);
 tamperedSource.modes[1].reviewed.sourceSetSha256 = 'f'.repeat(64);
 assert.throws(() => investigateCiiArchitectureA0b(tamperedSource), /A0B_DISCOVERY_REVIEW_SNAPSHOT_MISMATCH/);
