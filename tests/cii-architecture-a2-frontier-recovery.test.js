@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, webcrypto } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync,writeFileSync,mkdirSync } from 'node:fs';
+import { dirname,resolve } from 'node:path';
 import { recoverCiiA2FrontierHypotheses,assertCiiA204NoWrite } from '../scripts/cii-architecture-a2-frontier-recovery.mjs';
 import { buildCiiA2ShadowJointEvidence } from '../scripts/cii-architecture-a2-shadow-joint-evidence.mjs';
 import { inspectCiiA2PhysicalConstraints } from '../scripts/cii-architecture-a2-physical-path-constraints.mjs';
@@ -181,6 +182,18 @@ assert.equal(JSON.stringify(real),JSON.stringify(recoverCiiA2FrontierHypotheses(
   joint:originalJoint,pathAudit,sourceGraphsById:graphs,targetGraph:preparedSession.target.targetGraph,
   policy:{maxRounds:2},
 })));
+const reportPath=process.argv.find(x=>x.startsWith('--out='))?.slice('--out='.length);
+if(reportPath){
+  const dest=resolve(reportPath);
+  if(dest.replaceAll('\\\\','/').includes('/Benchmark/'))
+    throw Error('A204_ORIGINAL_BENCHMARK_MUST_REMAIN_READ_ONLY');
+  mkdirSync(dirname(dest),{recursive:true});
+  writeFileSync(dest,JSON.stringify(real,null,2)+'\\n','utf8');
+  const replayed=JSON.parse(readFileSync(dest,'utf8'));
+  assert.equal(replayed.proposals.length,real.proposals.length);
+  assert.equal(replayed.rootCauses.length,49);
+  assert.equal(replayed.provenance.originalSourceSetSha256,real.provenance.originalSourceSetSha256);
+}
 console.log(JSON.stringify({
   schema:real.schema,sourceSetSha256:real.provenance.originalSourceSetSha256,
   originalMissingPhysicalElementFactors:real.originalMissingPhysicalElementFactors,
