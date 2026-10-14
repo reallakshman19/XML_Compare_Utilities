@@ -108,3 +108,51 @@ jobs:
           else
             echo "Single-anchor legacy check passes on both main and PR"
           fi
+  retained-chromium:
+    name: Retained Chromium Inspect Compare Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Actual retained multisource Chromium qualification
+        run: npx playwright test --config=playwright.cii-writer2-retained.config.mjs
+      - name: Capture failure-only browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-path-recovery-browser-${{ github.sha }}
+          path: test-results/cii-writer2-retained-browser/
+          if-no-files-found: warn
+          retention-days: 14
+  cross-route-custody:
+    name: Writer1C and generic Review Export compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent Writer1C and REVIEW_ONLY native regressions
+        run: node tests/cii-workspace-cross-route-compatibility.test.mjs
+      - name: Upload cross-route result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-path-recovery-cross-route-${{ github.sha }}
+          path: test-results/cii-method-a-qualification/cross-route-compatibility.json
+          if-no-files-found: warn
+          retention-days: 14
