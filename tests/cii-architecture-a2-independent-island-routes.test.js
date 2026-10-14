@@ -433,6 +433,13 @@ assert.equal(giantA207.orderedSourceElementIds.length,15);
 assert.equal(giantA207.boundaryMode,'SINGLE_BOUNDARY');
 assert.equal(giantA207.startingBoundarySourceNode,'4960');
 assert.equal(giantA207.endingBoundarySourceNode,'5229');
+assert(giantA207.firstBoundaryNeighbourhood.length>=1,
+  'original 15-edge S1 gap must retain target-side first-edge physical context');
+assert(giantA207.firstBoundaryNeighbourhood.every(x=>x.sourceFirstElementId
+  ===giantA207.orderedSourceElementIds[0]));
+assert(giantA207.firstBoundaryNeighbourhood.every(x=>x.sourceFirstLengthMm>0));
+assert(giantA207.firstBoundaryNeighbourhood.every(x=>
+  x.targetIncidentPhysicalElements.every(e=>e.lengthMm>0&&e.elementId)));
 for(const island of originalRoutes.islands){
   assert.equal(island.fullRouteWitnesses.length<=originalRoutes.policy.maxFullRoutesPerIsland,true);
   assert.equal(island.missingElementCount,triage.missingIslands.find(x=>x.id===island.id).missingElementCount);
@@ -530,6 +537,9 @@ assert.equal(dualA207.summary.islandCount,1);
 assert.equal(dualA207.islands[0].boundaryMode,'DUAL_BOUNDARY');
 assert.equal(dualA207.islands[0].status,'MULTIPLE_DUAL_BOUNDARY_ROUTES_WITHIN_BOUNDS');
 assert.equal(dualA207.islands[0].fullRouteWitnesses.length,2);
+assert.equal(dualA207.islands[0].firstBoundaryNeighbourhood.length,1);
+assert.deepEqual(dualA207.islands[0].firstBoundaryNeighbourhood[0]
+  .targetIncidentPhysicalElements.map(x=>x.elementId),['TK','XM']);
 assert(dualA207.islands[0].fullRouteWitnesses.some(x=>
   JSON.stringify(x.orderedElementPaths[0].targetElementIds)===JSON.stringify(['TK','KY'])));
 assert(dualA207.islands[0].fullRouteWitnesses.some(x=>
@@ -593,6 +603,7 @@ console.log('A2_07_ORIGINAL_ISLAND_PATH_EVIDENCE',JSON.stringify({
     routeWitnesses:x.fullRouteWitnesses.length,
     truncated:x.truncated,boundaryMode:x.boundaryMode,
     firstWitness:x.fullRouteWitnesses[0]?.orderedElementPaths.slice(0,3),
+    firstBoundaryNeighbourhood:x.firstBoundaryNeighbourhood,
   })),
   certifiedNodes:0,certifiedElements:0,writerReady:false,
 },null,2));
