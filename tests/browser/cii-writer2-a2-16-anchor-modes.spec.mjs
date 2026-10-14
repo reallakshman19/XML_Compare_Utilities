@@ -55,6 +55,11 @@ test('A2-16 retains inactive automatic and manual evidence across UI switches, i
  const decision=page.locator('[data-ciiw-ms-decision]').first();
  await expect(decision).toBeVisible();
 
+ // Compare intentionally navigates to the review panel; only the visible
+ // Inputs panel may receive pointer events for an authority-mode switch.
+ await page.locator('[data-ciiw-tab="inputs"]').click();
+ await expect(page.locator('[data-ciiw-tab="inputs"]')).toHaveAttribute('aria-current','page');
+ await expect(member.locator('[data-ciiw-ms-authority-switch="MANUAL"]')).toBeVisible();
  await member.locator('[data-ciiw-ms-authority-switch="MANUAL"]').click();
  await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toHaveCount(0);
  await expect(page.locator('[data-ciiw-refresh-review]')).toBeDisabled();
