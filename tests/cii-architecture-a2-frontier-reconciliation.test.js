@@ -213,6 +213,18 @@ assert.equal(evaluated.originalEndpointMissingFactors,49);
 assert.equal(evaluated.recomputedEndpointMissingFactors,33);
 assert.equal(evaluated.allFactorComparisons.length,147);
 assert.equal(evaluated.recomputedPathAudit.sourceElementCountExamined,147);
+assert.deepEqual(evaluated.recomputedFactorStatusCounts,{
+  ENDPOINT_CANDIDATE_MISSING:33,LOCAL_PATH_AMBIGUOUS:6,
+  LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS:108,
+});
+assert.equal(evaluated.proposalsWithSharedTargetCustodyWarnings,6);
+assert.equal(evaluated.independentlyRecheckedPhysicalWitnesses,24);
+assert.deepEqual(evaluated.originalGlobalComponentCounts,{INCOMPLETE_PHYSICAL_EVIDENCE:3});
+assert.deepEqual(evaluated.recomputedGlobalComponentCounts,{INCOMPLETE_PHYSICAL_EVIDENCE:3});
+assert.deepEqual(evaluated.originalGlobalComponents.map(x=>x.incompleteFactors),[23,12,14]);
+assert.deepEqual(evaluated.recomputedGlobalComponents.map(x=>x.incompleteFactors),[18,7,8]);
+assert.equal(evaluated.factorStatusChanges.length,16);
+
 assert.equal(evaluated.recomputedGlobalAudit.originalPhysicalSourceNodeCount,150);
 assert.equal(evaluated.recomputedGlobalAudit.certifiedNodeCount,0);
 assert.equal(evaluated.recomputedGlobalAudit.certifiedElementCount,0);
@@ -281,7 +293,8 @@ assert.throws(()=>reconcileCiiA2RecoveredFrontier({
   /TARGET_NORMALIZED_HASH_MISMATCH/);
 const resultForArtifact={
   schema:evaluated.schema,status:evaluated.status,
-  originalSourceSetSha256:evaluated.originalPhysicalSnapshotDigest,
+  originalSourceSetSha256:evaluated.augmentedJoint.provenance.sourceSetSha256,
+  physicalOriginalSnapshotDigest:evaluated.originalPhysicalSnapshotDigest,
   originalCandidateCount:evaluated.originalCandidateCount,
   newCandidateCount:evaluated.addedCandidateCount,
   augmentedCandidateCount:evaluated.augmentedCandidateCount,
@@ -293,6 +306,8 @@ const resultForArtifact={
   originalEndpointMissingFactors:evaluated.originalEndpointMissingFactors,
   recomputedEndpointMissingFactors:evaluated.recomputedEndpointMissingFactors,
   changedFactorDetails:evaluated.factorStatusChanges,
+  originalGlobalComponentStates:evaluated.originalGlobalComponentCounts,
+  originalGlobalComponents:evaluated.originalGlobalComponents,
   globalComponentStates:evaluated.recomputedGlobalComponentCounts,
   globalComponents:evaluated.recomputedGlobalComponents,
   writerReady:evaluated.writerReady,certifiedNodes:evaluated.certifiedNodeCount,
