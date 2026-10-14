@@ -1,0 +1,30 @@
+name: CII A2 Shadow Physical Path Constraints
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow02-path-constraints-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-physical-path-constraints.mjs'
+      - 'tests/cii-architecture-a2-physical-path-constraints.test.js'
+      - '.github/workflows/cii-architecture-a2-physical-path.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-physical:
+    name: Bounded original CII element/path physics (no Writer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-01 authentic additive evidence precondition
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 real fixture and synthetic subdivided route, conflict, budget and custody negative gates
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
