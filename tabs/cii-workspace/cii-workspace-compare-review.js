@@ -162,6 +162,7 @@ function projection(row, review, changeMap, rowById) {
     identityBound,
     identityEvidenceBasis: componentIdentity?.basis || boundary?.basis || row?.evidence?.identityEvidenceBasis || (candidates ? 'CANDIDATE_EVIDENCE' : (row?.status === 'LOCKED' ? 'USER_LOCKED_ANCHOR' : 'DIRECT_EVIDENCE')),
     methodABase: row?.evidence?.methodAQualification || null,
+    anchorLocalEvidence: row?.evidence?.anchorLocal || null,
     adjacentBoundary: boundary,
     methodABoundaryDiagnostics: methodABoundaryDiagnostics(row),
     componentIdentity,
