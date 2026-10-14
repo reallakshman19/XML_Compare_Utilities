@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - fix/cii-method-a-confidence-config-20261013
+      - test/cii-owner-phase2-intake-inventory-20261014
   workflow_dispatch:
 
 permissions:
@@ -95,6 +96,8 @@ jobs:
         run: node tests/cii-workspace-method-a-technical-qualification.test.js
       - name: Generate explicit PH0-PH7 Owner release-admission HOLD
         run: node tests/cii-workspace-owner-release-admission-gate.mjs
+      - name: Independently inventory all frozen physical node labels for Owner Phase 2
+        run: node tests/cii-workspace-owner-phase2-physical-label-inventory.test.mjs
       - name: Upload 150-node SOURCE census evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -111,6 +114,9 @@ jobs:
             test-results/cii-method-a-qualification/technical-qualification.json
             test-results/cii-method-a-qualification/owner-release-admission-hold.json
             test-results/cii-method-a-qualification/owner-release-admission-hold.md
+            test-results/cii-method-a-qualification/owner-phase2-physical-label-inventory.json
+            test-results/cii-method-a-qualification/owner-phase2-physical-label-catalog.csv
+            test-results/cii-method-a-qualification/owner-phase2-physical-label-exceptions.csv
           if-no-files-found: warn
           retention-days: 14
 
