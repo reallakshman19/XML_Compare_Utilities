@@ -1,0 +1,54 @@
+name: CII A2 Native 3D Geometry Hypothesis Shadow
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow10-native-geometry-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-native-geometry-hypotheses.mjs'
+      - 'tests/cii-architecture-a2-native-geometry-hypotheses.test.js'
+      - '.github/workflows/cii-architecture-a2-native-geometry.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-native-geometry:
+    name: Immutable CII native geometry candidates, independent held-out falsifiers
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-10 original SHA-bound coordinate search and symmetric/reflection negatives
+        run: node tests/cii-architecture-a2-native-geometry-hypotheses.test.js --out=test-results/cii-a2-10/original-native-geometry.json
+      - name: A2-01 original SOURCE/TARGET joint evidence
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 physical NODE/ELEMENT/PATH factors
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global physical CSP
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 bounded original frontier
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 global candidate reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-06 physical missing-region review
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-07 independently bounded physical routes
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: A2-08 original BEND geometry revision falsifiers
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js
+      - name: A2-09 independent surveyed rigid transform admission
+        run: node tests/cii-architecture-a2-independent-registration.test.js
+      - name: Preserve complete SHA-bound native-coordinate forensic candidate ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-10-native-geometry-shadow-evidence
+          path: test-results/cii-a2-10/original-native-geometry.json
+          if-no-files-found: warn
+          retention-days: 14
