@@ -38,6 +38,18 @@ for (const [sourceId, sourceNodeId, rejectedTarget, investigatedTarget] of scena
   }
   assert.equal(new Set([...claims.values()]).size, claims.size, sourceId + ': duplicate TARGET NODE identity');
   assert.equal(result.targetCustodyConflicts.length, 0);
+  console.log(JSON.stringify({
+    inspect: sourceId, count: claims.size, blockers: result.blockers,
+    sourceFrontier: (graph.adjacency.get(sourceNodeId) || []).map(e => ({
+      id: e.elementId, from: e.from, to: e.to, kind: e.componentKind,
+      len: e.lengthMm, od: e.diameter, wall: e.wall })),
+    targetFrontier: (target.adjacency.get(investigatedTarget) || []).map(e => ({
+      id: e.elementId, from: e.from, to: e.to, kind: e.componentKind,
+      len: e.lengthMm, od: e.diameter, wall: e.wall })),
+    blocked: result.elementRows.filter(e => e.status === 'UNRESOLVED').slice(0, 2)
+      .map(e => ({ e: e.sourceElementId, recovery: e.evidence?.propagation?.pathRecoveryBlocker,
+        blocker: e.evidence?.propagation?.blocker })),
+  }));
   assert(claims.size >= 8, sourceId + ': actual parser/rigid constraints yielded no path recovery');
   candidates[sourceId] = { claims, result };
 }
