@@ -91,6 +91,8 @@ jobs:
         run: node tests/cii-workspace-multisource-retained-terminal-optin-byte-closure.test.js
       - name: Audit Owner complete-golden intake readiness (explicit missing-input hold)
         run: node tests/cii-workspace-owner-golden-retained-gate.mjs
+      - name: Independently qualify 150-node census, strict negatives and Owner hold
+        run: node tests/cii-workspace-method-a-technical-qualification.test.js
       - name: Upload 150-node SOURCE census evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,6 +106,7 @@ jobs:
             test-results/cii-method-a-qualification/terminal-tail-forensics.json
             test-results/cii-method-a-qualification/owner-golden-readiness.json
             test-results/cii-method-a-qualification/owner-golden-readiness.csv
+            test-results/cii-method-a-qualification/technical-qualification.json
           if-no-files-found: warn
           retention-days: 14
 
