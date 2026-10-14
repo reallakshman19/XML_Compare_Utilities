@@ -279,7 +279,20 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     return saved;
   };
   const invalidatePersistedReview = () => {
-    reviewRestoreAllowed = false; restoredScopeIntent = null; persistSession({ invalidateReview: true });
+    // Any authority/evidence change invalidates both displayed and saved review.
+    // In-flight compare/inspect from the previous authority epoch must not land.
+    confidenceEpoch += 1;
+    preview = null; scopedPreview = null; reviewDirty = false;
+    reviewDecisions.clear(); commonAnalysisCache = createCiiCommonAnalysisCache();
+    reviewRestoreAllowed = false; restoredScopeIntent = null;
+    if (executive) executive.innerHTML = '';
+    if (results) results.innerHTML = '<p>Anchor authority changed. Compare models again before reviewing or applying any transfer.</p>';
+    if (deltas) deltas.innerHTML = '';
+    if (transfer) transfer.innerHTML = '<p>Previous transfer scope invalidated. Compare models again.</p>';
+    if (reviewButton) reviewButton.disabled = true;
+    if (csvButton) csvButton.disabled = true;
+    if (jsonButton) jsonButton.disabled = true;
+    persistSession({ invalidateReview: true });
   };
   const activeAnchorPlan = () => buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, authorityModeBySource);
   const authorityReady = () => activeAnchorPlan().ready;
