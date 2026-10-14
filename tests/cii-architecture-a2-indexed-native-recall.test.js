@@ -1166,6 +1166,24 @@ for(const member of preparedSession.members){
     })),
   });
 }
+// Authentic SOURCE-set original fixture qualification: retrieval found a
+// promising S2 region but it remains intrinsically non-survey and cannot
+// become a NODE/ELEMENT certificate or writer candidate.
+assert.deepEqual(originalA211Reports.map(r=>r.summary.sourceSeedEdgesSelected),[24,24,24]);
+assert.deepEqual(originalA211Reports.map(r=>r.summary.targetComponentsSampled),[5,5,5]);
+assert.deepEqual(originalA211Reports.map(r=>r.summary.rigidTransformTrials),[2,13,0]);
+assert.deepEqual(originalA211Reports.map(r=>r.summary.heldOutTopologySupportedRetained),[0,1,0]);
+const s2Original211=originalA211Reports.find(x=>x.member==='S2');
+assert(s2Original211);
+assert(s2Original211.possibleTransforms.some(x=>
+  x.fitSource.join('|')==='50|80|90'
+  &&x.fitTarget.join('|')==='40040|40050|40060'
+  &&x.heldout.supported===true
+  &&x.heldout.heldOutNodeMatches===38
+  &&x.heldout.sourceNodesHeldOut===44
+  &&x.heldout.heldOutEdgesChecked===37
+  &&x.heldout.heldOutEdgesCompatible===34),
+  'pin authentic 38/44 nodes and 34/37 edges as provisional topology evidence, never correspondence authority');
 const base211={
   baseline:positive210,registrationAudit:blockA210,
   sourceGraph:syntheticSource210,targetGraph:syntheticTarget210,
