@@ -24,7 +24,7 @@ const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
 const norm=a=>Math.hypot(...a);
 const mul=(a,n)=>a.map(x=>x*n);
 const unit=a=>norm(a)>1e-12?mul(a,1/norm(a)):null;
-const rounded=x=>Number(x.toFixed(6));
+const rounded=x=>Math.abs(x)<0.0000005?0:Number(x.toFixed(6));
 const id=x=>str(x);
 const policyDefaults={maxFitAnchorTriangleEdgeMm:1000000,minTriangleSine:0.01,
   maxFitAnchorResidualMm:1,maxHeldOutResidualMm:5,minHeldOut:2,maxPairs:20};
