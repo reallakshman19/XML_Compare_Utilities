@@ -31,4 +31,12 @@ jobs:
       - name: A2-03 global CSP no-writer and completeness baseline
         run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
       - name: A2-04 bounded speculative frontier and real original CII falsifiers
-        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js --out=test-results/cii-a2-04/frontier-recovery-original.json
+      - name: Retain exact 49-factor and 22-proposal full JSON forensic receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-04-frontier-recovery-evidence
+          path: test-results/cii-a2-04/frontier-recovery-original.json
+          if-no-files-found: warn
+          retention-days: 14
