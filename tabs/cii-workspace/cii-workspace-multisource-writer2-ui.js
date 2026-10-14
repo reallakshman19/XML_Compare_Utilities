@@ -129,7 +129,7 @@ function manualAnchorMarkup(item, manualBySource, manualDraftBySource, activeMod
 }
 function renderMemberAnchors(inspection, selectedBySource, manualBySource = new Map(), manualDraftBySource = new Map(), modeBySource = new Map()) {
   const members = inspection?.memberInspections || [];
-  const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource);
+  const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource, modeBySource);
   const effective = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
   return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
