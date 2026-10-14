@@ -1309,6 +1309,51 @@ assert.equal(s2A212.summary.heldOutDirectTopologyIncompatible,3);
 assert.equal(s2A212.summary.originalA211ReportedEdgesCompatible,34);
 assert.equal(s2A212.originalTopologyIncompatibleEdges.length,3);
 assert.equal(s2A212.discrepancies.length,6);
+assert.deepEqual(s2A212.discrepancies.map(n=>n.sourceNodeId),
+  ['40','210','630','640','660','669']);
+assert.deepEqual(s2A212.discrepancies.map(n=>n.status),[
+  'LOCAL_TOPOLOGY_SIGNATURE_MISMATCH_WITHIN_30MM',
+  'NO_TARGET_NODE_WITHIN_350MM',
+  'NO_TARGET_NODE_WITHIN_30MM',
+  'NO_TARGET_NODE_WITHIN_30MM',
+  'NO_TARGET_NODE_WITHIN_30MM',
+  'NO_TARGET_NODE_WITHIN_30MM',
+]);
+const ione=s2A212.discrepancies.find(n=>n.sourceNodeId==='40');
+assert.equal(ione.nearestOriginalTargetGeometry[0].targetNodeId,'40030');
+assert.equal(ione.nearestOriginalTargetGeometry[0].distanceMm,0);
+assert.equal(ione.nearestOriginalTargetGeometry[0].degreeKindCompatible,false);
+assert(ione.physicalBridgeCounterfactuals.some(b=>
+  b.sourceElementId==='E1:40->50'
+  &&b.toAlreadyProposedTargetNode==='40040'
+  &&b.fromUnadmittedTargetCandidate==='40030'
+  &&b.targetPhysicalPaths.some(p=>
+    p.segmentationType==='PIPE_ONE_TO_MANY'
+    &&p.lengthWithinDeclaredTolerance===true
+    &&p.subdivisionStraightnessValid===true)),
+  'SOURCE terminal NODE 40 -> TARGET 40030 has physical PIPE subdivision bridge but differing node-degree identity');
+assert.equal(s2A212.discrepancies.find(n=>n.sourceNodeId==='210')
+  .nearestOriginalTargetGeometry.length,0);
+for(const name of ['630','640','660','669']){
+ const n=s2A212.discrepancies.find(n=>n.sourceNodeId===name);
+ assert(n.nearestOriginalTargetGeometry[0].distanceMm>=199.99);
+ assert(n.nearestOriginalTargetGeometry[0].distanceMm<=200.03);
+ assert.equal(n.nearestOriginalTargetGeometry[0].degreeKindCompatible,true);
+}
+assert.equal(s2A212.summary.missingNodesWithExactPhysicalBridgeCounterfactual>=1,true);
+assert.deepEqual(s2A212.originalTopologyIncompatibleEdges.map(x=>x.sourceElementId),
+  ['E5:120->140','E13:230->250','E25:360->370']);
+assert.deepEqual(s2A212.originalTopologyIncompatibleEdges.map(x=>
+  x.pathWitnesses.find(p=>p.segmentationType==='PIPE_ONE_TO_MANY')
+  ?.physicalLengthDifferenceMm),[0,0,0]);
+assert(s2A212.originalTopologyIncompatibleEdges.every(x=>
+  x.pathWitnesses.some(p=>p.segmentationType==='PIPE_ONE_TO_MANY'
+    &&p.subdivisionStraightnessValid
+    &&p.lengthWithinDeclaredTolerance
+    &&p.targetElementIds.length===2)));
+assert.deepEqual(s2A212.existingCustodyWarnings.map(x=>[
+ x.provisionalSourceNode,x.targetNodeId,x.preexistingOtherSourceClaim,
+]),[['S2:90','40060','S2:50'],['S2:250','10170','S2:220']]);
 assert(s2A212.discrepancies.every(n=>n.status!=='BOUNDED_GEOMETRIC_NODE_HYPOTHESIS_ONLY'));
 assert(s2A212.discrepancies.every(n=>n.chosenTargetNodeId===null));
 assert(s2A212.heldOutEdges.every(e=>e.originalEdgeWitnessCertified===false));
