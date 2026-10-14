@@ -16,10 +16,14 @@ for (const token of [
 
 assert.ok(ui.includes('if (loops.length) rows.push([item.sourceId, loops]);'),
   'empty automatic base arrays must be omitted so manual anchorPairs can route through the legacy locked-anchor path');
-assert.ok(ui.includes('manualBySource.set(id, []);'),
-  'choosing an automatic base must clear the separate manual mode');
-assert.ok(ui.includes('selectedBySource.set(id, new Set());'),
-  'adding a manual anchor must clear the automatic base selection for that source');
+assert.ok(ui.includes("authorityModeBySource.set(id, 'AUTO')"),
+  'choosing an automatic base must activate AUTO without erasing manual evidence');
+assert.ok(ui.includes("authorityModeBySource.set(id, 'MANUAL')"),
+  'adding a manual anchor must activate MANUAL without erasing automatic evidence');
+assert.ok(!ui.includes('selectedBySource.set(id, new Set());'),
+  'qualified selected bases must never be destroyed by a manual claim');
+assert.ok(ui.includes('data-ciiw-ms-authority-switch'),
+  'both retained evidence lanes require an explicit reviewable authority switch');
 assert.ok(ui.includes('manual fallback prefilled'),
   'Use manual anchor must prefill editable fields rather than throw the prior no-qualified-loop error');
 
