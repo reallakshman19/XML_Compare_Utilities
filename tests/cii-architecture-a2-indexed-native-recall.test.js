@@ -1193,8 +1193,18 @@ for(let n=0;n<60;n++){
   manyDecoys211.adjacency.set(from,[edge]);
   manyDecoys211.adjacency.set(to,[edge]);
 }
+function inputForTarget211(graph){
+  const registrationAudit=examineCiiA209IndependentRegistration({
+    ...syntheticRegistration,sourceGraph:syntheticSource210,targetGraph:graph,
+    independentSurvey:null,fitPairs:[],heldOutPairs:[],
+  });
+  const baseline=discoverCiiA210NativeGeometryHypotheses({
+    ...syntheticInput210,registrationAudit,targetGraph:graph,
+  });
+  return {...base211,targetGraph:graph,registrationAudit,baseline};
+}
 const decoy211=exploreCiiA211IndexedNativeGeometry({
-  ...base211,targetGraph:manyDecoys211,
+  ...inputForTarget211(manyDecoys211),
   policy:{maxTargetEdgeRecordsPerSourceSeed:200,maxTransformsEvaluated:150,
     maxReturnedHypotheses:30,maxTriangleChecks:60000},
 });
@@ -1205,7 +1215,7 @@ assert(decoy211.hypotheses.some(h=>h.heldOut.supported),
 assert(decoy211.hypotheses.some(h=>h.targetTriangleNodeIds.every(id=>!id.startsWith('AAA'))));
 assert(decoy211.hypotheses.every(h=>h.certified===false));
 const competing211=exploreCiiA211IndexedNativeGeometry({
-  ...base211,targetGraph:dupTarget210,
+  ...inputForTarget211(dupTarget210),
   policy:{maxTargetEdgeRecordsPerSourceSeed:200,maxTransformsEvaluated:150,
     maxReturnedHypotheses:40},
 });
@@ -1213,7 +1223,7 @@ assert(competing211.summary.distinctRigidTransforms>=2,
   'two identical original physical TARGET components must remain distinct alternatives');
 assert(competing211.hypotheses.filter(h=>h.heldOut.supported).length>=2);
 const clipped211=exploreCiiA211IndexedNativeGeometry({
-  ...base211,targetGraph:dupTarget210,
+  ...inputForTarget211(dupTarget210),
   policy:{maxSourceSeedEdges:1,maxTargetEdgeRecordsPerSourceSeed:1,
     maxTransformsEvaluated:1,maxReturnedHypotheses:1,maxTriangleChecks:1},
 });
