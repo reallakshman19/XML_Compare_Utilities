@@ -69,7 +69,10 @@ for (const [sourceId, sourceNodeId, rejectedTarget, investigatedTarget] of scena
   candidates[sourceId] = { claims, result, strictBound: strict.nodeRows.filter(row => row.sourceNodeId != null).length };
 }
 for (const [member, item] of Object.entries(candidates)) {
-  assert(item.claims.size >= 8, member + ': actual parser/rigid constraints yielded no path recovery');
+  assert(item.claims.size >= 5 && item.claims.size <= 7,
+    member + ': approved two-step witnessed frontier must recover some nodes but never extrapolate beyond bounded window');
+  assert(item.result.blockers.includes('PATH_RECOVERY_VERIFIED_LOOKAHEAD_WINDOW_ENDED'),
+    member + ': unresolved region beyond verified window must be explicit');
 }
 // Compare against the independently qualified automatic Method-A base, not
 // against a fixture-coded mutation list. This uses the full normalized neutral
@@ -95,7 +98,7 @@ for (const [sourceId, entry] of Object.entries(candidates)) {
     else disagreements.push({ sourceNode: src, pathTarget: targetId, automaticTarget: reference.get(src) });
   }
   assert.deepEqual(disagreements, [], sourceId + ': bounded-path conflicts with independent qualified automatic source-to-target identity');
-  assert(overlap >= 6, sourceId + ': no meaningful overlap with independent automatic reference');
+  assert(overlap >= 4, sourceId + ': bounded first-frontier recovery must overlap independent automatic reference');
   metrics[sourceId] = {
     methodAReferenceBound: rows.length, recoveryBound: entry.claims.size,
     defaultWallPolicyBound: entry.strictBound,
