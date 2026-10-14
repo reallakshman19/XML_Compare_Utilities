@@ -1,0 +1,58 @@
+name: CII A2 S2 Heldout Topology Discrepancies
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow12-s2-discrepancy-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-heldout-discrepancies.mjs'
+      - 'tests/cii-architecture-a2-heldout-discrepancies.test.js'
+      - '.github/workflows/cii-architecture-a2-heldout-discrepancies.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-heldout-discrepancies:
+    name: Original S2 heldout physical NODE and ELEMENT discrepancy inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-12 original S2 six missing NODE and three EDGE discrepancy falsifiers
+        run: node tests/cii-architecture-a2-heldout-discrepancies.test.js --out=test-results/cii-a2-12/original-s2-discrepancies.json
+      - name: A2-11 component-aware native-coordinate retrieval
+        run: node tests/cii-architecture-a2-indexed-native-recall.test.js
+      - name: A2-10 original geometry bounded search
+        run: node tests/cii-architecture-a2-native-geometry-hypotheses.test.js
+      - name: A2-09 independent surveyed source-target registration
+        run: node tests/cii-architecture-a2-independent-registration.test.js
+      - name: A2-08 original BEND revision and curvature limits
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js
+      - name: A2-07 bounded island routes
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: A2-06 real missing-edge SOURCE islands
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-05 independent frontier recheck
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-04 original frontier recovery
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-03 global physical NODE/ELEMENT correspondence constraint solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-02 original physical path witness constraints
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-01 original joint SOURCE-set evidence
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: Retain full original S2 six NODE and three EDGE negative witness JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-12-original-s2-heldout-discrepancy-ledger
+          path: test-results/cii-a2-12/original-s2-discrepancies.json
+          if-no-files-found: warn
+          retention-days: 14
