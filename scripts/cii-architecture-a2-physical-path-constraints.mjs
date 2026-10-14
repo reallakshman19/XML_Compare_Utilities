@@ -115,13 +115,21 @@ function traverse(graph,start,end,policy,reserved){
   return {paths:found,stats:{...stats,rejectionSummary:Object.fromEntries(failures)}};
 }
 function physicalMatch(sourceStep,targetSteps,policy){
-  const reasons=[],measurement=pathMeasure(targetSteps),original=pathMeasure([sourceStep]);
+  // Physical identity evidence must not confuse revision properties with
+  // topology. The existing topology adapter explicitly excludes OD/wall
+  // from M2 identity tokens; both may be intended engineering deltas.
+  const reasons=[],propertyWarnings=[],measurement=pathMeasure(targetSteps),original=pathMeasure([sourceStep]);
   if(targetSteps.length>1&&sourceStep.kind!=='PIPE')reasons.push('SUBDIVISION_NON_PIPE_SOURCE');
   if(targetSteps.some(step=>step.kind!==sourceStep.kind))reasons.push('ELEMENT_COMPONENT_KIND_MISMATCH');
-  if(targetSteps.some(step=>!Number.isFinite(step.diameter)||Math.abs(step.diameter-sourceStep.diameter)>policy.diameterToleranceMm))
-    reasons.push('ELEMENT_OD_MISMATCH');
-  if(targetSteps.some(step=>!Number.isFinite(step.wall)||Math.abs(step.wall-sourceStep.wall)>policy.wallToleranceMm))
-    reasons.push('ELEMENT_WALL_MISMATCH');
+  if(targetSteps.some(step=>!Number.isFinite(step.diameter)||!Number.isFinite(step.wall))
+    ||!Number.isFinite(sourceStep.diameter)||!Number.isFinite(sourceStep.wall)){
+    reasons.push('DIMENSIONAL_EVIDENCE_INVALID');
+  }else{
+    if(targetSteps.some(step=>Math.abs(step.diameter-sourceStep.diameter)>policy.diameterToleranceMm))
+      propertyWarnings.push('ELEMENT_OD_ENGINEERING_REVISION_DIFFERENCE');
+    if(targetSteps.some(step=>Math.abs(step.wall-sourceStep.wall)>policy.wallToleranceMm))
+      propertyWarnings.push('ELEMENT_WALL_ENGINEERING_REVISION_DIFFERENCE');
+  }
   if(Math.abs(original.lengthMm-measurement.lengthMm)>policy.pathLengthToleranceMm)
     reasons.push('PATH_LENGTH_MISMATCH');
   if(targetSteps.length>1&&(measurement.straightness<policy.minTargetStraightness
@@ -130,12 +138,15 @@ function physicalMatch(sourceStep,targetSteps,policy){
   if(!Number.isFinite(sourceStep.length)||sourceStep.length<=0||!Number.isFinite(original.straightness)
     ||!Number.isFinite(measurement.straightness)||measurement.lengthMm<=0)
     reasons.push('PHYSICAL_METRICS_INVALID');
-  return {compatible:reasons.length===0,reasons,
+  return {compatible:reasons.length===0,reasons,propertyWarnings,
+    dimensionChangeEvidence:{
+      sourceOdMm:sourceStep.diameter,targetOdMm:targetSteps.map(step=>step.diameter),
+      sourceWallMm:sourceStep.wall,targetWallMm:targetSteps.map(step=>step.wall),
+    },
     lengthDeltaMm:Number(Math.abs(original.lengthMm-measurement.lengthMm).toFixed(3)),
     targetStraightness:Number(measurement.straightness.toFixed(6)),
     sourceStraightness:Number(original.straightness.toFixed(6))};
 }
-
 /**
  * Local arc-consistency constraints. Enumerates *all simple paths up to the
  * explicit segment cap* subject to internal node custody. Incomplete search
@@ -215,7 +226,10 @@ export function inspectCiiA2PhysicalConstraints({
         const signatures=new Set(row.pathWitnesses.map(w=>JSON.stringify([w.targetEndpoints,w.targetElementIds])));
         if(signatures.size!==row.pathWitnesses.length)throw Error('A2P_DUPLICATE_PHYSICAL_PATH_WITNESS');
         row.status=row.truncated?'SEARCH_INCOMPLETE':row.pathWitnesses.length>1?'LOCAL_PATH_AMBIGUOUS':
-          row.pathWitnesses.length===1?'LOCAL_PATH_SUPPORTED':'NO_COMPATIBLE_BOUNDED_PATH';
+          row.pathWitnesses.length===1
+            ? (row.pathWitnesses[0].propertyWarnings.length
+              ? 'LOCAL_PATH_SUPPORTED_WITH_PROPERTY_WARNINGS':'LOCAL_PATH_SUPPORTED')
+            :'NO_COMPATIBLE_BOUNDED_PATH';
         row.blockers=row.truncated?['PATH_ENUMERATION_INCOMPLETE']:
           row.pathWitnesses.length>1?['MULTIPLE_PHYSICALLY_PLAUSIBLE_PATHS']:
             row.pathWitnesses.length===0?['NO_LOCAL_PHYSICAL_ROUTE_QUALIFIED_WITHIN_BOUND']:
@@ -244,6 +258,7 @@ export function inspectCiiA2PhysicalConstraints({
       'M1_M2_GEOMETRIC_REGISTRATION_AND_BRANCH_ORIENTATION_UNRESOLVED',
       'UNSEEN_TARGET_PATHS_BEYOND_LIMIT_MAY_EXIST',
       'NODE_AND_ELEMENT_SHARED_CUSTODY_MUST_BE_RESOLVED_GLOBALLY',
+      'OD_WALL_ARE_ENGINEERING_REVISION_OBSERVATIONS_NOT_HARD_NODE_IDENTITY_VETO',
       'NO_FAMILY_TRANSFER_OR_WRITER_ADMISSION'],
   });
 }
