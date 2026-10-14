@@ -5,10 +5,8 @@ import { resolveCiiMethodAConfidenceWeights } from './cii-workspace-method-a-wei
 import { CII_SOURCE_SET_SCHEMA, ciiSourceSetSha256 } from './cii-workspace-source-set.js';
 import { createCiiWorkspacePreviewWithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { createPreparedReviewOnlyMemberPreviews } from './cii-workspace-multisource-review-only-prepared.js';
-
 export const CII_MS_REVIEW_ONLY_SCHEMA = 'CIIWorkspaceMultiSourceReviewOnlyPreview.v1';
 export const CII_MS_REVIEW_ONLY_WRITE_BLOCKER = 'CII_MS_REVIEW_ONLY_WRITE_AUTHORITY_REQUIRED';
-
 function text(value) { return String(value ?? '').trim(); }
 function sourceRows(input) {
   const rows = Array.isArray(input?.sources) ? input.sources : [];
@@ -205,7 +203,6 @@ function reviewOnlyVersionBridge(sourceSet, memberPreviews) {
     v14WritePolicy: 'REVIEW_ONLY_NO_WRITE_AUTHORITY',
   });
 }
-
 async function buildReviewOnlyResult(input, sources, memberPreviews, options = {}) {
   assertSameTarget(memberPreviews);
   const members = sourceSetMembers(sources, memberPreviews);
@@ -267,7 +264,6 @@ async function buildReviewOnlyResult(input, sources, memberPreviews, options = {
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);
 }
-
 export async function createCiiMultiSourceReviewOnlyPreviewWithVersionBridge(input, options = {}) {
   const sources = sourceRows(input);
   if (targetBytes(input) == null) throw new Error('CII_MS_REVIEW_ONLY_TARGET_REQUIRED');
