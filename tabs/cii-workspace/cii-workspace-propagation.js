@@ -2,6 +2,7 @@ import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts
 import { buildCiiCandidateEvidence } from './cii-workspace-candidates.js';
 import { scoreCiiEdgeCandidate } from './cii-workspace-evidence.js';
 import { assessCiiLockedAnchorLocalEvidence } from './cii-workspace-anchor-local-evidence.js';
+import { recoverCiiBoundedFrontierPaths } from './cii-workspace-bounded-path-recovery.js';
 
 function otherNode(edge, node) { return edge.from === node ? edge.to : edge.from; }
 function sortedEdges(rows) { return [...(rows || [])].sort((a, b) => String(a.elementId).localeCompare(String(b.elementId), undefined, { numeric: true })); }
@@ -96,6 +97,7 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
   const sourceComponent = componentEdgeIds(sourceGraph, sourceAnchor); const targetComponent = componentEdgeIds(targetGraph, targetAnchor);
   const sourceEdgeCustody = new Map(); const targetEdgeCustody = new Map();
   const sourceNodeCustody = new Map([[sourceAnchor, targetAnchor]]); const targetNodeCustody = new Map([[targetAnchor, sourceAnchor]]);
+  const reservedTargetPathNodes = new Set();
   const blockedSourceEdges = new Set(); const visitedPairs = new Set(); const queuedPairs = new Set([pairKey(sourceAnchor, targetAnchor)]);
   const queue = [{ sourceNode: sourceAnchor, targetNode: targetAnchor, depth: 0 }];
   const elementRows = []; const nodeRows = [lockedRow]; const blockers = new Set(); const custodyConflicts = [];
@@ -110,6 +112,68 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     if (!sourceEdges.length) continue;
 
     const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions);
+    const recovery = assignment.status !== 'SUPPORTED' && options.singleAnchorPathRecovery === true
+      && !anchorLocal?.signals?.includes('INCIDENT_OD_CONTEXT_OVER_50_PERCENT')
+      ? recoverCiiBoundedFrontierPaths(sourceGraph, targetGraph, current.sourceNode, current.targetNode,
+        sourceEdges, targetEdges, matchOptions, {
+          sourceEdgeIds: [...sourceEdgeCustody.keys()], targetEdgeIds: [...targetEdgeCustody.keys()],
+          targetNodeIds: [...targetNodeCustody.keys(), ...reservedTargetPathNodes],
+        }) : null;
+    if (recovery?.status === 'READY') {
+      const sourceById = new Map(sourceEdges.map((edge) => [edge.elementId, edge]));
+      const claimedNodes = new Map(); const nextPaths = [];
+      let conflict = false;
+      for (const path of recovery.paths) {
+        const source = sourceById.get(path.sourceId);
+        if (!source || !path.targetIds.length
+          || path.targetIds.some((id) => targetEdgeCustody.has(id))
+          || path.internalNodes.some((id) => targetNodeCustody.has(id) || reservedTargetPathNodes.has(id))) {
+          conflict = true; break;
+        }
+        const nextSource = otherNode(source, current.sourceNode); const nextTarget = String(path.targetNode);
+        if ((sourceNodeCustody.has(nextSource) && sourceNodeCustody.get(nextSource) !== nextTarget)
+          || (targetNodeCustody.has(nextTarget) && targetNodeCustody.get(nextTarget) !== nextSource)
+          || reservedTargetPathNodes.has(nextTarget)) { conflict = true; break; }
+        if (claimedNodes.has(nextSource) || [...claimedNodes.values()].includes(nextTarget)) { conflict = true; break; }
+        claimedNodes.set(nextSource, nextTarget);
+        nextPaths.push({ source, path, nextSource, nextTarget });
+      }
+      if (!conflict) {
+        for (const { source, path, nextSource, nextTarget } of nextPaths) {
+          sourceEdgeCustody.set(source.elementId, path.targetIds.join(','));
+          for (const id of path.targetIds) targetEdgeCustody.set(id, source.elementId);
+          for (const id of path.internalNodes) reservedTargetPathNodes.add(id);
+          sourceNodeCustody.set(nextSource, nextTarget); targetNodeCustody.set(nextTarget, nextSource);
+          const evidence = deepFreeze({
+            identitySupported: true, identityConfidence: 'MEDIUM', identityEvidenceBasis: 'BOUNDED_M2_OD_PATH_LOOKAHEAD',
+            pathRecovery: deepFreeze({ ...path, score: recovery.score, gap: recovery.gap,
+              requiredGap: recovery.requiredGap, authority: recovery.authority,
+              sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth }),
+          });
+          elementRows.push(deepFreeze({
+            correspondenceId: stableId('bounded-path', source.elementId, ...path.targetIds),
+            kind: path.targetIds.length > 1 ? 'ELEMENT_PATH' : 'ELEMENT',
+            sourceElementId: source.elementId, sourceElementIds: Object.freeze([source.elementId]),
+            targetElementIds: Object.freeze([...path.targetIds]), status: 'REVIEW',
+            authority: 'BOUNDED_PATH_LOOKAHEAD_M2', evidence,
+          }));
+          if (!nodeRows.some((row) => row.sourceNodeId === nextSource && row.targetNodeId === nextTarget)) {
+            nodeRows.push(deepFreeze({
+              correspondenceId: stableId('node', nextSource, nextTarget), kind: 'NODE',
+              sourceNodeId: nextSource, targetNodeId: nextTarget, status: 'REVIEW',
+              authority: 'BOUNDED_PATH_LOOKAHEAD_M2', evidence,
+            }));
+          }
+          const nextKey = pairKey(nextSource, nextTarget);
+          if (!visitedPairs.has(nextKey) && !queuedPairs.has(nextKey)) {
+            queuedPairs.add(nextKey);
+            queue.push({ sourceNode: nextSource, targetNode: nextTarget, depth: current.depth + 1 });
+          }
+        }
+        continue;
+      }
+      blockers.add('PATH_RECOVERY_CUSTODY_VETO');
+    }
     if (assignment.status !== 'SUPPORTED') {
       blockers.add(assignment.blocker || 'PROPAGATION_FRONTIER_UNRESOLVED');
       for (const source of sourceEdges) {
@@ -117,7 +181,8 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
         const initial = targetEdges.length ? buildCiiCandidateEvidence(source, targetEdges, null, matchOptions) : null;
         elementRows.push(unresolvedElementRow(source, null, 'ANCHOR_PROPAGATION_FRONTIER_BLOCKED', {
           propagation: { sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth, assignmentStatus: assignment.status,
-            assignmentGap: assignment.gap ?? null, requiredGap: assignment.requiredGap ?? null, blocker: assignment.blocker }, candidates: initial,
+            assignmentGap: assignment.gap ?? null, requiredGap: assignment.requiredGap ?? null,
+            blocker: assignment.blocker, pathRecoveryBlocker: recovery?.blocker || null }, candidates: initial,
         }));
       }
       continue;
