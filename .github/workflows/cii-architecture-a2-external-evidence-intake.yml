@@ -1,0 +1,68 @@
+name: CII A2 Detached External Engineering Evidence Intake
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow15-signed-evidence-intake-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-external-evidence-intake.mjs'
+      - 'scripts/cii-architecture-a2-revision-custody-adjudicator.mjs'
+      - 'scripts/cii-architecture-a2-whole-subchain-falsifiers.mjs'
+      - 'tests/cii-architecture-a2-external-evidence-intake.test.js'
+      - 'tests/cii-architecture-a2-revision-custody.test.js'
+      - 'tests/cii-architecture-a2-whole-subchain-falsifiers.test.js'
+      - '.github/workflows/cii-architecture-a2-external-evidence-intake.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-signed-evidence:
+    name: Detached engineering evidence packets never become certified physical identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-15 original physical engineering evidence and detached signature negatives
+        run: node tests/cii-architecture-a2-external-evidence-intake.test.js --out=test-results/cii-a2-15/original-evidence-requests.json
+      - name: A2-14 original revision and TARGET custody forensic with negative controls
+        run: node tests/cii-architecture-a2-revision-custody.test.js --out=test-results/cii-a2-14/original-revision-custody.json
+      - name: A2-13 original whole-subchain, 200mm offset and 1500mm negative
+        run: node tests/cii-architecture-a2-whole-subchain-falsifiers.test.js --out=test-results/cii-a2-13/original-whole-subchains.json
+      - name: A2-12 original heldout NODE EDGE discrepancy receipts
+        run: node tests/cii-architecture-a2-heldout-discrepancies.test.js
+      - name: A2-11 indexed native 3D geometry recall
+        run: node tests/cii-architecture-a2-indexed-native-recall.test.js
+      - name: A2-10 bounded native 3D coordinate hypotheses
+        run: node tests/cii-architecture-a2-native-geometry-hypotheses.test.js
+      - name: A2-09 independent 3D registration admission
+        run: node tests/cii-architecture-a2-independent-registration.test.js
+      - name: A2-08 original BEND geometry revision
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js
+      - name: A2-07 original full SOURCE island path witnesses
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: A2-06 physical SOURCE island census
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-05 global candidate frontier reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-04 independent physical NODE candidate frontier
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-03 global physical constraint solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-02 original element paths
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-01 SOURCE-set joint physical evidence
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: Retain authentic original evidence-needs and signed-intake integrity report JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-15-original-s2-external-evidence-intake
+          path: test-results/cii-a2-15/original-evidence-requests.json
+          if-no-files-found: warn
+          retention-days: 14
