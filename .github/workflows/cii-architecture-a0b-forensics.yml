@@ -1,0 +1,47 @@
+# Independent A0b consumer of authentic read-only A0 snapshot.
+name: CII Architecture A0b Physical Falsifiers
+on:
+  push:
+    branches:
+      - test/cii-architecture-a0b-physical-falsifier-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a0b-physical-discrepancies.mjs'
+      - 'tests/cii-architecture-a0b-physical-discrepancies.test.js'
+      - '.github/workflows/cii-architecture-a0b-forensics.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a0b-independent-physical-discrepancies:
+    name: Authentic S1/S2/S3 physical falsifiers (no Writer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Replay exact physical SOURCE/TARGET custody (A0 input)
+        run: |
+          set -euo pipefail
+          node scripts/cii-architecture-reconcile-retained.mjs --out=test-results/cii-architecture-a0b/a0-source-replay.json
+      - name: Derive independent physical claim and postimage discrepancy ledger
+        run: |
+          set -euo pipefail
+          node scripts/cii-architecture-a0b-physical-discrepancies.mjs --evidence=test-results/cii-architecture-a0b/a0-source-replay.json --out=test-results/cii-architecture-a0b/a0b-physical-discrepancies.json
+      - name: Recheck original fixture findings and falsify tampered evidence
+        run: |
+          set -euo pipefail
+          node tests/cii-architecture-a0b-physical-discrepancies.test.js --evidence=test-results/cii-architecture-a0b/a0-source-replay.json
+      - name: Publish A0 and A0b audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-architecture-a0b-physical-falsifiers
+          path: test-results/cii-architecture-a0b/*.json
+          if-no-files-found: warn
+          retention-days: 14
