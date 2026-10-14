@@ -2,7 +2,7 @@
 
 **Status:** TEST-ONLY INTAKE IMPLEMENTED; **AUTHENTIC COMPLETE OWNER GOLDEN NOT RECEIVED**. This is a technical evidence protocol, never an Owner attestation, product identity rule, Writer1C/Writer2 scope, merge approval, or v3.6 TASK_EVIDENCE.
 
-Parent: Issue #69. PR #68 remains OPEN/unmerged. Owner PH0–PH7 independent acceptance remains 0/8. The 36 known-positive TEXPECTED changes and the frozen BM-001 329-row authority are partial benchmarks **not** the complete Owner PS↔SL list.
+Parent: Issue #69. PR #68 was merged into `main` on 2026-10-14 at 05:00:29 UTC (merge commit `d58cabe0188fb9a4ebf3f3568b1584abb6824fc8`). **That merge does not supply or authenticate the complete Owner golden or constitute independently evidenced PH0–PH7 acceptance**, which remains 0/8 in this gate. New PH4 intake work is isolated on a subsequent branch. The 36 known-positive TEXPECTED changes and the frozen BM-001 329-row authority are partial benchmarks **not** the complete Owner PS↔SL list.
 
 ## Required genuine Owner submission
 
@@ -49,3 +49,34 @@ Without a supplied golden, running the command with **no arguments** exports `te
 Unusual punctuation and suffixes are separately flagged for Owner adjudication without correction, even when a physically BOUND relationship coincidentally exists. The row inventory, physical candidate IDs, observed identity/binding/confidence, raw line, original line number, source-member provenance, anomaly flags and independent input hashes are exported.
 
 **Acceptance remains BLOCKED** even if every candidate classifies MATCHED: byte SHA and internal row count prove fidelity to a supplied file, not completeness of Owner intent or approval. The full original Owner text, authoritative source reference, attested cardinality and work-specific v3.6 authorization are separate Owner obligations. No production matcher or Writer2 imports these test-only files.
+
+## Phase 2 independent original physical label inventory (preparation only)
+
+After the default retained Writer2 SOURCE census is regenerated, run:
+
+```sh
+node tests/cii-workspace-owner-phase2-physical-label-inventory.test.mjs
+```
+
+This extra **test-only** source/target catalog independently reads the exact frozen
+S1/S2/S3/T original byte files, verifies their SHA-256, parses original physical
+NODE names without product matching or an assumed PS↔SL relation, checks every
+one of the 150 SOURCE entries against the read-only census, and enumerates
+1,619 physical TARGET nodes.
+
+Outputs in `test-results/cii-method-a-qualification/`:
+- `owner-phase2-physical-label-inventory.json`: complete raw-label physical
+  inventory, member/node IDs, original digests, label collision groups and
+  outstanding Owner inputs, with `ph4Accepted=false`.
+- `owner-phase2-physical-label-catalog.csv`: one row for **every physical NODE**
+  (150 SOURCE + 1,619 TARGET), including blank labels, to prevent accidental
+  first-match or unnamed-node omission.
+- `owner-phase2-physical-label-exceptions.csv`: exact physical label
+  duplicates, member collisions, blanks and anomalous punctuation for independent
+  Owner adjudication. It is a **collision worksheet, not a PS↔SL expected-pair list**.
+
+The report does not create, infer, complete, normalize, or attest a single Owner
+expected PS↔SL relation. It cannot close P401–P410, PH4, or the Owner merge gate.
+The next actual required input remains the Owner's complete untouched relation
+text and an independently attested manifest. Do **not** repurpose existing
+SOURCE/TARGET label names as guessed relationships.
