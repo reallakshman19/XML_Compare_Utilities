@@ -95,6 +95,12 @@ function findPaths(target,first,last,sourceEdge,p){
       sameKind:true,lengthWithinDeclaredTolerance:
         Math.abs(candidate.sum-length(sourceEdge))<=
         (candidate.path.length===1?p.directPhysicalLengthToleranceMm:p.pathLengthToleranceMm),
+      subdivisionStraightness:round(distance(
+        target.nodes.get(first).position,target.nodes.get(last).position
+       )/candidate.sum),
+      subdivisionStraightnessValid:candidate.path.length===1||
+        distance(target.nodes.get(first).position,target.nodes.get(last).position)/
+        candidate.sum>=0.995,
       segmentationType:candidate.path.length===1?'ONE_TO_ONE':'PIPE_ONE_TO_MANY',
       hasIntermediateTargetBranch:false});
    }else if(candidate.path.length<p.maxSubdivisionSegments)queue.push(candidate);
@@ -196,11 +202,15 @@ function edgeFacts(source,target,assign,p){
   if(!assign.has(sa)||!assign.has(sb)||!(assign.get(sa)||assign.get(sb)))continue;
   const ta=assign.get(sa),tb=assign.get(sb);
   const paths=findPaths(target,ta,tb,e,p);
+  const directTopology=(target.adjacency.get(ta)||[]).some(te=>
+    edgeOther(te,ta)===tb&&String(te.componentKind)===String(e.componentKind));
   const direct=paths.witnesses.find(w=>w.targetElementIds.length===1&&w.lengthWithinDeclaredTolerance);
-  const subdivision=paths.witnesses.find(w=>w.targetElementIds.length>1&&w.lengthWithinDeclaredTolerance);
+  const subdivision=paths.witnesses.find(w=>w.targetElementIds.length>1
+    &&w.lengthWithinDeclaredTolerance&&w.subdivisionStraightnessValid);
   const witness={sourceElementId:String(e.elementId),sourceEndpoints:[sa,sb],
     targetEndpointHypotheses:[ta,tb],sourceKind:String(e.componentKind),
-    sourceRecordedLengthMm:length(e),pathWitnesses:paths.witnesses,
+    sourceRecordedLengthMm:length(e),directPhysicalEdgeTopologyMatches:directTopology,
+    pathWitnesses:paths.witnesses,
     witnessListTruncated:paths.truncated,
     status:direct?'DIRECT_SAME_KIND_LENGTH_SUPPORTED_ONLY':
       subdivision?'BOUNDED_PIPE_SUBDIVISION_SUPPORTED_ONLY':
@@ -252,6 +262,8 @@ export function inspectCiiA212HeldOutDiscrepancies({
  const fits=new Set(candidate.sourceTriangleNodeIds);
  const heldOutPhysical=all.complete.concat(all.failed).filter(x=>
   !(fits.has(x.sourceEndpoints[0])&&fits.has(x.sourceEndpoints[1])));
+ const topologicalMatches=heldOutPhysical.filter(x=>x.directPhysicalEdgeTopologyMatches);
+ const topologicalFailures=heldOutPhysical.filter(x=>!x.directPhysicalEdgeTopologyMatches);
  const witnessed=heldOutPhysical.filter(x=>
   x.status==='DIRECT_SAME_KIND_LENGTH_SUPPORTED_ONLY'||
   x.status==='BOUNDED_PIPE_SUBDIVISION_SUPPORTED_ONLY');
@@ -291,6 +303,8 @@ export function inspectCiiA212HeldOutDiscrepancies({
    originalA211ReportedEdgesChecked:candidate.heldOut.heldOutEdgesChecked,
    originalA211ReportedEdgesCompatible:candidate.heldOut.heldOutEdgesCompatible,
    heldOutEdgesReinspected:heldOutPhysical.length,
+   heldOutDirectTopologyCompatible:topologicalMatches.length,
+   heldOutDirectTopologyIncompatible:topologicalFailures.length,
    directlyOrSubdividedPathSupportedHeldOutEdges:witnessed.length,
    missingStrictPhysicalPathWitnessEdges:notWitnessed.length,
    observedDirectPathCandidates:directOnly.length,
@@ -308,6 +322,7 @@ export function inspectCiiA212HeldOutDiscrepancies({
   discrepancies:assigned.missing,
   heldOutEdges:heldOutPhysical,
   strictlyUnwitnessedEdges:notWitnessed,
+  originalTopologyIncompatibleEdges:topologicalFailures,
   existingCustodyWarnings:custodyWarnings,
   limitations:[
    'NODE_HOLDOUT_IS_INTERNAL_GEOMETRY_RECHECK_NOT_EXTERNAL_SURVEY',
