@@ -1,0 +1,28 @@
+# A1 unprivileged contract checks only; no product/Writer code is imported by runtime.
+name: CII Architecture A1 Capability Contracts
+on:
+  push:
+    branches:
+      - feat/cii-architecture-a1-capability-contracts-69-20261014
+  pull_request:
+    paths:
+      - 'tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js'
+      - 'tests/cii-architecture-a1-capability-contracts.test.js'
+      - '.github/workflows/cii-architecture-a1-contracts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capability-contracts:
+    name: Fail-closed provisional multi-family capability contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/cii-architecture-a1-capability-contracts.test.js
