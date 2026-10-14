@@ -222,7 +222,7 @@ function zoneEvidence({name,sourceIds,missing,source,target,assigned,discrepancy
    sourceTotalRecordedLengthMm:round(sl),
    targetTotalRecordedLengthMm:round(tl),
    originalRecordedLengthDifferenceMm:round(Math.abs(sl-tl)),
-   pairedEdgeComponentKindsCompatible,
+   pairedEdgeComponentKindsCompatible:pairedEdgeKindsCompatible,
    strictOriginalLengthMatch:sp.edges.length>0&&tp.edges.length>0
     &&pairedEdgeKindsCompatible&&Math.abs(sl-tl)<=p.originalLengthToleranceMm,
    sourceAndTargetPathEnumerationComplete:!sp.truncated&&!tp.truncated,
