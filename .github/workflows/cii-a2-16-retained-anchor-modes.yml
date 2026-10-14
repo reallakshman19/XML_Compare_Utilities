@@ -1,0 +1,56 @@
+name: CII A2-16 Retained Anchor Authority Semantics
+on:
+  push:
+    branches:
+      - fix/cii-a2-16-retain-anchor-evidence-69-20261014
+  pull_request:
+    paths:
+      - 'tabs/cii-workspace/cii-workspace-multisource-anchor-mode.js'
+      - 'tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js'
+      - 'tabs/cii-workspace/cii-workspace-multisource-session-persistence.js'
+      - 'tests/cii-workspace-multisource-anchor-mode.test.js'
+      - 'tests/cii-workspace-multisource-manual-anchor-ui.test.js'
+      - 'tests/cii-workspace-multisource-session-persistence.test.js'
+      - '.github/workflows/cii-a2-16-retained-anchor-modes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  no-loss-anchor-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check new production adapter and changed UI
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-anchor-mode.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-session-persistence.js
+      - name: A2-16 explicit authority evidence ledger and persistence
+        run: node tests/cii-workspace-multisource-anchor-mode.test.js
+      - name: Retained manual-source mapping and SHA
+        run: node tests/cii-workspace-multisource-manual-anchor-ui.test.js
+      - name: Restored hash-bound writer session
+        run: node tests/cii-workspace-multisource-session-persistence.test.js
+      - name: Source-set anchor master ledger UI
+        run: node tests/cii-workspace-multisource-anchor-ledger-ui.test.js
+      - name: Automatic source anchor seed control
+        run: node tests/cii-workspace-multisource-auto-anchor-ui.test.js
+      - name: Multi-source base authority legacy contract
+        run: node tests/cii-workspace-multi-base-authority.test.js
+      - name: Manual seed arbitrated physical conflict
+        run: node tests/cii-workspace-manual-seed-arbitration.test.js
+      - name: SOURCE TARGET cross-member custody
+        run: node tests/cii-workspace-multisource-target-node-custody.test.js
+      - name: Full retained automatic S1 S2 S3 correspondence benchmark
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: Review-only source-set router no Writer
+        run: node tests/cii-workspace-multisource-review-only-router.test.js
+      - name: Retained independent partial expected target benchmark
+        run: node tests/cii-workspace-multisource-texpected-benchmark.test.js
