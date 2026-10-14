@@ -66,7 +66,8 @@ assert.equal(result.qualificationSummary.missing,1);
 assert.equal(result.qualificationSummary.invalid,1);
 assert.equal(result.qualificationSummary.duplicates,1);
 assert.equal(result.qualificationSummary.byMember.reduce((sum,row)=>sum+row.total,0),10);
-assert(result.qualificationSummary.byMember.some((row)=>row.sourceId==='UNSPECIFIED' && row.total===1));
+assert(result.qualificationSummary.byMember.some((row)=>row.sourceId==='UNSPECIFIED' && row.total===2 && row.AMBIGUOUS===1 && row.INVALID===1),
+  'both memberless lexical relation and invalid raw line must remain counted, not silently dropped');
 const csv=ciiOwnerLexicalGoldenToCsv(result);
 assert.equal(csv.split('\n').length,11,'every input row needs an independent CSV record');
 assert.equal(ciiOwnerLexicalGoldenToCsv(result),csv,'golden CSV output must be deterministic');
