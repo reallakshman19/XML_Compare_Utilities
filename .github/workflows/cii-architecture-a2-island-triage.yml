@@ -1,0 +1,46 @@
+name: CII A2 Physical Island and Custody Triage
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow06-islands-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-island-triage.mjs'
+      - 'tests/cii-architecture-a2-island-triage.test.js'
+      - '.github/workflows/cii-architecture-a2-island-triage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-islands:
+    name: Original CII 33 missing factors, TARGET ambiguity and custody, read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-01 exact original-source joint candidate baseline
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 original CII NODE/ELEMENT/PATH candidate factors
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global physical custody and factor solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 original physical frontier hypotheses
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 independent frontier recheck and physical/global refactor
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-06 physical islands, TARGET topology probes, ambiguity and custody
+        run: node tests/cii-architecture-a2-island-triage.test.js --out=test-results/cii-a2-06/original-physical-review-islands.json
+      - name: Retain full original-source island and TARGET custody review receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-06-physical-review-islands
+          path: test-results/cii-a2-06/original-physical-review-islands.json
+          if-no-files-found: warn
+          retention-days: 14
