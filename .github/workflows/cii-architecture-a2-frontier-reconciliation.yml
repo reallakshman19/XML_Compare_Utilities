@@ -1,0 +1,44 @@
+name: CII A2 Frontier Reconciliation Shadow
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow05-reconcile-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-frontier-reconciliation.mjs'
+      - 'tests/cii-architecture-a2-frontier-reconciliation.test.js'
+      - '.github/workflows/cii-architecture-a2-frontier-reconciliation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-reconcile:
+    name: Full physical frontier reconciliation, no CII writes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-01 exact original-source joint hypothesis baseline
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 bounded original CII ELEMENT/PATH factors
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global physical SOURCE/TARGET custody factor solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 original SHA-bound recovery evidence
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 independently recheck recovered original paths and rerun global factors
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js --out=test-results/cii-a2-05/reconciliation-original.json
+      - name: Retain exact local/global factor comparisons and conflict report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-05-frontier-reconciliation
+          path: test-results/cii-a2-05/reconciliation-original.json
+          if-no-files-found: warn
+          retention-days: 14
