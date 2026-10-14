@@ -347,10 +347,10 @@ assert.throws(()=>assertCiiA206NoWrite(triage),/NEVER_WRITER_AUTHORITY/);
 const again=investigateCiiA206PhysicalIslands(investigationInputs);
 assert.equal(JSON.stringify(triage),JSON.stringify(again));
 
-const stale=structuredClone(evaluated);
-stale.recomputedPathAudit.provenance.normalizedTargetSha256='f'.repeat(64);
+const staleA206=structuredClone(evaluated);
+staleA206.recomputedPathAudit.provenance.normalizedTargetSha256='f'.repeat(64);
 assert.throws(()=>investigateCiiA206PhysicalIslands({
-  ...investigationInputs,reconciliation:stale,
+  ...investigationInputs,reconciliation:staleA206,
 }),/A205_SHARED_ORIGINAL_PHYSICAL_BASIS_CHANGED|TARGET_NORMALIZED_HASH_MISMATCH/);
 const forgedCustody=structuredClone(evaluated);
 forgedCustody.sharedTargetCustodyConflicts[0].otherSourceNodeKeys=['S2:NONEXISTENT'];
