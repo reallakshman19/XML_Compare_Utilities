@@ -103,10 +103,17 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
   const elementRows = []; const nodeRows = [lockedRow]; const blockers = new Set(); const custodyConflicts = [];
   const maxPairs = Number(options.maxPropagationNodePairs || 10000);
   const matchOptions = singleAnchorMatchOptions(options);
+  let boundedPathWindowActive = false;
+  const maxRecoveryDepth = 3; // first recovered edge + two independently witnessed forward steps
+
 
   while (queue.length && visitedPairs.size < maxPairs) {
     const current = queue.shift(); const currentKey = pairKey(current.sourceNode, current.targetNode);
     if (visitedPairs.has(currentKey)) continue; visitedPairs.add(currentKey);
+    if (boundedPathWindowActive && current.depth >= maxRecoveryDepth) {
+      blockers.add('PATH_RECOVERY_VERIFIED_LOOKAHEAD_WINDOW_ENDED');
+      continue;
+    }
     const sourceEdges = sortedEdges(sourceGraph.adjacency.get(current.sourceNode)).filter((edge) => !sourceEdgeCustody.has(edge.elementId) && !blockedSourceEdges.has(edge.elementId));
     const targetEdges = sortedEdges(targetGraph.adjacency.get(current.targetNode)).filter((edge) => !targetEdgeCustody.has(edge.elementId));
     if (!sourceEdges.length) continue;
@@ -142,6 +149,7 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
         nextPaths.push({ source, path, nextSource, nextTarget });
       }
       if (!conflict) {
+        boundedPathWindowActive = true;
         for (const { source, path, nextSource, nextTarget } of nextPaths) {
           sourceEdgeCustody.set(source.elementId, path.targetIds.join(','));
           for (const id of path.targetIds) targetEdgeCustody.set(id, source.elementId);
