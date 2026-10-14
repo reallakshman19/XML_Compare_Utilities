@@ -13,6 +13,7 @@ import {
 import { buildCiiSourceTargetAudit } from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
 import { parseCiiMsBm001, CII_MS_SOURCE_SET_SHA256, CII_MS_TARGET_SHA256 } from '../tabs/cii-workspace/cii-workspace-multisource-nodename-authority.js';
 import { deriveExpectedNodeNameDelta } from '../tests/cii-workspace-multisource-texpected-oracle.js';
+import { partialExpectedNameMatch } from '../tests/cii-workspace-multisource-partial-texpected-oracle.js';
 import { reconcileCiiSnapshot, compareCiiNodeCensuses } from './cii-architecture-snapshot-ledger.mjs';
 
 const ROOT = fileURLToPath(new URL('../Benchmark/', import.meta.url));
@@ -111,19 +112,44 @@ for (const variant of inputs) {
 }
 const left = results[0], right = results[1];
 const difference = compareCiiNodeCensuses(left.reviewed, right.reviewed);
-const exactSemanticKey = (nodeId, action, before, after) =>
-  JSON.stringify([String(nodeId ?? ''), action === 'COPY' ? 'REPLACE' : String(action ?? ''), String(before ?? ''), String(after ?? '')]);
+// Compare action + physical TARGET first. An independent partial oracle may
+// intentionally use an abbreviated family name; exact field-value equality
+// alone must not be misreported as physical-mutation non-recovery.
+const actionTargetKey = (nodeId, action) =>
+  JSON.stringify([String(nodeId ?? ''), action === 'COPY' ? 'REPLACE' : String(action ?? '')]);
 function goldenReconciliation(snapshot) {
-  const actual = new Set(snapshot.mutation.canonicalOperations.map((row) =>
-    exactSemanticKey(row.targetIdentity, row.originalAction, row.before, row.proposed)));
-  const expected = new Set(expectedRows.map((row) =>
-    exactSemanticKey(row.nodeId, row.action, row.oldValue, row.newValue)));
-  const missing = [...expected].filter((key) => !actual.has(key)).sort();
-  const additional = [...actual].filter((key) => !expected.has(key)).sort();
+  const actualByTarget = new Map(snapshot.mutation.canonicalOperations.map((row) =>
+    [actionTargetKey(row.targetIdentity, row.originalAction), row]));
+  const expectedKeys = new Set(expectedRows.map((row) => actionTargetKey(row.nodeId, row.action)));
+  const actionTargetMatches = [];
+  const missing = [];
+  const beforeMismatch = [];
+  for (const expected of expectedRows) {
+    const key = actionTargetKey(expected.nodeId, expected.action);
+    const candidate = actualByTarget.get(key);
+    if (!candidate) { missing.push(key); continue; }
+    if (candidate.before !== expected.oldValue) {
+      beforeMismatch.push(Object.freeze({ key, expectedBefore: expected.oldValue, candidateBefore: candidate.before }));
+      continue;
+    }
+    const compatibility = partialExpectedNameMatch(candidate.proposed, expected.newValue);
+    actionTargetMatches.push(Object.freeze({
+      key, valueCompatibility: compatibility.kind,
+      valueCompatible: compatibility.match, proposedRawName: candidate.proposed, partialOracleName: expected.newValue,
+    }));
+  }
+  const additional = [...actualByTarget.keys()].filter((key) => !expectedKeys.has(key)).sort();
   return Object.freeze({
     classification: 'PARTIAL_KNOWN_POSITIVE_ORACLE_NOT_COMPLETE_MAPPING',
-    knownPositiveCount: expected.size, observedExactMatches: expected.size - missing.length,
-    missingKnownPositiveKeys: missing, additionalCandidateKeysNotNecessarilyInvalid: additional,
+    knownPositiveCount: expectedKeys.size,
+    actionTargetMatchedCount: expectedKeys.size - missing.length,
+    compatibleKnownPositiveCount: actionTargetMatches.filter((row) => row.valueCompatible).length,
+    exactNameMatchedCount: actionTargetMatches.filter((row) => row.valueCompatibility === 'EXACT').length,
+    familyOnlyNameCompatibleCount: actionTargetMatches.filter((row) => row.valueCompatibility === 'PARTIAL_EXPECTED_FAMILY').length,
+    missingActionTargetKeys: missing.sort(),
+    beforeValueMismatches: beforeMismatch,
+    incompatibleValueEvidence: actionTargetMatches.filter((row) => !row.valueCompatible),
+    additionalCandidateActionTargetKeysNotNecessarilyInvalid: additional,
   });
 }
 const report = {
@@ -163,7 +189,10 @@ console.log(JSON.stringify({
     correspondenceStatus: item.reviewed.correspondenceStatus,
     scope: item.reviewed.scope.state,
     bm001MatchedRows: item.reviewed.bm001Observation.matchedRows,
-    knownPositiveMatched: goldenReconciliation(item.reviewed).observedExactMatches,
+    knownPositiveActionTargetMatched: goldenReconciliation(item.reviewed).actionTargetMatchedCount,
+    knownPositiveValueCompatible: goldenReconciliation(item.reviewed).compatibleKnownPositiveCount,
+    knownPositiveExactName: goldenReconciliation(item.reviewed).exactNameMatchedCount,
+    knownPositiveFamilyOnly: goldenReconciliation(item.reviewed).familyOnlyNameCompatibleCount,
   })),
   differingNodeAssignmentsBetweenModes: difference.differences.length,
   savedReport: outFlag ? resolve(outFlag.slice('--out='.length)) : 'NO_FILE_WRITE',
