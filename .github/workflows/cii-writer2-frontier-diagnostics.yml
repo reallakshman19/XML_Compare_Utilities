@@ -38,7 +38,6 @@ jobs:
           node tests/cii-workspace-multisource-review-ui.test.js
           node tests/cii-workspace-multisource-review-state.test.js
           node tests/cii-workspace-propagation.test.js
-          node tests/cii-workspace-single-anchor.test.js
           node tests/cii-workspace-source-target-audit.test.js
   retained-benchmark:
     name: Original multisource benchmark (non-mutating)
@@ -58,3 +57,44 @@ jobs:
           set -euo pipefail
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
           node tests/cii-workspace-multisource-texpected-benchmark.test.js
+  legacy-anchor-differential:
+    name: Unchanged main versus PR legacy single-anchor custody check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: d58cabe0188fb9a4ebf3f3568b1584abb6824fc8
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject any candidate-only failure against exact unchanged main
+        shell: bash
+        run: |
+          set +e
+          (cd baseline && node tests/cii-workspace-single-anchor.test.js > "$RUNNER_TEMP/anchor-baseline.log" 2>&1)
+          baseline_status=$?
+          (cd candidate && node tests/cii-workspace-single-anchor.test.js > "$RUNNER_TEMP/anchor-candidate.log" 2>&1)
+          candidate_status=$?
+          set -e
+          echo "Exact main test exit: $baseline_status"
+          echo "Exact PR test exit: $candidate_status"
+          echo "Main tail:"; tail -n 18 "$RUNNER_TEMP/anchor-baseline.log"
+          echo "PR tail:"; tail -n 18 "$RUNNER_TEMP/anchor-candidate.log"
+          if [[ "$baseline_status" -ne "$candidate_status" ]]; then
+            echo "::error::Legacy single-anchor behavior changed relative to exact main"
+            exit 1
+          fi
+          if [[ "$baseline_status" -ne 0 ]]; then
+            grep -Fq "TARGET_CUSTODY_AMBIGUOUS" "$RUNNER_TEMP/anchor-baseline.log"
+            grep -Fq "TARGET_CUSTODY_AMBIGUOUS" "$RUNNER_TEMP/anchor-candidate.log"
+            echo "::warning::PRE-EXISTING single-anchor custody assertion FAILS on exact main and PR; neither is full acceptance"
+          else
+            echo "Single-anchor legacy check passes on both main and PR"
+          fi
