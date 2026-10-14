@@ -58,10 +58,23 @@ assert.equal(applied.writer, 'WRITER_1C');
 assert.equal(applied.byteLength, targetBytes.length);
 assert(applied.mutationCount >= 1);
 assert.equal(applied.validation.status, 'PASS');
-assert.equal(applied.validation.expectedSemanticDeltaCount, 1);
-assert.equal(applied.validation.unexpectedSemanticDeltaCount, 0);
-assert.equal(applied.validation.authorizedSpanCount, applied.mutationCount);
+assert.equal(applied.validation.schema, 'CIIWorkspaceWriterCompositeValidation.v2',
+  'public Writer1C apply now returns the independently authorized composite validation contract');
+const component = applied.validation.componentValidations?.writer1C;
+assert(component && component.schema === 'CIIWorkspaceWriter1CValidation.v2',
+  'Writer1C independent semantic assurance must remain present inside composite validation');
+assert.equal(component.status, 'PASS');
+assert.equal(component.expectedSemanticDeltaCount, 1);
+assert.equal(component.actualSemanticDeltaCount, 1);
+assert.equal(component.unexpectedSemanticDeltaCount, 0);
+assert.equal(component.authorizedSpanCount, applied.mutationCount);
+assert.equal(applied.validation.authorizedSpanCount, applied.mutationCount,
+  'composite authorized-byte-span union must match Writer1C actual mutation count');
+assert.equal(applied.validation.changedByteCount, component.changedByteCount,
+  'both independent validators must account for the same changed-byte set');
 assert(applied.validation.changedByteCount > 0);
+assert(applied.validation.checks.includes('FINAL_BYTE_DIFF_SUBSET_OF_AUTHORIZED_UNION'));
+assert(component.checks.includes('BYTE_DIFF_SUBSET_OF_INDEPENDENT_AUTHORIZATION'));
 assert.notEqual(applied.modifiedTargetSha256, applied.sourceTargetSha256);
 
 console.log('Writer 1C benchmark production-parser round trip passed', {
