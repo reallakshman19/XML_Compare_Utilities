@@ -130,9 +130,15 @@ function manualAnchorMarkup(item, manualBySource, manualDraftBySource, activeMod
 function renderMemberAnchors(inspection, selectedBySource, manualBySource = new Map(), manualDraftBySource = new Map(), modeBySource = new Map()) {
   const members = inspection?.memberInspections || [];
   const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource);
+  const effective = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
   return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
-    return `<section class="ciiw-method-evidence" data-ciiw-ms-member="${h(item.sourceId)}"><h3>${h(item.sourceId)} · ${h(item.fileName)}</h3>${baseAnchorEvidenceMarkup(item.inspection, selected)}${manualAnchorMarkup(item, manualBySource, manualDraftBySource, modeBySource.get(item.sourceId) || (manualRows(manualBySource, item.sourceId).length ? 'MANUAL' : 'AUTO'), buildCiiSelectedBaseLoops(item.inspection?.baseAnchorSuggestions || [], selected).length)}</section>`;
+    const authority = effective.rows.find((row) => row.sourceId === item.sourceId);
+    const warning = authority?.contradictoryManualPairs.length
+      ? `<p data-ciiw-ms-authority-conflict="1"><b>Evidence disagreement — not a certified match.</b> ${authority.contradictoryManualPairs.map((pair) =>
+        `${h(pair.sourceNodeId)}: manual ${h(pair.manualTargetNodeId)}, automatic ${h(pair.automaticTargetNodeIds.join(', '))}`).join('; ')}. Only ${h(authority.activeMode)} is routed to Compare.</p>`
+      : '';
+    return `<section class="ciiw-method-evidence" data-ciiw-ms-member="${h(item.sourceId)}"><h3>${h(item.sourceId)} · ${h(item.fileName)}</h3>${warning}${baseAnchorEvidenceMarkup(item.inspection, selected)}${manualAnchorMarkup(item, manualBySource, manualDraftBySource, authority?.activeMode || 'AUTO', authority?.retainedAutomaticBaseLoopCount || 0)}</section>`;
   }).join('')}`;
 }
 function selectedBaseLoopsBySource(inspection, selectedBySource) {
