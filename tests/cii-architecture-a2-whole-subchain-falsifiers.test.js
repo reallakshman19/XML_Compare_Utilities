@@ -1436,6 +1436,23 @@ assert(Math.abs(zoneShift.meanTargetMinusGlobalTransformMm[1]+200)<=1e-6);
 assert(zoneShift.maximumOffsetSpreadMm<5,
   'whole zone must have coherent 200 mm Y displacement, not random nearest neighbours');
 assert.equal(zoneShift.physicalEngineeringRevisionAuthorized,false);
+assert.deepEqual(zoneShift.orderedOriginalSubchainPhysicalComparisons.map(x=>
+ [x.sourcePhysicalElements,x.targetPhysicalElements]),[
+ [['E44:630->640'],['E1018:10470->10480']],
+ [['E45:640->660'],['E1019:10480->10490']],
+ [['E46:660->669'],['E1020:10490->10500']],
+]);
+assert(zoneShift.orderedOriginalSubchainPhysicalComparisons.every(x=>
+ x.pairedEdgeComponentKindsCompatible===true&&x.strictOriginalLengthMatch===true
+ &&x.noIdentityCertificate===true));
+assert.equal(zoneShift.entireOrderedInternalPhysicalSubchainStrictlyCompatible,true);
+const entry200=zoneShift.outsideBoundaryPhysicalEdges.find(x=>
+ x.sourceElementId==='E43:620->630');
+assert(entry200);
+assert.equal(entry200.originalLengthMm,774.55);
+assert.deepEqual(entry200.independentOriginalTargetPathWitnesses.map(x=>
+ [x.targetElementIds,x.targetLengthMm,x.lengthDifferenceMm,x.physicalPathStrictlyCompatible]),
+ [[['E1017:10460->10470'],574.55,200,false]]);
 assert.equal(zoneShift.twoIndependentBoundaryClosuresProven,false,
   'do not promote coherent geometry without independent boundary custody and original physical witnesses');
 const zoneTerminal=originalS2A213.reviewZones[0];
@@ -1447,6 +1464,12 @@ assert.equal(zoneOutlier.originalSourceNodes[0],'210');
 assert.equal(zoneOutlier.coherentTranslationGeometryOnly,false);
 assert.equal(zoneOutlier.unadmittedSourceTargetGeometryPairs[0]
   .distanceFromGlobalTransformMm,1500);
+const outlierEnd=zoneOutlier.outsideBoundaryPhysicalEdges.find(x=>x.sourceElementId==='E11:210->220');
+assert(outlierEnd);
+assert.equal(outlierEnd.originalLengthMm,6500);
+assert.deepEqual(outlierEnd.independentOriginalTargetPathWitnesses.map(w=>
+ [w.targetElementIds,w.targetLengthMm,w.lengthDifferenceMm,w.physicalPathStrictlyCompatible]),
+ [[['E983:10130->10140'],8000,1500,false]]);
 assert.equal(originalS2A213.summary.unresolvedTargetCustodyVetoes,2);
 assert.deepEqual(originalS2A213.custodyVetoes.map(x=>[
   x.provisionalSourceNode,x.targetNodeId,x.preexistingOtherSourceClaim,
@@ -1538,6 +1561,7 @@ console.log('A2_13_ORIGINAL_WHOLE_SUBCHAIN_FALSIFIERS',JSON.stringify({
   relativeEndpointResidual:z.originalSourceAndTargetRelativeEndpointVectorResidualMm,
   sourceRoute:z.sourceWholeSubchainSegments,
   targetRoute:z.targetWholeSubchainSegments,
+  orderedPhysicalSegments:z.orderedOriginalSubchainPhysicalComparisons,
   originalBoundaryCandidates:z.outsideBoundaryPhysicalEdges,
   wholeSubchainConnected:z.wholeSubchainRouteConnected,
   twoIndependentBoundaryClosuresProven:z.twoIndependentBoundaryClosuresProven,
