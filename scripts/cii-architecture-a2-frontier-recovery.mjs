@@ -217,7 +217,8 @@ export function recoverCiiA2FrontierHypotheses({
       upstreamCause:'NO_EMITTED_OR_ADMITTED_NODE_HYPOTHESIS_NOT_PROOF_TARGET_ABSENCE',
     }));
   }
-  const proposals=new Map(),rounds=[],rawWitnessCount=0,seedVisits=0;
+  const proposals=new Map(),rounds=[];
+  let rawWitnessCount=0,seedVisits=0;
   let globallyTruncated=false;
   for(let round=1;round<=p.maxRounds;round++){
     const fresh=[];
