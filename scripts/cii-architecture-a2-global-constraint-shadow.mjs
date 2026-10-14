@@ -143,6 +143,12 @@ function groups(nodes,factors,policy){
     if(occupancy.has(resource))union(occupancy.get(resource),f.ends[0]);
     else occupancy.set(resource,f.ends[0]);
   }
+  // A target subdivision interior cannot simultaneously be a physical
+  // SOURCE NODE correspondence, even across disconnected SOURCE members.
+  for(const [resource,owner] of occupancy) {
+    if(resource.startsWith('I:')&&sharedTarget.has(resource.slice(2)))
+      union(owner,sharedTarget.get(resource.slice(2)));
+  }
   const result=new Map();
   for(const key of sorted(nodes.keys())){
     const r=root(key);
