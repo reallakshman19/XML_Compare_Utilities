@@ -1,4 +1,6 @@
 import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-converter.js';
+import { CII_METHOD_A_CONFIDENCE_DEFAULTS, resolveCiiMethodAConfidenceThresholds, validateCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
+import { CII_METHOD_A_WEIGHT_DEFAULTS, validateCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
@@ -9,6 +11,8 @@ const DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT = 10;
 const MAX_METHOD_A_PHYSICAL_SEARCH_LIMIT = 24;
 const DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT = 5;
 let multiSourceMethodAPhysicalCandidateLimit = DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
+let multiSourceMethodAConfidenceThresholds = CII_METHOD_A_CONFIDENCE_DEFAULTS;
+let multiSourceMethodAConfidenceWeights = CII_METHOD_A_WEIGHT_DEFAULTS;
 
 function boundedSearchLimit(value) {
   const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
@@ -18,9 +22,39 @@ export function setCiiMultiSourceMethodAPhysicalCandidateLimit(value) {
   multiSourceMethodAPhysicalCandidateLimit = boundedSearchLimit(value);
   return multiSourceMethodAPhysicalCandidateLimit;
 }
+export function getCiiMultiSourceMethodAConfidenceOptions() {
+  return Object.freeze({
+    methodAHighConfidenceThreshold: multiSourceMethodAConfidenceThresholds.high,
+    methodAMediumConfidenceThreshold: multiSourceMethodAConfidenceThresholds.medium,
+    methodAConfidenceWeights: multiSourceMethodAConfidenceWeights,
+  });
+}
+export function setCiiMultiSourceMethodAConfidenceWeights(weights) {
+  // Transactional: a malformed or unbalanced policy never replaces the live one.
+  const candidate = validateCiiMethodAConfidenceWeights(weights);
+  multiSourceMethodAConfidenceWeights = candidate;
+  return candidate;
+}
+export function setCiiMultiSourceMethodAConfidenceThresholds({ high, medium } = {}) {
+  const candidate = validateCiiMethodAConfidenceThresholds({
+    high: high ?? multiSourceMethodAConfidenceThresholds.high,
+    medium: medium ?? multiSourceMethodAConfidenceThresholds.medium,
+  });
+  multiSourceMethodAConfidenceThresholds = candidate;
+  return candidate;
+}
 function sourceSetInspectionOptions(options = {}) {
+  const current = getCiiMultiSourceMethodAConfidenceOptions();
+  const thresholds = validateCiiMethodAConfidenceThresholds({
+    high: options.methodAHighConfidenceThreshold ?? current.methodAHighConfidenceThreshold,
+    medium: options.methodAMediumConfidenceThreshold ?? current.methodAMediumConfidenceThreshold,
+  });
+  const weights = validateCiiMethodAConfidenceWeights(options.methodAConfidenceWeights ?? current.methodAConfidenceWeights);
   return {
     ...options,
+    methodAHighConfidenceThreshold: thresholds.high,
+    methodAMediumConfidenceThreshold: thresholds.medium,
+    methodAConfidenceWeights: weights,
     methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
     baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
   };

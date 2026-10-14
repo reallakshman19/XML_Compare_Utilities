@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { inspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import { join } from 'node:path';
+import { prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import { ciiRetainedMethodATerminalForensics } from './cii-workspace-method-a-terminal-continuation-forensics.js';
 import { ciiAutomaticBaseSelection } from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import { ciiCanonicalWriter2MutationSelection } from '../tabs/cii-workspace/cii-workspace-multisource-bm001-correspondence.js';
@@ -10,7 +12,10 @@ import { parseCiiMsBm001 } from '../tabs/cii-workspace/cii-workspace-multisource
 import { createCiiExpectedNodeNameSourceSetSelection } from '../tabs/cii-workspace/cii-workspace-multisource-scope.js';
 import { bindCiiTransferScopeToPreview } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
-import { deriveExactNameRelocations, deriveExpectedNodeNameDelta } from './cii-workspace-multisource-texpected-oracle.js';
+import { deriveExactNameRelocations, deriveExpectedNodeNameDelta, parseIndependentNodeNameState } from './cii-workspace-multisource-texpected-oracle.js';
+import {
+  buildCiiSourceTargetAudit, ciiSourceTargetAuditToCsv, ciiSourceTargetAuditToJson,
+} from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
 import {
   evaluatePartialTExpectedPostimage,
   expectedNodeNameTransferKeys,
@@ -87,7 +92,8 @@ function checkpointDiagnostics(preview) {
   })));
 }
 
-const inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef });
+const { inspection, preparedSession } = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge(
+  { sources, targetBytes, targetFileName: 'T.CII' }, { cryptoRef });
 const automatic = autoBaseLoops(inspection);
 assert.equal(automatic.choices.length, 3, 'retained Auto Anchor test requires S1/S2/S3 independently');
 for (const choice of automatic.choices) {
@@ -104,6 +110,167 @@ const discoveryPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge
 const preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(automaticReviewBySource(discoveryPreview)), { cryptoRef });
 assert.equal(preview.correspondence.status, 'READY', `Auto Anchor correspondence must be READY: ${(preview.correspondence.blockers || []).join(',')}`);
 assert.equal(preview.correspondence.conflicts.length, 0, 'Auto Anchor correspondence must not accept cross-source target conflicts');
+
+
+// The SOURCE census is independent of the emitted correspondence row count,
+// NODENAME payload record count and Writer2 mutation count. Reconcile every
+// physical SOURCE NODE endpoint using the test-only 15-row ELEMENTS parser.
+const sourceAudit = buildCiiSourceTargetAudit(preview);
+const physicalSourceIds = new Map(sources.map(({ sourceId }) => {
+  const independent = parseIndependentNodeNameState(sourceTextsById[sourceId]);
+  assert.deepEqual(independent.conflicts, [], sourceId + ' must have unambiguous raw name custody');
+  const ids = [...new Set(independent.elements.flatMap((item) => [item.from, item.to]))]
+    .sort((a, b) => Number(a) - Number(b));
+  return [sourceId, ids];
+}));
+const physicalCounts = Object.fromEntries([...physicalSourceIds].map(([id, nodes]) => [id, nodes.length]));
+assert.deepEqual(physicalCounts, { S1: 57, S2: 47, S3: 46 },
+  'independent physical NODE inventory must not drift with Name payload record counts');
+const independentKeys = [...physicalSourceIds].flatMap(([sourceId, ids]) => ids.map((nodeId) => sourceId + ':' + nodeId)).sort();
+const actualKeys = sourceAudit.rows.map((row) => row.rowKey).sort();
+assert.deepEqual(actualKeys, independentKeys, 'complete SOURCE custody requires every physical NODE exactly once and no phantom row');
+assert.equal(sourceAudit.summary.totalSourceNodes, 150);
+const stateNames = ['BOUND', 'UNRESOLVED', 'AMBIGUOUS', 'UNEMITTED'];
+assert.equal(stateNames.reduce((sum, state) => sum + sourceAudit.summary[state], 0), 150);
+assert.equal(sourceAudit.summary.bySource.length, 3);
+for (const member of sourceAudit.summary.bySource) {
+  const memberRows = sourceAudit.rows.filter((row) => row.sourceId === member.sourceId);
+  assert.equal(member.enumeratedNodeCount, physicalCounts[member.sourceId]);
+  assert.equal(stateNames.reduce((sum, state) => sum + member[state], 0), memberRows.length);
+  assert.equal(member.populationStatus, 'MATCH',
+    member.sourceId + ': declared vs physical node count must match, not just emitted correspondences');
+}
+const retainedBound = [
+  ['S1', '4410', '970', 'MEDIUM'], ['S1', '4440', '975', 'MEDIUM'],
+  ['S1', '4470', '980', 'MEDIUM'], ['S1', '4490', '985', 'MEDIUM'],
+  ['S2', '360', '10280', 'HIGH'], ['S2', '370', '10290', 'HIGH'],
+  ['S2', '390', '10300', 'HIGH'], ['S2', '400', '10310', 'HIGH'],
+  ['S3', '1610', '8920', 'MEDIUM'], ['S3', '1620', '8940', 'MEDIUM'],
+  ['S3', '1640', '8950', 'MEDIUM'],
+];
+for (const [sourceId, physicalNodeId, targetId, expectedGrade] of retainedBound) {
+  const node = sourceAudit.rows.find((row) => row.rowKey === sourceId + ':' + physicalNodeId);
+  assert(node, sourceId + ':' + physicalNodeId + ' physical row absent');
+  assert.equal(node.state, 'BOUND', node.rowKey + ' must be bound without relying on a matching Name');
+  assert.equal(node.targetNodeId, targetId, node.rowKey + ' target identity drift');
+  assert.equal(node.confidence, expectedGrade, node.rowKey + ' grade drift');
+}
+for (const key of ['S1:4490', 'S2:400']) {
+  const row = sourceAudit.rows.find((item) => item.rowKey === key);
+  assert.equal(row.sourceNodeName, '', key + ': physically existing unnamed NODE must remain bound');
+}
+const boundTargets = new Set(sourceAudit.rows.filter((row) => row.identityBound && row.targetNodeId)
+  .map((row) => row.targetNodeId));
+const missingPositiveBoundTargets = expectedDelta.rows.filter((row) => !boundTargets.has(row.nodeId))
+  .map((row) => row.nodeId);
+assert.deepEqual(missingPositiveBoundTargets, [],
+  'all 36 known-positive target mutations need a bound SOURCE physical correspondence');
+// REC-02: the complete real retained 11-row unresolved set must expose the
+// *individual failed predicates* before anyone considers changing identity rules.
+const expectedUnboundBoundaryNodes = [
+  'S1:3970', 'S1:4020', 'S1:4050', 'S1:4060',
+  'S2:210', 'S2:220', 'S2:230',
+  'S3:1800', 'S3:1810', 'S3:1820', 'S3:1840',
+];
+const unboundBoundaries = sourceAudit.rows.filter((row) =>
+  expectedUnboundBoundaryNodes.includes(row.rowKey));
+assert.equal(unboundBoundaries.length, expectedUnboundBoundaryNodes.length,
+  'every retained Method A boundary review case must appear in the physical SOURCE census');
+for (const row of unboundBoundaries) {
+  assert.equal(row.state, 'UNRESOLVED', row.rowKey + ' must not be auto-promoted by diagnostic projection');
+  assert.equal(row.methodABoundaryDiagnostics?.length, 1, row.rowKey + ' must retain one Method A boundary diagnosis');
+  const evidence = row.methodABoundaryDiagnostics[0];
+  assert.equal(evidence.upstreamIdentitySupported, false, row.rowKey + ' upstream identity must remain unsupported');
+  assert.equal(evidence.localBoundary?.identitySupported, false, row.rowKey + ' local boundary is not qualified');
+  const checks = evidence.localBoundary?.endpointChecks || [];
+  assert.equal(checks.length, 2, row.rowKey + ' must retain both TO/FROM endpoint checks');
+  assert(checks.some((item) => !item.identitySupported && item.failedPredicates.length > 0),
+    row.rowKey + ' must report a first failing M1/M2/OD predicate');
+  for (const check of checks) {
+    assert.equal(typeof check.m1Available, 'boolean');
+    assert.equal(typeof check.m2Pass, 'boolean');
+    assert.equal(typeof check.odPass, 'boolean');
+    assert(Array.isArray(check.failedPredicates));
+    assert(check.sourceElementId && check.targetElementId, row.rowKey + ' checked edge custody must be known');
+  }
+}
+console.log(JSON.stringify({
+  schema: 'CiiMethodABoundaryPredicateReconciliation.v1',
+  evidenceStatus: 'ACTUAL_RETAINED_SOURCE_LEVEL_FORENSICS_NOT_BIND_AUTHORITY',
+  headSource: 'native retained S1/S2/S3 to T auto-anchor preview',
+  unboundCount: unboundBoundaries.length,
+  rows: unboundBoundaries.map((row) => ({
+    rowKey: row.rowKey, targetNodeId: row.targetNodeId, state: row.state,
+    custodyVeto: row.methodABoundaryDiagnostics[0]?.custodyVeto || null,
+    localBoundary: row.methodABoundaryDiagnostics[0]?.localBoundary || null,
+  })),
+}, null, 2));
+
+const terminalForensics = ciiRetainedMethodATerminalForensics(preparedSession, preview, sourceAudit);
+// REC-03 exact fixture regression. These remain *non-binding forensic candidates*
+// until cross-source target custody, candidate arbitration and approval are defined.
+assert.equal(terminalForensics.groupedRegionCount, 6, 'all six exterior regions must be probed');
+assert.equal(terminalForensics.actualExteriorUnemittedRowCount, 33,
+  'original exterior physical SOURCE denominator cannot drift');
+const locallyQualified = terminalForensics.regions.flatMap((region) =>
+  region.qualifiedPrefix.qualifiedNodePairs.map((pair) =>
+    region.sourceId + ':' + pair.sourceNodeId + '=>' + pair.targetNodeId));
+assert.deepEqual([...locallyQualified].sort(), [
+  'S1:3830=>860', 'S1:4960=>1060',
+  'S2:50=>40040', 'S2:620=>10460', 'S2:80=>40050',
+  'S3:1920=>21920',
+].sort(), 'strict M1+M2+OD and topology prefixes must stay physical-evidence qualified');
+assert.equal(new Set(locallyQualified).size, 6, 'no duplicate source prefix claims');
+const terminalTargetIds = terminalForensics.regions.flatMap((region) =>
+  region.qualifiedPrefix.qualifiedNodePairs.map((pair) => pair.targetNodeId));
+assert.equal(new Set(terminalTargetIds).size, 6, 'candidate target prefixes must be unique across all three sources');
+for (const region of terminalForensics.regions) {
+  const count = region.qualifiedPrefix.qualifiedNodePairs.length;
+  const next = region.qualifiedPrefix.edgeChecks[count];
+  assert(next && next.supported === false,
+    region.sourceId + ':' + region.side + ' must retain first non-qualifying edge');
+  if (next.failedPredicates) assert(next.failedPredicates.length > 0,
+    region.sourceId + ':' + region.side + ' failure must retain explicit physical evidence');
+  for (const pair of region.qualifiedPrefix.qualifiedNodePairs) {
+    const row = sourceAudit.rows.find((item) => item.rowKey === region.sourceId + ':' + pair.sourceNodeId);
+    assert(row && row.state === 'UNEMITTED',
+      region.sourceId + ':' + pair.sourceNodeId + ' is only a probe, never auto-bound');
+    assert.equal(boundTargets.has(pair.targetNodeId), false,
+      pair.targetNodeId + ' cannot steal an existing physically bound TARGET');
+  }
+}
+
+const terminalEvidenceDir = fileURLToPath(new URL('../test-results/cii-method-a-qualification/', import.meta.url));
+mkdirSync(terminalEvidenceDir, { recursive: true });
+writeFileSync(join(terminalEvidenceDir, 'terminal-tail-forensics.json'),
+  JSON.stringify(terminalForensics, null, 2) + '\n', 'utf8');
+console.log(JSON.stringify({
+  terminalTraceSchema: terminalForensics.schema, status: terminalForensics.evidenceStatus,
+  regionCount: terminalForensics.groupedRegionCount,
+  exteriorUnemittedCount: terminalForensics.actualExteriorUnemittedRowCount,
+  regions: terminalForensics.regions.map((row) => ({
+    sourceId: row.sourceId, side: row.side, sourceRoot: row.sourceRoot,
+    targetRoot: row.targetRoot, unEmittedCount: row.unemittedExteriorRowKeys.length,
+    sourceLegs: row.sourceExterior.paths.length, targetLegs: row.targetExterior.paths.length,
+    localFirstEdgeQualifying: row.firstEdgeCandidateEvidence.filter((item) => item?.identitySupported).length,
+  })),
+}, null, 2));
+const censusCsv = ciiSourceTargetAuditToCsv(sourceAudit);
+const censusJson = ciiSourceTargetAuditToJson(sourceAudit);
+assert.equal(censusCsv.split('\n').length, 151, 'CSV must expose all 150 rows, not only displayed review matches');
+assert.deepEqual(JSON.parse(censusJson).summary, sourceAudit.summary, 'exported JSON must preserve all census counts');
+assert.equal(ciiSourceTargetAuditToCsv(sourceAudit), censusCsv, 'census CSV must be deterministic');
+assert.equal(ciiSourceTargetAuditToJson(sourceAudit), censusJson, 'census JSON must be deterministic');
+const censusEvidenceDir = fileURLToPath(new URL('../test-results/cii-method-a-qualification/', import.meta.url));
+mkdirSync(censusEvidenceDir, { recursive: true });
+writeFileSync(join(censusEvidenceDir, 'source-target-census.json'), censusJson, 'utf8');
+writeFileSync(join(censusEvidenceDir, 'source-target-census.csv'), censusCsv, 'utf8');
+const censusSummary = Object.freeze({
+  sourceNodes: sourceAudit.summary.totalSourceNodes,
+  physicalCounts, states: Object.fromEntries(stateNames.map((state) => [state, sourceAudit.summary[state]])),
+  boundKnownPositiveTargetCount: expectedDelta.rows.length,
+  unnamedPhysicalBoundNodes: ['S1:4490', 'S2:400'],
+});
 
 const physical = canonicalPhysicalTransfer(preview);
 const missingKnownPositiveKeys = missingRequiredTransferKeys(physical.keys, expectedKeys);
@@ -171,6 +338,7 @@ const diagnostics = Object.freeze({
     unselectedNodeNamePayloadDifferences: structuralPostimage.nodeNamePayloadPreservation.differences.length,
   },
   ownerCheckpointEvidence: checkpointDiagnostics(preview),
+  sourceCensus: censusSummary,
 });
 console.log(JSON.stringify(diagnostics, null, 2));
 

@@ -1,3 +1,4 @@
+import { CII_METHOD_A_WEIGHT_DEFAULTS, CII_METHOD_A_WEIGHT_KEYS, validateCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 import { deepFreeze } from './cii-workspace-contracts.js';
 import {
   ciiQualifiedLoopsForSuggestion,
@@ -76,6 +77,20 @@ function reviewObject(value) {
   }));
 }
 
+// Old sessions have no policy custody and cannot safely restore confidence-based
+// approvals after the grading policy becomes configurable.
+export function ciiWriter2SessionPolicyMatches(snapshot, policy) {
+  const stored = snapshot?.confidencePolicy;
+  return stored != null && policy != null
+    && Number.isFinite(stored.high) && Number.isFinite(stored.medium)
+    && stored.high === Number(policy.methodAHighConfidenceThreshold)
+    && stored.medium === Number(policy.methodAMediumConfidenceThreshold)
+    && Boolean(stored.weights)
+    && CII_METHOD_A_WEIGHT_KEYS.every((key) =>
+      Number.isFinite(stored.weights[key])
+      && stored.weights[key] === (policy.methodAConfidenceWeights ?? CII_METHOD_A_WEIGHT_DEFAULTS)[key]);
+}
+
 export function createCiiWriter2SessionSnapshot(input = {}) {
   const sourceSetSha256 = text(input.sourceSetSha256); const targetOriginalSha256 = text(input.targetOriginalSha256);
   if (!ciiWriter2SessionStorageKey(sourceSetSha256, targetOriginalSha256)) return null;
@@ -83,6 +98,13 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     schema: CII_MS_SESSION_SCHEMA,
     sourceSetSha256,
     targetOriginalSha256,
+    ...(input.confidencePolicy ? { confidencePolicy: deepFreeze({
+      high: Number(input.confidencePolicy.methodAHighConfidenceThreshold),
+      medium: Number(input.confidencePolicy.methodAMediumConfidenceThreshold),
+      weights: input.confidencePolicy.methodAConfidenceWeights
+        ? validateCiiMethodAConfidenceWeights(input.confidencePolicy.methodAConfidenceWeights)
+        : CII_METHOD_A_WEIGHT_DEFAULTS,
+    }) } : {}),
     selectedBySource: selectedObject(input.selectedBySource),
     manualBySource: manualObject(input.manualBySource),
     manualDraftBySource: draftObject(input.manualDraftBySource),

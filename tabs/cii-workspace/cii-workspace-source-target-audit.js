@@ -52,6 +52,20 @@ function stateFor(rows, targetNodeIds) {
   if (targetNodeIds.length === 1 && rows.some((row) => row?.identityBound === true)) return 'BOUND';
   return 'UNRESOLVED';
 }
+function boundaryReviewReasons(row) {
+  const evidence = row?.methodABoundaryDiagnostics;
+  if (!evidence || row?.identityBound === true) return [];
+  if (evidence.custodyVeto) return [
+    'NODE_CUSTODY_VETO:' + text(evidence.custodyVeto.blocker || 'CUSTODY_REVIEW_REQUIRED'),
+  ];
+  if (evidence.upstreamIdentitySupported === false) return [
+    'METHOD_A_BOUNDARY_UPSTREAM_SUPPORT_MISSING',
+  ];
+  if (evidence.upstreamIdentitySupported === true) return [
+    'METHOD_A_BOUNDARY_DOWNSTREAM_IDENTITY_NOT_BOUND',
+  ];
+  return [];
+}
 function reasonsFor(state, rows) {
   if (state === 'UNEMITTED') return Object.freeze(['NO_NODE_CORRESPONDENCE_EMITTED']);
   if (state === 'AMBIGUOUS') return Object.freeze(['MULTIPLE_TARGET_NODE_CLAIMS']);
@@ -60,6 +74,7 @@ function reasonsFor(state, rows) {
     row?.candidateStatus && row.candidateStatus !== 'SUPPORTED' ? `CANDIDATE_${row.candidateStatus}` : '',
     ...(row?.reasons || []),
     ...(row?.identityReasons || []),
+    ...boundaryReviewReasons(row),
   ]));
   return Object.freeze(reasons.length ? reasons : ['IDENTITY_NOT_BOUND']);
 }
@@ -97,6 +112,8 @@ function censusRow(sourceId, sourceDocument, targetDocument, sourceNodeId, conte
     workflowStatuses: deepFreeze(unique(reviewRows.map((row) => row?.workflowStatus))),
     authorities: deepFreeze(unique(reviewRows.map((row) => row?.authority))),
     evidenceBases: deepFreeze(unique(reviewRows.map((row) => row?.identityEvidenceBasis))),
+    methodABoundaryDiagnostics: deepFreeze(reviewRows.filter((row) => row?.methodABoundaryDiagnostics)
+      .map((row) => deepFreeze({ correspondenceId: text(row.correspondenceId), ...row.methodABoundaryDiagnostics }))),
     reviewDecisions: deepFreeze(unique(reviewRows.map((row) => reviewDecision(row, context.reviewDecisionOverrides)))),
     writerActions: deepFreeze(unique(operations.map((operation) => operation?.action))),
     writerStatuses: deepFreeze(unique(operations.map((operation) => operation?.status))),
@@ -151,7 +168,7 @@ function csvCell(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`;
 export function ciiSourceTargetAuditToCsv(audit) {
   const headers = ['sourceId', 'sourceFileName', 'sourceNodeId', 'sourceNodeName', 'state', 'confidence', 'targetNodeIds', 'targetNodeNames',
     'identityBound', 'nodeNameDifferent', 'qualifiedNodeNameChange', 'workflowStatuses', 'authorities', 'evidenceBases', 'reviewDecisions',
-    'writerActions', 'writerStatuses', 'correspondenceIds', 'reasons'];
+    'writerActions', 'writerStatuses', 'correspondenceIds', 'reasons', 'methodABoundaryDiagnostics'];
   const rows = (audit?.rows || []).map((row) => ({
     ...row,
     targetNodeIds: (row.targetNodeIds || []).join('|'), targetNodeNames: (row.targetNodeNames || []).join('|'),
@@ -159,6 +176,7 @@ export function ciiSourceTargetAuditToCsv(audit) {
     evidenceBases: (row.evidenceBases || []).join('|'), reviewDecisions: (row.reviewDecisions || []).join('|'),
     writerActions: (row.writerActions || []).join('|'), writerStatuses: (row.writerStatuses || []).join('|'),
     correspondenceIds: (row.correspondenceIds || []).join('|'), reasons: (row.reasons || []).join('|'),
+    methodABoundaryDiagnostics: stableStringify(row.methodABoundaryDiagnostics || []),
   }));
   return [headers.join(','), ...rows.map((row) => headers.map((key) => csvCell(row[key])).join(','))].join('\n');
 }

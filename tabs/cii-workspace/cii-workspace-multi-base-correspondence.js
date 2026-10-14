@@ -1,6 +1,7 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
 import { compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
+import { qualifyCiiMethodATerminalContinuation } from './cii-workspace-terminal-continuation.js';
 import { arbitrateCiiLoopCorrespondences, arbitrateCiiSeedCorrespondences } from './cii-workspace-correspondence-arbitration.js';
 
 function blockedCorrespondence(reason) {
@@ -13,6 +14,23 @@ function anchorPairs(loop) {
 function methodAConfidence(loop) {
   return ['HIGH', 'MEDIUM'].includes(loop?.confidence) ? loop.confidence : null;
 }
+function methodAQualification(loop) {
+  const weight = loop?.weight;
+  if (!weight || !Number.isFinite(Number(weight.total))) return null;
+  return deepFreeze({
+    loopId: String(loop?.loopId || loop?.baseId || ''),
+    score: Number(weight.total),
+    highThreshold: Number(weight.confidenceThresholds?.high ?? 85),
+    mediumThreshold: Number(weight.confidenceThresholds?.medium ?? 70),
+    anchorCount: (loop?.anchorPairs || []).length,
+    residualQuality: weight.residualQuality,
+    conditioning: weight.conditioning,
+    spatialExtent: weight.spatialExtent,
+    redundancy: weight.redundancy,
+    basisConsensus: weight.basisConsensus,
+    weights: weight.confidenceWeights || null,
+  });
+}
 function anchorPairKey(sourceNodeId, targetNodeId) { return `${String(sourceNodeId)}=>${String(targetNodeId)}`; }
 function projectMethodAAnchorRow(row, loop, anchorKeys) {
   const isAnchor = row?.kind === 'NODE' && anchorKeys.has(anchorPairKey(row.sourceNodeId, row.targetNodeId));
@@ -20,7 +38,8 @@ function projectMethodAAnchorRow(row, loop, anchorKeys) {
   const confidence = methodAConfidence(loop); const loopId = String(loop?.loopId || loop?.baseId || '');
   return deepFreeze({ ...row, status: 'REVIEW', authority: 'METHOD_A_QUALIFIED_ANCHOR',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: Boolean(confidence),
-      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId }) });
+      identityConfidence: confidence || 'REVIEW', identityEvidenceBasis: 'METHOD_A_QUALIFIED_BASE_ANCHOR', methodALoopId: loopId,
+      methodAQualification: methodAQualification(loop) }) });
 }
 function highIdentityEvidence(evidence) {
   return evidence?.identitySupported === true && evidence?.identityConfidence === 'HIGH';
@@ -37,7 +56,8 @@ function projectMethodABoundaryRow(row, loop) {
   return deepFreeze({ ...row, status: 'REVIEW',
     evidence: deepFreeze({ ...(row.evidence || {}), identitySupported: supported,
       identityConfidence: supported ? confidence : 'REVIEW',
-      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId }) });
+      identityEvidenceBasis: 'METHOD_A_QUALIFIED_ADJACENT_BOUNDARY', methodALoopId: loopId,
+      methodAQualification: methodAQualification(loop) }) });
 }
 function projectMethodAAnchorAuthority(correspondence, loop, anchors) {
   const anchorKeys = new Set(anchors.map((pair) => anchorPairKey(pair.sourceNodeId, pair.targetNodeId)));
@@ -51,7 +71,17 @@ function buildMethodACorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);
   if (anchors.length < 3) return blockedCorrespondence('METHOD_A_READY_LOOP_REQUIRES_THREE_ANCHORS');
   const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: loop.geometry });
-  return projectMethodAAnchorAuthority(correspondence, loop, anchors);
+  // Opt-in until authentic cross-source, review and Writer2 qualification passes.
+  // No new authority is produced by ordinary existing callers.
+  if (options.methodATerminalContinuation !== true) {
+    return projectMethodAAnchorAuthority(correspondence, loop, anchors);
+  }
+  const extension = qualifyCiiMethodATerminalContinuation(sourceGraph, targetGraph, loop, correspondence, options);
+  const withTerminals = deepFreeze({
+    ...correspondence, nodeRows: deepFreeze([...(correspondence.nodeRows || []), ...extension.nodeRows]),
+    methodATerminalContinuation: extension,
+  });
+  return projectMethodAAnchorAuthority(withTerminals, loop, anchors);
 }
 function buildMethodBCorrespondence(sourceGraph, targetGraph, loop, options) {
   const anchors = anchorPairs(loop);

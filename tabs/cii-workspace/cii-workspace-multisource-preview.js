@@ -1,5 +1,7 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
 import { ciiWorkspaceArtifactBundle } from './cii-workspace-export.js';
+import { resolveCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
+import { resolveCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 import {
   CII_PREPARED_SOURCE_SET_SESSION_SCHEMA,
@@ -108,6 +110,44 @@ function sourceIdentity(row) {
 function targetIdentity(row) {
   return text(row?.targetNodeId || row?.targetComponentId || row?.targetElementId || (row?.targetElementIds || []).join('|'));
 }
+// A qualified SOURCE NODE identity cannot claim a TARGET NODE already claimed
+// by a different SOURCE member. REVIEW candidates with no identity support do
+// not gain authority (or create phantom conflicts) through this check.
+function crossMemberTargetNodeConflicts(members) {
+  const byTarget = new Map();
+  for (const member of members || []) for (const row of member.nodeRows || []) {
+    if (row?.kind !== 'NODE' || ['UNRESOLVED', 'CONFLICT'].includes(row.status)) continue;
+    const sourceId = text(member.sourceId);
+    const sourceNodeId = text(row.sourceNodeId);
+    const targetNodeId = text(row.targetNodeId);
+    if (!sourceId || !sourceNodeId || !targetNodeId) continue;
+    const qualified = row.status === 'LOCKED' || row.status === 'HIGH'
+      || row.evidence?.identitySupported === true;
+    if (!qualified) continue;
+    if (!byTarget.has(targetNodeId)) byTarget.set(targetNodeId, new Map());
+    const claims = byTarget.get(targetNodeId);
+    const key = sourceId + ':' + sourceNodeId;
+    if (!claims.has(key)) claims.set(key, deepFreeze({
+      sourceId, sourceNodeId, correspondenceId: text(row.correspondenceId),
+    }));
+  }
+  const conflicts = [];
+  for (const [targetNodeId, claimsBySource] of byTarget.entries()) {
+    const claims = [...claimsBySource.values()].sort((a, b) =>
+      a.sourceId.localeCompare(b.sourceId, undefined, { numeric: true })
+      || a.sourceNodeId.localeCompare(b.sourceNodeId, undefined, { numeric: true }));
+    const memberIds = [...new Set(claims.map((claim) => claim.sourceId))];
+    if (memberIds.length < 2) continue;
+    conflicts.push(deepFreeze({
+      class: 'TARGET_NODE_CROSS_MEMBER_IDENTITY_CONFLICT',
+      kind: 'NODE', targetNodeId,
+      sourceMemberIds: deepFreeze(memberIds),
+      sourceClaims: deepFreeze(claims),
+      correspondenceIds: deepFreeze(claims.map((claim) => claim.correspondenceId)),
+    }));
+  }
+  return deepFreeze(conflicts.sort((a, b) => a.targetNodeId.localeCompare(b.targetNodeId, undefined, { numeric: true })));
+}
 function crossSourceCorrespondenceConflicts(members) {
   const sourceClaims = new Map(); const conflicts = [];
   for (const member of members) for (const row of [...member.nodeRows, ...member.elementRows, ...member.componentRows]) {
@@ -123,7 +163,7 @@ function crossSourceCorrespondenceConflicts(members) {
       }));
     } else sourceClaims.set(key, { target, correspondenceId: row.correspondenceId });
   }
-  return conflicts;
+  return deepFreeze([...conflicts, ...crossMemberTargetNodeConflicts(members)]);
 }
 function combinedCorrespondence(sourceSetSha256, members) {
   const conflicts = crossSourceCorrespondenceConflicts(members);
@@ -565,6 +605,8 @@ export async function createCiiWriter2SourceSetPreviewFromPreparedSession(prepar
   const writerReadiness = ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument);
   const audit = deepFreeze({
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
+    methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
+    methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
     memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
@@ -623,6 +665,8 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
   const writerReadiness = ciiWriter2SourceSetNodeNameReadiness(transferPlan, targetDocument);
   const audit = deepFreeze({
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
+    methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
+    methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
     memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({
@@ -644,6 +688,7 @@ export async function createCiiWriter2SourceSetPreviewWithVersionBridge(input, o
 
 export const _test = Object.freeze({
   prefixId, prefixedRow, sourceIdentity, targetIdentity, crossSourceCorrespondenceConflicts,
+  crossMemberTargetNodeConflicts, combinedCorrespondence,
   normalizedAcceptanceBinding, inferredAcceptanceBinding, targetMutationConflicts, bm001SourceAliasCandidates,
   memberMixedOperations, memberInput, preparedSessionSourceSet, preparedMemberInput,
   preparedMemberVersionBridge, preparedMemberModels, analysisOptionsWithoutCache,
