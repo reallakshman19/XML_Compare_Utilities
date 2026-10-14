@@ -82,15 +82,17 @@ for(const {mode,options} of modes) {
     originalTargetSha256:preview.targetAuthority.originalSha256});
   if(!graphReference) graphReference=preview;
 }
-const sourceGraphsById=Object.fromEntries(graphReference.memberPreviews.map(item=>
-  [item.sourceId,item.preview.sourceGraph]));
+// Graphs belong to the prepared immutable session/common analysis rather than
+// the public Writer preview projection; bind physical advisories to those models.
+const sourceGraphsById=Object.fromEntries(preparedSession.members.map(item=>
+  [item.sourceId,item.sourceGraph]));
 const authority={
   sourceSetSha256:snapshots[0].sourceSetSha256,
   originalTargetSha256:sha(targetBytes),
   originalSourceShaById:Object.fromEntries(sources.map(s=>[s.sourceId,sha(s.bytes)])),
 };
 const opts={authority,snapshots,manualClaims:manualPairs,sourceGraphsById,
-  targetGraph:graphReference.memberPreviews[0].preview.targetGraph};
+  targetGraph:preparedSession.target.targetGraph};
 const graph=buildCiiA2ShadowJointEvidence(opts);
 assert.equal(graph.status,'SHADOW_REVIEW_ONLY');
 assert.equal(graph.summary.originalPhysicalSourceNodes,150);
