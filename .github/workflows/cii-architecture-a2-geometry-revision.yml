@@ -1,0 +1,50 @@
+name: CII A2 Geometry Revision Falsifiers
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow08-geometry-revision-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-geometry-revision-falsifiers.mjs'
+      - 'tests/cii-architecture-a2-geometry-revision-falsifiers.test.js'
+      - '.github/workflows/cii-architecture-a2-geometry-revision.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-geometry-revision:
+    name: Source-bound S1 bend/chord revision counterfactual, zero Writer authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-08 geometry revision forensic counterfactual and negative controls
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js --out=test-results/cii-a2-08/original-geometry-revision.json
+      - name: A2-01 authentic original joint hypotheses
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 authentic physical path factors
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global CSP non-writing contract
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 original endpoint frontier
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 independent candidate/path reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-06 physical island and custody triage
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-07 original dual/single island route witnesses
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: Retain full SHA-bound original vector, bend and revision sensitivity ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-08-original-geometry-revision-evidence
+          path: test-results/cii-a2-08/original-geometry-revision.json
+          if-no-files-found: warn
+          retention-days: 14

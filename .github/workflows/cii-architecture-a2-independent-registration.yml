@@ -1,0 +1,52 @@
+name: CII A2 Independent 3D Registration Admission
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow09-independent-registration-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-independent-registration.mjs'
+      - 'tests/cii-architecture-a2-independent-registration.test.js'
+      - '.github/workflows/cii-architecture-a2-independent-registration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-registration:
+    name: Independent surveyed 3D registration versus authentic CII evidence blocker
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-09 original SHA-basis 3D survey-admission and synthetic held-out falsifiers
+        run: node tests/cii-architecture-a2-independent-registration.test.js --out=test-results/cii-a2-09/independent-registration.json
+      - name: A2-01 original physical NODE hypotheses
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: A2-02 original physical path constraints
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-03 global original SOURCE/TARGET constraint solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-04 original missing-frontier alternatives
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-05 independent recheck, factor and global reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-06 physical island and custody triage
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-07 original bounded independent island route witnesses
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: A2-08 original BEND recorded geometry revision counterfactual
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js
+      - name: Retain independent original survey-blocker and 3D falsification ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-09-independent-registration-evidence
+          path: test-results/cii-a2-09/independent-registration.json
+          if-no-files-found: warn
+          retention-days: 14
