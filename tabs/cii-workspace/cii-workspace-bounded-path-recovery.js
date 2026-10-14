@@ -21,7 +21,10 @@ function straightness(steps) {
   return length > 0 ? Math.hypot(...result) / length : 0;
 }
 function physicalCompatible(source, target, options) {
-  if (source.componentKind !== 'PIPE' || target.componentKind !== 'PIPE') return false;
+  // BEND is admissible as a one-to-one physical LOOKAHEAD witness only.
+  // Actual root frontier recovery and all target subdivisions stay PIPE-only.
+  if (source.componentKind !== target.componentKind
+    || !['PIPE', 'BEND'].includes(source.componentKind)) return false;
   const a = number(source.diameter), b = number(target.diameter);
   if (!(a > 0 && b > 0) || Math.abs(a - b) > Math.min(number(options.pathRecoveryOdToleranceMm ?? 2), a * 0.1)) return false;
   return true;
@@ -52,12 +55,14 @@ function pathChoices(graph, node, sourceEdge, firstEdges, options, occupied, occ
       if (visited.has(next) || (n > 0 && occupiedNodes.has(next))) break;
       steps.push({ edge, from: cursor, to: next }); length += number(edge.lengthMm);
       if (length > number(sourceEdge.lengthMm) + tolerance) break;
-      const wallCompatibleSubdivision = steps.length === 1 || steps.every(step => {
+      const wallCompatibleSubdivision = steps.length === 1 || (sourceEdge.componentKind === 'PIPE'
+        && steps.every(step => {
         const sw = number(sourceEdge.wall), tw = number(step.edge.wall);
         return (sw > 0 && tw > 0 && Math.abs(sw - tw) <= number(options.pathRecoveryWallToleranceMm ?? 1))
           || (sw === 0 && tw === 0);
-      });
+      }));
       if (Math.abs(length - number(sourceEdge.lengthMm)) <= tolerance
+        && (steps.length === 1 || sourceEdge.componentKind === 'PIPE')
         && wallCompatibleSubdivision
         && (steps.length === 1 || straightness(steps) >= number(options.pathRecoveryMinStraightness ?? 0.995))) {
         const target = composite(first, steps, String(node), next);
@@ -98,7 +103,7 @@ function lookahead(sourceGraph, targetGraph, sourceEdge, sourceNode, candidate, 
     const targetNext = incident(targetGraph, targetAt).filter(e => e.elementId !== targetPrevious && !occupiedTarget.has(e.elementId));
     if (sourceNext.length !== 1 || targetNext.length !== 1) break;
     const source = sourceNext[0];
-    if (source.componentKind !== 'PIPE' || seenSource.has(other(source, sourceAt))) break;
+    if (!['PIPE', 'BEND'].includes(source.componentKind) || seenSource.has(other(source, sourceAt))) break;
     const available = pathChoices(targetGraph, targetAt, source, targetNext, options, occupiedTarget, occupiedNodes);
     if (available.overflow || available.choices.length !== 1) break;
     const matched = available.choices[0];
