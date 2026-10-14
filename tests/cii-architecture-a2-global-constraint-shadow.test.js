@@ -85,7 +85,7 @@ assert.equal(ambiguous.components[0].distinctSolutionWitnesses,2);
 assert.equal(ambiguous.components[0].enumerationComplete,false,
   'two witnesses demonstrate ambiguity; no claim of exhaustive enumeration');
 assert.equal(ambiguous.certifiedNodeCount,0);
-const tinyBudget=solveCiiA2GlobalShadow(symmetric,{policy:{maxSearchStates:1}});
+const tinyBudget=solveCiiA2GlobalShadow({...symmetric,policy:{maxSearchStates:1}});
 assert.equal(tinyBudget.componentStates.SEARCH_INCOMPLETE,1);
 assert.equal(tinyBudget.components[0].certified,false);
 
@@ -158,7 +158,7 @@ const truncated=structuredClone(chain);
 truncated.pathAudit.edgeRows[0].truncated=true;
 truncated.pathAudit.edgeRows[0].status='SEARCH_INCOMPLETE';
 assert.equal(solveCiiA2GlobalShadow(truncated).componentStates.INCOMPLETE_PHYSICAL_EVIDENCE,1);
-assert.throws(()=>solveCiiA2GlobalShadow(chain,{policy:{maxSearchStates:0}}),/INVALID_BOUNDED_POLICY/);
+assert.throws(()=>solveCiiA2GlobalShadow({...chain,policy:{maxSearchStates:0}}),/INVALID_BOUNDED_POLICY/);
 assert.equal(JSON.stringify(solveCiiA2GlobalShadow(chain)),JSON.stringify(unique));
 
 const originals={
