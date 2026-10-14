@@ -1,0 +1,56 @@
+name: CII A2 Indexed Native Geometry Recall Shadow
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow11-recall-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-indexed-native-recall.mjs'
+      - 'tests/cii-architecture-a2-indexed-native-recall.test.js'
+      - '.github/workflows/cii-architecture-a2-indexed-recall.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-indexed-recall:
+    name: Indexed real SOURCE/TARGET native geometry, held-out topology and capped recall
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A2-11 original indexed TARGET retrieval, sixty-decoy, mirror and rewired negatives
+        run: node tests/cii-architecture-a2-indexed-native-recall.test.js --out=test-results/cii-a2-11/original-indexed-recall.json
+      - name: A2-10 original heuristic 3D source/target registered hypotheses
+        run: node tests/cii-architecture-a2-native-geometry-hypotheses.test.js
+      - name: A2-09 independent 3D survey admission
+        run: node tests/cii-architecture-a2-independent-registration.test.js
+      - name: A2-08 original BEND geometry revision
+        run: node tests/cii-architecture-a2-geometry-revision-falsifiers.test.js
+      - name: A2-07 SOURCE island route witnesses
+        run: node tests/cii-architecture-a2-independent-island-routes.test.js
+      - name: A2-06 original missing-factor islands
+        run: node tests/cii-architecture-a2-island-triage.test.js
+      - name: A2-05 independent frontier global reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: A2-04 original incomplete frontier recovery
+        run: node tests/cii-architecture-a2-frontier-recovery.test.js
+      - name: A2-03 global correspondence constraint solver
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: A2-02 physical NODE ELEMENT PATH factors
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: A2-01 original joint shadow evidence
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: Retain complete SHA-bound original component retrieval census and falsifiers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-a2-11-indexed-geometry-recall-evidence
+          path: test-results/cii-a2-11/original-indexed-recall.json
+          if-no-files-found: warn
+          retention-days: 14
