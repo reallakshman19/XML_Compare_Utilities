@@ -6,6 +6,7 @@ on:
     branches:
       - fix/cii-writer2-frontier-diagnostics-69
       - fix/cii-writer2-locked-anchor-physical-evidence-69
+      - fix/cii-writer2-bounded-path-recovery-69
   pull_request:
     paths:
       - 'tabs/cii-workspace/cii-workspace-compare-review.js'
@@ -14,6 +15,9 @@ on:
       - 'tests/cii-workspace-frontier-diagnostics.test.js'
       - 'tests/cii-workspace-locked-anchor-local-evidence.test.js'
       - 'tabs/cii-workspace/cii-workspace-anchor-local-evidence.js'
+      - 'tabs/cii-workspace/cii-workspace-bounded-path-recovery.js'
+      - 'tests/cii-workspace-bounded-path-recovery.test.js'
+      - 'tests/cii-workspace-bounded-path-recovery-retained-parity.test.js'
       - '.github/workflows/cii-writer2-frontier-diagnostics.yml'
 
 permissions:
@@ -38,6 +42,7 @@ jobs:
           set -euo pipefail
           node tests/cii-workspace-frontier-diagnostics.test.js
           node tests/cii-workspace-locked-anchor-local-evidence.test.js
+          node tests/cii-workspace-bounded-path-recovery.test.js
           node tests/cii-workspace-compare-review-ambiguity.test.js
           node tests/cii-workspace-multisource-review-ui.test.js
           node tests/cii-workspace-multisource-review-state.test.js
@@ -60,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          node tests/cii-workspace-bounded-path-recovery-retained-parity.test.js
           node tests/cii-workspace-multisource-texpected-benchmark.test.js
   legacy-anchor-differential:
     name: Unchanged main versus PR legacy single-anchor custody check
@@ -102,3 +108,51 @@ jobs:
           else
             echo "Single-anchor legacy check passes on both main and PR"
           fi
+  retained-chromium:
+    name: Retained Chromium Inspect Compare Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Actual retained multisource Chromium qualification
+        run: npx playwright test --config=playwright.cii-writer2-retained.config.mjs
+      - name: Capture failure-only browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-path-recovery-browser-${{ github.sha }}
+          path: test-results/cii-writer2-retained-browser/
+          if-no-files-found: warn
+          retention-days: 14
+  cross-route-custody:
+    name: Writer1C and generic Review Export compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent Writer1C and REVIEW_ONLY native regressions
+        run: node tests/cii-workspace-cross-route-compatibility.test.mjs
+      - name: Upload cross-route result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-path-recovery-cross-route-${{ github.sha }}
+          path: test-results/cii-method-a-qualification/cross-route-compatibility.json
+          if-no-files-found: warn
+          retention-days: 14
