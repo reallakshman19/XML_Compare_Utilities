@@ -203,6 +203,32 @@ function zoneEvidence({name,sourceIds,missing,source,target,assigned,discrepancy
  }
  const pathComplete=sourcePathParts.length>0&&sourcePathParts.every(x=>x.nodes.length>0)
   &&targetPathParts.every(x=>x.nodes.length>0);
+ const interiorPhysicalSegments=sourcePathParts.map((sp,i)=>{
+  const tp=targetPathParts[i],se=sp.edges.map(id=>source.edges.get(id)),
+    te=tp.edges.map(id=>target.edges.get(id));
+  const sl=se.reduce((sum,e)=>sum+Number(e.lengthMm),0),
+    tl=te.reduce((sum,e)=>sum+Number(e.lengthMm),0);
+  const sourceKinds=se.map(e=>String(e.componentKind)),
+    targetKinds=te.map(e=>String(e.componentKind));
+  const pairedEdgeKindsCompatible=sourceKinds.length===targetKinds.length
+   &&sourceKinds.every((kind,j)=>kind===targetKinds[j]);
+  return {
+   sourceStartNode:members[i].sourceNodeId,
+   sourceEndNode:members[i+1].sourceNodeId,
+   targetStartNodeHypothesis:members[i].targetNodeHypothesis,
+   targetEndNodeHypothesis:members[i+1].targetNodeHypothesis,
+   sourcePhysicalElements:sp.edges,targetPhysicalElements:tp.edges,
+   sourceComponentKinds:sourceKinds,targetComponentKinds:targetKinds,
+   sourceTotalRecordedLengthMm:round(sl),
+   targetTotalRecordedLengthMm:round(tl),
+   originalRecordedLengthDifferenceMm:round(Math.abs(sl-tl)),
+   pairedEdgeComponentKindsCompatible,
+   strictOriginalLengthMatch:sp.edges.length>0&&tp.edges.length>0
+    &&pairedEdgeKindsCompatible&&Math.abs(sl-tl)<=p.originalLengthToleranceMm,
+   sourceAndTargetPathEnumerationComplete:!sp.truncated&&!tp.truncated,
+   noIdentityCertificate:true,
+  };
+ });
  const R=discrepancy.reviewCandidate?.rotationRows;
  const srcDisp=source.nodes.has(selected[0])&&source.nodes.has(selected.at(-1))
   ?sub(source.nodes.get(selected.at(-1)),source.nodes.get(selected[0])):null;
@@ -262,6 +288,10 @@ function zoneEvidence({name,sourceIds,missing,source,target,assigned,discrepancy
   targetWholeSubchainSegments:targetPathParts.map(x=>({nodes:x.nodes,physicalElements:x.edges,
    graphTruncated:x.truncated})),
   wholeSubchainRouteConnected:pathComplete,
+  orderedOriginalSubchainPhysicalComparisons:interiorPhysicalSegments,
+  entireOrderedInternalPhysicalSubchainStrictlyCompatible:
+   pathComplete&&interiorPhysicalSegments.every(x=>x.strictOriginalLengthMatch
+    &&x.sourceAndTargetPathEnumerationComplete),
   outsideBoundaryPhysicalEdges:outside,
   twoIndependentBoundaryClosuresProven:independentClosure,
   independentlyVerifiedBoundaryEnds:distinctBoundaryEnds.size,
