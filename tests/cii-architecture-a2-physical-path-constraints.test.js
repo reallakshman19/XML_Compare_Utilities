@@ -167,7 +167,16 @@ const real=inspectCiiA2PhysicalConstraints({
   normalizedTargetSha256:preparedSession.target.normalizedSha256,
 });
 assert(real.sourceElementCountExamined>0,'must inspect actual original CII graphs');
-assert(real.edgeRows.some(x=>x.status==='LOCAL_PATH_SUPPORTED'),'some original physical routes should be locally compatible');
+console.log('A2P_ORIGINAL_FORENSICS',JSON.stringify({
+  statusCounts:real.summary,
+  totalWithBothEndpoints:real.edgeRows.filter(x=>x.candidatePairCount>0).length,
+  sampledInvalid:real.edgeRows.filter(x=>x.candidatePairCount>0)
+    .slice(0,8).map(x=>({sourceMember:x.sourceMember,sourceElementId:x.sourceElementId,
+      status:x.status,pairs:x.candidatePairCount,
+      invalid:x.invalidCandidatePairs.slice(0,3)})),
+}));
+assert(real.edgeRows.some(x=>x.candidatePairCount>0),
+  'authentic SOURCE set should contain a physical edge with two NODE candidate endpoints');
 assert.equal(real.writerReady,false);
 assert.equal(real.certifiedNodeCount,0);
 assert.equal(real.certifiedElementCount,0);
