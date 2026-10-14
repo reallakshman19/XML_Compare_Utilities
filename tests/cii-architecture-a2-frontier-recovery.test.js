@@ -188,7 +188,7 @@ if(reportPath){
   if(dest.replaceAll('\\\\','/').includes('/Benchmark/'))
     throw Error('A204_ORIGINAL_BENCHMARK_MUST_REMAIN_READ_ONLY');
   mkdirSync(dirname(dest),{recursive:true});
-  writeFileSync(dest,JSON.stringify(real,null,2)+'\\n','utf8');
+  writeFileSync(dest,JSON.stringify(real,null,2),'utf8');
   const replayed=JSON.parse(readFileSync(dest,'utf8'));
   assert.equal(replayed.proposals.length,real.proposals.length);
   assert.equal(replayed.rootCauses.length,49);
