@@ -112,7 +112,10 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     if (!sourceEdges.length) continue;
 
     const assignment = frontierAssignment(sourceEdges, targetEdges, matchOptions);
-    const recovery = assignment.status !== 'SUPPORTED' && options.singleAnchorPathRecovery === true
+    // Only the initial owner-reviewed seed frontier may use a path hypothesis.
+    // A second ambiguous region is NOT independently authorized by that seed.
+    const recovery = current.depth === 0 && assignment.status !== 'SUPPORTED'
+      && options.singleAnchorPathRecovery === true
       && !anchorLocal?.signals?.includes('INCIDENT_OD_CONTEXT_OVER_50_PERCENT')
       ? recoverCiiBoundedFrontierPaths(sourceGraph, targetGraph, current.sourceNode, current.targetNode,
         sourceEdges, targetEdges, matchOptions, {
