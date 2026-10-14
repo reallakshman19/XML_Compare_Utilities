@@ -172,6 +172,14 @@ function geometricAssignments(source,target,h,p,ledger,sourceId){
   const ambiguous=eligible.length>1&&eligible[1].distanceMm-eligible[0].distanceMm<=1e-6;
   const chosen=!ambiguous&&eligible.length?eligible[0]:null;
   if(chosen){selected.set(node.id,chosen.targetNodeId);used.add(chosen.targetNodeId);}
+  const nearestGlobal=[...target.nodes.values()].filter(n=>n.position)
+    .map(n=>({targetNodeId:n.id,
+      distanceMm:round(distance(n.position,predicted)),
+      signedTargetMinusPredictedMm:n.position.map((x,i)=>round(x-predicted[i])),
+      degreeKindCompatible:target.signatures.get(n.id)===expectedSig,
+      targetDegreeKind:target.signatures.get(n.id)}))
+    .sort((a,b)=>a.distanceMm-b.distanceMm||cmp(a.targetNodeId,b.targetNodeId))
+    .slice(0,p.maxNeighbourExamples);
   const ledgerRow=ledger.get(sourceId+':'+node.id);
   const record={
     sourceNodeId:node.id,sourceDegreeKind:expectedSig,
@@ -187,11 +195,41 @@ function geometricAssignments(source,target,h,p,ledger,sourceId){
     chosenTargetNodeId:chosen?.targetNodeId||null,
     distanceMm:chosen?.distanceMm??null,
     nearestOriginalTargetGeometry:near.slice(0,p.maxNeighbourExamples),
+    nearestGlobalTargetGeometry:nearestGlobal,
+    physicalBridgeCounterfactuals:[],
     preexistingLedgerTargets:[...(ledgerRow?.targets||[])].sort(cmp),
     newCandidateAdmitted:false,
   };
   rows.push(record);
   if(!chosen)missing.push(record);
+ }
+ // Holdout assignment is frozen before probing unadmitted alternative nodes.
+ // Any bridge is an independent original physical path *observation*, not a
+ // change to the assignment, NODE scope or candidate ledger.
+ for(const missingRow of missing){
+  const candidates=missingRow.nearestOriginalTargetGeometry
+   .filter(x=>x.distanceMm<=p.nearestDiagnosticDistanceMm)
+   .map(x=>x.targetNodeId);
+  const bridges=[];
+  for(const candidateTarget of candidates){
+   for(const e of source.adjacency.get(missingRow.sourceNodeId)||[]){
+    const sourceNeighbour=edgeOther(e,missingRow.sourceNodeId);
+    const targetNeighbour=selected.get(sourceNeighbour);
+    if(!targetNeighbour)continue;
+    const physical=findPaths(target,candidateTarget,targetNeighbour,e,p);
+    const compatible=physical.witnesses.filter(w=>
+      w.lengthWithinDeclaredTolerance&&w.subdivisionStraightnessValid);
+    if(!compatible.length)continue;
+    bridges.push({sourceElementId:String(e.elementId),
+      fromUnadmittedSourceNode:missingRow.sourceNodeId,
+      toAlreadyProposedSourceNode:sourceNeighbour,
+      fromUnadmittedTargetCandidate:candidateTarget,
+      toAlreadyProposedTargetNode:targetNeighbour,
+      targetPhysicalPaths:compatible,
+      certifiesCorrespondence:false});
+   }
+  }
+  missingRow.physicalBridgeCounterfactuals=bridges;
  }
  return {chosen:selected,missing,rows,allHeldOutCount:available.length};
 }
@@ -310,6 +348,8 @@ export function inspectCiiA212HeldOutDiscrepancies({
    observedDirectPathCandidates:directOnly.length,
    custodyWarningCount:custodyWarnings.length,
    independentSurveyQualified:false,transformSelected:true,
+   missingNodesWithExactPhysicalBridgeCounterfactual:
+    assigned.missing.filter(x=>x.physicalBridgeCounterfactuals.length>0).length,
    incompleteOriginalPhysicalElementsRepaired:0,
   },
   reviewCandidate:{
