@@ -663,9 +663,31 @@ assert.deepEqual(targetBend.counterfactualBands
   .map(x=>[x.counterfactualLengthBandMm,x.compatibleComponentAndLength]),[
     [25,false],[100,false],[300,true],[350,true],
   ],'a 300 mm relaxed *counterfactual* length-only gate is not correspondence proof');
-assert(targetBend.sourceMetrics.chordMm>0);
-assert(targetBend.targetMetrics.chordMm>0);
-assert(Number.isFinite(targetBend.arcChordRatioDelta));
+assert.equal(targetBend.sourceMetrics.chordMm,3027);
+assert.equal(targetBend.targetMetrics.chordMm,2727);
+assert.equal(targetBend.sourceMetrics.recordedLengthToChordRatio,1);
+assert.equal(targetBend.targetMetrics.recordedLengthToChordRatio,1);
+assert.equal(targetBend.sourceMetrics.bendCurvatureStatus,
+  'RADIUS_AND_SWEEP_NOT_ATTESTED_BY_CANONICAL_EDGE');
+assert.equal(targetBend.targetMetrics.bendCurvatureStatus,
+  'RADIUS_AND_SWEEP_NOT_ATTESTED_BY_CANONICAL_EDGE');
+assert.equal(targetBend.recordedLengthChordRatioDelta,0);
+assert.equal(targetBend.sourceMetrics.wallMm,25.4);
+assert.equal(targetBend.targetMetrics.wallMm,18.3);
+assert.equal(targetBend.sourceMetrics.diameterMm,273);
+assert.equal(targetBend.targetMetrics.diameterMm,273);
+assert.equal(targetBend.originalPredecessorConstraintCount,1);
+assert.deepEqual(targetBend.predecessorTurnInvariants.map(z=>[
+  z.sourcePredecessorElementId,z.targetPredecessorElementId,
+  z.claimedOtherSourceNode,z.claimedOtherTargetNode,
+  z.sourceTurnCosine,z.targetTurnCosine,z.turnDifference,
+]),[['E41:4930->4960','E212:1055->1060','4930','1055',1,1,0]]);
+assert.equal(actualS1Bend.strictKindLengthChordCandidatesInTarget,9,
+  'nine original TARGET bends have strict first-edge geometry but NO certified anchor identity');
+assert.equal(actualS1Bend.unanchoredAlternativeScanComplete,true);
+assert(actualS1Bend.strictKindLengthChordCandidateExamples.every(z=>
+  z.relationToCurrentAnchor==='UNANCHORED_GLOBAL_TARGET_EDGE'),
+  'strict unanchored resemblance cannot imply alternative physical NODE certification');
 assert(actualS1Bend.strictBandCompatibleExistingAnchorEdges===0);
 assert.equal(actualS1Bend.routeOutcome,'NO_FULL_CHAIN_ROUTE_IN_DECLARED_WITNESS_DOMAIN');
 assert.equal(a208.certifiedNodeCount,0);
