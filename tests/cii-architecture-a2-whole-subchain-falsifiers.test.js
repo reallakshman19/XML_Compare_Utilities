@@ -1570,3 +1570,13 @@ console.log('A2_13_ORIGINAL_WHOLE_SUBCHAIN_FALSIFIERS',JSON.stringify({
  certifiedNodes:0,certifiedElements:0,writerReady:false,
 },null,2));
 console.log('PASS A2-13: original S2 whole-subchain coherence and two independent boundary vetoes, 200mm cluster, 1500mm outlier, 2 custody conflicts, source/target SHA negative tests, no Writer');
+
+// A2-14 uses the actual immutable original fixture reconstruction as a
+// read-only input; no production code imports this exported test-only surface.
+export const originalA214TestInputs=Object.freeze({
+ subchains:originalS2A213,discrepancy:s2A212,reconciliation:evaluated,sourceId:'S2',
+ sourceGraph:auditInputsA212('S2').sourceGraph,
+ targetGraph:auditInputsA212('S2').targetGraph,
+ normalizedSourceSha256:auditInputsA212('S2').normalizedSourceSha256,
+ normalizedTargetSha256:auditInputsA212('S2').normalizedTargetSha256,
+});
