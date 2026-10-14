@@ -21,7 +21,8 @@ const len=v=>Math.hypot(...v),dist=(a,b)=>len(sub(a,b));
 const unit=x=>len(x)>1e-8?mul(x,1/len(x)):null;
 const round=n=>Math.abs(n)<5e-7?0:Number(n.toFixed(6));
 const P={maxSourceSeedEdges:24,maxThirdSourceNodesPerEdge:3,
- maxTargetEdgeRecordsPerSourceSeed:120,maxTriangleChecks:24000,
+ maxTargetEdgeRecordsPerSourceSeed:120,maxTriangleChecks:48000,
+ maxTriangleChecksPerSourceSeed:1000,maxTriangleChecksPerTargetEdge:24,
  maxTransformsEvaluated:100,maxReturnedHypotheses:12,
  maxHeldOutNodes:50,minHeldOutMatches:2,minHeldOutCoverageFraction:0.85,
  minHeldOutNoncoplanarMm:5,minHeldOutEdgeChecks:2,minHeldOutEdgeAgreement:0.9,
@@ -32,6 +33,7 @@ function policyOf(overrides={}){
  for(const [key,lo,hi] of [
  ['maxSourceSeedEdges',1,500],['maxThirdSourceNodesPerEdge',1,50],
  ['maxTargetEdgeRecordsPerSourceSeed',1,10000],['maxTriangleChecks',1,300000],
+ ['maxTriangleChecksPerSourceSeed',1,50000],['maxTriangleChecksPerTargetEdge',1,5000],
  ['maxTransformsEvaluated',1,1500],['maxReturnedHypotheses',1,150],
  ['maxHeldOutNodes',2,300],['minHeldOutMatches',2,200],
  ['minHeldOutCoverageFraction',0.1,1],['minHeldOutNoncoplanarMm',0.0001,100000],
@@ -255,10 +257,12 @@ export function exploreCiiA211IndexedNativeGeometry({
  const index=targetEdgeIndex(target),selection=selectEdges(source,p);
  const reports=[],hypotheses=[],seen=new Set();
  let triangles=0,transformTrials=0,targetEdgeMatches=0,sourceThirdClipped=0,edgeCapped=0,
-  sourceSeedUnavailable=0,geometryRejected=0,goodRigidTriangles=0,stopped=false;
+  sourceSeedUnavailable=0,geometryRejected=0,goodRigidTriangles=0,stopped=false,
+  sourceSeedTupleCaps=0,targetEdgeTupleCaps=0;
  const targetComponentsSeen=new Set();
  for(const seed of selection.edges){
   if(stopped)break;
+  let seedTupleChecks=0;
   const matching=(index.get(seed.kind)||[]).filter(e=>Math.abs(e.length-seed.length)<=p.seedEdgeRetrievalBandMm);
   targetEdgeMatches+=matching.length;
   const pool=stratify(matching,p.maxTargetEdgeRecordsPerSourceSeed);
@@ -268,22 +272,27 @@ export function exploreCiiA211IndexedNativeGeometry({
   if(sourceThird.clipped)sourceThirdClipped++;
   if(!sourceThird.items.length){sourceSeedUnavailable++;continue;}
   for(const candidate of pool.selected){
-   if(stopped)break;
+   if(stopped||seedTupleChecks>=p.maxTriangleChecksPerSourceSeed)break;
+   let targetEdgeChecks=0;
    for(const orientation of [0,1]){
-    if(stopped)break;
+    if(stopped||seedTupleChecks>=p.maxTriangleChecksPerSourceSeed
+      ||targetEdgeChecks>=p.maxTriangleChecksPerTargetEdge)break;
     const TA=orientation?candidate.to:candidate.from,TB=orientation?candidate.from:candidate.to;
     for(const C of sourceThird.items){
-     if(stopped)break;
+     if(stopped||seedTupleChecks>=p.maxTriangleChecksPerSourceSeed
+       ||targetEdgeChecks>=p.maxTriangleChecksPerTargetEdge)break;
      const triSrc=[seed.a,seed.b,C],srcAC=dist(seed.a.position,C.position),
        srcBC=dist(seed.b.position,C.position);
      for(const TC of target.components.find(x=>x.id===candidate.component).nodes){
       if(triangles>=p.maxTriangleChecks||transformTrials>=p.maxTransformsEvaluated){
        stopped=true;break;
       }
+      if(seedTupleChecks>=p.maxTriangleChecksPerSourceSeed
+        ||targetEdgeChecks>=p.maxTriangleChecksPerTargetEdge)break;
       if(TC===TA.id||TC===TB.id)continue;
       const tnode=target.nodes.get(TC);
       if(!tnode?.position||target.signature.get(TC)!==source.signature.get(C.id))continue;
-      triangles++;
+      triangles++;seedTupleChecks++;targetEdgeChecks++;
       if(Math.abs(dist(TA.position,tnode.position)-srcAC)>p.triangleCrossDistanceToleranceMm
        ||Math.abs(dist(TB.position,tnode.position)-srcBC)>p.triangleCrossDistanceToleranceMm){
        geometryRejected++;continue;
@@ -314,8 +323,11 @@ export function exploreCiiA211IndexedNativeGeometry({
     }
    }
   }
+  if(seedTupleChecks>=p.maxTriangleChecksPerSourceSeed)sourceSeedTupleCaps++;
   reports.push({
-   sourceSeedElementId:seed.id,sourceComponentId:seed.component,sourceKind:seed.kind,
+   sourceSeedElementId:seed.id,
+   triangleChecksWithinSeed:seedTupleChecks,
+   sourceSeedTriangleCapReached:seedTupleChecks>=p.maxTriangleChecksPerSourceSeed,sourceComponentId:seed.component,sourceKind:seed.kind,
    sourceRecordedChordMm:round(seed.length),
    targetSameKindEdgesWithinRetrievalBand:matching.length,
    targetComponentsWithMatchingEdges:new Set(matching.map(e=>e.component)).size,
@@ -356,6 +368,7 @@ export function exploreCiiA211IndexedNativeGeometry({
    targetSameKindChordEdgesWithinRetrievalBand:targetEdgeMatches,
    sourceSeedEdgesWithTargetCandidateCapping:edgeCapped,
    sourceSeedEdgesWithThirdNodeCapping:sourceThirdClipped,
+   sourceSeedEdgesWithTriangleBudgetCap:sourceSeedTupleCaps,
    sourceSeedEdgesLackingNoncollinearThirdNode:sourceSeedUnavailable,
    targetTriangleChecks:triangles,
    sourceTargetTriangleMetricFailures:geometryRejected,
@@ -376,6 +389,7 @@ export function exploreCiiA211IndexedNativeGeometry({
    'RETRIEVAL_BAND_IS_NOT_PHYSICAL_CORRESPONDENCE_TOLERANCE',
    'EXACT_EDGE_SEED_MATCHING_MAY_MISS_SUBDIVISION_OR_GEOMETRY_REVISIONS',
    'SOURCE_EDGE_AND_THIRD_NODE_STRATIFICATION_NOT_EXHAUSTIVE',
+   'PER_SOURCE_SEED_AND_PER_TARGET_EDGE_TRIANGLE_CHECK_BUDGET_NOT_EXHAUSTIVE',
    'NATIVE_HELDOUT_GEOMETRY_NOT_EXTERNALLY_SURVEYED',
    'MIRROR_SYMMETRY_AND_COMPETING_COMPONENTS_REMAIN_UNCERTIFIED',
    'NO_ADMISSION_TO_A2_02_A2_03_OR_ANY_WRITER',
