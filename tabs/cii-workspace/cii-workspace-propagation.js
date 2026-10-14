@@ -1,6 +1,7 @@
 import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
 import { buildCiiCandidateEvidence } from './cii-workspace-candidates.js';
 import { scoreCiiEdgeCandidate } from './cii-workspace-evidence.js';
+import { assessCiiLockedAnchorLocalEvidence } from './cii-workspace-anchor-local-evidence.js';
 
 function otherNode(edge, node) { return edge.from === node ? edge.to : edge.from; }
 function sortedEdges(rows) { return [...(rows || [])].sort((a, b) => String(a.elementId).localeCompare(String(b.elementId), undefined, { numeric: true })); }
@@ -81,9 +82,11 @@ function correspondenceIdentity(sourceGraph, targetGraph, anchor, elementRows) {
 
 export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchor, options = {}) {
   const sourceAnchor = String(anchor?.sourceNodeId ?? ''); const targetAnchor = String(anchor?.targetNodeId ?? '');
+  const anchorLocal = assessCiiLockedAnchorLocalEvidence(sourceGraph, targetGraph, sourceAnchor, targetAnchor, options);
   const lockedRow = deepFreeze({
     correspondenceId: stableId('node', sourceAnchor, targetAnchor), kind: 'NODE', sourceNodeId: sourceAnchor, targetNodeId: targetAnchor,
     status: 'LOCKED', authority: 'USER_LOCKED_ANCHOR', anchorSchema: 'CIIWorkspaceAnchor.v1',
+    ...(anchorLocal ? { evidence: deepFreeze({ anchorLocal }) } : {}),
   });
   if (!sourceGraph?.adjacency?.has(sourceAnchor) || !targetGraph?.adjacency?.has(targetAnchor)) {
     return deepFreeze({ schema: 'CIIWorkspaceCorrespondence.v1', status: 'BLOCKED', blockers: Object.freeze(['LOCKED_ANCHOR_NODE_NOT_FOUND']),

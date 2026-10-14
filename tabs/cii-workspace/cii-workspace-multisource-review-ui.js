@@ -34,7 +34,18 @@ function fmt(value, digits = 1) {
   const number = Number(value); return Number.isFinite(number) ? Number(number.toFixed(digits)).toString() : '—';
 }
 function confidenceReason(row) {
-  if (row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED') return 'Manual reviewed anchor authority.';
+  if (row?.decision === 'LOCKED' || row?.workflowStatus === 'LOCKED') {
+    const local = row?.anchorLocalEvidence;
+    if (!local?.signals?.length) return 'Manual reviewed anchor authority.';
+    const signals = [];
+    if (local.signals.includes('INCIDENT_OD_CONTEXT_OVER_50_PERCENT')) {
+      signals.push(`incident OD context differs by up to ${fmt(local.nearestOdMaxPercent)}%`);
+    }
+    if (local.signals.includes('ONE_HOP_LENGTH_CONTEXT_DIFFERS')) {
+      signals.push(`one-hop incident-length profiles differ by up to ${fmt(local.oneHopMaxLengthDeltaMm)} mm (local tolerance ${fmt(local.oneHopLengthToleranceMm)} mm)`);
+    }
+    return `Manual reviewed anchor authority; independent physical identity is NOT established. LOCAL REVIEW: ${signals.join('; ')}. One-hop context is advisory; target subdivisions may require independent path-level qualification.`;
+  }
   if (row?.adjacentBoundary) {
     const boundary = row.adjacentBoundary;
     if (row?.confidence === 'HIGH') return `HIGH: ${boundary.highCount}/${boundary.requiredHighCount} adjacent matched elements independently carry HIGH identity evidence; this NODE is their shared boundary.`;
