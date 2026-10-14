@@ -139,3 +139,27 @@ jobs:
           path: test-results/cii-writer2-retained-browser/
           if-no-files-found: warn
           retention-days: 14
+
+  cross-route-compatibility:
+    name: Writer1C and generic REVIEW_ONLY/export compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independently verify Writer1C raw spans and generic REVIEW_ONLY outputs
+        run: node tests/cii-workspace-cross-route-compatibility.test.mjs
+      - name: Upload exact-head cross-route compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-cross-route-compatibility-${{ github.sha }}
+          path: test-results/cii-method-a-qualification/cross-route-compatibility.json
+          if-no-files-found: warn
+          retention-days: 14
