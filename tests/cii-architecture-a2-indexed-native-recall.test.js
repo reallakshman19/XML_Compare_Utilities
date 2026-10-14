@@ -1132,6 +1132,13 @@ for(const member of preparedSession.members){
   assert.equal(received.originalManualOrAutoAnchorsAsSeeds,false);
   assert(received.summary.targetSameKindChordEdgesWithinRetrievalBand>=0);
   assert(received.summary.targetTriangleChecks>=0);
+  assert(received.sourceSeedRetrievalReports.length>1,
+    'no single early SOURCE seed may monopolize the entire native geometry search');
+  assert(received.sourceSeedRetrievalReports.every(row=>
+    row.triangleChecksWithinSeed<=received.policy.maxTriangleChecksPerSourceSeed));
+  assert(received.sourceSeedRetrievalReports.every(row=>
+    row.targetComponentCoverageInSample<=received.summary.targetConnectedComponents));
+  assert(received.summary.targetComponentsSampled>=1);
   assert.equal(received.admittedCandidateCount,0);
   assert.equal(received.certifiedNodeCount,0);
   assert.equal(received.certifiedElementCount,0);
