@@ -47,7 +47,9 @@ test('retained Writer2 restores custody-bound manual anchor and review decision 
   await openAndInspect();
   await expect(page.locator('[data-ciiw-ms-anchor-ledger-row="manual"] [data-ciiw-ms-ledger-source][data-ciiw-ms-ledger-source-id="S1"]')).toHaveValue('3910');
   await expect(page.locator('[data-ciiw-ms-anchor-ledger-row="manual"] [data-ciiw-ms-ledger-target][data-ciiw-ms-ledger-source-id="S1"]')).toHaveValue('875');
-  await expect(page.locator('[data-ciiw-ms-member="S1"] [data-ciiw-evidence-card][data-selected="true"]')).toHaveCount(0, { timeout: 120_000 });
+  await expect(page.locator('[data-ciiw-ms-member="S1"] [data-ciiw-evidence-card][data-selected="true"]')).toHaveCount(1, { timeout: 120_000 });
+  // Manual remains active on historical sessions; the AUTO base is retained but
+  // must not silently feed the legacy Writer2 compare until explicitly selected.
 
   await page.locator('[data-ciiw-ms-compare-now]').click();
   await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toBeVisible({ timeout: 120_000 });
@@ -63,6 +65,8 @@ test('retained Writer2 restores custody-bound manual anchor and review decision 
   expect(stored).toHaveLength(1);
   expect(stored[0][1].schema).toBe('CIIWorkspaceWriter2Session.v1');
   expect(stored[0][1].manualBySource.S1).toEqual([{ sourceNodeId: '3910', targetNodeId: '875' }]);
+  expect(stored[0][1].authorityModeBySource.S1).toBe('MANUAL');
+  expect(stored[0][1].selectedBySource.S1).toHaveLength(1);
   expect(stored[0][1].review.correspondenceIdentity).toBeTruthy();
   expect(stored[0][1].review.decisions[correspondenceId]).toBe('ACCEPT');
 });
