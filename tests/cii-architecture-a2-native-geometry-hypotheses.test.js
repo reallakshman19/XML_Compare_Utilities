@@ -1009,6 +1009,12 @@ assert(positive210.hypotheses.some(x=>
   x.evaluation==='BOUNDED_TOPOLOGY_HELDOUT_SUPPORTED_NOT_CERTIFIED'
   &&x.heldOut.matches.length>=2&&x.heldOut.maxOutOfPlaneMm>=5),
   'independent held-out noncoplanar graph geometry should corroborate correct rigid transform');
+assert(positive210.hypotheses.some(x=>
+  x.evaluation==='BOUNDED_TOPOLOGY_HELDOUT_SUPPORTED_NOT_CERTIFIED'
+  &&x.heldOutTopology.independentSourceEdgesChecked>=2
+  &&x.heldOutTopology.agreementFraction===1
+  &&x.heldOutCoverageFraction>=0.9),
+  'both disjoint native NODE positions and independently held-out physical EDGE connectivity required');
 assert.equal(positive210.certifiedNodeCount,0);
 assert.equal(positive210.writerReady,false);
 const dupTarget210=structuredClone(syntheticTarget210);
@@ -1055,6 +1061,33 @@ const mirrored210=discoverCiiA210NativeGeometryHypotheses({
 });
 assert.equal(mirrored210.summary.heldOutSupportedRetainedHypotheses,0,
   'noncoplanar held-out original positions reject reflected geometry in proper rigid fit');
+// Relink two PIPE edges while preserving NODE positions and each endpoint's
+// degree/component-kind multiset. A NODE-only/geometric fit looks identical,
+// but held-out *EDGE incidence* must reject the fabricated correspondence.
+const rewiredTarget210=structuredClone(syntheticTarget210);
+const firstRewire=rewiredTarget210.edges.find(e=>e.elementId==='G4');
+const secondRewire=rewiredTarget210.edges.find(e=>e.elementId==='G7');
+assert.equal(firstRewire.componentKind,'PIPE');
+assert.equal(secondRewire.componentKind,'PIPE');
+const end1=firstRewire.to;firstRewire.to=secondRewire.to;secondRewire.to=end1;
+for(const edge of [firstRewire,secondRewire]){
+  const a=rewiredTarget210.nodes.find(n=>n.id===edge.from).position;
+  const b=rewiredTarget210.nodes.find(n=>n.id===edge.to).position;
+  const delta=b.map((x,i)=>x-a[i]);
+  edge.dx=delta[0];edge.dy=delta[1];edge.dz=delta[2];
+  edge.lengthMm=Math.hypot(...delta);
+}
+rewiredTarget210.adjacency=new Map();
+for(const edge of rewiredTarget210.edges)for(const id of [edge.from,edge.to]){
+  if(!rewiredTarget210.adjacency.has(id))rewiredTarget210.adjacency.set(id,[]);
+  rewiredTarget210.adjacency.get(id).push(edge);
+}
+const topologyConflict210=discoverCiiA210NativeGeometryHypotheses({
+  ...syntheticInput210,targetGraph:rewiredTarget210,
+});
+assert.equal(topologyConflict210.summary.heldOutSupportedRetainedHypotheses,0,
+  'same native NODE geometry plus matching local signatures is insufficient without physical EDGE agreement');
+assert(topologyConflict210.hypotheses.some(x=>x.heldOutTopology.agreementFraction<0.95));
 const corrupt210=structuredClone(syntheticInput210);
 corrupt210.registrationAudit.provenance.originalTargetSha256='0'.repeat(64);
 assert.throws(()=>discoverCiiA210NativeGeometryHypotheses(corrupt210),
@@ -1076,6 +1109,7 @@ const ledger210={
   symmetricSyntheticDuplicateTransformCount:ambiguous210.summary.distinctTransformHypotheses,
   syntheticProperTransformHeldoutCount:positive210.summary.heldOutSupportedRetainedHypotheses,
   mirroredSyntheticHeldoutQualifiedCount:mirrored210.summary.heldOutSupportedRetainedHypotheses,
+  topologyRewiredSyntheticHeldoutQualifiedCount:topologyConflict210.summary.heldOutSupportedRetainedHypotheses,
   originalSurveyQualified:false,originalPhysicalFactorsStillIncomplete:33,
   certifiedNodeCount:0,certifiedElementCount:0,writerReady:false,
 };
