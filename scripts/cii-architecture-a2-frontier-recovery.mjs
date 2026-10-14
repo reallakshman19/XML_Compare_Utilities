@@ -126,6 +126,11 @@ function traverse(graph,start,sourceEdge,policy,remaining){
       else remember(witness.reason);
     }
     if(steps.length>=policy.maxTargetPathSegments)return;
+    // An encountered branch is allowed as a candidate endpoint but may not
+    // be traversed as an unqualified internal subdivision NODE.
+    if(steps.length&&(graph.adjacency.get(node)||[]).length!==2){
+      remember('PATH_MAY_NOT_CONTINUE_THROUGH_BRANCH');return;
+    }
     for(const edge of [...(graph.adjacency.get(node)||[])].sort((a,b)=>cmp(a.elementId,b.elementId))){
       const next=other(edge,node);
       if(seenNodes.has(next))continue;
@@ -140,8 +145,7 @@ function traverse(graph,start,sourceEdge,policy,remaining){
       dfs(next,nextSteps,length+d);
       seenNodes.delete(next);
       if(result.truncated)return;
-      if((graph.adjacency.get(next)||[]).length!==2)
-        remember('PATH_MAY_NOT_CONTINUE_THROUGH_BRANCH');
+
     }
   }
   dfs(origin,[],0);
