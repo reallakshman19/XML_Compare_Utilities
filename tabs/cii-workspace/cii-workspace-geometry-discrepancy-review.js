@@ -17,8 +17,8 @@ const position=p=>{
 const minus=(a,b)=>a.map((v,i)=>rounded(v-b[i]));
 const magnitude=a=>rounded(Math.hypot(...a));
 const sourceHashSession=s=>{
- if(s?.schema!=='CiiWorkspacePreparedSourceSetSession.v1'
-   &&s?.authority!=='IMMUTABLE_NORMALIZED_MODEL_CUSTODY')
+ if(s?.schema!=='CIIWorkspacePreparedSourceSetSession.v1'
+   ||s?.authority!=='IMMUTABLE_NORMALIZED_MODEL_CUSTODY')
    fail('PREPARED_CUSTODY_REQUIRED');
  const sha=s?.sourceSetSha256,target=s?.target;
  if(!HASH.test(sha||'')||!HASH.test(target?.originalSha256||'')
@@ -82,6 +82,7 @@ export function inspectCiiGeometryDiscrepancy(preparedSession,{
  const lengthResidual=sourceEdge?rounded(targetEdge.recordedLengthMm-adjustedLength):null;
  const warnings=[
   'UNVERIFIED_SOURCE_TARGET_NODE_IDENTITY',
+  'SOURCE_TARGET_COORDINATES_NOT_INDEPENDENTLY_REGISTERED',
   'NO_OWNER_APPROVED_ENGINEERING_REVISION_OR_SURVEY_DATUM',
   'NO_INDEPENDENT_TWO_ENDED_PHYSICAL_GRAPH_CLOSURE',
   'TARGET_NODE_CUSTODY_NOT_INDEPENDENTLY_ADJUDICATED',
