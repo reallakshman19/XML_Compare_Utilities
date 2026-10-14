@@ -46,12 +46,20 @@ for (const [sourceId, sourceNodeId, rejectedTarget, investigatedTarget] of scena
     targetFrontier: (target.adjacency.get(investigatedTarget) || []).map(e => ({
       id: e.elementId, from: e.from, to: e.to, kind: e.componentKind,
       len: e.lengthMm, od: e.diameter, wall: e.wall })),
+    sourceFollowing: ['410','440','450','460','1550','1580','1590'].map(n => ({
+      node: n, edges: (graph.adjacency.get(n)||[]).map(e => ({id:e.elementId,kind:e.componentKind,od:e.diameter,wall:e.wall,len:e.lengthMm})) })).filter(x=>x.edges.length),
+    targetFollowing: ['10320','10340','10350','10360','8870','8895','8900'].map(n => ({
+      node: n, edges: (target.adjacency.get(n)||[]).map(e => ({id:e.elementId,kind:e.componentKind,od:e.diameter,wall:e.wall,len:e.lengthMm})) })).filter(x=>x.edges.length),
     blocked: result.elementRows.filter(e => e.status === 'UNRESOLVED').slice(0, 2)
       .map(e => ({ e: e.sourceElementId, recovery: e.evidence?.propagation?.pathRecoveryBlocker,
         blocker: e.evidence?.propagation?.blocker })),
   }));
-  assert(claims.size >= 8, sourceId + ': actual parser/rigid constraints yielded no path recovery');
+  // Inspect both source members before imposing the hard retained recovery gate.
+
   candidates[sourceId] = { claims, result };
+}
+for (const [member, item] of Object.entries(candidates)) {
+  assert(item.claims.size >= 8, member + ': actual parser/rigid constraints yielded no path recovery');
 }
 // Compare against the independently qualified automatic Method-A base, not
 // against a fixture-coded mutation list. This uses the full normalized neutral
