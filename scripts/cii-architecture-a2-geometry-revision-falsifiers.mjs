@@ -18,7 +18,7 @@ function freeze(v){if(Array.isArray(v))return Object.freeze(v.map(freeze));
 const DEFAULT=Object.freeze({
   revisionBandsMm:[25,100,300,350],
   maxTargetEdgesInspected:50000,maxAlternativeRecords:16,
-  chordDifferenceToleranceMm:50,arcChordRatioTolerance:0.05,
+  chordDifferenceToleranceMm:50,recordedLengthChordRatioTolerance:0.05,
   turnCosineTolerance:0.16,
 });
 function policyFor(input={}){
@@ -28,7 +28,7 @@ function policyFor(input={}){
       ||(i>0&&n<=p.revisionBandsMm[i-1])))error('BAD_COUNTERFACTUAL_BANDS');
   for(const [field,low,high] of [
     ['maxTargetEdgesInspected',1,1000000],['maxAlternativeRecords',1,100],
-    ['chordDifferenceToleranceMm',0,100000],['arcChordRatioTolerance',0,2],
+    ['chordDifferenceToleranceMm',0,100000],['recordedLengthChordRatioTolerance',0,2],
     ['turnCosineTolerance',0,2]]){
     if(!Number.isFinite(p[field])||p[field]<low||p[field]>high
       ||(field.startsWith('max')&&!Number.isSafeInteger(p[field])))error('BAD_POLICY_'+field);
@@ -46,8 +46,12 @@ function measure(e){
   if(!Number.isFinite(length)||length<=0||!Number.isFinite(chord)||chord<=0
     ||chord>length+0.000001||!Number.isFinite(Number(e.diameter))
     ||!Number.isFinite(Number(e.wall)))error('INVALID_OR_INCONSISTENT_ORIGINAL_EDGE_METRICS');
+  // Canonical BEND class/pointer does not itself attest bend centre, radius,
+  // sweep angle or true arc length. lengthMm may equal the displacement chord.
+  // Never treat recorded length/chord ratio == 1 as a straight-bend proof.
   return {lengthMm:length,chordMm:round(chord),
-    arcToChordRatio:round(length/chord),
+    recordedLengthToChordRatio:round(length/chord),
+    bendCurvatureStatus:'RADIUS_AND_SWEEP_NOT_ATTESTED_BY_CANONICAL_EDGE',
     componentKind:t(e.componentKind),
     diameterMm:Number(e.diameter),wallMm:Number(e.wall)};
 }
@@ -165,11 +169,11 @@ function diagnoseIsland(island,original,src,target,nodeRows,p){
     if(m.componentKind!==sourceMetrics.componentKind)continue;
     const lenDiff=Math.abs(m.lengthMm-sourceMetrics.lengthMm);
     const chordDiff=Math.abs(m.chordMm-sourceMetrics.chordMm);
-    const ratioDiff=Math.abs(m.arcToChordRatio-sourceMetrics.arcToChordRatio);
+    const ratioDiff=Math.abs(m.recordedLengthToChordRatio-sourceMetrics.recordedLengthToChordRatio);
     if(lenDiff>p.revisionBandsMm[0]||chordDiff>p.chordDifferenceToleranceMm
-      ||ratioDiff>p.arcChordRatioTolerance)continue;
+      ||ratioDiff>p.recordedLengthChordRatioTolerance)continue;
     alts.push({targetElementId:t(targetEdge.elementId),targetEndpoints:[t(targetEdge.from),t(targetEdge.to)],
-      metricLengthDeltaMm:round(lenDiff),chordDeltaMm:round(chordDiff),arcChordRatioDelta:round(ratioDiff),
+      metricLengthDeltaMm:round(lenDiff),chordDeltaMm:round(chordDiff),recordedLengthChordRatioDelta:round(ratioDiff),
       relationToCurrentAnchor:sourceAnchors.some(a=>a===t(targetEdge.from)||a===t(targetEdge.to))
         ?'INCIDENT_TO_PRIOR_CANDIDATE':'UNANCHORED_GLOBAL_TARGET_EDGE',
     });
@@ -190,7 +194,7 @@ function diagnoseIsland(island,original,src,target,nodeRows,p){
     for(const e of edges){
       const m=measure(e),lengthDelta=Math.abs(m.lengthMm-sourceMetrics.lengthMm);
       const chordDelta=Math.abs(m.chordMm-sourceMetrics.chordMm);
-      const ratioDelta=Math.abs(m.arcToChordRatio-sourceMetrics.arcToChordRatio);
+      const ratioDelta=Math.abs(m.recordedLengthToChordRatio-sourceMetrics.recordedLengthToChordRatio);
       const sameKind=m.componentKind===sourceMetrics.componentKind;
       const predecessorTurns=predecessors
         .filter(z=>t(z.targetPredecessorElementId)!==t(e.elementId))
@@ -220,7 +224,7 @@ function diagnoseIsland(island,original,src,target,nodeRows,p){
         targetOtherNode:t(e.from)===anchor?t(e.to):t(e.from),
         sourceMetrics,targetMetrics:m,
         lengthDeltaMm:round(lengthDelta),lengthDeltaFraction:round(lengthDelta/sourceMetrics.lengthMm),
-        chordDeltaMm:round(chordDelta),arcChordRatioDelta:round(ratioDelta),
+        chordDeltaMm:round(chordDelta),recordedLengthChordRatioDelta:round(ratioDelta),
         componentKindMatches:sameKind,
         exactA207BaseLengthGate:sameKind&&lengthDelta<=Math.min(
           25,0.12*sourceMetrics.lengthMm)+1e-8,
@@ -293,10 +297,11 @@ export function investigateCiiA208GeometryRevision({
     admittedCandidateCount:0,correspondenceCertificates:[],
     writerReady:false,transferPlan:null,writeScope:null,
     limitations:[
-      'LOCAL_CHORD_AND_ARC_LENGTH_ARE_ROTATION_INVARIANT_DIAGNOSTICS_NOT_M1_M2_REGISTRATION',
+      'RECORDED_EDGE_LENGTH_AND_DISPLACEMENT_CHORD_ARE_NOT_CURVATURE_PROOF_OR_M1_M2_REGISTRATION',
       'UNANCHORED_MATCHING_TARGET_EDGES_ARE_NOT_NEW_SOURCE_TARGET_IDENTITY_CLAIMS',
       'COUNTERFACTUAL_LENGTH_BANDS_DO_NOT_CHANGE_A2_07_OR_PRODUCTION_TOLERANCES',
       'NEARBY_OR_SIMILAR_BENDS_MAY_BE_UNRELATED_ASSETS',
+      'NO_CANONICAL_BEND_RADIUS_CENTRE_OR_SWEEP_ANGLE_WITNESS',
       'NO_CORRESPONDENCE_CERTIFICATION_OR_RESTRAINT_P1_WRITER_PERMISSION',
     ],
   });
