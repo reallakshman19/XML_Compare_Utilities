@@ -6,6 +6,7 @@ on:
     branches:
       - fix/cii-writer2-frontier-diagnostics-69
       - fix/cii-writer2-locked-anchor-physical-evidence-69
+      - fix/cii-writer2-bounded-path-recovery-69
   pull_request:
     paths:
       - 'tabs/cii-workspace/cii-workspace-compare-review.js'
@@ -14,6 +15,8 @@ on:
       - 'tests/cii-workspace-frontier-diagnostics.test.js'
       - 'tests/cii-workspace-locked-anchor-local-evidence.test.js'
       - 'tabs/cii-workspace/cii-workspace-anchor-local-evidence.js'
+      - 'tabs/cii-workspace/cii-workspace-bounded-path-recovery.js'
+      - 'tests/cii-workspace-bounded-path-recovery.test.js'
       - '.github/workflows/cii-writer2-frontier-diagnostics.yml'
 
 permissions:
@@ -38,6 +41,7 @@ jobs:
           set -euo pipefail
           node tests/cii-workspace-frontier-diagnostics.test.js
           node tests/cii-workspace-locked-anchor-local-evidence.test.js
+          node tests/cii-workspace-bounded-path-recovery.test.js
           node tests/cii-workspace-compare-review-ambiguity.test.js
           node tests/cii-workspace-multisource-review-ui.test.js
           node tests/cii-workspace-multisource-review-state.test.js
