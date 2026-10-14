@@ -250,9 +250,9 @@ const staleDigest=structuredClone(real);
 staleDigest.provenance.parentJointCandidateDigest='f'.repeat(64);
 assert.throws(()=>reconcileCiiA2RecoveredFrontier({...originalOpts,frontier:staleDigest}),
   /FRONTIER_PROVENANCE_OR_POLICY_STALE/);
-const truncated=structuredClone(real);
-truncated.statusFlags.push('ENUMERATION_TRUNCATED_NO_COMPLETENESS_CLAIM');
-assert.throws(()=>reconcileCiiA2RecoveredFrontier({...originalOpts,frontier:truncated}),
+const truncatedFrontier=structuredClone(real);
+truncatedFrontier.statusFlags.push('ENUMERATION_TRUNCATED_NO_COMPLETENESS_CLAIM');
+assert.throws(()=>reconcileCiiA2RecoveredFrontier({...originalOpts,frontier:truncatedFrontier}),
   /TRUNCATED_FRONTIER_NOT_ADMITTED/);
 const forgedPath=structuredClone(real);
 forgedPath.proposals[0].hypotheses[0].targetElementIds[0]='NONEXISTENT_PHYSICAL_EDGE';
