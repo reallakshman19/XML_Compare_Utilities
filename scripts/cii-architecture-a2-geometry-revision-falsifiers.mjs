@@ -181,7 +181,7 @@ function diagnoseIsland(island,original,src,target,nodeRows,p){
     if(!stored||stored.sourceFirstElementId!==firstEdgeId
       ||stored.sourceFirstComponentKind!==sourceMetrics.componentKind
       ||Math.abs(stored.sourceFirstLengthMm-sourceMetrics.lengthMm)>0.001
-      ||stored.incidentListTruncated!==edges.length>20
+      ||stored.incidentListTruncated!==(edges.length>20)
       ||JSON.stringify(stored.targetIncidentPhysicalElements.map(x=>x.elementId))
         !==JSON.stringify(edges.slice(0,20).map(e=>t(e.elementId))))
       error('A207_FIRST_BOUNDARY_WITNESS_TAMPERED');
