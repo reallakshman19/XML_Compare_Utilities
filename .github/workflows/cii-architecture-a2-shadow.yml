@@ -1,0 +1,32 @@
+# ARCH-01 A2 first shadow-only step. No secrets, pull_request_target, checkout credentials or Writer.
+name: CII A2 Shadow Joint Evidence
+on:
+  push:
+    branches:
+      - test/cii-architecture-a2-shadow-evidence-69-20261014
+  pull_request:
+    paths:
+      - 'scripts/cii-architecture-a2-shadow-joint-evidence.mjs'
+      - 'tests/cii-architecture-a2-shadow-joint-evidence.test.js'
+      - 'tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js'
+      - '.github/workflows/cii-architecture-a2-shadow.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  a2-joint-shadow:
+    name: Real S1/S2/S3 to TARGET joint hypothesis and custody proof (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A1 provisional capabilities are never executable
+        run: node tests/cii-architecture-a1-capability-contracts.test.js
+      - name: A2 authentic multi-mode hypothesis, target conflict and no Writer
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
