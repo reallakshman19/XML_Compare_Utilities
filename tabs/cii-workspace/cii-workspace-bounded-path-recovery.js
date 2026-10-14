@@ -54,7 +54,8 @@ function pathChoices(graph, node, sourceEdge, firstEdges, options, occupied, occ
       if (length > number(sourceEdge.lengthMm) + tolerance) break;
       const wallCompatibleSubdivision = steps.length === 1 || steps.every(step => {
         const sw = number(sourceEdge.wall), tw = number(step.edge.wall);
-        return sw > 0 && tw > 0 && Math.abs(sw - tw) <= number(options.pathRecoveryWallToleranceMm ?? 1);
+        return (sw > 0 && tw > 0 && Math.abs(sw - tw) <= number(options.pathRecoveryWallToleranceMm ?? 1))
+          || (sw === 0 && tw === 0);
       });
       if (Math.abs(length - number(sourceEdge.lengthMm)) <= tolerance
         && wallCompatibleSubdivision
