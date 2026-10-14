@@ -681,6 +681,9 @@ assert.throws(()=>assertCiiA208NoWrite(a208),/NOT_WRITER_AUTHORITY/);
 assert.equal(JSON.stringify(a208),JSON.stringify(investigateCiiA208GeometryRevision(a208Input)));
 
 const a208Synthetic=syntheticA207();
+// The A2-07 minimal fixture predates A2-06's explicit island-count receipt;
+// make it a fully schema-consistent independent A2-08 input.
+a208Synthetic.triage.summary.missingIslandCount=1;
 const a208SyntheticAudit=investigateCiiA207IndependentRoutes(a208Synthetic);
 const a208S=investigateCiiA208GeometryRevision({
   routeAudit:a208SyntheticAudit,...a208Synthetic,
