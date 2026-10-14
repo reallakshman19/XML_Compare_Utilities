@@ -88,7 +88,7 @@ function lookahead(sourceGraph, targetGraph, sourceEdge, sourceNode, candidate, 
   let sourceAt = other(sourceEdge, String(sourceNode)), targetAt = candidate.targetNode;
   let sourcePrevious = sourceEdge.elementId, targetPrevious = candidate.lastId, count = 0;
   const seenSource = new Set([String(sourceNode), sourceAt]);
-  const seenTarget = new Set([String(sourceNode), targetAt]); // node spaces stay separately traversed
+  const seenTarget = new Set([String(candidate.targetNode)]); // TARGET NODE IDs never share SOURCE identity space
   for (let i = 0; i < required; i += 1) {
     const sourceNext = incident(sourceGraph, sourceAt).filter(e => e.elementId !== sourcePrevious && !occupiedSource.has(e.elementId));
     const targetNext = incident(targetGraph, targetAt).filter(e => e.elementId !== targetPrevious && !occupiedTarget.has(e.elementId));
