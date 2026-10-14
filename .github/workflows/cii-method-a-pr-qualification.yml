@@ -93,6 +93,8 @@ jobs:
         run: node tests/cii-workspace-owner-golden-retained-gate.mjs
       - name: Independently qualify 150-node census, strict negatives and Owner hold
         run: node tests/cii-workspace-method-a-technical-qualification.test.js
+      - name: Generate explicit PH0-PH7 Owner release-admission HOLD
+        run: node tests/cii-workspace-owner-release-admission-gate.mjs
       - name: Upload 150-node SOURCE census evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,6 +109,8 @@ jobs:
             test-results/cii-method-a-qualification/owner-golden-readiness.json
             test-results/cii-method-a-qualification/owner-golden-readiness.csv
             test-results/cii-method-a-qualification/technical-qualification.json
+            test-results/cii-method-a-qualification/owner-release-admission-hold.json
+            test-results/cii-method-a-qualification/owner-release-admission-hold.md
           if-no-files-found: warn
           retention-days: 14
 
