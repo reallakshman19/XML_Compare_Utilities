@@ -306,12 +306,33 @@ assert.equal(triage.status,'PHYSICAL_ISLAND_REVIEW_ONLY');
 assert.equal(triage.summary.sourceNodeCount,150);
 assert.equal(triage.summary.sourceElementCount,147);
 assert.equal(triage.summary.unresolvedFactorCount,33);
+assert.equal(triage.summary.missingIslandCount,8);
+assert.equal(triage.summary.totalReviewItems,20);
+assert.equal(triage.summary.targetComponentCountObserved,5);
+assert.equal(triage.summary.targetBoundedProbeCount,16);
+assert.deepEqual(Object.fromEntries(Object.entries(triage.summary.bySource)
+  .map(([member,stats])=>[member,stats.missingIslands])),{S1:2,S2:3,S3:3});
 assert.equal(triage.summary.ambiguousElementCount,6);
 assert.equal(triage.summary.custodyWarningProposalCount,6);
 assert.deepEqual(Object.fromEntries(Object.entries(triage.summary.bySource)
   .map(([member,stats])=>[member,stats.incompleteSourceElements])),
   {S1:18,S2:7,S3:8});
 assert.equal(triage.missingIslands.reduce((sum,x)=>sum+x.missingElementCount,0),33);
+const retainedGiant=triage.missingIslands.find(x=>x.id==='S1-ISLAND-002');
+assert.equal(retainedGiant.missingElementCount,15);
+assert.equal(retainedGiant.boundaryNodeIds.length,1);
+assert.deepEqual(retainedGiant.sourceElementIds,[
+  'E42:4960->4970','E43:4970->5000','E44:5000->5030','E45:5030->5040',
+  'E46:5040->5070','E47:5070->5080','E48:5080->5110','E49:5110->5140',
+  'E50:5140->5150','E51:5150->5160','E52:5160->5190','E53:5190->5200',
+  'E54:5200->5210','E55:5210->5220','E56:5220->5229',
+]);
+assert.deepEqual(triage.missingIslands.filter(x=>x.sourceMember==='S1')
+  .map(x=>x.missingElementCount),[3,15]);
+assert.deepEqual(triage.missingIslands.filter(x=>x.sourceMember==='S2')
+  .map(x=>x.missingElementCount),[1,2,4]);
+assert.deepEqual(triage.missingIslands.filter(x=>x.sourceMember==='S3')
+  .map(x=>x.missingElementCount),[3,2,3]);
 assert.equal(triage.summary.missingIslandCount,triage.missingIslands.length);
 assert.equal(triage.summary.totalReviewItems,
   triage.missingIslands.length+triage.ambiguousElements.length
