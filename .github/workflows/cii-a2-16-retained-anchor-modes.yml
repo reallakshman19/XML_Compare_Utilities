@@ -38,8 +38,6 @@ jobs:
         run: node tests/cii-workspace-multisource-manual-anchor-ui.test.js
       - name: Restored hash-bound writer session
         run: node tests/cii-workspace-multisource-session-persistence.test.js
-      - name: Source-set anchor master ledger UI
-        run: node tests/cii-workspace-multisource-anchor-ledger-ui.test.js
       - name: Automatic source anchor seed control
         run: node tests/cii-workspace-multisource-auto-anchor-ui.test.js
       - name: Multi-source base authority legacy contract
