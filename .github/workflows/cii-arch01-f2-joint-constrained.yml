@@ -32,3 +32,28 @@ jobs:
         run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
       - name: Existing physical SOURCE census
         run: node tests/cii-workspace-source-target-audit.test.js
+
+  browser-joint-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Genuine original-file Chromium joint graph and non-writing guarantees
+        run: npx playwright test --config=playwright.cii-method-a-m1-tolerance.config.mjs tests/browser/cii-writer2-f2-joint-review.spec.mjs
+      - name: Retain browser screenshots and machine-readable report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-arch01-f2-joint-original-chromium
+          path: |
+            test-results/cii-method-a-m1-tolerance
+            test-results/cii-method-a-m1-tolerance.json
+          retention-days: 14
+          if-no-files-found: warn
