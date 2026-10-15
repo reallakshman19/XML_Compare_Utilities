@@ -212,7 +212,24 @@ for(const [sourceNode,targets] of sourceNodeDomains)for(const targetNode of targ
  targetClaimers.get(targetNode).add(sourceNode);
 }
 const owners=targetNode=>[...(targetClaimers.get(String(targetNode))||[])].sort(compare);
-const cases=selected.map(row=>{
+const geometryCache=new Map();
+function inspectOriginalGeometry(member,edge){
+ const k=member+':'+String(edge.elementId);
+ if(geometryCache.has(k))return geometryCache.get(k);
+ let result;
+ try{result=geometricPaths(edge);}catch(e){
+  if(!String(e.message).startsWith('CII102_INVALID_SOURCE_GEOMETRY:'))throw e;
+  result={sourceGeometry:shape(edge),
+   stats:{visits:0,complete:false,seenGeometryRoutes:0,acceptedRoutes:0},
+   rejectionReasonObservations:{INVALID_SOURCE_GEOMETRY:1},
+   allRoutes:[],evidenceStatus:'INVALID_SOURCE_GEOMETRY_CANNOT_TEST_TARGET_ABSENCE'};
+ }
+ geometryCache.set(k,result);
+ return result;
+}
+const allCases=doubleMissingRows.slice()
+ .sort((a,b)=>compare(a.sourceMember,b.sourceMember)||compare(a.sourceElementId,b.sourceElementId))
+ .map(row=>{
  const graph=sourceGraphs[row.sourceMember];
  const edge=graph.edges.find(x=>String(x.elementId)===String(row.sourceElementId));
  if(!edge||String(edge.from)!==String(row.sourceEndpoints[0])
@@ -223,7 +240,7 @@ const cases=selected.map(row=>{
   otherSourceElements:(graph.adjacency.get(id)||[]).map(e=>String(e.elementId))
    .filter(k=>k!==String(edge.elementId)).sort(compare)
  }));
- const result=geometricPaths(edge);
+ const result=inspectOriginalGeometry(row.sourceMember,edge);
  // Test immediate SOURCE neighbors that already have a TARGET candidate on
  // their far endpoint. Compare only original physical paths reachable from the
  // existing seed; never insert these diagnostic observations into A2 domains.
@@ -242,7 +259,7 @@ const cases=selected.map(row=>{
    const seeds=[...otherDiagnosis.recheckedTargets];
    const originalSeeds=[...otherDiagnosis.originalTargets];
    const recoveredUnverifiedSeeds=seeds.filter(t=>!originalSeeds.includes(t));
-   const candidate=seeds.length?geometricPaths(adjacent):null;
+   const candidate=seeds.length?inspectOriginalGeometry(row.sourceMember,adjacent):null;
    const continuation=[];
    for(const targetSeed of seeds){
     const rooted=(candidate?.allRoutes||[]).filter(p=>p.targetEndpoints.includes(targetSeed));
@@ -318,6 +335,25 @@ const cases=selected.map(row=>{
   rejectionReasonObservations:result.rejectionReasonObservations
  };
 });
+if(allCases.length!==doubleMissingRows.length||new Set(allCases.map(x=>x.sourceElementKey)).size!==21)
+ throw Error('CII102_POPULATION_DIAGNOSIS_NOT_EXHAUSTIVE');
+const cases=selected.map(row=>{
+ const matching=allCases.filter(c=>c.sourceElementKey===row.sourceElementKey);
+ if(matching.length!==1)throw Error('CII102_SELECTED_CASE_DIAGNOSIS_MISSING');
+ return matching[0];
+});
+const populationSummary=Object.fromEntries(['S1','S2','S3'].map(member=>{
+ const part=allCases.filter(c=>c.member===member);
+ const states={};
+ for(const c of part)states[c.boundaryDiagnosis]=(states[c.boundaryDiagnosis]||0)+1;
+ return [member,{
+  factors:part.length,
+  independentlyEnumeratedUnanchoredRoutes:part.reduce((a,c)=>a+c.targetRoutesWithGeometryOnly,0),
+  allOriginalTargetSearchesComplete:part.every(c=>c.searchStats.complete),
+  sourceGeometryNotTestable:part.filter(c=>c.unanchoredGeometry.startsWith('INVALID_SOURCE_GEOMETRY')).length,
+  boundaryStates:states,
+ }];
+}));
 const output={
  schema:'CII102F2DoubleBlankGeometryProbe.v1',authority:'READ_ONLY_DIAGNOSTIC_NO_CORRESPONDENCE',
  originalReportSha256:h(reportBytes), originalSourceShaById:Object.fromEntries(sources.map(s=>[s.sourceId,h(s.bytes)])),
@@ -325,7 +361,8 @@ const output={
  policySource:'INDEPENDENT_25MM_A2_PHYSICAL_PATH_GEOMETRY_NOT_METHOD_A_100_200',
  originalPhysicalSourceNodes:150,originalPhysicalSourceElements:147,
  originalDoubleBlankFactors:doubleMissingRows.length,
- doubleBlankByMember,doubleBlankClusters,selectedSourceFactors:cases,
+ doubleBlankByMember,doubleBlankClusters,populationSummary,
+ allDoubleBlankFactorCases:allCases,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
   'An unanchored geometric route is never SOURCE_TARGET_CORRESPONDENCE',
@@ -344,6 +381,7 @@ mkdirSync(dirname(dest),{recursive:true});
 writeFileSync(dest,JSON.stringify(output,null,2)+'\n','utf8');
 console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  originalReportSha256:output.originalReportSha256,
+ populationSummary:output.populationSummary,
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
   unanchoredTargetRoutes:c.targetRoutesWithGeometryOnly,segments:c.relativeRouteCounts,
