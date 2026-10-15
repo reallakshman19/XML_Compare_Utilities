@@ -94,6 +94,21 @@ try {
  assert.equal(a.targetOriginalSha256,b.targetOriginalSha256);
  assert.deepEqual(a.originalSourceSha256,b.originalSourceSha256);
  assert.equal(current().spatialToleranceMm,200);
+ const commonIds=[...a.registry.keys()].filter(id=>b.registry.has(id));
+ const reweighted=commonIds.filter(id=>{
+  const oldEvidence=a.registry.get(id),newEvidence=b.registry.get(id);
+  return oldEvidence.distanceMm===newEvidence.distanceMm && oldEvidence.score!==newEvidence.score;
+ });
+ assert(reweighted.length>0,'200mm must change actual M1 quality scoring for original nonzero residuals, not only the display');
+ console.log('METHOD_A_M1_SCORE_EFFECT',JSON.stringify({
+  matchedOriginalElementEvidenceCount:commonIds.length,
+  rescoredActualM1ElementCount:reweighted.length,
+  oldAndNewSample:reweighted.slice(0,5).map(id=>({
+   id,distanceMm:a.registry.get(id).distanceMm,
+   score100:a.registry.get(id).score,score200:b.registry.get(id).score,
+  })),
+  M1PassCountUnchanged:a.M1Pass===b.M1Pass,
+ }));
  console.log('METHOD_A_M1_TOLERANCE_PASS',JSON.stringify({default100:{M1Pass:a.M1Pass,rows:a.M1ElementRows},
   custom200:{M1Pass:b.M1Pass,rows:b.M1ElementRows},
   originalSourcesUnchanged:true,mode:'M1_SPATIAL_CANDIDATE_SCORING_ONLY',
