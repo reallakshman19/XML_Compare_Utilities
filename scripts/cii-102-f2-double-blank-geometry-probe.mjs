@@ -229,11 +229,16 @@ const cases=selected.map(row=>{
   boundaryDiagnosis:(()=>{
    const root=boundary.flatMap(b=>b.continuations);
    const routes=root.reduce((s,x)=>s+x.independentlyCompatibleAnchoredRoutes,0);
-   const originalSeeds=boundary.reduce((s,x)=>s+x.originalTargetSeedIds.length,0);
-   if(!root.length)return 'NO_IMMEDIATE_ORIGINAL_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS';
-   if(!routes)return 'PRESENT_UNVERIFIED_SEEDS_WITH_NO_BOUNDED_ROOTED_PATH';
-   if(!originalSeeds)return 'MULTIPLE_ROOTED_PHYSICAL_PATHS_FROM_RECOVERED_UNVERIFIED_SEEDS';
-   return 'ROOTED_PATHS_REQUIRE_INDEPENDENT_GLOBAL_IDENTITY_EVEN_WITH_OLDER_CANDIDATES';
+   const originalRooted=boundary.reduce((sum,b)=>sum+b.continuations
+    .filter(x=>b.originalTargetSeedIds.includes(x.existingTargetSeed))
+    .reduce((v,x)=>v+x.independentlyCompatibleAnchoredRoutes,0),0);
+   const recoveredRooted=boundary.reduce((sum,b)=>sum+b.continuations
+    .filter(x=>b.newlyRecoveredUnverifiedTargetSeedIds.includes(x.existingTargetSeed))
+    .reduce((v,x)=>v+x.independentlyCompatibleAnchoredRoutes,0),0);
+   if(!root.length)return 'NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS';
+   if(!routes)return 'CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH';
+   if(recoveredRooted&&originalRooted===0)return 'ONLY_UNVERIFIED_RECOVERED_SEEDS_HAVE_ROOTED_PATHS';
+   return 'ROOTED_PATHS_REQUIRE_INDEPENDENT_GLOBAL_IDENTITY_NO_CERTIFICATE';
   })(),
   originalCause:row.originalRootCause,originalTargets:row.endpointDiagnosis.map(e=>e.originalTargets),
   currentTargets:row.endpointDiagnosis.map(e=>e.recheckedTargets),
