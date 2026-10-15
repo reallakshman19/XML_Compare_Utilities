@@ -20,6 +20,12 @@ test('F2: actual Writer2 Compare shows retained AUTO+MANUAL joint graph without 
   await member.locator('[data-ciiw-ms-manual-target]').fill(dst);
   await member.locator('[data-ciiw-ms-manual-add]').click();
   await expect(page.locator('[data-ciiw-ms-member="'+sourceId+'"]')).toContainText('ACTIVE: MANUAL');
+  // Reproduce the actual Owner saved ledger: no AUTO base SELECTED for S2/S3.
+  const selected=page.locator('[data-ciiw-ms-member="'+sourceId+'"] [data-ciiw-evidence-card][data-selected="true"] [data-ciiw-base-action]').first();
+  await expect(selected).toBeVisible();
+  await selected.click();
+  await expect(page.locator('[data-ciiw-ms-member="'+sourceId+'"]')).toContainText('None selected');
+  await expect(page.locator('[data-ciiw-ms-member="'+sourceId+'"]')).toContainText('ACTIVE: MANUAL');
  }
  await page.locator('[data-ciiw-ms-compare-now]').click();
  await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toBeVisible({timeout:120000});
