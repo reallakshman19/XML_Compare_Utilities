@@ -492,8 +492,14 @@ export function ciiReconciledAuthorityReviewMarkup(report) {
     throw Error('CII102_RECONCILED_REVIEW_NOT_NONWRITING');
   const lines=report.rows.map(r=>{
     const p=r.localPhysicalEvidence;
+    const sample=p?.witnesses?.slice(0,8)||[];
+    const pathDetail=sample.length
+      ? `<details><summary>View ${h(p.witnessCount)} local physical path witnesses</summary>${sample.map(w=>
+        `<small>${h(w.sourceElementKey)} → TARGET ${h(w.targetNodePath.join('→'))} [${h(w.targetElementIds.join(', '))}] · ${h(w.componentStatus)}${w.searchIncomplete?' · BOUNDED SEARCH INCOMPLETE':''}</small>`
+       ).join('')}${p.witnessCount>sample.length?'<small>Additional original local witnesses omitted from this view; not a completeness proof.</small>':''}</details>`
+      : '';
     const witnessText=p
-      ? `<b>${h(p.proofStatus)}</b><small>${h(p.supportingPhysicalFactors.length)} original SOURCE factors with bounded TARGET path · ${h(p.witnessCount)} original local paths${p.localOriginalOtherTargets.length?' · competing original TARGETs: '+h(p.localOriginalOtherTargets.join(', ')):''}</small>`
+      ? `<b>${h(p.proofStatus)}</b><small>${h(p.supportingPhysicalFactors.length)} original SOURCE factors with bounded TARGET path · ${h(p.witnessCount)} original local paths${p.localOriginalOtherTargets.length?' · competing original TARGETs: '+h(p.localOriginalOtherTargets.join(', ')):''}${p.competingOriginalClaims.length?' · shared TARGET claim: '+h(p.competingOriginalClaims.join(', ')):''}</small>${pathDetail}`
       : 'Original physical graph review pending';
     return `<tr><td><b>${h(r.sourceId)}</b> ${h(r.sourceNodeId)}</td><td>${h(r.activeState)}: ${h(r.activeTargetNodeIds.join(', ')||'—')}</td><td>${h(r.automaticTargetNodeId)} <small>${h(r.automaticConfidence)}</small></td><td>${h(r.manuallyAssertedTargetNodeIds.join(', ')||'—')}</td><td><b>${h(r.status)}</b>${r.competingActiveSourceNodes.length?`<small>Occupied by ${h(r.competingActiveSourceNodes.join(', '))}</small>`:''}</td><td>${witnessText}</td></tr>`;
   }).join('');
