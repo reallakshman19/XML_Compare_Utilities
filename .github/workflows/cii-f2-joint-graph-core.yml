@@ -83,6 +83,10 @@ jobs:
             import assert from "node:assert/strict";
             const x=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             assert.equal(x.originalDoubleBlankFactors,21);
+            assert.deepEqual(x.doubleBlankByMember,{S1:15,S2:3,S3:3});
+            assert.deepEqual(Object.fromEntries(Object.entries(x.doubleBlankClusters)
+              .map(([m,groups])=>[m,groups.map(g=>g.physicalFactorCount)])),
+              {S1:[14,1],S2:[3],S3:[2,1]});
             assert.equal(x.originalPhysicalSourceNodes,150);
             assert.equal(x.originalPhysicalSourceElements,147);
             assert.deepEqual(x.selectedSourceFactors.map(r=>r.member),["S1","S2","S3"]);
@@ -116,8 +120,19 @@ jobs:
               "CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH",
               "NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS"
             ]);
+            const originalS1=x.selectedSourceFactors[0].adjacentSeedBoundaryAnalysis
+              .flatMap(b=>b.continuations).flatMap(c=>c.proposedTargetNodeCustody);
+            for(const [node,claimer] of [["875","S1:3910"],["890","S1:3970"]]){
+              assert(originalS1.some(p=>p.targetNodeId===node
+                &&p.claimedByOtherSourceNodes.includes(claimer)));
+            }
+            assert(originalS1.some(p=>p.targetNodeId==="900"
+              &&p.claimedByOtherSourceNodes.length===0
+              &&p.unclaimedTargetDoesNotProveOriginalIdentity));
             for(const row of x.selectedSourceFactors){
               assert.equal(row.independentIdentityCertificate,null);
+              assert(row.adjacentSeedBoundaryAnalysis.every(b=>
+                b.continuations.every(c=>Array.isArray(c.proposedTargetNodeCustody))));
             }
             assert.equal(x.writerReady,false);
             assert.equal(x.physicalCertifications,0);
