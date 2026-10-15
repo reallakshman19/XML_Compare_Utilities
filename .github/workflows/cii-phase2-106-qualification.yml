@@ -33,3 +33,21 @@ jobs:
           node tests/cii-workspace-method-a-confidence-config.test.js
           node tests/cii-workspace-method-a-weight-policy-ui.test.js
           node tests/cii-workspace-geometry-authority.test.js
+
+  phase2-owner-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Measure original retained S1/S2/S3/T and preserve 428 owner row diagnostics
+        run: node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
+      - name: Archive complete owner row-level report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-phase2-owner-428-row-diagnostic
+          path: test-results/cii-phase2/
+          if-no-files-found: warn
