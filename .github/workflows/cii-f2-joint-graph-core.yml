@@ -70,44 +70,51 @@ jobs:
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
             --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
-      - name: Original 200mm shadow report
+      - name: Refuse 200mm shadow claim until PR97 and PR98 policy consumers are integrated
         run: |
-          node scripts/cii-arch01-f2-joint-report.mjs \
+          set -euo pipefail
+          if node scripts/cii-arch01-f2-joint-report.mjs \
             --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
-            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json
-      - name: Confirm 100-200 same source custody and non-writing authority
+            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json \
+            > test-results/cii-arch01-f2-200-unwired.log 2>&1; then
+            echo 'FAIL: reported 200mm despite unwired runtime policy'
+            exit 1
+          fi
+          grep -F 'F2_M1_TOLERANCE_UNWIRED_REQUIRES_PR97_PR98' test-results/cii-arch01-f2-200-unwired.log
+          test ! -f test-results/cii-arch01-f2-joint-200.json
+      - name: Confirm original 100mm physical census, provenance and no Writer
         run: |
           node --input-type=module -e '
             import {readFileSync} from "node:fs";
             import assert from "node:assert/strict";
-            const r=t=>JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-"+t+".json"));
-            const a=r(100),b=r(200);
-            assert.deepEqual(a.custody,b.custody);
+            const a=JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-100.json"));
+            assert.equal(a.policy.spatialToleranceMm,100);
+            assert.equal(a.policy.appliedSpatialToleranceMm,100);
+            assert.equal(a.policy.requestedSpatialToleranceCapability,"DEFAULT_100_ONLY");
+            assert.equal(a.policy.qualifiedMethodAScoreLinkPresent,"NOT_PRESENT_ON_THIS_MAIN_BASE");
             assert.equal(a.originalPhysicalSourceNodeCount,150);
-            assert.equal(b.originalPhysicalSourceNodeCount,150);
             assert.equal(a.originalPhysicalSourceElementCount,147);
-            assert.equal(b.originalPhysicalSourceElementCount,147);
             assert.equal(a.writerReady,false);
-            assert.equal(b.writerReady,false);
             assert.deepEqual(a.identityCertificates,[]);
-            assert.deepEqual(b.identityCertificates,[]);
-            console.log("F2_JOINT_COMPARE",JSON.stringify({
-              before:a.globalConstraints.states,after:b.globalConstraints.states,
-              frontierBefore:a.frontierRecovery,frontierAfter:b.frontierRecovery,
-              reconciledBefore:a.frontierReconciliation,
-              reconciledAfter:b.frontierReconciliation,
-              claimantCounts:[a.jointClaims,b.jointClaims],
+            assert.equal(a.frontierRecovery.recoveredHypotheses,22);
+            assert.equal(a.frontierReconciliation.uniqueNewlyCoveredNodes,16);
+            assert.deepEqual(a.globalConstraints.states,{INCOMPLETE_PHYSICAL_EVIDENCE:3});
+            console.log("F2_100MM_DEFAULT_ONLY",JSON.stringify({
               sourceNodeCount:a.originalPhysicalSourceNodeCount,
               sourceElementFactors:a.originalPhysicalSourceElementCount,
-              noIdentityCertification:true,writerVeto:true
+              modeCensus:a.modeCensus.map(x=>({mode:x.mode,BOUND:x.BOUND,UNEMITTED:x.UNEMITTED})),
+              recoveredHypotheses:a.frontierRecovery.recoveredHypotheses,
+              certifiedNodeCount:a.certifiedNodeCount,writerReady:a.writerReady
             }));
           '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cii-arch01-f2-100-200-joint-shadow
-          path: test-results/cii-arch01-f2-joint-*.json
+          path: |
+            test-results/cii-arch01-f2-joint-*.json
+            test-results/cii-arch01-f2-200-unwired.log
           if-no-files-found: warn
           retention-days: 14
