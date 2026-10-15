@@ -157,6 +157,7 @@ function geometricPaths(sourceEdge,lengthToleranceMm=EPSILON_MM){
       lengthMm:Number(sum.toFixed(3)),
       lengthResidualMm:Number(residual.toFixed(3)),segments:steps.length,
       targetStraightness:Number(straight.toFixed(6)),
+      targetPathDeltaMm:vector.map(n=>Number(n.toFixed(3))),
       originalSourceStraightness:Number(sourceStraight.toFixed(6)),
       odRevisionWarning:deltaOd.some(x=>x>2),
       wallRevisionWarning:deltaWall.some(x=>x>1),
@@ -396,6 +397,13 @@ const secondEdge=firstGraph.edges.find(e=>e.elementId===secondS1.sourceElementId
 if(!firstEdge||!secondEdge||firstEdge.componentKind!=='PIPE'
  ||secondEdge.componentKind!=='BEND')
  throw Error('CII102_FIRST_JUNCTION_EXPECT_PIPE_BEND');
+function angleDegrees(a,b){
+ const an=Math.hypot(...a),bn=Math.hypot(...b);
+ if(!(an>0&&bn>0))return null;
+ const cos=Math.max(-1,Math.min(1,a.reduce((n,x,i)=>n+x*b[i],0)/(an*bn)));
+ return Number((Math.acos(cos)*180/Math.PI).toFixed(3));
+}
+const signed=(v,isReverse)=>v.map(n=>isReverse?-n:n);
 function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
  const joined=[];
  for(const pa of pathsA)for(const pb of pathsB){
@@ -412,6 +420,15 @@ function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
     bendTargetElementIds:pb.targetElementIds,
     pipeResidualMm:pa.lengthResidualMm,
     bendResidualMm:pb.lengthResidualMm,
+    sourceTurnAngleDeg:angleDegrees(
+      [Number(sourceA.dx),Number(sourceA.dy),Number(sourceA.dz)],
+      [Number(sourceB.dx),Number(sourceB.dy),Number(sourceB.dz)]),
+    targetTurnAngleDeg:angleDegrees(
+      signed(pa.targetPathDeltaMm,oa),signed(pb.targetPathDeltaMm,ob)),
+    targetPipeOriginalDeltaMm:pa.targetPathDeltaMm,
+    targetBendOriginalDeltaMm:pb.targetPathDeltaMm,
+    originalSourceBendPointerStatus:sourceB.bendEvidence?.status||'UNKNOWN',
+    registrationAttested:false,
     pipeOrientation:oa?'REVERSE':'FORWARD',
     bendOrientation:ob?'REVERSE':'FORWARD',
     originalSourceJoinNode:sourceJoin,
@@ -425,6 +442,10 @@ function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
    ||compare(a.targetSharedNode,b.targetSharedNode)
    ||compare(a.pipeTargetElementIds.join(','),b.pipeTargetElementIds.join(',')));
 }
+const sourceTurnAngleDeg=angleDegrees(
+ [Number(firstEdge.dx),Number(firstEdge.dy),Number(firstEdge.dz)],
+ [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)]
+);
 const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
  const left=inspectOriginalGeometry('S1',firstEdge,lengthToleranceMm);
  const right=inspectOriginalGeometry('S1',secondEdge,lengthToleranceMm);
@@ -438,7 +459,7 @@ const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
   joinedPhysicalRoutePairs:joints.length,
   minimumCombinedLengthResidualMm:joints.length?
    Number((joints[0].pipeResidualMm+joints[0].bendResidualMm).toFixed(3)):null,
-  joinExamples:joints.slice(0,12),noAbsenceClaim:false,
+  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,noAbsenceClaim:false,
   localGeometryOnly:true,globalIdentityCertified:false,writerReady:false};
 });
 const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).map(([member,groups])=>[
