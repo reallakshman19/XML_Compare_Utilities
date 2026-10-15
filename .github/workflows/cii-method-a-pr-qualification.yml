@@ -41,6 +41,7 @@ jobs:
           node tests/cii-workspace-multisource-target-node-custody.test.js
           node tests/cii-workspace-method-a-terminal-retained-opt-in.test.js
           node tests/cii-workspace-owner-lexical-golden.test.js
+          node tests/cii-workspace-owner-phase2-recall.test.mjs
 
   retained-forensics:
     name: Genuine S1-S3 / T grade and weight matrix
@@ -92,6 +93,8 @@ jobs:
         run: node tests/cii-workspace-multisource-retained-terminal-optin-byte-closure.test.js
       - name: Audit Owner complete-golden intake readiness (explicit missing-input hold)
         run: node tests/cii-workspace-owner-golden-retained-gate.mjs
+      - name: Report 70pct benchmark as NOT EVALUABLE without authentic Owner rows and physical proof
+        run: node tests/cii-workspace-owner-phase2-recall-gate.mjs
       - name: Independently qualify 150-node census, strict negatives and Owner hold
         run: node tests/cii-workspace-method-a-technical-qualification.test.js
       - name: Generate explicit PH0-PH7 Owner release-admission HOLD
@@ -111,6 +114,7 @@ jobs:
             test-results/cii-method-a-qualification/terminal-tail-forensics.json
             test-results/cii-method-a-qualification/owner-golden-readiness.json
             test-results/cii-method-a-qualification/owner-golden-readiness.csv
+            test-results/cii-method-a-qualification/owner-phase2-validated-recall.json
             test-results/cii-method-a-qualification/technical-qualification.json
             test-results/cii-method-a-qualification/owner-release-admission-hold.json
             test-results/cii-method-a-qualification/owner-release-admission-hold.md
