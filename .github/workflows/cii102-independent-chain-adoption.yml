@@ -5,6 +5,8 @@ on:
     paths:
       - "tests/cii102-independent-original-chain-falsifier.test.mjs"
       - "tests/cii102-f2-original-chain-review.test.mjs"
+      - "tests/cii102-owner-phase2-verbatim-428-audit.test.mjs"
+      - "tests/qualification/owner-phase2-20261015-*"
       - "tests/cii-102-reconciled-authority-review.test.mjs"
       - "docs/tabs/cii-workspace/cii102-independent-pr103-adoption-2026-10-15.md"
       - "parser/**"
@@ -36,3 +38,12 @@ jobs:
         run: node tests/cii102-f2-original-chain-review.test.mjs
       - name: Re-run authentic P1/P2 coexistence boundary on S1/S2/S3/T (no Writer)
         run: node tests/cii-102-reconciled-authority-review.test.mjs
+      - name: Audit exact Owner 428-row raw PS-to-SL list against original CII lexical and physical census
+        run: node tests/cii102-owner-phase2-verbatim-428-audit.test.mjs
+      - name: Retain Owner input reconciliation and unresolved crosswalk JSON evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii102-owner-428-golden-custody-${{ github.sha }}
+          path: test-results/cii-method-a-qualification/owner-phase2-428-current-custody-audit.json
+          if-no-files-found: error
+
