@@ -52,6 +52,8 @@ jobs:
         run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
       - name: Recovered SOURCE frontiers and independent physical witness reconciliation
         run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: Exact original factor endpoint RCA and adversarial proof controls
+        run: node tests/cii-f2-physical-gap-rca.test.js
       - name: Original Owner AUTO vs MANUAL census and 11 Phase 1 rows (#96 retained)
         run: node tests/cii-arch01-f2-authority-mode-original-census.test.js
       - name: Existing production correspondence is unaffected
@@ -104,6 +106,24 @@ jobs:
             assert.equal(a.physicalGapLedger.totalPhysicalSourceElements,147);
             assert.equal(a.physicalGapLedger.originalEndpointMissingFactors,49);
             assert.equal(a.physicalGapLedger.currentEndpointMissingFactors,33);
+            const gap=a.physicalGapLedger;
+            assert.equal(Object.values(gap.originalRootCauseCounts).reduce((x,y)=>x+y,0),49);
+            assert.equal(Object.values(gap.currentMissingEndpointDirectionCounts).reduce((x,y)=>x+y,0),33);
+            assert.equal(Object.values(gap.byMember).reduce((x,y)=>x+y.physicalElementCount,0),147);
+            assert(gap.rows.every(x=>x.endpointDiagnosis?.length===2));
+            assert(gap.rows.every(x=>x.nextInvestigation&&!x.physicalIdentityCertified&&!x.writerReady));
+            assert(gap.rows.filter(x=>x.recheckedStatus==="ENDPOINT_CANDIDATE_MISSING")
+              .every(x=>x.endpointDiagnosis.some(y=>y.missingAfter)));
+            for(const suffix of ["100","200"]){
+              const csv=readFileSync("test-results/cii-arch01-f2-joint-"+suffix+".physical-gap-rca.csv","utf8");
+              assert.equal(csv.trimEnd().split("\\n").length,148);
+              assert(csv.includes("sourceElementKey")&&csv.includes("nextInvestigation"));
+            }
+            console.log("F2_INTEGRATED_FACTOR_RCA",JSON.stringify({
+              originalRootCauses:gap.originalRootCauseCounts,
+              remainingMissingDirections:gap.currentMissingEndpointDirectionCounts,
+              byMember:gap.byMember,nextActions:gap.nextInvestigationCounts
+            }));
             assert.equal(new Set(a.physicalGapLedger.rows.map(x=>x.sourceElementKey)).size,147);
             assert.equal(a.physicalGapLedger.writerReady,false);
             assert.equal(a.physicalGapLedger.writeScope,null);
@@ -126,5 +146,6 @@ jobs:
           name: cii-arch01-f2-100-200-joint-shadow
           path: |
             test-results/cii-arch01-f2-joint-*.json
+            test-results/cii-arch01-f2-joint-*.physical-gap-rca.csv
           if-no-files-found: warn
           retention-days: 14
