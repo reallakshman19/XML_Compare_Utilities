@@ -29,7 +29,7 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await page.locator('[data-ciiw-ms-compare-now]').click();
  await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toBeVisible({timeout:120000});
  const panel=page.locator('[data-ciiw-f2-canonical="1"]');
- await expect(panel).toContainText('one canonical', {ignoreCase:true});
+ await expect(panel).toContainText('One canonical A2 solver');
  await expect(panel).toContainText('REVIEW ONLY');
  await panel.locator('[data-ciiw-f2-reconcile]').click();
  await expect(panel.locator('[data-ciiw-f2-summary]')).toBeVisible({timeout:180000});
