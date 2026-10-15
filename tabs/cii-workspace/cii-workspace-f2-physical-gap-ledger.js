@@ -200,3 +200,46 @@ export function buildCiiF2PhysicalGapLedger(original,reconciled,{joint,frontier}
   transferPlan:null,writeScope:null,
  });
 }
+
+/** Lossless, deterministic factor-level investigation CSV; not Writer/export scope. */
+export function ciiF2PhysicalGapLedgerToCsv(ledger){
+ if(ledger?.schema!=='CiiF2PhysicalFactorGapLedger.v1'
+   ||ledger.writerReady!==false||ledger.writeScope!==null
+   ||ledger.totalPhysicalSourceElements!==ledger.rows?.length)
+  throw Error('F2_GAP_CSV_REQUIRES_EXACT_NONWRITING_FACTOR_CENSUS');
+ const heads=[
+  'sourceElementKey','sourceMember','sourceElementId','sourceFrom','sourceTo',
+  'originalRootCause','originalStatus','recheckedStatus','disposition',
+  'nextInvestigation','originalFromTargets','originalToTargets',
+  'recheckedFromTargets','recheckedToTargets',
+  'newFromUnverifiedTargets','newToUnverifiedTargets',
+  'originalCandidatePairs','recheckedCandidatePairs','localPathWitnessCount',
+  'targetRouteAlternatives','rejectionReasonOccurrences',
+  'boundedSearchIncomplete','localSearchPolicyDigest','sourceSetSha256',
+  'targetOriginalSha256','physicalIdentityCertified','writerReady'
+ ];
+ const enc=value=>{
+  const text=Array.isArray(value)||value!==null&&typeof value==='object'
+   ?JSON.stringify(value):String(value??'');
+  return '"'+text.replaceAll('"','""')+'"';
+ };
+ const rows=ledger.rows.map(r=>{
+  const [a,b]=r.endpointDiagnosis||[];
+  if(!a||!b)throw Error('F2_GAP_CSV_ENDPOINT_DIAGNOSIS_REQUIRED');
+  const values=[
+   r.sourceElementKey,r.sourceMember,r.sourceElementId,...r.sourceEndpoints,
+   r.originalRootCause,r.originalStatus,r.recheckedStatus,r.disposition,
+   r.nextInvestigation,a.originalTargets,b.originalTargets,
+   a.recheckedTargets,b.recheckedTargets,
+   a.newUnverifiedTargets,b.newUnverifiedTargets,
+   r.originalCandidatePairCount,r.recheckedCandidatePairCount,r.recheckedPathWitnesses,
+   r.targetPhysicalPathAlternatives,r.targetPathRejectionReasons,
+   r.boundedSearchIncomplete,r.declaredLocalSearchPolicyDigest,
+   ledger.originalSourceSetSha256,ledger.originalTargetSha256,
+   r.physicalIdentityCertified,r.writerReady
+  ];
+  if(values.length!==heads.length)throw Error('F2_GAP_CSV_COLUMN_COUNT_MISMATCH');
+  return values.map(enc).join(',');
+ });
+ return [heads.map(enc).join(','),...rows].join('\n')+'\n';
+}
