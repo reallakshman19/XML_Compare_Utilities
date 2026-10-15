@@ -15,6 +15,8 @@ on:
       - tabs/cii-workspace/architecture/**
       - tests/cii-architecture-a*.test.js
       - tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - tests/cii-102-reconciled-authority-review.test.mjs
+      - tabs/cii-workspace/cii-workspace-multisource-review-ui.js
       - .github/workflows/cii-f2-joint-graph-core.yml
 
 permissions:
@@ -56,6 +58,11 @@ jobs:
         run: node tests/cii-f2-physical-gap-rca.test.js
       - name: Original Owner AUTO vs MANUAL census and 11 Phase 1 rows (#96 retained)
         run: node tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - name: Existing Compare Review AUTO plus MANUAL original-source visibility, no Writer (#102)
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-ui.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node tests/cii-102-reconciled-authority-review.test.mjs
       - name: Existing production correspondence is unaffected
         run: |
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
