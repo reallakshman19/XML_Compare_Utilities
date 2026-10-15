@@ -93,6 +93,10 @@ jobs:
             const a=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             const b=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-200.json"));
             assert.equal(a.originalDoubleBlankFactors,21);
+            assert.deepEqual(a.doubleBlankByMember,{S1:15,S2:3,S3:3});
+            assert.deepEqual(Object.fromEntries(Object.entries(a.doubleBlankClusters)
+              .map(([m,g])=>[m,g.map(x=>x.physicalFactorCount)])),
+              {S1:[14,1],S2:[3],S3:[2,1]});
             assert.equal(a.originalPhysicalSourceNodes,150);
             assert.equal(a.originalPhysicalSourceElements,147);
             assert.deepEqual(a.selectedSourceFactors.map(r=>r.sourceElementKey),[
@@ -112,6 +116,15 @@ jobs:
                 "CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH",
                 "NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS"
               ]);
+              const alternatives=x.selectedSourceFactors[0].adjacentSeedBoundaryAnalysis
+                .flatMap(z=>z.continuations).flatMap(z=>z.proposedTargetNodeCustody);
+              for(const [target,owner] of [["875","S1:3910"],["890","S1:3970"]]){
+                assert(alternatives.some(z=>z.targetNodeId===target
+                  &&z.claimedByOtherSourceNodes.includes(owner)));
+              }
+              assert(alternatives.some(z=>z.targetNodeId==="900"
+                &&z.claimedByOtherSourceNodes.length===0
+                &&z.unclaimedTargetDoesNotProveOriginalIdentity));
             }
             assert.equal(a.originalTargetSha256,b.originalTargetSha256);
             assert.deepEqual(a.originalSourceShaById,b.originalSourceShaById);
