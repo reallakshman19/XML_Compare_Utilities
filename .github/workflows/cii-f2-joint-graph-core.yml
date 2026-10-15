@@ -73,6 +73,8 @@ jobs:
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
             --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
+      - name: Cross-factor physical continuity and TARGET double-custody adversarial tests (Issue 102)
+        run: node tests/cii102-f2-chain-continuity.test.mjs
       - name: Original S1 S2 S3 double-blank endpoint independent geometry discriminator (Issue 102)
         run: |
           node scripts/cii-102-f2-double-blank-geometry-probe.mjs \
@@ -89,6 +91,14 @@ jobs:
               r.endpointNeighborEvidence.length===2&&r.currentTargets.every(t=>t.length===0)
               &&r.independentIdentityCertificate===null&&r.writerReady===false));
             assert.equal(Object.values(x.populationSummary).reduce((a,b)=>a+b.factors,0),21);
+            assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.originalFactors,0),21);
+            assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.originalGeometryOnlyRoutes,0),291);
+            assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.clusters,0),6);
+            assert(Object.values(x.continuityByMember).flat().every(c=>
+              c.certifiedNodeCount===0&&c.writerReady===false
+              &&c.hypothesesNotGlobalCertificates
+              &&c.factors.every(f=>!f.writerReady)));
+            console.log("CII102_ORIGINAL_CHAIN_CONTINUITY",JSON.stringify(x.continuitySummary));
             assert.deepEqual(x.doubleBlankByMember,{S1:15,S2:3,S3:3});
             assert.deepEqual(Object.fromEntries(Object.entries(x.doubleBlankClusters)
               .map(([m,groups])=>[m,groups.map(g=>g.physicalFactorCount)])),
