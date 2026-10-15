@@ -47,6 +47,16 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await expect(panel.locator('[data-ciiw-f2-summary]')).toBeVisible({timeout:180000});
  await expect(panel).toContainText('150 original SOURCE NODEs');
  await expect(panel).toContainText('0 certified / 0 Writer');
+ const physical=page.locator('[data-ciiw-ms-reconciled-physical="1"]');
+ await expect(physical).toBeVisible({timeout:30000});
+ await expect(physical).toContainText('Original F2 local witness audit');
+ await expect(physical).toContainText('No candidate is globally certified or Writer eligible');
+ await expect(compareAlternatives.locator('thead')).toContainText('Original physical provenance');
+ await expect(compareAlternatives.locator('tbody tr').filter({hasText:'S2 420'}))
+   .toContainText('MANUAL_CONFLICT_REQUIRES_REVIEW');
+ await expect(compareAlternatives.locator('tbody tr').filter({hasText:'S3 1580'}))
+   .toContainText('MANUAL_CONFLICT_REQUIRES_REVIEW');
+
  await panel.locator('details').first().locator('summary').click();
  const conflicts=panel.locator('details').first().locator('tbody tr');
  await expect(conflicts.filter({hasText:'S2:420'})).toContainText('415');
