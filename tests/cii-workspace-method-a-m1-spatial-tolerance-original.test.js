@@ -15,6 +15,8 @@ import {createCiiCommonAnalysisCache,createCiiWriter2SourceSetPreviewFromPrepare
 import {ciiCommonAnalysisOptions} from '../tabs/cii-workspace/cii-workspace-common-analysis-key.js';
 import {ciiWriter2SessionPolicyMatches,createCiiWriter2SessionSnapshot}
   from '../tabs/cii-workspace/cii-workspace-multisource-session-persistence.js';
+import {ciiMultiSourceReviewBySource,seedCiiMultiSourceReviewDecisions}
+  from '../tabs/cii-workspace/cii-workspace-multisource-review-ui.js';
 
 const save=getCiiMultiSourceMethodAConfidenceOptions();
 try {
@@ -80,16 +82,12 @@ try {
    writerReadiness:preview.writerReadiness?.status||null,
    operationIds:(preview.transferPlan?.operations||[]).map(op=>op.operationId).sort(),
   });
-  const reviewedFor=raw=>Object.fromEntries(raw.memberPreviews.map(({sourceId,preview})=>[
-   sourceId,{
-    reviewedCorrespondenceIds:(preview.compareReview?.rows||[])
-      .filter(x=>x.identityBound===true&&['HIGH','MEDIUM'].includes(x.confidence))
-      .map(x=>x.correspondenceId),
-    lockedCorrespondenceIds:(preview.compareReview?.rows||[])
-      .filter(x=>x.decision==='LOCKED').map(x=>x.correspondenceId),
-    rejectedCorrespondenceIds:[],
-   },
-  ]));
+  const reviewedFor=raw=>{
+   // Use the EXACT application Review→Transfer Preview projection, preserving
+   // member ledgers and the prefix-stripped correspondence IDs.
+   const decisions=seedCiiMultiSourceReviewDecisions(raw,new Map());
+   return ciiMultiSourceReviewBySource(raw,decisions);
+  };
   const replay=async(payload,unreviewed)=>{
    const raw=unreviewed||await createCiiWriter2SourceSetPreviewFromPreparedSession(
     preparedSession,payload,{cryptoRef,commonAnalysisCache:createCiiCommonAnalysisCache(),...options});
