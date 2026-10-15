@@ -103,6 +103,18 @@ jobs:
             assert.equal(one.globalIdentityCertified,false);
             assert.equal(one.registrationAttested,false);
             assert.equal(one.writerReady,false);
+            assert.deepEqual(x.s1TailSensitivity.map(r=>r.lengthToleranceMm),[25,100,200]);
+            assert.deepEqual(x.s1TailSensitivity[0].zeroPairBreaks.map(a=>a.join("|")),
+              x.continuityByMember.S1.find(c=>c.sourceFactorCount===14)
+                .pairwiseChecks.filter(p=>p.compatible===0).map(p=>p.a+"|"+p.b));
+            assert.equal(x.s1TailSensitivity[0].originalGeometryOnlyRoutes,190);
+            assert.equal(x.s1TailSensitivity[0].locallyArcConsistentRoutes,0);
+            assert.equal(x.s1TailSensitivity[0].zeroArcSupportedFactors,14);
+            assert(x.s1TailSensitivity.every(r=>r.complete
+              &&r.writerReady===false&&r.globalIdentityCertified===false
+              &&Number.isInteger(r.zeroArcSupportedFactors)));
+            console.log("CII102_S1_TAIL_PHYSICAL_SENSITIVITY",JSON.stringify(
+              x.s1TailSensitivity));
             for(const measure of x.firstJunctionSensitivity){
               assert.equal(measure.thirdSourceElementKey,"S1:E46:5040->5070");
               assert(measure.thirdRouteSearchComplete);
