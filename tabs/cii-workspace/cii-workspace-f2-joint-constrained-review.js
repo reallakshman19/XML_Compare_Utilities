@@ -24,10 +24,11 @@ function policyFor(options={}){
   maxVisitsPerFactor:options.maxVisitsPerFactor??1200,
   maxEndpointCombinations:options.maxEndpointCombinations??32,
   maxPathWitnessesPerPair:options.maxPathWitnessesPerPair??4,
+  maxAssignmentSearchStates:options.maxAssignmentSearchStates??15000,
   pathLengthToleranceMm:options.pathLengthToleranceMm??25,
   straightnessMin:options.straightnessMin??0.995,
  };
- for(const name of ['maxTargetPathSegments','maxVisitsPerFactor','maxEndpointCombinations','maxPathWitnessesPerPair']){
+ for(const name of ['maxTargetPathSegments','maxVisitsPerFactor','maxEndpointCombinations','maxPathWitnessesPerPair','maxAssignmentSearchStates']){
   const n=policy[name];
   if(!Number.isSafeInteger(n)||n<1||n>10000)throw Error('F2_JOINT_INVALID_BOUNDED_POLICY:'+name);
  }
@@ -160,6 +161,72 @@ function claimsFromAudit(claims,sourceNodes,targetNodes,audit,origin){
  }
 }
 /**
+ * A2/F2 noncertifying GLOBAL assignment check. It tests the candidate domains
+ * jointly against target one-to-one custody and every *complete, witnessed*
+ * physical factor. A missing factor or incomplete search stays a separate
+ * evidence gap, not an enforced assumption about absent physical identity.
+ *
+ * Two distinct candidate solutions defeat uniqueness within the candidate
+ * set. One sampled solution NEVER establishes completeness of the real TARGET:
+ * discovery, engineering revisions and unexamined paths may add alternatives.
+ */
+function reviewGlobalAssignments(nodeRows,factors,policy){
+ const candidates=nodeRows.filter(x=>x.candidates.length).map(row=>({
+  key:row.sourceNodeKey,targets:row.candidates.map(c=>c.targetNodeId),
+ }));
+ const supported=factors.filter(f=>f.complete&&f.pathWitnesses.length>0);
+ const constraints=new Map();
+ for(const item of supported){
+  for(const pair of [[item.sourceNodeKeys[0],item.sourceNodeKeys[1]],
+                    [item.sourceNodeKeys[1],item.sourceNodeKeys[0]]]){
+   if(!constraints.has(pair[0]))constraints.set(pair[0],[]);
+   constraints.get(pair[0]).push({other:pair[1],
+    allowed:new Set(item.pathWitnesses.map(w=>pair[0]===item.sourceNodeKeys[0]
+     ? JSON.stringify([w.startTargetNodeId,w.endTargetNodeId])
+     : JSON.stringify([w.endTargetNodeId,w.startTargetNodeId])))});
+  }
+ }
+ const ranked=candidates.sort((a,b)=>a.targets.length-b.targets.length
+  ||(constraints.get(b.key)?.length||0)-(constraints.get(a.key)?.length||0)
+  ||cmp(a.key,b.key));
+ const assigned=new Map(),occupied=new Map(),examples=[];
+ let states=0,truncated=false;
+ function dfs(i){
+  if(examples.length>=2||truncated)return;
+  if(++states>policy.maxAssignmentSearchStates){truncated=true;return;}
+  if(i===ranked.length){
+   examples.push(sort(assigned.keys()).map(k=>[k,assigned.get(k)]));return;
+  }
+  const row=ranked[i];
+  for(const target of row.targets){
+   if(occupied.has(target))continue;
+   const valid=(constraints.get(row.key)||[]).every(e=>
+    !assigned.has(e.other)||e.allowed.has(JSON.stringify([target,assigned.get(e.other)])));
+   if(!valid)continue;
+   assigned.set(row.key,target);occupied.set(target,row.key);
+   dfs(i+1);
+   assigned.delete(row.key);occupied.delete(target);
+   if(examples.length>=2||truncated)break;
+  }
+ }
+ dfs(0);
+ return deepFreeze({
+  schema:'CiiF2GlobalCandidateAssignment.v1',
+  status:truncated?'SEARCH_INCOMPLETE'
+   :examples.length===0?'NO_CONSISTENT_ASSIGNMENT_IN_REPLAY_DOMAINS'
+   :examples.length===1?'ONE_SOLUTION_IN_INCOMPLETE_REPLAY_DOMAINS'
+   :'MULTIPLE_CONSISTENT_REPLAY_ASSIGNMENTS',
+  candidateSourceNodeCount:ranked.length,
+  completeWitnessFactorsEnforced:supported.length,
+  factorsWithMissingOrIncompleteWitness:factors.length-supported.length,
+  searchStates:states,searchLimit:policy.maxAssignmentSearchStates,
+  sampledSolutionCount:examples.length,
+  sampledTargetAssignments:examples,
+  originalTargetCoverageComplete:false,
+  independentlyCertified:false,writerReady:false,
+ });
+}
+/**
  * Does NOT set identityBound, correspondenceIdentity, transferPlan, scope or
  * Writer readiness. "PATH_WITNESSED" is not unique physical correspondence.
  */
@@ -247,6 +314,7 @@ export function buildCiiF2JointConstrainedReview({automaticPreview,activePreview
    activeBound:(active.rows.find(x=>x.rowKey===sourceNodeKey)?.state==='BOUND'),
    physicalCertification:false,writerReady:false};
  });
+ const globalAssignmentReview=reviewGlobalAssignments(rows,factors,applied);
  const summary={originalSourceNodeCount:keys.length,
   automaticBoundCount:auto.summary.BOUND,activeBoundCount:active.summary.BOUND,
   jointCandidateNodes:rows.filter(x=>x.candidates.length).length,
@@ -254,8 +322,9 @@ export function buildCiiF2JointConstrainedReview({automaticPreview,activePreview
   differingTargetCandidates:rows.filter(x=>x.candidates.length>1).length,
   targetCustodyReviewCount:rows.filter(x=>x.candidates.some(c=>c.competingSourceNodeKeys.length)).length,
   nodeCandidates:rows.reduce((n,x)=>n+x.candidates.length,0),factors:counter,
+  globalAssignmentStatus:globalAssignmentReview.status,
   certifiedNodeCount:0,writerOperationCount:0};
  return deepFreeze({schema:CII_F2_JOINT_SCHEMA,status:'REVIEW_ONLY_NOT_CERTIFIED',policy:applied,
-  originalCustody:custody,summary,rows,factors,
+  originalCustody:custody,summary,rows,factors,globalAssignmentReview,
   canBindWriter:false,transferPlan:null,writeScope:null,writerReadiness:null});
 }
