@@ -1,0 +1,35 @@
+name: CII102 independent original physical chain falsifier
+
+on:
+  pull_request:
+    paths:
+      - "tests/cii102-independent-original-chain-falsifier.test.mjs"
+      - "tests/cii-102-reconciled-authority-review.test.mjs"
+      - "docs/tabs/cii-workspace/cii102-independent-pr103-adoption-2026-10-15.md"
+      - "parser/**"
+      - "Benchmark/**"
+      - "tabs/cii-workspace/**"
+      - ".github/workflows/cii102-independent-chain-adoption.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-original-replay:
+    name: SHA-frozen S2/S3 full chain and unchanged active Writer2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout independent PR
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Parse independent chain falsifier
+        run: node --check tests/cii102-independent-original-chain-falsifier.test.mjs
+      - name: Replay immutable original S2/S3/T physical chains, with OD revision alternatives
+        run: node tests/cii102-independent-original-chain-falsifier.test.mjs
+      - name: Re-run authentic P1/P2 coexistence boundary on S1/S2/S3/T (no Writer)
+        run: node tests/cii-102-reconciled-authority-review.test.mjs
