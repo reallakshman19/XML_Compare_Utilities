@@ -416,6 +416,10 @@ function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
    if(new Set(common).size!==1||common[0]!==ap)continue;
    joined.push({
     targetSharedNode:ap,
+    pipeStartTargetNode:oa?pa.targetNodePath.at(-1):pa.targetNodePath[0],
+    bendDownstreamTargetNode:ob?pb.targetNodePath[0]:pb.targetNodePath.at(-1),
+    pipeTargetNodePath:pa.targetNodePath,
+    bendTargetNodePath:pb.targetNodePath,
     pipeTargetElementIds:pa.targetElementIds,
     bendTargetElementIds:pb.targetElementIds,
     pipeResidualMm:pa.lengthResidualMm,
@@ -446,6 +450,46 @@ const sourceTurnAngleDeg=angleDegrees(
  [Number(firstEdge.dx),Number(firstEdge.dy),Number(firstEdge.dz)],
  [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)]
 );
+const thirdS1=doubleMissingRows.find(r=>r.sourceElementKey==='S1:E46:5040->5070');
+const thirdEdge=firstGraph.edges.find(e=>e.elementId===thirdS1?.sourceElementId);
+if(!thirdS1||!thirdEdge||thirdEdge.componentKind!=='PIPE'
+ ||String(secondEdge.to)!=='5040'||String(thirdEdge.from)!=='5040')
+ throw Error('CII102_NEXT_PIPE_ORIGINAL_EDGE_CUSTODY_MISSING');
+const sourceNextTurnAngleDeg=angleDegrees(
+ [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)],
+ [Number(thirdEdge.dx),Number(thirdEdge.dy),Number(thirdEdge.dz)]
+);
+function extendBendToNextPipe(joints,thirdRoutes) {
+ const found=[];
+ for(const joint of joints)for(const path of thirdRoutes){
+  const elements=[...joint.pipeTargetElementIds,...joint.bendTargetElementIds];
+  if(path.targetElementIds.some(id=>elements.includes(id)))continue;
+  for(let rev=0;rev<2;rev++){
+   const targetFrom=rev?path.targetNodePath.at(-1):path.targetNodePath[0];
+   if(targetFrom!==joint.bendDownstreamTargetNode)continue;
+   const prior=[...joint.pipeTargetNodePath,...joint.bendTargetNodePath];
+   const intersect=path.targetNodePath.filter(node=>prior.includes(node));
+   if(new Set(intersect).size!==1||intersect[0]!==targetFrom)continue;
+   found.push({
+    sharedPipeBendTargetNode:joint.targetSharedNode,
+    sharedBendNextPipeTargetNode:targetFrom,
+    firstPipeTargetElements:joint.pipeTargetElementIds,
+    bendTargetElements:joint.bendTargetElementIds,
+    nextPipeTargetElements:path.targetElementIds,
+    firstPipeResidualMm:joint.pipeResidualMm,
+    bendResidualMm:joint.bendResidualMm,
+    nextPipeResidualMm:path.lengthResidualMm,
+    sourceNextTurnAngleDeg,
+    targetNextTurnAngleDeg:angleDegrees(joint.targetBendOriginalDeltaMm,
+      signed(path.targetPathDeltaMm,rev)),
+    globalIdentityCertified:false,writerReady:false
+   });
+  }
+ }
+ return found.sort((a,b)=>a.firstPipeResidualMm+a.bendResidualMm+a.nextPipeResidualMm
+  -b.firstPipeResidualMm-b.bendResidualMm-b.nextPipeResidualMm
+  ||compare(a.sharedPipeBendTargetNode,b.sharedPipeBendTargetNode));
+}
 const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
  const left=inspectOriginalGeometry('S1',firstEdge,lengthToleranceMm);
  const right=inspectOriginalGeometry('S1',secondEdge,lengthToleranceMm);
@@ -454,12 +498,20 @@ const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
    pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
    joinedPhysicalRoutePairs:null,noAbsenceClaim:true,joinExamples:[]};
  const joints=jointPhysicalPairs(firstEdge,left.allRoutes,secondEdge,right.allRoutes,'5030');
+ const third=inspectOriginalGeometry('S1',thirdEdge,lengthToleranceMm);
+ const triple=third.stats.complete?extendBendToNextPipe(joints,third.allRoutes):[];
  return {lengthToleranceMm,enumerationComplete:true,
   pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
   joinedPhysicalRoutePairs:joints.length,
   minimumCombinedLengthResidualMm:joints.length?
    Number((joints[0].pipeResidualMm+joints[0].bendResidualMm).toFixed(3)):null,
-  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,noAbsenceClaim:false,
+  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,
+  thirdSourceElementKey:thirdS1.sourceElementKey,
+  thirdOriginalTargetRouteCount:third.allRoutes.length,
+  thirdRouteSearchComplete:third.stats.complete,
+  joinedTriplePhysicalRouteCount:third.stats.complete?triple.length:null,
+  tripleExamples:triple.slice(0,10),sourceNextTurnAngleDeg,
+  noAbsenceClaim:!third.stats.complete,
   localGeometryOnly:true,globalIdentityCertified:false,writerReady:false};
 });
 const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).map(([member,groups])=>[
@@ -507,7 +559,9 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  firstJunctionSensitivity:output.firstJunctionSensitivity.map(r=>({
   lengthToleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
   bendRoutes:r.bendRoutes,joinedPhysicalRoutePairs:r.joinedPhysicalRoutePairs,
-  enumerationComplete:r.enumerationComplete
+  enumerationComplete:r.enumerationComplete,
+  tripleJoinedRoutes:r.joinedTriplePhysicalRouteCount??null,
+  sourceNextAngleDeg:r.sourceNextTurnAngleDeg??null
  })),
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
