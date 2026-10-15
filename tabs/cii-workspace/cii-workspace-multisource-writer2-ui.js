@@ -24,6 +24,7 @@ import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 import {
   buildCiiReconciledAuthorityReview,
+  qualifyCiiReconciledAuthorityPhysicalEvidence,
   ciiReconciledAuthorityReviewMarkup,
   ciiMultiSourceBulkAcceptOutcome,
   ciiMultiSourceLockedReviewCount,
@@ -634,6 +635,10 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       if (report.writerReady!==false || report.physicalIdentityCertified!==false ||
         report.transferPlan!==null || report.writeScope!==null)
         throw Error('F2_SHADOW_WRITER_BOUNDARY_VIOLATION');
+      // SHA-bound evidence from the EXISTING canonical Worker. No new worker,
+      // matcher, active identity, user review decision or Writer promotion.
+      if (reconciledReview) reconciledReview=
+        qualifyCiiReconciledAuthorityPhysicalEvidence(reconciledReview,report);
       f2Shadow=report;renderMultiReview();
       setMultiSourceStatus(container,'F2 canonical A2: '+report.summary.recoveredHypotheses
         +' provisional new hypotheses; '+report.summary.uniqueNewlyCoveredNodes
