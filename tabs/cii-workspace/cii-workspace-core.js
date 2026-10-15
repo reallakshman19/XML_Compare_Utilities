@@ -136,7 +136,10 @@ function loopAnchorPairs(loop) {
 }
 function acceptedAnchors(input) {
   if (!Array.isArray(input?.baseLoops)) return normalizeAnchorPairs(input?.anchorPairs);
-  return dedupeAnchors(input.baseLoops.flatMap((loop) => loopAnchorPairs(loop)));
+  const bases = input.baseLoops.flatMap((loop) => loopAnchorPairs(loop));
+  return dedupeAnchors(String(input?.anchorPairMode || '').toUpperCase() === 'INDEPENDENT_SEEDS'
+    && Array.isArray(input?.anchorPairs)
+    ? [...bases, ...normalizeAnchorPairs(input.anchorPairs)] : bases);
 }
 function invalidExplicitAuthority(blockers) {
   return deepFreeze({ schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority, status: 'BLOCKED', combination: 'OR_WITH_CONFLICT_VETO',
@@ -204,6 +207,46 @@ function independentManualSeedAuthority(anchors) {
     reason: conflicts.length ? 'MANUAL_SEED_IDENTITY_CONFLICT' : 'INDEPENDENT_MANUAL_SEEDS_READY' });
 }
 function workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options) {
+  // Issue #106: qualify AUTO bases and reviewed MANUAL seeds independently.
+  // Neither manual anchor coordinates nor total-length evidence can be added to
+  // a Method A basis or counted as a Method B independent geometric axis.
+  if (Array.isArray(input?.baseLoops) && Array.isArray(input?.anchorPairs)
+      && String(input?.anchorPairMode || '').toUpperCase() === 'INDEPENDENT_SEEDS') {
+    const auto = explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options);
+    const manual = independentManualSeedAuthority(normalizeAnchorPairs(input.anchorPairs));
+    if (auto.status === 'BLOCKED' || manual.status === 'AMBIGUOUS') {
+      return deepFreeze({ ...auto, status: 'BLOCKED', inputMode: 'PARALLEL_AUTO_MANUAL',
+        reason: 'PARALLEL_INPUT_OR_MANUAL_CONFLICT', conflicts: deepFreeze([...(auto.conflicts || []), ...(manual.conflicts || [])]),
+        inputBlockers: deepFreeze([...(auto.inputBlockers || []), ...(manual.status === 'AMBIGUOUS' ? ['MANUAL_SEED_IDENTITY_CONFLICT'] : [])]) });
+    }
+    const loops = [...(auto.loops || []), ...(manual.loops || [])].map((loop, index) =>
+      deepFreeze({ ...loop, loopId: `P${index + 1}:${String(loop.loopId || 'BASE')}` }));
+    // A manual/auto anchor-pair conflict is explicit even when one propagation
+    // result would later be BLOCKED and omitted from normal ready-loop union.
+    const sourceClaims = new Map(), targetClaims = new Map(), conflicts = [];
+    for (const loop of loops) for (const pair of loop.anchorPairs || []) {
+      const sk = String(pair.sourceNodeId), tk = String(pair.targetNodeId);
+      if (!sourceClaims.has(sk)) sourceClaims.set(sk, new Set());
+      if (!targetClaims.has(tk)) targetClaims.set(tk, new Set());
+      sourceClaims.get(sk).add(tk); targetClaims.get(tk).add(sk);
+    }
+    for (const [node, targets] of sourceClaims) if (targets.size > 1)
+      conflicts.push(deepFreeze({ kind: 'PARALLEL_SOURCE_ANCHOR_CONFLICT', sourceNodeId: node, targetNodeIds: deepFreeze([...targets].sort()) }));
+    for (const [node, sources] of targetClaims) if (sources.size > 1)
+      conflicts.push(deepFreeze({ kind: 'PARALLEL_TARGET_ANCHOR_CONFLICT', targetNodeId: node, sourceNodeIds: deepFreeze([...sources].sort()) }));
+    return deepFreeze({
+      ...auto, schema: CII_WORKSPACE_SCHEMAS.multiBaseAuthority,
+      status: conflicts.length ? 'AMBIGUOUS' : loops.length ? 'READY' : 'UNAVAILABLE',
+      inputMode: 'PARALLEL_AUTO_MANUAL',
+      combination: 'INDEPENDENT_TRACKS_WITH_CONFLICT_VETO',
+      authority: 'EVIDENCE_ONLY_ENGINEER_ACCEPT_REQUIRED',
+      loops: deepFreeze(loops), loopCount: loops.length,
+      readyLoopCount: loops.filter(loop => loop.status === 'READY').length,
+      manualSeedReadyCount: manual.manualSeedReadyCount || 0,
+      conflicts: deepFreeze(conflicts), reason: conflicts.length ? 'PARALLEL_ANCHOR_CONFLICT' : 'PARALLEL_EVIDENCE_READY',
+      writerAuthorizationGranted: false,
+    });
+  }
   if (Array.isArray(input?.baseLoops)) return explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options);
   if (String(input?.anchorPairMode || '').toUpperCase() === 'INDEPENDENT_SEEDS') return independentManualSeedAuthority(anchors);
   return legacyMultiBaseAuthority(anchors, sourceGraph, targetGraph, options);
