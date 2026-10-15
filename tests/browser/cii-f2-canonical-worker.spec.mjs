@@ -51,6 +51,16 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await expect(physical).toBeVisible({timeout:30000});
  await expect(physical).toContainText('Original F2 local witness audit');
  await expect(physical).toContainText('No candidate is globally certified or Writer eligible');
+ const originalChains=page.locator('[data-ciiw-f2-original-chain-review="1"]');
+ await expect(originalChains).toBeVisible();
+ await expect(originalChains).toContainText('98/147');
+ await expect(originalChains).toContainText('49 factors lack original path evidence');
+ await expect(originalChains).toContainText('0 physically certified identities');
+ await originalChains.locator('details').first().locator('summary').click();
+ await expect(originalChains.locator('[data-ciiw-f2-chain-group="1"]')).toHaveCount(7);
+ await expect(originalChains).toContainText('Longest ordered, non-reusing original route:');
+ await expect(originalChains).toContainText('global TARGET search/uniqueness NOT proved');
+ await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
  await expect(compareAlternatives.locator('thead')).toContainText('Original physical provenance');
  await expect(compareAlternatives.locator('tbody tr').filter({hasText:'S2 420'}))
    .toContainText('MANUAL_CONFLICT_REQUIRES_REVIEW');
@@ -88,5 +98,6 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  const member=page.locator('[data-ciiw-ms-member="S2"]');
  await member.locator('[data-ciiw-evidence-card][data-selected="false"] [data-ciiw-base-action]').first().click();
  await expect(page.locator('[data-ciiw-f2-canonical="1"]')).toHaveCount(0);
+ await expect(page.locator('[data-ciiw-f2-original-chain-review="1"]')).toHaveCount(0);
  expect(pageErrors.filter(x=>/cii-workspace-f2|A2_|SHA256/i.test(x))).toEqual([]);
 });
