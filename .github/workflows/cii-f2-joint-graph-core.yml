@@ -103,6 +103,13 @@ jobs:
             assert.equal(one.globalIdentityCertified,false);
             assert.equal(one.registrationAttested,false);
             assert.equal(one.writerReady,false);
+            for(const measure of x.firstJunctionSensitivity){
+              assert.equal(measure.thirdSourceElementKey,"S1:E46:5040->5070");
+              assert(measure.thirdRouteSearchComplete);
+              assert(Number.isInteger(measure.joinedTriplePhysicalRouteCount));
+              assert(measure.tripleExamples.every(t=>!t.globalIdentityCertified&&!t.writerReady));
+              assert.equal(measure.sourceNextTurnAngleDeg,90);
+            }
             assert(x.firstJunctionSensitivity.every(r=>r.localGeometryOnly
               &&r.writerReady===false&&r.globalIdentityCertified===false
               &&r.enumerationComplete
@@ -113,6 +120,8 @@ jobs:
                 bendRoutes:r.bendRoutes,jointRoutes:r.joinedPhysicalRoutePairs,
                 minCombinedResidualMm:r.minimumCombinedLengthResidualMm,
                 firstPairAngleDeg:r.joinExamples[0]?.targetTurnAngleDeg??null,
+                thirdPipeRoutes:r.thirdOriginalTargetRouteCount,
+                tripleJoinedRoutes:r.joinedTriplePhysicalRouteCount,
                 sourceAngleDeg:r.joinExamples[0]?.sourceTurnAngleDeg??null
               }))));
             assert.equal(new Set(x.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
