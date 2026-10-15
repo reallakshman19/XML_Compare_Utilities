@@ -46,14 +46,14 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - name: Genuine original-file Chromium joint graph and non-writing guarantees
-        run: npx playwright test --config=playwright.cii-method-a-m1-tolerance.config.mjs tests/browser/cii-writer2-f2-joint-review.spec.mjs
+        run: npx playwright test --config=playwright.cii-f2-joint.config.mjs
       - name: Retain browser screenshots and machine-readable report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cii-arch01-f2-joint-original-chromium
           path: |
-            test-results/cii-method-a-m1-tolerance
-            test-results/cii-method-a-m1-tolerance.json
+            test-results/cii-f2-joint-original
+            test-results/cii-f2-joint-original.json
           retention-days: 14
           if-no-files-found: warn
