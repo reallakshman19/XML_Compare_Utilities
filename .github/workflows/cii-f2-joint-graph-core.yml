@@ -7,6 +7,7 @@ on:
       - scripts/cii-architecture-a2-*.mjs
       - scripts/cii-a2-json-sha256.mjs
       - tabs/cii-workspace/cii-workspace-f2-canonical-*.js
+      - tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js
       - tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
       - tests/cii-arch01-f2-isomorphic-sha.test.js
       - tests/browser/cii-f2-canonical-worker.spec.mjs
@@ -96,6 +97,13 @@ jobs:
             assert.equal(a.policy.qualifiedMethodAScoreLinkPresent,"NOT_PRESENT_ON_THIS_MAIN_BASE");
             assert.equal(a.originalPhysicalSourceNodeCount,150);
             assert.equal(a.originalPhysicalSourceElementCount,147);
+            assert.equal(a.physicalGapLedger.schema,"CiiF2PhysicalFactorGapLedger.v1");
+            assert.equal(a.physicalGapLedger.totalPhysicalSourceElements,147);
+            assert.equal(a.physicalGapLedger.originalEndpointMissingFactors,49);
+            assert.equal(a.physicalGapLedger.currentEndpointMissingFactors,33);
+            assert.equal(new Set(a.physicalGapLedger.rows.map(x=>x.sourceElementKey)).size,147);
+            assert.equal(a.physicalGapLedger.writerReady,false);
+            assert.equal(a.physicalGapLedger.writeScope,null);
             assert.equal(a.writerReady,false);
             assert.deepEqual(a.identityCertificates,[]);
             assert.equal(a.frontierRecovery.recoveredHypotheses,22);
