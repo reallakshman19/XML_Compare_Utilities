@@ -213,7 +213,8 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
       setStatus(container, `${count} SOURCE files selected. Inspect opens REVIEW ONLY because exact retained Writer2 write custody requires three members.`);
     });
   };
-  const onConfidencePolicyChange = () => {
+  const onConfidencePolicyChange = (event) => {
+    const pathChanged = event?.detail?.policyFamily === 'CII_PATH_TOTAL_LENGTH';
     policyEpoch += 1;
     if (state?.mode !== ROUTER_MODE) return;
     resetGeneric();
@@ -223,7 +224,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
     if (deltas) deltas.innerHTML = '';
     if (transfer) transfer.innerHTML = '';
     if (analyzeButton) analyzeButton.disabled = true;
-    setStatus(container, 'Confidence policy changed; generic review and old approval evidence invalidated. Run Inspect.');
+    setStatus(container, (pathChanged ? 'Dimensional path tolerance' : 'Confidence policy') + ' changed; generic review and old approval evidence invalidated. Run Inspect.');
   };
   container.addEventListener('ciiw-method-a-confidence-changed', onConfidencePolicyChange);
   container.addEventListener('click', onClickCapture, true); container.addEventListener('change', onChangeCapture, true);
