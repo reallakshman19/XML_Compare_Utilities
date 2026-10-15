@@ -1,0 +1,43 @@
+name: CII ARCH-01 F2 Method A Scoring Propagation
+on:
+  push:
+    branches: [fix/cii-69-f2-method-a-tolerance-score-20261015]
+  pull_request:
+    paths:
+      - tabs/cii-workspace/cii-workspace-geometry.js
+      - tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+      - tests/cii-arch01-f2-method-a-score-propagation.test.js
+      - .github/workflows/cii-arch01-f2-method-a-score.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-source-method-a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify JS module syntax
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-geometry.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+          node --check tests/cii-arch01-f2-method-a-score-propagation.test.js
+      - name: Assert bounded scored tolerance, OD admission, original SHA
+        run: node tests/cii-arch01-f2-method-a-score-propagation.test.js
+      - name: Existing rigid basis and negative-control authorities
+        run: |
+          node tests/cii-workspace-geometry-authority.test.js
+          node tests/cii-workspace-method-a-base-anchor-custody.test.js
+          node tests/cii-workspace-method-a-weight-policy.test.js
+          node tests/cii-workspace-method-a-confidence-config.test.js
+      - name: Existing authentic S1 S2 S3 matching
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: Original M1 and transfer impact acceptance
+        run: node tests/cii-workspace-method-a-m1-spatial-tolerance-original.test.js
