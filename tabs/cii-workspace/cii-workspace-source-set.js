@@ -10,9 +10,24 @@ export const CII_SOURCE_SET_WP2_BLOCKER = 'MULTISOURCE_CORRESPONDENCE_REQUIRES_W
 const DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT = 10;
 const MAX_METHOD_A_PHYSICAL_SEARCH_LIMIT = 24;
 const DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT = 5;
+export const CII_METHOD_A_SPATIAL_TOLERANCE_DEFAULT_MM = 100;
+export const CII_METHOD_A_SPATIAL_TOLERANCE_MAX_MM = 200;
 let multiSourceMethodAPhysicalCandidateLimit = DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
 let multiSourceMethodAConfidenceThresholds = CII_METHOD_A_CONFIDENCE_DEFAULTS;
 let multiSourceMethodAConfidenceWeights = CII_METHOD_A_WEIGHT_DEFAULTS;
+let multiSourceMethodASpatialToleranceMm = CII_METHOD_A_SPATIAL_TOLERANCE_DEFAULT_MM;
+export function validateCiiMultiSourceMethodASpatialToleranceMm(value) {
+  if (value == null || String(value).trim() === '' || !Number.isFinite(Number(value))
+    || Number(value) < 1 || Number(value) > CII_METHOD_A_SPATIAL_TOLERANCE_MAX_MM) {
+    throw new RangeError('METHOD_A_M1_SPATIAL_TOLERANCE_INVALID: 1..200 mm required');
+  }
+  return Number(value);
+}
+export function setCiiMultiSourceMethodASpatialToleranceMm(value) {
+  const validated = validateCiiMultiSourceMethodASpatialToleranceMm(value);
+  multiSourceMethodASpatialToleranceMm = validated;
+  return validated;
+}
 
 function boundedSearchLimit(value) {
   const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
@@ -27,6 +42,7 @@ export function getCiiMultiSourceMethodAConfidenceOptions() {
     methodAHighConfidenceThreshold: multiSourceMethodAConfidenceThresholds.high,
     methodAMediumConfidenceThreshold: multiSourceMethodAConfidenceThresholds.medium,
     methodAConfidenceWeights: multiSourceMethodAConfidenceWeights,
+    spatialToleranceMm: multiSourceMethodASpatialToleranceMm,
   });
 }
 export function setCiiMultiSourceMethodAConfidenceWeights(weights) {
@@ -50,11 +66,13 @@ function sourceSetInspectionOptions(options = {}) {
     medium: options.methodAMediumConfidenceThreshold ?? current.methodAMediumConfidenceThreshold,
   });
   const weights = validateCiiMethodAConfidenceWeights(options.methodAConfidenceWeights ?? current.methodAConfidenceWeights);
+  const spatialToleranceMm = validateCiiMultiSourceMethodASpatialToleranceMm(options.spatialToleranceMm ?? current.spatialToleranceMm);
   return {
     ...options,
     methodAHighConfidenceThreshold: thresholds.high,
     methodAMediumConfidenceThreshold: thresholds.medium,
     methodAConfidenceWeights: weights,
+    spatialToleranceMm,
     methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
     baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
   };
