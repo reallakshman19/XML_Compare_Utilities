@@ -141,6 +141,12 @@ export function buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiB
   const loopResults = (multiBaseAuthority.loops || []).filter((loop) => loop.status === 'READY').map((loop) => deepFreeze({
     loop, correspondence: loopCorrespondence(sourceGraph, targetGraph, loop, options),
   }));
+  // Mixed qualified AUTO bases and independently reviewed MANUAL seeds retain
+  // every physically supported row while conservatively gating incomplete
+  // propagation and every conflicting physical claim. Writer remains blocked
+  // unless the complete independent seed coverage itself qualifies.
+  if (multiBaseAuthority.inputMode === 'PARALLEL_AUTO_MANUAL')
+    return arbitrateCiiSeedCorrespondences(loopResults);
   const legacy = legacySingleLoopResult(loopResults); if (legacy) return legacy;
   const singleSeed = singleSeedLoopResult(loopResults); if (singleSeed) return singleSeed;
   const seedOnly = loopResults.length > 1 && loopResults.every((item) => item.loop.method === 'USER_LOCKED_SEED');
