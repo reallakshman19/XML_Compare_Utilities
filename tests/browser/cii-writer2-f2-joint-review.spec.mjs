@@ -38,7 +38,7 @@ test('F2: actual Writer2 Compare shows retained AUTO+MANUAL joint graph without 
  await expect(rows.filter({hasText:'S2:420'})).toContainText('10330');
  await expect(rows.filter({hasText:'S3:1580'})).toContainText('7880');
  await expect(rows.filter({hasText:'S3:1580'})).toContainText('8895');
- expect(await page.locator('[data-ciiw-ms-apply]').count()).toBe(0);
+ await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
  const [download]=await Promise.all([
   page.waitForEvent('download'),
   control.locator('[data-ciiw-f2-export]').click(),
