@@ -91,6 +91,18 @@ jobs:
             assert.equal(first.joinedPhysicalRoutePairs,0);
             assert.equal(first.pipeRoutes,22);
             assert.equal(first.bendRoutes,9);
+            assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.joinedPhysicalRoutePairs),[0,1,4,40]);
+            const one=x.firstJunctionSensitivity[1].joinExamples[0];
+            assert.equal(one.targetSharedNode,"1075");
+            assert.deepEqual(one.pipeTargetElementIds,["E215:1070->1075"]);
+            assert.deepEqual(one.bendTargetElementIds,["E216:1075->1080"]);
+            assert.equal(one.pipeResidualMm,37);
+            assert.equal(one.bendResidualMm,0);
+            assert.equal(one.sourceTurnAngleDeg,0);
+            assert(Number.isFinite(one.targetTurnAngleDeg));
+            assert.equal(one.globalIdentityCertified,false);
+            assert.equal(one.registrationAttested,false);
+            assert.equal(one.writerReady,false);
             assert(x.firstJunctionSensitivity.every(r=>r.localGeometryOnly
               &&r.writerReady===false&&r.globalIdentityCertified===false
               &&r.enumerationComplete
@@ -99,7 +111,9 @@ jobs:
               x.firstJunctionSensitivity.map(r=>({
                 toleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
                 bendRoutes:r.bendRoutes,jointRoutes:r.joinedPhysicalRoutePairs,
-                minCombinedResidualMm:r.minimumCombinedLengthResidualMm
+                minCombinedResidualMm:r.minimumCombinedLengthResidualMm,
+                firstPairAngleDeg:r.joinExamples[0]?.targetTurnAngleDeg??null,
+                sourceAngleDeg:r.joinExamples[0]?.sourceTurnAngleDeg??null
               }))));
             assert.equal(new Set(x.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
             assert(x.allDoubleBlankFactorCases.every(r=>
