@@ -30,7 +30,8 @@ function numericSame(a,b,epsilon=1e-6) {
   return Number.isFinite(r(a)) && Number.isFinite(r(b)) && Math.abs(r(a)-r(b)) <= epsilon;
 }
 function matchingProperties(a,b) {
-  return numericSame(a.diameter,b.diameter) && numericSame(a.wall,b.wall)
+  return r(a.diameter)>0 && r(b.diameter)>0 && r(a.wall)>0 && r(b.wall)>0
+    && numericSame(a.diameter,b.diameter) && numericSame(a.wall,b.wall)
     && PROCESS_FIELDS.every(k=>numericSame(a[k]??0,b[k]??0));
 }
 function credibleLength(edge) {
@@ -68,7 +69,9 @@ export function classifyCiiComparisonPassThroughNode(graph,nodeId,options={}) {
   if((options.protectedNodeIds||[]).includes(node)) reasons.push('PROTECTED_EXPLICIT_ANCHOR');
   if(incident.length===2 && incident[0]!==incident[1]){
     if(incident.some(e=>e.componentKind!=='PIPE')) reasons.push('NON_PIPE_COMPONENT');
-    if(incident.some(e=>e.isAnchorElement || (e.packetEvidence||[]).some(x=>x && x!=='PIPE')))
+    // isAnchorElement is edge-wide (it can mean a terminal at the OTHER
+    // end). It is not proof that this particular interior node is functional.
+    if(incident.some(e=>(e.packetEvidence||[]).some(x=>x && x!=='PIPE')))
       reasons.push('RAW_ENGINEERING_ANCHOR');
     if(!matchingProperties(incident[0],incident[1])) reasons.push('ENGINEERING_PROPERTY_TRANSITION');
     if(!isStraight(incident[0],incident[1],node,options.collinearToleranceDegrees??0.5))
@@ -120,7 +123,13 @@ export function buildCiiComparisonPathProjection(graph,options={}) {
         if(remaining.length!==1) break;
         node=next;edge=remaining[0];
       }
-      if(edges.length) paths.push(comparePath(edges,nodes));
+      if(edges.length){
+        if(nodes[0]===nodes.at(-1)) {
+          // A closed route has no unique path endpoints. Keep original edges.
+          for(const original of edges)
+            paths.push(comparePath([original],[text(original.from),text(original.to)],'CYCLIC_ROUTE_NOT_COLLAPSED'));
+        } else paths.push(comparePath(edges,nodes));
+      }
     }
   }
   for(const edge of graph?.edges||[])if(!visited.has(edge.elementId)){
