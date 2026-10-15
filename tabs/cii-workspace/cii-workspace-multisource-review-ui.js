@@ -1,3 +1,4 @@
+import { buildCiiSourceTargetAudit as buildCiiSourceTargetAuditForReview } from './cii-workspace-source-target-audit.js';
 import { ciiEvidenceBandStyle, ciiNodeNameBandStyle } from './cii-workspace-evidence-band-style.js';
 import { ciiMultiSourceSourceTargetAuditMarkup } from './cii-workspace-source-target-audit-ui.js';
 import { ciiMultiSourceReviewStateControlHostMarkup } from './cii-workspace-multisource-review-state-controls.js';
@@ -249,6 +250,123 @@ export function ciiMultiSourceReviewSummaryMarkup(preview, decisions = new Map()
     ? `<p class="ciiw-family-summary" data-ciiw-ms-review-state="PENDING"><b>${h(state.changedDecisionCount)} unapplied decision change${state.changedDecisionCount === 1 ? '' : 's'}.</b> Pending delta: Accept ${h(state.changed.ACCEPT)} · Lock ${h(state.changed.LOCK)} · Reject ${h(state.changed.REJECT)}. Apply approvals to Transfer Preview before binding Writer2 scope.</p>`
     : '<p class="ciiw-family-summary" data-ciiw-ms-review-state="SYNCHRONIZED"><b>Review decisions synchronized with the current Transfer Preview.</b></p>';
   return `<div class="ciiw-kpis" data-ciiw-ms-review-summary="1"><div><b>${h(state.rowCount)}</b><span>Rows</span></div><div><b>${h(state.confidence.HIGH || 0)}</b><span>HIGH</span></div><div><b>${h(state.eligible.HIGH)}</b><span>HIGH eligible</span></div><div><b>${h(state.confidence.MEDIUM || 0)}</b><span>MEDIUM</span></div><div><b>${h(state.eligible.MEDIUM)}</b><span>MEDIUM eligible</span></div><div><b>${h(state.confidence.REVIEW || 0)}</b><span>REVIEW</span></div><div><b>${h(state.locked)}</b><span>Locked</span></div><div><b>${h(state.current.ACCEPT)}</b><span>Accepted</span></div><div><b>${h(state.current.REJECT)}</b><span>Rejected</span></div><div><b>${h(state.current.PENDING)}</b><span>Undecided</span></div><div><b>${h(state.changedDecisionCount)}</b><span>Unapplied</span></div></div>${pending}${ciiMultiSourceReviewStateControlHostMarkup(state)}`;
+}
+
+/**
+ * #102 P1: read-only AUTO + MANUAL visibility in the EXISTING Compare Review.
+ * This does not modify active member previews, correspondence IDs, review
+ * decisions, Writer inputs, or a manually selected source's authority.
+ *
+ * Automatic BOUND here means "bound by the legacy AUTO replay", NOT
+ * independently certified original physical identity. No candidate is an
+ * option in the review-decision selector or transfer scope.
+ */
+export function buildCiiReconciledAuthorityReview(activePreview, automaticPreview, manualBySource = new Map()) {
+  // This local checker requires actual full
+  // original source/target custody and refuses partial/cross-session results.
+  const active = buildCiiSourceTargetAuditForReview(activePreview);
+  const automatic = buildCiiSourceTargetAuditForReview(automaticPreview);
+  if (!active.sourceSetSha256 || active.sourceSetSha256 !== automatic.sourceSetSha256
+    || !active.target.contentSha256 || active.target.contentSha256 !== automatic.target.contentSha256
+    || !activePreview?.targetAuthority?.originalSha256
+    || activePreview.targetAuthority.originalSha256 !== automaticPreview?.targetAuthority?.originalSha256)
+    throw Error('CII102_RECONCILED_REVIEW_ORIGINAL_CUSTODY_MISMATCH');
+  const sourceMap = new Map(active.rows.map(row => [row.rowKey,row]));
+  if (!sourceMap.size || sourceMap.size !== active.rows.length
+    || automatic.rows.length !== sourceMap.size
+    || new Set(automatic.rows.map(row=>row.rowKey)).size !== sourceMap.size
+    || automatic.rows.some(row=>!sourceMap.has(row.rowKey)))
+    throw Error('CII102_RECONCILED_REVIEW_SOURCE_NODE_CENSUS_MISMATCH');
+  const manual = manualBySource instanceof Map
+    ? manualBySource : new Map(Object.entries(manualBySource || {}));
+  const claims = new Map();
+  for (const [member,pairs] of manual) {
+    if (!Array.isArray(pairs)) throw Error('CII102_MANUAL_CLAIMS_INVALID');
+    for (const pair of pairs) {
+      const key = String(member)+':'+String(pair.sourceNodeId);
+      if (!sourceMap.has(key)) throw Error('CII102_MANUAL_SOURCE_NOT_IN_ORIGINAL_CENSUS');
+      if (!claims.has(key)) claims.set(key,new Set());
+      claims.get(key).add(String(pair.targetNodeId));
+    }
+  }
+  const occupants = new Map();
+  // Competing active identity claims across all three original SOURCE members.
+  for (const row of active.rows) for (const target of row.targetNodeIds || []) {
+    const id=String(target);
+    if (!occupants.has(id)) occupants.set(id,new Set());
+    occupants.get(id).add(row.rowKey);
+  }
+  for (const [source,targets] of claims) for (const target of targets) {
+    if (!occupants.has(target)) occupants.set(target,new Set());
+    occupants.get(target).add(source);
+  }
+  const rows = [];
+  for (const auto of automatic.rows) {
+    if (auto.state !== 'BOUND' || auto.targetNodeIds?.length !== 1) continue;
+    const activeRow = sourceMap.get(auto.rowKey);
+    const proposed = String(auto.targetNodeIds[0]);
+    const manuallyAsserted = [...(claims.get(auto.rowKey)||[])].sort();
+    const otherActiveClaims = [...(occupants.get(proposed)||[])]
+      .filter(key=>key!==auto.rowKey).sort();
+    const sameActive = activeRow.state==='BOUND' && activeRow.targetNodeId===proposed;
+    if (sameActive && manuallyAsserted.every(target=>target===proposed)) continue;
+    const manualDisagrees = manuallyAsserted.some(target=>target!==proposed);
+    const status = manualDisagrees?'MANUAL_AUTO_CONFLICT':
+      otherActiveClaims.length?'TARGET_CUSTODY_CONFLICT':
+      'AUTO_ALTERNATIVE_REVIEW_ONLY';
+    rows.push(Object.freeze({
+      rowKey:auto.rowKey,sourceId:auto.sourceId,sourceNodeId:auto.sourceNodeId,
+      activeState:activeRow.state,activeTargetNodeIds:[...activeRow.targetNodeIds],
+      automaticTargetNodeId:proposed,automaticConfidence:auto.confidence,
+      automaticEvidenceBases:[...auto.evidenceBases],
+      manuallyAssertedTargetNodeIds:manuallyAsserted,
+      competingActiveSourceNodes:otherActiveClaims,status,
+      sourceOriginalNodeName:auto.sourceNodeName,
+      targetOriginalNodeName:auto.targetNodeName,
+      physicallyCertified:false,writerEligible:false,canAccept:false,
+    }));
+  }
+  rows.sort((a,b)=>a.sourceId.localeCompare(b.sourceId)
+    || Number(a.sourceNodeId)-Number(b.sourceNodeId)
+    || a.sourceNodeId.localeCompare(b.sourceNodeId));
+  const bySource = Object.freeze(active.summary.bySource.map(member=>{
+    const auto = automatic.summary.bySource.find(x=>x.sourceId===member.sourceId);
+    if (!auto || auto.enumeratedNodeCount!==member.enumeratedNodeCount)
+      throw Error('CII102_MEMBER_PHYSICAL_POPULATION_DRIFT:'+member.sourceId);
+    const own = rows.filter(x=>x.sourceId===member.sourceId);
+    return Object.freeze({
+      sourceId:member.sourceId,physicalNodes:member.enumeratedNodeCount,
+      activeBound:member.BOUND,autoBound:auto.BOUND,
+      activeUnemitted:member.UNEMITTED,autoUnemitted:auto.UNEMITTED,
+      newlyVisibleAutoAlternatives:own.length,
+      manualConflicts:own.filter(x=>x.status==='MANUAL_AUTO_CONFLICT').length,
+      targetCustodyConflicts:own.filter(x=>x.status==='TARGET_CUSTODY_CONFLICT').length,
+    });
+  }));
+  return Object.freeze({
+    schema:'CiiReconciledAuthorityReview.v1',
+    sourceSetSha256:active.sourceSetSha256,
+    targetOriginalSha256:activePreview.targetAuthority.originalSha256,
+    originalPhysicalSourceNodes:active.rows.length,
+    activeBound:active.summary.BOUND,autoBound:automatic.summary.BOUND,
+    activeUnemitted:active.summary.UNEMITTED,autoUnemitted:automatic.summary.UNEMITTED,
+    bySource,rows:Object.freeze(rows),
+    reviewOnlyAlternativeCount:rows.length,
+    conflictCount:rows.filter(x=>x.status!=='AUTO_ALTERNATIVE_REVIEW_ONLY').length,
+    newIndependentPhysicalCertificates:0,
+    newTransferOperations:0,writerReady:false,writerDispatchInstalled:false,
+  });
+}
+export function ciiReconciledAuthorityReviewMarkup(report) {
+  if (!report) return '';
+  if (report.schema!=='CiiReconciledAuthorityReview.v1' || report.writerReady!==false
+    || report.newIndependentPhysicalCertificates!==0 || report.newTransferOperations!==0)
+    throw Error('CII102_RECONCILED_REVIEW_NOT_NONWRITING');
+  const lines=report.rows.map(r=>
+    `<tr><td><b>${h(r.sourceId)}</b> ${h(r.sourceNodeId)}</td><td>${h(r.activeState)}: ${h(r.activeTargetNodeIds.join(', ')||'—')}</td><td>${h(r.automaticTargetNodeId)} <small>${h(r.automaticConfidence)}</small></td><td>${h(r.manuallyAssertedTargetNodeIds.join(', ')||'—')}</td><td><b>${h(r.status)}</b>${r.competingActiveSourceNodes.length?`<small>Occupied by ${h(r.competingActiveSourceNodes.join(', '))}</small>`:''}</td></tr>`
+  ).join('');
+  const per=report.bySource.map(x=>`${h(x.sourceId)}: ${h(x.activeBound)}→${h(x.autoBound)} legacy BOUND; ${h(x.newlyVisibleAutoAlternatives)} review alternatives; ${h(x.manualConflicts)} contested manual`).join(' · ');
+  return `<section class="ciiw-method-evidence" data-ciiw-ms-reconciled-review="1"><h3>Reconciled AUTO + MANUAL evidence — review only</h3><p><b>${h(report.reviewOnlyAlternativeCount)} previously hidden / different automatic proposals</b>; ${h(report.conflictCount)} currently contested/occupied. <b>0 independently certified and 0 Writer/Transfer operations added.</b> The existing MANUAL-active Compare and Writer inputs remain unchanged. Automatic BOUND means the legacy automatic run, not independently proven physical identity.</p><p>${per}</p><details><summary>Inspect SOURCE NODE alternatives and custody conflicts (${h(report.rows.length)})</summary><table class="ciiw-grid" data-ciiw-ms-reconciled-table="1"><thead><tr><th>SOURCE</th><th>Current active</th><th>Retained AUTO candidate</th><th>Manual claim</th><th>Review classification</th></tr></thead><tbody>${lines}</tbody></table></details></section>`;
 }
 
 export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers, lockedRow, bulkEligible });
