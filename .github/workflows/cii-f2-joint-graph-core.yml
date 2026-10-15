@@ -93,11 +93,25 @@ jobs:
             assert.equal(Object.values(x.populationSummary).reduce((a,b)=>a+b.factors,0),21);
             assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.originalFactors,0),21);
             assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.originalGeometryOnlyRoutes,0),291);
-            assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.clusters,0),6);
+            assert.equal(Object.values(x.continuitySummary).reduce((n,c)=>n+c.clusters,0),5);
             assert(Object.values(x.continuityByMember).flat().every(c=>
               c.certifiedNodeCount===0&&c.writerReady===false
               &&c.hypothesesNotGlobalCertificates
               &&c.factors.every(f=>!f.writerReady)));
+            assert.deepEqual(Object.fromEntries(Object.entries(x.continuitySummary)
+              .map(([m,c])=>[m,[c.originalGeometryOnlyRoutes,
+                c.arcConsistentPhysicalRoutes,c.zeroArcSupportedFactors]])),
+              {S1:[196,6,14],S2:[49,3,0],S3:[46,18,0]});
+            const s1tail=x.continuityByMember.S1.find(c=>c.sourceFactorCount===14);
+            assert(s1tail&&s1tail.locallyArcConsistentRoutes===0);
+            assert.deepEqual(s1tail.pairwiseChecks
+              .filter(p=>p.compatible===0).map(p=>[p.a,p.b]),[
+              ["S1:E44:5000->5030","S1:E45:5030->5040"],
+              ["S1:E50:5140->5150","S1:E51:5150->5160"],
+              ["S1:E51:5150->5160","S1:E52:5160->5190"],
+              ["S1:E53:5190->5200","S1:E54:5200->5210"],
+              ["S1:E54:5200->5210","S1:E55:5210->5220"]
+            ]);
             console.log("CII102_ORIGINAL_CHAIN_CONTINUITY",JSON.stringify(x.continuitySummary));
             assert.deepEqual(x.doubleBlankByMember,{S1:15,S2:3,S3:3});
             assert.deepEqual(Object.fromEntries(Object.entries(x.doubleBlankClusters)
