@@ -118,7 +118,7 @@ function shape(edge){
   deltaMm:vector,
   sourceVectorNormMm:Math.hypot(...vector)};
 }
-function geometricPaths(sourceEdge){
+function geometricPaths(sourceEdge,lengthToleranceMm=EPSILON_MM){
  const source=shape(sourceEdge);
  if(!Number.isFinite(source.lengthMm)||source.lengthMm<=0
    ||source.deltaMm.some(n=>!Number.isFinite(n)))
@@ -140,7 +140,7 @@ function geometricPaths(sourceEdge){
    const residual=Math.abs(sum-source.lengthMm);
    const sourceStraight=source.sourceVectorNormMm/source.lengthMm;
    const kindOk=steps.every(step=>String(step.edge.componentKind||'PIPE')===source.kind);
-   const valid=kindOk&&residual<=EPSILON_MM
+   const valid=kindOk&&residual<=lengthToleranceMm
      &&(steps.length===1||(
        source.kind==='PIPE'&&straight>=MIN_STRAIGHT&&Math.abs(straight-sourceStraight)<=0.01));
    if(valid){
@@ -157,6 +157,7 @@ function geometricPaths(sourceEdge){
       lengthMm:Number(sum.toFixed(3)),
       lengthResidualMm:Number(residual.toFixed(3)),segments:steps.length,
       targetStraightness:Number(straight.toFixed(6)),
+      targetPathDeltaMm:vector.map(n=>Number(n.toFixed(3))),
       originalSourceStraightness:Number(sourceStraight.toFixed(6)),
       odRevisionWarning:deltaOd.some(x=>x>2),
       wallRevisionWarning:deltaWall.some(x=>x>1),
@@ -164,7 +165,7 @@ function geometricPaths(sourceEdge){
      });
     }
    }else count(!kindOk?'COMPONENT_KIND_DIFFERS':
-      residual>EPSILON_MM?'PATH_LENGTH_MISMATCH':
+      residual>lengthToleranceMm?'PATH_LENGTH_MISMATCH':
       steps.length>1&&source.kind!=='PIPE'?'NONPIPE_SUBDIVISION':
       'SUBDIVISION_STRAIGHTNESS_MISMATCH');
    if(steps.length>=MAX_STEPS)return;
@@ -178,7 +179,7 @@ function geometricPaths(sourceEdge){
    if(visited.has(next))continue;
    const len=Number(edge.lengthMm);
    if(!Number.isFinite(len)||len<=0){count('INVALID_TARGET_EDGE_LENGTH');continue;}
-   if(sum+len>source.lengthMm+EPSILON_MM){count('TARGET_PATH_EXCEEDS_LENGTH_BOUND');continue;}
+   if(sum+len>source.lengthMm+lengthToleranceMm){count('TARGET_PATH_EXCEEDS_LENGTH_BOUND');continue;}
    const sign=String(edge.from)===node?1:-1;
    const newVector=[vector[0]+Number(edge.dx)*sign,vector[1]+Number(edge.dy)*sign,vector[2]+Number(edge.dz)*sign];
    visited.add(next);
@@ -214,11 +215,11 @@ for(const [sourceNode,targets] of sourceNodeDomains)for(const targetNode of targ
 }
 const owners=targetNode=>[...(targetClaimers.get(String(targetNode))||[])].sort(compare);
 const geometryCache=new Map();
-function inspectOriginalGeometry(member,edge){
- const k=member+':'+String(edge.elementId);
+function inspectOriginalGeometry(member,edge,lengthToleranceMm=EPSILON_MM){
+ const k=member+':'+String(edge.elementId)+'|'+String(lengthToleranceMm);
  if(geometryCache.has(k))return geometryCache.get(k);
  let result;
- try{result=geometricPaths(edge);}catch(e){
+ try{result=geometricPaths(edge,lengthToleranceMm);}catch(e){
   if(!String(e.message).startsWith('CII102_INVALID_SOURCE_GEOMETRY:'))throw e;
   result={sourceGeometry:shape(edge),
    stats:{visits:0,complete:false,seenGeometryRoutes:0,acceptedRoutes:0},
@@ -380,6 +381,87 @@ const continuityByMember=Object.fromEntries(['S1','S2','S3'].map(member=>{
  });
  return [member,all];
 }));
+// CII102-F2-RCA-03: diagnostic sensitivity of the FIRST failed physical
+// junction only (SOURCE E44 PIPE -> E45 BEND shared source node 5030).
+// These deliberately wider local measurements never change A2 policy,
+// benchmark, registration, accepted claims, or Writer; they only falsify
+// whether a missing joint could exist inside independently declared bounds.
+const firstS1=doubleMissingRows.find(r=>r.sourceElementKey==='S1:E44:5000->5030');
+const secondS1=doubleMissingRows.find(r=>r.sourceElementKey==='S1:E45:5030->5040');
+if(!firstS1||!secondS1||firstS1.sourceEndpoints[1]!=='5030'
+ ||secondS1.sourceEndpoints[0]!=='5030')
+ throw Error('CII102_FIRST_JUNCTION_SOURCE_IDENTITY_INVALID');
+const firstGraph=sourceGraphs.S1;
+const firstEdge=firstGraph.edges.find(e=>e.elementId===firstS1.sourceElementId);
+const secondEdge=firstGraph.edges.find(e=>e.elementId===secondS1.sourceElementId);
+if(!firstEdge||!secondEdge||firstEdge.componentKind!=='PIPE'
+ ||secondEdge.componentKind!=='BEND')
+ throw Error('CII102_FIRST_JUNCTION_EXPECT_PIPE_BEND');
+function angleDegrees(a,b){
+ const an=Math.hypot(...a),bn=Math.hypot(...b);
+ if(!(an>0&&bn>0))return null;
+ const cos=Math.max(-1,Math.min(1,a.reduce((n,x,i)=>n+x*b[i],0)/(an*bn)));
+ return Number((Math.acos(cos)*180/Math.PI).toFixed(3));
+}
+const signed=(v,isReverse)=>v.map(n=>isReverse?-n:n);
+function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
+ const joined=[];
+ for(const pa of pathsA)for(const pb of pathsB){
+  for(let oa=0;oa<2;oa++)for(let ob=0;ob<2;ob++){
+   const ap=oa?pa.targetNodePath[0]:pa.targetNodePath.at(-1);
+   const bp=ob?pb.targetNodePath.at(-1):pb.targetNodePath[0];
+   if(ap!==bp)continue;
+   if(pa.targetElementIds.some(k=>pb.targetElementIds.includes(k)))continue;
+   const common=pa.targetNodePath.filter(node=>pb.targetNodePath.includes(node));
+   if(new Set(common).size!==1||common[0]!==ap)continue;
+   joined.push({
+    targetSharedNode:ap,
+    pipeTargetElementIds:pa.targetElementIds,
+    bendTargetElementIds:pb.targetElementIds,
+    pipeResidualMm:pa.lengthResidualMm,
+    bendResidualMm:pb.lengthResidualMm,
+    sourceTurnAngleDeg:angleDegrees(
+      [Number(sourceA.dx),Number(sourceA.dy),Number(sourceA.dz)],
+      [Number(sourceB.dx),Number(sourceB.dy),Number(sourceB.dz)]),
+    targetTurnAngleDeg:angleDegrees(
+      signed(pa.targetPathDeltaMm,oa),signed(pb.targetPathDeltaMm,ob)),
+    targetPipeOriginalDeltaMm:pa.targetPathDeltaMm,
+    targetBendOriginalDeltaMm:pb.targetPathDeltaMm,
+    originalSourceBendPointerStatus:sourceB.bendEvidence?.status||'UNKNOWN',
+    registrationAttested:false,
+    pipeOrientation:oa?'REVERSE':'FORWARD',
+    bendOrientation:ob?'REVERSE':'FORWARD',
+    originalSourceJoinNode:sourceJoin,
+    physicalRegistrationVerified:false,globalIdentityCertified:false,
+    writerReady:false
+   });
+  }
+ }
+ return joined.sort((a,b)=>a.pipeResidualMm+a.bendResidualMm
+   -b.pipeResidualMm-b.bendResidualMm
+   ||compare(a.targetSharedNode,b.targetSharedNode)
+   ||compare(a.pipeTargetElementIds.join(','),b.pipeTargetElementIds.join(',')));
+}
+const sourceTurnAngleDeg=angleDegrees(
+ [Number(firstEdge.dx),Number(firstEdge.dy),Number(firstEdge.dz)],
+ [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)]
+);
+const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
+ const left=inspectOriginalGeometry('S1',firstEdge,lengthToleranceMm);
+ const right=inspectOriginalGeometry('S1',secondEdge,lengthToleranceMm);
+ if(!left.stats.complete||!right.stats.complete)
+  return {lengthToleranceMm,enumerationComplete:false,
+   pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
+   joinedPhysicalRoutePairs:null,noAbsenceClaim:true,joinExamples:[]};
+ const joints=jointPhysicalPairs(firstS1,left.allRoutes,secondS1,right.allRoutes,'5030');
+ return {lengthToleranceMm,enumerationComplete:true,
+  pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
+  joinedPhysicalRoutePairs:joints.length,
+  minimumCombinedLengthResidualMm:joints.length?
+   Number((joints[0].pipeResidualMm+joints[0].bendResidualMm).toFixed(3)):null,
+  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,noAbsenceClaim:false,
+  localGeometryOnly:true,globalIdentityCertified:false,writerReady:false};
+});
 const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).map(([member,groups])=>[
  member,{
   clusters:groups.length,
@@ -400,7 +482,7 @@ const output={
  originalPhysicalSourceNodes:150,originalPhysicalSourceElements:147,
  originalDoubleBlankFactors:doubleMissingRows.length,
  doubleBlankByMember,doubleBlankClusters,populationSummary,
- continuityByMember,continuitySummary,
+ continuityByMember,continuitySummary,firstJunctionSensitivity,
  allDoubleBlankFactorCases:allCases,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
@@ -422,6 +504,11 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  originalReportSha256:output.originalReportSha256,
  populationSummary:output.populationSummary,
  continuitySummary:output.continuitySummary,
+ firstJunctionSensitivity:output.firstJunctionSensitivity.map(r=>({
+  lengthToleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
+  bendRoutes:r.bendRoutes,joinedPhysicalRoutePairs:r.joinedPhysicalRoutePairs,
+  enumerationComplete:r.enumerationComplete
+ })),
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
   unanchoredTargetRoutes:c.targetRoutesWithGeometryOnly,segments:c.relativeRouteCounts,
