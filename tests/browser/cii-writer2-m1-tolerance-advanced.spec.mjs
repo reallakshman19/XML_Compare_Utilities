@@ -48,8 +48,10 @@ test('Owner: 100/200 mm M1 tolerance applies through Advanced Method A weights t
  const stale=await page.evaluate(()=>Object.values(localStorage)
   .map(x=>{try{return JSON.parse(x)}catch{return null}})
   .find(x=>x?.schema==='CIIWorkspaceWriter2Session.v1'));
- expect(stale.confidencePolicy.spatialToleranceMm).toBe(200);
+ expect(stale.confidencePolicy.spatialToleranceMm).toBe(100);
  expect(stale.review.correspondenceIdentity).toBe('');
+ expect(stale.review.decisions).toEqual({});
+ expect(stale.selectedBySource.S1.length).toBeGreaterThan(0);
  await page.locator('[data-ciiw-inspect]').click();
  await expect(page.locator('[data-ciiw-ms-anchor-ledger="1"]')).toBeVisible({timeout:120000});
  await page.locator('[data-ciiw-ms-compare-now]').click();
