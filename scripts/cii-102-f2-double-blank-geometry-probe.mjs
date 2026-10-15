@@ -526,6 +526,41 @@ const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).ma
 ]));
 if(Object.values(continuitySummary).reduce((n,x)=>n+x.originalFactors,0)!==21)
  throw Error('CII102_CHAIN_CENSUS_INCOMPLETE');
+// Reuse the already tested canonical read-only topology checker to measure
+// whether a larger diagnostic physical path-length bound merely unlocks
+// isolated joins or makes the complete 14-ELEMENT original S1 chain locally
+// coherent. This is NEVER Method A authority / Writer or an identity claim.
+const s1TailGroup=doubleBlankClusters.S1.find(g=>g.physicalFactorCount===14);
+if(!s1TailGroup)throw Error('CII102_MISSING_ORIGINAL_S1_TAIL');
+const s1TailRows=s1TailGroup.sourceElementKeys.map(key=>{
+ const row=doubleMissingRows.find(r=>r.sourceElementKey===key);
+ if(!row)throw Error('CII102_S1_TAIL_POPULATION_MISMATCH');
+ return row;
+});
+const s1TailSensitivity=[25,100,200].map(lengthToleranceMm=>{
+ const routes={};let complete=true;
+ for(const row of s1TailRows){
+  const edge=firstGraph.edges.find(e=>e.elementId===row.sourceElementId);
+  if(!edge)throw Error('CII102_S1_TAIL_SOURCE_EDGE_MISSING');
+  const x=inspectOriginalGeometry('S1',edge,lengthToleranceMm);
+  routes[row.sourceElementKey]=x.allRoutes;
+  if(!x.stats.complete)complete=false;
+ }
+ if(!complete)return {lengthToleranceMm,complete:false,
+  locallyArcConsistentRoutes:null,zeroArcSupportedFactors:null,
+  breakCount:null,zeroPairBreaks:[],writerReady:false,globalIdentityCertified:false};
+ const x=auditCii102ChainContinuity(s1TailRows,routes);
+ if(x.sourceFactorCount!==14||x.writerReady!==false||x.certifiedNodeCount!==0)
+  throw Error('CII102_S1_TAIL_SHADOW_INVARIANTS_CHANGED');
+ return {lengthToleranceMm,complete:true,
+  originalGeometryOnlyRoutes:x.originalGeometryOnlyRoutes,
+  locallyArcConsistentRoutes:x.locallyArcConsistentRoutes,
+  zeroArcSupportedFactors:x.zeroArcSupportedFactors,
+  breakCount:x.pairwiseChecks.filter(p=>p.compatible===0).length,
+  zeroPairBreaks:x.pairwiseChecks.filter(p=>p.compatible===0)
+   .map(p=>[p.a,p.b]),
+  globalIdentityCertified:false,writerReady:false};
+});
 const output={
  schema:'CII102F2DoubleBlankGeometryProbe.v1',authority:'READ_ONLY_DIAGNOSTIC_NO_CORRESPONDENCE',
  originalReportSha256:h(reportBytes), originalSourceShaById:Object.fromEntries(sources.map(s=>[s.sourceId,h(s.bytes)])),
@@ -535,6 +570,7 @@ const output={
  originalDoubleBlankFactors:doubleMissingRows.length,
  doubleBlankByMember,doubleBlankClusters,populationSummary,
  continuityByMember,continuitySummary,firstJunctionSensitivity,
+ s1TailSensitivity,
  allDoubleBlankFactorCases:allCases,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
@@ -556,6 +592,11 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  originalReportSha256:output.originalReportSha256,
  populationSummary:output.populationSummary,
  continuitySummary:output.continuitySummary,
+ s1TailSensitivity:output.s1TailSensitivity.map(r=>({
+  lengthToleranceMm:r.lengthToleranceMm,originalRoutes:r.originalGeometryOnlyRoutes,
+  arcRoutes:r.locallyArcConsistentRoutes,zeroArcFactors:r.zeroArcSupportedFactors,
+  breakCount:r.breakCount,complete:r.complete
+ })),
  firstJunctionSensitivity:output.firstJunctionSensitivity.map(r=>({
   lengthToleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
   bendRoutes:r.bendRoutes,joinedPhysicalRoutePairs:r.joinedPhysicalRoutePairs,
