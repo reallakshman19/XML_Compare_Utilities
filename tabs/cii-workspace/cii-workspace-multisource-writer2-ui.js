@@ -3,6 +3,7 @@ import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
+import {buildCiiF2JointConstrainedReview} from './cii-workspace-f2-joint-constrained-review.js';
 import {
   buildCiiSelectedBaseLoops,
   ciiAutomaticBaseSelection,
@@ -252,6 +253,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
+  let f2JointReview = null;
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const authorityModeBySource = new Map(); const reviewDecisions = new Map();
   const reviewFilters = { confidence: 'ALL', search: '', changedOnly: false };
@@ -290,7 +292,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     // Any authority/evidence change invalidates both displayed and saved review.
     // In-flight compare/inspect from the previous authority epoch must not land.
     confidenceEpoch += 1;
-    preview = null; scopedPreview = null; reviewDirty = false;
+    preview = null; scopedPreview = null; reviewDirty = false; f2JointReview = null;
     reviewDecisions.clear(); commonAnalysisCache = createCiiCommonAnalysisCache();
     reviewRestoreAllowed = false; restoredScopeIntent = null;
     if (executive) executive.innerHTML = '';
@@ -318,7 +320,46 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const renderMultiReview = () => {
     if (!preview) return;
     if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
-    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
+    if (results) {
+      results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
+      const section = results.ownerDocument.createElement('section');
+      section.className='ciiw-base-set';
+      section.setAttribute('data-ciiw-f2-joint','1');
+      const joint=f2JointReview;
+      section.innerHTML = '<header><div><b>F2 · Joint AUTO + MANUAL path reconciliation</b><span>Original graph; independent non-writing evidence review</span></div>'
+        + '<span class="ciiw-corroboration">REVIEW ONLY</span></header>'
+        + '<p>Compare both retained authority lanes and actual original SOURCE/TARGET NODE/ELEMENT paths. This does not replace active matching, certify physical identity or enable Writer2.</p>'
+        + '<button type="button" data-ciiw-f2-reconcile>Reconcile retained evidence lanes</button>'
+        + (joint
+          ? '<p><b>Original SOURCE NODEs:</b> '+h(joint.summary.originalSourceNodeCount)
+            +' · <b>Active bound:</b> '+h(joint.summary.activeBoundCount)
+            +' · <b>Automatic bound:</b> '+h(joint.summary.automaticBoundCount)
+            +' · <b>Joint candidate SOURCE nodes:</b> '+h(joint.summary.jointCandidateNodes)
+            +' · <b>Competing TARGET identities:</b> '+h(joint.summary.differingTargetCandidates)
+            +' · <b>Custody review nodes:</b> '+h(joint.summary.targetCustodyReviewCount)
+            +' · <b>Incomplete edge factors:</b> '+h(joint.summary.factors.incomplete)
+            +' · <b>Certified/Writer:</b> 0/0</p>'
+            + '<details><summary>Inspect all SOURCE NODE claims and graph constraints ('+h(joint.rows.length)+')</summary>'
+            + '<table class="ciiw-grid"><thead><tr><th>SOURCE</th><th>Status</th><th>TARGET hypotheses</th><th>Path evidence</th></tr></thead><tbody>'
+            + joint.rows.map(row=>'<tr><td>'+h(row.sourceNodeKey)+'</td><td>'+h(row.state)+'</td><td>'
+              + h(row.candidates.map(c=>c.targetNodeId+' ['+c.origins.join('+')+']').join('; ')||'—')
+              + '</td><td>'+h(row.candidates.map(c=>c.targetNodeId+': '
+                + c.witnessedFactorCount+'/'+c.sourceFactorCount+' witnessed; '
+                + c.incompatibleFactorCount+' incompatible; '
+                + c.incompleteFactorCount+' incomplete'
+                +(c.competingSourceNodeKeys.length?' TARGET CUSTODY:'+c.competingSourceNodeKeys.join(','):''))
+                .join(' | ')||'NO CANDIDATE')+'</td></tr>').join('')
+            + '</tbody></table></details>'
+            + '<button type="button" data-ciiw-f2-export>Export joint evidence JSON (no Writer authority)</button>'
+          : '<p>No joint evidence replay yet. Current Compare and Writer scope are unchanged.</p>');
+      results.append(section);
+      section.querySelector('[data-ciiw-f2-reconcile]')?.addEventListener('click', () => { void reconcileJointEvidence(); });
+      section.querySelector('[data-ciiw-f2-export]')?.addEventListener('click', () => {
+        if(!f2JointReview)return;
+        downloadPayload(results.ownerDocument,'cii-f2-joint-constrained-review.json',
+          JSON.stringify(f2JointReview,null,2),'application/json');
+      });
+    }
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
     if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
@@ -335,7 +376,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
     sessionCustody = null; loadedSession = null; reviewRestoreAllowed = false; restoredScopeIntent = null;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); authorityModeBySource.clear(); reviewDecisions.clear();
-    reviewFilters.confidence = 'ALL'; reviewFilters.search = ''; reviewFilters.changedOnly = false; syncFilterControls();
+    reviewFilters.confidence = 'ALL'; reviewFilters.search = ''; reviewFilters.changedOnly = false; f2JointReview = null; syncFilterControls();
     if (multiSource(container)) {
       analyzeButton.disabled = true; setManualDisabled(container, true);
       if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
@@ -485,6 +526,35 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     ...(reviewBySource ? { reviewBySource } : {}),
     acceptanceIdentityResolver: options.acceptanceIdentityResolver,
   });
+  const reconcileJointEvidence = async () => {
+    if (!inspection || !preparedSession || !preview || !commonAnalysisCache) return;
+    const epoch=confidenceEpoch, activeIdentity=preview.correspondence?.correspondenceIdentity;
+    try {
+      const allAutomatic=selectedBaseLoopsBySource(inspection,selectedBySource);
+      const manualByMember=manualAnchorPairsBySource(inspection,manualBySource);
+      const manualClaims=Object.entries(manualByMember).flatMap(([sourceId,pairs])=>
+        pairs.map(pair=>({sourceId,sourceNodeId:pair.sourceNodeId,targetNodeId:pair.targetNodeId})));
+      setMultiSourceStatus(container,'F2 read-only: replaying retained automatic evidence and bounded physical graph constraints…');
+      const automatic = await createCiiWriter2SourceSetPreviewFromPreparedSession(
+        preparedSession,{baseLoopsBySource:allAutomatic},{
+          cryptoRef:options.cryptoRef,commonAnalysisCache,...activeMethodAConfidenceOptions,
+        });
+      if(disposed || confidenceEpoch!==epoch || preview?.correspondence?.correspondenceIdentity!==activeIdentity)return;
+      const joint=buildCiiF2JointConstrainedReview({
+        automaticPreview:automatic,activePreview:preview,manualClaims,
+      });
+      if(disposed || confidenceEpoch!==epoch || preview?.correspondence?.correspondenceIdentity!==activeIdentity)return;
+      f2JointReview=joint;
+      renderMultiReview();
+      setMultiSourceStatus(container,
+        'F2 original graph: '+joint.summary.jointCandidateNodes+'/'+joint.summary.originalSourceNodeCount
+        +' SOURCE nodes have retained hypotheses; '+joint.summary.differingTargetCandidates
+        +' opposing TARGET identities; '+joint.summary.factors.incomplete
+        +' incomplete path factors. Zero certified, zero Writer operations.');
+    }catch(error){
+      if(!disposed)setMultiSourceStatus(container,'F2 joint evidence blocked: '+(error?.message||String(error)));
+    }
+  };
   const analyzeMultiSource = async (event) => {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
@@ -497,7 +567,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
-      preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; f2JointReview = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       let restoredDecisionCount = 0; let restoredMatched = false;
       if (reviewRestoreAllowed && loadedSession) {
         const validIds = (preview?.compareReview?.rows || []).map((row) => row?.correspondenceId).filter(Boolean);
@@ -530,7 +600,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
-      preview = nextPreview; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; f2JointReview = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); persistSession();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
