@@ -62,7 +62,8 @@ test('F2: actual Writer2 Compare shows retained AUTO+MANUAL joint graph without 
  expect(report.writeScope).toBeNull();
  await page.locator('[data-ciiw-tab="inputs"]').click();
  const member=page.locator('[data-ciiw-ms-member="S2"]');
- await member.locator('[data-ciiw-ms-authority-switch="AUTO"]').click();
+ await member.locator('[data-ciiw-evidence-card][data-selected="false"] [data-ciiw-base-action]').first().click();
+ await expect(member).toContainText('ACTIVE: AUTO');
  await expect(page.locator('[data-ciiw-f2-joint="1"]')).toHaveCount(0);
  await expect(page.locator('[data-ciiw-ms-apply]')).toHaveCount(0);
 });
