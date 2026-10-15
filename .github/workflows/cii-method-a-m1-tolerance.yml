@@ -1,0 +1,61 @@
+name: CII Owner Method A 100-200mm Real Matching Policy
+on:
+  push:
+    branches: [fix/cii-69-m1-tolerance-advanced-generic-20261015]
+  pull_request:
+    paths:
+      - 'tabs/cii-workspace/cii-workspace-source-set.js'
+      - 'tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js'
+      - 'tabs/cii-workspace/cii-workspace-multisource-session-persistence.js'
+      - 'tabs/cii-workspace/cii-workspace-geometry-discrepancy-ui.js'
+      - 'tests/cii-workspace-method-a-m1-spatial-tolerance-original.test.js'
+      - 'tests/cii-workspace-method-a-weight-policy-ui.test.js'
+      - 'tests/cii-workspace-method-a-weight-policy.test.js'
+      - 'tests/cii-workspace-method-a-confidence-config.test.js'
+      - 'tests/browser/cii-writer2-m1-tolerance-advanced.spec.mjs'
+      - 'tests/browser/cii-writer2-a2-17-geometry-review.spec.mjs'
+      - 'playwright.cii-method-a-m1-tolerance.config.mjs'
+      - '.github/workflows/cii-method-a-m1-tolerance.yml'
+permissions: {contents: read}
+jobs:
+  method-a-original-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate actual SOURCE CII M1 100/200mm policy and regression
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-multisource-review-only-filter-shell.js
+          node --check tabs/cii-workspace/cii-workspace-geometry-discrepancy-ui.js
+          node tests/cii-workspace-method-a-m1-spatial-tolerance-original.test.js
+          node tests/cii-workspace-method-a-weight-policy-ui.test.js
+          node tests/cii-workspace-method-a-weight-policy.test.js
+          node tests/cii-workspace-method-a-confidence-config.test.js
+          node tests/cii-workspace-multisource-session-persistence.test.js
+          node tests/cii-workspace-geometry-discrepancy-review.test.js
+          node tests/cii-workspace-multisource-anchor-mode.test.js
+  chromium-advanced-tolerance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Real Chromium Method A 100-200mm and generic Geometry Review
+        run: npx playwright test --config=playwright.cii-method-a-m1-tolerance.config.mjs
+      - name: Chromium original-file evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-a-m1-100-200mm-chromium
+          path: |
+            test-results/cii-method-a-m1-tolerance
+            test-results/cii-method-a-m1-tolerance.json
+          retention-days: 14
+          if-no-files-found: warn
