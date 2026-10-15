@@ -87,6 +87,7 @@ function contiguousOriginalChains(entries,policy={maxVisits:20000,maxChains:3000
     for(const step of byStart.get(state)||[]){
       if(usedFactors.has(step.factorId)||usedNodes.has(step.states[1]))continue;
       if(step.elements.some(id=>usedEdges.has(id)))continue;
+      if(step.target.slice(1).some(t=>usedNodes.has('TARGET:'+t)))continue;
       next.push(step);
     }
     if(next.length===0){
@@ -114,7 +115,6 @@ function contiguousOriginalChains(entries,policy={maxVisits:20000,maxChains:3000
       if(step.states[0]!==state)throw Error('CII102_CONTIGUOUS_SOURCE_TARGET_STATE_DRIFT');
       // Any source/target NODE already touched in the current route invalidates
       // a new segment; a subdivision intermediate is not a SOURCE NODE claim.
-      if(step.target.slice(1).some(t=>usedNodes.has('TARGET:'+t)))continue;
       const newNodes=new Set(usedNodes);
       newNodes.add(step.states[1]);
       for(const t of step.target.slice(1))newNodes.add('TARGET:'+t);
