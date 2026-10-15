@@ -28,6 +28,8 @@ jobs:
           node --check scripts/cii-architecture-a2-shadow-joint-evidence.mjs
           node --check scripts/cii-architecture-a2-physical-path-constraints.mjs
           node --check scripts/cii-architecture-a2-global-constraint-shadow.mjs
+          node --check scripts/cii-architecture-a2-frontier-recovery.mjs
+          node --check scripts/cii-architecture-a2-frontier-reconciliation.mjs
           node --check scripts/cii-arch01-f2-joint-report.mjs
           node --check tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js
       - name: Transfer family read-only contracts
@@ -38,6 +40,8 @@ jobs:
         run: node tests/cii-architecture-a2-physical-path-constraints.test.js
       - name: Global constrained solution, multiple-solution veto and custody original
         run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: Recovered SOURCE frontiers and independent physical witness reconciliation
+        run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
       - name: Existing production correspondence is unaffected
         run: |
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
@@ -74,6 +78,9 @@ jobs:
             assert.deepEqual(b.identityCertificates,[]);
             console.log("F2_JOINT_COMPARE",JSON.stringify({
               before:a.globalConstraints.states,after:b.globalConstraints.states,
+              frontierBefore:a.frontierRecovery,frontierAfter:b.frontierRecovery,
+              reconciledBefore:a.frontierReconciliation,
+              reconciledAfter:b.frontierReconciliation,
               claimantCounts:[a.jointClaims,b.jointClaims],
               sourceNodeCount:a.originalPhysicalSourceNodeCount,
               sourceElementFactors:a.originalPhysicalSourceElementCount,
