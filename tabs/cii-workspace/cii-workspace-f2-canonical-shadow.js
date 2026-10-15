@@ -24,7 +24,7 @@ export function computeCiiF2CanonicalShadow(input={}){
  const reconciled=reconcileCiiA2RecoveredFrontier({
   joint,originalPathAudit:physical,frontier,sourceGraphsById,
   targetGraph,normalizedSourceShaById,normalizedTargetSha256});
- const physicalGapLedger=buildCiiF2PhysicalGapLedger(physical,reconciled);
+ const physicalGapLedger=buildCiiF2PhysicalGapLedger(physical,reconciled,{joint,frontier});
  for(const item of [joint,physical,global,frontier,reconciled]){
   if(item.writerReady!==false&&item.writerDispatchInstalled!==false)
    throw Error('F2_CANONICAL_NON_WRITER_CONTRACT_BROKEN');
