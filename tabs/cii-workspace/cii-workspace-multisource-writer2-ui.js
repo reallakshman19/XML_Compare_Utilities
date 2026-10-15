@@ -532,7 +532,18 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!inspection || !preparedSession || !preview || !commonAnalysisCache) return;
     const epoch=confidenceEpoch, activeIdentity=preview.correspondence?.correspondenceIdentity;
     try {
+      // The Owner's saved MANUAL-active session may contain zero *selected*
+      // automatic bases for S2/S3. Inspect nevertheless retains qualified
+      // unselected Method A/B base suggestions. Replay the best qualified
+      // candidate for those SOURCE members as COUNTERFACTUAL EVIDENCE ONLY;
+      // do not modify selectedBySource, authorityModeBySource, or any ledger.
       const allAutomatic=selectedBaseLoopsBySource(inspection,selectedBySource);
+      for(const member of inspection.memberInspections||[]){
+        if(allAutomatic[member.sourceId]?.length)continue;
+        const qualified=ciiAutomaticBaseSelection(member.inspection.baseAnchorSuggestions||[]);
+        if(qualified.status==='READY'&&qualified.baseLoops?.length)
+          allAutomatic[member.sourceId]=qualified.baseLoops;
+      }
       const manualByMember=manualAnchorPairsBySource(inspection,manualBySource);
       const manualClaims=Object.entries(manualByMember).flatMap(([sourceId,pairs])=>
         pairs.map(pair=>({sourceId,sourceNodeId:pair.sourceNodeId,targetNodeId:pair.targetNodeId})));
