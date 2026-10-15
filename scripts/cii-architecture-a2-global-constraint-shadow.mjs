@@ -5,12 +5,12 @@
  * Neither an unambiguous solution inside these domains nor absent bounded
  * witnesses implies uniqueness/absence in the original complete TARGET.
  */
-import { createHash } from 'node:crypto';
+import { ciiA2HashJson } from './cii-a2-json-sha256.mjs';
 
 const SHA=/^[a-f0-9]{64}$/i;
 const text=(x)=>String(x??'').trim();
 const cmp=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
-const digest=(x)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const digest=ciiA2HashJson;
 const fixed=(x)=>{
   if(Array.isArray(x))return Object.freeze(x.map(fixed));
   if(x&&typeof x==='object')return Object.freeze(Object.fromEntries(Object.entries(x).map(([k,v])=>[k,fixed(v)])));
