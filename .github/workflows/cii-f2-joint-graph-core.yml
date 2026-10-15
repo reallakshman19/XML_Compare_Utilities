@@ -71,30 +71,33 @@ jobs:
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
             --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
-      - name: Refuse 200mm shadow claim until PR97 and PR98 policy consumers are integrated
+      - name: Real 200mm F2 physical report on integrated Method A policy
         run: |
-          set -euo pipefail
-          if node scripts/cii-arch01-f2-joint-report.mjs \
+          node scripts/cii-arch01-f2-joint-report.mjs \
             --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
-            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json \
-            > test-results/cii-arch01-f2-200-unwired.log 2>&1; then
-            echo 'FAIL: reported 200mm despite unwired runtime policy'
-            exit 1
-          fi
-          grep -F 'F2_M1_TOLERANCE_UNWIRED_REQUIRES_PR97_PR98' test-results/cii-arch01-f2-200-unwired.log
-          test ! -f test-results/cii-arch01-f2-joint-200.json
-      - name: Confirm original 100mm physical census, provenance and no Writer
+            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json
+      - name: Compare actual 100mm and 200mm applied policy, physical census and no Writer
         run: |
           node --input-type=module -e '
             import {readFileSync} from "node:fs";
             import assert from "node:assert/strict";
             const a=JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-100.json"));
+            const b=JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-200.json"));
             assert.equal(a.policy.spatialToleranceMm,100);
             assert.equal(a.policy.appliedSpatialToleranceMm,100);
-            assert.equal(a.policy.requestedSpatialToleranceCapability,"DEFAULT_100_ONLY");
-            assert.equal(a.policy.qualifiedMethodAScoreLinkPresent,"NOT_PRESENT_ON_THIS_MAIN_BASE");
+            assert.equal(a.policy.requestedSpatialToleranceCapability,"RUNTIME_CONFIGURED");
+            assert.equal(b.policy.spatialToleranceMm,200);
+            assert.equal(b.policy.appliedSpatialToleranceMm,200);
+            assert.equal(b.policy.requestedSpatialToleranceCapability,"RUNTIME_CONFIGURED");
+            assert.deepEqual(a.custody,b.custody);
+            assert.deepEqual(a.originalPhysicalSourceNodeCount,b.originalPhysicalSourceNodeCount);
+            assert.deepEqual(a.originalPhysicalSourceElementCount,b.originalPhysicalSourceElementCount);
+            assert.equal(b.writerReady,false);
+            assert.deepEqual(b.identityCertificates,[]);
+            assert.equal(b.physicalGapLedger.writerReady,false);
+            assert.equal(a.policy.qualifiedMethodAScoreLinkPresent,"REQUIRE_SEPARATE_PR98_PROOF");
             assert.equal(a.originalPhysicalSourceNodeCount,150);
             assert.equal(a.originalPhysicalSourceElementCount,147);
             assert.equal(a.physicalGapLedger.schema,"CiiF2PhysicalFactorGapLedger.v1");
@@ -109,7 +112,7 @@ jobs:
             assert.equal(a.frontierRecovery.recoveredHypotheses,22);
             assert.equal(a.frontierReconciliation.uniqueNewlyCoveredNodes,16);
             assert.deepEqual(a.globalConstraints.states,{INCOMPLETE_PHYSICAL_EVIDENCE:3});
-            console.log("F2_100MM_DEFAULT_ONLY",JSON.stringify({
+            console.log("F2_INTEGRATED_100_200_POLICY",JSON.stringify({
               sourceNodeCount:a.originalPhysicalSourceNodeCount,
               sourceElementFactors:a.originalPhysicalSourceElementCount,
               modeCensus:a.modeCensus.map(x=>({mode:x.mode,BOUND:x.BOUND,UNEMITTED:x.UNEMITTED})),
@@ -123,6 +126,5 @@ jobs:
           name: cii-arch01-f2-100-200-joint-shadow
           path: |
             test-results/cii-arch01-f2-joint-*.json
-            test-results/cii-arch01-f2-200-unwired.log
           if-no-files-found: warn
           retention-days: 14
