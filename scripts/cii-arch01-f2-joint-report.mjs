@@ -137,7 +137,7 @@ if(global.writerReady!==false||global.certifiedNodeCount!==0||global.certifiedEl
  ||global.transferPlan!==null||global.writeScope!==null
  ||joint.summary.originalPhysicalSourceNodes!==global.originalPhysicalSourceNodeCount)
  throw Error('F2_NONWRITING_OR_PHYSICAL_CENSUS_CONTRACT_FAILED');
-const physicalGapLedger=buildCiiF2PhysicalGapLedger(paths,reconciled);
+const physicalGapLedger=buildCiiF2PhysicalGapLedger(paths,reconciled,{joint,frontier});
 const out={
  schema:'CiiARCH01F2JointSolverReport.v1',mode:'SHADOW_REVIEW_ONLY',
  policy:{spatialToleranceMm:opts.tolerance,appliedSpatialToleranceMm:opts.tolerance,
