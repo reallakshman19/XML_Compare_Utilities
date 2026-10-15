@@ -88,7 +88,7 @@ const ui=await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource
 for(const token of ['data-ciiw-ms-authority-switch','selectedBaseLoopsBySource(inspection, selectedBySource)',
  'manualAnchorPairsBySource(inspection, manualBySource)','authorityModeBySource.set(id, \'MANUAL\')',
  'authorityModeBySource.set(id, \'AUTO\')',
- 'inactive evidence is retained, not applied'])
+ 'both AUTO and MANUAL tracks participate in Compare'])
  assert(ui.includes(token),'UI authority separation '+token);
 assert(!ui.includes('selectedBySource.set(id, new Set());'));
 assert(!ui.includes('manualBySource.set(id, []); manualDraftBySource'));
