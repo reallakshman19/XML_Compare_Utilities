@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {buildCiiF2PhysicalGapLedger} from '../tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js';
+import {buildCiiF2PhysicalGapLedger,ciiF2PhysicalGapLedgerToCsv} from '../tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js';
 
 // Synthetic original physical NODE / ELEMENT factors; these IDs are NOT an
 // Owner PS->SL benchmark and never enter the matcher or runtime Writer.
@@ -112,6 +112,16 @@ assert.equal(good.writeScope,null);
 assert.equal(good.transferPlan,null);
 assert.equal(JSON.stringify(good),JSON.stringify(buildCiiF2PhysicalGapLedger(original,reconciled,ctx)));
 assert(Object.isFrozen(good.rows));
+const csv=ciiF2PhysicalGapLedgerToCsv(good);
+assert.equal(csv.trim().split('\n').length,good.totalPhysicalSourceElements+1);
+assert(csv.includes('TO_ENDPOINT_HYPOTHESES_ABSENT'));
+assert(csv.includes('WALL_ENGINEERING_REVISION_OBSERVATION'));
+assert(csv.includes('INVESTIGATE_SOURCE_NODE_TARGET_DOMAIN'));
+assert(csv.includes('RECONCILE_ALL_PHYSICAL_TARGET_ROUTE_ALTERNATIVES'));
+assert(!csv.includes('PS02687.1'),'no Owner expected label in physical evidence');
+assert.equal(ciiF2PhysicalGapLedgerToCsv(good),csv);
+assert.throws(()=>ciiF2PhysicalGapLedgerToCsv({...good,writerReady:true}),
+ /F2_GAP_CSV_REQUIRES_EXACT_NONWRITING_FACTOR_CENSUS/);
 const fail=(o,r,c,why)=>assert.throws(
  ()=>buildCiiF2PhysicalGapLedger(o,r,c),why);
 fail(original,reconciled,{...ctx,frontier:null},/FRONTIER_CAUSES_REQUIRED/);
