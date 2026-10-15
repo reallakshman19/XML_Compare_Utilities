@@ -598,6 +598,12 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const onConfidencePolicyChange = () => {
     confidenceEpoch += 1;
     if (!multiSource(container)) return;
+    // Save the exact new policy with retained AUTO/MANUAL anchor evidence, but
+    // ZERO prior accepted/rejected decisions, correspondence identity, or scope.
+    // A reload may restore reviewed anchors only after fresh policy-bound Inspect;
+    // it must never revive old-policy correspondence or Writer approvals.
+    activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
+    persistSession({ invalidateReview: true });
     resetMulti();
     if (evidence) evidence.innerHTML = '';
     if (results) results.innerHTML = '<p>Method A confidence policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
