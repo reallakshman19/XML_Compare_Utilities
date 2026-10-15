@@ -190,6 +190,8 @@ const cases=selected.map(row=>{
      e.sourceNodeKey===row.sourceMember+':'+sourceOther);
    if(!otherDiagnosis)throw Error('CII102_NEIGHBOR_SOURCE_DOMAIN_MISSING');
    const seeds=[...otherDiagnosis.recheckedTargets];
+   const originalSeeds=[...otherDiagnosis.originalTargets];
+   const recoveredUnverifiedSeeds=seeds.filter(t=>!originalSeeds.includes(t));
    const candidate=seeds.length?geometricPaths(adjacent):null;
    const continuation=[];
    for(const targetSeed of seeds){
@@ -210,6 +212,10 @@ const cases=selected.map(row=>{
     viaSourceElementId:String(adjacent.elementId),
     missingSourceEndpoint:missingEndpoint,seedSourceNodeId:sourceOther,
     existingTargetSeedCount:seeds.length,existingTargetSeedIds:seeds,
+    originalTargetSeedIds:originalSeeds,
+    newlyRecoveredUnverifiedTargetSeedIds:recoveredUnverifiedSeeds,
+    seedLineage:originalSeeds.length?'CONTAINS_ORIGINAL_CANDIDATE':
+      recoveredUnverifiedSeeds.length?'RECOVERED_SPECULATIVE_FRONTIER_ONLY':'NO_TARGET_SEED',
     seedBoundaryGeometry:shape(adjacent),continuations:continuation,
     qualification:'PHYSICAL_PATH_PROBE_ONLY_NO_NEW_HYPOTHESIS',
    });
@@ -220,6 +226,15 @@ const cases=selected.map(row=>{
   sourceEndpoints:row.sourceEndpoints,endpointNeighborEvidence:neighbors,
   sourceGeometry:result.sourceGeometry,
   adjacentSeedBoundaryAnalysis:boundary,
+  boundaryDiagnosis:(()=>{
+   const root=boundary.flatMap(b=>b.continuations);
+   const routes=root.reduce((s,x)=>s+x.independentlyCompatibleAnchoredRoutes,0);
+   const originalSeeds=boundary.reduce((s,x)=>s+x.originalTargetSeedIds.length,0);
+   if(!root.length)return 'NO_IMMEDIATE_ORIGINAL_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS';
+   if(!routes)return 'PRESENT_UNVERIFIED_SEEDS_WITH_NO_BOUNDED_ROOTED_PATH';
+   if(!originalSeeds)return 'MULTIPLE_ROOTED_PHYSICAL_PATHS_FROM_RECOVERED_UNVERIFIED_SEEDS';
+   return 'ROOTED_PATHS_REQUIRE_INDEPENDENT_GLOBAL_IDENTITY_EVEN_WITH_OLDER_CANDIDATES';
+  })(),
   originalCause:row.originalRootCause,originalTargets:row.endpointDiagnosis.map(e=>e.originalTargets),
   currentTargets:row.endpointDiagnosis.map(e=>e.recheckedTargets),
   unanchoredGeometry:result.evidenceStatus,
@@ -271,10 +286,12 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
   unanchoredTargetRoutes:c.targetRoutesWithGeometryOnly,segments:c.relativeRouteCounts,
   anchoredNeighbors:c.adjacentSeedBoundaryAnalysis.map(b=>({
    sourceEdge:b.viaSourceElementId,sourceSeed:b.seedSourceNodeId,
-   targetSeedCount:b.existingTargetSeedCount,rootedRouteCounts:b.continuations.map(x=>
+   targetSeedCount:b.existingTargetSeedCount,originalTargetSeedCount:b.originalTargetSeedIds.length,
+   recoveredUnverifiedCount:b.newlyRecoveredUnverifiedTargetSeedIds.length,
+   seedLineage:b.seedLineage,rootedRouteCounts:b.continuations.map(x=>
     ({seed:x.existingTargetSeed,routes:x.independentlyCompatibleAnchoredRoutes})),
   })),
   visits:c.searchStats.visits,enumerationComplete:c.searchStats.complete,
-  decision:c.nextDecision})),
+  boundaryDiagnosis:c.boundaryDiagnosis,decision:c.nextDecision})),
  certified:0,writerReady:false
 }));
