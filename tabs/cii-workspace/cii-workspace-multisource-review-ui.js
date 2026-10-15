@@ -427,6 +427,17 @@ export function qualifyCiiReconciledAuthorityPhysicalEvidence(review, f2Report) 
         if (path[side===0?0:path.length-1]!==target) continue;
         if (!route.targetElementIds?.length || path.length!==route.targetElementIds.length+1)
           throw Error('CII102_P2_ORIGINAL_WITNESS_PATH_INVALID');
+        // A2-05's recomputed ledger carries extra frontier-generated
+        // hypotheses. A path is ORIGINAL evidence only when BOTH endpoints
+        // were already present in the pre-recovery NODE domains and the
+        // ORIGINAL physical audit admitted at least one path witness.
+        const opposite=element.endpointDiagnosis[1-side];
+        const oppositeTarget=path[side===0?path.length-1:0];
+        if (!element.originalPathWitnesses
+          || !opposite.originalTargets.includes(oppositeTarget)) {
+          speculative.push(element.sourceElementKey);
+          continue;
+        }
         witnessed.push({sourceElementKey:element.sourceElementKey,
           targetElementIds:[...route.targetElementIds],
           targetNodePath:path,
