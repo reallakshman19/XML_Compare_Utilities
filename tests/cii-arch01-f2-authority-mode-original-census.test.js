@@ -95,6 +95,34 @@ for(const scenario of scenarios){
    reasons:row?.reasons||[],
   }];
  }));
+ // Phase 1 intended correspondences are Owner assertions requiring independent proof,
+ // NOT a score/identity oracle and never forwarded into candidate generation.
+ const ownerPhaseOne=[
+  {sourceId:'S1',sourceNodeId:'4410',ownerProposedTargetNodeId:'970',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S1',sourceNodeId:'4440',ownerProposedTargetNodeId:'975',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S1',sourceNodeId:'4470',ownerProposedTargetNodeId:'980',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S1',sourceNodeId:'4490',ownerProposedTargetNodeId:'985',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S2',sourceNodeId:'360',ownerProposedTargetNodeId:'10280',ownerExpectedGrade:'HIGH_CONTROL'},
+  {sourceId:'S2',sourceNodeId:'370',ownerProposedTargetNodeId:'10290',ownerExpectedGrade:'HIGH_CONTROL'},
+  {sourceId:'S2',sourceNodeId:'390',ownerProposedTargetNodeId:'10300',ownerExpectedGrade:'HIGH_CONTROL'},
+  {sourceId:'S2',sourceNodeId:'400',ownerProposedTargetNodeId:'10310',ownerExpectedGrade:'HIGH_CONTROL'},
+  {sourceId:'S3',sourceNodeId:'1610',ownerProposedTargetNodeId:'8920',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S3',sourceNodeId:'1620',ownerProposedTargetNodeId:'8940',ownerExpectedGrade:'HIGH'},
+  {sourceId:'S3',sourceNodeId:'1640',ownerProposedTargetNodeId:'8950',ownerExpectedGrade:'HIGH'},
+ ];
+ const phaseOne=ownerPhaseOne.map(c=>{
+  const row=audit.rows.find(r=>r.sourceId===c.sourceId&&r.sourceNodeId===c.sourceNodeId);
+  assert(row, 'Owner Phase1 original SOURCE NODE missing: '+c.sourceId+':'+c.sourceNodeId);
+  return {
+   ...c,
+   actualState:row.state,
+   actualTargetNodeIds:row.targetNodeIds,
+   actualConfidence:row.confidence,
+   ownerProposedTargetIsEmitted:row.targetNodeIds.includes(c.ownerProposedTargetNodeId),
+   matchIsCertifiedByThisTest:false,
+   causes:row.reasons,
+  };
+ });
  const accepted=reviewed.compareReview?.rows?.filter(r=>r.decision==='ACCEPTED').length||0;
  const high=reviewed.compareReview?.rows?.filter(r=>r.confidence==='HIGH').length||0;
  const medium=reviewed.compareReview?.rows?.filter(r=>r.confidence==='MEDIUM').length||0;
@@ -118,6 +146,7 @@ for(const scenario of scenarios){
      sourceId:x.sourceId,status:x.memberStatus,blockers:x.memberBlockers,
     }))||[]},
   witnesses,
+  ownerPhaseOneHypothesisClassification:phaseOne,
   writerAuthorizationByThisTest:false,
  };
  results.push(caseResult);
