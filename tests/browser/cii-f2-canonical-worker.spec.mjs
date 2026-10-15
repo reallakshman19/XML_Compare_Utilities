@@ -28,6 +28,18 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  }
  await page.locator('[data-ciiw-ms-compare-now]').click();
  await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toBeVisible({timeout:120000});
+ const compareAlternatives=page.locator('[data-ciiw-ms-reconciled-review="1"]');
+ await expect(compareAlternatives).toBeVisible({timeout:180000});
+ await expect(compareAlternatives).toContainText('0 independently certified and 0 Writer/Transfer operations added');
+ await expect(compareAlternatives).toContainText('S2: 1→36 legacy BOUND');
+ await expect(compareAlternatives).toContainText('S3: 2→34 legacy BOUND');
+ await compareAlternatives.locator('details summary').click();
+ const autoConflictRows=compareAlternatives.locator('tbody tr');
+ await expect(autoConflictRows.filter({hasText:'S2 420'})).toContainText('MANUAL_AUTO_CONFLICT');
+ await expect(autoConflictRows.filter({hasText:'S2 420'})).toContainText('10330');
+ await expect(autoConflictRows.filter({hasText:'S3 1580'})).toContainText('MANUAL_AUTO_CONFLICT');
+ await expect(autoConflictRows.filter({hasText:'S3 1580'})).toContainText('8895');
+ await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
  const panel=page.locator('[data-ciiw-f2-canonical="1"]');
  await expect(panel).toContainText('One canonical A2 solver');
  await expect(panel).toContainText('REVIEW ONLY');
