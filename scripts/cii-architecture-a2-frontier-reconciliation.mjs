@@ -6,14 +6,14 @@
  * graphs before adding to an isolated clone of A2-01 candidate domains.
  * Re-runs A2-02 and A2-03 without changing original evidence.
  */
-import { createHash } from 'node:crypto';
+import { ciiA2HashJson } from './cii-a2-json-sha256.mjs';
 import { ciiTransferPhysicalEntityRef } from '../tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js';
 import { inspectCiiA2PhysicalConstraints } from './cii-architecture-a2-physical-path-constraints.mjs';
 import { solveCiiA2GlobalShadow } from './cii-architecture-a2-global-constraint-shadow.mjs';
 
 const s=(v)=>String(v??'').trim();
 const cmp=(a,b)=>s(a).localeCompare(s(b),undefined,{numeric:true});
-const digest=(value)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const digest=ciiA2HashJson;
 const sorted=(values)=>[...values].sort(cmp);
 function freeze(value){
   if(Array.isArray(value))return Object.freeze(value.map(freeze));
