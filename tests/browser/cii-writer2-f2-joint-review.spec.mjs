@@ -10,8 +10,8 @@ test('F2: actual Writer2 Compare shows retained AUTO+MANUAL joint graph without 
   document.body.append(host);installCiiWorkspaceTile(host);
  });
  await page.locator('[data-ciiw-open-writer2]').click();
- await page.locator('[data-ciiw-source]').setInputFiles([original('S1'),original('S2'),original('S3')].map(x=>x+'.CII'));
- await page.locator('[data-ciiw-target]').setInputFiles(original('T')+'.CII');
+ await page.locator('[data-ciiw-source]').setInputFiles([original('S1'),original('S2'),original('S3')]);
+ await page.locator('[data-ciiw-target]').setInputFiles(original('T'));
  await page.locator('[data-ciiw-inspect]').click();
  await expect(page.locator('[data-ciiw-ms-anchor-ledger="1"]')).toBeVisible({timeout:120000});
  for(const [sourceId,src,dst] of [['S2','420','415'],['S3','1580','7880']]){
