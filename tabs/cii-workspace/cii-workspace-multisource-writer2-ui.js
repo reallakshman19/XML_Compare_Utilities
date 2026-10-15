@@ -1,5 +1,7 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
+import { buildCiiSourceTargetAudit } from './cii-workspace-source-target-audit.js';
+import { ciiF2CanonicalPanelMarkup } from './cii-workspace-f2-canonical-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
@@ -252,6 +254,13 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
+  let f2Shadow = null; let f2Worker = null; let f2Abort = null; let f2Token = 0;
+  const invalidateF2 = () => {
+    f2Token += 1;
+    if (f2Abort) { f2Abort(); f2Abort = null; }
+    if (f2Worker) { f2Worker.terminate(); f2Worker = null; }
+    f2Shadow = null;
+  };
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const authorityModeBySource = new Map(); const reviewDecisions = new Map();
   const reviewFilters = { confidence: 'ALL', search: '', changedOnly: false };
@@ -290,7 +299,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     // Any authority/evidence change invalidates both displayed and saved review.
     // In-flight compare/inspect from the previous authority epoch must not land.
     confidenceEpoch += 1;
-    preview = null; scopedPreview = null; reviewDirty = false;
+    preview = null; scopedPreview = null; reviewDirty = false; invalidateF2();
     reviewDecisions.clear(); commonAnalysisCache = createCiiCommonAnalysisCache();
     reviewRestoreAllowed = false; restoredScopeIntent = null;
     if (executive) executive.innerHTML = '';
@@ -318,7 +327,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const renderMultiReview = () => {
     if (!preview) return;
     if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
-    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
+    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters)
+      + ciiF2CanonicalPanelMarkup(f2Shadow);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
     if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
@@ -332,7 +342,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     geometryReviewState.receipt=null;
     if(evidence)evidence.innerHTML='';
     inspection = null; preparedSession = null; commonAnalysisCache = null;
-    cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
+    cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false; invalidateF2();
     sessionCustody = null; loadedSession = null; reviewRestoreAllowed = false; restoredScopeIntent = null;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); authorityModeBySource.clear(); reviewDecisions.clear();
     reviewFilters.confidence = 'ALL'; reviewFilters.search = ''; reviewFilters.changedOnly = false; syncFilterControls();
@@ -497,6 +507,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
+      invalidateF2();
       preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       let restoredDecisionCount = 0; let restoredMatched = false;
       if (reviewRestoreAllowed && loadedSession) {
@@ -530,10 +541,101 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
+      invalidateF2();
       preview = nextPreview; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); persistSession();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
+  };
+  // Optional, explicitly non-writing shadow. It runs in a dedicated Worker and
+  // never alters the current Compare preview or any Transfer/Writer decision.
+  const reconcileF2 = async () => {
+    if (!inspection || !preparedSession || !preview || !commonAnalysisCache) return;
+    invalidateF2();
+    const token = f2Token, epoch = confidenceEpoch;
+    const activeIdentity = preview.correspondence?.correspondenceIdentity;
+    try {
+      const allAuto = selectedBaseLoopsBySource(inspection, selectedBySource);
+      for (const member of inspection.memberInspections) {
+        if (allAuto[member.sourceId]?.length) continue;
+        const qualified = ciiAutomaticBaseSelection(member.inspection?.baseAnchorSuggestions || []);
+        if (qualified.status !== 'READY' || !qualified.baseLoops?.length)
+          throw Error('F2_AUTO_COUNTERFACTUAL_BASIS_UNAVAILABLE:' + member.sourceId);
+        allAuto[member.sourceId] = qualified.baseLoops;
+      }
+      setMultiSourceStatus(container, 'F2: preparing original AUTO replay for joint evidence (read-only)…');
+      const autoPreview = await createCiiWriter2SourceSetPreviewFromPreparedSession(
+        preparedSession, {baseLoopsBySource:allAuto},
+        {cryptoRef:options.cryptoRef,commonAnalysisCache,...activeMethodAConfidenceOptions});
+      if (disposed || epoch !== confidenceEpoch || token !== f2Token ||
+        preview?.correspondence?.correspondenceIdentity !== activeIdentity) return;
+      const members = preparedSession.members;
+      const input = {
+        authority: {
+          sourceSetSha256:preparedSession.sourceSetSha256,
+          originalTargetSha256:preparedSession.target.originalSha256,
+          originalSourceShaById:Object.fromEntries(members.map(m=>[m.sourceId,m.originalSha256])),
+        },
+        snapshots:[
+          {mode:'AUTO_ONLY',sourceSetSha256:autoPreview.sourceSetSha256,
+            originalTargetSha256:autoPreview.targetAuthority.originalSha256,
+            audit:buildCiiSourceTargetAudit(autoPreview)},
+          {mode:'UI_ACTIVE',sourceSetSha256:preview.sourceSetSha256,
+            originalTargetSha256:preview.targetAuthority.originalSha256,
+            audit:buildCiiSourceTargetAudit(preview)},
+        ],
+        manualClaims:[...manualBySource].flatMap(([sourceId,pairs])=>
+          pairs.map(pair=>({sourceId,sourceNodeId:pair.sourceNodeId,targetNodeId:pair.targetNodeId}))),
+        sourceGraphsById:Object.fromEntries(members.map(m=>[m.sourceId,m.sourceGraph])),
+        targetGraph:preparedSession.target.targetGraph,
+        normalizedSourceShaById:Object.fromEntries(members.map(m=>[m.sourceId,m.normalizedSha256])),
+        normalizedTargetSha256:preparedSession.target.normalizedSha256,
+      };
+      const WorkerCtor=container.ownerDocument.defaultView?.Worker;
+      if (!WorkerCtor) throw Error('F2_MODULE_WORKER_UNAVAILABLE_FAIL_CLOSED');
+      const worker = new WorkerCtor(new URL('./cii-workspace-f2-canonical-worker.js',import.meta.url),
+        {type:'module'});
+      f2Worker = worker;
+      setMultiSourceStatus(container, 'F2: canonical physical constraints and frontier recovery running in Worker (no Writer)…');
+      const report = await new Promise((resolve,reject)=>{
+        f2Abort=()=>resolve(null);
+        worker.onmessage=event=>{
+          if (event.data?.id !== token) return;
+          f2Abort=null;
+          event.data.ok?resolve(event.data.report):reject(Error(event.data.error||'F2_WORKER_FAILED'));
+        };
+        worker.onerror=event=>{
+          f2Abort=null;reject(Error(event.message||'F2_WORKER_FAILED'));
+        };
+        try {worker.postMessage({id:token,input});} catch(error) {f2Abort=null;reject(error);}
+      });
+      worker.terminate();
+      if (f2Worker === worker) f2Worker=null;
+      if (!report || disposed || token!==f2Token || epoch!==confidenceEpoch ||
+        preview?.correspondence?.correspondenceIdentity!==activeIdentity) return;
+      if (report.writerReady!==false || report.physicalIdentityCertified!==false ||
+        report.transferPlan!==null || report.writeScope!==null)
+        throw Error('F2_SHADOW_WRITER_BOUNDARY_VIOLATION');
+      f2Shadow=report;renderMultiReview();
+      setMultiSourceStatus(container,'F2 canonical A2: '+report.summary.recoveredHypotheses
+        +' provisional new hypotheses; '+report.summary.uniqueNewlyCoveredNodes
+        +' SOURCE NODEs newly covered by evidence. 0 certified, 0 Writer.');
+    } catch(error) {
+      if (!disposed && token===f2Token)
+        setMultiSourceStatus(container,'F2 read-only analysis blocked: '+(error?.message||String(error)));
+    } finally {
+      if (f2Worker && token===f2Token) {f2Worker.terminate();f2Worker=null;}
+    }
+  };
+  const onF2Click = event => {
+    if (!multiSource(container)) return;
+    if (event.target.closest('[data-ciiw-f2-reconcile]')) {
+      event.preventDefault(); void reconcileF2();
+    } else if (event.target.closest('[data-ciiw-f2-export]') && f2Shadow) {
+      event.preventDefault();
+      downloadPayload(container.ownerDocument,'cii-f2-original-joint-evidence-review-only.json',
+        JSON.stringify(f2Shadow,null,2),'application/json');
+    }
   };
   const bindExpectedScope = async () => {
     if (!preview) return;
@@ -616,12 +718,13 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   reviewButton?.addEventListener('click', applyMultiSourceReview, true); acceptHigh?.addEventListener('click', onBulkHigh, true); acceptMedium?.addEventListener('click', onBulkMedium, true);
   confidenceFilter?.addEventListener('change', onConfidenceFilter, true); searchInput?.addEventListener('input', onSearchFilter, true); changedOnly?.addEventListener('change', onChangedFilter, true);
   csvButton?.addEventListener('click', onCsvExport, true); jsonButton?.addEventListener('click', onJsonExport, true);
+  results?.addEventListener('click', onF2Click, true);
   resetMulti();
   return {
     ...legacy,
     getMultiSourcePreview() { return scopedPreview || preview; },
     destroy() {
-      disposed = true; inspection = null; preparedSession = null; commonAnalysisCache = null;
+      disposed = true; invalidateF2(); inspection = null; preparedSession = null; commonAnalysisCache = null;
       cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null;
       sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
       container.removeEventListener('ciiw-method-a-confidence-changed', onConfidencePolicyChange);
@@ -629,7 +732,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
       confidenceFilter?.removeEventListener('change', onConfidenceFilter, true); searchInput?.removeEventListener('input', onSearchFilter, true); changedOnly?.removeEventListener('change', onChangedFilter, true);
-      csvButton?.removeEventListener('click', onCsvExport, true); jsonButton?.removeEventListener('click', onJsonExport, true); legacy.destroy();
+      csvButton?.removeEventListener('click', onCsvExport, true); jsonButton?.removeEventListener('click', onJsonExport, true);
+      results?.removeEventListener('click', onF2Click, true); legacy.destroy();
     },
   };
 }
