@@ -1,0 +1,43 @@
+name: CII ARCH01 F2 Joint Graph Core (Read-only)
+on:
+  push:
+    branches: [feat/cii-69-f2-joint-graph-core-20261015]
+  pull_request:
+    paths:
+      - scripts/cii-architecture-a2-*.mjs
+      - tabs/cii-workspace/architecture/**
+      - tests/cii-architecture-a*.test.js
+      - .github/workflows/cii-f2-joint-graph-core.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-and-falsifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node source parse
+        run: |
+          node --check scripts/cii-architecture-a2-shadow-joint-evidence.mjs
+          node --check scripts/cii-architecture-a2-physical-path-constraints.mjs
+          node --check scripts/cii-architecture-a2-global-constraint-shadow.mjs
+          node --check tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js
+      - name: Transfer family read-only contracts
+        run: node tests/cii-architecture-a1-capability-contracts.test.js
+      - name: Original S1 S2 S3 AUTO vs manual claim reconciliation
+        run: node tests/cii-architecture-a2-shadow-joint-evidence.test.js
+      - name: Physical EDGE / 1-to-N PIPE / bounded path falsifiers and originals
+        run: node tests/cii-architecture-a2-physical-path-constraints.test.js
+      - name: Global constrained solution, multiple-solution veto and custody original
+        run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
+      - name: Existing production correspondence is unaffected
+        run: |
+          node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          node tests/cii-workspace-source-target-audit.test.js
