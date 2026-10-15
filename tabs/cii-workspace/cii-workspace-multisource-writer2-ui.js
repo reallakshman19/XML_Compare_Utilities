@@ -338,6 +338,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
             +' · <b>Competing TARGET identities:</b> '+h(joint.summary.differingTargetCandidates)
             +' · <b>Custody review nodes:</b> '+h(joint.summary.targetCustodyReviewCount)
             +' · <b>Incomplete edge factors:</b> '+h(joint.summary.factors.incomplete)
+            +' · <b>Global candidate assignment:</b> '+h(joint.globalAssignmentReview.status)
+            +' ('+h(joint.globalAssignmentReview.sampledSolutionCount)+' sampled; not physical certification)'
             +' · <b>Certified/Writer:</b> 0/0</p>'
             + '<details><summary>Inspect all SOURCE NODE claims and graph constraints ('+h(joint.rows.length)+')</summary>'
             + '<table class="ciiw-grid"><thead><tr><th>SOURCE</th><th>Status</th><th>TARGET hypotheses</th><th>Path evidence</th></tr></thead><tbody>'
