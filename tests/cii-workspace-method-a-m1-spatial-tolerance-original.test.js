@@ -64,6 +64,61 @@ try {
   const p=await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession,{
    baseLoopsBySource:bases,
   },{cryptoRef,commonAnalysisCache:createCiiCommonAnalysisCache(),...options});
+  // Transfer rows, unlike M1 element pass/fail scores, are generated only by
+  // the exact Compare→review→Transfer Preview projection. Hold active authority
+  // and independent decision policy identical at both tolerance settings.
+  const summary=preview=>({
+   compareRows:preview.compareReview?.rows?.length||0,
+   nodeNameDeltaRows:preview.engineeringDeltas?.rows?.filter(x=>String(x.category).toUpperCase()==='NODE_NAME').length||0,
+   transferOperations:preview.transferPlan?.summary?.operationCount??null,
+   transferPreviewReady:preview.transferPlan?.summary?.previewReadyCount??null,
+   transferBlocked:preview.transferPlan?.summary?.blockedCount??null,
+   transferProtected:preview.transferPlan?.summary?.protectedCount??null,
+   nodeNameReplacements:preview.transferPlan?.summary?.nodeNameReplacementCount??null,
+   byAction:preview.transferPlan?.summary?.byAction||{},
+   transferStatus:preview.transferPlan?.status||null,
+   writerReadiness:preview.writerReadiness?.status||null,
+   operationIds:(preview.transferPlan?.operations||[]).map(op=>op.operationId).sort(),
+  });
+  const reviewedFor=raw=>Object.fromEntries(raw.memberPreviews.map(({sourceId,preview})=>[
+   sourceId,{
+    reviewedCorrespondenceIds:(preview.compareReview?.rows||[])
+      .filter(x=>x.identityBound===true&&['HIGH','MEDIUM'].includes(x.confidence))
+      .map(x=>x.correspondenceId),
+    lockedCorrespondenceIds:(preview.compareReview?.rows||[])
+      .filter(x=>x.decision==='LOCKED').map(x=>x.correspondenceId),
+    rejectedCorrespondenceIds:[],
+   },
+  ]));
+  const replay=async(payload,unreviewed)=>{
+   const raw=unreviewed||await createCiiWriter2SourceSetPreviewFromPreparedSession(
+    preparedSession,payload,{cryptoRef,commonAnalysisCache:createCiiCommonAnalysisCache(),...options});
+   const accepted=await createCiiWriter2SourceSetPreviewFromPreparedSession(
+    preparedSession,{...payload,reviewBySource:reviewedFor(raw)},
+    {cryptoRef,commonAnalysisCache:createCiiCommonAnalysisCache(),...options});
+   return {unreviewed:summary(raw),accepted:summary(accepted)};
+  };
+  const autoTransfer=await replay({baseLoopsBySource:bases},p);
+  const ownerActiveInput={
+   baseLoopsBySource:{S1:bases.S1},
+   anchorPairsBySource:{
+    S2:[{sourceNodeId:'420',targetNodeId:'415'}],
+    S3:[{sourceNodeId:'1580',targetNodeId:'7880'}],
+   },
+  };
+  const ownerTransfer=await replay(ownerActiveInput);
+  const transferComparison={AUTO_ONLY:autoTransfer,OWNER_MANUAL_ACTIVE:ownerTransfer};
+  for(const v of Object.values(transferComparison))for(const state of Object.values(v)){
+   assert(state.transferOperations>=0);
+   assert(state.transferPreviewReady>=0);
+   assert(state.transferPreviewReady<=state.transferOperations);
+   assert.equal(state.transferOperations,state.transferPreviewReady+state.transferBlocked+state.transferProtected);
+  }
+  console.log('METHOD_A_M1_TRANSFER_ROWS',JSON.stringify({
+   toleranceMm,byAuthority:Object.fromEntries(Object.entries(transferComparison).map(([k,v])=>[k,
+    Object.fromEntries(Object.entries(v).map(([stage,x])=>[stage,
+     {...x,operationIds:undefined}]))])),
+  }));
   assert.equal(p.correspondence?.memberCount,3);
   assert.equal(p.targetAuthority.originalSha256,createHash('sha256').update(targetBytes).digest('hex'));
   const review=(p.compareReview?.rows||[]).filter(r=>r.kind==='ELEMENT'&&r.methodA?.available);
@@ -85,7 +140,7 @@ try {
    targetOriginalSha256:p.targetAuthority.originalSha256,
    M1ElementRows:review.length,M1Pass:review.filter(r=>r.methodA.pass).length,
    M1Fail:review.filter(r=>!r.methodA.pass).length,registry,
-   activeStatus:p.correspondence.status,writerCertificationGrantedByTest:false};
+   activeStatus:p.correspondence.status,transferComparison,writerCertificationGrantedByTest:false};
   console.log('METHOD_A_M1_ORIGINAL',JSON.stringify({...stats,registry:undefined}));
   return stats;
  };
@@ -109,6 +164,21 @@ try {
   })),
   M1PassCountUnchanged:a.M1Pass===b.M1Pass,
  }));
+ const transferDiff=Object.fromEntries(['AUTO_ONLY','OWNER_MANUAL_ACTIVE'].map(mode=>[mode,
+  Object.fromEntries(['unreviewed','accepted'].map(stage=>{
+   const x=a.transferComparison[mode][stage],y=b.transferComparison[mode][stage];
+   return [stage,{
+    transferRows100:x.transferOperations,transferRows200:y.transferOperations,
+    change:y.transferOperations-x.transferOperations,
+    previewReady100:x.transferPreviewReady,previewReady200:y.transferPreviewReady,
+    previewReadyChange:y.transferPreviewReady-x.transferPreviewReady,
+    nodeNameReplacements100:x.nodeNameReplacements,
+    nodeNameReplacements200:y.nodeNameReplacements,
+    addedOperationIds:y.operationIds.filter(id=>!x.operationIds.includes(id)),
+    removedOperationIds:x.operationIds.filter(id=>!y.operationIds.includes(id)),
+   }];
+  }))]));
+ console.log('METHOD_A_M1_TRANSFER_EFFECT',JSON.stringify(transferDiff));
  console.log('METHOD_A_M1_TOLERANCE_PASS',JSON.stringify({default100:{M1Pass:a.M1Pass,rows:a.M1ElementRows},
   custom200:{M1Pass:b.M1Pass,rows:b.M1ElementRows},
   originalSourcesUnchanged:true,mode:'M1_SPATIAL_CANDIDATE_SCORING_ONLY',
