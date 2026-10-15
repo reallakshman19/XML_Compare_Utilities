@@ -47,6 +47,14 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  expect(result.schema).toBe('CiiF2CanonicalBrowserShadow.v1');
  expect(result.summary.originalPhysicalSourceNodes).toBe(150);
  expect(result.summary.recoveredHypotheses).toBeGreaterThanOrEqual(16);
+ expect(result.physicalGapLedger.schema).toBe('CiiF2PhysicalFactorGapLedger.v1');
+ expect(result.physicalGapLedger.totalPhysicalSourceElements).toBe(147);
+ expect(result.physicalGapLedger.originalEndpointMissingFactors).toBe(49);
+ expect(result.physicalGapLedger.currentEndpointMissingFactors).toBe(33);
+ expect(new Set(result.physicalGapLedger.rows.map(r=>r.sourceElementKey)).size).toBe(147);
+ expect(Object.values(result.physicalGapLedger.byMember).reduce((n,x)=>n+x.physicalElementCount,0)).toBe(147);
+ expect(result.physicalGapLedger.writerReady).toBe(false);
+ expect(result.physicalGapLedger.writeScope).toBeNull();
  expect(result.certifiedNodeCount).toBe(0);
  expect(result.writerReady).toBe(false);
  expect(result.transferPlan).toBeNull();
