@@ -384,6 +384,15 @@ export function qualifyCiiReconciledAuthorityPhysicalEvidence(review, f2Report) 
     || ledger.writeScope!==null
     || f2Report.summary?.originalPhysicalSourceNodes!==review.originalPhysicalSourceNodes)
     throw Error('CII102_P2_GAP_LEDGER_ORIGINAL_POPULATION_INVALID');
+  const originalClaimers=new Map();
+  if (f2Report.rows?.length!==review.originalPhysicalSourceNodes
+    || new Set(f2Report.rows.map(r=>r.sourceNodeKey)).size!==review.originalPhysicalSourceNodes)
+    throw Error('CII102_P2_ALL_ORIGINAL_NODE_CLAIMS_REQUIRED');
+  for (const node of f2Report.rows) for (const target of node.targetAlternatives||[]) {
+    const id=String(target);
+    if(!originalClaimers.has(id))originalClaimers.set(id,new Set());
+    originalClaimers.get(id).add(node.sourceNodeKey);
+  }
   const incident=new Map();
   for (const element of ledger.rows) {
     if (!Array.isArray(element.endpointDiagnosis)||element.endpointDiagnosis.length!==2
@@ -432,9 +441,11 @@ export function qualifyCiiReconciledAuthorityPhysicalEvidence(review, f2Report) 
     const uncertainty=incomplete.length>0 || original.some(({element})=>
       element.boundedSearchIncomplete);
     const hasOtherOriginalHypotheses=alternatives.size>0;
+    const competingOriginalClaims=[...(originalClaimers.get(String(row.automaticTargetNodeId))||[])]
+      .filter(k=>k!==row.rowKey).sort();
     const proofStatus=row.status==='MANUAL_AUTO_CONFLICT'
       ?'MANUAL_CONFLICT_REQUIRES_REVIEW'
-      :row.status==='TARGET_CUSTODY_CONFLICT'
+      :row.status==='TARGET_CUSTODY_CONFLICT'||competingOriginalClaims.length
         ?'TARGET_CUSTODY_CONFLICT_REQUIRES_REVIEW'
         :uncertainty?'BOUNDED_PHYSICAL_SEARCH_INCOMPLETE'
           :supportingFactors.length>=2 && !hasOtherOriginalHypotheses
@@ -450,6 +461,7 @@ export function qualifyCiiReconciledAuthorityPhysicalEvidence(review, f2Report) 
         localOriginalOtherTargets:[...alternatives].sort(),
         boundedSearchIncomplete:uncertainty,
         recoveredUnverifiedFactors:[...new Set(speculative)].sort(),
+        competingOriginalClaims,
         witnesses:witnessed,
         identityIndependentlyCertified:false,
         reviewedCorrespondence:false,
@@ -489,7 +501,7 @@ export function ciiReconciledAuthorityReviewMarkup(report) {
   const physical=report.physicalStatusCounts
     ? `<p data-ciiw-ms-reconciled-physical="1"><b>Original F2 local witness audit:</b> ${h(report.physicalStatusCounts.MULTI_EDGE_LOCAL_PHYSICAL_CORROBORATION_ONLY||0)} multi-edge local alternatives; ${h(report.physicalStatusCounts.PARTIAL_OR_AMBIGUOUS_LOCAL_PHYSICAL_EVIDENCE||0)} partial/ambiguous; ${h(report.physicalStatusCounts.NO_ORIGINAL_LOCAL_PHYSICAL_WITNESS||0)} without original witness; ${h(report.physicalStatusCounts.MANUAL_CONFLICT_REQUIRES_REVIEW||0)} manual conflicts. <b>No candidate is globally certified or Writer eligible.</b></p>`
     : '<p>Independent original physical witness audit pending. AUTO BOUND is not a physical certificate.</p>';
-  return `<section class="ciiw-method-evidence" data-ciiw-ms-reconciled-review="1"><h3>Reconciled AUTO + MANUAL evidence — review only</h3><p><b>${h(report.reviewOnlyAlternativeCount)} previously hidden / different automatic proposals</b>; ${h(report.conflictCount)} currently contested/occupied. <b>0 independently certified and 0 Writer/Transfer operations added.</b> The existing MANUAL-active Compare and Writer inputs remain unchanged. Automatic BOUND means the legacy automatic run, not independently proven physical identity.</p><p>${per}</p>${physical}<details><summary>Inspect SOURCE NODE alternatives and custody conflicts (${h(report.rows.length)})</summary><table class="ciiw-grid" data-ciiw-ms-reconciled-table="1"><thead><tr><th>SOURCE</th><th>Current active</th><th>Retained AUTO candidate</th><th>Manual claim</th><th>Review classification</th></tr></thead><tbody>${lines}</tbody></table></details></section>`;
+  return `<section class="ciiw-method-evidence" data-ciiw-ms-reconciled-review="1"><h3>Reconciled AUTO + MANUAL evidence — review only</h3><p><b>${h(report.reviewOnlyAlternativeCount)} previously hidden / different automatic proposals</b>; ${h(report.conflictCount)} currently contested/occupied. <b>0 independently certified and 0 Writer/Transfer operations added.</b> The existing MANUAL-active Compare and Writer inputs remain unchanged. Automatic BOUND means the legacy automatic run, not independently proven physical identity.</p><p>${per}</p>${physical}<details><summary>Inspect SOURCE NODE alternatives and custody conflicts (${h(report.rows.length)})</summary><table class="ciiw-grid" data-ciiw-ms-reconciled-table="1"><thead><tr><th>SOURCE</th><th>Current active</th><th>Retained AUTO candidate</th><th>Manual claim</th><th>Review classification</th><th>Original physical provenance</th></tr></thead><tbody>${lines}</tbody></table></details></section>`;
 }
 
 export const _test = Object.freeze({ decisionFromRow, effectiveDecision, filterRow, memberReviewLedgers, lockedRow, bulkEligible });
