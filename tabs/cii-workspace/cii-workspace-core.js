@@ -214,7 +214,7 @@ function workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, o
       && String(input?.anchorPairMode || '').toUpperCase() === 'INDEPENDENT_SEEDS') {
     const auto = explicitMultiBaseAuthority(input, sourceGraph, targetGraph, options);
     const manual = independentManualSeedAuthority(normalizeAnchorPairs(input.anchorPairs));
-    if (auto.status === 'BLOCKED' || manual.status === 'AMBIGUOUS') {
+    if (auto.status === 'BLOCKED' || auto.status === 'AMBIGUOUS' || manual.status === 'AMBIGUOUS') {
       return deepFreeze({ ...auto, status: 'BLOCKED', inputMode: 'PARALLEL_AUTO_MANUAL',
         reason: 'PARALLEL_INPUT_OR_MANUAL_CONFLICT', conflicts: deepFreeze([...(auto.conflicts || []), ...(manual.conflicts || [])]),
         inputBlockers: deepFreeze([...(auto.inputBlockers || []), ...(manual.status === 'AMBIGUOUS' ? ['MANUAL_SEED_IDENTITY_CONFLICT'] : [])]) });
