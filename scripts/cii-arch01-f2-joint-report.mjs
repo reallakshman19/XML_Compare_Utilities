@@ -13,7 +13,7 @@
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {resolve,dirname,relative,isAbsolute} from 'node:path';
 import {createHash,webcrypto} from 'node:crypto';
-import {prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge} from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import {prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge,getCiiMultiSourceMethodAConfidenceOptions} from '../tabs/cii-workspace/cii-workspace-source-set.js';
 import {ciiAutomaticBaseSelection} from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import {createCiiWriter2SourceSetPreviewFromPreparedSession,createCiiCommonAnalysisCache}
  from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
@@ -39,6 +39,14 @@ for(let i=0;i<args.length;i++){
 if(opts.sources.length<2||!opts.target||!opts.manual.length
  ||!Number.isFinite(opts.tolerance)||opts.tolerance<1||opts.tolerance>200)
  throw Error('F2_SOURCE_SET_TARGET_MANUAL_AND_BOUNDED_TOLERANCE_REQUIRED');
+// F2 is independently based on main. PR #97 adds the actual M1 tolerance
+// consumer and #98 its qualified Method A residual-quality scoring link.
+// A CLI option alone does NOT make a policy effective: reject any non-default
+// request until the underlying runtime actually advertises the capability.
+const toleranceWired=Object.hasOwn(getCiiMultiSourceMethodAConfidenceOptions(),'spatialToleranceMm');
+if(!toleranceWired && opts.tolerance!==100)
+ throw Error('F2_M1_TOLERANCE_UNWIRED_REQUIRES_PR97_PR98: cannot claim 200mm applied on current main');
+
 const sources=opts.sources.map(item=>{
  const index=item.indexOf(':'),sourceId=item.slice(0,index),path=item.slice(index+1);
  if(index<1||!path||sourceId.includes('/')||sourceId.includes('\\'))
@@ -130,7 +138,10 @@ if(global.writerReady!==false||global.certifiedNodeCount!==0||global.certifiedEl
  throw Error('F2_NONWRITING_OR_PHYSICAL_CENSUS_CONTRACT_FAILED');
 const out={
  schema:'CiiARCH01F2JointSolverReport.v1',mode:'SHADOW_REVIEW_ONLY',
- policy:{spatialToleranceMm:opts.tolerance,sourceOdAdmissionUnchanged:true},
+ policy:{spatialToleranceMm:opts.tolerance,appliedSpatialToleranceMm:opts.tolerance,
+  requestedSpatialToleranceCapability:toleranceWired?'RUNTIME_CONFIGURED':'DEFAULT_100_ONLY',
+  qualifiedMethodAScoreLinkPresent:toleranceWired?'REQUIRE_SEPARATE_PR98_PROOF':'NOT_PRESENT_ON_THIS_MAIN_BASE',
+  sourceOdAdmissionUnchanged:true},
  custody:{sourceSetSha256:snapshots[0].sourceSetSha256,
   originalTargetSha256:hash(targetBytes),originalSourceShaById:originals},
  originalPhysicalSourceNodeCount:global.originalPhysicalSourceNodeCount,
