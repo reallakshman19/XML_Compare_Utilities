@@ -1,0 +1,34 @@
+name: CII ARCH-01 F2 Joint Constrained Original Evidence
+on:
+  push:
+    branches: [feat/cii-69-f2-joint-constrained-shadow-20261015]
+  pull_request:
+    paths:
+      - tabs/cii-workspace/cii-workspace-f2-joint-constrained-review.js
+      - tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+      - tests/cii-arch01-f2-joint-constrained-original.test.js
+      - .github/workflows/cii-arch01-f2-joint-constrained.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-joint-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JS
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-f2-joint-constrained-review.js
+          node --check tests/cii-arch01-f2-joint-constrained-original.test.js
+      - name: Original immutable S1/S2/S3/T joint NODE+ELEMENT and conflict test
+        run: node tests/cii-arch01-f2-joint-constrained-original.test.js
+      - name: Existing automatic A2-16 controls
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: Existing physical SOURCE census
+        run: node tests/cii-workspace-source-target-audit.test.js
