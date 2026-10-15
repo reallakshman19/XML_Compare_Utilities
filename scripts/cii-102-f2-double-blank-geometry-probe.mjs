@@ -453,7 +453,7 @@ const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
   return {lengthToleranceMm,enumerationComplete:false,
    pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
    joinedPhysicalRoutePairs:null,noAbsenceClaim:true,joinExamples:[]};
- const joints=jointPhysicalPairs(firstS1,left.allRoutes,secondS1,right.allRoutes,'5030');
+ const joints=jointPhysicalPairs(firstEdge,left.allRoutes,secondEdge,right.allRoutes,'5030');
  return {lengthToleranceMm,enumerationComplete:true,
   pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
   joinedPhysicalRoutePairs:joints.length,
