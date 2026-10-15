@@ -158,6 +158,16 @@ function canonicalLoops(rows) {
 }
 
 export function canonicalCiiCommonAnalysisAuthority(input = {}) {
+  if (Array.isArray(input?.baseLoops) && Array.isArray(input?.anchorPairs)
+      && text(input?.anchorPairMode).toUpperCase() === 'INDEPENDENT_SEEDS') {
+    // Joint claims must participate in cache custody independently of AUTO
+    // bases; a changed reviewed MANUAL seed can never reuse a stale result.
+    return deepFreeze({
+      mode: 'PARALLEL_AUTO_MANUAL',
+      loops: canonicalLoops(input.baseLoops),
+      anchorPairs: canonicalPairs(input.anchorPairs),
+    });
+  }
   if (Array.isArray(input?.baseLoops)) {
     return deepFreeze({
       mode: 'EXPLICIT_BASE_LOOPS',
