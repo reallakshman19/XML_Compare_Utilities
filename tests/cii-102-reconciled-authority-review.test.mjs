@@ -10,7 +10,7 @@ import {createCiiCommonAnalysisCache,createCiiWriter2SourceSetPreviewFromPrepare
   from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import {buildCiiSourceTargetAudit}
   from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
-import {buildCiiReconciledAuthorityReview,ciiReconciledAuthorityReviewMarkup}
+import {buildCiiReconciledAuthorityReview,qualifyCiiReconciledAuthorityPhysicalEvidence,ciiReconciledAuthorityReviewMarkup}
   from '../tabs/cii-workspace/cii-workspace-multisource-review-ui.js';
 
 const expected={
@@ -96,6 +96,95 @@ assert.throws(()=>buildCiiReconciledAuthorityReview(active,auto,
  new Map([['S2',[{sourceNodeId:'999999',targetNodeId:'415'}]]])),/SOURCE_NOT_IN_ORIGINAL_CENSUS/);
 assert.throws(()=>ciiReconciledAuthorityReviewMarkup({...outcome,writerReady:true}),
  /NOT_NONWRITING/);
+// Reuse the SAME canonical browser Worker implementation rather than an
+// independent geometry resolver or expected-label lookup. The frozen 11
+// Owner Phase-1 assertions below are independent observational holdouts.
+const {computeCiiF2CanonicalShadow}=
+  await import('../tabs/cii-workspace/cii-workspace-f2-canonical-shadow.js');
+const graphs=Object.fromEntries(preparedSession.members.map(m=>[m.sourceId,m.sourceGraph]));
+const f2=computeCiiF2CanonicalShadow({
+ authority:{
+  sourceSetSha256:preparedSession.sourceSetSha256,
+  originalTargetSha256:expected.T,
+  originalSourceShaById:Object.fromEntries(sources.map(x=>[x.sourceId,expected[x.sourceId]]))
+ },
+ snapshots:[
+  {mode:'AUTO_ONLY',sourceSetSha256:auto.sourceSetSha256,
+    originalTargetSha256:auto.targetAuthority.originalSha256,
+    audit:buildCiiSourceTargetAudit(auto)},
+  {mode:'UI_ACTIVE',sourceSetSha256:active.sourceSetSha256,
+    originalTargetSha256:active.targetAuthority.originalSha256,
+    audit:buildCiiSourceTargetAudit(active)}
+ ],
+ manualClaims:[...manual].flatMap(([sourceId,pairs])=>
+  pairs.map(x=>({sourceId,sourceNodeId:x.sourceNodeId,targetNodeId:x.targetNodeId}))),
+ sourceGraphsById:graphs,targetGraph:preparedSession.target.targetGraph,
+ normalizedSourceShaById:Object.fromEntries(preparedSession.members.map(m=>[
+   m.sourceId,m.normalizedSha256])),
+ normalizedTargetSha256:preparedSession.target.normalizedSha256,
+});
+const physical=qualifyCiiReconciledAuthorityPhysicalEvidence(outcome,f2);
+assert.equal(physical.rows.length,70);
+assert.equal(physical.originalPhysicalFactorCount,147);
+assert.equal(physical.writerReady,false);
+assert.equal(physical.newIndependentPhysicalCertificates,0);
+assert.equal(physical.newTransferOperations,0);
+assert.equal(Object.values(physical.physicalStatusCounts).reduce((x,y)=>x+y,0),70);
+assert(physical.rows.every(x=>x.localPhysicalEvidence
+ && x.localPhysicalEvidence.identityIndependentlyCertified===false
+ && x.localPhysicalEvidence.writerEligible===false));
+assert.equal(physical.rows.find(x=>x.rowKey==='S2:420').localPhysicalEvidence.proofStatus,
+ 'MANUAL_CONFLICT_REQUIRES_REVIEW');
+assert.equal(physical.rows.find(x=>x.rowKey==='S3:1580').localPhysicalEvidence.proofStatus,
+ 'MANUAL_CONFLICT_REQUIRES_REVIEW');
+assert.equal(physical.rows.find(x=>x.rowKey==='S2:420').writerEligible,false);
+assert(ciiReconciledAuthorityReviewMarkup(physical)
+ .includes('data-ciiw-ms-reconciled-physical="1"'));
+assert.throws(()=>qualifyCiiReconciledAuthorityPhysicalEvidence(outcome,{
+ ...f2,provenance:{...f2.provenance,sourceSetSha256:'wrong'}
+}),/CUSTODY_OR_NONWRITING_INVALID/);
+assert.throws(()=>qualifyCiiReconciledAuthorityPhysicalEvidence(outcome,{
+ ...f2,writerReady:true
+}),/CUSTODY_OR_NONWRITING_INVALID/);
+assert.throws(()=>qualifyCiiReconciledAuthorityPhysicalEvidence(outcome,{
+ ...f2,physicalGapLedger:{...f2.physicalGapLedger,rows:f2.physicalGapLedger.rows.slice(1)}
+}),/GAP_LEDGER_ORIGINAL_POPULATION_INVALID/);
+const holdouts=[
+ ['S1','4410','970'],['S1','4440','975'],['S1','4470','980'],['S1','4490','985'],
+ ['S2','360','10280'],['S2','370','10290'],['S2','390','10300'],['S2','400','10310'],
+ ['S3','1610','8920'],['S3','1620','8940'],['S3','1640','8950']
+];
+const allAutomatic=buildCiiSourceTargetAudit(auto);
+const heldout=holdouts.map(([member,sourceNode,targetNode])=>{
+ const sourceKey=member+':'+sourceNode;
+ const raw=allAutomatic.rows.find(row=>row.rowKey===sourceKey);
+ assert(raw,'SOURCE PH1 holdout missing: '+sourceKey);
+ const candidate=physical.rows.find(row=>row.rowKey===sourceKey);
+ return {sourceKey,ownerTarget:targetNode,
+  legacyAutoProposed:raw.targetNodeIds.includes(targetNode),
+  candidatePhysicalStatus:candidate?.localPhysicalEvidence.proofStatus||'NOT_A_NEW_ALTERNATIVE',
+  ownerAssertedPairIndependentlyCertified:false};
+});
+assert.equal(heldout.length,11);
+assert(heldout.every(row=>row.legacyAutoProposed));
+assert(heldout.every(row=>!row.ownerAssertedPairIndependentlyCertified));
+assert.equal(JSON.stringify(active.transferPlan),beforePlan);
+assert.equal(JSON.stringify(active.compareReview),beforeReview);
+const corroboration={
+ physicalStatusCounts:physical.physicalStatusCounts,
+ localWitnesses:physical.rows.filter(x=>x.localPhysicalEvidence.witnessCount>0).length,
+ multiEdgeCases:physical.rows.filter(x=>x.localPhysicalEvidence.supportingPhysicalFactors.length>=2).length,
+ examples:physical.rows.slice(0,12).map(row=>({
+  key:row.rowKey,target:row.automaticTargetNodeId,
+  status:row.localPhysicalEvidence.proofStatus,
+  incident:row.localPhysicalEvidence.sourceIncidentPhysicalFactors,
+  factors:row.localPhysicalEvidence.supportingPhysicalFactors,
+ })),
+ phaseOneHeldout:heldout,
+ independentCertificates:0,writerChanges:0,
+};
+console.log('CII102_P2_ORIGINAL_LOCAL_PHYSICAL_CORROBORATION',JSON.stringify(corroboration));
+
 const metrics={
  originalSha:expected,
  sourceNodes:outcome.originalPhysicalSourceNodes,
