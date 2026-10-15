@@ -154,6 +154,20 @@ for(const scenario of scenarios){
 }
 const auto=results.find(x=>x.scenario==='AUTO_ONLY');
 const manual=results.find(x=>x.scenario==='OWNER_OBSERVED_MANUAL_ACTIVE');
+// Current original-source regression baseline, NOT a physical identity oracle.
+// Review expectations when a future correspondence solver is independently accepted.
+assert.equal(auto.census.bound,105,'current original AUTO-only BOUND census');
+assert.equal(auto.census.unemitted,34,'current original AUTO-only UNEMITTED census');
+assert.equal(manual.census.bound,38,'current Owner manual-active BOUND census');
+assert.equal(manual.census.unemitted,99,'current Owner manual-active UNEMITTED census');
+assert.equal(auto.census.qualifiedNameChanges,75,'AUTO candidate Name changes, NOT transfer operations');
+assert.equal(manual.census.qualifiedNameChanges,28,'manual-active candidate Name changes, NOT transfer operations');
+assert.equal(auto.ownerPhaseOneHypothesisClassification.filter(r=>r.ownerProposedTargetIsEmitted).length,11,
+ 'AUTO-only replay must emit all 11 Owner proposed TARGET hypotheses; NOT certification');
+assert.equal(manual.ownerPhaseOneHypothesisClassification.filter(r=>r.ownerProposedTargetIsEmitted).length,4,
+ 'manual-active replay must not silently promote unselected AUTO evidence');
+assert.equal(auto.writerAuthorizationByThisTest,false);
+assert.equal(manual.writerAuthorizationByThisTest,false);
 const change=Object.fromEntries(['S1','S2','S3'].map(id=>[id,{
  manualBound:manual.census.bySource[id].bound,
  autoBound:auto.census.bySource[id].bound,
