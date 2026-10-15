@@ -4,6 +4,7 @@ export default defineConfig({
  testDir:'./tests/browser',
  testMatch:[
   'cii-writer2-a2-16-anchor-modes.spec.mjs',
+  'cii-writer2-f2-joint-authority.spec.mjs',
   'cii-writer2-multisource-session-persistence.spec.mjs',
  ],
  timeout:300_000,
