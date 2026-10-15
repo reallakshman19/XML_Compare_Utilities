@@ -7,6 +7,7 @@ on:
       - scripts/cii-architecture-a2-*.mjs
       - tabs/cii-workspace/architecture/**
       - tests/cii-architecture-a*.test.js
+      - tests/cii-arch01-f2-authority-mode-original-census.test.js
       - .github/workflows/cii-f2-joint-graph-core.yml
 
 permissions:
@@ -42,6 +43,8 @@ jobs:
         run: node tests/cii-architecture-a2-global-constraint-shadow.test.js
       - name: Recovered SOURCE frontiers and independent physical witness reconciliation
         run: node tests/cii-architecture-a2-frontier-reconciliation.test.js
+      - name: Original Owner AUTO vs MANUAL census and 11 Phase 1 rows (#96 retained)
+        run: node tests/cii-arch01-f2-authority-mode-original-census.test.js
       - name: Existing production correspondence is unaffected
         run: |
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
