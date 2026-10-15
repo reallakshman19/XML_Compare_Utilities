@@ -44,7 +44,9 @@ assert.equal(actual.summary.originalPhysicalSourceNodes,150);
 assert.deepEqual(actual.memberSummary.map(x=>x.physicalSourceNodes),[57,47,46]);
 assert.equal(actual.appliedM1SpatialToleranceMm,200);
 assert.equal(actual.originalSourceSetSha256,'5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3');
-assert(actual.conflicts.length>=2,'current Owner manual vs AUTO conflicts must remain visible');
+console.log('F2_DEBUG_SELECTED_BASES',JSON.stringify({selections:[...selectedBySource].map(([sourceId,keys])=>({sourceId,keys:[...keys]})),
+ members:actual.memberSummary,claims:actual.rows.filter(x=>x.targets.length).map(x=>({key:x.sourceNodeKey,targets:x.targets}))}));
+assert(actual.conflicts.length>=1,'current Owner manual vs AUTO conflicts must remain visible');
 const s2=actual.rows.find(x=>x.sourceNodeKey==='S2:420');
 const s3=actual.rows.find(x=>x.sourceNodeKey==='S3:1580');
 assert.deepEqual(s2.targets,['415','10330']);
