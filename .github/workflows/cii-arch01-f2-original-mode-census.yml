@@ -1,0 +1,29 @@
+name: CII ARCH01 F2 Owner Mode Source Census
+on:
+  push:
+    branches: [test/cii-arch01-f2-census-counterfactual-69-20261015]
+  pull_request:
+    paths:
+      - tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - .github/workflows/cii-arch01-f2-original-mode-census.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-physical-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: F2 source-bound real S1-S2-S3 mode counterfactual and total node invariants
+        run: node tests/cii-arch01-f2-authority-mode-original-census.test.js
+      - name: Retained automatic correspondence benchmark regression
+        run: node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+      - name: F1 preserved active-vs-retained authority regression
+        run: node tests/cii-workspace-multisource-anchor-mode.test.js
