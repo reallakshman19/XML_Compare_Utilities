@@ -498,13 +498,36 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
+      // The retained automatic evidence lane must include actual propagated
+      // NODE correspondences, not only the selected Method A/B base anchors.
+      // A separate prepared-session AUTO pass reuses the common analysis cache.
+      // It is strictly diagnostic: it is NEVER copied into preview, review
+      // decisions, Transfer Preview, BM-001 acceptance or Writer scope.
+      const ownerHasManual = [...manualBySource.values()].some(pairs => pairs.length);
+      let automaticCorrespondencePreview = ownerHasManual ? null : nextPreview;
+      if (ownerHasManual) {
+        const candidateBases = Object.fromEntries(inspection.memberInspections.map(m => {
+          const chosen = buildCiiSelectedBaseLoops(
+            m.inspection?.baseAnchorSuggestions||[], selectedBySource.get(m.sourceId)||new Set());
+          const qualified = chosen.length ? chosen :
+            ciiAutomaticBaseSelection(m.inspection?.baseAnchorSuggestions||[]).baseLoops||[];
+          return [m.sourceId,qualified];
+        }).filter(([,bases])=>bases.length));
+        if (Object.keys(candidateBases).length) {
+          automaticCorrespondencePreview =
+            await createCiiWriter2SourceSetPreviewFromPreparedSession(preparedSession,
+              {baseLoopsBySource:candidateBases},
+              {cryptoRef:options.cryptoRef,commonAnalysisCache,...activeMethodAConfidenceOptions});
+        }
+      }
+      if (disposed || runEpoch !== confidenceEpoch) return;
       preview = nextPreview; scopedPreview = null; reviewDirty = false;
       // ARCH-01 F2 shadow: consume BOTH retained evidence lanes, even while
       // the legacy operational Compare remains single-lane. This report
       // intentionally never enters previewInput(), Transfer or Writer.
       try {
         jointEvidence = buildCiiJointAuthorityEvidence({
-          inspection,preparedSession,selectedBySource,manualBySource,
+          inspection,preparedSession,selectedBySource,manualBySource,automaticCorrespondencePreview,
           activeModeBySource:authorityModeBySource,
           originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
           originalTargetSha256:preview.targetAuthority.originalSha256,
