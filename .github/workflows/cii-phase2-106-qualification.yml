@@ -26,6 +26,7 @@ jobs:
           node tests/cii-workspace-owner-phase2-input.test.js
           node tests/cii-workspace-parallel-anchor-evidence.test.js
           node tests/cii-workspace-phase2-normalization-length.test.js
+          node tests/cii-workspace-phase2-live-path-policy.test.js
       - name: Existing anchor and Method A qualification regression gates
         run: |
           node tests/cii-workspace-multisource-anchor-mode.test.js
