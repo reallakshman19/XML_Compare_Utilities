@@ -46,10 +46,45 @@ for(const [member,digest] of Object.entries(expected)) {
  const actual=member==='T'?report.custody.originalTargetSha256:report.custody.originalSourceShaById?.[member];
  if(actual!==digest)throw Error('CII102_REPORT_ORIGINAL_INPUT_CUSTODY_DRIFT:'+member);
 }
+const doubleMissingRows=report.physicalGapLedger.rows.filter(row=>
+ row.recheckedStatus==='ENDPOINT_CANDIDATE_MISSING'
+ &&row.endpointDiagnosis?.length===2&&row.endpointDiagnosis.every(e=>e.missingAfter));
+const doubleBlankByMember=Object.fromEntries(['S1','S2','S3'].map(member=>[
+ member,doubleMissingRows.filter(row=>row.sourceMember===member).length
+]));
+if(doubleMissingRows.length!==21||JSON.stringify(doubleBlankByMember)!==
+ JSON.stringify({S1:15,S2:3,S3:3}))
+ throw Error('CII102_DOUBLE_BLANK_ORIGINAL_CENSUS_DRIFT');
+function clusters(member){
+ const rows=doubleMissingRows.filter(r=>r.sourceMember===member);
+ const incident=new Map();
+ for(const r of rows)for(const end of r.sourceEndpoints){
+  if(!incident.has(end))incident.set(end,[]);
+  incident.get(end).push(r);
+ }
+ const seen=new Set(),groups=[];
+ for(const row of rows){
+  if(seen.has(row.sourceElementKey))continue;
+  const work=[row],keys=[];
+  seen.add(row.sourceElementKey);
+  while(work.length){
+   const current=work.pop();
+   keys.push(current.sourceElementKey);
+   for(const end of current.sourceEndpoints)for(const next of incident.get(end)||[]){
+    if(!seen.has(next.sourceElementKey)){
+     seen.add(next.sourceElementKey);work.push(next);
+    }
+   }
+  }
+  groups.push({physicalFactorCount:keys.length,
+   sourceElementKeys:keys.sort(compare)});
+ }
+ return groups.sort((a,b)=>b.physicalFactorCount-a.physicalFactorCount
+  ||compare(a.sourceElementKeys[0],b.sourceElementKeys[0]));
+}
+const doubleBlankClusters=Object.fromEntries(['S1','S2','S3'].map(m=>[m,clusters(m)]));
 const selected=['S1','S2','S3'].map(member=>{
- const options=report.physicalGapLedger.rows.filter(row=>row.sourceMember===member
-  &&row.recheckedStatus==='ENDPOINT_CANDIDATE_MISSING'
-  &&row.endpointDiagnosis.length===2&&row.endpointDiagnosis.every(e=>e.missingAfter));
+ const options=doubleMissingRows.filter(row=>row.sourceMember===member);
  options.sort((a,b)=>compare(a.sourceElementId,b.sourceElementId));
  if(!options.length)throw Error('CII102_SOURCE_NO_DOUBLE_BLANK_FACTOR:'+member);
  const row=options[0];
@@ -289,7 +324,8 @@ const output={
  originalTargetSha256:h(targetBytes),sourceSetSha256:report.custody.sourceSetSha256,
  policySource:'INDEPENDENT_25MM_A2_PHYSICAL_PATH_GEOMETRY_NOT_METHOD_A_100_200',
  originalPhysicalSourceNodes:150,originalPhysicalSourceElements:147,
- originalDoubleBlankFactors:21,selectedSourceFactors:cases,
+ originalDoubleBlankFactors:doubleMissingRows.length,
+ doubleBlankByMember,doubleBlankClusters,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
   'An unanchored geometric route is never SOURCE_TARGET_CORRESPONDENCE',
