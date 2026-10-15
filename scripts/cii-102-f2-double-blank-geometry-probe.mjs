@@ -416,6 +416,10 @@ function jointPhysicalPairs(sourceA,pathsA,sourceB,pathsB,sourceJoin){
    if(new Set(common).size!==1||common[0]!==ap)continue;
    joined.push({
     targetSharedNode:ap,
+    pipeStartTargetNode:oa?pa.targetNodePath.at(-1):pa.targetNodePath[0],
+    bendDownstreamTargetNode:ob?pb.targetNodePath[0]:pb.targetNodePath.at(-1),
+    pipeTargetNodePath:pa.targetNodePath,
+    bendTargetNodePath:pb.targetNodePath,
     pipeTargetElementIds:pa.targetElementIds,
     bendTargetElementIds:pb.targetElementIds,
     pipeResidualMm:pa.lengthResidualMm,
@@ -446,6 +450,46 @@ const sourceTurnAngleDeg=angleDegrees(
  [Number(firstEdge.dx),Number(firstEdge.dy),Number(firstEdge.dz)],
  [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)]
 );
+const thirdS1=doubleMissingRows.find(r=>r.sourceElementKey==='S1:E46:5040->5070');
+const thirdEdge=firstGraph.edges.find(e=>e.elementId===thirdS1?.sourceElementId);
+if(!thirdS1||!thirdEdge||thirdEdge.componentKind!=='PIPE'
+ ||String(secondEdge.to)!=='5040'||String(thirdEdge.from)!=='5040')
+ throw Error('CII102_NEXT_PIPE_ORIGINAL_EDGE_CUSTODY_MISSING');
+const sourceNextTurnAngleDeg=angleDegrees(
+ [Number(secondEdge.dx),Number(secondEdge.dy),Number(secondEdge.dz)],
+ [Number(thirdEdge.dx),Number(thirdEdge.dy),Number(thirdEdge.dz)]
+);
+function extendBendToNextPipe(joints,thirdRoutes) {
+ const found=[];
+ for(const joint of joints)for(const path of thirdRoutes){
+  const elements=[...joint.pipeTargetElementIds,...joint.bendTargetElementIds];
+  if(path.targetElementIds.some(id=>elements.includes(id)))continue;
+  for(let rev=0;rev<2;rev++){
+   const targetFrom=rev?path.targetNodePath.at(-1):path.targetNodePath[0];
+   if(targetFrom!==joint.bendDownstreamTargetNode)continue;
+   const prior=[...joint.pipeTargetNodePath,...joint.bendTargetNodePath];
+   const intersect=path.targetNodePath.filter(node=>prior.includes(node));
+   if(new Set(intersect).size!==1||intersect[0]!==targetFrom)continue;
+   found.push({
+    sharedPipeBendTargetNode:joint.targetSharedNode,
+    sharedBendNextPipeTargetNode:targetFrom,
+    firstPipeTargetElements:joint.pipeTargetElementIds,
+    bendTargetElements:joint.bendTargetElementIds,
+    nextPipeTargetElements:path.targetElementIds,
+    firstPipeResidualMm:joint.pipeResidualMm,
+    bendResidualMm:joint.bendResidualMm,
+    nextPipeResidualMm:path.lengthResidualMm,
+    sourceNextTurnAngleDeg,
+    targetNextTurnAngleDeg:angleDegrees(joint.targetBendOriginalDeltaMm,
+      signed(path.targetPathDeltaMm,rev)),
+    globalIdentityCertified:false,writerReady:false
+   });
+  }
+ }
+ return found.sort((a,b)=>a.firstPipeResidualMm+a.bendResidualMm+a.nextPipeResidualMm
+  -b.firstPipeResidualMm-b.bendResidualMm-b.nextPipeResidualMm
+  ||compare(a.sharedPipeBendTargetNode,b.sharedPipeBendTargetNode));
+}
 const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
  const left=inspectOriginalGeometry('S1',firstEdge,lengthToleranceMm);
  const right=inspectOriginalGeometry('S1',secondEdge,lengthToleranceMm);
@@ -454,12 +498,20 @@ const firstJunctionSensitivity=[25,100,200,500].map(lengthToleranceMm=>{
    pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
    joinedPhysicalRoutePairs:null,noAbsenceClaim:true,joinExamples:[]};
  const joints=jointPhysicalPairs(firstEdge,left.allRoutes,secondEdge,right.allRoutes,'5030');
+ const third=inspectOriginalGeometry('S1',thirdEdge,lengthToleranceMm);
+ const triple=third.stats.complete?extendBendToNextPipe(joints,third.allRoutes):[];
  return {lengthToleranceMm,enumerationComplete:true,
   pipeRoutes:left.allRoutes.length,bendRoutes:right.allRoutes.length,
   joinedPhysicalRoutePairs:joints.length,
   minimumCombinedLengthResidualMm:joints.length?
    Number((joints[0].pipeResidualMm+joints[0].bendResidualMm).toFixed(3)):null,
-  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,noAbsenceClaim:false,
+  joinExamples:joints.slice(0,12),sourceTurnAngleDeg,
+  thirdSourceElementKey:thirdS1.sourceElementKey,
+  thirdOriginalTargetRouteCount:third.allRoutes.length,
+  thirdRouteSearchComplete:third.stats.complete,
+  joinedTriplePhysicalRouteCount:third.stats.complete?triple.length:null,
+  tripleExamples:triple.slice(0,10),sourceNextTurnAngleDeg,
+  noAbsenceClaim:!third.stats.complete,
   localGeometryOnly:true,globalIdentityCertified:false,writerReady:false};
 });
 const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).map(([member,groups])=>[
@@ -474,6 +526,41 @@ const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).ma
 ]));
 if(Object.values(continuitySummary).reduce((n,x)=>n+x.originalFactors,0)!==21)
  throw Error('CII102_CHAIN_CENSUS_INCOMPLETE');
+// Reuse the already tested canonical read-only topology checker to measure
+// whether a larger diagnostic physical path-length bound merely unlocks
+// isolated joins or makes the complete 14-ELEMENT original S1 chain locally
+// coherent. This is NEVER Method A authority / Writer or an identity claim.
+const s1TailGroup=doubleBlankClusters.S1.find(g=>g.physicalFactorCount===14);
+if(!s1TailGroup)throw Error('CII102_MISSING_ORIGINAL_S1_TAIL');
+const s1TailRows=s1TailGroup.sourceElementKeys.map(key=>{
+ const row=doubleMissingRows.find(r=>r.sourceElementKey===key);
+ if(!row)throw Error('CII102_S1_TAIL_POPULATION_MISMATCH');
+ return row;
+});
+const s1TailSensitivity=[25,100,200].map(lengthToleranceMm=>{
+ const routes={};let complete=true;
+ for(const row of s1TailRows){
+  const edge=firstGraph.edges.find(e=>e.elementId===row.sourceElementId);
+  if(!edge)throw Error('CII102_S1_TAIL_SOURCE_EDGE_MISSING');
+  const x=inspectOriginalGeometry('S1',edge,lengthToleranceMm);
+  routes[row.sourceElementKey]=x.allRoutes;
+  if(!x.stats.complete)complete=false;
+ }
+ if(!complete)return {lengthToleranceMm,complete:false,
+  locallyArcConsistentRoutes:null,zeroArcSupportedFactors:null,
+  breakCount:null,zeroPairBreaks:[],writerReady:false,globalIdentityCertified:false};
+ const x=auditCii102ChainContinuity(s1TailRows,routes);
+ if(x.sourceFactorCount!==14||x.writerReady!==false||x.certifiedNodeCount!==0)
+  throw Error('CII102_S1_TAIL_SHADOW_INVARIANTS_CHANGED');
+ return {lengthToleranceMm,complete:true,
+  originalGeometryOnlyRoutes:x.originalGeometryOnlyRoutes,
+  locallyArcConsistentRoutes:x.locallyArcConsistentRoutes,
+  zeroArcSupportedFactors:x.zeroArcSupportedFactors,
+  breakCount:x.pairwiseChecks.filter(p=>p.compatible===0).length,
+  zeroPairBreaks:x.pairwiseChecks.filter(p=>p.compatible===0)
+   .map(p=>[p.a,p.b]),
+  globalIdentityCertified:false,writerReady:false};
+});
 const output={
  schema:'CII102F2DoubleBlankGeometryProbe.v1',authority:'READ_ONLY_DIAGNOSTIC_NO_CORRESPONDENCE',
  originalReportSha256:h(reportBytes), originalSourceShaById:Object.fromEntries(sources.map(s=>[s.sourceId,h(s.bytes)])),
@@ -483,6 +570,7 @@ const output={
  originalDoubleBlankFactors:doubleMissingRows.length,
  doubleBlankByMember,doubleBlankClusters,populationSummary,
  continuityByMember,continuitySummary,firstJunctionSensitivity,
+ s1TailSensitivity,
  allDoubleBlankFactorCases:allCases,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
@@ -504,10 +592,17 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  originalReportSha256:output.originalReportSha256,
  populationSummary:output.populationSummary,
  continuitySummary:output.continuitySummary,
+ s1TailSensitivity:output.s1TailSensitivity.map(r=>({
+  lengthToleranceMm:r.lengthToleranceMm,originalRoutes:r.originalGeometryOnlyRoutes,
+  arcRoutes:r.locallyArcConsistentRoutes,zeroArcFactors:r.zeroArcSupportedFactors,
+  breakCount:r.breakCount,complete:r.complete
+ })),
  firstJunctionSensitivity:output.firstJunctionSensitivity.map(r=>({
   lengthToleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
   bendRoutes:r.bendRoutes,joinedPhysicalRoutePairs:r.joinedPhysicalRoutePairs,
-  enumerationComplete:r.enumerationComplete
+  enumerationComplete:r.enumerationComplete,
+  tripleJoinedRoutes:r.joinedTriplePhysicalRouteCount??null,
+  sourceNextAngleDeg:r.sourceNextTurnAngleDeg??null
  })),
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
