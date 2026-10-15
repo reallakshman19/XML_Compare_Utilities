@@ -23,6 +23,8 @@ import { bindCiiTransferScopeToPreview } from './cii-workspace-transfer-scope.js
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge } from './cii-workspace-writer-version-bridge.js';
 import { ciiSha256 } from './cii-workspace-v11-v14-converter.js';
 import {
+  buildCiiReconciledAuthorityReview,
+  ciiReconciledAuthorityReviewMarkup,
   ciiMultiSourceBulkAcceptOutcome,
   ciiMultiSourceLockedReviewCount,
   ciiMultiSourceReviewBySource,
@@ -254,12 +256,13 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
-  let f2Shadow = null; let f2Worker = null; let f2Abort = null; let f2Token = 0;
+  let f2Shadow = null; let reconciledReview = null; let f2Worker = null; let f2Abort = null; let f2Token = 0;
   const invalidateF2 = () => {
     f2Token += 1;
     if (f2Abort) { f2Abort(); f2Abort = null; }
     if (f2Worker) { f2Worker.terminate(); f2Worker = null; }
     f2Shadow = null;
+    reconciledReview = null;
   };
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const authorityModeBySource = new Map(); const reviewDecisions = new Map();
@@ -328,6 +331,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!preview) return;
     if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
     if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters)
+      + ciiReconciledAuthorityReviewMarkup(reconciledReview)
       + ciiF2CanonicalPanelMarkup(f2Shadow);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
@@ -536,6 +540,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       const scopeMessage = restoredMatched && restoredScopeIntent === 'BOUND_EXPECTED_NODENAME' && !reviewDirty
         ? ' A prior bound-scope intent was recovered as advisory state only; rebind the exact scope explicitly before Writer2 Apply.' : '';
       setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}: ${locked} reviewed anchor row${locked === 1 ? '' : 's'} already LOCKED; ${review} REVIEW row${review === 1 ? '' : 's'} need explicit engineering review. HIGH/MEDIUM bulk actions affect only rows with those confidences}.${restoredMessage}${scopeMessage}`);
+      // P1: preserve the exact active Writer preview; refresh visible AUTO
+      // counterfactual asynchronously only when MANUAL claims are present.
+      if ([...manualBySource.values()].some(pairs=>pairs.length)) void reconcileF2();
     } catch (error) { if (!disposed) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyMultiSourceReview = async (event) => {
@@ -553,6 +560,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       preview = nextPreview; scopedPreview = null; reviewDirty = false; restoredScopeIntent = null; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); persistSession();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
+      if ([...manualBySource.values()].some(pairs=>pairs.length)) void reconcileF2();
     } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
   };
   // Optional, explicitly non-writing shadow. It runs in a dedicated Worker and
@@ -577,6 +585,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         {cryptoRef:options.cryptoRef,commonAnalysisCache,...activeMethodAConfidenceOptions});
       if (disposed || epoch !== confidenceEpoch || token !== f2Token ||
         preview?.correspondence?.correspondenceIdentity !== activeIdentity) return;
+      reconciledReview = buildCiiReconciledAuthorityReview(preview, autoPreview, manualBySource);
+      renderMultiReview();
       const members = preparedSession.members;
       const input = {
         authority: {
