@@ -1,0 +1,35 @@
+{
+  "schema": "CiiOwnerPhase2Benchmark.v1",
+  "status": "OWNER_INPUT_UNVALIDATED_PHYSICAL_OCCURRENCES",
+  "originalUploadName": "Pasted text(20261015-192559).txt",
+  "originalUploadSha256": "a84bd6cd59b774d32dbd32ee74efc0f9da2fc1ac0e485d2a8b2f6a67350a113f",
+  "originalLineCount": 436,
+  "lexicalRowCount": 428,
+  "uniqueSourceLabels": 350,
+  "uniqueTargetLabels": 428,
+  "repeatedSourceLabels": {
+    "PS02687.1": 78,
+    "PS02694.1": 2
+  },
+  "verbatimAnomalies": [
+    "SL-263..5",
+    "SL-265..4",
+    "SL-275-A.8"
+  ],
+  "benchmarkMinimumValidatedRecall": 0.7,
+  "minimumValidatedRowsForOriginalDenominator": 300,
+  "knownIssues": [
+    69,
+    102,
+    106
+  ],
+  "authority": "Owner-supplied lexical intended correspondence; not physically certified; no production matcher consumption",
+  "sourceMemberResolution": "PENDING_INDEPENDENT_PHYSICAL_REVIEW",
+  "sourceSet": [
+    "Benchmark/S1.CII",
+    "Benchmark/S2.CII",
+    "Benchmark/S3.CII"
+  ],
+  "target": "Benchmark/T.CII",
+  "partialPostimage": "Benchmark/TEXPECTED-PARTIALLLYDONE.CII"
+}
