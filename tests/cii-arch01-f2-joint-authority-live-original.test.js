@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge} from '../tabs/cii-workspace/cii-workspace-source-set.js';
 import {ciiAutomaticBaseSelection} from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
+import {createCiiWriter2SourceSetPreviewFromPreparedSession,createCiiCommonAnalysisCache} from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import {buildCiiJointAuthorityEvidence,ciiJointAuthorityEvidenceMarkup}
  from '../tabs/cii-workspace/cii-workspace-joint-authority-evidence.js';
 
@@ -27,13 +28,20 @@ for(const m of inspection.memberInspections){
  assert.equal(selected.status,'READY',m.sourceId);
  selectedBySource.set(m.sourceId,new Set(selected.selectionKeys));
 }
+const autoBases=Object.fromEntries(inspection.memberInspections.map(m=>[
+ m.sourceId,ciiAutomaticBaseSelection(m.inspection?.baseAnchorSuggestions||[]).baseLoops
+]));
+const automaticCorrespondencePreview=await createCiiWriter2SourceSetPreviewFromPreparedSession(
+ preparedSession,{baseLoopsBySource:autoBases},{cryptoRef:webcrypto,
+ commonAnalysisCache:createCiiCommonAnalysisCache(),spatialToleranceMm:200});
 const manualBySource=new Map([
  ['S2',[{sourceNodeId:'420',targetNodeId:'415'}]],
  ['S3',[{sourceNodeId:'1580',targetNodeId:'7880'}]],
 ]);
 const modes=new Map([['S1','AUTO'],['S2','MANUAL'],['S3','MANUAL']]);
 const args={
- inspection,preparedSession,selectedBySource,manualBySource,activeModeBySource:modes,
+ inspection,preparedSession,selectedBySource,manualBySource,
+ automaticCorrespondencePreview,activeModeBySource:modes,
  originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
  originalTargetSha256:sha(targetBytes),spatialToleranceMm:200,
 };
@@ -44,9 +52,7 @@ assert.equal(actual.summary.originalPhysicalSourceNodes,150);
 assert.deepEqual(actual.memberSummary.map(x=>x.physicalSourceNodes),[57,47,46]);
 assert.equal(actual.appliedM1SpatialToleranceMm,200);
 assert.equal(actual.originalSourceSetSha256,'5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3');
-console.log('F2_DEBUG_SELECTED_BASES',JSON.stringify({selections:[...selectedBySource].map(([sourceId,keys])=>({sourceId,keys:[...keys]})),
- members:actual.memberSummary,claims:actual.rows.filter(x=>x.targets.length).map(x=>({key:x.sourceNodeKey,targets:x.targets}))}));
-assert(actual.conflicts.length>=1,'current Owner manual vs AUTO conflicts must remain visible');
+assert(actual.conflicts.length>=2,'actual MANUAL vs propagated AUTO conflicts S2/S3 remain visible');
 const s2=actual.rows.find(x=>x.sourceNodeKey==='S2:420');
 const s3=actual.rows.find(x=>x.sourceNodeKey==='S3:1580');
 assert.deepEqual(s2.targets,['415','10330']);
