@@ -178,7 +178,7 @@ function geometricPaths(sourceEdge,lengthToleranceMm=EPSILON_MM){
    if(visited.has(next))continue;
    const len=Number(edge.lengthMm);
    if(!Number.isFinite(len)||len<=0){count('INVALID_TARGET_EDGE_LENGTH');continue;}
-   if(sum+len>source.lengthMm+lengthToleranceMm{count('TARGET_PATH_EXCEEDS_LENGTH_BOUND');continue;}
+   if(sum+len>source.lengthMm+lengthToleranceMm){count('TARGET_PATH_EXCEEDS_LENGTH_BOUND');continue;}
    const sign=String(edge.from)===node?1:-1;
    const newVector=[vector[0]+Number(edge.dx)*sign,vector[1]+Number(edge.dy)*sign,vector[2]+Number(edge.dz)*sign];
    visited.add(next);
