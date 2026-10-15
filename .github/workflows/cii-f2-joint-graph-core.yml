@@ -83,6 +83,12 @@ jobs:
             import assert from "node:assert/strict";
             const x=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             assert.equal(x.originalDoubleBlankFactors,21);
+            assert.equal(x.allDoubleBlankFactorCases.length,21);
+            assert.equal(new Set(x.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
+            assert(x.allDoubleBlankFactorCases.every(r=>
+              r.endpointNeighborEvidence.length===2&&r.currentTargets.every(t=>t.length===0)
+              &&r.independentIdentityCertificate===null&&r.writerReady===false));
+            assert.equal(Object.values(x.populationSummary).reduce((a,b)=>a+b.factors,0),21);
             assert.deepEqual(x.doubleBlankByMember,{S1:15,S2:3,S3:3});
             assert.deepEqual(Object.fromEntries(Object.entries(x.doubleBlankClusters)
               .map(([m,groups])=>[m,groups.map(g=>g.physicalFactorCount)])),
