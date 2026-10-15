@@ -47,7 +47,7 @@ function mountMethodAWeightControls(container) {
     + fields
     + '<small data-ciiw-method-a-weight-total aria-live="polite"></small>'
     + '<fieldset data-ciiw-method-a-m1-tolerance-policy><legend><b>M1 Spatial matching tolerance (mm)</b></legend>'
-    + '<p>Used in Compare Review M1 distance / tolerance and candidate ranking after spatial registration. Default 100 mm; 200 mm permits greater matching deviation. This is not the Method A rigid-base OD-scaled admission tolerance, not a BEND length correction, and does not bypass Method B, winner gaps or physical custody.</p>'
+    + '<p>Governs M1 endpoint-distance evidence and the residual-quality component of qualified Method A bases (100-point scoring). At 100 mm the Method A baseline score is unchanged; 200 mm scales its residual penalty, not rigid-basis admission. SOURCE-OD registration, Method B, winner gaps and physical custody remain independent safety gates. Never interprets a BEND length revision as a coordinate match.</p>'
     + '<label><span>M1 maximum endpoint distance (mm)</span><input type="number" min="1" max="200" step="any" data-ciiw-method-a-m1-tolerance aria-label="M1 spatial matching tolerance in millimetres"></label>'
     + '<button type="button" data-ciiw-method-a-m1-preset="100">100 mm</button>'
     + '<button type="button" data-ciiw-method-a-m1-preset="200">200 mm</button>'
