@@ -1,6 +1,7 @@
 import { ciiSha256, detectCiiNeutralVersion } from './cii-workspace-v11-v14-converter.js';
 import { CII_METHOD_A_CONFIDENCE_DEFAULTS, resolveCiiMethodAConfidenceThresholds, validateCiiMethodAConfidenceThresholds } from './cii-workspace-geometry.js';
 import { CII_METHOD_A_WEIGHT_DEFAULTS, validateCiiMethodAConfidenceWeights } from './cii-workspace-method-a-weights.js';
+import { validateCiiPathTotalLengthToleranceMm } from './cii-workspace-path-total-length.js';
 
 export const CII_SOURCE_SET_SCHEMA = 'CIIWorkspaceSourceSet.v1';
 export const CII_SOURCE_SET_INSPECTION_SCHEMA = 'CIIWorkspaceSourceSetInspection.v1';
@@ -13,6 +14,13 @@ const DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT = 5;
 let multiSourceMethodAPhysicalCandidateLimit = DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
 let multiSourceMethodAConfidenceThresholds = CII_METHOD_A_CONFIDENCE_DEFAULTS;
 let multiSourceMethodAConfidenceWeights = CII_METHOD_A_WEIGHT_DEFAULTS;
+let multiSourcePathTotalLengthToleranceMm = 100;
+export function getCiiMultiSourcePathTotalLengthToleranceMm() { return multiSourcePathTotalLengthToleranceMm; }
+export function setCiiMultiSourcePathTotalLengthToleranceMm(value) {
+  const candidate = validateCiiPathTotalLengthToleranceMm(value);
+  multiSourcePathTotalLengthToleranceMm = candidate;
+  return candidate;
+}
 
 function boundedSearchLimit(value) {
   const requested = Number(value); const finite = Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_METHOD_A_PHYSICAL_SEARCH_LIMIT;
@@ -27,6 +35,7 @@ export function getCiiMultiSourceMethodAConfidenceOptions() {
     methodAHighConfidenceThreshold: multiSourceMethodAConfidenceThresholds.high,
     methodAMediumConfidenceThreshold: multiSourceMethodAConfidenceThresholds.medium,
     methodAConfidenceWeights: multiSourceMethodAConfidenceWeights,
+    pathTotalLengthToleranceMm: multiSourcePathTotalLengthToleranceMm,
   });
 }
 export function setCiiMultiSourceMethodAConfidenceWeights(weights) {
@@ -55,6 +64,7 @@ function sourceSetInspectionOptions(options = {}) {
     methodAHighConfidenceThreshold: thresholds.high,
     methodAMediumConfidenceThreshold: thresholds.medium,
     methodAConfidenceWeights: weights,
+    pathTotalLengthToleranceMm: validateCiiPathTotalLengthToleranceMm(options.pathTotalLengthToleranceMm ?? multiSourcePathTotalLengthToleranceMm),
     methodAPhysicalCandidateLimit: boundedSearchLimit(options.methodAPhysicalCandidateLimit ?? multiSourceMethodAPhysicalCandidateLimit),
     baseAnchorDisplayLimit: Math.max(1, Number(options.baseAnchorDisplayLimit ?? DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT) || DEFAULT_BASE_ANCHOR_DISPLAY_LIMIT),
   };
