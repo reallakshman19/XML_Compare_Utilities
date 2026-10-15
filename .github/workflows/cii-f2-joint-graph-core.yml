@@ -113,6 +113,16 @@ jobs:
               assert.equal(first.globalIdentityCertified,false);
               assert.equal(first.registrationAttested,false);
               assert.equal(first.writerReady,false);
+              assert.deepEqual(x.s1TailSensitivity.map(r=>r.lengthToleranceMm),[25,100,200]);
+              assert.equal(x.s1TailSensitivity[0].originalGeometryOnlyRoutes,190);
+              assert.equal(x.s1TailSensitivity[0].locallyArcConsistentRoutes,0);
+              assert.equal(x.s1TailSensitivity[0].zeroArcSupportedFactors,14);
+              assert(x.s1TailSensitivity.every(r=>r.complete
+                &&r.writerReady===false&&r.globalIdentityCertified===false));
+              assert(x.firstJunctionSensitivity.every(r=>r.thirdRouteSearchComplete
+                &&Number.isInteger(r.joinedTriplePhysicalRouteCount)
+                &&r.sourceNextTurnAngleDeg===90
+                &&r.tripleExamples.every(t=>!t.globalIdentityCertified&&!t.writerReady)));
               assert(x.firstJunctionSensitivity.every(r=>r.enumerationComplete
                 &&r.globalIdentityCertified===false&&r.writerReady===false));
             }
@@ -184,6 +194,7 @@ jobs:
             assert.deepEqual(a.allDoubleBlankFactorCases,b.allDoubleBlankFactorCases);
             assert.deepEqual(a.continuityByMember,b.continuityByMember);
             assert.deepEqual(a.firstJunctionSensitivity,b.firstJunctionSensitivity);
+            assert.deepEqual(a.s1TailSensitivity,b.s1TailSensitivity);
             assert.deepEqual(a.continuitySummary,b.continuitySummary);
             assert.deepEqual(a.populationSummary,b.populationSummary);
             console.log("CII102_BOTH_ENDPOINTS_BOUNDARY_COMPARE_100_200_PASS",
