@@ -537,6 +537,29 @@ const s1TailRows=s1TailGroup.sourceElementKeys.map(key=>{
  if(!row)throw Error('CII102_S1_TAIL_POPULATION_MISMATCH');
  return row;
 });
+function shortestIncompatiblePhysicalSubchain(rows,routes){
+ // Read-only source-order delta debugging of the existing physical arc
+ // consistency checker. No candidate reweighting or production influence.
+ for(let width=2;width<=rows.length;width++)for(let i=0;i+width<=rows.length;i++){
+  const slice=rows.slice(i,i+width);
+  const subRoutes=Object.fromEntries(slice.map(row=>[
+   row.sourceElementKey,routes[row.sourceElementKey]
+  ]));
+  const audit=auditCii102ChainContinuity(slice,subRoutes);
+  if(audit.zeroArcSupportedFactors===0)continue;
+  return {
+   minimumOriginalSourceFactorCount:width,
+   originalSourceElementKeys:slice.map(r=>r.sourceElementKey),
+   originalCandidateRoutes:audit.originalGeometryOnlyRoutes,
+   localArcSupportedRoutes:audit.locallyArcConsistentRoutes,
+   zeroPairBreaks:audit.pairwiseChecks.filter(p=>p.compatible===0)
+    .map(p=>[p.a,p.b]),
+   zeroArcSupportedFactors:audit.zeroArcSupportedFactors,
+   physicalIdentityCertified:false,writerReady:false
+  };
+ }
+ return null;
+}
 const s1TailSensitivity=[25,100,200].map(lengthToleranceMm=>{
  const routes={};let complete=true;
  for(const row of s1TailRows){
@@ -559,6 +582,7 @@ const s1TailSensitivity=[25,100,200].map(lengthToleranceMm=>{
   breakCount:x.pairwiseChecks.filter(p=>p.compatible===0).length,
   zeroPairBreaks:x.pairwiseChecks.filter(p=>p.compatible===0)
    .map(p=>[p.a,p.b]),
+  shortestIncompatibleSubchain:shortestIncompatiblePhysicalSubchain(s1TailRows,routes),
   globalIdentityCertified:false,writerReady:false};
 });
 const output={
@@ -595,7 +619,9 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  s1TailSensitivity:output.s1TailSensitivity.map(r=>({
   lengthToleranceMm:r.lengthToleranceMm,originalRoutes:r.originalGeometryOnlyRoutes,
   arcRoutes:r.locallyArcConsistentRoutes,zeroArcFactors:r.zeroArcSupportedFactors,
-  breakCount:r.breakCount,complete:r.complete
+  breakCount:r.breakCount,
+  minimumIncompatibleSubchain:r.shortestIncompatibleSubchain?.originalSourceElementKeys||null,
+  complete:r.complete
  })),
  firstJunctionSensitivity:output.firstJunctionSensitivity.map(r=>({
   lengthToleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
