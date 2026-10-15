@@ -2,6 +2,7 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
+import {buildCiiParallelAnchorEvidence} from './cii-workspace-parallel-anchor-evidence.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
 import {
   buildCiiSelectedBaseLoops,
@@ -132,7 +133,12 @@ function renderMemberAnchors(inspection, selectedBySource, manualBySource = new 
   const members = inspection?.memberInspections || [];
   const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource, modeBySource);
   const effective = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
-  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}<div data-ciiw-geometry-review-host="1"></div>${members.map((item) => {
+  // Parallel evidence is read-only. The current active dispatch remains
+  // isolated until dual-lane physical correspondence is independently qualified.
+  const parallel = buildCiiParallelAnchorEvidence(inspection, selectedBySource, manualBySource);
+  const parallelEvidence = `<section class="ciiw-base-set" data-ciiw-ms-parallel-evidence="1"><header><div><b>Parallel AUTO + MANUAL evidence</b><span>${h(parallel.physicalPairClaimCount)} distinct physical-pair proposals; ${h(parallel.doubleSourcedClaimCount)} deduplicated shared proposals</span></div><span class="ciiw-corroboration">EVIDENCE ONLY</span></header><p>All ${h(parallel.rawAutoAnchorClaimCount)} automatic anchor claims and ${h(parallel.rawManualAnchorClaimCount)} manual anchor claims remain visible together, regardless of active Compare mode. No proposal by itself certifies physical identity or permits Writer2 transfer.</p>${parallel.conflicts.length ? `<p data-ciiw-ms-parallel-conflicts="1"><b>${h(parallel.conflicts.length)} conflicting physical claims:</b> ${parallel.conflicts.map(c => h(c.kind + ' (' + c.key + ')')).join('; ')}. These require independent resolution before any combined authority.</p>` : '<p>Zero conflicts among current anchor-pair proposals (not proof that propagated correspondences are conflict-free).</p>'}</section>`;
+
+  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${parallelEvidence}<div data-ciiw-geometry-review-host="1"></div>${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
     const authority = effective.rows.find((row) => row.sourceId === item.sourceId);
     const warning = authority?.contradictoryManualPairs.length
