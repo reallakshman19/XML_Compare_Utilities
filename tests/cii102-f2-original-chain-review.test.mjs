@@ -82,6 +82,27 @@ assert.equal(review.byMember.reduce((sum,m)=>sum+m.originalElementFactors,0),147
 assert.equal(review.factorsWithWitnesses+review.factorsWithoutWitnesses,147);
 assert(review.factorWitnesses>0,'expected true original A2 local path witnesses');
 assert(review.groups.length>0,'expected joined read-only path groups');
+assert(Number.isSafeInteger(review.traversableOriginalChainCount));
+assert(review.traversableOriginalChainCount>0,
+  'some ORIGINAL A2 local witnesses must join into ordered SOURCE/TARGET paths');
+assert(review.longestTraversableOriginalChainFactors>=2,
+  'joined original path must have at least two contiguous SOURCE factors');
+for(const group of review.groups){
+  assert.equal(group.originalWitnessChainSearchComplete,true);
+  assert(Number.isSafeInteger(group.longestTraversableOriginalFactors));
+  for(const route of group.contiguousOriginalChains){
+    assert.equal(route.sourceMember,group.member);
+    assert(route.factorCount>=2);
+    assert.equal(route.sourceNodePath.length,route.factorCount+1);
+    assert.equal(new Set(route.sourceNodePath).size,route.sourceNodePath.length);
+    assert.equal(new Set(route.targetNodePath).size,route.targetNodePath.length);
+    assert.equal(new Set(route.targetElementIds).size,route.targetElementIds.length);
+    assert.equal(route.globallyUnique,false);
+    assert.equal(route.independentlyCertified,false);
+    assert.equal(route.writerEligible,false);
+    assert(route.factorIds.every(id=>group.sourceElementFactors.includes(id)));
+  }
+}
 assert(review.groups.every(g=>g.identityIndependentlyCertified===false
   &&g.reviewedCorrespondence===false&&g.writerEligible===false));
 assert.equal(review.candidateGenerationPerformed,false);
@@ -125,6 +146,8 @@ console.log('CII102_ORIGINAL_F2_CHAIN_REVIEW_PASS',JSON.stringify({
   factorsWithOriginalWitnesses:review.factorsWithWitnesses,
   factorsWithoutOriginalWitnesses:review.factorsWithoutWitnesses,
   originalWitnesses:review.factorWitnesses,joinedEvidenceGroups:review.groups.length,
+  orderedContiguousChains:review.traversableOriginalChainCount,
+  longestOriginalTraversableFactorChain:review.longestTraversableOriginalChainFactors,
   byMember:review.byMember,
   newCertifiedCorrespondences:review.certifiedNodeCount,
   additionalTransferOperations:0,writerReady:false,
