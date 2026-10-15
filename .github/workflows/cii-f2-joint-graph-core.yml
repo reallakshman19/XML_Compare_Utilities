@@ -110,6 +110,15 @@ jobs:
             assert.equal(x.s1TailSensitivity[0].originalGeometryOnlyRoutes,190);
             assert.equal(x.s1TailSensitivity[0].locallyArcConsistentRoutes,0);
             assert.equal(x.s1TailSensitivity[0].zeroArcSupportedFactors,14);
+            assert.deepEqual(x.s1TailSensitivity[0].shortestIncompatibleSubchain.originalSourceElementKeys,
+              ["S1:E44:5000->5030","S1:E45:5030->5040"]);
+            assert.deepEqual(x.s1TailSensitivity[1].shortestIncompatibleSubchain.originalSourceElementKeys,
+              ["S1:E53:5190->5200","S1:E54:5200->5210"]);
+            assert(x.s1TailSensitivity[2].shortestIncompatibleSubchain.minimumOriginalSourceFactorCount>=3);
+            assert.equal(x.s1TailSensitivity[2].shortestIncompatibleSubchain.zeroPairBreaks.length,0);
+            assert(x.s1TailSensitivity.every(r=>
+              r.shortestIncompatibleSubchain&&r.shortestIncompatibleSubchain.writerReady===false
+              &&r.shortestIncompatibleSubchain.physicalIdentityCertified===false));
             assert(x.s1TailSensitivity.every(r=>r.complete
               &&r.writerReady===false&&r.globalIdentityCertified===false
               &&Number.isInteger(r.zeroArcSupportedFactors)));
