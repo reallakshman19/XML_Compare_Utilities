@@ -7,7 +7,7 @@
  *
  * No production imports, no output CII, no readiness gate, no Writer dispatch.
  */
-import { createHash } from 'node:crypto';
+import { ciiA2HashJson } from './cii-a2-json-sha256.mjs';
 import {
   ciiTransferPhysicalEntityRef,
   CII_TRANSFER_ARCH_A1_CATALOG,
@@ -35,7 +35,7 @@ const compare = (a, b) => a.localeCompare(b, undefined, { numeric: true });
 const nodeKey = (sourceId, sourceNodeId) => id(sourceId) + ':' + id(sourceNodeId);
 const physicalClaimKey = (s, n, t) => JSON.stringify([s, n, t]);
 function digest(value) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  return ciiA2HashJson(value);
 }
 function canonicalSnapshot(input) {
   const sourceSetSha256 = sha(input.sourceSetSha256);
