@@ -68,7 +68,7 @@ function compatiblePath(source,targetEdges,sourceGraph,targetGraph,toleranceMm=2
   searchIncomplete:queue.length>0||count>=visitLimit||witnesses.length>8};
 }
 export function buildCiiJointAuthorityEvidence({
- inspection,preparedSession,selectedBySource,manualBySource,activeModeBySource,
+ inspection,preparedSession,selectedBySource,manualBySource,activeModeBySource,automaticCorrespondencePreview=null,
  originalSourceSetSha256,originalTargetSha256,spatialToleranceMm=100,
 }={}){
  realSha(originalSourceSetSha256,'SOURCE_SET');
@@ -100,6 +100,20 @@ export function buildCiiJointAuthorityEvidence({
    add(p,'AUTO',id(loop.loopId||loop.baseId||loop.method));
    retainedAuto++;
   }
+  // A selected automatic base carries only establishment anchor pairs.
+  // The *propagated* automatic NODE hypotheses (S2:420→10330 in the original
+  // data) are separate and must be included for genuine joint comparison.
+  const automaticMember=automaticCorrespondencePreview?.memberPreviews?.find(
+    item=>id(item.sourceId)===memberId);
+  const propagated=automaticMember?.preview?.correspondence?.nodeRows||[];
+  for(const row of propagated){
+    if(row.kind!=='NODE'||row.sourceNodeId==null||row.targetNodeId==null||
+      ['CONFLICT','UNRESOLVED'].includes(id(row.status)))continue;
+    // Preserve as non-certifying evidence even if the previous AUTO-only
+    // correspondence ranked it HIGH.
+    add(row,'AUTO','PROPAGATED_'+id(row.authority||row.status));
+    retainedAuto++;
+  }
   for(const p of manual){add(p,'MANUAL','USER_REVIEWED_ANCHOR');retainedManual++;}
   for(const node of nodeIds)allNodes.add(memberId+':'+node);
   memberSummary.push(deepFreeze({
@@ -127,7 +141,7 @@ export function buildCiiJointAuthorityEvidence({
   rows.push(deepFreeze({
    sourceNodeKey:key,sourceId:key.split(':')[0],sourceNodeId:key.slice(key.indexOf(':')+1),
    targets:deepFreeze(targetOptions),
-   state:reasons.length?'CONFLICT':targetOptions.length?'SEED_HYPOTHESIS_ONLY':'UNSEEDED',
+   state:reasons.length?'CONFLICT':targetOptions.length?'CANDIDATE_HYPOTHESIS_ONLY':'UNEMITTED',
    reasons:deepFreeze(reasons),
    evidence:deepFreeze(evidence.slice().sort((a,b)=>sort(a.lane,b.lane)||sort(a.targetNodeId,b.targetNodeId))),
    certified:false,
@@ -143,7 +157,7 @@ export function buildCiiJointAuthorityEvidence({
   for(const edge of graphEdges(member.sourceGraph).slice(0,limit)){
    const a=lookup.get(memberId+':'+id(edge.from)),b=lookup.get(memberId+':'+id(edge.to));
    let state='NO_UNCONTESTED_TWO_ENDPOINTS',witnesses=[],searchIncomplete=false;
-   if(a?.state==='SEED_HYPOTHESIS_ONLY'&&b?.state==='SEED_HYPOTHESIS_ONLY'){
+   if(a?.state==='CANDIDATE_HYPOTHESIS_ONLY'&&b?.state==='CANDIDATE_HYPOTHESIS_ONLY'){
     const result=compatiblePath(edge,[a.targets[0],b.targets[0]],member.sourceGraph,targetGraph);
     witnesses=result.witnesses;searchIncomplete=result.searchIncomplete;
     state=searchIncomplete?'BOUNDED_SEARCH_INCOMPLETE':
@@ -162,7 +176,7 @@ export function buildCiiJointAuthorityEvidence({
   rows:deepFreeze(rows),elementRows:deepFreeze(elementRows),memberSummary:deepFreeze(memberSummary),
   summary:deepFreeze({originalPhysicalSourceNodes:rows.length,
    sourceNodesWithAtLeastOneSeedHypothesis:rows.filter(x=>x.targets.length>0).length,
-   unseededPhysicalSourceNodes:rows.filter(x=>x.state==='UNSEEDED').length,
+   unseededPhysicalSourceNodes:rows.filter(x=>x.state==='UNEMITTED').length,
    competingSourceNodes:conflicts.length,
    localPathWitnessRows:elementRows.filter(x=>x.state==='LOCAL_PATH_WITNESS_ONLY').length,
    unresolvedElementConstraints:elementRows.filter(x=>x.state!=='LOCAL_PATH_WITNESS_ONLY').length}),
@@ -170,7 +184,7 @@ export function buildCiiJointAuthorityEvidence({
   independentlyCertifiedNodes:0,independentlyCertifiedElements:0,
   transferPlan:null,writeScope:null,writerReady:false,
   limitations:deepFreeze([
-   'UNIQUE_SEED_HYPOTHESIS_IS_NOT_INDEPENDENT_PHYSICAL_IDENTITY',
+   'UNIQUE_AUTO_OR_MANUAL_HYPOTHESIS_IS_NOT_INDEPENDENT_PHYSICAL_IDENTITY',
    'LOCAL_PATH_WITNESS_IS_NOT_GLOBAL_ASSIGNMENT_OR_CERTIFICATE',
    'BOUNDED_SEARCH_CANNOT_PROVE_NO_UNSEEN_TARGET_PATH',
    'NO_AUTO_MANUAL_AUTHORITY_PROMOTION',
@@ -189,8 +203,8 @@ export function ciiJointAuthorityEvidenceMarkup(report,escape){
  return '<section data-ciiw-f2-joint-review="1"><h3>Joint authority evidence — read-only</h3>'+
   '<p>All retained manual and automatic base claims are considered together here. The current Compare and Writer authority is NOT changed. No TARGET identity is certified by a better score or more candidates.</p>'+
   '<p><b>'+s.originalPhysicalSourceNodes+'</b> original SOURCE NODEs · <b>'+s.sourceNodesWithAtLeastOneSeedHypothesis+
-  '</b> with retained seed hypothesis · <b>'+s.unseededPhysicalSourceNodes+
-  '</b> unseeded · <b>'+s.competingSourceNodes+' conflicting</b> · <b>'+s.localPathWitnessRows+
+  '</b> with retained candidate hypothesis · <b>'+s.unseededPhysicalSourceNodes+
+  '</b> with no emitted joint candidate · <b>'+s.competingSourceNodes+' conflicting</b> · <b>'+s.localPathWitnessRows+
   '</b> local physical path witnesses (not certified)</p>'+
   (conflicts?'<table class="ciiw-grid"><thead><tr><th>SOURCE</th><th>Manual TARGET</th><th>Automatic TARGET</th><th>Why REVIEW</th></tr></thead><tbody>'+conflicts+'</tbody></table>':
    '<p>No conflicting retained seeds were found; this does not establish global graph completeness.</p>')+
