@@ -80,3 +80,53 @@ expected PS↔SL relation. It cannot close P401–P410, PH4, or the Owner merge 
 The next actual required input remains the Owner's complete untouched relation
 text and an independently attested manifest. Do **not** repurpose existing
 SOURCE/TARGET label names as guessed relationships.
+
+## Issue #102 — quantitative 70% acceptance guard (test-only)
+
+New pure evaluator `tests/cii-workspace-owner-phase2-recall.js` and its
+`tests/cii-workspace-owner-phase2-recall.test.mjs` negative controls
+specifically protect the Owner's **≥70% complete Phase 2 benchmark**
+requirement. This is not the same as the old 105/150 AUTO BOUND source census.
+
+Once the authentic full Owner bytes/manifest are supplied, the existing
+`tests/cii-workspace-owner-golden-retained-gate.mjs` emits a full
+`owner-golden-readiness.json`. The new
+`tests/cii-workspace-owner-phase2-recall-gate.mjs` consumes that existing
+readiness output and records `owner-phase2-validated-recall.json`.
+**Without the original Owner file, the numerator, denominator and percentage
+are all null (NOT_EVALUABLE), not 0%, 70%, or PASS.**
+
+The accepted original raw rows remain the denominator (including duplicates,
+ambiguous, invalid, lexical anomalies and absent physical labels).
+Independent global physical identity receipts, not legacy
+`identityBound=true` or successful label equality, are the only possible
+source of validated-recall credit. The evaluator requires exact
+SOURCE-member/physical-NODE + original TARGET-NODE identity, original
+S1/S2/S3/T custody, independent review link and proof digest, globally
+complete assignment, zero ambiguous alternatives and unique cross-source
+TARGET custody. It rejects wrong IDs, stale custody, duplicate claims,
+reused TARGET custody, reused owner lexical rows, invalid labels and missing
+expected physical identities. **Its validation of receipt structure does NOT
+authenticate the human reviewer, prove physics by itself, or grant Writer
+authority**; a reviewer must independently inspect source-level proof and
+the Owner must accept the full golden provenance before reporting an achieved
+70%. The code leaves `ownerAccepted=false`, `writerAuthority=false`
+and `mergeAuthorized=false` even when a *synthetic test* crosses 70%.
+
+Native regression:
+```sh
+node tests/cii-workspace-owner-phase2-recall.test.mjs
+```
+This test uses exclusively synthetic ten-row Owner-looking data:
+zero provided receipts -> 0/10 physically validated despite 10/10
+legacy BOUND; 7 receipts -> 7/10 (70%) numerical threshold only;
+6 receipts -> 6/10; duplicates, missing labels, reused target names,
+wrong pairs, incomplete physical proof and stale source SHA fail closed.
+**These are not genuine Owner PS↔SL benchmark results**.
+
+CI invokes the native controls, authentic physical inventory and the
+missing-input gate from the existing PR #70 qualification workflow.
+An actual complete Owner mapping is STILL required. When received, run
+a separate independently reviewed physical evidence intake in read-only
+mode; do not fabricate independent receipts from #101's current
+`physicalIdentityCertified=false` shadow or import the golden into matching.
