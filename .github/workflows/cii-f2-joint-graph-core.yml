@@ -80,6 +80,51 @@ jobs:
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
             --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json
+      - name: Test same original double-blank physical discriminator at actual Method A 100 and 200mm
+        run: |
+          for tol in 100 200; do
+            node scripts/cii-102-f2-double-blank-geometry-probe.mjs \
+              --report test-results/cii-arch01-f2-joint-${tol}.json \
+              --out test-results/cii102-f2-double-blank-${tol}.json
+          done
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const a=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
+            const b=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-200.json"));
+            assert.equal(a.originalDoubleBlankFactors,21);
+            assert.equal(a.originalPhysicalSourceNodes,150);
+            assert.equal(a.originalPhysicalSourceElements,147);
+            assert.deepEqual(a.selectedSourceFactors.map(r=>r.sourceElementKey),[
+              "S1:E9:4050->4060","S2:E44:630->640","S3:E1:1350->1360"
+            ]);
+            for(const x of [a,b]){
+              assert.equal(x.physicalCertifications,0);
+              assert.equal(x.writerReady,false);
+              assert.equal(x.transferPlan,null);
+              assert.equal(x.writeScope,null);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+                (n,e)=>n+e.originalTargetSeedIds.length,0)),[1,0,0]);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+                (n,e)=>n+e.newlyRecoveredUnverifiedTargetSeedIds.length,0)),[2,1,0]);
+              assert.deepEqual(x.selectedSourceFactors.map(r=>r.boundaryDiagnosis),[
+                "ONLY_UNVERIFIED_RECOVERED_SEEDS_HAVE_ROOTED_PATHS",
+                "CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH",
+                "NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS"
+              ]);
+            }
+            assert.equal(a.originalTargetSha256,b.originalTargetSha256);
+            assert.deepEqual(a.originalSourceShaById,b.originalSourceShaById);
+            // Geometry is independently enumerated from original files, not
+            // from M1 score weights; two applied policies must not fabricate
+            // different physical target routes for identical original edges.
+            assert.deepEqual(a.selectedSourceFactors,b.selectedSourceFactors);
+            console.log("CII102_BOTH_ENDPOINTS_BOUNDARY_COMPARE_100_200_PASS",
+              JSON.stringify(a.selectedSourceFactors.map(r=>({
+                factor:r.sourceElementKey,boundaryDiagnosis:r.boundaryDiagnosis,
+                unanchoredPhysicalRoutes:r.targetRoutesWithGeometryOnly
+              }))));
+          '
       - name: Compare actual 100mm and 200mm applied policy, physical census and no Writer
         run: |
           node --input-type=module -e '
@@ -146,6 +191,7 @@ jobs:
           name: cii-arch01-f2-100-200-joint-shadow
           path: |
             test-results/cii-arch01-f2-joint-*.json
+            test-results/cii102-f2-double-blank-*.json
             test-results/cii-arch01-f2-joint-*.physical-gap-rca.csv
           if-no-files-found: warn
           retention-days: 14
