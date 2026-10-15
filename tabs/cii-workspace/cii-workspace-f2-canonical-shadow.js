@@ -4,6 +4,7 @@
  * Input contains two independently prepared same-source/target audit snapshots;
  * manual assertions are retained even when excluded by ACTIVE Compare mode.
  */
+import {buildCiiF2PhysicalGapLedger} from './cii-workspace-f2-physical-gap-ledger.js';
 import {buildCiiA2ShadowJointEvidence} from '../../scripts/cii-architecture-a2-shadow-joint-evidence.mjs';
 import {inspectCiiA2PhysicalConstraints} from '../../scripts/cii-architecture-a2-physical-path-constraints.mjs';
 import {solveCiiA2GlobalShadow} from '../../scripts/cii-architecture-a2-global-constraint-shadow.mjs';
@@ -23,6 +24,7 @@ export function computeCiiF2CanonicalShadow(input={}){
  const reconciled=reconcileCiiA2RecoveredFrontier({
   joint,originalPathAudit:physical,frontier,sourceGraphsById,
   targetGraph,normalizedSourceShaById,normalizedTargetSha256});
+ const physicalGapLedger=buildCiiF2PhysicalGapLedger(physical,reconciled);
  for(const item of [joint,physical,global,frontier,reconciled]){
   if(item.writerReady!==false&&item.writerDispatchInstalled!==false)
    throw Error('F2_CANONICAL_NON_WRITER_CONTRACT_BROKEN');
@@ -52,7 +54,7 @@ export function computeCiiF2CanonicalShadow(input={}){
    independentlyRecheckedPhysicalWitnesses:reconciled.independentlyRecheckedPhysicalWitnesses,
    globalComponentStates:global.componentStates,
   },
-  rows:nodeRows,frontier:frontier.proposals,
+  rows:nodeRows,frontier:frontier.proposals,physicalGapLedger,
   physicalConstraintSummary:physical.summary,
   globalConstraints:global.components.map(c=>({status:c.status,
    sourceNodeCount:c.sourceNodes.length,
