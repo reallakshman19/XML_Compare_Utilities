@@ -121,7 +121,7 @@ function boundedPaths(edge,targetGraph,start,end,policy){
    if(seen.has(to)||!Number.isFinite(candidateLength)||candidateLength<=0)continue;
    if(accLength+candidateLength>length(edge)+policy.pathLengthToleranceMm)continue;
    // Target inserted internal PIPE nodes are physical degree-two nodes only.
-   if(to!==end&&steps.length>0&&(targetGraph.adjacency.get(to)||[]).length!==2)continue;
+   if(to!==end&&(targetGraph.adjacency.get(to)||[]).length!==2)continue;
    if(to!==end&&str(edge.componentKind)!=='PIPE')continue;
    seen.add(to);dfs(to,[...steps,{edge:candidate,from,to}],accLength+candidateLength);seen.delete(to);
   }
