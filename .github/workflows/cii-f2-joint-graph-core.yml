@@ -107,6 +107,15 @@ jobs:
             }
             assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
               (count,b)=>count+b.existingTargetSeedCount,0)),[3,1,0]);
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+              (count,b)=>count+b.originalTargetSeedIds.length,0)),[1,0,0]);
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+              (count,b)=>count+b.newlyRecoveredUnverifiedTargetSeedIds.length,0)),[2,1,0]);
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.boundaryDiagnosis),[
+              "ONLY_UNVERIFIED_RECOVERED_SEEDS_HAVE_ROOTED_PATHS",
+              "CURRENT_SEEDS_WITH_NO_BOUNDED_ROOTED_PHYSICAL_PATH",
+              "NO_IMMEDIATE_TARGET_SEED_REQUIRES_INDEPENDENT_COMPONENT_BASIS"
+            ]);
             for(const row of x.selectedSourceFactors){
               assert.equal(row.independentIdentityCertificate,null);
             }
