@@ -2,6 +2,8 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { buildCiiSourceTargetAudit } from './cii-workspace-source-target-audit.js';
 import { ciiF2CanonicalPanelMarkup } from './cii-workspace-f2-canonical-ui.js';
+import { buildCiiF2OriginalChainReview, ciiF2OriginalChainReviewMarkup }
+  from './cii-workspace-f2-original-chain-review.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
@@ -257,13 +259,14 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
-  let f2Shadow = null; let reconciledReview = null; let f2Worker = null; let f2Abort = null; let f2Token = 0;
+  let f2Shadow = null; let reconciledReview = null; let originalChainReview = null; let f2Worker = null; let f2Abort = null; let f2Token = 0;
   const invalidateF2 = () => {
     f2Token += 1;
     if (f2Abort) { f2Abort(); f2Abort = null; }
     if (f2Worker) { f2Worker.terminate(); f2Worker = null; }
     f2Shadow = null;
     reconciledReview = null;
+    originalChainReview = null;
   };
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const authorityModeBySource = new Map(); const reviewDecisions = new Map();
@@ -333,6 +336,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
     if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters)
       + ciiReconciledAuthorityReviewMarkup(reconciledReview)
+      + ciiF2OriginalChainReviewMarkup(originalChainReview)
       + ciiF2CanonicalPanelMarkup(f2Shadow);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
@@ -637,8 +641,12 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         throw Error('F2_SHADOW_WRITER_BOUNDARY_VIOLATION');
       // SHA-bound evidence from the EXISTING canonical Worker. No new worker,
       // matcher, active identity, user review decision or Writer promotion.
-      if (reconciledReview) reconciledReview=
-        qualifyCiiReconciledAuthorityPhysicalEvidence(reconciledReview,report);
+      const nextOriginalChainReview = buildCiiF2OriginalChainReview(report);
+      const nextReconciledReview = reconciledReview
+        ? qualifyCiiReconciledAuthorityPhysicalEvidence(reconciledReview,report)
+        : null;
+      reconciledReview=nextReconciledReview;
+      originalChainReview=nextOriginalChainReview;
       f2Shadow=report;renderMultiReview();
       setMultiSourceStatus(container,'F2 canonical A2: '+report.summary.recoveredHypotheses
         +' provisional new hypotheses; '+report.summary.uniqueNewlyCoveredNodes
