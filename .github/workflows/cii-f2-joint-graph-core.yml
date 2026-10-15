@@ -95,6 +95,27 @@ jobs:
             const a=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             const b=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-200.json"));
             assert.equal(a.originalDoubleBlankFactors,21);
+            for(const x of [a,b]){
+              assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.lengthToleranceMm),
+                [25,100,200,500]);
+              assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.joinedPhysicalRoutePairs),
+                [0,1,4,40]);
+              assert.equal(x.firstJunctionSensitivity[0].pipeRoutes,22);
+              assert.equal(x.firstJunctionSensitivity[0].bendRoutes,9);
+              const first=x.firstJunctionSensitivity[1].joinExamples[0];
+              assert.equal(first.targetSharedNode,"1075");
+              assert.deepEqual(first.pipeTargetElementIds,["E215:1070->1075"]);
+              assert.deepEqual(first.bendTargetElementIds,["E216:1075->1080"]);
+              assert.equal(first.pipeResidualMm,37);
+              assert.equal(first.bendResidualMm,0);
+              assert.equal(first.sourceTurnAngleDeg,0);
+              assert(Number.isFinite(first.targetTurnAngleDeg));
+              assert.equal(first.globalIdentityCertified,false);
+              assert.equal(first.registrationAttested,false);
+              assert.equal(first.writerReady,false);
+              assert(x.firstJunctionSensitivity.every(r=>r.enumerationComplete
+                &&r.globalIdentityCertified===false&&r.writerReady===false));
+            }
             assert.equal(a.allDoubleBlankFactorCases.length,21);
             assert.equal(b.allDoubleBlankFactorCases.length,21);
             assert.equal(new Set(a.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
@@ -162,6 +183,7 @@ jobs:
             assert.deepEqual(a.selectedSourceFactors,b.selectedSourceFactors);
             assert.deepEqual(a.allDoubleBlankFactorCases,b.allDoubleBlankFactorCases);
             assert.deepEqual(a.continuityByMember,b.continuityByMember);
+            assert.deepEqual(a.firstJunctionSensitivity,b.firstJunctionSensitivity);
             assert.deepEqual(a.continuitySummary,b.continuitySummary);
             assert.deepEqual(a.populationSummary,b.populationSummary);
             console.log("CII102_BOTH_ENDPOINTS_BOUNDARY_COMPARE_100_200_PASS",
