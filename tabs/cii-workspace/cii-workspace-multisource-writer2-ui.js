@@ -2,6 +2,7 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
+import {buildCiiJointAuthorityEvidence,ciiJointAuthorityEvidenceMarkup} from './cii-workspace-joint-authority-evidence.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
 import {
   buildCiiSelectedBaseLoops,
@@ -251,7 +252,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
   let confidenceEpoch = 0;
-  let preview = null; let scopedPreview = null; let reviewDirty = false;
+  let preview = null; let scopedPreview = null; let reviewDirty = false; let jointEvidence = null;
   let sessionCustody = null; let loadedSession = null; let reviewRestoreAllowed = false; let restoredScopeIntent = null;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const authorityModeBySource = new Map(); const reviewDecisions = new Map();
   const reviewFilters = { confidence: 'ALL', search: '', changedOnly: false };
@@ -318,7 +319,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const renderMultiReview = () => {
     if (!preview) return;
     if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
-    if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
+    if (results) results.innerHTML = ciiJointAuthorityEvidenceMarkup(jointEvidence,h) + ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
     if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
@@ -332,7 +333,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     geometryReviewState.receipt=null;
     if(evidence)evidence.innerHTML='';
     inspection = null; preparedSession = null; commonAnalysisCache = null;
-    cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
+    cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false; jointEvidence = null;
     sessionCustody = null; loadedSession = null; reviewRestoreAllowed = false; restoredScopeIntent = null;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); authorityModeBySource.clear(); reviewDecisions.clear();
     reviewFilters.confidence = 'ALL'; reviewFilters.search = ''; reviewFilters.changedOnly = false; syncFilterControls();
@@ -436,7 +437,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       const prepared = await prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef, ...activeMethodAConfidenceOptions });
       if (disposed || runEpoch !== confidenceEpoch) return;
       inspection = prepared.inspection; preparedSession = prepared.preparedSession; commonAnalysisCache = createCiiCommonAnalysisCache();
-      if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); authorityModeBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
+      if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); authorityModeBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false; jointEvidence = null;
       sessionCustody = ciiWriter2SessionCustody(inspection);
       loadedSession = sessionCustody ? loadCiiWriter2Session(persistenceStorage, sessionCustody.storageKey) : null;
       if (!ciiWriter2SessionPolicyMatches(loadedSession, activeMethodAConfidenceOptions)) loadedSession = null;
@@ -497,7 +498,23 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         cryptoRef: options.cryptoRef, commonAnalysisCache, ...activeMethodAConfidenceOptions,
       });
       if (disposed || runEpoch !== confidenceEpoch) return;
-      preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      preview = nextPreview; scopedPreview = null; reviewDirty = false;
+      // ARCH-01 F2 shadow: consume BOTH retained evidence lanes, even while
+      // the legacy operational Compare remains single-lane. This report
+      // intentionally never enters previewInput(), Transfer or Writer.
+      try {
+        jointEvidence = buildCiiJointAuthorityEvidence({
+          inspection,preparedSession,selectedBySource,manualBySource,
+          activeModeBySource:authorityModeBySource,
+          originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
+          originalTargetSha256:preview.targetAuthority.originalSha256,
+          spatialToleranceMm:activeMethodAConfidenceOptions.spatialToleranceMm,
+        });
+      } catch (diagnosticError) {
+        jointEvidence = null;
+        console.warn('F2 read-only joint authority diagnostic unavailable:', diagnosticError?.message || diagnosticError);
+      }
+      seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       let restoredDecisionCount = 0; let restoredMatched = false;
       if (reviewRestoreAllowed && loadedSession) {
         const validIds = (preview?.compareReview?.rows || []).map((row) => row?.correspondenceId).filter(Boolean);
