@@ -1,0 +1,37 @@
+name: CII F2 Joint AUTO Manual Shadow Live
+on:
+  push:
+    branches: [fix/cii-69-f2-joint-authority-shadow-20261015]
+  pull_request:
+    paths:
+      - tabs/cii-workspace/cii-workspace-joint-authority-evidence.js
+      - tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+      - tests/cii-arch01-f2-joint-authority-live-original.test.js
+      - .github/workflows/cii-f2-joint-authority-shadow.yml
+permissions:
+  contents: read
+jobs:
+  original-joint-claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Parse actual runtime bridge
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-joint-authority-evidence.js
+          node --check tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+      - name: Exact S1 S2 S3 physical census and AUTO vs manual target collision evidence
+        run: node tests/cii-arch01-f2-joint-authority-live-original.test.js
+      - name: Original live authority regression
+        run: node tests/cii-workspace-multisource-anchor-mode.test.js
+      - name: Original mode & transfer regression
+        run: |
+          node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
+          node tests/cii-workspace-method-a-m1-spatial-tolerance-original.test.js
+      - name: Existing negative physical correspondence & custody controls
+        run: |
+          node tests/cii-workspace-multi-base-correspondence.test.js
+          node tests/cii-workspace-frontier-diagnostics.test.js
