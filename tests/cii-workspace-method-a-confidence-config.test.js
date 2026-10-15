@@ -89,7 +89,7 @@ const savedSnapshot = createCiiWriter2SessionSnapshot({
   confidencePolicy: storedPolicy,
   reviewDecisions: new Map([['corr-1', 'ACCEPT']]),
 });
-assert.deepEqual(savedSnapshot.confidencePolicy, { high: 75, medium: 65, weights: getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights });
+assert.deepEqual(savedSnapshot.confidencePolicy, { high: 75, medium: 65, pathTotalLengthToleranceMm: 100, weights: getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights });
 assert.equal(ciiWriter2SessionPolicyMatches(savedSnapshot, storedPolicy), true);
 assert.equal(ciiWriter2SessionPolicyMatches(savedSnapshot, {
   methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70,
