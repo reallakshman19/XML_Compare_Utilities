@@ -56,7 +56,7 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await expect(originalChains).toContainText('98/147');
  await expect(originalChains).toContainText('49 factors lack original path evidence');
  await expect(originalChains).toContainText('0 physically certified identities');
- await originalChains.locator('details').first().locator('summary').click();
+ await originalChains.locator('details > summary').first().click();
  await expect(originalChains.locator('[data-ciiw-f2-chain-group="1"]')).toHaveCount(7);
  await expect(originalChains).toContainText('Longest ordered, non-reusing original route:');
  await expect(originalChains).toContainText('global TARGET search/uniqueness NOT proved');
