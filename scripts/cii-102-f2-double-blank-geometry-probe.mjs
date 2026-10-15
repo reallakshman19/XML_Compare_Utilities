@@ -14,6 +14,7 @@ import {dirname,resolve,relative} from 'node:path';
 import {createHash,webcrypto} from 'node:crypto';
 import {prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge}
   from '../tabs/cii-workspace/cii-workspace-source-set.js';
+import {auditCii102ChainContinuity} from './cii-102-f2-chain-continuity.mjs';
 
 const h=bytes=>createHash('sha256').update(bytes).digest('hex');
 const compare=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
@@ -354,6 +355,43 @@ const populationSummary=Object.fromEntries(['S1','S2','S3'].map(member=>{
   boundaryStates:states,
  }];
 }));
+// The 16 seedless cases should not be ranked by individual edge lengths:
+// preserve adjacent original SOURCE NODEs and shared TARGET edge/node custody
+// across each complete double-blank connected chain.
+const continuityByMember=Object.fromEntries(['S1','S2','S3'].map(member=>{
+ const all=doubleBlankClusters[member].map(group=>{
+  const clusterRows=group.sourceElementKeys.map(sourceElementKey=>{
+   const row=doubleMissingRows.find(x=>x.sourceElementKey===sourceElementKey);
+   if(!row)throw Error('CII102_CLUSTER_SOURCE_IDENTITY_LOST');
+   return row;
+  });
+  const originalRoutes=Object.fromEntries(clusterRows.map(row=>{
+   const edge=sourceGraphs[member].edges.find(x=>String(x.elementId)===String(row.sourceElementId));
+   if(!edge)throw Error('CII102_CLUSTER_EDGE_NOT_PRESENT');
+   return [row.sourceElementKey,inspectOriginalGeometry(member,edge).allRoutes];
+  }));
+  const result=auditCii102ChainContinuity(clusterRows,originalRoutes);
+  if(result.sourceFactorCount!==group.physicalFactorCount
+   ||result.originalGeometryOnlyRoutes!==clusterRows.reduce((n,x)=>
+    n+originalRoutes[x.sourceElementKey].length,0)
+   ||result.certifiedNodeCount!==0||result.writerReady!==false)
+   throw Error('CII102_CLUSTER_EVIDENCE_OR_WRITER_CONTRACT_VIOLATED');
+  return {originalSourceElementKeys:group.sourceElementKeys,...result};
+ });
+ return [member,all];
+}));
+const continuitySummary=Object.fromEntries(Object.entries(continuityByMember).map(([member,groups])=>[
+ member,{
+  clusters:groups.length,
+  originalFactors:groups.reduce((n,x)=>n+x.sourceFactorCount,0),
+  adjacentPhysicalSourcePairs:groups.reduce((n,x)=>n+x.sharedNodePairCount,0),
+  originalGeometryOnlyRoutes:groups.reduce((n,x)=>n+x.originalGeometryOnlyRoutes,0),
+  arcConsistentPhysicalRoutes:groups.reduce((n,x)=>n+x.locallyArcConsistentRoutes,0),
+  zeroArcSupportedFactors:groups.reduce((n,x)=>n+x.zeroArcSupportedFactors,0),
+ }
+]));
+if(Object.values(continuitySummary).reduce((n,x)=>n+x.originalFactors,0)!==21)
+ throw Error('CII102_CHAIN_CENSUS_INCOMPLETE');
 const output={
  schema:'CII102F2DoubleBlankGeometryProbe.v1',authority:'READ_ONLY_DIAGNOSTIC_NO_CORRESPONDENCE',
  originalReportSha256:h(reportBytes), originalSourceShaById:Object.fromEntries(sources.map(s=>[s.sourceId,h(s.bytes)])),
@@ -362,6 +400,7 @@ const output={
  originalPhysicalSourceNodes:150,originalPhysicalSourceElements:147,
  originalDoubleBlankFactors:doubleMissingRows.length,
  doubleBlankByMember,doubleBlankClusters,populationSummary,
+ continuityByMember,continuitySummary,
  allDoubleBlankFactorCases:allCases,selectedSourceFactors:cases,
  physicalCertifications:0,writerReady:false,transferPlan:null,writeScope:null,
  limitations:[
@@ -382,6 +421,7 @@ writeFileSync(dest,JSON.stringify(output,null,2)+'\n','utf8');
 console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  originalReportSha256:output.originalReportSha256,
  populationSummary:output.populationSummary,
+ continuitySummary:output.continuitySummary,
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
   unanchoredTargetRoutes:c.targetRoutesWithGeometryOnly,segments:c.relativeRouteCounts,
