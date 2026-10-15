@@ -437,8 +437,16 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
             setMultiSourceStatus(container, `${id}: review-only manual fallback prefilled ${suggestion.sourceNodeId} ↔ ${suggestion.targetNodeId}. Review/edit both node IDs, then click Add reviewed anchor.`);
             return;
           }
-          authorityModeBySource.set(id, 'AUTO'); manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
-          const selected = selectedBySource.get(id) || new Set(); if (selected.has(key)) selected.delete(key); else selected.add(key); selectedBySource.set(id, selected);
+          const selected = selectedBySource.get(id) || new Set();
+          if (selected.has(key)) selected.delete(key); else selected.add(key);
+          selectedBySource.set(id, selected);
+          const hasAutomaticAuthority = buildCiiSelectedBaseLoops(
+            member.inspection?.baseAnchorSuggestions || [], selected).length > 0;
+          // Removing the last AUTO base cannot select an empty AUTO lane while
+          // physical user-reviewed manual anchors are still retained.
+          authorityModeBySource.set(id, hasAutomaticAuthority ? 'AUTO'
+            : (manualRows(manualBySource,id).length ? 'MANUAL' : 'AUTO'));
+          manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
           invalidatePersistedReview(); refreshAnchorEvidence();
           setMultiSourceStatus(container, authorityReady() ? 'All SOURCE members have base authority. Compare multi-source models.' : 'For every SOURCE, select a qualified base or add at least one reviewed manual anchor.');
         }, true);
