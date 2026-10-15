@@ -73,6 +73,41 @@ jobs:
             --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
             --manual S2:420:415 --manual S3:1580:7880 \
             --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
+      - name: Original S1 S2 S3 double-blank endpoint independent geometry discriminator (Issue 102)
+        run: |
+          node scripts/cii-102-f2-double-blank-geometry-probe.mjs \
+            --report test-results/cii-arch01-f2-joint-100.json \
+            --out test-results/cii102-f2-double-blank-100.json
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const x=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
+            assert.equal(x.originalDoubleBlankFactors,21);
+            assert.equal(x.originalPhysicalSourceNodes,150);
+            assert.equal(x.originalPhysicalSourceElements,147);
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.member),["S1","S2","S3"]);
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.sourceElementKey),[
+              "S1:E9:4050->4060","S2:E44:630->640","S3:E1:1350->1360"
+            ]);
+            for(const row of x.selectedSourceFactors){
+              assert(row.currentTargets.every(targets=>targets.length===0));
+              assert(row.originalTargets.every(targets=>targets.length===0));
+              assert.equal(row.unanchoredGeometry.includes("NOT_CERTIFIED"),true);
+              assert(row.searchStats.complete);
+              assert.equal(row.independentIdentityCertificate,null);
+              assert.equal(row.writerReady,false);
+              assert.equal(row.targetRoutesWithGeometryOnly,row.searchStats.acceptedRoutes);
+              assert(row.originalRoutesWithGeometryOnly.every(r=>!r.identityCertified&&!r.writerReady));
+            }
+            assert.equal(x.writerReady,false);
+            assert.equal(x.physicalCertifications,0);
+            assert.equal(x.transferPlan,null);
+            assert.equal(x.writeScope,null);
+            console.log("CII102_ORIGINAL_BOTH_ENDPOINTS_RCA",JSON.stringify(x.selectedSourceFactors.map(
+              r=>({key:r.sourceElementKey,targetRoutes:r.targetRoutesWithGeometryOnly,
+                source:r.sourceGeometry,sourceDegrees:r.endpointNeighborEvidence.map(n=>n.sourceDegree),
+                status:r.nextDecision}))));
+          '
       - name: Refuse 200mm shadow claim until PR97 and PR98 policy consumers are integrated
         run: |
           set -euo pipefail
@@ -141,6 +176,7 @@ jobs:
           name: cii-arch01-f2-100-200-joint-shadow
           path: |
             test-results/cii-arch01-f2-joint-*.json
+            test-results/cii102-f2-double-blank-*.json
             test-results/cii-arch01-f2-joint-*.physical-gap-rca.csv
             test-results/cii-arch01-f2-200-unwired.log
           if-no-files-found: warn
