@@ -374,7 +374,11 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     }));
     evidence.querySelectorAll('[data-ciiw-ms-ledger-auto-remove]').forEach((button) => button.addEventListener('click', (event) => {
       event.preventDefault(); const id = button.dataset.ciiwMsLedgerSourceId; const key = button.dataset.ciiwMsLedgerSelectionKey;
-      const selected = selectedBySource.get(id) || new Set(); selected.delete(key); selectedBySource.set(id, selected); invalidatePersistedReview(); refreshAnchorEvidence();
+      const selected = selectedBySource.get(id) || new Set();
+       selected.delete(key); selectedBySource.set(id, selected);
+       if (!buildCiiSelectedBaseLoops(inspection.memberInspections.find(x=>x.sourceId===id)?.inspection?.baseAnchorSuggestions||[],selected).length
+        && manualRows(manualBySource,id).length) authorityModeBySource.set(id,'MANUAL');
+       invalidatePersistedReview(); refreshAnchorEvidence();
       setMultiSourceStatus(container, `${id}: method-qualified base removed from the master ledger.`);
     }));
     evidence.querySelectorAll('[data-ciiw-ms-member]').forEach((section) => {
@@ -404,8 +408,12 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
             setMultiSourceStatus(container, `${id}: review-only manual fallback prefilled ${suggestion.sourceNodeId} ↔ ${suggestion.targetNodeId}. Review/edit both node IDs, then click Add reviewed anchor.`);
             return;
           }
-          authorityModeBySource.set(id, 'AUTO'); manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
-          const selected = selectedBySource.get(id) || new Set(); if (selected.has(key)) selected.delete(key); else selected.add(key); selectedBySource.set(id, selected);
+          const selected = selectedBySource.get(id) || new Set();
+          if (selected.has(key)) selected.delete(key); else selected.add(key);
+          selectedBySource.set(id,selected);
+          const hasAuto=buildCiiSelectedBaseLoops(member.inspection?.baseAnchorSuggestions||[],selected).length>0;
+          authorityModeBySource.set(id,hasAuto?'AUTO':(manualRows(manualBySource,id).length?'MANUAL':'AUTO'));
+          manualDraftBySource.set(id, { sourceNodeId: '', targetNodeId: '' });
           invalidatePersistedReview(); refreshAnchorEvidence();
           setMultiSourceStatus(container, authorityReady() ? 'All SOURCE members have base authority. Compare multi-source models.' : 'For every SOURCE, select a qualified base or add at least one reviewed manual anchor.');
         }, true);
