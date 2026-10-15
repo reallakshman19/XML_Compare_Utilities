@@ -18,7 +18,7 @@ import {ciiAutomaticBaseSelection} from '../tabs/cii-workspace/cii-workspace-bas
 import {createCiiWriter2SourceSetPreviewFromPreparedSession,createCiiCommonAnalysisCache}
  from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
-import {buildCiiF2PhysicalGapLedger} from '../tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js';
+import {buildCiiF2PhysicalGapLedger,ciiF2PhysicalGapLedgerToCsv} from '../tabs/cii-workspace/cii-workspace-f2-physical-gap-ledger.js';
 import {buildCiiA2ShadowJointEvidence} from './cii-architecture-a2-shadow-joint-evidence.mjs';
 import {inspectCiiA2PhysicalConstraints} from './cii-architecture-a2-physical-path-constraints.mjs';
 import {solveCiiA2GlobalShadow} from './cii-architecture-a2-global-constraint-shadow.mjs';
@@ -137,7 +137,7 @@ if(global.writerReady!==false||global.certifiedNodeCount!==0||global.certifiedEl
  ||global.transferPlan!==null||global.writeScope!==null
  ||joint.summary.originalPhysicalSourceNodes!==global.originalPhysicalSourceNodeCount)
  throw Error('F2_NONWRITING_OR_PHYSICAL_CENSUS_CONTRACT_FAILED');
-const physicalGapLedger=buildCiiF2PhysicalGapLedger(paths,reconciled);
+const physicalGapLedger=buildCiiF2PhysicalGapLedger(paths,reconciled,{joint,frontier});
 const out={
  schema:'CiiARCH01F2JointSolverReport.v1',mode:'SHADOW_REVIEW_ONLY',
  policy:{spatialToleranceMm:opts.tolerance,appliedSpatialToleranceMm:opts.tolerance,
@@ -194,5 +194,7 @@ if(opts.out){
   throw Error('F2_NEVER_WRITE_TO_ORIGINAL_BENCHMARK');
  mkdirSync(dirname(dest),{recursive:true});
  writeFileSync(dest,JSON.stringify(out,null,2)+'\n','utf8');
+ const diagnosisDest=dest.endsWith('.json')?dest.slice(0,-5)+'.physical-gap-rca.csv':dest+'.physical-gap-rca.csv';
+ writeFileSync(diagnosisDest,ciiF2PhysicalGapLedgerToCsv(physicalGapLedger),'utf8');
 }
 console.log('CII_F2_JOINT_ORIGINAL_REPORT',JSON.stringify(out));
