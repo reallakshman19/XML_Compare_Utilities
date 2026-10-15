@@ -21,6 +21,8 @@ import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-sou
 import {buildCiiA2ShadowJointEvidence} from './cii-architecture-a2-shadow-joint-evidence.mjs';
 import {inspectCiiA2PhysicalConstraints} from './cii-architecture-a2-physical-path-constraints.mjs';
 import {solveCiiA2GlobalShadow} from './cii-architecture-a2-global-constraint-shadow.mjs';
+import {recoverCiiA2FrontierHypotheses} from './cii-architecture-a2-frontier-recovery.mjs';
+import {reconcileCiiA2RecoveredFrontier} from './cii-architecture-a2-frontier-reconciliation.mjs';
 
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const args=process.argv.slice(2),opts={sources:[],manual:[],tolerance:100,target:null,out:null};
@@ -107,6 +109,21 @@ const paths=inspectCiiA2PhysicalConstraints({
  normalizedTargetSha256:preparedSession.target.normalizedSha256,
 });
 const global=solveCiiA2GlobalShadow({joint,pathAudit:paths});
+const normalizedSourceShaById=Object.fromEntries(preparedSession.members.map(m=>[m.sourceId,m.normalizedSha256]));
+const normalizedTargetSha256=preparedSession.target.normalizedSha256;
+const frontier=recoverCiiA2FrontierHypotheses({
+ joint,pathAudit:paths,sourceGraphsById:graphs,targetGraph:preparedSession.target.targetGraph,
+ policy:{maxRounds:2},
+});
+const reconciled=reconcileCiiA2RecoveredFrontier({
+ joint,originalPathAudit:paths,frontier,sourceGraphsById:graphs,
+ targetGraph:preparedSession.target.targetGraph,
+ normalizedSourceShaById,normalizedTargetSha256,
+});
+if(frontier.writerReady!==false||reconciled.writerReady!==false
+ ||reconciled.certifiedNodeCount!==0||reconciled.certifiedElementCount!==0
+ ||reconciled.writeScope!==null||reconciled.transferPlan!==null)
+ throw Error('F2_RECOVERED_FRONTIER_WRITER_VETO_VIOLATED');
 if(global.writerReady!==false||global.certifiedNodeCount!==0||global.certifiedElementCount!==0
  ||global.transferPlan!==null||global.writeScope!==null
  ||joint.summary.originalPhysicalSourceNodes!==global.originalPhysicalSourceNodeCount)
@@ -125,7 +142,26 @@ const out={
   summaries:global.components.map(c=>({state:c.status,sourceNodeCount:c.sourceNodes.length,
    sourceElementCount:c.sourceElements.length,solutionWitnesses:c.distinctSolutionWitnesses,
    searchStates:c.searchStates||0}))},
- conflicts:joint.nodeRows.filter(x=>x.state==='CONFLICT').map(x=>({
+ frontierRecovery:{
+  originalEndpointMissingFactors:frontier.originalMissingPhysicalElementFactors,
+  sourceNodesOriginallyUnmapped:frontier.sourceNodesOriginallyUnmapped.length,
+  recoveredHypotheses:frontier.proposals.length,
+  remainingFactorsWithoutBothEndpointHypotheses:frontier.remainingFactorsWithoutBothEndpointHypotheses,
+  searchStatusFlags:frontier.statusFlags,
+ },
+ frontierReconciliation:{
+  originalCandidateCount:reconciled.originalCandidateCount,
+  addedCandidateCount:reconciled.addedCandidateCount,
+  augmentedCandidateCount:reconciled.augmentedCandidateCount,
+  independentlyRecheckedPhysicalWitnesses:reconciled.independentlyRecheckedPhysicalWitnesses,
+  uniqueNewlyCoveredNodes:reconciled.uniqueNewlyCoveredNodes,
+  originalEndpointMissingFactors:reconciled.originalEndpointMissingFactors,
+  recomputedEndpointMissingFactors:reconciled.recomputedEndpointMissingFactors,
+  globalComponentStates:reconciled.recomputedGlobalComponentCounts,
+  recomputedPhysicalFactorCounts:reconciled.recomputedFactorStatusCounts,
+  writerReady:false,certifiedNodeCount:0,
+ },
+  conflicts:joint.nodeRows.filter(x=>x.state==='CONFLICT').map(x=>({
   source:x.sourceNodeKey,targetAlternatives:x.targets,reasons:x.reasons})),
  originalInputsUnmodified:true,identityCertificates:[],
  certifiedNodeCount:0,certifiedElementCount:0,
