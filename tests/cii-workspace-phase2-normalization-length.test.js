@@ -10,6 +10,8 @@ const verified={20:{state:'VERIFIED_EMPTY',complete:true}};
 const original=JSON.stringify(source);
 const normalized=buildCiiComparisonPathProjection(source,{attachmentEvidenceByNode:verified});
 assert.equal(normalized.comparisonPathCount,1);
+const terminalMarked=graph(pipe('E-1',10,20,2000,{isAnchorElement:true}),pipe('E-2',20,30,2000,{isAnchorElement:true}));
+assert.equal(buildCiiComparisonPathProjection(terminalMarked,{attachmentEvidenceByNode:verified}).comparisonPathCount,1,'terminal flags on remote ends must not block interior plain node');
 assert.deepEqual(normalized.paths[0].originalNodeIds,['10','20','30']);
 assert.deepEqual(normalized.paths[0].interiorPassThroughNodeIds,['20']);
 assert.deepEqual(normalized.paths[0].originalElementIds,['S-1','S-2']);
