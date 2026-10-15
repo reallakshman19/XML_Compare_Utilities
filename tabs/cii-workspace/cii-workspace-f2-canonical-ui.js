@@ -23,6 +23,8 @@ export function ciiF2CanonicalPanelMarkup(report){
     +esc(s.recoveredHypotheses)+' recovered hypotheses · '+esc(s.uniqueNewlyCoveredNodes)+' newly covered NODEs · '
     +esc(s.factorsWithoutTwoEndpointsAfterRecovery)+' incomplete endpoint factors · <b>0 certified / 0 Writer</b></p>'
     +(rows?'<details><summary>Conflicting SOURCE/TARGET identities</summary><table class="ciiw-grid"><thead><tr><th>SOURCE</th><th>TARGET alternatives</th><th>Why unresolved</th></tr></thead><tbody>'+rows+'</tbody></table></details>':'<p>No competing candidates observed; this does not certify completeness.</p>')
+    +(report?.physicalGapLedger?'<p>All '+esc(report.physicalGapLedger.totalPhysicalSourceElements)+' original SOURCE ELEMENTs still lack global physical certification. '
+      +esc(gaps.length)+' priority missing/ambiguous/bounded-path factors are listed below; the remaining local path witnesses also require independent M1/M2, physical custody and complete global proof.</p>':'')
     +(gapTable?'<details><summary>Original physical ELEMENT blockers ('+esc(gaps.length)+' factors requiring further qualification)</summary><table class="ciiw-grid"><thead><tr><th>Physical SOURCE ELEMENT</th><th>Endpoints</th><th>Before → after</th><th>Independent proof still missing</th></tr></thead><tbody>'+gapTable+'</tbody></table></details>':'')
     +'<button type="button" data-ciiw-f2-export>Export read-only A2 graph evidence JSON</button>'
     :'<p data-ciiw-f2-empty>Run optional shadow graph reconciliation after Compare. No changes to operational matching are implied.</p>')
