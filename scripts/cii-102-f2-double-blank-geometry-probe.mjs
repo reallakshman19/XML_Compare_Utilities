@@ -174,9 +174,52 @@ const cases=selected.map(row=>{
    .filter(k=>k!==String(edge.elementId)).sort(compare)
  }));
  const result=geometricPaths(edge);
+ // Test immediate SOURCE neighbors that already have a TARGET candidate on
+ // their far endpoint. Compare only original physical paths reachable from the
+ // existing seed; never insert these diagnostic observations into A2 domains.
+ const boundary=[];
+ for(const missingEndpoint of row.sourceEndpoints){
+  for(const adjacent of graph.adjacency.get(missingEndpoint)||[]){
+   if(String(adjacent.elementId)===String(edge.elementId))continue;
+   const sourceOther=String(adjacent.from)===missingEndpoint
+     ?String(adjacent.to):String(adjacent.from);
+   const neighborFactor=report.physicalGapLedger.rows.find(r=>
+     r.sourceMember===row.sourceMember&&String(r.sourceElementId)===String(adjacent.elementId));
+   if(!neighborFactor)throw Error('CII102_ADJACENT_FACTOR_MISSING');
+   const otherDiagnosis=neighborFactor.endpointDiagnosis.find(e=>
+     e.sourceNodeKey===row.sourceMember+':'+sourceOther);
+   if(!otherDiagnosis)throw Error('CII102_NEIGHBOR_SOURCE_DOMAIN_MISSING');
+   const seeds=[...otherDiagnosis.recheckedTargets];
+   const candidate=seeds.length?geometricPaths(adjacent):null;
+   const continuation=[];
+   for(const targetSeed of seeds){
+    const rooted=(candidate?.allRoutes||[]).filter(p=>p.targetEndpoints.includes(targetSeed));
+    continuation.push({
+     existingTargetSeed:targetSeed,
+     independentlyCompatibleAnchoredRoutes:rooted.length,
+     candidateMissingNodeTargets:[...new Set(rooted.map(p=>
+       p.targetEndpoints.find(n=>n!==targetSeed)))].sort(compare),
+     targetRouteExamples:rooted.slice(0,5).map(p=>({
+       targetEndpoints:p.targetEndpoints,targetElementIds:p.targetElementIds,
+       lengthResidualMm:p.lengthResidualMm,segments:p.segments,
+     })),
+     completeOriginalTargetEnumeration:candidate?.stats.complete===true,
+    });
+   }
+   boundary.push({
+    viaSourceElementId:String(adjacent.elementId),
+    missingSourceEndpoint:missingEndpoint,seedSourceNodeId:sourceOther,
+    existingTargetSeedCount:seeds.length,existingTargetSeedIds:seeds,
+    seedBoundaryGeometry:shape(adjacent),continuations:continuation,
+    qualification:'PHYSICAL_PATH_PROBE_ONLY_NO_NEW_HYPOTHESIS',
+   });
+  }
+ }
+ boundary.sort((a,b)=>compare(a.viaSourceElementId,b.viaSourceElementId));
  return {member:row.sourceMember,sourceElementKey:row.sourceElementKey,
   sourceEndpoints:row.sourceEndpoints,endpointNeighborEvidence:neighbors,
   sourceGeometry:result.sourceGeometry,
+  adjacentSeedBoundaryAnalysis:boundary,
   originalCause:row.originalRootCause,originalTargets:row.endpointDiagnosis.map(e=>e.originalTargets),
   currentTargets:row.endpointDiagnosis.map(e=>e.recheckedTargets),
   unanchoredGeometry:result.evidenceStatus,
@@ -226,6 +269,11 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
  cases:cases.map(c=>({source:c.member,key:c.sourceElementKey,endpoints:c.sourceEndpoints,
   sourceGeometry:c.sourceGeometry,sourceDegrees:c.endpointNeighborEvidence.map(n=>n.sourceDegree),
   unanchoredTargetRoutes:c.targetRoutesWithGeometryOnly,segments:c.relativeRouteCounts,
+  anchoredNeighbors:c.adjacentSeedBoundaryAnalysis.map(b=>({
+   sourceEdge:b.viaSourceElementId,sourceSeed:b.seedSourceNodeId,
+   targetSeedCount:b.existingTargetSeedCount,rootedRouteCounts:b.continuations.map(x=>
+    ({seed:x.existingTargetSeed,routes:x.independentlyCompatibleAnchoredRoutes})),
+  })),
   visits:c.searchStats.visits,enumerationComplete:c.searchStats.complete,
   decision:c.nextDecision})),
  certified:0,writerReady:false
