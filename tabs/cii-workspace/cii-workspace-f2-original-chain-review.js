@@ -48,6 +48,96 @@ function componentsOf(rows){
   rows.forEach((row,i)=>{const root=find(i);if(!grouped.has(root))grouped.set(root,[]);grouped.get(root).push(row);});
   return [...grouped.values()];
 }
+
+/**
+ * Distinguishes "rows share a NODE claim" from a genuinely traversable
+ * ordered chain. This only stitches ORIGINAL pre-frontier A2 witnesses.
+ * It does not generate TARGET candidates, infer registration or certify a
+ * physical identity. Search exhaustion fails closed; no first-winner shortcut.
+ */
+function contiguousOriginalChains(entries,policy={maxVisits:20000,maxChains:3000}){
+  const byStart=new Map(),incidence=new Map();
+  for(const entry of entries){
+    if(entry.nodeStates.length!==2
+      ||entry.targetNodePath[0]!==entry.targetEndpoints[0]
+      ||entry.targetNodePath.at(-1)!==entry.targetEndpoints[1])
+      throw Error('CII102_CONTIGUOUS_WITNESS_IDENTITY_INVALID');
+    for(let dir=0;dir<2;dir++){
+      const reverse=dir===1;
+      const states=reverse?[entry.nodeStates[1],entry.nodeStates[0]]:entry.nodeStates;
+      const source=reverse?[entry.sourceEndpoints[1],entry.sourceEndpoints[0]]:entry.sourceEndpoints;
+      const target=reverse?[...entry.targetNodePath].reverse():entry.targetNodePath;
+      const elements=reverse?[...entry.targetElementIds].reverse():entry.targetElementIds;
+      const step={factorId:entry.factorId,states,source,target,elements,
+        propertyWarnings:entry.propertyWarnings};
+      if(!byStart.has(states[0]))byStart.set(states[0],[]);
+      byStart.get(states[0]).push(step);
+      if(!incidence.has(states[0]))incidence.set(states[0],new Set());
+      incidence.get(states[0]).add(entry.factorId);
+    }
+  }
+  const starts=[...incidence].filter(([,factors])=>factors.size===1).map(([state])=>state);
+  if(!starts.length)starts.push(...incidence.keys());
+  starts.sort(compare);
+  let visits=0;
+  const chains=new Map();
+  function recurse(state,steps,usedFactors,usedNodes,usedEdges){
+    if(++visits>policy.maxVisits)throw Error('CII102_CONTIGUOUS_CHAIN_ENUMERATION_INCOMPLETE');
+    const next=[];
+    for(const step of byStart.get(state)||[]){
+      if(usedFactors.has(step.factorId)||usedNodes.has(step.states[1]))continue;
+      if(step.elements.some(id=>usedEdges.has(id)))continue;
+      next.push(step);
+    }
+    if(next.length===0){
+      if(steps.length<2)return;
+      const forward=steps.map(x=>x.factorId+'@'+x.target.join('>')).join('|');
+      const reverse=steps.slice().reverse().map(x=>x.factorId+'@'+[...x.target].reverse().join('>')).join('|');
+      const id=forward<reverse?forward:reverse;
+      if(!chains.has(id)){
+        if(chains.size>=policy.maxChains)
+          throw Error('CII102_CONTIGUOUS_CHAIN_RESULT_BOUND_EXCEEDED');
+        chains.set(id,frozen({
+          sourceMember:entries[0].member,
+          factorIds:frozen(steps.map(x=>x.factorId)),
+          sourceNodePath:frozen([steps[0].source[0],...steps.map(x=>x.source[1])]),
+          targetNodePath:frozen([steps[0].target[0],...steps.flatMap(x=>x.target.slice(1))]),
+          targetElementIds:frozen(steps.flatMap(x=>x.elements)),
+          factorCount:steps.length,
+          provenance:'JOINED_ORIGINAL_F2_LOCAL_A2_WITNESSES_ONLY',
+          globallyUnique:false,independentlyCertified:false,writerEligible:false,
+        }));
+      }
+      return;
+    }
+    for(const step of next){
+      if(step.states[0]!==state)throw Error('CII102_CONTIGUOUS_SOURCE_TARGET_STATE_DRIFT');
+      // Any source/target NODE already touched in the current route invalidates
+      // a new segment; a subdivision intermediate is not a SOURCE NODE claim.
+      if(step.target.slice(1).some(t=>usedNodes.has('TARGET:'+t)))continue;
+      const newNodes=new Set(usedNodes);
+      newNodes.add(step.states[1]);
+      for(const t of step.target.slice(1))newNodes.add('TARGET:'+t);
+      const newEdges=new Set(usedEdges);
+      for(const id of step.elements)newEdges.add(id);
+      recurse(step.states[1],[...steps,step],
+        new Set([...usedFactors,step.factorId]),newNodes,newEdges);
+    }
+  }
+  for(const start of starts){
+    // Starting TARGET node also must be reserved for collision-checking.
+    const startTarget=start.split('=>')[1];
+    recurse(start,[],new Set(),new Set([start,'TARGET:'+startTarget]),new Set());
+  }
+  return frozen({
+    routes:frozen([...chains.values()].sort((a,b)=>b.factorCount-a.factorCount
+      ||compare(a.sourceMember,b.sourceMember)
+      ||compare(a.sourceNodePath.join('>'),b.sourceNodePath.join('>')))),
+    visits,completeWithinOriginalWitnessDomain:true,
+    globalSearchComplete:false,independentlyCertified:false,
+  });
+}
+
 export function buildCiiF2OriginalChainReview(report){
   const ledger=assertOriginal(report);
   const seenFactors=new Set(),originalEvidence=[],factorOptions=new Map();
@@ -114,6 +204,7 @@ export function buildCiiF2OriginalChainReview(report){
     });
     const multipleFactorWitnesses=factors.filter(f=>(factorOptions.get(f)||0)>1);
     const warnings=[...new Set(entries.flatMap(x=>x.propertyWarnings))].sort(compare);
+    const continuity=contiguousOriginalChains(entries);
     return frozen({
       member,sourceElementFactors:frozen(factors),
       sourceNodeIds:frozen(sourceNodes),targetNodeIds:frozen(targetNodes),
@@ -122,6 +213,9 @@ export function buildCiiF2OriginalChainReview(report){
       competingOriginalTargets:frozen(competingOriginalTargets),
       sharedTargetClaims:frozen(sharedTargetClaims),
       propertyWarnings:frozen(warnings),
+      contiguousOriginalChains:continuity.routes,
+      longestTraversableOriginalFactors:continuity.routes[0]?.factorCount||0,
+      originalWitnessChainSearchComplete:continuity.completeWithinOriginalWitnessDomain,
       readOnlyStatus:'JOINED_LOCAL_ORIGINAL_WITNESSES_NOT_CERTIFIED',
       witnesses:frozen([...entries].sort((a,b)=>compare(a.factorId,b.factorId)
         ||compare(a.targetNodePath.join('>'),b.targetNodePath.join('>')))),
@@ -150,6 +244,8 @@ export function buildCiiF2OriginalChainReview(report){
     factorsWithoutWitnesses:unobserved.length,
     missingFactorIds:frozen(unobserved),
     groups:frozen(groups),byMember:frozen(byMember),
+    longestTraversableOriginalChainFactors:Math.max(0,...groups.map(x=>x.longestTraversableOriginalFactors)),
+    traversableOriginalChainCount:groups.reduce((n,x)=>n+x.contiguousOriginalChains.length,0),
     candidateGenerationPerformed:false,
     searchCompletenessAsserted:false,
     globalUniquenessAsserted:false,
@@ -168,6 +264,10 @@ export function ciiF2OriginalChainReviewMarkup(review){
   const per=review.byMember.map(s=>escapeHtml(s.member)+': '+s.factorsWithOriginalWitnesses
     +'/'+s.originalElementFactors+' original physical ELEMENT factors with path evidence').join(' · ');
   const items=review.groups.map((group,index)=>{
+    const ordered=group.contiguousOriginalChains.slice(0,10).map(route=>
+      '<small>Traversable original chain: SOURCE '+escapeHtml(route.sourceNodePath.join('→'))
+      +' → TARGET '+escapeHtml(route.targetNodePath.join('→'))
+      +' · '+route.factorCount+' physical SOURCE factors · NOT CERTIFIED</small>').join('');
     const details=group.witnesses.map(w=>'<small>'+escapeHtml(w.factorId)+' · SOURCE '
       +escapeHtml(w.sourceEndpoints.join('→'))+' → TARGET '
       +escapeHtml(w.targetNodePath.join('→'))+' ['+escapeHtml(w.relation)+']'
@@ -185,7 +285,10 @@ export function ciiF2OriginalChainReviewMarkup(review){
         +escapeHtml(group.competingOriginalTargets.map(x=>x.sourceNode+'=['+x.targets.join(',')+']').join('; '))+'</p>':'')
       +(group.sharedTargetClaims.length?'<p>Shared TARGET claims: '
         +escapeHtml(group.sharedTargetClaims.map(x=>x.targetNode+'=['+x.sourceClaims.join(',')+']').join('; '))+'</p>':'')
-      +'<div class="ciiw-chain-witnesses">'+details+'</div></details>';
+      +'<p>Longest ordered, non-reusing original route: '+group.longestTraversableOriginalFactors
+      +' factors. '+group.contiguousOriginalChains.length+' enumerated maximal route(s). '
+      +'Original witness domain only; global TARGET search/uniqueness NOT proved.</p>'
+      +'<div class="ciiw-chain-witnesses">'+ordered+details+'</div></details>';
   }).join('');
   return '<section data-ciiw-f2-original-chain-review="1" class="ciiw-method-evidence">'
     +'<h3>Original F2 contiguous physical evidence — review only</h3>'
