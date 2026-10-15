@@ -24,7 +24,7 @@ function policyFor(options={}){
   maxVisitsPerFactor:options.maxVisitsPerFactor??1200,
   maxEndpointCombinations:options.maxEndpointCombinations??32,
   maxPathWitnessesPerPair:options.maxPathWitnessesPerPair??4,
-  maxAssignmentSearchStates:options.maxAssignmentSearchStates??15000,
+  maxAssignmentSearchStates:options.maxAssignmentSearchStates??8000,
   pathLengthToleranceMm:options.pathLengthToleranceMm??25,
   straightnessMin:options.straightnessMin??0.995,
  };
