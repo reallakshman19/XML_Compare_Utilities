@@ -98,6 +98,17 @@ jobs:
               assert.equal(row.writerReady,false);
               assert.equal(row.targetRoutesWithGeometryOnly,row.searchStats.acceptedRoutes);
               assert(row.originalRoutesWithGeometryOnly.every(r=>!r.identityCertified&&!r.writerReady));
+              assert(row.adjacentSeedBoundaryAnalysis.every(
+                b=>b.qualification==="PHYSICAL_PATH_PROBE_ONLY_NO_NEW_HYPOTHESIS"));
+              assert(row.adjacentSeedBoundaryAnalysis.every(
+                b=>b.continuations.every(r=>r.completeOriginalTargetEnumeration)));
+              assert(row.adjacentSeedBoundaryAnalysis.every(
+                b=>b.continuations.every(r=>r.independentlyCompatibleAnchoredRoutes>=0)));
+            }
+            assert.deepEqual(x.selectedSourceFactors.map(r=>r.adjacentSeedBoundaryAnalysis.reduce(
+              (count,b)=>count+b.existingTargetSeedCount,0)),[3,1,0]);
+            for(const row of x.selectedSourceFactors){
+              assert.equal(row.independentIdentityCertificate,null);
             }
             assert.equal(x.writerReady,false);
             assert.equal(x.physicalCertifications,0);
