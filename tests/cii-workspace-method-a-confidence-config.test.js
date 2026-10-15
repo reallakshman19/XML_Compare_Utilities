@@ -82,17 +82,17 @@ const impossible = qualifyCiiGeometryTransform(
 );
 assert.notEqual(impossible.status, 'READY', 'confidence policy must never legalize incompatible geometry');
 
-const storedPolicy = { methodAHighConfidenceThreshold: 75, methodAMediumConfidenceThreshold: 65 };
+const storedPolicy = { methodAHighConfidenceThreshold: 75, methodAMediumConfidenceThreshold: 65, spatialToleranceMm: 100 };
 const savedSnapshot = createCiiWriter2SessionSnapshot({
   sourceSetSha256: 'a'.repeat(64),
   targetOriginalSha256: 'b'.repeat(64),
   confidencePolicy: storedPolicy,
   reviewDecisions: new Map([['corr-1', 'ACCEPT']]),
 });
-assert.deepEqual(savedSnapshot.confidencePolicy, { high: 75, medium: 65, weights: getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights });
+assert.deepEqual(savedSnapshot.confidencePolicy, { high: 75, medium: 65, spatialToleranceMm: 100, weights: getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights });
 assert.equal(ciiWriter2SessionPolicyMatches(savedSnapshot, storedPolicy), true);
 assert.equal(ciiWriter2SessionPolicyMatches(savedSnapshot, {
-  methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70,
+  methodAHighConfidenceThreshold: 85, methodAMediumConfidenceThreshold: 70, spatialToleranceMm: 100,
 }), false, 'mismatched policy cannot restore saved approvals');
 assert.equal(ciiWriter2SessionPolicyMatches({ ...savedSnapshot, confidencePolicy: undefined }, storedPolicy), false,
   'legacy sessions without policy custody must fail closed');
