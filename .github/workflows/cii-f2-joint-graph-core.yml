@@ -93,6 +93,12 @@ jobs:
             const a=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             const b=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-200.json"));
             assert.equal(a.originalDoubleBlankFactors,21);
+            assert.equal(a.allDoubleBlankFactorCases.length,21);
+            assert.equal(b.allDoubleBlankFactorCases.length,21);
+            assert.equal(new Set(a.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
+            assert(a.allDoubleBlankFactorCases.every(r=>r.currentTargets.every(t=>t.length===0)
+              &&r.independentIdentityCertificate===null&&r.writerReady===false));
+            assert.equal(Object.values(a.populationSummary).reduce((n,x)=>n+x.factors,0),21);
             assert.deepEqual(a.doubleBlankByMember,{S1:15,S2:3,S3:3});
             assert.deepEqual(Object.fromEntries(Object.entries(a.doubleBlankClusters)
               .map(([m,g])=>[m,g.map(x=>x.physicalFactorCount)])),
@@ -132,6 +138,8 @@ jobs:
             // from M1 score weights; two applied policies must not fabricate
             // different physical target routes for identical original edges.
             assert.deepEqual(a.selectedSourceFactors,b.selectedSourceFactors);
+            assert.deepEqual(a.allDoubleBlankFactorCases,b.allDoubleBlankFactorCases);
+            assert.deepEqual(a.populationSummary,b.populationSummary);
             console.log("CII102_BOTH_ENDPOINTS_BOUNDARY_COMPARE_100_200_PASS",
               JSON.stringify(a.selectedSourceFactors.map(r=>({
                 factor:r.sourceElementKey,boundaryDiagnosis:r.boundaryDiagnosis,
