@@ -5,11 +5,11 @@
  * from A2-SHADOW-01; each physical graph is separately bound to its normalized
  * V11/V14 bridge digest. Exhaustion limits are explicit. No Writer import.
  */
-import { createHash } from 'node:crypto';
+import { ciiA2HashJson } from './cii-a2-json-sha256.mjs';
 
 const SHA=/^[0-9a-f]{64}$/i;
 const text=(v)=>String(v??'').trim();
-const digest=(v)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const digest=ciiA2HashJson;
 const compare=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
 function freeze(v){
   if(Array.isArray(v))return Object.freeze(v.map(freeze));
