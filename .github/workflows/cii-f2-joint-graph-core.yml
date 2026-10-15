@@ -86,6 +86,21 @@ jobs:
             const x=JSON.parse(readFileSync("test-results/cii102-f2-double-blank-100.json"));
             assert.equal(x.originalDoubleBlankFactors,21);
             assert.equal(x.allDoubleBlankFactorCases.length,21);
+            assert.deepEqual(x.firstJunctionSensitivity.map(r=>r.lengthToleranceMm),[25,100,200,500]);
+            const first=x.firstJunctionSensitivity[0];
+            assert.equal(first.joinedPhysicalRoutePairs,0);
+            assert.equal(first.pipeRoutes,22);
+            assert.equal(first.bendRoutes,9);
+            assert(x.firstJunctionSensitivity.every(r=>r.localGeometryOnly
+              &&r.writerReady===false&&r.globalIdentityCertified===false
+              &&r.enumerationComplete
+              &&r.joinedPhysicalRoutePairs>=0));
+            console.log("CII102_FIRST_JUNCTION_5030_BOUNDARY_SENSITIVITY",JSON.stringify(
+              x.firstJunctionSensitivity.map(r=>({
+                toleranceMm:r.lengthToleranceMm,pipeRoutes:r.pipeRoutes,
+                bendRoutes:r.bendRoutes,jointRoutes:r.joinedPhysicalRoutePairs,
+                minCombinedResidualMm:r.minimumCombinedLengthResidualMm
+              }))));
             assert.equal(new Set(x.allDoubleBlankFactorCases.map(r=>r.sourceElementKey)).size,21);
             assert(x.allDoubleBlankFactorCases.every(r=>
               r.endpointNeighborEvidence.length===2&&r.currentTargets.every(t=>t.length===0)
