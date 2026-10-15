@@ -33,7 +33,7 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await expect(compareAlternatives).toContainText('0 independently certified and 0 Writer/Transfer operations added');
  await expect(compareAlternatives).toContainText('S2: 1→36 legacy BOUND');
  await expect(compareAlternatives).toContainText('S3: 2→34 legacy BOUND');
- await compareAlternatives.locator('details summary').click();
+ await compareAlternatives.locator('details').first().locator('summary').first().click();
  const autoConflictRows=compareAlternatives.locator('tbody tr');
  await expect(autoConflictRows.filter({hasText:'S2 420'})).toContainText('MANUAL_AUTO_CONFLICT');
  await expect(autoConflictRows.filter({hasText:'S2 420'})).toContainText('10330');
