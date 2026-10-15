@@ -35,12 +35,15 @@ test('canonical A2 Worker is integrated in existing Compare, preserves manual/au
  await expect(panel.locator('[data-ciiw-f2-summary]')).toBeVisible({timeout:180000});
  await expect(panel).toContainText('150 original SOURCE NODEs');
  await expect(panel).toContainText('0 certified / 0 Writer');
- await panel.locator('details summary').click();
- const conflicts=panel.locator('details tbody tr');
+ await panel.locator('details').first().locator('summary').click();
+ const conflicts=panel.locator('details').first().locator('tbody tr');
  await expect(conflicts.filter({hasText:'S2:420'})).toContainText('415');
  await expect(conflicts.filter({hasText:'S2:420'})).toContainText('10330');
  await expect(conflicts.filter({hasText:'S3:1580'})).toContainText('7880');
  await expect(conflicts.filter({hasText:'S3:1580'})).toContainText('8895');
+ await expect(panel.locator('details').nth(1).locator('summary')).toContainText('39 factors');
+ await panel.locator('details').nth(1).locator('summary').click();
+ await expect(panel.locator('details').nth(1).locator('tbody tr')).toHaveCount(39);
  await expect(page.locator('[data-ciiw-ms-apply]')).toBeDisabled();
  const [download]=await Promise.all([page.waitForEvent('download'),panel.locator('[data-ciiw-f2-export]').click()]);
  const result=JSON.parse(readFileSync(await download.path(),'utf8'));
