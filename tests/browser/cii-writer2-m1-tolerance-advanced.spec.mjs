@@ -61,7 +61,11 @@ test('Owner: 100/200 mm M1 tolerance applies through Advanced Method A weights t
  expect(back.some(t=>t.includes('/ 200 mm'))).toBe(false);
  await page.locator('[data-ciiw-tab="inputs"]').click();
  await advanced.locator('[data-ciiw-method-a-m1-preset="200"]').click();
+ await advanced.locator('[data-ciiw-method-a-apply-weights]').click();
+ await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toHaveCount(0);
  await advanced.locator('[data-ciiw-method-a-reset-weights]').click();
  await expect(tolerance).toHaveValue('100');
+ await expect(advanced.locator('[data-ciiw-method-a-weight-status]')).toContainText('scope invalidated');
+ await expect(page.locator('[data-ciiw-ms-review-table="1"]')).toHaveCount(0);
  expect(await page.locator('[data-ciiw-ms-apply]').count()).toBe(0);
 });
