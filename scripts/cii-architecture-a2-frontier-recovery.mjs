@@ -6,12 +6,12 @@
  * New evidence may seed a later round, but that lineage stays speculative.
  * No global acceptance, no write, and no name-based or OD/WALL identity veto.
  */
-import { createHash } from 'node:crypto';
+import { ciiA2HashJson } from './cii-a2-json-sha256.mjs';
 
 const HASH=/^[0-9a-f]{64}$/i;
 const S=(x)=>String(x??'').trim();
 const cmp=(a,b)=>S(a).localeCompare(S(b),undefined,{numeric:true});
-const sha=(x)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const sha=ciiA2HashJson;
 function frozen(x){
   if(Array.isArray(x))return Object.freeze(x.map(frozen));
   if(x&&typeof x==='object')return Object.freeze(Object.fromEntries(Object.entries(x).map(([k,v])=>[k,frozen(v)])));
