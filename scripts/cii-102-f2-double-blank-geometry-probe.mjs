@@ -162,6 +162,21 @@ function geometricPaths(sourceEdge){
   evidenceStatus:stats.complete?'BOUNDED_ENUMERATION_COMPLETE_UNANCHORED_NOT_CERTIFIED':
    'SEARCH_BUDGET_EXHAUSTED_NO_ABSENCE_CLAIM'};
 }
+// Frozen, original-source-bound NODE custody; never Writer input.
+const sourceNodeDomains=new Map();
+for(const factor of report.physicalGapLedger.rows)for(const endpoint of factor.endpointDiagnosis){
+ const key=endpoint.sourceNodeKey,targets=[...endpoint.recheckedTargets].map(String).sort(compare);
+ if(sourceNodeDomains.has(key)&&JSON.stringify(sourceNodeDomains.get(key))!==JSON.stringify(targets))
+  throw Error('CII102_INCONSISTENT_NODE_DOMAIN:'+key);
+ sourceNodeDomains.set(key,targets);
+}
+if(sourceNodeDomains.size!==150)throw Error('CII102_INCOMPLETE_150_NODE_CENSUS');
+const targetClaimers=new Map();
+for(const [sourceNode,targets] of sourceNodeDomains)for(const targetNode of targets){
+ if(!targetClaimers.has(targetNode))targetClaimers.set(targetNode,new Set());
+ targetClaimers.get(targetNode).add(sourceNode);
+}
+const owners=targetNode=>[...(targetClaimers.get(String(targetNode))||[])].sort(compare);
 const cases=selected.map(row=>{
  const graph=sourceGraphs[row.sourceMember];
  const edge=graph.edges.find(x=>String(x.elementId)===String(row.sourceElementId));
@@ -196,11 +211,18 @@ const cases=selected.map(row=>{
    const continuation=[];
    for(const targetSeed of seeds){
     const rooted=(candidate?.allRoutes||[]).filter(p=>p.targetEndpoints.includes(targetSeed));
+    const candidateMissingNodeTargets=[...new Set(rooted.map(p=>
+      p.targetEndpoints.find(n=>n!==targetSeed)))].sort(compare);
     continuation.push({
      existingTargetSeed:targetSeed,
+     existingTargetSeedOtherClaimers:owners(targetSeed).filter(n=>n!==row.sourceMember+':'+sourceOther),
      independentlyCompatibleAnchoredRoutes:rooted.length,
-     candidateMissingNodeTargets:[...new Set(rooted.map(p=>
-       p.targetEndpoints.find(n=>n!==targetSeed)))].sort(compare),
+     candidateMissingNodeTargets,
+     proposedTargetNodeCustody:candidateMissingNodeTargets.map(targetNodeId=>({
+      targetNodeId,claimedByOtherSourceNodes:owners(targetNodeId)
+       .filter(n=>n!==row.sourceMember+':'+missingEndpoint),
+      unclaimedTargetDoesNotProveOriginalIdentity:true
+     })),
      targetRouteExamples:rooted.slice(0,5).map(p=>({
        targetEndpoints:p.targetEndpoints,targetElementIds:p.targetElementIds,
        lengthResidualMm:p.lengthResidualMm,segments:p.segments,
@@ -294,7 +316,11 @@ console.log('CII102_DOUBLE_BLANK_GEOMETRY_PROBE',JSON.stringify({
    targetSeedCount:b.existingTargetSeedCount,originalTargetSeedCount:b.originalTargetSeedIds.length,
    recoveredUnverifiedCount:b.newlyRecoveredUnverifiedTargetSeedIds.length,
    seedLineage:b.seedLineage,rootedRouteCounts:b.continuations.map(x=>
-    ({seed:x.existingTargetSeed,routes:x.independentlyCompatibleAnchoredRoutes})),
+    ({seed:x.existingTargetSeed,routes:x.independentlyCompatibleAnchoredRoutes,
+      claimedAlternatives:x.proposedTargetNodeCustody.filter(
+        t=>t.claimedByOtherSourceNodes.length>0).length,
+      unclaimedAlternatives:x.proposedTargetNodeCustody.filter(
+        t=>t.claimedByOtherSourceNodes.length===0).length})),
   })),
   visits:c.searchStats.visits,enumerationComplete:c.searchStats.complete,
   boundaryDiagnosis:c.boundaryDiagnosis,decision:c.nextDecision})),
