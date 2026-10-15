@@ -327,7 +327,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   };
   const renderMultiReview = () => {
     if (!preview) return;
-    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
+    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions)
+      + '<p data-ciiw-path-total-length-effective="1"><b>Applied normalized path tolerance:</b> '
+      + h(preview?.audit?.pathTotalLengthToleranceMm ?? 100) + ' mm. Physical identity still requires independent Method A/B/manual reviewed evidence; normalized paths alone never permit Writer2.</p>';
     if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
@@ -607,16 +609,17 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
     downloadPayload(container.ownerDocument, 'cii-multisource-audit.json', preview.artifacts.auditJson, 'application/json');
   };
-  const onConfidencePolicyChange = () => {
+  const onConfidencePolicyChange = (event) => {
+    const pathChanged = event?.detail?.policyFamily === 'CII_PATH_TOTAL_LENGTH';
     confidenceEpoch += 1;
     if (!multiSource(container)) return;
     resetMulti();
     if (evidence) evidence.innerHTML = '';
-    if (results) results.innerHTML = '<p>Method A confidence policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
+    if (results) results.innerHTML = '<p>Correspondence analysis policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
     if (executive) executive.innerHTML = '';
     if (deltas) deltas.innerHTML = '';
     if (transfer) transfer.innerHTML = '';
-    setMultiSourceStatus(container, 'Method A confidence policy changed. Stale correspondence, review approvals and Writer2 scope are invalid; run Inspect again.');
+    setMultiSourceStatus(container, (pathChanged ? 'Dimensional length policy' : 'Method A confidence policy') + ' changed. Stale correspondence, review approvals and Writer2 scope are invalid; run Inspect again.');
   };
   const blockLegacyAnalyze = (event) => { if (multiSource(container)) { event.preventDefault(); event.stopImmediatePropagation(); } };
   sourceInput.addEventListener('change', resetMulti); targetInput.addEventListener('change', resetMulti);
