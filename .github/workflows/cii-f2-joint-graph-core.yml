@@ -28,6 +28,7 @@ jobs:
           node --check scripts/cii-architecture-a2-shadow-joint-evidence.mjs
           node --check scripts/cii-architecture-a2-physical-path-constraints.mjs
           node --check scripts/cii-architecture-a2-global-constraint-shadow.mjs
+          node --check scripts/cii-arch01-f2-joint-report.mjs
           node --check tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js
       - name: Transfer family read-only contracts
         run: node tests/cii-architecture-a1-capability-contracts.test.js
@@ -41,3 +42,48 @@ jobs:
         run: |
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
           node tests/cii-workspace-source-target-audit.test.js
+      - name: Original 100mm main-gate shadow report
+        run: |
+          node scripts/cii-arch01-f2-joint-report.mjs \
+            --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
+            --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
+            --manual S2:420:415 --manual S3:1580:7880 \
+            --m1-tolerance 100 --out test-results/cii-arch01-f2-joint-100.json
+      - name: Original 200mm shadow report
+        run: |
+          node scripts/cii-arch01-f2-joint-report.mjs \
+            --source S1:Benchmark/S1.CII --source S2:Benchmark/S2.CII \
+            --source S3:Benchmark/S3.CII --target Benchmark/T.CII \
+            --manual S2:420:415 --manual S3:1580:7880 \
+            --m1-tolerance 200 --out test-results/cii-arch01-f2-joint-200.json
+      - name: Confirm 100-200 same source custody and non-writing authority
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const r=t=>JSON.parse(readFileSync("test-results/cii-arch01-f2-joint-"+t+".json"));
+            const a=r(100),b=r(200);
+            assert.deepEqual(a.custody,b.custody);
+            assert.equal(a.originalPhysicalSourceNodeCount,150);
+            assert.equal(b.originalPhysicalSourceNodeCount,150);
+            assert.equal(a.originalPhysicalSourceElementCount,147);
+            assert.equal(b.originalPhysicalSourceElementCount,147);
+            assert.equal(a.writerReady,false);
+            assert.equal(b.writerReady,false);
+            assert.deepEqual(a.identityCertificates,[]);
+            assert.deepEqual(b.identityCertificates,[]);
+            console.log("F2_JOINT_COMPARE",JSON.stringify({
+              before:a.globalConstraints.states,after:b.globalConstraints.states,
+              claimantCounts:[a.jointClaims,b.jointClaims],
+              sourceNodeCount:a.originalPhysicalSourceNodeCount,
+              sourceElementFactors:a.originalPhysicalSourceElementCount,
+              noIdentityCertification:true,writerVeto:true
+            }));
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cii-arch01-f2-100-200-joint-shadow
+          path: test-results/cii-arch01-f2-joint-*.json
+          if-no-files-found: warn
+          retention-days: 14
