@@ -1,6 +1,8 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
 import { intakeCiiWorkspaceDocument } from './cii-workspace-intake.js';
 import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapter.js';
+import { buildCiiComparisonAttachmentEvidenceByNode } from './cii-workspace-path-attachment-custody.js';
+import { validateCiiPathTotalLengthToleranceMm } from './cii-workspace-path-total-length.js';
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
 import { qualifyCiiMultiBaseAuthority } from './cii-workspace-multi-base-anchor.js';
 import { buildCiiMultiBaseCorrespondence } from './cii-workspace-multi-base-correspondence.js';
@@ -284,7 +286,15 @@ export async function createCiiWorkspaceCommonAnalysis(input, options = {}, prep
   const anchors = acceptedAnchors(input);
   const landmarks = deepFreeze({ source: suggestCiiLandmarks(sourceGraph, options), target: suggestCiiLandmarks(targetGraph, options) });
   const multiBaseAuthority = workspaceMultiBaseAuthority(input, anchors, sourceGraph, targetGraph, options);
-  const multiBaseCorrespondence = buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, options);
+  const pathTotalLengthToleranceMm = validateCiiPathTotalLengthToleranceMm(options.pathTotalLengthToleranceMm ?? 100);
+  // Compare-only dimensional evidence. Original graphs, Method A/B authority
+  // and protected raw Writer records remain identical.
+  const correspondenceOptions = {
+    ...options, pathTotalLengthToleranceMm, enableSafeComparisonPaths: true,
+    sourceAttachmentEvidenceByNode: buildCiiComparisonAttachmentEvidenceByNode(sourceDocument, sourceGraph),
+    targetAttachmentEvidenceByNode: buildCiiComparisonAttachmentEvidenceByNode(targetDocument, targetGraph),
+  };
+  const multiBaseCorrespondence = buildCiiMultiBaseCorrespondence(sourceGraph, targetGraph, multiBaseAuthority, correspondenceOptions);
   const geometry = compatibilityGeometry(multiBaseAuthority, multiBaseCorrespondence);
   const pathAudit = deepFreeze({ structural: buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options),
     candidates: buildCiiPathCandidateAudit(sourceGraph, targetGraph, options) });
