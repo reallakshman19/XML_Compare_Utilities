@@ -65,6 +65,12 @@ assert(report.summary.jointCandidateNodes>=105,'must retain AUTO evidence even i
 assert(report.summary.differingTargetCandidates>=2,'must preserve opposing manual/auto claims');
 assert.equal(report.summary.certifiedNodeCount,0);
 assert.equal(report.summary.writerOperationCount,0);
+assert.equal(report.globalAssignmentReview.schema,'CiiF2GlobalCandidateAssignment.v1');
+assert.equal(report.globalAssignmentReview.independentlyCertified,false);
+assert.equal(report.globalAssignmentReview.writerReady,false);
+assert.equal(report.globalAssignmentReview.originalTargetCoverageComplete,false);
+assert(report.globalAssignmentReview.sampledSolutionCount<=2);
+assert.equal(report.summary.globalAssignmentStatus,report.globalAssignmentReview.status);
 assert.equal(report.canBindWriter,false);
 assert.equal(report.transferPlan,null);
 assert.equal(report.writeScope,null);
@@ -94,6 +100,9 @@ assert.throws(()=>buildCiiF2JointConstrainedReview({...input,policy:{maxVisitsPe
 assert.throws(()=>buildCiiF2JointConstrainedReview({...input,policy:{pathLengthToleranceMm:200}}),/F2_JOINT_LENGTH_POLICY_INVALID/);
 const limited=buildCiiF2JointConstrainedReview({...input,policy:{maxVisitsPerFactor:1}});
 assert(limited.summary.factors.incomplete>0,'bounded search must report incomplete explicitly');
+const assignedLimited=buildCiiF2JointConstrainedReview({...input,policy:{maxAssignmentSearchStates:1}});
+assert.equal(assignedLimited.globalAssignmentReview.status,'SEARCH_INCOMPLETE');
+assert.equal(assignedLimited.globalAssignmentReview.independentlyCertified,false);
 assert.equal(limited.summary.certifiedNodeCount,0);
 console.log('CII_F2_JOINT_ORIGINAL_RESULT',JSON.stringify({
  sourceSetSha256:report.originalCustody.sourceSetSha256,
@@ -104,6 +113,7 @@ console.log('CII_F2_JOINT_ORIGINAL_RESULT',JSON.stringify({
  disagreeingSourceNodes:report.summary.differingTargetCandidates,
  targetCustodyReviewCount:report.summary.targetCustodyReviewCount,
  factors:report.summary.factors,
+ globalAssignment:{status:report.globalAssignmentReview.status,searchStates:report.globalAssignmentReview.searchStates,sampledSolutions:report.globalAssignmentReview.sampledSolutionCount},
  witnessS2:s2.candidates.map(x=>({target:x.targetNodeId,origins:x.origins,status:x.status})),
  witnessS3:s3.candidates.map(x=>({target:x.targetNodeId,origins:x.origins,status:x.status})),
  noWriter:true,
