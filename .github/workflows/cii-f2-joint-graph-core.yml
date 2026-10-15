@@ -5,6 +5,12 @@ on:
   pull_request:
     paths:
       - scripts/cii-architecture-a2-*.mjs
+      - scripts/cii-a2-json-sha256.mjs
+      - tabs/cii-workspace/cii-workspace-f2-canonical-*.js
+      - tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+      - tests/cii-arch01-f2-isomorphic-sha.test.js
+      - tests/browser/cii-f2-canonical-worker.spec.mjs
+      - playwright.cii-f2-canonical-worker.config.mjs
       - tabs/cii-workspace/architecture/**
       - tests/cii-architecture-a*.test.js
       - tests/cii-arch01-f2-authority-mode-original-census.test.js
@@ -33,6 +39,8 @@ jobs:
           node --check scripts/cii-architecture-a2-frontier-reconciliation.mjs
           node --check scripts/cii-arch01-f2-joint-report.mjs
           node --check tabs/cii-workspace/architecture/cii-transfer-capability-contracts.js
+      - name: Cross-runtime SHA-256 parity and no Node-only core imports
+        run: node tests/cii-arch01-f2-isomorphic-sha.test.js
       - name: Transfer family read-only contracts
         run: node tests/cii-architecture-a1-capability-contracts.test.js
       - name: Original S1 S2 S3 AUTO vs manual claim reconciliation
@@ -49,6 +57,12 @@ jobs:
         run: |
           node tests/cii-workspace-multisource-retained-auto-anchor-benchmark.test.js
           node tests/cii-workspace-source-target-audit.test.js
+      - name: Install browser test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Real original CII browser canonical A2 Worker and legacy Writer preservation
+        run: npx playwright test --config=playwright.cii-f2-canonical-worker.config.mjs
       - name: Original 100mm main-gate shadow report
         run: |
           node scripts/cii-arch01-f2-joint-report.mjs \
