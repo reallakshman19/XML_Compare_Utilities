@@ -4,6 +4,8 @@ import { ciiAlignmentScore } from './cii-workspace-evidence.js';
 import { deriveCiiAlignmentCorrespondence } from './cii-workspace-alignment.js';
 import { buildCiiCandidateEvidence, candidateStatus, targetCustodyConflicts } from './cii-workspace-candidates.js';
 import { evaluateCiiAnchorPathGate, applyCiiPathGateToRows } from './cii-workspace-path-gates.js';
+import { buildCiiComparisonPathProjection } from './cii-workspace-path-normalization.js';
+import { evaluateCiiPathTotalLength } from './cii-workspace-path-total-length.js';
 
 function otherNode(edge, current) { return edge.from === current ? edge.to : edge.from; }
 function sortIncidents(rows) { return [...(rows || [])].sort((a, b) => a.elementId.localeCompare(b.elementId, undefined, { numeric: true })); }
@@ -117,6 +119,56 @@ function subdivisionEvidence(sourcePath, targetPath, options) {
   return deepFreeze({ compatible, lengthDeltaMm, lengthOk, diameterOk, wallOk, componentOk, transitionOk, straightnessOk, sourceStraightness, targetStraightness, internalNodes, evidenceFamilies });
 }
 
+/**
+ * A read-only N:M physical-path candidate. Only a fully verified attachment
+ * index and exact original element-path witness can enable it. No METHOD_A
+ * registration, METHOD_B two-axis basis or Writer scope follows from this.
+ */
+function normalizedSpanEvidence(sourceGraph,targetGraph,sourcePath,targetPath,anchors,options) {
+  if (options.enableSafeComparisonPaths!==true) return null;
+  if (!options.sourceAttachmentEvidenceByNode || !options.targetAttachmentEvidenceByNode) return null;
+  if (sourcePath.elements.length===1 && targetPath.elements.length===1) return null;
+  const source=buildCiiComparisonPathProjection(sourceGraph,{
+    attachmentEvidenceByNode:options.sourceAttachmentEvidenceByNode,
+    protectedNodeIds:anchors.map(p=>String(p.sourceNodeId)),
+  });
+  const target=buildCiiComparisonPathProjection(targetGraph,{
+    attachmentEvidenceByNode:options.targetAttachmentEvidenceByNode,
+    protectedNodeIds:anchors.map(p=>String(p.targetNodeId)),
+  });
+  function findWitness(projection,path) {
+    const wanted=path.elements.map(e=>String(e.elementId));
+    return projection.paths.find(p=>{
+      const direct=p.startNodeId===path.startNode && p.endNodeId===path.endNode && p.originalElementIds.every((e,i)=>e===wanted[i]);
+      const reverse=p.startNodeId===path.endNode && p.endNodeId===path.startNode
+        && [...p.originalElementIds].reverse().every((e,i)=>e===wanted[i]);
+      return p.originalElementIds.length===wanted.length && (direct||reverse)
+        && p.status==='READ_ONLY_COMPARISON_PATH';
+    });
+  }
+  const sw=findWitness(source,sourcePath),tw=findWitness(target,targetPath);
+  if(!sw||!tw) return null;
+  if(!sw.interiorPassThroughNodeIds.length&&!tw.interiorPassThroughNodeIds.length) return null;
+  const dimension=evaluateCiiPathTotalLength(sw,tw,options);
+  // Each original path must be intrinsically straight. Identical total
+  // length of a folded route can never satisfy this structural gate.
+  const straight=sourcePath.elements.every(e=>e.componentKind==='PIPE')
+    &&targetPath.elements.every(e=>e.componentKind==='PIPE')
+    && Math.abs(pathVectorLength(sourcePath)-sourcePath.totalLengthMm)<=Math.max(1,sourcePath.totalLengthMm*0.005)
+    && Math.abs(pathVectorLength(targetPath)-targetPath.totalLengthMm)<=Math.max(1,targetPath.totalLengthMm*0.005);
+  return deepFreeze({
+    ...dimension, lengthPass:dimension.lengthPass && straight,
+    sourceWitness:sw,targetWitness:tw,
+    straight, endpointsRequireIndependentIdentity:true,
+    methodAQualifiedByThisEvidence:false,methodBQualifiedByThisEvidence:false,
+    writerAuthorized:false,
+    blockers:deepFreeze([
+      ...(straight?[]:['NORMALIZED_PATH_NOT_STRAIGHT']),
+      ...(dimension.lengthPass?[]:['PATH_TOTAL_LENGTH_TOLERANCE_EXCEEDED']),
+    ]),
+  });
+}
+
 function lockedNodeRows(anchorPairs) {
   return anchorPairs.map((pair) => deepFreeze({
     correspondenceId: stableId('node', pair.sourceNodeId, pair.targetNodeId), kind: 'NODE', sourceNodeId: String(pair.sourceNodeId), targetNodeId: String(pair.targetNodeId),
@@ -194,22 +246,30 @@ export function compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs
   const scoreOptions = { ...options, geometryTransform: options.geometryTransform };
   const alignment = alignElementSequence(sourcePath, targetPath, (a, b) => ciiAlignmentScore(a, b, scoreOptions), options);
   const alignmentRows = deriveCiiAlignmentCorrespondence(alignment, scoreOptions); const subdivision = subdivisionEvidence(sourcePath, targetPath, { ...options, targetGraph });
+  const normalized = normalizedSpanEvidence(sourceGraph,targetGraph,sourcePath,targetPath,ordered,options);
   const pathScore = scorePathMatch(sourcePath, targetPath, options);
   const pathGate = evaluateCiiAnchorPathGate(sourcePath, targetPath, alignment, subdivision, pathScore, options);
-  const rawElementRows = subdivision?.compatible ? [deepFreeze({
+  const rawElementRows = normalized?.lengthPass && !subdivision?.compatible ? [deepFreeze({
+    correspondenceId:stableId('normalized-path',...sourcePath.elements.map(e=>e.elementId),...targetPath.elements.map(e=>e.elementId)),
+    kind:'ELEMENT_PATH',sourceElementIds:Object.freeze(sourcePath.elements.map(e=>e.elementId)),
+    targetElementIds:Object.freeze(targetPath.elements.map(e=>e.elementId)),status:'REVIEW',
+    authority:'NORMALIZED_PIPE_PATH_CANDIDATE_NOT_CERTIFIED',
+    evidence:deepFreeze({normalizedPath:normalized, independentPhysicalValidation:'REQUIRED'}),
+  })] : subdivision?.compatible ? [deepFreeze({
     correspondenceId: stableId('path', sourcePath.elements[0].elementId, ...targetPath.elements.map((edge) => edge.elementId)), kind: 'ELEMENT_PATH', sourceElementIds: Object.freeze([sourcePath.elements[0].elementId]),
     targetElementIds: Object.freeze(targetPath.elements.map((edge) => edge.elementId)), status: 'HIGH', authority: 'LOCKED_ANCHOR_SPAN_SUBDIVISION', evidence: deepFreeze({ subdivision, pathScore: Number(pathScore.toFixed(1)) }),
   })] : withCandidateEvidence(alignmentRows.elementRows, sourcePath, targetPath, scoreOptions);
   const elementRows = applyCiiPathGateToRows(rawElementRows, pathGate);
-  const nodeRows = [...lockedNodeRows(ordered), ...(subdivision?.compatible ? insertedRows(subdivision) : alignmentRows.nodeRows)];
+  const nodeRows = [...lockedNodeRows(ordered), ...(normalized?.lengthPass && !subdivision?.compatible ? [] : subdivision?.compatible ? insertedRows(subdivision) : alignmentRows.nodeRows)];
   const custody = targetCustodyConflicts(elementRows); const hardConflicts = elementRows.filter((row) => row.status === 'CONFLICT');
   const ambiguity = elementRows.some((row) => row.status === 'REVIEW' && row.evidence?.candidates?.status === 'AMBIGUOUS');
   const matched = elementRows.some((row) => ['HIGH', 'REVIEW'].includes(row.status) || row.kind === 'ELEMENT_PATH');
-  const resultBlockers = [...(custody.length ? ['TARGET_CUSTODY_AMBIGUOUS'] : []), ...pathGate.blockers];
+  const resultBlockers = [...(custody.length ? ['TARGET_CUSTODY_AMBIGUOUS'] : []), ...pathGate.blockers,
+    ...(normalized?.lengthPass && !subdivision?.compatible ? ['NORMALIZED_PATH_PHYSICAL_IDENTITY_NOT_CERTIFIED'] : [])];
   const status = hardConflicts.length ? 'CONFLICT' : (resultBlockers.length ? 'UNRESOLVED' : (matched ? 'READY' : 'UNRESOLVED'));
   return deepFreeze({
     schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: Object.freeze(resultBlockers), ambiguityRetained: ambiguity, targetCustodyConflicts: custody,
-    correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, ordered, elementRows), pathScore: Number(pathScore.toFixed(1)), pathGate, sourcePath, targetPath,
+    correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, ordered, elementRows), pathScore: Number(pathScore.toFixed(1)), pathGate, normalizedPathEvidence:normalized, sourcePath, targetPath,
     alignment: deepFreeze({ score: alignment.score, operations: alignment.operations.map((op) => ({ op: op.op, sourceElementId: op.refEdge?.elementId || null, targetElementId: op.targetEdge?.elementId || null })) }),
     nodeRows: Object.freeze(nodeRows), elementRows: Object.freeze(elementRows),
   });
