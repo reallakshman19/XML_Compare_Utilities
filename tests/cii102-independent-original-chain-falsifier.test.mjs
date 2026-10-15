@@ -104,7 +104,7 @@ function enumerateCompleteOriginalChains(source,target,sourceNodes,policy){
     for(const state of states){
       for(const route of routesForOneSourceElement(target,state.at,sourceChain[i],
         state.used,policy)){
-        if(state.visited.has(route.endpoint))continue;
+        if(route.steps.some(step=>state.visited.has(step.to)))continue;
         const visited=new Set(state.visited);
         for(const step of route.steps)visited.add(step.to);
         const used=new Set(state.used);
