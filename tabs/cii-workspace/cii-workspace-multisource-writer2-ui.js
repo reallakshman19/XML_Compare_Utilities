@@ -708,6 +708,11 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const onConfidencePolicyChange = () => {
     confidenceEpoch += 1;
     if (!multiSource(container)) return;
+    // Retain selected AUTO/MANUAL seeds under the *new* actual applied
+    // confidence/tolerance policy but never resurrect old review decisions,
+    // Writer scope or correspondence from persisted prior-policy snapshots.
+    activeMethodAConfidenceOptions = getCiiMultiSourceMethodAConfidenceOptions();
+    persistSession({ invalidateReview: true });
     resetMulti();
     if (evidence) evidence.innerHTML = '';
     if (results) results.innerHTML = '<p>Method A confidence policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
