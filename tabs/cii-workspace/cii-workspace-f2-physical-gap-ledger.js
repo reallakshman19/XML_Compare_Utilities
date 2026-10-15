@@ -144,6 +144,9 @@ export function buildCiiF2PhysicalGapLedger(original,reconciled,{joint,frontier}
    originalCandidatePairCount:a.candidatePairCount,
    recheckedCandidatePairCount:b.candidatePairCount,
    originalPathWitnesses:a.pathWitnesses.length,
+   // Only pre-frontier routes are eligible to be reported as ORIGINAL evidence.
+   // Later recovered frontiers cannot retroactively change their provenance.
+   originalTargetPhysicalPathWitnesses:witnessEvidence(a),
    recheckedPathWitnesses:b.pathWitnesses.length,
    targetPhysicalPathAlternatives:witnessEvidence(b),
    targetPathRejectionReasons:reasonsFor(b),
