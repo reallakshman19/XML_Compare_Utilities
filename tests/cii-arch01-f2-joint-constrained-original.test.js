@@ -87,6 +87,16 @@ for(const [row,claimed,other] of [[s2,'415','10330'],[s3,'7880','8895']]){
 assert(report.summary.factors.examined>=147,'every original ELEMENT incidence must be examined');
 assert.equal(report.summary.factors.examined,
  report.summary.factors.complete+report.summary.factors.incomplete);
+// Cross-member TARGET custody must be visible, never silently collapsed.
+const crossMember=buildCiiF2JointConstrainedReview({
+ ...input,manualClaims:[...manualClaims,{sourceId:'S1',sourceNodeId:'4410',targetNodeId:'415'}],
+});
+assert(crossMember.summary.targetCustodyReviewCount>=2,
+ 'two distinct physical SOURCE members claiming T415 must remain review conflicts');
+assert.equal(crossMember.rows.find(x=>x.sourceNodeKey==='S1:4410').state,'CONFLICT');
+assert.equal(crossMember.rows.find(x=>x.sourceNodeKey==='S2:420').state,'CONFLICT');
+assert.equal(crossMember.summary.certifiedNodeCount,0);
+assert.equal(crossMember.summary.writerOperationCount,0);
 const noManual=buildCiiF2JointConstrainedReview({
  automaticPreview:automatic,activePreview:automatic,manualClaims:[],
 });
