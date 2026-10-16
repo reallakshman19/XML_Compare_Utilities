@@ -22,6 +22,7 @@ import {verifyCiiMidcycle150GlobalOriginalShape} from './cii-workspace-phase2-mi
 import {buildCiiMidcycle150OwnerGoldenCertificates} from './cii-workspace-phase2-midcycle150-owner-golden-certificates.js';
 import {verifyCiiMidcycle150RootedCorrespondences} from './cii-workspace-phase2-midcycle150-rooted-verify.js';
 import {diagnoseCiiMidcycle150Unverified} from './cii-workspace-phase2-midcycle150-unverified-forensics.js';
+import {reviewCiiMidcycleW11ProductionQualification} from './cii-workspace-phase2-midcycle-w11-qualification-audit.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -89,6 +90,16 @@ const unverifiedForensics=diagnoseCiiMidcycle150Unverified({
 });
 assert.equal(unverifiedForensics.unverifiedSourcePhysicalNodeCount,45);
 assert.deepEqual(unverifiedForensics.unverifiedByMember.map(r=>r.unverified),[22,11,12]);
+const w11Qualification=reviewCiiMidcycleW11ProductionQualification({
+ forensics:unverifiedForensics,audit,rooted,
+ compareReview:preview.compareReview,memberPreviews:preview.memberPreviews,
+});
+assert.equal(w11Qualification.leadCount,22);
+assert.equal(w11Qualification.newIndependentlyCertifiedPhysicalNodeCount,0);
+const w11NoCandidate=unverifiedForensics.rows.filter(r=>
+ r.status==='NO_ORIGINAL_T_CANDIDATE_MATCHING_TRUSTED_GEOMETRY');
+assert.equal(w11NoCandidate.length,23);
+
 const midcycle150=scoreCiiMidcycle150({
   originalSourcePhysicalNodeCount:150,
   originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
@@ -187,6 +198,13 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycleW11OriginalGeometryVsProductionReview:{
+    leadCount:w11Qualification.leadCount,
+    dispositions:w11Qualification.dispositionCounts,
+    targetClaimConflicts:w11Qualification.conflictTargets,
+    stageRootCauses:unverifiedForensics.geometryRootCauseCounts,
+    newIndependentlyCertifiedPhysicalNodes:0,
+  },
   midcycle150UnverifiedForensicsSummary:{
     unverified:unverifiedForensics.unverifiedSourcePhysicalNodeCount,
     perMember:unverifiedForensics.unverifiedByMember,
@@ -282,6 +300,25 @@ writeFileSync(new URL('midcycle150-priority-22-original-T-candidate-leads.csv',r
  [candidateCols.join(','),...unverifiedForensics.priorityCandidates.map(r=>
  candidateCols.map(k=>unresolvedCell(r[k])).join(','))].join('\n')+'\n');
 writeFileSync(new URL('midcycle150-independent-global-shape.json',root),JSON.stringify(globalShape,null,2)+'\n');
+writeFileSync(new URL('midcycle-w11-22-candidates-vs-production-review.json',root),
+  JSON.stringify(w11Qualification,null,2)+'\n');
+writeFileSync(new URL('midcycle-w11-23-no-candidate-stage-root-causes.json',root),
+  JSON.stringify({
+    schema:'CiiMidcycleW11OriginalGeometryStageVetoBreakdown.v1',
+    originalSourceCensus:150,missingCandidateCount:23,
+    stageReasonCounts:unverifiedForensics.geometryRootCauseCounts,
+    rows:w11NoCandidate,
+    noIdentityCreditsFromThisReport:true,
+  },null,2)+'\n');
+const reviewColumns=['sourcePhysicalKey','provisionalOriginalTargetPhysicalNodeId',
+ 'matcherState','matcherConfidence','matcherBlockers','productionCorrespondenceRows',
+ 'exactProductionPairReviewRows','exactProductionPairAuthority','exactProductionPairEvidenceBasis',
+ 'originalMethodABoundaryDiagnostics','originalSourceMemberBlockers',
+ 'w11Disposition','newIndependentPhysicalCredit'];
+writeFileSync(new URL('midcycle-w11-22-candidates-vs-production-review.csv',root),
+ [reviewColumns.join(','),...w11Qualification.rows.map(row=>
+ reviewColumns.map(k=>unresolvedCell(row[k])).join(','))].join('\n')+'\n');
+
 
 // Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
 // the complete, exact, member-custodied inverse maps independently of labels
@@ -436,6 +473,8 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_W11_PRODUCTION_QUALIFICATION '+JSON.stringify({leadCount:w11Qualification.leadCount,dispositions:w11Qualification.dispositionCounts,perMember:w11Qualification.perMember,newCredits:w11Qualification.newIndependentlyCertifiedPhysicalNodeCount}));
+console.log('PHASE2_MIDCYCLE_W11_NO_CANDIDATE_STAGE_GATES '+JSON.stringify({missing:23,stageRootCauses:unverifiedForensics.geometryRootCauseCounts}));
 console.log('PHASE2_MIDCYCLE_150_UNVERIFIED_FORENSICS '+JSON.stringify({count:unverifiedForensics.unverifiedSourcePhysicalNodeCount,byMember:unverifiedForensics.unverifiedByMember,reasonCounts:unverifiedForensics.reasonCounts,matcherStateCounts:unverifiedForensics.matcherStateCounts}));
 console.log('PHASE2_MIDCYCLE_150_ROOTED_PROOF '+JSON.stringify({ownerSeeds:rooted.ownerGoldenSeeds,globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,verified:rooted.independentlyRootedVerifiedPhysicalNodes,perMember:rooted.sourcePerMember,thresholdMet:rooted.strict70PercentPhysicalGoalMet,rounds:rooted.proofRounds}));
 console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
