@@ -76,7 +76,10 @@ export function scoreCiiMidcycle150(input={}) {
         !Number.isSafeInteger(row.independentLocalRouteWitnessCount)||
         row.independentLocalRouteWitnessCount<1||
         !Array.isArray(row.independentLocalRouteWitnesses)||
+        row.locallyUniqueOriginalTargetRelativeToBoundNeighbors!==true||
+        row.localOriginalAlternativeTargetCandidateCount!==1||
         !row.independentLocalRouteWitnesses.some(w=>w.withinLengthTolerance===true&&
+           w.withinVectorTolerance===true&&
            w.targetPathStatus==='UNIQUE_MIN_HOP_ROUTE'))
         throw Error('MIDCYCLE_LOCAL_ORIGINAL_GRAPH_PATH_EVIDENCE_INVALID');
       localPathNodeKeys.push(key);
@@ -97,6 +100,10 @@ export function scoreCiiMidcycle150(input={}) {
     originalLocalRouteWitnessNodeCount:localPathNodeKeys.length,
     originalLocalRouteWitnessCoverageRatio:localPathNodeKeys.length/150,
     originalLocalRoute70PercentReached:localPathNodeKeys.length>=threshold,
+    localGeometryMilestoneStatus:localPathNodeKeys.length>=threshold
+      ?'PASS_150_ORIGINAL_LOCAL_LENGTH_VECTOR_AND_UNIQUE_RELATIVE_TARGET'
+      :'BELOW_150_ORIGINAL_LOCAL_GEOMETRY_THRESHOLD',
+    localGeometryVetoes:'ORIGINAL_UNIQUE_MIN_HOP_LENGTH_100MM_PLUS_SIGNED_VECTOR_100MM_PLUS_EXHAUSTIVE_1619_TARGET_ALTERNATIVES_CONDITIONAL_ON_BOUND_NEIGHBORS',
     originalLocalRouteWitnessIsGlobalPhysicalCertification:false,
     MIDCYCLE_150_VALIDATED_RECALL:strict/150,
     thresholdMet:strict>=threshold,
