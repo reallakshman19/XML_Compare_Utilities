@@ -70,6 +70,8 @@ jobs:
         run: node tests/cii-workspace-phase2-owner-corpus-provenance.mjs
       - name: Reconcile physical SOURCE population across all original CII inputs (no fixture substitution)
         run: node tests/cii-workspace-phase2-original-population-reconcile.mjs
+      - name: Verify cumulative S1 + S2 + S3 SOURCE member-scoped NODE and NodeName census against full 428 Owner rows
+        run: node tests/cii-workspace-phase2-cumulative-source-reconcile.mjs
       - name: Archive complete owner row-level report
         if: always()
         uses: actions/upload-artifact@v4
