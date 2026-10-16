@@ -57,6 +57,53 @@ function signature(states,root,end){
   originalElementIndexes:ordered.map(x=>x.index),
   segmentWitnesses:ordered};
 }
+/**
+ * Comparison-only geometric signature for an original straight constant-OD
+ * path that may have been split into multiple CII ELEMENTS. The underlying
+ * original ELEMENTS must be independently decoded. This function does not
+ * know the original component TYPE, and NEVER qualifies a NODE binding.
+ */
+export function compareCiiW12OriginalSegmentedPipeGeometry(sourceEdges,targetEdges,{
+ pathTotalLengthToleranceMm=100,
+}={}){
+ if(pathTotalLengthToleranceMm!==100||!Array.isArray(sourceEdges)||!Array.isArray(targetEdges)||
+  !sourceEdges.length||!targetEdges.length)
+  throw Error('W12_SEGMENTED_ORIGINAL_PIPE_WITNESS_REQUIRED');
+ const summarize=edges=>{
+  const lengthMm=edges.reduce((n,e)=>n+norm(e.vector),0);
+  const displacement=edges.reduce((v,e)=>v.map((n,i)=>n+e.vector[i]),[0,0,0]);
+  const rods=edges.map(e=>e.odMm);
+  const odPositiveConsistent=rods.every(v=>Number.isFinite(v)&&v>0&&Math.abs(v-rods[0])<=1);
+  const nonzero=edges.every(e=>Array.isArray(e.vector)&&e.vector.length===3&&
+    e.vector.every(Number.isFinite)&&norm(e.vector)>0);
+  const straightCollinearForward=nonzero&&edges.every(e=>{
+    const first=edges[0].vector;
+    return Math.abs(norm(e.vector)*norm(first)-
+      e.vector.reduce((n,x,i)=>n+x*first[i],0)) <=
+      0.001*norm(e.vector)*norm(first);
+  });
+  return {lengthMm,displacement,segmentCount:edges.length,
+   referenceOriginalOdMm:rods[0],odPositiveConsistent,straightCollinearForward};
+ };
+ const source=summarize(sourceEdges),target=summarize(targetEdges);
+ const odMatch=source.odPositiveConsistent&&target.odPositiveConsistent&&
+   Math.abs(source.referenceOriginalOdMm-target.referenceOriginalOdMm)<=1;
+ const lengthDeltaMm=Math.abs(source.lengthMm-target.lengthMm);
+ const signedDisplacementDeltaMm=difference(source.displacement,target.displacement);
+ const passesGeometry=odMatch&&source.straightCollinearForward&&target.straightCollinearForward&&
+   lengthDeltaMm<=pathTotalLengthToleranceMm&&
+   signedDisplacementDeltaMm<=pathTotalLengthToleranceMm;
+ return {schema:'CiiW12OriginalSegmentedPipeGeometryOnly.v1',
+  originalSourceElements:source.segmentCount,originalTargetElements:target.segmentCount,
+  originalLengthMm:{source:source.lengthMm,target:target.lengthMm,delta:lengthDeltaMm},
+  originalSignedDisplacementMm:{source:source.displacement,target:target.displacement,
+   delta:signedDisplacementDeltaMm},
+  constantOriginalOdCompatible:odMatch,
+  originalStraightConstantOdPathGeometryCompatible:passesGeometry,
+  originalPipeTypeIndependentlyVerified:false,
+  creditedNodeIdentity:false,
+  policy:'INDEPENDENT_100MM_AGGREGATE_PATH_TOTAL_AND_SIGNED_VECTOR_NO_IDENTITY_UPGRADE'};
+}
 function sameOd(a,b){
  return Boolean(a&&b&&a.odValues.length===b.odValues.length&&a.odValues.every((v,i)=>
  Number.isFinite(v)&&v>0&&Math.abs(v-b.odValues[i])<=1));
@@ -77,6 +124,12 @@ function examine(src,tgt,sDegree,tDegree,tolerance){
   possibleOriginalSegmentSplittingProxy:src.originalElementCount!==tgt.originalElementCount&&
     src.consistentOd&&src.allOriginalSegmentsCollinearSameDirection&&
     tgt.consistentOd&&tgt.allOriginalSegmentsCollinearSameDirection,
+  originalSegmentedGeometricProxyComparison:src.originalElementCount!==tgt.originalElementCount
+    ?compareCiiW12OriginalSegmentedPipeGeometry(
+       src.segmentWitnesses.map(e=>({vector:e.vector,odMm:e.odMm})),
+       tgt.segmentWitnesses.map(e=>({vector:e.vector,odMm:e.odMm})),
+       {pathTotalLengthToleranceMm:tolerance})
+    :null,
   within100mmIndependentLength:Math.abs(src.sourceOrTargetLengthMm-tgt.sourceOrTargetLengthMm)<=tolerance,
   within100mmSignedVector:difference(src.signedDisplacementMm,tgt.signedDisplacementMm)<=tolerance,
  };
