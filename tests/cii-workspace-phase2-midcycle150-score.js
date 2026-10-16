@@ -62,6 +62,26 @@ export function scoreCiiMidcycle150(input={}) {
   });
   if(perMember.map(x=>x.totalOriginalSourcePhysicalNodes).join(',')!=='57,47,46')
     throw Error('MIDCYCLE_CUMULATIVE_57_47_46_INVARIANT_BROKEN');
+  const originalLocal=input.originalLocalPathWitnesses;
+  if(originalLocal && (!Array.isArray(originalLocal.rows)||originalLocal.rows.length!==150))
+    throw Error('MIDCYCLE_LOCAL_ORIGINAL_PATH_FULL_CENSUS_REQUIRED');
+  const localSeen=new Set();
+  const localPathNodeKeys=[];
+  for(const row of originalLocal?.rows||[]){
+    const key=String(row.sourcePhysicalKey||'');
+    if(!ids.has(key)||localSeen.has(key))throw Error('MIDCYCLE_LOCAL_PATH_DUPLICATE_OR_NONCENSUS_SOURCE');
+    localSeen.add(key);
+    if(row.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY'){
+      if(!bound.includes(key)||String(row.targetNodeId)!==target(ids.get(key))||
+        !Number.isSafeInteger(row.independentLocalRouteWitnessCount)||
+        row.independentLocalRouteWitnessCount<1||
+        !Array.isArray(row.independentLocalRouteWitnesses)||
+        !row.independentLocalRouteWitnesses.some(w=>w.withinLengthTolerance===true&&
+           w.targetPathStatus==='UNIQUE_MIN_HOP_ROUTE'))
+        throw Error('MIDCYCLE_LOCAL_ORIGINAL_GRAPH_PATH_EVIDENCE_INVALID');
+      localPathNodeKeys.push(key);
+    }
+  }
   const strict=proofBySource.size;
   const threshold=Math.ceil(declared*.70);
   return freeze({
@@ -74,6 +94,10 @@ export function scoreCiiMidcycle150(input={}) {
     autoBoundCandidateCoverageRatio:bound.length/150,
     autoBoundTargetConflicts:freeze([...competingTargets].map(([tid,claimants])=>freeze({targetPhysicalNodeId:tid,sourcePhysicalKeys:freeze(claimants)}))),
     independentCertificateCount:strict,
+    originalLocalRouteWitnessNodeCount:localPathNodeKeys.length,
+    originalLocalRouteWitnessCoverageRatio:localPathNodeKeys.length/150,
+    originalLocalRoute70PercentReached:localPathNodeKeys.length>=threshold,
+    originalLocalRouteWitnessIsGlobalPhysicalCertification:false,
     MIDCYCLE_150_VALIDATED_RECALL:strict/150,
     thresholdMet:strict>=threshold,
     status:strict>=threshold?'PASS_150_MILESTONE_CERTIFIED':'BELOW_150_MILESTONE_VALIDATED_THRESHOLD',
