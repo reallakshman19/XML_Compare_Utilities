@@ -38,14 +38,22 @@ test('WP6 ACTUAL docs/index.html served app → Utilities → native CII Method 
   await mkdir(receipts,{recursive:true});
   browser=await chromium.launch({headless:true});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:1400,height:850}});
-  const page=await context.newPage(),fatal=[],missingMethodC=[];
+  const page=await context.newPage(),fatal=[],missingMethodC=[],requestsFailed=[];
   page.on('pageerror',e=>fatal.push(e.message));
+  page.on('requestfailed',req=>requestsFailed.push({url:req.url(),reason:req.failure()?.errorText}));
   page.on('response',response=>{
    if(response.status()>=400&&/cii-workspace-method-c-/.test(response.url()))
     missingMethodC.push([response.status(),response.url()]);
   });
   await page.goto(url+'/',{waitUntil:'domcontentloaded'});
-  await page.locator('.app-tab[data-tab="psnm-utility"]').click();
+  await page.waitForTimeout(2000);
+  console.log('WP6_REAL_DOCS_STARTUP_DIAGNOSTIC '+JSON.stringify({
+    url:page.url(),title:await page.title(),body:(await page.locator('body').innerText()).slice(0,1400),
+    tabCount:await page.locator('.app-tab').count(),fatal:fatal.slice(0,7),
+    missingMethodC:missingMethodC.slice(0,8),requestsFailed:requestsFailed.slice(0,10)
+  }));
+  await page.screenshot({path:path.join(receipts,'wp6-native-app-startup.png'),fullPage:true});
+  await page.locator('.app-tab[data-tab="psnm-utility"]').click({timeout:15000});
   const tile=page.locator('[data-ciiw-open-method-c]');
   await tile.waitFor({state:'visible',timeout:90000});
   assert.equal(await page.locator('[data-ciiw-open]').count(),1);
