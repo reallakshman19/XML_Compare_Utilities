@@ -61,6 +61,7 @@ function originalGraph(bytes){
  }
  return {positions,componentByNode,components,conflicts,adjacency};
 }
+export function parseCiiMidcycleOriginalPhysicalGeometry(bytes){ return originalGraph(bytes); }
 const memberKey=(member,node)=>member+':'+node;
 export function verifyCiiMidcycle150GlobalOriginalShape({
  originalSources,originalTarget,audit,localPathWitness,
