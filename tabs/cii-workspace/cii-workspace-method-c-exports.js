@@ -2,9 +2,10 @@
 import { escapeMethodCXml } from './cii-workspace-method-c-svg.js';
 const jsonNum = v=>Number.isFinite(v)?v:null;
 const csvField = value => {
+  const numeric=typeof value==='number'&&Number.isFinite(value);
   let s=String(value??'').replace(/[\u0000-\u001f\u007f]/g,' ');
   // CSV must remain safe when opened in Excel/Sheets (including leading whitespace).
-  if(/^\s*[=+@-]/.test(s))s="'"+s;
+  if(!numeric&&/^\s*[=+@-]/.test(s))s="'"+s;
   return '"'+s.replace(/"/g,'""')+'"';
 };
 export function methodCEvidence({source,target,transform,candidates,scene,projection='XZ'}={}){
@@ -82,7 +83,7 @@ export function methodCSvgExport(context){
   methodCEvidence(context); // reject stale file/anchor/tolerance/projection state
   const svg=context.scene.svg;
   if(!svg.startsWith('<svg ')||/<(?:script|foreignObject)\b/i.test(svg)||
-     /\bon\w+\s*=/i.test(svg))throw new Error('METHOD_C_SVG_EXPORT_SANITIZATION_FAILED');
+     /<[^>]+\s+on[a-z]+\s*=/i.test(svg))throw new Error('METHOD_C_SVG_EXPORT_SANITIZATION_FAILED');
   return '<?xml version="1.0" encoding="UTF-8"?>\n'+svg+'\n';
 }
 export function methodCSafeLabel(label){return escapeMethodCXml(label);}
