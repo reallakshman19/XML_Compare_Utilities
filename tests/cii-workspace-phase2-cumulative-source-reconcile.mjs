@@ -46,8 +46,7 @@ const perMember=members.map((member,i)=>{
    .map(p=>({ordinal:r.ownerOrdinal,sourceNodeName:p.sourceNodeName,
      sourcePhysicalNodeId:p.sourcePhysicalNodeId,
      targetNodeName:p.targetNodeName,targetPhysicalNodeId:p.targetPhysicalNodeId})));
- const uniqueSourceNameKeys=new Set(memberMatches.flatMap(r=>r.transposedDiagnostic.candidatePairs
-   .filter(p=>p.sourceMemberId===id).map(p=>p.sourceNodeName)));
+ const uniqueSourceNameKeys=new Set(memberMatches.map(r=>r.rawTargetLabel));
  const row={
   sourceId:id,originalPath:'Benchmark/'+member.fileName,originalSha256:hash(member.bytes),
   physicalNodeCount:stats.physicalNodeCount,namedPhysicalNodeCount:stats.namedPhysicalNodeCount,
