@@ -1,0 +1,99 @@
+plan_version: V36-108-PLAN-01
+parent: reallakshman19/XML_Compare_Utilities#108
+label:
+  work: CII-METHOD-C
+  version: 1.0.0
+  label_sha: 18d91c9
+tasks:
+  - task_id: V36-108-WP1
+    size: S
+    outcome: O1
+    title: approved label and plan binding plus scoped task decomposition
+    for_user: A recoverable Method C plan and one real child issue per authorized task without overlap with Phase 2
+    acceptance: >-
+      Obtain Owner-approved machine-valid master and exact label_sha; bind parent #108 and plan version;
+      validate/dry-run v3.6; obtain separate authorized issue write scope before idempotently creating
+      children and one managed parent index; verify GET readback and no duplicate children.
+  - task_id: V36-108-WP2
+    size: M
+    outcome: O2
+    title: original CII byte custody and connected signed-XYZ geometry
+    for_user: Original S1 S2 S3 and T become auditable physical graphs without invented nodes or coordinates
+    acceptance: >-
+      Hash four pinned ORIGINAL byte streams; independently decode native 15-row ELEMENTS, NODENAME
+      pointers, UNITS, COORDS seeds, signed vectors and connected components; reproduce S1 56/57,
+      S2 46/47, S3 45/46, T 1614/1619 and five T components (875 in 767-node component);
+      reject wrong hashes, missing nodes, broken cycles and unsupported units with original element witnesses.
+  - task_id: V36-108-WP3
+    size: M
+    outcome: O2
+    title: rigid anchor custody and registration observability
+    for_user: Owner sees a physically honest proper rotation and translation with underdetermination and conflicts exposed
+    acceptance: >-
+      One anchor reports unknown rotation with explicitly assumed axes; two congruent anchors
+      report unknown axial twist; incompatible 3910/875 and 5110/1095 cannot both fit exactly;
+      three noncollinear independently trusted anchors permit a proper det+1 unit-scale transform only
+      under existing admission rules; reject mirror, scale, degenerate, stale and conflicting anchors.
+  - task_id: V36-108-WP4
+    size: L
+    outcome: O2
+    title: component-scoped XYZ physical candidate and segmentation ledger
+    for_user: Unique, ambiguous, outside-tolerance and segment-only correspondences are separately inspectable
+    acceptance: >-
+      Inclusive independent abs-dX abs-dY abs-dZ <= configured XYZ tolerances initially 100 mm;
+      indexed original NODE search, full alternatives and deterministic global TARGET custody;
+      segment projections are never invented TARGET NODEs; signed path OD wall and topology witnesses
+      preserved; reproduce original 37/45 and 41/57 first-anchor counts without golden-fed matching.
+  - task_id: V36-108-WP5
+    size: L
+    outcome: O2
+    title: interactive sanitized SVG and synchronized review evidence
+    for_user: Select physical anchors and NODEs, compare piping projections and residuals, and export all outcomes
+    acceptance: >-
+      Functional true-metric SVG overlay, XZ YZ XY and labeled oblique view, zoom pan reset,
+      selectable physical NODE/element witnesses, linked table/tooltips, per-axis residuals,
+      status legend and OD versus wall details; controls invalidate stale evidence; deterministic escaped
+      SVG and complete CSV/JSON including failures ambiguities SHA anchors and transform.
+  - task_id: V36-108-WP6
+    size: L
+    outcome: O2
+    title: isolated-to-native review-only integration and real browser proof
+    for_user: The existing CII review journey opens original CII files in Method C without Writer2 authority
+    acceptance: >-
+      First obtain G2 overlap/integration grant if modifying a PR #107-owned seam; mount read-only
+      entry only, never Writer2 apply; original pinned files and a rotated synthetic fixture load
+      in actual app, anchor controls table SVG exports and accessibility work; capture fresh real
+      served-app Chromium screenshots interaction trace and raw-export hashes with no simulated digest;
+      report any blocked navigation or missing full-graph performance evidence as NOT_RUN.
+  - task_id: V36-108-WP7
+    size: M
+    outcome: O2
+    title: rigid negative controls and existing Method A B Writer2 invariants
+    for_user: Geometric proximity cannot bypass existing independent physical identity or export protections
+    acceptance: >-
+      Execute adversarial tests for reflection scale symmetry repeated target exact-100 boundary
+      tolerance overflow cycle error label injection revision drift and unregistered components;
+      rerun native Method A geometry and 35/25/20/10/10 weight gates, Method B >=2 original
+      independent axes both sides, 100mm path budget and Writer2 no-call/target non-reuse;
+      demonstrate zero weakening, no benchmark/fixture/PR #107 mutation, and publish red controls.
+  - task_id: V36-108-WP8
+    size: M
+    outcome: O3
+    title: independent original benchmark reconciliation and evidence ledger
+    for_user: Physical correspondence results are measured honestly against approved original authority
+    acceptance: >-
+      Independent second parser/reviewer rebuilds all original counts coordinates anchor residuals
+      and candidate ledger; compare with derived fixture only after raw parsing; check unchanged
+      428-row original SHA and separate 105/150 Midcycle; report candidate versus qualified
+      physical identity versus Writer-authorized counts with global TARGET custody and all exceptions;
+      never re-score 428 as a manufactured release PASS.
+  - task_id: V36-108-WP9
+    size: M
+    outcome: O3
+    title: MemberCoordinator review fixes and independent Owner decision packet
+    for_user: G2 has exact-SHA source test browser and safety evidence for review then Owner-only decision
+    acceptance: >-
+      Each completed task posts canonical v3.6 TASK_EVIDENCE only on its own child issue;
+      G2 independently reviews every Method C commit at exact SHA and records PASS FAIL or HOLD,
+      fixes issues in its own commits under granted scope; Coordinator or independent checker checks
+      G2 fixes; give Owner explicit outstanding decisions and no premature merge/release claim.
