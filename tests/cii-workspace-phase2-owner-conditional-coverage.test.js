@@ -17,6 +17,10 @@ assert.equal(perfect.independentlyBoundPhysicalPairAgreement,2);
 assert.equal(perfect.physicallyLocatableUniqueNameRows,2);
 assert.equal(perfect.conditionalPhysicalPairAgreementRatio,1);
 assert.equal(perfect.originalOwnerDenominator,428);
+assert.equal(perfect.totalEnumeratedSourcePhysicalNodes,2);
+assert.equal(perfect.independentSolverBoundSourceNodeCount,2);
+assert.equal(perfect.ownerConditionallyAgreedSourceNodeCount,2);
+assert.equal(perfect.boundSourceNodesUnverifiedAgainstIncompleteOwnerOracle,0);
 assert.equal(perfect.P2_VALIDATED_RECALL,null);
 assert.equal(perfect.phase2SeventyPercentQualified,false);
 assert.equal(perfect.isOwnerDirectionApproved,false);
@@ -39,6 +43,7 @@ const unresolved=scoreCiiOwnerPhysicalCandidateCoverage([candidate(1,'S1','10','
 assert.equal(unresolved.rows[0].status,'SOLVER_UNRESOLVED');
 const targetClaimedTwice=scoreCiiOwnerPhysicalCandidateCoverage([candidate(1,'S1','10','5010')],audit([['S1:10','5010'],['S2:20','5010']]));
 assert.equal(targetClaimedTwice.rows[0].status,'GLOBAL_TARGET_CUSTODY_CONFLICT');
+assert.equal(targetClaimedTwice.globalDuplicateTargetClaims.length,1);
 const inconsistentOwner=scoreCiiOwnerPhysicalCandidateCoverage([
  candidate(1,'S1','10','5010'),candidate(2,'S1','10','5011'),
 ],complete);
@@ -50,6 +55,9 @@ const missingName=scoreCiiOwnerPhysicalCandidateCoverage([
 ],complete);
 assert.equal(missingName.statusCounts.NOT_A_UNIQUE_PHYSICAL_CANDIDATE,1);
 assert.equal(missingName.independentlyBoundPhysicalPairAgreement,1);
+assert.equal(missingName.independentSolverBoundSourceNodeCount,2);
+assert.equal(missingName.boundSourceNodesUnverifiedAgainstIncompleteOwnerOracle,1,
+ 'unseen bound SOURCE pair is neither a false positive nor an Owner-certified match');
 assert.throws(()=>scoreCiiOwnerPhysicalCandidateCoverage([
  candidate(1,'S1','10','5010'),candidate(1,'S2','20','5020'),
 ],complete),/OWNER_ORDINAL_DUPLICATE_OR_INVALID/);
