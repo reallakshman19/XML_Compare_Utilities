@@ -55,6 +55,15 @@ assert.equal(unresolved.rows[0].status,'SOLVER_UNRESOLVED');
 const targetClaimedTwice=scoreCiiOwnerPhysicalCandidateCoverage([candidate(1,'S1','10','5010')],audit([['S1:10','5010'],['S2:20','5010']]));
 assert.equal(targetClaimedTwice.rows[0].status,'GLOBAL_TARGET_CUSTODY_CONFLICT');
 assert.equal(targetClaimedTwice.globalDuplicateTargetClaims.length,1);
+const ownerTargetConflict=scoreCiiOwnerPhysicalCandidateCoverage([
+ candidate(1,'S1','10','5010'),candidate(2,'S2','20','5010'),
+],complete,{originalDenominator:428});
+assert.equal(ownerTargetConflict.oracleTargetConflicts.length,1);
+assert.equal(ownerTargetConflict.oracleTargetConflicts[0].targetPhysicalNodeId,'5010');
+assert.equal(ownerTargetConflict.independentlyBoundPhysicalPairAgreement,0,
+ 'conflicting Owner physical target may not credit either source claim');
+assert.equal(ownerTargetConflict.statusCounts.ORACLE_TARGET_MULTIPLE_SOURCES,2);
+
 const inconsistentOwner=scoreCiiOwnerPhysicalCandidateCoverage([
  candidate(1,'S1','10','5010'),candidate(2,'S1','10','5011'),
 ],complete);
