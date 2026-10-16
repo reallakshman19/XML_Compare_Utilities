@@ -49,8 +49,8 @@
       "wp": 6,
       "child": 114,
       "outcome": "O2",
-      "state": "INTEGRATION_IN_PROGRESS",
-      "review": "OWNER_GRANTED_EXACT_TWO_SHARED_ENTRY_FILES__G2_INDEPENDENT_REVIEW_PENDING"
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "REAL_SERVED_EXISTING_DOCS_APPLICATION_CHROMIUM_PASS__G2_INDEPENDENT_REVIEW_PENDING"
     },
     {
       "wp": 7,
@@ -81,9 +81,13 @@
       "grantIssue": 114,
       "grantRecorded": true,
       "sharedSourceEditAuthorized": true,
-      "applicationWalkthrough": "PENDING_HOSTED_CHROMIUM",
+      "applicationWalkthrough": "HOSTED_CHROMIUM_PASS",
       "grantSource": "OWNER_EXPLICIT_CHAT_2026-10-16T17:16:47Z",
-      "ownerGrantScope": "NATIVE_ENTRY_AND_DOCS_MIRROR_EXACT_TWO_FILES"
+      "ownerGrantScope": "NATIVE_ENTRY_AND_DOCS_MIRROR_EXACT_TWO_FILES",
+      "nativeHostedProof": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38939889648/job/117104585557",
+      "nativeHostedSha": "b6e44cc840d0ed3370aa472ff2581fe8b7d255b1",
+      "artifact": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38939889648/artifacts/12062906229",
+      "g2Reviewed": false
     },
     "inheritedRegressions": {
       "issue": 115,
