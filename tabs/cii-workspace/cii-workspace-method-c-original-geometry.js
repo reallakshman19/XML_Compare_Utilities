@@ -45,6 +45,9 @@ function assertNativeMillimetres(text) {
 function originalElements(text) {
   const rows = sectionLines(text, 'ELEMENTS');
   if (!rows.length || rows.length % ROWS_PER_ELEMENT) throw new Error('INVALID_15_ROW_ELEMENTS_SECTION');
+  const control = sectionLines(text, 'CONTROL');
+  if (!control.length || field(control[0], 0) !== rows.length / ROWS_PER_ELEMENT)
+    throw new Error('CII_CONTROL_ELEMENTS_COUNT_MISMATCH');
   const nameRows = sectionLines(text, 'NODENAME');
   const edges = [];
   for (let index = 0; index < rows.length / ROWS_PER_ELEMENT; index++) {
@@ -54,7 +57,8 @@ function originalElements(text) {
     const delta = [2, 3, 4].map((j) => field(rows[i], j));
     const od = field(rows[i], 5);
     const wall = field(rows[i + 1], 0);
-    const pointer = field(rows[i + 13], 5);
+    // Native v14 NODENAME pointer: first numeric field of row 13 (zero-based +12).
+    const pointer = field(rows[i + 12], 0);
     if (!Number.isSafeInteger(pointer) || pointer < 0 || pointer > nameRows.length) throw new Error('BAD_NODENAME_POINTER_' + index);
     const names = pointer ? nameRows[pointer - 1].padEnd(53, ' ') : '';
     edges.push({ index, from, to, delta, od, wall, pointer,
