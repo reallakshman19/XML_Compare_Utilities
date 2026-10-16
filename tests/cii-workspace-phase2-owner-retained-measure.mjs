@@ -411,6 +411,7 @@ console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({c
 console.log('PHASE2_MIDCYCLE_150_ROOTED_PROOF '+JSON.stringify({ownerSeeds:rooted.ownerGoldenSeeds,globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,verified:rooted.independentlyRootedVerifiedPhysicalNodes,perMember:rooted.sourcePerMember,thresholdMet:rooted.strict70PercentPhysicalGoalMet,rounds:rooted.proofRounds}));
 console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
 console.log('PHASE2_MIDCYCLE_150_ORIGINAL_PATH_WITNESS '+JSON.stringify(pathWitness.summary));
+console.log('PHASE2_MIDCYCLE_150_OD_WALL_SAMPLE '+JSON.stringify(pathWitness.rows.filter(x=>x.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY').slice(0,12).map(x=>({source:x.sourcePhysicalKey,target:x.targetNodeId,branchCompatible:x.originalBranchCompatible,sourceBranch:x.sourceHasOriginalBranch,targetBranch:x.targetHasOriginalBranch,witness:x.independentLocalRouteWitnesses.slice(0,2).map(w=>({srcOD:w.sourceOriginalOdMm,tgtOD:w.targetOriginalOdMm,srcWall:w.sourceOriginalWallMm,tgtWall:w.targetOriginalWallMm,odCompatible:w.originalOdCompatible,wallCompatible:w.originalWallCompatible}))}))));
 console.log('PHASE2_MIDCYCLE_150_GLOBAL_SHAPE '+JSON.stringify({
  matched:globalShape.validatedUniqueOriginalGeometryNodes,
  perMember:globalShape.validatedPerSource,sourceComponents:globalShape.completeOriginalGraphComponentsSearched,
