@@ -85,10 +85,10 @@ const restoredStale=restoreCiiWriter2AnchorSession(stale,inspect);
 assert.deepEqual(restoredStale.staleSelectionSourceIds,['S1']);
 assert.deepEqual(restoredStale.selectedBySource.S1,['420=>10330']);
 const ui=await readFile(new URL('../tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js',import.meta.url),'utf8');
-for(const token of ['data-ciiw-ms-authority-switch','activeAnchorPlan().baseLoopsBySource',
- 'activeAnchorPlan().anchorPairsBySource','authorityModeBySource.set(id, \'MANUAL\')',
+for(const token of ['data-ciiw-ms-authority-switch','selectedBaseLoopsBySource(inspection, selectedBySource)',
+ 'manualAnchorPairsBySource(inspection, manualBySource)','authorityModeBySource.set(id, \'MANUAL\')',
  'authorityModeBySource.set(id, \'AUTO\')',
- 'inactive evidence is retained, not applied'])
+ 'Both selected AUTO and reviewed MANUAL evidence enter the Compare engine independently'])
  assert(ui.includes(token),'UI authority separation '+token);
 assert(!ui.includes('selectedBySource.set(id, new Set());'));
 assert(!ui.includes('manualBySource.set(id, []); manualDraftBySource'));

@@ -91,6 +91,7 @@ export function ciiWriter2SessionPolicyMatches(snapshot, policy) {
     && Number.isFinite(stored.high) && Number.isFinite(stored.medium)
     && stored.high === Number(policy.methodAHighConfidenceThreshold)
     && stored.medium === Number(policy.methodAMediumConfidenceThreshold)
+    && stored.pathTotalLengthToleranceMm === Number(policy.pathTotalLengthToleranceMm ?? 100)
     && Boolean(stored.weights)
     && CII_METHOD_A_WEIGHT_KEYS.every((key) =>
       Number.isFinite(stored.weights[key])
@@ -107,6 +108,7 @@ export function createCiiWriter2SessionSnapshot(input = {}) {
     ...(input.confidencePolicy ? { confidencePolicy: deepFreeze({
       high: Number(input.confidencePolicy.methodAHighConfidenceThreshold),
       medium: Number(input.confidencePolicy.methodAMediumConfidenceThreshold),
+      pathTotalLengthToleranceMm: Number(input.confidencePolicy.pathTotalLengthToleranceMm ?? 100),
       weights: input.confidencePolicy.methodAConfidenceWeights
         ? validateCiiMethodAConfidenceWeights(input.confidencePolicy.methodAConfidenceWeights)
         : CII_METHOD_A_WEIGHT_DEFAULTS,

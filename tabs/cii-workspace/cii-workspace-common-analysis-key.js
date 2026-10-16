@@ -23,6 +23,7 @@ export const CII_COMMON_ANALYSIS_OPTION_DEFAULTS = deepFreeze({
   gapPenalty: -28,
   minPathScore: 45,
   pathLengthToleranceMm: 25,
+  pathTotalLengthToleranceMm: 100,
   diameterToleranceMm: 2,
   wallToleranceMm: 1,
   subdivisionMinStraightness: 0.995,
@@ -158,6 +159,16 @@ function canonicalLoops(rows) {
 }
 
 export function canonicalCiiCommonAnalysisAuthority(input = {}) {
+  if (Array.isArray(input?.baseLoops) && Array.isArray(input?.anchorPairs)
+      && text(input?.anchorPairMode).toUpperCase() === 'INDEPENDENT_SEEDS') {
+    // Joint claims must participate in cache custody independently of AUTO
+    // bases; a changed reviewed MANUAL seed can never reuse a stale result.
+    return deepFreeze({
+      mode: 'PARALLEL_AUTO_MANUAL',
+      loops: canonicalLoops(input.baseLoops),
+      anchorPairs: canonicalPairs(input.anchorPairs),
+    });
+  }
   if (Array.isArray(input?.baseLoops)) {
     return deepFreeze({
       mode: 'EXPLICIT_BASE_LOOPS',
@@ -218,6 +229,7 @@ export function ciiCommonAnalysisOptions(options = {}) {
     gapPenalty: nullishNumber(options.gapPenalty, -28),
     minPathScore: orNumber(options.minPathScore, 45),
     pathLengthToleranceMm: orNumber(options.pathLengthToleranceMm, 25),
+    pathTotalLengthToleranceMm: nullishNumber(options.pathTotalLengthToleranceMm, 100),
     diameterToleranceMm: orNumber(options.diameterToleranceMm, 2),
     wallToleranceMm: orNumber(options.wallToleranceMm, 1),
     subdivisionMinStraightness: nullishNumber(options.subdivisionMinStraightness, 0.995),

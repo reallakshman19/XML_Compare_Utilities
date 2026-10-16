@@ -607,6 +607,7 @@ export async function createCiiWriter2SourceSetPreviewFromPreparedSession(prepar
     schema: 'CIIWorkspaceAudit.v1', direction: 'SOURCE_SET_TO_TARGET', writerVersion: '2',
     methodAConfidencePolicy: resolveCiiMethodAConfidenceThresholds(options),
     methodAConfidenceWeights: resolveCiiMethodAConfidenceWeights(options),
+    pathTotalLengthToleranceMm: Number(options.pathTotalLengthToleranceMm ?? 100),
     sourceSet, target: deepFreeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, originalSha256: originalTargetSha256 }),
     bm001Authority: deepFreeze({ rowCount: bm001Authority.rowCount, sha256: bm001Authority.sha256 }),
     memberPreviews: deepFreeze(memberPreviews.map(({ sourceId: id, preview, replacementPreview }) => deepFreeze({

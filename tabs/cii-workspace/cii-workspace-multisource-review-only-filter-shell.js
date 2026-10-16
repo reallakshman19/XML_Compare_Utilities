@@ -4,6 +4,7 @@ import {
   setCiiMultiSourceMethodAConfidenceThresholds,
   setCiiMultiSourceMethodAConfidenceWeights,
   getCiiMultiSourceMethodAConfidenceOptions,
+  setCiiMultiSourcePathTotalLengthToleranceMm,
 } from './cii-workspace-source-set.js';
 
 import {
@@ -101,6 +102,37 @@ function mountMethodAWeightControls(container) {
   };
 }
 
+function mountCiiPathTotalLengthControls(container) {
+  const button=container.querySelector('[data-ciiw-inspect]'), doc=container.ownerDocument;
+  if(!button||!doc||container.querySelector('[data-ciiw-path-total-length-tolerance]'))return ()=>{};
+  const wrapper=doc.createElement('div'); wrapper.className='ciiw-ms-anchor-search-limit';
+  wrapper.setAttribute('data-ciiw-phase2-dimensional-policy','1');
+  wrapper.innerHTML='<label><span><b>Engineering path length tolerance (mm)</b><small>Default 100 mm, separate from M1 spatial tolerance and Method A/B hard gates. Applied only to verified plain PIPE normalized paths.</small></span><input type="number" min="0" max="1000" step="1" data-ciiw-path-total-length-tolerance aria-label="Source versus Target cumulative path length tolerance in millimeters"></label>'
+    +'<button type="button" data-ciiw-path-total-length-apply>Apply dimensional tolerance</button>'
+    +'<small data-ciiw-path-total-length-status role="status" aria-live="polite"></small>';
+  const field=wrapper.querySelector('[data-ciiw-path-total-length-tolerance]');
+  const apply=wrapper.querySelector('[data-ciiw-path-total-length-apply]');
+  const status=wrapper.querySelector('[data-ciiw-path-total-length-status]');
+  field.value=String(getCiiMultiSourceMethodAConfidenceOptions().pathTotalLengthToleranceMm);
+  const onApply=()=>{
+    try {
+      const before=getCiiMultiSourceMethodAConfidenceOptions().pathTotalLengthToleranceMm;
+      const next=setCiiMultiSourcePathTotalLengthToleranceMm(field.value);
+      field.value=String(next);field.setAttribute('aria-invalid','false');
+      const changed=before!==next;
+      status.textContent=changed?'Dimensional policy applied. Re-Inspect: prior approvals and Writer2 scope are invalid.':'Dimensional policy unchanged.';
+      if(changed){
+        const CustomEventRef=doc.defaultView?.CustomEvent||globalThis.CustomEvent;
+        container.dispatchEvent(new CustomEventRef('ciiw-method-a-confidence-changed',{
+          detail:{pathTotalLengthToleranceMm:next,policyFamily:'CII_PATH_TOTAL_LENGTH'},
+        }));
+      }
+    }catch(error){field.setAttribute('aria-invalid','true');status.textContent=error?.message||'Invalid dimensional tolerance.';}
+  };
+  apply.addEventListener('click',onApply);button.parentNode?.insertBefore(wrapper,button);
+  return ()=>{apply.removeEventListener('click',onApply);wrapper.remove();};
+}
+
 function genericReviewActive(container) {
   return Boolean(container.querySelector('[data-ciiw-ms-review-only-transfer="1"]') && container.querySelector('[data-ciiw-ms-review-table="1"]'));
 }
@@ -196,6 +228,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   const disposeSearchControl = mountMethodASearchControl(container, options.methodAPhysicalCandidateLimit ?? 10);
   const disposeConfidenceControl = mountMethodAConfidenceControls(container, options);
   const disposeWeightControl = mountMethodAWeightControls(container);
+  const disposePathControl = mountCiiPathTotalLengthControls(container);
   const confidence = container.querySelector('[data-ciiw-confidence-filter]');
   const search = container.querySelector('[data-ciiw-search]');
   const changedOnly = container.querySelector('[data-ciiw-changed-only]');
@@ -224,7 +257,7 @@ export function mountCiiWriter2MultiSourceReviewRouter(container, options = {}) 
   return {
     ...core,
     destroy() {
-      disposed = true; observer?.disconnect(); disposeSearchControl(); disposeConfidenceControl(); disposeWeightControl();
+      disposed = true; observer?.disconnect(); disposeSearchControl(); disposeConfidenceControl(); disposeWeightControl(); disposePathControl();
       container.removeEventListener('change', onChange, true); container.removeEventListener('input', onInput, true);
       core?.destroy?.();
     },

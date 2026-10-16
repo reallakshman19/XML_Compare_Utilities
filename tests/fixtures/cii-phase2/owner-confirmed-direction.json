@@ -1,0 +1,21 @@
+{
+  "schema": "CiiPhase2OwnerDirectionDecision.v1",
+  "ownerConfirmationAtUtc": "2026-10-16T03:55:05Z",
+  "ownerConfirmation": "Owner confirms: yes, the direction is SL (S1/S2/S3) -> PS (T). Proceed: confirm the counting rule for the 428 relations against the 150 physical nodes (state it explicitly in Issue #106), then run the acceptance scoring with duplicate and conflict vetoes and report recall honestly. Keep PR #107 draft.",
+  "rawFixture": "owner-phase2-original.txt",
+  "rawFixtureOriginalSha256": "a84bd6cd59b774d32dbd32ee74efc0f9da2fc1ac0e485d2a8b2f6a67350a113f",
+  "rawColumn1": "PS label",
+  "rawColumn2": "SL label",
+  "acceptedSource": "S1/S2/S3 physical NODE with NodeName = original column 2 SL",
+  "acceptedTarget": "T physical NODE with NodeName = original column 1 PS",
+  "ownerConfirmedDirection": true,
+  "freezeOriginalRows": 428,
+  "physicalCreditRule": "One credit at most per independently certified unique (SOURCE member + SOURCE original physical NODE) -> (T original physical NODE), with both source/target one-to-one custody and all conflicts/duplicates vetoed",
+  "duplicatePhysicalRowCredit": false,
+  "allowSourceNodeReuse": false,
+  "allowTargetNodeReuse": false,
+  "countingTargetRequiredRows": 300,
+  "ownerApprovedAlternateSourceSet": false,
+  "ownerApprovedChangedDenominator": false,
+  "explicitlyUnresolved": "Owner has not supplied replacement benchmark CII files or authorization to count repeated physical nodes as independently distinct"
+}

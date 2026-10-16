@@ -1,0 +1,141 @@
+name: CII Phase 2 owner golden and matching invariants
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/cii-workspace/**'
+      - 'tests/cii-workspace-**'
+      - 'tests/fixtures/cii-phase2/**'
+      - '.github/workflows/cii-phase2-106-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase2-safety-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Owner input, dual-ledger evidence, and dimensional path negative controls
+        run: |
+          node tests/cii-workspace-owner-phase2-input.test.js
+          node tests/cii-workspace-phase2-owner-midcycle-forensics.test.js
+          node tests/cii-workspace-phase2-owner-conditional-coverage.test.js
+          node tests/cii-workspace-phase2-owner-physical-acceptance.test.js
+          node tests/cii-workspace-phase2-midcycle150-score.test.js
+          node tests/cii-workspace-phase2-midcycle150-original-path-witness.test.js
+          node tests/cii-workspace-phase2-midcycle150-rooted-verify.test.js
+          node tests/cii-workspace-phase2-midcycle150-unverified-forensics.test.js
+          node tests/cii-workspace-phase2-midcycle-w11-qualification-audit.test.js
+          node tests/cii-workspace-phase2-midcycle-w12-original-path-review.test.js
+          node tests/cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.test.js
+          node tests/cii-workspace-phase2-midcycle-w14-methodab-registration-review.test.js
+          node tests/cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.test.js
+          node tests/cii-workspace-parallel-anchor-evidence.test.js
+          node tests/cii-workspace-phase2-normalization-length.test.js
+          node tests/cii-workspace-phase2-live-path-policy.test.js
+      - name: Existing anchor and Method A qualification regression gates
+        run: |
+          node tests/cii-workspace-multisource-anchor-mode.test.js
+          node tests/cii-workspace-method-a-confidence-config.test.js
+          node tests/cii-workspace-method-a-weight-policy-ui.test.js
+          node tests/cii-workspace-geometry-authority.test.js
+      - name: Independently run every Method B topology, multi-base, Writer and Owner test even if an older test fails
+        run: |
+          failures=0
+          for test_file in \
+            tests/cii-workspace-topology.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-multisource-target-node-custody.test.js \
+            tests/cii-workspace-source-target-audit.test.js \
+            tests/cii-workspace-multisource-partial-texpected-oracle.test.js \
+            tests/cii-workspace-owner-lexical-golden.test.js
+          do
+            echo "::group::$test_file"
+            node "$test_file" || failures=$((failures + 1))
+            echo "::endgroup::"
+          done
+          echo "INDEPENDENT_BASELINE_REGRESSION_FAIL_COUNT=$failures"
+          test "$failures" -eq 0
+
+  phase2-owner-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Measure original retained S1/S2/S3/T and preserve 428 owner row diagnostics
+        run: node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
+      - name: Check original Owner NodeNames against all other repository Benchmark CII files (test-only provenance)
+        run: node tests/cii-workspace-phase2-owner-corpus-provenance.mjs
+      - name: Reconcile physical SOURCE population across all original CII inputs (no fixture substitution)
+        run: node tests/cii-workspace-phase2-original-population-reconcile.mjs
+      - name: Verify cumulative S1 + S2 + S3 SOURCE member-scoped NODE and NodeName census against full 428 Owner rows
+        run: node tests/cii-workspace-phase2-cumulative-source-reconcile.mjs
+      - name: Archive complete owner row-level report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-phase2-owner-428-row-diagnostic
+          path: test-results/cii-phase2/
+          if-no-files-found: warn
+
+  phase2-parallel-retained:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm both qualified AUTO and reviewed MANUAL propagate on S1/S2/S3/T
+        run: node --max-old-space-size=4096 tests/cii-workspace-phase2-parallel-retained-propagation.mjs
+
+  inherited-multibase-path-forensics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect independent Method A/B L-span failures without changing qualification
+        run: node tests/cii-workspace-phase2-inherited-multibase-diagnostic.mjs
+
+  retained-prechange-legacy-multi-base-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Pin the exact base of PR #107, not evolving main or its head.
+          ref: '040f2f88b54a746808486615230e5a8625d04527'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record original pre-PR multi-base test result without rewriting original baseline
+        run: |
+          set +e
+          node tests/cii-workspace-multi-base-correspondence.test.js > original-base-multibase.log 2>&1
+          status=$?
+          cat original-base-multibase.log
+          echo "ORIGINAL_BASE_MULTI_BASE_EXIT_CODE=$status"
+          echo "$status" > original-base-multibase.exitcode
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cii-phase2-pr-base-legacy-multibase-diagnostic
+          path: |
+            original-base-multibase.log
+            original-base-multibase.exitcode
+          if-no-files-found: warn

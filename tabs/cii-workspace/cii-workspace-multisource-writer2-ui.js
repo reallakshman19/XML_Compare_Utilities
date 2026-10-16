@@ -2,6 +2,7 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { baseAnchorEvidenceMarkup } from './cii-workspace-engineering-ui.js';
 import { ciiMultiSourceAnchorLedgerMarkup } from './cii-workspace-multisource-anchor-ledger-ui.js';
 import {buildCiiMultiSourceActiveAuthorityPlan} from './cii-workspace-multisource-anchor-mode.js';
+import {buildCiiParallelAnchorEvidence} from './cii-workspace-parallel-anchor-evidence.js';
 import {CII_A217_DEFAULT_DRAFT,renderCiiGeometryDiscrepancyReviewPanel} from './cii-workspace-geometry-discrepancy-ui.js';
 import {
   buildCiiSelectedBaseLoops,
@@ -126,18 +127,23 @@ function manualAnchorMarkup(item, manualBySource, manualDraftBySource, activeMod
   const pairList = pairs.length
     ? `<ol class="ciiw-ms-manual-list">${pairs.map((pair, index) => `<li><b>${h(pair.sourceNodeId)} ↔ ${h(pair.targetNodeId)}</b><button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-manual-remove="${index}">Remove</button></li>`).join('')}</ol>`
     : '<p>No reviewed manual anchor is locked for this SOURCE.</p>';
-  return `<section class="ciiw-base-set" data-ciiw-ms-manual-editor="1"><header><div><b>Manual / reviewed anchor fallback</b><span>${h(pairs.length)} locked pair${pairs.length === 1 ? '' : 's'}</span></div><span class="ciiw-corroboration">USER LOCKED</span>${pairs.length ? '<button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-manual-clear>Clear manual anchors</button>' : ''}</header><p>Use this when Method A/B cannot qualify a base. Enter nodes that you have reviewed as the same physical point. Manual claims and qualified automatic bases are retained separately. Only the ACTIVE mode enters the existing Compare engine; retained evidence never becomes physical certification.</p>${pairList}${automaticCount && pairs.length ? `<p>ACTIVE: ${h(activeMode)} · ${h(automaticCount)} automatic loop(s) and ${h(pairs.length)} manual pair(s) retained. The inactive lane is evidence-only, never Writer authority.</p><button type="button" class="ciiw-ms-inline-action" data-ciiw-ms-authority-switch="${activeMode === 'AUTO' ? 'MANUAL' : 'AUTO'}">Use ${activeMode === 'AUTO' ? 'reviewed manual anchors' : 'retained automatic bases'}</button>` : ''}<div class="ciiw-detail-grid"><label><b>SOURCE node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-source value="${h(draft.sourceNodeId)}" placeholder="e.g. 1360"></label><label><b>TARGET node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-target value="${h(draft.targetNodeId)}" placeholder="reviewed target node"></label></div><div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-manual-add>Add reviewed anchor</button></div><small>Tip: clicking “Use manual anchor” above only prefills these fields. Edit either node before adding if the review-only suggestion is not the physical point you intend to lock.</small></section>`;
+  return `<section class="ciiw-base-set" data-ciiw-ms-manual-editor="1"><header><div><b>Manual / reviewed anchor fallback</b><span>${h(pairs.length)} locked pair${pairs.length === 1 ? '' : 's'}</span></div><span class="ciiw-corroboration">USER LOCKED</span>${pairs.length ? '<button class="ciiw-ms-inline-action" type="button" data-ciiw-ms-manual-clear>Clear manual anchors</button>' : ''}</header><p>Use this when Method A/B cannot qualify a base. Enter nodes that you have reviewed as the same physical point. Manual claims and qualified automatic bases are retained separately. Both selected AUTO and reviewed MANUAL evidence enter the Compare engine independently; neither becomes automatic physical certification.</p>${pairList}${automaticCount && pairs.length ? `<p>ACTIVE: ${h(activeMode)} · ${h(automaticCount)} automatic loop(s) and ${h(pairs.length)} manual pair(s) retained. The inactive lane is evidence-only, never Writer authority.</p><button type="button" class="ciiw-ms-inline-action" data-ciiw-ms-authority-switch="${activeMode === 'AUTO' ? 'MANUAL' : 'AUTO'}">Use ${activeMode === 'AUTO' ? 'reviewed manual anchors' : 'retained automatic bases'}</button>` : ''}<div class="ciiw-detail-grid"><label><b>SOURCE node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-source value="${h(draft.sourceNodeId)}" placeholder="e.g. 1360"></label><label><b>TARGET node</b><input type="text" inputmode="numeric" data-ciiw-ms-manual-target value="${h(draft.targetNodeId)}" placeholder="reviewed target node"></label></div><div class="ciiw-transfer-scope-actions"><button type="button" data-ciiw-ms-manual-add>Add reviewed anchor</button></div><small>Tip: clicking “Use manual anchor” above only prefills these fields. Edit either node before adding if the review-only suggestion is not the physical point you intend to lock.</small></section>`;
 }
 function renderMemberAnchors(inspection, selectedBySource, manualBySource = new Map(), manualDraftBySource = new Map(), modeBySource = new Map()) {
   const members = inspection?.memberInspections || [];
   const ledger = ciiMultiSourceAnchorLedgerMarkup(inspection, selectedBySource, manualBySource, modeBySource);
   const effective = buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, modeBySource);
-  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}<div data-ciiw-geometry-review-host="1"></div>${members.map((item) => {
+  // Parallel evidence is read-only. The current active dispatch remains
+  // isolated until dual-lane physical correspondence is independently qualified.
+  const parallel = buildCiiParallelAnchorEvidence(inspection, selectedBySource, manualBySource);
+  const parallelEvidence = `<section class="ciiw-base-set" data-ciiw-ms-parallel-evidence="1"><header><div><b>Parallel AUTO + MANUAL evidence</b><span>${h(parallel.physicalPairClaimCount)} distinct physical-pair proposals; ${h(parallel.doubleSourcedClaimCount)} deduplicated shared proposals</span></div><span class="ciiw-corroboration">EVIDENCE ONLY</span></header><p>All ${h(parallel.rawAutoAnchorClaimCount)} automatic anchor claims and ${h(parallel.rawManualAnchorClaimCount)} manual anchor claims remain visible together, regardless of active Compare mode. No proposal by itself certifies physical identity or permits Writer2 transfer.</p>${parallel.conflicts.length ? `<p data-ciiw-ms-parallel-conflicts="1"><b>${h(parallel.conflicts.length)} conflicting physical claims:</b> ${parallel.conflicts.map(c => h(c.kind + ' (' + c.key + ')')).join('; ')}. These require independent resolution before any combined authority.</p>` : '<p>Zero conflicts among current anchor-pair proposals (not proof that propagated correspondences are conflict-free).</p>'}</section>`;
+
+  return `${ciiSourceSetCustodyMarkup(inspection)}${ledger}${parallelEvidence}<div data-ciiw-geometry-review-host="1"></div>${members.map((item) => {
     const selected = selectedBySource.get(item.sourceId) || new Set();
     const authority = effective.rows.find((row) => row.sourceId === item.sourceId);
     const warning = authority?.contradictoryManualPairs.length
       ? `<p data-ciiw-ms-authority-conflict="1"><b>Evidence disagreement — not a certified match.</b> ${authority.contradictoryManualPairs.map((pair) =>
-        `${h(pair.sourceNodeId)}: manual ${h(pair.manualTargetNodeId)}, automatic ${h(pair.automaticTargetNodeIds.join(', '))}`).join('; ')}. Only ${h(authority.activeMode)} is routed to Compare.</p>`
+        `${h(pair.sourceNodeId)}: manual ${h(pair.manualTargetNodeId)}, automatic ${h(pair.automaticTargetNodeIds.join(', '))}`).join('; ')}. Both tracks are routed to Compare independently; ${h(authority.activeMode)} is a retained legacy preference.</p>`
       : '';
     return `<section class="ciiw-method-evidence" data-ciiw-ms-member="${h(item.sourceId)}"><h3>${h(item.sourceId)} · ${h(item.fileName)}</h3>${warning}${baseAnchorEvidenceMarkup(item.inspection, selected)}${manualAnchorMarkup(item, manualBySource, manualDraftBySource, authority?.activeMode || 'AUTO', authority?.retainedAutomaticBaseLoopCount || 0)}</section>`;
   }).join('')}`;
@@ -303,7 +309,11 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     persistSession({ invalidateReview: true });
   };
   const activeAnchorPlan = () => buildCiiMultiSourceActiveAuthorityPlan(inspection, selectedBySource, manualBySource, authorityModeBySource);
-  const authorityReady = () => activeAnchorPlan().ready;
+  // Parallel readiness is per-member union of separately retained AUTO and MANUAL
+  // evidence, not selected active-mode preference from legacy sessions.
+  const authorityReady = () => inspection?.memberInspections?.every(item =>
+    (buildCiiSelectedBaseLoops(item.inspection?.baseAnchorSuggestions || [], selectedBySource.get(item.sourceId) || new Set()).length > 0)
+    || manualRows(manualBySource, item.sourceId).length > 0) || false;
   const refreshAnchorEvidence = () => {
     if (evidence && inspection) {
       evidence.innerHTML = renderMemberAnchors(inspection, selectedBySource, manualBySource, manualDraftBySource, authorityModeBySource);
@@ -317,7 +327,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   };
   const renderMultiReview = () => {
     if (!preview) return;
-    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions);
+    if (executive) executive.innerHTML = ciiMultiSourceReviewSummaryMarkup(preview, reviewDecisions)
+      + '<p data-ciiw-path-total-length-effective="1"><b>Applied normalized path tolerance:</b> '
+      + h(preview?.audit?.pathTotalLengthToleranceMm ?? 100) + ' mm. Physical identity still requires independent Method A/B/manual reviewed evidence; normalized paths alone never permit Writer2.</p>';
     if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
@@ -381,7 +393,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         }
         authorityModeBySource.set(id, requested);
         invalidatePersistedReview(); refreshAnchorEvidence();
-        setMultiSourceStatus(container, `${id}: ${requested} is ACTIVE for legacy Compare; inactive evidence is retained, not applied. Compare models again before scope review.`);
+        setMultiSourceStatus(container, `${id}: ${requested} is ACTIVE for legacy Compare; both AUTO and MANUAL retained tracks participate in Compare. Compare models again before scope review.`);
       });
       section.querySelectorAll('[data-ciiw-base-action]').forEach((button) => {
         button.addEventListener('click', (event) => {
@@ -463,7 +475,9 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         }
       }
       syncFilterControls(); refreshAnchorEvidence();
-      const unresolved = activeAnchorPlan().rows.filter((row) => !row.activeReady).map((row) => row.sourceId);
+      const unresolved = (inspection?.memberInspections || []).filter(item =>
+        !buildCiiSelectedBaseLoops(item.inspection?.baseAnchorSuggestions || [], selectedBySource.get(item.sourceId) || new Set()).length
+        && !manualRows(manualBySource, item.sourceId).length).map(item => item.sourceId);
       if (restored) {
         const stale = restored.staleSelectionSourceIds.length ? ` Stale selection keys were discarded for ${restored.staleSelectionSourceIds.join(', ')}; saved review decisions will not be restored.` : '';
         setMultiSourceStatus(container, `Source-set custody READY. Restored hash-bound Writer2 session for ${inspection.sourceSet.memberCount} canonical members.${stale}${unresolved.length ? ` Base authority still required for ${unresolved.join(', ')}.` : ' Anchor authority is ready; click Compare models.'}`);
@@ -480,8 +494,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     }
   };
   const previewInput = (reviewBySource = undefined) => ({
-    baseLoopsBySource: activeAnchorPlan().baseLoopsBySource,
-    anchorPairsBySource: activeAnchorPlan().anchorPairsBySource,
+    baseLoopsBySource: selectedBaseLoopsBySource(inspection, selectedBySource),
+    anchorPairsBySource: manualAnchorPairsBySource(inspection, manualBySource),
     ...(reviewBySource ? { reviewBySource } : {}),
     acceptanceIdentityResolver: options.acceptanceIdentityResolver,
   });
@@ -595,16 +609,17 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
     downloadPayload(container.ownerDocument, 'cii-multisource-audit.json', preview.artifacts.auditJson, 'application/json');
   };
-  const onConfidencePolicyChange = () => {
+  const onConfidencePolicyChange = (event) => {
+    const pathChanged = event?.detail?.policyFamily === 'CII_PATH_TOTAL_LENGTH';
     confidenceEpoch += 1;
     if (!multiSource(container)) return;
     resetMulti();
     if (evidence) evidence.innerHTML = '';
-    if (results) results.innerHTML = '<p>Method A confidence policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
+    if (results) results.innerHTML = '<p>Correspondence analysis policy changed. Run Inspect again before comparing or exporting correspondence.</p>';
     if (executive) executive.innerHTML = '';
     if (deltas) deltas.innerHTML = '';
     if (transfer) transfer.innerHTML = '';
-    setMultiSourceStatus(container, 'Method A confidence policy changed. Stale correspondence, review approvals and Writer2 scope are invalid; run Inspect again.');
+    setMultiSourceStatus(container, (pathChanged ? 'Dimensional length policy' : 'Method A confidence policy') + ' changed. Stale correspondence, review approvals and Writer2 scope are invalid; run Inspect again.');
   };
   const blockLegacyAnalyze = (event) => { if (multiSource(container)) { event.preventDefault(); event.stopImmediatePropagation(); } };
   sourceInput.addEventListener('change', resetMulti); targetInput.addEventListener('change', resetMulti);

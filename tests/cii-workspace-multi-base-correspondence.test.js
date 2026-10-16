@@ -42,27 +42,36 @@ assert.strictEqual(aCorrespondence.status, 'READY');
 assert.deepStrictEqual(aCorrespondence.contributingLoopIds, ['A-L']);
 assert(aCorrespondence.nodeRows.some((row) => row.sourceNodeId === '20' && row.targetNodeId === '120'));
 
-// Method B alone: a genuine X+Y local run basis at the central node must qualify and propagate independently.
+// Method B alone: a genuine X+Y local run BASIS qualifies, but ambiguous frontier
+// correspondence must remain unresolved. Basis qualification is NOT sufficient
+// to override the independent propagation winner-gap veto.
 const bAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
   methodBAnchors: [{ baseId: 'B-L', sourceNodeId: '20', targetNodeId: '120' }] });
 assert.strictEqual(bAuthority.status, 'READY');
 assert.strictEqual(bAuthority.loops[0].evidence.source.independentAxisRunCount, 2);
 const bCorrespondence = buildCiiMultiBaseCorrespondence(source, target, bAuthority);
-assert.strictEqual(bCorrespondence.status, 'READY');
-assert.deepStrictEqual(bCorrespondence.contributingLoopIds, ['B-L']);
+assert.strictEqual(bCorrespondence.status, 'UNRESOLVED');
+assert.strictEqual(bCorrespondence.readyLoopCount, 0);
+assert.strictEqual(bCorrespondence.unresolvedReadyBaseLoopCount, 1);
+assert(bCorrespondence.loopResults[0].correspondence.blockers.includes('FRONTIER_WINNER_GAP_NOT_SATISFIED'));
+assert.deepStrictEqual(bCorrespondence.contributingLoopIds, []);
 
-// A OR B with the same physical identity must corroborate, not duplicate, the canonical pair.
+// A OR B with the same physical anchor identity: Method A may safely contribute
+// its independently READY rows, but unresolved Method B may NOT corroborate,
+// inflate a score, qualify independent propagation or override the veto.
 const abAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
   methodABases: [aBase], methodBAnchors: [{ baseId: 'B-L', sourceNodeId: '20', targetNodeId: '120' }] });
 assert.strictEqual(abAuthority.status, 'READY');
 const abCorrespondence = buildCiiMultiBaseCorrespondence(source, target, abAuthority);
 assert.strictEqual(abCorrespondence.status, 'READY');
-assert.strictEqual(abCorrespondence.readyLoopCount, 2);
+assert.strictEqual(abCorrespondence.readyLoopCount, 1);
+assert.strictEqual(abCorrespondence.unresolvedReadyBaseLoopCount, 1);
+assert.deepStrictEqual(abCorrespondence.contributingLoopIds, ['A-L']);
 const central = abCorrespondence.nodeRows.find((row) => row.sourceNodeId === '20' && row.targetNodeId === '120');
-assert(central, 'central A+B pair must survive canonical arbitration');
-assert.strictEqual(central.basisMethod, 'METHOD_A_AND_B');
-assert.strictEqual(central.authority, 'MULTI_BASE_CORROBORATED');
-assert.strictEqual(central.evidence.multiBaseProvenance.length, 2);
+assert(central, 'central independently READY Method A pair must survive canonical arbitration');
+assert.strictEqual(central.basisMethod, 'METHOD_A_SPATIAL');
+assert.strictEqual(central.authority, 'MULTI_BASE_LOOP');
+assert.strictEqual(central.evidence.multiBaseProvenance.length, 1);
 
 // Existing flat anchorPairs must keep their old row identities/authorities when routed through the new engine.
 {
@@ -88,6 +97,21 @@ function nodeRow(sourceNodeId, targetNodeId) {
 function elementRow(sourceElementId, targetElementId) {
   return { correspondenceId: `e:${sourceElementId}:${targetElementId}`, kind: 'ELEMENT', sourceElementId,
     targetElementIds: [targetElementId], status: 'HIGH', authority: 'TEST' };
+}
+
+// Duplicate occurrences of the SAME pair within ONE qualified Method A loop
+// are not Method A+B or multi-base independent corroboration.
+{
+  const duplicatedWithinOneBase = arbitrateCiiLoopCorrespondences([
+    mockLoop('A-only', 'METHOD_A_SPATIAL', mockCorrespondence([
+      nodeRow('10', '110'),nodeRow('10', '110'),
+    ], [])),
+  ]);
+  assert.strictEqual(duplicatedWithinOneBase.status, 'READY');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows.length, 1);
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].authority, 'MULTI_BASE_LOOP');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].basisMethod, 'METHOD_A_SPATIAL');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].evidence.multiBaseProvenance.length, 1);
 }
 
 // Cross-loop source-node collision: no majority/first-loop winner is permitted.
