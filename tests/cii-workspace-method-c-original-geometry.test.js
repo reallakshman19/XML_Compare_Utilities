@@ -64,3 +64,12 @@ test('NODENAME pointer uses native row-13 first field and fails when out of rang
   lines[elementIndex + 1 + 12] = encodeRow([2, 0, 0, 0, 0, 0]);
   await assert.rejects(parse(new TextEncoder().encode(lines.join('\r\n'))), /BAD_NODENAME_POINTER_0/);
 });
+
+test('native COORDS accepts adjoining signed coordinate as in original S2', async () => {
+  const text = new TextDecoder().decode(makeCii([[40, 45, 5, 0, 0]]));
+  const bytes = new TextEncoder().encode(text + '#$ COORDS\r\n              1\r\n             40-1.520000E+02 1.500000E+03 5.964000E+03\r\n');
+  const graph = await parse(bytes);
+  assert.deepEqual(graph.nodeIndex.get('40').xyz, [-152, 1500, 5964]);
+  assert.deepEqual(graph.nodeIndex.get('45').xyz, [-147, 1500, 5964]);
+  assert.equal(graph.coordinateFrames[0].coordinateFrame, 'ORIGINAL_CII_COORDS_SEED');
+});
