@@ -62,6 +62,7 @@ jobs:
           node --check tabs/cii-workspace/cii-workspace-method-c-exports.js
           node --check tabs/cii-workspace/cii-workspace-method-c-ui.js
           node --check tabs/cii-workspace/cii-workspace-method-c-native-adapter.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-tile.js
           node --check tests/cii-workspace-method-c-native-adapter.test.js
           node --check tests/cii-workspace-method-c-svg.test.js
           node --check tests/cii-workspace-method-c-ui-browser.test.js
