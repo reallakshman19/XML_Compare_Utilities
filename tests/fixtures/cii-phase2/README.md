@@ -13,6 +13,7 @@
 | Partial postimage only | [Benchmark/TEXPECTED-PARTIALLLYDONE.CII](../../../Benchmark/TEXPECTED-PARTIALLLYDONE.CII) | Verified by separate 36-delta oracle; not the 428-row golden |
 | Owner original attachment | [owner-phase2-original.txt](./owner-phase2-original.txt) | `a84bd6cd59b774d32dbd32ee74efc0f9da2fc1ac0e485d2a8b2f6a67350a113f` |
 | Owner original metadata | [owner-phase2-manifest.json](./owner-phase2-manifest.json) | Describes attached source bytes, row/line counts, initial proposed target 70% |
+| Owner-confirmed direction and counting | [owner-confirmed-direction.json](./owner-confirmed-direction.json) | SL(S1/S2/S3) → PS(T), original 428 rows preserved |
 
 Use the **original pinned snapshot** at [commit `2e588a5469f463b177990d7f8683deb56ce48a0e`](https://github.com/reallakshman19/XML_Compare_Utilities/tree/2e588a5469f463b177990d7f8683deb56ce48a0e/Benchmark) when adjudicating exact source content. `TEXPECTED-PARTIALLLYDONE.CII` is spelled that way in the original. The original owner text is also reproduced verbatim in **Appendix A of Issue #106**.
 
@@ -32,11 +33,11 @@ A repository-tree inspection found **13 non-mirrored `.CII` files** (10 under `B
 
 On the retained corpus, **12 parsed successfully; one did not**. The additional converter/root files contribute **no additional original Owner PS/SL pairs**, so the pinned benchmark mismatch remains: 33 unique reverse-direction physical candidates, the other 395 original rows unresolved. [Issue #106](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) governs any new Owner-sanctioned original fixture source and alternate physical denominator.
 
-## Conditional physical scoring (test only; not Owner 70% certification)
+## Owner-confirmed direction, conditional physical scoring and acceptance cap
 
-Run `node tests/cii-workspace-phase2-owner-conditional-coverage.test.js`, followed by the retained 428-row benchmark runner above. The pure [test-only conditional physical scorer](../../cii-workspace-phase2-owner-conditional-coverage.js) independently compares SOURCE-member+physical NODE IDs and T physical NODE IDs to the matcher-produced full source-target audit, with wrong-target, global competing TARGET, ambiguous-source and duplicate-credit vetoes. The original 428-row denominator and `P2_VALIDATED_RECALL: null` never change. Unverified production BOUND claims outside the original-name-resolvable 33 are **not** misreported as physical benchmark passes or false positives.
+Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2/S3; the first original column **PS** is the TARGET NodeName in T. The raw order and all 428 relations remain immutable. Run `node tests/cii-workspace-phase2-owner-conditional-coverage.test.js` and `node tests/cii-workspace-phase2-owner-physical-acceptance.test.js`, followed by the retained 428-row benchmark runner above. The pure [test-only conditional physical scorer](../../cii-workspace-phase2-owner-conditional-coverage.js) independently compares SOURCE-member+physical NODE IDs and T physical NODE IDs to the matcher-produced full source-target audit, with wrong-target, global competing TARGET, ambiguous-source and duplicate-credit vetoes. The original 428-row denominator and `P2_VALIDATED_RECALL: null` never change. Unverified production BOUND claims outside the original-name-resolvable 33 are **not** misreported as physical benchmark passes or false positives.
 
-The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
+The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
 ## Required mapping: never confuse numeric NODE with NodeName
 
@@ -46,7 +47,7 @@ The user explicitly corrected the approach: **`NodeName → physical NODE`** mus
 2. Follow the pointer into the original `#$ NODENAME` FROM/TO name fields.
 3. Assign each exact NodeName to its actual physical FROM/TO NODE ID, separately within S1, S2 and S3 and within T.
 4. Build SOURCE `NodeName → [{memberId, nodeId}]` and TARGET `NodeName → [{nodeId}]` (multi-value indexes, no first-match coercion).
-5. Convert each of the 428 immutable intended Owner row pairs to original physical candidate matches **in tests only**. Track both as-written column order and a **separately labeled reversed-column diagnostic**; the latter is not authorized to rewrite the benchmark.
+5. Convert each of the 428 immutable intended Owner row pairs to original physical candidate matches **in tests only**. Track original as-written columns and the Owner-confirmed **SL SOURCE → PS TARGET** interpretation separately; raw bytes are not rewritten.
 6. Independently compare qualified solver output with uniquely resolved owner physical pair candidates; never use label agreement alone to certify physical correspondence.
 
 **Known unmodified original owner input:** 428 paired lines among 436 text lines; 350 distinct first-column PS labels, 428 distinct second-column SL labels. `PS02687.1` appears 78 times and `PS02694.1` twice. Preserve `SL-263..5`, `SL-265..4`, `SL-275-A.8`.
@@ -56,6 +57,7 @@ The user explicitly corrected the approach: **`NodeName → physical NODE`** mus
 ```bash
 node tests/cii-workspace-owner-phase2-input.test.js
 node tests/cii-workspace-phase2-owner-midcycle-forensics.test.js
+node tests/cii-workspace-phase2-owner-physical-acceptance.test.js
 node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
 ```
 
@@ -75,6 +77,6 @@ The retained benchmark generates artifacts in `test-results/cii-phase2/` (not in
 
 ## Expected outcome and release caveats
 
-A reproducible physical-node candidate oracle for every **resolvable** original owner row and honest exception classifications for all 428. Original S1+S2+S3 have **150 distinct physical nodes, 104 named**, so the literal **300/428 ≥70%** criterion needs an explicitly ratified occurrence/denominator contract; it cannot be satisfied by inventing multiple independent SOURCE NODE identities. On the pinned input, as-written PS(SOURCE)→SL(T) resolves zero; opposite orientation SL(SOURCE)→PS(T) resolves **33** uniquely grounded pairs corroborated by the existing AUTO solver, and does not resolve the remainder. Do not silently reverse owner columns or mark the 33 as `P2_VALIDATED_RECALL` without a proper approved benchmark and independent global physical proof.
+A reproducible physical-node candidate oracle for every **resolvable** original owner row and honest exception classifications for all 428. Original S1+S2+S3 have **150 distinct physical nodes, 104 named**, so **Owner-confirmed physical counting** admits at most 150 distinct SOURCE-node credits, **150/428 = 35.05%**, below the required 300/428, irrespective of matcher tuning. On the pinned input, as-written PS(SOURCE)→SL(T) resolves zero; Owner-confirmed SL(SOURCE)→PS(T) resolves **33** uniquely grounded pairs corroborated by existing AUTO output, and does not resolve the remainder. Keep the raw PS-first owner file untouched; the Owner explicitly confirmed the *physical* SL-first interpretation, not a new fixture revision or multiple credits per source. Do not mark those 33 as independently certified `P2_VALIDATED_RECALL` without full physical proof.
 
 **Method A five factors stay 35/25/20/10/10; Method B original ≥2 independent axes, topology, OD and ambiguity gates remain unchanged.** Normalized 100mm paths are dimensional evidence only. Writer1C/Writer2 gates, scope identity, original graph and exact-byte custody are never bypassed. Issue #106 remains open and PR #107 remains draft until independent qualification.
