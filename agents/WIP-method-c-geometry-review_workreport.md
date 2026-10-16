@@ -21,3 +21,13 @@
 2. Port and audit only Method C-owned modules from the local staged ZIP, one functional unit at a time, with original bytes/hash custody; prove parser against untouched originals.
 3. Execute regression + negative controls; post exact-commit canonical `TASK_EVIDENCE` only for completed work on its own child issue.
 4. Do not integrate into shared router until G2 exact-file grant. No merge/release.
+
+
+## Recovery checkpoint — WP6 intake boundary / pending G2 shared-file grant
+
+- Current owner lease remains \`methodc/*\` branch plus NEW Method C modules/tests/documents and dedicated CI workflow. Exact-file grant for the **pre-existing** \`tabs/cii-workspace/cii-workspace-tab.js\` and deployment mirror \`docs/tabs/cii-workspace/cii-workspace-tab.js\` has been requested on [child #114](https://github.com/reallakshman19/XML_Compare_Utilities/issues/114#issuecomment-6218912249). It has **not been received** as of this record; **DO NOT EDIT THESE EXISTING FILES**.
+- Newly added/owned files: \`tabs/cii-workspace/cii-workspace-method-c-native-adapter.js\`, \`tabs/cii-workspace/cii-workspace-method-c-tile.js\`, \`tests/cii-workspace-method-c-native-adapter.test.js\`; owned \`tests/cii-workspace-method-c-ui-browser.test.js\`, CI workflow and engineering doc also updated.
+- Verified hosted original-file intake crosswalk at commit \`2f47f63af69cce924aa6996afc47843ec6899e38\`: 40/40 Node tests PASS (native source/target intake, full original S1/T hashes and physical-file byte custody; wrong-side/hash/text corruption red controls). Separate WP5 hosted Chromium module remains green; tile helper browser lifecycle test and final-current-head CI still must be checked after latest commits.
+- Native integration blocked: no existing CII Workspace tile/route patch yet; do not publish canonical WP6 task evidence as complete; do not label isolated tile browser walkthrough native Workspace E2E. G2 independent exact-SHA review and any later G2 corrective code still require independent check.
+- Changed-file provenance: plan, WIP, WP2–WP5 new Method C modules/tests/docs/workflow and new WP6 adapter/tile/tests only. The protected PR #107 diff, main's existing CII Workspace entry, Methods A/B, Writer2 and original CII/Owner golden files remain UNCHANGED.
+- Exact next action: verify the current PR #118 head and both hosted numerical/Chromium jobs, read G2's #114 authorization response. **Only if granted**, use the specified exact-file scope to mount new Method C tile in the existing native app, then serve actual application in Chromium using native CII uploads and record exported hash artifacts. Otherwise continue non-overlapping red controls and label WP6 HOLD.
