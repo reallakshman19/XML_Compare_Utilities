@@ -242,14 +242,37 @@ jobs:
     name: WP8 independent raw benchmark, frozen 428, separate midcycle
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      CII_METHOD_C_OWNER_REF_ROOT: test-results/cii-method-c-wp8/pinned-owner-reference
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout immutable PR107 Owner 428 files separately (never write golden to candidate)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 86a2d3b40568c2bcb43dacbe32c862144d00fd53
+          path: test-results/cii-method-c-wp8/pinned-owner-reference
+          sparse-checkout: |
+            tests/fixtures/cii-phase2/owner-phase2-original.txt
+            tests/fixtures/cii-phase2/owner-phase2-manifest.json
+            tests/fixtures/cii-phase2/owner-confirmed-direction.json
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Assert immutable Owner authority checkout (independent from candidate)
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="test-results/cii-method-c-wp8/pinned-owner-reference"
+          test "$(git -C "$base" rev-parse HEAD)" = 86a2d3b40568c2bcb43dacbe32c862144d00fd53
+          test -s "$base/tests/fixtures/cii-phase2/owner-phase2-original.txt"
+          test -s "$base/tests/fixtures/cii-phase2/owner-phase2-manifest.json"
+          test -s "$base/tests/fixtures/cii-phase2/owner-confirmed-direction.json"
+          echo "PINNED_OWNER_REFERENCE_SHA=86a2d3b40568c2bcb43dacbe32c862144d00fd53"
       - name: Assert exact WP8 candidate HEAD and untouched originals
         shell: bash
         run: |
