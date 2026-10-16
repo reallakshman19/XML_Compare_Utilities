@@ -100,7 +100,7 @@ test('WP9 candidate diff must stay in new Method C-owned files, plan, WIP and de
 
 test('WP9 Owner-scoped WP6 two-file grant: exact source and docs mount hunks, no Writer2 rewrites',()=>{
  const rel='tabs/cii-workspace/cii-workspace-tab.js',base=ledger.immutableBase;
- const orig=git('show',base+':'+rel)+'\n';
+ const orig=git('show',base+':'+rel);
  const expected=orig.replace(
   "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n",
   "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n"+
