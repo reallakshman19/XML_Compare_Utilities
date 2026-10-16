@@ -34,16 +34,25 @@ jobs:
           node tests/cii-workspace-method-a-confidence-config.test.js
           node tests/cii-workspace-method-a-weight-policy-ui.test.js
           node tests/cii-workspace-geometry-authority.test.js
-      - name: Independent original Method B topology, multi-base arbitration, physical custody and 36 TEXPECTED controls
+      - name: Independently run every Method B topology, multi-base, Writer and Owner test even if an older test fails
         run: |
-          node tests/cii-workspace-topology.test.js
-          node tests/cii-workspace-topology-route-gates.test.js
-          node tests/cii-workspace-multi-base-authority.test.js
-          node tests/cii-workspace-multi-base-correspondence.test.js
-          node tests/cii-workspace-multisource-target-node-custody.test.js
-          node tests/cii-workspace-source-target-audit.test.js
-          node tests/cii-workspace-multisource-partial-texpected-oracle.test.js
-          node tests/cii-workspace-owner-lexical-golden.test.js
+          failures=0
+          for test_file in \
+            tests/cii-workspace-topology.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-multisource-target-node-custody.test.js \
+            tests/cii-workspace-source-target-audit.test.js \
+            tests/cii-workspace-multisource-partial-texpected-oracle.test.js \
+            tests/cii-workspace-owner-lexical-golden.test.js
+          do
+            echo "::group::$test_file"
+            node "$test_file" || failures=$((failures + 1))
+            echo "::endgroup::"
+          done
+          echo "INDEPENDENT_BASELINE_REGRESSION_FAIL_COUNT=$failures"
+          test "$failures" -eq 0
 
   phase2-owner-diagnostics:
     runs-on: ubuntu-latest
