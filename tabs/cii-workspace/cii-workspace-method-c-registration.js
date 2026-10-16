@@ -116,6 +116,7 @@ export function registerMethodC(source,target,anchors,options={}) {
     status=maxResidualMm>tolerance?'ANCHOR_RESIDUAL_CONFLICT':
       qualified?'RIGID_3D_QUALIFIED_FOR_GEOMETRIC_REVIEW':'RIGID_3D_NUMERIC_FIT_UNTRUSTED_ANCHORS';
   return {...transform,status,qualified,identified:qualified,residuals:errors,
+    sourceSha:source.sha256,targetSha:target.sha256,sourceMember:source.member,targetMember:target.member,
     maxResidualMm,rmsResidualMm,sourceComponent,targetComponent,separationMismatchMm:mismatch,
     leaveOneOut:leaveOneOut(pairs,minSinAngle),
     anchors:pairs.map((p)=>({source:p.source.id,target:p.target.id,role:p.role})),
