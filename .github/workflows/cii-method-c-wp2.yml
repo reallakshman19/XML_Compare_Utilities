@@ -61,6 +61,8 @@ jobs:
           node --check tabs/cii-workspace/cii-workspace-method-c-svg.js
           node --check tabs/cii-workspace/cii-workspace-method-c-exports.js
           node --check tabs/cii-workspace/cii-workspace-method-c-ui.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-native-adapter.js
+          node --check tests/cii-workspace-method-c-native-adapter.test.js
           node --check tests/cii-workspace-method-c-svg.test.js
           node --check tests/cii-workspace-method-c-ui-browser.test.js
       - name: Run original S1/S2/S3/T tests and explicit corruption negatives
@@ -72,7 +74,8 @@ jobs:
             tests/cii-workspace-method-c-rigid-fit.test.js \
             tests/cii-workspace-method-c-registration.test.js \
             tests/cii-workspace-method-c-candidates.test.js \
-            tests/cii-workspace-method-c-svg.test.js
+            tests/cii-workspace-method-c-svg.test.js \
+            tests/cii-workspace-method-c-native-adapter.test.js
 
 
   interactive-svg-chromium:
