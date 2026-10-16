@@ -52,14 +52,15 @@ function independentOriginal(member,bytes){
     fromName:n?n.slice(2,28).trim():'',toName:n?n.slice(28,53).trim():'',
     witness:'ELEMENTS#'+(offset/15+1)+':15rows:'+(offset+1)+'-'+(offset+15)});
  }
- const adj=new Map(),names=new Map();
+ const adj=new Map(),names=new Map(),nameConflicts=[];
  for(const e of edges){
   for(const [id,to,sign,name] of [[e.from,e.to,1,e.fromName],[e.to,e.from,-1,e.toName]]){
    if(!adj.has(id))adj.set(id,[]);
    adj.get(id).push({to,sign,edge:e});
    if(name){
-    if(names.has(id)&&names.get(id)!==name)throw Error('INDEPENDENT_NAME_CONFLICT:'+id);
-    names.set(id,name);
+    if(names.has(id)&&names.get(id)!==name)
+     nameConflicts.push({node:id,existingName:names.get(id),additionalName:name,witness:e.witness});
+    if(!names.has(id))names.set(id,name);
    }
   }
  }
@@ -96,7 +97,7 @@ function independentOriginal(member,bytes){
     incident:adj.get(id).map(x=>x.edge.index).sort((a,b)=>a-b)});
  }
  assert.deepEqual([edges.length,nodes.size],[expected[1],expected[2]],member+': raw physical census');
- return {member,sha256:sha,rawLength:bytes.length,edges,nodes,groups,adj,
+ return {member,sha256:sha,rawLength:bytes.length,edges,nodes,groups,adj,nameConflicts,
    coordinateFrame:groups.map((ids,i)=>({component:i,count:ids.length,
      seeded:shifts.has(i),witnesses:seedWitness.filter(id=>component.get(id)===i)}))};
 }
@@ -150,13 +151,18 @@ function independentSegment(point,target,targetComponent){
  }
  return best;
 }
+function ownerPinnedPath(name){
+ const root=process.env.CII_METHOD_C_OWNER_REF_ROOT;
+ if(!root)throw Error('WP8_PINNED_OWNER_EVIDENCE_CHECKOUT_REQUIRED');
+ if(root.includes('..'))throw Error('WP8_UNSAFE_OWNER_EVIDENCE_PATH');
+ const repoRoot=fileURLToPath(new URL('../',import.meta.url));
+ return join(repoRoot,root,'tests','fixtures','cii-phase2',name);
+}
 function frozenOwnerGolden(){
- const path=new URL('../tests/fixtures/cii-phase2/owner-phase2-original.txt',import.meta.url);
+ const path=ownerPinnedPath('owner-phase2-original.txt');
  const bytes=readFileSync(path),sha256=hash(bytes);
- const manifest=JSON.parse(readFileSync(new URL(
-  '../tests/fixtures/cii-phase2/owner-phase2-manifest.json',import.meta.url)));
- const direction=JSON.parse(readFileSync(new URL(
-  '../tests/fixtures/cii-phase2/owner-confirmed-direction.json',import.meta.url)));
+ const manifest=JSON.parse(readFileSync(ownerPinnedPath('owner-phase2-manifest.json')));
+ const direction=JSON.parse(readFileSync(ownerPinnedPath('owner-confirmed-direction.json')));
  assert.equal(sha256,'a84bd6cd59b774d32dbd32ee74efc0f9da2fc1ac0e485d2a8b2f6a67350a113f');
  assert.equal(sha256,manifest.originalUploadSha256);
  assert.equal(sha256,direction.rawFixtureOriginalSha256);
@@ -297,7 +303,8 @@ test('WP8 independent second raw parser rebuilds all 4 original CII coordinate g
   authority:'INDEPENDENT_READ_ONLY_ORIGINALS_NOT_OWNER_ACCEPTANCE',
   originalFiles:Object.fromEntries(Object.entries(originals).map(([name,v])=>[name,{
    sha256:v.sha256,byteLength:v.rawLength,elements:v.edges.length,nodes:v.nodes.size,
-   components:v.groups.map(g=>g.length),frames:v.coordinateFrame}])),
+   components:v.groups.map(g=>g.length),frames:v.coordinateFrame,
+   originalNameConflicts:v.nameConflicts}])),
   verifiedElements:checkedEdges,verifiedNodes:checkedNodes,sourcePhysicalCount:sourceCount,
   registered:{source:'S1',target:'T',firstAnchor:['3910','875'],
    assumptions:'COMMON_XYZ_AXES_EXPERIMENT_ONLY',rotationIdentified:false,
@@ -311,7 +318,12 @@ test('WP8 independent second raw parser rebuilds all 4 original CII coordinate g
    qualifiedPhysicalIdentity:0,writer2Authorized:0},
   remainingMembers:{S2:'NOT_REGISTERED_NO_ANCHOR_NO_TARGET_CREDIT',
     S3:'NOT_REGISTERED_NO_ANCHOR_NO_TARGET_CREDIT'},
-  frozenOwner:owner,structuralUpperBound:{originalPhysicalSourceNodes:sourceCount,
+  frozenOwner:{...owner,pinnedSourceCommit:'86a2d3b40568c2bcb43dacbe32c862144d00fd53'},
+  exceptions:{originalNodeNameConflictCount:Object.fromEntries(Object.entries(originals)
+     .map(([id,g])=>[id,g.nameConflicts.length])),
+   originalNameConflictSample:Object.fromEntries(Object.entries(originals)
+     .map(([id,g])=>[id,g.nameConflicts.slice(0,7)]))},
+  structuralUpperBound:{originalPhysicalSourceNodes:sourceCount,
    ownerRequestedCreditRows:golden.releaseRequiredRows,
    upperBoundIndependentPhysicalCredits:150,
    meetsOwnerRequired300:false,owner428Accepted:false},
@@ -333,8 +345,7 @@ test('WP8 RED: original byte mutation, 428-row mutation and qualified-credit inf
  const orig=raw('S1'),changed=Buffer.from(orig);changed[71]^=1;
  assert.throws(()=>independentOriginal('S1',changed),/original bytes changed/);
  const golden=frozenOwnerGolden();
- assert.notEqual(golden.sha256,hash(Buffer.concat([readFileSync(new URL(
-  '../tests/fixtures/cii-phase2/owner-phase2-original.txt',import.meta.url)),Buffer.from('X')])));
+ assert.notEqual(golden.sha256,hash(Buffer.concat([readFileSync(ownerPinnedPath('owner-phase2-original.txt')),Buffer.from('X')])));
  assert.ok(150<golden.releaseRequiredRows);
  assert.equal(result?.registered?.qualifiedPhysicalIdentity,0);
  assert.equal(result?.registered?.writer2Authorized,0);
