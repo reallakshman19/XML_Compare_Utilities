@@ -14,6 +14,7 @@ import {createCiiWriter2SourceSetPreviewFromPreparedSession} from '../tabs/cii-w
 import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
 import { buildCiiOwnerOriginalNodeNameIndexes, resolveCiiOwnerPhase2RowsByOriginalNodeName } from './cii-workspace-phase2-owner-nodename-index.js';
 import {reconcileCiiOwnerMidCyclePhysicalRows} from './cii-workspace-phase2-owner-midcycle-forensics.js';
+import {scoreCiiOwnerPhysicalCandidateCoverage} from './cii-workspace-phase2-owner-conditional-coverage.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -76,6 +77,20 @@ const diagnostics=resolved.rows.map(row=>{
   });
 });
 const midCycle=reconcileCiiOwnerMidCyclePhysicalRows(diagnostics);
+// In TEST ONLY, score the physically grounded 33-row reversed-column
+// diagnostic independently against complete, matcher-generated physical
+// source-node audit. Never feed Owner labels/pairs into a matching option.
+const reverseConditional=scoreCiiOwnerPhysicalCandidateCoverage(
+  midCycle.directionReversalDiagnostic.rows,audit,{originalDenominator:428});
+const declaredConditional=scoreCiiOwnerPhysicalCandidateCoverage(
+  midCycle.asWritten.rows,audit,{originalDenominator:428});
+assert.equal(declaredConditional.physicallyLocatableUniqueNameRows,0);
+assert.equal(reverseConditional.physicallyLocatableUniqueNameRows,33);
+assert.equal(reverseConditional.distinctPhysicalOraclePairs,33);
+// Keep this as a diagnostic snapshot, NOT a declared 70% PASS.
+assert.equal(reverseConditional.P2_VALIDATED_RECALL,null);
+assert.equal(reverseConditional.phase2SeventyPercentQualified,false);
+
 const count=predicate=>diagnostics.filter(predicate).length;
 const agreement=count(row=>row.legacyBoundAndLabelAgreement);
 const transposedAgreement=count(row=>row.transposedLegacyBoundAndLabelAgreement);
@@ -99,6 +114,13 @@ const report={
   targetPhysicalNodeCensus:preparedSession.target.targetGraph.nodes.length,
   autoChoices:choices,
   physicalCandidateCorrespondenceStatus:preview.correspondence.status,
+  conditionalOriginalPhysicalCoverage:{
+    asWritten:{...declaredConditional,rows:undefined},
+    reversedUnapproved:{...reverseConditional,rows:undefined},
+    originalOwnerDenominator:428,
+    ownerApprovedOrientation:false,
+    phase2Acceptance:'NOT_EVALUABLE_UNRATIFIED_DIRECTION_AND_395_UNRESOLVED_ROWS',
+  },
   midCycleReconciliationSummary:{
     ownerDirectionConfirmed:false,
     asWritten:{...midCycle.asWritten,rows:undefined},
@@ -146,6 +168,17 @@ const targetNameIndex=[...originalIndexes.targetByName].flatMap(([nodeName,rows]
 }))).sort((a,b)=>Number(a.physicalNodeId)-Number(b.physicalNodeId));
 writeCsv('original-source-nodename-to-node.csv',['sourceMemberId','nodeName','physicalNodeId'],sourceNameIndex);
 writeCsv('original-target-nodename-to-node.csv',['nodeName','physicalNodeId'],targetNameIndex);
+writeFileSync(new URL('owner-original-physical-conditional-coverage.json',root),
+  JSON.stringify({schema:'CiiOwnerOriginalPhysicalConditionalCoverageReport.v1',
+    asWritten:declaredConditional,reversedUnapproved:reverseConditional,
+    originalOwnerInputSha256:manifest.originalUploadSha256,
+    qualification:'NOT_EVALUABLE_WRITER_AND_PRODUCTION_UNCHANGED',
+  },null,2)+'\n');
+const conditionalColumns=['ownerOrdinal','sourcePhysicalKey','targetPhysicalNodeId',
+  'status','credit','auditStatus','observedTargets','solverAuthority','solverEvidenceBases'];
+writeCsv('owner-original-physical-conditional-coverage-428.csv',conditionalColumns,reverseConditional.rows);
+writeCsv('owner-original-physical-conditional-agreements.csv',conditionalColumns,
+  reverseConditional.rows.filter(r=>r.credit===1));
 writeFileSync(new URL('owner-midcycle-reconciliation.json',root),JSON.stringify({
   schema:midCycle.schema,status:midCycle.status,ownerApprovedTranspose:midCycle.ownerApprovedTranspose,
   originalRowCount:midCycle.originalRowCount,
@@ -179,4 +212,5 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
+console.log('PHASE2_CONDITIONAL_PHYSICAL_COVERAGE '+JSON.stringify({originalOwnerDenominator:428,unapprovedReverseNamePairs:reverseConditional.distinctPhysicalOraclePairs,matched:reverseConditional.independentlyBoundPhysicalPairAgreement,wrongTargets:reverseConditional.independentBoundWrongTargets,original428Recall:reverseConditional.P2_VALIDATED_RECALL,reason:reverseConditional.reason}));
 console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
