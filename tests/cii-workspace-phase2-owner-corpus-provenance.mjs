@@ -13,7 +13,12 @@ function allCii(path) {
   const out=[];
   for(const ent of readdirSync(path,{withFileTypes:true})){
     const name=join(path,ent.name);
-    if(ent.isDirectory())out.push(...allCii(name));
+    if(ent.isDirectory()) {
+      // Git checkout internals, dependencies and checked-in docs/* mirrors
+      // are not independently sourced engineering CII fixtures.
+      if(path===repoRoot && ['.git','docs','node_modules','.cache'].includes(ent.name))continue;
+      out.push(...allCii(name));
+    }
     else if(ent.isFile() && /\.cii$/i.test(ent.name))out.push(name);
   }
   return out;
@@ -22,7 +27,7 @@ const golden=readFileSync(new URL('./fixtures/cii-phase2/owner-phase2-original.t
   .split(/\r?\n/).map(l=>l.trim().match(/^(PS\S+)\s+(SL\S+)$/)).filter(Boolean).map(([_,ps,sl],i)=>({ordinal:i+1,ps,sl}));
 const wantedPs=new Set(golden.map(x=>x.ps)),wantedSl=new Set(golden.map(x=>x.sl));
 const fileRows=[],allLabels=new Map(),failures=[];
-for(const file of allCii(join(repoRoot,'Benchmark')).sort()){
+for(const file of allCii(repoRoot).sort()){
   const bytes=readFileSync(file),path=relative(repoRoot,file).replaceAll('\\','/');
   try{
     const parsed=parseIndependentNodeNameState(bytes.toString('latin1'));
@@ -66,7 +71,8 @@ const stats={
   originalRowsWithSLInAlternate:pairEvidence.filter(p=>p.slInAlternate.length>0).length,
   originalRowsWithBothPSAndSLAnywhereInCorpus:pairEvidence.filter(p=>p.bothOriginalLabelsPresentSomewhereInRepositoryCorpus).length,
   originalRowsWithBothLabelsInSameAlternate:pairEvidence.filter(p=>p.bothFoundInSameAlternateCii).length,
-  checkedOnlyIncludedBenchmarkFolder:true,originalBenchmarkMemberOverride:false,
+  checkedOnlyIncludedBenchmarkFolder:false,allNonMirrorRepositoryCiiChecked:true,
+  originalBenchmarkMemberOverride:false,
   status:'SECONDARY_NONAUTHORITATIVE_FIXTURE_PROVENANCE_ONLY',
   releaseValidationGranted:false,
 };
