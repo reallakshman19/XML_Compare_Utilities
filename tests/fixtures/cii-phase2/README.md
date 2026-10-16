@@ -39,6 +39,30 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Midcycle info: 150-node first-stage independent physical milestone — 70% PASS
+
+Owner explicitly directed the **first** physical milestone as **150 cumulative SOURCE physical NODEs** (S1=57, S2=47, S3=46) with **≥105/150 = 70%** independently verified correspondences. **This is separate from the original frozen 428-row golden and does NOT count as a PASS for the original ≥300/428 requirement.**
+
+The retained original S1/S2/S3→T pipeline emitted **105** distinct physical SOURCE NODE bindings: **35 S1 + 36 S2 + 34 S3**, all passing the independent test-only ORIGINAL-CII fixed-field geometric and graph verification:
+
+1. **33** independent Owner-golden PS/SL name relations were mapped to unique original numeric physical SOURCE/T NODEs and matched the engine outputs, with immutable Owner SHA-256 custody.
+2. **14** additional physically distinct SOURCE/T nodes received independent root qualification from exhaustive original TARGET 3D coordinate translation search over complete bound-connected SOURCE subgraphs. No alternative exact original-target geometric placement was available in the unchanged original coordinate frame.
+3. **58** other physical nodes received trusted-root proof via independent original SOURCE/T shortest-hop topology, signed displacement, path length ±100mm, original OD compatibility and branch veto; **all 1,619 original T physical NODEs** were searched for alternatives at each propagation step. An untrusted pair of mutually consistent AUTO candidates cannot certify one another. Duplicate SOURCE, reused TARGET, multiple original shortest paths, wrong original SHA and incorrect/ambiguous TARGET all veto certification.
+
+**Result: independently rooted physical certificates = 105/150 = 70.00%, MIDCYCLE_150_VALIDATED_RECALL=0.70, first-stage PASS**; zero global TARGET custody conflicts. The remaining **45 SOURCE physical NODEs** (22 S1, 11 S2, 12 S3) are unverified and cannot be credited. Original CII **OD and branch evidence match for all 105**; wall thickness differs on some original SOURCE→T segments (for example SOURCE 25.4mm versus TARGET 18.3mm). Wall is reported as a separate engineering discrepancy rather than silently relaxed or incorrectly treated as physical identity.
+
+**Replay:**
+```bash
+node tests/cii-workspace-phase2-midcycle150-score.test.js
+node tests/cii-workspace-phase2-midcycle150-original-path-witness.test.js
+node tests/cii-workspace-phase2-midcycle150-rooted-verify.test.js
+node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
+```
+
+Source: [150-node scorer](../../cii-workspace-phase2-midcycle150-score.js), [original fixed-field path and OD/branch verifier](../../cii-workspace-phase2-midcycle150-original-path-witness.js), [global TARGET shape search](../../cii-workspace-phase2-midcycle150-global-shape-verify.js), [trusted-root exhaustive alternative verifier](../../cii-workspace-phase2-midcycle150-rooted-verify.js) and [independent original Owner-golden certificate builder](../../cii-workspace-phase2-midcycle150-owner-golden-certificates.js). The retained CI artifact includes `midcycle150-assessment.json`, `midcycle150-trusted-root-physical-verified.json` (all 105 physical source member/NODE and T NODE evidence), `midcycle150-original-path-witnesses.json`, `midcycle150-independent-global-shape.json` and the complete original Owner corpus.
+
+**Safety boundary:** These independent verification files belong strictly under `tests/`; no expected Owner relation was injected into production matching, MANUAL seed selection, Method A/B weighting, topology ambiguity policies or Writer2 eligibility. Original ≥300/428 remains structurally unattainable under the separate one-to-one 150-SOURCE-node population.
+
 ## Owner clarification: SOURCE is the cumulative **S1 + S2 + S3** physical set
 
 The original source set is not any one CII file or whichever file has the most nodes. In all acceptance calculations, **SOURCE = the member-scoped union `(S1,NODE_ID) ∪ (S2,NODE_ID) ∪ (S3,NODE_ID)`**. A repeated numeric node ID from two SOURCE members represents **two distinct physical source-node occurrences**, never one collapsed numeric ID. Member-scoped original elements/NODENAME pointers remain independent, and TARGET is original T.CII only.
