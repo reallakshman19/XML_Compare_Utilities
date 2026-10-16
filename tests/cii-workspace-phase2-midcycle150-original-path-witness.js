@@ -240,6 +240,10 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
   nodesWithLocalOriginalRouteLengthEvidence:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY').length,
   boundNodesWithoutLocalRouteEvidence:results.filter(r=>r.state==='NO_ORIGINAL_ROUTE_LENGTH_WITNESS').length,
   boundNodesWithBothLengthAndVectorOriginalWitness:results.filter(r=>r.independentLocalRouteWitnesses.some(w=>w.withinVectorTolerance)).length,
+  boundNodesWithOriginalOdMatchingRouteWitness:results.filter(r=>
+    r.independentLocalRouteWitnesses.some(w=>w.originalOdCompatible)).length,
+  boundNodesWithOriginalOdMatchingRouteAndBranch:results.filter(r=>
+    r.originalBranchCompatible&&r.independentLocalRouteWitnesses.some(w=>w.originalOdCompatible&&w.withinVectorTolerance)).length,
   boundNodesWithOriginalOdAndWallMatchingRouteWitness:results.filter(r=>
     r.independentLocalRouteWitnesses.some(w=>w.originalOdCompatible&&w.originalWallCompatible)).length,
   boundNodesWithOriginalOdAndWallMatchingPathAndBranch:results.filter(r=>
