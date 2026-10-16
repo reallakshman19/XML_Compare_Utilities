@@ -102,6 +102,14 @@ const report={
   asDeclaredOwnerNodeNameResolution:resolved.asDeclared,
   transposedOwnerNodeNameDiagnostic:resolved.transposedDiagnostic,
   transposedNodeNameLegacyAgreement:transposedAgreement,
+  transposedLexicallyResolvedAndSolverAgreed:transposedAgreement,
+  transposedResolvedAndSolverAgreedFractionOfOriginalRows:transposedAgreement/428,
+  transposedExamples:diagnostics.filter(r=>r.transposedDiagnostic.uniquePhysicalPair)
+    .slice(0,12).map(r=>({ownerOrdinal:r.ownerOrdinal,
+      sourceNodeName:r.rawTargetLabel,targetNodeName:r.rawSourceLabel,
+      sourcePhysicalKey:r.transposedDiagnostic.candidatePairs[0].sourceMemberId+':'+r.transposedDiagnostic.candidatePairs[0].sourcePhysicalNodeId,
+      targetPhysicalNodeId:r.transposedDiagnostic.candidatePairs[0].targetPhysicalNodeId,
+      observedSolverPairAgreement:r.transposedLegacyBoundAndLabelAgreement})),
   observedLegacyBoundWithNameAgreement:agreement,
   observedLegacyAgreementFractionOfOwnerInput:agreement/428,
   rowsWithSourceLabelFound:resolved.asDeclared.sourceNameFound,rowsWithTargetLabelFound:resolved.asDeclared.targetNameFound,
@@ -117,9 +125,32 @@ const report={
 };
 const root=new URL('../test-results/cii-phase2/',import.meta.url);
 mkdirSync(root,{recursive:true});
+// Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
+// the complete, exact, member-custodied inverse maps independently of labels
+// selected by the owner golden and independently of solver predictions.
+const csv=v=>'"'+String(v && typeof v==='object'?JSON.stringify(v):v??'').replace(/"/g,'""')+'"';
+const writeCsv=(name,columns,rows)=>writeFileSync(new URL(name,root),
+  [columns.join(','),...rows.map(row=>columns.map(k=>csv(row[k])).join(','))].join('\\n')+'\\n');
+const sourceNameIndex=[...originalIndexes.sourceByName].flatMap(([nodeName,rows])=>rows.map(row=>({
+  sourceMemberId:row.sourceId,nodeName,physicalNodeId:row.nodeId,
+}))).sort((a,b)=>a.sourceMemberId.localeCompare(b.sourceMemberId)||Number(a.physicalNodeId)-Number(b.physicalNodeId));
+const targetNameIndex=[...originalIndexes.targetByName].flatMap(([nodeName,rows])=>rows.map(row=>({
+  nodeName,physicalNodeId:row.nodeId,
+}))).sort((a,b)=>Number(a.physicalNodeId)-Number(b.physicalNodeId));
+writeCsv('original-source-nodename-to-node.csv',['sourceMemberId','nodeName','physicalNodeId'],sourceNameIndex);
+writeCsv('original-target-nodename-to-node.csv',['nodeName','physicalNodeId'],targetNameIndex);
+writeCsv('owner-golden-physical-pair-resolution.csv',[
+  'ownerOrdinal','rawSourceLabel','rawTargetLabel','declared','transposedDiagnostic',
+  'legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement',
+],diagnostics);
+assert.equal(sourceNameIndex.length,104);
+assert.equal(targetNameIndex.length,950);
+assert.equal(resolved.transposedDiagnostic.uniquelyResolvedPairs,33,'retained transposed NodeName lookup regression');
+assert.equal(transposedAgreement,33,'resolved reversed owner pairs must be independently observed by existing solver');
+
 writeFileSync(new URL('phase2-owner-diagnostic.json',root),JSON.stringify({report,rows:diagnostics},null,2)+'\n');
 const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','ownerDirection','sourceMemberCandidates','sourcePhysicalNodeCandidates','targetPhysicalNodeCandidates','sourceCandidateCount','targetCandidateCount','uniquelyAttributed','declared','transposedDiagnostic','legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement','discrepancy','physicalValidationTier'];
-const csv=v=>'"'+String(v && typeof v==='object'?JSON.stringify(v):v??'').replace(/"/g,'""')+'"';
+
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
