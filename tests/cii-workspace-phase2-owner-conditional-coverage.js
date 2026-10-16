@@ -93,9 +93,22 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
   const negatives=resolved.filter(o=>o.status==='WRONG_BOUND_TARGET').length;
   const statusCounts=freeze(Object.fromEntries([...new Set(resolved.map(r=>r.status))].sort()
     .map(key=>[key,resolved.filter(r=>r.status===key).length])));
+  // Census-wide claims that are outside this incomplete Owner oracle are
+  // UNVERIFIED, NOT automatically false positives or correct matches.
+  const solverBoundSourcePhysicalKeys=[...auditBySource].filter(([,row])=>row?.identityBound===true&&row?.state==='BOUND')
+    .map(([key])=>key);
+  const conditionallyAgreedSourceKeys=new Set(resolved.filter(r=>r.credit===1).map(r=>r.sourcePhysicalKey));
+  const globalTargetCustodyDuplicates=[...targetClaimants].filter(([,sourceKeys])=>sourceKeys.length>1)
+    .map(([targetId,sourceKeys])=>freeze({targetId,sourceKeys:freeze([...sourceKeys])}));
   const score=freeze({
     schema:'CiiOwnerOriginalPhysicalConditionalCoverage.v1',
     originalOwnerDenominator:originalDenominator,
+    totalEnumeratedSourcePhysicalNodes:independentAudit.rows.length,
+    independentSolverBoundSourceNodeCount:solverBoundSourcePhysicalKeys.length,
+    ownerConditionallyAgreedSourceNodeCount:conditionallyAgreedSourceKeys.size,
+    boundSourceNodesUnverifiedAgainstIncompleteOwnerOracle:
+      solverBoundSourcePhysicalKeys.filter(key=>!conditionallyAgreedSourceKeys.has(key)).length,
+    globalDuplicateTargetClaims:freeze(globalTargetCustodyDuplicates),
     originalOwnerRowsSubmitted:ownerCandidateRows.length,
     physicallyLocatableUniqueNameRows:covered.length,
     distinctPhysicalOraclePairs:distinctKeyCount,
