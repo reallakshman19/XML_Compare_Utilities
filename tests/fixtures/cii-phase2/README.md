@@ -16,6 +16,12 @@
 
 Use the **original pinned snapshot** at [commit `2e588a5469f463b177990d7f8683deb56ce48a0e`](https://github.com/reallakshman19/XML_Compare_Utilities/tree/2e588a5469f463b177990d7f8683deb56ce48a0e/Benchmark) when adjudicating exact source content. `TEXPECTED-PARTIALLLYDONE.CII` is spelled that way in the original. The original owner text is also reproduced verbatim in **Appendix A of Issue #106**.
 
+## Supplementary provenance search (not a substitute for pinned fixtures)
+
+The `tests/cii-workspace-phase2-owner-corpus-provenance.mjs` run inspects **every `.CII` under `Benchmark/`**, including these additional original checked-in fixtures: [CIICompare/SOURCE 3.CII](../../../Benchmark/CIICompare/SOURCE%203.CII), [CIICompare/TARGET 3-1.CII](../../../Benchmark/CIICompare/TARGET%203-1.CII), [CIICompare/BM_CII_SOURCE.CII](../../../Benchmark/CIICompare/BM_CII_SOURCE.CII), [BM_CII_TARGET1.CII](../../../Benchmark/CIICompare/BM_CII_TARGET1.CII), [BM_CII_TARGET2.CII](../../../Benchmark/CIICompare/BM_CII_TARGET2.CII). It also reads `TEXPECTED-PARTIALLLYDONE.CII` but never treats that *postimage* as an original TARGET.
+
+**Observed on the frozen retained corpus:** 10 conforming original `.CII` files, 103 distinct Owner PS labels and 68 distinct Owner SL labels in non-pinned files; 38 owner rows have their PS and SL labels **somewhere** in the combined corpus, but **none** has both names in a single alternate CII. These are only provenance clues, not physical SOURCE→TARGET pair proof. Generated `owner-alternate-fixture-provenance.json` includes each file's recomputed SHA-256 and exact matching names. Preserve the pinned S1/S2/S3/T authority and frozen 428 rows.
+
 ## Required mapping: never confuse numeric NODE with NodeName
 
 The user explicitly corrected the approach: **`NodeName → physical NODE`** must be decoded **first**. The CII format stores original node names indirectly:
