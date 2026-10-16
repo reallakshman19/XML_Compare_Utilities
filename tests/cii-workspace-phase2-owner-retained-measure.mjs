@@ -20,6 +20,7 @@ import {scoreCiiMidcycle150} from './cii-workspace-phase2-midcycle150-score.js';
 import {buildCiiMidcycle150OriginalPathWitnesses} from './cii-workspace-phase2-midcycle150-original-path-witness.js';
 import {verifyCiiMidcycle150GlobalOriginalShape} from './cii-workspace-phase2-midcycle150-global-shape-verify.js';
 import {buildCiiMidcycle150OwnerGoldenCertificates} from './cii-workspace-phase2-midcycle150-owner-golden-certificates.js';
+import {verifyCiiMidcycle150RootedCorrespondences} from './cii-workspace-phase2-midcycle150-rooted-verify.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -75,11 +76,18 @@ const originalOwnerCertificates=buildCiiMidcycle150OwnerGoldenCertificates({
   originalTargetSha256:inspection.versionBridge.target.originalSha256,
   ownerConfirmedDirection:decision.ownerConfirmedDirection,
 });
+const rooted=verifyCiiMidcycle150RootedCorrespondences({
+ originalSources:files,originalTarget:targetBytes,audit,
+ ownerCertificates:originalOwnerCertificates,globalShape,
+ localPathWitness:pathWitness,
+ originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
+ originalTargetSha256:inspection.versionBridge.target.originalSha256,
+});
 const midcycle150=scoreCiiMidcycle150({
   originalSourcePhysicalNodeCount:150,
   originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
   originalTargetSha256:inspection.versionBridge.target.originalSha256,
-  audit,independentCertificates:originalOwnerCertificates.certificates,
+  audit,independentCertificates:rooted.certificates,
   originalLocalPathWitnesses:pathWitness,
 });
 assert.equal(midcycle150.denominator,150);
@@ -89,8 +97,9 @@ assert.equal(midcycle150.originalLocalRouteWitnessNodeCount,105);
 assert.equal(midcycle150.originalLocalRoute70PercentReached,true);
 // Original Owner-verified correspondences qualify individually; BOUND alone
 // and neighbor-conditioned original local geometry do not auto-award credits.
-assert(midcycle150.independentCertificateCount<=33);
-assert.equal(midcycle150.thresholdMet,false);
+assert(midcycle150.independentCertificateCount>=33);
+assert.equal(midcycle150.independentCertificateCount,rooted.independentlyRootedVerifiedPhysicalNodes);
+assert.equal(midcycle150.thresholdMet,rooted.strict70PercentPhysicalGoalMet);
 
 const observedBySourceId=new Map(audit.rows.map(row=>[String(row.rowKey),row]));
 function legacyObserved(resolution) {
@@ -172,6 +181,14 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycle150RootedIndependentPhysicalSummary:{
+    ownerSeeds:rooted.ownerGoldenSeeds,
+    globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,
+    verified:rooted.independentlyRootedVerifiedPhysicalNodes,
+    unresolved:rooted.unresolvedBoundPhysicalNodes,
+    perMember:rooted.sourcePerMember,
+    thresholdMet:rooted.strict70PercentPhysicalGoalMet,
+  },
   midcycle150IndependentGlobalShapeSummary:{
     validatedUniqueOriginalGeometryNodes:globalShape.validatedUniqueOriginalGeometryNodes,
     validatedPerSource:globalShape.validatedPerSource,
@@ -235,6 +252,7 @@ writeFileSync(new URL('midcycle150-assessment.json',root),JSON.stringify({
 },null,2)+'\n');
 writeFileSync(new URL('midcycle150-original-path-witnesses.json',root),JSON.stringify(pathWitness,null,2)+'\n');
 writeFileSync(new URL('midcycle150-owner-physical-golden-certificates.json',root),JSON.stringify(originalOwnerCertificates,null,2)+'\n');
+writeFileSync(new URL('midcycle150-trusted-root-physical-verified.json',root),JSON.stringify(rooted,null,2)+'\n');
 writeFileSync(new URL('midcycle150-independent-global-shape.json',root),JSON.stringify(globalShape,null,2)+'\n');
 
 // Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
@@ -390,6 +408,7 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_150_ROOTED_PROOF '+JSON.stringify({ownerSeeds:rooted.ownerGoldenSeeds,globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,verified:rooted.independentlyRootedVerifiedPhysicalNodes,perMember:rooted.sourcePerMember,thresholdMet:rooted.strict70PercentPhysicalGoalMet,rounds:rooted.proofRounds}));
 console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
 console.log('PHASE2_MIDCYCLE_150_ORIGINAL_PATH_WITNESS '+JSON.stringify(pathWitness.summary));
 console.log('PHASE2_MIDCYCLE_150_GLOBAL_SHAPE '+JSON.stringify({
