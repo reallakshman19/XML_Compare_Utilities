@@ -39,6 +39,21 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Owner clarification: SOURCE is the cumulative **S1 + S2 + S3** physical set
+
+The original source set is not any one CII file or whichever file has the most nodes. In all acceptance calculations, **SOURCE = the member-scoped union `(S1,NODE_ID) ∪ (S2,NODE_ID) ∪ (S3,NODE_ID)`**. A repeated numeric node ID from two SOURCE members represents **two distinct physical source-node occurrences**, never one collapsed numeric ID. Member-scoped original elements/NODENAME pointers remain independent, and TARGET is original T.CII only.
+
+| Original file | Original physical SOURCE NODEs | Original named physical NODEs | Owner SL NodeNames found | Owner SL→PS pairs uniquely resolved |
+|---|---:|---:|---:|---:|
+| S1.CII | 57 | 38 | 1 | 0 |
+| S2.CII | 47 | 34 | 24 | 19 |
+| S3.CII | 46 | 32 | 21 | 14 |
+| **Cumulative SOURCE** | **150** | **104** | **46** | **33** |
+
+These are **aggregate real-file results**, not a SOURCE=one-file shortcut. The frozen Owner table has 428 original relations. Across cumulative SOURCE versus T, **33 rows have both names, 13 have only SOURCE SL, 73 only TARGET PS, 309 neither**; 428 rows accounted for. The report distinguishes repeated cross-member numeric IDs and cross-member NodeName aliasing from valid uniquely attributed pairs.
+
+Replay `node tests/cii-workspace-phase2-cumulative-source-reconcile.mjs`. This produces `owner-cumulative-S1-S2-S3-reconciliation.{json,md}` and the full `owner-cumulative-S1-S2-S3-428-rows.csv`, with member-specific candidates for every original Owner row. If all 150 cumulative SOURCE physical NODEs were correctly matched **once each**, the one-to-one physical ceiling would still be **150/428 = 35.05%**, below the original 300/428 target. This counting result is not a claim that the 33/33 conditionally agreed pairs are globally physically certified, nor that the user has authorized any different row-denominator contract.
+
 ## Full original SOURCE population reconciliation — no authorized ≥300-node replacement
 
 The reproducible [population reconciliation test](../../cii-workspace-phase2-original-population-reconcile.mjs) independently parses **all 13 non-mirrored CII files in the repository**, counting **distinct numeric physical FROM/TO NODE IDs** rather than element counts, repeated names, or raw golden rows. Its outputs are `owner-original-physical-population-reconciliation.{json,md}` and `owner-source-population-candidate-inventory.csv`, archived with the 428-row acceptance artifact.
