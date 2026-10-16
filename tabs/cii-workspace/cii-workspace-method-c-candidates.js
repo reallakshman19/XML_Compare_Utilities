@@ -52,6 +52,24 @@ function requireGraphAndPose(source,target,pose){
      !Number.isInteger(pose.targetComponent)||!target.components[pose.targetComponent]||
      !Array.isArray(pose.rotation)||!Array.isArray(pose.translation))
      throw new Error('REGISTERED_COMPONENT_AND_RIGID_TRANSFORM_REQUIRED');
+  if((pose.sourceSha&&pose.sourceSha!==source.sha256)||
+     (pose.targetSha&&pose.targetSha!==target.sha256)||
+     (pose.sourceMember&&pose.sourceMember!==source.member)||
+     (pose.targetMember&&pose.targetMember!==target.member))
+     throw new Error('STALE_METHOD_C_FILE_REVISION_OR_MEMBER');
+  const R=pose.rotation,t=pose.translation;
+  if(pose.scale!==undefined&&pose.scale!==1)throw new Error('METHOD_C_NONRIGID_POSE_REJECTED');
+  if(R.length!==3||R.some(row=>!Array.isArray(row)||row.length!==3||
+      row.some(v=>!Number.isFinite(v)))||
+     t.length!==3||t.some(v=>!Number.isFinite(v)))
+     throw new Error('METHOD_C_NONRIGID_POSE_REJECTED');
+  const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0);
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)
+    if(Math.abs(dot(R[i],R[j])-(i===j?1:0))>1e-6)
+      throw new Error('METHOD_C_NONRIGID_POSE_REJECTED');
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  if(Math.abs(dot(R[0],cross(R[1],R[2]))-1)>1e-6)
+    throw new Error('METHOD_C_NONRIGID_POSE_REJECTED');
 }
 export function findMethodCCandidates(source,target,pose,tolerance={x:100,y:100,z:100}){
   const tol=validateXYZTolerance(tolerance),cell=tol.map(x=>Math.max(1,x));
