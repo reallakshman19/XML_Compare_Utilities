@@ -24,6 +24,7 @@ import {verifyCiiMidcycle150RootedCorrespondences} from './cii-workspace-phase2-
 import {diagnoseCiiMidcycle150Unverified} from './cii-workspace-phase2-midcycle150-unverified-forensics.js';
 import {reviewCiiMidcycleW11ProductionQualification} from './cii-workspace-phase2-midcycle-w11-qualification-audit.js';
 import {investigateCiiMidcycleW12OriginalPaths} from './cii-workspace-phase2-midcycle-w12-original-path-review.js';
+import {adjudicateCiiW13OriginalEvidence} from './cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -108,6 +109,15 @@ const w12Original=investigateCiiMidcycleW12OriginalPaths({
 assert.equal(w12Original.counts.countNoCandidate,23);
 assert.equal(w12Original.counts.differentTReviewCases,8);
 assert.equal(w12Original.counts.addedCertifiedPhysicalMatches,0);
+const w13Actual=adjudicateCiiW13OriginalEvidence({
+ originalSources:files,originalTarget:targetBytes,w12:w12Original,
+ w11Qualification,immutable100mmTolerance:100,
+});
+assert.equal(w13Actual.summary.originalSegmentationProxyCount,1);
+assert.equal(w13Actual.summary.threeSignedVectorFailuresInvestigated,3);
+assert.equal(w13Actual.summary.eightProductionTargetConflictsInvestigated,8);
+assert.equal(w13Actual.summary.addedIndependentlyCertifiedPhysicalPairs,0);
+
 
 
 const midcycle150=scoreCiiMidcycle150({
@@ -208,6 +218,11 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycleW13OriginalElementTypesAndTargetArbitration:{
+    summary:w13Actual.summary,
+    newIndependentCredits:0,
+    productionMatcherUnchanged:true,
+  },
   midcycleW12OriginalRevisionAndCompetingTarget:{
     sourcePopulation:w12Original.sourcePopulation,
     certifiedBaseline:w12Original.certifiedMidcycle150Baseline,
@@ -328,6 +343,25 @@ writeFileSync(new URL('midcycle-w11-23-no-candidate-stage-root-causes.json',root
   },null,2)+'\n');
 writeFileSync(new URL('midcycle-w12-original-revision-geometry-and-eight-competing-targets.json',root),
  JSON.stringify(w12Original,null,2)+'\n');
+writeFileSync(new URL('midcycle-w13-original-element-type-segment-vector-methodab.json',root),
+ JSON.stringify(w13Actual,null,2)+'\n');
+const w13SplitCols=['sourcePhysicalKey','status','reportedProxyCount','witnessCount','newCertifiedMatches'];
+writeFileSync(new URL('midcycle-w13-segmented-run-element-type-receipts.csv',root),
+ [w13SplitCols.join(','),...w13Actual.segmentedRunElementTypeChecks.map(row=>
+  w13SplitCols.map(c=>unresolvedCell(row[c])).join(','))].join('\n')+'\n');
+const w13VectorCols=['sourcePhysicalKey','originalLengthCompatibleAlternatives','disposition','grantedNewBinding'];
+writeFileSync(new URL('midcycle-w13-three-original-displacement-frame-checks.csv',root),
+ [w13VectorCols.join(','),...w13Actual.signedDisplacementFrameChecks.map(row=>
+  w13VectorCols.map(c=>unresolvedCell(row[c])).join(','))].join('\n')+'\n');
+const w13ConflictCols=['sourcePhysicalKey','originalHypothesisTarget','productionReviewedTargets',
+  'reviewedProductionSourceCorrespondenceStatus',
+  'productionOriginalGeometryAnyRootPass','hypothesisOriginalGeometryAllRootsPass',
+  'alternateOriginalGeometryAllRootsPass','productionMethodABPhysicalAuthorityEstablished',
+  'acceptedNewPhysicalMatch','disposition'];
+writeFileSync(new URL('midcycle-w13-eight-production-methodab-target-conflicts.csv',root),
+ [w13ConflictCols.join(','),...w13Actual.productionCompetingTargetMethodABChecks.map(row=>
+  w13ConflictCols.map(c=>unresolvedCell(row[c])).join(','))].join('\n')+'\n');
+
 const w12Cols=['sourcePhysicalKey','originalSourceNodeName','originalW11StageRootCause',
  'trustedOriginalRootsExamined','signedVectorFitsButLengthBreaks',
  'lengthFitsButSignedVectorBreaks','apparentSegmentSplittingProxy','independentPhysicalCredit'];
@@ -503,6 +537,26 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_W13_ORIGINAL_TYPES_AND_METHODAB '+JSON.stringify({
+ summary:w13Actual.summary,
+ split:w13Actual.segmentedRunElementTypeChecks.map(x=>({
+  source:x.sourcePhysicalKey,status:x.status,types:x.witnesses?.map(y=>({
+   sourceType:y.originalSourceElementTypeReferences.classification,
+   targetType:y.originalTargetElementTypeReferences.classification,
+   original100mmGeometryPass:y.comparison.originalStraightConstantOdPathGeometryCompatible,
+  }))})),
+ displacements:w13Actual.signedDisplacementFrameChecks.map(x=>({
+  source:x.sourcePhysicalKey,candidates:x.originalLengthCompatibleAlternatives,
+  reverseCandidateExists:x.alternatives.some(v=>v.reversedResidualMm<=100),
+ })),
+ conflicts:w13Actual.productionCompetingTargetMethodABChecks.map(x=>({
+  source:x.sourcePhysicalKey,
+  productionTargets:x.productionReviewedTargets,
+  productionRootPass:x.productionOriginalGeometryAnyRootPass,
+  hypothesisAllRootsPass:x.hypothesisOriginalGeometryAllRootsPass,
+  anyProdAllRootsPass:x.alternateOriginalGeometryAllRootsPass,
+ })),
+}));
 console.log('PHASE2_MIDCYCLE_W12_ORIGINAL_GEOMETRY '+JSON.stringify({totals:w12Original.counts,perSource:w12Original.sourcePerMember,newCredits:0}));
 console.log('PHASE2_MIDCYCLE_W11_PRODUCTION_QUALIFICATION '+JSON.stringify({leadCount:w11Qualification.leadCount,dispositions:w11Qualification.dispositionCounts,perMember:w11Qualification.perMember,newCredits:w11Qualification.newIndependentlyCertifiedPhysicalNodeCount}));
 console.log('PHASE2_MIDCYCLE_W11_NO_CANDIDATE_STAGE_GATES '+JSON.stringify({missing:23,stageRootCauses:unverifiedForensics.geometryRootCauseCounts}));
