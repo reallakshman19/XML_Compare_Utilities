@@ -13,6 +13,7 @@ import {ciiAutomaticBaseSelection} from '../tabs/cii-workspace/cii-workspace-bas
 import {createCiiWriter2SourceSetPreviewFromPreparedSession} from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
 import { buildCiiOwnerOriginalNodeNameIndexes, resolveCiiOwnerPhase2RowsByOriginalNodeName } from './cii-workspace-phase2-owner-nodename-index.js';
+import {reconcileCiiOwnerMidCyclePhysicalRows} from './cii-workspace-phase2-owner-midcycle-forensics.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -74,6 +75,7 @@ const diagnostics=resolved.rows.map(row=>{
     verifiedPhysicalCorrespondence:false,
   });
 });
+const midCycle=reconcileCiiOwnerMidCyclePhysicalRows(diagnostics);
 const count=predicate=>diagnostics.filter(predicate).length;
 const agreement=count(row=>row.legacyBoundAndLabelAgreement);
 const transposedAgreement=count(row=>row.transposedLegacyBoundAndLabelAgreement);
@@ -97,6 +99,11 @@ const report={
   targetPhysicalNodeCensus:preparedSession.target.targetGraph.nodes.length,
   autoChoices:choices,
   physicalCandidateCorrespondenceStatus:preview.correspondence.status,
+  midCycleReconciliationSummary:{
+    ownerDirectionConfirmed:false,
+    asWritten:{...midCycle.asWritten,rows:undefined},
+    reversed:{...midCycle.directionReversalDiagnostic,rows:undefined},
+  },
   originalCiiNodeNameSourceStats:resolved.sourceStats,
   originalCiiNodeNameTargetStats:resolved.targetStats,
   asDeclaredOwnerNodeNameResolution:resolved.asDeclared,
@@ -139,6 +146,20 @@ const targetNameIndex=[...originalIndexes.targetByName].flatMap(([nodeName,rows]
 }))).sort((a,b)=>Number(a.physicalNodeId)-Number(b.physicalNodeId));
 writeCsv('original-source-nodename-to-node.csv',['sourceMemberId','nodeName','physicalNodeId'],sourceNameIndex);
 writeCsv('original-target-nodename-to-node.csv',['nodeName','physicalNodeId'],targetNameIndex);
+writeFileSync(new URL('owner-midcycle-reconciliation.json',root),JSON.stringify({
+  schema:midCycle.schema,status:midCycle.status,ownerApprovedTranspose:midCycle.ownerApprovedTranspose,
+  originalRowCount:midCycle.originalRowCount,
+  asWritten:midCycle.asWritten,
+  directionReversalDiagnostic:midCycle.directionReversalDiagnostic,
+},null,2)+'\n');
+const classifiedKeys=['ownerOrdinal','sourceOriginalLine','originalSourceLabel','originalTargetLabel',
+  'physicalSourceName','physicalTargetName','interpretation','reasonCode','sourceMemberCandidates',
+  'sourceOccurrenceKeys','targetOccurrenceIds','candidatePairs','exactlyOneCandidate',
+  'existingAutoSolverAgreement','note'];
+writeCsv('owner-midcycle-as-written-428.csv',classifiedKeys,midCycle.asWritten.rows);
+writeCsv('owner-midcycle-transposed-428.csv',classifiedKeys,midCycle.directionReversalDiagnostic.rows);
+writeCsv('owner-midcycle-33-resolved-physical-pairs.csv',classifiedKeys,
+  midCycle.directionReversalDiagnostic.rows.filter(row=>row.exactlyOneCandidate));
 writeCsv('owner-golden-physical-pair-resolution.csv',[
   'ownerOrdinal','rawSourceLabel','rawTargetLabel','declared','transposedDiagnostic',
   'legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement',
@@ -147,6 +168,11 @@ assert.equal(sourceNameIndex.length,104);
 assert.equal(targetNameIndex.length,950);
 assert.equal(resolved.transposedDiagnostic.uniquelyResolvedPairs,33,'retained transposed NodeName lookup regression');
 assert.equal(transposedAgreement,33,'resolved reversed owner pairs must be independently observed by existing solver');
+assert.equal(midCycle.asWritten.physicalPairCandidatesUniqueNameRows,0);
+assert.equal(midCycle.directionReversalDiagnostic.physicalPairCandidatesUniqueNameRows,33);
+assert.equal(midCycle.directionReversalDiagnostic.independentlyExistingAutoSolverAgreements,33);
+assert.equal(midCycle.directionReversalDiagnostic.distinctPhysicalPairCandidateCount,33);
+assert.equal(midCycle.originalRowCount,428);
 
 writeFileSync(new URL('phase2-owner-diagnostic.json',root),JSON.stringify({report,rows:diagnostics},null,2)+'\n');
 const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','ownerDirection','sourceMemberCandidates','sourcePhysicalNodeCandidates','targetPhysicalNodeCandidates','sourceCandidateCount','targetCandidateCount','uniquelyAttributed','declared','transposedDiagnostic','legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement','discrepancy','physicalValidationTier'];
