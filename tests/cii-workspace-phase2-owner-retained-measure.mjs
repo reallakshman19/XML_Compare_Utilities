@@ -16,6 +16,8 @@ import { buildCiiOwnerOriginalNodeNameIndexes, resolveCiiOwnerPhase2RowsByOrigin
 import {reconcileCiiOwnerMidCyclePhysicalRows} from './cii-workspace-phase2-owner-midcycle-forensics.js';
 import {scoreCiiOwnerPhysicalCandidateCoverage} from './cii-workspace-phase2-owner-conditional-coverage.js';
 import {scoreCiiOwnerPhase2PhysicalAcceptance} from './cii-workspace-phase2-owner-physical-acceptance.js';
+import {scoreCiiMidcycle150} from './cii-workspace-phase2-midcycle150-score.js';
+import {buildCiiMidcycle150OriginalPathWitnesses} from './cii-workspace-phase2-midcycle150-original-path-witness.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -51,6 +53,22 @@ const audit=buildCiiSourceTargetAudit(preview);
 // The owner table contains NodeName labels, NOT physical NODE numbers.
 // Build from original CII fixed-field NODENAME pointers; never compare label to
 // a numeric node ID or infer SOURCE member from owner row order.
+const pathWitness=buildCiiMidcycle150OriginalPathWitnesses({
+  originalSources:files,originalTarget:targetBytes,audit,
+  pathTotalLengthToleranceMm:100,
+});
+const midcycle150=scoreCiiMidcycle150({
+  originalSourcePhysicalNodeCount:150,
+  originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
+  originalTargetSha256:inspection.versionBridge.target.originalSha256,
+  audit,independentCertificates:[],
+});
+assert.equal(midcycle150.denominator,150);
+assert.equal(midcycle150.requiredValidatedPhysicalPairs,105);
+assert.equal(midcycle150.autoBoundCandidateCount,105);
+// Audit BOUND rows are proposals, not independent ground-truth certificates.
+assert.equal(midcycle150.thresholdMet,false);
+
 const originalIndexes=buildCiiOwnerOriginalNodeNameIndexes(files,targetBytes);
 assert.deepEqual(originalIndexes.sourceStats.map(r=>r.physicalNodeCount),[57,47,46]);
 assert.equal(originalIndexes.targetStats.physicalNodeCount,1619);
@@ -136,6 +154,8 @@ const report={
   status:'FAIL_STRUCTURALLY_UNATTAINABLE_ON_PINNED_FILES',
   ownerConfirmedSourceTargetDirection:'SL_S1_S2_S3_TO_PS_T',
   physicalOneToOneAcceptance:acceptance,
+  midcycle150PhysicalAcceptance:midcycle150,
+  midcycle150OriginalPathWitnessSummary:pathWitness.summary,
   originalOwnerInputSha256:manifest.originalUploadSha256,
   originalBenchmarkRows:428,requiredValidatedRows:300,targetValidatedRecall:0.70,
   sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
@@ -186,6 +206,12 @@ const report={
 };
 const root=new URL('../test-results/cii-phase2/',import.meta.url);
 mkdirSync(root,{recursive:true});
+writeFileSync(new URL('midcycle150-assessment.json',root),JSON.stringify({
+  score:midcycle150,pathWitnessSummary:pathWitness.summary,
+  physicalCertificationPolicy:'BOUND != independently physically certified; original local path length is nonexclusive',
+},null,2)+'\n');
+writeFileSync(new URL('midcycle150-original-path-witnesses.json',root),JSON.stringify(pathWitness,null,2)+'\n');
+
 // Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
 // the complete, exact, member-custodied inverse maps independently of labels
 // selected by the owner golden and independently of solver predictions.
@@ -338,6 +364,8 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
+console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
+console.log('PHASE2_MIDCYCLE_150_ORIGINAL_PATH_WITNESS '+JSON.stringify(pathWitness.summary));
 console.log('PHASE2_OWNER_CONFIRMED_ACCEPTANCE '+JSON.stringify(acceptance));
 console.log('PHASE2_CONDITIONAL_PHYSICAL_COVERAGE '+JSON.stringify({originalOwnerDenominator:428,ownerConfirmedPhysicalNamePairs:reverseConditional.distinctPhysicalOraclePairs,matched:reverseConditional.independentlyBoundPhysicalPairAgreement,wrongTargets:reverseConditional.independentBoundWrongTargets,original428CertifiedRecall:reverseConditional.P2_VALIDATED_RECALL,reason:reverseConditional.reason}));
 console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
