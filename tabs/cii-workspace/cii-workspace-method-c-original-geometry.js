@@ -32,7 +32,10 @@ function nativeCoordinateSeeds(text) {
   const count = Number(rows[0].trim());
   if (!Number.isSafeInteger(count) || count < 0 || count !== rows.length - 1) throw new Error('INVALID_CII_COORDS_SEED_COUNT');
   return rows.slice(1).map((row) => {
-    const parts = row.trim().split(/\s+/).map((v) => Number(v.replace(/[dD]/g, 'E')));
+    // Neutral COORDS may concatenate a negative XYZ immediately after the NODE ID
+    // (actual original S2: '40-1.520000E+02 ...'); tokenize signed numbers, not whitespace.
+    const values = row.match(/[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+-]?\d+)?/g) || [];
+    const parts = values.map((v) => Number(v.replace(/[dD]/g, 'E')));
     if (parts.length !== 4 || parts.some((v) => !finite(v))) throw new Error('INVALID_CII_COORDS_SEED');
     return { node: nodeId(parts[0]), xyz: parts.slice(1) };
   });
@@ -48,7 +51,7 @@ function originalElements(text) {
   const control = sectionLines(text, 'CONTROL');
   if (!control.length || field(control[0], 0) !== rows.length / ROWS_PER_ELEMENT)
     throw new Error('CII_CONTROL_ELEMENTS_COUNT_MISMATCH');
-  const nameRows = sectionLines(text, 'NODENAME');
+  const nameRows = sectionLines(text, 'NODENAME').filter((row) => row.trim());
   const edges = [];
   for (let index = 0; index < rows.length / ROWS_PER_ELEMENT; index++) {
     const i = index * ROWS_PER_ELEMENT;
