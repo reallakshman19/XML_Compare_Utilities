@@ -45,10 +45,23 @@ function canonicalId(row) {
 function canonicalizeGroup(group) {
   const ordered = [...group].sort((a, b) => rowStatusRank(b.row) - rowStatusRank(a.row)
     || String(a.loop?.loopId || '').localeCompare(String(b.loop?.loopId || ''), undefined, { numeric: true }));
-  const winner = ordered[0].row; const provenanceRows = ordered.map((item) => provenance(item, item.row));
+  const winner = ordered[0].row;
+  // Distinct rows from ONE physical qualification loop are not independent
+  // corroboration. A duplicate NODE row (anchor + aligned boundary, etc.)
+  // must never inflate the number of independently qualified bases.
+  // Method A/B evidence and their existing hard gates are unchanged.
+  const contributingLoops = new Map();
+  for (const item of ordered) {
+    const loopId = String(item.loop?.loopId || '');
+    const method = String(item.loop?.method || '');
+    const key = method + '|' + loopId;
+    if (!contributingLoops.has(key)) contributingLoops.set(key, item);
+  }
+  const distinct = [...contributingLoops.values()];
+  const provenanceRows = distinct.map((item) => provenance(item, item.row));
   const evidence = deepFreeze({ ...(winner.evidence || {}), multiBaseProvenance: deepFreeze(provenanceRows) });
   return deepFreeze({ ...winner, correspondenceId: canonicalId(winner),
-    authority: ordered.length > 1 ? 'MULTI_BASE_CORROBORATED' : 'MULTI_BASE_LOOP', basisMethod: methodBasis(ordered), evidence });
+    authority: distinct.length > 1 ? 'MULTI_BASE_CORROBORATED' : 'MULTI_BASE_LOOP', basisMethod: methodBasis(distinct), evidence });
 }
 function groupedClaims(loopResults, field) {
   const grouped = new Map();
