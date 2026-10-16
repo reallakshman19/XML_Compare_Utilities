@@ -102,7 +102,7 @@ function classifyDisplacement(source,target){
   directionLabel:cosine===null?'DEGENERATE_ORIGINAL_VECTOR':
    cosine<-.98?'NEAR_OPPOSITE_ORIGINAL_DIRECTION':
    cosine>.98?'NEAR_PARALLEL_ORIGINAL_DIRECTION':'NONCOLLINEAR_ORIGINAL_DIRECTION',
-  100mmSignedDirectionPass:signedResidual<=100};
+  signedDirectionWithin100mm:signedResidual<=100};
 }
 // Alternative geometry must pass original fixed branch, OD, independent
 // path-total and signed-vector tests — a scorer REVIEW, not identity authority.
