@@ -39,6 +39,11 @@ test('Original S1/T independent XYZ: 37/45 route, 41/57 source component, zero T
   assert.equal(new Set(routeRows.flatMap(r=>r.alternatives.map(a=>a.target))).size,37);
   assert.equal(ledger.qualifiedIdentityCount,0);
   assert.equal(ledger.rows.every(r=>!r.writerEligible&&!r.physicalNodeCorrespondenceQualified),true);
+  console.log('METHOD_C_WP4_RAW_COUNTS '+JSON.stringify({sourceSha:s.sha256,targetSha:t.sha256,
+    sourceNodeCount:ledger.rows.length,targetRegisteredComponent:ledger.targetComponentCount,
+    fullNear:ledger.nearSourceCount,selectedNear:routeRows.filter(r=>r.alternatives.length>0).length,
+    selectedTotal:routeRows.length,targetCollisions:ledger.collisionTargets,
+    qualifiedIdentityCount:ledger.qualifiedIdentityCount}));
 });
 test('Original S1 4060 is segment-only on T 900->905 original witness, no invented TARGET NODE',async()=>{
   const [s,t]=await originals();
@@ -53,6 +58,10 @@ test('Original S1 4060 is segment-only on T 900->905 original witness, no invent
   assert.ok(row.segment.stationMm>0&&row.segment.stationMm<row.segment.lengthMm);
   assert.equal(row.segment.sourceOfCoordinates,'ORIGINAL_TARGET_ELEMENT');
   assert.equal(row.nearest.target,'905');
+  console.log('METHOD_C_WP4_SEGMENT_ONLY '+JSON.stringify({source:row.source,
+    witness:row.segment.witness,between:row.segment.between,fraction:row.segment.t,
+    stationMm:row.segment.stationMm,segmentDistanceMm:row.segment.distance,
+    nearestPhysicalNode:row.nearest.target,nearestDistanceMm:row.nearest.distance}));
   assert.ok(Math.abs(row.nearest.distance-1906)<1e-6);
 });
 test('Original downstream 300.57 mm Z failure and separate wall versus OD',async()=>{
@@ -116,4 +125,18 @@ test('RED: no registered anchor, invalid component and nonfinite tolerance fail 
   assert.throws(()=>findMethodCCandidates(s,t,{...view(),anchors:[]}),/REGISTRATION_ANCHOR_REQUIRED/);
   assert.throws(()=>findMethodCCandidates(s,t,view(0,100)),/REGISTERED_COMPONENT_AND_RIGID_TRANSFORM_REQUIRED/);
   assert.throws(()=>findMethodCCandidates(s,t,view(),{x:NaN,y:100,z:100}),/XYZ_TOLERANCE_MM_INVALID/);
+});
+
+test('RED: stale registered source revision, uniform scaling and reflections never enter candidate inventory',()=>{
+  const s=graph('S',[[1,[0,0,0]]]),t=graph('T',[[5,[0,0,0]]]);
+  assert.throws(()=>findMethodCCandidates(s,t,{...view(),sourceSha:'f'.repeat(64)}),
+    /STALE_METHOD_C_FILE_REVISION_OR_MEMBER/);
+  assert.throws(()=>findMethodCCandidates(s,t,{...view(),targetMember:'another-target'}),
+    /STALE_METHOD_C_FILE_REVISION_OR_MEMBER/);
+  assert.throws(()=>findMethodCCandidates(s,t,{...view(),scale:1.001}),
+    /METHOD_C_NONRIGID_POSE_REJECTED/);
+  assert.throws(()=>findMethodCCandidates(s,t,{...view(),rotation:[[-1,0,0],[0,1,0],[0,0,1]]}),
+    /METHOD_C_NONRIGID_POSE_REJECTED/);
+  assert.throws(()=>findMethodCCandidates(s,t,{...view(),rotation:[[1.1,0,0],[0,1,0],[0,0,1]]}),
+    /METHOD_C_NONRIGID_POSE_REJECTED/);
 });
