@@ -10,8 +10,6 @@ const ledger=JSON.parse(file('docs/METHOD_C_G2_REVIEW_STATUS.json'));
 const packet=file('docs/METHOD_C_G2_REVIEW_PACKET.md');
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const protectedPaths=[
- 'tabs/cii-workspace/cii-workspace-tab.js',
- 'docs/tabs/cii-workspace/cii-workspace-tab.js',
  'tabs/cii-workspace/cii-workspace-multi-base-correspondence.js',
  'tabs/cii-workspace/cii-workspace-writer-version-bridge.js',
  'tests/cii-workspace-multi-base-correspondence.test.js',
@@ -26,14 +24,14 @@ function validateStatus(data){
  if(data.labelSha!=='18d91c9'||data.plan!=='V36-108-PLAN-01')issues.push('LABEL_OR_PLAN');
  if(!Array.isArray(data.taskStates)||data.taskStates.length!==9||
   data.taskStates.some((t,i)=>t.wp!==i+1||t.child!==i+109))issues.push('CHILD_DECOMPOSITION');
- for(const wp of [6,7]){
-  if(data.taskStates?.find(t=>t.wp===wp)?.state!=='HOLD')issues.push('FALSE_BLOCKED_TASK_ACCEPTANCE');
- }
+ if(!['INTEGRATION_IN_PROGRESS','EVIDENCE_SUBMITTED_UNREVIEWED'].includes(data.taskStates?.find(t=>t.wp===6)?.state))issues.push('FALSE_WP6_ACCEPTANCE');
+ if(data.taskStates?.find(t=>t.wp===7)?.state!=='HOLD')issues.push('FALSE_BLOCKED_TASK_ACCEPTANCE');
  if(data.taskStates?.find(t=>t.wp===9)?.state!=='REVIEW_REQUESTED')
   issues.push('FALSE_WP9_ACCEPTANCE');
- if(data.blockingDecisions?.nativeEntry?.grantRecorded!==false||
-    data.blockingDecisions?.nativeEntry?.sharedSourceEditAuthorized!==false||
-    data.blockingDecisions?.nativeEntry?.applicationWalkthrough!=='NOT_RUN')
+ if(data.blockingDecisions?.nativeEntry?.grantRecorded!==true||
+    data.blockingDecisions?.nativeEntry?.sharedSourceEditAuthorized!==true||
+    data.blockingDecisions?.nativeEntry?.ownerGrantScope!=='NATIVE_ENTRY_AND_DOCS_MIRROR_EXACT_TWO_FILES'||
+    !['PENDING_HOSTED_CHROMIUM','HOSTED_CHROMIUM_PASS'].includes(data.blockingDecisions?.nativeEntry?.applicationWalkthrough))
   issues.push('FALSE_NATIVE_APP_APPROVAL');
  if(data.blockingDecisions?.inheritedRegressions?.dispositionRecorded!==false||
     data.blockingDecisions?.inheritedRegressions?.protectedSuite?.failing!==2)
@@ -62,7 +60,7 @@ test('WP9 review preflight: all nine v3.6 children and pending authority flags f
 });
 test('WP9 RED: falsified grant, green protected suite, fabricated physical credit or G2 approval vetoed',()=>{
  const copy=()=>structuredClone(ledger);
- const native=copy();native.blockingDecisions.nativeEntry.grantRecorded=true;
+ const native=copy();native.blockingDecisions.nativeEntry.grantRecorded=false;
  assert.ok(validateStatus(native).includes('FALSE_NATIVE_APP_APPROVAL'));
  const protectedFake=copy();protectedFake.blockingDecisions.inheritedRegressions.protectedSuite.failing=0;
  assert.ok(validateStatus(protectedFake).includes('FALSE_PROTECTED_SUITE_GREEN'));
@@ -90,7 +88,7 @@ test('WP9 exact baseline Git trees: protected code/tests, docs mirror and origin
 test('WP9 candidate diff must stay in new Method C-owned files, plan, WIP and dedicated workflow',()=>{
  const changed=git('diff','--name-only',ledger.immutableBase,'HEAD')
   .split(/\r?\n/).filter(Boolean);
- const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
+ const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
  assert.deepEqual(changed.filter(p=>!allowed(p)),[]);
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_STATUS.json'));
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_PACKET.md'));
@@ -98,4 +96,35 @@ test('WP9 candidate diff must stay in new Method C-owned files, plan, WIP and de
   head:git('rev-parse','HEAD'),base:ledger.immutableBase,
   changedOwnedFiles:changed.length,protectedUnchanged:protectedPaths.length,
   G2IndependentReview:'NOT_DONE',ownerMergeAuthorized:false}));
+});
+
+test('WP9 Owner-scoped WP6 two-file grant: exact source and docs mount hunks, no Writer2 rewrites',()=>{
+ const rel='tabs/cii-workspace/cii-workspace-tab.js',base=ledger.immutableBase;
+ const orig=git('show',base+':'+rel)+'\n';
+ const expected=orig.replace(
+  "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n",
+  "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n"+
+  "import { installMethodCReviewTile } from './cii-workspace-method-c-tile.js';\n"
+ ).replace(
+  "  if (findReplaceTile) container.appendChild(findReplaceTile);\n",
+  "  if (findReplaceTile) container.appendChild(findReplaceTile);\n"+
+  "  const methodCTile = installMethodCReviewTile(container, context.methodC || {});\n"
+ ).replace(
+  "    close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();\n",
+  "    methodCTile.destroy();\n"+
+  "    close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();\n"
+ );
+ assert.notEqual(expected,orig);
+ for(const path of [rel,'docs/'+rel]){
+  assert.equal(file(path),expected,path+' unexpected shared implementation change');
+ }
+ const mods=['original-geometry','rigid-fit','registration','candidates','svg',
+  'exports','ui','native-adapter','tile'];
+ for(const part of mods){
+  const name='cii-workspace-method-c-'+part+'.js';
+  assert.equal(file('docs/tabs/cii-workspace/'+name),file('tabs/cii-workspace/'+name),
+   'deployment mirror differs from owned original '+name);
+ }
+ assert.equal(file('docs/tabs/cii-workspace/cii-workspace-method-c-ui.css'),
+  file('tabs/cii-workspace/cii-workspace-method-c-ui.css'));
 });
