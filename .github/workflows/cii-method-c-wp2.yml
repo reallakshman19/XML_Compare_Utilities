@@ -193,3 +193,45 @@ jobs:
             tests/cii-workspace-method-a-confidence-config.test.js \
             tests/cii-workspace-multi-base-correspondence.test.js \
             tests/cii-workspace-writer2-composite-scope-custody.test.js
+
+  approved-main-inherited-failure-control:
+    name: Inherited baseline red control at approved main SHA (not Method C)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 3a7c34cd1b8f2f88b36e55503a96378406ea0c71
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove known protected baseline assertion failures without modifying tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3a7c34cd1b8f2f88b36e55503a96378406ea0c71"
+          echo "BASELINE_APPROVED_MAIN_SHA=$(git rev-parse HEAD)"
+          set +e
+          node --test --test-concurrency=1 \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            > inherited-baseline-failures.log 2>&1
+          status=$?
+          set -e
+          cat inherited-baseline-failures.log
+          if test "$status" -eq 0; then
+            echo "::error::Unexpected: both pinned baseline tests passed; re-evaluate candidate regression failures."
+            exit 1
+          fi
+          grep -q 'not ok 1 - tests/cii-workspace-multi-base-correspondence.test.js' inherited-baseline-failures.log
+          grep -q 'not ok 2 - tests/cii-workspace-writer2-product-routing.test.js' inherited-baseline-failures.log
+          echo "::warning::Both candidate-head failures are reproduced on approved-main SHA with unchanged code. Protected candidate suite intentionally remains RED pending G2 disposition."
+      - name: Retain inherited failure transcript with immutable approved main SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: method-c-wp7-approved-main-baseline-red
+          path: inherited-baseline-failures.log
+          if-no-files-found: warn
+          retention-days: 14
