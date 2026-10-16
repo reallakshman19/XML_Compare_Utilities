@@ -22,8 +22,10 @@ const originalLocalPathWitnesses={rows:rows.map(r=>({
   targetNodeId:r.targetNodeIds[0]??null,
   state:r.identityBound?'LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY':'NOT_BOUND',
   independentLocalRouteWitnessCount:r.identityBound?1:0,
+  locallyUniqueOriginalTargetRelativeToBoundNeighbors:r.identityBound,
+  localOriginalAlternativeTargetCandidateCount:r.identityBound?1:0,
   independentLocalRouteWitnesses:r.identityBound?[{
-    withinLengthTolerance:true,targetPathStatus:'UNIQUE_MIN_HOP_ROUTE',sourceLengthMm:1000,
+    withinLengthTolerance:true,withinVectorTolerance:true,targetPathStatus:'UNIQUE_MIN_HOP_ROUTE',sourceLengthMm:1000,
     targetPathLengthMm:1000,targetElementIndices:[1],
   }]:[],
 }))};
@@ -31,6 +33,7 @@ const locallySupported=scoreCiiMidcycle150({...base,originalLocalPathWitnesses})
 assert.equal(locallySupported.originalLocalRouteWitnessNodeCount,105);
 assert.equal(locallySupported.originalLocalRouteWitnessCoverageRatio,0.7);
 assert.equal(locallySupported.originalLocalRoute70PercentReached,true);
+assert.equal(locallySupported.localGeometryMilestoneStatus,'PASS_150_ORIGINAL_LOCAL_LENGTH_VECTOR_AND_UNIQUE_RELATIVE_TARGET');
 assert.equal(locallySupported.thresholdMet,false);
 assert.equal(locallySupported.independentCertificateCount,0);
 assert.equal(locallySupported.originalLocalRouteWitnessIsGlobalPhysicalCertification,false);
