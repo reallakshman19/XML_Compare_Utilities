@@ -26,6 +26,7 @@ import {reviewCiiMidcycleW11ProductionQualification} from './cii-workspace-phase
 import {investigateCiiMidcycleW12OriginalPaths} from './cii-workspace-phase2-midcycle-w12-original-path-review.js';
 import {adjudicateCiiW13OriginalEvidence} from './cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.js';
 import {diagnoseCiiW14MethodABMissingEvidence} from './cii-workspace-phase2-midcycle-w14-methodab-registration-review.js';
+import {probeCiiW15NativeABOnDisputedHypotheses} from './cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -128,6 +129,13 @@ const w14NativeEvidence=diagnoseCiiW14MethodABMissingEvidence({
 assert.equal(w14NativeEvidence.totals.eightOriginalProductionTargetConflicts,8);
 assert.equal(w14NativeEvidence.totals.originalDisplacementCases,3);
 assert.equal(w14NativeEvidence.totals.newIndependentNodeCredits,0);
+const w15Native=probeCiiW15NativeABOnDisputedHypotheses({
+ preparedSession,w14:w14NativeEvidence,w11Qualification,
+ inspection,
+});
+assert.equal(w15Native.totals.eightDisputedPhysicalPairs,8);
+assert.equal(w15Native.totals.addedIndependentPhysicalNodeMatches,0);
+
 
 
 
@@ -230,6 +238,10 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycleW15EightUntrustedNativeMethodABDirectProbes:{
+    totals:w15Native.totals,
+    independentCredits:0,productionAndWriterUnchanged:true,
+  },
   midcycleW14MissingNativeMethodABAndRegistration:{
     totals:w14NativeEvidence.totals,
     originalCiiRegistration:w14NativeEvidence.rawCoordinateEvidence,
@@ -362,6 +374,17 @@ writeFileSync(new URL('midcycle-w12-original-revision-geometry-and-eight-competi
  JSON.stringify(w12Original,null,2)+'\n');
 writeFileSync(new URL('midcycle-w13-original-element-type-segment-vector-methodab.json',root),
  JSON.stringify(w13Actual,null,2)+'\n');
+writeFileSync(new URL('midcycle-w15-eight-untrusted-native-methodab-direct-probes.json',root),
+ JSON.stringify(w15Native,null,2)+'\n');
+const w15Columns=['sourcePhysicalKey','provisionalTargetNodeId','productionReviewedTargetNodeIds',
+ 'nativeSourceIndependentAxisRunCount','nativeTargetIndependentAxisRunCount',
+ 'nativeMethodBStatus','nativeMethodBReason','nativeMethodBCompatibleIndependentBasisCount',
+ 'nativeMethodBPhysicalRunBasisQualified','nativeMethodAExistingQualifiedBaseContainingPairCount',
+ 'productionNativeDiscoveredExactPairCount','nativeWinnerGapForExactPair',
+ 'nativeIndependentPhysicalQualificationMissing','physicalCreditGranted'];
+writeFileSync(new URL('midcycle-w15-eight-untrusted-native-methodab-direct-probes.csv',root),
+ [w15Columns.join(','),...w15Native.details.map(r=>
+  w15Columns.map(k=>unresolvedCell(r[k])).join(','))].join('\n')+'\n');
 writeFileSync(new URL('midcycle-w14-native-methodab-and-original-cii-coordinate-registration.json',root),
  JSON.stringify(w14NativeEvidence,null,2)+'\n');
 const w14MethodCols=['sourcePhysicalKey','provisionalOriginalTargetPhysicalNodeId',
@@ -569,6 +592,7 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_W15_NATIVE_DIRECT_PROBE '+JSON.stringify({totals:w15Native.totals,details:w15Native.details.map(x=>({source:x.sourcePhysicalKey,provisionalT:x.provisionalTargetNodeId,productionT:x.productionReviewedTargetNodeIds,sourceAxes:x.nativeSourceIndependentAxisRunCount,targetAxes:x.nativeTargetIndependentAxisRunCount,nativeB:x.nativeMethodBStatus,reason:x.nativeMethodBReason,nativeBRunBasisQualified:x.nativeMethodBPhysicalRunBasisQualified,nativeA:x.nativeMethodAExistingQualifiedBaseContainingPairCount,exactNative:x.productionNativeDiscoveredExactPairCount,blockers:x.nativeIndependentPhysicalQualificationMissing}))}));
 console.log('PHASE2_MIDCYCLE_W14_NATIVE_METHODAB_REGISTRATION '+JSON.stringify({totals:w14NativeEvidence.totals,coords:w14NativeEvidence.rawCoordinateEvidence,methods:w14NativeEvidence.productionMethodABMissingEvidence.map(x=>({source:x.sourcePhysicalKey,provisionalT:x.provisionalOriginalTargetPhysicalNodeId,nativeSuggestionCount:x.exactNativeAutoSuggestionCount,missing:x.missingIndependentEvidence})),signed:w14NativeEvidence.originalCiiAbsoluteRegistrationAndDisplacements.map(x=>({source:x.sourcePhysicalKey,sourceRegistered:x.originalSourceComponentHasAbsoluteRegistration,alternatives:x.availableOriginalTargetFrameAlternatives.map(y=>({t:y.targetPhysicalNodeId,tRoot:y.originalTargetRootPhysicalNodeId,originalCoordsBoth:y.bothSidesOriginalCiiCoordsCoverRootAndEndpoint,registeredVectorResidualMm:y.independentlyRegisteredRelativeVectorResidualMm}))}))}));
 console.log('PHASE2_MIDCYCLE_W13_ORIGINAL_TYPES_AND_METHODAB '+JSON.stringify({
  summary:w13Actual.summary,
