@@ -83,6 +83,17 @@ jobs:
       - name: Confirm both qualified AUTO and reviewed MANUAL propagate on S1/S2/S3/T
         run: node --max-old-space-size=4096 tests/cii-workspace-phase2-parallel-retained-propagation.mjs
 
+  inherited-multibase-path-forensics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect independent Method A/B L-span failures without changing qualification
+        run: node tests/cii-workspace-phase2-inherited-multibase-diagnostic.mjs
+
   retained-prechange-legacy-multi-base-baseline:
     runs-on: ubuntu-latest
     timeout-minutes: 10
