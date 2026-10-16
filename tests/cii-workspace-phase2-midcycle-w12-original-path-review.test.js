@@ -70,9 +70,19 @@ const eight=forensicsRows.slice(23,31).map((r,i)=>({
  productionReviewedTargetPhysicalNodeIds:[String(120+i)],
  w11Disposition:'PRODUCTION_NODE_REVIEW_EXISTS_FOR_DIFFERENT_TARGET',
  matcherBlockers:['IDENTITY_NOT_BOUND']}));
+const remainingFourteen=forensicsRows.slice(31).map(row=>({
+ sourcePhysicalKey:row.sourcePhysicalKey,sourceMemberId:row.sourceMemberId,
+ sourceNodeId:row.sourcePhysicalNodeId,
+ provisionalOriginalTargetPhysicalNodeId:'149',
+ productionCorrespondenceRows:0,productionReviewedTargetPhysicalNodeIds:[],
+ w11Disposition:'PRODUCTION_NO_NODE_CORRESPONDENCE_EMITTED',
+ matcherBlockers:['NO_NODE_CORRESPONDENCE_EMITTED'],
+}));
+assert.equal(eight.length,8);
+assert.equal(remainingFourteen.length,14);
 const opts={originalSources,originalTarget,audit:{rows:auditRows},
  rooted:{certificates},forensics:{rows:forensicsRows},
- w11Qualification:{rows:eight}};
+ w11Qualification:{rows:[...eight,...remainingFourteen]}};
 const report=investigateCiiMidcycleW12OriginalPaths(opts);
 assert.equal(report.counts.countNoCandidate,23);
 assert.equal(report.counts.differentTReviewCases,8);
