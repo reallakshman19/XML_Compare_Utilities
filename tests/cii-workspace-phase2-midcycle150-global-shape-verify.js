@@ -32,9 +32,11 @@ function originalGraph(bytes){
  const adjacency=new Map();
  for(const [index,e] of parsed.elements.entries()){
   const delta=[2,3,4].map(i=>nfield(numeric[index*15],i));
+  const originalOdMm=nfield(numeric[index*15],5);
+  const originalWallMm=nfield(numeric[index*15+1],0);
   for(const id of [e.from,e.to]){
    if(!adjacency.has(id))adjacency.set(id,[]);
-   adjacency.get(id).push({index,from:e.from,to:e.to,delta});
+   adjacency.get(id).push({index,from:e.from,to:e.to,delta,originalOdMm,originalWallMm});
   }
  }
  const positions=new Map(),componentByNode=new Map(),components=[],conflicts=[];
