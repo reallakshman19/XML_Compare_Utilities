@@ -35,6 +35,7 @@ jobs:
           node tests/cii-workspace-phase2-midcycle-w12-original-path-review.test.js
           node tests/cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.test.js
           node tests/cii-workspace-phase2-midcycle-w14-methodab-registration-review.test.js
+          node tests/cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.test.js
           node tests/cii-workspace-parallel-anchor-evidence.test.js
           node tests/cii-workspace-phase2-normalization-length.test.js
           node tests/cii-workspace-phase2-live-path-policy.test.js
