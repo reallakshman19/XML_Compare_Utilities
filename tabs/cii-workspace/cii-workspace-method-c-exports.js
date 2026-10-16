@@ -79,11 +79,21 @@ export function methodCCsvExport(context){
   });
   return columns.map(csvField).join(',')+'\r\n'+data.join('\r\n')+'\r\n';
 }
+function unsafeSvgAttributes(svg){
+  // Parse only actual opening tag attributes, not words inside XML-escaped titles.
+  for(const tag of svg.match(/<[A-Za-z][^>]*>/g)||[]){
+    const attrs=/\s+([A-Za-z_][\w:-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/g;
+    for(const match of tag.matchAll(attrs)){
+      if(/^on[a-z]+$/i.test(match[1]))return true;
+    }
+  }
+  return false;
+}
 export function methodCSvgExport(context){
   methodCEvidence(context); // reject stale file/anchor/tolerance/projection state
   const svg=context.scene.svg;
   if(!svg.startsWith('<svg ')||/<(?:script|foreignObject)\b/i.test(svg)||
-     /<[^>]+\s+on[a-z]+\s*=/i.test(svg))throw new Error('METHOD_C_SVG_EXPORT_SANITIZATION_FAILED');
+     unsafeSvgAttributes(svg))throw new Error('METHOD_C_SVG_EXPORT_SANITIZATION_FAILED');
   return '<?xml version="1.0" encoding="UTF-8"?>\n'+svg+'\n';
 }
 export function methodCSafeLabel(label){return escapeMethodCXml(label);}
