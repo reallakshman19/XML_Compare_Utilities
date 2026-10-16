@@ -69,7 +69,9 @@ export function verifyCiiMidcycle150RootedCorrespondences({
   const witness=localMap.get(sk);
   if(witness.state!=='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY'||
      !witness.locallyUniqueOriginalTargetRelativeToBoundNeighbors||
-     !witness.independentLocalRouteWitnesses.some(w=>w.withinLengthTolerance&&w.withinVectorTolerance))
+     witness.originalBranchCompatible!==true||
+     !witness.independentLocalRouteWitnesses.some(w=>
+       w.withinLengthTolerance&&w.withinVectorTolerance&&w.originalOdCompatible===true))
      return false;
   if(verified.has(sk))return verified.get(sk)===tid;
   if(targetUsed.has(tid))return false;
