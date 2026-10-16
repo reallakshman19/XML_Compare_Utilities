@@ -55,8 +55,8 @@ const enriched=probeCiiW15NativeABOnDisputedHypotheses({...config,
  {sourceId:'S1',inspection:{baseAnchorSuggestions:[]}},
  {sourceId:'S2',inspection:{baseAnchorSuggestions:[inNativeSuggestion]}},
  {sourceId:'S3',inspection:{baseAnchorSuggestions:[]}}]}});
-assert.equal(enriched.totals.nativeExactPairDiscovered,1);
-assert.equal(enriched.totals.nativeExactPairWithProvedWinnerGap,1);
+assert.equal(enriched.totals.nativeExactPairDiscovered,3); // three separate review rows in synthetic S2 share this native node
+assert.equal(enriched.totals.nativeExactPairWithProvedWinnerGap,3);
 assert.equal(enriched.totals.addedIndependentPhysicalNodeMatches,0);
 assert.throws(()=>probeCiiW15NativeABOnDisputedHypotheses({...config,
  preparedSession:{members:members.slice(1),target:{targetGraph:target}}}),
