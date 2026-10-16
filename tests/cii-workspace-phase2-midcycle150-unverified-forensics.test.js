@@ -47,7 +47,10 @@ assert.throws(()=>diagnoseCiiMidcycle150Unverified({...options,
 const omitS1=certs.filter(x=>!x.sourcePhysicalKey.startsWith('S1:'));
 const noS1Roots=diagnoseCiiMidcycle150Unverified({...options,
  rooted:{certificates:omitS1,independentlyRootedVerifiedPhysicalNodes:omitS1.length}});
-assert(noS1Roots.rows.filter(r=>r.sourceMemberId==='S1').every(r=>
- r.status==='NO_TRUSTED_ORIGINAL_SOURCE_COMPONENT_ROOT'));
+assert.equal(noS1Roots.rows.filter(r=>r.sourceMemberId==='S1').length,57);
+assert.equal(noS1Roots.rows.filter(r=>r.sourceMemberId==='S1'&&
+ r.status==='NO_TRUSTED_ORIGINAL_SOURCE_COMPONENT_ROOT').length,1);
+assert.equal(noS1Roots.rows.filter(r=>r.sourceMemberId==='S1'&&
+ r.status==='BOUND_NOT_IN_CERTIFIED_ROOT_SET').length,56);
 assert.equal(noS1Roots.newlyCreditedPhysicalNodes,0);
 console.log('PASS 150-node unverified 45 forensics: exhaustive original T candidate search stays read-only and fails closed on fake root, duplicate SOURCE, rootless component');
