@@ -1,5 +1,5 @@
 # Method C-only, read-only hosted qualification. New workflow; no existing shared CI edited.
-name: Method C WP2-WP8 original and independent benchmark audit
+name: Method C WP2-WP9 original review and protected safety
 on:
   push:
     branches:
@@ -316,3 +316,31 @@ jobs:
           path: test-results/cii-method-c-wp8/independent-original-audit.json
           if-no-files-found: warn
           retention-days: 14
+
+  wp9-exact-sha-g2-review-preflight:
+    name: WP9 candidate SHA review packet and protected-file evidence (not G2 signoff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable exact candidate SHA, not historical green evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          git cat-file -e 3a7c34cd1b8f2f88b36e55503a96378406ea0c71^{commit}
+      - name: Run fail-closed G2 pending review and protected source diff/red controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/cii-workspace-method-c-review-preflight.test.js
+          node --test tests/cii-workspace-method-c-review-preflight.test.js
