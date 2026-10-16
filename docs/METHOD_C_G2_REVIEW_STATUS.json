@@ -49,8 +49,8 @@
       "wp": 6,
       "child": 114,
       "outcome": "O2",
-      "state": "HOLD",
-      "review": "G2_EXACT_FILE_GRANT_MISSING_NATIVE_APP_NOT_RUN"
+      "state": "INTEGRATION_IN_PROGRESS",
+      "review": "OWNER_GRANTED_EXACT_TWO_SHARED_ENTRY_FILES__G2_INDEPENDENT_REVIEW_PENDING"
     },
     {
       "wp": 7,
@@ -79,9 +79,11 @@
       "scope": "tabs/cii-workspace/cii-workspace-tab.js",
       "deploymentMirror": "docs/tabs/cii-workspace/cii-workspace-tab.js",
       "grantIssue": 114,
-      "grantRecorded": false,
-      "sharedSourceEditAuthorized": false,
-      "applicationWalkthrough": "NOT_RUN"
+      "grantRecorded": true,
+      "sharedSourceEditAuthorized": true,
+      "applicationWalkthrough": "PENDING_HOSTED_CHROMIUM",
+      "grantSource": "OWNER_EXPLICIT_CHAT_2026-10-16T17:16:47Z",
+      "ownerGrantScope": "NATIVE_ENTRY_AND_DOCS_MIRROR_EXACT_TWO_FILES"
     },
     "inheritedRegressions": {
       "issue": 115,
