@@ -38,7 +38,7 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
       targetClaimants.get(tk).push(key);
     }
   }
-  const oracleSourceClaims=new Map(),seenOrdinals=new Set(),obligations=[];
+  const oracleSourceClaims=new Map(),oracleTargetClaims=new Map(),seenOrdinals=new Set(),obligations=[];
   for(const owner of ownerCandidateRows){
     const originalOrdinal=Number(owner?.ownerOrdinal);
     if(!Number.isSafeInteger(originalOrdinal)||originalOrdinal<1||originalOrdinal>originalDenominator||seenOrdinals.has(originalOrdinal))
@@ -56,11 +56,14 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
     const sourceTargets=oracleSourceClaims.get(sourcePhysicalKey);
     if(!sourceTargets.has(targetPhysicalNodeId))sourceTargets.set(targetPhysicalNodeId,[]);
     sourceTargets.get(targetPhysicalNodeId).push(originalOrdinal);
+    if(!oracleTargetClaims.has(targetPhysicalNodeId))oracleTargetClaims.set(targetPhysicalNodeId,new Set());
+    oracleTargetClaims.get(targetPhysicalNodeId).add(sourcePhysicalKey);
     obligations.push({ownerOrdinal:originalOrdinal,sourcePhysicalKey,targetPhysicalNodeId,
       candidate});
   }
   const ambiguousSourceKeys=new Set([...oracleSourceClaims].filter(([,targets])=>targets.size!==1).map(([source])=>source));
-  const collisionTargets=new Set([...targetClaimants].filter(([,sources])=>sources.length>1).map(([id])=>id));
+  const collisionTargets=new Set([...targetClaimants].filter(([,sources])=>new Set(sources).size>1).map(([id])=>id));
+  const competingOracleTargets=new Set([...oracleTargetClaims].filter(([,sourceKeys])=>sourceKeys.size>1).map(([id])=>id));
   const seenPhysicalClaims=new Set();
   const resolved=obligations.map(o=>{
     if(o.status)return o;
@@ -75,6 +78,7 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
     const exact=Boolean(audit?.identityBound===true && audit.state==='BOUND'
       && observed.length===1 && observed[0]===o.targetPhysicalNodeId);
     const status=ambiguousSourceKeys.has(o.sourcePhysicalKey)?'ORACLE_SOURCE_MULTIPLE_TARGETS':
+      competingOracleTargets.has(o.targetPhysicalNodeId)?'ORACLE_TARGET_MULTIPLE_SOURCES':
       duplicateClaim?'DUPLICATE_OWNER_PHYSICAL_PAIR_NO_EXTRA_CREDIT':
       !audit?'AUDIT_SOURCE_PHYSICAL_NODE_NOT_FOUND':
       globallyConflicted?'GLOBAL_TARGET_CUSTODY_CONFLICT':
@@ -112,6 +116,10 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
     boundSourceNodesUnverifiedAgainstIncompleteOwnerOracle:
       solverBoundSourcePhysicalKeys.filter(key=>!conditionallyAgreedSourceKeys.has(key)).length,
     globalDuplicateTargetClaims:freeze(globalTargetCustodyDuplicates),
+    oracleTargetConflicts:freeze([...competingOracleTargets].sort().map(targetId=>freeze({
+      targetPhysicalNodeId:targetId,
+      sourcePhysicalKeys:freeze([...oracleTargetClaims.get(targetId)].sort()),
+    }))),
     originalOwnerRowsSubmitted:ownerCandidateRows.length,
     physicallyLocatableUniqueNameRows:covered.length,
     distinctPhysicalOraclePairs:distinctKeyCount,
