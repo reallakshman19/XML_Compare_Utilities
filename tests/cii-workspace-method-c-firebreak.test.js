@@ -17,7 +17,7 @@ const sourceFiles = [
   'cii-workspace-method-c-ui.js','cii-workspace-method-c-native-adapter.js',
   'cii-workspace-method-c-tile.js',
 ];
-const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
+const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
 test('WP7 red: Method C owned modules have no Writer2 imports, mutation/export grants or native Apply controls',()=>{
@@ -55,8 +55,6 @@ test('WP7 red: even synthetically perfectly fitted 3D anchors cannot authorize p
 });
 test('WP7 red: scope policy rejects every existing shared/PR107 protected path, even without source changes',()=>{
   for(const forbidden of [
-    'tabs/cii-workspace/cii-workspace-tab.js',
-    'docs/tabs/cii-workspace/cii-workspace-tab.js',
     'tabs/cii-workspace/cii-workspace-core.js',
     'tabs/cii-workspace/cii-workspace-multisource-review-only-router.js',
     'tabs/cii-workspace/cii-workspace-geometry.js',
@@ -70,7 +68,7 @@ test('WP7 red: scope policy rejects every existing shared/PR107 protected path, 
   assert.equal(allowedPath('tests/fixtures/cii-phase2/owner-phase2-original.txt'),false);
   assert.equal(allowedPath('docs/METHOD_C_G2_REVIEW_PACKET.md'),true);
   assert.equal(allowedPath('docs/METHOD_C_G2_REVIEW_STATUS.json'),true);
-  assert.equal(allowedPath('docs/tabs/cii-workspace/cii-workspace-tab.js'),false);
+  assert.equal(allowedPath('docs/tabs/cii-workspace/cii-workspace-tab.js'),true);
 });
 test('WP7 actual diff boundary: candidate branch does not edit PR107/shared/fixtures',()=>{
   const base=process.env.CII_METHOD_C_BASE || '3a7c34cd1b8f2f88b36e55503a96378406ea0c71';
@@ -79,4 +77,31 @@ test('WP7 actual diff boundary: candidate branch does not edit PR107/shared/fixt
   assert.ok(names.length>0,'actual committed scope must be inspectable');
   assert.deepEqual(names.filter(name=>!allowedPath(name)),[],
     'UNAUTHORIZED_SHARED_PATH_IN_METHOD_C_PR_DIFF');
+});
+
+test('WP7 exact Owner grant: native tabs and deploy mirror only add read-only tile mount and cleanup',()=>{
+ const base='3a7c34cd1b8f2f88b36e55503a96378406ea0c71';
+ const rel='tabs/cii-workspace/cii-workspace-tab.js';
+ const old=execFileSync('git',['show',base+':'+rel],{cwd:repoRoot,encoding:'utf8'});
+ const newImport="import { installMethodCReviewTile } from './cii-workspace-method-c-tile.js';\n";
+ const patch=old.replace(
+  "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n",
+  "import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';\n"+newImport
+ ).replace(
+  "  if (findReplaceTile) container.appendChild(findReplaceTile);\n",
+  "  if (findReplaceTile) container.appendChild(findReplaceTile);\n"+
+  "  const methodCTile = installMethodCReviewTile(container, context.methodC || {});\n"
+ ).replace(
+  "    close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();\n",
+  "    methodCTile.destroy();\n"+
+  "    close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();\n"
+ );
+ assert.notEqual(patch,old,'grant hunk must actually be installed');
+ assert.equal(readFileSync(new URL('../'+rel,import.meta.url),'utf8'),patch);
+ assert.equal(readFileSync(new URL('../docs/'+rel,import.meta.url),'utf8'),patch);
+ for(const name of sourceFiles){
+  const src=readFileSync(new URL('../tabs/cii-workspace/'+name,import.meta.url));
+  const deploy=readFileSync(new URL('../docs/tabs/cii-workspace/'+name,import.meta.url));
+  assert.deepEqual(deploy,src,'docs must deploy exactly the owned source bytes '+name);
+ }
 });
