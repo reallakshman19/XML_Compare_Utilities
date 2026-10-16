@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {chromium} from '@playwright/test';
-const root=fileURLToPath(new URL('../docs/',import.meta.url));
+const root=path.resolve(fileURLToPath(new URL('../docs/',import.meta.url)));
 const originals=fileURLToPath(new URL('../Benchmark/',import.meta.url));
 const receipts=fileURLToPath(new URL('../test-results/cii-method-c-wp6/',import.meta.url));
 function appServer(){
