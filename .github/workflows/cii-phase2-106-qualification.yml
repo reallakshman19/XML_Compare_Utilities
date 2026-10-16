@@ -24,6 +24,7 @@ jobs:
       - name: Owner input, dual-ledger evidence, and dimensional path negative controls
         run: |
           node tests/cii-workspace-owner-phase2-input.test.js
+          node tests/cii-workspace-phase2-owner-midcycle-forensics.test.js
           node tests/cii-workspace-parallel-anchor-evidence.test.js
           node tests/cii-workspace-phase2-normalization-length.test.js
           node tests/cii-workspace-phase2-live-path-policy.test.js
