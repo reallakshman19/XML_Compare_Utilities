@@ -81,9 +81,15 @@ const midCycle=reconcileCiiOwnerMidCyclePhysicalRows(diagnostics);
 // diagnostic independently against complete, matcher-generated physical
 // source-node audit. Never feed Owner labels/pairs into a matching option.
 const reverseConditional=scoreCiiOwnerPhysicalCandidateCoverage(
-  midCycle.directionReversalDiagnostic.rows,audit,{originalDenominator:428});
+  midCycle.directionReversalDiagnostic.rows,audit,{originalDenominator:428,
+    sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
+    targetOriginalSha256:inspection.versionBridge.target.originalSha256,
+  });
 const declaredConditional=scoreCiiOwnerPhysicalCandidateCoverage(
-  midCycle.asWritten.rows,audit,{originalDenominator:428});
+  midCycle.asWritten.rows,audit,{originalDenominator:428,
+    sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
+    targetOriginalSha256:inspection.versionBridge.target.originalSha256,
+  });
 assert.equal(declaredConditional.physicallyLocatableUniqueNameRows,0);
 assert.equal(reverseConditional.physicallyLocatableUniqueNameRows,33);
 assert.equal(reverseConditional.distinctPhysicalOraclePairs,33);
