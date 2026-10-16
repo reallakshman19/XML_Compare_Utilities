@@ -25,6 +25,7 @@ import {diagnoseCiiMidcycle150Unverified} from './cii-workspace-phase2-midcycle1
 import {reviewCiiMidcycleW11ProductionQualification} from './cii-workspace-phase2-midcycle-w11-qualification-audit.js';
 import {investigateCiiMidcycleW12OriginalPaths} from './cii-workspace-phase2-midcycle-w12-original-path-review.js';
 import {adjudicateCiiW13OriginalEvidence} from './cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.js';
+import {diagnoseCiiW14MethodABMissingEvidence} from './cii-workspace-phase2-midcycle-w14-methodab-registration-review.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -117,6 +118,17 @@ assert.equal(w13Actual.summary.originalSegmentationProxyCount,1);
 assert.equal(w13Actual.summary.threeSignedVectorFailuresInvestigated,3);
 assert.equal(w13Actual.summary.eightProductionTargetConflictsInvestigated,8);
 assert.equal(w13Actual.summary.addedIndependentlyCertifiedPhysicalPairs,0);
+const w14NativeEvidence=diagnoseCiiW14MethodABMissingEvidence({
+ w11Qualification,w13:w13Actual,w12:w12Original,rooted,
+ originalSources:files,originalTarget:targetBytes,
+ suggestionsByMember:Object.fromEntries(inspection.memberInspections.map(member=>[
+   member.sourceId,member.inspection?.baseAnchorSuggestions||[],
+ ])),
+});
+assert.equal(w14NativeEvidence.totals.eightOriginalProductionTargetConflicts,8);
+assert.equal(w14NativeEvidence.totals.originalDisplacementCases,3);
+assert.equal(w14NativeEvidence.totals.newIndependentNodeCredits,0);
+
 
 
 
@@ -218,6 +230,11 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycleW14MissingNativeMethodABAndRegistration:{
+    totals:w14NativeEvidence.totals,
+    originalCiiRegistration:w14NativeEvidence.rawCoordinateEvidence,
+    independentCredit:0,
+  },
   midcycleW13OriginalElementTypesAndTargetArbitration:{
     summary:w13Actual.summary,
     newIndependentCredits:0,
@@ -345,6 +362,21 @@ writeFileSync(new URL('midcycle-w12-original-revision-geometry-and-eight-competi
  JSON.stringify(w12Original,null,2)+'\n');
 writeFileSync(new URL('midcycle-w13-original-element-type-segment-vector-methodab.json',root),
  JSON.stringify(w13Actual,null,2)+'\n');
+writeFileSync(new URL('midcycle-w14-native-methodab-and-original-cii-coordinate-registration.json',root),
+ JSON.stringify(w14NativeEvidence,null,2)+'\n');
+const w14MethodCols=['sourcePhysicalKey','provisionalOriginalTargetPhysicalNodeId',
+ 'productionReviewedTargetPhysicalNodeIds','productionMatcherState','productionMatcherConfidence',
+ 'exactNativeAutoSuggestionCount','sameSourceOtherNativeSuggestions','missingIndependentEvidence',
+ 'independentlyCertifiedNewMatch'];
+writeFileSync(new URL('midcycle-w14-eight-missing-native-methodab-evidence.csv',root),
+ [w14MethodCols.join(','),...w14NativeEvidence.productionMethodABMissingEvidence.map(row=>
+ w14MethodCols.map(c=>unresolvedCell(row[c])).join(','))].join('\n')+'\n');
+const w14FrameCols=['sourcePhysicalKey','sourceCiiCoordSeeds','targetCiiCoordSeeds',
+ 'sourceUnitsMm','targetUnitsMm','originalSourceComponentHasAbsoluteRegistration',
+ 'originalCoordinateTransformApproved','newlyCreditedPhysicalPair'];
+writeFileSync(new URL('midcycle-w14-three-original-coordinate-registration.csv',root),
+ [w14FrameCols.join(','),...w14NativeEvidence.originalCiiAbsoluteRegistrationAndDisplacements.map(row=>
+ w14FrameCols.map(c=>unresolvedCell(row[c])).join(','))].join('\n')+'\n');
 const w13SplitCols=['sourcePhysicalKey','status','reportedProxyCount','witnessCount','newCertifiedMatches'];
 writeFileSync(new URL('midcycle-w13-segmented-run-element-type-receipts.csv',root),
  [w13SplitCols.join(','),...w13Actual.segmentedRunElementTypeChecks.map(row=>
@@ -537,6 +569,7 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_W14_NATIVE_METHODAB_REGISTRATION '+JSON.stringify({totals:w14NativeEvidence.totals,coords:w14NativeEvidence.rawCoordinateEvidence,methods:w14NativeEvidence.productionMethodABMissingEvidence.map(x=>({source:x.sourcePhysicalKey,provisionalT:x.provisionalOriginalTargetPhysicalNodeId,nativeSuggestionCount:x.exactNativeAutoSuggestionCount,missing:x.missingIndependentEvidence})),signed:w14NativeEvidence.originalCiiAbsoluteRegistrationAndDisplacements.map(x=>({source:x.sourcePhysicalKey,sourceRegistered:x.originalSourceComponentHasAbsoluteRegistration,alternatives:x.availableOriginalTargetFrameAlternatives.map(y=>({t:y.targetPhysicalNodeId,tRoot:y.originalTargetRootPhysicalNodeId,originalCoordsBoth:y.bothSidesOriginalCiiCoordsCoverRootAndEndpoint,registeredVectorResidualMm:y.independentlyRegisteredRelativeVectorResidualMm}))}))}));
 console.log('PHASE2_MIDCYCLE_W13_ORIGINAL_TYPES_AND_METHODAB '+JSON.stringify({
  summary:w13Actual.summary,
  split:w13Actual.segmentedRunElementTypeChecks.map(x=>({
