@@ -73,3 +73,32 @@ jobs:
           node-version: '22'
       - name: Confirm both qualified AUTO and reviewed MANUAL propagate on S1/S2/S3/T
         run: node --max-old-space-size=4096 tests/cii-workspace-phase2-parallel-retained-propagation.mjs
+
+  retained-prechange-legacy-multi-base-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Pin the exact base of PR #107, not evolving main or its head.
+          ref: '040f2f88b54a746808486615230e5a8625d04527'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record original pre-PR multi-base test result without rewriting original baseline
+        run: |
+          set +e
+          node tests/cii-workspace-multi-base-correspondence.test.js > original-base-multibase.log 2>&1
+          status=$?
+          cat original-base-multibase.log
+          echo "ORIGINAL_BASE_MULTI_BASE_EXIT_CODE=$status"
+          echo "$status" > original-base-multibase.exitcode
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cii-phase2-pr-base-legacy-multibase-diagnostic
+          path: |
+            original-base-multibase.log
+            original-base-multibase.exitcode
+          if-no-files-found: warn
