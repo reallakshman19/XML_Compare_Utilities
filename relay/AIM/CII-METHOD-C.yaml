@@ -1,0 +1,33 @@
+# Sticky label: the Owner's aim for this work. Committed only after the Owner approves (Engineering PR Delivery v3.6).
+work: "CII-METHOD-C"
+repository: "reallakshman19/XML_Compare_Utilities"
+engineering_critical: "critical"
+version: "1.0.0"
+label_sha: "18d91c9"
+label:
+  problem: "Phase 2 correspondence is capped at the 150-node milestone; Method A/B alone cannot credit more without new independent evidence."
+  main_aim: "A third, independent matching route (Method C) that adds validated physical correspondences without weakening Method A/B or Writer2 safety."
+  outcomes:
+    O1: "Method C plan decomposed into child issues"
+    O2: "Each Method C task posts evidence on its child issue"
+    O3: "Validated recall measured honestly against the approved benchmark"
+  owner_constraints:
+    - "Method A/B and Writer2 safety never weakened; no forced matches; no benchmark-specific mappings (Owner, #106)"
+    - "Direction SL (S1/S2/S3) -> PS (T) (Owner, 16 Oct 2026)"
+    - "Worker XMLwtMethodC reports to MemberCoordinator G2; G2 reviews and fixes once the code matures (Owner, 16 Oct 2026)"
+  task_outcome: "O1-O3"
+  task_aim: "Implement Method C per plan V36-108-PLAN-01 on methodc/* branches with draft PRs and per-task evidence."
+  done_when: "Method C changes are reviewed and fixed by the MemberCoordinator, independently checked, and presented for an Owner-only merge decision."
+guidance:
+  not_now:
+    - "Merging, release, or Writer2 mutation"
+  watch:
+    - "Assumptions such as same-axis rotation identity must be stated and tested, never silently relied on"
+  notes:
+    - "Parent issue: reallakshman19/XML_Compare_Utilities#108 (child of #106)"
+    - "Lease: branches methodc/* only; paths as declared in plan V36-108-PLAN-01"
+    - "Writable lab: reallakshman19/XML_Compare_Utilities"
+bindings:
+  - "XML_Compare_Utilities#108 plan V36-108-PLAN-01"
+history:
+  - "v1.0.0 · 2026-10-16 · create · drafted by OwnerTeammember from #108; approved by the Owner ("approve label", Method C chat, 16 Oct 2026 ~17:1x +04; recorded on #108)"
