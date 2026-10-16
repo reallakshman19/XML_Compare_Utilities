@@ -90,11 +90,31 @@ export function verifyCiiMidcycle150GlobalOriginalShape({
  for(const [sourceId,graph] of sourceGraphs){
   for(let componentIndex=0;componentIndex<graph.components.length;componentIndex++){
    const members=graph.components[componentIndex];
-   const bound=members.filter(id=>{
+   const boundNodes=members.filter(id=>{
     const r=auditBySource.get(memberKey(sourceId,id));
     return r?.identityBound===true&&r.state==='BOUND'&&(r.targetNodeIds||[]).length===1;
    });
-   if(!bound.length)continue;
+   if(!boundNodes.length)continue;
+   // A revised/unmatched section between otherwise correct SOURCE spans
+   // must not invalidate independent geometry of either matched span.
+   // Partition the ORIGINAL member's graph into maximal BOUND-only
+   // connected subgraphs before globally searching all original T nodes.
+   const accepted=new Set(boundNodes),seen=new Set(),boundGroups=[];
+   for(const candidate of boundNodes){
+     if(seen.has(candidate))continue;
+     const queue=[candidate],group=[];
+     seen.add(candidate);
+     for(let ix=0;ix<queue.length;ix++){
+       const current=queue[ix];group.push(current);
+       for(const edge of graph.adjacency.get(current)||[]){
+         const next=edge.from===current?edge.to:edge.from;
+         if(accepted.has(next)&&!seen.has(next)){seen.add(next);queue.push(next);}
+       }
+     }
+     boundGroups.push(group);
+   }
+   for(let boundGroupIndex=0;boundGroupIndex<boundGroups.length;boundGroupIndex++){
+   const bound=boundGroups[boundGroupIndex];
    const first=bound[0];
    const sourceRoot=graph.positions.get(first);
    const placements=[];
@@ -139,12 +159,13 @@ export function verifyCiiMidcycle150GlobalOriginalShape({
     boundSourceNodeCount:bound.length,fullOriginalShapeTranslationCandidates:placements.length,
     solverPlacementCandidates:proposedMatches.length,sourceOriginalPositionConflicts:0,
     hasCompleteLocalWitness,status,boundSourceNodeIds:bound,
-    selectedUniquePlacement:globalUnique?placements[0]:null});
+    boundGroupIndex,selectedUniquePlacement:globalUnique?placements[0]:null});
    if(globalUnique&&hasCompleteLocalWitness)for(const pair of placements[0].physicalNodePairs){
      verified.push({sourcePhysicalKey:memberKey(sourceId,pair.sourcePhysicalNodeId),
        targetPhysicalNodeId:pair.targetPhysicalNodeId,originalSourceComponent:componentIndex,
        originalTargetComponent:placements[0].targetComponentId,
        globalOriginalShapeWitness:'COMPLETE_COMPONENT_BOUND_SUBGRAPH_UNIQUE_TARGET_TRANSLATION_AND_VECTOR_PATH'});
+   }
    }
   }
  }
@@ -160,7 +181,7 @@ export function verifyCiiMidcycle150GlobalOriginalShape({
    validatedPerSource:verifiedPerMember,
    completeOriginalGraphComponentsSearched:report.length,
    ambiguousOriginalGeometryComponents:report.filter(x=>x.status==='ORIGINAL_GEOMETRY_MULTIPLE_TARGET_COMPONENT_EMBEDDINGS').length,
-   certificationScope:'ORIGINAL_FULL_BOUND_SOURCE_COMPONENT_TRANSLATION_UNIQUENESS_WITH_EXACT_ORIGINAL_COORDINATES_AND_ROUTE_VECTORS',
+   certificationScope:'ORIGINAL_MAXIMAL_BOUND_CONNECTED_SUBGRAPH_UNIQUE_TARGET_TRANSLATION_WITH_EXACT_ORIGINAL_COORDINATES_AND_ROUTE_VECTORS',
    originalGeometryNotOwner428Recall:true,
    components:report,uniquePlacementPhysicalNodes:verified,
  };
