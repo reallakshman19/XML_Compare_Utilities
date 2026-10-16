@@ -167,6 +167,10 @@ export function diagnoseCiiMidcycle150Unverified({
  const count=(p)=>rows.filter(p).length;
  const reasons={};
  for(const row of rows)reasons[row.status]=(reasons[row.status]||0)+1;
+ const matcherStateCounts={};
+ for(const row of rows)matcherStateCounts[row.matcherState]=(matcherStateCounts[row.matcherState]||0)+1;
+ const priorityCandidates=rows.filter(row=>row.status==='ONE_ORIGINAL_T_CANDIDATE_BUT_MATCHER_NOT_BOUND');
+ const exclusionReasons=rows.filter(row=>row.status==='NO_ORIGINAL_T_CANDIDATE_MATCHING_TRUSTED_GEOMETRY');
  const report={
   schema:'CiiMidcycle150UnverifiedRootedOriginalGeometryForensics.v1',
   cumulativeSourcePhysicalNodeCount:150,
@@ -178,6 +182,17 @@ export function diagnoseCiiMidcycle150Unverified({
     missingTrustedRoot:count(r=>r.sourceMemberId===sourceId&&r.status==='NO_TRUSTED_ORIGINAL_SOURCE_COMPONENT_ROOT'),
   })),
   reasonCounts:reasons,
+  matcherStateCounts,
+  priorityCandidateCount:priorityCandidates.length,
+  originalGeometryExcludedCount:exclusionReasons.length,
+  priorityCandidates:priorityCandidates.map(row=>({
+    sourcePhysicalKey:row.sourcePhysicalKey,
+    originalSourceNodeName:row.originalSourceNodeName,
+    matcherState:row.matcherState,matcherReasons:row.matcherReasons,
+    candidateTargetPhysicalNodeId:row.candidateOriginalTargetNodeIds[0],
+    vettedPhysicalIdentity:false,
+    nextRequiredStep:'PRODUCTION_METHOD_A_OR_METHOD_B_QUALIFICATION_AND_INDEPENDENT_GLOBAL_CUSTODY',
+  })),
   sourceOriginalShasAreExternalCustody: false,
   globalOriginalTargetCandidateDomainSize:originalTargetIds.length,
   originalCiiIndependentSearch:true,
