@@ -99,6 +99,21 @@ function elementRow(sourceElementId, targetElementId) {
     targetElementIds: [targetElementId], status: 'HIGH', authority: 'TEST' };
 }
 
+// Duplicate occurrences of the SAME pair within ONE qualified Method A loop
+// are not Method A+B or multi-base independent corroboration.
+{
+  const duplicatedWithinOneBase = arbitrateCiiLoopCorrespondences([
+    mockLoop('A-only', 'METHOD_A_SPATIAL', mockCorrespondence([
+      nodeRow('10', '110'),nodeRow('10', '110'),
+    ], [])),
+  ]);
+  assert.strictEqual(duplicatedWithinOneBase.status, 'READY');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows.length, 1);
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].authority, 'MULTI_BASE_LOOP');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].basisMethod, 'METHOD_A_SPATIAL');
+  assert.strictEqual(duplicatedWithinOneBase.nodeRows[0].evidence.multiBaseProvenance.length, 1);
+}
+
 // Cross-loop source-node collision: no majority/first-loop winner is permitted.
 {
   const result = arbitrateCiiLoopCorrespondences([
