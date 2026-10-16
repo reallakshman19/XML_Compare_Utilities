@@ -155,9 +155,24 @@ export function diagnoseCiiW14MethodABMissingEvidence({
   };
  });
  const graphByMember=new Map(originalSources.map(s=>[s.sourceId,parseCiiMidcycleOriginalPhysicalGeometry(s.bytes)]));
+ if([...graphByMember.values()].reduce((n,g)=>n+g.adjacency.size,0)!==150)
+  throw Error('W14_EXACT_CUMULATIVE_ORIGINAL_150_PHYSICAL_NODES_REQUIRED');
+ const targetGraph=parseCiiMidcycleOriginalPhysicalGeometry(originalTarget);
+ const seenSourceCertificates=new Set(),seenTargetCertificates=new Set();
+ for(const cert of rooted.certificates){
+   const physicalSource=id(cert.sourcePhysicalKey),physicalTarget=id(cert.targetPhysicalNodeId);
+   const [member,sourceNodeId]=physicalSource.split(':');
+   if(cert.certificateStatus!=='INDEPENDENT_ORIGINAL_PHYSICAL_CERTIFIED'||
+    !Array.isArray(cert.originalPhysicalWitnessIds)||!cert.originalPhysicalWitnessIds.length||
+    !graphByMember.get(member)?.adjacency.has(sourceNodeId)||
+    !targetGraph.adjacency.has(physicalTarget)||
+    seenSourceCertificates.has(physicalSource)||seenTargetCertificates.has(physicalTarget))
+     throw Error('W14_ROOTED_ORIGINAL_105_UNIQUE_PHYSICAL_CERTIFICATE_CUSTODY_REQUIRED');
+   seenSourceCertificates.add(physicalSource);seenTargetCertificates.add(physicalTarget);
+ }
  const sourceCoords=new Map(originalSources.map(s=>[s.sourceId,
   absoluteCoordinates(s.bytes,graphByMember.get(s.sourceId))]));
- const targetCoords=absoluteCoordinates(originalTarget,parseCiiMidcycleOriginalPhysicalGeometry(originalTarget));
+ const targetCoords=absoluteCoordinates(originalTarget,targetGraph);
  // Independently compare source/T absolute coordinate records for physical
  // correspondence roots. This is only a frame-consistency diagnostic: native
  // COORDS may anchor a subset of components and does NOT authorize rotations.
@@ -247,7 +262,7 @@ export function diagnoseCiiW14MethodABMissingEvidence({
  };
  return {schema:'CiiMidcycleW14IndependentMethodABAndOriginalCiiRegistration.v1',
   originalSourceMemberCount:3,originalSourcePhysicalNodeCount:150,
-  originalTargetPhysicalNodeCount:1619,
+  originalTargetPhysicalNodeCount:targetGraph.adjacency.size,
   rawCoordinateEvidence:{perSource:Object.fromEntries([...sourceCoords].map(([member,reg])=>
    [member,{originalCiiCoordCount:reg.reg.declaredCoordinates,unitsMm:reg.reg.physicalOriginalUnitMm,
     coordinateConflicts:reg.conflicts.length}])),
@@ -256,6 +271,8 @@ export function diagnoseCiiW14MethodABMissingEvidence({
   totals,productionMethodABMissingEvidence:methods,
   independentlyCertifiedOriginalCoordinateFrameSamples:registrationByMember,
   originalCiiAbsoluteRegistrationAndDisplacements:displacement,
+  originalCoordinateRegistrationPermitsMatchingOnlyIfBothMm:
+    [...sourceCoords.values()].every(x=>x.reg.physicalOriginalUnitMm)&&targetCoords.reg.physicalOriginalUnitMm,
   qualification:'READ_ONLY_NO_PHYSICAL_IDENTITY_PROMOTION',
   original100mmPolicyUnchanged:true,
   original428OwnerAcceptanceUnchanged:true,writer2AuthorityGranted:false};
