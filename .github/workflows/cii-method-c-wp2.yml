@@ -344,3 +344,43 @@ jobs:
           set -euo pipefail
           node --check tests/cii-workspace-method-c-review-preflight.test.js
           node --test tests/cii-workspace-method-c-review-preflight.test.js
+
+  wp6-real-native-docs-application-chromium:
+    name: WP6 ACTUAL served docs/index.html native CII Workspace Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify exact candidate, scope of G2 review and deploy mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          test -f docs/index.html
+          cmp tabs/cii-workspace/cii-workspace-tab.js docs/tabs/cii-workspace/cii-workspace-tab.js
+          for file in tabs/cii-workspace/cii-workspace-method-c-*.js tabs/cii-workspace/cii-workspace-method-c-*.css; do
+            cmp "$file" "docs/$file"
+          done
+          node --check tests/cii-workspace-method-c-native-app-browser.test.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Navigate actual deployed app Utilities → CII Workspace Method C using original S1/T
+        run: node --test tests/cii-workspace-method-c-native-app-browser.test.js
+      - name: Preserve actual native served-app screenshot, CSV/JSON/SVG and SHA receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-c-wp6-native-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/cii-method-c-wp6/
+          if-no-files-found: warn
+          retention-days: 14
