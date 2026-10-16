@@ -73,6 +73,27 @@ function originalShortestPath(graph,start,end) {
  return {status:'UNIQUE_MIN_HOP_ROUTE',edges:out,vectorMm:delta,
   lengthMm:out.reduce((sum,e)=>sum+e.originalLengthMm,0)};
 }
+function allTargetShortestHopVectors(graph,start){
+  if(!graph.adjacency.has(start))return new Map();
+  const q=[start],state=new Map([[start,{hops:0,ways:1,vectorMm:[0,0,0],lengthMm:0}]]);
+  for(let ix=0;ix<q.length;ix++){
+    const current=q[ix],info=state.get(current);
+    for(const edge of graph.adjacency.get(current)){
+      const next=other(edge,current);
+      const hop=info.hops+1;
+      if(!state.has(next)){
+        const sign=edge.from===current?1:-1;
+        state.set(next,{hops:hop,ways:info.ways,
+          vectorMm:info.vectorMm.map((v,i)=>v+sign*edge.originalDirectionVector[i]),
+          lengthMm:info.lengthMm+edge.originalLengthMm});
+        q.push(next);
+      }else if(state.get(next).hops===hop){
+        state.get(next).ways=Math.min(2,state.get(next).ways+info.ways);
+      }
+    }
+  }
+  return state;
+}
 const sourceKey=(member,node)=>member+':'+node;
 export function buildCiiMidcycle150OriginalPathWitnesses({
  originalSources,originalTarget,audit,pathTotalLengthToleranceMm=100,
@@ -102,6 +123,12 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
  const perSource=new Map([...sourceGraphs].map(([id,g])=>[id,[...g.adjacency.keys()]]));
  const total=[...perSource.values()].reduce((n,x)=>n+x.length,0);
  if(total!==150||auditRows.size!==150)throw Error('MIDCYCLE_CUMULATIVE_SOURCE_PHYSICAL_150_CENSUS_MISMATCH');
+ const targetVectorTrees=new Map();
+ const neighborsFromTarget=(tid)=>{
+  if(!targetVectorTrees.has(tid))targetVectorTrees.set(tid,allTargetShortestHopVectors(targetGraph,tid));
+  return targetVectorTrees.get(tid);
+ };
+ const targetNumericIds=[...targetGraph.adjacency.keys()];
  const results=[];
  for(const [sourceId,ids] of perSource){
   const g=sourceGraphs.get(sourceId);
@@ -134,6 +161,37 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
       witnessTier:qualified?'ORIGINAL_LOCAL_ROUTE_LENGTH_COMPATIBLE_NOT_GLOBAL_IDENTITY':'NOT_QUALIFIED'}));
     }
    }
+   // Independent TARGET alternatives: for every observed bound SOURCE
+   // neighbor with an original CII element, search the *entire original T
+   // graph* for other physical target NODEs with the same local directed
+   // displacement and cumulative length. Do not let the proposed target
+   // ID itself establish uniqueness or suppress competing alternatives.
+   const neighborAlternativeSets=[];
+   if(eligible){
+     for(const e of g.adjacency.get(nodeId)){
+       if(e.originalLengthMm<=0)continue;
+       const neighbor=other(e,nodeId);
+       const neighborTarget=boundBySource.get(sourceKey(sourceId,neighbor));
+       if(!neighborTarget||globalTargetConflictIds.has(neighborTarget)||neighborTarget===targetId)continue;
+       const originalDesiredVector=e.to===nodeId?e.originalDirectionVector:e.originalDirectionVector.map(n=>-n);
+       const candidateMap=neighborsFromTarget(neighborTarget);
+       const matching=targetNumericIds.filter(tid=>{
+          if(tid===neighborTarget)return false;
+          const candidate=candidateMap.get(tid);
+          if(!candidate||candidate.ways!==1)return false;
+          const lengthDelta=Math.abs(candidate.lengthMm-e.originalLengthMm);
+          const vectorDelta=Math.hypot(...originalDesiredVector.map((x,i)=>x-candidate.vectorMm[i]));
+          return lengthDelta<=pathTotalLengthToleranceMm&&vectorDelta<=pathTotalLengthToleranceMm;
+       });
+       neighborAlternativeSets.push(matching);
+     }
+   }
+   const alternativeSet=neighborAlternativeSets.length
+     ?neighborAlternativeSets.reduce((a,set)=>new Set([...a].filter(x=>set.includes(x))),
+         new Set(neighborAlternativeSets[0]))
+     :new Set();
+   const localOriginalAlternativeCount=alternativeSet.size;
+   const localAlternativeUnique=eligible&&localOriginalAlternativeCount===1&&alternativeSet.has(targetId);
    const supported=witnesses.filter(w=>w.withinLengthTolerance);
    results.push(Object.freeze({sourcePhysicalKey:key,sourceId,sourceNodeId:nodeId,
     targetNodeId:targetId||null,
@@ -142,6 +200,10 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
     independentLocalRouteWitnessCount:supported.length,
     independentLocalRouteWitnesses:supported,
     examinedNeighborCandidates:witnesses,
+    localOriginalAlternativeTargetCandidateCount:localOriginalAlternativeCount,
+    localOriginalAlternativeTargetIds:[...alternativeSet].slice(0,12),
+    locallyUniqueOriginalTargetRelativeToBoundNeighbors:localAlternativeUnique,
+    localAlternativeBasis:'ORIGINAL_CII_LENGTH_PLUS_SIGNED_VECTOR_WITH_BOUND_NEIGHBOR_HYPOTHESES_NOT_INDEPENDENT_ROOT_ANCHOR',
     globalPhysicalIdentityCertificate:false,
    }));
   }
@@ -154,6 +216,11 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
   nodesWithLocalOriginalRouteLengthEvidence:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY').length,
   boundNodesWithoutLocalRouteEvidence:results.filter(r=>r.state==='NO_ORIGINAL_ROUTE_LENGTH_WITNESS').length,
   boundNodesWithBothLengthAndVectorOriginalWitness:results.filter(r=>r.independentLocalRouteWitnesses.some(w=>w.withinVectorTolerance)).length,
+  boundNodesWithUniquelyLocatedOriginalTargetConditionalOnBoundNeighbors:
+    results.filter(r=>r.locallyUniqueOriginalTargetRelativeToBoundNeighbors).length,
+  boundNodesWithMultipleLocalOriginalTargetAlternatives:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY'&&
+    r.localOriginalAlternativeTargetCandidateCount>1).length,
+  allLocalAlternativeSearchesPreserveFullTargetNodeDomain:true,
   originalPathLengthToleranceMm:pathTotalLengthToleranceMm,
   thisIsNotGlobalPhysicalCertification:true,
   sourceMemberIdentityNotCollapsed:true,
