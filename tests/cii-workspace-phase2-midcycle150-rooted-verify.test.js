@@ -6,8 +6,9 @@ const field=n=>Number(n).toExponential(6).toUpperCase().padStart(13,' ');
 function cii(start,count,step=1000){
  const data=['#$ ELEMENTS'];
  for(let i=0;i<count-1;i++){
-   const line=[start+i,start+i+1,0,0,step,0];
-   for(let index=0;index<15;index++)data.push('  '+(index===0?line:[0,0,0,0,0,0]).map(field).join(''));
+   const line=[start+i,start+i+1,0,0,step,273];
+   for(let index=0;index<15;index++)
+     data.push('  '+(index===0?line:index===1?[25.4,0,0,0,0,0]:[0,0,0,0,0,0]).map(field).join(''));
  }
  data.push('#$ NODENAME');
  return Buffer.from(data.join('\n')+'\n');
