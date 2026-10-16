@@ -124,18 +124,31 @@ export function diagnoseCiiMidcycle150Unverified({
    const srcPath=pathSignature(sourcePaths(member,root.rootId),root.rootId,id);
    const targetPathsByRoot=targetPaths(root.rootTarget);
    const alternatives=[];
+   const gateCounts={availableTarget:0,uniqueOriginalRoute:0,
+    branchCompatible:0,originalOdCompatible:0,
+    originalLengthWithin100mm:0,signedVectorWithin100mm:0};
    for(const candidateTarget of originalTargetIds){
     if(occupiedTarget.has(candidateTarget))continue;
+    gateCounts.availableTarget++;
     const targetPath=pathSignature(targetPathsByRoot,root.rootTarget,candidateTarget);
-    if(compareIndex(srcPath,targetPath,sourceDegree,
-      (targetGraph.adjacency.get(candidateTarget)||[]).length,pathToleranceMm)){
-      alternatives.push(candidateTarget);
-    }
+    if(!srcPath||!targetPath)continue;
+    gateCounts.uniqueOriginalRoute++;
+    if(sourceDegree>=3&&(targetGraph.adjacency.get(candidateTarget)||[]).length<3)continue;
+    gateCounts.branchCompatible++;
+    if(!odSame(srcPath,targetPath))continue;
+    gateCounts.originalOdCompatible++;
+    if(Math.abs(srcPath.lengthMm-targetPath.lengthMm)>pathToleranceMm)continue;
+    gateCounts.originalLengthWithin100mm++;
+    if(Math.hypot(...srcPath.vectorMm.map((n,i)=>n-targetPath.vectorMm[i]))>pathToleranceMm)continue;
+    gateCounts.signedVectorWithin100mm++;
+    alternatives.push(candidateTarget);
    }
+   if(Object.keys(gateCounts).some((stage,i,a)=>i>0&&gateCounts[stage]>gateCounts[a[i-1]]))
+     throw Error('W11_STAGE_GATE_COUNTERS_MUST_BE_MONOTONIC');
    rootedMatches.push({trustedPhysicalRoot:root.rootKey,
      originalTargetPhysicalRoot:root.rootTarget,sourceGraphHops:root.dist,
      originalTargetCandidates:alternatives,
-     alternatives:alternatives.length});
+     alternatives:alternatives.length,originalPhysicalGateCensus:gateCounts});
   }
   const candidateUnion=rootedMatches.length?new Set(rootedMatches[0].originalTargetCandidates):new Set();
   for(const result of rootedMatches.slice(1)){
@@ -143,6 +156,18 @@ export function diagnoseCiiMidcycle150Unverified({
    for(const candidate of [...candidateUnion])if(!allowed.has(candidate))candidateUnion.delete(candidate);
   }
   const candidates=[...candidateUnion].sort((a,b)=>Number(a)-Number(b));
+  const gates=['uniqueOriginalRoute','branchCompatible','originalOdCompatible',
+   'originalLengthWithin100mm','signedVectorWithin100mm'];
+  const blockers=rootedMatches.filter(x=>x.alternatives===0).map(x=>{
+    const earliest=gates.find(stage=>x.originalPhysicalGateCensus[stage]===0);
+    return earliest?'NO_CANDIDATE_AFTER_'+earliest.toUpperCase():
+      'NO_CANDIDATE_AFTER_ALL_FIXED_PHYSICAL_GATES';
+  });
+  const originalCandidateRootCause=candidateRoots.length===0
+   ?'NO_TRUSTED_ROOT_IN_ORIGINAL_COMPONENT'
+   :candidates.length>0?'AT_LEAST_ONE_ORIGINAL_T_CANDIDATE_FOUND'
+   :blockers.length?'ROOT_PATH_OR_GEOMETRY_VETO:'+blockers[0]
+   :'MULTIPLE_ROOTS_DISAGREE_ON_ORIGINAL_T_CANDIDATE';
   const status=auditRow.identityBound===true?'BOUND_NOT_IN_CERTIFIED_ROOT_SET':
     candidateRoots.length===0?'NO_TRUSTED_ORIGINAL_SOURCE_COMPONENT_ROOT':
     candidates.length===0?'NO_ORIGINAL_T_CANDIDATE_MATCHING_TRUSTED_GEOMETRY':
@@ -157,9 +182,11 @@ export function diagnoseCiiMidcycle150Unverified({
     trustedOriginalRootEvidence:rootedMatches.map(r=>({
       trustedPhysicalRoot:r.trustedPhysicalRoot,originalTargetPhysicalRoot:r.originalTargetPhysicalRoot,
       originalSourceHops:r.sourceGraphHops,originalTargetAlternativeCount:r.alternatives,
+      originalPhysicalGateCensus:r.originalPhysicalGateCensus,
     })),
     originalTargetPhysicalCandidateCount:candidates.length,
     candidateOriginalTargetNodeIds:candidates.slice(0,12),
+    originalCandidateRootCause,
     status,independentlyCertified:false,
     productionPromotionAuthorized:false,
   });
@@ -183,6 +210,8 @@ export function diagnoseCiiMidcycle150Unverified({
   })),
   reasonCounts:reasons,
   matcherStateCounts,
+  geometryRootCauseCounts:Object.fromEntries([...new Set(rows.map(r=>r.originalCandidateRootCause))].sort().map(code=>
+    [code,rows.filter(r=>r.originalCandidateRootCause===code).length])),
   priorityCandidateCount:priorityCandidates.length,
   originalGeometryExcludedCount:exclusionReasons.length,
   priorityCandidates:priorityCandidates.map(row=>({
