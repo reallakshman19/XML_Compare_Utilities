@@ -99,7 +99,7 @@ function orientation(rows,key,orientation){
     rows:frozen(observed),
   });
 }
-export function reconcileCiiOwnerMidCyclePhysicalRows(diagnostics){
+export function reconcileCiiOwnerMidCyclePhysicalRows(diagnostics,options={}){
   if(!Array.isArray(diagnostics)||diagnostics.some((x,i)=>x.ownerOrdinal!==i+1))
     throw new Error('CII_PHASE2_GOLDEN_OWNER_ORDINALS_NOT_CONTIGUOUS');
   const result=frozen({
@@ -107,9 +107,11 @@ export function reconcileCiiOwnerMidCyclePhysicalRows(diagnostics){
     originalRowCount:diagnostics.length,
     asWritten:orientation(diagnostics,'declared','AS_WRITTEN'),
     directionReversalDiagnostic:orientation(diagnostics,'transposedDiagnostic','REVERSED_DIAGNOSTIC'),
-    ownerApprovedTranspose:false,methodAOrBQualificationChanged:false,writerAuthorizationGranted:false,
+    ownerApprovedTranspose:options.ownerConfirmedSlSourceToPsTarget===true,
+    authoritativeDirection:options.ownerConfirmedSlSourceToPsTarget===true?'REVERSED_SL_SOURCE_TO_PS_TARGET':'UNCONFIRMED',
+    methodAOrBQualificationChanged:false,writerAuthorizationGranted:false,
     independentValidatedRecall:null,
-    status:'OWNER_DIRECTION_OR_PHYSICAL_OCCURRENCE_ADJUDICATION_PENDING',
+    status:options.ownerConfirmedSlSourceToPsTarget===true?'OWNER_DIRECTION_CONFIRMED_PHYSICAL_428_ROW_ACCEPTANCE_PENDING':'OWNER_DIRECTION_OR_PHYSICAL_OCCURRENCE_ADJUDICATION_PENDING',
   });
   for(const label of ['asWritten','directionReversalDiagnostic']){
     if(Object.values(result[label].reasonCounts).reduce((a,b)=>a+b,0)!==diagnostics.length)
