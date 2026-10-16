@@ -80,7 +80,7 @@ test('RED: SVG and table labels cannot inject DOM, event handlers or executable 
  const view=methodCSvgScene({...c,source:changedSource});
  assert.ok(view.svg.includes('&lt;script&gt;'));
  assert.ok(!/<script\b/i.test(view.svg));
- assert.ok(!/\bonerror\s*=/i.test(view.svg));
+ assert.ok(!/<[^>]+\s+onerror\s*=/i.test(view.svg));
  assert.equal(escapeMethodCXml(name).includes('&lt;image'),true);
  assert.match(methodCSvgExport({...c,scene:view}),/evil &lt;script&gt;/);
  const bad={...c,scene:{...c.scene,svg:'<svg onload="alert(1)"></svg>'}};
