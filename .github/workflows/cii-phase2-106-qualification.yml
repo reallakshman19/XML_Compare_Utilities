@@ -26,6 +26,7 @@ jobs:
           node tests/cii-workspace-owner-phase2-input.test.js
           node tests/cii-workspace-phase2-owner-midcycle-forensics.test.js
           node tests/cii-workspace-phase2-owner-conditional-coverage.test.js
+          node tests/cii-workspace-phase2-owner-physical-acceptance.test.js
           node tests/cii-workspace-parallel-anchor-evidence.test.js
           node tests/cii-workspace-phase2-normalization-length.test.js
           node tests/cii-workspace-phase2-live-path-policy.test.js
