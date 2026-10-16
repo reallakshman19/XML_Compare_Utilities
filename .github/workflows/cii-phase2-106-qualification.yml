@@ -34,6 +34,16 @@ jobs:
           node tests/cii-workspace-method-a-confidence-config.test.js
           node tests/cii-workspace-method-a-weight-policy-ui.test.js
           node tests/cii-workspace-geometry-authority.test.js
+      - name: Independent original Method B topology, multi-base arbitration, physical custody and 36 TEXPECTED controls
+        run: |
+          node tests/cii-workspace-topology.test.js
+          node tests/cii-workspace-topology-route-gates.test.js
+          node tests/cii-workspace-multi-base-authority.test.js
+          node tests/cii-workspace-multi-base-correspondence.test.js
+          node tests/cii-workspace-multisource-target-node-custody.test.js
+          node tests/cii-workspace-source-target-audit.test.js
+          node tests/cii-workspace-multisource-partial-texpected-oracle.test.js
+          node tests/cii-workspace-owner-lexical-golden.test.js
 
   phase2-owner-diagnostics:
     runs-on: ubuntu-latest
