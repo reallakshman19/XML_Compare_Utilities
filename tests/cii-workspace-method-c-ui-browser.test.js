@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
@@ -42,6 +43,10 @@ test('real Chromium served Method C modules: original upload, anchors, SVG, tabl
    await page.goto(url,{waitUntil:'load'});
    await page.waitForFunction(()=>window.methodCReady===true);
    const [s,t]=await Promise.all(['S1','T'].map(member=>readFile(path.join(root,'Benchmark',member+'.CII'))));
+   const artifactDir=path.join(root,'test-results','cii-method-c-wp5');
+   await mkdir(artifactDir,{recursive:true});
+   const hashes={SOURCE:createHash('sha256').update(s).digest('hex'),
+     TARGET:createHash('sha256').update(t).digest('hex')};
    await page.locator('#mc-source-file').setInputFiles(file('S1',s));
    await page.waitForFunction(()=>window.methodC?.state?.source?.nodes?.length===57);
    await page.locator('#mc-target-file').setInputFiles(file('T',t));
@@ -62,6 +67,7 @@ test('real Chromium served Method C modules: original upload, anchors, SVG, tabl
    await page.locator('tr[data-source="4060"]').click();
    assert.equal(await page.locator('svg [data-layer=segment-projection]').count(),1);
    assert.match(await page.locator('[data-view=detail]').innerText(),/900|905/);
+   await page.screenshot({path:path.join(artifactDir,'wp5-interactive-selected-4060.png'),fullPage:true});
    await page.locator('#mc-projection').selectOption('YZ');
    assert.equal(await page.locator('svg[data-projection=YZ]').count(),1);
    await page.locator('#mc-projection').selectOption('XY');
@@ -78,16 +84,28 @@ test('real Chromium served Method C modules: original upload, anchors, SVG, tabl
    await page.locator('#mc-tol-x').dispatchEvent('change');
    const downloadJson=page.waitForEvent('download');
    await page.locator('[data-action=export-json]').click();
-   const json=await downloadJson,parsed=JSON.parse((await readFile(await json.path())).toString());
+   const json=await downloadJson,jsonBytes=await readFile(await json.path());
+   await writeFile(path.join(artifactDir,'method-c-evidence.json'),jsonBytes);
+   const parsed=JSON.parse(jsonBytes.toString());
    assert.equal(parsed.rows.length,57);
    assert.equal(parsed.nearSourceCount,41);
    assert.equal(parsed.rows.find(r=>r.sourceNode==='4060').segmentOnly.fraction,.76175);
    const downloadCsv=page.waitForEvent('download');
    await page.locator('[data-action=export-csv]').click();
-   assert.match((await readFile(await (await downloadCsv).path())).toString(),/MISSING_TARGET_NODE_BUT_ALIGNED_SEGMENT/);
+   const csvBytes=await readFile(await (await downloadCsv).path());
+   await writeFile(path.join(artifactDir,'method-c-evidence.csv'),csvBytes);
+   assert.match(csvBytes.toString(),/MISSING_TARGET_NODE_BUT_ALIGNED_SEGMENT/);
    const downloadSvg=page.waitForEvent('download');
    await page.locator('[data-action=export-svg]').click();
-   assert.match((await readFile(await (await downloadSvg).path())).toString(),/data-node="4060"/);
+   const svgBytes=await readFile(await (await downloadSvg).path());
+   await writeFile(path.join(artifactDir,'method-c-evidence.svg'),svgBytes);
+   assert.match(svgBytes.toString(),/data-node="4060"/);
+   const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+   await writeFile(path.join(artifactDir,'browser-original-custody-and-exports.json'),
+     JSON.stringify({scope:'WP5_SERVED_MODULE_NOT_NATIVE_WP6',originalSHA256:hashes,
+       extractedCount:parsed.rows.length,nearSources:parsed.nearSourceCount,
+       exportSHA256:{svg:digest(svgBytes),csv:digest(csvBytes),json:digest(jsonBytes)},
+       browserPageErrors:errors},null,2));
    await page.locator('[data-action=clear-anchors]').click();
    assert.equal(await page.evaluate(()=>window.methodC.state.candidates),null);
    assert.equal(await page.locator('.mc-svg svg').count(),0);
