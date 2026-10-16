@@ -276,6 +276,22 @@ test('WP8 independent second raw parser rebuilds all 4 original CII coordinate g
  }
  assert.equal(primary.nearSourceCount,near.length);
  assert.deepEqual(primary.collisionTargets,ledger.collisions);
+ // Derived Owner-supplied fixture is read ONLY after independent raw parsing and
+ // subsequent production cross-check. It never supplies anchor IDs or candidate data.
+ const reference=JSON.parse(readFileSync(new URL(
+  './fixtures/cii-method-c/derived-reference-excerpt.v1.json',import.meta.url)));
+ assert.equal(reference.authority,'ATTACHED_DERIVED_TEST_ONLY_NOT_ORIGINAL_NOT_OWNER_PHYSICAL_GOLDEN');
+ assert.equal(reference.packageSha256,
+  'f2c79491fe7ac8b071d568dc06f4326fde35c16e7c3a6662718f42621e202981');
+ assert.equal(reference.reference.routeNear,routeNear.length);
+ assert.equal(reference.reference.routeTotal,sRoute.nodes.length);
+ assert.equal(reference.reference.fullNear,near.length);
+ assert.equal(reference.reference.fullTotal,ledger.rows.size);
+ assert.equal(reference.reference.targetComponent,ledger.componentSize);
+ assert.ok(Math.abs(reference.reference.pathLengthDifferenceMm-pathMismatch)<1e-5);
+ assert.ok(Math.abs(reference.reference.segmentFraction-segment.t)<1e-9);
+ assert.equal(reference.reference.segmentOnlyNode,'4060');
+ assert.deepEqual(reference.reference.targetSegment,segment.between);
  const owner=golden;
  result={schema:'MethodC.WP8IndependentOriginalAudit.v1',
   authority:'INDEPENDENT_READ_ONLY_ORIGINALS_NOT_OWNER_ACCEPTANCE',
@@ -301,6 +317,8 @@ test('WP8 independent second raw parser rebuilds all 4 original CII coordinate g
    meetsOwnerRequired300:false,owner428Accepted:false},
   separateMidcycle:{historicalDiagnostic:'105/150',authority:'SEPARATE_MIDCYCLE_TEST_ONLY',
    independentlyRerunThisAudit:false,original428DenominatorUnchanged:true},
+  derivedReference:{classification:reference.authority,packageSha256:reference.packageSha256,
+   crossCheckedAfterRawParsing:true,usedToConstructCandidates:false},
   releaseResult:'NOT_SCORED_NOT_QUALIFIED',
   provenance:'RAW_CII_PARSED_BEFORE_PRIMARY_GRAPH_OR_DERIVED_FIXTURE_COMPARISON'};
  mkdirSync(outDir,{recursive:true});
