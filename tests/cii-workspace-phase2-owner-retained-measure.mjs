@@ -12,6 +12,7 @@ import {prepareAndInspectCiiWorkspaceSourceSetWithVersionBridge} from '../tabs/c
 import {ciiAutomaticBaseSelection} from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
 import {createCiiWriter2SourceSetPreviewFromPreparedSession} from '../tabs/cii-workspace/cii-workspace-multisource-preview.js';
 import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-source-target-audit.js';
+import { buildCiiOwnerOriginalNodeNameIndexes, resolveCiiOwnerPhase2RowsByOriginalNodeName } from './cii-workspace-phase2-owner-nodename-index.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -38,53 +39,52 @@ const preview=await createCiiWriter2SourceSetPreviewFromPreparedSession(prepared
   baseLoopsBySource:loops,
 },{cryptoRef:globalThis.crypto||webcrypto,pathTotalLengthToleranceMm:100});
 const audit=buildCiiSourceTargetAudit(preview);
-const sourceByLabel=new Map(),targetByLabel=new Map();
-for(const row of audit.rows){
-  const name=String(row.sourceNodeName||'');
-  if(!name)continue;
-  if(!sourceByLabel.has(name))sourceByLabel.set(name,[]);
-  sourceByLabel.get(name).push(row);
+// The owner table contains NodeName labels, NOT physical NODE numbers.
+// Build from original CII fixed-field NODENAME pointers; never compare label to
+// a numeric node ID or infer SOURCE member from owner row order.
+const originalIndexes=buildCiiOwnerOriginalNodeNameIndexes(files,targetBytes);
+assert.deepEqual(originalIndexes.sourceStats.map(r=>r.physicalNodeCount),[57,47,46]);
+assert.equal(originalIndexes.targetStats.physicalNodeCount,1619);
+const resolved=resolveCiiOwnerPhase2RowsByOriginalNodeName(originals,originalIndexes);
+const observedBySourceId=new Map(audit.rows.map(row=>[String(row.rowKey),row]));
+function legacyObserved(resolution) {
+  const matching=resolution.candidatePairs.filter(pair=>{
+    const auditRow=observedBySourceId.get(pair.sourceMemberId+':'+pair.sourcePhysicalNodeId);
+    return auditRow?.identityBound===true && (auditRow.targetNodeIds||[]).some(t=>String(t)===pair.targetPhysicalNodeId);
+  });
+  return matching;
 }
-for(const node of preparedSession.target.targetGraph.nodes){
-  const name=String(node.nodeName||'');
-  if(!name)continue;
-  if(!targetByLabel.has(name))targetByLabel.set(name,[]);
-  targetByLabel.get(name).push(node);
-}
-const usedPhysicalSourceKeys=new Map();
-const diagnostics=originals.map(o=>{
-  const src=sourceByLabel.get(o.rawSourceLabel)||[];
-  const tgt=targetByLabel.get(o.rawTargetLabel)||[];
-  const targetIds=new Set(tgt.map(n=>String(n.id)));
-  const legacyHits=src.filter(s=>s.identityBound===true && (s.targetNodeIds||[]).some(t=>targetIds.has(String(t))));
-  const uniquelyAttributed=src.length===1 && tgt.length===1;
-  const observedNameAndLegacyBound=legacyHits.length>0;
-  if(observedNameAndLegacyBound)for(const s of legacyHits){
-    const key=String(s.rowKey);
-    if(!usedPhysicalSourceKeys.has(key))usedPhysicalSourceKeys.set(key,[]);
-    usedPhysicalSourceKeys.get(key).push(o.ordinal);
-  }
-  const discrepancy=src.length===0?'SOURCE_LEXICAL_LABEL_ABSENT'
-    :tgt.length===0?'TARGET_LEXICAL_LABEL_ABSENT'
-    :src.length>1?'SOURCE_LEXICAL_LABEL_REUSED'
-    :tgt.length>1?'TARGET_LEXICAL_LABEL_REUSED'
-    :observedNameAndLegacyBound?'LEGACY_BOUND_AND_LABEL_AGREEMENT_NOT_VALIDATED'
-    :'NO_LEGACY_BINDING_TO_EXPECTED_LABEL';
-  return Object.freeze({...o,sourceMemberCandidates:[...new Set(src.map(s=>s.sourceId))],
-    sourcePhysicalNodeCandidates:src.map(s=>s.rowKey),
-    targetPhysicalNodeCandidates:tgt.map(n=>String(n.id)),
-    sourceCandidateCount:src.length,targetCandidateCount:tgt.length,
-    uniquelyAttributed,legacyBoundAndLabelAgreement:observedNameAndLegacyBound,
-    observedTargetIds:src.flatMap(s=>s.targetNodeIds||[]),discrepancy,
-    physicalValidationTier:'INDEPENDENT_GLOBAL_PROOF_NOT_PERFORMED',
-    verifiedPhysicalCorrespondence:false});
+const diagnostics=resolved.rows.map(row=>{
+  const declaredLegacy=legacyObserved(row.declared);
+  const transposedLegacy=legacyObserved(row.transposedDiagnostic);
+  return Object.freeze({
+    ...row,
+    sourceMemberCandidates:row.declared.sourceMembers,
+    sourcePhysicalNodeCandidates:row.declared.sourceNodeIds,
+    targetPhysicalNodeCandidates:row.declared.targetNodeIds,
+    sourceCandidateCount:row.declared.sourceLookupCount,
+    targetCandidateCount:row.declared.targetLookupCount,
+    uniquelyAttributed:row.declared.uniquePhysicalPair,
+    legacyBoundAndLabelAgreement:declaredLegacy.length>0,
+    transposedLegacyBoundAndLabelAgreement:transposedLegacy.length>0,
+    observedDeclaredLegacyPairs:declaredLegacy,
+    observedTransposedLegacyPairs:transposedLegacy,
+    discrepancy:row.declared.status,
+    physicalValidationTier:'OWNER_NODENAME_RESOLUTION_NOT_INDEPENDENT_SOLVER_PROOF',
+    verifiedPhysicalCorrespondence:false,
+  });
 });
-const count=(fn)=>diagnostics.filter(fn).length;
-const missingSource=count(r=>r.sourceCandidateCount===0);
-const missingTarget=count(r=>r.targetCandidateCount===0);
-const presentBoth=count(r=>r.sourceCandidateCount>0&&r.targetCandidateCount>0);
-const agreement=count(r=>r.legacyBoundAndLabelAgreement);
-const manyRows=[...usedPhysicalSourceKeys.entries()].filter(([,ids])=>ids.length>1).map(([key,ids])=>({sourceKey:key,ownerOrdinals:ids}));
+const count=predicate=>diagnostics.filter(predicate).length;
+const agreement=count(row=>row.legacyBoundAndLabelAgreement);
+const transposedAgreement=count(row=>row.transposedLegacyBoundAndLabelAgreement);
+const bySourcePhysicalId=new Map();
+for(const row of diagnostics.filter(r=>r.legacyBoundAndLabelAgreement))
+  for(const pair of row.observedDeclaredLegacyPairs){
+    const key=pair.sourceMemberId+':'+pair.sourcePhysicalNodeId;
+    if(!bySourcePhysicalId.has(key))bySourcePhysicalId.set(key,[]);
+    bySourcePhysicalId.get(key).push(row.ownerOrdinal);
+  }
+const manyRows=[...bySourcePhysicalId].filter(([,ids])=>ids.length>1).map(([sourceKey,ids])=>({sourceKey,ownerOrdinals:ids}));
 const report={
   schema:'CiiPhase2OwnerBenchmarkDiagnostic.v1',
   status:'NOT_EVALUABLE_INDEPENDENT_GLOBAL_PHYSICAL_CERTIFICATION_MISSING',
@@ -97,24 +97,29 @@ const report={
   targetPhysicalNodeCensus:preparedSession.target.targetGraph.nodes.length,
   autoChoices:choices,
   physicalCandidateCorrespondenceStatus:preview.correspondence.status,
+  originalCiiNodeNameSourceStats:resolved.sourceStats,
+  originalCiiNodeNameTargetStats:resolved.targetStats,
+  asDeclaredOwnerNodeNameResolution:resolved.asDeclared,
+  transposedOwnerNodeNameDiagnostic:resolved.transposedDiagnostic,
+  transposedNodeNameLegacyAgreement:transposedAgreement,
   observedLegacyBoundWithNameAgreement:agreement,
   observedLegacyAgreementFractionOfOwnerInput:agreement/428,
-  rowsWithSourceLabelFound:428-missingSource,rowsWithTargetLabelFound:428-missingTarget,
-  rowsWithBothLabelsFound:presentBoth,
-  rowsMissingSourceLabel:missingSource,rowsMissingTargetLabel:missingTarget,
+  rowsWithSourceLabelFound:resolved.asDeclared.sourceNameFound,rowsWithTargetLabelFound:resolved.asDeclared.targetNameFound,
+  rowsWithBothLabelsFound:resolved.asDeclared.bothNamesFound,
+  rowsMissingSourceLabel:resolved.asDeclared.noSourceName,rowsMissingTargetLabel:resolved.asDeclared.noTargetName,
   rowsUniquelyAttributedByLabels:count(r=>r.uniquelyAttributed),
   sourcePhysicalNodesWithRepeatedLegacyOwnerCredits:manyRows,
   independentGlobalPhysicalValidatedCount:null,
   P2_VALIDATED_RECALL:null,
   Phase2ThresholdMet:null,
   physicallyValidatedCreditingRule:'NO NAME-ONLY, NO LEGACY IDENTITYBOUND; requires full original physical source-member and global target custody proof and independent falsifiers',
-  note:'The uploaded owner labels are unpartitioned by S1/S2/S3 and may encode repeated group relations. 428 lexical records are not automatically 428 distinct physical source-node obligations. Do not infer a 70% physical benchmark success or failure from lexical diagnostics alone.',
+  note:'Original fixed-field NodeName->Node indexes are built per member and T; declared PS-source/SL-target and reversed SL-source/PS-target are separately reported without silently swapping Owner columns. A label-resolved pair from Owner golden is an expected physical-node pair, not an independently correct matcher output or Writer authorization. Report ambiguity and repeat reuse explicitly.',
 };
 const root=new URL('../test-results/cii-phase2/',import.meta.url);
 mkdirSync(root,{recursive:true});
 writeFileSync(new URL('phase2-owner-diagnostic.json',root),JSON.stringify({report,rows:diagnostics},null,2)+'\n');
-const keys=['ordinal','originalLine','rawSourceLabel','rawTargetLabel','sourceMemberCandidates','sourcePhysicalNodeCandidates','targetPhysicalNodeCandidates','sourceCandidateCount','targetCandidateCount','uniquelyAttributed','legacyBoundAndLabelAgreement','discrepancy','physicalValidationTier'];
-const csv=v=>'"'+String(Array.isArray(v)?JSON.stringify(v):v??'').replace(/"/g,'""')+'"';
+const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','ownerDirection','sourceMemberCandidates','sourcePhysicalNodeCandidates','targetPhysicalNodeCandidates','sourceCandidateCount','targetCandidateCount','uniquelyAttributed','declared','transposedDiagnostic','legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement','discrepancy','physicalValidationTier'];
+const csv=v=>'"'+String(v && typeof v==='object'?JSON.stringify(v):v??'').replace(/"/g,'""')+'"';
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
-console.log('PHASE2_OWNER_DIAGNOSTIC_COMPLETE: 428 rows accounted; validated physical recall NOT_EVALUABLE until independent physical proof');
+console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
