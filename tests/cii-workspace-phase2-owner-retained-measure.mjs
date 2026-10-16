@@ -18,6 +18,7 @@ import {scoreCiiOwnerPhysicalCandidateCoverage} from './cii-workspace-phase2-own
 import {scoreCiiOwnerPhase2PhysicalAcceptance} from './cii-workspace-phase2-owner-physical-acceptance.js';
 import {scoreCiiMidcycle150} from './cii-workspace-phase2-midcycle150-score.js';
 import {buildCiiMidcycle150OriginalPathWitnesses} from './cii-workspace-phase2-midcycle150-original-path-witness.js';
+import {verifyCiiMidcycle150GlobalOriginalShape} from './cii-workspace-phase2-midcycle150-global-shape-verify.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -56,6 +57,9 @@ const audit=buildCiiSourceTargetAudit(preview);
 const pathWitness=buildCiiMidcycle150OriginalPathWitnesses({
   originalSources:files,originalTarget:targetBytes,audit,
   pathTotalLengthToleranceMm:100,
+});
+const globalShape=verifyCiiMidcycle150GlobalOriginalShape({
+ originalSources:files,originalTarget:targetBytes,audit,localPathWitness:pathWitness,
 });
 const midcycle150=scoreCiiMidcycle150({
   originalSourcePhysicalNodeCount:150,
@@ -156,6 +160,13 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycle150IndependentGlobalShapeSummary:{
+    validatedUniqueOriginalGeometryNodes:globalShape.validatedUniqueOriginalGeometryNodes,
+    validatedPerSource:globalShape.validatedPerSource,
+    completeOriginalGraphComponentsSearched:globalShape.completeOriginalGraphComponentsSearched,
+    ambiguousOriginalGeometryComponents:globalShape.ambiguousOriginalGeometryComponents,
+    originalTargetCoordinateCycleConflicts:globalShape.originalTargetCoordinateCycleConflicts,
+  },
   originalOwnerInputSha256:manifest.originalUploadSha256,
   originalBenchmarkRows:428,requiredValidatedRows:300,targetValidatedRecall:0.70,
   sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
@@ -211,6 +222,7 @@ writeFileSync(new URL('midcycle150-assessment.json',root),JSON.stringify({
   physicalCertificationPolicy:'BOUND != independently physically certified; original local path length is nonexclusive',
 },null,2)+'\n');
 writeFileSync(new URL('midcycle150-original-path-witnesses.json',root),JSON.stringify(pathWitness,null,2)+'\n');
+writeFileSync(new URL('midcycle150-independent-global-shape.json',root),JSON.stringify(globalShape,null,2)+'\n');
 
 // Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
 // the complete, exact, member-custodied inverse maps independently of labels
@@ -366,6 +378,12 @@ writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...dia
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
 console.log('PHASE2_MIDCYCLE_150_ORIGINAL_PATH_WITNESS '+JSON.stringify(pathWitness.summary));
+console.log('PHASE2_MIDCYCLE_150_GLOBAL_SHAPE '+JSON.stringify({
+ matched:globalShape.validatedUniqueOriginalGeometryNodes,
+ perMember:globalShape.validatedPerSource,sourceComponents:globalShape.completeOriginalGraphComponentsSearched,
+ ambiguous:globalShape.ambiguousOriginalGeometryComponents,
+ targetCoordinateCycles:globalShape.originalTargetCoordinateCycleConflicts,
+}));
 console.log('PHASE2_OWNER_CONFIRMED_ACCEPTANCE '+JSON.stringify(acceptance));
 console.log('PHASE2_CONDITIONAL_PHYSICAL_COVERAGE '+JSON.stringify({originalOwnerDenominator:428,ownerConfirmedPhysicalNamePairs:reverseConditional.distinctPhysicalOraclePairs,matched:reverseConditional.independentlyBoundPhysicalPairAgreement,wrongTargets:reverseConditional.independentBoundWrongTargets,original428CertifiedRecall:reverseConditional.P2_VALIDATED_RECALL,reason:reverseConditional.reason}));
 console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
