@@ -22,6 +22,22 @@ The `tests/cii-workspace-phase2-owner-corpus-provenance.mjs` run inspects **ever
 
 **Observed on the frozen retained corpus:** 10 conforming original `.CII` files, 103 distinct Owner PS labels and 68 distinct Owner SL labels in non-pinned files; 38 owner rows have their PS and SL labels **somewhere** in the combined corpus, but **none** has both names in a single alternate CII. These are only provenance clues, not physical SOURCE→TARGET pair proof. Generated `owner-alternate-fixture-provenance.json` includes each file's recomputed SHA-256 and exact matching names. Preserve the pinned S1/S2/S3/T authority and frozen 428 rows.
 
+## Repository-wide corroboration beyond Benchmark/
+
+A repository-tree inspection found **13 non-mirrored `.CII` files** (10 under `Benchmark/`, two under `converters/scripts/`, and the root `output.cii`). The supplementary parser now checks **all 13** in a single fixture-provenance run while deliberately excluding `docs/` copies of the same inputs:
+
+- [converters/scripts/inputxml_profile_bm_cii_2019.cii](../../../converters/scripts/inputxml_profile_bm_cii_2019.cii)
+- [converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii](../../../converters/scripts/inputxml_profile_sys30_b7410250_benchmark.cii) — **fails strict independent 15-row ELEMENTS decoding** and therefore is reported as `ORACLE_ELEMENT_ROW_COUNT_NOT_MULTIPLE_OF_15`, not silently skipped or assigned names
+- [output.cii](../../../output.cii)
+
+On the retained corpus, **12 parsed successfully; one did not**. The additional converter/root files contribute **no additional original Owner PS/SL pairs**, so the pinned benchmark mismatch remains: 33 unique reverse-direction physical candidates, the other 395 original rows unresolved. [Issue #106](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) governs any new Owner-sanctioned original fixture source and alternate physical denominator.
+
+## Conditional physical scoring (test only; not Owner 70% certification)
+
+Run `node tests/cii-workspace-phase2-owner-conditional-coverage.test.js`, followed by the retained 428-row benchmark runner above. The pure [test-only conditional physical scorer](../../cii-workspace-phase2-owner-conditional-coverage.js) independently compares SOURCE-member+physical NODE IDs and T physical NODE IDs to the matcher-produced full source-target audit, with wrong-target, global competing TARGET, ambiguous-source and duplicate-credit vetoes. The original 428-row denominator and `P2_VALIDATED_RECALL: null` never change. Unverified production BOUND claims outside the original-name-resolvable 33 are **not** misreported as physical benchmark passes or false positives.
+
+The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
+
 ## Required mapping: never confuse numeric NODE with NodeName
 
 The user explicitly corrected the approach: **`NodeName → physical NODE`** must be decoded **first**. The CII format stores original node names indirectly:
