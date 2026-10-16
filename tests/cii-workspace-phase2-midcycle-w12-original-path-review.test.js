@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {investigateCiiMidcycleW12OriginalPaths}
+import {compareCiiW12OriginalSegmentedPipeGeometry,investigateCiiMidcycleW12OriginalPaths}
  from './cii-workspace-phase2-midcycle-w12-original-path-review.js';
 const fmt=n=>Number(n).toExponential(6).toUpperCase().padStart(13,' ');
 function file(count,segmentLength=1000) {
@@ -11,6 +11,26 @@ function file(count,segmentLength=1000) {
  }
  lines.push('#$ NODENAME');return Buffer.from(lines.join('\n')+'\n');
 }
+const originalOnePipe=[{vector:[1000,0,0],odMm:273}];
+const originalSplitPipe=[{vector:[400,0,0],odMm:273},{vector:[600,0,0],odMm:273}];
+const segmented=compareCiiW12OriginalSegmentedPipeGeometry(originalOnePipe,originalSplitPipe);
+assert.equal(segmented.originalStraightConstantOdPathGeometryCompatible,true);
+assert.equal(segmented.originalPipeTypeIndependentlyVerified,false);
+assert.equal(segmented.creditedNodeIdentity,false);
+assert.equal(segmented.originalLengthMm.delta,0);
+assert.equal(segmented.originalSignedDisplacementMm.delta,0);
+assert.equal(compareCiiW12OriginalSegmentedPipeGeometry(originalOnePipe,
+ [{vector:[400,0,0],odMm:273},{vector:[450,0,0],odMm:273}])
+ .originalStraightConstantOdPathGeometryCompatible,false,
+ 'an independent 150mm original segmented path loss exceeds mandatory 100mm');
+assert.equal(compareCiiW12OriginalSegmentedPipeGeometry(originalOnePipe,
+ [{vector:[400,0,0],odMm:273},{vector:[600,0,0],odMm:500}])
+ .originalStraightConstantOdPathGeometryCompatible,false,'original OD veto');
+assert.equal(compareCiiW12OriginalSegmentedPipeGeometry(originalOnePipe,
+ [{vector:[400,0,0],odMm:273},{vector:[-600,0,0],odMm:273}])
+ .originalStraightConstantOdPathGeometryCompatible,false,'signed original displacement veto');
+assert.throws(()=>compareCiiW12OriginalSegmentedPipeGeometry(originalOnePipe,originalSplitPipe,
+ {pathTotalLengthToleranceMm:200}),/SEGMENTED_ORIGINAL_PIPE_WITNESS_REQUIRED/);
 const counts=[57,47,46],first=[1,58,105];
 const originalSources=counts.map((count,i)=>({sourceId:'S'+(i+1),bytes:file(count)}));
 const originalTarget=file(150);
