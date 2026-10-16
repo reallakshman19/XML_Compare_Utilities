@@ -140,3 +140,15 @@ test('RED: stale registered source revision, uniform scaling and reflections nev
   assert.throws(()=>findMethodCCandidates(s,t,{...view(),rotation:[[1.1,0,0],[0,1,0],[0,0,1]]}),
     /METHOD_C_NONRIGID_POSE_REJECTED/);
 });
+
+test('WP7 RED: 100.01mm is outside independent box and overflowed tolerance is rejected',()=>{
+  const src=graph('S1',[[1,[0,0,0]]]),target=graph('T',[[5,[100.01,0,0]]]);
+  const inside=findMethodCCandidates(src,target,view(),{x:100.01,y:100,z:100});
+  assert.equal(inside.rows[0].alternatives.length,1);
+  const outside=findMethodCCandidates(src,target,view(),{x:100,y:100,z:100});
+  assert.equal(outside.rows[0].alternatives.length,0);
+  assert.throws(()=>findMethodCCandidates(src,target,view(),{x:100000.01,y:100,z:100}),
+    /XYZ_TOLERANCE_MM_INVALID/);
+  assert.throws(()=>findMethodCCandidates(src,target,view(),{x:Infinity,y:100,z:100}),
+    /XYZ_TOLERANCE_MM_INVALID/);
+});
