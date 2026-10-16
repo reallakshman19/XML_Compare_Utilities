@@ -75,3 +75,34 @@ test('red: conflicting trusted noncollinear witness reports residual rather than
  assert.equal(result.leaveOneOut.rows.length,4);
  assert.ok(result.leaveOneOut.rows.some(r=>r.distanceMm>100));
 });
+
+test('compatible two-anchor axis still leaves axial twist unresolved',()=>{
+ const s=graph('S',[[1,[0,0,0]],[2,[0,0,100]]]);
+ const t=graph('T',[[5,[10,20,30]],[6,[10,120,30]]]);
+ const tr=registerMethodC(s,t,[{source:1,target:5},{source:2,target:6}]);
+ assert.match(tr.status,/TWIST_UNDETERMINED/);
+ assert.equal(tr.qualified,false);
+ approx(tr.maxResidualMm,0);
+ assert.equal(tr.separationMismatchMm,0);
+ assert.equal(tr.scale,1);
+});
+test('red: uniformly scaled registered anchors cannot acquire exact rigid acceptance',()=>{
+ const s=graph('S',[[1,[0,0,0]],[2,[100,0,0]],[3,[0,100,0]],[4,[0,0,100]]]);
+ const t=graph('T',[[5,[10,20,30]],[6,[130,20,30]],[7,[10,140,30]],[8,[10,20,150]]]);
+ const anchors=[[1,5],[2,6],[3,7],[4,8]].map(([source,target])=>({source,target,role:'independently-accepted'}));
+ const tr=registerMethodC(s,t,anchors,{registrationToleranceMm:1});
+ assert.equal(tr.status,'ANCHOR_RESIDUAL_CONFLICT');
+ assert.equal(tr.qualified,false);
+ assert.equal(tr.scale,1);
+ approx(tr.determinant,1);
+ assert.ok(tr.maxResidualMm>5);
+});
+test('red: insufficient or collinear admissible anchors have no qualified transform',()=>{
+ const s=graph('S',[[1,[0,0,0]],[2,[100,0,0]],[3,[200,0,0]]]);
+ const t=graph('T',[[5,[1,2,3]],[6,[101,2,3]],[7,[201,2,3]]]);
+ const anchors=[[1,5],[2,6],[3,7]].map(([source,target])=>({source,target,role:'independently-accepted'}));
+ const tr=registerMethodC(s,t,anchors);
+ assert.equal(tr.status,'DEGENERATE_NONCOLLINEAR_BASIS');
+ assert.equal(tr.qualified,false);
+ assert.equal(tr.rotation,undefined);
+});
