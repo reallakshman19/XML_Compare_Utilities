@@ -61,7 +61,7 @@ const midcycle150=scoreCiiMidcycle150({
   originalSourcePhysicalNodeCount:150,
   originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
   originalTargetSha256:inspection.versionBridge.target.originalSha256,
-  audit,independentCertificates:[],
+  audit,independentCertificates:[],originalLocalPathWitnesses:pathWitness,
 });
 assert.equal(midcycle150.denominator,150);
 assert.equal(midcycle150.requiredValidatedPhysicalPairs,105);
