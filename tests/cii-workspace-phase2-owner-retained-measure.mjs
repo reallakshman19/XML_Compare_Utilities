@@ -130,7 +130,7 @@ mkdirSync(root,{recursive:true});
 // selected by the owner golden and independently of solver predictions.
 const csv=v=>'"'+String(v && typeof v==='object'?JSON.stringify(v):v??'').replace(/"/g,'""')+'"';
 const writeCsv=(name,columns,rows)=>writeFileSync(new URL(name,root),
-  [columns.join(','),...rows.map(row=>columns.map(k=>csv(row[k])).join(','))].join('\\n')+'\\n');
+  [columns.join(','),...rows.map(row=>columns.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 const sourceNameIndex=[...originalIndexes.sourceByName].flatMap(([nodeName,rows])=>rows.map(row=>({
   sourceMemberId:row.sourceId,nodeName,physicalNodeId:row.nodeId,
 }))).sort((a,b)=>a.sourceMemberId.localeCompare(b.sourceMemberId)||Number(a.physicalNodeId)-Number(b.physicalNodeId));
