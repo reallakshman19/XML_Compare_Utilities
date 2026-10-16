@@ -54,6 +54,8 @@ jobs:
           node --check tests/cii-workspace-method-c-original-cii.test.js
           node --check tests/cii-workspace-method-c-rigid-fit.test.js
           node --check tests/cii-workspace-method-c-registration.test.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-candidates.js
+          node --check tests/cii-workspace-method-c-candidates.test.js
       - name: Run original S1/S2/S3/T tests and explicit corruption negatives
         run: |
           set -euo pipefail
@@ -61,4 +63,5 @@ jobs:
             tests/cii-workspace-method-c-original-geometry.test.js \
             tests/cii-workspace-method-c-original-cii.test.js \
             tests/cii-workspace-method-c-rigid-fit.test.js \
-            tests/cii-workspace-method-c-registration.test.js
+            tests/cii-workspace-method-c-registration.test.js \
+            tests/cii-workspace-method-c-candidates.test.js
