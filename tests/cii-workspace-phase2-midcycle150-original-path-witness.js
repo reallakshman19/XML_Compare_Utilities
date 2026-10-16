@@ -59,14 +59,18 @@ function originalShortestPath(graph,start,end) {
  }
  if(!distance.has(end))return {status:'DISCONNECTED'};
  if(ways.get(end)!==1)return {status:'AMBIGUOUS_SHORTEST_HOP_ROUTE'};
- let id=end,out=[];
+ let id=end,out=[],steps=[];
  while(id!==start){
   const p=parent.get(id);
   if(!p)throw Error('MIDCYCLE_SHORTEST_PATH_RECONSTRUCTION_FAILED');
-  out.push(p.edge);id=p.prior;
+  out.push(p.edge);steps.push({from:p.prior,to:id,edge:p.edge});id=p.prior;
  }
- out.reverse();
- return {status:'UNIQUE_MIN_HOP_ROUTE',edges:out,
+ out.reverse();steps.reverse();
+ const delta=steps.reduce((sum,step)=>{
+   const sign=step.from===step.edge.from?1:-1;
+   return sum.map((n,i)=>n+sign*step.edge.originalDirectionVector[i]);
+ },[0,0,0]);
+ return {status:'UNIQUE_MIN_HOP_ROUTE',edges:out,vectorMm:delta,
   lengthMm:out.reduce((sum,e)=>sum+e.originalLengthMm,0)};
 }
 const sourceKey=(member,node)=>member+':'+node;
@@ -113,6 +117,8 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
      const targetPath=originalShortestPath(targetGraph,targetId,matchedTargetNeighbor);
      const lengthDeltaMm=targetPath.status==='UNIQUE_MIN_HOP_ROUTE'
       ?Math.abs(targetPath.lengthMm-e.originalLengthMm):null;
+     const sourceSigned= e.from===nodeId?e.originalDirectionVector:e.originalDirectionVector.map(x=>-x);
+     const vectorDeltaMm=targetPath.vectorMm?Math.hypot(...sourceSigned.map((x,i)=>x-targetPath.vectorMm[i])):null;
      const qualified=lengthDeltaMm!==null&&lengthDeltaMm<=pathTotalLengthToleranceMm;
      witnesses.push(Object.freeze({sourceElementIndex:e.index,
       sourceOriginalNodeIds:[e.from,e.to],sourceLengthMm:e.originalLengthMm,
@@ -120,7 +126,11 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
       targetPathStatus:targetPath.status,
       targetElementIndices:(targetPath.edges||[]).map(x=>x.index),
       targetPathLengthMm:targetPath.lengthMm??null,
-      lengthDeltaMm,withinLengthTolerance:qualified,
+      lengthDeltaMm,vectorDeltaMm,
+      sourceDisplacementVectorMm:sourceSigned,
+      targetDisplacementVectorMm:targetPath.vectorMm||null,
+      withinVectorTolerance:vectorDeltaMm!==null&&vectorDeltaMm<=pathTotalLengthToleranceMm,
+      withinLengthTolerance:qualified,
       witnessTier:qualified?'ORIGINAL_LOCAL_ROUTE_LENGTH_COMPATIBLE_NOT_GLOBAL_IDENTITY':'NOT_QUALIFIED'}));
     }
    }
@@ -143,6 +153,7 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
   globalTargetCollisionCount:globalTargetConflictIds.size,
   nodesWithLocalOriginalRouteLengthEvidence:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY').length,
   boundNodesWithoutLocalRouteEvidence:results.filter(r=>r.state==='NO_ORIGINAL_ROUTE_LENGTH_WITNESS').length,
+  boundNodesWithBothLengthAndVectorOriginalWitness:results.filter(r=>r.independentLocalRouteWitnesses.some(w=>w.withinVectorTolerance)).length,
   originalPathLengthToleranceMm:pathTotalLengthToleranceMm,
   thisIsNotGlobalPhysicalCertification:true,
   sourceMemberIdentityNotCollapsed:true,
