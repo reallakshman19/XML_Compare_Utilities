@@ -9,12 +9,14 @@ on:
       - 'tabs/cii-workspace/cii-workspace-method-c-*.js'
       - 'tests/cii-workspace-method-c-*.test.js'
       - 'Benchmark/*.CII'
+      - 'docs/METHOD_C_ENGINEERING.md'
   pull_request:
     paths:
       - '.github/workflows/cii-method-c-wp2.yml'
       - 'tabs/cii-workspace/cii-workspace-method-c-*.js'
       - 'tests/cii-workspace-method-c-*.test.js'
       - 'Benchmark/*.CII'
+      - 'docs/METHOD_C_ENGINEERING.md'
 
 permissions:
   contents: read
@@ -97,3 +99,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Navigate HTTP-served Method C module with real Chromium and native SHA-256
         run: node --test tests/cii-workspace-method-c-ui-browser.test.js
+      - name: Preserve browser screenshot and downloaded numerical exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-c-wp5-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/cii-method-c-wp5/
+          if-no-files-found: warn
+          retention-days: 14
+
