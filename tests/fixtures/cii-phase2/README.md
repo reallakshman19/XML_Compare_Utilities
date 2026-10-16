@@ -39,6 +39,35 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Midcycle info W14: missing native Method A/B evidence and original CII registration
+
+W14 reads **actual original pinned S1/S2/S3 and T CII** `#$ UNITS` and `#$ COORDS` registration, the unmodified production `baseAnchorSuggestions`, previously selected production loops, the previously certified 105 physical NODE pairs, and all eight production-vs-provisional TARGET disputes. The verifier is **test-only**, does **not** import W10 geometry guesses into native matching or create a new Writer2 eligible correspondence.
+
+**Eight root-conditioned provisional T hypotheses (none can be credited):**
+
+| SOURCE member:physical NODE | Provisional original T NODE | Existing production-reviewed T NODE |
+|---|---:|---:|
+| S1:3970 | 890 | 885 |
+| S1:4020 | 895 | 890 |
+| S1:4050 | 900 | 895 |
+| S2:220 | 10140 | 10150 |
+| S2:230 | 10150 | 10160 |
+| S3:1810 | 9090 | 9100 |
+| S3:1820 | 9100 | 9130 |
+| S3:1840 | 9130 | 21840 |
+
+For **all eight exact proposed SOURCE+TARGET node pairs**, the original native AUTO base-anchor suggestion enumeration has **zero matching records**. Therefore none has a *documented* READY Method A spatial three-anchor base, a *documented* READY Method B independent native topology/axis/OD qualification, or a verifiable native score/winner gap for that exact pair. Existing production review records address **a different T NODE** and do **not** confer authority on a root-conditioned geometric candidate. Absence of a suggestion **does not prove the physical hypothesis false**; it means no native A/B identity authority for it has been produced in this run. The standard **35/25/20/10/10 Method A weights**, Method B independent ≥2-axis/branch/OD/winner-gap hard gates, target nonreuse, AUTO/MANUAL custody and Writer2 remain unchanged.
+
+**Three displacement failures and actual original registration:**
+
+- Original CII COORDS provides **one absolute coordinate seed in each SOURCE member** S1/S2/S3 and **three in T**. Every source/target file labels length units **SI (mm)** and parses with zero contradictory original coordinate seeds. Registration is only valid in each seed-reachable original graph component; it is not a license to create an unconstrained inter-file rotation.
+- **69** of the previously independently certified 105 physical SOURCE→TARGET roots have explicit absolute coordinate reconstruction available on **both** original SOURCE and T sides; across this covered sample no per-member offset discrepancy exceeds 100 mm. This is **registration corroboration on covered components**, not an approved transform or support for 36 unregistered root pairs.
+- Source **S1:5200**, **S1:5220**, **S1:5229** each has three previously root-linked original TARGET path comparisons in the retained W12/W13 audit. The independently registered SOURCE–T relative signed-displacement residuals are approximately **111.803 mm** in each case, **above the unchanged 100 mm cap**. All original seed/root/end coordinates needed for these nine candidate-relative comparisons are available. A change of global coordinate translation cancels out of relative vectors; no unapproved rotation/axis swap is allowed, and none of these three gains identity credit.
+
+**Reproducible artifacts:** `midcycle-w14-native-methodab-and-original-cii-coordinate-registration.json` contains all eight pair-specific missing Method A/B prerequisites, native SOURCE suggestion counts, production alternatives and evidence, 105 root coordinate availability, per-file original mm units/COORDS custody and all nine signed-vector comparisons. `midcycle-w14-eight-missing-native-methodab-evidence.csv` and `midcycle-w14-three-original-coordinate-registration.csv` are its review exports. Code: [W14 original registration and native method audit](../../cii-workspace-phase2-midcycle-w14-methodab-registration-review.js), [W14 adversarial controls](../../cii-workspace-phase2-midcycle-w14-methodab-registration-review.test.js), [retained original runner](../../cii-workspace-phase2-owner-retained-measure.mjs).
+
+**Accounting:** W14 yields **zero new independent SOURCE physical NODE→TARGET certifications**. Midcycle first-stage acceptance remains **105/150=70.00% PASS**, **45 SOURCE NODEs unverified**. Original 428-row Owner benchmark remains separate, blocked, and unmodified. W14 never edits original CII geometry, expected NodeNames, Method A/B code or Writer2. PR #107 remains **DRAFT/unmerged**.
+
 ## Midcycle info W13: original CII component-type evidence and competing TARGET adjudication
 
 W13 independently decodes original fifteen-row `#$ ELEMENTS` records rather than inferring **PIPE** from a straight, constant-OD geometric path. The element records retain explicit auxiliary references for bends, rigids, expansion-joint slots, SIF/tees and reducers; a nonzero relevant reference **vetoes** a plain PIPE segmentation hypothesis, while zero references only mean **plain-PIPE-compatible**, *not* an independently proven explicit PIPE type. The [original-record classifier](../../cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.js) and its [adversarial tests](../../cii-workspace-phase2-midcycle-w13-actual-element-type-and-target-arbitration.test.js) reject bend/rigid/reducer references, invalid element indexes, changed 100mm tolerance and unqualified Method A/B target claims.
