@@ -17,7 +17,7 @@ const sourceFiles = [
   'cii-workspace-method-c-ui.js','cii-workspace-method-c-native-adapter.js',
   'cii-workspace-method-c-tile.js',
 ];
-const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
+const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
 test('WP7 red: Method C owned modules have no Writer2 imports, mutation/export grants or native Apply controls',()=>{
@@ -68,6 +68,9 @@ test('WP7 red: scope policy rejects every existing shared/PR107 protected path, 
   assert.equal(allowedPath('tests/cii-workspace-method-c-firebreak.test.js'),true);
   assert.equal(allowedPath('tests/fixtures/cii-method-c/derived-reference-excerpt.v1.json'),true);
   assert.equal(allowedPath('tests/fixtures/cii-phase2/owner-phase2-original.txt'),false);
+  assert.equal(allowedPath('docs/METHOD_C_G2_REVIEW_PACKET.md'),true);
+  assert.equal(allowedPath('docs/METHOD_C_G2_REVIEW_STATUS.json'),true);
+  assert.equal(allowedPath('docs/tabs/cii-workspace/cii-workspace-tab.js'),false);
 });
 test('WP7 actual diff boundary: candidate branch does not edit PR107/shared/fixtures',()=>{
   const base=process.env.CII_METHOD_C_BASE || '3a7c34cd1b8f2f88b36e55503a96378406ea0c71';
