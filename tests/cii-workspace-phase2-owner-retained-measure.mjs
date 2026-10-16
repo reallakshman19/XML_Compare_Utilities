@@ -207,6 +207,90 @@ assert.equal(midCycle.directionReversalDiagnostic.independentlyExistingAutoSolve
 assert.equal(midCycle.directionReversalDiagnostic.distinctPhysicalPairCandidateCount,33);
 assert.equal(midCycle.originalRowCount,428);
 
+// Owner-ready fixture/revision adjudication packet; the data here can never
+// be interpreted as Owner signature, direction approval or Writer authority.
+const reverse=midCycle.directionReversalDiagnostic;
+const reasonOrder=['BOTH_ORIGINAL_NODENAMES_NOT_FOUND','SOURCE_ORIGINAL_NODENAME_NOT_FOUND',
+  'TARGET_ORIGINAL_NODENAME_NOT_FOUND','UNIQUE_ORIGINAL_PHYSICAL_PAIR_CANDIDATE'];
+const samples=reasonOrder.map(code=>{
+  const matching=reverse.rows.filter(r=>r.reasonCode===code);
+  return {
+    code,count:matching.length,
+    firstFive:matching.slice(0,5).map(r=>({
+      ordinal:r.ownerOrdinal,ownerPS:r.originalSourceLabel,ownerSL:r.originalTargetLabel,
+    })),
+  };
+});
+const mappedPairs=reverse.rows.filter(r=>r.exactlyOneCandidate).map(r=>{
+  const c=r.candidatePairs[0];
+  return {
+    ordinal:r.ownerOrdinal,
+    ownerPS:r.originalSourceLabel,ownerSL:r.originalTargetLabel,
+    sourceMemberId:c.sourceMemberId,sourcePhysicalNodeId:c.sourcePhysicalNodeId,
+    targetPhysicalNodeId:c.targetPhysicalNodeId,
+    independentlyBound:reverseConditional.rows.find(x=>x.ownerOrdinal===r.ownerOrdinal)?.credit===1,
+  };
+});
+const disposition={
+  schema:'CiiOwnerPhase2BenchmarkAdjudicationPacket.v1',
+  ownerInputSha256:manifest.originalUploadSha256,
+  pinnedSourceSetSha256:inspection.sourceSet.sourceSetSha256,
+  pinnedTargetSha256:inspection.versionBridge.target.originalSha256,
+  sourcePhysicalNodeTotal:audit.summary.totalSourceNodes,
+  originalDenominator:428,originalRequiredValidatedRows:300,
+  proposedReversedInterpretationPendingOwnerDecision:true,
+  asWrittenPhysicalPairCount:midCycle.asWritten.physicalPairCandidatesUniqueNameRows,
+  reversedUniqueNamePairCount:reverse.physicalPairCandidatesUniqueNameRows,
+  reversedIndependentlyBoundPhysicalPairCount:reverseConditional.independentlyBoundPhysicalPairAgreement,
+  reversedIndependentPhysicalPairWrongTargetCount:reverseConditional.independentBoundWrongTargets,
+  unresolvedOwnerRowCount:428-reverse.physicalPairCandidatesUniqueNameRows,
+  requestedOwnerDecisions:[
+    'Confirm PS-column belongs to T and SL-column belongs to S1/S2/S3, or provide the correct orientation and original file revisions',
+    'Provide missing original CII SOURCE member/target revisions whose complete NodeName lists cover remaining original 395 Owner pairs, with exact byte hashes',
+    'Specify independently supported original physical node occurrence/member mapping for any repeated or alternative NodeNames',
+    'Ratify whether all original 428 rows are distinct scored physical obligations; explain one-to-many PS02687.1 x78 and how 300 independent correct physical SOURCE claims are possible with 150 pinned SOURCE nodes',
+    'Provide independent physical validation and unambiguous false-positive/duplicate-credit adjudication before claiming >=70% release PASS',
+  ],
+  categories:samples,
+  uniqueReversedPhysicalCandidates:mappedPairs,
+  ownerApprovalAttested:false,phase2RecallCertified:null,
+};
+writeFileSync(new URL('owner-benchmark-adjudication-packet.json',root),JSON.stringify(disposition,null,2)+'\n');
+const packetLines=[
+  '# CII Phase 2 — Owner original-NodeName benchmark adjudication',
+  '', '**Status:** OWNER DIRECTION, FILE REVISION AND OCCURRENCE CONTRACT NOT RATIFIED.',
+  '**No validated 70% recall or Writer authority is claimed.**',
+  '',
+  '## Frozen custody',
+  '',
+  '- Owner 428 original rows: SHA-256 \`'+manifest.originalUploadSha256+'\`.',
+  '- SOURCE S1/S2/S3 original sourceSet SHA-256 \`'+inspection.sourceSet.sourceSetSha256+'\`.',
+  '- T original SHA-256 \`'+inspection.versionBridge.target.originalSha256+'\`.',
+  '- Original SOURCE physical NODE census: '+audit.summary.totalSourceNodes+'; original owner required independent physical row count: 300/428.',
+  '- NodeName is decoded independently through original CII ELEMENTS -> NODENAME pointers. No owner name is fed into production matching.',
+  '',
+  '## Observed without rewriting the Owner columns',
+  '',
+  '| Interpretation | Unique physical pairs | Existing AUTO bound agreement | Status |',
+  '|---|---:|---:|---|',
+  '| As written PS(S1/S2/S3)->SL(T) | '+midCycle.asWritten.physicalPairCandidatesUniqueNameRows+' | '+declaredConditional.independentlyBoundPhysicalPairAgreement+' | Cannot score full golden |',
+  '| Reversed for diagnostic only SL(S1/S2/S3)->PS(T) | '+reverse.physicalPairCandidatesUniqueNameRows+' | '+reverseConditional.independentlyBoundPhysicalPairAgreement+' | Direction unapproved; conditional 33/33 is NOT 70% recall |',
+  '',
+  '## Original row-level reason codes (reversed diagnostic only)',
+  '',
+  '| Reason | Count | Example owner ordinal: PS, SL |',
+  '|---|---:|---|',
+  ...samples.map(x=>'| '+x.code+' | '+x.count+' | '+x.firstFive.map(y=>y.ordinal+': '+y.ownerPS+', '+y.ownerSL).join('; ')+' |'),
+  '', '## 33 exact original physical candidates with independent AUTO comparisons', '',
+  '| Owner row | SOURCE member | SOURCE NodeName | SOURCE NODE ID | TARGET NodeName | T NODE ID | AUTO bound agreement |',
+  '|---:|---|---|---:|---|---:|---|',
+  ...mappedPairs.map(x=>'| '+x.ordinal+' | '+x.sourceMemberId+' | '+x.ownerSL+' | '+x.sourcePhysicalNodeId+' | '+x.ownerPS+' | '+x.targetPhysicalNodeId+' | '+(x.independentlyBound?'Yes':'No')+' |'),
+  '', '## Required Owner input before release acceptance', '',
+  ...disposition.requestedOwnerDecisions.map((t,i)=>(i+1)+'. '+t),
+  '', 'The 33 candidates are test-only evidence; never auto-create MANUAL anchors from expected Owner input.',
+  'Issue #106 remains OPEN. PR #107 remains DRAFT and unmerged.',
+];
+writeFileSync(new URL('owner-benchmark-adjudication-packet.md',root),packetLines.join('\n')+'\n');
 writeFileSync(new URL('phase2-owner-diagnostic.json',root),JSON.stringify({report,rows:diagnostics},null,2)+'\n');
 const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','ownerDirection','sourceMemberCandidates','sourcePhysicalNodeCandidates','targetPhysicalNodeCandidates','sourceCandidateCount','targetCandidateCount','uniquelyAttributed','declared','transposedDiagnostic','legacyBoundAndLabelAgreement','transposedLegacyBoundAndLabelAgreement','discrepancy','physicalValidationTier'];
 
