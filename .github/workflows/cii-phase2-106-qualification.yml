@@ -64,6 +64,8 @@ jobs:
           node-version: '22'
       - name: Measure original retained S1/S2/S3/T and preserve 428 owner row diagnostics
         run: node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
+      - name: Check original Owner NodeNames against all other repository Benchmark CII files (test-only provenance)
+        run: node tests/cii-workspace-phase2-owner-corpus-provenance.mjs
       - name: Archive complete owner row-level report
         if: always()
         uses: actions/upload-artifact@v4
