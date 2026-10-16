@@ -39,6 +39,18 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Full original SOURCE population reconciliation — no authorized ≥300-node replacement
+
+The reproducible [population reconciliation test](../../cii-workspace-phase2-original-population-reconcile.mjs) independently parses **all 13 non-mirrored CII files in the repository**, counting **distinct numeric physical FROM/TO NODE IDs** rather than element counts, repeated names, or raw golden rows. Its outputs are `owner-original-physical-population-reconciliation.{json,md}` and `owner-source-population-candidate-inventory.csv`, archived with the 428-row acceptance artifact.
+
+- Original pinned SOURCE: **S1 57 + S2 47 + S3 46 = 150** distinct member-scoped physical NODEs. Exact SOURCE SL label presence: S1 1 physical node, S2 24, S3 21. **382** of the original 428 owner rows reference an SL label absent from all three.
+- Original TARGET T: **1,619** physical NODEs; **322** of the owner rows refer to a PS target label absent from original T. Only **33** original owner physical SOURCE→TARGET candidate pairs resolve uniquely and agree conditionally with AUTO results.
+- Alternative [SOURCE 3.CII](../../../Benchmark/CIICompare/SOURCE%203.CII): **221** original physical NODEs but **0 owner SL SOURCE NodeNames**; alternative [TARGET 3-1.CII](../../../Benchmark/CIICompare/TARGET%203-1.CII) has **225** physical NODEs and **0 owner SL SOURCE NodeNames**. Other candidate source files: at most **66** physical NODEs, with **0** matching owner SL source names.
+- Only **[T.CII](../../../Benchmark/T.CII)** and the **[partial TARGET postimage](../../../Benchmark/TEXPECTED-PARTIALLLYDONE.CII)** have ≥300 original physical NODEs, but neither is an admissible SOURCE. One CII converter file fails strict original ELEMENTS parsing and is excluded.
+- The physical one-to-one 428-row contract has an upper bound of **150/428=35.05%**, below required **300/428**; the benchmark therefore has a **structural FAIL**. Neither merging unrelated CII jobs nor relabeling TARGET nodes as SOURCE creates a defensible acceptance fixture.
+
+Original pinned S1/S2/S3/T files each have only one GitHub commit affecting their tracked path (original upload dated 2026-09-03), so no earlier **tracked revision under those same paths** provides a replacement SOURCE population. This statement does **not** prove an external Owner file does not exist. An independently supplied and byte-hashed original SOURCE fixture with ≥300 eligible physical node obligations and valid Owner NodeName/occurrence provenance is necessary before the original ≥70% requirement can be qualified.
+
 ## Required mapping: never confuse numeric NODE with NodeName
 
 The user explicitly corrected the approach: **`NodeName → physical NODE`** must be decoded **first**. The CII format stores original node names indirectly:
