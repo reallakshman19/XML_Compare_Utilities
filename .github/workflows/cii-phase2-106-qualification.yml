@@ -30,6 +30,7 @@ jobs:
           node tests/cii-workspace-phase2-midcycle150-score.test.js
           node tests/cii-workspace-phase2-midcycle150-original-path-witness.test.js
           node tests/cii-workspace-phase2-midcycle150-rooted-verify.test.js
+          node tests/cii-workspace-phase2-midcycle150-unverified-forensics.test.js
           node tests/cii-workspace-parallel-anchor-evidence.test.js
           node tests/cii-workspace-phase2-normalization-length.test.js
           node tests/cii-workspace-phase2-live-path-policy.test.js
