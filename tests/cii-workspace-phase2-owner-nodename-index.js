@@ -83,14 +83,16 @@ function resolution(left,right,sourceByName,targetByName) {
       'AMBIGUOUS_NODENAME_CARDINALITY',
   });
 }
-export function resolveCiiOwnerPhase2RowsByOriginalNodeName(ownerRows,indexes) {
+export function resolveCiiOwnerPhase2RowsByOriginalNodeName(ownerRows,indexes,options={}) {
   const rows=ownerRows.map((owner,i)=>freeze({
     ...owner,ownerOrdinal:owner.ordinal??i+1,
-    // Respect the source->target column contract in the owner input.
+    // Preserve original column text while separately honoring the verified
+    // Owner semantic direction. Never rewrite original raw Owner bytes.
     declared:resolution(owner.rawSourceLabel,owner.rawTargetLabel,indexes.sourceByName,indexes.targetByName),
     // An independent cross-check, NOT permission to silently transpose Owner input.
     transposedDiagnostic:resolution(owner.rawTargetLabel,owner.rawSourceLabel,indexes.sourceByName,indexes.targetByName),
-    ownerDirection:'AS_DECLARED_PS_SOURCE_TO_SL_TARGET',
+    ownerDirection:options.ownerConfirmedSlSourceToPsTarget===true
+      ? 'OWNER_CONFIRMED_SL_SOURCE_TO_PS_TARGET' : 'UNCONFIRMED_RAW_PS_TO_SL',
     benchmarkPhysicalIdentityCertified:false,
   }));
   const summary=key=>{
@@ -110,7 +112,9 @@ export function resolveCiiOwnerPhase2RowsByOriginalNodeName(ownerRows,indexes) {
     sourceStats:indexes.sourceStats,targetStats:indexes.targetStats,
     originalRowCount:rows.length,
     asDeclared:summary('declared'),transposedDiagnostic:summary('transposedDiagnostic'),
-    ownerDirectionReinterpretationAuthorized:false,
+    ownerDirectionReinterpretationAuthorized:options.ownerConfirmedSlSourceToPsTarget===true,
+    authoritativePhysicalPairLookup:options.ownerConfirmedSlSourceToPsTarget===true
+      ?'transposedDiagnostic':'UNRATIFIED',
     physicalCorrespondenceValidated:false,
     rows:freeze(rows),
   });
