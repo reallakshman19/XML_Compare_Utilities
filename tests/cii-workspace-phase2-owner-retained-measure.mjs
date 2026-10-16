@@ -15,6 +15,7 @@ import {buildCiiSourceTargetAudit} from '../tabs/cii-workspace/cii-workspace-sou
 import { buildCiiOwnerOriginalNodeNameIndexes, resolveCiiOwnerPhase2RowsByOriginalNodeName } from './cii-workspace-phase2-owner-nodename-index.js';
 import {reconcileCiiOwnerMidCyclePhysicalRows} from './cii-workspace-phase2-owner-midcycle-forensics.js';
 import {scoreCiiOwnerPhysicalCandidateCoverage} from './cii-workspace-phase2-owner-conditional-coverage.js';
+import {scoreCiiOwnerPhase2PhysicalAcceptance} from './cii-workspace-phase2-owner-physical-acceptance.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -23,6 +24,12 @@ const targetBytes=readFileSync(new URL('../Benchmark/T.CII',import.meta.url));
 const raw=readFileSync(new URL('./fixtures/cii-phase2/owner-phase2-original.txt',import.meta.url));
 const manifest=JSON.parse(readFileSync(new URL('./fixtures/cii-phase2/owner-phase2-manifest.json',import.meta.url),'utf8'));
 assert.equal(createHash('sha256').update(raw).digest('hex'),manifest.originalUploadSha256);
+const decision=JSON.parse(readFileSync(new URL('./fixtures/cii-phase2/owner-confirmed-direction.json',import.meta.url),'utf8'));
+assert.equal(decision.ownerConfirmedDirection,true);
+assert.equal(decision.rawFixtureOriginalSha256,manifest.originalUploadSha256);
+assert.equal(decision.freezeOriginalRows,428);
+assert.equal(decision.acceptedSource,'S1/S2/S3 physical NODE with NodeName = original column 2 SL');
+assert.equal(decision.acceptedTarget,'T physical NODE with NodeName = original column 1 PS');
 const originals=raw.toString('utf8').split(/\r?\n/).map((line,index)=>({line,index})).filter(x=>/^(PS\S+)\s+(SL\S+)\s*$/.test(x.line.trim())).map(({line,index},i)=>{
   const match=line.trim().match(/^(PS\S+)\s+(SL\S+)$/);
   return {ordinal:i+1,originalLine:index+1,rawSourceLabel:match[1],rawTargetLabel:match[2]};
@@ -47,7 +54,10 @@ const audit=buildCiiSourceTargetAudit(preview);
 const originalIndexes=buildCiiOwnerOriginalNodeNameIndexes(files,targetBytes);
 assert.deepEqual(originalIndexes.sourceStats.map(r=>r.physicalNodeCount),[57,47,46]);
 assert.equal(originalIndexes.targetStats.physicalNodeCount,1619);
-const resolved=resolveCiiOwnerPhase2RowsByOriginalNodeName(originals,originalIndexes);
+const resolved=resolveCiiOwnerPhase2RowsByOriginalNodeName(originals,originalIndexes,{
+  ownerConfirmedSlSourceToPsTarget:decision.ownerConfirmedDirection,
+});
+assert.equal(resolved.ownerDirectionReinterpretationAuthorized,true);
 const observedBySourceId=new Map(audit.rows.map(row=>[String(row.rowKey),row]));
 function legacyObserved(resolution) {
   const matching=resolution.candidatePairs.filter(pair=>{
@@ -76,12 +86,16 @@ const diagnostics=resolved.rows.map(row=>{
     verifiedPhysicalCorrespondence:false,
   });
 });
-const midCycle=reconcileCiiOwnerMidCyclePhysicalRows(diagnostics);
-// In TEST ONLY, score the physically grounded 33-row reversed-column
-// diagnostic independently against complete, matcher-generated physical
-// source-node audit. Never feed Owner labels/pairs into a matching option.
+const midCycle=reconcileCiiOwnerMidCyclePhysicalRows(diagnostics,{
+  ownerConfirmedSlSourceToPsTarget:decision.ownerConfirmedDirection,
+});
+assert.equal(midCycle.ownerApprovedTranspose,true);
+// In TEST ONLY, score Owner-CONFIRMED SL source -> PS target physical pairs
+// independently against complete matcher-generated physical source-node audit.
+// The Owner fixture remains in its ORIGINAL PS-first, SL-second byte order.
 const reverseConditional=scoreCiiOwnerPhysicalCandidateCoverage(
   midCycle.directionReversalDiagnostic.rows,audit,{originalDenominator:428,
+    ownerApprovedOrientation:decision.ownerConfirmedDirection,
     sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
     targetOriginalSha256:inspection.versionBridge.target.originalSha256,
   });
@@ -96,6 +110,14 @@ assert.equal(reverseConditional.distinctPhysicalOraclePairs,33);
 // Keep this as a diagnostic snapshot, NOT a declared 70% PASS.
 assert.equal(reverseConditional.P2_VALIDATED_RECALL,null);
 assert.equal(reverseConditional.phase2SeventyPercentQualified,false);
+const acceptance=scoreCiiOwnerPhase2PhysicalAcceptance({
+  ownerRows:428,originalSourcePhysicalNodeCount:audit.summary.totalSourceNodes,
+  originalTargetPhysicalNodeCount:originalIndexes.targetStats.physicalNodeCount,
+  ownerDirectionConfirmed:decision.ownerConfirmedDirection,physicalCoverage:reverseConditional,
+});
+assert.equal(acceptance.requiredValidatedPhysicalRowCredits,300);
+assert.equal(acceptance.maxIndependentPhysicalRowCredits,150);
+assert.equal(acceptance.acceptanceStatus,'FAIL_STRUCTURALLY_UNATTAINABLE_ON_PINNED_FILES');
 
 const count=predicate=>diagnostics.filter(predicate).length;
 const agreement=count(row=>row.legacyBoundAndLabelAgreement);
@@ -110,7 +132,9 @@ for(const row of diagnostics.filter(r=>r.legacyBoundAndLabelAgreement))
 const manyRows=[...bySourcePhysicalId].filter(([,ids])=>ids.length>1).map(([sourceKey,ids])=>({sourceKey,ownerOrdinals:ids}));
 const report={
   schema:'CiiPhase2OwnerBenchmarkDiagnostic.v1',
-  status:'NOT_EVALUABLE_INDEPENDENT_GLOBAL_PHYSICAL_CERTIFICATION_MISSING',
+  status:'FAIL_STRUCTURALLY_UNATTAINABLE_ON_PINNED_FILES',
+  ownerConfirmedSourceTargetDirection:'SL_S1_S2_S3_TO_PS_T',
+  physicalOneToOneAcceptance:acceptance,
   originalOwnerInputSha256:manifest.originalUploadSha256,
   originalBenchmarkRows:428,requiredValidatedRows:300,targetValidatedRecall:0.70,
   sourceSetOriginalSha256:inspection.sourceSet.sourceSetSha256,
@@ -122,13 +146,13 @@ const report={
   physicalCandidateCorrespondenceStatus:preview.correspondence.status,
   conditionalOriginalPhysicalCoverage:{
     asWritten:{...declaredConditional,rows:undefined},
-    reversedUnapproved:{...reverseConditional,rows:undefined},
+    ownerConfirmedSlToPs:{...reverseConditional,rows:undefined},
     originalOwnerDenominator:428,
-    ownerApprovedOrientation:false,
-    phase2Acceptance:'NOT_EVALUABLE_UNRATIFIED_DIRECTION_AND_395_UNRESOLVED_ROWS',
+    ownerApprovedOrientation:true,
+    phase2Acceptance:'FAIL_ONE_TO_ONE_150_NODE_CAP_300_REQUIRED',
   },
   midCycleReconciliationSummary:{
-    ownerDirectionConfirmed:false,
+    ownerDirectionConfirmed:true,
     asWritten:{...midCycle.asWritten,rows:undefined},
     reversed:{...midCycle.directionReversalDiagnostic,rows:undefined},
   },
@@ -154,9 +178,9 @@ const report={
   sourcePhysicalNodesWithRepeatedLegacyOwnerCredits:manyRows,
   independentGlobalPhysicalValidatedCount:null,
   P2_VALIDATED_RECALL:null,
-  Phase2ThresholdMet:null,
-  physicallyValidatedCreditingRule:'NO NAME-ONLY, NO LEGACY IDENTITYBOUND; requires full original physical source-member and global target custody proof and independent falsifiers',
-  note:'Original fixed-field NodeName->Node indexes are built per member and T; declared PS-source/SL-target and reversed SL-source/PS-target are separately reported without silently swapping Owner columns. A label-resolved pair from Owner golden is an expected physical-node pair, not an independently correct matcher output or Writer authorization. Report ambiguity and repeat reuse explicitly.',
+  Phase2ThresholdMet:false,
+  physicallyValidatedCreditingRule:'OWNER_CONFIRMED_SL_TO_PS; ONE_UNIQUE_SOURCE_MEMBER_NODE_AND_ONE_UNIQUE_TARGET_NODE_PER_CREDIT; REUSED_SOURCE_TARGET_AND_CONFLICTS_VETOED; NOT_NAME_ONLY',
+  note:'Owner confirms source=SL in S1/S2/S3, target=PS in T, despite original input PS then SL ordering. Exact bytes/428 rows remain unchanged. 33 independently AUTO-bound name-resolved pairs are a conditional diagnostic; strict certified R is not established. One-to-one 150-node upper bound makes original >=300/428 structurally unattainable on the pinned source files.',
 };
 const root=new URL('../test-results/cii-phase2/',import.meta.url);
 mkdirSync(root,{recursive:true});
@@ -176,7 +200,7 @@ writeCsv('original-source-nodename-to-node.csv',['sourceMemberId','nodeName','ph
 writeCsv('original-target-nodename-to-node.csv',['nodeName','physicalNodeId'],targetNameIndex);
 writeFileSync(new URL('owner-original-physical-conditional-coverage.json',root),
   JSON.stringify({schema:'CiiOwnerOriginalPhysicalConditionalCoverageReport.v1',
-    asWritten:declaredConditional,reversedUnapproved:reverseConditional,
+    asWritten:declaredConditional,ownerConfirmedSlToPs:reverseConditional,
     originalOwnerInputSha256:manifest.originalUploadSha256,
     qualification:'NOT_EVALUABLE_WRITER_AND_PRODUCTION_UNCHANGED',
   },null,2)+'\n');
@@ -244,17 +268,18 @@ const disposition={
   pinnedTargetSha256:inspection.versionBridge.target.originalSha256,
   sourcePhysicalNodeTotal:audit.summary.totalSourceNodes,
   originalDenominator:428,originalRequiredValidatedRows:300,
-  proposedReversedInterpretationPendingOwnerDecision:true,
+  ownerConfirmedSlSourceToPsTarget:true,
+  oneToOnePhysicalAcceptance:acceptance,
   asWrittenPhysicalPairCount:midCycle.asWritten.physicalPairCandidatesUniqueNameRows,
   reversedUniqueNamePairCount:reverse.physicalPairCandidatesUniqueNameRows,
   reversedIndependentlyBoundPhysicalPairCount:reverseConditional.independentlyBoundPhysicalPairAgreement,
   reversedIndependentPhysicalPairWrongTargetCount:reverseConditional.independentBoundWrongTargets,
   unresolvedOwnerRowCount:428-reverse.physicalPairCandidatesUniqueNameRows,
   requestedOwnerDecisions:[
-    'Confirm PS-column belongs to T and SL-column belongs to S1/S2/S3, or provide the correct orientation and original file revisions',
+    'Owner-confirmed: PS-column belongs to T and SL-column to S1/S2/S3; retain original bytes and first PS column unchanged',
     'Provide missing original CII SOURCE member/target revisions whose complete NodeName lists cover remaining original 395 Owner pairs, with exact byte hashes',
     'Specify independently supported original physical node occurrence/member mapping for any repeated or alternative NodeNames',
-    'Ratify whether all original 428 rows are distinct scored physical obligations; explain one-to-many PS02687.1 x78 and how 300 independent correct physical SOURCE claims are possible with 150 pinned SOURCE nodes',
+    'Counting resolved: each distinct original SOURCE NODE -> TARGET NODE is worth at most one credit; 150 distinct SOURCE NODEs cap credits at 150/428=35.05%, below required 300. Supply a different approved physical fixture contract to attain >=70%',
     'Provide independent physical validation and unambiguous false-positive/duplicate-credit adjudication before claiming >=70% release PASS',
   ],
   categories:samples,
@@ -264,7 +289,7 @@ const disposition={
 writeFileSync(new URL('owner-benchmark-adjudication-packet.json',root),JSON.stringify(disposition,null,2)+'\n');
 const packetLines=[
   '# CII Phase 2 — Owner original-NodeName benchmark adjudication',
-  '', '**Status:** OWNER DIRECTION, FILE REVISION AND OCCURRENCE CONTRACT NOT RATIFIED.',
+  '', '**Status:** DIRECTION CONFIRMED SL(S1/S2/S3)->PS(T); ONE-TO-ONE 428-ROW ACCEPTANCE STRUCTURALLY FAILS ON PINNED 150-NODE SOURCES.',
   '**No validated 70% recall or Writer authority is claimed.**',
   '',
   '## Frozen custody',
@@ -280,7 +305,7 @@ const packetLines=[
   '| Interpretation | Unique physical pairs | Existing AUTO bound agreement | Status |',
   '|---|---:|---:|---|',
   '| As written PS(S1/S2/S3)->SL(T) | '+midCycle.asWritten.physicalPairCandidatesUniqueNameRows+' | '+declaredConditional.independentlyBoundPhysicalPairAgreement+' | Cannot score full golden |',
-  '| Reversed for diagnostic only SL(S1/S2/S3)->PS(T) | '+reverse.physicalPairCandidatesUniqueNameRows+' | '+reverseConditional.independentlyBoundPhysicalPairAgreement+' | Direction unapproved; conditional 33/33 is NOT 70% recall |',
+  '| Owner-confirmed SL(S1/S2/S3)->PS(T) | '+reverse.physicalPairCandidatesUniqueNameRows+' | '+reverseConditional.independentlyBoundPhysicalPairAgreement+' | 33/33 conditional; hard upper bound 150/428 <70% |',
   '',
   '## Original row-level reason codes (reversed diagnostic only)',
   '',
@@ -302,5 +327,6 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
+console.log('PHASE2_OWNER_CONFIRMED_ACCEPTANCE '+JSON.stringify(acceptance));
 console.log('PHASE2_CONDITIONAL_PHYSICAL_COVERAGE '+JSON.stringify({originalOwnerDenominator:428,unapprovedReverseNamePairs:reverseConditional.distinctPhysicalOraclePairs,matched:reverseConditional.independentlyBoundPhysicalPairAgreement,wrongTargets:reverseConditional.independentBoundWrongTargets,original428Recall:reverseConditional.P2_VALIDATED_RECALL,reason:reverseConditional.reason}));
 console.log('PHASE2_OWNER_NODENAME_INDEX_COMPLETE: original CII NODENAME->physical NODE, both column orientations separately evaluated; validated correspondence recall requires independent solver proof');
