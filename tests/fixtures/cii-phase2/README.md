@@ -39,6 +39,35 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Midcycle info W15 — genuine native Method B physical basis attempt, eight disputed TARGETs
+
+W15 tests all **eight** untrusted geometric SOURCE→TARGET hypotheses against the **existing production-native** `qualifyCiiMethodBRunBasis()` evaluator on the original normalized SOURCE and TARGET topology graphs. This is *not* owner golden seeding, automatic base selection, permitted Writer2 authority, or an alternate identity rule. Native Method B tests retain their **two independent PIPE-run axis hard gate**, OD-scaled tolerance, topological terminal and run mapping requirements. Method A evidence is taken strictly from *already discovered native qualified loops*—never from manufacturing new three-anchor bases containing a proposed golden pair.
+
+**Exact original real-file outcome:**
+
+| SOURCE physical NODE | Provisional original T | Production-reviewed original T | Native independent SOURCE/T axes | Native B status |
+|---|---:|---:|---|---|
+| S1:3970 | 890 | 885 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S1:4020 | 895 | 890 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S1:4050 | 900 | 895 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S2:220 | 10140 | 10150 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S2:230 | 10150 | 10160 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S3:1810 | 9090 | 9100 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S3:1820 | 9100 | 9130 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+| S3:1840 | 9130 | 21840 | 1 / 1 | REVIEW, TWO_AXIS_GATE_NOT_MET |
+
+**All 8 fail the two-axis physical Method B basis** on both original SOURCE and proposed TARGET; **zero** have a native discovered exact-pair suggestion or existing qualified Method A base containing that pair. No qualifying exact-pair winner gap exists. The direct B evaluator operates on *a hypothetical pair* and cannot create a real auto-selected correspondence even if its physical basis had passed. W15's measured outcome: **0 new production BOUND / 0 independently certified original SOURCE physical NODE matches**.
+
+Replay:
+```bash
+node tests/cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.test.js
+node --max-old-space-size=4096 tests/cii-workspace-phase2-owner-retained-measure.mjs
+```
+
+The real retained benchmark writes `midcycle-w15-eight-untrusted-native-methodab-direct-probes.json` and `.csv`, containing original physical SOURCE/T NODE IDs, native source/target axis counts, original qualified run basis, OD-scaled tolerance, Method A discovered anchor loop membership, native exact-pair suggestions/winner-gap, full blocker codes and zero physical credit. [Read-only W15 genuine Method B probe](../../cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.js); [native axis and nonpromotion negative tests](../../cii-workspace-phase2-midcycle-w15-native-basis-direct-probe.test.js).
+
+**Contract preserved:** Midcycle SOURCE census remains **150**, independently certified **105/150 = 70% PASS** with **45** unverified. Original 428 Owner rows remain immutable and ≥300/428 release requirement separate/blocked. No Method A fixed 35/25/20/10/10 reweighting, Method B independent axes/winner-gap change, benchmark fixture substitution, AUTO/MANUAL provenance, arbitrary coordinate transform or Writer2 authority.
+
 ## Midcycle info W14: missing native Method A/B evidence and original CII registration
 
 W14 reads **actual original pinned S1/S2/S3 and T CII** `#$ UNITS` and `#$ COORDS` registration, the unmodified production `baseAnchorSuggestions`, previously selected production loops, the previously certified 105 physical NODE pairs, and all eight production-vs-provisional TARGET disputes. The verifier is **test-only**, does **not** import W10 geometry guesses into native matching or create a new Writer2 eligible correspondence.
