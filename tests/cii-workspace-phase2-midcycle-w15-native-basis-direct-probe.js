@@ -6,7 +6,6 @@
  */
 import {qualifyCiiMethodBRunBasis} from '../tabs/cii-workspace/cii-workspace-pipe-runs.js';
 import {ciiQualifiedLoopsForSuggestion} from '../tabs/cii-workspace/cii-workspace-base-loop-selection.js';
-import {discoverCiiMethodABases,projectCiiMethodAEvidence} from '../tabs/cii-workspace/cii-workspace-anchor-method-a.js';
 
 const id=x=>String(x??'').trim();
 const pairKey=(s,t)=>id(s)+'=>'+id(t);
@@ -50,8 +49,6 @@ export function probeCiiW15NativeABOnDisputedHypotheses({
   const targetAxes=Number(nativeB.target?.independentAxisRunCount||0);
   const realMethodBBasisQualified=nativeB.status==='READY'&&sourceAxes>=requiredAxes&&
     targetAxes>=requiredAxes&&nativeB.compatibleBasisCount>0;
-  const nativeBasisOnlyNoWinnerGapAuthority=realMethodBBasisQualified&&
-    availableNativeProposal.length===0;
   const reasons=[];
   if(sourceAxes<2)reasons.push('NATIVE_B_SOURCE_INDEPENDENT_AXIS_RUN_COUNT_BELOW_TWO');
   if(targetAxes<2)reasons.push('NATIVE_B_TARGET_INDEPENDENT_AXIS_RUN_COUNT_BELOW_TWO');
