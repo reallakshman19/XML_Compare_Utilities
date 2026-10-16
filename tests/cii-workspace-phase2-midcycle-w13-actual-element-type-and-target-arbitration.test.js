@@ -54,7 +54,7 @@ const emptyRow=(i)=>({sourcePhysicalKey:'S1:4',originalSourceNodeName:'',
  }]:[]});
 const twentyThree=Array.from({length:23},(_,i)=>emptyRow(i));
 const eight=Array.from({length:8},(_,i)=>({
- sourcePhysicalKey:'S'+(i%3+1)+':3',
+ sourcePhysicalKey:'S1:'+String(3+i),
  w10HypotheticalTargetNodeId:'3',
  originalRootComparisons:[{trustedOriginalSourceRoot:'S1:1',originalTargetRoot:'1',
   comparedTargetClaims:[
@@ -68,7 +68,7 @@ const eight=Array.from({length:8},(_,i)=>({
      within100mmIndependentLength:false,within100mmSignedVector:true}},
   ]}]}));
 const twentyTwo=Array.from({length:22},(_,i)=>({
- sourcePhysicalKey:'S'+(i%3+1)+':3',
+ sourcePhysicalKey:'S1:'+String(3+i),
  w11Disposition:i<8?'PRODUCTION_NODE_REVIEW_EXISTS_FOR_DIFFERENT_TARGET':
   'PRODUCTION_NO_NODE_CORRESPONDENCE_EMITTED',
  productionReviewedTargetPhysicalNodeIds:i<8?['4']:[],
