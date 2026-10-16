@@ -1,5 +1,5 @@
 # Method C-only, read-only hosted qualification. New workflow; no existing shared CI edited.
-name: Method C WP2 Original-CII Geometry
+name: Method C WP2-WP5 Original-CII Geometry and SVG
 on:
   push:
     branches:
@@ -56,6 +56,11 @@ jobs:
           node --check tests/cii-workspace-method-c-registration.test.js
           node --check tabs/cii-workspace/cii-workspace-method-c-candidates.js
           node --check tests/cii-workspace-method-c-candidates.test.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-svg.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-exports.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-ui.js
+          node --check tests/cii-workspace-method-c-svg.test.js
+          node --check tests/cii-workspace-method-c-ui-browser.test.js
       - name: Run original S1/S2/S3/T tests and explicit corruption negatives
         run: |
           set -euo pipefail
@@ -64,4 +69,31 @@ jobs:
             tests/cii-workspace-method-c-original-cii.test.js \
             tests/cii-workspace-method-c-rigid-fit.test.js \
             tests/cii-workspace-method-c-registration.test.js \
-            tests/cii-workspace-method-c-candidates.test.js
+            tests/cii-workspace-method-c-candidates.test.js \
+            tests/cii-workspace-method-c-svg.test.js
+
+
+  interactive-svg-chromium:
+    name: Served Method C module Chromium interactions (not native WP6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Navigate HTTP-served Method C module with real Chromium and native SHA-256
+        run: node --test tests/cii-workspace-method-c-ui-browser.test.js
