@@ -17,6 +17,17 @@ assert.equal(perfect.independentlyBoundPhysicalPairAgreement,2);
 assert.equal(perfect.physicallyLocatableUniqueNameRows,2);
 assert.equal(perfect.conditionalPhysicalPairAgreementRatio,1);
 assert.equal(perfect.originalOwnerDenominator,428);
+const custody=scoreCiiOwnerPhysicalCandidateCoverage([candidate(1,'S1','10','5010')],complete,{
+  originalDenominator:428,sourceSetOriginalSha256:'original-source-set-sha',
+  targetOriginalSha256:'original-raw-target-SHA-not-normalized-document',
+});
+assert.equal(custody.sourceSetOriginalSha256,'original-source-set-sha');
+assert.equal(custody.targetOriginalSha256,'original-raw-target-SHA-not-normalized-document');
+assert.equal(custody.auditedTargetDocumentContentSha256,'original-target-sha');
+assert.notEqual(custody.targetOriginalSha256,custody.auditedTargetDocumentContentSha256);
+assert.throws(()=>scoreCiiOwnerPhysicalCandidateCoverage([candidate(1,'S1','10','5010')],complete,{
+  originalDenominator:428,sourceSetOriginalSha256:'wrong-original-source-set',
+}),/SOURCE_SET_ORIGINAL_SHA_CUSTODY_MISMATCH/);
 assert.equal(perfect.totalEnumeratedSourcePhysicalNodes,2);
 assert.equal(perfect.independentSolverBoundSourceNodeCount,2);
 assert.equal(perfect.ownerConditionallyAgreedSourceNodeCount,2);
