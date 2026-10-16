@@ -31,7 +31,12 @@ function originalGraph(bytes){
   const delta=[2,3,4].map(k=>float(line,k));
   if(delta.some(x=>x==null))throw Error('MIDCYCLE_ORIGINAL_VECTOR_NOT_PARSEABLE:'+i);
   const length=Math.hypot(...delta);
+  // Fixed CII first ELEMENTS row: field 5 is OD; next row field 0 is
+  // wall thickness. These are recorded as original engineering evidence,
+  // not used as a substitute for independent physical NODE identity.
+  const originalOdMm=float(line,5),originalWallMm=float(numeric[i*15+1],0);
   return Object.freeze({from:e.from,to:e.to,index:i,originalLengthMm:length,
+   originalOdMm,originalWallMm,
    originalDirectionVector:Object.freeze(delta),
    originalFixedFieldElementRow:i*15+1,
    originalNodeNamePointer:e.pointer});
@@ -146,6 +151,14 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
       ?Math.abs(targetPath.lengthMm-e.originalLengthMm):null;
      const sourceSigned= e.from===nodeId?e.originalDirectionVector:e.originalDirectionVector.map(x=>-x);
      const vectorDeltaMm=targetPath.vectorMm?Math.hypot(...sourceSigned.map((x,i)=>x-targetPath.vectorMm[i])):null;
+     const odCompatible=targetPath.status==='UNIQUE_MIN_HOP_ROUTE'&&
+       Number.isFinite(e.originalOdMm)&&e.originalOdMm>0&&
+       (targetPath.edges||[]).every(te=>Number.isFinite(te.originalOdMm)&&
+         Math.abs(te.originalOdMm-e.originalOdMm)<=1);
+     const wallCompatible=targetPath.status==='UNIQUE_MIN_HOP_ROUTE'&&
+       Number.isFinite(e.originalWallMm)&&
+       (targetPath.edges||[]).every(te=>Number.isFinite(te.originalWallMm)&&
+         Math.abs(te.originalWallMm-e.originalWallMm)<=1);
      const qualified=lengthDeltaMm!==null&&lengthDeltaMm<=pathTotalLengthToleranceMm;
      witnesses.push(Object.freeze({sourceElementIndex:e.index,
       sourceOriginalNodeIds:[e.from,e.to],sourceLengthMm:e.originalLengthMm,
@@ -153,6 +166,10 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
       targetPathStatus:targetPath.status,
       targetElementIndices:(targetPath.edges||[]).map(x=>x.index),
       targetPathLengthMm:targetPath.lengthMm??null,
+      sourceOriginalOdMm:e.originalOdMm,sourceOriginalWallMm:e.originalWallMm,
+      targetOriginalOdMm:(targetPath.edges||[]).map(x=>x.originalOdMm),
+      targetOriginalWallMm:(targetPath.edges||[]).map(x=>x.originalWallMm),
+      originalOdCompatible:odCompatible,originalWallCompatible:wallCompatible,
       lengthDeltaMm,vectorDeltaMm,
       sourceDisplacementVectorMm:sourceSigned,
       targetDisplacementVectorMm:targetPath.vectorMm||null,
@@ -193,11 +210,18 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
    const localOriginalAlternativeCount=alternativeSet.size;
    const localAlternativeUnique=eligible&&localOriginalAlternativeCount===1&&alternativeSet.has(targetId);
    const supported=witnesses.filter(w=>w.withinLengthTolerance);
+   const originalSourceBranch=g.adjacency.get(nodeId).length>=3;
+   const originalTargetBranch=targetId?(targetGraph.adjacency.get(targetId)||[]).length>=3:false;
+   const originalBranchCompatible=!originalSourceBranch||originalTargetBranch;
    results.push(Object.freeze({sourcePhysicalKey:key,sourceId,sourceNodeId:nodeId,
     targetNodeId:targetId||null,
     state:!targetId?'NOT_BOUND':globalTargetConflictIds.has(targetId)?'GLOBAL_TARGET_COLLISION':
      supported.length?'LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY':'NO_ORIGINAL_ROUTE_LENGTH_WITNESS',
     independentLocalRouteWitnessCount:supported.length,
+    sourceHasOriginalBranch:originalSourceBranch,
+    targetHasOriginalBranch:originalTargetBranch,
+    originalBranchCompatible,
+    originalOdAndWallMatchingRouteWitnessCount:supported.filter(w=>w.originalOdCompatible&&w.originalWallCompatible).length,
     independentLocalRouteWitnesses:supported,
     examinedNeighborCandidates:witnesses,
     localOriginalAlternativeTargetCandidateCount:localOriginalAlternativeCount,
@@ -216,6 +240,10 @@ export function buildCiiMidcycle150OriginalPathWitnesses({
   nodesWithLocalOriginalRouteLengthEvidence:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY').length,
   boundNodesWithoutLocalRouteEvidence:results.filter(r=>r.state==='NO_ORIGINAL_ROUTE_LENGTH_WITNESS').length,
   boundNodesWithBothLengthAndVectorOriginalWitness:results.filter(r=>r.independentLocalRouteWitnesses.some(w=>w.withinVectorTolerance)).length,
+  boundNodesWithOriginalOdAndWallMatchingRouteWitness:results.filter(r=>
+    r.independentLocalRouteWitnesses.some(w=>w.originalOdCompatible&&w.originalWallCompatible)).length,
+  boundNodesWithOriginalOdAndWallMatchingPathAndBranch:results.filter(r=>
+    r.originalBranchCompatible&&r.independentLocalRouteWitnesses.some(w=>w.originalOdCompatible&&w.originalWallCompatible&&w.withinVectorTolerance)).length,
   boundNodesWithUniquelyLocatedOriginalTargetConditionalOnBoundNeighbors:
     results.filter(r=>r.locallyUniqueOriginalTargetRelativeToBoundNeighbors).length,
   boundNodesWithMultipleLocalOriginalTargetAlternatives:results.filter(r=>r.state==='LOCAL_ORIGINAL_PATH_EVIDENCE_ONLY'&&
