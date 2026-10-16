@@ -14,10 +14,15 @@ const html='<html><head><meta charset="UTF-8"><title>Method C Module Browser Tes
   'import { mountMethodC } from "/tabs/cii-workspace/cii-workspace-method-c-ui.js";'+
   'window.methodC=mountMethodC(document.querySelector("#method-c-root"));'+
   'window.methodCReady=true;</script></body></html>';
+const tileHtml='<html><head><meta charset="UTF-8"><title>Method C Tile Adapter Test</title></head>'+
+  '<body><main id="native-tab-host"></main><script type="module">'+
+  'import { installMethodCReviewTile } from "/tabs/cii-workspace/cii-workspace-method-c-tile.js";'+
+  'window.methodCTile=installMethodCReviewTile(document.querySelector("#native-tab-host"));'+
+  'window.methodCTileReady=true;</script></body></html>';
 async function launchServer(){
   const server=createServer(async(req,res)=>{
     const url=new URL(req.url,'http://127.0.0.1');
-    if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(html);return;}
+    if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(url.searchParams.get('mode')==='tile'?tileHtml:html);return;}
     if(!/^\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)$/.test(url.pathname)){
       res.writeHead(404);res.end('unavailable');return;
     }
@@ -135,4 +140,32 @@ test('real Chromium served Method C modules: original upload, anchors, SVG, tabl
    assert.equal(await page.evaluate(()=>window.methodC.state.source),null);
    assert.deepEqual(errors,[]);
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+});
+
+test('G2-ready tab tile is isolated, opens native-style read-only overlay and disposes without Writer2',async()=>{
+ const {server,url}=await launchServer();
+ let browser;
+ try{
+  browser=await chromium.launch({headless:true});
+  const page=await browser.newPage(),errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(url+'/?mode=tile',{waitUntil:'load'});
+  await page.waitForFunction(()=>window.methodCTileReady);
+  assert.equal(await page.locator('[data-ciiw-open-method-c]').count(),1);
+  await page.locator('[data-ciiw-open-method-c]').click();
+  assert.equal(await page.locator('[data-ciiw-method-c-backdrop]').count(),1);
+  assert.equal(await page.locator('[data-ciiw-method-c-root] [data-method-c=read-only]').count(),1);
+  assert.equal(await page.locator('[data-ciiw-apply-target],[data-ciiw-writer2-apply]').count(),0);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('[data-ciiw-method-c-backdrop]').count(),0);
+  await page.locator('[data-ciiw-open-method-c]').click();
+  await page.locator('[data-ciiw-method-c-close]').click();
+  assert.equal(await page.locator('[data-ciiw-method-c-backdrop]').count(),0);
+  await page.evaluate(()=>window.methodCTile.destroy());
+  assert.equal(await page.locator('[data-ciiw-open-method-c]').count(),0);
+  assert.deepEqual(errors,[]);
+ }finally{
+  if(browser)await browser.close();
+  await new Promise(resolve=>server.close(resolve));
+ }
 });
