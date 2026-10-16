@@ -1,6 +1,6 @@
 // Isolated review-only tile helper. Call from the native tab only after G2 exact-file grant.
 import { mountMethodC } from './cii-workspace-method-c-ui.js';
-import { mountMethodCFromNativeWorkspace } from './cii-workspace-method-c-native-adapter.js';
+// Native intake is lazy-loaded only when existing Workspace documents are supplied.
 
 const TILE_ID = 'data-ciiw-open-method-c';
 const CSS_ID = 'cii-workspace-method-c-style';
@@ -47,6 +47,7 @@ export function installMethodCReviewTile(container,options={}){
       if(options.sourceDocument||options.targetDocument){
         if(!options.sourceDocument||!options.targetDocument)
           throw new Error('METHOD_C_NATIVE_DOCUMENT_PAIR_REQUIRED');
+        const { mountMethodCFromNativeWorkspace } = await import('./cii-workspace-method-c-native-adapter.js');
         active=await mountMethodCFromNativeWorkspace(root,options,{
           cryptoRef:options.cryptoRef});
       }else active=mountMethodC(root);
