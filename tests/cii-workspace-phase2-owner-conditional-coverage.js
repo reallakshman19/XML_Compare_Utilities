@@ -19,6 +19,9 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
   if(!Array.isArray(ownerCandidateRows)||!Array.isArray(independentAudit?.rows))
     throw new TypeError('PHASE2_PHYSICAL_COVERAGE_ORACLE_OR_AUDIT_REQUIRED');
   const approvedOrientation=options.ownerApprovedOrientation===true;
+  if(options.sourceSetOriginalSha256 && independentAudit.sourceSetSha256 &&
+    String(options.sourceSetOriginalSha256)!==String(independentAudit.sourceSetSha256))
+    throw new Error('PHASE2_SOURCE_SET_ORIGINAL_SHA_CUSTODY_MISMATCH');
   const originalDenominator=Number(options.originalDenominator??428);
   if(!Number.isSafeInteger(originalDenominator)||originalDenominator<ownerCandidateRows.length)
     throw new Error('PHASE2_ORIGINAL_OWNER_DENOMINATOR_INVALID');
@@ -116,8 +119,12 @@ export function scoreCiiOwnerPhysicalCandidateCoverage(ownerCandidateRows, indep
     independentBoundWrongTargets:negatives,
     conditionalPhysicalPairAgreementRatio:distinctKeyCount?exact/distinctKeyCount:null,
     statusCounts,
-    sourceOriginalCustody:independentAudit.sourceSetSha256||null,
-    targetOriginalCustody:independentAudit.target?.contentSha256||null,
+    // The audit TARGET document content SHA identifies a parsed/normalized
+    // document snapshot; it MUST NOT be mislabeled original-file SHA-256.
+    sourceSetOriginalSha256:String(options.sourceSetOriginalSha256||'')||null,
+    targetOriginalSha256:String(options.targetOriginalSha256||'')||null,
+    auditedSourceSetSha256:independentAudit.sourceSetSha256||null,
+    auditedTargetDocumentContentSha256:independentAudit.target?.contentSha256||null,
     isOwnerDirectionApproved:approvedOrientation,
     P2_VALIDATED_RECALL:null,
     phase2SeventyPercentQualified:false,
