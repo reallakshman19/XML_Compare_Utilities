@@ -93,11 +93,13 @@ function methodBProvenance(row){
  };
 }
 export function diagnoseCiiW14MethodABMissingEvidence({
- w11Qualification,w13,suggestionsByMember,originalSources,originalTarget,
+ w11Qualification,w13,w12,rooted,suggestionsByMember,originalSources,originalTarget,
 }={}){
  if(w11Qualification?.rows?.length!==22||
   w13?.productionCompetingTargetMethodABChecks?.length!==8||
   w13?.signedDisplacementFrameChecks?.length!==3||
+  w12?.noCandidateOriginalPathReviews?.length!==23||
+  rooted?.certificates?.length!==105||
   !Array.isArray(originalSources)||
   originalSources.map(x=>x.sourceId).sort().join(',')!=='S1,S2,S3'||
   !(suggestionsByMember&&typeof suggestionsByMember==='object')||!originalTarget)
@@ -156,15 +158,57 @@ export function diagnoseCiiW14MethodABMissingEvidence({
  const sourceCoords=new Map(originalSources.map(s=>[s.sourceId,
   absoluteCoordinates(s.bytes,graphByMember.get(s.sourceId))]));
  const targetCoords=absoluteCoordinates(originalTarget,parseCiiMidcycleOriginalPhysicalGeometry(originalTarget));
+ // Independently compare source/T absolute coordinate records for physical
+ // correspondence roots. This is only a frame-consistency diagnostic: native
+ // COORDS may anchor a subset of components and does NOT authorize rotations.
+ const independentRoots=rooted.certificates.map(c=>{
+   const [member,srcId]=id(c.sourcePhysicalKey).split(':');
+   const sourceAbsolute=sourceCoords.get(member)?.at(srcId)||null;
+   const targetAbsolute=targetCoords.at(id(c.targetPhysicalNodeId));
+   return {sourcePhysicalKey:id(c.sourcePhysicalKey),
+     originalTargetNodeId:id(c.targetPhysicalNodeId),
+     sourceAbsoluteMm:sourceAbsolute,targetAbsoluteMm:targetAbsolute,
+     registeredBothSides:Boolean(sourceAbsolute&&targetAbsolute),
+     originalSourceToTargetAbsoluteOffsetMm:sourceAbsolute&&targetAbsolute?
+       sub(targetAbsolute,sourceAbsolute):null};
+ });
+ const registrationByMember=['S1','S2','S3'].map(member=>{
+   const pairs=independentRoots.filter(r=>r.sourcePhysicalKey.startsWith(member+':')&&r.registeredBothSides);
+   const offsets=pairs.map(r=>r.originalSourceToTargetAbsoluteOffsetMm);
+   const reference=offsets[0]||null;
+   return {sourceId:member,independentlyCertifiedPairs:pairs.length,
+     originalRelativeFrameOffsetReferenceMm:reference,
+     maxOffsetDisagreementMm:reference?
+       Math.max(...offsets.map(value=>distance(value,reference))):null,
+     uniformTranslationProvenForAllComponents:false,
+     registeredComponentsOnly:true};
+ });
  const displacement=w13.signedDisplacementFrameChecks.map(entry=>{
   const member=entry.sourcePhysicalKey.split(':')[0],sourceCoordinate=sourceCoords.get(member);
   const registered=entry.alternatives.map(alt=>{
-   const rootSource=id(alt.trustedRoot).split(':')[1],rootTarget=id(alt.targetPhysicalNodeId);
+   const rootSource=id(alt.trustedRoot).split(':')[1],targetCandidate=id(alt.targetPhysicalNodeId);
    const sourceRoot=sourceCoordinate.at(rootSource),sourceEnd=sourceCoordinate.at(entry.sourcePhysicalKey.split(':')[1]);
-   // W13 stores TARGET candidate, but the matching original T root is
-   // available from W12 source alternative evidence, not guessed from label.
-   return {targetPhysicalNodeId:rootTarget,originalSourceRootCoordinate:sourceRoot,
+   // W13 stores the original physical TARGET candidate; W12 retains the
+   // *separate* certified original T ROOT used for that measurement.
+   const w12Row=w12.noCandidateOriginalPathReviews.find(x=>x.sourcePhysicalKey===entry.sourcePhysicalKey);
+   const correspondingRoot=w12Row?.perRootOriginalPathEvidence?.find(x=>
+      x.trustedOriginalSourceRoot===alt.trustedRoot&&
+      x.closestODBranchCompatibleAlternatives?.some(t=>id(t.originalTargetId)===targetCandidate&&
+      t.within100mmIndependentLength&& !t.within100mmSignedVector));
+   const targetRoot=correspondingRoot? id(correspondingRoot.trustedOriginalTargetRoot):null;
+   const targetRootAbsolute=targetRoot?targetCoords.at(targetRoot):null;
+   const targetEndAbsolute=targetCoords.at(targetCandidate);
+   const derivedAbsoluteVectorResidual=sourceRoot&&sourceEnd&&targetRootAbsolute&&targetEndAbsolute?
+     distance(sub(sourceEnd,sourceRoot),sub(targetEndAbsolute,targetRootAbsolute)):null;
+   return {targetPhysicalNodeId:targetCandidate,originalSourceRootCoordinate:sourceRoot,
     originalSourceNodeCoordinate:sourceEnd,
+    originalTargetRootPhysicalNodeId:targetRoot,
+    originalTargetRootCoordinate:targetRootAbsolute,
+    originalTargetPhysicalNodeCoordinate:targetEndAbsolute,
+    bothSidesOriginalCiiCoordsCoverRootAndEndpoint:Boolean(
+      sourceRoot&&sourceEnd&&targetRootAbsolute&&targetEndAbsolute),
+    independentlyRegisteredRelativeVectorResidualMm:derivedAbsoluteVectorResidual,
+    originalAbsoluteFrameDoesNotChangeSignedRelativeVector:true,
     sourceCiiCoordsCoversBoth:Boolean(sourceRoot&&sourceEnd),
     originalLengthResidualMm:alt.originalLengthResidualMm,
     independentSignedVectorResidualMm:alt.signedResidualMm,
@@ -195,6 +239,9 @@ export function diagnoseCiiW14MethodABMissingEvidence({
   noProvedWinnerGap:methods.filter(r=>r.missingIndependentEvidence.some(s=>s.startsWith('NO_PROVED_NATIVE_WINNER_GAP'))).length,
   originalDisplacementCases:displacement.length,
   registeredOriginalSourceComponents:displacement.filter(x=>x.originalSourceComponentHasAbsoluteRegistration).length,
+  registeredOriginalPairBothSides:independentRoots.filter(x=>x.registeredBothSides).length,
+  originalRegistrationCoordinateFrameMismatchAcrossRoots:
+    registrationByMember.filter(x=>x.maxOffsetDisagreementMm!==null&&x.maxOffsetDisagreementMm>100).length,
   coordinateFrameRotationsApproved:0,
   newIndependentNodeCredits:0,
  };
@@ -207,6 +254,7 @@ export function diagnoseCiiW14MethodABMissingEvidence({
    target:{originalCiiCoordCount:targetCoords.reg.declaredCoordinates,
     unitsMm:targetCoords.reg.physicalOriginalUnitMm,coordinateConflicts:targetCoords.conflicts.length}},
   totals,productionMethodABMissingEvidence:methods,
+  independentlyCertifiedOriginalCoordinateFrameSamples:registrationByMember,
   originalCiiAbsoluteRegistrationAndDisplacements:displacement,
   qualification:'READ_ONLY_NO_PHYSICAL_IDENTITY_PROMOTION',
   original100mmPolicyUnchanged:true,
