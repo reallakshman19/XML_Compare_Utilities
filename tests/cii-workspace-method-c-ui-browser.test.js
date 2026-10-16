@@ -56,10 +56,30 @@ test('real Chromium served Method C modules: original upload, anchors, SVG, tabl
    await page.locator('[data-action=add-anchor]').click();
    await page.waitForFunction(()=>window.methodC?.state?.candidates?.nearSourceCount===41);
    assert.equal(await page.locator('tbody[data-view=rows] tr').count(),57);
+   // Real original graph route selector: expected 45 SOURCE / 45 TARGET physical NODEs.
+   await page.locator('#mc-route-source-a').fill('3910');
+   await page.locator('#mc-route-source-b').fill('5110');
+   await page.locator('#mc-route-target-a').fill('875');
+   await page.locator('#mc-route-target-b').fill('1095');
+   await page.locator('#mc-scope').selectOption('route');
+   assert.equal(await page.locator('svg [data-layer=source-nodes] g[data-node]').count(),45);
+   assert.equal(await page.locator('svg [data-layer=target-nodes] g[data-node]').count(),45);
+   await page.locator('#mc-scope').selectOption('component');
+   // SVG NODE selection synchronizes back into the table, not just table -> SVG.
+   await page.locator('svg [data-kind=SOURCE][data-node="4960"]').dispatchEvent('click');
+   assert.equal(await page.locator('tr.mc-current').getAttribute('data-source'),'4960');
    assert.equal(await page.locator('svg[data-projection=XZ]').count(),1);
    assert.equal(await page.locator('svg [data-layer=source-elements] path').count(),56);
    assert.equal(await page.locator('svg [data-layer=target-elements] path').count(),766);
    const original=await page.locator('.mc-svg svg').getAttribute('viewBox');
+   // Pointer drag adjusts true metric viewBox; reset fits the original bounding region.
+   const plot=page.locator('.mc-svg svg');
+   await plot.dispatchEvent('pointerdown',{clientX:120,clientY:180});
+   await plot.dispatchEvent('pointermove',{clientX:155,clientY:190});
+   await plot.dispatchEvent('pointerup');
+   assert.notEqual(await plot.getAttribute('viewBox'),original);
+   await page.locator('[data-action=reset-view]').click();
+   assert.equal(await plot.getAttribute('viewBox'),original);
    await page.locator('[data-action=zoom-in]').click();
    assert.notEqual(await page.locator('.mc-svg svg').getAttribute('viewBox'),original);
    await page.locator('[data-action=reset-view]').click();
