@@ -21,6 +21,7 @@ import {buildCiiMidcycle150OriginalPathWitnesses} from './cii-workspace-phase2-m
 import {verifyCiiMidcycle150GlobalOriginalShape} from './cii-workspace-phase2-midcycle150-global-shape-verify.js';
 import {buildCiiMidcycle150OwnerGoldenCertificates} from './cii-workspace-phase2-midcycle150-owner-golden-certificates.js';
 import {verifyCiiMidcycle150RootedCorrespondences} from './cii-workspace-phase2-midcycle150-rooted-verify.js';
+import {diagnoseCiiMidcycle150Unverified} from './cii-workspace-phase2-midcycle150-unverified-forensics.js';
 
 const files=['S1.CII','S2.CII','S3.CII'].map((fileName,i)=>({
   sourceId:'S'+(i+1),fileName,bytes:readFileSync(new URL('../Benchmark/'+fileName,import.meta.url)),
@@ -83,6 +84,11 @@ const rooted=verifyCiiMidcycle150RootedCorrespondences({
  originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
  originalTargetSha256:inspection.versionBridge.target.originalSha256,
 });
+const unverifiedForensics=diagnoseCiiMidcycle150Unverified({
+ originalSources:files,originalTarget:targetBytes,audit,rooted,
+});
+assert.equal(unverifiedForensics.unverifiedSourcePhysicalNodeCount,45);
+assert.deepEqual(unverifiedForensics.unverifiedByMember.map(r=>r.unverified),[22,11,12]);
 const midcycle150=scoreCiiMidcycle150({
   originalSourcePhysicalNodeCount:150,
   originalSourceSetSha256:inspection.sourceSet.sourceSetSha256,
@@ -181,6 +187,12 @@ const report={
   physicalOneToOneAcceptance:acceptance,
   midcycle150PhysicalAcceptance:midcycle150,
   midcycle150OriginalPathWitnessSummary:pathWitness.summary,
+  midcycle150UnverifiedForensicsSummary:{
+    unverified:unverifiedForensics.unverifiedSourcePhysicalNodeCount,
+    perMember:unverifiedForensics.unverifiedByMember,
+    reasonCounts:unverifiedForensics.reasonCounts,
+    newlyCreditedPhysicalNodes:0,
+  },
   midcycle150RootedIndependentPhysicalSummary:{
     ownerSeeds:rooted.ownerGoldenSeeds,
     globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,
@@ -253,6 +265,17 @@ writeFileSync(new URL('midcycle150-assessment.json',root),JSON.stringify({
 writeFileSync(new URL('midcycle150-original-path-witnesses.json',root),JSON.stringify(pathWitness,null,2)+'\n');
 writeFileSync(new URL('midcycle150-owner-physical-golden-certificates.json',root),JSON.stringify(originalOwnerCertificates,null,2)+'\n');
 writeFileSync(new URL('midcycle150-trusted-root-physical-verified.json',root),JSON.stringify(rooted,null,2)+'\n');
+writeFileSync(new URL('midcycle150-unverified-45-original-geometry-forensics.json',root),
+  JSON.stringify(unverifiedForensics,null,2)+'\n');
+const unresolvedColumns=['sourcePhysicalKey','sourceMemberId','sourcePhysicalNodeId',
+  'originalSourceNodeName','matcherState','matcherReasons','originalSourceDegree',
+  'trustedOriginalPhysicalRootsExamined','originalTargetPhysicalCandidateCount',
+  'candidateOriginalTargetNodeIds','status','independentlyCertified'];
+const unresolvedCell=value=>'"'+String(value&&typeof value==='object'?JSON.stringify(value):value??'').replace(/"/g,'""')+'"';
+writeFileSync(new URL('midcycle150-unverified-45-original-geometry-forensics.csv',root),
+ [unresolvedColumns.join(','),...unverifiedForensics.rows.map(r=>
+ unresolvedColumns.map(k=>unresolvedCell(r[k])).join(','))].join('\n')+'\n');
+
 writeFileSync(new URL('midcycle150-independent-global-shape.json',root),JSON.stringify(globalShape,null,2)+'\n');
 
 // Owner explicitly requested NodeName -> physical NODE indexes FIRST. Export
@@ -408,6 +431,7 @@ const keys=['ownerOrdinal','originalLine','rawSourceLabel','rawTargetLabel','own
 writeFileSync(new URL('phase2-owner-diagnostic.csv',root),[keys.join(','),...diagnostics.map(row=>keys.map(k=>csv(row[k])).join(','))].join('\n')+'\n');
 console.log(JSON.stringify(report,null,2));
 console.log('PHASE2_MIDCYCLE_150_OWNER_ORIGINAL_CERTIFICATES '+JSON.stringify({certified:originalOwnerCertificates.qualifiedOwnerGoldenPhysicalCertificates,missingOrUnqualified:originalOwnerCertificates.unmatchedOrUnqualifiedGoldenRows}));
+console.log('PHASE2_MIDCYCLE_150_UNVERIFIED_FORENSICS '+JSON.stringify({count:unverifiedForensics.unverifiedSourcePhysicalNodeCount,byMember:unverifiedForensics.unverifiedByMember,reasonCounts:unverifiedForensics.reasonCounts}));
 console.log('PHASE2_MIDCYCLE_150_ROOTED_PROOF '+JSON.stringify({ownerSeeds:rooted.ownerGoldenSeeds,globalShapeSeeds:rooted.additionalExhaustiveGlobalGeometrySeeds,verified:rooted.independentlyRootedVerifiedPhysicalNodes,perMember:rooted.sourcePerMember,thresholdMet:rooted.strict70PercentPhysicalGoalMet,rounds:rooted.proofRounds}));
 console.log('PHASE2_MIDCYCLE_150_SCORE '+JSON.stringify(midcycle150));
 console.log('PHASE2_MIDCYCLE_150_ORIGINAL_PATH_WITNESS '+JSON.stringify(pathWitness.summary));
