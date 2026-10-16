@@ -14,7 +14,7 @@ function makeCii(elements, options = {}) {
     block[1] = encodeRow([25.4]);
     rows.push(...block);
   }
-  const sections = ['#$ UNITS', options.units ?? '  SI (mm)', '#$ ELEMENTS', ...rows, '#$ NODENAME'];
+  const sections = ['#$ CONTROL', encodeRow([elements.length]), '#$ UNITS', options.units ?? '  SI (mm)', '#$ ELEMENTS', ...rows, '#$ NODENAME'];
   return new TextEncoder().encode(sections.join('\r\n') + '\r\n');
 }
 async function parse(bytes, options = {}) {
@@ -44,4 +44,23 @@ test('cycle contradiction is rejected and cannot mint an extra node', async () =
 test('corrupt original bytes and invalid element count are refused', async () => {
   await assert.rejects(buildOriginalGraphFromBytes({ bytes: new Uint8Array(), member: 'S1', cryptoRef: webcrypto }), /EMPTY_ORIGINAL_CII_BYTES/);
   await assert.rejects(parse(new TextEncoder().encode('#$ UNITS\r\n  SI (mm)\r\n#$ ELEMENTS\r\n  invalid\r\n#$ NODENAME\r\n')), /INVALID_15_ROW_ELEMENTS_SECTION/);
+});
+
+test('native element CONTROL counts reject missing/extra records', async () => {
+  const bytes = makeCii([[100, 105, 5, 0, 0]]);
+  const damaged = new TextEncoder().encode(new TextDecoder().decode(bytes).replace(encodeRow([1]), encodeRow([2])));
+  await assert.rejects(parse(damaged), /CII_CONTROL_ELEMENTS_COUNT_MISMATCH/);
+});
+test('NODENAME pointer uses native row-13 first field and fails when out of range', async () => {
+  const raw = new TextDecoder().decode(makeCii([[100, 105, 5, 0, 0]]));
+  const lines = raw.split('\r\n');
+  const elementIndex = lines.indexOf('#$ ELEMENTS');
+  lines[elementIndex + 1 + 12] = encodeRow([1, 0, 0, 0, 0, 0]);
+  const i = lines.indexOf('#$ NODENAME');
+  lines.splice(i + 1, 0, '  FROM-NAME                    TO-NAME');
+  const good = await parse(new TextEncoder().encode(lines.join('\r\n')));
+  assert.equal(good.edges[0].pointer, 1);
+  assert.equal(good.edges[0].fromName, 'FROM-NAME');
+  lines[elementIndex + 1 + 12] = encodeRow([2, 0, 0, 0, 0, 0]);
+  await assert.rejects(parse(new TextEncoder().encode(lines.join('\r\n'))), /BAD_NODENAME_POINTER_0/);
 });
