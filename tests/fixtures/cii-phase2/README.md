@@ -39,6 +39,27 @@ Owner confirms the second original column **SL** is the SOURCE NodeName in S1/S2
 
 The benchmark additionally exports `owner-confirmed-one-to-one-acceptance.json` and the Owner-confirmed decision fixture. **Required 300 distinct physical credits versus at most 150 original SOURCE physical nodes** means the 70% threshold **FAILS STRUCTURALLY ON THESE PINNED FILES** under the one-to-one source/target counting rule; observed 33/33 conditional AUTO agreement does not establish globally certified R. The benchmark exports `owner-original-physical-conditional-coverage.json`, `owner-original-physical-conditional-coverage-428.csv`, `owner-original-physical-conditional-agreements.csv`, and the [Owner's adjudication packet](https://github.com/reallakshman19/XML_Compare_Utilities/issues/106) as `owner-benchmark-adjudication-packet.{md,json}`, with the full 33-member mapping table, missing original label samples and exact requested fixture/occurrence decisions.
 
+## Midcycle info continuation: remaining 45 physical SOURCE nodes (W10)
+
+After independently verifying **105/150**, a test-only [original-CII unresolved-node investigator](../../cii-workspace-phase2-midcycle150-unverified-forensics.js) reconciles the **remaining 45 member-scoped original SOURCE NODEs** against all **1,619 original T physical NODEs**. The original 105 physical certificates are the *only* trusted geometry roots. Original CII physical shortest-hop lengths, signed vectors, OD, branch incidence, globally occupied TARGET IDs and up to three nearest independently certified SOURCE physical roots constrain candidates; **none is automatically imported into Method A/B or Writer2**.
+
+| Cumulative SOURCE member | SOURCE NODEs still unverified | Exactly one provisional original T candidate | No T candidate satisfying these original-geometry constraints |
+|---|---:|---:|---:|
+| S1 | 22 | 6 | 16 |
+| S2 | 11 | 6 | 5 |
+| S3 | 12 | 10 | 2 |
+| **Total** | **45** | **22** | **23** |
+
+**Current matcher state:** 34 unverified SOURCE nodes have **UNEMITTED** physical correspondences and 11 **UNRESOLVED**; no new BOUND node has been granted. All original unverified nodes are included, with original member:NODE, NodeName (where available), matcher reasons, trusted physical anchor evidence, original T candidate IDs and reason codes in:
+
+- `midcycle150-unverified-45-original-geometry-forensics.json` and `.csv`;
+- `midcycle150-priority-22-original-T-candidate-leads.csv` (a **read-only review queue**, explicitly `vettedPhysicalIdentity=false`);
+- independent negative controls: `node tests/cii-workspace-phase2-midcycle150-unverified-forensics.test.js`.
+
+**Important qualification:** A unique geometric candidate *conditional on up to three trusted original roots* is **not yet a production-qualified correspondence**. These 22 leads require independent Method A (five-factor weighted confidence) or Method B (≥2 independent axes, original graph branch/OD/winner gap) review and source/target custody before any canonical binding. The 23 missing candidates require investigation for genuine revision topology, OD/segment changes and original-graph path coverage, not arbitrary relaxation of 100mm or false reassignment. Do not create manual seeds from diagnostic Owner names or expected pairs.
+
+**Midcycle accepted score stays exactly 105/150=70%; 45 remain uncredited.** The frozen original 428-row ≥300 distinct one-to-one SOURCE obligation is unchanged and separate.
+
 ## Midcycle info: 150-node first-stage independent physical milestone — 70% PASS
 
 Owner explicitly directed the **first** physical milestone as **150 cumulative SOURCE physical NODEs** (S1=57, S2=47, S3=46) with **≥105/150 = 70%** independently verified correspondences. **This is separate from the original frozen 428-row golden and does NOT count as a PASS for the original ≥300/428 requirement.**
