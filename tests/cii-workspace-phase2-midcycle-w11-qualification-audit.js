@@ -76,6 +76,7 @@ export function reviewCiiMidcycleW11ProductionQualification({
    matcherState:a.state,matcherConfidence:a.confidence,
    matcherBlockers:[...(a.reasons||[])],
    productionCorrespondenceRows:allProductionRows.length,
+   productionReviewedTargetPhysicalNodeIds:[...new Set(allProductionRows.map(v=>id(v.target)).filter(Boolean))],
    exactProductionPairReviewRows:exactProductionRows.length,
    exactProductionPairAuthority:exactProductionRows.map(v=>id(v.authority)).filter(Boolean),
    exactProductionPairEvidenceBasis:exactProductionRows.map(v=>id(v.identityEvidenceBasis)).filter(Boolean),
