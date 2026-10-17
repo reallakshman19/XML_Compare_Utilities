@@ -21,8 +21,8 @@ const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+
 // Owner's 2026-10-17 exact two-test repair scope. Do not promote either
 // test path to allowedPath(), which intentionally forbids unrelated writer edits.
 const approvedProtectedTestBlob=Object.freeze({
-  'tests/cii-workspace-multi-base-correspondence.test.js':'5582a2616dffe890b44cd6d7e52640884658d72f',
-  'tests/cii-workspace-writer2-product-routing.test.js':'a284053fc957f2aa73f7909c789d11b05c80d0d1',
+  'tests/cii-workspace-multi-base-correspondence.test.js':'3a92e20b49d5383b9d6b45191c53b752eed623e7',
+  'tests/cii-workspace-writer2-product-routing.test.js':'5739c1b02cb564170188d689b0a4e09cdda43885',
 });
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
