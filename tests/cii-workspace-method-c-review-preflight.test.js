@@ -18,6 +18,19 @@ const protectedPaths=[
  'tabs/cii-workspace/cii-workspace-multisource-review-only-router.js',
  'Benchmark/S1.CII','Benchmark/S2.CII','Benchmark/S3.CII','Benchmark/T.CII',
 ];
+// Owner-approved 2026-10-17 *test-only* scope: byte-pin both exact baselines
+// and postimages. All other protected production and CII bytes stay identical.
+const testOnlyGrant=Object.freeze({
+  'tests/cii-workspace-multi-base-correspondence.test.js':Object.freeze({
+    before:'bf5304efb01acc0ec597ca4903551fd6ee315f1b',
+    after:'3a92e20b49d5383b9d6b45191c53b752eed623e7'}),
+  'tests/cii-workspace-writer2-product-routing.test.js':Object.freeze({
+    before:'9980a71c244f51992b176166c7bf92985999b7b7',
+    after:'d8a6f5d19a4460a2942a58140b22d01f31ad66ac'}),
+});
+const authorizedTestPatch=path=>testOnlyGrant[path]
+  && git('rev-parse',ledger.immutableBase+':'+path)===testOnlyGrant[path].before
+  && git('rev-parse','HEAD:'+path)===testOnlyGrant[path].after;
 function validateStatus(data){
  const issues=[];
  if(data.schema!=='MethodC.G2ReviewGateLedger.v1')issues.push('SCHEMA');
@@ -78,18 +91,21 @@ test('WP9 exact baseline Git trees: protected code/tests, docs mirror and origin
  assert.notEqual(head,base);
  const changed=git('diff','--name-only',base,head).split(/\r?\n/).filter(Boolean);
  assert.ok(changed.length>0);
- assert.deepEqual(changed.filter(p=>protectedPaths.includes(p)),[],
+ assert.deepEqual(changed.filter(p=>protectedPaths.includes(p)&&!authorizedTestPatch(p)),[],
   'PROTECTED_SOURCE_OR_ORIGINAL_BENCHMARK_MUST_NOT_CHANGE');
  for(const p of protectedPaths){
   const a=git('rev-parse',base+':'+p),b=git('rev-parse',head+':'+p);
-  assert.equal(b,a,'protected original must be exactly byte-identical: '+p);
+  if(testOnlyGrant[p]){
+   assert.equal(a,testOnlyGrant[p].before,'Owner-granted test changed at baseline: '+p);
+   assert.equal(b,testOnlyGrant[p].after,'Owner-granted exact test postimage drift: '+p);
+  }else assert.equal(b,a,'protected original must be exactly byte-identical: '+p);
  }
 });
 test('WP9 candidate diff must stay in new Method C-owned files, plan, WIP and dedicated workflow',()=>{
  const changed=git('diff','--name-only',ledger.immutableBase,'HEAD')
   .split(/\r?\n/).filter(Boolean);
- const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
- assert.deepEqual(changed.filter(p=>!allowed(p)),[]);
+ const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml|agents\/(?:PR119_workreport|WIP-G3-MC-20261017_workreport)\.md)$/.test(path);
+ assert.deepEqual(changed.filter(p=>!allowed(p)&&!authorizedTestPatch(p)),[]);
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_STATUS.json'));
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_PACKET.md'));
  console.log('WP9_EXACT_HEAD_REVIEW_PREFLIGHT '+JSON.stringify({
