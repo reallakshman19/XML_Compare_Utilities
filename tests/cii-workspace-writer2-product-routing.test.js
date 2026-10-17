@@ -276,7 +276,8 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const first=await createCiiWorkspacePreviewWithVersionBridge({
   sourceBytes:src.outputBytes,sourceFileName:'WP7_SOURCE_V14.CII',
   targetBytes:originalV14,targetFileName:'WP7_TARGET_V14.CII',
-  anchorPairs:physicalNoncollinearAnchorPairs(graph,candidate.targetNode)},policy);
+  baseLoops:[{method:'METHOD_A_SPATIAL',baseId:'WP7-REAL-DISTINCTIVE-A',
+    anchorPairs:physicalNoncollinearAnchorPairs(graph,candidate.targetNode)}]},policy);
  assert.equal(first.versionBridge.target.originalSha256,originalHash);
  const productOp=first.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
   op.property==='Qualified restraint slot mutation'&&op.action==='DELETE');
