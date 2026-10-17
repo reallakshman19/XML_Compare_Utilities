@@ -1,0 +1,17 @@
+# G3 Method C production takeover — WIP-G3-MC-20261017
+
+- Authority: Owner directly authorized G3 to take over Method C implementation, 2026-10-17; independent acceptance **must be performed by another qualified checker**, not G3.
+- Decision: **SALVAGE_PARTIAL** from open DRAFT PR #118 exact head `421b1efbd19d0f2f9f7c475e3aeec60a65cf1090`. Original physical parser/native tile are usable; AUTO geometry and evidence custody are not. PR #107 remains separate.
+- Active branch: `g3/method-c-auto-takeover-20261017`, forked from #118 exact head. Do not commit into XMLwtMethodC branch or merge.
+- Exact allowed product scope: existing Method C-owned `tabs/cii-workspace/cii-workspace-method-c-*.js` and identical `docs/tabs/cii-workspace/` mirrors, plus dedicated Method C tests. Protected WP7, Method A/B, Writer2, PR #107 and shared tab source excluded.
+- A1 Production trace: ORIGINAL_BYTES CII → `buildOriginalGraphFromBytes` → `registerMethodC` → `findMethodCCandidates` → `methodCEvidence`, real native `docs/index.html` tile.
+- A2 Failure isolation: current one-anchor registration uses manual Euler/identity; held-out errors >1 m for known compound proper rotations. In current rigid fit cross-product drops Z causing valid XY basis false degeneracy. Current registration trusts browser `role='independently-accepted'`; positive JSON drops supplied originalDiscovery; snapshots omit it; HOLD UI clears export.
+- A3 Authority: original signed ELEMENTs and SHA govern geometry; no guessed physical NODE identity, no trusted host/browser callback. Default unverified geometric AUTO = A-only; B=0, Writer2 C=0. HOLD on multiple poses/budget/symmetry/reflection/absent signature.
+- A4 Independent validation: G3 isolated executed-current-production probes on exact SHA as referenced [WP3 #111](https://github.com/reallakshman19/XML_Compare_Utilities/issues/111#issuecomment-6231922702), [addendum](https://github.com/reallakshman19/XML_Compare_Utilities/issues/111#issuecomment-6232008934). **No hosted G3 AUTO Chromium run, no production coding PASS yet.**
+- A5 Patch sequence: original signed path-frame primitive → bounded complete pose discovery with disjoint D/H receipts → registration + source/docs mode choice → candidate/export/HOLD custody → native positive/negative/hot-file/stale-evidence tests → hosted exact-SHA Chromium and independent checker.
+- Conflict: new G3 branch touches only Method C-owned paths; no existing XMLwtMethodC branch writes. No protected test file grant inferred from this assignment.
+- Repo policy: local backup/patch ledger mandatory before editing **existing** files. Do not edit preexisting files via remote-only API without satisfying this local-policy gate.
+- Owner reserved: pinned anchor signer/host authority, Method C B physical-certification policy, independently designated checker, WP7 exact-file grant, merge/release.
+- Validation: branch created; product edits **NOT YET** complete; hosted CI **NOT_RUN**; immutable baseline SHA above.
+- Highest risk: false uniqueness or false authenticated anchor labels could credit arbitrary rotated engineering topology.
+- EXACT_NEXT_ACTION: Implement a small original-signed proper frame primitive as new Method C-owned source/docs modules with independent mathematical Node tests; then integrate complete hypothesis enumeration without touching protected/shared files. Do not call workpack accepted until native acceptance and independent checker green.
