@@ -182,7 +182,6 @@ function originalSignedFixture(directions,{rotation=[[1,0,0],[0,1,0],[0,0,1]],
   '1 '+root.map(v=>v.toFixed(3)).join(' ')].join('\n')+'\n');
 }
 async function openedNativeAuto(page){
- await page.goto('/',{waitUntil:'domcontentloaded'});
  await page.locator('.app-tab[data-tab=psnm-utility]').click();
  await page.locator('[data-ciiw-open-method-c]').click();
  const overlay=page.locator('[data-ciiw-method-c-backdrop]');
