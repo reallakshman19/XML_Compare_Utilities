@@ -1,4 +1,17 @@
 import assert from 'node:assert/strict';
+import { createHash, webcrypto } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { decodeCiiNumericRow } from '../parser/fixed-field.js';
+import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-intake.js';
+import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
+import { ciiPhysicalSectionRows } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
+import { applyCiiWriter2CompositeWithRestraintDelete } from '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js';
+import { createCiiWriter2V14LosslessShadow } from '../tabs/cii-workspace/cii-workspace-v14-writer2-shadow.js';
+import { applyCiiWorkspaceTargetWriter2 } from '../tabs/cii-workspace/cii-workspace-core.js';
+import { bindCiiTransferScopeToPreview, ciiTransferScopeCandidateOperations, createCiiTransferScopeSelection } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
+import { applyCiiWorkspaceTargetWriter2WithVersionBridge, createCiiWorkspacePreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
+import { ciiByteStringToBytes, ciiBytesEqual, ciiSha256, convertCiiNeutralVersionLossless, detectCiiNeutralVersion } from '../tabs/cii-workspace/cii-workspace-v11-v14-converter.js';
+
 import fs from 'node:fs';
 import { createCiiPhysicalFile } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
 import { extractCiiNodeNameEvidence } from '../tabs/cii-workspace/cii-workspace-nodename.js';
@@ -174,7 +187,8 @@ function rawPlan(operations, blockers = []) {
   assert(bridge.includes('createCiiWorkspacePreviewWithVersionBridge'));
   assert(bridge.includes('applyCiiWorkspaceTargetWriter2WithVersionBridge'));
   assert(bridge.includes("path: 'DIRECT_V11'"));
-  assert(bridge.includes("path: 'V14_CHANGE_ISOLATED_VIA_V11'"));
+  assert(bridge.includes("path: bridge.target?.writer2Shadow?.enabled ? 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11' : 'V14_CHANGE_ISOLATED_VIA_V11'"));
+  // Return path requires an executed qualified mutation: the literal in source is insufficient.
 
   assert(tab.includes('mountCiiWorkspaceScopedEngineeringShell'));
   assert(tab.includes('const writerVersion = writerVersionOverride || context.writerVersion || null;'));
@@ -182,5 +196,128 @@ function rawPlan(operations, blockers = []) {
   assert(tab.includes("const openWriter2 = () => open('2');"));
   assert(!tab.includes("writerVersion: '2'"), 'product tile must not silently switch the default to Writer 2');
 }
+
+
+// Execute real, scope-bound Writer2 V14 mutation cases. Reuse the frozen V11
+// benchmark and the native original T.V14 nonzero-SIF conversion shadow.
+function validRestraintDelete(target) {
+  const rows=ciiPhysicalSectionRows(target.physicalFile,'RESTRANT');
+  assert.equal(rows.length%24,0,'native 24-row block custody');
+  for(let pointer=1;pointer<=rows.length/24;pointer++){
+    const states=Array.from({length:6},(_,idx)=>{
+      const start=(pointer-1)*24+idx*4;
+      const first=decodeCiiNumericRow(rows[start].text),second=decodeCiiNumericRow(rows[start+1].text);
+      const s=rows[start+2].text,g=rows[start+3].text;
+      const named=[s,g].map(text=>/^\s*(\d+)\s?(.*)$/.exec(text));
+      if(!first||!second||named.some(m=>!m||m[2].slice(0,Number(m[1]))))return null;
+      return {pointer,slot:idx+1,line1:first.slice(0,6).map(Number),
+        line2:second.slice(0,3).map(Number),tag:'',guid:'',
+        occupied:Math.abs(Number(first[0]))>1e-12||Math.abs(Number(first[1]))>1e-12};
+    });
+    if(states.some(s=>!s))continue;
+    const occupied=states.filter(s=>s.occupied);if(occupied.length!==1)continue;
+    const entry=occupied[0],node=String(Math.round(entry.line1[0]));
+    const owners=Object.values(target.auxiliaryEvidence?.elements||{})
+      .filter(e=>Number(e.pointers?.restraint||0)===pointer);
+    if(owners.length!==1||![String(owners[0].from),String(owners[0].to)].includes(node))continue;
+    if((target.auxiliaryEvidence?.restraints?.byNode?.[node]||[]).length!==1)continue;
+    return {pointer,slot:entry.slot,targetNode:node,beforeSlot:entry};
+  }
+  throw new Error('WRITER2_REAL_SINGLE_RESTRAINT_DELETE_CANDIDATE_REQUIRED');
+}
+function boundDeletePlan(document,candidate){
+ const mutation=Object.freeze({schema:'CIIWorkspaceRestraintSlotMutation.v1',status:'QUALIFIED',
+  mode:'CLEAR',authority:'PROTECTED_WRITER_EXISTING_24_ROW_BLOCK_EMPTY_SLOT_TEMPLATE',
+  pointer:candidate.pointer,slot:candidate.slot,targetNode:candidate.targetNode,beforeSlot:candidate.beforeSlot});
+ const operation=Object.freeze({operationId:'WP7-RUNTIME-RESTRAINT-DELETE',family:'RESTRAINT',
+  property:'Qualified restraint slot mutation',action:'DELETE',status:'PREVIEW_READY',
+  scopeDecision:'APPLY',policyAuthority:'CII_WRITER_1B_EXISTING_BLOCK_FIXED_SLOT',
+  matchAuthority:Object.freeze({status:'REVIEWED'}),
+  sourceEvidence:Object.freeze({value:mutation}),proposed:mutation});
+ return Object.freeze({status:'PREVIEW_READY',blockers:[],
+  sourceDocument:{fileName:'WP7_CONTROLLED_SOURCE',contentSha256:'3'.repeat(64)},
+  targetDocument:{fileName:document.fileName,contentSha256:document.contentSha256},
+  operations:[operation],excludedOperations:[],transferScope:Object.freeze({
+    schema:'CIIWorkspaceTransferScope.v1',mode:'EXPLICIT_APPLY_EXCLUDE',
+    status:'BOUND',authority:'USER_EXPLICIT_OPERATION_SCOPE',scopeId:'WP7-BOUND-RESTRAINT',
+    sourceSha256:'3'.repeat(64),targetSha256:document.contentSha256,
+    candidateOperationIds:[operation.operationId],appliedOperationIds:[operation.operationId],
+    excludedOperationIds:[],appliedOperationCount:1,excludedOperationCount:0})});
+}
+async function executeRealV14Path(v11Original,originalV14,expectedPath){
+ const policy={writerVersion:'2',cryptoRef:webcrypto,spatialToleranceMm:1,
+  diameterToleranceRatio:0.01,wallToleranceRatio:0.01,identityWeight:50,
+  diameterWeight:30,wallWeight:30,winnerGap:8};
+ const target=await intakeCiiWorkspaceDocument(v11Original,'WP7_TARGET_V11.CII',
+  {side:'TARGET',cryptoRef:webcrypto});
+ const graph=adaptCiiDocumentToTopologyGraph(target);
+ const candidate=validRestraintDelete(target);
+ const seed=applyCiiWriter2CompositeWithRestraintDelete({
+  targetDocument:target,targetGraph:graph,transferPlan:boundDeletePlan(target,candidate)});
+ assert.equal(seed.status,'APPLIED');
+ const src=await convertCiiNeutralVersionLossless(seed.bytes,14,
+  {fileName:'WP7_SOURCE_GENERATED_V14.CII',cryptoRef:webcrypto});
+ const originalHash=await ciiSha256(originalV14,webcrypto);
+ const first=await createCiiWorkspacePreviewWithVersionBridge({
+  sourceBytes:src.outputBytes,sourceFileName:'WP7_SOURCE_V14.CII',
+  targetBytes:originalV14,targetFileName:'WP7_TARGET_V14.CII',
+  anchorPairs:[{sourceNodeId:candidate.targetNode,targetNodeId:candidate.targetNode}]},policy);
+ assert.equal(first.versionBridge.target.originalSha256,originalHash);
+ const productOp=first.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
+  op.property==='Qualified restraint slot mutation'&&op.action==='DELETE');
+ assert(productOp&&productOp.status==='PREVIEW_READY','real Writer2 operation must be eligible');
+ const decisions=Object.fromEntries(ciiTransferScopeCandidateOperations(first.transferPlan)
+  .filter(op=>op.action!=='KEEP').map(op=>[op.operationId,
+  op.operationId===productOp.operationId?'APPLY':'EXCLUDE']));
+ const preview=bindCiiTransferScopeToPreview(first,createCiiTransferScopeSelection(first.transferPlan,decisions));
+ assert.equal(preview.transferScope.status,'BOUND');
+ assert.equal(preview.writerReadiness.ready,true,preview.writerReadiness.blockers?.join('|'));
+ await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
+  {...preview,versionBridge:null},originalV14,{cryptoRef:webcrypto}),/PREVIEW_REQUIRED/);
+ const canonicalV11=await applyCiiWorkspaceTargetWriter2(preview,v11Original,{cryptoRef:webcrypto});
+ assert.equal(canonicalV11.status,'PASS');
+ const result=await applyCiiWorkspaceTargetWriter2WithVersionBridge(preview,originalV14,{cryptoRef:webcrypto});
+ const proof=result.versionBridgeValidation;
+ assert.equal(result.status,'PASS');
+ assert.equal(proof.status,'PASS');
+ assert.equal(proof.path,expectedPath);
+ assert.equal(proof.originalTargetSha256,originalHash);
+ assert.equal(proof.normalizedTargetSha256,preview.versionBridge.target.normalizedSha256);
+ assert.equal(proof.canonicalModifiedRoundTripExact,true);
+ assert.equal(proof.projectedNormalizedPostimageExact,true);
+ assert.equal(proof.fixedFieldAuthority.status,'PASS');
+ assert.equal(result.sourceTargetSha256,originalHash);
+ assert.equal(result.modifiedTargetSha256,await ciiSha256(ciiByteStringToBytes(result.byteString),webcrypto));
+ const final=ciiByteStringToBytes(result.byteString);
+ assert.equal(detectCiiNeutralVersion(final),14);
+ let projected=final;
+ if(expectedPath==='V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11'){
+  assert(preview.versionBridge.target.writer2Shadow?.enabled);
+  assert(!proof.changedV14Sections.includes('SIF&TEES'),'no protected SIF writes');
+  projected=createCiiWriter2V14LosslessShadow(final).outputBytes;
+ }else assert.equal(preview.versionBridge.target.writer2Shadow,null);
+ const downgrade=await convertCiiNeutralVersionLossless(projected,11,
+  {fileName:'WP7_POSTIMAGE_V14.CII',cryptoRef:webcrypto});
+ assert(ciiBytesEqual(downgrade.outputBytes,ciiByteStringToBytes(canonicalV11.byteString)));
+ const tampered=new Uint8Array(originalV14);tampered[30]^=1;
+ await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
+  preview,tampered,{cryptoRef:webcrypto}),/STALE_ORIGINAL_V14_TARGET_HASH/);
+ return {path:proof.path,original:originalHash,after:result.modifiedTargetSha256,
+  changedSections:proof.changedV14Sections};
+}
+const benchmarkV11=new Uint8Array(await readFile(new URL('../Benchmark/CIICompare/BM_CII_SOURCE.CII',import.meta.url)));
+const generatedV14=await convertCiiNeutralVersionLossless(benchmarkV11,14,
+ {fileName:'WP7_BM_GENERATED_V14.CII',cryptoRef:webcrypto});
+const nonshadow=await executeRealV14Path(benchmarkV11,generatedV14.outputBytes,'V14_CHANGE_ISOLATED_VIA_V11');
+const originalT=new Uint8Array(await readFile(new URL('../Benchmark/T.CII',import.meta.url)));
+assert.equal(createHash('sha256').update(originalT).digest('hex'),
+ 'abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060');
+const normalizedT=await convertCiiNeutralVersionLossless(
+ createCiiWriter2V14LosslessShadow(originalT).outputBytes,11,
+ {fileName:'WP7_T_SHADOW_V11.CII',cryptoRef:webcrypto});
+const shadow=await executeRealV14Path(normalizedT.outputBytes,originalT,
+ 'V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11');
+assert.notEqual(nonshadow.original,shadow.original);
+console.log('WP7_V14_WRITER2_EXECUTED_ROUTES '+JSON.stringify({nonshadow,shadow}));
 
 console.log('Writer 2 product routing is bridge-bound for V11/V14 and Writer2 export is byte/proof-authoritative while the production default remains Writer 1B.');
