@@ -1,5 +1,6 @@
 import { buildOriginalGraphFromBytes, graphRoute } from './cii-workspace-method-c-original-geometry.js';
 import { registerMethodC } from './cii-workspace-method-c-registration.js';
+import { snapshotMethodCAutoEvidence, methodCAutoJsonExport } from './cii-workspace-method-c-auto-registration.js';
 import { findMethodCCandidates } from './cii-workspace-method-c-candidates.js';
 import { methodCSvgScene, escapeMethodCXml as h } from './cii-workspace-method-c-svg.js';
 import { methodCEvidence, methodCCsvExport, methodCJsonExport, methodCSvgExport } from './cii-workspace-method-c-exports.js';
@@ -20,7 +21,10 @@ function shell(){
     '<label>SOURCE NODE <input id="mc-source-id" inputmode="numeric"></label>'+
     '<label>TARGET NODE <input id="mc-target-id" inputmode="numeric"></label>'+
     button('add-anchor','Add anchor')+button('clear-anchors','Reset anchors')+
-    '<p>1 anchor: rotation unknown. 2: axial twist unknown. Only admissible non-collinear anchors constrain 3D rotation.</p>'+
+    '<p>Manual: 1 anchor leaves rotation unknown. AUTO: original signed ELEMENT motifs may identify a unique candidate, otherwise HOLD. No physical identity or Writer2 authority.</p>'+ 
+    '<label>Orientation <select id="mc-orientation-mode"><option value="MANUAL_PREVIEW">Manual Euler preview</option>'+ 
+    '<option value="AUTO_GEOMETRIC_PREVIEW">AUTO original signed geometry (unverified)</option>'+ 
+    '<option value="AUTO_OWNER_VERIFIED">Owner-verified AUTO (requires authority)</option></select></label>'+ 
     '<fieldset><legend>Assumed orientation (1 anchor only, degrees)</legend>'+
     ['x','y','z'].map(a=>'<label>'+a.toUpperCase()+' <input id="mc-euler-'+a+'" type="number" value="0" step="1"></label>').join('')+
     '</fieldset><label>Two-anchor unresolved twist ° <input id="mc-twist" type="number" value="0"></label>'+
@@ -73,8 +77,9 @@ export function mountMethodC(root,{source=null,target=null}={}){
   const $=s=>root.querySelector(s);
   const state={source,target,anchors:[],transform:null,candidates:null,scene:null,selected:null,
     selectionElement:null,projection:'XZ',scope:'component',error:'',tolerance:{x:100,y:100,z:100},
-    revisions:[0,0],lastExport:null,closed:false};
-  function snapshotClear(){state.transform=null;state.candidates=null;state.scene=null;state.lastExport=null;}
+    revisions:[0,0],lastExport:null,autoEvidenceTicket:null,closed:false};
+  function snapshotClear(){state.transform=null;state.candidates=null;state.scene=null;
+    state.autoEvidenceTicket=null;state.lastExport=null;}
   function displayFailure(message){
     snapshotClear();state.error=String(message??'Choose original files and physical NODE anchors.');
     $('[data-view="errors"]').textContent=state.error;
@@ -121,8 +126,26 @@ export function mountMethodC(root,{source=null,target=null}={}){
     }
     try{
       const a=$('#mc-twist'),euler=['x','y','z'].map(v=>Number($('#mc-euler-'+v).value));
+      const mode=$('#mc-orientation-mode').value;
       const transform=registerMethodC(state.source,state.target,state.anchors,
-        {previewEulerDeg:euler,previewTwistDeg:Number(a.value)});
+        {orientationMode:mode,previewEulerDeg:euler,previewTwistDeg:Number(a.value)});
+      if(transform.status==='HOLD'){
+        state.transform=transform;
+        state.autoEvidenceTicket=snapshotMethodCAutoEvidence(state.source,state.target,transform);
+        const evidence=transform.originalDiscovery;
+        const summary={reason:transform.reason??'GEOMETRY_UNRESOLVED',
+          sourceSha:state.source.sha256,targetSha:state.target.sha256,
+          possible:evidence?.counts?.possible??null,visited:evidence?.counts?.visited??null,
+          poseCount:evidence?.hypotheses?.length??0,
+          admissiblePoseIds:evidence?.admissiblePoseIds??[]};
+        $('[data-view="errors"]').textContent='HOLD — geometric pose not selected. JSON evidence export available.';
+        $('[data-view="registration"]').textContent='METHOD C HOLD — NO TRANSFORM\n'+JSON.stringify(summary,null,2);
+        $('[data-view="legend"]').textContent='HOLD; physical identities: 0; Writer2: unavailable';
+        $('[data-view="detail"]').textContent='Read-only HOLD ledger preserved. Export JSON to inspect every pose and rejected witness.';
+        $('[data-view="svg"]').replaceChildren();$('[data-view="rows"]').replaceChildren();
+        $('[data-view="metrics"]').textContent='HOLD: no registered overlay selected.';
+        return;
+      }
       if(!transform.rotation)throw new Error(transform.status);
       const tolerance=Object.fromEntries(['x','y','z'].map(v=>[v,Number($('#mc-tol-'+v).value)]));
       const candidates=findMethodCCandidates(state.source,state.target,transform,tolerance);
@@ -130,7 +153,9 @@ export function mountMethodC(root,{source=null,target=null}={}){
       state.selected=candidates.rows.some(r=>r.source===state.selected)?state.selected:
         (candidates.rows[0]?.source??null);
       $('[data-view="errors"]').textContent='';
-      $('[data-view="registration"]').textContent=transform.status+'; max anchor residual '+n(transform.maxResidualMm)+
+      $('[data-view="registration"]').textContent=transform.status+'; AUTO pose '+esc(transform.selectedPoseId??'none')+
+        '; D/H hypotheses '+(transform.originalDiscovery?.hypotheses?.length??0)+
+        '; max anchor residual '+n(transform.maxResidualMm)+
         ' mm\nscale = 1, det R = '+n(transform.determinant)+
         '\nR =\n'+transform.rotation.map(row=>row.map(v=>v.toFixed(6)).join('  ')).join('\n')+
         '\nt = '+transform.translation.map(n).join(', ')+' mm'+
@@ -161,16 +186,19 @@ export function mountMethodC(root,{source=null,target=null}={}){
     }catch(e){if(rev===state.revisions[index]&&!state.closed)displayFailure('Original file rejected: '+e.message);}
   }
   function exportCurrent(kind){
-    if(!state.candidates||!state.scene)throw new Error('METHOD_C_NO_CURRENT_EVIDENCE');
+    const isHold=state.transform?.status==='HOLD';
+    if(isHold&&kind!=='json')throw new Error('METHOD_C_HOLD_JSON_ONLY');
+    if(!isHold&&(!state.candidates||!state.scene))throw new Error('METHOD_C_NO_CURRENT_EVIDENCE');
     const context={source:state.source,target:state.target,transform:state.transform,
       candidates:state.candidates,scene:state.scene,projection:state.projection};
-    const content=kind==='svg'?methodCSvgExport(context):
+    const content=isHold?methodCAutoJsonExport(state.source,state.target,state.transform,state.autoEvidenceTicket):
+      kind==='svg'?methodCSvgExport(context):
       kind==='csv'?methodCCsvExport(context):methodCJsonExport(context);
     const type=kind==='svg'?'image/svg+xml':kind==='csv'?'text/csv':'application/json';
     const blob=new Blob([content],{type}),url=URL.createObjectURL(blob);
     const link=document.createElement('a');link.href=url;link.download='method-c-evidence.'+kind;
     link.click();queueMicrotask(()=>URL.revokeObjectURL(url));
-    state.lastExport={kind,content,summary:methodCEvidence(context).rows.length};
+    state.lastExport={kind,content,summary:isHold?'HOLD':methodCEvidence(context).rows.length};
     $('[data-view="errors"]').textContent=kind.toUpperCase()+' exported with current original-byte SHA and candidate snapshot.';
   }
   function zoom(factor){
@@ -206,7 +234,7 @@ export function mountMethodC(root,{source=null,target=null}={}){
       event.preventDefault();event.target.click();
     }
   });
-  for(const selector of ['#mc-tol-x','#mc-tol-y','#mc-tol-z','#mc-euler-x','#mc-euler-y',
+  for(const selector of ['#mc-orientation-mode','#mc-tol-x','#mc-tol-y','#mc-tol-z','#mc-euler-x','#mc-euler-y',
     '#mc-euler-z','#mc-twist'])$(selector).addEventListener('change',refresh);
   for(const selector of ['#mc-projection','#mc-scope','#mc-labels','#mc-route-source-a',
     '#mc-route-source-b','#mc-route-target-a','#mc-route-target-b'])

@@ -4,6 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { webcrypto } from 'node:crypto';
 import { buildOriginalGraphFromBytes } from '../tabs/cii-workspace/cii-workspace-method-c-original-geometry.js';
 import { registerMethodC, registeredMethodCPoint } from '../tabs/cii-workspace/cii-workspace-method-c-registration.js';
+// The existing hosted Method C node job executes this file; include the dedicated AUTO regressions.
+import './cii-workspace-method-c-proper-frame.test.js';
+import './cii-workspace-method-c-orientation-hypotheses.test.js';
+import './cii-workspace-method-c-auto-registration.test.js';
 
 const sourceHash='9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b';
 const targetHash='abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060';
@@ -49,8 +53,11 @@ test('three independent noncollinear anchor axes fit exact proper rigid rotation
  const s=graph('S',original),t=graph('T',rotated);
  const pairs=original.map(([id])=>({source:id,target:id,sourceSha:s.sha256,targetSha:t.sha256,role:'independently-accepted'}));
  const result=registerMethodC(s,t,pairs);
- assert.equal(result.status,'RIGID_3D_QUALIFIED_FOR_GEOMETRIC_REVIEW');
- assert.equal(result.qualified,true);
+ assert.equal(result.status,'RIGID_3D_NUMERIC_FIT_UNTRUSTED_ANCHORS');
+ assert.equal(result.qualified,false);
+ assert.equal(result.identified,false);
+ assert.equal(result.numericFitAcceptable,true);
+ assert.equal(result.ownerAnchorAuthenticated,false);
  assert.equal(result.scale,1);
  approx(result.determinant,1);
  assert.ok(result.rmsResidualMm<1e-6);
@@ -105,4 +112,41 @@ test('red: insufficient or collinear admissible anchors have no qualified transf
  assert.equal(tr.status,'DEGENERATE_NONCOLLINEAR_BASIS');
  assert.equal(tr.qualified,false);
  assert.equal(tr.rotation,undefined);
+});
+
+test('security: caller role never authenticates accurate 3D geometry; all XY/XZ/YZ bases fit',()=>{
+ const planes=[[[0,0,0],[1000,0,0],[0,1200,0]],
+   [[0,0,0],[1000,0,0],[0,0,1200]],
+   [[0,0,0],[0,1000,0],[0,0,1200]]];
+ for(const points of planes){
+   const original=points.map((xyz,i)=>[i+1,xyz]);
+   const shifted=original.map(([id,xyz])=>[id,xyz.map((v,j)=>v+[520,-220,1190][j])]);
+   const s=graph('S',original),t=graph('T',shifted);
+   const tuples=original.map(([id])=>({source:id,target:id,role:'candidate'}));
+   const forged=tuples.map(row=>({...row,role:'independently-accepted',ownerProvided:true}));
+   for(const anchors of [tuples,forged]){
+     const fit=registerMethodC(s,t,anchors);
+     assert.equal(fit.status,'RIGID_3D_NUMERIC_FIT_UNTRUSTED_ANCHORS');
+     assert.equal(fit.qualified,false);
+     assert.equal(fit.identified,false);
+     assert.equal(fit.ownerAnchorAuthenticated,false);
+     assert.equal(fit.numericFitAcceptable,true);
+     assert.ok(fit.maxResidualMm<1e-7);
+     assert.equal(fit.writerEligible,false);
+   }
+ }
+});
+
+test('OWNER verifier callback and caller role cannot mint authenticated AUTO pose',()=>{
+ const s=graph('S',[[1,[0,0,0]]]);const t=graph('T',[[5,[100,200,300]]]);
+ const a={source:1,target:5,role:'independently-accepted',ownerProvided:true};
+ const result=registerMethodC(s,t,[a],{orientationMode:'AUTO_OWNER_VERIFIED',
+   verifyOwnerAnchor:()=>true,approvedPublicKey:'CALLER_FORGED_KEY'});
+ assert.equal(result.status,'HOLD');
+ assert.equal(result.reason,'OWNER_ANCHOR_AUTHENTICATION_UNAVAILABLE');
+ assert.equal(result.rotation,null);
+ assert.equal(result.ownerAnchorAuthenticated,false);
+ assert.equal(result.qualified,false);
+ assert.equal(result.identified,false);
+ assert.equal(result.writerEligible,false);
 });
