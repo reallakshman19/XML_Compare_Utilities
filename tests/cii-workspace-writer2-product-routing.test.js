@@ -373,7 +373,7 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const downgrade=await convertCiiNeutralVersionLossless(projected,11,
   {fileName:'WP7_POSTIMAGE_V14.CII',cryptoRef:webcrypto});
  assert(ciiBytesEqual(downgrade.outputBytes,ciiByteStringToBytes(canonicalV11.byteString)));
- const tampered=new Uint8Array(originalV14);tampered[30]^=1;
+ const tampered=new Uint8Array(originalV14);tampered[Math.min(1024,tampered.length-16)]^=1;
  await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
   preview,tampered,{cryptoRef:webcrypto}),/STALE_ORIGINAL_V14_TARGET_HASH/);
  return {path:proof.path,original:originalHash,after:result.modifiedTargetSha256,
