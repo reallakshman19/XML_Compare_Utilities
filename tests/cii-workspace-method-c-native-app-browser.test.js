@@ -182,7 +182,10 @@ function originalSignedFixture(directions,{rotation=[[1,0,0],[0,1,0],[0,0,1]],
   '1 '+root.map(v=>v.toFixed(3)).join(' ')].join('\n')+'\n');
 }
 async function openedNativeAuto(page){
+ // Native host mounts asynchronous utility tiles only after the initial app boot.
+ await page.waitForTimeout(2000);
  await page.locator('.app-tab[data-tab=psnm-utility]').click();
+ await page.locator('[data-ciiw-open-method-c]').waitFor({state:'visible',timeout:90000});
  await page.locator('[data-ciiw-open-method-c]').click();
  const overlay=page.locator('[data-ciiw-method-c-backdrop]');
  await overlay.waitFor({state:'visible',timeout:30000});
