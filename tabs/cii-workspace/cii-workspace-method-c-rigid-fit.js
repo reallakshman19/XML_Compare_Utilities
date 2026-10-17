@@ -3,7 +3,8 @@
 const minus = (a, b) => a.map((v, i) => v - b[i]);
 const average = (points) => [0, 1, 2].map((i) => points.reduce((s, p) => s + p[i], 0) / points.length);
 const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2]];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (p) => Math.hypot(...p);
 const matPoint = (matrix, point) => matrix.map((row) => dot(row, point));
 const sq = (v) => v * v;
