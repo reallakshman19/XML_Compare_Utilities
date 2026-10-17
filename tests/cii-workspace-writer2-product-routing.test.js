@@ -244,6 +244,21 @@ function boundDeletePlan(document,candidate){
     candidateOperationIds:[operation.operationId],appliedOperationIds:[operation.operationId],
     excludedOperationIds:[],appliedOperationCount:1,excludedOperationCount:0})});
 }
+function physicalNoncollinearAnchorPairs(graph,requiredId){
+ const origin=graph.nodes.find(n=>String(n.id)===String(requiredId));
+ assert(origin,'real qualified delete NODE required in topology');
+ const vector=(a,b)=>[a.position.x-b.position.x,a.position.y-b.position.y,a.position.z-b.position.z];
+ const length=v=>Math.hypot(...v);
+ const others=graph.nodes.filter(n=>String(n.id)!==String(requiredId));
+ for(const a of others)for(const b of others){
+  if(a===b)continue;
+  const u=vector(a,origin),v=vector(b,origin);
+  const cross=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+  if(length(u)>100&&length(v)>100&&length(cross)>0.05*length(u)*length(v))
+   return [origin,a,b].map(n=>({sourceNodeId:String(n.id),targetNodeId:String(n.id)}));
+ }
+ throw new Error('WP7_WRITER2_THREE_INDEPENDENT_PHYSICAL_ANCHORS_REQUIRED');
+}
 async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const policy={writerVersion:'2',cryptoRef:webcrypto,spatialToleranceMm:1,
   diameterToleranceRatio:0.01,wallToleranceRatio:0.01,identityWeight:50,
@@ -261,7 +276,7 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const first=await createCiiWorkspacePreviewWithVersionBridge({
   sourceBytes:src.outputBytes,sourceFileName:'WP7_SOURCE_V14.CII',
   targetBytes:originalV14,targetFileName:'WP7_TARGET_V14.CII',
-  anchorPairs:[{sourceNodeId:candidate.targetNode,targetNodeId:candidate.targetNode}]},policy);
+  anchorPairs:physicalNoncollinearAnchorPairs(graph,candidate.targetNode)},policy);
  assert.equal(first.versionBridge.target.originalSha256,originalHash);
  const productOp=first.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
   op.property==='Qualified restraint slot mutation'&&op.action==='DELETE');
@@ -271,14 +286,6 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
   op.operationId===productOp.operationId?'APPLY':'EXCLUDE']));
  const preview=bindCiiTransferScopeToPreview(first,createCiiTransferScopeSelection(first.transferPlan,decisions));
  assert.equal(preview.transferScope.status,'BOUND');
- console.log('WP7_WRITER2_READY_PROBE '+JSON.stringify({path:expectedPath,candidate,
-  previewStatus:first.status,correspondence:first.correspondence?.status,
-  sourceSummary:first.sourceDocument?.summary?.neutralVersionMajor,
-  targetSummary:first.targetDocument?.summary?.neutralVersionMajor,
-  planStatus:first.transferPlan?.status,planBlockers:first.transferPlan?.blockers,
-  selectedOperation:productOp.operationId,
-  scopeStatus:preview.transferScope?.status,
-  readiness:preview.writerReadiness}));
  assert.equal(preview.writerReadiness.ready,true,preview.writerReadiness.blockers?.join('|'));
  await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
   {...preview,versionBridge:null},originalV14,{cryptoRef:webcrypto}),/PREVIEW_REQUIRED/);
