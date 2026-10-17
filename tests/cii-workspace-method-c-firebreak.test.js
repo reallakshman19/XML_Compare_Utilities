@@ -17,7 +17,7 @@ const sourceFiles = [
   'cii-workspace-method-c-ui.js','cii-workspace-method-c-native-adapter.js',
   'cii-workspace-method-c-tile.js',
 ];
-const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
+const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml|agents\/(?:PR119_workreport|WIP-G3-MC-20261017_workreport)\.md)$/.test(path);
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
 test('WP7 red: Method C owned modules have no Writer2 imports, mutation/export grants or native Apply controls',()=>{
@@ -41,14 +41,25 @@ test('WP7 red: even synthetically perfectly fitted 3D anchors cannot authorize p
     ({source:String(s),target:String(t),sourceSha:source.sha256,targetSha:target.sha256,
       role:'independently-accepted'}));
   const registration=registerMethodC(source,target,anchors);
-  assert.equal(registration.qualified,true,'geometric fit can be perfect without identity policy');
+  assert.equal(registration.qualified,false,'caller-controlled role cannot authenticate geometric fit');
+  assert.equal(registration.identified,false);
+  assert.equal(registration.numericFitAcceptable,true,'the geometry remains a valid numerical fit');
+  assert.equal(registration.ownerAnchorAuthenticated,false);
+  assert.equal(registration.writerEligible,false);
+  const noRole=registerMethodC(source,target,anchors.map(({role,...rest})=>rest));
+  assert.equal(noRole.qualified,false);
+  assert.equal(noRole.identified,false);
+  assert.equal(noRole.numericFitAcceptable,true);
+  assert.deepEqual(noRole.rotation,registration.rotation,'roles must not influence geometric math');
   const candidates=findMethodCCandidates(source,target,registration);
   assert.equal(candidates.nearSourceCount,4);
   assert.equal(candidates.qualifiedIdentityCount,0);
   assert.ok(candidates.rows.every(r=>r.writerEligible===false&&r.physicalNodeCorrespondenceQualified===false));
   const scene=methodCSvgScene({source,target,transform:registration,candidates});
   const evidence=methodCEvidence({source,target,transform:registration,candidates,scene});
-  assert.equal(evidence.registration.qualifiedForGeometricReview,true);
+  assert.equal(evidence.registration.qualifiedForGeometricReview,false);
+  assert.equal(evidence.registration.numericFitAcceptable,true);
+  assert.equal(evidence.registration.ownerAnchorAuthenticated,false);
   assert.equal(evidence.qualifiedPhysicalIdentityCount,0);
   assert.equal(evidence.writerEligible,false);
   assert.ok(evidence.rows.every(r=>!r.writerEligible&&!r.physicalIdentityQualified));
