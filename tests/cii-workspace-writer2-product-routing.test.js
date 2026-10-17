@@ -7,6 +7,7 @@ import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-works
 import { ciiPhysicalSectionRows } from '../tabs/cii-workspace/cii-workspace-physical-file.js';
 import { applyCiiWriter2CompositeWithRestraintDelete } from '../tabs/cii-workspace/cii-workspace-writer2-composite-restraint.js';
 import { createCiiWriter2V14LosslessShadow } from '../tabs/cii-workspace/cii-workspace-v14-writer2-shadow.js';
+import { createCiiWorkspaceReviewLedger } from '../tabs/cii-workspace/cii-workspace-review.js';
 import { applyCiiWorkspaceTargetWriter2 } from '../tabs/cii-workspace/cii-workspace-core.js';
 import { bindCiiTransferScopeToPreview, ciiTransferScopeCandidateOperations, createCiiTransferScopeSelection } from '../tabs/cii-workspace/cii-workspace-transfer-scope.js';
 import { applyCiiWorkspaceTargetWriter2WithVersionBridge, createCiiWorkspacePreviewWithVersionBridge } from '../tabs/cii-workspace/cii-workspace-writer-version-bridge.js';
@@ -302,38 +303,41 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const src=await convertCiiNeutralVersionLossless(seed.bytes,14,
   {fileName:'WP7_SOURCE_GENERATED_V14.CII',cryptoRef:webcrypto});
  const originalHash=await ciiSha256(originalV14,webcrypto);
- const first=await createCiiWorkspacePreviewWithVersionBridge({
+ const physicalPairs=physicalNoncollinearAnchorPairs(graph,candidate.targetNode);
+ const previewInput={
   sourceBytes:src.outputBytes,sourceFileName:'WP7_SOURCE_V14.CII',
   targetBytes:originalV14,targetFileName:'WP7_TARGET_V14.CII',
   baseLoops:[{method:'METHOD_A_SPATIAL',baseId:'WP7-REAL-DISTINCTIVE-A',
-    anchorPairs:physicalNoncollinearAnchorPairs(graph,candidate.targetNode)}]},policy);
+    anchorPairs:physicalPairs}]};
+ const first=await createCiiWorkspacePreviewWithVersionBridge(previewInput,policy);
  assert.equal(first.versionBridge.target.originalSha256,originalHash);
- console.log('WP7_REAL_V14_PREVIEW_GATE '+JSON.stringify({
-   expectedPath,baseStatus:first.multiBaseAuthority?.status,
-   loopSummary:first.multiBaseAuthority?.loops?.map(l=>({status:l.status,method:l.method,
-     geometryStatus:l.geometry?.status,confidence:l.confidence})),
-   correspondence:first.correspondence?.status,
-   correspondenceBlockers:first.correspondence?.blockers,
-   originalLoopResults:first.multiBaseCorrespondence?.loopResults?.map(item=>({
-    method:item.loop?.method,geometry:item.loop?.geometry?.status,
-    status:item.correspondence?.status,reason:item.correspondence?.reason,
-    blockers:item.correspondence?.blockers,
-    rowCount:item.correspondence?.nodeRows?.length,
-    elementCount:item.correspondence?.elementRows?.length,
-    conflictCount:item.correspondence?.targetCustodyConflicts?.length})),
-   transferStatus:first.transferPlan?.status,transferBlockers:first.transferPlan?.blockers,
-   operations:(first.transferPlan?.operations||[]).filter(op=>op.family==='RESTRAINT').map(op=>({
-    id:op.operationId,action:op.action,status:op.status,reason:op.blockers,
-    target:op.targetEvidence?.identity})),
-   writerReadiness:first.writerReadiness?.status,
-   writerBlockers:first.writerReadiness?.blockers}));
- const productOp=first.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
+ assert.equal(first.correspondence.status,'READY','review cannot bypass unresolved physical correspondence');
+ assert.equal(first.transferPlan.status,'BLOCKED','no operation before actual review');
+ assert(first.transferPlan.blockers.includes('NO_REVIEWED_TRANSFER_PREVIEW_OPERATIONS'));
+ const realDeltas=(first.engineeringDeltas?.rows||[]).filter(d=>d.category==='RESTRAINT'&&d.changed);
+ const physicalIdentity=first.correspondence.nodeRows.find(row=>
+  String(row.sourceNodeId)===String(candidate.targetNode)&&
+  String(row.targetNodeId)===String(candidate.targetNode));
+ assert(physicalIdentity,'physical RESTRAINT NODE must have separately demonstrated correspondence');
+ assert(realDeltas.some(d=>d.correspondenceId===physicalIdentity.correspondenceId),
+  'original restraint mutation must be a real identity-tied changed engineering delta');
+ // Explicit, SHA-bound test-only review, not blanket qualification or bypass.
+ const signedReview=createCiiWorkspaceReviewLedger(
+  first.sourceDocument,first.targetDocument,physicalPairs,first.correspondence,{
+   reviewedCorrespondenceIds:[physicalIdentity.correspondenceId]});
+ const reviewed=await createCiiWorkspacePreviewWithVersionBridge(
+  {...previewInput,review:signedReview},policy);
+ assert.equal(reviewed.correspondence.status,'READY');
+ assert.equal(reviewed.review.sourceContentSha256,first.sourceDocument.contentSha256);
+ assert.equal(reviewed.review.targetContentSha256,first.targetDocument.contentSha256);
+ assert.equal(reviewed.review.correspondenceIdentity,first.correspondence.correspondenceIdentity);
+ const productOp=reviewed.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
   op.property==='Qualified restraint slot mutation'&&op.action==='DELETE');
  assert(productOp&&productOp.status==='PREVIEW_READY','real Writer2 operation must be eligible');
- const decisions=Object.fromEntries(ciiTransferScopeCandidateOperations(first.transferPlan)
+ const decisions=Object.fromEntries(ciiTransferScopeCandidateOperations(reviewed.transferPlan)
   .filter(op=>op.action!=='KEEP').map(op=>[op.operationId,
   op.operationId===productOp.operationId?'APPLY':'EXCLUDE']));
- const preview=bindCiiTransferScopeToPreview(first,createCiiTransferScopeSelection(first.transferPlan,decisions));
+ const preview=bindCiiTransferScopeToPreview(reviewed,createCiiTransferScopeSelection(reviewed.transferPlan,decisions));
  assert.equal(preview.transferScope.status,'BOUND');
  assert.equal(preview.writerReadiness.ready,true,preview.writerReadiness.blockers?.join('|'));
  await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
