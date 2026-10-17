@@ -274,3 +274,112 @@ test('WP6 two actual native AUTO 3D rotations and symmetry/reflection HOLD with 
   console.log('METHOD_C_NATIVE_AUTO_ROTATION_RECEIPT '+JSON.stringify(receipt));
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 });
+
+
+// P2 owner-reported real-user Edge hang, reproduced independently in hosted
+// actual Chromium against ORIGINAL S1/S2/S3/T. This is generic Writer2 intake,
+// not Method C AUTO: keep these two product workflow results separate.
+test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsiveness and exact custody', {timeout:240000},async()=>{
+ const {server,url}=await appServer();let browser,context,page;
+ const started=Date.now(),events=[],pageErrors=[],httpFailures=[];
+ const receiptPath=path.join(receipts,'real-user-multisource-chromium-timing.json');
+ let stage='LAUNCH',inputSha=null,result='NOT_RUN',failure=null;
+ try{
+  await mkdir(receipts,{recursive:true});
+  browser=await chromium.launch({headless:true});
+  context=await browser.newContext({acceptDownloads:true,viewport:{width:1400,height:850}});
+  page=await context.newPage();
+  page.on('pageerror',e=>pageErrors.push(String(e.message).slice(0,900)));
+  page.on('response',r=>{if(r.status()>=400)httpFailures.push({status:r.status(),url:r.url().slice(0,300)});});
+  page.on('console',m=>{if(m.type()==='error')pageErrors.push('CONSOLE: '+m.text().slice(0,350));});
+  await page.goto(url+'/',{waitUntil:'domcontentloaded'});
+  await page.waitForTimeout(2000);
+  stage='UTILITIES';
+  await page.locator('.app-tab[data-tab="psnm-utility"]').click({timeout:30000});
+  const tile=page.locator('[data-ciiw-open-writer2]');
+  await tile.waitFor({state:'visible',timeout:60000});await tile.click();
+  await page.locator('[data-ciiw-source]').waitFor({state:'visible',timeout:30000});
+  // Upload the 4 exact original bytes, not generated or normalized fixture.
+  const files=await Promise.all(['S1.CII','S2.CII','S3.CII','T.CII']
+   .map(name=>readFile(path.join(originals,name))));
+  const [s1,s2,s3,t]=files;
+  inputSha={S1:sha(s1),S2:sha(s2),S3:sha(s3),T:sha(t)};
+  assert.deepEqual(inputSha,{
+   S1:'9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b',
+   S2:'7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd',
+   S3:'c2143b31c482158ac5514d2709406c14a9179e656277c654e932bb845d090caa',
+   T:'abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060'});
+  await page.locator('[data-ciiw-source]').setInputFiles([
+    {name:'S1.CII',mimeType:'text/plain',buffer:s1},
+    {name:'S2.CII',mimeType:'text/plain',buffer:s2},
+    {name:'S3.CII',mimeType:'text/plain',buffer:s3}]);
+  await page.locator('[data-ciiw-target]').setInputFiles({
+    name:'T.CII',mimeType:'text/plain',buffer:t});
+  stage='PRE_INSPECT';events.push({stage,elapsedMs:Date.now()-started});
+  // Heartbeat proves whether main-thread event loop stalls even if bridge
+  // completion eventually succeeds. Sampling continues during the async bridge.
+  await page.evaluate(()=>{
+   const probe={ticks:0,maxDriftMs:0,longTasks:0,maxLongTaskMs:0,createdAt:performance.now()};
+   globalThis.__methodCRealUserProbe=probe;
+   let last=performance.now();
+   setInterval(()=>{
+    const now=performance.now(),drift=Math.max(0,now-last-250);
+    probe.ticks++;probe.maxDriftMs=Math.max(probe.maxDriftMs,drift);
+    last=now;
+   },250);
+   try{new PerformanceObserver(list=>{for(const entry of list.getEntries()){
+    probe.longTasks++;probe.maxLongTaskMs=Math.max(probe.maxLongTaskMs,entry.duration);
+   }}).observe({entryTypes:['longtask']});}catch{}
+  });
+  await page.screenshot({path:path.join(receipts,'realuser-3sources-before-inspect.png'),fullPage:true});
+  stage='INSPECT_RUNNING';
+  const clicked=Date.now();events.push({stage,elapsedMs:clicked-started});
+  await page.locator('[data-ciiw-inspect]').click({timeout:20000});
+  // This waiting condition is the *actual* terminal user-visible status, not
+  // just a completed fetch, successful conversion request or panel open.
+  try{
+   await page.waitForFunction(()=>{
+     const s=document.querySelector('[data-ciiw-status]')?.textContent||'';
+     return /Source-set custody READY|Multi-source intake blocked|Unrecognized SOURCE|Unrecognized TARGET|Frozen cii_|Error/.test(s);
+   },null,{timeout:90000,polling:700});
+  }catch(e){failure='NO_TERMINAL_PROGRESS_WITHIN_90_SECONDS:'+e.message.slice(0,400);}
+  let terminal=null;
+  try{
+   terminal=await Promise.race([page.evaluate(()=>({
+    status:document.querySelector('[data-ciiw-status]')?.textContent??null,
+    blocked:document.querySelector('[data-ciiw-method-evidence]')?.textContent?.includes('Multi-source intake blocked')??false,
+    probe:globalThis.__methodCRealUserProbe||null,
+    readyPanels:document.querySelectorAll('[data-ciiw-source-set-custody]').length,
+    activeSources:document.querySelector('[data-ciiw-source]')?.files?.length||0,
+    targetSelected:document.querySelector('[data-ciiw-target]')?.files?.length||0
+   })),new Promise((_,reject)=>setTimeout(()=>reject(new Error('PAGE_MAIN_THREAD_EVALUATION_TIMEOUT_6500MS')),6500))]);
+  }catch(e){failure??='BROWSER_EVALUATION_STALLED:'+String(e).slice(0,300);}
+  result=terminal?.status?.includes('Source-set custody READY')?'READY':failure?'TIMEOUT_OR_HANG':'BLOCKED_OR_ERROR';
+  const receipt={schema:'CII.RealUserMultiSourceChromium.v1',candidateSha:process.env.GITHUB_SHA||null,
+   app:'http-served docs/index.html',filesOriginalSha256:inputSha,
+   status:result,terminal,stage,events,
+   inspectionDurationMs:Date.now()-clicked,totalDurationMs:Date.now()-started,
+   pageErrors,httpFailures,failure,detectedLongMainThreadPauseMs:terminal?.probe?.maxDriftMs??null};
+  console.log('METHOD_C_REALUSER_CHROMIUM_MULTISOURCE_RECEIPT '+JSON.stringify(receipt));
+  await writeFile(receiptPath,JSON.stringify(receipt,null,2)+'\n');
+  try{await page.screenshot({path:path.join(receipts,'realuser-3sources-after-inspect.png'),
+   fullPage:true,timeout:8000});}catch(e){console.log('FINAL_SCREENSHOT_BLOCKED '+String(e).slice(0,220));}
+  assert.equal(result,'READY','three-source generic CII intake must finish in 90 seconds');
+  assert.equal(terminal?.activeSources,3);
+  assert.equal(terminal?.targetSelected,1);
+  assert.equal(terminal?.blocked,false);
+  assert.equal(terminal?.readyPanels,1);
+  assert.ok((terminal?.probe?.ticks??0)>2,'main-thread heartbeat absent');
+  assert.ok((terminal?.probe?.maxDriftMs??Infinity)<10000,
+   'main-thread blocked >10s during three-source frozen bridge');
+  assert.deepEqual(pageErrors,[],'generic Writer2 console errors');
+  assert.deepEqual(httpFailures,[],'missing served web assets');
+ }finally{
+  const bounded=(promise,limit)=>Promise.race([promise,new Promise(resolve=>setTimeout(resolve,limit))]);
+  await bounded(page?.close({runBeforeUnload:false}).catch(()=>{}),5000);
+  await bounded(context?.close().catch(()=>{}),5000);
+  await bounded(browser?.close().catch(()=>{}),5000);
+  server.closeAllConnections?.();
+  server.close();
+ }
+});
