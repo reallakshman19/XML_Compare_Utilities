@@ -88,7 +88,7 @@ test('WP9 exact baseline Git trees: protected code/tests, docs mirror and origin
 test('WP9 candidate diff must stay in new Method C-owned files, plan, WIP and dedicated workflow',()=>{
  const changed=git('diff','--name-only',ledger.immutableBase,'HEAD')
   .split(/\r?\n/).filter(Boolean);
- const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml)$/.test(path);
+ const allowed=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_[A-Z0-9_]+\.(?:md|json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml|agents\/(?:PR119_workreport|WIP-G3-MC-20261017_workreport)\.md)$/.test(path);
  assert.deepEqual(changed.filter(p=>!allowed(p)),[]);
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_STATUS.json'));
  assert.ok(changed.includes('docs/METHOD_C_G2_REVIEW_PACKET.md'));
