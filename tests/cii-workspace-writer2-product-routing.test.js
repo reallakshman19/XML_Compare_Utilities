@@ -279,6 +279,18 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
   baseLoops:[{method:'METHOD_A_SPATIAL',baseId:'WP7-REAL-DISTINCTIVE-A',
     anchorPairs:physicalNoncollinearAnchorPairs(graph,candidate.targetNode)}]},policy);
  assert.equal(first.versionBridge.target.originalSha256,originalHash);
+ console.log('WP7_REAL_V14_PREVIEW_GATE '+JSON.stringify({
+   expectedPath,baseStatus:first.multiBaseAuthority?.status,
+   loopSummary:first.multiBaseAuthority?.loops?.map(l=>({status:l.status,method:l.method,
+     geometryStatus:l.geometry?.status,confidence:l.confidence})),
+   correspondence:first.correspondence?.status,
+   correspondenceBlockers:first.correspondence?.blockers,
+   transferStatus:first.transferPlan?.status,transferBlockers:first.transferPlan?.blockers,
+   operations:(first.transferPlan?.operations||[]).filter(op=>op.family==='RESTRAINT').map(op=>({
+    id:op.operationId,action:op.action,status:op.status,reason:op.blockers,
+    target:op.targetEvidence?.identity})),
+   writerReadiness:first.writerReadiness?.status,
+   writerBlockers:first.writerReadiness?.blockers}));
  const productOp=first.transferPlan.operations.find(op=>op.family==='RESTRAINT'&&
   op.property==='Qualified restraint slot mutation'&&op.action==='DELETE');
  assert(productOp&&productOp.status==='PREVIEW_READY','real Writer2 operation must be eligible');
