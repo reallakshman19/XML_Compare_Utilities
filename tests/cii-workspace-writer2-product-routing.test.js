@@ -271,6 +271,14 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
   op.operationId===productOp.operationId?'APPLY':'EXCLUDE']));
  const preview=bindCiiTransferScopeToPreview(first,createCiiTransferScopeSelection(first.transferPlan,decisions));
  assert.equal(preview.transferScope.status,'BOUND');
+ console.log('WP7_WRITER2_READY_PROBE '+JSON.stringify({path:expectedPath,candidate,
+  previewStatus:first.status,correspondence:first.correspondence?.status,
+  sourceSummary:first.sourceDocument?.summary?.neutralVersionMajor,
+  targetSummary:first.targetDocument?.summary?.neutralVersionMajor,
+  planStatus:first.transferPlan?.status,planBlockers:first.transferPlan?.blockers,
+  selectedOperation:productOp.operationId,
+  scopeStatus:preview.transferScope?.status,
+  readiness:preview.writerReadiness}));
  assert.equal(preview.writerReadiness.ready,true,preview.writerReadiness.blockers?.join('|'));
  await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
   {...preview,versionBridge:null},originalV14,{cryptoRef:webcrypto}),/PREVIEW_REQUIRED/);
