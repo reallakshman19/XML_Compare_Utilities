@@ -83,10 +83,6 @@ assert.strictEqual(distinctCorrespondence.readyLoopCount, 1);
 assert.strictEqual(distinctCorrespondence.unresolvedReadyBaseLoopCount, 0);
 assert.deepStrictEqual(distinctCorrespondence.contributingLoopIds, ['B-DISTINCT']);
 assert.strictEqual(distinctCorrespondence.nodeRows.length, 3);
-console.log('WP7_METHOD_B_DISTINCTIVE_ROWS '+JSON.stringify({
-  status:distinctCorrespondence.status,loopResults:distinctCorrespondence.loopResults.map(x=>({
-  status:x.correspondence.status,blockers:x.correspondence.blockers,
-  elementRows:x.correspondence.elementRows})),elementRows:distinctCorrespondence.elementRows}));
 assert.strictEqual(distinctCorrespondence.elementRows.filter(r=>r.sourceElementId&&r.targetElementIds?.length).length,2);
 assert.deepStrictEqual(new Set(distinctCorrespondence.nodeRows.map(r=>r.sourceNodeId)),new Set(['10','20','30']));
 
@@ -108,7 +104,9 @@ const central=abCorrespondence.nodeRows.find(r=>r.sourceNodeId==='20'&&r.targetN
 assert(central,'central A+B pair must survive canonical arbitration');
 assert.strictEqual(central.basisMethod,'METHOD_A_AND_B');
 assert.strictEqual(central.authority,'MULTI_BASE_CORROBORATED');
-assert.strictEqual(central.evidence.multiBaseProvenance.length,2);
+assert.deepStrictEqual(new Set(central.evidence.multiBaseProvenance.map(row=>row.method)),
+ new Set(['METHOD_A_SPATIAL','METHOD_B_NETWORK']),
+ 'independent A and B methods must each substantiate the same physical NODE identity');
 
 // Existing flat anchorPairs must keep their old row identities/authorities when routed through the new engine.
 {
