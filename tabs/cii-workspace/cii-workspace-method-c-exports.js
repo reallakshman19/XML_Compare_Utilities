@@ -17,7 +17,8 @@ export function methodCEvidence({source,target,transform,candidates,scene,projec
     source.member,source.sha256,target.member,target.sha256,
     transform.sourceComponent,transform.targetComponent,transform.status,
     JSON.stringify(transform.anchors),JSON.stringify(transform.rotation),
-    JSON.stringify(transform.translation),
+    JSON.stringify(transform.translation),JSON.stringify(transform.originalDiscovery??null),
+    transform.selectedPoseId??null,
     [candidates.tolerance.x,candidates.tolerance.y,candidates.tolerance.z].join(',')
   ].join('|'))throw new Error('METHOD_C_EXPORT_STALE_SNAPSHOT');
   if(scene.projection!==projection)throw new Error('METHOD_C_EXPORT_STALE_PROJECTION');
@@ -46,7 +47,10 @@ export function methodCEvidence({source,target,transform,candidates,scene,projec
     target:{member:target.member,sha256:target.sha256,nodeCount:target.nodes.length,elementCount:target.edges.length,
       components:target.components.map((ids,index)=>({index,nodeCount:ids.length,
         registered:index===transform.targetComponent}))},
-    registration:{status:transform.status,qualifiedForGeometricReview:Boolean(transform.qualified),
+    registration:{status:transform.status,qualifiedForGeometricReview:false,
+      numericFitAcceptable:Boolean(transform.numericFitAcceptable),
+      ownerAnchorAuthenticated:false,candidateOnly:true,
+      selectedPoseId:transform.selectedPoseId??null,originalDiscovery:transform.originalDiscovery??null,
       anchors:transform.anchors,rotation:transform.rotation,translation:transform.translation,
       scale:1,determinant:transform.determinant,maxResidualMm:transform.maxResidualMm,
       rmsResidualMm:transform.rmsResidualMm,anchorResiduals:transform.residuals,
