@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {writeFileSync,writeSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -284,6 +285,22 @@ test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsivene
  const started=Date.now(),events=[],pageErrors=[],httpFailures=[];
  const receiptPath=path.join(receipts,'real-user-multisource-chromium-timing.json');
  let stage='LAUNCH',inputSha=null,result='NOT_RUN',failure=null;
+ // A browser process can stop responding in a way that defeats Playwright's
+ // page-close and action promises. Independent Node event-loop hard watchdog:
+ // never classify this as PASS or silently exceed user-facing responsiveness.
+ const hardDeadlineMs=145000;
+ const watchdog=setTimeout(()=>{
+  const report={schema:'CII.RealUserMultiSourceWatchdog.v1',
+   exactCandidateSha:process.env.GITHUB_SHA||null,
+   elapsedMs:Date.now()-started,stage,status:'WATCHDOG_TERMINATED_NO_PASS',
+   filesOriginalSha256:inputSha,events,pageErrors,httpFailures,
+   note:'HOSTED CHROMIUM ACTIVE NATIVE TEST DID NOT EXIT BEFORE 145s; no production fix attempted'};
+  try{writeFileSync(receiptPath,JSON.stringify(report,null,2)+'\n');}catch(e){
+   writeSync(2,'WATCHDOG_RECEIPT_WRITE_FAILURE '+String(e)+'\n');
+  }
+  writeSync(2,'METHOD_C_REALUSER_CHROMIUM_WATCHDOG '+JSON.stringify(report)+'\n');
+  process.exit(2);
+ },hardDeadlineMs);
  try{
   await mkdir(receipts,{recursive:true});
   browser=await chromium.launch({headless:true});
@@ -375,6 +392,7 @@ test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsivene
   assert.deepEqual(pageErrors,[],'generic Writer2 console errors');
   assert.deepEqual(httpFailures,[],'missing served web assets');
  }finally{
+  clearTimeout(watchdog);
   const bounded=(promise,limit)=>Promise.race([promise,new Promise(resolve=>setTimeout(resolve,limit))]);
   await bounded(page?.close({runBeforeUnload:false}).catch(()=>{}),5000);
   await bounded(context?.close().catch(()=>{}),5000);
