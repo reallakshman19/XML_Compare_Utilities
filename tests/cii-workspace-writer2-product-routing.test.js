@@ -285,6 +285,13 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
      geometryStatus:l.geometry?.status,confidence:l.confidence})),
    correspondence:first.correspondence?.status,
    correspondenceBlockers:first.correspondence?.blockers,
+   originalLoopResults:first.multiBaseCorrespondence?.loopResults?.map(item=>({
+    method:item.loop?.method,geometry:item.loop?.geometry?.status,
+    status:item.correspondence?.status,reason:item.correspondence?.reason,
+    blockers:item.correspondence?.blockers,
+    rowCount:item.correspondence?.nodeRows?.length,
+    elementCount:item.correspondence?.elementRows?.length,
+    conflictCount:item.correspondence?.targetCustodyConflicts?.length})),
    transferStatus:first.transferPlan?.status,transferBlockers:first.transferPlan?.blockers,
    operations:(first.transferPlan?.operations||[]).filter(op=>op.family==='RESTRAINT').map(op=>({
     id:op.operationId,action:op.action,status:op.status,reason:op.blockers,
