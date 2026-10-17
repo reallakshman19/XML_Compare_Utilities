@@ -1,0 +1,386 @@
+# Method C-only, read-only hosted qualification. New workflow; no existing shared CI edited.
+name: Method C WP2-WP9 original review and protected safety
+on:
+  push:
+    branches:
+      - 'methodc/**'
+    paths:
+      - '.github/workflows/cii-method-c-wp2.yml'
+      - 'tabs/cii-workspace/cii-workspace-method-c-*.js'
+      - 'tests/cii-workspace-method-c-*.test.js'
+      - 'Benchmark/*.CII'
+      - 'docs/METHOD_C_ENGINEERING.md'
+      - 'tests/fixtures/cii-method-c/**'
+  pull_request:
+    paths:
+      - '.github/workflows/cii-method-c-wp2.yml'
+      - 'tabs/cii-workspace/cii-workspace-method-c-*.js'
+      - 'tests/cii-workspace-method-c-*.test.js'
+      - 'Benchmark/*.CII'
+      - 'docs/METHOD_C_ENGINEERING.md'
+      - 'tests/fixtures/cii-method-c/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: method-c-wp2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  physical-geometry:
+    name: Original bytes + red controls (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout the exact candidate SHA (not PR merge ref)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check Method C modules and regression tests
+        run: |
+          set -euo pipefail
+          node --check tabs/cii-workspace/cii-workspace-method-c-original-geometry.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-rigid-fit.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-registration.js
+          node --check tests/cii-workspace-method-c-original-geometry.test.js
+          node --check tests/cii-workspace-method-c-original-cii.test.js
+          node --check tests/cii-workspace-method-c-rigid-fit.test.js
+          node --check tests/cii-workspace-method-c-registration.test.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-candidates.js
+          node --check tests/cii-workspace-method-c-candidates.test.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-svg.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-exports.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-ui.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-native-adapter.js
+          node --check tabs/cii-workspace/cii-workspace-method-c-tile.js
+          node --check tests/cii-workspace-method-c-native-adapter.test.js
+          node --check tests/cii-workspace-method-c-svg.test.js
+          node --check tests/cii-workspace-method-c-ui-browser.test.js
+      - name: Run original S1/S2/S3/T tests and explicit corruption negatives
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/cii-workspace-method-c-original-geometry.test.js \
+            tests/cii-workspace-method-c-original-cii.test.js \
+            tests/cii-workspace-method-c-rigid-fit.test.js \
+            tests/cii-workspace-method-c-registration.test.js \
+            tests/cii-workspace-method-c-candidates.test.js \
+            tests/cii-workspace-method-c-svg.test.js \
+            tests/cii-workspace-method-c-native-adapter.test.js
+
+
+  interactive-svg-chromium:
+    name: Served Method C module Chromium interactions (not native WP6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Navigate HTTP-served Method C module with real Chromium and native SHA-256
+        run: node --test tests/cii-workspace-method-c-ui-browser.test.js
+      - name: Preserve browser screenshot and downloaded numerical exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-c-wp5-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/cii-method-c-wp5/
+          if-no-files-found: warn
+          retention-days: 14
+
+
+  protected-mainline-methodab-writer2:
+    name: Existing Method A/B and Writer2 unchanged safety at candidate SHA
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Check candidate SHA and ownership, fail on any shared-file overlap
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          base="3a7c34cd1b8f2f88b36e55503a96378406ea0c71"
+          test "$(git cat-file -t "$base")" = commit
+          echo "PROTECTED_BASE_SHA=$base"
+          git diff --name-only "$base" HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Owned Method C isolation / no Writer2 promotion red controls
+        run: |
+          set -euo pipefail
+          CII_METHOD_C_BASE=3a7c34cd1b8f2f88b36e55503a96378406ea0c71 \
+            node --test tests/cii-workspace-method-c-firebreak.test.js
+      - name: Run unmodified baseline A/B axis, 35-25-20-10-10 policy, and Writer2 scope regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-geometry-authority.test.js \
+            tests/cii-workspace-method-a-confidence-config.test.js \
+            tests/cii-workspace-method-a-weight-policy.test.js \
+            tests/cii-workspace-method-a-anchor-provenance.test.js \
+            tests/cii-workspace-method-a-base-anchor-custody.test.js \
+            tests/cii-workspace-base-anchor-method-fusion.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-writer2-composite-scope-custody.test.js \
+            tests/cii-workspace-writer2-source-set-composite-custody.test.js \
+            tests/cii-workspace-writer2-absent-family-readiness.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            tests/cii-workspace-writer2-benchmark-identity-control.test.js
+
+  protected-pr107-reference-policy:
+    name: Pinned PR107 100-mm path & Method A/B reference (unmerged separate SHA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 86a2d3b40568c2bcb43dacbe32c862144d00fd53
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm independent protected PR107 reference SHA (NOT Method C candidate)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "86a2d3b40568c2bcb43dacbe32c862144d00fd53"
+          echo "REFERENCE_PR107_SHA=$(git rev-parse HEAD)"
+          echo "This job tests PR107 in isolation, NOT a combined or integrated tree."
+      - name: Verify existing physical path budget, W12/W14 original controls and Method A/B veto
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-phase2-normalization-length.test.js \
+            tests/cii-workspace-phase2-live-path-policy.test.js \
+            tests/cii-workspace-phase2-midcycle-w12-original-path-review.test.js \
+            tests/cii-workspace-phase2-midcycle-w14-methodab-registration-review.test.js \
+            tests/cii-workspace-method-a-confidence-config.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-writer2-composite-scope-custody.test.js
+
+  approved-main-inherited-failure-control:
+    name: Inherited baseline red control at approved main SHA (not Method C)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 3a7c34cd1b8f2f88b36e55503a96378406ea0c71
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove known protected baseline assertion failures without modifying tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3a7c34cd1b8f2f88b36e55503a96378406ea0c71"
+          echo "BASELINE_APPROVED_MAIN_SHA=$(git rev-parse HEAD)"
+          set +e
+          node --test --test-concurrency=1 \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            > inherited-baseline-failures.log 2>&1
+          status=$?
+          set -e
+          cat inherited-baseline-failures.log
+          if test "$status" -eq 0; then
+            echo "::error::Unexpected: both pinned baseline tests passed; re-evaluate candidate regression failures."
+            exit 1
+          fi
+          grep -q 'not ok 1 - tests/cii-workspace-multi-base-correspondence.test.js' inherited-baseline-failures.log
+          grep -q 'not ok 2 - tests/cii-workspace-writer2-product-routing.test.js' inherited-baseline-failures.log
+          echo "::warning::Both candidate-head failures are reproduced on approved-main SHA with unchanged code. Protected candidate suite intentionally remains RED pending G2 disposition."
+      - name: Retain inherited failure transcript with immutable approved main SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: method-c-wp7-approved-main-baseline-red
+          path: inherited-baseline-failures.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  independent-original-wp8-benchmark:
+    name: WP8 independent raw benchmark, frozen 428, separate midcycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CII_METHOD_C_OWNER_REF_ROOT: test-results/cii-method-c-wp8/pinned-owner-reference
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout immutable PR107 Owner 428 files separately (never write golden to candidate)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 86a2d3b40568c2bcb43dacbe32c862144d00fd53
+          path: test-results/cii-method-c-wp8/pinned-owner-reference
+          sparse-checkout: |
+            tests/fixtures/cii-phase2/owner-phase2-original.txt
+            tests/fixtures/cii-phase2/owner-phase2-manifest.json
+            tests/fixtures/cii-phase2/owner-confirmed-direction.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert immutable Owner authority checkout (independent from candidate)
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="test-results/cii-method-c-wp8/pinned-owner-reference"
+          test "$(git -C "$base" rev-parse HEAD)" = 86a2d3b40568c2bcb43dacbe32c862144d00fd53
+          test -s "$base/tests/fixtures/cii-phase2/owner-phase2-original.txt"
+          test -s "$base/tests/fixtures/cii-phase2/owner-phase2-manifest.json"
+          test -s "$base/tests/fixtures/cii-phase2/owner-confirmed-direction.json"
+          echo "PINNED_OWNER_REFERENCE_SHA=86a2d3b40568c2bcb43dacbe32c862144d00fd53"
+      - name: Assert exact WP8 candidate HEAD and untouched originals
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          node --check tests/cii-workspace-method-c-independent-benchmark.test.js
+      - name: Independently parse original CII and 428 bytes BEFORE candidate/derived reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/cii-workspace-method-c-independent-benchmark.test.js
+      - name: Validate WP8 write-free provenance and read-only status
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import assert from "node:assert/strict";
+            const d=JSON.parse(readFileSync("test-results/cii-method-c-wp8/independent-original-audit.json"));
+            assert.equal(d.sourcePhysicalCount,150);
+            assert.equal(d.frozenOwner.rowCount,428);
+            assert.equal(d.registered.nearSources,41);
+            assert.equal(d.registered.routeNear,37);
+            assert.equal(d.registered.qualifiedPhysicalIdentity,0);
+            assert.equal(d.registered.writer2Authorized,0);
+            assert.equal(d.releaseResult,"NOT_SCORED_NOT_QUALIFIED");
+            assert.equal(d.structuralUpperBound.meetsOwnerRequired300,false);
+            assert.equal(d.separateMidcycle.independentlyRerunThisAudit,false);
+            console.log("WP8_READ_ONLY_GOLDEN_HOLD="+JSON.stringify({
+              sourceRows:d.sourcePhysicalCount,ownerLexicalRows:d.frozenOwner.rowCount,
+              near:d.registered.nearSources,physicalQualified:0,writerAuthorized:0,
+              frozen428Accepted:false,midcycleRerun:false}));
+          '
+      - name: Retain original-file independent WP8 full audit (not a golden rewrite)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-c-wp8-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/cii-method-c-wp8/independent-original-audit.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  wp9-exact-sha-g2-review-preflight:
+    name: WP9 candidate SHA review packet and protected-file evidence (not G2 signoff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable exact candidate SHA, not historical green evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          git cat-file -e 3a7c34cd1b8f2f88b36e55503a96378406ea0c71^{commit}
+      - name: Run fail-closed G2 pending review and protected source diff/red controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/cii-workspace-method-c-review-preflight.test.js
+          node --test tests/cii-workspace-method-c-review-preflight.test.js
+
+  wp6-real-native-docs-application-chromium:
+    name: WP6 ACTUAL served docs/index.html native CII Workspace Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify exact candidate, scope of G2 review and deploy mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "CANDIDATE_SHA=$expected"
+          test -f docs/index.html
+          cmp tabs/cii-workspace/cii-workspace-tab.js docs/tabs/cii-workspace/cii-workspace-tab.js
+          for file in tabs/cii-workspace/cii-workspace-method-c-*.js tabs/cii-workspace/cii-workspace-method-c-*.css; do
+            cmp "$file" "docs/$file"
+          done
+          node --check tests/cii-workspace-method-c-native-app-browser.test.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Navigate actual deployed app Utilities → CII Workspace Method C using original S1/T
+        run: node --test tests/cii-workspace-method-c-native-app-browser.test.js
+      - name: Preserve actual native served-app screenshot, CSV/JSON/SVG and SHA receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cii-method-c-wp6-native-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/cii-method-c-wp6/
+          if-no-files-found: warn
+          retention-days: 14

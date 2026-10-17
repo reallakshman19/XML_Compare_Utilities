@@ -1,0 +1,40 @@
+{
+  "schema": "MethodC.ReadOnlyDerivedReferenceExcerpt.v1",
+  "authority": "ATTACHED_DERIVED_TEST_ONLY_NOT_ORIGINAL_NOT_OWNER_PHYSICAL_GOLDEN",
+  "package": "Method_C_Golden_Fixture_v1.zip",
+  "packageSha256": "f2c79491fe7ac8b071d568dc06f4326fde35c16e7c3a6662718f42621e202981",
+  "originalManifestMember": "method-c-golden-fixture-v1/method-c-test-only-manifest.json",
+  "originalManifestMemberSha256": "3281f82b7f539dfe3a0c5f8964deb0a88d22d94a9254cca64ad8912574a33fad",
+  "originalPinnedCommit": "86a2d3b40568c2bcb43dacbe32c862144d00fd53",
+  "originalBytesNotEmbedded": true,
+  "firstAnchor": {
+    "sourceMember": "S1",
+    "source": "3910",
+    "target": "875",
+    "role": "EXPERIMENT_UNVERIFIED"
+  },
+  "reference": {
+    "routeNear": 37,
+    "routeTotal": 45,
+    "fullNear": 41,
+    "fullTotal": 57,
+    "targetComponent": 767,
+    "sourceDevelopedLengthMm": 229794,
+    "targetDevelopedLengthMm": 229493.43,
+    "pathLengthDifferenceMm": 300.57,
+    "twoAnchorSeparationMagnitudeDifferenceApproxMm": 300.0819,
+    "segmentOnlyNode": "4060",
+    "targetSegment": [
+      "900",
+      "905"
+    ],
+    "segmentFraction": 0.76175,
+    "segmentStationMm": 6094
+  },
+  "rules": [
+    "NEVER_SEED_PRODUCTION_CANDIDATES_FROM_DERIVED_REFERENCE",
+    "NO_PHYSICAL_NODE_CREDIT",
+    "NO_WRITER2_AUTHORITY",
+    "FROZEN_428_INDEPENDENT"
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "schema": "MethodC.G2ReviewGateLedger.v1",
+  "plan": "V36-108-PLAN-01",
+  "label": "CII-METHOD-C@1.0.0",
+  "labelSha": "18d91c9",
+  "repository": "reallakshman19/XML_Compare_Utilities",
+  "pr": 118,
+  "branch": "methodc/108-geometry-20261016",
+  "candidateHeadRule": "EXACT_SHA_FROM_GIT_REV_PARSE_HEAD_AT_HOSTED_RUN; historic proof SHA is never current approval",
+  "immutableBase": "3a7c34cd1b8f2f88b36e55503a96378406ea0c71",
+  "pinnedReferencePr107": "86a2d3b40568c2bcb43dacbe32c862144d00fd53",
+  "taskStates": [
+    {
+      "wp": 1,
+      "child": 109,
+      "outcome": "O1",
+      "state": "STRUCTURE_ALIGNED",
+      "review": "G2_STRUCTURE_ONLY"
+    },
+    {
+      "wp": 2,
+      "child": 110,
+      "outcome": "O2",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "INDEPENDENT_G2_EXACT_SHA_REQUIRED"
+    },
+    {
+      "wp": 3,
+      "child": 111,
+      "outcome": "O2",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "INDEPENDENT_G2_EXACT_SHA_REQUIRED"
+    },
+    {
+      "wp": 4,
+      "child": 112,
+      "outcome": "O2",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "INDEPENDENT_G2_EXACT_SHA_REQUIRED"
+    },
+    {
+      "wp": 5,
+      "child": 113,
+      "outcome": "O2",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "INDEPENDENT_G2_EXACT_SHA_REQUIRED"
+    },
+    {
+      "wp": 6,
+      "child": 114,
+      "outcome": "O2",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "REAL_SERVED_EXISTING_DOCS_APPLICATION_CHROMIUM_PASS__G2_INDEPENDENT_REVIEW_PENDING"
+    },
+    {
+      "wp": 7,
+      "child": 115,
+      "outcome": "O2",
+      "state": "HOLD",
+      "review": "PROTECTED_METHODAB_WRITER2_12_OF_14_TWO_INHERITED_FAILURES"
+    },
+    {
+      "wp": 8,
+      "child": 116,
+      "outcome": "O3",
+      "state": "EVIDENCE_SUBMITTED_UNREVIEWED",
+      "review": "G2_INDEPENDENT_FROZEN_GOLDEN_AND_SECOND_PARSER_REVIEW_REQUIRED"
+    },
+    {
+      "wp": 9,
+      "child": 117,
+      "outcome": "O3",
+      "state": "REVIEW_REQUESTED",
+      "review": "AWAIT_G2_EXACT_SHA_FINDINGS_AND_INDEPENDENT_FIX_CHECK"
+    }
+  ],
+  "blockingDecisions": {
+    "nativeEntry": {
+      "scope": "tabs/cii-workspace/cii-workspace-tab.js",
+      "deploymentMirror": "docs/tabs/cii-workspace/cii-workspace-tab.js",
+      "grantIssue": 114,
+      "grantRecorded": true,
+      "sharedSourceEditAuthorized": true,
+      "applicationWalkthrough": "HOSTED_CHROMIUM_PASS",
+      "grantSource": "OWNER_EXPLICIT_CHAT_2026-10-16T17:16:47Z",
+      "ownerGrantScope": "NATIVE_ENTRY_AND_DOCS_MIRROR_EXACT_TWO_FILES",
+      "nativeHostedProof": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38939889648/job/117104585557",
+      "nativeHostedSha": "b6e44cc840d0ed3370aa472ff2581fe8b7d255b1",
+      "artifact": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38939889648/artifacts/12062906229",
+      "g2Reviewed": false
+    },
+    "inheritedRegressions": {
+      "issue": 115,
+      "dispositionRecorded": false,
+      "protectedSuite": {
+        "passing": 12,
+        "total": 14,
+        "failing": 2
+      },
+      "reproducedOnApprovedMain": true,
+      "cases": [
+        "tests/cii-workspace-multi-base-correspondence.test.js:51",
+        "tests/cii-workspace-writer2-product-routing.test.js:177"
+      ],
+      "protectedTestChangesAuthorized": false
+    },
+    "physicalQualification": {
+      "ownerPolicyGranted": false,
+      "methodCPhysicalNodeCredits": 0,
+      "methodCWriter2Credits": 0,
+      "releaseScore428": "NOT_RUN",
+      "frozenGoldenSha256": "a84bd6cd59b774d32dbd32ee74efc0f9da2fc1ac0e485d2a8b2f6a67350a113f"
+    }
+  },
+  "independentCheck": {
+    "ownerMergeAuthorized": false,
+    "mergeEligible": false,
+    "g2ReviewAtExactCandidateSha": "NOT_DONE",
+    "g2CorrectiveCommits": "NONE_RECORDED",
+    "independentCheckerOfG2Fixes": "NOT_DONE",
+    "allTaskEvidenceAccepted": false
+  },
+  "historicalReferences": {
+    "wp8ImplementedAt": "b4f3da9d577bd7ae62a8350a10fb016766e82bce",
+    "wp8HostedRun": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38930109296",
+    "wp8ChildEvidence": "https://github.com/reallakshman19/XML_Compare_Utilities/issues/116#issuecomment-6219707752",
+    "wp7InheritedFailureRun": "https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/38927317249",
+    "wp6ExactFileRequest": "https://github.com/reallakshman19/XML_Compare_Utilities/issues/114#issuecomment-6218912249"
+  }
+}

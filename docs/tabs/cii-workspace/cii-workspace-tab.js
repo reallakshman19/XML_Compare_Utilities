@@ -2,6 +2,7 @@ import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfe
 import { mountCiiWriter2MultiSourceReviewRouter } from './cii-workspace-multisource-review-only-filter-shell.js?v=20260909-ms-review-filters-1';
 import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260909-ms-custody-auto-1';
 import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';
+import { installMethodCReviewTile } from './cii-workspace-method-c-tile.js';
 
 const STYLE_ID = 'cii-workspace-style';
 const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
@@ -70,6 +71,7 @@ export function installCiiWorkspaceTile(container, context = {}) {
     'CSV/manual-table preview, exact scoped validation and qualified in-memory postimage',
   );
   if (findReplaceTile) container.appendChild(findReplaceTile);
+  const methodCTile = installMethodCReviewTile(container, context.methodC || {});
 
   let overlay = null; let active = null; let disposeSifContext = null;
   const close = () => { disposeSifContext?.(); active?.destroy(); overlay?.remove(); disposeSifContext = null; active = null; overlay = null; };
@@ -112,6 +114,7 @@ export function installCiiWorkspaceTile(container, context = {}) {
     tile.removeEventListener('click', openDefault);
     writer2Tile?.removeEventListener('click', openWriter2);
     findReplaceTile?.removeEventListener('click', openFindReplace);
+    methodCTile.destroy();
     close(); tile.remove(); writer2Tile?.remove(); findReplaceTile?.remove();
   };
 }
