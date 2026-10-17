@@ -245,19 +245,48 @@ function boundDeletePlan(document,candidate){
     excludedOperationIds:[],appliedOperationCount:1,excludedOperationCount:0})});
 }
 function physicalNoncollinearAnchorPairs(graph,requiredId){
- const origin=graph.nodes.find(n=>String(n.id)===String(requiredId));
- assert(origin,'real qualified delete NODE required in topology');
- const vector=(a,b)=>[a.position.x-b.position.x,a.position.y-b.position.y,a.position.z-b.position.z];
- const length=v=>Math.hypot(...v);
- const others=graph.nodes.filter(n=>String(n.id)!==String(requiredId));
- for(const a of others)for(const b of others){
-  if(a===b)continue;
-  const u=vector(a,origin),v=vector(b,origin);
-  const cross=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
-  if(length(u)>100&&length(v)>100&&length(cross)>0.05*length(u)*length(v))
-   return [origin,a,b].map(n=>({sourceNodeId:String(n.id),targetNodeId:String(n.id)}));
+ // Method A must receive three distinct physical anchors ordered along ONE
+ // unique signed-element route. Arbitrary noncollinear triples are not enough.
+ const nodes=new Map(graph.nodes.map(n=>[String(n.id),n])),adj=new Map(nodes.keys().map(id=>[id,[]]));
+ for(const edge of graph.edges||[]){
+  const a=String(edge.from),b=String(edge.to);
+  if(!adj.has(a)||!adj.has(b))continue;
+  adj.get(a).push({to:b,edge});adj.get(b).push({to:a,edge});
  }
- throw new Error('WP7_WRITER2_THREE_INDEPENDENT_PHYSICAL_ANCHORS_REQUIRED');
+ const source=String(requiredId);assert(nodes.has(source),'real restraint NODE required');
+ const walk=(from,to,forbidden=null)=>{
+  const visited=new Set([from]),prev=new Map(),queue=[from];
+  for(let cursor=0;cursor<queue.length;cursor++){
+   const id=queue[cursor];if(id===to)break;
+   for(const next of adj.get(id)||[]){
+    if(next.edge===forbidden||visited.has(next.to))continue;
+    visited.add(next.to);prev.set(next.to,{id,edge:next.edge});queue.push(next.to);
+   }
+  }
+  if(!visited.has(to))return null;
+  const chain=[to],edges=[];
+  for(let cursor=to;cursor!==from;){const p=prev.get(cursor);
+   if(!p)return null;edges.push(p.edge);chain.push(p.id);cursor=p.id;}
+  return {ids:chain.reverse(),edges:edges.reverse()};
+ };
+ const xyz=id=>{const p=nodes.get(id).position;return [p.x,p.y,p.z]};
+ const delta=(a,b)=>a.map((v,i)=>v-b[i]);
+ const length=v=>Math.hypot(...v);
+ for(const target of nodes.keys()){
+  const route=walk(source,target);
+  if(!route||route.ids.length<3)continue;
+  if(route.edges.some(edge=>walk(source,target,edge)))continue;
+  const start=xyz(source),finish=xyz(target),v=delta(finish,start);
+  for(const middle of route.ids.slice(1,-1)){
+   const u=delta(xyz(middle),start);
+   const cross=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],
+    u[0]*v[1]-u[1]*v[0]];
+   if(length(u)>100&&length(v)>100&&length(cross)>0.05*length(u)*length(v)){
+    return [source,middle,target].map(id=>({sourceNodeId:id,targetNodeId:id}));
+   }
+  }
+ }
+ throw new Error('WP7_WRITER2_UNIQUE_NONCOLLINEAR_SIGNED_PATH_REQUIRED');
 }
 async function executeRealV14Path(v11Original,originalV14,expectedPath){
  const policy={writerVersion:'2',cryptoRef:webcrypto,spatialToleranceMm:1,
