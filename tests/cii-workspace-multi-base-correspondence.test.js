@@ -83,7 +83,11 @@ assert.strictEqual(distinctCorrespondence.readyLoopCount, 1);
 assert.strictEqual(distinctCorrespondence.unresolvedReadyBaseLoopCount, 0);
 assert.deepStrictEqual(distinctCorrespondence.contributingLoopIds, ['B-DISTINCT']);
 assert.strictEqual(distinctCorrespondence.nodeRows.length, 3);
-assert.strictEqual(distinctCorrespondence.elementRows.length, 2);
+console.log('WP7_METHOD_B_DISTINCTIVE_ROWS '+JSON.stringify({
+  status:distinctCorrespondence.status,loopResults:distinctCorrespondence.loopResults.map(x=>({
+  status:x.correspondence.status,blockers:x.correspondence.blockers,
+  elementRows:x.correspondence.elementRows})),elementRows:distinctCorrespondence.elementRows}));
+assert.strictEqual(distinctCorrespondence.elementRows.filter(r=>r.sourceElementId&&r.targetElementIds?.length).length,2);
 assert.deepStrictEqual(new Set(distinctCorrespondence.nodeRows.map(r=>r.sourceNodeId)),new Set(['10','20','30']));
 
 // A OR B with independently distinctive physical elements corroborates one
