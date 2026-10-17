@@ -42,27 +42,69 @@ assert.strictEqual(aCorrespondence.status, 'READY');
 assert.deepStrictEqual(aCorrespondence.contributingLoopIds, ['A-L']);
 assert(aCorrespondence.nodeRows.some((row) => row.sourceNodeId === '20' && row.targetNodeId === '120'));
 
-// Method B alone: a genuine X+Y local run basis at the central node must qualify and propagate independently.
+// Symmetric X+Y arms qualify the independent Method B *basis* but do NOT uniquely
+// determine frontier element identity. Preserve the ambiguity gate as a negative.
 const bAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
   methodBAnchors: [{ baseId: 'B-L', sourceNodeId: '20', targetNodeId: '120' }] });
 assert.strictEqual(bAuthority.status, 'READY');
 assert.strictEqual(bAuthority.loops[0].evidence.source.independentAxisRunCount, 2);
+assert.strictEqual(bAuthority.loops[0].evidence.target.independentAxisRunCount, 2);
 const bCorrespondence = buildCiiMultiBaseCorrespondence(source, target, bAuthority);
-assert.strictEqual(bCorrespondence.status, 'READY');
-assert.deepStrictEqual(bCorrespondence.contributingLoopIds, ['B-L']);
+assert.strictEqual(bCorrespondence.status, 'UNRESOLVED');
+assert.strictEqual(bCorrespondence.readyLoopCount, 0);
+assert.strictEqual(bCorrespondence.unresolvedReadyBaseLoopCount, 1);
+assert.deepStrictEqual(bCorrespondence.contributingLoopIds, []);
+assert.deepStrictEqual(bCorrespondence.nodeRows, []);
+assert.deepStrictEqual(bCorrespondence.elementRows, []);
+assert(bCorrespondence.blockers.includes('NO_READY_LOOP_CORRESPONDENCE'));
+const ambiguous = bCorrespondence.loopResults[0].correspondence;
+for (const reason of ['FRONTIER_WINNER_GAP_NOT_SATISFIED', 'PROPAGATION_AMBIGUITY_RETAINED',
+  'SOURCE_COMPONENT_NOT_FULLY_PROPAGATED']) assert(ambiguous.blockers.includes(reason));
 
-// A OR B with the same physical identity must corroborate, not duplicate, the canonical pair.
-const abAuthority = qualifyCiiMultiBaseAuthority({ sourceGraph: source, targetGraph: target,
-  methodABases: [aBase], methodBAnchors: [{ baseId: 'B-L', sourceNodeId: '20', targetNodeId: '120' }] });
-assert.strictEqual(abAuthority.status, 'READY');
-const abCorrespondence = buildCiiMultiBaseCorrespondence(source, target, abAuthority);
-assert.strictEqual(abCorrespondence.status, 'READY');
-assert.strictEqual(abCorrespondence.readyLoopCount, 2);
-const central = abCorrespondence.nodeRows.find((row) => row.sourceNodeId === '20' && row.targetNodeId === '120');
-assert(central, 'central A+B pair must survive canonical arbitration');
-assert.strictEqual(central.basisMethod, 'METHOD_A_AND_B');
-assert.strictEqual(central.authority, 'MULTI_BASE_CORROBORATED');
-assert.strictEqual(central.evidence.multiBaseProvenance.length, 2);
+// Distinct physical signed path lengths and ODs identify a genuine two-axis B
+// propagation without relaxing required winner gap or claiming Method C identity.
+const distinctiveSource = graph('SOURCE', 'source-distinctive-L', [
+  segment(10, 20, point(0, 0, 0), point(1000, 0, 0), 100),
+  segment(20, 30, point(1000, 0, 0), point(1000, 1400, 0), 130),
+]);
+const distinctiveTarget = graph('TARGET', 'target-distinctive-L', [
+  segment(110, 120, point(0, 0, 0), point(1000, 0, 0), 100),
+  segment(120, 130, point(1000, 0, 0), point(1000, 1400, 0), 130),
+]);
+const distinctAnchor = { baseId: 'B-DISTINCT', sourceNodeId: '20', targetNodeId: '120' };
+const distinctB = qualifyCiiMultiBaseAuthority({sourceGraph: distinctiveSource, targetGraph: distinctiveTarget,
+  methodBAnchors: [distinctAnchor]});
+assert.strictEqual(distinctB.status, 'READY');
+assert.strictEqual(distinctB.loops[0].evidence.source.independentAxisRunCount, 2);
+assert.strictEqual(distinctB.loops[0].evidence.target.independentAxisRunCount, 2);
+const distinctCorrespondence = buildCiiMultiBaseCorrespondence(distinctiveSource, distinctiveTarget, distinctB);
+assert.strictEqual(distinctCorrespondence.status, 'READY');
+assert.strictEqual(distinctCorrespondence.readyLoopCount, 1);
+assert.strictEqual(distinctCorrespondence.unresolvedReadyBaseLoopCount, 0);
+assert.deepStrictEqual(distinctCorrespondence.contributingLoopIds, ['B-DISTINCT']);
+assert.strictEqual(distinctCorrespondence.nodeRows.length, 3);
+assert.strictEqual(distinctCorrespondence.elementRows.length, 2);
+assert.deepStrictEqual(new Set(distinctCorrespondence.nodeRows.map(r=>r.sourceNodeId)),new Set(['10','20','30']));
+
+// A OR B with independently distinctive physical elements corroborates one
+// canonical identity rather than duplicating or guessing symmetric arm pairs.
+const distinctABase = { baseId: 'A-DISTINCT', anchorPairs: [
+  aPair(distinctiveSource, distinctiveTarget, 10, 110, 100),
+  aPair(distinctiveSource, distinctiveTarget, 20, 120, 100),
+  aPair(distinctiveSource, distinctiveTarget, 30, 130, 130),
+] };
+const abAuthority = qualifyCiiMultiBaseAuthority({sourceGraph: distinctiveSource, targetGraph: distinctiveTarget,
+  methodABases:[distinctABase],methodBAnchors:[distinctAnchor]});
+assert.strictEqual(abAuthority.status,'READY');
+const abCorrespondence = buildCiiMultiBaseCorrespondence(distinctiveSource, distinctiveTarget, abAuthority);
+assert.strictEqual(abCorrespondence.status,'READY');
+assert.strictEqual(abCorrespondence.readyLoopCount,2);
+assert.deepStrictEqual(new Set(abCorrespondence.contributingLoopIds),new Set(['A-DISTINCT','B-DISTINCT']));
+const central=abCorrespondence.nodeRows.find(r=>r.sourceNodeId==='20'&&r.targetNodeId==='120');
+assert(central,'central A+B pair must survive canonical arbitration');
+assert.strictEqual(central.basisMethod,'METHOD_A_AND_B');
+assert.strictEqual(central.authority,'MULTI_BASE_CORROBORATED');
+assert.strictEqual(central.evidence.multiBaseProvenance.length,2);
 
 // Existing flat anchorPairs must keep their old row identities/authorities when routed through the new engine.
 {
