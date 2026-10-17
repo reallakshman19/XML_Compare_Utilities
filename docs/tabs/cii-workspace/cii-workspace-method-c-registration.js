@@ -1,4 +1,5 @@
 import { fitProperRigidAnchors } from './cii-workspace-method-c-rigid-fit.js';
+import { registerMethodCAutoReview } from './cii-workspace-method-c-auto-registration.js';
 // Method C registration is geometry review only; never Method A/B or Writer authority.
 const I = [[1,0,0],[0,1,0],[0,0,1]];
 const sub = (a,b) => a.map((v,i)=>v-b[i]);
@@ -85,6 +86,8 @@ export function registerMethodC(source,target,anchors,options={}) {
   if(!Number.isFinite(tolerance)||tolerance<0)throw new Error('REGISTRATION_TOLERANCE_INVALID');
   if(!Number.isFinite(minSinAngle)||minSinAngle<=0||minSinAngle>1)throw new Error('RIGID_MIN_SIN_POLICY_INVALID');
   let rotation=I,translation,fit=null,status='TRANSLATION_ONLY_EXPLORATION / ORIENTATION_UNDETERMINED',mismatch=0;
+  if(pairs.length===1&&String(options.orientationMode??'').startsWith('AUTO_'))
+    return registerMethodCAutoReview(source,target,anchors,options);
   if(pairs.length===1) rotation=rotationPreview(options.previewEulerDeg??[0,0,0]);
   if(pairs.length===2) {
     const a=sub(pairs[1].source.xyz,first.source.xyz);
@@ -110,12 +113,15 @@ export function registerMethodC(source,target,anchors,options={}) {
   const errors=residuals(transform,pairs);
   const maxResidualMm=Math.max(...errors.map((r)=>r.distance));
   const rmsResidualMm=Math.sqrt(errors.reduce((sum,r)=>sum+r.distance*r.distance,0)/errors.length);
-  const trusted=pairs.length>=3&&pairs.every((p)=>p.role==='independently-accepted');
-  const qualified=trusted&&maxResidualMm<=tolerance;
+  // The anchor role is caller-controlled metadata, not an Owner-authenticated receipt.
+  // Numeric admissibility is distinct from physical identity and trusted provenance.
+  const qualified=false,numericFitAcceptable=maxResidualMm<=tolerance;
   if(pairs.length>=3)
     status=maxResidualMm>tolerance?'ANCHOR_RESIDUAL_CONFLICT':
-      qualified?'RIGID_3D_QUALIFIED_FOR_GEOMETRIC_REVIEW':'RIGID_3D_NUMERIC_FIT_UNTRUSTED_ANCHORS';
-  return {...transform,status,qualified,identified:qualified,residuals:errors,
+      'RIGID_3D_NUMERIC_FIT_UNTRUSTED_ANCHORS';
+  return {...transform,status,qualified,identified:false,numericFitAcceptable,
+    ownerAnchorAuthenticated:false,physicalNodeCorrespondenceQualified:false,
+    qualifiedIdentityCount:0,writerEligible:false,applyAuthorized:false,residuals:errors,
     sourceSha:source.sha256,targetSha:target.sha256,sourceMember:source.member,targetMember:target.member,
     maxResidualMm,rmsResidualMm,sourceComponent,targetComponent,separationMismatchMm:mismatch,
     leaveOneOut:leaveOneOut(pairs,minSinAngle),
