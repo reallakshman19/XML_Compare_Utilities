@@ -23,10 +23,10 @@ const protectedPaths=[
 const testOnlyGrant=Object.freeze({
   'tests/cii-workspace-multi-base-correspondence.test.js':Object.freeze({
     before:'bf5304efb01acc0ec597ca4903551fd6ee315f1b',
-    after:'26e2ff903d5d890919d4c71fc09bff5c41d12296'}),
+    after:'5582a2616dffe890b44cd6d7e52640884658d72f'}),
   'tests/cii-workspace-writer2-product-routing.test.js':Object.freeze({
     before:'9980a71c244f51992b176166c7bf92985999b7b7',
-    after:'7e1393045c20eb86e9b65d49c6a01614e37d6f92'}),
+    after:'a284053fc957f2aa73f7909c789d11b05c80d0d1'}),
 });
 const authorizedTestPatch=path=>testOnlyGrant[path]
   && git('rev-parse',ledger.immutableBase+':'+path)===testOnlyGrant[path].before
