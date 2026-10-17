@@ -26,7 +26,7 @@ const testOnlyGrant=Object.freeze({
     after:'3a92e20b49d5383b9d6b45191c53b752eed623e7'}),
   'tests/cii-workspace-writer2-product-routing.test.js':Object.freeze({
     before:'9980a71c244f51992b176166c7bf92985999b7b7',
-    after:'27f9a874d011e4ed3956829a3676498db61af824'}),
+    after:'5d94ada83c418c3fad5c45262666627da4a6968a'}),
 });
 const authorizedTestPatch=path=>testOnlyGrant[path]
   && git('rev-parse',ledger.immutableBase+':'+path)===testOnlyGrant[path].before
