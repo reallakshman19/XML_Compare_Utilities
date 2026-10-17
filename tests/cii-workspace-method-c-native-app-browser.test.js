@@ -279,7 +279,7 @@ test('WP6 two actual native AUTO 3D rotations and symmetry/reflection HOLD with 
 // P2 owner-reported real-user Edge hang, reproduced independently in hosted
 // actual Chromium against ORIGINAL S1/S2/S3/T. This is generic Writer2 intake,
 // not Method C AUTO: keep these two product workflow results separate.
-test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsiveness and exact custody', {timeout:390000},async()=>{
+test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsiveness and exact custody', {timeout:240000},async()=>{
  const {server,url}=await appServer();let browser,context,page;
  const started=Date.now(),events=[],pageErrors=[],httpFailures=[];
  const receiptPath=path.join(receipts,'real-user-multisource-chromium-timing.json');
@@ -341,18 +341,18 @@ test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsivene
    await page.waitForFunction(()=>{
      const s=document.querySelector('[data-ciiw-status]')?.textContent||'';
      return /Source-set custody READY|Multi-source intake blocked|Unrecognized SOURCE|Unrecognized TARGET|Frozen cii_|Error/.test(s);
-   },null,{timeout:180000,polling:700});
-  }catch(e){failure='NO_TERMINAL_PROGRESS_WITHIN_180_SECONDS:'+e.message.slice(0,400);}
+   },null,{timeout:90000,polling:700});
+  }catch(e){failure='NO_TERMINAL_PROGRESS_WITHIN_90_SECONDS:'+e.message.slice(0,400);}
   let terminal=null;
   try{
-   terminal=await page.evaluate(()=>({
+   terminal=await Promise.race([page.evaluate(()=>({
     status:document.querySelector('[data-ciiw-status]')?.textContent??null,
     blocked:document.querySelector('[data-ciiw-method-evidence]')?.textContent?.includes('Multi-source intake blocked')??false,
     probe:globalThis.__methodCRealUserProbe||null,
     readyPanels:document.querySelectorAll('[data-ciiw-source-set-custody]').length,
     activeSources:document.querySelector('[data-ciiw-source]')?.files?.length||0,
     targetSelected:document.querySelector('[data-ciiw-target]')?.files?.length||0
-   }));
+   })),new Promise((_,reject)=>setTimeout(()=>reject(new Error('PAGE_MAIN_THREAD_EVALUATION_TIMEOUT_6500MS')),6500))]);
   }catch(e){failure??='BROWSER_EVALUATION_STALLED:'+String(e).slice(0,300);}
   result=terminal?.status?.includes('Source-set custody READY')?'READY':failure?'TIMEOUT_OR_HANG':'BLOCKED_OR_ERROR';
   const receipt={schema:'CII.RealUserMultiSourceChromium.v1',candidateSha:process.env.GITHUB_SHA||null,
@@ -364,7 +364,7 @@ test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsivene
   await writeFile(receiptPath,JSON.stringify(receipt,null,2)+'\n');
   try{await page.screenshot({path:path.join(receipts,'realuser-3sources-after-inspect.png'),
    fullPage:true,timeout:8000});}catch(e){console.log('FINAL_SCREENSHOT_BLOCKED '+String(e).slice(0,220));}
-  assert.equal(result,'READY','three-source generic CII intake must finish in 180 seconds');
+  assert.equal(result,'READY','three-source generic CII intake must finish in 90 seconds');
   assert.equal(terminal?.activeSources,3);
   assert.equal(terminal?.targetSelected,1);
   assert.equal(terminal?.blocked,false);
@@ -375,9 +375,11 @@ test('WP6 REAL-USER multi-source frozen bridge: S1/S2/S3/T Chromium responsivene
   assert.deepEqual(pageErrors,[],'generic Writer2 console errors');
   assert.deepEqual(httpFailures,[],'missing served web assets');
  }finally{
-  await page?.close({runBeforeUnload:false}).catch(()=>{});
-  await context?.close().catch(()=>{});
-  await browser?.close().catch(()=>{});
-  await new Promise(resolve=>server.close(resolve));
+  const bounded=(promise,limit)=>Promise.race([promise,new Promise(resolve=>setTimeout(resolve,limit))]);
+  await bounded(page?.close({runBeforeUnload:false}).catch(()=>{}),5000);
+  await bounded(context?.close().catch(()=>{}),5000);
+  await bounded(browser?.close().catch(()=>{}),5000);
+  server.closeAllConnections?.();
+  server.close();
  }
 });
