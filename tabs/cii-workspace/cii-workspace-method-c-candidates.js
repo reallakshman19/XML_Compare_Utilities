@@ -141,7 +141,8 @@ export function findMethodCCandidates(source,target,pose,tolerance={x:100,y:100,
     snapshot:[source.member,source.sha256,target.member,target.sha256,
       pose.sourceComponent,pose.targetComponent,pose.status,
       JSON.stringify(pose.anchors),JSON.stringify(pose.rotation),
-      JSON.stringify(pose.translation),tol.join(',')].join('|')};
+      JSON.stringify(pose.translation),JSON.stringify(pose.originalDiscovery??null),
+      pose.selectedPoseId??null,tol.join(',')].join('|')};
 }
 export function findMethodCMultiSourceCandidates(members,target,registrations,tolerance={x:100,y:100,z:100}){
   const ledgers=members.map(graph=>{
