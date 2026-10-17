@@ -4,6 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { webcrypto } from 'node:crypto';
 import { buildOriginalGraphFromBytes } from '../tabs/cii-workspace/cii-workspace-method-c-original-geometry.js';
 import { registerMethodC, registeredMethodCPoint } from '../tabs/cii-workspace/cii-workspace-method-c-registration.js';
+// The existing hosted Method C node job executes this file; include the dedicated AUTO regressions.
+import './cii-workspace-method-c-proper-frame.test.js';
+import './cii-workspace-method-c-orientation-hypotheses.test.js';
+import './cii-workspace-method-c-auto-registration.test.js';
 
 const sourceHash='9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b';
 const targetHash='abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060';
@@ -131,4 +135,18 @@ test('security: caller role never authenticates accurate 3D geometry; all XY/XZ/
      assert.equal(fit.writerEligible,false);
    }
  }
+});
+
+test('OWNER verifier callback and caller role cannot mint authenticated AUTO pose',()=>{
+ const s=graph('S',[[1,[0,0,0]]]);const t=graph('T',[[5,[100,200,300]]]);
+ const a={source:1,target:5,role:'independently-accepted',ownerProvided:true};
+ const result=registerMethodC(s,t,[a],{orientationMode:'AUTO_OWNER_VERIFIED',
+   verifyOwnerAnchor:()=>true,approvedPublicKey:'CALLER_FORGED_KEY'});
+ assert.equal(result.status,'HOLD');
+ assert.equal(result.reason,'OWNER_ANCHOR_AUTHENTICATION_UNAVAILABLE');
+ assert.equal(result.rotation,null);
+ assert.equal(result.ownerAnchorAuthenticated,false);
+ assert.equal(result.qualified,false);
+ assert.equal(result.identified,false);
+ assert.equal(result.writerEligible,false);
 });
