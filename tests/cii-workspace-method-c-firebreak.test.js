@@ -18,6 +18,12 @@ const sourceFiles = [
   'cii-workspace-method-c-tile.js',
 ];
 const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-tab\.js|docs\/tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+\.(?:js|css)|tests\/cii-workspace-method-c-[a-z-]+\.test\.js|tests\/fixtures\/cii-method-c\/[a-z0-9.-]+\.json|\.github\/workflows\/cii-method-c-wp2\.yml|docs\/METHOD_C_ENGINEERING\.md|docs\/METHOD_C_G2_REVIEW_(?:PACKET\.md|STATUS\.json)|agents\/WIP-method-c-geometry-review_workreport\.md|plans\/V36-108-PLAN-01\.yaml|agents\/(?:PR119_workreport|WIP-G3-MC-20261017_workreport)\.md)$/.test(path);
+// Owner's 2026-10-17 exact two-test repair scope. Do not promote either
+// test path to allowedPath(), which intentionally forbids unrelated writer edits.
+const approvedProtectedTestBlob=Object.freeze({
+  'tests/cii-workspace-multi-base-correspondence.test.js':'26e2ff903d5d890919d4c71fc09bff5c41d12296',
+  'tests/cii-workspace-writer2-product-routing.test.js':'7e1393045c20eb86e9b65d49c6a01614e37d6f92',
+});
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
 test('WP7 red: Method C owned modules have no Writer2 imports, mutation/export grants or native Apply controls',()=>{
@@ -86,7 +92,9 @@ test('WP7 actual diff boundary: candidate branch does not edit PR107/shared/fixt
   const names=execFileSync('git',['diff','--name-only',base,'HEAD'],{cwd:repoRoot,encoding:'utf8'})
     .trim().split('\n').filter(Boolean);
   assert.ok(names.length>0,'actual committed scope must be inspectable');
-  assert.deepEqual(names.filter(name=>!allowedPath(name)),[],
+  const approved=(name)=>approvedProtectedTestBlob[name]&&
+    execFileSync('git',['rev-parse','HEAD:'+name],{cwd:repoRoot,encoding:'utf8'}).trim()===approvedProtectedTestBlob[name];
+  assert.deepEqual(names.filter(name=>!allowedPath(name)&&!approved(name)),[],
     'UNAUTHORIZED_SHARED_PATH_IN_METHOD_C_PR_DIFF');
 });
 
