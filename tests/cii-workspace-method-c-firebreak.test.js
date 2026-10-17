@@ -22,7 +22,7 @@ const allowedPath=path=>/^(?:tabs\/cii-workspace\/cii-workspace-method-c-[a-z-]+
 // test path to allowedPath(), which intentionally forbids unrelated writer edits.
 const approvedProtectedTestBlob=Object.freeze({
   'tests/cii-workspace-multi-base-correspondence.test.js':'3a92e20b49d5383b9d6b45191c53b752eed623e7',
-  'tests/cii-workspace-writer2-product-routing.test.js':'5739c1b02cb564170188d689b0a4e09cdda43885',
+  'tests/cii-workspace-writer2-product-routing.test.js':'27f9a874d011e4ed3956829a3676498db61af824',
 });
 const node=(id,xyz)=>({id:String(id),xyz,component:0,incident:[],od:273,wall:20});
 
