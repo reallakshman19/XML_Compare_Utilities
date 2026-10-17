@@ -342,7 +342,13 @@ async function executeRealV14Path(v11Original,originalV14,expectedPath){
  assert.equal(preview.writerReadiness.ready,true,preview.writerReadiness.blockers?.join('|'));
  await assert.rejects(()=>applyCiiWorkspaceTargetWriter2WithVersionBridge(
   {...preview,versionBridge:null},originalV14,{cryptoRef:webcrypto}),/PREVIEW_REQUIRED/);
- const canonicalV11=await applyCiiWorkspaceTargetWriter2(preview,v11Original,{cryptoRef:webcrypto});
+ const effectiveOriginal=expectedPath==='V14_TARGET_SHADOW_CHANGE_ISOLATED_VIA_V11'
+  ?createCiiWriter2V14LosslessShadow(originalV14).outputBytes:originalV14;
+ const normalizedForProof=await convertCiiNeutralVersionLossless(effectiveOriginal,11,{
+  fileName:'WP7_CANONICAL_CURRENT_TARGET_V11.CII',cryptoRef:webcrypto});
+ assert.equal(normalizedForProof.targetSha256,preview.targetDocument.contentSha256,
+  'V14 input must reproduce the exact preview-normalized V11 TARGET before apply');
+ const canonicalV11=await applyCiiWorkspaceTargetWriter2(preview,normalizedForProof.outputBytes,{cryptoRef:webcrypto});
  assert.equal(canonicalV11.status,'PASS');
  const result=await applyCiiWorkspaceTargetWriter2WithVersionBridge(preview,originalV14,{cryptoRef:webcrypto});
  const proof=result.versionBridgeValidation;
