@@ -24,6 +24,7 @@ const allowed = name => {
   if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-method-c-(?:a-sidecar|a-review-markup|writer2-bridge|writer2-native-shell)\.js$/.test(name)) return true;
   if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-tab\.js$/.test(name)) return true;
   if (/^tests\/cii-workspace-(?:method-c-(?:a-sidecar|a-review-markup|native-custody|native-lifecycle|i126-firebreak|i126-original-auto)|writer2-method-c-(?:native-app-browser|original-journey))\.test\.mjs$/.test(name)) return true;
+  if (name === '.github/workflows/cii-method-c-i126-writer2.yml') return true;
   return ['agents/WIP-I126-A_workreport.md', 'agents/PR127_workreport.md',
     'plans/I126-ENTRYPOINT-AONLY-PENDING-BACKUP.patch'].includes(name);
 };
