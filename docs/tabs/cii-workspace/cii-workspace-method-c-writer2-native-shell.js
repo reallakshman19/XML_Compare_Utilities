@@ -61,19 +61,32 @@ export function mountMethodCWriter2NativeShell(container, options, mountExisting
       exactFileRefs(sourceInput,targetInput)) ? custody.value : null,
   });
   const invalidate = reason => {epoch += 1;custody=null;bridge.invalidate(reason);};
-  const onFileChange = () => invalidate('INVALIDATED — Writer2 original input changed');
-  const onInspect = () => {
-    invalidate('INVALIDATED — Writer2 original files are being re-inspected');
+  // A-only SHA custody is independent of the legacy Writer2 full-model Inspect.
+  // That operation may be unresponsive (#121); never require it to view geometry.
+  const captureSelection = reason => {
+    invalidate(reason);
     const run = epoch, sourceFiles = Array.from(sourceInput.files || []);
     const targetFiles = Array.from(targetInput.files || []);
+    if (sourceFiles.length !== 3 || targetFiles.length !== 1) return;
     const refs = [...sourceFiles,...targetFiles];
+    const message = container.querySelector('[data-ciiw-method-c-message]');
     void captureWriter2MethodCOriginals(sourceFiles,targetFiles,options?.cryptoRef)
       .then(value => {
-        if(!disposed && epoch===run && sameFiles(refs,
-          exactFileRefs(sourceInput,targetInput))) custody={refs,value};
+        if (!disposed && epoch === run && sameFiles(refs,
+          exactFileRefs(sourceInput,targetInput))) {
+          custody = {refs,value};
+          if (message) message.textContent = 'Original S1/S2/S3/T SHA custody READY — Method C A-only';
+        }
       })
-      .catch(() => { if(!disposed && epoch===run) custody=null; });
+      .catch(error => {
+        if (!disposed && epoch === run) {
+          custody = null;
+          if (message) message.textContent = 'HOLD — ' + String(error?.message || error);
+        }
+      });
   };
+  const onFileChange = () => captureSelection('INVALIDATED — Writer2 original input changed');
+  const onInspect = () => captureSelection('INVALIDATED — Writer2 original files are being re-inspected');
   sourceInput.addEventListener('change',onFileChange);
   targetInput.addEventListener('change',onFileChange);
   inspect.addEventListener('click',onInspect,true);
