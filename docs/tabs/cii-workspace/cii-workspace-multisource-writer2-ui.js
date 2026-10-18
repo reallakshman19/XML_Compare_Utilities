@@ -260,7 +260,10 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
       setMultiSourceStatus(container, `${selectedFiles(sourceInput).length} SOURCE CII files selected. Inspect exact retained S1/S2/S3 custody; deterministic READY Auto Anchor bases will be seeded automatically.`);
     } else {
-      analyzeButton.disabled = false; setManualDisabled(container, false);
+      const remainingSources = selectedFiles(sourceInput).length;
+      analyzeButton.disabled = remainingSources === 0;
+      setManualDisabled(container, false);
+      setMultiSourceStatus(container, `${remainingSources} SOURCE CII files selected. Previous multi-source inspection invalidated.`);
     }
   };
   function bindAnchorActions() {
