@@ -22,7 +22,7 @@ const git = (...args) => execFileSync('git', args, {
 const I126_BASE = '9a5916f972af170f272c525907728237391b7ca8';
 const allowed = name => {
   if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-method-c-(?:a-sidecar|a-review-markup|writer2-bridge|writer2-native-shell)\.js$/.test(name)) return true;
-  if (/^tests\/cii-workspace-(?:method-c-(?:a-sidecar|a-review-markup|native-custody|native-lifecycle|i126-firebreak)|writer2-method-c-(?:native-app-browser|original-journey))\.test\.mjs$/.test(name)) return true;
+  if (/^tests\/cii-workspace-(?:method-c-(?:a-sidecar|a-review-markup|native-custody|native-lifecycle|i126-firebreak|i126-original-auto)|writer2-method-c-(?:native-app-browser|original-journey))\.test\.mjs$/.test(name)) return true;
   return ['agents/WIP-I126-A_workreport.md', 'agents/PR127_workreport.md',
     'plans/I126-ENTRYPOINT-AONLY-PENDING-BACKUP.patch'].includes(name);
 };
