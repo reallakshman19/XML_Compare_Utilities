@@ -44,7 +44,7 @@ async function fixture(t) {
   const instance=mountMethodCWriter2NativeShell(container,{},()=>({destroy(){coreDestroyed=true;}}));
   return {source,target,inspect,container,instance,coreDestroyed:()=>coreDestroyed};
 }
-test('native shell captures same selected File objects only after explicit Inspect',async t=>{
+test('native shell can still recapture selected File objects on explicit Inspect',async t=>{
   const f=await fixture(t);
   assert.equal(f.container.bridge.get(),null);
   f.inspect.inspect();await nextTurn();await nextTurn();
@@ -60,11 +60,13 @@ test('input revision invalidates custody; a previous pending Inspect cannot revi
   const gate=new Promise(resolve=>{release=resolve;});
   f.source.select([fakeFile('S1',gate),fakeFile('S2'),fakeFile('S3')]);
   f.inspect.inspect();
-  f.target.select([fakeFile('T')]);
+  f.target.select([fakeFile('BAD')]);
   release();await nextTurn();await nextTurn();
-  assert.equal(f.container.bridge.get(),null);
-  f.inspect.inspect();await nextTurn();await nextTurn();
-  assert.equal(f.container.bridge.get()?.sources?.length,3);
+  assert.equal(f.container.bridge.get(),null,
+    'a pending original read must not authorize stale/invalid TARGET');
+  f.target.select([fakeFile('T')]);await nextTurn();await nextTurn();
+  assert.equal(f.container.bridge.get()?.sources?.length,3,
+    'a fresh exact input selection may independently establish A-only custody');
   f.instance.destroy();
 });
 test('input revision and disposal stop retained-custody reuse even with matching names',async t=>{
@@ -75,4 +77,19 @@ test('input revision and disposal stop retained-custody reuse even with matching
   f.inspect.inspect();f.instance.destroy();await nextTurn();await nextTurn();
   assert.equal(f.container.bridge.get(),null);
   assert.equal(f.container.bridge.destroyed,true);
+});
+
+test('original SOURCE and TARGET input changes establish A-only custody without triggering Writer2 Inspect',async t=>{
+  const f=await fixture(t);
+  assert.equal(f.container.bridge.get(),null);
+  f.source.select(sourceFiles());await nextTurn();await nextTurn();
+  assert.equal(f.container.bridge.get()?.sources?.length,3);
+  assert.equal(f.container.bridge.get()?.targetOriginalSha256,hashes.T);
+  f.source.select([fakeFile('S1'),fakeFile('S2')]);
+  assert.equal(f.container.bridge.get(),null);
+  await nextTurn();await nextTurn();
+  assert.equal(f.container.bridge.get(),null,'incomplete source set stays HOLD');
+  f.source.select(sourceFiles());await nextTurn();await nextTurn();
+  assert.equal(f.container.bridge.get()?.sources?.length,3);
+  f.instance.destroy();
 });
