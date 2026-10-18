@@ -22,6 +22,7 @@ const git = (...args) => execFileSync('git', args, {
 const I126_BASE = '9a5916f972af170f272c525907728237391b7ca8';
 const allowed = name => {
   if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-method-c-(?:a-sidecar|a-review-markup|writer2-bridge|writer2-native-shell)\.js$/.test(name)) return true;
+  if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-tab\.js$/.test(name)) return true;
   if (/^tests\/cii-workspace-(?:method-c-(?:a-sidecar|a-review-markup|native-custody|native-lifecycle|i126-firebreak|i126-original-auto)|writer2-method-c-(?:native-app-browser|original-journey))\.test\.mjs$/.test(name)) return true;
   return ['agents/WIP-I126-A_workreport.md', 'agents/PR127_workreport.md',
     'plans/I126-ENTRYPOINT-AONLY-PENDING-BACKUP.patch'].includes(name);
@@ -56,4 +57,22 @@ test('I126 exact PR diff excludes PR107 ownership, benchmarks and previous gate 
   assert.ok(names.length, 'Expected inspectable I126 candidate diff');
   const forbidden = names.filter(name => !allowed(name));
   assert.deepEqual(forbidden, [], 'I126_SCOPE_GRANT_REQUIRED_FOR_NEW_OR_PROTECTED_FILE');
+});
+
+
+test('I126 Writer2 source/deployed entrypoints contain the exact read-only mount and no unrelated edits', t => {
+  const rel = 'tabs/cii-workspace/cii-workspace-tab.js';
+  const original = existsSync(path.join(repo,'.git')) ? git('show', I126_BASE + ':' + rel) : null;
+  if (original === null) return t.skip('Full git baseline unavailable: exact hunk check NOT_RUN');
+  const beforeImport = "import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260909-ms-custody-auto-1';\n";
+  const beforeMount = '      ? (root, shellOptions) => mountCiiWriter2MultiSourceNextStepShell(root, shellOptions, mountCiiWriter2MultiSourceReviewRouter)\n';
+  assert.equal(original.split(beforeImport).length, 2);
+  assert.equal(original.split(beforeMount).length, 2);
+  const expected = original.replace(beforeImport, beforeImport +
+    "import { mountMethodCWriter2NativeShell } from './cii-workspace-method-c-writer2-native-shell.js';\n")
+    .replace(beforeMount, '      ? (root, shellOptions) => mountMethodCWriter2NativeShell(root, shellOptions,\n' +
+      '        (writer2Root, writer2Options) => mountCiiWriter2MultiSourceNextStepShell(\n' +
+      '          writer2Root, writer2Options, mountCiiWriter2MultiSourceReviewRouter))\n');
+  assert.equal(content(rel), expected);
+  assert.equal(content('docs/' + rel), expected);
 });
