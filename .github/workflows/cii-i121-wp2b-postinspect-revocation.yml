@@ -1,0 +1,25 @@
+name: I121 WP2B Post-Inspect Original Authority and Revocation
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-ui:
+    name: Real S1 S2 S3 T post-inspect correspondence and stale evidence controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-i121-wp2b-postinspect-revocation-native.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Run original-file UI authority and post-change revocation
+        run: node --test tests/cii-workspace-i121-wp2b-postinspect-revocation-native.test.mjs
