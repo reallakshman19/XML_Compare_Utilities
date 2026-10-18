@@ -1,0 +1,33 @@
+name: I121 Hosted Windows Microsoft Edge Original QA
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hosted-windows-edge:
+    name: Windows hosted Edge real original S1 S2 S3 T and authority
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Keep LF and original fixture byte identity
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Assert Microsoft Edge is actually installed (no Chromium fallback)
+        shell: pwsh
+        run: |
+          $candidates=@("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe","${env:ProgramFiles}\Microsoft\Edge\Application\msedge.exe")
+          $found=$candidates | Where-Object { Test-Path $_ }
+          if (-not $found) { throw "HOSTED_MS_EDGE_NOT_INSTALLED" }
+          Write-Host "Hosted Edge binary: $($found[0])"
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real committed docs Writer2 under Microsoft Edge
+        run: node --test tests/cii-workspace-i121-wp2b-postinspect-revocation-hosted-edge.test.mjs
