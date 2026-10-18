@@ -36,5 +36,6 @@ jobs:
           path: |
             .backups/
             .agent-worklogs/i126-pr118-ci-routing-preimage/
+          include-hidden-files: true
           retention-days: 30
           if-no-files-found: error
