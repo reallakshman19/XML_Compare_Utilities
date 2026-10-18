@@ -31,12 +31,12 @@ function serve() {
     catch { res.writeHead(400);res.end();return; }
     if (pathname.startsWith('/XML_Compare_Utilities/')) pathname=pathname.slice('/XML_Compare_Utilities'.length);
     const relative=pathname==='/'?'index.html':pathname.replace(/^\/+/, '');
-    const file=relative.startsWith('i121-source/tabs/')
-      ?path.resolve(realTabs,relative.slice('i121-source/tabs/'.length))
-      :relative.startsWith('i121-source/converters/')
-        ?path.resolve(docs,'converters',relative.slice('i121-source/converters/'.length))
+    const file=relative.startsWith('i121-source/converters/')
+      ?path.resolve(docs,'converters',relative.slice('i121-source/converters/'.length))
+      :relative.startsWith('i121-source/')
+        ?path.resolve(realTabs,'..',relative.slice('i121-source/'.length))
         :path.resolve(docs,relative);
-    if (file!==path.join(docs,'index.html') && !file.startsWith(docs+path.sep) && !file.startsWith(realTabs+path.sep)) {
+    if (file!==path.join(docs,'index.html') && !file.startsWith(docs+path.sep) && !(relative.startsWith('i121-source/') && file.startsWith(path.resolve(realTabs,'..')+path.sep))) {
       res.writeHead(403);res.end();return;
     }
     try {
