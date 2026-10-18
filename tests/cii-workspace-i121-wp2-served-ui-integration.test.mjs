@@ -48,8 +48,8 @@ function i121EphemeralWriter2Integration(bytes) {
     '      inspection=completed;', 'call-site');
   patch('      if (!disposed) { if (evidence) evidence.innerHTML = ',
     '      if (!disposed && epoch===i121Epoch) { if (evidence) evidence.innerHTML = ','failure-stale-guard');
-  patch("       disposed = true; sourceInput.removeEventListener('change', resetMulti);",
-    "       disposed = true; ++i121Epoch; i121route.dispose(); sourceInput.removeEventListener('change', resetMulti);",'destroy');
+  patch("      disposed = true; sourceInput.removeEventListener('change', resetMulti);",
+    "      disposed = true; ++i121Epoch; i121route.dispose(); sourceInput.removeEventListener('change', resetMulti);",'destroy');
   return Buffer.from(text);
 }
 
