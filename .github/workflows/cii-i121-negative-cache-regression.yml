@@ -1,0 +1,28 @@
+name: I121 Negative Cache Adversarial Regression
+on:
+  push:
+    branches: [i121/perf-negative-expansion-cache-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  negative-cache-falsifiers:
+    name: Negative cache identity and READY parity Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test exact optimized-vs-uncached evidence parity
+        run: |
+          node --check tests/cii-workspace-i121-negative-cache-regression.test.mjs
+          node --test tests/cii-workspace-i121-negative-cache-regression.test.mjs

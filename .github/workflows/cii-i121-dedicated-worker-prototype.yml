@@ -1,0 +1,37 @@
+name: I121 Dedicated Inspection Worker Original Browser Prototype
+on:
+  push:
+    branches: [i121/perf-negative-expansion-cache-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-original-browser:
+    name: Original S1 S2 S3 T dedicated worker prototype
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-i121-dedicated-worker-prototype.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Preserve production files and run full-original worker feasibility proof
+        env:
+          I121_INSPECTOR_WORKER: '1'
+        run: node --test tests/cii-workspace-i121-dedicated-worker-prototype.test.mjs
+      - name: Keep read-only worker proof and heartbeat receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-original-worker-prototype
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
