@@ -1,0 +1,38 @@
+name: I121 Original Chromium Responsiveness Diagnostic
+on:
+  push:
+    branches: [i121/perf-negative-expansion-cache-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-chromium-heartbeat:
+    name: Real original S1 S2 S3 T UI heartbeat and protected B0 C0
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check test code
+        run: node --check tests/cii-workspace-i121-browser-responsiveness.test.mjs
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install native Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Measure original-file Writer2 page heartbeat through full Inspect and B0 C0
+        run: node --test tests/cii-workspace-i121-browser-responsiveness.test.mjs
+      - name: Retain heartbeat and original-file evidence even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-native-browser-heartbeat
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
