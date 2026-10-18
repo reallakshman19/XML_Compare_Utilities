@@ -76,7 +76,7 @@ test('real S1/S2/S3/T READY does not enable unqualified Compare; target change r
     assert.equal(original.reviewRows,0,'No implicit correspondence review before qualified base');
     assert.equal(original.applyButtons,0,'No Writer2 mutation control before approved review');
     await shell.locator('[data-ciiw-target]').setInputFiles([]);
-    await shell.locator('[data-ciiw-status]').filter({hasText:/Previous multi-source inspection invalidated/})
+    await shell.locator('[data-ciiw-status]').filter({hasText:/3 SOURCE CII files selected/})
       .waitFor({timeout:10000});
     const after=await shell.evaluate(root=>({
       status:root.querySelector('[data-ciiw-status]')?.textContent||'',
