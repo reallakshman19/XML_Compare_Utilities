@@ -1,0 +1,43 @@
+name: I121 WP2 Test Harness Preedit Backup
+on:
+  push:
+    branches: [i121/worker-adoption-wp2-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safe-preimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Save actual test harness preimage in full checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .agent-worklogs/i121-wp2-test-harness
+          cat > .agent-worklogs/i121-wp2-test-harness/manifest.md <<'EOF'
+          # I121 WP2 test harness exact anchor correction
+          Plan: change only the test's seven-space destroy() anchor to the six-space
+          original deployed UI anchor. No product file or oracle editing.
+          Baseline: before test-harness correction; GitHub branch head from run.
+          Undo: verify corrected current file SHA then restore this saved preimage;
+          never undo another agent's later changes.
+          EOF
+          node utils/backup.cjs save tests/cii-workspace-i121-wp2-served-ui-integration.test.mjs "Correct test-only served UI destroy anchor 7 spaces to 6, no product changes"
+          sha256sum tests/cii-workspace-i121-wp2-served-ui-integration.test.mjs > .agent-worklogs/i121-wp2-test-harness/preimage-sha256.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2-served-ui-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-wp2-test-harness/
+          include-hidden-files: true
+          retention-days: 14
