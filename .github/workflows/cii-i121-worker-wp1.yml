@@ -1,0 +1,55 @@
+name: I121 WP1 Standalone Worker Qualification
+on:
+  push:
+    branches: [i121/worker-adoption-wp1-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    name: Schema cancellation identity parity Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and protocol qualification
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-inspection-worker-client.js
+          node --check tabs/cii-workspace/cii-workspace-inspection-worker-protocol.js
+          node --check tabs/cii-workspace/cii-workspace-inspection.worker.js
+          node --test tests/cii-workspace-i121-worker-wp1-contract.test.mjs
+
+  original-chromium:
+    name: Original S1 S2 S3 T worker + unchanged native Writer2 Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Real original CII, main-thread heartbeat, A-only and B0 C0
+        run: node --test tests/cii-workspace-i121-worker-wp1-native.test.mjs
+      - name: Retain original file receipts even when RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp1-original-worker
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
