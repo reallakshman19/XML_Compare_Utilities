@@ -1,0 +1,24 @@
+name: I121 WP2B Real Browser Cancellation and Fallback
+on:
+  push:
+    branches: [i121/wp2b-docs-worker-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-negative:
+    name: SHA-pinned original file replacement and unsupported Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-i121-wp2b-lifecycle-native.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node --test tests/cii-workspace-i121-wp2b-lifecycle-native.test.mjs

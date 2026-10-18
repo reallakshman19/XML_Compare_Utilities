@@ -7,7 +7,7 @@ import {
   ciiQualifiedLoopsForSuggestion,
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
-import { inspectCiiWorkspaceSourceSetWithVersionBridge } from './cii-workspace-source-set.js';
+import { createCiiWriter2InspectionRoute } from './cii-workspace-inspection-route.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
 import { CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
@@ -224,6 +224,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const csvButton = container.querySelector('[data-ciiw-export-csv]'); const jsonButton = container.querySelector('[data-ciiw-export-json]');
   if (!sourceInput || !targetInput || !inspectButton || !analyzeButton) return legacy;
   sourceInput.multiple = true;
+  const inspectionRoute = createCiiWriter2InspectionRoute();
+  let inspectionEpoch = 0;
   let disposed = false; let inspection = null; let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
   const selectedBySource = new Map(); const manualBySource = new Map(); const manualDraftBySource = new Map(); const reviewDecisions = new Map();
@@ -249,6 +251,8 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     reviewDirty = true; scopedPreview = null; renderMultiReview(); renderTransfer(); setMultiSourceStatus(container, message);
   };
   const resetMulti = () => {
+    ++inspectionEpoch;
+    inspectionRoute.cancel();
     inspection = null; cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear();
     if (multiSource(container)) {
@@ -256,7 +260,10 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
       setMultiSourceStatus(container, `${selectedFiles(sourceInput).length} SOURCE CII files selected. Inspect exact retained S1/S2/S3 custody; deterministic READY Auto Anchor bases will be seeded automatically.`);
     } else {
-      analyzeButton.disabled = false; setManualDisabled(container, false);
+      const remainingSources = selectedFiles(sourceInput).length;
+      analyzeButton.disabled = remainingSources === 0;
+      setManualDisabled(container, false);
+      setMultiSourceStatus(container, `${remainingSources} SOURCE CII files selected. Previous multi-source inspection invalidated.`);
     }
   };
   function bindAnchorActions() {
@@ -326,14 +333,25 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const inspectMultiSource = async (event) => {
     if (!multiSource(container)) return;
     event.preventDefault(); event.stopImmediatePropagation();
+    // Invalidate old evidence immediately, before the asynchronous file SHA reads.
+    resetMulti();
+    const epoch = inspectionEpoch;
     try {
       const targetFile = selectedFiles(targetInput)[0]; if (!targetFile) throw new Error('TARGET CII file is required.');
-      cachedSources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef);
+      const sources = await sourceInputs(selectedFiles(sourceInput), options.cryptoRef);
+      if (disposed || epoch !== inspectionEpoch) return;
       const retainedTarget = await retainedTargetInput(targetFile, options.cryptoRef);
-      cachedTargetBytes = retainedTarget.bytes; cachedTargetName = retainedTarget.fileName;
-      setMultiSourceStatus(container, `Inspecting ${cachedSources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
-      inspection = await inspectCiiWorkspaceSourceSetWithVersionBridge({ sources: cachedSources, targetBytes: cachedTargetBytes, targetFileName: cachedTargetName }, { cryptoRef: options.cryptoRef });
-      if (disposed) return; selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
+      if (disposed || epoch !== inspectionEpoch) return;
+      cachedSources = sources; cachedTargetBytes = retainedTarget.bytes; cachedTargetName = retainedTarget.fileName;
+      setMultiSourceStatus(container, `Inspecting ${sources.length} canonical SOURCE members S1/S2/S3 through the frozen V11↔V14 bridge…`);
+      const run = inspectionRoute.inspect(
+        { sources, targetBytes: retainedTarget.bytes, targetFileName: retainedTarget.fileName },
+        { targetOriginalSha256: retainedTarget.originalSha256 },
+      );
+      const inspected = await run.promise;
+      if (disposed || epoch !== inspectionEpoch) return;
+      inspection = inspected;
+      selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear(); preview = null; scopedPreview = null; reviewDirty = false;
       const automaticSeed = buildAutomaticBaseSeed(inspection);
       for (const item of inspection.memberInspections) {
         selectedBySource.set(item.sourceId, new Set(automaticSeed.selectionKeysBySource[item.sourceId] || []));
@@ -349,7 +367,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
         setMultiSourceStatus(container, `Source-set custody READY: ${inspection.sourceSet.memberCount} canonical S1/S2/S3 members. Auto Anchor seeded deterministic qualified bases for all sources; correspondence approval remains a separate review step.`);
       }
     } catch (error) {
-      if (!disposed) { if (evidence) evidence.innerHTML = `<div class="ciiw-method-empty"><b>Multi-source intake blocked</b><p>${h(error?.message || error)}</p></div>`; setMultiSourceStatus(container, error?.message || String(error)); }
+      if (!disposed && epoch === inspectionEpoch) { if (evidence) evidence.innerHTML = `<div class="ciiw-method-empty"><b>Multi-source intake blocked</b><p>${h(error?.message || error)}</p></div>`; setMultiSourceStatus(container, error?.message || String(error)); }
     }
   };
   const previewInput = (reviewBySource = undefined) => ({
@@ -455,7 +473,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     ...legacy,
     getMultiSourcePreview() { return scopedPreview || preview; },
     destroy() {
-      disposed = true; sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
+      disposed = true; ++inspectionEpoch; inspectionRoute.dispose(); sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
       inspectButton.removeEventListener('click', inspectMultiSource, true); analyzeButton.removeEventListener('click', analyzeMultiSource, true);
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);

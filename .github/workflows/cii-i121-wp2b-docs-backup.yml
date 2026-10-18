@@ -1,0 +1,79 @@
+name: I121 WP2B Docs Preedit Custody Backup
+on:
+  push:
+    branches: [i121/wp2b-docs-worker-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preedit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create frozen full-checkout backup for docs Writer2 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          expected=5deefff2b5af1894e2e6102248cf4d5900413ef0
+          if test "$(git hash-object "$file")" != "$expected"; then
+            echo 'DOCS_WP2B_PREEDIT_ALREADY_FROZEN: original backup #90 is in Actions run 39142570978, artifact 12141568589; do not recapture postimage as preimage.'
+            exit 0
+          fi
+          dir=.agent-worklogs/20261018_i121_wp2b_docs
+          mkdir -p "$dir/modules"
+          cp "$file" "$dir/docs-writer2.pre.js"
+          sha256sum "$dir/docs-writer2.pre.js" > "$dir/preimage-sha256.txt"
+          cat > "$dir/manifest.md" <<'EOF'
+          # I121 WP2B Docs — selective patch ledger
+          Owner request: proceed with Stage 2 I121-WP2B-DOCS after BuddyRunner v2.0 G1 reconciliation.
+          Task start: 2026-10-18, full-checkout GitHub Actions preedit runner.
+          Planned: change exactly docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          to route native multi-SOURCE Inspect through the existing PR131 inspection worker.
+          Retain original S1/S2/S3/T, Method A/B/BM001, C B0/C0 and no auto-Apply.
+          No tabs/ files, no source-set engine, no frozen worker, no thresholds.
+          Source preimage git blob: 5deefff2b5af1894e2e6102248cf4d5900413ef0
+          Before state: clean tracked source at branch base PR131 102b5cea.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 UI | planned | Worker route, epoch guards, disposal | Not yet edited | NOT_RUN | modules/docs-writer2.patch | pending | selective preimage |
+          EOF
+          cat > "$dir/modules/docs-writer2.md" <<'EOF'
+          # Module: docs Writer2 worker UI hook
+          ## Planned
+          Use the existing SHA-bound inspection route for the deployed docs Inspect action.
+          ## Did
+          NOT_STARTED
+          ## Technical details
+          Run epoch increments on reset, early Inspect, replacement and destroy.
+          ## Files and symbols
+          docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          ## Upstream/downstream impact
+          Native Writer2 original files, review and transfer remain governed.
+          ## Validation
+          NOT_RUN
+          ## Patch and backups
+          Requires real node utils/backup.cjs save before first edit.
+          ## Undo
+          Compare current postimage digest and restore only unchanged affected file from preimage.
+          ## Remaining risks or follow-ups
+          Edge owner run and independent P2.
+          EOF
+          node utils/backup.cjs save "$file" "Plan to install SHA-bound worker in docs Writer2 Inspect, preserving original evidence and B0 C0"
+      - name: Preserve original binary preimage, backup index, local ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2b-docs-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/20261018_i121_wp2b_docs/
+          include-hidden-files: true
+          retention-days: 30

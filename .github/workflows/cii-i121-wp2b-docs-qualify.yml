@@ -1,0 +1,70 @@
+name: I121 WP2B Committed Docs Worker Qualification
+on:
+  push:
+    branches: [i121/wp2b-docs-worker-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-chromium:
+    name: Exact original S1 S2 S3 T committed docs Worker UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check committed UI and test syntax
+        run: |
+          node --check docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node --check tests/cii-workspace-i121-wp2b-committed-docs.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Full original files from unchanged HTTP docs module
+        run: node --test tests/cii-workspace-i121-wp2b-committed-docs.test.mjs
+      - name: Retain screenshots and original-file receipts even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2b-committed-docs-${{ github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 30
+  protected:
+    name: Method A B BM001 Writer2 and worker contracts Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Protected physical qualification and worker proof
+        run: |
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-geometry-authority.test.js \
+            tests/cii-workspace-method-a-confidence-config.test.js \
+            tests/cii-workspace-method-a-weight-policy.test.js \
+            tests/cii-workspace-method-a-anchor-provenance.test.js \
+            tests/cii-workspace-method-a-base-anchor-custody.test.js \
+            tests/cii-workspace-base-anchor-method-fusion.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-writer2-composite-scope-custody.test.js \
+            tests/cii-workspace-writer2-source-set-composite-custody.test.js \
+            tests/cii-workspace-writer2-absent-family-readiness.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            tests/cii-workspace-writer2-benchmark-identity-control.test.js \
+            tests/cii-workspace-i121-worker-wp1-contract.test.mjs \
+            tests/cii-workspace-i121-wp2-prepared-contract.test.mjs \
+            tests/cii-workspace-i121-negative-cache-regression.test.mjs
