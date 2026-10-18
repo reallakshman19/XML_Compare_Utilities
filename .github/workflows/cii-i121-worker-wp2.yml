@@ -1,0 +1,50 @@
+name: I121 WP2 Isolated Worker UI Integration Proof
+on:
+  push:
+    branches: [i121/worker-adoption-wp2-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-writer2-served-ui:
+    name: Original S1 S2 S3 T real UI worker path (served copy only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Syntax verify new adapter and ephemeral browser test
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-inspection-route.js
+          node --check tests/cii-workspace-i121-wp2-served-ui-integration.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Real Writer2 click path original custody without changing protected UI files
+        run: node --test tests/cii-workspace-i121-wp2-served-ui-integration.test.mjs
+      - name: Retain native original browser receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2-original-served-ui
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
+
+  protected-readonly:
+    name: Existing worker cancellation and mirrored modules Node22
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/cii-workspace-i121-worker-wp1-contract.test.mjs tests/cii-workspace-i121-negative-cache-regression.test.mjs
