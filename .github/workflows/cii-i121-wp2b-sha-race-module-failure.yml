@@ -1,0 +1,25 @@
+name: I121 WP2B Late-SHA and Missing Worker Fail-Closed
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-original:
+    name: Original S1 S2 S3 T SHA-race and missing worker module
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-i121-wp2b-late-sha-and-worker-load-native.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Execute original-file hostile browser cases against committed UI
+        run: node --test tests/cii-workspace-i121-wp2b-late-sha-and-worker-load-native.test.mjs
