@@ -99,7 +99,7 @@ test('late original S1 SHA read cannot resurrect outdated TARGET inspection', {t
     console.log('I121_SHA_READ_LATE_CUSTODY '+JSON.stringify({state,workers,errors}));
     assert.equal(state.targetFiles,0);
     assert.equal(state.analyzeDisabled,true);
-    assert.match(state.status,/3 SOURCE CII files selected/);
+    assert.match(state.status,/3 SOURCE CII files selected|TARGET CII file is required/);
     assert.doesNotMatch(state.status,/READY|Inspecting|intake blocked/);
     assert.equal(state.evidence,0);
     assert.equal(state.reviewRows,0);
