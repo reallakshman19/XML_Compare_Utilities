@@ -23,6 +23,7 @@ test('I126 REAL served Writer2 Inputs contains ONE original-file Method C action
     browser=await chromium.launch({headless:true});const page=await browser.newPage();
     await page.goto(url+'/',{waitUntil:'domcontentloaded'});
     await page.locator('.app-tab[data-tab="psnm-utility"]').click({timeout:45000});
+    await page.locator('[data-ciiw-open-method-c]').waitFor({state:'visible',timeout:90000});
     assert.equal(await page.locator('[data-ciiw-open-method-c]').count(),1);
     await page.locator('[data-ciiw-open-writer2]').click();
     const shell=page.locator('.ciiw-backdrop .ciiw-workspace');
