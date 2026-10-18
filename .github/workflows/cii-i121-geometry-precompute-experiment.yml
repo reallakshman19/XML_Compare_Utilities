@@ -1,0 +1,45 @@
+name: I121 Geometry Precompute Original Browser Experiment
+on:
+  push:
+    branches: [i121/perf-negative-expansion-cache-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-geometry-experiment:
+    name: Original S1 S2 S3 T heartbeat ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: BASELINE
+            precompute: '0'
+          - variant: GEOMETRY_PRECOMPUTE
+            precompute: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-i121-geometry-precompute-experiment.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Full original benchmark with compare-hypothesis ephemeral served-copy experiment
+        env:
+          I121_GEOMETRY_PRECOMPUTE: ${{ matrix.precompute }}
+        run: node --test tests/cii-workspace-i121-geometry-precompute-experiment.test.mjs
+      - name: Preserve run receipts including heartbeat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-geometry-experiment-${{ matrix.variant }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
