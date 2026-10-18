@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createMethodCASidecar,assertMethodCASidecarCurrent} from './I126-I02-method-c-a-sidecar.mjs';
+import {createMethodCASidecar,assertMethodCASidecarCurrent} from '../docs/tabs/cii-workspace/cii-workspace-method-c-a-sidecar.js';
 const sha1='1'.repeat(64), sha2='2'.repeat(64), sha3='3'.repeat(64);
 const ctx = () => ({sourceSetSha256:sha3,sourceId:'S1',sessionEpoch:2,
  sourceGraph:{member:'S1',sha256:sha1,byteAuthority:'ORIGINAL_BYTES'},
