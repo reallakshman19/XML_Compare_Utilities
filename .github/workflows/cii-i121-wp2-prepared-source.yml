@@ -1,0 +1,43 @@
+name: I121 WP2 Current Tabs Prepared Session Original Chromium
+on:
+  push:
+    branches: [i121/worker-adoption-wp2-20261018]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepared-native:
+    name: Real S1 S2 S3 T source tabs prepared-session worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Syntax source and deployed mirrors
+        run: |
+          node --check tabs/cii-workspace/cii-workspace-prepared-inspection-protocol.js
+          node --check tabs/cii-workspace/cii-workspace-prepared-inspection-client.js
+          node --check tabs/cii-workspace/cii-workspace-prepared-inspection.worker.js
+          node --check tests/cii-workspace-i121-wp2-prepared-session-native.test.mjs
+          cmp tabs/cii-workspace/cii-workspace-prepared-inspection-protocol.js docs/tabs/cii-workspace/cii-workspace-prepared-inspection-protocol.js
+          cmp tabs/cii-workspace/cii-workspace-prepared-inspection-client.js docs/tabs/cii-workspace/cii-workspace-prepared-inspection-client.js
+          cmp tabs/cii-workspace/cii-workspace-prepared-inspection.worker.js docs/tabs/cii-workspace/cii-workspace-prepared-inspection.worker.js
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Preserve current tabs prepared-session source authority and native original CII
+        run: node --test tests/cii-workspace-i121-wp2-prepared-session-native.test.mjs
+      - name: Retain exact original-file proof even if red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2-source-prepared-original
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14

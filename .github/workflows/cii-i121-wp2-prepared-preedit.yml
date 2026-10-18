@@ -1,0 +1,38 @@
+name: I121 WP2 Prepared Test Preedit Backup
+on:
+  push:
+    branches: [i121/worker-adoption-wp2-20261018]
+permissions:
+  contents: read
+jobs:
+  preimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Capture exact source-tab path alias test preimage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .agent-worklogs/i121-wp2-source-alias
+          cat > .agent-worklogs/i121-wp2-source-alias/manifest.md <<'EOF'
+          I121-WP2: improve ONLY test alias for legitimate source ../../../parser imports.
+          Planned: route /i121-source/* to corresponding repository path; converters from docs/.
+          No production paths, geometry policies or oracles modified.
+          Undo: require after-SHA match then restore preimage backup, no git resets.
+          EOF
+          node utils/backup.cjs save tests/cii-workspace-i121-wp2-prepared-session-native.test.mjs "Repair test-only source alias for parser dependencies, no production modifications"
+          sha256sum tests/cii-workspace-i121-wp2-prepared-session-native.test.mjs > .agent-worklogs/i121-wp2-source-alias/preimage.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i121-wp2-prepared-test-preimage-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-wp2-source-alias/
+          include-hidden-files: true
+          retention-days: 14
