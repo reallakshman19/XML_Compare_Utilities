@@ -30,13 +30,13 @@ async function fixture(t) {
   await writeFile(path.join(root,'package.json'),' {"type":"module"}\n');
   await writeFile(path.join(dir,'cii-workspace-method-c-writer2-native-shell.js'),await readFile(original));
   await writeFile(path.join(dir,'cii-workspace-v11-v14-converter.js'),
-    `export async function ciiSha256(bytes){return ${JSON.stringify(hashes)}[new TextDecoder().decode(bytes)]||'0'.repeat(64);}\\n`);
+    `export async function ciiSha256(bytes){return ${JSON.stringify(hashes)}[new TextDecoder().decode(bytes)]||'0'.repeat(64);}\n`);
   await writeFile(path.join(dir,'cii-workspace-source-set.js'),
-    `export async function ciiSourceSetSha256(members){return members.length===3&&['S1','S2','S3'].every((id,i)=>members[i].sourceId===id&&members[i].originalSha256===${JSON.stringify(hashes)}[id])?'5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3':'0'.repeat(64);}\\n`);
+    `export async function ciiSourceSetSha256(members){return members.length===3&&['S1','S2','S3'].every((id,i)=>members[i].sourceId===id&&members[i].originalSha256===${JSON.stringify(hashes)}[id])?'5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3':'0'.repeat(64);}\n`);
   await writeFile(path.join(dir,'cii-workspace-multisource-nodename-authority.js'),
-    `export const CII_MS_SOURCE_SET_SHA256='5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3';export const CII_MS_TARGET_SHA256='abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060';\\n`);
+    `export const CII_MS_SOURCE_SET_SHA256='5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3';export const CII_MS_TARGET_SHA256='abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060';\n`);
   await writeFile(path.join(dir,'cii-workspace-method-c-writer2-bridge.js'),
-    `export function mountMethodCWriter2ABridge(_container,opts){_container.bridge={get:opts.getCustody,invalidations:[],destroyed:false};return {invalidate(r){_container.bridge.invalidations.push(r);},destroy(){_container.bridge.destroyed=true;}};}\\n`);
+    `export function mountMethodCWriter2ABridge(_container,opts){_container.bridge={get:opts.getCustody,invalidations:[],destroyed:false};return {invalidate(r){_container.bridge.invalidations.push(r);},destroy(){_container.bridge.destroyed=true;}};}\n`);
   const {mountMethodCWriter2NativeShell}=await import(pathToFileURL(path.join(dir,'cii-workspace-method-c-writer2-native-shell.js')));
   const source=new StubInput(sourceFiles()),target=new StubInput([fakeFile('T')]),inspect=new StubInput();
   const container={bridge:null,querySelector(sel){return ({'[data-ciiw-source]':source,'[data-ciiw-target]':target,'[data-ciiw-inspect]':inspect})[sel]||null;}};
