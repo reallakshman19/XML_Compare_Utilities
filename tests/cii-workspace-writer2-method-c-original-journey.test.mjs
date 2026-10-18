@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -77,9 +77,44 @@ test('I126 original SOURCE/TARGET reuse → Method C A-only Compare Review; segm
       assert.equal(await shell.locator('[data-ciiw-panel="inputs"] [data-ciiw-method-c-controls] input[type="file"]').count(),0);
       await shell.locator('[data-ciiw-source]').setInputFiles(await Promise.all(['S1.CII','S2.CII','S3.CII'].map(original)));
       await shell.locator('[data-ciiw-target]').setInputFiles(await original('T.CII'));
+      // Collect a bounded, original-file browser receipt on failed legacy custody.
+      // Never relax readiness: the Method C A-only bridge is NOT a Writer2 authorizer.
+      const inspectStarted = Date.now();
+      const intakeDiagnostic = async stage => {
+        const state = await shell.evaluate(root => ({
+          status: [...root.querySelectorAll('[data-ciiw-status]')].map(e => e.textContent?.trim()),
+          evidence: root.querySelector('[data-ciiw-landmarks]')?.textContent?.slice(0, 900),
+          originalSourceFiles: [...(root.querySelector('[data-ciiw-source]')?.files || [])]
+            .map(f => ({name: f.name, bytes: f.size})),
+          originalTargetFiles: [...(root.querySelector('[data-ciiw-target]')?.files || [])]
+            .map(f => ({name: f.name, bytes: f.size})),
+          methodCStatus: root.querySelector('[data-ciiw-method-c-message]')?.textContent?.trim(),
+          sourceCount: root.querySelectorAll('[data-ciiw-source]').length,
+          targetCount: root.querySelectorAll('[data-ciiw-target]').length,
+        }));
+        const diagnostic = {stage, elapsedMs: Date.now()-inspectStarted, ...state,
+          pageErrors: errors.slice(0, 15)};
+        console.log('I126_ORIGINAL_WRITER2_INTAKE_DIAGNOSTIC '+JSON.stringify(diagnostic));
+        await writeFile(path.join(receipts,'native-original-inspection-'+stage+'.json'),
+          JSON.stringify(diagnostic,null,2)+'\n');
+        return diagnostic;
+      };
       await shell.locator('[data-ciiw-inspect]').click();
-      await shell.locator('[data-ciiw-status]').filter({hasText:/Source-set custody READY|Auto Anchor seeded/i})
-        .waitFor({timeout:185_000});
+      await page.waitForTimeout(6000);
+      const early = await intakeDiagnostic('after-6s');
+      // A terminal Writer2 intake error is independently actionable; do not waste
+      // the entire #121 performance window waiting for an impossible READY.
+      if (early.status?.some(s => /SHA_MISMATCH|UNKNOWN_OR_DUPLICATE|SOURCE_SET_SHA|intake blocked|invalid original/i.test(s||'')))
+        assert.fail('Writer2 original custody rejected input: '+JSON.stringify(early));
+      try {
+        await shell.locator('[data-ciiw-status]').filter({hasText:/Source-set custody READY|Auto Anchor seeded/i})
+          .waitFor({timeout:145_000});
+      } catch (error) {
+        const diagnostic = await intakeDiagnostic('readiness-failure');
+        await page.screenshot({path:path.join(receipts,'native-original-inspection-failure.png'),fullPage:true});
+        throw new Error('Writer2 source-set readiness failed; original-file diagnostic='+JSON.stringify(diagnostic), {cause:error});
+      }
+      await intakeDiagnostic('ready');
       await method.click();
       const options=shell.locator('[data-ciiw-method-c-inputs]');
       await options.waitFor({state:'visible',timeout:20_000});
