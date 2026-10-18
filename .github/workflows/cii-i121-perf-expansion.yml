@@ -1,0 +1,38 @@
+name: I121 Geometry Expansion Diagnostic
+on:
+  push:
+    branches:
+      - i121/perf-stage-diagnostic-20261018
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-geometry:
+    name: Original S1 T Method A expansion and basis conflicts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --check tests/cii-workspace-writer2-method-c-perf-expansion.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Diagnose actual expansion and geometry hypotheses
+        env:
+          I121_PROFILE_TIMEOUT_MS: '90000'
+        run: node tests/cii-workspace-writer2-method-c-perf-expansion.mjs
+      - name: Retain original-file profiling evidence despite expected RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-original-geometry-expansion
+          path: test-results/i121-original-profile/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,42 @@
+name: I121 Original Writer2 Stage Diagnostic
+on:
+  push:
+    branches:
+      - i121/perf-stage-diagnostic-20261018
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-profile:
+    name: Original S1 S2 S3 T native Chromium stage profile
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact diagnostic syntax
+        run: node --check tests/cii-workspace-writer2-method-c-perf-profile.mjs
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Profile genuine original-file Writer2 Inspect without altering product modules
+        env:
+          I121_PROFILE_TIMEOUT_MS: '90000'
+        run: node tests/cii-workspace-writer2-method-c-perf-profile.mjs
+      - name: Retain original-file stage receipts even when red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-original-writer2-stage-profile
+          path: test-results/i121-original-profile/
+          if-no-files-found: warn
+          retention-days: 14
