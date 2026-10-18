@@ -1,0 +1,102 @@
+name: I121 Negative Expansion Cache Qualification
+on:
+  push:
+    branches:
+      - i121/perf-negative-expansion-cache-20261018
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-and-scope:
+    name: Existing-file backup receipt and exact branch scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record exact checkout and create genuine pre-edit backups
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          mkdir -p .agent-worklogs/i121-negative-expansion-cache
+          cat > .agent-worklogs/i121-negative-expansion-cache/manifest.md <<'EOF'
+          # I121 Method A rejected expansion cache
+          - Planned: avoid recomputing deterministic non-READY expanded Method A bases
+          - Scope: mirrored tabs/docs anchor-method-a.js only; no geometry policy or writer edits
+          - Undo: compare current SHA; restore matching pre-edit backup, never overwrite unrelated work
+          - Validation: original S1/S2/S3/T Chromium RED to GREEN, protected regression and source/deploy parity
+          EOF
+          node utils/backup.cjs save tabs/cii-workspace/cii-workspace-anchor-method-a.js "Plan to memoize only non-READY deterministic Method A expanded candidate sets"
+          node utils/backup.cjs save docs/tabs/cii-workspace/cii-workspace-anchor-method-a.js "Plan to mirror the same deterministic non-READY expansion cache on deployed docs"
+          node utils/backup.cjs verify 1
+          node utils/backup.cjs verify 2
+          sha256sum tabs/cii-workspace/cii-workspace-anchor-method-a.js docs/tabs/cii-workspace/cii-workspace-anchor-method-a.js > .agent-worklogs/i121-negative-expansion-cache/current-sha256.txt
+          cmp tabs/cii-workspace/cii-workspace-anchor-method-a.js docs/tabs/cii-workspace/cii-workspace-anchor-method-a.js
+      - name: Retain SHA-bound backup and manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-file-backups-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-negative-expansion-cache/
+          include-hidden-files: true
+          retention-days: 14
+
+  protected-tests:
+    name: Protected Method A B BM001 Writer2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --test --test-concurrency=2 \
+            tests/cii-workspace-geometry-authority.test.js \
+            tests/cii-workspace-method-a-confidence-config.test.js \
+            tests/cii-workspace-method-a-weight-policy.test.js \
+            tests/cii-workspace-method-a-anchor-provenance.test.js \
+            tests/cii-workspace-method-a-base-anchor-custody.test.js \
+            tests/cii-workspace-base-anchor-method-fusion.test.js \
+            tests/cii-workspace-multi-base-authority.test.js \
+            tests/cii-workspace-multi-base-correspondence.test.js \
+            tests/cii-workspace-topology-route-gates.test.js \
+            tests/cii-workspace-writer2-composite-scope-custody.test.js \
+            tests/cii-workspace-writer2-source-set-composite-custody.test.js \
+            tests/cii-workspace-writer2-absent-family-readiness.test.js \
+            tests/cii-workspace-writer2-product-routing.test.js \
+            tests/cii-workspace-writer2-benchmark-identity-control.test.js
+
+  original-browser:
+    name: Original S1 S2 S3 T full Writer2 Inspect
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node --test tests/cii-workspace-writer2-method-c-original-journey.test.mjs
+      - name: Keep original-file browser receipt even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-native-original-${{ github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
