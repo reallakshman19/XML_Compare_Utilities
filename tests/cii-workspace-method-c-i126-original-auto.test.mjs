@@ -7,6 +7,8 @@ import path from 'node:path';
 import { buildOriginalGraphFromBytes } from '../tabs/cii-workspace/cii-workspace-method-c-original-geometry.js';
 import { registerMethodC } from '../tabs/cii-workspace/cii-workspace-method-c-registration.js';
 import { findMethodCCandidates } from '../tabs/cii-workspace/cii-workspace-method-c-candidates.js';
+import { createMethodCASidecar, assertMethodCASidecarCurrent } from '../tabs/cii-workspace/cii-workspace-method-c-a-sidecar.js';
+import { methodCAReviewMarkup } from '../tabs/cii-workspace/cii-workspace-method-c-a-review-markup.js';
 
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const SOURCE_SHA = '9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b';
@@ -51,4 +53,36 @@ test('I126 genuine S1 3910→T875 signed AUTO evidence stays A-only; 4060 is T E
     assert.equal(node4060.segment.witness, 'ELEMENTS#179:15rows:2671-2685');
     assert.ok(Math.abs(node4060.segment.t - 0.76175) < 1e-7);
     assert.ok(node4060.segment.distance < 0.01);
+    const context = {
+      sourceSetSha256: '5390166aab9504880bd4514af865c914ba8a41ce2922e7d473311d62b10723a3',
+      sourceId: 'S1', sessionEpoch: 1, sourceGraph: source, targetGraph: target,
+      registration: pose, candidates, tolerance: {x: 100, y: 100, z: 100},
+    };
+    const evidence = createMethodCASidecar(context);
+    const sidecar4060 = evidence.rows.find(row => row.sourceNode === '4060');
+    assert.equal(evidence.rows.length, 57);
+    assert.equal(evidence.qualifiedPhysicalIdentityCount, 0);
+    assert.equal(evidence.writerEligible, false);
+    assert.equal(evidence.applyAuthorized, false);
+    assert.deepEqual(evidence.mutationOperations, []);
+    assert.equal(Object.isFrozen(evidence), true);
+    assert.equal(sidecar4060.selectedPhysicalTarget, null);
+    assert.deepEqual(sidecar4060.segmentOnly.endpoints, ['900', '905']);
+    assert.equal(sidecar4060.segmentOnly.originalWitness, 'ELEMENTS#179:15rows:2671-2685');
+    const html = methodCAReviewMarkup(evidence);
+    assert.match(html, /4060/);
+    assert.match(html, /ELEMENTS#179:15rows:2671-2685/);
+    assert.doesNotMatch(html, /data-ciiw-method-c-apply/);
+    assertMethodCASidecarCurrent(evidence, {
+      sourceSetSha256: context.sourceSetSha256, sourceId: 'S1', sessionEpoch: 1,
+      sourceOriginalSha256: SOURCE_SHA, targetOriginalSha256: TARGET_SHA,
+    });
+    assert.throws(() => assertMethodCASidecarCurrent(evidence, {
+      sourceSetSha256: context.sourceSetSha256, sourceId: 'S1', sessionEpoch: 2,
+      sourceOriginalSha256: SOURCE_SHA, targetOriginalSha256: TARGET_SHA,
+    }), /STALE_EVIDENCE/);
+    const forgedCandidates = {...candidates, rows: candidates.rows.map((row, i) =>
+      i === 0 ? {...row, identityBound: true} : row)};
+    assert.throws(() => createMethodCASidecar({...context, candidates: forgedCandidates}),
+      /UNAUTHORIZED_CANDIDATE/);
   });
