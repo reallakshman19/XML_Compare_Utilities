@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {chromium} from '@playwright/test';
-const root=fileURLToPath(new URL('../docs/',import.meta.url));
+const root=path.resolve(fileURLToPath(new URL('../docs/',import.meta.url)));
 function serve(){const server=createServer(async(req,res)=>{
   let pathname;
   try{pathname=decodeURIComponent(new URL(req.url,'http://127.0.0.1').pathname);}catch{res.writeHead(400);res.end();return;}
