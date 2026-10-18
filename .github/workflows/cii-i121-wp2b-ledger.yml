@@ -1,0 +1,91 @@
+name: I121 WP2B Selective Undo and Workflow Preimage
+on:
+  push:
+    branches: [i121/wp2b-docs-worker-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backup current existing preedit guard before changing triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          node utils/backup.cjs save .github/workflows/cii-i121-wp2b-docs-backup.yml "Plan to stop initial preedit custody test from failing on known postimage; preserve original immutable preedit artifact"
+          mkdir -p .agent-worklogs/20261018_i121_wp2b_docs/modules
+          cp .github/workflows/cii-i121-wp2b-docs-backup.yml .agent-worklogs/20261018_i121_wp2b_docs/guard-before.yml
+          sha256sum .github/workflows/cii-i121-wp2b-docs-backup.yml > .agent-worklogs/20261018_i121_wp2b_docs/guard-before-sha256.txt
+      - name: Retrieve actual before-product source file custody
+        uses: actions/download-artifact@v4
+        with:
+          name: i121-wp2b-docs-preedit-ac14239d3037879e3c19f52a5efc0d9e3288210e
+          run-id: 39142570978
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: .agent-worklogs/retrieved-preedit
+      - name: Generate reversible no-index patch from actual preimage bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pre=.agent-worklogs/retrieved-preedit/.agent-worklogs/20261018_i121_wp2b_docs/docs-writer2.pre.js
+          current=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          dir=.agent-worklogs/20261018_i121_wp2b_docs
+          test -f "$pre"
+          test "$(sha256sum "$pre" | awk '{print $1}')" = 2bec1ca28c6c5358254051bc3283190897ef031d3bee2968827ccce8f89e987f
+          cp "$pre" "$dir/docs-writer2.pre.js"
+          sha256sum "$current" > "$dir/postimage-sha256.txt"
+          set +e
+          git diff --no-index --binary -- "$dir/docs-writer2.pre.js" "$current" > "$dir/modules/docs-writer2.patch"
+          diff_status=$?
+          set -e
+          test "$diff_status" = 1
+          cat > "$dir/manifest.md" <<'EOF'
+          # I121-WP2B-DOCS — exact module-wise rollback
+          Baseline: PR131 head 102b5cea; original docs blob 5deefff2; no prior dirty change.
+          Original preimage: real backup run 39142570978 artifact 12141568589, backup #90.
+          The patch is from saved preimage bytes, not HEAD/index/commit.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 only | completed | Async Worker, epoch, no stale status | Committed | Original Chromium and lifecycle | modules/docs-writer2.patch | #90 run 39142570978; reset #90 run 39143128783 | Compare postimage SHA, restore only exact preimage |
+          EOF
+          cat > "$dir/modules/docs-writer2.md" <<'EOF'
+          # Module: docs Writer2 UI worker route
+          ## Planned
+          Remove main-thread multi-source Inspect without changing Method A/B/BM001 or Writer2 Apply.
+          ## Did
+          Installed PR131 inspection route and SHA receipt; reset/cancel on selection/inspect/destroy.
+          ## Technical details
+          One epoch guards source read, target read, worker completion and catch; no sync fallback.
+          ## Files and symbols
+          docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js: resetMulti, inspectMultiSource, destroy.
+          ## Upstream/downstream impact
+          Original SOURCE and TARGET custody unchanged; downstream Compare/Method C read-only still gated.
+          ## Validation
+          See draft PR exact-head run receipts. Actual Edge and P2 NOT_RUN.
+          ## Patch and backups
+          Full original backup #90 on run 39142570978, source-reset preimage backup #90 run 39143128783.
+          Patch modules/docs-writer2.patch is a history-independent no-index diff from exact original.
+          ## Undo
+          Check exact current postimage SHA. If same, restore the saved original binary; no git reset, no overwrite of later work.
+          ## Remaining risks or follow-ups
+          Windows Owner Edge, full Compare/Review/Transfer heartbeat, independent P2, Owner merge.
+          EOF
+      - name: Retain full reversible patch, before/after and workflow guard backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-wp2b-selective-undo-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/20261018_i121_wp2b_docs/
+          include-hidden-files: true
+          retention-days: 30
