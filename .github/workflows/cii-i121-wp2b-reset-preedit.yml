@@ -1,0 +1,48 @@
+name: I121 WP2B Source Reset Preedit Backup
+on:
+  push:
+    branches: [i121/wp2b-docs-worker-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  second-preimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Archive post-WP2B pre-reset selected-file state
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          expected=7635a0cac0541a648774ee8a3ec5cc015a0b91d5
+          if test "$(git hash-object "$file")" != "$expected"; then
+            echo 'Not the exact reset preimage: backup check skipped, earlier backup remains preserved.'
+            exit 0
+          fi
+          dir=.agent-worklogs/20261018_i121_wp2b_reset
+          mkdir -p "$dir/modules"
+          cp "$file" "$dir/docs-worker-before-reset.js"
+          sha256sum "$file" > "$dir/preimage-sha256.txt"
+          cat > "$dir/manifest.md" <<'EOF'
+          # WP2B source reset hardening
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 reset | planned | Clear stale UI status for zero/one SOURCE | Not yet | RED cancellation regression | modules/source-reset.patch | real save below | SHA-gated restore |
+          EOF
+          node utils/backup.cjs save "$file" "Plan to clear stale Writer2 inspection status and disable empty-source Analyze after cancellation"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i121-wp2b-reset-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/20261018_i121_wp2b_reset/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
