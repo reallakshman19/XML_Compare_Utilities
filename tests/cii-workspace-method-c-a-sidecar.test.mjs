@@ -70,3 +70,10 @@ test('wrong source member and unverified graph blocked',()=>{
  v=ctx();v.sourceGraph.byteAuthority='NORMALIZED';
  assert.throws(()=>createMethodCASidecar(v),/ORIGINAL_GRAPH_REQUIRED/);
 });
+test('forged candidate physical identity and Writer2 authority are always rejected', () => {
+  for (const key of ['physicalNodeCorrespondenceQualified','physicalIdentityQualified',
+    'identityBound','writerEligible','qualified','applyAuthorized']) {
+    const v = ctx(); v.candidates.rows[0][key] = true;
+    assert.throws(() => createMethodCASidecar(v), /UNAUTHORIZED_CANDIDATE/, key);
+  }
+});
