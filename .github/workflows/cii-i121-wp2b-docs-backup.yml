@@ -23,9 +23,10 @@ jobs:
           set -euo pipefail
           file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
           expected=5deefff2b5af1894e2e6102248cf4d5900413ef0
-          test "$(git hash-object "$file")" = "$expected" || {
-            echo 'DOCS_WP2B_PREEDIT_MISMATCH: refuse to call postimage a preimage'; exit 1;
-          }
+          if test "$(git hash-object "$file")" != "$expected"; then
+            echo 'DOCS_WP2B_PREEDIT_ALREADY_FROZEN: original backup #90 is in Actions run 39142570978, artifact 12141568589; do not recapture postimage as preimage.'
+            exit 0
+          fi
           dir=.agent-worklogs/20261018_i121_wp2b_docs
           mkdir -p "$dir/modules"
           cp "$file" "$dir/docs-writer2.pre.js"
