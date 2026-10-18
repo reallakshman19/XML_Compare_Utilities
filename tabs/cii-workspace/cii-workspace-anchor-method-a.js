@@ -171,7 +171,7 @@ export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates
   const resolved = pairCandidates.map((pair) => resolvedPair(sourceNodes, targetNodes, sourceGraph, pair)).filter(Boolean);
   const seedEligible = diversifiedCandidates(resolved, seedLimit);
   const expansionEligible = diversifiedCandidates(resolved, expansionLimit);
-  const seeds = combinations3(seedEligible); const basesById = new Map();
+  const seeds = combinations3(seedEligible); const basesById = new Map(); const rejectedExpansionIds = new Set();
   for (const seed of seeds) {
     const seedGeometry = qualifyCiiGeometryTransform(seed.map(geometryPair), options);
     if (seedGeometry.status !== 'READY') continue;
@@ -179,8 +179,10 @@ export function discoverCiiMethodABases(sourceGraph, targetGraph, pairCandidates
     if (expansion.pairs.length < 3) continue;
     const expansionId = baseId(expansion.pairs); const existing = basesById.get(expansionId);
     if (existing) { addSeed(existing, seed); continue; }
+    // Same ordered expanded pairs with the same graph/options cannot change a failed qualification.
+    if (rejectedExpansionIds.has(expansionId)) continue;
     const geometry = qualifyCiiGeometryTransform(expansion.pairs.map(geometryPair), options);
-    if (geometry.status !== 'READY') continue;
+    if (geometry.status !== 'READY') { rejectedExpansionIds.add(expansionId); continue; }
     basesById.set(expansionId, makeBase(seed, expansion, geometry, options));
   }
   const bases = [...basesById.values()].sort(rankBases).slice(0, baseLimit).map(baseEvidence);
