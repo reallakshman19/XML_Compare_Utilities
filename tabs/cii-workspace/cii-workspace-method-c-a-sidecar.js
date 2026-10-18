@@ -58,6 +58,9 @@ function rigid(rotation) {
 function candidate(row, sourceSha, targetSha) {
   if (row.sourceSha !== sourceSha || row.targetSha !== targetSha) fail('CANDIDATE_CUSTODY_MISMATCH');
   if (!STATUSES.has(row.status)) fail('INVALID_CANDIDATE_STATUS');
+  if (row.physicalNodeCorrespondenceQualified || row.physicalIdentityQualified ||
+      row.identityBound || row.writerEligible || row.qualified || row.applyAuthorized)
+    fail('UNAUTHORIZED_CANDIDATE');
   const alternatives = (row.alternatives || []).map(a => ({
     target: String(a.target), distanceMm: Number(a.distance),
     residual: vec(a.residual), originalElementWitnesses: copy(a.originalElements || []),
