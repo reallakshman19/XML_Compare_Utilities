@@ -13,7 +13,10 @@ function serve(){const server=createServer(async(req,res)=>{
   if(pathname.startsWith('/XML_Compare_Utilities/'))pathname=pathname.slice('/XML_Compare_Utilities'.length);
   const target=path.resolve(root,pathname==='/'?'index.html':pathname.replace(/^\/+/,''));
   if(!target.startsWith(root+path.sep)&&target!==path.join(root,'index.html')){res.writeHead(403);res.end();return;}
-  try{const bytes=await readFile(target),type=target.endsWith('.html')?'text/html':target.endsWith('.js')?'text/javascript':target.endsWith('.css')?'text/css':'application/octet-stream';
+  try{const bytes=await readFile(target),type=target.endsWith('.html')?'text/html; charset=utf-8':
+    target.endsWith('.js')||target.endsWith('.mjs')?'text/javascript; charset=utf-8':
+    target.endsWith('.css')?'text/css; charset=utf-8':
+    target.endsWith('.json')?'application/json':target.endsWith('.svg')?'image/svg+xml':'application/octet-stream';
     res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store'});res.end(bytes);
   }catch{res.writeHead(404);res.end('not found');}
 });return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve({server,url:'http://127.0.0.1:'+server.address().port})));}
