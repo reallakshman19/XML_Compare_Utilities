@@ -60,7 +60,9 @@ test('I126 original SOURCE/TARGET reuse → Method C A-only Compare Review; segm
       const errors=[];
       page.on('pageerror',e=>errors.push(e.message));
       await page.goto(url+'/',{waitUntil:'domcontentloaded'});
+      await page.waitForTimeout(2000); // Existing WP6 native startup barrier.
       await page.locator('.app-tab[data-tab="psnm-utility"]').click({timeout:90_000});
+      await page.locator('[data-ciiw-open-method-c]').waitFor({state:'visible',timeout:90_000});
       assert.equal(await page.locator('[data-ciiw-open-method-c]').count(),1,
         'Existing standalone Method C tile must remain installed.');
       await page.locator('[data-ciiw-open-writer2]').click();
