@@ -25,6 +25,8 @@ const allowed = name => {
   if (/^(?:docs\/)?tabs\/cii-workspace\/cii-workspace-tab\.js$/.test(name)) return true;
   if (/^tests\/cii-workspace-(?:method-c-(?:a-sidecar|a-review-markup|native-custody|native-lifecycle|i126-firebreak|i126-original-auto)|writer2-method-c-(?:native-app-browser|original-journey))\.test\.mjs$/.test(name)) return true;
   if (name === '.github/workflows/cii-method-c-i126-writer2.yml') return true;
+  if (name === '.github/workflows/cii-method-c-i126-preedit-backup.yml') return true;
+  if (name === '.github/workflows/cii-method-c-wp2.yml') return true;
   return ['agents/WIP-I126-A_workreport.md', 'agents/PR127_workreport.md',
     'plans/I126-ENTRYPOINT-AONLY-PENDING-BACKUP.patch'].includes(name);
 };
@@ -76,4 +78,17 @@ test('I126 Writer2 source/deployed entrypoints contain the exact read-only mount
       '          writer2Root, writer2Options, mountCiiWriter2MultiSourceReviewRouter))\n');
   assert.equal(content(rel), expected);
   assert.equal(content('docs/' + rel), expected);
+});
+
+
+test('I126 predecessor WP7/WP9 jobs remain intact but may run only on original PR118 branch', () => {
+  const workflow = content('.github/workflows/cii-method-c-wp2.yml');
+  const jobIds = ['physical-geometry','interactive-svg-chromium',
+    'protected-mainline-methodab-writer2','protected-pr107-reference-policy',
+    'approved-main-inherited-failure-control','independent-original-wp8-benchmark',
+    'wp9-exact-sha-g2-review-preflight','wp6-real-native-docs-application-chromium'];
+  const guard = "    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.number == 118 && github.event.pull_request.head.ref == 'methodc/108-geometry-20261016') || (github.event_name == 'push' && github.ref == 'refs/heads/methodc/108-geometry-20261016') }}";
+  assert.equal(workflow.split(guard).length - 1, jobIds.length);
+  for(const job of jobIds) assert.ok(workflow.includes('  ' + job + ':\n' + guard + '\n    name:'),
+    'unbounded predecessor job: ' + job);
 });
