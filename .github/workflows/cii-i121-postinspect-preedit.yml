@@ -1,0 +1,58 @@
+name: I121 Postinspect Preedit Binary Custody
+on:
+  push:
+    branches: [i121/postinspect-epoch-revocation-20261019]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preedit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve real pre-edit product file and module plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          expected=b9766bbf88f1dc4d4ef4423dfa73ec5699c54688
+          actual="$(git hash-object "$file")"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "SOURCE_ALREADY_CHANGED: no false pre-edit backup"
+            exit 0
+          fi
+          dir=.agent-worklogs/i121-postinspect-20261019
+          mkdir -p "$dir/modules"
+          cp "$file" "$dir/original-writer2-ui.js"
+          sha256sum "$file" > "$dir/original-sha256.txt"
+          printf 'PREEDIT_BLOB %s\n' "$actual"
+          cat > "$dir/manifest.md" <<'EOF'
+          # I121 Post-Inspect Async Operation Module Ledger
+          Task: I121 post-Inspect operation stale result protection
+          Source: PR132 exact product blob b9766bbf88f1dc4d4ef4423dfa73ec5699c54688.
+          Original file: docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          Baseline: original file from full clean PR132 checkout; no other files changed.
+          Plan: add generation/review-operation fences to four async handlers.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          | --- | --- | --- | --- | --- | --- | --- | --- |
+          | docs Writer2 UI | PREEDIT | fence post-Inspect stale state and export | PENDING | NOT_RUN | pending no-index | actual backup + original source | SHA-check restore exact preimage only if no subsequent writer |
+          | new tests | NOT_STARTED | controlled stale-await adversaries | PENDING | NOT_RUN | new file | ABSENT | delete checksum-verified owned file only |
+          EOF
+          node utils/backup.cjs save "$file" "I121 post-Inspect async stamp, stale state and export fail-closed; protected review and fixtures unchanged"
+          echo "BEFORE_SHA256=$(sha256sum "$file")"
+          echo "BEFORE_GIT_BLOB=$(git hash-object "$file")"
+      - name: Retain true pre-edit artifact and backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-postinspect-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-postinspect-20261019/
+          include-hidden-files: true
+          retention-days: 30
