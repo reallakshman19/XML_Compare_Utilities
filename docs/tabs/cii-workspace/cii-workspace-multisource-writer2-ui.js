@@ -8,6 +8,7 @@ import {
   ciiSuggestionSelectionKey,
 } from './cii-workspace-base-loop-selection.js';
 import { createCiiWriter2InspectionRoute } from './cii-workspace-inspection-route.js';
+import { createCiiWriter2AsyncRevision } from './cii-workspace-async-revision.js';
 import { createCiiWriter2SourceSetPreviewWithVersionBridge } from './cii-workspace-multisource-preview.js';
 import { createCiiExpectedNodeNameSourceSetSelection } from './cii-workspace-multisource-scope.js';
 import { CII_MS_TARGET_SHA256 } from './cii-workspace-multisource-nodename-authority.js';
@@ -225,6 +226,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   if (!sourceInput || !targetInput || !inspectButton || !analyzeButton) return legacy;
   sourceInput.multiple = true;
   const inspectionRoute = createCiiWriter2InspectionRoute();
+  const asyncRevision = createCiiWriter2AsyncRevision();
   let inspectionEpoch = 0;
   let disposed = false; let inspection = null; let cachedSources = null; let cachedTargetBytes = null; let cachedTargetName = null;
   let preview = null; let scopedPreview = null; let reviewDirty = false;
@@ -232,7 +234,23 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const reviewFilters = { confidence: 'ALL', search: '', changedOnly: false };
 
   const authorityReady = () => allMembersHaveBase(inspection, selectedBySource, manualBySource);
+  const currentOperation = stamp => !disposed && multiSource(container) && asyncRevision.current(stamp);
+  const clearDerivedDisplay = () => {
+    if (executive) executive.innerHTML = '';
+    if (results) results.innerHTML = '';
+    if (deltas) deltas.innerHTML = '';
+    if (transfer) transfer.innerHTML = '';
+    if (reviewButton) reviewButton.disabled = true;
+    if (csvButton) csvButton.disabled = true;
+    if (jsonButton) jsonButton.disabled = true;
+  };
   const refreshAnchorEvidence = () => {
+    // A changed base/ledger invalidates both outstanding work and old correspondence.
+    asyncRevision.invalidate();
+    if (preview || scopedPreview) {
+      preview = null; scopedPreview = null; reviewDirty = false; reviewDecisions.clear();
+      clearDerivedDisplay();
+    }
     if (evidence && inspection) { evidence.innerHTML = renderMemberAnchors(inspection, selectedBySource, manualBySource, manualDraftBySource); bindAnchorActions(); }
     analyzeButton.disabled = !authorityReady();
   };
@@ -248,13 +266,16 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
   };
   const markReviewDirty = (message) => {
+    asyncRevision.invalidate();
     reviewDirty = true; scopedPreview = null; renderMultiReview(); renderTransfer(); setMultiSourceStatus(container, message);
   };
   const resetMulti = () => {
     ++inspectionEpoch;
+    asyncRevision.invalidate();
     inspectionRoute.cancel();
     inspection = null; cachedSources = null; cachedTargetBytes = null; cachedTargetName = null; preview = null; scopedPreview = null; reviewDirty = false;
     selectedBySource.clear(); manualBySource.clear(); manualDraftBySource.clear(); reviewDecisions.clear();
+    clearDerivedDisplay(); if (evidence) evidence.innerHTML = '';
     if (multiSource(container)) {
       analyzeButton.disabled = true; setManualDisabled(container, true);
       if (reviewButton) reviewButton.disabled = true; if (csvButton) csvButton.disabled = true; if (jsonButton) jsonButton.disabled = true;
@@ -378,49 +399,66 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     acceptanceIdentityResolver: options.acceptanceIdentityResolver,
   });
   const analyzeMultiSource = async (event) => {
-    if (!multiSource(container)) return;
+    if (!multiSource(container) || disposed) return;
     event.preventDefault(); event.stopImmediatePropagation();
+    const stamp = asyncRevision.begin();
     try {
       if (!inspection || !cachedSources || !cachedTargetBytes) throw new Error('Inspect the source set before Compare.');
       if (!authorityReady()) throw new Error('Each SOURCE requires either a qualified Method A/B base or at least one reviewed manual anchor.');
+      // Do not leave a previous preview actionable while a new comparison is pending.
+      preview = null; scopedPreview = null; reviewDirty = false; reviewDecisions.clear(); clearDerivedDisplay();
       setMultiSourceStatus(container, 'Building per-source correspondence with reviewed base authority and target conflict veto…');
-      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef: options.cryptoRef });
-      if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      const nextPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(), { cryptoRef: options.cryptoRef });
+      if (!currentOperation(stamp)) return;
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer(); switchTab(container, 'compare');
       const locked = ciiMultiSourceLockedReviewCount(preview); const review = reviewConfidenceCount(preview, 'REVIEW');
       setMultiSourceStatus(container, `Multi-source correspondence ${preview.correspondence.status}: ${locked} reviewed anchor row${locked === 1 ? '' : 's'} already LOCKED; ${review} REVIEW row${review === 1 ? '' : 's'} need explicit engineering review. HIGH/MEDIUM bulk actions affect only rows with those confidences.`);
-    } catch (error) { if (!disposed) setMultiSourceStatus(container, error?.message || String(error)); }
+    } catch (error) { if (currentOperation(stamp)) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyMultiSourceReview = async (event) => {
-    if (!multiSource(container) || !preview) return;
+    if (!multiSource(container) || !preview || disposed) return;
     event?.preventDefault?.(); event?.stopImmediatePropagation?.();
+    const stamp = asyncRevision.begin();
     try {
       const reviewBySource = ciiMultiSourceReviewBySource(preview, reviewDecisions);
+      // Old scope must never be actionable during a replacement review computation.
+      scopedPreview = null; renderTransfer();
       setMultiSourceStatus(container, 'Applying multi-source correspondence decisions and rebuilding Writer2 Transfer Preview…');
-      preview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef: options.cryptoRef });
-      if (disposed) return; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
+      const nextPreview = await createCiiWriter2SourceSetPreviewWithVersionBridge(previewInput(reviewBySource), { cryptoRef: options.cryptoRef });
+      if (!currentOperation(stamp)) return;
+      preview = nextPreview; scopedPreview = null; reviewDirty = false; seedCiiMultiSourceReviewDecisions(preview, reviewDecisions);
       renderMultiReview(); renderTransfer();
       setMultiSourceStatus(container, `Multi-source review bound. Correspondence ${preview.correspondence.status}; transfer ${preview.transferPlan.status}; Node Name changes ${nodeNameChangeRows(preview).length}.`);
-    } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
+    } catch (error) { if (currentOperation(stamp)) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const bindExpectedScope = async () => {
-    if (!preview) return;
+    if (!preview || disposed) return;
+    const stamp = asyncRevision.begin();
     try {
       if (reviewDirty) throw new Error('Apply correspondence approvals to Transfer Preview before binding Writer2 scope.');
-      const exact = await createCiiExpectedNodeNameSourceSetSelection(preview.transferPlan, { cryptoRef: options.cryptoRef });
-      scopedPreview = bindCiiTransferScopeToPreview(preview, exact.selection);
+      const sourcePreview = preview;
+      scopedPreview = null; renderTransfer();
+      const exact = await createCiiExpectedNodeNameSourceSetSelection(sourcePreview.transferPlan, { cryptoRef: options.cryptoRef });
+      if (!currentOperation(stamp) || preview !== sourcePreview) return;
+      scopedPreview = bindCiiTransferScopeToPreview(sourcePreview, exact.selection);
       renderTransfer(); switchTab(container, 'transfer');
       setMultiSourceStatus(container, `BM-correspondence-qualified scope bound: ${exact.appliedOperationIds.length} physical APPLY; ${exact.duplicateCorroborationOperationIds.length} duplicate corroborations collapsed; ${exact.excludedOperationIds.length} EXCLUDE. Writer2 ${scopedPreview.writerReadiness.status}.`);
-    } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
+    } catch (error) { if (currentOperation(stamp)) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   const applyScoped = async () => {
-    if (reviewDirty || !scopedPreview?.writerReadiness?.ready) return;
+    if (reviewDirty || !scopedPreview?.writerReadiness?.ready || disposed) return;
+    const stamp = asyncRevision.begin();
     try {
+      const sourceScope = scopedPreview;
+      const sourceTargetBytes = cachedTargetBytes;
       setMultiSourceStatus(container, 'Applying BM-correspondence-qualified Writer2 NODENAME scope to one TARGET copy through the frozen V11↔V14 bridge…');
-      const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(scopedPreview, cachedTargetBytes, { cryptoRef: options.cryptoRef });
+      const applied = await applyCiiWorkspaceTargetWriter2WithVersionBridge(sourceScope, sourceTargetBytes, { cryptoRef: options.cryptoRef });
+      // Check immediately before the irreversible download. Old TARGET bytes cannot export.
+      if (!currentOperation(stamp) || scopedPreview !== sourceScope || cachedTargetBytes !== sourceTargetBytes) return;
       downloadApplied(container.ownerDocument, applied);
       setMultiSourceStatus(container, `Modified TARGET exported: ${applied.mutationCount} Writer2 field changes; version bridge ${applied.versionBridgeValidation.status}.`);
-    } catch (error) { setMultiSourceStatus(container, error?.message || String(error)); }
+    } catch (error) { if (currentOperation(stamp)) setMultiSourceStatus(container, error?.message || String(error)); }
   };
   function bindTransferActions() {
     transfer?.querySelector('[data-ciiw-ms-bind-expected]')?.addEventListener('click', () => { void bindExpectedScope(); });
@@ -473,7 +511,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     ...legacy,
     getMultiSourcePreview() { return scopedPreview || preview; },
     destroy() {
-      disposed = true; ++inspectionEpoch; inspectionRoute.dispose(); sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
+      disposed = true; ++inspectionEpoch; asyncRevision.dispose(); inspectionRoute.dispose(); sourceInput.removeEventListener('change', resetMulti); targetInput.removeEventListener('change', resetMulti);
       inspectButton.removeEventListener('click', inspectMultiSource, true); analyzeButton.removeEventListener('click', analyzeMultiSource, true);
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
