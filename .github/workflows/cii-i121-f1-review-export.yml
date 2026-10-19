@@ -155,3 +155,30 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30
+  original-chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies and native browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Original S1 S2 S3 T committed Worker Inspect and fail-closed lifecycle
+        run: |
+          node --test tests/cii-workspace-i121-wp2b-committed-docs.test.mjs
+          node --test tests/cii-workspace-i121-wp2b-lifecycle-native.test.mjs
+      - name: Retain original Inspector browser receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-f1-original-browser-${{ github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: ignore
+          retention-days: 14
