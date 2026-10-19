@@ -1,0 +1,40 @@
+name: I121 Owner Windows Edge Kit Self-test (Hosted Only)
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hosted-validation:
+    name: Execute one-command kit on Windows Microsoft Edge
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Preserve original LF fixture bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run local acceptance kit on hosted Microsoft Edge (NOT Owner approval)
+        shell: pwsh
+        run: |
+          & ./scripts/i121-owner-edge-acceptance.ps1 -SkipNpmInstall
+          if ($LASTEXITCODE -ne 0) { throw "I121_HOSTED_LOCAL_KIT_FAILED" }
+      - name: Preserve genuine hosted test logs and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-hosted-owner-kit-${{ github.sha }}
+          path: |
+            test-results/i121-owner-edge-local/
+            test-results/i126-original-writer2/
+          if-no-files-found: warn
+          retention-days: 14
