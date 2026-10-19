@@ -1,0 +1,79 @@
+name: I121 F1 Review Export Freshness - Custody and Regression
+on:
+  push:
+    branches: [i121/f1-export-freshness-20261019-01]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preedit-custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backup the genuine untouched parent PR135 Writer2 product file
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          original=dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d
+          actual="$(git hash-object "$file")"
+          if [[ "$actual" != "$original" ]]; then
+            echo "POSTEDIT_SOURCE: pre-edit backup intentionally skipped"
+            exit 0
+          fi
+          dir=.agent-worklogs/i121-f1-20261019
+          mkdir -p "$dir/modules"
+          cp "$file" "$dir/original-writer2-ui.js"
+          sha256sum "$file" > "$dir/preedit-sha256.txt"
+          cat > "$dir/manifest.md" <<'EOF'
+          # I121 F1 review-export freshness: pre-edit source snapshot
+          Baseline: original unchanged PR135 Writer2 UI at Git blob dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d.
+          Owner task: prevent uncommitted changed review decisions from leaking stale CSV/JSON exports.
+          No other existing product file authorized.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 UI | PREEDIT | guard dirty CSV and JSON after review edits | PENDING | NOT_RUN | no-index after edit | backup.cjs + original byte copy | SHA constrained restore preimage |
+          | new tests | PLANNED | review freshness falsifiers | PENDING | NOT_RUN | no original | none | delete verified added files |
+          EOF
+          echo "ORIGINAL_BLOB=$actual"
+          node utils/backup.cjs save "$file" "I121 F1: fail-closed stale CSV/JSON while review decisions are pending; no Writer2 physical policy change"
+          echo "ORIGINAL_SHA256=$(sha256sum "$file" | cut -d' ' -f1)"
+          find .backups -maxdepth 2 -type f | head -n 20
+      - name: Retain original bytes and backup receipts as private workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-f1-real-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-f1-20261019/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+  f1-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks and bounded F1 + inherited P135 protected checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          if [[ -f tests/cii-workspace-i121-f1-review-export.test.mjs ]]; then
+            node --test tests/cii-workspace-i121-f1-review-export.test.mjs
+          else
+            echo "PREEDIT_COMMIT: F1 test file not installed yet"
+          fi
+          node --test tests/cii-workspace-i121-postinspect-ui-wiring.test.mjs tests/cii-workspace-i121-postinspect-epoch-native.test.mjs
