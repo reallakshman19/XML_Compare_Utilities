@@ -1,0 +1,75 @@
+name: I121 Postinspect No-Index Selective Undo
+on:
+  push:
+    branches: [i121/postinspect-epoch-revocation-20261019]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: i121-postinspect-preedit-69d61badc3a0ee2cb782783870db50416d2f2fa3
+          run-id: 39216719687
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: preedit-artifact
+      - name: Validate binary original and emit history-independent patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          orig=preedit-artifact/.agent-worklogs/i121-postinspect-20261019/original-writer2-ui.js
+          now=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          dir=.agent-worklogs/i121-postinspect-20261019
+          mkdir -p "$dir/modules"
+          test -f "$orig"
+          test "$(git hash-object "$orig")" = b9766bbf88f1dc4d4ef4423dfa73ec5699c54688
+          test "$(sha256sum "$orig" | cut -d' ' -f1)" = 10cba42e3f2d44b88cce6b56837cbcb96f4be9d10bca9a3ad30d225138e1e443
+          cp "$orig" "$dir/original-writer2-ui.js"
+          code=0
+          git diff --no-index --binary -- "$orig" "$now" > "$dir/modules/docs-writer2-ui.patch" || code=$?
+          test "$code" -eq 1
+          pre="$(sha256sum "$orig" | cut -d' ' -f1)"
+          post="$(sha256sum "$now" | cut -d' ' -f1)"
+          cat > "$dir/manifest.md" <<EOF
+          # I121 Postinspect Local Selective Undo Manifest
+          Source baseline: PR132 docs UI Git blob b9766bbf88f1dc4d4ef4423dfa73ec5699c54688.
+          True pre-edit backup from GitHub Actions #39216719687, artifact #12170475290, backup #90 in isolated full checkout.
+          Original file SHA256: $pre
+          New file SHA256: $post
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          | --- | --- | --- | --- | --- | --- | --- | --- |
+          | docs Writer2 UI | PATCHED | fence stale Compare/review/scope/export | monotone revision check before mutation/export | separately scoped CI | modules/docs-writer2-ui.patch | original-writer2-ui.js | Verify current SHA256==$post and no later edits; restore exact preimage for this file only |
+          | new helper/tests/workflows | CREATED | bounded async stale-run negatives | new files | separately scoped CI | N/A (no preimages) | ABSENT | delete checksum-verified owned new files only after inspecting later edits |
+          EOF
+          cat > "$dir/modules/docs-writer2.md" <<EOF
+          # docs Writer2 UI
+          ## Planned
+          Prevent stale async result completion and old-target downloads.
+          ## Did
+          Added monotone async revision on input resets, review/base edits, overlapping operations and dispose.
+          ## Validation
+          Separately scoped exact-head CI; this ledger does not claim tests PASS.
+          ## Patch and backups
+          Original SHA256: $pre
+          Current SHA256: $post
+          Original Git blob: b9766bbf88f1dc4d4ef4423dfa73ec5699c54688
+          Real preedit backup: Actions #39216719687 / artifact #12170475290, utils/backup.cjs ID #90 in that checkout.
+          No-index patch: modules/docs-writer2-ui.patch
+          ## Undo
+          Require current file SHA256 == $post and no later writes; otherwise STOP. Restore only original-writer2-ui.js by byte copy. Never reset/checkout/revert repository history.
+          EOF
+          sha256sum "$dir/original-writer2-ui.js" "$now"
+      - name: Archive no-index patch and truthful undo manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-postinspect-undo-${{ github.sha }}
+          path: .agent-worklogs/i121-postinspect-20261019/
+          include-hidden-files: true
+          retention-days: 30
