@@ -100,6 +100,10 @@ function setMultiSourceStatus(container, message) {
   const status = container.querySelector('[data-ciiw-status]'); if (status) status.textContent = message;
 }
 function multiSource(container) { return selectedFiles(container.querySelector('[data-ciiw-source]')).length > 1; }
+// Review artifacts describe the currently committed review, never pending decisions.
+export function ciiWriter2ReviewArtifactExportReady(preview, reviewDirty, disposed = false) {
+  return Boolean(preview) && !reviewDirty && !disposed;
+}
 function manualRows(manualBySource, sourceId) { return [...(manualBySource.get(sourceId) || [])]; }
 function manualDraft(manualDraftBySource, sourceId) {
   return manualDraftBySource.get(sourceId) || { sourceNodeId: '', targetNodeId: '' };
@@ -235,6 +239,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
 
   const authorityReady = () => allMembersHaveBase(inspection, selectedBySource, manualBySource);
   const currentOperation = stamp => !disposed && multiSource(container) && asyncRevision.current(stamp);
+  const reviewArtifactsReady = () => ciiWriter2ReviewArtifactExportReady(preview, reviewDirty, disposed);
   const clearDerivedDisplay = () => {
     if (executive) executive.innerHTML = '';
     if (results) results.innerHTML = '';
@@ -263,11 +268,12 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
     if (results) results.innerHTML = ciiMultiSourceReviewMarkup(preview, reviewDecisions, reviewFilters);
     if (deltas) deltas.innerHTML = nodeNameChangesMarkup(preview);
     if (reviewButton) reviewButton.disabled = !(preview?.compareReview?.rows || []).length;
-    if (csvButton) csvButton.disabled = false; if (jsonButton) jsonButton.disabled = false;
+    if (csvButton) csvButton.disabled = !reviewArtifactsReady(); if (jsonButton) jsonButton.disabled = !reviewArtifactsReady();
   };
   const markReviewDirty = (message) => {
     asyncRevision.invalidate();
-    reviewDirty = true; scopedPreview = null; renderMultiReview(); renderTransfer(); setMultiSourceStatus(container, message);
+    reviewDirty = true; scopedPreview = null; renderMultiReview(); renderTransfer();
+    setMultiSourceStatus(container, `${message} CSV and JSON export require reapplied review approvals.`);
   };
   const resetMulti = () => {
     ++inspectionEpoch;
@@ -489,12 +495,23 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   const onChangedFilter = (event) => {
     if (!multiSource(container) || !preview) return; event.stopImmediatePropagation(); reviewFilters.changedOnly = Boolean(event.target.checked); renderMultiReview();
   };
+  // Capture on the parent before inherited legacy button listeners can export old state.
+  const onReviewArtifactExportGate = (event) => {
+    if (!multiSource(container) || !event.target?.closest?.('[data-ciiw-export-csv], [data-ciiw-export-json]')) return;
+    if (reviewArtifactsReady()) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    setMultiSourceStatus(container, 'Review artifacts are unavailable until correspondence decisions are reapplied.');
+  };
   const onCsvExport = (event) => {
-    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    if (!multiSource(container)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!reviewArtifactsReady()) return;
     downloadPayload(container.ownerDocument, 'cii-multisource-correspondence.csv', preview.artifacts.correspondenceCsv, 'text/csv');
   };
   const onJsonExport = (event) => {
-    if (!multiSource(container) || !preview) return; event.preventDefault(); event.stopImmediatePropagation();
+    if (!multiSource(container)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!reviewArtifactsReady()) return;
     downloadPayload(container.ownerDocument, 'cii-multisource-audit.json', preview.artifacts.auditJson, 'application/json');
   };
   const blockLegacyAnalyze = (event) => { if (multiSource(container)) { event.preventDefault(); event.stopImmediatePropagation(); } };
@@ -505,6 +522,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
   container.addEventListener('change', onMultiReviewDecision, true);
   reviewButton?.addEventListener('click', applyMultiSourceReview, true); acceptHigh?.addEventListener('click', onBulkHigh, true); acceptMedium?.addEventListener('click', onBulkMedium, true);
   confidenceFilter?.addEventListener('change', onConfidenceFilter, true); searchInput?.addEventListener('input', onSearchFilter, true); changedOnly?.addEventListener('change', onChangedFilter, true);
+  container.addEventListener('click', onReviewArtifactExportGate, true);
   csvButton?.addEventListener('click', onCsvExport, true); jsonButton?.addEventListener('click', onJsonExport, true);
   resetMulti();
   return {
@@ -516,6 +534,7 @@ export function mountCiiWriter2MultiSourceShell(container, options = {}) {
       analyzeButton.removeEventListener('click', blockLegacyAnalyze, true); container.removeEventListener('change', onMultiReviewDecision, true);
       reviewButton?.removeEventListener('click', applyMultiSourceReview, true); acceptHigh?.removeEventListener('click', onBulkHigh, true); acceptMedium?.removeEventListener('click', onBulkMedium, true);
       confidenceFilter?.removeEventListener('change', onConfidenceFilter, true); searchInput?.removeEventListener('input', onSearchFilter, true); changedOnly?.removeEventListener('change', onChangedFilter, true);
+      container.removeEventListener('click', onReviewArtifactExportGate, true);
       csvButton?.removeEventListener('click', onCsvExport, true); jsonButton?.removeEventListener('click', onJsonExport, true); legacy.destroy();
     },
   };

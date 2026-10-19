@@ -1,0 +1,184 @@
+name: I121 F1 Review Export Freshness - Custody and Regression
+on:
+  push:
+    branches: [i121/f1-export-freshness-20261019-01]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  preedit-custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backup the genuine untouched parent PR135 Writer2 product file
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          original=dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d
+          actual="$(git hash-object "$file")"
+          if [[ "$actual" != "$original" ]]; then
+            echo "POSTEDIT_SOURCE: pre-edit backup intentionally skipped"
+            exit 0
+          fi
+          dir=.agent-worklogs/i121-f1-20261019
+          mkdir -p "$dir/modules"
+          cp "$file" "$dir/original-writer2-ui.js"
+          sha256sum "$file" > "$dir/preedit-sha256.txt"
+          cat > "$dir/manifest.md" <<'EOF'
+          # I121 F1 review-export freshness: pre-edit source snapshot
+          Baseline: original unchanged PR135 Writer2 UI at Git blob dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d.
+          Owner task: prevent uncommitted changed review decisions from leaking stale CSV/JSON exports.
+          No other existing product file authorized.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 UI | PREEDIT | guard dirty CSV and JSON after review edits | PENDING | NOT_RUN | no-index after edit | backup.cjs + original byte copy | SHA constrained restore preimage |
+          | new tests | PLANNED | review freshness falsifiers | PENDING | NOT_RUN | no original | none | delete verified added files |
+          EOF
+          echo "ORIGINAL_BLOB=$actual"
+          node utils/backup.cjs save "$file" "I121 F1: fail-closed stale CSV/JSON while review decisions are pending; no Writer2 physical policy change"
+          echo "ORIGINAL_SHA256=$(sha256sum "$file" | cut -d' ' -f1)"
+          find .backups -maxdepth 2 -type f -name '*cii_workspace_multisource_writer2_ui_js*' -print
+      - name: Retain original bytes and backup receipts as private workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-f1-real-preedit-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-f1-20261019/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+  f1-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks and bounded F1 + inherited P135 protected checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          if [[ -f tests/cii-workspace-i121-f1-review-export.test.mjs ]]; then
+            node --test tests/cii-workspace-i121-f1-review-export.test.mjs
+          else
+            echo "PREEDIT_COMMIT: F1 test file not installed yet"
+          fi
+          node --test tests/cii-workspace-i121-postinspect-ui-wiring.test.mjs tests/cii-workspace-i121-postinspect-epoch-native.test.mjs
+  selective-undo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: i121-f1-real-preedit-2597ba74ce9ffcf96ccf120687cab9fa5ee93f3f
+          run-id: 39234101506
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: preedit-receipt
+      - name: Build history-independent binary-safe selective patch from true backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          dir=.agent-worklogs/i121-f1-20261019
+          orig=preedit-receipt/.agent-worklogs/i121-f1-20261019/original-writer2-ui.js
+          mkdir -p "$dir/modules"
+          test -f "$orig"
+          test "$(git hash-object "$orig")" = dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d
+          test "$(sha256sum "$orig" | cut -d' ' -f1)" = 37c4dcba03c46e8429ecc400e935cdf1b1111bcff3de6efdd943e9843a5c846a
+          if [[ "$(git hash-object "$file")" == dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d ]]; then
+            echo "UNCHANGED_PREEDIT_HEAD: selective undo patch not yet required"
+            exit 0
+          fi
+          cp "$orig" "$dir/original-writer2-ui.js"
+          code=0
+          git diff --no-index --binary -- "$orig" "$file" > "$dir/modules/review-export-ui.patch" || code=$?
+          test "$code" -eq 1
+          pre="$(sha256sum "$orig" | cut -d' ' -f1)"
+          post="$(sha256sum "$file" | cut -d' ' -f1)"
+          cat > "$dir/manifest.md" <<EOF
+          # I121 F1 local preimage/postimage selective undo receipt
+          Original PR135 product Git blob: dcd5e8928db7fc204d9cbe9ff6a025b8c4d7a06d.
+          Genuine full-checkout preedit: run #39234101506 artifact #12177278859, node utils/backup.cjs save ID #90.
+          Before SHA256: $pre
+          After SHA256: $post
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | docs Writer2 UI | PATCHED | block F1 stale review CSV/JSON | freshness predicate, capture gate, both download guards | separate regression job | modules/review-export-ui.patch | original-writer2-ui.js + #90 | check current SHA equals $post; restore exact original byte snapshot only if no later edits |
+          | new F1 test | CREATED | false export for dirty review | pure contract and source wiring checks | separate regression job | none; no preimage | ABSENT | delete only checksum-verified owned new file |
+          EOF
+          cat > "$dir/modules/review-export-ui.md" <<EOF
+          # Module: deployed docs Writer2 CSV/JSON freshness
+          ## Planned
+          Block export until review decisions match last computed committed preview.
+          ## Did
+          Added fail-closed export readiness, parent capture guard against legacy listeners, disabled buttons and direct handler guards.
+          ## Technical details
+          Revision helper, Worker inspection and physical BOUND/Apply semantics unchanged.
+          ## Files and symbols
+          docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js; renderMultiReview, markReviewDirty, onReviewArtifactExportGate, onCsvExport, onJsonExport.
+          ## Upstream/downstream impact
+          Only multi-SOURCE Writer2 exports; one SOURCE legacy code unaffected. No public preview getter F3 change.
+          ## Validation
+          See separately scoped exact head regression workflow. This ledger does not assert PASS.
+          ## Patch and backups
+          Preimage SHA256 $pre; postimage SHA256 $post. True preedit backup #90 from run 39234101506.
+          No-index binary patch modules/review-export-ui.patch is computed from saved original bytes, not Git history.
+          ## Undo
+          Require currently installed file SHA256 == $post AND no later overlapping edits; then restore original-writer2-ui.js. Otherwise STOP. No reset, checkout, revert, or unrelated file replacement.
+          ## Remaining risks or follow-ups
+          Independent P2 verdict, genuine Owner local Edge, final main release composition still HOLD.
+          EOF
+          sha256sum "$orig" "$file"
+      - name: Retain task-scoped original-to-final patch and undo manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-f1-selective-undo-${{ github.sha }}
+          path: .agent-worklogs/i121-f1-20261019/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+  original-chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies and native browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Original S1 S2 S3 T committed Worker Inspect and fail-closed lifecycle
+        run: |
+          node --test tests/cii-workspace-i121-wp2b-committed-docs.test.mjs
+          node --test tests/cii-workspace-i121-wp2b-lifecycle-native.test.mjs
+      - name: Retain original Inspector browser receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-f1-original-browser-${{ github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: ignore
+          retention-days: 14
