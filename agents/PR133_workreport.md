@@ -1,0 +1,32 @@
+# PR133 — I121-WP2B post-Inspect original authority and hosted Edge QA
+
+## Owner outcome / Scope
+
+Continue [Issue #121](https://github.com/reallakshman19/XML_Compare_Utilities/issues/121) under the completed [BuddyRunner v2.0 G1 Stage 2](https://github.com/reallakshman19/XML_Compare_Utilities/issues/121#issuecomment-6251903599): responsive real S1/S2/S3/T generic Writer2 inspection without accidental physical BOUND/Apply or misleading stale evidence. Parent [draft PR132](https://github.com/reallakshman19/XML_Compare_Utilities/pull/132) at `ec98151dfe58afb8cf2e1aee4575ad3d8b7032f8` contains the committed docs-only Worker route and its own green originals, cancellation, Node22/24 protected tests and actual backup+rollback artifacts. This child [PR133](https://github.com/reallakshman19/XML_Compare_Utilities/pull/133) is **QA-only and DRAFT**: all changed paths relative to PR132 are **NEW tests, workflows and recovery documents**; no product source, Writer2 UI, original CII benchmarks, frozen Python/bridge or Method A/B/BM001 altered. Separate PR107 owns tabs; WP2C remains outside scope.
+
+## Source-first first dependent risk
+
+Actual deployed `docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js` constructs `inspection` from SHA-bound Worker, derives automatic selected bases, and enables Analyze **only when all member physical bases are available** (existing `allMembersHaveBase`). Original S1/S2/S3/T creates 2/3 auto-qualified seed state, S1 unresolved. Independently operated user cannot infer permission to Compare or Writer2 Apply. Target replacement after READY calls reset and must revoke visible evidence before another inspection, not merely prevent hidden JS state from authorizing a mutation.
+
+## Authenticated original-file browser proof, not simulated fixture
+
+- [Host Ubuntu Chromium #39146426728](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/39146426728): **PASS 1/1** on real SHA-pinned original source/target byte fixtures and unchanged HTTP-served committed docs UI. After dedicated worker: `Source-set custody READY. Auto Anchor seeded 2/3; explicit base review is still required for S1.` Analyze disabled, 3 source member evidence sections, 0 review rows, 0 Apply buttons. On replacement of T with empty selection: 0 previous evidence sections, Analyze disabled, 0 review or Apply rows, no stale READY state.
+- [Hosted Windows **Microsoft Edge** #39146771409](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/39146771409), exact Edge channel `chromium.launch({channel:'msedge',headless:true})` on `windows-latest` with `core.autocrlf=false` to preserve original CII fixture byte SHA: **PASS 1/1** on same real source/target and committed docs UI, same 2/3/zero-after-target-change negative. No fallback to Chromium channel. **HOSTED Windows Edge is not the Owner's own local Windows Edge acceptance.**
+- Initial [RED #39146241361](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/39146241361) *test-harness oracle mistake* expected one-source invalidation status when all 3 sources remained selected and only target changed. Original seed-2/3 gating had already passed; this was not an established product defect. Corrected status assertion only after genuine full-checkout QA-test backup `node utils/backup.cjs save`, run [#39146376139](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/39146376139), ID #90 in that checkout, preSHA256 `d3bab5a1925bbf54ebba8623766be5dc47fbab5ad29ca9dadbe00fb7d4e819e5`, [artifact #12143333231](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/39146376139/artifacts/12143333231); correction commit `494bd0b3abc7da93e3926f65960de7384ab7f99f`. Never call wrong oracle RED proof of product failure.
+- Any future test/code change must retain the original native P2 and B0/C0 protections; S1's unsupported physical node correspondence cannot be invented to turn 2/3 into 3/3 or run Compare→Transfer merely for green CI.
+
+## Invariants and remaining qualification
+
+The first trust boundary is SOURCE/TARGET SHA256 and actual selected physical bases; `READY` alone never implies a BOUND correspondence or Apply grant. This QA test verifies no premature review/Apply, plus TARGET replacement revocation. It does **not** verify the full original-file Compare→Review→Transfer after an authentic independently reviewed S1↔T base; that further acceptance requires Owner-approved real physical anchor evidence, not a fabricated manual pair.
+
+`Independent P2: NOT_RUN` (this agent wrote product PR132 and these tests, cannot attest its own independence). `Owner local Windows Edge: NOT_RUN` (hosted Windows Edge is a separate supplemental platform check). Full performance of post-Inspect Compare→Review→Transfer: NOT_RUN. Exact non-main draft PRs #107/#127/#129/#130/#131/#132/#133 remain unmigrated unless later Owner approval. No B/C/Apply policy modification, no merge, no release.
+
+## Selective undo / source-only backup custody
+
+This branch adds new files absent at parent; verify current file sha and absence of subsequent agent edits before deleting exact new file. The **only edited existing file in this QA branch** is its own newly added Chromium test, for a one-line correction from the original newly created test; the backup is genuine and SHA-bound as above. Restore only saved test preimage on current checksum match or reverse the documented exact assertion. Do not reset/revert or touch the separately owned PR132 product file; product restoration is governed solely by PR132's independent original pre-edit backup #90 and its no-index binary patch manifest.
+
+## EXACT_NEXT_ACTION
+
+1. Independent **distinct** reviewer receives PR132 code diff and PR133 real original Chromium/hosted Microsoft Edge evidence; independently verify source→SHA→Worker→inspection→review/transfer policies, hostile/cancellation cases, original B0/C0, protected A/B/BM001 and actual backup+rollback. Publish independent P2 PASS/FAIL/NEEDS_WORK anchored to the **exact tested PR132 and PR133 heads**, with sources.
+2. Owner local Windows Edge checks original multi-source S1/S2/S3/T behavior, responsiveness, real user interactions, Worker URL/CSP, cancellation, and full Compare→Review→Transfer after an authentically qualified physical base. The supplemental hosted test is NOT that acceptance.
+3. Owner decides PR stack release with PR107 tabs ownership preserved; only Owner merges. No autonomous promotion.

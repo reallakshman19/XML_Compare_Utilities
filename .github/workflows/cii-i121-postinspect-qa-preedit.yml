@@ -1,0 +1,44 @@
+name: I121 Post-Inspect QA Test Preedit Backup
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa-preimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve real before-image of QA-only browser test
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=tests/cii-workspace-i121-wp2b-postinspect-revocation-native.test.mjs
+          if ! grep -q 'Previous multi-source inspection invalidated/' "$file"; then
+            echo 'Preimage no longer at original test assertion; historical preimage already recorded'
+            exit 0
+          fi
+          mkdir -p .agent-worklogs/20261018_i121_postinspect_qa/modules
+          cp "$file" .agent-worklogs/20261018_i121_postinspect_qa/qa-test-preimage.mjs
+          sha256sum "$file" > .agent-worklogs/20261018_i121_postinspect_qa/test-preimage-sha256.txt
+          cat > .agent-worklogs/20261018_i121_postinspect_qa/manifest.md <<'EOF'
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | QA original browser test | planned | Correct target-clear status oracle to 3 SOURCE without target | Not yet changed | first Chromium reveals test-only mismatch | QA script delta | backup.cjs save below | exact preimage with sha guard |
+          EOF
+          node utils/backup.cjs save "$file" "Correct QA-only expected status after target reset; preserve strict stale-evidence revocation assertions"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i121-postinspect-qa-test-preimage-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/20261018_i121_postinspect_qa/
+          include-hidden-files: true
+          retention-days: 14

@@ -1,0 +1,49 @@
+name: I121 SHA Race QA Test Preedit Backup
+on:
+  push:
+    branches: [i121/wp2b-postinspect-gate-qa-20261018]
+permissions:
+  contents: read
+jobs:
+  preimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backup preedit original race-test assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=tests/cii-workspace-i121-wp2b-late-sha-and-worker-load-native.test.mjs
+          if test "$(git hash-object "$file")" != "95b69afc3971ffae3773c0f2f6689e5c3c48be26"; then
+            echo "Original SHA race test preimage already saved in prior CI; refusing postimage backup"
+            exit 0
+          fi
+          mkdir -p .agent-worklogs/i121-sha-race-test/modules
+          cp "$file" .agent-worklogs/i121-sha-race-test/qa-preimage.mjs
+          sha256sum "$file" > .agent-worklogs/i121-sha-race-test/qa-preimage-sha256.txt
+          cat > .agent-worklogs/i121-sha-race-test/manifest.md <<'EOF'
+          # I121 QA-only status oracle refinement
+          Baseline: test-only new file from PR133. Changed product files: NONE.
+          Planned: accept either exact selected-sources status or missing TARGET required
+          status following real TARGET removal, while independently requiring no stale READY,
+          no inspection Worker, no old evidence, no Compare and no Apply.
+          Before edit: original race-test Git blob 95b69afc3971ffae3773c0f2f6689e5c3c48be26.
+          | Module | Status | Planned | Did | Validation | Patch | Backup | Undo |
+          |---|---|---|---|---|---|---|---|
+          | QA race test | preedit | refine missing TARGET status oracle | NOT_YET | RED observed | pending | this run | SHA-gated restore |
+          EOF
+          node utils/backup.cjs save "$file" "Correct QA-only safe missing TARGET status while retaining all stale-result falsifiers"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i121-race-test-preimage-${{ github.sha }}
+          path: |
+            .backups/
+            .agent-worklogs/i121-sha-race-test/
+          include-hidden-files: true
+          retention-days: 14
