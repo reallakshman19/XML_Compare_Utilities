@@ -1,0 +1,38 @@
+name: I121 Postinspect Hosted Windows Edge and UI Wiring
+on:
+  push:
+    branches: [i121/postinspect-epoch-revocation-20261019]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  edge-original:
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - name: Preserve original fixture LF bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify wired operation guards and controlled-promise tests
+        run: |
+          node --check docs/tabs/cii-workspace/cii-workspace-multisource-writer2-ui.js
+          node --test tests/cii-workspace-i121-postinspect-ui-wiring.test.mjs tests/cii-workspace-i121-postinspect-epoch-native.test.mjs
+      - name: Install pinned dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real Microsoft Edge with original S1/S2/S3/T committed Writer2
+        run: node --test tests/cii-workspace-i121-owner-edge-committed-inspect.test.mjs
+      - name: Preserve Edge original-file receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i121-postinspect-edge-${{ github.sha }}
+          path: test-results/i126-original-writer2/
+          if-no-files-found: ignore
+          retention-days: 14
