@@ -104,6 +104,7 @@ function reviewMarkup(evidence, decisions, {open,selected,filter,search}) {
     '<button type="button" data-ciiw-candidate-open aria-expanded="' + (open ? 'true' : 'false') +
     '">Review geometric candidates →</button>' +
     '<div data-ciiw-candidate-panel' + (open ? '' : ' hidden') + '>' +
+    '<p><strong>GEOMETRY_READY_A · physical verification pending · Transfer unavailable.</strong></p>' +
     '<p><strong>Review-only investigation.</strong> Dispositions document doubts and requests; they never qualify identity.</p>' +
     '<label>Show <select data-ciiw-candidate-filter>' +
     option('ALL', 'All 57 original SOURCE observations', filter) +
