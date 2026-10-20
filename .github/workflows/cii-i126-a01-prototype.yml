@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   preedit-custody:
     runs-on: ubuntu-latest
@@ -13,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -62,6 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -82,6 +85,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -102,3 +106,70 @@ jobs:
           path: test-results/i126-a01/
           if-no-files-found: ignore
           retention-days: 14
+  selective-undo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: i126-a01-preedit-9c39248a5ad3464691beea50f8845cecaeb211d6
+          run-id: 39354421616
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          path: original-byte-evidence
+      - name: Build selective patches from actual pre-edit byte snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=.agent-worklogs/i126-a01-20261020
+          mkdir -p "$dir/modules"
+          cp original-byte-evidence/manifest.md "$dir/manifest.md"
+          for prefix in docs tabs; do
+            orig="original-byte-evidence/original-$prefix-bridge.js"
+            file="$prefix/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js"
+            if [[ "$prefix" == tabs ]]; then file=tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js; fi
+            test -f "$orig"
+            test "$(git hash-object "$orig")" = 8ea39d62f230e5fef13bff5f67bc0f7047e66313
+            test "$(sha256sum "$orig" | cut -d' ' -f1)" = 1658a0c981a584db889f0591b2d98b5d9d62c73f0386c078e22335577dc75a86
+            cp "$orig" "$dir/original-$prefix-bridge.js"
+            status=0
+            git diff --no-index --binary -- "$orig" "$file" > "$dir/modules/bridge-$prefix.patch" || status=$?
+            test "$status" -eq 0 -o "$status" -eq 1
+            sha256sum "$file" > "$dir/modules/bridge-$prefix-after.sha256"
+          done
+          cmp docs/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js
+          for f in docs/tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js tests/cii-workspace-method-c-a-candidate-review.test.mjs tests/cii-workspace-method-c-a-candidate-review-browser.test.mjs; do
+            if [[ -f "$f" ]]; then sha256sum "$f" >> "$dir/new-file-sha256.txt"; fi
+          done
+          cat > "$dir/modules/bridge.md" <<'EOF'
+          # Module: Native Method C A-only candidate review
+          ## Planned
+          One next-step button, signed evidence drill-down, review-only export, no B certificate.
+          ## Did
+          Integrated a review-only controller in original Writer2's Compare panel.
+          ## Technical details
+          Original SHA/epoch-current sidecar; only INVESTIGATE, REJECT, EVIDENCE_REQUESTED. Full immutable observations retained. No BOUND or Writer2 mutation API.
+          ## Files and symbols
+          Mirrored method-c-writer2-bridge.js; new method-c-a-candidate-review.js and tests.
+          ## Upstream/downstream impact
+          Original file input and signed Method C A; legacy Writer2 review and Apply unchanged.
+          ## Validation
+          Refer to exact-head unit and original-file browser jobs; not claimed by this ledger alone.
+          ## Patch and backups
+          Original source blob 8ea39d62f230e5fef13bff5f67bc0f7047e66313; original SHA256 1658a0c981a584db889f0591b2d98b5d9d62c73f0386c078e22335577dc75a86. True backup IDs #90/#91 on run 39354421616, artifact 12233883888. No-index bridge patches from actual saved original bytes.
+          ## Undo
+          Require current SHA matches recorded after SHA and no subsequent edits; restore only saved bridge bytes. Remove new files only if their SHA matches new-file-sha256.txt and no later changes. No reset/checkout/revert.
+          ## Remaining risks or follow-ups
+          Separate Owner local Edge, P2, Method C B admission and production release remain HOLD.
+          EOF
+      - name: Retain original-to-final patches and selective undo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-a01-undo-\${{ github.sha }}
+          path: .agent-worklogs/i126-a01-20261020/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
