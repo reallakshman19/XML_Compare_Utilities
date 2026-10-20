@@ -1,0 +1,27 @@
+# PR144 — Agent 1 independent LINE_NODE writer admission receipt (2026-10-20)
+
+## Authority and live heads
+- Owner/Oracle: Issue #140 comment [6296071325](https://github.com/reallakshman19/XML_Compare_Utilities/issues/140#issuecomment-6296071325), Issue #141 comment [6296070445](https://github.com/reallakshman19/XML_Compare_Utilities/issues/141#issuecomment-6296070445), Issue #139 frozen Geometry v1.1 design [6295775280](https://github.com/reallakshman19/XML_Compare_Utilities/issues/139#issuecomment-6295775280).
+- A1 branch `wip/cii-fnr-vnext/a1-ui-normal-20261020` parent checkpoint `bb62dd1a8a393e1eaf2fd94310905256ee501a5b`; PR #144 remains DRAFT/HOLD. Main pinned `9a5916f972af170f272c525907728237391b7ca8`.
+- A2 PR #145 evolved from `ca3f33f...` to **`01a8cdeea7f7b6bb13ae2247b7d129e5d6a29f0a`** during this task; current new `index.js` blob `644498cc69d8f1d5b5e4f005d0b0a3991b04a5ac` statically shows collision detection BEFORE final logical-alias hold. The author reports 25/25 simulated tests; no independent A1/Oracle execution of new A2 tests is claimed. A1's previously imported A2 `index.js` is **STALE**, Tab2 remains disabled.
+
+## New files, no existing source mutation
+1. `tabs/cii-workspace/cii-fnr-vnext/ui/line-node-admission.js` — Git blob `070ed0229496e2d9c0c0849a9fe7e8fa46a9c724`.
+2. `docs/tabs/cii-workspace/cii-fnr-vnext/ui/line-node-admission.js` — same Git blob, exact byte parity.
+3. `tests/cii-fnr-vnext-a1-line-node-admission.test.mjs` — Git blob `bdc7b53cfecd2ae8092630faafd9eaf526186b88`.
+
+The module is **read-only** and **NOT imported** by `ui/writer.js` or `ui/app.js`. It does NOT authorize production writing. Independently recovers ELEMENTS physical row #10 from a 15-row record, full LINE_NUMBER 7X,I5,1X,A physical span, declared length, blank tail and endpoint witness; re-derives TARGET-local numeric-node aliases from independently parsed NODENAME pointers, disallows one physical field referring to multiple numeric IDs, and requires full, consistent approval of all name representations. It rejects overlapping other-plan claims including HOLD/CONFLICT and binds each call to actual SHA-256 of immutable TARGET0. The old A1 writer remains the only user-facing writer and continues blocking A2 claims. Geometry v1.1 validation and application are NOT implemented; `GEOMETRY_APPLY=HOLD`.
+
+## Exact-source tests (synthetic only)
+- PASS [SIMULATED] `node --test tests/cii-fnr-vnext-a1-line-node-admission.test.mjs`: **2/2 subtests, 0 FAIL**, LF and CRLF. Each invokes a complete 3-claim name+line admission, verifies no TARGET0 mutation, tests explicit incomplete alias approval from each side, line-only field acceptance, record width/declared-size/byte-offset/witness rejection, fake name witness, inconsistent aliases, cross-rule conflicting physical span, duplicate approval ID, unauthorized section, forged plan SHA and stale TARGET0 SHA. Assertions run against exact newly committed source/test blobs and exact committed `ui/physical.js` blob `5e659a0188f320aae5f5723c01fc1753c6624207`.
+- PASS [SIMULATED but archive/nonexact test file] `node --experimental-default-type=module tests/cii-fnr-vnext-a1.test.mjs` (prior Tab1 tests in local evidence archive); NOT evidence that the original PR144 test file was re-run.
+- PASS [STATIC] GitHub readback of both admission modules and test matches local `git hash-object` for all three new paths. This is exact-new-file execution evidence, not exact-repository checkout/CI.
+- NOT_RUN: new module wired through common writer, Tab2 live UI, exact checkout/browser, source/target GLRD originals, Oracle withheld controls, v1.1 Geometry groups, Agent3 integration.
+
+## Clone/backup/worklog procedure and blocker
+- Attempted `git ls-remote https://github.com/reallakshman19/XML_Compare_Utilities.git refs/heads/wip/cii-fnr-vnext/a1-ui-normal-20261020`: FAIL (`Could not resolve host: github.com`), because local container network is `caas_packages_only`. No clean clone, `.git`, or canonical repository working-tree baseline was available. Local archive has an app.js blob DIFFERENT from PR144, so it was never used for overwriting remote app or writer. GitHub connector supplies exact blob preimages for unchanged modules.
+- For **three newly created files only**, pre-edit `node utils/backup.cjs save` is NOT_APPLICABLE (there is no prior file). **No existing file was modified**; canonical backups for existing app/writer/HTML were NOT_RUN and remain mandatory before any future edit. Task-local ledger and new-file patches were retained locally at `.agent-worklogs/20261020_2048_a1-line-node-writer-admission/` (Git-ignored).
+- Existing A2 old module has NOT been updated; no stale adapter was enabled. No production tile, Writer2, Method A/B/C, CII workspace controller or main modifications.
+
+## Exact next action
+Network-permitted **clean clone** of pinned A1 branch; `git status` + blob/HEAD verification; canonical `node utils/backup.cjs save` before editing existing app/writer/HTML or replacing the old A2 index; full task-local ledger. Independently inspect corrected pinned A2 `01a8cdee...` and reimport exact updated A2 files into both paths with backup; implement and integrate this independent admission gate inside common writer, with fresh approval/byte/SHA/alias revalidation on Validate, Apply and Export. Execute exact commit Node + served Chromium + authorized originals. Geometry still HOLD until v1.1, Agent3 and reviewer qualifications; Oracle/Owner only for approval/merge.
