@@ -29,3 +29,17 @@ Real sample layout v11/v14 qualified; unknown record encoding/layout, unsupporte
 PR #145 is DRAFT, not merged. Writer integration and original private qualification NOT_RUN; reviewer must independently check original byte custodies and HOLD cases. No production replacement. Recovery state: CONTINUE_FOR_REVIEW / ORACLE_QUALIFICATION_REQUIRED. All current code changes confined to owned new namespace and reports.
 
 EXACT_NEXT_ACTION: Oracle/Agent 1 checkout PR #145 exact head and independently re-run Node tests + original custodied private GLRD SHA256 checks; test unknown-layout and alias adversarial HOLD, verify exact served mirrors and writer before-byte guards; report qualification back to #139, request Owner authorization before any merge or production tile replacement.
+
+
+## 2026-10-20 — Oracle #141 post-collision final-state closure (supersedes earlier next action)
+Oracle issue comment https://github.com/reallakshman19/XML_Compare_Utilities/issues/141#issuecomment-6296070445 identified alias checking before later cross-rule collisions. Implementation commit 01a8cdeea7f7b6bb13ae2247b7d129e5d6a29f0a reorders final guards, preserving complete final-state Node Name aliases. Both source/served index Git blobs: 644498cc69d8f1d5b5e4f005d0b0a3991b04a5ac; new independent regression blob: 00402b5b0e28ee07083a492a9520ceada470dad0. Added tests/cii-fnr-vnext-line-node-postcollision.test.mjs and agents/WIP-a2-ln-20261020-postcollision_workreport.md. No Writer/legacy/tile edits.
+
+Validation: expected RED against old ca3f33f: 4 FAIL / 1 PASS among five independent synthetic regressions. Patched Node v22.16.0: 25/25 PASS across previous 20 tests and five new tests, using node --test on all three line-node test suites. PASS node --check and exact served-source parity. These are author tests, not independent Oracle reruns.
+
+Exact synthetic TARGET0 SHA256 d3f125394aa89c3a621a94adb2be1e24d43ceac94a0a98db0f27e041cc0f29ba; TARGET node 20 two named aliases. R1 EITHER and R2 TO collide on [3608,3633), both CONFLICT. The surviving FROM [3637,3663) becomes HOLD / NODE_NAME_LOGICAL_ALIAS_PARTIAL_SCOPE (1/2 named aliases), no dangling PROPOSED. Rule order reversal and unrelated node selection also tested.
+
+NOT_RUN: private GLRD original SHA custody, sealed benchmarks, full CI, Chromium, Agent 1 common writer. Important integration boundary: Agent 1 must separately validate complete alias coverage across user-APPROVED claims; planner PROPOSED closure alone does not guarantee the approval subset is safe. PR DRAFT/HOLD, no merge authority.
+
+Local Git-ignored ledger .agent-worklogs/20261020_2047_a2-postcollision-alias holds binary preimages, red/green observations and no-index module patch. Canonical utils/backup.cjs execution unavailable in isolated workspace, explicit backup-policy deviation. Pre-edit report Git blob d74c762bca965de143dddb00eefbe387f5cf079e is immutable recovery preimage.
+
+EXACT_NEXT_ACTION: Oracle independently reruns the five-case Issue #141 counterexample on current PR #145 head; Agent 1 enforces APPROVED-subset alias closure in its writer; complete private GLRD and Chromium qualification before Owner-only merge or replacement.
