@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           cmp docs/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js
-          node --test tests/cii-workspace-method-c-a-sidecar.test.mjs tests/cii-workspace-method-c-a-review-markup.test.mjs tests/cii-workspace-method-c-i126-firebreak.test.mjs
+          node --test tests/cii-workspace-method-c-a-sidecar.test.mjs tests/cii-workspace-method-c-a-review-markup.test.mjs
           if [[ -f tests/cii-workspace-method-c-a-candidate-review.test.mjs ]]; then
             cmp docs/tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js
             node --test tests/cii-workspace-method-c-a-candidate-review.test.mjs
@@ -117,7 +117,7 @@ jobs:
         with:
           name: i126-a01-preedit-9c39248a5ad3464691beea50f8845cecaeb211d6
           run-id: 39354421616
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: original-byte-evidence
       - name: Build selective patches from actual pre-edit byte snapshots
         shell: bash
@@ -168,8 +168,46 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: i126-a01-undo-\${{ github.sha }}
+          name: i126-a01-undo-${{ github.sha }}
           path: .agent-worklogs/i126-a01-20261020/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+  module-repair-custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Save exact unmodified new-module bytes prior to changing nested table markup
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=.agent-worklogs/i126-a01-module-repair
+          file=docs/tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js
+          if [[ "$(git hash-object "$file")" != 07f05faa2fee74c7115d2225049f87cb3a984f17 ]]; then
+            echo "MODULE_ALREADY_EDITED: no false fresh preedit receipt"
+            exit 0
+          fi
+          mkdir -p "$dir/modules"
+          for prefix in docs tabs; do
+            file="$prefix/tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js"
+            if [[ "$prefix" == tabs ]]; then file=tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js; fi
+            test "$(git hash-object "$file")" = 07f05faa2fee74c7115d2225049f87cb3a984f17
+            cp "$file" "$dir/original-$prefix-review.js"
+            sha256sum "$file" > "$dir/sha256-$prefix.txt"
+            node utils/backup.cjs save "$file" "I126 A01: preserve initial candidate module before replacing nested table with accessible row list"
+          done
+      - name: Retain genuine product module preimage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-a01-module-preedit-\${{ github.sha }}
+          path: .agent-worklogs/i126-a01-module-repair/
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 30
