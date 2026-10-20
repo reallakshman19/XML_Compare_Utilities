@@ -1,0 +1,104 @@
+name: I126 A-only candidate review prototype
+on:
+  push:
+    branches: [i126/a-only-candidate-review-prototype-20261020]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preedit-custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Capture genuine original bridge bytes before any product modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=8ea39d62f230e5fef13bff5f67bc0f7047e66313
+          dir=.agent-worklogs/i126-a01-20261020
+          if [[ "$(git hash-object docs/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js)" != "$original" ]]; then
+            echo "POSTEDIT_SHA: original pre-edit stage properly skipped"
+            exit 0
+          fi
+          mkdir -p "$dir/modules"
+          cat > "$dir/manifest.md" <<'EOF'
+          # I126 A01 task-local real preedit manifest
+          Mission: Owner-testable A-only Method C candidate review. Base PR136 SHA 0a0f28ab5d4932f1412815c8c69e1c16445aee9f. Existing files unchanged at intake.
+          | Module | Status | Planned | Did | Validation | Patch | Backups | Undo |
+          |---|---|---|---|---|---|---|---|
+          | Method C bridge mirrored | PREEDIT | next action and A-only controller | PENDING | NOT_RUN | modules/bridge-docs.patch and bridge-tabs.patch | original byte snapshots; backup.cjs entries | original-only after SHA recheck |
+          | Review module mirrored | PLANNED | immutable audit and interactive A review | PENDING | NOT_RUN | newly created no preimage | none | delete only final-sha-owned file |
+          | Original browser tests | PLANNED | S1 4060/4970 reviewed without B | PENDING | NOT_RUN | newly created no preimage | none | delete only final-sha-owned file |
+          EOF
+          for prefix in docs tabs; do
+            file="$prefix/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js"
+            if [[ "$prefix" == tabs ]]; then file=tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js; fi
+            test "$(git hash-object "$file")" = "$original"
+            cp "$file" "$dir/original-$prefix-bridge.js"
+            sha256sum "$file" | tee "$dir/original-$prefix-sha256.txt"
+            node utils/backup.cjs save "$file" "I126 A01: add read-only candidate review controls without touching any BOUND or Writer2 authority"
+          done
+          cmp "$dir/original-docs-bridge.js" "$dir/original-tabs-bridge.js"
+          cp .backups/log.json "$dir/backup-log.json"
+      - name: Preserve true original bytes and backup receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-a01-preedit-${{ github.sha }}
+          path: .agent-worklogs/i126-a01-20261020/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+  unit-and-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate existing A-only protections and new review contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp docs/tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js tabs/cii-workspace/cii-workspace-method-c-writer2-bridge.js
+          node --test tests/cii-workspace-method-c-a-sidecar.test.mjs tests/cii-workspace-method-c-a-review-markup.test.mjs tests/cii-workspace-method-c-i126-firebreak.test.mjs
+          if [[ -f tests/cii-workspace-method-c-a-candidate-review.test.mjs ]]; then
+            cmp docs/tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js tabs/cii-workspace/cii-workspace-method-c-a-candidate-review.js
+            node --test tests/cii-workspace-method-c-a-candidate-review.test.mjs
+          fi
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Native original CII A-only path
+        run: |
+          node --test tests/cii-workspace-writer2-method-c-native-app-browser.test.mjs
+          if [[ -f tests/cii-workspace-method-c-a-candidate-review-browser.test.mjs ]]; then
+            node --test tests/cii-workspace-method-c-a-candidate-review-browser.test.mjs
+          fi
+      - name: Retain original browser captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-a01-browser-${{ github.sha }}
+          path: test-results/i126-a01/
+          if-no-files-found: ignore
+          retention-days: 14
