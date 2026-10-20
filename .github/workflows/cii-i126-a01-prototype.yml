@@ -206,7 +206,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: i126-a01-module-preedit-\${{ github.sha }}
+          name: i126-a01-module-preedit-${{ github.sha }}
           path: .agent-worklogs/i126-a01-module-repair/
           include-hidden-files: true
           if-no-files-found: ignore
