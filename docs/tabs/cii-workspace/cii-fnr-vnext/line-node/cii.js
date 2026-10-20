@@ -26,11 +26,15 @@ function parseVersion(bytes, sections) {
 }
 
 function headerNodes(bytes, row) {
-  const values = asciiSlice(bytes, row.start, row.bodyEnd).trim().split(/\s+/);
-  if (values.length !== 6) throw new Error('ELEMENT_HEADER_LAYOUT_INVALID');
-  const nodes = values.slice(0, 2).map(Number);
-  if (nodes.some(x => !Number.isSafeInteger(x))) throw new Error('ELEMENT_NODE_ID_INVALID');
-  return nodes.map(String);
+  if (row.bodyEnd - row.start !== 80) throw new Error('ELEMENT_HEADER_WIDTH_INVALID');
+  const fields = [asciiSlice(bytes, row.start, row.start + 15)];
+  for (let i = 0; i < 5; i++) {
+    fields.push(asciiSlice(bytes, row.start + 15 + i * 13, row.start + 28 + i * 13));
+  }
+  const values = fields.map(text => Number(text.trim().replace(/[dD]/g, 'E')));
+  if (values.some(v => !Number.isFinite(v))) throw new Error('ELEMENT_HEADER_LAYOUT_INVALID');
+  if (values.slice(0, 2).some(v => !Number.isSafeInteger(v))) throw new Error('ELEMENT_NODE_ID_INVALID');
+  return values.slice(0, 2).map(String);
 }
 
 function elementPointer(bytes, row) {
