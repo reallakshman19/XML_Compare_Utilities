@@ -257,8 +257,10 @@ export function planLineNodeRules(request) {
       enforceAmbiguity(candidates,output.observations,rule,output);
       coalesceAndCheckAliases(candidates,parsed,bytes,output);
     }
-    holdUnsafeLogicalNodeAliases(output,parsed.elements,bytes);
+    // Resolve cross-rule collisions before assessing the final proposed set.
+    // The last guard must reject any incomplete logical TARGET node alias.
     detectCrossRuleCollisions(output);
+    holdUnsafeLogicalNodeAliases(output,parsed.elements,bytes);
   } catch (error) {
     output.diagnostics.push(decision(error.message||'UNHANDLED_INPUT_ERROR'));
     output.incompleteSearch=true;
