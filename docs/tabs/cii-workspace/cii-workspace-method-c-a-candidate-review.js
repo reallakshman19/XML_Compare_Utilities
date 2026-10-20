@@ -113,15 +113,14 @@ function reviewMarkup(evidence, decisions, {open,selected,filter,search}) {
     '<label>Find SOURCE or TARGET node <input data-ciiw-candidate-search type="search" value="' +
     esc(search) + '"></label>' +
     '<p data-ciiw-candidate-visible>' + rows.length + ' visible of ' + c.total + '</p>' +
-    '<div style="max-height:260px;overflow:auto"><table class="ciiw-grid"><thead><tr>' +
-    '<th>SOURCE</th><th>Observation</th><th>Alternative</th><th>Action</th></tr></thead><tbody>' +
-    rows.map(row => '<tr data-ciiw-a-review-row="' + esc(row.sourceNode) + '"><td>' +
-      esc(row.sourceNode) + '</td><td>' + esc(row.status) + '</td><td>' +
-      esc(row.alternatives?.map(a => a.target).join(', ') ||
-        row.segmentOnly?.endpoints?.join(' → ') || 'No TARGET NODE') + '</td><td>' +
-      '<button type="button" data-ciiw-candidate-select="' + esc(row.sourceNode) +
-      '">Inspect</button></td></tr>').join('') +
-    '</tbody></table></div>' +
+    '<div data-ciiw-candidate-list role="list" style="max-height:260px;overflow:auto">' +
+    rows.map(row => '<div role="listitem" data-ciiw-a-review-row="' + esc(row.sourceNode) + '">' +
+      '<strong>SOURCE ' + esc(row.sourceNode) + '</strong> · ' + esc(row.status) +
+      ' · ' + esc(row.alternatives?.map(a => a.target).join(', ') ||
+        row.segmentOnly?.endpoints?.join(' → ') || 'No TARGET NODE') +
+      ' <button type="button" data-ciiw-candidate-select="' + esc(row.sourceNode) +
+      '">Inspect</button></div>').join('') +
+    '</div>' +
     (selectedRow ? detailMarkup(selectedRow, decisions.get(selected)) :
       '<p>Select Inspect on any SOURCE node to see its original signed evidence.</p>') +
     '<p>Saved review notes: ' + decisions.size + '. Export includes every A-only observation, all SHA/epoch/pose evidence and review dispositions.</p>' +
