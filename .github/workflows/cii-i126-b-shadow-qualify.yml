@@ -1,0 +1,80 @@
+# I126 B-shadow original-file qualification — draft-only test runner
+# Owner requested execution of both newly authored suites on 20 Oct 2026.
+# Runs only this experimental branch; it neither authorizes BOUND nor deploys.
+name: I126 B-shadow original-source qualification
+on:
+  push:
+    branches:
+      - i126/b-policy-shadow-alternative-20261020
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-node:
+    name: Original S1/S2/S3/T B-shadow Node and adversarial tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check full HEAD and original byte custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(sha256sum Benchmark/S1.CII | cut -d' ' -f1)" = "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+          test "$(sha256sum Benchmark/S2.CII | cut -d' ' -f1)" = "7ec48b76b65eedfd5ecc9c8e8feca1a45dd8c83721a68b53aa0db3363e6d27fd"
+          test "$(sha256sum Benchmark/S3.CII | cut -d' ' -f1)" = "c2143b31c482158ac5514d2709406c14a9179e656277c654e932bb845d090caa"
+          test "$(sha256sum Benchmark/T.CII | cut -d' ' -f1)" = "abfa3ffc9281fe75d4170b2d885d554cb1f120dadedae7c7ab609548b63cc060"
+          cmp docs/tabs/cii-workspace/cii-workspace-method-c-b-shadow-evidence.js tabs/cii-workspace/cii-workspace-method-c-b-shadow-evidence.js
+          mkdir -p test-results/i126-b-shadow
+          sha256sum Benchmark/{S1,S2,S3,T}.CII > test-results/i126-b-shadow/original-sha256.txt
+          printf "HEAD=%s\n" "$GITHUB_SHA" | tee test-results/i126-b-shadow/source-head.txt
+      - name: Run original-data B-shadow and dedicated 4970 control
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1             tests/cii-workspace-method-c-b-shadow-evidence.test.mjs             tests/cii-workspace-method-c-b-shadow-4970-regression.test.mjs             2>&1 | tee test-results/i126-b-shadow/node.log
+      - name: Retain SHA, log and Node output even if tests fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-b-shadow-node-${{ github.sha }}
+          path: test-results/i126-b-shadow/
+          if-no-files-found: warn
+          retention-days: 30
+  original-browser:
+    name: Real original-file B-shadow Chromium UI and JSON download
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Real served docs HTML original S1/S2/S3/T test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/i126-b-shadow-browser
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --test tests/cii-workspace-method-c-b-shadow-native-browser.test.mjs             2>&1 | tee test-results/i126-b-shadow-browser/chromium.log
+      - name: Retain actual browser log and original negative witnesses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i126-b-shadow-browser-${{ github.sha }}
+          path: test-results/i126-b-shadow-browser/
+          if-no-files-found: warn
+          retention-days: 30
