@@ -91,12 +91,16 @@ function examineRow(row, source, target, targetUsers) {
       (hypotheses.length || !row.segmentOnly || row.segmentOnly.endpoints?.length!==2))
     fail('SEGMENT_IS_NOT_A_TARGET_PHYSICAL_NODE');
   const reasons=[];
-  if (!hypotheses.length) reasons.push(row.segmentOnly?'ORIGINAL_TARGET_ELEMENT_ONLY_NO_PHYSICAL_NODE':'NO_PHYSICAL_TARGET_IN_WINDOW');
+  const alignedSegment = row.status === 'MISSING_TARGET_NODE_BUT_ALIGNED_SEGMENT';
+  if (!hypotheses.length) reasons.push(alignedSegment?
+    'ORIGINAL_TARGET_ELEMENT_ONLY_NO_PHYSICAL_NODE':'NO_PHYSICAL_TARGET_IN_WINDOW');
   if (hypotheses.length>1) reasons.push('MULTIPLE_GEOMETRIC_TARGET_HYPOTHESES');
   if (row.contestedTargets?.length) reasons.push('GEOMETRIC_TARGET_COMPETITION');
   if (row.status==='OWNER_ANCHOR_EXPERIMENT') reasons.push('EXPERIMENTAL_ANCHOR_UNAUTHENTICATED');
   return {sourceNode:row.sourceNode,geometricStatus:row.status,topologyWitnesses:incident(source,sourceNode),
-    candidateCount:hypotheses.length,hypotheses,segmentOnly:row.segmentOnly||null,
+    candidateCount:hypotheses.length,hypotheses,
+    segmentOnly:alignedSegment?row.segmentOnly:null,
+    nearestUnqualifiedSegment:!alignedSegment?(row.segmentOnly||null):null,
     missingEvidence:reasons.concat('INDEPENDENT_PHYSICAL_IDENTITY_NOT_ESTABLISHED'),
     bDisposition:'B_POLICY_HOLD'};
 }
