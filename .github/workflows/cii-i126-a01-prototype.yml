@@ -103,7 +103,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: i126-a01-browser-${{ github.sha }}
-          path: test-results/i126-a01/
+          path: |
+            test-results/i126-a01/
+            test-results/i126-original-writer2/
           if-no-files-found: ignore
           retention-days: 14
   selective-undo:
