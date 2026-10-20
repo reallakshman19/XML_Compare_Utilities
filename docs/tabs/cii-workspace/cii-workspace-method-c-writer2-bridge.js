@@ -8,6 +8,7 @@ import { registerMethodC } from './cii-workspace-method-c-registration.js';
 import { findMethodCCandidates } from './cii-workspace-method-c-candidates.js';
 import { createMethodCASidecar } from './cii-workspace-method-c-a-sidecar.js';
 import { methodCAReviewMarkup } from './cii-workspace-method-c-a-review-markup.js';
+import { mountMethodCAOnlyCandidateWorkbench } from './cii-workspace-method-c-a-candidate-review.js';
 
 const nodeId = value => /^[0-9]+$/.test(String(value || '').trim());
 
@@ -43,9 +44,17 @@ export function mountMethodCWriter2ABridge(container, { getCustody, cryptoRef = 
   const cancel = controls.querySelector('[data-ciiw-method-c-cancel]');
   const message = controls.querySelector('[data-ciiw-method-c-message]');
   let epoch=0, disposed=false, evidence=null;
+  const candidateReview = mountMethodCAOnlyCandidateWorkbench(review, {
+    isCurrent: current => !disposed && evidence === current &&
+      current.sessionEpoch === epoch && Boolean(getCustody()) &&
+      getCustody().sourceSetSha256 === current.sourceSetSha256 &&
+      getCustody().targetOriginalSha256 === current.targetOriginalSha256 &&
+      getCustody().sources?.some(s => s.sourceId === current.sourceId &&
+        s.originalSha256 === current.sourceOriginalSha256),
+  });
   const say = value => { message.textContent = value; };
   const invalidate = (reason = 'INVALIDATED — original custody or Method C policy changed') => {
-    epoch += 1; evidence=null; review.innerHTML=methodCAReviewMarkup(null,reason);
+    epoch += 1; evidence=null; candidateReview.clear(); review.innerHTML=methodCAReviewMarkup(null,reason);
     say(reason);start.disabled=false;
   };
   const close = () => {
@@ -70,6 +79,7 @@ export function mountMethodCWriter2ABridge(container, { getCustody, cryptoRef = 
     }
     const revision=++epoch, anchor={source:srcNode.value.trim(),target:tgtNode.value.trim(),role:'experimental-unverified'};
     const sourceOriginalSha256=source.originalSha256;
+    evidence=null;candidateReview.clear();review.innerHTML=methodCAReviewMarkup(null);
     start.disabled=true;say(`${id}: read-only original graph and signed orientation analysis…`);
     try {
       const [sourceGraph,targetGraph]=await Promise.all([
@@ -92,11 +102,12 @@ export function mountMethodCWriter2ABridge(container, { getCustody, cryptoRef = 
         registration:pose,candidates,tolerance});
       if (disposed || revision!==epoch) return;
       evidence=sidecar;review.innerHTML=methodCAReviewMarkup(sidecar);
+      candidateReview.setEvidence(sidecar);
       say(`${id}: ${pose.status}; ${sidecar.rows.length} read-only geometric observations; Method C BOUND=0, Apply=0.`);
       container.querySelector('[data-ciiw-tab="compare"]')?.click();
     } catch (error) {
       if (!disposed && revision===epoch) {
-        evidence=null;review.innerHTML=methodCAReviewMarkup(null,`HOLD: ${String(error?.message || error)}`);
+        evidence=null;candidateReview.clear();review.innerHTML=methodCAReviewMarkup(null,`HOLD: ${String(error?.message || error)}`);
         say(`HOLD — ${String(error?.message || error)}`);
       }
     } finally { if (!disposed && revision===epoch) start.disabled=false; }
@@ -117,6 +128,7 @@ export function mountMethodCWriter2ABridge(container, { getCustody, cryptoRef = 
     runButton.removeEventListener('click',open);start.removeEventListener('click',inspect);
     cancel.removeEventListener('click',close);
     for(const element of [select,srcNode,tgtNode])element.removeEventListener('input',onInputChanged);
-    documentRef.removeEventListener('keydown',onKeyDown);controls.remove();review.remove();
+    documentRef.removeEventListener('keydown',onKeyDown);
+    candidateReview.destroy();controls.remove();review.remove();
   }};
 }
