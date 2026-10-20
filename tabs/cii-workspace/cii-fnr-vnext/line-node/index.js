@@ -2,6 +2,7 @@
 import { sha256Hex } from './bytes.js';
 import { parseCiiLineNode, fieldForEndpoint, renderLineField } from './cii.js';
 import { compileSelector, replacementFor, lineFamily } from './selectors.js';
+import { holdUnsafeLogicalNodeAliases } from './logical-aliases.js';
 
 const DEFAULT_WEIGHTS = Object.freeze({ line: 70, node: 30 });
 const decision = (code, extra = {}) => ({ code, ...extra });
@@ -256,6 +257,7 @@ export function planLineNodeRules(request) {
       enforceAmbiguity(candidates,output.observations,rule,output);
       coalesceAndCheckAliases(candidates,parsed,bytes,output);
     }
+    holdUnsafeLogicalNodeAliases(output,parsed.elements,bytes);
     detectCrossRuleCollisions(output);
   } catch (error) {
     output.diagnostics.push(decision(error.message||'UNHANDLED_INPUT_ERROR'));

@@ -1,0 +1,15 @@
+# Agent 2 follow-up recovery receipt — logical NODE aliases
+TASK #141 / DRAFT PR #145. Parent reviewed HEAD 1e696b23c8838c05ece8fe5857c4791b37cf9473. This actor continued the same Agent 2 mission; no separate reviewer or Oracle approval is asserted.
+TAKEOVER_AUTHORITY=READ_ONLY for re-grounding; source-specific A1-A5 from agents/PR145_workreport.md rechecked before bounded patch. Scope: new line-node guard and test, minimal index.js connection and docs mirror, no writer, no legacy code, no current production tile.
+## Reproduced root cause
+Two distinct 53-byte NODENAME physical records can label the same numeric TARGET node. The previous guard checks physical pointer aliases only. A FROM-only update of node 20's second record was PROPOSED while node 20's TO slot in another record retained its old name. This permits inconsistent CII node names.
+## Patch & invariant
+New logical-aliases.js aggregates nonblank physical NODENAME slot spans by TARGET-local numeric node ID, requiring all named aliases to be proposed with consistent after-values. Existing conflicting alias names HOLD, incomplete selection HOLD; no cross-file equality assumption. Adds pointer/endpoint and exact byte-span provenance to claim evidence. No output bytes applied here.
+## Validation
+PASS: Node v22.16.0 locally executed isolated reconstruction of PR #145 exact prepatch JS blobs plus patch, `node --test tests/cii-fnr-vnext-line-node.test.mjs tests/cii-fnr-vnext-line-node-logical-alias.test.mjs` = 20/20 PASS (16 inherited + four independent additional [SIMULATED] tests). PASS: controlled seeded rollback of index.js guard makes two new tests FAIL (2 pass/2 fail), establishing regression sensitivity. PASS: six served files parity in isolated task copy, node --check, no legacy imports. Native repository GitHub Actions/CI NOT_RUN.
+NOT_RUN: private GLRD original inputs and SHA256 receipts, withheld benchmark outputs, Chromium integrated UI, Agent 1 writer; no assertion of independent Oracle qualification.
+## Recovery / backups
+Existing index.js preimage Git blob d35e7c8caa61fbdd70608c80469dd6e46794d533, SHA256 0979493f579c14e0ec197555f0035707309d39aa6079dd3dda0d161c95d4b8d5. Task-local patch ledger .agent-worklogs/20261020_2015_a2-logical-node-alias preserved in downloadable follow-up bundle and deliberately not git-tracked. Canonical utils/backup.cjs could not be run on isolated GitHub-backed checkout; pre-edit binary copies were preserved, a transparent backup policy deviation. Verify current SHA before any selective undo; never use reset/revert on unrelated work.
+## Risk & next action
+The guard conservatively treats same numeric TARGET node as one logical identity; unusual intentional per-element labels may HOLD until engineering adjudication. Original GLRD custody/Oracle benchmark NOT_RUN.
+EXACT_NEXT_ACTION: Oracle independently inspect PR145 HEAD, rerun both test suites against original inputs and provide GLRD SHA256 custody receipts, then qualify any Agent 1 writer integration; Owner alone authorizes merge/production replacement.
