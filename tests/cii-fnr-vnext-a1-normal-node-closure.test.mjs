@@ -40,8 +40,16 @@ for (const lf of [false, true]) {
   }
   for (const second of ['', 'DIFFERENT']) {
     const candidate = fixture({ second, lf }), p = plan(candidate);
-    await assert.rejects(apply(candidate, p, p.claims.map(c => c.id)),
-      /NORMAL_NODE_ALIAS_APPROVAL_INCOMPLETE|NORMAL_NODE_ALIAS_VALUES_CONFLICT/);
+    if (!second) {
+      const originalBlank = parseCii(candidate).fields.find(f => f.pointer === 2 && f.fieldIdentity === 'NODENAME.FROM');
+      const result = await apply(candidate, p, p.claims.map(c => c.id));
+      assert.equal(result.audit.length, 1, 'blank does not require an approved alias');
+      assert.deepEqual(result.bytes.subarray(originalBlank.byteStart, originalBlank.byteEnd),
+        candidate.subarray(originalBlank.byteStart, originalBlank.byteEnd), 'blank byte span preserved');
+    } else {
+      await assert.rejects(apply(candidate, p, p.claims.map(c => c.id)),
+        /NORMAL_NODE_ALIAS_APPROVAL_INCOMPLETE|NORMAL_NODE_ALIAS_VALUES_CONFLICT/);
+    }
   }
   const one = fixture({ single: true, lf }), p = plan(one);
   const allowed = await apply(one, p, p.claims.map(c => c.id));
