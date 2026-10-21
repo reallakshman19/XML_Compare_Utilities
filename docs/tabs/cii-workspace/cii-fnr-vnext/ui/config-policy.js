@@ -14,7 +14,7 @@ const overlap = (a, b) => a.byteStart < b.byteEnd && b.byteStart < a.byteEnd;
 
 export function resolvePolicy(input = DEFAULT_POLICY) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
-      Object.keys(input).some(key => !(key in choices))) fail('POLICY_UNRECOGNIZED');
+      Object.keys(input).some(key => !Object.prototype.hasOwnProperty.call(choices, key))) fail('POLICY_UNRECOGNIZED');
   const p = { ...DEFAULT_POLICY, ...input };
   if (Object.keys(choices).some(key => !choices[key].includes(p[key]))) fail('POLICY_UNRECOGNIZED');
   return Object.freeze(p);
