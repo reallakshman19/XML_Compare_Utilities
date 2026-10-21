@@ -1,0 +1,24 @@
+# PR149 — A1FR successor Policy-A writer, final author receipt
+
+**DRAFT/HOLD — NOT an independent acceptance or merge approval.** Agent identity: ChatGPT GPT-6 A1 successor, authorized by Owner's chat turn on 2026-10-21; connected GitHub commits show Owner account, not an independent reviewer identity.
+
+Base: PR148 f88c8b097766bfa1271e86ecbcdd171579fb7b4c. Head at initial PR creation: d2d3d7189aaebc209a731bc8a5d25647d8b86305. New successor branch wip/cii-fnr-vnext/a1-successor-policy-a-20261021-gpt6; do not modify previous PR144/145/147/148 heads. Parent main 9a5916f972af170f272c525907728237391b7ca8 untouched.
+
+## What shipped in this draft
+Three exact A1 source+served mirror pairs for ui/normal-node-closure.js, ui/line-node-admission.js, ui/writer.js; amended tests/cii-fnr-vnext-a1-normal-node-closure.test.mjs and NEW tests/cii-fnr-vnext-a1-policy-a-compact.test.mjs; A1 WIP workreport; this PR report. The runtime changes include only original TARGET0 named aliases in required closure and actively forbid approved mutations of originally blank physical name spans. Keep unsafe partial two-nonblank edits rejected. A2 internal modules, A3 Geometry, production, existing tile, and legacy methods not touched.
+
+## True author tests
+Node v22.16.0, original SHA-verified common writer, admission, physical parser and Normal planner, no shims. Synthetic local native after fix: new committed compact test 4/4; corrected inherited Normal test 1/1; additional local-only independent adversarial suite 18/18; combined 23/23. Exact committed test blob d86eeec715057fafb41a895f79eb1ea87e8566fc matches locally executed copy; amended inherited test blob 698a1df470dd4f074f34b82da2e6a15604b73c28. Source+served runtime mirror blob IDs: normal closure 1931cfc53246c3e675fab2383557f4726ff5bc48, LINE_NODE admission 4ce01daf4222da4a8d1743e8e10d4ab21c779283, common writer e00a0e1f9582141002fa03d05d1ec2a6a9211c77.
+
+RED preimage: PR144 Normal accepts incomplete named alias, PR147 Normal and PR144 LINE_NODE reject eligible named+blank, and both writer paths accept forged all-blank proposals. GREEN: both name orientations accepted with blank bytes exactly preserved, complete named approvals accepted, partial named approvals rejected, blank forge rejected in NORMAL and LINE_NODE. Additional synthetic controls for SHA/LINE_NUMBER length, witness, overflow and exact fixed-width. Tests are author-run, not separate IR.
+
+## Browser and custody
+Exact old served HTML 4687c0b27680ddf565df9f6c1b21d3e91c7427d7 and app.js fa3d071c248e3750bdba5880702abd56f00d1c4d were reconstructed locally and HTTP 200 confirmed. Real Chromium launched but page navigation FAIL net::ERR_BLOCKED_BY_ADMINISTRATOR. Thus browser Validate->Apply->Export workflow **NOT_RUN** (environment blocker, not PASS). Separate exploratory async UI revocation variant was locally checked by node --check, had canonical pre-edit backups #8/#9, but was NOT committed or reported as qualified. Current PR149 still retains original app.js.
+
+Original private SOURCE/TARGET smoke, sealed benchmark comparisons, full repository native suites, CI and Geometry acceptance NOT_RUN. Do not open BM/BM3 or publish source CII bytes; additional SOURCE/TARGET custody must be explicitly authorized.
+
+## Backup discipline and recovery
+Because Git HTTPS clone failed DNS resolution, author reconstructed only exact GitHub-blobs in local scratch; **not a full checkout**. Canonical utils/backup.cjs SHA 7afc1567f770219eebe66fa7c01f43e6acba90ba executed BEFORE editing all six source/served paths (#1-#6) and amended test (#7), wrote local plan entries, binary-safe backups and checksums. Module patch ledger produced from actual pre-edit backup bytes, not Git history. The local ignored ledger is .agent-worklogs/20261021_1000_a1-policy-a-writer with manifest, module logs and patches, sha/undo. Not committed. Inherited PR147 missing pre-edit backup chronology and PR144 tracked .backups/log.json remain explicitly **UNWAIVED**, no unauthorized deletion/waiver.
+
+## Independent review, scope limits and exact next action
+No separate reviewer accepted this HEAD and no one may self-approve. A1's stale A2 copied adapter not reintegrated; Tab2 UI remains disabled, Tab3 Geometry HOLD. Source exact only, no production. **EXACT_NEXT_ACTION:** distinct qualified reviewer checks PR149 exact resulting HEAD and 9-path source diff, reruns full actual checkout native tests, serves Chromium with real HTTP to check Validate->Apply-to-New-Copy->Export against synthetic and separately custodied SOURCE/TARGET originals, and asks Owner for explicit disposition of predecessor backup deviations. Keep DRAFT until independent checks and separate Owner authorization.
