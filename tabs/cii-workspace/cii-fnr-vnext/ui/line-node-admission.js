@@ -125,9 +125,10 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
       const physical = linesBySpan.get(span);
       if (!physical) fail('LINE_NUMBER_PHYSICAL_CUSTODY_INVALID');
       checkLineClaim(c, physical);
-    } else if (c.section === 'NODENAME' && ['NODENAME_FROM','NODENAME_TO'].includes(c.fieldIdentity)) {
+    } else if (c.section === 'NODENAME' && ['NODENAME_FROM','NODENAME_TO','NODENAME.FROM','NODENAME.TO'].includes(c.fieldIdentity)) {
+      const canonicalIdentity = (c.fieldIdentity === 'NODENAME_FROM' || c.fieldIdentity === 'NODENAME.FROM') ? 'NODENAME.FROM' : 'NODENAME.TO';
       const field = custody.fields.get(span);
-      if (!field || field.fieldIdentity !== (c.fieldIdentity === 'NODENAME_FROM' ? 'NODENAME.FROM' : 'NODENAME.TO') ||
+      if (!field || field.fieldIdentity !== canonicalIdentity ||
           field.before !== c.before || field.orphan || !c.after.trim() ||
           c.after !== c.after.trim().padEnd(c.after.length, ' ')) fail('NODENAME_PHYSICAL_CUSTODY_INVALID');
       const owners = custody.fieldOwners.get(span) || [];
@@ -136,6 +137,9 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
       const actualWitnesses = new Set(owners.map(o=>{
         const e = parsed.elements[o.elementIndex];return `${e.from}->${e.to}@${e.index}`;
       }));
+      for (const o of owners) {
+        actualWitnesses.add(`${o.elementIndex}:${parsed.elements[o.elementIndex].from}:${parsed.elements[o.elementIndex].to}`);
+      }
       if (!actualWitnesses.has(c.targetElementWitness)) fail('NODENAME_ELEMENT_WITNESS_INVALID');
       const groupId = owners[0].id;
       const list = affected.get(groupId) || [];

@@ -1,5 +1,6 @@
 /* Single byte writer for VNext proposals. It neither accepts raw string edits nor mutates TARGET0. */
 import { parseCii, sameStructure } from './physical.js';
+import { admitLineNodeClaims } from './line-node-admission.js';
 const invalid = (reason) => { throw new Error(reason); };
 const hex = (digest) => [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
 export async function sha256(bytes) {
@@ -28,20 +29,36 @@ export async function validatePostimage({ original, originalHash, plan, approved
   }
   const claimIds = new Set(plan.claims.map((c) => c.id));
   if (claimIds.size !== plan.claims.length || [...approved].some((id) => !claimIds.has(id))) invalid('CLAIM_ID_DUPLICATE_OR_UNKNOWN');
+
+  const isLineNode = tab === 'LINE_NODE' || plan.tab === 'LINE_NODE' ||
+    plan.claims.some((c) => c?.fieldIdentity === 'LINE_NUMBER' || c?.fieldIdentity === 'NODENAME_FROM' || c?.fieldIdentity === 'NODENAME_TO');
+  if (isLineNode) {
+    await admitLineNodeClaims({ original, plan, approvedIds, originalHash });
+  }
+
   const parsed = parseCii(original);
   const legal = new Map(parsed.fields.filter((f) => !f.shared && !f.orphan)
     .map((f) => [`${f.byteStart}:${f.byteEnd}:${f.fieldIdentity}`, f]));
   const changes = plan.claims.filter((c) => approved.has(c.id)).sort((a, b) => a.byteStart - b.byteStart);
   let priorEnd = -1;
   for (const c of changes) {
-    if (c.status !== 'PROPOSED' || c.section !== 'NODENAME' ||
+    if (c.status !== 'PROPOSED' || (c.section !== 'NODENAME' && c.section !== 'ELEMENTS') ||
         !Number.isSafeInteger(c.byteStart) || !Number.isSafeInteger(c.byteEnd) ||
         c.byteStart < 0 || c.byteEnd > original.length || c.byteStart >= c.byteEnd || c.byteStart < priorEnd) invalid('CLAIM_OVERLAP_OR_UNSUPPORTED');
-    const field = legal.get(`${c.byteStart}:${c.byteEnd}:${c.fieldIdentity}`);
-    if (!field || field.before !== c.before || !field.owners.includes(c.targetElementWitness)) invalid('FIELD_OWNERSHIP_OR_PREIMAGE_INVALID');
-    if (c.before.length !== c.byteEnd - c.byteStart || c.after?.length !== c.before.length ||
-        !equal(original.subarray(c.byteStart, c.byteEnd), ascii(c.before)) ||
-        c.after.trim() === '' || !equal(ascii(c.after), ascii(c.after.trim().padEnd(c.after.length, ' ')))) invalid('CLAIM_WIDTH_OR_BEFORE_INVALID');
+    const canonicalId = (c.fieldIdentity === 'NODENAME_FROM' || c.fieldIdentity === 'NODENAME.FROM') ? 'NODENAME.FROM'
+      : (c.fieldIdentity === 'NODENAME_TO' || c.fieldIdentity === 'NODENAME.TO') ? 'NODENAME.TO' : c.fieldIdentity;
+    if (c.section === 'NODENAME') {
+      const field = legal.get(`${c.byteStart}:${c.byteEnd}:${canonicalId}`);
+      const validWitness = field && (field.owners.includes(c.targetElementWitness) ||
+        parsed.elements.some((e) => `${e.from}->${e.to}@${e.index}` === c.targetElementWitness && field.owners.includes(`${e.index}:${e.from}:${e.to}`)));
+      if (!field || field.before !== c.before || !validWitness) invalid('FIELD_OWNERSHIP_OR_PREIMAGE_INVALID');
+      if (c.before.length !== c.byteEnd - c.byteStart || c.after?.length !== c.before.length ||
+          !equal(original.subarray(c.byteStart, c.byteEnd), ascii(c.before)) ||
+          c.after.trim() === '' || !equal(ascii(c.after), ascii(c.after.trim().padEnd(c.after.length, ' ')))) invalid('CLAIM_WIDTH_OR_BEFORE_INVALID');
+    } else if (c.section === 'ELEMENTS' && c.fieldIdentity === 'LINE_NUMBER') {
+      if (c.before.length !== c.byteEnd - c.byteStart || c.after?.length !== c.before.length ||
+          !equal(original.subarray(c.byteStart, c.byteEnd), ascii(c.before))) invalid('CLAIM_WIDTH_OR_BEFORE_INVALID');
+    } else invalid('CLAIM_FIELD_UNAUTHORIZED');
     priorEnd = c.byteEnd;
   }
   const output = new Uint8Array(original);

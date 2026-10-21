@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import { parseCii } from '../tabs/cii-workspace/cii-fnr-vnext/ui/physical.js';
 import { admitLineNodeClaims } from '../tabs/cii-workspace/cii-fnr-vnext/ui/line-node-admission.js';
+import { validatePostimage } from '../tabs/cii-workspace/cii-fnr-vnext/ui/writer.js';
 
 const row = values => values.map((x,i)=>String(x).padStart(i?13:15)).join('');
 const element = (from,to,pointer) => Array.from({length:15},(_,i)=>i===0
@@ -68,5 +69,33 @@ for(const le of ['\r\n','\n']) {
     const tampered=new Uint8Array(bytes);tampered[ca.byteStart]=33;
     await assert.rejects(admitLineNodeClaims({original:tampered,originalHash:hash(bytes),plan:plan(bytes,[ca,cb]),
       approvedIds:['alias-to','alias-from']}),/LINE_NODE_TARGET0_STALE/);
+  });
+
+  test(`WRITER API FAIL-CLOSED ${JSON.stringify(le)}: reviewer partial-approval rejected, complete control accepted`, async () => {
+    const bytes = fixture(le);
+    const { ca, cb } = snapshot(bytes);
+    // Reviewer Finding F1: Exported writer must fail closed on partial alias approval under LINE_NODE
+    await assert.rejects(
+      validatePostimage({ original: bytes, originalHash: hash(bytes), plan: plan(bytes, [ca, cb]), approvedIds: ['alias-to'], tab: 'LINE_NODE' }),
+      /NODENAME_LOGICAL_ALIAS_APPROVAL_INCOMPLETE/
+    );
+    await assert.rejects(
+      validatePostimage({ original: bytes, originalHash: hash(bytes), plan: plan(bytes, [ca, cb]), approvedIds: ['alias-from'], tab: 'LINE_NODE' }),
+      /NODENAME_LOGICAL_ALIAS_APPROVAL_INCOMPLETE/
+    );
+    // Complete-approval control: writer succeeds and produces exactly 2 changed alias fields
+    const resA2 = await validatePostimage({ original: bytes, originalHash: hash(bytes), plan: plan(bytes, [ca, cb]), approvedIds: ['alias-to', 'alias-from'], tab: 'LINE_NODE' });
+    assert.equal(resA2.audit.length, 2);
+    assert.equal(resA2.target1Hash, hash(resA2.bytes));
+    // A1-shaped claims (with NODENAME.TO/FROM and owners[0] witness): also fail closed on partial approval and pass on complete
+    const caA1 = { ...ca, fieldIdentity: 'NODENAME.TO', targetElementWitness: '0:100:110' };
+    const cbA1 = { ...cb, fieldIdentity: 'NODENAME.FROM', targetElementWitness: '1:110:120' };
+    await assert.rejects(
+      validatePostimage({ original: bytes, originalHash: hash(bytes), plan: plan(bytes, [caA1, cbA1]), approvedIds: ['alias-to'], tab: 'LINE_NODE' }),
+      /NODENAME_LOGICAL_ALIAS_APPROVAL_INCOMPLETE/
+    );
+    const resA1 = await validatePostimage({ original: bytes, originalHash: hash(bytes), plan: plan(bytes, [caA1, cbA1]), approvedIds: ['alias-to', 'alias-from'], tab: 'LINE_NODE' });
+    assert.equal(resA1.audit.length, 2);
+    assert.equal(resA1.target1Hash, hash(resA1.bytes));
   });
 }
