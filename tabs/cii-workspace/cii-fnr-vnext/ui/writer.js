@@ -1,6 +1,7 @@
 /* Single byte writer for VNext proposals. It neither accepts raw string edits nor mutates TARGET0. */
 import { parseCii, sameStructure } from './physical.js';
 import { admitLineNodeClaims } from './line-node-admission.js';
+import { enforceNormalNodeClosure } from './normal-node-closure.js';
 const invalid = (reason) => { throw new Error(reason); };
 const hex = (digest) => [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
 export async function sha256(bytes) {
@@ -61,6 +62,7 @@ export async function validatePostimage({ original, originalHash, plan, approved
     } else invalid('CLAIM_FIELD_UNAUTHORIZED');
     priorEnd = c.byteEnd;
   }
+  if (!isLineNode) enforceNormalNodeClosure(parsed, changes);
   const output = new Uint8Array(original);
   for (const c of changes) output.set(ascii(c.after), c.byteStart);
   const reparsed = parseCii(output);
