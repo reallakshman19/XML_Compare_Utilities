@@ -1,20 +1,25 @@
 import { planNormal } from '../normal/plan.js';
 import { sha256, validatePostimage } from './writer.js';
+import { parseCii } from './physical.js';
+import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
 
-const tabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
-const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry' };
+const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
+const tabs = [...workTabs, 'CONFIG'];
+const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', block: 'NODENAME' });
-let serial = 0, active = 'NORMAL', target = null, source = null;
-const states = Object.fromEntries(tabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
+let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0;
+let config = { ...DEFAULT_POLICY };
+const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
-const state = () => states[active];
+const state = () => states[active] || states.NORMAL;
 const message = (text) => { $('[data-status]').textContent = text; };
 
 function invalidate(s, reason = 'Changes revoked previous approvals and exports.') {
+  revision++;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
   if (s === state()) { renderResults(); message(reason); }
 }
@@ -25,11 +30,15 @@ function renderTabs() {
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
     button.classList.toggle('selected', selected);
   }
+  $('[data-workspace]').hidden = active === 'CONFIG';
+  $('[data-config-area]').hidden = active !== 'CONFIG';
+  for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
   $('[data-unavailable]').hidden = active === 'NORMAL';
   $('[data-run]').disabled = active !== 'NORMAL' || !target;
   $('[data-rows-area]').hidden = active !== 'NORMAL';
-  message(active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
+  message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
+    active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
     `${names[active]} awaits an independently delivered engine. No write authority exists.`);
 }
 function addSelect(td, field, entries, value) {
@@ -91,6 +100,23 @@ function safeError(err) {
   state().validated = null; state().applied = null; renderResults(); message('Validation blocked; no new copy may be exported.');
 }
 function approved() { return [...state().decisions].filter(([, v]) => v === 'APPROVED').map(([k]) => k); }
+function logicalNode(parsed, claim) {
+  if (claim?.section !== 'NODENAME') return null;
+  const field = parsed.fields.find(f => f.byteStart === claim.byteStart && f.byteEnd === claim.byteEnd &&
+    (f.fieldIdentity === claim.fieldIdentity || f.fieldIdentity.replace('.', '_') === claim.fieldIdentity));
+  if (!field || field.owners.length !== 1) return null;
+  const e = parsed.elements.find(e => e.witness === field.owners[0]);
+  return e ? String(field.fieldIdentity.endsWith('FROM') ? e.from : e.to) : null;
+}
+function decisionGroup(s, id) {
+  const c = s.plan?.claims.find(x => x.id === id);
+  if (config.approvalMode !== 'LOGICAL_NODE' || !target || !c || c.section !== 'NODENAME') return [id];
+  const parsed = parseCii(target.bytes), node = logicalNode(parsed, c);
+  if (node === null) return [id];
+  const siblings = s.plan.claims.filter(x => x.status === 'PROPOSED' && logicalNode(parsed, x) === node);
+  if (siblings.some(x => x.after.trim() !== c.after.trim())) throw new Error('LOGICAL_NODE_VALUES_CONFLICT');
+  return siblings.map(x => x.id);
+}
 async function generate() {
   const s = state(); invalidate(s, 'Computing scoped NODENAME proposals.');
   if (!target) { message('TARGET0 required'); return; }
@@ -103,20 +129,22 @@ async function generate() {
   } catch (err) { safeError(err); }
 }
 async function validate() {
-  const s = state(); s.validated = null; s.applied = null;
+  const s = state(), guard = revision; s.validated = null; s.applied = null;
   try {
-    if (s.plan?.diagnostics.some((d) => d.severity === 'ERROR')) throw new Error('RESOLVE_RULE_DIAGNOSTICS_FIRST');
-    s.validated = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
+    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
+      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
+    if (guard !== revision) return;
+    s.validated = result;
     s.diagnostics = []; renderResults(); message('TARGET1 validated in memory. Apply to New Copy is now available.');
   } catch (err) { safeError(err); }
 }
 async function apply() {
-  const s = state();
+  const s = state(), guard = revision;
   try {
     if (!s.validated) throw new Error('VALIDATE_BEFORE_APPLY');
     const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
+      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
+    if (guard !== revision) return;
     if (result.target1Hash !== s.validated.target1Hash) throw new Error('VALIDATED_OUTPUT_STALE');
     s.applied = result; renderResults(); message('TARGET1 released as an immutable new-copy preview. Export enabled.');
   } catch (err) { safeError(err); }
@@ -128,9 +156,10 @@ function download(name, bytes, type) {
 }
 async function exportCii() {
   try {
-    const s = state(); if (!s.applied) throw new Error('APPLY_REQUIRED');
+    const s = state(), guard = revision; if (!s.applied) throw new Error('APPLY_REQUIRED');
     const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
+      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
+    if (guard !== revision) return;
     if (result.target1Hash !== s.applied.target1Hash) throw new Error('EXPORT_STALE');
     download(`${target.name.replace(/\.cii$/i, '')}-TARGET1.CII`, result.bytes, 'application/octet-stream');
     message(`Exported verified new copy ${result.target1Hash}`);
@@ -162,9 +191,24 @@ root.addEventListener('input', (event) => {
   invalidate(state());
 });
 root.addEventListener('change', (event) => {
+  const key = event.target.dataset.config;
+  if (key) {
+    try {
+      config = resolvePolicy({ ...config, [key]: event.target.value });
+      for (const s of Object.values(states)) invalidate(s);
+      renderTabs(); message('Policy changed. Regenerate and approve claims before Validate.');
+    } catch (err) { message(err.message); }
+    return;
+  }
   if (!event.target.dataset.decision) return;
-  const s = state(); s.decisions.set(event.target.dataset.decision, event.target.value);
-  s.validated = null; s.applied = null; renderResults(); message('Review decision changed. Revalidate before applying.');
+  const s = state();
+  try {
+    for (const id of decisionGroup(s, event.target.dataset.decision)) {
+      s.decisions.set(id, event.target.value);
+    }
+    revision++; s.validated = null; s.applied = null;
+    renderResults(); message('Review decision changed. Revalidate before applying.');
+  } catch (err) { safeError(err); }
 });
 root.addEventListener('paste', (event) => {
   const row = event.target.closest('[data-row-index]');
@@ -208,7 +252,8 @@ root.addEventListener('click', async (event) => {
   if (el.dataset.audit !== undefined && state().validated) {
     download('cii-vnext-audit.json', JSON.stringify({ schema: 'CiiFnrVnext.Audit.v1',
       target0: state().validated.originalHash, target1: state().validated.target1Hash,
-      claims: state().validated.audit, decisions: [...state().decisions] }, null, 2), 'application/json');
+      claims: state().validated.audit, policy: state().validated.policy,
+      decisions: [...state().decisions] }, null, 2), 'application/json');
   }
 });
 for (const field of ['target', 'source']) {
