@@ -44,6 +44,10 @@ export async function validatePostimage({ original, originalHash, plan, approved
   const changes = plan.claims.filter((c) => approved.has(c.id)).sort((a, b) => a.byteStart - b.byteStart);
   let priorEnd = -1;
   for (const c of changes) {
+    // Every approved span must be unopposed, even by an unapproved HOLD/REJECTED claim.
+    if (plan.claims.some(other => other !== c && c.byteStart < other.byteEnd && other.byteStart < c.byteEnd)) {
+      invalid('CLAIM_OVERLAP_OR_UNSUPPORTED');
+    }
     if (c.status !== 'PROPOSED' || (c.section !== 'NODENAME' && c.section !== 'ELEMENTS') ||
         !Number.isSafeInteger(c.byteStart) || !Number.isSafeInteger(c.byteEnd) ||
         c.byteStart < 0 || c.byteEnd > original.length || c.byteStart >= c.byteEnd || c.byteStart < priorEnd) invalid('CLAIM_OVERLAP_OR_UNSUPPORTED');
