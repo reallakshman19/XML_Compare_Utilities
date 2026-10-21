@@ -45,8 +45,11 @@ function logicalNameCustody(parsed) {
       const f = parsed.fields.find(field => field.pointer === element.pointer && field.fieldIdentity === identity);
       if (!f) fail('NODENAME_POINTER_OR_FIELD_MISSING');
       const span = fieldKey(f), id = String(logicalId);
-      if (!groups.has(id)) groups.set(id, new Map());
-      groups.get(id).set(span, f);
+      // Original blank fields have owners, but no mandatory named-alias membership.
+      if (f.before.trim()) {
+        if (!groups.has(id)) groups.set(id, new Map());
+        groups.get(id).set(span, f);
+      }
       const owners = fieldOwners.get(span) || [];
       owners.push({ id, elementIndex: element.index, endpoint, pointer: element.pointer });
       fieldOwners.set(span, owners);
@@ -128,6 +131,7 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
     } else if (c.section === 'NODENAME' && ['NODENAME_FROM','NODENAME_TO','NODENAME.FROM','NODENAME.TO'].includes(c.fieldIdentity)) {
       const canonicalIdentity = (c.fieldIdentity === 'NODENAME_FROM' || c.fieldIdentity === 'NODENAME.FROM') ? 'NODENAME.FROM' : 'NODENAME.TO';
       const field = custody.fields.get(span);
+      if (field && !field.before.trim()) fail('NODENAME_BLANK_PHYSICAL_EDIT_FORBIDDEN');
       if (!field || field.fieldIdentity !== canonicalIdentity ||
           field.before !== c.before || field.orphan || !c.after.trim() ||
           c.after !== c.after.trim().padEnd(c.after.length, ' ')) fail('NODENAME_PHYSICAL_CUSTODY_INVALID');
