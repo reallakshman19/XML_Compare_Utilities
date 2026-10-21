@@ -13,6 +13,7 @@ const equal = (a, b) => a.length === b.length && a.every((c, i) => c === b[i]);
 
 export async function validatePostimage({ original, originalHash, plan, approvedIds, tab = 'NORMAL' }) {
   if (!(original instanceof Uint8Array) || !Array.isArray(plan?.claims) ||
+      !Array.isArray(approvedIds) || !['NORMAL', 'LINE_NODE', 'GEOMETRY'].includes(tab) ||
       plan?.schema !== 'CiiFnrVnext.Proposals.v1' || plan?.incompleteSearch !== false ||
       !/^[0-9a-f]{64}$/.test(originalHash || '')) invalid('POSTIMAGE_INPUT_MALFORMED');
   if (tab === 'GEOMETRY') invalid('ATOMIC_BRANCH_GROUP_CONTRACT_REQUIRED');
@@ -53,6 +54,8 @@ export async function validatePostimage({ original, originalHash, plan, approved
       const validWitness = field && (field.owners.includes(c.targetElementWitness) ||
         parsed.elements.some((e) => `${e.from}->${e.to}@${e.index}` === c.targetElementWitness && field.owners.includes(`${e.index}:${e.from}:${e.to}`)));
       if (!field || field.before !== c.before || !validWitness) invalid('FIELD_OWNERSHIP_OR_PREIMAGE_INVALID');
+      // A status, score or forged plan cannot authorize mutating a TARGET0 blank.
+      if (!field.before.trim()) invalid('NODENAME_BLANK_PHYSICAL_EDIT_FORBIDDEN');
       if (c.before.length !== c.byteEnd - c.byteStart || c.after?.length !== c.before.length ||
           !equal(original.subarray(c.byteStart, c.byteEnd), ascii(c.before)) ||
           c.after.trim() === '' || !equal(ascii(c.after), ascii(c.after.trim().padEnd(c.after.length, ' ')))) invalid('CLAIM_WIDTH_OR_BEFORE_INVALID');
