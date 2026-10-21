@@ -1,6 +1,6 @@
 /* Independent, byte-addressed V11/V14 NODENAME field custody. No legacy runtime imports. */
 const ascii = (bytes) => String.fromCharCode(...bytes);
-const numeric = (s) => /^[+\-]?\d+(?:\.0*)?$/.test(s.trim()) ? Number(s.trim()) : NaN;
+const numeric = (s) => /^[+\-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][+\-]?\d+)?$/.test(s.trim()) ? Number(s.trim().replace(/[Dd]/g, 'E')) : NaN;
 const fail = (code) => { throw new Error(code); };
 
 export function scanLines(input) {
