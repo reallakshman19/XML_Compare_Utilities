@@ -11,7 +11,7 @@ function fixture({ crlf = true, shared = false } = {}) {
   const lines = ['#$ VERSION', row([5, 14, 1252]), '#$ CONTROL', row([2, 0, 0, shared ? 1 : 2, 0, 0]),
     '#$ ELEMENTS', ...elem(100, 110, 1), ...elem(110, 120, shared ? 1 : 2), '#$ NODENAME',
     '  ' + 'OLD-A'.padEnd(26) + 'OLD-B'.padEnd(25)];
-  if (!shared) lines.push('  ' + 'OLD-C'.padEnd(26) + 'OLD-D'.padEnd(25));
+  if (!shared) lines.push('  ' + 'OLD-B'.padEnd(26) + 'OLD-D'.padEnd(25));
   return encoder.encode(lines.join(crlf ? '\r\n' : '\n') + (crlf ? '\r\n' : '\n'));
 }
 const hash = (v) => createHash('sha256').update(v).digest('hex');
@@ -28,10 +28,11 @@ for (const crlf of [true, false]) {
   assert.equal(p.schema, 'CiiFnrVnext.Proposals.v1');
   assert.equal(p.claims.length, 4);
   const originalBefore = Buffer.from(original);
-  const res = await validatePostimage({ original, originalHash:hash(original), plan:p, approvedIds:p.claims.slice(0,2).map(x=>x.id) });
+  const res = await validatePostimage({ original, originalHash:hash(original), plan:p, approvedIds:p.claims.slice(0,3).map(x=>x.id) });
   assert.equal(Buffer.from(original).equals(originalBefore), true, 'TARGET0 unchanged');
   assert.equal(hash(res.bytes), res.target1Hash, 'independent output hash');
-  assert.equal(res.audit.length, 2);
+  assert.equal(res.audit.length, 3);
+  await expectBlocked(original, original, p, p.claims.slice(0,2).map(x=>x.id), 'NORMAL_NODE_ALIAS_APPROVAL_INCOMPLETE');
   const changed = [...original].map((v,i) => v === res.bytes[i] ? -1 : i).filter((i) => i >= 0);
   assert(changed.length > 0);
   assert(changed.every((i) => res.audit.some((c) => i >= c.byteStart && i < c.byteEnd)), 'diff only approved fields');

@@ -1,0 +1,24 @@
+# WIP-CIIFR-CONFIG-20261021-GPT6 — Config policy successor
+
+**State: DRAFT / NOT QUALIFIED; no merge, release, production-tile edit, A2 planner edit or Geometry enablement.**
+
+## Owner authority / takeover and scope
+Owner requested "ok update the code" after selecting the Config-tab specification with conflict handling, approval granularity and unapproved-proposal policy. Existing PR149 HEAD `5bc6dbffc2ddacb512f619adc5693ca51803e15c` is the immutable starting point. This new successor branch targets PR149's feature ref; parent PR144/145/147/148/149 untouched. Owner retains merge/release authority. Self-authored checks do not constitute distinct independent review. Takeover classified SALVAGE_PARTIAL, restricted to policy and the existing standalone A1 admission/writer/UI; A2 and A3 stay separate.
+
+## Appendix A and falsifier
+A1 trace: docs/cii-fnr-vnext.html loads served ui/app.js; app only enables Normal; app validate/apply/export call ui/writer.js, whose prior global PROPOSED/CONFLICT overlap rejection preceded admission. A2: unrelated B/C CONFLICT claims sharing one physical span blocked safe, separately approved A1/A2 nonoverlapping name aliases; Normal planner also emits duplicate ERROR diagnostic. A3: no overlapping approved claim, incomplete nonblank logical alias, blank physical mutation, forged byte/witness, stale hash, unauthorized scope, or Geometry partial group may pass; SOURCE/TARGET originals never changed. A4: native LF/CRLF + NORMAL/LINE_NODE tests added, with strict/isolate and unapproved modes, partial named aliases and unrelated withheld collisions; actual execution still NOT_RUN. A5: shared pure config-policy module and narrow writer/admission/UI wiring; no A2 planner changes, no legacy route changes.
+
+## Configuration contract
+`conflictPolicy: ISOLATE_UNRELATED | BLOCK_PLAN`, default `ISOLATE_UNRELATED`; `unapprovedPolicy: UNCHANGED | BLOCK_PLAN`, default `UNCHANGED`; `approvalMode: LOGICAL_NODE | INDIVIDUAL`, default `LOGICAL_NODE` (UI convenience only; does not weaken mandatory alias closure). Writer and admission use exactly the same pure `enforcePlanPolicy`. Isolate mode waives **only** a properly witnessed unapproved duplicate diagnostic at an actual pair of overlapping CONFLICT claims, not arbitrary ERROR diagnostics. All approved spans are checked against EVERY claim status. Strict mode vetoes a conflicted plan, and no policy weakens writer's physical/alias custody.
+
+Policy is per in-memory operation, not silently persisted. Config change revokes all tab plans, approvals, validated/applied bytes; asynchronous writer completions are revision-guarded. Audit JSON contains effective policy. Geometry remains fail-closed.
+
+## Source paths and test provenance
+Edited: source/served ui/app.js, ui/writer.js, ui/line-node-admission.js; added source/served ui/config-policy.js; edited docs/cii-fnr-vnext.html. Added tests/cii-fnr-vnext-config-policy.test.mjs. Existing tests retained. Original three source/served pair blob equality verified on retrieval; changed pairs authored byte-identically via identical content. No private CII source or golden results included. All changed blobs created from exact immutable GitHub API source, not generated diff fuzz.
+
+Environment: container HTTPS git checkout fails DNS resolution (`github.com` cannot be resolved). Thus canonical pre-edit `node utils/backup.cjs save` and local .agent-worklogs binary patch ledger could **not** be executed at this stage. Prior Git blob SHAs and branch parent commit preserve content for readback, but are NOT represented as compliant local pre-edit backups. **Repository recovery-policy deficiency UNWAIVED; explicit qualification required before acceptance.** No source tests, real browser, full native suite, CI, or privately custodied original tests have been executed by this author environment; do not call source/static parity a native PASS.
+
+## Risk and EXACT_NEXT_ACTION
+Highest risk: the Config conflict setting alters previous fail-closed writer behavior; an independent reviewer must verify against a clean full checkout, reconstruct canonical backups/ledger truthfully without retroactively claiming pre-edit execution, execute native new and inherited tests, verify served Chromium Config→Normal Validate→Apply→Export with real LF/CRLF and source/target custody, and challenge 14 known F01 mismatches. P1 policy scope and P2 writer/admission semantics require Oracle/Owner acceptance. Missing historical PR147 backup chronology and PR144 tracked .backups/log.json remain unwaived.
+
+**EXACT_NEXT_ACTION:** independent reviewer evaluates the exact new PR SHA including new config-policy regression, verifies policy+diagnostic fail-closed behavior and source/served parity in full checkout, records backups-policy disposition, and returns HOLD/PASS with observed evidence; Owner separately decides merge after other A2/A3 gates.

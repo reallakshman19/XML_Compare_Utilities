@@ -2,6 +2,7 @@
  * Independent of A2 planner and its evidence/alias metadata. Not wired to Apply.
  */
 import { parseCii, scanLines } from './physical.js';
+import { enforcePlanPolicy } from './config-policy.js';
 const fail = code => { throw new Error(code); };
 const printable = s => typeof s === 'string' && /^[\x20-\x7e]*$/.test(s);
 const key = (a, b) => `${a}:${b}`;
@@ -45,8 +46,11 @@ function logicalNameCustody(parsed) {
       const f = parsed.fields.find(field => field.pointer === element.pointer && field.fieldIdentity === identity);
       if (!f) fail('NODENAME_POINTER_OR_FIELD_MISSING');
       const span = fieldKey(f), id = String(logicalId);
-      if (!groups.has(id)) groups.set(id, new Map());
-      groups.get(id).set(span, f);
+      // Original blank fields have owners, but no mandatory named-alias membership.
+      if (f.before.trim()) {
+        if (!groups.has(id)) groups.set(id, new Map());
+        groups.get(id).set(span, f);
+      }
       const owners = fieldOwners.get(span) || [];
       owners.push({ id, elementIndex: element.index, endpoint, pointer: element.pointer });
       fieldOwners.set(span, owners);
@@ -79,7 +83,7 @@ function checkLineClaim(c, record) {
 }
 
 /** Returns independently authorized immutable field spans; NEVER patches TARGET0. */
-export async function admitLineNodeClaims({ original, plan, approvedIds, originalHash }) {
+export async function admitLineNodeClaims({ original, plan, approvedIds, originalHash, policy }) {
   if (!(original instanceof Uint8Array) || plan?.schema !== 'CiiFnrVnext.Proposals.v1' ||
       plan.incompleteSearch !== false || !Array.isArray(plan.claims) ||
       !Array.isArray(approvedIds) || approvedIds.length === 0 ||
@@ -89,6 +93,7 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
   const actualHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', original))]
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if (actualHash !== originalHash) fail('LINE_NODE_TARGET0_STALE');
+  try { enforcePlanPolicy(plan, approvedIds, policy); } catch (e) { if (e.message === 'CLAIM_OVERLAP_OR_UNSUPPORTED') fail('LINE_NODE_PLAN_COLLISION'); throw e; }
   const parsed = parseCii(original);
   const records = physicalElementRows(original, parsed);
   const linesBySpan = new Map(records.map(r => [key(r.byteStart, r.byteEnd), r]));
@@ -98,6 +103,8 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
   const claimsBySpan = new Map();
   for (const c of plan.claims) {
     if (!c || typeof c.id !== 'string' || !c.id || byId.has(c.id) ||
+        typeof c.ruleId !== 'string' || !c.ruleId ||
+        !c.evidence || typeof c.evidence !== 'object' || Array.isArray(c.evidence) ||
         !['PROPOSED','HOLD','CONFLICT','REJECTED'].includes(c.status) ||
         !Number.isSafeInteger(c.byteStart) || !Number.isSafeInteger(c.byteEnd) ||
         c.byteStart < 0 || c.byteEnd <= c.byteStart || c.byteEnd > original.length ||
@@ -128,10 +135,12 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
     } else if (c.section === 'NODENAME' && ['NODENAME_FROM','NODENAME_TO','NODENAME.FROM','NODENAME.TO'].includes(c.fieldIdentity)) {
       const canonicalIdentity = (c.fieldIdentity === 'NODENAME_FROM' || c.fieldIdentity === 'NODENAME.FROM') ? 'NODENAME.FROM' : 'NODENAME.TO';
       const field = custody.fields.get(span);
+      if (field && !field.before.trim()) fail('NODENAME_BLANK_PHYSICAL_EDIT_FORBIDDEN');
       if (!field || field.fieldIdentity !== canonicalIdentity ||
           field.before !== c.before || field.orphan || !c.after.trim() ||
           c.after !== c.after.trim().padEnd(c.after.length, ' ')) fail('NODENAME_PHYSICAL_CUSTODY_INVALID');
       const owners = custody.fieldOwners.get(span) || [];
+      if (field.shared || owners.length > 1) fail('NODENAME_SHARED_POINTER_FORBIDDEN');
       // One physical span must not alias two distinct logical IDs.
       if (!owners.length || new Set(owners.map(o=>o.id)).size !== 1) fail('NODENAME_SHARED_POINTER_IDENTITY_AMBIGUOUS');
       const actualWitnesses = new Set(owners.map(o=>{
