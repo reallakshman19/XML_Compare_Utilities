@@ -1,20 +1,26 @@
 import { planNormal } from '../normal/plan.js';
 import { sha256, validatePostimage } from './writer.js';
+import { parseCii } from './physical.js';
+import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
 
-const tabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
-const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry' };
+const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
+const tabs = [...workTabs, 'CONFIG'];
+const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', block: 'NODENAME' });
-let serial = 0, active = 'NORMAL', target = null, source = null;
-const states = Object.fromEntries(tabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
+let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
+let config = { ...DEFAULT_POLICY }, csvSeq = 0;
+const fileSeqs = { target: 0, source: 0 };
+const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
-const state = () => states[active];
+const state = () => states[active] || states.NORMAL;
 const message = (text) => { $('[data-status]').textContent = text; };
 
 function invalidate(s, reason = 'Changes revoked previous approvals and exports.') {
+  revision++; opSeq++;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
   if (s === state()) { renderResults(); message(reason); }
 }
@@ -25,11 +31,15 @@ function renderTabs() {
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
     button.classList.toggle('selected', selected);
   }
+  $('[data-workspace]').hidden = active === 'CONFIG';
+  $('[data-config-area]').hidden = active !== 'CONFIG';
+  for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
   $('[data-unavailable]').hidden = active === 'NORMAL';
   $('[data-run]').disabled = active !== 'NORMAL' || !target;
   $('[data-rows-area]').hidden = active !== 'NORMAL';
-  message(active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
+  message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
+    active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
     `${names[active]} awaits an independently delivered engine. No write authority exists.`);
 }
 function addSelect(td, field, entries, value) {
@@ -37,11 +47,7 @@ function addSelect(td, field, entries, value) {
   for (const [id, label] of entries) { const option = document.createElement('option'); option.value = id; option.textContent = label; el.append(option); }
   el.value = value; td.append(el);
 }
-const selects = {
-  mode: [['LITERAL','Literal'],['REGEX','Regex']],
-  field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']],
-  scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block']]
-};
+const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block']] };
 function renderRules() {
   const tbody = $('[data-rules]'); tbody.replaceChildren();
   for (const [i, rule] of state().rules.entries()) {
@@ -91,35 +97,63 @@ function safeError(err) {
   state().validated = null; state().applied = null; renderResults(); message('Validation blocked; no new copy may be exported.');
 }
 function approved() { return [...state().decisions].filter(([, v]) => v === 'APPROVED').map(([k]) => k); }
+function logicalNode(parsed, claim) {
+  if (claim?.section !== 'NODENAME') return null;
+  const field = parsed.fields.find(f => f.byteStart === claim.byteStart && f.byteEnd === claim.byteEnd &&
+    (f.fieldIdentity === claim.fieldIdentity || f.fieldIdentity.replace('.', '_') === claim.fieldIdentity));
+  if (!field || field.owners.length !== 1) return null;
+  const e = parsed.elements.find(e => e.witness === field.owners[0]);
+  return e ? String(field.fieldIdentity.endsWith('FROM') ? e.from : e.to) : null;
+}
+function decisionGroup(s, id) {
+  const c = s.plan?.claims.find(x => x.id === id);
+  if (config.approvalMode !== 'LOGICAL_NODE' || !target || !c || c.section !== 'NODENAME') return [id];
+  const parsed = parseCii(target.bytes), node = logicalNode(parsed, c);
+  if (node === null) return [id];
+  const siblings = s.plan.claims.filter(x => x.status === 'PROPOSED' && logicalNode(parsed, x) === node);
+  if (siblings.some(x => x.after.trim() !== c.after.trim())) throw new Error('LOGICAL_NODE_VALUES_CONFLICT');
+  return siblings.map(x => x.id);
+}
 async function generate() {
   const s = state(); invalidate(s, 'Computing scoped NODENAME proposals.');
   if (!target) { message('TARGET0 required'); return; }
+  const guard = revision, curTab = active, curCfg = config, op = ++opSeq;
+  const targetBytes = target.bytes, sourceBytes = source?.bytes, rules = currentRules();
   try {
-    const hash = await sha256(target.bytes);
-    s.plan = planNormal({ tab: 'NORMAL', targetBytes: target.bytes, originalTargetSha256: hash,
-      sourceBytes: source?.bytes, rules: currentRules(), options: {} });
-    s.diagnostics = []; renderResults();
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    const plan = planNormal({ tab: 'NORMAL', targetBytes, originalTargetSha256: hash, sourceBytes, rules, options: {} });
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    s.plan = plan; s.diagnostics = []; renderResults();
     message(`${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
 async function validate() {
-  const s = state(); s.validated = null; s.applied = null;
+  const s = state(), guard = revision, curTab = active, curCfg = config, op = ++opSeq;
+  s.validated = null; s.applied = null; renderResults();
+  if (!target || !s.plan) return;
+  const targetBytes = target.bytes, curApp = approved(), curPlan = s.plan;
   try {
-    if (s.plan?.diagnostics.some((d) => d.severity === 'ERROR')) throw new Error('RESOLVE_RULE_DIAGNOSTICS_FIRST');
-    s.validated = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
-    s.diagnostics = []; renderResults(); message('TARGET1 validated in memory. Apply to New Copy is now available.');
-  } catch (err) { safeError(err); }
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    s.validated = result; s.diagnostics = []; renderResults(); message('TARGET1 validated in memory. Apply to New Copy is now available.');
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
 async function apply() {
-  const s = state();
+  const s = state(), guard = revision, curTab = active, curCfg = config, op = ++opSeq;
+  if (!target || !s.validated || !s.plan) return;
+  const targetBytes = target.bytes, curApp = approved(), curPlan = s.plan, valSnap = s.validated;
+  s.applied = null; renderResults();
   try {
-    if (!s.validated) throw new Error('VALIDATE_BEFORE_APPLY');
-    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
-    if (result.target1Hash !== s.validated.target1Hash) throw new Error('VALIDATED_OUTPUT_STALE');
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    if (result.target1Hash !== valSnap.target1Hash) throw new Error('VALIDATED_OUTPUT_STALE');
     s.applied = result; renderResults(); message('TARGET1 released as an immutable new-copy preview. Export enabled.');
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
 function download(name, bytes, type) {
   const blob = new Blob([bytes], { type }); const href = URL.createObjectURL(blob);
@@ -127,14 +161,18 @@ function download(name, bytes, type) {
   setTimeout(() => URL.revokeObjectURL(href), 5000);
 }
 async function exportCii() {
+  const s = state(), guard = revision, curTab = active, curCfg = config, op = ++opSeq;
+  if (!target || !s.applied || !s.plan) return;
+  const targetBytes = target.bytes, targetName = target.name, curApp = approved(), curPlan = s.plan, appSnap = s.applied;
   try {
-    const s = state(); if (!s.applied) throw new Error('APPLY_REQUIRED');
-    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active });
-    if (result.target1Hash !== s.applied.target1Hash) throw new Error('EXPORT_STALE');
-    download(`${target.name.replace(/\.cii$/i, '')}-TARGET1.CII`, result.bytes, 'application/octet-stream');
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
+    if (result.target1Hash !== appSnap.target1Hash) throw new Error('EXPORT_STALE');
+    download(`${targetName.replace(/\.cii$/i, '')}-TARGET1.CII`, result.bytes, 'application/octet-stream');
     message(`Exported verified new copy ${result.target1Hash}`);
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
 function parseCsv(text) {
   const rows = []; let row = [], value = '', quote = false;
@@ -162,9 +200,24 @@ root.addEventListener('input', (event) => {
   invalidate(state());
 });
 root.addEventListener('change', (event) => {
+  const key = event.target.dataset.config;
+  if (key) {
+    try {
+      config = resolvePolicy({ ...config, [key]: event.target.value });
+      for (const s of Object.values(states)) invalidate(s);
+      renderTabs(); message('Policy changed. Regenerate and approve claims before Validate.');
+    } catch (err) { message(err.message); }
+    return;
+  }
   if (!event.target.dataset.decision) return;
-  const s = state(); s.decisions.set(event.target.dataset.decision, event.target.value);
-  s.validated = null; s.applied = null; renderResults(); message('Review decision changed. Revalidate before applying.');
+  const s = state();
+  try {
+    for (const id of decisionGroup(s, event.target.dataset.decision)) {
+      s.decisions.set(id, event.target.value);
+    }
+    revision++; opSeq++; s.validated = null; s.applied = null;
+    renderResults(); message('Review decision changed. Revalidate before applying.');
+  } catch (err) { safeError(err); }
 });
 root.addEventListener('paste', (event) => {
   const row = event.target.closest('[data-row-index]');
@@ -208,22 +261,37 @@ root.addEventListener('click', async (event) => {
   if (el.dataset.audit !== undefined && state().validated) {
     download('cii-vnext-audit.json', JSON.stringify({ schema: 'CiiFnrVnext.Audit.v1',
       target0: state().validated.originalHash, target1: state().validated.target1Hash,
-      claims: state().validated.audit, decisions: [...state().decisions] }, null, 2), 'application/json');
+      claims: state().validated.audit, policy: state().validated.policy,
+      decisions: [...state().decisions] }, null, 2), 'application/json');
   }
 });
 for (const field of ['target', 'source']) {
   $(`[data-file="${field}"]`).addEventListener('change', async (event) => {
-    const file = event.target.files?.[0]; if (!file) return;
-    const snapshot = { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
-    if (field === 'target') target = snapshot; else source = snapshot;
-    for (const s of Object.values(states)) invalidate(s);
-    $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${await sha256(snapshot.bytes)}`;
+    const file = event.target.files?.[0], req = ++fileSeqs[field];
+    if (field === 'target') target = null; else source = null;
+    for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
+    $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
     renderTabs(); renderResults();
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer(); if (req !== fileSeqs[field]) return;
+      const snapshot = { name: file.name, bytes: new Uint8Array(buf) };
+      const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
+      if (field === 'target') target = snapshot; else source = snapshot;
+      for (const s of Object.values(states)) invalidate(s);
+      $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
+      renderTabs(); renderResults();
+    } catch (err) { if (req === fileSeqs[field]) safeError(err); }
   });
 }
 $('[data-file="csv"]').addEventListener('change', async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
-  try { state().rules = parseCsv(await file.text()); invalidate(state()); renderRules();
-    message(`Imported ${state().rules.length} CSV rows.`); } catch (err) { safeError(err); }
+  const req = ++csvSeq, targetTab = active, s = state(), guard = revision, curCfg = config;
+  try {
+    const text = await file.text();
+    if (req !== csvSeq || active !== targetTab || guard !== revision || config !== curCfg) return;
+    s.rules = parseCsv(text); invalidate(s); renderRules();
+    message(`Imported ${s.rules.length} CSV rows.`);
+  } catch (err) { if (req === csvSeq && active === targetTab && guard === revision && config === curCfg) safeError(err); }
 });
 renderTabs(); renderRules(); renderResults();

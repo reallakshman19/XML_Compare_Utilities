@@ -8,6 +8,8 @@ export function enforceNormalNodeClosure(parsed, approvedClaims) {
   const bySpan = new Map(parsed.fields.map(f => [span(f), f]));
   const byNode = new Map(), touched = new Map();
   for (const field of parsed.fields) {
+    // TARGET0 blank physical names are not aliases, and must remain unchanged.
+    if (!field.before.trim()) continue;
     for (const witness of field.owners) {
       const element = byWitness.get(witness);
       if (!element) bad('NORMAL_NODE_OWNER_INVALID');
@@ -19,6 +21,7 @@ export function enforceNormalNodeClosure(parsed, approvedClaims) {
   for (const claim of approvedClaims) {
     if (claim.section !== 'NODENAME') continue;
     const field = bySpan.get(span(claim));
+    if (field && !field.before.trim()) bad('NODENAME_BLANK_PHYSICAL_EDIT_FORBIDDEN');
     if (!field || field.fieldIdentity !== claim.fieldIdentity || field.owners.length !== 1) {
       bad('NORMAL_NODE_FIELD_AMBIGUOUS');
     }
