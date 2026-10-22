@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 2,
-  "lastId": 94,
+  "lastId": 89,
   "entries": [
     {
       "id": 1,
@@ -624,51 +623,6 @@
       "file": ".backups\\log.json",
       "context": "post-pull-68e004b-57-commits-merged",
       "backupFile": "89__backups_log_json.bak"
-    },
-    {
-      "id": 90,
-      "timestamp": "2026-10-21 05:58:03",
-      "file": "tabs\\cii-workspace\\cii-fnr-vnext\\ui\\writer.js",
-      "context": "Plan to enforce line-node admission closure in validatePostimage",
-      "backupFile": "tabs__cii-workspace__cii-fnr-vnext__ui__writer.js_21_10_26_05_58.bak",
-      "bytes": 4399,
-      "sha256": "ba9b05001ccd4589f80c47a0343785ca43a74c6bc18625c608d0ff8f072c15cb"
-    },
-    {
-      "id": 91,
-      "timestamp": "2026-10-21 05:58:03",
-      "file": "tabs\\cii-workspace\\cii-fnr-vnext\\ui\\line-node-admission.js",
-      "context": "Plan to support both A1 and A2 fieldIdentity and element witness formats in admission",
-      "backupFile": "tabs__cii-workspace__cii-fnr-vnext__ui__line-node-admission.js_21_10_26_05_58.bak",
-      "bytes": 9577,
-      "sha256": "e51b6e98e3d333fbac6d81f87e896ad5ececc9cfe8c120e2958e4ef7b623e053"
-    },
-    {
-      "id": 92,
-      "timestamp": "2026-10-21 05:58:03",
-      "file": "docs\\tabs\\cii-workspace\\cii-fnr-vnext\\ui\\writer.js",
-      "context": "Plan to keep served docs mirror in sync with tabs writer.js",
-      "backupFile": "docs__tabs__cii-workspace__cii-fnr-vnext__ui__writer.js_21_10_26_05_58.bak",
-      "bytes": 4399,
-      "sha256": "ba9b05001ccd4589f80c47a0343785ca43a74c6bc18625c608d0ff8f072c15cb"
-    },
-    {
-      "id": 93,
-      "timestamp": "2026-10-21 05:58:03",
-      "file": "docs\\tabs\\cii-workspace\\cii-fnr-vnext\\ui\\line-node-admission.js",
-      "context": "Plan to keep served docs mirror in sync with tabs line-node-admission.js",
-      "backupFile": "docs__tabs__cii-workspace__cii-fnr-vnext__ui__line-node-admission.js_21_10_26_05_58.bak",
-      "bytes": 9577,
-      "sha256": "e51b6e98e3d333fbac6d81f87e896ad5ececc9cfe8c120e2958e4ef7b623e053"
-    },
-    {
-      "id": 94,
-      "timestamp": "2026-10-21 05:58:03",
-      "file": "tests\\cii-fnr-vnext-a1-line-node-admission.test.mjs",
-      "context": "Plan to add reviewer partial-approval fail-closed test and complete-approval control test",
-      "backupFile": "tests__cii-fnr-vnext-a1-line-node-admission.test.mjs_21_10_26_05_58.bak",
-      "bytes": 5440,
-      "sha256": "0ce58c1c4ce9482928a4a2c14e5932d8f48f777d03d40eb408d65cebcc01d7d4"
     }
   ]
 }
