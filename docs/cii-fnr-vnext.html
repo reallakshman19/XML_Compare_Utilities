@@ -9,7 +9,9 @@
 <nav class="tabs" role="tablist" aria-label="Find and Replace mode">
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">Normal Find &amp; Replace</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
-<button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button></nav>
+<button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
+<button type="button" role="tab" aria-selected="false" data-tab="CONFIG">Config</button></nav>
+<div data-workspace>
 <section aria-label="Input files" class="intake">
 <div class="card"><label>TARGET0 CII <input type="file" accept=".cii" data-file="target"></label><p class="meta" data-meta="target">No target loaded.</p></div>
 <div class="card"><label>SOURCE CII (optional for Tab 1) <input type="file" accept=".cii" data-file="source"></label><p class="meta" data-meta="source">No source loaded.</p></div>
@@ -35,5 +37,26 @@
 <button data-export disabled>3 · Export TARGET1.CII</button><button data-audit disabled>Export audit JSON</button></div>
 <p class="status" aria-live="polite" data-status>Load TARGET0 to begin.</p>
 <p class="hash">Validated TARGET1 SHA-256: <output data-hash1>—</output></p></section>
+</div>
+<section class="card" data-config-area hidden aria-label="Conflict and approval configuration">
+<h2>Config · Review &amp; conflict policy</h2>
+<p>These settings apply to the current in-memory operation. Changing any setting revokes all existing plans, approvals, validation, and exports.</p>
+<div class="intake">
+<div class="card"><label>Unapproved conflicts
+<select data-config="conflictPolicy">
+<option value="ISOLATE_UNRELATED">Isolate unrelated conflicts</option>
+<option value="BLOCK_PLAN">Strict: block entire plan</option>
+</select></label><p class="hint">An approved claim may never overlap any other claim.</p></div>
+<div class="card"><label>Unapproved claims
+<select data-config="unapprovedPolicy">
+<option value="UNCHANGED">Keep original fields unchanged</option>
+<option value="BLOCK_PLAN">Block if any claim is unapproved</option>
+</select></label><p class="hint">Withheld claims never modify TARGET0 or TARGET1.</p></div>
+<div class="card"><label>Approval interaction
+<select data-config="approvalMode">
+<option value="LOGICAL_NODE">Group matching logical-node proposals</option>
+<option value="INDIVIDUAL">Individual selection (alias checks mandatory)</option>
+</select></label><p class="hint">Partial nonblank node aliases, blank-name filling, bad witnesses, stale hashes, and non-atomic Geometry always fail.</p></div>
+</div></section>
 </main><script type="module" src="./tabs/cii-workspace/cii-fnr-vnext/ui/app.js"></script>
 </body></html>

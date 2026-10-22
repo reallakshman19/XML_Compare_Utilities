@@ -2,6 +2,7 @@
 import { parseCii, sameStructure } from './physical.js';
 import { admitLineNodeClaims } from './line-node-admission.js';
 import { enforceNormalNodeClosure } from './normal-node-closure.js';
+import { enforcePlanPolicy } from './config-policy.js';
 const invalid = (reason) => { throw new Error(reason); };
 const hex = (digest) => [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
 export async function sha256(bytes) {
@@ -11,7 +12,7 @@ export async function sha256(bytes) {
 const ascii = (s) => { if (typeof s !== 'string' || /[^\x20-\x7e]/.test(s)) invalid('CLAIM_NON_ASCII'); return Uint8Array.from(s, (ch) => ch.charCodeAt(0)); };
 const equal = (a, b) => a.length === b.length && a.every((c, i) => c === b[i]);
 
-export async function validatePostimage({ original, originalHash, plan, approvedIds, tab = 'NORMAL' }) {
+export async function validatePostimage({ original, originalHash, plan, approvedIds, tab = 'NORMAL', policy }) {
   if (!(original instanceof Uint8Array) || !Array.isArray(plan?.claims) ||
       !Array.isArray(approvedIds) || !['NORMAL', 'LINE_NODE', 'GEOMETRY'].includes(tab) ||
       plan?.schema !== 'CiiFnrVnext.Proposals.v1' || plan?.incompleteSearch !== false ||
@@ -23,19 +24,14 @@ export async function validatePostimage({ original, originalHash, plan, approved
   if (!approved.size) invalid('EXPLICIT_APPROVAL_REQUIRED');
   if (!plan.claims.every((c) => c && typeof c.id === 'string' && typeof c.ruleId === 'string' && c.evidence && typeof c.evidence === 'object' &&
        !Array.isArray(c.evidence) && ['PROPOSED', 'HOLD', 'CONFLICT', 'REJECTED'].includes(c.status))) invalid('CLAIM_SCHEMA_INVALID');
-  if ((plan.diagnostics || []).some((d) => d.severity === 'ERROR')) invalid('PLAN_HAS_BLOCKING_DIAGNOSTICS');
-  const allRanges = plan.claims.filter((c) => c.status === 'PROPOSED' || c.status === 'CONFLICT')
-    .sort((a, b) => a.byteStart - b.byteStart);
-  for (let i = 1; i < allRanges.length; i++) {
-    if (allRanges[i].byteStart < allRanges[i - 1].byteEnd) invalid('CLAIM_OVERLAP_OR_UNSUPPORTED');
-  }
+  const effectivePolicy = enforcePlanPolicy(plan, approvedIds, policy);
   const claimIds = new Set(plan.claims.map((c) => c.id));
   if (claimIds.size !== plan.claims.length || [...approved].some((id) => !claimIds.has(id))) invalid('CLAIM_ID_DUPLICATE_OR_UNKNOWN');
 
   const isLineNode = tab === 'LINE_NODE' || plan.tab === 'LINE_NODE' ||
     plan.claims.some((c) => c?.fieldIdentity === 'LINE_NUMBER' || c?.fieldIdentity === 'NODENAME_FROM' || c?.fieldIdentity === 'NODENAME_TO');
   if (isLineNode) {
-    await admitLineNodeClaims({ original, plan, approvedIds, originalHash });
+    await admitLineNodeClaims({ original, plan, approvedIds, originalHash, policy: effectivePolicy });
   }
 
   const parsed = parseCii(original);
@@ -77,7 +73,7 @@ export async function validatePostimage({ original, originalHash, plan, approved
   const changed = new Set();
   for (const c of changes) for (let i = c.byteStart; i < c.byteEnd; i++) changed.add(i);
   for (let i = 0; i < original.length; i++) if (original[i] !== output[i] && !changed.has(i)) invalid('UNAUTHORIZED_BYTE_CHANGE');
-  return { bytes: output, originalHash, target1Hash: await sha256(output),
+  return { bytes: output, originalHash, policy: effectivePolicy, target1Hash: await sha256(output),
     audit: changes.map(({ id, ruleId, fieldIdentity, byteStart, byteEnd, before, after, targetElementWitness }) =>
       ({ id, ruleId, fieldIdentity, byteStart, byteEnd, before, after, targetElementWitness })) };
 }
