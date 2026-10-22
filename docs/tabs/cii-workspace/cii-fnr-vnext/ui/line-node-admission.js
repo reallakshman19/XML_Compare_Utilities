@@ -93,7 +93,7 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
   const actualHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', original))]
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if (actualHash !== originalHash) fail('LINE_NODE_TARGET0_STALE');
-  if (policy !== undefined) enforcePlanPolicy(plan, approvedIds, policy);
+  try { enforcePlanPolicy(plan, approvedIds, policy); } catch (e) { if (e.message === 'CLAIM_OVERLAP_OR_UNSUPPORTED') fail('LINE_NODE_PLAN_COLLISION'); throw e; }
   const parsed = parseCii(original);
   const records = physicalElementRows(original, parsed);
   const linesBySpan = new Map(records.map(r => [key(r.byteStart, r.byteEnd), r]));
