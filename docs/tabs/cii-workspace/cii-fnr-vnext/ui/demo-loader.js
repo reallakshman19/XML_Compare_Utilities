@@ -78,4 +78,4 @@ export function installDemoLoader(root = document.querySelector('[data-vnext-app
   });
 }
 
-installDemoLoader();
+if (typeof document !== 'undefined') installDemoLoader();
