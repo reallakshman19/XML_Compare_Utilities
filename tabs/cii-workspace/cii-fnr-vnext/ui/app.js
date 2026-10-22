@@ -192,8 +192,7 @@ function parseCsv(text) {
   const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x)); const branch = headers.findIndex((x) => x === 'branch');
   if (find < 0 || replace < 0) throw new Error('CSV_FIND_REPLACE_HEADERS_REQUIRED');
   return rows.map((v) => ({ ...blank(), find: v[find] || '', replace: v[replace] || '',
-    branch: branch >= 0 ? (v[branch] || '').trim() : '',
-    scope: branch >= 0 && (v[branch] || '').trim() ? 'BRANCH' : 'DOCUMENT' }));
+    branch: branch >= 0 ? (v[branch] || '').trim() : '', scope: branch >= 0 && (v[branch] || '').trim() ? 'BRANCH' : 'DOCUMENT' }));
 }
 root.addEventListener('input', (event) => {
   const field = event.target.dataset.field, row = event.target.closest('[data-row-index]');
