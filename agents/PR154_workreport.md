@@ -1,8 +1,9 @@
-# WIP-CIIFR-F02-P2-REPAIR-20261022 — Bounded corrective repair for PR #150
+# PR154 — Bounded corrective repair for PR #150 (F02 async lifecycle & P2 admission parity)
 
 **STATE:** DRAFT / HOLD. Corrective successor targeted to PR #150's branch `wip/cii-fnr-vnext/config-conflict-policy-20261021-gpt6`. Stacked on PR #150 HEAD `19c3cdf1c6d0b666637406ff6dab615f05ae61f7`. PR #150 remains intact, draft, unmerged. No production deployment.
 
 ## Authority, scope and identity
+- PR URL: https://github.com/reallakshman19/XML_Compare_Utilities/pull/154
 - Performer: Antigravity agent `c3917ee8`, running in a full Git checkout with Node `v22.23.2` on Windows 11.
 - Authority: Owner restart words (CoordinatorLandingpage #1 comment 6321391687) and Oracle O2 handoff on issue #153 (comment 6322554084).
 - Scope: Narrow corrective repair addressing confirmed review #152 failure surfaces:
@@ -56,4 +57,4 @@
 - Risk: Residual async races in third-party file pickers or browser-specific drag-and-drop implementations.
 - Falsifier: In an active browser session with network-throttled or delayed SHA calculation, executing Generate followed by Config change within 50ms produces >0 proposals or stale diagnostic warnings.
 
-**EXACT_NEXT_ACTION:** Oracle adversarial re-review of successor draft PR; Owner explicit disposition of PR150 historical pre-edit backup chronology. Successor PR stays DRAFT/HOLD.
+**EXACT_NEXT_ACTION:** Oracle adversarial re-review of successor draft PR #154; Owner explicit disposition of PR150 historical pre-edit backup chronology. Successor PR stays DRAFT/HOLD.
