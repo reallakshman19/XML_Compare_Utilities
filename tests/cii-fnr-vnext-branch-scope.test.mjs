@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
+import { createTestDom } from './helpers/vnext-dom-env.mjs';
 import { parseCii } from '../tabs/cii-workspace/cii-fnr-vnext/ui/physical.js';
 import { planNormal } from '../tabs/cii-workspace/cii-fnr-vnext/normal/plan.js';
 import { sha256, validatePostimage } from '../tabs/cii-workspace/cii-fnr-vnext/ui/writer.js';
@@ -125,4 +126,18 @@ test('served and source modules are byte-identical after branch integration', as
     const served = await readFile(new URL('../docs/tabs/cii-workspace/cii-fnr-vnext/' + path, import.meta.url));
     assert.deepEqual(source, served, path);
   }
+});
+
+test('quoted CSV Branch column imports exact branch into Normal rule scope', async () => {
+  const dom = createTestDom();
+  await import('../tabs/cii-workspace/cii-fnr-vnext/ui/app.js?branch-csv=' + Date.now());
+  const quoted = '"' + B2.replace(/"/g, '""') + '"';
+  dom.csvFile.files = [{
+    name: 'demo-branch.csv',
+    text: async () => 'Find,Replace,Branch\r\nPS00608.1,PS-4108,' + quoted + '\r\n'
+  }];
+  await dom.csvFile.dispatchEvent({ type: 'change', target: dom.csvFile });
+  assert.equal(dom.root.querySelector('[data-field="scope"]').value, 'BRANCH');
+  assert.equal(dom.root.querySelector('[data-field="branch"]').value, B2);
+  assert.match(dom.status.textContent, /Imported 1 CSV rows/);
 });
