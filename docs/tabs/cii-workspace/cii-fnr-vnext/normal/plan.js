@@ -78,7 +78,8 @@ export function planNormal(request) {
         claims.push({ id: `${ruleId}:${field.byteStart}:${field.byteEnd}`, ruleId,
           targetElementWitness: field.owners[0], section: 'NODENAME', fieldIdentity: field.fieldIdentity,
           byteStart: field.byteStart, byteEnd: field.byteEnd, before: field.before, after,
-          evidence: { matchCount: result.count, scope: rule.scope || 'DOCUMENT', pointer: field.pointer }, status: 'PROPOSED' });
+          evidence: { matchCount: result.count, scope: rule.scope || 'DOCUMENT', pointer: field.pointer,
+            ...(rule.scope === 'BRANCH' ? { branch: rule.branch } : {}) }, status: 'PROPOSED' });
       }
       if (!count) diagnostics.push({ severity: 'INFO', code: 'ZERO_MATCHES', ruleId });
       observations.push({ ruleId, matches: count });
