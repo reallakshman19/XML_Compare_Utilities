@@ -9,7 +9,8 @@ const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node 
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0;
-let config = { ...DEFAULT_POLICY };
+let config = { ...DEFAULT_POLICY }, csvSeq = 0;
+const fileSeqs = { target: 0, source: 0 };
 const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
@@ -120,34 +121,42 @@ function decisionGroup(s, id) {
 async function generate() {
   const s = state(); invalidate(s, 'Computing scoped NODENAME proposals.');
   if (!target) { message('TARGET0 required'); return; }
+  const guard = revision, curTab = active, curCfg = config;
+  const targetBytes = target.bytes, sourceBytes = source?.bytes, rules = currentRules();
   try {
-    const hash = await sha256(target.bytes);
-    s.plan = planNormal({ tab: 'NORMAL', targetBytes: target.bytes, originalTargetSha256: hash,
-      sourceBytes: source?.bytes, rules: currentRules(), options: {} });
-    s.diagnostics = []; renderResults();
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    const plan = planNormal({ tab: 'NORMAL', targetBytes, originalTargetSha256: hash, sourceBytes, rules, options: {} });
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    s.plan = plan; s.diagnostics = []; renderResults();
     message(`${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg) safeError(err); }
 }
 async function validate() {
-  const s = state(), guard = revision; s.validated = null; s.applied = null;
+  const s = state(), guard = revision, curTab = active, curCfg = config;
+  s.validated = null; s.applied = null;
+  if (!target || !s.plan) return;
+  const targetBytes = target.bytes, curApp = approved(), curPlan = s.plan;
   try {
-    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
-    if (guard !== revision) return;
-    s.validated = result;
-    s.diagnostics = []; renderResults(); message('TARGET1 validated in memory. Apply to New Copy is now available.');
-  } catch (err) { safeError(err); }
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    s.validated = result; s.diagnostics = []; renderResults(); message('TARGET1 validated in memory. Apply to New Copy is now available.');
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg) safeError(err); }
 }
 async function apply() {
-  const s = state(), guard = revision;
+  const s = state(), guard = revision, curTab = active, curCfg = config;
+  if (!target || !s.validated || !s.plan) return;
+  const targetBytes = target.bytes, curApp = approved(), curPlan = s.plan, valSnap = s.validated;
   try {
-    if (!s.validated) throw new Error('VALIDATE_BEFORE_APPLY');
-    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
-    if (guard !== revision) return;
-    if (result.target1Hash !== s.validated.target1Hash) throw new Error('VALIDATED_OUTPUT_STALE');
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    if (result.target1Hash !== valSnap.target1Hash) throw new Error('VALIDATED_OUTPUT_STALE');
     s.applied = result; renderResults(); message('TARGET1 released as an immutable new-copy preview. Export enabled.');
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg) safeError(err); }
 }
 function download(name, bytes, type) {
   const blob = new Blob([bytes], { type }); const href = URL.createObjectURL(blob);
@@ -155,15 +164,18 @@ function download(name, bytes, type) {
   setTimeout(() => URL.revokeObjectURL(href), 5000);
 }
 async function exportCii() {
+  const s = state(), guard = revision, curTab = active, curCfg = config;
+  if (!target || !s.applied || !s.plan) return;
+  const targetBytes = target.bytes, targetName = target.name, curApp = approved(), curPlan = s.plan, appSnap = s.applied;
   try {
-    const s = state(), guard = revision; if (!s.applied) throw new Error('APPLY_REQUIRED');
-    const result = await validatePostimage({ original: target.bytes, originalHash: await sha256(target.bytes),
-      plan: s.plan, approvedIds: approved(), tab: active, policy: config });
-    if (guard !== revision) return;
-    if (result.target1Hash !== s.applied.target1Hash) throw new Error('EXPORT_STALE');
-    download(`${target.name.replace(/\.cii$/i, '')}-TARGET1.CII`, result.bytes, 'application/octet-stream');
+    const hash = await sha256(targetBytes);
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    const result = await validatePostimage({ original: targetBytes, originalHash: hash, plan: curPlan, approvedIds: curApp, tab: curTab, policy: curCfg });
+    if (guard !== revision || curTab !== active || config !== curCfg) return;
+    if (result.target1Hash !== appSnap.target1Hash) throw new Error('EXPORT_STALE');
+    download(`${targetName.replace(/\.cii$/i, '')}-TARGET1.CII`, result.bytes, 'application/octet-stream');
     message(`Exported verified new copy ${result.target1Hash}`);
-  } catch (err) { safeError(err); }
+  } catch (err) { if (guard === revision && curTab === active && config === curCfg) safeError(err); }
 }
 function parseCsv(text) {
   const rows = []; let row = [], value = '', quote = false;
@@ -259,16 +271,25 @@ root.addEventListener('click', async (event) => {
 for (const field of ['target', 'source']) {
   $(`[data-file="${field}"]`).addEventListener('change', async (event) => {
     const file = event.target.files?.[0]; if (!file) return;
-    const snapshot = { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
-    if (field === 'target') target = snapshot; else source = snapshot;
-    for (const s of Object.values(states)) invalidate(s);
-    $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${await sha256(snapshot.bytes)}`;
-    renderTabs(); renderResults();
+    const req = ++fileSeqs[field];
+    try {
+      const buf = await file.arrayBuffer(); if (req !== fileSeqs[field]) return;
+      const snapshot = { name: file.name, bytes: new Uint8Array(buf) };
+      const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
+      if (field === 'target') target = snapshot; else source = snapshot;
+      for (const s of Object.values(states)) invalidate(s);
+      $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
+      renderTabs(); renderResults();
+    } catch (err) { if (req === fileSeqs[field]) safeError(err); }
   });
 }
 $('[data-file="csv"]').addEventListener('change', async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
-  try { state().rules = parseCsv(await file.text()); invalidate(state()); renderRules();
-    message(`Imported ${state().rules.length} CSV rows.`); } catch (err) { safeError(err); }
+  const req = ++csvSeq;
+  try {
+    const text = await file.text(); if (req !== csvSeq) return;
+    state().rules = parseCsv(text); invalidate(state()); renderRules();
+    message(`Imported ${state().rules.length} CSV rows.`);
+  } catch (err) { if (req === csvSeq) safeError(err); }
 });
 renderTabs(); renderRules(); renderResults();

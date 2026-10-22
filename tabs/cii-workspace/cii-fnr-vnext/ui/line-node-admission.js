@@ -93,7 +93,7 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
   const actualHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', original))]
     .map(v=>v.toString(16).padStart(2,'0')).join('');
   if (actualHash !== originalHash) fail('LINE_NODE_TARGET0_STALE');
-  enforcePlanPolicy(plan, approvedIds, policy);
+  if (policy !== undefined) enforcePlanPolicy(plan, approvedIds, policy);
   const parsed = parseCii(original);
   const records = physicalElementRows(original, parsed);
   const linesBySpan = new Map(records.map(r => [key(r.byteStart, r.byteEnd), r]));
@@ -103,6 +103,8 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
   const claimsBySpan = new Map();
   for (const c of plan.claims) {
     if (!c || typeof c.id !== 'string' || !c.id || byId.has(c.id) ||
+        typeof c.ruleId !== 'string' || !c.ruleId ||
+        !c.evidence || typeof c.evidence !== 'object' || Array.isArray(c.evidence) ||
         !['PROPOSED','HOLD','CONFLICT','REJECTED'].includes(c.status) ||
         !Number.isSafeInteger(c.byteStart) || !Number.isSafeInteger(c.byteEnd) ||
         c.byteStart < 0 || c.byteEnd <= c.byteStart || c.byteEnd > original.length ||
@@ -138,6 +140,7 @@ export async function admitLineNodeClaims({ original, plan, approvedIds, origina
           field.before !== c.before || field.orphan || !c.after.trim() ||
           c.after !== c.after.trim().padEnd(c.after.length, ' ')) fail('NODENAME_PHYSICAL_CUSTODY_INVALID');
       const owners = custody.fieldOwners.get(span) || [];
+      if (field.shared || owners.length > 1) fail('NODENAME_SHARED_POINTER_FORBIDDEN');
       // One physical span must not alias two distinct logical IDs.
       if (!owners.length || new Set(owners.map(o=>o.id)).size !== 1) fail('NODENAME_SHARED_POINTER_IDENTITY_AMBIGUOUS');
       const actualWitnesses = new Set(owners.map(o=>{
