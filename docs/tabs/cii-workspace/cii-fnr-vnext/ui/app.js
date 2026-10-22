@@ -189,8 +189,7 @@ function parseCsv(text) {
   row.push(value); if (row.some((s) => s.trim())) rows.push(row);
   const headers = (rows.shift() || []).map((x) => x.trim().toLowerCase());
   const find = headers.findIndex((x) => ['find', 'findtext'].includes(x));
-  const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x));
-  const branch = headers.findIndex((x) => x === 'branch');
+  const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x)); const branch = headers.findIndex((x) => x === 'branch');
   if (find < 0 || replace < 0) throw new Error('CSV_FIND_REPLACE_HEADERS_REQUIRED');
   return rows.map((v) => ({ ...blank(), find: v[find] || '', replace: v[replace] || '',
     branch: branch >= 0 ? (v[branch] || '').trim() : '',
