@@ -16,10 +16,35 @@ test('editable Preview uses a fixed viewport with an explicit vertical scrollbar
   assert.match(wrap, /scrollbar-gutter:\s*stable/);
   assert.match(wrap, /scrollbar-color:/);
   assert.match(css, /\.ciifr-sheet-wrap::\-webkit-scrollbar/);
-  assert.match(tab, /cii-workspace-find-replace\.css\?v=20260904-padded-find-scroll-1/);
+  assert.match(tab, /cii-workspace-find-replace\.css\?v=20261024-ciifr-outer-scroll-1/);
   assert.match(tab, /cii-workspace-find-replace-ui\.js\?v=20260904-padded-find-scroll-1/);
   assert.match(tab, /if \(existing\.href !== href\) existing\.href = href/);
   assert.match(panel, /fixed-height table with a dedicated vertical scrollbar/);
+});
+
+
+test('V14 modal scrolls its full page in the fixed overlay while retaining the independent editor scrollbar', () => {
+  const workspace = css.match(/\.ciifr-workspace\s*\{([\s\S]*?)\}/)?.[1] || '';
+  const main = css.match(/\.ciifr-main\s*\{([\s\S]*?)\}/)?.[1] || '';
+  const header = css.match(/\.ciifr-header\s*\{([\s\S]*?)\}/)?.[1] || '';
+  assert.match(workspace, /position:\s*absolute/);
+  assert.match(workspace, /inset:\s*0/);
+  assert.match(workspace, /height:\s*100%/);
+  assert.match(workspace, /min-height:\s*0/);
+  assert.match(header, /flex:\s*0 0 auto/);
+  assert.match(main, /flex:\s*1 1 auto/);
+  assert.match(main, /min-height:\s*0/);
+  assert.match(main, /overflow-y:\s*scroll/);
+  assert.match(main, /scrollbar-gutter:\s*stable/);
+  assert.match(main, /overscroll-behavior-y:\s*contain/);
+  assert.match(css, /\.ciifr-main::\-webkit-scrollbar/);
+  assert.match(panel, /class="ciifr-main"/);
+  assert.match(panel, /class="ciifr-sheet-wrap"/);
+
+  const shippedCss = fs.readFileSync(new URL('../docs/tabs/cii-workspace/cii-workspace-find-replace.css', import.meta.url), 'utf8');
+  const shippedTab = fs.readFileSync(new URL('../docs/tabs/cii-workspace/cii-workspace-tab.js', import.meta.url), 'utf8');
+  assert.equal(shippedCss, css, 'GitHub Pages uses the identical scoped CSS');
+  assert.match(shippedTab, /cii-workspace-find-replace\.css\?v=20261024-ciifr-outer-scroll-1/);
 });
 
 test('qualification KPI is neutral before validation and explicit after validation attempts', () => {
