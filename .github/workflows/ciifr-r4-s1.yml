@@ -1,0 +1,31 @@
+name: CIIFR R4 S1 synthetic gate
+on:
+  pull_request:
+    paths:
+      - "prototypes/ciifr-r4/**"
+      - ".github/workflows/ciifr-r4-s1.yml"
+  workflow_dispatch:
+jobs:
+  synthetic-roundtrip:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.13']
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: prototypes/ciifr-r4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build invented fixture
+        run: python fixtures/make_synthetic.py
+      - name: Run S1 test suite
+        run: python -m unittest discover -s tests -v
+      - name: CII to XMLv2 roundtrip
+        run: python -m ciifr_r4 --input fixtures/synthetic_two_span.cii --out scratch-ci
+      - name: XML-only with independently pinned original hash and bytes
+        run: python -m ciifr_r4 --xml scratch-ci/model.xmlv2.xml --expected-sha256 9d07578793df16ec48c3a41b4bb2d82016b84b853c0ba03bfa57e3d76cbd79eb --expected-bytes 12051 --out scratch-xml
