@@ -1,0 +1,95 @@
+{
+  "scope": "all archive payload members except this manifest itself",
+  "files": [
+    {
+      "path": "00-READ-FIRST-HOLD.md",
+      "bytes": 1534,
+      "sha256": "352846b04a84d079cdc60d68848e8c6a6abf2c17652a40c566c4529aa6cd9a78"
+    },
+    {
+      "path": "PACKAGE-STATUS.json",
+      "bytes": 632,
+      "sha256": "7eba935aa0770eee85ebf7fdc395c756ae482dcd613c5224732f4fa18376aad7"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2759,
+      "sha256": "f7eb00aff2b7de5d8d19feebd8e56e4d63a1c3db5edf800e4a83a570e117bee9"
+    },
+    {
+      "path": "SOURCE-MANIFEST.json",
+      "bytes": 621,
+      "sha256": "029b074e771f87ff12e3470c120d8ab14100237ff69a2396f5707deeedea64f2"
+    },
+    {
+      "path": "Start-XMLv2.cmd",
+      "bytes": 392,
+      "sha256": "775b4ae5172d0f50b4e35bf157bcc7378c20ca4534b171c7f107771de02697fa"
+    },
+    {
+      "path": "engine/cii_to_xmlv2.py",
+      "bytes": 773,
+      "sha256": "fd7e7b6419ff409741566ee20ecd3948cf4c909825a6969a274e7af3812a776c"
+    },
+    {
+      "path": "engine/engine.py",
+      "bytes": 38745,
+      "sha256": "b2bb8ed87440e46f72833424cacd82e6605c47f372f146deec749ad2bb0ee264"
+    },
+    {
+      "path": "engine/profile.py",
+      "bytes": 4856,
+      "sha256": "8d2c2123bce98a387d00a3aeca69c8e5dea6b3831e29f65e7760f6a5694204b2"
+    },
+    {
+      "path": "engine/validate_xmlv2.py",
+      "bytes": 489,
+      "sha256": "fd3cdaebf2b59ed3b4655382fd8ae4850fb89b8a930ee847bfaa1a9a3006fdd5"
+    },
+    {
+      "path": "engine/xmlv2_to_cii.py",
+      "bytes": 650,
+      "sha256": "2e262b74096aaa9a1b566f14cdbf5a2697b4183e5c64584179b42c2156072be8"
+    },
+    {
+      "path": "server.py",
+      "bytes": 4488,
+      "sha256": "00fd845b7e116575d96db3bef0bc7c191c85507bafbae26c502a54d30f3e7200"
+    },
+    {
+      "path": "service.py",
+      "bytes": 3220,
+      "sha256": "c8e1544fa6bb3116fc5830243d561d07d92ab8120363c2f49509d147be342836"
+    },
+    {
+      "path": "tests/encoding_smoke.py",
+      "bytes": 2907,
+      "sha256": "06feb80365b643b1cc73974f1c75a6171b9a3fce9791f4faff2730ed9b3a3f0c"
+    },
+    {
+      "path": "tests/smoke.py",
+      "bytes": 5343,
+      "sha256": "5c32c46debef594e885581056160f17f1fd6315f2dc978d28bb1a5f055541bb8"
+    },
+    {
+      "path": "web/app.js",
+      "bytes": 6682,
+      "sha256": "c46702a99ae35af150ffa53285ffb42ed5aa8e9ee8fb7062288d93ea9aa727d5"
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 3144,
+      "sha256": "1751d25ba72bf0a10a0107a939edebc8f86163864df99aec6f5d58a52cc9a3d6"
+    },
+    {
+      "path": "web/inspect.js",
+      "bytes": 2485,
+      "sha256": "9a660d87ff2410ede2b36df4cf5da8d51a505f96060fb5ad982c1ebbc0cac0b2"
+    },
+    {
+      "path": "web/styles.css",
+      "bytes": 5158,
+      "sha256": "9a58156fbd37de89f622ea4ac0dbf1a9e02b409ddff8a0bd98b384319c1980fc"
+    }
+  ]
+}
