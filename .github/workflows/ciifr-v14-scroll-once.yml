@@ -1,0 +1,68 @@
+name: One-time CIIFR V14 vertical-scroll qualification
+on:
+  push:
+    branches: [ci/ciifr-v14-scroll-once-20261024]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ciifr-v14-outer-scroll-20261024
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute source regression tests and real headless browser geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          node --test tests/cii-workspace-find-replace-scroll-export-ui.test.js tests/cii-workspace-find-replace-export-cache-lineage.test.js tests/cii-workspace-find-replace-ui-registration.test.js tests/cii-workspace-find-replace-workflow-status.test.js tests/cii-workspace-method-c-firebreak.test.js tests/cii-workspace-method-c-review-preflight.test.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { renderFindReplacePanel } from './tabs/cii-workspace/cii-workspace-find-replace.js';
+          const backdrop = fs.readFileSync('tabs/cii-workspace/cii-workspace.css','utf8');
+          const css = fs.readFileSync('tabs/cii-workspace/cii-workspace-find-replace.css','utf8');
+          const markup = renderFindReplacePanel();
+          const proofScript = `
+          const main=document.querySelector('.ciifr-main');
+          const sheet=document.querySelector('.ciifr-sheet-wrap');
+          const body=document.querySelector('[data-ciifr-preview-body]');
+          for(let n=0;n<35;n++){const tr=document.createElement('tr');tr.innerHTML='<td>row</td><td>value</td>';body.appendChild(tr)}
+          const heightBounded=main.clientHeight>50 && main.clientHeight<window.innerHeight;
+          const outerOverflow=main.scrollHeight>main.clientHeight;
+          const outerStyle=getComputedStyle(main);
+          const outerScrollable=outerOverflow && outerStyle.overflowY==='scroll';
+          main.scrollTop=0;sheet.scrollTop=sheet.scrollHeight;
+          const editorIndependent=sheet.scrollTop>0 && main.scrollTop===0;
+          main.scrollTop=main.scrollHeight;
+          const outerMoves=main.scrollTop>0;
+          const exportControl=document.querySelector('[data-ciifr-download]');
+          exportControl.scrollIntoView({block:'center'});
+          const bounds=exportControl.getBoundingClientRect();
+          const reachesExport=bounds.top>=0 && bounds.bottom<=window.innerHeight;
+          const header=document.querySelector('.ciifr-header').getBoundingClientRect();
+          const headerVisible=header.top>=0 && header.bottom<=window.innerHeight;
+          const result={heightBounded,outerScrollable,editorIndependent,outerMoves,reachesExport,headerVisible,viewport:window.innerHeight,mainHeight:main.clientHeight,mainScrollHeight:main.scrollHeight,sheetScrollHeight:sheet.scrollHeight};
+          const pre=document.createElement('pre');pre.id='ciifr-scroll-proof';pre.textContent=JSON.stringify(result);document.body.appendChild(pre);
+          `;
+          const html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{height:100%;margin:0;overflow:hidden}'+backdrop+'\n'+css+'</style></head><body><div class="ciiw-backdrop"><div>'+markup+'</div></div><script>'+proofScript+'</script></body></html>';
+          fs.writeFileSync('/tmp/ciifr-v14-scroll-smoke.html',html);
+          NODE
+          CHROME=$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)
+          if [ -z "$CHROME" ]; then echo 'Chrome binary not available for real layout check'; exit 1; fi
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=1280,720 --virtual-time-budget=2000 --dump-dom file:///tmp/ciifr-v14-scroll-smoke.html > /tmp/ciifr-v14-scroll-proof.txt 2>/tmp/ciifr-v14-scroll-chrome.err
+          node <<'NODE'
+          const fs=require('fs');
+          const assert=require('assert/strict');
+          const dom=fs.readFileSync('/tmp/ciifr-v14-scroll-proof.txt','utf8');
+          const m=dom.match(/<pre id="ciifr-scroll-proof">([^<]*)<\/pre>/);
+          assert.ok(m, 'browser did not produce scroll proof');
+          const result=JSON.parse(m[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&'));
+          console.log('BROWSER GEOMETRY:',JSON.stringify(result));
+          for(const key of ['heightBounded','outerScrollable','editorIndependent','outerMoves','reachesExport','headerVisible']) assert.equal(result[key],true,key+' must be true');
+          NODE
