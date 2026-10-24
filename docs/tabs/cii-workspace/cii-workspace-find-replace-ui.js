@@ -260,7 +260,24 @@ export function mountCiiFindReplaceShell(host, context = {}) {
     (context.downloadText || ((artifact) => defaultDownloadText(documentRef, artifact)))(result.artifact);
   }
 
+  // VNext remains an isolated standalone document: no legacy TARGET0, approvals or writer are shared.
+  const [vnextButton, legacyPanel, vnextPanel, vnextFrame] = [
+    '[data-ciifr-switch-vnext]', '[data-ciifr-legacy-panel]', '[data-ciifr-vnext-panel]', '[data-ciifr-vnext-frame]',
+  ].map((selector) => root.querySelector(selector));
+  const vnextPath = import.meta.url.includes('/docs/tabs/') ? '../../cii-fnr-vnext.html' : '../../docs/cii-fnr-vnext.html';
+  const vnextUrl = new URL(vnextPath, import.meta.url).href;
+  root.querySelector('[data-ciifr-vnext-tab]').href = vnextUrl;
+  function onSwitchVnext() {
+    const showingVnext = vnextPanel.hidden;
+    vnextPanel.hidden = !showingVnext;
+    legacyPanel.hidden = showingVnext;
+    vnextButton.setAttribute('aria-pressed', String(showingVnext));
+    vnextButton.textContent = showingVnext ? '← Back to V14 editor' : 'VNext · Branch + Demo';
+    if (showingVnext && !vnextFrame.hasAttribute('src')) vnextFrame.src = vnextUrl;
+  }
+
   const listeners = [
+    [vnextButton, 'click', onSwitchVnext],
     [refs.target, 'change', onTargetChange], [refs.csv, 'change', onCsvChange],
     [root.querySelector('[data-ciifr-add-row]'), 'click', onAddRow], [root.querySelector('[data-ciifr-clear-grid]'), 'click', onClearGrid],
     [root.querySelector('[data-ciifr-copy-grid]'), 'click', onCopyGrid], [refs.body, 'click', onDeleteRow], [refs.body, 'click', onDecision],

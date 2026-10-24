@@ -23,10 +23,13 @@ export function renderFindReplacePanel() {
           <h2><span aria-hidden="true">↔</span> CII Find &amp; Replace <small>V14</small></h2>
           <p>Editable Preview table with Excel copy/paste, diagnostics, approval and TARGET0 validation.</p>
         </div>
-        <button type="button" data-ciifr-close>Close</button>
+        <div class="ciifr-header-actions">
+          <button type="button" data-ciifr-switch-vnext aria-pressed="false">VNext · Branch + Demo</button>
+          <button type="button" data-ciifr-close>Close</button>
+        </div>
       </header>
 
-      <main class="ciifr-main">
+      <main class="ciifr-main" data-ciifr-legacy-panel>
         <section class="ciifr-intake-grid">
           <article class="ciifr-card">
             <h3>1. Target CII v14</h3>
@@ -155,6 +158,12 @@ export function renderFindReplacePanel() {
           </details>
         </section>
       </main>
+      <section class="ciifr-vnext-panel" data-ciifr-vnext-panel hidden aria-label="VNext Branch and Demo">
+        <p>VNext uses its own independent file inputs, rules, approvals and export. Load your CII again inside VNext; switching does not transfer data.
+          <a data-ciifr-vnext-tab target="_blank" rel="noopener noreferrer">Open VNext in a separate tab</a>.
+        </p>
+        <iframe data-ciifr-vnext-frame title="Standalone CII Find & Replace VNext: Branch scope and synthetic demo"></iframe>
+      </section>
     </section>
   `;
 }

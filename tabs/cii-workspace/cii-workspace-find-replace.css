@@ -34,6 +34,18 @@
   background: #ddf4ff;
 }
 .ciifr-header p { margin: .25rem 0 0; color: #57606a; }
+.ciifr-header-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.ciifr-workspace .ciifr-main[hidden],
+.ciifr-workspace .ciifr-vnext-panel[hidden] { display: none; }
+.ciifr-vnext-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #f6f8fa;
+}
+.ciifr-vnext-panel p { padding: .6rem 1rem; margin: 0; border-bottom: 1px solid #d8dee4; }
+.ciifr-vnext-panel iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #fff; }
 .ciifr-main {
   flex: 1 1 auto;
   min-height: 0;
