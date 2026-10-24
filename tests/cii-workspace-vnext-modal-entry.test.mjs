@@ -32,12 +32,17 @@ test('mode switch lazily loads VNext and preserves separate editing sessions', (
 
 test('module-relative route targets the same shipped VNext page from both mirrors', () => {
   const ui = read(`${base}-ui.js`);
-  assert.match(ui, /import\.meta\.url\.includes\('\/docs\/tabs\/'\)/);
+  const route = ui.match(/import\.meta\.url\.includes\('([^']+)'\) \? '([^']+)' : '([^']+)'/);
+  assert.ok(route, 'production source must declare module-specific route');
   assert.match(ui, /new URL\(vnextPath, import\.meta\.url\)/);
   const root = new URL('https://example.test/XML_Compare_Utilities/');
-  const src = new URL('../../docs/cii-fnr-vnext.html', new URL('tabs/cii-workspace/cii-workspace-find-replace-ui.js', root));
-  const docs = new URL('../../cii-fnr-vnext.html', new URL('docs/tabs/cii-workspace/cii-workspace-find-replace-ui.js', root));
-  assert.equal(src.href, docs.href);
+  const sourceModule = new URL('tabs/cii-workspace/cii-workspace-find-replace-ui.js', root);
+  const servedModule = new URL('docs/tabs/cii-workspace/cii-workspace-find-replace-ui.js', root);
+  const resolve = (moduleUrl) => new URL(moduleUrl.href.includes(route[1]) ? route[2] : route[3], moduleUrl);
+  const expected = new URL('docs/cii-fnr-vnext.html', root);
+  assert.equal(resolve(sourceModule).href, expected.href);
+  assert.equal(resolve(servedModule).href, expected.href);
+  assert.notEqual(new URL('../../broken.html', servedModule).href, expected.href, 'wrong route must be detected');
   assert.match(read('docs/cii-fnr-vnext.html'), /data-load-demo/);
   assert.match(read('docs/cii-fnr-vnext.html'), /Branch label \(exact\)/);
 });
