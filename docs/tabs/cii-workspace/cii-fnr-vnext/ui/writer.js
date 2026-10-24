@@ -2,6 +2,7 @@
 import { parseCii, sameStructure } from './physical.js';
 import { admitLineNodeClaims } from './line-node-admission.js';
 import { enforceNormalNodeClosure } from './normal-node-closure.js';
+import { branchContainsNode } from '../normal/branch-scope.js';
 import { enforcePlanPolicy } from './config-policy.js';
 const invalid = (reason) => { throw new Error(reason); };
 const hex = (digest) => [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
@@ -51,6 +52,9 @@ export async function validatePostimage({ original, originalHash, plan, approved
       : (c.fieldIdentity === 'NODENAME_TO' || c.fieldIdentity === 'NODENAME.TO') ? 'NODENAME.TO' : c.fieldIdentity;
     if (c.section === 'NODENAME') {
       const field = legal.get(`${c.byteStart}:${c.byteEnd}:${canonicalId}`);
+      if (c.evidence.scope === 'BRANCH' &&
+          (typeof c.evidence.branch !== 'string' || !c.evidence.branch.startsWith('/') ||
+           !branchContainsNode(parsed, field || { owners: [] }, c.evidence.branch))) invalid('BRANCH_CLAIM_SCOPE_INVALID');
       const validWitness = field && (field.owners.includes(c.targetElementWitness) ||
         parsed.elements.some((e) => `${e.from}->${e.to}@${e.index}` === c.targetElementWitness && field.owners.includes(`${e.index}:${e.from}:${e.to}`)));
       if (!field || field.before !== c.before || !validWitness) invalid('FIELD_OWNERSHIP_OR_PREIMAGE_INVALID');

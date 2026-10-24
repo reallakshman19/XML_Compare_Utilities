@@ -7,7 +7,7 @@ const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
 const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
-  field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', block: 'NODENAME' });
+  field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
 let config = { ...DEFAULT_POLICY }, csvSeq = 0;
 const fileSeqs = { target: 0, source: 0 };
@@ -47,12 +47,12 @@ function addSelect(td, field, entries, value) {
   for (const [id, label] of entries) { const option = document.createElement('option'); option.value = id; option.textContent = label; el.append(option); }
   el.value = value; td.append(el);
 }
-const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block']] };
+const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block'],['BRANCH','Branch']] };
 function renderRules() {
   const tbody = $('[data-rules]'); tbody.replaceChildren();
   for (const [i, rule] of state().rules.entries()) {
     const tr = document.createElement('tr'); tr.dataset.rowIndex = String(i); tr.append(cell('th', String(i + 1)));
-    for (const key of ['find', 'replace', 'mode', 'flags', 'field', 'scope', 'from', 'to']) {
+    for (const key of ['find', 'replace', 'mode', 'flags', 'field', 'scope', 'from', 'to', 'branch']) {
       const td = document.createElement('td');
       if (selects[key]) addSelect(td, key, selects[key], rule[key]);
       else { const input = document.createElement('input'); input.dataset.field = key; input.value = rule[key];
@@ -189,9 +189,10 @@ function parseCsv(text) {
   row.push(value); if (row.some((s) => s.trim())) rows.push(row);
   const headers = (rows.shift() || []).map((x) => x.trim().toLowerCase());
   const find = headers.findIndex((x) => ['find', 'findtext'].includes(x));
-  const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x));
+  const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x)); const branch = headers.findIndex((x) => x === 'branch');
   if (find < 0 || replace < 0) throw new Error('CSV_FIND_REPLACE_HEADERS_REQUIRED');
-  return rows.map((v) => ({ ...blank(), find: v[find] || '', replace: v[replace] || '' }));
+  return rows.map((v) => ({ ...blank(), find: v[find] || '', replace: v[replace] || '',
+    branch: branch >= 0 ? (v[branch] || '').trim() : '', scope: branch >= 0 && (v[branch] || '').trim() ? 'BRANCH' : 'DOCUMENT' }));
 }
 root.addEventListener('input', (event) => {
   const field = event.target.dataset.field, row = event.target.closest('[data-row-index]');

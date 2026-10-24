@@ -1,5 +1,6 @@
 /* VNext Normal: independently planned fixed-field claims only; no file mutation. */
 import { parseCii } from '../ui/physical.js';
+import { branchContainsNode } from './branch-scope.js';
 const flagsAllowed = /^[giu]*$/;
 const diag = (code, ruleId, detail) => ({ severity: 'ERROR', code, ruleId, detail });
 
@@ -34,7 +35,8 @@ function eligible(field, parsed, rule) {
   const selected = rule.field || 'NODENAME.BOTH';
   if (!['NODENAME.BOTH', 'NODENAME.FROM', 'NODENAME.TO'].includes(selected)) throw new Error('FIELD_UNSUPPORTED');
   if (selected !== 'NODENAME.BOTH' && field.fieldIdentity !== selected) return false;
-  if (!['DOCUMENT', 'ELEMENT', 'BLOCK'].includes(scope)) throw new Error('SCOPE_UNSUPPORTED');
+  if (!['DOCUMENT', 'ELEMENT', 'BLOCK', 'BRANCH'].includes(scope)) throw new Error('SCOPE_UNSUPPORTED');
+  if (scope === 'BRANCH') return parsed.elements.some((e) => e.pointer === field.pointer && e.branch === rule.branch);
   if (scope === 'BLOCK' && String(rule.block || 'NODENAME').toUpperCase() !== 'NODENAME') throw new Error('BLOCK_UNSUPPORTED');
   if (scope !== 'DOCUMENT') {
     const from = Number(rule.from), to = Number(rule.to);
@@ -52,11 +54,16 @@ export function planNormal(request) {
     const ruleId = String(rule.id ?? `r${ri + 1}`); let count = 0;
     try {
       if (!['LITERAL', 'REGEX'].includes(rule.mode)) throw new Error('MODE_UNSUPPORTED');
+      if (rule.scope === 'BRANCH' && (typeof rule.branch !== 'string' ||
+          !rule.branch.startsWith('/') || /[^\x20-\x7e]/.test(rule.branch))) throw new Error('BRANCH_FILTER_REQUIRED');
       const candidates = parsed.fields.filter((f) => eligible(f, parsed, rule));
       for (const field of candidates) {
         const value = field.before.trim(); const result = replaceInside(value, rule);
         if (!result.count) continue;
         count += result.count;
+        if (rule.scope === 'BRANCH' && !branchContainsNode(parsed, field, rule.branch)) {
+          diagnostics.push(diag('BRANCH_NODE_CROSSES_SCOPE', ruleId, field.owners.join(','))); continue;
+        }
         if (field.shared || field.orphan) {
           diagnostics.push(diag('NODENAME_POINTER_ALIAS_OR_ORPHAN', ruleId, `${field.pointer}`)); continue;
         }
@@ -71,7 +78,8 @@ export function planNormal(request) {
         claims.push({ id: `${ruleId}:${field.byteStart}:${field.byteEnd}`, ruleId,
           targetElementWitness: field.owners[0], section: 'NODENAME', fieldIdentity: field.fieldIdentity,
           byteStart: field.byteStart, byteEnd: field.byteEnd, before: field.before, after,
-          evidence: { matchCount: result.count, scope: rule.scope || 'DOCUMENT', pointer: field.pointer }, status: 'PROPOSED' });
+          evidence: { matchCount: result.count, scope: rule.scope || 'DOCUMENT', pointer: field.pointer,
+            ...(rule.scope === 'BRANCH' ? { branch: rule.branch } : {}) }, status: 'PROPOSED' });
       }
       if (!count) diagnostics.push({ severity: 'INFO', code: 'ZERO_MATCHES', ruleId });
       observations.push({ ruleId, matches: count });

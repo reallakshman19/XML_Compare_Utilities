@@ -22,6 +22,12 @@ function fixed(line, from, to, code) {
   if (!/^[\x20-\x7e]*$/.test(value)) fail(`${code}_NON_ASCII`);
   return value;
 }
+function branchLabel(line) {
+  const text = line?.text || '', declared = Number(text.slice(0, 13).trim());
+  const value = text.slice(13).trimEnd();
+  return value.startsWith('/') && Number.isSafeInteger(declared) && declared === value.length &&
+    /^[\x20-\x7e]+$/.test(value) ? value : null;
+}
 function marker(text) { return /^\s*#\$\s*(\S.*?)\s*$/i.exec(text)?.[1]?.toUpperCase() || null; }
 
 export function parseCii(bytes) {
@@ -54,7 +60,8 @@ export function parseCii(bytes) {
     if (![from, to].every(Number.isSafeInteger)) fail('ELEMENT_ENDPOINT_NOT_INTEGER');
     const pointer = numeric(fixed(elementRows[i + 13], 67, 80, 'ELEMENT_NODENAME_POINTER'));
     if (!Number.isSafeInteger(pointer) || pointer < 0 || pointer > nonam) fail('NODENAME_POINTER_INVALID');
-    const element = { index: i / 15, from, to, pointer, witness: `${i / 15}:${from}:${to}` };
+    const element = { index: i / 15, from, to, pointer, branch: branchLabel(elementRows[i + 10]),
+      witness: `${i / 15}:${from}:${to}` };
     elements.push(element);
     if (pointer) owners.set(pointer, [...(owners.get(pointer) || []), element]);
   }
