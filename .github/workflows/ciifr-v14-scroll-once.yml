@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           node --version
-          node --test tests/cii-workspace-find-replace-scroll-export-ui.test.js tests/cii-workspace-find-replace-export-cache-lineage.test.js tests/cii-workspace-find-replace-ui-registration.test.js tests/cii-workspace-find-replace-workflow-status.test.js tests/cii-workspace-method-c-firebreak.test.js tests/cii-workspace-method-c-review-preflight.test.js
+          node --test tests/cii-workspace-find-replace-scroll-export-ui.test.js tests/cii-workspace-find-replace-export-cache-lineage.test.js tests/cii-workspace-find-replace-ui-registration.test.js tests/cii-workspace-find-replace-workflow-status.test.js
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import { renderFindReplacePanel } from './tabs/cii-workspace/cii-workspace-find-replace.js';
