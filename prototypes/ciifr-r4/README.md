@@ -1,40 +1,27 @@
-# CIIFR R4 draft coding structure (handoff scaffold)
-Parent charter: https://github.com/reallakshman19/XML_Compare_Utilities/issues/158
+# CIIFR R4 S1 — frozen-R3 byte-identical XMLv2 prototype
 
-The Oracle has produced a **locally runnable but not merged** PoC ZIP, `CIIFR_R4_STANDALONE_WORKPACK.zip`, for the Builder handoff in the Owner's chat; verify bytes after receipt. Do not claim this draft PR itself contains an integrated runnable app yet.
+**DRAFT / not accepted.** This standalone package reuses the original R3 B001
+baseline_r3/engine.py and baseline_r3/profile.py byte-for-byte as shipped in the Oracle
+workpack (handoff SHA d85d7ede9abc4381fe636a85b22c9ba9449a860fa8fd0420d267eb1fde13c9cb).
+No real CII fixture, source-model paths, or engineering transfer are published.
 
-```text
-ciifr-r4/
-  baseline_r3/
-    engine.py             # frozen R3 B001 lexer/XML writer
-    profile.py            # frozen field/section profile
-  ciifr_r4/
-    core.py               # unedited hard roundtrip, separate XML-only trusted gate, read-only engineering index
-    cli.py                # command-line runner; fresh outputs only; failures nonzero
-    __main__.py
-  fixtures/
-    make_synthetic.py     # truly invented two-element CII with nonzero typed pointers
-    synthetic_two_span.cii
-  tests/
-    test_r4.py            # synthetics, negative malformed pointer/line ending/tampering
-  benchmarks/
-    LOCAL_RESULTS.json    # locality/scope-labelled timings and exact byte status
-  docs/
-    CONCEPT.md
-    WORK_PLAN.md
-  assignments/
-    BUILDER_S1.md
-    REVIEWER_S1_S2.md
-```
+- ciifr_r4/core.py: original source-faithful adapter, trusted SHA/size XML-only gate, read-only line/element/node hierarchy.
+- ciifr_r4/cli.py: one-command CLI, output written to private staging then published only when all writes succeed.
+- fixtures/make_synthetic.py: wholly invented 12,051-byte CII; reproducible SHA 9d07578793df16ec48c3a41b4bb2d82016b84b853c0ba03bfa57e3d76cbd79eb.
+- tests: 7 supplied tests and 3 additional CLI fail-closed tests.
+- Start-R4.cmd and OWNER-DEMO.md: Owner-local Windows demonstration.
 
-Expected local commands, run in the unpacked PoC folder:
-```bash
-python -m unittest discover -s tests -v
-python -m ciifr_r4 --input fixtures/synthetic_two_span.cii --out scratch-synthetic
-python -m ciifr_r4 --xml scratch-synthetic/model.xmlv2.xml --expected-sha256 9d07578793df16ec48c3a41b4bb2d82016b84b853c0ba03bfa57e3d76cbd79eb --expected-bytes 12051 --out scratch-xml-only
-python -m ciifr_r4 --input PATH_TO_OWNER_PRIVATE_CII --out scratch-private
-```
+From prototypes/ciifr-r4, using Python 3.10+ (standard library only):
 
-Public synthetic baseline: 12,051 bytes and SHA-256 `9d07578793df16ec48c3a41b4bb2d82016b84b853c0ba03bfa57e3d76cbd79eb`. Protected fixture bytes must never be posted here. The R3 engine/profile are intended to be imported unchanged into the builder's draft PR; do not silently re-engineer them. S2 uses one source-linked model; nodes can appear under multiple engineering line labels. Preserve accurate record ownership.
+    python fixtures/make_synthetic.py
+    python -m unittest discover -s tests -v
+    python -m ciifr_r4 --input fixtures/synthetic_two_span.cii --out scratch-synthetic
+    python -m ciifr_r4 --xml scratch-synthetic/model.xmlv2.xml --expected-sha256 9d07578793df16ec48c3a41b4bb2d82016b84b853c0ba03bfa57e3d76cbd79eb --expected-bytes 12051 --out scratch-xml-only
 
-Status: **foundation/spec scaffold**, not a release. Local Oracle-generated PoC was self-tested; independent review, Owner native demo, merged integration remain NOT_RUN.
+The XML-only gate requires an independently trusted original byte count and SHA;
+it never treats XML self-reported metadata as sufficient. Existing output paths
+are rejected; stage data are removed on failure. Destination publication is a
+rename, not a concurrent compare-and-swap operation: do not race writers.
+The read-only hierarchy is not a serializer. P2/P2.1 files remain untouched.
+Native Owner Windows, CAESAR engineering equivalence, independent review, and
+private-file testing remain NOT_RUN. No merge, release, or transfer authority.

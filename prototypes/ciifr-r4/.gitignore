@@ -1,0 +1,11 @@
+# R4 local-generated outputs and private Owner fixtures must never be committed.
+__pycache__/
+*.pyc
+*.cii
+*.CII
+*.xmlv2.xml
+scratch-*/
+.pending-*/
+.*.pending-*/
+roundtrip_report.json
+hierarchy.json
