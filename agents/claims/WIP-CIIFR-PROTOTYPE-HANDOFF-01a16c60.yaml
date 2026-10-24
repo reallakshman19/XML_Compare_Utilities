@@ -1,0 +1,12 @@
+{
+  "schema": "AgentPrClaim.v1",
+  "owned_prefixes": [
+    "prototypes/ciifr-xmlv11-f05/",
+    "prototypes/ciifr-xmlv2-r3/",
+    "prototypes/ciifr-bm2-nodemap/"
+  ],
+  "scope": "Exact additive prototype publication; no existing Writer/P2/P2.1 authority",
+  "overlap": "SAFE: all46open PR file lists checked; no exact/prefix overlap",
+  "v2": "HOLD; implementation READ_ONLY",
+  "bm2_export": "DISABLED"
+}

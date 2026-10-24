@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CIIFR · BM2 node mapping</title><link rel="stylesheet" href="/styles.css"><script type="module" src="/app.js"></script></head>
+<body><header><div class="brand">CIIFR <span>BM2 / NODE MAPPING LAB</span></div><span class="local">● LOCAL · EXPORT DISABLED</span></header>
+<main><section class="intro"><p class="eyebrow">XMLv1.1 F05 · Source / Target inspection</p><h1>Map nodes.<br><span>Inspect every proposed change.</span></h1>
+<p>Compare models by node number or exact unique name. Select pairs for an informational preview. Engineering correspondence and global basis remain unapproved.</p></section>
+<section class="panel"><div class="section-title"><span class="step">01</span><h2>Load your private models</h2><button id="clear" class="quiet">Clear session</button></div>
+<div class="file-grid">
+<label class="file-card" for="source"><strong>Source CII</strong><span>Values to inspect and propose</span><input type="file" id="source" accept=".cii"><small id="source-name">Choose a source · up to16MiB</small></label>
+<label class="file-card" for="target"><strong>Target CII</strong><span>Current target values and node identities</span><input type="file" id="target" accept=".cii"><small id="target-name">Choose a target · up to16MiB</small></label>
+<label class="file-card" for="reference"><strong>BM2 reference <small>optional</small></strong><span>Audit reference name differences separately</span><input type="file" id="reference" accept=".cii"><small id="reference-name">No benchmark selected</small></label></div>
+<div class="toolbar"><label>Proposal basis <select id="mode"><option>NAME</option><option>NUMBER</option><option>BOTH</option><option>EITHER</option></select></label><button id="analyse" class="primary" disabled>Inspect models & propose →</button><span id="badge" class="badge">READY</span></div>
+<p id="status" role="status" aria-live="polite">Select source and target. Matching a number or name does not authorize engineering correspondence.</p>
+<div id="models" class="model-grid" hidden><div id="source-stats"></div><div id="target-stats"></div></div>
+<div id="reference-result" class="comparison" hidden></div></section>
+<div id="work" class="bm-work" hidden>
+<section class="panel"><div class="section-title"><span class="step">02</span><h2>Inspect candidate pairs</h2><span id="candidate-count" class="badge"></span></div>
+<input id="candidate-filter" class="search" placeholder="Filter candidates by number or name" aria-label="Filter candidates">
+<div class="table-wrap"><table><thead><tr><th>Select</th><th>Source node / aliases</th><th>Target node / aliases</th><th>Evidence</th></tr></thead><tbody id="candidates"></tbody></table></div>
+<p class="fine">NAME requires uniqueness across every node, including conflicted aliases. NUMBER proposes equal identifiers only. Every pair remains unapproved.</p>
+<details><summary>Add a manual inspection pair</summary><div class="toolbar"><input id="manual-source" type="number" min="1" placeholder="Source node" aria-label="Manual source node"><input id="manual-target" type="number" min="1" placeholder="Target node" aria-label="Manual target node"><button id="add-pair" class="secondary">Add pair</button></div></details>
+<div class="section-title selected-heading"><h2>Selected for inspection</h2><button id="clear-pairs" class="quiet">Clear pairs</button></div><div id="selected" class="selected"></div>
+</section>
+<section class="panel"><div class="section-title"><span class="step">03</span><h2>Preview displacement values</h2></div>
+<div class="toolbar"><label>Source vector<select id="source-vector"></select></label><span>→</span><label>Target vector<select id="target-vector"></select></label></div>
+<fieldset><legend>Translation components</legend><label><input type="checkbox" id="DX" checked> DX</label><label><input type="checkbox" id="DY" checked> DY</label><label><input type="checkbox" id="DZ" checked> DZ</label></fieldset>
+<button id="compare" class="primary" disabled>Preview selected pairs →</button><p class="fine">This compares current prescriptions. It does not accept a mapping, confirm coordinate bases, or generate transferred CII/XML.</p>
+<div id="preview-summary" class="comparison" hidden></div><div class="table-wrap"><table><thead><tr><th>Pair / DOF</th><th>Source</th><th>Target before</th><th>Proposed / status</th></tr></thead><tbody id="preview"></tbody></table></div>
+<button id="save" class="secondary" disabled>Save private inspection JSON</button><button class="disabled-export" disabled>Apply / export disabled</button></section></div>
+<section id="catalogues" class="panel catalogue-panel" hidden><div class="section-title"><span class="step">04</span><h2>Node catalogues</h2></div><p class="fine">Includes element endpoints and qualified displacement-only identities. Alias ambiguity, auxiliary nodes and unequal node counts remain visible.</p>
+<div class="model-grid"><div><h3>Source</h3><input id="source-filter" class="search" placeholder="Find source node / alias" aria-label="Find source node"><div id="source-catalogue"></div></div><div><h3>Target</h3><input id="target-filter" class="search" placeholder="Find target node / alias" aria-label="Find target node"><div id="target-catalogue"></div></div></div></section>
+<footer><span>F05 engine unchanged · isolated BM2 repairs</span><span>Private local session · Native CAESAR / Owner acceptance pending</span></footer></main></body></html>

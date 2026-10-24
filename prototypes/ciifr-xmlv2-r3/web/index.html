@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CIIFR · XMLv2 converter</title><link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+<header><div class="brand">CIIFR <span>ENGINE LAB / R3</span></div><span class="local">● LOCAL SESSION</span></header>
+<main>
+  <section class="intro"><p class="eyebrow">A faithful engineering foundation</p>
+    <h1>CII in. CII out.<br><span>Every byte accounted for.</span></h1>
+    <p>Convert to structured XMLv2, inspect its hierarchy, and reconstruct CII with the repaired independent engine.</p>
+  </section>
+  <div class="workspace">
+    <section class="panel inputs" aria-label="Conversion inputs">
+      <div class="section-title"><span class="step">01</span><h2>Your files</h2><button id="reset" class="quiet">Clear session</button></div>
+      <label class="file-card" for="cii"><span class="file-icon">CII</span><strong>Original CII</strong><span>Convert and use as the byte comparison baseline.</span><input id="cii" type="file" accept=".cii"><small id="cii-name">No file selected · up to 16 MiB</small></label>
+      <button id="to-xml" class="primary" disabled>Create XMLv2 <span>→</span></button>
+      <div class="divider"><span>or reconstruct from XML</span></div>
+      <label class="file-card" for="xml"><span class="file-icon">XML</span><strong>Structured XMLv2</strong><span>Load an existing file or use the XML just created.</span><input id="xml" type="file" accept=".xml"><small id="xml-name">No XML loaded</small></label>
+      <button id="to-cii" class="secondary" disabled>Reconstruct CII <span>→</span></button>
+      <p class="fine">Only the qualified ASCII / CRLF profile is supported. Conversion does not approve engineering changes.</p>
+    </section>
+    <section class="panel results" aria-label="Conversion results">
+      <div class="section-title"><span class="step">02</span><h2>Verify the result</h2><span id="badge" class="badge">READY</span></div>
+      <div id="status" role="status" aria-live="polite">Choose a CII or XML file to begin.</div>
+      <div id="metrics" class="metrics" hidden></div>
+      <div id="comparison" class="comparison" hidden></div>
+      <div id="downloads" class="downloads" hidden><a id="download" class="primary">Download output</a><button id="audit" class="quiet">Save verification JSON</button></div>
+      <div id="digests" class="digests" hidden></div>
+      <div class="section-title tree-heading"><span class="step">03</span><h2>Inspect hierarchy</h2></div>
+      <div class="tree-tools"><input id="find" placeholder="Find within loaded nodes" aria-label="Find within loaded hierarchy"><span>Expand to load children</span></div>
+      <div id="tree" class="tree"><p class="empty">Sections, records, fields and relationships appear here after conversion.</p></div>
+    </section>
+  </div>
+  <footer><span>RichInputXMLv2.1 · independent engine · F10 repair-r3</span><span>Private files stay on this computer. Native CAESAR acceptance pending.</span></footer>
+</main>
+</body></html>

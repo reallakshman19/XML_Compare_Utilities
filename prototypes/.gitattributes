@@ -1,0 +1,4 @@
+# Preserve exact delivered engine/source bytes across Windows and Unix clones.
+ciifr-xmlv11-f05/** -text
+ciifr-xmlv2-r3/** -text
+ciifr-bm2-nodemap/** -text
