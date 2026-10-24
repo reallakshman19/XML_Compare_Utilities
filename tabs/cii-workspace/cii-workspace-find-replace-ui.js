@@ -261,14 +261,11 @@ export function mountCiiFindReplaceShell(host, context = {}) {
   }
 
   // VNext remains an isolated standalone document: no legacy TARGET0, approvals or writer are shared.
-  const vnextButton = root.querySelector('[data-ciifr-switch-vnext]');
-  const legacyPanel = root.querySelector('[data-ciifr-legacy-panel]');
-  const vnextPanel = root.querySelector('[data-ciifr-vnext-panel]');
-  const vnextFrame = root.querySelector('[data-ciifr-vnext-frame]');
-  const vnextUrl = new URL(
-    import.meta.url.includes('/docs/tabs/') ? '../../cii-fnr-vnext.html' : '../../docs/cii-fnr-vnext.html',
-    import.meta.url,
-  ).href;
+  const [vnextButton, legacyPanel, vnextPanel, vnextFrame] = [
+    '[data-ciifr-switch-vnext]', '[data-ciifr-legacy-panel]', '[data-ciifr-vnext-panel]', '[data-ciifr-vnext-frame]',
+  ].map((selector) => root.querySelector(selector));
+  const vnextPath = import.meta.url.includes('/docs/tabs/') ? '../../cii-fnr-vnext.html' : '../../docs/cii-fnr-vnext.html';
+  const vnextUrl = new URL(vnextPath, import.meta.url).href;
   root.querySelector('[data-ciifr-vnext-tab]').href = vnextUrl;
   function onSwitchVnext() {
     const showingVnext = vnextPanel.hidden;
