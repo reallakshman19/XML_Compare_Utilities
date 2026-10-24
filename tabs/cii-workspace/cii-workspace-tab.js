@@ -21,7 +21,7 @@ function stylesheet(documentRef, id, relativeUrl) {
 function ensureStylesheet(documentRef) {
   stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
   stylesheet(documentRef, ENGINEERING_STYLE_ID, './cii-workspace-engineering-ui.css');
-  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css?v=20260904-padded-find-scroll-1');
+  stylesheet(documentRef, FIND_REPLACE_STYLE_ID, './cii-workspace-find-replace.css?v=20261024-ciifr-outer-scroll-1');
 }
 function installWriter1CSifContextControls(root, state) {
   const panel = root.querySelector('[data-ciiw-panel="inputs"]'); if (!panel) return () => {};
