@@ -1,4 +1,4 @@
-# CIIFR R4 S1 — frozen-R3 byte-identical XMLv2 prototype
+# CIIFR R4 S1 + S2-VIEW-1 — frozen R3 and offline hierarchy
 
 **DRAFT / not accepted.** This standalone package reuses the original R3 B001
 baseline_r3/engine.py and baseline_r3/profile.py byte-for-byte as shipped in the Oracle
@@ -25,3 +25,24 @@ rename, not a concurrent compare-and-swap operation: do not race writers.
 The read-only hierarchy is not a serializer. P2/P2.1 files remain untouched.
 Native Owner Windows, CAESAR engineering equivalence, independent review, and
 private-file testing remain NOT_RUN. No merge, release, or transfer authority.
+
+## S2 offline hierarchy (same one-command launch)
+
+On successful private local `Start-R4.cmd` or Python `--input` conversion, the fresh
+output directory contains `hierarchy.html` beside `hierarchy.json` and the original
+roundtrip report. Double-click the HTML locally: no web server, external script,
+network fetch, or editable source/export operation is needed.
+
+Choose a line, expand its ordered elements, source lexemes and physical CII rows,
+material ID (UNKNOWN external catalog), and auxiliary pointer-linked components.
+Switch to nodes to see endpoint occurrences plus owner-qualified auxiliary-only
+references, not global node-number inheritance; switch to raw source units for
+original labels/factors only. Blank line labels remain the literal empty key.
+RIGID and REDUCER stay with their owning element. The viewer is not
+engineering/CAESAR qualification and cannot modify CII bytes.
+
+Run `python -m unittest discover -s tests -v` for all 15 synthetic tests.
+The file:// double-click behavior still needs an Owner native-Windows trial;
+Chromium's interactive DOM test in a sandboxed environment passed, but direct
+file:// navigation was blocked by the test environment's administrator.
+GLRD private original is NOT_RUN.

@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 from .core import hard_roundtrip, make_xml, snapshot, xml_only_rebuild, checksum
+from .viewer import render_hierarchy
 
 
 def publish(out: Path, xml: bytes | None, rebuilt: bytes, report: dict, model: dict | None) -> None:
@@ -34,6 +35,7 @@ def publish(out: Path, xml: bytes | None, rebuilt: bytes, report: dict, model: d
         (stage / 'roundtrip_report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         if model is not None:
             (stage / 'hierarchy.json').write_text(json.dumps(model, indent=2) + '\n', encoding='utf-8')
+            (stage / 'hierarchy.html').write_text(render_hierarchy(model), encoding='utf-8')
         if out.exists() or out.is_symlink():
             raise FileExistsError('output path appeared during staging')
         os.rename(stage, out)

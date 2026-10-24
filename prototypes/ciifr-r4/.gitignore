@@ -9,3 +9,6 @@ scratch-*/
 .*.pending-*/
 roundtrip_report.json
 hierarchy.json
+
+# S2 private offline projection
+hierarchy.html

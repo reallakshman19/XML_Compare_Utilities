@@ -78,7 +78,8 @@ def snapshot(root:ET.Element) -> dict:
                       'profile':root.get('profile')},
             'engineering_interpretation':'SOURCE_VALUES_ONLY',
             'lines':{},'nodes':{},'pointers':[],
-            'unresolved_semantics':['sentinels','material_catalog','effective_inheritance','CAESAR_validation']}
+            'unresolved_semantics':['sentinels','material_catalog','effective_inheritance','CAESAR_validation'],
+            'units':[]}
     lines=defaultdict(lambda:{'elements':[],'nodes':{}})
     nodes={}
     def get_node(num):
@@ -94,7 +95,7 @@ def snapshot(root:ET.Element) -> dict:
         el={'element_index':i+1,'source_line':int(rec.find('Row').get('line')),
             'from':a,'to':b,'line_label':label,'material_id':number(mats[i][0].get('value')),
             'material_source_line':int(mats[i][1].get('line')),
-            'properties':fs[:53], 'identity':fs[53:59],'pointers':[]}
+            'properties':fs[:53], 'identity':fs[53:59],'pointers':[], 'components':[]}
         lines[label]['elements'].append(el)
         for n,side in ((a,'FROM'),(b,'TO')):
             get_node(n)['endpoints'].append({'element_index':i+1,'side':side,'line_label':label})
@@ -109,6 +110,9 @@ def snapshot(root:ET.Element) -> dict:
                   'aux_source_line':int(ref.find('Row').get('line'))}
             result['pointers'].append(link);el['pointers'].append(link)
             af=source_fields(ref); amap={f['key']:f for f in af}
+            # Source-backed component evidence is ELEMENT-owned even when it
+            # contains nodal association values. Never synthesize node constraints.
+            el['components'].append({**link,'fields':af})
             if sec=='NODENAME':
                 for role,n,keyname in [('FROM',a,'from_node_name'),('TO',b,'to_node_name')]:
                     if amap[keyname]['value'].strip():event(n,'node-name',i+1,sec,ref,[amap[keyname]])
@@ -133,9 +137,39 @@ def snapshot(root:ET.Element) -> dict:
                     v=amap.get(f'node_position_{k}')
                     if v and number(v['value']):event(number(v['value']),'bend-position',i+1,sec,ref,[v])
             # RIGID and REDUCERS remain attached to owning element, NEVER node.
+    # Unit labels / factors are source tokens, not inferred effective units.
+    units_section=get_section(root,'UNITS')
+    result['units']=[{'record_index':r.get('index'),'fields':source_fields(r)}
+                     for r in units_section.findall('Record')]
     for label,row in lines.items():
-        result['lines'][label or '(BLANK)']={'line_label':label,'elements':row['elements'],
-                       'nodes':[{'number':int(n),'roles':sorted(roles)} for n,roles in sorted(row['nodes'].items(),key=lambda t:int(t[0]))]}
+        owners={e['element_index'] for e in row['elements']}
+        local_nodes={}
+        # Endpoint entries preserve one entry per occurrence and side; never
+        # reuse all events from a global node across different line owners.
+        for el in row['elements']:
+            for n,side in ((el['from'],'FROM'),(el['to'],'TO')):
+                k=str(n)
+                ent=local_nodes.setdefault(k,{'number':n,'endpoints':[], 'events':[],
+                                              'auxiliary_only':True})
+                ent['endpoints'].append({'element_index':el['element_index'],
+                                         'side':side,'line_label':label,
+                                         'source_line':el['source_line']})
+                ent['auxiliary_only']=False
+        # Auxiliary references can designate nodes without ELEMENT endpoints.
+        # Project events by their *owner element*, not by shared node number.
+        for num,all_events in nodes.items():
+            owned=[e for e in all_events['events'] if e['owner_element'] in owners]
+            if not owned:continue
+            ent=local_nodes.setdefault(num,{'number':int(num),'endpoints':[],
+                                             'events':[], 'auxiliary_only':True})
+            for ix,evt in enumerate(owned):
+                ent['events'].append({**evt,'event_ordinal':ix+1})
+        # Keep each raw label as its JSON key. In particular the empty label
+        # cannot collide with a literal engineering line named '(BLANK)'.
+        result['lines'][label]={'line_label':label,'elements':row['elements'],
+                     'nodes':[{'number':int(n),'roles':sorted(roles)}
+                              for n,roles in sorted(row['nodes'].items(),key=lambda t:int(t[0]))],
+                     'node_occurrences':[local_nodes[n] for n in sorted(local_nodes,key=int)]}
     result['nodes']=nodes
     result['counts']={'elements':len(els),'lines':len(lines), 'nodes':len(nodes),
                       'pointer_links':len(result['pointers']),
