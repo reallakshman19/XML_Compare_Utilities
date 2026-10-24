@@ -1,6 +1,11 @@
+/* The Find & Replace content is nested inside a plain div under a fixed backdrop.
+   Anchor it to that backdrop so the main flex child has a definite viewport height. */
 .ciifr-workspace {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  min-height: 0;
   background: #fff;
   color: #18212b;
   display: flex;
@@ -9,6 +14,7 @@
   box-sizing: border-box;
 }
 .ciifr-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -31,10 +37,20 @@
 .ciifr-main {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #8c959f #f6f8fa;
   padding: 1rem 1.25rem 2rem;
   background: #f6f8fa;
 }
+/* Page-level scrolling remains separate from the editable spreadsheet scrollbar. */
+.ciifr-main::-webkit-scrollbar { width: 14px; }
+.ciifr-main::-webkit-scrollbar-track { background: #f6f8fa; border-left: 1px solid #d0d7de; }
+.ciifr-main::-webkit-scrollbar-thumb { background: #8c959f; border: 3px solid #f6f8fa; border-radius: 8px; }
+.ciifr-main::-webkit-scrollbar-thumb:hover { background: #6e7781; }
 .ciifr-intake-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
