@@ -101,3 +101,44 @@ test('DOM mock includes preview and bulk-approval controls for existing UI tests
   assert(dom.root.querySelector('[data-cleanup="trim"]').checked);
   assert.equal(dom.root.querySelector('[data-cleanup="truncateTo"]').value,'0');
 });
+
+test('buttons preview, apply accepted CSV, then approve only unrelated proposals', async () => {
+  const dom=createTestDom();
+  await import('../tabs/cii-workspace/cii-fnr-vnext/ui/app.js?csv-resolver=' + Date.now());
+  const bytes=fixture();
+  dom.targetFile.files=[{name:'synthetic.cii',arrayBuffer:async()=>bytes.buffer.slice(
+    bytes.byteOffset,bytes.byteOffset+bytes.byteLength)}];
+  await dom.targetFile.dispatchEvent({type:'change',target:dom.targetFile});
+  const uploadCsv=async()=>{
+    dom.csvFile.files=[{name:'synthetic.csv',text:async()=>[
+      'Find,Replace','X,NEW-X','Y,ONE','Y,TWO','Z,NEW-Z'
+    ].join('\\r\\n')}];
+    await dom.csvFile.dispatchEvent({type:'change',target:dom.csvFile});
+  };
+  await uploadCsv();
+  assert.equal(dom.btnResolve.disabled,false);
+  await dom.btnResolve.click();
+  assert.match(dom.cleanupLog.textContent,/Accepted rules: 2/);
+  assert.match(dom.cleanupLog.textContent,/ORIGINAL_FIND_HAS_COMPETING_REPLACEMENTS/);
+  assert.equal(dom.btnUseResolved.disabled,false);
+  await dom.btnUseResolved.click();
+  await dom.btnRun.click();
+  assert.equal(dom.tbodyProposals.children.length,4);
+  assert.equal(dom.btnApproveAll.disabled,false);
+  await uploadCsv();
+  await dom.btnRun.click();
+  assert.equal(dom.tbodyProposals.children.length,8);
+  assert.equal(dom.btnApproveAll.disabled,true);
+  assert.equal(dom.btnApproveNonconflict.disabled,false);
+  await dom.btnApproveNonconflict.click();
+  assert.equal(dom.tbodyProposals.children.filter(tr=>
+    tr.querySelector('[data-decision]')?.value==='APPROVED').length,4);
+  assert.equal(dom.btnValidate.disabled,false);
+  assert.equal(dom.btnExport.disabled,true, 'approval cannot bypass Apply or Export');
+  // Editing a rule clears old cleanup preview authority.
+  const grid=dom.root.querySelector('[data-rules]').children[0];
+  const find=grid.querySelector('[data-field="find"]');
+  find.value='CHANGED';
+  await find.dispatchEvent({type:'input',target:find});
+  assert.equal(dom.cleanupReport.hidden,true);
+});
