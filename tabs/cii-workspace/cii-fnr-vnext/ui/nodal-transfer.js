@@ -116,7 +116,8 @@ export function planNodalTransfer(parsed, rows) {
     counts:{rows:records.length,ready:records.filter(r=>r.status==='READY').length,
       held:records.filter(r=>r.status==='HELD').length,
       fields:records.filter(r=>r.status==='READY').reduce((n,r)=>n+r.writeFields,0),
-      newRecords:records.filter(r=>r.status==='READY').reduce((n,r)=>n+r.createRecords,0)},
+      newRecords:new Set(records.filter(r=>r.status==='READY').flatMap(r=>r.audit
+        .filter(a=>a.operation==='CREATE_NAME_RECORD_AND_POINTER').map(a=>a.elementIndex))).size},
     diagnostics:records.filter(r=>r.status==='HELD').map(r=>({row:r.row,node:r.node,code:r.reason}))};
 }
 
