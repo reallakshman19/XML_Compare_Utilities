@@ -125,7 +125,7 @@ test('recommended choice is located directly before Remove and is advisory only'
   await dom.targetFile.dispatchEvent({ type: 'change', target: dom.targetFile });
   const quoted = '"' + B2.replace(/"/g, '""') + '"';
   dom.csvFile.files = [{ name: 'synthetic.csv', text: async () =>
-    'Find,Replace,Branch\\r\\nALIAS-OLD,NEW-4,' + quoted + '\\r\\n' }];
+    'Find,Replace,Branch\r\nALIAS-OLD,NEW-4,' + quoted + '\r\n' }];
   await dom.csvFile.dispatchEvent({ type: 'change', target: dom.csvFile });
   await dom.btnRun.click();
   const cells = dom.root.querySelector('[data-rules]').children[0].children;
