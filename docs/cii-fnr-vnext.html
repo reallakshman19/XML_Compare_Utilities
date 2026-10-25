@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CII Find &amp; Replace VNext — Standalone Qualification</title>
-<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/style.css"></head>
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/style.css">
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/geometry/style.css"></head>
 <body data-vnext-app>
 <header><h1>↔ CII Find &amp; Replace <small>VNext · Standalone</small></h1>
 <p>Fixed-field proposals · explicit review · immutable TARGET0 · new-copy export. Not connected to the production tile.</p></header>
@@ -44,6 +45,7 @@
 <p class="status" aria-live="polite" data-status>Load TARGET0 to begin.</p>
 <p class="hash">Validated TARGET1 SHA-256: <output data-hash1>—</output></p></section>
 </div>
+<section class="card" data-geometry-area hidden aria-label="Read-only original Geometry correspondence"></section>
 <section class="card" data-config-area hidden aria-label="Conflict and approval configuration">
 <h2>Config · Review &amp; conflict policy</h2>
 <p>These settings apply to the current in-memory operation. Changing any setting revokes all existing plans, approvals, validation, and exports.</p>
