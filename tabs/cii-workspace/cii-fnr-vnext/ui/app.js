@@ -4,6 +4,7 @@ import { parseCii } from './physical.js';
 import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
 import { enforceNormalNodeClosure } from './normal-node-closure.js';
 import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
+import { noMatchAssessment } from './no-match-advice.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
@@ -142,8 +143,17 @@ function renderResults() {
     tr.append(td); tbody.append(tr);
   }
   const log = $('[data-diagnostics]'); log.replaceChildren();
-  for (const d of [...(s.plan?.diagnostics || []), ...s.diagnostics]) {
-    const li = cell('li', `${d.severity || 'ERROR'} · ${d.code || 'VALIDATION'} · ${d.ruleId || ''} ${d.detail || ''}`); log.append(li);
+  const allDiagnostics = [...(s.plan?.diagnostics || []), ...s.diagnostics];
+  const zeroMatch = allDiagnostics.filter(d => d.severity === 'INFO' && d.code === 'ZERO_MATCHES');
+  // Keep every error visible first; condense repetitive zero-match INFO without deleting audit evidence.
+  for (const d of allDiagnostics.filter(d => d.severity !== 'INFO' || d.code !== 'ZERO_MATCHES')) {
+    log.append(cell('li', `${d.severity || 'ERROR'} · ${d.code || 'VALIDATION'} · ${d.ruleId || ''} ${d.detail || ''}`));
+  }
+  if (zeroMatch.length) {
+    const li = document.createElement('li'), details = document.createElement('details');
+    details.append(cell('summary', `INFO · ZERO_MATCHES · ${zeroMatch.length} rule(s)`));
+    details.append(cell('p', `Rule IDs: ${zeroMatch.map(d => d.ruleId).join(', ')}`));
+    li.append(details); log.append(li);
   }
   $('[data-claim-count]').textContent = `${s.plan?.claims.length || 0} claims`;
   $('[data-approve-all]').disabled = !canApproveAll(s);
@@ -208,7 +218,8 @@ async function generate() {
     const plan = planNormal({ tab: 'NORMAL', targetBytes, originalTargetSha256: hash, sourceBytes, rules, options: {} });
     if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
     s.plan = plan; s.diagnostics = []; renderRules(); renderResults();
-    message(`${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
+    const finding = noMatchAssessment(s.plan, rules, source?.parsed);
+    message(finding?.advice || `${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
   } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
 async function validate() {
