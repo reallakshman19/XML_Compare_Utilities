@@ -112,7 +112,7 @@ test('buttons preview, apply accepted CSV, then approve only unrelated proposals
   const uploadCsv=async()=>{
     dom.csvFile.files=[{name:'synthetic.csv',text:async()=>[
       'Find,Replace','X,NEW-X','Y,ONE','Y,TWO','Z,NEW-Z'
-    ].join('\\r\\n')}];
+    ].join('\r\n')}];
     await dom.csvFile.dispatchEvent({type:'change',target:dom.csvFile});
   };
   await uploadCsv();
