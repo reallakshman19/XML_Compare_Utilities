@@ -65,6 +65,8 @@ export function parseNodalCsv(text) {
 
 export function planNodalTransfer(parsed, rows) {
   if(!parsed?.elements || !parsed?.fields || !Array.isArray(rows))fail('NODAL_PLAN_INPUT_INVALID');
+  const ids=rows.map((r,i)=>String(r.id??'N'+(i+1)));
+  if(new Set(ids).size!==ids.length)fail('NODAL_ROW_IDS_MUST_BE_UNIQUE');
   const {nodes,nameNodes,ownerByPointer}=detailsOf(parsed);
   const raw=rows.map((r,i)=>{
     const id=String(r.id??'N'+(i+1)),nodeText=pretty(r.findNode),name=pretty(r.replaceName),info=pretty(r.findInfo);
