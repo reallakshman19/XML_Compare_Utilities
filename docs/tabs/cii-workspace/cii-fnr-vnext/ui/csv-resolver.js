@@ -173,8 +173,13 @@ export function resolveImportedCsv(rules,target,source,options={},hash='0'.repea
     if(outcomes.size>1){
       for(const e of items)e.log('HELD','CLEANUP_INTRODUCES_COMPETING_FIND',e.rule,e.steps);
     }else{
-      accepted.push(items[0]);
-      for(const e of items.slice(1))e.log('DROPPED','IDENTICAL_DUPLICATE_RULE',e.rule,e.steps);
+      const seen=new Set();
+      for(const e of items) {
+        const r=e.rule;
+        const identity=JSON.stringify([r.find,r.replace,r.scope,r.field,r.from,r.to,r.branch,r.mode,r.flags]);
+        if(seen.has(identity))e.log('DROPPED','IDENTICAL_DUPLICATE_RULE',e.rule,e.steps);
+        else { seen.add(identity); accepted.push(e); }
+      }
     }
   }
   let pass=0;
@@ -185,6 +190,8 @@ export function resolveImportedCsv(rules,target,source,options={},hash='0'.repea
     const plan=planNormal({tab:'NORMAL',targetBytes:options.targetBytes,
       originalTargetSha256:hash,rules:accepted.map(e=>e.rule)});
     for(const d of plan.diagnostics){
+      if(d.code==='ZERO_MATCHES' && d.ruleId)
+        culprits.add(accepted.find(e=>e.rule.id===d.ruleId)?.rule.find);
       if(d.severity==='ERROR' && d.ruleId)culprits.add(accepted.find(e=>e.rule.id===d.ruleId)?.rule.find);
       if(d.code==='DUPLICATE_FIELD_CLAIM'){
         for(const c of plan.claims.filter(c=>c.byteStart+':'+c.byteEnd===d.detail)){
