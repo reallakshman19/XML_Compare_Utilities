@@ -48,6 +48,44 @@ function addSelect(td, field, entries, value) {
   el.value = value; td.append(el);
 }
 const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block'],['BRANCH','Branch']] };
+
+function recommendationCell(rule, plan) {
+  const td = document.createElement('td');
+  td.className = 'recommendation-cell';
+  const errors = (plan?.diagnostics || []).filter(d => d.ruleId === rule.id &&
+    d.severity === 'ERROR' && d.code === 'BRANCH_NODE_CROSSES_SCOPE');
+  if (!errors.length) { td.textContent = '—'; return td; }
+  // Show source-derived context only; never mutate a rule, a proposal or TARGET0.
+  const byNode = new Map();
+  let unknown = false;
+  for (const d of errors) {
+    if (!Number.isSafeInteger(d.node) || !Array.isArray(d.branches)) { unknown = true; continue; }
+    const prior = byNode.get(d.node);
+    if (prior && (prior.original !== d.original || prior.proposed !== d.proposed)) {
+      unknown = true;
+    } else if (!prior) byNode.set(d.node, d);
+  }
+  const entries = [...byNode.values()];
+  const qualified = !unknown && entries.length > 0 &&
+    entries.every(d => d.aliasNamesConsistent === true && d.replacementFits === true);
+  const details = document.createElement('details');
+  details.className = 'rule-advice';
+  details.append(cell('summary', qualified ? 'A · Rename complete node' : 'Review shared-node conflict'));
+  for (const d of entries) {
+    details.append(cell('p', `Node ${d.node}: ${d.original} → ${d.proposed}. Physical branches: ${d.branches.join(' | ')}. Named occurrences: ${d.namedAliasCount}.`));
+  }
+  if (qualified) details.append(cell('p',
+    'Recommended A, if the name is intended to change everywhere: replace or narrow this branch rule, then use precise node/element rules to rename every named occurrence across the listed branches. Generate and approve a new complete-node plan.'));
+  else details.append(cell('p',
+    'No automatic expansion recommended: node identities, existing alias values or field widths require review.'));
+  details.append(cell('p',
+    'Alternative B: keep the other branches unchanged by excluding these shared nodes from the branch rule. Do not simply change a broad rule to Document scope.'));
+  details.append(cell('p',
+    'Advice only — no rule, approval, TARGET0 or output has changed.'));
+  td.append(details);
+  return td;
+}
+
 function renderRules() {
   const tbody = $('[data-rules]'); tbody.replaceChildren();
   for (const [i, rule] of state().rules.entries()) {
@@ -59,6 +97,7 @@ function renderRules() {
         input.setAttribute('aria-label', `${key} row ${i + 1}`); input.spellcheck = false; td.append(input); }
       tr.append(td);
     }
+    tr.append(recommendationCell(rule, state().plan));
     const td = document.createElement('td'), del = document.createElement('button');
     del.type = 'button'; del.dataset.delete = String(i); del.textContent = '×'; del.setAttribute('aria-label', `Remove row ${i + 1}`);
     td.append(del); tr.append(td); tbody.append(tr);
