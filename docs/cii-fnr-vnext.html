@@ -8,7 +8,7 @@
 <main>
 <nav class="tabs" role="tablist" aria-label="Find and Replace mode">
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">NodeName Find &amp; Replace</button>
-<button type="button" role="tab" aria-selected="false" data-tab="NODAL">Nodal Based Node Name Transfer</button>
+<button type="button" role="tab" aria-selected="false" data-tab="NODAL">Nodal Based Node name transfer</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
 <button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
 <button type="button" role="tab" aria-selected="false" data-tab="CONFIG">Config</button></nav>
@@ -46,8 +46,8 @@
 <thead><tr><th>#</th><th>Find</th><th>Replace</th><th>Mode</th><th>Flags</th><th>Field</th><th>Scope</th><th>From</th><th>To</th><th>Branch label (exact)</th><th>Recommended choice</th><th>Remove</th></tr></thead>
 <tbody data-rules></tbody></table></div>
 <p class="hint">Paste two Excel columns into a Find cell. Press Tab across fields or Enter to move to the next row. Branch choices require a parsed SOURCE CII (CSV-imported branch labels remain visible but unverified against SOURCE).</p></div></section>
-<section class="card" data-nodal-area hidden aria-label="Nodal Based Node Name Transfer">
-<h2>Nodal Based Node Name Transfer</h2>
+<section class="card" data-nodal-area hidden aria-label="Nodal Based Node name transfer">
+<h2>Nodal Based Node name transfer</h2>
 <p><strong>FindNode is authoritative.</strong> Find is informational for audit only (a mismatch is shown, not used for matching). Existing names may be replaced irrespective of their current text; zero-pointer nodes require new NODENAME records and updated pointer/count fields. New CII copy only.</p>
 <div class="actions"><label>Import Nodal CSV (Find, FindNode, ReplaceName)
 <input type="file" accept=".csv,text/csv" data-nodal-csv></label>
