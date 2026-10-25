@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XML Geometry Preview · CIIFR</title><link rel="stylesheet" href="styles.css"></head>
+<body><main>
+<header><div class="eyebrow">CIIFR · WBS 3.1 · G1 input preview</div><h1>XML Geometry Preview</h1>
+<p>Compare two existing XML geometries with manual anchors and Method C. Review candidates, signed residuals and the shared-scale overlay.</p>
+<p class="authority">Preview only · XML bytes measured · original CII claims unverified · no physical identity or Writer authority · VNext integration pending.</p></header>
+<section class="intake" aria-label="XML files">
+<label class="file">SOURCE XML<input type="file" id="source-file" accept=".xml,application/xml,text/xml"><output id="source-info">Choose F05 RichInputXML-P1.v1.1 or R4 RichInputXMLv2.1.</output></label>
+<label class="file">TARGET XML<input type="file" id="target-file" accept=".xml,application/xml,text/xml"><output id="target-info">Files stay in this browser.</output></label>
+</section>
+<section class="controls" aria-label="Registration controls">
+<div class="anchor-entry"><label>SOURCE node<input id="anchor-source" inputmode="numeric" placeholder="Original ID"></label><span aria-hidden="true">→</span>
+<label>TARGET node<input id="anchor-target" inputmode="numeric" placeholder="Original ID"></label><button id="add-anchor">Add anchor</button></div>
+<ul id="anchors" aria-label="Manual anchors"></ul>
+<div class="parameters"><label>X tolerance, mm<input id="tol-x" type="number" min="0" max="100000" value="100"></label>
+<label>Y tolerance, mm<input id="tol-y" type="number" min="0" max="100000" value="100"></label>
+<label>Z tolerance, mm<input id="tol-z" type="number" min="0" max="100000" value="100"></label>
+<label>Projection<select id="projection"><option>XZ</option><option>YZ</option><option>XY</option><option>ISO</option></select></label>
+<button id="run" class="primary">Run Method C</button></div>
+</section>
+<div id="status" role="status" aria-live="polite">Load both XML files, then add a node anchor.</div>
+<section class="result" aria-label="Comparison preview">
+<div class="toolbar"><strong id="projection-label">Metric overlay · mm</strong><span class="legend"><i class="source"></i>SOURCE <i class="target"></i>TARGET</span>
+<button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="reset-view">Reset view</button>
+<button data-export="svg" disabled>SVG</button><button data-export="json" disabled>JSON evidence</button><button data-export="csv" disabled>CSV</button></div>
+<div id="canvas" aria-label="Method C overlay"><p class="empty">The registered overlay will appear here.</p></div>
+<p class="hint">Drag to pan; use + / − to zoom. Select a row or node for all alternatives and XML witnesses. Enter / Space selects focused nodes and rows. ISO is a nonmetric oblique view.</p>
+<div id="summary"></div>
+<div class="table-wrap"><table><thead><tr><th>SOURCE</th><th>TARGET candidate</th><th>Status</th><th>ΔX, mm</th><th>ΔY, mm</th><th>ΔZ, mm</th><th>Alternatives</th></tr></thead><tbody id="rows"></tbody></table></div>
+<details open><summary>Selected node · alternatives, segment and XML witnesses</summary><pre id="details">Select a node after comparison.</pre></details>
+</section>
+<footer>Supports the declared F05 and R4 native-mm geometry profiles only. Seedless components are relative. One anchor leaves orientation undetermined; two leave twist undetermined. Three noncollinear anchors can yield a numerical rigid fit. No correspondence is automatically accepted.</footer>
+</main><script type="module" src="app.js"></script></body></html>

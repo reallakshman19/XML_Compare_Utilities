@@ -1,0 +1,23 @@
+{
+  "classification": "PUBLIC_ORIGINAL_DERIVED_XML",
+  "source": {
+    "path": "Benchmark/S1.CII",
+    "bytes": 108330,
+    "sha256": "9a9cb14db4c13f5aac41cc74a60e7e528722eb5003d09f07192762ab6bfb1a2b"
+  },
+  "converterCommits": {
+    "F05": "a67487023bcafc13d68b62dbfc9bb74c61b3c64c",
+    "R4": "9da244e7670a21d963def16543679a6d983d5ba7"
+  },
+  "limits": "Same original across two profiles; not an independent physical correspondence pair.",
+  "files": {
+    "S1-F05.xml": {
+      "bytes": 882735,
+      "sha256": "1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995"
+    },
+    "S1-R4.xml": {
+      "bytes": 1426775,
+      "sha256": "a332dd7b2551faae51de3c016941762c3b795cdf19073b373817354e309526e6"
+    }
+  }
+}
