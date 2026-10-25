@@ -10,7 +10,7 @@ import { mountNodalPanel } from './nodal-panel.js';
 
 const workTabs = ['NORMAL', 'NODAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
-const names = { NORMAL: 'NodeName Find & Replace', NODAL: 'Nodal Based Node Name Transfer', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
+const names = { NORMAL: 'NodeName Find & Replace', NODAL: 'Nodal Based Node name transfer', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
