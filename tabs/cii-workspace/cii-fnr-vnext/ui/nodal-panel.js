@@ -48,7 +48,7 @@ export function mountNodalPanel(root,getTarget) {
       if(r.infoMismatch)issues.append(cell('li',`INFO · Row ${r.row}: Find is audit-only; TARGET0 physical names: ${r.originalNames.join(' | ')||'(blank)'}`));
       for(const f of r.audit||[]){
         if(r.status==='READY' && f.operation==='CREATE_NAME_RECORD_AND_POINTER')
-          issues.append(cell('li',`Row ${r.row} · ELEMENTS ordinal ${f.elementIndex} · ${f.field}: creates a new pointer/name record`));
+          issues.append(cell('li',`Row ${r.row} · ELEMENTS index ${f.elementIndex} (ordinal ${f.elementIndex+1}) · ${f.field}: creates a new pointer/name record`));
       }
     }
     const ready=plan?.records.filter(r=>r.status==='READY')||[];
