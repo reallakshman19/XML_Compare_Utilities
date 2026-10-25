@@ -2,10 +2,12 @@ import { planNormal } from '../normal/plan.js';
 import { sha256, validatePostimage } from './writer.js';
 import { parseCii } from './physical.js';
 import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
+import { enforceNormalNodeClosure } from './normal-node-closure.js';
+import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
-const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
+const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -50,7 +52,17 @@ function addSelect(td, field, entries, value) {
   for (const [id, label] of entries) { const option = document.createElement('option'); option.value = id; option.textContent = label; el.append(option); }
   el.value = value; td.append(el);
 }
-const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block'],['BRANCH','Branch']] };
+const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block (Draft)'],['BRANCH','Branch']] };
+
+function branchChoices(current) {
+  const names = sourceBranchLabels(source?.parsed);
+  const choices = [['', source ? 'Select SOURCE branch' : 'Load SOURCE CII']];
+  for (const name of names) choices.push([name, name]);
+  if (current && !names.includes(current)) {
+    choices.push([current, source ? current + ' (not in SOURCE)' : current + ' (CSV / retained)']);
+  }
+  return choices;
+}
 
 function recommendationCell(rule, plan) {
   const td = document.createElement('td');
@@ -97,6 +109,7 @@ function renderRules() {
     for (const key of ['find', 'replace', 'mode', 'flags', 'field', 'scope', 'from', 'to', 'branch']) {
       const td = document.createElement('td');
       if (selects[key]) addSelect(td, key, selects[key], rule[key]);
+      else if (key === 'branch') addSelect(td, key, branchChoices(rule.branch), rule.branch);
       else { const input = document.createElement('input'); input.dataset.field = key; input.value = rule[key];
         input.setAttribute('aria-label', `${key} row ${i + 1}`); input.spellcheck = false; td.append(input); }
       tr.append(td);
@@ -110,8 +123,13 @@ function renderRules() {
 function renderResults() {
   const s = state(), tbody = $('[data-proposals]'); tbody.replaceChildren();
   for (const claim of s.plan?.claims || []) {
-    const tr = document.createElement('tr'); tr.append(cell('td', claim.ruleId), cell('td', claim.fieldIdentity),
-      cell('td', `${claim.byteStart}–${claim.byteEnd}`), cell('td', claim.before.trim()), cell('td', claim.after.trim()));
+    const tr = document.createElement('tr');
+    const details = sourceEvidenceForClaim(target?.parsed, source?.parsed, claim);
+    const fallback = source ? 'Unresolved' : '—';
+    tr.append(cell('td', claim.ruleId), cell('td', claim.fieldIdentity),
+      cell('td', `${claim.byteStart}–${claim.byteEnd}`), cell('td', claim.before.trim()), cell('td', claim.after.trim()),
+      cell('td', details?.branch ?? fallback), cell('td', details?.from ?? fallback),
+      cell('td', details?.to ?? fallback));
     const td = document.createElement('td');
     if (claim.status !== 'PROPOSED') td.textContent = claim.status;
     else {
@@ -128,11 +146,33 @@ function renderResults() {
     const li = cell('li', `${d.severity || 'ERROR'} · ${d.code || 'VALIDATION'} · ${d.ruleId || ''} ${d.detail || ''}`); log.append(li);
   }
   $('[data-claim-count]').textContent = `${s.plan?.claims.length || 0} claims`;
+  $('[data-approve-all]').disabled = !canApproveAll(s);
   $('[data-validate]').disabled = !s.plan || ![...s.decisions.values()].includes('APPROVED');
   $('[data-apply]').disabled = !s.validated;
   $('[data-export]').disabled = !s.applied;
   $('[data-audit]').disabled = !s.validated;
   $('[data-hash1]').textContent = s.validated?.target1Hash || '—';
+}
+function canApproveAll(s) {
+  if (!target?.parsed || !s.plan || s.plan.incompleteSearch !== false ||
+      s.plan.diagnostics.some(d => d.severity === 'ERROR') ||
+      !s.plan.claims.length || s.plan.claims.some(c => c.status !== 'PROPOSED')) return false;
+  const claims = s.plan.claims;
+  if (new Set(claims.map(c => c.byteStart + ':' + c.byteEnd)).size !== claims.length ||
+      claims.some((c, i) => claims.slice(i + 1).some(d => c.byteStart < d.byteEnd && d.byteStart < c.byteEnd))) return false;
+  try { enforceNormalNodeClosure(target.parsed, claims); return true; } catch { return false; }
+}
+function approveAll() {
+  const s = state();
+  if (active !== 'NORMAL' || !canApproveAll(s)) {
+    message('Approve All unavailable: resolve diagnostics or incomplete logical-node aliases first.');
+    return;
+  }
+  for (const c of s.plan.claims) s.decisions.set(c.id, 'APPROVED');
+  revision++; opSeq++;
+  s.validated = null; s.applied = null;
+  renderResults();
+  message(`Approved all ${s.plan.claims.length} complete, conflict-free proposals for review. Validate TARGET1 separately.`);
 }
 function currentRules() { return state().rules.filter((r) => r.find || r.replace).map((r) => ({ ...r })); }
 function safeError(err) {
@@ -299,6 +339,7 @@ root.addEventListener('click', async (event) => {
       message('Find/Replace grid copied as TSV.'); } catch { message('Clipboard unavailable in this browser context.'); }
   }
   if (el.dataset.run !== undefined) await generate();
+  if (el.dataset.approveAll !== undefined) approveAll();
   if (el.dataset.validate !== undefined) await validate();
   if (el.dataset.apply !== undefined) await apply();
   if (el.dataset.export !== undefined) await exportCii();
@@ -315,16 +356,17 @@ for (const field of ['target', 'source']) {
     if (field === 'target') target = null; else source = null;
     for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
     $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
-    renderTabs(); renderResults();
+    renderTabs(); renderRules(); renderResults();
     if (!file) return;
     try {
       const buf = await file.arrayBuffer(); if (req !== fileSeqs[field]) return;
       const snapshot = { name: file.name, bytes: new Uint8Array(buf) };
+      snapshot.parsed = parseCii(snapshot.bytes);
       const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
       if (field === 'target') target = snapshot; else source = snapshot;
       for (const s of Object.values(states)) invalidate(s);
       $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
-      renderTabs(); renderResults();
+      renderTabs(); renderRules(); renderResults();
     } catch (err) { if (req === fileSeqs[field]) safeError(err); }
   });
 }
