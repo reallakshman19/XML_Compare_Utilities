@@ -173,6 +173,7 @@ export function createTestDom() {
   const unavailable = new MockElement('div', { 'data-unavailable': '' });
   const rowsArea = new MockElement('div', { 'data-rows-area': '' });
   const btnRun = new MockElement('button', { 'data-run': '' });
+  const btnApproveAll = new MockElement('button', { 'data-approve-all': '' });
   const btnValidate = new MockElement('button', { 'data-validate': '' });
   const btnApply = new MockElement('button', { 'data-apply': '' });
   const btnExport = new MockElement('button', { 'data-export': '' });
@@ -185,7 +186,7 @@ export function createTestDom() {
   const ulDiagnostics = new MockElement('ul', { 'data-diagnostics': '' });
 
   ws.append(targetFile, sourceFile, csvFile, targetMeta, sourceMeta, panelTitle, unavailable, rowsArea,
-    btnRun, btnValidate, btnApply, btnExport, btnAudit, status, hash1, claimCount, tbodyRules, tbodyProposals, ulDiagnostics);
+    btnRun, btnApproveAll, btnValidate, btnApply, btnExport, btnAudit, status, hash1, claimCount, tbodyRules, tbodyProposals, ulDiagnostics);
 
   // Config area
   const configArea = new MockElement('section', { 'data-config-area': '' });
@@ -205,5 +206,5 @@ export function createTestDom() {
   globalThis.URL.createObjectURL = () => 'blob:mock';
   globalThis.URL.revokeObjectURL = () => {};
 
-  return { root, tabNormal, tabConfig, btnRun, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, csvFile };
+  return { root, tabNormal, tabConfig, btnRun, btnApproveAll, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile };
 }
