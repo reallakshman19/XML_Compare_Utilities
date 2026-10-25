@@ -35,15 +35,25 @@ function section(p,title){let d=add(p,el('section',null,'section'));add(d,el('h2
 function detail(p,label,summaryText){let d=add(p,document.createElement('details'));const s=add(d,el('summary'));add(s,el('span',label));add(s,el('span',summaryText||'', 'minor'));const c=add(d,el('div',null,'content'));return {outer:d,body:c}}
 function fieldTable(parent,rows){if(!rows||!rows.length){add(parent,el('div','No source fields recorded','empty'));return}
  const wrap=add(parent,el('div',null,'table-wrap')),table=add(wrap,el('table')),thead=add(table,el('thead')),tr=add(thead,el('tr'));
- for(const h of ['Source field','Parsed source value','Original lexeme','Physical CII row','Kind'])add(tr,el('th',h));
+ for(const h of ['Source field','Parsed source value','Original lexeme','Physical CII row','Row slot','Trace','Kind'])add(tr,el('th',h));
  const tbody=add(table,el('tbody'));for(const f of rows){const t=add(tbody,el('tr'));
- add(t,el('td',f.key??'UNKNOWN'));add(t,el('td',f.value??'UNKNOWN'));add(t,el('td',f.lexeme??'UNKNOWN','lex'));add(t,el('td',f.cii_line??'UNKNOWN'));add(t,el('td',f.kind??'UNKNOWN'));}}
+ add(t,el('td',f.key??'UNKNOWN'));add(t,el('td',f.value??'UNKNOWN'));add(t,el('td',f.lexeme??'UNKNOWN','lex'));add(t,el('td',f.cii_line??'UNKNOWN'));add(t,el('td',f.field_ordinal_in_row??'UNKNOWN'));traceLink(add(t,el('td')),f,'Open source');add(t,el('td',f.kind??'UNKNOWN'));}}
+function traceLink(parent,f,title){if(!f){add(parent,el('span','UNKNOWN (source position not recorded)','minor'));return}
+ const d=detail(parent,title||'Open source','CII row '+(f.cii_line??'UNKNOWN')+' · field slot '+(f.field_ordinal_in_row??'UNKNOWN'));
+ const texts=['SECTION: '+(f.source_section??'UNKNOWN'),'XML record: '+(f.xml_record_id??'UNKNOWN')+' · record index '+(f.xml_record_index??'UNKNOWN'),
+ 'Physical CII row: '+(f.cii_line??'UNKNOWN'),'Field ordinal within row (1-based): '+(f.field_ordinal_in_row??'UNKNOWN'),
+ 'XML row ordinal in record: '+(f.xml_row_ordinal_in_record??'UNKNOWN'),'XML field identity: '+(f.xml_field_identity??'UNKNOWN'),
+ 'Raw source lexeme: '+(f.lexeme??'UNKNOWN')];for(const t of texts)add(d.body,el('p',t,'minor'));
+ add(d.body,el('p','Source address only; column/byte offset UNKNOWN; CAESAR semantic interpretation NOT VERIFIED.','hint'));
+}
 function lineTitle(s){return s===''?'(blank source label)':s}
 function renderComponent(p,c){const d=detail(p,c.section+' · auxiliary record #'+c.record_index,'pointer row '+c.pointer_field_line+' → auxiliary row '+c.aux_source_line);add(d.body,el('div','Owned by element #'+c.element_index+'; not automatically a nodal restraint.','minor'));
+ traceLink(d.body,c.pointer_source,'Trace ELEMENTS pointer slot');
  d.outer.addEventListener('toggle',()=>{if(d.outer.open&&!d.outer.dataset.ready){d.outer.dataset.ready='1';fieldTable(d.body,c.fields)}});}
 function renderElements(panel,line){const box=section(panel,'Line → ordered elements');for(const x of line.elements){const d=detail(box,'Element #'+x.element_index+' · '+x.from+' → '+x.to,'source row '+x.source_line+' · '+x.pointers.length+' links');
  const bs=add(d.body,el('div',null,'rowbadges'));badge(bs,'source row '+x.source_line);badge(bs,'material ID '+x.material_id,true);badge(bs,'material source row '+x.material_source_line);
  add(d.body,el('div','Material ID is an external reference; catalog/effective meaning UNKNOWN.','hint'));
+ traceLink(d.body,x.material_source,'Trace material ID slot');
  const prop=detail(d.body,'53 ordered source properties','raw value + lexeme + physical source row');
  const identity=detail(d.body,'Element identity fields','original labels and source fields');
  const components=detail(d.body,'Pointer-linked source components',x.components.length+' records');
@@ -52,12 +62,15 @@ function renderElements(panel,line){const box=section(panel,'Line → ordered el
 function renderNodes(panel,line){const box=section(panel,'Line → source-qualified nodes');add(box,el('p','Entries include endpoint occurrences and auxiliary-only references. Shared node numbers do not carry events across lines.','minor'));
  const nodes=line.node_occurrences||[];for(const n of nodes){const d=detail(box,'Node '+n.number,n.auxiliary_only?'auxiliary-only association':n.endpoints.length+' endpoint occurrence(s)');
  if(n.auxiliary_only)badge(d.body,'No endpoint on this line',true);
- if(n.endpoints.length){add(d.body,el('h3','Endpoint occurrences'));for(const e of n.endpoints){const p=add(d.body,el('p'));code(p,'Element #'+e.element_index+' · '+e.side+' · line '+lineTitle(e.line_label)+' · CII row '+(e.source_line??'UNKNOWN'))}}
+ if(n.endpoints.length){add(d.body,el('h3','Endpoint occurrences'));for(const e of n.endpoints){const p=add(d.body,el('p'));code(p,'Element #'+e.element_index+' · '+e.side+' · line '+lineTitle(e.line_label)+' · CII row '+(e.source_line??'UNKNOWN'));
+ traceLink(d.body,e.source_anchor,'Trace endpoint '+e.side+' slot')}}
  add(d.body,el('h3','Auxiliary / node-name associations'));
  if(!n.events.length)add(d.body,el('div','No auxiliary event owned by this line','empty'));
  for(const e of n.events){const eText=e.type+' · element #'+e.owner_element+' · '+e.section+' record #'+e.aux_index;
  const sub=detail(d.body,eText,'physical auxiliary row '+e.source_line+' · occurrence '+e.event_ordinal);
  add(sub.body,el('div','Owner: element #'+e.owner_element+'; source: '+e.section+' record #'+e.aux_index+', physical CII row '+e.source_line,'minor'));
+ traceLink(sub.body,e.source_anchor,'Trace association source slot');
+ traceLink(sub.body,e.pointer_source,'Trace owning ELEMENTS pointer slot');
  sub.outer.addEventListener('toggle',()=>{if(sub.outer.open&&!sub.outer.dataset.ready){sub.outer.dataset.ready='1';fieldTable(sub.body,e.fields)}});
  }}if(!nodes.length)add(box,el('div','No source-qualified nodes','empty'))}
 function renderUnits(panel){const box=section(panel,'Raw source units and factors');add(box,el('p','Original unit fields only; no inferred conversion or effective material policy.','minor'));
@@ -70,7 +83,7 @@ function renderNav(){const q=$('lineSearch').value.trim().toLowerCase(),p=$('lin
  if(!shown)add(p,el('div','No matching line labels','empty'))}
 function renderLine(){const p=$('selected');p.replaceChildren();if(chosen===null){add(p,el('div','No lines','empty'));return}const record=model.lines[chosen];
  const top=section(p,'Engineering line: '+lineTitle(chosen));badge(top,'Original source label: '+(chosen===''?'BLANK (empty string)':chosen),chosen==='');badge(top,record.elements.length+' ordered elements');badge(top,(record.node_occurrences||[]).length+' source-qualified nodes');
- const hint=add(top,el('div','Source labels, node numbers and material IDs are not normalized into inferred engineering truth.','hint'));
+ const hint=add(top,el('div','Click a field or node association to see SECTION / XML record / physical CII row / field slot. Column offsets UNKNOWN; CAESAR meaning NOT VERIFIED.','hint'));
  const nav=add(top,el('div',null,'tabs')),body=add(p,el('div'));let selected='elements';
  const buttons=[['elements','Elements / properties'],['nodes','Nodes / associations'],['units','Source units']].map(([key,title])=>{const b=add(nav,el('button',title,'tab'));b.type='button';b.addEventListener('click',()=>{selected=key;draw()});return[key,b]});
  function draw(){for(const [key,b] of buttons)b.setAttribute('aria-selected',String(key===selected));body.replaceChildren();if(selected==='elements')renderElements(body,record);else if(selected==='nodes')renderNodes(body,record);else renderUnits(body)}draw();}

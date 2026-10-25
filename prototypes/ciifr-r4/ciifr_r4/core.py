@@ -62,17 +62,28 @@ def xml_only_rebuild(xml_file:Path, trusted_sha256:str, trusted_bytes:int) -> tu
 
 def snapshot(root:ET.Element) -> dict:
     """An audit-only line/element/node view. Never changes XML or emits CII."""
-    def source_fields(rec):
+    def source_fields(rec, section):
+        """Immutable XML positions, not value lookup: duplicates retain unique slots.
+
+        Row/Field indexes are one-based direct XML child positions. A source CII
+        column offset is deliberately not inferred for mixed legacy row grammars.
+        """
+        rec_id=rec.get('id')
         return [{'key':f.get('name'),'value':f.get('value'),
                  'lexeme':f.get('lexeme'),'cii_line':int(row.get('line')),
-                 'kind':f.get('kind')}
-                for row in rec.findall('Row') for f in row.findall('Field')]
+                 'kind':f.get('kind'), 'source_section':section,
+                 'xml_record_id':rec_id, 'xml_record_index':int(rec.get('index')),
+                 'xml_row_ordinal_in_record':row_ix,
+                 'field_ordinal_in_row':field_ix,
+                 'xml_field_identity':f'{section}/{rec_id}/Row[{row_ix}]/Field[{field_ix}]'}
+                for row_ix,row in enumerate(rec.findall('Row'),1)
+                for field_ix,f in enumerate(row.findall('Field'),1)]
     def number(x): return int(Decimal(x))
     els=get_section(root,'ELEMENTS').findall('Record')
     sections={p:get_section(root,p).findall('Record') for p in POINTER_SECTIONS}
     mat=get_section(root,'MISCEL_1').find('Record')
-    mats=[(f,row) for row in mat.findall('Row') for f in row.findall('Field')
-          if f.get('name','').startswith('material_id_')]
+    material_fields=source_fields(mat,'MISCEL_1')
+    mats=[f for f in material_fields if f['key'].startswith('material_id_')]
     if len(mats)!=len(els):raise ValueError('material assignment count mismatch')
     result={'source':{'bytes':int(root.get('source-bytes')), 'sha256':root.get('source-sha256'),
                       'profile':root.get('profile')},
@@ -84,18 +95,23 @@ def snapshot(root:ET.Element) -> dict:
     nodes={}
     def get_node(num):
         return nodes.setdefault(str(num),{'number':num,'endpoints':[], 'events':[]})
-    def event(n,kind,owner,pointer,ref,fields=None):
+    def event(n,kind,owner,pointer,ref,fields=None,anchor=None,pointer_source=None):
         get_node(n)['events'].append({'type':kind,'owner_element':owner,
-          'section':pointer,'aux_index':ref.get('index'),'source_line':int(ref.find('Row').get('line')),
+          'section':pointer,'aux_index':ref.get('index'),
+          'aux_record_id':ref.get('id'),
+          'source_line':int(ref.find('Row').get('line')),
+          'source_anchor':anchor, 'pointer_source':pointer_source,
           'fields':fields or []})
     for i,rec in enumerate(els):
-        fs=source_fields(rec);lookup={f['key']:f for f in fs}
+        fs=source_fields(rec,'ELEMENTS');lookup={f['key']:f for f in fs}
         a=number(lookup['from_node']['value']); b=number(lookup['to_node']['value'])
         label=lookup['line_label']['value'].strip()  # BLANK is deliberately not inherited
         el={'element_index':i+1,'source_line':int(rec.find('Row').get('line')),
-            'from':a,'to':b,'line_label':label,'material_id':number(mats[i][0].get('value')),
-            'material_source_line':int(mats[i][1].get('line')),
-            'properties':fs[:53], 'identity':fs[53:59],'pointers':[], 'components':[]}
+            'from':a,'to':b,'line_label':label,'material_id':number(mats[i]['value']),
+            'material_source_line':mats[i]['cii_line'], 'material_source':mats[i],
+            'properties':fs[:53], 'identity':fs[53:59],
+            'endpoint_sources':{'FROM':lookup['from_node'],'TO':lookup['to_node']},
+            'pointers':[], 'components':[]}
         lines[label]['elements'].append(el)
         for n,side in ((a,'FROM'),(b,'TO')):
             get_node(n)['endpoints'].append({'element_index':i+1,'side':side,'line_label':label})
@@ -107,39 +123,40 @@ def snapshot(root:ET.Element) -> dict:
             ref=sections[sec][p-1]
             link={'element_index':i+1,'section':sec,'record_index':p,
                   'pointer_field_line':lookup[key]['cii_line'],
+                  'pointer_source':lookup[key],
                   'aux_source_line':int(ref.find('Row').get('line'))}
             result['pointers'].append(link);el['pointers'].append(link)
-            af=source_fields(ref); amap={f['key']:f for f in af}
+            af=source_fields(ref,sec); amap={f['key']:f for f in af}
             # Source-backed component evidence is ELEMENT-owned even when it
             # contains nodal association values. Never synthesize node constraints.
             el['components'].append({**link,'fields':af})
             if sec=='NODENAME':
                 for role,n,keyname in [('FROM',a,'from_node_name'),('TO',b,'to_node_name')]:
-                    if amap[keyname]['value'].strip():event(n,'node-name',i+1,sec,ref,[amap[keyname]])
+                    if amap[keyname]['value'].strip():event(n,'node-name',i+1,sec,ref,[amap[keyname]],amap[keyname],lookup[key])
             elif sec=='RESTRANT':
                 for k in range(1,7):
                     prefix=f'dof_{k}_'; v=amap.get(prefix+'restraint_node')
                     if v and number(v['value']):
                         dest=number(v['value'])
                         dofs=[f for f in af if f['key'].startswith(prefix)]
-                        event(dest,'restraint-dof',i+1,sec,ref,dofs)
+                        event(dest,'restraint-dof',i+1,sec,ref,dofs,v,lookup[key])
                         conn=amap.get(prefix+'connecting_node')
-                        if conn and number(conn['value']):event(number(conn['value']),'connecting-node',i+1,sec,ref,[conn])
+                        if conn and number(conn['value']):event(number(conn['value']),'connecting-node',i+1,sec,ref,[conn],conn,lookup[key])
             elif sec=='SIF&TEES':
                 for ix in (0,42):
-                    if ix<len(af) and number(af[ix]['value']):event(number(af[ix]['value']),'sif-tee',i+1,sec,ref,af[ix:ix+42])
+                    if ix<len(af) and number(af[ix]['value']):event(number(af[ix]['value']),'sif-tee',i+1,sec,ref,af[ix:ix+42],af[ix],lookup[key])
             elif sec=='DISPLMNT':
                 for ix in (0,55):
-                    if ix<len(af) and number(af[ix]['value']):event(number(af[ix]['value']),'displacement',i+1,sec,ref,af[ix:ix+55])
+                    if ix<len(af) and number(af[ix]['value']):event(number(af[ix]['value']),'displacement',i+1,sec,ref,af[ix:ix+55],af[ix],lookup[key])
             elif sec=='BEND':
-                event(b,'bend-at-to',i+1,sec,ref,af)
+                event(b,'bend-at-to',i+1,sec,ref,af,lookup['to_node'],lookup[key])
                 for k in (1,2,3):
                     v=amap.get(f'node_position_{k}')
-                    if v and number(v['value']):event(number(v['value']),'bend-position',i+1,sec,ref,[v])
+                    if v and number(v['value']):event(number(v['value']),'bend-position',i+1,sec,ref,[v],v,lookup[key])
             # RIGID and REDUCERS remain attached to owning element, NEVER node.
     # Unit labels / factors are source tokens, not inferred effective units.
     units_section=get_section(root,'UNITS')
-    result['units']=[{'record_index':r.get('index'),'fields':source_fields(r)}
+    result['units']=[{'record_index':r.get('index'),'fields':source_fields(r,'UNITS')}
                      for r in units_section.findall('Record')]
     for label,row in lines.items():
         owners={e['element_index'] for e in row['elements']}
@@ -153,7 +170,8 @@ def snapshot(root:ET.Element) -> dict:
                                               'auxiliary_only':True})
                 ent['endpoints'].append({'element_index':el['element_index'],
                                          'side':side,'line_label':label,
-                                         'source_line':el['source_line']})
+                                         'source_line':el['source_line'],
+                                         'source_anchor':el['endpoint_sources'][side]})
                 ent['auxiliary_only']=False
         # Auxiliary references can designate nodes without ELEMENT endpoints.
         # Project events by their *owner element*, not by shared node number.

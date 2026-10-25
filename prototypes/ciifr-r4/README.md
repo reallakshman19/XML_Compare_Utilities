@@ -24,7 +24,7 @@ are rejected; stage data are removed on failure. Destination publication is a
 rename, not a concurrent compare-and-swap operation: do not race writers.
 The read-only hierarchy is not a serializer. P2/P2.1 files remain untouched.
 Native Owner Windows, CAESAR engineering equivalence, independent review, and
-private-file testing remain NOT_RUN. No merge, release, or transfer authority.
+private-file testing on this new trace head remains NOT_RUN. No merge, release, or transfer authority.
 
 ## S2 offline hierarchy (same one-command launch)
 
@@ -41,8 +41,22 @@ original labels/factors only. Blank line labels remain the literal empty key.
 RIGID and REDUCER stay with their owning element. The viewer is not
 engineering/CAESAR qualification and cannot modify CII bytes.
 
-Run `python -m unittest discover -s tests -v` for all 15 synthetic tests.
+Run `python -m unittest discover -s tests -v` for all 20 synthetic tests.
 The file:// double-click behavior still needs an Owner native-Windows trial;
 Chromium's interactive DOM test in a sandboxed environment passed, but direct
 file:// navigation was blocked by the test environment's administrator.
 GLRD private original is NOT_RUN.
+
+## S2-TRACE-1 (read-only source address layer)
+
+The offline source table exposes **Open source** for each field: SECTION, XML
+Record ID/index, XML Row ordinal, original physical CII row, 1-based row-local
+field slot and exact lexeme. Equal-valued neighboring fields have distinct
+addresses; the model never looks up an address by numeric value. Each nodal
+event exposes its auxiliary **source_anchor** and separate owning-element
+**pointer_source**. Endpoints and material references have source anchors too.
+
+Physical CII byte/column offsets: UNKNOWN (not derived). Engineering/CAESAR
+semantic correctness: NOT VERIFIED. No reclassification, writer or export added.
+Five additional synthetic tests cover repeated source tokens, shared-line node
+ownership and first/second auxiliary field positions.
