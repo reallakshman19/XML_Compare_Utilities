@@ -160,10 +160,28 @@ export function createTestDom() {
   const tabLineNode = new MockElement('button', { 'data-tab': 'LINE_NODE', 'role': 'tab' });
   const tabGeom = new MockElement('button', { 'data-tab': 'GEOMETRY', 'role': 'tab' });
   const tabConfig = new MockElement('button', { 'data-tab': 'CONFIG', 'role': 'tab' });
-  nav.append(tabNormal, tabLineNode, tabGeom, tabConfig);
+  const tabNodal = new MockElement('button', { 'data-tab': 'NODAL', 'role': 'tab' });
+  nav.append(tabNormal, tabNodal, tabLineNode, tabGeom, tabConfig);
 
   // Workspace
   const ws = new MockElement('div', { 'data-workspace': '' });
+  const normalSection = new MockElement('section', { 'data-normal-section': '' });
+  const normalReview = new MockElement('section', { 'data-normal-review': '' });
+  const normalFooter = new MockElement('section', { 'data-normal-footer': '' });
+  const standardCsv = new MockElement('div', { 'data-standard-csv': '' });
+  const sourceCard = new MockElement('div', { 'data-source-card': '' });
+  const demoSection = new MockElement('section', { 'data-demo-section': '' });
+  const nodal = new MockElement('section', { 'data-nodal-area': '' });
+  const nodalKeys = ['nodalCsv','nodalPreview','nodalApproveAll','nodalCount',
+    'nodalRows','nodalDiagnostics','nodalValidate','nodalApply',
+    'nodalExport','nodalAudit','nodalStatus','nodalTargethash'];
+  const nodalElements = Object.fromEntries(nodalKeys.map(k=>{
+    const tag=k==='nodalCsv'?'input':k==='nodalRows'?'tbody':
+      k==='nodalDiagnostics'?'ul':k==='nodalCount'?'span':
+      k==='nodalStatus'?'p':k==='nodalTargethash'?'output':'button';
+    const elem = new MockElement(tag); elem.dataset[k]='';
+    nodal.append(elem);return [k,elem];
+  }));
   const targetFile = new MockElement('input', { 'data-file': 'target', 'type': 'file' });
   const sourceFile = new MockElement('input', { 'data-file': 'source', 'type': 'file' });
   const csvFile = new MockElement('input', { 'data-file': 'csv', 'type': 'file' });
@@ -203,7 +221,8 @@ export function createTestDom() {
     btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved,
     btnExportResolved, btnExportCleanupReport, cleanupReport, cleanupCount, cleanupLog,
     ...cleanupInputs, btnValidate, btnApply, btnExport, btnAudit, status, hash1,
-    claimCount, tbodyRules, tbodyProposals, ulDiagnostics);
+    claimCount, tbodyRules, tbodyProposals, ulDiagnostics,normalSection,normalReview,normalFooter,
+    standardCsv,sourceCard,demoSection,nodal);
 
   // Config area
   const configArea = new MockElement('section', { 'data-config-area': '' });
@@ -223,5 +242,5 @@ export function createTestDom() {
   globalThis.URL.createObjectURL = () => 'blob:mock';
   globalThis.URL.revokeObjectURL = () => {};
 
-  return { root, tabNormal, tabConfig, btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile, cleanupReport, cleanupLog };
+  return { root, tabNormal, tabNodal, nodalElements, tabConfig, btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile, cleanupReport, cleanupLog };
 }
