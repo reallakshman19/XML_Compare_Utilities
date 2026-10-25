@@ -4,6 +4,8 @@ import { parseCii } from './physical.js';
 import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
 import { enforceNormalNodeClosure } from './normal-node-closure.js';
 import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
+import { resolveImportedCsv } from './csv-resolver.js';
+import { safeNonConflictIds } from './nonconflict-review.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
@@ -12,6 +14,7 @@ const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LIT
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
 let config = { ...DEFAULT_POLICY }, csvSeq = 0;
+let importedCsv = false, pendingCleanup = null, cleanupReport = null;
 const fileSeqs = { target: 0, source: 0 };
 const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
@@ -23,8 +26,10 @@ const message = (text) => { $('[data-status]').textContent = text; };
 
 function invalidate(s, reason = 'Changes revoked previous approvals and exports.') {
   revision++; opSeq++;
+  pendingCleanup = null; cleanupReport = null;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
   if (s === state()) {
+    renderCleanupReport();
     for (const td of $$('[data-recommendation-cell]')) td.replaceChildren('—');
     renderResults(); message(reason);
   }
@@ -104,6 +109,7 @@ function recommendationCell(rule, plan) {
 
 function renderRules() {
   const tbody = $('[data-rules]'); tbody.replaceChildren();
+  $('[data-resolve]').disabled = !target || active !== 'NORMAL' || !importedCsv;
   for (const [i, rule] of state().rules.entries()) {
     const tr = document.createElement('tr'); tr.dataset.rowIndex = String(i); tr.append(cell('th', String(i + 1)));
     for (const key of ['find', 'replace', 'mode', 'flags', 'field', 'scope', 'from', 'to', 'branch']) {
@@ -147,6 +153,8 @@ function renderResults() {
   }
   $('[data-claim-count]').textContent = `${s.plan?.claims.length || 0} claims`;
   $('[data-approve-all]').disabled = !canApproveAll(s);
+  $('[data-approve-nonconflict]').disabled = active !== 'NORMAL' ||
+    !safeNonConflictIds(target?.parsed, s.plan, config).length;
   $('[data-validate]').disabled = !s.plan || ![...s.decisions.values()].includes('APPROVED');
   $('[data-apply]').disabled = !s.validated;
   $('[data-export]').disabled = !s.applied;
@@ -173,6 +181,64 @@ function approveAll() {
   s.validated = null; s.applied = null;
   renderResults();
   message(`Approved all ${s.plan.claims.length} complete, conflict-free proposals for review. Validate TARGET1 separately.`);
+}
+function approveNonConflict() {
+  const s=state(), ids=safeNonConflictIds(target?.parsed,s.plan,config);
+  if(active!=='NORMAL'||!ids.length){message('No isolated, complete non-conflict proposal groups can be approved.');return;}
+  for(const id of ids)s.decisions.set(id,'APPROVED');
+  revision++; opSeq++; pendingCleanup=null; s.validated=null; s.applied=null;
+  renderResults();
+  message(`Approved ${ids.length} non-conflict proposal(s). Conflicting/incomplete proposals remain held; Validate TARGET1 separately.`);
+}
+function cleanupOptions() {
+  const check=k=>Boolean($(`[data-cleanup="${k}"]`).checked);
+  const value=k=>$(`[data-cleanup="${k}"]`).value;
+  return { trim:check('trim'), collapseSpace:check('collapseSpace'), suffixOne:check('suffixOne'),
+    refSuffix:check('refSuffix'), truncateTo:Number(value('truncateTo')),
+    customPattern:value('customPattern'), customReplace:value('customReplace') };
+}
+function renderCleanupReport() {
+  const section=$('[data-cleanup-report]');
+  section.hidden=!cleanupReport;
+  if(!cleanupReport)return;
+  const {report,summary}=cleanupReport;
+  $('[data-cleanup-count]').textContent=
+    `${summary.accepted} accepted · ${summary.held} held · ${summary.dropped} duplicate rows dropped`;
+  $('[data-cleanup-log]').textContent=
+    `Original CSV rows: ${summary.total}\nAccepted rules: ${summary.accepted}\nCleaned: ${summary.cleaned}\nProposals: ${summary.proposedNameFields}\nNew name collisions: ${summary.newlyIntroducedNameDuplicates}\n\n`+
+    report.map(r=>`Row ${r.row} [${r.status}] ${r.find} → ${r.replace} | ${r.reason}`+
+      (r.actions.length?` | ${r.actions.join(', ')}`:'')+
+      (r.cleanedFind?` | resolved ${r.cleanedFind} → ${r.cleanedReplace}`:'')).join('\n');
+  $('[data-use-resolved]').disabled=!pendingCleanup||pendingCleanup.revision!==revision||!summary.accepted;
+  $('[data-export-resolved]').disabled=!summary.accepted;
+  $('[data-export-cleanup-report]').disabled=false;
+}
+async function previewCsvResolution() {
+  if(active!=='NORMAL'||!target||!importedCsv){message('Load TARGET0 and import CSV first.');return;}
+  const guard=revision, currentTarget=target, currentSource=source;
+  try {
+    const hash=await sha256(target.bytes);
+    if(guard!==revision||target!==currentTarget||source!==currentSource)return;
+    const options={...cleanupOptions(),targetBytes:target.bytes};
+    const result=resolveImportedCsv(currentRules(),target.parsed,source?.parsed,options,hash);
+    if(guard!==revision||target!==currentTarget||source!==currentSource)return;
+    pendingCleanup={revision:guard,result}; cleanupReport=result;
+    renderCleanupReport();
+    $('[data-cleanup-report]').open=true;
+    message(`CSV audit: ${result.summary.accepted} safe rules, ${result.summary.held} held, ${result.summary.dropped} duplicate rows dropped. No rules or CII bytes changed.`);
+  }catch(err){pendingCleanup=null;message('CSV cleanup blocked: '+(err.message||String(err)));}
+}
+function useResolvedCsv() {
+  if(!pendingCleanup||pendingCleanup.revision!==revision||!pendingCleanup.result.summary.accepted)
+    {message('Cleanup preview is stale or contains no accepted rules.');return;}
+  const preview=pendingCleanup.result;
+  state().rules=preview.acceptedRules.map(r=>({...r}));
+  invalidate(state()); cleanupReport=preview; renderRules(); renderResults(); renderCleanupReport();
+  message(`Used ${preview.summary.accepted} accepted rules. ${preview.summary.held} held and ${preview.summary.dropped} duplicate rows omitted. Generate proposals again; CII unchanged.`);
+}
+function csvOut(rules) {
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  return 'Find,Replace,Branch\r\n'+rules.map(r=>[r.find,r.replace,r.scope==='BRANCH'?r.branch:''].map(q).join(',')).join('\r\n')+'\r\n';
 }
 function currentRules() { return state().rules.filter((r) => r.find || r.replace).map((r) => ({ ...r })); }
 function safeError(err) {
@@ -278,12 +344,19 @@ function parseCsv(text) {
     branch: branch >= 0 ? (v[branch] || '').trim() : '', scope: branch >= 0 && (v[branch] || '').trim() ? 'BRANCH' : 'DOCUMENT' }));
 }
 root.addEventListener('input', (event) => {
+  if(event.target.dataset.cleanup !== undefined) {
+    pendingCleanup=null; cleanupReport=null; renderCleanupReport();
+    return;
+  }
   const field = event.target.dataset.field, row = event.target.closest('[data-row-index]');
   if (!field || !row) return;
   state().rules[Number(row.dataset.rowIndex)][field] = event.target.value;
   invalidate(state());
 });
 root.addEventListener('change', (event) => {
+  if(event.target.dataset.cleanup !== undefined) {
+    pendingCleanup=null; cleanupReport=null; renderCleanupReport(); return;
+  }
   const key = event.target.dataset.config;
   if (key) {
     try {
@@ -328,7 +401,7 @@ root.addEventListener('click', async (event) => {
   const el = event.target.closest('button'); if (!el) return;
   if (el.dataset.tab) {
     if (el.dataset.tab === active) return;
-    invalidate(state()); active = el.dataset.tab; invalidate(state()); renderTabs(); renderRules(); renderResults();
+    invalidate(state()); active = el.dataset.tab; invalidate(state()); renderTabs(); renderRules(); renderResults(); renderCleanupReport();
     return;
   }
   if (el.dataset.delete !== undefined) { state().rules.splice(Number(el.dataset.delete), 1); invalidate(state()); renderRules(); }
@@ -339,7 +412,14 @@ root.addEventListener('click', async (event) => {
       message('Find/Replace grid copied as TSV.'); } catch { message('Clipboard unavailable in this browser context.'); }
   }
   if (el.dataset.run !== undefined) await generate();
+  if (el.dataset.resolve !== undefined) await previewCsvResolution();
+  if (el.dataset.useResolved !== undefined) useResolvedCsv();
+  if (el.dataset.exportResolved !== undefined && cleanupReport)
+    download('NodeName_resolved.csv', csvOut(cleanupReport.acceptedRules), 'text/csv');
+  if (el.dataset.exportCleanupReport !== undefined && cleanupReport)
+    download('NodeName_cleanup_report.json', JSON.stringify(cleanupReport,null,2), 'application/json');
   if (el.dataset.approveAll !== undefined) approveAll();
+  if (el.dataset.approveNonconflict !== undefined) approveNonConflict();
   if (el.dataset.validate !== undefined) await validate();
   if (el.dataset.apply !== undefined) await apply();
   if (el.dataset.export !== undefined) await exportCii();
@@ -376,7 +456,7 @@ $('[data-file="csv"]').addEventListener('change', async (event) => {
   try {
     const text = await file.text();
     if (req !== csvSeq || active !== targetTab || guard !== revision || config !== curCfg) return;
-    s.rules = parseCsv(text); invalidate(s); renderRules();
+    s.rules = parseCsv(text); importedCsv = true; invalidate(s); renderRules();
     message(`Imported ${s.rules.length} CSV rows.`);
   } catch (err) { if (req === csvSeq && active === targetTab && guard === revision && config === curCfg) safeError(err); }
 });
