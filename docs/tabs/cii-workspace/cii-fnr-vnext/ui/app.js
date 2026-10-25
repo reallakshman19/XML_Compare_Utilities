@@ -52,7 +52,7 @@ function addSelect(td, field, entries, value) {
   for (const [id, label] of entries) { const option = document.createElement('option'); option.value = id; option.textContent = label; el.append(option); }
   el.value = value; td.append(el);
 }
-const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block (Draft)'],['BRANCH','Branch']] };
+const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block(Draft)'],['BRANCH','Branch']] };
 
 function branchChoices(current) {
   const names = sourceBranchLabels(source?.parsed);
