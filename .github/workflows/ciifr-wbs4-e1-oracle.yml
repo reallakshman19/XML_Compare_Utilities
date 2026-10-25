@@ -1,0 +1,22 @@
+name: CIIFR WBS4 E1 read-only oracle
+on:
+  pull_request:
+    paths:
+      - 'tools/ciifr-wbs4/**'
+      - 'tests/ciifr-wbs4-readonly-catalog.test.mjs'
+      - 'docs/ciifr/WBS4_*.md'
+      - '.github/workflows/ciifr-wbs4-e1-oracle.yml'
+permissions:
+  contents: read
+jobs:
+  oracle-synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Oracle read-only physical catalogue and counterexamples
+        run: node --test tests/ciifr-wbs4-readonly-catalog.test.mjs
+      - name: Existing NodeName branch/writer safeguards
+        run: node --test tests/cii-fnr-vnext-branch-scope.test.mjs
