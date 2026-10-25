@@ -142,6 +142,7 @@ export function resolveImportedCsv(rules,target,source,options={},hash='0'.repea
       find:String(r.find??''),replace:String(r.replace??''),status,reason,
       cleanedFind:next?.find||'',cleanedReplace:next?.replace||'',actions:steps});
     if(!trim(r.find)||!trim(r.replace)){log('HELD','EMPTY_FIND_OR_REPLACE');continue;}
+    if((r.mode||'LITERAL')!=='LITERAL'){log('HELD','REGEX_FIND_RULE_REQUIRES_MANUAL_REVIEW');continue;}
     if(originalGroups.get(trim(r.find)).size>1){log('HELD','ORIGINAL_FIND_HAS_COMPETING_REPLACEMENTS');continue;}
     const found=cleanName(r.find,opts), to=cleanName(r.replace,opts,true);
     let hit=targetNames.get(found.value),steps=[...found.applied,...to.applied],name=found.value;
