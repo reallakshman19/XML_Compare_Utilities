@@ -22,13 +22,16 @@ input[type=file] { max-width: 100%; font-size: 12px; }
 .meta { overflow-wrap: anywhere; font-size: 12px; font-weight: 400; }
 .actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .scroller { height: min(42vh, 400px); min-height: 230px; overflow: auto; border: 1px solid #a9b9c9; scrollbar-gutter: stable; }
-table { border-collapse: collapse; width: 100%; min-width: 1050px; font-size: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 1240px; font-size: 12px; }
 th, td { padding: 6px 8px; border: 1px solid #dce3ed; text-align: left; }
 thead th { background: #eaf0f7; position: sticky; top: 0; z-index: 1; }
 td input, td select { min-width: 0; width: 100%; border: 1px solid #c2cfdd; padding: 6px; border-radius: 3px; }
 td:nth-child(2), td:nth-child(3) { width: 18%; }
 td:nth-child(5) { width: 7%; }
 td:nth-child(7) { width: 10%; }
+.recommendation-cell { min-width: 200px; max-width: 310px; vertical-align: top; overflow-wrap: anywhere; }
+.rule-advice summary { cursor: pointer; font-weight: 600; color: #205b93; }
+.rule-advice p { margin: 7px 0 0; line-height: 1.45; }
 .log { max-height: 150px; overflow: auto; font-family: ui-monospace, monospace; font-size: 12px; padding-left: 20px; }
 .status { padding: 12px; background: #eaf4ff; border-left: 3px solid #2b77bb; margin: 12px 0; }
 .footer-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
