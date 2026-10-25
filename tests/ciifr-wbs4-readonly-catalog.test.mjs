@@ -27,7 +27,7 @@ function fixture({secondRigid=0,weight='0',type='2',newline='\r\n',modify,firstR
 
 test('E1 literal physical field catalogue: 53 real values, 15 pointer slots and two rigid values',()=>{
   const original=fixture();
-  const copy=Buffer.from(original);
+  const copy=new Uint8Array(original);
   const c=readOnlyCatalog(original);
   assert.equal(c.version,14);
   assert.equal(c.elementCount,2);
