@@ -22,7 +22,10 @@ const message = (text) => { $('[data-status]').textContent = text; };
 function invalidate(s, reason = 'Changes revoked previous approvals and exports.') {
   revision++; opSeq++;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
-  if (s === state()) { renderResults(); message(reason); }
+  if (s === state()) {
+    for (const td of $('[data-recommendation-cell]')) td.replaceChildren('—');
+    renderResults(); message(reason);
+  }
 }
 function cell(tag, text) { const node = document.createElement(tag); node.textContent = text; return node; }
 function renderTabs() {
@@ -52,6 +55,7 @@ const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NOD
 function recommendationCell(rule, plan) {
   const td = document.createElement('td');
   td.className = 'recommendation-cell';
+  td.dataset.recommendationCell = '';
   const errors = (plan?.diagnostics || []).filter(d => d.ruleId === rule.id &&
     d.severity === 'ERROR' && d.code === 'BRANCH_NODE_CROSSES_SCOPE');
   if (!errors.length) { td.textContent = '—'; return td; }
@@ -163,7 +167,7 @@ async function generate() {
     if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
     const plan = planNormal({ tab: 'NORMAL', targetBytes, originalTargetSha256: hash, sourceBytes, rules, options: {} });
     if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
-    s.plan = plan; s.diagnostics = []; renderResults();
+    s.plan = plan; s.diagnostics = []; renderRules(); renderResults();
     message(`${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
   } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
