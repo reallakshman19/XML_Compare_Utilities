@@ -25,7 +25,7 @@ function invalidate(s, reason = 'Changes revoked previous approvals and exports.
   revision++; opSeq++;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
   if (s === state()) {
-    for (const td of $('[data-recommendation-cell]')) td.replaceChildren('—');
+    for (const td of $$('[data-recommendation-cell]')) td.replaceChildren('—');
     renderResults(); message(reason);
   }
 }
