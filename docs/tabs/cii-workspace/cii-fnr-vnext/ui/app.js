@@ -6,6 +6,7 @@ import { enforceNormalNodeClosure } from './normal-node-closure.js';
 import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
 import { resolveImportedCsv } from './csv-resolver.js';
 import { safeNonConflictIds } from './nonconflict-review.js';
+import { mountGeometry } from '../geometry/ui.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
@@ -21,6 +22,7 @@ const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), b
 const root = document.querySelector('[data-vnext-app]');
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
+const geometry = mountGeometry($('[data-geometry-area]'));
 const state = () => states[active] || states.NORMAL;
 const message = (text) => { $('[data-status]').textContent = text; };
 
@@ -42,10 +44,16 @@ function renderTabs() {
     button.classList.toggle('selected', selected);
   }
   $('[data-workspace]').hidden = active === 'CONFIG';
+  for (const section of $$('[data-workspace] > section')) {
+    section.hidden = active === 'GEOMETRY' && !section.classList.contains('intake');
+  }
+  const geometryHost = $('[data-geometry-area]');
+  if (geometryHost) geometryHost.hidden = active !== 'GEOMETRY';
+  geometry.activate(active === 'GEOMETRY');
   $('[data-config-area]').hidden = active !== 'CONFIG';
   for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
-  $('[data-unavailable]').hidden = active === 'NORMAL';
+  $('[data-unavailable]').hidden = active !== 'LINE_NODE';
   $('[data-run]').disabled = active !== 'NORMAL' || !target;
   $('[data-rows-area]').hidden = active !== 'NORMAL';
   message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
@@ -448,6 +456,7 @@ for (const field of ['target', 'source']) {
   $(`[data-file="${field}"]`).addEventListener('change', async (event) => {
     const file = event.target.files?.[0], req = ++fileSeqs[field];
     if (field === 'target') target = null; else source = null;
+    geometry.setFiles(source, target);
     for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
     $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
     renderTabs(); renderRules(); renderResults();
@@ -458,6 +467,7 @@ for (const field of ['target', 'source']) {
       snapshot.parsed = parseCii(snapshot.bytes);
       const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
       if (field === 'target') target = snapshot; else source = snapshot;
+      geometry.setFiles(source, target);
       for (const s of Object.values(states)) invalidate(s);
       $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
       renderTabs(); renderRules(); renderResults();
