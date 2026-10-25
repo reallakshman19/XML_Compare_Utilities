@@ -22,7 +22,7 @@ input[type=file] { max-width: 100%; font-size: 12px; }
 .meta { overflow-wrap: anywhere; font-size: 12px; font-weight: 400; }
 .actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .scroller { height: min(42vh, 400px); min-height: 230px; overflow: auto; border: 1px solid #a9b9c9; scrollbar-gutter: stable; }
-table { border-collapse: collapse; width: 100%; min-width: 1240px; font-size: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 1500px; font-size: 12px; }
 th, td { padding: 6px 8px; border: 1px solid #dce3ed; text-align: left; }
 thead th { background: #eaf0f7; position: sticky; top: 0; z-index: 1; }
 td input, td select { min-width: 0; width: 100%; border: 1px solid #c2cfdd; padding: 6px; border-radius: 3px; }
