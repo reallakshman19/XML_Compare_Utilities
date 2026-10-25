@@ -22,6 +22,13 @@ export const pointerNames = Object.freeze([
   'OFFSETS','ALLOWBLS','SIF&TEES','NODENAME','REDUCERS','FLANGES','EQUIPMNT'
 ]);
 
+// The CONTROL section has six main counts, followed by 13 auxiliary fields in
+// 6+6+1 fixed-width slots. Auxiliary field 12 is the IZUP *flag*, not a count.
+// Pointers #12-14 instead use NONAM, NORED and NUMFLG from the main row.
+// Section names/ordinals are those of the v14 ELEMENTS auxiliary pointers.
+const PHYSICAL_LINES_PER_RECORD = Object.freeze({
+  BEND:3, RIGID:1, EXPJT:1, NODENAME:1, REDUCERS:1, FLANGES:12, EQUIPMNT:6
+});
 const fail = (code) => { throw Error(code); };
 function linesOf(bytes) {
   if (!(bytes instanceof Uint8Array)) fail('WBS4_BYTES_REQUIRED');
@@ -73,13 +80,34 @@ export function readOnlyCatalog(bytes) {
   const sections=sectionsOf(bytes), v=sections.get('VERSION')[0]?.text.trim().split(/\s+/).map(Number);
   if (v?.[1]!==14) fail('WBS4_V14_ONLY');
   const ctl=sections.get('CONTROL');
-  const elementCount=integer(numberSlot(ctl[0],2,'WBS4_NUMELT').value,'WBS4_NUMELT');
-  const nodeNameCount=integer(numberSlot(ctl[0],2+3*13,'WBS4_NONAM').value,'WBS4_NONAM');
-  const rigidCount=integer(numberSlot(ctl[1],2+13,'WBS4_NORIG').value,'WBS4_NORIG');
+  // Read all CONTROL ordinals by physical position, never from an auxiliary
+  // section's nonblank *line* count (one BEND index occupies three lines).
+  if(ctl.length!==4) fail('WBS4_CONTROL_6_6_1_LAYOUT');
+  const mainCounts=Array.from({length:6},(_,j)=>integer(
+    numberSlot(ctl[0],2+j*13,'WBS4_CONTROL_MAIN_'+(j+1)).value,
+    'WBS4_CONTROL_MAIN_'+(j+1)));
+  const auxCounts=Array.from({length:13},(_,j)=>integer(
+    numberSlot(ctl[1+Math.floor(j/6)],2+(j%6)*13,'WBS4_CONTROL_AUX_'+(j+1)).value,
+    'WBS4_CONTROL_AUX_'+(j+1)));
+  const elementCount=mainCounts[0],nodeNameCount=mainCounts[3];
+  const rigidCount=auxCounts[1];
+  if(auxCounts[11]!==0 && auxCounts[11]!==1) fail('WBS4_IZUP_FLAG');
+  const pointerCounts=[...auxCounts.slice(0,11),nodeNameCount,
+    mainCounts[4],mainCounts[5],auxCounts[12]];
   const rows=sections.get('ELEMENTS');
   if(rows.length!==elementCount*15) fail('WBS4_ELEMENT_CARDINALITY');
   if((sections.get('RIGID')||[]).length!==rigidCount) fail('WBS4_RIGID_CARDINALITY');
   if((sections.get('NODENAME')||[]).length!==nodeNameCount) fail('WBS4_NODENAME_CARDINALITY');
+  // Only source-qualified fixed-record sections receive physical line checks.
+  // Other auxiliary body shapes remain expressly unqualified in the result.
+  for(let j=0;j<pointerNames.length;j++){
+    const section=pointerNames[j],count=pointerCounts[j],lines=sections.get(section);
+    if(count && !lines) fail(`WBS4_AUX_SECTION_MISSING section=${section} count=${count}`);
+    const lineWidth=PHYSICAL_LINES_PER_RECORD[section];
+    if(lineWidth && lines && lines.length!==count*lineWidth &&
+        section!=='RIGID' && section!=='NODENAME')
+      fail(`WBS4_AUX_CARDINALITY section=${section} count=${count} physicalLines=${lines.length} expected=${count*lineWidth}`);
+  }
   if(FIELD_NAMES.length!==53 || pointerNames.length!==15) fail('WBS4_INTERNAL_CATALOGUE');
   const elements=[],ownerMap=new Map();
   for(let e=0;e<elementCount;e++){
@@ -102,9 +130,20 @@ export function readOnlyCatalog(bytes) {
           pointer:integer(slot.value,'WBS4_POINTER_NOT_INTEGER'),byteStart:slot.byteStart,byteEnd:slot.byteEnd});
       }
     }
+    for(let j=0;j<pointers.length;j++){
+      const entry=pointers[j],count=pointerCounts[j];
+      // Keep the inherited RIGID and NODENAME error codes stable. Other
+      // invalid auxiliary indexes now fail closed, with physical custody.
+      if(entry.pointer>count){
+        const code=j===1?'WBS4_RIGID_POINTER_RANGE':
+          j===11?'WBS4_NODENAME_POINTER_RANGE':'WBS4_AUX_POINTER_RANGE';
+        fail(`${code} element=${e+1} pointerOrdinal=${j+1} section=${entry.section} pointer=${entry.pointer} count=${count} byteStart=${entry.byteStart}`);
+      }
+      entry.recordShape=entry.pointer===0?'ABSENT':
+        PHYSICAL_LINES_PER_RECORD[entry.section]?'PHYSICAL_CARDINALITY_ONLY':
+        'UNVALIDATED_RECORD_SHAPE';
+    }
     const rigidPointer=pointers[1].pointer,nodenamePointer=pointers[11].pointer;
-    if(rigidPointer>rigidCount)fail('WBS4_RIGID_POINTER_RANGE');
-    if(nodenamePointer>nodeNameCount)fail('WBS4_NODENAME_POINTER_RANGE');
     if(rigidPointer)ownerMap.set(rigidPointer,[...(ownerMap.get(rigidPointer)||[]),e]);
     elements.push({index:e,from,to,elementName,branch,reals,pointers,
       rigidPointer,nodenamePointer});
