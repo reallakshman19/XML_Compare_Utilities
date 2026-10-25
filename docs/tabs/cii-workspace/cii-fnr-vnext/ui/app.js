@@ -238,7 +238,12 @@ function useResolvedCsv() {
 }
 function csvOut(rules) {
   const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  return 'Find,Replace,Branch\r\n'+rules.map(r=>[r.find,r.replace,r.scope==='BRANCH'?r.branch:''].map(q).join(',')).join('\r\n')+'\r\n';
+  const headers=['Find','Replace','Branch','Scope','From','To','Field','Mode','Flags'];
+  return headers.join(',')+'\r\n'+rules.map(r=>[
+    r.find,r.replace,r.scope==='BRANCH'?r.branch:'',
+    r.scope||'DOCUMENT',r.from||'',r.to||'',
+    r.field||'NODENAME.BOTH',r.mode||'LITERAL',r.flags||'g'
+  ].map(q).join(',')).join('\r\n')+'\r\n';
 }
 function currentRules() { return state().rules.filter((r) => r.find || r.replace).map((r) => ({ ...r })); }
 function safeError(err) {
@@ -340,8 +345,17 @@ function parseCsv(text) {
   const find = headers.findIndex((x) => ['find', 'findtext'].includes(x));
   const replace = headers.findIndex((x) => ['replace', 'replacetext'].includes(x)); const branch = headers.findIndex((x) => x === 'branch');
   if (find < 0 || replace < 0) throw new Error('CSV_FIND_REPLACE_HEADERS_REQUIRED');
-  return rows.map((v) => ({ ...blank(), find: v[find] || '', replace: v[replace] || '',
-    branch: branch >= 0 ? (v[branch] || '').trim() : '', scope: branch >= 0 && (v[branch] || '').trim() ? 'BRANCH' : 'DOCUMENT' }));
+  const index = key => headers.indexOf(key);
+  const optional = (v,key,fallback) => index(key)>=0 ? (v[index(key)]||fallback) : fallback;
+  return rows.map((v) => {
+    const b=branch >= 0 ? (v[branch] || '').trim() : '';
+    const scope=optional(v,'scope',b?'BRANCH':'DOCUMENT').trim().toUpperCase();
+    return { ...blank(), find: v[find] || '', replace: v[replace] || '',
+      branch:b,scope,from:optional(v,'from',''),to:optional(v,'to',''),
+      field:optional(v,'field','NODENAME.BOTH'),
+      mode:optional(v,'mode','LITERAL').trim().toUpperCase(),
+      flags:optional(v,'flags','g') };
+  });
 }
 root.addEventListener('input', (event) => {
   if(event.target.dataset.cleanup !== undefined) {
