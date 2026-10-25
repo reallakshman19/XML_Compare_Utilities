@@ -27,7 +27,7 @@ export const pointerNames = Object.freeze([
 // Pointers #12-14 instead use NONAM, NORED and NUMFLG from the main row.
 // Section names/ordinals are those of the v14 ELEMENTS auxiliary pointers.
 const PHYSICAL_LINES_PER_RECORD = Object.freeze({
-  BEND:3, RIGID:1, EXPJT:1, NODENAME:1, REDUCERS:1, FLANGES:12, EQUIPMNT:6
+  BEND:3, RIGID:1, EXPJT:1, NODENAME:1, REDUCERS:2, FLANGES:12, EQUIPMNT:6
 });
 const fail = (code) => { throw Error(code); };
 function linesOf(bytes) {
@@ -103,6 +103,10 @@ export function readOnlyCatalog(bytes) {
   for(let j=0;j<pointerNames.length;j++){
     const section=pointerNames[j],count=pointerCounts[j],lines=sections.get(section);
     if(count && !lines) fail(`WBS4_AUX_SECTION_MISSING section=${section} count=${count}`);
+    // A declared positive logical count cannot be resolved by a bare section
+    // header. Unknown body *shapes* remain unqualified, but zero bodies fail.
+    if(count && lines.length===0)
+      fail(`WBS4_AUX_SECTION_EMPTY section=${section} count=${count} physicalLines=0`);
     const lineWidth=PHYSICAL_LINES_PER_RECORD[section];
     if(lineWidth && lines && lines.length!==count*lineWidth &&
         section!=='RIGID' && section!=='NODENAME')

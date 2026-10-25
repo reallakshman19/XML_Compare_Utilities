@@ -204,3 +204,40 @@ test('RIGID/NODENAME preserved: range errors and sharing; unknown section body e
   });
   assert.equal(readOnlyCatalog(unknown).elements[0].pointers[3].recordShape,'UNVALIDATED_RECORD_SHAPE');
 });
+
+test('R2 F1: declared RESTRANT count/pointer rejects missing and empty present section',()=>{
+  const missing=invented(lines=>{
+    setAuxCount(lines,4,1);setPointer(lines,4,1);
+  });
+  assert.throws(()=>readOnlyCatalog(missing),/WBS4_AUX_SECTION_MISSING section=RESTRANT count=1/);
+  const empty=invented(lines=>{
+    setAuxCount(lines,4,1);setPointer(lines,4,1);addSection(lines,'RESTRANT',0);
+  });
+  assert.throws(()=>readOnlyCatalog(empty),
+    /WBS4_AUX_SECTION_EMPTY section=RESTRANT count=1 physicalLines=0/);
+  const populated=invented(lines=>{
+    setAuxCount(lines,4,1);setPointer(lines,4,1);addSection(lines,'RESTRANT',1);
+  });
+  const candidate=readOnlyCatalog(populated);
+  assert.equal(candidate.elements[0].pointers[3].recordShape,'UNVALIDATED_RECORD_SHAPE',
+    'one nonblank RESTRANT line is presence only, never qualified physical shape');
+  assert.equal(candidate.sectionCounts.RESTRANT,1);
+});
+
+test('R2 F2: v14 REDUCERS require 2 physical lines of five values per logical record',()=>{
+  const configure=(rows)=>invented(lines=>{
+    setMainCount(lines,5,1);setPointer(lines,13,1);
+    lines.push('#$ REDUCERS',...Array.from({length:rows},()=>num([],5)));
+  });
+  const valid=readOnlyCatalog(configure(2));
+  assert.equal(valid.elements[0].pointers[12].recordShape,'PHYSICAL_CARDINALITY_ONLY');
+  assert.equal(valid.sectionCounts.REDUCERS,2);
+  assert.throws(()=>readOnlyCatalog(configure(1)),
+    /WBS4_AUX_CARDINALITY section=REDUCERS count=1 physicalLines=1 expected=2/);
+  assert.throws(()=>readOnlyCatalog(configure(3)),
+    /WBS4_AUX_CARDINALITY section=REDUCERS count=1 physicalLines=3 expected=2/);
+  assert.throws(()=>readOnlyCatalog(configure(0)),
+    /WBS4_AUX_SECTION_EMPTY section=REDUCERS count=1 physicalLines=0/);
+  const missing=invented(lines=>{setMainCount(lines,5,1);setPointer(lines,13,1);});
+  assert.throws(()=>readOnlyCatalog(missing),/WBS4_AUX_SECTION_MISSING section=REDUCERS count=1/);
+});
