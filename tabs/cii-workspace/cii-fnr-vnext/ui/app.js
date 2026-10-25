@@ -2,10 +2,12 @@ import { planNormal } from '../normal/plan.js';
 import { sha256, validatePostimage } from './writer.js';
 import { parseCii } from './physical.js';
 import { DEFAULT_POLICY, resolvePolicy } from './config-policy.js';
+import { enforceNormalNodeClosure } from './normal-node-closure.js';
+import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
-const names = { NORMAL: 'Normal Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
+const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -22,7 +24,10 @@ const message = (text) => { $('[data-status]').textContent = text; };
 function invalidate(s, reason = 'Changes revoked previous approvals and exports.') {
   revision++; opSeq++;
   s.plan = null; s.decisions.clear(); s.validated = null; s.applied = null; s.diagnostics = [];
-  if (s === state()) { renderResults(); message(reason); }
+  if (s === state()) {
+    for (const td of $$('[data-recommendation-cell]')) td.replaceChildren('—');
+    renderResults(); message(reason);
+  }
 }
 function cell(tag, text) { const node = document.createElement(tag); node.textContent = text; return node; }
 function renderTabs() {
@@ -47,7 +52,56 @@ function addSelect(td, field, entries, value) {
   for (const [id, label] of entries) { const option = document.createElement('option'); option.value = id; option.textContent = label; el.append(option); }
   el.value = value; td.append(el);
 }
-const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block'],['BRANCH','Branch']] };
+const selects = { mode: [['LITERAL','Literal'],['REGEX','Regex']], field: [['NODENAME.BOTH','Name: both'],['NODENAME.FROM','Name: from'],['NODENAME.TO','Name: to']], scope: [['DOCUMENT','Document'],['ELEMENT','Element'],['BLOCK','Block(Draft)'],['BRANCH','Branch']] };
+
+function branchChoices(current) {
+  const names = sourceBranchLabels(source?.parsed);
+  const choices = [['', source ? 'Select SOURCE branch' : 'Load SOURCE CII']];
+  for (const name of names) choices.push([name, name]);
+  if (current && !names.includes(current)) {
+    choices.push([current, source ? current + ' (not in SOURCE)' : current + ' (CSV / retained)']);
+  }
+  return choices;
+}
+
+function recommendationCell(rule, plan) {
+  const td = document.createElement('td');
+  td.className = 'recommendation-cell';
+  td.dataset.recommendationCell = '';
+  const errors = (plan?.diagnostics || []).filter(d => d.ruleId === rule.id &&
+    d.severity === 'ERROR' && d.code === 'BRANCH_NODE_CROSSES_SCOPE');
+  if (!errors.length) { td.textContent = '—'; return td; }
+  // Show source-derived context only; never mutate a rule, a proposal or TARGET0.
+  const byNode = new Map();
+  let unknown = false;
+  for (const d of errors) {
+    if (!Number.isSafeInteger(d.node) || !Array.isArray(d.branches)) { unknown = true; continue; }
+    const prior = byNode.get(d.node);
+    if (prior && (prior.original !== d.original || prior.proposed !== d.proposed)) {
+      unknown = true;
+    } else if (!prior) byNode.set(d.node, d);
+  }
+  const entries = [...byNode.values()];
+  const qualified = !unknown && entries.length > 0 &&
+    entries.every(d => d.aliasNamesConsistent === true && d.replacementFits === true);
+  const details = document.createElement('details');
+  details.className = 'rule-advice';
+  details.append(cell('summary', qualified ? 'A · Rename complete node' : 'Review shared-node conflict'));
+  for (const d of entries) {
+    details.append(cell('p', `Node ${d.node}: ${d.original} → ${d.proposed}. Physical branches: ${d.branches.join(' | ')}. Named occurrences: ${d.namedAliasCount}.`));
+  }
+  if (qualified) details.append(cell('p',
+    'Recommended A, if the name is intended to change everywhere: replace or narrow this branch rule, then use precise node/element rules to rename every named occurrence across the listed branches. Generate and approve a new complete-node plan.'));
+  else details.append(cell('p',
+    'No automatic expansion recommended: node identities, existing alias values or field widths require review.'));
+  details.append(cell('p',
+    'Alternative B: keep the other branches unchanged by excluding these shared nodes from the branch rule. Do not simply change a broad rule to Document scope.'));
+  details.append(cell('p',
+    'Advice only — no rule, approval, TARGET0 or output has changed.'));
+  td.append(details);
+  return td;
+}
+
 function renderRules() {
   const tbody = $('[data-rules]'); tbody.replaceChildren();
   for (const [i, rule] of state().rules.entries()) {
@@ -55,10 +109,12 @@ function renderRules() {
     for (const key of ['find', 'replace', 'mode', 'flags', 'field', 'scope', 'from', 'to', 'branch']) {
       const td = document.createElement('td');
       if (selects[key]) addSelect(td, key, selects[key], rule[key]);
+      else if (key === 'branch') addSelect(td, key, branchChoices(rule.branch), rule.branch);
       else { const input = document.createElement('input'); input.dataset.field = key; input.value = rule[key];
         input.setAttribute('aria-label', `${key} row ${i + 1}`); input.spellcheck = false; td.append(input); }
       tr.append(td);
     }
+    tr.append(recommendationCell(rule, state().plan));
     const td = document.createElement('td'), del = document.createElement('button');
     del.type = 'button'; del.dataset.delete = String(i); del.textContent = '×'; del.setAttribute('aria-label', `Remove row ${i + 1}`);
     td.append(del); tr.append(td); tbody.append(tr);
@@ -67,8 +123,13 @@ function renderRules() {
 function renderResults() {
   const s = state(), tbody = $('[data-proposals]'); tbody.replaceChildren();
   for (const claim of s.plan?.claims || []) {
-    const tr = document.createElement('tr'); tr.append(cell('td', claim.ruleId), cell('td', claim.fieldIdentity),
-      cell('td', `${claim.byteStart}–${claim.byteEnd}`), cell('td', claim.before.trim()), cell('td', claim.after.trim()));
+    const tr = document.createElement('tr');
+    const details = sourceEvidenceForClaim(target?.parsed, source?.parsed, claim);
+    const fallback = source ? 'Unresolved' : '—';
+    tr.append(cell('td', claim.ruleId), cell('td', claim.fieldIdentity),
+      cell('td', `${claim.byteStart}–${claim.byteEnd}`), cell('td', claim.before.trim()), cell('td', claim.after.trim()),
+      cell('td', details?.branch ?? fallback), cell('td', details?.from ?? fallback),
+      cell('td', details?.to ?? fallback));
     const td = document.createElement('td');
     if (claim.status !== 'PROPOSED') td.textContent = claim.status;
     else {
@@ -85,11 +146,33 @@ function renderResults() {
     const li = cell('li', `${d.severity || 'ERROR'} · ${d.code || 'VALIDATION'} · ${d.ruleId || ''} ${d.detail || ''}`); log.append(li);
   }
   $('[data-claim-count]').textContent = `${s.plan?.claims.length || 0} claims`;
+  $('[data-approve-all]').disabled = !canApproveAll(s);
   $('[data-validate]').disabled = !s.plan || ![...s.decisions.values()].includes('APPROVED');
   $('[data-apply]').disabled = !s.validated;
   $('[data-export]').disabled = !s.applied;
   $('[data-audit]').disabled = !s.validated;
   $('[data-hash1]').textContent = s.validated?.target1Hash || '—';
+}
+function canApproveAll(s) {
+  if (!target?.parsed || !s.plan || s.plan.incompleteSearch !== false ||
+      s.plan.diagnostics.some(d => d.severity === 'ERROR') ||
+      !s.plan.claims.length || s.plan.claims.some(c => c.status !== 'PROPOSED')) return false;
+  const claims = s.plan.claims;
+  if (new Set(claims.map(c => c.byteStart + ':' + c.byteEnd)).size !== claims.length ||
+      claims.some((c, i) => claims.slice(i + 1).some(d => c.byteStart < d.byteEnd && d.byteStart < c.byteEnd))) return false;
+  try { enforceNormalNodeClosure(target.parsed, claims); return true; } catch { return false; }
+}
+function approveAll() {
+  const s = state();
+  if (active !== 'NORMAL' || !canApproveAll(s)) {
+    message('Approve All unavailable: resolve diagnostics or incomplete logical-node aliases first.');
+    return;
+  }
+  for (const c of s.plan.claims) s.decisions.set(c.id, 'APPROVED');
+  revision++; opSeq++;
+  s.validated = null; s.applied = null;
+  renderResults();
+  message(`Approved all ${s.plan.claims.length} complete, conflict-free proposals for review. Validate TARGET1 separately.`);
 }
 function currentRules() { return state().rules.filter((r) => r.find || r.replace).map((r) => ({ ...r })); }
 function safeError(err) {
@@ -124,7 +207,7 @@ async function generate() {
     if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
     const plan = planNormal({ tab: 'NORMAL', targetBytes, originalTargetSha256: hash, sourceBytes, rules, options: {} });
     if (guard !== revision || curTab !== active || config !== curCfg || op !== opSeq) return;
-    s.plan = plan; s.diagnostics = []; renderResults();
+    s.plan = plan; s.diagnostics = []; renderRules(); renderResults();
     message(`${s.plan.claims.length} proposal(s). Review each claim before Validate.`);
   } catch (err) { if (guard === revision && curTab === active && config === curCfg && op === opSeq) safeError(err); }
 }
@@ -256,6 +339,7 @@ root.addEventListener('click', async (event) => {
       message('Find/Replace grid copied as TSV.'); } catch { message('Clipboard unavailable in this browser context.'); }
   }
   if (el.dataset.run !== undefined) await generate();
+  if (el.dataset.approveAll !== undefined) approveAll();
   if (el.dataset.validate !== undefined) await validate();
   if (el.dataset.apply !== undefined) await apply();
   if (el.dataset.export !== undefined) await exportCii();
@@ -272,16 +356,17 @@ for (const field of ['target', 'source']) {
     if (field === 'target') target = null; else source = null;
     for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
     $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
-    renderTabs(); renderResults();
+    renderTabs(); renderRules(); renderResults();
     if (!file) return;
     try {
       const buf = await file.arrayBuffer(); if (req !== fileSeqs[field]) return;
       const snapshot = { name: file.name, bytes: new Uint8Array(buf) };
+      snapshot.parsed = parseCii(snapshot.bytes);
       const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
       if (field === 'target') target = snapshot; else source = snapshot;
       for (const s of Object.values(states)) invalidate(s);
       $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
-      renderTabs(); renderResults();
+      renderTabs(); renderRules(); renderResults();
     } catch (err) { if (req === fileSeqs[field]) safeError(err); }
   });
 }
