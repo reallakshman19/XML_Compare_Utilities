@@ -38,3 +38,8 @@ td:nth-child(7) { width: 10%; }
 .hash { overflow-wrap: anywhere; color: #43566b; }
 .unavailable { border-left: 4px solid #c39b37; padding: 15px; background: #fff9e9; }
 @media (max-width: 780px) { .intake { grid-template-columns: 1fr; } .card { padding: 12px; } }
+
+.cleanup-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 10px 0; }
+.cleanup-options label { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.cleanup-options input[type=number], .cleanup-options input:not([type]) { width: min(100%, 240px); padding: 5px; }
+.cleanup-log { max-height: 250px; overflow: auto; white-space: pre-wrap; font: 12px/1.45 ui-monospace, Consolas, monospace; border: 1px solid #d5dfe9; border-radius: 6px; padding: 10px; background: #f6f8fb; }

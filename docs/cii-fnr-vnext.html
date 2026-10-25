@@ -26,13 +26,28 @@
 <div data-unavailable class="unavailable" hidden>Independent Tab 2 and Tab 3 adapters have not been delivered. Those algorithms are intentionally not implemented or simulated here. Geometry branch application additionally requires a frozen-contract atomic-group amendment.</div>
 <div data-rows-area>
 <p class="hint">Only physically qualified <strong>NODENAME.FROM / NODENAME.TO</strong> v11/v14 fixed-width fields are editable. Each row supports literal or regex (flags g, i, u). Element scopes require exact From + To. Branch scope uses the exact physical ELEMENTS label in TARGET0; the dropdown lists labels from SOURCE CII and does not infer corresponding TARGET0 labels; nodes shared with another branch are blocked. After generating proposals, the Recommended choice column explains a possible all-branch rename or branch-only exclusion; advice never edits rules automatically. No unrestricted CII text replacement.</p>
-<div class="actions"><button data-add>+ Row</button><button data-clear>Clear rules</button><button data-copy>Copy as Excel TSV</button><button data-run>Generate proposals</button></div>
+<div class="actions"><button data-add>+ Row</button><button data-clear>Clear rules</button><button data-copy>Copy as Excel TSV</button><button data-resolve disabled>Resolve imported CSV</button><button data-run>Generate proposals</button></div>
+<details class="card" data-cleanup-settings><summary>CSV cleanup options — preview only</summary>
+<div class="cleanup-options">
+<label><input type="checkbox" data-cleanup="trim" checked> Trim outer whitespace</label>
+<label><input type="checkbox" data-cleanup="collapseSpace"> Collapse repeated whitespace</label>
+<label><input type="checkbox" data-cleanup="suffixOne" checked> Smart regex: optional final .1</label>
+<label><input type="checkbox" data-cleanup="refSuffix" checked> Smart regex: optional (REF)</label>
+<label>Replacement max characters (0 = off) <input type="number" min="0" max="26" step="1" value="0" data-cleanup="truncateTo"></label>
+<label>Custom regex pattern (optional) <input data-cleanup="customPattern" maxlength="96" placeholder="e.g. \\.1$"></label>
+<label>Regex normalization replacement <input data-cleanup="customReplace" maxlength="26" placeholder="empty removes match"></label>
+</div><p class="hint">Regex normalization only suggests an exact existing TARGET0 name and requires matching SOURCE element/field identity; multiple matches stay held. Truncation affects Replace only. New duplicate names, partial node aliases and field overflows are rejected.</p>
+</details>
+<details class="card" data-cleanup-report hidden><summary>CSV cleanup report · <span data-cleanup-count>Not run</span></summary>
+<pre class="cleanup-log" data-cleanup-log></pre>
+<div class="actions"><button data-use-resolved disabled>Use accepted rules</button><button data-export-resolved disabled>Export accepted CSV</button><button data-export-cleanup-report disabled>Export full JSON report</button></div>
+<p class="hint">Preview never modifies TARGET0, existing rules or approvals. Using accepted rules requires confirmation and regeneration. HELD and DROPPED entries remain in the downloadable report.</p></details>
 <div class="scroller" role="region" tabindex="0" aria-label="Editable Excel-style Find and Replace rules"><table>
 <thead><tr><th>#</th><th>Find</th><th>Replace</th><th>Mode</th><th>Flags</th><th>Field</th><th>Scope</th><th>From</th><th>To</th><th>Branch label (exact)</th><th>Recommended choice</th><th>Remove</th></tr></thead>
 <tbody data-rules></tbody></table></div>
 <p class="hint">Paste two Excel columns into a Find cell. Press Tab across fields or Enter to move to the next row. Branch choices require a parsed SOURCE CII (CSV-imported branch labels remain visible but unverified against SOURCE).</p></div></section>
 <section class="card"><h2>Review proposals · <span data-claim-count>0 claims</span></h2>
-<div class="actions"><button type="button" data-approve-all disabled>Approve All</button><span class="hint">Available only for complete, conflict-free logical-node proposals. Never validates or exports automatically.</span></div>
+<div class="actions"><button type="button" data-approve-all disabled>Approve All</button><button type="button" data-approve-nonconflict disabled>Approve All Non-Conflict Proposals</button><span class="hint">Available only for complete, conflict-free logical-node proposals. Never validates or exports automatically.</span></div>
 <p class="hint">Source columns require SOURCE CII and exact element ordinal plus From/To alignment. Unresolved means the physical mapping could not be proved.</p>
 <div class="scroller" role="region" tabindex="0" aria-label="Individual byte-claim review"><table>
 <thead><tr><th>Rule</th><th>Logical field</th><th>Byte range</th><th>Original</th><th>Proposed</th><th>Source BranchName</th><th>Source From</th><th>Source To</th><th>Decision</th></tr></thead>

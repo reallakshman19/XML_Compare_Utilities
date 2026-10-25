@@ -133,7 +133,7 @@ export function mountGeometry(root) {
     try {
       const graphs = await Promise.all([['source', s], ['target', t]].map(async ([kind, file]) =>
         buildOriginalGraphFromBytes({bytes: new Uint8Array(file.bytes), member: file.name,
-          cryptoRef: globalThis.crypto})));
+          expectedSha256: file.expectedSha256, cryptoRef: globalThis.crypto})));
       if (ticket !== state.epoch) return;
       const [source, target] = graphs;
       const transform = registerMethodC(source, target, [{source: params.source.trim(), target: params.target.trim()}]);
@@ -146,7 +146,9 @@ export function mountGeometry(root) {
       state.evidence = {source, target, transform, candidates, projection, scene};
       state.selected = candidates.rows[0]?.source || null;
       renderRows(); draw(); if (state.selected) selection(state.selected);
-      text($('[data-geom-custody]'), `SOURCE ${source.member}: SHA-256 ${source.sha256} · TARGET ${target.member}: SHA-256 ${target.sha256}. ` +
+      const sourceScope = s.expectedSha256 ? 'PINNED_SHA_VERIFIED' : 'SHA_COMPUTED';
+      const targetScope = t.expectedSha256 ? 'PINNED_SHA_VERIFIED' : 'SHA_COMPUTED';
+      text($('[data-geom-custody]'), `SOURCE ${source.member}: ${sourceScope} SHA-256 ${source.sha256} · TARGET ${target.member}: ${targetScope} SHA-256 ${target.sha256}. ` +
         `${transform.status}; ${candidates.nearSourceCount}/${candidates.rows.length} proximity rows; ` +
         `registered components S:${transform.sourceComponent}, T:${transform.targetComponent}; rotation not certified.`);
       buttonsEnabled(true); status('Review only: all candidate alternatives and original witnesses retained; no Writer action exists.');
@@ -171,6 +173,14 @@ export function mountGeometry(root) {
     if (ev.target.matches('[data-param]')) revoke('Geometry setting changed. Rerun required.');
     if (ev.target.matches('[data-geom-filter]')) renderRows();
   });
+  function selectOriginalNode(node) {
+    if (!node || !state.evidence) return;
+    if (node.dataset.kind === 'SOURCE') selection(node.dataset.node);
+    if (node.dataset.kind === 'TARGET') {
+      const rows = state.evidence.candidates.rows.filter(r => r.alternatives.some(a => a.target === node.dataset.node));
+      if (rows.length) selection(rows.some(r => r.source === state.selected) ? state.selected : rows[0].source);
+    }
+  }
   root.addEventListener('click', ev => {
     const action = ev.target.closest('[data-geom-action]')?.dataset.geomAction;
     if (action === 'run') { void run(); return; }
@@ -183,16 +193,17 @@ export function mountGeometry(root) {
       viewUpdate();
     }
     const tr = ev.target.closest('tr[data-source]'); if (tr) selection(tr.dataset.source);
-    const node = ev.target.closest('svg [data-node]');
-    if (node?.dataset.kind === 'SOURCE') selection(node.dataset.node);
-    if (node?.dataset.kind === 'TARGET') {
-      const rows = state.evidence?.candidates.rows.filter(r => r.alternatives.some(a => a.target === node.dataset.node)) || [];
-      if (rows.length) selection(rows.some(r => r.source === state.selected) ? state.selected : rows[0].source);
-    }
+    selectOriginalNode(ev.target.closest('svg [data-node]'));
   });
   root.addEventListener('keydown', ev => {
-    const node = ev.target.closest('tr[data-source], svg [data-node]');
-    if (node && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); node.click(); }
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const tr = ev.target.closest('tr[data-source]');
+    const node = ev.target.closest('svg [data-node]');
+    if (tr || node) {
+      ev.preventDefault();
+      if (tr) selection(tr.dataset.source);
+      else selectOriginalNode(node);
+    }
   });
   let drag = null;
   root.addEventListener('pointerdown', ev => {

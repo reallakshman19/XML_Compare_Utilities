@@ -173,6 +173,20 @@ export function createTestDom() {
   const unavailable = new MockElement('div', { 'data-unavailable': '' });
   const rowsArea = new MockElement('div', { 'data-rows-area': '' });
   const btnRun = new MockElement('button', { 'data-run': '' });
+  const btnResolve = new MockElement('button', { 'data-resolve': '' });
+  const btnApproveNonconflict = new MockElement('button', { 'data-approve-nonconflict': '' });
+  const btnUseResolved = new MockElement('button', { 'data-use-resolved': '' });
+  const btnExportResolved = new MockElement('button', { 'data-export-resolved': '' });
+  const btnExportCleanupReport = new MockElement('button', { 'data-export-cleanup-report': '' });
+  const cleanupReport = new MockElement('details', { 'data-cleanup-report': '' });
+  const cleanupCount = new MockElement('span', { 'data-cleanup-count': '' });
+  const cleanupLog = new MockElement('pre', { 'data-cleanup-log': '' });
+  const cleanupInputs = ['trim','collapseSpace','suffixOne','refSuffix','truncateTo','customPattern','customReplace']
+    .map(key=>new MockElement('input', { 'data-cleanup': key }));
+  for (const input of cleanupInputs) {
+    input.checked = ['trim','suffixOne','refSuffix'].includes(input.dataset.cleanup);
+    input.value = input.dataset.cleanup === 'truncateTo' ? '0' : '';
+  }
   const btnApproveAll = new MockElement('button', { 'data-approve-all': '' });
   const btnValidate = new MockElement('button', { 'data-validate': '' });
   const btnApply = new MockElement('button', { 'data-apply': '' });
@@ -186,7 +200,10 @@ export function createTestDom() {
   const ulDiagnostics = new MockElement('ul', { 'data-diagnostics': '' });
 
   ws.append(targetFile, sourceFile, csvFile, targetMeta, sourceMeta, panelTitle, unavailable, rowsArea,
-    btnRun, btnApproveAll, btnValidate, btnApply, btnExport, btnAudit, status, hash1, claimCount, tbodyRules, tbodyProposals, ulDiagnostics);
+    btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved,
+    btnExportResolved, btnExportCleanupReport, cleanupReport, cleanupCount, cleanupLog,
+    ...cleanupInputs, btnValidate, btnApply, btnExport, btnAudit, status, hash1,
+    claimCount, tbodyRules, tbodyProposals, ulDiagnostics);
 
   // Config area
   const configArea = new MockElement('section', { 'data-config-area': '' });
@@ -206,5 +223,5 @@ export function createTestDom() {
   globalThis.URL.createObjectURL = () => 'blob:mock';
   globalThis.URL.revokeObjectURL = () => {};
 
-  return { root, tabNormal, tabConfig, btnRun, btnApproveAll, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile };
+  return { root, tabNormal, tabConfig, btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile, cleanupReport, cleanupLog };
 }
