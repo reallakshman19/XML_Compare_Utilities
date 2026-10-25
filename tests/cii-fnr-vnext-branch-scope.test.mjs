@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { createTestDom } from './helpers/vnext-dom-env.mjs';
 import { parseCii } from '../tabs/cii-workspace/cii-fnr-vnext/ui/physical.js';
+import { sourceBranchLabels, sourceEvidenceForClaim } from '../tabs/cii-workspace/cii-fnr-vnext/ui/source-provenance.js';
 import { planNormal } from '../tabs/cii-workspace/cii-fnr-vnext/normal/plan.js';
 import { sha256, validatePostimage } from '../tabs/cii-workspace/cii-fnr-vnext/ui/writer.js';
 
@@ -139,6 +140,84 @@ test('recommended choice is located directly before Remove and is advisory only'
   find.value = 'other';
   await find.dispatchEvent({ type: 'input', target: find });
   assert.equal(recommendation.children[0].textContent, '—', 'rule edits revoke stale advice');
+});
+
+
+test('SOURCE labels and claim provenance require exact physical alignment', async () => {
+  const original = syntheticTarget();
+  const { plan } = await planFor(original);
+  const tgt = parseCii(original);
+  const src = parseCii(syntheticTarget({ renamed: true }));
+  assert.deepEqual(sourceBranchLabels(src), [B1, B2]);
+  const first = sourceEvidenceForClaim(tgt, src, plan.claims[0]);
+  const second = sourceEvidenceForClaim(tgt, src, plan.claims[1]);
+  assert.deepEqual(first, { branch: B2, from: '3130', to: '3140' });
+  assert.deepEqual(second, { branch: B2, from: '3140', to: '3150' });
+  assert.equal(sourceEvidenceForClaim(tgt, null, plan.claims[0]), null);
+  const content = Buffer.from(syntheticTarget(), 'utf8').toString('ascii');
+  const altered = content.replace(row([3130,3140,120,0,0,0]), row([3131,3140,120,0,0,0]));
+  const misaligned = parseCii(new Uint8Array(Buffer.from(altered, 'ascii')));
+  assert.equal(sourceEvidenceForClaim(tgt, misaligned, plan.claims[0]), null,
+    'source From/To must not be guessed after element endpoint drift');
+});
+
+test('SOURCE-driven branch dropdown and Approve All preserve explicit validation', async () => {
+  const dom = createTestDom();
+  await import('../tabs/cii-workspace/cii-fnr-vnext/ui/app.js?source-review=' + Date.now());
+  const target = syntheticTarget();
+  const upload = (name, bytes) => ({
+    name, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  });
+  dom.targetFile.files = [upload('target.cii', target)];
+  await dom.targetFile.dispatchEvent({ type: 'change', target: dom.targetFile });
+  dom.sourceFile.files = [upload('source.cii', syntheticTarget({ renamed: true }))];
+  await dom.sourceFile.dispatchEvent({ type: 'change', target: dom.sourceFile });
+  const branch = dom.root.querySelector('[data-rules]').children[0].querySelector('[data-field="branch"]');
+  assert(branch.children.some(option => option.value === B2));
+  assert(branch.children.some(option => option.value === B1));
+  const quoted = '"' + B2.replace(/"/g, '""') + '"';
+  dom.csvFile.files = [{ name: 'selected.csv', text: async () =>
+    'Find,Replace,Branch\r\nALIAS-OLD,NEW-4,' + quoted + '\r\n' }];
+  await dom.csvFile.dispatchEvent({ type: 'change', target: dom.csvFile });
+  await dom.btnRun.click();
+  assert.equal(dom.tbodyProposals.children.length, 2);
+  const first = dom.tbodyProposals.children[0];
+  assert.equal(first.children[5].textContent, B2, 'SOURCE branch projected into review');
+  assert.equal(first.children[6].textContent, '3130');
+  assert.equal(first.children[7].textContent, '3140');
+  assert.equal(dom.btnApproveAll.disabled, false);
+  await dom.btnApproveAll.click();
+  assert(dom.tbodyProposals.children.every(tr => tr.querySelector('[data-decision]').value === 'APPROVED'));
+  assert.equal(dom.btnValidate.disabled, false);
+  assert.equal(dom.btnExport.disabled, true, 'approval is not an export');
+  assert.equal(dom.btnApply.disabled, true, 'approval is not validation');
+});
+
+test('Approve All cannot bypass cross-branch diagnostic', async () => {
+  const dom = createTestDom();
+  await import('../tabs/cii-workspace/cii-fnr-vnext/ui/app.js?source-conflict=' + Date.now());
+  const bytes = syntheticTarget({ crossBranch: true });
+  dom.targetFile.files = [{ name: 'target.cii', arrayBuffer: async () =>
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }];
+  await dom.targetFile.dispatchEvent({ type: 'change', target: dom.targetFile });
+  const quoted = '"' + B2.replace(/"/g, '""') + '"';
+  dom.csvFile.files = [{ name: 'scope.csv', text: async () =>
+    'Find,Replace,Branch\r\nALIAS-OLD,NEW-4,' + quoted + '\r\n' }];
+  await dom.csvFile.dispatchEvent({ type: 'change', target: dom.csvFile });
+  await dom.btnRun.click();
+  assert.equal(dom.btnApproveAll.disabled, true);
+  await dom.btnApproveAll.click();
+  assert.equal(dom.btnValidate.disabled, true);
+  assert.equal(dom.btnExport.disabled, true);
+});
+
+test('visible VNext headings, recommendation and review columns have requested order', async () => {
+  const html = await readFile(new URL('../docs/cii-fnr-vnext.html', import.meta.url), 'utf8');
+  assert.match(html, /NodeName Find &amp; Replace/);
+  assert.match(html, /SOURCE CII \(optional for NodeName Find &amp; Replace\)/);
+  assert.match(html, /Source BranchName<\/th><th>Source From<\/th><th>Source To<\/th>/);
+  assert(html.indexOf('<th>Recommended choice</th>') < html.indexOf('<th>Remove</th>'));
+  assert.match(html, /data-approve-all disabled/);
 });
 
 test('writer independently rejects forged branch evidence on an otherwise valid claim', async () => {
