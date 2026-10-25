@@ -93,6 +93,54 @@ test('branch crossing with an unlabeled physical alias is fail-closed', async ()
   assert(plan.diagnostics.some((d) => d.code === 'BRANCH_NODE_CROSSES_SCOPE' && d.severity === 'ERROR'));
 });
 
+
+test('cross-branch warning identifies physical node, all branches and proposed name', async () => {
+  const { plan } = await planFor(syntheticTarget({ crossBranch: true }));
+  const crossed = plan.diagnostics.filter(d => d.code === 'BRANCH_NODE_CROSSES_SCOPE');
+  assert(crossed.length >= 1);
+  assert(crossed.every(d => d.node === 3140));
+  assert(crossed.every(d => d.original === 'ALIAS-OLD' && d.proposed === 'NEW-4'));
+  assert(crossed.every(d => d.branches.includes(B2) && d.branches.includes(B1)));
+  assert(crossed.every(d => d.aliasNamesConsistent && d.replacementFits));
+  assert(crossed.every(d => d.namedAliasCount === 2 && d.incidentElements.length === 3));
+  assert.equal(plan.claims.length, 0, 'advice must not authorize a partial rename');
+});
+
+test('inconsistent cross-branch aliases do not qualify for an Option A recommendation', async () => {
+  const original = Buffer.from(syntheticTarget({ crossBranch: true })).toString('ascii');
+  const modified = new Uint8Array(Buffer.from(original.replace('ALIAS-OLD', 'OTHER-OLD'), 'ascii'));
+  const { plan } = await planFor(modified);
+  const crossed = plan.diagnostics.filter(d => d.code === 'BRANCH_NODE_CROSSES_SCOPE');
+  assert(crossed.length >= 1);
+  assert(crossed.some(d => d.aliasNamesConsistent === false));
+  assert.equal(plan.claims.length, 0);
+});
+
+test('recommended choice is located directly before Remove and is advisory only', async () => {
+  const dom = createTestDom();
+  await import('../tabs/cii-workspace/cii-fnr-vnext/ui/app.js?recommendation=' + Date.now());
+  const bytes = syntheticTarget({ crossBranch: true });
+  dom.targetFile.files = [{ name: 'synthetic.cii', arrayBuffer: async () =>
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }];
+  await dom.targetFile.dispatchEvent({ type: 'change', target: dom.targetFile });
+  const quoted = '"' + B2.replace(/"/g, '""') + '"';
+  dom.csvFile.files = [{ name: 'synthetic.csv', text: async () =>
+    'Find,Replace,Branch\\r\\nALIAS-OLD,NEW-4,' + quoted + '\\r\\n' }];
+  await dom.csvFile.dispatchEvent({ type: 'change', target: dom.csvFile });
+  await dom.btnRun.click();
+  const cells = dom.root.querySelector('[data-rules]').children[0].children;
+  const recommendation = cells.at(-2);
+  assert.equal(recommendation.dataset.recommendationCell, '');
+  assert.equal(cells.at(-1).querySelector('button').dataset.delete, '0');
+  assert.match(recommendation.querySelector('summary').textContent, /A · Rename complete node/);
+  assert(recommendation.querySelectorAll('p').some(p => p.textContent.includes('Node 3140: ALIAS-OLD → NEW-4')));
+  assert.equal(dom.tbodyProposals.children.length, 0, 'recommendation never creates extra claims');
+  const find = dom.root.querySelector('[data-rules]').children[0].querySelector('[data-field="find"]');
+  find.value = 'other';
+  await find.dispatchEvent({ type: 'input', target: find });
+  assert.equal(recommendation.children[0].textContent, '—', 'rule edits revoke stale advice');
+});
+
 test('writer independently rejects forged branch evidence on an otherwise valid claim', async () => {
   const original = syntheticTarget(), { hash, plan } = await planFor(original);
   const forged = JSON.parse(JSON.stringify(plan));
