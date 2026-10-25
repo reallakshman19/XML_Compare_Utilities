@@ -12,6 +12,29 @@ function regexFor(rule) {
   }
   return new RegExp(source, flags);
 }
+
+function crossingEvidence(parsed, field, proposed) {
+  const byWitness = new Map(parsed.elements.map(e => [e.witness, e]));
+  const owner = byWitness.get(field.owners[0]);
+  if (!owner || field.owners.length !== 1) return null;
+  const node = field.fieldIdentity === 'NODENAME.FROM' ? owner.from : owner.to;
+  const incident = parsed.elements.filter(e => e.from === node || e.to === node);
+  const namedAliases = parsed.fields.filter(f => f.before.trim() && f.owners.length === 1 &&
+    (() => {
+      const e = byWitness.get(f.owners[0]);
+      return e && (f.fieldIdentity === 'NODENAME.FROM' ? e.from : e.to) === node;
+    })());
+  const original = field.before.trim();
+  return {
+    node, original, proposed,
+    branches: [...new Set(incident.map(e => e.branch || '(unlabeled)'))],
+    incidentElements: incident.map(e => e.witness),
+    namedAliasCount: namedAliases.length,
+    aliasNamesConsistent: namedAliases.length > 0 && namedAliases.every(f => f.before.trim() === original),
+    replacementFits: namedAliases.every(f => proposed.length <= f.before.length)
+  };
+}
+
 function replaceInside(value, rule) {
   const find = String(rule.find ?? ''), replace = String(rule.replace ?? '');
   if (!find) throw new Error('EMPTY_FIND_UNSUPPORTED');
@@ -62,7 +85,8 @@ export function planNormal(request) {
         if (!result.count) continue;
         count += result.count;
         if (rule.scope === 'BRANCH' && !branchContainsNode(parsed, field, rule.branch)) {
-          diagnostics.push(diag('BRANCH_NODE_CROSSES_SCOPE', ruleId, field.owners.join(','))); continue;
+          diagnostics.push({ ...diag('BRANCH_NODE_CROSSES_SCOPE', ruleId, field.owners.join(',')),
+            ...crossingEvidence(parsed, field, result.value) }); continue;
         }
         if (field.shared || field.orphan) {
           diagnostics.push(diag('NODENAME_POINTER_ALIAS_OR_ORPHAN', ruleId, `${field.pointer}`)); continue;
