@@ -3,12 +3,16 @@ import {
   setCiiMultiSourceMethodAPhysicalCandidateLimit,
   setCiiMultiSourceMethodAConfidenceThresholds,
   setCiiMultiSourceMethodAConfidenceWeights,
+  setCiiMultiSourceMethodASpatialToleranceMm,
+  validateCiiMultiSourceMethodASpatialToleranceMm,
+  CII_METHOD_A_SPATIAL_TOLERANCE_DEFAULT_MM,
   getCiiMultiSourceMethodAConfidenceOptions,
 } from './cii-workspace-source-set.js';
 
 import {
   CII_METHOD_A_WEIGHT_KEYS,
   CII_METHOD_A_WEIGHT_DEFAULTS,
+  validateCiiMethodAConfidenceWeights,
 } from './cii-workspace-method-a-weights.js';
 
 function weightPolicyEqual(a, b) {
@@ -42,7 +46,13 @@ function mountMethodAWeightControls(container) {
     + '<p>Weights re-score qualified rigid bases and may change automatic base ranking. Apply requires a fresh Inspect and review; geometry, custody and conflict vetoes still apply.</p>'
     + fields
     + '<small data-ciiw-method-a-weight-total aria-live="polite"></small>'
-    + '<button type="button" data-ciiw-method-a-apply-weights>Apply weights</button>'
+    + '<fieldset data-ciiw-method-a-m1-tolerance-policy><legend><b>M1 Spatial matching tolerance (mm)</b></legend>'
+    + '<p>Used in Compare Review M1 distance / tolerance and candidate ranking after spatial registration. Default 100 mm; 200 mm permits greater matching deviation. This is not the Method A rigid-base OD-scaled admission tolerance, not a BEND length correction, and does not bypass Method B, winner gaps or physical custody.</p>'
+    + '<label><span>M1 maximum endpoint distance (mm)</span><input type="number" min="1" max="200" step="any" data-ciiw-method-a-m1-tolerance aria-label="M1 spatial matching tolerance in millimetres"></label>'
+    + '<button type="button" data-ciiw-method-a-m1-preset="100">100 mm</button>'
+    + '<button type="button" data-ciiw-method-a-m1-preset="200">200 mm</button>'
+    + '</fieldset>'
+    + '<button type="button" data-ciiw-method-a-apply-weights>Apply weights and tolerance</button>'
     + '<button type="button" data-ciiw-method-a-reset-weights>Reset defaults</button>'
     + '<small data-ciiw-method-a-weight-status role="status" aria-live="polite"></small></details>';
   const inputs = Object.fromEntries(CII_METHOD_A_WEIGHT_KEYS.map((key) =>
@@ -51,6 +61,8 @@ function mountMethodAWeightControls(container) {
   const reset = wrapper.querySelector('[data-ciiw-method-a-reset-weights]');
   const total = wrapper.querySelector('[data-ciiw-method-a-weight-total]');
   const status = wrapper.querySelector('[data-ciiw-method-a-weight-status]');
+  const toleranceInput = wrapper.querySelector('[data-ciiw-method-a-m1-tolerance]');
+  const presetButtons = [...wrapper.querySelectorAll('[data-ciiw-method-a-m1-preset]')];
   const displayPolicy = (weights) => {
     for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].value = String(weights[key]);
   };
@@ -60,18 +72,24 @@ function mountMethodAWeightControls(container) {
     const draft = readDraft();
     const sum = CII_METHOD_A_WEIGHT_KEYS.reduce((value, key) => value + Number(draft[key] || 0), 0);
     if (total) total.textContent = 'Draft total ' + sum.toFixed(2).replace(/\.00$/, '') + '/100';
-    if (status) status.textContent = 'Draft not applied. Apply all five weights together.';
+    if (status) status.textContent = 'Draft not applied. Apply weights and M1 tolerance together.';
   };
   const onApply = () => {
     try {
       const before = getCiiMultiSourceMethodAConfidenceOptions();
-      const next = setCiiMultiSourceMethodAConfidenceWeights(readDraft());
-      const changed = !weightPolicyEqual(before.methodAConfidenceWeights, next);
-      displayPolicy(next); onInput();
+      // Validate the COMPLETE draft before mutating either setting. No half-applied policies.
+      const validatedWeights = validateCiiMethodAConfidenceWeights(readDraft());
+      const validatedTolerance = validateCiiMultiSourceMethodASpatialToleranceMm(toleranceInput.value);
+      const changed = !weightPolicyEqual(before.methodAConfidenceWeights, validatedWeights)
+        || before.spatialToleranceMm !== validatedTolerance;
+      const next = setCiiMultiSourceMethodAConfidenceWeights(validatedWeights);
+      setCiiMultiSourceMethodASpatialToleranceMm(validatedTolerance);
+      displayPolicy(next); toleranceInput.value = String(validatedTolerance); onInput();
       for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].setAttribute('aria-invalid', 'false');
+      toleranceInput.setAttribute('aria-invalid', 'false');
       if (status) status.textContent = changed
-        ? 'Weights applied. Previous Inspect/Compare and Writer2 scope invalidated; run Inspect again.'
-        : 'Weights unchanged.';
+        ? 'Method A/M1 policy applied. Previous Inspect, Compare, approvals and Writer2 scope invalidated; run Inspect again.'
+        : 'Weights and M1 tolerance unchanged.';
       if (changed) {
         const CustomEventRef = documentRef.defaultView?.CustomEvent || globalThis.CustomEvent;
         container.dispatchEvent(new CustomEventRef('ciiw-method-a-confidence-changed', {
@@ -79,23 +97,39 @@ function mountMethodAWeightControls(container) {
             high: before.methodAHighConfidenceThreshold,
             medium: before.methodAMediumConfidenceThreshold,
             weights: next,
+            spatialToleranceMm: validatedTolerance,
           },
         }));
       }
     } catch (error) {
       for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].setAttribute('aria-invalid', 'true');
-      if (status) status.textContent = error?.message || 'Invalid weight configuration.';
+      toleranceInput.setAttribute('aria-invalid', 'true');
+      if (status) status.textContent = error?.message || 'Invalid Method A/M1 policy.';
     }
   };
-  const onReset = () => { displayPolicy(CII_METHOD_A_WEIGHT_DEFAULTS); onApply(); };
-  displayPolicy(getCiiMultiSourceMethodAConfidenceOptions().methodAConfidenceWeights);
+  const onReset = () => {
+    displayPolicy(CII_METHOD_A_WEIGHT_DEFAULTS);
+    toleranceInput.value = String(CII_METHOD_A_SPATIAL_TOLERANCE_DEFAULT_MM);
+    onApply();
+  };
+  const onPreset = (event) => {
+    toleranceInput.value = event.currentTarget.dataset.ciiwMethodAM1Preset;
+    onInput();
+  };
+  const currentPolicy = getCiiMultiSourceMethodAConfidenceOptions();
+  displayPolicy(currentPolicy.methodAConfidenceWeights);
+  toleranceInput.value = String(currentPolicy.spatialToleranceMm);
   onInput();
   if (status) status.textContent = 'Applied profile shown. Edit and select Apply weights to recalculate.';
   for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].addEventListener('input', onInput);
+  toleranceInput.addEventListener('input', onInput);
+  for (const button of presetButtons) button.addEventListener('click', onPreset);
   apply.addEventListener('click', onApply); reset.addEventListener('click', onReset);
   inspectButton.parentNode?.insertBefore(wrapper, inspectButton);
   return () => {
     for (const key of CII_METHOD_A_WEIGHT_KEYS) inputs[key].removeEventListener('input', onInput);
+    toleranceInput.removeEventListener('input', onInput);
+    for (const button of presetButtons) button.removeEventListener('click', onPreset);
     apply.removeEventListener('click', onApply); reset.removeEventListener('click', onReset);
     wrapper.remove();
   };
