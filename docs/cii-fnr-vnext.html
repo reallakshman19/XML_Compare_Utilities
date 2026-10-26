@@ -8,7 +8,7 @@
 <main>
 <nav class="tabs" role="tablist" aria-label="Find and Replace mode">
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">NodeName Find &amp; Replace</button>
-<button type="button" role="tab" aria-selected="false" data-tab="NODAL">Nodal Based Node name transfer</button>
+<button type="button" role="tab" aria-selected="false" data-tab="NODAL">Node-Based Name Transfer</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
 <button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
 <button type="button" role="tab" aria-selected="false" data-tab="CONFIG">Config</button></nav>
@@ -46,17 +46,17 @@
 <thead><tr><th>#</th><th>Find</th><th>Replace</th><th>Mode</th><th>Flags</th><th>Field</th><th>Scope</th><th>From</th><th>To</th><th>Branch label (exact)</th><th>Recommended choice</th><th>Remove</th></tr></thead>
 <tbody data-rules></tbody></table></div>
 <p class="hint">Paste two Excel columns into a Find cell. Press Tab across fields or Enter to move to the next row. Branch choices require a parsed SOURCE CII (CSV-imported branch labels remain visible but unverified against SOURCE).</p></div></section>
-<section class="card" data-nodal-area hidden aria-label="Nodal Based Node name transfer">
-<h2>Nodal Based Node name transfer</h2>
-<p><strong>FindNode is authoritative.</strong> Find is informational for audit only (a mismatch is shown, not used for matching). Existing names may be replaced irrespective of their current text; zero-pointer nodes require new NODENAME records and updated pointer/count fields. New CII copy only.</p>
-<div class="actions"><label>Import Nodal CSV (Find, FindNode, ReplaceName)
+<section class="card" data-nodal-area hidden aria-label="Node-Based Name Transfer">
+<h2>Node-Based Name Transfer</h2>
+<p><strong>Numeric TARGET0 Node is the only matching authority.</strong> Find is optional and informational for audit only (a mismatch is shown, not used for matching). Existing names may be replaced irrespective of their current text; zero-pointer nodes require new NODENAME records and updated pointer/count fields. New CII copy only.</p>
+<div class="actions"><label>Import Node-Based CSV (Node, Replace; Find optional)
 <input type="file" accept=".csv,text/csv" data-nodal-csv></label>
 <button type="button" data-nodal-preview disabled>Generate node-number preview</button>
 <button type="button" data-nodal-approve-all disabled>Approve All Ready Nodes</button></div>
-<p class="hint">Duplicates, missing nodes, nonunique pointers, incompatible field widths and name collisions are held. Blank Find values are valid. Both FROM and TO occurrences of a node are reviewed together.</p>
+<p class="hint">Only Node and Replace are required. Find is optional and never selects the node. Duplicates, missing nodes, nonunique pointers, incompatible field widths and name collisions are held. Blank Find values are valid. Both FROM and TO occurrences of a node are reviewed together.</p>
 <h3>Review node assignments · <span data-nodal-count>0 imported row(s)</span></h3>
 <div class="scroller" role="region" tabindex="0" aria-label="Node-number transfer preview"><table>
-<thead><tr><th>CSV row</th><th>Find (Info only)</th><th>FindNode</th><th>ReplaceName</th><th>Status</th><th>Occurrences</th><th>TARGET0 Names</th><th>New records</th><th>Reason</th><th>Find audit</th><th>Approve</th></tr></thead>
+<thead><tr><th>CSV row</th><th>Find (optional info)</th><th>Node</th><th>Replace</th><th>Status</th><th>Occurrences</th><th>TARGET0 Names</th><th>New records</th><th>Reason</th><th>Find audit</th><th>Approve</th></tr></thead>
 <tbody data-nodal-rows></tbody></table></div>
 <details open><summary>Diagnostics &amp; structural changes</summary><ul class="log" data-nodal-diagnostics></ul></details>
 <h3>Validate → Apply New Copy → Export</h3>
@@ -65,7 +65,7 @@
 <button type="button" data-nodal-apply disabled>2 · Apply to New Copy</button>
 <button type="button" data-nodal-export disabled>3 · Export Nodal TARGET1.CII</button>
 <button type="button" data-nodal-audit disabled>Export transfer audit JSON</button></div>
-<p class="status" role="status" aria-live="polite" data-nodal-status>Load TARGET0 and import a three-column Nodal CSV.</p>
+<p class="status" role="status" aria-live="polite" data-nodal-status>Load TARGET0 and import Node,Replace CSV (optional Find).</p>
 <p class="hash">TARGET1 SHA-256: <output data-nodal-targethash>—</output></p>
 <p class="hint">Structural edits append fixed-width NODENAME records and patch zero pointers only when a node actually needs a new record. Original TARGET0 is never overwritten.</p>
 </section>
