@@ -1,5 +1,6 @@
 import {methodCEvidence, methodCCsvExport, methodCSvgExport} from '../../tabs/cii-workspace/cii-workspace-method-c-exports.js';
 import {escapeMethodCXml} from '../../tabs/cii-workspace/cii-workspace-method-c-svg.js';
+import {assertGeometrySceneCurrent} from './geo-scene.js';
 
 export function graphEvidence(graph) {
   return {member: graph.member, xmlSha256: graph.sha256, xmlBytes: graph.byteLength,
@@ -12,7 +13,8 @@ export function previewEvidence(context) {
     nextConsumer: 'WBS3.2/G2/M14_GRAPH_AND_CORRESPONDENCE_LEDGER', epoch: context.epoch,
     inputAuthority: 'XML_BYTES_MEASURED; ORIGINAL_CII_NOT_REVERIFIED',
     integration: 'ISOLATED_PREVIEW_NOT_INTEGRATED_VNEXT', evidenceMode: context.evidenceMode,
-    graphs: {source: graphEvidence(context.source), target: graphEvidence(context.target)}};
+    graphs: {source: graphEvidence(context.source), target: graphEvidence(context.target)},
+    viewerScene: assertGeometrySceneCurrent(context)};
 }
 export function exportPreview(session, kind) {
   const context = session.current(), evidence = previewEvidence(context);

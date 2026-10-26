@@ -2,6 +2,7 @@ import {registerMethodC} from '../../tabs/cii-workspace/cii-workspace-method-c-r
 import {findMethodCCandidates, validateXYZTolerance} from '../../tabs/cii-workspace/cii-workspace-method-c-candidates.js';
 import {methodCSvgScene} from '../../tabs/cii-workspace/cii-workspace-method-c-svg.js';
 import {readXmlGraph} from './xml-intake.js';
+import {createGeometryScene} from './geo-scene.js';
 
 export function createPreviewSession({read = readXmlGraph} = {}) {
   const state = {epoch: 0, graphs: {SOURCE: null, TARGET: null}, pending: new Set(),
@@ -47,9 +48,11 @@ export function createPreviewSession({read = readXmlGraph} = {}) {
     if (!transform.rotation || !transform.translation) throw new Error(transform.status);
     const candidates = findMethodCCandidates(source, target, transform, state.tolerance);
     const scene = methodCSvgScene({source, target, transform, candidates, projection: state.projection});
-    state.result = {source, target, transform, candidates, scene, projection: state.projection,
+    const result = {source, target, transform, candidates, scene, projection: state.projection,
       epoch: state.epoch, evidenceMode: 'MANUAL_POSE_METHOD_C_XML_PREVIEW'};
-    return state.result;
+    result.viewerScene = createGeometryScene(result);
+    state.result = result;
+    return result;
   }
   function current() {
     if (!state.result || state.result.epoch !== state.epoch || state.pending.size)

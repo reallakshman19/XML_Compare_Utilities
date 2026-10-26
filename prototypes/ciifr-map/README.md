@@ -45,6 +45,27 @@ JSON schema `CIIFR.XmlGeometryPreview.v1` contains both serializable XML graphs,
 
 ## Checks
 
+### CIIFR_GEO framework contribution
+
+Read [FRAMEWORK.md](FRAMEWORK.md) for the overall/current/next WBS, existing-code reuse,
+high-ROI rationale, shared-viewer contract and ChatGPT builder continuation boundary.
+The current JSON download now also contains an immutable `viewerScene` artifact:
+two existing `VisualGeometryModel.v1` objects, full SOURCE rigid pose applied once,
+zero extra viewer translation, registered-component scope and side/member/XML-SHA
+qualified NODE/ELEMENT identities linked to every applicable ledger row.
+`resolveGeometryPick` rejects stale/wrong-side identities and retains target reuse.
+
+This is an Oracle-authored, self-assessed framework/code contribution before
+ChatGPT agent onboarding. SVG remains the current renderer. WebGL controls,
+local Three/worker packaging and actual browser performance remain the next
+builder's bounded implementation; the scene artifact does not establish them.
+
+Run the focused pure bridge checks alongside the existing pure geometry suite:
+
+```sh
+node --test prototypes/ciifr-map/tests/scene.test.mjs prototypes/ciifr-map/tests/geometry.test.mjs
+```
+
 Pure geometry checks have no npm dependencies:
 
 ```sh
