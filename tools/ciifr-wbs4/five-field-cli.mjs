@@ -25,8 +25,9 @@ export async function runFiveFieldCli(args, log = console.log) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runFiveFieldCli(process.argv.slice(2)).catch(error => {
-    console.error(`FIVE_FIELD_INSPECTOR_ERROR=${error.message}`);
+  runFiveFieldCli(process.argv.slice(2)).catch(() => {
+    // Upstream errors can carry private paths, element ordinals or byte offsets.
+    console.error('FIVE_FIELD_INSPECTOR_ERROR=SOURCE_REJECTED');
     process.exitCode = 1;
   });
 }

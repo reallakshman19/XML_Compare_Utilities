@@ -47,3 +47,39 @@ Highest risk: original-job binding/config/material/FDM unavailable; v14 CONTROL 
 
 ## Exact next action
 At **the latest PR187 head**, run/inspect CI with the actual PR168 reader and have a **distinct non-author** review the physical field privacy/resolver negative cases. Separately, an authorized model custodian must supply original-job-bound configuration/material/basic-case FDM/native evidence before any effective-property interpretation.
+
+---
+
+## REVISION 3 / GENERATION 2 — independent-review F1/F2 repair · 26 October 2026
+
+**This section supersedes previous “next action” and validation-status statements above; historic revision 1 evidence remains preserved.**
+
+Assignment: CIIFR-ELEMENT-E1-PR187-F1F2-REPAIR, canonical Element Cycle ACTIVE revision 3, generation 2, intended builder routing label 6adedbc6. Review FAIL: https://github.com/reallakshman19/XML_Compare_Utilities/issues/188#issuecomment-6415464730 . Exact native scoped instruction: https://github.com/reallakshman19/XML_Compare_Utilities/issues/178#issuecomment-6415590149 . Reviewer method distinct; separate GitHub authenticated principal independence UNKNOWN; no retrospective review Cycle receipt.
+
+### Source, parent and takeover
+
+Pre-repair draft PR187 head: 3b9056fb44daa442e96afa70585113578ac9a778. Parent PR168 head: 2aeaf7372de66eda3bc082b8d81bf8db43c34f4b. Inherited catalog immutable Git blob: 32e24c684c687b11e68da6af5dd1abd3bbe6b818. The initial author ran tests using reconstructed reader; **this repair's local execution used four Git-blob-identical fetched files, including the real PR168 catalog**, confirmed individually with git hash-object. The actual full Git repository checkout is NOT available: git ls-remote exits 128 with DNS host failure. Therefore local four-file execution cannot be called full-repo CI.
+
+Appendix A (SELF_ASSESSED): A1 19/20 (physical V14 source trace); A2 20/20 (independently observed F1+F2 and contrary test); A3 20/20 (private data and E1/Writer separation); A4 19/20 (old/new/seeded exact-source local subtree; full checkout NOT_RUN); A5 19/20 (bounded same-PR patch and recovery); total 97/100. This is not independent engineering approval.
+
+Existing PR187 files changed in this repair: five-field-evidence.mjs, five-field-cli.mjs, ciifr-wbs4-five-field-evidence.test.mjs, and this PR187_workreport.md. PR168 readonly-catalog.mjs is NOT MODIFIED. No Geometry, NodeName, production Tab3, Writer, TARGET1, CII-model writes or merge.
+
+### F1 — CLI rejection privacy, fixed locally
+
+The standalone CLI catch now emits only a constant source-neutral failure string, FIVE_FIELD_INSPECTOR_ERROR=SOURCE_REJECTED, and exits nonzero. It no longer interpolates upstream errors containing a private basename, element ordinal, pointer, token or byteStart. Tested rejected missing-path, corrupt catalog, out-of-range pointer, malformed I13, invalid ordinal and bad argument. Private successful evidence remains in local temporary output files (0700 directory, 0600 files); publicFiveFieldSummary remains whitelisted. The successful LOCAL_ONLY_DIRECTORY stdout path is a local-only diagnostic, NOT approved for public CI logs. Trusted in-process JavaScript callers can still catch original errors; they must not publicly echo them.
+
+### F2 — strict RIGID I13 containment, fixed locally
+
+PR187 inspector boundary now inspects every physical ELEMENT's actual thirteen-byte RIGID auxiliary pointer #2 span before using ownerMap; a strict signed-integer I13 lexeme is mandatory even for unselected RIGID owners. Rejects 1.0, 1E0, +1.000 and 01E+0; still accepts signed +1 and 0 with correct present/absent RIGID semantics. Selected pointer also uses integer-only grammar and BigInt exact equivalence to catalog's bounded numeric pointer, not permissive exponent coercion. This is **consumer containment**, not repair of inherited catalog reader. The PR168 owner has its separate #173 all-15-pointer I13 correction assignment.
+
+### Executed test observations
+
+Host: Linux, Node v22.16.0, synthetic publicly safe V14 fixtures, real Git-blob-identical inherited reader. Syntax checks on three JS files PASS. Original eleven tests PASS at the original PR187 head. Six new synthetic adversarial test cases added (17 total), including subprocess redaction, selected and unselected shared-owner I13 contrasts, valid pointer-zero versus explicit stored zero, independently computed endpoint/occurrence oracle, space-containing path and custom TMPDIR. Full revised test suite: **17 PASS / 0 FAIL / 0 SKIP**, exit 0. Original old-head source plus new tests: **14 PASS / 3 FAIL**, exit 1, demonstrating fail-before. Separate wrong FROM +1 seeded implementation with new tests: **16 PASS / 1 FAIL**, exit 1, proving the endpoint oracle can detect the reviewer’s surviving error. Copied subtree at path containing spaces also 17/17 PASS. Full native checkout, Windows, original protected model, CAESAR II, active original-job config/material/units/cases/FDM and SOURCE→TARGET verification are NOT_RUN.
+
+Local pre-edit files were backed up with task-local utils/backup.cjs save, backup IDs 1–4, checksum-verified. Module-wise snapshot-to-final no-index patches and manifest under .agent-worklogs/20261026_1630_pr187-f1f2 were retained locally and **not committed**. The local backup tool copy was operational but did not independently match the upstream tool blob checksum; do not claim a full native checkout or inherited tracked backup state. GitHub old preimage blobs, branch-head compare and immutable proposed new Git blobs are the remote recovery authorities; do not overwrite another agent's edits. No force push.
+
+### Remaining boundaries and exact next action
+
+All five engineering-effective fields still report EFFECTIVE_UNKNOWN; protected R2 original not received in this builder workspace. R4 candidate configuration does NOT establish the actual native job config, material/units, operating/hydro cases or case FDM. The latest hosted GitHub workflow must be inspected separately: older green runs do NOT execute the new 17 tests. No native CAESAR/source-target acceptance or Writer/TARGET1 authority.
+
+**EXACT_NEXT_ACTION:** Element Oracle assigns reviewer 6adf3dbf to independently retrieve the NEW PR187 head, run the seventeen tests plus own privacy/I13/endpoint falsifier, and return its evidence-backed verdict on XCU #188. Preserve PR168 parent #173 separate owner action. Owner remains the only party authorized for eventual merge/release.

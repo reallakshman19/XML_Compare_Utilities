@@ -40,11 +40,28 @@ function evidenceValue(bytes, name, slot, missingEvidence) {
   };
 }
 
+// A numeric pointer can be integer-valued while its neutral I13 token is invalid.
+// Validate every physical owner, not only the selected ELEMENT, before trusting
+// the catalogue's shared-RIGID owner map. PR168 remains separately owned.
+function validateRigidPointers(bytes, catalog) {
+  for (const element of catalog.elements) {
+    const slot = element.pointers[1];
+    if (!slot || slot.byteEnd - slot.byteStart !== 13 ||
+        slot.byteStart < 0 || slot.byteEnd > bytes.length) {
+      fail('FIVE_FIELD_RIGID_POINTER_I13');
+    }
+    const token = Buffer.from(bytes.subarray(slot.byteStart, slot.byteEnd)).toString('latin1');
+    if (!/^[+-]?[0-9]+$/.test(token.trim())) fail('FIVE_FIELD_RIGID_POINTER_I13');
+  }
+}
+
 function rigidAssociation(bytes, selected, catalog) {
   const slot = selected.pointers[1];
   const pointerLexeme = Buffer.from(bytes.subarray(slot.byteStart, slot.byteEnd)).toString('latin1');
-  if (pointerLexeme.trim() !== String(slot.pointer) &&
-      Number(pointerLexeme.trim()) !== slot.pointer) fail('FIVE_FIELD_POINTER_MISMATCH');
+  const pointerToken = pointerLexeme.trim();
+  if (!/^[+-]?[0-9]+$/.test(pointerToken) ||
+      !Number.isSafeInteger(slot.pointer) ||
+      BigInt(pointerToken) !== BigInt(slot.pointer)) fail('FIVE_FIELD_RIGID_POINTER_I13');
   const base = {
     pointerOrdinal: 2, pointerValue: slot.pointer,
     pointerByteSpan: {start: slot.byteStart, end: slot.byteEnd},
@@ -64,6 +81,7 @@ function rigidAssociation(bytes, selected, catalog) {
 export function inspectFiveFieldEvidence(bytes, {elementIndex} = {}) {
   if (!(bytes instanceof Uint8Array)) fail('FIVE_FIELD_BYTES_REQUIRED');
   const catalog = readOnlyCatalog(bytes);
+  validateRigidPointers(bytes, catalog);
   if (!Number.isSafeInteger(elementIndex) || elementIndex < 0 ||
       elementIndex >= catalog.elementCount) fail('FIVE_FIELD_OCCURRENCE_RANGE');
   const selected = catalog.elements[elementIndex];

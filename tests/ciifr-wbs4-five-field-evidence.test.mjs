@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { inspectFiveFieldEvidence, publicFiveFieldSummary }
   from '../tools/ciifr-wbs4/five-field-evidence.mjs';
 
@@ -132,9 +133,9 @@ test('CLI makes private 0600 report in local temp folder and distinct safe summa
   let outputDir;
   try {
     const input=join(sourceDir,'sample.CII');writeFileSync(input,makeCii());
-    const cli=new URL('../tools/ciifr-wbs4/five-field-cli.mjs',import.meta.url).pathname;
+    const cli=fileURLToPath(new URL('../tools/ciifr-wbs4/five-field-cli.mjs',import.meta.url));
     const stdout=execFileSync(process.execPath,[cli,input,'2'],{encoding:'utf8'}).trim();
-    assert.match(stdout,/^LOCAL_ONLY_DIRECTORY=\/tmp\/ciifr-five-field-/);
+    assert(stdout.startsWith(`LOCAL_ONLY_DIRECTORY=${join(tmpdir(), 'ciifr-five-field-')}`));
     outputDir=stdout.slice('LOCAL_ONLY_DIRECTORY='.length);
     const privateFile=join(outputDir,'private-report.json');
     const publicFile=join(outputDir,'public-summary.json');
@@ -147,4 +148,108 @@ test('CLI makes private 0600 report in local temp folder and distinct safe summa
     rmSync(sourceDir,{recursive:true,force:true});
     if(outputDir)rmSync(outputDir,{recursive:true,force:true});
   }
+});
+
+
+// These extra cases are deliberate independent regression oracles for #188,
+// not copies of the producer's 11 earlier positive-case fixtures.
+function rewriteRigidI13(bytes, elementIndex, token) {
+  const candidate = Buffer.from(bytes);
+  const ref = inspect(bytes, elementIndex).rigidAssociation.pointerByteSpan;
+  const replacement = String(token).padStart(13);
+  assert.equal(Buffer.byteLength(replacement), 13);
+  candidate.write(replacement, ref.start, 13, 'ascii');
+  return candidate;
+}
+
+function runCli(input, ordinal = '1') {
+  const cli = fileURLToPath(new URL('../tools/ciifr-wbs4/five-field-cli.mjs', import.meta.url));
+  return spawnSync(process.execPath, [cli, input, ordinal], {encoding:'utf8'});
+}
+
+test('F2 selected I13 pointer disallows decimal or exponent, not just noninteger values', () => {
+  const bytes = makeCii({pointers:[1,1]});
+  for (const invalid of ['1.0','1E0','+1.000','01E+0']) {
+    const candidate = rewriteRigidI13(bytes, 1, invalid);
+    assert.throws(() => inspect(candidate,1), /^Error: FIVE_FIELD_RIGID_POINTER_I13$/);
+  }
+  assert.equal(inspect(bytes, 1).rigidAssociation.pointerValue,1);
+});
+
+test('F2 poisoned unselected shared owner is rejected before selected association', () => {
+  const bytes=makeCii({pointers:[1,1]});
+  for(const malformed of ['1.0','1E0']) {
+    const candidate=rewriteRigidI13(bytes,0,malformed);
+    assert.throws(() => inspect(candidate,1),/FIVE_FIELD_RIGID_POINTER_I13/);
+  }
+  assert.deepEqual(inspect(bytes,1).rigidAssociation.owners,[0,1]);
+});
+
+test('F2 source integral zero / signed integral value preserve legitimate absent/present', () => {
+  const bytes=makeCii({pointers:[0,1]});
+  const plus=rewriteRigidI13(bytes,1,'+1');
+  const zero=rewriteRigidI13(bytes,0,'0');
+  assert.equal(inspect(plus,1).rigidAssociation.pointerValue,1);
+  assert.equal(inspect(zero,0).rigidAssociation.association,'ABSENT');
+  assert.match(inspect(plus,1).rigidAssociation.pointerLexeme,/\+1$/);
+});
+
+test('F1 all public CLI error paths redact private paths, pointer tokens and coordinates', () => {
+  const temp=mkdtempSync(join(tmpdir(),'ciifr-private-reject-'));
+  try {
+    const privateName='DO_NOT_LOG_PRIVATE_MODEL_PATH_978321.CII';
+    const missing=join(temp,privateName);
+    const invalidPointer=join(temp,'DO_NOT_LOG_RIGID_POINTER_92761.CII');
+    const invalidLexeme=join(temp,'DO_NOT_LOG_I13_1E0.CII');
+    const malformed=join(temp,'DO_NOT_LOG_BAD_SECTIONS.CII');
+    writeFileSync(invalidPointer,makeCii({pointers:[92761,1]}));
+    writeFileSync(invalidLexeme,rewriteRigidI13(makeCii({pointers:[1,1]}),0,'1E0'));
+    writeFileSync(malformed,'CUSTOMER_PRIVATE_SECTION_CONTENT_NOT_VALID');
+    const attempts=[runCli(missing),runCli(invalidPointer),runCli(invalidLexeme),
+      runCli(malformed),runCli(invalidLexeme,'700'),runCli(missing,'BAD_PRIVATE_ARGUMENT')];
+    for (const result of attempts) {
+      assert.equal(result.status,1);
+      assert.equal(result.stdout,'');
+      assert.equal(result.stderr.trim(),'FIVE_FIELD_INSPECTOR_ERROR=SOURCE_REJECTED');
+      for (const secret of [privateName,'DO_NOT_LOG_','pointer=92761','byteStart=',
+        'element=','1E0','978321','700','CUSTOMER_PRIVATE']) {
+        assert(!result.stderr.includes(secret),'leaked synthetic marker: '+secret);
+      }
+    }
+  } finally { rmSync(temp,{recursive:true,force:true}); }
+});
+
+test('independent serialized endpoint/occurrence oracle catches seeded FROM +1', () => {
+  for (const index of [0,1]) {
+    const original=makeCii({pointers:[0,1]});
+    const report=inspect(original,index);
+    assert.equal(report.occurrence.indexZeroBased,index);
+    assert.equal(report.occurrence.ordinalOneBased,index+1);
+    assert.equal(report.occurrence.fromNode,901234);
+    assert.equal(report.occurrence.toNode,901235);
+    assert.equal(report.rigidAssociation.pointerValue,index===0?0:1);
+    // Separate physical source oracle: find ELEMENTS then skip exactly 15 rows/occurrence.
+    const lines=Buffer.from(original).toString('ascii').split('\r\n');
+    const first=lines.indexOf('#$ ELEMENTS')+1+15*index;
+    assert.equal(Number(lines[first].slice(2,15).trim()),report.occurrence.fromNode);
+    assert.equal(Number(lines[first].slice(15,28).trim()),report.occurrence.toNode);
+  }
+});
+
+test('CLI accepts private input in space-containing directory and custom TMPDIR', () => {
+  const tmp=mkdtempSync(join(tmpdir(),'private source with spaces-'));
+  const outputRoot=join(tmp,'custom temporary root');
+  let resultPath;
+  try {
+    mkdirSync(outputRoot);
+    const source=join(tmp,'private model with spaces.CII');
+    writeFileSync(source,makeCii());
+    const cli=fileURLToPath(new URL('../tools/ciifr-wbs4/five-field-cli.mjs',import.meta.url));
+    const result=spawnSync(process.execPath,[cli,source,'2'],{encoding:'utf8',env:{...process.env,TMPDIR:outputRoot}});
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(result.stderr,'');
+    assert(result.stdout.trim().startsWith('LOCAL_ONLY_DIRECTORY='+join(outputRoot,'ciifr-five-field-')));
+    resultPath=result.stdout.trim().slice('LOCAL_ONLY_DIRECTORY='.length);
+    assert.equal(JSON.parse(readFileSync(join(resultPath,'private-report.json'),'utf8')).occurrence.ordinalOneBased,2);
+  } finally { if(resultPath)rmSync(resultPath,{recursive:true,force:true});rmSync(tmp,{recursive:true,force:true}); }
 });
