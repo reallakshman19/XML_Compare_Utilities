@@ -21,7 +21,7 @@ class PreviewHandler(SimpleHTTPRequestHandler):
             return
         parts = path.split('/')
         if any(part.startswith('.') for part in parts if part) or not (
-            path.startswith(ENTRY) or path.startswith('/tabs/cii-workspace/')):
+            path.startswith(ENTRY) or path.startswith('/tabs/cii-workspace/') or path.startswith('/workbench3d/')):
             self.send_error(404)
             return
         super().do_GET()

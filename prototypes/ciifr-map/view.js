@@ -19,9 +19,10 @@ export function renderAnchors(session, list, onRemove) {
 }
 export function renderRows(result, body, select, selected) {
   body.replaceChildren();
+  const selectedRows = new Set(Array.isArray(selected) ? selected : [selected]);
   result.candidates.rows.forEach(row => {
     const tr = document.createElement('tr'); tr.dataset.source = row.source; tr.tabIndex = 0;
-    tr.classList.toggle('selected', row.source === selected);
+    tr.classList.toggle('selected', selectedRows.has(row.source));
     [row.source, row.target || '—', row.status, ...[0,1,2].map(i => format(row.residual?.[i])),
       row.alternatives.length].forEach(value => cell(tr, value));
     tr.addEventListener('click', () => select(row.source));
@@ -31,17 +32,27 @@ export function renderRows(result, body, select, selected) {
     body.append(tr);
   });
 }
-export function selectedDetails(result, source) {
-  const row = result.candidates.rows.find(item => item.source === source);
-  if (!row) return 'Select a SOURCE node or linked TARGET candidate.';
-  return JSON.stringify({...row, xmlSourceElements: row.sourceWitness.map(index => result.source.edges[index]),
+export function sourceRowsForTarget(result, nodeId) {
+  const target = String(nodeId);
+  return result.candidates.rows.filter(row => row.target === target ||
+    row.alternatives.some(alt => String(alt.target) === target)).map(row => row.source);
+}
+export function selectedDetails(result, selection, picked = null) {
+  const sources = new Set(Array.isArray(selection) ? selection : [selection]);
+  const rows = result.candidates.rows.filter(row => sources.has(row.source));
+  if (!rows.length && !picked) return 'Select a SOURCE node or linked TARGET candidate.';
+  const links = rows.map(row => ({...row,
+    xmlSourceElements: row.sourceWitness.map(index => result.source.edges[index]),
     targetXmlElements: row.alternatives.map(alt => ({target: alt.target,
-      elements: (alt.targetWitness || []).map(index => result.target.edges[index])})),
+      elements: (alt.targetWitness || []).map(index => result.target.edges[index])}))}));
+  return JSON.stringify({selection: picked, linkedSourceRowCount: rows.length,
+    ambiguityPreserved: rows.length > 1, allLinkedSourceRows: links,
     sourceCoordinateFrame: result.source.coordinateFrames[result.transform.sourceComponent],
     targetCoordinateFrame: result.target.coordinateFrames[result.transform.targetComponent]}, null, 2);
 }
 export function mountScene(result, canvas, select, selected = null, selectedElement = null) {
-  const scene = methodCSvgScene({...result, selectedSource: selected, selectedElement});
+  const chosen = Array.isArray(selected) ? selected[0] : selected;
+  const scene = methodCSvgScene({...result, selectedSource: chosen, selectedElement});
   result.scene = scene;
   // Only the existing escaped Method C renderer supplies markup here.
   canvas.innerHTML = scene.svg;
@@ -51,10 +62,8 @@ export function mountScene(result, canvas, select, selected = null, selectedElem
   const pick = node => {
     const target = node.closest('[data-node]');
     if (target?.dataset.kind === 'SOURCE') select(target.dataset.node);
-    else if (target) {
-      const row = result.candidates.rows.find(item => item.alternatives.some(alt => alt.target === target.dataset.node));
-      if (row) select(row.source);
-    }
+    else if (target) select(sourceRowsForTarget(result, target.dataset.node), null,
+      {side: 'TARGET', kind: 'NODE', nodeId: target.dataset.node});
   };
   svg.addEventListener('click', event => {
     const edge = event.target.closest('[data-element]');
