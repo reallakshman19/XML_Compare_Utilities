@@ -83,3 +83,40 @@ Local pre-edit files were backed up with task-local utils/backup.cjs save, backu
 All five engineering-effective fields still report EFFECTIVE_UNKNOWN; protected R2 original not received in this builder workspace. R4 candidate configuration does NOT establish the actual native job config, material/units, operating/hydro cases or case FDM. The latest hosted GitHub workflow must be inspected separately: older green runs do NOT execute the new 17 tests. No native CAESAR/source-target acceptance or Writer/TARGET1 authority.
 
 **EXACT_NEXT_ACTION:** Element Oracle assigns reviewer 6adf3dbf to independently retrieve the NEW PR187 head, run the seventeen tests plus own privacy/I13/endpoint falsifier, and return its evidence-backed verdict on XCU #188. Preserve PR168 parent #173 separate owner action. Owner remains the only party authorized for eventual merge/release.
+
+
+---
+
+## REVISION 6 / GENERATION 3 — F3 strict physical I13 and source branch-label oracle (26 October 2026)
+
+**This section supersedes prior next-action and validation statements; prior receipts/history remain immutable.** Owner-verified current Element Cycle ACTIVE rev6 (Common commit 50aa9978c429f2128fcf685ee222fc25629e29a4): Oracle 6ade522f, builder/current recipient 6ade42a6, reviewer 6adf3dbf. Former builder 6adedbc6 owns prior historical returns; that record is not reassigned. Chat IDs are Owner-supplied routing labels, not GitHub principal authentication.
+
+**Task:** CIIFR-ELEMENT-E1-PR187-F3-I13-REPAIR, generation3 on the SAME draft PR187. Exact pre-repair PR187 head c8c2688aede49c9c0a9b18a3430942ce08244d20, tree b4606e6f8031e194234d6ff78d5b25f830093580, stacked PR168 head 2aeaf7372de66eda3bc082b8d81bf8db43c34f4b. Native routing clarification: https://github.com/reallakshman19/XML_Compare_Utilities/issues/178#issuecomment-6420627514 . Independent IR2 F3 technical FAIL: https://github.com/reallakshman19/XML_Compare_Utilities/issues/188#issuecomment-6417525759 .
+
+### Current source / changed-file and authority ledger
+
+- Pre-repair inspector Git blob 864e8a9f3f0d7db6801d675facf78d78782e4fe0. New inspector blob 1978d2833b65d92db39ccf7f67f8ba719ade8bf1, path tools/ciifr-wbs4/five-field-evidence.mjs.
+- New independent synthetic tests, seven Node cases, Git blob 56d93eafcf76f3ad51973e03d6c4f289a15c303f at tests/ciifr-wbs4-five-field-f3.test.mjs.
+- This workreport appended only. Unchanged original 17-test file blob 60d06395a44c9f079004515a38f541efac71a74e. Unchanged F1 CLI blob f0d1c95312e3296cc23b78bddd353fb2068aa178.
+- PR168 inherited readonly-catalog.mjs blob 32e24c684c687b11e68da6af5dd1abd3bbe6b818 stays unchanged; parent global all-15 I13 grammar issue remains separately assigned XCU #173. No Geometry/NodeName, Writer, TARGET1, product input, private source, or release changes.
+
+**A1–A5 SELF_ASSESSED qualification:** A1 19/20 physical source trace; A2 20/20 F3 fail-before isolation; A3 20/20 no source/Writer/PR168 authority confusion; A4 18/20 actual Node synthetic and wrong-branch falsifier but old17/full checkout NOT_RUN; A5 18/20 minimal patch/remote expected-head lease, full native backup state unavailable. Total 95/100, min18. Self-assessment only, not external PASS. Decision CONTINUE bounded read-only PR187 F3; not an engineering-effective approval.
+
+### Technical correction
+
+Physical RIGID pointer #2 is read as exactly 13 original bytes with Latin1-preserving decoding and a strict right-justified I13 grammar: ASCII 0x20 left-padding, optional ASCII sign and digits only; no Unicode trim, TAB 0x09, NBSP 0xA0, exponent, fraction, trailing blanks or other controls. BigInt checks source lexeme against inherited safe integer pointer only after lexical validation. Every physical ELEMENT source slot is validated before trusting shared RIGID owner maps, plus an association-level check. Actual source bytes are immutable. Proper 0 absent, +1 present, shared owner and attached stored signed-zero Weight preserved. All five effective fields stay EFFECTIVE_UNKNOWN; public summary and source-neutral CLI rejection unchanged.
+
+### Executed evidence — NOT author-only report inference
+
+Host: Linux x86_64 Node v22.16.0. Actual Git-blob-identical source subtree reconstructed for inspector, F1 CLI and inherited PR168 reader (individual git hash-object matching real remote blobs). **No full Git checkout**: this environment cannot resolve github.com; original model and native CAESAR are NOT_RUN.
+
+- node --check inspector, inherited reader and CLI PASS.
+- node --test tests/ciifr-wbs4-five-field-f3.test.mjs: **7 PASS / 0 FAIL / 0 SKIP**, exit0, real inherited reader and synthetic 3-ELEMENT fixture. LF/CRLF, TAB/NBSP selected/unselected owners, other control/position rejection, source SHA identity, correct signed +1 and absent 0, zero-weight attached record, shared owner, unknown engineering effective values and public JSON whitelist; actual subprocess F1 error stderr redaction PASS.
+- **Fail-before same tests, actual prior Git-blob-identical inspector preimage:** 4 PASS, 3 FAIL, exit1; old inspector accepted TAB/NBSP, and subprocess on malformed source exited0. Expected negative.
+- **Wrong branch mutant**: disposable copy only, branchLabel changed to constant first branch; same seven tests 5 PASS, 2 FAIL (LF and CRLF), exit1. The source-oracle extracts each element branch from original serialized physical row and asserts returned value and byte span. No actual branch mapping defect is established; no production branch mapping edit.
+- Earlier seventeen producer tests: NOT_RUN in this builder session, though original test source is unchanged; previous head independent reviewer ran 17/17. Hosted GitHub CI on NEW head PENDING at report authoring; former green workflow ran catalog13 + NodeName19 only. New 7 and older 17 are NOT_RUN hosted unless a new workflow explicitly demonstrates otherwise.
+- Private protected model, Windows/native CAESAR, original-job units/active configuration/material edition/basic-case FDM, effective field semantics, source-to-target pairing, writer/merge/deploy: NOT_RUN/HOLD.
+
+**Backup/recovery constraint:** Local exact inspector/CLI preimage were hashed and saved before edits, with task manifest and snapshot-based no-index patches under local .agent-worklogs/20261026_1937_pr187-f3. These local records are not staged or committed. Native repository checkout and tracked original backup-log not accessible; native utils/backup.cjs was NOT_RUN, and remote immutable Git preimages are only the Git-backed recovery route. This limit is disclosed, not passed off as full native workspace compliance. Use expected-head lease and no forced ref update; never overwrite another agent.
+
+**ONE EXACT NEXT ACTION:** Oracle 6ade522f reconciles this return/receipt, then routes the new exact PR187 head to separate reviewer 6adf3dbf for IR3: independently run original seventeen + new seven tests, direct source privacy and I13 challenge, plus a branch-label surviving-error oracle, and return scoped verdict on XCU #188. No builder self-approval, PR merge, PR168 changes, Writer, TARGET1 or native CAESAR claim.

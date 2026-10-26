@@ -43,25 +43,36 @@ function evidenceValue(bytes, name, slot, missingEvidence) {
 // A numeric pointer can be integer-valued while its neutral I13 token is invalid.
 // Validate every physical owner, not only the selected ELEMENT, before trusting
 // the catalogue's shared-RIGID owner map. PR168 remains separately owned.
+// I13 is 13 physical bytes, left-padded only by ASCII 0x20 blanks.
+// In particular, JS trim() would silently accept TAB and Latin-1 NBSP.
+function physicalRigidI13(bytes, slot) {
+  if (!slot || !Number.isSafeInteger(slot.byteStart) ||
+      !Number.isSafeInteger(slot.byteEnd) || slot.byteStart < 0 ||
+      slot.byteEnd !== slot.byteStart + 13 || slot.byteEnd > bytes.length) {
+    fail('FIVE_FIELD_RIGID_POINTER_I13');
+  }
+  const lexeme = Buffer.from(bytes.subarray(slot.byteStart, slot.byteEnd)).toString('latin1');
+  if (!/^ *[+-]?[0-9]+$/.test(lexeme)) fail('FIVE_FIELD_RIGID_POINTER_I13');
+  return {lexeme, pointer: BigInt(lexeme.replace(/^ +/, ''))};
+}
+
 function validateRigidPointers(bytes, catalog) {
   for (const element of catalog.elements) {
     const slot = element.pointers[1];
-    if (!slot || slot.byteEnd - slot.byteStart !== 13 ||
-        slot.byteStart < 0 || slot.byteEnd > bytes.length) {
+    const source = physicalRigidI13(bytes, slot);
+    if (!Number.isSafeInteger(slot.pointer) || source.pointer !== BigInt(slot.pointer)) {
       fail('FIVE_FIELD_RIGID_POINTER_I13');
     }
-    const token = Buffer.from(bytes.subarray(slot.byteStart, slot.byteEnd)).toString('latin1');
-    if (!/^[+-]?[0-9]+$/.test(token.trim())) fail('FIVE_FIELD_RIGID_POINTER_I13');
   }
 }
 
 function rigidAssociation(bytes, selected, catalog) {
   const slot = selected.pointers[1];
-  const pointerLexeme = Buffer.from(bytes.subarray(slot.byteStart, slot.byteEnd)).toString('latin1');
-  const pointerToken = pointerLexeme.trim();
-  if (!/^[+-]?[0-9]+$/.test(pointerToken) ||
-      !Number.isSafeInteger(slot.pointer) ||
-      BigInt(pointerToken) !== BigInt(slot.pointer)) fail('FIVE_FIELD_RIGID_POINTER_I13');
+  const source = physicalRigidI13(bytes, slot);
+  const pointerLexeme = source.lexeme;
+  if (!Number.isSafeInteger(slot.pointer) || source.pointer !== BigInt(slot.pointer)) {
+    fail('FIVE_FIELD_RIGID_POINTER_I13');
+  }
   const base = {
     pointerOrdinal: 2, pointerValue: slot.pointer,
     pointerByteSpan: {start: slot.byteStart, end: slot.byteEnd},
