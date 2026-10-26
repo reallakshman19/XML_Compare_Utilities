@@ -15,7 +15,7 @@ Search is budgeted in a Worker (at most 4,096 enumerated cases, a two-million pa
 
 Usability annotations below 40,000 combined nodes/segments use batched screen-space paths; larger models retain the shared 3D geometry and selected-node labels. This is a disclosed annotation threshold, not a qualified large-model performance guarantee. Four shared viewer files add X-up validation/control, opt-in side colours and camera-state access; default Y/Z callers keep their semantics. The renderer, Worker geometry, Three r160 assets and matching engine are reused.
 
-Current contributor checks: 54/54 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate exact-candidate review is required for the new code; Linux Chromium could not launch (SIGTRAP), so rendered GPU/pixel/Windows/native-fullscreen/Owner acceptance is not claimed. Earlier historical sections below describe predecessor slices and are not the current evidence frontier.
+Current contributor checks: 56/56 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate non-author native review passed at db86b640; a bounded popup/no-fit UI follow-up receives its own exact-head delta assessment. Hosted cloud-browser SVG intake/A/B/C/Worker/manual override and paired labels were exercised on the public sample. Its WebGL context is unavailable; actual GPU/pixel/Windows/native-fullscreen/Owner acceptance is not claimed. Earlier historical sections below describe predecessor slices and are not the current evidence frontier.
 
 ---
 
@@ -125,3 +125,5 @@ The toolbar exposes the existing shared viewer's seven camera presets, perspecti
 Reference inspected: Advanced_Analysis tree `11eca8e40e560fc2e5f0866489f0b419e1b5afb1`, `src/workspace/three-viewport-backend.js`, `three-viewport-camera.js` and `three-interaction-arbiter.js` (shared Workspace/Load Calc). Adopted fit/pivot/history/view and interaction command semantics; retained the existing XCU Z-up engine, Worker, typed scene identities and render-only transforms. The reference's different backend and project-specific coordinate/configuration authority were not transplanted.
 
 Native controlled-DOM/VM tests exercise actual app row-selection dispatch before/after fullscreen and bridge native selection dispatch, plus ambiguity/segment-only and popup lifecycle. They are not real GPU pixel-render/picking or browser-native fullscreen acceptance. Full suite needs `node --experimental-vm-modules --test prototypes/ciifr-map/tests/*.test.mjs` with the test-only `CIIFR_TEST_RUNTIME` prefix.
+
+Fullscreen defaults to a bottom-right popup45% of the review surface height, leaving geometry available; deliberate drag/resize stays contained. When native fullscreen is refused, the button honestly says Exit expanded view. No-feasible-fit tables retain manual pins and identify unsupported alternatives without claiming a one-to-one active assignment.

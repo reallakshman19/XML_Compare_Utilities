@@ -6,21 +6,39 @@ export function clampedPopupRect(bounds, box, left = box.left - bounds.left, top
     top: Math.max(8, Math.min(bounds.height - height - 8, top))};
 }
 
+/** Keep the first view predominantly drawing; user resizing remains separately bounded. */
+export function defaultPopupRect(bounds) {
+  const width = Math.min(850, Math.max(0, bounds.width - 16));
+  const height = Math.min(Math.round(bounds.height * .45), Math.max(0, bounds.height - 16));
+  return clampedPopupRect(bounds, {width, height}, bounds.width - width - 24, bounds.height - height - 24);
+}
+
 /** One persistent ledger/canvas subtree in normal and fullscreen modes. */
 export function setupReviewViewport({byId, documentRef = document}) {
   const surface = byId('review-surface'), panel = byId('ledger-panel');
   const windowRef = documentRef.defaultView;
-  let expanded = false, nativeOwned = false, drag = null, returnFocus = null;
+  let expanded = false, nativeOwned = false, exitRefused = false, drag = null, returnFocus = null;
+  function style(key, value) { if (panel.style[key] !== value) panel.style[key] = value; }
+  function label() {
+    const native = documentRef.fullscreenElement === surface;
+    byId('toggle-fullscreen').textContent = !expanded ? 'Fullscreen' : native ?
+      'Exit fullscreen' + (exitRefused ? ' (Esc)' : '') : 'Exit expanded view';
+  }
+  function defaultPlacement() {
+    const rect = defaultPopupRect(surface.getBoundingClientRect());
+    for (const key of ['left', 'top', 'width', 'height']) style(key, rect[key] + 'px');
+    style('right', 'auto'); style('bottom', 'auto');
+  }
   function clamp(left, top) {
     if (!expanded || panel.hidden) return;
     const bounds = surface.getBoundingClientRect(), box = panel.getBoundingClientRect();
     const rect = clampedPopupRect(bounds, box, left, top);
-    panel.style.maxWidth = Math.max(0, bounds.width - 16) + 'px';
-    panel.style.maxHeight = Math.max(0, bounds.height - 16) + 'px';
-    if (box.width > rect.width) panel.style.width = rect.width + 'px';
-    if (box.height > rect.height) panel.style.height = rect.height + 'px';
-    panel.style.left = rect.left + 'px'; panel.style.top = rect.top + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    style('maxWidth', Math.max(0, bounds.width - 16) + 'px');
+    style('maxHeight', Math.max(0, bounds.height - 16) + 'px');
+    if (box.width > rect.width) style('width', rect.width + 'px');
+    if (box.height > rect.height) style('height', rect.height + 'px');
+    style('left', rect.left + 'px'); style('top', rect.top + 'px');
+    style('right', 'auto'); style('bottom', 'auto');
   }
   function popup(visible) {
     panel.hidden = expanded && !visible;
@@ -31,10 +49,12 @@ export function setupReviewViewport({byId, documentRef = document}) {
     expanded = value;
     surface.classList.toggle('is-fullscreen', value);
     documentRef.body.classList.toggle('review-expanded', value);
-    byId('toggle-fullscreen').textContent = value ? 'Exit fullscreen' : 'Fullscreen';
+    exitRefused = false; label();
     byId('toggle-fullscreen').setAttribute('aria-pressed', String(value));
     for (const key of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight']) panel.style[key] = '';
-    drag = null; popup(true);
+    drag = null;
+    if (value) defaultPlacement();
+    popup(true);
     if (value) byId('toggle-fullscreen').focus();
     else returnFocus?.focus();
   }
@@ -44,7 +64,7 @@ export function setupReviewViewport({byId, documentRef = document}) {
         try { await documentRef.exitFullscreen(); }
         catch {
           if (documentRef.fullscreenElement === surface) {
-            byId('toggle-fullscreen').textContent = 'Exit fullscreen (Esc)'; return;
+            exitRefused = true; label(); return;
           }
         }
       }
@@ -53,23 +73,23 @@ export function setupReviewViewport({byId, documentRef = document}) {
     returnFocus = documentRef.activeElement; layout(true);
     try {
       if (surface.requestFullscreen) {
-        await surface.requestFullscreen(); nativeOwned = true;
+        await surface.requestFullscreen(); nativeOwned = true; label();
         if (!expanded && documentRef.fullscreenElement === surface) await documentRef.exitFullscreen();
       }
     } catch {
       if (documentRef.fullscreenElement === surface) {
         nativeOwned = true; layout(true);
-        byId('toggle-fullscreen').textContent = 'Exit fullscreen (Esc)';
+        exitRefused = true; label();
       }
     }
-    clamp();
+    clamp(); label();
   }
   byId('toggle-fullscreen').addEventListener('click', () => { void toggle(); });
   byId('show-ledger').addEventListener('click', () => { popup(panel.hidden); if (!panel.hidden) panel.focus(); });
   byId('close-ledger').addEventListener('click', () => { popup(false); byId('show-ledger').focus(); });
   documentRef.addEventListener('fullscreenchange', () => {
     if (nativeOwned && !documentRef.fullscreenElement) { nativeOwned = false; layout(false); }
-    else clamp();
+    else { clamp(); label(); }
   });
   documentRef.addEventListener('keydown', event => {
     if (event.key === 'Escape' && expanded && !documentRef.fullscreenElement) layout(false);

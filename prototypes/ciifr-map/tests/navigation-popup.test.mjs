@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectedGeometryObjects} from '../view.js';
-import {setupReviewViewport} from '../review-viewport.js';
 import {createGeoViewerBridge} from '../geo-viewer-bridge.js';
 import {geometrySceneBinding} from '../geo-scene.js';
+const {setupReviewViewport} = await import(process.env.CIIFR_POPUP_UNDER_TEST || '../review-viewport.js');
 
 test('row highlights every alternative and reused SOURCE; segment interior stays ELEMENT-only', () => {
   const item=(side,nodeId,sourceRows,kind='NODE')=>({objectId:side+nodeId,side,nodeId,sourceRows,kind});
@@ -16,32 +16,52 @@ test('row highlights every alternative and reused SOURCE; segment interior stays
   assert.deepEqual(selectedGeometryObjects(r,[],{objectId:'TARGETsegment'}),['TARGETsegment']);
 });
 
-function shell() {
-  const elements=new Map(), events={};
-  const el=id=>elements.get(id)||elements.set(id,{id,hidden:false,style:{},listeners:{},attrs:{},
+function shell({width=1200,height=700,initialPanelHeight=700}={}) {
+  const elements=new Map(), events={}; let resizeCallback, styleWrites=0;
+  const el=id=>elements.get(id)||elements.set(id,{id,hidden:false,style:new Proxy({},{set(o,k,v){styleWrites++;o[k]=v;return true;}}),listeners:{},attrs:{},
     classList:{values:new Set(),toggle(k,on){on?this.values.add(k):this.values.delete(k);}},
     addEventListener(k,f){this.listeners[k]=f;},setAttribute(k,v){this.attrs[k]=v;},focus(){},
-    getBoundingClientRect(){return {left:20,top:100,width:id==='review-surface'?1200:800,height:700};},
+    getBoundingClientRect(){return id==='review-surface'?{left:20,top:100,width,height}:
+      {left:20+(parseFloat(this.style.left)||0),top:100+(parseFloat(this.style.top)||0),
+        width:parseFloat(this.style.width)||800,height:parseFloat(this.style.height)||initialPanelHeight};},
     setPointerCapture(){}}).get(id);
-  const doc={body:el('body'),addEventListener:(k,f)=>events[k]=f};
+  const doc={body:el('body'),addEventListener:(k,f)=>events[k]=f,defaultView:{
+    ResizeObserver:class{constructor(fn){resizeCallback=fn;}observe(){}},addEventListener(){}}};
   const api=setupReviewViewport({byId:el,documentRef:doc});
-  return {el,doc,api,events,click:id=>el(id).listeners.click()};
+  return {el,doc,api,events,click:id=>el(id).listeners.click(),
+    resize(w=width,h=height){width=w;height=h;resizeCallback();},get styleWrites(){return styleWrites;}};
 }
 test('fullscreen popup keeps the original table, closes/reopens and resets drag offsets on reentry',()=>{
   const h=shell(), table=h.el('ledger-panel');
   h.click('toggle-fullscreen');assert.equal(h.api.isExpanded(),true);
+  assert.equal(table.style.height,'315px','default occupies45percent, leaving the drawing visible');
   assert.equal(h.el('ledger-panel'),table,'same ledger identity, no cloned rows or competing handler');
   assert.equal(table.hidden,false);h.click('close-ledger');assert.equal(table.hidden,true);
   h.click('show-ledger');assert.equal(table.hidden,false);
   const handle=h.el('ledger-handle');
-  handle.listeners.pointerdown({button:0,target:{closest:()=>null},clientX:20,clientY:100,pointerId:1,preventDefault(){}});
-  handle.listeners.pointermove({clientX:40,clientY:120});assert.equal(table.style.left,'20px','surface-local drag excludes the viewport offset');
+  const box=table.getBoundingClientRect();
+  handle.listeners.pointerdown({button:0,target:{closest:()=>null},clientX:box.left,clientY:box.top,pointerId:1,preventDefault(){}});
+  handle.listeners.pointermove({clientX:box.left+20,clientY:box.top+20});assert.equal(table.style.left,'342px','drag clamps within surface-local bounds');
   h.events.keydown({key:'Escape'});assert.equal(h.api.isExpanded(),false);assert.equal(table.hidden,false);
-  h.click('toggle-fullscreen');assert.equal(table.style.right,'auto');assert.equal(table.style.left,'8px','reentry clamps into its local surface');
+  h.click('toggle-fullscreen');assert.equal(table.style.right,'auto');assert.equal(table.style.left,'326px','reentry restores bottom-right default');
+});
+test('936px surface uses45percent default, allows deliberate resize and avoids observer write loops',()=>{
+  const h=shell({width:1364,height:936,initialPanelHeight:920}),table=h.el('ledger-panel');
+  h.click('toggle-fullscreen');
+  assert.equal(table.getBoundingClientRect().height,421,'default reduces the observed920px popup to45percent');
+  assert.equal(table.style.height,'421px');assert.equal(table.style.left,'490px');assert.equal(table.style.top,'491px');
+  assert.equal(h.el('toggle-fullscreen').textContent,'Exit expanded view');
+  const writes=h.styleWrites;h.resize();h.resize();assert.equal(h.styleWrites,writes,'stable observer callbacks write no styles');
+  table.style.height='600px';h.resize();assert.equal(table.style.height,'600px','user size survives observer');
+  const bounds=h.el('review-surface').getBoundingClientRect(),box=table.getBoundingClientRect();
+  assert.ok(box.top+box.height<=bounds.top+bounds.height && box.left+box.width<=bounds.left+bounds.width);
+  h.resize(1000,700);assert.equal(table.style.height,'600px');
+  h.click('toggle-fullscreen');h.click('toggle-fullscreen');assert.equal(table.style.height,'315px','new entry resets resized height');
 });
 test('native fullscreen rejection keeps viewport expansion usable and native Escape restores normal',async()=>{
   const h=shell();h.el('review-surface').requestFullscreen=async()=>{throw Error('unavailable');};
   h.click('toggle-fullscreen');await Promise.resolve();assert.equal(h.api.isExpanded(),true);
+  assert.equal(h.el('toggle-fullscreen').textContent,'Exit expanded view');
   h.click('toggle-fullscreen');
   h.el('review-surface').requestFullscreen=async()=>{h.doc.fullscreenElement=h.el('review-surface');};
   h.click('toggle-fullscreen');await Promise.resolve();

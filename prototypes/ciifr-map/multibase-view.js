@@ -34,7 +34,8 @@ function consolidatedRows(wb,body,result,actions,selection) {
   for (const group of [...union.unique.map(p => ({key:p.groupKey,source:p.source,options:[p]})),...union.groups]) {
     const recommendation=resolution?.recommendations.find(r => r.groupKey===group.key);
     for (const option of group.options) {
-      const tr=element('tr'), active=group.options.length===1 || chosen.has(option.key);
+      const tr=element('tr'), active=group.options.length===1 || chosen.has(option.key) ||
+        (!resolution?.chosen && pins[group.key]===option.key);
       tr.classList.toggle('selected',selection.sources.includes(option.source) &&
         (!selection.pick?.pairTarget || selection.pick.pairTarget===option.target));
       cell(tr,option.source); const td=cell(tr);
@@ -46,7 +47,7 @@ function consolidatedRows(wb,body,result,actions,selection) {
       }
       td.append(element('span',option.target));
       const labels=option.origins.map(o => o.label+' ('+o.tab+')');
-      if (active) labels.push(pins[group.key]?'Chosen · manual override':'Chosen');
+      if (active) labels.push(!result?'Included · no active fit':pins[group.key]?'Chosen · manual override':'Chosen');
       if (recommendation?.equalMinima.includes(option.key)) labels.push('Recommended in current context');
       cell(tr,[...new Set(labels)].join(' · '));
       let residual=null;
@@ -60,7 +61,8 @@ function consolidatedRows(wb,body,result,actions,selection) {
         counterfactual?.valid?'Other-pair error '+fmt(counterfactual.score)+' mm':counterfactual?.reason || 'Not evaluated',
         recommendation.witnessCount+' other pairs',recommendation.support,
         counterfactual?.custody.length?'TARGET reused in this trial':'',
-      ].filter(Boolean).join(' · '):'Unique pair · from '+option.origins.map(o => o.tab).join(', '));
+      ].filter(Boolean).join(' · '):group.options.length===1?
+        'Unique pair · from '+option.origins.map(o => o.tab).join(', '):'Conflict alternative · no comparable trial');
       inspectable(tr,option.source,option.target,actions.onSelect); body.append(tr);
     }
   }
@@ -79,7 +81,7 @@ export function workbenchSummary(wb,result) {
   if (!r) return 'Choose proposals in A/B, then Consolidate.';
   return r.status.replaceAll('_',' ')+' · '+u.unique.length+' unique pairs · '+u.groups.length+
     ' conflict groups · '+r.enumerated+'/'+r.totalAssignments+' assignments · '+
-    (r.exact?'complete search':'best found so far')+' · '+(r.chosen?.custody.length?
+    (r.exact?'complete search':'best found so far')+' · '+(!r.chosen?'no admissible assignment':r.chosen.custody.length?
       'TARGET reuse: diagnostic only':'one-to-one TARGET custody')+
     (u.invalid.length?' · '+u.invalid.length+' invalid checked proposals retained in evidence':'');
 }

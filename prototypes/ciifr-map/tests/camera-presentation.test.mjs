@@ -11,3 +11,8 @@ test('actual camera direction distinguishes preset, custom orbit and evidence-in
  assert.match(cameraPresentation({...base,cameraType:'Perspective',cameraPositionWorld:[2000,3000,3800]}).label,/Isometric.*Perspective/);
  assert.match(workbenchSummary({active:'B'},null),/add manual anchors/);
 });
+test('a rejected rigid context never claims an active one-to-one assignment',()=>{
+ const summary=workbenchSummary({active:'C',c:{union:{unique:[],groups:[{}],invalid:[]},
+  resolution:{status:'NO_FEASIBLE_CONTEXT',enumerated:1,totalAssignments:'1',exact:true,chosen:null}}},null);
+ assert.match(summary,/no admissible assignment/);assert.doesNotMatch(summary,/one-to-one TARGET custody/);
+});
