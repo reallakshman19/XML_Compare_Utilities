@@ -145,18 +145,24 @@ function makePostimage(original,parsed,selected) {
   const marker=line=>/^\s*#\$\s*([^\s]+)/i.exec(line.text)?.[1]?.toUpperCase();
   const controlAt=lines.findIndex(l=>marker(l)==='CONTROL');
   const nameAt=lines.findIndex(l=>marker(l)==='NODENAME');
-  if(controlAt<0||nameAt<0)fail('NODAL_SECTION_NOT_FOUND');
+  if(controlAt<0)fail('NODAL_CONTROL_MISSING');
   const control=lines[controlAt+1];
   if(!control || control.end-control.start<54)fail('NODAL_CONTROL_WIDTH_INVALID');
-  const nextSection=lines.findIndex((l,i)=>i>nameAt&&!!marker(l));
-  if(nextSection<0)fail('NODAL_NAME_SECTION_NOT_TERMINATED');
-  const insertion=lines[nextSection].start;
-  const nameLines=lines.slice(nameAt+1,nextSection).filter(l=>l.text.trim());
+  const missingName=nameAt<0;
+  // The only source-qualified absent-section location is directly before BEND.
+  if(missingName && (parsed.nonam!==0 ||
+      parsed.sections[parsed.sections.indexOf('ELEMENTS')+1]!=='BEND'))
+    fail('NODAL_MISSING_NODENAME_ORDER_UNQUALIFIED');
+  const nextSection=missingName?lines.findIndex(l=>marker(l)==='BEND'):
+    lines.findIndex((l,i)=>i>nameAt&&!!marker(l));
+  if(missingName && nextSection<0)fail('NODAL_NODENAME_INSERTION_ANCHOR_MISSING');
+  const insertion=nextSection<0?original.length:lines[nextSection].start;
+  const nameLines=missingName?[]:lines.slice(nameAt+1,nextSection<0?lines.length:nextSection)
+    .filter(l=>l.text.trim());
   if(nameLines.length!==parsed.nonam)fail('NODAL_NAME_RECORD_COUNT_DRIFT');
-  const term=(nameLines.length? original.subarray(nameLines.at(-1).end,nameLines.at(-1).next)
-    : original.subarray(lines[nameAt].end,lines[nameAt].next));
-  if(term.length!==1&&!(term.length===2&&term[0]===13&&term[1]===10))
-    fail('NODAL_LINE_ENDING_UNSUPPORTED');
+  const anchor=missingName?lines[nextSection-1]:nameLines.at(-1)||lines[nameAt];
+  if(!anchor)fail('NODAL_LINE_ENDING_UNSUPPORTED');
+  const term=original.subarray(anchor.end,anchor.next);
   const edits=new Map();
   const place=(start,end,str)=>{
     if(str.length!==end-start||/[^\x20-\x7e]/.test(str))fail('NODAL_PATCH_WIDTH_INVALID');
@@ -185,7 +191,11 @@ function makePostimage(original,parsed,selected) {
   const newNames=[...elementNew.values()].sort((a,b)=>a.element.index-b.element.index);
   const elementSection=lines.findIndex(l=>marker(l)==='ELEMENTS');
   if(elementSection<0)fail('NODAL_ELEMENTS_MISSING');
-  const newRecordBytes=[];
+  if(newNames.length && !(term.length===1&&[10,13].includes(term[0])) &&
+      !(term.length===2&&term[0]===13&&term[1]===10))
+    fail('NODAL_LINE_ENDING_UNSUPPORTED');
+  const newRecordBytes=missingName&&newNames.length?
+    [...byteString('#$ NODENAME'),...term]:[];
   for(const [i,entry] of newNames.entries()){
     const pointer=parsed.nonam+i+1;
     const pline=lines[elementSection+1+entry.element.index*15+13];
@@ -217,9 +227,12 @@ function makePostimage(original,parsed,selected) {
   output.set(extra,insertion);
   output.set(prefix.subarray(insertion),insertion+extra.length);
   const post=parseCii(output);
+  const expectedSections=[...parsed.sections];
+  if(missingName&&newNames.length)
+    expectedSections.splice(expectedSections.indexOf('BEND'),0,'NODENAME');
   if(post.nonam!==parsed.nonam+newNames.length ||
     post.elements.length!==parsed.elements.length || post.version!==parsed.version ||
-    JSON.stringify(post.sections)!==JSON.stringify(parsed.sections) ||
+    JSON.stringify(post.sections)!==JSON.stringify(expectedSections) ||
     post.elements.some((e,i)=>{
       const p=parsed.elements[i];
       return e.index!==p.index || e.from!==p.from || e.to!==p.to ||
