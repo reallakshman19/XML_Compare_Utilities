@@ -8,6 +8,8 @@ import {createGeoViewerBridge} from '../geo-viewer-bridge.js';
 import {createPreviewSession} from '../compare.js';
 import {readXmlGraph} from '../xml-intake.js';
 import {exportPreview} from '../evidence.js';
+import {selectedGeometryObjects} from '../view.js';
+import {setupReviewViewport} from '../review-viewport.js';
 
 if (!process.env.CIIFR_TEST_RUNTIME) throw Error('CIIFR_TEST_RUNTIME is required');
 if (!vm.SourceTextModule) throw Error('Use --experimental-vm-modules: test must exercise the actual app.js module');
@@ -28,19 +30,20 @@ async function harness() {
     .map(kind=>({dataset:{export:kind},disabled:true,addEventListener(){}}));
   const el = id => elements.get(id) || elements.set(id,{id,hidden:false,disabled:false,textContent:'',
     value:id==='projection'?'XZ':id==='viewer-layout'?'overlay':'100',listeners:{},
-    classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
-  let bridge, calls = 0;
+    style:{},setAttribute(){},focus(){},classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
+  let bridge, calls = 0, rowSelect = null, highlighted = [], refreshes = 0;
   const makeViewer = async () => {
     const id=++calls;
     await new Promise((resolve,reject)=>pending.set(id,{resolve,reject}));
     return {setModels(){},setMode(){},fitAll(){},getStateSnapshot(){return {runtimeRevision:1};},
-      toggleCameraType(){},setStandardView(){},setSelection(){},dispose(){disposed.push(id);}};
+      toggleCameraType(){},setStandardView(){},setSelection(id,related){highlighted=[id,...related];},updateObjects(){refreshes++;},dispose(){disposed.push(id);}};
   };
-  const context=vm.createContext({document:{getElementById:el,querySelectorAll:()=>buttons},
+  const context=vm.createContext({document:{getElementById:el,querySelectorAll:()=>buttons,addEventListener(){},body:{classList:{toggle(){}}}},
     window:{addEventListener(){}},console,setTimeout});
   const modules={
     './compare.js':{createPreviewSession:()=>session}, './evidence.js':{exportPreview},
-    './view.js':{graphInfo(){},renderAnchors(){},renderRows(){},selectedDetails(){return '';},mountScene(){return {}; }},
+    './review-viewport.js':{setupReviewViewport},
+    './view.js':{selectedGeometryObjects,graphInfo(){},renderAnchors(){},renderRows(_r,_b,choose){rowSelect=choose;},selectedDetails(){return '';},mountScene(){return {}; }},
     './geo-viewer-bridge.js':{createGeoViewerBridge:opts => bridge=createGeoViewerBridge({...opts,makeViewer})},
   };
   const app=new vm.SourceTextModule(appSource,{context});
@@ -62,7 +65,7 @@ async function harness() {
     layoutDisabled:el('viewer-layout').disabled,status:el('status').textContent,
     projection:session.current().projection});
   const releaseAll=()=>{for(const item of pending.values())item.resolve();};
-  return {run,start,resume,fail,state,exportsNow,releaseAll};
+  return {run,start,resume,fail,state,exportsNow,releaseAll,selectRow:id=>rowSelect(id),highlighted:()=>highlighted,refreshes:()=>refreshes,expand:()=>el('toggle-fullscreen').listeners.click()};
 }
 function activeB(state, expectedDisposed = [1]) {
   assert.equal(state.active,true,'obsolete A must not dispose active B');
@@ -122,4 +125,18 @@ test('actual app F1 control: current B failed startup restores SVG and control',
   assert.equal(state.toggleDisabled,false);
   assert.equal(state.label,'Use existing 3D viewer');
   assert.match(state.status,/3D viewer unavailable/);
+});
+
+test('actual app: row selects SOURCE and TARGET physical nodes before and after fullscreen',async()=>{
+  const h=await harness();h.run();const started=h.start();h.resume(1);await started;
+  h.selectRow('3790');
+  const selected=h.highlighted().map(id=>JSON.parse(id));
+  assert.deepEqual(selected.map(parts=>[parts[0],parts[3],parts[4]]),
+    [['SOURCE','NODE','3790'],['TARGET','NODE','3790']]);
+  assert(h.refreshes()>0,'shared instance colours refresh immediately');
+  h.expand();h.selectRow('3830');
+  assert.deepEqual(h.highlighted().map(id=>{const a=JSON.parse(id);return [a[0],a[3],a[4]];}),
+    [['SOURCE','NODE','3830'],['TARGET','NODE','3830']]);
+  h.expand();h.selectRow('3790');
+  assert.deepEqual(h.highlighted().map(id=>JSON.parse(id)[4]),['3790','3790']);
 });

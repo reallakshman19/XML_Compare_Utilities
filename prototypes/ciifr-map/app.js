@@ -1,9 +1,12 @@
 import {createPreviewSession} from './compare.js';
 import {exportPreview} from './evidence.js';
-import {graphInfo, renderAnchors, renderRows, selectedDetails, mountScene} from './view.js';
+import {graphInfo, renderAnchors, renderRows, selectedDetails, mountScene, selectedGeometryObjects} from './view.js';
 import {createGeoViewerBridge} from './geo-viewer-bridge.js';
 
+import {setupReviewViewport} from './review-viewport.js';
+
 const session = createPreviewSession(), byId = id => document.getElementById(id);
+setupReviewViewport({byId, documentRef:document});
 let viewport = null, selected = [], selectedElement = null, selectedPick = null, gpuRequested = false;
 let viewerRequest = 0; // UI ownership token; the bridge independently rejects stale scene/picks.
 function status(message, error = false) {
@@ -65,9 +68,8 @@ function select(sources, element = null, pick = null) {
     JSON.stringify((element.startsWith('SOURCE:') ? result.source : result.target)
       .edges[Number(element.split(':')[1])], null, 2) : selectedDetails(result, selected, selectedPick);
   if (bridge.isActive()) {
-    const sourceId = Object.values(result.viewerScene.objects).find(item => item.side === 'SOURCE' &&
-      item.kind === 'NODE' && item.nodeId === selected[0])?.objectId;
-    bridge.setSelection(selectedPick?.objectId || sourceId || null);
+    const ids = selectedGeometryObjects(result, selected, selectedPick);
+    bridge.setSelection(ids[0] || null, ids.slice(1));
   }
 }
 function run() {
@@ -101,7 +103,7 @@ async function toggleViewer() {
     byId('svg-layer').hidden = true; byId('gpu-host').hidden = false;
     byId('viewer-layout').disabled = false;
     byId('toggle-gpu').textContent = 'Use SVG viewer';
-    for (const id of ['zoom-in','zoom-out','reset-view']) byId(id).disabled = true;
+    for (const id of ['zoom-in','zoom-out','reset-view']) byId(id).disabled = false;
     status('Existing 3D Edit viewer · ' + (result.projection === 'ISO' ?
       'perspective NON-METRIC' : result.projection + ' orthographic · mm') +
       ' · centerline-only display; no physical correspondence certified.');
@@ -135,8 +137,25 @@ byId('add-anchor').addEventListener('click', () => {
 byId('run').addEventListener('click', run);
 byId('toggle-gpu').addEventListener('click', toggleViewer);
 byId('viewer-layout').addEventListener('change', event => bridge.setMode(event.target.value));
-byId('zoom-in').addEventListener('click', () => viewport?.zoom(0.8));
-byId('zoom-out').addEventListener('click', () => viewport?.zoom(1.25));
-byId('reset-view').addEventListener('click', () => viewport?.reset());
+byId('zoom-in').addEventListener('click', () => bridge.isActive() ? bridge.command('zoom', 0.8) : viewport?.zoom(0.8));
+byId('zoom-out').addEventListener('click', () => bridge.isActive() ? bridge.command('zoom', 1.25) : viewport?.zoom(1.25));
+byId('reset-view').addEventListener('click', () => bridge.isActive() ? bridge.command('fit') : viewport?.reset());
 window.addEventListener('pagehide', () => bridge.disable());
 document.querySelectorAll('[data-export]').forEach(button => button.addEventListener('click', () => download(button.dataset.export)));
+
+for (const button of document.querySelectorAll('[data-viewer-command]'))
+  button.addEventListener('click', () => bridge.command(button.dataset.viewerCommand));
+byId('camera-view').addEventListener('change', event => {
+  bridge.command('view', event.target.value);
+});
+byId('orbit-left').addEventListener('click', () => bridge.command('orbit', [0.2, 0]));
+byId('orbit-right').addEventListener('click', () => bridge.command('orbit', [-0.2, 0]));
+byId('select-node').addEventListener('click', () => {
+  try {
+    const objects = Object.values(session.current().viewerScene.objects);
+    const object = objects.find(o => o.kind === 'NODE' && o.side === byId('node-side').value &&
+      o.nodeId === byId('node-id').value.trim());
+    if (!object) { status('No physical NODE with that ID in the current registered component.', true); return; }
+    select(object.sourceRows, null, object);
+  } catch { status('Run Method C before selecting a physical NODE.', true); }
+});

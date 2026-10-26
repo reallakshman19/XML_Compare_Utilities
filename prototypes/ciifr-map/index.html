@@ -22,16 +22,25 @@
 <button id="run" class="primary">Run Method C</button></div>
 </section>
 <div id="status" role="status" aria-live="polite">Load both XML files, then add a node anchor.</div>
-<section class="result" aria-label="Comparison preview">
+<section id="review-surface" class="result" aria-label="Comparison preview">
 <div class="toolbar"><strong id="projection-label">Metric overlay · mm</strong><span class="legend"><i class="source"></i>SOURCE <i class="target"></i>TARGET</span>
 <button id="toggle-gpu" disabled>Use existing 3D viewer</button><label class="viewer-layout-label">Layout<select id="viewer-layout" disabled><option value="overlay">Overlay</option><option value="side-by-side">Side-by-side</option></select></label>
 <button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="reset-view">Reset view</button>
+<button id="toggle-fullscreen" aria-pressed="false">Fullscreen</button><button id="show-ledger" aria-controls="ledger-panel" aria-expanded="true">Correspondence table</button>
 <button data-export="svg" disabled>SVG</button><button data-export="json" disabled>JSON evidence</button><button data-export="csv" disabled>CSV</button></div>
+<div class="navigation-bar" role="toolbar" aria-label="3D navigation">
+<label>Camera view<select id="camera-view"><option value="iso">Isometric</option><option value="top">Top (+Z)</option><option value="bottom">Bottom (−Z)</option><option value="front">Front (+Y)</option><option value="back">Back (−Y)</option><option value="right">Right (+X)</option><option value="left">Left (−X)</option></select></label>
+<button data-viewer-command="projection">Perspective / orthographic</button><button data-viewer-command="fit-selection">Fit selected</button><button data-viewer-command="pivot">Pivot on selected</button><button data-viewer-command="previous">Previous view</button><button id="orbit-left">Orbit left</button><button id="orbit-right">Orbit right</button>
+<label>Node side<select id="node-side"><option>SOURCE</option><option>TARGET</option></select></label><label>Node ID<input id="node-id" inputmode="numeric" placeholder="Physical NODE ID"></label><button id="select-node">Select node</button>
+<span class="hint">Click: select · Left-drag: orbit · Right-drag / Shift-drag: pan · Wheel: zoom · F: fit selection · Shift+F: fit all. Camera controls change the view only, not matching evidence.</span>
+</div>
 <div id="canvas" aria-label="Method C read-only geometry"><div class="viewer-layer" id="svg-layer"><p class="empty">The registered overlay will appear here.</p></div><div class="viewer-layer" id="gpu-host" hidden></div></div>
 <p class="hint">SVG: drag to pan; use + / − to zoom. 3D: native viewer navigation. Select a row or node for all alternatives and XML witnesses. Enter / Space selects focused nodes and rows. ISO is a nonmetric oblique view.</p>
 <div id="summary"></div>
+<div id="ledger-panel" class="ledger-panel" tabindex="-1" role="region" aria-label="Correspondence table">
+<div id="ledger-handle" class="ledger-handle"><strong>Correspondence · click a row to highlight all linked nodes</strong><button id="close-ledger" aria-label="Close correspondence popup">×</button></div>
 <div class="table-wrap"><table><thead><tr><th>SOURCE</th><th>TARGET candidate</th><th>Status</th><th>ΔX, mm</th><th>ΔY, mm</th><th>ΔZ, mm</th><th>Alternatives</th></tr></thead><tbody id="rows"></tbody></table></div>
-<details open><summary>Selected node · alternatives, segment and XML witnesses</summary><pre id="details">Select a node after comparison.</pre></details>
+<details open><summary>Selected node · alternatives, segment and XML witnesses</summary><pre id="details">Select a node after comparison.</pre></details></div>
 </section>
 <footer>Supports the declared F05 and R4 native-mm geometry profiles only. Seedless components are relative. One anchor leaves orientation undetermined; two leave twist undetermined. Three noncollinear anchors can yield a numerical rigid fit. No correspondence is automatically accepted.</footer>
 </main><script type="module" src="app.js"></script></body></html>

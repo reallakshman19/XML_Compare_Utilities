@@ -45,6 +45,7 @@ export function createGeoViewerBridge({host, session, onSelect, onError, makeVie
         },
         onRuntimeError: error => { if (active(id, snapshot)) onError(error); },
         onCameraChange: projectWhenReady,
+        navigationPreset: 'VIEWER',
       });
       if (id !== generation || !enabled || currentScene() !== snapshot) {
         instance.dispose(); return false;
@@ -62,7 +63,23 @@ export function createGeoViewerBridge({host, session, onSelect, onError, makeVie
     }
   }
   function setMode(mode) { if (viewer) viewer.setMode(mode); }
-  function setSelection(objectId, relatedIds = []) { if (viewer) viewer.setSelection(objectId, relatedIds); }
-  return {enable, disable, setMode, setSelection, isActive: () => Boolean(viewer && enabled),
+  function setSelection(objectId, relatedIds = []) {
+    if (!viewer || !active(generation, scene)) return;
+    viewer.setSelection(objectId, relatedIds);
+    // Native setSelection stores IDs; refresh the instanced marker/pipe colours now.
+    viewer.updateObjects({});
+  }
+  function command(action, value) {
+    if (!viewer || !active(generation, scene)) return;
+    if (action === 'view') viewer.setStandardView(value);
+    else if (action === 'fit') viewer.fitAll();
+    else if (action === 'fit-selection') viewer.fitSelection();
+    else if (action === 'pivot') viewer.setPivotToSelection();
+    else if (action === 'previous') viewer.previousView();
+    else if (action === 'zoom') viewer.zoomBy(value);
+    else if (action === 'orbit') viewer.orbitBy(...value);
+    else if (action === 'projection') viewer.toggleCameraType();
+  }
+  return {enable, disable, setMode, setSelection, command, isActive: () => Boolean(viewer && enabled),
     isCurrent: () => Boolean(scene && active(generation, scene))};
 }

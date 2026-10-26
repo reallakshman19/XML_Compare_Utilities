@@ -1,5 +1,16 @@
 import {methodCSvgScene} from '../../tabs/cii-workspace/cii-workspace-method-c-svg.js';
 
+/** Display selection only; every physical NODE linked to any chosen ledger row. */
+export function selectedGeometryObjects(result, sources, picked = null) {
+  const selected = new Set((Array.isArray(sources) ? sources : [sources]).filter(Boolean));
+  const objects = Object.values(result.viewerScene.objects);
+  const ids = objects.filter(o => o.kind === 'NODE' && o.sourceRows.some(id => selected.has(id)))
+    .map(o => o.objectId);
+  if (picked?.objectId && result.viewerScene.objects[picked.objectId])
+    return [picked.objectId, ...ids.filter(id => id !== picked.objectId)];
+  return ids;
+}
+
 const format = value => Number.isFinite(value) ? Number(value.toFixed(4)).toString() : '—';
 const cell = (row, value) => { const td = document.createElement('td'); td.textContent = value; row.append(td); };
 export function graphInfo(graph) {
@@ -57,6 +68,11 @@ export function mountScene(result, canvas, select, selected = null, selectedElem
   // Only the existing escaped Method C renderer supplies markup here.
   canvas.innerHTML = scene.svg;
   const svg = canvas.querySelector('svg'), base = {...scene.viewBox};
+  const nodeObjects = selectedGeometryObjects(result, selected).map(id => result.viewerScene.objects[id]);
+  for (const node of svg.querySelectorAll?.('[data-node]') || []) {
+    const active = nodeObjects.some(o => o.side === node.dataset.kind && o.nodeId === node.dataset.node);
+    node.classList.toggle('mc-selected', active); node.setAttribute('aria-pressed', String(active));
+  }
   let current = {...base}, drag = null;
   const apply = () => svg.setAttribute('viewBox', [current.x,current.y,current.width,current.height].join(' '));
   const pick = node => {
