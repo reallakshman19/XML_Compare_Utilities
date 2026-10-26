@@ -39,6 +39,7 @@ const actions={onSelect:select,onEdit:(source,changes)=>{
   disableGpu();wb.editProposal(source,changes);render();
 },onPin:(group,pair)=>{disableGpu();wb.pin(group,pair);void consolidate();}};
 function controls() {
+  if (!bridge.isActive()) byId('camera-state').textContent='SVG evidence view · '+wb.state.projection;
   document.querySelectorAll('[data-comparison]').forEach(button=>{
     const active=button.dataset.comparison===wb.active;
     button.setAttribute('aria-selected',String(active));button.classList.toggle('active',active);

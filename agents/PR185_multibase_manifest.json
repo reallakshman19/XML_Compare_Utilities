@@ -4,9 +4,9 @@
   "files": [
     {
       "path": "agents/PR185_workreport.md",
-      "bytes": 22986,
-      "sha256": "71853aa0f9dbcb0bf9a871801384489601299e1768b25c51a1a45980ef9c1ea4",
-      "git_blob": "1a779283a46bd501f7848f64143f8cb1b2e61ce4"
+      "bytes": 24254,
+      "sha256": "6ded1c3d3da72613b9073c095eb59040501f4c75cc93407c9f61d676702c113e",
+      "git_blob": "28c5079ba4105fe2669d8c077132a24002cb33a4"
     },
     {
       "path": "prototypes/ciifr-map/README.md",
@@ -16,9 +16,9 @@
     },
     {
       "path": "prototypes/ciifr-map/app.js",
-      "bytes": 13720,
-      "sha256": "c3c43b0a6bbd8650ba7b5f9e8ed44eb337390a39a653715ce443fa355da675d4",
-      "git_blob": "d3b9851529d538cc36752da9a67b8946e486c544"
+      "bytes": 13824,
+      "sha256": "e2702529c992c9b5c8f5e6d525eb508b4463c7729d5abcdc321124a15d1002e2",
+      "git_blob": "8803bbd7c39f5fb8936253fde359ce887e2ca786"
     },
     {
       "path": "prototypes/ciifr-map/camera-presentation.js",
@@ -82,9 +82,9 @@
     },
     {
       "path": "prototypes/ciifr-map/tests/app-startup-ownership.test.mjs",
-      "bytes": 9200,
-      "sha256": "c59e7c4e9fa661cdf9fe81b00342dccca25559a235f5099cc5148d0ea0439de5",
-      "git_blob": "872db6b059ccc42fc5cddaf50a81fe20f8c96182"
+      "bytes": 10393,
+      "sha256": "ce0e410aabba6534a752ab78a4385a2f11ed0d5523c19052600db134deabbda6",
+      "git_blob": "3cc0ba494fc7410289745bebdc84779e036fecce"
     },
     {
       "path": "prototypes/ciifr-map/tests/camera-presentation.test.mjs",

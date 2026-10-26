@@ -36,6 +36,7 @@ async function harness() {
   const el = id => elements.get(id) || elements.set(id,{id,hidden:false,disabled:false,textContent:'',
     value:id==='projection'?'XZ':id==='viewer-layout'?'overlay':id==='vertical-axis'?'Z':'100',listeners:{},
     style:{},setAttribute(){},focus(){},getBoundingClientRect(){return {left:20,top:100,width:id==='review-surface'?1200:800,height:700};},classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
+  const comparisonButtons=['A','B','C'].map(tab=>Object.assign(el('tab-'+tab),{dataset:{comparison:tab}}));
   let bridge, calls = 0, rowSelect = null, highlighted = [], dispatches = 0;
   const makeViewer = async () => {
     const id=++calls;
@@ -43,7 +44,7 @@ async function harness() {
     return {setModels(){},setMode(){},fitAll(){},getStateSnapshot(){return {runtimeRevision:1};},
       toggleCameraType(){},setStandardView(){},setSelection(id,related){highlighted=[id,...related];dispatches++;},dispose(){disposed.push(id);}};
   };
-  const context=vm.createContext({document:{getElementById:el,querySelectorAll:selector=>selector==='[data-export]'?buttons:[],addEventListener(){},body:{classList:{toggle(){}}}},
+  const context=vm.createContext({document:{getElementById:el,querySelectorAll:selector=>selector==='[data-export]'?buttons:selector==='[data-comparison]'?comparisonButtons:[],addEventListener(){},body:{classList:{toggle(){}}}},
     window:{addEventListener(){}},console,setTimeout});
   const modules={
     './camera-presentation.js':{cameraPresentation},
@@ -70,9 +71,11 @@ async function harness() {
     viewerHidden:el('gpu-host').hidden,svgHidden:el('svg-layer').hidden,
     label:el('toggle-gpu').textContent, toggleDisabled:el('toggle-gpu').disabled,
     layoutDisabled:el('viewer-layout').disabled,status:el('status').textContent,
-    projection:session.current().projection});
+    projection:session.current().projection,cameraState:el('camera-state').textContent});
   const releaseAll=()=>{for(const item of pending.values())item.resolve();};
-  return {run,start,resume,fail,state,exportsNow,releaseAll,selectRow:id=>rowSelect(id),highlighted:()=>highlighted,dispatches:()=>dispatches,expand:()=>el('toggle-fullscreen').listeners.click()};
+  return {run,start,resume,fail,state,exportsNow,releaseAll,selectRow:id=>rowSelect(id),highlighted:()=>highlighted,dispatches:()=>dispatches,expand:()=>el('toggle-fullscreen').listeners.click(),
+    changeProjection:value=>{el('projection').value=value;el('projection').listeners.input();},
+    switchBase:tab=>comparisonButtons.find(button=>button.dataset.comparison===tab).listeners.click()};
 }
 function activeB(state, expectedDisposed = [1]) {
   assert.equal(state.active,true,'obsolete A must not dispose active B');
@@ -146,4 +149,17 @@ test('actual app: row selects SOURCE and TARGET physical nodes before and after 
     [['SOURCE','NODE','3830'],['TARGET','NODE','3830']]);
   h.expand();h.selectRow('3790');
   assert.deepEqual(h.highlighted().map(id=>JSON.parse(id)[4]),['3790','3790']);
+});
+
+test('actual app SVG camera badge follows the current evidence projection',async()=>{
+  const h=await harness();h.run();
+  h.changeProjection('ISO');assert.equal(h.state().cameraState,'SVG evidence view · ISO');
+  h.changeProjection('YZ');assert.equal(h.state().cameraState,'SVG evidence view · YZ');
+});
+test('actual app SVG camera badge follows each base saved projection',async()=>{
+  const h=await harness();h.run();h.changeProjection('ISO');
+  h.switchBase('B');assert.equal(h.state().cameraState,'SVG evidence view · XZ');
+  h.changeProjection('XY');assert.equal(h.state().cameraState,'SVG evidence view · XY');
+  h.switchBase('A');assert.equal(h.state().cameraState,'SVG evidence view · ISO');
+  h.switchBase('C');assert.equal(h.state().cameraState,'SVG evidence view · XZ');
 });
