@@ -1,38 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XML Geometry Preview · CIIFR</title>
-<script type="importmap">{"imports":{"three":"./vendor/three-0.160.0/three.module.min.js","https://esm.sh/three@0.160.0/build/three.module.js":"./vendor/three-0.160.0/three.module.min.js"}}</script><link rel="stylesheet" href="styles.css"></head>
+<title>CIIFR_GEO · Geometry correspondence</title>
+<script type="importmap">{"imports":{"three":"./vendor/three-0.160.0/three.module.min.js","https://esm.sh/three@0.160.0/build/three.module.js":"./vendor/three-0.160.0/three.module.min.js"}}</script><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="viewer-feedback.css"><link rel="stylesheet" href="multibase.css"></head>
 <body><main>
-<header><div class="eyebrow">CIIFR · WBS 3.1 · G1 input preview</div><h1>XML Geometry Preview</h1>
-<p>Compare two existing XML geometries with manual anchors and Method C. Review candidates, signed residuals and the shared-scale overlay.</p>
+<header><div class="eyebrow">CIIFR · WBS 3.1 · G1 input preview</div><h1>Geometry correspondence</h1>
+<p>XML Geometry Preview · compare two existing XML geometries in independent bases A and B, then consolidate checked pairs. Review candidates, signed residuals and the shared-scale overlay.</p>
 <p class="authority">Preview only · XML bytes measured · original CII claims unverified · no physical identity or Writer authority · VNext integration pending.</p></header>
 <section class="intake" aria-label="XML files">
+<div class="sample-entry"><button id="load-sample">Load bundled S1 sample pair</button><span class="hint">Same S1 geometry in F05/R4 profiles · useful for trying the controls; independent-model qualification remains separate.</span></div>
 <label class="file">SOURCE XML<input type="file" id="source-file" accept=".xml,application/xml,text/xml"><output id="source-info">Choose F05 RichInputXML-P1.v1.1 or R4 RichInputXMLv2.1.</output></label>
 <label class="file">TARGET XML<input type="file" id="target-file" accept=".xml,application/xml,text/xml"><output id="target-info">Files stay in this browser.</output></label>
 </section>
-<section class="controls" aria-label="Registration controls">
+<section id="anchor-controls" class="controls" aria-label="Registration controls"><strong id="anchor-heading">Manual A anchors</strong>
 <div class="anchor-entry"><label>SOURCE node<input id="anchor-source" inputmode="numeric" placeholder="Original ID"></label><span aria-hidden="true">→</span>
 <label>TARGET node<input id="anchor-target" inputmode="numeric" placeholder="Original ID"></label><button id="add-anchor">Add anchor</button></div>
 <ul id="anchors" aria-label="Manual anchors"></ul>
 <div class="parameters"><label>X tolerance, mm<input id="tol-x" type="number" min="0" max="100000" value="100"></label>
 <label>Y tolerance, mm<input id="tol-y" type="number" min="0" max="100000" value="100"></label>
 <label>Z tolerance, mm<input id="tol-z" type="number" min="0" max="100000" value="100"></label>
-<label>Projection<select id="projection"><option>XZ</option><option>YZ</option><option>XY</option><option>ISO</option></select></label>
+
 <button id="run" class="primary">Run Method C</button></div>
 </section>
 <div id="status" role="status" aria-live="polite">Load both XML files, then add a node anchor.</div>
 <section id="review-surface" class="result" aria-label="Comparison preview">
-<div class="toolbar"><strong id="projection-label">Metric overlay · mm</strong><span class="legend"><i class="source"></i>SOURCE <i class="target"></i>TARGET</span>
+<nav class="comparison-tabs" role="tablist" aria-label="Comparison bases"><button id="tab-A" role="tab" data-comparison="A" aria-selected="true">A · Base A</button><button id="tab-B" role="tab" data-comparison="B" aria-selected="false">B · Base B</button><button id="reuse-a-inputs" hidden>Use A XML pair in B</button><button id="tab-C" role="tab" data-comparison="C" aria-selected="false">C · Consolidated</button><span>Independent bases · B initially reuses A XML</span></nav>
+<div id="consolidation-controls" class="consolidation-controls" hidden><label>Consolidation alignment<select id="resolution-fit"><option value="TRANSLATION">Keep basis orientation · translation diagnostic</option><option value="RIGID">Rigid 3D · Method C admissible trials</option></select></label><button id="consolidate" class="primary">Consolidate checked A/B pairs</button><button id="clear-overrides">Clear manual overrides</button><p class="hint">Each trial fits its selected pairs. A conflict group's recommendation is scored only on the other pairs. TARGET reuse remains diagnostic.</p></div>
+<div class="toolbar"><label>Evidence projection<select id="projection"><option>XZ</option><option>YZ</option><option>XY</option><option>ISO</option></select></label><strong id="projection-label">Metric overlay · mm</strong><span class="legend"><i class="source"></i>SOURCE <i class="target"></i>TARGET</span>
 <button id="toggle-gpu" disabled>Use existing 3D viewer</button><label class="viewer-layout-label">Layout<select id="viewer-layout" disabled><option value="overlay">Overlay</option><option value="side-by-side">Side-by-side</option></select></label>
 <button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="reset-view">Reset view</button>
 <button id="toggle-fullscreen" aria-pressed="false">Fullscreen</button><button id="show-ledger" aria-controls="ledger-panel" aria-expanded="true">Correspondence table</button>
 <button data-export="svg" disabled>SVG</button><button data-export="json" disabled>JSON evidence</button><button data-export="csv" disabled>CSV</button></div>
 <div class="navigation-bar" role="toolbar" aria-label="3D navigation">
-<label>Camera view<select id="camera-view"><option value="iso">Isometric</option><option value="top">Top (+Z)</option><option value="bottom">Bottom (−Z)</option><option value="front">Front (+Y)</option><option value="back">Back (−Y)</option><option value="right">Right (+X)</option><option value="left">Left (−X)</option></select></label>
+<label>Vertical axis<select id="vertical-axis"><option>X</option><option>Y</option><option selected>Z</option></select></label><label>3D camera view<select id="camera-view"><option value="custom" selected>Current / custom camera</option><option value="iso">Isometric</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="front">Front</option><option value="back">Back</option><option value="right">Right</option><option value="left">Left</option></select></label>
 <button data-viewer-command="projection">Perspective / orthographic</button><button data-viewer-command="fit-selection">Fit selected</button><button data-viewer-command="pivot">Pivot on selected</button><button data-viewer-command="previous">Previous view</button><button id="orbit-left">Orbit left</button><button id="orbit-right">Orbit right</button>
 <label>Node side<select id="node-side"><option>SOURCE</option><option>TARGET</option></select></label><label>Node ID<input id="node-id" inputmode="numeric" placeholder="Physical NODE ID"></label><button id="select-node">Select node</button>
-<span class="hint">Click: select · Left-drag: orbit · Right-drag / Shift-drag: pan · Wheel: zoom · F: fit selection · Shift+F: fit all. Camera controls change the view only, not matching evidence.</span>
+<output id="camera-state">SVG evidence view · XZ</output><span class="hint">Click: select · Left-drag: orbit · Right-drag / Shift-drag: pan · Wheel: zoom · F: fit selection · Shift+F: fit all. Camera controls change the view only, not matching evidence.</span>
 </div>
 <div id="canvas" aria-label="Method C read-only geometry"><div class="viewer-layer" id="svg-layer"><p class="empty">The registered overlay will appear here.</p></div><div class="viewer-layer" id="gpu-host" hidden></div></div>
 <p class="hint">SVG: drag to pan; use + / − to zoom. 3D: native viewer navigation. Select a row or node for all alternatives and XML witnesses. Enter / Space selects focused nodes and rows. ISO is a nonmetric oblique view.</p>
@@ -40,7 +43,7 @@
 <div id="ledger-panel" class="ledger-panel" tabindex="-1" role="region" aria-label="Correspondence table">
 <div id="ledger-handle" class="ledger-handle"><strong>Correspondence · click a row to highlight all linked nodes</strong><button id="close-ledger" aria-label="Close correspondence popup">×</button></div>
 <div class="table-wrap"><table><thead><tr><th>SOURCE</th><th>TARGET candidate</th><th>Status</th><th>ΔX, mm</th><th>ΔY, mm</th><th>ΔZ, mm</th><th>Alternatives</th></tr></thead><tbody id="rows"></tbody></table></div>
-<details open><summary>Selected node · alternatives, segment and XML witnesses</summary><pre id="details">Select a node after comparison.</pre></details></div>
+<details open><summary>Selected pair · candidates, residuals and witnesses</summary><pre id="details">Select a node after comparison.</pre></details><details><summary>Technical details · JSON</summary><pre id="technical-details"></pre></details></div>
 </section>
 <footer>Supports the declared F05 and R4 native-mm geometry profiles only. Seedless components are relative. One anchor leaves orientation undetermined; two leave twist undetermined. Three noncollinear anchors can yield a numerical rigid fit. No correspondence is automatically accepted.</footer>
-</main><script type="module" src="app.js"></script></body></html>
+<datalist id="physical-target-ids"></datalist></main><script type="module" src="app.js"></script></body></html>

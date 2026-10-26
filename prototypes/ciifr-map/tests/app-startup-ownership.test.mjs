@@ -1,3 +1,4 @@
+import {cameraPresentation} from '../camera-presentation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -6,6 +7,8 @@ import {createRequire} from 'node:module';
 import {webcrypto} from 'node:crypto';
 import {createGeoViewerBridge} from '../geo-viewer-bridge.js';
 import {createPreviewSession} from '../compare.js';
+import {createGeometryWorkbench} from '../workbench.js';
+import {exportWorkbench} from '../workbench-export.js';
 import {readXmlGraph} from '../xml-intake.js';
 import {exportPreview} from '../evidence.js';
 import {selectedGeometryObjects} from '../view.js';
@@ -26,11 +29,13 @@ async function harness() {
   await session.load('SOURCE',xml[0],'S1-F05.xml');
   await session.load('TARGET',xml[1],'S1-R4.xml');
   for (const n of ['3790','3830','3840']) session.addAnchor(n,n);
+  const workbench = createGeometryWorkbench();
+  workbench.tabs.A.session = session;
   const elements = new Map(), pending = new Map(), disposed = [], buttons = ["json","csv","svg"]
     .map(kind=>({dataset:{export:kind},disabled:true,addEventListener(){}}));
   const el = id => elements.get(id) || elements.set(id,{id,hidden:false,disabled:false,textContent:'',
-    value:id==='projection'?'XZ':id==='viewer-layout'?'overlay':'100',listeners:{},
-    style:{},setAttribute(){},focus(){},classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
+    value:id==='projection'?'XZ':id==='viewer-layout'?'overlay':id==='vertical-axis'?'Z':'100',listeners:{},
+    style:{},setAttribute(){},focus(){},getBoundingClientRect(){return {left:20,top:100,width:id==='review-surface'?1200:800,height:700};},classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
   let bridge, calls = 0, rowSelect = null, highlighted = [], dispatches = 0;
   const makeViewer = async () => {
     const id=++calls;
@@ -38,12 +43,14 @@ async function harness() {
     return {setModels(){},setMode(){},fitAll(){},getStateSnapshot(){return {runtimeRevision:1};},
       toggleCameraType(){},setStandardView(){},setSelection(id,related){highlighted=[id,...related];dispatches++;},dispose(){disposed.push(id);}};
   };
-  const context=vm.createContext({document:{getElementById:el,querySelectorAll:()=>buttons,addEventListener(){},body:{classList:{toggle(){}}}},
+  const context=vm.createContext({document:{getElementById:el,querySelectorAll:selector=>selector==='[data-export]'?buttons:[],addEventListener(){},body:{classList:{toggle(){}}}},
     window:{addEventListener(){}},console,setTimeout});
   const modules={
-    './compare.js':{createPreviewSession:()=>session}, './evidence.js':{exportPreview},
+    './camera-presentation.js':{cameraPresentation},
+    './workbench.js':{createGeometryWorkbench:()=>workbench}, './workbench-export.js':{exportWorkbench},
+    './multibase-view.js':{renderWorkbenchRows(_wb,_body,actions){rowSelect=actions.onSelect;},workbenchSummary(){return ''; }},
     './review-viewport.js':{setupReviewViewport},
-    './view.js':{selectedGeometryObjects,graphInfo(){},renderAnchors(){},renderRows(_r,_b,choose){rowSelect=choose;},selectedDetails(){return '';},mountScene(){return {}; }},
+    './view.js':{selectedGeometryObjects,graphInfo(){},renderAnchors(){},readableSelection(){return '';},selectedDetails(){return '';},mountScene(){return {}; }},
     './geo-viewer-bridge.js':{createGeoViewerBridge:opts => bridge=createGeoViewerBridge({...opts,makeViewer})},
   };
   const app=new vm.SourceTextModule(appSource,{context});

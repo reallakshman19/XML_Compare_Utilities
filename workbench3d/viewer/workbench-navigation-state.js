@@ -8,7 +8,8 @@ function finitePoint(value) {
 }
 
 export function normalizeVerticalAxis(value) {
-  return String(value ?? '').trim().toUpperCase() === 'Y' ? 'Y' : 'Z';
+  const axis = String(value ?? '').trim().toUpperCase();
+  return ['X', 'Y'].includes(axis) ? axis : 'Z';
 }
 
 export function normalizeNavigationPreset(value) {
@@ -34,7 +35,7 @@ export function validateViewerNavigationState(value) {
   }
   if (value.pivotWorld !== null && !finitePoint(value.pivotWorld)) errors.push('pivotWorld must be null or [x,y,z] finite numbers');
   if (!['Perspective', 'Orthographic'].includes(value.cameraType)) errors.push(`unknown cameraType ${value.cameraType}`);
-  if (!['Y', 'Z'].includes(value.verticalAxis)) errors.push(`unknown verticalAxis ${value.verticalAxis}`);
+  if (!['X', 'Y', 'Z'].includes(value.verticalAxis)) errors.push(`unknown verticalAxis ${value.verticalAxis}`);
   if (!Number.isFinite(value.projectionScale) || value.projectionScale <= 0) errors.push('projectionScale must be a positive finite number');
   if (finitePoint(value.cameraPositionWorld) && finitePoint(value.cameraTargetWorld)) {
     const distance = Math.hypot(...value.cameraPositionWorld.map((coordinate, axis) => coordinate - value.cameraTargetWorld[axis]));

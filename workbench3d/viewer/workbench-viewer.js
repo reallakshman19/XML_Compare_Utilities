@@ -77,6 +77,28 @@ const MARKER_COLORS = Object.freeze({
 
 const GHOST_PROPOSAL_COLOR = 0x22d3ee;
 
+/** Annotation projection must describe the next draw, not the last drawn camera matrices. */
+export function projectWorkbenchPoint({THREE, camera, projectionCamera, xyz, origin, width, height,
+  mode = 'overlay', pane = 'full'}) {
+  projectionCamera.copy(camera, false);
+  const viewWidth = mode === 'side-by-side' ? width / 2 : width;
+  const aspect = viewWidth / height;
+  if (projectionCamera.isPerspectiveCamera) projectionCamera.aspect = aspect;
+  else {
+    const frustumHeight = projectionCamera.top - projectionCamera.bottom;
+    projectionCamera.left = -frustumHeight * aspect / 2;
+    projectionCamera.right = frustumHeight * aspect / 2;
+  }
+  projectionCamera.updateProjectionMatrix();
+  projectionCamera.updateMatrixWorld(true);
+  const v = new THREE.Vector3(...xyz).sub(origin).project(projectionCamera);
+  if (![v.x, v.y, v.z].every(Number.isFinite) || v.z < -1 || v.z > 1) return null;
+  const explicitPane = mode === 'side-by-side' && pane !== 'full';
+  const pixelWidth = explicitPane ? viewWidth : width;
+  return {x: (v.x + 1) / 2 * pixelWidth + (explicitPane && pane === 'target' ? viewWidth : 0),
+    y: (1 - v.y) / 2 * height};
+}
+
 export async function createWorkbenchViewer(container, {
   onPick, onHoverConnector, onHoverObject, onCameraChange, onRuntimeError,
   onNavigationError, navigationPreset,
@@ -150,6 +172,7 @@ export async function createWorkbenchViewer(container, {
   orthoCamera.up.set(0, 0, 1);
   axisCamera.up.set(0, 0, 1);
   let camera = perspCamera;
+  let projectionCamera = null;
 
   const pivotMarker = new THREE.Group();
   const pivotGeom = new THREE.BufferGeometry().setFromPoints([
@@ -184,6 +207,7 @@ export async function createWorkbenchViewer(container, {
   let activeStyles = null; // { STATUS: { colorInt, alpha, label } } from effectiveStatusStyles
   let colorOverrides = null; // Map<objectId, colorInt> (e.g. heatmap) — beats status color
   let transientRecolor = null; // Map<objectId, colorInt> from updateObjects() — beats everything but selection
+  let modelColors = null; // Optional side appearance; no engineering status is inferred.
 
   function styleOf(statusKey) {
     if (activeStyles?.[statusKey]) return activeStyles[statusKey];
@@ -675,6 +699,7 @@ export async function createWorkbenchViewer(container, {
       else if (record.colorMode === 'style') color = styleOf(record.styleKey).colorInt;
       else color = record.fixedColorInt;
     }
+    if (Number.isFinite(modelColors?.[meta.modelId])) color = modelColors[meta.modelId];
     if (meta.objectId && selectedIds.has(meta.objectId)) {
       return 0xff00ff;
     }
@@ -910,7 +935,7 @@ export async function createWorkbenchViewer(container, {
   function chooseCameraForState(state) {
     activeCameraType = state.cameraType;
     camera = activeCameraType === 'Orthographic' ? orthoCamera : perspCamera;
-    camera.up.set(0, state.verticalAxis === 'Z' ? 0 : 1, state.verticalAxis === 'Z' ? 1 : 0);
+    camera.up.set(...['X', 'Y', 'Z'].map(axis => Number(state.verticalAxis === axis)));
     axisCamera.up.copy(camera.up);
     if (camera.isOrthographicCamera) camera.zoom = state.projectionScale;
     else camera.fov = state.projectionScale;
@@ -1101,14 +1126,17 @@ export async function createWorkbenchViewer(container, {
       const intersects = raycaster.intersectObjects(axisScene.children, true);
       if (intersects.length > 0) {
         let clicked = null;
+        const xView = verticalAxis === 'X' ? 'top' : 'side';
+        const yView = verticalAxis === 'Z' || verticalAxis === 'X' ? 'front' : 'top';
+        const zView = verticalAxis === 'X' ? 'right' : verticalAxis === 'Z' ? 'top' : 'front';
         intersects[0].object.traverseAncestors(a => {
-           if (a === letterX) clicked = 'side';
-           if (a === letterY) clicked = verticalAxis === 'Z' ? 'front' : 'top';
-           if (a === letterZ) clicked = verticalAxis === 'Z' ? 'top' : 'front';
+           if (a === letterX) clicked = xView;
+           if (a === letterY) clicked = yView;
+           if (a === letterZ) clicked = zView;
         });
-        if (intersects[0].object === letterX) clicked = 'side';
-        if (intersects[0].object === letterY) clicked = verticalAxis === 'Z' ? 'front' : 'top';
-        if (intersects[0].object === letterZ) clicked = verticalAxis === 'Z' ? 'top' : 'front';
+        if (intersects[0].object === letterX) clicked = xView;
+        if (intersects[0].object === letterY) clicked = yView;
+        if (intersects[0].object === letterZ) clicked = zView;
         if (clicked) {
           api.setStandardView(clicked);
           return;
@@ -1181,7 +1209,7 @@ export async function createWorkbenchViewer(container, {
     if (!box) return;
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3()).length() || 1000;
-    const dir = new THREE.Vector3(...(verticalAxis === 'Z' ? [1, 1, 0.8] : [1, 0.8, 1])).normalize();
+    const dir = standardViewDirection('iso');
     controls.setView(center.clone().add(dir.multiplyScalar(size * 0.9 + 200)), center);
   }
 
@@ -1235,10 +1263,10 @@ export async function createWorkbenchViewer(container, {
 
   function applyVerticalAxis(axis) {
     verticalAxis = normalizeVerticalAxis(axis);
-    const up = verticalAxis === 'Z' ? [0, 0, 1] : [0, 1, 0];
+    const up = ['X', 'Y', 'Z'].map(name => Number(verticalAxis === name));
     for (const viewCamera of [camera, perspCamera, orthoCamera, axisCamera]) viewCamera.up.set(...up);
     controls.syncFromCamera();
-    render();
+    controls.apply();
   }
 
   function standardViewDirection(view) {
@@ -1250,7 +1278,11 @@ export async function createWorkbenchViewer(container, {
       top: [0, 1, 0.001], bottom: [0, -1, 0.001], front: [0, 0.001, 1], back: [0, 0.001, -1],
       right: [1, 0.001, 0], side: [1, 0.001, 0], left: [-1, 0.001, 0], iso: [1, 0.8, 1],
     };
-    const directions = verticalAxis === 'Z' ? zUp : yUp;
+    const xUp = {
+      top: [1, 0.001, 0], bottom: [-1, -0.001, 0], front: [0.001, 1, 0], back: [0.001, -1, 0],
+      right: [0.001, 0, 1], side: [0.001, 0, 1], left: [0.001, 0, -1], iso: [0.8, 1, 1],
+    };
+    const directions = verticalAxis === 'X' ? xUp : verticalAxis === 'Z' ? zUp : yUp;
     return new THREE.Vector3(...(directions[view] ?? directions.iso)).normalize();
   }
 
@@ -1292,6 +1324,13 @@ export async function createWorkbenchViewer(container, {
       colorOverrides = map instanceof Map && map.size ? map : null;
       refreshInstanceStates();
       render();
+    },
+    /** Opt-in side colours for correspondence review; leaves semantic statuses unchanged. */
+    setModelColors(colors) {
+      if (colors && ['source', 'target'].some(side => !Number.isInteger(colors[side])
+        || colors[side] < 0 || colors[side] > 0xffffff)) throw new TypeError('Model colors require source/target RGB integers.');
+      modelColors = colors ? {source: colors.source, target: colors.target} : null;
+      refreshInstanceStates(); render();
     },
     /**
      * Ghost proposal model (VisualGeometryModel.v1 or null) — rendered
@@ -1386,13 +1425,9 @@ export async function createWorkbenchViewer(container, {
     },
     /** Persistent click-to-measure overlay; lengths are calculated by the caller. */
     setMeasurement(points) { rebuildMeasurement(points); },
-    /** Project a world [x,y,z] to canvas pixel coords (null when behind camera). */
+    /** Project world [x,y,z] using current pose/layout; null outside near/far clipping. */
     worldToScreen(xyz) {
-      const v = new THREE.Vector3(...xyz).sub(sceneOrigin).project(camera);
-      if (v.z > 1) return null;
-      const width = host.clientWidth || 800;
-      const height = host.clientHeight || 480;
-      return { x: (v.x + 1) / 2 * width, y: (1 - v.y) / 2 * height };
+      return api.projectPointForPane(xyz, 'full');
     },
     /** Alias of worldToScreen — HTML overlay anchoring. */
     projectPoint(xyz) { return this.worldToScreen(xyz); },
@@ -1400,17 +1435,12 @@ export async function createWorkbenchViewer(container, {
      * Project a world [x,y,z] into one pane of the canvas. In side-by-side
      * mode 'source' maps into the left half and 'target' into the right half
      * (the scissor split shares one camera, so NDC just re-maps per pane);
-     * otherwise identical to worldToScreen. Null when behind the camera.
+     * otherwise identical to worldToScreen. Null outside near/far clipping.
      */
     projectPointForPane(xyz, pane = 'full') {
-      const v = new THREE.Vector3(...xyz).sub(sceneOrigin).project(camera);
-      if (v.z > 1) return null;
-      const width = host.clientWidth || 800;
-      const height = host.clientHeight || 480;
-      const y = (1 - v.y) / 2 * height;
-      if (pane === 'full' || mode !== 'side-by-side') return { x: (v.x + 1) / 2 * width, y };
-      const half = width / 2;
-      return { x: (v.x + 1) / 2 * half + (pane === 'target' ? half : 0), y };
+      if (!projectionCamera || projectionCamera.type !== camera.type) projectionCamera = camera.clone(false);
+      return projectWorkbenchPoint({THREE, camera, projectionCamera, xyz, origin: sceneOrigin,
+        width: host.clientWidth || 800, height: host.clientHeight || 480, mode, pane});
     },
     /** World-space ray under the given client coordinates (drag-plane math). */
     screenRay(clientX, clientY) {
@@ -1503,6 +1533,11 @@ export async function createWorkbenchViewer(container, {
         navigationState: captureNavigationState(),
         navigationHistoryCount: navigationHistory.length,
       };
+    },
+    getNavigationState() { return captureNavigationState(); },
+    restoreNavigationState(state) {
+      rememberNavigationState(captureNavigationState());
+      restoreNavigationState(state);
     },
     setSourceOpacity(value) {
       sourceOpacity = Math.max(0.05, Math.min(1, Number(value)));

@@ -1,3 +1,24 @@
+# CIIFR_GEO — A / B / Consolidated workbench
+
+The current Owner-directed continuation implements two independent comparison bases and a consolidated resolution view, plus the visibility/selection/fullscreen repairs. Run using the existing launcher below. No product merge or Writer authority is implied by this preview.
+
+1. In **A**, load the original SOURCE and TARGET XML, or click **Load bundled S1 sample pair**. That sample is one public S1 geometry in two profiles, not independent-model qualification.
+2. Add A anchors and run. Recommended candidates and anchor rows start checked; edit a TARGET ID or change inclusion directly in its table.
+3. Open **B**. Initial A inputs are reused for convenience; anchors, candidates, inclusion, selection and camera remain independent. Enter another anchor interpretation and run B. Loading another XML in B preserves A. **Use A XML pair in B** explicitly resets B to A's original pair.
+4. Open **C · Consolidated**, then **Consolidate checked A/B pairs**. Identical pairs merge with both origins. Unique pairs have no selection control; alternative TARGETs for one SOURCE have radios. The default proposes a consistent combination, and manual radio choices remain pinned until cleared.
+5. Each trial includes its chosen pair when fitting and excludes that entire SOURCE conflict group from its other-pair score. Signed table residuals are current-pose values; the Alternatives column shows each option's counterfactual other-pair error. Inspecting a row does not choose its radio.
+6. **Keep basis orientation** uses a separately labelled translation diagnostic, applying the same retained A (or sole contributing B) orientation to every option. **Rigid 3D** uses the unchanged native Method C validator; rejected rank/custody trials remain explicit. TARGET reuse is diagnostic, not a transfer-ready map. Different original revisions cannot silently consolidate.
+7. Use SVG or 3D, overlay or split. Orange SOURCE circles/outer strokes and blue TARGET diamonds/inner strokes preserve side identity at overlap. Selected labels name exact physical nodes. Vertical axis X/Y/Z defaults Z, shares one split-view camera and changes navigation only. Actual 3D preset/type is separate from the evidence projection. SVG pan/zoom and 3D camera are kept per tab.
+8. Fullscreen retains the table as a contained movable/resizable popup with internal scrolling. Primary details show IDs, residuals, alternatives and witnesses; technical JSON is collapsed separately. Export current SVG, JSON and CSV. JSON is the complete companion evidence ledger.
+
+Search is budgeted in a Worker (at most 4,096 enumerated cases, a two-million pair-evaluation ceiling and an enumeration time budget). Unvisited cases produce **best found / partial** results, with per-context lower-bound regret. Individual minima can cycle; the declared default minimises worst regret, then summed regret, then total L1 and compatible change count. It never claims all individual minima when they disagree. Fit freedoms and scoring axes remain fixed per job. Trial/rejected-case choice vectors use `GROUP_OPTION_INDICES` into `union.groups[].options`; `chosen.choices` and recommendation fields retain full PairKeys. Detailed slices are retained only for the active combination, avoiding full per-case geometry/DOM copies.
+
+Usability annotations below 40,000 combined nodes/segments use batched screen-space paths; larger models retain the shared 3D geometry and selected-node labels. This is a disclosed annotation threshold, not a qualified large-model performance guarantee. Four shared viewer files add X-up validation/control, opt-in side colours and camera-state access; default Y/Z callers keep their semantics. The renderer, Worker geometry, Three r160 assets and matching engine are reused.
+
+Current contributor checks: 54/54 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate exact-candidate review is required for the new code; Linux Chromium could not launch (SIGTRAP), so rendered GPU/pixel/Windows/native-fullscreen/Owner acceptance is not claimed. Earlier historical sections below describe predecessor slices and are not the current evidence frontier.
+
+---
+
 # XML Geometry Preview — WBS 3.1 / G1 / M13
 
 Upload two **existing XML files**, enter SOURCE→TARGET node anchors, and inspect an overlay and candidate ledger produced by the repository's unchanged Method C. Download SVG, JSON or CSV for the current inputs.

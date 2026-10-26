@@ -35,9 +35,9 @@ test('fullscreen popup keeps the original table, closes/reopens and resets drag 
   h.click('show-ledger');assert.equal(table.hidden,false);
   const handle=h.el('ledger-handle');
   handle.listeners.pointerdown({button:0,target:{closest:()=>null},clientX:20,clientY:100,pointerId:1,preventDefault(){}});
-  handle.listeners.pointermove({clientX:40,clientY:120});assert.equal(table.style.left,'40px');
+  handle.listeners.pointermove({clientX:40,clientY:120});assert.equal(table.style.left,'20px','surface-local drag excludes the viewport offset');
   h.events.keydown({key:'Escape'});assert.equal(h.api.isExpanded(),false);assert.equal(table.hidden,false);
-  h.click('toggle-fullscreen');assert.equal(table.style.right,'');assert.equal(table.style.left,'');
+  h.click('toggle-fullscreen');assert.equal(table.style.right,'auto');assert.equal(table.style.left,'8px','reentry clamps into its local surface');
 });
 test('native fullscreen rejection keeps viewport expansion usable and native Escape restores normal',async()=>{
   const h=shell();h.el('review-surface').requestFullscreen=async()=>{throw Error('unavailable');};
