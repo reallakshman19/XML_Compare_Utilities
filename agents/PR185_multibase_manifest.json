@@ -34,9 +34,9 @@
     },
     {
       "path": "prototypes/ciifr-map/index.html",
-      "bytes": 8008,
-      "sha256": "a26103ebb0c887cf0c5c014b2a891ad36fecda80e585fb9065dae609ac2691ee",
-      "git_blob": "c467b96152d52d2f05f565d454ee04f4f149887a"
+      "bytes": 8113,
+      "sha256": "16fc4962018f2dda8b4c5d484ceffc09169f1223e74f4076513cc4b72031cadf",
+      "git_blob": "37497b1d5be7c19c727df9948aa510c6a6dc4ea5"
     },
     {
       "path": "prototypes/ciifr-map/multibase-view.js",
