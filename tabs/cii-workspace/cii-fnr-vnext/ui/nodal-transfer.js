@@ -57,10 +57,22 @@ export function parseNodalCsv(text) {
   }
   if(quoted)fail('NODAL_CSV_UNCLOSED_QUOTE');
   row.push(value);if(row.some(c=>c.trim()))grid.push(row);
-  const titles=(grid.shift()||[]).map(s=>s.trim().toLowerCase().replace(/\s*\(.*\)\s*$/,''));
-  const find=titles.indexOf('find'),node=titles.indexOf('findnode'),name=titles.indexOf('replacename');
-  if(find<0||node<0||name<0)fail('NODAL_CSV_HEADERS_FIND_FINDNODE_REPLACENAME_REQUIRED');
-  return grid.map((r,i)=>({id:'N'+(i+1),findInfo:r[find]||'',findNode:(r[node]||'').trim(),replaceName:r[name]||''}));
+  const titles=(grid.shift()||[]).map((s,i)=>s.replace(i===0?/^\uFEFF/ : /^$/, '').trim()
+    .toLowerCase().replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g,''));
+  if(titles.some(s=>!s))fail('NODAL_CSV_EMPTY_HEADER');
+  const column=(aliases,label)=>{
+    const found=titles.flatMap((s,i)=>aliases.includes(s)?[i]:[]);
+    if(found.length>1)fail('NODAL_CSV_DUPLICATE_'+label+'_COLUMN');
+    return found[0]??-1;
+  };
+  const find=column(['find'],'FIND'),node=column(['node','findnode'],'NODE');
+  const name=column(['replace','replacename'],'REPLACE');
+  if(node<0||name<0)fail('NODAL_CSV_HEADERS_NODE_REPLACE_REQUIRED');
+  return grid.map((r,i)=>{
+    if(r.length!==titles.length)fail('NODAL_CSV_ROW_'+(i+2)+'_COLUMN_COUNT_MISMATCH');
+    return {id:'N'+(i+1),findInfo:find<0?'':r[find],
+      findNode:r[node].trim(),replaceName:r[name]};
+  });
 }
 
 export function planNodalTransfer(parsed, rows) {
