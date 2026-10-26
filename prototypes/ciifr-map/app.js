@@ -5,6 +5,7 @@ import {createGeoViewerBridge} from './geo-viewer-bridge.js';
 
 const session = createPreviewSession(), byId = id => document.getElementById(id);
 let viewport = null, selected = [], selectedElement = null, selectedPick = null, gpuRequested = false;
+let viewerRequest = 0; // UI ownership token; the bridge independently rejects stale scene/picks.
 function status(message, error = false) {
   byId('status').textContent = message; byId('status').classList.toggle('error', error);
 }
@@ -12,6 +13,7 @@ const bridge = createGeoViewerBridge({host:byId('gpu-host'),session,
   onSelect:pick => select(pick.sourceRows, pick.kind === 'ELEMENT' ? pick.side + ':' + pick.elementIndex : null,pick),
   onError: error => { disableGpu(); status('3D viewer: ' + error.message, true); }});
 function disableGpu() {
+  viewerRequest++; // Revokes every older asynchronous UI continuation, even while a viewer is pending.
   gpuRequested = false; bridge.disable(); byId('gpu-host').hidden = true;
   byId('svg-layer').hidden = false; byId('toggle-gpu').textContent = 'Use existing 3D viewer';
   byId('viewer-layout').disabled = true;
@@ -86,11 +88,16 @@ async function toggleViewer() {
   if (gpuRequested) { disableGpu(); return; }
   let result;
   try { result = session.current(); } catch { status('Run Method C before switching viewers.', true); return; }
+  const request = ++viewerRequest;
   gpuRequested = true; byId('toggle-gpu').disabled = true;
   byId('gpu-host').hidden = false; // Renderer needs measured container dimensions during startup.
+  let cleanedOwnRequest = false;
   try {
     const ok = await bridge.enable({mode:byId('viewer-layout').value,projection:result.projection});
-    if (!ok || !gpuRequested || session.current() !== result) { disableGpu(); return; }
+    if (request !== viewerRequest) return; // Obsolete A must not clean up live/pending B.
+    if (!ok || !gpuRequested || session.current() !== result) {
+      disableGpu(); cleanedOwnRequest = true; return;
+    }
     byId('svg-layer').hidden = true; byId('gpu-host').hidden = false;
     byId('viewer-layout').disabled = false;
     byId('toggle-gpu').textContent = 'Use SVG viewer';
@@ -100,8 +107,13 @@ async function toggleViewer() {
       ' · centerline-only display; no physical correspondence certified.');
     select(selected, selectedElement, selectedPick);
   } catch (error) {
-    disableGpu(); status('3D viewer unavailable; SVG remains usable. ' + error.message, true);
-  } finally { byId('toggle-gpu').disabled = !session.state.result; }
+    if (request !== viewerRequest) return; // Stale rejection cannot alter current B status/UI.
+    disableGpu(); cleanedOwnRequest = true;
+    status('3D viewer unavailable; SVG remains usable. ' + error.message, true);
+  } finally {
+    if (request === viewerRequest || cleanedOwnRequest)
+      byId('toggle-gpu').disabled = !session.state.result;
+  }
 }
 function download(kind) {
   try {
