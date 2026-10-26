@@ -89,6 +89,8 @@ export function planNodalTransfer(parsed, rows) {
     const node=key(Number(nodeText)), occurrences=nodes.get(node)||[];
     base.node=node;base.occurrences=occurrences.length;
     if(!occurrences.length)return {...base,reason:'FINDNODE_NOT_IN_TARGET0'};
+    // Zero may be an unassigned endpoint; never turn its occurrences into one named node.
+    if(node==='0')return {...base,reason:'FINDNODE_ZERO_RESERVED'};
     if(!name || name.length>25 || /[^\x20-\x7e]/.test(name))
       return {...base,reason:'REPLACENAME_INVALID_OR_EXCEEDS_25_CHARS'};
     if(occurrences.some(o=>o.element.pointer &&
