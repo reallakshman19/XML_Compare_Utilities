@@ -48,7 +48,7 @@ test('native fullscreen rejection keeps viewport expansion usable and native Esc
   h.doc.fullscreenElement=null;h.events.fullscreenchange();assert.equal(h.api.isExpanded(),false);
 });
 
-test('bridge refreshes all selected instances and exposes camera/navigation commands only for current scene',async()=>{
+test('bridge dispatches all selected instances and exposes camera/navigation commands only for current scene',async()=>{
   const context={epoch:1,projection:'XZ',source:{member:'s',sha256:'a'.repeat(64)},target:{member:'t',sha256:'b'.repeat(64)},
     transform:{sourceComponent:0,targetComponent:0,anchors:[],rotation:[],translation:[]},candidates:{tolerance:{x:1},snapshot:'a'}};
   const scene={contract:'CIIFR.GeometryDisplaySnapshot.v1',binding:geometrySceneBinding(context),models:{},objects:{}};
@@ -61,11 +61,25 @@ test('bridge refreshes all selected instances and exposes camera/navigation comm
     makeViewer:async()=>instance,onSelect(){},onError(){}});
   await bridge.enable();calls.length=0;
   bridge.setSelection('S1',['T1','T2']);
-  assert.deepEqual(calls.slice(0,2),[['setSelection','S1',['T1','T2']],['updateObjects',{}]]);
+  assert.deepEqual(calls,[['setSelection','S1',['T1','T2']]],'one native selection call; engine already refreshes colours');
   bridge.command('fit-selection');bridge.command('view','left');bridge.command('zoom',0.8);
   bridge.command('orbit',[0.2,0]);bridge.command('pivot');bridge.command('previous');bridge.command('projection');
-  assert.deepEqual(calls.slice(2),[['fitSelection'],['setStandardView','left'],['zoomBy',0.8],
+  assert.deepEqual(calls.slice(1),[['fitSelection'],['setStandardView','left'],['zoomBy',0.8],
     ['orbitBy',0.2,0],['setPivotToSelection'],['previousView'],['toggleCameraType']]);
   context.epoch++;const before=calls.length;bridge.setSelection('stale');bridge.command('fit');
   assert.equal(calls.length,before,'revoked scene cannot receive new display commands');
+});
+
+test('rejected native fullscreen exit stays expanded, resolves safely, and Escape can recover',async()=>{
+  const h=shell(), surface=h.el('review-surface');
+  surface.requestFullscreen=async()=>{h.doc.fullscreenElement=surface;};
+  h.doc.exitFullscreen=async()=>{throw Error('controlled exit rejection');};
+  h.click('toggle-fullscreen');await Promise.resolve();
+  h.click('toggle-fullscreen');await Promise.resolve();
+  assert.equal(h.doc.fullscreenElement,surface);assert.equal(h.api.isExpanded(),true);
+  assert.equal(h.el('toggle-fullscreen').attrs['aria-pressed'],'true');
+  assert.equal(h.el('ledger-panel').hidden,false);
+  assert.match(h.el('toggle-fullscreen').textContent,/Esc/);
+  h.doc.fullscreenElement=null;h.events.fullscreenchange();
+  assert.equal(h.api.isExpanded(),false);assert.equal(h.el('toggle-fullscreen').attrs['aria-pressed'],'false');
 });

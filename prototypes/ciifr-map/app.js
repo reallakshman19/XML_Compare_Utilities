@@ -63,7 +63,7 @@ function select(sources, element = null, pick = null) {
   selected = [...new Set((Array.isArray(sources) ? sources : [sources]).filter(Boolean))];
   selectedElement = element; selectedPick = pick;
   renderRows(result, byId('rows'), select, selected);
-  viewport = mountScene(result, byId('svg-layer'), select, selected, selectedElement);
+  viewport = mountScene(result, byId('svg-layer'), select, selected, selectedElement, selectedPick);
   byId('details').textContent = selectedElement && !selectedPick ?
     JSON.stringify((element.startsWith('SOURCE:') ? result.source : result.target)
       .edges[Number(element.split(':')[1])], null, 2) : selectedDetails(result, selected, selectedPick);

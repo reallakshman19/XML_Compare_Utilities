@@ -31,12 +31,12 @@ async function harness() {
   const el = id => elements.get(id) || elements.set(id,{id,hidden:false,disabled:false,textContent:'',
     value:id==='projection'?'XZ':id==='viewer-layout'?'overlay':'100',listeners:{},
     style:{},setAttribute(){},focus(){},classList:{toggle(){}},replaceChildren(){},addEventListener(k,f){this.listeners[k]=f;}}).get(id);
-  let bridge, calls = 0, rowSelect = null, highlighted = [], refreshes = 0;
+  let bridge, calls = 0, rowSelect = null, highlighted = [], dispatches = 0;
   const makeViewer = async () => {
     const id=++calls;
     await new Promise((resolve,reject)=>pending.set(id,{resolve,reject}));
     return {setModels(){},setMode(){},fitAll(){},getStateSnapshot(){return {runtimeRevision:1};},
-      toggleCameraType(){},setStandardView(){},setSelection(id,related){highlighted=[id,...related];},updateObjects(){refreshes++;},dispose(){disposed.push(id);}};
+      toggleCameraType(){},setStandardView(){},setSelection(id,related){highlighted=[id,...related];dispatches++;},dispose(){disposed.push(id);}};
   };
   const context=vm.createContext({document:{getElementById:el,querySelectorAll:()=>buttons,addEventListener(){},body:{classList:{toggle(){}}}},
     window:{addEventListener(){}},console,setTimeout});
@@ -65,7 +65,7 @@ async function harness() {
     layoutDisabled:el('viewer-layout').disabled,status:el('status').textContent,
     projection:session.current().projection});
   const releaseAll=()=>{for(const item of pending.values())item.resolve();};
-  return {run,start,resume,fail,state,exportsNow,releaseAll,selectRow:id=>rowSelect(id),highlighted:()=>highlighted,refreshes:()=>refreshes,expand:()=>el('toggle-fullscreen').listeners.click()};
+  return {run,start,resume,fail,state,exportsNow,releaseAll,selectRow:id=>rowSelect(id),highlighted:()=>highlighted,dispatches:()=>dispatches,expand:()=>el('toggle-fullscreen').listeners.click()};
 }
 function activeB(state, expectedDisposed = [1]) {
   assert.equal(state.active,true,'obsolete A must not dispose active B');
@@ -133,7 +133,7 @@ test('actual app: row selects SOURCE and TARGET physical nodes before and after 
   const selected=h.highlighted().map(id=>JSON.parse(id));
   assert.deepEqual(selected.map(parts=>[parts[0],parts[3],parts[4]]),
     [['SOURCE','NODE','3790'],['TARGET','NODE','3790']]);
-  assert(h.refreshes()>0,'shared instance colours refresh immediately');
+  assert(h.dispatches()>0,'linked selection reaches the native viewer');
   h.expand();h.selectRow('3830');
   assert.deepEqual(h.highlighted().map(id=>{const a=JSON.parse(id);return [a[0],a[3],a[4]];}),
     [['SOURCE','NODE','3830'],['TARGET','NODE','3830']]);

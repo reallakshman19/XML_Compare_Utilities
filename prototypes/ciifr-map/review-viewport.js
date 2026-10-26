@@ -19,9 +19,15 @@ export function setupReviewViewport({byId, documentRef = document}) {
   }
   async function toggle() {
     if (expanded) {
-      layout(false);
-      if (documentRef.fullscreenElement === surface) await documentRef.exitFullscreen();
-      nativeOwned = false; return;
+      if (documentRef.fullscreenElement === surface) {
+        try { await documentRef.exitFullscreen(); }
+        catch {
+          if (documentRef.fullscreenElement === surface) {
+            byId('toggle-fullscreen').textContent = 'Exit fullscreen (Esc)'; return;
+          }
+        }
+      }
+      nativeOwned = false; layout(false); return;
     }
     returnFocus = documentRef.activeElement; layout(true);
     try {

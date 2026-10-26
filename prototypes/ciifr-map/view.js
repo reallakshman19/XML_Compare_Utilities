@@ -61,14 +61,14 @@ export function selectedDetails(result, selection, picked = null) {
     sourceCoordinateFrame: result.source.coordinateFrames[result.transform.sourceComponent],
     targetCoordinateFrame: result.target.coordinateFrames[result.transform.targetComponent]}, null, 2);
 }
-export function mountScene(result, canvas, select, selected = null, selectedElement = null) {
+export function mountScene(result, canvas, select, selected = null, selectedElement = null, selectedPick = null) {
   const chosen = Array.isArray(selected) ? selected[0] : selected;
   const scene = methodCSvgScene({...result, selectedSource: chosen, selectedElement});
   result.scene = scene;
   // Only the existing escaped Method C renderer supplies markup here.
   canvas.innerHTML = scene.svg;
   const svg = canvas.querySelector('svg'), base = {...scene.viewBox};
-  const nodeObjects = selectedGeometryObjects(result, selected).map(id => result.viewerScene.objects[id]);
+  const nodeObjects = selectedGeometryObjects(result, selected, selectedPick).map(id => result.viewerScene.objects[id]);
   for (const node of svg.querySelectorAll?.('[data-node]') || []) {
     const active = nodeObjects.some(o => o.side === node.dataset.kind && o.nodeId === node.dataset.node);
     node.classList.toggle('mc-selected', active); node.setAttribute('aria-pressed', String(active));

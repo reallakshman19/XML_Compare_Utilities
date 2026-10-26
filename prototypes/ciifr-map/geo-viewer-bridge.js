@@ -66,8 +66,7 @@ export function createGeoViewerBridge({host, session, onSelect, onError, makeVie
   function setSelection(objectId, relatedIds = []) {
     if (!viewer || !active(generation, scene)) return;
     viewer.setSelection(objectId, relatedIds);
-    // Native setSelection stores IDs; refresh the instanced marker/pipe colours now.
-    viewer.updateObjects({});
+    // Native setSelection refreshes instance colours through applyConnectorVisibility().
   }
   function command(action, value) {
     if (!viewer || !active(generation, scene)) return;
