@@ -76,8 +76,8 @@ function run() {
   revoke();
   try {
     parameters(); const result = session.run(); select(result.candidates.rows[0]?.source || null);
-    byId('projection-label').textContent = result.projection === 'ISO' ? 'ISO · NON-METRIC oblique' :
-      result.projection + ' metric orthographic overlay · mm';
+    byId('projection-label').textContent = 'Evidence projection · ' + (result.projection === 'ISO' ? 'ISO · NON-METRIC oblique' :
+      result.projection + ' metric orthographic overlay · mm');
     byId('summary').textContent = result.candidates.rows.length + ' SOURCE nodes · ' +
       result.candidates.nearSourceCount + ' with nearby TARGET node(s) · ' + JSON.stringify(result.candidates.counts);
     status(result.transform.status + '\n' + result.transform.anchors.length + ' experimental anchor(s); max residual ' +
@@ -102,6 +102,7 @@ async function toggleViewer() {
     }
     byId('svg-layer').hidden = true; byId('gpu-host').hidden = false;
     byId('viewer-layout').disabled = false;
+    byId('camera-view').value = {XY:'top', XZ:'front', YZ:'right', ISO:'iso'}[result.projection];
     byId('toggle-gpu').textContent = 'Use SVG viewer';
     for (const id of ['zoom-in','zoom-out','reset-view']) byId(id).disabled = false;
     status('Existing 3D Edit viewer · ' + (result.projection === 'ISO' ?

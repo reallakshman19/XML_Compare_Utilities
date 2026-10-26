@@ -35,7 +35,13 @@ export function setupReviewViewport({byId, documentRef = document}) {
         await surface.requestFullscreen(); nativeOwned = true;
         if (!expanded && documentRef.fullscreenElement === surface) await documentRef.exitFullscreen();
       }
-    } catch { /* Viewport expansion remains usable when browser fullscreen is unavailable. */ }
+    } catch {
+      // A cancelled pending entry may still become native fullscreen before exit refuses.
+      if (documentRef.fullscreenElement === surface) {
+        nativeOwned = true; layout(true);
+        byId('toggle-fullscreen').textContent = 'Exit fullscreen (Esc)';
+      }
+    }
   }
   byId('toggle-fullscreen').addEventListener('click', () => { void toggle(); });
   byId('show-ledger').addEventListener('click', () => { popup(panel.hidden); if (!panel.hidden) panel.focus(); });

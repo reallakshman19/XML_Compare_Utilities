@@ -83,3 +83,16 @@ test('rejected native fullscreen exit stays expanded, resolves safely, and Escap
   h.doc.fullscreenElement=null;h.events.fullscreenchange();
   assert.equal(h.api.isExpanded(),false);assert.equal(h.el('toggle-fullscreen').attrs['aria-pressed'],'false');
 });
+
+test('cancelled pending native entry and refused auto-exit restore honest fullscreen state',async()=>{
+  const h=shell(), surface=h.el('review-surface');let finish;
+  surface.requestFullscreen=()=>new Promise(resolve=>{finish=()=>{h.doc.fullscreenElement=surface;resolve();};});
+  h.doc.exitFullscreen=async()=>{throw Error('late native exit refusal');};
+  h.click('toggle-fullscreen');assert.equal(h.api.isExpanded(),true);
+  h.click('toggle-fullscreen');assert.equal(h.api.isExpanded(),false);
+  finish();await Promise.resolve();await Promise.resolve();await Promise.resolve();
+  assert.equal(h.doc.fullscreenElement,surface);assert.equal(h.api.isExpanded(),true);
+  assert.equal(h.el('toggle-fullscreen').attrs['aria-pressed'],'true');
+  assert.match(h.el('toggle-fullscreen').textContent,/Esc/);
+  h.doc.fullscreenElement=null;h.events.fullscreenchange();assert.equal(h.api.isExpanded(),false);
+});

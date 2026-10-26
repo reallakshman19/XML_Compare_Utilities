@@ -6,8 +6,10 @@ export function selectedGeometryObjects(result, sources, picked = null) {
   const objects = Object.values(result.viewerScene.objects);
   const ids = objects.filter(o => o.kind === 'NODE' && o.sourceRows.some(id => selected.has(id)))
     .map(o => o.objectId);
-  if (picked?.objectId && result.viewerScene.objects[picked.objectId])
-    return [picked.objectId, ...ids.filter(id => id !== picked.objectId)];
+  const physical = picked?.objectId ? result.viewerScene.objects[picked.objectId] :
+    picked?.kind === 'NODE' ? objects.find(o => o.kind === 'NODE' && o.side === picked.side &&
+      o.nodeId === String(picked.nodeId)) : null;
+  if (physical) return [physical.objectId, ...ids.filter(id => id !== physical.objectId)];
   return ids;
 }
 

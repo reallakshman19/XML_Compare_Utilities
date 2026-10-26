@@ -9,7 +9,7 @@ import {createGeoViewerBridge} from '../geo-viewer-bridge.js';
 import {setupReviewViewport} from '../review-viewport.js';
 import {mountScene,selectedGeometryObjects,selectedDetails} from '../view.js';
 import {exportPreview} from '../evidence.js';
-const {DOMParser}=createRequire('/workspace/scratch/ca71d2f89cf7/map-test-runtime/package.json')('@xmldom/xmldom');
+const {DOMParser}=createRequire(process.env.CIIFR_TEST_RUNTIME + '/package.json')('@xmldom/xmldom');
 test('unlinked physical TARGET stays highlighted in normal/fullscreen SVG and GPU dispatch',async()=>{
 const graph=(side,a,b,length)=>buildXmlGraph({elements:[{index:0,from:a,to:b,delta:[length,0,0],od:100,wall:5,witness:side+' physical element'}],
  seeds:[],profile:'REVIEW_SYNTHETIC_MM',units:{length:'mm'},claimedCii:{status:'NOT_PRESENT'}},
@@ -17,7 +17,7 @@ const graph=(side,a,b,length)=>buildXmlGraph({elements:[{index:0,from:a,to:b,del
 const source=graph('SOURCE','1','2',5),target=graph('TARGET','101','102',10);
 const session=createPreviewSession({read:async(_,o)=>o.member.startsWith('SOURCE')?source:target});
 await session.load('SOURCE',new Uint8Array([1]),'math');await session.load('TARGET',new Uint8Array([2]),'math');session.addAnchor('1','101');
-const elements=new Map(),svgNodes=[];let bridge,selectedGpu=[];
+const elements=new Map(),svgNodes=[],svgEvents=new Map();let bridge,selectedGpu=[];
 const el=id=>{
  if(elements.has(id))return elements.get(id);
  const e={id,hidden:false,style:{},listeners:{},attrs:{},value:id==='projection'?'XY':id==='viewer-layout'?'overlay':'.001',
@@ -28,12 +28,12 @@ const el=id=>{
   const parsed=new DOMParser().parseFromString(html,'image/svg+xml');svgNodes.length=0;
   for(const g of Array.from(parsed.getElementsByTagName('g'))){if(!g.hasAttribute('data-node'))continue;
    svgNodes.push({dataset:{node:g.getAttribute('data-node'),kind:g.getAttribute('data-kind')},attrs:{},
-    classList:{toggle(){}},setAttribute(k,v){this.attrs[k]=v;}});
+    classList:{toggle(){}},setAttribute(k,v){this.attrs[k]=v;},closest(selector){return selector==='[data-node]'?this:null;}});
   }
  }});
  elements.set(id,e);return e;
 };
-const svg={querySelectorAll:()=>svgNodes,addEventListener(){},setAttribute(){}};
+const svg={querySelectorAll:()=>svgNodes,addEventListener:(k,f)=>svgEvents.set(k,f),setAttribute(){}};
 const doc={getElementById:el,querySelectorAll:()=>[],addEventListener(){},body:el('body')};
 const context=vm.createContext({document:doc,window:{addEventListener(){}},console,setTimeout});
 const fakeViewer={setModels(){},setMode(){},fitAll(){},toggleCameraType(){},setStandardView(){},getStateSnapshot:()=>({runtimeRevision:1}),
@@ -55,6 +55,12 @@ assert.equal(node.attrs['aria-pressed'],'true');
 el('toggle-fullscreen').listeners.click();el('select-node').listeners.click();
 node=svgNodes.find(n=>n.dataset.kind==='TARGET'&&n.dataset.node==='102');
 console.log('FULLSCREEN_SVG',{ariaPressed:node.attrs['aria-pressed']});assert.equal(node.attrs['aria-pressed'],'true');
+svgEvents.get('click')({target:node});
+node=svgNodes.find(n=>n.dataset.kind==='TARGET'&&n.dataset.node==='102');
+assert.equal(node.attrs['aria-pressed'],'true','actual SVG click preserves unlinked physical TARGET');
+svgEvents.get('keydown')({target:node,key:'Enter',preventDefault(){}});
+node=svgNodes.find(n=>n.dataset.kind==='TARGET'&&n.dataset.node==='102');
+assert.equal(node.attrs['aria-pressed'],'true','actual SVG keyboard pick preserves unlinked physical TARGET');
 await el('toggle-gpu').listeners.click();
 console.log('GPU_DISPATCH',{selectedGpu});assert.deepEqual(selectedGpu,[physical.objectId]);
 });
