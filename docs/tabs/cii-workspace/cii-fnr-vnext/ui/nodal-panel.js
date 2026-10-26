@@ -83,7 +83,7 @@ export function mountNodalPanel(root,getTarget) {
     if(event.target.dataset.nodalCsv!==undefined){
       const f=event.target.files?.[0],req=++uploadEpoch;
       uploaded=false;rows=[];reset('Loading Node-based CSV.');
-      if(!f){display('Import a CSV with Find,FindNode,ReplaceName.');return;}
+      if(!f){display('Import a CSV with Node,Replace (Find optional).');return;}
       try{
         const txt=await f.text();
         if(req!==uploadEpoch)return;
