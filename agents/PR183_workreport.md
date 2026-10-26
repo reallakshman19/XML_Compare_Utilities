@@ -30,9 +30,9 @@ The framework was written before product edits. Existing algorithms and source b
 | README.md | Runnable checks, actual capability and remaining builder boundary |
 | tests/scene.test.mjs | Pure rotation/identity/ambiguity/segment/component/stale/custody challenges using actual shared runtime |
 | tests/scene-xml.test.mjs | Actual supplied XML session→export→shared validator/runtime→pick→revocation integration |
-| agents/WIP-CIIFR-GEO-FRAMEWORK-20261026_workreport.md | This recovery-first contributor record; rename after PR allocation |
+| agents/PR183_workreport.md | This recovery-first contributor record for allocated draft PR183 |
 
-Protected shared viewer, MethodC, live G1 mirrors, converter, Writer, workflows, Page and CURRENT are unchanged. The tracked `.backups/log.json` is dirty local recovery state from the native backup tool and is excluded from publication. Do not reset or stage it. Native backups1–9 and history-independent per-file snapshots/patches remain in the isolated contributor workspace, separate from predecessor backup custody.
+Protected shared viewer, MethodC, live G1 mirrors, converter, Writer, workflows, Page and CURRENT are unchanged. The tracked `.backups/log.json` is dirty local recovery state from the native backup tool and is excluded from publication. Do not reset or stage it. Native backups1–11 and history-independent per-file snapshots/patches remain in the isolated contributor workspace, separate from predecessor backup custody.
 
 ## Evidence, tests and surviving error challenge
 
@@ -50,6 +50,10 @@ Actual input checks: F05 882735bytes, SHA256 `1154c980d08344b1f803cda3bd9884b169
 Decisive expectations recorded before code: handwritten90° rotation plus translation maps[100,70,30]→[-30,80,60], extra viewer translationzero; same-number/hash/member cross-side IDs remain distinct; contested target returns both source rows; segment interior creates no node; epoch/pose/tolerance/projection changes reject old scene/pick/export. Malformed/duplicate/nonfinite/unqualified input and inherited object-key lookups are also challenged.
 
 **Surviving-error limit:** a correct VisualGeometryModel and native pick API can still be rendered wrongly, lose camera scale or accept a late browser callback in the future integration. This contribution establishes the data/guard seam only. Actual browser/WebGL, GPU selection, assets, keyboard/pan/zoom/download, Windows, large-scene capacity/performance, independent engineering review and Owner acceptance remain NOT_RUN/unverified. Prior host Chromium failure remains a host limitation, not app evidence. The known inherited Normal18/19 assertion is unaffected and not waived.
+
+## Published implementation checkpoint
+
+Draft [PR183](https://github.com/reallakshman19/XML_Compare_Utilities/pull/183) was allocated against the existing PR181 branch. Implementation commit `cd9eee33cd4ac80a802e50d1f9cf246d841901d8`, tree `82851a747983e1953c5d8b050fbda9b5b3fee588`, exactly matches the locally tested source checkpoint. A subsequent documentation-only commit renames this workreport for PR183 and records that basis; it does not change the tested code. Observe the actual live PR head separately.
 
 ## Continuation and exact next action
 
