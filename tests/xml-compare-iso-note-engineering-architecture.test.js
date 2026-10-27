@@ -5,7 +5,7 @@ import {
   compareRestraintCoverage, engineeringReviewAction,
 } from '../xml-compare/XmlCompareIsoNoteEngineeringRules.js';
 import {
-  compareIsoNoteMapping, buildIsoNoteAnchorCandidates,
+  compareIsoNoteMapping, buildIsoNoteAnchorCandidates, validateIsoNoteCandidateIdentity,
   renderIsoNoteMappingCompareHtml, serializeIsoNoteMappingCsv,
 } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
@@ -94,6 +94,13 @@ const records = createCategorizedInputXmlCanvasModel({ xmlText: xml }).records;
 const anchors = buildIsoNoteAnchorCandidates({ report, sourceRecords: records, targetRecords: records });
 assert.equal(anchors.length, 3, 'engine identities can be linked for review regardless of engineering disagreements');
 assert.ok(anchors.every(a => a.basis.includes('iso-note-pipeline-plus-full-support-id')));
+assert.equal(validateIsoNoteCandidateIdentity(anchors[0], records, records).valid, true);
+const s1Record = records.find(r => r.lineKey === 'PS_MAPPING_S1' && r.psNo === 'PS-001' && r.pipe === 'PIPE-4');
+const s2Record = records.find(r => r.lineKey === 'ISO_NOTES_S2' && r.nodeName === 'PS-001' && r.lineNoInCii === '/PIPE-8');
+const falseSimilarCandidate = { sourceUid: s1Record.uid, targetUid: s2Record.uid, matchPct: 0.66, status: 'valid' };
+assert.equal(validateIsoNoteCandidateIdentity(falseSimilarCandidate, records, records).applicable, true);
+assert.equal(validateIsoNoteCandidateIdentity(falseSimilarCandidate, records, records).valid, false, '66% text similarity must not approve cross-pipe engineering anchor');
+
 
 const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Line Stop Gap S1 mm","Line Stop Gap S2 mm"/);
@@ -115,4 +122,6 @@ const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.met
 assert.match(runtime, /ISO engineering audit: /);
 assert.match(runtime, /Engineering audit is read-only/);
 assert.match(runtime, /isoNoteExactPairsOnly/);
+assert.match(runtime, /validateIsoNoteCandidateIdentity\(candidate, workspace\.source\.records, workspace\.target\.records\)/);
+assert.match(runtime, /validateIsoNoteCandidateIdentity\(pair, workspace\.source\.records, workspace\.target\.records\)/);
 console.log('xml-compare-iso-note-engineering-architecture.test.js passed');
