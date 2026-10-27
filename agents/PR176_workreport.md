@@ -60,4 +60,88 @@ Structural writer logic unchanged. Missing/terminal NODENAME section, pointer-ze
 
 **Recovery and HOLD:** Preimage GitHub branch `backup/ciifr-pr176-nodename-sections-20261026` points to `76f3cd419a4efb6ac3696b528c41ecbec12fad65`. It is supplemental only. Native `utils/backup.cjs save`, history-independent `.agent-worklogs/`, actual `node --test`, browser, real original CII, native SHA checks, CAESAR II import/round-trip, external engineering oracle and independent non-author review: **NOT_RUN** (native checkout GitHub DNS unavailable). Other tabs' core code not modified; no shared `app.js`, `physical.js`, `writer.js`, `config-policy.js` or legacy tile changes. PR remains draft/merge HOLD.
 
-**EXACT_NEXT_ACTION:** Qualified native builder must check out current PR #176 and its verified F2-SECTION preimage, restore the required native backup/patch-ledger custody for the scoped F1/F2 edits, run `node --test tests/cii-fnr-vnext-nodal-transfer.test.mjs tests/cii-fnr-vnext-node-only-csv.test.mjs tests/cii-fnr-vnext-nodal-zero-guard.test.mjs tests/cii-fnr-vnext-nodal-sections.test.mjs tests/cii-fnr-vnext-nodal-ui.test.mjs` and full VNext regressions, and bind representative original V11/V14 bytes/Hexagon import results. Then request separate non-author exact-head review before Owner merge decision. Continue to HOLD unqualified section orders rather than guessing or modifying any other-tab core.
+## F3-NUMELT native qualification and fail-closed guard — 2026-10-27
+
+- **Local agent / identity / role / disclosure:** Local Coding Agent / Builder (Team Protocol v2.3 Agent)
+- **Exact task:** `CIIFR-189-F3-NUMELT-LOCAL-1`
+- **Original task authority:** Owner bounded Nodal-only F3; initial READ_ONLY takeover
+- **Repository / branch / initial SHA:** `reallakshman19/XML_Compare_Utilities` / `codex/cii-nodal-name-transfer-20261025` / initial SHA: `deb160bf8285d9c8dbcffec676ffa71dffd73627`
+- **Main/base SHA; active PR/worktree overlap and resolution:** Base `main` SHA: `c823f0c0edbeb315c07fa2911390dc781968146f`. Zero overlap with other active PRs. Scope strictly restricted to Nodal-owned modules, scoped tests, and work report.
+- **Native location / OS / Node / Git version:** Windows (NT 10.0) / Git `2.56.0.windows.1` / Node `v22.23.2` / Isolated native workspace `XML_Compare_Utilities_PR176`
+- **Current preimage + pre-existing dirty file inventory:** Preimage HEAD: `deb160bf8285d9c8dbcffec676ffa71dffd73627`. Pre-existing dirty files: NONE (clean clone/checkout).
+- **Private original CII access:** NOT_AVAILABLE_IN_LOCAL_TOOL_SESSION (synthetic fixtures tested locally; original private specimen audited under private hash reference `4c9c9546bd9dbd5d0d2028fbd8cb55652747c2b252ab4f05254062994118182e`, not committed).
+- **Decision:** CONTINUE on PR #176 branch `codex/cii-nodal-name-transfer-20261025`.
+
+### Appendix A Takeover Qualification
+
+- **A1 Production Trace:**
+  - UI entry: `tabs/cii-workspace/cii-fnr-vnext/ui/nodal-panel.js` (`mountNodalPanel`) handles CSV file import (`parseNodalCsv`), preview generation (`planNodalTransfer`), per-row approval checkbox / Approve All (`approvals`), Validate Nodal Target (`validateNodalTransfer`), Apply to New Copy, and Export.
+  - Structural engine: `tabs/cii-workspace/cii-fnr-vnext/ui/nodal-transfer.js`:
+    - `parseNodalCsv(text)` parses 2-column (`Node,Replace`) or 3-column (`Find,FindNode,ReplaceName`) CSV.
+    - `planNodalTransfer(parsed, rows)` resolves logical node endpoints against `parsed.elements`, physical `NODENAME` pointers and existing names.
+    - `validateNodalTransfer({targetBytes, originalHash, plan, approvedIds})` verifies `targetBytes` SHA-256 against `originalHash`, recomputes `planNodalTransfer` on re-parsed target bytes, verifies plan integrity, checks approvals, and invokes `makePostimage`.
+    - `makePostimage(original, parsed, selected)` scans lines, finds `#$ CONTROL` and `#$ NODENAME` / `#$ BEND`, updates existing `NODENAME.FROM` / `NODENAME.TO` fields or allocates new `NODENAME` records and patches pointer columns in `#$ ELEMENTS` and `NONAM` in `#$ CONTROL`, writes ASCII patches, reparses via `parseCii(output)`, verifies structure and name completion, and returns output binary and metrics.
+- **A2 Current Failing Path (Defect Isolation):**
+  - In a CII file with 1 physical 15-row ELEMENTS block (`elements.length === 1`), but `#$ CONTROL` declares `NUMELT = 2` or `NUMELT = 99`:
+    - `physical.js`'s `parseCii` only checks `elementRows.length % 15 === 0` and `fixed(control[0], 41, 54, 'CONTROL_NONAM')`. It completely ignores columns 0..15 (`CONTROL.NUMELT`).
+    - `planNodalTransfer` previously checked only `parsed.elements` and rows, ignoring `CONTROL.NUMELT`, marking rows `READY`.
+    - `validateNodalTransfer` previously proceeded and called `makePostimage`.
+    - `makePostimage` previously validated `control.end - control.start >= 54`, but did not inspect columns 0..15 (`CONTROL.NUMELT`).
+    - `makePostimage` created `output` and ran `parseCii(output)`, which also ignored `NUMELT`.
+    - Reproducing command: Node execution with declared NUMELT=2 and 99 produced `plan status: READY reason: PREVIEW` and generated TARGET1 outputs without error.
+- **A3 Authority / Invariants:**
+  - `CONTROL.NUMELT` in CAESAR II neutral file format (Row 1, columns 0..15, format I15): declares the exact number of piping elements in `#$ ELEMENTS`.
+  - Invariant 1: Physical element block count in `#$ ELEMENTS` must strictly equal `CONTROL.NUMELT` (`elements.length === numelt`).
+  - Invariant 2: `CONTROL.NUMELT` must be a positive safe integer (`numelt > 0 && Number.isSafeInteger(numelt)`). Zero, negative, non-integer, or unparseable counts must fail closed.
+  - Invariant 3: Mismatched or invalid `CONTROL.NUMELT` must HOLD all rows in `planNodalTransfer` (`counts.ready === 0`, `counts.held === rows.length`, reason: `'CONTROL_NUMELT_MISMATCH'` or `'CONTROL_NUMELT_INVALID'`).
+  - Invariant 4: `CONTROL.NUMELT` must NOT be mutated during Nodal name transfer. Postimage `CONTROL.NUMELT` must remain identical to preimage `CONTROL.NUMELT`, verified directly from output physical bytes (independent of `parseCii`).
+  - Invariant 5: No changes to shared `physical.js`, `app.js`, `writer.js`, `config-policy.js`, or any other tab's core code. Guard lives entirely within `nodal-transfer.js` and its served mirror.
+- **A4 Independent Oracle / Test:**
+  - Independent validator extracts `#$ CONTROL` line 1, columns 0..15, parses integer, and counts 15-line element blocks in `#$ ELEMENTS`.
+  - Negative tests: `NUMELT = 2` with 1 physical element (HELD/fails closed); `NUMELT = 99` with 1 physical element (HELD/fails closed); `NUMELT = 0`, `-1`, `'ABC'` (HELD/fails closed).
+  - Positive tests: `NUMELT = 1` with 1 physical element (READY, TARGET1 generated); TARGET1 physical bytes independently verified for `CONTROL.NUMELT === 1` and 15 physical element rows.
+- **A5 Minimum Patch / Falsifier:**
+  - Scoped addition of `inspectControlNumelt` helper in `nodal-transfer.js`.
+  - Call in `planNodalTransfer`: if invalid/mismatched, hold rows with diagnostic reason.
+  - Call in `makePostimage` (pre-patch): fail with `NODAL_CONTROL_NUMELT_MISMATCH` or `NODAL_CONTROL_NUMELT_INVALID`.
+  - Call in `makePostimage` (post-patch): independently scan `output` lines, verify `postCheck.ok`, `postCheck.numelt === preCheck.numelt`, and physical element row count `elemRows.length === postCheck.numelt * 15`.
+  - Falsifier: A specimen with `NUMELT=2` and 1 element must never yield ready rows or TARGET1 bytes; a specimen with `NUMELT=1` and 1 element must succeed and match independent byte assertions.
+
+### Patch and Rollback Provenance
+
+| Module | Pre-edit SHA-256 | Backup ID | Post-edit SHA-256 | Local patch path | Undo procedure |
+|---|---|---|---|---|---|
+| Nodal parser/writer (`tabs/.../nodal-transfer.js`) | `473af9c5b40ebbe87dd9ca53b8143ec9d9db636bee6c374be1685f62a39533d9` | #90 | `14e9e00804d4567b818788e7c290f436c9fe8711f3084f3a4b6a4fdfbfd4949e` | `.agent-worklogs/20261027_0755_ciifr-pr176-numelt/modules/nodal-numelt-guard.patch` | Restore backup #90 via `node utils/backup.cjs restore 90` |
+| Served mirror (`docs/.../nodal-transfer.js`) | `473af9c5b40ebbe87dd9ca53b8143ec9d9db636bee6c374be1685f62a39533d9` | #91 | `14e9e00804d4567b818788e7c290f436c9fe8711f3084f3a4b6a4fdfbfd4949e` | `.agent-worklogs/20261027_0755_ciifr-pr176-numelt/modules/nodal-numelt-guard.patch` | Restore backup #91 via `node utils/backup.cjs restore 91` |
+| Tests (`tests/cii-fnr-vnext-nodal-numelt-guard.test.mjs`) | N/A (new file) | N/A | `db17918bae3632546cd5c68275b47b5ece27498d8f70122dd210cc80afee5a7f` | `.agent-worklogs/20261027_0755_ciifr-pr176-numelt/modules/nodal-tests.patch` | Delete `tests/cii-fnr-vnext-nodal-numelt-guard.test.mjs` |
+| Workreport (`agents/PR176_workreport.md`) | `0540ade8fd9de85b6d9650751dfc958ee70d838fe493d1dde2845ac40772280a` | #92 | Tracked in PR | `.agent-worklogs/20261027_0755_ciifr-pr176-numelt/modules/workreport.patch` | Restore backup #92 via `node utils/backup.cjs restore 92` |
+
+- **`.agent-worklogs/` manifest path:** `.agent-worklogs/20261027_0755_ciifr-pr176-numelt/manifest.md` (predates product edits).
+- **Confirm `.backups/` and `.agent-worklogs/` not staged:** CONFIRMED. Neither directory is staged in git.
+- **Proof that shared/other-tab cores are unchanged:** `git diff origin/main` and `git status` confirm 0 changes to shared `app.js`, `physical.js`, `writer.js`, `config-policy.js`, Normal, Line+Node, Geometry, Writer2, or production tiles.
+
+### Validation Ledger
+
+| Check | Status | Actual command, input/digest, exit code | Independent vs implementation-coupled oracle |
+|---|---|---|---|
+| Native 5-file Node tests | PASS (19/19) | `node --test tests/cii-fnr-vnext-nodal-transfer.test.mjs tests/cii-fnr-vnext-node-only-csv.test.mjs tests/cii-fnr-vnext-nodal-zero-guard.test.mjs tests/cii-fnr-vnext-nodal-sections.test.mjs tests/cii-fnr-vnext-nodal-ui.test.mjs`, exit 0 | Implementation test suite (pre-existing baseline) |
+| Before: NUMELT=2 or 99 with 1 element demonstrates defect | PASS (reproduced) | Node script executing `planNodalTransfer` & `validateNodalTransfer` on synthetic 1-element CII with NUMELT=2/99 returned READY and emitted TARGET1, exit 0 | Independent defect reproduction test |
+| After: invalid/mismatched NUMELT held without TARGET1 | PASS | `node --test tests/cii-fnr-vnext-nodal-numelt-guard.test.mjs` (Subtests 1 & 2), exit 0 | Independent test oracle |
+| Correct NUMELT positive output | PASS | `node --test tests/cii-fnr-vnext-nodal-numelt-guard.test.mjs` (Subtest 3), exit 0 | Independent test oracle + raw byte inspection |
+| Absent and terminal NODENAME cases | PASS (5/5) | `node --test tests/cii-fnr-vnext-nodal-sections.test.mjs`, exit 0 | Independent byte comparison in test |
+| No Find column, Find audit-only invariants | PASS (3/3) | `node --test tests/cii-fnr-vnext-node-only-csv.test.mjs`, exit 0 | Independent test assertion |
+| Zero-node/shared pointer/conflict negatives | PASS (2/2) | `node --test tests/cii-fnr-vnext-nodal-zero-guard.test.mjs`, exit 0 | Independent test assertion |
+| Full 6 Nodal test suites integrated | PASS (22/22) | `node --test tests/cii-fnr-vnext-nodal-*.test.mjs tests/cii-fnr-vnext-node-only-csv.test.mjs`, exit 0 | Independent test suites |
+| Full VNext regressions | 87 PASS / 1 FAIL | `node --test tests/cii-fnr-vnext-*.test.mjs`, exit 1. 1 failure in `cii-fnr-vnext-branch-scope.test.mjs` proven baseline-red on `main` (0 diff vs main). | Repository VNext suite |
+| Served and source mirrors byte identical | PASS | `Get-FileHash tabs/.../nodal-transfer.js` == `Get-FileHash docs/.../nodal-transfer.js` (`14e9e00804d4567b818788e7c290f436c9fe8711f3084f3a4b6a4fdfbfd4949e`) | Independent SHA-256 hash check |
+| Actual served Chromium workflow | NOT_RUN | Headless browser smoke not executed in this headless container turn | External browser runtime |
+| Exact byte changes / TARGET0 immutable | PASS | Verified in `tests/cii-fnr-vnext-nodal-numelt-guard.test.mjs` (`assert.deepEqual(bytes, before)`) | Independent binary buffer equality |
+| Original real CII v11/v14 | NOT_RUN | Private real file withheld from repository | Original specimen |
+| CAESAR II native import/re-export | NOT_RUN | Requires licensed CAESAR II workstation | External vendor oracle |
+| Separate non-author review | NOT_RUN | Pending independent reviewer assessment | Human/Reviewer agent |
+| Exact-head CI | NOT_RUN | PR remains draft; no PR workflow triggered yet | GitHub Actions |
+
+- **Surviving highest risk:** Proprietary CAESAR II parser compatibility on original v11/v14 binary specimens cannot be proven by synthetic isolated Node tests.
+- **Scope violations / protected file changes:** NONE.
+- **PR status:** DRAFT / MERGE HOLD.
+- **ONE EXACT_NEXT_ACTION:** An independent non-author reviewer inspects the exact final commit on PR #176, verifies the fail-closed NUMELT guard, and Owner performs private CAESAR II import validation before considering merge.

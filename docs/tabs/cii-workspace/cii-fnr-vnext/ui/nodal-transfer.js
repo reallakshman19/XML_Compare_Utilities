@@ -9,10 +9,22 @@ const fail = code => { throw new Error(code); };
 const span = (field) => field.byteStart + ':' + field.byteEnd;
 const pretty = v => String(v ?? '').trim();
 const byteString = str => Uint8Array.from(str, ch => ch.charCodeAt(0));
-function writeAscii(output, at, str) {
-  for (let i=0;i<str.length;i++) output[at+i] = str.charCodeAt(i);
+const writeAscii = (output, at, str) => { for (let i=0;i<str.length;i++) output[at+i] = str.charCodeAt(i); };
+const key = n => String(n);
+
+function inspectControlNumelt(lines, elementCount) {
+  const marker = line => /^\s*#\$\s*([^\s]+)/i.exec(line?.text)?.[1]?.toUpperCase();
+  const cAt = lines?.findIndex ? lines.findIndex(l => marker(l) === 'CONTROL') : -1;
+  if (cAt < 0) return { ok: false, reason: 'CONTROL_SECTION_MISSING' };
+  const control = lines[cAt + 1];
+  if (!control || control.end - control.start < 15) return { ok: false, reason: 'CONTROL_LINE_TRUNCATED' };
+  const raw = control.text.slice(0, 15), trimmed = raw.trim(), numelt = Number(trimmed);
+  if (!trimmed || !/^[+-]?\d+$/.test(trimmed) || !Number.isSafeInteger(numelt) || numelt <= 0)
+    return { ok: false, reason: 'CONTROL_NUMELT_INVALID' };
+  if (numelt !== elementCount) return { ok: false, reason: 'CONTROL_NUMELT_MISMATCH', numelt };
+  return { ok: true, numelt };
 }
-function key(n) { return String(n); }
+
 function detailsOf(parsed) {
   const ownerByPointer=new Map(), byWitness=new Map();
   for (const e of parsed.elements) {
@@ -42,6 +54,7 @@ function detailsOf(parsed) {
   }
   return { nodes,nameNodes,ownerByPointer,byWitness };
 }
+
 export function parseNodalCsv(text) {
   const grid=[];let row=[],value='',quoted=false;
   for(let i=0;i<text.length;i++){
@@ -79,11 +92,13 @@ export function planNodalTransfer(parsed, rows) {
   if(!parsed?.elements || !parsed?.fields || !Array.isArray(rows))fail('NODAL_PLAN_INPUT_INVALID');
   const ids=rows.map((r,i)=>String(r.id??'N'+(i+1)));
   if(new Set(ids).size!==ids.length)fail('NODAL_ROW_IDS_MUST_BE_UNIQUE');
+  const numeltCheck=inspectControlNumelt(parsed.lines, parsed.elements.length);
   const {nodes,nameNodes,ownerByPointer}=detailsOf(parsed);
   const raw=rows.map((r,i)=>{
     const id=String(r.id??'N'+(i+1)),nodeText=pretty(r.findNode),name=pretty(r.replaceName),info=pretty(r.findInfo);
     const base={id,row:i+1,node:nodeText,requestedName:name,findInfo:info,
       status:'HELD',reason:'',audit:[],occurrences:0,createRecords:0,writeFields:0};
+    if(!numeltCheck.ok)return {...base,reason:numeltCheck.reason};
     if(!/^\d+$/.test(nodeText)||!Number.isSafeInteger(Number(nodeText)))
       return {...base,reason:'FINDNODE_NOT_NONNEGATIVE_INTEGER'};
     const node=key(Number(nodeText)), occurrences=nodes.get(node)||[];
@@ -148,6 +163,8 @@ function makePostimage(original,parsed,selected) {
   if(controlAt<0)fail('NODAL_CONTROL_MISSING');
   const control=lines[controlAt+1];
   if(!control || control.end-control.start<54)fail('NODAL_CONTROL_WIDTH_INVALID');
+  const preCheck=inspectControlNumelt(lines, parsed.elements.length);
+  if(!preCheck.ok)fail(preCheck.reason==='CONTROL_NUMELT_MISMATCH'?'NODAL_CONTROL_NUMELT_MISMATCH':'NODAL_CONTROL_NUMELT_INVALID');
   const missingName=nameAt<0;
   // The only source-qualified absent-section location is directly before BEND.
   if(missingName && (parsed.nonam!==0 ||
@@ -239,6 +256,13 @@ function makePostimage(original,parsed,selected) {
         e.branch!==p.branch || e.pointer!==(elementNew.has(i)?
           parsed.nonam+newNames.findIndex(n=>n.element.index===i)+1:p.pointer);
     }))fail('NODAL_POSTIMAGE_STRUCTURE_MISMATCH');
+  const postLines=scanLines(output), postCheck=inspectControlNumelt(postLines, post.elements.length);
+  if(!postCheck.ok)fail(postCheck.reason==='CONTROL_NUMELT_MISMATCH'?'NODAL_POSTIMAGE_CONTROL_NUMELT_MISMATCH':'NODAL_POSTIMAGE_CONTROL_NUMELT_INVALID');
+  if(postCheck.numelt!==preCheck.numelt)fail('NODAL_POSTIMAGE_CONTROL_NUMELT_CHANGED');
+  const postElmAt=postLines.findIndex(l=>marker(l)==='ELEMENTS');
+  const postNextSec=postLines.findIndex((l,i)=>i>postElmAt&&!!marker(l));
+  const postElemRows=postLines.slice(postElmAt+1,postNextSec<0?postLines.length:postNextSec).filter(l=>l.text.trim());
+  if(postElemRows.length!==postCheck.numelt*15)fail('NODAL_POSTIMAGE_ELEMENT_CARDINALITY_MISMATCH');
   // Ensure every designated node resolves to the requested name in every incident field.
   const resultNodes=detailsOf(post).nodes;
   for(const s of selected){
