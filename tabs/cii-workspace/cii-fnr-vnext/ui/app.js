@@ -7,10 +7,11 @@ import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.
 import { resolveImportedCsv } from './csv-resolver.js';
 import { safeNonConflictIds } from './nonconflict-review.js';
 import { renderGeometryTab } from './geo-tab.js';
+import { mountNodalPanel } from './nodal-panel.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
-const tabs = [...workTabs, 'CIIFR_GEO', 'CONFIG'];
-const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CIIFR_GEO: 'CIIFR_GEO', CONFIG: 'Config' };
+const tabs = ['NORMAL', 'NODAL', 'LINE_NODE', 'GEOMETRY', 'CIIFR_GEO', 'CONFIG'];
+const names = { NODAL: 'Node-Based Name Transfer', NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CIIFR_GEO: 'CIIFR_GEO', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -20,6 +21,7 @@ const fileSeqs = { target: 0, source: 0 };
 const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
+const nodal = mountNodalPanel(root, () => target);
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
 const state = () => states[active] || states.NORMAL;
@@ -43,15 +45,21 @@ function renderTabs() {
     button.classList.toggle('selected', selected);
   }
   $('[data-workspace]').hidden = active === 'CONFIG' || active === 'CIIFR_GEO';
+  const nodalActive = active === 'NODAL';
+  $('[data-nodal-area]').hidden = !nodalActive;
+  for (const selector of ['[data-normal-section]', '[data-normal-review]',
+    '[data-normal-footer]', '[data-demo-section]', '[data-standard-csv]',
+    '[data-source-card]']) $(selector).hidden = nodalActive;
   $('[data-config-area]').hidden = active !== 'CONFIG';
   renderGeometryTab($('[data-ciifr-geo-panel]'), active === 'CIIFR_GEO');
   for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
-  $('[data-unavailable]').hidden = active === 'NORMAL';
+  $('[data-unavailable]').hidden = active === 'NORMAL' || active === 'NODAL';
   $('[data-run]').disabled = active !== 'NORMAL' || !target;
   $('[data-rows-area]').hidden = active !== 'NORMAL';
   message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
     active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
+    active === 'NODAL' ? 'Import Node,Replace CSV (optional Find) and generate numeric-node preview.' :
     `${names[active]} awaits an independently delivered engine. No write authority exists.`);
 }
 function addSelect(td, field, entries, value) {
@@ -450,6 +458,7 @@ for (const field of ['target', 'source']) {
   $(`[data-file="${field}"]`).addEventListener('change', async (event) => {
     const file = event.target.files?.[0], req = ++fileSeqs[field];
     if (field === 'target') target = null; else source = null;
+    nodal.invalidate();
     for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
     $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
     renderTabs(); renderRules(); renderResults();
@@ -460,6 +469,7 @@ for (const field of ['target', 'source']) {
       snapshot.parsed = parseCii(snapshot.bytes);
       const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
       if (field === 'target') target = snapshot; else source = snapshot;
+      nodal.invalidate();
       for (const s of Object.values(states)) invalidate(s);
       $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
       renderTabs(); renderRules(); renderResults();
