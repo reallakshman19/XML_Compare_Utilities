@@ -9,6 +9,7 @@ import {
   renderIsoNoteMappingCompareHtml, serializeIsoNoteMappingCsv,
 } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
+import { buildIsoNoteEngineeringFindings, serializeIsoNoteEngineeringFindingsCsv } from '../xml-compare/XmlCompareIsoNoteEngineeringFindings.js';
 
 assert.deepEqual(GAP_KINDS, ['rest', 'guide', 'lineStop']);
 assert.deepEqual(parseTypedGaps('[LINE STOP GAP=25mm]').lineStop, [25]);
@@ -102,6 +103,25 @@ assert.equal(validateIsoNoteCandidateIdentity(falseSimilarCandidate, records, re
 assert.equal(validateIsoNoteCandidateIdentity(falseSimilarCandidate, records, records).valid, false, '66% text similarity must not approve cross-pipe engineering anchor');
 
 
+const findings = buildIsoNoteEngineeringFindings(report);
+const ids = findings.map(f => f.findingId);
+assert.equal(new Set(ids).size, ids.length, 'Each engineering finding must have its own stable ID');
+assert.ok(findings.some(f => f.domain === 'RESTRAINT' && f.kind === 'LINE_STOP' && f.status === 'MISSING'));
+assert.ok(findings.some(f => f.domain === 'CLEARANCE' && f.kind === 'LINE_STOP' && f.status === 'REVIEW'));
+assert.ok(findings.some(f => f.domain === 'CLEARANCE' && f.kind === 'GUIDE' && f.status === 'MATCH'));
+assert.ok(findings.some(f => f.domain === 'IDENTITY' && f.status === 'S1_ONLY'));
+const missingStopFinding = findings.find(f => f.domain === 'RESTRAINT' && f.kind === 'LINE_STOP' && f.status === 'MISSING');
+assert.equal(missingStopFinding.s1Ref, 'S1:1');
+assert.equal(missingStopFinding.s2Ref, 'S2:1');
+assert.match(missingStopFinding.findingId, /S1:1=>S2:1#RESTRAINT:LINE_STOP/);
+assert.equal(missingStopFinding.reviewAction.includes('Investigate ISONOTE'), true);
+const ledgerCsv = serializeIsoNoteEngineeringFindingsCsv(report);
+assert.match(ledgerCsv, /"Finding ID","Domain","Type","Finding Status","Applied Rule"/);
+assert.match(ledgerCsv, /"S1:1","S2:1"/);
+assert.match(ledgerCsv, /#CLEARANCE:LINE_STOP/);
+assert.match(ledgerCsv, /"MISSING","ISONOTE_LINE_STOP"/);
+assert.match(ledgerCsv, /"Raw S1 Evidence","Raw S2 Evidence"/);
+
 const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Line Stop Gap S1 mm","Line Stop Gap S2 mm"/);
 assert.match(csv, /"Engineering Review Code","Review Action","Source UID","Target UID"/);
@@ -117,11 +137,14 @@ assert.match(html, /Restraint coverage/);
 assert.match(html, /Engineering status:/);
 assert.match(html, /S1:1/);
 assert.match(html, /S2:1/);
+assert.match(html, /Download engineering findings CSV/);
 
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url),'utf8');
 assert.match(runtime, /ISO engineering audit: /);
 assert.match(runtime, /Engineering audit is read-only/);
 assert.match(runtime, /isoNoteExactPairsOnly/);
+assert.match(runtime, /serializeIsoNoteEngineeringFindingsCsv/);
+assert.match(runtime, /download-iso-note-findings-csv/);
 assert.match(runtime, /validateIsoNoteCandidateIdentity\(candidate, workspace\.source\.records, workspace\.target\.records\)/);
 assert.match(runtime, /validateIsoNoteCandidateIdentity\(pair, workspace\.source\.records, workspace\.target\.records\)/);
 console.log('xml-compare-iso-note-engineering-architecture.test.js passed');
