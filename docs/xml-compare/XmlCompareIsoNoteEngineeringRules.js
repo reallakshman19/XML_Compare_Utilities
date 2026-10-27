@@ -4,7 +4,6 @@ export const ISO_NOTE_ENGINEERING_RULES_SCHEMA = 'iso-note-engineering-rules/v1'
 export const GAP_KINDS = Object.freeze(['rest', 'guide', 'lineStop']);
 export const RESTRAINT_TYPES = Object.freeze(['REST', 'GUIDE', 'LINE_STOP']);
 const text = (value) => String(value ?? '').trim();
-const sorted = (items) => [...items].sort();
 const unique = (items) => [...new Set(items)];
 const frozen = (obj) => Object.freeze(obj);
 
@@ -100,7 +99,7 @@ export function parseRestraintEvidence(input = '', { fromModel = false } = {}) {
   }
   if (fromModel && /\bWEAR\s*PLATE\b|\bPAD\b/.test(value) && !found.has('REST')) {
     uncertain.push('Wear plate/pad is not proof of a REST restraint');
-    evidence.push(frozen({ kind: 'REST', polarity: 'UNCERTAIN', phrase: 'WEAR PLATE/PAD', offset: value.indexOf('WEAR'), rule: 'DTXR_WEАР_PLATE_REVIEW' }));
+    evidence.push(frozen({ kind: 'REST', polarity: 'UNCERTAIN', phrase: 'WEAR PLATE/PAD', offset: value.indexOf('WEAR'), rule: 'DTXR_WEAR_PLATE_REVIEW' }));
   }
   return frozen({ types: frozen(RESTRAINT_TYPES.filter(t => found.has(t))), uncertain: frozen(unique(uncertain)), evidence: frozen(evidence) });
 }
