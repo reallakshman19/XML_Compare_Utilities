@@ -12,7 +12,7 @@ const HEADER_ALIASES = {
     mandatory: ['mandatory', 'required'],
   },
   table2: {
-    psNo: ['ps no', 'psno', 'ps name', 'psno_model', 'psno model'],
+    psNo: ['ps no', 'psno', 'ps name', 'psno_model', 'psno model', 'support no', 'support number', 'support tag'],
     bore: ['bore', 'model bore', 'nb', 'dn'],
     pipe: ['pipe', 'line no', 'line', 'branchname', 'branch name'],
     dtxr: ['dtxr', 'support', 'support description', 'description'],
