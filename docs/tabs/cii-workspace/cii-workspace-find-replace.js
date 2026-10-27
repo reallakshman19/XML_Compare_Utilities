@@ -162,7 +162,7 @@ export function renderFindReplacePanel() {
         <p>VNext uses its own independent file inputs, rules, approvals and export. Load your CII again inside VNext; switching does not transfer data.
           <a data-ciifr-vnext-tab target="_blank" rel="noopener noreferrer">Open VNext in a separate tab</a>.
         </p>
-        <iframe data-ciifr-vnext-frame title="Standalone CII Find & Replace VNext: Branch scope and synthetic demo"></iframe>
+        <iframe data-ciifr-vnext-frame title="Standalone CII Find & Replace VNext: Branch scope and synthetic demo" allow="fullscreen" allowfullscreen></iframe>
       </section>
     </section>
   `;

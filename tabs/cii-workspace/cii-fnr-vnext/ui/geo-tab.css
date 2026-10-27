@@ -1,0 +1,8 @@
+.ciifr-geo-panel[hidden] { display: none; }
+.ciifr-geo-panel { margin-top: 12px; min-width: 0; }
+.ciifr-geo-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.ciifr-geo-toolbar h2 { font-size: 17px; margin: 0; }
+.ciifr-geo-toolbar p { margin: 4px 0 0; color: #52687e; }
+.ciifr-geo-toolbar a { color: #175a9f; font-weight: 600; }
+.ciifr-geo-panel iframe { display: block; width: 100%; height: max(720px, calc(100dvh - 220px)); border: 1px solid #9aabba; border-radius: 6px; background: #101d2c; }
+main:has(> .ciifr-geo-panel:not([hidden])) { max-width: none; padding: 12px max(12px, 2vw); }

@@ -6,10 +6,11 @@ import { enforceNormalNodeClosure } from './normal-node-closure.js';
 import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
 import { resolveImportedCsv } from './csv-resolver.js';
 import { safeNonConflictIds } from './nonconflict-review.js';
+import { renderGeometryTab } from './geo-tab.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
-const tabs = [...workTabs, 'CONFIG'];
-const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
+const tabs = [...workTabs, 'CIIFR_GEO', 'CONFIG'];
+const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CIIFR_GEO: 'CIIFR_GEO', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -41,8 +42,9 @@ function renderTabs() {
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
     button.classList.toggle('selected', selected);
   }
-  $('[data-workspace]').hidden = active === 'CONFIG';
+  $('[data-workspace]').hidden = active === 'CONFIG' || active === 'CIIFR_GEO';
   $('[data-config-area]').hidden = active !== 'CONFIG';
+  renderGeometryTab($('[data-ciifr-geo-panel]'), active === 'CIIFR_GEO');
   for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
   $('[data-unavailable]').hidden = active === 'NORMAL';
@@ -413,7 +415,7 @@ root.addEventListener('keydown', (event) => {
 });
 root.addEventListener('click', async (event) => {
   const el = event.target.closest('button'); if (!el) return;
-  if (el.dataset.tab) {
+  if (el.dataset.tab && tabs.includes(el.dataset.tab)) {
     if (el.dataset.tab === active) return;
     invalidate(state()); active = el.dataset.tab; invalidate(state()); renderTabs(); renderRules(); renderResults(); renderCleanupReport();
     return;
