@@ -12,6 +12,71 @@ function xmlRows(xmlText, partition) {
   const model = createCategorizedInputXmlCanvasModel({ xmlText });
   return (model.records || []).filter((rec) => rec.levelId === 'element' && rec.lineKey === partition);
 }
+// Compare actual clearance measurements, not textual similarity of different
+// engineering fields.  REST/pipe clearance and GUIDE clearance are distinct.
+export function extractSupportGapMeasurements(text = '', { supportGapColumn = false } = {}) {
+  const input = clean(text);
+  const values = { rest: [], guide: [] };
+  const number = '(\\d+(?:[.,]\\d+)?)\\s*mm';
+  const patterns = [
+    new RegExp(number + '\\s*(?:(?:VERTICAL|PIPE|SUPPORT|REST|GUIDE)\\s+)?GAP\\b', 'gi'),
+    new RegExp('\\b(?:(?:GUIDE|VERTICAL|PIPE|SUPPORT|REST)\\s+)?GAP\\s*(?:=|:|-)\\s*' + number + '\\b', 'gi'),
+    new RegExp('\\b(?:(?:GUIDE|VERTICAL|PIPE|SUPPORT|REST)\\s+)?GAP\\s+' + number + '\\b', 'gi'),
+    new RegExp(number + '\\s*(?:CLEARANCE)\\b', 'gi'),
+  ];
+  for (const re of patterns) {
+    for (const match of input.matchAll(re)) {
+      const mmText = match[1];
+      const mm = Number(mmText.replace(',', '.'));
+      if (!Number.isFinite(mm) || mm < 0) continue;
+      const matched = match[0];
+      const before = input.slice(Math.max(0, match.index - 24), match.index);
+      const guide = /\bGUIDE\b/i.test(matched) ||
+        /\bGUIDE(?:\s*\([^)]*\))?\s*[,;:\[\]\s]*$/i.test(before);
+      const type = guide ? 'guide' : 'rest';
+      if (!values[type].includes(mm)) values[type].push(mm);
+    }
+  }
+  // The entire S1 field is a gap field, so a plain "25 mm" is meaningful.
+  // On the ISO note side a bare mm might mean axial displacement, so NEVER
+  // infer a gap there without the GAP or CLEARANCE keyword.
+  if (supportGapColumn && !values.rest.length && !values.guide.length) {
+    if (/^\s*(\d+(?:[.,]\d+)?)\s*mm\s*$/i.test(input)) {
+      const mm = Number(RegExp.$1.replace(',', '.'));
+      if (Number.isFinite(mm) && mm >= 0) values.rest.push(mm);
+    }
+  }
+  return Object.freeze({
+    rest: Object.freeze(values.rest),
+    guide: Object.freeze(values.guide),
+  });
+}
+const displayMm = (values) => values.length ? values.join(', ') : '';
+export function compareSupportGapWithIsoNote(supportGap = '', isoNote = '', identityStatus = 'MATCH') {
+  const s1 = extractSupportGapMeasurements(supportGap, { supportGapColumn: true });
+  const s2 = extractSupportGapMeasurements(isoNote);
+  const result = (status, reason) => Object.freeze({
+    status, reason,
+    s1RestMm: displayMm(s1.rest), s2RestMm: displayMm(s2.rest),
+    s1GuideMm: displayMm(s1.guide), s2GuideMm: displayMm(s2.guide),
+  });
+  if (identityStatus !== 'MATCH') return result('NOT_APPLICABLE', 'Pipeline and support identity are not uniquely matched.');
+  const kinds = ['rest', 'guide'].filter((kind) => s1[kind].length || s2[kind].length);
+  if (!kinds.length) {
+    return result(clean(supportGap) ? 'REVIEW' : 'NOT_SPECIFIED', clean(supportGap)
+      ? 'S1 Support Gap contains text but no unambiguous millimetre gap value.'
+      : 'Neither source declares a comparable rest or guide clearance in millimetres.');
+  }
+  if (kinds.some((kind) => s1[kind].length > 1 || s2[kind].length > 1)) {
+    return result('REVIEW', 'Multiple distinct clearances of the same type; manual review required.');
+  }
+  const mismatches = kinds.filter((kind) => s1[kind].length && s2[kind].length && Math.abs(s1[kind][0] - s2[kind][0]) > 0.000001);
+  if (mismatches.length) return result('MISMATCH', mismatches.map((kind) => kind + ' clearance differs').join('; '));
+  const missing = kinds.filter((kind) => !s1[kind].length || !s2[kind].length);
+  if (missing.length) return result('REVIEW', missing.map((kind) => kind.toUpperCase() + ' clearance stated on only one side').join('; ') + '.');
+  return result('MATCH', 'Same clearance in millimetres for each declared gap type. Other ISO note instructions are not compared.');
+}
+
 function extractRows(xmlText, side) {
   const mapping = side === 'S1';
   const partition = mapping ? 'PS_MAPPING_S1' : 'ISO_NOTES_S2';
@@ -22,7 +87,7 @@ function extractRows(xmlText, side) {
     const normalizedId = normalizeIsoSupport(id);
     const invalid = !normalizedPipe || !normalizedId || placeholder(normalizedId);
     return Object.freeze({
-      side, pipe, id, uid: clean(record.uid), normalizedPipe, normalizedId,
+      side, pipe, id, uid: clean(record.uid), supportGap: mapping ? clean(record.supportGap) : '', isoNote: mapping ? '' : clean(record.rawNote || record.supportISONOTE), normalizedPipe, normalizedId,
       key: !invalid ? identityKey(normalizedPipe, normalizedId) : '',
       valid: !invalid, placeholder: placeholder(normalizedId),
       sourceRef: clean(record.rawSummary?.sourceRefs || record.sourceRefs?.join(' ') || record.uid),
@@ -34,7 +99,7 @@ function reportRow(left, right, status, reason) {
   const a = left || null, b = right || null, first = a || b;
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
-    status, reason, sourceUid: a?.uid || '', targetUid: b?.uid || '', s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
+    status, reason, supportGap: a?.supportGap || '', isoNote: b?.isoNote || '', gap: compareSupportGapWithIsoNote(a?.supportGap || '', b?.isoNote || '', status), sourceUid: a?.uid || '', targetUid: b?.uid || '', s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
   });
 }
 function compareRows(s1, s2) {
@@ -89,8 +154,8 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
   return Object.freeze({
     schema: ISO_NOTE_DIRECT_COMPARE_SCHEMA, ok: true, rows,
     countS1: s1.length, countS2: s2.length,
-    summary: Object.freeze({ match: count('MATCH'), s1Only: count('S1_ONLY'), s2Only: count('S2_ONLY'), review: count('REVIEW') }),
-    message: 'Compared S1 pipe + PS NO against S2 LinenoinCII + NODE_NAME. Removes only leading slashes, trims whitespace, and ignores case.',
+    summary: Object.freeze({ match: count('MATCH'), s1Only: count('S1_ONLY'), s2Only: count('S2_ONLY'), review: count('REVIEW'), gapMatch: rows.filter((item) => item.gap.status === 'MATCH').length, gapMismatch: rows.filter((item) => item.gap.status === 'MISMATCH').length, gapReview: rows.filter((item) => item.gap.status === 'REVIEW').length, gapNotSpecified: rows.filter((item) => item.gap.status === 'NOT_SPECIFIED').length }),
+    message: 'Exact pipeline + full support ID comparison. Support Gap vs ISONOTE clearance macro compares rest and guide millimetre gaps separately; 60% text similarity is not used. Loads (kN) and axial displacement are not gaps.',
   });
 }
 // Only exact one-to-one S1->S2 keys can enter the approval ledger.
@@ -133,19 +198,19 @@ function csvCell(value) {
   return '"' + safe.replaceAll('"', '""') + '"';
 }
 export function serializeIsoNoteMappingCsv(report) {
-  const headings = ['PIPE', 'PS NO (S1)', 'NODE_NAME (S2)', 'RESULT', 'REASON', 'S1 SOURCE REF', 'S2 SOURCE REF'];
-  const rows = (report?.rows || []).map((r) => [r.pipe, r.psNo, r.nodeName, r.status, r.reason, r.s1Ref, r.s2Ref].map(csvCell).join(','));
+  const headings = ['PIPE', 'PS NO (S1)', 'NODE_NAME (S2)', 'RESULT', 'REASON', 'S1 SOURCE REF', 'S2 SOURCE REF', 'Support Gap (S1)', 'ISONOTE (S2)', 'Rest Gap S1 mm', 'Rest Gap S2 mm', 'Guide Gap S1 mm', 'Guide Gap S2 mm', 'Gap Result', 'Gap Details'];
+  const rows = (report?.rows || []).map((r) => [r.pipe, r.psNo, r.nodeName, r.status, r.reason, r.s1Ref, r.s2Ref, r.supportGap, r.isoNote, r.gap.s1RestMm, r.gap.s2RestMm, r.gap.s1GuideMm, r.gap.s2GuideMm, r.gap.status, r.gap.reason].map(csvCell).join(','));
   return [headings.map(csvCell).join(','), ...rows].join('\r\n') + '\r\n';
 }
 export function renderIsoNoteMappingCompareHtml(report = null, linkedCount = 0) {
   if (!report) return '';
   if (!report.ok) return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><h3>PS Mapping ↔ ISO Notes</h3><p role="alert">' + escapeHtml(report.message) + '</p></section>';
   const s = report.summary;
-  const rows = report.rows.map((r) => '<tr><td>' + escapeHtml(r.pipe) + '</td><td>' + escapeHtml(r.psNo || '—') + '</td><td>' + escapeHtml(r.nodeName || '—') + '</td><td><b>' + escapeHtml(r.status.replace('_', ' ')) + '</b></td><td>' + escapeHtml(r.reason) + '</td></tr>').join('');
+  const rows = report.rows.map((r) => '<tr><td>' + escapeHtml(r.pipe) + '</td><td>' + escapeHtml(r.psNo || '—') + '</td><td>' + escapeHtml(r.nodeName || '—') + '</td><td><b>' + escapeHtml(r.status.replace('_', ' ')) + '</b></td><td>' + escapeHtml(r.reason) + '</td><td style="max-width:240px;white-space:normal">' + escapeHtml(r.supportGap || '—') + '</td><td style="max-width:360px;white-space:normal">' + escapeHtml(r.isoNote || '—') + '</td><td>' + escapeHtml((r.gap.s1RestMm || '—') + ' / ' + (r.gap.s2RestMm || '—')) + '</td><td>' + escapeHtml((r.gap.s1GuideMm || '—') + ' / ' + (r.gap.s2GuideMm || '—')) + '</td><td><b>' + escapeHtml(r.gap.status) + '</b></td><td>' + escapeHtml(r.gap.reason) + '</td></tr>').join('');
   return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><div class="xml-compare-panel-title">PS Mapping ↔ ISO Notes: ' +
     escapeHtml(report.countS1) + ' S1 rows / ' + escapeHtml(report.countS2) + ' S2 rows</div><p>' + escapeHtml(report.message) +
     '</p><p><b>Anchors linked:</b> ' + linkedCount + ' / ' + s.match + ' exact matches. Review &amp; Transfer opens the approved links; no properties have been transferred.</p><p><b>Match:</b> ' + s.match + ' &nbsp; <b>S1 only:</b> ' + s.s1Only + ' &nbsp; <b>S2 only:</b> ' + s.s2Only +
-    ' &nbsp; <b>Review:</b> ' + s.review + '</p><button type="button" data-xml-compare-action="download-iso-note-comparison-csv">Download comparison CSV</button>' +
-    '<div style="max-height:390px;overflow:auto"><table class="xml-compare-topology-table"><thead><tr><th>Normalized pipeline</th><th>PS NO (S1)</th><th>NODE_NAME (S2)</th><th>Result</th><th>Details</th></tr></thead><tbody>' +
+    ' &nbsp; <b>Review:</b> ' + s.review + '</p><p><b>Gap match:</b> ' + s.gapMatch + ' &nbsp; <b>Gap mismatch:</b> ' + s.gapMismatch + ' &nbsp; <b>Gap review:</b> ' + s.gapReview + ' &nbsp; <b>Gap not specified:</b> ' + s.gapNotSpecified + '</p><button type="button" data-xml-compare-action="download-iso-note-comparison-csv">Download comparison CSV</button>' +
+    '<div style="max-height:390px;overflow:auto"><table class="xml-compare-topology-table"><thead><tr><th>Normalized pipeline</th><th>PS NO (S1)</th><th>NODE_NAME (S2)</th><th>Result</th><th>Details</th><th>Support Gap (S1)</th><th>ISONOTE (S2)</th><th>Rest gap S1 / S2 (mm)</th><th>Guide gap S1 / S2 (mm)</th><th>Gap result</th><th>Gap details</th></tr></thead><tbody>' +
     rows + '</tbody></table></div></section>';
 }
