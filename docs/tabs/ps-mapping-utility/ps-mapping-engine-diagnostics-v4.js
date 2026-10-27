@@ -94,6 +94,12 @@ function hasCleanResolvedContext(row) {
 }
 
 function markGapExact(row, comparison) {
+  const previousDetail = String(row.gapMatchDetail || '');
+  if (String(row.reason || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reason || ''))) row.reason = '';
+  if (String(row.reviewAction || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reviewAction || ''))) row.reviewAction = '';
+  row.supportGapMatch = comparison.status;
   row.gapMatch = comparison.status;
   row.gapMatchDetail = comparison.detail;
   row.supportGapBasis = comparison.status;
@@ -107,13 +113,14 @@ function markGapExact(row, comparison) {
     row.autoSelectable = true;
     row.confidence = 'HIGH';
     row.confidenceScore = Math.max(Number(row.confidenceScore || 0), 90);
-    row.reason = row.selected ? 'Selected best auto-approved consolidated Table-1 candidate.' : `${comparison.kind === 'LINE_STOP' ? 'Line stop' : 'Guide'} gap comparison matched.`;
+    row.reason = row.selected ? 'Selected best auto-approved consolidated Table-1 candidate.' : comparison.kind === 'REST_CLEARANCE' ? 'Non-contact REST clearance matched.' : `${comparison.kind === 'LINE_STOP' ? 'Line stop' : 'Guide'} gap comparison matched.`;
     row.reviewAction = '';
     row.nodeCoverageNote = '';
   }
 }
 
 function markGapReview(row, comparison) {
+  row.supportGapMatch = comparison.status;
   row.gapMatch = comparison.status;
   row.gapMatchDetail = comparison.detail;
   row.supportGapBasis = comparison.status;
