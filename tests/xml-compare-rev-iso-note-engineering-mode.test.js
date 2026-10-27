@@ -115,6 +115,9 @@ const workspace = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceMod
 assert.match(runtime, /targetTab === 'rev-compare'\) \{ render\(container, state\)/, 'Tab 3 switch must rebuild its content');
 assert.match(runtime, /createIsoNoteRevCompareAudit\(\{ sourceXml: state\.textA, targetXml: state\.textB \}\)/);
 assert.match(runtime, /isoNoteRevAudit: audit/);
+assert.match(runtime, /isIsoNoteEngineeringInput\(state\.textA, state\.textB\)/, 'ISO engineering reports cannot silently stage or apply properties');
+assert.match(runtime, /iso-note-engineering-findings\.csv/);
+assert.match(runtime, /iso-note-engineering-audit\.json/);
 assert.match(workspace, /isoNoteRevAudit/);
 assert.match(popup, /Tab 3: ISO Engineering Audit/);
 console.log('xml-compare-rev-iso-note-engineering-mode.test.js passed');
