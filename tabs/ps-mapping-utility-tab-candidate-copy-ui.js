@@ -364,7 +364,7 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
       return;
     }
     const tab = event.target?.closest?.('[data-psmap-tab]')?.dataset?.psmapTab;
-    if (tab === 'candidates') scheduleEnhance();
+    if (action === 'open' || tab === 'candidates') scheduleEnhance();
   };
   document.addEventListener('click', clickHandler, true);
   scheduleEnhance();
