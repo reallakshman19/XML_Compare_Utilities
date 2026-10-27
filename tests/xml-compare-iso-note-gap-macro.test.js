@@ -86,7 +86,7 @@ const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Support Gap \(S1\)","ISONOTE \(S2\)"/);
 assert.match(csv, /"25mm GAP BETWEEN BOP AND TOS"/);
 assert.match(csv, /DO NOT REST \[25mm GAP\]/);
-assert.match(csv, /"MISMATCH","Different rest clearance in mm"/);
+assert.match(csv, /"MISMATCH","Different rest clearance in mm\."/);
 
 const html = renderIsoNoteMappingCompareHtml(report, anchors.length);
 assert.match(html, /Gap mismatch:<\/b> 1/);
