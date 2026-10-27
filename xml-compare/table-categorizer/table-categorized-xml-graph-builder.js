@@ -1,4 +1,5 @@
 import { createJoinedRowContexts } from './table-categorized-xml-join-engine.js';
+import { isoNoteIdentityWarnings } from './table-categorized-xml-iso-note-dual-source.js';
 import { createResolverContext, runResolver } from './table-categorized-xml-resolver-engine.js';
 import { CATEGORIZED_GRAPH_SCHEMA, createGraphEdge, createGraphNode } from './table-categorized-xml-graph-contracts.js';
 import { IMPLEMENTED_CREATION_MODES } from './table-categorized-xml-profile-validation.js';
@@ -6,8 +7,8 @@ import { IMPLEMENTED_CREATION_MODES } from './table-categorized-xml-profile-vali
 export const TABLE_CATEGORIZED_XML_GRAPH_BUILDER_SCHEMA='table-categorized-xml-graph-builder/v4-many-evidence';
 
 export function buildCategorizedGraph(profile,sources=[],options={}){
-  const joined=options.joinedRows?{rows:options.joinedRows,diagnostics:[]} : createJoinedRowContexts(sources,profile?.joins||[],{drivingSourceId:profile?.drivingSourceId||sources[0]?.sourceId});
-  const state={profile,sources,context:options.resolverContext||createResolverContext({coordinateCluster:profile?.coordinateCluster||{},sources}),nodes:[],edges:[],diagnostics:[...(joined.diagnostics||[]),...unsupportedModeDiagnostics(profile)],nodeIndex:0,edgeIndex:0};
+  const joined=options.joinedRows?{rows:options.joinedRows,diagnostics:[]} : createJoinedRowContexts(sources,profile?.joins||[],{drivingSourceId:profile?.drivingSourceId||sources[0]?.sourceId,rowMode:profile?.sourceRowMode});
+  const state={profile,sources,context:options.resolverContext||createResolverContext({coordinateCluster:profile?.coordinateCluster||{},sources}),nodes:[],edges:[],diagnostics:[...(joined.diagnostics||[]),...(profile?.isoNotePlaceholderPolicy==='warn-and-preserve'?isoNoteIdentityWarnings(sources):[]),...unsupportedModeDiagnostics(profile)],nodeIndex:0,edgeIndex:0};
   if(hasBlockers(state.diagnostics))return graphResult(profile,sources,state);
   for(const level of profile.levelDefinitions||[])buildLevel(state,level,null,joined.rows||[]);
   return graphResult(profile,sources,state);

@@ -13,6 +13,7 @@ import { FIELD_COMPARISON_SAMPLE, FIELD_COMPARISON_SAMPLE_PROFILE, ISO_NOTE_RECI
 import { activeSource, addSource, createMultiSourceState, parseSourceDraft, removeSource, setActiveSource, updateSourceDraft, updateSourceTransformRules } from '../xml-compare/table-categorizer/table-categorized-xml-source-manager.js';
 import { createSourceTransformRule } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
 import { TABLE_CATEGORIZED_XML_BUTTON_ATTR, TABLE_CATEGORIZED_XML_POPUP_ATTR, renderTableCategorizedXmlButtonHtml, renderTableCategorizedXmlShellHtml } from '../xml-compare/table-categorizer/table-categorized-xml-shell.js?v=20260709-field-comparison-sample';
+import { ISO_NOTE_DUAL_SOURCE_PROFILE, ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-dual-source.js';
 import { runCategorizerValidation } from '../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 
 export const XML_COMPARE_TABLE_CATEGORIZED_RUNTIME_SCHEMA = 'xml-compare-table-categorized-runtime/v20-isorecipe-autoload';
@@ -110,31 +111,40 @@ function loadFieldComparisonSample() { state.profile = FIELD_COMPARISON_SAMPLE_P
 function loadCoordinateSample() { let next = { sources: state.sources, activeSourceId: state.activeSourceId }; if (!next.sources.some((s) => s.sourceId === 'S2')) next = addSource(next, 'Coordinate Lookup'); next = setActiveSource(next, 'S2'); next = updateSourceDraft(next, 'S2', { sourceName: 'Coordinate Lookup Sample', sourceText: PS_MAPPING_COORDINATE_LOOKUP_SAMPLE, sourceType: 'pasteText' }); setSources(parseSourceDraft(next, 'S2')); resetDerived(); setActiveTab('source'); renderShell(); }
 function loadTwoSourceTemplate() { state.profile = PS_MAPPING_TABLE_2_COORDINATE_LOOKUP_PROFILE; state.activePivotViewId = ''; let next = createMultiSourceState(); next = updateSourceDraft(next, 'S1', { sourceName: 'PS Mapping Table 2 Model Sample', sourceText: PS_MAPPING_TABLE_2_MODEL_SAMPLE }); next = parseSourceDraft(next, 'S1'); next = addSource(next, 'Coordinate Lookup'); next = updateSourceDraft(next, 'S2', { sourceName: 'Coordinate Lookup Sample', sourceText: PS_MAPPING_COORDINATE_LOOKUP_SAMPLE }); next = parseSourceDraft(next, 'S2'); setSources(setActiveSource(next, 'S1')); resetDerived(); setActiveTab('levels'); renderShell(); }
 function loadIsoNoteTemplate() {
-  const transformRules = [
-    { ruleId: 'iso1', enabled: true, newColumn: 'Base_ID', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '^/?([^\\s/:\'"]+)', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso2', enabled: true, newColumn: 'Revision', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '^/?(?:[^\\s/:\'"]+)(?:\\.(\\d+))?', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso3', enabled: true, newColumn: 'Rest_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso4', enabled: true, newColumn: 'Guide_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso5', enabled: true, newColumn: 'Guide_Gap', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso6', enabled: true, newColumn: 'Line_Stop_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bLINE\\s*STOP\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso7', enabled: true, newColumn: 'Rest_Load_Clean', sourceColumn: 'Rest_Load', operation: 'parse-number', find: '', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso8', enabled: true, newColumn: 'Guide_Load_Clean', sourceColumn: 'Guide_Load', operation: 'parse-number', find: '', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso9', enabled: true, newColumn: 'Guide_Gap_Clean', sourceColumn: 'Guide_Gap', operation: 'parse-number', find: '', replaceWith: '', group: 1, trim: true },
-    { ruleId: 'iso10', enabled: true, newColumn: 'Line_Stop_Load_Clean', sourceColumn: 'Line_Stop_Load', operation: 'parse-number', find: '', replaceWith: '', group: 1, trim: true }
+  // S1 is the PS mapping source and S2 contains ISO notes. Do not apply ISO
+  // regex transforms to S1 or replace user-pasted data when loading a recipe.
+  const isoRules = [
+    { ruleId: 'iso-id', enabled: true, newColumn: 'Support_ID', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_FULL_ID_PATTERN, group: 1, trim: true },
+    { ruleId: 'iso-revision', enabled: true, newColumn: 'Revision', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_SUFFIX_PATTERN, group: 1, trim: true },
+    { ruleId: 'iso-rest', enabled: true, newColumn: 'Rest_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
+    { ruleId: 'iso-guide', enabled: true, newColumn: 'Guide_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
+    { ruleId: 'iso-guide-gap', enabled: true, newColumn: 'Guide_Gap', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm', group: 1, trim: true },
+    { ruleId: 'iso-line-stop', enabled: true, newColumn: 'Line_Stop_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bLINE\\s*STOP\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true }
   ];
-  state.profile = ISO_NOTE_RECIPE_PROFILE; state.activePivotViewId = '';
+  state.profile = ISO_NOTE_DUAL_SOURCE_PROFILE;
+  state.selectedLevelPath = '0';
+  state.activePivotViewId = '';
   let next = createMultiSourceState();
-  let currentS1 = state.sources.find(s => s.sourceId === 'S1')?.sourceText || '';
-  let s1Text = currentS1.trim() ? currentS1 : ISO_NOTE_TABLE_1_SAMPLE;
-  next = updateSourceDraft(next, 'S1', { sourceName: 'ISO Note Table 1', sourceText: s1Text, delimiterMode: 'tab', transformRules });
+  const currentS1 = state.sources.find(s => s.sourceId === 'S1');
+  const currentS2 = state.sources.find(s => s.sourceId === 'S2');
+  const s1Text = currentS1?.sourceText?.trim() ? currentS1.sourceText : PS_MAPPING_TABLE_2_SAMPLE;
+  const s2Text = currentS2?.sourceText?.trim() ? currentS2.sourceText : ISO_NOTE_TABLE_2_SAMPLE;
+  next = updateSourceDraft(next, 'S1', {
+    sourceName: currentS1?.sourceText?.trim() ? currentS1.sourceName : 'PS Mapping / S1',
+    sourceText: s1Text, delimiterMode: currentS1?.delimiterMode || 'tab', transformRules: []
+  });
   next = parseSourceDraft(next, 'S1');
-  next = addSource(next, 'ISO Note Table 2');
-  let currentS2 = state.sources.find(s => s.sourceId === 'S2')?.sourceText || '';
-  let s2Text = currentS2.trim() ? currentS2 : ISO_NOTE_TABLE_2_SAMPLE;
-  next = updateSourceDraft(next, 'S2', { sourceName: 'ISO Note Table 2', sourceText: s2Text, delimiterMode: 'tab', transformRules });
+  next = addSource(next, 'ISO Notes / S2');
+  next = updateSourceDraft(next, 'S2', {
+    sourceName: currentS2?.sourceText?.trim() ? currentS2.sourceName : 'ISO Notes / S2',
+    sourceText: s2Text, delimiterMode: currentS2?.delimiterMode || 'tab', transformRules: isoRules
+  });
   next = parseSourceDraft(next, 'S2');
-  setSources(setActiveSource(next, 'S1')); resetDerived();
-  state.exportStatus = 'Loaded ISO Note Template with mapping rules.'; setActiveStep('structure'); renderShell();
+  setSources(setActiveSource(next, 'S2'));
+  resetDerived();
+  state.exportStatus = 'Loaded ISO Note S1/S2 template. Confirm fields and build the structure; placeholder IDs remain as warnings.';
+  setActiveTab('levels');
+  renderShell();
 }
 function clearActive() { const a = active(); setSources(updateSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId, { ...a, sourceText: '', headers: [], rows: [], diagnostics: [], transformRules: [] })); resetDerived(); renderShell(); }
 function applyProfileChanges() { const root = document.querySelector(POPUP_SELECTOR); if (!root) return; let p = updateProfileHeader(state.profile, { profileId: value(root, '[data-profile-field="profileId"]'), displayName: value(root, '[data-profile-field="displayName"]') }); const parentNames = names(root, '[data-parent-name]').slice(0, 3); if (parentNames.length) p = setChildrenNames(p, [0, 0], parentNames, { levelType: 'group', creationMode: 'one-per-key', keyColumn: active()?.headers?.[0] || 'PS NO' }); state.profile = p; state.profileValidation = validateEditableProfile(state.profile, { sources: state.sources.filter((s) => s.rows?.length) }); resetDerived(); state.exportStatus = 'Profile changes applied.'; setActiveTab('levels'); renderShell(); }
