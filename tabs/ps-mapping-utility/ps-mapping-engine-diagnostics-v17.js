@@ -77,16 +77,8 @@ function supportSet(...values) {
 }
 
 function t1Text(row = {}) {
-  return [
-    row.supportTypesAvailable,
-    row.nodeMasterKeywords,
-    row.table1SupportTypes,
-    row.nodeIsonote,
-    row.nodeIsonoteRaw,
-    row.isonote,
-    row.ISONOTE,
-    row['ISONOTE'],
-  ].filter(Boolean).join(' ');
+  const iso = row.nodeIsonote || row.nodeIsonoteRaw || row.isonote || row.ISONOTE || row['ISONOTE'];
+  return iso || [row.supportTypesAvailable, row.nodeMasterKeywords, row.table1SupportTypes].filter(Boolean).join(' ');
 }
 
 function t2Text(row = {}) {
@@ -105,7 +97,13 @@ function t1Types(row = {}) {
 }
 
 function t2Types(row = {}) {
-  return supportSet(t2Text(row));
+  const types = supportSet(t2Text(row));
+  // A model REST component with a non-contact requirement is not an active
+  // REST restraint for node coverage; its gap is checked independently.
+  if (/\bDO\s+NOT\s+REST\b/i.test(t1Text(row)) && types.has('REST')) {
+    types.delete('REST');
+  }
+  return types;
 }
 
 function orderedDifference(a, b) {
@@ -167,12 +165,20 @@ function buildGroup(row = {}) {
 
 function rowGapAction(row = {}) {
   const action = clean(row.psNoWiseAction || '');
-  return /^Correct Table-2 .+ GAP to Table-1/i.test(action) ? action : '';
+  return /^Correct Table-2 .+(?:GAP|REST clearance) to Table-1/i.test(action) ? action : '';
 }
 
 function addUnique(list, value) {
   const text = clean(value);
   if (text && !list.includes(text)) list.push(text);
+}
+
+function isAcceptedMapping(row = {}) {
+  return row.source !== 'TABLE1C_MISSING_SUPPORT'
+    && row.syntheticMissingSupport !== true
+    && row.finalStatus === 'MATCHED'
+    && row.reviewRequired !== true
+    && row.autoSelectable !== false;
 }
 
 function buildGroups(rows = []) {
@@ -185,13 +191,10 @@ function buildGroups(rows = []) {
     group.rows.push(row);
     unionInto(group.t1, t1Types(row));
     unionInto(group.t2, t2Types(row));
-    if (isLineBoreClean(row)) unionInto(group.cleanT2, t2Types(row));
+    if (isLineBoreClean(row) && isAcceptedMapping(row)) unionInto(group.cleanT2, t2Types(row));
     addUnique(group.gapActions, rowGapAction(row));
   }
 
-  for (const group of groups.values()) {
-    if (!group.cleanT2.size) unionInto(group.cleanT2, group.t2);
-  }
   return groups;
 }
 
@@ -258,9 +261,8 @@ function rowSpecificAction(row = {}, group = null) {
   return '';
 }
 
-function applyNodeRestraintCoverage(rows) {
+function applyNodeRestraintCoverage(rows, groups) {
   if (!Array.isArray(rows)) return rows;
-  const groups = buildGroups(rows);
 
   return rows.map((row) => {
     const key = groupKey(row);
@@ -298,13 +300,14 @@ function applyNodeRestraintCoverage(rows) {
 
 export function runPsMappingResolver(input = {}) {
   const result = runV16PsMappingResolver(input);
+  const groups = buildGroups(result.rows || []);
   return {
     ...result,
-    rows: applyNodeRestraintCoverage(result.rows),
-    outputRows: applyNodeRestraintCoverage(result.outputRows),
-    validatorRows: applyNodeRestraintCoverage(result.validatorRows),
-    candidateRows: applyNodeRestraintCoverage(result.candidateRows),
-    candidates: applyNodeRestraintCoverage(result.candidates),
+    rows: applyNodeRestraintCoverage(result.rows, groups),
+    outputRows: applyNodeRestraintCoverage(result.outputRows, groups),
+    validatorRows: applyNodeRestraintCoverage(result.validatorRows, groups),
+    candidateRows: applyNodeRestraintCoverage(result.candidateRows, groups),
+    candidates: applyNodeRestraintCoverage(result.candidates, groups),
     approxConfig: {
       ...(result.approxConfig || {}),
       psMappingPresentationRules: 'Readable v17: node restraint package coverage is shown separately from row-local support matching. Missing support actions use synthetic PS-XYZ.Xn IDs and never reuse existing .1/.2 Table-2 row numbers.',
