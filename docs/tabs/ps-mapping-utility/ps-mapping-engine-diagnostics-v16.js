@@ -177,7 +177,10 @@ function legacyDuplicateReason(row = {}) {
 function extraRequestedTypes(row = {}) {
   const t1 = t1Types(row);
   const t2 = t2Types(row);
-  return orderedTypes(t2).filter((type) => !t1.has(type));
+  return orderedTypes(t2).filter((type) => {
+    if (type === 'REST' && /\bDO\s+NOT\s+REST\b/i.test(t1Text(row)) && /^REST_CLEARANCE_/.test(gapStatus(row))) return false;
+    return !t1.has(type);
+  });
 }
 
 function legacyReason(row = {}, supportMatch = rowLocalSupportMatch(row), status = gapStatus(row)) {
