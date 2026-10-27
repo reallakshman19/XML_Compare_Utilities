@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
-import { compareIsoNoteMapping, normalizeIsoLine, normalizeIsoSupport, serializeIsoNoteMappingCsv, renderIsoNoteMappingCompareHtml } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
+import { compareIsoNoteMapping, buildIsoNoteAnchorCandidates, normalizeIsoLine, normalizeIsoSupport, serializeIsoNoteMappingCsv, renderIsoNoteMappingCompareHtml } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
+import { createXmlCompareCanvasState, applyXmlCompareCanvasAction } from '../xml-compare/XmlCompareCanvasStateController.js';
 
 const S1 = [
   ['PIPE-1/B4', 'PS-006.5'],
@@ -51,6 +52,27 @@ assert.ok(result.rows.every((rec) => rec.status !== 'MATCH' || (rec.psNo && rec.
 assert.ok(result.rows.some((rec) => rec.psNo === 'PS-006.1' && rec.status === 'S1_ONLY'), 'same ID with different pipeline is not a match');
 assert.ok(result.rows.some((rec) => rec.nodeName === 'PS-006.1' && rec.status === 'S2_ONLY'));
 
+const anchors = buildIsoNoteAnchorCandidates({ report: result, sourceRecords: model.records, targetRecords: model.records });
+assert.equal(anchors.length, 1, 'only one unique exact S1-to-S2 candidate, never a self-match');
+assert.equal(anchors[0].sourceUid.includes('PS_MAPPING_S1'), true);
+assert.equal(anchors[0].targetUid.includes('ISO_NOTES_S2'), true);
+assert.equal(anchors[0].transformBasis, 'identity-key');
+assert.equal(anchors[0].method, 'iso-note-exact-key');
+assert.deepEqual(buildIsoNoteAnchorCandidates({ report: result, sourceRecords: model.records.filter((rec) => rec.lineKey === 'ISO_NOTES_S2'), targetRecords: model.records }), [], 'mapping partition must exist on source side');
+assert.deepEqual(buildIsoNoteAnchorCandidates({ report: result, sourceRecords: model.records, targetRecords: model.records.filter((rec) => rec.lineKey === 'PS_MAPPING_S1') }), [], 'notes partition must exist on target side');
+
+let canvas = createXmlCompareCanvasState({ compareFields: ['supportId'], levelViews: { source: { levelId: 'element' }, target: { levelId: 'element' } } });
+canvas = applyXmlCompareCanvasAction(canvas, { type: 'select-record', side: 'source', records: model.records, uid: anchors[0].sourceUid });
+canvas = applyXmlCompareCanvasAction(canvas, { type: 'select-record', side: 'target', records: model.records, uid: anchors[0].targetUid });
+canvas = applyXmlCompareCanvasAction(canvas, { type: 'request-auto-map', scope: 'node' });
+assert.equal(canvas.autoMapRequest.sourceUid, anchors[0].sourceUid);
+assert.equal(canvas.autoMapRequest.targetUid, anchors[0].targetUid);
+canvas = applyXmlCompareCanvasAction(canvas, { type: 'bulk-approve-candidate-pairs', candidates: anchors });
+assert.equal(canvas.approvedMatchSet?.summary?.approvedCount, 1, 'an exact ISO Note match must reach the actual approval ledger');
+assert.equal(canvas.manualConnectors?.length, 1);
+assert.equal(canvas.manualConnectors[0].sourceUid, anchors[0].sourceUid);
+assert.equal(canvas.manualConnectors[0].targetUid, anchors[0].targetUid);
+
 const oneDocument = compareIsoNoteMapping({ sourceXml: input });
 assert.deepEqual(oneDocument.summary, result.summary);
 const split = compareIsoNoteMapping({
@@ -73,7 +95,9 @@ assert.match(html, /S1 only/);
 const view = fs.readFileSync(new URL('../xml-compare/XmlCompareTabView.js', import.meta.url), 'utf8');
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
 assert.match(view, /data-xml-compare-action="compare-iso-note-mapping"/);
-assert.match(view, /renderIsoNoteMappingCompareHtml\(state\.isoNoteComparison\)/);
+assert.match(view, /renderIsoNoteMappingCompareHtml\(state\.isoNoteComparison, state\.isoNoteLinkedCount\)/);
 assert.match(runtime, /compareIsoNoteMapping\(\{ sourceXml: state\.textA, targetXml: state\.textB \}\)/);
+assert.match(runtime, /linkExactIsoNotePairs\(state, state\.isoNoteComparison\)/);
+assert.match(runtime, /bulk-approve-candidate-pairs/);
 assert.match(runtime, /serializeIsoNoteMappingCsv\(state\.isoNoteComparison\)/);
 console.log('xml-compare-iso-note-direct-compare.test.js passed');
