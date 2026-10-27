@@ -1,0 +1,224 @@
+{
+  "task": "CIIFR-GEO-MULTIBASE-20261026",
+  "base_commit": "668c22b49077520e911a3ef64a931c94db3a0a29",
+  "files": [
+    {
+      "path": "agents/PR185_workreport.md",
+      "bytes": 24254,
+      "sha256": "6ded1c3d3da72613b9073c095eb59040501f4c75cc93407c9f61d676702c113e",
+      "git_blob": "28c5079ba4105fe2669d8c077132a24002cb33a4"
+    },
+    {
+      "path": "prototypes/ciifr-map/README.md",
+      "bytes": 16205,
+      "sha256": "4acc4947e2091bb47f89549c7d190d208b05ee087c8fe0c945c63c4e236712ec",
+      "git_blob": "d75b0af8003107bc0ef825497ffda009e4eb52c1"
+    },
+    {
+      "path": "prototypes/ciifr-map/app.js",
+      "bytes": 13817,
+      "sha256": "66e1dff863a64d6a0926f4b1ee01223fdb794892586c4898032bf693b8f7536a",
+      "git_blob": "77a905aba3b20bd09d2f83722cba46fa35238919"
+    },
+    {
+      "path": "prototypes/ciifr-map/camera-presentation.js",
+      "bytes": 1183,
+      "sha256": "21ca9524423115e706d90db6ae7e1779adef31df80a437a0fc6aafe07267ab52",
+      "git_blob": "773d073e1205910ac718561185a06ab2fb513d77"
+    },
+    {
+      "path": "prototypes/ciifr-map/geo-viewer-bridge.js",
+      "bytes": 6147,
+      "sha256": "557c3c8c6b1f30fc6f3c005ab1627e3261bdb16916ad59e2f1728bfa4d117abb",
+      "git_blob": "a902c5ad993afa39c19540ddd065db8cf9c7d901"
+    },
+    {
+      "path": "prototypes/ciifr-map/index.html",
+      "bytes": 8113,
+      "sha256": "16fc4962018f2dda8b4c5d484ceffc09169f1223e74f4076513cc4b72031cadf",
+      "git_blob": "37497b1d5be7c19c727df9948aa510c6a6dc4ea5"
+    },
+    {
+      "path": "prototypes/ciifr-map/multibase-view.js",
+      "bytes": 5901,
+      "sha256": "50db51fd2aec6c7d148ac9044231ef1157cda6b146ad2e8e7b8f89929b42f340",
+      "git_blob": "e97f611fa8aa7b018649610b22795a702b2061ca"
+    },
+    {
+      "path": "prototypes/ciifr-map/multibase.css",
+      "bytes": 2148,
+      "sha256": "ce79713c7564d995aed61e9a1f3f3afee48fa53e2bf897e203d79b11d1de4e23",
+      "git_blob": "250faa450dd8fd8857bb90f4bfed62e6120c9750"
+    },
+    {
+      "path": "prototypes/ciifr-map/proposal-ledger.js",
+      "bytes": 4978,
+      "sha256": "51bd27d89668d4625b921076ace9bad853c59bdbe3e7dedb4817b3a5694e6a64",
+      "git_blob": "755324efdc22ff9e598773f4c6ac064d73e97070"
+    },
+    {
+      "path": "prototypes/ciifr-map/resolution-fit.js",
+      "bytes": 4518,
+      "sha256": "e96f7497fc65829cc00c48bfb967881b7b19a6771b39d3837ee5ce4cb3f0a469",
+      "git_blob": "5a9262e23572d2e950bef07ed4a6aea46c94e17c"
+    },
+    {
+      "path": "prototypes/ciifr-map/resolution-search.js",
+      "bytes": 7816,
+      "sha256": "6c34909f2da650e0322299ca618e6fe6cc80f1b4b25e5c2ab7d088a9cb7a2c26",
+      "git_blob": "915f3df9e8040fdcaa37a8952576be042ed928eb"
+    },
+    {
+      "path": "prototypes/ciifr-map/resolution-worker.js",
+      "bytes": 421,
+      "sha256": "e506858d5b81272d2e50f2fa6596bc1805dd4778e3bec4a3be4f9ee710c60107",
+      "git_blob": "67005e30b3bf80c61bf77bbd6354def7d9b4afdb"
+    },
+    {
+      "path": "prototypes/ciifr-map/review-viewport.js",
+      "bytes": 5708,
+      "sha256": "f7365b2368e8ff164da0497ee7e975e6c49877a7fc0e31ec5396545619289e66",
+      "git_blob": "c411f552f85ff217897ad7a3af81f7cf0d773c0e"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/app-startup-ownership.test.mjs",
+      "bytes": 10393,
+      "sha256": "ce0e410aabba6534a752ab78a4385a2f11ed0d5523c19052600db134deabbda6",
+      "git_blob": "3cc0ba494fc7410289745bebdc84779e036fecce"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/camera-presentation.test.mjs",
+      "bytes": 1394,
+      "sha256": "c3acabb3996b5b3cc5c42d55a2bcdb62a087b1bbcb3cda2ad1314584919d9858",
+      "git_blob": "ac98423bf1784063c7ee720c994dba482e4d02a5"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/multibase-workbench.test.mjs",
+      "bytes": 7230,
+      "sha256": "28ac3c4e3cf90440901d8bfbf130a7eada16f2c740b4c66dc74e2280552921e7",
+      "git_blob": "960d433de55d1ec3d13409003c795c4d9e401d4e"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/navigation-popup.test.mjs",
+      "bytes": 9050,
+      "sha256": "e1c7655fb3a8d1be3a4a17002ee5e2d2ea30a47f328d51078be6fed72ded7c81",
+      "git_blob": "bf8237b0c50c96fa0808c4f4b0aa1aa5dc135e94"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/resolution-policy.test.mjs",
+      "bytes": 2881,
+      "sha256": "732212ed463a23402cc7dc1d2af99498ca5e94facddf55b042b6f6abb5fec2cd",
+      "git_blob": "72a467ddfc04358c28288a403df2763c3ea9c89a"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/svg-view-state.test.mjs",
+      "bytes": 3790,
+      "sha256": "217e5e0d472ff5300038bda79535cf9e9ae58a3044c908e90adc6051355a1332",
+      "git_blob": "9993b6e5da42e6771d3c214a23abe72bfce5821f"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/unlinked-node-selection.test.mjs",
+      "bytes": 5763,
+      "sha256": "15cfacf2ceb0fdec6684cdf99b682ff2c42f8311a2586e669444f506736860fe",
+      "git_blob": "95da31a60cc6eefb1d9ef0c2d3b5796e19429eec"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/viewer-projection.test.mjs",
+      "bytes": 4549,
+      "sha256": "d03c593456fb5f513be46b3739b5f6b82217af2432698f54c71556b76ae80703",
+      "git_blob": "880e0590ea99ed95ebe2089d4eca09cf7f9003c1"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/viewer-usability.test.mjs",
+      "bytes": 7144,
+      "sha256": "387d2bcdef2b80e9cf261a97abfb4e506d01cae373e36b10e57f857dd7bf0592",
+      "git_blob": "21f4986bd73d8c77fbaa25fdf14b8f4fca2cd358"
+    },
+    {
+      "path": "prototypes/ciifr-map/view.js",
+      "bytes": 10823,
+      "sha256": "06bc0235f59938709ed01117127f24e8faa70000c18c8db47b4e84bf4919485f",
+      "git_blob": "4f7d3043bef446e1f9190979aedd88a7f40c30e7"
+    },
+    {
+      "path": "prototypes/ciifr-map/viewer-feedback.css",
+      "bytes": 1199,
+      "sha256": "28044335902f0b93a5f78c4e39ca3e0d1c5cc2a54f3020d4c8066fb6cd786f95",
+      "git_blob": "c95c581d04306f16bc89ad217de2c450e4a1d1ab"
+    },
+    {
+      "path": "prototypes/ciifr-map/viewer-feedback.js",
+      "bytes": 6620,
+      "sha256": "e4105ec09159915dbe19b48ba5726beaf63afc34679fb11666ca90a625423632",
+      "git_blob": "19ffdb116312d2209cf72adb2c884df8cd77ef44"
+    },
+    {
+      "path": "prototypes/ciifr-map/workbench-export.js",
+      "bytes": 2272,
+      "sha256": "b191e8ae6c35bf2844a44b85fd374ffdf09fce2e2b2a8f9ffa9b93d09a80586d",
+      "git_blob": "4bcc35bce0c6fae53e57825ddcd062f588bd2b7c"
+    },
+    {
+      "path": "prototypes/ciifr-map/workbench.js",
+      "bytes": 10135,
+      "sha256": "21cf0fb353653beadd0ae4f4c86e6870cbc57cdedb9cb78b9ab112ba3639199a",
+      "git_blob": "b88d470d6270402fa2f015641029cbb159362f85"
+    },
+    {
+      "path": "workbench3d/contracts/contracts.js",
+      "bytes": 13693,
+      "sha256": "cfcac35957ac303a9e3384b03055205129e2774342dc9ced20f9a7b4dee546f8",
+      "git_blob": "fd06ee02d4187ec355fe22f4b08320ee881d2445"
+    },
+    {
+      "path": "workbench3d/viewer/workbench-navigation-controls.js",
+      "bytes": 9055,
+      "sha256": "9e8f04df854e7fa3fe75c4c00cf4390dcf4c045bd3eb0983b02b6efa2f31526e",
+      "git_blob": "666cd48be079d440fa824d0c5997c05f376d1cfb"
+    },
+    {
+      "path": "workbench3d/viewer/workbench-navigation-state.js",
+      "bytes": 3918,
+      "sha256": "785ebd6754ca2edd143ba04d3e29a129969ff72388881f2088ecf6d3c65d3928",
+      "git_blob": "5603d3186a5482cced6fd44e00defe94e14c2fc2"
+    },
+    {
+      "path": "workbench3d/viewer/workbench-viewer.js",
+      "bytes": 71077,
+      "sha256": "9cd9a5bf5b4fca77d8415b7d45931424b521cb88accd535c1815f018580e538f",
+      "git_blob": "f8d74b0deff3eda17f8a266ebdb23f7120583c6d"
+    },
+    {
+      "path": "agents/PR183_workreport.md",
+      "bytes": 13237,
+      "sha256": "a3425672e0568043d7854a053b53bec4376aa19b3e1108c050da657f68d384de",
+      "git_blob": "44842879c4ef903a0ad61a97268d9a016ce93256"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/pages_delivery_smoke.py",
+      "bytes": 2740,
+      "sha256": "5cf20302ced5e0830cb16d0a67be7c773ca4eafc13f627d968851a7e282ef9a3",
+      "git_blob": "f67f2f0b64fd644cd593b4a3d3c17f8fee4e8be7"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/S1-F05.xml",
+      "bytes": 882735,
+      "sha256": "1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995",
+      "git_blob": "914303e2437fffaa5682757ee32b3ae3d8f37df8"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/S1-R4.xml",
+      "bytes": 1426775,
+      "sha256": "a332dd7b2551faae51de3c016941762c3b795cdf19073b373817354e309526e6",
+      "git_blob": "2da10efac2d2f040000edd988d4a1e0baae5dbe1"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/manifest.json",
+      "bytes": 726,
+      "sha256": "973cac32441f388efb5a49f9b80f56d1409fcbaf697785ba8002299dfefd0e6b",
+      "git_blob": "559ed00b9de48b362f0d7b207df2e3fc3abfc81a"
+    }
+  ],
+  "integration_task": "CIIFR-GEO-STACK-MAIN-20261027",
+  "source_before_integration": "7ad4caaa706584fc6fa92667e4cfe5f3230295eb"
+}
