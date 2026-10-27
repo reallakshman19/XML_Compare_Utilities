@@ -75,6 +75,12 @@ function ensureStyle() {
     .psmap-candidate-pager,.psmap-table-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0;font-size:12px;color:#cbd5e1}
     .psmap-candidate-pager button:disabled,.psmap-table-pager button:disabled{opacity:.45;cursor:not-allowed}
     .psmap-candidate-legend{color:#cbd5e1;font-size:12px;line-height:1.5}
+    .psmap-candidate-verdict{display:inline-block;border-radius:5px;padding:3px 6px;background:rgba(100,116,139,.2);white-space:normal}
+    .psmap-candidate-verdict.good{background:rgba(16,185,129,.12);color:#86efac}
+    .psmap-candidate-verdict.warn{background:rgba(245,158,11,.14);color:#fcd34d}
+    [data-psmap-candidate-table] td{vertical-align:top;line-height:1.45}
+    [data-psmap-candidate-table] td:nth-child(12),[data-psmap-candidate-table] td:nth-child(13){min-width:200px;max-width:360px;white-space:normal}
+    [data-psmap-candidate-table] tr.psmap-candidate-review td:first-child{box-shadow:inset 3px 0 #d97706}
   `;
   document.head.appendChild(style);
 }
@@ -199,10 +205,44 @@ function filteredCandidates(rows) {
   return result;
 }
 
+function readableCandidateValue(row, key) {
+  const raw = String(valueFor(row, key) ?? '').trim();
+  if (!raw) return '—';
+  if (key === 'finalStatus') {
+    const names = { MATCHED: 'Mapped', USER_REVIEW_REQUIRED: 'Review required', SUPPORT_MISSING_REQUIRED: 'Required support missing', NO_MATCH: 'No match' };
+    return names[raw] || raw.replace(/_/g, ' ').toLowerCase();
+  }
+  if (key === 'supportGapMatch' && /^(REST_CLEARANCE|GUIDE_GAP|LINE_STOP_GAP|GAP)_/.test(raw)) {
+    const words = raw
+      .replace(/^REST_CLEARANCE_/, 'REST clearance · ')
+      .replace(/^GUIDE_GAP_/, 'GUIDE gap · ')
+      .replace(/^LINE_STOP_GAP_/, 'LINE STOP gap · ')
+      .replace(/^GAP_/, 'Gap · ')
+      .replace(/MISSING_TABLE1/, 'not specified in reference')
+      .replace(/MISSING_TABLE2/, 'value missing in model')
+      .replace(/CONFLICT/, 'different values')
+      .replace(/EXACT/, 'matches')
+      .replace(/_/g, ' ');
+    return words;
+  }
+  return raw;
+}
+
+function candidateCell(row, key) {
+  const value = readableCandidateValue(row, key);
+  if (['finalStatus', 'supportGapMatch', 'supportMatch'].includes(key)) {
+    const upper = String(value).toUpperCase();
+    const severity = /CONFLICT|DIFFERENT VALUES|MISSING|REVIEW|NO MATCH/.test(upper) ? 'warn'
+      : /EXACT|MATCH|MAPPED/.test(upper) ? 'good' : '';
+    return '<td><span class="psmap-candidate-verdict ' + severity + '">' + html(value) + '</span></td>';
+  }
+  return '<td>' + html(value) + '</td>';
+}
+
 function candidateTable(rows = [], columns = []) {
   if (!rows.length) return '<div class="psmap-banner">No candidates match this filter. Try All candidates or a different search.</div>';
   const header = columns.map((column) => '<th scope="col">' + html(column[1]) + '</th>').join('');
-  const body = rows.map((row) => '<tr>' + columns.map((column) => '<td>' + html(valueFor(row, column[0])) + '</td>').join('') + '</tr>').join('');
+  const body = rows.map((row) => '<tr' + (row.reviewRequired === true || row.finalStatus === 'USER_REVIEW_REQUIRED' ? ' class="psmap-candidate-review"' : '') + '>' + columns.map((column) => candidateCell(row, column[0])).join('') + '</tr>').join('');
   return '<div class="psmap-tablewrap"><table class="psmap-table"><thead><tr class="psmap-labels">' + header + '</tr></thead><tbody>' + body + '</tbody></table></div>';
 }
 
@@ -364,7 +404,7 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
       return;
     }
     const tab = event.target?.closest?.('[data-psmap-tab]')?.dataset?.psmapTab;
-    if (tab === 'candidates') scheduleEnhance();
+    if (action === 'open' || tab === 'candidates') scheduleEnhance();
   };
   document.addEventListener('click', clickHandler, true);
   scheduleEnhance();
