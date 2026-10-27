@@ -248,7 +248,7 @@ function renderCandidatePanel(panel, result) {
     '<div class="psmap-candidate-toolbar"><label>Find support or node <input type="search" data-psmap-candidate-search value="' + html(candidateView.search) + '" placeholder="Support No, node, keyword"></label>' +
     '<button type="button" class="psmap-btn secondary" data-psmap-candidate-apply>Search</button>' +
     '<label>Show <select data-psmap-candidate-filter>' + filterOptions.map((item) => '<option value="' + item[0] + '"' + (candidateView.filter === item[0] ? ' selected' : '') + '>' + item[1] + '</option>').join('') + '</select></label>' +
-    '<label><input type="checkbox" data-psmap-candidate-detail-checkbox ' + (readShowDetails() ? 'checked' : '') + '> Show detail diagnostic columns</label></div>' +
+    '<label data-psmap-candidate-detail-toggle="1"><input type="checkbox" data-psmap-candidate-detail-checkbox ' + (readShowDetails() ? 'checked' : '') + '> Show detail diagnostic columns</label></div>' +
     '<div class="psmap-candidate-pager"><span data-psmap-candidate-count></span><div><button type="button" class="psmap-btn secondary" data-psmap-candidate-prev>Previous</button> <span data-psmap-candidate-page></span> <button type="button" class="psmap-btn secondary" data-psmap-candidate-next>Next</button></div></div>' +
     '<div data-psmap-candidate-table></div><p class="psmap-candidate-legend">Up to 100 rows per page. Export all candidates (CSV) includes the entire result and all diagnostic fields, not just this page.</p>' +
     '</div></section>';
