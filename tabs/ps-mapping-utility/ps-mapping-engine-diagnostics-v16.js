@@ -60,16 +60,8 @@ function supportSet(...values) {
 }
 
 function t1Text(row = {}) {
-  return [
-    row.supportTypesAvailable,
-    row.nodeMasterKeywords,
-    row.table1SupportTypes,
-    row.nodeIsonote,
-    row.nodeIsonoteRaw,
-    row.isonote,
-    row.ISONOTE,
-    row['ISONOTE'],
-  ].filter(Boolean).join(' ');
+  const iso = row.nodeIsonote || row.nodeIsonoteRaw || row.isonote || row.ISONOTE || row['ISONOTE'];
+  return iso || [row.supportTypesAvailable, row.nodeMasterKeywords, row.table1SupportTypes].filter(Boolean).join(' ');
 }
 
 function t2Text(row = {}) {
@@ -100,6 +92,12 @@ function rowLocalSupportMatch(row = {}) {
 
   const t1 = t1Types(row);
   const t2 = t2Types(row);
+  const iso = t1Text(row);
+  if (/\bDO\s+NOT\s+REST\b/i.test(iso) && t2.has('REST') && !t1.has('REST')) {
+    const gap = gapStatus(row);
+    if (gap === 'REST_CLEARANCE_EXACT') return 'REST non-contact clearance Match';
+    return 'REST is non-contact in Table-1; verify Table-2 REST clearance';
+  }
 
   if (!t2.size) {
     const missingAll = orderedTypes(t1).map(labelSupport);
@@ -119,6 +117,7 @@ function gapStatus(row = {}) {
 
 function gapKindFromStatus(status = '') {
   const s = upper(status);
+  if (s.includes('REST_CLEARANCE')) return 'REST_CLEARANCE';
   if (s.includes('LINE_STOP_GAP') || s.includes('LINE STOP')) return 'LINE_STOP';
   if (s.includes('GUIDE_GAP') || s.includes('GUIDE')) return 'GUIDE';
   return '';
@@ -126,6 +125,7 @@ function gapKindFromStatus(status = '') {
 
 function gapValueFromRow(row = {}, kind = '') {
   if (kind === 'LINE_STOP') return row.nodeLineStopGapMm ?? row.table1LineStopGapMm ?? row.lineStopGapMm ?? '';
+  if (kind === 'REST_CLEARANCE') return row.nodeRestClearanceMm ?? '';
   if (kind === 'GUIDE') return row.nodeGuideGapMm ?? row.table1GuideGapMm ?? row.guideGapMm ?? '';
   return '';
 }
@@ -138,16 +138,18 @@ function numericText(value) {
 
 function rowGapAction(row = {}, status = '') {
   const kind = gapKindFromStatus(status);
-  if (!kind) return '';
+  if (!kind || /(?:_EXACT|_MISSING_TABLE1)$/i.test(status)) return '';
   const value = gapValueFromRow(row, kind);
   if (value === '' || value == null) return '';
+  if (kind === 'REST_CLEARANCE') return `Correct Table-2 non-contact REST clearance to Table-1's ${numericText(value)} mm value.`;
   return `Correct Table-2 ${labelSupport(kind)} GAP to Table-1's ${labelSupport(kind)} GAP ${numericText(value)} mm value.`;
 }
 
 function legacyGapReason(row = {}, status = '') {
   if (!status) return '';
   const detail = clean(row.gapMatchDetail || row.supportGapDetail || row.reviewAction || '');
-  if (detail && /gap/i.test(detail)) return detail;
+  if (/_EXACT$/i.test(status)) return '';
+  if (detail && /gap|clearance/i.test(detail)) return detail;
 
   const kind = gapKindFromStatus(status);
   const value = gapValueFromRow(row, kind);
