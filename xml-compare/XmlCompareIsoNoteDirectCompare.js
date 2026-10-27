@@ -111,6 +111,29 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
     message: 'Exact pipeline + full support ID comparison. Checks parsed REST / GUIDE / LINE STOP restraints and typed gaps independently, with original evidence and review actions. Identity uses exact pipeline and full support ID, never 60% name similarity. Loads (kN) and axial displacement are not gaps.',
   });
 }
+// Defensive cross-partition guard for the GENERIC candidate approval UI.
+// Text similarity (e.g. 66% PS-131.1 on a different pipe) is not evidence
+// that a PS mapping record and an ISO note refer to the same support.
+export function validateIsoNoteCandidateIdentity(candidate = {}, sourceRecords = [], targetRecords = []) {
+  const source = sourceRecords.find((item) => item.uid === candidate.sourceUid);
+  const target = targetRecords.find((item) => item.uid === candidate.targetUid);
+  if (!source || !target) return Object.freeze({ applicable: false, valid: true, reason: '' });
+  const cross = source.lineKey === 'PS_MAPPING_S1' && target.lineKey === 'ISO_NOTES_S2';
+  const reverse = source.lineKey === 'ISO_NOTES_S2' && target.lineKey === 'PS_MAPPING_S1';
+  if (!cross && !reverse) return Object.freeze({ applicable: false, valid: true, reason: '' });
+  const mapping = cross ? source : target;
+  const notes = cross ? target : source;
+  const pipe1 = normalizeIsoLine(mapping.pipe), pipe2 = normalizeIsoLine(notes.lineNoInCii);
+  const id1 = normalizeIsoSupport(mapping.psNo), id2 = normalizeIsoSupport(notes.nodeName);
+  const valid = Boolean(pipe1 && pipe2 && id1 && id2 && !placeholder(id1) && !placeholder(id2) &&
+    pipe1 === pipe2 && id1 === id2);
+  return Object.freeze({
+    applicable: true, valid,
+    reason: valid ? 'Same normalized pipeline and full support ID.'
+      : 'Cross-partition ISO candidate rejected: pipeline + full PS number must match exactly, not by text similarity.',
+  });
+}
+
 // Only exact one-to-one S1->S2 keys can enter the approval ledger.
 // Resolve both IDs against the two actual loaded canvas datasets, not against
 // matching records from the same partition on each copy of a combined XML.
