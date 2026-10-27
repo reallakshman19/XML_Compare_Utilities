@@ -2,6 +2,11 @@ export const TABLE_CATEGORIZED_XML_JOIN_ENGINE_SCHEMA='table-categorized-xml-joi
 
 export function createJoinedRowContexts(sources=[],joins=[],options={}){
   const diagnostics=[];
+  // Opt-in independent table rows; use source-scoped partitions rather than a fake join.
+  if(options.rowMode==='perSource'&&!joins.length){
+    const rows=sources.flatMap((source)=>(source.rows||[]).map((row)=>rowContext({[source.sourceId]:row},[row.rowId],row)));
+    return Object.freeze({rows:Object.freeze(rows),diagnostics:Object.freeze(diagnostics)});
+  }
   const drivingSourceId=options.drivingSourceId||joins[0]?.leftSourceId||sources[0]?.sourceId||'S1';
   const driving=sources.find((source)=>source.sourceId===drivingSourceId)||sources[0];
   let contexts=(driving?.rows||[]).map((row)=>rowContext({[driving.sourceId]:row},[row.rowId],row));
