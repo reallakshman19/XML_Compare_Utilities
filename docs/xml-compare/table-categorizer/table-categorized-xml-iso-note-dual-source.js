@@ -42,7 +42,7 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
     { key: 'ISO_NOTES_S2', displayName: 'ISO Notes / S2', sourceScope: ['S2'] },
   ],
   requiredColumns: [],
-  optionalColumns: ['X', 'Y', 'Z', 'Remarks', 'Support Gap', 'JOBNAME', 'NODE_NAME', 'NODE_NUM', 'NPS', 'TYPE'],
+  optionalColumns: ['Bore', 'DTXR', 'Support Gap', 'Mandatory', 'X', 'Y', 'Z', 'Remarks', 'JOBNAME', 'PIPEAXIS', 'NODE_NAME', 'NODE_NUM', 'NPS', 'TYPE'],
   joins: [],
   duplicateKeyPolicy: 'merge-sourceRefs',
   multiValuePolicy: 'preserve-parallel-evidence',
