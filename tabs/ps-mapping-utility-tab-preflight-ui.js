@@ -6,7 +6,7 @@ const HEADER_ALIASES = {
   table1c: {
     lineNo: ['line no', 'lineno', 'line', 'pipe', 'branchname', 'branch name'],
     node: ['node', 'node no', 'node number', 'candidate node'],
-    psNo: ['ps no', 'psno', 'ps name', 'ps', 'support no'],
+    psNo: ['ps no', 'psno', 'ps name', 'ps', 'support no', 'support number', 'support tag'],
     pipeSize: ['pipe size', 'nps', 'size', 'nb'],
     isonote: ['isonote', 'iso note', 'note', 'description'],
     mandatory: ['mandatory', 'required'],
@@ -52,14 +52,23 @@ function normalizePsBase(value) {
   return match ? match[0].replace(/\s+/g, '').toUpperCase() : text;
 }
 
+function isMarkdownSeparator(line) {
+  const raw = String(line || '').trim();
+  if (!raw.includes('|')) return false;
+  const cells = raw.replace(/^\|/, '').replace(/\|$/, '').split('|').map((v) => v.trim());
+  return cells.length > 1 && cells.every((v) => /^:?-{3,}:?$/.test(v));
+}
+
 function splitRows(text) {
   return String(text || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter((line) => line && !isMarkdownSeparator(line));
 }
 
 function splitLine(line) {
+  const raw = String(line).trim();
+  if (raw.startsWith('|') && raw.endsWith('|')) return raw.slice(1, -1).split('|').map((c) => c.trim());
   if (String(line).includes('\t')) return String(line).split('\t').map((c) => c.trim());
   if (String(line).includes('|')) return String(line).split('|').map((c) => c.trim());
   return String(line).split(/\s{2,}/).map((c) => c.trim()).filter(Boolean);
@@ -245,18 +254,20 @@ function severityCounts(issues) {
 function renderNotification(host, issues) {
   const counts = severityCounts(issues);
   if (!issues.length) {
-    host.innerHTML = `<div class="psmap-preflight ok"><div class="psmap-preflight-title"><span>Preflight check: table structure looks usable.</span><span class="psmap-preflight-badge">No hard blockers</span></div></div>`;
+    const html = `<div class="psmap-preflight ok"><div class="psmap-preflight-title"><span>Preflight check: table structure looks usable.</span><span class="psmap-preflight-badge">No hard blockers</span></div></div>`;
+    if (host.innerHTML !== html) host.innerHTML = html;
     return;
   }
   const title = counts.blockers
     ? `Preflight found ${counts.blockers} hard blocker${counts.blockers === 1 ? '' : 's'} before mapping.`
     : `Preflight found ${counts.warnings} warning${counts.warnings === 1 ? '' : 's'}.`;
   const topIssues = issues.slice(0, 6);
-  host.innerHTML = `<div class="psmap-preflight">
+  const html = `<div class="psmap-preflight">
     <div class="psmap-preflight-title"><span>${h(title)}</span><span class="psmap-preflight-badges"><span class="psmap-preflight-badge">${counts.blockers} blockers</span><span class="psmap-preflight-badge">${counts.warnings} warnings</span></span></div>
     <ul class="psmap-preflight-list">${topIssues.map((item) => `<li class="psmap-preflight-item"><b>${h(item.title)}</b><div>${h(item.detail)}</div><div class="psmap-preflight-action">Fix: ${h(item.action)}</div><div class="psmap-preflight-code">${h(item.code)}</div></li>`).join('')}</ul>
     ${issues.length > topIssues.length ? `<div class="psmap-preflight-code">+${issues.length - topIssues.length} more diagnostics hidden.</div>` : ''}
   </div>`;
+  if (host.innerHTML !== html) host.innerHTML = html;
 }
 
 function ensureHost() {
