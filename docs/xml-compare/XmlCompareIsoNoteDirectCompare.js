@@ -22,7 +22,7 @@ function extractRows(xmlText, side) {
     const normalizedId = normalizeIsoSupport(id);
     const invalid = !normalizedPipe || !normalizedId || placeholder(normalizedId);
     return Object.freeze({
-      side, pipe, id, normalizedPipe, normalizedId,
+      side, pipe, id, uid: clean(record.uid), normalizedPipe, normalizedId,
       key: !invalid ? identityKey(normalizedPipe, normalizedId) : '',
       valid: !invalid, placeholder: placeholder(normalizedId),
       sourceRef: clean(record.rawSummary?.sourceRefs || record.sourceRefs?.join(' ') || record.uid),
@@ -34,7 +34,7 @@ function reportRow(left, right, status, reason) {
   const a = left || null, b = right || null, first = a || b;
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
-    status, reason, s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
+    status, reason, sourceUid: a?.uid || '', targetUid: b?.uid || '', s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
   });
 }
 function compareRows(s1, s2) {
@@ -92,6 +92,40 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
     summary: Object.freeze({ match: count('MATCH'), s1Only: count('S1_ONLY'), s2Only: count('S2_ONLY'), review: count('REVIEW') }),
     message: 'Compared S1 pipe + PS NO against S2 LinenoinCII + NODE_NAME. Removes only leading slashes, trims whitespace, and ignores case.',
   });
+}
+// Only exact one-to-one S1->S2 keys can enter the approval ledger.
+// Resolve both IDs against the two actual loaded canvas datasets, not against
+// matching records from the same partition on each copy of a combined XML.
+export function buildIsoNoteAnchorCandidates({ report = null, sourceRecords = [], targetRecords = [] } = {}) {
+  if (!report?.ok) return Object.freeze([]);
+  const sourceByUid = new Map(sourceRecords.map((record) => [clean(record.uid), record]));
+  const targetByUid = new Map(targetRecords.map((record) => [clean(record.uid), record]));
+  const usedSource = new Set(), usedTarget = new Set();
+  const candidates = [];
+  for (const row of report.rows || []) {
+    if (row.status !== 'MATCH' || !row.sourceUid || !row.targetUid) continue;
+    const source = sourceByUid.get(row.sourceUid), target = targetByUid.get(row.targetUid);
+    if (!source || !target || usedSource.has(source.uid) || usedTarget.has(target.uid)) continue;
+    if (source.levelId !== 'element' || source.lineKey !== 'PS_MAPPING_S1') continue;
+    if (target.levelId !== 'element' || target.lineKey !== 'ISO_NOTES_S2') continue;
+    const sourceLine = normalizeIsoLine(source.pipe), targetLine = normalizeIsoLine(target.lineNoInCii);
+    const sourceId = normalizeIsoSupport(source.psNo), targetId = normalizeIsoSupport(target.nodeName);
+    if (!sourceLine || !sourceId || placeholder(sourceId) || placeholder(targetId)
+        || sourceLine !== targetLine || sourceId !== targetId) continue;
+    usedSource.add(source.uid); usedTarget.add(target.uid);
+    candidates.push(Object.freeze({
+      id: 'candidate:' + source.uid + '=>' + target.uid,
+      sourceUid: source.uid, targetUid: target.uid,
+      sourceStableKey: clean(source.key || source.uid),
+      targetStableKey: clean(target.key || target.uid),
+      sourceLabel: clean(source.psNo) + ' (' + sourceLine + ')',
+      targetLabel: clean(target.nodeName) + ' (' + targetLine + ')',
+      status: 'valid', method: 'iso-note-exact-key',
+      score: 1, identityConfidence: 1, allowDuplicateTarget: false,
+      basis: Object.freeze(['iso-note-pipeline-plus-full-support-id']),
+    }));
+  }
+  return Object.freeze(candidates);
 }
 function csvCell(value) {
   const v = clean(value);
