@@ -1,3 +1,4 @@
+import { readPsMappingResult } from './ps-mapping-utility-tab-result-cache.js';
 import { installPsMappingUtilityTile as installBasePsMappingUtilityTile } from './ps-mapping-utility-tab-tally-ui.js?v=20260612-psmap-compact-tally-ui-1';
 import {
   DEFAULT_OPTIONS,
@@ -8,52 +9,54 @@ const STORAGE_KEY = 'psmap.showDetailDiagnosticColumns';
 const STYLE_ID = 'psmap-candidate-copy-ui-style';
 
 const BASIC_COLUMNS = [
-  ['psnoModel', 'PSNO_Model'],
-  ['modelBore', 'T2 Bore'],
-  ['lineFamily', 'T2 Line Family'],
-  ['supportTypesRequested', 'T2 Keywords'],
-  ['candidateNode', 'Candidate Node'],
-  ['table1PsNo', 'Table-1 PS No'],
-  ['tag', 'Tag'],
-  ['source', 'Source'],
-  ['nodeLineFamily', 'T1 Line Family'],
-  ['pipeSizeRaw', 'Pipe Size'],
-  ['derivedDn', 'Derived DN'],
-  ['nodeIsonote', 'ISONOTE'],
-  ['supportMatch', 'Support Match'],
-  ['t1NodeRestraints', 'T1 Node Restraints'],
-  ['t2CoveredRestraints', 'T2 Covered Restraints'],
-  ['missingNodeRestraints', 'Missing Node Restraints'],
-  ['extraTable2Restraints', 'Extra Table-2 Restraints'],
-  ['proposedMissingSupportPsNo', 'Proposed Table-2 PS No'],
-  ['supportGapMatch', 'Support Gap Match'],
-  ['reason', 'Reason'],
-  ['psNoWiseAction', 'PS No. Wise Action'],
-  ['nodeCoverageNote', 'Node Coverage Note'],
+  ['supportNoModel', 'Model Support No'],
+  ['candidateNode', 'Reference Node'],
+  ['table1SupportNo', 'Reference Support No'],
+  ['supportTypesRequested', 'Model Restraints'],
+  ['t1NodeRestraints', 'Required at Node'],
+  ['t2CoveredRestraints', 'Covered by Model'],
+  ['missingNodeRestraints', 'Missing Restraints'],
+  ['extraTable2Restraints', 'Extra Model Restraints'],
+  ['supportMatch', 'Restraint Verdict'],
+  ['supportGapMatch', 'Gap / Clearance Verdict'],
+  ['finalStatus', 'Mapping Status'],
+  ['supportNoWiseAction', 'Required Model Action'],
+  ['reason', 'Assessment / Evidence'],
 ];
-
 const DETAIL_COLUMNS = [
-  ['psBasis', 'PS Basis'],
+  ['modelBore', 'Model Bore'],
+  ['lineFamily', 'Model Line Family'],
+  ['nodeLineFamily', 'Reference Line Family'],
+  ['pipeSizeRaw', 'Reference Pipe Size'],
+  ['derivedDn', 'Derived DN'],
+  ['nodeIsonote', 'Reference ISONOTE'],
+  ['tag', 'Reference Tag'],
+  ['source', 'Reference Source'],
+  ['proposedMissingSupportPsNo', 'Proposed Missing Support No'],
+  ['psBasis', 'Support Number Basis'],
   ['boreBasis', 'Bore Basis'],
-  ['lineBasis', 'Line Match'],
-  ['supportBasis', 'Support Basis'],
-  ['lineRegexBasis', 'T2 Regex Basis'],
-  ['nodeLineRegexBasis', 'T1 Regex Basis'],
-  ['nearDistance', 'Near Line Diff'],
+  ['lineBasis', 'Line Comparison'],
+  ['supportBasis', 'Restraint Comparison Basis'],
+  ['lineRegexBasis', 'Model Regex Basis'],
+  ['nodeLineRegexBasis', 'Reference Regex Basis'],
+  ['nearDistance', 'Line Difference'],
   ['eligible', 'Passes Basic Checks'],
   ['autoSelectable', 'Auto-map Allowed'],
   ['reviewRequired', 'Needs Review'],
   ['selected', 'Chosen Mapping'],
-  ['finalStatus', 'Mapping Status'],
   ['confidence', 'Confidence Level'],
   ['confidenceScore', 'Confidence /100'],
   ['score', 'Internal Rank'],
   ['warnings', 'Warnings'],
   ['reviewAction', 'Review Action'],
-  ['consolidatedNodeWiseAction', 'Consolidated Node wise Action'],
-  ['table2SourceId', 'Table-2 Source ID'],
+  ['consolidatedNodeWiseAction', 'Node-wide Action (all mapped rows)'],
+  ['nodeCoverageNote', 'Node Coverage Explanation'],
+  ['table2SourceId', 'Model Table Source ID'],
   ['modelSourceId', 'Model Source ID'],
 ];
+const candidateView = { page: 0, search: '', filter: 'all' };
+const CANDIDATE_PAGE_SIZE = 100;
+const installedPanels = new WeakSet();
 
 const PRIMARY_KEYS = new Set([...BASIC_COLUMNS, ...DETAIL_COLUMNS].map(([key]) => key));
 const EXPORT_EXCLUDE_KEYS = new Set(['rawColumns']);
@@ -65,6 +68,13 @@ function ensureStyle() {
   style.textContent = `
     .psmap-candidate-copy-note{font-size:12px;color:#cbd5e1;border:1px solid rgba(148,163,184,.22);border-radius:10px;background:rgba(15,23,42,.62);padding:9px 11px;line-height:1.45;}
     .psmap-candidate-copy-note b{color:#bfdbfe;}
+    .psmap-candidate-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+    .psmap-candidate-toolbar input,.psmap-candidate-toolbar select{padding:8px;border:1px solid #64748b;border-radius:7px;background:#0f172a;color:#f8fafc}
+    .psmap-candidate-summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .psmap-candidate-summary span{padding:7px;border:1px solid #64748b;border-radius:7px;font-size:12px}
+    .psmap-candidate-pager,.psmap-table-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0;font-size:12px;color:#cbd5e1}
+    .psmap-candidate-pager button:disabled,.psmap-table-pager button:disabled{opacity:.45;cursor:not-allowed}
+    .psmap-candidate-legend{color:#cbd5e1;font-size:12px;line-height:1.5}
   `;
   document.head.appendChild(style);
 }
@@ -146,8 +156,8 @@ function parseOptionsFromModal(modal) {
   return options;
 }
 
-function resolveCurrent(modal) {
-  return runPsMappingResolver({ ...collectInputFromModal(modal), options: parseOptionsFromModal(modal) });
+function resolveCurrent() {
+  return readPsMappingResult();
 }
 
 function visibleCandidateColumns(showDetails = readShowDetails()) {
