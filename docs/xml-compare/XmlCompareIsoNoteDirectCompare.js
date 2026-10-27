@@ -22,7 +22,7 @@ function extractRows(xmlText, side) {
     const normalizedId = normalizeIsoSupport(id);
     const invalid = !normalizedPipe || !normalizedId || placeholder(normalizedId);
     return Object.freeze({
-      side, pipe, id, normalizedPipe, normalizedId,
+      side, pipe, id, uid: clean(record.uid), normalizedPipe, normalizedId,
       key: !invalid ? identityKey(normalizedPipe, normalizedId) : '',
       valid: !invalid, placeholder: placeholder(normalizedId),
       sourceRef: clean(record.rawSummary?.sourceRefs || record.sourceRefs?.join(' ') || record.uid),
@@ -34,7 +34,7 @@ function reportRow(left, right, status, reason) {
   const a = left || null, b = right || null, first = a || b;
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
-    status, reason, s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
+    status, reason, sourceUid: a?.uid || '', targetUid: b?.uid || '', s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
   });
 }
 function compareRows(s1, s2) {
@@ -93,6 +93,40 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
     message: 'Compared S1 pipe + PS NO against S2 LinenoinCII + NODE_NAME. Removes only leading slashes, trims whitespace, and ignores case.',
   });
 }
+// Only exact one-to-one S1->S2 keys can enter the approval ledger.
+// Resolve both IDs against the two actual loaded canvas datasets, not against
+// matching records from the same partition on each copy of a combined XML.
+export function buildIsoNoteAnchorCandidates({ report = null, sourceRecords = [], targetRecords = [] } = {}) {
+  if (!report?.ok) return Object.freeze([]);
+  const sourceByUid = new Map(sourceRecords.map((record) => [clean(record.uid), record]));
+  const targetByUid = new Map(targetRecords.map((record) => [clean(record.uid), record]));
+  const usedSource = new Set(), usedTarget = new Set();
+  const candidates = [];
+  for (const row of report.rows || []) {
+    if (row.status !== 'MATCH' || !row.sourceUid || !row.targetUid) continue;
+    const source = sourceByUid.get(row.sourceUid), target = targetByUid.get(row.targetUid);
+    if (!source || !target || usedSource.has(source.uid) || usedTarget.has(target.uid)) continue;
+    if (source.levelId !== 'element' || source.lineKey !== 'PS_MAPPING_S1') continue;
+    if (target.levelId !== 'element' || target.lineKey !== 'ISO_NOTES_S2') continue;
+    const sourceLine = normalizeIsoLine(source.pipe), targetLine = normalizeIsoLine(target.lineNoInCii);
+    const sourceId = normalizeIsoSupport(source.psNo), targetId = normalizeIsoSupport(target.nodeName);
+    if (!sourceLine || !sourceId || placeholder(sourceId) || placeholder(targetId)
+        || sourceLine !== targetLine || sourceId !== targetId) continue;
+    usedSource.add(source.uid); usedTarget.add(target.uid);
+    candidates.push(Object.freeze({
+      id: 'candidate:' + source.uid + '=>' + target.uid,
+      sourceUid: source.uid, targetUid: target.uid,
+      sourceStableKey: clean(source.key || source.uid),
+      targetStableKey: clean(target.key || target.uid),
+      sourceLabel: clean(source.psNo) + ' (' + sourceLine + ')',
+      targetLabel: clean(target.nodeName) + ' (' + targetLine + ')',
+      status: 'valid', method: 'iso-note-exact-key', transformBasis: 'identity-key',
+      score: 1, identityConfidence: 1, allowDuplicateTarget: false,
+      basis: Object.freeze(['iso-note-pipeline-plus-full-support-id']),
+    }));
+  }
+  return Object.freeze(candidates);
+}
 function csvCell(value) {
   const v = clean(value);
   const safe = /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
@@ -103,14 +137,14 @@ export function serializeIsoNoteMappingCsv(report) {
   const rows = (report?.rows || []).map((r) => [r.pipe, r.psNo, r.nodeName, r.status, r.reason, r.s1Ref, r.s2Ref].map(csvCell).join(','));
   return [headings.map(csvCell).join(','), ...rows].join('\r\n') + '\r\n';
 }
-export function renderIsoNoteMappingCompareHtml(report = null) {
+export function renderIsoNoteMappingCompareHtml(report = null, linkedCount = 0) {
   if (!report) return '';
   if (!report.ok) return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><h3>PS Mapping ↔ ISO Notes</h3><p role="alert">' + escapeHtml(report.message) + '</p></section>';
   const s = report.summary;
   const rows = report.rows.map((r) => '<tr><td>' + escapeHtml(r.pipe) + '</td><td>' + escapeHtml(r.psNo || '—') + '</td><td>' + escapeHtml(r.nodeName || '—') + '</td><td><b>' + escapeHtml(r.status.replace('_', ' ')) + '</b></td><td>' + escapeHtml(r.reason) + '</td></tr>').join('');
   return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><div class="xml-compare-panel-title">PS Mapping ↔ ISO Notes: ' +
     escapeHtml(report.countS1) + ' S1 rows / ' + escapeHtml(report.countS2) + ' S2 rows</div><p>' + escapeHtml(report.message) +
-    '</p><p><b>Match:</b> ' + s.match + ' &nbsp; <b>S1 only:</b> ' + s.s1Only + ' &nbsp; <b>S2 only:</b> ' + s.s2Only +
+    '</p><p><b>Anchors linked:</b> ' + linkedCount + ' / ' + s.match + ' exact matches. Review &amp; Transfer opens the approved links; no properties have been transferred.</p><p><b>Match:</b> ' + s.match + ' &nbsp; <b>S1 only:</b> ' + s.s1Only + ' &nbsp; <b>S2 only:</b> ' + s.s2Only +
     ' &nbsp; <b>Review:</b> ' + s.review + '</p><button type="button" data-xml-compare-action="download-iso-note-comparison-csv">Download comparison CSV</button>' +
     '<div style="max-height:390px;overflow:auto"><table class="xml-compare-topology-table"><thead><tr><th>Normalized pipeline</th><th>PS NO (S1)</th><th>NODE_NAME (S2)</th><th>Result</th><th>Details</th></tr></thead><tbody>' +
     rows + '</tbody></table></div></section>';
