@@ -214,7 +214,7 @@ export function validateViewerNavigationState(snapshot) {
     fail(errors, 'pivotWorld must be null or [x,y,z] finite numbers');
   }
   if (!['Perspective', 'Orthographic'].includes(snapshot.cameraType)) fail(errors, `unknown cameraType ${snapshot.cameraType}`);
-  if (!['Y', 'Z'].includes(snapshot.verticalAxis)) fail(errors, `unknown verticalAxis ${snapshot.verticalAxis}`);
+  if (!['X', 'Y', 'Z'].includes(snapshot.verticalAxis)) fail(errors, `unknown verticalAxis ${snapshot.verticalAxis}`);
   if (!Number.isFinite(snapshot.projectionScale) || snapshot.projectionScale <= 0) fail(errors, 'projectionScale must be positive');
   if (errors.length === 0) {
     const distance = Math.hypot(...snapshot.cameraPositionWorld.map((value, axis) => value - snapshot.cameraTargetWorld[axis]));

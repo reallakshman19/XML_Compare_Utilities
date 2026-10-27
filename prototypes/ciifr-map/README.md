@@ -1,3 +1,24 @@
+# CIIFR_GEO — A / B / Consolidated workbench
+
+The current Owner-directed continuation implements two independent comparison bases and a consolidated resolution view, plus the visibility/selection/fullscreen repairs. Run using the existing launcher below. No product merge or Writer authority is implied by this preview.
+
+1. In **A**, load the original SOURCE and TARGET XML, or click **Load bundled S1 sample pair**. That sample is one public S1 geometry in two profiles, not independent-model qualification.
+2. Add A anchors and run. Recommended candidates and anchor rows start checked; edit a TARGET ID or change inclusion directly in its table.
+3. Open **B**. Initial A inputs are reused for convenience; anchors, candidates, inclusion, selection and camera remain independent. Enter another anchor interpretation and run B. Loading another XML in B preserves A. **Use A XML pair in B** explicitly resets B to A's original pair.
+4. Open **C · Consolidated**, then **Consolidate checked A/B pairs**. Identical pairs merge with both origins. Unique pairs have no selection control; alternative TARGETs for one SOURCE have radios. The default proposes a consistent combination, and manual radio choices remain pinned until cleared.
+5. Each trial includes its chosen pair when fitting and excludes that entire SOURCE conflict group from its other-pair score. Signed table residuals are current-pose values; the Alternatives column shows each option's counterfactual other-pair error. Inspecting a row does not choose its radio.
+6. **Keep basis orientation** uses a separately labelled translation diagnostic, applying the same retained A (or sole contributing B) orientation to every option. **Rigid 3D** uses the unchanged native Method C validator; rejected rank/custody trials remain explicit. TARGET reuse is diagnostic, not a transfer-ready map. Different original revisions cannot silently consolidate.
+7. Use SVG or 3D, overlay or split. Orange SOURCE circles/outer strokes and blue TARGET diamonds/inner strokes preserve side identity at overlap. Selected labels name exact physical nodes. Vertical axis X/Y/Z defaults Z, shares one split-view camera and changes navigation only. Actual 3D preset/type is separate from the evidence projection. SVG pan/zoom and 3D camera are kept per tab.
+8. Fullscreen retains the table as a contained movable/resizable popup with internal scrolling. Primary details show IDs, residuals, alternatives and witnesses; technical JSON is collapsed separately. Export current SVG, JSON and CSV. JSON is the complete companion evidence ledger.
+
+Search is budgeted in a Worker (at most 4,096 enumerated cases, a two-million pair-evaluation ceiling and an enumeration time budget). Unvisited cases produce **best found / partial** results, with per-context lower-bound regret. Individual minima can cycle; the declared default minimises worst regret, then summed regret, then total L1 and compatible change count. It never claims all individual minima when they disagree. Fit freedoms and scoring axes remain fixed per job. Trial/rejected-case choice vectors use `GROUP_OPTION_INDICES` into `union.groups[].options`; `chosen.choices` and recommendation fields retain full PairKeys. Detailed slices are retained only for the active combination, avoiding full per-case geometry/DOM copies.
+
+Usability annotations below 40,000 combined nodes/segments use batched screen-space paths; larger models retain the shared 3D geometry and selected-node labels. This is a disclosed annotation threshold, not a qualified large-model performance guarantee. Four shared viewer files add X-up validation/control, opt-in side colours and camera-state access; default Y/Z callers keep their semantics. The renderer, Worker geometry, Three r160 assets and matching engine are reused.
+
+Current contributor checks: 56/56 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate non-author native review passed at db86b640; a bounded popup/no-fit UI follow-up receives its own exact-head delta assessment. Hosted cloud-browser SVG intake/A/B/C/Worker/manual override and paired labels were exercised on the public sample. Its WebGL context is unavailable; actual GPU/pixel/Windows/native-fullscreen/Owner acceptance is not claimed. Earlier historical sections below describe predecessor slices and are not the current evidence frontier.
+
+---
+
 # XML Geometry Preview — WBS 3.1 / G1 / M13
 
 Upload two **existing XML files**, enter SOURCE→TARGET node anchors, and inspect an overlay and candidate ledger produced by the repository's unchanged Method C. Download SVG, JSON or CSV for the current inputs.
@@ -85,3 +106,24 @@ Windows PowerShell: `$env:CIIFR_TEST_RUNTIME = "C:\path\to\test-prefix"`, then r
 `tests/prepare-fixtures.py` reproduces fixture bytes using unchanged code read from exact Git commits; it never becomes a product converter. Those immutable objects must exist locally. The checked-in fixture manifest is the delivery baseline.
 
 Builder native XML/module tests and HTTP delivery ran. **Actual served-browser upload, keyboard, pan/zoom, download and Windows interaction are NOT_RUN** in this host: Chromium exits SIGTRAP before a page opens. The included launcher is ready for Owner browser trial; no browser PASS, Owner acceptance or independent engineering review is claimed.
+
+## Opt-in existing 3D viewer (WBS3.1 R2)
+
+Choose **Use existing 3D viewer** after running Method C; switch between overlay and side-by-side, or return to SVG at any time. The static server serves the unchanged shared `workbench3d/viewer` modules and worker through a narrowly allowed read-only path; the browser import map pins the bundled official Three.js **0.160.0** ESM from `vendor/three-0.160.0`, MIT license retained. No CDN is needed or authorized. SVG remains functional when WebGL or Workers fail. For XY/XZ/YZ the native viewer is orthographic, displayed as centerline mm evidence; ISO is perspective and not metric-comparable. This is NOT CAD pipe outside diameter or identity validation.
+
+TARGET NODE selection (SVG/3D) lists **all** linked SOURCE rows, including reused/ambiguous candidates and physical XML witnesses. The 3D canvas consumes `result.viewerScene` produced by the existing Method C engine; registration has already been applied to SOURCE display copies, so extra registration translation is zero. File/anchor/pose/tolerance/projection changes revoke and dispose the viewer immediately; late asynchronous callbacks compare against the current session, not an old cached scene. Exports remain from the original current evidence path regardless of display mode.
+
+Official asset provenance: `mrdoob/three.js` r160 commit `d04539a76736ff500cae883d6a38b3dd8643c548`, `build/three.module.min.js` SHA-256 `3e690ac7d180b0aadf0891bea39eec643e29e2d3e75c99b18689518665f69ba6`, `LICENSE` SHA-256 `852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d`. Original public source snapshot is not a local Git checkout. Native authored tests and served GPU qualification have different authority; absent GPU context or blocked browser navigation means GPU NOT_RUN.
+
+
+## Navigation and fullscreen correspondence review
+
+The toolbar exposes the existing shared viewer's seven camera presets, perspective/orthographic toggle, zoom, fit-all, fit-selected, pivot, previous view and orbit steps. Left-drag orbits; right-drag / Shift-drag pans; the wheel zooms. Use SOURCE/TARGET + physical Node ID to select small or occluded nodes directly. Camera commands affect display only and do not recompute the Method C evidence projection.
+
+**Fullscreen** expands the review surface and requests native browser fullscreen when available. The same correspondence table becomes a movable, resizable popup with close/reopen controls. Escape restores normal mode; no canvas or table is cloned or recreated. Row clicks/Enter/Space select all physical SOURCE endpoints and TARGET alternatives linked to that row in both modes. Native selection highlights linked instances magenta through the existing engine refresh path. An element-only projection remains an ELEMENT, never a synthetic TARGET NODE.
+
+Reference inspected: Advanced_Analysis tree `11eca8e40e560fc2e5f0866489f0b419e1b5afb1`, `src/workspace/three-viewport-backend.js`, `three-viewport-camera.js` and `three-interaction-arbiter.js` (shared Workspace/Load Calc). Adopted fit/pivot/history/view and interaction command semantics; retained the existing XCU Z-up engine, Worker, typed scene identities and render-only transforms. The reference's different backend and project-specific coordinate/configuration authority were not transplanted.
+
+Native controlled-DOM/VM tests exercise actual app row-selection dispatch before/after fullscreen and bridge native selection dispatch, plus ambiguity/segment-only and popup lifecycle. They are not real GPU pixel-render/picking or browser-native fullscreen acceptance. Full suite needs `node --experimental-vm-modules --test prototypes/ciifr-map/tests/*.test.mjs` with the test-only `CIIFR_TEST_RUNTIME` prefix.
+
+Fullscreen defaults to a bottom-right popup45% of the review surface height, leaving geometry available; deliberate drag/resize stays contained. When native fullscreen is refused, the button honestly says Exit expanded view. No-feasible-fit tables retain manual pins and identify unsupported alternatives without claiming a one-to-one active assignment.

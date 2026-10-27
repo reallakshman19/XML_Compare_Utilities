@@ -28,10 +28,12 @@ export function createWorkbenchNavigationControls(input) {
   const locks = new Set();
 
   function toSphericalVector(vector) {
+    if (getVerticalAxis() === 'X') return new THREE.Vector3(-vector.y, vector.x, vector.z);
     return getVerticalAxis() === 'Z' ? new THREE.Vector3(vector.x, vector.z, -vector.y) : vector.clone();
   }
 
   function toWorldVector(vector) {
+    if (getVerticalAxis() === 'X') return new THREE.Vector3(vector.y, -vector.x, vector.z);
     return getVerticalAxis() === 'Z' ? new THREE.Vector3(vector.x, -vector.z, vector.y) : vector.clone();
   }
 
@@ -207,7 +209,11 @@ export function createWorkbenchNavigationControls(input) {
     setViewInstant,
     syncFromCamera,
     apply,
-    orbitBy(theta, phi) { spherical.theta -= theta; spherical.phi -= phi; apply(); },
+    orbitBy(theta, phi) {
+      cancelTransition();
+      if (pivot) { target.copy(pivot); syncFromCamera(); }
+      spherical.theta -= theta; spherical.phi -= phi; apply();
+    },
     zoomBy(factor) {
       const camera = getCamera();
       if (camera.isOrthographicCamera) {
