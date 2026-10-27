@@ -128,7 +128,7 @@ test('F1: Nodal preview and Apply fail closed on noncanonical section markers', 
   ]) {
     const input = new Uint8Array(Buffer.from(Buffer.from(canonical).toString('ascii').replace(before, after), 'ascii'));
     const parsed = parseCii(input);
-    const rows = parseNodalCsv('Node,Replace\\n285,RENAME285');
+    const rows = parseNodalCsv('Node,Replace\n285,RENAME285');
     assert.throws(() => planNodalTransfer(parsed, rows), /NODAL_SECTION_MARKER_NONCANONICAL/);
     const approved = planNodalTransfer(parseCii(canonical), rows);
     await assert.rejects(validateNodalTransfer({
