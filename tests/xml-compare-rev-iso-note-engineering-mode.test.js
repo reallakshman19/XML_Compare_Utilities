@@ -96,7 +96,7 @@ const csv = exportRevCompareCsv(model);
 assert.equal(csv, exportIsoNoteRevCompareAuditCsv(audit));
 assert.match(csv, /"Finding ID","Domain","Type"/);
 assert.match(csv, /#RESTRAINT:REST/);
-assert.match(csv, /#CLEARANCE:rest/);
+assert.match(csv, /#CLEARANCE:REST/);
 assert.match(csv, /"S1:1","S2:1"/);
 assert.doesNotMatch(csv, /"Rev 1 supportId"/);
 const genericHtml = renderRevCompareDashboardHtml({
