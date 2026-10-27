@@ -8,20 +8,21 @@
 <main>
 <nav class="tabs" role="tablist" aria-label="Find and Replace mode">
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">NodeName Find &amp; Replace</button>
+<button type="button" role="tab" aria-selected="false" data-tab="NODAL">Node-Based Name Transfer</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
 <button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
 <button type="button" role="tab" aria-selected="false" data-tab="CONFIG">Config</button></nav>
 <div data-workspace>
 <section aria-label="Input files" class="intake">
 <div class="card"><label>TARGET0 CII <input type="file" accept=".cii" data-file="target"></label><p class="meta" data-meta="target">No target loaded.</p></div>
-<div class="card"><label>SOURCE CII (optional for NodeName Find &amp; Replace) <input type="file" accept=".cii" data-file="source"></label><p class="meta" data-meta="source">No source loaded.</p></div>
-<div class="card"><label>Import Find/Replace CSV <input type="file" accept=".csv,text/csv" data-file="csv"></label><p class="hint">CSV headings: Find, Replace, optional Branch (exact label); quoted fields accepted.</p></div>
+<div class="card" data-source-card><label>SOURCE CII (optional for NodeName Find &amp; Replace) <input type="file" accept=".cii" data-file="source"></label><p class="meta" data-meta="source">No source loaded.</p></div>
+<div class="card" data-standard-csv><label>Import Find/Replace CSV <input type="file" accept=".csv,text/csv" data-file="csv"></label><p class="hint">CSV headings: Find, Replace, optional Branch (exact label); quoted fields accepted.</p></div>
 </section>
-<section class="actions" aria-label="Synthetic demo files">
+<section class="actions" data-demo-section aria-label="Synthetic demo files">
 <button type="button" data-load-demo title="Load a synthetic v14 CII and matching CSV">🧪 Load demo CII + CSV</button>
 <span class="hint" data-demo-status role="status" aria-live="polite">Synthetic sample only; your files are not used.</span>
 </section>
-<section class="card"><h2 data-panel-title>NodeName Find &amp; Replace</h2>
+<section class="card" data-normal-section><h2 data-panel-title>NodeName Find &amp; Replace</h2>
 <div data-unavailable class="unavailable" hidden>Independent Tab 2 and Tab 3 adapters have not been delivered. Those algorithms are intentionally not implemented or simulated here. Geometry branch application additionally requires a frozen-contract atomic-group amendment.</div>
 <div data-rows-area>
 <p class="hint">Only physically qualified <strong>NODENAME.FROM / NODENAME.TO</strong> v11/v14 fixed-width fields are editable. Each row supports literal or regex (flags g, i, u). Element scopes require exact From + To. Branch scope uses the exact physical ELEMENTS label in TARGET0; the dropdown lists labels from SOURCE CII and does not infer corresponding TARGET0 labels; nodes shared with another branch are blocked. After generating proposals, the Recommended choice column explains a possible all-branch rename or branch-only exclusion; advice never edits rules automatically. No unrestricted CII text replacement.</p>
@@ -45,14 +46,37 @@
 <thead><tr><th>#</th><th>Find</th><th>Replace</th><th>Mode</th><th>Flags</th><th>Field</th><th>Scope</th><th>From</th><th>To</th><th>Branch label (exact)</th><th>Recommended choice</th><th>Remove</th></tr></thead>
 <tbody data-rules></tbody></table></div>
 <p class="hint">Paste two Excel columns into a Find cell. Press Tab across fields or Enter to move to the next row. Branch choices require a parsed SOURCE CII (CSV-imported branch labels remain visible but unverified against SOURCE).</p></div></section>
-<section class="card"><h2>Review proposals · <span data-claim-count>0 claims</span></h2>
+<section class="card" data-nodal-area hidden aria-label="Node-Based Name Transfer">
+<h2>Node-Based Name Transfer</h2>
+<p><strong>Numeric TARGET0 Node is the only matching authority.</strong> Find is optional and informational for audit only (a mismatch is shown, not used for matching). Existing names may be replaced irrespective of their current text; zero-pointer nodes require new NODENAME records and updated pointer/count fields. New CII copy only.</p>
+<div class="actions"><label>Import Node-Based CSV (Node, Replace; Find optional)
+<input type="file" accept=".csv,text/csv" data-nodal-csv></label>
+<button type="button" data-nodal-preview disabled>Generate node-number preview</button>
+<button type="button" data-nodal-approve-all disabled>Approve All Ready Nodes</button></div>
+<p class="hint">Only Node and Replace are required. Find is optional and never selects the node. Duplicates, missing nodes, nonunique pointers, incompatible field widths and name collisions are held. Blank Find values are valid. Both FROM and TO occurrences of a node are reviewed together.</p>
+<h3>Review node assignments · <span data-nodal-count>0 imported row(s)</span></h3>
+<div class="scroller" role="region" tabindex="0" aria-label="Node-number transfer preview"><table>
+<thead><tr><th>CSV row</th><th>Find (optional info)</th><th>Node</th><th>Replace</th><th>Status</th><th>Occurrences</th><th>TARGET0 Names</th><th>New records</th><th>Reason</th><th>Find audit</th><th>Approve</th></tr></thead>
+<tbody data-nodal-rows></tbody></table></div>
+<details open><summary>Diagnostics &amp; structural changes</summary><ul class="log" data-nodal-diagnostics></ul></details>
+<h3>Validate → Apply New Copy → Export</h3>
+<div class="footer-actions">
+<button type="button" data-nodal-validate disabled>1 · Validate Nodal TARGET1</button>
+<button type="button" data-nodal-apply disabled>2 · Apply to New Copy</button>
+<button type="button" data-nodal-export disabled>3 · Export Nodal TARGET1.CII</button>
+<button type="button" data-nodal-audit disabled>Export transfer audit JSON</button></div>
+<p class="status" role="status" aria-live="polite" data-nodal-status>Load TARGET0 and import Node,Replace CSV (optional Find).</p>
+<p class="hash">TARGET1 SHA-256: <output data-nodal-targethash>—</output></p>
+<p class="hint">Structural edits append fixed-width NODENAME records and patch zero pointers only when a node actually needs a new record. Original TARGET0 is never overwritten.</p>
+</section>
+<section class="card" data-normal-review><h2>Review proposals · <span data-claim-count>0 claims</span></h2>
 <div class="actions"><button type="button" data-approve-all disabled>Approve All</button><button type="button" data-approve-nonconflict disabled>Approve All Non-Conflict Proposals</button><span class="hint">Available only for complete, conflict-free logical-node proposals. Never validates or exports automatically.</span></div>
 <p class="hint">Source columns require SOURCE CII and exact element ordinal plus From/To alignment. Unresolved means the physical mapping could not be proved.</p>
 <div class="scroller" role="region" tabindex="0" aria-label="Individual byte-claim review"><table>
 <thead><tr><th>Rule</th><th>Logical field</th><th>Byte range</th><th>Original</th><th>Proposed</th><th>Source BranchName</th><th>Source From</th><th>Source To</th><th>Decision</th></tr></thead>
 <tbody data-proposals></tbody></table></div>
 <details open><summary>Diagnostics &amp; conflicts</summary><ul class="log" data-diagnostics></ul></details></section>
-<section class="card"><h2>Validate → Apply to New Copy → Export</h2>
+<section class="card" data-normal-footer><h2>Validate → Apply to New Copy → Export</h2>
 <p>Pending, rejected, conflicting or stale claims never enter TARGET1. Original TARGET0 is never overwritten.</p>
 <div class="footer-actions"><button data-validate disabled>1 · Validate TARGET1</button><button data-apply disabled>2 · Apply to New Copy</button>
 <button data-export disabled>3 · Export TARGET1.CII</button><button data-audit disabled>Export audit JSON</button></div>

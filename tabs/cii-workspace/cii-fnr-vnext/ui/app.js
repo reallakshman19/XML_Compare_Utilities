@@ -6,10 +6,11 @@ import { enforceNormalNodeClosure } from './normal-node-closure.js';
 import { sourceBranchLabels, sourceEvidenceForClaim } from './source-provenance.js';
 import { resolveImportedCsv } from './csv-resolver.js';
 import { safeNonConflictIds } from './nonconflict-review.js';
+import { mountNodalPanel } from './nodal-panel.js';
 
-const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
+const workTabs = ['NORMAL', 'NODAL', 'LINE_NODE', 'GEOMETRY'];
 const tabs = [...workTabs, 'CONFIG'];
-const names = { NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
+const names = { NORMAL: 'NodeName Find & Replace', NODAL: 'Nodal Based Node name transfer', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -19,6 +20,7 @@ const fileSeqs = { target: 0, source: 0 };
 const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), blank(), blank()], plan: null,
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
+const nodal = mountNodalPanel(root, () => target);
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
 const state = () => states[active] || states.NORMAL;
@@ -42,6 +44,14 @@ function renderTabs() {
     button.classList.toggle('selected', selected);
   }
   $('[data-workspace]').hidden = active === 'CONFIG';
+  const nodalActive=active==='NODAL';
+  $('[data-nodal-area]').hidden = !nodalActive;
+  $('[data-normal-section]').hidden = nodalActive;
+  $('[data-normal-review]').hidden = nodalActive;
+  $('[data-normal-footer]').hidden = nodalActive;
+  $('[data-demo-section]').hidden = nodalActive;
+  $('[data-standard-csv]').hidden = nodalActive;
+  $('[data-source-card]').hidden = nodalActive;
   $('[data-config-area]').hidden = active !== 'CONFIG';
   for (const el of $$('[data-config]')) el.value = config[el.dataset.config];
   $('[data-panel-title]').textContent = names[active];
@@ -50,6 +60,7 @@ function renderTabs() {
   $('[data-rows-area]').hidden = active !== 'NORMAL';
   message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
     active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
+    active === 'NODAL' ? 'Use the Nodal tab to import Find,FindNode,ReplaceName and preview structural edits.' :
     `${names[active]} awaits an independently delivered engine. No write authority exists.`);
 }
 function addSelect(td, field, entries, value) {
@@ -447,7 +458,7 @@ root.addEventListener('click', async (event) => {
 for (const field of ['target', 'source']) {
   $(`[data-file="${field}"]`).addEventListener('change', async (event) => {
     const file = event.target.files?.[0], req = ++fileSeqs[field];
-    if (field === 'target') target = null; else source = null;
+    if (field === 'target') { target = null; nodal.invalidate(); } else source = null;
     for (const s of Object.values(states)) invalidate(s, `${field.toUpperCase()} selection in progress.`);
     $(`[data-meta="${field}"]`).textContent = file ? `Loading ${file.name}...` : '';
     renderTabs(); renderRules(); renderResults();
@@ -457,7 +468,7 @@ for (const field of ['target', 'source']) {
       const snapshot = { name: file.name, bytes: new Uint8Array(buf) };
       snapshot.parsed = parseCii(snapshot.bytes);
       const hash = await sha256(snapshot.bytes); if (req !== fileSeqs[field]) return;
-      if (field === 'target') target = snapshot; else source = snapshot;
+      if (field === 'target') { target = snapshot; nodal.invalidate(); } else source = snapshot;
       for (const s of Object.values(states)) invalidate(s);
       $(`[data-meta="${field}"]`).textContent = `${file.name} | ${snapshot.bytes.length} bytes | SHA-256 ${hash}`;
       renderTabs(); renderRules(); renderResults();
