@@ -25,7 +25,44 @@ function nonEmptyKeys(gate, graph) { if (!graph) return result(gate, 'INFO', 'NO
 function uniqueKeys(gate, graph) { if (!graph) return result(gate, 'INFO', 'NOT_RUN', 'Graph has not been built yet.'); const duplicate = findDuplicateChildKey(graph); return duplicate ? result(gate, 'BLOCKER', 'FAIL', `Duplicate key ${duplicate.key} under parent ${duplicate.parentId}.`, duplicate.nodeId) : result(gate, 'INFO', 'PASS', 'Child keys are unique per parent.'); }
 function displayNames(gate, graph) { if (!graph) return result(gate, 'INFO', 'NOT_RUN', 'Graph has not been built yet.'); const missing = (graph.nodes || []).find((node) => !String(node.displayName || '')); return missing ? result(gate, 'BLOCKER', 'FAIL', 'Display name is missing.', missing.id) : result(gate, 'INFO', 'PASS', 'Display names are resolved.'); }
 function parentLinks(gate, graph) { if (!graph) return result(gate, 'INFO', 'NOT_RUN', 'Graph has not been built yet.'); const ids = new Set(graph.nodes.map((node) => node.id)); const missing = graph.nodes.find((node) => node.parentId && !ids.has(node.parentId)); return missing ? result(gate, 'BLOCKER', 'FAIL', 'Parent link is missing.', missing.id) : result(gate, 'INFO', 'PASS', 'Parent links are resolved.'); }
-function coordinateContract(gate, profile, field) { const contract = profile?.coordinateCluster || {}; const ok = field === 'unit' ? Boolean(contract.unit) : Number.isFinite(Number(contract.tolerance)); return ok ? result(gate, 'INFO', 'PASS', field === 'unit' ? 'Coordinate unit is declared.' : 'Coordinate tolerance is declared.') : result(gate, 'BLOCKER', 'FAIL', `${field} is required for coordinate grouping.`); }
+function coordinateGroupingContracts(profile) {
+  const contracts = [];
+  const base = profile?.coordinateCluster || {};
+  const visitResolver = (spec) => {
+    if (!spec || typeof spec !== 'object') return;
+    if (spec.op === 'coordinateCluster') contracts.push({ ...base, ...(spec.contract || {}) });
+    if (spec.input) visitResolver(spec.input);
+    if (spec.left) visitResolver(spec.left);
+    if (spec.right) visitResolver(spec.right);
+    for (const item of spec.resolvers || []) visitResolver(item);
+    if (spec.defaultResolver) visitResolver(spec.defaultResolver);
+    for (const part of spec.parts || []) if (part && typeof part === 'object') visitResolver(part);
+    for (const item of Object.values(spec.values || {})) visitResolver(item);
+  };
+  const walkLevels = (levels) => {
+    for (const level of levels || []) {
+      const previous = contracts.length;
+      visitResolver(level.keyResolver);
+      visitResolver(level.displayNameResolver);
+      for (const resolver of Object.values(level.fieldResolvers || {})) visitResolver(resolver);
+      for (const resolver of Object.values(level.conditionResolvers || {})) visitResolver(resolver);
+      if (level.creationMode === 'coordinate-clustered' && contracts.length === previous) contracts.push(base);
+      walkLevels(level.children);
+    }
+  };
+  walkLevels(profile?.levelDefinitions);
+  return contracts;
+}
+function coordinateContract(gate, profile, field) {
+  const contracts = coordinateGroupingContracts(profile);
+  if (!contracts.length) return result(gate, 'INFO', 'NOT_RUN', 'Coordinate grouping is not used by this recipe.');
+  const valid = contracts.every((contract) => field === 'unit'
+    ? Boolean(contract.unit)
+    : Number.isFinite(Number(contract.tolerance)));
+  return valid
+    ? result(gate, 'INFO', 'PASS', field === 'unit' ? 'Coordinate unit is declared.' : 'Coordinate tolerance is declared.')
+    : result(gate, 'BLOCKER', 'FAIL', `${field} is required for coordinate grouping.`);
+}
 function policy(gate, profile, field) { return profile?.[field] ? result(gate, 'INFO', 'PASS', `${field} is declared.`) : result(gate, 'BLOCKER', 'FAIL', `${field} is not declared.`); }
 function xmlTagGate(gate, profile) { const bad = validateProfileXmlNames(profile)[0]; return bad ? result(gate, 'BLOCKER', 'FAIL', bad.message, bad.ref) : result(gate, 'INFO', 'PASS', 'All level XML tags are valid.'); }
 function xmlAttributeGate(gate, profile) { const bad = validateExportPolicy(profile)[0]; return bad ? result(gate, 'BLOCKER', 'FAIL', bad.message, bad.ref) : result(gate, 'INFO', 'PASS', 'Export policy XML names are valid.'); }
