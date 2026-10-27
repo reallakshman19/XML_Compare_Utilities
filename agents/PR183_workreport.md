@@ -60,3 +60,26 @@ Draft [PR183](https://github.com/reallakshman19/XML_Compare_Utilities/pull/183) 
 Publish/read back this contributor candidate and its Common relay/return, then prepare one fresh **ChatGPT builder onboarding packet** grounded in the exact diff and actual fixtures. Do not dispatch a coder before this baseline exists. The next agent connects this scene/pick seam to the existing viewer, packages pinned local assets, preserves immediate revocation and runs a real supported browser. WBS3.2 topology/Boolean is the connected next functional consumer, not part of this contribution. Independent affected-claim review remains separate; Oracle cannot independently approve its authored code/specification.
 
 EXACT_NEXT_ACTION: Oracle publishes the tested scene/framework delta, records exact head and limitations on native#180, and supplies a copy-ready capability probe plus bounded remaining-WBS3.1 builder brief. No merge, deployment, Writer work or successor cutover.
+
+
+## 27 Oct 2026 — Owner-authorized prerequisite stack integration
+
+Owner requested fixing and merging the remaining PR183→PR181→main prerequisites after PR185 merged into PR183. Live baseline: mainc823f0c0edbeb315c07fa2911390dc781968146f; PR181683a1ac37b5e4457b3e67753cec1c951ec1a2dc9; PR1837ad4caaa706584fc6fa92667e4cfe5f3230295eb/tree08df2c44e667f579381b90fdf59a61cd1fce542e, equal to reviewed1da8 runtime. Initial cumulative60files were independently checked as56 additions and4 shared viewer modifications, no workflows/other-tab edits or deletions. All60 reconstructed local Git blobs matched immutable published source. Full native PR183 checkout3a1bec9 is the isolated filesystem baseline with a verified newer overlay; local Git HEAD is not falsely called the new source head. Source workspaces remain intact.
+
+### Concrete failure and minimal repair
+
+The separate reviewer reproduced an actual main Pages artifact defect: deploy.yml excludes nested tests/ directories, but the sample button requested tests/fixtures/S1-F05.xml and S1-R4.xml. The original main Pages graph contract passes despite those missing runtime files. No numerical failure or merge conflict was found.
+
+The only new production logic change is the sample fetch prefix to ./samples/. Three runtime sample files reuse the exact original public fixture Git blobs (two XMLs and their manifest); dev fixtures are retained for tests and pending CLI consumers. No server, workflow, math, Worker, graph, export, shared-viewer or other-tab source changes. The additive Python Pages smoke stages the actual workflow exclusions, reads the actual app request prefix and verifies both original byte counts/SHA256 over actual HTTP from the staged artifact. It fails unchanged before the repair and passes after it. No hidden mock or converter regeneration.
+
+### Executed checks and boundaries
+
+Contributor final native58/58 PASS, five retained Method C registration/candidates/SVG/proper-frame/rigid-fit entrypoints PASS, HTTP39 modules and pinned Three/Worker/license/denylist PASS, Python/app/launcher syntax PASS. Existing main Pages graph contract PASS. New actual-rsync/staged-HTTP Pages sample smoke: old FAIL exit1 with omitted tests/fixtures URL; repaired PASS exit0 with both original hashes. Separate reviewer reports ten shared navigation/contracts/settings/static/markers/transfer-overlay/sequential move/rotation/deployment regressions PASS and eighteen independent Rodrigues orbit cases with a failing wrong-X variant; these are independent reported evidence, not this contributor's test counts.
+
+Public samples remain the same S1 geometry in two XML profiles. Actual GPU/Windows/native-fullscreen success, independent-model physical qualification, full edit-event/pin receipts and target-host large-model envelope remain unverified or incomplete. Owner merge authorization does not invent those results.
+
+### Recovery and exact next action
+
+Native repair preimages: backups98 app,99 README,100 this report,101 prior manifest. Local module plan/patch/checksums under .agent-worklogs/20261027_geo-stack-merge; new samples have exact known input hashes and no preimage. Remote publication uses the existing explicit Git-data equivalent with the exact PR183 expected-head lease; do not reset inherited work.
+
+EXACT_NEXT_ACTION: independent reviewer verifies the published eight-file package delta and its exact immutable source bytes, then Oracle merges PR183 into the PR181 branch and PR181 into main only after fresh base/head/check reconciliation. Verify merged main preserves runtime/data and existing main contents; then observe the actual main Pages workflow/deployed sample path. Repair any material failure before calling delivery complete. Parent PR bodies need current scope/evidence, not original18/12-test descriptions. No further PR is included in this assignment.

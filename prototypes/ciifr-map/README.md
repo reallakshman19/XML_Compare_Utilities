@@ -15,7 +15,9 @@ Search is budgeted in a Worker (at most 4,096 enumerated cases, a two-million pa
 
 Usability annotations below 40,000 combined nodes/segments use batched screen-space paths; larger models retain the shared 3D geometry and selected-node labels. This is a disclosed annotation threshold, not a qualified large-model performance guarantee. Four shared viewer files add X-up validation/control, opt-in side colours and camera-state access; default Y/Z callers keep their semantics. The renderer, Worker geometry, Three r160 assets and matching engine are reused.
 
-Current contributor checks: 56/56 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate non-author native review passed at db86b640; a bounded popup/no-fit UI follow-up receives its own exact-head delta assessment. Hosted cloud-browser SVG intake/A/B/C/Worker/manual override and paired labels were exercised on the public sample. Its WebGL context is unavailable; actual GPU/pixel/Windows/native-fullscreen/Owner acceptance is not claimed. Earlier historical sections below describe predecessor slices and are not the current evidence frontier.
+Current contributor checks: 58/58 native tests, 39 HTTP-delivered ES modules and pinned viewer/Worker/license delivery passed. Separate non-author native and hosted SVG/DOM review covers source1da8c88c, including projection/base labels; GPU/pixel/Windows/native-fullscreen/Owner engineering acceptance remains unverified. Earlier sections below describe predecessor slices.
+
+The bundled button reads exact-byte public XML copies under `samples/`. The existing main Pages workflow excludes nested `tests/` directories; test fixtures remain in `tests/fixtures/` for native checks and parallel CLI consumers. `python prototypes/ciifr-map/tests/pages_delivery_smoke.py` stages the actual workflow exclusions and verifies both runtime XML hashes over HTTP from that staged artifact. No workflow change or private-file publication is involved.
 
 ---
 

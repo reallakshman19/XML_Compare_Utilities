@@ -160,7 +160,7 @@ byId('load-sample').addEventListener('click',async()=>{
   try {
     const names=['S1-F05.xml','S1-R4.xml'];
     const files=await Promise.all(names.map(async name=>{
-      const response=await fetch(new URL('./tests/fixtures/'+name,import.meta.url));
+      const response=await fetch(new URL('./samples/'+name,import.meta.url));
       if (!response.ok) throw Error('Bundled sample unavailable: '+name);
       return new File([await response.arrayBuffer()],name,{type:'application/xml'});
     }));

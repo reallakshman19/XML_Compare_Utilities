@@ -10,15 +10,15 @@
     },
     {
       "path": "prototypes/ciifr-map/README.md",
-      "bytes": 15961,
-      "sha256": "84d537bab25ae1e57253bc62fc4e739224473c9cb2c1daac6ba8bb3b0d5decbf",
-      "git_blob": "c24b65851648cda93d8ac05719d9400be2e8365f"
+      "bytes": 16205,
+      "sha256": "4acc4947e2091bb47f89549c7d190d208b05ee087c8fe0c945c63c4e236712ec",
+      "git_blob": "d75b0af8003107bc0ef825497ffda009e4eb52c1"
     },
     {
       "path": "prototypes/ciifr-map/app.js",
-      "bytes": 13824,
-      "sha256": "e2702529c992c9b5c8f5e6d525eb508b4463c7729d5abcdc321124a15d1002e2",
-      "git_blob": "8803bbd7c39f5fb8936253fde359ce887e2ca786"
+      "bytes": 13817,
+      "sha256": "66e1dff863a64d6a0926f4b1ee01223fdb794892586c4898032bf693b8f7536a",
+      "git_blob": "77a905aba3b20bd09d2f83722cba46fa35238919"
     },
     {
       "path": "prototypes/ciifr-map/camera-presentation.js",
@@ -187,6 +187,38 @@
       "bytes": 71077,
       "sha256": "9cd9a5bf5b4fca77d8415b7d45931424b521cb88accd535c1815f018580e538f",
       "git_blob": "f8d74b0deff3eda17f8a266ebdb23f7120583c6d"
+    },
+    {
+      "path": "agents/PR183_workreport.md",
+      "bytes": 13237,
+      "sha256": "a3425672e0568043d7854a053b53bec4376aa19b3e1108c050da657f68d384de",
+      "git_blob": "44842879c4ef903a0ad61a97268d9a016ce93256"
+    },
+    {
+      "path": "prototypes/ciifr-map/tests/pages_delivery_smoke.py",
+      "bytes": 2740,
+      "sha256": "5cf20302ced5e0830cb16d0a67be7c773ca4eafc13f627d968851a7e282ef9a3",
+      "git_blob": "f67f2f0b64fd644cd593b4a3d3c17f8fee4e8be7"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/S1-F05.xml",
+      "bytes": 882735,
+      "sha256": "1154c980d08344b1f803cda3bd9884b169753148b150641a745c9bfcb15de995",
+      "git_blob": "914303e2437fffaa5682757ee32b3ae3d8f37df8"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/S1-R4.xml",
+      "bytes": 1426775,
+      "sha256": "a332dd7b2551faae51de3c016941762c3b795cdf19073b373817354e309526e6",
+      "git_blob": "2da10efac2d2f040000edd988d4a1e0baae5dbe1"
+    },
+    {
+      "path": "prototypes/ciifr-map/samples/manifest.json",
+      "bytes": 726,
+      "sha256": "973cac32441f388efb5a49f9b80f56d1409fcbaf697785ba8002299dfefd0e6b",
+      "git_blob": "559ed00b9de48b362f0d7b207df2e3fc3abfc81a"
     }
-  ]
+  ],
+  "integration_task": "CIIFR-GEO-STACK-MAIN-20261027",
+  "source_before_integration": "7ad4caaa706584fc6fa92667e4cfe5f3230295eb"
 }
