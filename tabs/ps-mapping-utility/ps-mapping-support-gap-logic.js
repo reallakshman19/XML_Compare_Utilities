@@ -82,8 +82,12 @@ export function extractTypedSupportGaps(value, parentTypes = new Set(), { fieldF
     /\bGAP\b\s*(?:=|:|-|IS)?\s*(-?\d+(?:\.\d+)?)\s*(?:MM|MILLIMETERS?)?\b/i,
     /\b(-?\d+(?:\.\d+)?)\s*(?:MM|MILLIMETERS?)?\s*GAP\b/i,
   ]);
-  if (genericValue != null && restProhibited) {
-    setGap(out, 'REST_CLEARANCE', genericValue);
+  if (restProhibited) {
+    const clearance = firstMatchValue(source, [
+      /\b(?:DO\s+NOT|DON'T|NO|NOT)\s+(?:PIPE\s+)?REST\b\s*(?:CLEARANCE\s*)?(-?\d+(?:\.\d+)?)\s*(?:MM|MILLIMETERS?)?\s*GAP\b/i,
+      /\bREST\s+CLEARANCE\b\s*(?:=|:|-)?\s*(-?\d+(?:\.\d+)?)\s*(?:MM|MILLIMETERS?)?\b/i,
+    ]);
+    if (clearance != null) setGap(out, 'REST_CLEARANCE', clearance);
     return out;
   }
   if (out.GUIDE != null || out.LINE_STOP != null) return out;
