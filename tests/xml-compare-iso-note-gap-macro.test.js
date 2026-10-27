@@ -41,10 +41,10 @@ const xml = [
   '</IsoPartition></IsoNoteXml>',
 ].join('');
 
-assert.deepEqual(extractSupportGapMeasurements('25mm GAP BETWEEN BOP AND TOS', { supportGapColumn: true }), { rest: [25], guide: [] });
-assert.deepEqual(extractSupportGapMeasurements('GUIDE GAP=10mm'), { rest: [], guide: [10] });
-assert.deepEqual(extractSupportGapMeasurements("REST(20kN), GUIDE(6kN){axial disp=100mm}"), { rest: [], guide: [] }, 'loads and displacement are not gaps');
-assert.deepEqual(extractSupportGapMeasurements("DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]"), { rest: [25], guide: [10] });
+assert.deepEqual(extractSupportGapMeasurements('25mm GAP BETWEEN BOP AND TOS', { supportGapColumn: true }).rest, [25]);
+assert.deepEqual(extractSupportGapMeasurements('GUIDE GAP=10mm').guide, [10]);
+assert.deepEqual(extractSupportGapMeasurements("REST(20kN), GUIDE(6kN){axial disp=100mm}").evidence, [], 'loads and displacement are not gaps');
+assert.deepEqual([extractSupportGapMeasurements("DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]").rest, extractSupportGapMeasurements("DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]").guide], [[25], [10]]);
 assert.equal(compareSupportGapWithIsoNote('25mm GAP', '[25mm GAP]', 'S2_ONLY').status, 'NOT_APPLICABLE');
 assert.equal(compareSupportGapWithIsoNote('25mm', '[25mm GAP]').status, 'MATCH', 'standalone S1 mm value can be a rest gap');
 assert.equal(compareSupportGapWithIsoNote('25mm GAP', '[30mm GAP]').status, 'MISMATCH');
@@ -86,7 +86,7 @@ const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Support Gap \(S1\)","ISONOTE \(S2\)"/);
 assert.match(csv, /"25mm GAP BETWEEN BOP AND TOS"/);
 assert.match(csv, /DO NOT REST \[25mm GAP\]/);
-assert.match(csv, /"MISMATCH","rest clearance differs"/);
+assert.match(csv, /"MISMATCH","Different rest clearance in mm\."/);
 
 const html = renderIsoNoteMappingCompareHtml(report, anchors.length);
 assert.match(html, /Gap mismatch:<\/b> 1/);
