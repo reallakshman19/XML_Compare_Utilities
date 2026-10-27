@@ -186,62 +186,169 @@ function rowsToCsv(rows = [], columns = []) {
   ].join('\n');
 }
 
+function filteredCandidates(rows) {
+  let result = rows;
+  if (candidateView.filter === 'review') result = result.filter((row) => row.reviewRequired === true || row.finalStatus === 'USER_REVIEW_REQUIRED');
+  if (candidateView.filter === 'restraints') result = result.filter((row) => String(row.missingNodeRestraints || '').trim() || String(row.extraTable2Restraints || '').trim());
+  if (candidateView.filter === 'gaps') result = result.filter((row) => /CONFLICT|MISSING_/i.test(supportGapValue(row)));
+  const query = candidateView.search.trim().toUpperCase();
+  if (query) {
+    const fields = ['supportNoModel', 'psnoModel', 'table1SupportNo', 'table1PsNo', 'candidateNode', 'nodeIsonote', 'supportTypesRequested', 'supportMatch', 'supportGapMatch', 'supportNoWiseAction', 'modelSourceId'];
+    result = result.filter((row) => fields.some((key) => String(valueFor(row, key) || '').toUpperCase().includes(query)));
+  }
+  return result;
+}
+
 function candidateTable(rows = [], columns = []) {
-  if (!rows.length) return '<div class="psmap-banner">No candidate rows. Run Mapping first.</div>';
-  return `<div class="psmap-tablewrap"><table class="psmap-table"><thead><tr class="psmap-labels">${columns.map(([, label]) => `<th>${html(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${html(valueFor(row, key))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  if (!rows.length) return '<div class="psmap-banner">No candidates match this filter. Try All candidates or a different search.</div>';
+  const header = columns.map((column) => '<th scope="col">' + html(column[1]) + '</th>').join('');
+  const body = rows.map((row) => '<tr>' + columns.map((column) => '<td>' + html(valueFor(row, column[0])) + '</td>').join('') + '</tr>').join('');
+  return '<div class="psmap-tablewrap"><table class="psmap-table"><thead><tr class="psmap-labels">' + header + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+}
+
+function renderCandidatePage(panel, result) {
+  const all = result?.candidates || result?.candidateRows || [];
+  const filtered = filteredCandidates(all);
+  const pages = Math.max(1, Math.ceil(filtered.length / CANDIDATE_PAGE_SIZE));
+  candidateView.page = Math.max(0, Math.min(pages - 1, candidateView.page));
+  const start = candidateView.page * CANDIDATE_PAGE_SIZE;
+  const visible = filtered.slice(start, start + CANDIDATE_PAGE_SIZE);
+  const host = panel.querySelector('[data-psmap-candidate-table]');
+  if (host) host.innerHTML = candidateTable(visible, visibleCandidateColumns());
+  const count = panel.querySelector('[data-psmap-candidate-count]');
+  if (count) count.textContent = (filtered.length ? 'Showing ' + (start + 1) + '–' + (start + visible.length) + ' of ' + filtered.length.toLocaleString() : 'No matching rows') + ' · ' + all.length.toLocaleString() + ' total candidates';
+  const prev = panel.querySelector('[data-psmap-candidate-prev]');
+  const next = panel.querySelector('[data-psmap-candidate-next]');
+  if (prev) prev.disabled = candidateView.page === 0;
+  if (next) next.disabled = candidateView.page + 1 >= pages;
+  const label = panel.querySelector('[data-psmap-candidate-page]');
+  if (label) label.textContent = 'Page ' + (candidateView.page + 1) + ' of ' + pages;
 }
 
 function renderCandidatePanel(panel, result) {
   if (!panel) return;
   ensureStyle();
   const rows = result?.candidates || result?.candidateRows || [];
-  const showDetails = readShowDetails();
-  const columns = visibleCandidateColumns(showDetails);
-  panel.innerHTML = `<section class="psmap-card"><div class="psmap-card-head"><b>Candidate Matrix</b><button class="psmap-btn secondary" data-psmap-action="copyCandidates">Copy Candidates</button></div><div class="psmap-card-body">
-    <div class="psmap-candidate-detail-toggle" data-psmap-candidate-detail-toggle="1">
-      <label><input type="checkbox" data-psmap-candidate-detail-checkbox ${showDetails ? 'checked' : ''}> <span>Show detail diagnostic columns</span></label>
-      <span class="psmap-candidate-detail-help">Default off. Shows internal basis, review flags, score, warnings and source IDs.</span>
-    </div>
-    <div class="psmap-candidate-copy-note"><b>ⓘ PS No. wise action assumption:</b> Table-1 is treated as the source of truth. Generated actions are Table-2/model correction instructions only. <b>Node restraint coverage:</b> Support Match is row-local; T1 Node Restraints vs T2 Covered Restraints shows whether the combined Table-2 rows cover REST/GUIDE/LINE STOP. Missing support actions use synthetic IDs like PS-XYZ.X1 and never reuse existing .1/.2 Table-2 row numbers. <b>Support gaps are child properties:</b> GUIDE GAP is checked only when GUIDE exists in both Table-1 and Table-2; LINE STOP GAP is checked only when LINE STOP exists in both Table-1 and Table-2.</div>
-    ${candidateTable(rows, columns)}
-  </div></section>`;
-  panel.querySelector('[data-psmap-candidate-detail-checkbox]')?.addEventListener('change', (event) => {
-    writeShowDetails(event.target.checked === true);
-    renderCandidatePanel(panel, result);
+  const reviews = rows.filter((row) => row.reviewRequired === true || row.finalStatus === 'USER_REVIEW_REQUIRED').length;
+  const gaps = rows.filter((row) => /CONFLICT|MISSING_/i.test(supportGapValue(row))).length;
+  const missing = rows.filter((row) => String(row.missingNodeRestraints || '').trim()).length;
+  const filterOptions = [
+    ['all', 'All candidates'],
+    ['review', 'Requires review'],
+    ['restraints', 'Missing / extra restraints'],
+    ['gaps', 'Gap / clearance issues'],
+  ];
+  panel.innerHTML = '<section class="psmap-card">' +
+    '<div class="psmap-card-head"><div><b>Candidate Matrix</b><div class="psmap-candidate-legend">Proposed model-to-reference pairings · Not every candidate is an approved mapping</div></div>' +
+    '<div class="psmap-actions"><button type="button" class="psmap-btn secondary" data-psmap-action="copyCandidates">Copy CSV</button> ' +
+    '<button type="button" class="psmap-btn" data-psmap-action="exportCandidatesCsv">Export all candidates (CSV)</button></div></div>' +
+    '<div class="psmap-card-body">' +
+    '<div class="psmap-candidate-summary"><span>Total candidates <b>' + rows.length.toLocaleString() + '</b></span><span>Needs review <b>' + reviews.toLocaleString() + '</b></span><span>Gap / clearance issues <b>' + gaps.toLocaleString() + '</b></span><span>Rows with missing restraints <b>' + missing.toLocaleString() + '</b></span></div>' +
+    '<p class="psmap-candidate-legend"><b>How to read:</b> Required at Node comes from Table-1. Covered by Model summarizes model restraints at that node. The Restraint Verdict applies to this candidate; Gap / Clearance Verdict is restraint-type specific. Required Model Action gives corrections where applicable. Node-wide actions (in details) summarize the node, not the individual candidate.</p>' +
+    '<div class="psmap-candidate-toolbar"><label>Find support or node <input type="search" data-psmap-candidate-search value="' + html(candidateView.search) + '" placeholder="Support No, node, keyword"></label>' +
+    '<button type="button" class="psmap-btn secondary" data-psmap-candidate-apply>Search</button>' +
+    '<label>Show <select data-psmap-candidate-filter>' + filterOptions.map((item) => '<option value="' + item[0] + '"' + (candidateView.filter === item[0] ? ' selected' : '') + '>' + item[1] + '</option>').join('') + '</select></label>' +
+    '<label><input type="checkbox" data-psmap-candidate-detail-checkbox ' + (readShowDetails() ? 'checked' : '') + '> Show detail diagnostic columns</label></div>' +
+    '<div class="psmap-candidate-pager"><span data-psmap-candidate-count></span><div><button type="button" class="psmap-btn secondary" data-psmap-candidate-prev>Previous</button> <span data-psmap-candidate-page></span> <button type="button" class="psmap-btn secondary" data-psmap-candidate-next>Next</button></div></div>' +
+    '<div data-psmap-candidate-table></div><p class="psmap-candidate-legend">Up to 100 rows per page. Export all candidates (CSV) includes the entire result and all diagnostic fields, not just this page.</p>' +
+    '</div></section>';
+  renderCandidatePage(panel, result);
+  if (installedPanels.has(panel)) return;
+  installedPanels.add(panel);
+  function applySearch() {
+    candidateView.search = panel.querySelector('[data-psmap-candidate-search]')?.value || '';
+    candidateView.page = 0;
+    renderCandidatePage(panel, readPsMappingResult());
+  }
+  panel.addEventListener('click', (event) => {
+    if (event.target.closest('[data-psmap-candidate-apply]')) applySearch();
+    if (event.target.closest('[data-psmap-candidate-prev]')) {
+      candidateView.page = Math.max(0, candidateView.page - 1);
+      renderCandidatePage(panel, readPsMappingResult());
+    }
+    if (event.target.closest('[data-psmap-candidate-next]')) {
+      candidateView.page += 1;
+      renderCandidatePage(panel, readPsMappingResult());
+    }
+  });
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.matches('[data-psmap-candidate-search]')) { event.preventDefault(); applySearch(); }
+  });
+  panel.addEventListener('change', (event) => {
+    if (event.target.matches('[data-psmap-candidate-filter]')) {
+      candidateView.filter = event.target.value;
+      candidateView.page = 0;
+      renderCandidatePage(panel, readPsMappingResult());
+    }
+    if (event.target.matches('[data-psmap-candidate-detail-checkbox]')) {
+      writeShowDetails(event.target.checked);
+      renderCandidatePage(panel, readPsMappingResult());
+    }
   });
 }
 
 function enhanceCandidatePanel() {
   const modal = document.querySelector('[data-psmap-modal]');
-  const panel = modal?.querySelector?.('[data-psmap-panel="candidates"]');
+  const panel = modal?.querySelector?.('[data-psmap-panel="candidates"].active');
   if (!modal || !panel) return;
-  try {
-    const result = resolveCurrent(modal);
-    renderCandidatePanel(panel, result);
-  } catch (error) {
-    console.warn('[psmap] candidate enhancement failed', error);
-  }
+  try { renderCandidatePanel(panel, resolveCurrent()); }
+  catch (error) { console.warn('[psmap] candidate enhancement failed', error); }
 }
 
+let enhanceQueued = false;
 function scheduleEnhance() {
-  requestAnimationFrame(() => setTimeout(enhanceCandidatePanel, 0));
+  if (enhanceQueued) return;
+  enhanceQueued = true;
+  requestAnimationFrame(() => setTimeout(() => {
+    enhanceQueued = false;
+    enhanceCandidatePanel();
+  }, 0));
+}
+
+function currentRows() {
+  const result = resolveCurrent();
+  return result?.candidates || result?.candidateRows || [];
 }
 
 async function copyCurrentCandidates(event, ctx = {}) {
-  const modal = document.querySelector('[data-psmap-modal]');
-  if (!modal) return;
+  if (!document.querySelector('[data-psmap-modal]')) return;
   event.preventDefault();
   event.stopPropagation();
   if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
   try {
-    const result = resolveCurrent(modal);
-    const rows = result?.candidates || result?.candidateRows || [];
-    const csv = rowsToCsv(rows, exportCandidateColumns(rows));
-    await navigator.clipboard?.writeText(csv);
-    ctx.showToast?.(`Copied ${rows.length} candidate rows with enriched columns.`, 'success');
-  } catch (error) {
-    ctx.showToast?.(`Copy candidates failed: ${error?.message || error}`, 'error');
-  }
+    const rows = currentRows();
+    if (!rows.length) { ctx.showToast?.('Run Mapping before copying candidates.', 'warning'); return; }
+    await navigator.clipboard.writeText(rowsToCsv(rows, exportCandidateColumns(rows)));
+    ctx.showToast?.('Copied all ' + rows.length.toLocaleString() + ' candidates.', 'success');
+  } catch (error) { ctx.showToast?.('Copy failed: ' + (error?.message || error), 'error'); }
+}
+
+async function exportCandidatesCsv(event, ctx = {}) {
+  if (!document.querySelector('[data-psmap-modal]')) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+  try {
+    const rows = currentRows();
+    if (!rows.length) { ctx.showToast?.('Run Mapping before exporting candidates.', 'warning'); return; }
+    const columns = exportCandidateColumns(rows);
+    const parts = [columns.map((col) => csvEscape(col[1])).join(',')];
+    // Yield every 250 records, keeping CSV generation responsive for large exports.
+    for (let i = 0; i < rows.length; i += 250) {
+      parts.push(rows.slice(i, i + 250).map((row) => columns.map((col) => csvEscape(valueFor(row, col[0]))).join(',')).join('\r\n'));
+      if (i + 250 < rows.length) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const blob = new Blob([parts.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ps-mapping-candidates-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    ctx.showToast?.('Downloaded all ' + rows.length.toLocaleString() + ' candidates as CSV.', 'success');
+  } catch (error) { ctx.showToast?.('CSV export failed: ' + (error?.message || error), 'error'); }
 }
 
 export function installPsMappingUtilityTile(container, ctx = {}) {
@@ -252,8 +359,12 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
       copyCurrentCandidates(event, ctx);
       return;
     }
+    if (action === 'exportCandidatesCsv') {
+      exportCandidatesCsv(event, ctx);
+      return;
+    }
     const tab = event.target?.closest?.('[data-psmap-tab]')?.dataset?.psmapTab;
-    if (action === 'run' || action === 'open' || tab === 'candidates') scheduleEnhance();
+    if (tab === 'candidates') scheduleEnhance();
   };
   document.addEventListener('click', clickHandler, true);
   scheduleEnhance();
