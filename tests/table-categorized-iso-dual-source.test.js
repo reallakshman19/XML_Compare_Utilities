@@ -63,7 +63,7 @@ assert.equal(placeholders.length, 4, 'all PS-XXXX entries are warnings');
 assert.equal(graph.diagnostics.filter((d) => d.code === 'iso_note_nonstandard_identity').length, 1);
 const placeholderItems = items.filter((node) => node.fields.rawNote?.includes('PS-XXXX'));
 assert.equal(placeholderItems.length, 4, 'placeholder notes must never merge');
-assert.ok(placeholderItems.some((node) => node.key.endsWith('|S2:R11')), 'missing NODE_NUM falls back to row reference');
+assert.ok(placeholderItems.some((node) => node.key.endsWith('|S2:11')), 'missing NODE_NUM falls back to row reference');
 assert.ok(!graph.diagnostics.some((d) => d.severity === 'BLOCKER'));
 
 const gates = runCategorizerValidation({ profile: ISO_NOTE_DUAL_SOURCE_PROFILE, sources: [s1, s2], graph });
