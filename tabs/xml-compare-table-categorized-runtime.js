@@ -14,6 +14,7 @@ import { activeSource, addSource, createMultiSourceState, parseSourceDraft, remo
 import { createSourceTransformRule } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
 import { TABLE_CATEGORIZED_XML_BUTTON_ATTR, TABLE_CATEGORIZED_XML_POPUP_ATTR, renderTableCategorizedXmlButtonHtml, renderTableCategorizedXmlShellHtml } from '../xml-compare/table-categorizer/table-categorized-xml-shell.js?v=20260709-field-comparison-sample';
 import { ISO_NOTE_DUAL_SOURCE_PROFILE, ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-dual-source.js';
+import { assignIsoNoteSourceRoles, classifyIsoNoteSource } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
 import { runCategorizerValidation } from '../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 
 export const XML_COMPARE_TABLE_CATEGORIZED_RUNTIME_SCHEMA = 'xml-compare-table-categorized-runtime/v20-isorecipe-autoload';
@@ -103,7 +104,7 @@ function resetDerived() { state.columnsConfirmed = false; state.graph = null; st
 function setSources(next) { state.sources = [...next.sources]; state.activeSourceId = next.activeSourceId; }
 function active() { return activeSource({ sources: state.sources, activeSourceId: state.activeSourceId }); }
 function activeCatalog() { return buildFieldCatalog([active() || {}]); }
-function parseActiveSource(step = 'source') { setSources(parseSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId)); resetDerived(); state.exportStatus = ''; setActiveTab(step); renderShell(); }
+function parseActiveSource(step = 'source') { setSources(parseSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId)); resetDerived(); state.profileValidation = validateEditableProfile(state.profile, { sources: state.sources.filter((s) => s.rows?.length) }); state.exportStatus = state.profile?.isoNotePlaceholderPolicy === 'warn-and-preserve' ? (state.profileValidation.find((d) => d.severity === 'BLOCKER')?.message || 'Both ISO Note sources are ready.') : ''; setActiveTab(step); renderShell(); }
 function confirmColumns() { if (!active()?.rows?.length) { state.columnsConfirmed = false; state.exportStatus = 'Read a table before confirming columns.'; setActiveTab('levels'); renderShell(); return; } state.columnsConfirmed = true; state.profileValidation = []; state.exportStatus = 'Columns confirmed.'; setActiveTab('graph'); renderShell(); }
 function buildGraph() { const parsedSources = state.sources.filter((s) => s.rows?.length); state.profileValidation = validateEditableProfile(state.profile, { sources: parsedSources }); if (hasProfileBlockers(state.profileValidation)) { state.validationResults = state.profileValidation; state.exportResult = null; state.exportStatus = 'Graph build blocked by profile validation.'; setActiveTab('validation'); renderShell(); return; } state.graph = buildCategorizedGraph(state.profile, parsedSources); state.validationResults = [...state.profileValidation, ...runCategorizerValidation({ profile: state.profile, sources: parsedSources, graph: state.graph })]; state.exportResult = exportCategorizedGraphArtifacts({ graph: state.graph, profile: state.profile, validationResults: state.validationResults, sources: parsedSources }); state.exportStatus = state.exportResult.ok ? 'Graph built and XML artifacts are ready.' : 'Graph built, but export is blocked.'; setActiveTab('validation'); renderShell(); }
 function loadSample() { let next = updateSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId, { sourceName: 'PS Mapping Table 2 Sample', sourceText: PS_MAPPING_TABLE_2_SAMPLE, sourceType: 'sample' }); setSources(parseSourceDraft(next, state.activeSourceId)); resetDerived(); setActiveTab('source'); renderShell(); }
@@ -124,26 +125,48 @@ function loadIsoNoteTemplate() {
   state.profile = ISO_NOTE_DUAL_SOURCE_PROFILE;
   state.selectedLevelPath = '0';
   state.activePivotViewId = '';
+  // Assign sources from their headers; users may have pasted ISO Notes into S1
+  // before creating the second table. Never overwrite real user data with
+  // the example tables simply because one of the two slots is empty.
+  const roles = assignIsoNoteSourceRoles(state.sources);
+  const mapping = roles.useExamples
+    ? { sourceName: 'PS Mapping Sample / S1', sourceText: PS_MAPPING_TABLE_2_SAMPLE }
+    : roles.mapping;
+  const notes = roles.useExamples
+    ? { sourceName: 'ISO Note Sample / S2', sourceText: ISO_NOTE_TABLE_2_SAMPLE }
+    : roles.notes;
   let next = createMultiSourceState();
-  const currentS1 = state.sources.find(s => s.sourceId === 'S1');
-  const currentS2 = state.sources.find(s => s.sourceId === 'S2');
-  const s1Text = currentS1?.sourceText?.trim() ? currentS1.sourceText : PS_MAPPING_TABLE_2_SAMPLE;
-  const s2Text = currentS2?.sourceText?.trim() ? currentS2.sourceText : ISO_NOTE_TABLE_2_SAMPLE;
   next = updateSourceDraft(next, 'S1', {
-    sourceName: currentS1?.sourceText?.trim() ? currentS1.sourceName : 'PS Mapping / S1',
-    sourceText: s1Text, delimiterMode: currentS1?.delimiterMode || 'tab', transformRules: []
+    sourceName: mapping?.sourceName || 'PS Mapping / S1',
+    sourceText: mapping?.sourceText || '',
+    delimiterMode: 'auto',
+    transformRules: []
   });
-  next = parseSourceDraft(next, 'S1');
+  if (mapping?.sourceText?.trim()) next = parseSourceDraft(next, 'S1');
   next = addSource(next, 'ISO Notes / S2');
   next = updateSourceDraft(next, 'S2', {
-    sourceName: currentS2?.sourceText?.trim() ? currentS2.sourceName : 'ISO Notes / S2',
-    sourceText: s2Text, delimiterMode: currentS2?.delimiterMode || 'tab', transformRules: isoRules
+    sourceName: notes?.sourceName || 'ISO Notes / S2',
+    sourceText: notes?.sourceText || '',
+    delimiterMode: 'auto',
+    // Only attach ISO extraction rules when the expected header exists.
+    // Applying them to another table previously created misleading columns.
+    transformRules: notes && classifyIsoNoteSource(notes) === 'notes' ? isoRules : []
   });
-  next = parseSourceDraft(next, 'S2');
-  setSources(setActiveSource(next, 'S2'));
+  if (notes?.sourceText?.trim()) next = parseSourceDraft(next, 'S2');
+  const validation = validateEditableProfile(state.profile, { sources: next.sources.filter((s) => s.rows?.length) });
+  const missingS1 = !next.sources.find((s) => s.sourceId === 'S1')?.rows?.length;
+  const missingS2 = !next.sources.find((s) => s.sourceId === 'S2')?.rows?.length;
+  const missingSide = missingS1 ? 'S1' : missingS2 ? 'S2' : null;
+  setSources(setActiveSource(next, missingSide || 'S2'));
   resetDerived();
-  state.exportStatus = 'Loaded ISO Note S1/S2 template. Confirm fields and build the structure; placeholder IDs remain as warnings.';
-  setActiveTab('levels');
+  state.profileValidation = validation;
+  const layoutBlocker = validation.find((item) => item.severity === 'BLOCKER');
+  state.exportStatus = layoutBlocker
+    ? layoutBlocker.message
+    : roles.swapped
+      ? 'Automatically assigned PS Mapping to S1 and ISO Notes to S2. Confirm fields, then build structure.'
+      : 'ISO Note Template is ready: S1 PS Mapping + S2 ISO Notes. Confirm fields, then build structure.';
+  setActiveTab(layoutBlocker ? 'source' : 'levels');
   renderShell();
 }
 function clearActive() { const a = active(); setSources(updateSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId, { ...a, sourceText: '', headers: [], rows: [], diagnostics: [], transformRules: [] })); resetDerived(); renderShell(); }

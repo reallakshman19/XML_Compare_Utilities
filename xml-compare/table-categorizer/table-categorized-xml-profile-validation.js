@@ -1,4 +1,5 @@
 import { buildFieldCatalog } from './table-categorized-field-catalog.js';
+import { validateIsoNoteSourceLayout } from './table-categorized-xml-iso-note-source-setup.js';
 import { validateOutputViews } from './table-categorized-output-view-contracts.js';
 import { CREATION_MODE_OPTIONS, LEVEL_TYPE_OPTIONS } from './table-categorized-xml-profile-designer.js';
 
@@ -8,6 +9,8 @@ export const IMPLEMENTED_CREATION_MODES=Object.freeze(['static','zero-or-one','o
 
 export function validateEditableProfile(profile,{source=null,sources=null}={}){
   const sourceList=sources||[source].filter(Boolean);
+  const sourceLayoutProblems=validateIsoNoteSourceLayout(profile,sourceList);
+  if(sourceLayoutProblems.length)return Object.freeze(sourceLayoutProblems);
   const diagnostics=[];
   if(!String(profile?.profileId||'').trim())diagnostics.push(diag('BLOCKER','profile_id_missing','profileId is required.'));
   diagnostics.push(...validateSources(sourceList));
