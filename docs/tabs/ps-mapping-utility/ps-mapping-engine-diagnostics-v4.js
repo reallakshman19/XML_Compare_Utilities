@@ -35,14 +35,9 @@ function supportGapRawFromModel(model = {}) {
 }
 
 function table1TextFromRow(row = {}) {
-  return [
-    row.supportTypesAvailable,
-    row.nodeMasterKeywords,
-    row.table1SupportTypes,
-    row.nodeIsonote,
-    row.nodeIsonoteRaw,
-    row.isonote,
-  ].filter(Boolean).join(' ');
+  // Source ISONOTE overrides derived keywords (which may falsely include REST).
+  const iso = row.nodeIsonote || row.nodeIsonoteRaw || row.isonote || '';
+  return iso || [row.supportTypesAvailable, row.nodeMasterKeywords, row.table1SupportTypes].filter(Boolean).join(' ');
 }
 
 function table2TextFromRow(row = {}, model = {}) {
@@ -59,7 +54,7 @@ function table2TextFromRow(row = {}, model = {}) {
 function modelGapMmFromModel(model = {}) {
   const modelTypes = supportTypesFromText(model.supportTypesRequested, model.modelDtxrKeywords, model.dtxr);
   const gaps = extractTypedSupportGaps(supportGapRawFromModel(model), modelTypes, { fieldFallback: true });
-  return gaps.GUIDE ?? gaps.LINE_STOP ?? '';
+  return gaps.GUIDE ?? gaps.LINE_STOP ?? gaps.REST_CLEARANCE ?? '';
 }
 
 function buildModelMap(models = []) {
@@ -99,25 +94,33 @@ function hasCleanResolvedContext(row) {
 }
 
 function markGapExact(row, comparison) {
+  const previousDetail = String(row.gapMatchDetail || '');
+  if (String(row.reason || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reason || ''))) row.reason = '';
+  if (String(row.reviewAction || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reviewAction || ''))) row.reviewAction = '';
+  row.supportGapMatch = comparison.status;
   row.gapMatch = comparison.status;
   row.gapMatchDetail = comparison.detail;
   row.supportGapBasis = comparison.status;
   row.warnings = removeGapWarnings(row.warnings);
   if (comparison.kind === 'GUIDE') row.nodeGuideGapMm = comparison.table1GapMm ?? '';
   if (comparison.kind === 'LINE_STOP') row.nodeLineStopGapMm = comparison.table1GapMm ?? '';
+  if (comparison.kind === 'REST_CLEARANCE') row.nodeRestClearanceMm = comparison.table1GapMm ?? '';
   if (row.finalStatus === 'USER_REVIEW_REQUIRED' && hasCleanResolvedContext(row) && !row.warnings) {
     row.finalStatus = 'MATCHED';
     row.reviewRequired = false;
     row.autoSelectable = true;
     row.confidence = 'HIGH';
     row.confidenceScore = Math.max(Number(row.confidenceScore || 0), 90);
-    row.reason = row.selected ? 'Selected best auto-approved consolidated Table-1 candidate.' : `${comparison.kind === 'LINE_STOP' ? 'Line stop' : 'Guide'} gap comparison matched.`;
+    row.reason = row.selected ? 'Selected best auto-approved consolidated Table-1 candidate.' : comparison.kind === 'REST_CLEARANCE' ? 'Non-contact REST clearance matched.' : `${comparison.kind === 'LINE_STOP' ? 'Line stop' : 'Guide'} gap comparison matched.`;
     row.reviewAction = '';
     row.nodeCoverageNote = '';
   }
 }
 
 function markGapReview(row, comparison) {
+  row.supportGapMatch = comparison.status;
   row.gapMatch = comparison.status;
   row.gapMatchDetail = comparison.detail;
   row.supportGapBasis = comparison.status;
@@ -133,6 +136,7 @@ function markGapReview(row, comparison) {
   row.nodeCoverageNote = comparison.detail;
   if (comparison.kind === 'GUIDE') row.nodeGuideGapMm = comparison.table1GapMm ?? '';
   if (comparison.kind === 'LINE_STOP') row.nodeLineStopGapMm = comparison.table1GapMm ?? '';
+  if (comparison.kind === 'REST_CLEARANCE') row.nodeRestClearanceMm = comparison.table1GapMm ?? '';
 }
 
 function overlapScore(row = {}, model = {}) {
@@ -167,10 +171,26 @@ function applyRobustGapComparison(row, options, modelByPs) {
   row.supportGapMm = comparison.table2GapMm ?? modelGapMmFromModel({ ...model, supportGapRaw }) ?? '';
   if (comparison.kind === 'GUIDE') row.nodeGuideGapMm = comparison.table1GapMm ?? '';
   if (comparison.kind === 'LINE_STOP') row.nodeLineStopGapMm = comparison.table1GapMm ?? '';
+  if (comparison.kind === 'REST_CLEARANCE') row.nodeRestClearanceMm = comparison.table1GapMm ?? '';
 
   if (!comparison.status) {
-    row.gapMatch = row.gapMatch || '';
-    row.supportGapBasis = row.supportGapBasis || '';
+    // Never leak an earlier, generic gap diagnosis onto an unrelated restraint.
+    const oldStatus = String(row.gapMatch || row.supportGapMatch || '');
+    const oldDetail = String(row.gapMatchDetail || '');
+    row.gapMatch = '';
+    row.supportGapMatch = '';
+    row.supportGapBasis = '';
+    row.gapMatchDetail = '';
+    row.warnings = removeGapWarnings(row.warnings);
+    if (/^(?:GAP_|GUIDE_GAP_|LINE_STOP_GAP_|REST_CLEARANCE_)/i.test(oldStatus)) {
+      if (String(row.reason || '') === oldDetail) row.reason = '';
+      if (String(row.reviewAction || '') === oldDetail) row.reviewAction = '';
+      if (row.finalStatus === 'USER_REVIEW_REQUIRED' && hasCleanResolvedContext(row) && !row.warnings) {
+        row.finalStatus = 'MATCHED';
+        row.reviewRequired = false;
+        row.autoSelectable = true;
+      }
+    }
     return row;
   }
 

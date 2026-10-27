@@ -65,12 +65,15 @@ function parseSupportKeywordRules(options = DEFAULT_OPTIONS) {
 
 function extractSupportKeywords(text, options = DEFAULT_OPTIONS) {
   if (options.useBuiltInSupportKeywordLogic === false) return [];
-  const source = String(text || '');
+  const source = String(text || '')
+    .replace(/\b(?:DO\s+NOT|NO|NOT)\s+(?:PIPE\s+)?REST\b/gi, ' ')
+    .replace(/\bREST\s+NOT\s+(?:REQUIRED|ALLOWED|PERMITTED)\b/gi, ' ')
+    .replace(/\bWEAR\s+PLATE\b/gi, ' ');
   if (!source.trim()) return [];
   return unique(parseSupportKeywordRules(options).filter((rule) => rule.regex.test(source)).map((rule) => rule.canonical));
 }
 function splitSupportList(value, options = DEFAULT_OPTIONS) { const raw = String(value || '').trim(); if (!raw) return []; const extracted = extractSupportKeywords(raw, options); if (extracted.length) return extracted; return unique(raw.split(/[;,|/]+/).map((part) => normalizeCanonical(part)).filter(Boolean)); }
-function supportAvailableOnRow(row, options) { return unique([...extractSupportKeywords(row?.nodeIsonote, options), ...extractSupportKeywords(row?.nodeIsonoteRaw, options), ...extractSupportKeywords(row?.nodeMasterKeywords, options), ...extractSupportKeywords(row?.masterKeywords, options), ...splitSupportList(row?.supportTypesAvailable, options)]); }
+function supportAvailableOnRow(row, options) { const iso = row?.nodeIsonote || row?.nodeIsonoteRaw || ''; if (/\bDO\s+NOT\s+REST\b/i.test(iso)) return extractSupportKeywords(iso, options); return unique([...extractSupportKeywords(row?.nodeIsonote, options), ...extractSupportKeywords(row?.nodeIsonoteRaw, options), ...extractSupportKeywords(row?.nodeMasterKeywords, options), ...extractSupportKeywords(row?.masterKeywords, options), ...splitSupportList(row?.supportTypesAvailable, options)]); }
 function supportRequestedOnRow(row, options, modelByPs = new Map()) { const model = modelByPs.get(row?.psnoModel) || {}; return unique([...extractSupportKeywords(model.dtxr, options), ...extractSupportKeywords(row?.dtxr, options), ...extractSupportKeywords(row?.dtxrRaw, options), ...splitSupportList(row?.supportTypesRequested, options), ...splitSupportList(row?.modelDtxrKeywords, options)]); }
 function hasLineConflict(row) { return String(row?.lineBasis || '').toUpperCase() === 'LINE_CONFLICT'; }
 

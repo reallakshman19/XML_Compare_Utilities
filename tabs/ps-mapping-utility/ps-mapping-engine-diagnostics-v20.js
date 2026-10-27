@@ -43,7 +43,9 @@ function parseSupportList(value) {
 }
 
 function supportsFromIsonote(value) {
-  const text = clean(value).toUpperCase();
+  const text = clean(value).toUpperCase()
+    .replace(/\b(?:DO\s+NOT|NO|NOT)\s+(?:PIPE\s+)?REST\b/gi, ' ')
+    .replace(/\bWEAR\s+PLATE\b/gi, ' ');
   const seen = new Set();
   if (/\bREST\b|PIPE\s+REST|\bXRT\b/.test(text)) seen.add('REST');
   if (/\bGUIDE\b/.test(text)) seen.add('GUIDE');
