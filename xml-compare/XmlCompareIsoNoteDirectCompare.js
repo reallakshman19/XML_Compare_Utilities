@@ -120,7 +120,7 @@ export function buildIsoNoteAnchorCandidates({ report = null, sourceRecords = []
       targetStableKey: clean(target.key || target.uid),
       sourceLabel: clean(source.psNo) + ' (' + sourceLine + ')',
       targetLabel: clean(target.nodeName) + ' (' + targetLine + ')',
-      status: 'valid', method: 'iso-note-exact-key',
+      status: 'valid', method: 'iso-note-exact-key', transformBasis: 'identity-key',
       score: 1, identityConfidence: 1, allowDuplicateTarget: false,
       basis: Object.freeze(['iso-note-pipeline-plus-full-support-id']),
     }));
