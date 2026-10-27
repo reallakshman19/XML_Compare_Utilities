@@ -255,7 +255,10 @@ function renderNotification(host, issues) {
   const counts = severityCounts(issues);
   if (!issues.length) {
     const html = `<div class="psmap-preflight ok"><div class="psmap-preflight-title"><span>Preflight check: table structure looks usable.</span><span class="psmap-preflight-badge">No hard blockers</span></div></div>`;
-    if (host.innerHTML !== html) host.innerHTML = html;
+    if (host._psmapLastRenderedHtml !== html || !host.firstElementChild) {
+      host._psmapLastRenderedHtml = html;
+      host.innerHTML = html;
+    }
     return;
   }
   const title = counts.blockers
@@ -267,7 +270,10 @@ function renderNotification(host, issues) {
     <ul class="psmap-preflight-list">${topIssues.map((item) => `<li class="psmap-preflight-item"><b>${h(item.title)}</b><div>${h(item.detail)}</div><div class="psmap-preflight-action">Fix: ${h(item.action)}</div><div class="psmap-preflight-code">${h(item.code)}</div></li>`).join('')}</ul>
     ${issues.length > topIssues.length ? `<div class="psmap-preflight-code">+${issues.length - topIssues.length} more diagnostics hidden.</div>` : ''}
   </div>`;
-  if (host.innerHTML !== html) host.innerHTML = html;
+  if (host._psmapLastRenderedHtml !== html || !host.firstElementChild) {
+      host._psmapLastRenderedHtml = html;
+      host.innerHTML = html;
+    }
 }
 
 function ensureHost() {
