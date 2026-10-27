@@ -174,11 +174,16 @@ function addUnique(list, value) {
 }
 
 function isAcceptedMapping(row = {}) {
-  return row.source !== 'TABLE1C_MISSING_SUPPORT'
-    && row.syntheticMissingSupport !== true
-    && row.finalStatus === 'MATCHED'
-    && row.reviewRequired !== true
-    && row.autoSelectable !== false;
+  if (row.source === 'TABLE1C_MISSING_SUPPORT' || row.syntheticMissingSupport === true) return false;
+  if (row.finalStatus === 'MATCHED' && row.autoSelectable !== false) return true;
+  // A physically present, context-matched restraint can be covered while its
+  // associated GAP still needs correction. Do not invent a missing restraint.
+  const gap = String(row.supportGapMatch || row.gapMatch || '');
+  return row.finalStatus === 'USER_REVIEW_REQUIRED'
+    && /^(?:GUIDE_GAP_|LINE_STOP_GAP_|REST_CLEARANCE_)/.test(gap)
+    && row.supportBasis === 'SUPPORT_EXACT'
+    && ['PS_BASE', 'PS_EXACT'].includes(row.psBasis)
+    && !row.ambiguousMultiTable1Context;
 }
 
 function buildGroups(rows = []) {
