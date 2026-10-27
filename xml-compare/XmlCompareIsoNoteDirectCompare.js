@@ -7,7 +7,10 @@ export const normalizeIsoLine = (value) => clean(value).replace(/^\/+/, '').trim
 export const normalizeIsoSupport = (value) => clean(value).replace(/^\/+/, '').trim().toUpperCase();
 const escapeHtml = (value) => clean(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const identityKey = (line, support) => line && support ? line + '\u0000' + support : '';
-const placeholder = (value) => /^(PS|SL)-X{3,}$/i.test(value);
+// A PS/SL support with a nonnumeric suffix (PS-XXXX, PS-10.X,
+ // PS-XYZ.1) is provisional, never a verified engineering identity.
+const placeholder = (value) => /^(?:PS|SL)-/i.test(value) &&
+  !/^(?:PS|SL)-\d+(?:\.\d+)?$/i.test(value);
 function xmlRows(xmlText, partition) {
   if (!clean(xmlText)) return [];
   const model = createCategorizedInputXmlCanvasModel({ xmlText });
