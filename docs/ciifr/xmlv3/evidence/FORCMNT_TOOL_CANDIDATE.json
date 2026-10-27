@@ -1,0 +1,27 @@
+{
+  "identity": "cc6408ba9e120758b9add5f48d115ccb4b3e96fa0e434114f6189976e5b23622",
+  "basis": "sorted repository-relative path NUL byte-length NUL SHA256 newline; four new tool files plus unchanged cii_raw dependency; not Git head",
+  "files": {
+    "qualification/forcmnt_codec.py": {
+      "bytes": 11326,
+      "sha256": "b16c1d93d26d3c06eefce195052c0adb4e46b66c3b1953d3d381eae2a9c20612"
+    },
+    "qualification/forcmnt_physical.py": {
+      "bytes": 2656,
+      "sha256": "94352affce75deb1b4a0a50856204cbbadfb523f8bb4da4b0c298e55abc43150"
+    },
+    "qualification/forcmnt_falsifiers.py": {
+      "bytes": 9888,
+      "sha256": "0efe2b7e80b76f7e5ce4c1c387a03495c57898570a9c38f72f600781abbcdbd9"
+    },
+    "qualification/forcmnt_section_probe.py": {
+      "bytes": 10678,
+      "sha256": "41874490ab8e6bdd133bf1e6f9fd5cecbba731b2c0592e3a572170fbb423d119"
+    },
+    "qualification/cii_raw.py": {
+      "bytes": 5793,
+      "sha256": "6ae96d025be647e2d44bfc01fe36770c30f06c57c3c0ca65e9b04fa97e69e85b"
+    }
+  },
+  "frozen_product16_identity": "a7dd4e1432d960f2969ebbb189ad55004e31d8e3f22a55ee557c94bd74f36163"
+}
