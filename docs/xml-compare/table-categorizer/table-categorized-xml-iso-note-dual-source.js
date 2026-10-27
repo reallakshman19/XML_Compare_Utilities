@@ -33,6 +33,7 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
   profileId: ISO_NOTE_DUAL_SOURCE_PROFILE_ID,
   displayName: 'ISO Notes S2 + PS Mapping S1',
   version: '1.0.0',
+  drivingSourceId: 'S2',
   sourceRowMode: 'perSource',
   isoNotePlaceholderPolicy: 'warn-and-preserve',
   rootPartitionMode: 'static',
@@ -49,7 +50,7 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
     documentRootTag: 'IsoNoteXml', rootPartitionTag: 'IsoPartition',
     includeDiagnosticsElement: true,
     childElementFields: [
-      'connectorKey', 'supportId', 'revision', 'sourceType',
+      'connectorKey', 'supportId', 'revision',
       'pipe', 'psNo', 'bore', 'dtxr', 'supportGap', 'mandatory', 'x', 'y', 'z',
       'rawNote', 'jobName', 'lineNoInCii', 'pipeAxis', 'nodeNumber', 'nodeName',
       'nps', 'supportType', 'remarks', 'restKn', 'guideKn', 'guideGapMm', 'lineStopKn',
@@ -69,7 +70,6 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
         fieldResolvers: {
           connectorKey: identity,
           supportId,
-          sourceType: { op: 'fallback', resolvers: [column('S2', 'SupportISONOTE')], defaultValue: 'PS_MAPPING' },
           revision: extract(note, ISO_NOTE_SUFFIX_PATTERN),
           pipe: pipeline,
           psNo: supportFromS1,
