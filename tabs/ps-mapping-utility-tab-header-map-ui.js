@@ -21,7 +21,7 @@ const TABLE_CONFIGS = {
     source: 'table2Text',
     insertHint: 'PS NO | Bore | pipe | DTXR | Support Gap | Mandatory',
     fields: [
-      { key: 'psNo', label: 'PS NO', aliases: ['ps no', 'psno', 'ps name', 'psno_model', 'psno model', 'support no', 'support tag'] },
+      { key: 'psNo', label: 'PS NO', aliases: ['ps no', 'psno', 'ps name', 'psno_model', 'psno model', 'support no', 'support number', 'support tag'] },
       { key: 'bore', label: 'Bore', aliases: ['bore', 'model bore', 'nb', 'dn', 'nominal bore', 'diameter'] },
       { key: 'pipe', label: 'pipe', aliases: ['pipe', 'line no', 'line number', 'line', 'branchname', 'branch name', 'pipeline', 'line id'] },
       { key: 'dtxr', label: 'DTXR', aliases: ['dtxr', 'support', 'support type', 'support description', 'description', 'desc', 'support desc'] },
