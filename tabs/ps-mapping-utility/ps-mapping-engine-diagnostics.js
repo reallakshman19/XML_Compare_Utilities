@@ -178,7 +178,9 @@ function parseTable1DKeywords(text, log) {
   return unique;
 }
 export function normalizeSupportTypes(value, catalog = DEFAULT_SUPPORT_KEYWORD_CATALOG) {
-  const cleaned = String(value ?? '').replace(/\[[^\]]*GAP[^\]]*\]/gi, ' ').toUpperCase();
+  const cleaned = String(value ?? '').replace(/\[[^\]]*GAP[^\]]*\]/gi, ' ').toUpperCase()
+    .replace(/\b(?:DO\s+NOT|NO|NOT)\s+(?:PIPE\s+)?REST\b/gi, ' ')
+    .replace(/\bREST\s+NOT\s+(?:REQUIRED|ALLOWED|PERMITTED)\b/gi, ' ');
   const types = new Set();
   for (const item of catalog || DEFAULT_SUPPORT_KEYWORD_CATALOG) {
     for (const alias of item.aliases || [item.raw]) {
