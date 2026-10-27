@@ -137,14 +137,14 @@ export function serializeIsoNoteMappingCsv(report) {
   const rows = (report?.rows || []).map((r) => [r.pipe, r.psNo, r.nodeName, r.status, r.reason, r.s1Ref, r.s2Ref].map(csvCell).join(','));
   return [headings.map(csvCell).join(','), ...rows].join('\r\n') + '\r\n';
 }
-export function renderIsoNoteMappingCompareHtml(report = null) {
+export function renderIsoNoteMappingCompareHtml(report = null, linkedCount = 0) {
   if (!report) return '';
   if (!report.ok) return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><h3>PS Mapping ↔ ISO Notes</h3><p role="alert">' + escapeHtml(report.message) + '</p></section>';
   const s = report.summary;
   const rows = report.rows.map((r) => '<tr><td>' + escapeHtml(r.pipe) + '</td><td>' + escapeHtml(r.psNo || '—') + '</td><td>' + escapeHtml(r.nodeName || '—') + '</td><td><b>' + escapeHtml(r.status.replace('_', ' ')) + '</b></td><td>' + escapeHtml(r.reason) + '</td></tr>').join('');
   return '<section class="xml-compare-panel" aria-label="PS Mapping vs ISO Notes"><div class="xml-compare-panel-title">PS Mapping ↔ ISO Notes: ' +
     escapeHtml(report.countS1) + ' S1 rows / ' + escapeHtml(report.countS2) + ' S2 rows</div><p>' + escapeHtml(report.message) +
-    '</p><p><b>Match:</b> ' + s.match + ' &nbsp; <b>S1 only:</b> ' + s.s1Only + ' &nbsp; <b>S2 only:</b> ' + s.s2Only +
+    '</p><p><b>Anchors linked:</b> ' + linkedCount + ' / ' + s.match + ' exact matches. Review &amp; Transfer opens the approved links; no properties have been transferred.</p><p><b>Match:</b> ' + s.match + ' &nbsp; <b>S1 only:</b> ' + s.s1Only + ' &nbsp; <b>S2 only:</b> ' + s.s2Only +
     ' &nbsp; <b>Review:</b> ' + s.review + '</p><button type="button" data-xml-compare-action="download-iso-note-comparison-csv">Download comparison CSV</button>' +
     '<div style="max-height:390px;overflow:auto"><table class="xml-compare-topology-table"><thead><tr><th>Normalized pipeline</th><th>PS NO (S1)</th><th>NODE_NAME (S2)</th><th>Result</th><th>Details</th></tr></thead><tbody>' +
     rows + '</tbody></table></div></section>';
