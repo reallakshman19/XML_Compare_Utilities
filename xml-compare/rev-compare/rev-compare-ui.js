@@ -1,5 +1,6 @@
 import { createRevCompareDashboardModel } from './rev-compare-dashboard-model.js';
 import { REV_COMPARE_CHANGE_TYPES } from './rev-compare-contracts.js';
+import { renderIsoNoteRevCompareDashboardHtml } from './rev-compare-iso-note-ui.js';
 
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
@@ -131,6 +132,7 @@ function renderDeltaGrid(model) {
 }
 
 export function renderRevCompareDashboardHtml(workspace) {
+  if (workspace?.isoNoteRevAudit?.mode === 'iso-note-engineering') return renderIsoNoteRevCompareDashboardHtml(workspace.isoNoteRevAudit);
   const model = createRevCompareDashboardModel(workspace);
   
   return `<div class="xmlc-rev-compare-dashboard">
