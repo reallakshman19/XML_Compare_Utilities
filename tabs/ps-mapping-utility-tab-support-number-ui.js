@@ -1,3 +1,4 @@
+import { readPsMappingResult } from './ps-mapping-utility-tab-result-cache.js';
 import { installPsMappingUtilityTile as installBasePsMappingUtilityTile } from './ps-mapping-utility-tab-candidate-copy-ui.js?v=20260612-psmap-candidate-copy-1';
 import {
   DEFAULT_OPTIONS,
@@ -141,7 +142,8 @@ async function copyCandidatesWithSupportNoLabels(event, ctx = {}) {
   event.stopPropagation();
   if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
   try {
-    const result = runPsMappingResolver({ ...collectInputFromModal(modal), options: parseOptionsFromModal(modal) });
+    const result = readPsMappingResult();
+    if (!result) { ctx.showToast?.('Run Mapping before copying candidates.', 'warning'); return; }
     const rows = result?.candidates || result?.candidateRows || [];
     await navigator.clipboard?.writeText(rowsToCsv(rows));
     ctx.showToast?.(`Copied ${rows.length} candidate rows with Support No. labels.`, 'success');
