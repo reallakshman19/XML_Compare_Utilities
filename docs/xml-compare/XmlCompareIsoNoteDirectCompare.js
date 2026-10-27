@@ -41,8 +41,9 @@ export function extractSupportGapMeasurements(text = '', { supportGapColumn = fa
   // On the ISO note side a bare mm might mean axial displacement, so NEVER
   // infer a gap there without the GAP or CLEARANCE keyword.
   if (supportGapColumn && !values.rest.length && !values.guide.length) {
-    if (/^\s*(\d+(?:[.,]\d+)?)\s*mm\s*$/i.test(input)) {
-      const mm = Number(RegExp.$1.replace(',', '.'));
+    const plainMm = input.match(/^\s*(\d+(?:[.,]\d+)?)\s*mm\s*$/i);
+    if (plainMm) {
+      const mm = Number(plainMm[1].replace(',', '.'));
       if (Number.isFinite(mm) && mm >= 0) values.rest.push(mm);
     }
   }
