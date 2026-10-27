@@ -94,6 +94,11 @@ function hasCleanResolvedContext(row) {
 }
 
 function markGapExact(row, comparison) {
+  const previousDetail = String(row.gapMatchDetail || '');
+  if (String(row.reason || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reason || ''))) row.reason = '';
+  if (String(row.reviewAction || '') === previousDetail
+      || /^Support gap (?:conflict|missing)/i.test(String(row.reviewAction || ''))) row.reviewAction = '';
   row.gapMatch = comparison.status;
   row.gapMatchDetail = comparison.detail;
   row.supportGapBasis = comparison.status;
