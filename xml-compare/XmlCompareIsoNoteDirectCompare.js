@@ -61,11 +61,13 @@ export function compareSupportGapWithIsoNote(supportGap = '', isoNote = '', iden
     s1GuideMm: displayMm(s1.guide), s2GuideMm: displayMm(s2.guide),
   });
   if (identityStatus !== 'MATCH') return result('NOT_APPLICABLE', 'Pipeline and support identity are not uniquely matched.');
-  const kinds = ['rest', 'guide'].filter((kind) => s1[kind].length || s2[kind].length);
+  const kinds = ['rest', 'guide'].filter((kind) => s1[kind].length);
+  const s2Declared = ['rest', 'guide'].filter((kind) => s2[kind].length);
   if (!kinds.length) {
-    return result(clean(supportGap) ? 'REVIEW' : 'NOT_SPECIFIED', clean(supportGap)
+    return result(clean(supportGap) || s2Declared.length ? 'REVIEW' : 'NOT_SPECIFIED', clean(supportGap)
       ? 'S1 Support Gap contains text but no unambiguous millimetre gap value.'
-      : 'Neither source declares a comparable rest or guide clearance in millimetres.');
+      : s2Declared.length ? 'Gap declared in ISO Note but absent from S1 Support Gap.'
+        : 'Neither source declares a comparable rest or guide clearance in millimetres.');
   }
   if (kinds.some((kind) => s1[kind].length > 1 || s2[kind].length > 1)) {
     return result('REVIEW', 'Multiple distinct clearances of the same type; manual review required.');
