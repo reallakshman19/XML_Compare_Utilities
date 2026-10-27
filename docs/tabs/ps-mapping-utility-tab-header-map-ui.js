@@ -65,6 +65,8 @@ function detectDelimiter(line) {
 }
 
 function splitLine(line) {
+  const raw = String(line).trim();
+  if (raw.startsWith('|') && raw.endsWith('|')) return raw.slice(1, -1).split('|').map((c) => c.trim());
   if (String(line).includes('\t')) return String(line).split('\t').map((c) => c.trim());
   if (String(line).includes('|')) return String(line).split('|').map((c) => c.trim());
   return String(line).split(/\s{2,}/).map((c) => c.trim()).filter(Boolean);
@@ -106,8 +108,9 @@ function sourceSnapshot(config) {
   const firstCells = splitLine(first);
   const firstIsData = looksLikeDataRow(firstCells);
   const delimiter = detectDelimiter(first);
+  const isMarkdown = first.trim().startsWith('|') && first.trim().endsWith('|');
   const rawHeaders = firstCells.length ? firstCells : config.fields.map((field) => field.label);
-  return { textarea, text, rows, first, firstCells, firstIsData, delimiter, rawHeaders };
+  return { textarea, text, rows, first, firstCells, firstIsData, delimiter, isMarkdown, rawHeaders };
 }
 
 function renderMappingSection(configKey) {
@@ -149,7 +152,7 @@ function installStyle() {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-.psmap-header-map-host{margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.psmap-header-map-btn{border:1px solid rgba(96,165,250,.42);background:rgba(30,64,175,.22);color:#dbeafe;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}.psmap-header-map-hint{color:#cbd5e1;font-size:12px}.psmap-header-map-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.72);display:flex;align-items:flex-start;justify-content:center;padding:5vh 18px;overflow:auto}.psmap-header-map-dialog{width:min(1040px,96vw);background:#0f172a;border:1px solid rgba(148,163,184,.34);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.45);color:#e5e7eb}.psmap-header-map-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid rgba(148,163,184,.22)}.psmap-header-map-head h3{margin:0;font-size:16px}.psmap-header-map-close{border:0;background:rgba(148,163,184,.16);color:#e5e7eb;border-radius:10px;padding:6px 9px;cursor:pointer}.psmap-header-map-body{display:grid;gap:14px;padding:14px 16px}.psmap-header-map-section{border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:12px;background:rgba(15,23,42,.6)}.psmap-header-map-section-title{display:flex;justify-content:space-between;gap:10px;font-weight:800;color:#f8fafc;margin-bottom:6px}.psmap-header-map-note{margin:0 0 8px;color:#cbd5e1;font-size:12px}.psmap-header-map-section table{width:100%;border-collapse:collapse;font-size:12px}.psmap-header-map-section th,.psmap-header-map-section td{border-top:1px solid rgba(148,163,184,.18);padding:6px 8px;text-align:left;vertical-align:top}.psmap-header-map-section select{width:100%;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.34);border-radius:8px;padding:6px}.psmap-header-map-inline{display:flex;align-items:center;gap:7px;font-size:12px;color:#dbeafe;margin:8px 0}.psmap-header-map-apply{border:1px solid rgba(34,197,94,.42);background:rgba(22,101,52,.28);color:#bbf7d0;border-radius:10px;padding:7px 10px;font-weight:800;cursor:pointer}.psmap-header-map-preview{font-size:11px;color:#fbbf24;margin-top:2px}.psmap-header-map-toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#064e3b;color:#d1fae5;border:1px solid rgba(52,211,153,.42);border-radius:12px;padding:9px 12px;font-size:12px;box-shadow:0 12px 35px rgba(0,0,0,.35)}`;
+.psmap-header-map-host{margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.psmap-header-map-btn{border:1px solid rgba(96,165,250,.42);background:rgba(30,64,175,.22);color:#dbeafe;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}.psmap-header-map-hint{color:#cbd5e1;font-size:12px}.psmap-header-map-backdrop{position:fixed;inset:0;box-sizing:border-box;width:100vw;max-width:none;height:100vh;height:100dvh;max-height:none;z-index:2147483647;margin:0;border:0;background:transparent;color:inherit;display:flex;align-items:flex-start;justify-content:center;padding:5vh 18px;overflow:auto}.psmap-header-map-backdrop:not([open]){display:none}.psmap-header-map-backdrop::backdrop{background:rgba(2,6,23,.72)}.psmap-header-map-dialog{width:min(1040px,96vw);background:#0f172a;border:1px solid rgba(148,163,184,.34);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.45);color:#e5e7eb}.psmap-header-map-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid rgba(148,163,184,.22)}.psmap-header-map-head h3{margin:0;font-size:16px}.psmap-header-map-close{border:0;background:rgba(148,163,184,.16);color:#e5e7eb;border-radius:10px;padding:6px 9px;cursor:pointer}.psmap-header-map-body{display:grid;gap:14px;padding:14px 16px}.psmap-header-map-section{border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:12px;background:rgba(15,23,42,.6)}.psmap-header-map-section-title{display:flex;justify-content:space-between;gap:10px;font-weight:800;color:#f8fafc;margin-bottom:6px}.psmap-header-map-note{margin:0 0 8px;color:#cbd5e1;font-size:12px}.psmap-header-map-section table{width:100%;border-collapse:collapse;font-size:12px}.psmap-header-map-section th,.psmap-header-map-section td{border-top:1px solid rgba(148,163,184,.18);padding:6px 8px;text-align:left;vertical-align:top}.psmap-header-map-section select{width:100%;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.34);border-radius:8px;padding:6px}.psmap-header-map-inline{display:flex;align-items:center;gap:7px;font-size:12px;color:#dbeafe;margin:8px 0}.psmap-header-map-apply{border:1px solid rgba(34,197,94,.42);background:rgba(22,101,52,.28);color:#bbf7d0;border-radius:10px;padding:7px 10px;font-weight:800;cursor:pointer}.psmap-header-map-preview{font-size:11px;color:#fbbf24;margin-top:2px}.psmap-header-map-toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#064e3b;color:#d1fae5;border:1px solid rgba(52,211,153,.42);border-radius:12px;padding:9px 12px;font-size:12px;box-shadow:0 12px 35px rgba(0,0,0,.35)}`;
   document.head.appendChild(style);
 }
 
@@ -169,10 +172,18 @@ function ensureButtonHost() {
   return host;
 }
 
+function closeMapper() {
+  const dialog = document.querySelector('[data-psmap-header-map-dialog]');
+  if (!dialog) return;
+  if (dialog.open && typeof dialog.close === 'function') dialog.close();
+  dialog.remove();
+}
+
 function openMapper() {
   installStyle();
-  document.querySelector('[data-psmap-header-map-dialog]')?.remove();
-  const backdrop = document.createElement('div');
+  closeMapper();
+  // A native modal dialog is promoted to the browser top layer above app stacking contexts.
+  const backdrop = document.createElement('dialog');
   backdrop.className = 'psmap-header-map-backdrop';
   backdrop.setAttribute('data-psmap-header-map-dialog', '1');
   backdrop.innerHTML = `<div class="psmap-header-map-dialog" role="dialog" aria-modal="true" aria-label="PS Mapping header mapper">
@@ -182,7 +193,14 @@ function openMapper() {
     </div>
     <div class="psmap-header-map-body">${renderMappingSection('table1c')}${renderMappingSection('table2')}</div>
   </div>`;
+  backdrop.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeMapper();
+  });
   document.body.appendChild(backdrop);
+  if (typeof backdrop.showModal === 'function') backdrop.showModal();
+  else backdrop.setAttribute('open', '');
+  backdrop.querySelector('[data-psmap-header-map-close]')?.focus();
 }
 
 function mappedHeaderCells(configKey) {
@@ -205,7 +223,8 @@ function applyMapping(configKey) {
   if (!firstNonBlank) return false;
   const insert = document.querySelector(`[data-psmap-header-insert="${configKey}"]`)?.checked || false;
   const delimiter = snapshot.delimiter || '\t';
-  const headerLine = mappedHeaderCells(configKey).join(delimiter);
+  const mapped = mappedHeaderCells(configKey);
+  const headerLine = snapshot.isMarkdown ? `| ${mapped.join(' | ')} |` : mapped.join(delimiter);
   if (insert) {
     physicalRows.splice(firstNonBlank.index, 0, headerLine);
   } else {
@@ -235,7 +254,7 @@ function handleClick(event) {
   const close = event.target.closest('[data-psmap-header-map-close]');
   if (close || (event.target.matches?.('[data-psmap-header-map-dialog]'))) {
     event.preventDefault();
-    document.querySelector('[data-psmap-header-map-dialog]')?.remove();
+    closeMapper();
     return;
   }
   const apply = event.target.closest('[data-psmap-header-apply]');
@@ -259,7 +278,7 @@ function installHeaderMapper() {
   return () => {
     observer.disconnect();
     document.removeEventListener('click', handleClick, true);
-    document.querySelector('[data-psmap-header-map-dialog]')?.remove();
+    closeMapper();
   };
 }
 
