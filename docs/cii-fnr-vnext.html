@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CII Find &amp; Replace VNext — Standalone Qualification</title>
-<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/style.css"></head>
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/style.css">
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/geo-tab.css"></head>
 <body data-vnext-app>
 <header><h1>↔ CII Find &amp; Replace <small>VNext · Standalone</small></h1>
 <p>Fixed-field proposals · explicit review · immutable TARGET0 · new-copy export. Not connected to the production tile.</p></header>
@@ -10,6 +11,7 @@
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">NodeName Find &amp; Replace</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
 <button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
+<button type="button" role="tab" aria-selected="false" data-tab="CIIFR_GEO" aria-controls="ciifr-geo-panel">CIIFR_GEO</button>
 <button type="button" role="tab" aria-selected="false" data-tab="CONFIG">Config</button></nav>
 <div data-workspace>
 <section aria-label="Input files" class="intake">
@@ -59,6 +61,12 @@
 <p class="status" aria-live="polite" data-status>Load TARGET0 to begin.</p>
 <p class="hash">Validated TARGET1 SHA-256: <output data-hash1>—</output></p></section>
 </div>
+<section id="ciifr-geo-panel" class="ciifr-geo-panel" data-ciifr-geo-panel hidden aria-label="CIIFR_GEO correspondence workbench">
+<div class="ciifr-geo-toolbar"><div><h2>CIIFR_GEO · Geometry correspondence</h2>
+<p>Load SOURCE / TARGET XML here. Independent A/B/C review, SVG and 3D views; review evidence only.</p></div>
+<a data-ciifr-geo-open href="../prototypes/ciifr-map/index.html" target="_blank" rel="noopener">Open workbench in a separate window ↗</a></div>
+<iframe data-ciifr-geo-frame title="CIIFR_GEO · independent XML correspondence workbench" allow="fullscreen" allowfullscreen></iframe>
+</section>
 <section class="card" data-config-area hidden aria-label="Conflict and approval configuration">
 <h2>Config · Review &amp; conflict policy</h2>
 <p>These settings apply to the current in-memory operation. Changing any setting revokes all existing plans, approvals, validation, and exports.</p>
