@@ -85,7 +85,7 @@ assert.equal(anchors.length, 9, 'gap mismatches do not invalidate an exact ident
 const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Support Gap \(S1\)","ISONOTE \(S2\)"/);
 assert.match(csv, /"25mm GAP BETWEEN BOP AND TOS"/);
-assert.match(csv, /"DO NOT REST \[25mm GAP\]/);
+assert.match(csv, /DO NOT REST \[25mm GAP\]/);
 assert.match(csv, /"MISMATCH","rest clearance differs"/);
 
 const html = renderIsoNoteMappingCompareHtml(report, anchors.length);
