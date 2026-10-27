@@ -147,7 +147,7 @@ function activateTallyPanel(modal, panel, tab) {
   for (const node of body.querySelectorAll(':scope > .psmap-panel')) node.classList.remove('active');
   panel.classList.add('active');
   const result = readPsMappingResult();
-  renderTally(panel, result.tallyRows || []);
+  renderTally(panel, result?.tallyRows || []);
 }
 
 function ensureTallyTab(modal) {
