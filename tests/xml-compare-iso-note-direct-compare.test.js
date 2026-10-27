@@ -41,7 +41,7 @@ const result = compareIsoNoteMapping({ sourceXml: input, targetXml: input });
 assert.equal(result.ok, true);
 assert.equal(result.countS1, 5);
 assert.equal(result.countS2, 5);
-assert.deepEqual(result.summary, { match: 1, s1Only: 2, s2Only: 1, review: 5, gapMatch: 0, gapMismatch: 0, gapReview: 0, gapNotSpecified: 1 });
+assert.deepEqual(result.summary, { match: 1, s1Only: 2, s2Only: 1, review: 5, gapMatch: 0, gapMismatch: 0, gapReview: 0, gapNotSpecified: 1, coverageCovered: 0, coverageMissing: 0, coverageReview: 0, coverageExtra: 0 });
 const exact = result.rows.find((rec) => rec.status === 'MATCH');
 assert.equal(exact.psNo, 'PS-006.5');
 assert.equal(exact.nodeName, '/PS-006.5');
