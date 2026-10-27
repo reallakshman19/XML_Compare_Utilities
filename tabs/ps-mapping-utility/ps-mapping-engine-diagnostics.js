@@ -44,11 +44,22 @@ const NPS_TO_DN = new Map([
   [26, 650], [28, 700], [30, 750], [32, 800], [34, 850], [36, 900],
 ]);
 
-function hkey(value) { return String(value ?? '').toLowerCase().replace(/[_.-]+/g, ' ').replace(/\s+/g, ' ').trim(); }
-function splitLines(text) { return String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean).filter((line) => !/^-{3,}$/.test(line)); }
+function hkey(value) { return String(value ?? '').toLowerCase().replace(/\u00a0/g, ' ').replace(/[_.-]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function isMarkdownSeparator(line) {
+  const raw = String(line || '').trim();
+  if (!raw.includes('|')) return false;
+  const cells = raw.replace(/^\|/, '').replace(/\|$/, '').split('|').map((v) => v.trim());
+  return cells.length > 1 && cells.every((v) => /^:?-{3,}:?$/.test(v));
+}
+function splitLines(text) {
+  return String(text || '').split(/\r?\n/).map((line) => line.trim())
+    .filter(Boolean).filter((line) => !/^-{3,}$/.test(line) && !isMarkdownSeparator(line));
+}
 function splitCells(line) {
   const raw = String(line || '').trim();
   if (!raw) return [];
+  // Markdown tables may have commas inside ISONOTE/DTXR cells; split pipes first.
+  if (raw.startsWith('|') && raw.endsWith('|')) return raw.slice(1, -1).split('|').map((v) => v.trim());
   if (raw.includes('\t')) return raw.split('\t').map((v) => v.trim());
   if (raw.includes(',')) return raw.split(',').map((v) => v.trim());
   return raw.split(/ {2,}/).map((v) => v.trim()).filter(Boolean);
@@ -218,7 +229,7 @@ function parseTable1C(text, log, keywordCatalog, options) {
   const supportByNode = new Map(); const richRows = [];
   if (!String(text || '').trim()) { log.user('INFO', 'PARSE', 'Table-1C', 'Optional Support Master / ISONOTE table is blank.'); return { supportByNode, richRows, isRich: false }; }
   const lines = splitLines(text); const headers = splitCells(lines[0]);
-  const lineIdx = idx(headers, ['line no', 'line', 'line number', 'pipe', 'branchname']); const nodeIdx = idx(headers, ['node', 'node no', 'node number']); const psIdx = idx(headers, ['ps no', 'ps name', 'ps', 'support ps no']); const pipeSizeIdx = idx(headers, ['pipe size', 'size', 'nps', 'pipe nps']); const isoIdx = idx(headers, ['isonote', 'iso note', 'support', 'support note', 'dtxr']); const mandatoryIdx = idx(headers, ['mandatory', 'required', 'is mandatory', 'must audit', 'audit']);
+  const lineIdx = idx(headers, ['line no', 'line', 'line number', 'pipe', 'branchname']); const nodeIdx = idx(headers, ['node', 'node no', 'node number']); const psIdx = idx(headers, ['ps no', 'ps name', 'ps', 'support ps no', 'support no', 'support number', 'support tag']); const pipeSizeIdx = idx(headers, ['pipe size', 'size', 'nps', 'pipe nps']); const isoIdx = idx(headers, ['isonote', 'iso note', 'support', 'support note', 'dtxr']); const mandatoryIdx = idx(headers, ['mandatory', 'required', 'is mandatory', 'must audit', 'audit']);
   const isRich = nodeIdx >= 0 && (psIdx >= 0 || lineIdx >= 0 || pipeSizeIdx >= 0 || mandatoryIdx >= 0) && isoIdx >= 0;
   if (nodeIdx < 0 || isoIdx < 0) { log.user('WARNING', 'PARSE', 'Table-1C', 'Node/ISONOTE columns not found. Support check disabled.'); return { supportByNode, richRows, isRich: false }; }
   for (const [offset, line] of lines.slice(1).entries()) {
@@ -237,7 +248,7 @@ function parseTable1C(text, log, keywordCatalog, options) {
 }
 function parseTable2(text, log, keywordCatalog, options) {
   const lines = splitLines(text); if (!lines.length) { log.user('ERROR', 'PARSE', 'Table-2', 'Table-2 is required.'); return []; }
-  const headers = splitCells(lines[0]); const psIndexes = indexes(headers, ['psno model', 'psno_model', 'ps model', 'ps no', 'ps no.', 'psno', 'ps', 'ps name', 'ps number', 'support ps no']); const boreIndexes = indexes(headers, ['bore', 'nb', 'dn', 'size', 'nominal bore', 'model bore']); const pipeIndexes = indexes(headers, ['pipe', 'line no', 'line', 'branchname', 'branch name', 'line number']); const dtxrIndexes = indexes(headers, ['dtxr', 'dtxr optional', 'dtxr(optional)', 'support', 'support note', 'support description', 'description']); const mandatoryIndexes = indexes(headers, ['mandatory', 'required', 'is mandatory', 'must audit', 'audit', '100% audit']);
+  const headers = splitCells(lines[0]); const psIndexes = indexes(headers, ['psno model', 'psno_model', 'ps model', 'ps no', 'ps no.', 'psno', 'ps', 'ps name', 'ps number', 'support ps no', 'support no', 'support number', 'support tag']); const boreIndexes = indexes(headers, ['bore', 'nb', 'dn', 'size', 'nominal bore', 'model bore']); const pipeIndexes = indexes(headers, ['pipe', 'line no', 'line', 'branchname', 'branch name', 'line number']); const dtxrIndexes = indexes(headers, ['dtxr', 'dtxr optional', 'dtxr(optional)', 'support', 'support note', 'support description', 'description']); const mandatoryIndexes = indexes(headers, ['mandatory', 'required', 'is mandatory', 'must audit', 'audit', '100% audit']);
   if (!psIndexes.length) { log.user('ERROR', 'PARSE', 'Table-2', `Required PS column was not found. Headers read: ${headers.join(' | ')}`, 'Use PS NO, PSNO_Model, PS No, or PS Name as the model PS column.'); log.debug('ERROR', 'T2_HEADER_PARSE_FAILED', 'Table-2', { headers }); return []; }
   log.debug('INFO', 'T2_HEADER_MAP', 'Table-2', { headers, psIndexes, boreIndexes, pipeIndexes, dtxrIndexes, mandatoryIndexes });
   const rows = [];
