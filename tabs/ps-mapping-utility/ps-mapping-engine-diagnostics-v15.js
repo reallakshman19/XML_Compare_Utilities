@@ -65,7 +65,9 @@ function normalizeSupportText(...values) {
 }
 
 function supportSetFromText(...values) {
-  const source = normalizeSupportText(...values);
+  const source = normalizeSupportText(...values)
+    .replace(/\b(?:DO\s+NOT|NO|NOT)\s+(?:PIPE\s+)?REST\b/gi, ' ')
+    .replace(/\bWEAR\s+PLATE\b/gi, ' ');
   const out = new Set();
   if (!source) return out;
   if (/\bREST\b|\bPIPE\s+REST\b|\bXRT\b|\bPIPE\s+SHOE\b|\bWEAR\s+PLATE\b/.test(source)) out.add('REST');
