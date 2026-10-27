@@ -156,8 +156,23 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
   const clickHandler = (event) => copyCandidatesWithSupportNoLabels(event, ctx);
   document.addEventListener('click', clickHandler, true);
   const destroyBase = installBasePsMappingUtilityTile(container, ctx);
-  const observer = new MutationObserver(relabelVisibleUi);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  // Only respond to markup inserted into the PS Mapping UI, not every
+  // character mutation across the whole app (or our own wording updates).
+  let queued = false;
+  const observer = new MutationObserver((records) => {
+    const relevant = records.some((record) => {
+      if (record.type !== 'childList' || !record.addedNodes.length) return false;
+      const parent = record.target;
+      if (parent?.closest?.('[data-psmap-modal], [data-psmap-header-map-dialog], [data-psmap-preflight-host]')) return true;
+      return [...record.addedNodes].some((node) =>
+        node.nodeType === 1 && (node.matches?.('[data-psmap-modal], [data-psmap-header-map-dialog]') ||
+          node.querySelector?.('[data-psmap-modal], [data-psmap-header-map-dialog]')));
+    });
+    if (!relevant || queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; relabelVisibleUi(); });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
   relabelVisibleUi();
   return () => {
     document.removeEventListener('click', clickHandler, true);
