@@ -1,15 +1,18 @@
 import { createRevCompareDashboardModel } from './rev-compare-dashboard-model.js';
 import { REV_COMPARE_CHANGE_TYPES } from './rev-compare-contracts.js';
+import { exportIsoNoteRevCompareAuditJson, exportIsoNoteRevCompareAuditCsv } from './rev-compare-iso-note-mode.js';
 
 const clean = (value) => String(value ?? '').trim();
 const escCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 export function exportRevCompareJson(workspace) {
+  if (workspace?.isoNoteRevAudit?.mode === 'iso-note-engineering') return exportIsoNoteRevCompareAuditJson(workspace.isoNoteRevAudit);
   const model = createRevCompareDashboardModel(workspace);
   return JSON.stringify(model, null, 2);
 }
 
 export function exportRevCompareCsv(workspace) {
+  if (workspace?.isoNoteRevAudit?.mode === 'iso-note-engineering') return exportIsoNoteRevCompareAuditCsv(workspace.isoNoteRevAudit);
   const model = createRevCompareDashboardModel(workspace);
   const fields = model.compareFields || [];
   
