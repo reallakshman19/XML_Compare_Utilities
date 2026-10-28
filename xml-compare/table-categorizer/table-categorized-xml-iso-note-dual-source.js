@@ -132,8 +132,8 @@ export function isoNoteIdentityWarnings(sources = []) {
         message: 'Original NODE_NAME is preserved without NODE_NUM substitution; manual review required.',
         sourceRef: row.rowId, rawIdentifier: rawNode,
       }];
-      const noteId = text.match(/^\\s*:?\\/{0,2}\\s*(.*?)\\s*:ISONOTE\\b/i)?.[1] || '';
-      const norm = (value) => String(value || '').trim().replace(/^\\s*:?\\/{0,2}\\s*/, '').toUpperCase();
+      const noteId = text.match(/^\s*:?\/{0,2}\s*(.*?)\s*:ISONOTE\b/i)?.[1] || '';
+      const norm = (value) => String(value || '').trim().replace(/^\s*:?\/{0,2}\s*/, '').toUpperCase();
       if (rawNode && noteId && norm(rawNode) !== norm(noteId)) return [{
         severity: 'WARNING', code: 'iso_note_identity_conflict',
         message: 'NODE_NAME and support token in SupportISONOTE differ; original NODE_NAME retained, automatic identity requires review.',
