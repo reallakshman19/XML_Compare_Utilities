@@ -116,7 +116,6 @@ function loadIsoNoteTemplate() {
   // regex transforms to S1 or replace user-pasted data when loading a recipe.
   const isoRules = [
     { ruleId: 'iso-id', enabled: true, newColumn: 'Support_ID', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_FULL_ID_PATTERN, group: 1, trim: true },
-    { ruleId: 'iso-revision', enabled: true, newColumn: 'Revision', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_SUFFIX_PATTERN, group: 1, trim: true },
     { ruleId: 'iso-rest', enabled: true, newColumn: 'Rest_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
     { ruleId: 'iso-guide', enabled: true, newColumn: 'Guide_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
     { ruleId: 'iso-guide-gap', enabled: true, newColumn: 'Guide_Gap', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm', group: 1, trim: true },
