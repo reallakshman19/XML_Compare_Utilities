@@ -27,17 +27,36 @@ function csvQuoteBalanced(value) {
   }
   return !quoted;
 }
-function semanticHeaderIssues(headers, role) {
-  const aliases = aliasesFor(role), map = new Map(), result = [];
-  for (const raw of headers) {
+// Harmless exports may include an entirely blank trailing column or a
+// second copy of NODE_NAME. They are not schema failures when the
+// authoritative first column remains unambiguous. Preserve every cell.
+function classifyHeaderColumns(parsed, role) {
+  const aliases = aliasesFor(role), seen = new Map(), findings = [], notices = [];
+  const headers = parsed.originalHeaders || parsed.headers || [];
+  for (let index = 0; index < headers.length; index += 1) {
+    const raw = String(headers[index] ?? '');
     const canonical = Object.entries(aliases).find(([key]) => norm(key) === norm(raw))?.[1] || raw;
     const key = norm(canonical);
-    if (!key) result.push(issue('BLOCKER', 'EMPTY_HEADER', 'A column header is blank.'));
-    if (map.has(key)) result.push(issue('BLOCKER', 'DUPLICATE_CANONICAL_HEADER',
-      'Columns "' + map.get(key) + '" and "' + raw + '" both identify "' + canonical + '". Select the authoritative column manually.'));
-    map.set(key, raw);
+    const values = (parsed.rows || []).map(row => String(row.rawCells?.[index] ?? '').trim());
+    if (!key) {
+      if (values.some(Boolean)) findings.push(issue('BLOCKER', 'EMPTY_HEADER',
+        'Unnamed column ' + (index + 1) + ' contains data. Name it before importing.'));
+      else notices.push('Empty column ' + (index + 1) + ' was retained; all its cells are blank.');
+      continue;
+    }
+    if (!seen.has(key)) { seen.set(key, { index, raw }); continue; }
+    const primary = seen.get(key);
+    const primaryValues = (parsed.rows || []).map(row => String(row.rawCells?.[primary.index] ?? '').trim());
+    // The parser already selects the first column. Never make a different
+    // one authoritative implicitly, even if it would appear to be "better".
+    const safe = values.every((value, row) => !value || value === primaryValues[row]);
+    if (!safe) findings.push(issue('BLOCKER', 'DUPLICATE_CANONICAL_HEADER',
+      'Columns "' + primary.raw + '" and "' + raw + '" both identify "' + canonical +
+      '" with conflicting or second-only values. Select the authoritative column manually.'));
+    else notices.push('Repeated "' + canonical + '" column ' + (index + 1) +
+      ' matches or is blank relative to column ' + (primary.index + 1) + '; original cells retained.');
   }
-  return result;
+  return { findings, notices };
 }
 function rowShapeIssues(parsed) {
   return (parsed.diagnostics || []).filter(d => /_column_count_mismatch$/.test(d.code))
@@ -85,7 +104,9 @@ export function preflightIsoTableText(text, role, options = {}) {
         'Unclosed CSV quoted field. Edit the source file; it was not rewritten.'));
     if (parsed.headers.length < 2) findings.push(issue('BLOCKER', 'DELIMITER_UNRESOLVED',
       'Could not detect a multi-column CSV/TSV table.'));
-    findings.push(...semanticHeaderIssues(parsed.originalHeaders || parsed.headers, role));
+    const headerCheck = classifyHeaderColumns(parsed, role);
+    findings.push(...headerCheck.findings);
+    fixes.push(...headerCheck.notices);
     const present = new Set(parsed.headers.map(norm));
     for (const name of REQUIRED[role]) if (!present.has(norm(name)))
       findings.push(issue('BLOCKER', 'REQUIRED_COLUMN_MISSING',
