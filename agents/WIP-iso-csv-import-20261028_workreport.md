@@ -1,0 +1,10 @@
+# WIP-iso-csv-import-20261028 — S1/S2 CSV/TXT import buttons with strict preflight
+**Base:** main f578d45950f578ad50cc32a68936484269b773d4.
+**Scope:** existing Table Categorized XML import shell and runtime. Add role-specific controls next to Drag & Drop, restore actual drag/drop, preflight safe corrections only. Keep original text and provenance; refuse to guess ID, gap, and engineering values.
+**Status:** implementation in progress. **Merge authority:** NOT GRANTED.
+**Source trace:** shell `renderTableStep` currently displays inert drop zone and a generic manual file input in Advanced Settings. Runtime `importFile` parses active source only without role or layout checking. `loadIsoNoteTemplate` assigns source roles, parses S1 with Support No alias, and S2 with controlled transforms. Parser `parseTableSource` provides column-count and duplicate-header diagnostics. User explicitly requests S1/S2 controls, robust preflight and safe autofix.
+**Appendix A:** A1 source trace 19/20; A2 no preflight and inert drop zone 20/20; A3 no silent engineering value edits 20/20; A4 independent malformed and valid fixtures + existing suites 19/20; A5 isolated shell/runtime/service/test change with docs mirrors 19/20 = 97/100. Decision CONTINUE.
+**Protected invariants:** no partial source replacement when preflight fails, no guessed identifiers, no transfer approval changes, no automatic repair of mismatched row width, no destructive old data replacement on failed preflight. Preserve entire original UTF-8 text as source audit field.
+**Anticipated changes:** new pure preflight module in `xml-compare/table-categorizer` and docs mirror; shell and docs; runtime and docs; new tests; PR handover.
+**Validation:** pending. **Recovery:** GitHub SHA-conditioned edits and PR report; local .agent-worklogs and utils/backup.cjs unavailable to connector-only workflow, therefore NOT_AVAILABLE, not falsely claimed.
+**EXACT_NEXT_ACTION:** implement pure preflight with alias/row-width checks, wire buttons and drop, test on real parser in CI, submit PR without merge.
