@@ -354,3 +354,6 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
 }
 
 export default renderPSNM_UtilityTab;
+
+// Exercise the observer-driven review queue with a minimal DOM fixture in Node tests.
+export const PSNM_REVIEW_TEST = Object.freeze({ ensureReviewQueue });
