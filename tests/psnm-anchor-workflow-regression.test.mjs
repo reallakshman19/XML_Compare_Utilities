@@ -130,6 +130,7 @@ test('production PSNM loads one anchor authority, and docs mirrors are synchroni
     'psnm-utility-tab.js', 'psnm-utility-tab-v6.js',
     'psnm-utility-tab-coordinate-review-ui.js', 'psnm-utility-tab-phase1-ui.js',
     'psnm-utility/psnm-context-actions.js', 'psnm-utility/psnm-anchor-persistence-addon.js',
+    'psnm-utility/psnm-match-engine.js',
   ]) {
     const source = readFileSync(new URL('../tabs/' + path, import.meta.url), 'utf8');
     const mirror = readFileSync(new URL('../docs/tabs/' + path, import.meta.url), 'utf8');
