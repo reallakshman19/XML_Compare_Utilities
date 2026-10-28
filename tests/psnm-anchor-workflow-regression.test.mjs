@@ -48,7 +48,7 @@ test('shipped two-row PSNM mock resolves from Masters and produces honest except
   const anchor = PSNM_CORE_TEST.selectedAnchor(state);
   PSNM_applyMasterNodeTransform(state.master.nodeRows, state.setup.anchorTransform, 0);
   const result = PSNM_buildMatchTable({
-    logger, anchor,
+    logger, anchor, axisTransform: state.setup.anchorTransform,
     psRows: PSNM_masterPsToMatchRows(state.master.psRows),
     nodeRows: PSNM_masterNodeToMatchRows(state.master.nodeRows),
     mandatoryNodeRows: PSNM_masterMandatoryNodeRows(state.master.nodeRows),
