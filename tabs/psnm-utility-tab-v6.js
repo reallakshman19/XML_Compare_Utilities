@@ -276,6 +276,47 @@ function runAutoAnchorSearch(state) {
     ? `Ranked ${pairs.length} axis-aware Master Table pairs using a ${scoredPs.length}-PS/${scoredNodes.length}-Node sample. Run Match validates all rows.`
     : `Ranked ${pairs.length} axis-aware Master Table pairs.`;
 }
+// UI search yields between seed evaluations, keeping event handling responsive.
+async function runAutoAnchorSearchCooperative(state, isCancelled = () => false, onProgress = () => {}) {
+  if (!state.masterReady || state.sourceDirty) throw new Error('Build current Master Tables before Auto Anchor.');
+  const psRows = psMatchRows(state), nodeRows = nodeMatchRows(state);
+  if (!psRows.length || !nodeRows.length) throw new Error('Auto Anchor requires valid Master PS and Master Node rows.');
+  const scoredPs = sampleAnchorRows(psRows, PSNM_ANCHOR_SCORING_LIMIT);
+  const scoredNodes = sampleAnchorRows(nodeRows, PSNM_ANCHOR_SCORING_LIMIT);
+  const seedPs = sampleAnchorRows(scoredPs, PSNM_ANCHOR_SEED_LIMIT);
+  const seedNodes = sampleAnchorRows(scoredNodes, PSNM_ANCHOR_SEED_LIMIT);
+  const pairs = [];
+  const total = seedPs.length * seedNodes.length;
+  let completed = 0;
+  for (const ps of seedPs) for (const node of seedNodes) {
+    if (isCancelled()) return false;
+    let best = null;
+    const psCoord = { e: Number(ps.psE), u: Number(ps.psU), s: Number(ps.psS) };
+    const nodeCoord = { x: Number(node.rawX), y: Number(node.rawY), z: Number(node.rawZ) };
+    for (const axes of psnmAxisPermutations()) for (const signs of psnmSignSets()) {
+      const transform = psnmMakeAxisTransform(psCoord, nodeCoord, axes, signs);
+      const candidate = scoreAutoAnchorPair(ps, node, scoredPs, scoredNodes, state, transform);
+      if (!best || candidate.confidenceScore > best.confidenceScore
+          || (candidate.confidenceScore === best.confidenceScore && candidate.score > best.score)) best = candidate;
+    }
+    if (best) pairs.push(best);
+    completed += 1;
+    if (completed % 4 === 0 || completed === total) onProgress(completed, total);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  if (isCancelled()) return false;
+  pairs.sort((a, b) => b.confidenceScore - a.confidenceScore || b.score - a.score
+    || b.totalMatches - a.totalMatches || a.avgMax - b.avgMax
+    || String(a.psName).localeCompare(String(b.psName))
+    || String(a.node).localeCompare(String(b.node), undefined, { numeric: true }));
+  state.autoAnchor.pairs = pairs.slice(0, MAX_AUTO_ANCHOR_PAIRS);
+  state.autoAnchor.selectedIndex = null;
+  const sampled = scoredPs.length !== psRows.length || scoredNodes.length !== nodeRows.length;
+  state.autoAnchor.message = sampled
+    ? `Ranked ${pairs.length} axis-aware Master Table pairs using a ${scoredPs.length}-PS/${scoredNodes.length}-Node sample. Run Match validates all rows.`
+    : `Ranked ${pairs.length} axis-aware Master Table pairs.`;
+  return true;
+}
 function applyAutoAnchorPair(state, index) {
   const pair = state.autoAnchor.pairs[Number(index)];
   if (!pair) throw new Error('Auto Anchor pair is no longer available. Run Auto Anchor again.');
@@ -447,6 +488,30 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     state.setup.anchorTransform = null; state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
     invalidateResults(state); ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
+  async function runAutoAnchorFromUI() {
+    if (state.autoAnchorRunning) return;
+    state.autoAnchorRunning = true;
+    const startingRevision = state.runRevision;
+    try {
+      state.status = { phase: 'Auto Anchor Running', detail: 'Evaluating Master Table anchor pairs...', percent: 50 };
+      refresh();
+      const succeeded = await runAutoAnchorSearchCooperative(state,
+        () => state.runRevision !== startingRevision,
+        (completed, total) => {
+          const detail = container.querySelector('[data-psnm="modal"] .psnm-status-detail');
+          if (detail) detail.textContent = 'Evaluating anchor pairs ' + completed + '/' + total + '...';
+        });
+      if (!succeeded) return;
+      state.activeTab = 'setup';
+      state.status = { phase: 'Auto Anchor Ready', detail: state.autoAnchor.message, percent: 55 };
+      refresh();
+    } catch (error) {
+      if (startingRevision !== state.runRevision) return;
+      state.status = { phase: 'Failed', detail: String(error?.message || error), percent: 100 };
+      refresh();
+      ctx.showToast?.('Auto Anchor failed: ' + (error?.message || error), 'error');
+    } finally { state.autoAnchorRunning = false; }
+  }
   function onClick(event) {
     const tabBtn = event.target?.closest?.('[data-psnm-tab]'); if (tabBtn) { activateTab(tabBtn.dataset.psnmTab); return; }
     const sub = event.target?.closest?.('[data-psnm-subtab]'); if (sub) { state.masterSubTab = sub.dataset.psnmSubtab; refresh(); return; }
@@ -455,7 +520,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       if (action === 'open') { container.insertAdjacentHTML('beforeend', renderModal()); bindPreviewContext(); return; }
       if (action === 'close') { container.querySelector('[data-psnm="modal"]')?.remove(); return; }
       if (action === 'resolveMasters') { resolveMasters(); return; }
-      if (action === 'runAutoAnchor') { runAutoAnchorSearch(state); state.activeTab = 'setup'; state.status = { phase: 'Auto Anchor Ready', detail: state.autoAnchor.message, percent: 55 }; refresh(); return; }
+      if (action === 'runAutoAnchor') { void runAutoAnchorFromUI(); return; }
       if (action === 'useAutoAnchor') { applyAutoAnchorPair(state, actionEl.dataset.autoAnchorIndex); refresh(); return; }
       if (action === 'runMatch') { void runMatch(); return; }
       if (action === 'candidatePrev' || action === 'candidateNext') {
@@ -536,4 +601,4 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
 }
 
 // Pure state-level hooks for regression tests; no DOM is created or modified.
-export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable, boreRelation, invalidateResults, restorePersistedAnchor });
+export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable, boreRelation, invalidateResults, restorePersistedAnchor, runAutoAnchorSearchCooperative });
