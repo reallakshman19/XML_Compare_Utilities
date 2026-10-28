@@ -59,7 +59,15 @@ function createField(source, header, columnId, index, rule) {
   const sampleValues = [...new Set(nonBlank)].slice(0, 5);
   const uniqueCount = new Set(nonBlank).size;
   const blankCount = values.length - nonBlank.length;
-  const baseDiagnostics = blankCount > Math.max(0, values.length / 2) ? [diag('WARNING', 'field_blank_heavy', 'Field has many blank values.')] : [];
+  // Sparse S1 coordinate values are optional in the ISO mapping source.
+  // 2,777 blanks with one valid X/Y/Z are data coverage, not parse errors.
+  const optionalIsoCoordinate = String(source.sourceId).toUpperCase() === 'S1' &&
+    ['x', 'y', 'z'].includes(String(header).trim().toLowerCase());
+  const baseDiagnostics = blankCount > Math.max(0, values.length / 2)
+    ? [diag(optionalIsoCoordinate ? 'INFO' : 'WARNING',
+      optionalIsoCoordinate ? 'optional_coordinate_sparse' : 'field_blank_heavy',
+      optionalIsoCoordinate ? 'Optional coordinate has sparse values; blanks preserved.' : 'Field has many blank values.')]
+    : [];
   const role = inferFieldRole({ header, type: typeInfo.type, uniqueCount, rowCount: values.length, index });
   return Object.freeze({
     fieldId: fieldIdFor(source.sourceId, columnId),
