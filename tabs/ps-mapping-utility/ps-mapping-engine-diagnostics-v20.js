@@ -250,7 +250,9 @@ function buildSyntheticRow(rep = {}, item = {}, index = 0) {
     reviewAction: action,
     source: 'TABLE1C_MISSING_SUPPORT',
     table2SourceId: 'PROPOSED_FROM_TABLE1_ISONOTE',
-    modelSourceId: supportNo,
+    modelSourceId: '',
+    table2Row: '',
+    modelTableSourceId: '',
     syntheticMissingSupport: true,
     // A proposal is never an existing model component or a successfully matched
     // restraint; explicitly override all mapping flags inherited from rep.
@@ -343,6 +345,8 @@ function addSyntheticMissingSupportRows(rows) {
   });
   return syntheticRows.length ? [...validatedRows, ...syntheticRows] : validatedRows;
 }
+
+export const PS_MAPPING_V20_TEST = Object.freeze({ buildSyntheticRow, addSyntheticMissingSupportRows, validProposedBase });
 
 export function runPsMappingResolver(input = {}) {
   const result = runV18PsMappingResolver(input);
