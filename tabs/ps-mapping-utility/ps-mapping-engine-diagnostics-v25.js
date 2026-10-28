@@ -62,11 +62,15 @@ function realPhysicalContributor(row,options={}) {
   if (!isTrue(row.mapped) && !isTrue(row.selected) && matchStatus(row) !== 'MATCHED') return false;
   const b = clean(val(row,'boreBasis','Bore Basis'));
   const l = clean(val(row,'lineBasis','Line Comparison'));
-  if (/CONFLICT|REJECT|MISMATCH/i.test(b+' '+l)) return false;
+  const optionalReviewedLine = options.requireLineFamilyInIdentity === false
+    && isTrue(row.mapped) && row.mappedStage === 'LOOP1_BASE_DN_NODE'
+    && matchStatus(row) === 'USER_REVIEW_REQUIRED';
+  // DN never becomes optional. A line conflict is acceptable for physical
+  // presence only after a unique base+DN+node mapping was retained for review.
+  if (/CONFLICT|REJECT|MISMATCH/i.test(b)) return false;
+  if (/CONFLICT|REJECT|MISMATCH/i.test(l) && !optionalReviewedLine) return false;
   const t1 = line(row), t2 = clean(val(row,'lineFamily','t2LineFamily','Model Line Family'));
-  if (t1 && t2 && t1 !== t2 && !(options.requireLineFamilyInIdentity === false
-      && isTrue(row.mapped) && row.mappedStage === 'LOOP1_BASE_DN_NODE'
-      && matchStatus(row) === 'USER_REVIEW_REQUIRED')) return false;
+  if (t1 && t2 && t1 !== t2 && !optionalReviewedLine) return false;
   const n1 = Number(dn(row)), n2 = Number(val(row,'modelBore','t2Bore','Model Bore'));
   if (dn(row) && Number.isFinite(n1) && Number.isFinite(n2) && n1 !== n2) return false;
   return true;
