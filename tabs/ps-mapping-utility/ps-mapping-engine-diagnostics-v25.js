@@ -186,7 +186,8 @@ function normalizeDiagnostic(row,sourceGaps=new Map()) {
 
 function createAssessment(key) {
   return { key, required:new Set(), present:new Set(), contributors:new Set(),
-    gapActions:new Set(), realRows:[], proposed:[], ref:'', atNode:'', warnings:new Set() };
+    gapActions:new Set(), realRows:[], proposed:[], ref:'', atNode:'', warnings:new Set(),
+    unverifiedLine:new Set(), lineMismatchEvidence:new Set() };
 }
 function groupAssessment(rows,options={}) {
   const groups = new Map();
@@ -200,6 +201,13 @@ function groupAssessment(rows,options={}) {
     group.atNode ||= node(row);
     for(const type of required(row)) group.required.add(type);
     group.realRows.push(row);
+    if (row.lineMismatchReview === true || row.identityReview === 'AMBIGUOUS_LINE_MISMATCH') {
+      // Pass 2 identifies a *possible* existing component on Base+DN+Node,
+      // never an accepted restraint and never evidence that hardware is absent.
+      for (const t of fromModel(row)) group.unverifiedLine.add(t);
+      group.lineMismatchEvidence.add(clean(val(row,'reason','reviewAction'))
+        || 'Ambiguous — Line Mismatch: verify the physical line/node identity.');
+    }
     if (realPhysicalContributor(row,options)) {
       const signature = [key,physicalId(row)||modelNo(row)].join('|');
       if (!group.contributors.has(signature)) {
@@ -224,7 +232,10 @@ function groupAssessment(rows,options={}) {
     }
   }
   for (const group of groups.values()) {
-    group.missing = new Set([...group.required].filter(t => !group.present.has(t)));
+    group.unverifiedLine = new Set([...group.unverifiedLine].filter(t =>
+      group.required.has(t) && !group.present.has(t)));
+    group.missing = new Set([...group.required].filter(t =>
+      !group.present.has(t) && !group.unverifiedLine.has(t)));
     group.extra = new Set([...group.present].filter(t => !group.required.has(t)));
   }
   return groups;
@@ -256,6 +267,12 @@ function actionFor(group) {
     actions.push(proposal
       ? 'Table-1 requires '+label+'; no qualified Table-2 '+label+' exists. Proposed '+clean(proposal.psnoModel)+' requires review.'
       : 'Missing '+label+' at Node '+(group.atNode||'-')+'; manual hardware/identity review required.');
+  }
+  for (const type of active(group.unverifiedLine)) {
+    const label = type === 'LINE_STOP' ? 'LINE STOP' : type;
+    actions.push('Ambiguous — Line Mismatch: an existing model ' + label
+      + ' shares the reference support base and DN at Node ' + (group.atNode || '-')
+      + ', but the line family differs. Verify line identity; do not add a replacement support before review.');
   }
   actions.push(...group.gapActions);
   for (const t of active(group.extra)) actions.push('Review additional model '+(t==='LINE_STOP'?'LINE STOP':t)+' not required by Table-1.');
@@ -306,6 +323,7 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
       next.t1NodeRestraints=fmt(group.required);
       next.t2CoveredRestraints=fmt(group.present);
       next.missingNodeRestraints=fmt(group.missing);
+      next.unverifiedLineRestraints=fmt(group.unverifiedLine);
       next.extraTable2Restraints=fmt(group.extra);
       next.proposedMissingSupportPsNo=group.proposed.map(p=>typeOfSynthetic(p)+'='+modelNo(p)).join('; ');
       next.consolidatedNodeWiseAction=actionFor(group);
@@ -317,7 +335,7 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   out.canonicalAssessments=[...groups.values()].map(g=>({
     referenceSupportNo:g.ref,node:g.atNode,key:g.key,
     required:active(g.required),present:active(g.present),missing:active(g.missing),
-    extra:active(g.extra),sourceCount:g.contributors.size,
+    unverifiedLine:active(g.unverifiedLine),extra:active(g.extra),sourceCount:g.contributors.size,
     proposed:g.proposed.map(p=>modelNo(p)),exceptions:[...g.warnings],
   }));
   out.summary={...(result.summary||{}),canonicalGroups:groups.size,
