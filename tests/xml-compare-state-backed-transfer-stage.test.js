@@ -15,7 +15,7 @@ assert.equal(emptyPlan.ok, false, 'plan cannot be created without approved trans
 assert.equal(emptyPlan.diagnostics.some((item) => item.code === 'APPROVED_TRANSFER_CASE_REQUIRED'), true);
 
 let canvas = createXmlCompareCanvasState();
-canvas = applyXmlCompareCanvasAction(canvas, { type: 'accept-candidate', candidate: { sourceUid: 'S-10', targetUid: 'T-20', basis: ['manual'], score: 0.95, identityConfidence: 0.95 } }, { approvalContext: { scoped: false } });
+canvas = applyXmlCompareCanvasAction(canvas, { type: 'accept-candidate', candidate: { sourceUid: 'S-10', targetUid: 'T-20', basis: ['manual'], score: 0.95, identityConfidence: 0.95 } }, { approvalContext: { scoped: false, sourceRecords, targetRecords } });
 const approvedValidationModel = createApprovedConnectorValidationModel({ state: canvas, sourceRecords, targetRecords, compareFields: [] });
 canvas = applyXmlCompareCanvasAction(canvas, { type: 'stage-transfer', scope: 'node', selectedBlocks: ['NodeNameBlock'], sourceText, targetText, workspaceRevision: 1, approvedMatchSet: canvas.approvedMatchSet, approvedValidationModel, sourceRecords, targetRecords });
 
