@@ -450,15 +450,17 @@ An independent native reviewer with authorized private-source access must verify
 
 ## 13. Delivery architecture and bounded work packages
 
+**Canonical phase identifiers (alignment erratum, 28 October 2026):** The previous concept draft placed W1 in P3. That label is superseded; `IMPLEMENTATION_PLAN.md` and this table now use the same P0–P6 IDs. A task named “P3” is **read-only typed semantic comparison**, not permission to write.
+
 | Phase | Product deliverable | Code changes authorized at phase? | Exit gate |
 |---|---|---|---|
-| P0 — Authority/source ledger | Unified field catalog; original V14 CONTROL/ELEMENTS/AUX/MISC semantic index; E1 source trace | READ_ONLY | Independently qualified field and pointer evidence; known UNKNOWNs explicit |
-| P1 — Mapping inspector | SOURCE/TARGET graph, node/element/aux correspondence and Node Properties UI | Read-only isolated module, after task assignment | Browser and exact-head non-author mapping review |
-| P2 — Parallel process + restraint previews | T/P/density & restraint DOF compare; typed proposal/hold/manual reasons | READ_ONLY proposals, no new writer | Source semantic proof, independent negative tests, UI acceptance |
-| P3 — Existing-slot W1 | One field family at a time: qualified P1 or restraint scalar, no structural creation | Narrow explicitly granted typed writer | Exact changed-byte oracle, CAESAR importer, independent review |
-| P4 — Additional typed families | Displacement, force/moment, rigid, geometry/material and attachments | Separate field-specific qualifications | Original-positive fixtures and semantic proof |
-| P5 — Structural W2 | New/delete elements, restraints, hanger/nozzle arrays; CONTROL/MISC rebuild | Separate engineering-critical authority | Complete structural transaction oracle + licensed import |
-| P6 — Broader release | Optional production tile integration after standalone acceptance | Owner-gated | Reviewed full standalone and protected-source regression suite |
+| **P0 — Source/authority baseline** | V14 field catalog, control/auxiliary/MISC physical map, Owner-intent and protected-source provenance | READ_ONLY evidence/docs | Version-qualified field custody, known UNKNOWNs explicit |
+| **P1 — Two-path R0 inspector** | New isolated Property Transfer tab, independent Node→Element→Data and Node→Data inspection modules, exact FROM–TO and node occurrence evidence | READ_ONLY UI and parser only | Browser, native old-tab regression and non-author read-only review |
+| **P2 — SOURCE/TARGET correspondence** | Explicit accepted node/element/aux mapping, orientation, duplicates and TO-only navigation as an evidence filter | READ_ONLY mapping; no writer | Independent correspondence negatives and manual identity decisions |
+| **P3 — Typed semantic comparison** | Parallel Process T/P/density and restraint type/slot/attachment evidence, hold/manual proposals; restrained write-first policy | READ_ONLY proposals; no writer | Exact original engineering semantics and negative tests |
+| **P4 — Existing-slot W1** | One qualified field family at a time, explicit typed approval and new-copy patcher, beginning with separately authorized restraint field | NARROW OWNER-APPROVED WRITE only after #139 decision | Byte oracle, CAESAR importer and independent source semantics |
+| **P5 — Structural W2** | Add/remove elements and auxiliary blocks, CONTROL/MISC remap, pointer and RRMAT closure; other families separately staged | SEPARATE engineering-critical authority | Full postimage structural and vendor qualification |
+| **P6 — Release** | Standalone acceptance; optional production tile integration | Owner-gated deployment | Full protected-source regression and Owner release GO |
 
 ### 13.1 Reuse and ownership boundaries
 
