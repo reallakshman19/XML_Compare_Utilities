@@ -57,10 +57,18 @@ for (const suffix of ['.1', '.2', '.5', '.7']) {
 }
 assert.equal(items.filter((node) => node.fields.supportId === 'PS-001').length, 2, 'different pipelines must not merge PS-001');
 assert.ok(items.some((node) => node.fields.supportId === 'PS-123.1'), 'double-slash-colon prefix is supported');
+assert.ok(items.every(node => node.fields.connectorKey === node.fields.engineeringIdentityKey),
+  'old connectorKey remains a business composite key, not instance ID');
+assert.ok(items.every(node => node.fields.instanceKey === node.key),
+  'instanceKey carries row reference while connectorKey does not');
+assert.ok(items.every(node => !/\|S[12]:\d+$/.test(node.fields.connectorKey)),
+  'source row ref cannot pollute downstream business connectorKey');
 
 const placeholders = graph.diagnostics.filter((d) => d.code === 'iso_note_placeholder_identity');
 assert.equal(placeholders.length, 4, 'all PS-XXXX entries are warnings');
-assert.equal(graph.diagnostics.filter((d) => d.code === 'iso_note_nonstandard_identity').length, 1);
+assert.equal(graph.diagnostics.filter((d) => d.code === 'NONCANONICAL_ID').length, 1, 'noncanonical NODE_NAME is preserved as raw identity');
+assert.ok(items.every((node) => node.fields.revision === ''), 'support suffix is not a revision');
+assert.ok(items.some((node) => node.fields.rawSupportId === '1.3mfromTee(nearSL-211.2)'), 'raw noncanonical NODE_NAME preserved');
 const placeholderItems = items.filter((node) => node.fields.rawNote?.includes('PS-XXXX'));
 assert.equal(placeholderItems.length, 4, 'placeholder notes must never merge');
 assert.ok(placeholderItems.some((node) => node.key.endsWith('|S2:11')), 'missing NODE_NUM falls back to row reference');
@@ -74,6 +82,43 @@ assert.match(xml.xmlText, /<IsoNoteXml/);
 assert.match(xml.xmlText, /PS-006\.7/);
 assert.match(xml.xmlText, /PS-XXXX/);
 
+// Original ISO identifiers are authoritative; NODE_NUM is only a locator.
+const unusualS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '100', 'PS02364.1', "/PS02364.1 :ISONOTE 'REST(2kN)'"),
+  tab('/PIPE-1/B4', '110', 'SL-263..4', "/SL-263..4 :ISONOTE 'GUIDE(2kN)'"),
+  tab('/PIPE-1/B4', '120', '/PS-XXXX', "/PS-XXXX :ISONOTE 'REST(2kN)'"),
+  tab('/PIPE-1/B4', '130', '/PS-XXXX', "/PS-XXXX :ISONOTE 'REST(3kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const rawGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, unusualS2]);
+const rawItems = rawGraph.nodes.filter(node => node.levelId === 'isoItem' && node.sourceRefs.some(ref => ref.startsWith('S2:')));
+assert.equal(rawItems.length, 4, 'repeated placeholder support IDs must not merge');
+assert.ok(rawItems.some(item => item.fields.supportId === 'PS02364.1' && item.fields.rawSupportId === 'PS02364.1'));
+assert.ok(rawItems.some(item => item.fields.supportId === 'SL-263..4' && item.fields.rawSupportId === 'SL-263..4'));
+assert.equal(rawItems.filter(item => item.fields.supportId === 'PS-XXXX').length, 2);
+assert.ok(rawItems.every(item => item.fields.revision === ''));
+assert.ok(!rawItems.some(item => item.fields.supportId === '100' || item.fields.supportId === '110'));
+assert.ok(rawGraph.diagnostics.some(d => d.code === 'NONCANONICAL_ID' && d.sourceRef === 'S2:1'));
+assert.equal(new Set(rawItems.map(item => item.key)).size, 4);
+const conflictingS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '5790', '/PS-100.1', "/PS-101.1 :ISONOTE 'REST(2kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const conflictGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, conflictingS2]);
+const conflictItem = conflictGraph.nodes.find(node => node.sourceRefs?.includes('S2:1') && node.levelId === 'isoItem');
+assert.equal(conflictItem.fields.supportId, 'PS-100.1', 'NODE_NAME takes precedence over conflicting note token');
+assert.equal(conflictItem.fields.rawSupportId, '/PS-100.1');
+assert.ok(conflictGraph.diagnostics.some(d => d.code === 'iso_note_identity_conflict' && d.sourceRef === 'S2:1'));
+
+
+const datumS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '5790', 'PS-006.5', "/PS-006.5/DATUM :ISONOTE 'REST(2kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const datumGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, datumS2]);
+const datumItem = datumGraph.nodes.find(node => node.levelId === 'isoItem' && node.sourceRefs.includes('S2:1'));
+assert.equal(datumItem.fields.supportId, 'PS-006.5');
+assert.ok(!datumGraph.diagnostics.some(d => d.code === 'iso_note_identity_conflict'));
 const shell = renderTableCategorizedXmlShellHtml({
   activeStep: 'table', activeTab: 'source', activeSourceId: 'S1', sources: [s1, s2],
   profile: ISO_NOTE_DUAL_SOURCE_PROFILE, settingsPanel: { collapsed: false }
@@ -83,7 +128,7 @@ assert.ok(shell.indexOf('data-table-categorized-action="load-iso-note-template"'
 const runtimeText = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
 assert.match(runtimeText, /if \(action === 'load-iso-note-template'\) return loadIsoNoteTemplate\(\)/);
 assert.match(runtimeText, /state\.profile = ISO_NOTE_DUAL_SOURCE_PROFILE/);
-assert.match(runtimeText, /transformRules: isoRules/);
+assert.match(runtimeText, /transformRules: notes && classifyIsoNoteSource\(notes\) === 'notes' \? isoRules : \[\]/);
 assert.match(runtimeText, /transformRules: \[\]/);
 
 console.log('table-categorized-iso-dual-source.test.js passed');

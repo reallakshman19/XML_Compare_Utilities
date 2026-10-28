@@ -21,6 +21,8 @@ import { createValidationAudit, downloadValidationAuditCsv, downloadValidationAu
 import { applyCompareFieldPreset } from '../xml-compare/XmlCompareCompareFieldPresets.js';
 import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js?v=20260717-psi-detect-1';
 import { compareIsoNoteMapping, buildIsoNoteAnchorCandidates, serializeIsoNoteMappingCsv, validateIsoNoteCandidateIdentity } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
+import { ISO_NOTE_COMPOSITE_ID_POLICY } from '../xml-compare/XmlCompareIsoNoteIdentityAdapter.js';
+import { guardCompositeApprovalAction } from '../xml-compare/XmlCompareCompositeApprovalGate.js';
 import { serializeIsoNoteEngineeringFindingsCsv } from '../xml-compare/XmlCompareIsoNoteEngineeringFindings.js';
 import { installUniversalXmlCategorizerRuntime } from './xml-compare-universal-categorizer-runtime.js';
 import { publishUniversalViewportContext } from '../xml-compare/universal-categorizer/universal-viewport-context.js';
@@ -75,7 +77,33 @@ function canvasSideFrom(target) { return target.closest('[data-xml-compare-canva
 function recordsForSide(state, side) { const workspace = workspaceFromState(state); return workspace[side]?.records || []; }
 function searchableRecordText(record = {}) { return [record.uid, record.stableKey, record.nodeNumber, record.nodeName, record.displayName, record.elementKey, record.lineNo, record.branchName, record.fromNode, record.toNode].map(clean).filter(Boolean); }
 function findRecordBySearch(records = [], needle = '') { const q = clean(needle).toUpperCase(); if (!q) return null; const rows = records.map((record) => ({ record, values: searchableRecordText(record) })); return rows.find((row) => row.values.some((value) => value.toUpperCase() === q))?.record || rows.find((row) => row.values.some((value) => value.toUpperCase().includes(q)))?.record || null; }
-function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') { 
+// Approval scope comes from the *loaded documents*, never a mutable canvas
+// flag: requestAutoMap() resets isoNoteExactPairsOnly in ordinary navigation.
+function isoNoteApprovalScopeActive(state) {
+  return Boolean(state.aim?.isoNoteExactPairsOnly ||
+    isIsoNoteEngineeringInput(state.textA, state.textA) ||
+    isIsoNoteEngineeringInput(state.textB, state.textB));
+}
+function approvePolicyViolation(state, action) {
+  if (!isoNoteApprovalScopeActive(state)) return '';
+  const workspace = workspaceFromState(state);
+  const verdict = guardCompositeApprovalAction({
+    scoped: true, action,
+    sourceRecords: workspace.source?.records || [],
+    targetRecords: workspace.target?.records || [],
+    pendingPreview: state.canvasState?.pendingConnectorPreview,
+    policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+  });
+  return verdict.blocked ? 'ISO approval rejected: ' + verdict.reason +
+    '. Only verified PS_MAPPING_S1 to ISO_NOTES_S2 composite identities may be approved.' : '';
+}
+
+function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
+  const violation = approvePolicyViolation(state, action);
+  if (violation) {
+    state.status = { kind: 'warn', message: 'Approval blocked by shared composite identity policy: ' + violation };
+    return false;
+  }
   state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action); 
   if (action.type === 'add-compare-field' || action.type === 'remove-compare-field' || action.type === 'set-compare-fields') {
     saveCompareFieldsToStorage(state.canvasState.compareFields);

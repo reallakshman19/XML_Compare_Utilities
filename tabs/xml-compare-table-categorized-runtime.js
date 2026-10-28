@@ -14,7 +14,7 @@ import { activeSource, addSource, createMultiSourceState, parseSourceDraft, remo
 import { createSourceTransformRule } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
 import { TABLE_CATEGORIZED_XML_BUTTON_ATTR, TABLE_CATEGORIZED_XML_POPUP_ATTR, renderTableCategorizedXmlButtonHtml, renderTableCategorizedXmlShellHtml } from '../xml-compare/table-categorizer/table-categorized-xml-shell.js?v=20260709-field-comparison-sample';
 import { ISO_NOTE_DUAL_SOURCE_PROFILE, ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-dual-source.js';
-import { assignIsoNoteSourceRoles, classifyIsoNoteSource } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
+import { assignIsoNoteSourceRoles, classifyIsoNoteSource, ISO_NOTE_S1_HEADER_ALIASES } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
 import { runCategorizerValidation } from '../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 
 export const XML_COMPARE_TABLE_CATEGORIZED_RUNTIME_SCHEMA = 'xml-compare-table-categorized-runtime/v20-isorecipe-autoload';
@@ -116,7 +116,6 @@ function loadIsoNoteTemplate() {
   // regex transforms to S1 or replace user-pasted data when loading a recipe.
   const isoRules = [
     { ruleId: 'iso-id', enabled: true, newColumn: 'Support_ID', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_FULL_ID_PATTERN, group: 1, trim: true },
-    { ruleId: 'iso-revision', enabled: true, newColumn: 'Revision', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: ISO_NOTE_SUFFIX_PATTERN, group: 1, trim: true },
     { ruleId: 'iso-rest', enabled: true, newColumn: 'Rest_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
     { ruleId: 'iso-guide', enabled: true, newColumn: 'Guide_Load', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)', group: 1, trim: true },
     { ruleId: 'iso-guide-gap', enabled: true, newColumn: 'Guide_Gap', sourceColumn: 'SupportISONOTE', operation: 'regex-extract', find: '\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm', group: 1, trim: true },
@@ -139,6 +138,7 @@ function loadIsoNoteTemplate() {
   next = updateSourceDraft(next, 'S1', {
     sourceName: mapping?.sourceName || 'PS Mapping / S1',
     sourceText: mapping?.sourceText || '',
+    headerAliases: ISO_NOTE_S1_HEADER_ALIASES,
     delimiterMode: 'auto',
     transformRules: []
   });

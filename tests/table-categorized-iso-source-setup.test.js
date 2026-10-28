@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  assignIsoNoteSourceRoles, classifyIsoNoteSource, validateIsoNoteSourceLayout
+  assignIsoNoteSourceRoles, classifyIsoNoteSource, validateIsoNoteSourceLayout, ISO_NOTE_S1_HEADER_ALIASES
 } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
 import { ISO_NOTE_DUAL_SOURCE_PROFILE } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-dual-source.js';
 import { parseTableSource } from '../xml-compare/table-categorizer/table-categorized-xml-source-parser.js';
@@ -12,6 +12,14 @@ const notes = 'JOBNAME\tLinenoinCII\tNODE_NUM\tSupportISONOTE\nPROJECT\t/LINE-12
 const parsed = (sourceId, sourceText) => parseTableSource(sourceText, { sourceId, delimiterMode: 'auto' });
 const draft = (sourceId, sourceText) => ({ sourceId, sourceText });
 assert.equal(classifyIsoNoteSource(draft('S1', mapping)), 'mapping');
+const benchmarkAlias = 'Support No\tpipe\nPS-124.1\tLINE-123';
+assert.equal(classifyIsoNoteSource(draft('S1', benchmarkAlias)), 'mapping');
+const aliasedMapping = parseTableSource(benchmarkAlias, { sourceId: 'S1', delimiterMode: 'tab', headerAliases: ISO_NOTE_S1_HEADER_ALIASES });
+assert.equal(aliasedMapping.headers[0], 'PS NO');
+assert.equal(aliasedMapping.originalHeaders[0], 'Support No');
+assert.equal(aliasedMapping.rows[0].rawByHeader['Support No'], 'PS-124.1');
+assert.equal(validateIsoNoteSourceLayout(ISO_NOTE_DUAL_SOURCE_PROFILE, [aliasedMapping, parsed('S2', notes)]).length, 0);
+
 assert.equal(classifyIsoNoteSource(draft('S1', notes)), 'notes');
 assert.equal(classifyIsoNoteSource(draft('S2', '')), 'empty');
 assert.equal(classifyIsoNoteSource(draft('S1', 'foo\tbar\na\tb')), 'unknown');

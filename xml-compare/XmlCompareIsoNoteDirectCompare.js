@@ -1,10 +1,11 @@
 import { createCategorizedInputXmlCanvasModel } from './XmlCompareCategorizedInputXmlCanvasBuilder.js';
 import { parseTypedGaps, compareEngineeringGaps, compareRestraintCoverage, engineeringReviewAction } from './XmlCompareIsoNoteEngineeringRules.js';
+import { isoNoteCompositeIdentity, validateIsoNoteCompositeCandidate, isoNoteInputCoverage, normalizeIsoPipeline, normalizeIsoSupportId } from './XmlCompareIsoNoteIdentityAdapter.js';
 
 export const ISO_NOTE_DIRECT_COMPARE_SCHEMA = 'iso-note-direct-compare/v1';
 const clean = (value) => String(value ?? '').trim();
-export const normalizeIsoLine = (value) => clean(value).replace(/^\/+/, '').trim().toUpperCase();
-export const normalizeIsoSupport = (value) => clean(value).replace(/^\/+/, '').trim().toUpperCase();
+export const normalizeIsoLine = normalizeIsoPipeline;
+export const normalizeIsoSupport = normalizeIsoSupportId;
 const escapeHtml = (value) => clean(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const identityKey = (line, support) => line && support ? line + '\u0000' + support : '';
 // A PS/SL support with a nonnumeric suffix (PS-XXXX, PS-10.X,
@@ -31,13 +32,18 @@ function extractRows(xmlText, side) {
   const partition = mapping ? 'PS_MAPPING_S1' : 'ISO_NOTES_S2';
   return xmlRows(xmlText, partition).map((record, index) => {
     const pipe = clean(mapping ? record.pipe : record.lineNoInCii);
-    const id = clean(mapping ? record.psNo : record.nodeName);
+    // NODE_NAME remains authoritative when present. If blank, retain the
+    // original note-prefix supportId from the categorized graph; never use
+    // NODE_NUM or the graph row-instance key as an engineering identity.
+    const id = clean(mapping ? (record.psNo || record.supportId)
+      : (record.nodeName || record.rawSupportId || record.supportId));
     const normalizedPipe = normalizeIsoLine(pipe);
     const normalizedId = normalizeIsoSupport(id);
-    const invalid = !normalizedPipe || !normalizedId || placeholder(normalizedId);
+    const identity = isoNoteCompositeIdentity(record, mapping ? 'source' : 'target');
+    const invalid = !identity.valid;
     return Object.freeze({
-      side, pipe, id, uid: clean(record.uid), supportGap: mapping ? clean(record.supportGap) : '', dtxr: mapping ? clean(record.dtxr) : '', isoNote: mapping ? '' : clean(record.rawNote || record.supportISONOTE), normalizedPipe, normalizedId,
-      key: !invalid ? identityKey(normalizedPipe, normalizedId) : '',
+      side, pipe, id, psNo: mapping ? id : '', lineNoInCii: mapping ? '' : pipe, nodeName: mapping ? '' : id, uid: clean(record.uid), supportGap: mapping ? clean(record.supportGap) : '', dtxr: mapping ? clean(record.dtxr) : '', isoNote: mapping ? '' : clean(record.rawNote || record.supportISONOTE), normalizedPipe, normalizedId,
+      key: identity.key, identityReason: identity.reason || '',
       valid: !invalid, placeholder: placeholder(normalizedId),
       sourceRef: clean(record.rawSummary?.sourceRefs || record.sourceRefs?.join(' ') || record.uid),
       index: index + 1,
@@ -52,7 +58,10 @@ function reportRow(left, right, status, reason) {
   const action = engineeringReviewAction(status, gap, coverage);
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
-    status, reason, supportGap, dtxr, isoNote, gap, coverage, action,
+    status, reason, identityFailureCode: status === 'REVIEW' ?
+      (a?.identityReason || b?.identityReason || 'DUPLICATE_COMPOSITE_ID') :
+      (status === 'S1_ONLY' || status === 'S2_ONLY') ? 'OUT_OF_SCOPE_OR_MISSING_REFERENCE' : '',
+    supportGap, dtxr, isoNote, gap, coverage, action,
     matchRule: 'NORMALIZED_PIPE_PLUS_FULL_SUPPORT_ID_V1',
     sourceUid: a?.uid || '', targetUid: b?.uid || '',
     s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
@@ -65,11 +74,11 @@ function compareRows(s1, s2) {
   const seen1 = new Set(), seen2 = new Set(), output = [];
   for (const item of s1) {
     if (!item.valid) {
-      output.push(reportRow(item, null, 'REVIEW', item.placeholder ? 'Placeholder PS number cannot be auto-matched' : 'Missing pipe or PS number'));
+      output.push(reportRow(item, null, 'REVIEW', (item.identityReason || 'MISSING_IDENTITY_PART') + ': S1 PS number or pipeline requires manual identity review'));
       continue;
     }
     const a = byKey1.get(item.key) || [], b = byKey2.get(item.key) || [];
-    if (!b.length) { output.push(reportRow(item, null, 'S1_ONLY', 'No NODE_NAME on the same normalized pipeline')); continue; }
+    if (!b.length) { output.push(reportRow(item, null, 'S1_ONLY', 'OUT_OF_SCOPE_OR_MISSING_REFERENCE: no NODE_NAME on the same normalized pipeline')); continue; }
     if (a.length !== 1 || b.length !== 1) {
       output.push(reportRow(item, null, 'REVIEW', 'Duplicate pipeline and support identity; verify rows individually'));
       continue;
@@ -80,13 +89,13 @@ function compareRows(s1, s2) {
   for (const item of s2) {
     if (seen2.has(item)) continue;
     if (!item.valid) {
-      output.push(reportRow(null, item, 'REVIEW', item.placeholder ? 'Placeholder NODE_NAME cannot be auto-matched' : 'Missing line number or NODE_NAME'));
+      output.push(reportRow(null, item, 'REVIEW', (item.identityReason || 'MISSING_IDENTITY_PART') + ': S2 NODE_NAME or pipeline requires manual identity review; original note token retained as evidence'));
       continue;
     }
     const a = byKey1.get(item.key) || [], b = byKey2.get(item.key) || [];
     const dup = a.length && (a.length !== 1 || b.length !== 1);
     if (dup) output.push(reportRow(null, item, 'REVIEW', 'Duplicate pipeline and support identity; verify rows individually'));
-    else if (!a.length) output.push(reportRow(null, item, 'S2_ONLY', 'No PS NO on the same normalized pipeline'));
+    else if (!a.length) output.push(reportRow(null, item, 'S2_ONLY', 'OUT_OF_SCOPE_OR_MISSING_REFERENCE: no PS NO on the same normalized pipeline'));
   }
   const order = { REVIEW: 0, S1_ONLY: 1, S2_ONLY: 2, MATCH: 3 };
   output.sort((a, b) => order[a.status] - order[b.status] || a.pipe.localeCompare(b.pipe, undefined, { numeric: true }) || (a.psNo || a.nodeName).localeCompare(b.psNo || b.nodeName, undefined, { numeric: true }));
@@ -96,11 +105,12 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
   const a = clean(sourceXml) ? sourceXml : targetXml;
   const b = clean(targetXml) ? targetXml : sourceXml;
   const s1 = extractRows(a, 'S1'), s2 = extractRows(b, 'S2');
+  const coverage = isoNoteInputCoverage(s1, s2);
   if (!s1.length || !s2.length) {
     const missing = [!s1.length ? 'PS_MAPPING_S1 (PS NO, pipe)' : '', !s2.length ? 'ISO_NOTES_S2 (NODE_NAME, LinenoinCII)' : ''].filter(Boolean);
     return Object.freeze({
       schema: ISO_NOTE_DIRECT_COMPARE_SCHEMA, ok: false,
-      rows: Object.freeze([]), countS1: s1.length, countS2: s2.length,
+      rows: Object.freeze([]), countS1: s1.length, countS2: s2.length, coverage,
       summary: Object.freeze({ match: 0, s1Only: 0, s2Only: 0, review: 0, gapMatch: 0, gapMismatch: 0, gapReview: 0, gapNotSpecified: 0, coverageCovered: 0, coverageMissing: 0, coverageReview: 0, coverageExtra: 0 }),
       message: 'Cannot compare: missing ' + missing.join(' and ') + '. Load a combined categorized XML into Source A, or S1 into Source A and S2 into Target B.',
     });
@@ -108,7 +118,7 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
   const rows = compareRows(s1, s2);
   const count = (status) => rows.filter((item) => item.status === status).length;
   return Object.freeze({
-    schema: ISO_NOTE_DIRECT_COMPARE_SCHEMA, ok: true, rows,
+    schema: ISO_NOTE_DIRECT_COMPARE_SCHEMA, ok: true, rows, coverage,
     countS1: s1.length, countS2: s2.length,
     summary: Object.freeze({ match: count('MATCH'), s1Only: count('S1_ONLY'), s2Only: count('S2_ONLY'), review: count('REVIEW'), gapMatch: rows.filter((item) => item.gap.status === 'MATCH').length, gapMismatch: rows.filter((item) => item.gap.status === 'MISMATCH').length, gapReview: rows.filter((item) => item.gap.status === 'REVIEW').length, gapNotSpecified: rows.filter((item) => item.gap.status === 'NOT_SPECIFIED').length, coverageCovered: rows.filter((item) => item.coverage.status === 'COVERED').length, coverageMissing: rows.filter((item) => item.coverage.status === 'MISSING').length, coverageReview: rows.filter((item) => item.coverage.status === 'REVIEW').length, coverageExtra: rows.filter((item) => item.coverage.status === 'EXTRA').length }),
     message: 'Exact pipeline + full support ID comparison. Checks parsed REST / GUIDE / LINE STOP restraints and typed gaps independently, with original evidence and review actions. Identity uses exact pipeline and full support ID, never 60% name similarity. Loads (kN) and axial displacement are not gaps.',
@@ -118,23 +128,7 @@ export function compareIsoNoteMapping({ sourceXml = '', targetXml = '' } = {}) {
 // Text similarity (e.g. 66% PS-131.1 on a different pipe) is not evidence
 // that a PS mapping record and an ISO note refer to the same support.
 export function validateIsoNoteCandidateIdentity(candidate = {}, sourceRecords = [], targetRecords = []) {
-  const source = sourceRecords.find((item) => item.uid === candidate.sourceUid);
-  const target = targetRecords.find((item) => item.uid === candidate.targetUid);
-  if (!source || !target) return Object.freeze({ applicable: false, valid: true, reason: '' });
-  const cross = source.lineKey === 'PS_MAPPING_S1' && target.lineKey === 'ISO_NOTES_S2';
-  const reverse = source.lineKey === 'ISO_NOTES_S2' && target.lineKey === 'PS_MAPPING_S1';
-  if (!cross && !reverse) return Object.freeze({ applicable: false, valid: true, reason: '' });
-  const mapping = cross ? source : target;
-  const notes = cross ? target : source;
-  const pipe1 = normalizeIsoLine(mapping.pipe), pipe2 = normalizeIsoLine(notes.lineNoInCii);
-  const id1 = normalizeIsoSupport(mapping.psNo), id2 = normalizeIsoSupport(notes.nodeName);
-  const valid = Boolean(pipe1 && pipe2 && id1 && id2 && !placeholder(id1) && !placeholder(id2) &&
-    pipe1 === pipe2 && id1 === id2);
-  return Object.freeze({
-    applicable: true, valid,
-    reason: valid ? 'Same normalized pipeline and full support ID.'
-      : 'Cross-partition ISO candidate rejected: pipeline + full PS number must match exactly, not by text similarity.',
-  });
+  return validateIsoNoteCompositeCandidate(candidate, sourceRecords, targetRecords);
 }
 
 // Only exact one-to-one S1->S2 keys can enter the approval ledger.
