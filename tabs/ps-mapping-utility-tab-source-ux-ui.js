@@ -6,6 +6,12 @@ import {
   PS_MAPPING_SAMPLE_TABLE1D,
 } from './ps-mapping-utility/ps-mapping-sample-data.js';
 
+import {
+  PS_MAP_MAX_CSV_BYTES,
+  PS_MAP_MOCK_CSV_BY_SOURCE,
+  readPsMappingCsvForSource,
+} from './ps-mapping-utility/ps-mapping-csv-import.js';
+
 const STYLE_ID = 'psmap-source-ux-style';
 
 const CANDIDATE_HEADER_RENAMES = new Map([
@@ -42,6 +48,13 @@ function installStyle() {
   style.id = STYLE_ID;
   style.textContent = `
 .psmap-source-primary-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch}.psmap-source-primary-grid .psmap-field textarea{min-height:280px}.psmap-source-hint{font:11px ui-monospace,Consolas,monospace;color:#bae6fd;background:rgba(14,165,233,.08);border:1px solid rgba(56,189,248,.22);border-radius:8px;padding:5px 7px}.psmap-source-label-main{color:#f8fafc!important}.psmap-legacy-source-toggle{display:flex;align-items:center;gap:8px;border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.75);color:#dbeafe;border-radius:10px;padding:8px 10px;font-weight:800;cursor:pointer}.psmap-legacy-source-wrap{border:1px dashed rgba(148,163,184,.28);border-radius:12px;padding:10px;background:rgba(15,23,42,.35)}.psmap-legacy-source-body{display:none;margin-top:10px;gap:10px}.psmap-legacy-source-wrap.open .psmap-legacy-source-body{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.psmap-retired-note{font-size:12px;color:#fde68a;border:1px solid rgba(251,191,36,.28);background:rgba(120,53,15,.18);border-radius:10px;padding:8px}.psmap-source-ux-note{font-size:12px;color:#cbd5e1}.psmap-table th.psmap-renamed-header{color:#e0f2fe}.psmap-table th.psmap-debug-header{color:#fbbf24}.psmap-gap-sentinel{display:none!important}
+.psmap-csv-controls,.psmap-csv-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.psmap-csv-controls{padding:4px 0}.psmap-csv-toolbar{margin:4px 0 2px;padding:10px;border:1px solid rgba(96,165,250,.3);background:rgba(30,64,175,.12);border-radius:10px}
+.psmap-csv-btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;border:1px solid rgba(143,197,255,.35);background:#172c4d;color:#e0f2fe;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+.psmap-csv-btn:hover{background:#20477b}.psmap-csv-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+.psmap-csv-msg{font-size:11px;color:#9fdac3;line-height:1.3}.psmap-csv-msg.error{color:#fca5a5}
+.psmap-csv-toolbar .psmap-source-ux-note{margin:0}
+input.psmap-csv-file{display:none}
 @media(max-width:1100px){.psmap-source-primary-grid,.psmap-legacy-source-wrap.open .psmap-legacy-source-body{grid-template-columns:1fr}}
 `;
   document.head.appendChild(style);
@@ -58,7 +71,7 @@ function fieldFor(name) {
 function setLabel(name, label) {
   const labelEl = fieldFor(name)?.querySelector('label');
   if (!labelEl) return;
-  labelEl.textContent = label;
+  if (labelEl.textContent !== label) labelEl.textContent = label;
   labelEl.classList.add('psmap-source-label-main');
 }
 
@@ -91,6 +104,88 @@ function clearLegacyDefaultSamples(panel) {
   }
 }
 
+function ensureCsvControls(name) {
+  const field = fieldFor(name);
+  const target = textarea(name);
+  if (!field || !target || field.querySelector('[data-psmap-csv-controls]')) return;
+  const controls = document.createElement('div');
+  controls.className = 'psmap-csv-controls';
+  controls.setAttribute('data-psmap-csv-controls', name);
+  const label = name === 'table1CText' ? 'Table 1 Reference' : 'Table 2 Model';
+  controls.innerHTML = `<button type="button" class="psmap-csv-btn" data-psmap-csv-pick="${name}" aria-label="Upload CSV to ${label}" title="Upload CSV to ${label}">📁 Upload CSV</button>
+    <input type="file" class="psmap-csv-file" data-psmap-csv-input="${name}" accept=".csv,text/csv" tabindex="-1" aria-label="${label} CSV file">
+    <button type="button" class="psmap-csv-btn" data-psmap-csv-mock="${name}" aria-label="Load mock CSV into ${label}" title="Load CSV sample into ${label}">🧪 Mock CSV</button>
+    <span class="psmap-csv-msg" data-psmap-csv-status="${name}" role="status" aria-live="polite"></span>`;
+  field.insertBefore(controls, target);
+}
+
+function reportCsvStatus(name, message, error = false) {
+  const status = document.querySelector(`[data-psmap-csv-status="${name}"]`);
+  if (!status) return;
+  status.classList.toggle('error', error);
+  if (status.textContent !== message) status.textContent = message;
+}
+
+function confirmCsvReplace(names) {
+  const populated = names.filter((name) => String(textarea(name)?.value || '').trim());
+  if (!populated.length) return true;
+  const tables = populated.map((name) => name === 'table1CText' ? 'Table 1 Reference' : 'Table 2 Model').join(' and ');
+  return window.confirm(`Replace existing ${tables} input? This overwrites unsaved pasted data.`);
+}
+
+function applyParsedCsv(name, parsed, origin) {
+  const target = textarea(name);
+  if (!target) throw new Error('Open the PS Mapping Source Tables panel first.');
+  target.value = parsed.tsv;
+  dispatchSourceChange(target);
+  reportCsvStatus(name, `${origin}: ${parsed.rowCount} rows, ${parsed.columnCount} columns loaded.`);
+}
+
+async function onCsvFileChange(event) {
+  const input = event.target?.closest?.('[data-psmap-csv-input]');
+  if (!input) return;
+  const name = input.dataset.psmapCsvInput;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    if (!/\.csv$/i.test(file.name)) throw new Error('Select a .csv file.');
+    if (file.size > PS_MAP_MAX_CSV_BYTES) throw new Error('CSV exceeds the 15 MiB safety limit.');
+    const parsed = readPsMappingCsvForSource(name, await file.text());
+    if (!confirmCsvReplace([name])) {
+      reportCsvStatus(name, 'Upload cancelled; existing data kept.');
+      return;
+    }
+    applyParsedCsv(name, parsed, file.name);
+  } catch (error) {
+    reportCsvStatus(name, `CSV upload failed: ${error.message || error}`, true);
+  } finally {
+    // Re-selecting the same file should trigger change again.
+    input.value = '';
+  }
+}
+
+function handleCsvClick(event) {
+  const pick = event.target?.closest?.('[data-psmap-csv-pick]');
+  if (pick) {
+    document.querySelector(`[data-psmap-csv-input="${pick.dataset.psmapCsvPick}"]`)?.click();
+    return true;
+  }
+  const mock = event.target?.closest?.('[data-psmap-csv-mock]');
+  const both = event.target?.closest?.('[data-psmap-csv-mock-both]');
+  if (!mock && !both) return false;
+  const names = both ? ['table1CText', 'table2Text'] : [mock.dataset.psmapCsvMock];
+  try {
+    // Parse both samples BEFORE writing either source so errors cannot cause
+    // an inconsistent half-loaded mock.
+    const parsed = names.map((name) => [name, readPsMappingCsvForSource(name, PS_MAP_MOCK_CSV_BY_SOURCE[name])]);
+    if (!confirmCsvReplace(names)) return true;
+    for (const [name, data] of parsed) applyParsedCsv(name, data, 'Mock CSV');
+  } catch (error) {
+    for (const name of names) reportCsvStatus(name, `Mock CSV failed: ${error.message || error}`, true);
+  }
+  return true;
+}
+
 function moveInto(parent, child) {
   if (parent && child && child.parentNode !== parent) parent.appendChild(child);
 }
@@ -121,6 +216,17 @@ function patchSourcePanel() {
     else cardBody.prepend(grid);
     moveInto(grid, rich);
     moveInto(grid, table2);
+  }
+
+  for (const name of ['table1CText', 'table2Text']) ensureCsvControls(name);
+  const primary = panel.querySelector('[data-psmap-primary-source-grid]');
+  if (primary && !panel.querySelector('[data-psmap-csv-mock-both]')) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'psmap-csv-toolbar';
+    toolbar.innerHTML = `<button type="button" class="psmap-csv-btn" data-psmap-csv-mock-both
+      title="Load matching sample CSV data into both tables" aria-label="Load both mock CSV tables">🧪 Load Both Mock CSVs</button>
+      <p class="psmap-source-ux-note">Upload CSV separately for each table, or load paired mock CSVs. CSV is converted to TSV for the existing resolver; pasting still works.</p>`;
+    primary.parentNode.insertBefore(toolbar, primary);
   }
 
   const optionalFields = ['table1Text', 'table1AText', 'table1BText'].map(fieldFor).filter(Boolean);
@@ -254,6 +360,7 @@ function patchCandidateMatrix() {
 }
 
 function onClick(event) {
+  if (handleCsvClick(event)) return;
   const button = event.target?.closest?.('[data-psmap-legacy-source-toggle]');
   if (!button) return;
   const wrap = button.closest('[data-psmap-legacy-source-wrap]');
@@ -276,10 +383,12 @@ function installSourceUxPatch() {
   const observer = new MutationObserver(runPatch);
   observer.observe(document.body, { childList: true, subtree: true });
   document.addEventListener('click', onClick, true);
+  document.addEventListener('change', onCsvFileChange, true);
   runPatch();
   return () => {
     observer.disconnect();
     document.removeEventListener('click', onClick, true);
+    document.removeEventListener('change', onCsvFileChange, true);
   };
 }
 
