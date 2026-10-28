@@ -20,6 +20,12 @@ export function isIsoNoteEngineeringInput(sourceXml = '', targetXml = '') {
 const summary = report => Object.freeze({
   mappingRows: report.countS1,
   noteRows: report.countS2,
+  sourcePipelineCount: report.coverage?.sourceScopeCount || 0,
+  targetPipelineCount: report.coverage?.targetScopeCount || 0,
+  commonPipelineCount: report.coverage?.sharedScopeCount || 0,
+  sourceCompositeDuplicates: report.coverage?.sourceCompositeDuplicates || 0,
+  targetCompositeDuplicates: report.coverage?.targetCompositeDuplicates || 0,
+  coverageConfirmed: false,
   identityMatches: report.summary.match,
   s1Only: report.summary.s1Only,
   s2Only: report.summary.s2Only,
