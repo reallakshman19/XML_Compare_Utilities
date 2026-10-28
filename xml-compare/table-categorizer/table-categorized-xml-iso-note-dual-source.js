@@ -19,11 +19,16 @@ const note = column('S2', 'SupportISONOTE');
 const supportFromNote = extract(note, ISO_NOTE_FULL_ID_PATTERN);
 const supportFromS1 = column('S1', 'PS NO');
 const rawNodeName = column('S2', 'NODE_NAME');
+const normalizedNodeName = {
+  op: 'trim', input: { op: 'regexReplace', input: rawNodeName, pattern: '^\\s*:?\\/{0,2}\\s*', replacement: '' },
+};
 const notePrefixId = extract(note, '^\\s*:?\\/{0,2}\\s*(.*?)\\s*:ISONOTE\\b');
 const nodeNo = column('S2', 'NODE_NUM');
-// Retain the original support identifier for noncanonical or placeholder
-// notes. NODE_NUM is a position/locator, NEVER a substitute PS identifier.
-const supportId = fallback(supportFromNote, rawNodeName, notePrefixId, supportFromS1);
+// NODE_NAME is the authoritative original support identity. Its leading
+// formatting slash is removed for the display/key, but rawSupportId retains
+// it byte-for-byte. Note regex is only a fallback when NODE_NAME is empty.
+// NODE_NUM is a locator, NEVER a substitute PS identity.
+const supportId = fallback(normalizedNodeName, supportFromNote, notePrefixId, supportFromS1);
 const pipeline = {
   op: 'fallback',
   resolvers: [column('S2', 'LinenoinCII'), column('S1', 'pipe')],
@@ -126,6 +131,13 @@ export function isoNoteIdentityWarnings(sources = []) {
         severity: 'WARNING', code: 'NONCANONICAL_ID',
         message: 'Original NODE_NAME is preserved without NODE_NUM substitution; manual review required.',
         sourceRef: row.rowId, rawIdentifier: rawNode,
+      }];
+      const noteId = text.match(/^\\s*:?\\/{0,2}\\s*(.*?)\\s*:ISONOTE\\b/i)?.[1] || '';
+      const norm = (value) => String(value || '').trim().replace(/^\\s*:?\\/{0,2}\\s*/, '').toUpperCase();
+      if (rawNode && noteId && norm(rawNode) !== norm(noteId)) return [{
+        severity: 'WARNING', code: 'iso_note_identity_conflict',
+        message: 'NODE_NAME and support token in SupportISONOTE differ; original NODE_NAME retained, automatic identity requires review.',
+        sourceRef: row.rowId, rawIdentifier: rawNode, noteIdentifier: noteId,
       }];
       if (!text) return [{
         severity: 'WARNING', code: 'iso_note_missing_identity',
