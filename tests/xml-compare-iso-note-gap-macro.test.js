@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { compareIsoNoteMapping, compareSupportGapWithIsoNote, extractSupportGapMeasurements, serializeIsoNoteMappingCsv, renderIsoNoteMappingCompareHtml, buildIsoNoteAnchorCandidates } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
+import { buildIsoNoteEngineeringFindings, serializeIsoNoteEngineeringFindingsCsv } from '../xml-compare/XmlCompareIsoNoteEngineeringFindings.js';
 
 const escape = (text) => String(text ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const mapping = [
@@ -55,6 +56,36 @@ assert.equal(compareSupportGapWithIsoNote('', '').status, 'NOT_SPECIFIED');
 assert.equal(compareSupportGapWithIsoNote('', 'GUIDE GAP=10mm').status, 'REVIEW');
 assert.equal(compareSupportGapWithIsoNote('25mm GAP', '[25mm GAP], [30mm GAP]').status, 'REVIEW');
 
+// Option B H6: individual clearance agreement is not complete engineering
+// agreement if any additional typed requirement is only present on one side.
+const restAndGuide = compareSupportGapWithIsoNote('25mm GAP', '[25mm GAP], GUIDE GAP=10mm');
+assert.equal(restAndGuide.byType.rest.status, 'MATCH');
+assert.equal(restAndGuide.byType.guide.status, 'REVIEW');
+assert.deepEqual(restAndGuide.byType.guide.s2Mm, [10]);
+assert.deepEqual(restAndGuide.unresolvedTypes, ['guide']);
+assert.equal(restAndGuide.status, 'REVIEW', 'S2-only GUIDE must block aggregate MATCH');
+assert.match(restAndGuide.reason, /S2-only guide clearance/);
+const guideAndStop = compareSupportGapWithIsoNote('10mm GUIDE GAP', 'GUIDE GAP=10mm; LINE STOP GAP=25mm');
+assert.equal(guideAndStop.byType.guide.status, 'MATCH');
+assert.equal(guideAndStop.byType.lineStop.status, 'REVIEW');
+assert.equal(guideAndStop.status, 'REVIEW', 'S2-only LINE STOP must block aggregate MATCH');
+const mismatchPlusMissing = compareSupportGapWithIsoNote('25mm GAP', '[30mm GAP], LINE STOP GAP=25mm');
+assert.equal(mismatchPlusMissing.status, 'MISMATCH');
+assert.equal(mismatchPlusMissing.byType.rest.status, 'MISMATCH');
+assert.equal(mismatchPlusMissing.byType.lineStop.status, 'REVIEW');
+assert.deepEqual(mismatchPlusMissing.unresolvedTypes, ['lineStop']);
+const restOnly = compareSupportGapWithIsoNote('25mm GAP', '[25mm GAP]');
+assert.equal(restOnly.status, 'MATCH');
+assert.equal(restOnly.byType.guide.status, 'NOT_SPECIFIED');
+assert.equal(restOnly.byType.lineStop.status, 'NOT_SPECIFIED');
+assert.equal(compareSupportGapWithIsoNote('25mm GUIDE GAP', 'GUIDE GAP=25mm; axial disp=120mm').status, 'MATCH',
+  'axial displacement is not a separate gap requirement');
+assert.equal(compareSupportGapWithIsoNote('25mm GAP', 'LINE STOP GAP=25mm').status, 'REVIEW');
+assert.equal(compareSupportGapWithIsoNote('25mm GAP', '[25mm GAP], GUIDE GAP=10mm', 'S1_ONLY').status,
+  'NOT_APPLICABLE', 'unverified identity must not assert gap agreement');
+
+
+
 const report = compareIsoNoteMapping({ sourceXml: xml, targetXml: xml });
 assert.equal(report.ok, true);
 assert.equal(report.summary.match, 9, 'one same support ID on another pipeline is not a match');
@@ -64,9 +95,11 @@ assert.equal(report.summary.review, 1, 'PS-XXXX stays in review');
 assert.deepEqual([
   report.summary.gapMatch, report.summary.gapMismatch,
   report.summary.gapReview, report.summary.gapNotSpecified,
-], [3, 1, 4, 1]);
+], [2, 1, 5, 1]); // PS-001 REST=25mm MATCH, GUIDE=10mm REVIEW → aggregate REVIEW
 const row = (id) => report.rows.find((item) => item.psNo === id && item.pipe === 'PIPE-1/B4');
-assert.equal(row('PS-001').gap.status, 'MATCH');
+assert.equal(row('PS-001').gap.status, 'REVIEW');
+assert.equal(row('PS-001').gap.byType.rest.status, 'MATCH');
+assert.equal(row('PS-001').gap.byType.guide.status, 'REVIEW');
 assert.equal(row('PS-001').gap.s2RestMm, '25');
 assert.equal(row('PS-001').gap.s2GuideMm, '10');
 assert.equal(row('PS-002').gap.status, 'MISMATCH');
@@ -81,6 +114,13 @@ assert.equal(row('PS-009.10').gap.status, 'MATCH', 'support suffix .10 must rema
 const model = createCategorizedInputXmlCanvasModel({ xmlText: xml });
 const anchors = buildIsoNoteAnchorCandidates({ report, sourceRecords: model.records, targetRecords: model.records });
 assert.equal(anchors.length, 9, 'gap mismatches do not invalidate an exact identity match');
+
+const findings = buildIsoNoteEngineeringFindings(report);
+const typedFindings = findings.filter(f => f.psNo === 'PS-001' && f.domain === 'CLEARANCE');
+assert.equal(typedFindings.find(f => f.kind === 'REST').status, 'MATCH');
+assert.equal(typedFindings.find(f => f.kind === 'GUIDE').status, 'REVIEW');
+assert.match(typedFindings.find(f => f.kind === 'GUIDE').rule, /TYPED_GAP_EXACT_MM_V2/);
+assert.match(serializeIsoNoteEngineeringFindingsCsv(report), /S2-only guide clearance has no S1 evidence/);
 
 const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Support Gap \(S1\)","ISONOTE \(S2\)"/);
