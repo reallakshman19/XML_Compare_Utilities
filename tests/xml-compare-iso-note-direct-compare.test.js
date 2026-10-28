@@ -83,7 +83,7 @@ const unscopedApproval = applyXmlCompareCanvasAction(canvas, {
   type: 'bulk-approve-candidate-pairs', candidates: anchors,
 });
 assert.equal(unscopedApproval.approvedMatchSet, null, 'reducer fails closed without approval context');
-assert.equal(unscopedApproval.logs.at(-1).message, 'MISSING_APPROVAL_CONTEXT');
+assert.equal(unscopedApproval.logs.at(-1).message, 'MISSING_BOUND_APPROVAL_AUTHORITY');
 
 const oneDocument = compareIsoNoteMapping({ sourceXml: input });
 assert.deepEqual(oneDocument.summary, result.summary);
