@@ -1,3 +1,5 @@
+import { ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN, ISO_NOTE_RAW_TOKEN_PATTERN, compareIsoNoteNodeNameAndToken } from '../XmlCompareIsoNoteTokenPolicy.js';
+export { ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN } from '../XmlCompareIsoNoteTokenPolicy.js';
 // S1 is the PS mapping table; S2 is the ISO Note table. Neither is a
 // revision of the other, so build separate source-scoped partitions rather
 // than joining unrelated rows or silently discarding the non-driving source.
@@ -12,8 +14,7 @@ const number = (input) => ({ op: 'numberParser', input, severity: 'INFO' });
 
 // Keep .1/.2/.5/.7 in the support identifier. Legacy rev-to-rev ISOrecipe
 // extracts a base ID separately and is intentionally left unchanged.
-export const ISO_NOTE_FULL_ID_PATTERN = '^\\s*:?\\/{0,2}\\s*((?:PS|SL)-\\d+(?:\\.\\d+)?)(?:\\/DATUM)?\\s*:ISONOTE\\b';
-export const ISO_NOTE_SUFFIX_PATTERN = '^\\s*:?\\/{0,2}\\s*(?:PS|SL)-\\d+\\.(\\d+)(?:\\/DATUM)?\\s*:ISONOTE\\b';
+
 
 const note = column('S2', 'SupportISONOTE');
 const supportFromNote = extract(note, ISO_NOTE_FULL_ID_PATTERN);
@@ -22,7 +23,7 @@ const rawNodeName = column('S2', 'NODE_NAME');
 const normalizedNodeName = {
   op: 'trim', input: { op: 'regexReplace', input: rawNodeName, pattern: '^\\s*:?\\/{0,2}\\s*', replacement: '' },
 };
-const notePrefixId = extract(note, '^\\s*:?\\/{0,2}\\s*(.*?)\\s*:ISONOTE\\b');
+const notePrefixId = extract(note, ISO_NOTE_RAW_TOKEN_PATTERN);
 const nodeNo = column('S2', 'NODE_NUM');
 // NODE_NAME is the authoritative original support identity. Its leading
 // formatting slash is removed for the display/key, but rawSupportId retains
@@ -36,6 +37,7 @@ const pipeline = {
 };
 // Row provenance is an instance ID, not part of the engineering join key.
 // Ensures two PS-XXXX rows never collapse into one graph node.
+const engineeringIdentityKey = { op: 'concat', separator: '|', parts: [pipeline, supportId] };
 const identity = { op: 'concat', separator: '|', parts: [pipeline, supportId, { op: 'rowRef' }] };
 const noteValue = (pattern) => number(extract(note, pattern));
 
@@ -61,7 +63,7 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
     documentRootTag: 'IsoNoteXml', rootPartitionTag: 'IsoPartition',
     includeDiagnosticsElement: true,
     childElementFields: [
-      'connectorKey', 'supportId', 'rawSupportId', 'revision',
+      'connectorKey', 'engineeringIdentityKey', 'instanceKey', 'supportId', 'rawSupportId', 'revision',
       'pipe', 'psNo', 'bore', 'dtxr', 'supportGap', 'mandatory', 'x', 'y', 'z',
       'rawNote', 'jobName', 'lineNoInCii', 'pipeAxis', 'nodeNumber', 'nodeName',
       'nps', 'supportType', 'remarks', 'restKn', 'guideKn', 'guideGapMm', 'lineStopKn',
@@ -79,7 +81,9 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
         creationMode: 'one-per-key', keyResolver: identity,
         displayNameResolver: supportId,
         fieldResolvers: {
-          connectorKey: identity,
+          connectorKey: engineeringIdentityKey,
+          engineeringIdentityKey,
+          instanceKey: identity,
           supportId,
           rawSupportId: rawNodeName,
           // A .1/.2 support suffix is not a document revision.
@@ -132,12 +136,11 @@ export function isoNoteIdentityWarnings(sources = []) {
         message: 'Original NODE_NAME is preserved without NODE_NUM substitution; manual review required.',
         sourceRef: row.rowId, rawIdentifier: rawNode,
       }];
-      const noteId = text.match(/^\s*:?\/{0,2}\s*(.*?)\s*:ISONOTE\b/i)?.[1] || '';
-      const norm = (value) => String(value || '').trim().replace(/^\s*:?\/{0,2}\s*/, '').toUpperCase();
-      if (rawNode && noteId && norm(rawNode) !== norm(noteId)) return [{
+      const consistency = compareIsoNoteNodeNameAndToken(rawNode, text);
+      if (rawNode && consistency.reason === 'NODE_NAME_NOTE_MISMATCH') return [{
         severity: 'WARNING', code: 'iso_note_identity_conflict',
-        message: 'NODE_NAME and support token in SupportISONOTE differ; original NODE_NAME retained, automatic identity requires review.',
-        sourceRef: row.rowId, rawIdentifier: rawNode, noteIdentifier: noteId,
+        message: 'NODE_NAME and SupportISONOTE token disagree; NODE_NAME retained and pair requires review.',
+        sourceRef: row.rowId, rawIdentifier: rawNode, noteIdentifier: consistency.token.rawToken,
       }];
       if (!text) return [{
         severity: 'WARNING', code: 'iso_note_missing_identity',
