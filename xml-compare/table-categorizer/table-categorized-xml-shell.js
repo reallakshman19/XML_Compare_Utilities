@@ -46,6 +46,18 @@ function renderStepStrip(view) { const status = createTableCategorizedStepStatus
 function renderStepButton(step, index, view, status) { const locked = status[step] === 'locked', active = view.activeStep === step; return `<button type="button" data-table-categorized-step="${step}" data-table-categorized-tab="${tabFromStep(step)}" data-step-status="${status[step]}" class="${active ? 'is-active' : ''} is-status-${status[step]}" ${locked ? 'disabled aria-disabled="true"' : 'aria-disabled="false"'}><b>${index + 1} ${TABLE_CATEGORIZED_STEP_LABELS[step]} ${statusBadge(status[step])}</b><small>${stepSubtitle(step, status[step])}</small></button>`; }
 function renderStepBody(view) { if (view.activeStep === 'columns') return renderColumnsStep(view); if (view.activeStep === 'structure') return renderStructureStep(view); if (view.activeStep === 'preview') return renderPreviewStep(view); if (view.activeStep === 'export') return renderExportStep(view); return renderTableStep(view); }
 function stepSubtitle(step, status) { if (status === 'locked') return 'Locked'; if (step === 'columns' && status === 'complete') return 'Fields confirmed'; if (step === 'columns' && status === 'warning') return 'Review field issues'; return { table: 'Add source', columns: 'Confirm fields', structure: 'Build structure', preview: 'Check result', export: 'Download files' }[step]; }
+function renderIsoImportPreflight(preflight = {}) {
+  const results = ['S1', 'S2'].map(role => preflight?.[role]).filter(Boolean);
+  if (!results.length) return '';
+  return `<section data-table-categorized-preflight-report aria-live="polite" style="padding:10px;margin:10px 0;border:1px solid #475569;border-radius:8px">
+  <strong>CSV / TXT Import Preflight</strong>
+  ${results.map(result => `<details open data-table-categorized-preflight-role="${esc(result.role)}"><summary>${esc(result.summary)}</summary>
+  <small>${esc(result.fileName)} · ${esc(result.detectedDelimiter || 'not detected')} · ${result.rowCount} rows</small>
+  ${result.fixes.length ? `<p>Safe autofix: ${result.fixes.map(esc).join('; ')}</p>` : ''}
+  ${result.findings.length ? `<ul>${result.findings.slice(0, 10).map(item => `<li>${esc(item.severity)} · ${esc(item.code)} · ${esc(item.rowRef)} ${esc(item.message)}</li>`).join('')}</ul>` : '<p>No blocking problems.</p>'}
+  ${result.findings.length > 10 ? `<small>${result.findings.length - 10} additional warnings; all values preserved for review.</small>` : ''}
+  </details>`).join('')}</section>`;
+}
 function renderTableStep(view) {
   const active = activeFor(view), sources = sourcesFor(view);
   const settingsPanel = view.settingsPanel || { x: 800, y: 120, collapsed: false };
@@ -57,7 +69,13 @@ function renderTableStep(view) {
     : '';
   return `${sourceSetupNotice}<div class="table-categorized-shell-toolbar"><label>Table ID<select data-table-categorized-active-source>${sources.map((s) => `<option ${s.sourceId === active.sourceId ? 'selected' : ''}>${esc(s.sourceId)}</option>`).join('')}</select></label><label>Table Name<input data-table-categorized-source-name value="${esc(active.sourceName || '')}"></label><div class="table-categorized-shell-toolbar-actions"><button type="button" data-table-categorized-action="add-source">+ Add</button><button type="button" data-table-categorized-action="remove-source">- Remove</button><button type="button" data-table-categorized-action="clear">↺ Clear</button></div></div>
   <div class="table-categorized-shell-split">
-    <div class="table-categorized-shell-main"><div class="table-categorized-drop-zone"><span>📥 Drag & Drop CSV / TXT File Here</span></div><div class="table-categorized-divider"><span>- OR -</span></div><label class="table-categorized-shell-paste"><span>Paste Table Text (Headers required):</span><textarea data-table-categorized-source-text>${esc(active.sourceText || '')}</textarea></label></div>
+    <div class="table-categorized-shell-main"><div class="table-categorized-drop-zone" data-table-categorized-drop-zone="1"><span>📥 Drag & Drop CSV / TXT File Here</span><div class="table-categorized-iso-load-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+    <button type="button" data-table-categorized-action="choose-iso-s1" aria-label="Load S1 PS Mapping CSV or TXT">Load S1 · PS Mapping</button>
+    <button type="button" data-table-categorized-action="choose-iso-s2" aria-label="Load S2 ISO Notes CSV or TXT">Load S2 · ISO Notes</button>
+    <input type="file" hidden accept=".csv,.CSV,.tsv,.TSV,.txt,.TXT,text/csv,text/plain" data-table-categorized-iso-file="S1" aria-label="Select S1 PS Mapping file">
+    <input type="file" hidden accept=".csv,.CSV,.tsv,.TSV,.txt,.TXT,text/csv,text/plain" data-table-categorized-iso-file="S2" aria-label="Select S2 ISO Notes file">
+  </div><small>Drop targets the selected Table ID (S1 or S2). Safe autofix only; malformed rows are never silently altered.</small></div>
+  ${renderIsoImportPreflight(view.importPreflight)}<div class="table-categorized-divider"><span>- OR -</span></div><label class="table-categorized-shell-paste"><span>Paste Table Text (Headers required):</span><textarea data-table-categorized-source-text>${esc(active.sourceText || '')}</textarea></label></div>
     <div class="table-categorized-shell-side">
       <div class="table-categorized-shell-side-card">
         <h4>Advanced Settings</h4>
