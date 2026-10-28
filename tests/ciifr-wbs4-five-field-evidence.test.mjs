@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertPrivateOutputSecurity } from './helpers/ciifr-private-output.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { inspectFiveFieldEvidence, publicFiveFieldSummary }
   from '../tools/ciifr-wbs4/five-field-evidence.mjs';
@@ -128,7 +129,7 @@ test('public summary whitelists no model data, physical indices, hashes or lexem
     /FIVE_FIELD_UNQUALIFIED_REPORT/);
 });
 
-test('CLI makes private 0600 report in local temp folder and distinct safe summary', () => {
+test('CLI makes a report with native private access and a distinct safe summary', () => {
   const sourceDir=mkdtempSync(join(tmpdir(),'ciifr-five-field-input-'));
   let outputDir;
   try {
@@ -139,7 +140,7 @@ test('CLI makes private 0600 report in local temp folder and distinct safe summa
     outputDir=stdout.slice('LOCAL_ONLY_DIRECTORY='.length);
     const privateFile=join(outputDir,'private-report.json');
     const publicFile=join(outputDir,'public-summary.json');
-    assert.equal(statSync(privateFile).mode&0o777,0o600);
+    assertPrivateOutputSecurity(outputDir);
     const privateData=JSON.parse(readFileSync(privateFile,'utf8'));
     const publicData=JSON.parse(readFileSync(publicFile,'utf8'));
     assert.equal(privateData.occurrence.ordinalOneBased,2);
@@ -236,7 +237,7 @@ test('independent serialized endpoint/occurrence oracle catches seeded FROM +1',
   }
 });
 
-test('CLI accepts private input in space-containing directory and custom TMPDIR', () => {
+test('CLI uses the platform temporary root with space-containing paths and cleanable outputs', () => {
   const tmp=mkdtempSync(join(tmpdir(),'private source with spaces-'));
   const outputRoot=join(tmp,'custom temporary root');
   let resultPath;
@@ -245,11 +246,22 @@ test('CLI accepts private input in space-containing directory and custom TMPDIR'
     const source=join(tmp,'private model with spaces.CII');
     writeFileSync(source,makeCii());
     const cli=fileURLToPath(new URL('../tools/ciifr-wbs4/five-field-cli.mjs',import.meta.url));
-    const result=spawnSync(process.execPath,[cli,source,'2'],{encoding:'utf8',env:{...process.env,TMPDIR:outputRoot}});
+    const tempEnv=process.platform==='win32'?{TEMP:outputRoot,TMP:tmp,TMPDIR:tmp}:
+      {TMPDIR:outputRoot,TMP:tmp,TEMP:tmp};
+    const options={encoding:'utf8',env:{...process.env,...tempEnv}};
+    const probe=spawnSync(process.execPath,['-p',"require('node:os').tmpdir()"],options);
+    assert.equal(probe.status,0,probe.stderr);
+    assert.equal(probe.stdout.trim(),outputRoot);
+    const result=spawnSync(process.execPath,[cli,source,'2'],options);
     assert.equal(result.status,0,result.stderr);
     assert.equal(result.stderr,'');
     assert(result.stdout.trim().startsWith('LOCAL_ONLY_DIRECTORY='+join(outputRoot,'ciifr-five-field-')));
     resultPath=result.stdout.trim().slice('LOCAL_ONLY_DIRECTORY='.length);
     assert.equal(JSON.parse(readFileSync(join(resultPath,'private-report.json'),'utf8')).occurrence.ordinalOneBased,2);
+    const publicData=JSON.parse(readFileSync(join(resultPath,'public-summary.json'),'utf8'));
+    assert.equal(publicData.classification,'PUBLIC_SAFE_NO_MODEL_DATA');
+    assert.equal(publicData.transferAuthority,'NONE');
+    rmSync(resultPath,{recursive:true});resultPath=undefined;
+    assert.deepEqual(readdirSync(outputRoot),[]);
   } finally { if(resultPath)rmSync(resultPath,{recursive:true,force:true});rmSync(tmp,{recursive:true,force:true}); }
 });

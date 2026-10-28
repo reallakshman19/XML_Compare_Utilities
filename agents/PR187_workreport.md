@@ -1,5 +1,69 @@
 # CIIFR Element Five-Field Inspector — PR #187 recovery-first workreport
 
+## Current checkpoint — bounded Windows private-output repair, 27 October 2026
+
+**This checkpoint supersedes the historical status and next actions below.** Owner explicitly designated chat `01a17b00-2258-7f50-b364-49c7053b336b` Coder for PR187's Windows private-output protection and temporary-directory tests. Default session mode remains Oracle (standalone) outside this repair. This author contribution is **not independent acceptance**. No other Coder was activated or messaged; no Common Cycle assignment or canonical Oracle identity was changed.
+
+### Candidate, custody and protected scope
+
+- Genuine isolated Git checkout, starting PR187 head `f1ffe90dee5b559c0781ce44f134e22f1f1da656`, tree `3d3f89e84d9d712e33c57d8394722cb74ff4d5bc`. Task branch `codex/pr187-windows-01a17b00-20261027`; intended delivery is a non-forced update of the existing PR187 draft branch `codex/ciifr-element-five-field-evidence-20261026-g1`. Reject publication if that branch has advanced independently.
+- PR187 remains stacked on PR168 `2aeaf7372de66eda3bc082b8d81bf8db43c34f4b`. Main was observed at `e97bef94f05e387e32888db77e6ec925251402b7`; no base sync or rebase is included. Open nearby PRs #206/#184/#182/#176/#174/#171/#168 were checked for file and authority overlap; classification **SAFE for this CLI/private-output/test/report scope**, with inherited catalog and engineering scopes excluded. Common Element Cycle remains ACTIVE revision 8; the Owner's direct named-task grant is the authority for this bounded repair.
+- `five-field-evidence.mjs`, `readonly-catalog.mjs` and the seven-case F3 suite remain byte-identical to the starting candidate. PR168's general all-15-pointer integer grammar repair under #173 is separate. No CII/source-model mutation, effective-property inference, Geometry, NodeName, production Tab3, Writer/TARGET1, workflow, dependency, runtime, merge or release changes.
+
+### Problem and resulting behavior
+
+The exact starting candidate reproduced **15/17 + 7/7 = 22/24** on native Windows. One test used POSIX `0600` as a Windows privacy oracle, where Node reported `0666`; that observation alone did not prove another principal had access. The other set only `TMPDIR`, although Windows Node selects `TEMP` before `TMP`. Neither assertion was skipped.
+
+The CLI now delegates only local report persistence to `private-output.mjs`. On Windows, a small native adapter calls `CreateDirectoryW` with a protected current-user-only DACL **at creation**, verifies the directory's actual owner, DACL and object type, then verifies both exclusively created empty report files before writing JSON contents. It rejects extra/foreign ACEs, unexpected owners/types and reparse points. The two files inherit the directory's single current-user FullControl ACE. No broad inherited permissions are accepted and no policy or account configuration is changed. POSIX retains a `0700` directory and `0600` files with owner/type checks. Failure never falls back to a permissive directory; direct CLI rejection remains the constant `FIVE_FIELD_INSPECTOR_ERROR=SOURCE_REJECTED`.
+
+The adapter uses installed Windows PowerShell 5.1/.NET and native OS APIs through fixed literal commands. There is no `ExecutionPolicy` override, downloaded dependency or alternative runtime. Environments that cannot establish the required descriptor fail closed. Cleanup closes handles, deletes only files created by this call, then attempts nonrecursive directory removal. OS cleanup failure can leave a protected directory; this is not an unqualified deletion guarantee. `LOCAL_ONLY_DIRECTORY=...` remains a local diagnostic and must not be copied into public CI logs.
+
+The corrected temporary-root test supplies platform-specific child-process variables with conflicting lower-priority variables, independently probes the same child Node's `os.tmpdir()`, checks both JSON outputs and checks that explicit cleanup leaves the selected root empty. Input paths with spaces and original source-neutral rejection checks remain exercised.
+
+### Validation — actual execution and limits
+
+Host: **Windows x64, Node v22.23.2**, genuine checkout. Native tests ran under the desktop user's token because the AppContainer execution token cannot access the deliberately owner-only directory. This did not relax the DACL. Inputs and permission contrasts are explicitly synthetic; no protected original was opened.
+
+| Check | STATUS | OBSERVATION | ORACLE |
+|---|---|---|---|
+| Existing inspector suite after repair | PASS | 17/17, including actual directory/file access evidence and independent temp-root probe | Existing author expectations plus separate native authorization API checks |
+| Unchanged F3 suite | PASS | 7/7 on the same native run | Existing physical-byte/branch-label and malformed-I13 expectations |
+| New private-output cases | PASS | 3/3: protected output; real permissive-file contrary case; serialization-failure handle closure and exact cleanup | Real filesystem and independent `AccessCheck`, not production-verifier output as expected values |
+| Final combined command | PASS | `node --test --test-reporter=tap tests/ciifr-wbs4-private-output.test.mjs tests/ciifr-wbs4-five-field-evidence.test.mjs tests/ciifr-wbs4-five-field-f3.test.mjs`; **27 PASS / 0 FAIL / 0 SKIP**, exit 0 | Actual native TAP, 7410.834 ms |
+| Native access evidence | PASS, bounded | Directory and both files: current-token read allowed; actual Everyone-restricted token read denied. Deliberately granting Everyone Read on one synthetic file makes that token's read allowed; both independent assertion and production verifier then reject it | Windows authorization API over actual filesystem descriptors; no second user login or claim about privileged bypass |
+| Syntax / protected bytes | PASS | `node --check` on all five changed/new JavaScript files; inspector, inherited catalog and F3 source match starting bytes | Native parser and byte comparisons |
+| Official backups / recovery probe | PASS, bounded | Official pre-edit saves and checksum verification; reuse unchanged prior binary save/verify/diff/restore probe | Independent synthetic byte expectations; not historical author or original-CII recovery qualification |
+| Linux regression after this repair | NOT_RUN | WSL reports not installed; no Linux runtime was installed | Prior unchanged-source Linux IR3 evidence remains scoped history |
+| Hosted inspector / changed-head non-author review | NOT_RUN | Existing hosted workflow executes catalog and NodeName tests, not these 27 cases; no workflow edit authorized | No green hosted inspector or independent approval inferred |
+| Original CII / native CAESAR / effective semantics | NOT_RUN / HOLD | No original-job, native importer, units/material/basic-case/FDM or SOURCE-to-TARGET qualification | No engineering interpretation granted |
+
+The first full repair trial returned **24/27**, exposing a defect in the new test adapter's token-handle use: `DuplicateToken` does not grant `TOKEN_DUPLICATE`. The test now creates the restricted token from the original primary handle with the required right, then duplicates it for `AccessCheck`. Permission expectations stayed current-read allow / restricted-read deny, and API failures still fail the test. The corrected run passed 27/27; the final run above also passed after strengthening the temporary-root assertions.
+
+### Changed-file ledger and recovery
+
+| File | Purpose |
+|---|---|
+| `tools/ciifr-wbs4/five-field-cli.mjs` | Delegate protected local persistence; inspection and public error contract preserved |
+| `tools/ciifr-wbs4/private-output.mjs` | Exclusive files, pre-content verification, JSON writing and bounded cleanup |
+| `tools/ciifr-wbs4/private-output-windows.ps1` | Atomic protected native directory creation and descriptor/type validation |
+| `tests/ciifr-wbs4-five-field-evidence.test.mjs` | Native privacy oracle and independently verified platform temporary-root test |
+| `tests/helpers/ciifr-private-output.mjs` | Separate native/POSIX test assertion entrypoints |
+| `tests/helpers/ciifr-private-output-access.ps1` | Actual current/restricted-token `AccessCheck` and synthetic-only contrary ACL fixture |
+| `tests/ciifr-wbs4-private-output.test.mjs` | Real output, permissive contrast and partial-failure cleanup cases |
+| `agents/PR187_workreport.md` | Current scope, evidence, failures, limits, recovery and next action |
+
+Local recovery: `.agent-worklogs/20261027_2249_pr187-windows-01a17b00/` contains the pre-edit filesystem snapshots, manifest, native TAP, SHA-256 inventory and snapshot-to-final module patch. Official backup IDs 90–100 preserve the legacy log, existing product/report preimages and intermediate iterations. The candidate's tracked legacy `.backups/log.json` now contains intentional local recovery entries and **must not be staged**; no old entries or backup files were reset. Recovery state and private local paths stay outside the product commit. New files have no task-start preimage; delete only the exact file after matching its recorded final hash and confirming no later writer. Existing targets restore only their verified pre-edit snapshots or recorded hunks, never Git reset/checkout/revert.
+
+Appendix A remains **SELF_ASSESSED 95/100, minimum 17/20**, grounded in the actual source trace, reproduced failures, protected authority, independent native expectations and minimal patch boundary. This permits the bounded continuation already authorized by the Owner; it is not external adjudication. **Highest remaining risk:** a new Windows security adapter needs distinct non-author review and Linux regression; platform variants and original engineering semantics are unqualified.
+
+**EXACT_NEXT_ACTION:** At the published repair head, a distinct non-author reviewer runs the exact 27-case command on native Windows, independently checks descriptor enforcement and the permissive-file contrast, and runs Linux regression. Reviewer chat ID is not assigned by this repair; Oracle/Owner select an authorized existing reviewer next. Do not merge, edit workflows or resume engineering-property transfer on this author's PASS alone.
+
+Primary platform authorities: [Node temporary-directory selection](https://nodejs.org/download/release/v22.23.2/docs/api/os.html#ostmpdir), [Windows file modes](https://nodejs.org/download/release/v22.23.2/docs/api/fs.html#file-modes), [CreateDirectoryW security descriptor](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createdirectoryw), [AccessCheck](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-accesscheck), [CreateRestrictedToken](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-createrestrictedtoken), [DuplicateToken rights](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-duplicatetoken).
+
+---
+
+## Historical reports — superseded status, retained evidence
+
 **Native task:** [XCU #178](https://github.com/reallakshman19/XML_Compare_Utilities/issues/178). **Cycle:** Common `ciifr-element` ACTIVE revision 1, assignment `CIIFR-ELEMENT-FIELD-AUTHORITY-1` generation 1, intended builder routing label `6adedbc6` (unverified by GitHub principal). **Scope:** new, read-only source-evidence files only. No original source archive, customer bytes or private digests in GitHub.
 
 ## Baseline / source / custody
