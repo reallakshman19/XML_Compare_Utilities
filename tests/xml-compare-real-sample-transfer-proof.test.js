@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { applyXmlCompareCanvasAction, createXmlCompareCanvasState } from '../xml-compare/XmlCompareCanvasStateController.js';
+import { applyXmlCompareCanvasAction, createXmlCompareCanvasState, bindXmlCompareCanvasApprovalAuthority } from '../xml-compare/XmlCompareCanvasStateController.js';
 import { createApprovedConnectorValidationModel } from '../xml-compare/XmlCompareApprovedConnectorModel.js';
 import { applyCategorizedTransferPlan, parseCategorizedTransferDocument } from '../xml-compare/XmlCompareCategorizedTransferApplier.js';
 import { createTransferProof, serializeTransferProofJson } from '../xml-compare/XmlCompareTransferProofModel.js';
@@ -25,8 +25,8 @@ assert.equal(proofPlan.sourceRecords[0].elementKey, 'E-L100-10-20');
 assert.equal(proofPlan.sourceRecords[0].nodeNumber, '10');
 assert.equal(proofPlan.targetRecords[0].role, 'FROM');
 
-let state = createXmlCompareCanvasState();
-state = applyXmlCompareCanvasAction(state, { type: 'accept-candidate', candidate: proofPlan.candidate });
+let state = bindXmlCompareCanvasApprovalAuthority(createXmlCompareCanvasState(), { sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords });
+state = applyXmlCompareCanvasAction(state, { type: 'accept-candidate', candidate: proofPlan.candidate }, { approvalContext: { scoped: false, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords } });
 const approvedValidationModel = createApprovedConnectorValidationModel({ state, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords, compareFields: [] });
 state = applyXmlCompareCanvasAction(state, { type: 'stage-transfer', scope: proofPlan.scope, selectedBlocks: proofPlan.selectedBlocks, sourceText, targetText, workspaceRevision: 1, approvedMatchSet: state.approvedMatchSet, approvedValidationModel, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords });
 state = applyXmlCompareCanvasAction(state, { type: 'apply-staged-transfer', sourceText, targetText, workspaceRevision: 1, downloadName: 'sample-target-after.xml' });
