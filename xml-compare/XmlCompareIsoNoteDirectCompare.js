@@ -32,7 +32,11 @@ function extractRows(xmlText, side) {
   const partition = mapping ? 'PS_MAPPING_S1' : 'ISO_NOTES_S2';
   return xmlRows(xmlText, partition).map((record, index) => {
     const pipe = clean(mapping ? record.pipe : record.lineNoInCii);
-    const id = clean(mapping ? record.psNo : record.nodeName);
+    // NODE_NAME remains authoritative when present. If blank, retain the
+    // original note-prefix supportId from the categorized graph; never use
+    // NODE_NUM or the graph row-instance key as an engineering identity.
+    const id = clean(mapping ? (record.psNo || record.supportId)
+      : (record.nodeName || record.rawSupportId || record.supportId));
     const normalizedPipe = normalizeIsoLine(pipe);
     const normalizedId = normalizeIsoSupport(id);
     const identity = isoNoteCompositeIdentity(record, mapping ? 'source' : 'target');
