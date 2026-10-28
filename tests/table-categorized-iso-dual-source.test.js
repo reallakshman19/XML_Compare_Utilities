@@ -89,11 +89,21 @@ const rawItems = rawGraph.nodes.filter(node => node.levelId === 'isoItem' && nod
 assert.equal(rawItems.length, 4, 'repeated placeholder support IDs must not merge');
 assert.ok(rawItems.some(item => item.fields.supportId === 'PS02364.1' && item.fields.rawSupportId === 'PS02364.1'));
 assert.ok(rawItems.some(item => item.fields.supportId === 'SL-263..4' && item.fields.rawSupportId === 'SL-263..4'));
-assert.equal(rawItems.filter(item => item.fields.supportId === '/PS-XXXX').length, 2);
+assert.equal(rawItems.filter(item => item.fields.supportId === 'PS-XXXX').length, 2);
 assert.ok(rawItems.every(item => item.fields.revision === ''));
 assert.ok(!rawItems.some(item => item.fields.supportId === '100' || item.fields.supportId === '110'));
 assert.ok(rawGraph.diagnostics.some(d => d.code === 'NONCANONICAL_ID' && d.sourceRef === 'S2:1'));
 assert.equal(new Set(rawItems.map(item => item.key)).size, 4);
+const conflictingS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '5790', '/PS-100.1', "/PS-101.1 :ISONOTE 'REST(2kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const conflictGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, conflictingS2]);
+const conflictItem = conflictGraph.nodes.find(node => node.sourceRefs?.includes('S2:1') && node.levelId === 'isoItem');
+assert.equal(conflictItem.fields.supportId, 'PS-100.1', 'NODE_NAME takes precedence over conflicting note token');
+assert.equal(conflictItem.fields.rawSupportId, '/PS-100.1');
+assert.ok(conflictGraph.diagnostics.some(d => d.code === 'iso_note_identity_conflict' && d.sourceRef === 'S2:1'));
+
 
 const shell = renderTableCategorizedXmlShellHtml({
   activeStep: 'table', activeTab: 'source', activeSourceId: 'S1', sources: [s1, s2],
