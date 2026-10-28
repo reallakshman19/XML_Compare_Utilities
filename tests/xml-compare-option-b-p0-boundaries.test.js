@@ -31,13 +31,21 @@ for (const type of ['accept-candidate', 'bulk-approve-candidate-pairs', 'approve
   blocked(action, state);
 }
 blocked({ type: 'accept-candidate', candidate: approved }, pristine, {});
+const wrongScope = blocked({ type: 'accept-candidate', candidate: approved }, pristine, {
+  approvalContext: { scoped: false, sourceRecords: source, targetRecords: target },
+});
+assert.equal(wrongScope.logs.at(-1).message, 'DOMAIN_APPROVAL_POLICY_REQUIRED');
+const missingRecords = blocked({ type: 'accept-candidate', candidate: approved }, pristine, {
+  approvalContext: { scoped: false },
+});
+assert.equal(missingRecords.logs.at(-1).message, 'MISSING_APPROVAL_RECORD_SCOPE');
 blocked({ type: 'accept-candidate', candidate: { sourceUid: 'S1', targetUid: 'missing' } });
 const accepted = applyXmlCompareCanvasAction(pristine,
   { type: 'accept-candidate', candidate: approved }, { approvalContext: context });
 assert.equal(accepted.approvedMatchSet.summary.approvedCount, 1);
 const generic = applyXmlCompareCanvasAction(pristine,
   { type: 'accept-candidate', candidate: { sourceUid: 'G-S', targetUid: 'G-T', status: 'valid' } },
-  { approvalContext: { scoped: false } });
+  { approvalContext: { scoped: false, sourceRecords: [{ uid: 'G-S' }], targetRecords: [{ uid: 'G-T' }] } });
 assert.equal(generic.approvedMatchSet.summary.approvedCount, 1, 'explicit generic scope remains supported');
 
 // An exact ISO correspondence is audit evidence, never a transfer approval.
