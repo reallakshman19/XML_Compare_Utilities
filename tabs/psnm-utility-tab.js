@@ -14,7 +14,8 @@ const PRELOAD_MODULES = Object.freeze([
 
 const INSTALLERS = Object.freeze([
   ['PSNM core utility', './psnm-utility-tab-coordinate-audit-ui.js', 'renderPSNM_UtilityTab', true],
-  ['Axis auto-anchor', './psnm-utility/psnm-axis-auto-anchor-addon.js', 'installPsnmAxisAutoAnchorAddon', true],
+  // Use the native Master Table auto-anchor. The old add-on intercepted this
+  // action and searched raw sources, bypassing the validated Master Tables.
   ['Anchor persistence', './psnm-utility/psnm-anchor-persistence-addon.js', 'installPsnmAnchorPersistenceAddon', true],
   ['PS mapping', './ps-mapping-utility-tab-support-prefix-ui.js', 'installPsMappingUtilityTile', true],
   ['Support steel relationship builder', './support-steel-relationship-builder/support-steel-relationship-tab.js', 'installSupportSteelRelationshipBuilderTile', true],
