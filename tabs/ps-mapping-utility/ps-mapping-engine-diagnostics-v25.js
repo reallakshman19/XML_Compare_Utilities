@@ -364,6 +364,11 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
       next.t2CoveredRestraints=fmt(group.present);
       next.missingNodeRestraints=fmt(group.missing);
       next.extraTable2Restraints=fmt(group.extra);
+      next.nodeCoverageStatus=group.nodeCoverageStatus;
+      next.nodeComplianceStatus=group.gapActions.size||group.warnings.size ? 'REVIEW_REQUIRED' : 'NO_OPEN_DIMENSIONAL_EXCEPTIONS';
+      next.nodeCoverageNote=nodeCoverageExplanation(group);
+      // A real component may be MATCHED while its full node package is not.
+      if (group.missing.size||group.gapActions.size||group.warnings.size) next.reviewRequired=true;
       next.proposedMissingSupportPsNo=group.proposed.map(p=>typeOfSynthetic(p)+'='+modelNo(p)).join('; ');
       next.consolidatedNodeWiseAction=actionFor(group);
       return [next];
@@ -374,7 +379,9 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   out.canonicalAssessments=[...groups.values()].map(g=>({
     referenceSupportNo:g.ref,node:g.atNode,key:g.key,
     required:active(g.required),present:active(g.present),missing:active(g.missing),
-    extra:active(g.extra),sourceCount:g.contributors.size,
+    extra:active(g.extra),nodeCoverageStatus:g.nodeCoverageStatus,
+    nodeComplianceStatus:g.gapActions.size||g.warnings.size ? 'REVIEW_REQUIRED' : 'NO_OPEN_DIMENSIONAL_EXCEPTIONS',
+    sourceCount:g.contributors.size,sourceIds:[...g.contributors].map(v=>v.split('|').at(-1)),
     proposed:g.proposed.map(p=>modelNo(p)),exceptions:[...g.warnings],
   }));
   out.summary={...(result.summary||{}),canonicalGroups:groups.size,
