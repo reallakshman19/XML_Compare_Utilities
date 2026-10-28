@@ -57,6 +57,6 @@ assert.ok(!correct.some((diag) => diag.severity === 'BLOCKER'), JSON.stringify(c
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
 assert.match(runtime, /assignIsoNoteSourceRoles\(state\.sources\)/);
 assert.match(runtime, /roles\.useExamples/);
-assert.match(runtime, /setActiveTab\(layoutBlocker \? 'source' : 'levels'\)/);
+assert.match(runtime, /setActiveTab\('source'\);\s*renderShell\(\);\s*\}\s*function clearActive/); // ISO template leaves both source tabs visible
 assert.match(runtime, /transformRules: notes && classifyIsoNoteSource\(notes\) === 'notes' \? isoRules : \[\]/);
 console.log('table-categorized-iso-source-setup.test.js passed');
