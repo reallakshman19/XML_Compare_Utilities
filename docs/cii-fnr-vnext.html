@@ -2,7 +2,8 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CII Find &amp; Replace VNext — Standalone Qualification</title>
 <link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/style.css">
-<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/geo-tab.css"></head>
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/geo-tab.css">
+<link rel="stylesheet" href="./tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/style.css"></head>
 <body data-vnext-app>
 <header><h1>↔ CII Find &amp; Replace <small>VNext · Standalone</small></h1>
 <p>Fixed-field proposals · explicit review · immutable TARGET0 · new-copy export. Not connected to the production tile.</p></header>
@@ -10,6 +11,7 @@
 <nav class="tabs" role="tablist" aria-label="Find and Replace mode">
 <button type="button" role="tab" aria-selected="true" data-tab="NORMAL">NodeName Find &amp; Replace</button>
 <button type="button" role="tab" aria-selected="false" data-tab="NODAL">Node-Based Name Transfer</button>
+<button type="button" role="tab" aria-selected="false" data-tab="PROPERTY_TRANSFER">Property Transfer</button>
 <button type="button" role="tab" aria-selected="false" data-tab="LINE_NODE">Line Number + Node Name</button>
 <button type="button" role="tab" aria-selected="false" data-tab="GEOMETRY">Geometry</button>
 <button type="button" role="tab" aria-selected="false" data-tab="CIIFR_GEO" aria-controls="ciifr-geo-panel">CIIFR_GEO</button>
@@ -85,6 +87,46 @@
 <p class="status" aria-live="polite" data-status>Load TARGET0 to begin.</p>
 <p class="hash">Validated TARGET1 SHA-256: <output data-hash1>—</output></p></section>
 </div>
+<section class="card" data-property-transfer-area hidden aria-label="Independent Property Transfer workspace">
+<div class="pt-heading"><h2>Property Transfer · SOURCE → TARGET0</h2>
+<strong>READ ONLY · No engineering writer or TARGET1</strong></div>
+<p>Two independent mapping paths. Numeric node IDs are document-local; equal IDs, names or FROM–TO pairs do not establish SOURCE→TARGET equivalence. The inspector never changes either file.</p>
+<div class="pt-grid">
+<div class="pt-box"><label>SOURCE CII (optional) <input type="file" accept=".cii" data-pt-file="source"></label>
+<p data-pt-file-status="source">No SOURCE loaded.</p></div>
+<div class="pt-box"><label>TARGET0 CII (required) <input type="file" accept=".cii" data-pt-file="target"></label>
+<p data-pt-file-status="target">No TARGET0 loaded.</p></div>
+</div>
+<nav class="pt-mode-nav" aria-label="Property transfer path">
+<button type="button" data-pt-mode="ELEMENT" aria-selected="true">Node → Element → Data</button>
+<button type="button" data-pt-mode="NODE" aria-selected="false">Node → Data</button></nav>
+<section data-pt-module="ELEMENT">
+<h3>Path A · Oriented element-owned data</h3>
+<p>Identify one exact FROM → TO element in each file. Show stored T1, P1 and fluid-density field witnesses (effective/case semantics remain HELD). Repeat/parallel segments remain individually listed.</p>
+<div class="pt-grid">
+<div class="pt-box"><strong>SOURCE (optional)</strong>
+<label>FROM node <input inputmode="numeric" data-pt-input="sourceFrom" placeholder="e.g. 400"></label>
+<label>TO node <input inputmode="numeric" data-pt-input="sourceTo" placeholder="e.g. 500"></label></div>
+<div class="pt-box"><strong>TARGET0</strong>
+<label>FROM node <input inputmode="numeric" data-pt-input="targetFrom" placeholder="e.g. 840"></label>
+<label>TO node <input inputmode="numeric" data-pt-input="targetTo" placeholder="e.g. 850"></label></div>
+</div></section>
+<section data-pt-module="NODE" hidden>
+<h3>Path B · Node-owned auxiliary occurrences</h3>
+<p>Locate node incidents, individual restraint DOFs, imposed displacement specifications, applied force/moment records and adjacent rigid elements (element-owned). Record identity and engineering meaning are not inferred.</p>
+<div class="pt-grid">
+<div class="pt-box"><label>SOURCE numeric node (optional)
+<input inputmode="numeric" data-pt-input="sourceNode" placeholder="e.g. 500"></label></div>
+<div class="pt-box"><label>TARGET0 numeric node
+<input inputmode="numeric" data-pt-input="targetNode" placeholder="e.g. 850"></label></div>
+</div></section>
+<div class="actions"><button type="button" data-pt-run>Inspect selected path</button>
+<span class="hint">No approval, apply, export or shared writer is enabled.</span></div>
+<p class="status" data-pt-status role="status" aria-live="polite">Load TARGET0 to begin.</p>
+<p class="hint" data-pt-result-status>No inspection performed.</p>
+<div data-pt-results></div>
+<p class="hint">V14 physical-read scope only. CONTROL counts and MISCEL_1 alignment are checked; no MISCEL_1 or auxiliary records are modified. V11, source–target identity, effective operating cases, and CAESAR II import acceptance remain separate qualification gates.</p>
+</section>
 <section id="ciifr-geo-panel" class="ciifr-geo-panel" data-ciifr-geo-panel hidden aria-label="CIIFR_GEO correspondence workbench">
 <div class="ciifr-geo-toolbar"><div><h2>CIIFR_GEO · Geometry correspondence</h2>
 <p>Load SOURCE / TARGET XML here. Independent A/B/C review, SVG and 3D views; review evidence only.</p></div>
