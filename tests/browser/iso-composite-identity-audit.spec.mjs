@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 test('ISO audit: DATUM identity, exact approval gate, and traceable Tab 3 output', async ({ page }) => {
   await page.goto('/tests/browser/xml-builder-viewport-fixture.html');
   const result = await page.evaluate(async () => {
-    const [{ createIsoNoteRevCompareAudit }, { renderIsoNoteRevCompareDashboardHtml },
+    const [{ createIsoNoteRevCompareAudit, exportIsoNoteRevCompareAuditJson,
+        exportIsoNoteRevCompareAuditCsv }, { renderIsoNoteRevCompareDashboardHtml },
       { guardCompositeApprovalAction }, { ISO_NOTE_COMPOSITE_ID_POLICY },
       { createCategorizedInputXmlCanvasModel },
       { serializeIsoNoteEngineeringFindingsCsv }] = await Promise.all([
@@ -39,6 +40,12 @@ test('ISO audit: DATUM identity, exact approval gate, and traceable Tab 3 output
         policy: ISO_NOTE_COMPOSITE_ID_POLICY,
       }));
     const csv = serializeIsoNoteEngineeringFindingsCsv(audit.report);
+    const replay = createIsoNoteRevCompareAudit({ sourceXml: xml, targetXml: xml });
+    const exported = JSON.parse(exportIsoNoteRevCompareAuditJson(audit));
+    const lineageCsv = exportIsoNoteRevCompareAuditCsv(audit);
+    const digestBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(xml));
+    const digest = Array.from(new Uint8Array(digestBytes),
+      byte => byte.toString(16).padStart(2, '0')).join('');
     document.body.innerHTML = '<main id="audit">' + renderIsoNoteRevCompareDashboardHtml(audit) + '</main>';
     return {
       ok: audit.ok, identities: audit.summary.identityMatches,
@@ -46,6 +53,15 @@ test('ISO audit: DATUM identity, exact approval gate, and traceable Tab 3 output
       csvHasRefs: csv.includes('S1:1') && csv.includes('S2:1'),
       csvHasConflict: csv.includes('NODE_NAME_NOTE_MISMATCH'),
       rejects: actions.map(a => a.blocked),
+      snapshotDigestMatchesWebCrypto: exported.snapshots.source.contentSha256 === digest,
+      snapshotJsonExcludesRawXml: !JSON.stringify(exported.snapshots).includes('rawText'),
+      comparisonStable: audit.comparisonId === replay.comparisonId &&
+        audit.findings.every((f, i) => f.findingInstanceId === replay.findings[i].findingInstanceId),
+      lineageCsvHasIds: lineageCsv.includes('Logical Finding Key') &&
+        lineageCsv.includes(audit.findings[0].findingInstanceId),
+      immutableReport: Object.isFrozen(audit.report.rows) &&
+        Object.isFrozen(audit.report.rows[0]),
+
     };
   });
   expect(result.ok).toBe(true);
@@ -55,6 +71,11 @@ test('ISO audit: DATUM identity, exact approval gate, and traceable Tab 3 output
   expect(result.csvHasRefs).toBe(true);
   expect(result.csvHasConflict).toBe(true);
   expect(result.rejects).toEqual([true, true, true]);
+  expect(result.snapshotDigestMatchesWebCrypto).toBe(true);
+  expect(result.snapshotJsonExcludesRawXml).toBe(true);
+  expect(result.comparisonStable).toBe(true);
+  expect(result.lineageCsvHasIds).toBe(true);
+  expect(result.immutableReport).toBe(true);
   await expect(page.locator('[data-xmlc-rev-compare-mode="iso-note-engineering"]')).toHaveCount(1);
   await expect(page.getByText('Engineering delta grid', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Finding-level evidence and provenance', { exact: false }).first()).toBeVisible();
