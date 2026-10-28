@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: 'iso-composite-identity-audit.spec.mjs',
+  testMatch: ['iso-composite-identity-audit.spec.mjs', 'option-b-three-tab-workflow.spec.mjs'],
   timeout: 90_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
