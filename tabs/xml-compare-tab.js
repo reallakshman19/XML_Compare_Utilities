@@ -75,7 +75,23 @@ function canvasSideFrom(target) { return target.closest('[data-xml-compare-canva
 function recordsForSide(state, side) { const workspace = workspaceFromState(state); return workspace[side]?.records || []; }
 function searchableRecordText(record = {}) { return [record.uid, record.stableKey, record.nodeNumber, record.nodeName, record.displayName, record.elementKey, record.lineNo, record.branchName, record.fromNode, record.toNode].map(clean).filter(Boolean); }
 function findRecordBySearch(records = [], needle = '') { const q = clean(needle).toUpperCase(); if (!q) return null; const rows = records.map((record) => ({ record, values: searchableRecordText(record) })); return rows.find((row) => row.values.some((value) => value.toUpperCase() === q))?.record || rows.find((row) => row.values.some((value) => value.toUpperCase().includes(q)))?.record || null; }
-function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') { 
+function approvePolicyViolation(state, action) {
+  if (!['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector'].includes(action.type)) return '';
+  const workspace = workspaceFromState(state);
+  const source = workspace.source.records || [], target = workspace.target.records || [];
+  const pairs = action.type === 'bulk-approve-candidate-pairs' ? action.candidates || []
+    : action.type === 'approve-pending-connector' ? [state.canvasState.pendingConnectorPreview || {}]
+      : [action.candidate || {}];
+  const invalid = pairs.map(pair => validateIsoNoteCandidateIdentity(pair, source, target))
+    .find(verdict => verdict.applicable && !verdict.valid);
+  return invalid?.reason || '';
+}
+function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
+  const violation = approvePolicyViolation(state, action);
+  if (violation) {
+    state.status = { kind: 'warn', message: 'Approval blocked by shared composite identity policy: ' + violation };
+    return false;
+  }
   state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action); 
   if (action.type === 'add-compare-field' || action.type === 'remove-compare-field' || action.type === 'set-compare-fields') {
     saveCompareFieldsToStorage(state.canvasState.compareFields);
