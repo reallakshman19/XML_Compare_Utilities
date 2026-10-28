@@ -1,3 +1,35 @@
+# PR187 follow-up checkpoint — 29 October 2026
+
+This checkpoint supersedes prior next actions below. Owner authorized this bounded Coder continuation for second-report serialization and cleanup/error privacy, including publication of a reproduced minimal repair. No reviewer message, workflow, engineering semantics, writer or merge is included.
+
+## Reproduced defect and minimal repair
+
+Starting candidate df6521e1ed00e5a59a17a46cdc403f6aca970266; genuine Windows checkout, Node v22.23.2. A real second-report serialization callback independently observed the first private JSON already written. With no unrelated entry, cleanup removed both files and the directory and returned the neutral rejection. With a synthetic unrelated marker present, cleanup correctly removed both owned reports and preserved that marker, but nonrecursive rmdir threw ENOTEMPTY containing the local temporary path. This was an in-process helper contract defect; the direct CLI already redacted its outer error.
+
+Only removeCreated now translates its filesystem failures to FIVE_FIELD_PRIVATE_OUTPUT_REJECTED. Exclusive creation, pre-content ACL verification, exact owned-file deletion, nonrecursive directory removal and serialization remain unchanged. OS cleanup denial can still leave protected residue; no universal deletion guarantee is asserted. The new two-case regression independently checks first-report presence, absence of both owned reports afterward, unchanged unrelated bytes, neutral rejection, and no path or synthetic source-sentinel exposure. No original CII was used.
+
+## Validation and live grounding
+
+| Check | STATUS | OBSERVATION | ORACLE |
+|---|---|---|---|
+| New regression before repair | FAIL | 1/2 PASS; unrelated-marker case exposed ENOTEMPTY path | Real synthetic filesystem and fixed expected neutral contract |
+| Combined native Windows regression | PASS | 29/29, 0 skipped, exit 0; 14216.5545 ms | Existing 27 cases plus two independent filesystem expectations; author execution is not independent review |
+| Syntax and diff hygiene | PASS | node --check on helper and new test; git diff --check | Native parser / whitespace check |
+| Recovery | PASS, bounded | Official helper/report backups102/103 verified; local baseline snapshots and module patch retained | Checksums and disposable byte reversal |
+| Linux / hosted inspector / distinct changed-head review | NOT_RUN | Prior evidence remains historical; no workflow changes or new reviewer dispatch | No acceptance inferred |
+
+Combined command: node --test --test-reporter=tap tests/ciifr-wbs4-output-cleanup.test.mjs tests/ciifr-wbs4-private-output.test.mjs tests/ciifr-wbs4-five-field-evidence.test.mjs tests/ciifr-wbs4-five-field-f3.test.mjs.
+
+Live PR187 is draft/open and remains stacked on PR168 2aeaf7372de66eda3bc082b8d81bf8db43c34f4b. Main drift observed fd86b21aa9dcbfbbe4f8a1d26133b7e9779448be; no rebase or base sync. New PR226 property-transfer UI, PR223, PR222 and PR213 have no helper/test/report path overlap; prior nearby audits are reused only for this narrow scope. Classification SAFE for this helper repair, with other engineering authority excluded.
+
+Changed files: tools/ciifr-wbs4/private-output.mjs (neutral cleanup errors); tests/ciifr-wbs4-output-cleanup.test.mjs (two real second-report failure cases); this report (durable checkpoint). The inspector, catalog, F3 suite and native ACL adapters are unchanged. Local ledger: .agent-worklogs/20261029_0021_pr187-output-cleanup/, containing preimages, hashes, before/after TAP and snapshot-derived patch. Tracked legacy .backups/log.json remains local and excluded.
+
+Appendix A continuation is self-assessed: source trace, real failure isolation, authority/invariants and exact minimal patch remain grounded; prior qualification is reused only for unchanged sources. No external adjudication or engineering interpretation is claimed. Highest risk remains separate Windows security review and Linux qualification.
+
+EXACT_NEXT_ACTION: distinct non-author reviewer qualifies the published follow-up head using the exact 29-case command on native Windows and Linux. Existing review packet targets the older df6521e head and does not cover this follow-up; no new handoff is authorized by this coding step. No merge.
+
+---
+
 # CIIFR Element Five-Field Inspector — PR #187 recovery-first workreport
 
 ## Current checkpoint — bounded Windows private-output repair, 27 October 2026

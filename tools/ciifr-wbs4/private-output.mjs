@@ -53,8 +53,13 @@ async function closeFiles(handles) {
 }
 
 async function removeCreated(directory, names) {
-  for (const name of names) await unlink(join(directory, name));
-  await rmdir(directory);
+  try {
+    for (const name of names) await unlink(join(directory, name));
+    await rmdir(directory);
+  } catch {
+    // Preserve unrelated contents and keep filesystem paths out of the rejection.
+    throw rejected();
+  }
 }
 
 /** Uses only fresh exclusive files; failure removes exact files owned by this operation. */
