@@ -1,4 +1,4 @@
-import { psnmTransformNodeToPs } from './psnm-axis-transform-core.js';
+import { PSNM_previewMasterTransformRows } from './psnm-transform-preview-core.js';
 const STORAGE_KEY = 'psnm.workbench.lastSourceSetup.v1';
 const STYLE_ID = 'psnm-lite-persist-transform-style';
 let restoreInProgress = false;
@@ -204,18 +204,6 @@ function restoreIntoModal(modal) {
 
 function setupPanelElement(modal) {
   return modal?.querySelector('[data-psnm-panel="setup"]');
-}
-
-// The displayed transform and row positions come from the same resolved
-// Master-table state as Run Match. Never derive an independent raw-source XYZ
-// transform or mislabel an axis permutation as E=X, U=Y, S=Z.
-export function PSNM_previewMasterTransformRows(context, limit = 300) {
-  if (!context?.masterReady || !context?.transform) return [];
-  return (context.masterRows || []).slice(0, limit).filter(row =>
-    [row.x, row.y, row.z].every(Number.isFinite)).map(row => ({
-    ...row,
-    transformed: psnmTransformNodeToPs({ x: row.x, y: row.y, z: row.z }, context.transform),
-  }));
 }
 
 function renderTransformPreview(modal = null) {
