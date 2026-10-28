@@ -8,10 +8,11 @@ import { resolveImportedCsv } from './csv-resolver.js';
 import { safeNonConflictIds } from './nonconflict-review.js';
 import { renderGeometryTab } from './geo-tab.js';
 import { mountNodalPanel } from './nodal-panel.js';
+import { mountPropertyTransfer } from './property-transfer/panel.js';
 
 const workTabs = ['NORMAL', 'LINE_NODE', 'GEOMETRY'];
-const tabs = ['NORMAL', 'NODAL', 'LINE_NODE', 'GEOMETRY', 'CIIFR_GEO', 'CONFIG'];
-const names = { NODAL: 'Node-Based Name Transfer', NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CIIFR_GEO: 'CIIFR_GEO', CONFIG: 'Config' };
+const tabs = ['NORMAL', 'NODAL', 'PROPERTY_TRANSFER', 'LINE_NODE', 'GEOMETRY', 'CIIFR_GEO', 'CONFIG'];
+const names = { PROPERTY_TRANSFER: 'Property Transfer', NODAL: 'Node-Based Name Transfer', NORMAL: 'NodeName Find & Replace', LINE_NODE: 'Line Number + Node Name', GEOMETRY: 'Geometry', CIIFR_GEO: 'CIIFR_GEO', CONFIG: 'Config' };
 const blank = () => ({ id: `rule-${++serial}`, find: '', replace: '', mode: 'LITERAL', flags: 'g',
   field: 'NODENAME.BOTH', scope: 'DOCUMENT', from: '', to: '', branch: '', block: 'NODENAME' });
 let serial = 0, active = 'NORMAL', target = null, source = null, revision = 0, opSeq = 0;
@@ -22,6 +23,7 @@ const states = Object.fromEntries(workTabs.map((id) => [id, { rules: [blank(), b
   decisions: new Map(), validated: null, applied: null, diagnostics: [] }]));
 const root = document.querySelector('[data-vnext-app]');
 const nodal = mountNodalPanel(root, () => target);
+mountPropertyTransfer(root);
 const $ = (s) => root.querySelector(s);
 const $$ = (s) => [...root.querySelectorAll(s)];
 const state = () => states[active] || states.NORMAL;
@@ -44,7 +46,8 @@ function renderTabs() {
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
     button.classList.toggle('selected', selected);
   }
-  $('[data-workspace]').hidden = active === 'CONFIG' || active === 'CIIFR_GEO';
+  $('[data-workspace]').hidden = active === 'CONFIG' || active === 'CIIFR_GEO' || active === 'PROPERTY_TRANSFER';
+  $('[data-property-transfer-area]').hidden = active !== 'PROPERTY_TRANSFER';
   const nodalActive = active === 'NODAL';
   $('[data-nodal-area]').hidden = !nodalActive;
   for (const selector of ['[data-normal-section]', '[data-normal-review]',
@@ -60,6 +63,7 @@ function renderTabs() {
   message(active === 'CONFIG' ? 'Changing settings revokes every existing approval and export.' :
     active === 'NORMAL' ? 'Load TARGET0 and edit rules, then Generate proposals.' :
     active === 'NODAL' ? 'Import Node,Replace CSV (optional Find) and generate numeric-node preview.' :
+    active === 'PROPERTY_TRANSFER' ? 'Property inspection is isolated and read-only.' :
     `${names[active]} awaits an independently delivered engine. No write authority exists.`);
 }
 function addSelect(td, field, entries, value) {
