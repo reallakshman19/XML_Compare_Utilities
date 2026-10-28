@@ -20,6 +20,7 @@ export function mountPropertyTransfer(root) {
   function clear() {
     $('[data-pt-results]').replaceChildren();
     $('[data-pt-result-status]').textContent='No inspection performed.';
+    showQualifications();
   }
   function row(table,values) {
     const tr=document.createElement('tr');values.forEach(v=>tr.append(cell(v)));
@@ -31,6 +32,22 @@ export function mountPropertyTransfer(root) {
     headers.forEach(x=>r.append(cell(x,'th')));h.append(r);t.append(h);
     const body=document.createElement('tbody');
     rows.forEach(x=>row(body,x));t.append(body);wrap.append(t);return wrap;
+  }
+  function showQualifications() {
+    for(const [side,doc] of Object.entries(docs)) {
+      if(!doc?.index.diagnostics.length)continue;
+      const section=document.createElement('section');section.className='pt-result';
+      section.append(cell(side.toUpperCase()+' · UNKNOWN input evidence','h3'));
+      for(const d of doc.index.diagnostics) {
+        section.append(cell(d.classification+' · '+d.code+' · '+d.family,'h4'));
+        section.append(cell(d.detail,'p'));
+        if(d.ownerElement!==undefined) section.append(cell('Element '+d.ownerElement+
+          ' · Pointer '+d.pointer+' · Slot '+d.slot+' · bytes '+d.byteStart+'–'+d.byteEnd,'p'));
+        if(d.count!==undefined)section.append(cell('CONTROL count '+d.count,'p'));
+        if(d.rawCards)section.append(cell(d.rawCards.join('\n'),'pre'));
+      }
+      $('[data-pt-results]').append(section);
+    }
   }
   function showElement(result) {
     const root=$('[data-pt-results]');
@@ -101,7 +118,9 @@ export function mountPropertyTransfer(root) {
           : inspectNodePair(docs.source?.index,docs.target.index,{
               sourceNode:field('sourceNode'),targetNode:field('targetNode')});
         if(active==='ELEMENT')showElement(result);else showNode(result);
-        status('Inspection complete. SOURCE and TARGET0 remain unchanged.');
+        const unknown=Object.values(docs).some(d=>d?.index.diagnostics.length);
+        status('Inspection complete. SOURCE and TARGET0 remain unchanged.'+
+          (unknown?' UNKNOWN input evidence remains unqualified; see details.':''));
       }catch(err){status('Inspection blocked: '+(err.message||String(err)));}
     }
   });
@@ -120,9 +139,12 @@ export function mountPropertyTransfer(root) {
         if(request!==files[kind])return;
         const hash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
         docs[kind]={index,hash};
+        clear();
         $('[data-pt-file-status="'+kind+'"]').textContent=f.name+
-          ' · V14 · '+index.counts.NUMELT+' elements · SHA-256 '+hash;
-        status('Read-only property index ready. Cross-model identity remains unproven.');
+          ' · V14 · '+index.counts.NUMELT+' elements · SHA-256 '+hash+
+          (index.diagnostics.length?' · '+index.diagnostics.length+' UNKNOWN evidence item(s)':'');
+        status('Read-only property index ready. Cross-model identity remains unproven.'+
+          (index.diagnostics.length?' UNKNOWN input evidence: see details.':''));
       }catch(err){
         if(request===files[kind])status('Input rejected: '+(err.message||String(err)));
       }

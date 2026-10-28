@@ -430,7 +430,14 @@ root.addEventListener('click', async (event) => {
   const el = event.target.closest('button'); if (!el) return;
   if (el.dataset.tab && tabs.includes(el.dataset.tab)) {
     if (el.dataset.tab === active) return;
-    invalidate(state()); active = el.dataset.tab; invalidate(state()); renderTabs(); renderRules(); renderResults(); renderCleanupReport();
+    if (active === 'PROPERTY_TRANSFER' || el.dataset.tab === 'PROPERTY_TRANSFER') {
+      // Independent read-only navigation preserves completed plans. Cancel
+      // pending Normal operations; real input/rule changes still invalidate.
+      opSeq++; active = el.dataset.tab;
+    } else {
+      invalidate(state()); active = el.dataset.tab; invalidate(state());
+    }
+    renderTabs(); renderRules(); renderResults(); renderCleanupReport();
     return;
   }
   if (el.dataset.delete !== undefined) { state().rules.splice(Number(el.dataset.delete), 1); invalidate(state()); renderRules(); }
