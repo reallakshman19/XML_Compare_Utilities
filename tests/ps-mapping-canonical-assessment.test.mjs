@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PS_MAPPING_V17_TEST } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v17.js';
 import { PS_MAPPING_V20_TEST } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v20.js';
-import { reconcileCanonicalPsMappingResult } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v25.js';
+import { reconcileCanonicalPsMappingResult, runPsMappingResolver } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v25.js';
 
 const iso123="://PS-123.1 :ISONOTE 'DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]'";
 const physical=(id,node,ref,type,more={})=>({
@@ -153,4 +153,25 @@ test('canonical app modules and GitHub Pages copies are identical',()=>{
     const b=readFileSync(new URL('../docs/tabs/ps-mapping-utility/'+path,import.meta.url),'utf8');
     assert.equal(a,b,path);
   }
+});
+
+
+test('full resolver pipeline: PS-123 GUIDE exists, only typed gap requires review',()=>{
+  const ref=[
+    'Line No\tNode\tSupport No\tPipe size\tISONOTE\tMandatory',
+    '/ASIM-1885-PL-3"-S8810109-91261M7-01\t5790\t/PS-123.1\t2\t://PS-123.1 :ISONOTE \x27DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]\x27\tYes',
+  ].join('\n').replace(/\\t/g,'\t');
+  const model=[
+    'Support No\tBore\tpipe\tDTXR\tSupport Gap\tMandatory',
+    'PS-123.1\t50\tASIM-1885-PL-3"-S8810109-91261M7-01\tGUIDE -TYPE-604A/B\t\tNo',
+    'PS-123.2\t50\tASIM-1885-PL-3"-S8810109-91261M7-01\tPipe Rest XRT01\t25mm GAP BETWEEN BOP AND TOS\tNo',
+  ].join('\n').replace(/\\t/g,'\t');
+  const out=runPsMappingResolver({table1cNodeIsonoteText:ref,table2ModelText:model});
+  const candidate=out.candidateRows.find(row=>row.psnoModel==='PS-123.1');
+  assert.ok(candidate,'Expected existing PS-123.1 model component');
+  assert.equal(candidate.gapMatch,'GUIDE_GAP_MISSING_TABLE2');
+  assert.equal(candidate.t2CoveredRestraints,'GUIDE');
+  assert.equal(candidate.missingNodeRestraints,'');
+  assert.ok(!out.candidateRows.some(row=>row.syntheticMissingSupport &&
+    /PS-123\.1\.X\d/.test(row.psnoModel)));
 });
