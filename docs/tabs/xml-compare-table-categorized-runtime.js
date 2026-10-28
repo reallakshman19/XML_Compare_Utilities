@@ -215,7 +215,16 @@ async function importIsoRoleFile(role, file) {
   }
   const result = preflightIsoTableText(input, role, { fileName: file.name });
   state.importPreflight = { ...state.importPreflight, [role]: result };
-  if (!result.ok) { setActiveTab('source'); renderShell(); return; }
+  if (!result.ok) {
+    // Failed S2 imports must display the S2 report even if S1 was selected
+    // immediately before the upload. No existing parsed source is replaced.
+    if (state.sources.some(source => source.sourceId === role)) {
+      state.activeSourceId = role;
+    }
+    setActiveTab('source');
+    renderShell();
+    return;
+  }
   let next = { sources: state.sources, activeSourceId: state.activeSourceId };
   if (!next.sources.some(source => source.sourceId === role)) next = addSource(next, 'ISO Notes / S2');
   next = updateSourceDraft(next, role, {
