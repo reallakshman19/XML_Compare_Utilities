@@ -185,8 +185,7 @@ function isAcceptedMapping(row = {}) {
   if (row.ambiguousMultiTable1Context || !['PS_BASE', 'PS_EXACT'].includes(row.psBasis)) return false;
   if (!isLineBoreClean(row)) return false;
   const types = t2Types(row);
-  if (!types.size || !orderedDifference(types, t1Types(row)).length && !orderedDifference(t1Types(row), types).length
-      && row.supportBasis === 'SUPPORT_CONFLICT') return false;
+  if (!types.size || row.supportBasis === 'SUPPORT_CONFLICT') return false;
   const exact = row.supportBasis === 'SUPPORT_EXACT'
     || (!row.supportBasis && /\b(?:REST|GUIDE|LINE STOP)\s+(?:non-contact clearance\s+)?Match\b/i.test(clean(row.supportMatch)));
   if (!exact) return false;
@@ -334,6 +333,8 @@ function applyNodeRestraintCoverage(rows, groups) {
     };
   });
 }
+
+export const PS_MAPPING_V17_TEST = Object.freeze({ isAcceptedMapping, buildGroups, applyNodeRestraintCoverage, isValidProposedBase });
 
 export function runPsMappingResolver(input = {}) {
   const result = runV16PsMappingResolver(input);
