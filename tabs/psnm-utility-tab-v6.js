@@ -99,6 +99,7 @@ function candidateMatrixPanel(state) {
 function makeState() {
   return {
     activeTab: 'source', masterSubTab: 'ps', sourceDirty: true, masterReady: false, masterDirty: false,
+    runRevision: 0, resultStale: true, resultCalculated: false, runInProgress: false,
     source: { table1Text: SAMPLE_TABLE1, table4AText: SAMPLE_TABLE4A, table2Text: SAMPLE_TABLE2, table3Text: SAMPLE_TABLE3, table4BText: SAMPLE_TABLE4B },
     master: { psRows: [], psIssues: [], nodeRows: [], nodeIssues: [] },
     setup: { anchorPsRowId: '', anchorNodeRowId: '', anchorTransform: null, coordinateDecimals: 0, boreMode: 'prefer', approx1: '25,25,25', approx2: '50,25,50', approx3: '50,25,50', enableApprox1: true, enableApprox2: true, enableApprox3: true },
@@ -144,7 +145,7 @@ function masterNodeTable(state) {
 function issuesTable(state) { const rows = [...(state.master.psIssues || []), ...(state.master.nodeIssues || [])]; return rows.length ? resultTableLike(rows, ['psName','node','occurrenceId','status','sourceTable','sourceRow','remarks']) : '<div class="psnm-banner">No resolution issues.</div>'; }
 function masterPanel(state) { const body = state.masterSubTab === 'ps' ? masterPsTable(state) : state.masterSubTab === 'node' ? masterNodeTable(state) : issuesTable(state); return `<section class="psnm-card"><div class="psnm-card-head"><b>Master Tables</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-tab="source">Back: Sources</button><button class="psnm-btn" data-psnm-tab="setup">Continue: Anchor Setup</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterPs">Copy Master PS</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterNode">Copy Master Node</button></div></div><div class="psnm-subtabs">${subtab('ps','Master PS No',state)}${subtab('node','Master Node',state)}${subtab('issues','Resolution Issues',state)}</div><div class="psnm-card-body"><div class="psnm-banner"><b>Matching uses only the Master Tables shown here.</b> Raw source tables are not passed directly to the matcher after master resolution.</div>${body}</div></section>`; }
 
-function finite(value) { return Number.isFinite(Number(value)); }
+function finite(value) { return value != null && String(value).trim() !== '' && Number.isFinite(Number(value)); }
 function psMatchRows(state) { return (state.master.psRows || []).filter((row) => row.enabled !== false && row.status === 'OK' && row.positionRaw && finite(row.psE) && finite(row.psU) && finite(row.psS)); }
 function nodeMatchRows(state) { return (state.master.nodeRows || []).filter((row) => row.enabled !== false && row.status !== 'MISSING_FROM_TABLE2' && row.status !== 'INVALID_COORDINATE' && finite(row.rawX) && finite(row.rawY) && finite(row.rawZ)); }
 function getAnchorRows(state) { return { ps: state.master.psRows.find((row) => row.rowId === state.setup.anchorPsRowId), node: state.master.nodeRows.find((row) => row.rowId === state.setup.anchorNodeRowId) }; }
@@ -158,6 +159,34 @@ function ensureAnchors(state) {
   const psRows = psMatchRows(state); if (!psRows.some((row) => row.rowId === state.setup.anchorPsRowId)) state.setup.anchorPsRowId = psRows[0]?.rowId || '';
   const nodeRows = nodeMatchRows(state); if (!nodeRows.some((row) => row.rowId === state.setup.anchorNodeRowId)) state.setup.anchorNodeRowId = nodeRows[0]?.rowId || '';
 }
+function invalidateResults(state) {
+  state.runRevision = (state.runRevision || 0) + 1;
+  state.resultStale = true;
+  state.resultCalculated = false;
+  state.result = { rows: [], candidateRows: [], mandatoryCoverageRows: [], mandatoryPsCoverageRows: [],
+    userLog: state.result?.userLog || [], debugLog: state.result?.debugLog || [] };
+  state.ui.candidatePage = 0;
+}
+
+function restorePersistedAnchor(state, snapshot) {
+  if (!state.masterReady || state.sourceDirty || !snapshot?.axisTransform?.axisMode) return false;
+  const { ps, node } = getAnchorRows(state);
+  if (!ps || !node || snapshot.psRowId !== ps.rowId || snapshot.nodeRowId !== node.rowId) return false;
+  const transform = snapshot.axisTransform;
+  const axes = transform.axes, signs = transform.signs, offsets = transform.offsets;
+  if (!axes || !signs || !offsets) return false;
+  if (new Set([axes.e, axes.u, axes.s]).size !== 3
+    || !['x','y','z'].every((axis) => [axes.e,axes.u,axes.s].includes(axis))
+    || !['e','u','s'].every((axis) => [1,-1].includes(signs[axis]) && Number.isFinite(offsets[axis]))) return false;
+  const actual = psnmTransformNodeToPs({ x: node.rawX, y: node.rawY, z: node.rawZ }, transform);
+  if (![actual.e, actual.u, actual.s].every(Number.isFinite)
+    || Math.max(Math.abs(actual.e - Number(ps.psE)),
+      Math.abs(actual.u - Number(ps.psU)), Math.abs(actual.s - Number(ps.psS))) > 0.05) return false;
+  state.setup.anchorTransform = { ...transform, axes: { ...axes }, signs: { ...signs }, offsets: { ...offsets } };
+  applyCurrentTransform(state);
+  return true;
+}
+
 function applyCurrentTransform(state) {
   try {
     const transform = state.setup.anchorTransform || PSNM_deriveTransformFromAnchor(selectedAnchor(state));
@@ -176,9 +205,10 @@ function classifyDelta(d, tol) {
 }
 function rankType(type) { return type === 'EXACT' ? 0 : type === 'APPROX_1' ? 1 : type === 'APPROX_2' ? 2 : type === 'APPROX_3' ? 3 : 99; }
 function boreRelation(ps, node) {
-  const psBore = Number(ps.p1bore); const nodeBore = Number(node.finalNodeBore);
-  if (!Number.isFinite(psBore) || !Number.isFinite(nodeBore)) return 'MISSING';
-  return Math.abs(psBore - nodeBore) <= 1e-6 ? 'PASS' : 'CONFLICT';
+  // Number(null) === 0; missing bores must never become matching zero bores.
+  const valid = (value) => value != null && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) > 0;
+  if (!valid(ps.p1bore) || !valid(node.finalNodeBore)) return 'MISSING';
+  return Math.abs(Number(ps.p1bore) - Number(node.finalNodeBore)) <= 1e-6 ? 'PASS' : 'CONFLICT';
 }
 function scoreAutoAnchorPair(ps, node, psRows, nodeRows, state, transform) {
   const datum = { e: transform.offsets.e, u: transform.offsets.u, s: transform.offsets.s };
@@ -291,7 +321,47 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   function renderModal() {
     return `<div class="psnm-modal-bg" data-psnm="modal"><div class="psnm-modal"><div class="psnm-modal-head"><div><h2 class="psnm-title">PSNM Workbench</h2><p class="psnm-sub">Raw Sources -> Master Tables -> Match from Masters</p></div><button class="psnm-btn psnm-btn-secondary" data-psnm-action="close">Close</button></div><div class="psnm-tabs">${tab('source','1. Source Tables',state)}${tab('master','2. Master Tables',state)}${tab('setup','3. Anchor & Match Setup',state)}${tab('match','4. Match Results',state)}${tab('candidate','5. Candidate Matrix',state)}${tab('coverage','6. Coverage / Exceptions',state)}${tab('user','7. User Log',state)}${tab('debug','8. Debug Console',state)}</div><div class="psnm-body"><div data-summary>${summary(state)}</div>${panel('source',state,sourcePanel(state))}${panel('master',state,masterPanel(state))}${panel('setup',state,setupPanel(state))}${panel('match',state,matchPanel(state))}${panel('candidate',state,candidateMatrixPanel(state))}${panel('coverage',state,coveragePanel(state))}${panel('user',state,logPanel(state,false))}${panel('debug',state,logPanel(state,true))}</div>${statusBar(state)}</div></div>`;
   }
-  function refresh() { const modal = container.querySelector('[data-psnm="modal"]'); if (modal) modal.outerHTML = renderModal(); }
+  function bindPreviewContext() {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    if (!modal) return;
+    let transform = null;
+    if (state.masterReady && !state.sourceDirty) {
+      try { transform = state.setup.anchorTransform || PSNM_deriveTransformFromAnchor(selectedAnchor(state)); } catch {}
+    }
+    modal.__psnmPreviewContext = {
+      masterReady: state.masterReady && !state.sourceDirty,
+      transform,
+      masterRows: nodeMatchRows(state).map(row => ({
+        node: row.node, occurrenceId: row.occurrenceId,
+        x: row.rawX, y: row.rawY, z: row.rawZ, bore: row.finalNodeBore,
+      })),
+    };
+  }
+  function refresh() {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    if (modal) { modal.outerHTML = renderModal(); bindPreviewContext(); }
+  }
+  function updateAnchorReadOnly() {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    const fields = modal?.querySelectorAll('[data-psnm-panel="setup"] input[readonly]');
+    if (!fields?.length) return;
+    const { ps, node } = getAnchorRows(state);
+    if (fields[0]) fields[0].value = ps?.positionRaw || '';
+    if (fields[1]) fields[1].value = node ? [node.rawX,node.rawY,node.rawZ].join(', ') : '';
+  }
+  function markDisplayedResultsStale() {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    if (!modal) return;
+    const notice = '<section class="psnm-card"><div class="psnm-card-body"><div class="psnm-banner">Inputs or matching settings changed. Run Match again before reviewing or exporting results.</div></div></section>';
+    ['match','candidate','coverage'].forEach(tabId => {
+      const panel = modal.querySelector('[data-psnm-panel="' + tabId + '"]');
+      if (panel && panel.innerHTML !== notice) panel.innerHTML = notice;
+    });
+  }
+  function invalidateDisplayedResults() {
+    invalidateResults(state);
+    markDisplayedResultsStale();
+  }
   function activateTab(tabId) {
     const modal = container.querySelector('[data-psnm="modal"]');
     if (!modal || !modal.querySelector(`[data-psnm-panel="${tabId}"]`)) return;
@@ -309,7 +379,8 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     const node = PSNM_resolveMasterNodeTable({ table2Text: state.source.table2Text, table3Text: state.source.table3Text, table4BText: state.source.table4BText, logger });
     state.master.psRows = ps.rows; state.master.psIssues = ps.issues; state.master.nodeRows = node.rows; state.master.nodeIssues = node.issues;
     state.masterReady = true; state.masterDirty = false; state.sourceDirty = false;
-    state.result = { rows: [], candidateRows: [], mandatoryCoverageRows: [], mandatoryPsCoverageRows: [], userLog: logger.userLog, debugLog: logger.debugLog };
+    invalidateResults(state);
+    state.result.userLog = logger.userLog; state.result.debugLog = logger.debugLog;
     state.setup.anchorTransform = null;
     if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
     ensureAnchors(state); applyCurrentTransform(state);
@@ -318,11 +389,16 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     refresh();
   }
   async function runMatch() {
+    if (state.runInProgress) return;
+    const startingRevision = state.runRevision;
+    state.runInProgress = true;
     try {
       if (!state.masterReady) throw new Error('Build Master Tables before matching.');
       if (state.sourceDirty) throw new Error('Source tables changed. Rebuild Master Tables before matching.');
       updateStatus({ phase: 'Matching from Master Tables', detail: 'Preparing master-derived PS and Node rows.', percent: 50 });
       await nextFrame();
+      if (startingRevision !== state.runRevision || !state.masterReady || state.sourceDirty)
+        throw new Error('Inputs changed during matching. Rebuild/re-run before exporting results.');
       const logger = PSNM_createRunLogger();
       const anchor = selectedAnchor(state);
       const transform = state.setup.anchorTransform || PSNM_deriveTransformFromAnchor(anchor);
@@ -333,7 +409,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       const result = PSNM_buildMatchTable({ logger, anchor, axisTransform: transform, psRows, nodeRows, nodeDiaRows: [], mandatoryNodeRows, boreMode: state.setup.boreMode, coordinateDecimals: Number(state.setup.coordinateDecimals) || 0, enableApprox1: state.setup.enableApprox1, enableApprox2: state.setup.enableApprox2, enableApprox3: state.setup.enableApprox3, approx1: triple(state.setup.approx1, [25,25,25]), approx2: triple(state.setup.approx2, [50,25,50]), approx3: triple(state.setup.approx3, [50,25,50]) });
       result.mandatoryPsCoverageRows = PSNM_masterPsCoverageRows(state.master.psRows, result.rows);
       result.mandatoryCoverageRows = PSNM_masterNodeCoverageRows(state.master.nodeRows, result.rows);
+      if (startingRevision !== state.runRevision) return;
       state.result = result;
+      state.resultStale = false;
+      state.resultCalculated = true;
       state.ui.candidatePage = 0;
       state.master.nodeIssues = state.master.nodeRows.filter((row) => row.status !== 'OK');
       state.activeTab = 'match';
@@ -347,28 +426,33 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       };
       refresh();
     } catch (error) {
+      if (startingRevision !== state.runRevision) return;
       state.status = { phase: 'Failed', detail: String(error?.message || error), percent: 100 };
       refresh(); ctx.showToast?.(`PSNM failed: ${error?.message || error}`, 'error');
-    }
+    } finally { state.runInProgress = false; }
   }
   function updateMasterPsCell(rowId, field, value, checked) {
     const row = state.master.psRows.find((item) => item.rowId === rowId); if (!row) return;
     if (field === 'enabled' || field === 'isMandatoryPs') row[field] = checked === true; else if (field === 'p1bore') row[field] = value === '' ? null : Number(value); else row[field] = value;
     row.userEdited = true; row.sourceTable = row.sourceTable ? `${row.sourceTable};USER_EDIT` : 'USER_EDIT'; PSNM_recomputeMasterPsRow(row);
-    state.master.psIssues = state.master.psRows.filter((item) => item.status !== 'OK'); state.masterDirty = true; ensureAnchors(state); applyCurrentTransform(state); refresh();
+    state.master.psIssues = state.master.psRows.filter((item) => item.status !== 'OK'); state.masterDirty = true;
+    state.setup.anchorTransform = null; state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
+    invalidateResults(state); ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
   function updateMasterNodeCell(rowId, field, value, checked) {
     const row = state.master.nodeRows.find((item) => item.rowId === rowId); if (!row) return;
     if (field === 'enabled' || field === 'isMandatoryNode') row[field] = checked === true; else if (['rawX','rawY','rawZ','finalNodeBore'].includes(field)) row[field] = value === '' ? null : Number(value); else row[field] = value;
     row.userEdited = true; row.sourceTable = row.sourceTable ? `${row.sourceTable};USER_EDIT` : 'USER_EDIT'; PSNM_recomputeMasterNodeRow(row);
-    state.master.nodeIssues = state.master.nodeRows.filter((item) => item.status !== 'OK'); state.masterDirty = true; ensureAnchors(state); applyCurrentTransform(state); refresh();
+    state.master.nodeIssues = state.master.nodeRows.filter((item) => item.status !== 'OK'); state.masterDirty = true;
+    state.setup.anchorTransform = null; state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
+    invalidateResults(state); ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
   function onClick(event) {
     const tabBtn = event.target?.closest?.('[data-psnm-tab]'); if (tabBtn) { activateTab(tabBtn.dataset.psnmTab); return; }
     const sub = event.target?.closest?.('[data-psnm-subtab]'); if (sub) { state.masterSubTab = sub.dataset.psnmSubtab; refresh(); return; }
     const actionEl = event.target?.closest?.('[data-psnm-action]'); const action = actionEl?.dataset?.psnmAction; if (!action) return;
     try {
-      if (action === 'open') { container.insertAdjacentHTML('beforeend', renderModal()); return; }
+      if (action === 'open') { container.insertAdjacentHTML('beforeend', renderModal()); bindPreviewContext(); return; }
       if (action === 'close') { container.querySelector('[data-psnm="modal"]')?.remove(); return; }
       if (action === 'resolveMasters') { resolveMasters(); return; }
       if (action === 'runAutoAnchor') { runAutoAnchorSearch(state); state.activeTab = 'setup'; state.status = { phase: 'Auto Anchor Ready', detail: state.autoAnchor.message, percent: 55 }; refresh(); return; }
@@ -379,6 +463,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
         const delta = action === 'candidateNext' ? 1 : -1;
         state.ui.candidatePage = Math.min(maxPage, Math.max(0, state.ui.candidatePage + delta));
         refresh();
+        return;
+      }
+      if (['copyMatch','copyCandidates','copyCoverage'].includes(action) && (state.resultStale || !state.resultCalculated)) {
+        ctx.showToast?.('Results are stale or not yet calculated. Run Match before exporting.', 'error');
         return;
       }
       if (action === 'copyMasterPs') copyText(objectRowsCsv(state.master.psRows), ctx);
@@ -397,18 +485,40 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     const ui = event.target?.closest?.('[data-psnm-ui]');
     if (ui) { const key = ui.dataset.psnmUi; if (key === 'showCandidateDiagnostics') { state.ui.showCandidateDiagnostics = ui.checked === true; writeBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, state.ui.showCandidateDiagnostics); refresh(); } return; }
     const source = event.target?.closest?.('[data-source]');
-    if (source) { state.source[source.dataset.source] = source.value; state.setup.anchorTransform = null; state.sourceDirty = true; state.masterReady = false; state.autoAnchor = { pairs: [], selectedIndex: null, message: 'Rebuild Master Tables, then run Auto Anchor.' }; state.status = { phase: 'Sources Edited', detail: 'Source tables changed. Rebuild Master Tables before matching.', percent: 5 }; return; }
+    if (source) {
+      if (state.source[source.dataset.source] === source.value) return;
+      state.source[source.dataset.source] = source.value; state.setup.anchorTransform = null;
+      state.sourceDirty = true; state.masterReady = false;
+      state.autoAnchor = { pairs: [], selectedIndex: null, message: 'Rebuild Master Tables, then run Auto Anchor.' };
+      invalidateDisplayedResults();
+      state.status = { phase: 'Sources Edited', detail: 'Source tables changed. Rebuild Master Tables before matching.', percent: 5 };
+      bindPreviewContext(); return;
+    }
     const setup = event.target?.closest?.('[data-setup]');
-    if (setup) { const key = setup.dataset.setup; state.setup[key] = setup.type === 'checkbox' ? setup.checked : setup.value;
+    if (setup) {
+      const key = setup.dataset.setup, value = setup.type === 'checkbox' ? setup.checked : setup.value;
+      if (String(state.setup[key]) === String(value)) return;
+      state.setup[key] = value;
       if (key === 'anchorPsRowId' || key === 'anchorNodeRowId') {
         state.setup.anchorTransform = null;
         if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
+        state.autoAnchor.selectedIndex = null;
       }
-      ensureAnchors(state); applyCurrentTransform(state); return; }
+      invalidateDisplayedResults();
+      ensureAnchors(state); applyCurrentTransform(state); updateAnchorReadOnly(); bindPreviewContext(); return;
+    }
     const ps = event.target?.closest?.('[data-master-ps-field]');
     if (ps) { const row = event.target.closest('[data-master-ps-row]'); updateMasterPsCell(row?.dataset.masterPsRow, ps.dataset.masterPsField, ps.value, ps.checked); return; }
     const node = event.target?.closest?.('[data-master-node-field]');
     if (node) { const row = event.target.closest('[data-master-node-row]'); updateMasterNodeCell(row?.dataset.masterNodeRow, node.dataset.masterNodeField, node.value, node.checked); }
+  }
+  function onRestoreAnchor(event) {
+    const snapshot = event.detail || {};
+    if (!restorePersistedAnchor(state, snapshot)) return;
+    invalidateDisplayedResults();
+    updateAnchorReadOnly();
+    bindPreviewContext();
+    if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = state.setup.anchorTransform;
   }
   function onKeydown(event) { if (event.key === 'Escape') container.querySelector('[data-psnm="modal"]')?.remove(); }
   
@@ -420,9 +530,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   tile.innerHTML = '<span class="psnm-tile-icon">🔗</span><b>PSNM Matcher</b><span>Source -> Master -> Match</span>';
   utilitiesRoot.appendChild(tile);
 
-  container.addEventListener('click', onClick); container.addEventListener('input', onInput); container.addEventListener('change', onInput); document.addEventListener('keydown', onKeydown);
-  return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); document.removeEventListener('keydown', onKeydown); tile.remove(); };
+  container.addEventListener('click', onClick); container.addEventListener('input', onInput); container.addEventListener('change', onInput);
+  container.addEventListener('psnm:restore-anchor', onRestoreAnchor); document.addEventListener('keydown', onKeydown);
+  return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); container.removeEventListener('psnm:restore-anchor', onRestoreAnchor); document.removeEventListener('keydown', onKeydown); tile.remove(); };
 }
 
 // Pure state-level hooks for regression tests; no DOM is created or modified.
-export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable });
+export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable, boreRelation, invalidateResults, restorePersistedAnchor });
