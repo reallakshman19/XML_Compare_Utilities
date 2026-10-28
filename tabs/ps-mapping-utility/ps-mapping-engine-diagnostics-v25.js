@@ -387,9 +387,66 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   out.summary={...(result.summary||{}),canonicalGroups:groups.size,
     canonicalSyntheticProposals:out.candidateRows?.filter(isSynthetic).length||0};
   out.approxConfig={...(result.approxConfig||{}),
-    canonicalEngineeringAssessment:'v25: hardware presence is independent of gap compliance; synthetic rows never inherit mapped status; final outputs are projected from reconciled source evidence.'};
+    canonicalEngineeringAssessment:'v25+: hardware presence and gap compliance are separately evaluated; publication invariants are validated.'};
+  out.canonicalInvariantViolations=validateCanonicalPsMappingResult(out);
+  if(out.canonicalInvariantViolations.length) {
+    const first=out.canonicalInvariantViolations[0];
+    throw new Error('PS Mapping publication blocked: '+first.code+' — '+first.detail+
+      ' ('+out.canonicalInvariantViolations.length+' invariant violation(s))');
+  }
   return out;
 }
+
+/**
+ * Export publication invariant validator. Returns structured errors; callers
+ * block unsafe publication rather than emitting contradictory hardware claims.
+ */
+export function validateCanonicalPsMappingResult(result={}) {
+  const issues=[], proposed=new Map();
+  const complain=(code,detail)=>issues.push({code,detail});
+  for (const group of result.canonicalAssessments||[]) {
+    const requiredSet=new Set(group.required||[]), presentSet=new Set(group.present||[]);
+    const missingSet=new Set(group.missing||[]);
+    const actual=[...requiredSet].filter(t=>!presentSet.has(t));
+    if (actual.length!==missingSet.size || actual.some(t=>!missingSet.has(t)))
+      complain('COVERAGE_SET_CONTRADICTION',group.key||group.referenceSupportNo||'');
+    for(const type of presentSet) if(missingSet.has(type))
+      complain('PRESENT_AND_MISSING',String(group.key)+' / '+type);
+  }
+  const rows=result.candidateRows||result.rows||[];
+  for(const row of rows) {
+    const id=numberText(modelNo(row));
+    if(isSynthetic(row)) {
+      if(isTrue(row.selected)||isTrue(row.mapped)||isTrue(row.eligible)
+        ||isTrue(row.autoSelectable)||!isTrue(row.reviewRequired)
+        ||matchStatus(row)!=='SUPPORT_MISSING_REQUIRED')
+        complain('SYNTHETIC_MAPPED',id);
+      if(clean(row.modelSourceId)||clean(row.modelTableSourceId)||clean(row.table2Row))
+        complain('SYNTHETIC_REAL_PROVENANCE',id);
+      const base=numberText(refNo(row));
+      const suffix=id.startsWith(base+'.X') ? id.slice((base+'.X').length) : '';
+      if(!validBase(base)||!/^\d+$/.test(suffix)||Number(suffix)<1)
+        complain('INVALID_PROPOSED_ID',id);
+      if(proposed.has(id)) complain('DUPLICATE_PROPOSED_ID',id);
+      proposed.set(id,true);
+    } else if((clean(row.missingNodeRestraints)||'') && matchStatus(row)==='MATCHED'
+        && !isTrue(row.reviewRequired)) {
+      complain('INCOMPLETE_NODE_REVIEW_NOT_FLAGGED',modelNo(row)+' @ '+node(row));
+    }
+    if(!isSynthetic(row)&&/^(?:GUIDE_GAP|LINE_STOP_GAP)_MISSING_TABLE2$/i.test(gapStatus(row))
+        && clean(row.supportGapRaw) && /^T2:\d+$/i.test(physicalId(row))) {
+      // Distinguish an actual absent gap from a stale missing-gap diagnostic
+      // by reusing the exact typed comparator rather than a simple nonempty test.
+      const type=gapStatus(row).startsWith('GUIDE_GAP_')?'GUIDE':'LINE STOP';
+      const checked=evaluateSupportGapComparison({table1Text:note(row),table2Text:type,
+        table2GapRaw:clean(row.supportGapRaw)});
+      if(checked.status && !checked.status.endsWith('_MISSING_TABLE2'))
+        complain('STALE_TYPED_GAP_VERDICT',modelNo(row)+' / '+gapStatus(row)+' -> '+checked.status);
+    }
+  }
+  return issues;
+}
+
 export function runPsMappingResolver(input = {}) {
   return reconcileCanonicalPsMappingResult(runV24PsMappingResolver(input));
 }
