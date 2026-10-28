@@ -32,7 +32,7 @@ export function resolveCompositeIdentity(record = {}, policy, side = 'source') {
   const invalid = typeof policy.validity === 'function' ? policy.validity(parts, side, record) : '';
   return Object.freeze({ policyId: policy.id, side, parts: Object.freeze(parts),
     key: incomplete || invalid ? '' : JSON.stringify(parts.map(p => p.normalized)),
-    valid: !incomplete && !invalid, reason: incomplete ? 'MISSING_IDENTITY_PART' : clean(invalid) });
+    valid: !incomplete && !invalid, reason: clean(invalid) || (incomplete ? 'MISSING_IDENTITY_PART' : '') });
 }
 export function compareCompositeIdentity(sourceRecord, targetRecord, policy) {
   const source = resolveCompositeIdentity(sourceRecord, policy, 'source');
@@ -46,7 +46,7 @@ export function compareCompositeIdentity(sourceRecord, targetRecord, policy) {
 export function validateCompositeCandidate(candidate = {}, sourceRecords = [], targetRecords = [], policy) {
   const source = sourceRecords.find(r => r.uid === candidate.sourceUid);
   const target = targetRecords.find(r => r.uid === candidate.targetUid);
-  if (!source || !target) return Object.freeze({ applicable: false, valid: true, reason: 'RECORD_NOT_IN_SCOPE' });
+  if (!source || !target) return Object.freeze({ applicable: false, valid: false, reason: 'RECORD_NOT_IN_SCOPE' });
   const sourceRole = clean(source.lineKey || source.sourceRole);
   const targetRole = clean(target.lineKey || target.sourceRole);
   // Unrelated XML and genuine same-role revision comparisons keep their own
@@ -54,7 +54,7 @@ export function validateCompositeCandidate(candidate = {}, sourceRecords = [], t
   // guard via an arbitrary text-similarity score.
   const reverse = sourceRole === policy.targetRole && targetRole === policy.sourceRole;
   const forward = sourceRole === policy.sourceRole && targetRole === policy.targetRole;
-  if (!forward && !reverse) return Object.freeze({ applicable: false, valid: true, reason: 'POLICY_OUT_OF_SCOPE' });
+  if (!forward && !reverse) return Object.freeze({ applicable: false, valid: false, reason: 'POLICY_OUT_OF_SCOPE' });
   const check = forward ? compareCompositeIdentity(source, target, policy) : compareCompositeIdentity(target, source, policy);
   return Object.freeze({ applicable: true, valid: check.valid, policyId: policy.id,
     reason: check.valid ? 'EXACT_COMPOSITE_IDENTITY' :
