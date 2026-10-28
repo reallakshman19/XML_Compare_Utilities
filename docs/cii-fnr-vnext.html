@@ -102,7 +102,7 @@
 <button type="button" data-pt-mode="NODE" aria-selected="false">Node → Data</button></nav>
 <section data-pt-module="ELEMENT">
 <h3>Path A · Oriented element-owned data</h3>
-<p>Identify one exact FROM → TO element in each file. Show stored T1, P1 and fluid-density field witnesses (effective/case semantics remain HELD). Repeat/parallel segments remain individually listed.</p>
+<p>R0 requires an exact oriented FROM → TO pair for each file. TO-only navigation and explicit element pick are deferred to P2. Show stored T1, P1 and fluid-density witnesses (effective/case semantics remain HELD); repeat/parallel segments remain individually listed.</p>
 <div class="pt-grid">
 <div class="pt-box"><strong>SOURCE (optional)</strong>
 <label>FROM node <input inputmode="numeric" data-pt-input="sourceFrom" placeholder="e.g. 400"></label>
@@ -113,7 +113,7 @@
 </div></section>
 <section data-pt-module="NODE" hidden>
 <h3>Path B · Node-owned auxiliary occurrences</h3>
-<p>Locate node incidents, individual restraint DOFs, imposed displacement specifications, applied force/moment records and adjacent rigid elements (element-owned). Record identity and engineering meaning are not inferred.</p>
+<p>Locate node incidents, restraint **slots** (not DOF directions), imposed displacement specifications, applied force/moment records and adjacent element-owned rigids. Restraint type/direction determine DOF meaning; no cross-file property identity is inferred.</p>
 <div class="pt-grid">
 <div class="pt-box"><label>SOURCE numeric node (optional)
 <input inputmode="numeric" data-pt-input="sourceNode" placeholder="e.g. 500"></label></div>
