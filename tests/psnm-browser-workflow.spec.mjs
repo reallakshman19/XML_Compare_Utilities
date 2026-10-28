@@ -50,3 +50,44 @@ test('PSNM shipped mock: Sources → Masters → Auto Anchor → Use Pair → Ma
   expect(count).toBeLessThan(35);
   expect(await page.evaluate(() => window.__smokeErrors || [])).toEqual([]);
 });
+
+
+test('PSNM modifying a setting invalidates Candidate rows and blocks stale CSV export', async ({ page }) => {
+  await page.goto('/tests/fixtures/psnm-workflow-smoke.html');
+  await page.locator('[data-psnm-action="open"]').first().click();
+  const modal = page.locator('[data-psnm="modal"]');
+  await modal.locator('[data-psnm-action="resolveMasters"]:visible').first().click();
+  await modal.locator('[data-psnm-tab="setup"]').first().click();
+  await modal.locator('[data-psnm-action="runMatch"]:visible').click();
+  await expect(modal.locator('.psnm-status-title')).toContainText('Run Finished');
+  await modal.locator('[data-psnm-tab="candidate"]').first().click();
+  await expect(modal.locator('[data-psnm-panel="candidate"] tbody tr')).not.toHaveCount(0);
+
+  // Changing matching parameters invalidates earlier candidates immediately,
+  // rather than silently allowing the old candidate CSV to be copied.
+  await modal.locator('[data-psnm-tab="setup"]').first().click();
+  await modal.locator('[data-setup="boreMode"]').selectOption('strict');
+  await expect(modal.locator('.psnm-status-title')).toContainText('Settings Changed');
+  await modal.locator('[data-psnm-tab="candidate"]').first().click();
+  await expect(modal.locator('[data-psnm-panel="candidate"]')).toContainText('Run Match again');
+  // An export may not be possible because stale-result panels are intentionally
+  // replaced with a single warning, containing no export button.
+  await expect(modal.locator('[data-psnm-panel="candidate"] tbody tr')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__smokeErrors || [])).toEqual([]);
+});
+
+test('PSNM manual anchor change updates readonly fields without replacing the modal', async ({ page }) => {
+  await page.goto('/tests/fixtures/psnm-workflow-smoke.html');
+  await page.locator('[data-psnm-action="open"]').first().click();
+  const modal = page.locator('[data-psnm="modal"]');
+  await modal.locator('[data-psnm-action="resolveMasters"]:visible').first().click();
+  await modal.locator('[data-psnm-tab="setup"]').first().click();
+  const nodeDropdown = modal.locator('[data-setup="anchorNodeRowId"]');
+  const opts = await nodeDropdown.locator('option').evaluateAll(options => options.map(o => o.value).filter(Boolean));
+  if (opts.length < 2) throw new Error('Shipped mock should include two selectable Master Nodes');
+  await nodeDropdown.selectOption(opts[1]);
+  const readonly = modal.locator('[data-psnm-panel="setup"] input[readonly]');
+  await expect(readonly.nth(1)).not.toHaveValue(/-724492\.312.*998\.952.*-110590\.633/);
+  await expect(modal.locator('.psnm-status-title')).toContainText('Settings Changed');
+  await expect(modal).toBeVisible();
+});

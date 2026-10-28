@@ -1,3 +1,4 @@
+import { PSNM_previewMasterTransformRows } from './psnm-transform-preview-core.js';
 const STORAGE_KEY = 'psnm.workbench.lastSourceSetup.v1';
 const STYLE_ID = 'psnm-lite-persist-transform-style';
 let restoreInProgress = false;
@@ -218,21 +219,36 @@ function renderTransformPreview(modal = null) {
     panel.dataset.psnmTransformPreview = '1';
     setupPanel.appendChild(panel);
   }
-  const readonlyInputs = Array.from(current.querySelectorAll('[data-psnm-panel="setup"] input[readonly]'));
-  const psPosition = readonlyInputs[0]?.value || '';
-  const nodePosition = readonlyInputs[1]?.value || '';
-  const ps = parsePsPosition(psPosition);
-  const anchorNode = parseXyz(nodePosition);
-  const rows = parseTable2(current.querySelector('[data-source="table2Text"]')?.value || '').slice(0, 300);
-  if (!Number.isFinite(ps.e) || !Number.isFinite(ps.u) || !Number.isFinite(ps.s) || !Number.isFinite(anchorNode.x) || !Number.isFinite(anchorNode.y) || !Number.isFinite(anchorNode.z)) {
-    panel.innerHTML = `<div class="psnm-card-head"><b>Transformed Table 2 Preview from Anchor Bases</b></div><div class="psnm-card-body"><div class="psnm-lite-note">Resolve Master Tables, then select Anchor PS and Anchor Node. Preview formula: E=X+datumE, U=Y+datumU, S=Z+datumS.</div></div>`;
+  const context = current.__psnmPreviewContext;
+  const transform = context?.transform;
+  const rows = PSNM_previewMasterTransformRows(context);
+  if (!context?.masterReady || !transform) {
+    const markup = '<div class="psnm-card-head"><b>Master Node Transform Preview</b></div><div class="psnm-card-body"><div class="psnm-lite-note">Resolve Master Tables, then choose an Anchor pair to preview the exact transform used by Run Match.</div></div>';
+    if (panel.innerHTML !== markup) panel.innerHTML = markup;
     return;
   }
-  const datumE = ps.e - anchorNode.x;
-  const datumU = ps.u - anchorNode.y;
-  const datumS = ps.s - anchorNode.z;
-  const body = rows.length ? rows.map((row) => `<tr><td>${h(row.node)}</td><td>${h(row.occurrenceId)}</td><td>${fmt(row.x)}</td><td>${fmt(row.y)}</td><td>${fmt(row.z)}</td><td>${fmt(row.x + datumE)}</td><td>${fmt(row.y + datumU)}</td><td>${fmt(row.z + datumS)}</td><td>${h(row.bore ?? '-')}</td></tr>`).join('') : '<tr><td colspan="9">No valid Table 2 Node/X/Y/Z rows were parsed for preview.</td></tr>';
-  panel.innerHTML = `<div class="psnm-card-head"><b>Transformed Table 2 Preview from Anchor Bases</b><span class="psnm-badge">${rows.length} row(s)</span></div><div class="psnm-card-body"><div class="psnm-lite-note"><b>Formula:</b> datumE = Anchor PS E - Anchor Node X; datumU = Anchor PS U - Anchor Node Y; datumS = Anchor PS S - Anchor Node Z. Then E=X+datumE, U=Y+datumU, S=Z+datumS.</div><div class="psnm-lite-metrics"><div class="psnm-lite-metric"><b>${fmt(datumE)}</b><span>datumE</span></div><div class="psnm-lite-metric"><b>${fmt(datumU)}</b><span>datumU</span></div><div class="psnm-lite-metric"><b>${fmt(datumS)}</b><span>datumS</span></div></div><div class="psnm-lite-scroll"><table class="psnm-transform-preview-table"><thead><tr><th>Node</th><th>Occurrence</th><th>Raw X</th><th>Raw Y</th><th>Raw Z</th><th>Node E</th><th>Node U</th><th>Node S</th><th>Bore</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  const offsets = transform.offsets || {};
+  const axes = transform.axes || { e: 'x', u: 'y', s: 'z' };
+  const signs = transform.signs || { e: 1, u: 1, s: 1 };
+  const formula = transform.axisFormula || ['e','u','s'].map(axis =>
+    axis.toUpperCase() + '=' + (signs[axis] === -1 ? '-' : '') + String(axes[axis] || '?').toUpperCase()
+      + (Number(offsets[axis]) >= 0 ? '+' : '') + fmt(offsets[axis])).join('; ');
+  const body = rows.length ? rows.map(row =>
+    '<tr><td>' + h(row.node) + '</td><td>' + h(row.occurrenceId) + '</td>'
+    + '<td>' + fmt(row.x) + '</td><td>' + fmt(row.y) + '</td><td>' + fmt(row.z) + '</td>'
+    + '<td>' + fmt(row.transformed.e) + '</td><td>' + fmt(row.transformed.u) + '</td><td>' + fmt(row.transformed.s) + '</td>'
+    + '<td>' + h(row.bore ?? '-') + '</td></tr>').join('')
+    : '<tr><td colspan="9">No valid resolved Master Node coordinates to preview.</td></tr>';
+  const markup = '<div class="psnm-card-head"><b>Master Node Transform Preview</b><span class="psnm-badge">'
+    + rows.length + ' row(s)</span></div><div class="psnm-card-body"><div class="psnm-lite-note"><b>Selected transform used by Run Match:</b> '
+    + h(formula) + '</div><div class="psnm-lite-metrics"><div class="psnm-lite-metric"><b>'
+    + fmt(offsets.e) + '</b><span>offset E</span></div><div class="psnm-lite-metric"><b>'
+    + fmt(offsets.u) + '</b><span>offset U</span></div><div class="psnm-lite-metric"><b>'
+    + fmt(offsets.s) + '</b><span>offset S</span></div></div><div class="psnm-lite-scroll"><table class="psnm-transform-preview-table">'
+    + '<thead><tr><th>Node</th><th>Occurrence</th><th>Master X</th><th>Master Y</th><th>Master Z</th>'
+    + '<th>Node E</th><th>Node U</th><th>Node S</th><th>Bore</th></tr></thead><tbody>'
+    + body + '</tbody></table></div></div>';
+  if (panel.innerHTML !== markup) panel.innerHTML = markup;
 }
 
 function schedulePreview() {

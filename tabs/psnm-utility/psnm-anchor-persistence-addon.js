@@ -112,11 +112,15 @@ function restoreIntoModal(modal, { dispatch = true } = {}) {
       restoringAnchor = false;
     }
   }
-  // The core input listener invalidates the previous axis transform when a
-  // dropdown changes. Restore a saved axis mapping *after* dispatching those
-  // events so the next Run Match receives the chosen orientation.
-  if (saved.axisTransform?.axisMode && psOption && nodeOption) {
-    window.__PSNM_AXIS_TRANSFORM = saved.axisTransform;
+  // The native core owns the transform. Never write a global-only transform:
+  // matching reads state.setup.anchorTransform, not window.__PSNM_AXIS_TRANSFORM.
+  // The core validates this transform against the current Master coordinates.
+  if (saved.axisTransform?.axisMode && psOption && nodeOption
+      && psSelect?.value === psOption.value && nodeSelect?.value === nodeOption.value) {
+    modal.dispatchEvent(new CustomEvent('psnm:restore-anchor', {
+      bubbles: true,
+      detail: { psRowId: psSelect.value, nodeRowId: nodeSelect.value, axisTransform: saved.axisTransform },
+    }));
   }
   renderAnchorStatus(modal);
   return changed;

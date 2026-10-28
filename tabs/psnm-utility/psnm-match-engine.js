@@ -17,7 +17,7 @@ const PSNM_TRUE_VALUES = new Set(['yes', 'y', 'true', '1', 'm', 'mandatory', 're
 function PSNM_safeString(value) { return String(value ?? '').trim(); }
 function PSNM_number(value) { return psnmNumber(value); }
 function PSNM_roundCoord(value, decimals = PSNM_DEFAULT_COORD_DECIMALS) {
-  const factor = 10 ** Number(decimals || PSNM_DEFAULT_COORD_DECIMALS);
+  const factor = 10 ** Number(decimals ?? PSNM_DEFAULT_COORD_DECIMALS);
   return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 }
 function PSNM_assertFinite(value, label) {
