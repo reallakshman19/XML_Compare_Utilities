@@ -312,18 +312,35 @@ function schedule(fn) {
 }
 
 function installPreflightNotification() {
-  const run = schedule(runPreflight);
-  const observer = new MutationObserver(run);
-  observer.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener('input', run, true);
-  document.addEventListener('change', run, true);
-  document.addEventListener('click', run, true);
-  run();
+  let timer = 0;
+  function runIfVisible() {
+    const modal = document.querySelector('[data-psmap-modal]');
+    if (!modal?.querySelector('[data-psmap-panel="source"].active')) return;
+    runPreflight();
+  }
+  // Pasted tables may contain thousands of rows. Validate only while the
+  // Source tab is visible and after the current edit burst has settled.
+  function scheduleRun() {
+    clearTimeout(timer);
+    timer = setTimeout(runIfVisible, 220);
+  }
+  function onSourceEdit(event) {
+    if (event.target?.closest?.('[data-psmap-source]')) scheduleRun();
+  }
+  function onTabClick(event) {
+    const tab = event.target?.closest?.('[data-psmap-tab]');
+    const action = event.target?.closest?.('[data-psmap-action]')?.dataset?.psmapAction;
+    if (tab?.dataset.psmapTab === 'source' || action === 'open' || action === 'loadSample') scheduleRun();
+  }
+  document.addEventListener('input', onSourceEdit, true);
+  document.addEventListener('change', onSourceEdit, true);
+  document.addEventListener('click', onTabClick, true);
+  scheduleRun();
   return () => {
-    observer.disconnect();
-    document.removeEventListener('input', run, true);
-    document.removeEventListener('change', run, true);
-    document.removeEventListener('click', run, true);
+    clearTimeout(timer);
+    document.removeEventListener('input', onSourceEdit, true);
+    document.removeEventListener('change', onSourceEdit, true);
+    document.removeEventListener('click', onTabClick, true);
   };
 }
 

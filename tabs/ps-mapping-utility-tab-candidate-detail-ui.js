@@ -173,13 +173,20 @@ function ensureToggle() {
   return toggle;
 }
 
+let lastProcessedTable = null;
+let lastDetailFlag = null;
 function applyCandidateDetailVisibility() {
   ensureToggle();
   const table = candidateTable();
-  if (!table) return;
+  if (!table) { lastProcessedTable = null; return; }
   const show = readShowDetails();
+  // DOM mutation observers can fire repeatedly for unrelated panel changes.
+  // Scan cells only when this actual table or the display flag changed.
+  if (table === lastProcessedTable && show === lastDetailFlag) return;
+  lastProcessedTable = table;
+  lastDetailFlag = show;
   const indexes = detailColumnIndexes(table);
-  setColumnHidden(table, indexes, !show);
+  if (indexes.length) setColumnHidden(table, indexes, !show);
 }
 
 function applyPsMapUiPatches() {
@@ -201,7 +208,13 @@ function installCandidateDetailPatch() {
       });
     };
   })();
-  const observer = new MutationObserver(patch);
+  const observer = new MutationObserver((records) => {
+    if (!records.some((record) => record.type === 'childList' && record.addedNodes.length &&
+      (record.target?.closest?.('[data-psmap-modal]') ||
+       [...record.addedNodes].some((node) => node.nodeType === 1 &&
+         (node.matches?.('[data-psmap-modal]') || node.querySelector?.('[data-psmap-modal]')))))) return;
+    patch();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   patch();
   return () => observer.disconnect();

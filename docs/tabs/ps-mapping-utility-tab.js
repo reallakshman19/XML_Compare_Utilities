@@ -12,7 +12,10 @@ import {
   rowsToCsv,
 } from './ps-mapping-utility/ps-mapping-engine-diagnostics-v2.js?v=20260611-approx-overrides-1';
 
+import { publishPsMappingState, releasePsMappingState } from './ps-mapping-utility-tab-result-cache.js';
+
 const STYLE_ID = 'ps-mapping-utility-style';
+const TABLE_PAGE_SIZE = 100;
 
 function h(value) {
   return String(value ?? '')
@@ -56,6 +59,7 @@ function installStyle() {
 .psmap-field{display:grid;gap:4px}.psmap-field label{font-size:12px;color:#b7c9dd;font-weight:800}.psmap-field input,.psmap-field textarea,.psmap-field select{box-sizing:border-box;width:100%;border:1px solid rgba(143,197,255,.2);border-radius:8px;background:#0b1220;color:#e5edf7;padding:8px;font:12px ui-monospace,Consolas,monospace}.psmap-field textarea{min-height:150px;resize:vertical}.psmap-check{display:flex;align-items:center;gap:8px;font-size:12px;color:#d9e6f7}.psmap-help{display:inline-grid;place-items:center;width:18px;height:18px;border:1px solid rgba(143,197,255,.35);border-radius:999px;color:#93c5fd;font-size:12px;cursor:help}
 .psmap-summary{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}.psmap-summary div{background:#0b1220;border:1px solid rgba(143,197,255,.15);border-radius:10px;padding:9px}.psmap-summary b{display:block;color:#8fc5ff;font-size:18px}.psmap-summary span{font-size:11px;color:#9fb2c7}.psmap-banner{font-size:12px;line-height:1.5;color:#cfe4ff;border:1px solid rgba(143,197,255,.16);background:#0b1220;border-radius:10px;padding:10px}.psmap-banner.warn{border-color:rgba(251,191,36,.42);color:#fde68a}.psmap-mini{font-size:11px;color:#9fb2c7}
 .psmap-tablewrap{overflow:auto;max-height:600px}.psmap-table{width:100%;border-collapse:collapse;font-size:12px}.psmap-table th,.psmap-table td{border-bottom:1px solid rgba(143,197,255,.12);padding:7px 8px;text-align:left;white-space:nowrap;vertical-align:top}.psmap-table th{position:sticky;top:0;background:#1e293b;color:#9fc9ff;z-index:1}.psmap-table .psmap-group th{top:0;background:#0f2744;color:#dbeafe;border-bottom:1px solid rgba(143,197,255,.25);text-transform:uppercase;font-size:11px}.psmap-table .psmap-labels th{top:31px}.psmap-table td.group-source{background:rgba(59,130,246,.06)}.psmap-table td.group-operation{background:rgba(16,185,129,.05)}.psmap-table td.group-result{background:rgba(251,191,36,.05)}.psmap-table td.group-diagnostic{background:rgba(244,114,182,.05)}
+.psmap-table-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0;font-size:12px;color:#cbd5e1}.psmap-table-pager>div{display:flex;align-items:center;gap:6px}.psmap-table-pager .psmap-btn:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:1100px){.psmap-grid-2,.psmap-grid-3,.psmap-grid-4,.psmap-summary{grid-template-columns:1fr}.psmap-modal{height:96vh}}`;
   document.head.appendChild(style);
 }
@@ -73,6 +77,7 @@ function makeState() {
     },
     setup: { ...DEFAULT_OPTIONS },
     result: null,
+    pageByTab: {},
   };
 }
 
@@ -82,6 +87,12 @@ function tab(id, label, state, extraClass = '') {
 
 function panel(id, state, html) {
   return `<section class="psmap-panel ${state.activeTab === id ? 'active' : ''}" data-psmap-panel="${h(id)}">${html}</section>`;
+}
+
+// Avoid constructing DOM for inactive views; in particular a hidden Candidate
+// Matrix should never create thousands of TR/TD nodes on unrelated tab changes.
+function activePanel(id, state, render) {
+  return panel(id, state, state.activeTab === id ? render() : '');
 }
 
 function optionChecked(state, key) {
@@ -128,7 +139,15 @@ function groupedHeader(columns) {
 function table(rows = [], columns = [], state = null) {
   const cols = state ? visibleColumns(columns, state) : columns;
   if (!rows.length) return '<div class="psmap-banner">No rows.</div>';
-  return `<div class="psmap-tablewrap"><table class="psmap-table"><thead>${groupedHeader(cols)}<tr class="psmap-labels">${cols.map((c) => `<th>${h(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${cols.map((c) => `<td class="${groupClass(c.group)}">${h(displayList(c.value ? c.value(row) : row[c.key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const total = rows.length;
+  const tab = state?.activeTab || '';
+  const pages = Math.max(1, Math.ceil(total / TABLE_PAGE_SIZE));
+  const requested = Number(state?.pageByTab?.[tab] || 0);
+  const page = Math.min(pages - 1, Math.max(0, Number.isFinite(requested) ? requested : 0));
+  const start = page * TABLE_PAGE_SIZE;
+  const slice = rows.slice(start, start + TABLE_PAGE_SIZE);
+  const pager = `<div class="psmap-table-pager" role="group" aria-label="Table pages"><span>Showing ${start + 1}–${start + slice.length} of ${total.toLocaleString()} rows · Page ${page + 1} of ${pages}</span><div><button type="button" class="psmap-btn secondary" data-psmap-action="tablePrev" ${page === 0 ? 'disabled' : ''}>Previous</button><button type="button" class="psmap-btn secondary" data-psmap-action="tableNext" ${page + 1 >= pages ? 'disabled' : ''}>Next</button></div></div>`;
+  return `${pager}<div class="psmap-tablewrap"><table class="psmap-table"><thead>${groupedHeader(cols)}<tr class="psmap-labels">${cols.map((c) => `<th>${h(c.label)}</th>`).join('')}</tr></thead><tbody>${slice.map((row) => `<tr>${cols.map((c) => `<td class="${groupClass(c.group)}">${h(displayList(c.value ? c.value(row) : row[c.key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
 function summary(state) {
@@ -202,7 +221,7 @@ function coveragePanel(state) { return `<section class="psmap-card"><div class="
 function logPanel(state, debug = false) { return `<section class="psmap-card"><div class="psmap-card-head"><b>${debug ? 'Debug Log' : 'User Log'}</b><button class="psmap-btn secondary" data-psmap-action="${debug ? 'copyDebug' : 'copyUser'}">Copy</button></div><div class="psmap-card-body">${table(debug ? state.result?.debugLog || [] : state.result?.userLog || [], debug ? DEBUG_COLUMNS : USER_LOG_COLUMNS, state)}</div></section>`; }
 
 function renderModal(state) {
-  return `<div class="psmap-backdrop" data-psmap-modal><div class="psmap-modal"><div class="psmap-head"><div><h2 class="psmap-title">PS Mapping Utility</h2><p class="psmap-sub">Consolidated Table-1 + Consolidated Table-2 → Resolver → Validator</p><p class="psmap-sub"><b>Config / Diagnostics</b> is available as a highlighted tab. Approx Line and Approx Bore are OFF by default.</p></div><button class="psmap-btn secondary" data-psmap-action="close">Close</button></div><div class="psmap-tabs">${tab('source', 'Source Tables', state)}${tab('setup', 'Resolver Setup', state)}${tab('config', '⚙ Config / Diagnostics', state, 'config')}${tab('ct1', 'Consolidated Table-1', state)}${tab('ct2', 'Consolidated Table-2', state)}${tab('validator', 'Table 2 Validator', state)}${tab('coverage', 'Table 1 Support Coverage', state)}${tab('candidates', 'Candidate Matrix', state)}${tab('user', 'User Log', state)}${tab('debug', 'Debug Log', state)}</div><div class="psmap-body">${summary(state)}${panel('source', state, sourcePanel(state))}${panel('setup', state, setupPanel(state))}${panel('config', state, configPanel(state))}${panel('ct1', state, consolidatedTable1Panel(state))}${panel('ct2', state, consolidatedTable2Panel(state))}${panel('validator', state, validatorPanel(state))}${panel('coverage', state, coveragePanel(state))}${panel('candidates', state, candidatesPanel(state))}${panel('user', state, logPanel(state, false))}${panel('debug', state, logPanel(state, true))}</div></div></div>`;
+  return `<div class="psmap-backdrop" data-psmap-modal><div class="psmap-modal"><div class="psmap-head"><div><h2 class="psmap-title">PS Mapping Utility</h2><p class="psmap-sub">Consolidated Table-1 + Consolidated Table-2 → Resolver → Validator</p><p class="psmap-sub"><b>Config / Diagnostics</b> is available as a highlighted tab. Approx Line and Approx Bore are OFF by default.</p></div><button class="psmap-btn secondary" data-psmap-action="close">Close</button></div><div class="psmap-tabs">${tab('source', 'Source Tables', state)}${tab('setup', 'Resolver Setup', state)}${tab('config', '⚙ Config / Diagnostics', state, 'config')}${tab('ct1', 'Consolidated Table-1', state)}${tab('ct2', 'Consolidated Table-2', state)}${tab('validator', 'Table 2 Validator', state)}${tab('coverage', 'Table 1 Support Coverage', state)}${tab('candidates', 'Candidate Matrix', state)}${tab('user', 'User Log', state)}${tab('debug', 'Debug Log', state)}</div><div class="psmap-body">${summary(state)}${activePanel('source', state, () => sourcePanel(state))}${activePanel('setup', state, () => setupPanel(state))}${activePanel('config', state, () => configPanel(state))}${activePanel('ct1', state, () => consolidatedTable1Panel(state))}${activePanel('ct2', state, () => consolidatedTable2Panel(state))}${activePanel('validator', state, () => validatorPanel(state))}${activePanel('coverage', state, () => coveragePanel(state))}${activePanel('candidates', state, () => candidatesPanel(state))}${activePanel('user', state, () => logPanel(state, false))}${activePanel('debug', state, () => logPanel(state, true))}</div></div></div>`;
 }
 
 export function installPsMappingUtilityTile(container, ctx = {}) {
@@ -211,6 +230,7 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
   root.innerHTML = `<button type="button" class="psmap-tile" data-psmap-action="open"><div><div class="psmap-tile-icon">🧭</div><div><b>PS Mapping Utility</b></div><div class="psmap-sub">Support PS → Model PS</div></div></button>`;
   container.appendChild(root);
   let state = makeState();
+  publishPsMappingState(state);
 
   function refresh() {
     const modal = document.querySelector('[data-psmap-modal]');
@@ -227,6 +247,8 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
       options: state.setup,
     });
     state.activeTab = 'ct2';
+    state.pageByTab = {};
+    publishPsMappingState(state);
     refresh();
     const review = state.result.summary.review || 0;
     ctx.showToast?.(`PS Mapping complete: ${state.result.summary.mapped} mapped, ${review} review, ${state.result.summary.noMatch} no match.`, state.result.summary.noMatch || review ? 'warning' : 'success');
@@ -239,10 +261,16 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
     const action = event.target?.closest?.('[data-psmap-action]')?.dataset?.psmapAction;
     const tabBtn = event.target?.closest?.('[data-psmap-tab]');
     if (tabBtn) { state.activeTab = tabBtn.dataset.psmapTab; refresh(); return; }
+    if (action === 'tablePrev' || action === 'tableNext') {
+      const pages = state.pageByTab || (state.pageByTab = {});
+      pages[state.activeTab] = Math.max(0, (pages[state.activeTab] || 0) + (action === 'tableNext' ? 1 : -1));
+      refresh();
+      return;
+    }
     if (!action) return;
     if (action === 'open') { document.body.insertAdjacentHTML('beforeend', renderModal(state)); return; }
     if (action === 'close') { document.querySelector('[data-psmap-modal]')?.remove(); return; }
-    if (action === 'loadSample') { state = makeState(); refresh(); return; }
+    if (action === 'loadSample') { state = makeState(); publishPsMappingState(state); refresh(); return; }
     if (action === 'run') { run(); return; }
     if (action === 'copyOutput') copy(rowsToCsv(state.result?.rows || []));
     if (action === 'copyT1') copy(tableToTsv(state.result?.consolidatedTable1Rows || [], visibleColumns(CONSOLIDATED_T1_COLUMNS, state).map((c) => c.key)));
@@ -270,6 +298,7 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
     document.removeEventListener('click', onClick);
     document.removeEventListener('input', onInput);
     document.removeEventListener('change', onInput);
+    releasePsMappingState(state);
     root.remove();
   };
 }

@@ -1,3 +1,4 @@
+import { readPsMappingResult } from './ps-mapping-utility-tab-result-cache.js';
 import { installPsMappingUtilityTile as installBasePsMappingUtilityTile } from './ps-mapping-utility-tab-candidate-copy-ui.js?v=20260612-psmap-candidate-copy-1';
 import {
   DEFAULT_OPTIONS,
@@ -141,7 +142,8 @@ async function copyCandidatesWithSupportNoLabels(event, ctx = {}) {
   event.stopPropagation();
   if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
   try {
-    const result = runPsMappingResolver({ ...collectInputFromModal(modal), options: parseOptionsFromModal(modal) });
+    const result = readPsMappingResult();
+    if (!result) { ctx.showToast?.('Run Mapping before copying candidates.', 'warning'); return; }
     const rows = result?.candidates || result?.candidateRows || [];
     await navigator.clipboard?.writeText(rowsToCsv(rows));
     ctx.showToast?.(`Copied ${rows.length} candidate rows with Support No. labels.`, 'success');
@@ -154,8 +156,23 @@ export function installPsMappingUtilityTile(container, ctx = {}) {
   const clickHandler = (event) => copyCandidatesWithSupportNoLabels(event, ctx);
   document.addEventListener('click', clickHandler, true);
   const destroyBase = installBasePsMappingUtilityTile(container, ctx);
-  const observer = new MutationObserver(relabelVisibleUi);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  // Only respond to markup inserted into the PS Mapping UI, not every
+  // character mutation across the whole app (or our own wording updates).
+  let queued = false;
+  const observer = new MutationObserver((records) => {
+    const relevant = records.some((record) => {
+      if (record.type !== 'childList' || !record.addedNodes.length) return false;
+      const parent = record.target;
+      if (parent?.closest?.('[data-psmap-modal], [data-psmap-header-map-dialog], [data-psmap-preflight-host]')) return true;
+      return [...record.addedNodes].some((node) =>
+        node.nodeType === 1 && (node.matches?.('[data-psmap-modal], [data-psmap-header-map-dialog]') ||
+          node.querySelector?.('[data-psmap-modal], [data-psmap-header-map-dialog]')));
+    });
+    if (!relevant || queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; relabelVisibleUi(); });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
   relabelVisibleUi();
   return () => {
     document.removeEventListener('click', clickHandler, true);

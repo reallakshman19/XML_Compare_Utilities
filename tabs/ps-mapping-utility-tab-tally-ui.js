@@ -1,3 +1,4 @@
+import { readPsMappingResult } from './ps-mapping-utility-tab-result-cache.js';
 import { installPsMappingUtilityTile as installBasePsMappingUtilityTile } from './ps-mapping-utility-tab-candidate-detail-ui.js?v=20260612-psmap-optional-unmatched-config-1';
 import {
   DEFAULT_OPTIONS,
@@ -145,8 +146,8 @@ function activateTallyPanel(modal, panel, tab) {
   tab.classList.add('active');
   for (const node of body.querySelectorAll(':scope > .psmap-panel')) node.classList.remove('active');
   panel.classList.add('active');
-  const result = runPsMappingResolver({ ...collectInputFromModal(modal), options: parseOptionsFromModal(modal) });
-  renderTally(panel, result.tallyRows || []);
+  const result = readPsMappingResult();
+  renderTally(panel, result?.tallyRows || []);
 }
 
 function ensureTallyTab(modal) {
