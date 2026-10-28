@@ -20,7 +20,7 @@ const handledActions = new Set([
   'use-current-graph-source-canvas', 'use-imported-graph-target-canvas', 'run-graph-compare-canvas',
   'build-graph-connectors', 'download-graph-connectors-json', 'clear-compare-canvas-preview',
   'send-source', 'send-target', 'confirm-canvas-handoff', 'cancel-canvas-handoff',
-  'toggle-settings-collapse',
+  'toggle-settings-collapse', 'choose-iso-s1', 'choose-iso-s2',
 ]);
 const handledDownloads = new Set(['xml', 'graph', 'profile', 'diagnostics', 'audit']);
 const dynamicPivotActions = new Set(['download-pivot-json', 'download-pivot-csv', 'download-pivot-html']);
