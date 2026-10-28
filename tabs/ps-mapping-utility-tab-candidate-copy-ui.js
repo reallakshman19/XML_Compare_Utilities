@@ -55,6 +55,8 @@ const DETAIL_COLUMNS = [
   ['warnings', 'Warnings'],
   ['reviewAction', 'Review Action'],
   ['nodeCoverageNote', 'Node Coverage Explanation'],
+  ['nodeCoverageStatus', 'Node Coverage Status'],
+  ['nodeComplianceStatus', 'Node Compliance Status'],
   ['table2SourceId', 'Model Table Source ID'],
   ['modelSourceId', 'Model Source ID'],
 ];
