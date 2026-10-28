@@ -139,6 +139,8 @@ function loadIsoNoteTemplate() {
   next = updateSourceDraft(next, 'S1', {
     sourceName: mapping?.sourceName || 'PS Mapping / S1',
     sourceText: mapping?.sourceText || '',
+    originalSourceText: mapping?.originalSourceText ?? mapping?.sourceText ?? '',
+    sourceType: mapping?.sourceType || 'pasteText',
     headerAliases: ISO_NOTE_S1_HEADER_ALIASES,
     delimiterMode: 'auto',
     transformRules: []
@@ -148,6 +150,8 @@ function loadIsoNoteTemplate() {
   next = updateSourceDraft(next, 'S2', {
     sourceName: notes?.sourceName || 'ISO Notes / S2',
     sourceText: notes?.sourceText || '',
+    originalSourceText: notes?.originalSourceText ?? notes?.sourceText ?? '',
+    sourceType: notes?.sourceType || 'pasteText',
     delimiterMode: 'auto',
     // Only attach ISO extraction rules when the expected header exists.
     // Applying them to another table previously created misleading columns.
