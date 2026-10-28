@@ -14,7 +14,7 @@ import { activeSource, addSource, createMultiSourceState, parseSourceDraft, remo
 import { createSourceTransformRule } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
 import { TABLE_CATEGORIZED_XML_BUTTON_ATTR, TABLE_CATEGORIZED_XML_POPUP_ATTR, renderTableCategorizedXmlButtonHtml, renderTableCategorizedXmlShellHtml } from '../xml-compare/table-categorizer/table-categorized-xml-shell.js?v=20260709-field-comparison-sample';
 import { ISO_NOTE_DUAL_SOURCE_PROFILE, ISO_NOTE_FULL_ID_PATTERN, ISO_NOTE_SUFFIX_PATTERN } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-dual-source.js';
-import { assignIsoNoteSourceRoles, classifyIsoNoteSource } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
+import { assignIsoNoteSourceRoles, classifyIsoNoteSource, ISO_NOTE_S1_HEADER_ALIASES } from '../xml-compare/table-categorizer/table-categorized-xml-iso-note-source-setup.js';
 import { runCategorizerValidation } from '../xml-compare/table-categorizer/table-categorized-xml-validation.js';
 
 export const XML_COMPARE_TABLE_CATEGORIZED_RUNTIME_SCHEMA = 'xml-compare-table-categorized-runtime/v20-isorecipe-autoload';
@@ -139,6 +139,7 @@ function loadIsoNoteTemplate() {
   next = updateSourceDraft(next, 'S1', {
     sourceName: mapping?.sourceName || 'PS Mapping / S1',
     sourceText: mapping?.sourceText || '',
+    headerAliases: ISO_NOTE_S1_HEADER_ALIASES,
     delimiterMode: 'auto',
     transformRules: []
   });
