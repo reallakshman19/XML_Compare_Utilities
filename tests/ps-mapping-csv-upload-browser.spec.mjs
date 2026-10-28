@@ -110,6 +110,7 @@ test('PS Mapping candidate columns and Table-2 REST clearance are displayed and 
   await expect(rest.locator('td').nth(12)).toContainText('REST clearance');
   await expect(rest.locator('td').nth(12)).toContainText('matches');
   await expect(rest.locator('td').nth(10)).toContainText('REST non-contact clearance Match');
+  await expect(rest.locator('td').nth(13)).toBeVisible();
   await expect(guide.locator('td').nth(11)).toHaveText('—');
   await expect(guide.locator('td').nth(12)).toContainText('GUIDE gap');
   const downloadPromise=page.waitForEvent('download');
