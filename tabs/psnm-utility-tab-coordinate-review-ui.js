@@ -246,7 +246,7 @@ function ensureReviewQueue(container) {
   const panel = container.querySelector('[data-psnm-panel="coverage"]');
   const body = panel?.querySelector('.psnm-card-body');
   if (!body) return;
-  body.querySelector('[data-psnm-review-queue="phase-c"]')?.remove();
+  const previous = body.querySelector('[data-psnm-review-queue="phase-c"]');
   const rows = reviewRows(container);
   const div = document.createElement('div');
   div.className = 'psnm-phase-c-queue';
@@ -256,7 +256,11 @@ function ensureReviewQueue(container) {
   } else {
     div.innerHTML = `<div class="psnm-phase-c-actions"><b>Manual Review Queue:</b><span>${rows.length} item(s)</span><button class="psnm-btn psnm-btn-secondary" type="button" data-psnm-phase-c-action="copyReviewQueue">Copy Queue CSV</button></div><table><thead><tr><th>Category</th><th>Item</th><th>Reason</th><th>Suggested Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.item)}</td><td>${escapeHtml(row.reason)}</td><td>${escapeHtml(row.action)}</td></tr>`).join('')}</tbody></table>`;
   }
-  body.insertBefore(div, body.firstChild);
+  // The entire workbench has childList MutationObservers. Replacing this
+  // unchanged queue on every enhance() creates an infinite observer/render loop.
+  if (previous && previous.innerHTML === div.innerHTML) return;
+  if (previous) previous.replaceWith(div);
+  else body.insertBefore(div, body.firstChild);
 }
 
 function updatePlayground(container) {
