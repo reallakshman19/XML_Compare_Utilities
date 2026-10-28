@@ -26,7 +26,7 @@ assert.equal(proofPlan.sourceRecords[0].nodeNumber, '10');
 assert.equal(proofPlan.targetRecords[0].role, 'FROM');
 
 let state = createXmlCompareCanvasState();
-state = applyXmlCompareCanvasAction(state, { type: 'accept-candidate', candidate: proofPlan.candidate }, { approvalContext: { scoped: false } });
+state = applyXmlCompareCanvasAction(state, { type: 'accept-candidate', candidate: proofPlan.candidate }, { approvalContext: { scoped: false, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords } });
 const approvedValidationModel = createApprovedConnectorValidationModel({ state, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords, compareFields: [] });
 state = applyXmlCompareCanvasAction(state, { type: 'stage-transfer', scope: proofPlan.scope, selectedBlocks: proofPlan.selectedBlocks, sourceText, targetText, workspaceRevision: 1, approvedMatchSet: state.approvedMatchSet, approvedValidationModel, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords });
 state = applyXmlCompareCanvasAction(state, { type: 'apply-staged-transfer', sourceText, targetText, workspaceRevision: 1, downloadName: 'sample-target-after.xml' });
