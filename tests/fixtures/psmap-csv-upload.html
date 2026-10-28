@@ -6,7 +6,7 @@
 <script type="module">
   import { installPsMappingUtilityTile } from '../../tabs/ps-mapping-utility-tab-support-prefix-ui.js';
   window.__smokeErrors = [];
-  window.addEventListener('error', event => window.__smokeErrors.push(String(event.error || event.message)));
+  window.addEventListener('error', event => window.__smokeErrors.push(String(event.error?.stack || event.error || event.message)));
   window.addEventListener('unhandledrejection', event => window.__smokeErrors.push(String(event.reason)));
   window.__destroy = installPsMappingUtilityTile(document.getElementById('app'), {
     showToast(message, type) {
