@@ -320,6 +320,7 @@ async function runAutoAnchorSearchCooperative(state, isCancelled = () => false, 
 function applyAutoAnchorPair(state, index) {
   const pair = state.autoAnchor.pairs[Number(index)];
   if (!pair) throw new Error('Auto Anchor pair is no longer available. Run Auto Anchor again.');
+  invalidateResults(state);
   state.setup.anchorPsRowId = pair.psRowId;
   state.setup.anchorNodeRowId = pair.nodeRowId;
   state.setup.anchorTransform = pair.transform;
@@ -403,6 +404,15 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     invalidateResults(state);
     markDisplayedResultsStale();
   }
+  function updateVisibleStatus() {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    const title = modal?.querySelector('.psnm-status-title');
+    const detail = modal?.querySelector('.psnm-status-detail');
+    const fill = modal?.querySelector('.psnm-progress-fill');
+    if (title && title.textContent !== state.status.phase) title.textContent = state.status.phase;
+    if (detail && detail.textContent !== state.status.detail) detail.textContent = state.status.detail;
+    if (fill) fill.style.width = state.status.percent + '%';
+  }
   function activateTab(tabId) {
     const modal = container.querySelector('[data-psnm="modal"]');
     if (!modal || !modal.querySelector(`[data-psnm-panel="${tabId}"]`)) return;
@@ -436,6 +446,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     try {
       if (!state.masterReady) throw new Error('Build Master Tables before matching.');
       if (state.sourceDirty) throw new Error('Source tables changed. Rebuild Master Tables before matching.');
+      if (state.autoAnchorRunning) throw new Error('Auto Anchor is still running. Select a pair after scoring finishes.');
       updateStatus({ phase: 'Matching from Master Tables', detail: 'Preparing master-derived PS and Node rows.', percent: 50 });
       await nextFrame();
       if (startingRevision !== state.runRevision || !state.masterReady || state.sourceDirty)
@@ -477,16 +488,20 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (field === 'enabled' || field === 'isMandatoryPs') row[field] = checked === true; else if (field === 'p1bore') row[field] = value === '' ? null : Number(value); else row[field] = value;
     row.userEdited = true; row.sourceTable = row.sourceTable ? `${row.sourceTable};USER_EDIT` : 'USER_EDIT'; PSNM_recomputeMasterPsRow(row);
     state.master.psIssues = state.master.psRows.filter((item) => item.status !== 'OK'); state.masterDirty = true;
-    state.setup.anchorTransform = null; state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
-    invalidateResults(state); ensureAnchors(state); applyCurrentTransform(state); refresh();
+    state.setup.anchorTransform = null; if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
+    state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
+    invalidateResults(state); state.status = { phase: 'Masters Edited', detail: 'Master Table changed. Re-run Auto Anchor and Match.', percent: 45 };
+    ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
   function updateMasterNodeCell(rowId, field, value, checked) {
     const row = state.master.nodeRows.find((item) => item.rowId === rowId); if (!row) return;
     if (field === 'enabled' || field === 'isMandatoryNode') row[field] = checked === true; else if (['rawX','rawY','rawZ','finalNodeBore'].includes(field)) row[field] = value === '' ? null : Number(value); else row[field] = value;
     row.userEdited = true; row.sourceTable = row.sourceTable ? `${row.sourceTable};USER_EDIT` : 'USER_EDIT'; PSNM_recomputeMasterNodeRow(row);
     state.master.nodeIssues = state.master.nodeRows.filter((item) => item.status !== 'OK'); state.masterDirty = true;
-    state.setup.anchorTransform = null; state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
-    invalidateResults(state); ensureAnchors(state); applyCurrentTransform(state); refresh();
+    state.setup.anchorTransform = null; if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
+    state.autoAnchor.pairs = []; state.autoAnchor.selectedIndex = null;
+    invalidateResults(state); state.status = { phase: 'Masters Edited', detail: 'Master Table changed. Re-run Auto Anchor and Match.', percent: 45 };
+    ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
   async function runAutoAnchorFromUI() {
     if (state.autoAnchorRunning) return;
@@ -553,11 +568,12 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (source) {
       if (state.source[source.dataset.source] === source.value) return;
       state.source[source.dataset.source] = source.value; state.setup.anchorTransform = null;
+      if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
       state.sourceDirty = true; state.masterReady = false;
       state.autoAnchor = { pairs: [], selectedIndex: null, message: 'Rebuild Master Tables, then run Auto Anchor.' };
       invalidateDisplayedResults();
       state.status = { phase: 'Sources Edited', detail: 'Source tables changed. Rebuild Master Tables before matching.', percent: 5 };
-      bindPreviewContext(); return;
+      bindPreviewContext(); updateVisibleStatus(); return;
     }
     const setup = event.target?.closest?.('[data-setup]');
     if (setup) {
@@ -570,7 +586,8 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
         state.autoAnchor.selectedIndex = null;
       }
       invalidateDisplayedResults();
-      ensureAnchors(state); applyCurrentTransform(state); updateAnchorReadOnly(); bindPreviewContext(); return;
+      state.status = { phase: 'Settings Changed', detail: 'Anchor or matching parameters changed. Run Match again.', percent: 55 };
+      ensureAnchors(state); applyCurrentTransform(state); updateAnchorReadOnly(); bindPreviewContext(); updateVisibleStatus(); return;
     }
     const ps = event.target?.closest?.('[data-master-ps-field]');
     if (ps) { const row = event.target.closest('[data-master-ps-row]'); updateMasterPsCell(row?.dataset.masterPsRow, ps.dataset.masterPsField, ps.value, ps.checked); return; }
@@ -581,8 +598,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     const snapshot = event.detail || {};
     if (!restorePersistedAnchor(state, snapshot)) return;
     invalidateDisplayedResults();
+    state.status = { phase: 'Anchor Restored', detail: 'Saved axis mapping validated against current Master coordinates. Run Match again.', percent: 55 };
     updateAnchorReadOnly();
     bindPreviewContext();
+    updateVisibleStatus();
     if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = state.setup.anchorTransform;
   }
   function onKeydown(event) { if (event.key === 'Escape') container.querySelector('[data-psnm="modal"]')?.remove(); }
