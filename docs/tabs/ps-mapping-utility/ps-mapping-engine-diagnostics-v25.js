@@ -76,11 +76,72 @@ function realPhysicalContributor(row,options={}) {
   return true;
 }
 
-function normalizeDiagnostic(row) {
+function table2GapBySource(models=[]) {
+  const index=new Map();
+  for (const model of models) {
+    const id=clean(val(model,'modelSourceId','table2SourceId')) ||
+      (clean(model.sourceRow) ? 'T2:'+clean(model.sourceRow) : '');
+    const no=numberText(modelNo(model));
+    if (!id || !no) continue;
+    // Preserve the exact input text, including an explicitly empty model cell.
+    // A synthetic row or another Table-2 component cannot lend its gap.
+    const gap=model.supportGapRaw ?? model.supportGap ?? '';
+    index.set(id+'|'+no,String(gap));
+  }
+  return index;
+}
+
+function normalizeDiagnostic(row,sourceGaps=new Map()) {
   if (!row || isSynthetic(row)) return row;
   let next = { ...row };
+  const id=physicalId(next) || (clean(next.table2Row) ? 'T2:'+clean(next.table2Row) : '');
+  const gapKey=id+'|'+numberText(modelNo(next));
+  if (id && sourceGaps.has(gapKey)) next.supportGapRaw=sourceGaps.get(gapKey);
+  const raw=clean(next.supportGapRaw);
+  // REST in a DO NOT REST ISONOTE is a non-contact clearance check. Always
+  // recompute against THIS model row's gap, including missing or conflicting
+  // values; never inherit GUIDE GAP or an earlier generic REST support verdict.
+  const modelTypes=fromModel(next);
+  const reference=note(next);
+  if (/\bDO\s+NOT\s+REST\b/i.test(reference) && modelTypes.has('REST')
+      && !modelTypes.has('GUIDE') && !modelTypes.has('LINE_STOP')) {
+    const compared=evaluateSupportGapComparison({
+      table1Text:reference, table2Text:'REST', table2GapRaw:raw,
+    });
+    if (compared.kind==='REST_CLEARANCE') {
+      next.gapMatch=compared.status;
+      next.supportGapMatch=compared.status;
+      next.supportGapBasis=compared.status;
+      next.gapMatchDetail=compared.detail;
+      next.nodeRestClearanceMm=compared.table1GapMm ?? '';
+      next.supportGapMm=compared.table2GapMm ?? '';
+      next.supportMatch=compared.status==='REST_CLEARANCE_EXACT'
+        ? 'REST non-contact clearance Match'
+        : 'REST non-contact clearance requires review';
+      const warnings=clean(next.warnings).split(';').map(clean).filter(Boolean)
+        .filter(w=>!/^(?:SUPPORT_CONFLICT|SUPPORT_MISSING_REST|REST_CLEARANCE_(?:EXACT|MISSING_TABLE1|MISSING_TABLE2|CONFLICT))$/i.test(w));
+      if (compared.status!=='REST_CLEARANCE_EXACT') warnings.push(compared.status);
+      next.warnings=[...new Set(warnings)].join('; ');
+      // Only REST-related actions are refreshed. A GUIDE gap correction or a
+      // separate mapping/identity review on this row remains untouched.
+      const previous=clean(next.psNoWiseAction);
+      if (/\bREST\b/i.test(previous) && /(?:gap|clearance|missing|conflict)/i.test(previous))
+        next.psNoWiseAction=compared.status==='REST_CLEARANCE_EXACT' ? '' : compared.detail;
+      if (compared.status==='REST_CLEARANCE_EXACT') {
+        if (/^Table-2 REST clearance|^Support gap (?:conflict|missing)/i.test(clean(next.reviewAction))) next.reviewAction='';
+        if (/^Table-2 REST clearance|^Support gap (?:conflict|missing)/i.test(clean(next.reason))) next.reason='';
+      } else {
+        next.reviewRequired=true;
+        next.autoSelectable=false;
+        next.finalStatus='USER_REVIEW_REQUIRED';
+        next.psNoWiseAction=compared.detail;
+        next.reviewAction=compared.detail;
+        next.reason=compared.detail;
+      }
+      return next;
+    }
+  }
   const status = gapStatus(next);
-  const raw = clean(val(next,'supportGapRaw'));
   // Only upgrade a missing Table-2 gap when the *same physical row* already
   // exposes a populated numeric gap. Never infer from a different model row.
   if (/_MISSING_TABLE2$/i.test(status) && raw && /^T2:\d+$/i.test(physicalId(next))) {
@@ -202,7 +263,8 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   // Keep identity-based evidence from both resolved rows and physically mapped
   // Candidate Matrix rows (review-required rows may be absent from result.rows).
   const physical = [...(result.rows||[]),...(result.candidateRows||[])].filter(r=>r&&!isSynthetic(r));
-  const patchedPhysical=physical.map(normalizeDiagnostic);
+  const sourceGaps=table2GapBySource(result.consolidatedTable2Rows||[]);
+  const patchedPhysical=physical.map(row=>normalizeDiagnostic(row,sourceGaps));
   const policy = result.options || {};
   const groups=groupAssessment(patchedPhysical,policy);
   const syntheticSource=(result.candidateRows||result.rows||[]).filter(isSynthetic);
@@ -234,7 +296,7 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
         const id=numberText(modelNo(row));
         return allowed.find(x=>numberText(modelNo(x))===id)?[enforceSynthetic(row)]:[];
       }
-      const next=normalizeDiagnostic(row);
+      const next=normalizeDiagnostic(row,sourceGaps);
       if(!group)return [next];
       next.t1NodeRestraints=fmt(group.required);
       next.t2CoveredRestraints=fmt(group.present);
