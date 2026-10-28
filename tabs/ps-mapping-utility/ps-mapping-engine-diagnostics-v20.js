@@ -105,6 +105,12 @@ function isAtomicSupportNo(value) {
   const text = clean(value);
   return !!text && !MULTI_VALUE_RE.test(text) && !JOINED_ISONOTE_RE.test(text);
 }
+function validProposedBase(value) {
+  const text = clean(value).replace(/^\//, '');
+  return !!text && isAtomicSupportNo(text)
+    && !/^(?:0+(?:\.0+)?|[-?]+|(?:PS[-_ ]?)?X{2,}|UNKNOWN|NA|N\/A|NONE|NULL)$/i.test(text)
+    && !/\b(?:XXXX|UNKNOWN|PLACEHOLDER)\b/i.test(text);
+}
 
 function groupKey(row = {}) {
   const supportNo = table1SupportNo(row);
@@ -192,7 +198,8 @@ function parseProposedPairs(row = {}) {
   if (pairs.length) return pairs;
 
   const missing = parseSupportList(row.missingNodeRestraints);
-  const base = baseSupportNo(row) || 'SUPPORT-UNKNOWN';
+  const base = baseSupportNo(row);
+  if (!validProposedBase(base)) return [];
   return missing.map((type, index) => ({ type, supportNo: `${base}.X${index + 1}` }));
 }
 
@@ -243,8 +250,28 @@ function buildSyntheticRow(rep = {}, item = {}, index = 0) {
     reviewAction: action,
     source: 'TABLE1C_MISSING_SUPPORT',
     table2SourceId: 'PROPOSED_FROM_TABLE1_ISONOTE',
-    modelSourceId: supportNo,
+    modelSourceId: '',
+    table2Row: '',
+    modelTableSourceId: '',
     syntheticMissingSupport: true,
+    // A proposal is never an existing model component or a successfully matched
+    // restraint; explicitly override all mapping flags inherited from rep.
+    enabled: false,
+    mapped: false,
+    selected: false,
+    eligible: false,
+    autoSelectable: false,
+    reviewRequired: true,
+    finalStatus: 'SUPPORT_MISSING_REQUIRED',
+    confidence: 'AUDIT',
+    confidenceScore: 0,
+    score: 999999,
+    matchGroup: '99_DIAGNOSTIC',
+    mappedStage: 'PROPOSED_FROM_TABLE1_ISONOTE',
+    matchedTypes: '',
+    matchedSupportKeywords: '',
+    supportBasis: 'SUPPORT_MISSING_MASTER_REQUIRED',
+    warnings: `SUPPORT_MISSING_REQUIRED: ${label}`,
     proposedMissingSupportNo: '',
     proposedMissingSupportPsNo: '',
     missingNodeRestraints: rep.missingNodeRestraints || label,
@@ -263,17 +290,63 @@ function addSyntheticMissingSupportRows(rows) {
   const cleanedRows = rows.map(stripProposedColumnValue);
   const reps = representativeRows(rows);
   const syntheticRows = [];
+  const occupied = new Set(rows.filter((row) =>
+    row.source !== 'TABLE1C_MISSING_SUPPORT' && row.syntheticMissingSupport !== true
+    && row.psnoModel && row.psnoModel !== '-')
+    .map((row) => clean(row.psnoModel).replace(/^\//, '').toUpperCase()));
+  const proposedOwners = new Map();
+  const manualGroups = new Set();
+  const pending = [];
 
-  for (const rep of reps.values()) {
+  for (const [key, rep] of reps) {
     const missing = parseSupportList(rep.missingNodeRestraints);
     if (!missing.length) continue;
-
+    if (!validProposedBase(baseSupportNo(rep))) {
+      manualGroups.add(key);
+      continue;
+    }
     const proposed = parseProposedPairs(rep).filter((item) => missing.includes(item.type));
-    proposed.forEach((item, index) => syntheticRows.push(buildSyntheticRow(rep, item, index)));
+    if (proposed.length !== missing.length) manualGroups.add(key);
+    proposed.forEach((item, index) => {
+      const id = clean(item.supportNo).replace(/^\//, '').toUpperCase();
+      if (!validProposedBase(baseSupportNo(rep)) || !id || occupied.has(id)) {
+        manualGroups.add(key);
+        return;
+      }
+      if (proposedOwners.has(id)) {
+        manualGroups.add(key);
+        manualGroups.add(proposedOwners.get(id).key);
+      } else {
+        proposedOwners.set(id, { key, rep, item, index });
+        pending.push({ key, rep, item, index });
+      }
+    });
   }
-
-  return syntheticRows.length ? [...cleanedRows, ...syntheticRows] : cleanedRows;
+  for (const { key, rep, item, index } of pending) {
+    if (manualGroups.has(key)) continue;
+    syntheticRows.push(buildSyntheticRow(rep, item, index));
+  }
+  const validatedRows = cleanedRows.map((row) => {
+    const key = groupKey(row);
+    if (!manualGroups.has(key)) return row;
+    const action = 'Missing restraint requires manual reference support identification / unique proposed number; no automatic support ID assigned.';
+    return {
+      ...row,
+      proposedMissingSupportNo: '',
+      proposedMissingSupportPsNo: '',
+      consolidatedNodeWiseAction: action,
+      psNoWiseAction: clean(row.psNoWiseAction || '') && !/Add.*(?:\.X\d+|missing)/i.test(row.psNoWiseAction)
+        ? row.psNoWiseAction : action,
+      reviewRequired: true,
+      autoSelectable: false,
+      selected: false,
+      warnings: [clean(row.warnings), 'PROPOSED_SUPPORT_ID_REVIEW_REQUIRED'].filter(Boolean).join('; '),
+    };
+  });
+  return syntheticRows.length ? [...validatedRows, ...syntheticRows] : validatedRows;
 }
+
+export const PS_MAPPING_V20_TEST = Object.freeze({ buildSyntheticRow, addSyntheticMissingSupportRows, validProposedBase });
 
 export function runPsMappingResolver(input = {}) {
   const result = runV18PsMappingResolver(input);

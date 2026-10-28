@@ -174,21 +174,35 @@ function addUnique(list, value) {
 }
 
 function isAcceptedMapping(row = {}) {
-  if (row.source === 'TABLE1C_MISSING_SUPPORT' || row.syntheticMissingSupport === true) return false;
-  if (row.finalStatus === 'MATCHED' && row.autoSelectable !== false) return true;
-  // A physically present, context-matched restraint can be covered while its
-  // associated GAP still needs correction. Do not invent a missing restraint.
-  const gap = String(row.supportGapMatch || row.gapMatch || '');
-  return row.finalStatus === 'USER_REVIEW_REQUIRED'
-    && /^(?:GUIDE_GAP_|LINE_STOP_GAP_|REST_CLEARANCE_)/.test(gap)
-    && row.supportBasis === 'SUPPORT_EXACT'
-    && ['PS_BASE', 'PS_EXACT'].includes(row.psBasis)
-    && !row.ambiguousMultiTable1Context;
+  // Canonical physical-presence rule: gap review changes compliance, not hardware.
+  // Only actual, identity-resolved model components can establish presence.
+  if (row.source === 'TABLE1C_MISSING_SUPPORT' || row.syntheticMissingSupport === true
+      || row.syntheticMissingSupport === 'true') return false;
+  const modelNo = modelPsNo(row);
+  if (!modelNo || modelNo === '-' || /^0(?:\.0+)?$/.test(modelNo)) return false;
+  const source = clean(row.modelSourceId || row.table2SourceId || '');
+  if (source && !/^T2:\d+$/i.test(source)) return false;
+  if (row.ambiguousMultiTable1Context || !['PS_BASE', 'PS_EXACT'].includes(row.psBasis)) return false;
+  if (!isLineBoreClean(row)) return false;
+  const types = t2Types(row);
+  if (!types.size || row.supportBasis === 'SUPPORT_CONFLICT') return false;
+  const exact = row.supportBasis === 'SUPPORT_EXACT'
+    || (!row.supportBasis && /\b(?:REST|GUIDE|LINE STOP)\s+(?:non-contact clearance\s+)?Match\b/i.test(clean(row.supportMatch)));
+  if (!exact) return false;
+  const mapped = row.mapped === true || row.mapped === 'true'
+    || row.selected === true || row.finalStatus === 'MATCHED';
+  if (!mapped) return false;
+  return row.finalStatus === 'MATCHED' || row.finalStatus === 'USER_REVIEW_REQUIRED';
 }
 
-function buildGroups(rows = []) {
+function buildGroups(rows = [], physicalCandidates = []) {
   const groups = new Map();
-  for (const row of rows) {
+  // result.rows alone excludes some physically mapped review candidates. The
+  // physical inventory includes resolved candidateRows without accepting merely
+  // suggested / unanchored or line-and-bore-conflicting alternatives.
+  const allRows = [...rows, ...physicalCandidates];
+  const coveredSources = new Set();
+  for (const row of allRows) {
     const key = groupKey(row);
     if (!key) continue;
     if (!groups.has(key)) groups.set(key, buildGroup(row));
@@ -196,7 +210,13 @@ function buildGroups(rows = []) {
     group.rows.push(row);
     unionInto(group.t1, t1Types(row));
     unionInto(group.t2, t2Types(row));
-    if (isLineBoreClean(row) && isAcceptedMapping(row)) unionInto(group.cleanT2, t2Types(row));
+    if (isAcceptedMapping(row)) {
+      const sourceKey = [key, clean(row.modelSourceId || row.table2SourceId || modelPsNo(row))].join('||');
+      if (!coveredSources.has(sourceKey)) {
+        unionInto(group.cleanT2, t2Types(row));
+        coveredSources.add(sourceKey);
+      }
+    }
     addUnique(group.gapActions, rowGapAction(row));
   }
 
@@ -205,7 +225,8 @@ function buildGroups(rows = []) {
 
 function proposedMissingSupportIds(group) {
   const missing = orderedDifference(group.t1, group.cleanT2);
-  const base = group.basePs || group.table1PsNo || 'PS-UNKNOWN';
+  const base = group.basePs || group.table1PsNo || '';
+  if (!isValidProposedBase(base)) return [];
   const out = [];
   missing.forEach((type, index) => {
     out.push({ type, psNo: `${base}.X${index + 1}` });
@@ -213,11 +234,21 @@ function proposedMissingSupportIds(group) {
   return out;
 }
 
+function isValidProposedBase(value) {
+  const text = clean(value).replace(/^\//, '');
+  return !!text && !/^(?:0+(?:\.0+)?|[-?]+|(?:PS[-_ ]?)?X{2,}|UNKNOWN|NA|N\/A|NONE|NULL)$/i.test(text)
+    && !/[|,\n]/.test(text) && !/\b(?:XXXX|UNKNOWN|PLACEHOLDER)\b/i.test(text);
+}
+
 function proposedPsNoText(proposed = []) {
   return proposed.map((item) => `${labelSupport(item.type)}=${item.psNo}`).join('; ');
 }
 
 function missingActionText(group, proposed = proposedMissingSupportIds(group)) {
+  if (!isValidProposedBase(group.basePs || group.table1PsNo)) {
+    return orderedDifference(group.t1, group.cleanT2).map(type =>
+      `Missing ${labelSupport(type)} at Node ${group.node || '-'}; reference support identity is unavailable or a placeholder. Manual identification required before proposing hardware.`);
+  }
   return proposed.map((item) => {
     const label = labelSupport(item.type);
     return `Table-1 data has ${label} but missing in Table-2 data. Action: Add ${label} as ${item.psNo} as per Table-1 ISONOTE.`;
@@ -303,9 +334,11 @@ function applyNodeRestraintCoverage(rows, groups) {
   });
 }
 
+export const PS_MAPPING_V17_TEST = Object.freeze({ isAcceptedMapping, buildGroups, applyNodeRestraintCoverage, isValidProposedBase });
+
 export function runPsMappingResolver(input = {}) {
   const result = runV16PsMappingResolver(input);
-  const groups = buildGroups(result.rows || []);
+  const groups = buildGroups(result.rows || [], result.candidateRows || result.candidates || []);
   return {
     ...result,
     rows: applyNodeRestraintCoverage(result.rows, groups),
