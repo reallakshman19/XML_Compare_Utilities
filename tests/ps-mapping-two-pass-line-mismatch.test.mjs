@@ -106,7 +106,9 @@ test('PS-131.1: PIPE STOP is LINE_STOP; DO NOT REST is not a positive REST requi
   const rows=[...(result.rows||[]),...(result.candidateRows||[])];
   const stop=rows.find(r=>r.psnoModel==='PS-131.1' && r.lineMismatchReview===true);
   assert.ok(stop,'existing PIPE STOP must remain visible as line-mismatch review');
-  assert.equal(stop.modelDtxrKeywords,'LINE STOP');
+  // Early rows preserve the configured STOP alias; the canonical node-level
+  // restraint type is LINE_STOP and must be assessed as such.
+  assert.equal(stop.modelDtxrKeywords,'STOP');
   assert.equal(stop.selected,false);
   const group=result.canonicalAssessments.find(g=>g.node==='4190');
   assert.ok(group);
