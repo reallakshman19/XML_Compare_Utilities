@@ -87,7 +87,6 @@ test('CONTROL rejects invalid IZUP, negative nozzle and hanger counts',()=>{
   const orig=Buffer.from(input).toString('ascii');
   const old='#$ CONTROL\r\n'+row([2,0,0,0,0,0])+'\r\n'+row([0,0,0,1,0,0])+
     '\r\n'+row([0,0,0,0,0,0])+'\r\n'+row([0]);
-  const bad=old.replace('\r\n'+row([0]),'\r\n'+row([0]));
   // IZUP is auxiliary field 12: fifth? It is the last field of aux row 2 (index 11).
   const newControl=old.replace(row([0,0,0,0,0,0]),row([0,0,0,0,0,99]));
   assert.notEqual(newControl,old);
