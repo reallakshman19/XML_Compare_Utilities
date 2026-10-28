@@ -1,3 +1,4 @@
+import { createDatasetSnapshot, datasetSnapshotDescriptor, createComparisonSnapshot, comparisonSnapshotDescriptor } from '../XmlCompareAuditSnapshotModel.js';
 import { compareIsoNoteMapping } from '../XmlCompareIsoNoteDirectCompare.js';
 import { buildIsoNoteEngineeringFindings, serializeIsoNoteEngineeringFindingsCsv } from '../XmlCompareIsoNoteEngineeringFindings.js';
 
@@ -44,8 +45,21 @@ const summary = report => Object.freeze({
 // compareFields or coordinate tolerances.
 export function createIsoNoteRevCompareAudit({ sourceXml = '', targetXml = '' } = {}) {
   if (!isIsoNoteEngineeringInput(sourceXml, targetXml)) return null;
+  const source = createDatasetSnapshot({
+    text: sourceXml, sourceRole: 'PS_MAPPING_S1', sourceName: 'Source A',
+  });
+  const target = createDatasetSnapshot({
+    text: targetXml, sourceRole: 'ISO_NOTES_S2', sourceName: 'Target B',
+  });
   const report = compareIsoNoteMapping({ sourceXml, targetXml });
-  const findings = report.ok ? buildIsoNoteEngineeringFindings(report) : Object.freeze([]);
+  const snapshot = createComparisonSnapshot({ source, target, report });
+  const findings = report.ok ? buildIsoNoteEngineeringFindings(
+    snapshot.report, snapshot) : Object.freeze([]);
+  const snapshots = Object.freeze({
+    source: datasetSnapshotDescriptor(source),
+    target: datasetSnapshotDescriptor(target),
+    comparison: comparisonSnapshotDescriptor(snapshot),
+  });
   return Object.freeze({
     schema: REV_COMPARE_ISO_NOTE_MODE_SCHEMA,
     mode: 'iso-note-engineering',
@@ -53,7 +67,7 @@ export function createIsoNoteRevCompareAudit({ sourceXml = '', targetXml = '' } 
     sourceRole: 'Source A / PS_MAPPING_S1',
     targetRole: 'Target B / ISO_NOTES_S2',
     identityRule: 'NORMALIZED_PIPE_PLUS_FULL_SUPPORT_ID_V1',
-    readOnly: true,
+    readOnly: true, comparisonId: snapshot.comparisonId, snapshots,
     message: report.message,
     report,
     summary: report.ok ? summary(report) : null,
@@ -68,10 +82,15 @@ export function exportIsoNoteRevCompareAuditJson(audit) {
     schema: audit.schema, mode: audit.mode, ok: audit.ok,
     sourceRole: audit.sourceRole, targetRole: audit.targetRole,
     identityRule: audit.identityRule, readOnly: true,
+    comparisonId: audit.comparisonId, snapshots: audit.snapshots,
     message: audit.message, summary: audit.summary, findingCount: audit.findingCount,
     report: audit.report, findings: audit.findings,
   }, null, 2);
 }
 export function exportIsoNoteRevCompareAuditCsv(audit) {
-  return audit?.mode === 'iso-note-engineering' ? serializeIsoNoteEngineeringFindingsCsv(audit.report) : '';
+  return audit?.mode === 'iso-note-engineering'
+    ? serializeIsoNoteEngineeringFindingsCsv(audit.report, {
+      findings: audit.findings, comparisonId: audit.comparisonId,
+      identityPolicyVersion: audit.snapshots?.comparison?.identityPolicyVersion,
+    }) : '';
 }
