@@ -44,9 +44,9 @@ assert.equal(duplicate.ok, false);
 assert.ok(duplicate.findings.some(f => f.code === 'DUPLICATE_CANONICAL_HEADER'));
 // Harmless exporter columns: duplicated NODE_NAME and empty trailing header
 // must no longer block if the first authoritative values remain complete.
-const benignS2 = preflightIsoTableText('\uFEFFNODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME,\\n' +
-  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-001,\\n' +
-  'PS-002,PIPE-2,/PS-002 :ISONOTE REST(3kN),,\\n', 'S2', { fileName: 'S2.csv' });
+const benignS2 = preflightIsoTableText('\uFEFFNODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME,\n' +
+  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-001,\n' +
+  'PS-002,PIPE-2,/PS-002 :ISONOTE REST(3kN),,\n', 'S2', { fileName: 'S2.csv' });
 assert.equal(benignS2.ok, true);
 assert.equal(benignS2.blockerCount, 0);
 assert.equal(benignS2.rowCount, 2);
@@ -56,17 +56,17 @@ assert.equal(benignS2.originalText.startsWith('\uFEFF'), true);
 assert.ok(benignS2.fixes.some(f => /Repeated "NODE_NAME"/.test(f)));
 assert.ok(benignS2.fixes.some(f => /Empty column 5/.test(f)));
 const conflictS2 = preflightIsoTableText(
-  'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME\\n' +
-  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-999\\n', 'S2', { fileName: 'S2.csv' });
+  'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME\n' +
+  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-999\n', 'S2', { fileName: 'S2.csv' });
 assert.equal(conflictS2.ok, false, 'conflicting second ID must not replace or shadow authoritative NODE_NAME');
 assert.ok(conflictS2.findings.some(f => f.code === 'DUPLICATE_CANONICAL_HEADER'));
 const secondOnlyS2 = preflightIsoTableText(
-  'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME\\n' +
-  ',PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-001\\n', 'S2', { fileName: 'S2.csv' });
+  'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME\n' +
+  ',PIPE-1,/PS-001 :ISONOTE REST(2kN),PS-001\n', 'S2', { fileName: 'S2.csv' });
 assert.equal(secondOnlyS2.ok, false, 'second-only ID requires explicit authoritative selection');
 const unnamedData = preflightIsoTableText(
-  'NODE_NAME,LinenoinCII,SupportISONOTE,\\n' +
-  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),not-empty\\n', 'S2', { fileName: 'S2.csv' });
+  'NODE_NAME,LinenoinCII,SupportISONOTE,\n' +
+  'PS-001,PIPE-1,/PS-001 :ISONOTE REST(2kN),not-empty\n', 'S2', { fileName: 'S2.csv' });
 assert.equal(unnamedData.ok, false);
 assert.ok(unnamedData.findings.some(f => f.code === 'EMPTY_HEADER'));
 
