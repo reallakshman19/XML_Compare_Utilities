@@ -131,6 +131,7 @@ test('production PSNM loads one anchor authority, and docs mirrors are synchroni
     'psnm-utility-tab-coordinate-review-ui.js', 'psnm-utility-tab-phase1-ui.js',
     'psnm-utility/psnm-context-actions.js', 'psnm-utility/psnm-anchor-persistence-addon.js',
     'psnm-utility/psnm-match-engine.js',
+    'psnm-utility/psnm-lite-persistence-transform-preview.js',
   ]) {
     const source = readFileSync(new URL('../tabs/' + path, import.meta.url), 'utf8');
     const mirror = readFileSync(new URL('../docs/tabs/' + path, import.meta.url), 'utf8');
@@ -157,4 +158,24 @@ test('Candidate Matrix paginates DOM but retains the complete result collection'
   assert.match(last, /Candidates 201-250 of 250/);
   assert.match(last, /PS-ROW-249/);
   assert.equal(state.result.candidateRows.length, 250);
+});
+
+test('legacy auto-saved axis benchmark never overwrites the built-in workbench fixture', () => {
+  const source = readFileSync(new URL('../tabs/psnm-utility/psnm-lite-persistence-transform-preview.js', import.meta.url), 'utf8');
+  const from = source.indexOf('function loadSnapshot() {');
+  const to = source.indexOf('function restoreIntoModal(', from);
+  assert.ok(from >= 0 && to > from);
+  const code = source.slice(from, to);
+  const fixture = {
+    version: 1,
+    benchmarkDefaultsVersion: '20260610-axis-benchmark-1',
+    source: {
+      table1Text: 'PS Name\tE\tN\tU\tbore\nPS-01\t0\t3000\t100000\t250',
+      table2Text: 'Node\tX\tY\tZ\tdia\n10\t17200\t0\t1000\t273',
+    },
+  };
+  const load = (snapshot) => new Function('readSnapshot', code + ';return loadSnapshot;')(() => snapshot)();
+  assert.equal(load(fixture), null);
+  const realUser = { ...fixture, source: { ...fixture.source, table1Text: 'PS NAME\tPosition\nUser-PS\tE 3 S 2 U 1' } };
+  assert.deepEqual(load(realUser), realUser);
 });
