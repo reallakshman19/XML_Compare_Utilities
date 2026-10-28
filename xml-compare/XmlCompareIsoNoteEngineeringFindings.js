@@ -1,3 +1,4 @@
+import { logicalFindingKey, findingInstanceId } from './XmlCompareAuditSnapshotModel.js';
 // Finding-level, immutable evidence ledger for PS Mapping ↔ ISO Notes.
 // A single S1/S2 pair can yield distinct REST/GUIDE/LINE_STOP requirements
 // and clearance findings. Original source references are never overwritten.
@@ -24,7 +25,7 @@ function finding(row, domain, kind, status, rule, explanation, s1Raw, s2Raw, sou
     actionCode: text(row.action?.code), reviewAction: text(row.action?.action),
   });
 }
-export function buildIsoNoteEngineeringFindings(report = {}) {
+export function buildIsoNoteEngineeringFindings(report = {}, context = {}) {
   const rows = [];
   for (const row of report.rows || []) {
     rows.push(finding(row, 'IDENTITY', 'PIPE_PLUS_SUPPORT', row.status, text(row.matchRule),
@@ -64,20 +65,28 @@ export function buildIsoNoteEngineeringFindings(report = {}) {
         row.supportGap, row.isoNote, sourceGap, targetGap));
     }
   }
-  return Object.freeze(rows);
+  const comparisonId = String(context.comparisonId || '');
+  const policyVersion = String(context.identityPolicyVersion || '');
+  return Object.freeze(rows.map((row, ordinal) => Object.freeze({
+    ...row, comparisonId, identityPolicyVersion: policyVersion,
+    logicalFindingKey: logicalFindingKey(row),
+    findingInstanceId: findingInstanceId(row, comparisonId, ordinal),
+  })));
 }
-export function serializeIsoNoteEngineeringFindingsCsv(report = {}) {
+export function serializeIsoNoteEngineeringFindingsCsv(report = {}, context = {}) {
   const headings = [
     'Finding ID', 'Domain', 'Type', 'Finding Status', 'Applied Rule', 'Reason', 'Identity Failure Code',
     'Pipeline', 'PS NO (S1)', 'NODE_NAME (S2)', 'S1 Source Ref', 'S2 Source Ref',
     'S1 Record UID', 'S2 Record UID', 'Raw S1 Evidence', 'Raw S2 Evidence',
     'Parsed S1 Evidence JSON', 'Parsed S2 Evidence JSON', 'Review Code', 'Review Action',
+    'Comparison ID', 'Logical Finding Key', 'Finding Instance ID', 'Identity Policy Version',
   ];
-  const lines = buildIsoNoteEngineeringFindings(report).map(row => [
+  const lines = (context.findings || buildIsoNoteEngineeringFindings(report, context)).map(row => [
     row.findingId, row.domain, row.kind, row.status, row.rule, row.explanation, row.identityFailureCode,
     row.pipeline, row.psNo, row.nodeName, row.s1Ref, row.s2Ref,
     row.sourceUid, row.targetUid, row.sourceRaw, row.targetRaw,
     JSON.stringify(row.sourceEvidence), JSON.stringify(row.targetEvidence), row.actionCode, row.reviewAction,
+    row.comparisonId, row.logicalFindingKey, row.findingInstanceId, row.identityPolicyVersion,
   ]);
   return [csvRow(headings), ...lines.map(csvRow)].join('\r\n') + '\r\n';
 }
