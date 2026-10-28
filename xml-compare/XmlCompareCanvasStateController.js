@@ -8,7 +8,7 @@ import { createValidationCandidateSet, normalizeValidationBuilderState, toggleVa
 import { acceptCandidateConnector, approvePendingConnector, createPendingConnectorPreview, normalizeApprovedConnectorState, projectApprovedConnectors, rejectCandidateConnector, rejectPendingConnector } from './XmlCompareApprovedConnectorModel.js?v=20260704-c4';
 import { applyXmlCompareTransferStateAction, normalizeTransferState } from './XmlCompareTransferStateModel.js';
 import { guardCompositeApprovalAction } from './XmlCompareCompositeApprovalGate.js';
-import { requiredCompositeApprovalPolicy } from './XmlCompareApprovalPolicyRegistry.js';
+import { createBoundApprovalAuthority, isBoundApprovalAuthority } from './XmlCompareApprovalAuthority.js';
 
 export const XML_COMPARE_CANVAS_STATE_CONTROLLER_SCHEMA = 'xml-compare-canvas-state-controller/v11';
 const APPROVAL_ACTION_TYPES = new Set(['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector']);
@@ -25,7 +25,7 @@ function ruleUpdate(current = {}, field = '', patch = {}) { const nextField = cl
 function autoMapRequest(scope, sourceRecord, targetRecord, compareFields = [], validationSettings = {}) { const v = validation(validationSettings); return Object.freeze({ scope: scope === 'line' ? 'line' : 'node', sourceUid: clean(sourceRecord?.uid), targetUid: clean(targetRecord?.uid), sourceLineNo: clean(sourceRecord?.lineNo), targetLineNo: clean(targetRecord?.lineNo), compareFields: normalizeCompareFields(compareFields), validationLayer: v.layer, toleranceMm: v.toleranceMm, textRules: v.textRules, createdAt: Date.now() }); }
 function approvedFields(input = {}) { const approved = normalizeApprovedConnectorState(input); return { pendingConnectorPreview: approved.pendingConnectorPreview, matchCandidates: approved.matchCandidates, matchDecisions: approved.matchDecisions, approvedMatchSet: approved.approvedMatchSet, manualConnectors: projectApprovedConnectors(approved.approvedMatchSet) }; }
 function transferFields(input = {}) { const transfer = normalizeTransferState(input); return { transferPreviewPlans: transfer.transferPreviewPlans, transferStage: transfer.transferStage, transferAudit: transfer.transferAudit, postTransferValidation: transfer.postTransferValidation, transferLastResult: transfer.transferLastResult }; }
-export function createXmlCompareCanvasState(input = {}) { return Object.freeze({ schema: XML_COMPARE_CANVAS_STATE_CONTROLLER_SCHEMA, source: sideState('source', input.source), target: sideState('target', input.target), levelViews: levelViews(input.levelViews), compareFields: normalizeCompareFields(input.compareFields || []), validation: validation(input.validation), validationBuilder: normalizeValidationBuilderState(input.validationBuilder || {}), logs: Object.freeze(input.logs || []), fitCommands: Object.freeze(input.fitCommands || {}), selectedRecords: Object.freeze(input.selectedRecords || {}), hoverRecords: Object.freeze(input.hoverRecords || {}), candidateDecisions: candidateDecisions(input.candidateDecisions), autoMapRequest: input.autoMapRequest || null, ...approvedFields(input), ...transferFields(input) }); }
+export function createXmlCompareCanvasState(input = {}) { return Object.freeze({ schema: XML_COMPARE_CANVAS_STATE_CONTROLLER_SCHEMA, source: sideState('source', input.source), target: sideState('target', input.target), levelViews: levelViews(input.levelViews), compareFields: normalizeCompareFields(input.compareFields || []), validation: validation(input.validation), validationBuilder: normalizeValidationBuilderState(input.validationBuilder || {}), logs: Object.freeze(input.logs || []), fitCommands: Object.freeze(input.fitCommands || {}), selectedRecords: Object.freeze(input.selectedRecords || {}), hoverRecords: Object.freeze(input.hoverRecords || {}), candidateDecisions: candidateDecisions(input.candidateDecisions), autoMapRequest: input.autoMapRequest || null, approvalAuthority: isBoundApprovalAuthority(input.approvalAuthority) ? input.approvalAuthority : null, ...approvedFields(input), ...transferFields(input) }); }
 function updateTextRule(current, action, patch) { const next = validation({ ...current.validation, textRules: ruleUpdate(current.validation.textRules, action.field, patch) }); return createXmlCompareCanvasState({ ...current, validation: next, logs: [...current.logs, log('XML-COMPARE-VALIDATION-TEXT-RULE', `Text rule ${clean(action.field)} updated.`, 'validation')] }); }
 function applyCompareFieldAction(current, action) { if (action.type === 'add-compare-field') return updateCompareFields(current, addCompareField(current.compareFields, action.field), 'ADD', action.field); if (action.type === 'remove-compare-field') return updateCompareFields(current, removeCompareField(current.compareFields, action.field), 'REMOVE', action.field); if (action.type === 'set-compare-fields') return updateCompareFields(current, normalizeCompareFields(action.fields || []), 'SET', ''); return null; }
 function updateCompareFields(current, compareFields, code, field) { const message = code === 'SET' ? `${compareFields.length} compare field(s) selected.` : `Compare field ${clean(field)} ${code === 'ADD' ? 'selected' : 'removed'}.`; return createXmlCompareCanvasState({ ...current, compareFields, validationBuilder: { ...current.validationBuilder, candidateSet: null, selectedCandidateIds: [] }, logs: [...current.logs, log(`XML-COMPARE-COMPARE-FIELD-${code}`, message, 'compare-fields')] }); }
@@ -48,24 +48,41 @@ function applyNavigationAction(current, action, side) { if (action.type === 'set
 function applyFitOrMapAction(current, action, side) { if (action.type === 'fit-all') { const command = createXmlCompareFitCommand({ side, records: action.records || [] }); return createXmlCompareCanvasState({ ...current, fitCommands: { ...current.fitCommands, [side]: command }, logs: [...current.logs, log(command.ok ? 'XML-COMPARE-CANVAS-FIT-ALL' : 'XML-COMPARE-CANVAS-FIT-EMPTY', `${side} fit all ${command.ok ? 'ready' : 'empty'}`, side)] }); } if (action.type === 'request-auto-map') return requestAutoMap(current, action); if (action.type === 'clear-auto-map') return createXmlCompareCanvasState({ ...current, autoMapRequest: null, logs: [...current.logs, log('XML-COMPARE-AUTO-MAP-CLEAR', 'Auto Map result cleared.', 'auto-map')] }); return null; }
 function requestAutoMap(current, action) { const sourceRecord = current.selectedRecords.source || null, targetRecord = current.selectedRecords.target || null; if (!sourceRecord || !targetRecord) return createXmlCompareCanvasState({ ...current, logs: [...current.logs, log('XML-COMPARE-AUTO-MAP-NEEDS-SELECTION', 'Select one Source item and one Target item before Auto Map.', 'auto-map')] }); const request = autoMapRequest(action.scope, sourceRecord, targetRecord, current.compareFields, current.validation); return createXmlCompareCanvasState({ ...current, autoMapRequest: request, logs: [...current.logs, log('XML-COMPARE-AUTO-MAP-REQUEST', `Auto Map ${request.scope}: ${clean(sourceRecord.uid)} → ${clean(targetRecord.uid)}`, 'auto-map')] }); }
 function selectRecord(current, action, side) { const result = selectXmlCompareCanvasRecord(current[side], action.records || [], action.uid); const selectedRecords = { ...current.selectedRecords, [side]: result.record }; const other = side === 'source' ? selectedRecords.target : selectedRecords.source; const sourceRecord = side === 'source' ? result.record : other; const targetRecord = side === 'target' ? result.record : other; const preview = sourceRecord && targetRecord ? createPendingConnectorPreview({ sourceRecord, targetRecord }) : null; const logs = [...current.logs, result.log]; if (preview) logs.push(log('XML-COMPARE-LINK-PREVIEW', `${preview.sourceLabel} → ${preview.targetLabel}`, 'connector')); return createXmlCompareCanvasState({ ...current, [side]: result.navState, selectedRecords, validationBuilder: { ...current.validationBuilder, candidateSet: null, selectedCandidateIds: [] }, pendingConnectorPreview: preview, logs }); }
-// A missing approval context is a hard failure, not an implicit generic exception.
-function approveActionOrBlock(current, action, approvalContext) {
-  if (!APPROVAL_ACTION_TYPES.has(action.type)) return '';
-  if (!approvalContext || typeof approvalContext.scoped !== 'boolean') return 'MISSING_APPROVAL_CONTEXT';
-  const { sourceRecords, targetRecords } = approvalContext;
-  if (!Array.isArray(sourceRecords) || !Array.isArray(targetRecords))
-    return 'MISSING_APPROVAL_RECORD_SCOPE';
-  const required = requiredCompositeApprovalPolicy(sourceRecords, targetRecords);
-  if (required && (!approvalContext.scoped || approvalContext.policy?.id !== required.id))
-    return 'DOMAIN_APPROVAL_POLICY_REQUIRED';
-  const verdict = guardCompositeApprovalAction({
-    ...approvalContext, action, pendingPreview: current.pendingConnectorPreview,
+// An approval authority is bound to the controller state from the *loaded*
+// workspace. A per-command caller may not choose a different scope or policy.
+export function bindXmlCompareCanvasApprovalAuthority(state = {}, {
+  sourceRecords, targetRecords,
+} = {}) {
+  return createXmlCompareCanvasState({
+    ...state, approvalAuthority: createBoundApprovalAuthority({ sourceRecords, targetRecords }),
   });
-  return verdict.blocked ? verdict.reason || 'APPROVAL_POLICY_REJECTED' : '';
+}
+function approveActionOrBlock(current, action) {
+  if (!APPROVAL_ACTION_TYPES.has(action.type)) return '';
+  const authority = current.approvalAuthority;
+  if (!isBoundApprovalAuthority(authority)) return 'MISSING_BOUND_APPROVAL_AUTHORITY';
+  const verdict = guardCompositeApprovalAction({
+    ...authority, action, pendingPreview: current.pendingConnectorPreview,
+  });
+  if (verdict.blocked) return verdict.reason || 'APPROVAL_POLICY_REJECTED';
+  if (!authority.scoped) {
+    // Generic / same-role comparisons retain approval, but the candidate
+    // must still be part of the workspace-bound dataset. This forbids a
+    // fabricated empty-record context from bypassing the reducer.
+    const pairs = action.type === 'bulk-approve-candidate-pairs' ? action.candidates || [] :
+      action.type === 'approve-pending-connector' ? [current.pendingConnectorPreview] :
+        [action.candidate];
+    if (!pairs.length || pairs.some(pair => !pair ||
+      !authority.sourceRecords.some(row => row.uid === pair.sourceUid) ||
+      !authority.targetRecords.some(row => row.uid === pair.targetUid))) {
+      return 'APPROVAL_RECORD_NOT_IN_BOUND_DATASET';
+    }
+  }
+  return '';
 }
 export function applyXmlCompareCanvasAction(state = {}, action = {}, options = {}) {
   const current = createXmlCompareCanvasState(state);
-  const violation = approveActionOrBlock(current, action, options?.approvalContext);
+  const violation = approveActionOrBlock(current, action);
   if (violation) return createXmlCompareCanvasState({
     ...current, logs: [...current.logs, log('XML-COMPARE-APPROVAL-BLOCKED', violation, 'approval')],
   });
