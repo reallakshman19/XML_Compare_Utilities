@@ -76,6 +76,25 @@ assert.match(xml.xmlText, /<IsoNoteXml/);
 assert.match(xml.xmlText, /PS-006\.7/);
 assert.match(xml.xmlText, /PS-XXXX/);
 
+// Original ISO identifiers are authoritative; NODE_NUM is only a locator.
+const unusualS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '100', 'PS02364.1', "/PS02364.1 :ISONOTE 'REST(2kN)'"),
+  tab('/PIPE-1/B4', '110', 'SL-263..4', "/SL-263..4 :ISONOTE 'GUIDE(2kN)'"),
+  tab('/PIPE-1/B4', '120', '/PS-XXXX', "/PS-XXXX :ISONOTE 'REST(2kN)'"),
+  tab('/PIPE-1/B4', '130', '/PS-XXXX', "/PS-XXXX :ISONOTE 'REST(3kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const rawGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, unusualS2]);
+const rawItems = rawGraph.nodes.filter(node => node.levelId === 'isoItem' && node.sourceRefs.some(ref => ref.startsWith('S2:')));
+assert.equal(rawItems.length, 4, 'repeated placeholder support IDs must not merge');
+assert.ok(rawItems.some(item => item.fields.supportId === 'PS02364.1' && item.fields.rawSupportId === 'PS02364.1'));
+assert.ok(rawItems.some(item => item.fields.supportId === 'SL-263..4' && item.fields.rawSupportId === 'SL-263..4'));
+assert.equal(rawItems.filter(item => item.fields.supportId === '/PS-XXXX').length, 2);
+assert.ok(rawItems.every(item => item.fields.revision === ''));
+assert.ok(!rawItems.some(item => item.fields.supportId === '100' || item.fields.supportId === '110'));
+assert.ok(rawGraph.diagnostics.some(d => d.code === 'NONCANONICAL_ID' && d.sourceRef === 'S2:1'));
+assert.equal(new Set(rawItems.map(item => item.key)).size, 4);
+
 const shell = renderTableCategorizedXmlShellHtml({
   activeStep: 'table', activeTab: 'source', activeSourceId: 'S1', sources: [s1, s2],
   profile: ISO_NOTE_DUAL_SOURCE_PROFILE, settingsPanel: { collapsed: false }
