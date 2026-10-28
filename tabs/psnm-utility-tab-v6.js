@@ -408,3 +408,6 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   container.addEventListener('click', onClick); container.addEventListener('input', onInput); container.addEventListener('change', onInput); document.addEventListener('keydown', onKeydown);
   return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); document.removeEventListener('keydown', onKeydown); tile.remove(); };
 }
+
+// Pure state-level hooks for regression tests; no DOM is created or modified.
+export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor });
