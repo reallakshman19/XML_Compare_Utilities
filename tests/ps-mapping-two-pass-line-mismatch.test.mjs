@@ -43,7 +43,6 @@ test('Pass 2: exact support base, DN and reference node retain REST but flag Amb
 
 test('Full pipeline: unresolved line identity cannot generate a hardware addition or a synthetic .X1', () => {
   const result=run(runFull);
-  console.log('DEBUG_ONE',JSON.stringify({rows:result.rows?.map(x=>({no:x.psnoModel,node:x.node,ref:x.table1PsNo,status:x.finalStatus,mismatch:x.lineMismatchReview,review:x.identityReview,missing:x.missingNodeRestraints,action:x.consolidatedNodeWiseAction})),candidates:result.candidateRows?.map(x=>({no:x.psnoModel,node:x.node,ref:x.table1PsNo,status:x.finalStatus,mismatch:x.lineMismatchReview,review:x.identityReview,missing:x.missingNodeRestraints,synthetic:x.syntheticMissingSupport})),groups:result.canonicalAssessments}).slice(0,9000));
   const relevant=[...(result.rows||[]),...(result.candidateRows||[])];
   assert.equal(relevant.some(r => r.syntheticMissingSupport===true),false);
   assert.equal(relevant.some(r => /PS-109\\.1\\.X1/.test(String(r.psnoModel))),false);
@@ -71,7 +70,6 @@ test('Pass 2 never auto-maps when two reference nodes share base and DN', () => 
   const references=ref([[S,'3180','PS-109.1',2,iso],
     ['/ASIM-1885-PL-6"-CS-S8810107-02/B3','3190','PS-109.1',2,iso]]);
   const result=run(runFull,references);
-  console.log('DEBUG_MULTI',JSON.stringify({rows:result.rows?.map(x=>({node:x.node,ref:x.table1PsNo,status:x.finalStatus,mismatch:x.lineMismatchReview})),candidates:result.candidateRows?.map(x=>({node:x.node,ref:x.table1PsNo,status:x.finalStatus,mismatch:x.lineMismatchReview,synthetic:x.syntheticMissingSupport})),groups:result.canonicalAssessments}).slice(0,9000));
   const rows=result.candidateRows.filter(r=>r.lineMismatchReview===true);
   assert.equal(new Set(rows.map(r=>r.candidateNode)).size,2);
   assert.equal(rows.filter(r=>r.selected===true || r.autoSelectable===true).length,0);
@@ -97,7 +95,7 @@ test('Unrelated support base never qualifies for pass 2', () => {
 });
 
 test('Application modules and GitHub Pages copies are byte-identical', () => {
-  for(const p of ['ps-mapping-engine-diagnostics.js','ps-mapping-engine-diagnostics-v17.js',
+  for(const p of ['ps-mapping-engine-diagnostics.js','ps-mapping-engine-diagnostics-v6.js','ps-mapping-engine-diagnostics-v17.js',
     'ps-mapping-engine-diagnostics-v25.js']) {
     assert.equal(readFileSync(new URL('../docs/tabs/ps-mapping-utility/'+p,import.meta.url),'utf8'),
       readFileSync(new URL('../tabs/ps-mapping-utility/'+p,import.meta.url),'utf8'),p);
