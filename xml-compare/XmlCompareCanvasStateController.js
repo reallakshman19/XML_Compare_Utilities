@@ -73,8 +73,11 @@ function approveActionOrBlock(current, action) {
       action.type === 'approve-pending-connector' ? [current.pendingConnectorPreview] :
         [action.candidate];
     if (!pairs.length || pairs.some(pair => !pair ||
-      !authority.sourceRecords.some(row => row.uid === pair.sourceUid) ||
-      !authority.targetRecords.some(row => row.uid === pair.targetUid))) {
+      // Ambiguous generic candidates are processed as NEEDS_REVIEW, never
+      // approved; retain that safe decision even without a target UID.
+      (pair.status !== 'ambiguous' &&
+       (!authority.sourceRecords.some(row => row.uid === pair.sourceUid) ||
+        !authority.targetRecords.some(row => row.uid === pair.targetUid))))) {
       return 'APPROVAL_RECORD_NOT_IN_BOUND_DATASET';
     }
   }
