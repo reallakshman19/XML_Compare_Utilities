@@ -38,7 +38,7 @@ function extractRows(xmlText, side) {
     const identity = isoNoteCompositeIdentity(record, mapping ? 'source' : 'target');
     const invalid = !identity.valid;
     return Object.freeze({
-      side, pipe, id, uid: clean(record.uid), supportGap: mapping ? clean(record.supportGap) : '', dtxr: mapping ? clean(record.dtxr) : '', isoNote: mapping ? '' : clean(record.rawNote || record.supportISONOTE), normalizedPipe, normalizedId,
+      side, pipe, id, psNo: mapping ? id : '', lineNoInCii: mapping ? '' : pipe, nodeName: mapping ? '' : id, uid: clean(record.uid), supportGap: mapping ? clean(record.supportGap) : '', dtxr: mapping ? clean(record.dtxr) : '', isoNote: mapping ? '' : clean(record.rawNote || record.supportISONOTE), normalizedPipe, normalizedId,
       key: identity.key, identityReason: identity.reason || '',
       valid: !invalid, placeholder: placeholder(normalizedId),
       sourceRef: clean(record.rawSummary?.sourceRefs || record.sourceRefs?.join(' ') || record.uid),
