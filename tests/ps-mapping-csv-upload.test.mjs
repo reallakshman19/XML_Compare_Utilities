@@ -68,6 +68,7 @@ test('source CSV upload controls stay mirrored to deployed GitHub Pages', () => 
   for (const path of [
     'ps-mapping-utility-tab-source-ux-ui.js',
     'ps-mapping-utility/ps-mapping-csv-import.js',
+    'ps-mapping-utility-tab-candidate-detail-ui.js',
   ]) {
     assert.equal(
       readFileSync(new URL('../tabs/' + path, import.meta.url), 'utf8'),
@@ -75,4 +76,9 @@ test('source CSV upload controls stay mirrored to deployed GitHub Pages', () => 
       path,
     );
   }
+});
+
+test('nested config banner is not inserted before a non-child DOM node', () => {
+  const candidateUI = readFileSync(new URL('../tabs/ps-mapping-utility-tab-candidate-detail-ui.js', import.meta.url), 'utf8');
+  assert.match(candidateUI, /banner\?\.parentNode === body/);
 });
