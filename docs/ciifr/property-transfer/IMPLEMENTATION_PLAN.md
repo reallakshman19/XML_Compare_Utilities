@@ -40,7 +40,7 @@ SOURCE→TARGET correspondence is **never auto-approved** from equal node number
 | `docs/ciifr/property-transfer/IMPLEMENTATION_PLAN.md` | This acceptance/rollout plan |
 | `docs/cii-fnr-vnext.html` | One new top-level tab, scoped section and CSS link; preserve all other sections verbatim |
 | `tabs/.../ui/app.js` + `docs/tabs/.../ui/app.js` | Only import/mount, tab registration, hide new panel; existing behaviors unchanged |
-| `tabs/.../ui/property-transfer/cii-index.js` + served mirror | Read-only V14 physical index, CONTROL counts, RRMAT row-length, typed aux ownership with bounded slots; fail closed |
+| `tabs/.../ui/property-transfer/cii-index.js` + served mirror | Read-only V14 physical index, CONTROL counts (including NOZZLES/HANGERS/IZUP), full RRMAT material-entry presence/type/range and alignment by element ordinal, typed aux ownership with bounded slots; fail closed |
 | `.../property-transfer/element.js` + served mirror | Path A read-only exact oriented FROM/TO; no implicit reversal |
 | `.../property-transfer/node.js` + served mirror | Path B read-only node/auxiliary occurrence; no copy/rename |
 | `.../property-transfer/panel.js` + served mirror | Fully isolated inputs and local-only file reads, dual independent subpanels, no writer |
@@ -49,6 +49,10 @@ SOURCE→TARGET correspondence is **never auto-approved** from equal node number
 | `agents/WIP-ciifr-prop-r0-20261028_workreport.md` | Reproducible source-based handover |
 
 **No pre-existing NodeName, Nodal writer, physical parser or Geometry implementation was modified.** Existing `ui/app.js` has the minimal additive host integration only. Version mismatch, unknown section ownership or materially incomplete V14 control/aux data must be reported and held.
+
+## Canonical phase semantics
+
+The table below is the **single P0–P6 implementation contract**, also reconciled into the concept note §13. **P3 is read-only typed semantic comparison, never writer authority.** P4 is the first existing-slot W1 candidate and requires a new, explicit approval. Restraints have first priority for *write qualification*; Process may be inspected in parallel. The present R0 inspector uses **exact oriented FROM–TO pairs**; TO-only navigation is a P2 evidence-filter enhancement, not a claimed R0 feature.
 
 ## Phases, dependencies and acceptance
 
