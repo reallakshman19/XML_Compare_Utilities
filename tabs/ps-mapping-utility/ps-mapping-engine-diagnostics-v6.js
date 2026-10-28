@@ -71,22 +71,36 @@ function candidateSortByAnchor(a, b) {
     || naturalCompare(a.table1PsNo || '', b.table1PsNo || '');
 }
 
+function hasIdentityBore(row = {}) {
+  const expected = Number(row.derivedDn);
+  const model = Number(row.modelBore);
+  return row.boreBasis !== 'BORE_IGNORED'
+    && hasExactBore(row) && Number.isFinite(expected) && expected > 0
+    && Number.isFinite(model) && model > 0 && Math.abs(expected - model) <= 1e-6;
+}
+function distinctReferenceNodes(rows = []) {
+  return [...new Set(rows.map(r => String(r.candidateNode || r.node || '').trim()).filter(Boolean))];
+}
 function selectStageCandidate(group, options = {}) {
-  const candidates = (group || []).filter((row) => isPsCandidate(row));
-  const loop1 = candidates.filter((row) => hasExactBore(row) && hasExactLine(row));
-  if (loop1.length) return { stage: 'LOOP1_EXACT_LINE_BORE', candidate: [...loop1].sort(candidateSortByAnchor)[0] };
-
-  if (options.attemptApproxLineMatch === true) {
-    const loop2 = candidates.filter((row) => hasExactBore(row) && hasApproxLine(row));
-    if (loop2.length) return { stage: 'LOOP2_APPROX_LINE', candidate: [...loop2].sort(candidateSortByAnchor)[0] };
+  const candidates = (group || []).filter(row => isPsCandidate(row) && hasIdentityBore(row));
+  const requireLine = options.requireLineFamilyInIdentity !== false;
+  const eligible = requireLine ? candidates.filter(hasExactLine) : candidates;
+  const nodes = distinctReferenceNodes(eligible);
+  // Node cannot be invented from model support base; when the chosen identity
+  // fields point at several reference nodes, require explicit user selection.
+  if (nodes.length > 1) return { stage:'AMBIGUOUS_REFERENCE_NODE', candidate:null };
+  if (eligible.length) return { stage: requireLine ? 'LOOP1_EXACT_LINE_BORE' : 'LOOP1_BASE_DN_NODE',
+    candidate:[...eligible].sort(candidateSortByAnchor)[0] };
+  if (requireLine && options.attemptApproxLineMatch === true) {
+    const approximate = candidates.filter(hasApproxLine);
+    if (distinctReferenceNodes(approximate).length === 1)
+      return { stage:'LOOP2_APPROX_LINE_REVIEW', candidate:[...approximate].sort(candidateSortByAnchor)[0] };
   }
-
   if (options.attemptApproxBoreMatch === true) {
-    const loop3 = candidates.filter((row) => (hasExactLine(row) || (options.attemptApproxLineMatch === true && hasApproxLine(row))) && hasApproxBore(row));
-    if (loop3.length) return { stage: 'LOOP3_APPROX_BORE', candidate: [...loop3].sort(candidateSortByAnchor)[0] };
+    // Approximate dimensions provide review hints, never engineering identity.
+    return { stage:'UNMAPPED_APPROX_BORE_REVIEW', candidate:null };
   }
-
-  return { stage: 'UNMAPPED', candidate: null };
+  return { stage:'UNMAPPED', candidate:null };
 }
 
 function markMapped(row, selected, stage) {
@@ -101,50 +115,72 @@ function markMapped(row, selected, stage) {
 }
 
 function normalizeVisibleCandidates(candidates = [], options = {}) {
-  if (!Array.isArray(candidates)) return { visibleCandidates: candidates, stageByModel: new Map() };
-  const byModel = new Map();
-  const auditRows = [];
-
-  for (const row of candidates) {
-    if (isAuditRow(row)) {
-      auditRows.push(row);
-      continue;
-    }
-    const key = modelKey(row);
-    if (!byModel.has(key)) byModel.set(key, []);
+  if (!Array.isArray(candidates)) return {visibleCandidates:candidates,stageByModel:new Map()};
+  const byModel=new Map(), auditRows=[];
+  for(const row of candidates) {
+    if(isAuditRow(row)) {auditRows.push(row);continue;}
+    const key=modelKey(row);
+    if(!byModel.has(key))byModel.set(key,[]);
     byModel.get(key).push(row);
   }
-
-  const visible = [];
-  const stageByModel = new Map();
-  for (const [key, group] of byModel.entries()) {
-    const { stage, candidate } = selectStageCandidate(group, options);
-    stageByModel.set(key, { stage, candidate });
-    if (!candidate) continue;
+  const visible=[],stageByModel=new Map();
+  for(const [key,group] of byModel.entries()) {
+    const {stage,candidate}=selectStageCandidate(group,options);
+    stageByModel.set(key,{stage,candidate});
+    if(!candidate) continue;
+    const reviewed = stage === 'LOOP2_APPROX_LINE_REVIEW'
+      || (options.requireLineFamilyInIdentity === false && !hasExactLine(candidate));
     visible.push({
-      ...candidate,
-      mapped: true,
-      mappedStage: stage,
-      mappedNode: candidate.candidateNode || candidate.node || '',
-      mappedTable1PsNo: candidate.table1PsNo || '',
-      matchGroup: stage === 'LOOP1_EXACT_LINE_BORE'
-        ? (candidate.reviewRequired ? '03_REVIEW_REQUIRED' : '01_SELECTED_MATCH')
-        : '03_REVIEW_REQUIRED',
-      reason: candidate.reason || (stage === 'LOOP1_EXACT_LINE_BORE'
-        ? 'Mapped in Loop 1 by PS, exact line family and exact bore. Support/gap diagnostics are evaluated only after this mapping anchor is selected.'
-        : `Mapped in ${stage}. Support/gap diagnostics are evaluated only after this mapping anchor is selected.`),
+      ...candidate, mapped:true, mappedStage:stage, mappedNode:candidate.candidateNode || candidate.node || '',
+      mappedTable1PsNo:candidate.table1PsNo || '',
+      selected:!reviewed, autoSelectable:!reviewed && candidate.autoSelectable === true,
+      reviewRequired:reviewed || candidate.reviewRequired === true,
+      finalStatus:reviewed ? 'USER_REVIEW_REQUIRED' : candidate.finalStatus,
+      confidence:reviewed ? 'REVIEW' : candidate.confidence,
+      warnings:[candidate.warnings,reviewed ? 'LINE_IDENTITY_OPTIONAL_OR_APPROX_REVIEW' : ''].filter(Boolean).join('; '),
+      matchGroup:reviewed || candidate.reviewRequired ? '03_REVIEW_REQUIRED' : '01_SELECTED_MATCH',
+      reason:reviewed
+        ? 'Unique support-base + DN + reference node; line-family evidence is optional/approximate and requires engineering review.'
+        : 'Mapped by support base, verified DN, reference node identity and required line family. Support/gap assessed afterward.',
     });
   }
-
-  return { visibleCandidates: [...visible, ...auditRows], stageByModel };
+  return {visibleCandidates:[...visible,...auditRows],stageByModel};
 }
 
-function annotateRowsByStage(rows, stageByModel) {
-  if (!Array.isArray(rows)) return rows;
-  return rows.map((row) => {
-    const mapped = stageByModel.get(modelKey(row));
-    if (!mapped?.candidate) return row;
-    return markMapped(row, mapped.candidate, mapped.stage);
+function clearUnqualifiedAssignment(row,stage) {
+  if(!row || isAuditRow(row) || !modelKey(row) || modelKey(row)==='__UNKNOWN_MODEL__')return row;
+  // Never preserve a guessed reference node after staged identity selection fails.
+  const warning = stage === 'AMBIGUOUS_REFERENCE_NODE'
+    ? 'AMBIGUOUS_REFERENCE_NODE' : 'NO_QUALIFIED_REFERENCE_CONTEXT';
+  return {
+    ...row, node:'', candidateNode:'', mappedNode:'', mappedTable1PsNo:'',
+    table1PsNo:'', tag:'', source:'', sourceRow:'', nodeLine:'', nodeLineFamily:'',
+    nodeIsonote:'', nodeIsonoteRaw:'', nodeMasterKeywords:'', supportTypesAvailable:'',
+    pipeSizeRaw:'', derivedDn:'', supportMatch:'', matchedTypes:'', mapped:false,
+    enabled:false, selected:false, autoSelectable:false, eligible:false,
+    finalStatus:stage === 'AMBIGUOUS_REFERENCE_NODE' ? 'USER_REVIEW_REQUIRED' : 'NO_MATCH',
+    confidence:'NONE', confidenceScore:0, mappedStage:stage || 'UNMAPPED',
+    warnings:[row.warnings,warning].filter(Boolean).join('; '),
+    reviewAction:stage === 'AMBIGUOUS_REFERENCE_NODE'
+      ? 'Multiple reference nodes share the configured identity. Select a reference node manually.'
+      : 'No qualified reference identity: verify support base, DN and (when required) line family.',
+    missingSupportKeywords:'', extraSupportKeywords:'', nodeCoverageStatus:'', nodeCoverageNote:'',
+  };
+}
+function annotateRowsByStage(rows,stageByModel) {
+  if(!Array.isArray(rows))return rows;
+  return rows.map(row=>{
+    const mapped=stageByModel.get(modelKey(row));
+    if(!mapped?.candidate)return clearUnqualifiedAssignment(row,mapped?.stage);
+    const selected=markMapped(row,mapped.candidate,mapped.stage);
+    const reviewed=mapped.stage === 'LOOP2_APPROX_LINE_REVIEW'
+      || (mapped.stage === 'LOOP1_BASE_DN_NODE' && !hasExactLine(mapped.candidate));
+    return reviewed ? {
+      ...selected, enabled:false, selected:false, autoSelectable:false,
+      reviewRequired:true, finalStatus:'USER_REVIEW_REQUIRED',confidence:'REVIEW',
+      warnings:[selected.warnings,'LINE_IDENTITY_OPTIONAL_OR_APPROX_REVIEW'].filter(Boolean).join('; '),
+      reviewAction:'Unique support-base + DN node context; verify differing or approximate line family.',
+    } : selected;
   });
 }
 
@@ -350,6 +386,7 @@ export function runPsMappingResolver(input = {}) {
     candidates: enrichedCandidates,
     approxConfig: {
       ...(result?.approxConfig || {}),
+      configuredReferenceIdentity: options.requireLineFamilyInIdentity !== false ? 'SUPPORT_BASE_LINE_FAMILY_DN_NODE' : 'SUPPORT_BASE_DN_NODE',
       consolidatedNodeWiseAction: 'Node-wise post-anchor action. Mandatory Table-2 rows with no mapped node show: No matching node, needs review. Table-1-only node contexts with no mapped Table-2 PS No show: PS No. not Mapped.',
       stagedResolver: 'Loop 1 exact PS+line+bore maps Table-2 rows first. Loop 2/3 approximate passes run only for still-unmapped rows and only when enabled. Support and support-gap are post-anchor diagnostics only and never select the mapping anchor.',
     },

@@ -38,6 +38,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Canonical assessment and existing markdown regression suites
-        run: node --test tests/ps-mapping-canonical-assessment.test.mjs tests/ps-mapping-markdown-input.test.mjs
+        run: node --test tests/ps-mapping-canonical-assessment.test.mjs tests/ps-mapping-markdown-input.test.mjs tests/ps-mapping-reference-identity.test.mjs
       - name: GitHub Pages deployment contract
         run: node tests/deploy-workflow-pages-artifact.test.js

@@ -27,7 +27,8 @@ const refNo = row => clean(val(row,'table1SupportNo','table1PsNo','mappedTable1P
 const node = row => clean(val(row,'mappedNode','candidateNode','node','Reference Node'));
 const line = row => clean(val(row,'nodeLineFamily','t1LineFamily','Reference Line Family'));
 const dn = row => clean(val(row,'derivedDn','table1Dn','Derived DN'));
-const groupKey = row => refNo(row) && node(row) ? [refNo(row),node(row),line(row),dn(row)].join('\u001f') : '';
+const groupKey = (row,options={}) => refNo(row) && node(row)
+  ? [refNo(row),node(row),...(options.requireLineFamilyInIdentity === false ? [] : [line(row)]),dn(row)].join('\u001f') : '';
 const modelNo = row => clean(val(row,'psnoModel','modelPsNo','Model Support No'));
 const gapStatus = row => clean(val(row,'gapMatch','supportGapMatch','Gap / Clearance Verdict'));
 const note = row => clean(val(row,'nodeIsonote','nodeIsonoteRaw','isonote','Reference ISONOTE'));
@@ -48,7 +49,7 @@ const validBase = value => {
     && !/\b(?:XXXX|UNKNOWN|PLACEHOLDER)\b/i.test(text) && !/[|,\n]/.test(text);
 };
 
-function realPhysicalContributor(row) {
+function realPhysicalContributor(row,options={}) {
   if (!row || isSynthetic(row)) return false;
   const model = modelNo(row);
   if (!model || model === '-' || model === '0') return false;
@@ -61,9 +62,15 @@ function realPhysicalContributor(row) {
   if (!isTrue(row.mapped) && !isTrue(row.selected) && matchStatus(row) !== 'MATCHED') return false;
   const b = clean(val(row,'boreBasis','Bore Basis'));
   const l = clean(val(row,'lineBasis','Line Comparison'));
-  if (/CONFLICT|REJECT|MISMATCH/i.test(b+' '+l)) return false;
+  const optionalReviewedLine = options.requireLineFamilyInIdentity === false
+    && isTrue(row.mapped) && row.mappedStage === 'LOOP1_BASE_DN_NODE'
+    && matchStatus(row) === 'USER_REVIEW_REQUIRED';
+  // DN never becomes optional. A line conflict is acceptable for physical
+  // presence only after a unique base+DN+node mapping was retained for review.
+  if (/CONFLICT|REJECT|MISMATCH/i.test(b)) return false;
+  if (/CONFLICT|REJECT|MISMATCH/i.test(l) && !optionalReviewedLine) return false;
   const t1 = line(row), t2 = clean(val(row,'lineFamily','t2LineFamily','Model Line Family'));
-  if (t1 && t2 && t1 !== t2) return false;
+  if (t1 && t2 && t1 !== t2 && !optionalReviewedLine) return false;
   const n1 = Number(dn(row)), n2 = Number(val(row,'modelBore','t2Bore','Model Bore'));
   if (dn(row) && Number.isFinite(n1) && Number.isFinite(n2) && n1 !== n2) return false;
   return true;
@@ -115,11 +122,11 @@ function createAssessment(key) {
   return { key, required:new Set(), present:new Set(), contributors:new Set(),
     gapActions:new Set(), realRows:[], proposed:[], ref:'', atNode:'', warnings:new Set() };
 }
-function groupAssessment(rows) {
+function groupAssessment(rows,options={}) {
   const groups = new Map();
   for (const row of rows) {
     if (!row || isSynthetic(row)) continue;
-    const key = groupKey(row);
+    const key = groupKey(row,options);
     if (!key) continue;
     let group = groups.get(key);
     if (!group) {group=createAssessment(key);groups.set(key,group);}
@@ -127,7 +134,7 @@ function groupAssessment(rows) {
     group.atNode ||= node(row);
     for(const type of required(row)) group.required.add(type);
     group.realRows.push(row);
-    if (realPhysicalContributor(row)) {
+    if (realPhysicalContributor(row,options)) {
       const signature = [key,physicalId(row)||modelNo(row)].join('|');
       if (!group.contributors.has(signature)) {
         group.contributors.add(signature);
@@ -196,12 +203,13 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   // Candidate Matrix rows (review-required rows may be absent from result.rows).
   const physical = [...(result.rows||[]),...(result.candidateRows||[])].filter(r=>r&&!isSynthetic(r));
   const patchedPhysical=physical.map(normalizeDiagnostic);
-  const groups=groupAssessment(patchedPhysical);
+  const policy = result.options || {};
+  const groups=groupAssessment(patchedPhysical,policy);
   const syntheticSource=(result.candidateRows||result.rows||[]).filter(isSynthetic);
   const occupied=new Set(physical.map(modelNo).filter(Boolean).map(numberText));
   const syntheticByGroup=new Map(),proposedOwners=new Map();
   for (const row of syntheticSource) {
-    const key=groupKey(row),group=groups.get(key),type=typeOfSynthetic(row);
+    const key=groupKey(row,policy),group=groups.get(key),type=typeOfSynthetic(row);
     const id=numberText(modelNo(row));
     if (!group||!type||!group.missing.has(type)||!validBase(refNo(row))||!id||occupied.has(id)) continue;
     if (!syntheticByGroup.has(key)) syntheticByGroup.set(key,[]);
@@ -220,7 +228,7 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   const project=(sourceRows) => {
     if(!Array.isArray(sourceRows))return sourceRows;
     return sourceRows.flatMap(row=>{
-      const key=groupKey(row),group=groups.get(key);
+      const key=groupKey(row,policy),group=groups.get(key);
       if(isSynthetic(row)) {
         const allowed=syntheticByGroup.get(key)||[];
         const id=numberText(modelNo(row));
