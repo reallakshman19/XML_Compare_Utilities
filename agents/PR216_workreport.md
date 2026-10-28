@@ -32,7 +32,7 @@ Make typed REST/GUIDE/LINE STOP status first-class, immutable, and jointly autho
 - Full `npm run test:table`: **PASS** (same run/job).
 - ISO Chromium browser regression: **PASS** (same run, job `122650981433`).
 - Full three-tab real upload-to-export browser journey and deployed application: **NOT_RUN**, scope of subsequent Option B phase.
-- Real engineering input replay: **NOT_RUN** (not committed; original attachments out of CI custody).
+- Original attached S1/S2 **independent raw-data oracle PASS** (not an app replay): locally read the uploaded TSVs `Pasted text (2)(7).txt` and `Pasted text(20261027-191920).txt` using Python `csv.DictReader(delimiter='\\t')`; normalized `pipe + PS NO` against `LinenoinCII + NODE_NAME` via trim/strip leading slash/uppercase. Observed **2,778 S1, 819 S2, 7 exact keys**; every exact S1 Support Gap is empty, and every corresponding S2 note declares a gap. Expected gap status is REVIEW for all seven, never an invented MATCH. **This is an independent source-level check, not execution of the modified JS engine against the uploaded TSVs nor a deployed three-tab UI test.** No original source rows have been added to GitHub.
 - Regression oracle derived from H6 semantic requirement; not inferred from new algorithm. No new source data or mock fixture.
 - Production and `docs/` JavaScript files confirmed identical blob SHA for each module.
 
