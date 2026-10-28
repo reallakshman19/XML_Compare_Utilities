@@ -11,6 +11,9 @@ on:
       - 'docs/tabs/psnm-utility/**'
       - 'docs/tabs/psnm-utility-tab*.js'
       - 'tests/psnm-anchor-workflow-regression.test.mjs'
+      - 'tests/psnm-browser-workflow.spec.mjs'
+      - 'tests/fixtures/psnm-workflow-smoke.html'
+      - 'playwright.psnm-workflow.config.mjs'
       - '.github/workflows/psnm-anchor-workflow-qualification.yml'
   workflow_dispatch:
 
@@ -42,3 +45,32 @@ jobs:
         run: node --test tests/psnm-anchor-workflow-regression.test.mjs
       - name: Pages deployment contract
         run: node tests/deploy-workflow-pages-artifact.test.js
+
+  psnm-browser-smoke:
+    name: Chromium PSNM Source-to-Coverage browser walkthrough
+    needs: psnm-node-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Source to Master to Anchor to Match to Coverage browser flow
+        run: npx playwright test --config playwright.psnm-workflow.config.mjs
+      - name: Upload failed browser screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psnm-browser-debug
+          path: test-results/
+          if-no-files-found: ignore
