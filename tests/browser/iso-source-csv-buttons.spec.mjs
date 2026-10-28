@@ -83,11 +83,11 @@ test('S1/S2 CSV buttons: strict preflight, safe autofix, and non-destructive fai
   await expect(popup.locator('[data-table-categorized-source-text]')).toHaveValue(s2);
   // The original 819-row shape is maintained without treating a redundant
   // identical NODE_NAME or an empty trailing CSV header as a schema failure.
-  const originalShape = 'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME,\\n' +
+  const originalShape = 'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME,\n' +
     Array.from({ length: 819 }, (_, i) =>
       'PS-' + String(i + 1).padStart(4, '0') + ',PIPE-1,/PS-' +
       String(i + 1).padStart(4, '0') + ' :ISONOTE REST(2kN),PS-' +
-      String(i + 1).padStart(4, '0') + ',').join('\\n') + '\\n';
+      String(i + 1).padStart(4, '0') + ',').join('\n') + '\n';
   await popup.locator('[data-table-categorized-iso-file="S2"]').setInputFiles({
     name: 'S2.csv', mimeType: 'text/csv', buffer: Buffer.from(originalShape),
   });
