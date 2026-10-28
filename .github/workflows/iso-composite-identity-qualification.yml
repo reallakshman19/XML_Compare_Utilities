@@ -7,6 +7,7 @@ on:
       - 'tabs/xml-compare**'
       - 'tests/**'
       - 'package.json'
+      - 'playwright.iso-composite-identity.config.mjs'
       - '.github/workflows/iso-composite-identity-qualification.yml'
   workflow_dispatch:
 
@@ -40,4 +41,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test tests/browser/iso-composite-identity-audit.spec.mjs --config=playwright.xml-builder-viewport.config.mjs
+      - run: npx playwright test --config=playwright.iso-composite-identity.config.mjs
