@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'psnm.anchorSelection.v1';
+let restoringAnchor = false;
 
 function text(value) { return String(value ?? '').trim(); }
 function html(value) {
@@ -103,8 +104,13 @@ function restoreIntoModal(modal, { dispatch = true } = {}) {
     changed = true;
   }
   if (changed && dispatch) {
-    psSelect?.dispatchEvent(new Event('input', { bubbles: true }));
-    nodeSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+    restoringAnchor = true;
+    try {
+      psSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+      nodeSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+      restoringAnchor = false;
+    }
   }
   // The core input listener invalidates the previous axis transform when a
   // dropdown changes. Restore a saved axis mapping *after* dispatching those
@@ -139,6 +145,7 @@ export function installPsnmAnchorPersistenceAddon(container, ctx = {}) {
     }
   }
   function onInput(event) {
+    if (restoringAnchor) return;
     const setup = event.target?.closest?.('[data-setup]');
     if (!setup) return;
     const key = setup.dataset.setup;
