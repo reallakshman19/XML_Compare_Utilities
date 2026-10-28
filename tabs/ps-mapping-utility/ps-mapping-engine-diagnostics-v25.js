@@ -49,7 +49,7 @@ const validBase = value => {
     && !/\b(?:XXXX|UNKNOWN|PLACEHOLDER)\b/i.test(text) && !/[|,\n]/.test(text);
 };
 
-function realPhysicalContributor(row,options={}) {
+function realPhysicalIdentity(row,options={}) {
   if (!row || isSynthetic(row)) return false;
   const model = modelNo(row);
   if (!model || model === '-' || model === '0') return false;
@@ -57,7 +57,6 @@ function realPhysicalContributor(row,options={}) {
   if (sourceId && !/^T2:\d+$/i.test(sourceId)) return false;
   if (row.ambiguousMultiTable1Context || isTrue(row.suppressSyntheticMissingSupport)) return false;
   if (!['PS_BASE','PS_EXACT'].includes(expectedBasis(row))) return false;
-  if (!['SUPPORT_EXACT','SUPPORT_PARTIAL'].includes(supportBasis(row))) return false;
   if (!['MATCHED','USER_REVIEW_REQUIRED'].includes(matchStatus(row))) return false;
   if (!isTrue(row.mapped) && !isTrue(row.selected) && matchStatus(row) !== 'MATCHED') return false;
   const b = clean(val(row,'boreBasis','Bore Basis'));
@@ -74,6 +73,13 @@ function realPhysicalContributor(row,options={}) {
   const n1 = Number(dn(row)), n2 = Number(val(row,'modelBore','t2Bore','Model Bore'));
   if (dn(row) && Number.isFinite(n1) && Number.isFinite(n2) && n1 !== n2) return false;
   return true;
+}
+function realPhysicalContributor(row, options={}) {
+  if (!realPhysicalIdentity(row, options)) return false;
+  if (!['SUPPORT_EXACT','SUPPORT_PARTIAL'].includes(supportBasis(row))) return false;
+  // Presence is a fact about the Table-2 component, not the completeness of
+  // its GUIDE/STOP gap. A non-contact REST is handled independently.
+  return fromModel(row).size > 0;
 }
 
 function table2GapBySource(models=[]) {
@@ -146,32 +152,65 @@ function normalizeDiagnostic(row,sourceGaps=new Map()) {
       return next;
     }
   }
-  const status = gapStatus(next);
-  // Only upgrade a missing Table-2 gap when the *same physical row* already
-  // exposes a populated numeric gap. Never infer from a different model row.
-  if (/_MISSING_TABLE2$/i.test(status) && raw && /^T2:\d+$/i.test(physicalId(next))) {
-    const comparison = evaluateSupportGapComparison({
-      table1Text: note(next) || val(next,'supportTypesAvailable'),
-      table2Text: val(next,'supportTypesRequested','t2Keywords','Model Restraints')
-        || val(next,'dtxr','DTXR'),
-      table2GapRaw: raw,
+  // Typed compliance is recomputed on *every* source revision. The previous
+  // implementation only rechecked *_MISSING_TABLE2; a row previously EXACT
+  // could retain that verdict after its original Table-2 gap became 5mm,
+  // missing, or otherwise conflicting.
+  const oldStatus=gapStatus(next);
+  const currentType=modelTypes.has('GUIDE') ? 'GUIDE'
+    : modelTypes.has('LINE_STOP') ? 'LINE_STOP' : '';
+  const hadTypedStatus=/^(?:GUIDE_GAP|LINE_STOP_GAP)_(?:EXACT|CONFLICT|MISSING_TABLE1|MISSING_TABLE2)$/i.test(oldStatus);
+  if (currentType && reference && /^T2:\d+$/i.test(id)
+      && (hadTypedStatus || raw)) {
+    const compared=evaluateSupportGapComparison({
+      table1Text:reference,
+      table2Text:currentType === 'LINE_STOP' ? 'LINE STOP' : 'GUIDE',
+      table2GapRaw:raw,
     });
-    if (comparison.status && comparison.kind
-        && comparison.status.startsWith(status.replace(/_MISSING_TABLE2$/i,''))
-        && comparison.status !== status) {
-      next.gapMatch = comparison.status;
-      next.supportGapMatch = comparison.status;
-      next.supportGapBasis = comparison.status;
-      next.gapMatchDetail = comparison.detail;
-      next.supportGapMm = comparison.table2GapMm ?? next.supportGapMm;
-      const filterOld = text => clean(text).split(';').map(clean).filter(Boolean)
-        .filter(part => !new RegExp('^' + status + '$','i').test(part)).join('; ');
-      next.warnings = filterOld(next.warnings);
-      if (/^Correct Table-2 /i.test(clean(next.psNoWiseAction))) next.psNoWiseAction = '';
-      if (/^Table-2 .*GAP is missing/i.test(clean(next.reviewAction))) next.reviewAction = '';
-      if (/^Table-2 .*GAP is missing/i.test(clean(next.reason))) next.reason = '';
-      if (comparison.kind === 'GUIDE') next.nodeGuideGapMm = comparison.table1GapMm ?? '';
-      if (comparison.kind === 'LINE_STOP') next.nodeLineStopGapMm = comparison.table1GapMm ?? '';
+    const prefix=currentType+'_GAP_';
+    if (compared.kind===currentType && compared.status.startsWith(prefix)) {
+      const previousDetail=clean(next.gapMatchDetail);
+      const oldAction=clean(next.psNoWiseAction);
+      const oldReason=clean(next.reason);
+      const oldReview=clean(next.reviewAction);
+      next.gapMatch=compared.status;
+      next.supportGapMatch=compared.status;
+      next.supportGapBasis=compared.status;
+      next.gapMatchDetail=compared.detail;
+      next.supportGapMm=compared.table2GapMm ?? '';
+      if (currentType==='GUIDE') next.nodeGuideGapMm=compared.table1GapMm ?? '';
+      if (currentType==='LINE_STOP') next.nodeLineStopGapMm=compared.table1GapMm ?? '';
+      const gapWarnings=clean(next.warnings).split(';').map(clean).filter(Boolean)
+        .filter(w=>!w.startsWith(prefix));
+      if (compared.status.endsWith('_EXACT')) {
+        // Clear *only* stale typed gap-review text; retain unrelated
+        // identity, bore, line, and other support warnings/actions.
+        if (oldAction===previousDetail || /^Correct Table-2 (?:GUIDE|LINE STOP) GAP\b/i.test(oldAction))
+          next.psNoWiseAction='';
+        if (oldReview===previousDetail || /^Table-2 (?:GUIDE|LINE STOP) GAP\b/i.test(oldReview))
+          next.reviewAction='';
+        if (oldReason===previousDetail || /^Table-2 (?:GUIDE|LINE STOP) GAP\b/i.test(oldReason))
+          next.reason='';
+        next.warnings=gapWarnings.join('; ');
+        // An old gap-only review may be lifted only if real identity and
+        // physical support evidence are independently valid.
+        if (!next.warnings && !clean(next.reviewAction)
+            && realPhysicalContributor({...next,finalStatus:'USER_REVIEW_REQUIRED'})) {
+          if (next.finalStatus==='USER_REVIEW_REQUIRED') next.finalStatus='MATCHED';
+          next.reviewRequired=false;
+          next.autoSelectable=true;
+        }
+      } else {
+        gapWarnings.push(compared.status);
+        next.warnings=[...new Set(gapWarnings)].join('; ');
+        next.reviewRequired=true;
+        next.autoSelectable=false;
+        if (next.finalStatus==='MATCHED') next.finalStatus='USER_REVIEW_REQUIRED';
+        next.psNoWiseAction=compared.detail;
+        next.reviewAction=compared.detail;
+        if (!oldReason || oldReason===previousDetail
+            || /^Table-2 (?:GUIDE|LINE STOP) GAP\b/i.test(oldReason)) next.reason=compared.detail;
+      }
     }
   }
   if (gapStatus(next) === 'REST_CLEARANCE_EXACT' && /\bDO\s+NOT\s+REST\b/i.test(note(next))) {
