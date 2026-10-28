@@ -111,7 +111,12 @@ function applyCanvasStateAction(state, action, message = 'XML Compare state upda
     state.status = { kind: 'warn', message: 'Approval blocked by shared composite identity policy: ' + violation };
     return false;
   }
-  state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action, { approvalContext });
+  const next = applyXmlCompareCanvasAction(state.canvasState, action, { approvalContext });
+  state.canvasState = next;
+  if (IDENTITY_APPROVAL_ACTIONS.has(action.type) && next.logs.at(-1)?.code === 'XML-COMPARE-APPROVAL-BLOCKED') {
+    state.status = { kind: 'warn', message: 'Approval blocked: ' + next.logs.at(-1).message };
+    return false;
+  }
   if (action.type === 'add-compare-field' || action.type === 'remove-compare-field' || action.type === 'set-compare-fields') {
     saveCompareFieldsToStorage(state.canvasState.compareFields);
   }
