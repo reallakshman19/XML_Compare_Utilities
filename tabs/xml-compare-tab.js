@@ -75,19 +75,28 @@ function canvasSideFrom(target) { return target.closest('[data-xml-compare-canva
 function recordsForSide(state, side) { const workspace = workspaceFromState(state); return workspace[side]?.records || []; }
 function searchableRecordText(record = {}) { return [record.uid, record.stableKey, record.nodeNumber, record.nodeName, record.displayName, record.elementKey, record.lineNo, record.branchName, record.fromNode, record.toNode].map(clean).filter(Boolean); }
 function findRecordBySearch(records = [], needle = '') { const q = clean(needle).toUpperCase(); if (!q) return null; const rows = records.map((record) => ({ record, values: searchableRecordText(record) })); return rows.find((row) => row.values.some((value) => value.toUpperCase() === q))?.record || rows.find((row) => row.values.some((value) => value.toUpperCase().includes(q)))?.record || null; }
+// Approval scope comes from the *loaded documents*, never a mutable canvas
+// flag: requestAutoMap() resets isoNoteExactPairsOnly in ordinary navigation.
+function isoNoteApprovalScopeActive(state) {
+  return Boolean(state.aim?.isoNoteExactPairsOnly ||
+    isIsoNoteEngineeringInput(state.textA, state.textA) ||
+    isIsoNoteEngineeringInput(state.textB, state.textB));
+}
 function approvePolicyViolation(state, action) {
   if (!['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector'].includes(action.type)) return '';
+  if (!isoNoteApprovalScopeActive(state)) return ''; // Other XML workflows retain their own policy.
   const workspace = workspaceFromState(state);
-  const source = workspace.source.records || [], target = workspace.target.records || [];
+  const source = workspace.source?.records || [], target = workspace.target?.records || [];
   const pairs = action.type === 'bulk-approve-candidate-pairs' ? action.candidates || []
-    : action.type === 'approve-pending-connector' ? [state.canvasState.pendingConnectorPreview || {}]
+    : action.type === 'approve-pending-connector' ? [state.canvasState?.pendingConnectorPreview || {}]
       : [action.candidate || {}];
+  if (!pairs.length) return 'ISO approval rejected: no candidates provided.';
   const invalid = pairs.map(pair => validateIsoNoteCandidateIdentity(pair, source, target))
-    .find(verdict => (verdict.applicable && !verdict.valid) ||
-      (state.aim?.isoNoteExactPairsOnly && !verdict.applicable));
-  return invalid ? invalid.applicable ? invalid.reason :
-    'Exact ISO identity mode requires a PS_MAPPING_S1 source and ISO_NOTES_S2 target with resolvable records.' : '';
+    .find(verdict => !verdict.applicable || !verdict.valid);
+  return invalid ? 'ISO approval rejected: ' + invalid.reason +
+    '. Only verified PS_MAPPING_S1 to ISO_NOTES_S2 composite identities may be approved.' : '';
 }
+
 function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
   const violation = approvePolicyViolation(state, action);
   if (violation) {
