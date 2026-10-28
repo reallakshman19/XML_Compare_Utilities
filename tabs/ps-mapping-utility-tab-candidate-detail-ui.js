@@ -99,7 +99,9 @@ function ensureOptionalUnmatchedConfig() {
     <div class="psmap-mini">Default OFF. Mandatory unmatched rows are always shown. These options only expose optional audit rows that would otherwise be hidden.</div>
   `;
   const banner = body.querySelector('.psmap-banner');
-  if (banner?.nextSibling) body.insertBefore(card, banner.nextSibling);
+  // A nested config banner may have a next sibling outside this card body.
+  // insertBefore requires the reference node to be an immediate child.
+  if (banner?.parentNode === body) body.insertBefore(card, banner.nextSibling);
   else body.prepend(card);
   for (const input of card.querySelectorAll('[data-psmap-optional-flag]')) {
     const key = input.dataset.psmapOptionalFlag;
