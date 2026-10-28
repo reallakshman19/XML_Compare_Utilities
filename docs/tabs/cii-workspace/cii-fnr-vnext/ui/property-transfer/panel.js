@@ -5,6 +5,9 @@ import { inspectNodePair } from './node.js';
 
 export function mountPropertyTransfer(root) {
   const panel=root.querySelector('[data-property-transfer-area]');
+  // Older focused tests/embedders intentionally supply only their own tabs.
+  // A missing optional Property Transfer panel must not break Nodal startup.
+  if(!panel) return {getState:()=>({mounted:false,canWrite:false})};
   const $=s=>panel.querySelector(s);
   const $$=s=>[...panel.querySelectorAll(s)];
   const docs={source:null,target:null},files={source:0,target:0};
@@ -57,7 +60,7 @@ export function mountPropertyTransfer(root) {
         ...o.incidents.map(e=>['ELEMENT',e.ordinal,e.from+' → '+e.to,
           'Incident endpoint; element-owned properties']),
         ...o.restraints.map(e=>['RESTRANT',e.ownerElement,
-          'Pointer '+e.pointer+' · DOF '+e.slot,
+          'Pointer '+e.pointer+' · Slot '+e.slot,
           'Type '+e.type+' · CNode '+e.cnode+' · semantics partial']),
         ...o.displacements.map(e=>['DISPLMNT',e.ownerElement,
           'Pointer '+e.pointer+' · Specification '+e.specification,
