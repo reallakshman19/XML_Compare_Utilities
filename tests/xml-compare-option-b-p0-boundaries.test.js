@@ -74,4 +74,6 @@ const auditBody = runtime.slice(runtime.indexOf('function linkExactIsoNotePairs(
 assert.match(auditBody, /state\.isoNoteAuditLinks = links/);
 assert.doesNotMatch(auditBody, /state\.canvasState\s*=|state\.aim\s*=|approvedMatchSet|bulk-approve-candidate-pairs/);
 
+assert.match(runtime, /state\.status = \{ kind: 'warn', message: 'Approval blocked: '/,
+  'reducer-level denial must be shown as warning, not candidate approval');
 console.log('Option B P0 approval and audit isolation tests passed');
