@@ -21,6 +21,8 @@ import { createValidationAudit, downloadValidationAuditCsv, downloadValidationAu
 import { applyCompareFieldPreset } from '../xml-compare/XmlCompareCompareFieldPresets.js';
 import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js?v=20260717-psi-detect-1';
 import { compareIsoNoteMapping, buildIsoNoteAnchorCandidates, serializeIsoNoteMappingCsv, validateIsoNoteCandidateIdentity } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
+import { ISO_NOTE_COMPOSITE_ID_POLICY } from '../xml-compare/XmlCompareIsoNoteIdentityAdapter.js';
+import { guardCompositeApprovalAction } from '../xml-compare/XmlCompareCompositeApprovalGate.js';
 import { serializeIsoNoteEngineeringFindingsCsv } from '../xml-compare/XmlCompareIsoNoteEngineeringFindings.js';
 import { installUniversalXmlCategorizerRuntime } from './xml-compare-universal-categorizer-runtime.js';
 import { publishUniversalViewportContext } from '../xml-compare/universal-categorizer/universal-viewport-context.js';
@@ -83,17 +85,16 @@ function isoNoteApprovalScopeActive(state) {
     isIsoNoteEngineeringInput(state.textB, state.textB));
 }
 function approvePolicyViolation(state, action) {
-  if (!['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector'].includes(action.type)) return '';
-  if (!isoNoteApprovalScopeActive(state)) return ''; // Other XML workflows retain their own policy.
+  if (!isoNoteApprovalScopeActive(state)) return '';
   const workspace = workspaceFromState(state);
-  const source = workspace.source?.records || [], target = workspace.target?.records || [];
-  const pairs = action.type === 'bulk-approve-candidate-pairs' ? action.candidates || []
-    : action.type === 'approve-pending-connector' ? [state.canvasState?.pendingConnectorPreview || {}]
-      : [action.candidate || {}];
-  if (!pairs.length) return 'ISO approval rejected: no candidates provided.';
-  const invalid = pairs.map(pair => validateIsoNoteCandidateIdentity(pair, source, target))
-    .find(verdict => !verdict.applicable || !verdict.valid);
-  return invalid ? 'ISO approval rejected: ' + invalid.reason +
+  const verdict = guardCompositeApprovalAction({
+    scoped: true, action,
+    sourceRecords: workspace.source?.records || [],
+    targetRecords: workspace.target?.records || [],
+    pendingPreview: state.canvasState?.pendingConnectorPreview,
+    policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+  });
+  return verdict.blocked ? 'ISO approval rejected: ' + verdict.reason +
     '. Only verified PS_MAPPING_S1 to ISO_NOTES_S2 composite identities may be approved.' : '';
 }
 
