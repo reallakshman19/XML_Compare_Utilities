@@ -10,7 +10,7 @@ const csvCell = value => {
   return '"' + (/^[=+\-@\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""') + '"';
 };
 const csvRow = row => row.map(csvCell).join(',');
-function finding(row, domain, kind, status, rule, explanation, s1Raw, s2Raw, sourceEvidence = [], targetEvidence = []) {
+function finding(row, domain, kind, status, rule, explanation, identityFailureCode: text(row.identityFailureCode), s1Raw, s2Raw, sourceEvidence = [], targetEvidence = []) {
   const s1 = text(row.s1Ref) || text(row.sourceUid) || 'NO_S1_REF';
   const s2 = text(row.s2Ref) || text(row.targetUid) || 'NO_S2_REF';
   return Object.freeze({
@@ -63,13 +63,13 @@ export function buildIsoNoteEngineeringFindings(report = {}) {
 }
 export function serializeIsoNoteEngineeringFindingsCsv(report = {}) {
   const headings = [
-    'Finding ID', 'Domain', 'Type', 'Finding Status', 'Applied Rule', 'Reason',
+    'Finding ID', 'Domain', 'Type', 'Finding Status', 'Applied Rule', 'Reason', 'Identity Failure Code',
     'Pipeline', 'PS NO (S1)', 'NODE_NAME (S2)', 'S1 Source Ref', 'S2 Source Ref',
     'S1 Record UID', 'S2 Record UID', 'Raw S1 Evidence', 'Raw S2 Evidence',
     'Parsed S1 Evidence JSON', 'Parsed S2 Evidence JSON', 'Review Code', 'Review Action',
   ];
   const lines = buildIsoNoteEngineeringFindings(report).map(row => [
-    row.findingId, row.domain, row.kind, row.status, row.rule, row.explanation,
+    row.findingId, row.domain, row.kind, row.status, row.rule, row.explanation, row.identityFailureCode,
     row.pipeline, row.psNo, row.nodeName, row.s1Ref, row.s2Ref,
     row.sourceUid, row.targetUid, row.sourceRaw, row.targetRaw,
     JSON.stringify(row.sourceEvidence), JSON.stringify(row.targetEvidence), row.actionCode, row.reviewAction,
