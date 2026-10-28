@@ -128,7 +128,7 @@ assert.ok(shell.indexOf('data-table-categorized-action="load-iso-note-template"'
 const runtimeText = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
 assert.match(runtimeText, /if \(action === 'load-iso-note-template'\) return loadIsoNoteTemplate\(\)/);
 assert.match(runtimeText, /state\.profile = ISO_NOTE_DUAL_SOURCE_PROFILE/);
-assert.match(runtimeText, /transformRules: isoRules/);
+assert.match(runtimeText, /transformRules: notes && classifyIsoNoteSource\(notes\) === 'notes' \? isoRules : \[\]/);
 assert.match(runtimeText, /transformRules: \[\]/);
 
 console.log('table-categorized-iso-dual-source.test.js passed');
