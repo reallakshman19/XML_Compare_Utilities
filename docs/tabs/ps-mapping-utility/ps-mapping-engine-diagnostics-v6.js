@@ -91,6 +91,16 @@ function selectStageCandidate(group, options = {}) {
   if (nodes.length > 1) return { stage:'AMBIGUOUS_REFERENCE_NODE', candidate:null };
   if (eligible.length) return { stage: requireLine ? 'LOOP1_EXACT_LINE_BORE' : 'LOOP1_BASE_DN_NODE',
     candidate:[...eligible].sort(candidateSortByAnchor)[0] };
+  if (requireLine) {
+    const fallback = candidates.filter(row => row.lineMismatchReview === true
+      && upper(row.lineBasis) === 'LINE_CONFLICT');
+    const fallbackNodes = distinctReferenceNodes(fallback);
+    if (fallbackNodes.length > 1)
+      return { stage:'AMBIGUOUS_LINE_MISMATCH_NODE', candidate:null, alternatives:fallback };
+    if (fallback.length)
+      return { stage:'LOOP2_BASE_DN_LINE_MISMATCH_REVIEW',
+        candidate:[...fallback].sort(candidateSortByAnchor)[0] };
+  }
   if (requireLine && options.attemptApproxLineMatch === true) {
     const approximate = candidates.filter(hasApproxLine);
     if (distinctReferenceNodes(approximate).length === 1)
@@ -125,13 +135,26 @@ function normalizeVisibleCandidates(candidates = [], options = {}) {
   }
   const visible=[],stageByModel=new Map();
   for(const [key,group] of byModel.entries()) {
-    const {stage,candidate}=selectStageCandidate(group,options);
+    const {stage,candidate,alternatives=[]}=selectStageCandidate(group,options);
     stageByModel.set(key,{stage,candidate});
+    if (stage === 'AMBIGUOUS_LINE_MISMATCH_NODE') {
+      for (const alternative of alternatives) visible.push({
+        ...alternative, mapped:false, mappedStage:stage, mappedNode:'',
+        selected:false, eligible:false, autoSelectable:false, reviewRequired:true,
+        finalStatus:'USER_REVIEW_REQUIRED', confidence:'REVIEW',
+        warnings:[alternative.warnings,'AMBIGUOUS_REFERENCE_NODE'].filter(Boolean).join('; '),
+        matchGroup:'03_REVIEW_REQUIRED',
+        reason:'Ambiguous — Line Mismatch: multiple Base + DN reference nodes; verify the correct line and node before confirming coverage.',
+      });
+      continue;
+    }
     if(!candidate) continue;
-    const reviewed = stage === 'LOOP2_APPROX_LINE_REVIEW'
+    const reviewed = stage === 'LOOP2_BASE_DN_LINE_MISMATCH_REVIEW'
+      || stage === 'LOOP2_APPROX_LINE_REVIEW'
       || (options.requireLineFamilyInIdentity === false && !hasExactLine(candidate));
     visible.push({
-      ...candidate, mapped:true, mappedStage:stage, mappedNode:candidate.candidateNode || candidate.node || '',
+      ...candidate, mapped:stage !== 'LOOP2_BASE_DN_LINE_MISMATCH_REVIEW',
+      mappedStage:stage, mappedNode:candidate.candidateNode || candidate.node || '',
       mappedTable1PsNo:candidate.table1PsNo || '',
       selected:!reviewed, autoSelectable:!reviewed && candidate.autoSelectable === true,
       reviewRequired:reviewed || candidate.reviewRequired === true,
@@ -139,9 +162,11 @@ function normalizeVisibleCandidates(candidates = [], options = {}) {
       confidence:reviewed ? 'REVIEW' : candidate.confidence,
       warnings:[candidate.warnings,reviewed ? 'LINE_IDENTITY_OPTIONAL_OR_APPROX_REVIEW' : ''].filter(Boolean).join('; '),
       matchGroup:reviewed || candidate.reviewRequired ? '03_REVIEW_REQUIRED' : '01_SELECTED_MATCH',
-      reason:reviewed
-        ? 'Unique support-base + DN + reference node; line-family evidence is optional/approximate and requires engineering review.'
-        : 'Mapped by support base, verified DN, reference node identity and required line family. Support/gap assessed afterward.',
+      reason:stage === 'LOOP2_BASE_DN_LINE_MISMATCH_REVIEW'
+        ? candidate.reason
+        : reviewed
+          ? 'Unique support-base + DN + reference node; line-family evidence is optional/approximate and requires engineering review.'
+          : 'Mapped by support base, verified DN, reference node identity and required line family. Support/gap assessed afterward.',
     });
   }
   return {visibleCandidates:[...visible,...auditRows],stageByModel};
@@ -151,19 +176,24 @@ function clearUnqualifiedAssignment(row,stage) {
   if(!row || isAuditRow(row) || !modelKey(row) || modelKey(row)==='__UNKNOWN_MODEL__')return row;
   // Never preserve a guessed reference node after staged identity selection fails.
   const warning = stage === 'AMBIGUOUS_REFERENCE_NODE'
-    ? 'AMBIGUOUS_REFERENCE_NODE' : 'NO_QUALIFIED_REFERENCE_CONTEXT';
+    ? 'AMBIGUOUS_REFERENCE_NODE'
+    : stage === 'AMBIGUOUS_LINE_MISMATCH_NODE'
+      ? 'AMBIGUOUS_LINE_MISMATCH' : 'NO_QUALIFIED_REFERENCE_CONTEXT';
   return {
     ...row, node:'', candidateNode:'', mappedNode:'', mappedTable1PsNo:'',
     table1PsNo:'', tag:'', source:'', sourceRow:'', nodeLine:'', nodeLineFamily:'',
     nodeIsonote:'', nodeIsonoteRaw:'', nodeMasterKeywords:'', supportTypesAvailable:'',
     pipeSizeRaw:'', derivedDn:'', supportMatch:'', matchedTypes:'', mapped:false,
     enabled:false, selected:false, autoSelectable:false, eligible:false,
-    finalStatus:stage === 'AMBIGUOUS_REFERENCE_NODE' ? 'USER_REVIEW_REQUIRED' : 'NO_MATCH',
+    finalStatus:['AMBIGUOUS_REFERENCE_NODE','AMBIGUOUS_LINE_MISMATCH_NODE'].includes(stage)
+      ? 'USER_REVIEW_REQUIRED' : 'NO_MATCH',
     confidence:'NONE', confidenceScore:0, mappedStage:stage || 'UNMAPPED',
     warnings:[row.warnings,warning].filter(Boolean).join('; '),
     reviewAction:stage === 'AMBIGUOUS_REFERENCE_NODE'
       ? 'Multiple reference nodes share the configured identity. Select a reference node manually.'
-      : 'No qualified reference identity: verify support base, DN and (when required) line family.',
+      : stage === 'AMBIGUOUS_LINE_MISMATCH_NODE'
+        ? 'Ambiguous — Line Mismatch: several reference nodes match support base and DN. Verify reference line and node identity before hardware actions.'
+        : 'No qualified reference identity: verify support base, DN and (when required) line family.',
     missingSupportKeywords:'', extraSupportKeywords:'', nodeCoverageStatus:'', nodeCoverageNote:'',
   };
 }
@@ -173,13 +203,19 @@ function annotateRowsByStage(rows,stageByModel) {
     const mapped=stageByModel.get(modelKey(row));
     if(!mapped?.candidate)return clearUnqualifiedAssignment(row,mapped?.stage);
     const selected=markMapped(row,mapped.candidate,mapped.stage);
-    const reviewed=mapped.stage === 'LOOP2_APPROX_LINE_REVIEW'
+    const lineMismatch = mapped.stage === 'LOOP2_BASE_DN_LINE_MISMATCH_REVIEW';
+    const reviewed=lineMismatch || mapped.stage === 'LOOP2_APPROX_LINE_REVIEW'
       || (mapped.stage === 'LOOP1_BASE_DN_NODE' && !hasExactLine(mapped.candidate));
     return reviewed ? {
       ...selected, enabled:false, selected:false, autoSelectable:false,
+      mapped:lineMismatch ? false : selected.mapped,
+      identityReview:lineMismatch ? 'AMBIGUOUS_LINE_MISMATCH' : selected.identityReview,
+      lineMismatchReview:lineMismatch ? true : selected.lineMismatchReview,
       reviewRequired:true, finalStatus:'USER_REVIEW_REQUIRED',confidence:'REVIEW',
       warnings:[selected.warnings,'LINE_IDENTITY_OPTIONAL_OR_APPROX_REVIEW'].filter(Boolean).join('; '),
-      reviewAction:'Unique support-base + DN node context; verify differing or approximate line family.',
+      reviewAction:lineMismatch
+        ? mapped.candidate.reason
+        : 'Unique support-base + DN node context; verify differing or approximate line family.',
     } : selected;
   });
 }
@@ -388,7 +424,7 @@ export function runPsMappingResolver(input = {}) {
       ...(result?.approxConfig || {}),
       configuredReferenceIdentity: options.requireLineFamilyInIdentity !== false ? 'SUPPORT_BASE_LINE_FAMILY_DN_NODE' : 'SUPPORT_BASE_DN_NODE',
       consolidatedNodeWiseAction: 'Node-wise post-anchor action. Mandatory Table-2 rows with no mapped node show: No matching node, needs review. Table-1-only node contexts with no mapped Table-2 PS No show: PS No. not Mapped.',
-      stagedResolver: 'Loop 1 exact PS+line+bore maps Table-2 rows first. Loop 2/3 approximate passes run only for still-unmapped rows and only when enabled. Support and support-gap are post-anchor diagnostics only and never select the mapping anchor.',
+      stagedResolver: 'Pass 1 maps exact support base + line family + DN + reference node. Pass 2 holds same base + DN + reference-node but mismatched lines as AMBIGUOUS_LINE_MISMATCH review only. Support and gap diagnostics do not select identities.',
     },
     summary: {
       ...(result?.summary || {}),

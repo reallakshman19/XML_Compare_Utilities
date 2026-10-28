@@ -1,0 +1,26 @@
+name: PS Mapping Two-Pass Identity Qualification
+on:
+  push:
+    branches:
+      - fix/psmap-**
+    paths:
+      - 'tabs/ps-mapping-utility/**'
+      - 'docs/tabs/ps-mapping-utility/**'
+      - 'tests/ps-mapping-*.test.mjs'
+      - '.github/workflows/ps-mapping-two-pass-qualification.yml'
+  pull_request:
+    paths:
+      - 'tabs/ps-mapping-utility/**'
+      - 'docs/tabs/ps-mapping-utility/**'
+      - 'tests/ps-mapping-*.test.mjs'
+      - '.github/workflows/ps-mapping-two-pass-qualification.yml'
+jobs:
+  node-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute PS Mapping parser and two-pass identity regression tests
+        run: node --test tests/ps-mapping-markdown-input.test.mjs tests/ps-mapping-two-pass-line-mismatch.test.mjs
