@@ -48,10 +48,11 @@ function countMap(control) {
   const aux=[...six(control[1],'CONTROL_AUX1'),
     ...six(control[2],'CONTROL_AUX2'),...six(control[3],'CONTROL_AUX3',1)];
   const counts=Object.fromEntries(AUX_ORDER.map((k,i)=>[k,aux[i]]));
-  Object.assign(counts,{NUMELT:first[0],NODENAME:first[3],
-    REDUCERS:first[4],FLANGES:first[5]});
+  Object.assign(counts,{NUMELT:first[0],NUMNOZ:first[1],NOHGRS:first[2],
+    NODENAME:first[3],REDUCERS:first[4],FLANGES:first[5]});
   if(counts.NUMELT<=0||Object.entries(counts).some(([k,n])=>k!=='IZUP'&&n<0))
     invalid('PROPERTY_CONTROL_COUNT_INVALID');
+  if(counts.IZUP!==0 && counts.IZUP!==1) invalid('PROPERTY_CONTROL_IZUP_INVALID');
   return counts;
 }
 function elementPointers(cs) {
@@ -106,17 +107,36 @@ export function indexCiiV14(input) {
     if(used[family].size!==count) invalid('PROPERTY_ORPHAN_AUX_'+family);
   }
   const misc=sec.get('MISCEL_1')||[];
-  if(misc.length<Math.ceil(counts.NUMELT/6))
+  const rrmatRows=Math.ceil(counts.NUMELT/6);
+  if(misc.length<rrmatRows)
     invalid('PROPERTY_MISC_RRMAT_TRUNCATED');
+  // FORTRAN 2X,6G13.6: material ID i belongs to ELEMENTS ordinal i.
+  // Validate actual values, not merely the number of rows. Remaining MISC
+  // groups (nozzle/hanger/execution) need separate semantic qualification.
+  const materialIds=[];
+  for(let i=0;i<counts.NUMELT;i++){
+    const line=misc[Math.floor(i/6)],slot=i%6;
+    const start=2+13*slot,end=start+13;
+    if(!line || line.text.length<end) invalid('PROPERTY_MISC_RRMAT_FIELD_MISSING');
+    const raw=line.text.slice(start,end).trim();
+    if(!raw) invalid('PROPERTY_MISC_RRMAT_FIELD_MISSING');
+    const id=integer(line,start,end,'PROPERTY_MISC_RRMAT');
+    if(id<1||id>699) invalid('PROPERTY_MISC_RRMAT_ID_OUT_OF_RANGE');
+    materialIds.push(id);
+  }
   const rows=(family,n)=>sec.get(family).slice((n-1)*ROWS[family],n*ROWS[family]);
   for(const [p,owner] of used.RESTRANT) {
     const cs=rows('RESTRANT',p);
     for(let slot=0;slot<6;slot++){
       const c=cs.slice(slot*4,slot*4+4);
       const node=integer(c[0],2,15,'RESTRAINT_NODE');
-      if(!node) continue;
       const type=integer(c[0],15,28,'RESTRAINT_TYPE');
       const cnode=integer(c[0],67,80,'RESTRAINT_CNODE');
+      if(node<0 || cnode<0) invalid('PROPERTY_RESTRAINT_NODE_INVALID');
+      if(node===0) {
+        if(type!==0||cnode!==0) invalid('PROPERTY_RESTRAINT_EMPTY_SLOT_INCONSISTENT');
+        continue;
+      }
       if(type<1||type>62) invalid('PROPERTY_RESTRAINT_TYPE_INVALID');
       const record={family:'RESTRANT',node,ownerElement:owner.ordinal,pointer:p,
         slot:slot+1,type,cnode,byteStart:c[0].start,byteEnd:c[3].end,
@@ -131,6 +151,7 @@ export function indexCiiV14(input) {
       const cs=rows(family,p);
       for(let slot=0;slot<2;slot++){
         const first=cs[slot*10],node=integer(first,2,15,family+'_NODE');
+        if(node<0) invalid('PROPERTY_'+family+'_NODE_INVALID');
         if(!node) continue;
         if(!byNode.has(node)) byNode.set(node,{incidents:[],restraints:[],
           displacements:[],forces:[],rigids:[]});
@@ -150,8 +171,15 @@ export function indexCiiV14(input) {
     }
   }
   return {version:14,bytesLength:input.length,counts,elements,byNode,
-    miscRrmatRows:Math.ceil(counts.NUMELT/6),
-    miscTotalRows:misc.length,readOnly:true};
+    miscRrmatRows:rrmatRows,materialIds,
+    miscTotalRows:misc.length,
+    qualification:{controlPrimaryCounts:'NONNEGATIVE_AND_IZUP_VALIDATED',
+      rrmat:'ALL_ELEMENT_IDS_PARSED_AND_RANGE_CHECKED',
+      miscNozzles:'COUNTS_ONLY;VFLEX_CONTENT_NOT_QUALIFIED',
+      miscHangers:'COUNTS_ONLY;HANGER_CONTENT_NOT_QUALIFIED',
+      miscExecution:'NOT_QUALIFIED',
+      process:'STORED_ONLY;EFFECTIVE_CASE_AND_UNIT_NOT_QUALIFIED'},
+    readOnly:true};
 }
 export function normalizedNode(s) {
   if(!/^(0|[1-9]\d*)$/.test(String(s).trim())) invalid('PROPERTY_NODE_NOT_CANONICAL');
