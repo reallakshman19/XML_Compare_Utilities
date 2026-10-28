@@ -12,9 +12,16 @@ export const ISO_NOTE_COMPOSITE_ID_POLICY = createCompositeIdentityPolicy({
     { name: 'support', sourceField: 'psNo', targetField: 'nodeName',
       normalization: { stripLeadingSlashes: true } },
   ],
-  validity(parts) {
+  validity(parts, side, record) {
     const support = parts.find(p => p.name === 'support')?.normalized || '';
     if (!/^(PS|SL)-\d+(?:\.\d+)?$/.test(support)) return 'NONCANONICAL_ID';
+    if (side === 'target') {
+      const note = String(record?.rawNote || record?.supportISONOTE || '');
+      const noteId = note.match(/^\s*:?\/{0,2}\s*(.*?)\s*:ISONOTE\b/i)?.[1] || '';
+      if (noteId && normalizeIdentityPart(noteId, { stripLeadingSlashes: true }) !== support) {
+        return 'NODE_NAME_NOTE_MISMATCH';
+      }
+    }
     return '';
   },
 });
