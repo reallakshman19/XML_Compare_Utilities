@@ -12,6 +12,9 @@ import {
   compareIsoNoteMapping, validateIsoNoteCandidateIdentity,
   buildIsoNoteAnchorCandidates,
 } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
+import { compareIsoNoteNodeNameAndToken, extractIsoNoteSupportToken } from '../xml-compare/XmlCompareIsoNoteTokenPolicy.js';
+import { guardCompositeApprovalAction } from '../xml-compare/XmlCompareCompositeApprovalGate.js';
+import { buildIsoNoteEngineeringFindings, serializeIsoNoteEngineeringFindingsCsv } from '../xml-compare/XmlCompareIsoNoteEngineeringFindings.js';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
 import { parseTableSource } from '../xml-compare/table-categorizer/table-categorized-xml-source-parser.js';
 import {
@@ -33,6 +36,15 @@ assert.equal(isoNoteCompositeIdentity({
 assert.equal(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.1' }, 'target').valid, true);
 assert.notEqual(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.10' }, 'target').key,
   isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.1' }, 'target').key);
+
+assert.equal(extractIsoNoteSupportToken('/PS-006.5/DATUM :ISONOTE REST(2kN)').normalized, 'PS-006.5');
+assert.equal(extractIsoNoteSupportToken('/PS-006.5/DATUM :ISONOTE REST(2kN)').hasDatum, true);
+assert.equal(compareIsoNoteNodeNameAndToken('PS-006.5', '/PS-006.5/DATUM :ISONOTE REST(2kN)').valid, true);
+assert.equal(isoNoteCompositeIdentity({ lineNoInCii: '/PIPE-1', nodeName: 'PS-006.5',
+  rawNote: '/PS-006.5/DATUM :ISONOTE REST(2kN)' }, 'target').valid, true, 'DATUM cannot invalidate canonical identity');
+assert.equal(isoNoteCompositeIdentity({ lineNoInCii: '/PIPE-1', nodeName: '',
+  rawNote: '/PS-006.5 :ISONOTE REST(2kN)', supportId: 'PS-006.5' }, 'target').reason,
+  'NODE_NAME_MISSING_NOTE_TOKEN_PRESENT', 'note-token fallback remains REVIEW, not MATCH');
 
 const custom = createCompositeIdentityPolicy({ id: 'generic-non-iso', sourceRole: 'A', targetRole: 'B',
   parts: [{ name: 'system', sourceField: 'equipment', targetField: 'asset', normalization: { caseFold: true } },
@@ -92,6 +104,13 @@ for (let i = 0; i < 99; i++) notes.push({
 assert.equal(mapping.length, 2778);
 assert.equal(notes.length, 819);
 const coverage = summarizeCompositeCoverage(mapping, notes, ISO_NOTE_COMPOSITE_ID_POLICY);
+// Explicitly assert the same-ID / different-pipeline hazard population.
+const mappingById = new Map(mapping.map(r => [r.psNo.toUpperCase(), r.pipe.toUpperCase()]));
+const wrongPipelineCount = notes.filter(n => {
+  const key = n.nodeName.replace(/^\/+/, '').toUpperCase();
+  return mappingById.has(key) && mappingById.get(key) !== n.lineNoInCii.replace(/^\/+/, '').toUpperCase();
+}).length;
+assert.equal(wrongPipelineCount, 713, 'benchmark must directly count all wrong-pipeline hazards');
 assert.equal(coverage.sourceRows, 2778);
 assert.equal(coverage.targetRows, 819);
 assert.equal(coverage.sourceScopeCount, 41);
@@ -125,6 +144,9 @@ assert.equal(result.coverage.sourceCompositeDuplicates, 0);
 assert.equal(result.coverage.targetCompositeDuplicates, 0);
 assert.equal(result.rows.filter(r => r.status === 'MATCH' && r.gap.status === 'MATCH').length, 0,
   'S1 gaps absent: no verified numerical gap matches');
+const provenance = buildIsoNoteEngineeringFindings(result);
+assert.ok(provenance.every(f => Object.prototype.hasOwnProperty.call(f, 'identityFailureCode')));
+assert.match(serializeIsoNoteEngineeringFindingsCsv(result), /"Identity Failure Code"/);
 const records = createCategorizedInputXmlCanvasModel({ xmlText: xml }).records;
 const auto = buildIsoNoteAnchorCandidates({ report: result, sourceRecords: records, targetRecords: records });
 assert.equal(auto.length, 7);
@@ -133,6 +155,44 @@ const wrongTarget = records.find(r => r.lineKey === 'ISO_NOTES_S2' && r.nodeName
 const falseCandidate = { sourceUid: wrongSource.uid, targetUid: wrongTarget.uid, status: 'valid', score: .99 };
 assert.equal(validateIsoNoteCompositeCandidate(falseCandidate, records, records).valid, false);
 assert.equal(validateIsoNoteCandidateIdentity(falseCandidate, records, records).valid, false);
+const goodCandidate = auto[0];
+for (const action of [
+  { type: 'accept-candidate', candidate: falseCandidate },
+  { type: 'bulk-approve-candidate-pairs', candidates: [goodCandidate, falseCandidate] },
+  { type: 'approve-pending-connector' },
+]) {
+  const verdict = guardCompositeApprovalAction({
+    scoped: true, action, sourceRecords: records, targetRecords: records,
+    pendingPreview: action.type === 'approve-pending-connector' ? falseCandidate : null,
+    policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+  });
+  assert.equal(verdict.blocked, true, action.type + ' must reject wrong-pipeline approval');
+}
+assert.equal(guardCompositeApprovalAction({
+  scoped: true, action: { type: 'accept-candidate', candidate: goodCandidate },
+  sourceRecords: records, targetRecords: records, policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+}).blocked, false);
+assert.equal(guardCompositeApprovalAction({
+  scoped: true, action: { type: 'accept-candidate', candidate: { sourceUid: 'unresolved', targetUid: 'bad' } },
+  sourceRecords: records, targetRecords: records, policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+}).reason, 'RECORD_NOT_IN_SCOPE');
+assert.equal(guardCompositeApprovalAction({
+  scoped: true, action: { type: 'bulk-approve-candidate-pairs', candidates: [] },
+  sourceRecords: records, targetRecords: records, policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+}).reason, 'NO_APPROVAL_CANDIDATES');
+assert.equal(guardCompositeApprovalAction({
+  scoped: false, action: { type: 'accept-candidate', candidate: falseCandidate },
+  sourceRecords: records, targetRecords: records, policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+}).blocked, false, 'unrelated non-ISO workflows retain their own identity policy');
+const samePartition = {
+  sourceUid: records.find(r => r.lineKey === 'PS_MAPPING_S1').uid,
+  targetUid: records.find(r => r.lineKey === 'PS_MAPPING_S1').uid,
+};
+assert.equal(guardCompositeApprovalAction({
+  scoped: true, action: { type: 'accept-candidate', candidate: samePartition },
+  sourceRecords: records, targetRecords: records, policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+}).reason, 'POLICY_OUT_OF_SCOPE');
+
 assert.ok(result.rows.some(r => r.nodeName === 'PS02300.1' || r.nodeName?.startsWith('PS02')),
   'raw noncanonical NODE_NAME values must survive the XML parser');
 // When NODE_NAME is blank, the graph's supportId is derived from the original
@@ -145,10 +205,25 @@ const blankNameXml = '<IsoNoteXml><IsoPartition key="PS_MAPPING_S1">' +
   '<rawNote>/PS-XXXX :ISONOTE REST(2kN)</rawNote></IsoItem></IsoPartition></IsoNoteXml>';
 const blankNameReport = compareIsoNoteMapping({ sourceXml: blankNameXml, targetXml: blankNameXml });
 assert.equal(blankNameReport.rows.find(r => r.status === 'REVIEW').nodeName, 'PS-XXXX');
+assert.equal(blankNameReport.rows.find(r => r.status === 'REVIEW').identityFailureCode, 'NODE_NAME_MISSING_NOTE_TOKEN_PRESENT');
+const blankFinding = buildIsoNoteEngineeringFindings(blankNameReport).find(f => f.status === 'REVIEW');
+assert.equal(blankFinding.identityFailureCode, 'NODE_NAME_MISSING_NOTE_TOKEN_PRESENT');
+const blankCsv = serializeIsoNoteEngineeringFindingsCsv(blankNameReport);
+assert.match(blankCsv, /NODE_NAME_MISSING_NOTE_TOKEN_PRESENT/);
+const conflictXml = '<IsoNoteXml><IsoPartition key="PS_MAPPING_S1"><IsoItem><pipe>PIPE-A</pipe><psNo>PS-100.1</psNo></IsoItem></IsoPartition><IsoPartition key="ISO_NOTES_S2"><IsoItem><lineNoInCii>PIPE-A</lineNoInCii><nodeName>PS-100.1</nodeName><rawNote>/PS-101.1 :ISONOTE REST(2kN)</rawNote></IsoItem></IsoPartition></IsoNoteXml>';
+const conflict = compareIsoNoteMapping({ sourceXml: conflictXml, targetXml: conflictXml });
+assert.equal(conflict.summary.match, 0, 'conflicting token blocks automatic identity');
+assert.equal(conflict.rows.find(r => r.status === 'REVIEW').identityFailureCode, 'NODE_NAME_NOTE_MISMATCH');
+assert.match(serializeIsoNoteEngineeringFindingsCsv(conflict), /NODE_NAME_NOTE_MISMATCH/);
+
 assert.ok(!blankNameReport.rows.some(r => r.nodeName === '5790'), 'NODE_NUM is not a support identity');
 
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
 assert.match(runtime, /approvePolicyViolation/);
+assert.match(runtime, /isIsoNoteEngineeringInput\(state\.textA, state\.textA\)/);
+assert.match(runtime, /isIsoNoteEngineeringInput\(state\.textB, state\.textB\)/);
+assert.match(runtime, /guardCompositeApprovalAction/);
+
 assert.match(runtime, /approve-pending-connector/);
 assert.match(runtime, /bulk-approve-candidate-pairs/);
 console.log('xml-compare-composite-identity-benchmark.test.js passed');
