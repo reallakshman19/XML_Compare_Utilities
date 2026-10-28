@@ -50,3 +50,25 @@ test('PS Mapping: mock CSV icons, independent uploads, malformed CSV preservatio
   await expect(page.locator('[data-psmap-panel="ct2"]')).toContainText('PS-123.1');
   expect(await page.evaluate(() => window.__smokeErrors || [])).toEqual([]);
 });
+
+test('PS Mapping configuration preserves required/optional Linekey selection and invalidates stale results', async ({ page }) => {
+  await page.goto('/tests/fixtures/psmap-csv-upload.html');
+  await page.locator('[data-psmap-action="open"]').first().click();
+  await page.locator('[data-psmap-tab="config"]').click();
+  const option = page.locator('[data-psmap-setup="requireLineFamilyInIdentity"]');
+  await expect(option).toBeVisible();
+  await expect(option).toHaveValue('true');
+  await option.selectOption('false');
+  await expect(option).toHaveValue('false');
+  await page.locator('[data-psmap-tab="setup"]').click();
+  await expect(page.locator('[data-psmap-panel="setup"]')).toContainText('Linekey optional');
+  await page.locator('[data-psmap-tab="config"]').click();
+  await expect(page.locator('[data-psmap-setup="requireLineFamilyInIdentity"]')).toHaveValue('false');
+  await page.locator('[data-psmap-action="run"]:visible').first().click();
+  await expect(page.locator('[data-psmap-panel="ct2"]')).toBeVisible();
+  await page.locator('[data-psmap-tab="config"]').click();
+  await option.selectOption('true');
+  await page.locator('[data-psmap-tab="setup"]').click();
+  await expect(page.locator('[data-psmap-panel="setup"]')).toContainText('Line family + DN + reference node');
+  expect(await page.evaluate(() => window.__smokeErrors || [])).toEqual([]);
+});
