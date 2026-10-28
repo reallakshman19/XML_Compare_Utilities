@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { createCategorizedInputXmlCanvasModel } from '../xml-compare/XmlCompareCategorizedInputXmlCanvasBuilder.js';
 import { compareIsoNoteMapping, buildIsoNoteAnchorCandidates, normalizeIsoLine, normalizeIsoSupport, serializeIsoNoteMappingCsv, renderIsoNoteMappingCompareHtml } from '../xml-compare/XmlCompareIsoNoteDirectCompare.js';
 import { createXmlCompareCanvasState, applyXmlCompareCanvasAction } from '../xml-compare/XmlCompareCanvasStateController.js';
+import { createIsoNoteAuditIdentityLinks } from '../xml-compare/XmlCompareIsoNoteAuditIdentityLinks.js';
 
 const S1 = [
   ['PIPE-1/B4', 'PS-006.5'],
@@ -67,11 +68,22 @@ canvas = applyXmlCompareCanvasAction(canvas, { type: 'select-record', side: 'tar
 canvas = applyXmlCompareCanvasAction(canvas, { type: 'request-auto-map', scope: 'node' });
 assert.equal(canvas.autoMapRequest.sourceUid, anchors[0].sourceUid);
 assert.equal(canvas.autoMapRequest.targetUid, anchors[0].targetUid);
-canvas = applyXmlCompareCanvasAction(canvas, { type: 'bulk-approve-candidate-pairs', candidates: anchors });
-assert.equal(canvas.approvedMatchSet?.summary?.approvedCount, 1, 'an exact ISO Note match must reach the actual approval ledger');
-assert.equal(canvas.manualConnectors?.length, 1);
-assert.equal(canvas.manualConnectors[0].sourceUid, anchors[0].sourceUid);
-assert.equal(canvas.manualConnectors[0].targetUid, anchors[0].targetUid);
+const priorCanvas = canvas;
+const auditLinks = createIsoNoteAuditIdentityLinks({
+  report: result, sourceRecords: model.records, targetRecords: model.records,
+});
+assert.equal(auditLinks.schema, 'iso-note-audit-identity-links/v1');
+assert.equal(auditLinks.readOnly, true);
+assert.equal(auditLinks.linkedCount, 1);
+assert.equal(auditLinks.links[0].disposition, 'IDENTITY_VERIFIED_NOT_TRANSFER_APPROVED');
+assert.equal(auditLinks.links[0].pipeline, 'PIPE-1/B4');
+assert.equal(canvas, priorCanvas, 'audit link projection cannot replace canvas state');
+assert.equal(canvas.approvedMatchSet, null, 'audit identity is not a transfer approval');
+const unscopedApproval = applyXmlCompareCanvasAction(canvas, {
+  type: 'bulk-approve-candidate-pairs', candidates: anchors,
+});
+assert.equal(unscopedApproval.approvedMatchSet, null, 'reducer fails closed without approval context');
+assert.equal(unscopedApproval.logs.at(-1).message, 'MISSING_APPROVAL_CONTEXT');
 
 const oneDocument = compareIsoNoteMapping({ sourceXml: input });
 assert.deepEqual(oneDocument.summary, result.summary);
@@ -98,6 +110,7 @@ assert.match(view, /data-xml-compare-action="compare-iso-note-mapping"/);
 assert.match(view, /renderIsoNoteMappingCompareHtml\(state\.isoNoteComparison, state\.isoNoteLinkedCount\)/);
 assert.match(runtime, /compareIsoNoteMapping\(\{ sourceXml: state\.textA, targetXml: state\.textB \}\)/);
 assert.match(runtime, /linkExactIsoNotePairs\(state, state\.isoNoteComparison\)/);
-assert.match(runtime, /bulk-approve-candidate-pairs/);
+assert.match(runtime, /createIsoNoteAuditIdentityLinks/);
+assert.match(runtime, /state\.isoNoteAuditLinks = links/);
 assert.match(runtime, /serializeIsoNoteMappingCsv\(state\.isoNoteComparison\)/);
 console.log('xml-compare-iso-note-direct-compare.test.js passed');
