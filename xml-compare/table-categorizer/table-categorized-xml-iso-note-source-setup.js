@@ -1,5 +1,8 @@
 import { parseTableSource } from './table-categorized-xml-source-parser.js';
 
+// Explicit table schema aliases, not a global fuzzy header guess.
+export const ISO_NOTE_S1_HEADER_ALIASES = Object.freeze({ 'Support No': 'PS NO' });
+
 // Detect pasted data from its actual headers rather than trusting whichever
 // source selector happened to be active when the user pasted.
 export function classifyIsoNoteSource(source = {}) {
@@ -9,7 +12,7 @@ export function classifyIsoNoteSource(source = {}) {
     delimiterMode: 'auto',
   });
   const headers = new Set((parsed.headers || []).map((header) => String(header).trim().toLowerCase()));
-  if (headers.has('ps no') && headers.has('pipe')) return 'mapping';
+  if ((headers.has('ps no') || headers.has('support no')) && headers.has('pipe')) return 'mapping';
   if (headers.has('supportisonote')) return 'notes';
   return 'unknown';
 }
@@ -51,7 +54,7 @@ export function validateIsoNoteSourceLayout(profile = {}, sources = []) {
       ref: sourceId, status: 'FAIL', gate: 'iso_note_source_not_parsed',
     }];
     const headers = new Set((source.headers || []).map((header) => String(header).trim().toLowerCase()));
-    const missing = required.filter((header) => !headers.has(header.toLowerCase()));
+    const missing = required.filter((header) => !headers.has(header.toLowerCase()) && !(sourceId === 'S1' && header === 'PS NO' && headers.has('support no')));
     if (!missing.length) return [];
     return [{
       severity: 'BLOCKER', code: 'iso_note_source_role_mismatch',
