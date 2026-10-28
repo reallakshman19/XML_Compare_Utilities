@@ -131,6 +131,18 @@ assert.equal(validateIsoNoteCompositeCandidate(falseCandidate, records, records)
 assert.equal(validateIsoNoteCandidateIdentity(falseCandidate, records, records).valid, false);
 assert.ok(result.rows.some(r => r.nodeName === 'PS02300.1' || r.nodeName?.startsWith('PS02')),
   'raw noncanonical NODE_NAME values must survive the XML parser');
+// When NODE_NAME is blank, the graph's supportId is derived from the original
+// ISONOTE prefix, not from NODE_NUM; a placeholder remains REVIEW.
+const blankNameXml = '<IsoNoteXml><IsoPartition key="PS_MAPPING_S1">' +
+  '<IsoItem key="m"><pipe>PIPE-A</pipe><psNo>PS-111.1</psNo></IsoItem></IsoPartition>' +
+  '<IsoPartition key="ISO_NOTES_S2"><IsoItem key="n">' +
+  '<lineNoInCii>/PIPE-A</lineNoInCii><nodeName></nodeName>' +
+  '<supportId>PS-XXXX</supportId><nodeNumber>5790</nodeNumber>' +
+  '<rawNote>/PS-XXXX :ISONOTE REST(2kN)</rawNote></IsoItem></IsoPartition></IsoNoteXml>';
+const blankNameReport = compareIsoNoteMapping({ sourceXml: blankNameXml, targetXml: blankNameXml });
+assert.equal(blankNameReport.rows.find(r => r.status === 'REVIEW').nodeName, 'PS-XXXX');
+assert.ok(!blankNameReport.rows.some(r => r.nodeName === '5790'), 'NODE_NUM is not a support identity');
+
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
 assert.match(runtime, /approvePolicyViolation/);
 assert.match(runtime, /approve-pending-connector/);
