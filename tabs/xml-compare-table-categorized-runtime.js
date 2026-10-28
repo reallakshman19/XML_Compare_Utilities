@@ -171,7 +171,9 @@ function loadIsoNoteTemplate() {
     : roles.swapped
       ? 'Automatically assigned PS Mapping to S1 and ISO Notes to S2. Confirm fields, then build structure.'
       : 'ISO Note Template is ready: S1 PS Mapping + S2 ISO Notes. Confirm fields, then build structure.';
-  setActiveTab(layoutBlocker ? 'source' : 'levels');
+  // Template loading should expose the two source tabs, not hide them in
+  // the next Columns step. Users can explicitly confirm columns afterward.
+  setActiveTab('source');
   renderShell();
 }
 function clearActive() { const a = active(); setSources(updateSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId, { ...a, sourceText: '', headers: [], rows: [], diagnostics: [], transformRules: [] })); resetDerived(); renderShell(); }
