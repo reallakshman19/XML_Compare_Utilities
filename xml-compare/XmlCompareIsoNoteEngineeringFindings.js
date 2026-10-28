@@ -10,12 +10,12 @@ const csvCell = value => {
   return '"' + (/^[=+\-@\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""') + '"';
 };
 const csvRow = row => row.map(csvCell).join(',');
-function finding(row, domain, kind, status, rule, explanation, identityFailureCode: text(row.identityFailureCode), s1Raw, s2Raw, sourceEvidence = [], targetEvidence = []) {
+function finding(row, domain, kind, status, rule, explanation, s1Raw, s2Raw, sourceEvidence = [], targetEvidence = []) {
   const s1 = text(row.s1Ref) || text(row.sourceUid) || 'NO_S1_REF';
   const s2 = text(row.s2Ref) || text(row.targetUid) || 'NO_S2_REF';
   return Object.freeze({
     findingId: s1 + '=>' + s2 + '#' + domain + ':' + kind,
-    domain, kind, status, rule, explanation,
+    domain, kind, status, rule, explanation, identityFailureCode: text(row.identityFailureCode),
     pipeline: text(row.pipe), psNo: text(row.psNo), nodeName: text(row.nodeName),
     s1Ref: text(row.s1Ref), s2Ref: text(row.s2Ref),
     sourceUid: text(row.sourceUid), targetUid: text(row.targetUid),
