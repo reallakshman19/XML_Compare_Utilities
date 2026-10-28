@@ -249,7 +249,8 @@ function groupAssessment(rows,options={}) {
       }
     }
     const status = gapStatus(row);
-    if (/_(?:CONFLICT|MISSING_TABLE1|MISSING_TABLE2)$/i.test(status)) {
+    // Reject unanchored model alternatives as node-wide dimensional evidence.
+    if (realPhysicalIdentity(row,options) && /_(?:CONFLICT|MISSING_TABLE1|MISSING_TABLE2)$/i.test(status)) {
       const detail = clean(val(row,'gapMatchDetail','reviewAction'));
       const kind = status.startsWith('GUIDE_GAP_') ? 'GUIDE GAP'
         : status.startsWith('LINE_STOP_GAP_') ? 'LINE STOP GAP'
@@ -265,6 +266,9 @@ function groupAssessment(rows,options={}) {
   for (const group of groups.values()) {
     group.missing = new Set([...group.required].filter(t => !group.present.has(t)));
     group.extra = new Set([...group.present].filter(t => !group.required.has(t)));
+    group.nodeCoverageStatus=!group.required.size ? 'NO_REQUIRED_RESTRAINT'
+      : !group.missing.size ? 'COVERED'
+      : !group.present.size ? 'MISSING_ALL' : 'PARTIAL';
   }
   return groups;
 }
@@ -277,7 +281,9 @@ function enforceSynthetic(row) {
     confidence:'AUDIT', confidenceScore:0, score:999999,
     matchGroup:'99_DIAGNOSTIC', mappedStage:'PROPOSED_FROM_TABLE1_ISONOTE',
     matchedTypes:'', matchedSupportKeywords:'', supportBasis:'SUPPORT_MISSING_MASTER_REQUIRED',
-    modelSourceId:'', table2SourceId:'PROPOSED_FROM_TABLE1_ISONOTE',
+    modelSourceId:'', modelTableSourceId:'', table2Row:'',
+    table2SourceId:'PROPOSED_FROM_TABLE1_ISONOTE',
+    'Model Source ID':'', 'Model Table Source ID':'',
     warnings:'SUPPORT_MISSING_REQUIRED: '+t,
     'Chosen Mapping':'NO','Auto-map Allowed':'NO','Needs Review':'YES',
     'Mapping Status':'SUPPORT_MISSING_REQUIRED',
@@ -286,6 +292,15 @@ function enforceSynthetic(row) {
 function typeOfSynthetic(row) {
   return normalizeType(val(row,'supportTypesRequested','t2Keywords','Model Restraints'))
     || normalizeType(clean(row.supportMatch).replace(/^Missing /i,''));
+}
+function nodeCoverageExplanation(group) {
+  const sources=[...group.contributors].map(key=>key.split('|').at(-1)).sort();
+  const suffix=group.gapActions.size ? ' Typed gap/clearance review: '+[...group.gapActions].join(' ') : '';
+  const warnings=group.warnings.size ? ' Proposal/identity review: '+[...group.warnings].join(', ')+'.' : '';
+  return 'Node '+(group.atNode||'-')+' / '+(group.ref||'-')+
+    ': '+group.nodeCoverageStatus+'; required '+(fmt(group.required)||'none')+
+    '; present '+(fmt(group.present)||'none')+'; missing '+(fmt(group.missing)||'none')+
+    '. Evidence: '+(sources.length?sources.join(', '):'no qualified Table-2 source')+'.'+suffix+warnings;
 }
 function actionFor(group) {
   const actions = [];
@@ -317,7 +332,10 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   for (const row of syntheticSource) {
     const key=groupKey(row,policy),group=groups.get(key),type=typeOfSynthetic(row);
     const id=numberText(modelNo(row));
-    if (!group||!type||!group.missing.has(type)||!validBase(refNo(row))||!id||occupied.has(id)) continue;
+    const base=numberText(refNo(row));
+    const suffix=id.startsWith(base+'.X') ? id.slice((base+'.X').length) : '';
+    if (!group||!type||!group.missing.has(type)||!validBase(refNo(row))||!id
+        ||!base||!/^\d+$/.test(suffix)||Number(suffix)<1||occupied.has(id)) continue;
     if (!syntheticByGroup.has(key)) syntheticByGroup.set(key,[]);
     if (!proposedOwners.has(id)) proposedOwners.set(id,[]);
     proposedOwners.get(id).push({key,row});
