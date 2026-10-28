@@ -22,12 +22,21 @@ export function parseTableSource(text,options={}){
   const contentLines=records.filter((line)=>!isBlank(line));
   const blankRowsSkipped=records.length-contentLines.length;
   const parsedLines=contentLines.map((line)=>splitTableLine(line,delimiter.id));
-  const headers=cfg.firstRowIsHeader?parsedLines[0]||[]:defaultHeaders(parsedLines[0]?.length||0);
+  const originalHeaders=cfg.firstRowIsHeader?parsedLines[0]||[]:defaultHeaders(parsedLines[0]?.length||0);
+  const canonicalNames=new Set(originalHeaders.map(h=>String(h).trim().toLowerCase()));
+  const aliases=Object.entries(cfg.headerAliases).map(([alias,canonical])=>[String(alias).trim().toLowerCase(),String(canonical).trim()]);
+  const aliasBindings=[];
+  const headers=originalHeaders.map((header,index)=>{
+    const replacement=aliases.find(([alias])=>alias===String(header).trim().toLowerCase())?.[1];
+    if (!replacement || (canonicalNames.has(replacement.toLowerCase()) && replacement.toLowerCase()!==String(header).trim().toLowerCase())) return header;
+    if(replacement!==header)aliasBindings.push(Object.freeze({index,originalHeader:header,canonicalHeader:replacement}));
+    return replacement || header;
+  });
   const columnIds=createColumnIds(headers);
   const rowLines=cfg.firstRowIsHeader?parsedLines.slice(1):parsedLines;
-  const rows=rowLines.map((cells,index)=>buildRow(cfg.sourceId,index+1,headers,columnIds,cells));
+  const rows=rowLines.map((cells,index)=>buildRow(cfg.sourceId,index+1,headers,columnIds,cells,originalHeaders));
   const diagnostics=buildDiagnostics({headers,columnIds,rows,delimiter,blankRowsSkipped,delimiterMode:cfg.delimiterMode,requestedDelimiter:cfg.requestedDelimiter});
-  return Object.freeze({sourceId:cfg.sourceId,sourceName:cfg.sourceName,sourceType:cfg.sourceType,delimiter:delimiter.id,delimiterMode:cfg.delimiterMode,delimiterLabel:delimiter.label,headers:Object.freeze(headers),columnIds:Object.freeze(columnIds),rows:Object.freeze(rows),diagnostics:Object.freeze(diagnostics)});
+  return Object.freeze({sourceId:cfg.sourceId,sourceName:cfg.sourceName,sourceType:cfg.sourceType,delimiter:delimiter.id,delimiterMode:cfg.delimiterMode,delimiterLabel:delimiter.label,headers:Object.freeze(headers),originalHeaders:Object.freeze(originalHeaders),aliasBindings:Object.freeze(aliasBindings),columnIds:Object.freeze(columnIds),rows:Object.freeze(rows),diagnostics:Object.freeze([...diagnostics,...aliasBindings.map(a=>diagnostic('INFO','column_alias_applied',a.originalHeader+' recognized as '+a.canonicalHeader+'. Raw header and cells preserved.',a))])});
 }
 
 export function detectTableDelimiter(lines){return detectBestDelimiter(lines);}
@@ -81,7 +90,7 @@ function splitPhysicalRecords(text){
   if(records.length>1&&records[records.length-1]===''&&/(?:\r\n|\n|\r)$/.test(input))records.pop();
   return records.map(cleanLine);
 }
-function sourceConfig(options){const requested=String(options.delimiterMode||options.delimiter||'auto');const safe=DELIMITER_MODES.has(requested)?requested:'auto';return Object.freeze({sourceId:String(options.sourceId||'S1'),sourceName:String(options.sourceName||'Pasted Source 1'),sourceType:String(options.sourceType||'pasteText'),firstRowIsHeader:options.firstRowIsHeader!==false,delimiterMode:safe,requestedDelimiter:requested,customDelimiter:String(options.customDelimiter||'')});}
+function sourceConfig(options){const requested=String(options.delimiterMode||options.delimiter||'auto');const safe=DELIMITER_MODES.has(requested)?requested:'auto';return Object.freeze({sourceId:String(options.sourceId||'S1'),sourceName:String(options.sourceName||'Pasted Source 1'),sourceType:String(options.sourceType||'pasteText'),firstRowIsHeader:options.firstRowIsHeader!==false,delimiterMode:safe,requestedDelimiter:requested,customDelimiter:String(options.customDelimiter||''),headerAliases:Object.freeze({...(options.headerAliases||{})})});}
 function emptySource(cfg,blankRowsSkipped){return Object.freeze({sourceId:cfg.sourceId,sourceName:cfg.sourceName,sourceType:cfg.sourceType,delimiter:'none',delimiterMode:cfg.delimiterMode,delimiterLabel:'none',headers:Object.freeze([]),columnIds:Object.freeze([]),rows:Object.freeze([]),diagnostics:Object.freeze([diagnostic('ERROR','empty_input','No table text was provided.'),diagnostic('INFO','blank_rows_skipped',`${blankRowsSkipped} blank row(s) skipped.`,{blankRowsSkipped})])});}
 function resolveDelimiter(lines,mode,custom=''){if(mode==='custom'&&custom)return Object.freeze({id:custom,label:`Custom (${custom})`,override:true});if(mode&&mode!=='auto'&&mode!=='custom')return Object.freeze({...DELIMITER_CANDIDATES.find((item)=>item.id===mode),override:true});return detectBestDelimiter(lines);}
 function detectBestDelimiter(lines){const sample=Array.isArray(lines)?lines.filter((line)=>!isBlank(line)).slice(0,10):[];if(!sample.length)return DELIMITER_CANDIDATES[0];const scores=DELIMITER_CANDIDATES.map((candidate)=>scoreDelimiter(sample,candidate));scores.sort((a,b)=>b.score-a.score || candidateRank(a.id)-candidateRank(b.id));return Object.freeze({id:scores[0].id,label:scores[0].label});}
@@ -93,7 +102,7 @@ function splitCsvLine(line,separator=','){const cells=[];let cell='',quoted=fals
 function splitWhitespaceLine(line){const trimmed=line.trim();if(!trimmed)return [''];const separator=/\s{2,}/.test(trimmed)?/\s{2,}/:/\s+/;return trimmed.split(separator);}
 function defaultHeaders(count){return Array.from({length:count},(_,index)=>`Column ${index+1}`);}
 function createColumnIds(headers){const seen=new Map();return headers.map((header,index)=>{const base=String(header||`Column_${index+1}`).trim().replaceAll(' ','_')||`Column_${index+1}`;const count=(seen.get(base)||0)+1;seen.set(base,count);return count===1?base:`${base}__${count}`;});}
-function buildRow(sourceId,index,headers,columnIds,cells){const rawCells=Object.freeze([...cells]);const rawByHeader={},rawByColumnId={};headers.forEach((header,cellIndex)=>{const value=rawCells[cellIndex]??'';const columnId=columnIds[cellIndex];rawByColumnId[columnId]=value;if(rawByHeader[header]===undefined)rawByHeader[header]=value;else rawByHeader[columnId]=value;});return Object.freeze({rowId:`${sourceId}:${index}`,rawCells,rawByHeader:Object.freeze(rawByHeader),rawByColumnId:Object.freeze(rawByColumnId)});}
+function buildRow(sourceId,index,headers,columnIds,cells,originalHeaders=headers){const rawCells=Object.freeze([...cells]);const rawByHeader={},rawByColumnId={};headers.forEach((header,cellIndex)=>{const value=rawCells[cellIndex]??'';const columnId=columnIds[cellIndex];rawByColumnId[columnId]=value;if(rawByHeader[header]===undefined)rawByHeader[header]=value;else rawByHeader[columnId]=value;const rawHeader=originalHeaders[cellIndex];if(rawHeader && rawHeader!==header && rawByHeader[rawHeader]===undefined)rawByHeader[rawHeader]=value;});return Object.freeze({rowId:`${sourceId}:${index}`,rawCells,rawByHeader:Object.freeze(rawByHeader),rawByColumnId:Object.freeze(rawByColumnId)});}
 function buildDiagnostics(args){const diagnostics=[diagnostic(args.headers.length?'PASS':'ERROR','header_detected',args.headers.length?'Header row detected.':'Header row is empty.',{headerCount:args.headers.length}),diagnostic(args.rows.length?'PASS':'WARNING','rows_parsed',`${args.rows.length} data row(s) parsed.`,{rowCount:args.rows.length}),diagnostic('INFO',`delimiter=${args.delimiter.id}`,args.delimiter.override?`Delimiter override used: ${args.delimiter.label}.`:`Delimiter detected: ${args.delimiter.label}.`,{delimiter:args.delimiter.id,delimiterMode:args.delimiterMode}),diagnostic('INFO','blank_rows_skipped',`${args.blankRowsSkipped} blank row(s) skipped.`,{blankRowsSkipped:args.blankRowsSkipped})];return diagnostics.concat(invalidDelimiterDiagnostic(args),duplicateHeaderDiagnostics(args.headers,args.columnIds),columnCountDiagnostics(args.headers,args.rows));}
 function invalidDelimiterDiagnostic(args){return args.requestedDelimiter===args.delimiterMode?[]:[diagnostic('WARNING','delimiter_override_invalid',`Unsupported delimiter override ${args.requestedDelimiter}; auto detection used.`,{requestedDelimiter:args.requestedDelimiter})];}
 function duplicateHeaderDiagnostics(headers,columnIds){const seen=new Set();return headers.flatMap((header)=>{if(!seen.has(header)){seen.add(header);return [];}return [diagnostic('WARNING','duplicate_header_preserved',`Duplicate header preserved: ${header}.`,{header,columnIds:columnIds.filter((id,index)=>headers[index]===header)})];});}
