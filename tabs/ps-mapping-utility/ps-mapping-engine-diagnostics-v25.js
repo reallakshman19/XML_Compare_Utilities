@@ -118,8 +118,13 @@ function normalizeDiagnostic(row,sourceGaps=new Map()) {
       next.supportMatch=compared.status==='REST_CLEARANCE_EXACT'
         ? 'REST non-contact clearance Match'
         : 'REST non-contact clearance requires review';
+      next.supportBasis=compared.status==='REST_CLEARANCE_EXACT'
+        ? 'REST_NONCONTACT_CLEARANCE_EXACT' : 'REST_NONCONTACT_CLEARANCE_REVIEW';
       const warnings=clean(next.warnings).split(';').map(clean).filter(Boolean)
-        .filter(w=>!/^(?:SUPPORT_CONFLICT|SUPPORT_MISSING_REST|REST_CLEARANCE_(?:EXACT|MISSING_TABLE1|MISSING_TABLE2|CONFLICT))$/i.test(w));
+        // Clear obsolete generic REST conflicts and unrelated GUIDE/STOP gap
+        // warnings inherited from node-level state; only the owning physical
+        // component reports its own gap. Node-wide actions remain independent.
+        .filter(w=>!/^(?:SUPPORT_CONFLICT|SUPPORT_MISSING_REST|REST_CLEARANCE_(?:EXACT|MISSING_TABLE1|MISSING_TABLE2|CONFLICT)|GUIDE_GAP_\w+|LINE_STOP_GAP_\w+)$/i.test(w));
       if (compared.status!=='REST_CLEARANCE_EXACT') warnings.push(compared.status);
       next.warnings=[...new Set(warnings)].join('; ');
       // Only REST-related actions are refreshed. A GUIDE gap correction or a
