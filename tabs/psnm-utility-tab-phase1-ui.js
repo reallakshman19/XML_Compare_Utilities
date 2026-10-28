@@ -170,7 +170,7 @@ function renameLabels(panel) {
     if (!textarea) return;
     const sourceKey = textarea.dataset.source;
     const label = field.querySelector('label');
-    if (label && SOURCE_LABELS[sourceKey]) label.textContent = SOURCE_LABELS[sourceKey];
+    if (label && SOURCE_LABELS[sourceKey] && label.textContent !== SOURCE_LABELS[sourceKey]) label.textContent = SOURCE_LABELS[sourceKey];
     addExpectedHeader(field, sourceKey);
     addMapButton(field, sourceKey);
   });
