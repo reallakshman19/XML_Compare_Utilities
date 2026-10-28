@@ -56,6 +56,7 @@ function writeBoolStorage(key, value) { try { localStorage.setItem(key, value ? 
 
 const PSNM_CANDIDATE_DETAIL_KEY = 'psnm.showCandidateDiagnosticColumns';
 const MAX_AUTO_ANCHOR_PAIRS = 25;
+const PSNM_CANDIDATE_PAGE_SIZE = 100;
 // Bound axis permutations on large datasets; final Run Match still uses every master row.
 const PSNM_ANCHOR_SEED_LIMIT = 12;
 const PSNM_ANCHOR_SCORING_LIMIT = 48;
@@ -79,10 +80,16 @@ function formatCandidateValue(key, value) {
   return value ?? '';
 }
 function candidateMatrixTable(state) {
-  const rows = state.result?.candidateRows || [];
+  const allRows = state.result?.candidateRows || [];
+  const pageCount = Math.max(1, Math.ceil(allRows.length / PSNM_CANDIDATE_PAGE_SIZE));
+  const page = Math.max(0, Math.min(pageCount - 1, Number(state.ui?.candidatePage) || 0));
+  const rows = allRows.slice(page * PSNM_CANDIDATE_PAGE_SIZE, (page + 1) * PSNM_CANDIDATE_PAGE_SIZE);
   const columns = state.ui?.showCandidateDiagnostics ? [...PSNM_CANDIDATE_BASIC_COLUMNS, ...PSNM_CANDIDATE_DETAIL_COLUMNS] : PSNM_CANDIDATE_BASIC_COLUMNS;
   if (!rows.length) return '<div class="psnm-banner">No candidate rows yet. Run Match after building Master Tables.</div>';
-  return `<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr>${columns.map(([, label]) => `<th>${h(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${h(formatCandidateValue(key, row?.[key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const start = page * PSNM_CANDIDATE_PAGE_SIZE + 1;
+  const end = Math.min(allRows.length, (page + 1) * PSNM_CANDIDATE_PAGE_SIZE);
+  const pager = `<div class="psnm-actions"><span class="psnm-sub">Candidates ${start}-${end} of ${allRows.length}; page ${page + 1}/${pageCount}. CSV exports all rows.</span><button class="psnm-btn psnm-btn-secondary" data-psnm-action="candidatePrev" ${page === 0 ? 'disabled' : ''}>Previous</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="candidateNext" ${page + 1 >= pageCount ? 'disabled' : ''}>Next</button></div>`;
+  return `${pager}<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr>${columns.map(([, label]) => `<th>${h(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${h(formatCandidateValue(key, row?.[key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 function candidateMatrixPanel(state) {
   const checked = state.ui?.showCandidateDiagnostics ? 'checked' : '';
@@ -97,7 +104,7 @@ function makeState() {
     setup: { anchorPsRowId: '', anchorNodeRowId: '', anchorTransform: null, coordinateDecimals: 0, boreMode: 'prefer', approx1: '25,25,25', approx2: '50,25,50', approx3: '50,25,50', enableApprox1: true, enableApprox2: true, enableApprox3: true },
     autoAnchor: { pairs: [], selectedIndex: null, message: 'Build Master Tables, then run Auto Anchor.' },
     result: { rows: [], candidateRows: [], mandatoryCoverageRows: [], mandatoryPsCoverageRows: [], userLog: [], debugLog: [] },
-    ui: { showCandidateDiagnostics: readBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, false) },
+    ui: { showCandidateDiagnostics: readBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, false), candidatePage: 0 },
     status: { phase: 'Idle', detail: 'Paste source tables, then Resolve Master Tables.', percent: 0 },
   };
 }
@@ -327,6 +334,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       result.mandatoryPsCoverageRows = PSNM_masterPsCoverageRows(state.master.psRows, result.rows);
       result.mandatoryCoverageRows = PSNM_masterNodeCoverageRows(state.master.nodeRows, result.rows);
       state.result = result;
+      state.ui.candidatePage = 0;
       state.master.nodeIssues = state.master.nodeRows.filter((row) => row.status !== 'OK');
       state.activeTab = 'match';
       const matched = result.rows.filter((row) => String(row.finalStatus || '').startsWith('MATCHED')).length;
@@ -366,6 +374,13 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       if (action === 'runAutoAnchor') { runAutoAnchorSearch(state); state.activeTab = 'setup'; state.status = { phase: 'Auto Anchor Ready', detail: state.autoAnchor.message, percent: 55 }; refresh(); return; }
       if (action === 'useAutoAnchor') { applyAutoAnchorPair(state, actionEl.dataset.autoAnchorIndex); refresh(); return; }
       if (action === 'runMatch') { void runMatch(); return; }
+      if (action === 'candidatePrev' || action === 'candidateNext') {
+        const maxPage = Math.max(0, Math.ceil((state.result.candidateRows?.length || 0) / PSNM_CANDIDATE_PAGE_SIZE) - 1);
+        const delta = action === 'candidateNext' ? 1 : -1;
+        state.ui.candidatePage = Math.min(maxPage, Math.max(0, state.ui.candidatePage + delta));
+        refresh();
+        return;
+      }
       if (action === 'copyMasterPs') copyText(objectRowsCsv(state.master.psRows), ctx);
       else if (action === 'copyMasterNode') copyText(objectRowsCsv(state.master.nodeRows), ctx);
       else if (action === 'copyMatch') copyText(objectRowsCsv(state.result.rows), ctx);
@@ -410,4 +425,4 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
 }
 
 // Pure state-level hooks for regression tests; no DOM is created or modified.
-export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor });
+export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable });
