@@ -419,7 +419,7 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
  * block unsafe publication rather than emitting contradictory hardware claims.
  */
 export function validateCanonicalPsMappingResult(result={}) {
-  const issues=[], proposed=new Map();
+  const issues=[];
   const complain=(code,detail)=>issues.push({code,detail});
   for (const group of result.canonicalAssessments||[]) {
     const requiredSet=new Set(group.required||[]), presentSet=new Set(group.present||[]);
@@ -430,8 +430,10 @@ export function validateCanonicalPsMappingResult(result={}) {
     for(const type of presentSet) if(missingSet.has(type))
       complain('PRESENT_AND_MISSING',String(group.key)+' / '+type);
   }
-  const rows=result.candidateRows||result.rows||[];
-  for(const row of rows) {
+  for(const collection of ['candidateRows','rows','outputRows','candidates','validatorRows']) {
+    const rows=result[collection]||[];
+    const proposed=new Map();
+    for(const row of rows) {
     const id=numberText(modelNo(row));
     if(isSynthetic(row)) {
       if(isTrue(row.selected)||isTrue(row.mapped)||isTrue(row.eligible)
@@ -459,6 +461,7 @@ export function validateCanonicalPsMappingResult(result={}) {
         table2GapRaw:clean(row.supportGapRaw)});
       if(checked.status && !checked.status.endsWith('_MISSING_TABLE2'))
         complain('STALE_TYPED_GAP_VERDICT',modelNo(row)+' / '+gapStatus(row)+' -> '+checked.status);
+    }
     }
   }
   return issues;
