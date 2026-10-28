@@ -1,6 +1,7 @@
 import { mountCiiWorkspaceScopedEngineeringShell } from './cii-workspace-transfer-scope-ui.js';
 import { mountCiiWriter2MultiSourceReviewRouter } from './cii-workspace-multisource-review-only-filter-shell.js?v=20260909-ms-review-filters-1';
 import { mountCiiWriter2MultiSourceNextStepShell } from './cii-workspace-multisource-next-step-shell.js?v=20260909-ms-custody-auto-1';
+import { mountMethodCWriter2NativeShell } from './cii-workspace-method-c-writer2-native-shell.js';
 import { mountCiiFindReplaceShell } from './cii-workspace-find-replace-ui.js?v=20260904-padded-find-scroll-1';
 import { installMethodCReviewTile } from './cii-workspace-method-c-tile.js';
 
@@ -86,7 +87,9 @@ export function installCiiWorkspaceTile(container, context = {}) {
       targetCode: String(context.sifEngineeringContext?.targetCode || ''),
     };
     const mountEngineeringShell = writerVersion === '2'
-      ? (root, shellOptions) => mountCiiWriter2MultiSourceNextStepShell(root, shellOptions, mountCiiWriter2MultiSourceReviewRouter)
+      ? (root, shellOptions) => mountMethodCWriter2NativeShell(root, shellOptions,
+        (writer2Root, writer2Options) => mountCiiWriter2MultiSourceNextStepShell(
+          writer2Root, writer2Options, mountCiiWriter2MultiSourceReviewRouter))
       : mountCiiWorkspaceScopedEngineeringShell;
     active = mountEngineeringShell(overlay, {
       close, showToast: context.showToast,
