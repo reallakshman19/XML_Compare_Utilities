@@ -49,13 +49,18 @@ export function buildIsoNoteEngineeringFindings(report = {}) {
       const targetGap = own(row.gap?.s2Evidence, gap);
       if (!sourceGap.length && !targetGap.length) continue;
       const l = [...new Set(sourceGap.map(e=>e.mm))], r = [...new Set(targetGap.map(e=>e.mm))];
-      const statusGap = l.length > 1 || r.length > 1 ? 'REVIEW' :
-        !l.length || !r.length ? 'REVIEW' : l[0] === r[0] ? 'MATCH' : 'MISMATCH';
+      // Consume the same per-type policy as the aggregate result. Retain a
+      // compatible fallback only for previously serialized v1 audit reports.
+      const decision = row.gap?.byType?.[gap];
+      const statusGap = decision?.status || (l.length > 1 || r.length > 1 ? 'REVIEW' :
+        !l.length || !r.length ? 'REVIEW' : l[0] === r[0] ? 'MATCH' : 'MISMATCH');
+      const appliedRules = [...sourceGap, ...targetGap].map(e => e.rule);
+      if (decision?.rule) appliedRules.push(decision.rule);
       rows.push(finding(row, 'CLEARANCE', kind, statusGap,
-        [...new Set([...sourceGap, ...targetGap].map(e => e.rule))].join(' + '),
-        statusGap === 'MATCH' ? 'Equal typed gap in mm; restraint geometry not proved.' :
+        [...new Set(appliedRules)].join(' + '),
+        decision?.reason || (statusGap === 'MATCH' ? 'Equal typed gap in mm; restraint geometry not proved.' :
           statusGap === 'MISMATCH' ? 'Different gap magnitudes of same type in mm.' :
-          'Missing, multiple or unmatched clearance type; manual check.',
+          'Missing, multiple or unmatched clearance type; manual check.'),
         row.supportGap, row.isoNote, sourceGap, targetGap));
     }
   }
