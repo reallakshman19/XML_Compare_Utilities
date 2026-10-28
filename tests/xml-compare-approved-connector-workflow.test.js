@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 
-import {
-  applyXmlCompareCanvasAction,
-  createXmlCompareCanvasState,
-} from '../xml-compare/XmlCompareCanvasStateController.js';
+import { applyXmlCompareCanvasAction, createXmlCompareCanvasState, bindXmlCompareCanvasApprovalAuthority } from '../xml-compare/XmlCompareCanvasStateController.js';
 import { createApprovedConnectorValidationModel } from '../xml-compare/XmlCompareApprovedConnectorModel.js';
 import { _test as candidateRuntimeTest } from '../tabs/xml-compare-candidate-review-runtime.js';
 
@@ -16,7 +13,7 @@ const targetRecords = [
   { uid: 'T-2', displayName: 'Target Node 2', position: { x: 100, y: 0, z: 0 }, pressure: 10, coordinateFrameStatus: { comparableForDelta: true } },
 ];
 
-let state = createXmlCompareCanvasState();
+let state = bindXmlCompareCanvasApprovalAuthority(createXmlCompareCanvasState(), { sourceRecords, targetRecords });
 state = applyXmlCompareCanvasAction(state, { type: 'select-record', side: 'source', uid: 'S-1', records: sourceRecords });
 state = applyXmlCompareCanvasAction(state, { type: 'select-record', side: 'target', uid: 'T-1', records: targetRecords });
 
@@ -48,7 +45,7 @@ const candidate = {
   basis: ['KEY'],
   score: 0.96,
 };
-let candidateState = createXmlCompareCanvasState();
+let candidateState = bindXmlCompareCanvasApprovalAuthority(createXmlCompareCanvasState(), { sourceRecords, targetRecords });
 candidateState = applyXmlCompareCanvasAction(candidateState, { type: 'accept-candidate', candidate }, { approvalContext: { scoped: false, sourceRecords, targetRecords } });
 assert.equal(candidateState.matchDecisions[0].decision, 'approved');
 assert.equal(candidateState.matchDecisions[0].decisionBasis, 'candidate-accepted');
@@ -58,12 +55,12 @@ candidateState = applyXmlCompareCanvasAction(candidateState, { type: 'reject-can
 assert.ok(candidateState.candidateDecisions.rejectedCandidateIds.includes(candidate.id), 'candidate reject persists rejected state');
 assert.equal(candidateState.matchDecisions.at(-1).decision, 'rejected');
 
-let ambiguousState = createXmlCompareCanvasState();
+let ambiguousState = bindXmlCompareCanvasApprovalAuthority(createXmlCompareCanvasState(), { sourceRecords, targetRecords });
 ambiguousState = applyXmlCompareCanvasAction(ambiguousState, { type: 'accept-candidate', candidate: { ...candidate, targetUid: 'T-X', status: 'ambiguous' } }, { approvalContext: { scoped: false, sourceRecords, targetRecords } });
 assert.equal(ambiguousState.matchDecisions[0].decision, 'needs-review', 'ambiguous candidate must not silently approve');
 assert.equal(ambiguousState.approvedMatchSet.summary.approvedCount, 0);
 
-let duplicateNumericState = createXmlCompareCanvasState();
+let duplicateNumericState = bindXmlCompareCanvasApprovalAuthority(createXmlCompareCanvasState(), { sourceRecords, targetRecords });
 duplicateNumericState = applyXmlCompareCanvasAction(duplicateNumericState, { type: 'accept-candidate', candidate: { ...candidate, sourceUid: 'S-1', targetUid: 'T-1', method: 'numeric-fields', allowDuplicateTarget: true, status: 'valid' } }, { approvalContext: { scoped: false, sourceRecords, targetRecords } });
 duplicateNumericState = applyXmlCompareCanvasAction(duplicateNumericState, { type: 'accept-candidate', candidate: { ...candidate, sourceUid: 'S-2', targetUid: 'T-1', method: 'numeric-fields', allowDuplicateTarget: true, status: 'valid' } }, { approvalContext: { scoped: false, sourceRecords, targetRecords } });
 assert.equal(duplicateNumericState.approvedMatchSet.summary.approvedCount, 2, 'numeric-field-valid duplicate target claims remain approved');
