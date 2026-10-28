@@ -8,6 +8,7 @@ import { createValidationCandidateSet, normalizeValidationBuilderState, toggleVa
 import { acceptCandidateConnector, approvePendingConnector, createPendingConnectorPreview, normalizeApprovedConnectorState, projectApprovedConnectors, rejectCandidateConnector, rejectPendingConnector } from './XmlCompareApprovedConnectorModel.js?v=20260704-c4';
 import { applyXmlCompareTransferStateAction, normalizeTransferState } from './XmlCompareTransferStateModel.js';
 import { guardCompositeApprovalAction } from './XmlCompareCompositeApprovalGate.js';
+import { requiredCompositeApprovalPolicy } from './XmlCompareApprovalPolicyRegistry.js';
 
 export const XML_COMPARE_CANVAS_STATE_CONTROLLER_SCHEMA = 'xml-compare-canvas-state-controller/v11';
 const APPROVAL_ACTION_TYPES = new Set(['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector']);
@@ -51,6 +52,12 @@ function selectRecord(current, action, side) { const result = selectXmlCompareCa
 function approveActionOrBlock(current, action, approvalContext) {
   if (!APPROVAL_ACTION_TYPES.has(action.type)) return '';
   if (!approvalContext || typeof approvalContext.scoped !== 'boolean') return 'MISSING_APPROVAL_CONTEXT';
+  const { sourceRecords, targetRecords } = approvalContext;
+  if (!Array.isArray(sourceRecords) || !Array.isArray(targetRecords))
+    return 'MISSING_APPROVAL_RECORD_SCOPE';
+  const required = requiredCompositeApprovalPolicy(sourceRecords, targetRecords);
+  if (required && (!approvalContext.scoped || approvalContext.policy?.id !== required.id))
+    return 'DOMAIN_APPROVAL_POLICY_REQUIRED';
   const verdict = guardCompositeApprovalAction({
     ...approvalContext, action, pendingPreview: current.pendingConnectorPreview,
   });
