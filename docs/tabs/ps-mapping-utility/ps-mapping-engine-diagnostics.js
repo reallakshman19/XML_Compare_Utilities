@@ -269,10 +269,15 @@ function groupBy(rows, keyFn) { const map = new Map(); for (const row of rows ||
 function classifyCandidateQuality({ psBasis, bore, line, support }) { const warnings = []; if (psBasis === 'PS_NONE') return { confidence: 'NONE', confidenceScore: 0, reviewRequired: false, autoSelectable: false, finalStatus: 'REJECTED', warnings: ['PS_NO_MATCH'] }; const boreConflict = bore.basis === 'BORE_CONFLICT'; const lineConflict = line.basis === 'LINE_CONFLICT'; const lineNearMismatch = line.basis === 'LINE_FAMILY_NEAR_MISMATCH'; const supportConflict = support.basis === 'SUPPORT_CONFLICT'; const cleanBore = ['BORE_DN_FROM_NPS', 'BORE_NPS_RAW', 'BORE_DN_FROM_OD', 'BORE_OD', 'BORE_OD_APPROX', 'BORE_IGNORED'].includes(bore.basis); const cleanLine = ['LINE_EXACT', 'LINE_SUBSTRING', 'LINE_FAMILY', 'LINE_IGNORED'].includes(line.basis); const cleanSupport = ['SUPPORT_EXACT', 'SUPPORT_PARTIAL', 'SUPPORT_NOT_REQUESTED', 'SUPPORT_IGNORED'].includes(support.basis); if (cleanBore && cleanLine && cleanSupport) return { confidence: 'HIGH', confidenceScore: 95, reviewRequired: false, autoSelectable: true, finalStatus: 'MATCHED', warnings }; if (cleanLine && boreConflict) return { confidence: 'REVIEW', confidenceScore: 65, reviewRequired: true, autoSelectable: false, finalStatus: 'USER_REVIEW_REQUIRED', warnings: ['LINE_FAMILY_MATCH_SIZE_CONFLICT'] }; if (lineNearMismatch && cleanBore && cleanSupport) { warnings.push('LINE_FAMILY_POSSIBLE_TYPO'); if (line.warning) warnings.push(line.warning); return { confidence: 'REVIEW', confidenceScore: 65, reviewRequired: true, autoSelectable: false, finalStatus: 'USER_REVIEW_REQUIRED', warnings }; } if (supportConflict) return { confidence: 'REVIEW', confidenceScore: 60, reviewRequired: true, autoSelectable: false, finalStatus: 'USER_REVIEW_REQUIRED', warnings: ['SUPPORT_CONFLICT'] }; if (lineConflict && boreConflict) return { confidence: 'LOW', confidenceScore: 20, reviewRequired: false, autoSelectable: false, finalStatus: 'REJECTED', warnings: ['BASE_PS_FOUND_BUT_CONTEXT_REJECTED'] }; if (boreConflict) warnings.push('BORE_CONFLICT'); if (lineConflict) warnings.push('LINE_CONFLICT'); if (line.warning) warnings.push(line.warning); return { confidence: 'REVIEW', confidenceScore: 50, reviewRequired: true, autoSelectable: false, finalStatus: 'USER_REVIEW_REQUIRED', warnings }; }
 function candidateScore(model, ref, options) {
   const psBasis = ref.exactRawKey === model.exactRawKey ? 'PS_EXACT' : ref.basePs === model.basePs ? 'PS_BASE' : 'PS_NONE';
-  const bore = evaluateBore(Number(model.bore), ref, options);
-  const line = evaluateLine(model, ref, options);
-  const support = evaluateSupport(model.supportTypesRequested, ref.supportTypesAvailable, options);
   const requireLine = options.requireLineFamilyInIdentity !== false;
+  // The composite node-identity policy is authoritative. Legacy Ignore modes
+  // cannot disable mandatory DN or (default policy) line-family verification.
+  const identityOptions = { ...options,
+    boreMode: options.boreMode === 'ignore' ? 'prefer' : options.boreMode,
+    lineMode: requireLine && options.lineMode === 'ignore' ? 'prefer' : options.lineMode };
+  const bore = evaluateBore(Number(model.bore), ref, identityOptions);
+  const line = evaluateLine(model, ref, identityOptions);
+  const support = evaluateSupport(model.supportTypesRequested, ref.supportTypesAvailable, options);
   const hasLineIdentity = ['LINE_EXACT', 'LINE_FAMILY'].includes(line.basis);
   const sizeKnown = Number.isFinite(model.bore) && model.bore > 0
     && Number.isFinite(Number(ref.derivedDnFromNps ?? ref.derivedDn))
