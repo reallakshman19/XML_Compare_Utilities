@@ -26,6 +26,10 @@ assert.notEqual(isoNoteCompositeIdentity(source, 'source').key, isoNoteComposite
 assert.equal(isoNoteCompositeIdentity({ pipe: 'PIPE-1', psNo: 'PS02364.1' }, 'source').reason, 'NONCANONICAL_ID');
 assert.equal(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-10.X' }, 'target').valid, false);
 assert.equal(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.10' }, 'target').valid, true);
+assert.equal(isoNoteCompositeIdentity({
+  lineNoInCii: 'PIPE-1', nodeName: '/PS-100.1',
+  rawNote: "/PS-101.1 :ISONOTE 'REST(2kN)'",
+}, 'target').reason, 'NODE_NAME_NOTE_MISMATCH');
 assert.equal(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.1' }, 'target').valid, true);
 assert.notEqual(isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.10' }, 'target').key,
   isoNoteCompositeIdentity({ lineNoInCii: 'PIPE-1', nodeName: 'PS-006.1' }, 'target').key);
