@@ -1,0 +1,43 @@
+name: ISO Composite Identity Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'xml-compare/**'
+      - 'tabs/xml-compare**'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/iso-composite-identity-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xml-table-regression:
+    name: XML and Table full Node suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:xml
+      - run: npm run test:table
+
+  iso-browser-regression:
+    name: ISO engineering browser regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/browser/iso-composite-identity-audit.spec.mjs --config=playwright.xml-builder-viewport.config.mjs
