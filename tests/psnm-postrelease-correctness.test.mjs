@@ -75,6 +75,11 @@ test('preview uses same rotated Master transform as the matching engine and excl
     {e:points[i].e,u:points[i].u,s:points[i].s}));
   assert.equal(PSNM_previewMasterTransformRows({...context,masterReady:false}).length,0);
   assert.equal(PSNM_previewMasterTransformRows(context,1).length,1);
+  const fractional = PSNM_previewMasterTransformRows({
+    ...context, coordinateDecimals: 0,
+    masterRows:[{x:2500.35,y:1000.25,z:1000.49}],
+  })[0];
+  assert.deepEqual(fractional.transformed,{e:21000,u:101000,s:7500});
 });
 
 test('result invalidation clears rows and bumps revision after an input change', () => {
