@@ -122,10 +122,17 @@ function schedule(container, delay = 0) {
 export function installPsnmAnchorPersistenceAddon(container, ctx = {}) {
   function onClick(event) {
     const action = event.target?.closest?.('[data-psnm-action]')?.dataset?.psnmAction;
-    const tab = event.target?.closest?.('[data-psnm-tab]')?.dataset?.psnmTab;
-    if (action === 'open' || action === 'resolveMasters' || action === 'useAutoAnchor' || tab === 'setup') {
+    if (action === 'open' || action === 'resolveMasters') {
+      // Restore once, only after creating the modal/master options. Do not
+      // restore on setup navigation or after applying a newly selected pair.
       schedule(container, 0);
-      schedule(container, 80);
+    } else if (action === 'useAutoAnchor') {
+      // Native auto-anchor already updated the state and replaced the modal.
+      // Persist that new choice instead of overwriting it with a stale pair.
+      window.setTimeout(() => {
+        const modal = container.querySelector('[data-psnm="modal"]');
+        if (modal) { saveCurrent(modal); renderAnchorStatus(modal); }
+      }, 0);
     }
   }
   function onInput(event) {
