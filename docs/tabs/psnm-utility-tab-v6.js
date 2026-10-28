@@ -372,6 +372,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     }
     modal.__psnmPreviewContext = {
       masterReady: state.masterReady && !state.sourceDirty,
+      coordinateDecimals: Number(state.setup.coordinateDecimals ?? 0),
       transform,
       masterRows: nodeMatchRows(state).map(row => ({
         node: row.node, occurrenceId: row.occurrenceId,
