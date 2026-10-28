@@ -47,7 +47,8 @@ function renderTabs() {
     button.classList.toggle('selected', selected);
   }
   $('[data-workspace]').hidden = active === 'CONFIG' || active === 'CIIFR_GEO' || active === 'PROPERTY_TRANSFER';
-  $('[data-property-transfer-area]').hidden = active !== 'PROPERTY_TRANSFER';
+  const propertyPanel=$('[data-property-transfer-area]');
+  if(propertyPanel) propertyPanel.hidden = active !== 'PROPERTY_TRANSFER';
   const nodalActive = active === 'NODAL';
   $('[data-nodal-area]').hidden = !nodalActive;
   for (const selector of ['[data-normal-section]', '[data-normal-review]',
