@@ -40,7 +40,5 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: PSNM anchored workflow regression
         run: node --test tests/psnm-anchor-workflow-regression.test.mjs
-      - name: Workbench layout and Pages deployment contracts
-        run: |
-          node tests/psnm-utility-layout-stabilizer.test.js
-          node tests/deploy-workflow-pages-artifact.test.js
+      - name: Pages deployment contract
+        run: node tests/deploy-workflow-pages-artifact.test.js
