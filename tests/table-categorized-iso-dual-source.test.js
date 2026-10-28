@@ -57,6 +57,12 @@ for (const suffix of ['.1', '.2', '.5', '.7']) {
 }
 assert.equal(items.filter((node) => node.fields.supportId === 'PS-001').length, 2, 'different pipelines must not merge PS-001');
 assert.ok(items.some((node) => node.fields.supportId === 'PS-123.1'), 'double-slash-colon prefix is supported');
+assert.ok(items.every(node => node.fields.connectorKey === node.fields.engineeringIdentityKey),
+  'old connectorKey remains a business composite key, not instance ID');
+assert.ok(items.every(node => node.fields.instanceKey === node.key),
+  'instanceKey carries row reference while connectorKey does not');
+assert.ok(items.every(node => !/\|S[12]:\d+$/.test(node.fields.connectorKey)),
+  'source row ref cannot pollute downstream business connectorKey');
 
 const placeholders = graph.diagnostics.filter((d) => d.code === 'iso_note_placeholder_identity');
 assert.equal(placeholders.length, 4, 'all PS-XXXX entries are warnings');
@@ -105,6 +111,14 @@ assert.equal(conflictItem.fields.rawSupportId, '/PS-100.1');
 assert.ok(conflictGraph.diagnostics.some(d => d.code === 'iso_note_identity_conflict' && d.sourceRef === 'S2:1'));
 
 
+const datumS2 = parseTableSource([
+  tab('LinenoinCII', 'NODE_NUM', 'NODE_NAME', 'SupportISONOTE'),
+  tab('/PIPE-1/B4', '5790', 'PS-006.5', "/PS-006.5/DATUM :ISONOTE 'REST(2kN)'"),
+].join('\n'), { sourceId: 'S2', delimiterMode: 'tab' });
+const datumGraph = buildCategorizedGraph(ISO_NOTE_DUAL_SOURCE_PROFILE, [s1, datumS2]);
+const datumItem = datumGraph.nodes.find(node => node.levelId === 'isoItem' && node.sourceRefs.includes('S2:1'));
+assert.equal(datumItem.fields.supportId, 'PS-006.5');
+assert.ok(!datumGraph.diagnostics.some(d => d.code === 'iso_note_identity_conflict'));
 const shell = renderTableCategorizedXmlShellHtml({
   activeStep: 'table', activeTab: 'source', activeSourceId: 'S1', sources: [s1, s2],
   profile: ISO_NOTE_DUAL_SOURCE_PROFILE, settingsPanel: { collapsed: false }
