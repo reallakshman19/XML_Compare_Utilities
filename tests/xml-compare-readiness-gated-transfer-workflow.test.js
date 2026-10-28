@@ -23,7 +23,7 @@ function workspace(state) { return createXmlCompareWorkspaceModel({ fileA: state
 function gate(state, readinessAudit = null) { return createXmlCompareTransferWorkflowGate({ state, workspace: workspace(state), readinessAudit }); }
 function readyAudit({ sourceReady = true, targetReady = true, blockers = [] } = {}) { return { sourceA: { readyForConnector: sourceReady, diagnostics: blockers, recordCount: sourceReady ? 1 : 0, parseOk: sourceReady }, targetB: { readyForConnector: targetReady, diagnostics: blockers, recordCount: targetReady ? 1 : 0, parseOk: targetReady } }; }
 function sampleApp() { return { ...createTransferProofSampleLoadState({ sourceText, targetText, previousRevision: 0 }), canvasState: createXmlCompareCanvasState() }; }
-function approve(state) { return { ...state, canvasState: applyXmlCompareCanvasAction(state.canvasState, { type: 'accept-candidate', candidate: proofPlan.candidate }) }; }
+function approve(state) { return { ...state, canvasState: applyXmlCompareCanvasAction(state.canvasState, { type: 'accept-candidate', candidate: proofPlan.candidate }, { approvalContext: { scoped: false } }) }; }
 function stageAndApply(state) {
   const validation = createApprovedConnectorValidationModel({ state: state.canvasState, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords, compareFields: [] });
   let canvas = applyXmlCompareCanvasAction(state.canvasState, { type: 'stage-transfer', scope: 'node', selectedBlocks: proofPlan.selectedBlocks, sourceText: state.textA, targetText: state.textB, workspaceRevision: state.workspaceRevision, approvedMatchSet: state.canvasState.approvedMatchSet, approvedValidationModel: validation, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords });
