@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runPsMappingResolver, DEFAULT_OPTIONS } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v2.js';
+import { runPsMappingResolver as runCoreResolver } from '../tabs/ps-mapping-utility/ps-mapping-engine-diagnostics.js';
 
 const refs=[
   ['Line No','Node','Support No','Pipe size','ISONOTE','Mandatory'],
@@ -79,6 +80,8 @@ test('optional Linekey permits unique same-DN line mismatch for review, never au
   assert.equal(row.finalStatus,'USER_REVIEW_REQUIRED');
   assert.equal(row.autoSelectable,false);
   assert.match(row.warnings,/LINE_IDENTITY_OPTIONAL_OR_APPROX_REVIEW/);
+  assert.equal(row.t2CoveredRestraints,'REST');
+  assert.equal(row.missingNodeRestraints,'');
   const strict=runPsMappingResolver({table1cNodeIsonoteText:tsv(refs),table2ModelText:tsv(sameDn)});
   assert.equal(modelIn(strict.rows,'SL-104.11')?.node||'','');
 });
@@ -110,4 +113,16 @@ test('configuration offers both exact options, and Pages mirrors are byte-for-by
     assert.equal(readFileSync(new URL('../tabs/'+name,import.meta.url),'utf8'),
       readFileSync(new URL('../docs/tabs/'+name,import.meta.url),'utf8'),name);
   }
+});
+
+test('unknown reference DN is missing, never a fabricated DN0 conflict',()=>{
+  const noSize = [
+    ['Line No','Node','Support No','Pipe size','ISONOTE','Mandatory'],
+    ['/ASIM-1885-PL-10"-S8810105-01','910','SL-104','','REST(14kN)','Yes'],
+  ];
+  const m=[models[0],models[2]];
+  const raw=runCoreResolver({table1cNodeIsonoteText:tsv(noSize),table2ModelText:tsv(m)});
+  const candidate=raw.candidates.find(r=>r.psnoModel==='SL-104.7');
+  assert.equal(candidate?.boreBasis,'BORE_MISSING');
+  assert.equal(candidate?.eligible,false);
 });
