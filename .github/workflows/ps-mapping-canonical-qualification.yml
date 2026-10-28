@@ -1,0 +1,43 @@
+name: PS Mapping Canonical Assessment Qualification
+
+on:
+  push:
+    branches:
+      - fix/psmap-canonical-coverage-synthetic-20261028
+  pull_request:
+    paths:
+      - 'tabs/ps-mapping-utility/**'
+      - 'docs/tabs/ps-mapping-utility/**'
+      - 'tests/ps-mapping-*.test.mjs'
+      - 'docs/architecture/PS-MAPPING-CANONICAL-ASSESSMENT-CONCEPT-2026-10-28.md'
+      - '.github/workflows/ps-mapping-canonical-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psmap-canonical-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonical-regressions:
+    name: PS Mapping canonical coverage, synthetic and gap tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Canonical assessment and existing markdown regression suites
+        run: node --test tests/ps-mapping-canonical-assessment.test.mjs tests/ps-mapping-markdown-input.test.mjs
+      - name: GitHub Pages deployment contract
+        run: node tests/deploy-workflow-pages-artifact.test.js
