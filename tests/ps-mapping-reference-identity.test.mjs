@@ -126,3 +126,10 @@ test('unknown reference DN is missing, never a fabricated DN0 conflict',()=>{
   assert.equal(candidate?.boreBasis,'BORE_MISSING');
   assert.equal(candidate?.eligible,false);
 });
+
+test('legacy Ignore mode cannot override mandatory composite line/DN identity',()=>{
+  const defaultIgnored=run({requireLineFamilyInIdentity:true,lineMode:'ignore',boreMode:'ignore'});
+  assertNoCrossAssignments(defaultIgnored);
+  const optionalIgnored=run({requireLineFamilyInIdentity:false,lineMode:'ignore',boreMode:'ignore'});
+  assertNoCrossAssignments(optionalIgnored);
+});
