@@ -31,10 +31,12 @@ const groupKey = row => refNo(row) && node(row) ? [refNo(row),node(row),line(row
 const modelNo = row => clean(val(row,'psnoModel','modelPsNo','Model Support No'));
 const gapStatus = row => clean(val(row,'gapMatch','supportGapMatch','Gap / Clearance Verdict'));
 const note = row => clean(val(row,'nodeIsonote','nodeIsonoteRaw','isonote','Reference ISONOTE'));
-const fromModel = row => types(
-  val(row,'dtxr','DTXR'), val(row,'supportTypesRequested','t2Keywords','Model Restraints'),
-  val(row,'modelDtxrKeywords','matchedSupportKeywords'),
-);
+const fromModel = row => {
+  // Explicit normalized model restraint wins over incidental words such as
+  // "Pipe" in "Directional Anchor On Shoe for Hot Insulated Pipe".
+  const explicit = val(row,'supportTypesRequested','t2Keywords','Model Restraints');
+  return types(explicit || val(row,'dtxr','DTXR'));
+};
 const required = row => types(note(row) || val(row,'supportTypesAvailable','nodeMasterKeywords','Required at Node'));
 const physicalId = row => clean(val(row,'modelSourceId','table2SourceId','Model Source ID'));
 const expectedBasis = row => clean(val(row,'psBasis','Support Number Basis'));
@@ -77,7 +79,8 @@ function normalizeDiagnostic(row) {
   if (/_MISSING_TABLE2$/i.test(status) && raw && /^T2:\d+$/i.test(physicalId(next))) {
     const comparison = evaluateSupportGapComparison({
       table1Text: note(next) || val(next,'supportTypesAvailable'),
-      table2Text: [val(next,'dtxr','DTXR'),val(next,'t2Keywords','supportTypesRequested','Model Restraints')].join(' '),
+      table2Text: val(next,'supportTypesRequested','t2Keywords','Model Restraints')
+        || val(next,'dtxr','DTXR'),
       table2GapRaw: raw,
     });
     if (comparison.status && comparison.kind
@@ -156,6 +159,8 @@ function enforceSynthetic(row) {
     matchedTypes:'', matchedSupportKeywords:'', supportBasis:'SUPPORT_MISSING_MASTER_REQUIRED',
     modelSourceId:'', table2SourceId:'PROPOSED_FROM_TABLE1_ISONOTE',
     warnings:'SUPPORT_MISSING_REQUIRED: '+t,
+    'Chosen Mapping':'NO','Auto-map Allowed':'NO','Needs Review':'YES',
+    'Mapping Status':'SUPPORT_MISSING_REQUIRED',
   };
 }
 function typeOfSynthetic(row) {
