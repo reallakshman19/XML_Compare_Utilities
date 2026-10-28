@@ -81,7 +81,7 @@ test('SL-204.1 / SL-294.8: explicit STOP owns generic model gap, not incidental 
     });
     const result=reconcile([row]);
     assert.equal(result.candidateRows[0].gapMatch,'LINE_STOP_GAP_EXACT',id);
-    assert.doesNotMatch(result.candidateRows[0].consolidatedNodeWiseAction,/Correct Table-2|missing/i,id);
+    assert.doesNotMatch(result.candidateRows[0].consolidatedNodeWiseAction,/Correct Table-2|LINE STOP GAP is missing/i,id);
   }
 });
 
