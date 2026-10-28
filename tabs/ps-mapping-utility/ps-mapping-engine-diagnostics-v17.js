@@ -160,6 +160,8 @@ function buildGroup(row = {}) {
     t2: new Set(),
     cleanT2: new Set(),
     gapActions: [],
+    unresolvedLineTypes: new Set(),
+    lineIdentityActions: [],
   };
 }
 
@@ -210,6 +212,13 @@ function buildGroups(rows = [], physicalCandidates = []) {
     group.rows.push(row);
     unionInto(group.t1, t1Types(row));
     unionInto(group.t2, t2Types(row));
+    // A valid Base + DN but mismatched line is an unverified identity,
+    // NOT covered hardware and NOT proof that the required hardware is absent.
+    if (row.lineMismatchReview === true || row.identityReview === 'AMBIGUOUS_LINE_MISMATCH') {
+      unionInto(group.unresolvedLineTypes, t2Types(row));
+      addUnique(group.lineIdentityActions, clean(row.reason || row.reviewAction
+        || 'Ambiguous — Line Mismatch: verify reference line and node identity before adding hardware.'));
+    }
     if (isAcceptedMapping(row)) {
       const sourceKey = [key, clean(row.modelSourceId || row.table2SourceId || modelPsNo(row))].join('||');
       if (!coveredSources.has(sourceKey)) {
@@ -223,8 +232,14 @@ function buildGroups(rows = [], physicalCandidates = []) {
   return groups;
 }
 
+function unresolvedIdentityTypes(group) {
+  return new Set(orderedDifference(group.unresolvedLineTypes, group.cleanT2));
+}
+function trulyMissingRestraints(group) {
+  return orderedDifference(group.t1, new Set([...group.cleanT2, ...unresolvedIdentityTypes(group)]));
+}
 function proposedMissingSupportIds(group) {
-  const missing = orderedDifference(group.t1, group.cleanT2);
+  const missing = trulyMissingRestraints(group);
   const base = group.basePs || group.table1PsNo || '';
   if (!isValidProposedBase(base)) return [];
   const out = [];
@@ -246,7 +261,7 @@ function proposedPsNoText(proposed = []) {
 
 function missingActionText(group, proposed = proposedMissingSupportIds(group)) {
   if (!isValidProposedBase(group.basePs || group.table1PsNo)) {
-    return orderedDifference(group.t1, group.cleanT2).map(type =>
+    return trulyMissingRestraints(group).map(type =>
       `Missing ${labelSupport(type)} at Node ${group.node || '-'}; reference support identity is unavailable or a placeholder. Manual identification required before proposing hardware.`);
   }
   return proposed.map((item) => {
@@ -265,6 +280,7 @@ function extraActionText(group) {
 
 function groupAction(group) {
   const parts = [
+    ...group.lineIdentityActions,
     ...missingActionText(group),
     ...group.gapActions,
     ...extraActionText(group),
@@ -316,7 +332,7 @@ function applyNodeRestraintCoverage(rows, groups) {
       };
     }
 
-    const missing = new Set(orderedDifference(group.t1, group.cleanT2));
+    const missing = new Set(trulyMissingRestraints(group));
     const extra = new Set(orderedDifference(group.cleanT2, group.t1));
     const proposed = proposedMissingSupportIds(group);
     const action = groupAction(group);
@@ -326,6 +342,7 @@ function applyNodeRestraintCoverage(rows, groups) {
       t1NodeRestraints: formatSupportList(group.t1),
       t2CoveredRestraints: formatSupportList(group.cleanT2),
       missingNodeRestraints: formatSupportList(missing),
+      unverifiedLineRestraints: formatSupportList(unresolvedIdentityTypes(group)),
       extraTable2Restraints: formatSupportList(extra),
       proposedMissingSupportPsNo: proposedPsNoText(proposed),
       psNoWiseAction: rowSpecificAction(row, group),
@@ -334,7 +351,7 @@ function applyNodeRestraintCoverage(rows, groups) {
   });
 }
 
-export const PS_MAPPING_V17_TEST = Object.freeze({ isAcceptedMapping, buildGroups, applyNodeRestraintCoverage, isValidProposedBase });
+export const PS_MAPPING_V17_TEST = Object.freeze({ isAcceptedMapping, buildGroups, applyNodeRestraintCoverage, trulyMissingRestraints, isValidProposedBase });
 
 export function runPsMappingResolver(input = {}) {
   const result = runV16PsMappingResolver(input);
