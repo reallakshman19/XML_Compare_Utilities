@@ -166,7 +166,16 @@ function saveFromModal(modal) {
 
 function loadSnapshot() {
   const parsed = readSnapshot();
-  return parsed?.version === 1 ? parsed : null;
+  if (parsed?.version !== 1) return null;
+  // A previous version silently replaced the two-row workbench sample with
+  // the separate axis benchmark and persisted it as the live source. Do not
+  // re-import that automatically generated benchmark on subsequent opens.
+  const legacyBenchmark = parsed.benchmarkDefaultsVersion === '20260610-axis-benchmark-1';
+  const ps = String(parsed.source?.table1Text || '');
+  const nodes = String(parsed.source?.table2Text || '');
+  if (legacyBenchmark && /^PS Name\tE\tN\tU\tbore\s*\nPS-01\t/i.test(ps)
+      && /^Node\tX\tY\tZ\tdia\s*\n10\t/i.test(nodes)) return null;
+  return parsed;
 }
 
 function restoreIntoModal(modal) {
