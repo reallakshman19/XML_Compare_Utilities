@@ -83,7 +83,16 @@ test('optional Linekey permits unique same-DN line mismatch for review, never au
   assert.equal(row.t2CoveredRestraints,'REST');
   assert.equal(row.missingNodeRestraints,'');
   const strict=runPsMappingResolver({table1cNodeIsonoteText:tsv(refs),table2ModelText:tsv(sameDn)});
-  assert.equal(modelIn(strict.rows,'SL-104.11')?.node||'','');
+  const secondPass=modelIn(strict.rows,'SL-104.11');
+  assert.ok(secondPass);
+  // Updated contract: strict line mode attempts Pass 1, then exposes a
+  // review-only Base + DN + Node candidate when the line family differs.
+  assert.equal(secondPass.node,'910');
+  assert.equal(secondPass.finalStatus,'USER_REVIEW_REQUIRED');
+  assert.equal(secondPass.mapped,false);
+  assert.equal(secondPass.autoSelectable,false);
+  assert.equal(secondPass.lineMismatchReview,true);
+  assert.match(secondPass.reviewAction,/Ambiguous.*Line Mismatch/);
 });
 test('optional Linekey never guesses when two reference nodes share base PS and DN',()=>{
   const ref2=[
