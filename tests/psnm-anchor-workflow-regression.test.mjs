@@ -136,3 +136,24 @@ test('production PSNM loads one anchor authority, and docs mirrors are synchroni
     assert.equal(mirror, source, path);
   }
 });
+
+test('Candidate Matrix paginates DOM but retains the complete result collection', () => {
+  const state = PSNM_CORE_TEST.makeState();
+  state.result.candidateRows = Array.from({ length: 250 }, (_, i) => ({
+    psName: 'PS-ROW-' + String(i).padStart(3, '0'),
+  }));
+  const first = PSNM_CORE_TEST.candidateMatrixTable(state);
+  assert.match(first, /Candidates 1-100 of 250/);
+  assert.match(first, /PS-ROW-099/);
+  assert.doesNotMatch(first, /PS-ROW-100/);
+  state.ui.candidatePage = 1;
+  const middle = PSNM_CORE_TEST.candidateMatrixTable(state);
+  assert.match(middle, /Candidates 101-200 of 250/);
+  assert.match(middle, /PS-ROW-100/);
+  assert.doesNotMatch(middle, /PS-ROW-200/);
+  state.ui.candidatePage = 2;
+  const last = PSNM_CORE_TEST.candidateMatrixTable(state);
+  assert.match(last, /Candidates 201-250 of 250/);
+  assert.match(last, /PS-ROW-249/);
+  assert.equal(state.result.candidateRows.length, 250);
+});
