@@ -102,12 +102,15 @@ function restoreIntoModal(modal, { dispatch = true } = {}) {
     nodeSelect.value = nodeOption.value;
     changed = true;
   }
-  if (saved.axisTransform?.axisMode && psOption && nodeOption) {
-    window.__PSNM_AXIS_TRANSFORM = saved.axisTransform;
-  }
   if (changed && dispatch) {
     psSelect?.dispatchEvent(new Event('input', { bubbles: true }));
     nodeSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // The core input listener invalidates the previous axis transform when a
+  // dropdown changes. Restore a saved axis mapping *after* dispatching those
+  // events so the next Run Match receives the chosen orientation.
+  if (saved.axisTransform?.axisMode && psOption && nodeOption) {
+    window.__PSNM_AXIS_TRANSFORM = saved.axisTransform;
   }
   renderAnchorStatus(modal);
   return changed;
