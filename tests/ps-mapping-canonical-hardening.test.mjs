@@ -126,6 +126,11 @@ test('synthetic proposals never gain Table-2 identity or inherited mapping flags
     modelSourceId:'T2:777',table2Row:777};
   const out=reconcile([r,synthetic]);
   const p=candidate(out,'SL-104.X1');
+  const existing=candidate(out,'SL-104.8');
+  assert.equal(p.nodeCoverageStatus,existing.nodeCoverageStatus);
+  assert.equal(p.nodeCoverageNote,existing.nodeCoverageNote);
+  assert.equal(p.consolidatedNodeWiseAction,existing.consolidatedNodeWiseAction);
+  assert.equal(p.missingNodeRestraints,existing.missingNodeRestraints);
   assert.equal(p.finalStatus,'SUPPORT_MISSING_REQUIRED');
   assert.equal(p.mapped,false);assert.equal(p.selected,false);
   assert.equal(p.autoSelectable,false);assert.equal(p.reviewRequired,true);
