@@ -1,4 +1,4 @@
-import { applyXmlCompareCanvasAction, createXmlCompareCanvasState } from '../xml-compare/XmlCompareCanvasStateController.js?v=20260704-transfer-review-1';
+import { applyXmlCompareCanvasAction, createXmlCompareCanvasState, bindXmlCompareCanvasApprovalAuthority } from '../xml-compare/XmlCompareCanvasStateController.js?v=20260704-transfer-review-1';
 import { applyXmlCompareSideload, buildXmlCompareSideloadFileName } from '../xml-compare/XmlCompareSideloadEnricher.js';
 import { addRestraintTypeRow, buildEnrichmentLineIdOptions, createEnrichmentConfig, deleteRestraintTypeRow, loadEnrichmentFromStorage, saveEnrichmentToStorage, updateRestraintTypeRow } from '../xml-compare/XmlCompareEnrichmentConfig.js';
 import { applyXmlCompareEnrichment } from '../xml-compare/XmlCompareEnrichmentApply.js';
@@ -106,6 +106,14 @@ function approvePolicyViolation(state, action, context) {
 }
 function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
   const approvalContext = approvalContextForAction(state, action);
+  // Pin scope to the records built from the loaded XML, *not* action/options.
+  // The reducer ignores arbitrary per-command approvalContext overrides.
+  if (approvalContext) {
+    state.canvasState = bindXmlCompareCanvasApprovalAuthority(state.canvasState, {
+      sourceRecords: approvalContext.sourceRecords,
+      targetRecords: approvalContext.targetRecords,
+    });
+  }
   const violation = approvePolicyViolation(state, action, approvalContext);
   if (violation) {
     state.status = { kind: 'warn', message: 'Approval blocked by shared composite identity policy: ' + violation };
