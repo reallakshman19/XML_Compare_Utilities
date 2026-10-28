@@ -37,7 +37,7 @@ const DETAIL_LABELS = new Set([
   'Chosen Mapping',
   'finalStatus',
   'Final Status',
-  'Mapping Status',
+  // Mapping Status is now a primary candidate column, never hidden by diagnostics.
   'confidence',
   'Confidence',
   'Confidence Level',
