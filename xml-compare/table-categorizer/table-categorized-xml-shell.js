@@ -53,7 +53,7 @@ function renderIsoImportPreflight(preflight = {}, activeRole = 'S1') {
     <strong>${esc(activeRole)} CSV / TXT Import Preflight</strong>
     <details open data-table-categorized-preflight-role="${esc(result.role)}"><summary>${esc(result.summary)}</summary>
     <small>${esc(result.fileName)} · ${esc(result.detectedDelimiter || 'not detected')} · ${result.rowCount} rows</small>
-    ${result.fixes.length ? `<p>Safe handling: ${result.fixes.map(esc).join('; ')}</p>` : ''}
+    ${result.fixes.length ? `<p>Safe autofix / verified harmless columns: ${result.fixes.map(esc).join('; ')}</p>` : ''}
     ${result.findings.length ? `<ul>${result.findings.slice(0, 10).map(item => `<li>${esc(item.severity)} · ${esc(item.code)} · ${esc(item.rowRef)} ${esc(item.message)}</li>`).join('')}</ul>` : '<p>No blocking problems.</p>'}
     ${result.findings.length > 10 ? `<small>${result.findings.length - 10} additional review findings. Original values preserved.</small>` : ''}
     </details></section>`;
