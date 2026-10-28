@@ -116,7 +116,8 @@ function ensureCsvControls(name) {
     <input type="file" class="psmap-csv-file" data-psmap-csv-input="${name}" accept=".csv,text/csv" tabindex="-1" aria-label="${label} CSV file">
     <button type="button" class="psmap-csv-btn" data-psmap-csv-mock="${name}" aria-label="Load mock CSV into ${label}" title="Load CSV sample into ${label}">🧪 Mock CSV</button>
     <span class="psmap-csv-msg" data-psmap-csv-status="${name}" role="status" aria-live="polite"></span>`;
-  field.insertBefore(controls, target);
+  // Other enhancement layers may wrap the textarea; use its actual parent.
+  target.parentNode.insertBefore(controls, target);
 }
 
 function reportCsvStatus(name, message, error = false) {
