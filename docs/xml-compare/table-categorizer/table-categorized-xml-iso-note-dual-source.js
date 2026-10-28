@@ -109,25 +109,40 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
 // Ambiguous values are evidence, not export blockers. NODE_NUM (or ultimately
 // the source-row reference) makes each such row independently traceable.
 export function isoNoteIdentityWarnings(sources = []) {
-  return sources.filter((source) => source.sourceId === 'S2').flatMap((source) =>
+  const mappingWarnings = sources.filter(source => source.sourceId === 'S1').flatMap(source =>
+    (source.rows || []).flatMap(row => {
+      const raw = String(row.rawByHeader?.['PS NO'] ?? row.rawByHeader?.['Support No'] ?? '').trim();
+      return raw && !/^(?:PS|SL)-\d+(?:\.\d+)?$/i.test(raw) ? [{
+        severity: 'WARNING', code: 'NONCANONICAL_ID',
+        message: 'Mapping identifier retained verbatim; not eligible for automatic composite-key approval.',
+        sourceRef: row.rowId, rawIdentifier: raw,
+      }] : [];
+    }));
+  return [...mappingWarnings, ...sources.filter((source) => source.sourceId === 'S2').flatMap((source) =>
     (source.rows || []).flatMap((row) => {
       const text = String(row.rawByHeader?.SupportISONOTE || '').trim();
+      const rawNode = String(row.rawByHeader?.NODE_NAME || '').trim();
+      if (rawNode && !/^(?:\/{0,2})?(?:PS|SL)-\d+(?:\.\d+)?$/i.test(rawNode)) return [{
+        severity: 'WARNING', code: 'NONCANONICAL_ID',
+        message: 'Original NODE_NAME is preserved without NODE_NUM substitution; manual review required.',
+        sourceRef: row.rowId, rawIdentifier: rawNode,
+      }];
       if (!text) return [{
         severity: 'WARNING', code: 'iso_note_missing_identity',
-        message: 'Empty ISO note retains available NODE_NAME and source row reference; NODE_NUM is only a locator.',
+        message: 'Empty ISO note; original NODE_NAME and row reference retained.',
         sourceRef: row.rowId,
       }];
       const placeholder = /(?:^|[\/:\s])(?:PS|SL)-X{3,}(?=\s|:|\/|$)/i.test(text);
       if (placeholder) return [{
         severity: 'WARNING', code: 'iso_note_placeholder_identity',
-        message: 'Placeholder support ID preserved verbatim; distinct source row reference prevents collisions.',
+        message: 'Placeholder support ID preserved verbatim; distinct row identity.',
         sourceRef: row.rowId,
       }];
       if (!new RegExp(ISO_NOTE_FULL_ID_PATTERN, 'i').test(text)) return [{
         severity: 'WARNING', code: 'iso_note_nonstandard_identity',
-        message: 'Noncanonical ISO support identifier retained verbatim from NODE_NAME (or note prefix); row reference provides distinct instance identity. NODE_NUM remains only a locator.',
+        message: 'Nonstandard ISONOTE string; NODE_NAME retained and note text preserved.',
         sourceRef: row.rowId,
       }];
       return [];
-    }));
+    }))];
 }
