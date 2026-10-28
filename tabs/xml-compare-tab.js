@@ -85,32 +85,38 @@ function isoNoteApprovalScopeActive(state) {
     isIsoNoteEngineeringInput(state.textA, state.textA) ||
     isIsoNoteEngineeringInput(state.textB, state.textB));
 }
-function approvePolicyViolation(state, action) {
-  if (!isoNoteApprovalScopeActive(state)) return '';
+const IDENTITY_APPROVAL_ACTIONS = new Set(['accept-candidate', 'bulk-approve-candidate-pairs', 'approve-pending-connector']);
+function approvalContextForAction(state, action) {
+  if (!IDENTITY_APPROVAL_ACTIONS.has(action.type)) return null;
   const workspace = workspaceFromState(state);
-  const verdict = guardCompositeApprovalAction({
-    scoped: true, action,
+  return {
+    scoped: isoNoteApprovalScopeActive(state),
     sourceRecords: workspace.source?.records || [],
     targetRecords: workspace.target?.records || [],
-    pendingPreview: state.canvasState?.pendingConnectorPreview,
     policy: ISO_NOTE_COMPOSITE_ID_POLICY,
+  };
+}
+function approvePolicyViolation(state, action, context) {
+  if (!context?.scoped) return '';
+  const verdict = guardCompositeApprovalAction({
+    ...context, action, pendingPreview: state.canvasState?.pendingConnectorPreview,
   });
   return verdict.blocked ? 'ISO approval rejected: ' + verdict.reason +
     '. Only verified PS_MAPPING_S1 to ISO_NOTES_S2 composite identities may be approved.' : '';
 }
-
 function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
-  const violation = approvePolicyViolation(state, action);
+  const approvalContext = approvalContextForAction(state, action);
+  const violation = approvePolicyViolation(state, action, approvalContext);
   if (violation) {
     state.status = { kind: 'warn', message: 'Approval blocked by shared composite identity policy: ' + violation };
     return false;
   }
-  state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action); 
+  state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action, { approvalContext });
   if (action.type === 'add-compare-field' || action.type === 'remove-compare-field' || action.type === 'set-compare-fields') {
     saveCompareFieldsToStorage(state.canvasState.compareFields);
   }
-  state.status = { kind: 'info', message }; 
-  return true; 
+  state.status = { kind: 'info', message };
+  return true;
 }
 function recordLoadDiagnostic(state, row) { state.loadDiagnostics = appendLoadDiagnosticRow(state.loadDiagnostics, { workspaceRevision: state.workspaceRevision, message: state.status?.message || '', ...row }); return state.loadDiagnostics; }
 function recordLoadFileEvent(state, event, file, side, patch = {}) { return recordLoadDiagnostic(state, { event, side, fileName: file?.name || '', size: file?.size || 0, level: patch.level || 'info', ...patch }); }
