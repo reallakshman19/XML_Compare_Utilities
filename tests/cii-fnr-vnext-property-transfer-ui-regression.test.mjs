@@ -11,6 +11,7 @@ test('Property Transfer mount does not alter Nodal tab state or handlers', async
   assert.equal(dom.root.querySelector('[data-nodal-area]').hidden,false);
   assert.equal(dom.root.querySelector('[data-normal-section]').hidden,true);
   assert.equal(dom.propertyPanel.hidden,true);
+  const previewDisabled=dom.nodalElements.nodalPreview.disabled;
 
   await dom.tabProperty.click();
   assert.equal(dom.propertyPanel.hidden,false);
@@ -24,7 +25,7 @@ test('Property Transfer mount does not alter Nodal tab state or handlers', async
   await dom.tabNodal.click();
   assert.equal(dom.propertyPanel.hidden,true);
   assert.equal(dom.root.querySelector('[data-nodal-area]').hidden,false);
-  assert.equal(dom.nodalElements.nodalPreview.disabled,false);
+  assert.equal(dom.nodalElements.nodalPreview.disabled,previewDisabled);
 });
 test('older focused Nodal DOM without Property panel still starts safely', async()=>{
   const dom=createTestDom();
