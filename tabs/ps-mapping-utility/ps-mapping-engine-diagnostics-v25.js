@@ -326,7 +326,10 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
   const patchedPhysical=physical.map(row=>normalizeDiagnostic(row,sourceGaps));
   const policy = result.options || {};
   const groups=groupAssessment(patchedPhysical,policy);
-  const syntheticSource=(result.candidateRows||result.rows||[]).filter(isSynthetic);
+  // Prefer the authoritative Candidate Matrix; fall back to any other view
+  // which actually contains proposals, rather than treating [] as evidence.
+  const syntheticSource=['candidateRows','rows','candidates','outputRows','validatorRows']
+    .map(name=>result[name]||[]).find(items=>items.some(isSynthetic))?.filter(isSynthetic)||[];
   const occupied=new Set(physical.map(modelNo).filter(Boolean).map(numberText));
   const syntheticByGroup=new Map(),proposedOwners=new Map();
   for (const row of syntheticSource) {
@@ -356,7 +359,21 @@ export function reconcileCanonicalPsMappingResult(result = {}) {
       if(isSynthetic(row)) {
         const allowed=syntheticByGroup.get(key)||[];
         const id=numberText(modelNo(row));
-        return allowed.find(x=>numberText(modelNo(x))===id)?[enforceSynthetic(row)]:[];
+        if(!allowed.find(x=>numberText(modelNo(x))===id))return [];
+        const proposal=enforceSynthetic(row);
+        // Synthetic and real rows must project exactly the same final node
+        // assessment. The proposed row is not an extra physical contributor.
+        proposal.t1NodeRestraints=fmt(group.required);
+        proposal.t2CoveredRestraints=fmt(group.present);
+        proposal.missingNodeRestraints=fmt(group.missing);
+        proposal.extraTable2Restraints=fmt(group.extra);
+        proposal.nodeCoverageStatus=group.nodeCoverageStatus;
+        proposal.nodeComplianceStatus=group.gapActions.size||group.warnings.size
+          ? 'REVIEW_REQUIRED' : 'NO_OPEN_DIMENSIONAL_EXCEPTIONS';
+        proposal.nodeCoverageNote=nodeCoverageExplanation(group);
+        proposal.consolidatedNodeWiseAction=actionFor(group);
+        proposal.proposedMissingSupportPsNo=group.proposed.map(p=>typeOfSynthetic(p)+'='+modelNo(p)).join('; ');
+        return [proposal];
       }
       const next=normalizeDiagnostic(row,sourceGaps);
       if(!group)return [next];
