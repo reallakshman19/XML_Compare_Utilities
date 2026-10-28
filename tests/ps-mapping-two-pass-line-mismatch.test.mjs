@@ -94,6 +94,59 @@ test('Unrelated support base never qualifies for pass 2', () => {
   assert.equal(result.rows[0].finalStatus,'NO_MATCH');
 });
 
+
+test('PS-131.1: PIPE STOP is LINE_STOP; DO NOT REST is not a positive REST requirement', () => {
+  const refs=ref([['/ASIM-1885-PL-6"-CS-W8810003-01/B1','4190','/PS-131.1',2,
+    "://PS-131.1 :ISONOTE 'DO NOT REST [25mm GAP](1kN),LINE STOP(2kN)'"]]);
+  const models=model([
+    ['PS-131.3',50,'ASIM-1885-PL-3"-S8810107-91261M7-01','Pipe Rest XRT01'],
+    ['PS-131.1',50,'ASIM-1885-PL-3"-S8810107-91261M7-01','PIPE STOP TYPE-602'],
+  ]);
+  const result=run(runFull,refs,models);
+  const rows=[...(result.rows||[]),...(result.candidateRows||[])];
+  const stop=rows.find(r=>r.psnoModel==='PS-131.1' && r.lineMismatchReview===true);
+  assert.ok(stop,'existing PIPE STOP must remain visible as line-mismatch review');
+  assert.equal(stop.modelDtxrKeywords,'LINE STOP');
+  assert.equal(stop.selected,false);
+  const group=result.canonicalAssessments.find(g=>g.node==='4190');
+  assert.ok(group);
+  assert.deepEqual(group.required,['LINE_STOP']);
+  assert.ok(group.unverifiedLine.includes('LINE_STOP'));
+  assert.ok(!group.missing.includes('LINE_STOP'));
+  assert.ok(!group.missing.includes('REST'));
+  assert.equal(rows.some(r=>r.syntheticMissingSupport===true),false);
+});
+
+test('SL-211.2: same-base DN300 REST and directional-anchor LINE STOP are unverified, not absent', () => {
+  const refs=ref([['/ASIM-1885-PL-8"-CS-S8810104-01','720','SL-211.2',12,
+    ":/SL-211.2 :ISONOTE 'REST(10kN),LINE STOP(18kN), [LINE STOP GAP=25mm]'"]]);
+  const models=model([
+    ['SL-211.2',300,'ASIM-1885-PL-10"-S8810105-HOT-01','PIPE SHOE FOR HORIZ LINES N.B. 3/4" to 24" 12-PDO-TYPE-416A/B-200-800 Carbon Steel'],
+    ['SL-211.4',300,'ASIM-1885-PL-10"-S8810105-HOT-01','Pipe Rest XRT01'],
+    ['SL-211.3',300,'ASIM-1885-PL-10"-S8810105-HOT-01','WEAR PLATE TYPE-421 PAD L 900mm'],
+    ['SL-211.1',300,'ASIM-1885-PL-10"-S8810105-HOT-01','Directional Anchor On Shoe for Hot Insulated Pipe NPS 1/2- 36 12-XST06-40'],
+    ['SL-117.4',250,'ASIM-1885-PL-10"-S8810105-HOT-01','Pipe Rest XRT01'],
+    ['SL-117.8',250,'ASIM-1885-PL-10"-S8810105-HOT-01','GUIDE PDO-TYPE-603'],
+  ]);
+  const result=run(runFull,refs,models);
+  const rows=[...(result.rows||[]),...(result.candidateRows||[])];
+  const stop=rows.find(r=>r.psnoModel==='SL-211.1' && r.lineMismatchReview===true);
+  const rest=rows.find(r=>r.psnoModel==='SL-211.4' && r.lineMismatchReview===true);
+  assert.ok(stop,'directional anchor provides potential LINE_STOP hardware');
+  assert.ok(rest,'existing DN300 REST must be retained as line-mismatch candidate');
+  assert.equal(stop.selected,false);
+  assert.equal(rest.selected,false);
+  assert.equal(stop.autoSelectable,false);
+  const group=result.canonicalAssessments.find(g=>g.node==='720');
+  assert.ok(group);
+  assert.deepEqual(group.required,['REST','LINE_STOP']);
+  assert.ok(group.unverifiedLine.includes('REST'));
+  assert.ok(group.unverifiedLine.includes('LINE_STOP'));
+  assert.deepEqual(group.missing,[]);
+  assert.equal(rows.some(r=>r.syntheticMissingSupport===true),false);
+  assert.equal(rows.some(r=>/SL-211\.2\.X[12]/.test(String(r.psnoModel))),false);
+});
+
 test('Application modules and GitHub Pages copies are byte-identical', () => {
   for(const p of ['ps-mapping-engine-diagnostics.js','ps-mapping-engine-diagnostics-v6.js','ps-mapping-engine-diagnostics-v17.js',
     'ps-mapping-engine-diagnostics-v25.js']) {
