@@ -83,8 +83,10 @@ function approvePolicyViolation(state, action) {
     : action.type === 'approve-pending-connector' ? [state.canvasState.pendingConnectorPreview || {}]
       : [action.candidate || {}];
   const invalid = pairs.map(pair => validateIsoNoteCandidateIdentity(pair, source, target))
-    .find(verdict => verdict.applicable && !verdict.valid);
-  return invalid?.reason || '';
+    .find(verdict => (verdict.applicable && !verdict.valid) ||
+      (state.aim?.isoNoteExactPairsOnly && !verdict.applicable));
+  return invalid ? invalid.applicable ? invalid.reason :
+    'Exact ISO identity mode requires a PS_MAPPING_S1 source and ISO_NOTES_S2 target with resolvable records.' : '';
 }
 function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') {
   const violation = approvePolicyViolation(state, action);
