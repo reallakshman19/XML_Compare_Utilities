@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PS Mapping CSV import smoke</title></head>
+<body>
+<main id="app" aria-label="PS Mapping utility"></main>
+<script type="module">
+  import { installPsMappingUtilityTile } from '../../tabs/ps-mapping-utility-tab-support-prefix-ui.js';
+  window.__smokeErrors = [];
+  window.addEventListener('error', event => window.__smokeErrors.push(String(event.error || event.message)));
+  window.addEventListener('unhandledrejection', event => window.__smokeErrors.push(String(event.reason)));
+  window.__destroy = installPsMappingUtilityTile(document.getElementById('app'), {
+    showToast(message, type) {
+      window.__toasts ??= [];
+      window.__toasts.push({ message: String(message), type: String(type || '') });
+    },
+  });
+</script>
+</body>
+</html>
