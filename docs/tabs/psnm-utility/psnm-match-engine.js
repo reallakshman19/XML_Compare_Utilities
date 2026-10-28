@@ -342,7 +342,7 @@ export function PSNM_buildMatchTable(options) {
   const mandatoryNodeRows = options.mandatoryNodeRows || [];
   const mandatorySet = new Set(mandatoryNodeRows.map((row) => PSNM_safeString(row.node)).filter(Boolean));
   logger.debug('INFO', 'INIT', 'PSNM run started.', { psRows: psRows.length, nodeRows: nodeRows.length, nodeDiaRows: nodeDiaRows.length, mandatoryNodes: mandatorySet.size, coordinateDecimals, boreMode, cfg });
-  const transform = PSNM_deriveTransformFromAnchor(options.anchor);
+  const transform = options.axisTransform?.axisMode ? options.axisTransform : PSNM_deriveTransformFromAnchor(options.anchor);
   logger.debug('INFO', 'BASE_TRANSFORM', 'Derived base transform. Node XYZ rows are transformed to PS E/U/S before matching.', { anchor: options.anchor, transform });
   const diaByNode = new Map();
   for (const row of nodeDiaRows) {

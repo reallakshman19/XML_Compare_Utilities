@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PSNM workbench browser workflow qualification</title></head>
+<body>
+<main id="app" aria-label="PSNM Utilities"></main>
+<script type="module">
+  import { renderPSNM_UtilityTab } from '../../tabs/psnm-utility-tab.js';
+  window.__smokeErrors = [];
+  window.addEventListener('error', event => window.__smokeErrors.push(String(event.message || event.error)));
+  window.addEventListener('unhandledrejection', event => window.__smokeErrors.push(String(event.reason)));
+  window.__psnmDestroy = renderPSNM_UtilityTab(document.getElementById('app'), {
+    showToast(message, type) {
+      window.__smokeToasts ??= [];
+      window.__smokeToasts.push({ message: String(message), type: String(type || '') });
+    },
+  });
+</script>
+</body>
+</html>

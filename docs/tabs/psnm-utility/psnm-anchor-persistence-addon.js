@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'psnm.anchorSelection.v1';
+let restoringAnchor = false;
 
 function text(value) { return String(value ?? '').trim(); }
 function html(value) {
@@ -102,12 +103,20 @@ function restoreIntoModal(modal, { dispatch = true } = {}) {
     nodeSelect.value = nodeOption.value;
     changed = true;
   }
+  if (changed && dispatch) {
+    restoringAnchor = true;
+    try {
+      psSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+      nodeSelect?.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+      restoringAnchor = false;
+    }
+  }
+  // The core input listener invalidates the previous axis transform when a
+  // dropdown changes. Restore a saved axis mapping *after* dispatching those
+  // events so the next Run Match receives the chosen orientation.
   if (saved.axisTransform?.axisMode && psOption && nodeOption) {
     window.__PSNM_AXIS_TRANSFORM = saved.axisTransform;
-  }
-  if (changed && dispatch) {
-    psSelect?.dispatchEvent(new Event('input', { bubbles: true }));
-    nodeSelect?.dispatchEvent(new Event('input', { bubbles: true }));
   }
   renderAnchorStatus(modal);
   return changed;
@@ -122,13 +131,21 @@ function schedule(container, delay = 0) {
 export function installPsnmAnchorPersistenceAddon(container, ctx = {}) {
   function onClick(event) {
     const action = event.target?.closest?.('[data-psnm-action]')?.dataset?.psnmAction;
-    const tab = event.target?.closest?.('[data-psnm-tab]')?.dataset?.psnmTab;
-    if (action === 'open' || action === 'resolveMasters' || action === 'useAutoAnchor' || tab === 'setup') {
+    if (action === 'open' || action === 'resolveMasters') {
+      // Restore once, only after creating the modal/master options. Do not
+      // restore on setup navigation or after applying a newly selected pair.
       schedule(container, 0);
-      schedule(container, 80);
+    } else if (action === 'useAutoAnchor') {
+      // Native auto-anchor already updated the state and replaced the modal.
+      // Persist that new choice instead of overwriting it with a stale pair.
+      window.setTimeout(() => {
+        const modal = container.querySelector('[data-psnm="modal"]');
+        if (modal) { saveCurrent(modal); renderAnchorStatus(modal); }
+      }, 0);
     }
   }
   function onInput(event) {
+    if (restoringAnchor) return;
     const setup = event.target?.closest?.('[data-setup]');
     if (!setup) return;
     const key = setup.dataset.setup;

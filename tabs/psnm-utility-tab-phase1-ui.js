@@ -170,7 +170,7 @@ function renameLabels(panel) {
     if (!textarea) return;
     const sourceKey = textarea.dataset.source;
     const label = field.querySelector('label');
-    if (label && SOURCE_LABELS[sourceKey]) label.textContent = SOURCE_LABELS[sourceKey];
+    if (label && SOURCE_LABELS[sourceKey] && label.textContent !== SOURCE_LABELS[sourceKey]) label.textContent = SOURCE_LABELS[sourceKey];
     addExpectedHeader(field, sourceKey);
     addMapButton(field, sourceKey);
   });
@@ -221,13 +221,14 @@ function renderPreflight(container) {
     cardBody.insertBefore(box, counts?.nextSibling || cardBody.firstChild);
   }
   const hard = issues.filter(([level]) => level === 'hard');
-  if (!issues.length) {
-    box.className = 'psnm-ux-preflight ok';
-    box.innerHTML = '<b>Preflight check:</b> source headers look usable. Build Master Tables when ready.';
-    return;
-  }
-  box.className = 'psnm-ux-preflight';
-  box.innerHTML = `<b>Preflight found ${hard.length} hard blocker(s) and ${issues.length - hard.length} warning(s).</b>${issues.map(([level, code, message, action]) => `<div class="psnm-ux-issue ${h(level)}"><b>${h(code)}</b><br>${h(message)}<br><span>${h(action)}</span></div>`).join('')}`;
+  const className = issues.length ? 'psnm-ux-preflight' : 'psnm-ux-preflight ok';
+  const markup = issues.length
+    ? `<b>Preflight found ${hard.length} hard blocker(s) and ${issues.length - hard.length} warning(s).</b>${issues.map(([level, code, message, action]) => `<div class="psnm-ux-issue ${h(level)}"><b>${h(code)}</b><br>${h(message)}<br><span>${h(action)}</span></div>`).join('')}`
+    : '<b>Preflight check:</b> source headers look usable. Build Master Tables when ready.';
+  // Other PSNM layers watch childList; writing the same markup perpetually
+  // re-triggers their observers and freezes the modal.
+  if (box.className !== className) box.className = className;
+  if (box.innerHTML !== markup) box.innerHTML = markup;
 }
 
 function enhanceSource(container) {

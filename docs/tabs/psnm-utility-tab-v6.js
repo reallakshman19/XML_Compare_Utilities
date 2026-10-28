@@ -13,6 +13,12 @@ import {
   PSNM_resolveMasterNodeTable,
 } from './psnm-utility/psnm-master-node-resolver.js';
 import {
+  psnmAxisPermutations,
+  psnmMakeAxisTransform,
+  psnmSignSets,
+  psnmTransformNodeToPs,
+} from './psnm-utility/psnm-axis-transform-core.js';
+import {
   PSNM_masterMandatoryNodeRows,
   PSNM_masterNodeCoverageRows,
   PSNM_masterNodeToMatchRows,
@@ -50,6 +56,10 @@ function writeBoolStorage(key, value) { try { localStorage.setItem(key, value ? 
 
 const PSNM_CANDIDATE_DETAIL_KEY = 'psnm.showCandidateDiagnosticColumns';
 const MAX_AUTO_ANCHOR_PAIRS = 25;
+const PSNM_CANDIDATE_PAGE_SIZE = 100;
+// Bound axis permutations on large datasets; final Run Match still uses every master row.
+const PSNM_ANCHOR_SEED_LIMIT = 12;
+const PSNM_ANCHOR_SCORING_LIMIT = 48;
 
 const PSNM_CANDIDATE_BASIC_COLUMNS = [
   ['psName', 'PS Name'], ['matchingNode', 'Candidate Node'], ['node', 'Node'], ['occurrenceId', 'Node Occurrence'],
@@ -70,10 +80,16 @@ function formatCandidateValue(key, value) {
   return value ?? '';
 }
 function candidateMatrixTable(state) {
-  const rows = state.result?.candidateRows || [];
+  const allRows = state.result?.candidateRows || [];
+  const pageCount = Math.max(1, Math.ceil(allRows.length / PSNM_CANDIDATE_PAGE_SIZE));
+  const page = Math.max(0, Math.min(pageCount - 1, Number(state.ui?.candidatePage) || 0));
+  const rows = allRows.slice(page * PSNM_CANDIDATE_PAGE_SIZE, (page + 1) * PSNM_CANDIDATE_PAGE_SIZE);
   const columns = state.ui?.showCandidateDiagnostics ? [...PSNM_CANDIDATE_BASIC_COLUMNS, ...PSNM_CANDIDATE_DETAIL_COLUMNS] : PSNM_CANDIDATE_BASIC_COLUMNS;
   if (!rows.length) return '<div class="psnm-banner">No candidate rows yet. Run Match after building Master Tables.</div>';
-  return `<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr>${columns.map(([, label]) => `<th>${h(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${h(formatCandidateValue(key, row?.[key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const start = page * PSNM_CANDIDATE_PAGE_SIZE + 1;
+  const end = Math.min(allRows.length, (page + 1) * PSNM_CANDIDATE_PAGE_SIZE);
+  const pager = `<div class="psnm-actions"><span class="psnm-sub">Candidates ${start}-${end} of ${allRows.length}; page ${page + 1}/${pageCount}. CSV exports all rows.</span><button class="psnm-btn psnm-btn-secondary" data-psnm-action="candidatePrev" ${page === 0 ? 'disabled' : ''}>Previous</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="candidateNext" ${page + 1 >= pageCount ? 'disabled' : ''}>Next</button></div>`;
+  return `${pager}<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr>${columns.map(([, label]) => `<th>${h(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${h(formatCandidateValue(key, row?.[key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 function candidateMatrixPanel(state) {
   const checked = state.ui?.showCandidateDiagnostics ? 'checked' : '';
@@ -85,10 +101,10 @@ function makeState() {
     activeTab: 'source', masterSubTab: 'ps', sourceDirty: true, masterReady: false, masterDirty: false,
     source: { table1Text: SAMPLE_TABLE1, table4AText: SAMPLE_TABLE4A, table2Text: SAMPLE_TABLE2, table3Text: SAMPLE_TABLE3, table4BText: SAMPLE_TABLE4B },
     master: { psRows: [], psIssues: [], nodeRows: [], nodeIssues: [] },
-    setup: { anchorPsRowId: '', anchorNodeRowId: '', coordinateDecimals: 0, boreMode: 'prefer', approx1: '25,25,25', approx2: '50,25,50', approx3: '50,25,50', enableApprox1: true, enableApprox2: true, enableApprox3: true },
+    setup: { anchorPsRowId: '', anchorNodeRowId: '', anchorTransform: null, coordinateDecimals: 0, boreMode: 'prefer', approx1: '25,25,25', approx2: '50,25,50', approx3: '50,25,50', enableApprox1: true, enableApprox2: true, enableApprox3: true },
     autoAnchor: { pairs: [], selectedIndex: null, message: 'Build Master Tables, then run Auto Anchor.' },
     result: { rows: [], candidateRows: [], mandatoryCoverageRows: [], mandatoryPsCoverageRows: [], userLog: [], debugLog: [] },
-    ui: { showCandidateDiagnostics: readBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, false) },
+    ui: { showCandidateDiagnostics: readBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, false), candidatePage: 0 },
     status: { phase: 'Idle', detail: 'Paste source tables, then Resolve Master Tables.', percent: 0 },
   };
 }
@@ -113,7 +129,7 @@ function panel(id, state, html) { return `<section class="psnm-panel ${state.act
 function statusBar(state) { return `<div class="psnm-statusbar"><div><div class="psnm-status-title">${h(state.status.phase)} - ${h(state.status.percent)}%</div><div class="psnm-status-detail">${h(state.status.detail)}</div><div class="psnm-progress"><div class="psnm-progress-fill" style="width:${Math.max(0, Math.min(100, Number(state.status.percent) || 0))}%"></div></div></div><div class="psnm-actions"><button class="psnm-btn" data-psnm-action="resolveMasters">Resolve Master Tables</button><button class="psnm-btn" data-psnm-action="runMatch">Run Match</button></div></div>`; }
 
 function sourcePanel(state) {
-  return `<section class="psnm-card"><div class="psnm-card-head"><b>Source Tables</b><button class="psnm-btn" data-psnm-action="resolveMasters">Resolve Master Tables</button></div><div class="psnm-card-body"><div class="psnm-banner"><b>Phase 4B:</b> Table 1+4A resolve Master PS No. Table 2+3+4B resolve Master Node. Matching uses only these Master Tables.</div><div class="psnm-counts"><div><b>${countRows(state.source.table1Text)}</b><br><span>Table 1</span></div><div><b>${countRows(state.source.table4AText)}</b><br><span>Table 4A</span></div><div><b>${countRows(state.source.table2Text)}</b><br><span>Table 2</span></div><div><b>${countRows(state.source.table3Text)}</b><br><span>Table 3</span></div><div><b>${countRows(state.source.table4BText)}</b><br><span>Table 4B</span></div></div><h3>PS Side</h3><div class="psnm-source-ps"><div class="psnm-field"><label>Table 1 - PS Source Table</label><textarea data-source="table1Text">${h(state.source.table1Text)}</textarea></div><div class="psnm-field psnm-narrow"><label>Table 4A - PS Mandatory / Override</label><textarea data-source="table4AText">${h(state.source.table4AText)}</textarea></div></div><h3>Node Side</h3><div class="psnm-source-node"><div class="psnm-field"><label>Table 2 - Node XYZ Source Table</label><textarea data-source="table2Text">${h(state.source.table2Text)}</textarea></div><div class="psnm-field"><label>Table 3 - Node Dia / Bore Source Table</label><textarea data-source="table3Text">${h(state.source.table3Text)}</textarea></div><div class="psnm-field psnm-narrow"><label>Table 4B - Node Mandatory / Override</label><textarea data-source="table4BText">${h(state.source.table4BText)}</textarea></div></div></div></section>`;
+  return `<section class="psnm-card"><div class="psnm-card-head"><b>Source Tables</b><span class="psnm-sub">Step 1 · Paste and validate; resolve using the footer action</span></div><div class="psnm-card-body"><div class="psnm-banner"><b>Phase 4B:</b> Table 1+4A resolve Master PS No. Table 2+3+4B resolve Master Node. Matching uses only these Master Tables.</div><div class="psnm-counts"><div><b>${countRows(state.source.table1Text)}</b><br><span>Table 1</span></div><div><b>${countRows(state.source.table4AText)}</b><br><span>Table 4A</span></div><div><b>${countRows(state.source.table2Text)}</b><br><span>Table 2</span></div><div><b>${countRows(state.source.table3Text)}</b><br><span>Table 3</span></div><div><b>${countRows(state.source.table4BText)}</b><br><span>Table 4B</span></div></div><h3>PS Side</h3><div class="psnm-source-ps"><div class="psnm-field"><label>Table 1 - PS Source Table</label><textarea data-source="table1Text">${h(state.source.table1Text)}</textarea></div><div class="psnm-field psnm-narrow"><label>Table 4A - PS Mandatory / Override</label><textarea data-source="table4AText">${h(state.source.table4AText)}</textarea></div></div><h3>Node Side</h3><div class="psnm-source-node"><div class="psnm-field"><label>Table 2 - Node XYZ Source Table</label><textarea data-source="table2Text">${h(state.source.table2Text)}</textarea></div><div class="psnm-field"><label>Table 3 - Node Dia / Bore Source Table</label><textarea data-source="table3Text">${h(state.source.table3Text)}</textarea></div><div class="psnm-field psnm-narrow"><label>Table 4B - Node Mandatory / Override</label><textarea data-source="table4BText">${h(state.source.table4BText)}</textarea></div></div></div></section>`;
 }
 function masterPsTable(state) {
   const rows = state.master.psRows || [];
@@ -126,7 +142,7 @@ function masterNodeTable(state) {
   return `<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr><th>Enabled</th><th>Node</th><th>Occurrence</th><th>Raw X</th><th>Raw Y</th><th>Raw Z</th><th>Node E</th><th>Node U</th><th>Node S</th><th>Table2 Bore</th><th>Table3 OD</th><th>Derived Bore</th><th>Final Bore</th><th>Bore Source</th><th>Conflict</th><th>Mandatory</th><th>Source</th><th>Status</th><th>Edited</th><th>Remarks</th></tr></thead><tbody>${rows.map((row) => `<tr data-master-node-row="${h(row.rowId)}"><td><input type="checkbox" data-master-node-field="enabled" ${row.enabled !== false ? 'checked' : ''}></td><td><input data-master-node-field="node" value="${h(row.node)}" style="width:80px"></td><td>${h(row.occurrenceId)}</td><td><input data-master-node-field="rawX" value="${h(row.rawX ?? '')}" style="width:110px"></td><td><input data-master-node-field="rawY" value="${h(row.rawY ?? '')}" style="width:90px"></td><td><input data-master-node-field="rawZ" value="${h(row.rawZ ?? '')}" style="width:110px"></td><td>${n(row.nodeE)}</td><td>${n(row.nodeU)}</td><td>${n(row.nodeS)}</td><td>${h(row.table2Bore ?? '-')}</td><td>${h(row.table3Od ?? '-')}</td><td>${h(row.table3DerivedBore ?? '-')}</td><td><input data-master-node-field="finalNodeBore" value="${h(row.finalNodeBore ?? '')}" style="width:80px"></td><td>${h(row.boreSource)}</td><td>${row.boreConflict ? 'YES' : 'NO'}</td><td><input type="checkbox" data-master-node-field="isMandatoryNode" ${row.isMandatoryNode ? 'checked' : ''}></td><td>${h(row.mandatorySource || '-')}</td><td>${h(row.status)}</td><td>${row.userEdited ? 'YES' : 'NO'}</td><td><input data-master-node-field="remarks" value="${h(row.remarks)}"></td></tr>`).join('')}</tbody></table></div>`;
 }
 function issuesTable(state) { const rows = [...(state.master.psIssues || []), ...(state.master.nodeIssues || [])]; return rows.length ? resultTableLike(rows, ['psName','node','occurrenceId','status','sourceTable','sourceRow','remarks']) : '<div class="psnm-banner">No resolution issues.</div>'; }
-function masterPanel(state) { const body = state.masterSubTab === 'ps' ? masterPsTable(state) : state.masterSubTab === 'node' ? masterNodeTable(state) : issuesTable(state); return `<section class="psnm-card"><div class="psnm-card-head"><b>Master Tables</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-action="resolveMasters">Rebuild Master Tables</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterPs">Copy Master PS</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterNode">Copy Master Node</button></div></div><div class="psnm-subtabs">${subtab('ps','Master PS No',state)}${subtab('node','Master Node',state)}${subtab('issues','Resolution Issues',state)}</div><div class="psnm-card-body"><div class="psnm-banner"><b>Matching uses only the Master Tables shown here.</b> Raw source tables are not passed directly to the matcher after master resolution.</div>${body}</div></section>`; }
+function masterPanel(state) { const body = state.masterSubTab === 'ps' ? masterPsTable(state) : state.masterSubTab === 'node' ? masterNodeTable(state) : issuesTable(state); return `<section class="psnm-card"><div class="psnm-card-head"><b>Master Tables</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-tab="source">Back: Sources</button><button class="psnm-btn" data-psnm-tab="setup">Continue: Anchor Setup</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterPs">Copy Master PS</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMasterNode">Copy Master Node</button></div></div><div class="psnm-subtabs">${subtab('ps','Master PS No',state)}${subtab('node','Master Node',state)}${subtab('issues','Resolution Issues',state)}</div><div class="psnm-card-body"><div class="psnm-banner"><b>Matching uses only the Master Tables shown here.</b> Raw source tables are not passed directly to the matcher after master resolution.</div>${body}</div></section>`; }
 
 function finite(value) { return Number.isFinite(Number(value)); }
 function psMatchRows(state) { return (state.master.psRows || []).filter((row) => row.enabled !== false && row.status === 'OK' && row.positionRaw && finite(row.psE) && finite(row.psU) && finite(row.psS)); }
@@ -142,7 +158,12 @@ function ensureAnchors(state) {
   const psRows = psMatchRows(state); if (!psRows.some((row) => row.rowId === state.setup.anchorPsRowId)) state.setup.anchorPsRowId = psRows[0]?.rowId || '';
   const nodeRows = nodeMatchRows(state); if (!nodeRows.some((row) => row.rowId === state.setup.anchorNodeRowId)) state.setup.anchorNodeRowId = nodeRows[0]?.rowId || '';
 }
-function applyCurrentTransform(state) { try { const transform = PSNM_deriveTransformFromAnchor(selectedAnchor(state)); PSNM_applyMasterNodeTransform(state.master.nodeRows, transform, Number(state.setup.coordinateDecimals) || 0); } catch {} }
+function applyCurrentTransform(state) {
+  try {
+    const transform = state.setup.anchorTransform || PSNM_deriveTransformFromAnchor(selectedAnchor(state));
+    PSNM_applyMasterNodeTransform(state.master.nodeRows, transform, Number(state.setup.coordinateDecimals) || 0);
+  } catch {}
+}
 function datumFromPair(ps, node) { return { e: Number(ps.psE) - Number(node.rawX), u: Number(ps.psU) - Number(node.rawY), s: Number(ps.psS) - Number(node.rawZ) }; }
 function transformedNode(node, datum) { return { e: Number(node.rawX) + datum.e, u: Number(node.rawY) + datum.u, s: Number(node.rawZ) + datum.s }; }
 function delta(ps, nodePs) { const de = nodePs.e - Number(ps.psE); const du = nodePs.u - Number(ps.psU); const ds = nodePs.s - Number(ps.psS); return { de, du, ds, maxAbs: Math.max(Math.abs(de), Math.abs(du), Math.abs(ds)), euclid: Math.sqrt(de * de + du * du + ds * ds) }; }
@@ -159,8 +180,8 @@ function boreRelation(ps, node) {
   if (!Number.isFinite(psBore) || !Number.isFinite(nodeBore)) return 'MISSING';
   return Math.abs(psBore - nodeBore) <= 1e-6 ? 'PASS' : 'CONFLICT';
 }
-function scoreAutoAnchorPair(ps, node, psRows, nodeRows, state) {
-  const datum = datumFromPair(ps, node);
+function scoreAutoAnchorPair(ps, node, psRows, nodeRows, state, transform) {
+  const datum = { e: transform.offsets.e, u: transform.offsets.u, s: transform.offsets.s };
   const tol = { a1: triple(state.setup.approx1, [25,25,25]), a2: triple(state.setup.approx2, [50,25,50]), a3: triple(state.setup.approx3, [50,25,50]) };
   const used = new Set();
   let exact = 0, a1 = 0, a2 = 0, a3 = 0, borePass = 0, boreMissing = 0, boreConflict = 0, sumMax = 0, worst = 0;
@@ -168,7 +189,7 @@ function scoreAutoAnchorPair(ps, node, psRows, nodeRows, state) {
     let best = null;
     for (const nd of nodeRows) {
       if (used.has(nd.rowId)) continue;
-      const d = delta(p, transformedNode(nd, datum));
+      const d = delta(p, psnmTransformNodeToPs({ x: nd.rawX, y: nd.rawY, z: nd.rawZ }, transform));
       const type = classifyDelta(d, tol);
       const candidate = { node: nd, d, type, rank: rankType(type) };
       if (!best || candidate.rank < best.rank || (candidate.rank === best.rank && candidate.d.maxAbs < best.d.maxAbs)) best = candidate;
@@ -187,24 +208,53 @@ function scoreAutoAnchorPair(ps, node, psRows, nodeRows, state) {
   const confidenceScore = Math.max(0, Math.min(99, Math.round(coverage * 55 + exactShare * 30 + boreGoodShare * 15 - boreConflict * 4 - Math.min(20, avgMax / 25))));
   const confidence = confidenceScore >= 80 ? 'HIGH' : confidenceScore >= 55 ? 'MEDIUM' : 'LOW';
   const score = exact * 100000 + a1 * 50000 + a2 * 20000 + a3 * 10000 + borePass * 1000 + boreMissing * 150 - boreConflict * 5000 - worst * 2 - avgMax;
-  return { psRowId: ps.rowId, nodeRowId: node.rowId, psName: ps.psName, node: node.node, occurrenceId: node.occurrenceId, datum, exact, approx1: a1, approx2: a2, approx3: a3, totalMatches, borePass, boreMissing, boreConflict, avgMax, worst, confidence, confidenceScore, score };
+  return { psRowId: ps.rowId, nodeRowId: node.rowId, psName: ps.psName, node: node.node, occurrenceId: node.occurrenceId, transform, datum, exact, approx1: a1, approx2: a2, approx3: a3, totalMatches, borePass, boreMissing, boreConflict, avgMax, worst, confidence, confidenceScore, score };
+}
+function sampleAnchorRows(rows, limit) {
+  if (rows.length <= limit) return rows;
+  return Array.from({ length: limit }, (_, i) => rows[Math.floor(i * (rows.length - 1) / (limit - 1))]);
 }
 function runAutoAnchorSearch(state) {
-  if (!state.masterReady) throw new Error('Build Master Tables before Auto Anchor.');
-  const psRows = psMatchRows(state); const nodeRows = nodeMatchRows(state);
+  if (!state.masterReady || state.sourceDirty) throw new Error('Build current Master Tables before Auto Anchor.');
+  const psRows = psMatchRows(state), nodeRows = nodeMatchRows(state);
   if (!psRows.length || !nodeRows.length) throw new Error('Auto Anchor requires valid Master PS and Master Node rows.');
+  const scoredPs = sampleAnchorRows(psRows, PSNM_ANCHOR_SCORING_LIMIT);
+  const scoredNodes = sampleAnchorRows(nodeRows, PSNM_ANCHOR_SCORING_LIMIT);
+  const seedPs = sampleAnchorRows(scoredPs, PSNM_ANCHOR_SEED_LIMIT);
+  const seedNodes = sampleAnchorRows(scoredNodes, PSNM_ANCHOR_SEED_LIMIT);
   const pairs = [];
-  for (const ps of psRows) for (const node of nodeRows) pairs.push(scoreAutoAnchorPair(ps, node, psRows, nodeRows, state));
-  pairs.sort((a, b) => b.confidenceScore - a.confidenceScore || b.score - a.score || b.totalMatches - a.totalMatches || a.avgMax - b.avgMax || String(a.psName).localeCompare(String(b.psName)) || String(a.node).localeCompare(String(b.node), undefined, { numeric: true }));
+  for (const ps of seedPs) for (const node of seedNodes) {
+    let best = null;
+    const psCoord = { e: Number(ps.psE), u: Number(ps.psU), s: Number(ps.psS) };
+    const nodeCoord = { x: Number(node.rawX), y: Number(node.rawY), z: Number(node.rawZ) };
+    for (const axes of psnmAxisPermutations()) for (const signs of psnmSignSets()) {
+      const transform = psnmMakeAxisTransform(psCoord, nodeCoord, axes, signs);
+      const candidate = scoreAutoAnchorPair(ps, node, scoredPs, scoredNodes, state, transform);
+      if (!best || candidate.confidenceScore > best.confidenceScore
+          || (candidate.confidenceScore === best.confidenceScore && candidate.score > best.score)) best = candidate;
+    }
+    if (best) pairs.push(best);
+  }
+  pairs.sort((a, b) => b.confidenceScore - a.confidenceScore || b.score - a.score
+    || b.totalMatches - a.totalMatches || a.avgMax - b.avgMax
+    || String(a.psName).localeCompare(String(b.psName))
+    || String(a.node).localeCompare(String(b.node), undefined, { numeric: true }));
   state.autoAnchor.pairs = pairs.slice(0, MAX_AUTO_ANCHOR_PAIRS);
   state.autoAnchor.selectedIndex = null;
-  state.autoAnchor.message = state.autoAnchor.pairs.length ? `Found ${state.autoAnchor.pairs.length} ranked anchor pair(s). Click Use Pair to populate Anchor & Match Setup.` : 'No viable auto-anchor pairs found.';
+  const sampled = scoredPs.length !== psRows.length || scoredNodes.length !== nodeRows.length;
+  state.autoAnchor.message = sampled
+    ? `Ranked ${pairs.length} axis-aware Master Table pairs using a ${scoredPs.length}-PS/${scoredNodes.length}-Node sample. Run Match validates all rows.`
+    : `Ranked ${pairs.length} axis-aware Master Table pairs.`;
 }
 function applyAutoAnchorPair(state, index) {
   const pair = state.autoAnchor.pairs[Number(index)];
   if (!pair) throw new Error('Auto Anchor pair is no longer available. Run Auto Anchor again.');
   state.setup.anchorPsRowId = pair.psRowId;
   state.setup.anchorNodeRowId = pair.nodeRowId;
+  state.setup.anchorTransform = pair.transform;
+  if (typeof window !== 'undefined') {
+    window.__PSNM_AXIS_TRANSFORM = { ...pair.transform, anchorPsName: pair.psName, anchorNode: String(pair.node) };
+  }
   state.autoAnchor.selectedIndex = Number(index);
   applyCurrentTransform(state);
   state.activeTab = 'setup';
@@ -213,17 +263,17 @@ function applyAutoAnchorPair(state, index) {
 function autoAnchorTable(state) {
   const pairs = state.autoAnchor.pairs || [];
   if (!pairs.length) return `<div class="psnm-banner">${h(state.autoAnchor.message || 'Run Auto Anchor after building Master Tables.')}</div>`;
-  return `<div class="psnm-tablewrap"><table class="psnm-table psnm-auto-table"><thead><tr><th>Use</th><th>Rank</th><th>Confidence</th><th>Anchor PS</th><th>Anchor Node</th><th>Matches</th><th>Exact</th><th>A1</th><th>A2</th><th>A3</th><th>Bore Pass</th><th>Bore Missing</th><th>Bore Conflict</th><th>Avg Max d</th><th>Worst d</th><th>datumE</th><th>datumU</th><th>datumS</th></tr></thead><tbody>${pairs.map((p, i) => `<tr class="${state.autoAnchor.selectedIndex === i ? 'psnm-selected' : ''}"><td><button class="psnm-btn psnm-btn-secondary" data-psnm-action="useAutoAnchor" data-auto-anchor-index="${i}">Use Pair</button></td><td>${i + 1}</td><td><b class="${p.confidence === 'HIGH' ? 'psnm-good' : p.confidence === 'MEDIUM' ? 'psnm-warn' : 'psnm-bad'}">${h(p.confidence)} ${p.confidenceScore}/100</b></td><td>${h(p.psName)}</td><td>${h(p.node)} <span class="psnm-sub">${h(p.occurrenceId)}</span></td><td>${p.totalMatches}</td><td>${p.exact}</td><td>${p.approx1}</td><td>${p.approx2}</td><td>${p.approx3}</td><td>${p.borePass}</td><td>${p.boreMissing}</td><td>${p.boreConflict}</td><td>${n(p.avgMax)}</td><td>${n(p.worst)}</td><td>${n(p.datum.e)}</td><td>${n(p.datum.u)}</td><td>${n(p.datum.s)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="psnm-tablewrap"><table class="psnm-table psnm-auto-table"><thead><tr><th>Use</th><th>Rank</th><th>Confidence</th><th>Anchor PS</th><th>Anchor Node</th><th>Matches</th><th>Exact</th><th>A1</th><th>A2</th><th>A3</th><th>Bore Pass</th><th>Bore Missing</th><th>Bore Conflict</th><th>Avg Max d</th><th>Worst d</th><th>Axis Formula</th><th>datumE</th><th>datumU</th><th>datumS</th></tr></thead><tbody>${pairs.map((p, i) => `<tr class="${state.autoAnchor.selectedIndex === i ? 'psnm-selected' : ''}"><td><button class="psnm-btn psnm-btn-secondary" data-psnm-action="useAutoAnchor" data-auto-anchor-index="${i}">Use Pair</button></td><td>${i + 1}</td><td><b class="${p.confidence === 'HIGH' ? 'psnm-good' : p.confidence === 'MEDIUM' ? 'psnm-warn' : 'psnm-bad'}">${h(p.confidence)} ${p.confidenceScore}/100</b></td><td>${h(p.psName)}</td><td>${h(p.node)} <span class="psnm-sub">${h(p.occurrenceId)}</span></td><td>${p.totalMatches}</td><td>${p.exact}</td><td>${p.approx1}</td><td>${p.approx2}</td><td>${p.approx3}</td><td>${p.borePass}</td><td>${p.boreMissing}</td><td>${p.boreConflict}</td><td>${n(p.avgMax)}</td><td>${n(p.worst)}</td><td>${h(p.transform?.axisFormula || '')}</td><td>${n(p.datum.e)}</td><td>${n(p.datum.u)}</td><td>${n(p.datum.s)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function autoAnchorPanel(state) {
-  return `<section class="psnm-card"><div class="psnm-card-head"><b>Auto Anchor - Master Table Pairs</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-action="runAutoAnchor">Auto Anchor</button></div></div><div class="psnm-card-body"><div class="psnm-banner"><b>Run Match from Master Tables.</b> Anchor PS and Anchor Node are fetched from Master Tables only. Click a ranked pair to populate the Anchor PS Name - Master PS No and Anchor Node - Master Node fields above. Confidence is based on how many other PS rows align under that datum, exact/approx counts, bore pass/missing/conflict, and residual deltas.</div>${autoAnchorTable(state)}</div></section>`;
+  return `<section class="psnm-card"><div class="psnm-card-head"><b>Auto Anchor - Master Table Pairs</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-action="runAutoAnchor">Auto Anchor</button></div></div><div class="psnm-card-body"><div class="psnm-banner"><b>Choose one Master Table anchor, then Run Match.</b> All axes/signs are evaluated on a bounded sample when needed. Click a ranked pair to populate the Anchor PS Name - Master PS No and Anchor Node - Master Node fields above. Confidence is based on how many other PS rows align under that datum, exact/approx counts, bore pass/missing/conflict, and residual deltas.</div>${autoAnchorTable(state)}</div></section>`;
 }
 function setupPanel(state) {
   const psRows = psMatchRows(state); const nodeRows = nodeMatchRows(state);
   const psOpts = psRows.length ? psRows.map((row) => `<option value="${h(row.rowId)}" ${row.rowId === state.setup.anchorPsRowId ? 'selected' : ''}>${h(row.psName)}</option>`).join('') : '<option value="">Build Master PS first</option>';
   const nodeOpts = nodeRows.length ? nodeRows.map((row) => `<option value="${h(row.rowId)}" ${row.rowId === state.setup.anchorNodeRowId ? 'selected' : ''}>${h(row.node)} (${h(row.occurrenceId)})</option>`).join('') : '<option value="">Build Master Node first</option>';
   const anchor = getAnchorRows(state);
-  return `<section class="psnm-card"><div class="psnm-card-head"><b>Anchor & Match Setup</b><button class="psnm-btn" data-psnm-action="runMatch">Run Match from Master Tables</button></div><div class="psnm-card-body"><div class="psnm-banner"><b>Anchor PS and Anchor Node are fetched from Master Tables only.</b></div><div class="psnm-setup-grid"><div class="psnm-field"><label>Anchor PS Name - Master PS No</label><select data-setup="anchorPsRowId">${psOpts}</select></div><div class="psnm-field"><label>Anchor Node - Master Node</label><select data-setup="anchorNodeRowId">${nodeOpts}</select></div><div class="psnm-field"><label>Anchor PS Position</label><input readonly value="${h(anchor.ps?.positionRaw || '')}"></div><div class="psnm-field"><label>Anchor Node X,Y,Z</label><input readonly value="${h(anchor.node ? `${anchor.node.rawX}, ${anchor.node.rawY}, ${anchor.node.rawZ}` : '')}"></div><div class="psnm-field"><label>Exact Decimals</label><input type="number" data-setup="coordinateDecimals" value="${h(state.setup.coordinateDecimals)}"></div><div class="psnm-field"><label>Bore Matching Mode</label><select data-setup="boreMode"><option value="strict" ${state.setup.boreMode === 'strict' ? 'selected' : ''}>Strict Bore</option><option value="prefer" ${state.setup.boreMode === 'prefer' ? 'selected' : ''}>Prefer Bore</option><option value="ignore" ${state.setup.boreMode === 'ignore' ? 'selected' : ''}>Ignore Bore</option></select></div><div class="psnm-field"><label>Approx 1 dE,dU,dS</label><input data-setup="approx1" value="${h(state.setup.approx1)}"></div><div class="psnm-field"><label>Approx 2 dE,dU,dS</label><input data-setup="approx2" value="${h(state.setup.approx2)}"></div><div class="psnm-field"><label>Approx 3 dE,dU,dS</label><input data-setup="approx3" value="${h(state.setup.approx3)}"></div></div></div></section>${autoAnchorPanel(state)}`;
+  return `<section class="psnm-card"><div class="psnm-card-head"><b>Anchor & Match Setup</b><button class="psnm-btn psnm-btn-secondary" data-psnm-tab="master">Back: Master Tables</button></div><div class="psnm-card-body"><div class="psnm-banner"><b>Anchor PS and Anchor Node are fetched from Master Tables only.</b></div><div class="psnm-setup-grid"><div class="psnm-field"><label>Anchor PS Name - Master PS No</label><select data-setup="anchorPsRowId">${psOpts}</select></div><div class="psnm-field"><label>Anchor Node - Master Node</label><select data-setup="anchorNodeRowId">${nodeOpts}</select></div><div class="psnm-field"><label>Anchor PS Position</label><input readonly value="${h(anchor.ps?.positionRaw || '')}"></div><div class="psnm-field"><label>Anchor Node X,Y,Z</label><input readonly value="${h(anchor.node ? `${anchor.node.rawX}, ${anchor.node.rawY}, ${anchor.node.rawZ}` : '')}"></div><div class="psnm-field"><label>Exact Decimals</label><input type="number" data-setup="coordinateDecimals" value="${h(state.setup.coordinateDecimals)}"></div><div class="psnm-field"><label>Bore Matching Mode</label><select data-setup="boreMode"><option value="strict" ${state.setup.boreMode === 'strict' ? 'selected' : ''}>Strict Bore</option><option value="prefer" ${state.setup.boreMode === 'prefer' ? 'selected' : ''}>Prefer Bore</option><option value="ignore" ${state.setup.boreMode === 'ignore' ? 'selected' : ''}>Ignore Bore</option></select></div><div class="psnm-field"><label>Approx 1 dE,dU,dS</label><input data-setup="approx1" value="${h(state.setup.approx1)}"></div><div class="psnm-field"><label>Approx 2 dE,dU,dS</label><input data-setup="approx2" value="${h(state.setup.approx2)}"></div><div class="psnm-field"><label>Approx 3 dE,dU,dS</label><input data-setup="approx3" value="${h(state.setup.approx3)}"></div></div></div></section>${autoAnchorPanel(state)}`;
 }
 
 function resultTable(rows) {
@@ -231,7 +281,7 @@ function resultTable(rows) {
   return `<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr><th>PS Name</th><th>Node</th><th>Occurrence</th><th>Match Type</th><th>Final Status</th><th>PS Mandatory</th><th>Node Mandatory</th><th>Bore</th><th>dE</th><th>dU</th><th>dS</th><th>Max d</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.psName)}</td><td>${h(row.matchingNode || '-')}</td><td>${h(row.occurrenceId || '-')}</td><td><span class="psnm-badge">${h(row.matchType)}</span></td><td>${h(row.finalStatus || '-')}</td><td>${row.isMandatoryPs ? 'YES' : 'NO'}</td><td>${row.isMandatoryNode ? 'YES' : 'NO'}</td><td>${h(row.boreStatus || '-')}</td><td>${n(row.dxMm)}</td><td>${n(row.dyMm)}</td><td>${n(row.dzMm)}</td><td>${n(row.maxAxisDeltaMm)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function resultTableLike(rows, keys) { if (!rows?.length) return '<div class="psnm-banner">No rows.</div>'; return `<div class="psnm-tablewrap"><table class="psnm-table"><thead><tr>${keys.map((key) => `<th>${h(key)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${keys.map((key) => `<td>${h(row?.[key] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
-function matchPanel(state) { return `<section class="psnm-card"><div class="psnm-card-head"><b>Match Results</b><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMatch">Copy CSV</button></div><div class="psnm-card-body">${resultTable(state.result.rows)}</div></section>`; }
+function matchPanel(state) { return `<section class="psnm-card"><div class="psnm-card-head"><b>Match Results</b><div class="psnm-actions"><button class="psnm-btn" data-psnm-tab="candidate">Review Candidates</button><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyMatch">Copy CSV</button></div></div><div class="psnm-card-body">${resultTable(state.result.rows)}</div></section>`; }
 function coveragePanel(state) { return `<section class="psnm-card"><div class="psnm-card-head"><b>Coverage / Exceptions</b><button class="psnm-btn psnm-btn-secondary" data-psnm-action="copyCoverage">Copy CSV</button></div><div class="psnm-card-body"><h3>Mandatory PS Coverage - from Master PS No</h3>${resultTableLike(state.result.mandatoryPsCoverageRows, ['psName','mandatorySource','matchedNode','occurrenceId','nodeMandatory','status','severity','action'])}<h3>Mandatory Node Coverage - from Master Node</h3>${resultTableLike(state.result.mandatoryCoverageRows, ['node','occurrenceId','mandatorySource','inMasterNode','matchedPs','status','severity','action'])}</div></section>`; }
 function logPanel(state, debug = false) { const rows = debug ? state.result.debugLog : state.result.userLog; return `<section class="psnm-card"><div class="psnm-card-head"><b>${debug ? 'Debug Console' : 'User Log'}</b><button class="psnm-btn psnm-btn-secondary" data-psnm-action="${debug ? 'copyDebug' : 'copyUser'}">Copy CSV</button></div><div class="psnm-card-body">${resultTableLike(rows, debug ? ['sequence','level','code','message'] : ['level','category','source','item','reason','suggestedAction'])}</div></section>`; }
 
@@ -242,6 +292,16 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     return `<div class="psnm-modal-bg" data-psnm="modal"><div class="psnm-modal"><div class="psnm-modal-head"><div><h2 class="psnm-title">PSNM Workbench</h2><p class="psnm-sub">Raw Sources -> Master Tables -> Match from Masters</p></div><button class="psnm-btn psnm-btn-secondary" data-psnm-action="close">Close</button></div><div class="psnm-tabs">${tab('source','1. Source Tables',state)}${tab('master','2. Master Tables',state)}${tab('setup','3. Anchor & Match Setup',state)}${tab('match','4. Match Results',state)}${tab('candidate','5. Candidate Matrix',state)}${tab('coverage','6. Coverage / Exceptions',state)}${tab('user','7. User Log',state)}${tab('debug','8. Debug Console',state)}</div><div class="psnm-body"><div data-summary>${summary(state)}</div>${panel('source',state,sourcePanel(state))}${panel('master',state,masterPanel(state))}${panel('setup',state,setupPanel(state))}${panel('match',state,matchPanel(state))}${panel('candidate',state,candidateMatrixPanel(state))}${panel('coverage',state,coveragePanel(state))}${panel('user',state,logPanel(state,false))}${panel('debug',state,logPanel(state,true))}</div>${statusBar(state)}</div></div>`;
   }
   function refresh() { const modal = container.querySelector('[data-psnm="modal"]'); if (modal) modal.outerHTML = renderModal(); }
+  function activateTab(tabId) {
+    const modal = container.querySelector('[data-psnm="modal"]');
+    if (!modal || !modal.querySelector(`[data-psnm-panel="${tabId}"]`)) return;
+    state.activeTab = tabId;
+    // Preserve DOM, focus and scroll rather than recreating every hidden panel.
+    modal.querySelectorAll('[data-psnm-tab]').forEach((button) => button.classList.toggle('active', button.dataset.psnmTab === tabId));
+    modal.querySelectorAll('[data-psnm-panel]').forEach((panel) => panel.classList.toggle('active', panel.dataset.psnmPanel === tabId));
+    const scrollBody = modal.querySelector('.psnm-body');
+    if (scrollBody) scrollBody.scrollTop = 0;
+  }
   function updateStatus(next) { state.status = { ...state.status, ...next }; refresh(); }
   function resolveMasters() {
     const logger = PSNM_createRunLogger();
@@ -250,6 +310,8 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     state.master.psRows = ps.rows; state.master.psIssues = ps.issues; state.master.nodeRows = node.rows; state.master.nodeIssues = node.issues;
     state.masterReady = true; state.masterDirty = false; state.sourceDirty = false;
     state.result = { rows: [], candidateRows: [], mandatoryCoverageRows: [], mandatoryPsCoverageRows: [], userLog: logger.userLog, debugLog: logger.debugLog };
+    state.setup.anchorTransform = null;
+    if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
     ensureAnchors(state); applyCurrentTransform(state);
     state.activeTab = 'master';
     state.status = { phase: 'Master Tables Ready', detail: `Resolved Master PS ${ps.rows.length} row(s), Master Node ${node.rows.length} row(s).`, percent: 45 };
@@ -263,18 +325,26 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       await nextFrame();
       const logger = PSNM_createRunLogger();
       const anchor = selectedAnchor(state);
-      const transform = PSNM_deriveTransformFromAnchor(anchor);
+      const transform = state.setup.anchorTransform || PSNM_deriveTransformFromAnchor(anchor);
       PSNM_applyMasterNodeTransform(state.master.nodeRows, transform, Number(state.setup.coordinateDecimals) || 0);
       const psRows = PSNM_masterPsToMatchRows(state.master.psRows);
       const nodeRows = PSNM_masterNodeToMatchRows(state.master.nodeRows);
       const mandatoryNodeRows = PSNM_masterMandatoryNodeRows(state.master.nodeRows);
-      const result = PSNM_buildMatchTable({ logger, anchor, psRows, nodeRows, nodeDiaRows: [], mandatoryNodeRows, boreMode: state.setup.boreMode, coordinateDecimals: Number(state.setup.coordinateDecimals) || 0, enableApprox1: state.setup.enableApprox1, enableApprox2: state.setup.enableApprox2, enableApprox3: state.setup.enableApprox3, approx1: triple(state.setup.approx1, [25,25,25]), approx2: triple(state.setup.approx2, [50,25,50]), approx3: triple(state.setup.approx3, [50,25,50]) });
+      const result = PSNM_buildMatchTable({ logger, anchor, axisTransform: transform, psRows, nodeRows, nodeDiaRows: [], mandatoryNodeRows, boreMode: state.setup.boreMode, coordinateDecimals: Number(state.setup.coordinateDecimals) || 0, enableApprox1: state.setup.enableApprox1, enableApprox2: state.setup.enableApprox2, enableApprox3: state.setup.enableApprox3, approx1: triple(state.setup.approx1, [25,25,25]), approx2: triple(state.setup.approx2, [50,25,50]), approx3: triple(state.setup.approx3, [50,25,50]) });
       result.mandatoryPsCoverageRows = PSNM_masterPsCoverageRows(state.master.psRows, result.rows);
       result.mandatoryCoverageRows = PSNM_masterNodeCoverageRows(state.master.nodeRows, result.rows);
       state.result = result;
+      state.ui.candidatePage = 0;
       state.master.nodeIssues = state.master.nodeRows.filter((row) => row.status !== 'OK');
       state.activeTab = 'match';
-      state.status = { phase: 'Complete', detail: `Matched ${result.rows.filter((row) => String(row.finalStatus || '').startsWith('MATCHED')).length} of ${result.rows.length} PS row(s) from Master Tables.`, percent: 100 };
+      const matched = result.rows.filter((row) => String(row.finalStatus || '').startsWith('MATCHED')).length;
+      const openExceptions = result.rows.length - matched
+        + state.master.psIssues.length + state.master.nodeIssues.length;
+      state.status = {
+        phase: openExceptions ? 'Run Finished — Review Required' : 'Run Finished',
+        detail: `Matched ${matched}/${result.rows.length} PS rows. ${openExceptions} unmatched or master exception(s). 100% means processing finished, not full coverage.`,
+        percent: 100,
+      };
       refresh();
     } catch (error) {
       state.status = { phase: 'Failed', detail: String(error?.message || error), percent: 100 };
@@ -294,7 +364,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     state.master.nodeIssues = state.master.nodeRows.filter((item) => item.status !== 'OK'); state.masterDirty = true; ensureAnchors(state); applyCurrentTransform(state); refresh();
   }
   function onClick(event) {
-    const tabBtn = event.target?.closest?.('[data-psnm-tab]'); if (tabBtn) { state.activeTab = tabBtn.dataset.psnmTab; refresh(); return; }
+    const tabBtn = event.target?.closest?.('[data-psnm-tab]'); if (tabBtn) { activateTab(tabBtn.dataset.psnmTab); return; }
     const sub = event.target?.closest?.('[data-psnm-subtab]'); if (sub) { state.masterSubTab = sub.dataset.psnmSubtab; refresh(); return; }
     const actionEl = event.target?.closest?.('[data-psnm-action]'); const action = actionEl?.dataset?.psnmAction; if (!action) return;
     try {
@@ -304,6 +374,13 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
       if (action === 'runAutoAnchor') { runAutoAnchorSearch(state); state.activeTab = 'setup'; state.status = { phase: 'Auto Anchor Ready', detail: state.autoAnchor.message, percent: 55 }; refresh(); return; }
       if (action === 'useAutoAnchor') { applyAutoAnchorPair(state, actionEl.dataset.autoAnchorIndex); refresh(); return; }
       if (action === 'runMatch') { void runMatch(); return; }
+      if (action === 'candidatePrev' || action === 'candidateNext') {
+        const maxPage = Math.max(0, Math.ceil((state.result.candidateRows?.length || 0) / PSNM_CANDIDATE_PAGE_SIZE) - 1);
+        const delta = action === 'candidateNext' ? 1 : -1;
+        state.ui.candidatePage = Math.min(maxPage, Math.max(0, state.ui.candidatePage + delta));
+        refresh();
+        return;
+      }
       if (action === 'copyMasterPs') copyText(objectRowsCsv(state.master.psRows), ctx);
       else if (action === 'copyMasterNode') copyText(objectRowsCsv(state.master.nodeRows), ctx);
       else if (action === 'copyMatch') copyText(objectRowsCsv(state.result.rows), ctx);
@@ -320,9 +397,14 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     const ui = event.target?.closest?.('[data-psnm-ui]');
     if (ui) { const key = ui.dataset.psnmUi; if (key === 'showCandidateDiagnostics') { state.ui.showCandidateDiagnostics = ui.checked === true; writeBoolStorage(PSNM_CANDIDATE_DETAIL_KEY, state.ui.showCandidateDiagnostics); refresh(); } return; }
     const source = event.target?.closest?.('[data-source]');
-    if (source) { state.source[source.dataset.source] = source.value; state.sourceDirty = true; state.masterReady = false; state.autoAnchor = { pairs: [], selectedIndex: null, message: 'Rebuild Master Tables, then run Auto Anchor.' }; state.status = { phase: 'Sources Edited', detail: 'Source tables changed. Rebuild Master Tables before matching.', percent: 5 }; return; }
+    if (source) { state.source[source.dataset.source] = source.value; state.setup.anchorTransform = null; state.sourceDirty = true; state.masterReady = false; state.autoAnchor = { pairs: [], selectedIndex: null, message: 'Rebuild Master Tables, then run Auto Anchor.' }; state.status = { phase: 'Sources Edited', detail: 'Source tables changed. Rebuild Master Tables before matching.', percent: 5 }; return; }
     const setup = event.target?.closest?.('[data-setup]');
-    if (setup) { const key = setup.dataset.setup; state.setup[key] = setup.type === 'checkbox' ? setup.checked : setup.value; ensureAnchors(state); applyCurrentTransform(state); return; }
+    if (setup) { const key = setup.dataset.setup; state.setup[key] = setup.type === 'checkbox' ? setup.checked : setup.value;
+      if (key === 'anchorPsRowId' || key === 'anchorNodeRowId') {
+        state.setup.anchorTransform = null;
+        if (typeof window !== 'undefined') window.__PSNM_AXIS_TRANSFORM = null;
+      }
+      ensureAnchors(state); applyCurrentTransform(state); return; }
     const ps = event.target?.closest?.('[data-master-ps-field]');
     if (ps) { const row = event.target.closest('[data-master-ps-row]'); updateMasterPsCell(row?.dataset.masterPsRow, ps.dataset.masterPsField, ps.value, ps.checked); return; }
     const node = event.target?.closest?.('[data-master-node-field]');
@@ -341,3 +423,6 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   container.addEventListener('click', onClick); container.addEventListener('input', onInput); container.addEventListener('change', onInput); document.addEventListener('keydown', onKeydown);
   return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); document.removeEventListener('keydown', onKeydown); tile.remove(); };
 }
+
+// Pure state-level hooks for regression tests; no DOM is created or modified.
+export const PSNM_CORE_TEST = Object.freeze({ makeState, ensureAnchors, runAutoAnchorSearch, applyAutoAnchorPair, selectedAnchor, candidateMatrixTable });
