@@ -103,6 +103,8 @@ const html = renderIsoNoteMappingCompareHtml(result);
 assert.match(html, /PS Mapping ↔ ISO Notes/);
 assert.match(html, /Download comparison CSV/);
 assert.match(html, /S1 only/);
+assert.match(html, /Read-only audit identity links/);
+assert.doesNotMatch(html, /Review &amp; Transfer opens the approved links/);
 
 const view = fs.readFileSync(new URL('../xml-compare/XmlCompareTabView.js', import.meta.url), 'utf8');
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
