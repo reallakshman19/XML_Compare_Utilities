@@ -136,7 +136,7 @@ function linkExactIsoNotePairs(state, report) {
   // This operation must not reset canvas selections, AIM, or ApprovedMatchSet.
   const workspace = workspaceFromState(state);
   const links = createIsoNoteAuditIdentityLinks({
-    report, sourceRecords: workspace.source.records, targetRecords: workspace.target.records,
+    report, sourceRecords: workspace.source.baseRecords, targetRecords: workspace.target.baseRecords,
   });
   state.isoNoteAuditLinks = links;
   return { linked: links.linkedCount, reason: links.linkedCount ? '' : 'No unique cross-partition records qualified for audit links.' };
