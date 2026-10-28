@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Option B full XML Compare workflow</title></head>
+<body>
+  <main id="xml-compare-test-root"></main>
+  <script type="module">
+    import { renderXmlCompareTab } from '/tabs/xml-compare-tab.js';
+    const root = document.querySelector('#xml-compare-test-root');
+    window.__disposeXmlCompareTest = renderXmlCompareTab(root);
+    document.documentElement.dataset.optionBReady = '1';
+  </script>
+</body>
+</html>
