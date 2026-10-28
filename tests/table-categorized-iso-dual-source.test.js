@@ -60,7 +60,9 @@ assert.ok(items.some((node) => node.fields.supportId === 'PS-123.1'), 'double-sl
 
 const placeholders = graph.diagnostics.filter((d) => d.code === 'iso_note_placeholder_identity');
 assert.equal(placeholders.length, 4, 'all PS-XXXX entries are warnings');
-assert.equal(graph.diagnostics.filter((d) => d.code === 'iso_note_nonstandard_identity').length, 1);
+assert.equal(graph.diagnostics.filter((d) => d.code === 'NONCANONICAL_ID').length, 1, 'noncanonical NODE_NAME is preserved as raw identity');
+assert.ok(items.every((node) => node.fields.revision === ''), 'support suffix is not a revision');
+assert.ok(items.some((node) => node.fields.rawSupportId === '1.3mfromTee(nearSL-211.2)'), 'raw noncanonical NODE_NAME preserved');
 const placeholderItems = items.filter((node) => node.fields.rawNote?.includes('PS-XXXX'));
 assert.equal(placeholderItems.length, 4, 'placeholder notes must never merge');
 assert.ok(placeholderItems.some((node) => node.key.endsWith('|S2:11')), 'missing NODE_NUM falls back to row reference');
