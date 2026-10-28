@@ -60,7 +60,7 @@ const ui = renderTableCategorizedXmlShellHtml({
   ], activeSourceId: 'S1',
   importPreflight: { S1: mapping, S2: wrongRole },
 });
-for (const s of ['📥 Drag &amp; Drop', 'choose-iso-s1', 'choose-iso-s2',
+for (const s of ['📥 Drag & Drop', 'choose-iso-s1', 'choose-iso-s2',
   'data-table-categorized-iso-file="S1"', 'data-table-categorized-iso-file="S2"',
   'data-table-categorized-drop-zone=', 'data-table-categorized-preflight-report']) {
   assert.ok(ui.includes(s), 'expected accessible import UI: ' + s);
