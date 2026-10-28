@@ -133,36 +133,52 @@ export function compareRestraintCoverage(dtxr = '', note = '', identityStatus = 
   });
 }
 
+function compareGapType(kind, source, target, identityStatus) {
+  const s1Mm = frozen([...source]), s2Mm = frozen([...target]);
+  let status = 'NOT_SPECIFIED', reason = 'No numeric gap of this type in either source.';
+  if (identityStatus !== 'MATCH') {
+    status = 'NOT_APPLICABLE'; reason = 'Full support identity is not verified.';
+  } else if (source.length > 1 || target.length > 1) {
+    status = 'REVIEW'; reason = 'Multiple distinct ' + kind + ' clearances require review.';
+  } else if (!source.length && target.length) {
+    status = 'REVIEW'; reason = 'S2-only ' + kind + ' clearance has no S1 evidence.';
+  } else if (source.length && !target.length) {
+    status = 'REVIEW'; reason = 'S1-only ' + kind + ' clearance has no S2 evidence.';
+  } else if (source.length && target.length && source[0] !== target[0]) {
+    status = 'MISMATCH'; reason = 'Different ' + kind + ' clearance in mm.';
+  } else if (source.length && target.length) {
+    status = 'MATCH'; reason = 'Equal ' + kind + ' clearance in mm.';
+  }
+  return frozen({ kind, status, reason, s1Mm, s2Mm, rule: 'TYPED_GAP_EXACT_MM_V2' });
+}
+
 export function compareEngineeringGaps(s1Value = '', s2Value = '', identityStatus = 'MATCH') {
   const s1 = parseTypedGaps(s1Value, { supportGapColumn: true });
   const s2 = parseTypedGaps(s2Value);
-  const empty = (items) => items.length ? items.join(', ') : '';
+  const byType = frozen(Object.fromEntries(GAP_KINDS.map(kind =>
+    [kind, compareGapType(kind, s1[kind], s2[kind], identityStatus)])));
+  const considered = GAP_KINDS.filter(kind => s1[kind].length || s2[kind].length);
+  const uncertain = considered.filter(kind => byType[kind].status === 'REVIEW');
+  const different = considered.filter(kind => byType[kind].status === 'MISMATCH');
+  const fmt = values => values.length ? values.join(', ') : '';
   const result = (status, reason) => frozen({
-    status, reason,
-    s1RestMm: empty(s1.rest), s2RestMm: empty(s2.rest),
-    s1GuideMm: empty(s1.guide), s2GuideMm: empty(s2.guide),
-    s1LineStopMm: empty(s1.lineStop), s2LineStopMm: empty(s2.lineStop),
+    status, reason, byType, unresolvedTypes: frozen(uncertain),
+    s1RestMm: fmt(s1.rest), s2RestMm: fmt(s2.rest),
+    s1GuideMm: fmt(s1.guide), s2GuideMm: fmt(s2.guide),
+    s1LineStopMm: fmt(s1.lineStop), s2LineStopMm: fmt(s2.lineStop),
     s1Evidence: s1.evidence, s2Evidence: s2.evidence,
-    rule: 'TYPED_GAP_EXACT_MM_V1',
+    rule: 'TYPED_GAP_EXACT_MM_V2',
   });
   if (identityStatus !== 'MATCH') return result('NOT_APPLICABLE', 'Pipeline and full support ID are not uniquely matched.');
-  const declared = GAP_KINDS.filter(t => s1[t].length);
-  const isoDeclared = GAP_KINDS.filter(t => s2[t].length);
-  if (!declared.length) {
-    if (!text(s1Value) && !isoDeclared.length) return result('NOT_SPECIFIED', 'Neither side has comparable numeric clearance.');
-    return result('REVIEW', text(s1Value)
-      ? 'S1 Support Gap has no unambiguous typed millimetre value.'
-      : 'S2 declares a gap absent from S1 Support Gap.');
-  }
-  const multiple = declared.filter(t => s1[t].length > 1 || s2[t].length > 1);
-  if (multiple.length) return result('REVIEW', 'Multiple distinct ' + joinValues(multiple) + ' gaps need manual review.');
-  const mismatch = declared.filter(t => s2[t].length && s1[t][0] !== s2[t][0]);
-  if (mismatch.length) return result('MISMATCH', 'Different ' + joinValues(mismatch) + ' clearance in mm.');
-  const missing = declared.filter(t => !s2[t].length);
-  if (missing.length) return result('REVIEW', 'S2 has no corresponding ' + joinValues(missing) + ' clearance; other gap types cannot substitute.');
-  const notChecked = isoDeclared.filter(t => !declared.includes(t));
-  return result('MATCH', 'Identical typed clearance values in mm.' +
-    (notChecked.length ? ' S2-only ' + joinValues(notChecked) + ' gap(s) not compared to S1.' : ''));
+  if (!considered.length) return text(s1Value)
+    ? result('REVIEW', 'S1 Support Gap has no unambiguous typed millimetre value.')
+    : result('NOT_SPECIFIED', 'Neither side has comparable numeric clearance.');
+  if (different.length) return result('MISMATCH', different.map(kind => byType[kind].reason).join(' ') +
+    (uncertain.length ? ' Other gap types require review: ' + uncertain.join(', ') + '.' : ''));
+  if (uncertain.length) return result('REVIEW',
+    'Unverified typed clearances: ' + uncertain.map(kind => byType[kind].reason).join(' '));
+  if (text(s1Value) && !s1.evidence.length) return result('REVIEW', 'S1 gap contains unparsed evidence requiring review.');
+  return result('MATCH', 'Identical typed clearance values in mm; all declared gap types compared.');
 }
 
 export function engineeringReviewAction(identityStatus, gap, coverage) {
