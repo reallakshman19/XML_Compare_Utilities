@@ -6,6 +6,8 @@ Date: 29 October 2026 (Asia/Dubai). Task [#231](https://github.com/reallakshman1
 
 Owner directed root to continue because builder `6ae20df5` could not execute. Root now contributes as **builder**: all checks below are **SELF_ASSESSED**. No fresh independent review is claimed. The former builder's local proposal was not received; this patch was derived from the actual assigned source and fail-before cases.
 
+Product PR: [#232](https://github.com/reallakshman19/XML_Compare_Utilities/pull/232). Tested code commit: `bb479a851bb2c9b92918352be64967ef86c89bf5`; later report-allocation commit changes no tested runtime bytes.
+
 Source/parent: PR226 `b2b695f66fc8dfc907f2b9a493b39bd4d4109570`; main/base `fd86b21aa9dcbfbbe4f8a1d26133b7e9779448be`. Isolated repair branch `codex/ciifr-node-p1-r1-repair-20261029`, targeting `codex/ciifr-property-two-path-r0-20261028`. Parent remains draft and untouched. PR176/174 share app entrypoints: **COORDINATION_REQUIRED** for later integration; neither branch is imported or changed here. PR145/187/184/168 other-engine work is preserved.
 
 F1–F4 repair is implemented and locally tested. **GATE_R0 remains HOLD** for fresh non-author review and outstanding platform/original qualification. No property writer, TARGET1 authority, P2 correspondence, protected parser/writer/other-engine change, workflow, deployment, merge or release.
