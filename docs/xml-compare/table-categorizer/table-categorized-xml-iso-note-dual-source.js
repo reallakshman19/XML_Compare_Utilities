@@ -18,14 +18,20 @@ export const ISO_NOTE_SUFFIX_PATTERN = '^\\s*:?\\/{0,2}\\s*(?:PS|SL)-\\d+\\.(\\d
 const note = column('S2', 'SupportISONOTE');
 const supportFromNote = extract(note, ISO_NOTE_FULL_ID_PATTERN);
 const supportFromS1 = column('S1', 'PS NO');
+const rawNodeName = column('S2', 'NODE_NAME');
+const notePrefixId = extract(note, '^\\s*:?\\/{0,2}\\s*(.*?)\\s*:ISONOTE\\b');
 const nodeNo = column('S2', 'NODE_NUM');
-const supportId = fallback(supportFromNote, supportFromS1, nodeNo);
+// Retain the original support identifier for noncanonical or placeholder
+// notes. NODE_NUM is a position/locator, NEVER a substitute PS identifier.
+const supportId = fallback(supportFromNote, rawNodeName, notePrefixId, supportFromS1);
 const pipeline = {
   op: 'fallback',
   resolvers: [column('S2', 'LinenoinCII'), column('S1', 'pipe')],
   defaultValue: 'UNSPECIFIED_PIPE',
 };
-const identity = { op: 'concat', separator: '|', parts: [pipeline, supportId] };
+// Row provenance is an instance ID, not part of the engineering join key.
+// Ensures two PS-XXXX rows never collapse into one graph node.
+const identity = { op: 'concat', separator: '|', parts: [pipeline, supportId, { op: 'rowRef' }] };
 const noteValue = (pattern) => number(extract(note, pattern));
 
 export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
@@ -50,7 +56,7 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
     documentRootTag: 'IsoNoteXml', rootPartitionTag: 'IsoPartition',
     includeDiagnosticsElement: true,
     childElementFields: [
-      'connectorKey', 'supportId', 'revision',
+      'connectorKey', 'supportId', 'rawSupportId', 'revision',
       'pipe', 'psNo', 'bore', 'dtxr', 'supportGap', 'mandatory', 'x', 'y', 'z',
       'rawNote', 'jobName', 'lineNoInCii', 'pipeAxis', 'nodeNumber', 'nodeName',
       'nps', 'supportType', 'remarks', 'restKn', 'guideKn', 'guideGapMm', 'lineStopKn',
@@ -70,7 +76,9 @@ export const ISO_NOTE_DUAL_SOURCE_PROFILE = Object.freeze({
         fieldResolvers: {
           connectorKey: identity,
           supportId,
-          revision: extract(note, ISO_NOTE_SUFFIX_PATTERN),
+          rawSupportId: rawNodeName,
+          // A .1/.2 support suffix is not a document revision.
+          revision: { op: 'literal', value: '' },
           pipe: pipeline,
           psNo: supportFromS1,
           bore: column('S1', 'Bore'),
@@ -106,18 +114,18 @@ export function isoNoteIdentityWarnings(sources = []) {
       const text = String(row.rawByHeader?.SupportISONOTE || '').trim();
       if (!text) return [{
         severity: 'WARNING', code: 'iso_note_missing_identity',
-        message: 'Empty ISO note; retained with NODE_NUM or row-reference fallback.',
+        message: 'Empty ISO note retains available NODE_NAME and source row reference; NODE_NUM is only a locator.',
         sourceRef: row.rowId,
       }];
       const placeholder = /(?:^|[\/:\s])(?:PS|SL)-X{3,}(?=\s|:|\/|$)/i.test(text);
       if (placeholder) return [{
         severity: 'WARNING', code: 'iso_note_placeholder_identity',
-        message: 'Placeholder support ID; kept as an independent item using pipeline + NODE_NUM (or row reference).',
+        message: 'Placeholder support ID preserved verbatim; distinct source row reference prevents collisions.',
         sourceRef: row.rowId,
       }];
       if (!new RegExp(ISO_NOTE_FULL_ID_PATTERN, 'i').test(text)) return [{
         severity: 'WARNING', code: 'iso_note_nonstandard_identity',
-        message: 'Nonstandard ISO note identifier; retained using pipeline + NODE_NUM (or row reference).',
+        message: 'Noncanonical ISO support identifier retained verbatim from NODE_NAME (or note prefix); row reference provides distinct instance identity. NODE_NUM remains only a locator.',
         sourceRef: row.rowId,
       }];
       return [];
