@@ -47,6 +47,14 @@ const generic = applyXmlCompareCanvasAction(pristine,
   { type: 'accept-candidate', candidate: { sourceUid: 'G-S', targetUid: 'G-T', status: 'valid' } },
   { approvalContext: { scoped: false, sourceRecords: [{ uid: 'G-S' }], targetRecords: [{ uid: 'G-T' }] } });
 assert.equal(generic.approvedMatchSet.summary.approvedCount, 1, 'explicit generic scope remains supported');
+const sameRoleRevision = applyXmlCompareCanvasAction(pristine,
+  { type: 'accept-candidate', candidate: { sourceUid: 'S1', targetUid: 'S1-revision', status: 'valid' } },
+  { approvalContext: {
+    scoped: false, sourceRecords: source,
+    targetRecords: [{ uid: 'S1-revision', lineKey: 'PS_MAPPING_S1', pipe: 'PIPE-A', psNo: 'PS-001.1' }],
+  } });
+assert.equal(sameRoleRevision.approvedMatchSet.summary.approvedCount, 1,
+  'same-role ISO revisions retain generic approval path');
 
 // An exact ISO correspondence is audit evidence, never a transfer approval.
 const report = {
