@@ -139,7 +139,15 @@ function groupAssessment(rows) {
     const status = gapStatus(row);
     if (/_(?:CONFLICT|MISSING_TABLE1|MISSING_TABLE2)$/i.test(status)) {
       const detail = clean(val(row,'gapMatchDetail','reviewAction'));
-      if (detail) group.gapActions.add(detail);
+      const kind = status.startsWith('GUIDE_GAP_') ? 'GUIDE GAP'
+        : status.startsWith('LINE_STOP_GAP_') ? 'LINE STOP GAP'
+        : status.startsWith('REST_CLEARANCE_') ? 'REST clearance' : 'Support gap';
+      const fallback = /_MISSING_TABLE2$/i.test(status)
+        ? kind + ' is missing in Table-2; verify and specify the Table-1 requirement.'
+        : /_MISSING_TABLE1$/i.test(status)
+          ? kind + ' exists in Table-2 but is unspecified in Table-1; verify the source.'
+          : kind + ' differs between Table-1 and Table-2; reconcile measured values.';
+      group.gapActions.add(detail || fallback);
     }
   }
   for (const group of groups.values()) {
