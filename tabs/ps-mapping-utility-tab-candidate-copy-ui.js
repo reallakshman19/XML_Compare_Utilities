@@ -8,6 +8,9 @@ import {
 const STORAGE_KEY = 'psmap.showDetailDiagnosticColumns';
 const STYLE_ID = 'psmap-candidate-copy-ui-style';
 
+// Engineering-first sequence shared by the on-screen candidate matrix and
+// complete CSV/clipboard exports. The raw model support gap belongs to Table-2,
+// not to Table-1's required gap or a derived numeric clearance.
 const BASIC_COLUMNS = [
   ['supportNoModel', 'Model Support No'],
   ['candidateNode', 'Reference Node'],
@@ -15,21 +18,23 @@ const BASIC_COLUMNS = [
   ['supportTypesRequested', 'Model Restraints'],
   ['t1NodeRestraints', 'Required at Node'],
   ['t2CoveredRestraints', 'Covered by Model'],
+  ['nodeIsonote', 'Reference ISONOTE'],
+  ['consolidatedNodeWiseAction', 'Node-wide Action (all mapped rows)'],
   ['missingNodeRestraints', 'Missing Restraints'],
   ['extraTable2Restraints', 'Extra Model Restraints'],
   ['supportMatch', 'Restraint Verdict'],
+  ['supportGapRaw', 'Support Gap'],
   ['supportGapMatch', 'Gap / Clearance Verdict'],
   ['finalStatus', 'Mapping Status'],
   ['supportNoWiseAction', 'Required Model Action'],
   ['reason', 'Assessment / Evidence'],
-];
-const DETAIL_COLUMNS = [
   ['modelBore', 'Model Bore'],
   ['lineFamily', 'Model Line Family'],
   ['nodeLineFamily', 'Reference Line Family'],
+];
+const DETAIL_COLUMNS = [
   ['pipeSizeRaw', 'Reference Pipe Size'],
   ['derivedDn', 'Derived DN'],
-  ['nodeIsonote', 'Reference ISONOTE'],
   ['tag', 'Reference Tag'],
   ['source', 'Reference Source'],
   ['proposedMissingSupportPsNo', 'Proposed Missing Support No'],
@@ -49,7 +54,6 @@ const DETAIL_COLUMNS = [
   ['score', 'Internal Rank'],
   ['warnings', 'Warnings'],
   ['reviewAction', 'Review Action'],
-  ['consolidatedNodeWiseAction', 'Node-wide Action (all mapped rows)'],
   ['nodeCoverageNote', 'Node Coverage Explanation'],
   ['table2SourceId', 'Model Table Source ID'],
   ['modelSourceId', 'Model Source ID'],
@@ -79,7 +83,7 @@ function ensureStyle() {
     .psmap-candidate-verdict.good{background:rgba(16,185,129,.12);color:#86efac}
     .psmap-candidate-verdict.warn{background:rgba(245,158,11,.14);color:#fcd34d}
     [data-psmap-candidate-table] td{vertical-align:top;line-height:1.45}
-    [data-psmap-candidate-table] td:nth-child(12),[data-psmap-candidate-table] td:nth-child(13){min-width:200px;max-width:360px;white-space:normal}
+    [data-psmap-candidate-table] td:nth-child(8),[data-psmap-candidate-table] td:nth-child(15),[data-psmap-candidate-table] td:nth-child(16){min-width:200px;max-width:360px;white-space:normal}
     [data-psmap-candidate-table] tr.psmap-candidate-review td:first-child{box-shadow:inset 3px 0 #d97706}
   `;
   document.head.appendChild(style);
@@ -129,6 +133,9 @@ function supportGapValue(row = {}) {
 }
 
 function valueFor(row = {}, key) {
+  // Never show Table-1 required gap/clearance as the physical model gap.
+  // If a Table-2 row left this field blank, it must stay blank.
+  if (key === 'supportGapRaw') return row.supportGapRaw ?? '';
   if (key === 'supportGapMatch') return supportGapValue(row);
   if (key === 'lineBasis') return lineBasisLabel(row.lineBasis);
   if (['eligible', 'autoSelectable', 'reviewRequired', 'selected'].includes(key)) return boolLabel(row[key]);
@@ -157,6 +164,7 @@ function parseOptionsFromModal(modal) {
     if (!key) continue;
     if (input.type === 'checkbox') options[key] = input.checked;
     else if (input.type === 'number') options[key] = Number(input.value);
+    else if (key === 'requireLineFamilyInIdentity') options[key] = input.value !== 'false';
     else options[key] = input.value;
   }
   return options;
@@ -199,7 +207,7 @@ function filteredCandidates(rows) {
   if (candidateView.filter === 'gaps') result = result.filter((row) => /CONFLICT|MISSING_/i.test(supportGapValue(row)));
   const query = candidateView.search.trim().toUpperCase();
   if (query) {
-    const fields = ['supportNoModel', 'psnoModel', 'table1SupportNo', 'table1PsNo', 'candidateNode', 'nodeIsonote', 'supportTypesRequested', 'supportMatch', 'supportGapMatch', 'supportNoWiseAction', 'modelSourceId'];
+    const fields = ['supportNoModel', 'psnoModel', 'table1SupportNo', 'table1PsNo', 'candidateNode', 'nodeIsonote', 'supportTypesRequested', 'supportGapRaw', 'supportMatch', 'supportGapMatch', 'supportNoWiseAction', 'modelSourceId'];
     result = result.filter((row) => fields.some((key) => String(valueFor(row, key) || '').toUpperCase().includes(query)));
   }
   return result;
@@ -284,7 +292,7 @@ function renderCandidatePanel(panel, result) {
     '<button type="button" class="psmap-btn" data-psmap-action="exportCandidatesCsv">Export all candidates (CSV)</button></div></div>' +
     '<div class="psmap-card-body">' +
     '<div class="psmap-candidate-summary"><span>Total candidates <b>' + rows.length.toLocaleString() + '</b></span><span>Needs review <b>' + reviews.toLocaleString() + '</b></span><span>Gap / clearance issues <b>' + gaps.toLocaleString() + '</b></span><span>Rows with missing restraints <b>' + missing.toLocaleString() + '</b></span></div>' +
-    '<p class="psmap-candidate-legend"><b>How to read:</b> Required at Node comes from Table-1. Covered by Model summarizes model restraints at that node. The Restraint Verdict applies to this candidate; Gap / Clearance Verdict is restraint-type specific. Required Model Action gives corrections where applicable. Node-wide actions (in details) summarize the node, not the individual candidate.</p>' +
+    '<p class="psmap-candidate-legend"><b>How to read:</b> Required at Node comes from Table-1. Covered by Model summarizes model restraints at that node. The Restraint Verdict applies to this candidate; Gap / Clearance Verdict is restraint-type specific. Support Gap is copied verbatim from that Table-2 component; it is not the Table-1 requirement. REST_CLEARANCE refers to DO NOT REST non-contact clearance, not an active REST restraint. Required Model Action is row-specific; Node-wide Action summarizes all mapped rows.</p>' +
     '<div class="psmap-candidate-toolbar"><label>Find support or node <input type="search" data-psmap-candidate-search value="' + html(candidateView.search) + '" placeholder="Support No, node, keyword"></label>' +
     '<button type="button" class="psmap-btn secondary" data-psmap-candidate-apply>Search</button>' +
     '<label>Show <select data-psmap-candidate-filter>' + filterOptions.map((item) => '<option value="' + item[0] + '"' + (candidateView.filter === item[0] ? ' selected' : '') + '>' + item[1] + '</option>').join('') + '</select></label>' +
