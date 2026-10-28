@@ -23,7 +23,9 @@ Inspected live ISO import flow in `tabs/xml-compare-table-categorized-runtime.js
 ## Validation observations
 - Full XML script except unrelated tracked startup build-stamp exception, full Table suite: **PASS** on GitHub Actions first head `b3f7ee7562e9547b479e3c2d4aa466632cd55e84`.
 - First Chromium run: **FAIL** — the new role tabs were hidden because load-template navigated to Columns. Isolated source transition and corrected production/docs runtime. Not a test tolerance relaxation.
-- Latest Chromium and XML/Table CI: **IN PROGRESS** at this checkpoint, recheck current exact HEAD before claiming PASS.
+- Latest XML/Table CI: **PASS** on workflow run `40665244568`, tested product commit `57b1f16c73593e73ea012036435bc765505738a0` (full Table suite plus XML suite excluding tracked legacy build-stamp baseline).
+- Latest Chromium ISO engineering browser: **PASS** on same workflow run and code commit. The test exercised actual table source buttons, source-role tabs, a rejected wrong-role S2 file, a valid S2 CSV, generated 819-row CSV with redundant matching NODE_NAME/empty trailing column, preserved S1 data and native drag/drop. First two failed CI runs produced targeted fixes in template navigation, blocked-upload role selection, and a stale expected-navigation test. No adverse schema blocker was weakened.
+- Post-test report-only update does not alter product files or test code; exact new PR HEAD may have no workflow run due to path filters.
 - Production/docs source parity: **PASS** four changed modules exact matching Git blob SHA.
 - User's actual S2.csv with duplicate columns: **NOT_RUN** (header excerpts only), thus do not claim both duplicate values are equal or confidently remove its actual blockers.
 - Local `utils/backup.cjs` and ignored `.agent-worklogs`: **NOT_AVAILABLE** in GitHub connector-only environment. Every existing file edit used GitHub SHA-preconditioned update. Git history/diff provides file-level selective recovery; do not claim a physical local backup.
@@ -32,4 +34,4 @@ Inspected live ISO import flow in `tabs/xml-compare-table-categorized-runtime.js
 Some real repeated `NODE_NAME` values might conflict. Preflight must continue blocking those until explicit authoritative column selection; never silently infer from `SupportISONOTE`. Blank S1 X/Y/Z retain original emptiness, no synthetic zeros.
 
 ## EXACT_NEXT_ACTION
-Review latest GitHub Actions run for branch HEAD including Chromium file-upload role-tab test. If all pass, update this report with exact run, request independent review, and leave PR open unless owner expressly authorizes merging this PR. If failure, isolate only the specific production bug, do not weaken adverse duplicate test or remove source-custody enforcement.
+Request independent review of the guarded duplicate-header relaxation and S1/S2 role-tab UX; collect actual S2.csv header/cell evidence if still blocked. PR is green at last code HEAD; leave open pending explicit merge instruction for this follow-up. If failure, isolate only the specific production bug, do not weaken adverse duplicate test or remove source-custody enforcement.
