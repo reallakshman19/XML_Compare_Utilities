@@ -3,7 +3,7 @@
 **WORK_INTENT:** IMPLEMENT; **CRITICALITY:** ENGINEERING_CRITICAL.
 **PR:** https://github.com/reallakshman19/XML_Compare_Utilities/pull/216
 **BRANCH:** `fix/option-b-h6-typed-gap-aggregation-20261028` based on main `f42be020bb6594f845e6affc5be09b2141535ca2`.
-**CURRENT STATE:** code/test commits submitted; CI and independent engineering review pending.
+**CURRENT STATE:** scoped H6 implementation complete; GitHub qualification PASS at initial PR head; engineering review and merge approval pending.
 **AUTHORITY:** user "proceed fix"; **MERGE AUTHORITY:** NOT GIVEN; do not merge.
 **TAKEOVER DECISION:** CONTINUE scoped H6. Qualification documented in `agents/WIP-optionb-h6-20261028_workreport.md`.
 
@@ -28,7 +28,10 @@ Make typed REST/GUIDE/LINE STOP status first-class, immutable, and jointly autho
 **Validation at initial PR checkpoint:**
 - SOURCE_INSPECTION Appendix A 96/100 (per challenged minimum >=17): PASS, see WIP report.
 - Focused pure-JS execution from actual branch files with five named counterexamples: **PASS (IMPLEMENTATION-COUPLED)**, output captured in PR discussion/tool logs.
-- Full `npm run test:xml` / `npm run test:table` / ISO browser: **NOT_RUN** at initial checkpoint; request CI and inspect failures before claiming PASS.
+- XML scripted suite excluding the known, independently documented stale baseline startup build-stamp assertion: **PASS** (GitHub Actions `ISO Composite Identity Qualification`, run `40638518575`, job `122650981227`, SOURCE=CI/IMPLEMENTATION-COUPLED). A fully clean `npm run test:xml` is **NOT CLAIMED**; stale baseline remains separately visible as a nonblocking check.
+- Full `npm run test:table`: **PASS** (same run/job).
+- ISO Chromium browser regression: **PASS** (same run, job `122650981433`).
+- Full three-tab real upload-to-export browser journey and deployed application: **NOT_RUN**, scope of subsequent Option B phase.
 - Real engineering input replay: **NOT_RUN** (not committed; original attachments out of CI custody).
 - Regression oracle derived from H6 semantic requirement; not inferred from new algorithm. No new source data or mock fixture.
 - Production and `docs/` JavaScript files confirmed identical blob SHA for each module.
@@ -59,4 +62,4 @@ Because filesystem backups are unavailable, compare each current file against bo
 
 Risk: downstream scripts might assume `gap.status === MATCH` means only compared S1 fields agree. H6 intentionally strengthens that semantic; warn consumers. Does not alter CSV column ordering.
 
-**EXACT_NEXT_ACTION:** Observe PR216 CI on exact head, resolve only introduced errors without weakening H6 tests; independently inspect Tab 3 output plus finding-level CSV, refresh this work report and change ledger; request engineering review. **No merge without explicit owner instruction.**
+**EXACT_NEXT_ACTION:** Request independent engineering review of the H6 status/CSV behavioral change and real-input Tab 3 smoke. Confirm PR #214 authority-boundary changes remain separate, recheck latest PR216 CI on this report-update head, and ask owner for explicit merge decision. **No merge without explicit owner authorization.**
