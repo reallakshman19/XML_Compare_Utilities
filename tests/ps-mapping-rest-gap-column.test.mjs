@@ -112,9 +112,17 @@ test('candidate UI and complete CSV have requested first 19 columns in identical
   assert.match(code,/valueFor\(row, col\[0\]\)/);
 });
 
+test('primary Mapping Status cannot be hidden by the detail-column toggle',()=>{
+  const code=readFileSync(new URL('../tabs/ps-mapping-utility-tab-candidate-detail-ui.js',import.meta.url),'utf8');
+  const details=code.match(/const DETAIL_LABELS = new Set\(\[([\s\S]*?)\]\);/);
+  assert.ok(details);
+  assert.doesNotMatch(details[1],/^\s*'Mapping Status',/m);
+});
+
 test('candidate UI, canonical engine and Pages mirrors are synchronized',()=>{
   for(const name of ['ps-mapping-utility-tab-candidate-copy-ui.js',
-    'ps-mapping-utility/ps-mapping-engine-diagnostics-v25.js']) {
+    'ps-mapping-utility/ps-mapping-engine-diagnostics-v25.js',
+    'ps-mapping-utility-tab-candidate-detail-ui.js']) {
     const a=readFileSync(new URL('../tabs/'+name,import.meta.url),'utf8');
     const b=readFileSync(new URL('../docs/tabs/'+name,import.meta.url),'utf8');
     assert.equal(a,b,name);
