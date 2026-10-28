@@ -58,7 +58,10 @@ function reportRow(left, right, status, reason) {
   const action = engineeringReviewAction(status, gap, coverage);
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
-    status, reason, supportGap, dtxr, isoNote, gap, coverage, action,
+    status, reason, identityFailureCode: status === 'REVIEW' ?
+      (a?.identityReason || b?.identityReason || 'DUPLICATE_COMPOSITE_ID') :
+      (status === 'S1_ONLY' || status === 'S2_ONLY') ? 'OUT_OF_SCOPE_OR_MISSING_REFERENCE' : '',
+    supportGap, dtxr, isoNote, gap, coverage, action,
     matchRule: 'NORMALIZED_PIPE_PLUS_FULL_SUPPORT_ID_V1',
     sourceUid: a?.uid || '', targetUid: b?.uid || '',
     s1Ref: a?.sourceRef || '', s2Ref: b?.sourceRef || '',
@@ -71,7 +74,7 @@ function compareRows(s1, s2) {
   const seen1 = new Set(), seen2 = new Set(), output = [];
   for (const item of s1) {
     if (!item.valid) {
-      output.push(reportRow(item, null, 'REVIEW', item.identityReason === 'NONCANONICAL_ID' ? 'NONCANONICAL_ID: preserve raw PS number; manual review only' : 'Missing pipeline or PS number'));
+      output.push(reportRow(item, null, 'REVIEW', (item.identityReason || 'MISSING_IDENTITY_PART') + ': S1 PS number or pipeline requires manual identity review'));
       continue;
     }
     const a = byKey1.get(item.key) || [], b = byKey2.get(item.key) || [];
@@ -86,7 +89,7 @@ function compareRows(s1, s2) {
   for (const item of s2) {
     if (seen2.has(item)) continue;
     if (!item.valid) {
-      output.push(reportRow(null, item, 'REVIEW', item.identityReason === 'NONCANONICAL_ID' ? 'NONCANONICAL_ID: preserve raw NODE_NAME; manual review only' : 'Missing line number or NODE_NAME'));
+      output.push(reportRow(null, item, 'REVIEW', (item.identityReason || 'MISSING_IDENTITY_PART') + ': S2 NODE_NAME or pipeline requires manual identity review; original note token retained as evidence'));
       continue;
     }
     const a = byKey1.get(item.key) || [], b = byKey2.get(item.key) || [];
