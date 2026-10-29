@@ -85,6 +85,31 @@ assert.equal(matchRest.s2Ref, 'S2:1');
 assert.ok(matchRest.sourceUid.includes('PS_MAPPING_S1'));
 assert.ok(matchRest.targetUid.includes('ISO_NOTES_S2'));
 assert.equal(matchRest.matchRule, 'NORMALIZED_PIPE_PLUS_FULL_SUPPORT_ID_V1');
+
+assert.match(matchRest.action.action, /pipeline PIPE-1\/B4; full support PS-006\.5; refs S1:1 ↔ S2:1/);
+assert.match(matchRest.action.action, /LINE STOP clearance S1=not evidenced, S2=25 mm: REVIEW/);
+assert.match(matchRest.action.action, /Verify missing positive restraint indication LINE_STOP/);
+assert.match(matchRest.action.action, /no automatic support creation, gap\/property transfer or geometry modification/);
+const referenceAction = engineeringReviewAction('MATCH',
+  compareEngineeringGaps('', 'DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]'),
+  compareRestraintCoverage('GUIDE PDO-TYPE-604A/B', 'DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]'),
+  { pipeline: 'PIPE-1/B4', supportId: 'PS-124.1', s1Ref: 'S1:1', s2Ref: 'S2:184',
+    dtxr: 'GUIDE PDO-TYPE-604A/B', supportGap: '',
+    isoNote: 'DO NOT REST [25mm GAP](1kN), GUIDE(1kN), [GUIDE GAP=10mm]' });
+assert.match(referenceAction.action, /full support PS-124\.1; refs S1:1 ↔ S2:184/);
+assert.match(referenceAction.action, /DO NOT REST is a negated non-contact directive, NOT evidence of a required active REST restraint/);
+assert.match(referenceAction.action, /REST\/pipe clearance S1=not evidenced, S2=25 mm: REVIEW/);
+assert.match(referenceAction.action, /GUIDE clearance S1=not evidenced, S2=10 mm: REVIEW/);
+assert.match(referenceAction.action, /S1 Support Gap is blank, not zero/);
+assert.match(referenceAction.action, /Forces in kN are not gap dimensions/);
+assert.equal(referenceAction.transferReady, false);
+const crossPipeReview = engineeringReviewAction('S1_ONLY',
+  compareEngineeringGaps('', '', 'S1_ONLY'),
+  compareRestraintCoverage('GUIDE TYPE-604', '', 'S1_ONLY'),
+  { pipeline: 'PIPE-8', supportId: 'PS-124.1', s1Ref: 'S1:9' });
+assert.match(crossPipeReview.action, /same-base hardware on another line does not establish identity/);
+assert.doesNotMatch(crossPipeReview.action, /Identity MATCH/);
+
 const stop = row('PS-007.1');
 assert.equal(stop.gap.status, 'MATCH');
 assert.equal(stop.coverage.status, 'COVERED');
@@ -115,6 +140,7 @@ assert.equal(missingStopFinding.s1Ref, 'S1:1');
 assert.equal(missingStopFinding.s2Ref, 'S2:1');
 assert.match(missingStopFinding.findingId, /S1:1=>S2:1#RESTRAINT:LINE_STOP/);
 assert.equal(missingStopFinding.reviewAction.includes('Investigate ISONOTE'), true);
+assert.match(missingStopFinding.reviewAction, /Verify missing positive restraint indication LINE_STOP/);
 const ledgerCsv = serializeIsoNoteEngineeringFindingsCsv(report);
 assert.match(ledgerCsv, /"Finding ID","Domain","Type","Finding Status","Applied Rule"/);
 assert.match(ledgerCsv, /"S1:1","S2:1"/);
@@ -125,6 +151,8 @@ assert.match(ledgerCsv, /"Raw S1 Evidence","Raw S2 Evidence"/);
 const csv = serializeIsoNoteMappingCsv(report);
 assert.match(csv, /"Line Stop Gap S1 mm","Line Stop Gap S2 mm"/);
 assert.match(csv, /"Engineering Review Code","Review Action","Source UID","Target UID"/);
+assert.match(csv, /LINE STOP clearance S1=not evidenced, S2=25 mm/);
+assert.match(ledgerCsv, /no automatic support creation, gap\/property transfer or geometry modification/);
 assert.match(csv, /"Restraint Evidence JSON"/);
 assert.match(csv, /"NORMALIZED_PIPE_PLUS_FULL_SUPPORT_ID_V1"/);
 assert.match(csv, /"S1:1","S2:1"/);
