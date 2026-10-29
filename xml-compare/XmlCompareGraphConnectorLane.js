@@ -29,7 +29,32 @@ function allConnectors(manualConnectors = []) {
 }
 
 function actionPanel() {
-  return '<div class="xml-compare-auto-map-actions"><small>Automatic connector suggestions are disabled.</small></div>';
+  return '<div class="xml-compare-auto-map-actions"><small>Automatic transfer approval is disabled. ISO identity connections are review-only evidence.</small></div>';
+}
+
+// An audit identity link is neither a candidate approval nor a transfer connector.
+// Render it in the actual connector lane without modifying manual/approved state.
+export function renderIsoAuditConnectorLane(auditLinks = null) {
+  if (!auditLinks?.readOnly || !Array.isArray(auditLinks.links)) return '';
+  const links = auditLinks.links.filter((link) =>
+    link?.disposition === 'IDENTITY_VERIFIED_NOT_TRANSFER_APPROVED' &&
+    clean(link.sourceUid) && clean(link.targetUid) &&
+    clean(link.pipeline) && clean(link.supportId));
+  const rows = links.slice(0, 120).map((link) =>
+    '<li data-xml-compare-iso-connector data-source-uid="' + esc(link.sourceUid) +
+    '" data-target-uid="' + esc(link.targetUid) +
+    '"><div class="xmlc-iso-link-pair"><span class="xmlc-iso-source"><small>S1</small><b>' +
+    esc(link.supportId) + '</b></span><svg viewBox="0 0 44 20" width="44" height="20" role="img" aria-label="Read-only identity connection"><path d="M2 10 H39 M33 4 L39 10 L33 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<span class="xmlc-iso-target"><small>S2</small><b>' + esc(link.supportId) +
+    '</b></span></div><small class="xmlc-iso-link-detail">' + esc(link.pipeline) +
+    ' · ' + esc(link.s1Ref) + ' ↔ ' + esc(link.s2Ref) +
+    '</small></li>').join('');
+  return '<section class="xmlc-iso-connector-evidence" data-xml-compare-iso-connector-lane aria-label="Read-only ISO identity connections">' +
+    '<h4>' + links.length + ' verified identity connections</h4>' +
+    '<p>S1 → S2 by exact pipeline + full support ID. Engineering review required; 0 automatic transfer approvals.</p>' +
+    '<ol>' + (rows || '<li>No valid read-only identity connections.</li>') +
+    '</ol>' + (links.length > 120 ? '<small>Showing first 120 verified links; export CSV for all.</small>' : '') +
+    '</section>';
 }
 
 function pendingPanel(preview = null) {
@@ -143,8 +168,8 @@ export function paintXmlCompareConnectorCanvas(canvas, connectors = [], pendingP
   }
 }
 
-export function renderXmlCompareGraphConnectorLaneHtml({ manualState = null, controlHtml = '' } = {}) {
-  return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Approval counts</span></header>${controlHtml}${actionPanel()}${approvalCountPanel(manualState)}${pendingPanel(manualState?.pendingConnectorPreview || null)}</section>`;
+export function renderXmlCompareGraphConnectorLaneHtml({ manualState = null, controlHtml = '', auditLinks = null } = {}) {
+  return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Approval counts</span></header>${controlHtml}${renderIsoAuditConnectorLane(auditLinks)}${actionPanel()}${approvalCountPanel(manualState)}${pendingPanel(manualState?.pendingConnectorPreview || null)}</section>`;
 }
 
 export const _test = Object.freeze({
@@ -160,4 +185,5 @@ export const _test = Object.freeze({
   candidateRow,
   approvalCounts,
   approvalCountPanel,
+  renderIsoAuditConnectorLane,
 });
