@@ -1,0 +1,30 @@
+name: PS Mapping Candidate Review Page Qualification
+on:
+  pull_request:
+    paths:
+      - 'docs/ps-mapping-candidate-matrix-validation.html'
+      - 'tests/ps-mapping-candidate-review-page.spec.mjs'
+      - 'playwright.psmap-candidate-review.config.mjs'
+      - '.github/workflows/ps-mapping-candidate-review-page.yml'
+  push:
+    branches:
+      - docs/psmap-two-case-candidate-matrix
+    paths:
+      - 'docs/ps-mapping-candidate-matrix-validation.html'
+      - 'tests/ps-mapping-candidate-review-page.spec.mjs'
+      - 'playwright.psmap-candidate-review.config.mjs'
+      - '.github/workflows/ps-mapping-candidate-review-page.yml'
+jobs:
+  page-render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Validate Candidate Matrix page in Chromium
+        run: npx playwright test --config playwright.psmap-candidate-review.config.mjs
