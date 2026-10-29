@@ -76,9 +76,9 @@ function renderXmlInputCard(state, side = 'a', isoMode = false) {
     esc(xml.length.toLocaleString()) + ' characters · ' + esc(detected) :
     'Empty · ready to import') + '</small></div>' +
     '<details class="xmlc-import-preview"><summary>' + (loaded ? 'Inspect XML / edit small input' : 'Paste XML text instead') +
-    '</summary>' + (preview.large ? '<small role="status">Full XML retained (' +
+    '</summary>' + (preview.large ? '<small role="status">Full XML loaded and retained (' +
     esc(preview.chars.toLocaleString()) +
-    ' characters). Showing first 2,048 characters read-only.</small>' : '') +
+    ' characters). Showing first 2,048 as read-only preview.</small>' : '') +
     '<textarea data-xml-compare-field="' + field +
     '"' + (preview.large ? ' readonly aria-label="' + sideLabel + ' XML preview; full XML loaded"' : '') +
     ' spellcheck="false" placeholder="Paste ' + sideLabel +
