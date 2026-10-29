@@ -64,6 +64,20 @@ const blankish = catalog.fields.find((field) => field.header === 'Blankish');
 assert.equal(blankish.blankCount, 2);
 assert.ok(blankish.diagnostics.some((item) => item.code === 'field_blank_heavy'));
 
+const optionalS1 = parseTableSource([
+  'PS NO,pipe,Mandatory,X,Y,Z',
+  'PS-001,PIPE-1,No,,,',
+  'PS-002,PIPE-2,No,123,11,111',
+  'PS-003,PIPE-3,No,,,',
+].join('\n'), { sourceId: 'S1', delimiterMode: 'comma' });
+const sparseFields = buildFieldCatalog([optionalS1]).fields;
+for (const fieldName of ['X', 'Y', 'Z']) {
+  const item = sparseFields.find(f => f.header === fieldName);
+  assert.equal(item.blankCount, 2);
+  assert.equal(item.role, 'measure');
+  assert.ok(item.diagnostics.some(d => d.code === 'optional_coordinate_sparse' && d.severity === 'INFO'));
+  assert.equal(item.diagnostics.some(d => d.severity === 'WARNING'), false);
+}
 const mixed = inferFieldType(['12', 'abc', '13']);
 assert.equal(mixed.type, 'text');
 assert.ok(mixed.diagnostics.some((item) => item.code === 'field_mixed_numeric_text'));
