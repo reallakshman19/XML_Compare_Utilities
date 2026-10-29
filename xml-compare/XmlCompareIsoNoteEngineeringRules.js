@@ -214,22 +214,23 @@ function actionEvidence(ctx, gap, coverage, identityStatus) {
   return parts.join(' ');
 }
 export function engineeringReviewAction(identityStatus, gap, coverage, context = {}) {
-  const detail = actionEvidence(context, gap, coverage, identityStatus);
+  const detail = context && (context.pipeline || context.supportId || context.s1Ref || context.s2Ref)
+    ? ' ' + actionEvidence(context, gap, coverage, identityStatus) : '';
   if (identityStatus !== 'MATCH') return frozen({
-    code: 'VERIFY_IDENTITY', action: 'Manual review: verify exact pipeline and full support number first. Do not transfer properties. ' + detail,
+    code: 'VERIFY_IDENTITY', action: 'Manual review: verify exact pipeline and full support number first. Do not transfer properties.' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   if (gap.status === 'MISMATCH' || coverage.status === 'MISSING') return frozen({
-    code: 'ENGINEERING_DISCREPANCY', action: 'Investigate ISONOTE/DTXR and clearance evidence; do not automatically alter the model. ' + detail,
+    code: 'ENGINEERING_DISCREPANCY', action: 'Investigate ISONOTE/DTXR and clearance evidence; do not automatically alter the model.' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   if (gap.status === 'REVIEW' || coverage.status === 'REVIEW' || coverage.status === 'EXTRA' ||
       gap.status === 'NOT_SPECIFIED' || coverage.status === 'NOT_SPECIFIED') return frozen({
-    code: 'ENGINEERING_REVIEW', action: 'Verify missing/ambiguous restraint or gap evidence against the model before transfer. ' + detail,
+    code: 'ENGINEERING_REVIEW', action: 'Verify missing/ambiguous restraint or gap evidence against the model before transfer.' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   return frozen({
-    code: 'EVIDENCE_ALIGNED', action: 'Identity and parsed evidence aligned; verify actual geometry before any transfer. ' + detail,
+    code: 'EVIDENCE_ALIGNED', action: 'Identity and parsed evidence aligned; verify actual geometry before any transfer.' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
 }
