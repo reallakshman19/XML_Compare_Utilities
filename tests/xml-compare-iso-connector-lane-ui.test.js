@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import { createXmlCompareCanvasState } from '../xml-compare/XmlCompareCanvasStateController.js';
 import { renderIsoAuditConnectorLane, renderXmlCompareGraphConnectorLaneHtml } from '../xml-compare/XmlCompareGraphConnectorLane.js';
 import { _test as view } from '../xml-compare/XmlCompareTabView.js';
-import { scopeIsoDisplaySide } from '../xml-compare/XmlCompareWorkspaceShell.js';
-import { clearXmlCompareInputSide } from '../tabs/xml-compare-tab.js';
+import { scopeIsoDisplaySide, renderXmlCompareWorkspaceShellHtml } from '../xml-compare/XmlCompareWorkspaceShell.js';
+import { createXmlCompareWorkspaceModel } from '../xml-compare/XmlCompareWorkspaceModel.js';
+import { clearXmlCompareInputSide, recordsForSide } from '../tabs/xml-compare-tab.js';
 
 const isoRoot = '<IsoNoteXml profileId="iso-note-ps-mapping-s1-iso-notes-s2/v1"><IsoPartition key="PS_MAPPING_S1"/><IsoPartition key="ISO_NOTES_S2"/></IsoNoteXml>';
 const links = Object.freeze(Array.from({ length: 7 }, (_, index) => {
@@ -105,10 +106,72 @@ const auditLinks = Object.freeze({ readOnly: true, linkedCount: 7, links });
 {
   const tab = fs.readFileSync(new URL('../xml-compare/XmlCompareTabView.js', import.meta.url), 'utf8');
   const shell = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
-  assert.match(tab, /renderXmlCompareWorkspaceShellHtml\(\{ \.\.\.workspace, isoNoteAuditLinks: state\.isoNoteAuditLinks \}\)/);
+  assert.ok(tab.includes('renderXmlCompareWorkspaceShellHtml({ ...workspace, isoNoteAuditLinks: state.isoNoteAuditLinks, isoViewMode:'), 'ISO view routing must pass both audit evidence and role-aware mode to shell');
   assert.match(shell, /auditLinks: input\.isoNoteAuditLinks/);
   const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
   assert.match(runtime, /invalidateInputComparison\(state\)/);
   assert.match(runtime, /state\.isoNoteAuditLinks = null/);
 }
+// Reproduces the Owner-observed S2 "not loaded" display using the actual
+// categorized-XML parser/WorkspaceModel, not a hand-constructed side model.
+{
+  const isoXml = [
+    '<IsoNoteXml profileId="iso-note-ps-mapping-s1-iso-notes-s2/v1">',
+    '<IsoPartition key="PS_MAPPING_S1" levelType="partition">',
+    '<IsoItem key="m1" levelType="group"><pipe>PIPE-1</pipe><psNo>PS-101.1</psNo></IsoItem>',
+    '<IsoItem key="m2" levelType="group"><pipe>PIPE-2</pipe><psNo>PS-102.1</psNo></IsoItem>',
+    '</IsoPartition>',
+    '<IsoPartition key="ISO_NOTES_S2" levelType="partition">',
+    '<IsoItem key="n1" levelType="group"><lineNoInCii>/PIPE-1</lineNoInCii><nodeName>/PS-101.1</nodeName></IsoItem>',
+    '<IsoItem key="n2" levelType="group"><lineNoInCii>/PIPE-2</lineNoInCii><nodeName>/PS-102.1</nodeName></IsoItem>',
+    '<IsoItem key="n3" levelType="group"><lineNoInCii>/PIPE-3</lineNoInCii><nodeName>/PS-103.1</nodeName></IsoItem>',
+    '</IsoPartition></IsoNoteXml>',
+  ].join('');
+  const canvas = createXmlCompareCanvasState();
+  const model = createXmlCompareWorkspaceModel({
+    fileA: { name: 'combined-source.xml' }, fileB: { name: 'combined-target.xml' },
+    textA: isoXml, textB: isoXml, canvasState: canvas,
+  });
+  assert.equal(model.source.records.length, 2, 'unprojected default holds two partition containers');
+  assert.equal(model.target.records.length, 2, 'Target initially shows partitions, not S2 details');
+  const source = scopeIsoDisplaySide(model.source, 'PS_MAPPING_S1');
+  const target = scopeIsoDisplaySide(model.target, 'ISO_NOTES_S2');
+  assert.equal(source.isoPartition.itemCount, 2);
+  assert.equal(target.isoPartition.itemCount, 3);
+  assert.equal(source.levelView.levelId, 'element');
+  assert.equal(target.levelView.levelId, 'element');
+  assert.equal(source.records.length, 2);
+  assert.equal(target.records.length, 3);
+  assert.ok(target.records.every(r => r.lineKey === 'ISO_NOTES_S2' && r.levelId === 'element'));
+  assert.equal(scopeIsoDisplaySide(model.target, 'ISO_NOTES_S2', 'lineBlock').records.length, 1,
+    'explicit LineBlock view remains supported');
+  assert.equal(model.target.baseRecords.length, 7, 'source model remains complete and unmodified');
+  const html = renderXmlCompareWorkspaceShellHtml({ ...model, isoViewMode: true, isoLevelSelections: canvas.levelViews });
+  assert.match(html, /S1 PS Mapping: 2 records loaded/);
+  assert.match(html, /S2 ISO Notes: 3 records loaded/);
+  assert.match(html, /Target · S2 ISO Notes/);
+  assert.match(html, /Preview first 3 support records/);
+  const state = {
+    fileA: { name: 'combined-source.xml' }, fileB: { name: 'combined-target.xml' },
+    textA: isoXml, textB: isoXml, canvasState: canvas,
+    transferModal: { open: false },
+  };
+  assert.deepEqual(recordsForSide(state, 'source').map(r => r.uid), source.records.map(r => r.uid));
+  assert.deepEqual(recordsForSide(state, 'target').map(r => r.uid), target.records.map(r => r.uid));
+  assert.equal(canvas.approvedMatchSet, null, 'display cannot grant approval');
+  // If S2 really is missing, show explicit zero, not incorrect S1 fallback.
+  const s2Start = isoXml.indexOf('<IsoPartition key="ISO_NOTES_S2"');
+  const s2Close = isoXml.indexOf('</IsoPartition>', s2Start);
+  assert.ok(s2Start > 0 && s2Close > s2Start, 'synthetic S2 partition is present for negative test');
+  const absentS2 = isoXml.slice(0, s2Start) + isoXml.slice(s2Close + '</IsoPartition>'.length);
+  const noS2Model = createXmlCompareWorkspaceModel({
+    fileA: { name: 's1-only.xml' }, fileB: { name: 's1-only.xml' },
+    textA: absentS2, textB: absentS2, canvasState: canvas,
+  });
+  const noS2 = scopeIsoDisplaySide(noS2Model.target, 'ISO_NOTES_S2');
+  assert.equal(noS2.isoPartition.itemCount, 0);
+  assert.equal(noS2.records.length, 0);
+  assert.match(renderXmlCompareWorkspaceShellHtml({ ...noS2Model, isoViewMode: true }), /No records in this partition/);
+}
+
 console.log('XML Compare ISO connector lane and independent source/target UI tests passed');

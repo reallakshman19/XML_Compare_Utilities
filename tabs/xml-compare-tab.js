@@ -75,7 +75,22 @@ function captureRenderState(container) { const scrolls = [], active = document.a
 function restoreRenderState(container, saved) { for (const [path, top, left] of saved.scrolls) { const el = nodeAtPath(container, path); if (el) { el.scrollTop = top; el.scrollLeft = left; } } if (saved.focusPath) { const el = nodeAtPath(container, saved.focusPath); if (el?.focus) { el.focus({ preventScroll: true }); if (saved.selection && 'setSelectionRange' in el) try { el.setSelectionRange(saved.selection[0], saved.selection[1]); } catch {} } } window.scrollTo(saved.winX, saved.winY); }
 function render(container, state) { const saved = captureRenderState(container), workspace = workspaceFromState(state); publishUniversalViewportContext(document, { state, workspace }); container.innerHTML = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) }); const canvas = container.querySelector('.xml-compare-graph-connector-canvas'); if (canvas) try { const raw = canvas.dataset.xmlCompareCanvasPayload, text = raw?.replaceAll('&quot;', '"').replaceAll('&#039;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'); if (text) { const payload = JSON.parse(text); paintXmlCompareConnectorCanvas(canvas, payload.connectors, payload.pendingPreview); } } catch (e) { console.warn('Failed to paint connector canvas', e); } if (state.transferModal?.open) { const modal = container.querySelector('.xml-compare-transfer-modal'); if (modal?.showModal) try { modal.showModal(); } catch {} } restoreRenderState(container, saved); }
 function canvasSideFrom(target) { return target.closest('[data-xml-compare-canvas-host]')?.dataset.xmlCompareCanvasHost === 'target' ? 'target' : 'source'; }
-function recordsForSide(state, side) { const workspace = workspaceFromState(state); return workspace[side]?.records || []; }
+export function recordsForSide(state, side) {
+  const normalized = side === 'target' ? 'target' : 'source';
+  const workspace = workspaceFromState(state);
+  if (!isIsoNoteEngineeringInput(state.textA, state.textB)) return workspace[normalized]?.records || [];
+  const partition = normalized === 'target' ? 'ISO_NOTES_S2' : 'PS_MAPPING_S1';
+  // Same source-scoped records shown by WorkspaceShell. Selection of an ISO
+  // item is never approval of a property-transfer connector.
+  const requestedLevel = String(state.canvasState?.levelViews?.[normalized]?.levelId || 'element');
+  const base = workspace[normalized]?.baseRecords || [];
+  const partitionRows = base.filter(record => record.lineKey === partition);
+  const desired = partitionRows.filter(record => record.levelId === requestedLevel);
+  return desired.length ? desired :
+    partitionRows.filter(record => record.levelId === 'element').length
+      ? partitionRows.filter(record => record.levelId === 'element')
+      : partitionRows;
+}
 function searchableRecordText(record = {}) { return [record.uid, record.stableKey, record.nodeNumber, record.nodeName, record.displayName, record.elementKey, record.lineNo, record.branchName, record.fromNode, record.toNode].map(clean).filter(Boolean); }
 function findRecordBySearch(records = [], needle = '') { const q = clean(needle).toUpperCase(); if (!q) return null; const rows = records.map((record) => ({ record, values: searchableRecordText(record) })); return rows.find((row) => row.values.some((value) => value.toUpperCase() === q))?.record || rows.find((row) => row.values.some((value) => value.toUpperCase().includes(q)))?.record || null; }
 // Approval scope comes from the *loaded documents*, never a mutable canvas
