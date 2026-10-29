@@ -181,22 +181,55 @@ export function compareEngineeringGaps(s1Value = '', s2Value = '', identityStatu
   return result('MATCH', 'Identical typed clearance values in mm; all declared gap types compared.');
 }
 
-export function engineeringReviewAction(identityStatus, gap, coverage) {
+// Compose record-specific review evidence; the caller supplies only source
+// values already captured in the read-only ISO comparison ledger.
+function actionEvidence(ctx, gap, coverage, identityStatus) {
+  const pipe = text(ctx.pipeline) || 'UNSPECIFIED_PIPELINE';
+  const id = text(ctx.supportId) || 'UNSPECIFIED_SUPPORT';
+  const refs = [text(ctx.s1Ref) || 'NO_S1_REF', text(ctx.s2Ref) || 'NO_S2_REF'].join(' ↔ ');
+  const parts = [`Identity ${identityStatus}: pipeline ${pipe}; full support ${id}; refs ${refs}.`];
+  if (identityStatus !== 'MATCH') {
+    parts.push('Verify source line and original support/node name on approved ISO; same-base hardware on another line does not establish identity.');
+    return parts.join(' ');
+  }
+  const note = text(ctx.isoNote), dtxr = text(ctx.dtxr);
+  parts.push(`Restraint evidence: S1 DTXR "${dtxr || 'blank'}"; S2 positive requirements "${coverage.required || 'none confirmed'}"; indicated S1 restraints "${coverage.provided || 'none confirmed'}".`);
+  if (/\bDO\s+NOT\s+REST\b/i.test(note)) {
+    parts.push('DO NOT REST is a negated non-contact directive, NOT evidence of a required active REST restraint; inspect contact geometry.');
+  }
+  for (const [name, key] of [['REST/pipe', 'rest'], ['GUIDE', 'guide'], ['LINE STOP', 'lineStop']]) {
+    const measure = gap.byType?.[key];
+    if (!measure || measure.status === 'NOT_SPECIFIED') continue;
+    const s1 = measure.s1Mm.length ? measure.s1Mm.join(' / ') + ' mm' : 'not evidenced';
+    const s2 = measure.s2Mm.length ? measure.s2Mm.join(' / ') + ' mm' : 'not evidenced';
+    parts.push(`${name} clearance S1=${s1}, S2=${s2}: ${measure.status}. ${measure.reason}`);
+  }
+  if (!text(ctx.supportGap)) parts.push('S1 Support Gap is blank, not zero; obtain dimensioned drawing or site/as-built measurement before asserting gap agreement.');
+  if (coverage.missing) parts.push('Verify missing positive restraint indication ' + coverage.missing + ' against approved support/model geometry; do not propose replacement hardware on text evidence alone.');
+  if (coverage.extra) parts.push('Verify extra DTXR restraint indication ' + coverage.extra + ' against approved support/model geometry.');
+  if (coverage.warnings?.length) parts.push('Restraint interpretation: ' + coverage.warnings.join('; ') + '.');
+  if (/\baxial\s+disp\b/i.test(note)) parts.push('Axial displacement is a movement requirement, not a clearance gap.');
+  if (/\d\s*kN\b/i.test(note)) parts.push('Forces in kN are not gap dimensions.');
+  parts.push('Required: engineering review of approved ISO/support drawing and installed geometry; no automatic support creation, gap/property transfer or geometry modification.');
+  return parts.join(' ');
+}
+export function engineeringReviewAction(identityStatus, gap, coverage, context = {}) {
+  const detail = actionEvidence(context, gap, coverage, identityStatus);
   if (identityStatus !== 'MATCH') return frozen({
-    code: 'VERIFY_IDENTITY', action: 'Manual review: verify exact pipeline and full support number first. Do not transfer properties.',
+    code: 'VERIFY_IDENTITY', action: 'Manual review: verify exact pipeline and full support number first. Do not transfer properties. ' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   if (gap.status === 'MISMATCH' || coverage.status === 'MISSING') return frozen({
-    code: 'ENGINEERING_DISCREPANCY', action: 'Investigate ISONOTE/DTXR and clearance evidence; do not automatically alter the model.',
+    code: 'ENGINEERING_DISCREPANCY', action: 'Investigate ISONOTE/DTXR and clearance evidence; do not automatically alter the model. ' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   if (gap.status === 'REVIEW' || coverage.status === 'REVIEW' || coverage.status === 'EXTRA' ||
       gap.status === 'NOT_SPECIFIED' || coverage.status === 'NOT_SPECIFIED') return frozen({
-    code: 'ENGINEERING_REVIEW', action: 'Verify missing/ambiguous restraint or gap evidence against the model before transfer.',
+    code: 'ENGINEERING_REVIEW', action: 'Verify missing/ambiguous restraint or gap evidence against the model before transfer. ' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
   return frozen({
-    code: 'EVIDENCE_ALIGNED', action: 'Identity and parsed evidence aligned; verify actual geometry before any transfer.',
+    code: 'EVIDENCE_ALIGNED', action: 'Identity and parsed evidence aligned; verify actual geometry before any transfer. ' + detail,
     disposition: 'REVIEW', transferReady: false,
   });
 }
