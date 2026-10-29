@@ -160,7 +160,10 @@ const auditLinks = Object.freeze({ readOnly: true, linkedCount: 7, links });
   assert.deepEqual(recordsForSide(state, 'target').map(r => r.uid), target.records.map(r => r.uid));
   assert.equal(canvas.approvedMatchSet, null, 'display cannot grant approval');
   // If S2 really is missing, show explicit zero, not incorrect S1 fallback.
-  const absentS2 = isoXml.replace(/<IsoPartition key="ISO_NOTES_S2"[\\s\\S]*?<\\/IsoPartition>/, '');
+  const s2Start = isoXml.indexOf('<IsoPartition key="ISO_NOTES_S2"');
+  const s2Close = isoXml.indexOf('</IsoPartition>', s2Start);
+  assert.ok(s2Start > 0 && s2Close > s2Start, 'synthetic S2 partition is present for negative test');
+  const absentS2 = isoXml.slice(0, s2Start) + isoXml.slice(s2Close + '</IsoPartition>'.length);
   const noS2Model = createXmlCompareWorkspaceModel({
     fileA: { name: 's1-only.xml' }, fileB: { name: 's1-only.xml' },
     textA: absentS2, textB: absentS2, canvasState: canvas,
