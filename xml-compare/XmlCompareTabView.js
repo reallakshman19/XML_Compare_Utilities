@@ -5,6 +5,7 @@ import { renderLinewiseWorkflowPopupHtml, renderLinewiseWorkflowToolbarButtonHtm
 import { renderUniversalXmlCategorizerButtonHtml } from './universal-categorizer/universal-xml-categorizer-shell.js';
 import { renderXmlCompareWorkspaceShellHtml } from './XmlCompareWorkspaceShell.js?v=20260704-transfer-review-1';
 import { detectXmlCompareProfile } from './XmlCompareProfileDetector.js';
+import { isIsoNoteEngineeringInput } from './rev-compare/rev-compare-iso-note-mode.js';
 import { renderIsoNoteMappingCompareHtml } from './XmlCompareIsoNoteDirectCompare.js';
 
 const clean = (value) => String(value ?? '').trim();
@@ -35,61 +36,96 @@ function renderIsoAuditConnectorEvidence(report, auditLinks) {
     '<thead><tr><th>Pipeline</th><th>Support ID</th><th>S1 source reference</th><th>S2 source reference</th><th>Authority</th></tr></thead><tbody>' +
     rows + '</tbody></table></div></section>';
 }
-function importSection(state) {
-  const schemaBadge = (label, xml, fileName) => {
-    if (!xml) return `<span class="wb3d-badge">Detected: none</span>`;
-    const detected = detectXmlCompareProfile({ name: fileName || '', text: xml });
-    if (detected.type === 'unknown') {
-      const psi = /<PipeStressExport\b/i.test(xml.slice(0, 4000));
-      return psi ? `<span class="wb3d-badge is-ok">${label}: psi-pipestress</span>` : `<span class="wb3d-badge">Detected: unknown</span>`;
-    }
-    return `<span class="wb3d-badge is-ok">${label}: ${esc(detected.type)}</span>`;
-  };
-  const sourceName = state.fileA?.name || '';
-  const targetName = state.fileB?.name || '';
-  const sourcePreview = xmlInputPreview(state.textA);
-  const targetPreview = xmlInputPreview(state.textB);
-  return `
-  <section class="wb3d-card" style="margin-bottom: 20px;">
-    <h3>Import <span class="wb3d-muted">source (property donor) and target (receiver)</span></h3>
-    <div class="wb3d-import-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div>
-          <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Source XML/InputXML <input type="file" data-xml-compare-load="a" accept=".xml,.XML,.json,.JSON"></label>
-          ${schemaBadge('Detected', state.textA, sourceName)} ${sourceName ? `<span class="wb3d-muted">${esc(sourceName)}</span>` : ''}
-        </div>
-        <small role="status">${sourcePreview.large ? `Full XML loaded (${sourcePreview.chars.toLocaleString()} characters); showing first 2,048 as read-only preview. Full text retained for comparisons.` : ''}</small>\n        <textarea data-xml-compare-field="textA" ${sourcePreview.large ? 'readonly aria-label="Source XML preview; full XML loaded"' : ''} spellcheck="false" placeholder="…or paste source XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(sourcePreview.text)}</textarea>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div>
-          <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Target XML/InputXML <input type="file" data-xml-compare-load="b" accept=".xml,.XML,.json,.JSON"></label>
-          ${schemaBadge('Detected', state.textB, targetName)} ${targetName ? `<span class="wb3d-muted">${esc(targetName)}</span>` : ''}
-        </div>
-        <small role="status">${targetPreview.large ? `Full XML loaded (${targetPreview.chars.toLocaleString()} characters); showing first 2,048 as read-only preview. Full text retained for comparisons.` : ''}</small>\n        <textarea data-xml-compare-field="textB" ${targetPreview.large ? 'readonly aria-label="Target XML preview; full XML loaded"' : ''} spellcheck="false" placeholder="…or paste target XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(targetPreview.text)}</textarea>
-      </div>
-    </div>
-    <div class="wb3d-toolbar" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-top: 15px;">
-      <label>Short/consume tol mm <input type="number" data-xml-compare-config="shortElementToleranceMm" value="${state.config?.shortElementToleranceMm ?? 6}" step="1" style="width: 60px; background: #07101f; color: #fff; border: 1px solid #334155; padding: 4px; border-radius: 4px;"></label>
-      <label>Length tol mm <input type="number" data-xml-compare-config="lengthToleranceMm" value="${state.config?.lengthToleranceMm ?? 6}" step="1" style="width: 60px; background: #07101f; color: #fff; border: 1px solid #334155; padding: 4px; border-radius: 4px;"></label>
-      <label>Min score <input type="number" data-xml-compare-config="minCandidateScore" value="${state.config?.minCandidateScore ?? 40}" step="1" style="width: 60px; background: #07101f; color: #fff; border: 1px solid #334155; padding: 4px; border-radius: 4px;"></label>
-      <label>Ambiguity gap <input type="number" data-xml-compare-config="ambiguityGap" value="${state.config?.ambiguityGap ?? 8}" step="1" style="width: 60px; background: #07101f; color: #fff; border: 1px solid #334155; padding: 4px; border-radius: 4px;"></label>
-      <label class="wb3d-check" style="display: flex; align-items: center; gap: 4px; cursor: pointer;"><input type="checkbox" data-xml-compare-config="canonicalNormalization" ${(state.config?.canonicalNormalization ?? true) ? 'checked' : ''}> canonical normalization (raw when off)</label>
-      <button type="button" class="wb3d-btn" data-xml-compare-action="compare-iso-note-mapping" title="Compare PS NO with NODE_NAME within the same pipeline, no anchors needed">Compare PS Mapping ↔ ISO Notes</button>
-      <button class="wb3d-btn wb3d-btn-primary" data-xml-compare-action="compare" style="margin-left: auto; padding: 6px 16px; font-weight: 600; background: #3b82f6; border: 0; color: white; border-radius: 4px; cursor: pointer;">Run Compare</button>
-    </div>
-    <div class="xml-compare-toolbar" style="margin-top: 15px; border-top: 1px solid #26354a; padding-top: 15px; display: flex; flex-wrap: wrap; gap: 8px;">
-      <button type="button" data-xml-compare-action="open-sideload-a">Sideload Source A</button>
-      <button type="button" data-xml-compare-action="open-sideload-b">Sideload Target B</button>
-      <button type="button" data-xml-compare-action="open-enrichment">Enrichment Config</button>
-      ${renderLinewiseWorkflowToolbarButtonHtml()}
-      ${renderUniversalXmlCategorizerButtonHtml()}
-      <button type="button" data-xml-compare-action="download-input-readiness-json">Download Input Readiness JSON</button>
-      <button type="button" data-xml-compare-action="download-readiness-gate-json">Download Readiness Gate JSON</button>
-      <button type="button" data-xml-compare-action="export-filtered-csv" ${state.report ? '' : 'disabled'}>Export CSV</button>
-    </div>
-  </section>`;
+function isoInputRolesActive(state = {}) {
+  const source = String(state.textA || ''), target = String(state.textB || '');
+  return isIsoNoteEngineeringInput(source, target) ||
+    /<IsoNoteXml\b/i.test(source) || /<IsoNoteXml\b/i.test(target);
 }
-
+function inputPairNotice(state = {}) {
+  const source = String(state.textA || ''), target = String(state.textB || '');
+  if (!source.trim() || !target.trim() || source !== target) return '';
+  const combined = isIsoNoteEngineeringInput(source, target);
+  return '<div class="xmlc-import-pair-notice" role="status" data-xml-compare-input-pair-notice>' +
+    (combined
+      ? '<b>Same combined ISO XML in both slots.</b> The XML contains separate S1 and S2 partitions. Source A is used for PS Mapping and Target B for ISO Notes. Exact identity connections are review-only; this is not a revision-to-revision comparison.'
+      : '<b>Source and Target have identical content.</b> For a two-file comparison, load a different Target B. No difference can be inferred between identical XML inputs.') +
+    '</div>';
+}
+function renderXmlInputCard(state, side = 'a', isoMode = false) {
+  const sourceSide = side !== 'b', file = sourceSide ? state.fileA : state.fileB;
+  const xml = String(sourceSide ? state.textA || '' : state.textB || '');
+  const preview = xmlInputPreview(xml), loaded = Boolean(xml.trim()), name = String(file?.name || '');
+  const label = sourceSide ? 'Source A' : 'Target B';
+  const role = isoMode
+    ? (sourceSide ? 'PS Mapping · S1' : 'ISO Notes · S2')
+    : (sourceSide ? 'Source input / property donor' : 'Target input / receiver');
+  const detected = loaded ? detectXmlCompareProfile({ name, text: xml }).type : 'not detected';
+  const field = sourceSide ? 'textA' : 'textB';
+  const sideLabel = sourceSide ? 'Source' : 'Target';
+  return '<article class="xmlc-import-card" data-xml-compare-import-side="' + side + '">' +
+    '<header class="xmlc-import-card-header"><div><b>' + label +
+    '</b><span>' + role + '</span></div><strong class="xmlc-import-readiness">' +
+    (loaded ? 'XML loaded' : 'No XML loaded') + '</strong></header>' +
+    '<div class="xmlc-import-actions"><label class="xmlc-import-upload">Choose ' + sideLabel +
+    ' XML<input type="file" data-xml-compare-load="' + side +
+    '" aria-label="Choose ' + sideLabel + ' XML file" accept=".xml,.XML,.json,.JSON"></label>' +
+    '<button type="button" data-xml-compare-action="clear-input-' + side +
+    '"' + (loaded ? '' : ' disabled') + '>Clear ' + sideLabel + '</button></div>' +
+    '<div class="xmlc-import-file-meta"><b>' + esc(name || (loaded ? 'Pasted XML text' : 'Choose a file or paste XML below')) +
+    '</b><small>' + (loaded ? esc(bytes(file?.size || xml.length)) + ' · ' +
+    esc(xml.length.toLocaleString()) + ' characters · ' + esc(detected) :
+    'Empty · ready to import') + '</small></div>' +
+    '<details class="xmlc-import-preview"><summary>' + (loaded ? 'Inspect XML / edit small input' : 'Paste XML text instead') +
+    '</summary>' + (preview.large ? '<small role="status">Full XML retained (' +
+    esc(preview.chars.toLocaleString()) +
+    ' characters). Showing first 2,048 characters read-only.</small>' : '') +
+    '<textarea data-xml-compare-field="' + field +
+    '"' + (preview.large ? ' readonly aria-label="' + sideLabel + ' XML preview; full XML loaded"' : '') +
+    ' spellcheck="false" placeholder="Paste ' + sideLabel +
+    ' XML here">' + esc(preview.text) + '</textarea></details></article>';
+}
+function importSection(state) {
+  const isoMode = isoInputRolesActive(state);
+  return '<section class="wb3d-card xmlc-import-workflow" data-xml-compare-import-workflow>' +
+    '<div class="xmlc-import-intro"><div><h3>1. Load your XML inputs</h3>' +
+    '<p>' + (isoMode
+      ? 'ISO workflow: S1 PS Mapping → S2 ISO Notes. Each slot has its own file and status.'
+      : 'Compare two XML inputs. Source A and Target B are independent; each can be replaced or cleared.') +
+    '</p></div><small>Load → Match → Review</small></div>' +
+    '<div class="wb3d-import-grid xmlc-import-grid">' +
+    renderXmlInputCard(state, 'a', isoMode) +
+    renderXmlInputCard(state, 'b', isoMode) + '</div>' +
+    inputPairNotice(state) +
+    '<div class="xmlc-import-next"><div><strong>2. Find connections</strong>' +
+    '<small>ISO audit uses exact normalized pipeline + full support ID; topology comparison is separate.</small></div>' +
+    '<button type="button" class="wb3d-btn wb3d-btn-primary" data-xml-compare-action="compare-iso-note-mapping" title="Read-only PS Mapping to ISO Notes engineering audit">Compare PS Mapping ↔ ISO Notes</button>' +
+    '<button type="button" class="wb3d-btn" data-xml-compare-action="compare">Run XML topology check</button></div>' +
+    '<details class="xmlc-import-advanced"><summary>Advanced comparison settings</summary>' +
+    '<div class="wb3d-toolbar xmlc-import-settings">' +
+    '<label>Short/consume tol mm <input type="number" data-xml-compare-config="shortElementToleranceMm" value="' +
+    esc(state.config?.shortElementToleranceMm ?? 6) + '" step="1"></label>' +
+    '<label>Length tol mm <input type="number" data-xml-compare-config="lengthToleranceMm" value="' +
+    esc(state.config?.lengthToleranceMm ?? 6) + '" step="1"></label>' +
+    '<label>Min score <input type="number" data-xml-compare-config="minCandidateScore" value="' +
+    esc(state.config?.minCandidateScore ?? 40) + '" step="1"></label>' +
+    '<label>Ambiguity gap <input type="number" data-xml-compare-config="ambiguityGap" value="' +
+    esc(state.config?.ambiguityGap ?? 8) + '" step="1"></label>' +
+    '<label class="wb3d-check"><input type="checkbox" data-xml-compare-config="canonicalNormalization" ' +
+    ((state.config?.canonicalNormalization ?? true) ? 'checked' : '') +
+    '> canonical normalization (raw when off)</label></div></details>' +
+    '<div class="xml-compare-toolbar xmlc-import-tools">' +
+    '<b>Import & tools</b>' +
+    renderLinewiseWorkflowToolbarButtonHtml() +
+    renderUniversalXmlCategorizerButtonHtml() +
+    '<details><summary>Other utilities and exports</summary><div class="xmlc-import-tools-more">' +
+    '<button type="button" data-xml-compare-action="open-sideload-a">Sideload Source A</button>' +
+    '<button type="button" data-xml-compare-action="open-sideload-b">Sideload Target B</button>' +
+    '<button type="button" data-xml-compare-action="open-enrichment">Enrichment Config</button>' +
+    '<button type="button" data-xml-compare-action="download-input-readiness-json">Download Input Readiness JSON</button>' +
+    '<button type="button" data-xml-compare-action="download-readiness-gate-json">Download Readiness Gate JSON</button>' +
+    '<button type="button" data-xml-compare-action="export-filtered-csv" ' +
+    (state.report ? '' : 'disabled') + '>Export CSV</button></div></details></div></section>';
+}
 function dashboardSection(state) {
   if (!state.report) return '<section class="wb3d-card" style="margin-bottom: 20px;"><h3>Variance dashboard</h3><p class="wb3d-muted" style="color: #64748b; font-size: 11px;">Run a compare to populate the dashboard.</p></section>';
   const s = state.report.topologyIssues.summary;
@@ -112,5 +148,5 @@ function dashboardSection(state) {
 }
 
 function toolbar(state) { return importSection(state); }
-export function renderXmlCompareTabView({ state, workspace, issues }) { return `<div class="xml-compare-tab"><header class="xml-compare-header"><h2>Source-target XML comparison workspace</h2><p>Load XML or enriched staged JSON, inspect source and target records, approve connector links explicitly, then validate approved matches.</p></header>${importSection(state)}<div class="xml-compare-status ${esc(state.status.kind)}">${esc(state.status.message)}</div>${renderXmlCompareLoadDiagnosticsPanelHtml(state.loadDiagnostics)}${renderIsoNoteMappingCompareHtml(state.isoNoteComparison, state.isoNoteLinkedCount)}${renderIsoAuditConnectorEvidence(state.isoNoteComparison, state.isoNoteAuditLinks)}${renderXmlCompareWorkspaceShellHtml(workspace)}<main class="xml-compare-layout">${dashboardSection(state)}${topologyPanel(issues, state)}<section class="xml-compare-panel"><div class="xml-compare-panel-title">Details</div>${issueDetails(state.report, state)}</section></main>${renderXmlCompareSideloadPopupHtml(state.sideload)}${renderXmlCompareEnrichmentConfigPopupHtml(state.enrichmentConfig, { workspace, state })}${renderLinewiseWorkflowPopupHtml({ ...state.linewiseWorkflow, producerAdoption: state.linewiseProducerAdoption })}</div>`; }
-export const _test = Object.freeze({ clean, number, loadedFileCard, issueRow, filters, summary, issueDetails, topologyPanel, importSection, dashboardSection, toolbar, xmlInputPreview, renderIsoAuditConnectorEvidence });
+export function renderXmlCompareTabView({ state, workspace, issues }) { return `<div class="xml-compare-tab"><header class="xml-compare-header"><h2>Source-target XML comparison workspace</h2><p>Load XML or enriched staged JSON, inspect source and target records, approve connector links explicitly, then validate approved matches.</p></header>${importSection(state)}<div class="xml-compare-status ${esc(state.status.kind)}">${esc(state.status.message)}</div>${renderXmlCompareLoadDiagnosticsPanelHtml(state.loadDiagnostics)}${renderIsoNoteMappingCompareHtml(state.isoNoteComparison, state.isoNoteLinkedCount)}${renderIsoAuditConnectorEvidence(state.isoNoteComparison, state.isoNoteAuditLinks)}${renderXmlCompareWorkspaceShellHtml({ ...workspace, isoNoteAuditLinks: state.isoNoteAuditLinks })}<main class="xml-compare-layout">${dashboardSection(state)}${topologyPanel(issues, state)}<section class="xml-compare-panel"><div class="xml-compare-panel-title">Details</div>${issueDetails(state.report, state)}</section></main>${renderXmlCompareSideloadPopupHtml(state.sideload)}${renderXmlCompareEnrichmentConfigPopupHtml(state.enrichmentConfig, { workspace, state })}${renderLinewiseWorkflowPopupHtml({ ...state.linewiseWorkflow, producerAdoption: state.linewiseProducerAdoption })}</div>`; }
+export const _test = Object.freeze({ clean, number, loadedFileCard, issueRow, filters, summary, issueDetails, topologyPanel, importSection, dashboardSection, toolbar, xmlInputPreview, renderIsoAuditConnectorEvidence, isoInputRolesActive, inputPairNotice, renderXmlInputCard });
