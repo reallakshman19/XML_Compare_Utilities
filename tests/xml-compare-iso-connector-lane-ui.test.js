@@ -106,7 +106,7 @@ const auditLinks = Object.freeze({ readOnly: true, linkedCount: 7, links });
 {
   const tab = fs.readFileSync(new URL('../xml-compare/XmlCompareTabView.js', import.meta.url), 'utf8');
   const shell = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
-  assert.match(tab, /renderXmlCompareWorkspaceShellHtml\\(\\{ \\.\\.\\.workspace, isoNoteAuditLinks: state\\.isoNoteAuditLinks, isoViewMode:/);
+  assert.ok(tab.includes('renderXmlCompareWorkspaceShellHtml({ ...workspace, isoNoteAuditLinks: state.isoNoteAuditLinks, isoViewMode:'), 'ISO view routing must pass both audit evidence and role-aware mode to shell');
   assert.match(shell, /auditLinks: input\.isoNoteAuditLinks/);
   const runtime = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
   assert.match(runtime, /invalidateInputComparison\(state\)/);
