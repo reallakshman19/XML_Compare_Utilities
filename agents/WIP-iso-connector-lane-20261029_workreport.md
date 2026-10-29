@@ -18,3 +18,9 @@
 **Backup/ledger blocker:** only GitHub app access; local backup command and .agent-worklogs patches cannot run against repository checkout. Do not mark them complete. Exact SHA preimages and reviewed PR diff exist, but do not replace local rule.
 
 **Exact next action:** implement UI wiring and tests, run GitHub CI, leave PR unmerged for owner.
+
+**Owner amendment (2026-10-29T10:50Z):** Revamp confusing XML Compare UI; user reports identical file appearance in Source and Target. Scope expanded **before product file edits**: clarify dual-slot role, large XML preview, combined ISO source/target same-content notice, and read-only exact link lane visualization. Include per-side clear actions and advanced controls disclosure; preserve file-handoff data contracts. Updated plan remains a single coherent import-and-connector usability assignment; no change to matching or authorization. No unverified claim that distinct file byte matching is wrong: combined partitioned ISO XML is allowed by existing comparator.
+
+**A1 addendum:** Import `XmlCompareTabView.importSection` currently renders both XMLs as always-visible textarea and topology settings, which obscures file identity. `IsoNoteDualSourceProfile` generates one combined `IsoNoteXml` with `PS_MAPPING_S1` and `ISO_NOTES_S2` partitions. Presenting this same artifact on both sides can be intentional, but the UI lacks explanation. Root solution is clear role/status and read-only lane connections; do not force arbitrary deduplication.
+
+**A2 addendum falsifiers:** The import panel must report same-file combined ISO honestly, generic identical content as a warning, preserve two independent file inputs, preserve actual text fields, and allow independent clearing that resets stale audit links. The central lane must show exactly 7 links if valid read-only evidence and zero transfer approvals.
