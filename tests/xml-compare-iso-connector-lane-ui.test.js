@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { createXmlCompareCanvasState } from '../xml-compare/XmlCompareCanvasStateController.js';
 import { renderIsoAuditConnectorLane, renderXmlCompareGraphConnectorLaneHtml } from '../xml-compare/XmlCompareGraphConnectorLane.js';
 import { _test as view } from '../xml-compare/XmlCompareTabView.js';
+import { scopeIsoDisplaySide } from '../xml-compare/XmlCompareWorkspaceShell.js';
 import { clearXmlCompareInputSide } from '../tabs/xml-compare-tab.js';
 
 const isoRoot = '<IsoNoteXml profileId="iso-note-ps-mapping-s1-iso-notes-s2/v1"><IsoPartition key="PS_MAPPING_S1"/><IsoPartition key="ISO_NOTES_S2"/></IsoNoteXml>';
@@ -55,6 +56,26 @@ const auditLinks = Object.freeze({ readOnly: true, linkedCount: 7, links });
   const duplicateGeneric = view.inputPairNotice({ textA: '<A/>', textB: '<A/>' });
   assert.match(duplicateGeneric, /identical content/);
   assert.equal(view.inputPairNotice({ textA: '<A/>', textB: '<B/>' }), '');
+}
+{
+  const records = [
+    { uid: 'S1:one', lineKey: 'PS_MAPPING_S1', displayName: 'S1 Mapping' },
+    { uid: 'S2:one', lineKey: 'ISO_NOTES_S2', displayName: 'S2 Note' },
+  ];
+  const level = { levelId: 'element', records, recordCount: 2 };
+  const data = {
+    records,
+    levelProfile: { levels: [level] },
+    levelView: { levelId: 'element', records, hierarchyProfile: { levels: [level] } },
+  };
+  const source = scopeIsoDisplaySide(data, 'PS_MAPPING_S1');
+  const target = scopeIsoDisplaySide(data, 'ISO_NOTES_S2');
+  assert.deepEqual(source.records.map(r => r.uid), ['S1:one']);
+  assert.deepEqual(target.records.map(r => r.uid), ['S2:one']);
+  assert.equal(source.levelView.hierarchyProfile.levels[0].recordCount, 1);
+  assert.equal(target.levelProfile.levels[0].recordCount, 1);
+  assert.equal(data.records.length, 2, 'source model and transfer data are untouched');
+  assert.equal(scopeIsoDisplaySide(data, 'generic'), data);
 }
 {
   const state = {
