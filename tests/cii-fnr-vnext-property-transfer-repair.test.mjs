@@ -103,6 +103,40 @@ test('F1 Property roundtrip cancels pending Normal validation without deleting a
   assert.equal(dom.btnValidate.disabled,false);assert.equal(dom.btnApply.disabled,true);
   await dom.btnValidate.click();assert.equal(dom.btnApply.disabled,false);
 });
+test('F1 pending owning CSV selection immediately revokes old output and accepts fresh rules after loading',async()=>{
+  const dom=await approvedNormal();await dom.btnValidate.click();await dom.btnApply.click();
+  assert.equal(dom.btnExport.disabled,false);
+  let release,downloads=0;
+  dom.csvFile.files=[{name:'changed.csv',text:()=>new Promise(resolve=>{release=resolve;})}];
+  const pending=dom.csvFile.dispatchEvent({type:'change'});
+  const create=URL.createObjectURL;
+  URL.createObjectURL=()=>{downloads++;return 'blob:pending-csv-test';};
+  try {
+    assert.equal(dom.btnValidate.disabled,true);
+    assert.equal(dom.btnApply.disabled,true);assert.equal(dom.btnExport.disabled,true);
+    await dom.btnExport.click();assert.equal(downloads,0);
+    await dom.tabProperty.click();await dom.tabNormal.click();
+    assert.equal(dom.tbodyProposals.children.length,0);assert.equal(dom.btnExport.disabled,true);
+  } finally {
+    URL.createObjectURL=create;
+    release('Find,Replace\nOLD-A,NEW-C\n');await pending;
+  }
+  assert.equal(dom.root.querySelector('[data-field="replace"]').value,'NEW-C');
+  assert.equal(dom.btnExport.disabled,true);
+  await dom.btnRun.click();await dom.btnApproveAll.click();await dom.btnValidate.click();await dom.btnApply.click();
+  assert.equal(dom.btnExport.disabled,false);
+});
+test('F1 clearing owning CSV cancels an older pending read and leaves output revoked',async()=>{
+  const dom=await approvedNormal();await dom.btnValidate.click();await dom.btnApply.click();
+  let release;
+  dom.csvFile.files=[{name:'slow.csv',text:()=>new Promise(resolve=>{release=resolve;})}];
+  const pending=dom.csvFile.dispatchEvent({type:'change'});
+  dom.csvFile.files=[];await dom.csvFile.dispatchEvent({type:'change'});
+  release('Find,Replace\nOLD-A,STALE-CSV\n');await pending;
+  assert.equal(dom.root.querySelector('[data-field="replace"]').value,'NEW-A');
+  assert.equal(dom.tbodyProposals.children.length,0);assert.equal(dom.btnValidate.disabled,true);
+  assert.equal(dom.btnApply.disabled,true);assert.equal(dom.btnExport.disabled,true);
+});
 test('F1 the pre-existing Normal to Config navigation policy still revokes authority',async()=>{
   const dom=await approvedNormal();await dom.tabConfig.click();await dom.tabNormal.click();
   assert.equal(dom.tbodyProposals.children.length,0);
