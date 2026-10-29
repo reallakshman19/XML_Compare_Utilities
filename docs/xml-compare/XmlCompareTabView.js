@@ -18,6 +18,23 @@ function filters(state) { return `<div class="xml-compare-topology-filters"><sel
 function summary(report) { if (!report) return '<div class="xml-compare-empty">Load XML files to build a comparison report.</div>'; const s = report.topologyIssues.summary; return `<div class="xml-compare-summary-grid"><div><b>Dataset A</b><span>${esc(report.datasets.A.fileName || 'XML A')}</span></div><div><b>Dataset B</b><span>${esc(report.datasets.B.fileName || 'XML B')}</span></div><div><b>Issues</b><span>${s.issueCount}</span></div><div><b>Errors</b><span>${s.severityCounts.ERROR || 0}</span></div><div><b>Warnings</b><span>${s.severityCounts.WARNING || 0}</span></div></div>`; }
 function issueDetails(report, state) { const issue = (report?.topologyIssues?.issues || []).find((item) => item.componentId === state.selectedIssueId); if (!issue) return '<div class="xml-compare-empty">Select an issue to inspect it here.</div>'; return `<div class="xml-compare-detail-card"><div><b>Code</b><span>${esc(issue.code)}</span></div><div><b>Severity</b><span>${esc(issue.severity)}</span></div><div><b>Dataset</b><span>${esc(issue.datasetId)}</span></div><div><b>Component</b><span>${esc(issue.component?.label || issue.componentId)}</span></div><div><b>Message</b><span>${esc(issue.message || '')}</span></div></div>`; }
 function topologyPanel(issues, state) { const rows = issues.map((issue) => issueRow(issue, state)).join('') || '<tr><td colspan="5">No topology issues.</td></tr>'; return `<section class="xml-compare-panel"><div class="xml-compare-panel-title">Topology check</div>${filters(state)}<div class="xml-compare-topology-actions"><button type="button" data-xml-compare-topology-action="show-all">Show all</button><button type="button" data-xml-compare-topology-action="hide-filtered">Hide filtered</button><button type="button" data-xml-compare-action="export-filtered-csv" ${state.report ? '' : 'disabled'}>Export filtered CSV</button></div><div class="xml-compare-table-scroll"><table class="xml-compare-topology-table"><thead><tr><th>Severity</th><th>Code</th><th>Dataset</th><th>Component</th><th>Delta mm</th></tr></thead><tbody>${rows}</tbody></table></div></section>`; }
+function xmlInputPreview(value = '') {
+  const xml = String(value || '');
+  return { large: xml.length > 400000, text: xml.length > 400000 ? xml.slice(0, 2048) : xml, chars: xml.length };
+}
+function renderIsoAuditConnectorEvidence(report, auditLinks) {
+  if (!report?.ok || !auditLinks?.readOnly || !Array.isArray(auditLinks.links)) return '';
+  const rows = auditLinks.links.slice(0, 120).map((link) =>
+    '<tr><td>' + esc(link.pipeline) + '</td><td>' + esc(link.supportId) +
+    '</td><td>' + esc(link.s1Ref) + '</td><td>' + esc(link.s2Ref) +
+    '</td><td>IDENTITY VERIFIED · REVIEW ONLY</td></tr>').join('');
+  return '<section class="xml-compare-panel" data-xml-compare-iso-audit-links>' +
+    '<h3>ISO automatically identified connections · ' + esc(auditLinks.linkedCount) + '</h3>' +
+    '<p>Read-only links from exact normalized pipeline and full support ID; NOT approved transfer connectors. Verify engineering gaps and restraints independently.</p>' +
+    '<div style="max-height:260px;overflow:auto"><table class="xml-compare-topology-table">' +
+    '<thead><tr><th>Pipeline</th><th>Support ID</th><th>S1 source reference</th><th>S2 source reference</th><th>Authority</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div></section>';
+}
 function importSection(state) {
   const schemaBadge = (label, xml, fileName) => {
     if (!xml) return `<span class="wb3d-badge">Detected: none</span>`;
@@ -30,6 +47,8 @@ function importSection(state) {
   };
   const sourceName = state.fileA?.name || '';
   const targetName = state.fileB?.name || '';
+  const sourcePreview = xmlInputPreview(state.textA);
+  const targetPreview = xmlInputPreview(state.textB);
   return `
   <section class="wb3d-card" style="margin-bottom: 20px;">
     <h3>Import <span class="wb3d-muted">source (property donor) and target (receiver)</span></h3>
@@ -39,14 +58,14 @@ function importSection(state) {
           <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Source XML/InputXML <input type="file" data-xml-compare-load="a" accept=".xml,.XML,.json,.JSON"></label>
           ${schemaBadge('Detected', state.textA, sourceName)} ${sourceName ? `<span class="wb3d-muted">${esc(sourceName)}</span>` : ''}
         </div>
-        <textarea data-xml-compare-field="textA" spellcheck="false" placeholder="…or paste source XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(state.textA.length > 400000 ? '' : state.textA)}</textarea>
+        <small role="status">${sourcePreview.large ? `Full XML loaded (${sourcePreview.chars.toLocaleString()} characters); showing first 2,048 as read-only preview. Full text retained for comparisons.` : ''}</small>\n        <textarea data-xml-compare-field="textA" ${sourcePreview.large ? 'readonly aria-label="Source XML preview; full XML loaded"' : ''} spellcheck="false" placeholder="…or paste source XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(sourcePreview.text)}</textarea>
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div>
           <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Target XML/InputXML <input type="file" data-xml-compare-load="b" accept=".xml,.XML,.json,.JSON"></label>
           ${schemaBadge('Detected', state.textB, targetName)} ${targetName ? `<span class="wb3d-muted">${esc(targetName)}</span>` : ''}
         </div>
-        <textarea data-xml-compare-field="textB" spellcheck="false" placeholder="…or paste target XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(state.textB.length > 400000 ? '' : state.textB)}</textarea>
+        <small role="status">${targetPreview.large ? `Full XML loaded (${targetPreview.chars.toLocaleString()} characters); showing first 2,048 as read-only preview. Full text retained for comparisons.` : ''}</small>\n        <textarea data-xml-compare-field="textB" ${targetPreview.large ? 'readonly aria-label="Target XML preview; full XML loaded"' : ''} spellcheck="false" placeholder="…or paste target XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(targetPreview.text)}</textarea>
       </div>
     </div>
     <div class="wb3d-toolbar" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-top: 15px;">
@@ -93,5 +112,5 @@ function dashboardSection(state) {
 }
 
 function toolbar(state) { return importSection(state); }
-export function renderXmlCompareTabView({ state, workspace, issues }) { return `<div class="xml-compare-tab"><header class="xml-compare-header"><h2>Source-target XML comparison workspace</h2><p>Load XML or enriched staged JSON, inspect source and target records, approve connector links explicitly, then validate approved matches.</p></header>${importSection(state)}<div class="xml-compare-status ${esc(state.status.kind)}">${esc(state.status.message)}</div>${renderXmlCompareLoadDiagnosticsPanelHtml(state.loadDiagnostics)}${renderIsoNoteMappingCompareHtml(state.isoNoteComparison, state.isoNoteLinkedCount)}${renderXmlCompareWorkspaceShellHtml(workspace)}<main class="xml-compare-layout">${dashboardSection(state)}${topologyPanel(issues, state)}<section class="xml-compare-panel"><div class="xml-compare-panel-title">Details</div>${issueDetails(state.report, state)}</section></main>${renderXmlCompareSideloadPopupHtml(state.sideload)}${renderXmlCompareEnrichmentConfigPopupHtml(state.enrichmentConfig, { workspace, state })}${renderLinewiseWorkflowPopupHtml({ ...state.linewiseWorkflow, producerAdoption: state.linewiseProducerAdoption })}</div>`; }
-export const _test = Object.freeze({ clean, number, loadedFileCard, issueRow, filters, summary, issueDetails, topologyPanel, importSection, dashboardSection, toolbar });
+export function renderXmlCompareTabView({ state, workspace, issues }) { return `<div class="xml-compare-tab"><header class="xml-compare-header"><h2>Source-target XML comparison workspace</h2><p>Load XML or enriched staged JSON, inspect source and target records, approve connector links explicitly, then validate approved matches.</p></header>${importSection(state)}<div class="xml-compare-status ${esc(state.status.kind)}">${esc(state.status.message)}</div>${renderXmlCompareLoadDiagnosticsPanelHtml(state.loadDiagnostics)}${renderIsoNoteMappingCompareHtml(state.isoNoteComparison, state.isoNoteLinkedCount)}${renderIsoAuditConnectorEvidence(state.isoNoteComparison, state.isoNoteAuditLinks)}${renderXmlCompareWorkspaceShellHtml(workspace)}<main class="xml-compare-layout">${dashboardSection(state)}${topologyPanel(issues, state)}<section class="xml-compare-panel"><div class="xml-compare-panel-title">Details</div>${issueDetails(state.report, state)}</section></main>${renderXmlCompareSideloadPopupHtml(state.sideload)}${renderXmlCompareEnrichmentConfigPopupHtml(state.enrichmentConfig, { workspace, state })}${renderLinewiseWorkflowPopupHtml({ ...state.linewiseWorkflow, producerAdoption: state.linewiseProducerAdoption })}</div>`; }
+export const _test = Object.freeze({ clean, number, loadedFileCard, issueRow, filters, summary, issueDetails, topologyPanel, importSection, dashboardSection, toolbar, xmlInputPreview, renderIsoAuditConnectorEvidence });
