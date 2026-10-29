@@ -21,7 +21,7 @@ const auditLinks = Object.freeze({ readOnly: true, linkedCount: 7, links });
 {
   const html = renderIsoAuditConnectorLane(auditLinks);
   assert.match(html, /7 verified identity connections/);
-  assert.match(html, /read-only identity connections/i);
+  assert.match(html, /read-only ISO identity connections/i);
   assert.equal((html.match(/data-xml-compare-iso-connector(?= )/g) || []).length, 7);
   assert.match(html, /PS-123\.1/);
   assert.match(html, /S1:1/);
