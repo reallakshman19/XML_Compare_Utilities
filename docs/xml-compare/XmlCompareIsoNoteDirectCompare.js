@@ -55,7 +55,11 @@ function reportRow(left, right, status, reason) {
   const dtxr = a?.dtxr || '', supportGap = a?.supportGap || '', isoNote = b?.isoNote || '';
   const gap = compareSupportGapWithIsoNote(supportGap, isoNote, status);
   const coverage = compareRestraintCoverage(dtxr, isoNote, status);
-  const action = engineeringReviewAction(status, gap, coverage);
+  const action = engineeringReviewAction(status, gap, coverage, {
+    pipeline: first?.normalizedPipe, supportId: a?.id || b?.id,
+    s1Ref: a?.sourceRef, s2Ref: b?.sourceRef,
+    dtxr, supportGap, isoNote,
+  });
   return Object.freeze({
     pipe: first?.normalizedPipe || '', psNo: a?.id || '', nodeName: b?.id || '',
     status, reason, identityFailureCode: status === 'REVIEW' ?
