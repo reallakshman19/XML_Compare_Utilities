@@ -402,3 +402,13 @@
   .xmlc-import-next { align-items:stretch; }
   .xmlc-import-next button { width:100%; }
 }
+
+/* Combined ISO XML: surface partition record readiness, not just file presence. */
+.xmlc-iso-partition-status { margin: 10px; padding: 10px 12px; border: 1px solid rgba(56,189,248,.35); border-radius: 9px; background: rgba(8,47,73,.25); display: grid; gap: 6px; }
+.xmlc-iso-partition-status > b { color: #dbeafe; font-size: 13px; }
+.xmlc-iso-partition-status > small { color: #cbd5e1; font-size: 11px; line-height: 1.5; }
+.xmlc-iso-partition-status summary { cursor: pointer; color: #7dd3fc; font-size: 11px; font-weight: 700; }
+.xmlc-iso-partition-status ol { margin: 8px 0 0; padding-left: 18px; max-height: 190px; overflow-y: auto; }
+.xmlc-iso-partition-status li { padding: 4px 0; font-size: 11px; color: #e2e8f0; }
+.xmlc-iso-partition-status li strong { overflow-wrap: anywhere; }
+.xmlc-iso-partition-status li small { display: block; color: #94a3b8; overflow-wrap: anywhere; }
