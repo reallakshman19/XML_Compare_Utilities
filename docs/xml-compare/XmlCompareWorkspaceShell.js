@@ -120,6 +120,27 @@ function validationLayerOptions(selected = 'current') { return [['current', 'Cur
 function validationControls(matchMap = null) { const settings = validationFromRequest(matchMap), downloads = matchMap?.request ? '<button type="button" data-xml-compare-action="download-validation-json">Download validation JSON</button><button type="button" data-xml-compare-action="download-validation-csv">Download validation CSV</button>' : '', presets = '<button type="button" data-xml-compare-compare-field-preset="coordinates">Coordinates preset</button><button type="button" data-xml-compare-compare-field-preset="element-endpoints">Element endpoints preset</button><button type="button" data-xml-compare-compare-field-preset="line-identity">Line identity preset</button><button type="button" data-xml-compare-compare-field-preset="support">Support preset</button>'; return `<div class="xml-compare-validation-controls" data-xml-compare-validation-controls><label>Applicable Hierarchy Layer<select data-xml-compare-validation-layer>${validationLayerOptions(settings.layer)}</select></label><label>Coordinate tolerance <input type="number" min="0" step="0.1" value="${esc(settings.toleranceMm)}" data-xml-compare-validation-tolerance-mm> mm</label>${presets}${downloads}</div>`; }
 function compareFieldControls(source = null, target = null, compareFields = [], matchMap = null, validationBuilder = null, selectedRecords = {}, validation = {}) { const selected = normalizeCompareFields(compareFields); return `<div class="xml-compare-compare-field-controls" data-xml-compare-compare-fields><label>Compare fields<select data-xml-compare-compare-field-picker>${compareFieldOptions(source, target, selected)}</select></label><button type="button" data-xml-compare-add-compare-field>Add Field</button><div class="xml-compare-compare-field-list">${selected.map((field) => `<span class="xml-compare-compare-field-pill" data-xml-compare-compare-field="${esc(field)}">${esc(field)} <button type="button" data-xml-compare-remove-compare-field="${esc(field)}" aria-label="Remove ${esc(field)}">x</button></span>`).join('') || '<small>No compare fields selected.</small>'}</div>${renderXmlCompareManualValidationBuilderHtml({ builder: validationBuilder, compareFields: selected, selectedRecords, validation })}${validationControls(matchMap)}</div>`; }
 function patchConnectorLaneActions(html = '', source = null, target = null, compareFields = [], matchMap = null, validationBuilder = null, selectedRecords = {}, validation = {}) { return String(html).replace(/<div class="xml-compare-auto-map-actions">([\s\S]*?)<\/div>/, (panel, body) => `<div class="xml-compare-auto-map-actions">${body}${compareFieldControls(source, target, compareFields, matchMap, validationBuilder, selectedRecords, validation)}</div>`); }
+// ISO audit source and target can hold the same combined XML. Project only the
+// relevant source-scoped partition into each side picker; do not alter the
+// underlying records used for exact comparison, validation or transfer gating.
+export function scopeIsoDisplaySide(data = {}, partition = '') {
+  if (!['PS_MAPPING_S1', 'ISO_NOTES_S2'].includes(partition)) return data;
+  const keep = (record) => String(record?.lineKey || '') === partition;
+  const filterLevels = (levels = []) => levels.map((level) => {
+    const records = (level.records || []).filter(keep);
+    return { ...level, records, recordCount: records.length };
+  }).filter((level) => level.recordCount > 0);
+  const levelProfile = data.levelProfile
+    ? { ...data.levelProfile, levels: filterLevels(data.levelProfile.levels || []) }
+    : data.levelProfile;
+  const levelView = data.levelView
+    ? { ...data.levelView, records: (data.levelView.records || []).filter(keep),
+        hierarchyProfile: { ...(data.levelView.hierarchyProfile || {}),
+          levels: filterLevels(data.levelView.hierarchyProfile?.levels || []) } }
+    : data.levelView;
+  const records = (data.records || []).filter(keep);
+  return { ...data, records, levelProfile, levelView };
+}
 function connectorLane(input = {}, manualState = null) {
   const isoEvidence = input.isoNoteAuditLinks?.readOnly && input.isoNoteAuditLinks?.linkedCount > 0;
   const manualControls = mainConnectorControls(input);
@@ -134,6 +155,6 @@ export function renderXmlCompareWorkspaceShellHtml(input = {}) {
   const manualState = createManualState(input), tState = transferState(input), transferPreview = createXmlCompareTransferPreview({ source: input.source, target: input.target, manualConnectors: input.manualConnectors }), stageScope = tState.transferStage?.scope || 'node';
   const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualState?.connectors?.length || 0;
   const reviewButton = `<button type="button" class="xml-compare-review-btn" data-xml-compare-action="open-transfer-modal">Review & Transfer (${approvedCount} approved)</button>`;
-  return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}"><h3 class="xmlc-workspace-heading">3. Review source-to-target connections</h3><div class="xml-compare-workspace-grid is-two-canvas">${sideCard('source', 'Source', input.source || {}, input.navStates?.source, input.compareFields)}<div class="xml-compare-connector-lane-container">${connectorLane(input, manualState)}${reviewButton}</div>${sideCard('target', 'Target', input.target || {}, input.navStates?.target, input.compareFields)}</div>${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview })}</section>`;
+  return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}"><h3 class="xmlc-workspace-heading">3. Review source-to-target connections</h3><div class="xml-compare-workspace-grid is-two-canvas">${sideCard('source', 'Source', input.isoNoteAuditLinks?.readOnly ? scopeIsoDisplaySide(input.source || {}, 'PS_MAPPING_S1') : input.source || {}, input.navStates?.source, input.compareFields)}<div class="xml-compare-connector-lane-container">${connectorLane(input, manualState)}${reviewButton}</div>${sideCard('target', 'Target', input.isoNoteAuditLinks?.readOnly ? scopeIsoDisplaySide(input.target || {}, 'ISO_NOTES_S2') : input.target || {}, input.navStates?.target, input.compareFields)}</div>${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview })}</section>`;
 }
-export const _test = Object.freeze({ esc, createManualState, transferState, compareFieldOptions, compareFieldControls, validationFromRequest, validationLayerOptions, validationControls, patchConnectorLaneActions, loadLazyRuntimes });
+export const _test = Object.freeze({ esc, createManualState, transferState, compareFieldOptions, compareFieldControls, validationFromRequest, validationLayerOptions, validationControls, patchConnectorLaneActions, loadLazyRuntimes, scopeIsoDisplaySide });
