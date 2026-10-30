@@ -80,11 +80,16 @@ test('exact B2 selection does not include identical name in unrelated B1', async
 
 test('branch identifier mismatch gives zero replacements, no prefix matching', async () => {
   const target = syntheticTarget();
-  for (const branch of [B2.slice(0, -1), B2 + '-WRONG', B1]) {
+  for (const branch of [B2.slice(0, -1), B2 + '-WRONG', B1 + '-WRONG']) {
     const { plan } = await planFor(target, [{ ...branchRule(), branch }]);
     assert.equal(plan.claims.length, 0);
     assert(plan.diagnostics.some((d) => d.code === 'ZERO_MATCHES'));
   }
+  // The invented B1 element really does have a NODENAME.FROM alias ALIAS-OLD.
+  // It is not an invalid branch. Preserve the exact-positive contrary case.
+  const { plan: b1 } = await planFor(target, [{ ...branchRule(), branch: B1 }]);
+  assert.equal(b1.claims.length, 1);
+  assert.equal(b1.claims[0].evidence.branch, B1);
 });
 
 test('branch crossing with an unlabeled physical alias is fail-closed', async () => {
