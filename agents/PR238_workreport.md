@@ -1,6 +1,6 @@
-# CIIFR-Node inherited B1 test oracle — work report
+# PR238 — CIIFR-Node inherited B1 test oracle correction
 
-Task: continuation of CIIFR-Node P1 integration / issues231,228,229; parent227. Agent: root, Chat ID UNKNOWN, author-exposed. Date: 2026-10-30 Asia/Dubai. State: test-only draft; review and merge HOLD.
+Task: continuation of CIIFR-Node P1 integration / issues231,228,229; parent227. Draft PR238, branch codex/ciifr-node-b1-oracle-20261030. Agent: root, Chat ID UNKNOWN, author-exposed. Date: 2026-10-30 Asia/Dubai. State: test-only draft; review and merge HOLD.
 
 ## Problem and final change
 The existing synthetic fixture assigns element 9000->9001 to exact branch B1, with pointer3 and ALIAS-OLD in its branch-isolated FROM field. The old mismatched-identifier test incorrectly expected zero claims for B1 together with two nonexistent identifiers. Correct production behavior is one B1 claim. No implementation defect is established.
