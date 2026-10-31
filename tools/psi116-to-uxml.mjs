@@ -12,7 +12,7 @@ function main(args) {
   if (args.length !== 1) throw new Error('Usage: node tools/psi116-to-uxml.mjs <psi116.xml>');
   const bytes = readFileSync(args[0]);
   const fileSha256 = createHash('sha256').update(bytes).digest('hex');
-  const xmlText = new TextDecoder('utf-8', {fatal: true}).decode(bytes);
+  const xmlText = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(bytes);
   const doc = mapPsi116ToUxml(xmlText, {fileSha256});
   if (doc.validation.blockerCodes.length) {
     throw new Error('UXML_VALIDATION_BLOCKED:' + doc.validation.blockerCodes.join(','));
