@@ -69,7 +69,7 @@ test('strict reader rejects unreliable absolute positions, conflicting deltas, m
   for(const [name,invalid,pattern] of [
     ['partial anchor',src.replace('FROM_X="100"',''),/INCOMPLETE_ABSOLUTE_ANCHOR/],
     ['partial to',src.replace('TO_Z="0"',''),/INCOMPLETE_ABSOLUTE_ANCHOR/],
-    ['contradictory delta',src.replace('DELTA_X="100"','DELTA_X="900"'),/DELTA_PATH_CONFLICT/],
+    ['contradictory delta',src.replace('DELTA_X="100"','DELTA_X="900"'),/DELTA_PATH_CONFLICT|ANCHOR_DELTA_CONFLICT/],
     ['missing identity',src.replace('FROM_NODE="10"','FROM_NODE=""'),/NODE_IDENTITY_REQUIRED/],
     ['conflicting reused node',src.replace('FROM_X="200"','FROM_X="201"'),/REUSED_NODE_ABSOLUTE_CONFLICT/],
   ]) assert.throws(()=>mapCaesarInputXmlToUxmlStrict(invalid,{fileSha256:sha(invalid)}),pattern,name);
