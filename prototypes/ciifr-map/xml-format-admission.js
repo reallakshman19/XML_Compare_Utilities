@@ -207,7 +207,7 @@ export async function admitXmlFormat(text, options = {}) {
   checkEpoch(options.epoch ?? 0);
   if (typeof text !== 'string')
     return failed(measuredBase(options.name, options.epoch ?? 0, null, null, null, null), refuse(ADMISSION_STATUS.INVALID, 'XML_TEXT_REQUIRED'));
-  const bom = text.startsWith('﻿');
+  const bom = text.startsWith('\uFEFF');
   const decode = () => ({text: bom ? text.slice(1) : text, bom: bom ? 'PRESENT_IN_TEXT' : 'ABSENT'});
   return admitSource(new TextEncoder().encode(text), 'DECODED_TEXT_REENCODED_UTF8', decode, options);
 }

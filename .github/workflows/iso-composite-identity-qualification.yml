@@ -62,3 +62,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config=playwright.iso-composite-identity.config.mjs
+      - name: Retain public TOPO-B B2 Chromium screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topo-b2-public-f05-unknown-crlf-screenshots
+          path: artifacts/topo-b2/*.png
+          if-no-files-found: warn
+          retention-days: 14

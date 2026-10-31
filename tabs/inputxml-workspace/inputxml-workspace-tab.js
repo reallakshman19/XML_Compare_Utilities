@@ -19,6 +19,7 @@ import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '..
 import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';
 import { appendInputXmlWorkspaceDiagnostics, createInputXmlWorkspaceDiagnostic, createInputXmlWorkspaceDiagnostics } from './inputxml-workspace-diagnostics.js';
 import { renderInputXmlWorkspaceDiagnosticsHtml } from './inputxml-workspace-diagnostics-view.js';
+import { admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, workspacePsi116LegacyGate, workspaceTopologyGate } from './inputxml-workspace-topo-admission.js';
 import {
   cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
   cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
@@ -113,7 +114,10 @@ function collectWithInvalidation(dialog, state) {
     categorizedDirection: state.categorizedDirection,
   };
   collect(dialog, state);
-  if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
+  if (!sameTextareaSource(before.sourceXmlText, state.sourceXmlText)) {
+    invalidateCleanArtifacts(state);
+    revokeTopologyAdmission(state); // A real user text edit revokes the prior file-byte identity.
+  }
   if (before.enrichmentInput !== state.enrichment.inputXmlText) {
     invalidateEnrichmentArtifacts(state);
     state.enrichment.inputXmlSource = 'paste';
@@ -340,6 +344,14 @@ function defaultState() {
     categorizedInputSource: '',
     categorizedOutputText: '',
     categorizedProducerAdoption: createWorkspaceProducerAdoptionState(),
+    topologyAdmissionEpoch: 0,
+    topologyAdmissionPhase: 'idle',
+    topologyAdmission: null,
+    topologyAdmissionError: '',
+    topologyAdmissionSourceText: null,
+    topologyAdmissionSourceKind: null,
+    topologyAdmissionDigest: null,
+    topologyAdmissionSourceEpoch: null,
     workspaceDiagnostics: createInputXmlWorkspaceDiagnostics(),
     status: '',
     error: '',
@@ -639,10 +651,13 @@ function renderMiscConfigSubtab(state) {
   </section>`;
 }
 
-function renderMiscTopoSubtab() {
+function renderMiscTopoSubtab(state) {
   return `<section class="ixw-panel">
+    <div class="ixw-title">Read-only XML topology admission</div>
+    ${renderTopologyAdmission({phase: state.topologyAdmissionPhase, admission: state.topologyAdmission, epoch: state.topologyAdmissionEpoch, error: state.topologyAdmissionError, sourceKind: state.topologyAdmissionSourceKind, sourceDigest: state.topologyAdmissionDigest, sourceEpoch: state.topologyAdmissionSourceEpoch})}
+  </section><section class="ixw-panel">
     <div class="ixw-title">Ported 5B Topology</div>
-    <div data-ixw-5b-host></div>
+    ${renderWorkspace5BMount(state)}
   </section>`;
 }
 
@@ -654,7 +669,7 @@ function renderMiscSupportSubtab() {
 }
 
 function renderMiscTab(state) {
-  const body = state.miscSubtab === 'topo' ? renderMiscTopoSubtab()
+  const body = state.miscSubtab === 'topo' ? renderMiscTopoSubtab(state)
     : state.miscSubtab === 'support' ? renderMiscSupportSubtab()
     : renderMiscConfigSubtab(state);
   return `<div class="ixw-subtabs">${MISC_SUBTABS.map(([id, label]) => `<button type="button" class="ixw-subtab ${state.miscSubtab === id ? 'active' : ''}" data-ixw-misc-subtab="${h(id)}">${h(label)}</button>`).join('')}</div>${body}`;
@@ -929,14 +944,30 @@ async function handleAction(dialog, state, action, source) {
 }
 
 function bindFileInputs(dialog, state) {
+  // The NORMAL CleanXML Source XML uploader is also the only Topo B2 intake.
+  // The same File.arrayBuffer() snapshot is decoded for the existing textarea
+  // and admitted as raw bytes; the legacy 5B parser never receives bypass input.
   dialog.querySelector('[data-ixw-file="sourceXml"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) return; // Picker cancel: neither source bytes nor admission epoch changed.
     invalidateCleanArtifacts(state);
-    state.sourceXmlText = await file.text();
+    state.sourceXmlText = '';
     state.sourceName = file.name;
-    state.status = `Loaded ${file.name}.`;
-    rerender(dialog, state);
+    state.status = `Checking ${file.name} for read-only topology admission.`;
+    await admitWorkspaceSourceUpload({
+      state, file,
+      admitBytes: async (bytes, options) => {
+        const { admitXmlBytes } = await import('../../prototypes/ciifr-map/xml-format-admission.js');
+        return admitXmlBytes(bytes, options);
+      },
+      onSourceText: (sourceText, name) => {
+        state.sourceXmlText = sourceText;
+        state.sourceName = name;
+        state.status = `Loaded ${name}.`;
+      },
+      notify: () => rerender(dialog, state),
+      isCurrent: () => dialog.isConnected,
+    });
   });
   dialog.querySelector('[data-ixw-file="accdbHelper"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
@@ -1017,7 +1048,26 @@ function bindRenderedPanels(dialog, state) {
   const host5d = dialog.querySelector('[data-ixw-5d-host]');
   if (host5d) renderXmlCiiInputXmlCompare5DPanel(host5d, { root: dialog });
   const host5b = dialog.querySelector('[data-ixw-5b-host]');
-  if (host5b) renderXmlCiiTopology5BPanel(host5b, { root: dialog });
+  // The host does not exist on refused/invalid/stale input. Check again at the
+  // use boundary: no scan of other Workspace textareas or localStorage.
+  if (host5b && workspaceTopologyGate(state).allowed) {
+    renderXmlCiiTopology5BPanel(host5b, {readOnlyAdmission: {
+      verdict: state.topologyAdmission,
+      byteSha256: state.topologyAdmissionDigest,
+      epoch: state.topologyAdmissionEpoch,
+    }});
+  } else if (host5b && workspacePsi116LegacyGate(state).allowed) {
+    // Not admission: restore only the legacy Branch/Node/Position 5B view,
+    // bound to the exact normal-upload decoded byte snapshot and generation.
+    // Never pass root/dialog, workflow XML, textarea or localStorage candidates.
+    renderXmlCiiTopology5BPanel(host5b, {psi116Legacy: {
+      xmlText: state.topologyAdmissionSourceText,
+      verdict: state.topologyAdmission,
+      byteSha256: state.topologyAdmissionDigest,
+      epoch: state.topologyAdmissionEpoch,
+      sourceKind: state.topologyAdmissionSourceKind,
+    }});
+  }
   const supportHost = dialog.querySelector('[data-ixw-support-host]');
   if (supportHost) bindXmlCiiSupportMapperPhase(supportHost, {
     config: (() => { try { return JSON.parse(state.supportConfigJson || '{}'); } catch { return {}; } })(),
