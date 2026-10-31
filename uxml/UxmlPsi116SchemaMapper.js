@@ -268,7 +268,7 @@ export function mapPsi116ToUxml(xmlText, {fileSha256} = {}) {
         type: componentType,
         // A Node row is NOT necessarily a whole pipe/component. This
         // explicit record type avoids invented EP1/EP2/bore/span geometry.
-        normalizedType: 'PSI116_NODE_RECORD',
+        normalizedType: 'UNKNOWN', // record-only, not an invented physical pipe/port
         pipelineRef: 'PSI116-BRANCH-' + branchIndex,
         refNo: raw.componentRefNo, seqNo: String(sourceIndex),
         name: raw.nodeName, bore: raw.outsideDiameter,
