@@ -1,58 +1,44 @@
-# PR226 — Two-Path Property Transfer R0 · Review repair and exact-head handover
+# PR226 — Controlled read-only Property Transfer integration
 
-**Scope:** Owner-directed read-only `Property Transfer` tab with independent `Node→Element→Data` and `Node→Data`. No property writer, SOURCE→TARGET identity admission, TARGET1, production tile replacement or merge authorization. Existing Normal, NODAL Node Name, Line/Node, Geometry, CIIFR_GEO and Config code remains protected.
+**Current status, 31 October 2026:** integrated candidate verified; **125/125 VNext and9/9 bounded Geometry tests PASS**. PR226 remains draft/unmerged for the final R0 integration decision. No property writer, automatic correspondence, P2 activation or release grant.
 
-**Repository:** `reallakshman19/XML_Compare_Utilities`  
-**PR:** https://github.com/reallakshman19/XML_Compare_Utilities/pull/226  
-**Base:** `fd86b21aa9dcbfbbe4f8a1d26133b7e9779448be` (refresh live main).  
-**Earlier reviewed candidate:** `e2d2e4893713aa56bfbb5a5f6fd8d7ff57b16970`; owner-provided source review reported native Node v24.22.1 9/9 R0 suite PASS, a base-PASS/head-FAIL Nodal startup regression and malformed source acceptance. Reviewer account identity/independence not established from chat text.  
-**Current head:** refresh live PR head and inspect all commits; source changes described below were made in branch `codex/ciifr-property-two-path-r0-20261028`.
+## Owner scope and actual history
 
-## Reviewer defects and disposition
+Owner authorized the four-step controlled integration (“do it”), recorded on PR226 comment6543166660. Authorized actions completed:
 
-| ID | Reviewer witness | Bounded repair | Verification currently available |
-|---|---|---|---|
-| F1 | Nodal UI head FAIL `null.addEventListener`, base PASS | New Property panel optional mount; guard shared app visibility when panel missing; extend shared test DOM fixture and add two focused Nodal/property switching tests | STATIC + author inspection PASS, native Nodal/new UI re-run NOT_RUN |
-| F2 | RRMAT accepts malformed material | Parse all `NUMELT` ordinal material slots using V14 (2X,6G13.6), nonblank integer ID 1–699; preserve trailing MISC content untouched | Author V8 negative 4 controls PASS; original V14 NOT_RUN |
-| F3 | CONTROL ignores negative NUMNOZ/NOHGRS, invalid IZUP | Retain NUMNOZ, NOHGRS, reject negative first-six CONTROL counts, validate IZUP 0/1 | Author V8 3 negatives PASS; nozzle/hanger **COUNT ONLY**, VFLEX/hanger/execution MISC semantics NOT_QUALIFIED |
-| F4 | Malformed restraint slots/references | Reject negative restraint node/CNode and zero-node slot with nonzero type or CNode; reject negative displacement/force nodes | Author V8 4 restraint negatives PASS; exact vendor Tag/GUID and effective type/direction not qualified |
-| F5 | Slot labelled DOF | Replace label with `Slot` in panel and HTML; clarify restraint type and direction define constrained DOFs | SOURCE inspection PASS |
-| F6 | No TO-only navigation | Declare R0 exact **oriented FROM→TO pair** inspection; defer Node→TO matches→explicit element pick to P2 | Documented only; not implemented |
-| F7 | P3 phase ambiguity | Reconcile concept §13 with implementation plan canonical phases: P3 read-only semantics; P4 first existing-slot W1 writer candidate. Restraint first write qualification; Process read-only parallel | Source readback PASS |
-| F8 | Missing positive RIGID, DISPLMNT, FORCMNT | Synthetic four-family V14 fixture added; test asserts actual per-node auxiliary presence and rigid element owner | Author V8 positive PASS; native Node NOT_RUN |
+| Operation | Exact result |
+| --- | --- |
+| PR238 test correction into main | merge d82ae599913ff7cd39d9e64a0da8d553b7df1535; reviewed head fa6e948eb0f71ba93fe8bab01625e3146d1df3a0 |
+| PR232 repaired application into PR226 | merge710b1adaa69a6b5854c52a2eb7c16b1519dc2311; qualified head d3fbd4041ef4434b4cf5b3c22459f06167be2729 |
+| Updated main into combined PR226 branch | implementation merge96d7a92cab7f0fe45a2de8ac05a54f15b3034719, with both merge results as parents |
 
-## Canonical phases and custody
+Original main was417bf6a954c5a6de72237537e94b05b285191350; original PR226 headb2b695f66fc8dfc907f2b9a493b39bd4d4109570. The three-way leaf-tree comparison from fd86b21aa9dcbfbbe4f8a1d26133b7e9779448be found zero conflicts. All45 main paths were imported by their existing Git blob identities. The complete actual combined leaf tree (8741 entries) matches the expected three-way result. No shared history was rewritten.
 
-P0 source/authority ledger → P1 this R0 two-path inspector → P2 explicit correspondence/TO-only evidence filter → P3 typed read-only Process + Restraint semantics/proposals → P4 narrowly authorized qualified existing-slot writer (restraint-first) → P5 separately qualified structural CONTROL/MISCEL_1 transactions → P6 Owner-gated release.
+## Current capability and protected behavior
 
-The existing Element E1/PR187 owns effective Process and RIGID source meaning. PR226's T1/P1/density values are stored physical witnesses, not case/unit-qualified engineering values. Numeric SOURCE/TARGET IDs are document-local and no automatic transfer is allowed.
+One Property Transfer tab offers independent local SOURCE/TARGET intake and two read-only paths: exact oriented FROM→TO element lookup for stored process evidence, and numeric-node lookup for individually owned restraint/displacement/force records plus adjacent element-owned rigids. Shared node numbers do not prove common process values or SOURCE→TARGET identity. Restraint slots are not automatically directions/DOFs. Existing tabs and writers retain their qualified behavior.
 
-## Exact path ledger
+PR232's navigation isolation, immediate CSV authority revocation, negative/zero-endpoint profile guards, typed-pointer bounds and UNKNOWN dormant/unsupported-content evidence are retained. PR238 corrects the inherited B1 test expectation with an independent literal byte splice; it changes no application or fixture constructor.
 
-- `tabs/cii-workspace/cii-fnr-vnext/ui/property-transfer/cii-index.js` and served mirror: P0 read-only CONTROL/MISC_RRMAT/RESTRANT safety guards, no writer.
-- `tabs/.../ui/property-transfer/panel.js` and served mirror: optional mount and slot wording.
-- `tabs/.../ui/app.js` and served mirror: null-safe optional Property Transfer visibility (only host addition).
-- `tests/helpers/vnext-dom-env.mjs`: add Property panel mock, subtab/file inputs and preserved Nodal mock.
-- `tests/cii-fnr-vnext-property-transfer-r0.test.mjs`: expand synthetic and negative test count to 14.
-- `tests/cii-fnr-vnext-property-transfer-ui-regression.test.mjs`: 2 new native UI integration/legacy-DOM regressions (NOT_RUN locally).
-- `docs/cii-fnr-vnext.html`: R0 exact-pair and restraint slot wording only; all old tab markup preserved.
-- `docs/ciifr/property-transfer/CONCEPT_NOTE_v1.0.md` and `IMPLEMENTATION_PLAN.md`: canonical P0–P6 table and note alignment.
+## Actual combined-head verification
 
-**All source/served file-pair equality must be rechecked after final edits.**
+Node v24.22.1 Linux executed the real implementation commit96d7a92 using114 individually Git-verified source/dependency files, **not a full native Git checkout**. All24 VNext test files and both bounded Geometry suites are present; actual command/exit and raw TAP logs are retained. This report-only follow-up changes no executed code/test bytes; final-ref identity proof must confirm that boundary.
 
-## Validation status
+| Check | Actual result |
+| --- | --- |
+| node --test --test-reporter=tap --test-concurrency=1, all24 VNext files |125/125 PASS; exit0 |
+| node --test --test-reporter=tap, geometry-authority + method-c-original-geometry |9/9 PASS; exit0 |
+| Native tab-isolation/CSV-authority/property guards | Included in the full VNext PASS; repository native DOM environment |
+| Qualified CII workspace/standalone file identities versus d3fbd404 |367/367 preserved |
+| VNext source/served JavaScript/CSS pairs |26/26 identical Git blobs |
+| Post-execution source identity |All114 files unchanged before this report edit |
 
-- **AUTHOR_V8_SYNTHETIC:** 14/14 property-index tests PASS using **exact source blobs fetched from GitHub**, stripped imports and a minimal Node assert/Buffer simulation; this is not a native Node.js result or independent qualification. Fixture includes shared endpoints with different pressure, positive rigid, displacement and force, structural pointers and negatives. 
-- **SOURCE_SERVED:** six mirrored app/JS/CSS paths matched after parser/panel/app fixes before final HTML/test edits; repeat at exact head.
-- **OWNER_REVIEW_PREVIOUS_HEAD:** 9/9 native Node tests PASS and existing Nodal UI FAIL at original `e2d2e48` head. **Do not carry PASS across code change.**
-- **CURRENT_NATIVE_NODE:** NOT_RUN. Local Node v22 is present, but GitHub clone DNS fails; full source/checkouts were not available.
-- **CURRENT_BROWSER:** NOT_RUN; original reviewer reported Chromium missing.
-- **ORIGINAL_GL_RD_V14:** NOT_RUN through this JS implementation (prior Python source inventory distinct); licensed CAESAR import NOT_APPLICABLE to R0 inspection and mandatory for any future write qualification.
-- **INDEPENDENT_EXACT_HEAD:** NOT_RUN, non-author review required.
-- **BACKUP/LEDGER:** Existing GitHub exact base and changed blob preimages preserve recovery, but native `utils/backup.cjs` and `.agent-worklogs` patch ledger could not run. Explicit protocol deviation; no compliance assertion.
+Existing public and original Windows browser evidence remains on d3fbd404; the367-file identity proof preserves its application-byte basis. **No new Windows/browser execution is claimed.** Original read-only qualification and source-exposed non-author/native test review retain their stated limits; root authored repairs and is the integrator. PR238's independent local Windows candidate96/96 and complete35-path-per-checkout checks are recorded on PR238 comment6543077470. The old PR232123/1 is historical on its old head, not the present integrated suite result.
 
-**Highest residual risk:** Actual V14 MISC nozzle/hanger *content* and execution-option semantics remain unqualified; R0 verifies their CONTROL counts only. RRMAT element material ID syntax/range is now checked, but material definition equivalence is not. Stiffness/gap/Tag/GUID, displacement/force case/units, source-to-target identity and property writer safety are outside R0.
+## Unknowns, custody and recovery
 
-**Merge/Release:** PR226 remains DRAFT, ENGINEERING R0 HOLD. Do not mark ready or merge from source-only tests.
+Five populated auxiliary families and effective process/material/vector/condition semantics remain unqualified/UNKNOWN as reported. P2 correspondence/TO-only work and all property-writing phases remain held. R0 does not require a licensed solver import; future writer qualification does.
 
-**EXACT_NEXT_ACTION:** independent native reviewer at **current exact PR226 head** executes `node --test tests/cii-fnr-vnext-property-transfer-r0.test.mjs tests/cii-fnr-vnext-property-transfer-ui-regression.test.mjs tests/cii-fnr-vnext-nodal-ui.test.mjs`, full affected VNext + Geometry regressions, actual browser tab switching and authorized GLRD V14 original inspection. Reproduce all F1–F8 negatives and independently assess common UI startup, original RRMAT and CONTROL semantics. Return exact-head PASS/FAIL/NOT_RUN and one next correction. Owner decides draft→ready/merge only with accepted evidence.
+Only this recovery report is manually edited during integration. Its native backup1 precedes editing; preimage SHA-256 bdccf48cd92eb26c91e9da834f1f55d97bc940745a3c590f508a2004d86d7c8d. Local .agent-worklogs/20261031_ciifr_controlled_integration records scope, merge parents, source checks, snapshot-based patch and checksum-based report undo. Remote merges used immutable qualified parents; no earlier full-checkout/native-backup execution is retroactively claimed. Do not reset, force-push or discard later shared changes. Original pre-integration reports remain in immutable Git history and Common receipts.
+
+EXACT_NEXT_ACTION: finish final-ref/report readback and publish the integrated evidence; Owner then makes the final R0-only PR226→main decision. PR226 merge/deployment and new property-writing authority are not granted by this integration. No repeated unchanged original/public browser run or new agent is requested.
