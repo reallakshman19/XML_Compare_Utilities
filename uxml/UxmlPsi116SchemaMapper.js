@@ -134,7 +134,7 @@ function parseDocument(text) {
 const local = node => String(node?.name || '').split(':').at(-1);
 const direct = (node, name) => node.children.filter(child => local(child) === name);
 const first = (node, name) => direct(node, name)[0] || null;
-const textOf = (node, name) => String(first(node, name)?.text ?? '').trim();
+const textOf = (node, name) => pythonWhitespaceTrim(first(node, name)?.text ?? '');
 function descendants(node, name, found = []) {
   if (local(node) === name) found.push(node);
   for (const child of node.children) descendants(child, name, found);
@@ -150,7 +150,9 @@ const PY_FLOAT = new RegExp(
   PY_DIGIT + ')(?:[eE][+-]?' + PY_DIGIT + ')?$', 'u');
 const IS_DECIMAL = /^\p{Nd}$/u;
 function pythonWhitespaceTrim(value) {
-  return String(value ?? '').replace(/^[\s\u0085]+|[\s\u0085]+$/gu, '');
+  // Python str.strip() uses Unicode White_Space plus U+001C..U+001F.
+  // JS String.trim() additionally strips U+FEFF, but Python does NOT.
+  return String(value ?? '').replace(/^[\p{White_Space}\u001C-\u001F]+|[\p{White_Space}\u001C-\u001F]+$/gu, '');
 }
 function toAsciiDecimalDigits(value) {
   return value.replace(/\p{Nd}/gu, digit => {
