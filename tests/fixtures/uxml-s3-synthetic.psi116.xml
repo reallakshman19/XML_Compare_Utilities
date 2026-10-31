@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PipeStressExport xmlns="http://aveva.com/pipeStress116.xsd">
-  <Branch>
-    <Branchname>S3-SYNTHETIC-LINE</Branchname>
-    <Node>
-      <NodeNumber>10</NodeNumber><NodeName>START</NodeName>
-      <Endpoint>1</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>PIPE-A</ComponentRefNo>
-      <Position>100 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness>
-    </Node>
-    <Node>
-      <NodeNumber>20</NodeNumber><NodeName>END</NodeName>
-      <Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>PIPE-A</ComponentRefNo>
-      <Position>200 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness>
-    </Node>
+  <Branch><Branchname>S3-MAIN</Branchname>
+    <Node><NodeNumber>10</NodeNumber><NodeName>START</NodeName><Endpoint>1</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>MAIN-A</ComponentRefNo><Position>0 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>20</NodeNumber><NodeName>TEE</NodeName><Endpoint>0</Endpoint><ComponentType>TEE</ComponentType><ConnectionType>TEE</ConnectionType><ComponentRefNo>TEE-A</ComponentRefNo><Position>100 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>30</NodeNumber><NodeName>MAIN-30</NodeName><Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>MAIN-A</ComponentRefNo><Position>200 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>50</NodeNumber><NodeName>BEND-50</NodeName><Endpoint>2</Endpoint><ComponentType>BEND</ComponentType><ComponentRefNo>BEND-A</ComponentRefNo><Position>200 0 150</Position><BendRadius>150</BendRadius><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>60</NodeNumber><NodeName>END</NodeName><Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>MAIN-B</ComponentRefNo><Position>300 0 150</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+  </Branch>
+  <Branch><Branchname>S3-TEE-BRANCH</Branchname>
+    <Node><NodeNumber>20</NodeNumber><NodeName>TEE-REPEAT</NodeName><Endpoint>1</Endpoint><ComponentType>BRAN</ComponentType><ConnectionType>TEE</ConnectionType><ComponentRefNo>TEE-A</ComponentRefNo><Position>100 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>40</NodeNumber><NodeName>SUPPORT-40</NodeName><Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>BRANCH-A</ComponentRefNo><Position>100 100 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness><Restraint><Type>+Y</Type></Restraint></Node>
+  </Branch>
+  <Branch><Branchname>S3-RESTART</Branchname>
+    <Node><NodeNumber>100</NodeNumber><NodeName>RESTART</NodeName><Endpoint>1</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>RESTART-A</ComponentRefNo><Position>1000 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
+    <Node><NodeNumber>110</NodeNumber><NodeName>RESTART-END</NodeName><Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>RESTART-A</ComponentRefNo><Position>1100 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness></Node>
   </Branch>
 </PipeStressExport>
