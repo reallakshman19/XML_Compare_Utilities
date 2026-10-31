@@ -4,7 +4,7 @@ import {renderTopologyAdmission, topologyPreviewGate} from '../tabs/inputxml-wor
 
 const admitted = (overrides = {}) => ({
   status: 'ADMITTED', epoch: 3, admittedProfile: 'F05 RichInputXML-P1.v1.1',
-  elementCount: 56, nodeCount: 57, units: 'mm',
+  elementCount: 56, nodeCount: 57, units: {length: 'mm', diameter: 'mm'},
   digest: {sha256: 'a'.repeat(64), authority: 'XML_FILE_BYTES_MEASURED'},
   nodes: Array.from({length: 57}, (_, i) => ({id: String(i), coordinateStatus: 'ABSOLUTE_EXPLICIT_SEED'})),
   edges: Array.from({length: 56}, (_, i) => ({index: i + 1, recordId: `PIPINGELEMENT[${i + 1}]`, from: '3790', to: '3830', delta: [0, 0, 1348]})),
@@ -17,6 +17,7 @@ test('F05 admission banner reports source evidence and measured digest, never Ap
   assert.equal(topologyPreviewGate(admitted(), 3).allowed, true);
   assert.match(html, /Admitted · F05 v1\.1 · 56 elements \/ 57 nodes · absolute/);
   assert.match(html, /SHA-256: aaaaaaaaaaaa \(measured file bytes\)/);
+  assert.match(html, /units: mm/);
   assert.match(html, /3790/); assert.match(html, /1348/);
   assert.doesNotMatch(html, /data-ixw-action="(?:apply|convert|build)/);
 });
