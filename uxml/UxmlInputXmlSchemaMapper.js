@@ -47,6 +47,7 @@ import {
 } from './UxmlTypes.js';
 
 import {validateUxmlDocument} from './UxmlValidationGate.js';
+import {solveCaesarInputXmlRuns,INPUTXML_HUB_FRAME,INPUTXML_SOURCE_FRAME} from './UxmlInputXmlDeltaGraph.js';
 
 import {
   LINE_NO_METADATA_KEYS,
@@ -1679,9 +1680,11 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   const tags = findElements(text, 'PIPINGELEMENT');
   if (!tags.length) throw new Error('INPUT_XML_PIPINGELEMENT_REQUIRED');
   const digest = String(fileSha256).toLowerCase();
+  const graph=solveCaesarInputXmlRuns(tags.map((tag,index)=>({
+    index,attrs:tag.attrs||{...tag},...strictRawTagIdentity(tag,index)})));
   const doc = createUxmlDocument({
     header: createUxmlHeader({createdBy: 'UXML-S3/InputXML',
-      notes: 'Read-only strict absolute positions; output PATCHES original by recordKey, never rebuilds'}),
+      notes: 'Read-only delta graph in explicit run-local coordinate frames; PATCH original source only'}),
     sources: [createUxmlSource({id: 'INPUT_XML-SOURCE', format: SOURCE_FORMATS.INPUT_XML,
       name: 'source-input.xml', hash: digest, sourceText: text})],
     inputXml: {
@@ -1689,34 +1692,25 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
       sourceSha256: digest,
       elementCount: tags.length,
       recordKeyRule: 'E{zeroBasedElementIndex}:F{encodeURIComponent(FROM_NODE)}:T{encodeURIComponent(TO_NODE)}',
-      coordinateAuthority: 'EXPLICIT_ABSOLUTE_FROM_TO_SOURCE_ATTRS_ONLY',
+      coordinateAuthority: 'ANCHORED_OR_UNANCHORED_DELTA_GRAPH',
+      sourceFrame:INPUTXML_SOURCE_FRAME,
+      hubFrame:INPUTXML_HUB_FRAME,
+      frameTransform:'(X,-Z,Y)',
+      runs:graph.runs,
+      crossUnanchoredRunPolicy:'REFUSE_CROSS_RUN_GAP_PROXIMITY_JOIN',
       writerPolicy: 'PATCH_ORIGINAL_BYTES_BY_EXACT_SOURCE_REF_ONLY',
     },
   });
   const lineAttr = firstElementAttrs(text, 'PIPINGMODEL');
   const line = lineNoFromAttributes(lineAttr) || 'CAESAR-INPUTXML';
   const pipelineId = ensurePipeline(doc, line, line, lineAttr);
-  const originalNodeCoordinates = new Map();
+  doc.coordinateFrame={source:INPUTXML_SOURCE_FRAME,hub:INPUTXML_HUB_FRAME,
+    transform:'(X,-Z,Y)',unit:'mm',runCount:graph.runs.length,
+    unanchoredRunCount:graph.runs.filter(r=>!r.anchored).length};
   for (const [index, tag] of tags.entries()) {
     const attrs = tag.attrs || {};
-    const {fromNode, toNode, recordKey} = strictRawTagIdentity(tag, index);
-    const from = strictlyReadPoint(attrs, 'FROM', index);
-    const to = strictlyReadPoint(attrs, 'TO', index);
-    for (const [nodeId,point] of [[fromNode,from],[toNode,to]]) {
-      const original = originalNodeCoordinates.get(nodeId);
-      if (original && Math.hypot(point.x-original.x,point.y-original.y,point.z-original.z)>0.000001) {
-        throw new Error('INPUT_XML_REUSED_NODE_ABSOLUTE_CONFLICT:E'+index+':'+nodeId);
-      }
-      originalNodeCoordinates.set(nodeId,point);
-    }
-    // Reject contradictory source deltas. CAESAR's -1.0101 sentinel means
-    // "zero/unset"; those cannot qualify as independent coordinate authority.
-    for (const [axis, oldField] of [['x','DELTA_X'],['y','DELTA_Y'],['z','DELTA_Z']]) {
-      const declared = caesarNumberOrNull(attrValue(attrs, oldField));
-      if (declared != null && Math.abs((to[axis] - from[axis]) - declared) > 0.00001) {
-        throw new Error('INPUT_XML_ABSOLUTE_DELTA_CONFLICT:E' + index + ':' + oldField);
-      }
-    }
+    const {fromNode,toNode,recordKey}=graph.edges[index];
+    const {from,to,runId,anchored}=graph.assignments.get(index);
     const rawType = attrValue(attrs, 'SOURCE_TYPE', 'COMPONENT_TYPE', 'TYPE') ||
       componentTypeFromPipingElement(tag);
     const canonicalType = componentTypeFromPipingElement(tag);
@@ -1731,7 +1725,7 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
       return node && !isCaesarUnsetNumber(node);
     }).map(row => ({type: row.tagName, attributes: row.attrs, rawXml: row.raw}));
     const ref = {format: SOURCE_FORMATS.INPUT_XML, fileSha256: digest,
-      recordKey, elementIndex: index, fromNode, toNode};
+      recordKey, elementIndex: index, fromNode, toNode,runId,anchored};
     const componentId = 'IX-S3-E' + index;
     const component = createUxmlComponent({
       id: componentId, sourceRefs: [{...ref}], type: canonicalType,
@@ -1740,6 +1734,7 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
       bore: outsideDiameter, confidence: CONFIDENCE_LEVELS.EXACT_SOURCE,
       rawAttributes: {inputXml: {
         elementIndex: index, recordKey, fromNode, toNode, from, to,
+        runId,anchored,hubFrame:INPUTXML_HUB_FRAME,
         rawComponentType: rawType, componentType: canonicalType,
         outsideDiameter, wallThickness,
         hasRestraint: restraintRows.length > 0, restraints: restraintRows,
@@ -1748,8 +1743,9 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
         sourceAttributes: {...attrs},
         rawXml: tag.raw,
       }},
-      normalized: {coordinateAuthority: 'ABSOLUTE_SOURCE_ATTRS',
-        sourceRecordOnly: true},
+      normalized: {coordinateAuthority: anchored?'EXPLICIT_SOURCE':'LOCAL_DELTA_ONLY',
+        runId,anchored,sourceRecordOnly:true},
+      runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
     });
     doc.components.push(component);
     for (const [role, point, node] of [['FROM',from,fromNode], ['TO',to,toNode]]) {
@@ -1757,12 +1753,14 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
       const anchorId = componentId + ':' + role + ':ANCHOR';
       const portId = componentId + ':' + role + ':PORT';
       doc.anchors.push(createUxmlAnchor({id:anchorId,componentId,role:anchorRole,
+        runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
         nodeNumber:node,point,sourceRef:{...ref,endpoint:role},
-        sourceField:'PIPINGELEMENT:' + role + '_X/Y/Z',
+        sourceField:'PIPINGELEMENT:DELTA_X/Y/Z',
         confidence:CONFIDENCE_LEVELS.EXACT_SOURCE}));
       doc.ports.push(createUxmlPort({id:portId,componentId,anchorId,
         role:role === 'FROM' ? PORT_ROLES.PIPE_END_1 : PORT_ROLES.PIPE_END_2,
         point, bore:outsideDiameter, sourceRefs:[{...ref,endpoint:role}],
+        runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
         fixed:true, futureMovable:false, mutableNow:false,
         connectsTo:'UNQUALIFIED_SOURCE_RECORD'}));
       component.anchorIds.push(anchorId);
@@ -1813,7 +1811,8 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
     blockerCodes: checked.blockers.map(x=>x.code),
     warningCodes: checked.warnings.map(x=>x.code),
     profile:'UXML-TOPOLOGY-FULL',
-    coordinateAuthority: 'EXPLICIT_ABSOLUTE_SOURCE',
+    coordinateAuthority: 'ANCHORED_OR_UNANCHORED_DELTA_GRAPH',
+    unanchoredRunCount:graph.runs.filter(r=>!r.anchored).length,
     sourcesBound: tags.length, note:'TopoFix is the only findings engine; not writer permission'};
   return doc;
 }
