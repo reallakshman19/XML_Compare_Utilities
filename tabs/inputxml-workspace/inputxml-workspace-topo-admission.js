@@ -40,6 +40,8 @@ export function revokeTopologyAdmission(state) {
   state.topologyAdmissionPhase = 'idle';
   state.topologyAdmissionSourceText = null;
   state.topologyAdmissionSourceKind = null;
+  state.topologyAdmissionDigest = null;
+  state.topologyAdmissionSourceEpoch = null;
   return state.topologyAdmissionEpoch;
 }
 
@@ -57,7 +59,8 @@ export async function admitWorkspaceSourceUpload({
   state, file, admitBytes, onSourceText = () => {}, notify = () => {},
   isCurrent = () => true,
 }) {
-  if (!file) { revokeTopologyAdmission(state); notify(); return null; }
+  // Cancelling the picker is not a source change. Keep the admitted generation intact.
+  if (!file) return null;
   const epoch = revokeTopologyAdmission(state);
   state.topologyAdmissionPhase = 'checking';
   notify();
@@ -72,6 +75,10 @@ export async function admitWorkspaceSourceUpload({
     const verdict = await admitBytes(bytes, {name: file.name, epoch});
     if (epoch !== state.topologyAdmissionEpoch || !isCurrent()) return null; // guard after admission
     state.topologyAdmission = verdict;
+    // Bind the verdict to the original-byte digest and generation; textarea line ending
+    // canonicalization is display-only and never re-authenticates or replaces file bytes.
+    state.topologyAdmissionDigest = verdict.digest?.sha256 || null;
+    state.topologyAdmissionSourceEpoch = epoch;
     state.topologyAdmissionPhase = 'ready';
     notify();
     return verdict;
@@ -85,15 +92,14 @@ export async function admitWorkspaceSourceUpload({
   }
 }
 
-/** Current, measured file-byte identity AND identical adopted source snapshot. */
+/** Current measured file-byte digest + generation; textarea normalization is NOT authority. */
 export function workspaceTopologyGate(state) {
   const gate = topologyPreviewGate(state.topologyAdmission, state.topologyAdmissionEpoch);
   if (!gate.allowed) return gate;
   if (state.topologyAdmissionSourceKind !== 'normal-source' ||
-      typeof state.topologyAdmissionSourceText !== 'string' ||
-      !state.topologyAdmissionSourceText ||
-      state.topologyAdmissionSourceText !== state.sourceXmlText)
-    return Object.freeze({allowed: false, reason: 'SOURCE_BYTES_OR_TEXT_CHANGED'});
+      state.topologyAdmissionSourceEpoch !== state.topologyAdmissionEpoch ||
+      state.topologyAdmissionDigest !== state.topologyAdmission.digest.sha256)
+    return Object.freeze({allowed: false, reason: 'SOURCE_BYTE_IDENTITY_CHANGED'});
   return gate;
 }
 
@@ -114,15 +120,16 @@ function profileLabel(admission) {
  * The InputXML Workspace's existing CleanXML/5C/enrichment/Categorized controls are
  * independent of this isolated intake. It never invokes them or publishes a graph.
  */
-export function renderTopologyAdmission({phase = 'idle', admission = null, epoch = 0, error = '', sourceXmlText = '', sourceSnapshot = null, sourceKind = null} = {}) {
+export function renderTopologyAdmission({phase = 'idle', admission = null, epoch = 0, error = '', sourceKind = null, sourceDigest = null, sourceEpoch = null} = {}) {
   const input = '<div class="ixw-note">Load or replace a file using <b>CleanXML → Source XML</b>. This exact normal Workspace upload is checked for read-only F05/R4 topology evidence.</div>';
-  const note = '<div class="ixw-note">Only source records from that same measured file and epoch can be previewed; never an approved physical connection or CII writer. The legacy 5B paste/upload parser is not mounted in this lane.</div>';
+  const note = '<div class="ixw-note">Source-byte SHA-256 and admission epoch are the gate; textarea CRLF display normalization does not change file identity. This is read-only source evidence, not an approved physical connection or CII writer.</div>';
   if (phase === 'checking') return `${input}<div class="ixw-note" role="status">Checking uploaded XML bytes and profile. Previous topology evidence cleared.</div>${note}`;
   if (phase === 'failed') return `${input}<div class="ixw-error" role="alert">Topology admission failed: ${esc(error || 'unavailable')}. Preview blocked.</div>${note}`;
   if (!admission) return `${input}<div class="ixw-note" role="status">No topology file admitted. Load an XML file to check its profile.</div>${note}`;
 
   const gate = workspaceTopologyGate({topologyAdmission: admission, topologyAdmissionEpoch: epoch,
-    topologyAdmissionSourceKind: sourceKind, topologyAdmissionSourceText: sourceSnapshot, sourceXmlText});
+    topologyAdmissionSourceKind: sourceKind, topologyAdmissionDigest: sourceDigest,
+    topologyAdmissionSourceEpoch: sourceEpoch});
   const sha = admission.digest?.sha256 ? String(admission.digest.sha256).slice(0, 12) : 'not measured';
   const measured = admission.digest?.authority === 'XML_FILE_BYTES_MEASURED';
   if (!gate.allowed) {
