@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -53,7 +53,10 @@ test('strict source keys have unique zero-based record ordinal and literal FROM/
   const witness=mapCaesarInputXmlToUxmlStrict(extended,{fileSha256:sha(extended)});
   assert(witness.lossContract.some(x=>x.details.field==='UNKNOWN_VENDOR'));
   assert(witness.lossContract.some(x=>x.details.field==='@EXT'));
-  assert.equal(doc.validation.coordinateAuthority,'EXPLICIT_ABSOLUTE_SOURCE');
+  assert.equal(doc.validation.coordinateAuthority,'ANCHORED_OR_UNANCHORED_DELTA_GRAPH');
+  assert.equal(doc.inputXml.runs.length,1);
+  assert.equal(doc.inputXml.runs[0].anchored,true);
+  assert.equal(doc.coordinateFrame.hub,'PSI116_XYZ_MM');
 });
 test('duplicate FROM/TO pairs are still unique by ordinal and source SHA',()=>{
   const xml=fixture().replace(attrs(20,30,200,300),attrs(10,20,100,200));
@@ -64,9 +67,9 @@ test('duplicate FROM/TO pairs are still unique by ordinal and source SHA',()=>{
 test('strict reader rejects unreliable absolute positions, conflicting deltas, missing IDs and sha',()=>{
   const src=fixture();
   for(const [name,invalid,pattern] of [
-    ['no from x',src.replace('FROM_X="100"',''),/ABSOLUTE_COORDINATE_REQUIRED/],
-    ['partial to',src.replace('TO_Z="0"',''),/ABSOLUTE_COORDINATE_REQUIRED/],
-    ['contradictory delta',src.replace('DELTA_X="100"','DELTA_X="900"'),/ABSOLUTE_DELTA_CONFLICT/],
+    ['partial anchor',src.replace('FROM_X="100"',''),/INCOMPLETE_ABSOLUTE_ANCHOR/],
+    ['partial to',src.replace('TO_Z="0"',''),/INCOMPLETE_ABSOLUTE_ANCHOR/],
+    ['contradictory delta',src.replace('DELTA_X="100"','DELTA_X="900"'),/DELTA_PATH_CONFLICT/],
     ['missing identity',src.replace('FROM_NODE="10"','FROM_NODE=""'),/NODE_IDENTITY_REQUIRED/],
     ['conflicting reused node',src.replace('FROM_X="200"','FROM_X="201"'),/REUSED_NODE_ABSOLUTE_CONFLICT/],
   ]) assert.throws(()=>mapCaesarInputXmlToUxmlStrict(invalid,{fileSha256:sha(invalid)}),pattern,name);
@@ -95,4 +98,50 @@ test('CLI hashes exact BOM+CRLF bytes and validates every source port',()=>{
     assert.equal(doc.ports.length,4);
     assert.equal(doc.validation.gate.blockerCodes.length,0);
   }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test('CAESAR deltas reconstruct hub XYZ and preserve run-local UNANCHORED labels',()=>{
+  const src=fixture().replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'');
+  const doc=mapCaesarInputXmlToUxmlStrict(src,{fileSha256:sha(src)});
+  assert.equal(doc.inputXml.runs.length,1);
+  assert.equal(doc.inputXml.runs[0].anchored,false);
+  assert.equal(doc.coordinateFrame.unanchoredRunCount,1);
+  assert.deepEqual(doc.ports.map(p=>p.point),[
+    {x:0,y:0,z:0},{x:100,y:0,z:0},
+    {x:100,y:0,z:0},{x:200,y:0,z:0},
+  ]);
+  assert(doc.components.every(c=>c.sourceRefs[0].anchored===false &&
+    c.rawAttributes.inputXml.runId==='RUN-0000'));
+  assert(doc.ports.every(p=>p.anchored===false && p.runId==='RUN-0000'));
+});
+test('multi-run restarts stay independent, and cyclic bad delta is explicitly refused',()=>{
+  const a=attrs(10,20,100,200);
+  const b=attrs(20,30,200,300);
+  const c=attrs(100,110,1100,1150);
+  const root=openings=>'<CAESARII><PIPINGMODEL>'+openings+'</PIPINGMODEL></CAESARII>';
+  const elem=attrs=>'<PIPINGELEMENT '+attrs+'></PIPINGELEMENT>';
+  const standalone=root([a,b,c].map(x=>elem(x.replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,''))).join(''));
+  const doc=mapCaesarInputXmlToUxmlStrict(standalone,{fileSha256:sha(standalone)});
+  assert.equal(doc.inputXml.runs.length,2);
+  assert.deepEqual(doc.inputXml.runs.map(r=>r.anchored),[false,false]);
+  assert.equal(doc.ports[4].point.x,0,'second disconnected run has its OWN local zero');
+  assert.notEqual(doc.components[0].sourceRefs[0].runId,doc.components[2].sourceRefs[0].runId);
+  const cycle=root([elem(a.replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'')),
+    elem(b.replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'')),
+    elem(attrs(30,10,300,100).replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'').replace('DELTA_X="-200"','DELTA_X="-150"'))].join(''));
+  assert.throws(()=>mapCaesarInputXmlToUxmlStrict(cycle,{fileSha256:sha(cycle)}),
+    /INPUT_XML_DELTA_PATH_CONFLICT/);
+});
+test('both public CAESAR14 samples are accepted as 1 UNANCHORED run (100 and 53 elements)',()=>{
+  for(const [file,count] of [['GREInputxml.xml',100],['PLB314Inputxml.xml',53]]){
+    const xml=readFileSync(new URL('../docs/'+file,import.meta.url),'utf8');
+    const doc=mapCaesarInputXmlToUxmlStrict(xml,{fileSha256:sha(xml)});
+    assert.equal(doc.inputXml.elementCount,count,file);
+    assert.equal(doc.components.length,count,file);
+    assert.equal(doc.ports.length,count*2,file);
+    assert.equal(doc.inputXml.runs.length,1,file);
+    assert.equal(doc.inputXml.runs[0].anchored,false,file);
+    assert.equal(doc.coordinateFrame.unanchoredRunCount,1,file);
+    assert(doc.ports.every(p=>p.anchored===false && p.coordinateFrame==='PSI116_XYZ_MM'));
+  }
 });
