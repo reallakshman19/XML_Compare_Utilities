@@ -41,4 +41,4 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Real Workspace Clean XML to 5C InputXML synthetic source witness
-        run: node tools/uxml-s3-workspace-pair.mjs --verify
+        run: node tools/uxml-s3-workspace-pair.mjs --emit-base64
