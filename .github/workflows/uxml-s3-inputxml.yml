@@ -9,6 +9,7 @@ on:
       - 'docs/PLB314Inputxml.xml'
       - 'tools/inputxml-to-uxml.mjs'
       - 'tests/uxml-s3-caesar-inputxml.test.mjs'
+      - 'tests/uxml-s3-reconcile.test.mjs'
       - 'tests/uxml-s3-caesar-mutants.test.mjs'
       - 'tests/fixtures/uxml-s3-synthetic.psi116.xml'
       - 'tests/fixtures/uxml-s3-synthetic.workspace.input.xml'
@@ -32,7 +33,7 @@ jobs:
           node --check uxml/UxmlInputXmlDeltaGraph.js
           node --check uxml/UxmlInputXmlDeltaGraph.js
           node --check tools/inputxml-to-uxml.mjs
-          node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
+          node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-caesar-mutants.test.mjs tests/uxml-s3-reconcile.test.mjs
   workspace-pair:
     runs-on: ubuntu-latest
     steps:
