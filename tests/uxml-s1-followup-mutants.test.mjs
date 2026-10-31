@@ -44,7 +44,13 @@ function runExistingParity(root, pattern) {
   return spawnSync(process.execPath, [
     '--test', '--test-name-pattern=' + pattern,
     'tests/uxml-psi116-s1.test.mjs',
-  ], {cwd: root, encoding: 'utf8', timeout: 45_000, maxBuffer: 4 * 1024 * 1024});
+  ], {
+    cwd: root, encoding: 'utf8', timeout: 45_000, maxBuffer: 4 * 1024 * 1024,
+    // Parent CI itself uses node --test. Do not inherit its worker marker:
+    // otherwise Node silently skips the nested named regression tests.
+    env: Object.fromEntries(Object.entries(process.env)
+      .filter(([name]) => name !== 'NODE_TEST_CONTEXT')),
+  });
 }
 
 function requireSingleMutation(root, file, before, after) {
@@ -75,6 +81,7 @@ test('MUTANT_KILL_IGNORE_BOM: removing ignoreBOM must fail actual byte-SHA regre
     const pattern = 'CLI raw file-byte SHA exactly matches';
     const clean = runExistingParity(root, pattern);
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    assert.match(clean.stdout, /# pass 1\b/, 'positive regression MUST actually execute');
     requireSingleMutation(root, 'tools/psi116-to-uxml.mjs',
       '{fatal: true, ignoreBOM: true}', '{fatal: true}');
     assertKilled(root, pattern, 'NO_IGNORE_BOM');
@@ -86,6 +93,7 @@ test('MUTANT_KILL_CRLF_TEXT: removing physical CRLF normalisation must fail actu
     const pattern = 'XML 1.0 CRLF/lone CR in text';
     const clean = runExistingParity(root, pattern);
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    assert.match(clean.stdout, /# pass 1\b/, 'positive regression MUST actually execute');
     requireSingleMutation(root, 'uxml/UxmlPsi116SchemaMapper.js',
       "decodeEntities(text.slice(at, until).replace(/\\r\\n?/g, '\\n'))",
       'decodeEntities(text.slice(at, until))');
