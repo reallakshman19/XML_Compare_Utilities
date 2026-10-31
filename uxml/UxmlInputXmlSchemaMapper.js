@@ -46,6 +46,8 @@ import {
   createUxmlSource,
 } from './UxmlTypes.js';
 
+import {validateUxmlDocument} from './UxmlValidationGate.js';
+
 import {
   LINE_NO_METADATA_KEYS,
   lineNoFromMetadata,
@@ -1806,7 +1808,11 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
       s3Loss(doc,'/' + root,'@' + key,val);
     }
   }
-  doc.validation = {ready: true, profile:'UXML-TOPOLOGY-FULL',
+  const checked = validateUxmlDocument(doc);
+  doc.validation = {schema: checked.schema, ready: checked.ready,
+    blockerCodes: checked.blockers.map(x=>x.code),
+    warningCodes: checked.warnings.map(x=>x.code),
+    profile:'UXML-TOPOLOGY-FULL',
     coordinateAuthority: 'EXPLICIT_ABSOLUTE_SOURCE',
     sourcesBound: tags.length, note:'TopoFix is the only findings engine; not writer permission'};
   return doc;
