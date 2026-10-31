@@ -18,8 +18,11 @@ try {
     blockerCodes:report.blockers.map(item=>item.code),
     warningCodes:report.warnings.map(item=>item.code),
   };
-  if (report.blockers.length) throw new Error(
-    'UXML_VALIDATION_BLOCKED:' + doc.validation.gate.blockerCodes.join(','));
+  // Source admission is read-only: missing CAESAR bore or specialised
+  // component anchors remain explicit UxmlValidationGate blockers, but are
+  // not a reason to discard valid, SHA-bound delta topology evidence.
+  // validation.ready=false forbids downstream engineering release/writers.
+  // Geometry/frame/source-ref violations still throw in the strict mapper.
   process.stdout.write(JSON.stringify(doc,null,2)+'\n');
 } catch (error) {
   process.stderr.write('UXML_S3_INPUTXML_ERROR: '+String(error?.message||error)+'\n');
