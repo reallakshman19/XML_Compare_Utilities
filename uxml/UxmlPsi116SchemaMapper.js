@@ -216,6 +216,8 @@ export function mapPsi116ToUxml(xmlText, {fileSha256} = {}) {
       // Immutable original text custody for equal-source resolution only.
       // This is NOT a format writer and must not be rebuilt for export.
       sourceText: xmlText, namespace,
+      namespaceDeclarations: Object.fromEntries(Object.entries(root.attributes)
+        .filter(([name]) => name === 'xmlns' || name.startsWith('xmlns:'))),
     })],
     psi116: {readerSchema: UXML_PSI116_MAPPER_SCHEMA, namespace,
       sourceFormat: 'PSI116', sourceSha256: sha256,
