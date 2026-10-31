@@ -92,6 +92,24 @@ export async function admitWorkspaceSourceUpload({
   }
 }
 
+/**
+ * The browser textarea normalizes CRLF (and bare CR) on readback. These
+ * serialization-only changes are not user edits; all other changes revoke
+ * the file-byte admission before a new topology view can mount.
+ */
+export function sameTextareaSource(before, after) {
+  const canonical = value => String(value ?? '').replace(/\r\n?/g, '\n');
+  return canonical(before) === canonical(after);
+}
+
+/** UI mount decision shared by the actual Workspace view and negative tests. */
+export function renderWorkspace5BMount(state) {
+  const gate = workspaceTopologyGate(state);
+  return gate.allowed
+    ? '<div data-ixw-5b-host data-topo-b-byte-bound="1"></div>'
+    : `<div class="ixw-error" role="status">Ported 5B Topology blocked · ${esc(gate.reason)}. No independent file or paste bypass.</div>`;
+}
+
 /** Current measured file-byte digest + generation; textarea normalization is NOT authority. */
 export function workspaceTopologyGate(state) {
   const gate = topologyPreviewGate(state.topologyAdmission, state.topologyAdmissionEpoch);
