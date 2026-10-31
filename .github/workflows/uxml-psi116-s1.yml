@@ -1,0 +1,29 @@
+name: UXML PSI116 Reader S1
+on:
+  pull_request:
+    paths:
+      - 'uxml/UxmlConstants.js'
+      - 'uxml/UxmlProfileDetector.js'
+      - 'uxml/UxmlPsi116SchemaMapper.js'
+      - 'uxml/UxmlValidationGate.js'
+      - 'uxml/UxmlTypes.js'
+      - 'tools/psi116-to-uxml.mjs'
+      - 'tests/uxml-psi116-s1.test.mjs'
+      - '.github/workflows/uxml-psi116-s1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  map-and-detect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict synthetic mapper, detector, CLI and validator
+        run: |
+          node --check uxml/UxmlPsi116SchemaMapper.js
+          node --check uxml/UxmlProfileDetector.js
+          node --check tools/psi116-to-uxml.mjs
+          node --test tests/uxml-psi116-s1.test.mjs
