@@ -1660,7 +1660,8 @@ function strictRawTagIdentity(tag, index) {
   const fromNode = attrValue(attrs, 'FROM_NODE');
   const toNode = attrValue(attrs, 'TO_NODE');
   if (!fromNode || !toNode) throw new Error('INPUT_XML_ELEMENT_NODE_IDENTITY_REQUIRED:E' + index);
-  if (!/^<\s*PIPINGELEMENT\b/i.test(tag.raw) || !/<\s*\/PIPINGELEMENT\s*>$/i.test(tag.raw)) {
+  if (!/^<\s*PIPINGELEMENT\b/i.test(tag.raw) ||
+      !(tag.selfClosing ? /\/\s*>$/.test(tag.raw) : /<\s*\/PIPINGELEMENT\s*>$/i.test(tag.raw))) {
     throw new Error('INPUT_XML_EXACT_PIPINGELEMENT_RECORD_REQUIRED:E' + index);
   }
   return {
@@ -1677,7 +1678,26 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   if (!/<\s*CAESARII\b/i.test(text) || !/<\s*PIPINGMODEL\b/i.test(text)) {
     throw new Error('INPUT_XML_CAESAR_SOURCE_REQUIRED');
   }
-  const tags = findElements(text, 'PIPINGELEMENT');
+  // Legacy findElements() yields self-closing records immediately, but
+  // nested/paired records on the closing tag. Source record keys must be
+  // based on PHYSICAL PIPINGELEMENT order, not closing-tag traversal order.
+  const unorderedTags=findElements(text,'PIPINGELEMENT');
+  const seen=new Map();
+  const openings=[...text.matchAll(/<PIPINGELEMENT\\b/gi)].map(x=>x.index);
+  const tags=unorderedTags.map(tag=>{
+    const count=seen.get(tag.raw)||0;
+    let startAt=0,offset=-1;
+    for(let i=0;i<=count;i++){
+      offset=text.indexOf(tag.raw,startAt);
+      if(offset<0)throw new Error('INPUT_XML_ORIGINAL_SOURCE_TAG_UNRESOLVED');
+      startAt=offset+tag.raw.length;
+    }
+    seen.set(tag.raw,count+1);
+    return {...tag,sourceStart:offset};
+  }).sort((x,y)=>x.sourceStart-y.sourceStart);
+  if(tags.length!==openings.length ||
+      tags.some((tag,index)=>tag.sourceStart!==openings[index]))
+    throw new Error('INPUT_XML_SOURCE_ORDINAL_AMBIGUOUS');
   if (!tags.length) throw new Error('INPUT_XML_PIPINGELEMENT_REQUIRED');
   const digest = String(fileSha256).toLowerCase();
   const graph=solveCaesarInputXmlRuns(tags.map((tag,index)=>({
