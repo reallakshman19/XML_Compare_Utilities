@@ -212,3 +212,25 @@ test('Python int/float accept underscores and Unicode digits, but never JS-only 
   const doc = mapPsi116ToUxml(xml, {fileSha256: hash(xml)});
   assert.equal(doc.components[0].sourceRefs[0].recordKey, 'B0:N9007199254740993123456:S0');
 });
+
+test('textOf exactly follows Python str.strip: U+FEFF is data; whitespace and U+0085 trim', () => {
+  const clean = fixture();
+  const src = clean
+    .replace('<NodeNumber>120</NodeNumber>', '<NodeNumber>\uFEFF5</NodeNumber>')
+    .replace('<NodeName>/X-120</NodeName>', '<NodeName>\uFEFF5</NodeName>')
+    .replace('<Endpoint>1</Endpoint>', '<Endpoint>\uFEFF2</Endpoint>');
+  const doc = mapPsi116ToUxml(src, {fileSha256: hash(src)});
+  const first = doc.components[0];
+  assert.equal(first.rawAttributes.psi116.nodeNumber, null,
+    'Python int(\\uFEFF5) rejects BOM; JS trim would incorrectly yield 5');
+  assert.equal(first.rawAttributes.psi116.endpoint, null);
+  assert.equal(first.rawAttributes.psi116.nodeName, '\uFEFF5');
+  assert.equal(first.sourceRefs[0].recordKey, 'B0:Nnone:S0');
+  assert.equal(doc.sources[0].sourceText, src);
+  const whitespace = clean
+    .replace('<NodeNumber>120</NodeNumber>', '<NodeNumber>\u0085 \u00A05\u00A0 \u0085</NodeNumber>')
+    .replace('<NodeName>/X-120</NodeName>', '<NodeName>\u0085 \u00A0name\u00A0 \u0085</NodeName>');
+  const trimmed = mapPsi116ToUxml(whitespace, {fileSha256: hash(whitespace)});
+  assert.equal(trimmed.components[0].rawAttributes.psi116.nodeNumber, 5);
+  assert.equal(trimmed.components[0].rawAttributes.psi116.nodeName, 'name');
+});
