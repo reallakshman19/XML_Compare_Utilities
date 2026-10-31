@@ -238,3 +238,64 @@ test('canceling normal file pick leaves source text, byte admission and epoch un
   assert.equal(notified, 0);
   assert.equal(workspaceTopologyGate(state).allowed, true);
 });
+
+test('public S1 F05 CRLF file remains admitted after textarea LF tab-switch readback', async () => {
+  // The repository's pinned public fixture, not private Owner source.
+  // This test isolates the Workspace's byte/epoch UI binding; strict B1 parsing
+  // and real Chromium DOMParser remain separate validation responsibilities.
+  const original = readFileSync(new URL('../prototypes/ciifr-map/tests/fixtures/S1-F05.xml', import.meta.url), 'utf8');
+  const crlf = original.replace(/\r\n?|\n/g, '\r\n');
+  assert.match(crlf, /\r\n/);
+  const bytes = new TextEncoder().encode(crlf);
+  const file = {name: 'S1-F05-CRLF.xml',
+    arrayBuffer: async () => bytes.buffer,
+    text: () => {throw new Error('DISALLOWED_TEXT_PATH');}};
+  const expectedDigest = createHash('sha256').update(bytes).digest('hex');
+  const state = sourceState();
+  await admitWorkspaceSourceUpload({
+    state, file, onSourceText: value => {state.sourceXmlText = value;},
+    admitBytes: async (actualBytes, {epoch}) => {
+      assert.deepEqual(actualBytes, bytes, 'the exact CRLF-bearing bytes must be admitted');
+      return admitted({epoch, digest: {authority: 'XML_FILE_BYTES_MEASURED', sha256: expectedDigest}});
+    },
+  });
+  assert.equal(state.topologyAdmissionDigest, expectedDigest);
+  assert.equal(workspaceTopologyGate(state).allowed, true);
+  const before = state.sourceXmlText;
+  state.sourceXmlText = state.sourceXmlText.replace(/\r\n?/g, '\n'); // browser textarea readback
+  assert.notEqual(before, state.sourceXmlText);
+  assert.equal(sameTextareaSource(before, state.sourceXmlText), true);
+  assert.equal(workspaceTopologyGate(state).allowed, true, 'CRLF-only tab switch must retain original-byte admission');
+  assert.match(renderWorkspace5BMount(state), /data-ixw-5b-host/);
+  const html = renderTopologyAdmission({phase: state.topologyAdmissionPhase,
+    admission: state.topologyAdmission, epoch: state.topologyAdmissionEpoch,
+    sourceDigest: state.topologyAdmissionDigest, sourceEpoch: state.topologyAdmissionSourceEpoch,
+    sourceKind: state.topologyAdmissionSourceKind});
+  assert.match(html, /Admitted · F05 v1\.1 · 56 elements \/ 57 nodes · absolute/);
+  const tab = readFileSync(new URL('../tabs/inputxml-workspace/inputxml-workspace-tab.js', import.meta.url), 'utf8');
+  assert.match(tab, /!sameTextareaSource\(before\.sourceXmlText, state\.sourceXmlText\)/);
+  assert.match(tab, /revokeTopologyAdmission\(state\)/);
+});
+
+test('5B read-only graph uses only admitted source IDs/coordinates and never renders legacy file picker', () => {
+  const base = admitted();
+  const nodes = [
+    {id: '3790', xyz: [0, 0, 0]},
+    {id: '3830', xyz: [0, 0, 1348]},
+    ...Array.from({length: 55}, (_, i) => ({id: String(4000 + i), xyz: [i, i * 3, i * 10]})),
+  ];
+  const projection = {...base, nodes};
+  const host = {innerHTML: ''};
+  const result = renderXmlCiiTopology5BPanel(host, {readOnlyAdmission: {
+    verdict: projection, byteSha256: base.digest.sha256, epoch: 3,
+  }});
+  assert.equal(result.elementCount, 56);
+  assert.match(host.innerHTML, /data-xml-cii-5b-source-graph/);
+  assert.match(host.innerHTML, /source-element geometry only/);
+  assert.doesNotMatch(host.innerHTML, /data-xml-cii-5b-file|data-xml-cii-5b-paste/);
+  const denied = {innerHTML: ''};
+  assert.equal(renderXmlCiiTopology5BPanel(denied, {readOnlyAdmission: {
+    verdict: projection, byteSha256: '0'.repeat(64), epoch: 3,
+  }}), null);
+  assert.match(denied.innerHTML, /blocked/);
+});
