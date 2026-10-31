@@ -1,6 +1,6 @@
 # Restraint-first W1 scope — recovery report
 
-Task: WIP-ciifr-restraint-w1-scope-20261031. Actor: /root, GPT-6.1-Sol; chat ID unavailable. Role: Owner-directed contributor, scope preparation. No independent review is claimed.
+Task: WIP-ciifr-restraint-w1-scope-20261031 / [Draft PR243](https://github.com/reallakshman19/XML_Compare_Utilities/pull/243). Branch: `docs/ciifr-restraint-w1-scope-20261031`, based on main f7ada348f51017f9ca335281c35c4e90fc79b74d. Initial artifact commit: 6d30f0a3bb46078b63ad58b378f7a08eeff0fb44; canonical report naming is a report-only follow-up. Actor: /root, GPT-6.1-Sol; chat ID unavailable. Role: Owner-directed contributor, scope preparation. No independent review is claimed.
 
 ## Mission and current truth
 
@@ -15,6 +15,15 @@ Owner observed the merged Property Transfer tab is read-only and requested conti
 ## Source grounding and material limits
 
 Fresh GitHub main: f7ada348f51017f9ca335281c35c4e90fc79b74d; base tree e8828f9245769dbedbce3e572904746c218c79ba. Local reader/panel/common-writer source was inspected in the existing individually verified integration subset; fresh critical-file blob checks are part of this candidate's document validation. This is not a fresh native checkout.
+
+Fresh Git source identities verified against local inspected bytes:
+
+| Runtime path under `tabs/cii-workspace/cii-fnr-vnext/` | Bound-main Git blob |
+|---|---|
+| `ui/property-transfer/cii-index.js` | `93ec1b4339f0301be4104d96c94e126f8c9fa503` |
+| `ui/property-transfer/panel.js` | `de3f6eb23d067b5d7e0641289059fd31f553f63b` |
+| `ui/writer.js` | `15e383e8f03ad7028fa7c01063cea19f15d4d298` |
+| `ui/physical.js` | `a0a5d5e1cf6f9c7e7bf4be51073518a2f85f618f` |
 
 The current reader explicitly leaves stiffness/gap semantics unqualified; panel discards raw bytes; common writer rejects restraint fields. Hexagon V14 indexed auxiliary text was retrieved, but direct fetch failed and the type-code image was unavailable. V14 gap text was retrieved. Stiffness/Mu/units corroboration came from V13/V15 and is clearly not promoted to V14 authority. Numeric X/Y/Z enum, V14 UNITS, direction and zero/default behavior are remaining implementation qualification work.
 
