@@ -339,3 +339,76 @@
 .xml-compare-transfer-review-snippets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 10px 10px; }
 .xml-compare-transfer-review-snippets pre { min-width: 0; max-height: 160px; overflow: auto; margin: 0; padding: 8px; border: 1px solid rgba(148,163,184,.12); border-radius: 8px; background: #020617; color: #dbeafe; font-size: 11px; white-space: pre-wrap; }
 @media (max-width: 900px) { .xmlc-transfer-metrics, .xmlc-transfer-review .xml-compare-validation-summary, .xmlc-transfer-review .xml-compare-detail-card, .xml-compare-transfer-review-snippets { grid-template-columns: repeat(2, minmax(0, 1fr)); } .xmlc-transfer-output-body { grid-template-columns: 1fr; } .xmlc-transfer-output-actions { justify-content: flex-start; } }
+
+
+/* XML Compare: prominent independent inputs, unambiguous ISO identity evidence. */
+.xmlc-import-workflow { margin-bottom: 16px; padding: 14px; }
+.xmlc-import-intro, .xmlc-import-next, .xmlc-import-card-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.xmlc-import-intro { margin-bottom:14px; }
+.xmlc-import-intro h3, .xmlc-workspace-heading { margin:0 0 5px; color:#e2e8f0; font-size:17px; }
+.xmlc-import-intro p { margin:0; color:#94a3b8; font-size:12px; line-height:1.5; }
+.xmlc-import-intro > small { color:#7dd3fc; font-weight:700; white-space:nowrap; }
+.xmlc-import-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.xmlc-import-card { min-width:0; padding:14px; border:1px solid rgba(148,163,184,.24); border-radius:12px; background:rgba(15,23,42,.55); }
+.xmlc-import-card-header { align-items:flex-start; margin-bottom:12px; }
+.xmlc-import-card-header > div { display:grid; gap:4px; }
+.xmlc-import-card-header b { font-size:15px; color:#f1f5f9; }
+.xmlc-import-card-header span { color:#93c5fd; font-size:12px; }
+.xmlc-import-readiness { color:#cbd5e1; font-size:11px; font-weight:700; white-space:nowrap; }
+.xmlc-import-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.xmlc-import-upload, .xmlc-import-actions button { display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:8px 11px; background:#1e293b; border:1px solid rgba(125,211,252,.38); border-radius:8px; color:#e0f2fe; font-weight:700; font-size:12px; }
+.xmlc-import-upload { position:relative; overflow:hidden; }
+.xmlc-import-upload input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.xmlc-import-actions button:disabled { opacity:.45; cursor:not-allowed; }
+.xmlc-import-file-meta { display:grid; gap:5px; padding:10px 0; overflow-wrap:anywhere; }
+.xmlc-import-file-meta b { color:#e2e8f0; font-size:12px; }
+.xmlc-import-file-meta small { color:#94a3b8; font-size:11px; }
+.xmlc-import-preview { margin-top:6px; border-top:1px solid rgba(148,163,184,.18); padding-top:10px; }
+.xmlc-import-preview summary, .xmlc-import-advanced summary, .xmlc-import-tools details > summary, .xmlc-side-advanced summary, .xmlc-manual-options summary { cursor:pointer; color:#bae6fd; font-weight:700; font-size:12px; padding:4px 0; }
+.xmlc-import-preview textarea { display:block; box-sizing:border-box; width:100%; height:130px; margin-top:8px; padding:10px; border:1px solid rgba(96,165,250,.3); border-radius:8px; resize:vertical; background:#020617; color:#cbd5e1; font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.xmlc-import-preview small { display:block; color:#cbd5e1; padding:6px 0; }
+.xmlc-import-pair-notice { margin-top:12px; padding:11px 12px; border:1px solid rgba(245,158,11,.45); border-radius:8px; background:rgba(120,53,15,.17); color:#fde68a; font-size:12px; line-height:1.55; }
+.xmlc-import-next { margin:14px 0 10px; flex-wrap:wrap; justify-content:flex-start; }
+.xmlc-import-next > div { display:grid; gap:4px; flex:1 1 270px; }
+.xmlc-import-next strong { color:#e2e8f0; font-size:13px; }
+.xmlc-import-next small { color:#94a3b8; font-size:11px; }
+.xmlc-import-next button { padding:9px 12px; border-radius:8px; }
+.xmlc-import-advanced { border-top:1px solid rgba(148,163,184,.15); padding-top:8px; }
+.xmlc-import-settings { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px 0; }
+.xmlc-import-settings label { display:flex; align-items:center; gap:5px; color:#cbd5e1; font-size:11px; }
+.xmlc-import-settings input[type=number] { box-sizing:border-box; width:62px; min-width:0; padding:5px; background:#020617; color:#fff; border:1px solid #334155; border-radius:6px; }
+.xmlc-import-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 0 0; margin-top:12px; border-top:1px solid rgba(148,163,184,.16); }
+.xmlc-import-tools > b { font-size:12px; color:#93c5fd; }
+.xmlc-import-tools details { flex-basis:100%; }
+.xmlc-import-tools-more { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding-top:10px; }
+.xmlc-workspace-heading { margin-bottom:12px; }
+.xmlc-iso-connector-evidence { padding:10px; margin:6px 0 10px; border:1px solid rgba(56,189,248,.4); border-radius:10px; background:rgba(8,47,73,.33); }
+.xmlc-iso-connector-evidence h4 { margin:0 0 4px; font-size:13px; color:#dbeafe; }
+.xmlc-iso-connector-evidence p { margin:0 0 9px; color:#cbd5e1; font-size:11px; line-height:1.5; }
+.xmlc-iso-connector-evidence ol { max-height:300px; overflow:auto; list-style:none; padding:0; margin:0; display:grid; gap:6px; }
+.xmlc-iso-connector-evidence li { padding:8px; border-radius:8px; border:1px solid rgba(148,163,184,.2); background:rgba(2,6,23,.45); }
+.xmlc-iso-link-pair { display:flex; align-items:center; justify-content:space-between; gap:4px; }
+.xmlc-iso-link-pair span { min-width:0; display:grid; gap:3px; }
+.xmlc-iso-link-pair b { color:#e0f2fe; font-size:11px; overflow-wrap:anywhere; }
+.xmlc-iso-link-pair small { font-size:9px; color:#93c5fd; }
+.xmlc-iso-link-pair svg { flex:0 0 36px; color:#7dd3fc; }
+.xmlc-iso-link-detail { display:block; color:#94a3b8; font-size:10px; overflow-wrap:anywhere; margin-top:5px; }
+.xmlc-side-advanced, .xmlc-manual-options { margin:6px 10px; border-top:1px solid rgba(148,163,184,.2); padding:5px 0; }
+.xml-compare-workspace-grid { grid-template-columns:minmax(0,1fr) minmax(300px,340px) minmax(0,1fr); }
+@media (max-width: 1280px) { .xml-compare-workspace-grid { grid-template-columns:1fr; } }
+@media (max-width: 760px) {
+  .xmlc-import-grid { grid-template-columns:1fr; }
+  .xmlc-import-intro { align-items:flex-start; flex-direction:column; }
+  .xmlc-import-next { align-items:stretch; }
+  .xmlc-import-next button { width:100%; }
+}
+
+/* Combined ISO XML: surface partition record readiness, not just file presence. */
+.xmlc-iso-partition-status { margin: 10px; padding: 10px 12px; border: 1px solid rgba(56,189,248,.35); border-radius: 9px; background: rgba(8,47,73,.25); display: grid; gap: 6px; }
+.xmlc-iso-partition-status > b { color: #dbeafe; font-size: 13px; }
+.xmlc-iso-partition-status > small { color: #cbd5e1; font-size: 11px; line-height: 1.5; }
+.xmlc-iso-partition-status summary { cursor: pointer; color: #7dd3fc; font-size: 11px; font-weight: 700; }
+.xmlc-iso-partition-status ol { margin: 8px 0 0; padding-left: 18px; max-height: 190px; overflow-y: auto; }
+.xmlc-iso-partition-status li { padding: 4px 0; font-size: 11px; color: #e2e8f0; }
+.xmlc-iso-partition-status li strong { overflow-wrap: anywhere; }
+.xmlc-iso-partition-status li small { display: block; color: #94a3b8; overflow-wrap: anywhere; }

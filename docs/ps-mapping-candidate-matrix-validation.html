@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PS Mapping — Candidate Matrix Validation</title>
+<meta name="description" content="Two-case PS Mapping Candidate Matrix: existing restraints, unresolved line identity, and no premature missing-support proposals.">
+<style>
+:root{font:14px/1.55 Inter,system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark;background:#0b1525;color:#e9f1ff}
+*{box-sizing:border-box}body{margin:0}.container{max-width:1500px;margin:0 auto;padding:22px clamp(16px,3.5vw,52px) 65px}
+nav{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-bottom:22px;font-size:13px}
+a{color:#97c7ff}.logo{font-weight:800;letter-spacing:.07em}.hero{background:linear-gradient(120deg,#1a3455,#12223c);border:1px solid #365477;border-radius:18px;padding:30px 34px;margin-bottom:18px}
+small,kbd{color:#a9bedb}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:11px;color:#90c2ff;font-weight:800}
+h1{font-size:clamp(29px,4.3vw,50px);line-height:1.1;letter-spacing:-.035em;margin:12px 0}h2{font-size:21px;margin:0 0 8px}h3{font-size:18px;margin:0}p{color:#bac9de;margin:8px 0 15px}.lead{font-size:16px;max-width:850px}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.stat{background:rgba(7,15,27,.32);padding:14px 19px;border:1px solid #39526f;border-radius:11px;min-width:145px}.stat strong{font-size:23px;display:block}.stat span{font-size:11px;color:#b1c6db}
+.note{border-left:3px solid #80b5ee;border-radius:6px;background:#1d2b41;padding:14px 17px;color:#d1dfef;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.panel{border:1px solid #304862;border-radius:14px;padding:21px;background:#111f32;min-width:0}
+.panel h3{margin-bottom:9px}.panel p{font-size:13px}.section{margin:28px 0}
+.pill{display:inline-block;font-size:11px;font-weight:800;padding:4px 9px;background:#544025;border:1px solid #93733a;color:#ffe2b1;border-radius:100px}
+.tag{display:inline-block;border-radius:5px;padding:3px 7px;background:#25415a;border:1px solid #3a6382;font-size:11px;color:#e1effc;font-weight:750}
+.good{background:#224434;border-color:#3d7860;color:#b8f1d4}.warn{background:#543e25;border-color:#96713a;color:#ffdfa6}
+.kv{display:grid;grid-template-columns:145px minmax(0,1fr);gap:8px 10px;margin-top:13px;font-size:13px}.kv dt{color:#9fb7d1}.kv dd{margin:0;overflow-wrap:anywhere}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.controls button{border:1px solid #476586;background:#213a58;color:#e6f2ff;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:700;cursor:pointer}.controls button[aria-pressed=true],.controls .export{background:#336cab;border-color:#69a6e8}.controls .export{margin-left:auto}
+button:focus-visible,a:focus-visible{outline:2px solid #a5d4ff;outline-offset:3px}
+.scroll{overflow:auto;max-height:630px;border:1px solid #314961;border-radius:12px;background:#101d2d}
+table{border-collapse:collapse;min-width:1250px;width:100%;font-size:12px}th,td{text-align:left;border-bottom:1px solid #2b435d;padding:10px 12px;vertical-align:top}th{background:#213750;position:sticky;top:0;color:#cde5fa;z-index:1;white-space:nowrap}tr:hover td{background:#1b2b41}td{overflow-wrap:anywhere}td.mono{font:11px/1.45 ui-monospace,SFMono-Regular,monospace}td.notes{min-width:260px;max-width:330px}td.warning{color:#ffc788;font-weight:700}
+summary{cursor:pointer;font-weight:750}details{padding:15px 18px;border:1px solid #364e68;background:#132238;border-radius:11px;margin:11px 0}pre{background:#0a1525;border:1px solid #30435c;border-radius:8px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9e8f7}
+footer{font-size:12px;color:#9fb4cf;border-top:1px solid #314965;padding-top:23px;margin-top:36px}.error{border:1px solid #bd5a69;background:#4d2830;padding:16px;border-radius:8px;color:#ffe8ed}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.hero{padding:24px 18px}.controls .export{margin-left:0}.kv{grid-template-columns:120px 1fr}}
+</style>
+</head>
+<body><main class="container">
+<nav><span class="logo">XML COMPARE UTILITIES · PS MAPPING</span><span><a href="./">Application</a> &nbsp;·&nbsp; <a href="https://github.com/reallakshman19/XML_Compare_Utilities/pull/225">Merged two-pass fix (PR #225)</a></span></nav>
+<header class="hero">
+<div class="eyebrow">Engineering review · Candidate Matrix · 29 October 2026</div>
+<h1>Existing restraints. Unverified line identity.</h1>
+<p class="lead">A source-derived Candidate Matrix for <b>PS-131.1 / Node 4190</b> and <b>SL-211.2 / Node 720</b>. The table below is calculated by the same PS Mapping resolver used in the application, using two repository regression fixtures.</p>
+<div class="stats"><div class="stat"><strong>2</strong><span>Reference node cases</span></div><div class="stat"><strong>8</strong><span>Table-2 fixture records</span></div><div class="stat"><strong>Pass 2</strong><span>Base + DN + node</span></div><div class="stat"><strong>Hold</strong><span>Unverified hardware proposals</span></div></div>
+</header>
+<div class="note"><b>Important distinction:</b> This validates two false/premature <i>missing-hardware</i> recommendations; it does <b>not</b> certify that the existing restraints are correctly assigned to the reference nodes. Different line families require engineering review. The model gap/clearance must be checked independently. This is <b>not</b> the full production Candidate Matrix export.</div>
+<section class="section">
+<h2>Final node assessments</h2><p>Required, credited, unverified and missing restraints are taken directly from the canonical reconciliation output.</p>
+<div class="grid" id="cases"><div class="panel">Computing assessments…</div></div>
+</section>
+<section class="section" id="matrix">
+<h2>Candidate Matrix — two-pass resolver output</h2>
+<p>Review candidates are not automatically mapped. Every row below remains traceable to a Table-2 support and a Table-1 reference node.</p>
+<div class="controls">
+<button data-filter="all" aria-pressed="true">All cases</button>
+<button data-filter="PS-131.1" aria-pressed="false">PS-131.1</button>
+<button data-filter="SL-211.2" aria-pressed="false">SL-211.2</button>
+<button class="export" id="export" type="button">Download Candidate CSV</button>
+</div>
+<div class="scroll"><table><thead><tr>
+<th>Case</th><th>Reference Node</th><th>Model Support No.</th><th>Reference Support No.</th><th>Model DTXR</th><th>Restraint</th><th>Reference Line</th><th>Model Line</th><th>Reference DN</th><th>Model Bore</th><th>Identity Pass</th><th>Status</th><th>Auto-map</th><th>Review action / evidence</th>
+</tr></thead><tbody id="matrix-rows"><tr><td colspan="14">Loading resolver…</td></tr></tbody></table></div>
+<p id="row-count" aria-live="polite"></p>
+</section>
+<section class="section"><h2>Source records</h2><p>The embedded source records reproduce the two validated fixtures in the repository. The separate <code>SL-117</code> model components are included as negative controls for base/DN matching, not eligible coverage for <code>SL-211</code>.</p><div id="source-records"></div></section>
+<section class="section"><h2>Decision policy</h2><div class="grid">
+<div class="panel"><h3>Pass 1 — qualified identity</h3><p>Support Base + Line Family + DN + Reference Node. A unique and fully valid identity may proceed to normal mapping and independent restraint/gap validation.</p></div>
+<div class="panel"><h3>Pass 2 — ambiguity review</h3><p>Support Base + DN + Reference Node, but the line family differs. Return <b>Ambiguous — Line Mismatch</b>. Record possible hardware; do not auto-map, and do not propose replacement hardware until identity is resolved.</p></div>
+</div></section>
+<footer>Snapshot basis: <a href="https://github.com/reallakshman19/XML_Compare_Utilities/blob/main/tests/ps-mapping-two-pass-line-mismatch.test.mjs">PS Mapping two-pass regression fixtures</a>. The page executes the deployed resolver in the browser; the results change if that code changes. Review and authorize line identity before any physical modifications. · <a href="https://github.com/reallakshman19/XML_Compare_Utilities/blob/main/docs/ps-mapping-candidate-matrix-validation.html">Page source</a></footer>
+</main>
+<script type="module">
+import { runPsMappingResolver } from "./tabs/ps-mapping-utility/ps-mapping-engine-diagnostics-v2.js";
+const cases=[
+ {key:"PS-131.1",node:"4190",ref:"/PS-131.1",line:'/ASIM-1885-PL-6"-CS-W8810003-01/B1',size:2,iso:"://PS-131.1 :ISONOTE 'DO NOT REST [25mm GAP](1kN),LINE STOP(2kN)'",
+ model:[["PS-131.3",50,'ASIM-1885-PL-3"-S8810107-91261M7-01',"Pipe Rest XRT01"],
+        ["PS-131.1",50,'ASIM-1885-PL-3"-S8810107-91261M7-01',"PIPE STOP TYPE-602"]],
+ note:"PIPE STOP TYPE-602 is recognized as LINE STOP. Reference W8810003 and model S8810107 differ. DO NOT REST [25mm GAP] is a non-contact clearance requirement, not a requirement for active REST."},
+ {key:"SL-211.2",node:"720",ref:"SL-211.2",line:'/ASIM-1885-PL-8"-CS-S8810104-01',size:12,iso:":/SL-211.2 :ISONOTE 'REST(10kN),LINE STOP(18kN), [LINE STOP GAP=25mm]'",
+ model:[["SL-211.2",300,'ASIM-1885-PL-10"-S8810105-HOT-01','PIPE SHOE FOR HORIZ LINES N.B. 3/4" to 24" 12-PDO-TYPE-416A/B-200-800 Carbon Steel'],
+        ["SL-211.4",300,'ASIM-1885-PL-10"-S8810105-HOT-01',"Pipe Rest XRT01"],
+        ["SL-211.3",300,'ASIM-1885-PL-10"-S8810105-HOT-01',"WEAR PLATE TYPE-421 PAD L 900mm"],
+        ["SL-211.1",300,'ASIM-1885-PL-10"-S8810105-HOT-01',"Directional Anchor On Shoe for Hot Insulated Pipe NPS 1/2- 36 12-XST06-40"],
+        ["SL-117.4",250,'ASIM-1885-PL-10"-S8810105-HOT-01',"Pipe Rest XRT01"],
+        ["SL-117.8",250,'ASIM-1885-PL-10"-S8810105-HOT-01',"GUIDE PDO-TYPE-603"]],
+ note:"REST and LINE STOP are represented by SL-211.4 and SL-211.1, but model line S8810105 differs from reference S8810104. Required LINE STOP GAP is 25 mm; its model gap is unspecified in this fixture. SL-117 is a different support base and DN."}
+];
+const h=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const arr=x=>Array.isArray(x)?x:[];
+const str=x=>String(x??"").trim()||"—";
+const fmt=x=>arr(x).length?arr(x).join(" + "):"None";
+const tag=(x,type="")=>'<span class="tag '+type+'">'+h(str(x))+'</span>';
+const reference=c=>["| Line No | Node | Support No | Pipe size | ISONOTE | Mandatory |","| --- | --- | --- | --- | --- | --- |","| "+c.line+" | "+c.node+" | "+c.ref+" | "+c.size+" | "+c.iso+" | Yes |"].join("\n");
+const model=c=>["Support No\tBore\tpipe\tDTXR\tSupport Gap\tMandatory",...c.model.map(m=>[m[0],m[1],m[2],m[3],"","No"].join("\t"))].join("\n");
+const classify=txt=>{const s=String(txt||"").toUpperCase();if(s.includes("DIRECTIONAL ANCHOR")||s.includes("PIPE STOP"))return"LINE STOP";if(s.includes("PIPE REST")||s.includes("PIPE SHOE"))return"REST";if(s.includes("GUIDE"))return"GUIDE";return"No active restraint"};
+let all=[],filter="all",visible=[];
+try{
+ const evaluated=cases.map(c=>{
+   const result=runPsMappingResolver({table1cNodeIsonoteText:reference(c),table2ModelText:model(c)});
+   const group=arr(result.canonicalAssessments).find(g=>String(g.node)===c.node);
+   if(!group)throw Error("No canonical assessment found for "+c.key);
+   const candidates=arr(result.candidateRows).filter(r=>r.lineMismatchReview===true&&String(r.candidateNode||r.node||r.mappedNode)===c.node&&!r.syntheticMissingSupport);
+   if(!candidates.length)throw Error("No Pass-2 review candidates found for "+c.key);
+   const proposed=[...arr(result.rows),...arr(result.candidateRows)].filter(r=>r.syntheticMissingSupport===true);
+   if(proposed.length)throw Error("Unsafe missing-support proposal detected for "+c.key);
+   return {c,group,candidates};
+ });
+ document.getElementById("cases").innerHTML=evaluated.map(({c,group})=>
+  '<article class="panel"><h3>'+h(c.key)+' · Node '+h(c.node)+' &nbsp; <span class="pill">Ambiguous — Line Mismatch</span></h3>'
+  +'<p>Reference '+h(c.ref)+' · NPS '+h(c.size)+'</p>'
+  +'<dl class="kv"><dt>Required restraint</dt><dd>'+tag(fmt(group.required))+'</dd>'
+  +'<dt>Credited at node</dt><dd>'+tag(fmt(group.present),"good")+'</dd>'
+  +'<dt>Unverified line</dt><dd>'+tag(fmt(group.unverifiedLine),"warn")+'</dd>'
+  +'<dt>Proven missing</dt><dd>'+tag(fmt(group.missing),"good")+'</dd>'
+  +'<dt>Hardware proposals</dt><dd>'+tag("None","good")+'</dd></dl>'
+  +'<p>'+h(c.note)+'</p></article>').join("");
+ for(const {c,candidates} of evaluated)for(const r of candidates)all.push({
+   "Case":c.key,"Reference Node":r.candidateNode||r.node||c.node,
+   "Model Support No":r.psnoModel||"","Reference Support No":r.table1PsNo||c.ref,
+   "Model DTXR":r.dtxr||"","Restraint":classify(r.dtxr),
+   "Reference Line":r.nodeLineFamily||"","Model Line":r.lineFamily||"",
+   "Reference DN":r.derivedDn||"","Model Bore":r.modelBore??"",
+   "Identity Pass":r.identityPass||r.mappedStage||"02_BASE_DN_REFERENCE_NODE",
+   "Status":r.finalStatus||"","Auto-map":r.autoSelectable===true?"YES":"NO",
+   "Review action / evidence":r.reviewAction||r.reason||""
+ });
+ const cols=["Case","Reference Node","Model Support No","Reference Support No","Model DTXR","Restraint","Reference Line","Model Line","Reference DN","Model Bore","Identity Pass","Status","Auto-map","Review action / evidence"];
+ function render(){
+  visible=filter==="all"?all:all.filter(r=>r.Case===filter);
+  document.getElementById("matrix-rows").innerHTML=visible.map(r=>'<tr>'+cols.map((col,i)=>'<td class="'+([1,2,3,6,7,10].includes(i)?"mono":i===13?"notes":i===11?"warning":"")+'">'+h(str(r[col]))+'</td>').join("")+'</tr>').join("")||'<tr><td colspan="14">No candidates</td></tr>';
+  document.getElementById("row-count").textContent=visible.length+" review candidate rows, computed from "+evaluated.length+" source-derived cases. Line identity is unverified.";
+ }
+ render();
+ document.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click",()=>{filter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));render()}));
+ document.getElementById("source-records").innerHTML=cases.map(c=>'<details><summary>'+h(c.key)+' · Table-1 and Table-2 source records</summary><p>Table-1 reference</p><pre>'+h(reference(c))+'</pre><p>Table-2 models</p><pre>'+h(model(c))+'</pre></details>').join("");
+ document.getElementById("export").addEventListener("click",()=>{
+  const cell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const csv=[cols.map(cell).join(","),...visible.map(r=>cols.map(c=>cell(r[c])).join(","))].join("\r\n");
+  const u=URL.createObjectURL(new Blob(["\ufeff",csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=u;a.download="ps-mapping-two-case-candidate-review.csv";document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),1000);
+ });
+}catch(e){
+ document.getElementById("cases").innerHTML='<div class="error">Candidate evaluation unavailable: '+h(e.message||e)+'. Do not treat any values on this page as validated.</div>';
+ document.getElementById("matrix-rows").innerHTML='<tr><td colspan="14">Could not calculate Candidate Matrix.</td></tr>';
+ document.getElementById("export").disabled=true;console.error("Candidate Matrix evaluation failed",e);
+}
+</script></body></html>

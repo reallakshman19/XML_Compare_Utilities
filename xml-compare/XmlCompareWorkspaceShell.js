@@ -103,6 +103,28 @@ function mainConnectorControls(input = {}) {
   </div>`;
 }
 function searchLabel(levelView = {}) { const label = String(levelView.label || levelView.levelId || 'record').replace(/\s+/g, ' ').trim().toLowerCase(); return `Find ${label || 'record'}`; }
+function isoPartitionStatus(data = {}) {
+  const partition = data.isoPartition;
+  if (!partition) return '';
+  const label = partition.key === 'ISO_NOTES_S2' ? 'S2 ISO Notes' : 'S1 PS Mapping';
+  const sample = (data.baseRecords || []).filter(record =>
+    record.lineKey === partition.key && record.levelId === 'element').slice(0, 6);
+  const rows = sample.map(record => {
+    const id = record.nodeName || record.psNo || record.supportId || record.displayName || record.uid;
+    const line = record.lineNoInCii || record.pipe || '';
+    return '<li><strong>' + esc(id) + '</strong>' +
+      (line ? '<small>' + esc(line) + '</small>' : '') + '</li>';
+  }).join('');
+  return '<section class="xmlc-iso-partition-status" data-xmlc-partition="' + esc(partition.key) +
+    '"><b>' + esc(label) + ': ' + partition.itemCount.toLocaleString() +
+    ' records loaded</b><small>' +
+    (partition.itemCount
+      ? 'Read-only ISO source rows, filtered from the combined XML. Select hierarchy Element to inspect individual rows.'
+      : 'No records in this partition. The XML file is present, but this S1/S2 dataset could not be verified.') +
+    '</small>' + (rows ? '<details><summary>Preview first ' + sample.length +
+    ' support records</summary><ol>' + rows + '</ol></details>' : '') +
+    '</section>';
+}
 function sideCard(side, title, data = {}, navState = null, compareFields = []) {
   const selected = (data.records || []).find((record) => record.uid === navState?.selectedUid) || null;
   const originalLevel = data.levelProfile?.levels?.find(l => l.levelId === data.levelView?.levelId);
@@ -112,7 +134,7 @@ function sideCard(side, title, data = {}, navState = null, compareFields = []) {
     const opts = levelRecords.map(r => `<option value="${esc(r.uid)}">${esc(r.displayName || r.key || r.uid)}</option>`).join('');
     searchInput = `<select data-xml-compare-anchor-search="${esc(side)}" style="width:100%;"><option value="" disabled selected>Select ${esc((data.levelView?.label || 'record').toLowerCase())}...</option>${opts}</select>`;
   }
-  return `<section class="xml-compare-workspace-side xmlc-side-picker-card is-${esc(side)}" data-xml-compare-canvas-host="${esc(side)}"><header><b>${esc(title || side)}</b><span>${sideHeader(data)}</span></header>${hierarchyControls(side, data.levelView || {})}<div class="xmlc-side-picker"><label style="width:100%; display:flex; flex-direction:column; gap:4px;">${esc(searchLabel(data.levelView || {}))}${searchInput}</label><button type="button" data-xml-compare-action="select-anchor-node" data-xml-compare-side="${esc(side)}" style="margin-top:auto;">Use</button></div>${labelFieldControls(side, data.levelView || {}, compareFields)}${compareFieldStrip(compareFields)}<div class="xml-compare-side-metrics">${sideMetric('Records', data.records?.length || 0)}${sideMetric('Nodes', data.summary?.nodeCount || 0)}${sideMetric('Selected', recordLabel(selected))}</div></section>`;
+  return `<section class="xml-compare-workspace-side xmlc-side-picker-card is-${esc(side)}" data-xml-compare-canvas-host="${esc(side)}"><header><b>${esc(title || side)}</b><span>${sideHeader(data)}</span></header>${isoPartitionStatus(data)}${hierarchyControls(side, data.levelView || {})}<div class="xmlc-side-picker"><label style="width:100%; display:flex; flex-direction:column; gap:4px;">${esc(searchLabel(data.levelView || {}))}${searchInput}</label><button type="button" data-xml-compare-action="select-anchor-node" data-xml-compare-side="${esc(side)}" style="margin-top:auto;">Use</button></div><details class="xmlc-side-advanced"><summary>Compare fields</summary>${labelFieldControls(side, data.levelView || {}, compareFields)}${compareFieldStrip(compareFields)}</details><div class="xml-compare-side-metrics">${sideMetric('Records', data.records?.length || 0)}${sideMetric('Nodes', data.summary?.nodeCount || 0)}${sideMetric('Selected', recordLabel(selected))}</div></section>`;
 }
 function compareFieldOptions(source = null, target = null, compareFields = []) { const selected = new Set(normalizeCompareFields(compareFields)), fields = availableCompareFields([...(source?.levelView?.fields || []), ...(target?.levelView?.fields || [])]); return fields.map((field) => `<option value="${esc(field)}" ${selected.has(field) ? 'disabled' : ''}>${esc(field)}</option>`).join(''); }
 function validationFromRequest(matchMap = null) { return Object.freeze({ layer: normalizeValidationLayer(matchMap?.request?.validationLayer || 'current'), toleranceMm: normalizeToleranceMm(matchMap?.request?.toleranceMm), textRules: matchMap?.request?.textRules || {} }); }
@@ -120,13 +142,65 @@ function validationLayerOptions(selected = 'current') { return [['current', 'Cur
 function validationControls(matchMap = null) { const settings = validationFromRequest(matchMap), downloads = matchMap?.request ? '<button type="button" data-xml-compare-action="download-validation-json">Download validation JSON</button><button type="button" data-xml-compare-action="download-validation-csv">Download validation CSV</button>' : '', presets = '<button type="button" data-xml-compare-compare-field-preset="coordinates">Coordinates preset</button><button type="button" data-xml-compare-compare-field-preset="element-endpoints">Element endpoints preset</button><button type="button" data-xml-compare-compare-field-preset="line-identity">Line identity preset</button><button type="button" data-xml-compare-compare-field-preset="support">Support preset</button>'; return `<div class="xml-compare-validation-controls" data-xml-compare-validation-controls><label>Applicable Hierarchy Layer<select data-xml-compare-validation-layer>${validationLayerOptions(settings.layer)}</select></label><label>Coordinate tolerance <input type="number" min="0" step="0.1" value="${esc(settings.toleranceMm)}" data-xml-compare-validation-tolerance-mm> mm</label>${presets}${downloads}</div>`; }
 function compareFieldControls(source = null, target = null, compareFields = [], matchMap = null, validationBuilder = null, selectedRecords = {}, validation = {}) { const selected = normalizeCompareFields(compareFields); return `<div class="xml-compare-compare-field-controls" data-xml-compare-compare-fields><label>Compare fields<select data-xml-compare-compare-field-picker>${compareFieldOptions(source, target, selected)}</select></label><button type="button" data-xml-compare-add-compare-field>Add Field</button><div class="xml-compare-compare-field-list">${selected.map((field) => `<span class="xml-compare-compare-field-pill" data-xml-compare-compare-field="${esc(field)}">${esc(field)} <button type="button" data-xml-compare-remove-compare-field="${esc(field)}" aria-label="Remove ${esc(field)}">x</button></span>`).join('') || '<small>No compare fields selected.</small>'}</div>${renderXmlCompareManualValidationBuilderHtml({ builder: validationBuilder, compareFields: selected, selectedRecords, validation })}${validationControls(matchMap)}</div>`; }
 function patchConnectorLaneActions(html = '', source = null, target = null, compareFields = [], matchMap = null, validationBuilder = null, selectedRecords = {}, validation = {}) { return String(html).replace(/<div class="xml-compare-auto-map-actions">([\s\S]*?)<\/div>/, (panel, body) => `<div class="xml-compare-auto-map-actions">${body}${compareFieldControls(source, target, compareFields, matchMap, validationBuilder, selectedRecords, validation)}</div>`); }
-function connectorLane(input = {}, manualState = null) { return renderXmlCompareGraphConnectorLaneHtml({ manualState, controlHtml: mainConnectorControls(input) }); }
+// ISO audit source and target can hold the same combined XML. Project only the
+// relevant source-scoped partition into each side picker; do not alter the
+// underlying records used for exact comparison, validation or transfer gating.
+export function scopeIsoDisplaySide(data = {}, partition = '', requestedLevelId = '') {
+  if (!['PS_MAPPING_S1', 'ISO_NOTES_S2'].includes(partition)) return data;
+  // The combined XML is parsed into all four hierarchy levels. Never rely on
+  // current-level data.records for partition completeness (often just 1 line).
+  const records = Array.isArray(data.baseRecords) ? data.baseRecords : data.records || [];
+  const partitionRecords = records.filter(record => record.lineKey === partition);
+  const itemRecords = partitionRecords.filter(record => record.levelId === 'element');
+  const levelSource = data.levelProfile?.levels || data.levelView?.hierarchyProfile?.levels || [];
+  const levels = levelSource.map(level => {
+    const scoped = (level.records || []).filter(record => record.lineKey === partition);
+    return { ...level, records: scoped, recordCount: scoped.length };
+  }).filter(level => level.recordCount);
+  // ISO users need to see the actual PS / note rows, not just the partition
+  // container. Respect an explicitly selected hierarchy level when available.
+  const wanted = String(requestedLevelId || '').trim();
+  const active = levels.find(level => level.levelId === wanted) ||
+    levels.find(level => level.levelId === 'element') || levels[0] || null;
+  const displayed = active?.records || [];
+  const hierarchyProfile = { ...(data.levelView?.hierarchyProfile || data.levelProfile || {}), levels };
+  return {
+    ...data,
+    records: displayed,
+    levelProfile: { ...(data.levelProfile || {}), levels },
+    levelView: {
+      ...(data.levelView || {}),
+      hierarchyProfile, levelId: active?.levelId || '',
+      label: active?.label || '', layout: active?.layout || '',
+      fields: active?.fields || [], records: displayed,
+    },
+    isoPartition: {
+      key: partition, itemCount: itemRecords.length,
+      totalRecords: partitionRecords.length, visibleRecords: displayed.length,
+    },
+  };
+}
+function connectorLane(input = {}, manualState = null) {
+  const isoEvidence = input.isoNoteAuditLinks?.readOnly && input.isoNoteAuditLinks?.linkedCount > 0;
+  const manualControls = mainConnectorControls(input);
+  const controls = isoEvidence
+    ? '<details class="xmlc-manual-options"><summary>Manual anchor and connector options</summary>' + manualControls + '</details>'
+    : manualControls;
+  return renderXmlCompareGraphConnectorLaneHtml({ manualState, controlHtml: controls, auditLinks: input.isoNoteAuditLinks });
+}
 
 export function renderXmlCompareWorkspaceShellHtml(input = {}) {
   loadLazyRuntimes();
   const manualState = createManualState(input), tState = transferState(input), transferPreview = createXmlCompareTransferPreview({ source: input.source, target: input.target, manualConnectors: input.manualConnectors }), stageScope = tState.transferStage?.scope || 'node';
   const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualState?.connectors?.length || 0;
   const reviewButton = `<button type="button" class="xml-compare-review-btn" data-xml-compare-action="open-transfer-modal">Review & Transfer (${approvedCount} approved)</button>`;
-  return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}"><div class="xml-compare-workspace-grid is-two-canvas">${sideCard('source', 'Source', input.source || {}, input.navStates?.source, input.compareFields)}<div class="xml-compare-connector-lane-container">${connectorLane(input, manualState)}${reviewButton}</div>${sideCard('target', 'Target', input.target || {}, input.navStates?.target, input.compareFields)}</div>${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview })}</section>`;
+  const isoMode = input.isoViewMode === true;
+  const sourceView = isoMode
+    ? scopeIsoDisplaySide(input.source || {}, 'PS_MAPPING_S1', input.isoLevelSelections?.source?.levelId)
+    : input.source || {};
+  const targetView = isoMode
+    ? scopeIsoDisplaySide(input.target || {}, 'ISO_NOTES_S2', input.isoLevelSelections?.target?.levelId)
+    : input.target || {};
+  return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}"><h3 class="xmlc-workspace-heading">3. Review source-to-target connections</h3><div class="xml-compare-workspace-grid is-two-canvas">${sideCard('source', 'Source · S1 PS Mapping', sourceView, input.navStates?.source, input.compareFields)}<div class="xml-compare-connector-lane-container">${connectorLane(input, manualState)}${reviewButton}</div>${sideCard('target', 'Target · S2 ISO Notes', targetView, input.navStates?.target, input.compareFields)}</div>${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview })}</section>`;
 }
-export const _test = Object.freeze({ esc, createManualState, transferState, compareFieldOptions, compareFieldControls, validationFromRequest, validationLayerOptions, validationControls, patchConnectorLaneActions, loadLazyRuntimes });
+export const _test = Object.freeze({ esc, createManualState, transferState, compareFieldOptions, compareFieldControls, validationFromRequest, validationLayerOptions, validationControls, patchConnectorLaneActions, loadLazyRuntimes, scopeIsoDisplaySide });

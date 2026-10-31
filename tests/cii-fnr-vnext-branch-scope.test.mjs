@@ -80,11 +80,30 @@ test('exact B2 selection does not include identical name in unrelated B1', async
 
 test('branch identifier mismatch gives zero replacements, no prefix matching', async () => {
   const target = syntheticTarget();
-  for (const branch of [B2.slice(0, -1), B2 + '-WRONG', B1]) {
+  for (const branch of [B2.slice(0, -1), B2 + '-WRONG']) {
     const { plan } = await planFor(target, [{ ...branchRule(), branch }]);
     assert.equal(plan.claims.length, 0);
     assert(plan.diagnostics.some((d) => d.code === 'ZERO_MATCHES'));
   }
+});
+
+test('exact B1 selection changes only its owned FROM name', async () => {
+  const original = syntheticTarget();
+  const { hash, plan } = await planFor(original, [{ ...branchRule(), branch: B1 }]);
+  assert.equal(plan.claims.length, 1);
+  assert.equal(plan.claims[0].targetElementWitness, '3:9000:9001');
+  assert.equal(plan.claims[0].fieldIdentity, 'NODENAME.FROM');
+  assert.equal(plan.claims[0].evidence.branch, B1);
+  assert.deepEqual(plan.diagnostics, []);
+  const expected = Buffer.from(original);
+  const lastCard = Buffer.from('\r\n' + name('ALIAS-OLD', '') + '\r\n', 'ascii');
+  const cardStart = expected.lastIndexOf(lastCard);
+  assert(cardStart >= 0, 'literal B1 name card must be present');
+  expected.write('NEW-4'.padEnd(26), cardStart + 4, 26, 'ascii');
+  const result = await validatePostimage({
+    original, originalHash: hash, plan, approvedIds: [plan.claims[0].id], tab: 'NORMAL'
+  });
+  assert.deepEqual(result.bytes, new Uint8Array(expected));
 });
 
 test('branch crossing with an unlabeled physical alias is fail-closed', async () => {

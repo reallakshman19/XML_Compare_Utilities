@@ -171,7 +171,9 @@ function loadIsoNoteTemplate() {
     : roles.swapped
       ? 'Automatically assigned PS Mapping to S1 and ISO Notes to S2. Confirm fields, then build structure.'
       : 'ISO Note Template is ready: S1 PS Mapping + S2 ISO Notes. Confirm fields, then build structure.';
-  setActiveTab(layoutBlocker ? 'source' : 'levels');
+  // Template loading should expose the two source tabs, not hide them in
+  // the next Columns step. Users can explicitly confirm columns afterward.
+  setActiveTab('source');
   renderShell();
 }
 function clearActive() { const a = active(); setSources(updateSourceDraft({ sources: state.sources, activeSourceId: state.activeSourceId }, state.activeSourceId, { ...a, sourceText: '', headers: [], rows: [], diagnostics: [], transformRules: [] })); resetDerived(); renderShell(); }
@@ -189,6 +191,9 @@ function importErrorReport(role, file, code, message) {
 }
 function displayIsoPreflight(role, result) {
   state.importPreflight = { ...state.importPreflight, [role]: result };
+  if (state.sources.some(source => source.sourceId === role)) {
+    state.activeSourceId = role;
+  }
   setActiveTab('source');
   renderShell();
 }
@@ -210,7 +215,16 @@ async function importIsoRoleFile(role, file) {
   }
   const result = preflightIsoTableText(input, role, { fileName: file.name });
   state.importPreflight = { ...state.importPreflight, [role]: result };
-  if (!result.ok) { setActiveTab('source'); renderShell(); return; }
+  if (!result.ok) {
+    // Failed S2 imports must display the S2 report even if S1 was selected
+    // immediately before the upload. No existing parsed source is replaced.
+    if (state.sources.some(source => source.sourceId === role)) {
+      state.activeSourceId = role;
+    }
+    setActiveTab('source');
+    renderShell();
+    return;
+  }
   let next = { sources: state.sources, activeSourceId: state.activeSourceId };
   if (!next.sources.some(source => source.sourceId === role)) next = addSource(next, 'ISO Notes / S2');
   next = updateSourceDraft(next, role, {
@@ -221,6 +235,9 @@ async function importIsoRoleFile(role, file) {
   });
   setSources(next);
   loadIsoNoteTemplate();
+  // Keep the just-imported role visible; S1 and S2 each have their own
+  // file preview, diagnostics and paste buffer.
+  setSources(setActiveSource({ sources: state.sources, activeSourceId: state.activeSourceId }, role));
   // Loading the ISO recipe rebuilds the source state but does not discard
   // preflight findings. Stay on Table step for visible provenance and warnings.
   state.exportStatus = result.summary;
@@ -280,7 +297,19 @@ function xmlName(value, fallback = 'Field') { const base = String(value || fallb
 function uniqueResolverName(resolvers = {}, label = 'Field') { const base = cleanName(label, 'field'); let name = base, i = 2; while (Object.prototype.hasOwnProperty.call(resolvers, name)) name = `${base}${i++}`; return name; }
 function applyGuidedFieldAction(action, event) { const btn = fieldActionButton(event), header = btn?.dataset.fieldHeader || '', label = btn?.dataset.fieldLabel || header; if (!header) return; const path = (btn.dataset.path || state.selectedLevelPath || '0').split(',').filter((x) => x !== '').map(Number), current = levelAt(path) || {}; if (action === 'assign-field-key') state.profile = updateLevelAtPath(state.profile, path, { keyResolver: { op: 'trim', column: header }, displayNameResolver: { op: 'trim', column: header } }); else if (action === 'assign-field-display') state.profile = updateLevelAtPath(state.profile, path, { displayNameResolver: { op: 'trim', column: header } }); else if (action === 'add-field-resolver') { const resolvers = { ...(current.fieldResolvers || {}) }, name = uniqueResolverName(resolvers, label); resolvers[name] = { op: 'trim', column: header }; state.profile = updateLevelAtPath(state.profile, path, { fieldResolvers: resolvers }); } else if (action === 'create-child-from-field') { const index = current.children?.length || 0; state.profile = addChildLevel(state.profile, path, { levelId: cleanName(label, `fieldLevel${nextLevelNumber()}`), displayName: label, xmlTag: xmlName(label, 'Field'), levelType: 'group', creationMode: 'one-per-key', keyResolver: { op: 'trim', column: header }, displayNameResolver: { op: 'trim', column: header }, children: [] }); state.selectedLevelPath = pathKey([...path, index]); }
   if (action !== 'create-child-from-field') state.selectedLevelPath = pathKey(path); resetDerived(); state.exportStatus = `Recipe updated from field: ${label}.`; setActiveTab('graph'); renderShell(); }
-function clickHandler(event) { if (event.target.closest(BUTTON_SELECTOR)) { event.preventDefault(); openShell(); return; } if (event.target.closest('[data-table-categorized-close]')) { event.preventDefault(); closeShell(); return; } const step = event.target.closest('[data-table-categorized-step]')?.dataset.tableCategorizedStep; if (step) { event.preventDefault(); setActiveStep(step); renderShell(); return; } const tab = event.target.closest('[data-table-categorized-tab]')?.dataset.tableCategorizedTab; if (tab) { event.preventDefault(); setActiveTab(tab); renderShell(); return; } const download = event.target.closest('[data-table-categorized-download]')?.dataset.tableCategorizedDownload; if (download) { event.preventDefault(); downloadArtifact(download); return; } const action = event.target.closest('[data-table-categorized-action]')?.dataset.tableCategorizedAction; if (!action) return; if (action === 'choose-iso-s1' || action === 'choose-iso-s2') {
+function clickHandler(event) {
+  const roleTab = event.target.closest('[data-table-categorized-source-role-tab]');
+  if (roleTab && document.querySelector(POPUP_SELECTOR)?.contains(roleTab)) {
+    event.preventDefault();
+    const role = roleTab.dataset.tableCategorizedSourceRoleTab;
+    if (state.sources.some(source => source.sourceId === role)) {
+      setSources(setActiveSource({ sources: state.sources, activeSourceId: state.activeSourceId }, role));
+      setActiveTab('source');
+      renderShell();
+    }
+    return;
+  }
+  if (event.target.closest(BUTTON_SELECTOR)) { event.preventDefault(); openShell(); return; } if (event.target.closest('[data-table-categorized-close]')) { event.preventDefault(); closeShell(); return; } const step = event.target.closest('[data-table-categorized-step]')?.dataset.tableCategorizedStep; if (step) { event.preventDefault(); setActiveStep(step); renderShell(); return; } const tab = event.target.closest('[data-table-categorized-tab]')?.dataset.tableCategorizedTab; if (tab) { event.preventDefault(); setActiveTab(tab); renderShell(); return; } const download = event.target.closest('[data-table-categorized-download]')?.dataset.tableCategorizedDownload; if (download) { event.preventDefault(); downloadArtifact(download); return; } const action = event.target.closest('[data-table-categorized-action]')?.dataset.tableCategorizedAction; if (!action) return; if (action === 'choose-iso-s1' || action === 'choose-iso-s2') {
     event.preventDefault();
     document.querySelector(POPUP_SELECTOR)?.querySelector(
       '[data-table-categorized-iso-file="' + (action === 'choose-iso-s1' ? 'S1' : 'S2') + '"]')?.click();

@@ -11,6 +11,14 @@ test('S1/S2 CSV buttons: strict preflight, safe autofix, and non-destructive fai
   await expect(popup.getByText('📥 Drag & Drop CSV / TXT File Here')).toBeVisible();
   await expect(popup.locator('[data-table-categorized-action="choose-iso-s1"]')).toBeVisible();
   await expect(popup.locator('[data-table-categorized-action="choose-iso-s2"]')).toBeVisible();
+  // Both roles own independent previews; choosing one must not display the
+  // other role's preflight or paste buffer.
+  await popup.locator('[data-table-categorized-action="load-iso-note-template"]').click();
+  await expect(popup.locator('[data-table-categorized-source-role-tab="S1"]')).toBeVisible();
+  await expect(popup.locator('[data-table-categorized-source-role-tab="S2"]')).toBeVisible();
+  await popup.locator('[data-table-categorized-source-role-tab="S1"]').click();
+  await expect(popup.locator('[data-table-categorized-source-role-tab="S1"]')).toHaveAttribute('aria-selected', 'true');
+
 
   const s1 = '\uFEFFSupport No\tpipe\tBore\tDTXR\tSupport Gap\tMandatory\n' +
     'PS-124.1\tPIPE-1/B4\t50\tGUIDE XRT\t\tNo\n' +
@@ -64,6 +72,33 @@ test('S1/S2 CSV buttons: strict preflight, safe autofix, and non-destructive fai
   expect(afterBoth.s2Note).toContain('GUIDE GAP=10mm');
   expect(afterBoth.s2Original).toBe(s2);
   expect(afterBoth.preflight.reviewCount).toBe(1);
+  await expect(popup.locator('[data-table-categorized-source-role-tab="S2"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(popup.locator('[data-table-categorized-preflight-role="S2"]')).toBeVisible();
+  await expect(popup.locator('[data-table-categorized-preflight-role="S1"]')).toHaveCount(0);
+  await popup.locator('[data-table-categorized-source-role-tab="S1"]').click();
+  await expect(popup.locator('[data-table-categorized-preflight-role="S1"]')).toBeVisible();
+  await expect(popup.locator('[data-table-categorized-preflight-role="S2"]')).toHaveCount(0);
+  await expect(popup.locator('[data-table-categorized-source-text]')).toHaveValue(s1.slice(1));
+  await popup.locator('[data-table-categorized-source-role-tab="S2"]').click();
+  await expect(popup.locator('[data-table-categorized-source-text]')).toHaveValue(s2);
+  // The original 819-row shape is maintained without treating a redundant
+  // identical NODE_NAME or an empty trailing CSV header as a schema failure.
+  const originalShape = 'NODE_NAME,LinenoinCII,SupportISONOTE,NODE_NAME,\n' +
+    Array.from({ length: 819 }, (_, i) =>
+      'PS-' + String(i + 1).padStart(4, '0') + ',PIPE-1,/PS-' +
+      String(i + 1).padStart(4, '0') + ' :ISONOTE REST(2kN),PS-' +
+      String(i + 1).padStart(4, '0') + ',').join('\n') + '\n';
+  await popup.locator('[data-table-categorized-iso-file="S2"]').setInputFiles({
+    name: 'S2.csv', mimeType: 'text/csv', buffer: Buffer.from(originalShape),
+  });
+  await expect(popup.locator('[data-table-categorized-preflight-role="S2"]')).toContainText('819 rows');
+  expect(await page.evaluate(() => {
+    const state = window.__tableCategorizedState;
+    return { rows: state.sources.find(s => s.sourceId === 'S2')?.rows.length,
+      preserved: state.sources.find(s => s.sourceId === 'S2')?.originalSourceText.startsWith('NODE_NAME'),
+      blockers: state.importPreflight.S2.blockerCount };
+  })).toEqual({ rows: 819, preserved: true, blockers: 0 });
+
 
   // Native drop handler: selected S1 receives the file, not an arbitrary role.
   await popup.locator('[data-table-categorized-active-source]').selectOption('S1');
