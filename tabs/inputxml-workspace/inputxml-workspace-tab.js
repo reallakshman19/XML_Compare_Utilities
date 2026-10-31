@@ -1065,6 +1065,7 @@ function bindRenderedPanels(dialog, state) {
       verdict: state.topologyAdmission,
       byteSha256: state.topologyAdmissionDigest,
       epoch: state.topologyAdmissionEpoch,
+      sourceKind: state.topologyAdmissionSourceKind,
     }});
   }
   const supportHost = dialog.querySelector('[data-ixw-support-host]');
