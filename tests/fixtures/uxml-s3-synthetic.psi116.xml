@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PipeStressExport xmlns="http://aveva.com/pipeStress116.xsd">
+  <Branch>
+    <Branchname>S3-SYNTHETIC-LINE</Branchname>
+    <Node>
+      <NodeNumber>10</NodeNumber><NodeName>START</NodeName>
+      <Endpoint>1</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>PIPE-A</ComponentRefNo>
+      <Position>100 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness>
+    </Node>
+    <Node>
+      <NodeNumber>20</NodeNumber><NodeName>END</NodeName>
+      <Endpoint>2</Endpoint><ComponentType>PIPE</ComponentType><ComponentRefNo>PIPE-A</ComponentRefNo>
+      <Position>200 0 0</Position><OutsideDiameter>100</OutsideDiameter><WallThickness>6.02</WallThickness>
+    </Node>
+  </Branch>
+</PipeStressExport>
