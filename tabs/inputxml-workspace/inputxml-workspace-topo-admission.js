@@ -102,12 +102,42 @@ export function sameTextareaSource(before, after) {
   return canonical(before) === canonical(after);
 }
 
+/**
+ * Exceptional PSI116 legacy *view* permit, NOT topology admission.
+ * Only the classifier's verified-namespace recognition refusal qualifies.
+ * It owns the exact UTF-8 text captured from the already-digested normal
+ * Source XML file at this epoch, never a textarea or an unrelated XML source.
+ */
+export function workspacePsi116LegacyGate(state) {
+  const a = state.topologyAdmission;
+  if (!a || a.status !== 'UNSUPPORTED_INPUT' ||
+      a.reason !== 'PSI116_RECOGNIZED_NOT_ADMITTED' ||
+      a.root?.localName !== 'PipeStressExport' ||
+      !['http://aveva.com/pipeStress116.xsd', 'http://aveva.com/pipestress116.xsd']
+        .includes(a.root?.namespaceURI))
+    return Object.freeze({allowed: false, reason: 'NOT_VERIFIED_PSI116_REFUSAL'});
+  if (!Number.isSafeInteger(state.topologyAdmissionEpoch) ||
+      state.topologyAdmissionEpoch !== a.epoch ||
+      state.topologyAdmissionSourceEpoch !== a.epoch ||
+      state.topologyAdmissionSourceKind !== 'normal-source' ||
+      a.digest?.authority !== 'XML_FILE_BYTES_MEASURED' ||
+      !/^[a-f0-9]{64}$/.test(a.digest?.sha256 || '') ||
+      state.topologyAdmissionDigest !== a.digest.sha256 ||
+      typeof state.topologyAdmissionSourceText !== 'string' ||
+      !state.topologyAdmissionSourceText.trim() ||
+      a.writerEligible !== false || a.physicalIdentityQualified !== false)
+    return Object.freeze({allowed: false, reason: 'STALE_OR_UNBOUND_PSI116_SOURCE'});
+  return Object.freeze({allowed: true, reason: null});
+}
+
 /** UI mount decision shared by the actual Workspace view and negative tests. */
 export function renderWorkspace5BMount(state) {
+  if (workspaceTopologyGate(state).allowed)
+    return '<div data-ixw-5b-host data-topo-b-byte-bound="1"></div>';
+  if (workspacePsi116LegacyGate(state).allowed)
+    return '<div data-ixw-5b-host data-topo-b-psi116-legacy="1"></div>';
   const gate = workspaceTopologyGate(state);
-  return gate.allowed
-    ? '<div data-ixw-5b-host data-topo-b-byte-bound="1"></div>'
-    : `<div class="ixw-error" role="status">Ported 5B Topology blocked · ${esc(gate.reason)}. No independent file or paste bypass.</div>`;
+  return `<div class="ixw-error" role="status">Ported 5B Topology blocked · ${esc(gate.reason)}. No independent file or paste bypass.</div>`;
 }
 
 /** Current measured file-byte digest + generation; textarea normalization is NOT authority. */
