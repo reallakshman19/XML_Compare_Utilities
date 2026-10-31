@@ -1683,7 +1683,7 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   // based on PHYSICAL PIPINGELEMENT order, not closing-tag traversal order.
   const unorderedTags=findElements(text,'PIPINGELEMENT');
   const seen=new Map();
-  const openings=[...text.matchAll(/<PIPINGELEMENT\\b/gi)].map(x=>x.index);
+  const openings=[...text.matchAll(/<PIPINGELEMENT\b/gi)].map(x=>x.index);
   const tags=unorderedTags.map(tag=>{
     const count=seen.get(tag.raw)||0;
     let startAt=0,offset=-1;
