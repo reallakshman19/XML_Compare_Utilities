@@ -1,8 +1,8 @@
 /**
- * TOPO-B B2: fail-closed presentation gate for a separate read-only topology upload.
- * This module deliberately has no parser, converter, Worker, DOM or writer dependencies.
- * Only the measured-byte admission result from xml-format-admission.js may enable a
- * source-element evidence preview. A preview is NOT a physical connectivity verdict.
+ * TOPO-B B2: fail-closed normal Workspace source-upload admission and preview.
+ * The source bytes feed both the unchanged CleanXML textarea input and the strict
+ * read-only F05/R4 admission. This module has no conversion, DOM, 5B or writer
+ * dependencies. An edge is source evidence, not an engineering-approved connection.
  */
 export const WORKSPACE_TOPO_ADMISSION_VIEW_SCHEMA = 'inputxml-workspace-topo-admission/v1';
 
@@ -28,6 +28,75 @@ export function topologyPreviewGate(admission, epoch) {
   return Object.freeze({allowed: true, reason: null});
 }
 
+
+/**
+ * Revoke before any replacement I/O or manual source text edit. The epoch also
+ * invalidates pending arrayBuffer() reads and pending async parser outcomes.
+ */
+export function revokeTopologyAdmission(state) {
+  state.topologyAdmissionEpoch = (state.topologyAdmissionEpoch ?? 0) + 1;
+  state.topologyAdmission = null;
+  state.topologyAdmissionError = '';
+  state.topologyAdmissionPhase = 'idle';
+  state.topologyAdmissionSourceText = null;
+  state.topologyAdmissionSourceKind = null;
+  return state.topologyAdmissionEpoch;
+}
+
+/**
+ * The normal Source XML upload's only read path. Byte snapshot is decoded with
+ * browser File.text's UTF-8 semantics for the EXISTING CleanXML textarea; the
+ * exact same bytes (not a text re-encoding) go to admitXmlBytes.
+ *
+ * Two distinct epoch checks: (1) after bytes are read, before source adoption or
+ * invoking admission; (2) after async admission, before publishing any verdict.
+ * A changed source or closed dialog cannot resurrect an old graph. All external
+ * effects are callbacks, making the real handler contract directly unit-testable.
+ */
+export async function admitWorkspaceSourceUpload({
+  state, file, admitBytes, onSourceText = () => {}, notify = () => {},
+  isCurrent = () => true,
+}) {
+  if (!file) return null;
+  const epoch = revokeTopologyAdmission(state);
+  state.topologyAdmissionPhase = 'checking';
+  notify();
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (epoch !== state.topologyAdmissionEpoch || !isCurrent()) return null; // guard after I/O
+    const sourceText = new TextDecoder('utf-8').decode(bytes);
+    onSourceText(sourceText, file.name);
+    state.topologyAdmissionSourceKind = 'normal-source';
+    state.topologyAdmissionSourceText = sourceText;
+    notify();
+    const verdict = await admitBytes(bytes, {name: file.name, epoch});
+    if (epoch !== state.topologyAdmissionEpoch || !isCurrent()) return null; // guard after admission
+    state.topologyAdmission = verdict;
+    state.topologyAdmissionPhase = 'ready';
+    notify();
+    return verdict;
+  } catch (error) {
+    if (epoch !== state.topologyAdmissionEpoch || !isCurrent()) return null;
+    state.topologyAdmission = null;
+    state.topologyAdmissionPhase = 'failed';
+    state.topologyAdmissionError = String(error?.message || error);
+    notify();
+    return null;
+  }
+}
+
+/** Current, measured file-byte identity AND identical adopted source snapshot. */
+export function workspaceTopologyGate(state) {
+  const gate = topologyPreviewGate(state.topologyAdmission, state.topologyAdmissionEpoch);
+  if (!gate.allowed) return gate;
+  if (state.topologyAdmissionSourceKind !== 'normal-source' ||
+      typeof state.topologyAdmissionSourceText !== 'string' ||
+      !state.topologyAdmissionSourceText ||
+      state.topologyAdmissionSourceText !== state.sourceXmlText)
+    return Object.freeze({allowed: false, reason: 'SOURCE_BYTES_OR_TEXT_CHANGED'});
+  return gate;
+}
+
 function geometryLabel(admission) {
   const statuses = new Set((admission.nodes || []).map(node => node.coordinateStatus));
   return statuses.size === 1 && statuses.has('ABSOLUTE_EXPLICIT_SEED') ? 'absolute'
@@ -45,14 +114,15 @@ function profileLabel(admission) {
  * The InputXML Workspace's existing CleanXML/5C/enrichment/Categorized controls are
  * independent of this isolated intake. It never invokes them or publishes a graph.
  */
-export function renderTopologyAdmission({phase = 'idle', admission = null, epoch = 0, error = ''} = {}) {
-  const input = `<div class="ixw-toolbar"><input type="file" accept=".xml,.txt,text/xml,application/xml" data-ixw-file="topologySource" aria-label="Read-only topology XML file"></div>`;
-  const note = '<div class="ixw-note">Read-only F05/R4 source-element evidence, not an approved physical connection or CII writer. Other profiles are not admitted. Existing 5B topology tools below are separate.</div>';
+export function renderTopologyAdmission({phase = 'idle', admission = null, epoch = 0, error = '', sourceXmlText = '', sourceSnapshot = null, sourceKind = null} = {}) {
+  const input = '<div class="ixw-note">Load or replace a file using <b>CleanXML → Source XML</b>. This exact normal Workspace upload is checked for read-only F05/R4 topology evidence.</div>';
+  const note = '<div class="ixw-note">Only source records from that same measured file and epoch can be previewed; never an approved physical connection or CII writer. The legacy 5B paste/upload parser is not mounted in this lane.</div>';
   if (phase === 'checking') return `${input}<div class="ixw-note" role="status">Checking uploaded XML bytes and profile. Previous topology evidence cleared.</div>${note}`;
   if (phase === 'failed') return `${input}<div class="ixw-error" role="alert">Topology admission failed: ${esc(error || 'unavailable')}. Preview blocked.</div>${note}`;
   if (!admission) return `${input}<div class="ixw-note" role="status">No topology file admitted. Load an XML file to check its profile.</div>${note}`;
 
-  const gate = topologyPreviewGate(admission, epoch);
+  const gate = workspaceTopologyGate({topologyAdmission: admission, topologyAdmissionEpoch: epoch,
+    topologyAdmissionSourceKind: sourceKind, topologyAdmissionSourceText: sourceSnapshot, sourceXmlText});
   const sha = admission.digest?.sha256 ? String(admission.digest.sha256).slice(0, 12) : 'not measured';
   const measured = admission.digest?.authority === 'XML_FILE_BYTES_MEASURED';
   if (!gate.allowed) {
