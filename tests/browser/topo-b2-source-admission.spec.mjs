@@ -38,8 +38,8 @@ test('TOPO-B B2 normal upload: F05 admitted, unknown refused, CRLF F05 retained 
   await input().setInputFiles({name: 'unknown.xml', mimeType: 'application/xml',
     buffer: Buffer.from('<Plant><Pipe id="1"/></Plant>', 'utf8')});
   await topo();
-  await expect(workspace.locator('.ixw-error')).toContainText('Not supported');
-  await expect(workspace.locator('.ixw-error')).toContainText('UNKNOWN_ROOT_NOT_ADMITTED:Plant');
+  await expect(workspace.locator('.ixw-error[role="alert"]')).toContainText('Not supported');
+  await expect(workspace.locator('.ixw-error[role="alert"]')).toContainText('UNKNOWN_ROOT_NOT_ADMITTED:Plant');
   await expect(workspace.locator('[data-ixw-5b-host]')).toHaveCount(0);
   await expect(workspace.locator('[data-xml-cii-5b-admitted-view]')).toHaveCount(0);
   await workspace.screenshot({path: join(screenshotDir, '02-unknown-refused.png')});
