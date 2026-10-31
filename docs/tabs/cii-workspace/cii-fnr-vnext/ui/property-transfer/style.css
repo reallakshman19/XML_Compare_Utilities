@@ -1,0 +1,14 @@
+/* Completely scoped to the new independent Property Transfer tab. */
+[data-property-transfer-area] { padding: 1rem; }
+[data-property-transfer-area] .pt-heading { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+[data-property-transfer-area] .pt-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1rem 0;}
+[data-property-transfer-area] .pt-box {border:1px solid var(--line,#657080);border-radius:8px;padding:1rem;}
+[data-property-transfer-area] .pt-box label {display:block;margin:.6rem 0;font-size:.95rem;}
+[data-property-transfer-area] input {max-width:100%;margin:.3rem 0 .6rem;}
+[data-property-transfer-area] .pt-mode-nav {display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0;}
+[data-property-transfer-area] .pt-mode-nav button[aria-selected="true"] {font-weight:700;outline:2px solid currentColor;}
+[data-property-transfer-area] .pt-scroll {overflow:auto;max-width:100%;margin:.6rem 0;}
+[data-property-transfer-area] table {border-collapse:collapse;width:100%;min-width:760px;}
+[data-property-transfer-area] th,[data-property-transfer-area] td {padding:.5rem;text-align:left;border-bottom:1px solid var(--line,#657080);vertical-align:top;}
+[data-property-transfer-area] .pt-hold {font-weight:600;}
+[data-property-transfer-area] .pt-result {margin:.9rem 0;}

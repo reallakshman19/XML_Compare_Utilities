@@ -161,7 +161,8 @@ export function createTestDom() {
   const tabGeom = new MockElement('button', { 'data-tab': 'GEOMETRY', 'role': 'tab' });
   const tabConfig = new MockElement('button', { 'data-tab': 'CONFIG', 'role': 'tab' });
   const tabNodal = new MockElement('button', { 'data-tab': 'NODAL', 'role': 'tab' });
-  nav.append(tabNormal, tabNodal, tabLineNode, tabGeom, tabConfig);
+  const tabProperty = new MockElement('button', { 'data-tab': 'PROPERTY_TRANSFER', 'role': 'tab' });
+  nav.append(tabNormal, tabNodal, tabProperty, tabLineNode, tabGeom, tabConfig);
 
   // Workspace
   const ws = new MockElement('div', { 'data-workspace': '' });
@@ -231,7 +232,35 @@ export function createTestDom() {
   const selApprovalMode = new MockElement('select', { 'data-config': 'approvalMode' });
   configArea.append(selConflict, selUnapproved, selApprovalMode);
 
-  root.append(nav, ws, configArea);
+  // New Property Transfer has isolated file inputs and two independent submodules.
+  // Preserve the old NODAL fixture; do not reuse its file selectors.
+  const propertyPanel = new MockElement('section', { 'data-property-transfer-area': '' });
+  const ptModeElement = new MockElement('button', { 'data-pt-mode': 'ELEMENT' });
+  const ptModeNode = new MockElement('button', { 'data-pt-mode': 'NODE' });
+  const ptModuleElement = new MockElement('section', { 'data-pt-module': 'ELEMENT' });
+  const ptModuleNode = new MockElement('section', { 'data-pt-module': 'NODE' });
+  const ptInputs = {};
+  for (const key of ['sourceFrom','sourceTo','targetFrom','targetTo']) {
+    const input = new MockElement('input', { 'data-pt-input': key });
+    ptInputs[key] = input; ptModuleElement.append(input);
+  }
+  for (const key of ['sourceNode','targetNode']) {
+    const input = new MockElement('input', { 'data-pt-input': key });
+    ptInputs[key] = input; ptModuleNode.append(input);
+  }
+  const ptSourceFile = new MockElement('input', { 'data-pt-file': 'source' });
+  const ptTargetFile = new MockElement('input', { 'data-pt-file': 'target' });
+  const ptSourceStatus = new MockElement('p', { 'data-pt-file-status': 'source' });
+  const ptTargetStatus = new MockElement('p', { 'data-pt-file-status': 'target' });
+  const ptStatus = new MockElement('p', { 'data-pt-status': '' });
+  const ptResults = new MockElement('div', { 'data-pt-results': '' });
+  const ptResultStatus = new MockElement('p', { 'data-pt-result-status': '' });
+  const ptRun = new MockElement('button', { 'data-pt-run': '' });
+  propertyPanel.append(ptModeElement, ptModeNode, ptModuleElement, ptModuleNode,
+    ptSourceFile, ptTargetFile, ptSourceStatus, ptTargetStatus,
+    ptStatus, ptResultStatus, ptResults, ptRun);
+
+  root.append(nav, ws, propertyPanel, configArea);
 
   globalThis.document = {
     querySelector: (s) => (s === '[data-vnext-app]' ? root : root.querySelector(s)),
@@ -242,5 +271,7 @@ export function createTestDom() {
   globalThis.URL.createObjectURL = () => 'blob:mock';
   globalThis.URL.revokeObjectURL = () => {};
 
-  return { root, tabNormal, tabNodal, nodalElements, tabConfig, btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile, cleanupReport, cleanupLog };
+  return { root, tabNormal, tabNodal, tabProperty, propertyPanel, ptModeElement, ptModeNode,
+    ptModuleElement, ptModuleNode, ptInputs, ptSourceFile, ptTargetFile, ptStatus,
+    ptResults, ptRun, nodalElements, tabConfig, btnRun, btnResolve, btnApproveAll, btnApproveNonconflict, btnUseResolved, btnValidate, btnApply, btnExport, status, tbodyProposals, ulDiagnostics, selConflict, targetFile, sourceFile, csvFile, cleanupReport, cleanupLog };
 }
