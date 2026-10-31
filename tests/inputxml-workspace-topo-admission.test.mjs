@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {admitWorkspaceSourceUpload, renderTopologyAdmission, revokeTopologyAdmission, topologyPreviewGate, workspaceTopologyGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
+import {createHash} from 'node:crypto';
+import {renderXmlCiiTopology5BPanel} from '../tabs/model-converters/xml-cii-topology-5b-panel.js';
+import {admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, topologyPreviewGate, workspaceTopologyGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
 
 const admitted = (overrides = {}) => ({
   status: 'ADMITTED', epoch: 3, admittedProfile: 'F05 RichInputXML-P1.v1.1',
@@ -14,13 +16,14 @@ const admitted = (overrides = {}) => ({
 });
 
 const boundView = (input, options = {}) => renderTopologyAdmission({
-  admission: input, epoch: 3, sourceXmlText: '<same-source/>',
-  sourceSnapshot: '<same-source/>', sourceKind: 'normal-source', ...options,
+  admission: input, epoch: 3, sourceDigest: input.digest?.sha256,
+  sourceEpoch: 3, sourceKind: 'normal-source', ...options,
 });
 const sourceState = (overrides = {}) => ({
   topologyAdmissionEpoch: 0, topologyAdmission: null, topologyAdmissionError: '',
   topologyAdmissionPhase: 'idle', topologyAdmissionSourceText: null,
-  topologyAdmissionSourceKind: null, sourceXmlText: '', ...overrides,
+  topologyAdmissionSourceKind: null, topologyAdmissionDigest: null,
+  topologyAdmissionSourceEpoch: null, sourceXmlText: '', ...overrides,
 });
 function deferred() {
   let resolve, reject;
@@ -159,41 +162,79 @@ test('epoch guard after async admission prevents a stale verdict from resurrecti
   assert.equal(workspaceTopologyGate(state).allowed, true);
 });
 
-test('same-source gate refuses changed paste text, wrong source lane, stale epoch and unreadable byte claims', () => {
+test('current digest/epoch gate survives line-ending presentation but refuses wrong bytes or source lane', () => {
   const state = sourceState({topologyAdmissionEpoch: 3, topologyAdmission: admitted(),
-    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionSourceText: 'original',
-    sourceXmlText: 'original'});
+    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionDigest: 'a'.repeat(64),
+    topologyAdmissionSourceEpoch: 3, topologyAdmissionSourceText: 'original\r\n',
+    sourceXmlText: 'original\n'});
   assert.equal(workspaceTopologyGate(state).allowed, true);
-  state.sourceXmlText = 'edited';
-  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTES_OR_TEXT_CHANGED');
-  state.sourceXmlText = 'original'; state.topologyAdmissionSourceKind = 'other-upload';
-  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTES_OR_TEXT_CHANGED');
-  state.topologyAdmissionSourceKind = 'normal-source';
+  state.topologyAdmissionDigest = 'b'.repeat(64);
+  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTE_IDENTITY_CHANGED');
+  state.topologyAdmissionDigest = 'a'.repeat(64);
+  state.topologyAdmissionSourceEpoch = 2;
+  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTE_IDENTITY_CHANGED');
+  state.topologyAdmissionSourceEpoch = 3;
+  state.topologyAdmissionSourceKind = 'other-upload';
+  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTE_IDENTITY_CHANGED');
+  assert.equal(sameTextareaSource('original\r\n', 'original\n'), true);
+  assert.equal(sameTextareaSource('original\r\n', 'edited\n'), false);
   revokeTopologyAdmission(state);
   assert.equal(state.topologyAdmission, null);
+  assert.equal(state.topologyAdmissionDigest, null);
   assert.equal(workspaceTopologyGate(state).allowed, false);
 });
 
-test('normal-upload wiring is not bypassed by a legacy 5B independent paste/file picker', () => {
+test('normal-upload wiring calls real admitXmlBytes with raw bytes: no injection into tab path', () => {
   const tab = readFileSync(new URL('../tabs/inputxml-workspace/inputxml-workspace-tab.js', import.meta.url), 'utf8');
-  assert.match(tab, /admitWorkspaceSourceUpload\(/);
-  assert.match(tab, /revokeTopologyAdmission\(state\)/);
-  assert.doesNotMatch(tab, /renderXmlCiiTopology5BPanel|data-ixw-5b-host|topologySource/);
-  const denied = boundView(admitted(), {sourceSnapshot: '<different/>'});
-  assert.match(denied, /SOURCE_BYTES_OR_TEXT_CHANGED/);
-  assert.doesNotMatch(denied, /Source-element preview/);
+  const from = tab.indexOf('function bindFileInputs(dialog, state)');
+  const to = tab.indexOf('function bindSubtabButtons(', from);
+  assert(from > -1 && to > from, 'actual Workspace file handler source required');
+  const handler = tab.slice(from, to);
+  assert.match(handler, /\[data-ixw-file="sourceXml"\]/);
+  assert.match(handler, /admitWorkspaceSourceUpload\(\{[\s\S]*?admitBytes:\s*async\s*\(bytes,\s*options\)\s*=>\s*\{[\s\S]*?const\s*\{\s*admitXmlBytes\s*\}\s*=\s*await\s+import\('\.\.\/\.\.\/prototypes\/ciifr-map\/xml-format-admission\.js'\);[\s\S]*?return\s+admitXmlBytes\(bytes,\s*options\)/);
+  assert.doesNotMatch(handler, /admitXmlFormat|file\.text\s*\(|new\s+TextEncoder/);
+  assert.doesNotMatch(handler, /data-ixw-file="topologySource"/);
+  assert.match(handler, /if\s*\(!file\)\s*return\s*;/, 'file picker cancel must be inert');
 });
 
-test('empty normal file selection revokes old admission even without a replacement byte stream', async () => {
+test('5B native panel mounts only on admitted digest+epoch and has no independent upload bypass', () => {
+  const good = sourceState({topologyAdmissionEpoch: 3, topologyAdmission: admitted(),
+    topologyAdmissionSourceEpoch: 3, topologyAdmissionDigest: 'a'.repeat(64),
+    topologyAdmissionSourceKind: 'normal-source'});
+  assert.equal(workspaceTopologyGate(good).allowed, true);
+  assert.match(renderWorkspace5BMount(good), /data-ixw-5b-host/);
+  const host = {innerHTML: ''};
+  const result = renderXmlCiiTopology5BPanel(host, {readOnlyAdmission: {
+    verdict: good.topologyAdmission, byteSha256: good.topologyAdmissionDigest, epoch: 3,
+  }});
+  assert.equal(result.kind, 'ADMITTED_SOURCE_ELEMENTS_READ_ONLY');
+  assert.match(host.innerHTML, /5B Topology/);
+  assert.doesNotMatch(host.innerHTML, /data-xml-cii-5b-file|data-xml-cii-5b-paste/);
+  const refused = {...good, topologyAdmission: admitted({status: 'UNSUPPORTED_INPUT', reason: 'UNKNOWN_ROOT_NOT_ADMITTED:Plant'})};
+  assert.equal(workspaceTopologyGate(refused).allowed, false);
+  assert.doesNotMatch(renderWorkspace5BMount(refused), /data-ixw-5b-host/);
+  assert.match(renderWorkspace5BMount(refused), /Ported 5B Topology blocked/);
+  const badHost = {innerHTML: ''};
+  assert.equal(renderXmlCiiTopology5BPanel(badHost, {readOnlyAdmission: {
+    verdict: refused.topologyAdmission, byteSha256: good.topologyAdmissionDigest, epoch: 3,
+  }}), null);
+  assert.match(badHost.innerHTML, /blocked/);
+  const tab = readFileSync(new URL('../tabs/inputxml-workspace/inputxml-workspace-tab.js', import.meta.url), 'utf8');
+  assert.match(tab, /renderWorkspace5BMount\(state\)/);
+  assert.match(tab, /host5b\s*&&\s*workspaceTopologyGate\(state\)\.allowed/);
+  assert.match(tab, /renderXmlCiiTopology5BPanel\(host5b,\s*\{readOnlyAdmission:/);
+});
+
+test('canceling normal file pick leaves source text, byte admission and epoch unchanged', async () => {
   const state = sourceState({topologyAdmissionEpoch: 3, topologyAdmission: admitted(),
-    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionSourceText: 'old', sourceXmlText: 'old'});
+    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionDigest: 'a'.repeat(64),
+    topologyAdmissionSourceEpoch: 3, topologyAdmissionSourceText: 'old', sourceXmlText: 'old'});
+  const before = {...state};
   let notified = 0;
   await admitWorkspaceSourceUpload({state, file: null, admitBytes: () => {
-    throw new Error('must not admit on cleared selection');
+    throw new Error('must not admit on canceled selection');
   }, notify: () => {notified++;}});
-  assert.equal(state.topologyAdmissionEpoch, 4);
-  assert.equal(state.topologyAdmission, null);
-  assert.equal(state.topologyAdmissionSourceText, null);
-  assert.equal(notified, 1);
-  assert.equal(workspaceTopologyGate(state).allowed, false);
+  assert.deepEqual(state, before);
+  assert.equal(notified, 0);
+  assert.equal(workspaceTopologyGate(state).allowed, true);
 });
