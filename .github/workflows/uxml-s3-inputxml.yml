@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'uxml/UxmlInputXmlSchemaMapper.js'
+      - 'docs/uxml-reader-contract.md'
+      - 'docs/CODER-CHECKPOINT.md'
       - 'uxml/UxmlInputXmlDeltaGraph.js'
       - 'uxml/UxmlInputXmlDeltaGraph.js'
       - 'docs/GREInputxml.xml'
