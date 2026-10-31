@@ -19,6 +19,25 @@ function extractRootName(text) {
   return match ? match[1] : '';
 }
 
+/**
+ * Recognise PSI116 only with a verified AVEVA namespace on PipeStressExport.
+ * This lexical preflight is read-only; full mapper parses the XML structure.
+ * Prefix is allowed only when bound by the root xmlns:prefix declaration.
+ */
+function detectVerifiedPsi116Root(xmlText) {
+  const head = String(xmlText || '').replace(/^\uFEFF/, '')
+    .replace(/<\?xml[\s\S]*?\?>/i, '').replace(/<!--[\s\S]*?-->/g, '').trimStart();
+  const root = head.match(/^<\s*((?:[A-Za-z_][\w.-]*:)?PipeStressExport)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/);
+  if (!root) return null;
+  const prefix = root[1].includes(':') ? root[1].split(':')[0] : '';
+  const attribute = prefix ? 'xmlns:' + prefix : 'xmlns';
+  const declarations = [...root[2].matchAll(/([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)];
+  const ns = declarations.find(item => item[1] === attribute)?.[2]
+    ?? declarations.find(item => item[1] === attribute)?.[3] ?? '';
+  return {verified: ['http://aveva.com/pipeStress116.xsd',
+    'http://aveva.com/pipestress116.xsd'].includes(ns), ns};
+}
+
 function looksLikeInputXml(text, options = {}) {
   const t = String(text || '');
   const low = t.toLowerCase();
@@ -69,6 +88,13 @@ export function detectUxmlProfile(xmlText, options = {}) {
   }
 
   const rootName = extractRootName(text);
+  const psi116 = detectVerifiedPsi116Root(text);
+  if (psi116) {
+    return psi116.verified
+      ? {profile: XML_PROFILES.PSI116, blockers: [], confidence: 'HIGH', rootName}
+      : {profile: XML_PROFILES.UNKNOWN_XML,
+         blockers: ['PSI116_UNVERIFIED_NAMESPACE'], confidence: 'NONE', rootName};
+  }
 
   if (text.includes('<UXML')) {
     return {
