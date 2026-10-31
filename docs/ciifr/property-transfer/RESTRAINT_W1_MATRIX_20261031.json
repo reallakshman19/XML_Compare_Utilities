@@ -1,0 +1,260 @@
+{
+  "schema": "CIIFR.RestraintW1.Scope.v1",
+  "status": "PROPOSED_NOT_RUNTIME_AUTHORITY",
+  "preparedAt": "2026-10-31",
+  "repository": "reallakshman19/XML_Compare_Utilities",
+  "baselineCommit": "f7ada348f51017f9ca335281c35c4e90fc79b74d",
+  "document": "RESTRAINT_W1_SCOPE_20261031.md",
+  "actualWriterImplemented": false,
+  "runtimeAdmissionEnabled": false,
+  "profile": {
+    "id": "V14_GLOBAL_DOUBLE_ACTING_XYZ_GROUND_EXISTING_SLOT_CANDIDATE",
+    "version": 14,
+    "layout": "ASCII_FIXED_CARD",
+    "candidateTypeNames": [
+      "X",
+      "Y",
+      "Z"
+    ],
+    "numericTypeCodes": null,
+    "numericTypeCodeStatus": "NOT_QUALIFIED",
+    "directionRepresentationStatus": "NOT_QUALIFIED_FOR_WRITER",
+    "sourceCNode": 0,
+    "targetCNode": 0,
+    "existingPopulatedTargetSlotOnly": true,
+    "correspondence": "EXPLICIT_ENGINEER_ACCEPTED_NODE_AND_OCCURRENCE_PAIRS",
+    "automaticCorrespondence": false,
+    "sameQualifiedCoordinateBasisRequired": true,
+    "qualifiedV14UnitsRequired": true,
+    "entireOriginalUnitsSectionBytesMustMatch": true,
+    "unitConversion": false,
+    "selectedRecordUnknownEvidence": "BLOCK_TRANSACTION",
+    "unrelatedUnknownEvidence": "PRESERVE_BYTES_AND_DISCLOSE;BLOCK_IF_DEPENDENCY_AFFECTS_SELECTED_TRANSACTION"
+  },
+  "addressing": {
+    "family": "RESTRANT",
+    "blockPointerBase": 1,
+    "slotBase": 1,
+    "slotsPerBlock": 6,
+    "cardsPerSlot": 4,
+    "cardsPerBlock": 24,
+    "firstNumericDataCard": "24*(pointer-1)+4*(slot-1)",
+    "fieldOffsets": "ZERO_BASED_HALF_OPEN_ASCII_BYTE_SLICES_RELATIVE_TO_RAW_LINE_START",
+    "ownerWitness": [
+      "originalFileHash",
+      "ownerElementWitness",
+      "typedPointer",
+      "block",
+      "slot",
+      "attachmentNode",
+      "recordFingerprint"
+    ],
+    "requiresAttachmentToBeOwnerEndpoint": false,
+    "zeroOrBlankNodeSlot": "NO_WRITES"
+  },
+  "fields": [
+    {
+      "identity": "RESTRAINT_STIFFNESS_STORED",
+      "card": 0,
+      "start": 28,
+      "end": 41,
+      "width": 13,
+      "proposedWritable": true,
+      "writerQualification": "NOT_QUALIFIED",
+      "meaningForCandidateTypes": "TRANSLATIONAL_STIFFNESS",
+      "dimension": "FORCE_PER_LENGTH",
+      "sourceRule": "EXPLICIT_FINITE_POSITIVE",
+      "targetRule": "QUALIFIED_PREIMAGE;NO_UNKNOWN_DEFAULTS",
+      "zeroOrBlankTransfer": false
+    },
+    {
+      "identity": "RESTRAINT_GAP_STORED",
+      "card": 0,
+      "start": 41,
+      "end": 54,
+      "width": 13,
+      "proposedWritable": true,
+      "writerQualification": "NOT_QUALIFIED",
+      "meaningForCandidateTypes": "TRANSLATIONAL_GAP",
+      "dimension": "LENGTH",
+      "sourceRule": "EXPLICIT_FINITE_NONNEGATIVE",
+      "targetRule": "QUALIFIED_PREIMAGE;NO_UNKNOWN_DEFAULTS",
+      "zeroRule": "ONLY_IF_V14_NEUTRAL_ZERO_SEMANTICS_QUALIFIED",
+      "blankTransfer": false
+    },
+    {
+      "identity": "RESTRAINT_MU_STORED",
+      "card": 0,
+      "start": 54,
+      "end": 67,
+      "width": 13,
+      "proposedWritable": true,
+      "writerQualification": "NOT_QUALIFIED",
+      "meaningForCandidateTypes": "STATIC_FRICTION_COEFFICIENT",
+      "dimension": "DIMENSIONLESS",
+      "sourceRule": "EXPLICIT_FINITE_NONNEGATIVE",
+      "targetRule": "QUALIFIED_PREIMAGE;NO_UNKNOWN_DEFAULTS",
+      "zeroRule": "ONLY_IF_V14_NEUTRAL_ZERO_SEMANTICS_QUALIFIED",
+      "blankTransfer": false
+    }
+  ],
+  "preservedFields": [
+    {
+      "identity": "NODE",
+      "card": 0,
+      "start": 2,
+      "end": 15
+    },
+    {
+      "identity": "TYPE",
+      "card": 0,
+      "start": 15,
+      "end": 28
+    },
+    {
+      "identity": "CNODE",
+      "card": 0,
+      "start": 67,
+      "end": 80
+    },
+    {
+      "identity": "DIRECTION_X",
+      "card": 1,
+      "start": 2,
+      "end": 15
+    },
+    {
+      "identity": "DIRECTION_Y",
+      "card": 1,
+      "start": 15,
+      "end": 28
+    },
+    {
+      "identity": "DIRECTION_Z",
+      "card": 1,
+      "start": 28,
+      "end": 41
+    },
+    {
+      "identity": "TAG_CARD",
+      "card": 2,
+      "preserveEntireCard": true
+    },
+    {
+      "identity": "GUID_CARD",
+      "card": 3,
+      "preserveEntireCard": true
+    }
+  ],
+  "transfer": {
+    "sourceBytesRequired": true,
+    "targetBytesRequired": true,
+    "afterBytes": "EXACT_VALIDATED_SOURCE_13_BYTE_FIELD_LEXEME",
+    "regenerateWholeFile": false,
+    "regenerateNumber": false,
+    "defaultFormattingOnlyTransfer": false,
+    "numericComparison": "QUALIFIED_DECIMAL_EQUIVALENCE;NO_ARBITRARY_EPSILON",
+    "planSchemaProposed": "CiiPropertyTransfer.Plan.v1",
+    "atomicUnit": "SELECTED_FIELDS_FOR_ONE_EXPLICIT_OCCURRENCE_PAIR",
+    "decisionChange": "REGENERATE_PLAN_AND_REAPPROVE",
+    "requiredBindings": [
+      "sourceSha256",
+      "target0Sha256",
+      "versionLayoutProfileRevision",
+      "unitEvidenceFingerprint",
+      "basisEvidenceFingerprint",
+      "acceptedNodePair",
+      "acceptedOccurrencePair",
+      "mappingRevision",
+      "inputEpoch",
+      "sourceAndTargetOccurrenceWitnesses",
+      "sourceLexeme",
+      "targetBeforeLexeme",
+      "targetByteSpan",
+      "selectedFields",
+      "approvedTransactionIds"
+    ],
+    "soleMutationBoundary": "EXISTING_VNEXT_COMMON_WRITER_WITH_EXPLICIT_PROPERTY_TYPED_ADMISSION",
+    "proposedEntryPoint": "ui/writer.js::validatePropertyPostimage",
+    "existingNamingEntryBehavior": "PRESERVE_validatePostimage_CONTRACT",
+    "exportFlow": [
+      "REVIEW",
+      "VALIDATE",
+      "APPLY_TO_NEW_COPY",
+      "EXPORT_VALIDATED_TARGET1"
+    ],
+    "outputChecks": [
+      "UNCHANGED_INPUT_HASHES",
+      "UNCHANGED_LENGTH_AND_LINE_ENDINGS",
+      "ONLY_APPROVED_TYPED_SPANS_DIFFER",
+      "EXACT_TARGET_PREIMAGE",
+      "NONOVERLAP_AND_NO_COMPETING_CLAIMS",
+      "TYPED_V14_REPARSE",
+      "UNCHANGED_IDENTITIES_OWNERSHIP_COUNTS_POINTERS",
+      "UNCHANGED_UNSELECTED_FIELDS_AND_SECTIONS",
+      "TARGET1_HASH_AND_LOCAL_AUDIT"
+    ]
+  },
+  "excluded": [
+    "NEW_OR_DORMANT_SLOTS",
+    "BLOCK_CREATION_DELETION_OR_REORDER",
+    "CONTROL_MISC_POINTER_NODE_TYPE_CNODE_DIRECTION_TEXT_EDITS",
+    "NONZERO_CNODE",
+    "ONE_WAY_ANCHOR_GUIDE_LIM_SKEW_ROTATION_BILINEAR_ROD_SPRING_SNUBBER",
+    "UNIT_OR_BASIS_CONVERSION",
+    "CROSS_VERSION",
+    "DEFAULT_SETTING_TRANSFER",
+    "PROCESS_GEOMETRY_MATERIAL_NAMES_RIGID_DISPLMNT_FORCMNT"
+  ],
+  "prerequisites": [
+    {
+      "id": "Q1",
+      "status": "OPEN",
+      "evidence": "INDEPENDENT_V14_TYPE_CODE_TO_XYZ_AND_DIRECTION_REPRESENTATION"
+    },
+    {
+      "id": "Q2",
+      "status": "OPEN",
+      "evidence": "V14_UNIT_STRUCTURE_AND_FIELD_DIMENSION_WITNESSES"
+    },
+    {
+      "id": "Q3",
+      "status": "OPEN",
+      "evidence": "V14_EXPLICIT_ZERO_BLANK_DEFAULT_SENTINEL_RULES_FOR_ADMITTED_VALUES"
+    },
+    {
+      "id": "Q4",
+      "status": "NOT_IMPLEMENTED",
+      "evidence": "EXPLICIT_NODE_AND_OCCURRENCE_PAIR_ACCEPTANCE"
+    },
+    {
+      "id": "Q5",
+      "status": "NOT_IMPLEMENTED",
+      "evidence": "INDEPENDENT_EXPECTED_TARGET1_BYTE_SPLICE_AND_NEGATIVES"
+    },
+    {
+      "id": "Q6",
+      "status": "NOT_RUN",
+      "evidence": "ACTUAL_NATIVE_BROWSER_AND_BOUNDED_LICENSED_V14_IMPORT_CHECK"
+    }
+  ],
+  "sourceQuality": {
+    "V14Auxiliary": {
+      "url": "https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/1471418?contentId=xcQneu2SDluXPQOwi7pmDQ",
+      "access": "INDEXED_TEXT_RETRIEVED;DIRECT_OPEN_404;TYPE_IMAGE_NOT_RETRIEVED"
+    },
+    "V14Gap": {
+      "url": "https://docs.hexagonppm.com/r/en-US/CAESAR-II-Users-Guide/Version-14/335382",
+      "access": "INDEXED_TEXT_RETRIEVED"
+    },
+    "adjacentVersionEvidence": "CORROBORATION_ONLY;NOT_V14_RUNTIME_QUALIFICATION"
+  },
+  "currentValidation": {
+    "documentConsistency": "PASS_SCOPE_CHECKS_ONLY",
+    "freshCriticalSourceBlobCheck": "4_OF_4_MATCH_BOUND_MAIN",
+    "runtimeTests": "NOT_APPLICABLE_DOCS_ONLY",
+    "W1Native": "NOT_RUN",
+    "W1Browser": "NOT_RUN",
+    "W1LicensedImport": "NOT_RUN"
+  }
+}
