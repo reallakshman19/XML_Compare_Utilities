@@ -57,7 +57,7 @@ export async function admitWorkspaceSourceUpload({
   state, file, admitBytes, onSourceText = () => {}, notify = () => {},
   isCurrent = () => true,
 }) {
-  if (!file) return null;
+  if (!file) { revokeTopologyAdmission(state); notify(); return null; }
   const epoch = revokeTopologyAdmission(state);
   state.topologyAdmissionPhase = 'checking';
   notify();
