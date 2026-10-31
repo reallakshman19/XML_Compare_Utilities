@@ -28,10 +28,10 @@ node --test tests/inputxml-workspace-topo-admission.test.mjs
 # tests 6, pass 6, fail 0
 ```
 Both locally executed new files were shown identical to committed Git blobs via `git hash-object`:
-- View helper: `c31e84a93e5bb4b692dc5762344ae388d40c24dc`
-- Unit tests: `9e4a30df8cf3e1f6765a27c9351f63861e4a79b7`
+- View helper: `e081c3ff0f98782b705696d0f71af456fe28085f`
+- Unit tests: `1ea7299c733043a751c347696918817669357c80`
 
-**Deliberate-failure proof, EXECUTED_HERE:** temporarily replace the unknown-root banner label `Not supported` with `Admitted`. Local command exited 1: **5 pass / 1 fail** (specifically unknown root / GLRD refusal test). Reverted and reran: **6/6 PASS**. File SHA-256 before/after restore: `ca03a5a600e60f0188d6d5fb7576b1cb1f924874c23b6caf69fab14fecd43d5d`. The deliberate mutation was never committed.
+**Deliberate-failure proof, EXECUTED_HERE:** temporarily replace the unknown-root banner label `Not supported` with `Admitted`. Local command exited 1: **5 pass / 1 fail** (specifically unknown root / GLRD refusal test). Reverted and reran: **6/6 PASS**. File SHA-256 before/after restore: `6f6a2a7bcf9b42bc46f20e9a82d0de68e06baf2cc3eca7f81bdb68a0e80c568b`. The deliberate mutation was never committed.
 
 **Observed GitHub Actions:** ISO Composite Identity Qualification [run #41192584947](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41192584947) on initial PR241 head `4dbed88bc81fe15a20ce6204aca086c27a641898` succeeded; its existing Node/table and ISO browser jobs do **not** constitute a real B2 F05/unknown upload trial.
 
@@ -52,4 +52,4 @@ Verdict: **AUTHOR_SELF_TEST_PARTIAL / A4 B2 INDEPENDENT_REVIEW_NOT_RUN / ENGINEE
 - Return to Oracle via **issue #239** only. **NO MERGE / NO RELEASE**.
 
 ## Recovery state
-The last product commit before this report was `4dbed88bc81fe15a20ce6204aca086c27a641898`; the report commit updates the PR head but not product bytes. Recheck current branch/PR and original base before taking over.
+The final product-code/test commit before this report refresh was `e2e842fc9ff9f06dd8d7574845dbceae96fe026d`; report updates do not change product bytes. Recheck current branch/PR and original base before taking over.
