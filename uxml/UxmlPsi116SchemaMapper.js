@@ -168,7 +168,7 @@ function tailAfterNode(xmlText, node) {
 function lossPath(path, item) {return path + '/' + local(item);}
 function unmappedLosses(doc, root, xmlText) {
   let next = 0;
-  const structural = new Set(['PipeStressExport', 'Pipe', 'Branch', 'Branchname', 'Node', ...NODE_FIELDS]);
+  const structural = new Set(['PipeStressExport', 'Branch', 'Branchname', 'Node', ...NODE_FIELDS]);
   function append(kind, path, raw) {
     next += 1;
     doc.lossContract.push(createUxmlLoss({
