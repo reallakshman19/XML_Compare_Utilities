@@ -187,8 +187,8 @@ test('current digest/epoch gate survives line-ending presentation but refuses wr
 test('normal-upload wiring calls real admitXmlBytes with raw bytes: no injection into tab path', () => {
   const tab = readFileSync(new URL('../tabs/inputxml-workspace/inputxml-workspace-tab.js', import.meta.url), 'utf8');
   const from = tab.indexOf('function bindFileInputs(dialog, state)');
-  const to = tab.indexOf('function bindSubtabButtons(', from);
-  assert(from > -1 && to > from, 'actual Workspace file handler source required');
+  const to = tab.indexOf(`dialog.querySelector('[data-ixw-file="accdbHelper"]')`, from);
+  assert(from > -1 && to > from, 'actual normal Source XML file handler required');
   const handler = tab.slice(from, to);
   assert.match(handler, /\[data-ixw-file="sourceXml"\]/);
   assert.match(handler, /admitWorkspaceSourceUpload\(\{[\s\S]*?admitBytes:\s*async\s*\(bytes,\s*options\)\s*=>\s*\{[\s\S]*?const\s*\{\s*admitXmlBytes\s*\}\s*=\s*await\s+import\('\.\.\/\.\.\/prototypes\/ciifr-map\/xml-format-admission\.js'\);[\s\S]*?return\s+admitXmlBytes\(bytes,\s*options\)/);
