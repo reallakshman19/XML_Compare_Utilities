@@ -1724,6 +1724,23 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   const lineAttr = firstElementAttrs(text, 'PIPINGMODEL');
   const line = lineNoFromAttributes(lineAttr) || 'CAESAR-INPUTXML';
   const pipelineId = ensurePipeline(doc, line, line, lineAttr);
+  // CAESAR 5C carries physical context on first source record of each
+  // sequential route, then writes -1.010100 on later records. Inherit only
+  // along the exact previous TO_NODE -> current FROM_NODE source chain.
+  let s3RouteContext={previousTo:null,physical:new Map()};
+  const s3Physical=(attrs,field,index)=>{
+    const value=caesarNumberOrNull(attrValue(attrs,field));
+    if(value!=null){
+      const evidence={value,mode:'EXPLICIT',sourceElementIndex:index,
+        sourceField:'PIPINGELEMENT@'+field};
+      s3RouteContext.physical.set(field,evidence);
+      return evidence;
+    }
+    const evidence=s3RouteContext.physical.get(field);
+    return evidence?{...evidence,mode:'INHERITED'}:
+      {value:null,mode:'SOURCE_UNAVAILABLE',sourceElementIndex:null,
+        sourceField:'PIPINGELEMENT@'+field};
+  };
   doc.coordinateFrame={source:INPUTXML_SOURCE_FRAME,hub:INPUTXML_HUB_FRAME,
     transform:'(X,-Z,Y)',unit:'mm',runCount:graph.runs.length,
     unanchoredRunCount:graph.runs.filter(r=>!r.anchored).length};
@@ -1731,11 +1748,32 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
     const attrs = tag.attrs || {};
     const {fromNode,toNode,recordKey}=graph.edges[index];
     const {from,to,runId,anchored}=graph.assignments.get(index);
+    if(s3RouteContext.previousTo!==fromNode){
+      s3RouteContext={previousTo:null,physical:new Map()};
+    }
+    const physicalEvidence={
+      outsideDiameter:s3Physical(attrs,'DIAMETER',index),
+      wallThickness:s3Physical(attrs,'WALL_THICK',index),
+    };
+    s3RouteContext.previousTo=toNode;
+    const bend=findElements(tag.inner,'BEND')[0];
+    const radius=caesarNumberOrNull(attrValue(bend?.attrs||{},'RADIUS'));
+    const bendEvidence=bend&&radius!=null?{
+      radius,endpoint:'TO',sourceElementIndex:index,
+      sourceField:'PIPINGELEMENT/BEND@RADIUS',
+      toNode,rawAttributes:{...bend.attrs},
+    }:null;
+    const sifEvidence=findElements(tag.inner,'SIF').map(row=>{
+      const code=caesarNumberOrNull(attrValue(row.attrs,'TYPE'));
+      return {typeCode:code,node:attrValue(row.attrs,'NODE'),
+        sourceElementIndex:index,sourceField:'PIPINGELEMENT/SIF@TYPE',
+        rawAttributes:{...row.attrs}};
+    }).filter(row=>row.typeCode!=null);
     const rawType = attrValue(attrs, 'SOURCE_TYPE', 'COMPONENT_TYPE', 'TYPE') ||
       componentTypeFromPipingElement(tag);
     const canonicalType = componentTypeFromPipingElement(tag);
-    const outsideDiameter = caesarNumberOrNull(attrValue(attrs, 'DIAMETER'));
-    const wallThickness = caesarNumberOrNull(attrValue(attrs, 'WALL_THICK'));
+    const outsideDiameter = physicalEvidence.outsideDiameter.value;
+    const wallThickness = physicalEvidence.wallThickness.value;
     const restraintRows = [
       ...findElements(tag.inner, 'RESTRAINT'),
       ...findElements(tag.inner, 'RESTRANT'),
@@ -1757,6 +1795,7 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
         runId,anchored,hubFrame:INPUTXML_HUB_FRAME,
         rawComponentType: rawType, componentType: canonicalType,
         outsideDiameter, wallThickness,
+        physicalEvidence,bendEvidence,sifEvidence,
         hasRestraint: restraintRows.length > 0, restraints: restraintRows,
         fromName: attrValue(attrs, 'FROM_NAME'),
         toName: attrValue(attrs, 'TO_NAME'),
