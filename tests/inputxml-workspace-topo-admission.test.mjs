@@ -470,5 +470,3 @@ test('PSI116 source edit and replacement synchronously revoke the legacy mount; 
     assert.equal(workspacePsi116LegacyGate(good).allowed, false);
   }
 });
-
-// TOPO-B-B2-PSI116 deliberate RED replay: a candidateWorkflowXml fallback MUST fail the uploaded-count test.
