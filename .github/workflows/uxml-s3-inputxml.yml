@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'uxml/UxmlInputXmlSchemaMapper.js'
+      - 'uxml/UxmlInputXmlDeltaGraph.js'
+      - 'docs/GREInputxml.xml'
+      - 'docs/PLB314Inputxml.xml'
       - 'tools/inputxml-to-uxml.mjs'
       - 'tests/uxml-s3-caesar-inputxml.test.mjs'
       - 'tests/uxml-s3-caesar-mutants.test.mjs'
@@ -24,6 +27,7 @@ jobs:
       - name: Syntax and source-linked strict mapper, legacy non-mutation, CLI
         run: |
           node --check uxml/UxmlInputXmlSchemaMapper.js
+          node --check uxml/UxmlInputXmlDeltaGraph.js
           node --check tools/inputxml-to-uxml.mjs
           node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
   workspace-pair:
