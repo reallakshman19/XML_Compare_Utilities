@@ -11,6 +11,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const paths=[
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js',
   'uxml/UxmlValidationGate.js','uxml/UxmlInputXmlSchemaMapper.js',
+  'uxml/UxmlInputXmlDeltaGraph.js',
   'utils/line-no-metadata.js','tools/inputxml-to-uxml.mjs',
   'tests/uxml-s3-caesar-inputxml.test.mjs',
 ];
@@ -48,9 +49,9 @@ function killed(path,from,to,kind){
   });
 }
 test('S3_MUTANT_KILL_UNTRUSTED_ORIGIN: invented X=0 fails absolute source endpoint test',()=>{
-  killed('uxml/UxmlInputXmlSchemaMapper.js',
-    '  return {x,y,z};\n}\nfunction s3Loss',
-    '  return {x:0,y,z};\n}\nfunction s3Loss',
+  killed('uxml/UxmlInputXmlDeltaGraph.js',
+    '  return toHub({x:dims[0],y:dims[1],z:dims[2]});',
+    '  return toHub({x:0,y:dims[1],z:dims[2]});',
     'ABSOLUTE_SOURCE_COORDINATE_MUTANT');
 });
 test('S3_MUTANT_KILL_RECORD_KEY: dropping source ordinal fails exact element identity test',()=>{
