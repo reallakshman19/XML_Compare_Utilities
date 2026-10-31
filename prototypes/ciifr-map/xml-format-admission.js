@@ -4,7 +4,8 @@ import {buildXmlGraph} from './xml-graph.js';
 
 /**
  * TOPO-B B1 read-only, fail-closed XML format admission.
- * Inputs: XML text plus optional {name, epoch, expectedSha256, parser, cryptoRef}. The parser
+ * Inputs: raw file bytes (admitXmlBytes, preferred) or decoded text (admitXmlFormat), plus optional
+ * {name, epoch, expectedSha256, parser, cryptoRef}. The parser
  * defaults to the browser DOMParser; tests inject a standards DOM parser.
  * Output: a deep-frozen result whose status is ADMITTED, UNSUPPORTED_INPUT or INVALID.
  * Only F05 RichInputXML-P1.v1.1 and R4 RichInputXMLv2.1 are admitted, always through the
@@ -43,7 +44,10 @@ export function classifyRoot(root) {
     if (ns) return refuse(ADMISSION_STATUS.INVALID, 'XML_UNSUPPORTED_NAMESPACE:' + ns);
     if (attr('XML_TYPE') !== 'RichInput') return refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT,
       'CONVENTIONAL_INPUTXML_RECOGNIZED_NOT_ADMITTED', 'CAESAR II conventional InputXML');
-    if (attr('SCHEMA') === 'RichInputXML-P1.v1.1') return {kind: 'F05'};
+    // Same identity triple extractXmlProfile requires (xml-profiles.js f05): SCHEMA + XML_TYPE + DIALECT.
+    if (attr('SCHEMA') === 'RichInputXML-P1.v1.1') return attr('DIALECT') === 'CII-V14' ? {kind: 'F05'} :
+      refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT, 'RICHINPUT_P1_V1_1_DIALECT_NOT_ADMITTED:' + attr('DIALECT'),
+        'CAESAR II RichInput P1 v1.1 (unqualified dialect)');
     if (attr('SCHEMA') === 'RichInputXML-P1.v1') return refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT,
       'GLRD_RICHINPUT_P1_V1_DISCOVER_FIRST_NOT_ADMITTED', 'CAESAR II RichInput P1 v1 (GLRD-shaped)');
     return refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT,
@@ -51,7 +55,10 @@ export function classifyRoot(root) {
   }
   if (local === 'RichInputXMLv2') {
     if (ns) return refuse(ADMISSION_STATUS.INVALID, 'XML_UNSUPPORTED_NAMESPACE:' + ns);
-    if (attr('schema') === 'RichInputXMLv2.1') return {kind: 'R4'};
+    // Same identity pair extractXmlProfile requires (xml-profiles.js r4): schema + profile.
+    if (attr('schema') === 'RichInputXMLv2.1') return attr('profile') === 'CII-V14-ASCII-CRLF-B001' ? {kind: 'R4'} :
+      refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT, 'RICHINPUT_V2_1_PROFILE_NOT_ADMITTED:' + attr('profile'),
+        'CAESAR II RichInputXMLv2.1 (unqualified profile)');
     return refuse(ADMISSION_STATUS.UNSUPPORTED_INPUT,
       'RICHINPUT_V2_VERSION_NOT_ADMITTED:' + attr('schema'), 'CAESAR II RichInputXMLv2 (unqualified version)');
   }
@@ -105,9 +112,10 @@ function admittedEvidence(kind, profile, graph) {
 
 function extractAdmitted(kind, document, sha256, byteLength) {
   try {
+    // Zero/empty element models are already refused upstream: extractXmlProfile (NUMELT >= 1, R4 records
+    // required) and buildXmlGraph (XML_ELEMENT_COUNT_LIMIT); no second guard is kept here.
     const profile = extractXmlProfile(document);
     const graph = buildXmlGraph(profile, {member: 'TOPO-B-ADMISSION', sha256, byteLength});
-    if (!profile.elements.length || !graph.nodes.length) return refuse(ADMISSION_STATUS.INVALID, 'XML_ZERO_ELEMENT_MODEL');
     return {evidence: admittedEvidence(kind, profile, graph)};
   } catch (error) {
     if (/^XML_/.test(error?.message || '')) return refuse(ADMISSION_STATUS.INVALID, error.message);
@@ -138,31 +146,72 @@ function result(base, outcome, evidence, root) {
     authority: 'READ_ONLY_FORMAT_ADMISSION', writerEligible: false, physicalIdentityQualified: false});
 }
 
-function measuredBase(name, epoch, sha256, byteLength) {
+function measuredBase(name, epoch, sha256, byteLength, authority, utf8Bom) {
   return {name: String(name ?? ''), epoch, generationId: sha256 ? 'TOPO-B-ADM:' + sha256 + ':' + epoch : null,
-    digest: {algorithm: 'SHA-256', sha256, byteLength, authority: sha256 ? 'XML_TEXT_UTF8_BYTES_MEASURED' : 'NOT_MEASURED'}};
+    digest: {algorithm: 'SHA-256', sha256, byteLength, authority: sha256 ? authority : 'NOT_MEASURED', utf8Bom}};
 }
 
-/** Read-only admission of one XML text. Never throws for bad input; throws only for missing runtime/bugs. */
-export async function admitXmlFormat(text, {name = '', epoch = 0, expectedSha256 = null, cryptoRef = globalThis.crypto,
-  parser = globalThis.DOMParser && new globalThis.DOMParser()} = {}) {
+const failed = (base, outcome, root = null) => result(base, outcome, emptyEvidence(), root);
+const checkEpoch = epoch => {
   if (!Number.isSafeInteger(epoch) || epoch < 0) throw new TypeError('ADMISSION_EPOCH_INVALID');
-  const fail = (base, outcome, root = null) => result(base, outcome, emptyEvidence(), root);
-  if (typeof text !== 'string') return fail(measuredBase(name, epoch, null, null), refuse(ADMISSION_STATUS.INVALID, 'XML_TEXT_REQUIRED'));
-  const bytes = new TextEncoder().encode(text);
-  if (!bytes.length || !text.trim()) return fail(measuredBase(name, epoch, null, bytes.length), refuse(ADMISSION_STATUS.INVALID, 'XML_EMPTY_INPUT'));
-  const base = measuredBase(name, epoch, await sha256RawBytes(bytes, cryptoRef), bytes.length);
-  if (bytes.length > MAX_BYTES) return fail(base, refuse(ADMISSION_STATUS.INVALID, 'XML_BYTE_SIZE_LIMIT'));
-  if (expectedSha256 && base.digest.sha256 !== String(expectedSha256).toLowerCase())
-    return fail(base, refuse(ADMISSION_STATUS.INVALID, 'XML_SHA256_MISMATCH'));
-  const parsed = parseSafely(text, parser);
-  if (!parsed.document) return fail(base, parsed);
+};
+
+/**
+ * Shared pipeline. `bytes` are what the digest covers; `decode()` returns {text, bom} with any BOM already
+ * removed from text (the digest keeps it) or throws XML_INVALID_UTF8.
+ */
+async function admitSource(bytes, authority, decode, {name = '', epoch = 0, expectedSha256 = null,
+  cryptoRef = globalThis.crypto, parser = globalThis.DOMParser && new globalThis.DOMParser()}) {
+  const at = (sha256, bom = null) => measuredBase(name, epoch, sha256, bytes.length, authority, bom);
+  if (!bytes.length) return failed(at(null), refuse(ADMISSION_STATUS.INVALID, 'XML_EMPTY_INPUT'));
+  if (bytes.length > MAX_BYTES) return failed(at(null), refuse(ADMISSION_STATUS.INVALID, 'XML_BYTE_SIZE_LIMIT'));
+  const sha256 = await sha256RawBytes(bytes, cryptoRef);
+  let decoded;
+  try { decoded = decode(); } catch { return failed(at(sha256), refuse(ADMISSION_STATUS.INVALID, 'XML_INVALID_UTF8')); }
+  const base = at(sha256, decoded.bom);
+  if (!decoded.text.trim()) return failed(base, refuse(ADMISSION_STATUS.INVALID, 'XML_EMPTY_INPUT'));
+  if (expectedSha256 && sha256 !== String(expectedSha256).toLowerCase())
+    return failed(base, refuse(ADMISSION_STATUS.INVALID, 'XML_SHA256_MISMATCH'));
+  const parsed = parseSafely(decoded.text, parser);
+  if (!parsed.document) return failed(base, parsed);
   const root = parsed.document.documentElement, route = classifyRoot(root);
-  if (!route.kind) return fail(base, route, root);
-  const extracted = extractAdmitted(route.kind, parsed.document, base.digest.sha256, base.digest.byteLength);
-  if (!extracted.evidence) return fail(base, {...extracted, recognizedFormat: PROFILE_LABEL[route.kind]}, root);
+  if (!route.kind) return failed(base, route, root);
+  const extracted = extractAdmitted(route.kind, parsed.document, sha256, bytes.length);
+  if (!extracted.evidence) return failed(base, {...extracted, recognizedFormat: PROFILE_LABEL[route.kind]}, root);
   return result(base, {status: ADMISSION_STATUS.ADMITTED, recognizedFormat: PROFILE_LABEL[route.kind]}, extracted.evidence, root);
 }
+
+/**
+ * Preferred entry point: admission of the exact file bytes (Uint8Array/ArrayBuffer). The digest is the
+ * file's own SHA-256 (BOM included); UTF-8 is decoded strictly (invalid -> INVALID); a UTF-8 BOM is
+ * recorded as digest.utf8Bom 'PRESENT' and stripped only for parsing. The caller's buffer is copied, never changed.
+ */
+export async function admitXmlBytes(bytes, options = {}) {
+  checkEpoch(options.epoch ?? 0);
+  if (!(bytes instanceof Uint8Array || bytes instanceof ArrayBuffer))
+    return failed(measuredBase(options.name, options.epoch ?? 0, null, null, null, null), refuse(ADMISSION_STATUS.INVALID, 'XML_BYTES_REQUIRED'));
+  const snapshot = bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes.slice(0));
+  const bom = snapshot[0] === 0xEF && snapshot[1] === 0xBB && snapshot[2] === 0xBF;
+  const decode = () => {
+    const text = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(snapshot);
+    return {text: bom ? text.slice(1) : text, bom: bom ? 'PRESENT' : 'ABSENT'};
+  };
+  return admitSource(snapshot, 'XML_FILE_BYTES_MEASURED', decode, options);
+}
+
+/**
+ * Text entry point (already-decoded string, e.g. File.text()). The digest covers the string re-encoded as
+ * UTF-8 and is labelled DECODED_TEXT_REENCODED_UTF8: it is NOT the original file's byte digest.
+ */
+export async function admitXmlFormat(text, options = {}) {
+  checkEpoch(options.epoch ?? 0);
+  if (typeof text !== 'string')
+    return failed(measuredBase(options.name, options.epoch ?? 0, null, null, null, null), refuse(ADMISSION_STATUS.INVALID, 'XML_TEXT_REQUIRED'));
+  const bom = text.startsWith('﻿');
+  const decode = () => ({text: bom ? text.slice(1) : text, bom: bom ? 'PRESENT_IN_TEXT' : 'ABSENT'});
+  return admitSource(new TextEncoder().encode(text), 'DECODED_TEXT_REENCODED_UTF8', decode, options);
+}
+
 
 /** True when a held admission no longer belongs to the current source bytes or epoch. */
 export function isStaleAdmission(admission, {sha256, epoch}) {

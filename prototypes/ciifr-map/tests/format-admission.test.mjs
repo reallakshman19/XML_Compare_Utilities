@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {webcrypto, createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {admitXmlFormat, isStaleAdmission, ADMISSION_STATUS} from '../xml-format-admission.js';
+import {admitXmlFormat, admitXmlBytes, isStaleAdmission, ADMISSION_STATUS} from '../xml-format-admission.js';
 
 if (!process.env.CIIFR_TEST_RUNTIME) throw new Error('Set CIIFR_TEST_RUNTIME to a test-only npm prefix containing @xmldom/xmldom. Product uses browser DOMParser.');
 const require = createRequire(process.env.CIIFR_TEST_RUNTIME + '/package.json');
@@ -13,6 +13,15 @@ const r4 = readFileSync(new URL('./fixtures/S1-R4.xml', import.meta.url), 'utf8'
 const manifest = JSON.parse(readFileSync(new URL('./fixtures/manifest.json', import.meta.url), 'utf8'));
 const parse = () => new DOMParser({onError: (level, message) => { throw new Error('XML_PARSE_ERROR:' + level + ':' + message); }});
 const admit = (text, options = {}) => admitXmlFormat(text, {cryptoRef: webcrypto, parser: parse(), ...options});
+const admitBytes = (bytes, options = {}) => admitXmlBytes(bytes, {cryptoRef: webcrypto, parser: parse(), ...options});
+const f05Bytes = new Uint8Array(readFileSync(new URL('./fixtures/S1-F05.xml', import.meta.url)));
+// SYNTHETIC GLRD-shaped document written for this test only (RichInput P1 v1 root, 3 elements).
+// It is NOT the Owner's private GLRD file and makes no claim about GLRD's real field layout.
+const glrdElement = (i, from, to) => '<PIPINGELEMENT index="' + i + '"><Numeric row="1"><Field name="FROM_NODE" value="' + from +
+  '"/><Field name="TO_NODE" value="' + to + '"/><Field name="DELTA_X" value="100"/></Numeric></PIPINGELEMENT>';
+const syntheticGlrd = '<?xml version="1.0" encoding="utf-8"?><CAESARII XML_TYPE="RichInput" DIALECT="CII-V14" SCHEMA="RichInputXML-P1.v1">' +
+  '<PIPINGMODEL NUMELT="3"><SECTIONS><SECTION name="ELEMENTS" records="3">' +
+  glrdElement(1, 10, 20) + glrdElement(2, 20, 30) + glrdElement(3, 30, 40) + '</SECTION></SECTIONS></PIPINGMODEL></CAESARII>';
 const sha = text => createHash('sha256').update(text, 'utf8').digest('hex');
 const {ADMITTED, UNSUPPORTED_INPUT, INVALID} = ADMISSION_STATUS;
 const notAdmitted = (result, label) => {
@@ -40,6 +49,7 @@ test('public S1 F05 and R4 are each ADMITTED with 56 source elements, 56 edges a
     assert.equal(result.elementCount, 56); assert.equal(result.edges.length, 56); assert.equal(result.nodeCount, 57);
     assert.equal(result.digest.sha256, manifest.files[file].sha256); assert.equal(result.digest.byteLength, manifest.files[file].bytes);
     assert.equal(result.generationId, 'TOPO-B-ADM:' + manifest.files[file].sha256 + ':0');
+    assert.equal(result.digest.authority, 'DECODED_TEXT_REENCODED_UTF8');
     assert(result.edges.every(edge => edge.kind === 'SOURCE_ELEMENT' && edge.engineeringApproved === false));
     assert.equal(result.writerEligible, false); assert.equal(result.reason, null);
     const node = result.nodes.find(item => item.id === '3830');
@@ -77,7 +87,10 @@ test('unknown root is UNSUPPORTED_INPUT, never a zero-element success (deliberat
 
 test('GLRD-shaped, PSI116, conventional InputXML and other versions are recognized but UNSUPPORTED_INPUT', async () => {
   const cases = [
-    ['GLRD', f05.replace('SCHEMA="RichInputXML-P1.v1.1"', 'SCHEMA="RichInputXML-P1.v1"'), 'GLRD_RICHINPUT_P1_V1_DISCOVER_FIRST_NOT_ADMITTED'],
+    ['synthetic GLRD', syntheticGlrd, 'GLRD_RICHINPUT_P1_V1_DISCOVER_FIRST_NOT_ADMITTED'],
+    ['P1 version', f05.replace('SCHEMA="RichInputXML-P1.v1.1"', 'SCHEMA="RichInputXML-P1.v2"'), 'RICHINPUT_P1_VERSION_NOT_ADMITTED:RichInputXML-P1.v2'],
+    ['F05 dialect', f05.replace('DIALECT="CII-V14"', 'DIALECT="CII-V13"'), 'RICHINPUT_P1_V1_1_DIALECT_NOT_ADMITTED:CII-V13'],
+    ['R4 profile', r4.replace('profile="CII-V14-ASCII-CRLF-B001"', 'profile="CII-V13-X"'), 'RICHINPUT_V2_1_PROFILE_NOT_ADMITTED:CII-V13-X'],
     ['PSI116', '<PipeStressExport xmlns="http://aveva.com/pipeStress116.xsd"><Branch><Node/></Branch></PipeStressExport>', 'PSI116_RECOGNIZED_NOT_ADMITTED'],
     ['PSI116 bare', '<PipeStressExport><Branch/></PipeStressExport>', 'PSI116_SHAPED_UNVERIFIED_NAMESPACE_NOT_ADMITTED'],
     ['InputXML', '<CAESARII><PIPINGMODEL><PIPINGELEMENT FROM_NODE="10" TO_NODE="20" DELTA_X="1"/></PIPINGMODEL></CAESARII>', 'CONVENTIONAL_INPUTXML_RECOGNIZED_NOT_ADMITTED'],
@@ -86,6 +99,7 @@ test('GLRD-shaped, PSI116, conventional InputXML and other versions are recogniz
   for (const [label, text, reason] of cases) {
     const result = await admit(text, {name: label});
     assert.equal(result.status, UNSUPPORTED_INPUT, label); assert.equal(result.reason, reason, label);
+    assert.doesNotMatch(String(result.recognizedFormat), /^(F05|R4) /, label);
     notAdmitted(result, label);
   }
 });
@@ -162,4 +176,46 @@ test('seedless components are labelled relative, never absolute', async () => {
   assert.equal(result.status, ADMITTED); assert.equal(result.nodeCount, 57);
   assert(result.nodes.every(node => node.coordinateStatus === 'RELATIVE_NO_SEED'));
   assert(result.diagnostics.some(d => d.code === 'COMPONENT_RELATIVE_NO_SEED'));
+});
+
+test('bytes entry point hashes the exact file bytes, records a BOM and refuses invalid UTF-8', async () => {
+  const plain = await admitBytes(f05Bytes, {name: 'S1-F05.xml'});
+  assert.equal(plain.status, ADMITTED); assert.equal(plain.digest.authority, 'XML_FILE_BYTES_MEASURED');
+  assert.equal(plain.digest.sha256, manifest.files['S1-F05.xml'].sha256); assert.equal(plain.digest.utf8Bom, 'ABSENT');
+  const withBom = new Uint8Array([0xEF, 0xBB, 0xBF, ...f05Bytes]);
+  const bom = await admitBytes(withBom, {name: 'bom.xml'});
+  assert.equal(bom.status, ADMITTED); assert.equal(bom.nodeCount, 57); assert.equal(bom.digest.utf8Bom, 'PRESENT');
+  assert.equal(bom.digest.sha256, createHash('sha256').update(withBom).digest('hex'));
+  assert.equal(bom.digest.byteLength, manifest.files['S1-F05.xml'].bytes + 3);
+  assert.notEqual(bom.digest.sha256, plain.digest.sha256);
+  assert.deepEqual(withBom.slice(0, 3), new Uint8Array([0xEF, 0xBB, 0xBF]));
+  const bad = new Uint8Array(f05Bytes); bad[Buffer.from(f05Bytes).indexOf('MUCN328')] = 0xFF;
+  const invalid = await admitBytes(bad);
+  assert.equal(invalid.status, INVALID); assert.equal(invalid.reason, 'XML_INVALID_UTF8');
+  assert.equal(invalid.digest.sha256, createHash('sha256').update(bad).digest('hex')); notAdmitted(invalid, 'utf8');
+  notAdmitted(await admitBytes(new Uint8Array(0)), 'empty bytes');
+  assert.equal((await admitBytes('<x/>')).reason, 'XML_BYTES_REQUIRED');
+});
+
+test('a BOM left in decoded text is stripped for parsing and labelled as re-encoded text', async () => {
+  const result = await admit('\uFEFF' + f05);
+  assert.equal(result.status, ADMITTED); assert.equal(result.digest.utf8Bom, 'PRESENT_IN_TEXT');
+  assert.equal(result.digest.authority, 'DECODED_TEXT_REENCODED_UTF8');
+  assert.equal(result.digest.sha256, sha('\uFEFF' + f05));
+});
+
+test('browser-style parsererror document is INVALID, and non-XML_ internal faults are rethrown', async () => {
+  const errorDoc = parse().parseFromString('<html><body><parsererror>bad</parsererror></body></html>', 'application/xml');
+  const stub = await admit(f05, {parser: {parseFromString: () => errorDoc}});
+  assert.equal(stub.status, INVALID); assert.equal(stub.reason, 'XML_PARSE_ERROR'); notAdmitted(stub, 'parsererror');
+  const real = parse().parseFromString(f05, 'application/xml');
+  const bind = (target, fault) => new Proxy(target, {get(obj, prop) {
+    if (prop === fault) throw new TypeError('STUB_DOM_FAULT');
+    const value = Reflect.get(obj, prop, obj);
+    return typeof value === 'function' ? value.bind(obj) : value;
+  }});
+  const root = bind(real.documentElement, 'childNodes');
+  const doc = new Proxy(real, {get: (obj, prop) => prop === 'documentElement' ? root :
+    (typeof obj[prop] === 'function' ? obj[prop].bind(obj) : obj[prop])});
+  await assert.rejects(admit(f05, {parser: {parseFromString: () => doc}}), /STUB_DOM_FAULT/);
 });
