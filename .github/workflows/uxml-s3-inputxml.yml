@@ -4,6 +4,7 @@ on:
     paths:
       - 'uxml/UxmlInputXmlSchemaMapper.js'
       - 'uxml/UxmlInputXmlDeltaGraph.js'
+      - 'uxml/UxmlInputXmlDeltaGraph.js'
       - 'docs/GREInputxml.xml'
       - 'docs/PLB314Inputxml.xml'
       - 'tools/inputxml-to-uxml.mjs'
@@ -11,6 +12,7 @@ on:
       - 'tests/uxml-s3-caesar-mutants.test.mjs'
       - 'tests/fixtures/uxml-s3-synthetic.psi116.xml'
       - 'tests/fixtures/uxml-s3-synthetic.workspace.input.xml'
+      - 'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'
       - 'tools/uxml-s3-workspace-pair.mjs'
       - '.github/workflows/uxml-s3-inputxml.yml'
   workflow_dispatch:
@@ -28,6 +30,7 @@ jobs:
         run: |
           node --check uxml/UxmlInputXmlSchemaMapper.js
           node --check uxml/UxmlInputXmlDeltaGraph.js
+          node --check uxml/UxmlInputXmlDeltaGraph.js
           node --check tools/inputxml-to-uxml.mjs
           node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
   workspace-pair:
@@ -41,4 +44,4 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Real Workspace Clean XML to 5C InputXML synthetic source witness
-        run: node tools/uxml-s3-workspace-pair.mjs --emit-base64
+        run: node tools/uxml-s3-workspace-pair.mjs --verify
