@@ -64,7 +64,7 @@ export function renderTopologyAdmission({phase = 'idle', admission = null, epoch
   const edges = admission.edges.slice(0, 8).map(edge =>
     `<tr><td>${esc(edge.recordId || edge.index)}</td><td>${esc(edge.from)}</td><td>${esc(edge.to)}</td><td>${esc((edge.delta || []).join(', '))}</td></tr>`).join('');
   return `${input}<div class="ixw-status" role="status"><b>Admitted · ${esc(profileLabel(admission))} · ${admission.elementCount} elements / ${admission.nodeCount} nodes · ${esc(geometryLabel(admission))}</b></div>
-    <div class="ixw-note">Schema: ${esc(admission.admittedProfile)} · units: ${esc(admission.units)} · SHA-256: ${esc(sha)} (measured file bytes) · read-only</div>
+    <div class="ixw-note">Schema: ${esc(admission.admittedProfile)} · units: ${esc(admission.units?.length || "unqualified")} · SHA-256: ${esc(sha)} (measured file bytes) · read-only</div>
     <details><summary>Source-element preview (${admission.elementCount} records; first ${Math.min(8, admission.edges.length)} shown)</summary>
       <div style="overflow:auto"><table class="ixw-table"><thead><tr><th>Source record</th><th>From</th><th>To</th><th>Signed Δ [mm]</th></tr></thead><tbody>${edges}</tbody></table></div>
     </details>${note}`;
