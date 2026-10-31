@@ -643,10 +643,16 @@ function renderReadOnlyAdmitted5B(target, claim) {
         !xyz.every(Number.isFinite)) continue;
     points.set(String(node.id), xyz);
   }
-  const axes = [0, 1, 2].map(axis => ({
-    axis, low: Math.min(...[...points.values()].map(p => p[axis])),
-    high: Math.max(...[...points.values()].map(p => p[axis])),
-  })).sort((a, b) => (b.high - b.low) - (a.high - a.low));
+  // Avoid Math.min(...largeArray): valid larger RichInput profiles may exceed
+  // the JS argument limit. This bounded graph preview is linear in source nodes.
+  const axes = [0, 1, 2].map(axis => ({axis, low: Infinity, high: -Infinity}));
+  for (const xyz of points.values()) {
+    for (const axis of axes) {
+      if (xyz[axis.axis] < axis.low) axis.low = xyz[axis.axis];
+      if (xyz[axis.axis] > axis.high) axis.high = xyz[axis.axis];
+    }
+  }
+  axes.sort((a, b) => (b.high - b.low) - (a.high - a.low));
   const axisNames = ['X', 'Y', 'Z'];
   const [horizontal, vertical] = axes;
   const px = xyz => 30 + (xyz[horizontal.axis] - horizontal.low) /
