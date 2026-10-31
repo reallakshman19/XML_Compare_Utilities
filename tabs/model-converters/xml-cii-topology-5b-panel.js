@@ -717,7 +717,7 @@ function renderPsi116Legacy5B(target, claim) {
   let model;
   try {
     // Only the snapshot: never sourceForState() or candidateWorkflowXml().
-    model = buildModel(claim.xmlText, '210');
+    model = buildModel(candidateWorkflowXml(document)?.xmlText || claim.xmlText, '210'); // DELIBERATE RED MUTANT: candidate fallback
   } catch (error) {
     target.innerHTML = header +
       `<div class="model-converters-workflow-detail-note" role="alert">Legacy Branch/Node parser: ${esc(error?.message || error)}. No external-source fallback.</div></section>`;
