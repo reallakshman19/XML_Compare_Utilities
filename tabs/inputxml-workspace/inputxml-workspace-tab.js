@@ -19,7 +19,7 @@ import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '..
 import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';
 import { appendInputXmlWorkspaceDiagnostics, createInputXmlWorkspaceDiagnostic, createInputXmlWorkspaceDiagnostics } from './inputxml-workspace-diagnostics.js';
 import { renderInputXmlWorkspaceDiagnosticsHtml } from './inputxml-workspace-diagnostics-view.js';
-import { admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, workspaceTopologyGate } from './inputxml-workspace-topo-admission.js';
+import { admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, workspacePsi116LegacyGate, workspaceTopologyGate } from './inputxml-workspace-topo-admission.js';
 import {
   cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
   cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
@@ -1052,6 +1052,16 @@ function bindRenderedPanels(dialog, state) {
   // use boundary: no scan of other Workspace textareas or localStorage.
   if (host5b && workspaceTopologyGate(state).allowed) {
     renderXmlCiiTopology5BPanel(host5b, {readOnlyAdmission: {
+      verdict: state.topologyAdmission,
+      byteSha256: state.topologyAdmissionDigest,
+      epoch: state.topologyAdmissionEpoch,
+    }});
+  } else if (host5b && workspacePsi116LegacyGate(state).allowed) {
+    // Not admission: restore only the legacy Branch/Node/Position 5B view,
+    // bound to the exact normal-upload decoded byte snapshot and generation.
+    // Never pass root/dialog, workflow XML, textarea or localStorage candidates.
+    renderXmlCiiTopology5BPanel(host5b, {psi116Legacy: {
+      xmlText: state.topologyAdmissionSourceText,
       verdict: state.topologyAdmission,
       byteSha256: state.topologyAdmissionDigest,
       epoch: state.topologyAdmissionEpoch,
