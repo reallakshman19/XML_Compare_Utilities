@@ -48,10 +48,15 @@ test('strict source keys have unique zero-based record ordinal and literal FROM/
   assert.equal(doc.supports.length,1);
   assert(doc.lossContract.some(x=>x.details.field==='@EXTRA_SOURCE_ATTR'));
   assert(doc.lossContract.some(x=>x.details.field==='BEND'));
+  assert(doc.lossContract.some(x=>x.details.field==='@RADIUS'));
+  const extended=xml.replace('<BEND RADIUS="45"/>','<BEND RADIUS="45"/><UNKNOWN_VENDOR EXT="preserve"/>');
+  const witness=mapCaesarInputXmlToUxmlStrict(extended,{fileSha256:sha(extended)});
+  assert(witness.lossContract.some(x=>x.details.field==='UNKNOWN_VENDOR'));
+  assert(witness.lossContract.some(x=>x.details.field==='@EXT'));
   assert.equal(doc.validation.coordinateAuthority,'EXPLICIT_ABSOLUTE_SOURCE');
 });
 test('duplicate FROM/TO pairs are still unique by ordinal and source SHA',()=>{
-  const xml=fixture().replace('FROM_NODE="20" TO_NODE="30"','FROM_NODE="10" TO_NODE="20"');
+  const xml=fixture().replace(attrs(20,30,200,300),attrs(10,20,100,200));
   const doc=mapCaesarInputXmlToUxmlStrict(xml,{fileSha256:sha(xml)});
   assert.equal(new Set(doc.components.map(x=>x.sourceRefs[0].recordKey)).size,2);
   assert.deepEqual(doc.components.map(x=>x.sourceRefs[0].recordKey),['E0:F10:T20','E1:F10:T20']);
@@ -63,6 +68,7 @@ test('strict reader rejects unreliable absolute positions, conflicting deltas, m
     ['partial to',src.replace('TO_Z="0"',''),/ABSOLUTE_COORDINATE_REQUIRED/],
     ['contradictory delta',src.replace('DELTA_X="100"','DELTA_X="900"'),/ABSOLUTE_DELTA_CONFLICT/],
     ['missing identity',src.replace('FROM_NODE="10"','FROM_NODE=""'),/NODE_IDENTITY_REQUIRED/],
+    ['conflicting reused node',src.replace('FROM_X="200"','FROM_X="201"'),/REUSED_NODE_ABSOLUTE_CONFLICT/],
   ]) assert.throws(()=>mapCaesarInputXmlToUxmlStrict(invalid,{fileSha256:sha(invalid)}),pattern,name);
   assert.throws(()=>mapCaesarInputXmlToUxmlStrict(src,{fileSha256:'bad'}),/SHA256_REQUIRED/);
 });
