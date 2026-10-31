@@ -183,3 +183,17 @@ test('normal-upload wiring is not bypassed by a legacy 5B independent paste/file
   assert.match(denied, /SOURCE_BYTES_OR_TEXT_CHANGED/);
   assert.doesNotMatch(denied, /Source-element preview/);
 });
+
+test('empty normal file selection revokes old admission even without a replacement byte stream', async () => {
+  const state = sourceState({topologyAdmissionEpoch: 3, topologyAdmission: admitted(),
+    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionSourceText: 'old', sourceXmlText: 'old'});
+  let notified = 0;
+  await admitWorkspaceSourceUpload({state, file: null, admitBytes: () => {
+    throw new Error('must not admit on cleared selection');
+  }, notify: () => {notified++;}});
+  assert.equal(state.topologyAdmissionEpoch, 4);
+  assert.equal(state.topologyAdmission, null);
+  assert.equal(state.topologyAdmissionSourceText, null);
+  assert.equal(notified, 1);
+  assert.equal(workspaceTopologyGate(state).allowed, false);
+});
