@@ -1,0 +1,24 @@
+name: UXML S3 Strict CAESAR InputXML Reader
+on:
+  pull_request:
+    paths:
+      - 'uxml/UxmlInputXmlSchemaMapper.js'
+      - 'tools/inputxml-to-uxml.mjs'
+      - 'tests/uxml-s3-caesar-inputxml.test.mjs'
+      - '.github/workflows/uxml-s3-inputxml.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  strict-reader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and source-linked strict mapper, legacy non-mutation, CLI
+        run: |
+          node --check uxml/UxmlInputXmlSchemaMapper.js
+          node --check tools/inputxml-to-uxml.mjs
+          node --test tests/uxml-s3-caesar-inputxml.test.mjs
