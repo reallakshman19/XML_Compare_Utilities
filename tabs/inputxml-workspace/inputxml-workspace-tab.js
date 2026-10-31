@@ -946,7 +946,14 @@ function bindFileInputs(dialog, state) {
   // and admitted as raw bytes; the legacy 5B parser never receives bypass input.
   dialog.querySelector('[data-ixw-file="sourceXml"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      invalidateCleanArtifacts(state);
+      state.sourceXmlText = '';
+      state.sourceName = 'pasted.xml';
+      revokeTopologyAdmission(state);
+      rerender(dialog, state);
+      return;
+    }
     invalidateCleanArtifacts(state);
     state.sourceXmlText = '';
     state.sourceName = file.name;
