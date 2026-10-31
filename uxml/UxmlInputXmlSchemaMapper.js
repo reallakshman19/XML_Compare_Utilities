@@ -1694,11 +1694,19 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   const lineAttr = firstElementAttrs(text, 'PIPINGMODEL');
   const line = lineNoFromAttributes(lineAttr) || 'CAESAR-INPUTXML';
   const pipelineId = ensurePipeline(doc, line, line, lineAttr);
+  const originalNodeCoordinates = new Map();
   for (const [index, tag] of tags.entries()) {
     const attrs = tag.attrs || {};
     const {fromNode, toNode, recordKey} = strictRawTagIdentity(tag, index);
     const from = strictlyReadPoint(attrs, 'FROM', index);
     const to = strictlyReadPoint(attrs, 'TO', index);
+    for (const [nodeId,point] of [[fromNode,from],[toNode,to]]) {
+      const original = originalNodeCoordinates.get(nodeId);
+      if (original && Math.hypot(point.x-original.x,point.y-original.y,point.z-original.z)>0.000001) {
+        throw new Error('INPUT_XML_REUSED_NODE_ABSOLUTE_CONFLICT:E'+index+':'+nodeId);
+      }
+      originalNodeCoordinates.set(nodeId,point);
+    }
     // Reject contradictory source deltas. CAESAR's -1.0101 sentinel means
     // "zero/unset"; those cannot qualify as independent coordinate authority.
     for (const [axis, oldField] of [['x','DELTA_X'],['y','DELTA_Y'],['z','DELTA_Z']]) {
@@ -1779,12 +1787,17 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
         s3Loss(doc,path,'@'+key,value);
       }
     }
-    // All nested record fragments retained verbatim; only presence of
-    // restraints and canonical component type are interpreted at S3.
-    for (const child of findAnyElements(tag.inner, [
-      ...CAESAR_SUPPORT_TAGS,...CAESAR_BEND_TAGS,...CAESAR_RIGID_TAGS,
-      ...CAESAR_REDUCER_TAGS,...CAESAR_SIF_TAGS,
-    ])) s3Loss(doc,path,child.tagName,child.raw);
+    // Loss ledger includes every untyped descendant element and attribute,
+    // including unknown vendor extensions. All fragments remain in rawXml.
+    const children = /<\s*([A-Za-z_][\w:.-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
+    let child;
+    while ((child=children.exec(tag.inner))) {
+      const field=child[1];
+      s3Loss(doc,path,field,child[0]);
+      for (const [key,val] of Object.entries(parseAttrs(child[2]||''))) {
+        s3Loss(doc,path+'/'+field,'@'+key,val);
+      }
+    }
   }
   for (const root of ['CAESARII','PIPINGMODEL']) {
     const attrs = firstElementAttrs(text, root);
