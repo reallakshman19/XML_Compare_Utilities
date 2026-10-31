@@ -1743,9 +1743,10 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
     });
     doc.components.push(component);
     for (const [role, point, node] of [['FROM',from,fromNode], ['TO',to,toNode]]) {
+      const anchorRole = role === 'FROM' ? ANCHOR_ROLES.EP1 : ANCHOR_ROLES.EP2;
       const anchorId = componentId + ':' + role + ':ANCHOR';
       const portId = componentId + ':' + role + ':PORT';
-      doc.anchors.push(createUxmlAnchor({id:anchorId,componentId,role,
+      doc.anchors.push(createUxmlAnchor({id:anchorId,componentId,role:anchorRole,
         nodeNumber:node,point,sourceRef:{...ref,endpoint:role},
         sourceField:'PIPINGELEMENT:' + role + '_X/Y/Z',
         confidence:CONFIDENCE_LEVELS.EXACT_SOURCE}));
@@ -1756,6 +1757,14 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
         connectsTo:'UNQUALIFIED_SOURCE_RECORD'}));
       component.anchorIds.push(anchorId);
       component.portIds.push(portId);
+    }
+    const segmentType = segmentTypeFor(component.normalizedType);
+    if (segmentType) {
+      const id = componentId + ':SEGMENT';
+      doc.segments.push(createUxmlSegment({id,componentId,type:segmentType,
+        startAnchorId:component.anchorIds[0],endAnchorId:component.anchorIds[1],
+        bore:outsideDiameter}));
+      component.segmentIds.push(id);
     }
     if (restraintRows.length) {
       const id = componentId + ':RESTRAINT';
