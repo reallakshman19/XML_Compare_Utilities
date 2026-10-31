@@ -685,9 +685,73 @@ function renderReadOnlyAdmitted5B(target, claim) {
     elementCount: a.elementCount, nodeCount: a.nodeCount};
 }
 
+/**
+ * Owner-authorised PSI116 compatibility view. This is intentionally the
+ * EXISTING 5B Branch/Node/Position parser, not the F05/R4 admission graph.
+ * No root, document, localStorage or picker participates in choosing source.
+ * The caller binds the exact decoded source-file byte snapshot to the measured
+ * verdict, digest and epoch. The refusal banner above this panel stays visible.
+ */
+function renderPsi116Legacy5B(target, claim) {
+  const a = claim?.verdict;
+  const valid = a?.status === 'UNSUPPORTED_INPUT' &&
+    a.reason === 'PSI116_RECOGNIZED_NOT_ADMITTED' &&
+    a.root?.localName === 'PipeStressExport' &&
+    ['http://aveva.com/pipeStress116.xsd', 'http://aveva.com/pipestress116.xsd']
+      .includes(a.root?.namespaceURI) &&
+    a.digest?.authority === 'XML_FILE_BYTES_MEASURED' &&
+    /^[a-f0-9]{64}$/.test(a.digest?.sha256 || '') &&
+    a.digest.sha256 === claim?.byteSha256 &&
+    Number.isSafeInteger(claim?.epoch) && claim.epoch === a.epoch &&
+    claim?.sourceKind === 'normal-source' &&
+    typeof claim?.xmlText === 'string' && !!claim.xmlText.trim() &&
+    a.writerEligible === false && a.physicalIdentityQualified === false;
+  if (!valid) {
+    target.innerHTML = '<div class="model-converters-workflow-detail-note" role="alert">PSI116 5B legacy view blocked: source-byte identity / verified refusal missing.</div>';
+    return null;
+  }
+  const title = 'PSI116 5B view (legacy parser) - not admitted topology evidence';
+  const header = `<section class="xml-cii-native-card" data-xml-cii-5b-psi116-legacy>
+    <div class="model-converters-workflow-section-title">${title}</div>
+    <div class="model-converters-workflow-detail-note">Original file SHA-256 ${esc(claim.byteSha256.slice(0, 12))} · epoch ${claim.epoch} · source: uploaded PSI116 bytes only · READ_ONLY. Legacy 5B calculated ports are not topology-admitted engineering evidence.</div>`;
+  let model;
+  try {
+    // Only the snapshot: never sourceForState() or candidateWorkflowXml().
+    model = buildModel(claim.xmlText, '210');
+  } catch (error) {
+    target.innerHTML = header +
+      `<div class="model-converters-workflow-detail-note" role="alert">Legacy Branch/Node parser: ${esc(error?.message || error)}. No external-source fallback.</div></section>`;
+    return null;
+  }
+  const state = ensureState(target, {anchorNode: '210'});
+  const branchCount = model.branches.length;
+  const nodeCount = model.branches.reduce((count, branch) => count + branch.nodes.length, 0);
+  const routeCount = model.branches.reduce((count, branch) => count + branch.routePoints.length, 0);
+  target.innerHTML = header + `
+    <div class="model-converters-workflow-detail-note" data-xml-cii-5b-psi116-counts>
+      Branches: ${branchCount} · Nodes: ${nodeCount} · Route points: ${routeCount} · Components: ${model.topology.components.length} · Edges: ${model.topology.edges.length} · Open ports: ${model.topology.openPorts.length}
+    </div>
+    <div class="model-converters-workflow-detail-note">Independent file, paste, reset and workflow-source pickers disabled. This 5B view is a compatibility calculation over the single refused PSI116 upload.</div>
+    <div class="xml-cii-native-table-wrap">
+      <div class="model-converters-workflow-section-title">Branch/Node input rows from uploaded PSI116</div>
+      ${model.branches.map(branch => renderInputBranch(branch, true)).join('')}
+      <div class="model-converters-workflow-section-title">Legacy 5B component/port calculation</div>
+      ${model.branches.map(renderCalcBranch).join('')}
+    </div>
+    <canvas data-xml-cii-5b-psi116-canvas style="width:100%;height:460px;border:1px solid rgba(148,163,184,.28);border-radius:10px;background:#07101f"></canvas>
+  </section>`;
+  const canvas = target.querySelector?.('[data-xml-cii-5b-psi116-canvas]');
+  if (canvas) {
+    drawGraph(canvas, model, state);
+    bindCanvas(canvas, model, state);
+  }
+  return model;
+}
+
 export function renderXmlCiiTopology5BPanel(target, options = {}) {
   if (!target) return null;
   if (options.readOnlyAdmission) return renderReadOnlyAdmitted5B(target, options.readOnlyAdmission);
+  if (options.psi116Legacy) return renderPsi116Legacy5B(target, options.psi116Legacy);
   const root = options.root || target.closest?.('[data-xml-cii-workflow-root]') || document;
   target.__xmlCii5bRoot = root;
   const state = ensureState(target, options);
