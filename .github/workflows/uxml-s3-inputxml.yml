@@ -5,6 +5,7 @@ on:
       - 'uxml/UxmlInputXmlSchemaMapper.js'
       - 'tools/inputxml-to-uxml.mjs'
       - 'tests/uxml-s3-caesar-inputxml.test.mjs'
+      - 'tests/uxml-s3-caesar-mutants.test.mjs'
       - 'tests/fixtures/uxml-s3-synthetic.psi116.xml'
       - 'tests/fixtures/uxml-s3-synthetic.workspace.input.xml'
       - 'tools/uxml-s3-workspace-pair.mjs'
@@ -24,7 +25,7 @@ jobs:
         run: |
           node --check uxml/UxmlInputXmlSchemaMapper.js
           node --check tools/inputxml-to-uxml.mjs
-          node --test tests/uxml-s3-caesar-inputxml.test.mjs
+          node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
   workspace-pair:
     runs-on: ubuntu-latest
     steps:
