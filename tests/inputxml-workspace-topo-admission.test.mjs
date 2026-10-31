@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {renderXmlCiiTopology5BPanel} from '../tabs/model-converters/xml-cii-topology-5b-panel.js';
-import {admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, topologyPreviewGate, workspaceTopologyGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
+import {admitWorkspaceSourceUpload, renderTopologyAdmission, renderWorkspace5BMount, revokeTopologyAdmission, sameTextareaSource, topologyPreviewGate, workspacePsi116LegacyGate, workspaceTopologyGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
+import {syntheticPsi116, VERIFIED_PSI116_NAMESPACE} from './fixtures/topo-b-psi116-synthetic.mjs';
 
 const admitted = (overrides = {}) => ({
   status: 'ADMITTED', epoch: 3, admittedProfile: 'F05 RichInputXML-P1.v1.1',
@@ -298,4 +299,174 @@ test('5B read-only graph uses only admitted source IDs/coordinates and never ren
     verdict: projection, byteSha256: '0'.repeat(64), epoch: 3,
   }}), null);
   assert.match(denied.innerHTML, /blocked/);
+});
+
+/** Tiny fake XML DOM for *synthetic unit* samples only. Browser CI uses real DOMParser. */
+function withSyntheticPsi116Dom(run, {biggerSource} = {}) {
+  const before = {DOMParser: globalThis.DOMParser, document: globalThis.document,
+    localStorage: globalThis.localStorage};
+  const element = (name, content = '', children = []) =>
+    ({nodeType: 1, localName: name, nodeName: name, textContent: content, childNodes: children});
+  class SyntheticDomParser {
+    parseFromString(xml) {
+      const groups = [...String(xml).matchAll(/<Branch>([\s\S]*?)<\/Branch>/g)];
+      const branches = groups.map(([, body]) => {
+        const name = (body.match(/<Branchname>([^<]*)<\/Branchname>/) || [,''])[1];
+        const children = [element('Branchname', name)];
+        for (const [, nodeBody] of body.matchAll(/<Node>([\s\S]*?)<\/Node>/g)) {
+          const fields = ['NodeNumber', 'NodeName', 'Position', 'ComponentType',
+            'ComponentRefNo', 'OutsideDiameter', 'Endpoint', 'ConnectionType'];
+          children.push(element('Node', '', fields.map(tag =>
+            element(tag, (nodeBody.match(new RegExp('<' + tag + '>([^<]*)<\\/' + tag + '>')) || [,''])[1]))));
+        }
+        return element('Branch', '', children);
+      });
+      return {getElementsByTagName: name => name === 'parsererror' ? [] : name === '*' ? branches : []};
+    }
+  }
+  globalThis.DOMParser = SyntheticDomParser;
+  globalThis.document = {querySelectorAll: () => biggerSource ? [{value: biggerSource}] : []};
+  globalThis.localStorage = {
+    length: biggerSource ? 1 : 0,
+    key: () => 'larger-unrelated-xml',
+    getItem: key => key === 'xmlCii2019.matchedPreview.lastDiagnostics.v1'
+      ? JSON.stringify({xmlText: biggerSource || ''}) : biggerSource || '',
+  };
+  try {return run();} finally {
+    for (const [k,v] of Object.entries(before)) {
+      if (v === undefined) delete globalThis[k];
+      else globalThis[k] = v;
+    }
+  }
+}
+
+function psi116Refusal({epoch = 1, sha256 = 'b'.repeat(64),
+  reason = 'PSI116_RECOGNIZED_NOT_ADMITTED', namespace = VERIFIED_PSI116_NAMESPACE} = {}) {
+  return {
+    status: 'UNSUPPORTED_INPUT', reason, epoch,
+    recognizedFormat: 'AVEVA PSI116 PipeStressExport',
+    root: {localName: 'PipeStressExport', namespaceURI: namespace},
+    digest: {sha256, authority: 'XML_FILE_BYTES_MEASURED'},
+    writerEligible: false, physicalIdentityQualified: false,
+    edges: [], nodes: [], elementCount: null, nodeCount: null,
+  };
+}
+
+function psi116State(text, verdict = psi116Refusal()) {
+  return sourceState({
+    topologyAdmissionEpoch: verdict.epoch,
+    topologyAdmission: verdict,
+    topologyAdmissionDigest: verdict.digest.sha256,
+    topologyAdmissionSourceEpoch: verdict.epoch,
+    topologyAdmissionSourceKind: 'normal-source',
+    topologyAdmissionSourceText: text,
+    sourceXmlText: text,
+    topologyAdmissionPhase: 'ready',
+  });
+}
+
+function renderPsi116ForState(state) {
+  const host = {innerHTML: '', querySelector: () => null};
+  const model = renderXmlCiiTopology5BPanel(host, {psi116Legacy: {
+    xmlText: state.topologyAdmissionSourceText,
+    verdict: state.topologyAdmission,
+    byteSha256: state.topologyAdmissionDigest,
+    epoch: state.topologyAdmissionEpoch,
+    sourceKind: state.topologyAdmissionSourceKind,
+  }});
+  return {host, model};
+}
+
+test('synthetic verified PSI116 upload is still refused but mounts exact-file legacy 5B with branch/node counts', async () => {
+  const xml = syntheticPsi116({branches: 2, nodesPerBranch: 3});
+  const bytes = new TextEncoder().encode(xml);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  const state = sourceState();
+  await admitWorkspaceSourceUpload({
+    state, file: {name: 'SYNTHETIC-PSI116.xml', arrayBuffer: async () => bytes.buffer,
+      text: () => {throw new Error('must read source bytes not text');}},
+    admitBytes: async (actual, {epoch}) => {
+      assert.deepEqual(actual, bytes);
+      return psi116Refusal({epoch, sha256});
+    },
+    onSourceText: text => {state.sourceXmlText = text;},
+  });
+  assert.equal(state.topologyAdmissionSourceText, xml);
+  assert.equal(state.topologyAdmissionDigest, sha256);
+  assert.equal(workspaceTopologyGate(state).allowed, false, 'PSI116 must NEVER become ADMITTED');
+  assert.equal(workspacePsi116LegacyGate(state).allowed, true);
+  assert.match(renderWorkspace5BMount(state), /data-topo-b-psi116-legacy="1"/);
+  const banner = renderTopologyAdmission({phase: 'ready', admission: state.topologyAdmission,
+    epoch: 1, sourceKind: 'normal-source', sourceDigest: sha256, sourceEpoch: 1});
+  assert.match(banner, /Not supported/);
+  assert.match(banner, /PSI116_RECOGNIZED_NOT_ADMITTED/);
+  withSyntheticPsi116Dom(() => {
+    const {host, model} = renderPsi116ForState(state);
+    assert.equal(model.branches.length, 2);
+    assert.equal(model.branches.reduce((n, b) => n + b.nodes.length, 0), 6);
+    assert.match(host.innerHTML, /PSI116 5B view \(legacy parser\) - not admitted topology evidence/);
+    assert.match(host.innerHTML, /Branches: 2 · Nodes: 6/);
+    assert.match(host.innerHTML, new RegExp(sha256.slice(0,12)));
+    assert.match(host.innerHTML, /epoch 1/);
+    assert.doesNotMatch(host.innerHTML, /data-xml-cii-5b-file|data-xml-cii-5b-paste|data-xml-cii-5b-reset-source/);
+  });
+});
+
+test('larger unrelated Branch/Node XML in localStorage and another textarea cannot override uploaded PSI116', () => {
+  const uploaded = syntheticPsi116({branches: 2, nodesPerBranch: 3});
+  const larger = syntheticPsi116({branches: 5, nodesPerBranch: 8, branchPrefix: 'WRONG-SOURCE'});
+  assert(larger.length > uploaded.length);
+  const state = psi116State(uploaded);
+  withSyntheticPsi116Dom(() => {
+    const {host, model} = renderPsi116ForState(state);
+    assert.equal(model.branches.length, 2, 'only the actual upload supplies Branch count');
+    assert.equal(model.branches.reduce((n, b) => n + b.nodes.length, 0), 6);
+    assert.match(host.innerHTML, /Branches: 2 · Nodes: 6/);
+    assert.doesNotMatch(host.innerHTML, /WRONG-SOURCE/);
+  }, {biggerSource: larger});
+});
+
+test('PSI116 legacy compatibility gate refuses every other refusal and unverified namespace', () => {
+  const xml = syntheticPsi116();
+  for (const reason of [
+    'PSI116_SHAPED_UNVERIFIED_NAMESPACE_NOT_ADMITTED',
+    'GLRD_RICHINPUT_P1_V1_DISCOVER_FIRST_NOT_ADMITTED',
+    'CONVENTIONAL_INPUTXML_RECOGNIZED_NOT_ADMITTED',
+    'UNKNOWN_ROOT_NOT_ADMITTED:Plant',
+    'XML_PARSE_ERROR',
+  ]) {
+    const verdict = psi116Refusal({reason});
+    if (reason === 'XML_PARSE_ERROR') verdict.status = 'INVALID';
+    const state = psi116State(xml, verdict);
+    assert.equal(workspacePsi116LegacyGate(state).allowed, false, reason);
+    assert.doesNotMatch(renderWorkspace5BMount(state), /data-ixw-5b-host/, reason);
+  }
+  const wrongNs = psi116State(xml, psi116Refusal({namespace: 'urn:wrong-namespace'}));
+  assert.equal(workspacePsi116LegacyGate(wrongNs).allowed, false);
+  const stale = psi116State(xml); stale.topologyAdmissionEpoch += 1;
+  assert.equal(workspacePsi116LegacyGate(stale).allowed, false);
+  const wrongBytes = psi116State(xml); wrongBytes.topologyAdmissionDigest = 'c'.repeat(64);
+  assert.equal(workspacePsi116LegacyGate(wrongBytes).allowed, false);
+  const wrongLane = psi116State(xml); wrongLane.topologyAdmissionSourceKind = 'another-textarea';
+  assert.equal(workspacePsi116LegacyGate(wrongLane).allowed, false);
+});
+
+test('PSI116 source edit and replacement synchronously revoke the legacy mount; F05/R4 stay admitted', () => {
+  const xml = syntheticPsi116();
+  const state = psi116State(xml);
+  assert.equal(workspacePsi116LegacyGate(state).allowed, true);
+  assert.equal(sameTextareaSource(xml, xml.replace(/\n/g, '\r\n')), true);
+  assert.equal(sameTextareaSource(xml, xml.replace('UPLOADED-1', 'EDITED-1')), false);
+  revokeTopologyAdmission(state);
+  assert.equal(workspacePsi116LegacyGate(state).allowed, false);
+  assert.doesNotMatch(renderWorkspace5BMount(state), /data-ixw-5b-host/);
+  for (const profile of ['F05 RichInputXML-P1.v1.1', 'R4 RichInputXMLv2.1']) {
+    const a = admitted({admittedProfile: profile});
+    const good = sourceState({topologyAdmission: a, topologyAdmissionEpoch: 3,
+      topologyAdmissionDigest: a.digest.sha256, topologyAdmissionSourceEpoch: 3,
+      topologyAdmissionSourceKind: 'normal-source'});
+    assert.equal(workspaceTopologyGate(good).allowed, true);
+    assert.match(renderWorkspace5BMount(good), /data-topo-b-byte-bound="1"/);
+    assert.equal(workspacePsi116LegacyGate(good).allowed, false);
+  }
 });
