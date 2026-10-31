@@ -19,6 +19,7 @@ import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '..
 import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';
 import { appendInputXmlWorkspaceDiagnostics, createInputXmlWorkspaceDiagnostic, createInputXmlWorkspaceDiagnostics } from './inputxml-workspace-diagnostics.js';
 import { renderInputXmlWorkspaceDiagnosticsHtml } from './inputxml-workspace-diagnostics-view.js';
+import { renderTopologyAdmission } from './inputxml-workspace-topo-admission.js';
 import {
   cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
   cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
@@ -340,6 +341,10 @@ function defaultState() {
     categorizedInputSource: '',
     categorizedOutputText: '',
     categorizedProducerAdoption: createWorkspaceProducerAdoptionState(),
+    topologyAdmissionEpoch: 0,
+    topologyAdmissionPhase: 'idle',
+    topologyAdmission: null,
+    topologyAdmissionError: '',
     workspaceDiagnostics: createInputXmlWorkspaceDiagnostics(),
     status: '',
     error: '',
@@ -639,8 +644,11 @@ function renderMiscConfigSubtab(state) {
   </section>`;
 }
 
-function renderMiscTopoSubtab() {
+function renderMiscTopoSubtab(state) {
   return `<section class="ixw-panel">
+    <div class="ixw-title">Read-only XML topology admission</div>
+    ${renderTopologyAdmission({phase: state.topologyAdmissionPhase, admission: state.topologyAdmission, epoch: state.topologyAdmissionEpoch, error: state.topologyAdmissionError})}
+  </section><section class="ixw-panel">
     <div class="ixw-title">Ported 5B Topology</div>
     <div data-ixw-5b-host></div>
   </section>`;
@@ -654,7 +662,7 @@ function renderMiscSupportSubtab() {
 }
 
 function renderMiscTab(state) {
-  const body = state.miscSubtab === 'topo' ? renderMiscTopoSubtab()
+  const body = state.miscSubtab === 'topo' ? renderMiscTopoSubtab(state)
     : state.miscSubtab === 'support' ? renderMiscSupportSubtab()
     : renderMiscConfigSubtab(state);
   return `<div class="ixw-subtabs">${MISC_SUBTABS.map(([id, label]) => `<button type="button" class="ixw-subtab ${state.miscSubtab === id ? 'active' : ''}" data-ixw-misc-subtab="${h(id)}">${h(label)}</button>`).join('')}</div>${body}`;
@@ -929,6 +937,31 @@ async function handleAction(dialog, state, action, source) {
 }
 
 function bindFileInputs(dialog, state) {
+  // Independent read-only topology intake; never passes RichInput to 5C or the PSI116 writer.
+  dialog.querySelector('[data-ixw-file="topologySource"]')?.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const epoch = ++state.topologyAdmissionEpoch;
+    state.topologyAdmission = null; // Explicitly revoke the previous graph before async I/O.
+    state.topologyAdmissionError = '';
+    state.topologyAdmissionPhase = 'checking';
+    rerender(dialog, state);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // Lazy import leaves the conventional Workspace paths and their startup dependencies unchanged.
+      const { admitXmlBytes } = await import('../../prototypes/ciifr-map/xml-format-admission.js');
+      const verdict = await admitXmlBytes(bytes, {name: file.name, epoch});
+      if (epoch !== state.topologyAdmissionEpoch || !dialog.isConnected) return;
+      state.topologyAdmission = verdict;
+      state.topologyAdmissionPhase = 'ready';
+    } catch (error) {
+      if (epoch !== state.topologyAdmissionEpoch || !dialog.isConnected) return;
+      state.topologyAdmission = null;
+      state.topologyAdmissionError = String(error?.message || error);
+      state.topologyAdmissionPhase = 'failed';
+    }
+    rerender(dialog, state);
+  });
   dialog.querySelector('[data-ixw-file="sourceXml"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
