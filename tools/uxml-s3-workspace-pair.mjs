@@ -13,6 +13,7 @@ import {createHash} from 'node:crypto';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const inputPath=join(root,'tests/fixtures/uxml-s3-synthetic.psi116.xml');
 const outputPath=join(root,'tests/fixtures/uxml-s3-synthetic.workspace.input.xml');
+const deltaOnlyPath=join(root,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml');
 const source=readFileSync(inputPath,'utf8');
 const serve=createServer((req,res)=>{
   const uri=decodeURIComponent((req.url||'/').split('?')[0]);
@@ -58,7 +59,11 @@ try {
     if(!existsSync(outputPath))throw Error('Committed fixture not present: '+outputPath);
     const committed=readFileSync(outputPath,'utf8');
     if(committed!==output.inputXml)throw Error('Committed pair differs from real Workspace conversion');
+    const noAbsolute=output.inputXml.replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'');
+    if(!existsSync(deltaOnlyPath)||readFileSync(deltaOnlyPath,'utf8')!==noAbsolute)
+      throw Error('Committed delta-only counterpart differs from exact Workspace 5C output with only absolute attrs removed');
     console.log('WORKSPACE_GENERATED_PAIR_BYTES_EQUAL');
+    console.log('WORKSPACE_DELTA_ONLY_BYTES_EQUAL');
   }
 }finally{
   await browser?.close();
