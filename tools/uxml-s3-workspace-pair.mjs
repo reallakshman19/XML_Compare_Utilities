@@ -42,8 +42,8 @@ try {
       jobName:'S3_SYNTHETIC_PARITY',
     });
     if(!converted?.ok)throw Error('Workspace 5C conversion did not succeed');
-    if(converted.diagnostics.summary.elementCount!==1)
-      throw Error('Expected exactly 1 Workspace-generated PIPINGELEMENT, got '+
+    if(converted.diagnostics.summary.elementCount!==6)
+      throw Error('Expected exactly 6 Workspace-generated PIPINGELEMENT, got '+
         converted.diagnostics.summary.elementCount);
     return {inputXml:converted.coreInputXmlText,summary:converted.diagnostics.summary,
       cleanXmlSha:cleanXmlText.length};
