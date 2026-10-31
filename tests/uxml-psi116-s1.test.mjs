@@ -93,6 +93,8 @@ test('lossContract names uncarried element/attribute and never silently drops it
   const doc = mapPsi116ToUxml(xml, {fileSha256: hash(xml)});
   const losses = doc.lossContract.map(x => x.details);
   assert(losses.some(x => x.kind === 'ELEMENT' && x.sourcePath.includes('UnmappedField')));
+  assert(losses.some(x => x.kind === 'ELEMENT' && x.sourcePath.includes('/Pipe[')),
+    'PSI116 Pipe wrapper is uncarried and must be in the loss ledger');
   assert(losses.some(x => x.kind === 'ATTRIBUTE' && x.sourcePath.endsWith('/@misc')));
   assert(losses.some(x => x.kind === 'ATTRIBUTE' && x.sourcePath.endsWith('/@x')));
   assert.equal(doc.sources[0].sourceText, xml);
