@@ -66,6 +66,16 @@ function physicalField(line,start,end,identity) {
   return {identity,lexeme,byteStart:line.start+start,byteEnd:line.start+end,
     typedNumber:number(line,start,end,identity)};
 }
+function dormantResidue(cs,owner,pointer,slot) {
+  const tokens=cs.flatMap(c=>c.text.slice(2).match(/\S+/g)||[]);
+  // Test zero lexically: numeric underflow must not hide nonzero residue.
+  const zero=t=>/^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[EeDd][+-]?\d+)?$/.test(t);
+  if(tokens.every(zero)) return null;
+  return {code:'PROPERTY_RESTRAINT_DORMANT_RESIDUE',classification:'UNKNOWN',
+    family:'RESTRANT',ownerElement:owner.ordinal,pointer,slot:slot+1,
+    byteStart:cs[0].start,byteEnd:cs[3].end,rawCards:cs.map(c=>c.text),
+    detail:'Zero node/type/CNode with other payload; dormant-slot legality NOT_QUALIFIED. Bytes preserved.'};
+}
 export function indexCiiV14(input) {
   if(!(input instanceof Uint8Array)) invalid('PROPERTY_BYTES_REQUIRED');
   const source=parseCii(input);
@@ -75,7 +85,7 @@ export function indexCiiV14(input) {
   const elm=sec.get('ELEMENTS')||[];
   if(elm.length!==counts.NUMELT*15 || source.elements.length!==counts.NUMELT)
     invalid('PROPERTY_NUMELT_MISMATCH');
-  const byNode=new Map(),elements=[],used={};
+  const byNode=new Map(),elements=[],used={},diagnostics=[];
   for(const family of Object.keys(ROWS)) used[family]=new Map();
   function add(node,entry) {
     if(!byNode.has(node)) byNode.set(node,{incidents:[],restraints:[],
@@ -83,6 +93,10 @@ export function indexCiiV14(input) {
     byNode.get(node).incidents.push(entry);
   }
   for(const e of source.elements) {
+    if(e.from<0||e.to<0) invalid('PROPERTY_ELEMENT_ENDPOINT_NEGATIVE');
+    // This inspector supports positive logical-node endpoints only. Zero may
+    // have a vendor/profile meaning; holding it is not a vendor-invalid claim.
+    if(e.from===0||e.to===0) invalid('PROPERTY_ELEMENT_ZERO_ENDPOINT_UNQUALIFIED');
     const cs=elm.slice(e.index*15,e.index*15+15);
     const p=elementPointers(cs);
     const item={ordinal:e.index+1,from:e.from,to:e.to,branch:e.branch,
@@ -92,13 +106,20 @@ export function indexCiiV14(input) {
         physicalField(cs[5],15,28,'FLUID_DENSITY_STORED')]};
     elements.push(item);
     for(const node of new Set([e.from,e.to])) add(node,item);
-    for(const family of Object.keys(ROWS)) {
+    for(const family of KINDS) {
       const n=p[family],count=counts[family];
       if(n<0||n>count) invalid('PROPERTY_POINTER_RANGE_'+family);
+      if(!Object.hasOwn(ROWS,family)) continue;
       if(!n) continue;
       if(used[family].has(n)) invalid('PROPERTY_SHARED_POINTER_'+family);
       used[family].set(n,item);
     }
+  }
+  for(const family of KINDS.filter(k=>!Object.hasOwn(ROWS,k))) {
+    if(counts[family]||(sec.get(family)||[]).length)
+      diagnostics.push({code:'PROPERTY_AUX_CONTENT_UNQUALIFIED',classification:'UNKNOWN',
+        family,count:counts[family],
+        detail:'Pointer bounds checked; auxiliary content/cardinality/ownership NOT_QUALIFIED.'});
   }
   for(const family of Object.keys(ROWS)) {
     const linesFor=sec.get(family)||[],count=counts[family];
@@ -135,6 +156,8 @@ export function indexCiiV14(input) {
       if(node<0 || cnode<0) invalid('PROPERTY_RESTRAINT_NODE_INVALID');
       if(node===0) {
         if(type!==0||cnode!==0) invalid('PROPERTY_RESTRAINT_EMPTY_SLOT_INCONSISTENT');
+        const residue=dormantResidue(c,owner,p,slot);
+        if(residue) diagnostics.push(residue);
         continue;
       }
       if(type<1||type>62) invalid('PROPERTY_RESTRAINT_TYPE_INVALID');
@@ -170,10 +193,12 @@ export function indexCiiV14(input) {
         semantics:'ELEMENT_OWNED;EFFECTIVE_RIGID_SEMANTICS_NOT_QUALIFIED'});
     }
   }
-  return {version:14,bytesLength:input.length,counts,elements,byNode,
+  return {version:14,bytesLength:input.length,counts,elements,byNode,diagnostics,
     miscRrmatRows:rrmatRows,materialIds,
     miscTotalRows:misc.length,
     qualification:{controlPrimaryCounts:'NONNEGATIVE_AND_IZUP_VALIDATED',
+      endpointDomain:'POSITIVE_ONLY;ZERO_ENDPOINT_MEANING_NOT_QUALIFIED',
+      pointerBounds:'ALL_ELEMENT_POINTERS_RANGE_CHECKED;NOT_CONTENT_QUALIFICATION',
       rrmat:'ALL_ELEMENT_IDS_PARSED_AND_RANGE_CHECKED',
       miscNozzles:'COUNTS_ONLY;VFLEX_CONTENT_NOT_QUALIFIED',
       miscHangers:'COUNTS_ONLY;HANGER_CONTENT_NOT_QUALIFIED',

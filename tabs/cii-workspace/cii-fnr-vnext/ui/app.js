@@ -430,7 +430,14 @@ root.addEventListener('click', async (event) => {
   const el = event.target.closest('button'); if (!el) return;
   if (el.dataset.tab && tabs.includes(el.dataset.tab)) {
     if (el.dataset.tab === active) return;
-    invalidate(state()); active = el.dataset.tab; invalidate(state()); renderTabs(); renderRules(); renderResults(); renderCleanupReport();
+    if (active === 'PROPERTY_TRANSFER' || el.dataset.tab === 'PROPERTY_TRANSFER') {
+      // Independent read-only navigation preserves completed plans. Cancel
+      // pending Normal operations; real input/rule changes still invalidate.
+      opSeq++; active = el.dataset.tab;
+    } else {
+      invalidate(state()); active = el.dataset.tab; invalidate(state());
+    }
+    renderTabs(); renderRules(); renderResults(); renderCleanupReport();
     return;
   }
   if (el.dataset.delete !== undefined) { state().rules.splice(Number(el.dataset.delete), 1); invalidate(state()); renderRules(); }
@@ -482,8 +489,14 @@ for (const field of ['target', 'source']) {
   });
 }
 $('[data-file="csv"]').addEventListener('change', async (event) => {
-  const file = event.target.files?.[0]; if (!file) return;
-  const req = ++csvSeq, targetTab = active, s = state(), guard = revision, curCfg = config;
+  const file = event.target.files?.[0];
+  const req = ++csvSeq, targetTab = active, s = state();
+  // Revoke at selection/clear, before an asynchronous read can leave an old
+  // applied output exportable. A clear also supersedes any pending CSV read.
+  invalidate(s, 'CSV selection changed. Regenerate and approve rules before export.');
+  renderRules();
+  if (!file) return;
+  const guard = revision, curCfg = config;
   try {
     const text = await file.text();
     if (req !== csvSeq || active !== targetTab || guard !== revision || config !== curCfg) return;
