@@ -11,7 +11,6 @@ import { RuntimeEvents } from '../../contracts/runtime-events.js';
 import { applyXmlCompareSideload } from '../../xml-compare/XmlCompareSideloadEnricher.js';
 import { convertCategorizedInputXml, categorizedFileName } from '../../xml-compare/CategorizedInputXmlConverter.js';
 import { createCategorizedInputXmlWorkerClient } from '../../xml-compare/categorized-inputxml-worker/index.js';
-import { renderXmlCiiTopology5BPanel } from '../model-converters/xml-cii-topology-5b-panel.js';
 import { renderXmlCiiTopology5CPanel } from '../model-converters/xml-cii-topology-5c-panel.js';
 import { renderXmlCiiInputXmlCompare5DPanel } from '../model-converters/xml-cii-inputxml-compare-5d-panel.js';
 import { bindXmlCiiJsonTracePanel, renderXmlCiiJsonTracePanel } from '../model-converters/json-trace/json-trace-panel.js';
@@ -19,7 +18,7 @@ import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '..
 import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';
 import { appendInputXmlWorkspaceDiagnostics, createInputXmlWorkspaceDiagnostic, createInputXmlWorkspaceDiagnostics } from './inputxml-workspace-diagnostics.js';
 import { renderInputXmlWorkspaceDiagnosticsHtml } from './inputxml-workspace-diagnostics-view.js';
-import { renderTopologyAdmission } from './inputxml-workspace-topo-admission.js';
+import { admitWorkspaceSourceUpload, renderTopologyAdmission, revokeTopologyAdmission } from './inputxml-workspace-topo-admission.js';
 import {
   cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
   cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
@@ -114,7 +113,10 @@ function collectWithInvalidation(dialog, state) {
     categorizedDirection: state.categorizedDirection,
   };
   collect(dialog, state);
-  if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
+  if (before.sourceXmlText !== state.sourceXmlText) {
+    invalidateCleanArtifacts(state);
+    revokeTopologyAdmission(state); // Any pasted/edited text invalidates the measured-file source snapshot.
+  }
   if (before.enrichmentInput !== state.enrichment.inputXmlText) {
     invalidateEnrichmentArtifacts(state);
     state.enrichment.inputXmlSource = 'paste';
@@ -345,6 +347,8 @@ function defaultState() {
     topologyAdmissionPhase: 'idle',
     topologyAdmission: null,
     topologyAdmissionError: '',
+    topologyAdmissionSourceText: null,
+    topologyAdmissionSourceKind: null,
     workspaceDiagnostics: createInputXmlWorkspaceDiagnostics(),
     status: '',
     error: '',
@@ -647,10 +651,10 @@ function renderMiscConfigSubtab(state) {
 function renderMiscTopoSubtab(state) {
   return `<section class="ixw-panel">
     <div class="ixw-title">Read-only XML topology admission</div>
-    ${renderTopologyAdmission({phase: state.topologyAdmissionPhase, admission: state.topologyAdmission, epoch: state.topologyAdmissionEpoch, error: state.topologyAdmissionError})}
+    ${renderTopologyAdmission({phase: state.topologyAdmissionPhase, admission: state.topologyAdmission, epoch: state.topologyAdmissionEpoch, error: state.topologyAdmissionError, sourceXmlText: state.sourceXmlText, sourceSnapshot: state.topologyAdmissionSourceText, sourceKind: state.topologyAdmissionSourceKind})}
   </section><section class="ixw-panel">
-    <div class="ixw-title">Ported 5B Topology</div>
-    <div data-ixw-5b-host></div>
+    <div class="ixw-title">Ported 5B Topology — input gate</div>
+    <div class="ixw-note" role="status">The legacy 5B source picker accepts independent pasted/uploaded bytes and cannot verify this Source XML admission. It is intentionally not mounted here. Use the admitted read-only source-element evidence above; native 5B remains unchanged outside this Workspace lane.</div>
   </section>`;
 }
 
@@ -937,39 +941,30 @@ async function handleAction(dialog, state, action, source) {
 }
 
 function bindFileInputs(dialog, state) {
-  // Independent read-only topology intake; never passes RichInput to 5C or the PSI116 writer.
-  dialog.querySelector('[data-ixw-file="topologySource"]')?.addEventListener('change', async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const epoch = ++state.topologyAdmissionEpoch;
-    state.topologyAdmission = null; // Explicitly revoke the previous graph before async I/O.
-    state.topologyAdmissionError = '';
-    state.topologyAdmissionPhase = 'checking';
-    rerender(dialog, state);
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      // Lazy import leaves the conventional Workspace paths and their startup dependencies unchanged.
-      const { admitXmlBytes } = await import('../../prototypes/ciifr-map/xml-format-admission.js');
-      const verdict = await admitXmlBytes(bytes, {name: file.name, epoch});
-      if (epoch !== state.topologyAdmissionEpoch || !dialog.isConnected) return;
-      state.topologyAdmission = verdict;
-      state.topologyAdmissionPhase = 'ready';
-    } catch (error) {
-      if (epoch !== state.topologyAdmissionEpoch || !dialog.isConnected) return;
-      state.topologyAdmission = null;
-      state.topologyAdmissionError = String(error?.message || error);
-      state.topologyAdmissionPhase = 'failed';
-    }
-    rerender(dialog, state);
-  });
+  // The NORMAL CleanXML Source XML uploader is also the only Topo B2 intake.
+  // The same File.arrayBuffer() snapshot is decoded for the existing textarea
+  // and admitted as raw bytes; the legacy 5B parser never receives bypass input.
   dialog.querySelector('[data-ixw-file="sourceXml"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     invalidateCleanArtifacts(state);
-    state.sourceXmlText = await file.text();
+    state.sourceXmlText = '';
     state.sourceName = file.name;
-    state.status = `Loaded ${file.name}.`;
-    rerender(dialog, state);
+    state.status = `Checking ${file.name} for read-only topology admission.`;
+    await admitWorkspaceSourceUpload({
+      state, file,
+      admitBytes: async (bytes, options) => {
+        const { admitXmlBytes } = await import('../../prototypes/ciifr-map/xml-format-admission.js');
+        return admitXmlBytes(bytes, options);
+      },
+      onSourceText: (sourceText, name) => {
+        state.sourceXmlText = sourceText;
+        state.sourceName = name;
+        state.status = `Loaded ${name}.`;
+      },
+      notify: () => rerender(dialog, state),
+      isCurrent: () => dialog.isConnected,
+    });
   });
   dialog.querySelector('[data-ixw-file="accdbHelper"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
@@ -1049,8 +1044,6 @@ function bindRenderedPanels(dialog, state) {
   });
   const host5d = dialog.querySelector('[data-ixw-5d-host]');
   if (host5d) renderXmlCiiInputXmlCompare5DPanel(host5d, { root: dialog });
-  const host5b = dialog.querySelector('[data-ixw-5b-host]');
-  if (host5b) renderXmlCiiTopology5BPanel(host5b, { root: dialog });
   const supportHost = dialog.querySelector('[data-ixw-support-host]');
   if (supportHost) bindXmlCiiSupportMapperPhase(supportHost, {
     config: (() => { try { return JSON.parse(state.supportConfigJson || '{}'); } catch { return {}; } })(),
