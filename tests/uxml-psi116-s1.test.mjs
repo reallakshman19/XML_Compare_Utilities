@@ -138,3 +138,77 @@ test('unknown namespace and malformed/dangerous source fail without UXML output'
   }
   assert.throws(() => mapPsi116ToUxml(fixture(), {fileSha256:'wrong'}), /SHA256_REQUIRED/);
 });
+
+test('CLI raw file-byte SHA exactly matches UTF-8(sourceText) for plain, BOM, CRLF and BOM+CRLF', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'uxml-psi116-bom-r1-'));
+  try {
+    const lf = fixture().replace(/\r\n?/g, '\n');
+    const crlf = lf.replace(/\n/g, '\r\n');
+    for (const [name, source] of [
+      ['plain', lf], ['bom', '\uFEFF' + lf],
+      ['crlf', crlf], ['bom-crlf', '\uFEFF' + crlf],
+    ]) {
+      const input = join(dir, name + '.xml');
+      const bytes = Buffer.from(source, 'utf8');
+      writeFileSync(input, bytes);
+      const output = spawnSync(process.execPath, ['tools/psi116-to-uxml.mjs', input],
+        {cwd: new URL('../', import.meta.url), encoding: 'utf8'});
+      assert.equal(output.status, 0, name + ': ' + output.stderr);
+      const doc = JSON.parse(output.stdout);
+      const original = createHash('sha256').update(bytes).digest('hex');
+      assert.equal(doc.sources[0].hash, original, name);
+      assert.equal(doc.sources[0].sourceText, source, name + ': BOM and CRLF are retained');
+      assert.equal(createHash('sha256').update(Buffer.from(doc.sources[0].sourceText, 'utf8')).digest('hex'),
+        original, name + ': exact binary SHA identity');
+      assert.equal(doc.components.length, 2);
+      assert.equal(doc.topologyHints.length, 1);
+      if (name.includes('bom')) assert.equal(doc.sources[0].sourceText.charCodeAt(0), 0xFEFF);
+    }
+  } finally {rmSync(dir, {recursive: true, force: true});}
+});
+
+test('XML 1.0 CRLF/lone CR in text and attribute slices normalise before entity decode, source remains raw', () => {
+  const xml = fixture().replace('<NodeName>/X-120</NodeName>',
+    '<NodeName>L1\r\nL2\rL3</NodeName>')
+    .replace('misc', 'misc') // preserve fixture source identity without changing other fields
+    .replace('xmlns="' + NS + '"', 'xmlns="' + NS + '" lineTag="A\r\nB\rC"');
+  const doc = mapPsi116ToUxml(xml, {fileSha256: hash(xml)});
+  assert.equal(doc.components[0].rawAttributes.psi116.nodeName, 'L1\nL2\nL3');
+  assert.equal(doc.components[0].name, 'L1\nL2\nL3');
+  assert.equal(doc.sources[0].sourceText, xml, 'raw source CRLF/CR remains unchanged');
+  const loss = doc.lossContract.find(x => x.details.sourcePath.endsWith('/@lineTag'));
+  assert(loss, 'source-root raw-only attribute remains inventoried');
+  assert.equal(loss.details.raw, 'A\nB\nC', 'normalise physical newline in attr before entity decoding');
+  assert.match(doc.components[0].rawAttributes.psi116.rawXml, /L1\r\nL2\rL3/);
+  const entityText = xml.replace('L1\r\nL2\rL3', 'L1\r\nL2&#13;L3');
+  const decoded = mapPsi116ToUxml(entityText, {fileSha256: hash(entityText)});
+  assert.equal(decoded.components[0].name, 'L1\nL2\rL3',
+    'numeric XML entity must not be folded with physical line endings');
+});
+
+test('Python int/float accept underscores and Unicode digits, but never JS-only hex/float spellings', () => {
+  function read(rawInt, rawFloat, endpoint = '2') {
+    const xml = fixture()
+      .replace('<NodeNumber>120</NodeNumber>', '<NodeNumber>' + rawInt + '</NodeNumber>')
+      .replace('<Endpoint>1</Endpoint>', '<Endpoint>' + endpoint + '</Endpoint>')
+      .replace('<Weight>0</Weight>', '<Weight>' + rawFloat + '</Weight>');
+    return mapPsi116ToUxml(xml, {fileSha256: hash(xml)}).components[0].rawAttributes.psi116;
+  }
+  assert.equal(read('1_0', '1_2.3_4').nodeNumber, 10);
+  assert.equal(read('1_0', '1_2.3_4').weight, 12.34);
+  assert.equal(read('٠١', '١_٢.٣', '+1_0').nodeNumber, 1);
+  assert.equal(read('٠١', '١_٢.٣', '+1_0').weight, 12.3);
+  assert.equal(read('٠١', '١_٢.٣', '+1_0').endpoint, 10);
+  assert.equal(read('0x10', '0x10').nodeNumber, null);
+  assert.equal(read('0x10', '0x10').weight, null);
+  assert.equal(read('1__0', '1e3_0').nodeNumber, null);
+  assert.equal(read('1__0', '1e3_0').weight, 1e30);
+  assert.equal(read('1_', '_1.2').weight, null);
+  const wide = read('9007199254740993123456', '6.02');
+  assert.equal(wide.nodeNumber, '9007199254740993123456',
+    'wide Python int is a lossless decimal string, not a rounded JS number');
+  const xml = fixture().replace('<NodeNumber>120</NodeNumber>',
+    '<NodeNumber>9007199254740993123456</NodeNumber>');
+  const doc = mapPsi116ToUxml(xml, {fileSha256: hash(xml)});
+  assert.equal(doc.components[0].sourceRefs[0].recordKey, 'B0:N9007199254740993123456:S0');
+});
