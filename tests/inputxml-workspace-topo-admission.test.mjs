@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderTopologyAdmission, topologyPreviewGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
+import {readFileSync} from 'node:fs';
+import {admitWorkspaceSourceUpload, renderTopologyAdmission, revokeTopologyAdmission, topologyPreviewGate, workspaceTopologyGate} from '../tabs/inputxml-workspace/inputxml-workspace-topo-admission.js';
 
 const admitted = (overrides = {}) => ({
   status: 'ADMITTED', epoch: 3, admittedProfile: 'F05 RichInputXML-P1.v1.1',
@@ -12,8 +13,28 @@ const admitted = (overrides = {}) => ({
   ...overrides,
 });
 
+const boundView = (input, options = {}) => renderTopologyAdmission({
+  admission: input, epoch: 3, sourceXmlText: '<same-source/>',
+  sourceSnapshot: '<same-source/>', sourceKind: 'normal-source', ...options,
+});
+const sourceState = (overrides = {}) => ({
+  topologyAdmissionEpoch: 0, topologyAdmission: null, topologyAdmissionError: '',
+  topologyAdmissionPhase: 'idle', topologyAdmissionSourceText: null,
+  topologyAdmissionSourceKind: null, sourceXmlText: '', ...overrides,
+});
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((a, b) => {resolve = a; reject = b;});
+  return {promise, resolve, reject};
+}
+function fileFrom(text, read = null) {
+  const bytes = new TextEncoder().encode(text);
+  return {name: 'source.xml', arrayBuffer: () => read?.promise ?? Promise.resolve(bytes.buffer),
+    text: () => {throw new Error('FORBIDDEN_FILE_TEXT_PATH');}};
+}
+
 test('F05 admission banner reports source evidence and measured digest, never Apply', () => {
-  const html = renderTopologyAdmission({phase: 'ready', admission: admitted(), epoch: 3});
+  const html = boundView(admitted(), {phase: 'ready'});
   assert.equal(topologyPreviewGate(admitted(), 3).allowed, true);
   assert.match(html, /Admitted · F05 v1\.1 · 56 elements \/ 57 nodes · absolute/);
   assert.match(html, /SHA-256: aaaaaaaaaaaa \(measured file bytes\)/);
@@ -24,7 +45,7 @@ test('F05 admission banner reports source evidence and measured digest, never Ap
 
 test('R4 banner keeps the declared profile and an unseeded frame is not called absolute', () => {
   const r4 = admitted({admittedProfile: 'R4 RichInputXMLv2.1', nodes: admitted().nodes.map(n => ({...n, coordinateStatus: 'RELATIVE_NO_SEED'}))});
-  const html = renderTopologyAdmission({admission: r4, epoch: 3});
+  const html = boundView(r4);
   assert.match(html, /Admitted · R4 v2\.1 · 56 elements \/ 57 nodes · relative \(no global seed\)/);
 });
 
@@ -60,4 +81,105 @@ test('incomplete admission and a parser failure never expose an older graph', ()
   assert.doesNotMatch(renderTopologyAdmission({phase: 'idle'}), /Source-element preview/);
   const fail = renderTopologyAdmission({admission: admitted({status: 'INVALID', reason: 'XML_INVALID_UTF8'}), epoch: 3});
   assert.match(fail, /XML_INVALID_UTF8/);
+});
+
+test('normal Workspace handler snapshots File.arrayBuffer bytes and updates existing textarea source', async () => {
+  const state = sourceState(), events = [];
+  const input = '<?xml version="1.0"?><CAESARII>F05 source</CAESARII>';
+  const source = fileFrom(input);
+  const verdict = await admitWorkspaceSourceUpload({
+    state, file: source,
+    admitBytes: async (bytes, {name, epoch}) => {
+      assert(bytes instanceof Uint8Array, 'source must use Uint8Array file bytes');
+      assert.deepEqual(bytes, new TextEncoder().encode(input));
+      assert.equal(name, 'source.xml'); assert.equal(epoch, 1);
+      return admitted({epoch});
+    },
+    onSourceText: (decoded, name) => {
+      assert.equal(name, source.name); state.sourceXmlText = decoded; events.push('source-text');
+    },
+    notify: () => events.push('render'),
+  });
+  assert.equal(verdict.status, 'ADMITTED');
+  assert.equal(state.sourceXmlText, input);
+  assert.equal(state.topologyAdmissionSourceText, input);
+  assert.equal(state.topologyAdmissionSourceKind, 'normal-source');
+  assert.equal(workspaceTopologyGate(state).allowed, true);
+  assert.equal(state.topologyAdmissionPhase, 'ready');
+  assert(events.indexOf('source-text') > events.indexOf('render'));
+  assert.equal(events.filter(e => e === 'render').length, 3);
+});
+
+test('clear-on-change is synchronous, before bytes arrive; replacing source revokes prior graph', async () => {
+  const prior = admitted({epoch: 8});
+  const state = sourceState({topologyAdmissionEpoch: 8, topologyAdmission: prior,
+    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionSourceText: 'old', sourceXmlText: 'old'});
+  const read = deferred();
+  const job = admitWorkspaceSourceUpload({state, file: fileFrom('new', read),
+    admitBytes: async () => admitted({epoch: 9})});
+  assert.equal(state.topologyAdmissionEpoch, 9);
+  assert.equal(state.topologyAdmission, null, 'old graph MUST disappear synchronously');
+  assert.equal(state.topologyAdmissionSourceText, null);
+  assert.equal(state.topologyAdmissionPhase, 'checking');
+  assert.equal(workspaceTopologyGate(state).allowed, false);
+  read.resolve(new TextEncoder().encode('new').buffer);
+  await job;
+});
+
+test('epoch guard after file I/O prevents a stale read from invoking admission or overwriting newer text', async () => {
+  const state = sourceState(), slowRead = deferred();
+  const called = [], texts = [];
+  const admitBytes = async (_bytes, {name, epoch}) => {called.push(epoch); return admitted({epoch});};
+  const first = admitWorkspaceSourceUpload({state, file: fileFrom('first', slowRead),
+    admitBytes, onSourceText: t => texts.push(t)});
+  const second = admitWorkspaceSourceUpload({state, file: fileFrom('second'),
+    admitBytes, onSourceText: t => {state.sourceXmlText = t; texts.push(t);}});
+  await second;
+  slowRead.resolve(new TextEncoder().encode('first').buffer);
+  await first;
+  assert.deepEqual(called, [2], 'the superseded first read must not even invoke the parser');
+  assert.deepEqual(texts, ['second'], 'the superseded source must not be adopted');
+  assert.equal(state.topologyAdmission.epoch, 2);
+  assert.equal(workspaceTopologyGate(state).allowed, true);
+});
+
+test('epoch guard after async admission prevents a stale verdict from resurrecting its graph', async () => {
+  const state = sourceState(), oldParse = deferred();
+  const admitBytes = async (_bytes, {epoch}) => epoch === 1 ? oldParse.promise : admitted({epoch});
+  const onSourceText = t => {state.sourceXmlText = t;};
+  const first = admitWorkspaceSourceUpload({state, file: fileFrom('first'), admitBytes, onSourceText});
+  // Wait until the old call has reached its parser promise.
+  await Promise.resolve(); await Promise.resolve();
+  const second = admitWorkspaceSourceUpload({state, file: fileFrom('second'), admitBytes, onSourceText});
+  await second;
+  oldParse.resolve(admitted({epoch: 1}));
+  await first;
+  assert.equal(state.topologyAdmission.epoch, 2, 'late old outcome MUST NOT overwrite the replacement');
+  assert.equal(state.topologyAdmissionSourceText, 'second');
+  assert.equal(workspaceTopologyGate(state).allowed, true);
+});
+
+test('same-source gate refuses changed paste text, wrong source lane, stale epoch and unreadable byte claims', () => {
+  const state = sourceState({topologyAdmissionEpoch: 3, topologyAdmission: admitted(),
+    topologyAdmissionSourceKind: 'normal-source', topologyAdmissionSourceText: 'original',
+    sourceXmlText: 'original'});
+  assert.equal(workspaceTopologyGate(state).allowed, true);
+  state.sourceXmlText = 'edited';
+  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTES_OR_TEXT_CHANGED');
+  state.sourceXmlText = 'original'; state.topologyAdmissionSourceKind = 'other-upload';
+  assert.equal(workspaceTopologyGate(state).reason, 'SOURCE_BYTES_OR_TEXT_CHANGED');
+  state.topologyAdmissionSourceKind = 'normal-source';
+  revokeTopologyAdmission(state);
+  assert.equal(state.topologyAdmission, null);
+  assert.equal(workspaceTopologyGate(state).allowed, false);
+});
+
+test('normal-upload wiring is not bypassed by a legacy 5B independent paste/file picker', () => {
+  const tab = readFileSync(new URL('../tabs/inputxml-workspace/inputxml-workspace-tab.js', import.meta.url), 'utf8');
+  assert.match(tab, /admitWorkspaceSourceUpload\(/);
+  assert.match(tab, /revokeTopologyAdmission\(state\)/);
+  assert.doesNotMatch(tab, /renderXmlCiiTopology5BPanel|data-ixw-5b-host|topologySource/);
+  const denied = boundView(admitted(), {sourceSnapshot: '<different/>'});
+  assert.match(denied, /SOURCE_BYTES_OR_TEXT_CHANGED/);
+  assert.doesNotMatch(denied, /Source-element preview/);
 });
