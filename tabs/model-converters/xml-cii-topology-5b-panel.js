@@ -612,8 +612,146 @@ function bindPanelControls(target, model, state) {
   });
   if (canvas) bindCanvas(canvas, model, state);
 }
+/**
+ * B2's opt-in Workspace mode projects ONLY a previously admitted F05/R4
+ * source-element graph. Do not scan workflow DOM/localStorage or mount the
+ * legacy independent 5B paste/file picker. Source-edge topology is NOT the
+ * PSI116 physical port solver or an approved connection.
+ *
+ * This path is deliberately isolated; all regular 5B calls retain their
+ * original parsing, controls, behaviour and rendering.
+ */
+function renderReadOnlyAdmitted5B(target, claim) {
+  const a = claim?.verdict;
+  const admitted = a?.status === 'ADMITTED' && Number.isSafeInteger(claim?.epoch) &&
+    a.epoch === claim.epoch && claim.byteSha256 === a.digest?.sha256 &&
+    a.digest?.authority === 'XML_FILE_BYTES_MEASURED' &&
+    /^[a-f0-9]{64}$/.test(claim.byteSha256 || '') &&
+    Number.isSafeInteger(a.elementCount) && a.elementCount > 0 &&
+    Number.isSafeInteger(a.nodeCount) && a.nodeCount > 0 &&
+    a.edges?.length === a.elementCount && a.nodes?.length === a.nodeCount &&
+    a.writerEligible === false && a.physicalIdentityQualified === false;
+  if (!admitted) {
+    target.innerHTML = '<div class="model-converters-workflow-detail-note">Not admitted for this file/epoch; 5B projection blocked.</div>';
+    return null;
+  }
+
+  const points = new Map();
+  for (const node of a.nodes) {
+    const xyz = node?.xyz;
+    if (node?.id == null || !Array.isArray(xyz) || xyz.length !== 3 ||
+        !xyz.every(Number.isFinite)) continue;
+    points.set(String(node.id), xyz);
+  }
+  // Avoid Math.min(...largeArray): valid larger RichInput profiles may exceed
+  // the JS argument limit. This bounded graph preview is linear in source nodes.
+  const axes = [0, 1, 2].map(axis => ({axis, low: Infinity, high: -Infinity}));
+  for (const xyz of points.values()) {
+    for (const axis of axes) {
+      if (xyz[axis.axis] < axis.low) axis.low = xyz[axis.axis];
+      if (xyz[axis.axis] > axis.high) axis.high = xyz[axis.axis];
+    }
+  }
+  axes.sort((a, b) => (b.high - b.low) - (a.high - a.low));
+  const axisNames = ['X', 'Y', 'Z'];
+  const [horizontal, vertical] = axes;
+  const px = xyz => 30 + (xyz[horizontal.axis] - horizontal.low) /
+    (horizontal.high - horizontal.low || 1) * 620;
+  const py = xyz => 330 - (xyz[vertical.axis] - vertical.low) /
+    (vertical.high - vertical.low || 1) * 300;
+  const visible = a.edges.slice(0, 800);
+  const segments = visible.map(edge => {
+    const from = points.get(String(edge.from)), to = points.get(String(edge.to));
+    return from && to ? `<line x1="${px(from)}" y1="${py(from)}" x2="${px(to)}" y2="${py(to)}" stroke="#60a5fa" stroke-width="1.5"/>` : '';
+  }).join('');
+  const markers = [...points.entries()].slice(0, 100).map(([id, xyz]) =>
+    `<circle cx="${px(xyz)}" cy="${py(xyz)}" r="2.5" fill="#f8fafc"><title>${esc(id)}</title></circle>`).join('');
+  const visual = points.size && segments
+    ? `<svg data-xml-cii-5b-source-graph viewBox="0 0 680 360" style="width:100%;max-height:360px;background:#07101f;border:1px solid rgba(148,163,184,.28);border-radius:8px" role="img" aria-label="Read-only source-element projection on ${axisNames[horizontal.axis]}/${axisNames[vertical.axis]} axes">
+       ${segments}${markers}
+       <text x="12" y="18" fill="#e5eefb" font-size="12">${axisNames[horizontal.axis]} / ${axisNames[vertical.axis]} mm · source-element geometry only</text></svg>`
+    : '<div class="model-converters-workflow-detail-note">No finite node positions available for a plane projection; source-element rows remain available.</div>';
+  const rows = a.edges.slice(0, 100).map(e =>
+    `<tr><td>${esc(e.recordId || e.index)}</td><td>${esc(e.from)}</td><td>${esc(e.to)}</td><td>${esc((e.delta || []).join(', '))}</td></tr>`).join('');
+  target.innerHTML = `<section class="xml-cii-native-card" data-xml-cii-5b-admitted-view>
+    <div class="model-converters-workflow-section-title">5B Topology · admitted source-element projection (read-only)</div>
+    <div class="model-converters-workflow-detail-note">File SHA-256 ${esc(claim.byteSha256.slice(0, 12))} · epoch ${claim.epoch} · ${a.elementCount} source elements / ${a.nodeCount} nodes. Not a certified physical port connection or PSI116 model.</div>
+    ${visual}
+    <details><summary>Original-source edges (first ${Math.min(100, a.edges.length)})</summary>
+      <div class="xml-cii-native-table-wrap"><table class="xml-cii-native-table"><thead><tr><th>Record</th><th>From</th><th>To</th><th>Signed Δ mm</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </details><div class="model-converters-workflow-detail-note">Legacy 5B paste/file/reset inputs deliberately unavailable in this admitted-byte mode.</div>
+  </section>`;
+  return {kind: 'ADMITTED_SOURCE_ELEMENTS_READ_ONLY', byteSha256: claim.byteSha256,
+    elementCount: a.elementCount, nodeCount: a.nodeCount};
+}
+
+/**
+ * Owner-authorised PSI116 compatibility view. This is intentionally the
+ * EXISTING 5B Branch/Node/Position parser, not the F05/R4 admission graph.
+ * No root, document, localStorage or picker participates in choosing source.
+ * The caller binds the exact decoded source-file byte snapshot to the measured
+ * verdict, digest and epoch. The refusal banner above this panel stays visible.
+ */
+function renderPsi116Legacy5B(target, claim) {
+  const a = claim?.verdict;
+  const valid = a?.status === 'UNSUPPORTED_INPUT' &&
+    a.reason === 'PSI116_RECOGNIZED_NOT_ADMITTED' &&
+    a.root?.localName === 'PipeStressExport' &&
+    ['http://aveva.com/pipeStress116.xsd', 'http://aveva.com/pipestress116.xsd']
+      .includes(a.root?.namespaceURI) &&
+    a.digest?.authority === 'XML_FILE_BYTES_MEASURED' &&
+    /^[a-f0-9]{64}$/.test(a.digest?.sha256 || '') &&
+    a.digest.sha256 === claim?.byteSha256 &&
+    Number.isSafeInteger(claim?.epoch) && claim.epoch === a.epoch &&
+    claim?.sourceKind === 'normal-source' &&
+    typeof claim?.xmlText === 'string' && !!claim.xmlText.trim() &&
+    a.writerEligible === false && a.physicalIdentityQualified === false;
+  if (!valid) {
+    target.innerHTML = '<div class="model-converters-workflow-detail-note" role="alert">PSI116 5B legacy view blocked: source-byte identity / verified refusal missing.</div>';
+    return null;
+  }
+  const title = 'PSI116 5B view (legacy parser) - not admitted topology evidence';
+  const header = `<section class="xml-cii-native-card" data-xml-cii-5b-psi116-legacy>
+    <div class="model-converters-workflow-section-title">${title}</div>
+    <div class="model-converters-workflow-detail-note">Original file SHA-256 ${esc(claim.byteSha256.slice(0, 12))} · epoch ${claim.epoch} · source: uploaded PSI116 bytes only · READ_ONLY. Legacy 5B calculated ports are not topology-admitted engineering evidence.</div>`;
+  let model;
+  try {
+    // Only the snapshot: never sourceForState() or candidateWorkflowXml().
+    model = buildModel(claim.xmlText, '210');
+  } catch (error) {
+    target.innerHTML = header +
+      `<div class="model-converters-workflow-detail-note" role="alert">Legacy Branch/Node parser: ${esc(error?.message || error)}. No external-source fallback.</div></section>`;
+    return null;
+  }
+  const state = ensureState(target, {anchorNode: '210'});
+  const branchCount = model.branches.length;
+  const nodeCount = model.branches.reduce((count, branch) => count + branch.nodes.length, 0);
+  const routeCount = model.branches.reduce((count, branch) => count + branch.routePoints.length, 0);
+  target.innerHTML = header + `
+    <div class="model-converters-workflow-detail-note" data-xml-cii-5b-psi116-counts>
+      Branches: ${branchCount} · Nodes: ${nodeCount} · Route points: ${routeCount} · Components: ${model.topology.components.length} · Edges: ${model.topology.edges.length} · Open ports: ${model.topology.openPorts.length}
+    </div>
+    <div class="model-converters-workflow-detail-note">Independent file, paste, reset and workflow-source pickers disabled. This 5B view is a compatibility calculation over the single refused PSI116 upload.</div>
+    <div class="xml-cii-native-table-wrap">
+      <div class="model-converters-workflow-section-title">Branch/Node input rows from uploaded PSI116</div>
+      ${model.branches.map(branch => renderInputBranch(branch, true)).join('')}
+      <div class="model-converters-workflow-section-title">Legacy 5B component/port calculation</div>
+      ${model.branches.map(renderCalcBranch).join('')}
+    </div>
+    <canvas data-xml-cii-5b-psi116-canvas style="width:100%;height:460px;border:1px solid rgba(148,163,184,.28);border-radius:10px;background:#07101f"></canvas>
+  </section>`;
+  const canvas = target.querySelector?.('[data-xml-cii-5b-psi116-canvas]');
+  if (canvas) {
+    drawGraph(canvas, model, state);
+    bindCanvas(canvas, model, state);
+  }
+  return model;
+}
+
 export function renderXmlCiiTopology5BPanel(target, options = {}) {
   if (!target) return null;
+  if (options.readOnlyAdmission) return renderReadOnlyAdmitted5B(target, options.readOnlyAdmission);
+  if (options.psi116Legacy) return renderPsi116Legacy5B(target, options.psi116Legacy);
   const root = options.root || target.closest?.('[data-xml-cii-workflow-root]') || document;
   target.__xmlCii5bRoot = root;
   const state = ensureState(target, options);
