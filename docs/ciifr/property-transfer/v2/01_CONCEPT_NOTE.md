@@ -6,6 +6,8 @@ Design order: **Concept → Architecture/framework/modules → WBS → Implement
 
 This revises the [v1 concept](../CONCEPT_NOTE_v1.0.md), retains its two ownership paths and restraint-first priority, and replaces the proposed new direct-byte property writer with reuse of the existing XML conversion/reconstruction route. It belongs to [program WBS #227](https://github.com/reallakshman19/XML_Compare_Utilities/issues/227) and [property workstream #224](https://github.com/reallakshman19/XML_Compare_Utilities/issues/224). Architecture: [02](02_ARCHITECTURE_FRAMEWORK.md); WBS: [03](03_WBS.md); coding plan: [04](04_IMPLEMENTATION_PLAN.md).
 
+New to the project or CII? Start with the [Oracle checkpoint and CII primer](05_ORACLE_CHECKPOINT.md), then use the [Oracle takeover prompt](06_ORACLE_TAKEOVER_PROMPT.md). These preserve the current frontier and open decisions; they do not lift the coding pause.
+
 ## 1. Purpose and intended outcome
 
 Extend CIIFR from name replacement and read-only property evidence into an auditable engineering editing tool. An engineer should be able to load a supported CII, navigate by node or element, understand the stored data and its meaning, propose a targeted edit or SOURCE→TARGET transfer, resolve ambiguity, review the actual changes and export a validated new CII.
