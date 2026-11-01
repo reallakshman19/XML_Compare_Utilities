@@ -28,6 +28,7 @@ import {
   PORT_ROLES,
   SEGMENT_TYPES,
   XML_PROFILES,
+  SOURCE_FORMATS,
 } from './UxmlConstants.js';
 
 import {
@@ -40,7 +41,13 @@ import {
   createUxmlPort,
   createUxmlSegment,
   createUxmlSupport,
+  createUxmlDocument,
+  createUxmlHeader,
+  createUxmlSource,
 } from './UxmlTypes.js';
+
+import {validateUxmlDocument} from './UxmlValidationGate.js';
+import {solveCaesarInputXmlRuns,INPUTXML_HUB_FRAME,INPUTXML_SOURCE_FRAME} from './UxmlInputXmlDeltaGraph.js';
 
 import {
   LINE_NO_METADATA_KEYS,
@@ -1508,6 +1515,13 @@ function mapperStats(doc, before) {
 }
 
 export function mapInputXmlToUxml(xmlText, doc, sourceId, options = {}) {
+  // S3 is opt-in. All historical callers retain their prior output and geometry.
+  if (options.strictTopologyProvenance === true) {
+    const strict = mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256: options.fileSha256});
+    return {schema: UXML_INPUTXML_SCHEMA_MAPPER_SCHEMA, ok: true,
+      nodeCount: 0, candidateTagCount: strict.inputXml.elementCount,
+      stats: {componentCount: strict.components.length, portCount: strict.ports.length}, doc: strict};
+  }
   const text = String(xmlText ?? '');
 
   const before = {
@@ -1596,3 +1610,268 @@ export function mapInputXmlToUxml(xmlText, doc, sourceId, options = {}) {
 }
 
 export const mapInputXmlSchemaToUxml = mapInputXmlToUxml;
+
+
+/**
+ * UXML-S3 strict CAESAR InputXML read-only source path.
+ * This deliberately does NOT call mapCaesarPipingElements(): that legacy path
+ * seeds zero coordinates when no absolute reference exists. Only exact,
+ * source-provided FROM_X/Y/Z and TO_X/Y/Z authorize a physical port.
+ *
+ * Source key: E{zero-based PIPINGELEMENT ordinal}:F{URL-encoded FROM_NODE}
+ * :T{URL-encoded TO_NODE}. A future writer must re-read the ORIGINAL file,
+ * recompute its SHA, locate ordinal, compare both node identifiers and refuse
+ * any mismatch. UXML is never a reconstituted InputXML writer.
+ */
+export const UXML_INPUTXML_S3_RECORD_SCHEMA = 'uxml-caesar-inputxml-source-reader/v1';
+const INPUTXML_POINT_FIELDS = Object.freeze([
+  'FROM_X', 'FROM_Y', 'FROM_Z', 'TO_X', 'TO_Y', 'TO_Z',
+]);
+const INPUTXML_CARRIED_ATTRS = new Set([
+  'FROM_NODE', 'TO_NODE', ...INPUTXML_POINT_FIELDS,
+  'DIAMETER', 'WALL_THICK', 'TYPE', 'COMPONENT_TYPE', 'SOURCE_TYPE',
+  'REF_NO', 'LINE_ID', 'FROM_NAME', 'TO_NAME', 'NAME',
+  'DELTA_X', 'DELTA_Y', 'DELTA_Z',
+]);
+function strictFiniteAttr(attrs, name, index) {
+  const text = attrValue(attrs, name);
+  if (!text || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/.test(text)) {
+    throw new Error('INPUT_XML_ABSOLUTE_COORDINATE_REQUIRED:E' + index + ':' + name);
+  }
+  const n = Number(text);
+  if (!Number.isFinite(n)) throw new Error('INPUT_XML_NONFINITE_COORDINATE:E' + index + ':' + name);
+  return n;
+}
+function strictlyReadPoint(attrs, base, index) {
+  const [x,y,z] = ['X','Y','Z'].map(axis => strictFiniteAttr(attrs, base + '_' + axis, index));
+  return {x,y,z};
+}
+function s3Loss(doc, path, field, original) {
+  doc.lossContract.push(createUxmlLoss({
+    id: 'IX-S3-LOSS-' + String(doc.lossContract.length + 1).padStart(5, '0'),
+    severity: 'WARNING', code: 'INPUT_XML_RAW_SOURCE_ONLY',
+    sourceId: 'INPUT_XML-SOURCE',
+    message: 'Unrepresented InputXML field ' + field + ' at ' + path + '; retained in original source bytes',
+    details: {path, field, raw: String(original).slice(0, 500)},
+  }));
+}
+function strictRawTagIdentity(tag, index) {
+  const attrs = tag.attrs || {};
+  const fromNode = attrValue(attrs, 'FROM_NODE');
+  const toNode = attrValue(attrs, 'TO_NODE');
+  if (!fromNode || !toNode) throw new Error('INPUT_XML_ELEMENT_NODE_IDENTITY_REQUIRED:E' + index);
+  if (!/^<\s*PIPINGELEMENT\b/i.test(tag.raw) ||
+      !(tag.selfClosing ? /\/\s*>$/.test(tag.raw) : /<\s*\/PIPINGELEMENT\s*>$/i.test(tag.raw))) {
+    throw new Error('INPUT_XML_EXACT_PIPINGELEMENT_RECORD_REQUIRED:E' + index);
+  }
+  return {
+    fromNode, toNode,
+    recordKey: 'E' + index + ':F' + encodeURIComponent(fromNode) +
+      ':T' + encodeURIComponent(toNode),
+  };
+}
+export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
+  const text = String(xmlText ?? '');
+  if (!/^[a-f0-9]{64}$/i.test(String(fileSha256 || ''))) {
+    throw new Error('INPUT_XML_MEASURED_FILE_SHA256_REQUIRED');
+  }
+  if (!/<\s*CAESARII\b/i.test(text) || !/<\s*PIPINGMODEL\b/i.test(text)) {
+    throw new Error('INPUT_XML_CAESAR_SOURCE_REQUIRED');
+  }
+  // Legacy findElements() yields self-closing records immediately, but
+  // nested/paired records on the closing tag. Source record keys must be
+  // based on PHYSICAL PIPINGELEMENT order, not closing-tag traversal order.
+  const unorderedTags=findElements(text,'PIPINGELEMENT');
+  const seen=new Map();
+  const openings=[...text.matchAll(/<PIPINGELEMENT\b/gi)].map(x=>x.index);
+  const tags=unorderedTags.map(tag=>{
+    const count=seen.get(tag.raw)||0;
+    let startAt=0,offset=-1;
+    for(let i=0;i<=count;i++){
+      offset=text.indexOf(tag.raw,startAt);
+      if(offset<0)throw new Error('INPUT_XML_ORIGINAL_SOURCE_TAG_UNRESOLVED');
+      startAt=offset+tag.raw.length;
+    }
+    seen.set(tag.raw,count+1);
+    return {...tag,sourceStart:offset};
+  }).sort((x,y)=>x.sourceStart-y.sourceStart);
+  if(tags.length!==openings.length ||
+      tags.some((tag,index)=>tag.sourceStart!==openings[index]))
+    throw new Error('INPUT_XML_SOURCE_ORDINAL_AMBIGUOUS');
+  if (!tags.length) throw new Error('INPUT_XML_PIPINGELEMENT_REQUIRED');
+  const digest = String(fileSha256).toLowerCase();
+  const graph=solveCaesarInputXmlRuns(tags.map((tag,index)=>({
+    index,attrs:tag.attrs||{...tag},...strictRawTagIdentity(tag,index)})));
+  const doc = createUxmlDocument({
+    header: createUxmlHeader({createdBy: 'UXML-S3/InputXML',
+      notes: 'Read-only delta graph in explicit run-local coordinate frames; PATCH original source only'}),
+    sources: [createUxmlSource({id: 'INPUT_XML-SOURCE', format: SOURCE_FORMATS.INPUT_XML,
+      name: 'source-input.xml', hash: digest, sourceText: text})],
+    inputXml: {
+      readerSchema: UXML_INPUTXML_S3_RECORD_SCHEMA,
+      sourceSha256: digest,
+      elementCount: tags.length,
+      recordKeyRule: 'E{zeroBasedElementIndex}:F{encodeURIComponent(FROM_NODE)}:T{encodeURIComponent(TO_NODE)}',
+      coordinateAuthority: 'ANCHORED_OR_UNANCHORED_DELTA_GRAPH',
+      sourceFrame:INPUTXML_SOURCE_FRAME,
+      hubFrame:INPUTXML_HUB_FRAME,
+      frameTransform:'(X,-Z,Y)',
+      runs:graph.runs,
+      crossUnanchoredRunPolicy:'REFUSE_CROSS_RUN_GAP_PROXIMITY_JOIN',
+      writerPolicy: 'PATCH_ORIGINAL_BYTES_BY_EXACT_SOURCE_REF_ONLY',
+    },
+  });
+  const lineAttr = firstElementAttrs(text, 'PIPINGMODEL');
+  const line = lineNoFromAttributes(lineAttr) || 'CAESAR-INPUTXML';
+  const pipelineId = ensurePipeline(doc, line, line, lineAttr);
+  // CAESAR 5C carries physical context on first source record of each
+  // sequential route, then writes -1.010100 on later records. Inherit only
+  // along the exact previous TO_NODE -> current FROM_NODE source chain.
+  let s3RouteContext={previousTo:null,physical:new Map()};
+  const s3Physical=(attrs,field,index)=>{
+    const value=caesarNumberOrNull(attrValue(attrs,field));
+    if(value!=null){
+      const evidence={value,mode:'EXPLICIT',sourceElementIndex:index,
+        sourceField:'PIPINGELEMENT@'+field};
+      s3RouteContext.physical.set(field,evidence);
+      return evidence;
+    }
+    const evidence=s3RouteContext.physical.get(field);
+    return evidence?{...evidence,mode:'INHERITED'}:
+      {value:null,mode:'SOURCE_UNAVAILABLE',sourceElementIndex:null,
+        sourceField:'PIPINGELEMENT@'+field};
+  };
+  doc.coordinateFrame={source:INPUTXML_SOURCE_FRAME,hub:INPUTXML_HUB_FRAME,
+    transform:'(X,-Z,Y)',unit:'mm',runCount:graph.runs.length,
+    unanchoredRunCount:graph.runs.filter(r=>!r.anchored).length};
+  for (const [index, tag] of tags.entries()) {
+    const attrs = tag.attrs || {};
+    const {fromNode,toNode,recordKey}=graph.edges[index];
+    const {from,to,runId,anchored}=graph.assignments.get(index);
+    if(s3RouteContext.previousTo!==fromNode){
+      s3RouteContext={previousTo:null,physical:new Map()};
+    }
+    const physicalEvidence={
+      outsideDiameter:s3Physical(attrs,'DIAMETER',index),
+      wallThickness:s3Physical(attrs,'WALL_THICK',index),
+    };
+    s3RouteContext.previousTo=toNode;
+    const bend=findElements(tag.inner,'BEND')[0];
+    const radius=caesarNumberOrNull(attrValue(bend?.attrs||{},'RADIUS'));
+    const bendEvidence=bend&&radius!=null?{
+      radius,endpoint:'TO',sourceElementIndex:index,
+      sourceField:'PIPINGELEMENT/BEND@RADIUS',
+      toNode,rawAttributes:{...bend.attrs},
+    }:null;
+    const sifEvidence=findElements(tag.inner,'SIF').map(row=>{
+      const code=caesarNumberOrNull(attrValue(row.attrs,'TYPE'));
+      return {typeCode:code,node:attrValue(row.attrs,'NODE'),
+        sourceElementIndex:index,sourceField:'PIPINGELEMENT/SIF@TYPE',
+        rawAttributes:{...row.attrs}};
+    }).filter(row=>row.typeCode!=null);
+    const rawType = attrValue(attrs, 'SOURCE_TYPE', 'COMPONENT_TYPE', 'TYPE') ||
+      componentTypeFromPipingElement(tag);
+    const canonicalType = componentTypeFromPipingElement(tag);
+    const outsideDiameter = physicalEvidence.outsideDiameter.value;
+    const wallThickness = physicalEvidence.wallThickness.value;
+    const restraintRows = [
+      ...findElements(tag.inner, 'RESTRAINT'),
+      ...findElements(tag.inner, 'RESTRANT'),
+      ...findElements(tag.inner, 'HANGER'),
+    ].filter(row => {
+      const node = attrValue(row.attrs, 'NODE');
+      return node && !isCaesarUnsetNumber(node);
+    }).map(row => ({type: row.tagName, attributes: row.attrs, rawXml: row.raw}));
+    const ref = {format: SOURCE_FORMATS.INPUT_XML, fileSha256: digest,
+      recordKey, elementIndex: index, fromNode, toNode,runId,anchored};
+    const componentId = 'IX-S3-E' + index;
+    const component = createUxmlComponent({
+      id: componentId, sourceRefs: [{...ref}], type: canonicalType,
+      normalizedType: canonicalType, pipelineRef: line, pipelineId,
+      lineKey: line, name: fromNode + '->' + toNode, refNo: attrValue(attrs, 'REF_NO'),
+      bore: outsideDiameter, confidence: CONFIDENCE_LEVELS.EXACT_SOURCE,
+      rawAttributes: {inputXml: {
+        elementIndex: index, recordKey, fromNode, toNode, from, to,
+        runId,anchored,hubFrame:INPUTXML_HUB_FRAME,
+        rawComponentType: rawType, componentType: canonicalType,
+        outsideDiameter, wallThickness,
+        physicalEvidence,bendEvidence,sifEvidence,
+        hasRestraint: restraintRows.length > 0, restraints: restraintRows,
+        fromName: attrValue(attrs, 'FROM_NAME'),
+        toName: attrValue(attrs, 'TO_NAME'),
+        sourceAttributes: {...attrs},
+        rawXml: tag.raw,
+      }},
+      normalized: {coordinateAuthority: anchored?'EXPLICIT_SOURCE':'LOCAL_DELTA_ONLY',
+        runId,anchored,sourceRecordOnly:true},
+      runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
+    });
+    doc.components.push(component);
+    for (const [role, point, node] of [['FROM',from,fromNode], ['TO',to,toNode]]) {
+      const anchorRole = role === 'FROM' ? ANCHOR_ROLES.EP1 : ANCHOR_ROLES.EP2;
+      const anchorId = componentId + ':' + role + ':ANCHOR';
+      const portId = componentId + ':' + role + ':PORT';
+      doc.anchors.push(createUxmlAnchor({id:anchorId,componentId,role:anchorRole,
+        runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
+        nodeNumber:node,point,sourceRef:{...ref,endpoint:role},
+        sourceField:'PIPINGELEMENT:DELTA_X/Y/Z',
+        confidence:CONFIDENCE_LEVELS.EXACT_SOURCE}));
+      doc.ports.push(createUxmlPort({id:portId,componentId,anchorId,
+        role:role === 'FROM' ? PORT_ROLES.PIPE_END_1 : PORT_ROLES.PIPE_END_2,
+        point, bore:outsideDiameter, sourceRefs:[{...ref,endpoint:role}],
+        runId,anchored,coordinateFrame:INPUTXML_HUB_FRAME,
+        fixed:true, futureMovable:false, mutableNow:false,
+        connectsTo:'UNQUALIFIED_SOURCE_RECORD'}));
+      component.anchorIds.push(anchorId);
+      component.portIds.push(portId);
+    }
+    const segmentType = segmentTypeFor(component.normalizedType);
+    if (segmentType) {
+      const id = componentId + ':SEGMENT';
+      doc.segments.push(createUxmlSegment({id,componentId,type:segmentType,
+        startAnchorId:component.anchorIds[0],endAnchorId:component.anchorIds[1],
+        bore:outsideDiameter}));
+      component.segmentIds.push(id);
+    }
+    if (restraintRows.length) {
+      const id = componentId + ':RESTRAINT';
+      doc.supports.push(createUxmlSupport({id,componentId,
+        type:'INPUT_XML_SOURCE_RESTRAINTS',supportAnchorId:component.anchorIds[1],
+        restraints:restraintRows.map(row=>({...row,sourceRefs:[{...ref}]}))}));
+      component.supportId = id;
+    }
+    const path = '/CAESARII/PIPINGMODEL/PIPINGELEMENT[' + index + ']';
+    for (const [key,value] of Object.entries(attrs)) {
+      if (!INPUTXML_CARRIED_ATTRS.has(key.toUpperCase())) {
+        s3Loss(doc,path,'@'+key,value);
+      }
+    }
+    // Loss ledger includes every untyped descendant element and attribute,
+    // including unknown vendor extensions. All fragments remain in rawXml.
+    const children = /<\s*([A-Za-z_][\w:.-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
+    let child;
+    while ((child=children.exec(tag.inner))) {
+      const field=child[1];
+      s3Loss(doc,path,field,child[0]);
+      for (const [key,val] of Object.entries(parseAttrs(child[2]||''))) {
+        s3Loss(doc,path+'/'+field,'@'+key,val);
+      }
+    }
+  }
+  for (const root of ['CAESARII','PIPINGMODEL']) {
+    const attrs = firstElementAttrs(text, root);
+    for (const [key,val] of Object.entries(attrs)) {
+      if (root === 'PIPINGMODEL' && LINE_NO_METADATA_KEYS.includes?.(key)) continue;
+      s3Loss(doc,'/' + root,'@' + key,val);
+    }
+  }
+  const checked = validateUxmlDocument(doc);
+  doc.validation = {schema: checked.schema, ready: checked.ready,
+    blockerCodes: checked.blockers.map(x=>x.code),
+    warningCodes: checked.warnings.map(x=>x.code),
+    profile:'UXML-TOPOLOGY-FULL',
+    coordinateAuthority: 'ANCHORED_OR_UNANCHORED_DELTA_GRAPH',
+    unanchoredRunCount:graph.runs.filter(r=>!r.anchored).length,
+    sourcesBound: tags.length, note:'TopoFix is the only findings engine; not writer permission'};
+  return doc;
+}
