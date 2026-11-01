@@ -1,6 +1,6 @@
 # CIIFR XML property workflow — design recovery report
 
-Task: WIP-ciifr-xml-design-20261101. Date: 1 November 2026, Dubai. Actor: /root, GPT-6.1-Sol; chat ID UNKNOWN. Owner-directed design contributor, not an independent engineering reviewer.
+Task: WIP-ciifr-xml-design-20261101 / [Draft PR245](https://github.com/reallakshman19/XML_Compare_Utilities/pull/245). Branch: `docs/ciifr-xml-property-design-v2-20261101`; initial design commit `0e8629449c11ad13a320aa7ac928f0556b4de3c1`. This canonical report rename is a report-only follow-up. Date: 1 November 2026, Dubai. Actor: /root, GPT-6.1-Sol; chat ID UNKNOWN. Owner-directed design contributor, not an independent engineering reviewer.
 
 ## Owner direction and scope
 
@@ -28,7 +28,7 @@ The archived 132/132 VNext, 9/9 Geometry and source-exposed XML reuse checks app
 
 ## Validation and recovery
 
-Only document/reference integrity checks are appropriate in this pass: cross-document C/M/WP trace, relative links against new files/current base, draft/no-code status, archive CRC/member hashes/private-file exclusion and actual published-byte readback. No new engineering tests, browser runs or converter/property execution are performed after the design pause. Check results and final publication identity are recorded before handoff.
+Document/reference integrity checks PASS: four linked drafts, 15 concept requirements, 13 framework responsibility modules and 10 WPs; relative links resolve against new files/current base; archive CRC and all 15 listed member sizes/hashes match (the archive additionally contains its manifest). Archive identity: 25,694 bytes, SHA-256 d6c696d8db81ff47b205ca09045cd73b4125f7eac2843e51dca543e117e43b04, Git blob 6e6d05c6b451dc03f11e495d090899674184236c. Actual published-file/archive readback is required before handoff. No new engineering tests, browser runs or converter/property execution are performed after the design pause; no design acceptance is claimed.
 
 All candidate paths are new; no preimages exist. Local documentation ledger: `design-xml-property-20261101/source/.agent-worklogs/20261101_design_v2/`. Complete exact patches/checksums before handoff. Undo only checksum-confirmed task-new files if no later owner has changed them; never reset or discard unrelated work.
 
