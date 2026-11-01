@@ -175,6 +175,95 @@ Decisions to settle during design review are the existing intermediate schema/ad
 
 The [architecture](02_ARCHITECTURE_FRAMEWORK.md) derives modules from C01–C15; the [WBS](03_WBS.md) assigns dependency-ordered deliverables; the [implementation plan](04_IMPLEMENTATION_PLAN.md) defines future work packages and acceptance. Publication of these drafts starts no coding, agent assignment, merge or release.
 
+## 14. CIIFR · WBS process map
+
+**Status snapshot: 1 November 2026. Current gate: Concept and Appendix A review.** D1 Concept, D2 Architecture, D3 WBS and D4 Implementation plan are submitted drafts; downstream details remain provisional. Coding is paused. Existing R0 inspection is merged, but the new XML-based engineering workflow is not implemented. Existing components and parked experiments below are reuse inputs, not completed new framework modules. This is a dated map, not a live progress display.
+
+The diagram shows the proposed restraint-first data flow. WP01 establishes the capability/fixture baseline; WP02 qualifies the existing converter. WP05 semantic evidence may begin after WP02 and consumes WP03 XML occurrence references before its results join WP04 at WP06.
+
+```mermaid
+flowchart TD
+  M01["M01 Intake and original custody"] --> M03["M03 Profile and capability checks"]
+  M03 --> M02["M02 Existing CII-to-XML converter"]
+  M02 --> M04["M04 XML restraint catalogue"]
+  M02 --> M05["M05-R Restraint semantic policy"]
+  M04 -. XML occurrence references .-> M05
+  M04 --> M06["M06 Accepted restraint mapping"]
+  M05 --> M07["M07 Typed change proposals"]
+  M06 --> M07
+  M07 --> M08["M08 Review and atomic approval"]
+  M08 --> M09["M09 Apply approved XML changes"]
+  M09 --> M10["M10 Existing XML-to-CII writer"]
+  M10 --> M12["M12 Independent output validation"]
+  M12 --> M13["M13 TARGET1 and audit export"]
+  M11["M11 Workspace UI across all stages"] -. presents .-> M07
+```
+
+M11 is cross-cutting, not an additional step after export. The M02/M10 gateways reuse the selected existing conversion/reconstruction implementation; the diagram does not introduce another writer.
+
+| Module | Where we are now | Planned restraint-first work | WBS |
+|---|---|---|---|
+| M01 Intake/custody | R0 intake exists; terminal-status, timeout and stale-read fixes are parked | Adapt custody/progress/cancellation to the selected XML adapter; every intake reaches a truthful terminal state | WP01, WP03 |
+| M02 CII→XML | Existing XMLv3 is a bounded draft prototype; the browser adapter is not built | Qualify restraint-bearing input profiles and invoke the existing converter with complete preservation evidence | WP01, WP02 |
+| M03 Profiles/capabilities | R0 exposes partial coverage and UNKNOWN notes | Distinguish file/profile validity, preserved data and selected restraint-edit eligibility; reuse grouped evidence presentation | WP01, WP02, WP05 |
+| M04 XML references | Prototype views cover element endpoints and names; the restraint catalogue is missing | Resolve restraint nodes, exact occurrences, storage owners, shared references and CNode context from XML | WP03 |
+| M05-R Restraint module | No XML-backed restraint editing/transfer module is implemented | Qualify type/field/unit/state/direction/connection rules and actionable held cases; this is the first engineering family | WP05, WP07 |
+| M06 Mapping | R0 lookup does not establish accepted SOURCE→TARGET identity | Explicit node and restraint-occurrence pairing, including CNode relations and conflicting alternatives | WP04 |
+| M07 Proposals | Typed XML restraint comparison/proposals are not built | Show actual before/proposed values, affected owners and incompatible/conflicting claims | WP06 |
+| M08 Review/session | Existing tab approvals belong to their current flows; new property transactions are not built | Bind atomic approvals to current XML/files/mapping/context; adapt parked stale-work guards | WP06 |
+| M09 XML application | A bounded name-edit probe exists; the approved restraint-change service is not built | Modify a new TARGET XML model only at approved restraint fields and regenerate qualified derived references | WP06 |
+| M10 XML→CII | Existing reconstruction writer is a limited prototype dependency, not Property UI integration | Reuse that writer with reviewed XML/profile; preserve unrelated data and reject unsupported reconstruction | WP02, WP06 |
+| M11 Workspace | Merged Property tab is an R0 read-only inspector | Connect node/occurrence selection, restraint review/manual resolution and the new-copy workflow | WP03, WP07, WP10 |
+| M12 Validation | Historical R0 and parked experiment evidence exists; it does not qualify the new workflow | Independently check restraint edit causality, protected bystanders, references/state, stale output and relevant native acceptance | WP02, WP06, WP10 |
+| M13 Audit/export | XML property TARGET1 export is not implemented | Export only the validated new CII with actual output identity and input→XML→decision→output trace | WP06, WP07, WP10 |
+
+**First delivery path:** WP01 → WP02 → WP03; WP04 and WP05 join at WP06 → WP07 restraint delivery → WP10 scoped qualification. **Deferred:** WP08 other editing families, including FORCMNT, and separately scoped WP09 structural operations. Other populated data must still be preserved as part of the admitted input's reconstruction contract.
+
+## 15. How to use it
+
+The [detailed restraint-first implementation plan](04_IMPLEMENTATION_PLAN.md#12-detailed-restraint-first-implementation) expands this map and usage sequence into data contracts, mapping decisions, field policy, transaction state, implementation packages and acceptance cases. It remains a plan, not product code or approval to start coding.
+
+### 15.1 Use the design and process map
+
+1. Review the concept and Appendix A first: intended restraint outcome, existing-writer reuse, fidelity and reusable experiments.
+2. Read the architecture for each M-module's responsibility; use the table above to distinguish existing parts from missing XML integration.
+3. Follow the WBS dependencies and implementation plan to define the smallest useful restraint delivery. A prototype or historical test result is not completion of a later module.
+4. Resolve the first input-profile and restraint-operation sets before coding. Keep other editing families deferred and document only necessary preservation dependencies.
+
+### 15.2 How its restraint mapping works
+
+This is the proposed XML-backed restraint resolution/mapping logic, not a claim of current implementation.
+
+| Layer | Mapping rule | Required distinction |
+|---|---|---|
+| Document/local node | Resolve a numeric node within its own input/XML document | Equal SOURCE and TARGET node numbers do not prove identity |
+| Physical storage → XML | The existing converter resolves the owning element's typed RESTRANT reference into its canonical XML record/fields | Pointer value is a section-local reference, not a node number or cross-model ID |
+| Record → occurrence | Enumerate each restraint occurrence with its attachment node, type, direction, CNode, slot and owners | A block may contain several restraints; slot order is local and slot is not a universal DOF label |
+| Node view → canonical fields | The node catalogue references the authoritative XML fields and retains sharing/owner context | Do not duplicate writable values, clone shared records or require the attachment node to equal a storage-owner endpoint |
+| SOURCE → TARGET | Accept the intended node pair and exact compatible restraint-occurrence pair; resolve connecting-node relationships where applicable | Matching names, types, slots or pointer numbers alone is insufficient |
+| Field eligibility | Check selected operation, type-dependent meaning, units, state/defaults, direction/basis and target representation | Storage validity does not prove engineering edit eligibility |
+| Approved change → output | Apply approved typed values to TARGET XML, then call the existing reconstruction writer and validate its output | Property modules do not splice CII bytes or copy whole source blocks |
+
+Illustratively, SOURCE node 500/slot 2 could pair with TARGET node 850/slot 5 after the node/occurrence/context decisions are accepted. SOURCE's pointer or slot integer is not copied into TARGET. For a local TARGET-only edit, no SOURCE map is needed; the selected target occurrence and qualified rule still have to be explicit. These identifiers are examples, not observations from a private model.
+
+### 15.3 Planned engineer workflow
+
+1. Load TARGET0 and, for transfer mode, SOURCE through the qualified existing CII→XML route. Retain immutable originals and distinguish conversion/inspection readiness from edit readiness.
+2. Select the target logical node and display all its restraint occurrences, including type/direction/CNode, exact record/slot and owner evidence.
+3. Select the intended occurrence and fields. For transfer, explicitly pair the source occurrence and resolve the required node/CNode correspondence.
+4. Choose a qualified typed edit/Find–Replace rule or source value. Show missing semantics, context or mapping as a specific actionable review need.
+5. Review before/proposed values, affected-owner scope, XML field references and transaction membership. Inactive/reserved payload remains preserved and is not automatically activated or cleared.
+6. Approve and validate the complete transaction. A changed file, XML model, mapping or relevant context revokes stale decisions/output.
+7. Apply to a new TARGET XML model, reconstruct through the existing writer, independently validate the intended restraint changes and untouched bystanders, and export TARGET1 plus audit.
+
+This is the planned user journey. The current merged Property tab remains an inspector; this section is not an instruction that those editing/export controls already exist.
+
+### 15.4 How we should use PR246
+
+PR246 is a later FORCMNT reference, as recorded in Appendix A5. Its useful principles are canonical field/record references, typed values alongside original lexical data, complete owner inventories, XML-only reconstruction and independent provenance comparison. Assess those principles for the RESTRANT design through the existing converter's restraint support.
+
+Do not use its FORCMNT record shape, field slots, fixed benchmark pin or unresolved force-field meanings as restraint rules. Do not treat internal XML hashes as authentication of original ownership or as SOURCE→TARGET correspondence. Any reuse must retain original-source witnesses and approval-bound expected changes. FORCMNT feature integration remains deferred; PR246 is not the first restraint milestone or a mandatory new dependency.
+
 ## Appendix A — reuse plan for parked experiments
 
 ### A1. Preservation and status
