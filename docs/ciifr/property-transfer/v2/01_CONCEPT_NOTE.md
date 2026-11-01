@@ -34,7 +34,11 @@ Current source observations and prototype limits inform this concept. They do no
 
 ## 3. Scope: broad framework, phased capability
 
-Restraints remain the **first engineering property priority**. The framework must nevertheless accommodate the complete ownership spectrum rather than being designed around three scalar fields.
+**Owner clarification, 1 November 2026: the first focus and first engineering delivery are RESTRANT.** The active design slice is CII → existing XML conversion → restraint node/occurrence → restraint edit or transfer → reviewed XML → existing writer → validated TARGET1 and audit.
+
+Other property editing modules, including FORCMNT, are deferred. The framework retains their future extension points, but their feature delivery is not a prerequisite to the restraint slice. Existing non-restraint data must still be preserved: any physical-grammar work strictly necessary for that preservation is a reconstruction dependency, not an expansion into another editing feature.
+
+The complete ownership spectrum below is the future catalogue; it does not dilute the first restraint delivery or require every family to be implemented first.
 
 | Property family | Engineering owner and required context | Main hazards |
 |---|---|---|
@@ -211,3 +215,9 @@ M01/M03/M08/M11 and WP references are proposed downstream design identifiers, de
 ### A4. What the experiments do not establish
 
 They do not establish the exact Owner-generated file's format, broad V11 support, a browser-connected XML workflow, restraint field semantics, SOURCE→TARGET correspondence, structural record editing, licensed CAESAR acceptance or release approval. The actual generated file and other representative profile fixtures belong in later capability/qualification work, not as a reason to skip the current design sequence.
+
+### A5. PR246 — later-family reference, not the first delivery
+
+[PR246](https://github.com/reallakshman19/XML_Compare_Utilities/pull/246) at `e29ef4679b0f06f1a2864e075afb046a26965671` is a bounded FORCMNT section qualifier. Its lexical-field, ownership-reference and independent-provenance techniques may inform assessment of existing converter support. It is not a SOURCE→TARGET matcher, a restraint codec or a first-delivery gate. Its FORCMNT 20-row/110-field layout and pinned benchmark must not be substituted for RESTRANT grammar or meaning.
+
+FORCMNT feature integration belongs to deferred WP08. If a restraint-bearing input contains FORCMNT data, preserve that data through the qualified existing conversion route; evaluate any necessary preservation support within WP02 without adding force editing or delaying restraints for a general FORCMNT module. The immediate reuse/design assessment follows RESTRANT records and restraint transactions.

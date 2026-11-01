@@ -22,6 +22,8 @@ All design documents are under `docs/ciifr/property-transfer/v2/`:
 
 ## Experimental work disposition
 
+**Owner clarification, 1 November 2026:** RESTRANT is the first focus and first engineering delivery. Updated the concept (including Appendix A5), first-slice architecture, WBS dependencies and plan accordingly. FORCMNT feature work/PR246 integration is deferred to WP08; PR246 is not a restraint codec, SOURCE→TARGET matcher or first-delivery gate. Necessary preservation of other-family data remains bounded conversion support, without granting other editing features. No code, tests, archive bytes, converter or writer is changed by this clarification; coding stays paused.
+
 Earlier local implementation was paused before any product implementation commit or repair PR. The created `fix/ciifr-property-load-xml-route-20261101` remote branch was read back at the original main base with no implementation changes. Those files remain parked locally; the archive preserves their exact bytes so Appendix A is recoverable rather than relying on transient paths.
 
 The archived 132/132 VNext, 9/9 Geometry and source-exposed XML reuse checks apply only to that experiment. They are not design approval, current product changes, independent review, browser/CAESAR acceptance or qualification of a future XML adapter. The reference XML engine remains unchanged draft PR206 at c2452deb96b402f0dda52f63748bc795049b46bc with a limited V14 profile. It rejects the public V11 generated case; the exact Owner-generated file is not attached. These limits are preserved in the concept rather than hidden behind a broad writer claim.

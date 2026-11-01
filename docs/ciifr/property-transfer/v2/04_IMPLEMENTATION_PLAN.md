@@ -18,6 +18,8 @@ Prerequisites: [Concept](01_CONCEPT_NOTE.md) → [Architecture/framework](02_ARC
 
 Unresolved high-impact choices return to concept/architecture review. Routine implementation details may be resolved within an accepted package; they must not covertly change the selected writer, data authority or fidelity contract.
 
+**Owner priority clarification: RESTRANT is the first active engineering family.** Scope common intake, XML-reference and transaction work around the first restraint delivery. Other editing modules, including FORCMNT/PR246 integration, remain deferred. Preserve all untouched input data; strictly necessary preservation grammar is supporting conversion work, not another feature stream. Coding remains paused during the ordered design review.
+
 ## 2. WP01 — capability and fixture baseline
 
 **Objective:** establish what can be reused and which gaps actually prevent the requested workflow.
@@ -25,7 +27,7 @@ Unresolved high-impact choices return to concept/architecture review. Routine im
 Preparation:
 
 1. Refresh current main, relevant conversion/field workstreams and active file/authority overlap. Preserve the completed R0 baseline.
-2. Trace representative node-name and restraint fields through the existing CII parser, XML Storage/view reference, represented edit, existing writer and output. This is source/fixture qualification, not a new parser implementation.
+2. Trace RESTRANT records, node/occurrence ownership and selected restraint fields through the existing CII parser, XML Storage/view reference, represented edit, existing writer and output. Retain the archived name probe as secondary plumbing evidence; do not create a new name-feature milestone. This is source/fixture qualification, not a new parser implementation.
 3. Build a coverage table by input profile, physical record family and operation. Separate grammar/reconstruction support from field semantic eligibility and runtime integration.
 4. Obtain the exact reported generated file privately when available; compare its declaration and actual record layout. Use the public generated V11 benchmark as a separate known case, not a substitute identity.
 5. Define independent expected outcomes and fixture custody. Distinguish complete converter positives from minimal R0-indexing synthetics.
@@ -39,6 +41,8 @@ Preparation:
 
 Use the exact existing dependency interfaces identified in WP01. Exercise both unchanged reconstruction and an explicitly represented field edit with the writer receiving XML, without an original-file replay argument or a hidden raw-CII fallback. The existing XML reuse probe may be adapted as a checker.
 
+Make RESTRANT record preservation, including inactive/reserved payload and exact occurrence ownership, the first physical qualification target. Any early literal field-edit check proves representation/causality only; engineering edit eligibility follows WP05. PR246 is not a replacement for this restraint-specific proof.
+
 Where a profile is unsupported, resolve the gap in the existing converter/bridge ownership boundary: version/layout variant, populated family grammar, lexical/encoding/termination handling, count/reference validation or a qualified inverse conversion. Do not solve it inside a property module or by renaming a header.
 
 Preserve original metadata and distinguish a derived representation's addresses and identity. Require original-byte no-op equality under the selected exact-fidelity contract. Changed formatting must be exactly representable or fail visibly; copying values through a different numerical formatter must not silently round them.
@@ -51,7 +55,7 @@ Preserve original metadata and distinguish a derived representation's addresses 
 
 Reuse/adapt Appendix A's progress, terminal status, raw-byte custody, request-generation and grouped-evidence ideas after the adapter contract is selected. Extend job identity through conversion and indexing, not only file read/hash. Qualify actual cancellation of long-running work where supported.
 
-Build logical-node, oriented-element and attachment catalogues from the existing XML Storage/reference graph. Extend the existing XML view builder for restraints/displacements/forces as needed. Keep shared records as shared references; keep inactive payload out of the active-attachment list while retaining its data/evidence.
+Build logical-node, oriented-element and restraint-occurrence catalogues from the existing XML Storage/reference graph. Extend the existing XML view builder for RESTRANT first; displacement/force attachment features belong to later WP08. Keep shared records as shared references; keep inactive payload out of the active-attachment list while retaining its data/evidence. Preserve other-family storage without enabling its editing UI.
 
 The workspace offers TO/FROM/either-end discovery as a filter and lists every owner. It never silently selects the first matching element or attachment. Known coverage notes are grouped and expandable; selected-operation blockers and actual structural failures remain clear.
 

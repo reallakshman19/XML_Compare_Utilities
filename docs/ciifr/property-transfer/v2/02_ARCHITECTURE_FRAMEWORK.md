@@ -15,12 +15,12 @@ flowchart TD
   A["Original CII intake"] --> B{"Supported XML profile?"}
   B -->|Yes| C["Authoritative XML + references"]
   B -->|No or partial| H["Coverage and next action"]
-  C --> D{"Selected operation eligible?"}
-  D -->|Yes| E["Reviewed XML change plan"]
+  C --> D{"Selected restraint operation eligible?"}
+  D -->|Yes| E["Reviewed restraint XML plan"]
   D -->|No| H
   E --> F["Existing reconstruction writer"]
   F --> G{"Output validation passes?"}
-  G -->|Yes| J["New TARGET1 + audit"]
+  G -->|Yes| J["Restraint TARGET1 + audit"]
   G -->|No| H
 ```
 
@@ -107,6 +107,10 @@ Intake both documents independently → build reference catalogues → accept th
 Select an explicitly supported create/delete/reindex operation → calculate the complete dependency impact → review affected record identities, counts, pointers and arrays → use existing qualified structural conversion routines → independently validate output. This is a separate later capability; selecting an empty attachment slot does not implicitly enable it.
 
 ## 7. First restraint workflow
+
+**First active vertical slice: RESTRANT.** M01–M04 supply restraint-bearing input conversion/custody and XML occurrence references; M05-R owns restraint semantics; M06 resolves selected restraint-node/occurrence/CNode correspondence; M07–M10 review and apply restraint XML changes through the existing writer; M11–M13 provide the usable workflow, validation and TARGET1 audit/export. Other M05 family features remain deferred.
+
+PR246's FORCMNT qualifier is a later reuse reference, not a required first milestone and not the restraint mapping implementation. Preserve unedited other-family data as required by the admitted input profile; any necessary upstream grammar work supports preservation only and does not grant those families editing capability.
 
 Show all restraints at a selected logical node with type/direction/connection, storage occurrence and owners. In transfer mode, pair source and target occurrences explicitly; different slot or pointer numbers are expected possibilities.
 
