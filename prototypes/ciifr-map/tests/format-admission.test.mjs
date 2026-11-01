@@ -205,7 +205,13 @@ test('a BOM left in decoded text is stripped for parsing and labelled as re-enco
 });
 
 test('browser-style parsererror document is INVALID, and non-XML_ internal faults are rethrown', async () => {
-  const errorDoc = parse().parseFromString('<html><body><parsererror>bad</parsererror></body></html>', 'application/xml');
+  // Chrome can produce a partial F05 document whose root still looks valid, with parsererror inside it.
+  // A root-only classifier would incorrectly admit this partial model.
+  const errorDoc = parse().parseFromString(f05, 'application/xml');
+  const parserError = errorDoc.createElement('parsererror');
+  parserError.textContent = 'Synthetic Chrome-like parse failure';
+  errorDoc.documentElement.appendChild(parserError);
+  assert.equal(errorDoc.documentElement.localName, 'CAESARII');
   const stub = await admit(f05, {parser: {parseFromString: () => errorDoc}});
   assert.equal(stub.status, INVALID); assert.equal(stub.reason, 'XML_PARSE_ERROR'); notAdmitted(stub, 'parsererror');
   const real = parse().parseFromString(f05, 'application/xml');
