@@ -24,3 +24,5 @@ jobs:
           node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-reconcile.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
           node tests/inputxml-workspace-accdb-sideload.test.js
           node tests/xml-compare-enrichment-apply-preview.test.js
+          node --test tests/uxml-psi116-s1.test.mjs tests/uxml-s1-followup-mutants.test.mjs
+          node --test tests/inputxml-workspace-topo-admission.test.mjs
