@@ -67,12 +67,20 @@ const docRows=[
 for(const [id,fn] of docRows)test('S4-D-'+id+' OriginalDocument exact-string bypass',()=>{
  assert.equal(EXACT,SRC);fn();
 });
-test('S4-D-CDATA embedded CDATA terminator defeats unconditional exactness',()=>{
+test('S4-D-CDATA properly escaped synthetic nested CDATA recovered',()=>{
  const withCdata=SRC.replace('<NOTE TEXT="A&amp;B"/>','<NOTE><![CDATA[S4CDATA]]></NOTE>');
- assert.notEqual(reverse(embedDocument(withCdata)),withCdata);
+ const encoded=embedDocument(withCdata);
+ assert.ok(encoded.includes(']]]]><![CDATA[>'));
+ assert.equal(reverse(encoded),withCdata);
 });
 test('S4-D-DERIVED edited Material/Coordinates blocks ignored even with OriginalDocument',()=>{
- const changed=embedDocument(SRC).replace('<DerivedBlock>','<DerivedBlock><MaterialName>EDIT_S4</MaterialName>');
+ const baseline=embedDocument(SRC);
+ const existing='<MaterialName source="existing-field">ORIGINAL</MaterialName>';
+ assert.ok(baseline.includes('<DerivedBlock>'),'source must have a derived block');
+ assert.ok(baseline.includes(existing),'source must have a derived MaterialName');
+ const changed=baseline.replace(existing,'<MaterialName source="existing-field">EDIT_S4</MaterialName>');
+ assert.notEqual(changed,baseline,'derived edit must not be vacuous');
+ assert.ok(changed.includes('<MaterialName source="existing-field">EDIT_S4</MaterialName>'));
  assert.equal(reverse(changed),SRC);
 });
 
@@ -86,14 +94,28 @@ const noDocRows=[
  ['CDATA',()=>{
   const src='<CAESARII><PIPINGMODEL><PIPINGELEMENT FROM_NODE="1" TO_NODE="2"><NOTE><![CDATA[S4CDATA]]></NOTE></PIPINGELEMENT></PIPINGMODEL></CAESARII>';
   const expected='<PIPINGELEMENT FROM_NODE="1" TO_NODE="2"><NOTE><![CDATA[S4CDATA]]></NOTE></PIPINGELEMENT>';
-  assert.ok(!reverse(forward(src)).includes(expected));
+  const categorized=forward(src);
+  assert.ok(categorized.includes(']]]]><![CDATA[>'));
+  assert.ok(reverse(categorized).includes(expected));
  }],
  ['EOL',()=>{assert.ok(OUT.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n'));assert.ok(OUT.includes('<!-- S4_INSIDE -->'+CRLF));}],
  ['BOM',()=>assert.ok(!OUT.startsWith(BOM))],
  ['ORDER',()=>{assert.ok(OUT.includes('B="second" FROM_NODE="10.000000" A="first"'));assert.ok(!OUT.includes('<CAESARII VERSION='));}],
  ['SPACE',()=>{assert.ok(OUT.endsWith('</CAESARII>\n'));assert.ok(!OUT.includes(CRLF+'<OTHER_SECTION'));}],
 ];
-for(const [id,fn] of noDocRows)test('S4-N-'+id+' reverse without OriginalDocument loss/preservation',fn);
+for(const [id,fn] of noDocRows)test(id==='CDATA'
+ ?'S4-N-CDATA properly escaped synthetic nested CDATA recovered without OriginalDocument'
+ :'S4-N-'+id+' reverse without OriginalDocument loss/preservation',fn);
+
+test('S4-CDATA-REGRESSION decdata must recover split OriginalElement CDATA',()=>{
+ const expected='<PIPINGELEMENT FROM_NODE="1" TO_NODE="2"><NOTE><![CDATA[S4CDATA]]></NOTE></PIPINGELEMENT>';
+ const src='<CAESARII><PIPINGMODEL>'+expected+'</PIPINGMODEL></CAESARII>';
+ const categorized=forward(src);
+ assert.ok(categorized.includes(']]]]><![CDATA[>'),'forward must split embedded terminator');
+ const restored=reverse(categorized);
+ assert.ok(restored.includes(expected),'decdata must rejoin split terminator');
+ assert.ok(!restored.includes(']]]]><![CDATA[>'),'escaped seam must not remain in source element');
+});
 
 test('S4-N-DERIVED edit Coordinates/Material is silently dropped',()=>{
  const altered=CAT.replace('<DerivedBlock>','<DerivedBlock><MaterialName>S4_CHANGED</MaterialName>')
