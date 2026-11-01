@@ -61,6 +61,31 @@ for(const marker of markers){
   }
  });
 }
+// Stage 3 is the 5C handoff; it MUST NOT synthesize or discard any one
+// of the nine recognized marker fields in an already generated InputXML.
+const allMarkerSource=enriched.replace('<!-- KEEP-S4 -->',
+ '<PipingClass>91261</PipingClass><Rating>900</Rating>'+
+ '<DTXR_POS>DTXR-A</DTXR_POS><DTXR_PS>DTXR-B</DTXR_PS>'+
+ '<MaterialNumber>7</MaterialNumber><MaterialName>S4-STEEL</MaterialName><!-- KEEP-S4 -->');
+const handed=inputXmlFrom5CResult({
+ finalInputXmlText:allMarkerSource,diagnostics:{summary:{elementCount:1}},
+});
+const categorizedAll=categorize(allMarkerSource,{sourceName:'S4-All-Markers'});
+for(const marker of markers){
+ test('S4-MARKER-STAGE3-'+marker+' 5C handoff carries source marker unchanged',()=>{
+  assert.equal(handed.ok,true);
+  assert.equal(handed.text,allMarkerSource);
+  if(['LINE_ID','FROM_NAME','TO_NAME'].includes(marker))
+   assert.match(handed.text,new RegExp('\\b'+marker+'="[^"]+"'));
+  else assert.ok(handed.text.includes('<'+marker+'>'));
+ });
+ test('S4-MARKER-STAGE4-'+marker+' Categorized OriginalElement carries marker, not edits to InputXML',()=>{
+  assert.ok(categorizedAll.includes('<OriginalElement><![CDATA['));
+  if(['LINE_ID','FROM_NAME','TO_NAME'].includes(marker))
+   assert.ok(categorizedAll.includes(marker+'="'));
+  else assert.ok(categorizedAll.includes('<'+marker+'>'));
+ });
+}
 test('S4-STAGE2-ATTRVALUES sideload replaces existing LINE_ID and adds FROM_NAME/TO_NAME',()=>{
  assert.ok(enriched.includes('LINE_ID="L91261"'));
  assert.ok(enriched.includes('FROM_NAME="START_S4"'));
