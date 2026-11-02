@@ -165,8 +165,8 @@ const mutants=[
     replacement:"const tokens=scanOriginalInputXmlStructure(text,{recordsOnlyModel:true});",
     pattern:'S4.1 ACCEPT real CAESAR with UNITS: docs/GREInputxml.xml'},
   {name:'S4_REAL_UNITS_SECTION_GUARD',
-    old:".replace(/<UNITS\\b[^>]*\\/>|<UNITS\\b[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'')",
-    replacement:".replace(/<UNITS\\b[^>]*\\/>|<UNITS\\b[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'__MUTATED_UNKNOWN_UNITS__')",
+    old:".replace(/<UNITS(?=[\\s/>])[^>]*\\/>|<UNITS(?=[\\s/>])[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'')",
+    replacement:".replace(/<UNITS(?=[\\s/>])[^>]*\\/>|<UNITS(?=[\\s/>])[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'__MUTATED_UNKNOWN_UNITS__')",
     pattern:'S4.1 ACCEPT real CAESAR with UNITS: docs/GREInputxml.xml'},
   {name:'S4_REAL_UNITS_SNAPSHOT_GUARD',
     old:"return /^<UNITS\\b[^>]*>[\\s\\S]*<\\/UNITS\\s*>$/i.test(extra);",
@@ -225,6 +225,14 @@ const mutants=[
     old:"if(target.toLowerCase().startsWith('xml')){",
     replacement:"if(target.toLowerCase()==='xml'){",
     pattern:'S4.1 SHARED REFUSE reserved xml-foo PI target'},
+  {name:'S4_UNITS_HARVEST_GUARD',
+    old:"if(units.some(section=>/<(?:RESTRAINT|DISPLACEMENTS|FORCESMOMENTS|ALLOWABLESTRESS|BEND|RIGID|FLANGES|SIF)(?=[\\s/>])/i.test(section)))return true;",
+    replacement:"if(false&&units.some(section=>/<(?:RESTRAINT|DISPLACEMENTS|FORCESMOMENTS|ALLOWABLESTRESS|BEND|RIGID|FLANGES|SIF)(?=[\\s/>])/i.test(section)))return true;",
+    pattern:'S4.1 REFUSE harvested stanza inside non-record UNITS sibling'},
+  {name:'S4_UNITS_PREFIX_BOUNDARY_GUARD',
+    old:".replace(/<UNITS(?=[\\s/>])[^>]*\\/>|<UNITS(?=[\\s/>])[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'')",
+    replacement:".replace(/<UNITS[^>]*\\/>|<UNITS[^>]*>[\\s\\S]*?<\\/UNITS\\s*>/gi,'')",
+    pattern:'S4.1 REFUSE unknown UNITS-X sibling'},
 ];
 for(const mutant of mutants)
   test('S4.1_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
