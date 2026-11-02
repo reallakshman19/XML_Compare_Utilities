@@ -214,7 +214,7 @@ function sharedExternal(lexedRows,rowIndex,before,after,editedRow){
 // S4.2 must refuse rather than silently 'repair' that projection authority.
 const s40HarvestTagNames='RESTRAINT|DISPLACEMENTS|FORCESMOMENTS|ALLOWABLESTRESS|SIF';
 const harvestLookalike=new RegExp('<(?:'+s40HarvestTagNames+')(?=[\\s/>])','i');
-const commentOrCdata=/<!--[\\s\\S]*?-->|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/g;
+const commentOrCdata=/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g;
 function hasAmbiguousSourceMarkup(text,rows){
   // MUTATION_GUARD_S40_HIDDEN_MARKUP: S4.0's raw regex also harvests
   // '<RESTRAINT' etc inside comments or CDATA, even when lexRow skips them.
