@@ -328,15 +328,18 @@ test('S4.2 REFUSE numerically equal owner nodes 20 vs 20.0 across records',async
     '<RESTRAINT NODE="20" TYPE="10"/>');
   expectRefused(await write(src,categorize(target)),R.EXTERNAL);
 });
-test('S4.2 REFUSE external NODE moving to another owned node or unset sentinel',async()=>{
-  const src=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
-    row(20,30,'B','<RESTRAINT NODE="30" TYPE="9"/>'));
-  for(const owner of ['30','-1.010100']){
+for(const [label,owner] of [
+  ['another owned node','30'],
+  ['unset sentinel','-1.010100'],
+]){
+  test('S4.2 REFUSE external NODE moving to '+label,async()=>{
+    const src=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+      row(20,30,'B','<RESTRAINT NODE="30" TYPE="9"/>'));
     const target=src.replace('<RESTRAINT NODE="20" TYPE="8"/>',
       '<RESTRAINT NODE="'+owner+'" TYPE="8"/>');
     expectRefused(await write(src,categorize(target)),R.IDENTITY);
-  }
-});
+  });
+}
 test('S4.2 REFUSE every S4.0 external stanza control or node-reference attribute edit',async()=>{
   // S4.0 CONTROL_ATTRS from CategorizedInputXmlConverter.js:23 plus basis/
   // FROM/TO node references used by S4.0 coordinate grouping.
