@@ -97,7 +97,7 @@ function parseCategorized(xml){
   return {lines,elements};
 }
 function physicalSourceRows(text){
-  const tokens=scanOriginalInputXmlStructure(text);
+  const tokens=scanOriginalInputXmlStructure(text,{recordsOnlyModel:true});
   if(!tokens)return null;
   const physical=tokens.map((tag,index)=>{
     const raw=tag.raw,open=tag.open;
