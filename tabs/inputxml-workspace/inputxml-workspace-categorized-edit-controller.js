@@ -38,7 +38,7 @@ const patchReasons=Object.freeze({
   [R.PARITY]:'Strict S3 or S4.1 post-edit identity/parity did not pass.',
   [R.CONVERTER]:'The S4.0 forward converter rejected the source or proposed result.',
   [R.S40_MISMATCH]:'The edited snapshots/projections do not equal S4.0 of the proposed original.',
-  [R.UNMAPPED]:'Derived, line-owned, missing, or unlisted projection cannot be edited.',
+  [R.UNMAPPED]:'Derived, line-owned, missing, unlisted, or mixed SIF snapshot plus projection edits across rows are not writable together. Check and download permitted edits separately.',
   [R.ROUNDTRIP]:'Typed text cannot be written and echoed exactly through S4.0.',
 });
 const otherReasons=Object.freeze({
