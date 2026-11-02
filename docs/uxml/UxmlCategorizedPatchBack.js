@@ -14,6 +14,7 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   BASELINE:'S42_BASELINE_NOT_S40_EXACT',
   UNBOUND:'S42_UNBOUND_RECORD',
   STRUCTURE:'S42_ELEMENT_ADDED_REMOVED_OR_MARKUP_EDITED',
+  NESTED:'S42_NESTED_ATTRIBUTE_EDIT_REFUSED',
   REORDER:'S42_ELEMENT_REORDERED',
   IDENTITY:'S42_RECORD_IDENTITY_EDITED',
   DERIVED:'S42_DERIVED_OR_LINE_PROJECTION_EDITED',
@@ -33,6 +34,21 @@ const refKeys=(doc)=>doc.components.map(c=>c.sourceRefs?.[0]?.recordKey);
 const equalArray=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
 const identityFields=new Set(['FROM_NODE','TO_NODE','LINE_ID','PIPELINE-REFERENCE']);
 const externalTags=new Set(['RESTRAINT','DISPLACEMENTS','FORCESMOMENTS','ALLOWABLESTRESS','SIF']);
+// Exact S4.0 CONTROL_ATTRS (CategorizedInputXmlConverter.js:23), plus the
+// basis/record node references S4.0 uses when solving source-derived fields.
+// These are never user-editable on globally projected external stanzas.
+const externalControlAttrs=new Set(['NUM','NUMBER','SIF_NUM','DISP_NUM',
+  'FORCMNT_NUM','NODE','NODE_NUM','NODE1','NODE2','NODE3','CNODE',
+  'GLOBAL_COORD_BASIS_NODE','FROM_NODE','TO_NODE']);
+// Keep S4.0 normalizeNode / isUnset numerical semantics, not raw node strings.
+const normalizeExternalNode=value=>{
+  const raw=clean(value),n=Number(raw);
+  return Number.isFinite(n)&&Math.abs(n-Math.round(n))<1e-6
+    ?String(Math.round(n)):raw.replace(/\.0+$/,'');
+};
+const externalNodeField=tag=>
+  tag==='RESTRAINT'||tag==='SIF'?'NODE':
+  tag==='DISPLACEMENTS'||tag==='FORCESMOMENTS'?'NODE_NUM':null;
 
 function categorizedItems(text){
   const items=[],lineIds=[],lines=/<Line\b([^>]*)>([\s\S]*?)<\/Line>/gi;
@@ -63,7 +79,7 @@ function categorizedItems(text){
 // previously admitted physical record, never a regex substring guess in file.
 // A masked whole-row skeleton proves no tag/order/text/attribute-quote edits.
 function lexRow(raw){
-  const attrs=[],stack=[],masked=[];
+  const attrs=[],stanzas=[],stack=[],masked=[];
   let cursor=0;
   while(cursor<raw.length){
     const open=raw.indexOf('<',cursor);
@@ -98,12 +114,16 @@ function lexRow(raw){
     if(!match)return null;
     const name=match[1],selfClosing=/\/\s*>$/.test(tag),depth=stack.length;
     const attributeLimit=tag.length-(selfClosing?2:1);
+    // Stanza identity is based on the opening tag actually lexed at this
+    // position. Comments and CDATA are skipped by this lexer.
+    const stanza={name,depth,attributes:[]};
+    const stanzaIndex=stanzas.length;
+    stanzas.push(stanza);
     let pos=match[0].length,prefix=0;
     while(pos<attributeLimit){
       if(!tag.slice(pos,attributeLimit).trim())break;
-      const m=tag.slice(pos,attributeLimit).match(/^\s+([A-Za-z_:][\w.:-]*)\s*=\s*(["'])([^"']*)\2/);
-      // Quote values may contain the other quote; use an explicitly matched
-      // delimiter, not the broad [^"'] class.
+      // Quote values may contain the other quote; the real delimiter is
+      // handled by the quote-aware robust parser immediately below.
       const robust=tag.slice(pos,attributeLimit).match(/^\s+([A-Za-z_:][\w.:-]*)\s*=\s*("([^"]*)"|'([^']*)')/);
       if(!robust)return null;
       const token=robust[0],attrName=robust[1],quot=token.match(/(["'])/)?.[1];
@@ -111,8 +131,10 @@ function lexRow(raw){
       const prefixBeforeValue=token.slice(0,token.indexOf(quot)+1);
       const valueStart=pos+prefixBeforeValue.length,valueEnd=valueStart+value.length;
       masked.push(tag.slice(prefix,valueStart),'\u0001');
-      attrs.push({name:attrName,tagName:name,depth,quote:quot,
-        value,start:open+valueStart,end:open+valueEnd});
+      const attr={name:attrName,tagName:name,depth,stanzaIndex,quote:quot,
+        value,start:open+valueStart,end:open+valueEnd};
+      attrs.push(attr);
+      stanza.attributes.push(attr);
       prefix=valueEnd;
       pos+=token.length;
     }
@@ -121,7 +143,7 @@ function lexRow(raw){
     cursor=end;
   }
   if(stack.length)return null;
-  return {masked:masked.join(''),attrs};
+  return {masked:masked.join(''),attrs,stanzas};
 }
 function decodeValue(raw){
   if(/<|[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(raw))return null;
@@ -143,48 +165,85 @@ function encodeValue(value,quote){
     .replace(/"/g,quote==='"'?'&quot;':'"')
     .replace(/'/g,quote==="'"?'&apos;':"'");
 }
-function sharedExternal(rows,tag,edited){
-  if(!externalTags.has(tag))return false;
-  const attrs=edited.tagName+':'+edited.name;
-  // Never write a globally harvested stanza without a concrete node-owned
-  // identity, nor one whose owning node is carried by multiple source rows.
-  const nodeAttr=/\b(?:NODE|NODE_NUM)\s*=\s*(["'])(.*?)\1/i;
-  const row=rows[edited.rowIndex];
-  const localTag=row.raw.match(new RegExp('<'+tag+'(?=[\\s/>])[^>]*>','gi'))||[];
-  const own=localTag[edited.tagOrdinal]?.match(nodeAttr)?.[2];
-  if(!own||!Number.isFinite(Number(own))||Math.abs(Number(own)+1.0101)<0.0001)return true;
-  let count=0;
-  for(const candidate of rows){
-    const blocks=candidate.raw.match(new RegExp('<'+tag+'(?=[\\s/>])[^>]*>','gi'))||[];
-    if(blocks.some(block=>block.match(nodeAttr)?.[2]===own))count++;
-  }
-  return count!==1;
+function stanzaOwner(stanza){
+  const ownerField=externalNodeField(stanza.name.toUpperCase());
+  // ALLOWABLESTRESS and other globally carried stanzas have no
+  // unique per-node identity in S4.0; editing them is not slice-1 safe.
+  if(!ownerField)return null;
+  const attr=stanza.attributes.find(a=>a.name.toUpperCase()===ownerField);
+  if(!attr)return null;
+  const decoded=decodeValue(attr.value);
+  if(decoded===null||!clean(decoded))return null;
+  const n=Number(clean(decoded));
+  // Match S4.0's sentinel and numeric-node admission.
+  if(!Number.isFinite(n)||Math.abs(n+1.0101)<1e-4)return null;
+  return normalizeExternalNode(decoded);
 }
-function diffRows(oldRaw,newRaw,rowIndex,rows){
+function countStanzaOwners(lexedRows,tag,owner,rowIndex=-1,replacement=null){
+  let count=0;
+  for(let i=0;i<lexedRows.length;i++){
+    const row=i===rowIndex&&replacement?replacement:lexedRows[i];
+    if(!row)return null;
+    for(const stanza of row.stanzas){
+      if(stanza.depth!==1||stanza.name.toUpperCase()!==tag)continue;
+      if(stanzaOwner(stanza)===owner)count++;
+    }
+  }
+  return count;
+}
+function sharedExternal(lexedRows,rowIndex,before,after){
+  const tag=before.name.toUpperCase();
+  if(!externalTags.has(tag))return false;
+  // MUTATION_GUARD_STANZA_OWNER_LEX: use exactly the stanza containing the
+  // changed field; never infer ownership from the edited attribute ordinal
+  // or count arbitrary <TAG> text inside an XML comment.
+  const oldOwner=stanzaOwner(before),newOwner=stanzaOwner(after);
+  if(!oldOwner||!newOwner)return true;
+  // MUTATION_GUARD_NUMERIC_OWNER: 20 and 20.0 are one S4.0 grouping node.
+  if(oldOwner!==newOwner)return true;
+  // MUTATION_GUARD_BEFORE_AND_AFTER_OWNERSHIP: enforce unique ownership
+  // against both the original and the proposed edited source tree.
+  return countStanzaOwners(lexedRows,tag,oldOwner)!==1||
+    countStanzaOwners(lexedRows,tag,newOwner,rowIndex,
+      {...lexedRows[rowIndex],stanzas:lexedRows[rowIndex].stanzas.map(
+        (stanza)=>stanza===before?after:stanza)})!==1;
+}
+function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
   const old=lexRow(oldRaw),next=lexRow(newRaw);
   if(!old||!next||old.masked!==next.masked||old.attrs.length!==next.attrs.length)
     return {error:UXML_CATEGORIZED_PATCH_REFUSALS.STRUCTURE};
-  const changes=[],tagOccurrences=new Map();
+  const changes=[];
   for(let i=0;i<old.attrs.length;i++){
     const before=old.attrs[i],after=next.attrs[i];
     if(before.name!==after.name||before.tagName!==after.tagName||
        before.depth!==after.depth||before.quote!==after.quote)
       return {error:UXML_CATEGORIZED_PATCH_REFUSALS.STRUCTURE};
     if(before.value===after.value)continue;
-    if(before.depth>1)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.STRUCTURE};
+    // MUTATION_GUARD_NESTED_ATTRIBUTE: slice 1 allows only a source record
+    // or its direct child stanza, never a descendant's attribute.
+    if(before.depth>1)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.NESTED};
     if(before.depth===0&&identityFields.has(before.name.toUpperCase()))
       return {error:UXML_CATEGORIZED_PATCH_REFUSALS.IDENTITY};
     const oldValue=decodeValue(before.value),newValue=decodeValue(after.value);
     if(oldValue===null||newValue===null)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
+    // XML whitespace normalization would change TAB/CR/LF semantics.
+    // Slice 1 refuses both literal and character-reference forms.
+    // MUTATION_GUARD_ATTRIBUTE_CONTROL_WHITESPACE
+    if(/[\t\r\n]/.test(newValue))
+      return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
     const encoded=encodeValue(newValue,before.quote);
     if(after.value!==encoded)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
     if(before.depth===1&&externalTags.has(before.tagName.toUpperCase())){
-      // Resolve stanza ordinal from original lexical attribute list, stable
-      // even when many same-name direct children exist within the row.
-      const earlier=old.attrs.slice(0,i);
-      const same=earlier.filter(a=>a.depth===1&&a.tagName===before.tagName&&a.name===before.name);
-      const changed={rowIndex,tagName:before.tagName,name:before.name,tagOrdinal:same.length};
-      if(sharedExternal(rows,before.tagName.toUpperCase(),changed))
+      // MUTATION_GUARD_EXTERNAL_CONTROL_IDENTITY: block *all* S4.0 node
+      // grouping/control references, including NODE->other/sentinel moves.
+      if(externalControlAttrs.has(before.name.toUpperCase()))
+        return {error:UXML_CATEGORIZED_PATCH_REFUSALS.IDENTITY};
+      const beforeStanza=old.stanzas[before.stanzaIndex];
+      const afterStanza=next.stanzas[after.stanzaIndex];
+      // MUTATION_GUARD_SHARED_EXTERNAL_OWNERSHIP: identify the SAME lexed
+      // stanza before and after, ignoring any comment-hidden tag lookalikes.
+      if(!beforeStanza||!afterStanza||
+         sharedExternal(lexedRows,rowIndex,beforeStanza,afterStanza))
         return {error:UXML_CATEGORIZED_PATCH_REFUSALS.EXTERNAL};
     }
     changes.push({start:before.start,end:before.end,oldRaw:before.value,newRaw:encoded,
@@ -236,6 +295,10 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     return fail(R.IDENTITY);
   }
   const changes=[];
+  // Cache lexed original stanzas once, skipping comments and CDATA.
+  // Physical record identity was already authenticated by S4.1 + scanner.
+  const sourceLexedRows=originalRows.map(row=>lexRow(row.raw));
+  if(sourceLexedRows.some(row=>row===null))return fail(R.UNBOUND);
   for(let i=0;i<oldCat.items.length;i++){
     const reference=originalBinding.components[i]?.sourceRefs?.[0];
     if(!reference||reference.format!=='INPUT_XML'||
@@ -253,7 +316,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     if(suffix&&(!/^\s*<UNITS(?=[\s/>])[\s\S]*<\/UNITS\s*>\s*$/i.test(suffix)||
        !after.endsWith(suffix)))return fail(R.UNITS);
     const candidate=suffix?after.slice(0,-suffix.length):after;
-    const diff=diffRows(source.raw,candidate,source.index,originalRows);
+    const diff=diffRows(source.raw,candidate,source.index,sourceLexedRows);
     if(diff.error)return fail(diff.error);
     for(const field of diff.changes){
       const charStart=source.start+field.start,charEnd=source.start+field.end;
