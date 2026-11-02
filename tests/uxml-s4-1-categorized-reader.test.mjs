@@ -11,6 +11,7 @@ import {spawnSync} from 'node:child_process';
 import {inputXmlToCategorizedInputXml as categorize} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {mapCategorizedInputXmlToUxml as read, UXML_CATEGORIZED_INPUTXML_REFUSALS as R}
   from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
+import {_testCategorizedSourceStructure} from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 import {validateUxmlDocument} from '../uxml/UxmlValidationGate.js';
 import {mapCaesarInputXmlToUxmlStrict} from '../uxml/UxmlInputXmlSchemaMapper.js';
 
@@ -358,4 +359,87 @@ test('S4.1 REFUSE key mismatch against independent strict S3 set',async()=>{
     });
     assert.equal(p.status,0,p.stdout+'\n'+p.stderr);
   }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+
+const scanOriginal=_testCategorizedSourceStructure.scanOriginalInputXmlStructure;
+const structureRefusal=async(original,cat=categorize(original))=>{
+  assert.equal(scanOriginal(original),null,'source tokenizer must reject untrusted markup');
+  refused(await run(original,cat),R.ORIGINAL_STRUCTURE);
+};
+
+test('S4.1 STRUCTURE REFUSE complete commented row with real sibling and S3-accepted bytes',async()=>{
+  const hidden=elem('30','40','A',13);
+  const original=input(elem('10','20','A',10),'<!-- '+hidden+' -->');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE only PIPINGELEMENT contained in comment',async()=>{
+  const original=input('<!--'+elem('10','20','A',10)+'-->');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE complete PIPINGELEMENT inside XML processing instruction',async()=>{
+  const hidden=elem('30','40','B',12);
+  const original=input(elem('10','20','A',10),'<?source '+hidden+' ?>');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE only-row processing instruction before model child',async()=>{
+  const original=input('<?source '+elem('10','20','A',10)+' ?>');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE row after closed CAESARII root',async()=>{
+  const original=fixture()+elem('30','40','C',12);
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE row between PIPINGMODEL end and CAESARII end',async()=>{
+  const original=fixture().replace('</PIPINGMODEL>',
+    '</PIPINGMODEL>'+elem('30','40','C',12));
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE nested row under a model wrapper',async()=>{
+  const original=input('<WRAPPER>'+elem('10','20','A',10)+'</WRAPPER>');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside CDATA',async()=>{
+  const original=input(elem('10','20','A',10),
+    '<![CDATA['+elem('30','40','B',12)+']]>');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside DOCTYPE internal subset',async()=>{
+  const original='<!DOCTYPE CAESARII [<!ENTITY inspect '+
+    "'"+'<PIPINGELEMENT FROM_NODE="99" TO_NODE="100" />'+"'"+'>]>'+
+    fixture();
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE extra second CAESARII root and second model',async()=>{
+  const secondRoot=fixture()+fixture();
+  const secondModel=fixture().replace('</CAESARII>',
+    '<PIPINGMODEL>'+elem('30','40','C',10)+'</PIPINGMODEL></CAESARII>');
+  await structureRefusal(secondRoot);
+  await structureRefusal(secondModel);
+});
+test('S4.1 STRUCTURE REFUSE malformed tag balance despite close-tag totals',async()=>{
+  const original=input(elem('10','20','A',10).replace('</PIPINGELEMENT>',
+    '</SOMETHING></PIPINGELEMENT>'));
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE non-whitespace after root, allow trailing comments only',async()=>{
+  await structureRefusal(fixture()+'garbage');
+  const valid=fixture()+'<!-- trailing note without source tags -->';
+  const tokens=scanOriginal(valid);
+  assert.equal(tokens?.length,2);
+  const result=await run(valid);
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
+    ['E0:F10:T20','E1:F20:T30']);
+});
+test('S4.1 null and undefined options become evidence-only defaults, no TypeError',async()=>{
+  const cat=categorize(fixture());
+  for(const options of [undefined,null]){
+    const res=await read(cat,options);
+    assert.equal(res.ok,true);
+    assert.equal(res.status,'NOT_SOURCE_EQUIVALENT');
+    assert.equal(res.sourceEquivalent,false);
+    assert.equal(res.exportAllowed,false);
+    assert.equal(res.uxml.components.length,0);
+  }
 });
