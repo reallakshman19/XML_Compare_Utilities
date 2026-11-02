@@ -35,8 +35,8 @@ const mutants=[
   {name:'RELEASE_LAST_ASYNC_CHECK_EPOCH',
     pattern:'B7 release-last: an edit while Check pending blocks stale result',
     edits:[
-      {old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)\n       return snapshot();',
-       replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))\n       return snapshot();'},
+      {old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)\n      return snapshot();',
+       replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))\n      return snapshot();'},
       {old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)return snapshot();',
        replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))return snapshot();'}
     ]},
