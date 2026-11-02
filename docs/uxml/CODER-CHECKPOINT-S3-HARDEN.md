@@ -27,8 +27,10 @@ are admitted with exact pinned-main UXML bytes and recordKeys; an `UNITS` child 
 is also admitted. The complete `PIPINGELEMENT` nested inside
 `UNITS` or a wrapper still refuses, as do comments/PI/CDATA/DOCTYPE
 ghost rows, outside-root/trailer structure and malformed tags.
-S4.1 explicitly calls `{recordsOnlyModel:true}`; its established
-records-only `UNITS` refusal remains a **known S4.1 limitation**.
+S4.1 now also uses the scanner default, admitting legitimate `UNITS`
+model siblings after the separate Owner-approved S4.1-ACCEPT-UNITS task.
+The S3 admission logic remains unchanged; nested PIPINGELEMENT and ghost
+record refusals are still unconditional.
 No S1, S4.0 converter, other format, TopoFix/lane A,
 tolerances/CLOS, original bytes, policy or writer custody changed.
 
@@ -63,6 +65,7 @@ trial, S4.2 writer, release and merge.
 **NEXT → ORACLE:** Reconcile the pinned exact PR #250 SHA,
 changed-file allowlist, byte-identical S3-output proof,
 public GRE/PLB314/mock-xml/BM_CII **acceptance** with exact baseline
-UXML bytes, nested-UNITS refusal, S4.1 limit and full mutation qualification.
+UXML bytes, nested-UNITS refusal, updated S4.1 admission and full
+mutation qualification.
 Commission non-author exact-head independent review and preserve
 DRAFT HOLD pending Owner merge authorization.
