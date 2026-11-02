@@ -3,10 +3,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {mkdtempSync,mkdirSync,copyFileSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {inputXmlToCategorizedInputXml as categorize} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {mapCategorizedInputXmlToUxml as read, UXML_CATEGORIZED_INPUTXML_REFUSALS as R}
   from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 import {validateUxmlDocument} from '../uxml/UxmlValidationGate.js';
+import {mapCaesarInputXmlToUxmlStrict} from '../uxml/UxmlInputXmlSchemaMapper.js';
 
 const sha=x=>createHash('sha256').update(Buffer.from(x,'utf8')).digest('hex');
 const elem=(from,to,line,delta=10,other='')=>
@@ -160,4 +166,134 @@ test('S4.1 public GRE/PLB314 categorized evidence-only, no source equivalence in
     assert.equal(res.status,'NOT_SOURCE_EQUIVALENT',file);
     assert.equal(res.evidence.length,count,file);
   }
+});
+
+test('S4.1 SOURCE_BOUND records agree exactly with strict S3 recordKeys',async()=>{
+  const original=input(elem('10','20','A',10),elem('20','30','B',11),elem('30','40','A',12));
+  const expected=mapCaesarInputXmlToUxmlStrict(original,{fileSha256:sha(original)});
+  const result=await run(original);
+  assert.equal(result.ok,true);
+  const fromS3=expected.components.map(c=>c.sourceRefs[0].recordKey).sort();
+  const fromS41=result.uxml.components.map(c=>c.sourceRefs[0].recordKey).sort();
+  assert.deepEqual(fromS41,fromS3);
+  assert(result.uxml.components.every(c=>c.sourceRefs[0].fileSha256===sha(original)));
+});
+test('S4.1 shuffled Elements within one Line still bind S3 physical ordinals',async()=>{
+  const original=input(elem('10','20','A',10),elem('20','30','A',11),elem('30','40','B',12));
+  const categorized=categorize(original);
+  const blocks=categorized.match(/<Element\b[\s\S]*?<\/Element>/g);
+  assert.equal(blocks.length,3);
+  const shuffled=categorized.replace(blocks[0],'__S4_SWAP_ELEMENT__')
+    .replace(blocks[1],blocks[0]).replace('__S4_SWAP_ELEMENT__',blocks[1]);
+  assert.notEqual(shuffled,categorized);
+  const result=await run(original,shuffled);
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
+    ['E1:F20:T30','E0:F10:T20','E2:F30:T40']);
+});
+test('S4.1 swapped Line groups still bind original source ordinals',async()=>{
+  const original=input(elem('10','20','A',10),elem('20','30','B',11),elem('30','40','A',12));
+  const categorized=categorize(original);
+  const groups=categorized.match(/<Line\b[^>]*>[\s\S]*?<\/Line>/g);
+  assert.equal(groups.length,2);
+  const swapped=categorized.replace(groups[0],'__S4_SWAP_LINE__')
+    .replace(groups[1],groups[0]).replace('__S4_SWAP_LINE__',groups[1]);
+  assert.notEqual(swapped,categorized);
+  const result=await run(original,swapped);
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
+    ['E1:F20:T30','E0:F10:T20','E2:F30:T40']);
+});
+test('S4.1 REFUSE original PLB314 source with incomplete final PIPINGELEMENT',async()=>{
+  const original=await readFile(new URL('../docs/PLB314Inputxml.xml',import.meta.url),'utf8');
+  const cat=categorize(original,{sourceName:'public-PLB314'});
+  refused(await run(original,cat),R.ORIGINAL_STRUCTURE);
+});
+test('S4.1 REFUSE invalid original byte encoding',async()=>{
+  refused(await read(categorize(fixture()),{
+    originalBytes:Uint8Array.from([0xff,0xfe]),fileSha256:'0'.repeat(64),
+  }),R.ORIGINAL_ENCODING);
+});
+test('S4.1 REFUSE contradictory originalBytes and originalInputXml (no silent precedence)',async()=>{
+  const original=fixture(),wrong=Buffer.from(original.replace('STEEL','ALLOY'),'utf8');
+  refused(await read(categorize(original),{
+    originalBytes:wrong,originalInputXml:original,fileSha256:sha(original),
+  }),R.ORIGINAL_INPUT_CONFLICT);
+});
+test('S4.1 matching originalBytes and originalInputXml are accepted',async()=>{
+  const original=fixture();
+  const res=await read(categorize(original),{
+    originalBytes:Buffer.from(original,'utf8'),
+    originalInputXml:original,fileSha256:sha(original),
+  });
+  assert.equal(res.ok,true);
+  assert.equal(res.uxml.components.length,2);
+});
+test('S4.1 REFUSE moved Categorized Element under wrong Line owner',async()=>{
+  const original=fixture(),cat=categorize(original);
+  const lines=cat.match(/<Line\b[^>]*>[\s\S]*?<\/Line>/g);
+  assert.equal(lines.length,2);
+  const moved=lines[1].match(/<Element\b[\s\S]*?<\/Element>/)?.[0];
+  assert(moved);
+  const switched=cat.replace(moved,'').replace('</Line>',moved+'\n</Line>');
+  assert.notEqual(switched,cat);
+  refused(await run(original,switched),R.RECORD_NO_MATCH);
+});
+test('S4.1 REFUSE fake ReviewMarker in original snapshot CDATA',async()=>{
+  const sourceMarker='<ReviewMarker kind="DERIVED_DIFFERENCE" disposition="REVIEW_ONLY"/>';
+  const original=input(elem('10','20','A',10,sourceMarker));
+  const cat=categorize(original).replace(
+    '<MaterialName source="existing-field">STEEL</MaterialName>',
+    '<MaterialName source="existing-field">UNREVIEWED</MaterialName>');
+  refused(await run(original,cat),R.DERIVED_DIFF);
+});
+test('S4.1 carries known root and PIPINGMODEL attributes only as source witness',async()=>{
+  const original=fixture().replace('<CAESARII XML_TYPE="Input">',
+    '<CAESARII XML_TYPE="Input" VENDOR="SYNTHETIC">')
+    .replace('JOBNAME="SYNTH"','JOBNAME="SYNTH" CUSTOM="SOURCE_ONLY"');
+  const result=await run(original);
+  assert.equal(result.ok,true);
+  assert(result.uxml.sources[0].sourceText.includes('VENDOR="SYNTHETIC"'));
+  assert(result.uxml.sources[0].sourceText.includes('CUSTOM="SOURCE_ONLY"'));
+});
+// The shared gate is a dependency rather than user-overridable policy.
+// This negative test uses an isolated temporary copy of the real gate module
+// with a forced failing verdict; it cannot weaken the shipped gate.
+test('S4.1 REFUSE source-bound output on failed shared UxmlValidationGate',async()=>{
+  const root=fileURLToPath(new URL('../',import.meta.url));
+  const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-gate-refusal-'));
+  try{
+    for(const folder of ['uxml','xml-compare'])mkdirSync(join(dir,folder));
+    for(const file of [
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js',
+    ])copyFileSync(join(root,file),join(dir,file));
+    writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+    const gatePath=join(dir,'uxml/UxmlValidationGate.js');
+    const gateSource=readFileSync(gatePath,'utf8');
+    const seam='  return finalizeReport(report);\n}\n\nexport const runUxmlValidationGate = validateUxmlDocument;';
+    assert.equal(gateSource.split(seam).length-1,1,'one final shared gate seam');
+    writeFileSync(gatePath,gateSource.replace(seam,
+      "  const result=finalizeReport(report);\n"+
+      "  return {...result,ready:false,blockers:[{code:'SYNTHETIC_GATE_BLOCKER'}]};\n"+
+      "}\n\nexport const runUxmlValidationGate = validateUxmlDocument;"));
+    writeFileSync(join(dir,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {inputXmlToCategorizedInputXml as categorize} from './xml-compare/CategorizedInputXmlConverter.js';",
+      "import {mapCategorizedInputXmlToUxml as reader, UXML_CATEGORIZED_INPUTXML_REFUSALS as R} from './uxml/UxmlCategorizedInputXmlSchemaMapper.js';",
+      'const original='+JSON.stringify(fixture())+';',
+      "const fileSha256=createHash('sha256').update(original).digest('hex');",
+      "const res=await reader(categorize(original),{originalInputXml:original,fileSha256});",
+      "if(res.ok!==false||res.uxml!==null||res.code!==R.GATE_REJECTED||res.exportAllowed!==false)",
+      "  throw Error('Shared gate failure was not refused with NULL UXML: '+JSON.stringify(res));",
+    ].join('\n')+'\n');
+    const p=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:dir,encoding:'utf8',timeout:45000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([k])=>k!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(p.status,0,p.stdout+'\n'+p.stderr);
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });
