@@ -11,6 +11,8 @@ const source=fileURLToPath(new URL('../',import.meta.url));
 const mapper='uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 const files=[
  mapper,'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+ 'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
+ 'utils/line-no-metadata.js',
  'xml-compare/CategorizedInputXmlConverter.js',
  'xml-compare/XmlCompareCoordinateSideload.js',
  'xml-compare/XmlCompareCoordinateDiagnostics.js',
@@ -19,7 +21,7 @@ const files=[
 function kill({name,old,replacement,pattern}){
   const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-mutant-'));
   try{
-    for(const folder of ['uxml','xml-compare','tests'])mkdirSync(join(dir,folder));
+    for(const folder of ['uxml','xml-compare','tests','utils'])mkdirSync(join(dir,folder));
     for(const file of files)copyFileSync(join(source,file),join(dir,file));
     writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
     const exec=()=>spawnSync(process.execPath,['--test','--test-name-pattern='+pattern,
@@ -76,6 +78,34 @@ const mutants=[
     old:"if(hasUnknownSourceSection(supplied.text,originalRows))",
     replacement:"if(false&&hasUnknownSourceSection(supplied.text,originalRows))",
     pattern:'S4.1 REFUSE unknown original header'},
+  {name:'SOURCE_HASH_REQUIRED_GUARD',
+    old:"if(!/^[a-f0-9]{64}$/i.test(clean(options.fileSha256)))",
+    replacement:"if(false&&!/^[a-f0-9]{64}$/i.test(clean(options.fileSha256)))",
+    pattern:'S4.1 REFUSE missing measured SHA'},
+  {name:'ORIGINAL_STRUCTURE_GUARD',
+    old:"if(!originalRows)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_STRUCTURE);",
+    replacement:"if(false&&!originalRows)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_STRUCTURE);",
+    pattern:'S4.1 REFUSE original PLB314'},
+  {name:'PHYSICAL_ROW_NULL_GUARD',
+    old:"return physical.some(row=>row===null)?null:physical;",
+    replacement:"return physical;",
+    pattern:'S4.1 REFUSE original PLB314'},
+  {name:'DERIVED_LINE_GUARD',
+    old:"if(expectedLines.get(line.id)!==line.decoration)",
+    replacement:"if(false&&expectedLines.get(line.id)!==line.decoration)",
+    pattern:'S4.1 REFUSE modified line-level'},
+  {name:'LINE_OWNERSHIP_GUARD',
+    old:"row.lineId===element.lineId",
+    replacement:"true",
+    pattern:'S4.1 REFUSE moved Categorized Element'},
+  {name:'UXML_GATE_REJECTION_GUARD',
+    old:"if(!gate.ready)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.GATE_REJECTED);",
+    replacement:"if(false&&!gate.ready)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.GATE_REJECTED);",
+    pattern:'S4.1 REFUSE source-bound output on failed shared'},
+  {name:'REVIEW_MARKER_CDATA_GUARD',
+    old:"const markers=[...projectionText.matchAll(/<ReviewMarker\\b([^>]*?)\\/>/gi)];",
+    replacement:"const markers=[...body.matchAll(/<ReviewMarker\\b([^>]*?)\\/>/gi)];",
+    pattern:'S4.1 REFUSE fake ReviewMarker in original snapshot'},
 ];
 for(const mutant of mutants)
   test('S4.1_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
