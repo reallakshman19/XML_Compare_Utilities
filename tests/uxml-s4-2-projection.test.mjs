@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,copyFileSync,writeFileSync,rmSync} from 'node:fs';
+import {dirname,join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {inputXmlToCategorizedInputXml as s40} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {mapCategorizedInputXmlToUxml as s41} from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
@@ -263,4 +267,46 @@ test('S4.2 slice2 LF/CRLF and BOM source preserve non-target bytes',async()=>{
     assert.deepEqual(Buffer.from(result.bytes),b(expected));
     assert.equal(Buffer.from(result.bytes).subarray(0,3).toString('hex'),'efbbbf');
   }
+});
+
+test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',()=>{
+  const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
+  const sandbox=mkdtempSync(join(tmpdir(),'s42-s40-throw-'));
+  try{
+    const files=['uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
+      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
+      'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',
+      'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js','utils/line-no-metadata.js'];
+    for(const file of files){
+      const target=join(sandbox,file);
+      mkdirSync(dirname(target),{recursive:true});
+      copyFileSync(join(sourceRoot,file),target);
+    }
+    writeFileSync(join(sandbox,'package.json'),'{"type":"module"}\n');
+    const patcher=join(sandbox,'uxml/UxmlCategorizedPatchBack.js');
+    let code=readFileSync(patcher,'utf8');
+    const from="import {inputXmlToCategorizedInputXml,_test as s40} from '../xml-compare/CategorizedInputXmlConverter.js';";
+    const to="import {_test as s40} from '../xml-compare/CategorizedInputXmlConverter.js';\n"+
+      "const inputXmlToCategorizedInputXml=()=>{throw Error('SYNTHETIC_S40_THROW');};";
+    assert.equal(code.split(from).length-1,1);
+    writeFileSync(patcher,code.replace(from,to));
+    writeFileSync(join(sandbox,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {patchOriginalFromCategorized as patch} from './uxml/UxmlCategorizedPatchBack.js';",
+      'const original='+JSON.stringify(original(row(10,20)))+';',
+      "const sha=createHash('sha256').update(original).digest('hex');",
+      "const result=await patch(original,'IGNORED','IGNORED',{fileSha256:sha});",
+      "if(result.ok!==false||result.code!=='S42_S40_CONVERSION_REFUSED'||result.bytes!==null)",
+      "  throw Error('No fail-closed converter refusal: '+JSON.stringify(result));",
+    ].join('\n')+'\n');
+    const child=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:sandbox,encoding:'utf8',timeout:40000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([key])=>key!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(child.status,0,child.stdout+'\n'+child.stderr);
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
