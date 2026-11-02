@@ -153,6 +153,7 @@ test('S3 output-identity: accepted fixture JSON bytes exactly equal pinned merge
     ['public_GRE_100',nameFixture('GREInputxml.xml')],
     ['public_PLB314_53',nameFixture('PLB314Inputxml.xml')],
     ['public_opt_mock_244',repoFixture('opt/mock-xml.xml')],
+    ['public_BM_CII_40',repoFixture('converters/scripts/pdf_inputxml_profile_bm_cii.xml')],
     ['synthetic_UNITS_before_records',model(
       '<UNITS><LENGTH LABEL="mm." FACTOR="1.000000"/></UNITS>'+
       element('10','20')+element('20','30'))],
@@ -180,6 +181,7 @@ test('S3 output-identity: accepted fixture JSON bytes exactly equal pinned merge
     ['GRE',nameFixture('GREInputxml.xml'),100],
     ['PLB314',nameFixture('PLB314Inputxml.xml'),53],
     ['opt/mock-xml',repoFixture('opt/mock-xml.xml'),244],
+    ['BM_CII',repoFixture('converters/scripts/pdf_inputxml_profile_bm_cii.xml'),40],
   ]){
     const current=strict(src,{fileSha256:sha(src)});
     assert.equal(current.components.length,count,name+' real CAESAR II row count');
