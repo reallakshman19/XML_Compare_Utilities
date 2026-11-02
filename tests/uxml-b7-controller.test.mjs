@@ -110,6 +110,7 @@ test('B7 release-last: an edit while Check pending blocks stale result even when
   delayed.resolve({ok:true,parity:'EQUAL',bytes:bytes(source),changes:[]});
   await pending;
   assert.equal(c.snapshot().canDownload,false);
+  assert.equal(c.snapshot().phase,'ready','stale Check cannot even publish checked status');
   assert.equal(c.download(),null);
 });
 test('B7 two overlapping Checks: last issued controls release even if first settles later',async()=>{
