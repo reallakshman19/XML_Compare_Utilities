@@ -217,6 +217,11 @@ function scanOriginalInputXmlStructure(text){
       if(modelCount||frames.length!==1||frames[0].name!=='CAESARII'||selfClosing)return null;
       modelCount++;
     }
+    // A direct model child other than a physical PIPINGELEMENT is uncarried
+    // source structure. Refuse PLB314's trailing UNITS before any binding.
+    // MUTATION_GUARD_MODEL_CHILD_KIND
+    if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&
+       name!=='PIPINGELEMENT')return null;
     if(name==='PIPINGELEMENT'){
       // MUTATION_GUARD_DIRECT_CHILD: no records in wrapper/outer sections.
       if(frames.length!==2||frames[0].name!=='CAESARII'||
