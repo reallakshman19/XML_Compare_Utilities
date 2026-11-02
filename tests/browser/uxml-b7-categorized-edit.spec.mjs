@@ -56,7 +56,7 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Written exactly as typed');
   if(takeScreenshots){mkdirSync(screenshots,{recursive:true});
-    await page.locator('.ixw-dialog').screenshot({path:resolve(screenshots,'checked-GRE.png')});}
+    await page.locator('[data-ixw-b7-panel]').screenshot({path:resolve(screenshots,'checked-GRE.png')});}
   const exactBaseline=inputXmlToCategorizedInputXml(source);
   const exactEdited=preserveCategorizedEditorLineEndings(exactBaseline,edited);
   const direct=await patchOriginalFromCategorized(source,exactBaseline,exactEdited,{fileSha256:sha(source)});
@@ -66,9 +66,11 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
     page.locator('[data-ixw-b7-action="download"]').click(),
   ]);
   const blob=readFileSync(await download.path());
+  await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','downloaded');
+  await expect(page.locator('[data-ixw-b7-status]')).toContainText('Downloaded');
   expect(blob.equals(Buffer.from(direct.bytes))).toBe(true);
   expect(download.suggestedFilename()).toBe(name.replace(/\.xml$/i,'-patched.xml'));
-  if(takeScreenshots)await page.locator('.ixw-dialog').screenshot({
+  if(takeScreenshots)await page.locator('[data-ixw-b7-panel]').screenshot({
     path:resolve(screenshots,'downloaded-GRE.png')});
   console.log('B7_BROWSER_PUBLIC '+name+' originalBytes='+Buffer.byteLength(source)+
     ' writtenBytes='+blob.length+' exactEngineBytes=true parity=EQUAL');
@@ -103,7 +105,7 @@ test.describe('B7 actual Categorized tab source-bound byte download',()=>{
     await expect(page.locator('[data-ixw-b7-result]')).toContainText('S42_UNMAPPED_OR_DERIVED_PROJECTION_EDIT');
     await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
     mkdirSync(screenshots,{recursive:true});
-    await page.locator('.ixw-dialog').screenshot({path:resolve(screenshots,'refused-GRE.png')});
+    await page.locator('[data-ixw-b7-panel]').screenshot({path:resolve(screenshots,'refused-GRE.png')});
     await page.locator('[data-ixw-b7-action="reset"]').click();
     await expect(page.locator('[data-ixw-b7-editor]')).toHaveValue(original);
     await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
