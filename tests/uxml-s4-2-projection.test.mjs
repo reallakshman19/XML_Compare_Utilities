@@ -131,7 +131,7 @@ for(const [label,path,count] of publicSamples){
         // never weaken that gate. Use last earlier admissible candidate.
         const ordinal=label==='BM_CII'&&field==='DELTA_X'&&position==='last'
           ?22:position==='first'?eligible[0]:
-          position==='middle'?eligible[Math.floor(eligible.length/2)]:eligible.at(-1);
+          position==='middle'?eligible[Math.floor((eligible.length-1)/2)]:eligible.at(-1);
         const admitted=await s41(baseline,{originalInputXml:text,fileSha256:digest});
         assert.equal(admitted.ok,true,'exact-original S4.1 must bind');
         const catIndex=admitted.uxml.components.findIndex(c=>
@@ -309,4 +309,18 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
     });
     assert.equal(child.status,0,child.stdout+'\n'+child.stderr);
   }finally{rmSync(sandbox,{recursive:true,force:true});}
+});
+
+test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity HOLD',async()=>{
+  const text=source('converters/scripts/pdf_inputxml_profile_bm_cii.xml');
+  const baseline=s40(text),physical=30;
+  const admitted=await s41(baseline,{originalInputXml:text,fileSha256:sha(text)});
+  assert.equal(admitted.ok,true);
+  const categoryIndex=admitted.uxml.components.findIndex(c=>
+    c.sourceRefs?.[0]?.elementIndex===physical);
+  assert(categoryIndex>=0);
+  const select=entry('RouteGeometryBlock','DELTA_X');
+  assert(projectionLeaf(categorizedElementRanges(baseline)[categoryIndex].text,select));
+  const result=await run(text,changeProjection(baseline,categoryIndex,select,'77.875'),baseline);
+  refuse(result,R.PARITY);
 });
