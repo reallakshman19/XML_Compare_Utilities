@@ -48,7 +48,9 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   await setEditor(page,edited);
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
   await page.locator('[data-ixw-b7-action="check"]').click();
-  await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','checked',{timeout:15000});
+  await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase',/^(checked|refused)$/,{timeout:15000});
+  const phase=await page.locator('[data-ixw-b7-panel]').getAttribute('data-b7-phase');
+  if(phase!=='checked')throw Error('B7_CHECK_REFUSED '+name+' '+await page.locator('[data-ixw-b7-result]').innerText());
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeEnabled();
   await expect(page.locator('[data-ixw-b7-result] table tbody tr')).toHaveCount(1);
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
