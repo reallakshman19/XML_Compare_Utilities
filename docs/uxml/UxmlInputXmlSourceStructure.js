@@ -11,9 +11,10 @@
  * This scanner intentionally has no entity expansion, DTD processing or writer.
  */
 export function scanOriginalInputXmlStructure(text,{recordsOnlyModel=false}={}){
-  // S4.1 binds records-only source envelopes. Strict S3 additionally accepts
-  // legitimate non-row model children such as CAESAR II <UNITS>.
-  // This switch NEVER relaxes source-record direct-child or lexical guards.
+  // Strict S3 and S4.1 both use the default that admits legitimate non-row
+  // model children such as CAESAR II <UNITS>. An optional recordsOnlyModel
+  // mode remains for explicit restrictive callers. Neither mode relaxes
+  // source-record direct-child nor any lexical/root/ghost guard.
   if(typeof text!=='string')return null;
   const frames=[],physical=[];
   let rootCount=0,modelCount=0,rootClosed=false,doctypeSeen=false,xmlSeen=false;
@@ -133,8 +134,9 @@ export function scanOriginalInputXmlStructure(text,{recordsOnlyModel=false}={}){
       modelCount++;
     }
     // MUTATION_GUARD_MODEL_CHILD_KIND
-    // S4.1 requires a records-only model. Strict S3 permits valid non-record
-    // model siblings (e.g. UNITS) but still refuses ANY nested PIPINGELEMENT.
+    // Only explicit recordsOnlyModel callers disallow non-record direct model
+    // children; strict S3 and S4.1 both admit legitimate UNITS siblings.
+    // Every nested PIPINGELEMENT remains forbidden in either mode.
     if(recordsOnlyModel&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&
        name!=='PIPINGELEMENT')return null;
     if(name==='PIPINGELEMENT'){
