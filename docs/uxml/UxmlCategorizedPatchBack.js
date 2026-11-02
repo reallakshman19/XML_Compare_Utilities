@@ -7,6 +7,7 @@ import {inputXmlToCategorizedInputXml,_test as s40} from '../xml-compare/Categor
 import {mapCategorizedInputXmlToUxml} from './UxmlCategorizedInputXmlSchemaMapper.js';
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
+import {S42_PROJECTION_MAP,categorizedElementRanges,projectionLeaf} from './UxmlCategorizedProjectionMap.js';
 
 export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   INPUT:'S42_INVALID_INPUT',
@@ -23,6 +24,10 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   VALUE:'S42_ATTRIBUTE_VALUE_UNSAFE',
   OFFSET:'S42_SOURCE_OFFSET_NOT_EXACT',
   PARITY:'S42_PARITY_FAILED',
+  CONVERTER:'S42_S40_CONVERSION_REFUSED',
+  S40_MISMATCH:'S42_S40_PROJECTION_MISMATCH',
+  UNMAPPED:'S42_UNMAPPED_OR_DERIVED_PROJECTION_EDIT',
+  ROUNDTRIP:'S42_PROJECTION_VALUE_NOT_EXACT',
 });
 const fail=(code)=>({ok:false,code,bytes:null});
 const encoder=new TextEncoder();
@@ -116,9 +121,10 @@ function lexRow(raw){
     if(!match)return null;
     const name=match[1],selfClosing=/\/\s*>$/.test(tag),depth=stack.length;
     const attributeLimit=tag.length-(selfClosing?2:1);
-    // Stanza identity is based on the opening tag actually lexed at this
-    // position. Comments and CDATA are skipped by this lexer.
-    const stanza={name,depth,start:open,end:selfClosing?end:null,attributes:[]};
+    // The editor uses the XML-aware physical stanza for byte ownership.
+    // S4.0's loose raw-text grouping is independently checked before output.
+    const stanza={name,depth,parentIndex:stack.at(-1)?.index??null,
+      start:open,end:selfClosing?end:null,attributes:[]};
     const stanzaIndex=stanzas.length;
     stanzas.push(stanza);
     let pos=match[0].length,prefix=0;
@@ -203,6 +209,9 @@ function sharedExternal(lexedRows,rowIndex,before,after,editedRow){
   if(!oldOwner||!newOwner)return true;
   // MUTATION_GUARD_NUMERIC_OWNER: 20 and 20.0 are one S4.0 grouping node.
   if(oldOwner!==newOwner)return true;
+  // S4.0 groups SIF only within the one physical element body.
+  // The global S4.0 before/after block check remains mandatory below.
+  if(tag==='SIF')return false;
   // MUTATION_GUARD_BEFORE_AND_AFTER_OWNERSHIP: enforce unique ownership
   // against both the original and the proposed edited source tree.
   return countStanzaOwners(lexedRows,tag,oldOwner)!==1||
@@ -281,6 +290,14 @@ function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
        before.depth!==after.depth||before.quote!==after.quote)
       return {error:UXML_CATEGORIZED_PATCH_REFUSALS.STRUCTURE};
     if(before.value===after.value)continue;
+    // UNITS can occur as an actual child (or ancestor of an edited child)
+    // inside PIPINGELEMENT, not just as a model-level sibling.
+    let unit=old.stanzas[before.stanzaIndex];
+    while(unit){
+      if(unit.name.toUpperCase()==='UNITS')
+        return {error:UXML_CATEGORIZED_PATCH_REFUSALS.UNITS};
+      unit=unit.parentIndex===null?null:old.stanzas[unit.parentIndex];
+    }
     // MUTATION_GUARD_NESTED_ATTRIBUTE: slice 1 allows only a source record
     // or its direct child stanza, never a descendant's attribute.
     if(before.depth>1)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.NESTED};
@@ -344,7 +361,7 @@ async function bind(categorized,text,fileSha256){
  * into the exact input UTF-8 stream; untouched byte spans are never decoded
  * and reserialized.
  */
-export async function patchOriginalFromCategorized(originalText,baselineCategorized,editedCategorized,options={}){
+async function patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,editedCategorized,options={}){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||
      typeof editedCategorized!=='string'||!options||typeof options!=='object')
@@ -354,7 +371,10 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   if(!/^[a-f\d]{64}$/i.test(clean(options.fileSha256))||
      measured!==clean(options.fileSha256).toLowerCase())return fail(R.HASH);
   // MUTATION_GUARD_BASELINE: do not trust a stale or hand-edited baseline.
-  if(baselineCategorized!==inputXmlToCategorizedInputXml(originalText))return fail(R.BASELINE);
+  let baselineCanonical;
+  try{baselineCanonical=inputXmlToCategorizedInputXml(originalText);}
+  catch{return fail(R.CONVERTER);}
+  if(baselineCategorized!==baselineCanonical)return fail(R.BASELINE);
   const originalBinding=await bind(baselineCategorized,originalText,measured);
   // MUTATION_GUARD_S41_BIND: never issue a write from unbound rows.
   if(!originalBinding)return fail(R.UNBOUND);
@@ -446,8 +466,10 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   if(!equalArray(refKeys(oldStrict),refKeys(newStrict)))return fail(R.PARITY);
   // MUTATION_GUARD_PARITY_CONVERTER: an edited derived/line field is not
   // an authorized source edit. Compare the ENTIRE canonical S4.0 output.
-  const regenerated=inputXmlToCategorizedInputXml(patched);
-  if(regenerated!==editedCategorized)return fail(R.DERIVED);
+  let regenerated;
+  try{regenerated=inputXmlToCategorizedInputXml(patched);}
+  catch{return fail(R.CONVERTER);}
+  if(regenerated!==editedCategorized)return fail(R.S40_MISMATCH);
   // MUTATION_GUARD_PARITY_S41: edited evidence must bind on patched bytes.
   const patchedBinding=await bind(editedCategorized,patched,patchedHash);
   if(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding)))
