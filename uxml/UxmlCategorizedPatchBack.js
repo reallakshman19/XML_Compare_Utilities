@@ -546,6 +546,15 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         value:oldSnap});
     }
   }
+  // Preserve all existing slice-1 authorizations and its named
+  // refusals, even when projection values appear/disappear (S4.0 unset
+  // sentinel) or attribute XML escaping changes a visible projection.
+  // Only a genuine stale S4.0 projection may proceed to slice-2 mapping.
+  if(oldSnapshots.some((v,i)=>v!==newSnapshots[i])){
+    const legacy=await patchOriginalFromCategorizedSlice1(originalText,
+      baselineCategorized,editedCategorized,options);
+    if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
+  }
   if(!changes.length){
     // Snapshot-only + stale projection still fails slice-1's S4.0 parity.
     // A derived/unmapped projection-only change never gains write authority.
