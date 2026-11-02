@@ -266,7 +266,7 @@ test('S4.1 REFUSE source-bound output on failed shared UxmlValidationGate',async
   try{
     for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
     for(const file of [
-      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
       'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
       'utils/line-no-metadata.js',
@@ -331,7 +331,7 @@ test('S4.1 REFUSE key mismatch against independent strict S3 set',async()=>{
   try{
     for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
     for(const file of [
-      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
       'xml-compare/CategorizedInputXmlConverter.js',
       'xml-compare/XmlCompareCoordinateSideload.js',
@@ -461,7 +461,7 @@ test('S4.1 REFUSE when strict S3 reader throws even though lexical source is val
   try{
     for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
     for(const file of [
-      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
       'xml-compare/CategorizedInputXmlConverter.js',
       'xml-compare/XmlCompareCoordinateSideload.js',
@@ -488,4 +488,18 @@ test('S4.1 REFUSE when strict S3 reader throws even though lexical source is val
     });
     assert.equal(p.status,0,p.stdout+'\n'+p.stderr);
   }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('S4.1 SHARED REFUSE duplicate XML attributes before source binding',async()=>{
+  const original=fixture().replace('FROM_NODE="10"','FROM_NODE="10" FROM_NODE="10"');
+  assert.equal(scanOriginal(original),null,'duplicate attribute is not well-formed XML');
+});
+test('S4.1 SHARED REFUSE raw less-than in attribute before source binding',async()=>{
+  const original=fixture().replace('FROM_NODE="10"','FROM_NODE="10<20"');
+  assert.equal(scanOriginal(original),null,'raw < is forbidden even inside a quoted attribute');
+});
+test('S4.1 SHARED REFUSE reserved xml-foo PI target',async()=>{
+  const original='<?xml-foo?>'+fixture();
+  assert.equal(scanOriginal(original),null,'reserved xml-prefix PI is not an XML declaration');
 });

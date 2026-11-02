@@ -48,6 +48,7 @@ import {
 
 import {validateUxmlDocument} from './UxmlValidationGate.js';
 import {solveCaesarInputXmlRuns,INPUTXML_HUB_FRAME,INPUTXML_SOURCE_FRAME} from './UxmlInputXmlDeltaGraph.js';
+import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
 
 import {
   LINE_NO_METADATA_KEYS,
@@ -1675,15 +1676,16 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
   if (!/^[a-f0-9]{64}$/i.test(String(fileSha256 || ''))) {
     throw new Error('INPUT_XML_MEASURED_FILE_SHA256_REQUIRED');
   }
-  if (!/<\s*CAESARII\b/i.test(text) || !/<\s*PIPINGMODEL\b/i.test(text)) {
-    throw new Error('INPUT_XML_CAESAR_SOURCE_REQUIRED');
-  }
+  // MUTATION_GUARD_STRICT_SOURCE_ADMISSION
+  // Validate source tree BEFORE the legacy row splitter can see comment/PI/DTD.
+  const admittedSource=scanOriginalInputXmlStructure(text);
+  if(!admittedSource)throw new Error('INPUT_XML_SOURCE_STRUCTURE_REFUSED');
   // Legacy findElements() yields self-closing records immediately, but
   // nested/paired records on the closing tag. Source record keys must be
   // based on PHYSICAL PIPINGELEMENT order, not closing-tag traversal order.
   const unorderedTags=findElements(text,'PIPINGELEMENT');
   const seen=new Map();
-  const openings=[...text.matchAll(/<PIPINGELEMENT\b/gi)].map(x=>x.index);
+  const openings=admittedSource.map(row=>row.start);
   const tags=unorderedTags.map(tag=>{
     const count=seen.get(tag.raw)||0;
     let startAt=0,offset=-1;
@@ -1695,8 +1697,10 @@ export function mapCaesarInputXmlToUxmlStrict(xmlText, {fileSha256} = {}) {
     seen.set(tag.raw,count+1);
     return {...tag,sourceStart:offset};
   }).sort((x,y)=>x.sourceStart-y.sourceStart);
+  // MUTATION_GUARD_STRICT_SOURCE_RECORD_IDENTITY: no ghost/raw projection.
   if(tags.length!==openings.length ||
-      tags.some((tag,index)=>tag.sourceStart!==openings[index]))
+      tags.some((tag,index)=>tag.sourceStart!==openings[index]||
+        tag.raw.trim()!==admittedSource[index].raw))
     throw new Error('INPUT_XML_SOURCE_ORDINAL_AMBIGUOUS');
   if (!tags.length) throw new Error('INPUT_XML_PIPINGELEMENT_REQUIRED');
   const digest = String(fileSha256).toLowerCase();

@@ -10,7 +10,7 @@ import {spawnSync} from 'node:child_process';
 const source=fileURLToPath(new URL('../',import.meta.url));
 const mapper='uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 const files=[
- mapper,'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+ mapper,'uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
  'utils/line-no-metadata.js',
  'docs/PLB314Inputxml.xml',
@@ -19,7 +19,7 @@ const files=[
  'xml-compare/XmlCompareCoordinateDiagnostics.js',
  'tests/uxml-s4-1-categorized-reader.test.mjs',
 ];
-function kill({name,old,replacement,edits,pattern}){
+function kill({name,old,replacement,edits,pattern,target=mapper}){
   const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-mutant-'));
   try{
     for(const folder of ['uxml','xml-compare','tests','utils','docs'])mkdirSync(join(dir,folder));
@@ -37,7 +37,7 @@ function kill({name,old,replacement,edits,pattern}){
     const green=exec();
     assert.equal(green.status,0,'baseline regression not green: '+name+'\n'+green.stdout+green.stderr);
     assert.match(green.stdout,/# pass 1\b/,'targeted baseline must run');
-    const file=join(dir,mapper);
+    const file=join(dir,target);
     // Normalize LF/Windows-autocrlf copies BEFORE exact mutation seams.
     let code=readFileSync(file,'utf8').replace(/\r\n/g,'\n');
     for(const edit of edits??[{old,replacement}]){
@@ -119,6 +119,7 @@ const mutants=[
     replacement:"const markers=[...body.matchAll(/<ReviewMarker\\b([^>]*?)\\/>/gi)];",
     pattern:'S4.1 REFUSE fake ReviewMarker in original snapshot'},
   {name:'BALANCED_END_TAG_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"if(current.name!==closing[1])return null;",
     replacement:"if(false&&current.name!==closing[1])return null;",
     pattern:'S4.1 STRUCTURE REFUSE mismatched model closing tag'},
@@ -140,34 +141,42 @@ const mutants=[
     pattern:'S4.1 REFUSE contradictory originalBytes and originalInputXml'},
 
   {name:'COMMENT_RANGE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"// MUTATION_GUARD_COMMENT_RANGE\n      if(hiddenPipingElement(open,close+3))return null;",
     replacement:"// MUTATION_GUARD_COMMENT_RANGE\n      if(false&&hiddenPipingElement(open,close+3))return null;",
     pattern:'S4.1 STRUCTURE REFUSE complete commented row with real sibling'},
   {name:'PI_RANGE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"if(hiddenPipingElement(open,close+2))return null;",
     replacement:"if(false&&hiddenPipingElement(open,close+2))return null;",
     pattern:'S4.1 STRUCTURE REFUSE complete PIPINGELEMENT inside XML processing instruction'},
   {name:'CDATA_RANGE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"// MUTATION_GUARD_CDATA_RANGE\n      if(hiddenPipingElement(open,close+3))return null;",
     replacement:"// MUTATION_GUARD_CDATA_RANGE\n      if(false&&hiddenPipingElement(open,close+3))return null;",
     pattern:'S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside CDATA'},
   {name:'DOCTYPE_RANGE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"if(hiddenPipingElement(open,close))return null;",
     replacement:"if(false&&hiddenPipingElement(open,close))return null;",
     pattern:'S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside DOCTYPE'},
   {name:'MODEL_CHILD_KIND_GUARD',
-    old:"if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
-    replacement:"if(false&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
+    target:'uxml/UxmlInputXmlSourceStructure.js',
+    old:"if(recordsOnlyModel&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
+    replacement:"if(false&&recordsOnlyModel&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
     pattern:'S4.1 REFUSE original PLB314'},
   {name:'DIRECT_MODEL_CHILD_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
     replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
     pattern:'S4.1 STRUCTURE REFUSE row between PIPINGMODEL end'},
   {name:'TRAILING_ROOT_TEXT_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     old:"if(!frames.length&&between.trim())return null;",
     replacement:"if(false&&!frames.length&&between.trim())return null;",
     pattern:'S4.1 STRUCTURE REFUSE non-whitespace after root'},
   {name:'COMMENT_ONLY_NO_RECORD_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     edits:[
       {old:"// MUTATION_GUARD_COMMENT_RANGE\n      if(hiddenPipingElement(open,close+3))return null;",
        replacement:"// MUTATION_GUARD_COMMENT_RANGE\n      if(false&&hiddenPipingElement(open,close+3))return null;"},
@@ -176,6 +185,7 @@ const mutants=[
     ],
     pattern:'S4.1 STRUCTURE REFUSE only PIPINGELEMENT contained in comment'},
   {name:'AFTER_ROOT_RECORD_SCOPE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
     edits:[
       {old:"if(name!=='CAESARII'||rootCount||rootClosed||selfClosing)return null;",
        replacement:"if(false&&(name!=='CAESARII'||rootCount||rootClosed||selfClosing))return null;"},
@@ -189,6 +199,21 @@ const mutants=[
     old:"options=options??{};",
     replacement:"options=options;",
     pattern:'S4.1 null and undefined options become evidence-only defaults'},
+  {name:'DUPLICATE_ATTRIBUTE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
+    old:"if(!attr||seenAttrs.has(attr[1]))return null;",
+    replacement:"if(!attr)return null;",
+    pattern:'S4.1 SHARED REFUSE duplicate XML attributes'},
+  {name:'RAW_LT_ATTRIBUTE_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
+    old:"else if(char==='<')return null; // raw '<' is forbidden in an attribute",
+    replacement:"else if(char==='<'){} // MUTATED raw '<' accepted in an attribute",
+    pattern:'S4.1 SHARED REFUSE raw less-than in attribute'},
+  {name:'RESERVED_XML_PI_GUARD',
+    target:'uxml/UxmlInputXmlSourceStructure.js',
+    old:"if(target.toLowerCase().startsWith('xml')){",
+    replacement:"if(target.toLowerCase()==='xml'){",
+    pattern:'S4.1 SHARED REFUSE reserved xml-foo PI target'},
 ];
 for(const mutant of mutants)
   test('S4.1_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
