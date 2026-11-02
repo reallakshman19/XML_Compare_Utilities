@@ -15,7 +15,14 @@ The merged S4.1 lexical XML pass is extracted, without a new dependency, into
 `uxml/UxmlInputXmlSourceStructure.js`; its **byte-identical mirror** is
 `docs/uxml/UxmlInputXmlSourceStructure.js`.
 Both strict S3 (`mapCaesarInputXmlToUxmlStrict`) and the existing S4.1 reader
-now call **the same scanner** before binding source records.
+call **the same scanner** before binding source records, with distinct,
+explicit admission modes. Strict S3 uses the default
+`scanOriginalInputXmlStructure(text)` (non-record children such as
+`<UNITS>` are valid direct `PIPINGMODEL` children); S4.1 requests
+`scanOriginalInputXmlStructure(text,{recordsOnlyModel:true})`, retaining
+its existing records-only restriction. Neither mode relaxes the
+unconditional direct-child check for any `PIPINGELEMENT` or the
+comment/PI/CDATA/DOCTYPE, root, tag-balance and trailer guards.
 
 The parser performs **one lexical, balanced tree walk** of original InputXML;
 it recognizes comments, processing instructions, CDATA and DOCTYPE lexical
@@ -27,9 +34,12 @@ including `<?xml-foo?>`) are reserved; only a correctly situated
 `<?xml ...?>` declaration is allowed.
 
 Source authority requires exactly **one CAESARII root** containing exactly
-**one direct PIPINGMODEL**. Every PIPINGELEMENT must be a **direct
+**one direct PIPINGMODEL**. Every `PIPINGELEMENT` must be a **direct
 PIPINGMODEL child**, with its own completed closing tag or self-closing
-opening. Physical row offsets and ordinals are extracted only from the
+opening. Ordinary non-row children inside `PIPINGMODEL` are allowed by
+strict S3, including `<UNITS>` before or after the physical rows.
+A complete `PIPINGELEMENT` nested inside `UNITS` or any wrapper
+always refuses `INPUT_XML_SOURCE_STRUCTURE_REFUSED`. Physical row offsets and ordinals are extracted only from the
 structure pass, and the strict S3 legacy tag extractor must resolve back to
 **exactly those original physical raw rows**. After the CAESARII close,
 only whitespace and comments are allowed. No comment, PI, CDATA or DOCTYPE
@@ -46,31 +56,39 @@ S3 recordKey is invented.
 
 ### Real public sample qualification and compatibility
 
-**The public `docs/GREInputxml.xml` (100 original physical rows) and
-`docs/PLB314Inputxml.xml` (53 rows) are now both explicitly refused** by
-the strict source-bound S3 path: each has a direct `<UNITS>` child under
-`<PIPINGMODEL>` after the physical element rows. That element is not
-part of the strict S4.1-compatible source-record envelope. This is a
-conservative compatibility narrowing, **not** a claim the samples are
-invalid as general CAESAR InputXML. Pinned merged-main S3 accepted both;
-the new refusal is deliberate, tested, and must not be silently relaxed
-without an Owner decision. Other InputXML or legacy readers are untouched.
+**Strict S3 retains real CAESAR II export acceptance.** Public
+`docs/GREInputxml.xml` (100 physical records),
+`docs/PLB314Inputxml.xml` (53), and
+`opt/mock-xml.xml` (244) each contain a legitimate direct
+`<UNITS>` child under `<PIPINGMODEL>`; all are **accepted**
+with the original element counts, sourceRefs, physical ordinals,
+ports and run metadata. A non-row `UNITS` block before the
+`PIPINGELEMENT` rows also remains accepted. The fourth public
+export `converters/scripts/pdf_inputxml_profile_bm_cii.xml`
+is structurally allowed by the same rule and is not used in the
+pinned-main output-identity assertion for this bounded task.
 
-For originals **accepted by the shared source pass**, S3's returned
-UXML must remain **byte-for-byte identical** to the merged-main S3
-implementation, including sourceRefs, recordKeys, geometry/anchors,
-ports, loss ledger and validation metadata. The immutable
-`ee04cc9c...` main S3 source is loaded with
-`git show ee04cc9c...:uxml/UxmlInputXmlSchemaMapper.js`
-inside exact-head CI, its relative module imports resolved to the
-unchanged current dependencies, then
-`Buffer.from(JSON.stringify(newDoc))` is compared with
-`Buffer.from(JSON.stringify(mainDoc))`.
-The accepted fixtures cover synthetic unanchored runs, XML declaration,
-trailing comment, and nested anchored/bend geometry. The test also
-proves pinned-main acceptance of public GRE/PLB314 while the new
-shared-envelope read refuses them. CI uses full Git history to ensure
-the base source is the **exact SHA**, not a test substitute.
+**S4.1 remains stricter:** its `recordsOnlyModel:true` source-envelope
+rule deliberately refuses direct `UNITS` children, including on GRE,
+PLB314 and mock-xml. This is an existing S4.1 **known limitation**,
+not an S3 compatibility change and not evidence those exports are invalid.
+If S4.1 requires general non-row CAESAR model sections later, that
+requires a separate approved task.
+
+For all admitted originals, strict S3 serialized UXML must remain
+**byte-for-byte identical** to the pinned merged-main mapper at
+`ee04cc9c3503ea8a21c683fdab1b85ece79cc443`. CI obtains
+the **actual baseline implementation** through
+`git show ee04cc9c3503ea8a21c683fdab1b85ece79cc443:uxml/UxmlInputXmlSchemaMapper.js`
+and resolves imports to unchanged dependencies. It compares
+`Buffer.from(JSON.stringify(newDoc))` against
+`Buffer.from(JSON.stringify(mainDoc))` plus exact
+sourceRef `recordKey` sequences. The matrix covers the exact
+established S3 anchored/restraint/bend fixture and its unanchored
+variant, synthetic sources (including `UNITS` before rows), and
+**all three real public samples GRE, PLB314, opt/mock-xml.xml**.
+Full Git history is required in CI, so the baseline is the
+exact immutable base SHA rather than a test-authored substitute.
 
 ### Verification and mutation proof
 
@@ -105,8 +123,10 @@ failure codes are otherwise unchanged.
 
 ### Current execution custody
 
-**Verified pre-documentation implementation head:**
-`f96d9283289ec8e7da741fe4857b96ed857eb9ab`.
+**Historical S3-REPAIR-0 implementation head (SUPERSEDED; before Owner's
+strict-S3 compatibility decision):** `f96d9283289ec8e7da741fe4857b96ed857eb9ab`.
+The older green runs below **do not qualify this repair**, because
+they expected real `UNITS`-bearing CAESAR exports to refuse.
 [S3 hardening CI #41391992700](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992700)
 **SUCCESS**: 20/20 S3 structure + pinned-main byte-identity tests,
 16/16 S3 LF mutants, 16/16 simulated-CRLF S3 mutants,
