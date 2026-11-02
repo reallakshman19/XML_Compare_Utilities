@@ -429,3 +429,18 @@ test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated sou
     assert.equal(result.status,0,result.stdout+'\n'+result.stderr);
   }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
+
+test('S4.2 ACCEPT unique external RESTRAINT non-control TYPE value edit',async()=>{
+  const original=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+    row(20,30,'B'));
+  const target=original.replace('<RESTRAINT NODE="20" TYPE="8"/>',
+    '<RESTRAINT NODE="20" TYPE="10"/>');
+  assert.notEqual(target,original);
+  const result=await write(original,categorize(target));
+  assert.equal(result.ok,true,result.code);
+  assert.equal(result.parity,'EQUAL');
+  assert.equal(result.changes.length,1);
+  assert.equal(result.changes[0].field,'RESTRAINT.TYPE');
+  assert.deepEqual(Buffer.from(result.bytes),b(target));
+  assertPatchBytes(original,result);
+});
