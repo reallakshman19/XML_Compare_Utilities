@@ -10,7 +10,7 @@ import {spawnSync} from 'node:child_process';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const target='uxml/UxmlCategorizedPatchBack.js';
 const fixtures=[
-  target,'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
+  target,'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
   'uxml/UxmlInputXmlDeltaGraph.js',
@@ -44,8 +44,11 @@ function kill({name,old,replacement,pattern,edits}){
     assert.match(green.stdout,/# pass 1\b/,'targeted baseline must actually run');
     let src=readFileSync(join(dir,target),'utf8').replace(/\r\n/g,'\n');
     for(const edit of edits??[{old,replacement}]){
-      assert.equal(src.split(edit.old).length-1,1,'one exact source seam: '+name);
-      src=src.replace(edit.old,edit.replacement);
+      const expected=edit.replaceCount??1;
+      assert.equal(src.split(edit.old).length-1,expected,
+        'exact declared source seam count: '+name);
+      src=expected===1?src.replace(edit.old,edit.replacement):
+        src.split(edit.old).join(edit.replacement);
     }
     writeFileSync(join(dir,target),src);
     const red=run(),output=red.stdout+'\n'+red.stderr;
@@ -58,24 +61,28 @@ function kill({name,old,replacement,pattern,edits}){
 }
 const mutants=[
   {name:'INPUT_TYPE_GUARD',
-   old:"if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||\n     typeof editedCategorized!=='string'||!options||typeof options!=='object')",
-   replacement:"if(false&&(typeof originalText!=='string'||typeof baselineCategorized!=='string'||\n     typeof editedCategorized!=='string'||!options||typeof options!=='object'))",
+   edits:[{old:"if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||\n     typeof editedCategorized!=='string'||!options||typeof options!=='object')",
+   replacement:"if(false&&(typeof originalText!=='string'||typeof baselineCategorized!=='string'||\n     typeof editedCategorized!=='string'||!options||typeof options!=='object'))",replaceCount:2}],
    pattern:'S4.2 REFUSE invalid input types without output bytes'},
   {name:'ORIGINAL_SHA_GUARD',
-   old:"if(!/^[a-f\\d]{64}$/i.test(clean(options.fileSha256))||\n     measured!==clean(options.fileSha256).toLowerCase())return fail(R.HASH);",
-   replacement:"if(false&&(!/^[a-f\\d]{64}$/i.test(clean(options.fileSha256))||\n     measured!==clean(options.fileSha256).toLowerCase()))return fail(R.HASH);",
+   edits:[{old:"if(!/^[a-f\\d]{64}$/i.test(clean(options.fileSha256))||\n     measured!==clean(options.fileSha256).toLowerCase())return fail(R.HASH);",
+   replacement:"if(false&&(!/^[a-f\\d]{64}$/i.test(clean(options.fileSha256))||\n     measured!==clean(options.fileSha256).toLowerCase()))return fail(R.HASH);",replaceCount:2}],
    pattern:'S4.2 REFUSE original SHA mismatch before source binding'},
   {name:'EXACT_BASELINE_GUARD',
-   old:"if(baselineCategorized!==inputXmlToCategorizedInputXml(originalText))return fail(R.BASELINE);",
-   replacement:"if(false&&baselineCategorized!==inputXmlToCategorizedInputXml(originalText))return fail(R.BASELINE);",
+   edits:[{old:"if(baselineCategorized!==baselineCanonical)return fail(R.BASELINE);",
+    replacement:"if(false&&baselineCategorized!==baselineCanonical)return fail(R.BASELINE);"},
+    {old:"if(authoritative!==baselineCategorized)return fail(R.BASELINE);",
+    replacement:"if(false&&authoritative!==baselineCategorized)return fail(R.BASELINE);"}],
    pattern:'S4.2 REFUSE stale baseline before any write'},
   {name:'BASELINE_S41_BIND_GUARD',
    old:"if(!originalBinding)return fail(R.UNBOUND);",
    replacement:"if(false&&!originalBinding)return fail(R.UNBOUND);",
    pattern:'S4.2 REFUSE unbound duplicate physical record source'},
   {name:'ELEMENT_COUNT_GUARD',
-   old:"if(!oldCat||!newCat||oldCat.items.length!==newCat.items.length||\n     !equalArray(oldCat.lineIds,newCat.lineIds))return fail(R.STRUCTURE);",
-   replacement:"if(false&&(!oldCat||!newCat||oldCat.items.length!==newCat.items.length||\n     !equalArray(oldCat.lineIds,newCat.lineIds)))return fail(R.STRUCTURE);",
+   edits:[{old:"if(!oldCat||!newCat||oldCat.items.length!==newCat.items.length||\n     !equalArray(oldCat.lineIds,newCat.lineIds))return fail(R.STRUCTURE);",
+    replacement:"if(false&&(!oldCat||!newCat||oldCat.items.length!==newCat.items.length||\n     !equalArray(oldCat.lineIds,newCat.lineIds)))return fail(R.STRUCTURE);"},
+    {old:"if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);",
+    replacement:"if(false&&oldElements.length!==newElements.length)return fail(R.STRUCTURE);"}],
    pattern:'S4.2 REFUSE added or removed Categorized element'},
   {name:'CATEGORY_ORDER_GUARD',
    old:"if(equalArray([...oldIds].sort(),[...newIds].sort()))return fail(R.REORDER);",
@@ -107,9 +114,9 @@ const mutants=[
    replacement:"newStrict={components:[]};",
    pattern:'S4.2 GRE one numeric physical attribute byte-range patch'},
   {name:'DERIVED_PROJECTION_PARITY_GUARD',
-   old:"if(regenerated!==editedCategorized)return fail(R.DERIVED);",
-   replacement:"if(false&&regenerated!==editedCategorized)return fail(R.DERIVED);",
-   pattern:'S4.2 REFUSE independently edited DerivedBlock value or Line projection'},
+   old:"if(regenerated!==editedCategorized)return fail(R.S40_MISMATCH);",
+   replacement:"if(regenerated!==editedCategorized)return fail(R.DERIVED);",
+   pattern:'S4.2 slice1 REFUSE snapshot-only stale DIAMETER at the S4.0 parity gate'},
   {name:'S41_PATCHED_REBIND_GUARD',
    old:"if(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding)))",
    replacement:"if(false&&(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding))))",

@@ -1,0 +1,79 @@
+name: UXML S4.2 slice 2 projection-to-source patch-back
+
+on:
+  pull_request:
+    paths:
+      - 'uxml/UxmlCategorizedPatchBack.js'
+      - 'uxml/UxmlCategorizedProjectionMap.js'
+      - 'docs/uxml/UxmlCategorizedProjectionMap.js'
+      - 'docs/uxml/UxmlCategorizedPatchBack.js'
+      - 'uxml/UxmlCategorizedInputXmlSchemaMapper.js'
+      - 'docs/uxml/UxmlCategorizedInputXmlSchemaMapper.js'
+      - 'uxml/UxmlInputXmlSourceStructure.js'
+      - 'docs/uxml/UxmlInputXmlSourceStructure.js'
+      - 'tests/uxml-s4-2-*.test.mjs'
+      - 'tests/uxml-s4-1-*.test.mjs'
+      - 'docs/uxml/S4.2-PATCH-BACK.md'
+      - 'docs/uxml/CODER-CHECKPOINT-S4.2.md'
+      - '.github/workflows/uxml-s4-2-slice2-projection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  projection-byte-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: S4.2 slice 2 projection map, four public-file witnesses and refusals
+        run: node --test tests/uxml-s4-2-projection.test.mjs
+      - name: S4.2 slice 2 projection isolated mutants LF
+        run: node --test tests/uxml-s4-2-projection-mutants.test.mjs
+      - name: S4.2 slice 2 projection isolated mutants simulated CRLF
+        env:
+          S42_PROJECTION_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s4-2-projection-mutants.test.mjs
+      - name: S4.2 exact original byte patch and refusal matrix
+        run: node --test tests/uxml-s4-2-patch-back.test.mjs
+      - name: S4.2 isolated mutation kills LF
+        run: node --test tests/uxml-s4-2-mutants.test.mjs
+      - name: S4.2 isolated mutation kills simulated Windows CRLF
+        env:
+          S42_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s4-2-mutants.test.mjs
+      - name: S4.1 source identity and tightened UNITS refusals
+        run: node --test tests/uxml-s4-1-categorized-reader.test.mjs
+      - name: S4.1 isolated mutants LF
+        run: node --test tests/uxml-s4-1-mutants.test.mjs
+      - name: S4.1 isolated mutants simulated Windows CRLF
+        env:
+          S4_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s4-1-mutants.test.mjs
+      - name: S3 structural and original-byte identity tests
+        run: node --test tests/uxml-s3-harden-source-structure.test.mjs
+      - name: S3 structural mutants LF
+        run: node --test tests/uxml-s3-harden-mutants.test.mjs
+      - name: S3 structural mutants simulated Windows CRLF
+        env:
+          S3_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s3-harden-mutants.test.mjs
+      - name: S3 legacy regressions
+        run: node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-reconcile.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
+      - name: S4.0 converter audit
+        run: node --test tests/s4-0-audit-*.test.mjs
+      - name: S1 PSI116 regressions
+        run: node --test tests/uxml-psi116-s1.test.mjs tests/uxml-s1-followup-mutants.test.mjs
+      - name: Workspace topology admission
+        run: node --test tests/inputxml-workspace-topo-admission.test.mjs
+      - name: Existing ACCDB sideload
+        run: node tests/inputxml-workspace-accdb-sideload.test.js
+      - name: Existing enrichment
+        run: node tests/xml-compare-enrichment-apply-preview.test.js

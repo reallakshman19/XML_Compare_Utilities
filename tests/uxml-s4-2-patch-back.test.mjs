@@ -172,10 +172,10 @@ test('S4.2 REFUSE independently edited DerivedBlock value or Line projection',as
   const derived=cat.replace('<MaterialName source="existing-field">STEEL</MaterialName>',
     '<MaterialName source="existing-field">ALLOY</MaterialName>');
   assert.notEqual(derived,cat);
-  expectRefused(await write(src,derived),R.DERIVED);
+  expectRefused(await write(src,derived),R.UNMAPPED);
   const line=cat.replace('<Branchname>A</Branchname>','<Branchname>MANUAL</Branchname>');
   assert.notEqual(line,cat);
-  expectRefused(await write(src,line),R.DERIVED);
+  expectRefused(await write(src,line),R.UNMAPPED);
 });
 test('S4.2 REFUSE duplicated external stanza ownership across source rows',async()=>{
   const a='<RESTRAINT NUM="1" NODE="20" TYPE="8" TAG="A"/>';
@@ -254,6 +254,7 @@ test('S4.2 REFUSE source offset that does not exactly match original bytes (isol
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSourceStructure.js',
@@ -389,6 +390,7 @@ test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated sou
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSourceStructure.js',
@@ -524,4 +526,14 @@ test('S4.2 R2 REFUSE external block that becomes inactive after value edit',asyn
   assert.equal(s40.activeNodeBlock(newBlock),false,
     'S4.0 removes inactive node blocks after edit');
   expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+
+test('S4.2 slice1 REFUSE snapshot-only stale DIAMETER at the S4.0 parity gate',async()=>{
+  const source=simple(),baseline=categorize(source);
+  const changed=replaceInPhysicalRow(source,0,'DIAMETER','123.456');
+  const oldRaw=scan(source)[0].raw,newRaw=scan(changed)[0].raw;
+  assert(baseline.includes(oldRaw));
+  const stale=baseline.replace(oldRaw,newRaw);
+  assert.notEqual(stale,baseline);
+  expectRefused(await write(source,stale,baseline),R.S40_MISMATCH);
 });
