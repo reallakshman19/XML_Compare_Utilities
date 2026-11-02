@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,copyFileSync,writeFileSync,rmSync} from 'node:fs';
+import {dirname,join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {inputXmlToCategorizedInputXml as categorize} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {patchOriginalFromCategorized as patch,UXML_CATEGORIZED_PATCH_REFUSALS as R}
@@ -242,4 +246,59 @@ test('S4.2 REFUSE invalid input types without output bytes',async()=>{
   const src=simple(),cat=categorize(src);
   expectRefused(await patch(null,cat,cat,{fileSha256:sha(src)}),R.INPUT);
   expectRefused(await patch(src,cat,cat,null),R.INPUT);
+});
+
+test('S4.2 REFUSE source offset that does not exactly match original bytes (isolated scanner seam)',()=>{
+  const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
+  const sandbox=mkdtempSync(join(tmpdir(),'s42-offset-falsifier-'));
+  try{
+    const files=[
+      'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
+      'uxml/UxmlInputXmlSchemaMapper.js',
+      'uxml/UxmlInputXmlSourceStructure.js',
+      'uxml/UxmlInputXmlDeltaGraph.js',
+      'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js',
+      'utils/line-no-metadata.js',
+    ];
+    for(const file of files){
+      const path=join(sandbox,file);
+      mkdirSync(dirname(path),{recursive:true});
+      copyFileSync(join(sourceRoot,file),path);
+    }
+    writeFileSync(join(sandbox,'package.json'),'{"type":"module"}\n');
+    const mapper=join(sandbox,'uxml/UxmlCategorizedPatchBack.js');
+    let sourceText=readFileSync(mapper,'utf8').replace(/\r\n/g,'\n');
+    const from="import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';";
+    const to="import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructureTampered.js';";
+    assert.equal(sourceText.split(from).length-1,1);
+    writeFileSync(mapper,sourceText.replace(from,to));
+    writeFileSync(join(sandbox,'uxml/UxmlInputXmlSourceStructureTampered.js'),[
+      "import {scanOriginalInputXmlStructure as canonical} from './UxmlInputXmlSourceStructure.js';",
+      'export function scanOriginalInputXmlStructure(text,options){',
+      '  const records=canonical(text,options);',
+      '  if(records?.length)records[0].start+=1; // synthetic corrupted source witness',
+      '  return records;',
+      '}',
+    ].join('\n')+'\n');
+    writeFileSync(join(sandbox,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {inputXmlToCategorizedInputXml as categorize} from './xml-compare/CategorizedInputXmlConverter.js';",
+      "import {patchOriginalFromCategorized as patch} from './uxml/UxmlCategorizedPatchBack.js';",
+      'const original='+JSON.stringify(simple())+';',
+      "const sha=createHash('sha256').update(original).digest('hex');",
+      "const changed=original.replace('DELTA_X=\"10\"','DELTA_X=\"12\"');",
+      'const result=await patch(original,categorize(original),categorize(changed),{fileSha256:sha});',
+      "if(result.ok!==false||result.code!=='S42_SOURCE_OFFSET_NOT_EXACT'||result.bytes!==null)",
+      "  throw Error('Tampered source offset was not refused: '+JSON.stringify(result));",
+    ].join('\n')+'\n');
+    const result=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:sandbox,encoding:'utf8',timeout:45000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([key])=>key!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(result.status,0,result.stdout+'\n'+result.stderr);
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
