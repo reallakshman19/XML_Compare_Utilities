@@ -7,6 +7,7 @@ import {inputXmlToCategorizedInputXml, _test as converter} from '../xml-compare/
 import {COMPONENT_TYPES, CONFIDENCE_LEVELS, SOURCE_FORMATS} from './UxmlConstants.js';
 import {createUxmlComponent, createUxmlDocument, createUxmlHeader, createUxmlSource} from './UxmlTypes.js';
 import {validateUxmlDocument} from './UxmlValidationGate.js';
+import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 
 export const UXML_CATEGORIZED_INPUTXML_READER_SCHEMA='uxml-categorized-inputxml-reader/v1';
 export const UXML_CATEGORIZED_INPUTXML_REFUSALS=Object.freeze({
@@ -16,6 +17,8 @@ export const UXML_CATEGORIZED_INPUTXML_REFUSALS=Object.freeze({
   ORIGINAL_ENCODING:'CATEGORIZED_ORIGINAL_ENCODING_UNSUPPORTED',
   ORIGINAL_INPUT_CONFLICT:'CATEGORIZED_ORIGINAL_INPUT_BYTES_TEXT_CONFLICT',
   ORIGINAL_STRUCTURE:'CATEGORIZED_ORIGINAL_STRUCTURE_UNSUPPORTED',
+  S3_REFUSED:'CATEGORIZED_ORIGINAL_S3_REFUSED',
+  S3_KEY_MISMATCH:'CATEGORIZED_S3_KEY_MISMATCH',
   RECORD_KEY_MISSING:'CATEGORIZED_RECORD_KEY_MISSING',
   RECORD_NO_MATCH:'CATEGORIZED_ORIGINAL_RECORD_NO_MATCH',
   RECORD_AMBIGUOUS:'CATEGORIZED_ORIGINAL_RECORD_AMBIGUOUS',
@@ -26,7 +29,7 @@ export const UXML_CATEGORIZED_INPUTXML_REFUSALS=Object.freeze({
   UNKNOWN_SECTION:'CATEGORIZED_UNKNOWN_SOURCE_SECTION',
   GATE_REJECTED:'CATEGORIZED_UXML_VALIDATION_REJECTED',
 });
-const refuse=(code)=>({ok:false,code,status:'REFUSED',uxml:null,sourceEquivalent:false,exportAllowed:false});
+const refuse=(code,details={})=>({ok:false,code,status:'REFUSED',uxml:null,sourceEquivalent:false,exportAllowed:false,...details});
 const clean=value=>String(value??'').trim();
 const decode=value=>String(value??'').replace(/&(#x([0-9a-f]+)|#([0-9]+)|amp|lt|gt|quot|apos);/gi,
   (whole,entity,hex,dec)=>{
@@ -95,13 +98,21 @@ function parseCategorized(xml){
 function physicalSourceRows(text){
   const rows=converter.splitPipingElements(text);
   const openings=(text.match(/<PIPINGELEMENT\b/gi)||[]).length;
+  const closings=(text.match(/<\/PIPINGELEMENT\s*>/gi)||[]).length;
+  const selfClosingOpenings=(text.match(/<PIPINGELEMENT\b[^>]*\/\s*>/gi)||[]).length;
+  // Count the actual opening tags, not self-closing *child* tags such as <RIGID/>.
+  // MUTATION_GUARD_PHYSICAL_CLOSURE_COUNT
+  if(closings+selfClosingOpenings!==openings)return null;
   if(!/<CAESARII\b/i.test(text)||!/<PIPINGMODEL\b/i.test(text)||
      !rows.length||rows.length!==openings)return null;
   const physical=rows.map((raw,index)=>{
     const open=raw.match(/^<PIPINGELEMENT\b[^>]*>/i)?.[0];
     const attrs=attributes(open||'');
     const key=identity(attrs,index);
-    if(!key||!(/<\/PIPINGELEMENT>\s*$/i.test(raw)||/\/>\s*$/i.test(raw)))return null;
+    const elementSelfClosing=Boolean(open&&/\/\s*>$/.test(open));
+    // MUTATION_GUARD_OPEN_TAG: a self-closing child NEVER closes PIPINGELEMENT.
+    if(!key||!(elementSelfClosing?raw===clean(open):/<\/PIPINGELEMENT>\s*$/i.test(raw)))
+      return null;
     return {raw:clean(raw),attrs,...key,
       lineId:clean(attrs.LINE_ID||attrs['PIPELINE-REFERENCE']||'UNSPECIFIED_LINE'),
       elementKey:nodeKey(key.from)+'->'+nodeKey(key.to)};
@@ -219,6 +230,18 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
   const originalRows=physicalSourceRows(supplied.text);
   // MUTATION_GUARD_ORIGINAL_STRUCTURE
   if(!originalRows)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_STRUCTURE);
+  // S4.1 may never bind a source that the canonical strict S3 reader refuses.
+  // S3 is called read-only and unchanged; named refusal carries its error code.
+  let s3Agreement;
+  try {
+    const strict=mapCaesarInputXmlToUxmlStrict(supplied.text,{fileSha256:measured});
+    s3Agreement={ok:true,keys:strict.components.map(c=>c.sourceRefs?.[0]?.recordKey)};
+  } catch(error) {
+    s3Agreement={ok:false,s3Code:String(error?.message||'INPUT_XML_UNKNOWN_REFUSAL').split(':')[0]};
+  }
+  // MUTATION_GUARD_S3_REFUSAL
+  if(!s3Agreement.ok)
+    return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.S3_REFUSED,{s3Code:s3Agreement.s3Code});
 
   // The source is checked BEFORE any UXML is constructed or sourceRef bound.
   // Match on exact trimmed snapshot plus both normalized nodes and elementKey.
@@ -245,6 +268,15 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
   // MUTATION_GUARD_COVERAGE
   if(claimed.size!==originalRows.length)
     return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.RECORD_UNCLAIMED);
+  const s41Keys=matches.map(({original})=>original.recordKey);
+  const s3Keys=s3Agreement.keys;
+  // MUTATION_GUARD_S3_KEY_SET: compare complete multisets, not just counts.
+  if(!Array.isArray(s3Keys)||s3Keys.length!==s41Keys.length||
+     new Set(s3Keys).size!==s3Keys.length||
+     new Set(s41Keys).size!==s41Keys.length||
+     s3Keys.some(key=>!s41Keys.includes(key))||
+     s41Keys.some(key=>!s3Keys.includes(key)))
+    return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.S3_KEY_MISMATCH);
 
   // External stanzas deduplicated by the compatibility reverse converter are
   // not identity-safe; repeated physical stanzas across records require review.
