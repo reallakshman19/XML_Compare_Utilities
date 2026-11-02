@@ -83,8 +83,12 @@ const mutations=[
    replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
    pattern:'S3 STRUCTURE REFUSE element between closing PIPINGMODEL and CAESARII'},
   {name:'NESTED_MODEL_WRAPPER',
-   old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
-   replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
+   edits:[
+    {old:"if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
+     replacement:"if(false&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;"},
+    {old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
+     replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;"}
+   ],
    pattern:'S3 STRUCTURE REFUSE nested row in model wrapper'},
   {name:'SECOND_ROOT',
    edits:[
