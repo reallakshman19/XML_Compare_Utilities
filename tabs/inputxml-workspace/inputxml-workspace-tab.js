@@ -628,7 +628,7 @@ function renderCategorizedPatchBack(state){
     '<textarea class="ixw-textarea tall" spellcheck="false" data-ixw-b7-editor '+
     (record.canCheck?'':'disabled')+' aria-label="Editable Categorized InputXML">'+h(record.edited)+'</textarea>'+
     '<div data-ixw-b7-result>'+detail+alerts+
-    (allowed?'<div class="ixw-title">Verified source attribute changes: '+rows.length+' row(s)</div>'+
+    (allowed?'<div class="ixw-title">Verified source attribute changes: '+record.changes.length+' row(s)</div>'+
       (rows?'<div style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
         '<th>Physical row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>':
