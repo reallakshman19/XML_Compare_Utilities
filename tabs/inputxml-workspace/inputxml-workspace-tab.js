@@ -645,7 +645,7 @@ function renderCategorizedTab(state) {
   const producerMessage = workerManaged
     ? `Generated source: ${state.categorizedInputSource}. Worker receipt status: ${adoption.status}. ${adoption.error?.message || ''}`
     : 'Imported or pasted input uses the explicit compatibility conversion. Workspace-generated InputXML is categorized automatically by the worker.';
-  return `<div class="ixw-grid">
+  return `${renderCategorizedPatchBack(state)}<div class="ixw-grid">
     <section class="ixw-panel">
       <div class="ixw-title">Categorized XML Conversion</div>
       <label class="ixw-note">Direction
@@ -672,7 +672,7 @@ function renderCategorizedTab(state) {
       </div>
       <textarea class="ixw-textarea tall" readonly>${h(state.categorizedOutputText)}</textarea>
     </section>
-  </div>${renderCategorizedPatchBack(state)}`;
+  </div>`;
 }
 
 function renderMiscConfigSubtab(state) {
