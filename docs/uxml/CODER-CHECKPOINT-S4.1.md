@@ -18,12 +18,9 @@ NOT_SOURCE_EQUIVALENT evidence-only. Projection edits require explicit
 REVIEW_ONLY and never apply. External duplicates/unknown non-carried sections
 REFUSED. Shared UxmlValidationGate runs; Apply/export is always false.
 
-**Historical pre-repair implementation head `2ed146ca8da9bfa0415cb648298be4adfaa60bc4` (Node 22; SUPERSEDED for repair qualification):** [S4.1 workflow #41380460259](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460259) SUCCESS: reader 20/20, isolated mutants 9/9 with nine RED_VERIFIED targeted failures, S4 86/86, S3 13/13, S1 12/12, admission 20/20; ACCDB and enrichment each exit 0. [ISO #41380460385](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460385) SUCCESS. Repair round 1 closes the malformed PLB314 physical-record array hole,
-refuses a source-bound failed UXML gate, checks simultaneous bytes/text
-representations, ignores fake review markers inside CDATA, and adds
-per-refusal + reorder + S3-key parity + mutation regressions. **The old
-runs do not qualify this repair**: XCU #239 work_returned must give
-the exact repaired head and the associated green job logs.
+**NARROW FINAL SOURCE-AGREEMENT ROUND:** Same PR branch, no merge or force. Physical PIPINGELEMENT parents require actual parent closing tags or self-closing opening; a self-closing child does not suffice; opening/closing counts are checked. On an original-bound read the unchanged S3 strict reader must accept the same original, and its complete sourceRef recordKey set must equal S4.1 exactly. S3 throws → `CATEGORIZED_ORIGINAL_S3_REFUSED` with `s3Code` and `uxml:null`; S3 keys mismatch → `CATEGORIZED_S3_KEY_MISMATCH` and `uxml:null`. No-original evidence-only path remains unchanged; no writer authority. Adversarial tests include unclosed middle row, child-tag illusion, comment-hidden record and fault-injected strict S3 key disagreement; the gate seam is CRLF-safe on Windows and input-provenance mutants cover ORIGINAL_ENCODING and originalBytes/text conflict.
+
+**Last executed implementation head before this docs commit:** `631743b49be94b30e812d2ce22775456764583cc`, [S4.1 CI #41385577015](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41385577015) **SUCCESS** (reader 35/35, mutants 21/21 with 21 targeted RED_VERIFIED, S4 86/86, S3 13/13, S1 12/12, topo admission 20/20, sideload and enrichment exit 0). This is a source-head checkpoint, **not final-head qualification** after docs updates. [S4.1 workflow](https://github.com/reallakshman19/XML_Compare_Utilities/actions/workflows/uxml-s4-1-categorized-reader.yml) runs against exact PR SHA; the final **head + exact run IDs** must appear in the latest [XCU #239 work_returned](https://github.com/reallakshman19/XML_Compare_Utilities/issues/239). Earlier `9206e9f3` CI is SUPERSEDED. Independent review still NOT_RUN.
 
 **NOT_RUN / HOLD:** Local full repo (GitHub DNS prevents checkout); top-level `npm test`; independent non-author reviewer; Owner original-file trial; S4.2, release and merge not authorized.
 
