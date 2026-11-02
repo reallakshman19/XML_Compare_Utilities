@@ -206,3 +206,23 @@ for(const [label,path] of [
       ' resultBytes='+written.bytes.length+' parity=EQUAL');
   });
 }
+
+test('B7 invalid measured SHA is refused before strict parser or binding',async()=>{
+  const c=createCategorizedEditController({hash:async()=>'INVALID'});
+  const result=await c.loadBytes(bytes(xml()),'sha.xml');
+  assert.equal(result.code,B7_REFUSALS.HASH);
+  assert.equal(result.canDownload,false);
+});
+test('B7 strict reader with zero physical components refuses before categorized binder',async()=>{
+  const c=createCategorizedEditController({strict:async()=>({components:[]})});
+  const result=await c.loadBytes(bytes(xml()),'s3-empty.xml');
+  assert.equal(result.code,B7_REFUSALS.S3);
+  assert.equal(result.canDownload,false);
+});
+test('B7 a SOURCE_BOUND_READ_ONLY status with exportAllowed=true is still refused',async()=>{
+  const c=createCategorizedEditController({bind:async()=>({
+    ok:true,status:'SOURCE_BOUND_READ_ONLY',exportAllowed:true,uxml:{components:[{}]}})});
+  const result=await c.loadBytes(bytes(xml()),'s41-authority.xml');
+  assert.equal(result.code,B7_REFUSALS.S41);
+  assert.equal(result.canDownload,false);
+});
