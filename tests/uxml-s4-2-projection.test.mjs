@@ -324,3 +324,15 @@ test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity H
   const result=await run(text,changeProjection(baseline,categoryIndex,select,'77.875'),baseline);
   refuse(result,R.PARITY);
 });
+
+test('S4.2 slice2 REFUSE isolated snapshot-only stale DIAMETER projection with mismatch code',async()=>{
+  const text=original(row(10,20));
+  const baseline=s40(text);
+  const newText=physicalChange(text,0,'DIAMETER','123.456');
+  const oldRaw=scan(text)[0].raw,newRaw=scan(newText)[0].raw;
+  assert(baseline.includes(oldRaw));
+  const edited=baseline.replace(oldRaw,newRaw);
+  assert.notEqual(edited,baseline);
+  const result=await run(text,edited,baseline);
+  refuse(result,R.S40_MISMATCH);
+});
