@@ -34,8 +34,12 @@ const mutants=[
     replacement:'bytes:utf8(checked.categorized)'},
   {name:'RELEASE_LAST_ASYNC_CHECK_EPOCH',
     pattern:'B7 release-last: an edit while Check pending blocks stale result',
-    old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)return snapshot();',
-    replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))return snapshot();'},
+    edits:[
+      {old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)\n       return snapshot();',
+       replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))\n       return snapshot();'},
+      {old:'if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)return snapshot();',
+       replacement:'if(false&&(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256))return snapshot();'}
+    ]},
   {name:'FILE_SWAP_INVALIDATES_VERIFIED_DOWNLOAD',
     pattern:'B7 new load starts by revoking old receipt before async file completion',
     old:"function beginLoad(){invalidate('loading');originalBytes=null;",
@@ -74,8 +78,10 @@ function runKill(mutant){
     assert.equal(green.status,0,'baseline not GREEN for '+mutant.name+'\n'+green.stdout+'\n'+green.stderr);
     const p=join(dir,target);
     let content=readFileSync(p,'utf8').replace(/\r\n/g,'\n');
-    assert.equal(content.split(mutant.old).length-1,1,'one exact mutation seam '+mutant.name);
-    content=content.replace(mutant.old,mutant.replacement);
+    for(const edit of mutant.edits||[mutant]){
+      assert.equal(content.split(edit.old).length-1,1,'one exact mutation seam '+mutant.name);
+      content=content.replace(edit.old,edit.replacement);
+    }
     writeFileSync(p,content);
     const red=run(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+mutant.name+'\n'+output);
