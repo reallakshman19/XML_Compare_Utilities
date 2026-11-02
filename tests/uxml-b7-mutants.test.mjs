@@ -41,17 +41,17 @@ const mutants=[
     old:"function beginLoad(){invalidate('loading');originalBytes=null;",
     replacement:"function beginLoad(){phase='loading';originalBytes=null;"},
   {name:'SOURCE_BYTES_SHA_REQUIRED',
-    pattern:'B7 real S3 + S4.1 load measures SHA and keeps baseline independently',
+    pattern:'B7 invalid measured SHA is refused before strict parser or binding',
     old:'if(!/^[a-f\\d]{64}$/i.test(String(sha)))return refuse(B7_REFUSALS.HASH);',
     replacement:'if(false&&!/^[a-f\\d]{64}$/i.test(String(sha)))return refuse(B7_REFUSALS.HASH);'},
   {name:'S3_SOURCE_ADMISSION_REQUIRED',
-    pattern:'B7 invalid raw bytes, S3 errors and S4.1 refused code never release download',
+    pattern:'B7 strict reader with zero physical components refuses before categorized binder',
     old:'if(!parsed?.components?.length)return refuse(B7_REFUSALS.S3);',
     replacement:'if(false&&!parsed?.components?.length)return refuse(B7_REFUSALS.S3);'},
   {name:'S41_SOURCE_BIND_REQUIRED',
-    pattern:'B7 invalid raw bytes, S3 errors and S4.1 refused code never release download',
-    old:"if(!result?.ok||result.status!=='SOURCE_BOUND_READ_ONLY'||",
-    replacement:"if(false&&(!result?.ok||result.status!=='SOURCE_BOUND_READ_ONLY')||"},
+    pattern:'B7 a SOURCE_BOUND_READ_ONLY status with exportAllowed=true is still refused',
+    old:'result.exportAllowed!==false',
+    replacement:'false'},
 ];
 function runKill(mutant){
   const dir=mkdtempSync(join(tmpdir(),'uxml-b7-mutant-'));
