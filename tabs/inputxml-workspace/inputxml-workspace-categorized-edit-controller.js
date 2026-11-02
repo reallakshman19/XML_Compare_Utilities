@@ -82,6 +82,21 @@ export function b7Reason(code=''){
       ?'Strict S3 cannot prove safe original-record identity for this file.'
       :'This file or edit was refused without generating any downloadable output.');
 }
+/**
+ * HTMLTextAreaElement.value normalizes CRLF to LF. S4.0 may emit LF for
+ * generated blocks and preserve CRLF inside OriginalElement CDATA.
+ * Restore each separator from the previous canonical text by line ordinal
+ * before submitting a visible-value edit to S4.2. Never invent/remove a
+ * line ending, and never normalize original source bytes.
+ */
+export function preserveCategorizedEditorLineEndings(exactPrevious,domValue){
+  if(typeof exactPrevious!=='string'||typeof domValue!=='string')return domValue;
+  const separators=[...exactPrevious.matchAll(/\r\n|\n|\r/g)].map(m=>m[0]);
+  const lines=domValue.split(/\r\n|\n|\r/);
+  if(lines.length!==separators.length+1)return domValue;
+  return lines.map((line,i)=>line+(separators[i]??'')).join('');
+}
+
 export function patchedOriginalFilename(name='original.xml'){
   const leaf=String(name).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,'')||'original.xml';
   return leaf.replace(/(\.xml)?$/i,(ext)=>'-patched'+(ext||'.xml'));
