@@ -19,11 +19,16 @@ const files=[
  'xml-compare/XmlCompareCoordinateDiagnostics.js',
  'tests/uxml-s4-1-categorized-reader.test.mjs',
 ];
-function kill({name,old,replacement,pattern}){
+function kill({name,old,replacement,edits,pattern}){
   const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-mutant-'));
   try{
     for(const folder of ['uxml','xml-compare','tests','utils','docs'])mkdirSync(join(dir,folder));
-    for(const file of files)copyFileSync(join(source,file),join(dir,file));
+    for(const file of files){
+      const dest=join(dir,file);
+      copyFileSync(join(source,file),dest);
+      if(process.env.S4_MUTANT_COPY_CRLF==='1'&&/\.(?:m?js)$/.test(file))
+        writeFileSync(dest,readFileSync(dest,'utf8').replace(/\r?\n/g,'\r\n'));
+    }
     writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
     const exec=()=>spawnSync(process.execPath,['--test','--test-name-pattern='+pattern,
       'tests/uxml-s4-1-categorized-reader.test.mjs'],
@@ -32,9 +37,15 @@ function kill({name,old,replacement,pattern}){
     const green=exec();
     assert.equal(green.status,0,'baseline regression not green: '+name+'\n'+green.stdout+green.stderr);
     assert.match(green.stdout,/# pass 1\b/,'targeted baseline must run');
-    const file=join(dir,mapper),code=readFileSync(file,'utf8');
-    assert.equal(code.split(old).length-1,1,'must mutate one exact guard: '+name);
-    writeFileSync(file,code.replace(old,replacement));
+    const file=join(dir,mapper);
+    // Normalize LF/Windows-autocrlf copies BEFORE exact mutation seams.
+    let code=readFileSync(file,'utf8').replace(/\r\n/g,'\n');
+    for(const edit of edits??[{old,replacement}]){
+      assert.equal(code.split(edit.old).length-1,1,
+        'must mutate one exact guard: '+name);
+      code=code.replace(edit.old,edit.replacement);
+    }
+    writeFileSync(file,code);
     const red=exec(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+name+'\n'+output);
     assert.match(output,/^not ok \d+ -/m,'targeted regression must fail, not just setup');
@@ -90,7 +101,7 @@ const mutants=[
   {name:'PHYSICAL_ROW_NULL_GUARD',
     old:"return physical.some(row=>row===null)?null:physical;",
     replacement:"return physical;",
-    pattern:'S4.1 REFUSE original PLB314'},
+    pattern:'S4.1 STRUCTURE REFUSE missing FROM_NODE after valid lexical parse'},
   {name:'DERIVED_LINE_GUARD',
     old:"if(expectedLines.get(line.id)!==line.decoration)",
     replacement:"if(false&&expectedLines.get(line.id)!==line.decoration)",
@@ -107,14 +118,14 @@ const mutants=[
     old:"const markers=[...projectionText.matchAll(/<ReviewMarker\\b([^>]*?)\\/>/gi)];",
     replacement:"const markers=[...body.matchAll(/<ReviewMarker\\b([^>]*?)\\/>/gi)];",
     pattern:'S4.1 REFUSE fake ReviewMarker in original snapshot'},
-  {name:'OPEN_TAG_CLOSURE_GUARD',
-    old:"if(!key||!(elementSelfClosing?raw===clean(open):/<\\/PIPINGELEMENT>\\s*$/i.test(raw)))",
-    replacement:"if(!key||!(/<\\/PIPINGELEMENT>\\s*$/i.test(raw)||/\\/>\\s*$/i.test(raw)))",
-    pattern:'S4.1 REFUSE unclosed middle with misleading balanced end-tag count'},
+  {name:'BALANCED_END_TAG_GUARD',
+    old:"if(current.name!==closing[1])return null;",
+    replacement:"if(false&&current.name!==closing[1])return null;",
+    pattern:'S4.1 STRUCTURE REFUSE mismatched model closing tag'},
   {name:'S3_AGREEMENT_REFUSAL_GUARD',
     old:"if(!s3Agreement.ok)",
     replacement:"if(false&&!s3Agreement.ok)",
-    pattern:'S4.1 REFUSE comment-hidden PIPINGELEMENT when strict S3 refuses'},
+    pattern:'S4.1 REFUSE when strict S3 reader throws even though lexical source is valid'},
   {name:'S3_KEY_SET_GUARD',
     old:"if(!matchesStrictS3KeySet)",
     replacement:"if(false&&!matchesStrictS3KeySet)",
@@ -127,6 +138,57 @@ const mutants=[
     old:"if(encoded.length!==options.originalBytes.length||\n       encoded.some((byte,index)=>byte!==options.originalBytes[index]))",
     replacement:"if(false&&(encoded.length!==options.originalBytes.length||\n       encoded.some((byte,index)=>byte!==options.originalBytes[index])))",
     pattern:'S4.1 REFUSE contradictory originalBytes and originalInputXml'},
+
+  {name:'COMMENT_RANGE_GUARD',
+    old:"if(hiddenPipingElement(open,close+3))return null;",
+    replacement:"if(false&&hiddenPipingElement(open,close+3))return null;",
+    pattern:'S4.1 STRUCTURE REFUSE complete commented row with real sibling'},
+  {name:'PI_RANGE_GUARD',
+    old:"if(hiddenPipingElement(open,close+2))return null;",
+    replacement:"if(false&&hiddenPipingElement(open,close+2))return null;",
+    pattern:'S4.1 STRUCTURE REFUSE complete PIPINGELEMENT inside XML processing instruction'},
+  {name:'CDATA_RANGE_GUARD',
+    old:"if(hiddenPipingElement(open,close+3))return null;",
+    replacement:"if(false&&hiddenPipingElement(open,close+3))return null;",
+    pattern:'S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside CDATA'},
+  {name:'DOCTYPE_RANGE_GUARD',
+    old:"if(hiddenPipingElement(open,close))return null;",
+    replacement:"if(false&&hiddenPipingElement(open,close))return null;",
+    pattern:'S4.1 STRUCTURE REFUSE PIPINGELEMENT text inside DOCTYPE'},
+  {name:'MODEL_CHILD_KIND_GUARD',
+    old:"if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
+    replacement:"if(false&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
+    pattern:'S4.1 REFUSE original PLB314'},
+  {name:'DIRECT_MODEL_CHILD_GUARD',
+    old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
+    replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
+    pattern:'S4.1 STRUCTURE REFUSE row between PIPINGMODEL end'},
+  {name:'TRAILING_ROOT_TEXT_GUARD',
+    old:"if(!frames.length&&between.trim())return null;",
+    replacement:"if(false&&!frames.length&&between.trim())return null;",
+    pattern:'S4.1 STRUCTURE REFUSE non-whitespace after root'},
+  {name:'COMMENT_ONLY_NO_RECORD_GUARD',
+    edits:[
+      {old:"if(hiddenPipingElement(open,close+3))return null;",
+       replacement:"if(false&&hiddenPipingElement(open,close+3))return null;"},
+      {old:"!rootClosed||!physical.length)return null;",
+       replacement:"!rootClosed||false)return null;"}
+    ],
+    pattern:'S4.1 STRUCTURE REFUSE only PIPINGELEMENT contained in comment'},
+  {name:'AFTER_ROOT_RECORD_SCOPE_GUARD',
+    edits:[
+      {old:"if(name!=='CAESARII'||rootCount||rootClosed||selfClosing)return null;",
+       replacement:"if(false&&(name!=='CAESARII'||rootCount||rootClosed||selfClosing))return null;"},
+      {old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
+       replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;"},
+      {old:"rootCount!==1||modelCount!==1||!rootClosed",
+       replacement:"false||modelCount!==1||!rootClosed"}
+    ],
+    pattern:'S4.1 STRUCTURE REFUSE row after closed CAESARII root'},
+  {name:'NULL_OPTIONS_GUARD',
+    old:"options=options??{};",
+    replacement:"options=options;",
+    pattern:'S4.1 null and undefined options become evidence-only defaults'},
 ];
 for(const mutant of mutants)
   test('S4.1_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
