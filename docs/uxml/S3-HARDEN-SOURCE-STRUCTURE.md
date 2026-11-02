@@ -14,15 +14,16 @@ conversion, S4.2 patchback, other format, topology policy or merge authority.
 The merged S4.1 lexical XML pass is extracted, without a new dependency, into
 `uxml/UxmlInputXmlSourceStructure.js`; its **byte-identical mirror** is
 `docs/uxml/UxmlInputXmlSourceStructure.js`.
-Both strict S3 (`mapCaesarInputXmlToUxmlStrict`) and the existing S4.1 reader
-call **the same scanner** before binding source records, with distinct,
-explicit admission modes. Strict S3 uses the default
-`scanOriginalInputXmlStructure(text)` (non-record children such as
-`<UNITS>` are valid direct `PIPINGMODEL` children); S4.1 requests
-`scanOriginalInputXmlStructure(text,{recordsOnlyModel:true})`, retaining
-its existing records-only restriction. Neither mode relaxes the
-unconditional direct-child check for any `PIPINGELEMENT` or the
-comment/PI/CDATA/DOCTYPE, root, tag-balance and trailer guards.
+Both strict S3 (`mapCaesarInputXmlToUxmlStrict`) and S4.1 now
+call **the same scanner in the default admission mode**:
+`scanOriginalInputXmlStructure(text)`. Non-record children such as
+`<UNITS>` are valid direct `PIPINGMODEL` siblings, never physical
+PIPINGELEMENT records. S4.1's records-only restriction was lifted by
+the Owner-approved task after merged PR #250; the shared scanner still
+retains its optional `recordsOnlyModel:true` mode for explicit callers.
+Neither reader relaxes the unconditional direct-child requirement for
+every PIPINGELEMENT or the comment/PI/CDATA/DOCTYPE, root, tag-balance
+and trailing-content guards.
 
 The parser performs **one lexical, balanced tree walk** of original InputXML;
 it recognizes comments, processing instructions, CDATA and DOCTYPE lexical
@@ -68,12 +69,11 @@ export `converters/scripts/pdf_inputxml_profile_bm_cii.xml`
 (40 records) is also **accepted** and compared byte-for-byte with pinned
 main in the same test matrix.
 
-**S4.1 remains stricter:** its `recordsOnlyModel:true` source-envelope
-rule deliberately refuses direct `UNITS` children, including on GRE,
-PLB314 and mock-xml. This is an existing S4.1 **known limitation**,
-not an S3 compatibility change and not evidence those exports are invalid.
-If S4.1 requires general non-row CAESAR model sections later, that
-requires a separate approved task.
+**S4.1 now accepts `UNITS` model siblings** after the Owner-approved
+S4.1-ACCEPT-UNITS task. GRE, PLB314, mock-xml and BM_CII are admissible
+as original-bound evidence, with physical source ordinals and S3 key-set
+agreement preserved. This follow-up changes S4.1 only; strict S3 remains
+unchanged and neither reader grants Apply or patch-back authority.
 
 For all admitted originals, strict S3 serialized UXML must remain
 **byte-for-byte identical** to the pinned merged-main mapper at

@@ -97,7 +97,9 @@ function parseCategorized(xml){
   return {lines,elements};
 }
 function physicalSourceRows(text){
-  const tokens=scanOriginalInputXmlStructure(text,{recordsOnlyModel:true});
+  // S4.1 and strict S3 share source-row admission: non-record model siblings
+  // (such as UNITS) never consume physical PIPINGELEMENT ordinals.
+  const tokens=scanOriginalInputXmlStructure(text);
   if(!tokens)return null;
   const physical=tokens.map((tag,index)=>{
     const raw=tag.raw,open=tag.open;
@@ -122,12 +124,27 @@ function hasUnknownSourceSection(original,rows){
     if(offset<0)return true;
     remaining=remaining.slice(0,offset)+remaining.slice(offset+row.raw.length);
   }
+  // MUTATION_GUARD_KNOWN_NON_ROW_SECTION: CAESAR II UNITS is a separate
+  // source-witness-only PIPINGMODEL child, not a PIPINGELEMENT or an inferred
+  // Categorized row. The shared scanner already rejects nested ghost rows.
   remaining=remaining.replace(/<\?xml\b[\s\S]*?\?>/gi,'')
     .replace(/<!--[\s\S]*?-->/g,'')
+    .replace(/<UNITS\b[^>]*\/>|<UNITS\b[^>]*>[\s\S]*?<\/UNITS\s*>/gi,'')
     .replace(/<\/?CAESARII\b[^>]*>/gi,'')
     .replace(/<\/?PIPINGMODEL\b[^>]*>/gi,'');
   // Unknown headers/sections outside source elements have no Categorized carrier.
   return /<[^>]*>/.test(remaining)||clean(remaining)!=='';
+}
+function matchesSourceSnapshot(snapshot,row,source,recordCount){
+  if(snapshot===row.raw)return true;
+  // The unchanged S4.0 forward converter sometimes includes trailing UNITS
+  // in its final self-closing element CDATA. Verify this is an exact contiguous
+  // original-source witness and NOT a physical child or ordinal.
+  // MUTATION_GUARD_UNITS_SNAPSHOT: reject invented or edited suffixes.
+  if(row.index!==recordCount-1||!snapshot.startsWith(row.raw)||
+     !source.includes(snapshot))return false;
+  const extra=snapshot.slice(row.raw.length).trim();
+  return /^<UNITS\b[^>]*>[\s\S]*<\/UNITS\s*>$/i.test(extra);
 }
 function repeatedExternalBlock(rows){
   const seen=new Set();
@@ -136,6 +153,10 @@ function repeatedExternalBlock(rows){
     let item;regex.lastIndex=0;
     while((item=regex.exec(row.raw))){
       const literal=clean(item[0]);
+      // S4.0 does not carry inactive CAESAR placeholder restraints whose
+      // NODE/NODE_NUM is unset; repeated filler has no external identity.
+      // MUTATION_GUARD_ACTIVE_EXTERNAL: real, node-bound duplicates STILL refuse.
+      if(!converter.activeNodeBlock(literal))continue;
       if(seen.has(literal))return true;
       seen.add(literal);
     }
@@ -247,7 +268,8 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
     if(!clean(fromNode)||!clean(toNode)||!clean(elementKey))
       return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.RECORD_KEY_MISSING);
     const candidateRows=originalRows.filter(row=>
-      row.raw===element.snapshot&&nodeKey(row.from)===nodeKey(fromNode)&&
+      matchesSourceSnapshot(element.snapshot,row,supplied.text,originalRows.length)&&
+      nodeKey(row.from)===nodeKey(fromNode)&&
       nodeKey(row.to)===nodeKey(toNode)&&row.elementKey===elementKey&&
       row.lineId===element.lineId);
     // MUTATION_GUARD_NO_MATCH

@@ -205,10 +205,14 @@ test('S4.1 swapped Line groups still bind original source ordinals',async()=>{
   assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
     ['E1:F20:T30','E0:F10:T20','E2:F30:T40']);
 });
-test('S4.1 REFUSE original PLB314 source with incomplete final PIPINGELEMENT',async()=>{
+test('S4.1 ACCEPT public PLB314 original with non-row UNITS after physical rows',async()=>{
   const original=await readFile(new URL('../docs/PLB314Inputxml.xml',import.meta.url),'utf8');
   const cat=categorize(original,{sourceName:'public-PLB314'});
-  refused(await run(original,cat),R.ORIGINAL_STRUCTURE);
+  const result=await run(original,cat);
+  assert.equal(result.ok,true,result.code||result.s3Code);
+  assert.equal(result.uxml.categorized.boundElementCount,53);
+  assert.equal(result.uxml.categorized.originalRecordCount,53);
+  assert.equal(result.uxml.components.length,53);
 });
 test('S4.1 REFUSE invalid original byte encoding',async()=>{
   refused(await read(categorize(fixture()),{
@@ -502,4 +506,79 @@ test('S4.1 SHARED REFUSE raw less-than in attribute before source binding',async
 test('S4.1 SHARED REFUSE reserved xml-foo PI target',async()=>{
   const original='<?xml-foo?>'+fixture();
   assert.equal(scanOriginal(original),null,'reserved xml-prefix PI is not an XML declaration');
+});
+
+
+// Public, repository-committed originals only. No private Owner files.
+const S41_REAL_INPUTXML_SAMPLES=[
+  {path:'docs/GREInputxml.xml',count:100},
+  {path:'docs/PLB314Inputxml.xml',count:53},
+  {path:'opt/mock-xml.xml',count:244},
+  {path:'converters/scripts/pdf_inputxml_profile_bm_cii.xml',count:40},
+];
+for(const sample of S41_REAL_INPUTXML_SAMPLES){
+  test('S4.1 ACCEPT real CAESAR with UNITS: '+sample.path,async()=>{
+    const original=readFileSync(new URL('../'+sample.path,import.meta.url),'utf8');
+    const categorized=categorize(original,{sourceName:sample.path});
+    const strict=mapCaesarInputXmlToUxmlStrict(original,{fileSha256:sha(original)});
+    const res=await run(original,categorized);
+    assert.equal(res.ok,true,sample.path+': '+(res.code||res.s3Code||res.status));
+    assert.equal(res.status,'SOURCE_BOUND_READ_ONLY',sample.path);
+    assert.equal(res.sourceEquivalent,true,sample.path);
+    assert.equal(res.exportAllowed,false,sample.path);
+    assert.equal(res.uxml.categorized.boundElementCount,sample.count);
+    assert.equal(res.uxml.categorized.originalRecordCount,sample.count);
+    assert.equal(res.uxml.components.length,sample.count);
+    assert.equal(strict.components.length,sample.count);
+    assert.equal(res.uxml.sources[0].sourceText,original,'original source witness unchanged');
+    assert.equal(res.uxml.sources[0].hash,sha(original));
+    const keys=res.uxml.components.map(c=>c.sourceRefs[0].recordKey);
+    const strictKeys=strict.components.map(c=>c.sourceRefs[0].recordKey);
+    assert.deepEqual([...keys].sort(),[...strictKeys].sort(),sample.path+' S3 key set');
+    assert.equal(new Set(keys).size,sample.count,sample.path+' unique physical one-to-one');
+    const ordinals=res.uxml.components.map(c=>c.sourceRefs[0].elementIndex);
+    assert.deepEqual([...ordinals].sort((a,b)=>a-b),
+      Array.from({length:sample.count},(_,i)=>i),
+      sample.path+' contiguous physical ordinals without UNITS offset');
+    assert(res.uxml.components.every(c=>
+      c.sourceRefs[0].fileSha256===sha(original)&&
+      c.sourceRefs[0].format==='INPUT_XML'&&
+      c.normalized.geometryAuthority==='NOT_INFERRED'));
+  });
+}
+test('S4.1 ACCEPT UNITS before vs after PIPINGELEMENT rows, same S3 physical recordKeys',async()=>{
+  const units='<UNITS><LENGTH LABEL="mm." FACTOR="1.000000"/></UNITS>';
+  for(const placement of ['before','after']){
+    const original=input(...(placement==='before'
+      ? [units,elem('10','20','A',10),elem('20','30','B',11)]
+      : [elem('10','20','A',10),elem('20','30','B',11),units]));
+    const result=await run(original);
+    assert.equal(result.ok,true,placement+': '+(result.code||result.s3Code));
+    assert.equal(result.uxml.categorized.boundElementCount,2);
+    assert.equal(result.uxml.categorized.originalRecordCount,2);
+    assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
+      ['E0:F10:T20','E1:F20:T30']);
+    const strict=mapCaesarInputXmlToUxmlStrict(original,{fileSha256:sha(original)});
+    assert.deepEqual(result.uxml.components.map(c=>c.sourceRefs[0].recordKey),
+      strict.components.map(c=>c.sourceRefs[0].recordKey));
+  }
+});
+test('S4.1 REFUSE physical PIPINGELEMENT nested inside UNITS sibling',async()=>{
+  const nested='<UNITS>'+elem('70','80','C',12)+'</UNITS>';
+  const original=input(elem('10','20','A',10),nested,elem('20','30','B',11));
+  refused(await run(original,categorize(fixture())),R.ORIGINAL_STRUCTURE);
+});
+test('S4.1 REFUSE comment-hidden PIPINGELEMENT inside UNITS sibling',async()=>{
+  const units='<UNITS><!-- '+elem('70','80','C',12)+' --></UNITS>';
+  const original=input(elem('10','20','A',10),units,elem('20','30','B',11));
+  refused(await run(original,categorize(fixture())),R.ORIGINAL_STRUCTURE);
+});
+
+test('S4.1 REFUSE forged UNITS suffix in last converter-carried OriginalElement',async()=>{
+  const original=readFileSync(new URL('../docs/PLB314Inputxml.xml',import.meta.url),'utf8');
+  const cat=categorize(original);
+  assert(cat.includes('<UNITS>'),'public PLB314 tail is carried by legacy S4.0 CDATA');
+  const forged=cat.replace('<UNITS>','<UNITS FORGED_SOURCE="Y">');
+  assert.notEqual(forged,cat);
+  refused(await run(original,forged),R.RECORD_NO_MATCH);
 });
