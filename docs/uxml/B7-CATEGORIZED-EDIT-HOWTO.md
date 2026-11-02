@@ -10,6 +10,8 @@
 4. **Download patched original** is enabled **only** after a successful S4.2 `ok:true` / `parity:'EQUAL'` on the current editor/source revision. The filename gains `-patched` before `.xml`. The download payload is a copy of the **original S4.2 result.bytes**, *not* the Categorized text, a reconstructed XML file, or a text-mode save. All unchanged original bytes, including BOM, EOL, XML header, comments, attribute order and other records, remain untouched.
 5. To keep editing, inspect **Regenerated Categorized view**, then press **Continue editing from here**. This makes S4.0 of the patched bytes the next baseline and refreshes all derived values. You must Check again before downloading another patch.
 
+**Textarea line endings:** Browsers normalize visible textarea newlines. The B7 editor restores the S4.0 baseline's exact LF/CRLF separator sequence before Check when the line count is unchanged, so CDATA source snapshots are not silently normalized. Structural line insertion/removal is not accommodated and remains subject to refusal. The original uploaded byte array is never normalized or rewritten for this adjustment.
+
 **Every change, Reset, new file load, or newer Check invalidates the previous download immediately.** An older asynchronous Check cannot release bytes after the source/editor revision changed. A refusal shows its exact code with one-line explanation and keeps download disabled.
 
 ## Refusal codes, limits and review
