@@ -13,6 +13,7 @@ const files=[
  mapper,'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
  'utils/line-no-metadata.js',
+ 'docs/PLB314Inputxml.xml',
  'xml-compare/CategorizedInputXmlConverter.js',
  'xml-compare/XmlCompareCoordinateSideload.js',
  'xml-compare/XmlCompareCoordinateDiagnostics.js',
@@ -21,7 +22,7 @@ const files=[
 function kill({name,old,replacement,pattern}){
   const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-mutant-'));
   try{
-    for(const folder of ['uxml','xml-compare','tests','utils'])mkdirSync(join(dir,folder));
+    for(const folder of ['uxml','xml-compare','tests','utils','docs'])mkdirSync(join(dir,folder));
     for(const file of files)copyFileSync(join(source,file),join(dir,file));
     writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
     const exec=()=>spawnSync(process.execPath,['--test','--test-name-pattern='+pattern,
