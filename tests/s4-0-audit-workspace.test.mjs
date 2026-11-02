@@ -146,7 +146,7 @@ test('S4-ENRICH-DETECT enriched is a marker boolean within a kind, not a fourth 
  assert.equal(enrichmentInputPreflight(category).ok,false,
   'Tab 2 preflight is schema gated, not enriched marker gated');
 });
-test('S4-STAGE2-PUBLIC examples GRE/PLB stay InputXML when enrichment signals already exist',async()=>{
+test('S4-STAGE2-PUBLIC examples GRE/PLB remain InputXML after no-value sideload',async()=>{
  for(const file of ['GREInputxml.xml','PLB314Inputxml.xml']){
   const rawPublic=await readFile(new URL('../docs/'+file,import.meta.url),'utf8');
   const result=applyXmlCompareSideload(rawPublic,{});
