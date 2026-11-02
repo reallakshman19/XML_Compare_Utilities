@@ -573,3 +573,12 @@ test('S4.1 REFUSE comment-hidden PIPINGELEMENT inside UNITS sibling',async()=>{
   const original=input(elem('10','20','A',10),units,elem('20','30','B',11));
   refused(await run(original,categorize(fixture())),R.ORIGINAL_STRUCTURE);
 });
+
+test('S4.1 REFUSE forged UNITS suffix in last converter-carried OriginalElement',async()=>{
+  const original=readFileSync(new URL('../docs/PLB314Inputxml.xml',import.meta.url),'utf8');
+  const cat=categorize(original);
+  assert(cat.includes('<UNITS>'),'public PLB314 tail is carried by legacy S4.0 CDATA');
+  const forged=cat.replace('<UNITS>','<UNITS FORGED_SOURCE="Y">');
+  assert.notEqual(forged,cat);
+  refused(await run(original,forged),R.RECORD_NO_MATCH);
+});
