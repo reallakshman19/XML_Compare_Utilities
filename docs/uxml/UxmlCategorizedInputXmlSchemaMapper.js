@@ -14,6 +14,7 @@ export const UXML_CATEGORIZED_INPUTXML_REFUSALS=Object.freeze({
   SOURCE_HASH_REQUIRED:'CATEGORIZED_ORIGINAL_FILE_SHA_REQUIRED',
   SOURCE_HASH_MISMATCH:'CATEGORIZED_ORIGINAL_FILE_SHA_MISMATCH',
   ORIGINAL_ENCODING:'CATEGORIZED_ORIGINAL_ENCODING_UNSUPPORTED',
+  ORIGINAL_INPUT_CONFLICT:'CATEGORIZED_ORIGINAL_INPUT_BYTES_TEXT_CONFLICT',
   ORIGINAL_STRUCTURE:'CATEGORIZED_ORIGINAL_STRUCTURE_UNSUPPORTED',
   RECORD_KEY_MISSING:'CATEGORIZED_RECORD_KEY_MISSING',
   RECORD_NO_MATCH:'CATEGORIZED_ORIGINAL_RECORD_NO_MATCH',
@@ -72,11 +73,14 @@ function parseCategorized(xml){
       if(cdatas.length!==1)return null;
       const raw=cdatas[0][1].replaceAll(']]]]><![CDATA[>',']]>');
       if(!/^<PIPINGELEMENT\b/i.test(raw)||!clean(raw))return null;
-      const markers=[...body.matchAll(/<ReviewMarker\b([^>]*?)\/>/gi)];
+      // Only the projection can contain an explicit review decision.
+      // A lookalike inside OriginalElement CDATA is untrusted source text.
+      const projectionText=body.replace(ORIGINAL_CDATA,'');
+      const markers=[...projectionText.matchAll(/<ReviewMarker\b([^>]*?)\/>/gi)];
       const explicitReview=markers.some(m=>{
         const a=attributes(m[1]);return a.kind==='DERIVED_DIFFERENCE'&&a.disposition==='REVIEW_ONLY';
       });
-      const evidence=projection(body.replace(ORIGINAL_CDATA,'').replace(/<ReviewMarker\b[^>]*\/>/gi,''));
+      const evidence=projection(projectionText.replace(/<ReviewMarker\b[^>]*\/>/gi,''));
       const item={attrs,lineId,snapshot:clean(raw),evidence,explicitReview};
       elements.push(item);row.elements.push(item);
     }
@@ -93,7 +97,7 @@ function physicalSourceRows(text){
   const openings=(text.match(/<PIPINGELEMENT\b/gi)||[]).length;
   if(!/<CAESARII\b/i.test(text)||!/<PIPINGMODEL\b/i.test(text)||
      !rows.length||rows.length!==openings)return null;
-  return rows.map((raw,index)=>{
+  const physical=rows.map((raw,index)=>{
     const open=raw.match(/^<PIPINGELEMENT\b[^>]*>/i)?.[0];
     const attrs=attributes(open||'');
     const key=identity(attrs,index);
@@ -102,6 +106,9 @@ function physicalSourceRows(text){
       lineId:clean(attrs.LINE_ID||attrs['PIPELINE-REFERENCE']||'UNSPECIFIED_LINE'),
       elementKey:nodeKey(key.from)+'->'+nodeKey(key.to)};
   });
+  // A single incomplete physical row invalidates the entire source.
+  // In particular, do not let [validRow, null] reach candidateRows.filter().
+  return physical.some(row=>row===null)?null:physical;
 }
 function hasUnknownSourceSection(original,rows){
   let remaining=original;
@@ -190,8 +197,19 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
     return {ok:true,status:'NOT_SOURCE_EQUIVALENT',uxml:doc,evidence,
       sourceEquivalent:false,exportAllowed:false,gate};
   }
+  // MUTATION_GUARD_SHA_REQUIRED
   if(!/^[a-f0-9]{64}$/i.test(clean(options.fileSha256)))
     return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.SOURCE_HASH_REQUIRED);
+  // Neither representation silently overrides a conflicting original.
+  if(options.originalBytes!==undefined&&options.originalInputXml!==undefined){
+    if(!(options.originalBytes instanceof Uint8Array)||
+       typeof options.originalInputXml!=='string')
+      return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_ENCODING);
+    const encoded=new TextEncoder().encode(options.originalInputXml);
+    if(encoded.length!==options.originalBytes.length||
+       encoded.some((byte,index)=>byte!==options.originalBytes[index]))
+      return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_INPUT_CONFLICT);
+  }
   const supplied=await sourceBytes(options);
   if(!supplied)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_ENCODING);
   const measured=await digestSha256(supplied.bytes);
@@ -199,6 +217,7 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
   if(measured!==clean(options.fileSha256).toLowerCase())
     return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.SOURCE_HASH_MISMATCH);
   const originalRows=physicalSourceRows(supplied.text);
+  // MUTATION_GUARD_ORIGINAL_STRUCTURE
   if(!originalRows)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.ORIGINAL_STRUCTURE);
 
   // The source is checked BEFORE any UXML is constructed or sourceRef bound.
@@ -288,8 +307,10 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
     }));
   }
   const gate=addGate(doc);
-  // The shared gate must run, but its nominal success is never Apply permission.
-  // A failed gate is retained visibly as read-only evidence, not described as READY.
+  // MUTATION_GUARD_UXML_GATE: source-bound UXML is all-or-nothing.
+  // Unlike unbound evidence-only mode, a failed shared gate has NO UXML output.
+  if(!gate.ready)return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.GATE_REJECTED);
+  // Even a passing shared gate never authorizes Apply or patch-back.
   return {ok:true,status:doc.categorized.status,uxml:doc,gate,
     sourceEquivalent:!reviewRequired,exportAllowed:false};
 }
