@@ -15,6 +15,8 @@ const sources=[
 const sha=text=>createHash('sha256').update(Buffer.from(text,'utf8')).digest('hex');
 const screenshots=resolve(root,'artifacts/uxml-b7/screenshots');
 async function open(page){
+  page.on('pageerror',error=>console.log('B7_BROWSER_PAGE_ERROR '+String(error)));
+  page.on('console',msg=>{if(msg.type()==='error')console.log('B7_BROWSER_CONSOLE_ERROR '+msg.text());});
   await page.goto('/tests/browser/fixtures/uxml-b7-workspace-host.html');
   await expect(page.locator('body')).toHaveAttribute('data-b7-mounted','true');
   await page.locator('[data-ixw-open="1"]').click();
