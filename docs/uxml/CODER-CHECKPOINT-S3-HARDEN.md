@@ -1,28 +1,39 @@
 # CODER-CHECKPOINT · UXML-S3-HARDEN-SOURCE-STRUCTURE · coder-b4
 
 **TASK:** XCU #239 · new [DRAFT PR #250](https://github.com/reallakshman19/XML_Compare_Utilities/pull/250)
-on \`feat/uxml-s3-harden-source-structure-20261102\`, base pinned Owner
-merged-main \`ee04cc9c3503ea8a21c683fdab1b85ece79cc443\`.
+on `feat/uxml-s3-harden-source-structure-20261102`, base pinned Owner
+merged-main `ee04cc9c3503ea8a21c683fdab1b85ece79cc443`.
 NO MERGE / NO FORCE.
 
-**BOUNDARY:** Strict S3 \`mapCaesarInputXmlToUxmlStrict\` now performs a
+**BOUNDARY:** Strict S3 `mapCaesarInputXmlToUxmlStrict` now performs a
 single shared XML structural admission before legacy row extraction.
 The S4.1 scanner is factored into
-\`uxml/UxmlInputXmlSourceStructure.js\` and its byte-identical docs
+`uxml/UxmlInputXmlSourceStructure.js` and its byte-identical docs
 mirror, used by S3 and S4.1. Ghost rows in comment/PI/CDATA/DOCTYPE,
 missing/duplicate root/model, model-nondirect rows, malformed
 attributes/tags, and post-root content refuse with named
-\`INPUT_XML_SOURCE_STRUCTURE_REFUSED\` and no UXML. S3 valid-original
+`INPUT_XML_SOURCE_STRUCTURE_REFUSED` and no UXML. S3 valid-original
 strict output is byte-identical to pinned main on accepted test fixtures.
-S4.1 original behavior retained with new duplicate-attribute, raw \`<\`,
-reserved \`<?xml-foo?>\` guards and kill tests.
+S4.1 original behavior retained with new duplicate-attribute, raw `<`,
+reserved `<?xml-foo?>` guards and kill tests.
 
 **KNOWN COMPATIBILITY CHANGE:** Public GRE (100) and PLB314 (53) had
 been admitted by pinned-main strict S3 but now refuse because each has
-direct \`UNITS\` under PIPINGMODEL, outside the S4.1 shared envelope.
+direct `UNITS` under PIPINGMODEL, outside the S4.1 shared envelope.
 Not a general claim of malformed CAESAR XML. No S1, S4.0 converter,
 other format, TopoFix/lane A, tolerances/CLOS, original source, or
 writer custody changed.
+
+**PRE-DOC-RECONCILIATION PROOF:** `f96d9283289ec8e7da741fe4857b96ed857eb9ab`,
+[S3 hardening #41391992700](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992700)
+SUCCESS: S3 20/20, mutants 16/16 LF and 16/16 simulated CRLF,
+S3 regressions 13/13, S4.1 54/54, S4.1 mutants 34/34 LF and
+34/34 simulated CRLF, S4.0 86/86, S1 12/12, admission 20/20,
+sideload/enrichment exit 0; [existing S3 #41391992596](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992596),
+[S4.1 #41391992610](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992610)
+and [ISO #41391992511](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992511)
+SUCCESS on that head. This docs correction creates a later head: final
+exact-head qualification must be recorded in XCU #239 work_returned.
 
 **EXECUTION:** The exact-head Node 22 workflow runs S3 structural
 adversarial and pinned-main byte-output parity tests, S3 and S4.1
@@ -33,7 +44,7 @@ is authoritative for the **final SHA, exact-head run IDs, counts,
 mutant list**; no earlier code head qualifies a docs commit.
 
 **NOT_RUN / HOLD:** Local complete repo Node tests (coder container DNS
-for GitHub), native Windows, raw top-level \`npm test\`, new
+for GitHub), native Windows, raw top-level `npm test`, new
 independent non-author review, Owner private original-file
 trial, S4.2 writer, release and merge.
 
