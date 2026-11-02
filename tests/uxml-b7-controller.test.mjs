@@ -117,8 +117,10 @@ test('B7 two overlapping Checks: last issued controls release even if first sett
   const c=createCategorizedEditController({patch:()=>{const d=calls.length?a:b;calls.push(d);return d.promise;}});
   await c.loadBytes(bytes(xml()),'pipe.xml');
   const first=c.check(),second=c.check();
+  assert.equal(calls.length,2,'both Checks must call patch independently');
   b.resolve({ok:true,parity:'EQUAL',bytes:bytes(xml()),changes:[]});
-  await second;
+  await Promise.race([second,new Promise((_,reject)=>
+    setTimeout(()=>reject(Error('Second Check did not complete')),2000))]);
   assert.equal(c.snapshot().canDownload,true);
   a.resolve({ok:false,code:R.PARITY,bytes:null});await first;
   assert.equal(c.snapshot().canDownload,true,'earlier failed result cannot revoke newer success');
