@@ -114,7 +114,7 @@ test('B7 release-last: an edit while Check pending blocks stale result even when
 });
 test('B7 two overlapping Checks: last issued controls release even if first settles later',async()=>{
   const a=defer(),b=defer(),calls=[];
-  const c=createCategorizedEditController({patch:()=>{const d=calls.length?a:b;calls.push(d);return d.promise;}});
+  const c=createCategorizedEditController({patch:()=>{const d=calls.length?b:a;calls.push(d);return d.promise;}});
   await c.loadBytes(bytes(xml()),'pipe.xml');
   const first=c.check(),second=c.check();
   assert.equal(calls.length,2,'both Checks must call patch independently');
