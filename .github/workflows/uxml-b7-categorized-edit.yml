@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: B7 UI and controller JavaScript syntax
+        run: node --check tabs/inputxml-workspace/inputxml-workspace-tab.js && node --check tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js
       - name: B7 controller, refusal and four public byte witness tests
         run: node --test tests/uxml-b7-controller.test.mjs
       - name: B7 download gate, revisions and byte mutation falsifiers LF
