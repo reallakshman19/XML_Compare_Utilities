@@ -31,6 +31,7 @@ import {
   workspaceProducerReceiptJson,
 } from './inputxml-workspace-producer-adoption.js';
 import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
+import {createCategorizedEditController,preserveCategorizedEditorLineEndings} from './inputxml-workspace-categorized-edit-controller.js';
 
 /**
  * InputXML Workspace UI tile/modal.
@@ -344,6 +345,7 @@ function defaultState() {
     categorizedInputSource: '',
     categorizedOutputText: '',
     categorizedProducerAdoption: createWorkspaceProducerAdoptionState(),
+    categorizedPatchBack: createCategorizedEditController(),
     topologyAdmissionEpoch: 0,
     topologyAdmissionPhase: 'idle',
     topologyAdmission: null,
@@ -581,13 +583,69 @@ function renderEnrichmentTab(state) {
   </div>`;
 }
 
+
+function renderCategorizedPatchBack(state){
+  const record=state.categorizedPatchBack.snapshot();
+  const allowed=record.canDownload&&record.phase!=='loading';
+  const phase=record.phase;
+  const heading=phase==='checked'?'Checked · parity EQUAL · bytes ready':
+    phase==='downloaded'?'Downloaded · verified original bytes':
+    phase==='refused'?'Refused · no downloadable bytes':
+    phase==='loading'?'Checking original source bytes…':
+    phase==='checking'?'Checking exact original-byte patch…':
+    record.canCheck?'Original source bound · edit visible Categorized values':'No original loaded';
+  const rows=(record.changes||[]).map(change=>{
+    const ordinal=String(change.recordKey||'').match(/^E(\d+):/)?.[1];
+    const field=String(change.field||'');
+    const isProjection=/^PIPINGELEMENT\.(?:FROM_NAME|TO_NAME|NAME|DELTA_[XYZ]|DIAMETER|WALL_THICK|INSUL_THICK)$/.test(field);
+    return '<tr><td>'+h(ordinal===undefined?'—':Number(ordinal)+1)+'</td>'+
+      '<td>'+h(change.recordKey||'')+'</td><td>'+h(field)+'</td><td>'+h(change.old)+
+      '</td><td>'+h(change.new)+'</td><td>'+
+      h((isProjection?'Written exactly as typed; ':'Decoded XML value; ')+
+        'source bytes '+change.byteRange?.start+'–'+change.byteRange?.end)+
+      '</td></tr>';
+  }).join('');
+  const detail=(phase==='refused'||record.code)?'<p class="ixw-error" role="alert">'+
+    '<strong>'+h(record.code)+'</strong>: '+h(record.reason)+
+    (record.detail?' · '+h(record.detail):'')+'</p>':'';
+  const alerts=record.warning.map(x=>'<p role="status" class="ixw-note">⚠ '+h(x)+'</p>').join('');
+  const status='<div class="ixw-note" role="status" data-ixw-b7-status>'+
+    h(heading)+(record.sourceSha256?' · SHA-256 '+h(record.sourceSha256.slice(0,16))+'…':'')+
+    '</div>';
+  return '<section class="ixw-panel" data-ixw-b7-panel data-b7-phase="'+h(phase)+'">'+
+    '<div class="ixw-title">B7 · Edit Categorized values → patch original InputXML</div>'+
+    '<div class="ixw-note">Local, in-memory only. This is the source-bound byte patcher, NOT the compatibility reverse converter above. '+
+    'Load an original InputXML, edit only supported existing visible values, Check, then download verified bytes.</div>'+
+    '<div class="ixw-toolbar">'+
+    '<label>Original InputXML <input type="file" accept=".xml,.inputxml,text/xml" data-ixw-b7-file></label>'+
+    '<button class="ixw-btn" type="button" data-ixw-b7-action="reset" '+(record.canCheck?'':'disabled')+'>Reset to baseline</button>'+
+    '<button class="ixw-btn primary" type="button" data-ixw-b7-action="check" '+(record.canCheck?'':'disabled')+'>Check patch-back</button>'+
+    '<button class="ixw-btn" type="button" data-ixw-b7-action="download" '+(allowed?'':'disabled')+'>Download patched original</button>'+
+    '<button class="ixw-btn" type="button" data-ixw-b7-action="continue" '+(record.canContinue?'':'disabled')+'>Continue editing from here</button>'+
+    '</div>'+
+    (record.filename?'<div class="ixw-note">Source: '+h(record.filename)+'</div>':'')+
+    status+
+    '<textarea class="ixw-textarea tall" spellcheck="false" data-ixw-b7-editor '+
+    (record.canCheck?'':'disabled')+' aria-label="Editable Categorized InputXML">'+h(record.edited)+'</textarea>'+
+    '<div data-ixw-b7-result>'+detail+alerts+
+    (allowed?'<div class="ixw-title">Verified source attribute changes: '+record.changes.length+' row(s)</div>'+
+      (rows?'<div style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
+        '<th>Physical row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
+        '</tr></thead><tbody>'+rows+'</tbody></table></div>':
+        '<p class="ixw-note">No changes. Original bytes remain identical.</p>')+
+      '<details><summary>Regenerated Categorized view (derived values refreshed)</summary>'+
+      '<textarea class="ixw-textarea tall" readonly aria-label="Regenerated Categorized preview">'+
+      h(record.patchedCategorized)+'</textarea></details>':'')+
+    '</div></section>';
+}
+
 function renderCategorizedTab(state) {
   const adoption = state.categorizedProducerAdoption || createWorkspaceProducerAdoptionState();
   const workerManaged = isWorkspaceGeneratedInputXml(state.categorizedInputSource);
   const producerMessage = workerManaged
     ? `Generated source: ${state.categorizedInputSource}. Worker receipt status: ${adoption.status}. ${adoption.error?.message || ''}`
     : 'Imported or pasted input uses the explicit compatibility conversion. Workspace-generated InputXML is categorized automatically by the worker.';
-  return `<div class="ixw-grid">
+  return `${renderCategorizedPatchBack(state)}<div class="ixw-grid">
     <section class="ixw-panel">
       <div class="ixw-title">Categorized XML Conversion</div>
       <label class="ixw-note">Direction
@@ -1016,6 +1074,64 @@ function bindSubtabButtons(dialog, state, selector, stateKey, fallback) {
   }));
 }
 
+
+function bindCategorizedPatchBack(dialog,state){
+  const controller=state.categorizedPatchBack;
+  const file=dialog.querySelector('[data-ixw-b7-file]');
+  file?.addEventListener('change',async(event)=>{
+    const selected=event.target.files?.[0];
+    if(!selected)return;
+    const ticket=controller.beginLoad(); // revoke old release before any I/O
+    rerender(dialog,state);
+    try{
+      const bytes=new Uint8Array(await selected.arrayBuffer());
+      await controller.loadBytes(bytes,selected.name,ticket);
+    }catch{
+      await controller.loadBytes(null,selected.name,ticket);
+    }
+    if(dialog.isConnected)rerender(dialog,state);
+  });
+  dialog.querySelector('[data-ixw-b7-editor]')?.addEventListener('input',event=>{
+    controller.edit(preserveCategorizedEditorLineEndings(controller.snapshot().edited,
+      event.target.value)); // synchronous revision invalidation; preserve S4.0 mixed EOL
+    const panel=dialog.querySelector('[data-ixw-b7-panel]');
+    if(panel)panel.dataset.b7Phase='ready';
+    for(const action of ['download','continue']){
+      const button=dialog.querySelector('[data-ixw-b7-action="'+action+'"]');
+      if(button)button.disabled=true;
+    }
+    const result=dialog.querySelector('[data-ixw-b7-result]');
+    if(result)result.textContent='Edited since last Check — Check again before downloading.';
+    const status=dialog.querySelector('[data-ixw-b7-status]');
+    if(status)status.textContent='Changed · download invalidated until Check passes again';
+  });
+  dialog.querySelectorAll('[data-ixw-b7-action]').forEach(button=>
+    button.addEventListener('click',async()=>{
+      const action=button.dataset.ixwB7Action;
+      if(action==='reset')controller.reset();
+      else if(action==='check'){
+        const pending=controller.check();
+        if(dialog.isConnected)rerender(dialog,state);
+        await pending;
+      }else if(action==='continue')await controller.continueEditing();
+      else if(action==='download'){
+        const download=controller.download();
+        if(download){
+          // Deliberately bypass saveTextFile() and XML masking: only
+          // the exact S4.2 Uint8Array is eligible, not a serialized view.
+          const blob=new Blob([download.bytes],{type:download.mime});
+          const url=URL.createObjectURL(blob);
+          try{
+            const link=document.createElement('a');
+            link.href=url;link.download=download.filename;
+            document.body.appendChild(link);link.click();link.remove();
+          }finally{setTimeout(()=>URL.revokeObjectURL(url),0);}
+        }
+      }
+      if(dialog.isConnected)rerender(dialog,state);
+    }));
+}
+
 function bindPopup(dialog, state) {
   dialog.querySelectorAll('[data-ixw-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => {
     collectWithInvalidation(dialog, state);
@@ -1026,6 +1142,7 @@ function bindPopup(dialog, state) {
   bindSubtabButtons(dialog, state, '[data-ixw-misc-subtab]', 'miscSubtab', 'config');
   dialog.querySelectorAll('[data-ixw-action]').forEach((button) => button.addEventListener(ACTIVATE, () => { void handleAction(dialog, state, button.getAttribute('data-ixw-action'), button); }));
   bindFileInputs(dialog, state);
+  bindCategorizedPatchBack(dialog,state);
 }
 
 function bindRenderedPanels(dialog, state) {

@@ -1,0 +1,23 @@
+# B7 · Edit a Categorized InputXML value and patch the original bytes
+
+**Where:** XCU → InputXML Workspace → **4 Create Categorized XML** → **B7 · Edit Categorized values → patch original InputXML**. This is a separate, source-bound editor. The older **Categorized XML Conversion** controls above it are compatibility conversion, not a verified source-byte patch.
+
+## How to use
+
+1. Choose **Original InputXML** and select a local CAESAR II InputXML file. B7 reads its **bytes locally**, measures SHA-256, checks strict S3, generates the unchanged S4.0 Categorized view, then requires source-bound S4.1 admission. No file contents are sent over the network or saved in localStorage. Malformed/refused input shows the refusal code and plain-language reason, without a download.
+2. Edit the **Categorized text** directly in the B7 textarea. For example change an existing `<DIAMETER>114.299995</DIAMETER>` to `<DIAMETER>127.125</DIAMETER>` within `SectionDimensionBlock`. The nine authorized one-to-one paths are `NameBlock.FROM_NAME/TO_NAME/NAME`, `RouteGeometryBlock.DELTA_X/Y/Z`, `SectionDimensionBlock.DIAMETER/WALL_THICK/INSUL_THICK`; the source attribute must already exist and be projected. Edit just the visible leaf: **do not edit OriginalElement CDATA by hand**. Derived, line-owned, merged, unknown, identity, UNITS or structural edits are refused. Use **Reset to baseline** to discard the editor changes.
+3. Press **Check patch-back**. The exact S4.2 slice-2 patcher runs with the pinned original source, unchanged baseline and edited text. The table shows **physical row, source record key, exact tag/attribute, old value, new value, and original byte range**. A mapped text value is reported as written exactly as typed, not silently rounded. `FROM_NAME` or `TO_NAME` labels also used by other nodes produce a **non-blocking warning**.
+4. **Download patched original** is enabled **only** after a successful S4.2 `ok:true` / `parity:'EQUAL'` on the current editor/source revision. The filename gains `-patched` before `.xml`. The download payload is a copy of the **original S4.2 result.bytes**, *not* the Categorized text, a reconstructed XML file, or a text-mode save. All unchanged original bytes, including BOM, EOL, XML header, comments, attribute order and other records, remain untouched.
+5. To keep editing, inspect **Regenerated Categorized view**, then press **Continue editing from here**. This makes S4.0 of the patched bytes the next baseline and refreshes all derived values. You must Check again before downloading another patch.
+
+**Textarea line endings:** Browsers normalize visible textarea newlines. The B7 editor restores the S4.0 baseline's exact LF/CRLF separator sequence before Check when the line count is unchanged, so CDATA source snapshots are not silently normalized. Structural line insertion/removal is not accommodated and remains subject to refusal. The original uploaded byte array is never normalized or rewritten for this adjustment.
+
+**Every change, Reset, new file load, or newer Check invalidates the previous download immediately.** An older asynchronous Check cannot release bytes after the source/editor revision changed. A refusal shows its exact code with one-line explanation and keeps download disabled.
+
+## Refusal codes, limits and review
+
+The panel has an explanation for every live `UXML_CATEGORIZED_PATCH_REFUSALS` and S4.1 reader code, plus strict S3 errors. Common examples are `S42_UNMAPPED_OR_DERIVED_PROJECTION_EDIT`, `S42_S40_PROJECTION_MISMATCH`, `S42_SHARED_EXTERNAL_EDIT_REFUSED`, `S42_ORIGINAL_SHA_MISMATCH`, `S42_UNITS_EDIT_REFUSED`, `S42_SOURCE_OFFSET_NOT_EXACT`, and `S42_PARITY_FAILED`. There is **no force/download-anyway option**.
+
+**Conservative review disposition:** The rare combination “consistent SIF snapshot edit in one physical row *plus* a mapped projection edit in another physical row” may continue to refuse under the existing slice-2 rules. B7 does **not** widen patcher acceptance to resolve that without a separately approved proof and new independent tests. Other SIF owner rules remain unchanged. The unused legacy `S42_DERIVED_OR_LINE_PROJECTION_EDITED` constant was retired; this changes no acceptance condition.
+
+**Scope/authority:** No UI Apply, XML reverse conversion, automatic engineering solution, tolerances, CLOS change or topology fix. B7 is in-memory only until a user explicitly requests the verified byte download. S4.2 is the sole writer authority. Browser qualification uses only public GRE, PLB314, mock and BM_CII files, with LF/CRLF byte checks. Native Windows and private Owner file trials are separate qualifications.

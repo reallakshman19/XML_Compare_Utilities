@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Public B7 InputXML workspace browser qualification</title>
+<style>body{background:#0b1120;color:#e2e8f0;font-family:Arial,sans-serif;margin:18px}
+.psmap-card{border:1px solid #334155;background:#111827;border-radius:8px;padding:12px}
+button{cursor:pointer}</style></head>
+<body><div id="b7-workspace-test-host"></div>
+<script type="module">
+import {installInputXmlWorkspaceTile} from '../../../tabs/inputxml-workspace/inputxml-workspace-tab.js';
+installInputXmlWorkspaceTile(document.getElementById('b7-workspace-test-host'));
+document.body.dataset.b7Mounted='true';
+</script></body></html>
