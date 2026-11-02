@@ -15,6 +15,20 @@ const element=(from,to,dx='100')=>
   ' DIAMETER="100" WALL_THICK="6.02"/>';
 const model=(inner)=>'<CAESARII><PIPINGMODEL>'+inner+'</PIPINGMODEL></CAESARII>';
 const valid=()=>model(element('10','20')+element('20','30'));
+
+const s3Attrs=(from,to,fx,tx)=>[
+  'FROM_NODE="'+from+'"','TO_NODE="'+to+'"',
+  'FROM_X="'+fx+'"','FROM_Y="0"','FROM_Z="0"',
+  'TO_X="'+tx+'"','TO_Y="0"','TO_Z="0"',
+  'DELTA_X="'+(tx-fx)+'"','DELTA_Y="-1.010100"','DELTA_Z="-1.010100"',
+  'DIAMETER="100"','WALL_THICK="6.02"','EXTRA_SOURCE_ATTR="retained"',
+].join(' ');
+// Exact S3 fixture contract from tests/uxml-s3-caesar-inputxml.test.mjs.
+const strictS3Fixture=()=> '<?xml version="1.0"?><CAESARII xmlns="COADE"><PIPINGMODEL xmlns="" LINE_ID="L-1">' +
+  '<PIPINGELEMENT '+s3Attrs(10,20,100,200)+'><RESTRAINT NODE="20" TYPE="0" /></PIPINGELEMENT>' +
+  '<PIPINGELEMENT '+s3Attrs(20,30,200,300)+'><BEND RADIUS="45"/></PIPINGELEMENT>' +
+  '</PIPINGMODEL></CAESARII>';
+
 const refused=(xml,pattern=/^INPUT_XML_SOURCE_STRUCTURE_REFUSED$/)=>{
   assert.equal(scan(xml),null,'expected shared scanner refusal');
   assert.throws(()=>strict(xml,{fileSha256:sha(xml)}),error=>{
@@ -111,6 +125,8 @@ test('S3 output-identity: accepted fixture JSON bytes exactly equal pinned merge
   const oldModule=await import('data:text/javascript;base64,'+
     Buffer.from(baseline,'utf8').toString('base64'));
   const fixtures=[
+    ['s3_existing_anchored_restraint_bend',strictS3Fixture()],
+    ['s3_existing_unanchored',strictS3Fixture().replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'')],
     ['synthetic_unanchored',valid()],
     ['synthetic_trailing_comment',valid()+'<!-- comment -->'],
     ['synthetic_xml_declaration','<?xml version="1.0"?>'+valid()],
