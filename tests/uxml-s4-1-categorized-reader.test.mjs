@@ -263,17 +263,19 @@ test('S4.1 REFUSE source-bound output on failed shared UxmlValidationGate',async
   const root=fileURLToPath(new URL('../',import.meta.url));
   const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-gate-refusal-'));
   try{
-    for(const folder of ['uxml','xml-compare'])mkdirSync(join(dir,folder));
+    for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
     for(const file of [
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
+      'utils/line-no-metadata.js',
       'xml-compare/CategorizedInputXmlConverter.js',
       'xml-compare/XmlCompareCoordinateSideload.js',
       'xml-compare/XmlCompareCoordinateDiagnostics.js',
     ])copyFileSync(join(root,file),join(dir,file));
     writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
     const gatePath=join(dir,'uxml/UxmlValidationGate.js');
-    const gateSource=readFileSync(gatePath,'utf8');
+    const gateSource=readFileSync(gatePath,'utf8').replace(/\r\n/g,'\n');
     const seam='  return finalizeReport(report);\n}\n\nexport const runUxmlValidationGate = validateUxmlDocument;';
     assert.equal(gateSource.split(seam).length-1,1,'one final shared gate seam');
     writeFileSync(gatePath,gateSource.replace(seam,
@@ -289,6 +291,66 @@ test('S4.1 REFUSE source-bound output on failed shared UxmlValidationGate',async
       "const res=await reader(categorize(original),{originalInputXml:original,fileSha256});",
       "if(res.ok!==false||res.uxml!==null||res.code!==R.GATE_REJECTED||res.exportAllowed!==false)",
       "  throw Error('Shared gate failure was not refused with NULL UXML: '+JSON.stringify(res));",
+    ].join('\n')+'\n');
+    const p=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:dir,encoding:'utf8',timeout:45000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([k])=>k!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(p.status,0,p.stdout+'\n'+p.stderr);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('S4.1 REFUSE unclosed middle PIPINGELEMENT ending in self-closing RIGID child',async()=>{
+  const open=elem('10','20','A',10).replace('</PIPINGELEMENT>','<RIGID WEIGHT="1"/>');
+  const original=input(open,elem('20','30','B',10));
+  const cat=categorize(original);
+  refused(await run(original,cat),R.ORIGINAL_STRUCTURE);
+});
+test('S4.1 REFUSE unclosed middle with misleading balanced end-tag count',async()=>{
+  const open=elem('10','20','A',10).replace('</PIPINGELEMENT>','<RIGID WEIGHT="1"/>');
+  const original=input(open,elem('20','30','B',10)).replace(
+    '</PIPINGMODEL>','</PIPINGELEMENT></PIPINGMODEL>');
+  assert.equal((original.match(/<PIPINGELEMENT\b/g)||[]).length,2);
+  assert.equal((original.match(/<\/PIPINGELEMENT>/g)||[]).length,2);
+  refused(await run(original,categorize(original)),R.ORIGINAL_STRUCTURE);
+});
+test('S4.1 REFUSE comment-hidden PIPINGELEMENT when strict S3 refuses',async()=>{
+  const hidden='<PIPINGELEMENT FROM_NODE="60" TO_NODE="70" LINE_ID="H"></PIPINGELEMENT>';
+  const original=input(elem('10','20','A',10),'<!--'+hidden+'-->',elem('20','30','B',10));
+  assert.throws(()=>mapCaesarInputXmlToUxmlStrict(original,{fileSha256:sha(original)}),
+    /INPUT_XML_/,'precondition: strict S3 refuses this original');
+  const result=await run(original,categorize(original));
+  refused(result,R.S3_REFUSED);
+  assert.match(result.s3Code,/^INPUT_XML_[A-Z_]+$/);
+});
+test('S4.1 REFUSE key mismatch against independent strict S3 set',async()=>{
+  const root=fileURLToPath(new URL('../',import.meta.url));
+  const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-s3-keys-'));
+  try{
+    for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
+    for(const file of [
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js',
+    ])copyFileSync(join(root,file),join(dir,file));
+    // Fault injected into disposable S3 witness ONLY, not S3 product behavior.
+    writeFileSync(join(dir,'uxml/UxmlInputXmlSchemaMapper.js'),
+      'export function mapCaesarInputXmlToUxmlStrict(){return {components:['+
+      '{sourceRefs:[{recordKey:"E0:F10:T20"}]},'+
+      '{sourceRefs:[{recordKey:"E1:F20:T999"}]}]};}\n');
+    writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+    writeFileSync(join(dir,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {inputXmlToCategorizedInputXml as categorize} from './xml-compare/CategorizedInputXmlConverter.js';",
+      "import {mapCategorizedInputXmlToUxml as reader, UXML_CATEGORIZED_INPUTXML_REFUSALS as R} from './uxml/UxmlCategorizedInputXmlSchemaMapper.js';",
+      'const original='+JSON.stringify(fixture())+';',
+      "const fileSha256=createHash('sha256').update(original).digest('hex');",
+      "const res=await reader(categorize(original),{originalInputXml:original,fileSha256});",
+      "if(res.ok!==false||res.uxml!==null||res.code!==R.S3_KEY_MISMATCH||res.exportAllowed!==false)",
+      "  throw Error('Strict S3 key-set mismatch not refused: '+JSON.stringify(res));",
     ].join('\n')+'\n');
     const p=spawnSync(process.execPath,['probe.mjs'],{
       cwd:dir,encoding:'utf8',timeout:45000,
