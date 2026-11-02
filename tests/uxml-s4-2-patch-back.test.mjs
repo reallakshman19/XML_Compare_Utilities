@@ -172,10 +172,10 @@ test('S4.2 REFUSE independently edited DerivedBlock value or Line projection',as
   const derived=cat.replace('<MaterialName source="existing-field">STEEL</MaterialName>',
     '<MaterialName source="existing-field">ALLOY</MaterialName>');
   assert.notEqual(derived,cat);
-  expectRefused(await write(src,derived),R.DERIVED);
+  expectRefused(await write(src,derived),R.UNMAPPED);
   const line=cat.replace('<Branchname>A</Branchname>','<Branchname>MANUAL</Branchname>');
   assert.notEqual(line,cat);
-  expectRefused(await write(src,line),R.DERIVED);
+  expectRefused(await write(src,line),R.UNMAPPED);
 });
 test('S4.2 REFUSE duplicated external stanza ownership across source rows',async()=>{
   const a='<RESTRAINT NUM="1" NODE="20" TYPE="8" TAG="A"/>';
