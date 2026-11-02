@@ -83,12 +83,8 @@ const mutations=[
    replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
    pattern:'S3 STRUCTURE REFUSE element between closing PIPINGMODEL and CAESARII'},
   {name:'NESTED_MODEL_WRAPPER',
-   edits:[
-    {old:"if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
-     replacement:"if(false&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;"},
-    {old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
-     replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;"}
-   ],
+   old:"if(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL')return null;",
+   replacement:"if(false&&(frames.length!==2||frames[0].name!=='CAESARII'||\n         frames[1].name!=='PIPINGMODEL'))return null;",
    pattern:'S3 STRUCTURE REFUSE nested row in model wrapper'},
   {name:'SECOND_ROOT',
    edits:[
@@ -126,9 +122,10 @@ const mutations=[
    old:"else if(char==='<')return null; // raw '<' is forbidden in an attribute",
    replacement:"else if(char==='<'){} // mutation ignores raw < inside XML attribute",
    pattern:'S3 STRUCTURE REFUSE raw less-than inside attribute value'},
-  {name:'DIRECT_UNITS_MODEL_CHILD',
-   old:"if(frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
-   replacement:"if(false&&frames.length===2&&frames[1].name==='PIPINGMODEL'&&\n       name!=='PIPINGELEMENT')return null;",
-   pattern:'S3 STRUCTURE REFUSE direct UNITS child'},
+  {name:'S3_RECORDS_ONLY_OPTION_GUARD',
+   target:strict,
+   old:"const admittedSource=scanOriginalInputXmlStructure(text);",
+   replacement:"const admittedSource=scanOriginalInputXmlStructure(text,{recordsOnlyModel:true});",
+   pattern:'S3 ACCEPT public GRE and PLB314 UNITS siblings'},
 ];
 for(const mutant of mutations)test('S3_HARDEN_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
