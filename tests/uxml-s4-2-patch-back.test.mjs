@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {inputXmlToCategorizedInputXml as categorize} from '../xml-compare/CategorizedInputXmlConverter.js';
+import {inputXmlToCategorizedInputXml as categorize,_test as s40} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {patchOriginalFromCategorized as patch,UXML_CATEGORIZED_PATCH_REFUSALS as R}
   from '../uxml/UxmlCategorizedPatchBack.js';
 import {scanOriginalInputXmlStructure as scan} from '../uxml/UxmlInputXmlSourceStructure.js';
@@ -443,4 +443,71 @@ test('S4.2 ACCEPT unique external RESTRAINT non-control TYPE value edit',async()
   assert.equal(result.changes[0].field,'RESTRAINT.TYPE');
   assert.deepEqual(Buffer.from(result.bytes),b(target));
   assertPatchBytes(original,result);
+});
+
+
+test('S4.2 R2 REFUSE S4.0 comment-harvested RESTRAINT sharing owner',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="+Y"/>'),
+    row(20,30,'B','<!-- <RESTRAINT NODE="20" TYPE="-Y"/> -->'));
+  assert.equal(s40.nodeBlocks(source).get('20')?.length,2,
+    'unchanged S4.0 groups actual stanza and comment lookalike');
+  const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 REFUSE S4.0 CDATA-harvested RESTRAINT sharing owner',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="+Y"/>'),
+    row(20,30,'B','<![CDATA[<RESTRAINT NODE="20" TYPE="-Y"/>]]>'));
+  assert.equal(s40.nodeBlocks(source).get('20')?.length,2);
+  const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 REFUSE S4.0 nested BEND RESTRAINT sharing owner',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="+Y"/>'),
+    row(20,30,'B','<BEND RADIUS="1"><RESTRAINT NODE="20" TYPE="-Y"/></BEND>'));
+  assert.equal(s40.nodeBlocks(source).get('20')?.length,2);
+  const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 REFUSE S4.0 nested RIGID DISPLACEMENTS sharing owner',async()=>{
+  const source=input(row(10,20,'A','<DISPLACEMENTS NODE_NUM="20" DISP_X="8"/>'),
+    row(20,30,'B','<RIGID WEIGHT="1"><DISPLACEMENTS NODE_NUM="20" DISP_X="9"/></RIGID>'));
+  assert.equal(s40.nodeBlocks(source).get('20')?.length,2);
+  const target=source.replace('DISP_X="8"','DISP_X="10"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 REFUSE edited RESTRAINT with mixed-case node/NODE aliases',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT node="99" NODE="20" TYPE="+Y"/>'),
+    row(20,30,'B','<RESTRAINT NODE="20" TYPE="-Y"/>'));
+  assert.equal(s40.attrsOf('<RESTRAINT node="99" NODE="20" TYPE="+Y"/>').NODE,'20');
+  assert.equal(s40.nodeBlocks(source).get('20')?.length,2);
+  const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 REFUSE comment-harvested SIF in same element body',async()=>{
+  const source=input(row(10,20,'A',
+    '<SIF NODE="20" SIF_VALUE="8"/><!-- <SIF NODE="20" SIF_VALUE="9"/> -->'),
+    row(20,30,'B'));
+  const element=scan(source)[0].raw;
+  assert.equal(s40.splitLooseBlocks(element,'SIF').filter(s40.activeSifBlock).length,2);
+  const target=source.replace('SIF_VALUE="8"','SIF_VALUE="10"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 R2 ACCEPT legal literal greater-than in XML attribute value',async()=>{
+  const source=simple().replace('NAME="ORIGINAL"','NAME="a>b"');
+  const target=source.replace('NAME="a>b"','NAME="a>c"');
+  const result=await write(source,categorize(target));
+  assert.equal(result.ok,true,result.code);
+  assert.equal(result.parity,'EQUAL');
+  assert.equal(result.changes.length,1);
+  assert.equal(result.changes[0].old,'a>b');
+  assert.equal(result.changes[0].new,'a>c');
+  assert.deepEqual(Buffer.from(result.bytes),b(target));
+});
+test('S4.2 R2 REFUSE exact-case last-wins owner duplicate attributes',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT NODE="99" NODE="20" TYPE="+Y"/>'),
+    row(20,30,'B','<RESTRAINT NODE="20" TYPE="-Y"/>'));
+  assert.equal(s40.attrsOf('<RESTRAINT NODE="99" NODE="20" TYPE="+Y"/>').NODE,'20',
+    'S4.0 uses last exact-case attribute');
+  const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  expectRefused(await write(source,categorize(target)),R.EXTERNAL);
 });
