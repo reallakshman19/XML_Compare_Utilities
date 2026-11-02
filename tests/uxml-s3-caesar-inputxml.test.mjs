@@ -132,14 +132,16 @@ test('multi-run restarts stay independent, and cyclic bad delta is explicitly re
   assert.throws(()=>mapCaesarInputXmlToUxmlStrict(cycle,{fileSha256:sha(cycle)}),
     /INPUT_XML_DELTA_PATH_CONFLICT/);
 });
-test('public GRE and PLB314 now refuse unsupported direct model UNITS child',()=>{
-  // Both were accepted by old S3; the shared S4.1 source-envelope now
-  // rejects UNITS alongside PIPINGELEMENT children. Pinned-main behavior
-  // and exact positive-output parity are separately proven by S3 harden tests.
-  for(const file of ['GREInputxml.xml','PLB314Inputxml.xml']){
+test('both public CAESAR14 samples are accepted as 1 UNANCHORED run (100 and 53 elements)',()=>{
+  for(const [file,count] of [['GREInputxml.xml',100],['PLB314Inputxml.xml',53]]){
     const xml=readFileSync(new URL('../docs/'+file,import.meta.url),'utf8');
-    assert.match(xml,/<UNITS>/,file);
-    assert.throws(()=>mapCaesarInputXmlToUxmlStrict(xml,{fileSha256:sha(xml)}),
-      /INPUT_XML_SOURCE_STRUCTURE_REFUSED/,file);
+    const doc=mapCaesarInputXmlToUxmlStrict(xml,{fileSha256:sha(xml)});
+    assert.equal(doc.inputXml.elementCount,count,file);
+    assert.equal(doc.components.length,count,file);
+    assert.equal(doc.ports.length,count*2,file);
+    assert.equal(doc.inputXml.runs.length,1,file);
+    assert.equal(doc.inputXml.runs[0].anchored,false,file);
+    assert.equal(doc.coordinateFrame.unanchoredRunCount,1,file);
+    assert(doc.ports.every(p=>p.anchored===false && p.coordinateFrame==='PSI116_XYZ_MM'));
   }
 });
