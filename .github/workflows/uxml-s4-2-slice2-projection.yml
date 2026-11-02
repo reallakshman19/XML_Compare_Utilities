@@ -35,6 +35,12 @@ jobs:
           node-version: '22'
       - name: S4.2 slice 2 projection map, four public-file witnesses and refusals
         run: node --test tests/uxml-s4-2-projection.test.mjs
+      - name: S4.2 slice 2 projection isolated mutants LF
+        run: node --test tests/uxml-s4-2-projection-mutants.test.mjs
+      - name: S4.2 slice 2 projection isolated mutants simulated CRLF
+        env:
+          S42_PROJECTION_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s4-2-projection-mutants.test.mjs
       - name: S4.2 exact original byte patch and refusal matrix
         run: node --test tests/uxml-s4-2-patch-back.test.mjs
       - name: S4.2 isolated mutation kills LF
