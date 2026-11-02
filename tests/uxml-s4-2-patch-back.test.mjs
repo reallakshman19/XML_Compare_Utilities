@@ -44,38 +44,33 @@ function replaceInPhysicalRow(src,index,field,newValue,child=false){
   assert(matched,'attribute '+field+' must exist in scanned row '+index);
   return src.slice(0,r.start)+modified+src.slice(r.start+r.raw.length);
 }
-function assertPatchBytes(src,edited,ret,n){
+function assertPatchBytes(src,ret){
   assert.equal(ret.ok,true,ret.code);
-  assert.equal(ret.parity,'EQUAL');
-  assert(ret.bytes instanceof Uint8Array);
-  assert.deepEqual(b(edited),Buffer.from(ret.bytes),'exact intended output bytes');
-  assert.equal(ret.changes.length,n);
-  const old=b(src),out=Buffer.from(ret.bytes);
-  let oldPos=0,newPos=0,oldBytes=0,newBytes=0;
+  const old=b(src),patched=Buffer.from(ret.bytes);
+  let sourceCursor=0,outputCursor=0;
   for(const change of ret.changes){
     const {start,end}=change.byteRange;
-    assert(start>=oldPos&&end>=start);
-    const fixed=old.subarray(oldPos,start);
-    assert.deepEqual(out.subarray(newPos,newPos+fixed.length),fixed,'untouched byte span');
-    newPos+=fixed.length;
-    const newSegment=b(src===edited?change.old:(
-      change.new.replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')));
-    const sourceSegment=old.subarray(start,end);
-    assert.equal(sourceSegment.toString('utf8').length>=0,true);
-    // The whole returned bytes equal the edited target, independently.
-    // Diff verification uses the next unmodified source span boundary.
-    const delta=out.length-old.length;
-    oldBytes+=end-start;
-    newPos+=newSegment.length;
-    newBytes+=newSegment.length;
-    oldPos=end;
-    assert(change.recordKey.startsWith('E'));
-    assert(change.field.includes('.'));
+    assert(start>=sourceCursor&&end>=start,'byte ranges nonoverlapping and ascending');
+    const unchanged=old.subarray(sourceCursor,start);
+    assert.deepEqual(patched.subarray(outputCursor,outputCursor+unchanged.length),
+      unchanged,'unchanged bytes before authorized range are identical');
+    outputCursor+=unchanged.length;
+    const quote=String.fromCharCode(old[start-1]);
+    assert(quote==='"'||quote==="'",'attribute quote style anchored in original');
+    const replacement=change.new.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,quote==='"'?'&quot;':'"')
+      .replace(/'/g,quote==="'"?'&apos;':"'");
+    const insert=b(replacement);
+    assert.deepEqual(patched.subarray(outputCursor,outputCursor+insert.length),insert,
+      'only the expected XML-escaped value is substituted');
+    outputCursor+=insert.length;
+    sourceCursor=end;
   }
-  assert.deepEqual(out.subarray(newPos),old.subarray(oldPos),'untouched suffix');
-  return {oldBytes,newBytes};
+  assert.deepEqual(patched.subarray(outputCursor),old.subarray(sourceCursor),
+    'all bytes after final patch are identical');
+  return ret.changes.map(c=>c.byteRange.end-c.byteRange.start);
 }
+
 test('S4.2 REFUSE stale baseline before any write',async()=>{
   const src=simple(),baseline=categorize(src);
   expectRefused(await write(src,baseline,baseline.replace('STEEL','ALLOY')),R.BASELINE);
@@ -102,6 +97,7 @@ for(const [name,path,count] of inputs){
     assert.equal(ret.ok,true,name+': '+ret.code);
     assert.equal(ret.changes.length,1);
     assert.deepEqual(Buffer.from(ret.bytes),b(target));
+    assertPatchBytes(src,ret);
     assert.equal(ret.changes[0].field,'PIPINGELEMENT.DELTA_X');
     assert(ret.changes[0].recordKey.startsWith('E0:'));
     console.log('S42_REAL_NUMERIC '+name+' count='+count+
@@ -117,6 +113,7 @@ for(const [name,path,count] of inputs){
     assert.equal(ret.ok,true,name+': '+ret.code);
     assert.equal(ret.changes.length,3);
     assert.deepEqual(Buffer.from(ret.bytes),b(target));
+    assertPatchBytes(src,ret);
     assert.equal(new Set(ret.changes.map(c=>c.recordKey)).size,3);
     const oldSizes=ret.changes.map(c=>c.byteRange.end-c.byteRange.start);
     console.log('S42_REAL_MULTI '+name+' count='+count+
@@ -148,6 +145,7 @@ test('S4.2 LF, CRLF and BOM originals retain non-target bytes',async()=>{
     const ret=await write(src,categorize(target));
     assert.equal(ret.ok,true,ret.code);
     assert.deepEqual(Buffer.from(ret.bytes),b(target));
+    assertPatchBytes(src,ret);
     assert.equal(Buffer.from(ret.bytes).subarray(0,3).toString('hex'),'efbbbf');
     assert(target.includes(eol));
   }
@@ -222,4 +220,26 @@ test('S4.2 REFUSE unsafe raw XML attribute-value characters',async()=>{
   const changed=cat.replace('NAME="ORIGINAL"','NAME="A & B"');
   assert.notEqual(changed,cat);
   expectRefused(await write(src,changed),R.VALUE);
+});
+
+test('S4.2 preserves single-quoted attribute style when escaping XML values',async()=>{
+  const src=simple().replace('NAME="ORIGINAL"',"NAME='ORIGINAL'");
+  const target=src.replace("NAME='ORIGINAL'","NAME='A&amp;B&apos;C'");
+  const result=await write(src,categorize(target));
+  assert.equal(result.ok,true,result.code);
+  assert.deepEqual(Buffer.from(result.bytes),b(target));
+  assertPatchBytes(src,result);
+  assert.equal(result.changes[0].new,"A&B'C");
+});
+test('S4.2 REFUSE post-edit duplicate physical snapshots despite same S3 key-set',async()=>{
+  const first=row(10,20,'A').replace('NAME="ORIGINAL"','NAME="FIRST"');
+  const second=row(10,20,'A').replace('NAME="ORIGINAL"','NAME="SECOND"');
+  const src=input(first,second),cat=categorize(src);
+  const target=src.replace('NAME="SECOND"','NAME="FIRST"');
+  expectRefused(await write(src,categorize(target),cat),R.PARITY);
+});
+test('S4.2 REFUSE invalid input types without output bytes',async()=>{
+  const src=simple(),cat=categorize(src);
+  expectRefused(await patch(null,cat,cat,{fileSha256:sha(src)}),R.INPUT);
+  expectRefused(await patch(src,cat,cat,null),R.INPUT);
 });
