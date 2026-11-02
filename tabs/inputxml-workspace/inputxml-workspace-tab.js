@@ -31,7 +31,7 @@ import {
   workspaceProducerReceiptJson,
 } from './inputxml-workspace-producer-adoption.js';
 import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
-import {createCategorizedEditController} from './inputxml-workspace-categorized-edit-controller.js';
+import {createCategorizedEditController,preserveCategorizedEditorLineEndings} from './inputxml-workspace-categorized-edit-controller.js';
 
 /**
  * InputXML Workspace UI tile/modal.
@@ -1092,7 +1092,8 @@ function bindCategorizedPatchBack(dialog,state){
     if(dialog.isConnected)rerender(dialog,state);
   });
   dialog.querySelector('[data-ixw-b7-editor]')?.addEventListener('input',event=>{
-    controller.edit(event.target.value); // synchronous revision invalidation
+    controller.edit(preserveCategorizedEditorLineEndings(controller.snapshot().edited,
+      event.target.value)); // synchronous revision invalidation; preserve S4.0 mixed EOL
     const panel=dialog.querySelector('[data-ixw-b7-panel]');
     if(panel)panel.dataset.b7Phase='ready';
     for(const action of ['download','continue']){
