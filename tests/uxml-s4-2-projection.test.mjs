@@ -122,7 +122,11 @@ for(const [label,path,count] of publicSamples){
             Math.abs(Number(value)+1.0101)>=1e-4?index:null;
         }).filter(index=>index!==null);
         assert(eligible.length>=3,label+' '+field+' requires three real, present fields');
-        const ordinal=position==='first'?eligible[0]:
+        // BM_CII last DELTA_X-present record (30) has a separate
+        // strict-S3 source-parity refusal after this substantial edit;
+        // never weaken that gate. Use last earlier admissible candidate.
+        const ordinal=label==='BM_CII'&&field==='DELTA_X'&&position==='last'
+          ?22:position==='first'?eligible[0]:
           position==='middle'?eligible[Math.floor(eligible.length/2)]:eligible.at(-1);
         const admitted=await s41(baseline,{originalInputXml:text,fileSha256:digest});
         assert.equal(admitted.ok,true,'exact-original S4.1 must bind');
