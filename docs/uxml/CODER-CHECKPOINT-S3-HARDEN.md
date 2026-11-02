@@ -17,14 +17,22 @@ strict output is byte-identical to pinned main on accepted test fixtures.
 S4.1 original behavior retained with new duplicate-attribute, raw `<`,
 reserved `<?xml-foo?>` guards and kill tests.
 
-**KNOWN COMPATIBILITY CHANGE:** Public GRE (100) and PLB314 (53) had
-been admitted by pinned-main strict S3 but now refuse because each has
-direct `UNITS` under PIPINGMODEL, outside the S4.1 shared envelope.
-Not a general claim of malformed CAESAR XML. No S1, S4.0 converter,
-other format, TopoFix/lane A, tolerances/CLOS, original source, or
-writer custody changed.
+**REPAIR ROUND 1 · CAESAR COMPATIBILITY RESTORED:** Strict S3 calls
+`scanOriginalInputXmlStructure(text)` with `recordsOnlyModel:false`
+(default) so legitimate non-row direct `PIPINGMODEL` children are
+accepted. Public GRE **100**, PLB314 **53**, and
+`opt/mock-xml.xml` **244** records are now admitted with exact
+pinned-main UXML bytes and recordKeys; an `UNITS` child before rows
+is also admitted. The complete `PIPINGELEMENT` nested inside
+`UNITS` or a wrapper still refuses, as do comments/PI/CDATA/DOCTYPE
+ghost rows, outside-root/trailer structure and malformed tags.
+S4.1 explicitly calls `{recordsOnlyModel:true}`; its established
+records-only `UNITS` refusal remains a **known S4.1 limitation**.
+No S1, S4.0 converter, other format, TopoFix/lane A,
+tolerances/CLOS, original bytes, policy or writer custody changed.
 
-**PRE-DOC-RECONCILIATION PROOF:** `f96d9283289ec8e7da741fe4857b96ed857eb9ab`,
+**SUPERSEDED PRE-REPAIR PROOF (NOT qualification of this round):**
+`f96d9283289ec8e7da741fe4857b96ed857eb9ab`,
 [S3 hardening #41391992700](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992700)
 SUCCESS: S3 20/20, mutants 16/16 LF and 16/16 simulated CRLF,
 S3 regressions 13/13, S4.1 54/54, S4.1 mutants 34/34 LF and
@@ -32,8 +40,11 @@ S3 regressions 13/13, S4.1 54/54, S4.1 mutants 34/34 LF and
 sideload/enrichment exit 0; [existing S3 #41391992596](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992596),
 [S4.1 #41391992610](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992610)
 and [ISO #41391992511](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41391992511)
-SUCCESS on that head. This docs correction creates a later head: final
-exact-head qualification must be recorded in XCU #239 work_returned.
+SUCCESS on that obsolete head, which had the real-export
+compatibility defect. **Do not credit those runs** as repaired
+evidence. Final SHA, complete LF/CRLF mutant kills, valid-original
+byte-identity proof (GRE, PLB314, mock-xml) and exact-head
+CI links are recorded in the new XCU #239 work_returned receipt.
 
 **EXECUTION:** The exact-head Node 22 workflow runs S3 structural
 adversarial and pinned-main byte-output parity tests, S3 and S4.1
@@ -50,6 +61,7 @@ trial, S4.2 writer, release and merge.
 
 **NEXT → ORACLE:** Reconcile the pinned exact PR #250 SHA,
 changed-file allowlist, byte-identical S3-output proof,
-public GRE/PLB314 refusal and full mutation qualification.
+public GRE/PLB314/mock-xml **acceptance** with exact baseline
+UXML bytes, nested-UNITS refusal, S4.1 limit and full mutation qualification.
 Commission non-author exact-head independent review and preserve
 DRAFT HOLD pending Owner merge authorization.
