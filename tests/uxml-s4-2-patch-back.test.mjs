@@ -302,3 +302,127 @@ test('S4.2 REFUSE source offset that does not exactly match original bytes (isol
     assert.equal(result.status,0,result.stdout+'\n'+result.stderr);
   }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
+
+test('S4.2 REFUSE shared node in second RESTRAINT with first unrelated stanza',async()=>{
+  const first='<RESTRAINT NODE="30" TYPE="7"/><RESTRAINT NODE="20" TYPE="8"/>';
+  const second='<RESTRAINT NODE="20" TYPE="9"/>';
+  const src=input(row(10,20,'A',first),row(20,30,'B',second));
+  const target=src.replace('<RESTRAINT NODE="20" TYPE="8"/>',
+    '<RESTRAINT NODE="20" TYPE="10"/>');
+  assert.notEqual(target,src);
+  expectRefused(await write(src,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 REFUSE shared node in stanza after comment-hidden RESTRAINT decoy',async()=>{
+  const first='<!-- <RESTRAINT NODE="30"/> --><RESTRAINT NODE="20" TYPE="8"/>';
+  const second='<RESTRAINT NODE="20" TYPE="9"/>';
+  const src=input(row(10,20,'A',first),row(20,30,'B',second));
+  const target=src.replace('<RESTRAINT NODE="20" TYPE="8"/>',
+    '<RESTRAINT NODE="20" TYPE="10"/>');
+  assert.notEqual(target,src);
+  expectRefused(await write(src,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 REFUSE numerically equal owner nodes 20 vs 20.0 across records',async()=>{
+  const src=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+    row(20,30,'B','<RESTRAINT NODE="20.0" TYPE="9"/>'));
+  const target=src.replace('<RESTRAINT NODE="20" TYPE="8"/>',
+    '<RESTRAINT NODE="20" TYPE="10"/>');
+  expectRefused(await write(src,categorize(target)),R.EXTERNAL);
+});
+test('S4.2 REFUSE external NODE moving to another owned node or unset sentinel',async()=>{
+  const src=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+    row(20,30,'B','<RESTRAINT NODE="30" TYPE="9"/>'));
+  for(const owner of ['30','-1.010100']){
+    const target=src.replace('<RESTRAINT NODE="20" TYPE="8"/>',
+      '<RESTRAINT NODE="'+owner+'" TYPE="8"/>');
+    expectRefused(await write(src,categorize(target)),R.IDENTITY);
+  }
+});
+test('S4.2 REFUSE every S4.0 external stanza control or node-reference attribute edit',async()=>{
+  // S4.0 CONTROL_ATTRS from CategorizedInputXmlConverter.js:23 plus basis/
+  // FROM/TO node references used by S4.0 coordinate grouping.
+  const controls=['NUM','NUMBER','SIF_NUM','DISP_NUM','FORCMNT_NUM',
+    'NODE_NUM','NODE1','NODE2','NODE3','CNODE',
+    'GLOBAL_COORD_BASIS_NODE','FROM_NODE','TO_NODE'];
+  for(const control of controls){
+    const sourceStanza='<RESTRAINT NODE="20" TYPE="8" '+control+'="7"/>';
+    const targetStanza='<RESTRAINT NODE="20" TYPE="8" '+control+'="8"/>';
+    const src=input(row(10,20,'A',sourceStanza),row(20,30,'B'));
+    const target=src.replace(sourceStanza,targetStanza);
+    expectRefused(await write(src,categorize(target)),R.IDENTITY);
+  }
+});
+test('S4.2 REFUSE moved DISPLACEMENTS and FORCESMOMENTS NODE_NUM controls',async()=>{
+  for(const tag of ['DISPLACEMENTS','FORCESMOMENTS']){
+    const stanza='<'+tag+' NODE_NUM="20" VALUE="8"/>';
+    const src=input(row(10,20,'A',stanza),row(20,30,'B'));
+    const target=src.replace(stanza,'<'+tag+' NODE_NUM="30" VALUE="8"/>');
+    expectRefused(await write(src,categorize(target)),R.IDENTITY);
+  }
+});
+test('S4.2 REFUSE newline, tab and carriage return in changed attribute values',async()=>{
+  const src=simple();
+  for(const value of ['NEW\nLINE','NEW\rLINE','NEW\tLINE',
+    'NEW&#9;LINE','NEW&#10;LINE','NEW&#13;LINE']){
+    const target=src.replace('NAME="ORIGINAL"','NAME="'+value+'"');
+    expectRefused(await write(src,categorize(target)),R.VALUE);
+  }
+});
+test('S4.2 REFUSE nested child attribute edit with distinct nested code',async()=>{
+  const nested='<RIGID WEIGHT="1.5"><INNER RATE="5"/></RIGID>';
+  const src=input(row(10,20,'A',nested),row(20,30,'B'));
+  const target=src.replace('<INNER RATE="5"/>','<INNER RATE="6"/>');
+  assert.notEqual(src,target);
+  expectRefused(await write(src,categorize(target)),R.NESTED);
+});
+test('S4.2 REFUSE noncanonical XML entity in changed value',async()=>{
+  const src=simple();
+  const target=src.replace('NAME="ORIGINAL"','NAME="A&#38;B"');
+  assert.notEqual(src,target);
+  expectRefused(await write(src,categorize(target)),R.VALUE);
+});
+test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated source)',()=>{
+  const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
+  const sandbox=mkdtempSync(join(tmpdir(),'s42-byte-guard-'));
+  try{
+    const files=[
+      'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
+      'uxml/UxmlInputXmlSchemaMapper.js',
+      'uxml/UxmlInputXmlSourceStructure.js',
+      'uxml/UxmlInputXmlDeltaGraph.js',
+      'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js',
+      'utils/line-no-metadata.js',
+    ];
+    for(const file of files){
+      const path=join(sandbox,file);
+      mkdirSync(dirname(path),{recursive:true});
+      copyFileSync(join(sourceRoot,file),path);
+    }
+    writeFileSync(join(sandbox,'package.json'),'{"type":"module"}\n');
+    const mapper=join(sandbox,'uxml/UxmlCategorizedPatchBack.js');
+    const code=readFileSync(mapper,'utf8').replace(/\r\n/g,'\n');
+    const seam='  for(let i=0;i<changes.length;i++){\n    const c=changes[i],{start,end}=c.byteRange;';
+    assert.equal(code.split(seam).length-1,1,'second loop injection seam');
+    writeFileSync(mapper,code.replace(seam,
+      '  if(changes.length)originalBytes[changes[0].byteRange.start]^=1; // corrupt ONLY the byte witness after source-text check\n'+seam));
+    writeFileSync(join(sandbox,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {inputXmlToCategorizedInputXml as categorize} from './xml-compare/CategorizedInputXmlConverter.js';",
+      "import {patchOriginalFromCategorized as patch} from './uxml/UxmlCategorizedPatchBack.js';",
+      'const original='+JSON.stringify(simple())+';',
+      "const sha=createHash('sha256').update(original).digest('hex');",
+      "const changed=original.replace('DELTA_X=\"10\"','DELTA_X=\"12\"');",
+      'const result=await patch(original,categorize(original),categorize(changed),{fileSha256:sha});',
+      "if(result.ok!==false||result.code!=='S42_SOURCE_OFFSET_NOT_EXACT'||result.bytes!==null)",
+      "  throw Error('corrupted exact-byte witness not refused: '+JSON.stringify(result));",
+    ].join('\n')+'\n');
+    const result=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:sandbox,encoding:'utf8',timeout:45000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([key])=>key!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(result.status,0,result.stdout+'\n'+result.stderr);
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
+});
