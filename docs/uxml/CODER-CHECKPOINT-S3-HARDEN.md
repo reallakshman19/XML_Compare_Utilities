@@ -21,8 +21,9 @@ reserved `<?xml-foo?>` guards and kill tests.
 `scanOriginalInputXmlStructure(text)` with `recordsOnlyModel:false`
 (default) so legitimate non-row direct `PIPINGMODEL` children are
 accepted. Public GRE **100**, PLB314 **53**, and
-`opt/mock-xml.xml` **244** records are now admitted with exact
-pinned-main UXML bytes and recordKeys; an `UNITS` child before rows
+`opt/mock-xml.xml` **244** records and
+`converters/scripts/pdf_inputxml_profile_bm_cii.xml` **40** records
+are admitted with exact pinned-main UXML bytes and recordKeys; an `UNITS` child before rows
 is also admitted. The complete `PIPINGELEMENT` nested inside
 `UNITS` or a wrapper still refuses, as do comments/PI/CDATA/DOCTYPE
 ghost rows, outside-root/trailer structure and malformed tags.
@@ -43,7 +44,7 @@ and [ISO #41391992511](https://github.com/reallakshman19/XML_Compare_Utilities/a
 SUCCESS on that obsolete head, which had the real-export
 compatibility defect. **Do not credit those runs** as repaired
 evidence. Final SHA, complete LF/CRLF mutant kills, valid-original
-byte-identity proof (GRE, PLB314, mock-xml) and exact-head
+byte-identity proof (GRE, PLB314, mock-xml, BM_CII) and exact-head
 CI links are recorded in the new XCU #239 work_returned receipt.
 
 **EXECUTION:** The exact-head Node 22 workflow runs S3 structural
@@ -61,7 +62,7 @@ trial, S4.2 writer, release and merge.
 
 **NEXT → ORACLE:** Reconcile the pinned exact PR #250 SHA,
 changed-file allowlist, byte-identical S3-output proof,
-public GRE/PLB314/mock-xml **acceptance** with exact baseline
+public GRE/PLB314/mock-xml/BM_CII **acceptance** with exact baseline
 UXML bytes, nested-UNITS refusal, S4.1 limit and full mutation qualification.
 Commission non-author exact-head independent review and preserve
 DRAFT HOLD pending Owner merge authorization.
