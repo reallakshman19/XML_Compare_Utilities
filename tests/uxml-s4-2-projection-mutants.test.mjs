@@ -104,6 +104,8 @@ const mutants=[
   {name:'OMITTED_PROJECTION_NO_INVENTION',
    pattern:'S4.2 slice2 REFUSE source field missing or absent from map',
    edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b))",
-     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b)))"}]},
+     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b)))"},
+     {old:"if(!a||a.value===b.value)continue;",
+      replacement:"if(a?.value===b?.value)continue;"}]},
 ];
 for(const mutant of mutants)test('S42_SLICE2_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
