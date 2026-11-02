@@ -97,7 +97,9 @@ function parseCategorized(xml){
   return {lines,elements};
 }
 function physicalSourceRows(text){
-  const tokens=scanOriginalInputXmlStructure(text,{recordsOnlyModel:true});
+  // S4.1 and strict S3 share source-row admission: non-record model siblings
+  // (such as UNITS) never consume physical PIPINGELEMENT ordinals.
+  const tokens=scanOriginalInputXmlStructure(text);
   if(!tokens)return null;
   const physical=tokens.map((tag,index)=>{
     const raw=tag.raw,open=tag.open;
@@ -122,8 +124,12 @@ function hasUnknownSourceSection(original,rows){
     if(offset<0)return true;
     remaining=remaining.slice(0,offset)+remaining.slice(offset+row.raw.length);
   }
+  // MUTATION_GUARD_KNOWN_NON_ROW_SECTION: CAESAR II UNITS is a separate
+  // source-witness-only PIPINGMODEL child, not a PIPINGELEMENT or an inferred
+  // Categorized row. The shared scanner already rejects nested ghost rows.
   remaining=remaining.replace(/<\?xml\b[\s\S]*?\?>/gi,'')
     .replace(/<!--[\s\S]*?-->/g,'')
+    .replace(/<UNITS\b[^>]*\/>|<UNITS\b[^>]*>[\s\S]*?<\/UNITS\s*>/gi,'')
     .replace(/<\/?CAESARII\b[^>]*>/gi,'')
     .replace(/<\/?PIPINGMODEL\b[^>]*>/gi,'');
   // Unknown headers/sections outside source elements have no Categorized carrier.
