@@ -443,3 +443,49 @@ test('S4.1 null and undefined options become evidence-only defaults, no TypeErro
     assert.equal(res.uxml.components.length,0);
   }
 });
+
+
+test('S4.1 STRUCTURE REFUSE mismatched model closing tag even with plausible record',async()=>{
+  const original=fixture().replace('</PIPINGMODEL>','</NOT_PIPINGMODEL>');
+  await structureRefusal(original);
+});
+test('S4.1 STRUCTURE REFUSE missing FROM_NODE after valid lexical parse',async()=>{
+  const original=input(elem('10','20','A',10).replace('FROM_NODE="10"','FROM_NODE=""'));
+  const cat=categorize(original);
+  assert.equal(scanOriginal(original)?.length,1,'lexically well-formed but invalid source identity');
+  refused(await run(original,cat),R.ORIGINAL_STRUCTURE);
+});
+test('S4.1 REFUSE when strict S3 reader throws even though lexical source is valid',async()=>{
+  const root=fileURLToPath(new URL('../',import.meta.url));
+  const dir=mkdtempSync(join(tmpdir(),'uxml-s4-1-s3-throws-'));
+  try{
+    for(const folder of ['uxml','xml-compare','utils'])mkdirSync(join(dir,folder));
+    for(const file of [
+      'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlConstants.js',
+      'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
+      'xml-compare/CategorizedInputXmlConverter.js',
+      'xml-compare/XmlCompareCoordinateSideload.js',
+      'xml-compare/XmlCompareCoordinateDiagnostics.js',
+    ])copyFileSync(join(root,file),join(dir,file));
+    // Fault-injected disposable strict S3 witness. Shipped S3 is unchanged.
+    writeFileSync(join(dir,'uxml/UxmlInputXmlSchemaMapper.js'),
+      'export function mapCaesarInputXmlToUxmlStrict(){throw Error("INPUT_XML_SYNTHETIC_REFUSAL:E0");}\n');
+    writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+    writeFileSync(join(dir,'probe.mjs'),[
+      "import {createHash} from 'node:crypto';",
+      "import {inputXmlToCategorizedInputXml as categorize} from './xml-compare/CategorizedInputXmlConverter.js';",
+      "import {mapCategorizedInputXmlToUxml as reader, UXML_CATEGORIZED_INPUTXML_REFUSALS as R} from './uxml/UxmlCategorizedInputXmlSchemaMapper.js';",
+      'const original='+JSON.stringify(fixture())+';',
+      "const fileSha256=createHash('sha256').update(original).digest('hex');",
+      "const res=await reader(categorize(original),{originalInputXml:original,fileSha256});",
+      "if(res.ok!==false||res.uxml!==null||res.code!==R.S3_REFUSED||",
+      "res.s3Code!=='INPUT_XML_SYNTHETIC_REFUSAL')",
+      "throw Error('Strict S3 exception not refused with null UXML: '+JSON.stringify(res));",
+    ].join('\n')+'\n');
+    const p=spawnSync(process.execPath,['probe.mjs'],{
+      cwd:dir,encoding:'utf8',timeout:45000,
+      env:Object.fromEntries(Object.entries(process.env).filter(([k])=>k!=='NODE_TEST_CONTEXT')),
+    });
+    assert.equal(p.status,0,p.stdout+'\n'+p.stderr);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
