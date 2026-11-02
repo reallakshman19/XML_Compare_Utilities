@@ -134,7 +134,9 @@ test('S4.1 no original is evidence-only NOT_SOURCE_EQUIVALENT and gate is not by
   assert.equal(res.uxml.components.length,0,'no counterfeit sourceRefs');
   assert.equal(res.evidence.length,2);
   assert.equal(res.uxml.categorized.status,'NOT_SOURCE_EQUIVALENT');
-  assert(res.gate.blockers.length>0);
+  assert.equal(res.uxml.validation.ready,false,'source-unbound evidence is never admission-ready');
+  assert.equal(res.uxml.validation.gateReady,res.gate.ready,
+    'preserve the shared gate result without inventing admission authority');
 });
 test('S4.1 enriched is marker metadata and never a new input profile',async()=>{
   const src=fixture(),res=await run(src);
