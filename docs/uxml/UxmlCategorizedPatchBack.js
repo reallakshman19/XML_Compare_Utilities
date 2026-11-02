@@ -554,8 +554,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
       editedCategorized,options);
   }
-  if(substitute(editedCategorized,normalized)!==baselineCategorized)
-    return fail(R.UNMAPPED);
+  const projectionOnlyEquivalent=substitute(editedCategorized,normalized)===
+    baselineCategorized;
   const binding=await bind(baselineCategorized,originalText,measured);
   const sourceRows=scanOriginalInputXmlStructure(originalText);
   if(!binding||!sourceRows||binding.components.length!==oldElements.length)
@@ -587,6 +587,11 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   let canonical;
   try{canonical=inputXmlToCategorizedInputXml(candidateOriginal);}
   catch{return fail(R.CONVERTER);}
+  // Either the user changed only visible mapped leaves (possibly also
+  // their matching snapshots), or supplied the entire consistent S4.0
+  // regenerated document. Arbitrary derived/missing/line edits are refused.
+  if(!projectionOnlyEquivalent&&editedCategorized!==canonical)
+    return fail(R.UNMAPPED);
   const canonicalElements=categorizedElementRanges(canonical);
   if(canonicalElements.length!==newElements.length)return fail(R.ROUNDTRIP);
   for(const change of changes){
