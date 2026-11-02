@@ -124,12 +124,14 @@ function hasUnknownSourceSection(original,rows){
     if(offset<0)return true;
     remaining=remaining.slice(0,offset)+remaining.slice(offset+row.raw.length);
   }
-  // MUTATION_GUARD_KNOWN_NON_ROW_SECTION: CAESAR II UNITS is a separate
-  // source-witness-only PIPINGMODEL child, not a PIPINGELEMENT or an inferred
-  // Categorized row. The shared scanner already rejects nested ghost rows.
+  // MUTATION_GUARD_UNITS_HARVEST: the forward S4.0 converter scans some
+  // stanzas globally, so harvesting them from non-record UNITS is not safe.
+  const units=remaining.match(/<UNITS(?=[\s/>])[^>]*\/>|<UNITS(?=[\s/>])[^>]*>[\s\S]*?<\/UNITS\s*>/gi)||[];
+  if(units.some(section=>/<(?:RESTRAINT|DISPLACEMENTS|FORCESMOMENTS|ALLOWABLESTRESS|BEND|RIGID|FLANGES|SIF)(?=[\s/>])/i.test(section)))return true;
+  // MUTATION_GUARD_UNITS_BOUNDARY: <UNITS-X/> is not a recognized UNITS sibling.
   remaining=remaining.replace(/<\?xml\b[\s\S]*?\?>/gi,'')
     .replace(/<!--[\s\S]*?-->/g,'')
-    .replace(/<UNITS\b[^>]*\/>|<UNITS\b[^>]*>[\s\S]*?<\/UNITS\s*>/gi,'')
+    .replace(/<UNITS(?=[\s/>])[^>]*\/>|<UNITS(?=[\s/>])[^>]*>[\s\S]*?<\/UNITS\s*>/gi,'')
     .replace(/<\/?CAESARII\b[^>]*>/gi,'')
     .replace(/<\/?PIPINGMODEL\b[^>]*>/gi,'');
   // Unknown headers/sections outside source elements have no Categorized carrier.
