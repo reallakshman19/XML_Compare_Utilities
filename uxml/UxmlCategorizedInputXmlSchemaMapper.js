@@ -271,11 +271,12 @@ export async function mapCategorizedInputXmlToUxml(categorizedText,options={}){
   const s41Keys=matches.map(({original})=>original.recordKey);
   const s3Keys=s3Agreement.keys;
   // MUTATION_GUARD_S3_KEY_SET: compare complete multisets, not just counts.
-  if(!Array.isArray(s3Keys)||s3Keys.length!==s41Keys.length||
-     new Set(s3Keys).size!==s3Keys.length||
-     new Set(s41Keys).size!==s41Keys.length||
-     s3Keys.some(key=>!s41Keys.includes(key))||
-     s41Keys.some(key=>!s3Keys.includes(key)))
+  const matchesStrictS3KeySet=Array.isArray(s3Keys)&&s3Keys.length===s41Keys.length&&
+    new Set(s3Keys).size===s3Keys.length&&
+    new Set(s41Keys).size===s41Keys.length&&
+    s3Keys.every(key=>s41Keys.includes(key))&&
+    s41Keys.every(key=>s3Keys.includes(key));
+  if(!matchesStrictS3KeySet)
     return refuse(UXML_CATEGORIZED_INPUTXML_REFUSALS.S3_KEY_MISMATCH);
 
   // External stanzas deduplicated by the compatibility reverse converter are
