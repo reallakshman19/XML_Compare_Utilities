@@ -3,7 +3,7 @@
  * Source authority: exact SHA + S4.1 one-to-one refs + shared scanner offsets.
  * No inverse converter, XML rebuild, geometry inference, or UI/application.
  */
-import {inputXmlToCategorizedInputXml} from '../xml-compare/CategorizedInputXmlConverter.js';
+import {inputXmlToCategorizedInputXml,_test as s40} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {mapCategorizedInputXmlToUxml} from './UxmlCategorizedInputXmlSchemaMapper.js';
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
@@ -107,7 +107,9 @@ function lexRow(raw){
     const tag=raw.slice(open,end);
     if(tag.startsWith('</')){
       const match=tag.match(/^<\/([A-Za-z_:][\w.:-]*)\s*>$/);
-      if(!match||stack.pop()!==match[1])return null;
+      const parent=stack.pop();
+      if(!match||parent?.name!==match[1])return null;
+      stanzas[parent.index].end=end;
       masked.push(tag);cursor=end;continue;
     }
     const match=tag.match(/^<([A-Za-z_:][\w.:-]*)(?=[\s/>])/);
@@ -116,7 +118,7 @@ function lexRow(raw){
     const attributeLimit=tag.length-(selfClosing?2:1);
     // Stanza identity is based on the opening tag actually lexed at this
     // position. Comments and CDATA are skipped by this lexer.
-    const stanza={name,depth,attributes:[]};
+    const stanza={name,depth,start:open,end:selfClosing?end:null,attributes:[]};
     const stanzaIndex=stanzas.length;
     stanzas.push(stanza);
     let pos=match[0].length,prefix=0;
@@ -139,7 +141,7 @@ function lexRow(raw){
       pos+=token.length;
     }
     masked.push(tag.slice(prefix));
-    if(!selfClosing)stack.push(name);
+    if(!selfClosing)stack.push({name,index:stanzaIndex});
     cursor=end;
   }
   if(stack.length)return null;
@@ -206,6 +208,68 @@ function sharedExternal(lexedRows,rowIndex,before,after,editedRow){
   return countStanzaOwners(lexedRows,tag,oldOwner)!==1||
     countStanzaOwners(lexedRows,tag,newOwner,rowIndex,editedRow)!==1;
 }
+// S4.0 grouping source of truth: use the converter's exported *same*
+// regex / attrsOf / activeBlock functions, not a competing XML lexer.
+// splitLooseBlocks intentionally sees nested, comment and CDATA lookalikes.
+// S4.2 must refuse rather than silently 'repair' that projection authority.
+const s40HarvestTagNames='RESTRAINT|DISPLACEMENTS|FORCESMOMENTS|ALLOWABLESTRESS|SIF';
+const harvestLookalike=new RegExp('<(?:'+s40HarvestTagNames+')(?=[\\s/>])','i');
+const commentOrCdata=/<!--[\\s\\S]*?-->|<!\\[CDATA\\[[\\s\\S]*?\\]\\]>/g;
+function hasAmbiguousSourceMarkup(text,rows){
+  // MUTATION_GUARD_S40_HIDDEN_MARKUP: S4.0's raw regex also harvests
+  // '<RESTRAINT' etc inside comments or CDATA, even when lexRow skips them.
+  if(([...text.matchAll(commentOrCdata)]).some(x=>harvestLookalike.test(x[0])))
+    return true;
+  // MUTATION_GUARD_S40_NESTED_HARVEST: S4.0 sees child-of-BEND/RIGID.
+  for(const row of rows){
+    const lexed=lexRow(row.raw);
+    if(!lexed||lexed.stanzas.some(stanza=>
+      stanza.depth>1&&externalTags.has(stanza.name.toUpperCase())))return true;
+  }
+  return false;
+}
+function ambiguousStanzaAttributes(stanza){
+  const seen=new Set();
+  for(const attr of stanza.attributes){
+    const key=attr.name.toLowerCase();
+    // MUTATION_GUARD_S40_CASE_ALIAS: S4.0 attrsOf is exact-case,
+    // last exact spelling wins; mixed-case duplicates create two views.
+    if(seen.has(key))return true;
+    seen.add(key);
+  }
+  return false;
+}
+function s40ActiveOwnedBlocks(text,tag,owner){
+  const blocks=s40.splitLooseBlocks(text,tag);
+  return blocks.filter(block=>{
+    if(!(tag==='SIF'?s40.activeSifBlock(block):s40.activeNodeBlock(block)))
+      return false;
+    // s40.attrsOf uses case-sensitive property names with last-wins
+    // semantics; no case-insensitive first-match attribute lookup.
+    const attrs=s40.attrsOf(block);
+    const name=tag==='RESTRAINT'||tag==='SIF'?'NODE':'NODE_NUM';
+    return normalizeExternalNode(attrs[name])===owner;
+  });
+}
+function s40ExclusiveBlock(original,patched,originalRows,patchedRows,externalEdits){
+  if(!externalEdits.length)return true;
+  if(hasAmbiguousSourceMarkup(original,originalRows)||
+     hasAmbiguousSourceMarkup(patched,patchedRows))return false;
+  for(const edit of externalEdits){
+    const {tag,owner,oldBlock,newBlock,rowIndex}=edit;
+    const initial=tag==='SIF'?originalRows[rowIndex]?.raw:original;
+    const final=tag==='SIF'?patchedRows[rowIndex]?.raw:patched;
+    if(!initial||!final)return false;
+    const originalBlocks=s40ActiveOwnedBlocks(initial,tag,owner);
+    const patchedBlocks=s40ActiveOwnedBlocks(final,tag,owner);
+    // MUTATION_GUARD_S40_EXACT_BLOCK: not just count=1, the exact
+    // block s40 harvested MUST be the stanza whose value is being edited.
+    if(originalBlocks.length!==1||patchedBlocks.length!==1||
+       originalBlocks[0]!==oldBlock||patchedBlocks[0]!==newBlock)
+      return false;
+  }
+  return true;
+}
 function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
   const old=lexRow(oldRaw),next=lexRow(newRaw);
   if(!old||!next||old.masked!==next.masked||old.attrs.length!==next.attrs.length)
@@ -230,7 +294,10 @@ function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
     if(/[\t\r\n]/.test(newValue))
       return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
     const encoded=encodeValue(newValue,before.quote);
-    if(after.value!==encoded)return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
+    // XML 1.0 permits literal '>' in an attribute value. Preserve it as
+    // authored so S4.0's byte-exact OriginalElement CDATA also agrees.
+    if(after.value.replace(/>/g,'&gt;')!==encoded)
+      return {error:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
     if(before.depth===1&&externalTags.has(before.tagName.toUpperCase())){
       // MUTATION_GUARD_EXTERNAL_CONTROL_IDENTITY: block *all* S4.0 node
       // grouping/control references, including NODE->other/sentinel moves.
@@ -241,11 +308,23 @@ function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
       // MUTATION_GUARD_SHARED_EXTERNAL_OWNERSHIP: identify the SAME lexed
       // stanza before and after, ignoring any comment-hidden tag lookalikes.
       if(!beforeStanza||!afterStanza||
-         sharedExternal(lexedRows,rowIndex,beforeStanza,afterStanza,next))
+         sharedExternal(lexedRows,rowIndex,beforeStanza,afterStanza,next)||
+         ambiguousStanzaAttributes(beforeStanza)||
+         ambiguousStanzaAttributes(afterStanza))
         return {error:UXML_CATEGORIZED_PATCH_REFUSALS.EXTERNAL};
+      const oldBlock=oldRaw.slice(beforeStanza.start,beforeStanza.end);
+      const newBlock=newRaw.slice(afterStanza.start,afterStanza.end);
+      const owner=stanzaOwner(beforeStanza);
+      if(!owner||!oldBlock||!newBlock)
+        return {error:UXML_CATEGORIZED_PATCH_REFUSALS.EXTERNAL};
+      changes.push({start:before.start,end:before.end,oldRaw:before.value,
+        newRaw:after.value,old:oldValue,new:newValue,
+        field:before.tagName+'.'+before.name,
+        external:{tag:before.tagName.toUpperCase(),owner,oldBlock,newBlock,rowIndex}});
+      continue;
     }
-    changes.push({start:before.start,end:before.end,oldRaw:before.value,newRaw:encoded,
-      old:oldValue,new:newValue,field:before.tagName+'.'+before.name});
+    changes.push({start:before.start,end:before.end,oldRaw:before.value,
+      newRaw:after.value,old:oldValue,new:newValue,field:before.tagName+'.'+before.name});
   }
   return {changes};
 }
@@ -323,7 +402,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       const byteEnd=utf8(originalText.slice(0,charEnd)).length;
       changes.push({recordKey:reference.recordKey,field:field.field,old:field.old,
         new:field.new,byteRange:{start:byteStart,end:byteEnd},
-        oldRaw:field.oldRaw,newRaw:field.newRaw});
+        oldRaw:field.oldRaw,newRaw:field.newRaw,external:field.external});
     }
   }
   // Explicit ascending non-overlap proof; patch from the end so byte
@@ -350,6 +429,14 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   catch{return fail(R.VALUE);}
   // The writer never uses the reverse converter, only strict S3, forward
   // converter and S4.1 after the proposed byte-level mutation.
+  const externalEdits=changes.filter(change=>change.external)
+    .map(change=>change.external);
+  if(externalEdits.length){
+    const patchedRows=scanOriginalInputXmlStructure(patched);
+    if(!patchedRows||patchedRows.length!==originalRows.length||
+       !s40ExclusiveBlock(originalText,patched,originalRows,patchedRows,externalEdits))
+      return fail(R.EXTERNAL);
+  }
   const patchedHash=await sha(patchedBytes);
   let oldStrict,newStrict;
   try{
