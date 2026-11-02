@@ -509,5 +509,19 @@ test('S4.2 R2 REFUSE exact-case last-wins owner duplicate attributes',async()=>{
   assert.equal(s40.attrsOf('<RESTRAINT NODE="99" NODE="20" TYPE="+Y"/>').NODE,'20',
     'S4.0 uses last exact-case attribute');
   const target=source.replace('TYPE="+Y"','TYPE="+Z"');
+  // S4.1's duplicate-attribute admission gate refuses earlier than
+  // S4.2's external-only guard; fail closed with no output either way.
+  expectRefused(await write(source,categorize(target)),R.UNBOUND);
+});
+
+test('S4.2 R2 REFUSE external block that becomes inactive after value edit',async()=>{
+  const source=input(row(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+    row(20,30,'B'));
+  const target=source.replace('TYPE="8"','TYPE="-1.010100"');
+  const oldBlock=s40.splitLooseBlocks(source,'RESTRAINT')[0];
+  const newBlock=s40.splitLooseBlocks(target,'RESTRAINT')[0];
+  assert.equal(s40.activeNodeBlock(oldBlock),true);
+  assert.equal(s40.activeNodeBlock(newBlock),false,
+    'S4.0 removes inactive node blocks after edit');
   expectRefused(await write(source,categorize(target)),R.EXTERNAL);
 });
