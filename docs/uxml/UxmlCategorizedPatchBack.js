@@ -479,3 +479,130 @@ async function patchOriginalFromCategorizedSlice1(originalText,baselineCategoriz
       ({recordKey,field,old,new:next,byteRange})),
     parity:'EQUAL'};
 }
+
+
+// S4.2 slice 2: user-visible, *verbatim* direct-row projection fields.
+// All actual byte mutations and output parity still go through slice 1.
+const s40EscapeText=value=>String(value).replaceAll('&','&amp;')
+  .replaceAll('<','&lt;').replaceAll('>','&gt;')
+  .replaceAll('"','&quot;').replaceAll("'",'&apos;');
+const snapshotBlock=element=>element.match(/<OriginalElement>[\s\S]*?<\/OriginalElement>/)?.[0]??null;
+function substitute(text,edits){
+  let out=text;
+  const sorted=[...edits].sort((a,b)=>b.start-a.start);
+  for(let i=0;i<sorted.length;i++){
+    const edit=sorted[i];
+    if(edit.start<0||edit.end<edit.start||edit.end>text.length||
+       (i&&edit.end>sorted[i-1].start))return null;
+    out=out.slice(0,edit.start)+edit.value+out.slice(edit.end);
+  }
+  return out;
+}
+function sourceRootAttribute(sourceRow,attribute){
+  const row=lexRow(sourceRow.raw);
+  if(!row)return null;
+  const attrs=row.attrs.filter(x=>x.depth===0&&x.tagName==='PIPINGELEMENT'&&
+    x.name===attribute);
+  return attrs.length===1?attrs[0]:null;
+}
+export async function patchOriginalFromCategorized(originalText,baselineCategorized,editedCategorized,options={}){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||
+     typeof editedCategorized!=='string'||!options||typeof options!=='object')
+    return fail(R.INPUT);
+  // Reject stale source / baseline *before* interpreting editable projection.
+  const measured=await sha(utf8(originalText));
+  if(!/^[a-f\d]{64}$/i.test(clean(options.fileSha256))||
+     measured!==clean(options.fileSha256).toLowerCase())return fail(R.HASH);
+  let authoritative;
+  try{authoritative=inputXmlToCategorizedInputXml(originalText);}
+  catch{return fail(R.CONVERTER);}
+  if(authoritative!==baselineCategorized)return fail(R.BASELINE);
+  const oldElements=categorizedElementRanges(baselineCategorized);
+  const newElements=categorizedElementRanges(editedCategorized);
+  if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
+  const changes=[],normalized=[],oldSnapshots=[],newSnapshots=[];
+  for(let i=0;i<oldElements.length;i++){
+    const old=oldElements[i],next=newElements[i];
+    for(const entry of S42_PROJECTION_MAP){
+      const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);
+      if(a?.error||b?.error||Boolean(a)!==Boolean(b))
+        return fail(R.UNMAPPED);
+      if(!a||a.value===b.value)continue;
+      const decoded=decodeValue(b.value);
+      // Require exactly the S4.0 XML text representation of what the
+      // user typed; no numerical reformatting, unit conversion or rounding.
+      if(decoded===null||/[\t\r\n]/.test(decoded)||
+         s40EscapeText(decoded)!==b.value)return fail(R.ROUNDTRIP);
+      normalized.push({start:next.start+b.start,end:next.start+b.end,value:a.value});
+      changes.push({index:i,entry,old:a.value,new:b.value,decoded});
+    }
+    const oldSnap=snapshotBlock(old.text),newSnap=snapshotBlock(next.text);
+    if(!oldSnap||!newSnap)return fail(R.STRUCTURE);
+    oldSnapshots.push(oldSnap);newSnapshots.push(newSnap);
+    if(oldSnap!==newSnap){
+      const local=next.text.indexOf(newSnap);
+      normalized.push({start:next.start+local,end:next.start+local+newSnap.length,
+        value:oldSnap});
+    }
+  }
+  if(!changes.length){
+    // Snapshot-only + stale projection still fails slice-1's S4.0 parity.
+    // A derived/unmapped projection-only change never gains write authority.
+    if(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&
+       editedCategorized!==baselineCategorized)return fail(R.UNMAPPED);
+    return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
+      editedCategorized,options);
+  }
+  if(substitute(editedCategorized,normalized)!==baselineCategorized)
+    return fail(R.UNMAPPED);
+  const binding=await bind(baselineCategorized,originalText,measured);
+  const sourceRows=scanOriginalInputXmlStructure(originalText);
+  if(!binding||!sourceRows||binding.components.length!==oldElements.length)
+    return fail(R.UNBOUND);
+  const sourceEdits=[],ranges=new Set();
+  for(const change of changes){
+    const {index,entry,decoded,old}=change;
+    const ref=binding.components[index]?.sourceRefs?.[0];
+    const row=sourceRows[ref?.elementIndex];
+    if(!ref||ref.format!=='INPUT_XML'||ref.fileSha256!==measured||
+       !row||row.index!==ref.elementIndex||
+       originalText.slice(row.start,row.start+row.raw.length)!==row.raw)
+      return fail(R.UNBOUND);
+    const sourceAttr=sourceRootAttribute(row,entry.attribute);
+    if(!sourceAttr)return fail(R.UNMAPPED);
+    const oldDecoded=decodeValue(sourceAttr.value);
+    if(oldDecoded===null||s40EscapeText(oldDecoded)!==old)
+      return fail(R.UNMAPPED);
+    const raw=encodeValue(decoded,sourceAttr.quote);
+    if(/[\t\r\n]/.test(decoded))return fail(R.VALUE);
+    const start=row.start+sourceAttr.start,end=row.start+sourceAttr.end;
+    if(originalText.slice(start,end)!==sourceAttr.value||ranges.has(start))
+      return fail(R.OFFSET);
+    ranges.add(start);
+    sourceEdits.push({start,end,value:raw});
+  }
+  const candidateOriginal=substitute(originalText,sourceEdits);
+  if(candidateOriginal===null)return fail(R.OFFSET);
+  let canonical;
+  try{canonical=inputXmlToCategorizedInputXml(candidateOriginal);}
+  catch{return fail(R.CONVERTER);}
+  const canonicalElements=categorizedElementRanges(canonical);
+  if(canonicalElements.length!==newElements.length)return fail(R.ROUNDTRIP);
+  for(const change of changes){
+    const echo=projectionLeaf(canonicalElements[change.index].text,change.entry);
+    if(!echo||echo.error||echo.value!==change.new)return fail(R.ROUNDTRIP);
+  }
+  for(let i=0;i<newSnapshots.length;i++){
+    // For mixed projection+snapshot edits, the hand-edited snapshot
+    // must be exactly what the unchanged S4.0 converter would emit.
+    if(newSnapshots[i]!==oldSnapshots[i]&&
+       newSnapshots[i]!==snapshotBlock(canonicalElements[i].text))
+      return fail(R.S40_MISMATCH);
+  }
+  // Only this pre-existing, independently tested byte writer can authorize
+  // output: same UTF-8 old ranges, all fail-closed S4.0 grouping, S3,
+  // regenerated S4.0 equality and final S4.1 binding remain compulsory.
+  return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
+    canonical,options);
+}
