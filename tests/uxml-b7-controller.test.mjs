@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {createCategorizedEditController,B7_REFUSALS,B7_REFUSAL_MESSAGES,b7Reason,patchedOriginalFilename} from '../tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
+import {createCategorizedEditController,preserveCategorizedEditorLineEndings,B7_REFUSALS,B7_REFUSAL_MESSAGES,b7Reason,patchedOriginalFilename} from '../tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
 import {UXML_CATEGORIZED_PATCH_REFUSALS as R} from '../uxml/UxmlCategorizedPatchBack.js';
 import {UXML_CATEGORIZED_INPUTXML_REFUSALS as S41} from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 import {inputXmlToCategorizedInputXml as categorize} from '../xml-compare/CategorizedInputXmlConverter.js';
@@ -226,4 +226,23 @@ test('B7 a SOURCE_BOUND_READ_ONLY status with exportAllowed=true is still refuse
   const result=await c.loadBytes(bytes(xml()),'s41-authority.xml');
   assert.equal(result.code,B7_REFUSALS.S41);
   assert.equal(result.canDownload,false);
+});
+
+test('B7 HTML textarea CRLF normalization restores exact S4.0 mixed separators before Check',async()=>{
+  const exact='alpha\r\nbeta\ncharlie\r\ndelta';
+  const displayed='alpha\nBETTER\ncharlie\ndelta';
+  assert.equal(preserveCategorizedEditorLineEndings(exact,displayed),
+    'alpha\r\nBETTER\ncharlie\r\ndelta');
+  assert.equal(preserveCategorizedEditorLineEndings(exact,'alpha\nbeta'),
+    'alpha\nbeta','line count change must never invent original separators');
+  const source='\ufeff'+xml().replace(/></g,'>\r\n<');
+  const controller=await loaded(source,'mixed-eol.xml');
+  const baseline=controller.snapshot().edited;
+  const browserValue=baseline.replace(/\r\n/g,'\n');
+  const typed=change(browserValue,'DIAMETER','127.125');
+  const reconstructed=preserveCategorizedEditorLineEndings(baseline,typed);
+  controller.edit(reconstructed);
+  const checked=await controller.check();
+  assert.equal(checked.canDownload,true,checked.code);
+  assert.deepEqual(controller.download().bytes,bytes(source.replace('DIAMETER="100"','DIAMETER="127.125"')));
 });
