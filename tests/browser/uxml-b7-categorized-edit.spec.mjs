@@ -53,6 +53,7 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   if(phase!=='checked')throw Error('B7_CHECK_REFUSED '+name+' '+await page.locator('[data-ixw-b7-result]').innerText());
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeEnabled();
   await expect(page.locator('[data-ixw-b7-result] table tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-ixw-b7-result]')).toContainText('Verified source attribute changes: 1 row(s)');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Written exactly as typed');
   if(takeScreenshots){mkdirSync(screenshots,{recursive:true});
