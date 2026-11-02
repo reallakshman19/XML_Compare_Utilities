@@ -116,7 +116,7 @@ const mutants=[
   {name:'DERIVED_PROJECTION_PARITY_GUARD',
    old:"if(regenerated!==editedCategorized)return fail(R.S40_MISMATCH);",
    replacement:"if(regenerated!==editedCategorized)return fail(R.DERIVED);",
-   pattern:'S4.2 slice2 PROJECTION_ONLY and consistent BOTH forms accept, snapshot-only stale refuses'},
+   pattern:'S4.2 slice1 REFUSE snapshot-only stale DIAMETER at the S4.0 parity gate'},
   {name:'S41_PATCHED_REBIND_GUARD',
    old:"if(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding)))",
    replacement:"if(false&&(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding))))",
