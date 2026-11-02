@@ -582,3 +582,16 @@ test('S4.1 REFUSE forged UNITS suffix in last converter-carried OriginalElement'
   assert.notEqual(forged,cat);
   refused(await run(original,forged),R.RECORD_NO_MATCH);
 });
+
+test('S4.1 REFUSE harvested stanza inside non-record UNITS sibling',async()=>{
+  for(const tag of ['RESTRAINT','DISPLACEMENTS','FORCESMOMENTS','ALLOWABLESTRESS',
+    'BEND','RIGID','FLANGES','SIF']){
+    const source=input('<UNITS><'+tag+' NODE="20" VALUE="1"/></UNITS>',
+      elem('10','20','A'),elem('20','30','B'));
+    refused(await run(source,categorize(source)),R.UNKNOWN_SECTION);
+  }
+});
+test('S4.1 REFUSE unknown UNITS-X sibling (must not strip as UNITS)',async()=>{
+  const source=input('<UNITS-X/>',elem('10','20','A'),elem('20','30','B'));
+  refused(await run(source,categorize(source)),R.UNKNOWN_SECTION);
+});
