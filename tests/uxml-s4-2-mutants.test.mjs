@@ -118,7 +118,7 @@ const mutants=[
     replacement:"if(false&&regenerated!==editedCategorized)return fail(R.S40_MISMATCH);"},
     {old:"if(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding)))",
     replacement:"if(false&&(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding))))"}],
-   pattern:'S4.2 slice2 PROJECTION_ONLY and consistent BOTH forms accept, snapshot-only stale refuses'},
+   pattern:'S4.2 slice2 REFUSE isolated snapshot-only stale DIAMETER projection with mismatch code'},
   {name:'S41_PATCHED_REBIND_GUARD',
    old:"if(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding)))",
    replacement:"if(false&&(!patchedBinding||!equalArray(refKeys(patchedBinding),refKeys(originalBinding))))",
