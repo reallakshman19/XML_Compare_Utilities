@@ -37,6 +37,7 @@ const refused=(xml,pattern=/^INPUT_XML_SOURCE_STRUCTURE_REFUSED$/)=>{
   });
 };
 const nameFixture=(file)=>readFileSync(new URL('../docs/'+file,import.meta.url),'utf8');
+const repoFixture=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('S3 STRUCTURE REFUSE complete PIPINGELEMENT inside comment alongside real record',()=>{
   refused(model(element('10','20')+'<!--'+element('30','40')+'-->'));
@@ -87,11 +88,33 @@ test('S3 STRUCTURE REFUSE duplicated element attribute',()=>{
 test('S3 STRUCTURE REFUSE raw less-than inside attribute value',()=>{
   refused(valid().replace('FROM_NODE="10"','FROM_NODE="10<11"'));
 });
-test('S3 STRUCTURE REFUSE direct UNITS child; public GRE and PLB314 now refuse',()=>{
-  for(const file of ['GREInputxml.xml','PLB314Inputxml.xml']){
-    const src=nameFixture(file);
-    refused(src);
+test('S3 ACCEPT public GRE and PLB314 UNITS siblings while S4.1 remains records-only',()=>{
+  for(const [name,count] of [['GREInputxml.xml',100],['PLB314Inputxml.xml',53]]){
+    const src=nameFixture(name);
+    assert.match(src,/<UNITS\b/,name+' uses a legitimate non-record child');
+    const physical=scan(src);
+    assert.equal(physical?.length,count,name+' source physical rows');
+    const doc=strict(src,{fileSha256:sha(src)});
+    assert.equal(doc.components.length,count,name+' S3 record count');
+    assert.equal(doc.ports.length,2*count,name+' S3 two ports per row');
+    assert.equal(scan(src,{recordsOnlyModel:true}),null,
+      name+' remains refused by S4.1 records-only source contract');
   }
+});
+test('S3 STRUCTURE REFUSE a complete PIPINGELEMENT nested inside UNITS',()=>{
+  const src=model(
+    '<UNITS><PIPINGELEMENT FROM_NODE="70" TO_NODE="80" DELTA_X="100" DELTA_Y="-1.010100" DELTA_Z="-1.010100"/></UNITS>'+
+    element('10','20'));
+  refused(src);
+});
+test('S3 ACCEPT legitimate UNITS placed before source-record rows',()=>{
+  const src=model('<UNITS><LENGTH LABEL="mm." FACTOR="1.000000"/></UNITS>'+
+    element('10','20')+element('20','30'));
+  assert.equal(scan(src)?.length,2);
+  const doc=strict(src,{fileSha256:sha(src)});
+  assert.deepEqual(doc.components.map(c=>c.sourceRefs[0].recordKey),[
+    'E0:F10:T20','E1:F20:T30']);
+  assert.equal(scan(src,{recordsOnlyModel:true}),null);
 });
 test('S3 accepts valid original, trailing comment, and preserves physical ordinals',()=>{
   const src='<?xml version="1.0"?>'+valid()+'<!-- allowed trailing comment -->';
@@ -127,6 +150,12 @@ test('S3 output-identity: accepted fixture JSON bytes exactly equal pinned merge
   const fixtures=[
     ['s3_existing_anchored_restraint_bend',strictS3Fixture()],
     ['s3_existing_unanchored',strictS3Fixture().replace(/\s+(?:FROM|TO)_[XYZ]="[^"]*"/g,'')],
+    ['public_GRE_100',nameFixture('GREInputxml.xml')],
+    ['public_PLB314_53',nameFixture('PLB314Inputxml.xml')],
+    ['public_opt_mock_244',repoFixture('opt/mock-xml.xml')],
+    ['synthetic_UNITS_before_records',model(
+      '<UNITS><LENGTH LABEL="mm." FACTOR="1.000000"/></UNITS>'+
+      element('10','20')+element('20','30'))],
     ['synthetic_unanchored',valid()],
     ['synthetic_trailing_comment',valid()+'<!-- comment -->'],
     ['synthetic_xml_declaration','<?xml version="1.0"?>'+valid()],
@@ -145,12 +174,18 @@ test('S3 output-identity: accepted fixture JSON bytes exactly equal pinned merge
     assert.deepEqual(newDoc.components.map(c=>c.sourceRefs[0].recordKey),
       oldDoc.components.map(c=>c.sourceRefs[0].recordKey),label+' record keys');
   }
-  // Public GRE and PLB314 were accepted by old S3, but shared S4.1 source
-  // envelope now refuses both because of direct-child UNITS after records.
-  for(const [name,count] of [['GREInputxml.xml',100],['PLB314Inputxml.xml',53]]){
-    const src=nameFixture(name);
-    const oldDoc=oldModule.mapCaesarInputXmlToUxmlStrict(src,{fileSha256:sha(src)});
-    assert.equal(oldDoc.components.length,count,name+' pinned-main acceptance');
-    refused(src);
+  // Public exports are not malformed just because PIPINGMODEL contains
+  // a non-row UNITS sibling. Both current strict S3 and pinned main accept.
+  for(const [name,src,count] of [
+    ['GRE',nameFixture('GREInputxml.xml'),100],
+    ['PLB314',nameFixture('PLB314Inputxml.xml'),53],
+    ['opt/mock-xml',repoFixture('opt/mock-xml.xml'),244],
+  ]){
+    const current=strict(src,{fileSha256:sha(src)});
+    assert.equal(current.components.length,count,name+' real CAESAR II row count');
+    assert.equal(current.ports.length,2*count,name+' real CAESAR II port count');
+    assert.equal(scan(src)?.length,count,name+' source tree record count');
+    assert.equal(scan(src,{recordsOnlyModel:true}),null,
+      name+' intentionally still incompatible with S4.1 records-only mode');
   }
 });
