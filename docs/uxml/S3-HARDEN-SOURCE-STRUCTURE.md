@@ -65,8 +65,8 @@ with the original element counts, sourceRefs, physical ordinals,
 ports and run metadata. A non-row `UNITS` block before the
 `PIPINGELEMENT` rows also remains accepted. The fourth public
 export `converters/scripts/pdf_inputxml_profile_bm_cii.xml`
-is structurally allowed by the same rule and is not used in the
-pinned-main output-identity assertion for this bounded task.
+(40 records) is also **accepted** and compared byte-for-byte with pinned
+main in the same test matrix.
 
 **S4.1 remains stricter:** its `recordsOnlyModel:true` source-envelope
 rule deliberately refuses direct `UNITS` children, including on GRE,
@@ -86,7 +86,8 @@ and resolves imports to unchanged dependencies. It compares
 sourceRef `recordKey` sequences. The matrix covers the exact
 established S3 anchored/restraint/bend fixture and its unanchored
 variant, synthetic sources (including `UNITS` before rows), and
-**all three real public samples GRE, PLB314, opt/mock-xml.xml**.
+**all four named real public samples GRE, PLB314, opt/mock-xml.xml
+and pdf_inputxml_profile_bm_cii.xml**.
 Full Git history is required in CI, so the baseline is the
 exact immutable base SHA rather than a test-authored substitute.
 
