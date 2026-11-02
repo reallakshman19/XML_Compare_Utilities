@@ -56,6 +56,10 @@ const mutants=[
     pattern:'B7 a SOURCE_BOUND_READ_ONLY status with exportAllowed=true is still refused',
     old:'result.exportAllowed!==false',
     replacement:'false'},
+  {name:'TEXTAREA_MIXED_EOL_SOURCE_WITNESS',
+    pattern:'B7 HTML textarea CRLF normalization restores exact S4.0 mixed separators before Check',
+    old:"return lines.map((line,i)=>line+(separators[i]??'')).join('');",
+    replacement:'return domValue;'},
 ];
 function runKill(mutant){
   const dir=mkdtempSync(join(tmpdir(),'uxml-b7-mutant-'));
