@@ -27,7 +27,11 @@ jobs:
           node-version: '22'
       - name: S4.1 source identity and negative cases
         run: node --test tests/uxml-s4-1-categorized-reader.test.mjs
-      - name: S4.1 isolated mutation guard kills
+      - name: S4.1 isolated mutation guard kills (LF)
+        run: node --test tests/uxml-s4-1-mutants.test.mjs
+      - name: S4.1 isolated mutation guard kills (simulated Windows CRLF)
+        env:
+          S4_MUTANT_COPY_CRLF: '1'
         run: node --test tests/uxml-s4-1-mutants.test.mjs
       - name: S4.0 read-only converter audit
         run: node --test tests/s4-0-audit-*.test.mjs
