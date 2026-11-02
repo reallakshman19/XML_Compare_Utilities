@@ -521,6 +521,17 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const oldElements=categorizedElementRanges(baselineCategorized);
   const newElements=categorizedElementRanges(editedCategorized);
   if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
+  // Existing slice-1 complete snapshot+projection inputs have priority,
+  // including an unset field that becomes visible after source editing.
+  // A stale projection returns S40_MISMATCH and may qualify for slice 2;
+  // every other refusal remains owned by the unchanged slice-1 gate.
+  const snapshotTouched=oldElements.some((old,i)=>
+    snapshotBlock(old.text)!==snapshotBlock(newElements[i].text));
+  if(snapshotTouched){
+    const legacy=await patchOriginalFromCategorizedSlice1(originalText,
+      baselineCategorized,editedCategorized,options);
+    if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
+  }
   const changes=[],normalized=[],oldSnapshots=[],newSnapshots=[];
   for(let i=0;i<oldElements.length;i++){
     const old=oldElements[i],next=newElements[i];
@@ -545,15 +556,6 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       normalized.push({start:next.start+local,end:next.start+local+newSnap.length,
         value:oldSnap});
     }
-  }
-  // Preserve all existing slice-1 authorizations and its named
-  // refusals, even when projection values appear/disappear (S4.0 unset
-  // sentinel) or attribute XML escaping changes a visible projection.
-  // Only a genuine stale S4.0 projection may proceed to slice-2 mapping.
-  if(oldSnapshots.some((v,i)=>v!==newSnapshots[i])){
-    const legacy=await patchOriginalFromCategorizedSlice1(originalText,
-      baselineCategorized,editedCategorized,options);
-    if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
   }
   if(!changes.length){
     // Snapshot-only + stale projection still fails slice-1's S4.0 parity.
