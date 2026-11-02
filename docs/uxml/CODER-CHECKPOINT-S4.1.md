@@ -18,7 +18,12 @@ NOT_SOURCE_EQUIVALENT evidence-only. Projection edits require explicit
 REVIEW_ONLY and never apply. External duplicates/unknown non-carried sections
 REFUSED. Shared UxmlValidationGate runs; Apply/export is always false.
 
-**Executed at implementation head `2ed146ca8da9bfa0415cb648298be4adfaa60bc4` (Node 22):** [S4.1 workflow #41380460259](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460259) SUCCESS: reader 20/20, isolated mutants 9/9 with nine RED_VERIFIED targeted failures, S4 86/86, S3 13/13, S1 12/12, admission 20/20; ACCDB and enrichment each exit 0. [ISO #41380460385](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460385) SUCCESS. Any subsequent document-only commit must be checked independently at its own head; XCU #239 receipt is the exact final-head source of truth.
+**Historical pre-repair implementation head `2ed146ca8da9bfa0415cb648298be4adfaa60bc4` (Node 22; SUPERSEDED for repair qualification):** [S4.1 workflow #41380460259](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460259) SUCCESS: reader 20/20, isolated mutants 9/9 with nine RED_VERIFIED targeted failures, S4 86/86, S3 13/13, S1 12/12, admission 20/20; ACCDB and enrichment each exit 0. [ISO #41380460385](https://github.com/reallakshman19/XML_Compare_Utilities/actions/runs/41380460385) SUCCESS. Repair round 1 closes the malformed PLB314 physical-record array hole,
+refuses a source-bound failed UXML gate, checks simultaneous bytes/text
+representations, ignores fake review markers inside CDATA, and adds
+per-refusal + reorder + S3-key parity + mutation regressions. **The old
+runs do not qualify this repair**: XCU #239 work_returned must give
+the exact repaired head and the associated green job logs.
 
 **NOT_RUN / HOLD:** Local full repo (GitHub DNS prevents checkout); top-level `npm test`; independent non-author reviewer; Owner original-file trial; S4.2, release and merge not authorized.
 
