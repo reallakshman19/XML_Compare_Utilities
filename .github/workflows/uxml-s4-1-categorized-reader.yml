@@ -1,0 +1,47 @@
+name: UXML S4.1 categorized source-bound reader
+
+on:
+  pull_request:
+    paths:
+      - 'uxml/UxmlCategorizedInputXmlSchemaMapper.js'
+      - 'docs/uxml/UxmlCategorizedInputXmlSchemaMapper.js'
+      - 'tests/uxml-s4-1-*.test.mjs'
+      - 'docs/uxml/S4.1-CATEGORIZED-READER.md'
+      - 'docs/uxml/CODER-CHECKPOINT-S4.1.md'
+      - '.github/workflows/uxml-s4-1-categorized-reader.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  categorized-reader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: S4.1 source identity and negative cases
+        run: node --test tests/uxml-s4-1-categorized-reader.test.mjs
+      - name: S4.1 isolated mutation guard kills (LF)
+        run: node --test tests/uxml-s4-1-mutants.test.mjs
+      - name: S4.1 isolated mutation guard kills (simulated Windows CRLF)
+        env:
+          S4_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-s4-1-mutants.test.mjs
+      - name: S4.0 read-only converter audit
+        run: node --test tests/s4-0-audit-*.test.mjs
+      - name: S3 InputXML regressions
+        run: node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-reconcile.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
+      - name: Existing ACCDB sideload
+        run: node tests/inputxml-workspace-accdb-sideload.test.js
+      - name: Existing enrichment preview
+        run: node tests/xml-compare-enrichment-apply-preview.test.js
+      - name: S1 PSI116 regressions
+        run: node --test tests/uxml-psi116-s1.test.mjs tests/uxml-s1-followup-mutants.test.mjs
+      - name: Workspace topology admission regressions
+        run: node --test tests/inputxml-workspace-topo-admission.test.mjs
