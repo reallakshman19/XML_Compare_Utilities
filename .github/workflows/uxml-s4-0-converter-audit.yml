@@ -1,0 +1,30 @@
+name: UXML S4.0 converter read-only audit
+on:
+  pull_request:
+    paths:
+      - 'docs/uxml/S4.0-CONVERTER-AUDIT.md'
+      - 'docs/uxml/CODER-CHECKPOINT-S4.0.md'
+      - 'tests/s4-0-audit-*.test.mjs'
+      - '.github/workflows/uxml-s4-0-converter-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  converter-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Each S4.0 preservation row and Workspace marker contract
+        run: node --test tests/s4-0-audit-*.test.mjs
+      - name: Existing public reader and converter-related regressions
+        run: |
+          node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-reconcile.test.mjs tests/uxml-s3-caesar-mutants.test.mjs
+          node tests/inputxml-workspace-accdb-sideload.test.js
+          node tests/xml-compare-enrichment-apply-preview.test.js
+          node --test tests/uxml-psi116-s1.test.mjs tests/uxml-s1-followup-mutants.test.mjs
+          node --test tests/inputxml-workspace-topo-admission.test.mjs
