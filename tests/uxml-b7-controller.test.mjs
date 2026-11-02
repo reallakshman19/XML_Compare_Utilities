@@ -35,6 +35,7 @@ test('B7 full live S4.2 + S4.1 refusal code messages and all B7 refusals have di
     assert(!b7Reason(code).includes('without generating any downloadable output'),code);
   }
   assert.equal('DERIVED' in R,false,'deprecated unused code is retired');
+  assert.match(b7Reason(R.UNMAPPED),/mixed SIF snapshot.*Check and download permitted edits separately/);
   assert.match(b7Reason('INPUT_XML_SOURCE_STRUCTURE_REFUSED'),/S3/);
   assert.match(b7Reason('INPUT_XML_ANCHORED_DELTA_GRAPH_CONFLICT:E3'),/S3/);
 });
