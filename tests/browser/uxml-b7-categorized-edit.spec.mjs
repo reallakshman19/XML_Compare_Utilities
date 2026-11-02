@@ -4,6 +4,7 @@ import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {inputXmlToCategorizedInputXml} from '../../xml-compare/CategorizedInputXmlConverter.js';
 import {patchOriginalFromCategorized} from '../../uxml/UxmlCategorizedPatchBack.js';
+import {preserveCategorizedEditorLineEndings} from '../../tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
 
 const root=resolve(import.meta.dirname,'../..');
 const sources=[
@@ -35,20 +36,28 @@ function editDiameter(cat,value='127.125'){
   if(!match)throw Error('No existing DIAMETER projection');
   return cat.replace(match[0],'<DIAMETER>'+value+'</DIAMETER>');
 }
+async function setEditor(page,value){
+  await page.locator('[data-ixw-b7-editor]').evaluate((element,next)=>{
+    element.value=next;
+    element.dispatchEvent(new Event('input',{bubbles:true}));
+  },value);
+}
 async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const baseline=await page.locator('[data-ixw-b7-editor]').inputValue();
   const edited=editDiameter(baseline);
-  await page.locator('[data-ixw-b7-editor]').fill(edited);
+  await setEditor(page,edited);
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
   await page.locator('[data-ixw-b7-action="check"]').click();
-  await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','checked',{timeout:90000});
+  await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','checked',{timeout:15000});
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeEnabled();
   await expect(page.locator('[data-ixw-b7-result] table tbody tr')).toHaveCount(1);
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Written exactly as typed');
   if(takeScreenshots){mkdirSync(screenshots,{recursive:true});
     await page.locator('.ixw-dialog').screenshot({path:resolve(screenshots,'checked-GRE.png')});}
-  const direct=await patchOriginalFromCategorized(source,baseline,edited,{fileSha256:sha(source)});
+  const exactBaseline=inputXmlToCategorizedInputXml(source);
+  const exactEdited=preserveCategorizedEditorLineEndings(exactBaseline,edited);
+  const direct=await patchOriginalFromCategorized(source,exactBaseline,exactEdited,{fileSha256:sha(source)});
   expect(direct.ok).toBe(true);expect(direct.parity).toBe('EQUAL');
   const [download]=await Promise.all([
     page.waitForEvent('download'),
@@ -75,7 +84,7 @@ test.describe('B7 actual Categorized tab source-bound byte download',()=>{
       const expected=text.replace(/(DIAMETER=")[^"]+(")/,(_,a,z)=>a+'127.125'+z);
       expect(bytes.equals(Buffer.from(expected))).toBe(true);
       const editor=page.locator('[data-ixw-b7-editor]');
-      await editor.fill((await editor.inputValue())+' ');
+      await setEditor(page,(await editor.inputValue())+' ');
       await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
     });
   }
@@ -85,7 +94,7 @@ test.describe('B7 actual Categorized tab source-bound byte download',()=>{
     await loaded(page,source,'refused.xml');
     const editor=page.locator('[data-ixw-b7-editor]');
     const original=await editor.inputValue();
-    await editor.fill(original.replace('</SectionDimensionBlock>',
+    await setEditor(page,original.replace('</SectionDimensionBlock>',
       '<UNRECOGNIZED>2</UNRECOGNIZED></SectionDimensionBlock>'));
     await page.locator('[data-ixw-b7-action="check"]').click();
     await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','refused',{timeout:45000});
@@ -116,7 +125,7 @@ test.describe('B7 actual Categorized tab source-bound byte download',()=>{
     const baseline=await page.locator('[data-ixw-b7-editor]').inputValue();
     const edited=baseline.replace(/<DELTA_X>[^<]+<\/DELTA_X>/,
       '<DELTA_X>77.875</DELTA_X>');
-    await page.locator('[data-ixw-b7-editor]').fill(edited);
+    await setEditor(page,edited);
     await page.locator('[data-ixw-b7-action="check"]').click();
     await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','checked');
     const canonical=await page.locator('[aria-label="Regenerated Categorized preview"]').inputValue();
