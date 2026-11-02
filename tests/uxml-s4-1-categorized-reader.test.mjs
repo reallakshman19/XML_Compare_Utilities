@@ -321,8 +321,8 @@ test('S4.1 REFUSE comment-hidden PIPINGELEMENT when strict S3 refuses',async()=>
   assert.throws(()=>mapCaesarInputXmlToUxmlStrict(original,{fileSha256:sha(original)}),
     /INPUT_XML_/,'precondition: strict S3 refuses this original');
   const result=await run(original,categorize(original));
-  refused(result,R.S3_REFUSED);
-  assert.match(result.s3Code,/^INPUT_XML_[A-Z_]+$/);
+  refused(result,R.ORIGINAL_STRUCTURE);
+  assert.equal(result.uxml,null,'structural rejection must precede independent S3');
 });
 test('S4.1 REFUSE key mismatch against independent strict S3 set',async()=>{
   const root=fileURLToPath(new URL('../',import.meta.url));
