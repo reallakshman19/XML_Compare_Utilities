@@ -138,7 +138,7 @@ function enrichedSignals(text){
 }
 function addGate(doc){
   const gate=validateUxmlDocument(doc);
-  doc.validation={schema:gate.schema,ready:gate.ready,
+  doc.validation={schema:gate.schema,ready:false,gateReady:gate.ready,
     blockerCodes:gate.blockers.map(b=>b.code),
     warningCodes:gate.warnings.map(w=>w.code),
     qualifiedForApply:false,note:'S4.1 is read-only; gate does not grant writer authority'};
