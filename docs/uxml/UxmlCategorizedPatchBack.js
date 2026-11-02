@@ -191,7 +191,7 @@ function countStanzaOwners(lexedRows,tag,owner,rowIndex=-1,replacement=null){
   }
   return count;
 }
-function sharedExternal(lexedRows,rowIndex,before,after){
+function sharedExternal(lexedRows,rowIndex,before,after,editedRow){
   const tag=before.name.toUpperCase();
   if(!externalTags.has(tag))return false;
   // MUTATION_GUARD_STANZA_OWNER_LEX: use exactly the stanza containing the
@@ -204,9 +204,7 @@ function sharedExternal(lexedRows,rowIndex,before,after){
   // MUTATION_GUARD_BEFORE_AND_AFTER_OWNERSHIP: enforce unique ownership
   // against both the original and the proposed edited source tree.
   return countStanzaOwners(lexedRows,tag,oldOwner)!==1||
-    countStanzaOwners(lexedRows,tag,newOwner,rowIndex,
-      {...lexedRows[rowIndex],stanzas:lexedRows[rowIndex].stanzas.map(
-        (stanza)=>stanza===before?after:stanza)})!==1;
+    countStanzaOwners(lexedRows,tag,newOwner,rowIndex,editedRow)!==1;
 }
 function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
   const old=lexRow(oldRaw),next=lexRow(newRaw);
@@ -243,7 +241,7 @@ function diffRows(oldRaw,newRaw,rowIndex,lexedRows){
       // MUTATION_GUARD_SHARED_EXTERNAL_OWNERSHIP: identify the SAME lexed
       // stanza before and after, ignoring any comment-hidden tag lookalikes.
       if(!beforeStanza||!afterStanza||
-         sharedExternal(lexedRows,rowIndex,beforeStanza,afterStanza))
+         sharedExternal(lexedRows,rowIndex,beforeStanza,afterStanza,next))
         return {error:UXML_CATEGORIZED_PATCH_REFUSALS.EXTERNAL};
     }
     changes.push({start:before.start,end:before.end,oldRaw:before.value,newRaw:encoded,
