@@ -1,0 +1,86 @@
+name: UXML B7 categorized edit and original-byte download
+on:
+  pull_request:
+    paths:
+      - 'tabs/inputxml-workspace/inputxml-workspace-tab.js'
+      - 'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js'
+      - 'uxml/UxmlCategorizedPatchBack.js'
+      - 'docs/uxml/UxmlCategorizedPatchBack.js'
+      - 'docs/uxml/S4.2-PATCH-BACK.md'
+      - 'docs/uxml/B7-CATEGORIZED-EDIT-HOWTO.md'
+      - 'docs/uxml/CODER-CHECKPOINT-B7.md'
+      - 'tests/uxml-b7-*.test.mjs'
+      - 'tests/browser/uxml-b7-categorized-edit.spec.mjs'
+      - 'tests/browser/fixtures/uxml-b7-workspace-host.html'
+      - 'playwright.uxml-b7.config.mjs'
+      - '.github/workflows/uxml-b7-categorized-edit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  b7-controller-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: B7 controller, refusal and four public byte witness tests
+        run: node --test tests/uxml-b7-controller.test.mjs
+      - name: B7 download gate, revisions and byte mutation falsifiers LF
+        run: node --test tests/uxml-b7-mutants.test.mjs
+      - name: B7 download gate, revisions and byte mutation falsifiers simulated CRLF
+        env:
+          B7_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-b7-mutants.test.mjs
+      - name: Retained S4.2 slice2 tests
+        run: node --test tests/uxml-s4-2-projection.test.mjs
+      - name: Retained S4.2 slice1 tests
+        run: node --test tests/uxml-s4-2-patch-back.test.mjs
+      - name: S4.1 source-bound reader regression
+        run: node --test tests/uxml-s4-1-categorized-reader.test.mjs
+      - name: Strict S3 source identity
+        run: node --test tests/uxml-s3-harden-source-structure.test.mjs
+      - name: Unchanged S4.0 converter audit
+        run: node --test tests/s4-0-audit-*.test.mjs
+      - name: Existing S1 input regression
+        run: node --test tests/uxml-psi116-s1.test.mjs tests/uxml-s1-followup-mutants.test.mjs
+      - name: Workspace topology admission
+        run: node --test tests/inputxml-workspace-topo-admission.test.mjs
+      - name: Existing sideload
+        run: node tests/inputxml-workspace-accdb-sideload.test.js
+      - name: Existing enrichment
+        run: node tests/xml-compare-enrichment-apply-preview.test.js
+  b7-real-browser-public-samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install repo pinned browser test dependency
+        run: npm ci --ignore-scripts
+      - name: Install Chromium for real Workspace browser test
+        run: npx playwright install --with-deps chromium
+      - name: Four public original files, refused/checked/downloaded, LF and CRLF
+        run: npx playwright test --config=playwright.uxml-b7.config.mjs
+      - name: Preserve the three public-sample UI screenshots and browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uxml-b7-public-browser-evidence
+          if-no-files-found: warn
+          path: |
+            artifacts/uxml-b7/
+            test-results/uxml-b7/
