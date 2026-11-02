@@ -110,9 +110,20 @@ const publicSamples=[
 ];
 for(const [label,path,count] of publicSamples){
   for(const [field,block] of [['DIAMETER','SectionDimensionBlock'],['DELTA_X','RouteGeometryBlock']]){
-    for(const [position,ordinal] of [['first',0],['middle',Math.floor(count/2)],['last',count-1]]){
-      test('S4.2 slice2 REAL '+label+' '+field+' '+position+' projection-only bytes',async()=>{
+    for(const position of ['first','middle','last']){
+      test('S4.2 slice2 REAL '+label+' '+field+' '+position+' eligible projection-only bytes',async()=>{
         const text=source(path),baseline=s40(text),digest=sha(text);
+        // S4.0 omits -1.010100 sentinel fields even if present on the
+        // physical opening tag. Do not invent previously absent projections.
+        const eligible=scan(text).map((physical,index)=>{
+          const value=physical.raw.match(new RegExp('<PIPINGELEMENT\\b[^>]*\\b'+
+            field+'="([^"]*)"','i'))?.[1];
+          return value!==undefined&&Number.isFinite(Number(value))&&
+            Math.abs(Number(value)+1.0101)>=1e-4?index:null;
+        }).filter(index=>index!==null);
+        assert(eligible.length>=3,label+' '+field+' requires three real, present fields');
+        const ordinal=position==='first'?eligible[0]:
+          position==='middle'?eligible[Math.floor(eligible.length/2)]:eligible.at(-1);
         const admitted=await s41(baseline,{originalInputXml:text,fileSha256:digest});
         assert.equal(admitted.ok,true,'exact-original S4.1 must bind');
         const catIndex=admitted.uxml.components.findIndex(c=>
