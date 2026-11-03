@@ -1,13 +1,3 @@
-  for(const change of line.changes){
-    const {line:lineId,entry,decoded,old}=change;
-    const location={line:lineId,tag:entry.tag};
-    const holders=b8LineHolders(ctx,lineId,entry,old);
-    const inherited=b8CarryRefusals(ctx,entry,
-      holders.active.map(item=>item.row.index),location,{inspectIncoming:true});
-    errors.push(...holders.refusals,...inherited);
-    if(!holders.refusals.length&&!inherited.length)
-      for(const item of holders.active)addSource(item,decoded,location);
-  }
 /**
  * UXML S4.2, slice 1: fail-closed original-byte attribute-value patcher.
  * Source authority: exact SHA + S4.1 one-to-one refs + shared scanner offsets.
@@ -1023,92 +1013,15 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   }
   for(const change of line.changes){
     const {line:lineId,entry,decoded,old}=change;
-    const owners=[];
-    for(let i=0;i<oldCat.items.length;i++){
-      if(oldCat.items[i].identity[0]===lineId)owners.push(i);
-    }
     const location={line:lineId,tag:entry.tag};
-    if(!owners.length){
-      errors.push(b8Refusal(R.UNBOUND,{...location,reason:'No records bound to Line'}));
-      continue;
-    }
-    const active=[];
-    for(const index of owners){
-      const item=sourceAt(index,entry.attribute,lineId);
-      if(!item){
-        errors.push(b8Refusal(R.UNBOUND,{...location,
-          reason:'A Line source row has no unique S4.1 physical binding'}));
-        continue;
-      }
-      if(!item.attr){
-        // S4.0 inherits from the first meaningful holder. Absent attributes
-        // are not invented or filled in by patch-back.
-        continue;
-      }
-      const decodedOld=decodeValue(item.attr.value);
-      if(decodedOld===null){
-        errors.push(b8Refusal(R.LINE_DERIVED,{...location,
-          reason:'A source attribute cannot be decoded exactly'}));
-        continue;
-      }
-      if(s40.isUnset(decodedOld))continue; // -1.0101 or empty carry-forward
-      if(s40EscapeText(decodedOld)!==old){
-        const formatOnly=Number.isFinite(Number(decodedOld))&&
-          Number.isFinite(Number(decodeValue(old)))&&
-          Number(decodedOld)===Number(decodeValue(old));
-        errors.push(b8Refusal(R.LINE_DERIVED,{...location,
-          reason:formatOnly
-            ?'Explicit holders use different source formats (e.g. 5.0 vs 5); exact text differs'
-            :'Explicit source records disagree with the first line value'}));
-        continue;
-      }
-      active.push(item);
-    }
-    if(!active.length){
-      errors.push(b8Refusal(R.OMITTED,{...location,
-        reason:'No explicit non-sentinel source value to patch'}));
-      continue;
-    }
-    // CAESAR II carries missing/-1.0101 fields by physical file order,
-    // not by the S4.0 Line display. Stop at the first meaningful explicit
-    // override; a different Line reached before that is not source-local.
-    const physicalLine=new Map();
-    for(let i=0;i<binding.components.length;i++){
-      const physical=binding.components[i]?.sourceRefs?.[0]?.elementIndex;
-      if(Number.isInteger(physical))
-        physicalLine.set(physical,oldCat.items[i]?.identity?.[0]);
-    }
-    for(const item of active){
-      for(let physical=item.row.index+1;physical<sourceRows.length;physical++){
-        const following=sourceRootAttribute(sourceRows[physical],entry.attribute);
-        if(following){
-          const rawValue=decodeValue(following.value);
-          if(rawValue===null){
-            errors.push(b8Refusal(R.UNBOUND,{...location,
-              reason:'Downstream carry-forward source value cannot be decoded at row '+(physical+1)}));
-            break;
-          }
-          if(!s40.isUnset(rawValue))break; // a new explicit holder ends this chain
-        }
-        const downstream=physicalLine.get(physical);
-        if(!downstream){
-          errors.push(b8Refusal(R.UNBOUND,{...location,
-            reason:'Downstream physical Line is not uniquely source-bound at row '+(physical+1)}));
-          break;
-        }
-        if(downstream!==lineId){
-          errors.push(b8Refusal(R.CROSS_LINE,{...location,
-            reason:'Changing '+lineId+' would carry '+entry.tag+
-              ' into different Line '+downstream+' at physical row '+(physical+1)}));
-          break;
-        }
-      }
-    }
-    if(!errors.some(error=>error.code===R.CROSS_LINE&&error.line===lineId&&
-       error.tag===entry.tag))
-      for(const item of active)addSource(item,decoded,location);
+    const holders=b8LineHolders(ctx,lineId,entry,old);
+    const inherited=b8CarryRefusals(ctx,entry,
+      holders.active.map(item=>item.row.index),location,{inspectIncoming:true});
+    errors.push(...holders.refusals,...inherited);
+    if(!holders.refusals.length&&!inherited.length)
+      for(const item of holders.active)addSource(item,decoded,location);
   }
-  if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
+
   // N-2: a source-graph refusal must accompany other independently
   // offending Line/Element edits, not be hidden behind an early return.
   // Only candidate source mutations with individually proven byte offsets
