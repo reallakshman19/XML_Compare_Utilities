@@ -78,8 +78,8 @@ const mutants=[
    edits:[
      {old:"if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){\n        errors.push(b8Refusal(R.ROUNDTRIP",
       replacement:"if(false&&(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value)){\n        errors.push(b8Refusal(R.ROUNDTRIP"},
-     {old:"if(!echo||echo.error||echo.value!==change.new)\n      return fail(R.ROUNDTRIP",
-      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))\n      return fail(R.ROUNDTRIP"}
+     {old:"if(!echo||echo.error||echo.value!==change.new)\n      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,\n        {row:change.index+1,",
+      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))\n      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,\n        {row:change.index+1,"}
    ]},
   {name:'MIXED_SNAPSHOT_EXACT',
    pattern:'S4.2 slice2 REFUSE inconsistent projection plus mismatched OriginalElement',
@@ -109,7 +109,7 @@ const mutants=[
    pattern:'S4.2 slice2 REFUSE source field missing or absent from map',
    edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b)){\n        errors.push(b8Refusal(R.UNMAPPED",
      replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b))){\n        errors.push(b8Refusal(R.UNMAPPED"},
-     {old:"if(!a||a.value===b.value)continue;",
-      replacement:"if(a?.value===b?.value)continue;"}]},
+     {old:"if(!a||a.value===b.value)continue;\n      const decoded=decodeValue(b.value);\n      if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){",
+      replacement:"if(a?.value===b?.value)continue;\n      const decoded=decodeValue(b.value);\n      if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){"}]},
 ];
 for(const mutant of mutants)test('S42_SLICE2_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
