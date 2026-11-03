@@ -12,6 +12,8 @@ on:
       - 'docs/uxml/B7-CATEGORIZED-EDIT-HOWTO.md'
       - 'docs/uxml/S4.2-PATCH-BACK.md'
       - '.github/workflows/uxml-b8-categorized-coverage.yml'
+      - 'playwright.uxml-b8.config.mjs'
+      - 'tests/browser/uxml-b8-categorized-coverage.spec.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,3 +48,30 @@ jobs:
         run: node --test tests/uxml-s3-harden-source-structure.test.mjs tests/uxml-s4-1-categorized-reader.test.mjs
       - name: Unchanged S4.0 source mapping audit
         run: node --test tests/s4-0-audit-*.test.mjs
+
+  b8-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install pinned browser test dependencies
+        run: npm ci --ignore-scripts
+      - name: Install real Chromium
+        run: npx playwright install --with-deps chromium
+      - name: B8 refused, checked, downloaded and global read-only browser states
+        run: npx playwright test --config=playwright.uxml-b8.config.mjs
+      - name: Retain public-sample screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uxml-b8-public-browser-evidence
+          if-no-files-found: warn
+          path: |
+            artifacts/uxml-b8/
+            test-results/uxml-b8/
