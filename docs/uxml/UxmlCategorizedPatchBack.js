@@ -676,10 +676,25 @@ export async function classifyCategorizedEditableFields(originalText,baselineCat
       }
       let outcome={editable:exact&&probe!==null,code:exact?'':UXML_CATEGORIZED_PATCH_REFUSALS.OMITTED,
         reason:exact?'':'No original attribute with the exact source echo'};
-      // Graph-linked deltas may be visible but not independently editable:
-      // use the actual patch engine rather than allowing them by regex.
-      if(outcome.editable&&entry.tag.startsWith('DELTA_'))
-        outcome=await testValue(element.start+leaf.start,element.start+leaf.end,probe);
+      // Graph-linked deltas are classified by the SAME strict S3 graph
+      // reader used by patch-back. Full S4.2 patch+S4.1 parity remains the
+      // authority at Check; do not replay the full writer for every picker
+      // item (hundreds of deltas would block the browser load).
+      if(outcome.editable&&entry.tag.startsWith('DELTA_')){
+        const start=row.start+attr.start,end=row.start+attr.end;
+        const candidate=originalText.slice(0,start)+encodeValue(probe,attr.quote)+
+          originalText.slice(end);
+        try{
+          mapCaesarInputXmlToUxmlStrict(candidate,
+            {fileSha256:await sha(utf8(candidate))});
+        }catch(error){
+          const code=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
+            .test(String(error?.message||error))
+            ?UXML_CATEGORIZED_PATCH_REFUSALS.GRAPH
+            :UXML_CATEGORIZED_PATCH_REFUSALS.PARITY;
+          outcome={editable:false,code,reason:String(error?.message||error).split(':')[0]};
+        }
+      }
       choices.push({key:'E:'+index+':'+entry.tag,...outcome,probeValue:probe});
     }
   }
