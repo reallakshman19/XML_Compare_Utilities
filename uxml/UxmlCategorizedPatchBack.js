@@ -618,9 +618,10 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const newElements=categorizedElementRanges(editedCategorized);
   if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
   const line=b8LineProjectionChanges(baselineCategorized,editedCategorized);
-  const preflight=b8UniqueRefusals([
-    ...line.refusals,...b8ElementProjectionRefusals(oldElements,newElements)]);
-  if(preflight.length)return fail(preflight[0].code,preflight);
+  if(line.refusals.length){
+    const refused=b8UniqueRefusals(line.refusals);
+    return fail(refused[0].code,refused);
+  }
   // An exact, fully regenerated snapshot+projection proposal is still
   // accepted by the old byte-only patcher, subject to all its gates.
   const snapshotTouched=oldElements.some((old,i)=>
@@ -630,6 +631,9 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       baselineCategorized,editedCategorized,options);
     if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
   }
+  const preflight=b8UniqueRefusals(
+    b8ElementProjectionRefusals(oldElements,newElements));
+  if(preflight.length)return fail(preflight[0].code,preflight);
   const changes=[],normalized=[...line.normalized],oldSnapshots=[],newSnapshots=[];
   const errors=[];
   for(let i=0;i<oldElements.length;i++){
