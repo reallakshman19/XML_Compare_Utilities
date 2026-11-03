@@ -14,6 +14,16 @@ import {patchOriginalFromCategorized as patch,UXML_CATEGORIZED_PATCH_REFUSALS as
 import {S42_PROJECTION_MAP,S42_PROJECTION_REFUSE,categorizedElementRanges,projectionLeaf}
   from '../uxml/UxmlCategorizedProjectionMap.js';
 
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
 const b=text=>Buffer.from(text,'utf8');
 const sha=text=>createHash('sha256').update(b(text)).digest('hex');
 const run=(source,edited,base=s40(source))=>patch(source,base,edited,{fileSha256:sha(source)});
@@ -304,7 +314,7 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
   const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
   const sandbox=mkdtempSync(join(tmpdir(),'s42-s40-throw-'));
   try{
-    const files=['uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js',
+    const files=[...patchModules,'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js',
       'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
       'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',

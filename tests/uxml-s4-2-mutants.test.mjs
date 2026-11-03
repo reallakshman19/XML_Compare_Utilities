@@ -9,7 +9,18 @@ import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const target='uxml/UxmlCategorizedPatchBack.js';
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
 const fixtures=[
+  ...patchModules,
   target,'uxml/UxmlCategorizedPatchBackProvenance.js','uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
@@ -42,15 +53,22 @@ function kill({name,old,replacement,pattern,edits}){
     const green=run();
     assert.equal(green.status,0,'baseline failed: '+name+'\n'+green.stdout+'\n'+green.stderr);
     assert.match(green.stdout,/# pass 1\b/,'targeted baseline must actually run');
-    let src=readFileSync(join(dir,target),'utf8').replace(/\r\n/g,'\n');
+    // A mechanically extracted guard may reside in a focused module.
+    // Find its unique exact source seam; never edit a non-matching file.
     for(const edit of edits??[{old,replacement}]){
-      const expected=edit.replaceCount??1;
-      assert.equal(src.split(edit.old).length-1,expected,
+      let witnessed=0;
+      for(const file of [target,...patchModules]){
+        const at=join(dir,file),source=readFileSync(at,'utf8').replace(/\r\n/g,'\n');
+        const count=source.split(edit.old).length-1;
+        if(!count)continue;
+        witnessed+=count;
+        const changed=count===1?source.replace(edit.old,edit.replacement):
+          source.split(edit.old).join(edit.replacement);
+        writeFileSync(at,changed);
+      }
+      assert.equal(witnessed,edit.replaceCount??1,
         'exact declared source seam count: '+name);
-      src=expected===1?src.replace(edit.old,edit.replacement):
-        src.split(edit.old).join(edit.replacement);
     }
-    writeFileSync(join(dir,target),src);
     const red=run(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+name+'\n'+output);
     assert.match(output,/^not ok \d+ - S4\.2/m,'must fail an original S4.2 test');

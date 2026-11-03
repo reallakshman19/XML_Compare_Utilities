@@ -8,7 +8,18 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
 const files=[
+  ...patchModules,
   'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js','uxml/UxmlCategorizedProjectionMap.js',
   'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlInputXmlDeltaGraph.js',
@@ -170,12 +181,17 @@ function kill(m){
     const green=run();
     assert.equal(green.status,0,'baseline test not green '+m.name+'\n'+green.stdout+'\n'+green.stderr);
     assert.match(green.stdout,/# pass 1\b/);
-    let source=readFileSync(join(dir,m.path),'utf8').replace(/\r\n/g,'\n');
     for(const {old,replacement} of m.edits){
-      assert.equal(source.split(old).length-1,1,'single mutation seam '+m.name+' '+old);
-      source=source.replace(old,replacement);
+      let witnessed=0;
+      for(const file of [...new Set([m.path,...patchModules])]){
+        const at=join(dir,file),source=readFileSync(at,'utf8').replace(/\r\n/g,'\n');
+        const count=source.split(old).length-1;
+        if(!count)continue;
+        witnessed+=count;
+        writeFileSync(at,source.replace(old,replacement));
+      }
+      assert.equal(witnessed,1,'single mutation seam '+m.name+' '+old);
     }
-    writeFileSync(join(dir,m.path),source);
     const red=run(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+m.name+'\n'+output);
     assert.match(output,/^not ok \d+ - (?:B8|B7)/m);
