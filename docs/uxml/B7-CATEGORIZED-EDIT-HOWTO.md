@@ -21,3 +21,61 @@ The panel has an explanation for every live `UXML_CATEGORIZED_PATCH_REFUSALS` an
 **Conservative review disposition:** The rare combination “consistent SIF snapshot edit in one physical row *plus* a mapped projection edit in another physical row” may continue to refuse under the existing slice-2 rules. B7 does **not** widen patcher acceptance to resolve that without a separately approved proof and new independent tests. Other SIF owner rules remain unchanged. The unused legacy `S42_DERIVED_OR_LINE_PROJECTION_EDITED` constant was retired; this changes no acceptance condition.
 
 **Scope/authority:** No UI Apply, XML reverse conversion, automatic engineering solution, tolerances, CLOS change or topology fix. B7 is in-memory only until a user explicitly requests the verified byte download. S4.2 is the sole writer authority. Browser qualification uses only public GRE, PLB314, mock and BM_CII files, with LF/CRLF byte checks. Native Windows and private Owner file trials are separate qualifications.
+
+## B8 Categorized editable coverage (Owner Decision A, 3 Nov 2026)
+The **Mapped source value** picker labels each visible eligible field **Editable** or
+**Read-only**. Its value box changes exactly that leaf in the Categorized editor;
+**Check patch-back** is still mandatory. The advanced textarea can display any XML,
+but it does **not** authorize every possible text change. Unsupported changes produce
+a refusal table naming each detected element row or Line, tag, code and reason.
+A refusal always disables Download; there is no override.
+
+**Element fields** (only explicitly present source attributes):
+\`NameBlock.FROM_NAME\`, \`NameBlock.TO_NAME\`, \`NameBlock.NAME\`,
+\`RouteGeometryBlock.DELTA_X\`, \`DELTA_Y\`, \`DELTA_Z\`,
+\`SectionDimensionBlock.DIAMETER\`, \`WALL_THICK\`, \`INSUL_THICK\`.
+S4.0 synthesizes \`NameBlock.NAME\` from the element key if the source omitted
+\`NAME\`: that display is **read-only** and attempts to create a source attribute
+refuse \`S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED\` with element row and tag.
+A \`DELTA_Y\` edit is not intrinsically unsafe; S3 must still accept the patched
+delta graph. Graph conflicts refuse \`S42_SOURCE_GRAPH_CONFLICT\` with row and tag.
+
+**Line-scoped ProcessBlock fields** mapped exactly to their same-named
+\`PIPINGELEMENT\` attributes:
+\`TEMP_EXP_C1\` through \`TEMP_EXP_C9\`, \`PRESSURE1\` through \`PRESSURE9\`,
+\`HYDRO_PRESSURE\`, \`INSUL_DENSITY\`, \`FLUID_DENSITY\`,
+\`REFRACTORY_DENSITY\`, \`REFRACTORY_THK\`, \`CLADDING_DEN\`,
+\`CLADDING_THK\`, \`INSUL_CLAD_UNIT_WEIGHT\`, \`INSUL_CLAD_UNIT_WEIGH\`.
+
+**Line-scoped MaterialBlock fields** mapped to same-named source attributes:
+\`MATERIAL_NUM\`, \`MATERIAL_NAME\`, \`CORR_ALLOW\`, \`MODULUS\`,
+\`HOT_MOD1\` through \`HOT_MOD9\`, \`POISSONS\`, \`PIPE_DENSITY\`,
+\`MILL_TOL_PLUS\`, \`MILL_TOL_MINUS\`, \`SEAM_WELD\`.
+
+The unchanged S4.0 converter picks the **first nonempty/non-\`-1.0101\`**
+source value per Line and field. A successful B8 edit patches **every**
+source element in that Line that explicitly holds an agreeing non-sentinel
+value; missing attributes and sentinel carry-forward rows are left byte-for-byte
+unchanged. If meaningful explicit values disagree, the displayed first value
+is not a pure collapse, so edit refuses \`S42_LINE_DERIVED_OR_DISAGREEING_VALUES\`.
+Every written source attribute is a separate \`changes[]\` row, with old/new text
+and byte offsets; S4.0(patched) must echo the requested leaf exactly. Strict
+S3/S4.1 and the original-byte S4.2 writer still gate final parity EQUAL.
+
+**Global AllowableStress is read-only.** S4.0 globally harvests each
+\`ALLOWABLESTRESS\` stanza and repeats it in every line's
+\`MaterialBlock.AllowableStressBlock\`, without a unique Line owner. An edit
+refuses \`S42_GLOBAL_SHARED_STANZA_READ_ONLY\` with the Line and
+\`ALLOWABLESTRESS\` tag, together with other offending edits. No silent global
+update, inverse converter, guessed line ownership, or engineering override.
+An ownership-aware global editor is a separate Owner/Oracle follow-up.
+
+**B7 follow-up controls:** Require exactly \`ok === true\`, not merely truthy.
+Continue Editing does not add \`-patched\` repeatedly and stages rebinding
+before replacing the current source; refused rebind preserves the loaded
+source. A changed editor line-break count refuses
+\`B7_EDITOR_LINE_STRUCTURE_CHANGED\` rather than attempting mixed-CRLF
+restoration. The “written exactly as typed” label only comes from the patch
+engine's \`writtenExactlyAsTyped\` evidence, not a UI field-name regex.
+The refusal map covers the added B8 codes. Release-last revision and
+original SHA/editor snapshot gates remain in force.
