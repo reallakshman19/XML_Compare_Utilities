@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const target='tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
-const files=[target,'uxml/UxmlCategorizedPatchBack.js',
+const files=[target,'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js',
   'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',

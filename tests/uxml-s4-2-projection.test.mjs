@@ -304,7 +304,7 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
   const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
   const sandbox=mkdtempSync(join(tmpdir(),'s42-s40-throw-'));
   try{
-    const files=['uxml/UxmlCategorizedPatchBack.js',
+    const files=['uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js',
       'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
       'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',
