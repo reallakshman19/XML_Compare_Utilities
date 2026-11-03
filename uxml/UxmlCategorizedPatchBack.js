@@ -619,7 +619,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
   const line=b8LineProjectionChanges(baselineCategorized,editedCategorized);
   if(line.refusals.length){
-    const refused=b8UniqueRefusals(line.refusals);
+    const refused=b8UniqueRefusals([...line.refusals,
+      ...b8ElementProjectionRefusals(oldElements,newElements)]);
     return fail(refused[0].code,refused);
   }
   // An exact, fully regenerated snapshot+projection proposal is still
