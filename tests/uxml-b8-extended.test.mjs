@@ -40,7 +40,7 @@ test('B8 exact line map enumerates all and only unchanged S4.0 Process/Material 
   const set=new Set(S42_LINE_FIELDS.map(e=>e.block+'.'+e.tag));
   assert.equal(set.size,S42_LINE_FIELDS.length);
   assert.equal(S42_LINE_PROJECTION_MAP.ProcessBlock.length,27);
-  assert.equal(S42_LINE_PROJECTION_MAP.MaterialBlock.length,17);
+  assert.equal(S42_LINE_PROJECTION_MAP.MaterialBlock.length,18);
   for(const e of S42_LINE_FIELDS){
     assert.equal(e.attribute,e.tag);
     assert.equal(e.sourceTag,'PIPINGELEMENT');
