@@ -106,6 +106,21 @@ for(const mapped of S42_PROJECTION_MAP){
     assert.deepEqual(Buffer.from(result.bytes),b(changed));
   });
 }
+// R2 independent physical carry witness, distinct from the writer's output.
+function inheritingPhysicalRows(text,sourceIndex,tag){
+  const physical=scan(text);
+  const sourceLine=physical[sourceIndex].raw.match(/\bLINE_ID=(["'])(.*?)\1/)?.[2];
+  const inheritors=[];
+  for(let index=sourceIndex+1;index<physical.length;index++){
+    const open=physical[index].raw.match(/^<PIPINGELEMENT\b[^>]*>/)?.[0]||'';
+    const raw=open.match(new RegExp('\\b'+tag+'=(["\\x27])([^"\\x27]*)\\1','i'))?.[2];
+    if(raw!==undefined&&raw.trim()!==''&&Number.isFinite(Number(raw))&&
+       Math.abs(Number(raw)+1.0101)>=1e-4)break;
+    const line=open.match(/\bLINE_ID=(["'])(.*?)\1/)?.[2];
+    inheritors.push({row:index+1,line});
+  }
+  return {sourceLine,inheritors};
+}
 const publicSamples=[
   ['GRE','docs/GREInputxml.xml',100],
   ['PLB314','docs/PLB314Inputxml.xml',53],
@@ -144,6 +159,21 @@ for(const [label,path,count] of publicSamples){
         const expected=physicalChange(text,ordinal,field,value);
         const edited=changeProjection(baseline,catIndex,select,value);
         const result=await run(text,edited,baseline);
+        if(field==='DIAMETER'){
+          const carry=inheritingPhysicalRows(text,ordinal,field);
+          if(carry.inheritors.length){
+            const first=carry.inheritors[0];
+            const required=first.line===carry.sourceLine?R.ELEMENT_CARRY:R.CROSS_LINE;
+            assert.equal(result.ok,false,'hidden inherited section value must refuse');
+            assert.equal(result.code,required,label+' '+position+' physical carry');
+            assert.equal(result.bytes,null);
+            assert(result.refusals.some(x=>x.row===first.row&&x.tag===field));
+            console.log('S42_PROJECTION_REAL_REFUSED '+label+' '+position+
+              ' physicalOrdinal='+ordinal+' inheritedRow='+first.row+
+              ' code='+required);
+            return;
+          }
+        }
         verifyByteRanges(text,expected,result);
         assert.equal(result.changes.length,1,'one physical value range only');
         assert.equal(result.changes[0].new,value,'never silently reformat requested value');

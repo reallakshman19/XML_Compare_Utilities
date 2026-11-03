@@ -190,18 +190,18 @@ for(const [label,path] of [
   ['GRE','docs/GREInputxml.xml'],['PLB314','docs/PLB314Inputxml.xml'],
   ['mock','opt/mock-xml.xml'],['BM_CII','converters/scripts/pdf_inputxml_profile_bm_cii.xml']
 ]){
-  test('B7 public original '+label+' projection-only DIAMETER keeps every non-target byte',async()=>{
+  test('B7 public original '+label+' projection-only NAME keeps every non-target byte',async()=>{
     const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');
     const c=await loaded(source,label+'.xml');
     const cat=c.snapshot().edited;
-    const match=/<DIAMETER>([^<]+)<\/DIAMETER>/.exec(cat);
-    assert(match,'visible DIAMETER in '+label);
-    const value='127.125',editor=cat.replace(match[0],'<DIAMETER>'+value+'</DIAMETER>');
+    const match=/<NAME>([^<]+)<\/NAME>/.exec(cat);
+    assert(match,'visible NAME in '+label);
+    const value='B7-PUBLIC-RENAMED',editor=cat.replace(match[0],'<NAME>'+value+'</NAME>');
     c.edit(editor);
     const result=await c.check();assert.equal(result.canDownload,true,result.code);
     assert.equal(result.changes.length,1);
     const written=c.download();
-    const expected=source.replace(/(DIAMETER=")[^"]+(")/,(_,a,z)=>a+value+z);
+    const expected=source.replace(/\bNAME="[^"]*"/,'NAME="'+value+'"');
     assert.deepEqual(written.bytes,bytes(expected));
     assert.equal(result.changes[0].new,value);
     console.log('B7_PUBLIC_CONTROLLER '+label+' sourceBytes='+bytes(source).length+

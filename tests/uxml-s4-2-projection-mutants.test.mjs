@@ -58,9 +58,9 @@ const mutants=[
    edits:[{old:"block:'RouteGeometryBlock',tag,sourceTag:'PIPINGELEMENT',attribute:tag",
      replacement:"block:'RouteGeometryBlock',tag,sourceTag:'PIPINGELEMENT',attribute:'DIAMETER'"}]},
   {name:'PROJECTION_VISIBLE_SOURCE_ORDINAL',
-   pattern:'S4.2 slice2 REAL GRE DIAMETER middle eligible projection-only bytes',
-   edits:[{old:"const sourceAt=(index,tag,lineId=null)=>{\n    const ref=binding.components[index]?.sourceRefs?.[0];\n    const row=sourceRows[ref?.elementIndex];",
-     replacement:"const sourceAt=(index,tag,lineId=null)=>{\n    const ref=binding.components[index]?.sourceRefs?.[0];\n    const row=sourceRows[0];"}]},
+   pattern:'S4.2 slice2 REAL GRE DELTA_X middle eligible projection-only bytes',
+   edits:[{old:"function b8BoundAt(ctx,index,tag,lineId=null){\n  const ref=ctx.binding.components[index]?.sourceRefs?.[0];\n  const row=ctx.sourceRows[ref?.elementIndex];",
+     replacement:"function b8BoundAt(ctx,index,tag,lineId=null){\n  const ref=ctx.binding.components[index]?.sourceRefs?.[0];\n  const row=ctx.sourceRows[0];"}]},
   {name:'UNMAPPED_PROJECTION_REFUSAL',
    pattern:'S4.2 slice2 REFUSE unmapped/derived/line value edits and unknown tags',
    edits:[
