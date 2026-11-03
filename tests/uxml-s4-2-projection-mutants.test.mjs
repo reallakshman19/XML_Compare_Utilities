@@ -63,19 +63,23 @@ const mutants=[
      replacement:"const row=sourceRows[0];"}]},
   {name:'UNMAPPED_PROJECTION_REFUSAL',
    pattern:'S4.2 slice2 REFUSE unmapped/derived/line value edits and unknown tags',
-   edits:[{old:"editedCategorized!==baselineCategorized)return fail(R.UNMAPPED);",
-     replacement:"false)return fail(R.UNMAPPED);"}]},
+   edits:[{old:"if(preflight.length)return fail(preflight[0].code,preflight);",
+     replacement:"if(preflight.length)return fail(R.PARITY,preflight);"}]},
   {name:'CANONICAL_PROJECTION_ONLY_SHAPE',
    pattern:'S4.2 slice2 REFUSE mapped projection changed with an unrelated derived tag',
-   edits:[{old:"if(!projectionOnlyEquivalent&&editedCategorized!==canonical)",
-     replacement:"if(false&& !projectionOnlyEquivalent&&editedCategorized!==canonical)"}]},
+   edits:[
+     {old:"if(preflight.length)return fail(preflight[0].code,preflight);",
+      replacement:"if(false&&preflight.length)return fail(preflight[0].code,preflight);"},
+     {old:"if(!projectionOnlyEquivalent&&editedCategorized!==canonical)",
+      replacement:"if(false&& !projectionOnlyEquivalent&&editedCategorized!==canonical)"}
+   ]},
   {name:'ROUNDTRIP_EXACT_TYPED_TEXT',
    pattern:'S4.2 slice2 REFUSE projection text that would be reformatted by S4.0',
    edits:[
-     {old:"if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value)return fail(R.ROUNDTRIP);",
-      replacement:"if(false&&(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value))return fail(R.ROUNDTRIP);"},
-     {old:"if(!echo||echo.error||echo.value!==change.new)return fail(R.ROUNDTRIP);",
-      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))return fail(R.ROUNDTRIP);"}
+     {old:"if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){\n        errors.push(b8Refusal(R.ROUNDTRIP",
+      replacement:"if(false&&(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value)){\n        errors.push(b8Refusal(R.ROUNDTRIP"},
+     {old:"if(!echo||echo.error||echo.value!==change.new)\n      return fail(R.ROUNDTRIP",
+      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))\n      return fail(R.ROUNDTRIP"}
    ]},
   {name:'MIXED_SNAPSHOT_EXACT',
    pattern:'S4.2 slice2 REFUSE inconsistent projection plus mismatched OriginalElement',
@@ -103,8 +107,8 @@ const mutants=[
      replacement:"if(regenerated!==editedCategorized)return fail(R.DERIVED);"}]},
   {name:'OMITTED_PROJECTION_NO_INVENTION',
    pattern:'S4.2 slice2 REFUSE source field missing or absent from map',
-   edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b))",
-     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b)))"},
+   edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b)){\n        errors.push(b8Refusal(R.UNMAPPED",
+     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b))){\n        errors.push(b8Refusal(R.UNMAPPED"},
      {old:"if(!a||a.value===b.value)continue;",
       replacement:"if(a?.value===b?.value)continue;"}]},
 ];
