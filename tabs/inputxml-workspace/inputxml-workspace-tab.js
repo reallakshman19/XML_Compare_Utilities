@@ -644,12 +644,13 @@ function renderCategorizedPatchBack(state){
     'Read-only: '+(selected.reason||'derived, omitted, inconsistent holders or graph refusal')+'.')+
     '</span></div>':'';
   const refusedRows=(record.refusals||[]).map(x=>
-    '<tr><td>'+h(x.line||('Element '+(x.row??'—')))+'</td><td>'+h(x.tag||'—')+
+    '<tr><td>'+h(x.line??'—')+'</td><td>'+h(x.viewRow??'—')+
+    '</td><td>'+h(x.fileRow??'—')+'</td><td>'+h(x.tag||'—')+
     '</td><td>'+h(x.code||record.code||'')+'</td><td>'+h(x.reason||'')+
     '</td></tr>').join('');
   const refusedTable=refusedRows?'<div style="max-height:240px;overflow:auto">'+
     '<table class="ixw-table" data-ixw-b8-refusals><thead><tr>'+
-    '<th>Line / element row</th><th>Tag</th><th>Code</th><th>Why refused</th>'+
+    '<th>Line</th><th>Categorized view row</th><th>Physical file row</th><th>Tag</th><th>Code</th><th>Why refused</th>'+
     '</tr></thead><tbody>'+refusedRows+'</tbody></table></div>':'';
   const heading=phase==='checked'?'Checked · parity EQUAL · bytes ready':
     phase==='downloaded'?'Downloaded · verified original bytes':
@@ -661,7 +662,8 @@ function renderCategorizedPatchBack(state){
     const ordinal=String(change.recordKey||'').match(/^E(\d+):/)?.[1];
     const field=String(change.field||'');
     const isProjection=change.writtenExactlyAsTyped===true;
-    return '<tr><td>'+h(ordinal===undefined?'—':Number(ordinal)+1)+'</td>'+
+    return '<tr><td>'+h(change.line??'—')+'</td>'+
+      '<td>'+h(change.viewRow??'—')+'</td><td>'+h(change.fileRow??'—')+'</td>'+
       '<td>'+h(change.recordKey||'')+'</td><td>'+h(field)+'</td><td>'+h(change.old)+
       '</td><td>'+h(change.new)+'</td><td>'+
       h((isProjection?'Written exactly as typed; ':'Decoded XML value; ')+
@@ -669,7 +671,8 @@ function renderCategorizedPatchBack(state){
       '</td></tr>';
   }).join('');
   const inheritedRows=(record.inheritedRows||[]).map(x=>
-    '<tr><td>'+h(x.row)+'</td><td>'+h(x.tag)+'</td><td>'+
+    '<tr><td>'+h(x.line??'—')+'</td><td>'+h(x.viewRow??'—')+
+    '</td><td>'+h(x.fileRow??'—')+'</td><td>'+h(x.tag)+'</td><td>'+
     h(x.oldEffective)+'</td><td>'+h(x.newEffective)+'</td></tr>').join('');
   const inheritedTable=allowed?'<div data-ixw-b8-inherited>'+
     '<div class="ixw-title">Inherited effective section values: '+
@@ -677,7 +680,7 @@ function renderCategorizedPatchBack(state){
     '<p class="ixw-note">These same-Line elements inherit the new section value. '+
     'Their original attributes remain unchanged; only the explicit holder is written.</p>'+
     (inheritedRows?'<div style="max-height:240px;overflow:auto"><table class="ixw-table">'+
-      '<thead><tr><th>Physical row</th><th>Section tag</th>'+
+      '<thead><tr><th>Line</th><th>Categorized view row</th><th>Physical file row</th><th>Section tag</th>'+
       '<th>Old effective</th><th>New effective</th></tr></thead><tbody>'+
       inheritedRows+'</tbody></table></div>':
       '<p class="ixw-note">No inherited section rows.</p>')+'</div>':'';
@@ -708,7 +711,7 @@ function renderCategorizedPatchBack(state){
     '<div data-ixw-b7-result>'+detail+alerts+
     (allowed?'<div class="ixw-title">Verified source attribute changes: '+record.changes.length+' row(s)</div>'+
       (rows?'<div data-ixw-b8-source-changes style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
-        '<th>Physical row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
+        '<th>Line</th><th>Categorized view row</th><th>Physical file row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>':
         '<p class="ixw-note">No changes. Original bytes remain identical.</p>')+
       inheritedTable+

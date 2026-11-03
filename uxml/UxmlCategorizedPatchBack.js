@@ -8,6 +8,7 @@ import {mapCategorizedInputXmlToUxml} from './UxmlCategorizedInputXmlSchemaMappe
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
 import {S42_PROJECTION_MAP,S42_LINE_FIELDS,categorizedLineRanges,categorizedElementRanges,projectionLeaf} from './UxmlCategorizedProjectionMap.js';
+import {withPatchRowProvenance} from './UxmlCategorizedPatchBackProvenance.js';
 
 export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   INPUT:'S42_INVALID_INPUT',
@@ -515,8 +516,8 @@ function sourceRootAttribute(sourceRow,attribute){
 
 // B8 diagnostics are only about named XML leaves; the original byte writer
 // remains the sole acceptance authority. No loose XML reparse is trusted for writes.
-function b8Refusal(code,{line=null,row=null,tag='UNKNOWN',reason=''}={}){
-  return {code,line,row,tag,reason};
+function b8Refusal(code,{line=null,row=null,viewRow=null,fileRow=null,tag='UNKNOWN',reason=''}={}){
+  return {code,line,row,viewRow,fileRow,tag,reason};
 }
 function b8FlatLeaves(xml){
   const fields=new Map(),seen=new Map();
@@ -727,13 +728,13 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
       const rawValue=attr?decodeValue(attr.value):'';
       const current=physicalLine.get(index);
       if(attr&&rawValue===null){
-        refusals.push(b8Refusal(R.UNBOUND,{...location,row:index+1,
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:index+1,fileRow:index+1,
           reason:'Physical source attribute cannot be decoded'}));
         continue;
       }
       if(attr&&!s40.isUnset(rawValue)){previous={index,line:current};continue;}
       if(current===lineId&&previous&&previous.line!==lineId){
-        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:index+1,
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:index+1,fileRow:index+1,
           reason:'Line '+lineId+' inherits '+tag+' from earlier different Line '+
             previous.line+' at physical row '+(index+1)}));
       }
@@ -747,7 +748,7 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
       if(following){
         const rawValue=decodeValue(following.value);
         if(rawValue===null){
-          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,fileRow:physical+1,
             reason:'Downstream carry-forward source value cannot be decoded'}));
           break;
         }
@@ -755,12 +756,12 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
       }
       const downstream=physicalLine.get(physical);
       if(!downstream){
-        refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,fileRow:physical+1,
           reason:'Downstream physical Line is not uniquely source-bound'}));
         break;
       }
       if(downstream!==lineId){
-        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,fileRow:physical+1,
           reason:'Changing '+lineId+' would carry '+tag+
             ' into different Line '+downstream+' at physical row '+(physical+1)}));
         break;
@@ -770,10 +771,10 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
       // unchanged; report the *effective* value transition separately.
       if(element&&inheritedRows){
         if(oldEffective===null||newEffective===null){
-          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,fileRow:physical+1,
             reason:'Inherited section effective value is not source-proven'}));
         }else if(oldEffective!==newEffective){
-          inheritedRows.push({row:physical+1,tag:entry.tag,
+          inheritedRows.push({row:physical+1,fileRow:physical+1,tag:entry.tag,
             oldEffective,newEffective});
         }
       }
@@ -934,7 +935,7 @@ export async function classifyCategorizedEditableFields(originalText,baselineCat
   return {ok:true,choices};
 }
 
-export async function patchOriginalFromCategorized(originalText,baselineCategorized,editedCategorized,options={}){
+async function patchOriginalFromCategorizedImpl(originalText,baselineCategorized,editedCategorized,options={}){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||
      typeof editedCategorized!=='string'||!options||typeof options!=='object')
@@ -1223,4 +1224,15 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       {line:x.line,tag:x.entry.tag,reason:refusalReason})),
   ];
   return fail(refusedCode,b8UniqueRefusals(scopes));
+}
+
+
+// Metadata-only wrapper: preserve the engine's decision, bytes and row
+// ordering; annotate every available success/refusal with both coordinates.
+export async function patchOriginalFromCategorized(originalText,baselineCategorized,
+  editedCategorized,options={}){
+  const outcome=await patchOriginalFromCategorizedImpl(originalText,
+    baselineCategorized,editedCategorized,options);
+  return withPatchRowProvenance(outcome,originalText,baselineCategorized,{
+    scan:scanOriginalInputXmlStructure,parse:categorizedItems});
 }
