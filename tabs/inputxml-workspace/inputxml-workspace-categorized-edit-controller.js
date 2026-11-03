@@ -8,7 +8,7 @@ import {mapCaesarInputXmlToUxmlStrict} from '../../uxml/UxmlInputXmlSchemaMapper
 import {mapCategorizedInputXmlToUxml,UXML_CATEGORIZED_INPUTXML_REFUSALS as S41}
   from '../../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 import {inputXmlToCategorizedInputXml} from '../../xml-compare/CategorizedInputXmlConverter.js';
-import {patchOriginalFromCategorized,UXML_CATEGORIZED_PATCH_REFUSALS as R}
+import {patchOriginalFromCategorized,classifyCategorizedEditableFields,UXML_CATEGORIZED_PATCH_REFUSALS as R}
   from '../../uxml/UxmlCategorizedPatchBack.js';
 
 export const B7_REFUSALS=Object.freeze({
@@ -161,11 +161,12 @@ export function createCategorizedEditController({
   categorize=inputXmlToCategorizedInputXml,
   bind=mapCategorizedInputXmlToUxml,
   patch=patchOriginalFromCategorized,
+  classify=classifyCategorizedEditableFields,
   hash=measuredHash,
 }={}){
   let revision=0, checkSerial=0, phase='idle', code='',detail='',filename='';
   let originalBytes=null,originalText='',fileSha256='',baseline='',edited='',strictDoc=null;
-  let checked=null,warning=[],refusals=[],downloadCount=0;
+  let checked=null,warning=[],refusals=[],downloadCount=0,editability=[];
   const refuse=(next,why='',items=[])=>{phase='refused';code=String(next);detail=why;
     checked=null;warning=[];refusals=Array.isArray(items)?items.map(x=>({...x})):[];
     return snapshot();};
@@ -180,10 +181,11 @@ export function createCategorizedEditController({
       canDownload:allowed,canContinue:allowed,
       changes:allowed?checked.changes.map(x=>({...x,byteRange:{...x.byteRange}})):[],
       warning:[...warning],refusals:refusals.map(x=>({...x})),downloadCount,
+      editability:editability.map(x=>({...x})),
       patchedCategorized:allowed?checked.categorized:''};
   }
   function beginLoad(){invalidate('loading');originalBytes=null;originalText='';fileSha256='';
-    baseline='';edited='';strictDoc=null;filename='';return revision;}
+    baseline='';edited='';strictDoc=null;filename='';editability=[];return revision;}
   async function loadBytes(raw,name='original.xml',token=null){
     const receipt=token??beginLoad();
     if(receipt!==revision)return snapshot();
@@ -216,6 +218,12 @@ export function createCategorizedEditController({
     if(!result?.ok||result.status!=='SOURCE_BOUND_READ_ONLY'||
        result.exportAllowed!==false||result.uxml?.components?.length!==parsed.components.length)
       return refuse(result?.code||B7_REFUSALS.S41);
+    let classified;
+    try{classified=await classify(source,categorized,{fileSha256:sha});}
+    catch{classified=null;} // fail-closed choice classification; writer remains gated
+    if(receipt!==revision)return snapshot();
+    editability=classified?.ok===true&&Array.isArray(classified.choices)
+      ?classified.choices.map(x=>({...x})):[];
     originalBytes=bytes;originalText=source;fileSha256=sha;baseline=categorized;
     edited=categorized;strictDoc=parsed;filename=String(name||'original.xml');
     phase='ready';code='';detail='';return snapshot();
@@ -276,7 +284,7 @@ export function createCategorizedEditController({
     const bytes=new Uint8Array(checked.bytes),nextName=patchedOriginalFilename(filename);
     // Stage the entire reload without mutating the current source. A transient
     // strict/S4.1 refusal must not destroy the only valid original source.
-    const stage=createCategorizedEditController({strict,categorize,bind,patch,hash});
+    const stage=createCategorizedEditController({strict,categorize,bind,patch,classify,hash});
     const ready=await stage.loadBytes(bytes,nextName);
     if(ready.phase!=='ready')
       return refuse(B7_REFUSALS.CONTINUE,ready.code||ready.detail);
@@ -284,7 +292,7 @@ export function createCategorizedEditController({
     originalBytes=bytes;
     originalText=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
     fileSha256=ready.sourceSha256;
-    baseline=ready.baseline;edited=ready.edited;
+    baseline=ready.baseline;edited=ready.edited;editability=ready.editability;
     strictDoc=null;filename=nextName;
     phase='ready';code='';detail='';
     return snapshot();

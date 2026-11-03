@@ -586,16 +586,19 @@ function renderEnrichmentTab(state) {
 
 
 
-function b8EditableChoices(xml=''){
+function b8EditableChoices(xml='',engineChoices=[]){
   const choices=[];
+  const engine=new Map(engineChoices.map(x=>[x.key,x]));
   for(const [i,line] of categorizedLineRanges(xml).entries()){
     for(const entry of S42_LINE_FIELDS){
       const leaf=projectionLeaf(line.text,entry);
       if(!leaf||leaf.error)continue;
-      choices.push({key:'L:'+i+':'+entry.tag,
+      const key='L:'+i+':'+entry.tag,authority=engine.get(key);
+      choices.push({key,
         where:'Line '+(line.id||i+1),tag:entry.tag,
         value:leaf.value,start:line.start+leaf.start,end:line.start+leaf.end,
-        editable:true});
+        editable:authority?.editable===true,
+        reason:authority?.reason||authority?.code||''});
     }
     if(/<AllowableStressBlock>/.test(line.text)){
       choices.push({key:'R:'+i+':ALLOWABLESTRESS',where:'Line '+(line.id||i+1),
@@ -609,11 +612,12 @@ function b8EditableChoices(xml=''){
     for(const entry of S42_PROJECTION_MAP){
       const leaf=projectionLeaf(element.text,entry);
       if(!leaf||leaf.error)continue;
-      const explicit=new RegExp('\\b'+entry.tag+'\\s*=').test(opening);
-      choices.push({key:'E:'+i+':'+entry.tag,
+      const key='E:'+i+':'+entry.tag,authority=engine.get(key);
+      choices.push({key,
         where:'Element '+(i+1),tag:entry.tag,
         value:leaf.value,start:element.start+leaf.start,end:element.start+leaf.end,
-        editable:explicit});
+        editable:authority?.editable===true,
+        reason:authority?.reason||authority?.code||''});
     }
   }
   return choices;
@@ -623,7 +627,7 @@ function renderCategorizedPatchBack(state){
   const record=state.categorizedPatchBack.snapshot();
   const allowed=record.canDownload&&record.phase!=='loading';
   const phase=record.phase;
-  const choices=b8EditableChoices(record.edited);
+  const choices=b8EditableChoices(record.edited,record.editability);
   const selected=choices.find(x=>x.key===state.b8Choice)||
     choices.find(x=>x.editable)||choices[0]||null;
   const choiceOptions=choices.map(x=>'<option value="'+h(x.key)+'" '+
@@ -637,7 +641,7 @@ function renderCategorizedPatchBack(state){
     'value="'+h(selected.value)+'" '+(selected.editable?'':'disabled')+'></label>'+
     '<span class="ixw-note">'+
     (selected.editable?'Editable existing source attribute; Check validates all owners and parity.':
-    'Read-only: derived, omitted, or globally shared; source ownership not proven.')+
+    'Read-only: '+(selected.reason||'derived, omitted, inconsistent holders or graph refusal')+'.')+
     '</span></div>':'';
   const refusedRows=(record.refusals||[]).map(x=>
     '<tr><td>'+h(x.line||('Element '+(x.row??'—')))+'</td><td>'+h(x.tag||'—')+
@@ -685,7 +689,7 @@ function renderCategorizedPatchBack(state){
     (record.filename?'<div class="ixw-note">Source: '+h(record.filename)+'</div>':'')+
     status+
     fieldEditor+
-    '<p class="ixw-note">Advanced XML editor: only fields marked Editable above are writable. AllowableStress is always read-only.</p>'+
+    '<p class="ixw-note">Advanced XML editor: Editable is classified by the source-bound engine for a representative standalone value; Check still validates the actual edit. Material edits refuse if different elements in the Line hold different material values. AllowableStress is always read-only.</p>'+ 
     '<textarea class="ixw-textarea tall" spellcheck="false" data-ixw-b7-editor '+
     (record.canCheck?'':'disabled')+' aria-label="Editable Categorized InputXML">'+h(record.edited)+'</textarea>'+
     '<div data-ixw-b7-result>'+detail+alerts+
@@ -1158,7 +1162,7 @@ function bindCategorizedPatchBack(dialog,state){
   });
   dialog.querySelector('[data-ixw-b8-value]')?.addEventListener('change',event=>{
     const snapshot=controller.snapshot();
-    const selected=b8EditableChoices(snapshot.edited).find(x=>x.key===
+    const selected=b8EditableChoices(snapshot.edited,snapshot.editability).find(x=>x.key==
       dialog.querySelector('[data-ixw-b8-field]')?.value);
     if(!selected?.editable)return;
     controller.edit(snapshot.edited.slice(0,selected.start)+event.target.value+

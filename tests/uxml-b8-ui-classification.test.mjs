@@ -2,13 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inputXmlToCategorizedInputXml as s40} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {_test as workspaceUi} from '../tabs/inputxml-workspace/inputxml-workspace-tab.js';
+import {classifyCategorizedEditableFields} from '../uxml/UxmlCategorizedPatchBack.js';
+import {createHash} from 'node:crypto';
 
-test('B8 editor classifies mapped root fields, omitted NAME and globally shared AllowableStress read-only',()=>{
+test('B8 editor classifies mapped root fields, omitted NAME and globally shared AllowableStress read-only',async()=>{
   const source='<CAESARII XML_TYPE="Input"><PIPINGMODEL>'+
     '<PIPINGELEMENT FROM_NODE="10" TO_NODE="20" LINE_ID="L" '+
     'DELTA_X="10" DELTA_Y="20" DELTA_Z="30" PRESSURE1="1.5" DIAMETER="100"/>'+
     '<ALLOWABLESTRESS NODE="10" ALLOWABLE_1="100"/></PIPINGMODEL></CAESARII>';
-  const choices=workspaceUi.b8EditableChoices(s40(source));
+  const baseline=s40(source),fileSha256=createHash('sha256').update(source).digest('hex');
+  const classified=await classifyCategorizedEditableFields(source,baseline,{fileSha256});
+  assert.equal(classified.ok,true);
+  const choices=workspaceUi.b8EditableChoices(baseline,classified.choices);
   const pressure=choices.find(x=>x.tag==='PRESSURE1'&&x.where==='Line L');
   assert.equal(pressure?.editable,true,'explicit ProcessBlock source attribute');
   const name=choices.find(x=>x.tag==='NAME'&&x.where==='Element 1');
