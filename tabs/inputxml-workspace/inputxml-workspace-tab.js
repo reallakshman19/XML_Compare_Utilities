@@ -1324,4 +1324,4 @@ export function installInputXmlWorkspaceTile(container) {
   };
 }
 
-export const _test = Object.freeze({ defaultState, renderLauncher, renderPopup, cleanSummary, buildXmlTraceRows, jsonTraceServices, tablePreview });
+export const _test = Object.freeze({ defaultState, renderLauncher, renderPopup, cleanSummary, buildXmlTraceRows, jsonTraceServices, tablePreview, b8EditableChoices });
