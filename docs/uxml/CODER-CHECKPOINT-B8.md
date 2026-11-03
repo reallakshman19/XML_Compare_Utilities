@@ -24,3 +24,23 @@ status are unchanged. Nonblocking repairs: strict S3 key parity mutant,
 same-number/different-format reason, physical-row-bound typed witness,
 Material-disagreement UI note. Exact-head CI and independent review are
 reported on issue #239, not inferred from the author's code push.
+
+
+## B8 final repair round R2 · evidence card v2
+Oracle comment 6597431556 scored R1 **FAIL 84** (14/18/16/18/18).
+This final R2 implements a shared writer/classifier physical holder
+and carry authority for element SectionDimensionBlock and Line
+Process/Material fields. B-1 cross-Line section leaks are refused;
+same-Line section inherited changes are explicitly **REFUSED**, not
+silently recorded as fake byte edits. The same carry audit covers
+S4.2 snapshot regeneration. Earlier inherited Line rows, mixed
+S3 graph/other refusals, numeric text validation and the dedicated
+fast classifier-only mutant have targeted LF/CRLF synthetic
+regressions and explicit equal-valued-holder green controls.
+
+No source S3/S4.0/S4.1/S1, no structural/engineering policy,
+no Owner-private data, no globally shared AllowableStress change.
+Use the exact pinned PR #255 HEAD, required CI results and
+the `work_returned ORACLE-CYCLE-RECEIPT` on XCU #239
+for current qualification; **independent review NOT_RUN**
+until an eligible non-author reviewer reports a score. Owner only merges.

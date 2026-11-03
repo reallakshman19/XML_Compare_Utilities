@@ -114,3 +114,37 @@ text and inconsistent source holders, each with Line/physical row and tag.
 tag and decoded value on a successful original-byte patch — matching
 another row's field is not sufficient. The original remains untouched
 after every refusal.
+
+
+### B8 Final Repair R2 — element section inheritance and numeric values
+The three section dimensions **DIAMETER, WALL_THICK, INSUL_THICK**
+can be inherited along the physical InputXML file just like Process and
+Material fields. Changing an explicitly sourced element that would carry
+to any following missing or `-1.0101` field in a **different Line**
+is refused with `S42_CROSS_LINE_CARRY_FORWARD_REFUSED` and names
+the changed Line, tag and affected downstream physical row. In the
+**same Line** it is refused with
+`S42_ELEMENT_CARRY_FORWARD_INHERITED` and names every inheriting row:
+we deliberately **refuse**, rather than hiding effective downstream
+changes outside the `changes[]` table. A later explicitly valued
+holder ends this carry chain, even if its old value equals the edited
+holder's old value. Regenerated `OriginalElement` snapshot edits are
+subject to the same rule before releasing bytes.
+
+Line Process/Material edits also refuse if the Line contains earlier
+missing/sentinel rows whose effective value was inherited from a
+different Line, even when S4.0 displays the later local explicit value.
+Both the picker and original-byte writer call the same bound
+holder/carry checks; a disabled picker is never a substitute for the
+full **Check** parity authority. Numeric Process/Material and element
+geometry/section values must be finite plain decimal text, without
+leading/trailing whitespace, exponent notation or a sentinel, and
+otherwise refuse `S42_NUMERIC_VALUE_NOT_CANONICAL`.
+
+The refusal table accumulates independently bad element/Line edits
+AND strict S3 graph/parity conflicts in one Check result; every
+refusal returns `bytes:null`. Globally shared AllowableStress
+remains read-only. Existing S3/S4.0/S4.1/S1 and source policies remain
+unchanged. Public real-file section edits that could silently alter
+inherited values are expected to refuse, while NAME and explicit
+section holders preserve tested positive byte-patch coverage.

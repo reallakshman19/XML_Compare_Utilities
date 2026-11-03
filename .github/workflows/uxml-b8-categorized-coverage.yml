@@ -33,8 +33,6 @@ jobs:
         run: node --test tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
       - name: B8 R2 FAST physical section carry, inbound Line, graph and numeric controls
         run: node --test tests/uxml-b8-r2-carry.test.mjs
-      - name: B8 exhaustive four-public mapped-leaf Editable versus actual engine acceptance
-        run: node --test tests/uxml-b8-editability-public.test.mjs
       - name: B8 independent UI field classification
         run: node --test tests/uxml-b8-ui-classification.test.mjs
       - name: B8 JavaScript syntax
@@ -55,6 +53,8 @@ jobs:
         run: node --test tests/uxml-s3-harden-source-structure.test.mjs tests/uxml-s4-1-categorized-reader.test.mjs
       - name: Unchanged S4.0 source mapping audit
         run: node --test tests/s4-0-audit-*.test.mjs
+      - name: B8 exhaustive four-public mapped-leaf Editable versus actual engine acceptance
+        run: node --test tests/uxml-b8-editability-public.test.mjs
 
   b8-browser:
     runs-on: ubuntu-latest
