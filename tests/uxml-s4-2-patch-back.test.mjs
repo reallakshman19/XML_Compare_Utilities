@@ -254,6 +254,7 @@ test('S4.2 REFUSE source offset that does not exactly match original bytes (isol
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedPatchBackProvenance.js',
       'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',
@@ -390,6 +391,7 @@ test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated sou
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedPatchBackProvenance.js',
       'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',

@@ -9,7 +9,7 @@ import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const files=[
-  'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedProjectionMap.js',
+  'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js','uxml/UxmlCategorizedProjectionMap.js',
   'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlInputXmlDeltaGraph.js',
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',

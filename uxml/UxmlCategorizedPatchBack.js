@@ -647,6 +647,11 @@ function b8ClassificationProbe(raw){
 // R2: one physical/source-holder implementation for writer AND UI classifier.
 // Missing/-1.0101 attributes inherit the previous meaningful physical value
 // even when the Categorized S4.0 projection has no visible section leaf.
+const b8PlainNumericSuggestion=value=>{
+  const number=Number(value);
+  return Number.isFinite(number)&&!s40.isUnset(value)
+    ?'; type '+String(number):'';
+};
 const b8NumericField=entry=>entry.block==='RouteGeometryBlock'||
   entry.block==='SectionDimensionBlock'||entry.block==='ProcessBlock'||
   (entry.block==='MaterialBlock'&&!['MATERIAL_NAME','SEAM_WELD'].includes(entry.tag));
@@ -654,7 +659,8 @@ const b8NumericReason=(entry,value)=>
   b8NumericField(entry)&&
     (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)||
      !Number.isFinite(Number(value))||s40.isUnset(value))
-      ?'Numeric field requires an exact finite decimal without whitespace, exponent or sentinel'
+      ?'Numeric field requires an exact finite decimal without whitespace, exponent or sentinel'+
+        b8PlainNumericSuggestion(value)
       :null;
 function b8BoundAt(ctx,index,tag,lineId=null){
   const ref=ctx.binding.components[index]?.sourceRefs?.[0];
@@ -950,7 +956,15 @@ async function patchOriginalFromCategorizedImpl(originalText,baselineCategorized
   if(authoritative!==baselineCategorized)return fail(R.BASELINE);
   const oldElements=categorizedElementRanges(baselineCategorized);
   const newElements=categorizedElementRanges(editedCategorized);
-  if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
+  if(oldElements.length!==newElements.length){
+    const affected=Math.min(oldElements.length,newElements.length)+1;
+    return fail(R.STRUCTURE,[b8Refusal(R.STRUCTURE,{
+      row:affected,viewRow:affected,tag:'Element',
+      reason:'Categorized Element count changed from '+oldElements.length+
+        ' to '+newElements.length+' (added '+Math.max(0,newElements.length-oldElements.length)+
+        ', removed '+Math.max(0,oldElements.length-newElements.length)+')',
+    })]);
+  }
   const line=b8LineProjectionChanges(baselineCategorized,editedCategorized);
   const preflight=b8UniqueRefusals([...line.refusals,
     ...b8ElementProjectionRefusals(oldElements,newElements)]);
