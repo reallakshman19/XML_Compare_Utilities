@@ -18,6 +18,8 @@ export const B7_REFUSALS=Object.freeze({
   EMPTY:'B7_NO_SOURCE_LOADED',
   CHECK:'B7_CHECK_NOT_CURRENT',
   EXCEPTION:'B7_CHECK_EXCEPTION',
+  NEWLINES:'B7_EDITOR_LINE_STRUCTURE_CHANGED',
+  CONTINUE:'B7_CONTINUE_RELOAD_REFUSED',
   S3:'B7_S3_SOURCE_REFUSED',
   S41:'B7_S41_SOURCE_REFUSED',
   CONVERTER:'B7_S40_SOURCE_REFUSED',
@@ -40,6 +42,10 @@ const patchReasons=Object.freeze({
   [R.S40_MISMATCH]:'The edited snapshots/projections do not equal S4.0 of the proposed original.',
   [R.UNMAPPED]:'Derived, line-owned, missing, unlisted, or mixed SIF snapshot plus projection edits across rows are not writable together. Check and download permitted edits separately.',
   [R.ROUNDTRIP]:'Typed text cannot be written and echoed exactly through S4.0.',
+  [R.GLOBAL]:'Globally shared AllowableStress has no unique Line source owner and is read-only.',
+  [R.LINE_DERIVED]:'Source elements disagree or a line value cannot be traced to one consistent source value.',
+  [R.OMITTED]:'The visible value is derived or omitted from the source; no new attribute may be invented.',
+  [R.GRAPH]:'Strict S3 refused the edited route because its coordinate/delta graph became inconsistent.',
 });
 const otherReasons=Object.freeze({
   [B7_REFUSALS.INPUT]:'Choose a local original InputXML file with readable bytes.',
@@ -48,6 +54,8 @@ const otherReasons=Object.freeze({
   [B7_REFUSALS.EMPTY]:'Load an original InputXML file before checking.',
   [B7_REFUSALS.CHECK]:'Edit, Reset, reload or a newer Check invalidated this result.',
   [B7_REFUSALS.EXCEPTION]:'The patch-back engine failed closed without downloadable bytes.',
+  [B7_REFUSALS.NEWLINES]:'Editor line count changed; original LF/CRLF separator positions cannot be safely preserved.',
+  [B7_REFUSALS.CONTINUE]:'Rebinding the patched source was refused; the prior loaded original is retained.',
   [B7_REFUSALS.S3]:'The original was refused by the strict S3 source reader.',
   [B7_REFUSALS.S41]:'The original and S4.0 categorized view did not bind to S4.1.',
   [B7_REFUSALS.CONVERTER]:'S4.0 could not construct the Categorized view.',
@@ -99,7 +107,8 @@ export function preserveCategorizedEditorLineEndings(exactPrevious,domValue){
 
 export function patchedOriginalFilename(name='original.xml'){
   const leaf=String(name).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,'')||'original.xml';
-  return leaf.replace(/(\.xml)?$/i,(ext)=>'-patched'+(ext||'.xml'));
+  const cleaned=leaf.replace(/(?:-patched)+(?=\.xml$|$)/i,'');
+  return cleaned.replace(/(\.xml)?$/i,(ext)=>'-patched'+(ext||'.xml'));
 }
 const toBytes=bytes=>bytes instanceof Uint8Array
   ?new Uint8Array(bytes):bytes instanceof ArrayBuffer
@@ -147,10 +156,12 @@ export function createCategorizedEditController({
 }={}){
   let revision=0, checkSerial=0, phase='idle', code='',detail='',filename='';
   let originalBytes=null,originalText='',fileSha256='',baseline='',edited='',strictDoc=null;
-  let checked=null,warning=[],downloadCount=0;
-  const refuse=(next,why='')=>{phase='refused';code=String(next);detail=why;checked=null;warning=[];return snapshot();};
+  let checked=null,warning=[],refusals=[],downloadCount=0;
+  const refuse=(next,why='',items=[])=>{phase='refused';code=String(next);detail=why;
+    checked=null;warning=[];refusals=Array.isArray(items)?items.map(x=>({...x})):[];
+    return snapshot();};
   function invalidate(next='ready'){
-    revision++;checkSerial++;checked=null;warning=[];code='';detail='';phase=next;
+    revision++;checkSerial++;checked=null;warning=[];refusals=[];code='';detail='';phase=next;
   }
   function snapshot(){
     const allowed=Boolean(checked&&checked.revision===revision&&
@@ -161,7 +172,7 @@ export function createCategorizedEditController({
       canCheck:Boolean(originalBytes&&baseline),
       canDownload:allowed,canContinue:allowed,
       changes:allowed?checked.changes.map(x=>({...x,byteRange:{...x.byteRange}})):[],
-      warning:[...warning],downloadCount,
+      warning:[...warning],refusals:refusals.map(x=>({...x})),downloadCount,
       patchedCategorized:allowed?checked.categorized:''};
   }
   function beginLoad(){invalidate('loading');originalBytes=null;originalText='';fileSha256='';
@@ -213,15 +224,17 @@ export function createCategorizedEditController({
       base=baseline,value=edited,sha=fileSha256;
     checked=null;warning=[];
     if(!originalBytes||!base)return refuse(B7_REFUSALS.EMPTY);
-    phase='checking';code='';detail='';
+    phase='checking';code='';detail='';refusals=[];
+    if(baseline.split(/\r\n|\r|\n/).length!==edited.split(/\r\n|\r|\n/).length)
+      return refuse(B7_REFUSALS.NEWLINES,'Changed line-break count; Reset or edit values only.');
     let result;
     try{result=await patch(source,base,value,{fileSha256:sha});}
     catch(error){if(ticket===checkSerial&&rev===revision)
       return refuse(B7_REFUSALS.EXCEPTION,String(error?.message||error));return snapshot();}
     if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)
       return snapshot(); // latest result only; stale work can never release bytes.
-    if(!result?.ok||result.parity!=='EQUAL'||!(result.bytes instanceof Uint8Array))
-      return refuse(result?.code||B7_REFUSALS.CHECK);
+    if(result?.ok!==true||result.parity!=='EQUAL'||!(result.bytes instanceof Uint8Array))
+      return refuse(result?.code||B7_REFUSALS.CHECK,'',result?.refusals);
     const bytes=new Uint8Array(result.bytes);
     let patched,projected,patchedStrict;
     try{
@@ -254,8 +267,20 @@ export function createCategorizedEditController({
     const current=snapshot();
     if(!current.canContinue)return snapshot();
     const bytes=new Uint8Array(checked.bytes),nextName=patchedOriginalFilename(filename);
-    const ticket=beginLoad();
-    return loadBytes(bytes,nextName,ticket);
+    // Stage the entire reload without mutating the current source. A transient
+    // strict/S4.1 refusal must not destroy the only valid original source.
+    const stage=createCategorizedEditController({strict,categorize,bind,patch,hash});
+    const ready=await stage.loadBytes(bytes,nextName);
+    if(ready.phase!=='ready')
+      return refuse(B7_REFUSALS.CONTINUE,ready.code||ready.detail);
+    beginLoad();
+    originalBytes=bytes;
+    originalText=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
+    fileSha256=ready.sourceSha256;
+    baseline=ready.baseline;edited=ready.edited;
+    strictDoc=null;filename=nextName;
+    phase='ready';code='';detail='';
+    return snapshot();
   }
   return {snapshot,beginLoad,loadBytes,edit,reset,check,download,continueEditing};
 }
