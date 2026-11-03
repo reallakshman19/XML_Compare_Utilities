@@ -175,3 +175,39 @@ test('B8 editor classifies mapped root fields, omitted NAME and globally shared 
   assert.equal(global?.editable,false,'global shared stanza must not expose a writable value box');
   assert.equal(global?.where,'Line L');
 });
+
+test('B8 existing empty NAME attribute uses exact S4.0 fallback but is writable without adding markup',async()=>{
+  const src=original(row(10,20).replace(' NAME="SPAN"',' NAME=""'));
+  const cat=s40(src),field=projectionLeaf(categorizedElementRanges(cat)[0].text,
+    S42_PROJECTION_MAP.find(x=>x.tag==='NAME'));
+  assert(field,'S4.0 shows elementKey fallback for empty source NAME');
+  const edited=cat.slice(0,categorizedElementRanges(cat)[0].start+field.start)+
+    'B8-NEW-NAME'+cat.slice(categorizedElementRanges(cat)[0].start+field.end);
+  const result=await run(src,edited);
+  assert.equal(result.ok,true,result.code+' '+JSON.stringify(result.refusals));
+  assert.deepEqual(Buffer.from(result.bytes),b(src.replace('NAME=""','NAME="B8-NEW-NAME"')));
+  assert.equal(result.changes[0].field,'PIPINGELEMENT.NAME');
+  assert.equal(result.changes[0].writtenExactlyAsTyped,true);
+});
+test('B8 four public samples first NAME edit stays one exact existing source attribute',async()=>{
+  const sources=[
+    ['GRE','docs/GREInputxml.xml'],['PLB314','docs/PLB314Inputxml.xml'],
+    ['mock','opt/mock-xml.xml'],['BM_CII','converters/scripts/pdf_inputxml_profile_bm_cii.xml'],
+  ];
+  for(const [label,path] of sources){
+    const src=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+    const cat=s40(src),element=categorizedElementRanges(cat)[0];
+    const field=projectionLeaf(element.text,S42_PROJECTION_MAP.find(x=>x.tag==='NAME'));
+    assert(field,label+' has NAME display');
+    const next='B8-PUBLIC-NAME';
+    const edited=cat.slice(0,element.start+field.start)+next+
+      cat.slice(element.start+field.end);
+    const result=await run(src,edited);
+    assert.equal(result.ok,true,label+' '+result.code+' '+JSON.stringify(result.refusals));
+    assert.equal(result.parity,'EQUAL');
+    assert.equal(result.changes.length,1);
+    assert.equal(result.changes[0].field,'PIPINGELEMENT.NAME');
+    checkByteRanges(src,result);
+    console.log('B8_PUBLIC_NAME '+label+' changed=1 parity=EQUAL');
+  }
+});
