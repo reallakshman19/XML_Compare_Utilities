@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'uxml/UxmlCategorizedPatchBack.js'
+      - 'uxml/UxmlCategorizedPatchBack*.js'
+      - 'docs/uxml/UxmlCategorizedPatchBack*.js'
       - 'uxml/UxmlCategorizedProjectionMap.js'
       - 'docs/uxml/UxmlCategorizedPatchBack.js'
       - 'docs/uxml/UxmlCategorizedProjectionMap.js'
