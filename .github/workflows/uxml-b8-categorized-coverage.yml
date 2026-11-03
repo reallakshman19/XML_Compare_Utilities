@@ -30,6 +30,12 @@ jobs:
         run: node --test tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
       - name: B8 JavaScript syntax
         run: node --check uxml/UxmlCategorizedPatchBack.js && node --check uxml/UxmlCategorizedProjectionMap.js && node --check tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js && node --check tabs/inputxml-workspace/inputxml-workspace-tab.js
+      - name: B8 original-red mutants LF
+        run: node --test tests/uxml-b8-mutants.test.mjs
+      - name: B8 original-red mutants simulated CRLF
+        env:
+          B8_MUTANT_COPY_CRLF: '1'
+        run: node --test tests/uxml-b8-mutants.test.mjs
       - name: B7 controller
         run: node --test tests/uxml-b7-controller.test.mjs
       - name: S4.2 projection
