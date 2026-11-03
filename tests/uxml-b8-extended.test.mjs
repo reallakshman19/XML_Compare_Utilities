@@ -211,3 +211,30 @@ test('B8 four public samples first NAME edit stays one exact existing source att
     console.log('B8_PUBLIC_NAME '+label+' changed=1 parity=EQUAL');
   }
 });
+
+for(const mapping of S42_LINE_FIELDS){
+  for(const [position,index] of [['first',0],['middle',1],['last',2]]){
+    test('B8 first/middle/last explicit source holder '+mapping.tag+' '+position,async()=>{
+      const old=/NAME|WELD/.test(mapping.tag)?'MAT-A':'5.125';
+      const next=/NAME|WELD/.test(mapping.tag)?'MAT-B':'8.625';
+      const rows=[
+        row(10,20,mapping.tag+'="-1.010100"'),
+        row(20,30,mapping.tag+'="-1.010100"'),
+        row(30,40,mapping.tag+'="-1.010100"'),
+      ];
+      rows[index]=rows[index].replace(mapping.tag+'="-1.010100"',
+        mapping.tag+'="'+old+'"');
+      const src=original(...rows),cat=s40(src);
+      const visible=projectionLeaf(categorizedLineRanges(cat)[0].text,mapping);
+      assert.equal(visible?.value,old,'unchanged S4.0 must locate this one holder');
+      const result=await run(src,edit(cat,mapping.tag,next));
+      assert.equal(result.ok,true,mapping.tag+'/'+position+': '+result.code);
+      assert.equal(result.parity,'EQUAL');
+      assert.equal(result.changes.length,1);
+      assert.equal(result.changes[0].recordKey?.startsWith('E'+index+':'),true);
+      assert.deepEqual(Buffer.from(result.bytes),
+        b(src.replace(mapping.tag+'="'+old+'"',mapping.tag+'="'+next+'"')));
+      checkByteRanges(src,result);
+    });
+  }
+}
