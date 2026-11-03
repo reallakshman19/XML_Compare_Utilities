@@ -311,7 +311,7 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
   }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
 
-test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity HOLD',async()=>{
+test('S4.2 slice2 BM_CII last DELTA_X ordinal 30 remains strict S3 graph HOLD',async()=>{
   const text=source('converters/scripts/pdf_inputxml_profile_bm_cii.xml');
   const baseline=s40(text),physical=30;
   const admitted=await s41(baseline,{originalInputXml:text,fileSha256:sha(text)});
@@ -322,7 +322,9 @@ test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity H
   const select=entry('RouteGeometryBlock','DELTA_X');
   assert(projectionLeaf(categorizedElementRanges(baseline)[categoryIndex].text,select));
   const result=await run(text,changeProjection(baseline,categoryIndex,select,'77.875'),baseline);
-  refuse(result,R.PARITY);
+  refuse(result,R.GRAPH);
+  assert(result.refusals?.some(x=>x.row===categoryIndex+1&&x.tag==='DELTA_X'),
+    'named physical categorized row and DELTA_X tag required; no bytes released');
 });
 
 test('S4.2 slice2 REFUSE isolated snapshot-only stale DIAMETER projection with mismatch code',async()=>{
