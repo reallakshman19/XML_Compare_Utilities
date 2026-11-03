@@ -631,28 +631,80 @@ export async function classifyCategorizedEditableFields(originalText,baselineCat
   if(!sourceRows||!originalItems||!binding||
      originalItems.items.length!==elements.length||
      binding.components.length!==elements.length)return reject();
-  const choices=[];
-  const testValue=async(start,end,probe)=>{
-    if(probe===null)return {editable:false,code:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
-    const editor=baselineCategorized.slice(0,start)+s40EscapeText(probe)+
-      baselineCategorized.slice(end);
-    const result=await patchOriginalFromCategorized(originalText,baselineCategorized,
-      editor,{fileSha256:measured});
-    return {editable:result?.ok===true&&result.parity==='EQUAL',
-      code:result?.code||'',reason:result?.refusals?.[0]?.reason||''};
-  };
+  const choices=[],R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const physicalLine=new Map();
+  for(let i=0;i<binding.components.length;i++){
+    const physical=binding.components[i]?.sourceRefs?.[0]?.elementIndex;
+    if(Number.isInteger(physical))
+      physicalLine.set(physical,originalItems.items[i]?.identity?.[0]);
+  }
+  // Match the writer's exact per-holder conditions without needlessly
+  // running 45 complete S4.2/S4.1 patch transactions just to draw a picker.
   for(const [lineIndex,line] of categorizedLineRanges(baselineCategorized).entries()){
     for(const entry of S42_LINE_FIELDS){
       const leaf=projectionLeaf(line.text,entry);
       if(!leaf||leaf.error)continue;
       const probe=b8ClassificationProbe(leaf.value);
-      const result=await testValue(line.start+leaf.start,line.start+leaf.end,probe);
-      choices.push({key:'L:'+lineIndex+':'+entry.tag,...result,probeValue:probe});
+      let code='',reason='',holders=[];
+      const refuse=(why,whyReason)=>{if(!code){code=why;reason=whyReason;}};
+      for(let i=0;i<originalItems.items.length;i++){
+        if(originalItems.items[i]?.identity?.[0]!==line.id)continue;
+        const ref=binding.components[i]?.sourceRefs?.[0];
+        const row=sourceRows[ref?.elementIndex];
+        if(!ref||ref.fileSha256!==measured||!row||row.index!==ref.elementIndex){
+          refuse(R.UNBOUND,'A Line source row is not uniquely S4.1 bound');
+          continue;
+        }
+        const attr=sourceRootAttribute(row,entry.attribute);
+        if(!attr)continue; // missing source holder is not created
+        const old=decodeValue(attr.value);
+        if(old===null){
+          refuse(R.LINE_DERIVED,'Source attribute cannot be decoded exactly');
+          continue;
+        }
+        if(s40.isUnset(old))continue; // inherited sentinel is not writable
+        if(s40EscapeText(old)!==leaf.value){
+          const formatting=Number.isFinite(Number(old))&&
+            Number.isFinite(Number(decodeValue(leaf.value)))&&
+            Number(old)===Number(decodeValue(leaf.value));
+          refuse(R.LINE_DERIVED,formatting
+            ?'Explicit holders use different source formats (5.0 vs 5)'
+            :'Explicit source holders disagree with this Line value');
+          continue;
+        }
+        holders.push(row.index);
+      }
+      if(!holders.length)refuse(R.OMITTED,'No exact non-sentinel physical source holder');
+      for(const index of holders){
+        for(let physical=index+1;physical<sourceRows.length;physical++){
+          const following=sourceRootAttribute(sourceRows[physical],entry.attribute);
+          if(following){
+            const old=decodeValue(following.value);
+            if(old===null){
+              refuse(R.UNBOUND,'Downstream carry source value cannot be decoded');
+              break;
+            }
+            if(!s40.isUnset(old))break;
+          }
+          const downstream=physicalLine.get(physical);
+          if(!downstream){
+            refuse(R.UNBOUND,'Downstream Line source binding unavailable');
+            break;
+          }
+          if(downstream!==line.id){
+            refuse(R.CROSS_LINE,'Changing Line '+line.id+' carries '+entry.tag+
+              ' into another Line '+downstream);
+            break;
+          }
+        }
+      }
+      choices.push({key:'L:'+lineIndex+':'+entry.tag,
+        editable:probe!==null&&!code,code:code||'',reason,
+        probeValue:probe});
     }
     if(/<AllowableStressBlock>/.test(line.text))
       choices.push({key:'R:'+lineIndex+':ALLOWABLESTRESS',editable:false,
-        code:UXML_CATEGORIZED_PATCH_REFUSALS.GLOBAL,
-        reason:'Shared global AllowableStress has no unique Line source owner'});
+        code:R.GLOBAL,reason:'Shared global AllowableStress has no unique Line source owner'});
   }
   for(const [index,element] of elements.entries()){
     const ref=binding.components[index]?.sourceRefs?.[0];
