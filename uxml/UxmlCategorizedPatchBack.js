@@ -30,7 +30,6 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   GLOBAL:'S42_GLOBAL_SHARED_STANZA_READ_ONLY',
   LINE_DERIVED:'S42_LINE_DERIVED_OR_DISAGREEING_VALUES',
   CROSS_LINE:'S42_CROSS_LINE_CARRY_FORWARD_REFUSED',
-  ELEMENT_CARRY:'S42_ELEMENT_CARRY_FORWARD_INHERITED',
   NUMERIC:'S42_NUMERIC_VALUE_NOT_CANONICAL',
   OMITTED:'S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED',
   GRAPH:'S42_SOURCE_GRAPH_CONFLICT',
@@ -693,7 +692,7 @@ function b8LineHolders(ctx,lineId,entry,old){
   return {active,refusals};
 }
 function b8CarryRefusals(ctx,entry,holderRows,location,
-  {element=false,inspectIncoming=false}={}){
+  {element=false,inspectIncoming=false,inheritedRows=null,newEffective=null}={}){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   const lineId=location.line,tag=entry.attribute,refusals=[];
   const physicalLine=b8PhysicalLines(ctx);
@@ -719,6 +718,8 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
     }
   }
   for(const ownerRow of holderRows){
+    const ownerAttr=sourceRootAttribute(ctx.sourceRows[ownerRow],tag);
+    const oldEffective=ownerAttr?decodeValue(ownerAttr.value):null;
     for(let physical=ownerRow+1;physical<ctx.sourceRows.length;physical++){
       const following=sourceRootAttribute(ctx.sourceRows[physical],tag);
       if(following){
@@ -742,21 +743,40 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
             ' into different Line '+downstream+' at physical row '+(physical+1)}));
         break;
       }
-      if(element){
-        refusals.push(b8Refusal(R.ELEMENT_CARRY,{...location,row:physical+1,
-          reason:'Editing element row '+(ownerRow+1)+' inherits '+tag+
-            ' into same-Line element row '+(physical+1)+
-            '; inherited values are not individually listed as source changes'}));
+      // Same-Line inherited section values are intentional CAESAR II
+      // "change this run" semantics. Source bytes for the follower remain
+      // unchanged; report the *effective* value transition separately.
+      if(element&&inheritedRows){
+        if(oldEffective===null||newEffective===null){
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+            reason:'Inherited section effective value is not source-proven'}));
+        }else if(oldEffective!==newEffective){
+          inheritedRows.push({row:physical+1,tag:entry.tag,
+            oldEffective,newEffective});
+        }
       }
     }
   }
   return b8UniqueRefusals(refusals);
 }
+function b8UniqueInheritedRows(items){
+  const seen=new Map();
+  for(const item of items){
+    const key=item.row+'\u0000'+item.tag;
+    if(seen.has(key)){
+      const old=seen.get(key);
+      if(old.oldEffective!==item.oldEffective||old.newEffective!==item.newEffective)
+        throw Error('Conflicting inherited row evidence: '+key);
+    }else seen.set(key,item);
+  }
+  return [...seen.values()].sort((a,b)=>a.row-b.row||a.tag.localeCompare(b.tag));
+}
 
 // The pre-existing slice-1 snapshot route can return a byte-equal, canonical
 // original that still changes a hidden carried section value. Reuse precisely
 // the same physical audit as projection edits before releasing those bytes.
-async function b8LegacySourceRefusals(originalText,baselineCategorized,legacy,measured){
+async function b8LegacySourceRefusals(originalText,baselineCategorized,legacy,measured,
+  inheritedRows=[]){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   if(!legacy?.ok||!Array.isArray(legacy.changes))return [];
   const oldCat=categorizedItems(baselineCategorized);
@@ -785,7 +805,7 @@ async function b8LegacySourceRefusals(originalText,baselineCategorized,legacy,me
     if(numeric)refusals.push(b8Refusal(R.NUMERIC,{...location,reason:numeric}));
     if(entry.block==='SectionDimensionBlock'){
       refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
-        location,{element:true}));
+        location,{element:true,inheritedRows,newEffective:change.new}));
     }else if(S42_LINE_FIELDS.some(x=>x.tag===tag)){
       refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
         location,{inspectIncoming:true}));
@@ -919,12 +939,21 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     const legacy=await patchOriginalFromCategorizedSlice1(originalText,
       baselineCategorized,editedCategorized,options);
     if(legacy.ok===true){
-      const inherited=await b8LegacySourceRefusals(originalText,baselineCategorized,
-        legacy,measured);
-      if(inherited.length)return fail(inherited[0].code,inherited);
-      return legacy;
+      const inheritedRows=[];
+      const errors=await b8LegacySourceRefusals(originalText,baselineCategorized,
+        legacy,measured,inheritedRows);
+      const all=b8UniqueRefusals([...preflight,...errors]);
+      if(all.length)return fail(all[0].code,all);
+      return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
     }
-    if(legacy.code!==R.S40_MISMATCH)return legacy;
+    if(legacy.code!==R.S40_MISMATCH){
+      const all=b8UniqueRefusals([...preflight,...(legacy.refusals||[])]);
+      // A legacy structural refusal may lack a source row: preserve its
+      // named code and enrich the refusal details below (rather than []).
+      return fail(all[0]?.code||legacy.code,all.length?all:
+        [b8Refusal(legacy.code,{tag:'OriginalElement',
+          reason:'Source snapshot edit was refused'})]);
+    }
   }
   const changes=[],normalized=[...line.normalized],oldSnapshots=[],newSnapshots=[];
   const errors=[...preflight];
@@ -972,8 +1001,15 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
        editedCategorized!==baselineCategorized)
       return fail(R.UNMAPPED,[b8Refusal(R.UNMAPPED,{tag:'Markup',
         reason:'Non-source-bound projection or structural edit'})]);
-    return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
-      editedCategorized,options);
+    const legacy=await patchOriginalFromCategorizedSlice1(originalText,
+      baselineCategorized,editedCategorized,options);
+    if(legacy.ok===true){
+      const inheritedRows=[],issues=await b8LegacySourceRefusals(
+        originalText,baselineCategorized,legacy,measured,inheritedRows);
+      if(issues.length)return fail(issues[0].code,issues);
+      return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
+    }
+    return legacy;
   }
   const projectionOnlyEquivalent=substitute(editedCategorized,normalized)===
     baselineCategorized;
@@ -1001,7 +1037,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     }
     return fail(R.UNBOUND);
   }
-  const sourceEdits=[],ranges=new Set(),typedWitnesses=new Set();
+  const sourceEdits=[],ranges=new Set(),typedWitnesses=new Set(),inheritedRows=[];
   const ctx={originalText,oldCat,binding,sourceRows,measured};
   const sourceAt=(index,tag,lineId=null)=>b8BoundAt(ctx,index,tag,lineId);
   const addSource=(item,decoded,location)=>{
@@ -1052,7 +1088,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     if(entry.block==='SectionDimensionBlock'){
       const lineId=oldCat.items[index]?.identity?.[0];
       const inherited=b8CarryRefusals(ctx,entry,[item.row.index],
-        {line:lineId,row:index+1,tag:entry.tag},{element:true});
+        {line:lineId,row:index+1,tag:entry.tag},
+        {element:true,inheritedRows,newEffective:decoded});
       errors.push(...inherited);
       if(inherited.length)continue;
     }
@@ -1125,7 +1162,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const authoritativeResult=await patchOriginalFromCategorizedSlice1(
     originalText,baselineCategorized,canonical,options);
   if(authoritativeResult.ok===true&&authoritativeResult.parity==='EQUAL'){
-    return {...authoritativeResult,changes:authoritativeResult.changes.map(x=>({
+    return {...authoritativeResult,inheritedRows:b8UniqueInheritedRows(inheritedRows),
+      changes:authoritativeResult.changes.map(x=>({
       ...x,writtenExactlyAsTyped:typedWitnesses.has(
         JSON.stringify([x.recordKey,x.field.replace(/^PIPINGELEMENT\./,''),x.new])),
     }))};
