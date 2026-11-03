@@ -725,9 +725,21 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       continue;
     }
     const oldDecoded=decodeValue(item.attr.value);
-    if(oldDecoded===null||s40EscapeText(oldDecoded)!==old){
-      errors.push(b8Refusal(R.UNMAPPED,{...location,
-        reason:'Source attribute is not an exact S4.0 value echo'}));
+    // S4.0 NameBlock uses NAME:attrs.NAME||elementKey. If the original
+    // NAME attribute exists but is empty, S4.0 shows a derived fallback.
+    // Replacing ONLY that existing empty attribute is a value-only edit,
+    // not adding a source field. Require the exact emitted elementKey echo.
+    let exactOld=s40EscapeText(oldDecoded);
+    if(entry.tag==='NAME'&&oldDecoded===''){
+      const opening=oldElements[index].text.match(/^<Element\b[^>]*>/)?.[0]||'';
+      const fallback=opening.match(/\belementKey=(["'])(.*?)\1/)?.[2];
+      if(fallback&&old===fallback)exactOld=old;
+    }
+    if(oldDecoded===null||exactOld!==old){
+      errors.push(b8Refusal(R.OMITTED,{...location,
+        reason:entry.tag==='NAME'
+          ?'S4.0 NAME fallback could not be tied to the existing source attribute'
+          :'Source attribute is not an exact S4.0 value echo'}));
       continue;
     }
     addSource(item,decoded,location);
