@@ -161,18 +161,19 @@ for(const [label,path,count] of publicSamples){
         const result=await run(text,edited,baseline);
         if(field==='DIAMETER'){
           const carry=inheritingPhysicalRows(text,ordinal,field);
-          if(carry.inheritors.length){
-            const first=carry.inheritors[0];
-            const required=first.line===carry.sourceLine?R.ELEMENT_CARRY:R.CROSS_LINE;
-            assert.equal(result.ok,false,'hidden inherited section value must refuse');
-            assert.equal(result.code,required,label+' '+position+' physical carry');
+          const foreign=carry.inheritors.find(x=>x.line!==carry.sourceLine);
+          if(foreign){
+            assert.equal(result.ok,false,'cross-Line inherited section values must refuse');
+            assert.equal(result.code,R.CROSS_LINE,label+' '+position);
             assert.equal(result.bytes,null);
-            assert(result.refusals.some(x=>x.row===first.row&&x.tag===field));
-            console.log('S42_PROJECTION_REAL_REFUSED '+label+' '+position+
-              ' physicalOrdinal='+ordinal+' inheritedRow='+first.row+
-              ' code='+required);
+            assert(result.refusals.some(x=>x.row===foreign.row&&x.tag===field));
             return;
           }
+          assert.equal(result.ok,true,label+' '+position+' same-Line inheritance accepted');
+          assert.deepEqual((result.inheritedRows||[]).map(x=>x.row),
+            carry.inheritors.map(x=>x.row));
+          assert((result.inheritedRows||[]).every(x=>x.tag===field&&
+            x.newEffective===value&&Number.isFinite(Number(x.oldEffective))));
         }
         verifyByteRanges(text,expected,result);
         assert.equal(result.changes.length,1,'one physical value range only');

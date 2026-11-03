@@ -40,9 +40,12 @@ for(const tag of ['DIAMETER','WALL_THICK','INSUL_THICK']){
       test('B8 R2 section same-Line '+tag+' '+String(inherited)+' '+eol,async()=>{
         const src=wrap(section(10,20,'A',tag,old),sep+section(20,30,'A',tag,inherited));
         const result=await run(src,replaceElement(s40(src),0,tag,next));
-        assert.equal(result.ok,false);assert.equal(result.code,R.ELEMENT_CARRY);
-        assert.equal(result.bytes,null);
-        assert(result.refusals.some(x=>x.line==='A'&&x.row===2&&x.tag===tag));
+        assert.equal(result.ok,true,tag+' '+eol+' '+result.code);
+        assert.equal(result.parity,'EQUAL');
+        assert.equal(result.changes.length,1,'only explicit source row is written');
+        assert.deepEqual(result.inheritedRows,[{row:2,tag,oldEffective:old,newEffective:next}]);
+        assert.deepEqual(Buffer.from(result.bytes),
+          Buffer.from(src.replace(tag+'="'+old+'"',tag+'="'+next+'"')));
       });
     }
   }
@@ -96,7 +99,7 @@ test('B8 R2 FAST classifier-only same-Line section inheritance',async()=>{
   const classified=await classifyCategorizedEditableFields(src,s40(src),
     {fileSha256:sha(src)});
   assert.equal(classified.ok,true);
-  assert.equal(classified.choices.find(x=>x.key==='E:0:WALL_THICK')?.code,R.ELEMENT_CARRY);
+  assert.equal(classified.choices.find(x=>x.key==='E:0:WALL_THICK')?.editable,true);
 });
 test('B8 R2 N-5 numeric rejects text, padded, exponent, and sentinel source values',async()=>{
   const src=wrap(row(10,20,'A','PRESSURE1="5" INSUL_THICK="2"')),cat=s40(src);
@@ -133,14 +136,22 @@ test('B8 R2 N-2 graph and unrelated projection refusals must both appear',async(
   assert(result.refusals.some(x=>x.code===R.GRAPH&&x.tag==='DELTA_Y'));
 });
 
-test('B8 R2 snapshot route cannot bypass section carry refusal',async()=>{
+test('B8 R3 snapshot route accepts same-Line carry and blocks foreign-Line carry',async()=>{
   for(const line of ['A','B']){
     const source=wrap(section(10,20,'A','DIAMETER','100'),
       section(20,30,line,'DIAMETER','-1.010100'));
     const patched=source.replace('DIAMETER="100"','DIAMETER="120"');
     const out=await run(source,s40(patched));
-    assert.equal(out.ok,false);assert.equal(out.bytes,null);
-    assert.equal(out.code,line==='A'?R.ELEMENT_CARRY:R.CROSS_LINE);
-    assert(out.refusals.some(x=>x.tag==='DIAMETER'&&x.row===2));
+    if(line==='A'){
+      assert.equal(out.ok,true,out.code);
+      assert.equal(out.parity,'EQUAL');
+      assert.deepEqual(out.inheritedRows,[{row:2,tag:'DIAMETER',
+        oldEffective:'100',newEffective:'120'}]);
+      assert.equal(out.changes.length,1);
+    }else{
+      assert.equal(out.ok,false);assert.equal(out.bytes,null);
+      assert.equal(out.code,R.CROSS_LINE);
+      assert(out.refusals.some(x=>x.tag==='DIAMETER'&&x.row===2));
+    }
   }
 });

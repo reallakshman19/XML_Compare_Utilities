@@ -31,10 +31,10 @@ async function loaded(page,text,name){
   await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','ready',{timeout:45000});
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
 }
-function editName(cat,value='B7-PUBLIC-RENAMED'){
-  const match=cat.match(/<NAME>([^<]+)<\/NAME>/);
-  if(!match)throw Error('No existing NAME projection');
-  return cat.replace(match[0],'<NAME>'+value+'</NAME>');
+function editDiameter(cat,value='127.125'){
+  const match=cat.match(/<DIAMETER>([^<]+)<\/DIAMETER>/);
+  if(!match)throw Error('No existing DIAMETER projection');
+  return cat.replace(match[0],'<DIAMETER>'+value+'</DIAMETER>');
 }
 async function setEditor(page,value){
   await page.locator('[data-ixw-b7-editor]').evaluate((element,next)=>{
@@ -44,7 +44,7 @@ async function setEditor(page,value){
 }
 async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const baseline=await page.locator('[data-ixw-b7-editor]').inputValue();
-  const edited=editName(baseline);
+  const edited=editDiameter(baseline);
   await setEditor(page,edited);
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
   await page.locator('[data-ixw-b7-action="check"]').click();
@@ -52,9 +52,10 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const phase=await page.locator('[data-ixw-b7-panel]').getAttribute('data-b7-phase');
   if(phase!=='checked')throw Error('B7_CHECK_REFUSED '+name+' '+await page.locator('[data-ixw-b7-result]').innerText());
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeEnabled();
-  await expect(page.locator('[data-ixw-b7-result] table tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-ixw-b8-source-changes] tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-ixw-b8-inherited] tbody tr').first()).toBeVisible();
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Verified source attribute changes: 1 row(s)');
-  await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.NAME');
+  await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Written exactly as typed');
   if(takeScreenshots){mkdirSync(screenshots,{recursive:true});
     await page.locator('[data-ixw-b7-panel]').screenshot({path:resolve(screenshots,'checked-GRE.png')});}
@@ -62,6 +63,9 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const exactEdited=preserveCategorizedEditorLineEndings(exactBaseline,edited);
   const direct=await patchOriginalFromCategorized(source,exactBaseline,exactEdited,{fileSha256:sha(source)});
   expect(direct.ok).toBe(true);expect(direct.parity).toBe('EQUAL');
+  expect(direct.inheritedRows?.length).toBeGreaterThan(0);
+  await expect(page.locator('[data-ixw-b8-inherited]')).toContainText('DIAMETER');
+  await expect(page.locator('[data-ixw-b8-inherited]')).toContainText('127.125');
   const [download]=await Promise.all([
     page.waitForEvent('download'),
     page.locator('[data-ixw-b7-action="download"]').click(),
@@ -86,7 +90,7 @@ test.describe('B7 actual Categorized tab source-bound byte download',()=>{
       const filename=label+'.xml';
       await loaded(page,text,filename);
       const {bytes}=await checkAndDownload(page,text,filename,{takeScreenshots:label==='GRE'});
-      const expected=text.replace(/\bNAME="[^"]*"/,'NAME="B7-PUBLIC-RENAMED"');
+      const expected=text.replace(/(DIAMETER=")[^"]+(")/,(_,a,z)=>a+'127.125'+z);
       expect(bytes.equals(Buffer.from(expected))).toBe(true);
       const editor=page.locator('[data-ixw-b7-editor]');
       await setEditor(page,(await editor.inputValue())+' ');
