@@ -1,3 +1,4 @@
+import {b7VerifiedReceiptCurrent} from '../tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -238,3 +239,16 @@ for(const mapping of S42_LINE_FIELDS){
     });
   }
 }
+
+test('B8 controller snapshot terms reject stale editor independent of epoch and source SHA',()=>{
+  const checked={revision:4,editor:'edited',originalSha:'a'.repeat(64),
+    ok:true,parity:'EQUAL',bytes:new Uint8Array([1]),changes:[]};
+  assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'edited',fileSha256:'a'.repeat(64)}),true);
+  assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'other',fileSha256:'a'.repeat(64)}),false);
+});
+test('B8 controller snapshot terms reject stale original SHA independent of epoch and editor',()=>{
+  const checked={revision:4,editor:'edited',originalSha:'a'.repeat(64),
+    ok:true,parity:'EQUAL',bytes:new Uint8Array([1]),changes:[]};
+  assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'edited',fileSha256:'a'.repeat(64)}),true);
+  assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'edited',fileSha256:'b'.repeat(64)}),false);
+});
