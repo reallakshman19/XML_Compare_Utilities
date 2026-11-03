@@ -5,6 +5,9 @@ import {createHash} from 'node:crypto';
 import {inputXmlToCategorizedInputXml as s40} from '../xml-compare/CategorizedInputXmlConverter.js';
 import {patchOriginalFromCategorized as patch} from '../uxml/UxmlCategorizedPatchBack.js';
 import {categorizedElementRanges,projectionLeaf,S42_PROJECTION_MAP} from '../uxml/UxmlCategorizedProjectionMap.js';
+import {scanOriginalInputXmlStructure as scan} from '../uxml/UxmlInputXmlSourceStructure.js';
+import {mapCaesarInputXmlToUxmlStrict as s3} from '../uxml/UxmlInputXmlSchemaMapper.js';
+import {mapCategorizedInputXmlToUxml as s41} from '../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 
 const sha=text=>createHash('sha256').update(Buffer.from(text,'utf8')).digest('hex');
 const run=(src,edited)=>patch(src,s40(src),edited,{fileSha256:sha(src)});
@@ -63,4 +66,33 @@ test('B8 public sample exploratory diagnostics: DELTA_Y and existing NAME first 
       assert.equal(result.ok?result.parity:'REFUSED',result.ok?'EQUAL':'REFUSED');
     }
   }
+});
+
+test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1 gates',async()=>{
+  const original=source('converters/scripts/pdf_inputxml_profile_bm_cii.xml');
+  const baseline=s40(original),elements=categorizedElementRanges(baseline);
+  const entry=S42_PROJECTION_MAP.find(x=>x.tag==='DELTA_Y');
+  const selected=elements.map((x,i)=>({i,span:x,leaf:projectionLeaf(x.text,entry)}))
+    .find(x=>x.leaf&&!x.leaf.error);
+  assert(selected,'first public DELTA_Y exists');
+  const next=String(Number(selected.leaf.value)+1);
+  const bound=await s41(baseline,{originalInputXml:original,fileSha256:sha(original)});
+  assert.equal(bound.ok,true,bound.code);
+  const ordinal=bound.uxml.components[selected.i].sourceRefs[0].elementIndex;
+  const physical=scan(original)[ordinal],before=physical.raw;
+  const replacement=before.replace(/(DELTA_Y=")[^"]*(")/,(_a,l,z)=>l+next+z);
+  assert.notEqual(replacement,before);
+  const candidate=original.slice(0,physical.start)+replacement+
+    original.slice(physical.start+before.length);
+  let s3Code='ACCEPTED';
+  try{s3(candidate,{fileSha256:sha(candidate)});}
+  catch(error){s3Code=String(error.message).split(':')[0];}
+  const newCategorized=s40(candidate);
+  let s41Code='ACCEPTED';
+  try{
+    const reb=await s41(newCategorized,{originalInputXml:candidate,fileSha256:sha(candidate)});
+    if(!reb.ok)s41Code=reb.code||reb.status||'REFUSED';
+  }catch(error){s41Code=String(error.message).split(':')[0];}
+  console.log('B8_BM_CII_DELTA_Y_GATES S3='+s3Code+' S41='+s41Code);
+  assert.equal(typeof s3Code,'string');assert.equal(typeof s41Code,'string');
 });
