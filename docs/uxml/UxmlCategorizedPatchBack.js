@@ -31,6 +31,7 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   LINE_DERIVED:'S42_LINE_DERIVED_OR_DISAGREEING_VALUES',
   OMITTED:'S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED',
   GRAPH:'S42_SOURCE_GRAPH_CONFLICT',
+  S41_BINDING:'S42_S41_SOURCE_BINDING_REFUSED',
 });
 const fail=(code,refusals=[])=>({ok:false,code,bytes:null,refusals});
 const encoder=new TextEncoder();
@@ -846,11 +847,29 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         x.field==='PIPINGELEMENT.'+t.tag&&x.new===t.value),
     }))};
   }
+  let refusedCode=authoritativeResult.code||R.PARITY;
+  let refusalReason='Downstream strict source or S4.1 gate';
+  // A DELTA_Y (or other delta) candidate can be valid numerical XML and
+  // S3 graph-admissible but fail S4.1 physical snapshot re-binding. Inspect
+  // that independently to give a precise code, never to bypass parity.
+  if(refusedCode===R.PARITY&&changes.some(x=>x.entry.tag.startsWith('DELTA_'))){
+    try{
+      const rebound=await mapCategorizedInputXmlToUxml(canonical,{
+        originalInputXml:candidateOriginal,fileSha256:await sha(utf8(candidateOriginal))});
+      if(rebound?.ok!==true||rebound.status!=='SOURCE_BOUND_READ_ONLY'){
+        refusedCode=R.S41_BINDING;
+        refusalReason='S4.1 source binding: '+String(rebound?.code||'REFUSED');
+      }
+    }catch{
+      refusedCode=R.S41_BINDING;
+      refusalReason='S4.1 source binding threw while verifying candidate';
+    }
+  }
   const scopes=[
-    ...changes.map(x=>b8Refusal(authoritativeResult.code||R.PARITY,
-      {row:x.index+1,tag:x.entry.tag,reason:'Downstream strict source or S4.1 gate'})),
-    ...line.changes.map(x=>b8Refusal(authoritativeResult.code||R.PARITY,
-      {line:x.line,tag:x.entry.tag,reason:'Downstream strict source or S4.1 gate'})),
+    ...changes.map(x=>b8Refusal(refusedCode,
+      {row:x.index+1,tag:x.entry.tag,reason:refusalReason})),
+    ...line.changes.map(x=>b8Refusal(refusedCode,
+      {line:x.line,tag:x.entry.tag,reason:refusalReason})),
   ];
-  return fail(authoritativeResult.code||R.PARITY,b8UniqueRefusals(scopes));
+  return fail(refusedCode,b8UniqueRefusals(scopes));
 }
