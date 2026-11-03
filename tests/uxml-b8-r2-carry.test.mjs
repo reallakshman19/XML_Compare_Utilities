@@ -118,10 +118,12 @@ test('B8 R2 N-5 numeric rejects text, padded, exponent, and sentinel source valu
 });
 test('B8 R2 N-2 graph and unrelated projection refusals must both appear',async()=>{
   const src=readFileSync(new URL('../converters/scripts/pdf_inputxml_profile_bm_cii.xml',import.meta.url),'utf8');
-  const cat=s40(src),el=categorizedElementRanges(cat)[0];
-  const leaf=projectionLeaf(el.text,S42_PROJECTION_MAP.find(x=>x.tag==='DELTA_Y'));
-  assert(leaf);
-  let edited=replaceElement(cat,0,'DELTA_Y',String(Number(leaf.value)+1));
+  const cat=s40(src),entry=S42_PROJECTION_MAP.find(x=>x.tag==='DELTA_Y');
+  const selected=categorizedElementRanges(cat).map((el,index)=>({
+    index,leaf:projectionLeaf(el.text,entry),
+  })).find(x=>x.leaf&&!x.leaf.error);
+  assert(selected,'at least one actual mapped DELTA_Y must exist');
+  let edited=replaceElement(cat,selected.index,'DELTA_Y',String(Number(selected.leaf.value)+1));
   assert.match(edited,/<DerivedBlock>/);
   edited=edited.replace('</DerivedBlock>',
     '<B8_R2_INVALID>1</B8_R2_INVALID></DerivedBlock>');
@@ -129,4 +131,16 @@ test('B8 R2 N-2 graph and unrelated projection refusals must both appear',async(
   assert.equal(result.ok,false);assert.equal(result.bytes,null);
   assert(result.refusals.some(x=>x.code===R.UNMAPPED&&x.tag==='B8_R2_INVALID'));
   assert(result.refusals.some(x=>x.code===R.GRAPH&&x.tag==='DELTA_Y'));
+});
+
+test('B8 R2 snapshot route cannot bypass section carry refusal',async()=>{
+  for(const line of ['A','B']){
+    const source=wrap(section(10,20,'A','DIAMETER','100'),
+      section(20,30,line,'DIAMETER','-1.010100'));
+    const patched=source.replace('DIAMETER="100"','DIAMETER="120"');
+    const out=await run(source,s40(patched));
+    assert.equal(out.ok,false);assert.equal(out.bytes,null);
+    assert.equal(out.code,line==='A'?R.ELEMENT_CARRY:R.CROSS_LINE);
+    assert(out.refusals.some(x=>x.tag==='DIAMETER'&&x.row===2));
+  }
 });

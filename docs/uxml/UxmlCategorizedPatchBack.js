@@ -753,6 +753,47 @@ function b8CarryRefusals(ctx,entry,holderRows,location,
   return b8UniqueRefusals(refusals);
 }
 
+// The pre-existing slice-1 snapshot route can return a byte-equal, canonical
+// original that still changes a hidden carried section value. Reuse precisely
+// the same physical audit as projection edits before releasing those bytes.
+async function b8LegacySourceRefusals(originalText,baselineCategorized,legacy,measured){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  if(!legacy?.ok||!Array.isArray(legacy.changes))return [];
+  const oldCat=categorizedItems(baselineCategorized);
+  const sourceRows=scanOriginalInputXmlStructure(originalText);
+  const binding=await bind(baselineCategorized,originalText,measured);
+  if(!oldCat||!sourceRows||!binding)
+    return [b8Refusal(R.UNBOUND,{tag:'Source',
+      reason:'Canonical snapshot lacks strict physical source binding'})];
+  const ctx={originalText,oldCat,sourceRows,binding,measured},refusals=[];
+  const refs=new Map(binding.components.map((x,i)=>[x.sourceRefs?.[0]?.recordKey,i]));
+  for(const change of legacy.changes){
+    if(!change.field?.startsWith('PIPINGELEMENT.'))continue;
+    const tag=change.field.slice('PIPINGELEMENT.'.length);
+    const entry=S42_PROJECTION_MAP.find(x=>x.tag===tag)||
+      S42_LINE_FIELDS.find(x=>x.tag===tag);
+    if(!entry)continue;
+    const index=refs.get(change.recordKey);
+    if(!Number.isInteger(index)){
+      refusals.push(b8Refusal(R.UNBOUND,{tag,reason:'Snapshot row has no bound recordKey'}));
+      continue;
+    }
+    const ref=binding.components[index].sourceRefs[0];
+    const line=oldCat.items[index]?.identity?.[0];
+    const location={line,row:index+1,tag};
+    const numeric=b8NumericReason(entry,change.new);
+    if(numeric)refusals.push(b8Refusal(R.NUMERIC,{...location,reason:numeric}));
+    if(entry.block==='SectionDimensionBlock'){
+      refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
+        location,{element:true}));
+    }else if(S42_LINE_FIELDS.some(x=>x.tag===tag)){
+      refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
+        location,{inspectIncoming:true}));
+    }
+  }
+  return b8UniqueRefusals(refusals);
+}
+
 export async function classifyCategorizedEditableFields(originalText,baselineCategorized,
   options={}){
   const reject=()=>({ok:false,choices:[]});
@@ -877,7 +918,13 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   if(snapshotTouched){
     const legacy=await patchOriginalFromCategorizedSlice1(originalText,
       baselineCategorized,editedCategorized,options);
-    if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
+    if(legacy.ok===true){
+      const inherited=await b8LegacySourceRefusals(originalText,baselineCategorized,
+        legacy,measured);
+      if(inherited.length)return fail(inherited[0].code,inherited);
+      return legacy;
+    }
+    if(legacy.code!==R.S40_MISMATCH)return legacy;
   }
   const changes=[],normalized=[...line.normalized],oldSnapshots=[],newSnapshots=[];
   const errors=[...preflight];
