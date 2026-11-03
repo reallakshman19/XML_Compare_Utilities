@@ -686,8 +686,26 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const sourceRows=scanOriginalInputXmlStructure(originalText);
   const oldCat=categorizedItems(baselineCategorized);
   if(!binding||!sourceRows||!oldCat||
-     binding.components.length!==oldElements.length||
-     oldCat.items.length!==oldElements.length)return fail(R.UNBOUND);
+     binding?.components?.length!==oldElements.length||
+     oldCat?.items?.length!==oldElements.length){
+    if(!binding&&sourceRows&&oldCat&&
+       changes.some(x=>x.entry.tag.startsWith('DELTA_'))){
+      // The S4.1 original-source admission can fail before any candidate
+      // write. Diagnose that exact original binding; NEVER infer an ordinal
+      // or skip the read-only authority merely because strict S3 succeeds.
+      let reason='S4.1 original source binding refused';
+      try{
+        const admission=await mapCategorizedInputXmlToUxml(baselineCategorized,
+          {originalInputXml:originalText,fileSha256:measured});
+        reason+=': '+String(admission?.code||admission?.status||'REFUSED');
+      }catch{
+        reason+=': exception';
+      }
+      return fail(R.S41_BINDING,b8UniqueRefusals(changes.map(x=>
+        b8Refusal(R.S41_BINDING,{row:x.index+1,tag:x.entry.tag,reason}))));
+    }
+    return fail(R.UNBOUND);
+  }
   const sourceEdits=[],ranges=new Set();
   const sourceAt=(index,tag,lineId=null)=>{
     const ref=binding.components[index]?.sourceRefs?.[0];
