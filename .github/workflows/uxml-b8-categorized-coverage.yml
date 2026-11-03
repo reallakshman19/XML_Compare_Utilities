@@ -32,6 +32,8 @@ jobs:
           node-version: '22'
       - name: B8 original-red and final public source coverage
         run: node --test tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
+      - name: B8 leftovers FAST multi-Line classifier, provenance, structural and numeric
+        run: node --test tests/uxml-b8-leftovers-fast.test.mjs
       - name: B8 R3 FAST four-public section editable baseline counts
         run: node --test tests/uxml-b8-r3-editable-counts.test.mjs
       - name: B8 R2 FAST physical section carry, inbound Line, graph and numeric controls
