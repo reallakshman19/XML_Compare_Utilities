@@ -708,7 +708,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   // when no independent element/line error has already been discovered.
   const snapshotTouched=oldElements.some((old,i)=>
     snapshotBlock(old.text)!==snapshotBlock(newElements[i].text));
-  if(snapshotTouched&&!preflight.length){
+  if(snapshotTouched){
     const legacy=await patchOriginalFromCategorizedSlice1(originalText,
       baselineCategorized,editedCategorized,options);
     if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
