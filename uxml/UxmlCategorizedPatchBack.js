@@ -825,8 +825,14 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   }
   const authoritativeResult=await patchOriginalFromCategorizedSlice1(
     originalText,baselineCategorized,canonical,options);
-  if(authoritativeResult.ok===true&&authoritativeResult.parity==='EQUAL')
-    return authoritativeResult;
+  if(authoritativeResult.ok===true&&authoritativeResult.parity==='EQUAL'){
+    const typed=[...changes.map(x=>({tag:x.entry.tag,value:x.decoded})),
+      ...line.changes.map(x=>({tag:x.entry.tag,value:x.decoded}))];
+    return {...authoritativeResult,changes:authoritativeResult.changes.map(x=>({
+      ...x,writtenExactlyAsTyped:typed.some(t=>
+        x.field==='PIPINGELEMENT.'+t.tag&&x.new===t.value),
+    }))};
+  }
   const scopes=[
     ...changes.map(x=>b8Refusal(authoritativeResult.code||R.PARITY,
       {row:x.index+1,tag:x.entry.tag,reason:'Downstream strict source or S4.1 gate'})),
