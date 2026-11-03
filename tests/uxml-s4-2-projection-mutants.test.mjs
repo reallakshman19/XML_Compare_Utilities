@@ -109,9 +109,6 @@ const mutants=[
      replacement:"if(regenerated!==editedCategorized)return fail(R.DERIVED);"}]},
   {name:'OMITTED_PROJECTION_NO_INVENTION',
    pattern:'S4.2 slice2 REFUSE source field missing or absent from map',
-   edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b)){\n        errors.push(b8Refusal(R.UNMAPPED",
-     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b))){\n        errors.push(b8Refusal(R.UNMAPPED"},
-     {old:"if(!a||a.value===b.value)continue;\n      const decoded=decodeValue(b.value);\n      if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){",
-      replacement:"if(a?.value===b?.value)continue;\n      const decoded=decodeValue(b.value);\n      if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){"}]},
+   edits:[{old:"const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);\n      if(a?.error||b?.error||Boolean(a)!==Boolean(b)){\n        errors.push(b8Refusal(R.UNMAPPED,{row:i+1,tag:entry.tag,\n          reason:'Omitted or duplicate projected leaf'}));\n        continue;\n      }\n      if(!a||a.value===b.value)continue;",replacement:"const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);\n      if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b))){\n        errors.push(b8Refusal(R.UNMAPPED,{row:i+1,tag:entry.tag,\n          reason:'Omitted or duplicate projected leaf'}));\n        continue;\n      }\n      if(a?.value===b?.value)continue;"}]},
 ];
 for(const mutant of mutants)test('S42_SLICE2_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
