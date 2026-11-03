@@ -31,6 +31,8 @@ jobs:
           node-version: '22'
       - name: B8 original-red and final public source coverage
         run: node --test tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
+      - name: B8 R2 FAST physical section carry, inbound Line, graph and numeric controls
+        run: node --test tests/uxml-b8-r2-carry.test.mjs
       - name: B8 exhaustive four-public mapped-leaf Editable versus actual engine acceptance
         run: node --test tests/uxml-b8-editability-public.test.mjs
       - name: B8 independent UI field classification
