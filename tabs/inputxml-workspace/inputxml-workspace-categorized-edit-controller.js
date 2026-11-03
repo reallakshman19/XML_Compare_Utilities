@@ -46,6 +46,7 @@ const patchReasons=Object.freeze({
   [R.LINE_DERIVED]:'Source elements disagree or a line value cannot be traced to one consistent source value.',
   [R.OMITTED]:'The visible value is derived or omitted from the source; no new attribute may be invented.',
   [R.GRAPH]:'Strict S3 refused the edited route because its coordinate/delta graph became inconsistent.',
+  [R.S41_BINDING]:'Strict S3 accepted the candidate, but S4.1 could not rebind its categorized snapshot to one physical source record.',
 });
 const otherReasons=Object.freeze({
   [B7_REFUSALS.INPUT]:'Choose a local original InputXML file with readable bytes.',
