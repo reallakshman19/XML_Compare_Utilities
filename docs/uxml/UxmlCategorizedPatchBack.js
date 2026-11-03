@@ -603,6 +603,88 @@ function b8UniqueRefusals(refusals){
     seen.add(key);return true;
   });
 }
+
+// B8-R1: source-authoritative UI classification. The initial presence of
+// a Categorized leaf NEVER grants write authority. Line/geometry decisions
+// are checked against the actual same-branch patch engine before UI exposure.
+function b8ClassificationProbe(raw){
+  const value=decodeValue(raw);
+  if(value===null)return null;
+  return clean(value)!==''&&Number.isFinite(Number(value))
+    ?String(Number(value)+1):'B8_CHECK_VALUE';
+}
+export async function classifyCategorizedEditableFields(originalText,baselineCategorized,
+  options={}){
+  const reject=()=>({ok:false,choices:[]});
+  if(typeof originalText!=='string'||typeof baselineCategorized!=='string')
+    return reject();
+  const measured=await sha(utf8(originalText));
+  if(clean(options.fileSha256).toLowerCase()!==measured)return reject();
+  try{
+    if(inputXmlToCategorizedInputXml(originalText)!==baselineCategorized)return reject();
+  }catch{return reject();}
+  const sourceRows=scanOriginalInputXmlStructure(originalText);
+  const originalItems=categorizedItems(baselineCategorized);
+  const binding=await bind(baselineCategorized,originalText,measured);
+  const elements=categorizedElementRanges(baselineCategorized);
+  if(!sourceRows||!originalItems||!binding||
+     originalItems.items.length!==elements.length||
+     binding.components.length!==elements.length)return reject();
+  const choices=[];
+  const testValue=async(start,end,probe)=>{
+    if(probe===null)return {editable:false,code:UXML_CATEGORIZED_PATCH_REFUSALS.VALUE};
+    const editor=baselineCategorized.slice(0,start)+s40EscapeText(probe)+
+      baselineCategorized.slice(end);
+    const result=await patchOriginalFromCategorized(originalText,baselineCategorized,
+      editor,{fileSha256:measured});
+    return {editable:result?.ok===true&&result.parity==='EQUAL',
+      code:result?.code||'',reason:result?.refusals?.[0]?.reason||''};
+  };
+  for(const [lineIndex,line] of categorizedLineRanges(baselineCategorized).entries()){
+    for(const entry of S42_LINE_FIELDS){
+      const leaf=projectionLeaf(line.text,entry);
+      if(!leaf||leaf.error)continue;
+      const probe=b8ClassificationProbe(leaf.value);
+      const result=await testValue(line.start+leaf.start,line.start+leaf.end,probe);
+      choices.push({key:'L:'+lineIndex+':'+entry.tag,...result,probeValue:probe});
+    }
+    if(/<AllowableStressBlock>/.test(line.text))
+      choices.push({key:'R:'+lineIndex+':ALLOWABLESTRESS',editable:false,
+        code:UXML_CATEGORIZED_PATCH_REFUSALS.GLOBAL,
+        reason:'Shared global AllowableStress has no unique Line source owner'});
+  }
+  for(const [index,element] of elements.entries()){
+    const ref=binding.components[index]?.sourceRefs?.[0];
+    const row=sourceRows[ref?.elementIndex];
+    const sourceBound=ref&&ref.fileSha256===measured&&
+      row&&row.index===ref.elementIndex;
+    for(const entry of S42_PROJECTION_MAP){
+      const leaf=projectionLeaf(element.text,entry);
+      if(!leaf||leaf.error)continue;
+      const probe=b8ClassificationProbe(leaf.value);
+      const attr=sourceBound?sourceRootAttribute(row,entry.attribute):null;
+      let exact=false;
+      if(attr){
+        const original=decodeValue(attr.value);
+        exact=original!==null&&s40EscapeText(original)===leaf.value;
+        if(entry.tag==='NAME'&&original===''){
+          const opening=element.text.match(/^<Element\b[^>]*>/)?.[0]||'';
+          const fallback=opening.match(/\belementKey=(["'])(.*?)\1/)?.[2];
+          if(fallback===leaf.value)exact=true;
+        }
+      }
+      let outcome={editable:exact&&probe!==null,code:exact?'':UXML_CATEGORIZED_PATCH_REFUSALS.OMITTED,
+        reason:exact?'':'No original attribute with the exact source echo'};
+      // Graph-linked deltas may be visible but not independently editable:
+      // use the actual patch engine rather than allowing them by regex.
+      if(outcome.editable&&entry.tag.startsWith('DELTA_'))
+        outcome=await testValue(element.start+leaf.start,element.start+leaf.end,probe);
+      choices.push({key:'E:'+index+':'+entry.tag,...outcome,probeValue:probe});
+    }
+  }
+  return {ok:true,choices};
+}
+
 export async function patchOriginalFromCategorized(originalText,baselineCategorized,editedCategorized,options={}){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||
