@@ -62,6 +62,68 @@ const mutants=[
     pattern:'^B8 controller snapshot terms reject stale original SHA',target:b8,
     edits:[{old:'checked.editor===edited&&checked.originalSha===fileSha256&&',
       replacement:'checked.editor===edited&&true&&'}]},
+  {name:'CROSS_LINE_CARRY_CHAIN_BYPASS',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 cross-Line carry-forward sentinel cannot inherit',target:b8,
+    edits:[{old:"if(downstream!==lineId){",
+      replacement:"if(false&&downstream!==lineId){"}]},
+  {name:'EQUAL_VALUE_CROSS_LINE_FALSE_HOLD',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 equal-value cross-Line explicitly breaks carry chain',target:b8,
+    edits:[{old:"if(!s40.isUnset(rawValue))break; // a new explicit holder ends this chain",
+      replacement:"if(false&&!s40.isUnset(rawValue))break; // MUTATED"}]},
+  {name:'COMBINED_LINE_ELEMENT_REFUSAL_DROPPED',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 global line preflight and mapped element bad typed value',target:b8,
+    edits:[{old:"const errors=[...preflight];",replacement:"const errors=[];"}]},
+  {name:'STRICT_S3_RECORD_KEY_PARITY_BYPASS',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 strict S3 recordKey parity requires',target:b8,
+    edits:[{old:"export const s42StrictS3KeysEqual=(before,after)=>equalArray(refKeys(before),refKeys(after));",
+      replacement:"export const s42StrictS3KeysEqual=(before,after)=>true;"}]},
+  {name:'FORMATTING_REASON_LOST',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 same-Line formatting disagreement',target:b8,
+    edits:[{old:"const formatOnly=Number.isFinite(Number(decodedOld))&&",
+      replacement:"const formatOnly=false&&Number.isFinite(Number(decodedOld))&&"}]},
+  {name:'TYPED_ROW_WITNESS_DROPPED',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 source-bound exact S4.0 ProcessBlock.PRESSURE1
+    path:'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js',
+    pattern:'^B7 failed/parity-wrong patch-back cannot release output bytes',target:b7,
+    edits:[{old:"if(result?.ok!==true||result.parity!=='EQUAL'||!(result.bytes instanceof Uint8Array))",
+      replacement:"if(result?.ok!==true||false||!(result.bytes instanceof Uint8Array))"}]},
+];
+function kill(m){
+  const dir=mkdtempSync(join(tmpdir(),'uxml-b8-mutant-'));
+  try{
+    for(const path of files){
+      const target=join(dir,path);
+      mkdirSync(dirname(target),{recursive:true});
+      copyFileSync(join(root,path),target);
+      if(process.env.B8_MUTANT_COPY_CRLF==='1'&&/\.(?:m?js)$/.test(path))
+        writeFileSync(target,readFileSync(target,'utf8').replace(/\r?\n/g,'\r\n'));
+    }
+    writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+    const run=()=>spawnSync(process.execPath,['--test','--test-name-pattern='+m.pattern,m.target],
+      {cwd:dir,encoding:'utf8',timeout:90000,
+        env:Object.fromEntries(Object.entries(process.env)
+          .filter(([k])=>k!=='NODE_TEST_CONTEXT'))});
+    const green=run();
+    assert.equal(green.status,0,'baseline test not green '+m.name+'\n'+green.stdout+'\n'+green.stderr);
+    assert.match(green.stdout,/# pass 1\b/);
+    let source=readFileSync(join(dir,m.path),'utf8').replace(/\r\n/g,'\n');
+    for(const {old,replacement} of m.edits){
+      assert.equal(source.split(old).length-1,1,'single mutation seam '+m.name+' '+old);
+      source=source.replace(old,replacement);
+    }
+    writeFileSync(join(dir,m.path),source);
+    const red=run(),output=red.stdout+'\n'+red.stderr;
+    assert.notEqual(red.status,0,'SURVIVED '+m.name+'\n'+output);
+    assert.match(output,/^not ok \d+ - (?:B8|B7)/m);
+    assert.match(output,/# fail 1\b/);
+    console.log('RED_VERIFIED UXML_B8 '+m.name+
+      ' simulatedCRLF='+Boolean(process.env.B8_MUTANT_COPY_CRLF));
+  }finally{rmSync(dir,{recursive:true,force:true});}
+}
+for(const m of mutants)test('B8_MUTANT_KILL_'+m.name,()=>kill(m));
+,target:b8,
+    edits:[{old:"typedWitnesses.has(\n        JSON.stringify([x.recordKey,x.field.replace(/^PIPINGELEMENT\\./,''),x.new]))",
+      replacement:"typedWitnesses.has(\n        JSON.stringify([undefined,x.field.replace(/^PIPINGELEMENT\\./,''),x.new]))"}]},
   {name:'UI_PARITY_GATE_BYPASSED',
     path:'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js',
     pattern:'^B7 failed/parity-wrong patch-back cannot release output bytes',target:b7,

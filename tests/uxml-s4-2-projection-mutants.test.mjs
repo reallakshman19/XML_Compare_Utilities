@@ -59,17 +59,19 @@ const mutants=[
      replacement:"block:'RouteGeometryBlock',tag,sourceTag:'PIPINGELEMENT',attribute:'DIAMETER'"}]},
   {name:'PROJECTION_VISIBLE_SOURCE_ORDINAL',
    pattern:'S4.2 slice2 REAL GRE DIAMETER middle eligible projection-only bytes',
-   edits:[{old:"const row=sourceRows[ref?.elementIndex];",
-     replacement:"const row=sourceRows[0];"}]},
+   edits:[{old:"const sourceAt=(index,tag,lineId=null)=>{\n    const ref=binding.components[index]?.sourceRefs?.[0];\n    const row=sourceRows[ref?.elementIndex];",
+     replacement:"const sourceAt=(index,tag,lineId=null)=>{\n    const ref=binding.components[index]?.sourceRefs?.[0];\n    const row=sourceRows[0];"}]},
   {name:'UNMAPPED_PROJECTION_REFUSAL',
    pattern:'S4.2 slice2 REFUSE unmapped/derived/line value edits and unknown tags',
-   edits:[{old:"if(preflight.length)return fail(preflight[0].code,preflight);",
-     replacement:"if(preflight.length)return fail(R.PARITY,preflight);"}]},
+   edits:[
+     {old:"const errors=[...preflight];",replacement:"const errors=[];"},
+     {old:"if(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&\n       editedCategorized!==baselineCategorized)",
+      replacement:"if(false&&(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&\n       editedCategorized!==baselineCategorized))"}
+   ]},
   {name:'CANONICAL_PROJECTION_ONLY_SHAPE',
    pattern:'S4.2 slice2 REFUSE mapped projection changed with an unrelated derived tag',
    edits:[
-     {old:"if(preflight.length)return fail(preflight[0].code,preflight);",
-      replacement:"if(false&&preflight.length)return fail(preflight[0].code,preflight);"},
+     {old:"const errors=[...preflight];",replacement:"const errors=[];"},
      {old:"if(!projectionOnlyEquivalent&&editedCategorized!==canonical)",
       replacement:"if(false&& !projectionOnlyEquivalent&&editedCategorized!==canonical)"}
    ]},
