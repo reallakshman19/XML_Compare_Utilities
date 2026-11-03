@@ -148,6 +148,13 @@ function warningOnCollidingName(strict,changes){
   return [...output];
 }
 
+export function b7VerifiedReceiptCurrent(checked,{revision,edited,fileSha256}={}){
+  return Boolean(checked&&checked.revision===revision&&
+    checked.editor===edited&&checked.originalSha===fileSha256&&
+    checked.ok===true&&checked.parity==='EQUAL'&&
+    checked.bytes instanceof Uint8Array);
+}
+
 export function createCategorizedEditController({
   strict=mapCaesarInputXmlToUxmlStrict,
   categorize=inputXmlToCategorizedInputXml,
@@ -165,9 +172,7 @@ export function createCategorizedEditController({
     revision++;checkSerial++;checked=null;warning=[];refusals=[];code='';detail='';phase=next;
   }
   function snapshot(){
-    const allowed=Boolean(checked&&checked.revision===revision&&
-      checked.editor===edited&&checked.originalSha===fileSha256&&
-      checked.ok&&checked.parity==='EQUAL'&&checked.bytes instanceof Uint8Array);
+    const allowed=b7VerifiedReceiptCurrent(checked,{revision,edited,fileSha256});
     return {revision,phase,filename,sourceSha256:fileSha256,
       baseline,edited,code,reason:code?b7Reason(code):'',detail,
       canCheck:Boolean(originalBytes&&baseline),
