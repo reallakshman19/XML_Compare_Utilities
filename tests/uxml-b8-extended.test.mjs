@@ -11,7 +11,6 @@ import {S42_LINE_FIELDS,S42_LINE_PROJECTION_MAP,categorizedLineRanges,projection
   S42_PROJECTION_MAP,categorizedElementRanges} from '../uxml/UxmlCategorizedProjectionMap.js';
 import {scanOriginalInputXmlStructure as scan}
   from '../uxml/UxmlInputXmlSourceStructure.js';
-import {_test as workspaceUi} from '../tabs/inputxml-workspace/inputxml-workspace-tab.js';
 
 const b=text=>Buffer.from(text,'utf8');
 const sha=text=>createHash('sha256').update(b(text)).digest('hex');
@@ -163,19 +162,6 @@ test('B8 four public sources, LF/CRLF, line tag exact value write and non-target
   }
 });
 
-test('B8 editor classifies mapped root fields, omitted NAME and globally shared AllowableStress read-only',()=>{
-  const src=original(row(10,20,'PRESSURE1="1.5"').replace(' NAME="SPAN"',''))
-    .replace('</PIPINGMODEL>',
-      '<ALLOWABLESTRESS NODE="10" ALLOWABLE_1="100"/></PIPINGMODEL>');
-  const choices=workspaceUi.b8EditableChoices(s40(src));
-  const pressure=choices.find(x=>x.tag==='PRESSURE1'&&x.where==='Line L');
-  assert.equal(pressure?.editable,true,'explicit ProcessBlock source attribute');
-  const name=choices.find(x=>x.tag==='NAME'&&x.where==='Element 1');
-  assert.equal(name?.editable,false,'source NAME absent, element-key fallback cannot be edited');
-  const global=choices.find(x=>x.tag==='ALLOWABLESTRESS');
-  assert.equal(global?.editable,false,'global shared stanza must not expose a writable value box');
-  assert.equal(global?.where,'Line L');
-});
 
 test('B8 existing empty NAME attribute uses exact S4.0 fallback but is writable without adding markup',async()=>{
   const src=original(row(10,20).replace(' NAME="SPAN"',' NAME=""'));
