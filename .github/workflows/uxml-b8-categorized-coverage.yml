@@ -1,0 +1,40 @@
+name: UXML B8 categorized source-bound editing coverage
+on:
+  pull_request:
+    paths:
+      - 'uxml/UxmlCategorizedPatchBack.js'
+      - 'uxml/UxmlCategorizedProjectionMap.js'
+      - 'docs/uxml/UxmlCategorizedPatchBack.js'
+      - 'docs/uxml/UxmlCategorizedProjectionMap.js'
+      - 'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js'
+      - 'tabs/inputxml-workspace/inputxml-workspace-tab.js'
+      - 'tests/uxml-b8-*.test.mjs'
+      - 'docs/uxml/B7-CATEGORIZED-EDIT-HOWTO.md'
+      - 'docs/uxml/S4.2-PATCH-BACK.md'
+      - '.github/workflows/uxml-b8-categorized-coverage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  b8-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: B8 original-red and final public source coverage
+        run: node --test tests/uxml-b8-coverage.test.mjs
+      - name: B7 controller
+        run: node --test tests/uxml-b7-controller.test.mjs
+      - name: S4.2 projection
+        run: node --test tests/uxml-s4-2-projection.test.mjs
+      - name: S4.2 original patcher
+        run: node --test tests/uxml-s4-2-patch-back.test.mjs
+      - name: Strict S3 and S4.1
+        run: node --test tests/uxml-s3-harden-source-structure.test.mjs tests/uxml-s4-1-categorized-reader.test.mjs
+      - name: Unchanged S4.0 source mapping audit
+        run: node --test tests/s4-0-audit-*.test.mjs
