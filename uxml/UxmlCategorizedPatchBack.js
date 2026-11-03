@@ -942,15 +942,18 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       const inheritedRows=[];
       const errors=await b8LegacySourceRefusals(originalText,baselineCategorized,
         legacy,measured,inheritedRows);
-      const all=b8UniqueRefusals([...preflight,...errors]);
-      if(all.length)return fail(all[0].code,all);
+      // A regenerated snapshot necessarily updates S4.0 derived views.
+      // They are not independent user edits when slice-1 has already
+      // verified the exact canonical original bytes. Only the physical
+      // source carry audit may veto that validated success.
+      if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
       return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
     }
     if(legacy.code!==R.S40_MISMATCH){
       const all=b8UniqueRefusals([...preflight,...(legacy.refusals||[])]);
       // A legacy structural refusal may lack a source row: preserve its
       // named code and enrich the refusal details below (rather than []).
-      return fail(all[0]?.code||legacy.code,all.length?all:
+      return fail(legacy.code,all.length?all:
         [b8Refusal(legacy.code,{tag:'OriginalElement',
           reason:'Source snapshot edit was refused'})]);
     }
