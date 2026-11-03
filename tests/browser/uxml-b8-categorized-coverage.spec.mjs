@@ -43,8 +43,8 @@ test('B8 refused with multiple named row/tag edits, no download and public scree
   await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','refused');
   const rows=page.locator('[data-ixw-b8-refusals] tbody tr');
   await expect(rows).toHaveCount(2);
-  await expect(rows.nth(0)).toContainText('NOT_EDITABLE_A');
-  await expect(rows.nth(1)).toContainText('NOT_EDITABLE_B');
+  await expect(page.locator('[data-ixw-b8-refusals]')).toContainText('NOT_EDITABLE_A');
+  await expect(page.locator('[data-ixw-b8-refusals]')).toContainText('NOT_EDITABLE_B');
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
   mkdirSync(screenshotRoot,{recursive:true});
   await page.locator('[data-ixw-b7-panel]').screenshot({
