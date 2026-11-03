@@ -81,3 +81,36 @@ The refusal map covers the added B8 codes. Release-last revision and
 original SHA/editor snapshot gates remain in force.
 
 **DELTA_Y public regression diagnosis (exact-head S3/S4.1):** On the BM_CII public first visible `DELTA_Y +1` case, the original S4.1 baseline is accepted; the mutated candidate fails unchanged strict S3 with `INPUT_XML_DELTA_PATH_CONFLICT`. S4.1 then refuses that candidate as `CATEGORIZED_ORIGINAL_S3_REFUSED`. B8 names the refusal `S42_SOURCE_GRAPH_CONFLICT` with the element row and `DELTA_Y` tag, preserving `bytes:null` and the strict gate. This is a delta-path consistency conflict, not numeric formatting. The other three public sample candidates return EQUAL. No S3/S4.0/S4.1 rule is bypassed.
+
+
+### B8 repair round 1 — classification and shared source safety
+An **Editable** option is no longer inferred merely from a visible XML leaf. The
+source-bound engine classifies each existing leaf against the original SHA,
+S4.0 exact baseline and S4.1 record binding. Line values are checked against
+**every** meaningful explicit holder, omitted/`-1.0101` carry-forward
+records, source text agreement, and any later different Line reached by
+the carry chain. Delta fields are checked against unchanged **strict S3**
+candidate graph admission. For speed, these are **classification preflights**
+and do not replay every full original-byte transaction during file load.
+**Check patch-back** still runs the exact complete S4.2 writer, S3 key
+equality and S4.1 parity for the actual typed value and any combinations.
+No Download is released from a classification or a failed Check.
+
+A Line A `PRESSURE1="10"` followed by Line B's omitted or
+`PRESSURE1="-1.0101"` receives
+`S42_CROSS_LINE_CARRY_FORWARD_REFUSED` if Line A is edited: B would
+otherwise silently inherit the new physical value despite having no
+visible S4.0 pressure leaf. A meaningful explicit Line B holder breaks
+that chain, including when B's value is numerically equal to A's old
+value. Different explicit holder texts such as `5.0` and `5`
+refuse with a **source-format difference** reason even though their
+numbers are equal. The UI explains that Material edits refuse when
+different physical elements on one Line hold different material values.
+
+A refusal table combines all detectable Line and Element leaf errors,
+including shared AllowableStress, missing/derived values, malformed typed
+text and inconsistent source holders, each with Line/physical row and tag.
+**Written exactly as typed** comes from the actual written recordKey,
+tag and decoded value on a successful original-byte patch — matching
+another row's field is not sufficient. The original remains untouched
+after every refusal.
