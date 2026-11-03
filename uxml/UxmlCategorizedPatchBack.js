@@ -42,6 +42,7 @@ const sha=async(bytes)=>hex(new Uint8Array(await globalThis.crypto.subtle.digest
 const clean=(x)=>String(x??'').trim();
 const refKeys=(doc)=>doc.components.map(c=>c.sourceRefs?.[0]?.recordKey);
 const equalArray=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+export const s42StrictS3KeysEqual=(before,after)=>equalArray(refKeys(before),refKeys(after));
 const identityFields=new Set(['FROM_NODE','TO_NODE','LINE_ID','PIPELINE-REFERENCE']);
 const externalTags=new Set(['RESTRAINT','DISPLACEMENTS','FORCESMOMENTS','ALLOWABLESTRESS','SIF']);
 // Exact S4.0 CONTROL_ATTRS (CategorizedInputXmlConverter.js:23), plus the
@@ -468,7 +469,7 @@ async function patchOriginalFromCategorizedSlice1(originalText,baselineCategoriz
     oldStrict=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});
     newStrict=mapCaesarInputXmlToUxmlStrict(patched,{fileSha256:patchedHash});
   }catch{return fail(R.PARITY);}
-  if(!equalArray(refKeys(oldStrict),refKeys(newStrict)))return fail(R.PARITY);
+  if(!s42StrictS3KeysEqual(oldStrict,newStrict))return fail(R.PARITY);
   // MUTATION_GUARD_PARITY_CONVERTER: an edited derived/line field is not
   // an authorized source edit. Compare the ENTIRE canonical S4.0 output.
   let regenerated;
@@ -783,7 +784,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     }
     return fail(R.UNBOUND);
   }
-  const sourceEdits=[],ranges=new Set();
+  const sourceEdits=[],ranges=new Set(),typedWitnesses=new Set();
   const sourceAt=(index,tag,lineId=null)=>{
     const ref=binding.components[index]?.sourceRefs?.[0];
     const row=sourceRows[ref?.elementIndex];
@@ -804,6 +805,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     }
     ranges.add(start);
     sourceEdits.push({start,end,value:raw});
+    typedWitnesses.add(JSON.stringify([item.ref?.recordKey,location.tag,decoded]));
   };
   for(const change of changes){
     const {index,entry,decoded,old}=change;
@@ -977,11 +979,9 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const authoritativeResult=await patchOriginalFromCategorizedSlice1(
     originalText,baselineCategorized,canonical,options);
   if(authoritativeResult.ok===true&&authoritativeResult.parity==='EQUAL'){
-    const typed=[...changes.map(x=>({tag:x.entry.tag,value:x.decoded})),
-      ...line.changes.map(x=>({tag:x.entry.tag,value:x.decoded}))];
     return {...authoritativeResult,changes:authoritativeResult.changes.map(x=>({
-      ...x,writtenExactlyAsTyped:typed.some(t=>
-        x.field==='PIPINGELEMENT.'+t.tag&&x.new===t.value),
+      ...x,writtenExactlyAsTyped:typedWitnesses.has(
+        JSON.stringify([x.recordKey,x.field.replace(/^PIPINGELEMENT\./,''),x.new])),
     }))};
   }
   let refusedCode=authoritativeResult.code||R.PARITY;

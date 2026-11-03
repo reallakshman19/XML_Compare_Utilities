@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {inputXmlToCategorizedInputXml as s40,_test as s40Test}
   from '../xml-compare/CategorizedInputXmlConverter.js';
-import {patchOriginalFromCategorized as patch,UXML_CATEGORIZED_PATCH_REFUSALS as R}
+import {patchOriginalFromCategorized as patch,s42StrictS3KeysEqual,UXML_CATEGORIZED_PATCH_REFUSALS as R}
   from '../uxml/UxmlCategorizedPatchBack.js';
 import {S42_LINE_FIELDS,S42_LINE_PROJECTION_MAP,categorizedLineRanges,projectionLeaf,
   S42_PROJECTION_MAP,categorizedElementRanges} from '../uxml/UxmlCategorizedProjectionMap.js';
@@ -310,4 +310,15 @@ test('B8 global line preflight and mapped element bad typed value are both liste
   assert.equal(out.ok,false);assert.equal(out.bytes,null);
   assert(out.refusals.some(x=>x.line==='L'&&x.tag==='ALLOWABLESTRESS'&&x.code===R.GLOBAL));
   assert(out.refusals.some(x=>x.row===1&&x.tag==='DIAMETER'&&x.code===R.ROUNDTRIP));
+});
+
+test('B8 strict S3 recordKey parity requires identical physical key sequence',()=>{
+  const doc=keys=>({components:keys.map(recordKey=>({sourceRefs:[{recordKey}]}))});
+  assert.equal(s42StrictS3KeysEqual(doc(['E0:F10:T20','E1:F20:T30']),
+    doc(['E0:F10:T20','E1:F20:T30'])),true);
+  assert.equal(s42StrictS3KeysEqual(doc(['E0:F10:T20','E1:F20:T30']),
+    doc(['E0:F10:T20','E1:F20:T40'])),false);
+  assert.equal(s42StrictS3KeysEqual(doc(['E0:F10:T20','E1:F20:T30']),
+    doc(['E1:F20:T30','E0:F10:T20'])),false);
+  assert.equal(s42StrictS3KeysEqual(doc(['E0:F10:T20']),doc([])),false);
 });
