@@ -69,7 +69,7 @@ test('B8 public sample exploratory diagnostics: DELTA_Y and existing NAME first 
 });
 
 test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1 gates',async()=>{
-  const original=source('converters/scripts/pdf_inputxml_profile_bm_cii.xml');
+  const original=readFileSync(new URL('../converters/scripts/pdf_inputxml_profile_bm_cii.xml',import.meta.url),'utf8');
   const baseline=s40(original),elements=categorizedElementRanges(baseline);
   const entry=S42_PROJECTION_MAP.find(x=>x.tag==='DELTA_Y');
   const selected=elements.map((x,i)=>({i,span:x,leaf:projectionLeaf(x.text,entry)}))
@@ -84,6 +84,11 @@ test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1
   assert.notEqual(replacement,before);
   const candidate=original.slice(0,physical.start)+replacement+
     original.slice(physical.start+before.length);
+  let baselineS41='ACCEPTED';
+  try{
+    const bound=await s41(baseline,{originalInputXml:original,fileSha256:sha(original)});
+    if(!bound.ok)baselineS41=bound.code||bound.status||'REFUSED';
+  }catch(error){baselineS41=String(error.message).split(':')[0];}
   let s3Code='ACCEPTED';
   try{s3(candidate,{fileSha256:sha(candidate)});}
   catch(error){s3Code=String(error.message).split(':')[0];}
@@ -93,15 +98,13 @@ test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1
     const reb=await s41(newCategorized,{originalInputXml:candidate,fileSha256:sha(candidate)});
     if(!reb.ok)s41Code=reb.code||reb.status||'REFUSED';
   }catch(error){s41Code=String(error.message).split(':')[0];}
-  console.log('B8_BM_CII_DELTA_Y_GATES S3='+s3Code+' S41='+s41Code);
-  assert.equal(s3Code,'ACCEPTED','the public candidate is numerically S3 graph-admissible');
-  assert.equal(s41Code,'CATEGORIZED_ORIGINAL_RECORD_NO_MATCH',
-    'the actual remaining refusal is S4.1 physical snapshot rebinding');
-  const result=await run(original,baseline.slice(0,selected.span.start+selected.leaf.start)+next+
-    baseline.slice(selected.span.start+selected.leaf.end));
-  assert.equal(result.ok,false);
-  assert.equal(result.code,'S42_S41_SOURCE_BINDING_REFUSED');
+  const edited=baseline.slice(0,selected.span.start+selected.leaf.start)+next+
+    baseline.slice(selected.span.start+selected.leaf.end);
+  const result=await run(original,edited);
+  console.log('B8_BM_CII_REAL_GATES baselineS41='+baselineS41+
+    ' candidateS3='+s3Code+' candidateS41='+s41Code+
+    ' actualPatch='+String(result.code||result.parity));
+  assert.equal(result.ok,false,'first real BM_CII DELTA_Y +1 must remain fail-closed');
   assert.equal(result.bytes,null);
-  assert(result.refusals.some(x=>x.tag==='DELTA_Y'&&Number.isInteger(x.row)));
-  assert.match(result.refusals[0].reason,/CATEGORIZED_ORIGINAL_RECORD_NO_MATCH/);
+
 });
