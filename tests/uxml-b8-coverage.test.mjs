@@ -104,7 +104,12 @@ test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1
   console.log('B8_BM_CII_REAL_GATES baselineS41='+baselineS41+
     ' candidateS3='+s3Code+' candidateS41='+s41Code+
     ' actualPatch='+String(result.code||result.parity));
+  assert.equal(s3Code,'INPUT_XML_DELTA_PATH_CONFLICT','independent strict S3 witness');
   assert.equal(result.ok,false,'first real BM_CII DELTA_Y +1 must remain fail-closed');
+  assert.equal(result.code,'S42_SOURCE_GRAPH_CONFLICT');
   assert.equal(result.bytes,null);
+  assert(result.refusals.some(x=>x.row===selected.i+1&&x.tag==='DELTA_Y'&&
+    x.reason==='INPUT_XML_DELTA_PATH_CONFLICT'));
+
 
 });

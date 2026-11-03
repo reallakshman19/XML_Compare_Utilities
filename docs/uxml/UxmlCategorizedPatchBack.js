@@ -817,7 +817,7 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     mapCaesarInputXmlToUxmlStrict(candidateOriginal,
       {fileSha256:await sha(utf8(candidateOriginal))});
   }catch(error){
-    const graph=/DELTA_GRAPH|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
+    const graph=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
       .test(String(error?.message||error));
     const location=changes.filter(x=>x.entry.tag.startsWith('DELTA_')).map(x=>
       b8Refusal(graph?R.GRAPH:R.PARITY,{row:x.index+1,tag:x.entry.tag,

@@ -31,59 +31,53 @@ a refusal table naming each detected element row or Line, tag, code and reason.
 A refusal always disables Download; there is no override.
 
 **Element fields** (only explicitly present source attributes):
-\`NameBlock.FROM_NAME\`, \`NameBlock.TO_NAME\`, \`NameBlock.NAME\`,
-\`RouteGeometryBlock.DELTA_X\`, \`DELTA_Y\`, \`DELTA_Z\`,
-\`SectionDimensionBlock.DIAMETER\`, \`WALL_THICK\`, \`INSUL_THICK\`.
-S4.0 synthesizes \`NameBlock.NAME\` from the element key if the source omitted
-\`NAME\`: that display is **read-only** and attempts to create a source attribute
-refuse \`S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED\` with element row and tag.
-A \`DELTA_Y\` edit is not intrinsically unsafe; S3 must still accept the patched
-delta graph. Graph conflicts refuse \`S42_SOURCE_GRAPH_CONFLICT\` with row and tag.
+`NameBlock.FROM_NAME`, `NameBlock.TO_NAME`, `NameBlock.NAME`,
+`RouteGeometryBlock.DELTA_X`, `DELTA_Y`, `DELTA_Z`,
+`SectionDimensionBlock.DIAMETER`, `WALL_THICK`, `INSUL_THICK`.
+S4.0 synthesizes `NameBlock.NAME` from the element key if the source omitted
+`NAME`: that display is **read-only** and attempts to create a source attribute
+refuse `S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED` with element row and tag.
+A `DELTA_Y` edit is not intrinsically unsafe; S3 must still accept the patched
+delta graph. Graph conflicts refuse `S42_SOURCE_GRAPH_CONFLICT` with row and tag.
 
 **Line-scoped ProcessBlock fields** mapped exactly to their same-named
-\`PIPINGELEMENT\` attributes:
-\`TEMP_EXP_C1\` through \`TEMP_EXP_C9\`, \`PRESSURE1\` through \`PRESSURE9\`,
-\`HYDRO_PRESSURE\`, \`INSUL_DENSITY\`, \`FLUID_DENSITY\`,
-\`REFRACTORY_DENSITY\`, \`REFRACTORY_THK\`, \`CLADDING_DEN\`,
-\`CLADDING_THK\`, \`INSUL_CLAD_UNIT_WEIGHT\`, \`INSUL_CLAD_UNIT_WEIGH\`.
+`PIPINGELEMENT` attributes:
+`TEMP_EXP_C1` through `TEMP_EXP_C9`, `PRESSURE1` through `PRESSURE9`,
+`HYDRO_PRESSURE`, `INSUL_DENSITY`, `FLUID_DENSITY`,
+`REFRACTORY_DENSITY`, `REFRACTORY_THK`, `CLADDING_DEN`,
+`CLADDING_THK`, `INSUL_CLAD_UNIT_WEIGHT`, `INSUL_CLAD_UNIT_WEIGH`.
 
 **Line-scoped MaterialBlock fields** mapped to same-named source attributes:
-\`MATERIAL_NUM\`, \`MATERIAL_NAME\`, \`CORR_ALLOW\`, \`MODULUS\`,
-\`HOT_MOD1\` through \`HOT_MOD9\`, \`POISSONS\`, \`PIPE_DENSITY\`,
-\`MILL_TOL_PLUS\`, \`MILL_TOL_MINUS\`, \`SEAM_WELD\`.
+`MATERIAL_NUM`, `MATERIAL_NAME`, `CORR_ALLOW`, `MODULUS`,
+`HOT_MOD1` through `HOT_MOD9`, `POISSONS`, `PIPE_DENSITY`,
+`MILL_TOL_PLUS`, `MILL_TOL_MINUS`, `SEAM_WELD`.
 
-The unchanged S4.0 converter picks the **first nonempty/non-\`-1.0101\`**
+The unchanged S4.0 converter picks the **first nonempty/non-`-1.0101`**
 source value per Line and field. A successful B8 edit patches **every**
 source element in that Line that explicitly holds an agreeing non-sentinel
 value; missing attributes and sentinel carry-forward rows are left byte-for-byte
 unchanged. If meaningful explicit values disagree, the displayed first value
-is not a pure collapse, so edit refuses \`S42_LINE_DERIVED_OR_DISAGREEING_VALUES\`.
-Every written source attribute is a separate \`changes[]\` row, with old/new text
+is not a pure collapse, so edit refuses `S42_LINE_DERIVED_OR_DISAGREEING_VALUES`.
+Every written source attribute is a separate `changes[]` row, with old/new text
 and byte offsets; S4.0(patched) must echo the requested leaf exactly. Strict
 S3/S4.1 and the original-byte S4.2 writer still gate final parity EQUAL.
 
 **Global AllowableStress is read-only.** S4.0 globally harvests each
-\`ALLOWABLESTRESS\` stanza and repeats it in every line's
-\`MaterialBlock.AllowableStressBlock\`, without a unique Line owner. An edit
-refuses \`S42_GLOBAL_SHARED_STANZA_READ_ONLY\` with the Line and
-\`ALLOWABLESTRESS\` tag, together with other offending edits. No silent global
+`ALLOWABLESTRESS` stanza and repeats it in every line's
+`MaterialBlock.AllowableStressBlock`, without a unique Line owner. An edit
+refuses `S42_GLOBAL_SHARED_STANZA_READ_ONLY` with the Line and
+`ALLOWABLESTRESS` tag, together with other offending edits. No silent global
 update, inverse converter, guessed line ownership, or engineering override.
 An ownership-aware global editor is a separate Owner/Oracle follow-up.
 
-**B7 follow-up controls:** Require exactly \`ok === true\`, not merely truthy.
-Continue Editing does not add \`-patched\` repeatedly and stages rebinding
+**B7 follow-up controls:** Require exactly `ok === true`, not merely truthy.
+Continue Editing does not add `-patched` repeatedly and stages rebinding
 before replacing the current source; refused rebind preserves the loaded
 source. A changed editor line-break count refuses
-\`B7_EDITOR_LINE_STRUCTURE_CHANGED\` rather than attempting mixed-CRLF
+`B7_EDITOR_LINE_STRUCTURE_CHANGED` rather than attempting mixed-CRLF
 restoration. The “written exactly as typed” label only comes from the patch
-engine's \`writtenExactlyAsTyped\` evidence, not a UI field-name regex.
+engine's `writtenExactlyAsTyped` evidence, not a UI field-name regex.
 The refusal map covers the added B8 codes. Release-last revision and
 original SHA/editor snapshot gates remain in force.
 
-**DELTA_Y public regression diagnosis:** the BM_CII public first available
-\`DELTA_Y +1\` candidate is **accepted by strict S3**; both its original S4.0 baseline and the edited
-candidate fail unchanged S4.1 source binding as \`CATEGORIZED_ORIGINAL_RECORD_NO_MATCH\`. B8 exposes this precisely as
-\`S42_S41_SOURCE_BINDING_REFUSED\` with element row and \`DELTA_Y\`, rather than
-mislabeling it a number-format problem or bypassing S4.1. The three other public
-samples accept the same class of edit. A separate S4.1 investigation, not a
-relaxation of strict binding, is the follow-up.
+**DELTA_Y public regression diagnosis (exact-head S3/S4.1):** On the BM_CII public first visible `DELTA_Y +1` case, the original S4.1 baseline is accepted; the mutated candidate fails unchanged strict S3 with `INPUT_XML_DELTA_PATH_CONFLICT`. S4.1 then refuses that candidate as `CATEGORIZED_ORIGINAL_S3_REFUSED`. B8 names the refusal `S42_SOURCE_GRAPH_CONFLICT` with the element row and `DELTA_Y` tag, preserving `bytes:null` and the strict gate. This is a delta-path consistency conflict, not numeric formatting. The other three public sample candidates return EQUAL. No S3/S4.0/S4.1 rule is bypassed.
