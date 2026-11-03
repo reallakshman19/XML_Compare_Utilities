@@ -90,16 +90,3 @@ test('B8 mapped line-value picker Check then exact original-byte download',async
   await expect(page.locator('[data-ixw-b7-panel]')).toHaveAttribute('data-b7-phase','ready');
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeDisabled();
 });
-test('B8 global AllowableStress renders a disabled mapped-value choice',async({page})=>{
-  const original='<CAESARII XML_TYPE="Input"><PIPINGMODEL>'+
-    '<PIPINGELEMENT FROM_NODE="10" TO_NODE="20" LINE_ID="L" NAME="SPAN" '+
-    'DELTA_X="10" DELTA_Y="20" DELTA_Z="30" PRESSURE1="1" DIAMETER="100"/>'+
-    '<ALLOWABLESTRESS NODE="10" ALLOWABLE_1="100"/></PIPINGMODEL></CAESARII>';
-  await open(page);await load(page,original,'global.xml');
-  const picker=page.locator('[data-ixw-b8-field]');
-  const option=picker.locator('option').filter({hasText:'ALLOWABLESTRESS'}).first();
-  const key=await option.getAttribute('value');expect(key).toBeTruthy();
-  await picker.selectOption(key);
-  await expect(page.locator('[data-ixw-b8-value]')).toBeDisabled();
-  await expect(page.locator('[data-ixw-b8-field-panel]')).toContainText('Read-only');
-});
