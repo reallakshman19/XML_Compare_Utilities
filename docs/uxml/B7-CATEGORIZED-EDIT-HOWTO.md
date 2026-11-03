@@ -79,3 +79,11 @@ restoration. The “written exactly as typed” label only comes from the patch
 engine's \`writtenExactlyAsTyped\` evidence, not a UI field-name regex.
 The refusal map covers the added B8 codes. Release-last revision and
 original SHA/editor snapshot gates remain in force.
+
+**DELTA_Y public regression diagnosis:** the BM_CII public first available
+\`DELTA_Y +1\` candidate is **accepted by strict S3** but refused by S4.1
+as \`CATEGORIZED_ORIGINAL_RECORD_NO_MATCH\`. B8 exposes this precisely as
+\`S42_S41_SOURCE_BINDING_REFUSED\` with element row and \`DELTA_Y\`, rather than
+mislabeling it a number-format problem or bypassing S4.1. The three other public
+samples accept the same class of edit. A separate S4.1 investigation, not a
+relaxation of strict binding, is the follow-up.
