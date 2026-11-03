@@ -1,3 +1,13 @@
+  for(const change of line.changes){
+    const {line:lineId,entry,decoded,old}=change;
+    const location={line:lineId,tag:entry.tag};
+    const holders=b8LineHolders(ctx,lineId,entry,old);
+    const inherited=b8CarryRefusals(ctx,entry,
+      holders.active.map(item=>item.row.index),location,{inspectIncoming:true});
+    errors.push(...holders.refusals,...inherited);
+    if(!holders.refusals.length&&!inherited.length)
+      for(const item of holders.active)addSource(item,decoded,location);
+  }
 /**
  * UXML S4.2, slice 1: fail-closed original-byte attribute-value patcher.
  * Source authority: exact SHA + S4.1 one-to-one refs + shared scanner offsets.
@@ -30,6 +40,8 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   GLOBAL:'S42_GLOBAL_SHARED_STANZA_READ_ONLY',
   LINE_DERIVED:'S42_LINE_DERIVED_OR_DISAGREEING_VALUES',
   CROSS_LINE:'S42_CROSS_LINE_CARRY_FORWARD_REFUSED',
+  ELEMENT_CARRY:'S42_ELEMENT_CARRY_FORWARD_INHERITED',
+  NUMERIC:'S42_NUMERIC_VALUE_NOT_CANONICAL',
   OMITTED:'S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED',
   GRAPH:'S42_SOURCE_GRAPH_CONFLICT',
   S41_BINDING:'S42_S41_SOURCE_BINDING_REFUSED',
@@ -574,6 +586,11 @@ function b8LineProjectionChanges(baseline,edited){
       }
       if(!a||a.value===b.value)continue;
       const decoded=decodeValue(b.value);
+      const numeric=decoded===null?null:b8NumericReason(entry,decoded);
+      if(numeric){
+        refusals.push(b8Refusal(R.NUMERIC,{line,tag:entry.tag,reason:numeric}));
+        continue;
+      }
       if(decoded===null||/[\t\r\n]/.test(decoded)||
          s40EscapeText(decoded)!==b.value||s40.isUnset(decoded)){
         refusals.push(b8Refusal(R.ROUNDTRIP,{line,tag:entry.tag,
@@ -614,6 +631,138 @@ function b8ClassificationProbe(raw){
   return clean(value)!==''&&Number.isFinite(Number(value))
     ?String(Number(value)+1):'B8_CHECK_VALUE';
 }
+
+// R2: one physical/source-holder implementation for writer AND UI classifier.
+// Missing/-1.0101 attributes inherit the previous meaningful physical value
+// even when the Categorized S4.0 projection has no visible section leaf.
+const b8NumericField=entry=>entry.block==='RouteGeometryBlock'||
+  entry.block==='SectionDimensionBlock'||entry.block==='ProcessBlock'||
+  (entry.block==='MaterialBlock'&&!['MATERIAL_NAME','SEAM_WELD'].includes(entry.tag));
+const b8NumericReason=(entry,value)=>
+  b8NumericField(entry)&&
+    (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)||
+     !Number.isFinite(Number(value))||s40.isUnset(value))
+      ?'Numeric field requires an exact finite decimal without whitespace, exponent or sentinel'
+      :null;
+function b8BoundAt(ctx,index,tag,lineId=null){
+  const ref=ctx.binding.components[index]?.sourceRefs?.[0];
+  const row=ctx.sourceRows[ref?.elementIndex];
+  if(!ref||ref.format!=='INPUT_XML'||ref.fileSha256!==ctx.measured||
+     !row||row.index!==ref.elementIndex||
+     ctx.originalText.slice(row.start,row.start+row.raw.length)!==row.raw||
+     (lineId!==null&&ctx.oldCat.items[index]?.identity?.[0]!==lineId))
+    return null;
+  return {ref,row,attr:sourceRootAttribute(row,tag)};
+}
+function b8PhysicalLines(ctx){
+  const map=new Map();
+  for(let i=0;i<ctx.binding.components.length;i++){
+    const physical=ctx.binding.components[i]?.sourceRefs?.[0]?.elementIndex;
+    if(Number.isInteger(physical))
+      map.set(physical,ctx.oldCat.items[i]?.identity?.[0]);
+  }
+  return map;
+}
+function b8LineHolders(ctx,lineId,entry,old){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const location={line:lineId,tag:entry.tag},active=[],refusals=[];
+  const owners=ctx.oldCat.items.map((item,i)=>item.identity[0]===lineId?i:-1)
+    .filter(i=>i>=0);
+  if(!owners.length)
+    refusals.push(b8Refusal(R.UNBOUND,{...location,reason:'No records bound to Line'}));
+  for(const index of owners){
+    const item=b8BoundAt(ctx,index,entry.attribute,lineId);
+    if(!item){
+      refusals.push(b8Refusal(R.UNBOUND,{...location,
+        reason:'A Line source row has no unique S4.1 physical binding'}));
+      continue;
+    }
+    if(!item.attr)continue;
+    const decodedOld=decodeValue(item.attr.value);
+    if(decodedOld===null){
+      refusals.push(b8Refusal(R.LINE_DERIVED,{...location,
+        reason:'A source attribute cannot be decoded exactly'}));
+      continue;
+    }
+    if(s40.isUnset(decodedOld))continue; // -1.0101 or empty carry-forward
+    if(s40EscapeText(decodedOld)!==old){
+      const formatOnly=Number.isFinite(Number(decodedOld))&&
+        Number.isFinite(Number(decodeValue(old)))&&
+        Number(decodedOld)===Number(decodeValue(old));
+      refusals.push(b8Refusal(R.LINE_DERIVED,{...location,
+        reason:formatOnly
+          ?'Explicit holders use different source formats (e.g. 5.0 vs 5); exact text differs'
+          :'Explicit source records disagree with the first line value'}));
+      continue;
+    }
+    active.push(item);
+  }
+  if(!active.length)
+    refusals.push(b8Refusal(R.OMITTED,{...location,
+      reason:'No explicit non-sentinel source value to patch'}));
+  return {active,refusals};
+}
+function b8CarryRefusals(ctx,entry,holderRows,location,
+  {element=false,inspectIncoming=false}={}){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const lineId=location.line,tag=entry.attribute,refusals=[];
+  const physicalLine=b8PhysicalLines(ctx);
+  // N-1: a visible Line value can hide earlier sentinels in that same Line,
+  // fed by a different Line before its first meaningful local holder.
+  if(inspectIncoming){
+    let previous=null;
+    for(let index=0;index<ctx.sourceRows.length;index++){
+      const attr=sourceRootAttribute(ctx.sourceRows[index],tag);
+      const rawValue=attr?decodeValue(attr.value):'';
+      const current=physicalLine.get(index);
+      if(attr&&rawValue===null){
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:index+1,
+          reason:'Physical source attribute cannot be decoded'}));
+        continue;
+      }
+      if(attr&&!s40.isUnset(rawValue)){previous={index,line:current};continue;}
+      if(current===lineId&&previous&&previous.line!==lineId){
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:index+1,
+          reason:'Line '+lineId+' inherits '+tag+' from earlier different Line '+
+            previous.line+' at physical row '+(index+1)}));
+      }
+    }
+  }
+  for(const ownerRow of holderRows){
+    for(let physical=ownerRow+1;physical<ctx.sourceRows.length;physical++){
+      const following=sourceRootAttribute(ctx.sourceRows[physical],tag);
+      if(following){
+        const rawValue=decodeValue(following.value);
+        if(rawValue===null){
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+            reason:'Downstream carry-forward source value cannot be decoded'}));
+          break;
+        }
+        if(!s40.isUnset(rawValue))break; // a new explicit holder ends this chain
+      }
+      const downstream=physicalLine.get(physical);
+      if(!downstream){
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+          reason:'Downstream physical Line is not uniquely source-bound'}));
+        break;
+      }
+      if(downstream!==lineId){
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,
+          reason:'Changing '+lineId+' would carry '+tag+
+            ' into different Line '+downstream+' at physical row '+(physical+1)}));
+        break;
+      }
+      if(element){
+        refusals.push(b8Refusal(R.ELEMENT_CARRY,{...location,row:physical+1,
+          reason:'Editing element row '+(ownerRow+1)+' inherits '+tag+
+            ' into same-Line element row '+(physical+1)+
+            '; inherited values are not individually listed as source changes'}));
+      }
+    }
+  }
+  return b8UniqueRefusals(refusals);
+}
+
 export async function classifyCategorizedEditableFields(originalText,baselineCategorized,
   options={}){
   const reject=()=>({ok:false,choices:[]});
@@ -632,75 +781,23 @@ export async function classifyCategorizedEditableFields(originalText,baselineCat
      originalItems.items.length!==elements.length||
      binding.components.length!==elements.length)return reject();
   const choices=[],R=UXML_CATEGORIZED_PATCH_REFUSALS;
-  const physicalLine=new Map();
-  for(let i=0;i<binding.components.length;i++){
-    const physical=binding.components[i]?.sourceRefs?.[0]?.elementIndex;
-    if(Number.isInteger(physical))
-      physicalLine.set(physical,originalItems.items[i]?.identity?.[0]);
-  }
-  // Match the writer's exact per-holder conditions without needlessly
-  // running 45 complete S4.2/S4.1 patch transactions just to draw a picker.
+  const ctx={originalText,oldCat:originalItems,binding,sourceRows,measured};
   for(const [lineIndex,line] of categorizedLineRanges(baselineCategorized).entries()){
     for(const entry of S42_LINE_FIELDS){
       const leaf=projectionLeaf(line.text,entry);
       if(!leaf||leaf.error)continue;
       const probe=b8ClassificationProbe(leaf.value);
-      let code='',reason='',holders=[];
-      const refuse=(why,whyReason)=>{if(!code){code=why;reason=whyReason;}};
-      for(let i=0;i<originalItems.items.length;i++){
-        if(originalItems.items[i]?.identity?.[0]!==line.id)continue;
-        const ref=binding.components[i]?.sourceRefs?.[0];
-        const row=sourceRows[ref?.elementIndex];
-        if(!ref||ref.fileSha256!==measured||!row||row.index!==ref.elementIndex){
-          refuse(R.UNBOUND,'A Line source row is not uniquely S4.1 bound');
-          continue;
-        }
-        const attr=sourceRootAttribute(row,entry.attribute);
-        if(!attr)continue; // missing source holder is not created
-        const old=decodeValue(attr.value);
-        if(old===null){
-          refuse(R.LINE_DERIVED,'Source attribute cannot be decoded exactly');
-          continue;
-        }
-        if(s40.isUnset(old))continue; // inherited sentinel is not writable
-        if(s40EscapeText(old)!==leaf.value){
-          const formatting=Number.isFinite(Number(old))&&
-            Number.isFinite(Number(decodeValue(leaf.value)))&&
-            Number(old)===Number(decodeValue(leaf.value));
-          refuse(R.LINE_DERIVED,formatting
-            ?'Explicit holders use different source formats (5.0 vs 5)'
-            :'Explicit source holders disagree with this Line value');
-          continue;
-        }
-        holders.push(row.index);
-      }
-      if(!holders.length)refuse(R.OMITTED,'No exact non-sentinel physical source holder');
-      for(const index of holders){
-        for(let physical=index+1;physical<sourceRows.length;physical++){
-          const following=sourceRootAttribute(sourceRows[physical],entry.attribute);
-          if(following){
-            const old=decodeValue(following.value);
-            if(old===null){
-              refuse(R.UNBOUND,'Downstream carry source value cannot be decoded');
-              break;
-            }
-            if(!s40.isUnset(old))break;
-          }
-          const downstream=physicalLine.get(physical);
-          if(!downstream){
-            refuse(R.UNBOUND,'Downstream Line source binding unavailable');
-            break;
-          }
-          if(downstream!==line.id){
-            refuse(R.CROSS_LINE,'Changing Line '+line.id+' carries '+entry.tag+
-              ' into another Line '+downstream);
-            break;
-          }
-        }
-      }
+      const holders=b8LineHolders(ctx,line.id,entry,leaf.value);
+      const carry=b8CarryRefusals(ctx,entry,
+        holders.active.map(item=>item.row.index),{line:line.id,tag:entry.tag},
+        {inspectIncoming:true});
+      const numeric=probe!==null?b8NumericReason(entry,probe):'Invalid probe';
+      const errors=[...holders.refusals,...carry];
+      if(numeric)errors.push(b8Refusal(R.NUMERIC,{line:line.id,tag:entry.tag,
+        reason:numeric}));
       choices.push({key:'L:'+lineIndex+':'+entry.tag,
-        editable:probe!==null&&!code,code:code||'',reason,
-        probeValue:probe});
+        editable:errors.length===0,code:errors[0]?.code||'',
+        reason:errors[0]?.reason||'',probeValue:probe});
     }
     if(/<AllowableStressBlock>/.test(line.text))
       choices.push({key:'R:'+lineIndex+':ALLOWABLESTRESS',editable:false,
@@ -726,8 +823,19 @@ export async function classifyCategorizedEditableFields(originalText,baselineCat
           if(fallback===leaf.value)exact=true;
         }
       }
-      let outcome={editable:exact&&probe!==null,code:exact?'':UXML_CATEGORIZED_PATCH_REFUSALS.OMITTED,
+      let outcome={editable:exact&&probe!==null,code:exact?'':R.OMITTED,
         reason:exact?'':'No original attribute with the exact source echo'};
+      if(outcome.editable){
+        const numeric=b8NumericReason(entry,probe);
+        if(numeric)outcome={editable:false,code:R.NUMERIC,reason:numeric};
+      }
+      if(outcome.editable&&entry.block==='SectionDimensionBlock'){
+        const lineId=originalItems.items[index]?.identity?.[0];
+        const carry=b8CarryRefusals(ctx,entry,[row.index],
+          {line:lineId,row:index+1,tag:entry.tag},{element:true});
+        if(carry.length)
+          outcome={editable:false,code:carry[0].code,reason:carry[0].reason};
+      }
       // Graph-linked deltas are classified by the SAME strict S3 graph
       // reader used by patch-back. Full S4.2 patch+S4.1 parity remains the
       // authority at Check; do not replay the full writer for every picker
@@ -794,6 +902,11 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       }
       if(!a||a.value===b.value)continue;
       const decoded=decodeValue(b.value);
+      const numeric=decoded===null?null:b8NumericReason(entry,decoded);
+      if(numeric){
+        errors.push(b8Refusal(R.NUMERIC,{row:i+1,tag:entry.tag,reason:numeric}));
+        continue;
+      }
       if(decoded===null||/[\t\r\n]/.test(decoded)||
          s40EscapeText(decoded)!==b.value){
         errors.push(b8Refusal(R.ROUNDTRIP,{row:i+1,tag:entry.tag,
@@ -852,16 +965,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
     return fail(R.UNBOUND);
   }
   const sourceEdits=[],ranges=new Set(),typedWitnesses=new Set();
-  const sourceAt=(index,tag,lineId=null)=>{
-    const ref=binding.components[index]?.sourceRefs?.[0];
-    const row=sourceRows[ref?.elementIndex];
-    if(!ref||ref.format!=='INPUT_XML'||ref.fileSha256!==measured||
-       !row||row.index!==ref.elementIndex||
-       originalText.slice(row.start,row.start+row.raw.length)!==row.raw||
-       (lineId!==null&&oldCat.items[index]?.identity?.[0]!==lineId))
-      return null;
-    return {ref,row,attr:sourceRootAttribute(row,tag)};
-  };
+  const ctx={originalText,oldCat,binding,sourceRows,measured};
+  const sourceAt=(index,tag,lineId=null)=>b8BoundAt(ctx,index,tag,lineId);
   const addSource=(item,decoded,location)=>{
     const {row,attr}=item;
     const raw=encodeValue(decoded,attr.quote);
@@ -906,6 +1011,13 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
           ?'S4.0 NAME fallback could not be tied to the existing source attribute'
           :'Source attribute is not an exact S4.0 value echo'}));
       continue;
+    }
+    if(entry.block==='SectionDimensionBlock'){
+      const lineId=oldCat.items[index]?.identity?.[0];
+      const inherited=b8CarryRefusals(ctx,entry,[item.row.index],
+        {line:lineId,row:index+1,tag:entry.tag},{element:true});
+      errors.push(...inherited);
+      if(inherited.length)continue;
     }
     addSource(item,decoded,location);
   }
@@ -997,22 +1109,29 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       for(const item of active)addSource(item,decoded,location);
   }
   if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
-  const candidateOriginal=substitute(originalText,sourceEdits);
-  if(candidateOriginal===null)return fail(R.OFFSET);
-  // Explicit preflight gives DELTA_Y graph conflicts their actual source
-  // cause. It does not authorize a patch; slice 1 reruns the same strict gate.
-  try{
-    mapCaesarInputXmlToUxmlStrict(candidateOriginal,
-      {fileSha256:await sha(utf8(candidateOriginal))});
-  }catch(error){
-    const graph=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
-      .test(String(error?.message||error));
-    const location=changes.filter(x=>x.entry.tag.startsWith('DELTA_')).map(x=>
-      b8Refusal(graph?R.GRAPH:R.PARITY,{row:x.index+1,tag:x.entry.tag,
-        reason:String(error?.message||error).split(':')[0]}));
-    return fail(graph?R.GRAPH:R.PARITY,location.length?location:[
-      b8Refusal(R.PARITY,{tag:'Source',reason:'Strict S3 candidate refusal'})]);
+  // N-2: a source-graph refusal must accompany other independently
+  // offending Line/Element edits, not be hidden behind an early return.
+  // Only candidate source mutations with individually proven byte offsets
+  // are considered for this read-only strict S3 diagnostic.
+    const candidateOriginal=substitute(originalText,sourceEdits);
+  if(candidateOriginal===null)
+    errors.push(b8Refusal(R.OFFSET,{tag:'Source',
+      reason:'Source byte edit spans overlap or are not exact'}));
+  if(candidateOriginal!==null){
+    try{
+      mapCaesarInputXmlToUxmlStrict(candidateOriginal,
+        {fileSha256:await sha(utf8(candidateOriginal))});
+    }catch(error){
+      const graph=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
+        .test(String(error?.message||error));
+      const code=graph?R.GRAPH:R.PARITY,reason=String(error?.message||error).split(':')[0];
+      const locations=changes.filter(x=>x.entry.tag.startsWith('DELTA_')).map(x=>
+        b8Refusal(code,{row:x.index+1,tag:x.entry.tag,reason}));
+      errors.push(...(locations.length?locations:[b8Refusal(code,
+        {tag:'Source',reason:'Strict S3 candidate refusal: '+reason})]));
+    }
   }
+  if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
   let canonical;
   try{canonical=inputXmlToCategorizedInputXml(candidateOriginal);}
   catch{return fail(R.CONVERTER);}
