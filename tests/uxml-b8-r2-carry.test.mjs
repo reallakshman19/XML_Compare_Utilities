@@ -155,3 +155,17 @@ test('B8 R3 snapshot route accepts same-Line carry and blocks foreign-Line carry
     }
   }
 });
+
+test('B8 R3 snapshot removal refuses with physical row and DIAMETER tag, LF/CRLF',async()=>{
+  for(const newline of ['', '\r\n']){
+    const source=wrap(section(10,20,'A','DIAMETER','100'),
+      newline+section(20,30,'A','DIAMETER','100'));
+    const baseline=s40(source),edited=baseline.replace(' DIAMETER="100"','');
+    assert.notEqual(edited,baseline);
+    const result=await run(source,edited);
+    assert.equal(result.ok,false);assert.equal(result.bytes,null);
+    assert(result.refusals.some(x=>x.row===1&&x.tag==='DIAMETER'&&
+      /removed existing PIPINGELEMENT/.test(x.reason)),
+      'snapshot structural removal must name the exact source row and attribute');
+  }
+});

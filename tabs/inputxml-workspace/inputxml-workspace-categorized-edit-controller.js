@@ -45,7 +45,6 @@ const patchReasons=Object.freeze({
   [R.GLOBAL]:'Globally shared AllowableStress has no unique Line source owner and is read-only.',
   [R.LINE_DERIVED]:'Source elements disagree or a line value cannot be traced to one consistent source value.',
   [R.CROSS_LINE]:'Editing this value would cross a Line boundary by physical carry-forward, or an earlier row inherits from another Line.',
-  [R.ELEMENT_CARRY]:'Element section edits are refused if following same-Line elements would inherit the changed value without listed source changes.',
   [R.NUMERIC]:'Numeric source fields require a finite ordinary decimal, without spaces, exponent notation, or a sentinel.',
   [R.OMITTED]:'The visible value is derived or omitted from the source; no new attribute may be invented.',
   [R.GRAPH]:'Strict S3 refused the edited route because its coordinate/delta graph became inconsistent.',
