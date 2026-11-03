@@ -620,25 +620,19 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const newElements=categorizedElementRanges(editedCategorized);
   if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
   const line=b8LineProjectionChanges(baselineCategorized,editedCategorized);
-  if(line.refusals.length){
-    const refused=b8UniqueRefusals([...line.refusals,
-      ...b8ElementProjectionRefusals(oldElements,newElements)]);
-    return fail(refused[0].code,refused);
-  }
-  // An exact, fully regenerated snapshot+projection proposal is still
-  // accepted by the old byte-only patcher, subject to all its gates.
+  const preflight=b8UniqueRefusals([...line.refusals,
+    ...b8ElementProjectionRefusals(oldElements,newElements)]);
+  // Snapshot edits can delegate to the original source-owned slice 1 ONLY
+  // when no independent element/line error has already been discovered.
   const snapshotTouched=oldElements.some((old,i)=>
     snapshotBlock(old.text)!==snapshotBlock(newElements[i].text));
-  if(snapshotTouched){
+  if(snapshotTouched&&!preflight.length){
     const legacy=await patchOriginalFromCategorizedSlice1(originalText,
       baselineCategorized,editedCategorized,options);
     if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
   }
-  const preflight=b8UniqueRefusals(
-    b8ElementProjectionRefusals(oldElements,newElements));
-  if(preflight.length)return fail(preflight[0].code,preflight);
   const changes=[],normalized=[...line.normalized],oldSnapshots=[],newSnapshots=[];
-  const errors=[];
+  const errors=[...preflight];
   for(let i=0;i<oldElements.length;i++){
     const old=oldElements[i],next=newElements[i];
     for(const entry of S42_PROJECTION_MAP){
@@ -672,8 +666,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         value:oldSnap});
     }
   }
-  if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
   if(!changes.length&&!line.changes.length){
+    if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
     if(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&
        editedCategorized!==baselineCategorized)
       return fail(R.UNMAPPED,[b8Refusal(R.UNMAPPED,{tag:'Markup',

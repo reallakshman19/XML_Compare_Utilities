@@ -284,3 +284,30 @@ test('B8 same-Line formatting disagreement 5.0 vs 5 explains source text not num
   assert(out.refusals.some(x=>x.tag==='PRESSURE1'&&/different source formats/.test(x.reason)));
   assert.equal(out.bytes,null);
 });
+
+test('B8 returns all offending Line holders and mapped element omissions together',async()=>{
+  const src=original(
+    row(10,20,'PRESSURE1="5.0" MODULUS="3"').replace(' NAME="SPAN"',''),
+    row(20,30,'PRESSURE1="5" MODULUS="4"'));
+  const cat=s40(src);
+  const changed=edit(edit(edit(cat,'PRESSURE1','6'),'MODULUS','7'),'NAME','NEW-NAME');
+  const out=await run(src,changed);
+  assert.equal(out.ok,false);
+  assert.equal(out.bytes,null);
+  const items=out.refusals;
+  assert(items.some(x=>x.line==='L'&&x.tag==='PRESSURE1'&&/source formats/.test(x.reason)));
+  assert(items.some(x=>x.line==='L'&&x.tag==='MODULUS'&&x.code===R.LINE_DERIVED));
+  assert(items.some(x=>x.row===1&&x.tag==='NAME'&&x.code===R.OMITTED));
+  assert.equal(new Set(items.map(x=>[x.line,x.row,x.tag].join(':'))).size,items.length,
+    'all independently offending fields are listed once');
+});
+test('B8 global line preflight and mapped element bad typed value are both listed',async()=>{
+  const src=original(row(10,20,'PRESSURE1="5"')).replace('</PIPINGMODEL>',
+    '<ALLOWABLESTRESS NODE="10" ALLOWABLE_1="100"/></PIPINGMODEL>');
+  const cat=s40(src);
+  const edited=edit(cat,'DIAMETER','&#49;23').replace('ALLOWABLE_1="100"','ALLOWABLE_1="120"');
+  const out=await run(src,edited);
+  assert.equal(out.ok,false);assert.equal(out.bytes,null);
+  assert(out.refusals.some(x=>x.line==='L'&&x.tag==='ALLOWABLESTRESS'&&x.code===R.GLOBAL));
+  assert(out.refusals.some(x=>x.row===1&&x.tag==='DIAMETER'&&x.code===R.ROUNDTRIP));
+});
