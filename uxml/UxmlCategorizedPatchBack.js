@@ -602,6 +602,28 @@ function b8ElementProjectionRefusals(oldElements,newElements){
   }
   return refusals;
 }
+// Diagnostics only: snapshot-source attribute removal is a forbidden
+// structural edit. Preserve slice-1's authority, but name the physical
+// Element row and exact removed root attribute in refusals[].
+function b8RemovedSnapshotAttributeRefusals(before,after){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS,errors=[];
+  const names=snapshot=>{
+    const root=String(snapshot||'').match(/<PIPINGELEMENT\b[^>]*>/i)?.[0]||'';
+    return new Set([...root.matchAll(/\s([A-Za-z_][\w:.-]*)\s*=\s*(["'])(?:[\s\S]*?)\2/g)]
+      .map(x=>x[1]));
+  };
+  for(let index=0;index<Math.min(before.length,after.length);index++){
+    const oldNames=names(snapshotBlock(before[index].text));
+    const newNames=names(snapshotBlock(after[index].text));
+    for(const tag of oldNames)if(!newNames.has(tag)){
+      errors.push(b8Refusal(R.STRUCTURE,{row:index+1,tag,
+        reason:'OriginalElement snapshot removed existing PIPINGELEMENT.'+tag+
+          ' attribute; structural removal is not a source-value edit'}));
+    }
+  }
+  return b8UniqueRefusals(errors);
+}
+
 function b8UniqueRefusals(refusals){
   const seen=new Set();
   return refusals.filter(item=>{
@@ -950,7 +972,8 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
     }
     if(legacy.code!==R.S40_MISMATCH){
-      const all=b8UniqueRefusals([...preflight,...(legacy.refusals||[])]);
+      const all=b8UniqueRefusals([...b8RemovedSnapshotAttributeRefusals(
+        oldElements,newElements),...preflight,...(legacy.refusals||[])]);
       // A legacy structural refusal may lack a source row: preserve its
       // named code and enrich the refusal details below (rather than []).
       return fail(legacy.code,all.length?all:
@@ -1011,6 +1034,10 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         originalText,baselineCategorized,legacy,measured,inheritedRows);
       if(issues.length)return fail(issues[0].code,issues);
       return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
+    }
+    if(legacy.ok!==true){
+      const removals=b8RemovedSnapshotAttributeRefusals(oldElements,newElements);
+      if(removals.length)return fail(legacy.code,removals);
     }
     return legacy;
   }
