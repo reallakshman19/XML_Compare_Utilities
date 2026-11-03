@@ -196,7 +196,7 @@ for(const [label,path] of [
     const cat=c.snapshot().edited;
     const match=/<DIAMETER>([^<]+)<\/DIAMETER>/.exec(cat);
     assert(match,'visible DIAMETER in '+label);
-    const value='B7-PUBLIC-REDIAMETERD',editor=cat.replace(match[0],'<DIAMETER>'+value+'</DIAMETER>');
+    const value='127.125',editor=cat.replace(match[0],'<DIAMETER>'+value+'</DIAMETER>');
     c.edit(editor);
     const result=await c.check();assert.equal(result.canDownload,true,result.code);
     assert.equal(result.changes.length,1);
