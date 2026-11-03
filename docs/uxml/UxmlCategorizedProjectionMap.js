@@ -1,6 +1,8 @@
 /**
  * S4.2 slice 2 — exact, deliberately small S4.0 projection→source map.
- * Derived / line-owned / globally harvested values are NOT writable here.
+ * This S4.2 slice2 list covers nine direct source leaves. B8 below separately
+ * admits only exact source-bound line holders; derived, unowned and global
+ * stanzas remain read-only.
  * Source audit: CategorizedInputXmlConverter.js BLOCK_FIELDS and
  * categorizedElementXml() -> blockXml() at lines 99-102, 209-223.
  */
@@ -15,8 +17,8 @@ export const S42_PROJECTION_MAP=Object.freeze([
 export const S42_PROJECTION_REFUSE=Object.freeze([
   'DerivedBlock.* (ElementLengthMm, BoreMm, MaterialName)',
   'LineBlock.* (Branchname, LineNo, PipingClass, Rating)',
-  'LineBlocks.ProcessBlock.* (merged across records)',
-  'LineBlocks.MaterialBlock.* (merged across records)',
+  'LineBlocks.ProcessBlock.* (only B8-listed consistent original holders writable; derived, sentinel, disagreeing and cross-Line values refused)',
+  'LineBlocks.MaterialBlock.* (only B8-listed consistent original holders writable; derived, sentinel, disagreeing and cross-Line values refused)',
   'NodesBlock.* (grouped external / computed coordinates / temperatures)',
   'FromCoordinateBlock.*, ToCoordinateBlock.* (computed/solved coordinates)',
   'BendBlock.*, RigidBlock.*, FlangeBlock.* (child markup, not direct leaf map)',
