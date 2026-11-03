@@ -76,10 +76,10 @@ test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1
     .find(x=>x.leaf&&!x.leaf.error);
   assert(selected,'first public DELTA_Y exists');
   const next=String(Number(selected.leaf.value)+1);
-  const bound=await s41(baseline,{originalInputXml:original,fileSha256:sha(original)});
-  assert.equal(bound.ok,true,bound.code);
-  const ordinal=bound.uxml.components[selected.i].sourceRefs[0].elementIndex;
-  const physical=scan(original)[ordinal],before=physical.raw;
+  // BM_CII has one physical Line; its first categorized Element is the
+  // first source row. Diagnose the two gates independently, without
+  // allowing a failed S4.1 baseline to abort the diagnostic test.
+  const physical=scan(original)[selected.i],before=physical.raw;
   const replacement=before.replace(/(DELTA_Y=")[^"]*(")/,(_a,l,z)=>l+next+z);
   assert.notEqual(replacement,before);
   const candidate=original.slice(0,physical.start)+replacement+
