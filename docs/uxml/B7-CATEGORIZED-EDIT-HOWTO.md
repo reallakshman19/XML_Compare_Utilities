@@ -21,3 +21,160 @@ The panel has an explanation for every live `UXML_CATEGORIZED_PATCH_REFUSALS` an
 **Conservative review disposition:** The rare combination “consistent SIF snapshot edit in one physical row *plus* a mapped projection edit in another physical row” may continue to refuse under the existing slice-2 rules. B7 does **not** widen patcher acceptance to resolve that without a separately approved proof and new independent tests. Other SIF owner rules remain unchanged. The unused legacy `S42_DERIVED_OR_LINE_PROJECTION_EDITED` constant was retired; this changes no acceptance condition.
 
 **Scope/authority:** No UI Apply, XML reverse conversion, automatic engineering solution, tolerances, CLOS change or topology fix. B7 is in-memory only until a user explicitly requests the verified byte download. S4.2 is the sole writer authority. Browser qualification uses only public GRE, PLB314, mock and BM_CII files, with LF/CRLF byte checks. Native Windows and private Owner file trials are separate qualifications.
+
+## B8 Categorized editable coverage (Owner Decision A, 3 Nov 2026)
+The **Mapped source value** picker labels each visible eligible field **Editable** or
+**Read-only**. Its value box changes exactly that leaf in the Categorized editor;
+**Check patch-back** is still mandatory. The advanced textarea can display any XML,
+but it does **not** authorize every possible text change. Unsupported changes produce
+a refusal table naming each detected element row or Line, tag, code and reason.
+A refusal always disables Download; there is no override.
+
+**Element fields** (only explicitly present source attributes):
+`NameBlock.FROM_NAME`, `NameBlock.TO_NAME`, `NameBlock.NAME`,
+`RouteGeometryBlock.DELTA_X`, `DELTA_Y`, `DELTA_Z`,
+`SectionDimensionBlock.DIAMETER`, `WALL_THICK`, `INSUL_THICK`.
+S4.0 synthesizes `NameBlock.NAME` from the element key if the source omitted
+`NAME`: that display is **read-only** and attempts to create a source attribute
+refuse `S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED` with element row and tag.
+A `DELTA_Y` edit is not intrinsically unsafe; S3 must still accept the patched
+delta graph. Graph conflicts refuse `S42_SOURCE_GRAPH_CONFLICT` with row and tag.
+
+**Line-scoped ProcessBlock fields** mapped exactly to their same-named
+`PIPINGELEMENT` attributes:
+`TEMP_EXP_C1` through `TEMP_EXP_C9`, `PRESSURE1` through `PRESSURE9`,
+`HYDRO_PRESSURE`, `INSUL_DENSITY`, `FLUID_DENSITY`,
+`REFRACTORY_DENSITY`, `REFRACTORY_THK`, `CLADDING_DEN`,
+`CLADDING_THK`, `INSUL_CLAD_UNIT_WEIGHT`, `INSUL_CLAD_UNIT_WEIGH`.
+
+**Line-scoped MaterialBlock fields** mapped to same-named source attributes:
+`MATERIAL_NUM`, `MATERIAL_NAME`, `CORR_ALLOW`, `MODULUS`,
+`HOT_MOD1` through `HOT_MOD9`, `POISSONS`, `PIPE_DENSITY`,
+`MILL_TOL_PLUS`, `MILL_TOL_MINUS`, `SEAM_WELD`.
+
+The unchanged S4.0 converter picks the **first nonempty/non-`-1.0101`**
+source value per Line and field. A successful B8 edit patches **every**
+source element in that Line that explicitly holds an agreeing non-sentinel
+value; missing attributes and sentinel carry-forward rows are left byte-for-byte
+unchanged. If meaningful explicit values disagree, the displayed first value
+is not a pure collapse, so edit refuses `S42_LINE_DERIVED_OR_DISAGREEING_VALUES`.
+Every written source attribute is a separate `changes[]` row, with old/new text
+and byte offsets; S4.0(patched) must echo the requested leaf exactly. Strict
+S3/S4.1 and the original-byte S4.2 writer still gate final parity EQUAL.
+
+**Global AllowableStress is read-only.** S4.0 globally harvests each
+`ALLOWABLESTRESS` stanza and repeats it in every line's
+`MaterialBlock.AllowableStressBlock`, without a unique Line owner. An edit
+refuses `S42_GLOBAL_SHARED_STANZA_READ_ONLY` with the Line and
+`ALLOWABLESTRESS` tag, together with other offending edits. No silent global
+update, inverse converter, guessed line ownership, or engineering override.
+An ownership-aware global editor is a separate Owner/Oracle follow-up.
+
+**B7 follow-up controls:** Require exactly `ok === true`, not merely truthy.
+Continue Editing does not add `-patched` repeatedly and stages rebinding
+before replacing the current source; refused rebind preserves the loaded
+source. A changed editor line-break count refuses
+`B7_EDITOR_LINE_STRUCTURE_CHANGED` rather than attempting mixed-CRLF
+restoration. The “written exactly as typed” label only comes from the patch
+engine's `writtenExactlyAsTyped` evidence, not a UI field-name regex.
+The refusal map covers the added B8 codes. Release-last revision and
+original SHA/editor snapshot gates remain in force.
+
+**DELTA_Y public regression diagnosis (exact-head S3/S4.1):** On the BM_CII public first visible `DELTA_Y +1` case, the original S4.1 baseline is accepted; the mutated candidate fails unchanged strict S3 with `INPUT_XML_DELTA_PATH_CONFLICT`. S4.1 then refuses that candidate as `CATEGORIZED_ORIGINAL_S3_REFUSED`. B8 names the refusal `S42_SOURCE_GRAPH_CONFLICT` with the element row and `DELTA_Y` tag, preserving `bytes:null` and the strict gate. This is a delta-path consistency conflict, not numeric formatting. The other three public sample candidates return EQUAL. No S3/S4.0/S4.1 rule is bypassed.
+
+
+### B8 repair round 1 — classification and shared source safety
+An **Editable** option is no longer inferred merely from a visible XML leaf. The
+source-bound engine classifies each existing leaf against the original SHA,
+S4.0 exact baseline and S4.1 record binding. Line values are checked against
+**every** meaningful explicit holder, omitted/`-1.0101` carry-forward
+records, source text agreement, and any later different Line reached by
+the carry chain. Delta fields are checked against unchanged **strict S3**
+candidate graph admission. For speed, these are **classification preflights**
+and do not replay every full original-byte transaction during file load.
+**Check patch-back** still runs the exact complete S4.2 writer, S3 key
+equality and S4.1 parity for the actual typed value and any combinations.
+No Download is released from a classification or a failed Check.
+
+A Line A `PRESSURE1="10"` followed by Line B's omitted or
+`PRESSURE1="-1.0101"` receives
+`S42_CROSS_LINE_CARRY_FORWARD_REFUSED` if Line A is edited: B would
+otherwise silently inherit the new physical value despite having no
+visible S4.0 pressure leaf. A meaningful explicit Line B holder breaks
+that chain, including when B's value is numerically equal to A's old
+value. Different explicit holder texts such as `5.0` and `5`
+refuse with a **source-format difference** reason even though their
+numbers are equal. The UI explains that Material edits refuse when
+different physical elements on one Line hold different material values.
+
+A refusal table combines all detectable Line and Element leaf errors,
+including shared AllowableStress, missing/derived values, malformed typed
+text and inconsistent source holders, each with Line/physical row and tag.
+**Written exactly as typed** comes from the actual written recordKey,
+tag and decoded value on a successful original-byte patch — matching
+another row's field is not sufficient. The original remains untouched
+after every refusal.
+
+
+### B8 Final Repair R2 — element section inheritance and numeric values
+The three section dimensions **DIAMETER, WALL_THICK, INSUL_THICK**
+can be inherited along the physical InputXML file just like Process and
+Material fields. Changing an explicitly sourced element that would carry
+to any following missing or `-1.0101` field in a **different Line**
+is refused with `S42_CROSS_LINE_CARRY_FORWARD_REFUSED` and names
+the changed Line, tag and affected downstream physical row. In the
+**same Line** it is refused with
+`S42_ELEMENT_CARRY_FORWARD_INHERITED` and names every inheriting row:
+we deliberately **refuse**, rather than hiding effective downstream
+changes outside the `changes[]` table. A later explicitly valued
+holder ends this carry chain, even if its old value equals the edited
+holder's old value. Regenerated `OriginalElement` snapshot edits are
+subject to the same rule before releasing bytes.
+
+Line Process/Material edits also refuse if the Line contains earlier
+missing/sentinel rows whose effective value was inherited from a
+different Line, even when S4.0 displays the later local explicit value.
+Both the picker and original-byte writer call the same bound
+holder/carry checks; a disabled picker is never a substitute for the
+full **Check** parity authority. Numeric Process/Material and element
+geometry/section values must be finite plain decimal text, without
+leading/trailing whitespace, exponent notation or a sentinel, and
+otherwise refuse `S42_NUMERIC_VALUE_NOT_CANONICAL`.
+
+The refusal table accumulates independently bad element/Line edits
+AND strict S3 graph/parity conflicts in one Check result; every
+refusal returns `bytes:null`. Globally shared AllowableStress
+remains read-only. Existing S3/S4.0/S4.1/S1 and source policies remain
+unchanged. Public real-file section edits that could silently alter
+inherited values are expected to refuse, while NAME and explicit
+section holders preserve tested positive byte-patch coverage.
+
+
+### Owner-approved B8 R3 (3 November 2026): same-Line inherited sections
+**This R3 rule supersedes any R2 statement that same-Line inherited section
+values must be refused.** For DIAMETER, WALL_THICK and INSUL_THICK,
+an edited explicit source holder may be followed in physical file order by
+elements of the SAME Line containing `-1.0101`, a blank, or no such
+attribute. These elements intentionally inherit the changed effective
+section property ("change this run"). Patch-back **ACCEPTS** the edit
+when all remaining S3, S4.0, S4.1 and byte-parity checks pass, and adds
+`inheritedRows: [{row,tag,oldEffective,newEffective}]` for each changed
+inheriting physical element. `changes[]` still counts only actual source
+attribute bytes modified. The Workspace shows the inherited effective
+rows under the verified source change table, including old and new values.
+Only a carry chain reaching a DIFFERENT Line is refused with
+`S42_CROSS_LINE_CARRY_FORWARD_REFUSED`; explicit holders terminate
+a chain. This rule also covers full source-snapshot edits.
+
+The old `S42_ELEMENT_CARRY_FORWARD_INHERITED` refusal is retired.
+The original B7 first public DIAMETER → 127.125 flow and LF/CRLF
+original-byte downloads are required to succeed with inherited-row
+evidence on GRE, PLB314, mock and BM_CII. The section Editable
+classifier must retain at least the pre-R2 public totals: DIAMETER 37,
+WALL_THICK 42 and INSUL_THICK 5, without weakening cross-Line refusal.
+
+**Numeric text policy:** this slice accepts only finite plain decimal
+strings with no leading/trailing whitespace or exponent notation.
+`1.5E+02`, `100.` and `+5` are deliberately refused by
+`S42_NUMERIC_VALUE_NOT_CANONICAL` rather than silently normalized.
+This is not a new tolerance, units or structural-change policy.

@@ -32,6 +32,7 @@ import {
 } from './inputxml-workspace-producer-adoption.js';
 import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
 import {createCategorizedEditController,preserveCategorizedEditorLineEndings} from './inputxml-workspace-categorized-edit-controller.js';
+import {S42_PROJECTION_MAP,S42_LINE_FIELDS,categorizedElementRanges,categorizedLineRanges,projectionLeaf} from '../../uxml/UxmlCategorizedProjectionMap.js';
 
 /**
  * InputXML Workspace UI tile/modal.
@@ -584,10 +585,72 @@ function renderEnrichmentTab(state) {
 }
 
 
+
+function b8EditableChoices(xml='',engineChoices=[]){
+  const choices=[];
+  const engine=new Map(engineChoices.map(x=>[x.key,x]));
+  for(const [i,line] of categorizedLineRanges(xml).entries()){
+    for(const entry of S42_LINE_FIELDS){
+      const leaf=projectionLeaf(line.text,entry);
+      if(!leaf||leaf.error)continue;
+      const key='L:'+i+':'+entry.tag,authority=engine.get(key);
+      choices.push({key,
+        where:'Line '+(line.id||i+1),tag:entry.tag,
+        value:leaf.value,start:line.start+leaf.start,end:line.start+leaf.end,
+        editable:authority?.editable===true,
+        reason:authority?.reason||authority?.code||''});
+    }
+    if(/<AllowableStressBlock>/.test(line.text)){
+      choices.push({key:'R:'+i+':ALLOWABLESTRESS',where:'Line '+(line.id||i+1),
+        tag:'ALLOWABLESTRESS',value:'Global stanza — read-only',
+        editable:false});
+    }
+  }
+  for(const [i,element] of categorizedElementRanges(xml).entries()){
+    const original=element.text.match(/<OriginalElement>\s*<!\[CDATA\[([\s\S]*?)\]\]>/)?.[1]||'';
+    const opening=original.match(/^<PIPINGELEMENT\b[^>]*>/i)?.[0]||'';
+    for(const entry of S42_PROJECTION_MAP){
+      const leaf=projectionLeaf(element.text,entry);
+      if(!leaf||leaf.error)continue;
+      const key='E:'+i+':'+entry.tag,authority=engine.get(key);
+      choices.push({key,
+        where:'Element '+(i+1),tag:entry.tag,
+        value:leaf.value,start:element.start+leaf.start,end:element.start+leaf.end,
+        editable:authority?.editable===true,
+        reason:authority?.reason||authority?.code||''});
+    }
+  }
+  return choices;
+}
+
 function renderCategorizedPatchBack(state){
   const record=state.categorizedPatchBack.snapshot();
   const allowed=record.canDownload&&record.phase!=='loading';
   const phase=record.phase;
+  const choices=b8EditableChoices(record.edited,record.editability);
+  const selected=choices.find(x=>x.key===state.b8Choice)||
+    choices.find(x=>x.editable)||choices[0]||null;
+  const choiceOptions=choices.map(x=>'<option value="'+h(x.key)+'" '+
+    (selected?.key===x.key?'selected':'')+'>'+
+    h((x.editable?'Editable: ':'Read-only: ')+x.where+' / '+x.tag)+'</option>').join('');
+  const fieldEditor=selected?'<div class="ixw-toolbar" data-ixw-b8-field-panel>'+
+    '<label class="ixw-note">Mapped source value: <select class="ixw-mini-input" '+
+    'data-ixw-b8-field aria-label="Choose mapped categorized field">'+choiceOptions+'</select></label>'+
+    '<label class="ixw-note">'+h(selected.where+' / '+selected.tag)+
+    ' <input class="ixw-mini-input" data-ixw-b8-value aria-label="Mapped source value" '+
+    'value="'+h(selected.value)+'" '+(selected.editable?'':'disabled')+'></label>'+
+    '<span class="ixw-note">'+
+    (selected.editable?'Editable existing source attribute; Check validates all owners and parity.':
+    'Read-only: '+(selected.reason||'derived, omitted, inconsistent holders or graph refusal')+'.')+
+    '</span></div>':'';
+  const refusedRows=(record.refusals||[]).map(x=>
+    '<tr><td>'+h(x.line||('Element '+(x.row??'—')))+'</td><td>'+h(x.tag||'—')+
+    '</td><td>'+h(x.code||record.code||'')+'</td><td>'+h(x.reason||'')+
+    '</td></tr>').join('');
+  const refusedTable=refusedRows?'<div style="max-height:240px;overflow:auto">'+
+    '<table class="ixw-table" data-ixw-b8-refusals><thead><tr>'+
+    '<th>Line / element row</th><th>Tag</th><th>Code</th><th>Why refused</th>'+
+    '</tr></thead><tbody>'+refusedRows+'</tbody></table></div>':'';
   const heading=phase==='checked'?'Checked · parity EQUAL · bytes ready':
     phase==='downloaded'?'Downloaded · verified original bytes':
     phase==='refused'?'Refused · no downloadable bytes':
@@ -597,7 +660,7 @@ function renderCategorizedPatchBack(state){
   const rows=(record.changes||[]).map(change=>{
     const ordinal=String(change.recordKey||'').match(/^E(\d+):/)?.[1];
     const field=String(change.field||'');
-    const isProjection=/^PIPINGELEMENT\.(?:FROM_NAME|TO_NAME|NAME|DELTA_[XYZ]|DIAMETER|WALL_THICK|INSUL_THICK)$/.test(field);
+    const isProjection=change.writtenExactlyAsTyped===true;
     return '<tr><td>'+h(ordinal===undefined?'—':Number(ordinal)+1)+'</td>'+
       '<td>'+h(change.recordKey||'')+'</td><td>'+h(field)+'</td><td>'+h(change.old)+
       '</td><td>'+h(change.new)+'</td><td>'+
@@ -605,9 +668,22 @@ function renderCategorizedPatchBack(state){
         'source bytes '+change.byteRange?.start+'–'+change.byteRange?.end)+
       '</td></tr>';
   }).join('');
+  const inheritedRows=(record.inheritedRows||[]).map(x=>
+    '<tr><td>'+h(x.row)+'</td><td>'+h(x.tag)+'</td><td>'+
+    h(x.oldEffective)+'</td><td>'+h(x.newEffective)+'</td></tr>').join('');
+  const inheritedTable=allowed?'<div data-ixw-b8-inherited>'+
+    '<div class="ixw-title">Inherited effective section values: '+
+    (record.inheritedRows||[]).length+' row(s)</div>'+
+    '<p class="ixw-note">These same-Line elements inherit the new section value. '+
+    'Their original attributes remain unchanged; only the explicit holder is written.</p>'+
+    (inheritedRows?'<div style="max-height:240px;overflow:auto"><table class="ixw-table">'+
+      '<thead><tr><th>Physical row</th><th>Section tag</th>'+
+      '<th>Old effective</th><th>New effective</th></tr></thead><tbody>'+
+      inheritedRows+'</tbody></table></div>':
+      '<p class="ixw-note">No inherited section rows.</p>')+'</div>':'';
   const detail=(phase==='refused'||record.code)?'<p class="ixw-error" role="alert">'+
     '<strong>'+h(record.code)+'</strong>: '+h(record.reason)+
-    (record.detail?' · '+h(record.detail):'')+'</p>':'';
+    (record.detail?' · '+h(record.detail):'')+'</p>'+refusedTable:'';
   const alerts=record.warning.map(x=>'<p role="status" class="ixw-note">⚠ '+h(x)+'</p>').join('');
   const status='<div class="ixw-note" role="status" data-ixw-b7-status>'+
     h(heading)+(record.sourceSha256?' · SHA-256 '+h(record.sourceSha256.slice(0,16))+'…':'')+
@@ -625,14 +701,17 @@ function renderCategorizedPatchBack(state){
     '</div>'+
     (record.filename?'<div class="ixw-note">Source: '+h(record.filename)+'</div>':'')+
     status+
+    fieldEditor+
+    '<p class="ixw-note">Advanced XML editor: Editable is classified by the source-bound engine for a representative standalone value; Check still validates the actual edit. Material edits refuse if different elements in the Line hold different material values. AllowableStress is always read-only.</p>'+ 
     '<textarea class="ixw-textarea tall" spellcheck="false" data-ixw-b7-editor '+
     (record.canCheck?'':'disabled')+' aria-label="Editable Categorized InputXML">'+h(record.edited)+'</textarea>'+
     '<div data-ixw-b7-result>'+detail+alerts+
     (allowed?'<div class="ixw-title">Verified source attribute changes: '+record.changes.length+' row(s)</div>'+
-      (rows?'<div style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
+      (rows?'<div data-ixw-b8-source-changes style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
         '<th>Physical row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>':
         '<p class="ixw-note">No changes. Original bytes remain identical.</p>')+
+      inheritedTable+
       '<details><summary>Regenerated Categorized view (derived values refreshed)</summary>'+
       '<textarea class="ixw-textarea tall" readonly aria-label="Regenerated Categorized preview">'+
       h(record.patchedCategorized)+'</textarea></details>':'')+
@@ -1091,6 +1170,20 @@ function bindCategorizedPatchBack(dialog,state){
     }
     if(dialog.isConnected)rerender(dialog,state);
   });
+  dialog.querySelector('[data-ixw-b8-field]')?.addEventListener('change',event=>{
+    state.b8Choice=event.target.value;
+    rerender(dialog,state);
+  });
+  dialog.querySelector('[data-ixw-b8-value]')?.addEventListener('change',event=>{
+    const snapshot=controller.snapshot();
+    const selected=b8EditableChoices(snapshot.edited,snapshot.editability).find(x=>x.key==
+      dialog.querySelector('[data-ixw-b8-field]')?.value);
+    if(!selected?.editable)return;
+    controller.edit(snapshot.edited.slice(0,selected.start)+event.target.value+
+      snapshot.edited.slice(selected.end));
+    state.b8Choice=selected.key;
+    rerender(dialog,state);
+  });
   dialog.querySelector('[data-ixw-b7-editor]')?.addEventListener('input',event=>{
     controller.edit(preserveCategorizedEditorLineEndings(controller.snapshot().edited,
       event.target.value)); // synchronous revision invalidation; preserve S4.0 mixed EOL
@@ -1249,4 +1342,4 @@ export function installInputXmlWorkspaceTile(container) {
   };
 }
 
-export const _test = Object.freeze({ defaultState, renderLauncher, renderPopup, cleanSummary, buildXmlTraceRows, jsonTraceServices, tablePreview });
+export const _test = Object.freeze({ defaultState, renderLauncher, renderPopup, cleanSummary, buildXmlTraceRows, jsonTraceServices, tablePreview, b8EditableChoices });

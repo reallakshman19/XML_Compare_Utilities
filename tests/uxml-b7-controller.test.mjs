@@ -200,6 +200,10 @@ for(const [label,path] of [
     c.edit(editor);
     const result=await c.check();assert.equal(result.canDownload,true,result.code);
     assert.equal(result.changes.length,1);
+    assert(Array.isArray(result.inheritedRows),'effective source inheritance list exists');
+    assert(result.inheritedRows.length>0,label+' first DIAMETER must report inherited rows');
+    assert(result.inheritedRows.every(x=>x.tag==='DIAMETER'&&
+      x.newEffective===value&&Number.isInteger(x.row)));
     const written=c.download();
     const expected=source.replace(/(DIAMETER=")[^"]+(")/,(_,a,z)=>a+value+z);
     assert.deepEqual(written.bytes,bytes(expected));

@@ -52,7 +52,8 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const phase=await page.locator('[data-ixw-b7-panel]').getAttribute('data-b7-phase');
   if(phase!=='checked')throw Error('B7_CHECK_REFUSED '+name+' '+await page.locator('[data-ixw-b7-result]').innerText());
   await expect(page.locator('[data-ixw-b7-action="download"]')).toBeEnabled();
-  await expect(page.locator('[data-ixw-b7-result] table tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-ixw-b8-source-changes] tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-ixw-b8-inherited] tbody tr').first()).toBeVisible();
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Verified source attribute changes: 1 row(s)');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('PIPINGELEMENT.DIAMETER');
   await expect(page.locator('[data-ixw-b7-result]')).toContainText('Written exactly as typed');
@@ -62,6 +63,9 @@ async function checkAndDownload(page,source,name,{takeScreenshots=false}={}){
   const exactEdited=preserveCategorizedEditorLineEndings(exactBaseline,edited);
   const direct=await patchOriginalFromCategorized(source,exactBaseline,exactEdited,{fileSha256:sha(source)});
   expect(direct.ok).toBe(true);expect(direct.parity).toBe('EQUAL');
+  expect(direct.inheritedRows?.length).toBeGreaterThan(0);
+  await expect(page.locator('[data-ixw-b8-inherited]')).toContainText('DIAMETER');
+  await expect(page.locator('[data-ixw-b8-inherited]')).toContainText('127.125');
   const [download]=await Promise.all([
     page.waitForEvent('download'),
     page.locator('[data-ixw-b7-action="download"]').click(),

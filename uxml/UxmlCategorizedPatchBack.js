@@ -7,7 +7,7 @@ import {inputXmlToCategorizedInputXml,_test as s40} from '../xml-compare/Categor
 import {mapCategorizedInputXmlToUxml} from './UxmlCategorizedInputXmlSchemaMapper.js';
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
-import {S42_PROJECTION_MAP,categorizedElementRanges,projectionLeaf} from './UxmlCategorizedProjectionMap.js';
+import {S42_PROJECTION_MAP,S42_LINE_FIELDS,categorizedLineRanges,categorizedElementRanges,projectionLeaf} from './UxmlCategorizedProjectionMap.js';
 
 export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   INPUT:'S42_INVALID_INPUT',
@@ -27,8 +27,15 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   S40_MISMATCH:'S42_S40_PROJECTION_MISMATCH',
   UNMAPPED:'S42_UNMAPPED_OR_DERIVED_PROJECTION_EDIT',
   ROUNDTRIP:'S42_PROJECTION_VALUE_NOT_EXACT',
+  GLOBAL:'S42_GLOBAL_SHARED_STANZA_READ_ONLY',
+  LINE_DERIVED:'S42_LINE_DERIVED_OR_DISAGREEING_VALUES',
+  CROSS_LINE:'S42_CROSS_LINE_CARRY_FORWARD_REFUSED',
+  NUMERIC:'S42_NUMERIC_VALUE_NOT_CANONICAL',
+  OMITTED:'S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED',
+  GRAPH:'S42_SOURCE_GRAPH_CONFLICT',
+  S41_BINDING:'S42_S41_SOURCE_BINDING_REFUSED',
 });
-const fail=(code)=>({ok:false,code,bytes:null});
+const fail=(code,refusals=[])=>({ok:false,code,bytes:null,refusals});
 const encoder=new TextEncoder();
 const utf8=(value)=>encoder.encode(value);
 const hex=(bytes)=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
@@ -36,6 +43,7 @@ const sha=async(bytes)=>hex(new Uint8Array(await globalThis.crypto.subtle.digest
 const clean=(x)=>String(x??'').trim();
 const refKeys=(doc)=>doc.components.map(c=>c.sourceRefs?.[0]?.recordKey);
 const equalArray=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+export const s42StrictS3KeysEqual=(before,after)=>equalArray(refKeys(before),refKeys(after));
 const identityFields=new Set(['FROM_NODE','TO_NODE','LINE_ID','PIPELINE-REFERENCE']);
 const externalTags=new Set(['RESTRAINT','DISPLACEMENTS','FORCESMOMENTS','ALLOWABLESTRESS','SIF']);
 // Exact S4.0 CONTROL_ATTRS (CategorizedInputXmlConverter.js:23), plus the
@@ -462,7 +470,7 @@ async function patchOriginalFromCategorizedSlice1(originalText,baselineCategoriz
     oldStrict=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});
     newStrict=mapCaesarInputXmlToUxmlStrict(patched,{fileSha256:patchedHash});
   }catch{return fail(R.PARITY);}
-  if(!equalArray(refKeys(oldStrict),refKeys(newStrict)))return fail(R.PARITY);
+  if(!s42StrictS3KeysEqual(oldStrict,newStrict))return fail(R.PARITY);
   // MUTATION_GUARD_PARITY_CONVERTER: an edited derived/line field is not
   // an authorized source edit. Compare the ENTIRE canonical S4.0 output.
   let regenerated;
@@ -504,12 +512,434 @@ function sourceRootAttribute(sourceRow,attribute){
     x.name===attribute);
   return attrs.length===1?attrs[0]:null;
 }
+
+// B8 diagnostics are only about named XML leaves; the original byte writer
+// remains the sole acceptance authority. No loose XML reparse is trusted for writes.
+function b8Refusal(code,{line=null,row=null,tag='UNKNOWN',reason=''}={}){
+  return {code,line,row,tag,reason};
+}
+function b8FlatLeaves(xml){
+  const fields=new Map(),seen=new Map();
+  const re=/<([A-Za-z_][\w:.-]*)(?:\s+[^>]*)?>([^<]*)<\/\1>/g;
+  let m;
+  while((m=re.exec(xml))){
+    const tag=m[1],ordinal=seen.get(tag)||0;
+    seen.set(tag,ordinal+1);
+    fields.set(tag+'#'+ordinal,{tag,value:m[2]});
+  }
+  return fields;
+}
+function b8DifferentLeaves(before,after,allowed,location){
+  const old=b8FlatLeaves(before),next=b8FlatLeaves(after),result=[];
+  for(const key of new Set([...old.keys(),...next.keys()])){
+    const a=old.get(key),b=next.get(key);
+    if(a?.value===b?.value)continue;
+    const tag=(a||b).tag;
+    if(!allowed.has(tag))result.push(b8Refusal(
+      UXML_CATEGORIZED_PATCH_REFUSALS.UNMAPPED,{...location,tag,
+        reason:'Not an editable source-bound value'}));
+  }
+  return result;
+}
+function b8Allowable(xml){
+  return [...xml.matchAll(/<AllowableStressBlock>[\s\S]*?<\/AllowableStressBlock>/g)]
+    .map(x=>x[0]);
+}
+function b8LineProjectionChanges(baseline,edited){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const oldLines=categorizedLineRanges(baseline),newLines=categorizedLineRanges(edited);
+  if(oldLines.length!==newLines.length)
+    return {changes:[],normalized:[],refusals:[
+      b8Refusal(R.STRUCTURE,{line:'Line',tag:'Line',reason:'Line count changed'})]};
+  const changes=[],normalized=[],refusals=[];
+  const names=new Set(S42_LINE_FIELDS.map(x=>x.tag));
+  for(let i=0;i<oldLines.length;i++){
+    const old=oldLines[i],next=newLines[i],line=old.id||'Line '+(i+1);
+    if(old.id!==next.id||old.id===null){
+      refusals.push(b8Refusal(R.IDENTITY,{line,tag:'Line.id',reason:'Line identity changed'}));
+      continue;
+    }
+    if(JSON.stringify(b8Allowable(old.text))!==JSON.stringify(b8Allowable(next.text))){
+      refusals.push(b8Refusal(R.GLOBAL,{line,tag:'ALLOWABLESTRESS',
+        reason:'Global stanza is copied into each line without unique ownership'}));
+    }
+    const withoutElements=text=>text.replace(/<Element\b[^>]*>[\s\S]*?<\/Element>/g,'');
+    refusals.push(...b8DifferentLeaves(withoutElements(old.text),
+      withoutElements(next.text),names,{line}));
+    for(const entry of S42_LINE_FIELDS){
+      const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);
+      if(a?.error||b?.error||Boolean(a)!==Boolean(b)){
+        refusals.push(b8Refusal(R.UNMAPPED,{line,tag:entry.tag,
+          reason:'Omitted, duplicated, or ambiguous line leaf'}));
+        continue;
+      }
+      if(!a||a.value===b.value)continue;
+      const decoded=decodeValue(b.value);
+      const numeric=decoded===null?null:b8NumericReason(entry,decoded);
+      if(numeric){
+        refusals.push(b8Refusal(R.NUMERIC,{line,tag:entry.tag,reason:numeric}));
+        continue;
+      }
+      if(decoded===null||/[\t\r\n]/.test(decoded)||
+         s40EscapeText(decoded)!==b.value||s40.isUnset(decoded)){
+        refusals.push(b8Refusal(R.ROUNDTRIP,{line,tag:entry.tag,
+          reason:'Typed value is not a verbatim non-sentinel S4.0 echo'}));
+        continue;
+      }
+      changes.push({line,entry,old:a.value,new:b.value,decoded});
+      normalized.push({start:next.start+b.start,end:next.start+b.end,value:a.value});
+    }
+  }
+  return {changes,normalized,refusals};
+}
+function b8ElementProjectionRefusals(oldElements,newElements){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const allowed=new Set(S42_PROJECTION_MAP.map(x=>x.tag)),refusals=[];
+  for(let i=0;i<oldElements.length;i++){
+    const withoutSnapshot=text=>text.replace(/<OriginalElement>[\s\S]*?<\/OriginalElement>/g,'');
+    refusals.push(...b8DifferentLeaves(withoutSnapshot(oldElements[i].text),
+      withoutSnapshot(newElements[i].text),allowed,{row:i+1}));
+  }
+  return refusals;
+}
+// Diagnostics only: snapshot-source attribute removal is a forbidden
+// structural edit. Preserve slice-1's authority, but name the physical
+// Element row and exact removed root attribute in refusals[].
+function b8RemovedSnapshotAttributeRefusals(before,after){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS,errors=[];
+  const names=snapshot=>{
+    const root=String(snapshot||'').match(/<PIPINGELEMENT\b[^>]*>/i)?.[0]||'';
+    return new Set([...root.matchAll(/\s([A-Za-z_][\w:.-]*)\s*=\s*(["'])(?:[\s\S]*?)\2/g)]
+      .map(x=>x[1]));
+  };
+  for(let index=0;index<Math.min(before.length,after.length);index++){
+    const oldNames=names(snapshotBlock(before[index].text));
+    const newNames=names(snapshotBlock(after[index].text));
+    for(const tag of oldNames)if(!newNames.has(tag)){
+      errors.push(b8Refusal(R.STRUCTURE,{row:index+1,tag,
+        reason:'OriginalElement snapshot removed existing PIPINGELEMENT.'+tag+
+          ' attribute; structural removal is not a source-value edit'}));
+    }
+  }
+  return b8UniqueRefusals(errors);
+}
+
+function b8UniqueRefusals(refusals){
+  const seen=new Set();
+  return refusals.filter(item=>{
+    const key=[item.code,item.line,item.row,item.tag].join('\u0000');
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+}
+
+// B8-R1: source-authoritative UI classification. The initial presence of
+// a Categorized leaf NEVER grants write authority. Line/geometry decisions
+// are checked against the actual same-branch patch engine before UI exposure.
+function b8ClassificationProbe(raw){
+  const value=decodeValue(raw);
+  if(value===null)return null;
+  return clean(value)!==''&&Number.isFinite(Number(value))
+    ?String(Number(value)+1):'B8_CHECK_VALUE';
+}
+
+// R2: one physical/source-holder implementation for writer AND UI classifier.
+// Missing/-1.0101 attributes inherit the previous meaningful physical value
+// even when the Categorized S4.0 projection has no visible section leaf.
+const b8NumericField=entry=>entry.block==='RouteGeometryBlock'||
+  entry.block==='SectionDimensionBlock'||entry.block==='ProcessBlock'||
+  (entry.block==='MaterialBlock'&&!['MATERIAL_NAME','SEAM_WELD'].includes(entry.tag));
+const b8NumericReason=(entry,value)=>
+  b8NumericField(entry)&&
+    (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)||
+     !Number.isFinite(Number(value))||s40.isUnset(value))
+      ?'Numeric field requires an exact finite decimal without whitespace, exponent or sentinel'
+      :null;
+function b8BoundAt(ctx,index,tag,lineId=null){
+  const ref=ctx.binding.components[index]?.sourceRefs?.[0];
+  const row=ctx.sourceRows[ref?.elementIndex];
+  if(!ref||ref.format!=='INPUT_XML'||ref.fileSha256!==ctx.measured||
+     !row||row.index!==ref.elementIndex||
+     ctx.originalText.slice(row.start,row.start+row.raw.length)!==row.raw||
+     (lineId!==null&&ctx.oldCat.items[index]?.identity?.[0]!==lineId))
+    return null;
+  return {ref,row,attr:sourceRootAttribute(row,tag)};
+}
+function b8PhysicalLines(ctx){
+  const map=new Map();
+  for(let i=0;i<ctx.binding.components.length;i++){
+    const physical=ctx.binding.components[i]?.sourceRefs?.[0]?.elementIndex;
+    if(Number.isInteger(physical))
+      map.set(physical,ctx.oldCat.items[i]?.identity?.[0]);
+  }
+  return map;
+}
+function b8LineHolders(ctx,lineId,entry,old){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const location={line:lineId,tag:entry.tag},active=[],refusals=[];
+  const owners=ctx.oldCat.items.map((item,i)=>item.identity[0]===lineId?i:-1)
+    .filter(i=>i>=0);
+  if(!owners.length)
+    refusals.push(b8Refusal(R.UNBOUND,{...location,reason:'No records bound to Line'}));
+  for(const index of owners){
+    const item=b8BoundAt(ctx,index,entry.attribute,lineId);
+    if(!item){
+      refusals.push(b8Refusal(R.UNBOUND,{...location,
+        reason:'A Line source row has no unique S4.1 physical binding'}));
+      continue;
+    }
+    if(!item.attr)continue;
+    const decodedOld=decodeValue(item.attr.value);
+    if(decodedOld===null){
+      refusals.push(b8Refusal(R.LINE_DERIVED,{...location,
+        reason:'A source attribute cannot be decoded exactly'}));
+      continue;
+    }
+    if(s40.isUnset(decodedOld))continue; // -1.0101 or empty carry-forward
+    if(s40EscapeText(decodedOld)!==old){
+      const formatOnly=Number.isFinite(Number(decodedOld))&&
+        Number.isFinite(Number(decodeValue(old)))&&
+        Number(decodedOld)===Number(decodeValue(old));
+      refusals.push(b8Refusal(R.LINE_DERIVED,{...location,
+        reason:formatOnly
+          ?'Explicit holders use different source formats (e.g. 5.0 vs 5); exact text differs'
+          :'Explicit source records disagree with the first line value'}));
+      continue;
+    }
+    active.push(item);
+  }
+  if(!active.length)
+    refusals.push(b8Refusal(R.OMITTED,{...location,
+      reason:'No explicit non-sentinel source value to patch'}));
+  return {active,refusals};
+}
+function b8CarryRefusals(ctx,entry,holderRows,location,
+  {element=false,inspectIncoming=false,inheritedRows=null,newEffective=null}={}){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const lineId=location.line,tag=entry.attribute,refusals=[];
+  const physicalLine=b8PhysicalLines(ctx);
+  // N-1: a visible Line value can hide earlier sentinels in that same Line,
+  // fed by a different Line before its first meaningful local holder.
+  if(inspectIncoming){
+    let previous=null;
+    for(let index=0;index<ctx.sourceRows.length;index++){
+      const attr=sourceRootAttribute(ctx.sourceRows[index],tag);
+      const rawValue=attr?decodeValue(attr.value):'';
+      const current=physicalLine.get(index);
+      if(attr&&rawValue===null){
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:index+1,
+          reason:'Physical source attribute cannot be decoded'}));
+        continue;
+      }
+      if(attr&&!s40.isUnset(rawValue)){previous={index,line:current};continue;}
+      if(current===lineId&&previous&&previous.line!==lineId){
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:index+1,
+          reason:'Line '+lineId+' inherits '+tag+' from earlier different Line '+
+            previous.line+' at physical row '+(index+1)}));
+      }
+    }
+  }
+  for(const ownerRow of holderRows){
+    const ownerAttr=sourceRootAttribute(ctx.sourceRows[ownerRow],tag);
+    const oldEffective=ownerAttr?decodeValue(ownerAttr.value):null;
+    for(let physical=ownerRow+1;physical<ctx.sourceRows.length;physical++){
+      const following=sourceRootAttribute(ctx.sourceRows[physical],tag);
+      if(following){
+        const rawValue=decodeValue(following.value);
+        if(rawValue===null){
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+            reason:'Downstream carry-forward source value cannot be decoded'}));
+          break;
+        }
+        if(!s40.isUnset(rawValue))break; // a new explicit holder ends this chain
+      }
+      const downstream=physicalLine.get(physical);
+      if(!downstream){
+        refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+          reason:'Downstream physical Line is not uniquely source-bound'}));
+        break;
+      }
+      if(downstream!==lineId){
+        refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,
+          reason:'Changing '+lineId+' would carry '+tag+
+            ' into different Line '+downstream+' at physical row '+(physical+1)}));
+        break;
+      }
+      // Same-Line inherited section values are intentional CAESAR II
+      // "change this run" semantics. Source bytes for the follower remain
+      // unchanged; report the *effective* value transition separately.
+      if(element&&inheritedRows){
+        if(oldEffective===null||newEffective===null){
+          refusals.push(b8Refusal(R.UNBOUND,{...location,row:physical+1,
+            reason:'Inherited section effective value is not source-proven'}));
+        }else if(oldEffective!==newEffective){
+          inheritedRows.push({row:physical+1,tag:entry.tag,
+            oldEffective,newEffective});
+        }
+      }
+    }
+  }
+  return b8UniqueRefusals(refusals);
+}
+function b8UniqueInheritedRows(items){
+  const seen=new Map();
+  for(const item of items){
+    const key=item.row+'\u0000'+item.tag;
+    if(seen.has(key)){
+      const old=seen.get(key);
+      if(old.oldEffective!==item.oldEffective||old.newEffective!==item.newEffective)
+        throw Error('Conflicting inherited row evidence: '+key);
+    }else seen.set(key,item);
+  }
+  return [...seen.values()].sort((a,b)=>a.row-b.row||a.tag.localeCompare(b.tag));
+}
+
+// The pre-existing slice-1 snapshot route can return a byte-equal, canonical
+// original that still changes a hidden carried section value. Reuse precisely
+// the same physical audit as projection edits before releasing those bytes.
+async function b8LegacySourceRefusals(originalText,baselineCategorized,legacy,measured,
+  inheritedRows=[]){
+  const R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  if(!legacy?.ok||!Array.isArray(legacy.changes))return [];
+  const oldCat=categorizedItems(baselineCategorized);
+  const sourceRows=scanOriginalInputXmlStructure(originalText);
+  const binding=await bind(baselineCategorized,originalText,measured);
+  if(!oldCat||!sourceRows||!binding)
+    return [b8Refusal(R.UNBOUND,{tag:'Source',
+      reason:'Canonical snapshot lacks strict physical source binding'})];
+  const ctx={originalText,oldCat,sourceRows,binding,measured},refusals=[];
+  const refs=new Map(binding.components.map((x,i)=>[x.sourceRefs?.[0]?.recordKey,i]));
+  for(const change of legacy.changes){
+    if(!change.field?.startsWith('PIPINGELEMENT.'))continue;
+    const tag=change.field.slice('PIPINGELEMENT.'.length);
+    const entry=S42_PROJECTION_MAP.find(x=>x.tag===tag)||
+      S42_LINE_FIELDS.find(x=>x.tag===tag);
+    if(!entry)continue;
+    const index=refs.get(change.recordKey);
+    if(!Number.isInteger(index)){
+      refusals.push(b8Refusal(R.UNBOUND,{tag,reason:'Snapshot row has no bound recordKey'}));
+      continue;
+    }
+    const ref=binding.components[index].sourceRefs[0];
+    const line=oldCat.items[index]?.identity?.[0];
+    const location={line,row:index+1,tag};
+    const numeric=b8NumericReason(entry,change.new);
+    if(numeric)refusals.push(b8Refusal(R.NUMERIC,{...location,reason:numeric}));
+    if(entry.block==='SectionDimensionBlock'){
+      refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
+        location,{element:true,inheritedRows,newEffective:change.new}));
+    }else if(S42_LINE_FIELDS.some(x=>x.tag===tag)){
+      refusals.push(...b8CarryRefusals(ctx,entry,[ref.elementIndex],
+        location,{inspectIncoming:true}));
+    }
+  }
+  return b8UniqueRefusals(refusals);
+}
+
+export async function classifyCategorizedEditableFields(originalText,baselineCategorized,
+  options={}){
+  const reject=()=>({ok:false,choices:[]});
+  if(typeof originalText!=='string'||typeof baselineCategorized!=='string')
+    return reject();
+  const measured=await sha(utf8(originalText));
+  if(clean(options.fileSha256).toLowerCase()!==measured)return reject();
+  try{
+    if(inputXmlToCategorizedInputXml(originalText)!==baselineCategorized)return reject();
+  }catch{return reject();}
+  const sourceRows=scanOriginalInputXmlStructure(originalText);
+  const originalItems=categorizedItems(baselineCategorized);
+  const binding=await bind(baselineCategorized,originalText,measured);
+  const elements=categorizedElementRanges(baselineCategorized);
+  if(!sourceRows||!originalItems||!binding||
+     originalItems.items.length!==elements.length||
+     binding.components.length!==elements.length)return reject();
+  const choices=[],R=UXML_CATEGORIZED_PATCH_REFUSALS;
+  const ctx={originalText,oldCat:originalItems,binding,sourceRows,measured};
+  for(const [lineIndex,line] of categorizedLineRanges(baselineCategorized).entries()){
+    for(const entry of S42_LINE_FIELDS){
+      const leaf=projectionLeaf(line.text,entry);
+      if(!leaf||leaf.error)continue;
+      const probe=b8ClassificationProbe(leaf.value);
+      const holders=b8LineHolders(ctx,line.id,entry,leaf.value);
+      const carry=b8CarryRefusals(ctx,entry,
+        holders.active.map(item=>item.row.index),{line:line.id,tag:entry.tag},
+        {inspectIncoming:true});
+      const numeric=probe!==null?b8NumericReason(entry,probe):'Invalid probe';
+      const errors=[...holders.refusals,...carry];
+      if(numeric)errors.push(b8Refusal(R.NUMERIC,{line:line.id,tag:entry.tag,
+        reason:numeric}));
+      choices.push({key:'L:'+lineIndex+':'+entry.tag,
+        editable:errors.length===0,code:errors[0]?.code||'',
+        reason:errors[0]?.reason||'',probeValue:probe});
+    }
+    if(/<AllowableStressBlock>/.test(line.text))
+      choices.push({key:'R:'+lineIndex+':ALLOWABLESTRESS',editable:false,
+        code:R.GLOBAL,reason:'Shared global AllowableStress has no unique Line source owner'});
+  }
+  for(const [index,element] of elements.entries()){
+    const ref=binding.components[index]?.sourceRefs?.[0];
+    const row=sourceRows[ref?.elementIndex];
+    const sourceBound=ref&&ref.fileSha256===measured&&
+      row&&row.index===ref.elementIndex;
+    for(const entry of S42_PROJECTION_MAP){
+      const leaf=projectionLeaf(element.text,entry);
+      if(!leaf||leaf.error)continue;
+      const probe=b8ClassificationProbe(leaf.value);
+      const attr=sourceBound?sourceRootAttribute(row,entry.attribute):null;
+      let exact=false;
+      if(attr){
+        const original=decodeValue(attr.value);
+        exact=original!==null&&s40EscapeText(original)===leaf.value;
+        if(entry.tag==='NAME'&&original===''){
+          const opening=element.text.match(/^<Element\b[^>]*>/)?.[0]||'';
+          const fallback=opening.match(/\belementKey=(["'])(.*?)\1/)?.[2];
+          if(fallback===leaf.value)exact=true;
+        }
+      }
+      let outcome={editable:exact&&probe!==null,code:exact?'':R.OMITTED,
+        reason:exact?'':'No original attribute with the exact source echo'};
+      if(outcome.editable){
+        const numeric=b8NumericReason(entry,probe);
+        if(numeric)outcome={editable:false,code:R.NUMERIC,reason:numeric};
+      }
+      if(outcome.editable&&entry.block==='SectionDimensionBlock'){
+        const lineId=originalItems.items[index]?.identity?.[0];
+        const carry=b8CarryRefusals(ctx,entry,[row.index],
+          {line:lineId,row:index+1,tag:entry.tag},{element:true});
+        if(carry.length)
+          outcome={editable:false,code:carry[0].code,reason:carry[0].reason};
+      }
+      // Graph-linked deltas are classified by the SAME strict S3 graph
+      // reader used by patch-back. Full S4.2 patch+S4.1 parity remains the
+      // authority at Check; do not replay the full writer for every picker
+      // item (hundreds of deltas would block the browser load).
+      if(outcome.editable&&entry.tag.startsWith('DELTA_')){
+        const start=row.start+attr.start,end=row.start+attr.end;
+        const candidate=originalText.slice(0,start)+encodeValue(probe,attr.quote)+
+          originalText.slice(end);
+        try{
+          mapCaesarInputXmlToUxmlStrict(candidate,
+            {fileSha256:await sha(utf8(candidate))});
+        }catch(error){
+          const code=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
+            .test(String(error?.message||error))
+            ?UXML_CATEGORIZED_PATCH_REFUSALS.GRAPH
+            :UXML_CATEGORIZED_PATCH_REFUSALS.PARITY;
+          outcome={editable:false,code,reason:String(error?.message||error).split(':')[0]};
+        }
+      }
+      choices.push({key:'E:'+index+':'+entry.tag,...outcome,probeValue:probe});
+    }
+  }
+  return {ok:true,choices};
+}
+
 export async function patchOriginalFromCategorized(originalText,baselineCategorized,editedCategorized,options={}){
   const R=UXML_CATEGORIZED_PATCH_REFUSALS;
   if(typeof originalText!=='string'||typeof baselineCategorized!=='string'||
      typeof editedCategorized!=='string'||!options||typeof options!=='object')
     return fail(R.INPUT);
-  // Reject stale source / baseline *before* interpreting editable projection.
+  // Same source-hash and exact S4.0 baseline gates as S4.2 slice 1.
   const measured=await sha(utf8(originalText));
   if(!/^[a-f\d]{64}$/i.test(clean(options.fileSha256))||
      measured!==clean(options.fileSha256).toLowerCase())return fail(R.HASH);
@@ -520,35 +950,70 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
   const oldElements=categorizedElementRanges(baselineCategorized);
   const newElements=categorizedElementRanges(editedCategorized);
   if(oldElements.length!==newElements.length)return fail(R.STRUCTURE);
-  // Existing slice-1 complete snapshot+projection inputs have priority,
-  // including an unset field that becomes visible after source editing.
-  // A stale projection returns S40_MISMATCH and may qualify for slice 2;
-  // every other refusal remains owned by the unchanged slice-1 gate.
+  const line=b8LineProjectionChanges(baselineCategorized,editedCategorized);
+  const preflight=b8UniqueRefusals([...line.refusals,
+    ...b8ElementProjectionRefusals(oldElements,newElements)]);
+  // Snapshot edits can delegate to the original source-owned slice 1 ONLY
+  // when no independent element/line error has already been discovered.
   const snapshotTouched=oldElements.some((old,i)=>
     snapshotBlock(old.text)!==snapshotBlock(newElements[i].text));
   if(snapshotTouched){
     const legacy=await patchOriginalFromCategorizedSlice1(originalText,
       baselineCategorized,editedCategorized,options);
-    if(legacy.ok||legacy.code!==R.S40_MISMATCH)return legacy;
+    if(legacy.ok===true){
+      const inheritedRows=[];
+      const errors=await b8LegacySourceRefusals(originalText,baselineCategorized,
+        legacy,measured,inheritedRows);
+      // A regenerated snapshot necessarily updates S4.0 derived views.
+      // They are not independent user edits when slice-1 has already
+      // verified the exact canonical original bytes. Only the physical
+      // source carry audit may veto that validated success.
+      if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
+      return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
+    }
+    if(legacy.code!==R.S40_MISMATCH){
+      const all=b8UniqueRefusals([...b8RemovedSnapshotAttributeRefusals(
+        oldElements,newElements),...preflight,...(legacy.refusals||[])]);
+      // A legacy structural refusal may lack a source row: preserve its
+      // named code and enrich the refusal details below (rather than []).
+      return fail(legacy.code,all.length?all:
+        [b8Refusal(legacy.code,{tag:'OriginalElement',
+          reason:'Source snapshot edit was refused'})]);
+    }
   }
-  const changes=[],normalized=[],oldSnapshots=[],newSnapshots=[];
+  const changes=[],normalized=[...line.normalized],oldSnapshots=[],newSnapshots=[];
+  const errors=[...preflight];
   for(let i=0;i<oldElements.length;i++){
     const old=oldElements[i],next=newElements[i];
     for(const entry of S42_PROJECTION_MAP){
       const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);
-      if(a?.error||b?.error||Boolean(a)!==Boolean(b))
-        return fail(R.UNMAPPED);
+      if(a?.error||b?.error||Boolean(a)!==Boolean(b)){
+        errors.push(b8Refusal(R.UNMAPPED,{row:i+1,tag:entry.tag,
+          reason:'Omitted or duplicate projected leaf'}));
+        continue;
+      }
       if(!a||a.value===b.value)continue;
       const decoded=decodeValue(b.value);
-      // Require exactly the S4.0 XML text representation of what the
-      // user typed; no numerical reformatting, unit conversion or rounding.
+      const numeric=decoded===null?null:b8NumericReason(entry,decoded);
+      if(numeric){
+        errors.push(b8Refusal(R.NUMERIC,{row:i+1,tag:entry.tag,reason:numeric}));
+        continue;
+      }
       if(decoded===null||/[\t\r\n]/.test(decoded)||
-         s40EscapeText(decoded)!==b.value)return fail(R.ROUNDTRIP);
+         s40EscapeText(decoded)!==b.value){
+        errors.push(b8Refusal(R.ROUNDTRIP,{row:i+1,tag:entry.tag,
+          reason:'Typed value cannot round-trip exactly'}));
+        continue;
+      }
       normalized.push({start:next.start+b.start,end:next.start+b.end,value:a.value});
       changes.push({index:i,entry,old:a.value,new:b.value,decoded});
     }
     const oldSnap=snapshotBlock(old.text),newSnap=snapshotBlock(next.text);
-    if(!oldSnap||!newSnap)return fail(R.STRUCTURE);
+    if(!oldSnap||!newSnap){
+      errors.push(b8Refusal(R.STRUCTURE,{row:i+1,tag:'OriginalElement',
+        reason:'Original snapshot missing'}));
+      continue;
+    }
     oldSnapshots.push(oldSnap);newSnapshots.push(newSnap);
     if(oldSnap!==newSnap){
       const local=next.text.indexOf(newSnap);
@@ -556,68 +1021,206 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         value:oldSnap});
     }
   }
-  if(!changes.length){
-    // Snapshot-only + stale projection still fails slice-1's S4.0 parity.
-    // A derived/unmapped projection-only change never gains write authority.
+  if(!changes.length&&!line.changes.length){
+    if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
     if(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&
-       editedCategorized!==baselineCategorized)return fail(R.UNMAPPED);
-    return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
-      editedCategorized,options);
+       editedCategorized!==baselineCategorized)
+      return fail(R.UNMAPPED,[b8Refusal(R.UNMAPPED,{tag:'Markup',
+        reason:'Non-source-bound projection or structural edit'})]);
+    const legacy=await patchOriginalFromCategorizedSlice1(originalText,
+      baselineCategorized,editedCategorized,options);
+    if(legacy.ok===true){
+      const inheritedRows=[],issues=await b8LegacySourceRefusals(
+        originalText,baselineCategorized,legacy,measured,inheritedRows);
+      if(issues.length)return fail(issues[0].code,issues);
+      return {...legacy,inheritedRows:b8UniqueInheritedRows(inheritedRows)};
+    }
+    if(legacy.ok!==true){
+      const removals=b8RemovedSnapshotAttributeRefusals(oldElements,newElements);
+      if(removals.length)return fail(legacy.code,removals);
+    }
+    return legacy;
   }
   const projectionOnlyEquivalent=substitute(editedCategorized,normalized)===
     baselineCategorized;
   const binding=await bind(baselineCategorized,originalText,measured);
   const sourceRows=scanOriginalInputXmlStructure(originalText);
-  if(!binding||!sourceRows||binding.components.length!==oldElements.length)
+  const oldCat=categorizedItems(baselineCategorized);
+  if(!binding||!sourceRows||!oldCat||
+     binding?.components?.length!==oldElements.length||
+     oldCat?.items?.length!==oldElements.length){
+    if(!binding&&sourceRows&&oldCat&&
+       changes.some(x=>x.entry.tag.startsWith('DELTA_'))){
+      // The S4.1 original-source admission can fail before any candidate
+      // write. Diagnose that exact original binding; NEVER infer an ordinal
+      // or skip the read-only authority merely because strict S3 succeeds.
+      let reason='S4.1 original source binding refused';
+      try{
+        const admission=await mapCategorizedInputXmlToUxml(baselineCategorized,
+          {originalInputXml:originalText,fileSha256:measured});
+        reason+=': '+String(admission?.code||admission?.status||'REFUSED');
+      }catch{
+        reason+=': exception';
+      }
+      return fail(R.S41_BINDING,b8UniqueRefusals(changes.map(x=>
+        b8Refusal(R.S41_BINDING,{row:x.index+1,tag:x.entry.tag,reason}))));
+    }
     return fail(R.UNBOUND);
-  const sourceEdits=[],ranges=new Set();
-  for(const change of changes){
-    const {index,entry,decoded,old}=change;
-    const ref=binding.components[index]?.sourceRefs?.[0];
-    const row=sourceRows[ref?.elementIndex];
-    if(!ref||ref.format!=='INPUT_XML'||ref.fileSha256!==measured||
-       !row||row.index!==ref.elementIndex||
-       originalText.slice(row.start,row.start+row.raw.length)!==row.raw)
-      return fail(R.UNBOUND);
-    const sourceAttr=sourceRootAttribute(row,entry.attribute);
-    if(!sourceAttr)return fail(R.UNMAPPED);
-    const oldDecoded=decodeValue(sourceAttr.value);
-    if(oldDecoded===null||s40EscapeText(oldDecoded)!==old)
-      return fail(R.UNMAPPED);
-    const raw=encodeValue(decoded,sourceAttr.quote);
-    if(/[\t\r\n]/.test(decoded))return fail(R.VALUE);
-    const start=row.start+sourceAttr.start,end=row.start+sourceAttr.end;
-    if(originalText.slice(start,end)!==sourceAttr.value||ranges.has(start))
-      return fail(R.OFFSET);
+  }
+  const sourceEdits=[],ranges=new Set(),typedWitnesses=new Set(),inheritedRows=[];
+  const ctx={originalText,oldCat,binding,sourceRows,measured};
+  const sourceAt=(index,tag,lineId=null)=>b8BoundAt(ctx,index,tag,lineId);
+  const addSource=(item,decoded,location)=>{
+    const {row,attr}=item;
+    const raw=encodeValue(decoded,attr.quote);
+    const start=row.start+attr.start,end=row.start+attr.end;
+    if(originalText.slice(start,end)!==attr.value||ranges.has(start)){
+      errors.push(b8Refusal(R.OFFSET,{...location,reason:'Original byte range mismatch'}));
+      return;
+    }
     ranges.add(start);
     sourceEdits.push({start,end,value:raw});
+    typedWitnesses.add(JSON.stringify([item.ref?.recordKey,location.tag,decoded]));
+  };
+  for(const change of changes){
+    const {index,entry,decoded,old}=change;
+    const item=sourceAt(index,entry.attribute);
+    const location={row:index+1,tag:entry.tag};
+    if(!item){
+      errors.push(b8Refusal(R.UNBOUND,{...location,reason:'Physical source row not uniquely bound'}));
+      continue;
+    }
+    if(!item.attr){
+      errors.push(b8Refusal(R.OMITTED,{...location,
+        reason:entry.tag==='NAME'
+          ?'S4.0 displays an element-key fallback; source NAME attribute is absent'
+          :'S4.0 projection has no unique explicit source attribute'}));
+      continue;
+    }
+    const oldDecoded=decodeValue(item.attr.value);
+    // S4.0 NameBlock uses NAME:attrs.NAME||elementKey. If the original
+    // NAME attribute exists but is empty, S4.0 shows a derived fallback.
+    // Replacing ONLY that existing empty attribute is a value-only edit,
+    // not adding a source field. Require the exact emitted elementKey echo.
+    let exactOld=s40EscapeText(oldDecoded);
+    if(entry.tag==='NAME'&&oldDecoded===''){
+      const opening=oldElements[index].text.match(/^<Element\b[^>]*>/)?.[0]||'';
+      const fallback=opening.match(/\belementKey=(["'])(.*?)\1/)?.[2];
+      if(fallback&&old===fallback)exactOld=old;
+    }
+    if(oldDecoded===null||exactOld!==old){
+      errors.push(b8Refusal(R.OMITTED,{...location,
+        reason:entry.tag==='NAME'
+          ?'S4.0 NAME fallback could not be tied to the existing source attribute'
+          :'Source attribute is not an exact S4.0 value echo'}));
+      continue;
+    }
+    if(entry.block==='SectionDimensionBlock'){
+      const lineId=oldCat.items[index]?.identity?.[0];
+      const inherited=b8CarryRefusals(ctx,entry,[item.row.index],
+        {line:lineId,row:index+1,tag:entry.tag},
+        {element:true,inheritedRows,newEffective:decoded});
+      errors.push(...inherited);
+      if(inherited.length)continue;
+    }
+    addSource(item,decoded,location);
   }
-  const candidateOriginal=substitute(originalText,sourceEdits);
-  if(candidateOriginal===null)return fail(R.OFFSET);
+  for(const change of line.changes){
+    const {line:lineId,entry,decoded,old}=change;
+    const location={line:lineId,tag:entry.tag};
+    const holders=b8LineHolders(ctx,lineId,entry,old);
+    const inherited=b8CarryRefusals(ctx,entry,
+      holders.active.map(item=>item.row.index),location,{inspectIncoming:true});
+    errors.push(...holders.refusals,...inherited);
+    if(!holders.refusals.length&&!inherited.length)
+      for(const item of holders.active)addSource(item,decoded,location);
+  }
+
+  // N-2: a source-graph refusal must accompany other independently
+  // offending Line/Element edits, not be hidden behind an early return.
+  // Only candidate source mutations with individually proven byte offsets
+  // are considered for this read-only strict S3 diagnostic.
+    const candidateOriginal=substitute(originalText,sourceEdits);
+  if(candidateOriginal===null)
+    errors.push(b8Refusal(R.OFFSET,{tag:'Source',
+      reason:'Source byte edit spans overlap or are not exact'}));
+  if(candidateOriginal!==null){
+    try{
+      mapCaesarInputXmlToUxmlStrict(candidateOriginal,
+        {fileSha256:await sha(utf8(candidateOriginal))});
+    }catch(error){
+      const graph=/DELTA_(?:GRAPH|PATH).*CONFLICT|ANCHORED.*CONFLICT|COORDINATE.*CONFLICT/i
+        .test(String(error?.message||error));
+      const code=graph?R.GRAPH:R.PARITY,reason=String(error?.message||error).split(':')[0];
+      const locations=changes.filter(x=>x.entry.tag.startsWith('DELTA_')).map(x=>
+        b8Refusal(code,{row:x.index+1,tag:x.entry.tag,reason}));
+      errors.push(...(locations.length?locations:[b8Refusal(code,
+        {tag:'Source',reason:'Strict S3 candidate refusal: '+reason})]));
+    }
+  }
+  if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
   let canonical;
   try{canonical=inputXmlToCategorizedInputXml(candidateOriginal);}
   catch{return fail(R.CONVERTER);}
-  // Either the user changed only visible mapped leaves (possibly also
-  // their matching snapshots), or supplied the entire consistent S4.0
-  // regenerated document. Arbitrary derived/missing/line edits are refused.
   if(!projectionOnlyEquivalent&&editedCategorized!==canonical)
-    return fail(R.UNMAPPED);
+    return fail(R.UNMAPPED,[b8Refusal(R.UNMAPPED,{tag:'Derived',
+      reason:'Additional unbound changes in edited Categorized projection'})]);
   const canonicalElements=categorizedElementRanges(canonical);
   if(canonicalElements.length!==newElements.length)return fail(R.ROUNDTRIP);
   for(const change of changes){
     const echo=projectionLeaf(canonicalElements[change.index].text,change.entry);
-    if(!echo||echo.error||echo.value!==change.new)return fail(R.ROUNDTRIP);
+    if(!echo||echo.error||echo.value!==change.new)
+      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,
+        {row:change.index+1,tag:change.entry.tag,
+          reason:'S4.0 changed/omitted the exact typed value'})]);
+  }
+  const canonicalLines=categorizedLineRanges(canonical);
+  for(const change of line.changes){
+    const expected=canonicalLines.find(x=>x.id===change.line);
+    const echo=expected&&projectionLeaf(expected.text,change.entry);
+    if(!echo||echo.error||echo.value!==change.new)
+      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,
+        {line:change.line,tag:change.entry.tag,
+          reason:'S4.0 did not echo the new line value'})]);
   }
   for(let i=0;i<newSnapshots.length;i++){
-    // For mixed projection+snapshot edits, the hand-edited snapshot
-    // must be exactly what the unchanged S4.0 converter would emit.
     if(newSnapshots[i]!==oldSnapshots[i]&&
        newSnapshots[i]!==snapshotBlock(canonicalElements[i].text))
-      return fail(R.S40_MISMATCH);
+      return fail(R.S40_MISMATCH,[b8Refusal(R.S40_MISMATCH,
+        {row:i+1,tag:'OriginalElement',reason:'Snapshot does not match regenerated source'})]);
   }
-  // Only this pre-existing, independently tested byte writer can authorize
-  // output: same UTF-8 old ranges, all fail-closed S4.0 grouping, S3,
-  // regenerated S4.0 equality and final S4.1 binding remain compulsory.
-  return patchOriginalFromCategorizedSlice1(originalText,baselineCategorized,
-    canonical,options);
+  const authoritativeResult=await patchOriginalFromCategorizedSlice1(
+    originalText,baselineCategorized,canonical,options);
+  if(authoritativeResult.ok===true&&authoritativeResult.parity==='EQUAL'){
+    return {...authoritativeResult,inheritedRows:b8UniqueInheritedRows(inheritedRows),
+      changes:authoritativeResult.changes.map(x=>({
+      ...x,writtenExactlyAsTyped:typedWitnesses.has(
+        JSON.stringify([x.recordKey,x.field.replace(/^PIPINGELEMENT\./,''),x.new])),
+    }))};
+  }
+  let refusedCode=authoritativeResult.code||R.PARITY;
+  let refusalReason='Downstream strict source or S4.1 gate';
+  // A DELTA_Y (or other delta) candidate can be valid numerical XML and
+  // S3 graph-admissible but fail S4.1 physical snapshot re-binding. Inspect
+  // that independently to give a precise code, never to bypass parity.
+  if(refusedCode===R.PARITY&&changes.some(x=>x.entry.tag.startsWith('DELTA_'))){
+    try{
+      const rebound=await mapCategorizedInputXmlToUxml(canonical,{
+        originalInputXml:candidateOriginal,fileSha256:await sha(utf8(candidateOriginal))});
+      if(rebound?.ok!==true||rebound.status!=='SOURCE_BOUND_READ_ONLY'){
+        refusedCode=R.S41_BINDING;
+        refusalReason='S4.1 source binding: '+String(rebound?.code||'REFUSED');
+      }
+    }catch{
+      refusedCode=R.S41_BINDING;
+      refusalReason='S4.1 source binding threw while verifying candidate';
+    }
+  }
+  const scopes=[
+    ...changes.map(x=>b8Refusal(refusedCode,
+      {row:x.index+1,tag:x.entry.tag,reason:refusalReason})),
+    ...line.changes.map(x=>b8Refusal(refusedCode,
+      {line:x.line,tag:x.entry.tag,reason:refusalReason})),
+  ];
+  return fail(refusedCode,b8UniqueRefusals(scopes));
 }

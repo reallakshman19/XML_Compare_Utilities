@@ -106,6 +106,21 @@ for(const mapped of S42_PROJECTION_MAP){
     assert.deepEqual(Buffer.from(result.bytes),b(changed));
   });
 }
+// R2 independent physical carry witness, distinct from the writer's output.
+function inheritingPhysicalRows(text,sourceIndex,tag){
+  const physical=scan(text);
+  const sourceLine=physical[sourceIndex].raw.match(/\bLINE_ID=(["'])(.*?)\1/)?.[2];
+  const inheritors=[];
+  for(let index=sourceIndex+1;index<physical.length;index++){
+    const open=physical[index].raw.match(/^<PIPINGELEMENT\b[^>]*>/)?.[0]||'';
+    const raw=open.match(new RegExp('\\b'+tag+'=(["\\x27])([^"\\x27]*)\\1','i'))?.[2];
+    if(raw!==undefined&&raw.trim()!==''&&Number.isFinite(Number(raw))&&
+       Math.abs(Number(raw)+1.0101)>=1e-4)break;
+    const line=open.match(/\bLINE_ID=(["'])(.*?)\1/)?.[2];
+    inheritors.push({row:index+1,line});
+  }
+  return {sourceLine,inheritors};
+}
 const publicSamples=[
   ['GRE','docs/GREInputxml.xml',100],
   ['PLB314','docs/PLB314Inputxml.xml',53],
@@ -144,6 +159,22 @@ for(const [label,path,count] of publicSamples){
         const expected=physicalChange(text,ordinal,field,value);
         const edited=changeProjection(baseline,catIndex,select,value);
         const result=await run(text,edited,baseline);
+        if(field==='DIAMETER'){
+          const carry=inheritingPhysicalRows(text,ordinal,field);
+          const foreign=carry.inheritors.find(x=>x.line!==carry.sourceLine);
+          if(foreign){
+            assert.equal(result.ok,false,'cross-Line inherited section values must refuse');
+            assert.equal(result.code,R.CROSS_LINE,label+' '+position);
+            assert.equal(result.bytes,null);
+            assert(result.refusals.some(x=>x.row===foreign.row&&x.tag===field));
+            return;
+          }
+          assert.equal(result.ok,true,label+' '+position+' same-Line inheritance accepted');
+          assert.deepEqual((result.inheritedRows||[]).map(x=>x.row),
+            carry.inheritors.map(x=>x.row));
+          assert((result.inheritedRows||[]).every(x=>x.tag===field&&
+            x.newEffective===value&&Number.isFinite(Number(x.oldEffective))));
+        }
         verifyByteRanges(text,expected,result);
         assert.equal(result.changes.length,1,'one physical value range only');
         assert.equal(result.changes[0].new,value,'never silently reformat requested value');
@@ -311,7 +342,7 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
   }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
 
-test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity HOLD',async()=>{
+test('S4.2 slice2 BM_CII last DELTA_X ordinal 30 remains strict S3 graph HOLD',async()=>{
   const text=source('converters/scripts/pdf_inputxml_profile_bm_cii.xml');
   const baseline=s40(text),physical=30;
   const admitted=await s41(baseline,{originalInputXml:text,fileSha256:sha(text)});
@@ -322,7 +353,9 @@ test('S4.2 slice2 BM_CII last present DELTA_X ordinal 30 remains strict-parity H
   const select=entry('RouteGeometryBlock','DELTA_X');
   assert(projectionLeaf(categorizedElementRanges(baseline)[categoryIndex].text,select));
   const result=await run(text,changeProjection(baseline,categoryIndex,select,'77.875'),baseline);
-  refuse(result,R.PARITY);
+  refuse(result,R.GRAPH);
+  assert(result.refusals?.some(x=>x.row===categoryIndex+1&&x.tag==='DELTA_X'),
+    'named physical categorized row and DELTA_X tag required; no bytes released');
 });
 
 test('S4.2 slice2 REFUSE isolated snapshot-only stale DIAMETER projection with mismatch code',async()=>{

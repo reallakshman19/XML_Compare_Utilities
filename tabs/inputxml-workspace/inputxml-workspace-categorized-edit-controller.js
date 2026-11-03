@@ -8,7 +8,7 @@ import {mapCaesarInputXmlToUxmlStrict} from '../../uxml/UxmlInputXmlSchemaMapper
 import {mapCategorizedInputXmlToUxml,UXML_CATEGORIZED_INPUTXML_REFUSALS as S41}
   from '../../uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 import {inputXmlToCategorizedInputXml} from '../../xml-compare/CategorizedInputXmlConverter.js';
-import {patchOriginalFromCategorized,UXML_CATEGORIZED_PATCH_REFUSALS as R}
+import {patchOriginalFromCategorized,classifyCategorizedEditableFields,UXML_CATEGORIZED_PATCH_REFUSALS as R}
   from '../../uxml/UxmlCategorizedPatchBack.js';
 
 export const B7_REFUSALS=Object.freeze({
@@ -18,6 +18,8 @@ export const B7_REFUSALS=Object.freeze({
   EMPTY:'B7_NO_SOURCE_LOADED',
   CHECK:'B7_CHECK_NOT_CURRENT',
   EXCEPTION:'B7_CHECK_EXCEPTION',
+  NEWLINES:'B7_EDITOR_LINE_STRUCTURE_CHANGED',
+  CONTINUE:'B7_CONTINUE_RELOAD_REFUSED',
   S3:'B7_S3_SOURCE_REFUSED',
   S41:'B7_S41_SOURCE_REFUSED',
   CONVERTER:'B7_S40_SOURCE_REFUSED',
@@ -40,6 +42,13 @@ const patchReasons=Object.freeze({
   [R.S40_MISMATCH]:'The edited snapshots/projections do not equal S4.0 of the proposed original.',
   [R.UNMAPPED]:'Derived, line-owned, missing, unlisted, or mixed SIF snapshot plus projection edits across rows are not writable together. Check and download permitted edits separately.',
   [R.ROUNDTRIP]:'Typed text cannot be written and echoed exactly through S4.0.',
+  [R.GLOBAL]:'Globally shared AllowableStress has no unique Line source owner and is read-only.',
+  [R.LINE_DERIVED]:'Source elements disagree or a line value cannot be traced to one consistent source value.',
+  [R.CROSS_LINE]:'Editing this value would cross a Line boundary by physical carry-forward, or an earlier row inherits from another Line.',
+  [R.NUMERIC]:'Numeric source fields require a finite ordinary decimal, without spaces, exponent notation, or a sentinel.',
+  [R.OMITTED]:'The visible value is derived or omitted from the source; no new attribute may be invented.',
+  [R.GRAPH]:'Strict S3 refused the edited route because its coordinate/delta graph became inconsistent.',
+  [R.S41_BINDING]:'Strict S3 accepted the candidate, but S4.1 could not rebind its categorized snapshot to one physical source record.',
 });
 const otherReasons=Object.freeze({
   [B7_REFUSALS.INPUT]:'Choose a local original InputXML file with readable bytes.',
@@ -48,6 +57,8 @@ const otherReasons=Object.freeze({
   [B7_REFUSALS.EMPTY]:'Load an original InputXML file before checking.',
   [B7_REFUSALS.CHECK]:'Edit, Reset, reload or a newer Check invalidated this result.',
   [B7_REFUSALS.EXCEPTION]:'The patch-back engine failed closed without downloadable bytes.',
+  [B7_REFUSALS.NEWLINES]:'Editor line count changed; original LF/CRLF separator positions cannot be safely preserved.',
+  [B7_REFUSALS.CONTINUE]:'Rebinding the patched source was refused; the prior loaded original is retained.',
   [B7_REFUSALS.S3]:'The original was refused by the strict S3 source reader.',
   [B7_REFUSALS.S41]:'The original and S4.0 categorized view did not bind to S4.1.',
   [B7_REFUSALS.CONVERTER]:'S4.0 could not construct the Categorized view.',
@@ -99,7 +110,8 @@ export function preserveCategorizedEditorLineEndings(exactPrevious,domValue){
 
 export function patchedOriginalFilename(name='original.xml'){
   const leaf=String(name).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,'')||'original.xml';
-  return leaf.replace(/(\.xml)?$/i,(ext)=>'-patched'+(ext||'.xml'));
+  const cleaned=leaf.replace(/(?:-patched)+(?=\.xml$|$)/i,'');
+  return cleaned.replace(/(\.xml)?$/i,(ext)=>'-patched'+(ext||'.xml'));
 }
 const toBytes=bytes=>bytes instanceof Uint8Array
   ?new Uint8Array(bytes):bytes instanceof ArrayBuffer
@@ -138,34 +150,44 @@ function warningOnCollidingName(strict,changes){
   return [...output];
 }
 
+export function b7VerifiedReceiptCurrent(checked,{revision,edited,fileSha256}={}){
+  return Boolean(checked&&checked.revision===revision&&
+    checked.editor===edited&&checked.originalSha===fileSha256&&
+    checked.ok===true&&checked.parity==='EQUAL'&&
+    checked.bytes instanceof Uint8Array);
+}
+
 export function createCategorizedEditController({
   strict=mapCaesarInputXmlToUxmlStrict,
   categorize=inputXmlToCategorizedInputXml,
   bind=mapCategorizedInputXmlToUxml,
   patch=patchOriginalFromCategorized,
+  classify=classifyCategorizedEditableFields,
   hash=measuredHash,
 }={}){
   let revision=0, checkSerial=0, phase='idle', code='',detail='',filename='';
   let originalBytes=null,originalText='',fileSha256='',baseline='',edited='',strictDoc=null;
-  let checked=null,warning=[],downloadCount=0;
-  const refuse=(next,why='')=>{phase='refused';code=String(next);detail=why;checked=null;warning=[];return snapshot();};
+  let checked=null,warning=[],refusals=[],downloadCount=0,editability=[];
+  const refuse=(next,why='',items=[])=>{phase='refused';code=String(next);detail=why;
+    checked=null;warning=[];refusals=Array.isArray(items)?items.map(x=>({...x})):[];
+    return snapshot();};
   function invalidate(next='ready'){
-    revision++;checkSerial++;checked=null;warning=[];code='';detail='';phase=next;
+    revision++;checkSerial++;checked=null;warning=[];refusals=[];code='';detail='';phase=next;
   }
   function snapshot(){
-    const allowed=Boolean(checked&&checked.revision===revision&&
-      checked.editor===edited&&checked.originalSha===fileSha256&&
-      checked.ok&&checked.parity==='EQUAL'&&checked.bytes instanceof Uint8Array);
+    const allowed=b7VerifiedReceiptCurrent(checked,{revision,edited,fileSha256});
     return {revision,phase,filename,sourceSha256:fileSha256,
       baseline,edited,code,reason:code?b7Reason(code):'',detail,
       canCheck:Boolean(originalBytes&&baseline),
       canDownload:allowed,canContinue:allowed,
       changes:allowed?checked.changes.map(x=>({...x,byteRange:{...x.byteRange}})):[],
-      warning:[...warning],downloadCount,
+      inheritedRows:allowed?(checked.inheritedRows||[]).map(x=>({...x})):[],
+      warning:[...warning],refusals:refusals.map(x=>({...x})),downloadCount,
+      editability:editability.map(x=>({...x})),
       patchedCategorized:allowed?checked.categorized:''};
   }
   function beginLoad(){invalidate('loading');originalBytes=null;originalText='';fileSha256='';
-    baseline='';edited='';strictDoc=null;filename='';return revision;}
+    baseline='';edited='';strictDoc=null;filename='';editability=[];return revision;}
   async function loadBytes(raw,name='original.xml',token=null){
     const receipt=token??beginLoad();
     if(receipt!==revision)return snapshot();
@@ -198,6 +220,12 @@ export function createCategorizedEditController({
     if(!result?.ok||result.status!=='SOURCE_BOUND_READ_ONLY'||
        result.exportAllowed!==false||result.uxml?.components?.length!==parsed.components.length)
       return refuse(result?.code||B7_REFUSALS.S41);
+    let classified;
+    try{classified=await classify(source,categorized,{fileSha256:sha});}
+    catch{classified=null;} // fail-closed choice classification; writer remains gated
+    if(receipt!==revision)return snapshot();
+    editability=classified?.ok===true&&Array.isArray(classified.choices)
+      ?classified.choices.map(x=>({...x})):[];
     originalBytes=bytes;originalText=source;fileSha256=sha;baseline=categorized;
     edited=categorized;strictDoc=parsed;filename=String(name||'original.xml');
     phase='ready';code='';detail='';return snapshot();
@@ -213,15 +241,17 @@ export function createCategorizedEditController({
       base=baseline,value=edited,sha=fileSha256;
     checked=null;warning=[];
     if(!originalBytes||!base)return refuse(B7_REFUSALS.EMPTY);
-    phase='checking';code='';detail='';
+    phase='checking';code='';detail='';refusals=[];
+    if(baseline.split(/\r\n|\r|\n/).length!==edited.split(/\r\n|\r|\n/).length)
+      return refuse(B7_REFUSALS.NEWLINES,'Changed line-break count; Reset or edit values only.');
     let result;
     try{result=await patch(source,base,value,{fileSha256:sha});}
     catch(error){if(ticket===checkSerial&&rev===revision)
       return refuse(B7_REFUSALS.EXCEPTION,String(error?.message||error));return snapshot();}
     if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)
       return snapshot(); // latest result only; stale work can never release bytes.
-    if(!result?.ok||result.parity!=='EQUAL'||!(result.bytes instanceof Uint8Array))
-      return refuse(result?.code||B7_REFUSALS.CHECK);
+    if(result?.ok!==true||result.parity!=='EQUAL'||!(result.bytes instanceof Uint8Array))
+      return refuse(result?.code||B7_REFUSALS.CHECK,'',result?.refusals);
     const bytes=new Uint8Array(result.bytes);
     let patched,projected,patchedStrict;
     try{
@@ -237,6 +267,7 @@ export function createCategorizedEditController({
     if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)return snapshot();
     if(typeof projected!=='string'||!Array.isArray(result.changes))return refuse(B7_REFUSALS.CHECK);
     checked={revision:rev,editor:value,originalSha:sha,bytes,changes:result.changes,
+      inheritedRows:Array.isArray(result.inheritedRows)?result.inheritedRows.map(x=>({...x})):[],
       ok:true,parity:'EQUAL',categorized:projected};
     warning=warningOnCollidingName(patchedStrict,result.changes);
     phase='checked';code='';detail='';return snapshot();
@@ -254,8 +285,20 @@ export function createCategorizedEditController({
     const current=snapshot();
     if(!current.canContinue)return snapshot();
     const bytes=new Uint8Array(checked.bytes),nextName=patchedOriginalFilename(filename);
-    const ticket=beginLoad();
-    return loadBytes(bytes,nextName,ticket);
+    // Stage the entire reload without mutating the current source. A transient
+    // strict/S4.1 refusal must not destroy the only valid original source.
+    const stage=createCategorizedEditController({strict,categorize,bind,patch,classify,hash});
+    const ready=await stage.loadBytes(bytes,nextName);
+    if(ready.phase!=='ready')
+      return refuse(B7_REFUSALS.CONTINUE,ready.code||ready.detail);
+    beginLoad();
+    originalBytes=bytes;
+    originalText=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
+    fileSha256=ready.sourceSha256;
+    baseline=ready.baseline;edited=ready.edited;editability=ready.editability;
+    strictDoc=null;filename=nextName;
+    phase='ready';code='';detail='';
+    return snapshot();
   }
   return {snapshot,beginLoad,loadBytes,edit,reset,check,download,continueEditing};
 }

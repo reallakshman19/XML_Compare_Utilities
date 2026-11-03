@@ -58,24 +58,30 @@ const mutants=[
    edits:[{old:"block:'RouteGeometryBlock',tag,sourceTag:'PIPINGELEMENT',attribute:tag",
      replacement:"block:'RouteGeometryBlock',tag,sourceTag:'PIPINGELEMENT',attribute:'DIAMETER'"}]},
   {name:'PROJECTION_VISIBLE_SOURCE_ORDINAL',
-   pattern:'S4.2 slice2 REAL GRE DIAMETER middle eligible projection-only bytes',
-   edits:[{old:"const row=sourceRows[ref?.elementIndex];",
-     replacement:"const row=sourceRows[0];"}]},
+   pattern:'S4.2 slice2 REAL GRE DELTA_X middle eligible projection-only bytes',
+   edits:[{old:"function b8BoundAt(ctx,index,tag,lineId=null){\n  const ref=ctx.binding.components[index]?.sourceRefs?.[0];\n  const row=ctx.sourceRows[ref?.elementIndex];",
+     replacement:"function b8BoundAt(ctx,index,tag,lineId=null){\n  const ref=ctx.binding.components[index]?.sourceRefs?.[0];\n  const row=ctx.sourceRows[0];"}]},
   {name:'UNMAPPED_PROJECTION_REFUSAL',
    pattern:'S4.2 slice2 REFUSE unmapped/derived/line value edits and unknown tags',
-   edits:[{old:"editedCategorized!==baselineCategorized)return fail(R.UNMAPPED);",
-     replacement:"false)return fail(R.UNMAPPED);"}]},
+   edits:[
+     {old:"const errors=[...preflight];",replacement:"const errors=[];"},
+     {old:"if(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&\n       editedCategorized!==baselineCategorized)",
+      replacement:"if(false&&(oldSnapshots.every((v,i)=>v===newSnapshots[i])&&\n       editedCategorized!==baselineCategorized))"}
+   ]},
   {name:'CANONICAL_PROJECTION_ONLY_SHAPE',
    pattern:'S4.2 slice2 REFUSE mapped projection changed with an unrelated derived tag',
-   edits:[{old:"if(!projectionOnlyEquivalent&&editedCategorized!==canonical)",
-     replacement:"if(false&& !projectionOnlyEquivalent&&editedCategorized!==canonical)"}]},
+   edits:[
+     {old:"const errors=[...preflight];",replacement:"const errors=[];"},
+     {old:"if(!projectionOnlyEquivalent&&editedCategorized!==canonical)",
+      replacement:"if(false&& !projectionOnlyEquivalent&&editedCategorized!==canonical)"}
+   ]},
   {name:'ROUNDTRIP_EXACT_TYPED_TEXT',
    pattern:'S4.2 slice2 REFUSE projection text that would be reformatted by S4.0',
    edits:[
-     {old:"if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value)return fail(R.ROUNDTRIP);",
-      replacement:"if(false&&(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value))return fail(R.ROUNDTRIP);"},
-     {old:"if(!echo||echo.error||echo.value!==change.new)return fail(R.ROUNDTRIP);",
-      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))return fail(R.ROUNDTRIP);"}
+     {old:"if(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value){\n        errors.push(b8Refusal(R.ROUNDTRIP",
+      replacement:"if(false&&(decoded===null||/[\\t\\r\\n]/.test(decoded)||\n         s40EscapeText(decoded)!==b.value)){\n        errors.push(b8Refusal(R.ROUNDTRIP"},
+     {old:"if(!echo||echo.error||echo.value!==change.new)\n      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,\n        {row:change.index+1,",
+      replacement:"if(false&&(!echo||echo.error||echo.value!==change.new))\n      return fail(R.ROUNDTRIP,[b8Refusal(R.ROUNDTRIP,\n        {row:change.index+1,"}
    ]},
   {name:'MIXED_SNAPSHOT_EXACT',
    pattern:'S4.2 slice2 REFUSE inconsistent projection plus mismatched OriginalElement',
@@ -103,9 +109,6 @@ const mutants=[
      replacement:"if(regenerated!==editedCategorized)return fail(R.DERIVED);"}]},
   {name:'OMITTED_PROJECTION_NO_INVENTION',
    pattern:'S4.2 slice2 REFUSE source field missing or absent from map',
-   edits:[{old:"if(a?.error||b?.error||Boolean(a)!==Boolean(b))",
-     replacement:"if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b)))"},
-     {old:"if(!a||a.value===b.value)continue;",
-      replacement:"if(a?.value===b?.value)continue;"}]},
+   edits:[{old:"const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);\n      if(a?.error||b?.error||Boolean(a)!==Boolean(b)){\n        errors.push(b8Refusal(R.UNMAPPED,{row:i+1,tag:entry.tag,\n          reason:'Omitted or duplicate projected leaf'}));\n        continue;\n      }\n      if(!a||a.value===b.value)continue;",replacement:"const a=projectionLeaf(old.text,entry),b=projectionLeaf(next.text,entry);\n      if(false&&(a?.error||b?.error||Boolean(a)!==Boolean(b))){\n        errors.push(b8Refusal(R.UNMAPPED,{row:i+1,tag:entry.tag,\n          reason:'Omitted or duplicate projected leaf'}));\n        continue;\n      }\n      if(a?.value===b?.value)continue;"}]},
 ];
 for(const mutant of mutants)test('S42_SLICE2_MUTANT_KILL_'+mutant.name,()=>kill(mutant));
