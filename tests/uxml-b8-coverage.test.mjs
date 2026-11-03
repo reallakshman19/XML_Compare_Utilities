@@ -94,5 +94,14 @@ test('B8 BM_CII public DELTA_Y first-row parity diagnosis by independent S3/S4.1
     if(!reb.ok)s41Code=reb.code||reb.status||'REFUSED';
   }catch(error){s41Code=String(error.message).split(':')[0];}
   console.log('B8_BM_CII_DELTA_Y_GATES S3='+s3Code+' S41='+s41Code);
-  assert.equal(typeof s3Code,'string');assert.equal(typeof s41Code,'string');
+  assert.equal(s3Code,'ACCEPTED','the public candidate is numerically S3 graph-admissible');
+  assert.equal(s41Code,'CATEGORIZED_ORIGINAL_RECORD_NO_MATCH',
+    'the actual remaining refusal is S4.1 physical snapshot rebinding');
+  const result=await run(original,baseline.slice(0,selected.span.start+selected.leaf.start)+next+
+    baseline.slice(selected.span.start+selected.leaf.end));
+  assert.equal(result.ok,false);
+  assert.equal(result.code,'S42_S41_SOURCE_BINDING_REFUSED');
+  assert.equal(result.bytes,null);
+  assert(result.refusals.some(x=>x.tag==='DELTA_Y'&&Number.isInteger(x.row)));
+  assert.match(result.refusals[0].reason,/CATEGORIZED_ORIGINAL_RECORD_NO_MATCH/);
 });
