@@ -44,3 +44,17 @@ Use the exact pinned PR #255 HEAD, required CI results and
 the `work_returned ORACLE-CYCLE-RECEIPT` on XCU #239
 for current qualification; **independent review NOT_RUN**
 until an eligible non-author reviewer reports a score. Owner only merges.
+
+
+## Owner-approved R3 extra final round · evidence v2
+Owner decision #239 comment 6600399984 after Oracle R2 FAIL 80
+(comment 6598592144): change normal same-Line SectionDimensionBlock
+inheritance from refusal to acceptance, display the affected effective
+physical values in inheritedRows and keep different-Line carry refusal.
+Prior R2 wording requiring refusal for all inheritors is superseded.
+R3 restores B7 public DIAMETER original-byte flows and enforces public
+section editability DIAMETER >=37, WALL_THICK >=42 and INSUL_THICK >=5.
+Numeric text remains finite plain decimal (exponent/leading plus/trailing
+dot rejected). Independently review exact HEAD and all five CI workflows.
+Stop rule: **if R3 fails Oracle review, B8 is parked**; no further repair
+without Owner decision.

@@ -148,3 +148,33 @@ remains read-only. Existing S3/S4.0/S4.1/S1 and source policies remain
 unchanged. Public real-file section edits that could silently alter
 inherited values are expected to refuse, while NAME and explicit
 section holders preserve tested positive byte-patch coverage.
+
+
+### Owner-approved B8 R3 (3 November 2026): same-Line inherited sections
+**This R3 rule supersedes any R2 statement that same-Line inherited section
+values must be refused.** For DIAMETER, WALL_THICK and INSUL_THICK,
+an edited explicit source holder may be followed in physical file order by
+elements of the SAME Line containing `-1.0101`, a blank, or no such
+attribute. These elements intentionally inherit the changed effective
+section property ("change this run"). Patch-back **ACCEPTS** the edit
+when all remaining S3, S4.0, S4.1 and byte-parity checks pass, and adds
+`inheritedRows: [{row,tag,oldEffective,newEffective}]` for each changed
+inheriting physical element. `changes[]` still counts only actual source
+attribute bytes modified. The Workspace shows the inherited effective
+rows under the verified source change table, including old and new values.
+Only a carry chain reaching a DIFFERENT Line is refused with
+`S42_CROSS_LINE_CARRY_FORWARD_REFUSED`; explicit holders terminate
+a chain. This rule also covers full source-snapshot edits.
+
+The old `S42_ELEMENT_CARRY_FORWARD_INHERITED` refusal is retired.
+The original B7 first public DIAMETER → 127.125 flow and LF/CRLF
+original-byte downloads are required to succeed with inherited-row
+evidence on GRE, PLB314, mock and BM_CII. The section Editable
+classifier must retain at least the pre-R2 public totals: DIAMETER 37,
+WALL_THICK 42 and INSUL_THICK 5, without weakening cross-Line refusal.
+
+**Numeric text policy:** this slice accepts only finite plain decimal
+strings with no leading/trailing whitespace or exponent notation.
+`1.5E+02`, `100.` and `+5` are deliberately refused by
+`S42_NUMERIC_VALUE_NOT_CANONICAL` rather than silently normalized.
+This is not a new tolerance, units or structural-change policy.
