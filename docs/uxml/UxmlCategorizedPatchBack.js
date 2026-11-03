@@ -29,6 +29,7 @@ export const UXML_CATEGORIZED_PATCH_REFUSALS=Object.freeze({
   ROUNDTRIP:'S42_PROJECTION_VALUE_NOT_EXACT',
   GLOBAL:'S42_GLOBAL_SHARED_STANZA_READ_ONLY',
   LINE_DERIVED:'S42_LINE_DERIVED_OR_DISAGREEING_VALUES',
+  CROSS_LINE:'S42_CROSS_LINE_CARRY_FORWARD_REFUSED',
   OMITTED:'S42_SOURCE_ATTRIBUTE_OMITTED_OR_DERIVED',
   GRAPH:'S42_SOURCE_GRAPH_CONFLICT',
   S41_BINDING:'S42_S41_SOURCE_BINDING_REFUSED',
@@ -795,8 +796,13 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
       }
       if(s40.isUnset(decodedOld))continue; // -1.0101 or empty carry-forward
       if(s40EscapeText(decodedOld)!==old){
+        const formatOnly=Number.isFinite(Number(decodedOld))&&
+          Number.isFinite(Number(decodeValue(old)))&&
+          Number(decodedOld)===Number(decodeValue(old));
         errors.push(b8Refusal(R.LINE_DERIVED,{...location,
-          reason:'Explicit source records disagree with the first line value'}));
+          reason:formatOnly
+            ?'Explicit holders use different source formats (e.g. 5.0 vs 5); exact text differs'
+            :'Explicit source records disagree with the first line value'}));
         continue;
       }
       active.push(item);
@@ -806,7 +812,44 @@ export async function patchOriginalFromCategorized(originalText,baselineCategori
         reason:'No explicit non-sentinel source value to patch'}));
       continue;
     }
-    for(const item of active)addSource(item,decoded,location);
+    // CAESAR II carries missing/-1.0101 fields by physical file order,
+    // not by the S4.0 Line display. Stop at the first meaningful explicit
+    // override; a different Line reached before that is not source-local.
+    const physicalLine=new Map();
+    for(let i=0;i<binding.components.length;i++){
+      const physical=binding.components[i]?.sourceRefs?.[0]?.elementIndex;
+      if(Number.isInteger(physical))
+        physicalLine.set(physical,oldCat.items[i]?.identity?.[0]);
+    }
+    for(const item of active){
+      for(let physical=item.row.index+1;physical<sourceRows.length;physical++){
+        const following=sourceRootAttribute(sourceRows[physical],entry.attribute);
+        if(following){
+          const rawValue=decodeValue(following.value);
+          if(rawValue===null){
+            errors.push(b8Refusal(R.UNBOUND,{...location,
+              reason:'Downstream carry-forward source value cannot be decoded at row '+(physical+1)}));
+            break;
+          }
+          if(!s40.isUnset(rawValue))break; // a new explicit holder ends this chain
+        }
+        const downstream=physicalLine.get(physical);
+        if(!downstream){
+          errors.push(b8Refusal(R.UNBOUND,{...location,
+            reason:'Downstream physical Line is not uniquely source-bound at row '+(physical+1)}));
+          break;
+        }
+        if(downstream!==lineId){
+          errors.push(b8Refusal(R.CROSS_LINE,{...location,
+            reason:'Changing '+lineId+' would carry '+entry.tag+
+              ' into different Line '+downstream+' at physical row '+(physical+1)}));
+          break;
+        }
+      }
+    }
+    if(!errors.some(error=>error.code===R.CROSS_LINE&&error.line===lineId&&
+       error.tag===entry.tag))
+      for(const item of active)addSource(item,decoded,location);
   }
   if(errors.length)return fail(errors[0].code,b8UniqueRefusals(errors));
   const candidateOriginal=substitute(originalText,sourceEdits);

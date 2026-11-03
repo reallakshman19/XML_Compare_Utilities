@@ -238,3 +238,49 @@ test('B8 controller snapshot terms reject stale original SHA independent of epoc
   assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'edited',fileSha256:'a'.repeat(64)}),true);
   assert.equal(b7VerifiedReceiptCurrent(checked,{revision:4,edited:'edited',fileSha256:'b'.repeat(64)}),false);
 });
+
+test('B8 cross-Line carry-forward sentinel cannot inherit an edited different Line',async()=>{
+  for(const inherited of ['PRESSURE1="-1.010100"','']){
+    for(const sep of ['','\r\n']){
+      const a=row(10,20,'PRESSURE1="10"').replace('LINE_ID="L"','LINE_ID="A"');
+      const b1=row(20,30,inherited).replace('LINE_ID="L"','LINE_ID="B"');
+      const src=original(a,sep+b1),baseline=s40(src);
+      const result=await run(src,edit(baseline,'PRESSURE1','15'));
+      assert.equal(result.ok,false,'cross-Line sentinel/missing cannot accept');
+      assert.equal(result.code,R.CROSS_LINE);
+      assert.equal(result.bytes,null);
+      assert(result.refusals.some(x=>x.line==='A'&&x.tag==='PRESSURE1'&&
+        x.reason.includes('Line B')));
+      const lines=categorizedLineRanges(baseline);
+      assert.equal(lines.find(x=>x.id==='B')!==undefined,true);
+      const bEdited=lines.find(x=>x.id==='B').text;
+      assert.equal(projectionLeaf(bEdited,S42_LINE_FIELDS.find(x=>x.tag==='PRESSURE1')),null,
+        'Line B has no visible inherited pressure leaf');
+    }
+  }
+});
+test('B8 equal-value cross-Line explicitly breaks carry chain; every other Line unchanged',async()=>{
+  for(const lineBValue of ['10','10.0']){
+    const a=row(10,20,'PRESSURE1="10"').replace('LINE_ID="L"','LINE_ID="A"');
+    const b1=row(20,30,'PRESSURE1="'+lineBValue+'"').replace('LINE_ID="L"','LINE_ID="B"');
+    const c=row(30,40,'PRESSURE1="-1.010100"').replace('LINE_ID="L"','LINE_ID="B"');
+    const src=original(a,b1,c),base=s40(src);
+    const result=await run(src,edit(base,'PRESSURE1','15'));
+    assert.equal(result.ok,true,result.code+' '+JSON.stringify(result.refusals));
+    assert.equal(result.parity,'EQUAL');
+    assert.deepEqual(Buffer.from(result.bytes),b(src.replace('PRESSURE1="10"','PRESSURE1="15"')));
+    const before=categorizedLineRanges(base),after=categorizedLineRanges(s40(Buffer.from(result.bytes).toString('utf8')));
+    for(const line of before.filter(x=>x.id!=='A')){
+      assert.equal(after.find(x=>x.id===line.id)?.text,line.text,
+        'other Line S4.0 leaves and whole Line view remain unchanged');
+    }
+  }
+});
+test('B8 same-Line formatting disagreement 5.0 vs 5 explains source text not numeric conflict',async()=>{
+  const src=original(row(10,20,'PRESSURE1="5.0"'),row(20,30,'PRESSURE1="5"'));
+  const out=await run(src,edit(s40(src),'PRESSURE1','6'));
+  assert.equal(out.ok,false);
+  assert.equal(out.code,R.LINE_DERIVED);
+  assert(out.refusals.some(x=>x.tag==='PRESSURE1'&&/different source formats/.test(x.reason)));
+  assert.equal(out.bytes,null);
+});
