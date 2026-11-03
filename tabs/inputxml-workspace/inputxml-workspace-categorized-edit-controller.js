@@ -182,6 +182,7 @@ export function createCategorizedEditController({
       canCheck:Boolean(originalBytes&&baseline),
       canDownload:allowed,canContinue:allowed,
       changes:allowed?checked.changes.map(x=>({...x,byteRange:{...x.byteRange}})):[],
+      inheritedRows:allowed?(checked.inheritedRows||[]).map(x=>({...x})):[],
       warning:[...warning],refusals:refusals.map(x=>({...x})),downloadCount,
       editability:editability.map(x=>({...x})),
       patchedCategorized:allowed?checked.categorized:''};
@@ -267,6 +268,7 @@ export function createCategorizedEditController({
     if(ticket!==checkSerial||rev!==revision||value!==edited||sha!==fileSha256)return snapshot();
     if(typeof projected!=='string'||!Array.isArray(result.changes))return refuse(B7_REFUSALS.CHECK);
     checked={revision:rev,editor:value,originalSha:sha,bytes,changes:result.changes,
+      inheritedRows:Array.isArray(result.inheritedRows)?result.inheritedRows.map(x=>({...x})):[],
       ok:true,parity:'EQUAL',categorized:projected};
     warning=warningOnCollidingName(patchedStrict,result.changes);
     phase='checked';code='';detail='';return snapshot();

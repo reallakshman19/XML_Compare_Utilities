@@ -668,6 +668,19 @@ function renderCategorizedPatchBack(state){
         'source bytes '+change.byteRange?.start+'–'+change.byteRange?.end)+
       '</td></tr>';
   }).join('');
+  const inheritedRows=(record.inheritedRows||[]).map(x=>
+    '<tr><td>'+h(x.row)+'</td><td>'+h(x.tag)+'</td><td>'+
+    h(x.oldEffective)+'</td><td>'+h(x.newEffective)+'</td></tr>').join('');
+  const inheritedTable=allowed?'<div data-ixw-b8-inherited>'+
+    '<div class="ixw-title">Inherited effective section values: '+
+    (record.inheritedRows||[]).length+' row(s)</div>'+
+    '<p class="ixw-note">These same-Line elements inherit the new section value. '+
+    'Their original attributes remain unchanged; only the explicit holder is written.</p>'+
+    (inheritedRows?'<div style="max-height:240px;overflow:auto"><table class="ixw-table">'+
+      '<thead><tr><th>Physical row</th><th>Section tag</th>'+
+      '<th>Old effective</th><th>New effective</th></tr></thead><tbody>'+
+      inheritedRows+'</tbody></table></div>':
+      '<p class="ixw-note">No inherited section rows.</p>')+'</div>':'';
   const detail=(phase==='refused'||record.code)?'<p class="ixw-error" role="alert">'+
     '<strong>'+h(record.code)+'</strong>: '+h(record.reason)+
     (record.detail?' · '+h(record.detail):'')+'</p>'+refusedTable:'';
@@ -694,10 +707,11 @@ function renderCategorizedPatchBack(state){
     (record.canCheck?'':'disabled')+' aria-label="Editable Categorized InputXML">'+h(record.edited)+'</textarea>'+
     '<div data-ixw-b7-result>'+detail+alerts+
     (allowed?'<div class="ixw-title">Verified source attribute changes: '+record.changes.length+' row(s)</div>'+
-      (rows?'<div style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
+      (rows?'<div data-ixw-b8-source-changes style="max-height:330px;overflow:auto"><table class="ixw-table"><thead><tr>'+
         '<th>Physical row</th><th>Record key</th><th>Source tag/attribute</th><th>Old</th><th>New</th><th>Byte witness / written as typed</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>':
         '<p class="ixw-note">No changes. Original bytes remain identical.</p>')+
+      inheritedTable+
       '<details><summary>Regenerated Categorized view (derived values refreshed)</summary>'+
       '<textarea class="ixw-textarea tall" readonly aria-label="Regenerated Categorized preview">'+
       h(record.patchedCategorized)+'</textarea></details>':'')+
