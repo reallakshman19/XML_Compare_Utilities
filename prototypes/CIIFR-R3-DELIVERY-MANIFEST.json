@@ -1,0 +1,448 @@
+{
+  "schema": "CIIFRPrototypeDelivery.v1",
+  "archives": [
+    {
+      "filename": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip",
+      "folder": "ciifr-xmlv11-f05",
+      "sha256": "ade0766fbed4bc5830613e1153c4a553093c9278a91a5a8f485d9334f40cf082"
+    },
+    {
+      "filename": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip",
+      "folder": "ciifr-xmlv2-r3",
+      "sha256": "ea69bd390264e8572b91b8f8ce0dee4a67991c94c7b44914399203b1578ff21e"
+    },
+    {
+      "filename": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip",
+      "folder": "ciifr-bm2-nodemap",
+      "sha256": "aa4cc35749b882ad9366e09c9ac506092febcff4db32081b3ab1645dc76c0f48"
+    }
+  ],
+  "payload_files": [
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/DELIVERY-MANIFEST.json",
+      "bytes": 2078,
+      "sha256": "9bdeef2f7d43c8590986f39eeca5b7f5bf6ee3811bbda1699b6ba98dce0e098c",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/cii_to_richinputxml.py",
+      "bytes": 7928,
+      "sha256": "20db9559625818868effd668fe2cee6d995065974b2820094ebae231ef932fd8",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/cii_to_xml.py",
+      "bytes": 138,
+      "sha256": "db14b48193114a1007a20c2a07dd60c02fede2e6a427db62cfd2947ebaa70c11",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/richcii_schema.py",
+      "bytes": 10031,
+      "sha256": "6c6ab7884b11d6e820a1fec8e1702e9289ab69b2989530fba4924368893fd80b",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/richcii_validate.py",
+      "bytes": 11936,
+      "sha256": "d4f80164cd10c928827a34191e706d71aac1f53a15ce9e73aec785c1b02b0a0e",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/richinputxml_to_cii2019.py",
+      "bytes": 5104,
+      "sha256": "277e22e7535b0c1499eacd7c92611262443868896b260a35b0327c6a6d64bb4b",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/v11_lexical.py",
+      "bytes": 5145,
+      "sha256": "e5d19ba48d1ed7434e440c4fd1b7a24fbd78509904477f222de95fb7db9fdabd",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/validate_xml.py",
+      "bytes": 135,
+      "sha256": "577c445ab9a9efc907bb8b4784a6efed0b58c694e67837bb729ba8a515bfb928",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/engine/xml_to_cii.py",
+      "bytes": 142,
+      "sha256": "4f828cc017dee56987ae12dd48f83b99aecc56a16ae0780bfbe924b0c7eded16",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/QUALIFICATION.md",
+      "bytes": 2942,
+      "sha256": "01fbcff390b73dff49ed85cc696a0bba759747d42bad011ac342dc309cb0dbd7",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/README.md",
+      "bytes": 3607,
+      "sha256": "2fadfd0aa50d263b89bb28e56d4998da0773df9d50faedd014579f087ad32411",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/server.py",
+      "bytes": 4593,
+      "sha256": "8a9f175791f181aec8041cf4499c8dbed21b1c96a8714f4e883887b8b81c406b",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/service.py",
+      "bytes": 4116,
+      "sha256": "fa735b3bf41adf6f5dc3b5dc1b5a7f104dcb9c57297ad9bd545ee26d43f43e82",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/SOURCE-MANIFEST.json",
+      "bytes": 1064,
+      "sha256": "1d5aa5a838e10a461e139883821ec30aaabd7a3d2312fe02a3668ba92f36acc7",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/Start-XMLv11.cmd",
+      "bytes": 383,
+      "sha256": "1f4f2b58c9d88280ef9b058a2d14d7dcb672f0b9553f3b26b6c8b7217d53bafc",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/tests/edits_smoke.py",
+      "bytes": 3229,
+      "sha256": "ea3ab8b3df5eff4fe906495662a88c472d7265cb307681f0801e4f42da211aad",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/tests/encoding_smoke.py",
+      "bytes": 3064,
+      "sha256": "cda38849c4861f6ae2458b0aa7d945b3e92372372c87c2068a9e18d3f8bca7bf",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/tests/smoke.py",
+      "bytes": 5498,
+      "sha256": "3a714f43b95c4810b5cf1cf623b83c8b8ecdbb0b92110fdeccc80c2861565e0d",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/web/app.js",
+      "bytes": 6913,
+      "sha256": "3f4d9b6bcd722852a566e2157444d0a3c5ce4e48c5827dc89f88b8fa56d3195d",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/web/index.html",
+      "bytes": 3182,
+      "sha256": "c9bd3f424c84202f0a074758dee8b1517e9c7c6fb1cfbab575bb9f4e99a62c54",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/web/inspect.js",
+      "bytes": 2540,
+      "sha256": "e9191051802080536c8b044d77b2eb93ab9149227896aea9029f46936249eec1",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv11-f05/web/styles.css",
+      "bytes": 5161,
+      "sha256": "2c6fcabcf5321bcdf7e5abaed1043373054e673f2c3911baf8413a28f587984d",
+      "source_archive": "CIIFR-XMLV11-LOCAL-PROTOTYPE-F05-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/00-READ-FIRST-HOLD.md",
+      "bytes": 1534,
+      "sha256": "352846b04a84d079cdc60d68848e8c6a6abf2c17652a40c566c4529aa6cd9a78",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/PACKAGE-SHA256.json",
+      "bytes": 2808,
+      "sha256": "b25d0adc18f8b33968e08a99d570b2120b346da3835a829296fb1d1b06b0c586",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/PACKAGE-STATUS.json",
+      "bytes": 632,
+      "sha256": "7eba935aa0770eee85ebf7fdc395c756ae482dcd613c5224732f4fa18376aad7",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/README.md",
+      "bytes": 2759,
+      "sha256": "f7eb00aff2b7de5d8d19feebd8e56e4d63a1c3db5edf800e4a83a570e117bee9",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/SOURCE-MANIFEST.json",
+      "bytes": 621,
+      "sha256": "029b074e771f87ff12e3470c120d8ab14100237ff69a2396f5707deeedea64f2",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/Start-XMLv2.cmd",
+      "bytes": 392,
+      "sha256": "775b4ae5172d0f50b4e35bf157bcc7378c20ca4534b171c7f107771de02697fa",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/engine/cii_to_xmlv2.py",
+      "bytes": 773,
+      "sha256": "fd7e7b6419ff409741566ee20ecd3948cf4c909825a6969a274e7af3812a776c",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/engine/engine.py",
+      "bytes": 38745,
+      "sha256": "b2bb8ed87440e46f72833424cacd82e6605c47f372f146deec749ad2bb0ee264",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/engine/profile.py",
+      "bytes": 4856,
+      "sha256": "8d2c2123bce98a387d00a3aeca69c8e5dea6b3831e29f65e7760f6a5694204b2",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/engine/validate_xmlv2.py",
+      "bytes": 489,
+      "sha256": "fd3cdaebf2b59ed3b4655382fd8ae4850fb89b8a930ee847bfaa1a9a3006fdd5",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/engine/xmlv2_to_cii.py",
+      "bytes": 650,
+      "sha256": "2e262b74096aaa9a1b566f14cdbf5a2697b4183e5c64584179b42c2156072be8",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/server.py",
+      "bytes": 4488,
+      "sha256": "00fd845b7e116575d96db3bef0bc7c191c85507bafbae26c502a54d30f3e7200",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/service.py",
+      "bytes": 3220,
+      "sha256": "c8e1544fa6bb3116fc5830243d561d07d92ab8120363c2f49509d147be342836",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/tests/encoding_smoke.py",
+      "bytes": 2907,
+      "sha256": "06feb80365b643b1cc73974f1c75a6171b9a3fce9791f4faff2730ed9b3a3f0c",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/tests/smoke.py",
+      "bytes": 5343,
+      "sha256": "5c32c46debef594e885581056160f17f1fd6315f2dc978d28bb1a5f055541bb8",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/web/app.js",
+      "bytes": 6682,
+      "sha256": "c46702a99ae35af150ffa53285ffb42ed5aa8e9ee8fb7062288d93ea9aa727d5",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/web/index.html",
+      "bytes": 3144,
+      "sha256": "1751d25ba72bf0a10a0107a939edebc8f86163864df99aec6f5d58a52cc9a3d6",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/web/inspect.js",
+      "bytes": 2485,
+      "sha256": "9a660d87ff2410ede2b36df4cf5da8d51a505f96060fb5ad982c1ebbc0cac0b2",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-xmlv2-r3/web/styles.css",
+      "bytes": 5158,
+      "sha256": "9a58156fbd37de89f622ea4ac0dbf1a9e02b409ddff8a0bd98b384319c1980fc",
+      "source_archive": "CIIFR-XMLV2-LOCAL-PROTOTYPE-R3-HOLD-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/DELIVERY-MANIFEST.json",
+      "bytes": 4488,
+      "sha256": "d14c6e547549aa623b15896d2a702ef90785988e5129205f1f06754289ddb71c",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/QUALIFICATION.md",
+      "bytes": 4743,
+      "sha256": "e6d0b7e44f6516d3eb66fdba9c762d2dd0f29d3da7a4925f5973de53cc95e53e",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/README.md",
+      "bytes": 4905,
+      "sha256": "3c7ccd6816e5be2759c237c18c70a8093df6764530632514cb55fd60fef87736",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/server.py",
+      "bytes": 4677,
+      "sha256": "cb2e9d44358c49f6f0d89b0c99603ceba2ca590efc605cffd67d44bf11ee2b37",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/service.py",
+      "bytes": 7394,
+      "sha256": "6edd9d196303b7538a446f56ad13bf65846b065c72cc55932b0f6587d5c1b4d1",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/SOURCE-MANIFEST.json",
+      "bytes": 2192,
+      "sha256": "8073e0938c500ba8deb21049cb83758201f04dab18e7f2e6a6e6d7a4be8081e5",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/Start-BM2.cmd",
+      "bytes": 374,
+      "sha256": "96f430afdc2d99a469999efc87ad48ff1a09167e86340f1ab4e5d8b50607401d",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tests/http_smoke.py",
+      "bytes": 7488,
+      "sha256": "4fb086bcb2285a60577af685273b972aa0b46a3d8a4abdc076b1c2f3ea301a67",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tests/node-transfer/test_bm2_repairs.py",
+      "bytes": 5192,
+      "sha256": "93144974153cea48c2e94e006b4aa152e5f860da8f6495a281b0df044f76b159",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tests/node-transfer/test_contract.py",
+      "bytes": 17199,
+      "sha256": "c6003053f308dea81918be200da8f9be7f76b4cfc19b0ec2bffc94d706b26eca",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tests/node-transfer/test_f05_intake.py",
+      "bytes": 8334,
+      "sha256": "364a1492d57464664fa360394866e096343459e9f4cef8db22b4886fca284616",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/cli.py",
+      "bytes": 6317,
+      "sha256": "0682862b15b39dfd279f52fcec2f532a6cfb985dbfd79e1d037b4c4421062f27",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/converter_adapter.py",
+      "bytes": 8936,
+      "sha256": "52bd48f2ef4ce7d2377aad3b63179714624d8d74a92206e2931326e8e6f461d3",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/displacement_profile.py",
+      "bytes": 5089,
+      "sha256": "4fcb9af79c4ee61b8636d65284465acb31c5b210590a9462520df291f896720b",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/export_audit.py",
+      "bytes": 2384,
+      "sha256": "e5707af91d15cb27b194aa62c6297b8ad91f4a4808e0c5db1f9b9f0c44c6904f",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/node_catalogue.py",
+      "bytes": 6782,
+      "sha256": "fcb52723569c99b87098b2b6a6e19fab657eb83000f978b3ad4178d701d24e0c",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/node_mapping.py",
+      "bytes": 4701,
+      "sha256": "a19efdb82682589e229b0398e281106e25d240af5312796abb2985a6414c9e4e",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/tools/node-transfer/transfer_plan.py",
+      "bytes": 8339,
+      "sha256": "e498c2f06e6ae88b51fe7475e37c3c65e731a92e9f8098b7a68c5933e9449e1d",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/cii_to_richinputxml.py",
+      "bytes": 7928,
+      "sha256": "20db9559625818868effd668fe2cee6d995065974b2820094ebae231ef932fd8",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/cii_to_xml.py",
+      "bytes": 138,
+      "sha256": "db14b48193114a1007a20c2a07dd60c02fede2e6a427db62cfd2947ebaa70c11",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/richcii_schema.py",
+      "bytes": 10031,
+      "sha256": "6c6ab7884b11d6e820a1fec8e1702e9289ab69b2989530fba4924368893fd80b",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/richcii_validate.py",
+      "bytes": 11936,
+      "sha256": "d4f80164cd10c928827a34191e706d71aac1f53a15ce9e73aec785c1b02b0a0e",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/richinputxml_to_cii2019.py",
+      "bytes": 5104,
+      "sha256": "277e22e7535b0c1499eacd7c92611262443868896b260a35b0327c6a6d64bb4b",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/v11_lexical.py",
+      "bytes": 5145,
+      "sha256": "e5d19ba48d1ed7434e440c4fd1b7a24fbd78509904477f222de95fb7db9fdabd",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/validate_xml.py",
+      "bytes": 135,
+      "sha256": "577c445ab9a9efc907bb8b4784a6efed0b58c694e67837bb729ba8a515bfb928",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/vendor/f05/xml_to_cii.py",
+      "bytes": 142,
+      "sha256": "4f828cc017dee56987ae12dd48f83b99aecc56a16ae0780bfbe924b0c7eded16",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/web/app.js",
+      "bytes": 8021,
+      "sha256": "91ff47c9b992503260a4581e10ae227970c48a12ad55e3b7c587c082f2507dde",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/web/index.html",
+      "bytes": 5565,
+      "sha256": "6182c02841cbc03431f4fd6e33fa68aee4f403f870651ac20f9a97ecc7932a58",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/web/render.js",
+      "bytes": 4022,
+      "sha256": "cec1ed90343b2f3f2ed8cb8006b4c331ff7c077002734443b8737038e0cfd68d",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    },
+    {
+      "path": "prototypes/ciifr-bm2-nodemap/web/styles.css",
+      "bytes": 7446,
+      "sha256": "32f96b42e51a4b75745941cff400a812625842eada4a2deeeeebb141841315a2",
+      "source_archive": "CIIFR-BM2-NODEMAP-LOCAL-PROTOTYPE-01a16c60.zip"
+    }
+  ]
+}
