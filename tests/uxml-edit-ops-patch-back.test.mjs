@@ -174,8 +174,7 @@ for(const kind of ['LF','CRLF']){
   test('planned FROM==TO self-loop refuses before reread '+kind,async()=>{
     // Make the retained endpoint 50 coincide with 40 while preserving S3.
     const source=fixture(kind)
-      .replace('TO_NODE="50.000000" DELTA_X="200.000000"',
-        'TO_NODE="50.000000" DELTA_X="-1.010100"')
+      .replace('DELTA_X="200.000000"','DELTA_X="-1.010100"')
       .replace('TO_X="300.000000"','TO_X="100.000000"');
     assert.equal(rowRefs(source).length,5);
     const p=make(source,{owner:50});

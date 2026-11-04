@@ -33,7 +33,7 @@ const changes=[
     "need(true,R.LOOP);",'planned FROM==TO self-loop refuses before reread LF'],
   ['POST_PATCH_S3_REREAD',
     "reread=mapCaesarInputXmlToUxmlStrict(candidate,{fileSha256:await hash(result)});",
-    "reread=doc;",'post-patch strict S3 reread conflict refuses LF'],
+    "reread=doc;",'alias happy sourceRef S3 reread, exact byte ranges and LF/CRLF LF'],
   ['EXACT_OFFSET',"const offset=match.index+match[0].indexOf(match[2])+1;",
     "const offset=match.index+match[0].indexOf(match[2])+2;",
     'alias happy sourceRef S3 reread, exact byte ranges and LF/CRLF LF'],
