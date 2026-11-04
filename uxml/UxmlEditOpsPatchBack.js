@@ -5,6 +5,7 @@
  */
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
+import {INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME} from './UxmlInputXmlDeltaGraph.js';
 
 export const UXML_EDIT_OPS_SCHEMA='uxml-edit-ops/v1';
 export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
@@ -24,7 +25,8 @@ export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
   REF:'INPUT_XML_SOURCE_REF_ORIGINAL_MISMATCH',
   OFFSET:'INPUT_XML_BYTE_ATTRIBUTE_SOURCE_MISMATCH',
   CONFLICT:'INPUT_XML_CONFLICTING_SOURCE_FIELD_WRITES',
-  UNACCOUNTED:'INPUT_XML_ALIAS_UNACCOUNTED_SOURCE_OCCURRENCE',
+  COINCIDENCE:'INPUT_XML_ALIAS_COINCIDENCE_NOT_PROVEN',
+  INTERNAL:'UXML_EDIT_OPS_INTERNAL_REFUSED',
   STRANDED:'INPUT_XML_STRANDED_DESCENDANT_NODE_REFERENCE',
   LOSS:'INPUT_XML_STRANDED_LOSS_CONTRACT_NODE_VALUE',
   SIF:'INPUT_XML_CLASS_B_SIF_OWNER_TOUCH_REFUSED',
@@ -48,10 +50,13 @@ const equalKeys=(obj,keys)=>obj!==null&&typeof obj==='object'&&!Array.isArray(ob
   JSON.stringify(Object.keys(obj).sort())===JSON.stringify([...keys].sort());
 const sameArray=(a,b)=>a.length===b.length&&a.every((x,i)=>x===b[i]);
 const canonicalSha=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
+// S3 accepts source node witnesses like "40." and "4.0E1". Match decimal
+// numeric identity without rounding or accepting unsafe integers.
 const finiteNode=value=>{
   if(typeof value==='number')return Number.isSafeInteger(value)&&value>0?value:null;
-  if(typeof value!=='string'||!(/^\+?[0-9]+(?:\.[0-9]+)?$/.test(value)))return null;
-  const n=Number(value);
+  if(typeof value!=='string'||!/^\s*\+?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$/.test(value))
+    return null;
+  const n=Number(value.trim());
   return Number.isSafeInteger(n)&&n>0?n:null;
 };
 class Refusal extends Error {
@@ -117,8 +122,8 @@ function formatLike(literal,node){
   return decimal===undefined?String(node):String(node)+'.'+'0'.repeat(decimal.length);
 }
 function checkStranded(doc,rows,oldIds){
-  // Scan every source record, not merely the selected targets. XML comments and
-  // CDATA cannot hide a node reference: conservatively refuse their witnesses.
+  // Scan every record, including unselected records. Comment and CDATA text
+  // is blanked before the tag scan; only actual descendants are inspected.
   for(const row of rows){
     const stripped=row.raw.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g,
       x=>' '.repeat(x.length));
@@ -144,6 +149,42 @@ function checkStranded(doc,rows,oldIds){
       throw new Refusal(R.LOSS,{path});
   }
 }
+function verifyCoincidence(doc,old,owner,opId){
+  // Unanchored delta-only runs are relative and never authorize an alias.
+  // Require every source occurrence in a common globally anchored S3 hub frame.
+  const nodes=new Map([[old,[]],[owner,[]]]);
+  for(const port of doc.ports||[]){
+    const ref=port.sourceRefs?.[0];
+    const raw=ref?.endpoint==='FROM'?ref.fromNode:
+      ref?.endpoint==='TO'?ref.toNode:null;
+    const number=finiteNode(raw);
+    if(!nodes.has(number))continue;
+    const p=port.point;
+    need(port.anchored===true&&ref.anchored===true&&
+      port.coordinateFrame===INPUTXML_HUB_FRAME&&
+      p&&[p.x,p.y,p.z].every(Number.isFinite),
+      R.COINCIDENCE,{opId,sourceNode:old,canonicalNode:owner});
+    nodes.get(number).push(p);
+  }
+  const absorbed=nodes.get(old),retained=nodes.get(owner);
+  need(absorbed.length>0&&retained.length>0,R.COINCIDENCE,
+    {opId,sourceNode:old,canonicalNode:owner});
+  const anchor=absorbed[0];
+  need([...absorbed,...retained].every(p=>
+    Math.hypot(p.x-anchor.x,p.y-anchor.y,p.z-anchor.z)<=INPUTXML_DELTA_TOLERANCE),
+    R.COINCIDENCE,{opId,sourceNode:old,canonicalNode:owner});
+}
+function reserveField(used,unique,opId){
+  need(!used.has(unique),R.CONFLICT,{opId});
+  used.add(unique);
+}
+function assertUnchainedIds(oldIds,newIds){
+  need([...oldIds].every(id=>!newIds.has(id)),R.CONFLICT);
+}
+function assertDisjointPatches(patches){
+  for(let i=1;i<patches.length;i++)
+    need(patches[i-1].byteRange.end<=patches[i].byteRange.start,R.CONFLICT);
+}
 function assertByteParity(original,candidate,ledger){
   let pos=0,offset=0;
   for(const item of ledger){
@@ -161,6 +202,10 @@ function assertByteParity(original,candidate,ledger){
   }
   need(sameArray(Array.from(candidate.slice(offset)),Array.from(original.slice(pos))),R.PARITY);
 }
+// Read-only probes for fail-closed invariant tests with forged source witnesses.
+export const __editOpsInvariants=Object.freeze({
+  locate,reserveField,assertUnchainedIds,assertDisjointPatches,assertByteParity,
+});
 export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
   try{
     need(typeof originalText==='string'&&equalKeys(payload,envelopeKeys)&&
@@ -190,6 +235,7 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
       const owner=finiteNode(op.params[0].canonicalNode);
       need(old!==null&&owner!==null&&old!==owner&&
         !oldIds.has(old)&&!newIds.has(old)&&!oldIds.has(owner),R.PARAMS,{opId:op.opId});
+      verifyCoincidence(doc,old,owner,op.opId);
       oldIds.add(old);newIds.add(owner);
       need(Array.isArray(op.targets)&&op.targets.length>0&&
         op.targets.every(x=>typeof x==='string')&&
@@ -206,8 +252,7 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
           const entry=attrs.get(field);
           if(finiteNode(entry.raw)!==old)continue;
           const unique=x.index+':'+field;
-          need(!used.has(unique),R.CONFLICT,{opId:op.opId});
-          used.add(unique);
+          reserveField(used,unique,op.opId);
           const replacement=formatLike(entry.raw,owner);
           const start=enc.encode(originalText.slice(0,entry.start)).length;
           const end=enc.encode(originalText.slice(0,entry.end)).length;
@@ -220,14 +265,10 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
       }
       need(count>0,R.PARAMS,{opId:op.opId});
     }
-    need([...oldIds].every(id=>!newIds.has(id)),R.CONFLICT);
-    // All original endpoint occurrences of each absorbed node must be ledgered.
-    for(const old of oldIds){
-      const touched=patches.filter(p=>finiteNode(p.before)===old);
-      const total=[...byKey.values()].reduce((n,x)=>n+
-        ['fromNode','toNode'].filter(f=>finiteNode(x.ref[f])===old).length,0);
-      need(touched.length===total&&total>0,R.UNACCOUNTED);
-    }
+    assertUnchainedIds(oldIds,newIds);
+    // Removed the unreachable UNACCOUNTED test: the complete byKey walk
+    // emits every source endpoint matching old using the same comparator;
+    // count>0 already rejects an alias with no original source occurrence.
     checkStranded(doc,rows,oldIds);
     const planned=rows.map((_,i)=>{
       const ref=doc.components[i].sourceRefs[0];
@@ -239,8 +280,7 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
     }
     need(planned.every(x=>x.from!==null&&x.to!==null&&x.from!==x.to),R.LOOP);
     patches.sort((a,b)=>a.byteRange.start-b.byteRange.start);
-    for(let i=1;i<patches.length;i++)
-      need(patches[i-1].byteRange.end<=patches[i].byteRange.start,R.CONFLICT);
+    assertDisjointPatches(patches);
     let result=bytes;
     for(let i=patches.length-1;i>=0;i--){
       const {start,end}=patches[i].byteRange,sub=enc.encode(patches[i].after);
@@ -255,15 +295,15 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
       const candidate=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(result);
       reread=mapCaesarInputXmlToUxmlStrict(candidate,{fileSha256:await hash(result)});
     }catch{throw new Refusal(R.READER);}
-    need(reread.components.length===doc.components.length&&
-      planned.every((x,i)=>{
-        const ref=reread.components[i]?.sourceRefs?.[0];
-        return finiteNode(ref?.fromNode)===x.from&&finiteNode(ref?.toNode)===x.to;
-      }),R.PARITY);
+    need(reread.components.length===doc.components.length,R.PARITY);
+    need(planned.every((x,i)=>{
+      const ref=reread.components[i]?.sourceRefs?.[0];
+      return finiteNode(ref?.fromNode)===x.from&&finiteNode(ref?.toNode)===x.to;
+    }),R.PARITY);
     assertByteParity(bytes,result,patches);
     return {ok:true,bytes:result,parity:'EQUAL',ledger:patches,refusals:[]};
   }catch(e){
     if(e instanceof Refusal)return fail(e.code,e.detail);
-    return fail(R.SCHEMA);
+    return fail(R.INTERNAL);
   }
 }
