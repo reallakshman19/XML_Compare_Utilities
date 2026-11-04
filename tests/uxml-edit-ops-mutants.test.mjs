@@ -19,7 +19,7 @@ const changes=[
   ['OP_SHA',"op.fileSha256===measured,R.OP_SHA","true,R.OP_SHA",
     'stale original SHA, op SHA and op ID refuse LF'],
   ['OP_PARAMS',"op.params[0].operation==='ALIAS_NODE'","true",
-    'invalid, forged and unaccounted alias params refuse LF'],
+    'invalid or forged alias params and unknown source refuse LF'],
   ['UNKNOWN_RECORD',"need(byKey.has(key),R.UNKNOWN","need(true,R.UNKNOWN",
     'unknown/stale recordKey and incorrect targets refuse LF'],
   ['TARGET_SET',"sameArray([...op.targets].sort(),expected)","true",
