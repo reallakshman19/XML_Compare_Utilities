@@ -71,7 +71,7 @@ const specs=[
   {name:'RAW_ABSOLUTE_WITNESS',file:WRITER,
     from:'points.push({x:Number(fields[0]),y:-Number(fields[2]),z:Number(fields[1])});',
     to:'void fields;',
-    pattern:'IR B5 repeated-ID hidden raw anchor contradiction refuses LF'},
+    pattern:'IR B5 raw absolute witness independently falsifies a S3-solved first-point equivalence'},
   {name:'WHOLE_NUMERIC_REREAD',file:WRITER,
     from:'fullNumericOracle(original,candidate,mapping,ledger);',
     to:'void mapping;',

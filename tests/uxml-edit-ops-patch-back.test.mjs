@@ -322,3 +322,27 @@ test('IR F4 direct inventory known outside position refuses LF',()=>{
   assert.throws(()=>inventoryInputXml(src,{refs:rs}),
     error=>error.code===R.LOCATION);
 });
+
+test('IR B5 raw absolute witness independently falsifies a S3-solved first-point equivalence',()=>{
+  // S3 solved points were both within 0.001 of the owner, but an original
+  // repeated-ID absolute anchor x+0.0009 and owner x-0.0009 differ by 0.0018.
+  // Removing the raw anchor witness MUST make this assertion RED.
+  const doc={
+    ports:[
+      {sourceRefs:[{endpoint:'FROM',fromNode:'40',anchored:true,elementIndex:1}],
+        anchored:true,coordinateFrame:'PSI116_XYZ_MM',
+        point:{x:0,y:0,z:0}},
+      {sourceRefs:[{endpoint:'TO',toNode:'20',anchored:true,elementIndex:0}],
+        anchored:true,coordinateFrame:'PSI116_XYZ_MM',
+        point:{x:-0.0009,y:0,z:0}},
+    ],
+    components:[
+      {rawAttributes:{inputXml:{sourceAttributes:
+        {TO_X:'-0.0009',TO_Y:'0',TO_Z:'0'}}}},
+      {rawAttributes:{inputXml:{sourceAttributes:
+        {FROM_X:'0.0009',FROM_Y:'0',FROM_Z:'0'}}}},
+    ],
+  };
+  assert.throws(()=>g.verifyCoincidence(doc,'40','20','SYNTH-RAW-ANCHOR'),
+    e=>e.code===R.COINCIDENCE);
+});
