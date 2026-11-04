@@ -8,8 +8,19 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
 const files=[
-  'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedProjectionMap.js',
+  ...patchModules,
+  'uxml/UxmlCategorizedPatchBack.js','uxml/UxmlCategorizedPatchBackProvenance.js','uxml/UxmlCategorizedProjectionMap.js',
   'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlInputXmlDeltaGraph.js',
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
@@ -20,6 +31,7 @@ const files=[
   'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js',
   'tests/uxml-b8-extended.test.mjs','tests/uxml-b8-coverage.test.mjs',
   'tests/uxml-b8-r2-carry.test.mjs',
+  'tests/uxml-b8-leftovers-fast.test.mjs',
   'tests/uxml-b7-controller.test.mjs',
   'docs/GREInputxml.xml','docs/PLB314Inputxml.xml',
   'opt/mock-xml.xml','converters/scripts/pdf_inputxml_profile_bm_cii.xml',
@@ -27,6 +39,7 @@ const files=[
 const b8='tests/uxml-b8-extended.test.mjs';
 const b7='tests/uxml-b7-controller.test.mjs';
 const r2='tests/uxml-b8-r2-carry.test.mjs';
+const leftoversFast='tests/uxml-b8-leftovers-fast.test.mjs';
 const mutants=[
   {name:'LINE_MAP_ENTRY_MISSING',path:'uxml/UxmlCategorizedProjectionMap.js',
     pattern:'^B8 exact line map enumerates all',target:b8,
@@ -50,8 +63,8 @@ const mutants=[
       replacement:'if(false&&JSON.stringify(b8Allowable(old.text))!==JSON.stringify(b8Allowable(next.text))){'}]},
   {name:'REFUSAL_ROW_AND_TAG_OMITTED',path:'uxml/UxmlCategorizedPatchBack.js',
     pattern:'^B8 global stanza refusal and unrelated unmapped edits',target:b8,
-    edits:[{old:'return {code,line,row,tag,reason};',
-      replacement:'return {code,line:null,row:null,tag:null,reason};'}]},
+    edits:[{old:'return {code,line,row,viewRow,fileRow,tag,reason};',
+      replacement:'return {code,line:null,row:null,viewRow:null,fileRow:null,tag:null,reason};'}]},
   {name:'SOURCE_NAME_INVENTED',path:'uxml/UxmlCategorizedPatchBack.js',
     pattern:'^B8 physical existing NAME editable',target:b8,
     edits:[{old:"errors.push(b8Refusal(R.OMITTED,{...location,\n        reason:entry.tag==='NAME'\n          ?'S4.0 displays an element-key fallback; source NAME attribute is absent'",
@@ -116,12 +129,54 @@ const mutants=[
       replacement:"if(element&&inheritedRows){refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,reason:'MUTATED same-Line refusal'}));"}]},
   {name:'R3_INHERITED_ROWS_OMITTED',path:'uxml/UxmlCategorizedPatchBack.js',
     pattern:'^B8 R2 section same-Line WALL_THICK -1.010100 LF$',target:r2,
-    edits:[{old:"inheritedRows.push({row:physical+1,tag:entry.tag,",
-      replacement:"if(false)inheritedRows.push({row:physical+1,tag:entry.tag,"}]},
+    edits:[{old:"inheritedRows.push({row:physical+1,fileRow:physical+1,tag:entry.tag,",
+      replacement:"if(false)inheritedRows.push({row:physical+1,fileRow:physical+1,tag:entry.tag,"}]},
   {name:'R3_CROSS_LINE_BLOCK_REMOVED',path:'uxml/UxmlCategorizedPatchBack.js',
     pattern:'^B8 R2 section cross-Line DIAMETER -1.010100 LF$',target:r2,
     edits:[{old:"if(downstream!==lineId){",
       replacement:"if(false&&downstream!==lineId){"}]},
+  {name:'LEFTOVERS_CLASSIFIER_LINE_CARRY_SKIPPED',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 leftovers FAST Line classifier and writer cross-Line carry LF$',target:leftoversFast,
+    edits:[{old:"const carry=b8CarryRefusals(ctx,entry,\n        holders.active.map(item=>item.row.index),{line:line.id,tag:entry.tag},\n        {inspectIncoming:true});",
+      replacement:"const carry=[];"}]},
+  {name:'LEFTOVERS_CLASSIFIER_LINE_HOLDER_SKIPPED',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 leftovers FAST Line holder disagreement classifier and writer LF$',target:leftoversFast,
+    edits:[{old:"const holders=b8LineHolders(ctx,line.id,entry,leaf.value);",
+      replacement:"const holders={active:[],refusals:[]};"}]},
+  {name:'LEFTOVERS_FILE_VIEW_ROW_SWAP',path:'uxml/UxmlCategorizedPatchBackProvenance.js',
+    pattern:'^B8 leftovers interleaved A/B/A physical and view rows diverge$',target:leftoversFast,
+    edits:[{old:"byFile.set(fileRow,coordinate);",
+      replacement:"byFile.set(viewRow,coordinate);"}]},
+  {name:'LEFTOVERS_ELEMENT_COUNT_REFUSAL_HIDDEN',path:'uxml/UxmlCategorizedPatchBack.js',
+    pattern:'^B8 leftovers removed Categorized element reports affected row/count$',target:leftoversFast,
+    edits:[{old:"row:affected,viewRow:affected,tag:'Element',",
+      replacement:"row:null,viewRow:null,tag:'Element',"},
+      {old:"reason:'Categorized Element count changed from '+oldElements.length+",
+       replacement:"reason:'Element structure changed'+oldElements.length+"}]},
+  {name:'LEFTOVERS_NUMERIC_REPAIR_TEXT_REMOVED',path:'uxml/UxmlCategorizedPatchBackCarry.js',
+    pattern:'^B8 leftovers non-canonical numeric proposals offer plain form LF$',target:leftoversFast,
+    edits:[{old:"return Number.isFinite(number)&&!s40.isUnset(value)&&b8CanonicalNumeric(plain)\n    ?'; type '+plain:'';",
+      replacement:"return '';"}]},
+  {name:'LEFTOVERS_S40_HIDDEN_MARKUP_GUARD_DISABLED',
+    path:'uxml/UxmlCategorizedPatchBackSourceIntegrity.js',
+    pattern:'^B8 leftovers FAST S4.0 hidden markup refuses comment RESTRAINT LF$',target:leftoversFast,
+    edits:[{old:"if(([...text.matchAll(commentOrCdata)]).some(x=>harvestLookalike.test(x[0])))",
+      replacement:"if(false&&([...text.matchAll(commentOrCdata)]).some(x=>harvestLookalike.test(x[0])))"}]},
+  {name:'LEFTOVERS_S40_NESTED_HARVEST_GUARD_DISABLED',
+    path:'uxml/UxmlCategorizedPatchBackSourceIntegrity.js',
+    pattern:'^B8 leftovers FAST S4.0 nested harvest refuses LF$',target:leftoversFast,
+    edits:[{old:"stanza.depth>1&&externalTags.has(stanza.name.toUpperCase())",
+      replacement:"false&&stanza.depth>1&&externalTags.has(stanza.name.toUpperCase())"}]},
+  {name:'LEFTOVERS_CARRY_REFUSAL_FILE_ROW_DROPPED',
+    path:'uxml/UxmlCategorizedPatchBackCarry.js',
+    pattern:'^B8 leftovers FAST interleaved cross-Line carry refusal coordinates LF$',target:leftoversFast,
+    edits:[{old:"refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,fileRow:physical+1,",
+      replacement:"refusals.push(b8Refusal(R.CROSS_LINE,{...location,row:physical+1,"}]},
+  {name:'LEFTOVERS_NUMERIC_NONCANONICAL_HINT_GUARD_DISABLED',
+    path:'uxml/UxmlCategorizedPatchBackCarry.js',
+    pattern:'^B8 leftovers non-canonical numeric proposals offer plain form LF$',target:leftoversFast,
+    edits:[{old:"Number.isFinite(number)&&!s40.isUnset(value)&&b8CanonicalNumeric(plain)",
+      replacement:"Number.isFinite(number)&&!s40.isUnset(value)"}]},
   {name:'UI_PARITY_GATE_BYPASSED',
     path:'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js',
     pattern:'^B7 failed/parity-wrong patch-back cannot release output bytes',target:b7,
@@ -146,12 +201,17 @@ function kill(m){
     const green=run();
     assert.equal(green.status,0,'baseline test not green '+m.name+'\n'+green.stdout+'\n'+green.stderr);
     assert.match(green.stdout,/# pass 1\b/);
-    let source=readFileSync(join(dir,m.path),'utf8').replace(/\r\n/g,'\n');
     for(const {old,replacement} of m.edits){
-      assert.equal(source.split(old).length-1,1,'single mutation seam '+m.name+' '+old);
-      source=source.replace(old,replacement);
+      let witnessed=0;
+      for(const file of [...new Set([m.path,...patchModules])]){
+        const at=join(dir,file),source=readFileSync(at,'utf8').replace(/\r\n/g,'\n');
+        const count=source.split(old).length-1;
+        if(!count)continue;
+        witnessed+=count;
+        writeFileSync(at,source.replace(old,replacement));
+      }
+      assert.equal(witnessed,1,'single mutation seam '+m.name+' '+old);
     }
-    writeFileSync(join(dir,m.path),source);
     const red=run(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+m.name+'\n'+output);
     assert.match(output,/^not ok \d+ - (?:B8|B7)/m);

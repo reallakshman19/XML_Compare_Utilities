@@ -178,3 +178,18 @@ strings with no leading/trailing whitespace or exponent notation.
 `1.5E+02`, `100.` and `+5` are deliberately refused by
 `S42_NUMERIC_VALUE_NOT_CANONICAL` rather than silently normalized.
 This is not a new tolerance, units or structural-change policy.
+
+### B8 post-merge cleanup: numeric repair text and row provenance
+Non-canonical numbers remain **refused**; no accepted/refused edit policy,
+source tolerance or original bytes change. If a finite number is entered in
+scientific notation, with a leading plus, or a trailing decimal dot, Check
+now includes the suggested plain decimal text (for example,
+`1.5E+02` → **type 150**, `100.` → **type 100**, `+5` → **type 5**).
+The corrected text must be entered explicitly and checked again.
+
+The refusal, actual source-change and inherited-effective-value tables all
+show **Line**, **Categorized view row** and **physical InputXML file row**
+separately. A grouped Categorized Line can reorder elements relative to the
+original physical file (e.g. A/B/A), so these row numbers must not be
+treated as interchangeable. An inserted or removed Element remains refused
+and the message includes the changed Element counts.

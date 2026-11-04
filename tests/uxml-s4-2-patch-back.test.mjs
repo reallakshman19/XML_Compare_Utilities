@@ -13,6 +13,16 @@ import {scanOriginalInputXmlStructure as scan} from '../uxml/UxmlInputXmlSourceS
 
 const sha=s=>createHash('sha256').update(Buffer.from(s,'utf8')).digest('hex');
 const b=s=>Buffer.from(s,'utf8');
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
 const inputs=[
   ['GRE', 'docs/GREInputxml.xml',100],
   ['PLB314','docs/PLB314Inputxml.xml',53],
@@ -254,6 +264,7 @@ test('S4.2 REFUSE source offset that does not exactly match original bytes (isol
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedPatchBackProvenance.js',...patchModules,
       'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',
@@ -390,6 +401,7 @@ test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated sou
   try{
     const files=[
       'uxml/UxmlCategorizedPatchBack.js',
+      'uxml/UxmlCategorizedPatchBackProvenance.js',...patchModules,
       'uxml/UxmlCategorizedProjectionMap.js',
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
       'uxml/UxmlInputXmlSchemaMapper.js',
@@ -407,7 +419,7 @@ test('S4.2 REFUSE mismatched byte witness at second integrity loop (isolated sou
       copyFileSync(join(sourceRoot,file),path);
     }
     writeFileSync(join(sandbox,'package.json'),'{"type":"module"}\n');
-    const mapper=join(sandbox,'uxml/UxmlCategorizedPatchBack.js');
+    const mapper=join(sandbox,'uxml/UxmlCategorizedPatchBackSlice1.js');
     const code=readFileSync(mapper,'utf8').replace(/\r\n/g,'\n');
     const seam='  for(let i=0;i<changes.length;i++){\n    const c=changes[i],{start,end}=c.byteRange;';
     assert.equal(code.split(seam).length-1,1,'second loop injection seam');

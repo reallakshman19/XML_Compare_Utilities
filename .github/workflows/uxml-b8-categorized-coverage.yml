@@ -3,12 +3,15 @@ on:
   pull_request:
     paths:
       - 'uxml/UxmlCategorizedPatchBack.js'
+      - 'uxml/UxmlCategorizedPatchBack*.js'
+      - 'docs/uxml/UxmlCategorizedPatchBack*.js'
       - 'uxml/UxmlCategorizedProjectionMap.js'
       - 'docs/uxml/UxmlCategorizedPatchBack.js'
       - 'docs/uxml/UxmlCategorizedProjectionMap.js'
       - 'tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js'
       - 'tabs/inputxml-workspace/inputxml-workspace-tab.js'
       - 'tests/uxml-b8-*.test.mjs'
+      - 'scripts/uxml-b8-refactor-witness.mjs'
       - 'docs/uxml/B7-CATEGORIZED-EDIT-HOWTO.md'
       - 'docs/uxml/S4.2-PATCH-BACK.md'
       - '.github/workflows/uxml-b8-categorized-coverage.yml'
@@ -31,6 +34,10 @@ jobs:
           node-version: '22'
       - name: B8 original-red and final public source coverage
         run: node --test tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
+      - name: B8 leftovers repo size and exact source/docs mirror integrity
+        run: node --test tests/uxml-b8-leftovers-split.test.mjs
+      - name: B8 leftovers FAST multi-Line classifier, provenance, structural and numeric
+        run: node --test tests/uxml-b8-leftovers-fast.test.mjs
       - name: B8 R3 FAST four-public section editable baseline counts
         run: node --test tests/uxml-b8-r3-editable-counts.test.mjs
       - name: B8 R2 FAST physical section carry, inbound Line, graph and numeric controls
@@ -55,8 +62,18 @@ jobs:
         run: node --test tests/uxml-s3-harden-source-structure.test.mjs tests/uxml-s4-1-categorized-reader.test.mjs
       - name: Unchanged S4.0 source mapping audit
         run: node --test tests/s4-0-audit-*.test.mjs
+      - name: B8 leftovers before/after main ddd3ebc7 section and Line semantic witness
+        run: node scripts/uxml-b8-refactor-witness.mjs
       - name: B8 exhaustive four-public mapped-leaf Editable versus actual engine acceptance
         run: node --test tests/uxml-b8-editability-public.test.mjs
+
+      - name: Retain before/after semantic witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uxml-b8-leftovers-before-after
+          if-no-files-found: warn
+          path: artifacts/uxml-b8-leftovers/refactor-before-after.json
 
   b8-browser:
     runs-on: ubuntu-latest

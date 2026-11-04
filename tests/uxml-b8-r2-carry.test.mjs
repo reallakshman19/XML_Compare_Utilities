@@ -43,7 +43,7 @@ for(const tag of ['DIAMETER','WALL_THICK','INSUL_THICK']){
         assert.equal(result.ok,true,tag+' '+eol+' '+result.code);
         assert.equal(result.parity,'EQUAL');
         assert.equal(result.changes.length,1,'only explicit source row is written');
-        assert.deepEqual(result.inheritedRows,[{row:2,tag,oldEffective:old,newEffective:next}]);
+        assert.deepEqual(result.inheritedRows,[{row:2,fileRow:2,viewRow:2,line:'A',tag,oldEffective:old,newEffective:next}]);
         assert.deepEqual(Buffer.from(result.bytes),
           Buffer.from(src.replace(tag+'="'+old+'"',tag+'="'+next+'"')));
       });
@@ -145,7 +145,7 @@ test('B8 R3 snapshot route accepts same-Line carry and blocks foreign-Line carry
     if(line==='A'){
       assert.equal(out.ok,true,out.code);
       assert.equal(out.parity,'EQUAL');
-      assert.deepEqual(out.inheritedRows,[{row:2,tag:'DIAMETER',
+      assert.deepEqual(out.inheritedRows,[{row:2,fileRow:2,viewRow:2,line:'A',tag:'DIAMETER',
         oldEffective:'100',newEffective:'120'}]);
       assert.equal(out.changes.length,1);
     }else{

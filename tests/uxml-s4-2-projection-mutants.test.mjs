@@ -9,7 +9,17 @@ import {spawnSync} from 'node:child_process';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const patch='uxml/UxmlCategorizedPatchBack.js';
 const map='uxml/UxmlCategorizedProjectionMap.js';
-const files=[patch,map,'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
+const patchModules=[
+  "uxml/UxmlCategorizedPatchBackSourceModel.js",
+  "uxml/UxmlCategorizedPatchBackSourceIntegrity.js",
+  "uxml/UxmlCategorizedPatchBackSlice1.js",
+  "uxml/UxmlCategorizedPatchBackProjection.js",
+  "uxml/UxmlCategorizedPatchBackCarry.js",
+  "uxml/UxmlCategorizedPatchBackClassifier.js",
+  "uxml/UxmlCategorizedPatchBackPreflight.js",
+  "uxml/UxmlCategorizedPatchBackWriter.js"
+];
+const files=[...patchModules,patch,'uxml/UxmlCategorizedPatchBackProvenance.js',map,'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
   'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js','uxml/UxmlTypes.js',
   'uxml/UxmlValidationGate.js','xml-compare/CategorizedInputXmlConverter.js',
@@ -38,12 +48,17 @@ function kill({name,pattern,path=patch,edits}){
     const green=run();
     assert.equal(green.status,0,'baseline not green '+name+'\n'+green.stdout+'\n'+green.stderr);
     assert.match(green.stdout,/# pass 1\b/,'exactly one original regression must run');
-    let source=readFileSync(join(dir,path),'utf8').replace(/\r\n/g,'\n');
     for(const {old,replacement} of edits){
-      assert.equal(source.split(old).length-1,1,'one exact mutation seam '+name);
-      source=source.replace(old,replacement);
+      let witnessed=0;
+      for(const file of [...new Set([path,...patchModules])]){
+        const at=join(dir,file),source=readFileSync(at,'utf8').replace(/\r\n/g,'\n');
+        const count=source.split(old).length-1;
+        if(!count)continue;
+        witnessed+=count;
+        writeFileSync(at,source.replace(old,replacement));
+      }
+      assert.equal(witnessed,1,'one exact mutation seam '+name);
     }
-    writeFileSync(join(dir,path),source);
     const red=run(),output=red.stdout+'\n'+red.stderr;
     assert.notEqual(red.status,0,'SURVIVED '+name+'\n'+output);
     assert.match(output,/^not ok \d+ - S4\.2 slice2/m,'original test must be red');
