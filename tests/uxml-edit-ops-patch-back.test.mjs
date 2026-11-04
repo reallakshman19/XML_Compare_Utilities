@@ -195,7 +195,10 @@ for(const eol of ['\n','\r\n']){
       await denied(src,mod,R.NODE_ID);
     }
     const mutated=src.replace('FROM_NODE="40"','FROM_NODE="40.000000000000000001"');
-    await denied(mutated,payload(mutated),R.NODE_ID);
+    const claimed=payload(src);
+    const newSha=sha(mutated);
+    await denied(mutated,{...claimed,fileSha256:newSha,
+      ops:claimed.ops.map(op=>({...op,fileSha256:newSha}))},R.NODE_ID);
   });
   test('unsupported namespaced and unknown carrier locations refuse '+label,async()=>{
     const src=fixture(eol).replace('</PIPINGELEMENT>',
@@ -310,4 +313,12 @@ test('real public GRE and PLB314 originals pass dispatch and fail closed without
     assert.notEqual(r.refusals[0].code,R.KIND);
     assert.notEqual(r.refusals[0].code,R.SCHEMA);
   }
+});
+
+test('IR F4 direct inventory known outside position refuses LF',()=>{
+  const src=fixture().replace('</PIPINGMODEL>',
+    '<RESTRAINT NODE="40"/></PIPINGMODEL>');
+  const rs=refs(src);
+  assert.throws(()=>inventoryInputXml(src,{refs:rs}),
+    error=>error.code===R.LOCATION);
 });

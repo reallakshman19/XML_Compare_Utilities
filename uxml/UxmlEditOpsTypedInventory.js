@@ -205,7 +205,7 @@ export function inventoryInputXml(text,{refs=[]}={}){
   const textBetween=(end)=>{
     if(cursor===end)return;
     const raw=text.slice(cursor,end);
-    if(XML_WHITESPACE.test(raw))return;
+    if(XML_WHITESPACE.test(raw)||(!stack.length&&cursor===0&&raw==='\uFEFF'))return;
     guard(stack.length>0,'INPUT_XML_UNKNOWN_NODE_CARRIER');
     const p=stack.at(-1);
     const decoded=xmlDecode(raw);
