@@ -2,7 +2,7 @@
 export function createB8SourceIntegrity(deps){
   const {s40,UXML_CATEGORIZED_PATCH_REFUSALS,identityFields,externalTags,externalControlAttrs}=deps;
   const normalizeExternalNode=(...a)=>deps.normalizeExternalNode(...a); const lexRow=(...a)=>deps.lexRow(...a); const decodeValue=(...a)=>deps.decodeValue(...a); const encodeValue=(...a)=>deps.encodeValue(...a); const stanzaOwner=(...a)=>deps.stanzaOwner(...a);
-  const sharedExternal=(...a)=>deps.sharedExternal(...a); const harvestLookalike=(...a)=>deps.harvestLookalike(...a); const commentOrCdata=(...a)=>deps.commentOrCdata(...a);
+  const sharedExternal=(...a)=>deps.sharedExternal(...a); const {harvestLookalike,commentOrCdata}=deps;
 function hasAmbiguousSourceMarkup(text,rows){
   // MUTATION_GUARD_S40_HIDDEN_MARKUP: S4.0's raw regex also harvests
   // '<RESTRAINT' etc inside comments or CDATA, even when lexRow skips them.

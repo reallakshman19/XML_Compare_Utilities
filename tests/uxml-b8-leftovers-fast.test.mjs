@@ -80,22 +80,87 @@ for(const [kind,eol] of [['LF','\n'],['CRLF','\r\n']]){
   test('B8 leftovers non-canonical numeric proposals offer plain form '+kind,async()=>{
     const src=source([record(10,20,'A','PRESSURE1="5"')],eol);
     for(const [value,plain] of [
-      ['1.5E+02','150'],['100.','100'],['+5','5'],
+      ['1.5E+02','150'],['100.','100'],['+5','5'],['0x10','16'],
     ]){
       const out=await patchIt(src,elementEdit(s40(src),0,'DIAMETER',value));
       assert.equal(out.ok,false);assert.equal(out.code,R.NUMERIC);
       assert.equal(out.bytes,null);
       assert(out.refusals.some(x=>x.tag==='DIAMETER'&&
         x.reason.includes('type '+plain)),value+' needs specific plain form');
+      const typed=await patchIt(src,elementEdit(s40(src),0,'DIAMETER',plain));
+      assert.equal(typed.ok,true,value+' hint must be accepted when typed');
+    }
+    for(const value of ['1e-7','1E21']){
+      const out=await patchIt(src,elementEdit(s40(src),0,'DIAMETER',value));
+      assert.equal(out.ok,false);assert.equal(out.code,R.NUMERIC);
+      assert.equal(out.bytes,null);
+      const reason=out.refusals.find(x=>x.tag==='DIAMETER')?.reason;
+      assert.match(reason,/^Numeric field requires an exact finite decimal/);
+      assert.equal(reason.includes('; type '),false,
+        value+' must have generic refusal (no non-canonical hint)');
     }
   });
 }
+
+const withChild=(from,to,line,child)=>
+  record(from,to,line).replace(/\/>$/,'>'+child+'</PIPINGELEMENT>');
+for(const [kind,eol] of [['LF','\n'],['CRLF','\r\n']]){
+  for(const [label,markup] of [
+    ['comment RESTRAINT','<!-- <RESTRAINT NODE="99" TYPE="9"/> -->'],
+    ['CDATA RESTRAINT','<![CDATA[<RESTRAINT NODE="99" TYPE="9"/>]]>'],
+    ['comment SIF','<!-- <SIF NODE="99" SIF_VALUE="9"/> -->'],
+  ]){
+    test('B8 leftovers FAST S4.0 hidden markup refuses '+label+' '+kind,async()=>{
+      const src=source([
+        withChild(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+        withChild(20,30,'B',markup),
+      ],eol);
+      const target=src.replace('TYPE="8"','TYPE="10"');
+      assert.notEqual(target,src);
+      const out=await patchIt(src,s40(target));
+      assert.equal(out.ok,false,label+' '+kind);
+      assert.equal(out.code,R.EXTERNAL,label+' '+kind);
+      assert.equal(out.bytes,null,'refusal must not write bytes');
+    });
+  }
+  test('B8 leftovers FAST S4.0 nested harvest refuses '+kind,async()=>{
+    const src=source([
+      withChild(10,20,'A','<RESTRAINT NODE="20" TYPE="8"/>'),
+      withChild(20,30,'B',
+        '<BEND RADIUS="1"><RESTRAINT NODE="99" TYPE="9"/></BEND>'),
+    ],eol);
+    const target=src.replace('TYPE="8"','TYPE="10"');
+    assert.notEqual(target,src);
+    const out=await patchIt(src,s40(target));
+    assert.equal(out.ok,false,kind);
+    assert.equal(out.code,R.EXTERNAL,kind);
+    assert.equal(out.bytes,null);
+  });
+  test('B8 leftovers FAST interleaved cross-Line carry refusal coordinates '+kind,async()=>{
+    const src=source([
+      record(10,20,'A'),
+      record(20,30,'B').replace('DIAMETER="100"','DIAMETER="-1.010100"'),
+      record(30,40,'A'),
+      record(40,50,'A'),
+    ],eol);
+    const cat=s40(src),view=categorizedElementRanges(cat);
+    assert.equal(view.length,4);
+    const out=await patchIt(src,elementEdit(cat,0,'DIAMETER','120'));
+    assert.equal(out.ok,false);
+    assert.equal(out.code,R.CROSS_LINE);
+    assert.equal(out.bytes,null);
+    assert(out.refusals.some(x=>x.line==='A'&&x.tag==='DIAMETER'&&
+      x.row===2&&x.fileRow===2&&x.viewRow===4),
+      'physical B row 2 must map to Categorized view row 4');
+  });
+}
+
 test('B8 leftovers interleaved A/B/A physical and view rows diverge',async()=>{
   const src=source([
     record(10,20,'A','PRESSURE1="10"'),
     record(20,30,'B','PRESSURE1="20"'),
     record(30,40,'A','PRESSURE1="10"'),
-    record(40,50,'A','PRESSURE1="10"'),
+    record(40,50,'A','PRESSURE1="10"').replace('DIAMETER="100"','DIAMETER="-1.010100"'),
   ],'\n');
   const cat=s40(src),view=categorizedElementRanges(cat);
   assert.equal(view.length,4);
@@ -104,12 +169,15 @@ test('B8 leftovers interleaved A/B/A physical and view rows diverge',async()=>{
   assert.equal(out.changes.length,1);
   assert.deepEqual([out.changes[0].viewRow,out.changes[0].fileRow,
     out.changes[0].line],[2,3,'A']);
-  // Same-Line section inherited effective value in file row 4, view row 3.
+  // A(row 3) changes; A(row 4) inherits without a source byte edit.
   const sectional=await patchIt(src,elementEdit(cat,1,'DIAMETER','120'));
-  if(sectional.ok){
-    assert(sectional.inheritedRows.every(x=>Number.isInteger(x.viewRow)&&
-      Number.isInteger(x.fileRow)&&typeof x.line==='string'));
-  }else assert.equal(sectional.bytes,null);
+  assert.equal(sectional.ok,true,sectional.code);
+  assert.equal(sectional.parity,'EQUAL');
+  assert.deepEqual(sectional.changes.map(x=>[x.viewRow,x.fileRow]),[[2,3]]);
+  assert.deepEqual(sectional.inheritedRows,[{
+    row:4,fileRow:4,viewRow:3,line:'A',tag:'DIAMETER',
+    oldEffective:'100',newEffective:'120',
+  }]);
 });
 test('B8 leftovers removed Categorized element reports affected row/count',async()=>{
   const src=source([record(10,20,'A'),record(20,30,'A')],'\n');

@@ -13,18 +13,20 @@ function b8ClassificationProbe(raw){
 // R2: one physical/source-holder implementation for writer AND UI classifier.
 // Missing/-1.0101 attributes inherit the previous meaningful physical value
 // even when the Categorized S4.0 projection has no visible section leaf.
+const b8CanonicalNumeric=value=>
+  /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)&&
+  Number.isFinite(Number(value))&&!s40.isUnset(value);
 const b8PlainNumericSuggestion=value=>{
-  const number=Number(value);
-  return Number.isFinite(number)&&!s40.isUnset(value)
-    ?'; type '+String(number):'';
+  const number=Number(value),plain=String(number);
+  return Number.isFinite(number)&&!s40.isUnset(value)&&b8CanonicalNumeric(plain)
+    ?'; type '+plain:'';
 };
 const b8NumericField=entry=>entry.block==='RouteGeometryBlock'||
   entry.block==='SectionDimensionBlock'||entry.block==='ProcessBlock'||
   (entry.block==='MaterialBlock'&&!['MATERIAL_NAME','SEAM_WELD'].includes(entry.tag));
 const b8NumericReason=(entry,value)=>
   b8NumericField(entry)&&
-    (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)||
-     !Number.isFinite(Number(value))||s40.isUnset(value))
+    !b8CanonicalNumeric(value)
       ?'Numeric field requires an exact finite decimal without whitespace, exponent or sentinel'+
         b8PlainNumericSuggestion(value)
       :null;
