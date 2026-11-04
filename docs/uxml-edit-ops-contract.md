@@ -67,7 +67,7 @@ may remain unaccounted for; no physical PIPINGELEMENT is deleted.
 
 | sourceFormat | kind | v1 status |
 |---|---|---|
-| INPUT_XML | ALIAS_COINCIDENT_NODE | IMPLEMENTED — changes existing FROM_NODE/TO_NODE value spans only |
+| INPUT_XML | ALIAS_COINCIDENT_NODE | IMPLEMENTED — exact existing endpoints and verified supported child NODE_REF spans only |
 | INPUT_XML | VALUE_EDIT / DELETE_ELEMENT / ADD_ELEMENT / NODE_MERGE / DROP_SHORT_ELEMENT / REVIEW_CONNECTION / other kinds | REFUSED — UXML_EDIT_OP_KIND_NOT_IMPLEMENTED |
 | PSI116 | all kinds including ALIAS_COINCIDENT_NODE | REFUSED — UXML_PSI116_PATCH_NOT_IMPLEMENTED |
 | other formats | all kinds | REFUSED — UXML_SOURCE_FORMAT_NOT_IMPLEMENTED |
@@ -84,9 +84,12 @@ On success:
      ledger:[{opId,kind,recordKey,field,before,after,
               byteRange:{start,end}}],refusals:[]}
 
-Each ledger entry refers to the original recordKey and to the precise
-original existing FROM_NODE or TO_NODE XML attribute value. before and after
-are lexical values; after retains the original number of fractional digits.
+Each ledger entry refers to the original recordKey and to the exact source
+attribute value on a verified path (endpoints and supported direct child
+stanzas). Field is path-qualified, e.g. BEND[1]@NODE1; before and after
+are original and replacement lexical byte strings. Every active A receives
+the **owner B endpoint's exact original raw numeric spelling**, not A's width.
+Surrounding source whitespace is retained.
 byteRange uses half-open byte offsets into the **original UTF-8 byte array**.
 Disjoint edits are applied right-to-left, preserving BOM, LF/CRLF, whitespace,
 all non-target attributes, headers and every byte outside ledger spans.
@@ -99,55 +102,92 @@ On any refusal (including multi-op preflight or final parity failure):
 No partial bytes, ledger or file writes can escape. The caller may persist
 the new bytes only on success after its own authorized transaction check.
 
-## Refusal taxonomy
+## Refusal taxonomy (R2)
 
-| Code | Refusal |
+| Code | Trigger |
 |---|---|
-| UXML_EDIT_OPS_SCHEMA_INVALID | Invalid envelope/schema or op structure |
-| UXML_PSI116_PATCH_NOT_IMPLEMENTED | PSI116 patch-back deferred |
-| UXML_SOURCE_FORMAT_NOT_IMPLEMENTED | Unknown format |
-| UXML_EDIT_OP_KIND_NOT_IMPLEMENTED | Other operation kind |
-| INPUT_XML_EDIT_POLICY_SCHEMA_INVALID | Policy fields invalid |
-| UXML_POLICY_WIDENING_REFUSED | Lower threshold or widened selection |
-| INPUT_XML_ACTION_IDS_NOT_EXACT | Mismatched or repeated action selection |
-| INPUT_XML_FILE_SHA256_MISMATCH | Original, envelope or caller SHA mismatch |
-| INPUT_XML_OP_ID_OR_SHA_INVALID | Stale op SHA or opId mismatch |
-| INPUT_XML_OP_PARAMS_NOT_SOURCE_AUTHORIZED | Invalid alias parameters |
-| INPUT_XML_UNKNOWN_RECORD_KEY | Target not in original strict S3 |
-| INPUT_XML_OP_TARGETS_NOT_SOURCE_AUTHORIZED | Target set mismatch |
-| INPUT_XML_ORIGINAL_SOURCE_REFUSED | Original does not pass S3/scanner |
-| INPUT_XML_SOURCE_REF_ORIGINAL_MISMATCH | Original binding inconsistent |
-| INPUT_XML_BYTE_ATTRIBUTE_SOURCE_MISMATCH | Exact byte span mismatch |
-| INPUT_XML_CONFLICTING_SOURCE_FIELD_WRITES | Overlapping/conflicting edit |
-| INPUT_XML_ALIAS_COINCIDENCE_NOT_PROVEN | Retained node absent, unresolved/unanchored frames, or original coordinates not coincident |
-| INPUT_XML_STRANDED_DESCENDANT_NODE_REFERENCE | Descendant NODE/NODE1/CNODE still points at absorbed node |
-| INPUT_XML_STRANDED_LOSS_CONTRACT_NODE_VALUE | Unknown original-source field/raw fragment could refer to absorbed node |
-| INPUT_XML_CLASS_B_SIF_OWNER_TOUCH_REFUSED | SIF NODE owner touch |
-| INPUT_XML_RENUMBER_SELF_LOOP_REFUSED | Planned FROM_NODE == TO_NODE |
-| INPUT_XML_PATCHED_S3_READER_REFUSED | Patched bytes fail strict S3 reread |
-| INPUT_XML_PATCHED_SOURCE_PARITY_FAILED | Re-read identity or non-ledger bytes mismatch |
-| UXML_EDIT_OPS_INTERNAL_REFUSED | Unexpected internal failure, no output |
+| UXML_EDIT_OPS_SCHEMA_INVALID | Invalid v1 envelope/op schema |
+| UXML_PSI116_PATCH_NOT_IMPLEMENTED / UXML_SOURCE_FORMAT_NOT_IMPLEMENTED / UXML_EDIT_OP_KIND_NOT_IMPLEMENTED | Non-implemented format or kind |
+| INPUT_XML_EDIT_POLICY_SCHEMA_INVALID / UXML_POLICY_WIDENING_REFUSED / INPUT_XML_ACTION_IDS_NOT_EXACT | Invalid or widened policy/selection |
+| INPUT_XML_FILE_SHA256_MISMATCH / INPUT_XML_OP_ID_OR_SHA_INVALID | Stale or inconsistent source and op SHA |
+| INPUT_XML_OP_PARAMS_NOT_SOURCE_AUTHORIZED | Alias param shape or action identity mismatch |
+| INPUT_XML_UNKNOWN_RECORD_KEY / INPUT_XML_OP_TARGETS_NOT_SOURCE_AUTHORIZED | Source target mismatches |
+| INPUT_XML_ORIGINAL_SOURCE_REFUSED / INPUT_XML_SOURCE_REF_ORIGINAL_MISMATCH | Strict original S3 admission or binding failed |
+| INPUT_XML_BYTE_ATTRIBUTE_SOURCE_MISMATCH / INPUT_XML_CONFLICTING_SOURCE_FIELD_WRITES | Source byte/field collision |
+| INPUT_XML_NODE_IDENTITY_INVALID | Fractional, near-integer, negative (other than supported sentinel), zero, overflowed or malformed numeric node |
+| INPUT_XML_NODE_ENTITY_UNSUPPORTED | Invalid/unresolved/DTD-dependent XML entity or character reference |
+| INPUT_XML_UNKNOWN_NODE_CARRIER | Unknown potential node-bearing tag/attr/typed text, namespace or duplicate normalized attribute |
+| INPUT_XML_NODE_CARRIER_LOCATION_UNSUPPORTED | Known carrier outside supported source lineage or outside physical row |
+| INPUT_XML_OWNER_NODE_SPELLING_AMBIGUOUS | Missing/multiple original owner-B endpoint lexical values |
+| INPUT_XML_ALIAS_COINCIDENCE_NOT_PROVEN | Missing or unanchored original position; any unordered A/B witness pair farther than 0.001 mm |
+| INPUT_XML_RENUMBER_SELF_LOOP_REFUSED | Planned numeric graph would contain FROM==TO |
+| INPUT_XML_ACTIVE_ABSORBED_NODE_REMAINED | Numeric A survives in candidate carrier inventory |
+| INPUT_XML_PATCHED_NUMERIC_TOPOLOGY_MISMATCH | Numeric carrier/edge/component/typed non-node oracle mismatch |
+| INPUT_XML_PATCHED_S3_READER_REFUSED / INPUT_XML_PATCHED_SOURCE_PARITY_FAILED | Actual strict S3 reread, geometry or byte-ledger integrity failed |
+| UXML_EDIT_OPS_INTERNAL_REFUSED | Unexpected internal error (never emit bytes) |
 
-## Fail-closed custody and parity
+## R2 full-document source and candidate custody
 
-1. Require exact v1 payload, explicit action selection and unwidened policy.
-2. Independently measure original UTF-8 SHA and match options, payload, ops.
-3. Reread the original with XCU main strict S3 and original structural scanner.
-   Authenticate physical row order and exact sourceRef identities.
-4. Reject forged/missing/extra targets, unknown records, invalid alias params,
-   duplicated or overlapping source-node edits. For every alias, both nodes
-   must appear in the original S3 endpoint set, every occurrence must have a
-   finite coordinate in the S3 **anchored** common hub frame, and their original
-   positions must coincide under the **unchanged S3 delta-graph comparison**
-   (INPUTXML_DELTA_TOLERANCE=0.001). Never compare run-local/unanchored
-   origins; no numeric-node-ID-only renumbering qualifies.
-5. Check every source row, including unselected rows, for stranded child
-   NODE/NODE1/CNODE and other numbered NODE attributes; reject SIF owners and
-   lossContract.raw witnesses, and prevent planned FROM==TO self-loops.
-6. Patch exact original FROM_NODE/TO_NODE byte-value spans only, never rebuild.
-7. Independently hash and reread candidate with strict S3. Require the same
-   PIPINGELEMENT count, precisely planned node endpoint identities, and exact
-   equality of every non-ledger byte. Only then return parity EQUAL.
+1. Admit the exact UTF-8 original via unchanged strict S3 and shared source
+   scanner. Independently walk the **whole** XML document (including every
+   physical row and all other tree positions), reject ambiguous case-folded
+   attributes, unverified namespaces, malformed entity references and any
+   DTD/general-entity expansion. Preserve physical source recordKeys and
+   original UTF-8 half-open byte spans for value edits.
+2. Typed NODE_REF PATCH-ALLOW slots are exactly original
+   PIPINGELEMENT@FROM_NODE/TO_NODE and their *direct* BEND@NODE1/2/3,
+   SIF@NODE/BRANCHNODE, RESTRAINT/RESTRANT/HANGER@NODE/CNODE,
+   DISPLACEMENTS@NODE_NUM. An auxiliary A needs its own independently
+   grounded source endpoint positional witness; it never borrows its
+   containing row's coordinates by fiat.
+3. Known numeric **non-node** fields (DIAMETER, WALL_THICK, RADIUS, TYPE,
+   REF_NO, NAME, VECTOR@DX, coordinate/delta/process/material fields) are
+   inert and remain byte-identical even when their literal value equals A.
+   Unknown possible node-bearing attrs, vendor extensions or typed element
+   text, unexpected namespace, unsupported location or active A outside a
+   physical record: named refusal with no bytes. Nonempty CDATA values and
+   unsupported DOCTYPE entities do not become patch authority.
+4. Decode XML predefined and decimal/hex character references before node
+   interpretation. Compute positive integer node identity by bounded exact
+   BigInt decimal shifts (no floating-point rounding): accept 40, 40.,
+   40.0, +40, 040, 4.0E1, whitespace-padded 40 and &#52;0, but REFUSE
+   40.000000000000000001 or unsafe integer. Child sentinel -1.010100
+   remains untouched where explicitly admitted.
+5. An alias's original targets equals all S3 physical recordKeys incident
+   on numeric A or B. Collect every original B endpoint and require one
+   raw B spelling (e.g. 020.00). Multiple original owner spellings (20 vs
+   020) refuse instead of rewriting B without authorization. Source A
+   whitespace stays intact; each numeric A token receives B's exact raw
+   value spelling. Reject multi-op collisions and chaining, and any
+   numeric self-loop before publishing candidate.
+6. Require every original A/B endpoint occurrence to have a globally
+   anchored S3 solved point **and** all literal complete FROM/TO absolute
+   anchors transformed (X,-Z,Y). For every unordered pair of these
+   witnesses (within A, within B, across A/B), require distance <=
+   **INPUTXML_DELTA_TOLERANCE = 0.001 mm**, unchanged. Never compare
+   unanchored/delta-only local frames, first-to-all only, centroids, or
+   snap/translate coordinates.
+7. Splice disjoint authenticated original byte spans right-to-left. Check
+   before against actual original value bytes. Independently reconstruct
+   candidate bytes from the ledger, compare all non-ledger bytes, and
+   re-tokenize the *whole* candidate to prove typed node references follow
+   the numeric A→B map, no active A remains, no non-node semantic field
+   changes, expected numeric directed edge list and connected components
+   match, and every B endpoint spelling is canonical. Separately hash and
+   re-read with actual strict S3, checking count/order, sourceRefs, numeric
+   endpoints and unchanged source positions.
+8. Only then return EQUAL and the in-memory Uint8Array. **Every failure** is
+   {ok:false,bytes:null,parity:'DIFFERENT',ledger:[],refusals:[...]} ; no
+   partial file. PSI116 and other op kinds remain NOT_IMPLEMENTED.
+
+## Authorization hold
+
+The schema does not have a signed TopoFix provenance/engine receipt.
+The source-action ID is a claimed string, not independent engineering
+authorization. The upstream native TopoFix transaction/apply gate must
+authorize each operation separately. XCU independently validates original
+source, numeric coincidence and complete typed patch-back; it never
+changes CLOS, tolerance, geometry, original policy or CII output.
 
 ## Authorization boundary
 
