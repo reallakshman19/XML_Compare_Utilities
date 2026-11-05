@@ -346,3 +346,9 @@ test('IR B5 raw absolute witness independently falsifies a S3-solved first-point
   assert.throws(()=>g.verifyCoincidence(doc,'40','20','SYNTH-RAW-ANCHOR'),
     e=>e.code===R.COINCIDENCE);
 });
+
+test('R2 unknown node-like attr inside known source row refuses',async()=>{
+  const src=fixture('LF').replace(' REF_NO="40"',
+    ' REF_NO="40" VENDOR_NODE="40"');
+  await denied(src,payload(src),R.CARRIER);
+});

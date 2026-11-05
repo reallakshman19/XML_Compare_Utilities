@@ -14,24 +14,28 @@ import {spawnSync} from 'node:child_process';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const WRITER='uxml/UxmlEditOpsPatchBack.js';
 const INVENTORY='uxml/UxmlEditOpsTypedInventory.js';
+const FIELDS='uxml/UxmlInputXmlSourceFields.js';
+const GROUPS='uxml/UxmlEditOpsInvariants.js';
+const VERIFY='uxml/UxmlEditOpsIndependentVerifier.js';
 const TEST='tests/uxml-edit-ops-patch-back.test.mjs';
 const specs=[
   {name:'XML_ENTITY_DECODER',file:INVENTORY,
     from:'const raw=text.slice(valueStart,pos),decoded=xmlDecode(raw);pos++;',
     to:'const raw=text.slice(valueStart,pos),decoded=raw;pos++;',
     pattern:'IR B1/F1 valid character entity and all typed node child carriers LF'},
-  {name:'EXACT_DECIMAL_NUMBER_ROUNDING',file:INVENTORY,
+  {name:'EXACT_DECIMAL_NUMBER_ROUNDING',file:FIELDS,
     from:'const m=v.match(XML_VALUE_RE);',
     to:'if(Number.isSafeInteger(Number(v))&&Number(v)>0)return String(Number(v));\n  const m=v.match(XML_VALUE_RE);',
     pattern:'IR F7 malformed exact node identity and huge exponent refuse LF'},
   {name:'UNKNOWN_NODE_TEXT_ADMISSION',file:INVENTORY,
-    from:"if(TEXT_NODE_LIKE.test(p.fold)||\n       (!KNOWN_NON_NODE.has(p.fold)&&nodeCandidate(p.fold,'',decoded)))",
+    from:"if(TEXT_NODE_LIKE.test(p.fold)||nodeCandidate(p.fold,'',decoded))",
     to:'if(false)',pattern:'IR F3 unknown numeric element text and NODE text refuse LF'},
   {name:'UNKNOWN_VENDOR_ATTRIBUTE_ADMISSION',file:INVENTORY,
     edits:[
       ["if(NODE_LIKE.test(field)){","if(false){"],
-      ["if(nodeCandidate(tag,field,a.decoded))","if(false)"],
-    ],pattern:'IR B7/F2 unknown vendor node attribute refuses LF'},
+      ["if(nonNode(tag,field))return {kind:'KNOWN_NON_NODE'};\n    throw error('INPUT_XML_UNSUPPORTED_NODE_CARRIER',{path:element.path,field,tag});",
+       "if(nonNode(tag,field))return {kind:'KNOWN_NON_NODE'};\n    return {kind:'KNOWN_NON_NODE'};"],
+    ],pattern:'R2 unknown node-like attr inside known source row refuses'},
   {name:'OUTSIDE_RECORD_LOCATION',file:INVENTORY,
     from:"guard(location,'INPUT_XML_NODE_CARRIER_LOCATION_UNSUPPORTED',",
     to:"guard(true,'INPUT_XML_NODE_CARRIER_LOCATION_UNSUPPORTED',",
@@ -66,8 +70,11 @@ const specs=[
     pattern:'IR B2 positive old raw spelling "40" LF'},
   {name:'ALL_PAIR_DISTANCE_NOT_FIRST',file:WRITER,
     from:'for(let i=0;i<combined.length;i++)',
-    to:'for(let i=0;i<1;i++)',
-    pattern:'IR B4/F6 all pairs 0.0018 spread refuses anchored alias LF'},
+    to:'for(let i=0;i<0;i++)',
+    extraEdits:[
+      [GROUPS,'for(let i=0;i<witnesses.length;i++)','for(let i=0;i<0;i++)'],
+      [VERIFY,'for(let i=0;i<points.length;i++)','for(let i=0;i<0;i++)'],
+    ],pattern:'IR B4/F6 all pairs 0.0018 spread refuses anchored alias LF'},
   {name:'RAW_ABSOLUTE_WITNESS',file:WRITER,
     from:'points.push({x:Number(fields[0]),y:-Number(fields[2]),z:Number(fields[1])});',
     to:'void fields;',
@@ -86,7 +93,9 @@ const specs=[
     pattern:'IR B3 non-node RADIUS/REF_NO/DIAMETER/VECTOR 40 remain byte-identical LF'},
   {name:'ORIGINAL_BYTE_LEDGER_PARITY',file:WRITER,
     from:'assertByteParity(oldBytes,candidateBytes,ledger);',
-    to:'void ledger;',fault:'NON_LEDGER',pattern:'R2 seed non-ledger comment corruption must refuse'},
+    to:'void ledger;',
+    extraEdits:[[VERIFY,'originalByteProof(originalBytes,emittedBytes,ledger);','void ledger;']],
+    fault:'NON_LEDGER',pattern:'R2 seed non-ledger comment corruption must refuse'},
   {name:'STRICT_POLICY_CONFIDENCE',file:WRITER,
     from:'policy.minimum_confidence===0.95&&policy.require_no_blocking_plan_actions===true',
     to:'true&&policy.require_no_blocking_plan_actions===true',
@@ -97,6 +106,8 @@ const specs=[
   {name:'OWNER_B_RAW_SPLIT_ORACLE',file:WRITER,
     from:"x.raw.trim()===literal),R.TOPOLOGY);",
     to:"true),R.TOPOLOGY);",
+    extraEdits:[[VERIFY,'.every(c=>c.raw.trim()===unique),C.TOPO);',
+      '.every(c=>true),C.TOPO);']],
     fault:'SPLIT_B',pattern:'R2 seed owner spelling drift must refuse'},
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',
@@ -162,7 +173,9 @@ for(const spec of specs){
         '\n'+green.stderr);
       for(const [from,to] of spec.edits||[[spec.from,spec.to]])
         modify(join(dir,spec.file),from,to,spec.name);
-      for(const file of [WRITER,INVENTORY]){
+      for(const [file,from,to] of spec.extraEdits||[])
+        modify(join(dir,file),from,to,spec.name+' independent guard');
+      for(const file of [WRITER,INVENTORY,FIELDS,GROUPS,VERIFY]){
         const syntax=run(dir,['--check',file]);
         assert.equal(syntax.status,0,spec.name+' syntax:\n'+syntax.stderr);
       }
