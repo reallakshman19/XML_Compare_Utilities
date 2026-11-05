@@ -520,12 +520,19 @@ export function inventoryInputXml(text,{refs=[]}={}){
       return {kind:'NODE_REF',key:token.numericId,role:tag+'@'+field};
     }
     if(NODE_LIKE.test(field)){
-      const known=Object.hasOwn(NODE_FIELDS,tag)||tag==='PIPINGELEMENT';
-      throw error(known?'INPUT_XML_UNKNOWN_NODE_CARRIER':'INPUT_XML_UNKNOWN_NODE_CARRIER',
+      throw error('INPUT_XML_UNKNOWN_NODE_CARRIER',
         {path:element.path,field});
     }
     if(nonNode(tag,field))return {kind:'KNOWN_NON_NODE'};
     throw error('INPUT_XML_UNSUPPORTED_NODE_CARRIER',{path:element.path,field,tag});
+  };
+  // CAESAR II v14 model payload is strictly attribute-only. The SAME
+  // fail-closed rule covers ordinary text and CDATA; whitespace is inert.
+  const assertModelCharacterData=(raw,kind)=>{
+    const parent=stack.at(-1);
+    guard(XML_WHITESPACE.test(raw)||(!stack.some(e=>e.fold==='PIPINGMODEL')&&
+      kind!=='cdata'), 'INPUT_XML_UNKNOWN_NODE_CARRIER',
+      {path:parent?.path||null,kind});
   };
   const textBetween=(end)=>{
     if(cursor===end)return;
@@ -533,9 +540,8 @@ export function inventoryInputXml(text,{refs=[]}={}){
     if(XML_WHITESPACE.test(raw)||(!stack.length&&cursor===0&&raw==='\uFEFF'))return;
     guard(stack.length>0,'INPUT_XML_UNKNOWN_NODE_CARRIER');
     const p=stack.at(-1);
+    assertModelCharacterData(raw,'element-text');
     const decoded=xmlDecode(raw);
-    // A typed ordinary non-node text leaf is inert even if it contains 40.
-    // Unknown numeric or node-named text is never source authorization.
     if(TEXT_NODE_LIKE.test(p.fold)||nodeCandidate(p.fold,'',decoded))
       throw error('INPUT_XML_UNKNOWN_NODE_CARRIER',{path:p.path,kind:'element-text'});
     textItems.push({path:p.path,raw,decoded});
@@ -558,8 +564,7 @@ export function inventoryInputXml(text,{refs=[]}={}){
     if(text.startsWith('<![CDATA[',open)){
       const end=text.indexOf(']]>',open+9);
       guard(end>=0,'INPUT_XML_NODE_ENTITY_UNSUPPORTED');
-      guard(XML_WHITESPACE.test(text.slice(open+9,end)),
-        'INPUT_XML_UNKNOWN_NODE_CARRIER',{kind:'cdata-as-value'});
+      assertModelCharacterData(text.slice(open+9,end),'cdata');
       cursor=end+3;continue;
     }
     if(/^<!DOCTYPE\b/i.test(text.slice(open,open+10))||text.startsWith('<!',open))

@@ -3,6 +3,14 @@ name: UXML S4.2 slice 2 projection-to-source patch-back
 on:
   pull_request:
     paths:
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/**'
+      - 'docs/**'
+      - 'opt/**'
+      - 'converters/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'uxml/UxmlCategorizedPatchBack.js'
       - 'uxml/UxmlCategorizedProjectionMap.js'
       - 'docs/uxml/UxmlCategorizedProjectionMap.js'

@@ -3,6 +3,14 @@ name: UXML S4.1 categorized source-bound reader
 on:
   pull_request:
     paths:
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/**'
+      - 'docs/**'
+      - 'opt/**'
+      - 'converters/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'uxml/UxmlCategorizedInputXmlSchemaMapper.js'
       - 'docs/uxml/UxmlCategorizedInputXmlSchemaMapper.js'
       - 'tests/uxml-s4-1-*.test.mjs'

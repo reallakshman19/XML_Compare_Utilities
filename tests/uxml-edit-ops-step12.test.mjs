@@ -416,3 +416,21 @@ test('R1 verifier S3 point parity refuses changed solved point',()=>{
   assert.throws(()=>verifierGuards.assertVerifierS3PointConsistency(
     oldDoc,candidate,0,'FROM'),e=>e.code===R.TOPOLOGY);
 });
+
+for(const raw of ['NODE 40','40,','x 40 y']){
+  test('R2 Step12 ambiguous element text refuses '+JSON.stringify(raw),async()=>{
+    const src=base({body:raw});
+    await refuse(src,envelope(src),R.CARRIER);
+  });
+  test('R2 Step12 ambiguous CDATA refuses '+JSON.stringify(raw),async()=>{
+    const src=base({body:'<![CDATA['+raw+']]>'});
+    await refuse(src,envelope(src),R.CARRIER);
+  });
+}
+for(const form of ['plain','cdata']){
+  test('R2 Step12 whitespace-only '+form+' passes',async()=>{
+    const whitespace=' \t\n ';
+    const src=base({body:form==='cdata'?'<![CDATA['+whitespace+']]>':whitespace});
+    await succeed(src);
+  });
+}

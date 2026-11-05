@@ -28,9 +28,9 @@ const specs=[
     to:'if(Number.isSafeInteger(Number(v))&&Number(v)>0)return String(Number(v));\n  const m=v.match(XML_VALUE_RE);',
     pattern:'IR F7 malformed exact node identity and huge exponent refuse LF'},
   {name:'UNKNOWN_NODE_TEXT_ADMISSION',file:INVENTORY,
-    from:"if(TEXT_NODE_LIKE.test(p.fold)||nodeCandidate(p.fold,'',decoded))",
-    to:'if(false)',
-    pattern:'R1 known-tag text RESTRAINT refuses LF'},
+    from:"assertModelCharacterData(raw,'element-text');",
+    to:'void raw;',
+    pattern:'R2 PIPINGELEMENT element-text ambiguous "NODE 40" refuses'},
   {name:'UNKNOWN_VENDOR_ATTRIBUTE_ADMISSION',file:INVENTORY,
     edits:[
       ["if(NODE_LIKE.test(field)){","if(false){"],

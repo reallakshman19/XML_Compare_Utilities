@@ -2,6 +2,7 @@ name: UXML B8 categorized source-bound editing coverage
 on:
   pull_request:
     paths:
+      - 'tests/uxml-b7-controller.test.mjs'
       - 'uxml/**'
       - 'xml-compare/**'
       - 'utils/line-no-metadata.js'

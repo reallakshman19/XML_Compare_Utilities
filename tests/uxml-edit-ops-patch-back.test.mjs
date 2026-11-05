@@ -368,3 +368,24 @@ for(const [tag,attributes] of [
     });
   }
 }
+
+for(const value of ['NODE 40','40,','x 40 y']){
+  for(const kind of ['element-text','CDATA']){
+    test('R2 PIPINGELEMENT '+kind+' ambiguous '+JSON.stringify(value)+' refuses',async()=>{
+      const payloadText=kind==='CDATA'?'<![CDATA['+value+']]>':value;
+      const src=fixture().replace('</PIPINGELEMENT>',
+        payloadText+'</PIPINGELEMENT>');
+      await denied(src,payload(src),R.CARRIER);
+    });
+  }
+}
+for(const kind of ['element-text','CDATA']){
+  test('R2 whitespace-only '+kind+' allowed on anchored alias',async()=>{
+    const chars=' \t\r\n ';
+    const text=kind==='CDATA'?'<![CDATA['+chars+']]>':chars;
+    const src=fixture().replace('</PIPINGELEMENT>',text+'</PIPINGELEMENT>');
+    const r=await success(src);
+    assert.equal(r.r.parity,'EQUAL');
+    assert.deepEqual(r.r.refusals,[]);
+  });
+}

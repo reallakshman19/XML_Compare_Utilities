@@ -3,6 +3,14 @@ name: UXML S4.2 categorized original byte patch-back
 on:
   pull_request:
     paths:
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/**'
+      - 'docs/**'
+      - 'opt/**'
+      - 'converters/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'uxml/UxmlCategorizedPatchBack.js'
       - 'docs/uxml/UxmlCategorizedPatchBack.js'
       - 'uxml/UxmlCategorizedInputXmlSchemaMapper.js'
