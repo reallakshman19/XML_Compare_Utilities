@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'uxml/UxmlEditOpsPatchBack.js'
+      - 'uxml/UxmlEditOpsTypedInventory.js'
       - 'docs/uxml-edit-ops-contract.md'
       - 'tests/uxml-edit-ops-*.test.mjs'
       - '.github/workflows/uxml-edit-ops-patch-back.yml'
