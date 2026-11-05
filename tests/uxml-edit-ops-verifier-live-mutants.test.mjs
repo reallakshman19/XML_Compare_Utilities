@@ -32,6 +32,14 @@ export function mapCaesarInputXmlToUxmlStrict(source,opts){
     if(!row)throw new Error('seed missing source port');
     row.anchored=false;
   }
+  if(seed==='REF_ANCHOR'&&isOld){
+    if(!row)throw new Error('seed missing physical sourceRef');
+    row.sourceRefs[0].anchored=false;
+  }
+  if(seed==='FRAME'&&isOld){
+    if(!row)throw new Error('seed missing original frame');
+    row.coordinateFrame='UNVERIFIED_FRAME';
+  }
   if(seed==='LITERAL'&&isOld){
     const attrs=doc.components[1]?.rawAttributes?.inputXml?.sourceAttributes;
     if(!attrs)throw new Error('seed missing original literal');
@@ -105,6 +113,16 @@ const seedSpecs=[
     seed:'ANCHOR',guard:'verifier physical anchoring and coordinate frame',
     old:"assert(port.anchored===true&&ref.anchored===true&&\n          port.coordinateFrame===INPUTXML_HUB_FRAME&&p&&\n          [p.x,p.y,p.z].every(Number.isFinite),C.COORD,{owner,key});",
     replacement:'assert(true,C.COORD,{owner,key});',
+  },
+  {
+    seed:'REF_ANCHOR',guard:'verifier original sourceRef anchored proof',
+    old:'ref.anchored===true&&',
+    replacement:'true&&',
+  },
+  {
+    seed:'FRAME',guard:'verifier original coordinate-frame proof',
+    old:'port.coordinateFrame===INPUTXML_HUB_FRAME&&p&&',
+    replacement:'true&&p&&',
   },
   {
     seed:'LITERAL',guard:'verifier original absolute-coordinate evidence',

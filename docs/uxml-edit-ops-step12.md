@@ -207,3 +207,15 @@ mutation-seam parity; not safe to undertake in final repair.
 
 Oracle acceptance, authenticated TopoFix action approval and native CII
 import/topology validation remain external and NOT_RUN.
+
+### Final anchored/frame sub-guard witness coverage
+
+The planner and the independent verifier each pin three *separate* source
+evidence preconditions: original port anchored, original sourceRef anchored,
+and the unchanged INPUTXML_HUB_FRAME coordinate-frame designation.
+Planner tests R2 PIN planner source physical anchor/frame refusal,
+R2 PIN planner sourceRef anchored flag refusal, and R2 PIN planner
+coordinate-frame refusal each kill a single corresponding guard deletion.
+Verifier live-clone tests ANCHOR, REF_ANCHOR and FRAME each kill a separate
+single-edit deletion inside verifyUxmlEditOpsIndependent. None of the
+three original evidence checks may be inferred from the others.

@@ -93,6 +93,18 @@ const specs=[
     name:'R2 PIN planner source physical anchor/frame refusal',
   },
   {
+    id:'R2_PLANNER_REF_ANCHORED',file:INV,
+    old:"ref.anchored===true&&",
+    new:"true&&",
+    name:'R2 PIN planner sourceRef anchored flag refusal',
+  },
+  {
+    id:'R2_PLANNER_SOURCE_FRAME',file:INV,
+    old:"port.coordinateFrame===INPUTXML_HUB_FRAME&&point&&",
+    new:"true&&point&&",
+    name:'R2 PIN planner coordinate-frame refusal',
+  },
+  {
     id:'R2_PLANNER_LITERAL_WITNESS',file:INV,
     old:"catch{throw err(STEP12_CODES.COORDINATE,{node,recordKey:ref.recordKey});}",
     new:"catch{source={point,evidence:[]};}",

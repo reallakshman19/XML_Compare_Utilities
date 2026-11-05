@@ -459,3 +459,14 @@ test('R2 PIN source-field sentinel absolute coordinate refusal',()=>{
     FROM_X:'-1.010100',FROM_Y:'0',FROM_Z:'0',
   },'FROM'),e=>e.code===R.COORDINATE);
 });
+
+test('R2 PIN planner sourceRef anchored flag refusal',()=>{
+  const doc=r2SourceWitnessDoc();
+  doc.ports[0].sourceRefs[0].anchored=false;
+  assert.throws(()=>physicalNodeWitnesses(doc,'40'),e=>e.code===R.COORDINATE);
+});
+test('R2 PIN planner coordinate-frame refusal',()=>{
+  const doc=r2SourceWitnessDoc();
+  doc.ports[0].coordinateFrame='UNVERIFIED_FRAME';
+  assert.throws(()=>physicalNodeWitnesses(doc,'40'),e=>e.code===R.COORDINATE);
+});
