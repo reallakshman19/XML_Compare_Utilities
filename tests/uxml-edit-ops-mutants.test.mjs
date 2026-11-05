@@ -29,7 +29,11 @@ const specs=[
     pattern:'IR F7 malformed exact node identity and huge exponent refuse LF'},
   {name:'UNKNOWN_NODE_TEXT_ADMISSION',file:INVENTORY,
     from:"if(TEXT_NODE_LIKE.test(p.fold)||nodeCandidate(p.fold,'',decoded))",
-    to:'if(false)',pattern:'IR F3 unknown numeric element text and NODE text refuse LF'},
+    to:'if(false)',
+    extraEdits:[[INVENTORY,
+      "guard(V14_TAGS.has(tag.fold),'INPUT_XML_UNKNOWN_NODE_CARRIER',{tag:tag.fold});",
+      "guard(true,'INPUT_XML_UNKNOWN_NODE_CARRIER',{tag:tag.fold});"]],
+    pattern:'IR F3 unknown numeric element text and NODE text refuse LF'},
   {name:'UNKNOWN_VENDOR_ATTRIBUTE_ADMISSION',file:INVENTORY,
     edits:[
       ["if(NODE_LIKE.test(field)){","if(false){"],
