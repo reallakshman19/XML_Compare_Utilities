@@ -455,7 +455,9 @@ const nodeCandidate=(tag,field,decoded)=>{
   try{return exactNodeId(decoded)!==null;}catch{return false;}
 };
 const nonNode=(tag,field)=>field==='XMLNS'||field.startsWith('XMLNS:')||
-  profileNonNode.get(tag)?.has(field)===true;
+  profileNonNode.get(tag)?.has(field)===true||
+  tag==='SIF'&&/^SIF[1-9]\d*$/.test(field); // v14 SIF factors (SIF1/SIF2), not node IDs
+
 function readStartTag(text,start){
   let pos=start+1;
   const nameMatch=/^[A-Za-z_][A-Za-z0-9_.:-]*/.exec(text.slice(pos));
