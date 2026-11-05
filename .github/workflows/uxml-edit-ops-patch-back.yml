@@ -41,6 +41,8 @@ jobs:
         run: node --test tests/uxml-edit-ops-step12.test.mjs
       - name: Step 1.2 kill all invariant guards (final R2)
         run: node --test tests/uxml-edit-ops-step12-mutants.test.mjs
+      - name: Step 1.2-R2 independent verifier live source/reader fault mutations
+        run: node --test tests/uxml-edit-ops-verifier-live-mutants.test.mjs
       - name: Edit-ops contract original bytes and named refusals LF CRLF
         run: node --test tests/uxml-edit-ops-patch-back.test.mjs
       - name: Edit-ops guard mutants green controls / red mutations

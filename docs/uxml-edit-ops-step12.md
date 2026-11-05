@@ -123,3 +123,34 @@ static v14 carrier registry into a versioned module and separate bounded
 XML tokenization, while snapshot-diff testing the registry values, scanner
 offsets, existing inputs and all mutation seams. **NOT DONE in R1**:
 not worth risking the code safety gate with an unverified parser refactor.
+
+## Final repair R2: original CAESAR v14 source restrictions and CI custody
+
+The checked public original InputXML documents contain **no non-whitespace
+direct character data and no CDATA** within the PIPINGMODEL subtree.
+The new original-source verifier therefore treats **all** such model text,
+regardless of whether it is numeric, node-like or prose, as a named
+INPUT_XML_UNKNOWN_NODE_CARRIER refusal. Both ordinary text and nonblank
+CDATA use the same fail-closed check. Whitespace-only text/CDATA remains
+unchanged; the original byte ledger still forbids unrelated modifications.
+
+Public GREInputxml.xml has **0/200 anchored ports**, and PLB314Inputxml.xml
+has **0/106 anchored ports**. Both omit FROM_X/TO_X source-literal absolute
+fields. Even though both pass v14 typed admission, **every proposed alias
+on these two originals refuses INPUT_XML_ALIAS_COORDINATE_UNPROVEN**.
+The InputXML alias capability is restricted to source exports carrying
+complete original absolute coordinates, not merely DELTA_X/Y/Z.
+
+All five S3/S4 mutation workflows explicitly trigger on shared original
+reader/field imports plus their checked clone lists. B8 additionally
+triggers on the cloned B7 controller fixture. The edit-ops workflow
+triggers on the tolerance and source-structure modules. A committed
+source/clone/CI consistency test covers these dependencies and fails on
+an omitted path filter. Workflow edits are Owner-authorized only for R2.
+
+The independent verifier's original-byte/reader proof retains the shared
+typed-inventory classification risk documented above. Its UTF-8 identity
+check was removed as redundant: TextDecoder with fatal=true rejects invalid
+or noncanonical encodings, and the immutable original byte complement
+already verifies every exact candidate byte. Its C.REMAIN diagnostic constant
+was removed because its throw was removed in R1.

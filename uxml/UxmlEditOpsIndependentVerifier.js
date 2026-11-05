@@ -17,7 +17,6 @@ const C={
   GROUP:'INPUT_XML_ALIAS_GROUP_SPREAD',
   COORD:'INPUT_XML_ALIAS_COORDINATE_UNPROVEN',
   SELF:'INPUT_XML_ALIAS_SELF_CONNECTED',
-  REMAIN:'INPUT_XML_ACTIVE_ABSORBED_NODE_REMAINED',
   TOPO:'INPUT_XML_PATCHED_NUMERIC_TOPOLOGY_MISMATCH',
   PARITY:'INPUT_XML_PATCHED_SOURCE_PARITY_FAILED',
   REF:'INPUT_XML_SOURCE_REF_ORIGINAL_MISMATCH',
@@ -192,7 +191,8 @@ export async function verifyUxmlEditOpsIndependent({
   let newText;
   try{newText=decode.decode(emittedBytes);}
   catch{throw fail(C.PARITY);}
-  assert(eq([...encode.encode(newText)],[...emittedBytes]),C.PARITY);
+  // UTF-8 fatal decoder has a unique encoding for every valid byte stream;
+  // originalByteProof above already checks the exact emitted complement.
   let originalDoc,candidateDoc;
   try{
     originalDoc=mapCaesarInputXmlToUxmlStrict(originalText,{

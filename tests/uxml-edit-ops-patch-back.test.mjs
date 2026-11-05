@@ -348,7 +348,7 @@ test('IR B5 raw absolute witness independently falsifies a S3-solved first-point
 });
 
 test('R2 unknown node-like attr inside known source row refuses',async()=>{
-  const src=fixture('LF').replace(' REF_NO="40"',
+  const src=fixture('\n').replace(' REF_NO="40"',
     ' REF_NO="40" VENDOR_NODE="40"');
   await denied(src,payload(src),R.CARRIER);
 });

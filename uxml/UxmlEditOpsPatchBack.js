@@ -7,7 +7,7 @@ import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
 import {INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME} from './UxmlInputXmlDeltaGraph.js';
 import {inventoryInputXml} from './UxmlEditOpsTypedInventory.js';
-import {exactNodeId,xmlDecode,readInputXmlSourceField,absoluteInputXmlSourceWitness}
+import {exactNodeId,xmlDecode,readInputXmlSourceField}
   from './UxmlInputXmlSourceFields.js';
 import {assertOwnerGroupSpread,ownerGroups,assertNoNewSelfConnected}
   from './UxmlEditOpsInvariants.js';
