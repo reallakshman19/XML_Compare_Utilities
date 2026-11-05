@@ -434,3 +434,28 @@ for(const form of ['plain','cdata']){
     await succeed(src);
   });
 }
+
+const r2SourceWitnessDoc=()=>({
+  ports:[{sourceRefs:[{endpoint:'FROM',fromNode:'40',anchored:true,elementIndex:0,
+    recordKey:'E0:F40:T50'}],anchored:true,coordinateFrame:'PSI116_XYZ_MM',
+    point:{x:100,y:0,z:0}}],
+  components:[{rawAttributes:{inputXml:{sourceAttributes:
+    {FROM_X:'100',FROM_Y:'0',FROM_Z:'0'}}}}],
+});
+test('R2 PIN planner source physical anchor/frame refusal',()=>{
+  const doc=r2SourceWitnessDoc();
+  doc.ports[0].anchored=false;
+  assert.throws(()=>physicalNodeWitnesses(doc,'40'),
+    e=>e.code===R.COORDINATE);
+});
+test('R2 PIN planner original literal witness refusal',()=>{
+  const doc=r2SourceWitnessDoc();
+  doc.components[0].rawAttributes.inputXml.sourceAttributes.FROM_X='not-an-axis';
+  assert.throws(()=>physicalNodeWitnesses(doc,'40'),
+    e=>e.code===R.COORDINATE);
+});
+test('R2 PIN source-field sentinel absolute coordinate refusal',()=>{
+  assert.throws(()=>absoluteInputXmlSourceWitness({
+    FROM_X:'-1.010100',FROM_Y:'0',FROM_Z:'0',
+  },'FROM'),e=>e.code===R.COORDINATE);
+});

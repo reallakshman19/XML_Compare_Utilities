@@ -389,3 +389,47 @@ for(const kind of ['element-text','CDATA']){
     assert.deepEqual(r.r.refusals,[]);
   });
 }
+
+test('R2 PIN writer numeric oracle refuses newly self-connected endpoint',()=>{
+  const src=model([
+    edge({from:'10',to:'020.00',fx:0,tx:100}),
+    edge({from:'40',to:'020.00',fx:100,tx:100}),
+  ]);
+  const dst=src.replace('FROM_NODE="40"','FROM_NODE="020.00"');
+  const before={doc:readS3(src,{fileSha256:sha(src)}),
+    inventory:inventoryInputXml(src,{refs:refs(src)})};
+  const after={doc:readS3(dst,{fileSha256:sha(dst)}),
+    inventory:inventoryInputXml(dst,{refs:refs(dst)})};
+  const ledger=[{recordKey:refs(src)[1].recordKey,field:'FROM_NODE',
+    before:'40',after:'020.00'}];
+  assert.throws(()=>g.fullNumericOracle(before,after,new Map([['40','20']]),ledger),
+    e=>e.code===R.SELF);
+});
+test('R2 PIN writer verifyS3Candidate original solved point parity',()=>{
+  const src=fixture(),dst=src.replace('FROM_NODE="40"','FROM_NODE="020.00"');
+  const before={doc:readS3(src,{fileSha256:sha(src)}),
+    inventory:inventoryInputXml(src,{refs:refs(src)})};
+  const after={doc:readS3(dst,{fileSha256:sha(dst)}),
+    inventory:inventoryInputXml(dst,{refs:refs(dst)})};
+  const point=after.doc.components[1].rawAttributes.inputXml.from;
+  assert(point&&Number.isFinite(point.x));
+  point.x+=0.004;
+  assert.throws(()=>g.verifyS3Candidate(before,after,new Map([['40','20']])),
+    e=>e.code===R.PARITY);
+});
+test('R2 COVERED duplicate absorbed id refuses by reservation or preflight',async()=>{
+  const src=fixture(),p=payload(src);
+  const second={...p.ops[0],sourceActionId:'SYNTH-DUPLICATE',
+    opId:'UXML-OP-SYNTH-DUPLICATE'};
+  await denied(src,{...p,ops:[p.ops[0],second],
+    policy:policy([p.ops[0].sourceActionId,second.sourceActionId])},R.CONFLICT);
+});
+test('R2 COVERED writer absorbed remainder by numeric identity oracle',()=>{
+  const src=fixture(),before={doc:readS3(src,{fileSha256:sha(src)}),
+    inventory:inventoryInputXml(src,{refs:refs(src)})};
+  const after=structuredClone(before);
+  const ledger=[{recordKey:refs(src)[1].recordKey,field:'FROM_NODE',
+    before:'40',after:'40'}];
+  assert.throws(()=>g.fullNumericOracle(before,after,new Map([['40','20']]),ledger),
+    e=>[R.REMAINED,R.TOPOLOGY].includes(e.code));
+});

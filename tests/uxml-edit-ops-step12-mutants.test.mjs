@@ -87,6 +87,24 @@ const specs=[
     name:'R2 Step12 ambiguous element text refuses',
   },
   {
+    id:'R2_PLANNER_ANCHORED_FRAME',file:INV,
+    old:"need(Number.isInteger(idx)&&port.anchored===true&&ref.anchored===true&&",
+    new:"need(Number.isInteger(idx)&&true&&ref.anchored===true&&",
+    name:'R2 PIN planner source physical anchor/frame refusal',
+  },
+  {
+    id:'R2_PLANNER_LITERAL_WITNESS',file:INV,
+    old:"catch{throw err(STEP12_CODES.COORDINATE,{node,recordKey:ref.recordKey});}",
+    new:"catch{source={point,evidence:[]};}",
+    name:'R2 PIN planner original literal witness refusal',
+  },
+  {
+    id:'R2_SOURCE_SENTINEL_ABSOLUTE',file:FIELDS,
+    old:"f.decoded.trim()!=='-1.010100'&&Number.isFinite(Number(f.decoded))",
+    new:"true&&Number.isFinite(Number(f.decoded))",
+    name:'R2 PIN source-field sentinel absolute coordinate refusal',
+  },
+  {
     id:'I2_CASE_NORMALISED_SOURCE_FIELD',file:FIELDS,
     old:"(a.field||a.name||'').toUpperCase()===key",
     new:"(a.field||a.name||'')===key",
