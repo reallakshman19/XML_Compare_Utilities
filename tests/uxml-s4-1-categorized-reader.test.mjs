@@ -272,7 +272,7 @@ test('S4.1 REFUSE source-bound output on failed shared UxmlValidationGate',async
     for(const file of [
       'uxml/UxmlCategorizedInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
-      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
+      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js','uxml/UxmlInputXmlDeltaGraph.js',
       'utils/line-no-metadata.js',
       'xml-compare/CategorizedInputXmlConverter.js',
       'xml-compare/XmlCompareCoordinateSideload.js',
