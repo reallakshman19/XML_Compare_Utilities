@@ -113,7 +113,7 @@ test('I-1 delta-only/missing original positions refuse COORDINATE_UNPROVEN',asyn
   const s=readFileSync(new URL('./fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml',
     import.meta.url),'utf8');
   await refuse(s,envelope(s,[[10,100]]),R.COORDINATE);
-  const missing=base().replace(' FROM_X="100"','');
+  const missing=base().replace(' FROM_X="100" FROM_Y="0" FROM_Z="0"','');
   await refuse(missing,envelope(missing),R.COORDINATE);
 });
 const variants=[
