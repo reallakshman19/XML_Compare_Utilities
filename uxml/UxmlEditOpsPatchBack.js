@@ -6,7 +6,13 @@
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
 import {INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME} from './UxmlInputXmlDeltaGraph.js';
-import {inventoryInputXml,exactNodeId,xmlDecode} from './UxmlEditOpsTypedInventory.js';
+import {inventoryInputXml} from './UxmlEditOpsTypedInventory.js';
+import {exactNodeId,xmlDecode,readInputXmlSourceField,absoluteInputXmlSourceWitness}
+  from './UxmlInputXmlSourceFields.js';
+import {assertOwnerGroupSpread,ownerGroups,assertNoNewSelfConnected}
+  from './UxmlEditOpsInvariants.js';
+import {verifyUxmlEditOpsIndependent}
+  from './UxmlEditOpsIndependentVerifier.js';
 
 export const UXML_EDIT_OPS_SCHEMA='uxml-edit-ops/v1';
 export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
@@ -38,6 +44,11 @@ export const UXML_EDIT_OPS_REFUSALS=Object.freeze({
   OWNER:'INPUT_XML_OWNER_NODE_SPELLING_AMBIGUOUS',
   REMAINED:'INPUT_XML_ACTIVE_ABSORBED_NODE_REMAINED',
   TOPOLOGY:'INPUT_XML_PATCHED_NUMERIC_TOPOLOGY_MISMATCH',
+  GROUP_SPREAD:'INPUT_XML_ALIAS_GROUP_SPREAD',
+  CHAIN:'INPUT_XML_ALIAS_CHAIN_REFUSED',
+  COORDINATE:'INPUT_XML_ALIAS_COORDINATE_UNPROVEN',
+  SELF:'INPUT_XML_ALIAS_SELF_CONNECTED',
+  UNSUPPORTED:'INPUT_XML_UNSUPPORTED_NODE_CARRIER',
 });
 const R=UXML_EDIT_OPS_REFUSALS;
 const enc=new TextEncoder(),dec=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true});
@@ -118,7 +129,8 @@ function originalWitnessPoints(doc,id){
     // S3 may collapse repeated numeric node spellings into a single point.
     const row=doc.components[ref.elementIndex]?.rawAttributes?.inputXml?.sourceAttributes;
     const prefix=ref.endpoint;
-    const fields=['X','Y','Z'].map(axis=>row?.[prefix+'_'+axis]);
+    const fields=['X','Y','Z'].map(axis=>
+      readInputXmlSourceField(row,prefix+'_'+axis)?.decoded);
     const present=fields.filter(v=>v!==undefined&&v!==null&&v!=='');
     need(present.length===0||present.length===3,R.COINCIDENCE,{node:id});
     if(present.length===3){
@@ -173,7 +185,10 @@ function sourceField(c){
 }
 function planAliases(witness,payload,original){
   const {doc,byKey,inventory,endpoints}=witness;
-  const oldIds=new Set(),newIds=new Set(),ledger=[],used=new Set(),mapping=new Map();
+  const ledger=[],used=new Set(),mapping=new Map();
+  const claims=[];
+  // Authenticate and collect every A->B claim FIRST. Chain/cycle detection
+  // must precede geometry or partial per-op candidate edits.
   for(const op of payload.ops){
     need(typeof op.sourceActionId==='string'&&op.sourceActionId.length>0&&
       op.opId==='UXML-OP-'+op.sourceActionId&&op.fileSha256===payload.fileSha256,
@@ -183,18 +198,24 @@ function planAliases(witness,payload,original){
       op.params[0].operation==='ALIAS_NODE',R.PARAMS,{opId:op.opId});
     const absorbed=safeNode(op.params[0].sourceNode);
     const owner=safeNode(op.params[0].canonicalNode);
-    need(absorbed!==owner&&!oldIds.has(absorbed)&&!newIds.has(absorbed)&&
-      !oldIds.has(owner),R.CONFLICT,{opId:op.opId});
+    need(!mapping.has(absorbed),R.CONFLICT,{opId:op.opId,absorbed});
+    mapping.set(absorbed,owner);
+    claims.push({op,absorbed,owner});
+  }
+  ownerGroups(mapping); // INPUT_XML_ALIAS_CHAIN_REFUSED before geometry.
+  assertOwnerGroupSpread(doc,mapping); // all original A1/A2/owner pairs.
+  assertNoNewSelfConnected(inventory,mapping); // new equality only.
+  for(const {op,absorbed,owner} of claims){
+    // Retain the original R2 local proof as an additional independent guard.
+    // It is not sufficient for multi-op groups; the group gate above is.
     verifyCoincidence(doc,absorbed,owner,op.opId);
-    oldIds.add(absorbed);newIds.add(owner);mapping.set(absorbed,owner);
     need(Array.isArray(op.targets)&&op.targets.length>0&&
       op.targets.every(x=>typeof x==='string')&&
       new Set(op.targets).size===op.targets.length,R.TARGETS,{opId:op.opId});
     for(const key of op.targets)need(byKey.has(key),R.UNKNOWN,{recordKey:key,opId:op.opId});
-    const expected=endpoints.filter(c=>c.key===absorbed||c.key===owner)
-      .map(c=>c.recordKey);
-    const targetKeys=[...new Set(expected)].sort();
-    need(sameArray([...op.targets].sort(),targetKeys),R.TARGETS,{opId:op.opId});
+    const incident=endpoints.filter(c=>c.key===absorbed||c.key===owner);
+    const expected=[...new Set(incident.map(c=>c.recordKey))].sort();
+    need(sameArray([...op.targets].sort(),expected),R.TARGETS,{opId:op.opId});
     const ownerSpelling=[...new Set(endpoints.filter(c=>c.key===owner)
       .map(c=>c.raw.trim()))];
     need(ownerSpelling.length===1,R.OWNER,{opId:op.opId});
@@ -207,29 +228,14 @@ function planAliases(witness,payload,original){
       const old=enc.encode(c.raw),{start,end}=c.byteRange;
       need(sameArray([...original.subarray(start,end)],[...old]),R.OFFSET,
         {opId:op.opId,path:c.path});
-      // Preserve each A attribute's original leading/trailing XML whitespace
-      // while substituting the exact raw B identity spelling, not A's width.
       const before=c.raw,lead=/^[\t\r\n ]*/.exec(before)[0],
         trail=/[\t\r\n ]*$/.exec(before)[0];
       const after=lead+replacement+trail;
       ledger.push({opId:op.opId,kind:op.kind,recordKey:c.recordKey,
-        field:sourceField(c),before,after,
-        byteRange:{start,end}});
+        field:sourceField(c),before,after,byteRange:{start,end}});
       count++;
     }
     need(count>0,R.PARAMS,{opId:op.opId});
-  }
-  assertUnchainedIds(oldIds,newIds);
-  // Refuse self-loops using the original exact-numeric endpoint inventory
-  // before building even an in-memory candidate.
-  const originalEdges=numericEdges(inventory);
-  need(originalEdges.every(([from,to])=>{
-    const a=mapping.get(from)??from,b=mapping.get(to)??to;
-    return a!==b;
-  }),R.LOOP);
-  for(const [a,b] of mapping){
-    const incident=endpoints.filter(c=>c.key===a);
-    need(incident.length>0&&endpoints.some(c=>c.key===b),R.COINCIDENCE);
   }
   ledger.sort((a,b)=>a.byteRange.start-b.byteRange.start);
   assertDisjointPatches(ledger);
@@ -315,7 +321,9 @@ function fullNumericOracle(before,after,mapping,ledger){
   const actualEdges=numericEdges(candidate);
   need(sameArray(expectedEdges.map(JSON.stringify),actualEdges.map(JSON.stringify))&&
     sameArray(components(expectedEdges),components(actualEdges)),R.TOPOLOGY);
-  need(expectedEdges.every(([a,b])=>a&&b&&a!==b),R.LOOP);
+  const beforeEdges=numericEdges(original);
+  need(expectedEdges.every(([a,b],i)=>beforeEdges[i][0]===beforeEdges[i][1]||
+    a!==b),R.SELF);
 }
 function verifyS3Candidate(original,candidate,mapping){
   const first=original.doc,last=candidate.doc;
@@ -384,6 +392,9 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
     const {ledger,mapping}=planAliases(witness,payload,original);
     const candidateBytes=spliceOriginal(original,ledger);
     await verifyCandidate(originalText,original,candidateBytes,ledger,mapping,witness);
+    await verifyUxmlEditOpsIndependent({
+      originalText,authorisedMapping:new Map(mapping),ledger,emittedBytes:candidateBytes,
+    });
     return {ok:true,bytes:candidateBytes,parity:'EQUAL',ledger,refusals:[]};
   }catch(e){
     if(e instanceof Refusal)return fail(e.code,e.detail);

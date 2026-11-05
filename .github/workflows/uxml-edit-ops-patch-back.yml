@@ -4,8 +4,14 @@ on:
     paths:
       - 'uxml/UxmlEditOpsPatchBack.js'
       - 'uxml/UxmlEditOpsTypedInventory.js'
+      - 'uxml/UxmlEditOpsInvariants.js'
+      - 'uxml/UxmlEditOpsIndependentVerifier.js'
+      - 'uxml/UxmlInputXmlSourceFields.js'
+      - 'uxml/UxmlInputXmlSchemaMapper.js'
       - 'docs/uxml-edit-ops-contract.md'
+      - 'docs/uxml-edit-ops-step12.md'
       - 'tests/uxml-edit-ops-*.test.mjs'
+      - 'tests/uxml-edit-ops-step12*.test.mjs'
       - '.github/workflows/uxml-edit-ops-patch-back.yml'
   workflow_dispatch:
 permissions:
@@ -23,7 +29,11 @@ jobs:
         with:
           node-version: '22'
       - name: Syntax
-        run: node --check uxml/UxmlEditOpsPatchBack.js && node --check tests/uxml-edit-ops-patch-back.test.mjs && node --check tests/uxml-edit-ops-mutants.test.mjs
+        run: node --check uxml/UxmlInputXmlSourceFields.js && node --check uxml/UxmlEditOpsTypedInventory.js && node --check uxml/UxmlEditOpsInvariants.js && node --check uxml/UxmlEditOpsIndependentVerifier.js && node --check uxml/UxmlEditOpsPatchBack.js && node --check tests/uxml-edit-ops-step12.test.mjs && node --check tests/uxml-edit-ops-step12-mutants.test.mjs && node --check tests/uxml-edit-ops-patch-back.test.mjs && node --check tests/uxml-edit-ops-mutants.test.mjs
+      - name: Step 1.2 invariant-first LT-1 through LT-5 and independent verifier
+        run: node --test tests/uxml-edit-ops-step12.test.mjs
+      - name: Step 1.2 kill fourteen distinct invariant guards
+        run: node --test tests/uxml-edit-ops-step12-mutants.test.mjs
       - name: Edit-ops contract original bytes and named refusals LF CRLF
         run: node --test tests/uxml-edit-ops-patch-back.test.mjs
       - name: Edit-ops guard mutants green controls / red mutations
