@@ -146,7 +146,7 @@ for(const eol of ['\n','\r\n']){
       edge({from:'040',to:'60',fx:0.0009,tx:100.0009}),
     ],{eol});
     assert.equal(refs(src).length,3);
-    await denied(src,payload(src),R.COINCIDENCE);
+    await denied(src,payload(src),R.GROUP_SPREAD);
   });
   test('IR B5 repeated-ID hidden raw anchor contradiction refuses '+label,async()=>{
     const src=model([
@@ -155,7 +155,7 @@ for(const eol of ['\n','\r\n']){
       edge({from:'40',to:'60',fx:0.0009,tx:100.0009}),
     ],{eol});
     assert.equal(refs(src).length,3);
-    await denied(src,payload(src),R.COINCIDENCE);
+    await denied(src,payload(src),R.GROUP_SPREAD);
   });
   test('IR B6 mixed original owner spelling 20 vs 020 refuses '+label,async()=>{
     const src=fixture(eol,{owner:'20',secondOwner:true});
@@ -219,24 +219,24 @@ for(const eol of ['\n','\r\n']){
     const {r}=await success(src,payload(src,[[40,20],[80,70]]));
     assert.equal(r.ledger.length,2);
     assert.equal(new Set(r.ledger.map(x=>x.opId)).size,2);
-    await denied(src,payload(src,[[40,20],[80,999]]),R.COINCIDENCE);
+    await denied(src,payload(src,[[40,20],[80,999]]),R.COORDINATE);
   });
   test('self-loop refuses before publishing candidate '+label,async()=>{
     const src=model([
       edge({from:'10',to:'20',fx:0,tx:100}),
       edge({from:'40',to:'20',fx:100,tx:100}),
     ],{eol});
-    await denied(src,payload(src),R.LOOP);
+    await denied(src,payload(src),R.SELF);
   });
   test('unanchored runs, absent owner, distant anchored endpoints refuse '+label,async()=>{
     const src=fixture(eol);
-    await denied(src,payload(src,[[40,999]]),R.COINCIDENCE);
+    await denied(src,payload(src,[[40,999]]),R.COORDINATE);
     const distant=model([edge({from:'10',to:'20',fx:0,tx:100}),
       edge({from:'40',to:'50',fx:1000,tx:1100})],{eol});
-    await denied(distant,payload(distant),R.COINCIDENCE);
+    await denied(distant,payload(distant),R.GROUP_SPREAD);
     const deltaOnly=readFileSync(new URL('./fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml',
       import.meta.url),'utf8').replace(/\r?\n/g,eol);
-    await denied(deltaOnly,payload(deltaOnly,[[10,100]]),R.COINCIDENCE);
+    await denied(deltaOnly,payload(deltaOnly,[[10,100]]),R.COORDINATE);
   });
   test('BOM multibyte prefix, quote style and different replacement width '+label,async()=>{
     const src=fixture(eol,{a:'40',owner:'020.00',bom:'\uFEFF',
