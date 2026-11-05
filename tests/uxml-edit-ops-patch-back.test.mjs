@@ -352,3 +352,19 @@ test('R2 unknown node-like attr inside known source row refuses',async()=>{
     ' REF_NO="40" VENDOR_NODE="40"');
   await denied(src,payload(src),R.CARRIER);
 });
+
+for(const [tag,attributes] of [
+  ['RESTRAINT','NODE="40" CNODE="-1.010100" TYPE="1"'],
+  ['SIF','NODE="40" BRANCHNODE="-1.010100" TYPE="1"'],
+  ['BEND','NODE1="40" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"'],
+  ['PIPINGELEMENT',null],
+]){
+  for(const [kind,payloadText] of [['text','40'],['CDATA','<![CDATA[40]]>']]){
+    test('R1 known-tag '+kind+' '+tag+' refuses LF',async()=>{
+      const inner=tag==='PIPINGELEMENT'?payloadText:
+        '<'+tag+' '+attributes+'>'+payloadText+'</'+tag+'>';
+      const s=fixture().replace('</PIPINGELEMENT>',inner+'</PIPINGELEMENT>');
+      await denied(s,payload(s),R.CARRIER);
+    });
+  }
+}

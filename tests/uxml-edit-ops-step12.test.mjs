@@ -10,7 +10,7 @@ import {inventoryInputXml} from '../uxml/UxmlEditOpsTypedInventory.js';
 import {exactNodeId,xmlDecode,readInputXmlSourceField,
   absoluteInputXmlSourceWitness,INPUT_XML_SOURCE_FIELD_SCHEMA}
   from '../uxml/UxmlInputXmlSourceFields.js';
-import {verifyUxmlEditOpsIndependent}
+import {verifyUxmlEditOpsIndependent,__independentVerifierProbes as verifierGuards}
   from '../uxml/UxmlEditOpsIndependentVerifier.js';
 import {ownerGroups,assertOwnerGroupSpread,physicalNodeWitnesses,
   assertNoNewSelfConnected} from '../uxml/UxmlEditOpsInvariants.js';
@@ -198,8 +198,22 @@ test('I-3 LT-3f pre-existing parent FROM=TO equality unchanged',async()=>{
 });
 test('I-3 BEND node vs original parent endpoint newly colliding refuses',async()=>{
   const src=collision('BEND',
-    '<BEND NODE1="40" NODE2="20" NODE3="-1.010100" RADIUS="40"/>');
+    '<BEND NODE1="20" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"/>');
   await refuse(src,envelope(src),R.SELF);
+});
+test('R1 planner BEND-parent-only collision independently refuses SELF',()=>{
+  const src=collision('BEND',
+    '<BEND NODE1="20" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"/>');
+  assert.throws(()=>assertNoNewSelfConnected(inventoryInputXml(src,{refs:refs(src)}),
+    new Map([['40','20']])),error=>error.code===R.SELF);
+});
+test('R1 independent verifier BEND-parent-only collision refuses SELF',async()=>{
+  const src=collision('BEND',
+    '<BEND NODE1="20" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"/>');
+  await assert.rejects(()=>verifyUxmlEditOpsIndependent({
+    originalText:src,authorisedMapping:new Map([['40','20']]),
+    ledger:[],emittedBytes:new Uint8Array(Buffer.from(src,'utf8')),
+  }),error=>error.code===R.SELF);
 });
 for(const path of ['../docs/GREInputxml.xml','../docs/PLB314Inputxml.xml']){
   test('I-4 LT-4a/b public v14 ordinary numeric fields pass typed admission '+path,()=>{
@@ -335,4 +349,70 @@ test('I-5 mandatory separate verifier is called for every success',()=>{
     'utf8');
   assert.match(srcCode,/await verifyUxmlEditOpsIndependent\s*\(/);
   assert.match(srcCode,/from '\.\/UxmlEditOpsIndependentVerifier\.js'/);
+});
+
+for(const tag of ['RESTRAINT','PIPINGELEMENT','SIF','BEND']){
+  const attr={
+    RESTRAINT:'NODE="40" CNODE="-1.010100" TYPE="1"',
+    SIF:'NODE="40" BRANCHNODE="-1.010100" TYPE="1"',
+    BEND:'NODE1="40" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"',
+  }[tag];
+  for(const [kind,content] of [['text','40'],['CDATA','<![CDATA[40]]>']]){
+    test('R1 Step12 known '+tag+' '+kind+' carrier refuses',async()=>{
+      const body=tag==='PIPINGELEMENT'?content:
+        '<'+tag+' '+attr+'>'+content+'</'+tag+'>';
+      const src=base({body});
+      await refuse(src,envelope(src),R.CARRIER);
+    });
+  }
+}
+
+test('R1 verifier CHAIN rejects byte-consistent candidate with poisoned mapping',async()=>{
+  const s=base(),{r}=await succeed(s);
+  await assert.rejects(()=>verifyUxmlEditOpsIndependent({
+    originalText:s,authorisedMapping:new Map([['40','20'],['20','40']]),
+    ledger:r.ledger,emittedBytes:r.bytes,
+  }),e=>e.code===R.CHAIN);
+});
+test('R1 verifier COORD refuses unobserved owner despite byte consistency',async()=>{
+  const s=base(),{r}=await succeed(s);
+  await assert.rejects(()=>verifyUxmlEditOpsIndependent({
+    originalText:s,authorisedMapping:new Map([['40','999']]),
+    ledger:r.ledger,emittedBytes:r.bytes,
+  }),e=>e.code===R.COORDINATE);
+});
+test('R1 verifier GROUP refuses original spread with byte-consistent identity',async()=>{
+  const s=groupFixture(-0.0009,0.0009);
+  await assert.rejects(()=>verifyUxmlEditOpsIndependent({
+    originalText:s,authorisedMapping:new Map([['40','20'],['60','20']]),
+    ledger:[],emittedBytes:new Uint8Array(Buffer.from(s,'utf8')),
+  }),e=>e.code===R.GROUP_SPREAD);
+});
+test('R1 verifier changed-count exact check rejects zero-width extra ledger',async()=>{
+  const s=base(),{r}=await succeed(s),offset=Buffer.byteLength(s,'utf8');
+  const spare={...r.ledger[0],field:'NO_SUCH_NODE_SLOT',
+    before:'',after:'',byteRange:{start:offset,end:offset}};
+  await assert.rejects(()=>verifyUxmlEditOpsIndependent({
+    originalText:s,authorisedMapping:new Map([['40','20']]),
+    ledger:[...r.ledger,spare],emittedBytes:r.bytes,
+  }),e=>e.code===R.TOPOLOGY);
+});
+test('R1 verifier text-item equality detects XML-equivalent raw text edits',()=>{
+  const before={textItems:[{path:'/CAESARII[1]/UNITS[1]/LENGTH[1]',raw:'A&amp;B'}]};
+  const after={textItems:[{path:'/CAESARII[1]/UNITS[1]/LENGTH[1]',raw:'A&#38;B'}]};
+  assert.throws(()=>verifierGuards.assertVerifierTextParity(before,after),
+    e=>e.code==='INPUT_XML_PATCHED_TEXT_ITEMS_MISMATCH');
+});
+test('R1 verifier OWNER source spelling requires one original B endpoint',()=>{
+  const before={carriers:[]},after={carriers:[]};
+  assert.throws(()=>verifierGuards.assertVerifierOwnerSpelling(before,after,
+    new Map([['40','20']])),e=>e.code===R.OWNER);
+});
+test('R1 verifier S3 point parity refuses changed solved point',()=>{
+  const oldDoc={ports:[{sourceRefs:[{elementIndex:0,endpoint:'FROM'}],
+    point:{x:100,y:0,z:0}}]};
+  const candidate={ports:[{sourceRefs:[{elementIndex:0,endpoint:'FROM'}],
+    point:{x:100.002,y:0,z:0}}]};
+  assert.throws(()=>verifierGuards.assertVerifierS3PointConsistency(
+    oldDoc,candidate,0,'FROM'),e=>e.code===R.TOPOLOGY);
 });

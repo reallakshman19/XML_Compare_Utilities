@@ -32,6 +32,54 @@ const specs=[
     new:'need(true,STEP12_CODES.COORDINATE,',
     name:'I-1 direct missing physical source-literal endpoint refuses COORDINATE',
   },
+  {id:'R1_KNOWN_TAG_TEXT',file:TYPED,
+    old:"if(TEXT_NODE_LIKE.test(p.fold)||nodeCandidate(p.fold,'',decoded))",
+    new:"if(false)",
+    name:'R1 Step12 known RESTRAINT text carrier refuses'},
+  {id:'R1_KNOWN_TAG_CDATA',file:TYPED,
+    old:"guard(XML_WHITESPACE.test(text.slice(open+9,end)),",
+    new:"guard(true,",
+    name:'R1 Step12 known RESTRAINT CDATA carrier refuses'},
+  {id:'R1_BEND_PARENT_PLANNER',file:INV,
+    old:"if(family==='BEND')\n          for(const slot of slots)for(const parent of endpoint)visit(slot,parent);",
+    new:"if(false)\n          for(const slot of slots)for(const parent of endpoint)visit(slot,parent);",
+    name:'R1 planner BEND-parent-only collision independently refuses SELF'},
+  {id:'R1_BEND_PARENT_VERIFIER',file:VERIFY,
+    old:"if(family==='BEND')\n          for(const c of values)for(const e of endpoint)pair(c,e);",
+    new:"if(false)\n          for(const c of values)for(const e of endpoint)pair(c,e);",
+    name:'R1 independent verifier BEND-parent-only collision refuses SELF'},
+  {id:'R1_VERIFIER_CHAIN',file:VERIFY,
+    old:"assert(a!==b&&!aIds.has(b),C.CHAIN,",
+    new:"assert(true,C.CHAIN,",
+    name:'R1 verifier CHAIN rejects byte-consistent candidate'},
+  {id:'R1_VERIFIER_COORD',file:VERIFY,
+    old:"assert(hits>0,C.COORD,",
+    new:"assert(true,C.COORD,",
+    name:'R1 verifier COORD refuses unobserved owner'},
+  {id:'R1_VERIFIER_GROUP',file:VERIFY,
+    old:"assert(dist(points[i],points[j])<=INPUTXML_DELTA_TOLERANCE,",
+    new:"assert(true,",
+    name:'R1 verifier GROUP refuses original spread'},
+  {id:'R1_VERIFIER_SELF',file:VERIFY,
+    old:"assert(a.key===b.key||mappedA!==mappedB,C.SELF,",
+    new:"assert(true,C.SELF,",
+    name:'R1 independent verifier BEND-parent-only collision refuses SELF'},
+  {id:'R1_VERIFIER_CHANGED_COUNT',file:VERIFY,
+    old:"assert(changed===ledger.length,C.TOPO,",
+    new:"assert(true,C.TOPO,",
+    name:'R1 verifier changed-count exact check'},
+  {id:'R1_VERIFIER_TEXT',file:VERIFY,
+    old:"assert(before.textItems.length===after.textItems.length&&\n    before.textItems.every((a,i)=>a.path===after.textItems[i].path&&\n      a.raw===after.textItems[i].raw),C.TEXT);",
+    new:"assert(true,C.TEXT);",
+    name:'R1 verifier text-item equality detects'},
+  {id:'R1_VERIFIER_OWNER',file:VERIFY,
+    old:"assert(originals.length>0&&new Set(originals).size===1,C.OWNER);",
+    new:"assert(true,C.OWNER);",
+    name:'R1 verifier OWNER source spelling'},
+  {id:'R1_VERIFIER_S3_POINT',file:VERIFY,
+    old:"assert(originalPort&&finalPort&&\n    dist(originalPort.point,finalPort.point)<=INPUTXML_DELTA_TOLERANCE,",
+    new:"assert(true,",
+    name:'R1 verifier S3 point parity refuses'},
   {
     id:'I2_CASE_NORMALISED_SOURCE_FIELD',file:FIELDS,
     old:"(a.field||a.name||'').toUpperCase()===key",
@@ -87,6 +135,18 @@ const specs=[
     name:'I-5 mandatory separate verifier is called for every success',
   },
   {
+    id:'R1_VERIFIER_CALL_BEHAVIOUR',file:WRITE,
+    old:'await verifyUxmlEditOpsIndependent({',
+    new:'void ({',
+    seed:'OWNER',name:'R1 behavioural verifier-only OWNER mismatch refuses',
+  },
+  {
+    id:'R1_VERIFIER_BYTE_ONLY',file:VERIFY,
+    old:"originalByteProof(originalBytes,emittedBytes,ledger);\n  let newText;",
+    new:"originalByteProof(originalBytes,emittedBytes,ledger);\n  return {ok:true,parity:'EQUAL'};\n  let newText;",
+    seed:'OWNER',name:'R1 behavioural verifier-only OWNER mismatch refuses',
+  },
+  {
     id:'I6_ATOMIC_NO_BYTES',file:WRITE,
     old:'if(e instanceof Refusal)return fail(e.code,e.detail);',
     new:"if(e instanceof Refusal)return {ok:true,bytes:new Uint8Array(),ledger:[],refusals:[]};",
@@ -116,6 +176,37 @@ for(const spec of specs){
       cpSync(join(root,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'),
         join(dir,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'));
       writeFileSync(join(dir,'package.json'),'{"type":"module"}\n');
+      if(spec.seed==='OWNER'){
+        // In this disposable clone only, bypass redundant planner B-spelling
+        // gates. The real independently imported verifier MUST be the only
+        // remaining source of this exact no-byte OWNER refusal.
+        const file=join(dir,WRITE),initial=readFileSync(file,'utf8');
+        const seams=[
+          ["need(ownerSpelling.length===1,R.OWNER,{opId:op.opId});",
+           "need(true,R.OWNER,{opId:op.opId});"],
+          ["need(new Set(originals).size===1&&originals.length>0,R.OWNER);",
+           "need(true,R.OWNER);"],
+          ["need(candidate.carriers.filter(x=>x.element==='PIPINGELEMENT'&&\n      x.key===owner).every(x=>x.raw.trim()===literal),R.TOPOLOGY);",
+           "need(true,R.TOPOLOGY);"],
+        ];
+        let mutated=initial;
+        for(const [from,to] of seams){
+          assert.equal(mutated.split(from).length-1,1,'OWNER seed seam');
+          mutated=mutated.replace(from,()=>to);
+        }
+        writeFileSync(file,mutated);
+        const injected=`
+test('R1 behavioural verifier-only OWNER mismatch refuses',async()=>{
+  const src=model([
+    edge({from:'10',to:'020.00',fx:0,tx:100}),
+    edge({from:'40',to:'50',fx:100,tx:200}),
+    edge({from:'20',to:'90',fx:100,tx:300}),
+  ]);
+  await refuse(src,envelope(src),R.OWNER);
+});
+`;
+        writeFileSync(join(dir,TEST),readFileSync(join(dir,TEST),'utf8')+injected);
+      }
       const argv=['--test','--test-name-pattern='+spec.name,TEST];
       const green=run(dir,argv);
       assert.equal(green.status,0,spec.id+' GREEN control:\n'+green.stdout+'\n'+green.stderr);

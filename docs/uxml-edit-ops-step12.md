@@ -83,3 +83,43 @@ and expects the SAME focused test assertion RED. The independent verifier
 must never import planner functions. Native CAESAR II import/topology
 verification and upstream transaction authentication are NOT_RUN and
 remain Owner/TopoFix release gates.
+
+## Step 1.2-R1 regression and verifier custody
+
+- Incomplete literal absolute coordinate triples (for example missing
+  FROM_Y or TO_Z while another axis is present) are refused by the unchanged
+  strict S3 reader first, exposed as INPUT_XML_ORIGINAL_SOURCE_REFUSED,
+  **before** the later INPUT_XML_ALIAS_COORDINATE_UNPROVEN source-witness
+  check. Never claim the partial-triple case reaches the coordinate gate.
+- Whitespace-padded absolute literals such as FROM_X=" 100 " fail the exact
+  source-literal witness and refuse INPUT_XML_ALIAS_COORDINATE_UNPROVEN.
+  The strict-S3 solved value cannot replace the original unambiguous token.
+- B7/B8 mutation harness clones explicitly depend on
+  UxmlInputXmlSourceFields.js imported by UxmlInputXmlSchemaMapper.js.
+  Their workflow path filters cover cloned source dependencies and public
+  fixtures; both mutant suites must run on edits to shared original readers.
+- The independently imported verification code validates fresh original
+  bytes, typed numeric references and graph topology, but it **shares**
+  UxmlEditOpsTypedInventory.js carrier classification with the writer.
+  A classification defect replicated in that shared module is a correlated
+  risk, not independent corroboration of the XML schema. The version-matched
+  Hexagon schema evidence and external Oracle tests remain necessary.
+- The original-byte ledger and unchanged strict-S3 re-read cannot directly
+  manufacture a geometry or text change without triggering an earlier
+  byte/typed invariant. The verifier's *actual live* changed-count, text-item,
+  owner-spelling and solved-point checks therefore also have read-only
+  invariant probes and isolated one-guard RED mutations to pin those
+  redundant defense-in-depth layers.
+- Step 1.2 implementation intentionally does not authenticate the TopoFix
+  selected native action, does not validate CAESAR II import, and does not
+  certify all pre-existing unrelated topology. No tolerance/policy/CLOS
+  widening is permitted.
+
+### Nonblocking maintainability hold (R1)
+
+N1: UxmlEditOpsTypedInventory.js currently exceeds the repository's
+under-300-line convention. A follow-on purely mechanical split can move the
+static v14 carrier registry into a versioned module and separate bounded
+XML tokenization, while snapshot-diff testing the registry values, scanner
+offsets, existing inputs and all mutation seams. **NOT DONE in R1**:
+not worth risking the code safety gate with an unverified parser refactor.

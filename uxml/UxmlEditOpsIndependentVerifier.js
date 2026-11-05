@@ -23,6 +23,7 @@ const C={
   REF:'INPUT_XML_SOURCE_REF_ORIGINAL_MISMATCH',
   READER:'INPUT_XML_PATCHED_S3_READER_REFUSED',
   OWNER:'INPUT_XML_OWNER_NODE_SPELLING_AMBIGUOUS',
+  TEXT:'INPUT_XML_PATCHED_TEXT_ITEMS_MISMATCH',
 };
 const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
   b=>b.toString(16).padStart(2,'0')).join('');
@@ -136,6 +137,51 @@ function originalByteProof(original,result,ledger){
   }
   assert(eq([...original.slice(prior)],[...result.slice(cursor)]),C.PARITY);
 }
+/**
+ * These assertions are the SAME functions used by the independent verifier.
+ * Read-only direct probes let single-guard mutants prove live behavior without
+ * weakening the original-byte/strict-S3 gates to make impossible states.
+ */
+function assertVerifierSourcePairDistinctness(before,mapping){
+  for(const {a,b}of sourcePairs(before)){
+    const mappedA=mapNode(a.key,mapping),mappedB=mapNode(b.key,mapping);
+    assert(a.key===b.key||mappedA!==mappedB,C.SELF,{
+      recordKey:a.recordKey,fields:[a.path,b.path]});
+  }
+}
+function assertVerifierChangedCount(changed,ledger){
+  assert(changed===ledger.length,C.TOPO,{changed,ledgerCount:ledger.length});
+}
+function assertVerifierTextParity(before,after){
+  assert(before.textItems.length===after.textItems.length&&
+    before.textItems.every((a,i)=>a.path===after.textItems[i].path&&
+      a.raw===after.textItems[i].raw),C.TEXT);
+}
+function assertVerifierOwnerSpelling(before,after,mapping){
+  for(const [owner]of recomputeCanonicalOwnerEntries(mapping)){
+    const originals=before.carriers.filter(c=>c.element==='PIPINGELEMENT'&&
+      c.key===owner).map(c=>c.raw.trim());
+    assert(originals.length>0&&new Set(originals).size===1,C.OWNER);
+    const unique=originals[0];
+    assert(after.carriers.filter(c=>c.element==='PIPINGELEMENT'&&c.key===owner)
+      .every(c=>c.raw.trim()===unique),C.TOPO);
+  }
+}
+function assertVerifierS3PointConsistency(originalDoc,candidateDoc,index,role){
+  const originalPort=originalDoc.ports.find(p=>
+    p.sourceRefs?.[0]?.elementIndex===index&&p.sourceRefs?.[0]?.endpoint===role);
+  const finalPort=candidateDoc.ports.find(p=>
+    p.sourceRefs?.[0]?.elementIndex===index&&p.sourceRefs?.[0]?.endpoint===role);
+  assert(originalPort&&finalPort&&
+    dist(originalPort.point,finalPort.point)<=INPUTXML_DELTA_TOLERANCE,
+    C.TOPO,{row:index+1,role});
+}
+export const __independentVerifierProbes=Object.freeze({
+  recomputeGroups,assertVerifierSourcePairDistinctness,
+  assertVerifierChangedCount,assertVerifierTextParity,
+  assertVerifierOwnerSpelling,assertVerifierS3PointConsistency,
+});
+
 export async function verifyUxmlEditOpsIndependent({
   originalText,authorisedMapping,ledger,emittedBytes,
 }){
@@ -157,11 +203,7 @@ export async function verifyUxmlEditOpsIndependent({
   const before=inventoryInputXml(originalText,{refs:originalDoc.components.map(c=>c.sourceRefs[0])});
   const after=inventoryInputXml(newText,{refs:candidateDoc.components.map(c=>c.sourceRefs[0])});
   recomputeGroups(authorisedMapping,originalDoc);
-  for(const {a,b}of sourcePairs(before)){
-    const newA=mapNode(a.key,authorisedMapping),newB=mapNode(b.key,authorisedMapping);
-    assert(a.key===b.key||newA!==newB,C.SELF,{
-      recordKey:a.recordKey,fields:[a.path,b.path]});
-  }
+  assertVerifierSourcePairDistinctness(before,authorisedMapping);
   assert(eq(before.shape,after.shape)&&before.records.length===after.records.length&&
     before.items.length===after.items.length,C.TOPO);
   const ledgerKeys=new Map(ledger.map(x=>[x.recordKey+'#'+x.field,x]));
@@ -172,8 +214,6 @@ export async function verifyUxmlEditOpsIndependent({
     if(a.kind==='NODE_REF'){
       const mapped=mapNode(a.key,authorisedMapping);
       assert(b.key===mapped,C.TOPO,{path:a.path});
-      if(b.key!==null&&authorisedMapping.has(b.key))
-        throw fail(C.REMAIN,{path:b.path});
       if(a.key!==null&&authorisedMapping.has(a.key)){
         const l=ledgerKeys.get(a.recordKey+'#'+fieldName(a));
         assert(l&&l.before===a.raw&&l.after===b.raw,C.TOPO,{path:a.path});
@@ -181,23 +221,14 @@ export async function verifyUxmlEditOpsIndependent({
       }else assert(a.raw===b.raw,C.TOPO,{path:a.path});
     }else assert(a.raw===b.raw&&a.decoded===b.decoded,C.TOPO,{path:a.path});
   }
-  assert(changed===ledger.length,C.TOPO);
-  assert(before.textItems.length===after.textItems.length&&
-    before.textItems.every((a,i)=>a.path===after.textItems[i].path&&
-      a.raw===after.textItems[i].raw),C.TOPO);
+  assertVerifierTextParity(before,after);
+  assertVerifierChangedCount(changed,ledger);
   const oldEdges=edgeList(before),expected=oldEdges.map(([a,b])=>
     [mapNode(a,authorisedMapping),mapNode(b,authorisedMapping)]);
   const actual=edgeList(after);
   assert(eq(expected.map(JSON.stringify),actual.map(JSON.stringify))&&
     eq(components(expected),components(actual)),C.TOPO);
-  for(const [owner]of recomputeCanonicalOwnerEntries(authorisedMapping)){
-    const originals=before.carriers.filter(c=>c.element==='PIPINGELEMENT'&&
-      c.key===owner).map(c=>c.raw.trim());
-    assert(originals.length>0&&new Set(originals).size===1,C.OWNER);
-    const unique=originals[0];
-    assert(after.carriers.filter(c=>c.element==='PIPINGELEMENT'&&c.key===owner)
-      .every(c=>c.raw.trim()===unique),C.TOPO);
-  }
+  assertVerifierOwnerSpelling(before,after,authorisedMapping);
   assert(originalDoc.components.length===candidateDoc.components.length,C.REF);
   for(let i=0;i<originalDoc.components.length;i++){
     const oldRef=originalDoc.components[i]?.sourceRefs?.[0];
@@ -208,12 +239,7 @@ export async function verifyUxmlEditOpsIndependent({
     const [a,b]=expected[i];
     assert(id(newRef.fromNode)===a&&id(newRef.toNode)===b,C.TOPO,{row:i+1});
     for(const role of ['FROM','TO']){
-      const first=originalDoc.ports.find(p=>
-        p.sourceRefs?.[0]?.elementIndex===i&&p.sourceRefs?.[0]?.endpoint===role);
-      const last=candidateDoc.ports.find(p=>
-        p.sourceRefs?.[0]?.elementIndex===i&&p.sourceRefs?.[0]?.endpoint===role);
-      assert(first&&last&&dist(first.point,last.point)<=INPUTXML_DELTA_TOLERANCE,
-        C.TOPO,{row:i+1,role});
+      assertVerifierS3PointConsistency(originalDoc,candidateDoc,i,role);
     }
     assert(oldRef&&newRef,C.REF);
   }
