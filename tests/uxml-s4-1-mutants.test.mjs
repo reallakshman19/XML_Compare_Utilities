@@ -11,7 +11,7 @@ const source=fileURLToPath(new URL('../',import.meta.url));
 const mapper='uxml/UxmlCategorizedInputXmlSchemaMapper.js';
 const files=[
  mapper,'uxml/UxmlInputXmlSourceStructure.js','uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
- 'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlDeltaGraph.js',
+ 'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js','uxml/UxmlInputXmlDeltaGraph.js',
  'utils/line-no-metadata.js',
  'docs/PLB314Inputxml.xml','docs/GREInputxml.xml',
  'xml-compare/CategorizedInputXmlConverter.js',
