@@ -154,3 +154,56 @@ check was removed as redundant: TextDecoder with fatal=true rejects invalid
 or noncanonical encodings, and the immutable original byte complement
 already verifies every exact candidate byte. Its C.REMAIN diagnostic constant
 was removed because its throw was removed in R1.
+
+## Step 1.2-R2 FINAL: surviving guard accountability
+
+PINNED = isolated original GREEN → one-guard-deleted RED. COVERED =
+independent surviving named refusal after one-guard deletion; those
+mutation tests correctly remain GREEN. REMOVED = proved redundant.
+
+| Guard | Status | Committed focused test / mutation |
+|---|---|---|
+| PatchBack OWNER raw (:221) | COVERED-BY fullNumericOracle + independent verifier | R2 COVERED OWNER_PLANNER / IR B6 mixed spelling |
+| PatchBack REMAINED (:294) | COVERED-BY numeric b.key===expected | R2 COVERED REMAINED_WRITER / writer absorbed remainder |
+| PatchBack numeric new SELF (:325) | PINNED | R2 PIN writer numeric oracle self-connection / R2_FULL_NUMERIC_NEW_SELF |
+| PatchBack verifyS3Candidate point (:346) | PINNED | R2 PIN writer solved point parity / R2_S3_POINT_PARITY |
+| PatchBack duplicate CONFLICT (:201) | COVERED-BY reserveField or strict preflight | R2 COVERED DUPLICATE_ABSORBED |
+| PatchBack legacy verifyCoincidence (:211) | COVERED-BY all-pairs owner group | R2 COVERED LEGACY_LOCAL_COINCIDENCE / IR B4/F6 |
+| PatchBack assertByteParity (:352) | COVERED-BY independent originalByteProof | R2 COVERED WRITER_BYTE_PARITY / independent complement |
+| Invariants original literal (:53) | PINNED | R2 PIN planner literal / R2_PLANNER_LITERAL_WITNESS |
+| Invariants anchored/frame | PINNED | R2 PIN planner physical anchor / R2_PLANNER_ANCHORED_FRAME |
+| SourceFields sentinel absolute | PINNED | R2 PIN source sentinel / R2_SOURCE_SENTINEL_ABSOLUTE |
+| Verifier NODE_REF key===mapped (:216) | PINNED | R2 LIVE CHILD |
+| Verifier ledger match (:219) | PINNED | R2 LIVE LEDGER |
+| Verifier unchanged node/raw (:221) | PINNED | R2 LIVE UNCHANGED |
+| Verifier unchanged non-node (:222) | PINNED | R2 LIVE NONNODE |
+| Verifier numeric edges/components (:230) | PINNED | R2 LIVE EDGES |
+| Verifier per-row S3 numeric ref (:240) | PINNED | R2 LIVE ROWNUM |
+| Verifier shape (:207) | PINNED | R2 LIVE SHAPE |
+| Verifier re-encode identity (:195) | REMOVED | Fatal UTF-8 decode and independent exact-byte complement already prove it |
+| Verifier text call (:224) | PINNED | R2 LIVE TEXT |
+| Verifier owner raw call (:231) | PINNED | R2 LIVE OWNER |
+| Verifier S3 point call (:242) | PINNED | R2 LIVE POINT |
+| Verifier anchor/frame | PINNED | R2 LIVE ANCHOR |
+| Verifier literal witness | PINNED | R2 LIVE LITERAL |
+| Verifier FROM/TO SELF | PINNED | R2 LIVE SELF |
+
+All LIVE seeds call the actual verifyUxmlEditOpsIndependent(original,
+mapping, ledger, bytes). Each uses byte-consistent original and
+candidate XML with a faulted original reader/inventory only in its
+disposable test clone. No production dependency-injection hook exists.
+
+### R2 nonblocking outcome
+
+N1 PARTIAL: unused verifier C.REMAIN and PatchBack absoluteInputXmlSourceWitness
+import removed; same-branch node-field ternary simplified. The test-only
+assertUnchainedIds probe and old R.LOOP/R.COINCIDENCE refusal names remain.
+N2 DONE: workflow label no longer hardcodes fourteen invariant mutants.
+N3 DONE: public GRE 0/200 and PLB314 0/106 anchored ports; without
+complete original FROM/TO X/Y/Z all aliases refuse COORDINATE_UNPROVEN.
+N4 NOT DONE: 641-line TypedInventory.js is above the under-300 line
+convention. A registry/scanner/text split needs separate snapshot and
+mutation-seam parity; not safe to undertake in final repair.
+
+Oracle acceptance, authenticated TopoFix action approval and native CII
+import/topology validation remain external and NOT_RUN.
