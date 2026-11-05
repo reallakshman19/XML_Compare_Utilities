@@ -58,8 +58,8 @@ const specs=[
   },
   {
     id:'I4_UNKNOWN_CARRIER',file:TYPED,
-    old:"throw error('INPUT_XML_UNSUPPORTED_NODE_CARRIER',{path:element.path,field,tag});",
-    new:"return {kind:'KNOWN_NON_NODE'};",
+    old:"if(nonNode(tag,field))return {kind:'KNOWN_NON_NODE'};\n    throw error('INPUT_XML_UNSUPPORTED_NODE_CARRIER',{path:element.path,field,tag});",
+    new:"if(nonNode(tag,field))return {kind:'KNOWN_NON_NODE'};\n    return {kind:'KNOWN_NON_NODE'};",
     name:'I-4 direct unclassified potential numeric carrier remains unsupported',
   },
   {
@@ -109,6 +109,9 @@ for(const spec of specs){
       cpSync(join(root,'uxml'),join(dir,'uxml'),{recursive:true});
       cpSync(join(root,'utils'),join(dir,'utils'),{recursive:true});
       mkdirSync(join(dir,'tests/fixtures'),{recursive:true});
+      mkdirSync(join(dir,'docs'),{recursive:true});
+      for(const name of ['GREInputxml.xml','PLB314Inputxml.xml'])
+        cpSync(join(root,'docs',name),join(dir,'docs',name));
       cpSync(join(root,TEST),join(dir,TEST));
       cpSync(join(root,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'),
         join(dir,'tests/fixtures/uxml-s3-synthetic.workspace.delta-only.input.xml'));
