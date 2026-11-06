@@ -379,16 +379,21 @@ for(const value of ['NODE 40','40,','x 40 y']){
     });
   }
 }
-for(const kind of ['element-text','CDATA']){
-  test('R2 whitespace-only '+kind+' allowed on anchored alias',async()=>{
-    const chars=' \t\r\n ';
-    const text=kind==='CDATA'?'<![CDATA['+chars+']]>':chars;
-    const src=fixture().replace('</PIPINGELEMENT>',text+'</PIPINGELEMENT>');
-    const r=await success(src);
-    assert.equal(r.r.parity,'EQUAL');
-    assert.deepEqual(r.r.refusals,[]);
-  });
-}
+test('R3 whitespace-only ordinary text allowed on anchored alias',async()=>{
+  const src=fixture().replace('</PIPINGELEMENT>',
+    ' \t\r\n </PIPINGELEMENT>');
+  const r=await success(src);
+  assert.equal(r.r.parity,'EQUAL');
+  assert.deepEqual(r.r.refusals,[]);
+});
+test('R3 whitespace-only CDATA section refuses all bytes',async()=>{
+  const src=fixture().replace('</PIPINGELEMENT>',
+    '<![CDATA[ \t\r\n ]]></PIPINGELEMENT>');
+  const before=fixture(),old=payload(before),digest=sha(src);
+  const p={...old,fileSha256:digest,
+    ops:old.ops.map(op=>({...op,fileSha256:digest}))};
+  await denied(src,p,R.CARRIER);
+});
 
 test('R2 PIN writer numeric oracle refuses newly self-connected endpoint',()=>{
   const src=model([

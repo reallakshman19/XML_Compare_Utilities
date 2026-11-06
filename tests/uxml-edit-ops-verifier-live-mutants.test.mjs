@@ -40,14 +40,33 @@ export function mapCaesarInputXmlToUxmlStrict(source,opts){
     if(!row)throw new Error('seed missing original frame');
     row.coordinateFrame='UNVERIFIED_FRAME';
   }
-  if(seed==='LITERAL'&&isOld){
+  if((seed==='LITERAL'||seed==='LITERAL_DRIFT')&&isOld){
     const attrs=doc.components[1]?.rawAttributes?.inputXml?.sourceAttributes;
     if(!attrs)throw new Error('seed missing original literal');
-    attrs.FROM_X='not-a-coordinate';
+    attrs.FROM_X=seed==='LITERAL'?'not-a-coordinate':'100.005';
   }
   if(seed==='POINT'&&!isOld){
     if(!row)throw new Error('seed missing destination port');
     row.point.x+=0.004;
+  }
+  if(seed==='COMPONENT_COUNT'&&!isOld)
+    doc.components.push({...doc.components[1]});
+  if(seed==='REF_SHAPE'&&!isOld){
+    const ref=doc.components[1]?.sourceRefs?.[0];
+    if(!ref)throw new Error('seed missing recordKey');
+    ref.recordKey='R3-FORGED-KEY';
+  }
+  if(['S3_RESTRAINT','S3_SIF','S3_BEND'].includes(seed)&&!isOld){
+    const src=doc.components[1]?.rawAttributes?.inputXml;
+    if(!src)throw new Error('seed missing strict S3 source view');
+    if(seed==='S3_RESTRAINT')
+      src.restraints=[{type:'RESTRAINT',attributes:
+        {NODE:'40',CNODE:'-1.010100',TYPE:'1'},rawXml:'<RESTRAINT NODE="40"/>'}];
+    if(seed==='S3_SIF')src.sifEvidence=[{typeCode:1,node:'40',
+      rawAttributes:{NODE:'40',BRANCHNODE:'-1.010100',TYPE:'1'}}];
+    if(seed==='S3_BEND')src.bendEvidence={radius:40,
+      rawAttributes:{NODE1:'40',NODE2:'-1.010100',
+        NODE3:'-1.010100',RADIUS:'40'}};
   }
   if(seed==='ROWNUM'&&!isOld){
     const ref=doc.components[1]?.sourceRefs?.[0];
@@ -70,6 +89,8 @@ export function inventoryInputXml(source,opts){
     inventory.carriers.push({...row,raw:'20'});
   }
   if(seed==='SHAPE'&&!isOld)inventory.shape.push('EXTRA-UNVERIFIED-SHAPE');
+  if(seed==='ITEM_PATH'&&!isOld)inventory.items[0].path='/FORGED-R3-PATH';
+  if(seed==='ITEM_COUNT'&&!isOld)inventory.items.push({...inventory.items[0]});
   if(seed==='LEDGER'&&!isOld){
     const c=inventory.items.find(x=>x.element==='RESTRAINT'&&x.field==='NODE');
     if(!c)throw new Error('seed missing edited child');
@@ -95,6 +116,50 @@ export function inventoryInputXml(source,opts){
 }
 `;
 const seedSpecs=[
+  {
+    seed:'RESTRAINT_SELF',guard:'verifier RESTRAINT active NODE vs CNODE',
+    old:"for(const family of ['BEND','SIF','RESTRAINT','RESTRANT','HANGER'])",replacement:"for(const family of ['BEND','SIF','RESTRANT','HANGER'])",
+  },
+  {
+    seed:'SIF_SELF',guard:'verifier SIF NODE vs BRANCHNODE',
+    old:"for(const family of ['BEND','SIF','RESTRAINT','RESTRANT','HANGER'])",replacement:"for(const family of ['BEND','RESTRAINT','RESTRANT','HANGER'])",
+  },
+  {
+    seed:'BEND_SELF',guard:'verifier same-BEND NODE1/2 pair',
+    old:"for(let i=0;i<values.length;i++)",replacement:"for(let i=0;i<0;i++)",
+  },
+  {
+    seed:'LITERAL_DRIFT',guard:'verifier parsed source literal differs from solved point',
+    old:"points.push(p,raw);",replacement:"points.push(p);",
+  },
+  {
+    seed:'S3_RESTRAINT',guard:'verifier S3 restraint node carrier equals typed inventory',
+    old:"assertS3TypedChildNodeParity(candidateDoc,after);",replacement:"void candidateDoc;",
+  },
+  {
+    seed:'S3_SIF',guard:'verifier S3 SIF node carrier equals typed inventory',
+    old:"assertS3TypedChildNodeParity(candidateDoc,after);",replacement:"void candidateDoc;",
+  },
+  {
+    seed:'S3_BEND',guard:'verifier S3 BEND node carrier equals typed inventory',
+    old:"assertS3TypedChildNodeParity(candidateDoc,after);",replacement:"void candidateDoc;",
+  },
+  {
+    seed:'ITEM_PATH',guard:'verifier inventory path and kind integrity',
+    old:"assert(a.path===b.path&&a.kind===b.kind,C.TOPO);",replacement:"assert(true,C.TOPO);",
+  },
+  {
+    seed:'ITEM_COUNT',guard:'verifier typed item-count parity',
+    old:"before.items.length===after.items.length,C.TOPO);",replacement:"true,C.TOPO);",
+  },
+  {
+    seed:'COMPONENT_COUNT',guard:'verifier S3 component count parity',
+    old:"assert(originalDoc.components.length===candidateDoc.components.length,C.REF);",replacement:"assert(true,C.REF);",
+  },
+  {
+    seed:'REF_SHAPE',guard:'verifier strict S3 ref format/index/recordKey shape',
+    old:"assert(newRef?.elementIndex===i&&newRef?.format==='INPUT_XML'&&\n      newRef.recordKey==='E'+i+':F'+encodeURIComponent(newRef.fromNode)+\n      ':T'+encodeURIComponent(newRef.toNode),C.REF,{row:i+1});",replacement:"assert(true,C.REF,{row:i+1});",
+  },
   {
     seed:'TEXT',guard:'verifier text call',
     old:'assertVerifierTextParity(before,after);',replacement:'void after;',

@@ -528,11 +528,18 @@ export function inventoryInputXml(text,{refs=[]}={}){
   };
   // CAESAR II v14 model payload is strictly attribute-only. The SAME
   // fail-closed rule covers ordinary text and CDATA; whitespace is inert.
+  const inModel=()=>stack.some(e=>e.fold==='PIPINGMODEL');
   const assertModelCharacterData=(raw,kind)=>{
     const parent=stack.at(-1);
-    guard(XML_WHITESPACE.test(raw)||(!stack.some(e=>e.fold==='PIPINGMODEL')&&
-      kind!=='cdata'), 'INPUT_XML_UNKNOWN_NODE_CARRIER',
-      {path:parent?.path||null,kind});
+    // Every CDATA *section*, even whitespace-only, is forbidden in v14 model.
+    // Ordinary whitespace between model attributes/elements remains inert.
+    guard(kind!=='cdata'&&
+      (XML_WHITESPACE.test(raw)||!inModel()),
+      'INPUT_XML_UNKNOWN_NODE_CARRIER',{path:parent?.path||null,kind});
+  };
+  const assertNoModelMarkup=(kind)=>{
+    guard(!inModel(),'INPUT_XML_UNKNOWN_NODE_CARRIER',
+      {path:stack.at(-1)?.path||null,kind});
   };
   const textBetween=(end)=>{
     if(cursor===end)return;
@@ -552,11 +559,13 @@ export function inventoryInputXml(text,{refs=[]}={}){
     if(open<0){textBetween(text.length);cursor=text.length;break;}
     textBetween(open);cursor=open;
     if(text.startsWith('<!--',open)){
+      assertNoModelMarkup('comment');
       const end=text.indexOf('-->',open+4);
       guard(end>=0&&!text.slice(open+4,end).includes('--'),'INPUT_XML_NODE_ENTITY_UNSUPPORTED');
       cursor=end+3;continue;
     }
     if(text.startsWith('<?',open)){
+      assertNoModelMarkup('processing-instruction');
       const end=text.indexOf('?>',open+2);
       guard(end>=0,'INPUT_XML_NODE_ENTITY_UNSUPPORTED');
       cursor=end+2;continue;
@@ -567,8 +576,10 @@ export function inventoryInputXml(text,{refs=[]}={}){
       assertModelCharacterData(text.slice(open+9,end),'cdata');
       cursor=end+3;continue;
     }
-    if(/^<!DOCTYPE\b/i.test(text.slice(open,open+10))||text.startsWith('<!',open))
+    if(/^<!DOCTYPE\b/i.test(text.slice(open,open+10))||text.startsWith('<!',open)){
+      assertNoModelMarkup('dtd-or-declaration');
       throw error('INPUT_XML_NODE_ENTITY_UNSUPPORTED',{kind:'dtd-or-declaration'});
+    }
     if(text.startsWith('</',open)){
       const close=text.indexOf('>',open+2),inside=text.slice(open+2,close).trim();
       guard(close>=0&&XML_NAME.test(inside)&&stack.length>0&&

@@ -427,13 +427,15 @@ for(const raw of ['NODE 40','40,','x 40 y']){
     await refuse(src,envelope(src),R.CARRIER);
   });
 }
-for(const form of ['plain','cdata']){
-  test('R2 Step12 whitespace-only '+form+' passes',async()=>{
-    const whitespace=' \t\n ';
-    const src=base({body:form==='cdata'?'<![CDATA['+whitespace+']]>':whitespace});
-    await succeed(src);
-  });
-}
+test('R3 whitespace-only ordinary text remains allowed',async()=>{
+  await succeed(base({body:' \t\n '}));
+});
+test('R3 even whitespace-only model CDATA section is refused',async()=>{
+  const src=base({body:'<![CDATA[ \t\n ]]>'});
+  const original=base(),p=envelope(original),digest=sha(src);
+  await refuse(src,{...p,fileSha256:digest,
+    ops:p.ops.map(op=>({...op,fileSha256:digest}))},R.CARRIER);
+});
 
 const r2SourceWitnessDoc=()=>({
   ports:[{sourceRefs:[{endpoint:'FROM',fromNode:'40',anchored:true,elementIndex:0,
@@ -469,4 +471,55 @@ test('R2 PIN planner coordinate-frame refusal',()=>{
   const doc=r2SourceWitnessDoc();
   doc.ports[0].coordinateFrame='UNVERIFIED_FRAME';
   assert.throws(()=>physicalNodeWitnesses(doc,'40'),e=>e.code===R.COORDINATE);
+});
+
+const r3Signed=body=>{
+  const pristine=base(),source=base({body}),authorised=envelope(pristine);
+  const digest=sha(source);
+  return {source,signing:{...authorised,fileSha256:digest,
+    ops:authorised.ops.map(op=>({...op,fileSha256:digest}))}};
+};
+const r3HiddenMarkup=[
+  ['comment-restraint','<!--<RESTRAINT NODE="40" CNODE="-1.010100" TYPE="1"/>-->'],
+  ['comment-bend','<!--<BEND NODE1="40" NODE2="-1.010100" NODE3="-1.010100" RADIUS="40"/>-->'],
+  ['processing-instruction','<?pi <RESTRAINT NODE="40" CNODE="-1.010100" TYPE="1"/> ?>'],
+  ['doctype','<!DOCTYPE BOOM [<!ENTITY node "40">]>'],
+  ['model-cdata','<![CDATA[<RESTRAINT NODE="40" CNODE="-1.010100"/>]]>'],
+  ['empty-model-cdata','<![CDATA[ ]]>'],
+];
+for(const [name,markup] of r3HiddenMarkup){
+  test('R3 C1 fail closed '+name+' emits no original bytes',async()=>{
+    const {source,signing}=r3Signed(markup);
+    await refuse(source,signing,R.CARRIER);
+  });
+}
+test('R3 C4 outside-model nonnode text NODE 40 remains inert',()=>{
+  const original=base();
+  const source=original.replace('</CAESARII>',
+    '<ALLOWABLESTRESS>NODE 40</ALLOWABLESTRESS></CAESARII>');
+  const inventory=inventoryInputXml(source,{refs:refs(source)});
+  assert(inventory.textItems.some(item=>item.raw==='NODE 40'));
+});
+for(const filename of ['GREInputxml.xml','PLB314Inputxml.xml']){
+  test('R3 public v14 export carries no model comment/PI/CDATA '+filename,()=>{
+    const source=readFileSync(new URL('../docs/'+filename,import.meta.url),'utf8');
+    assert.doesNotMatch(source,/<(?:!--|\?|!\[CDATA\[)/);
+    assert(inventoryInputXml(source,{refs:refs(source)}).records.length>20);
+  });
+}
+
+test('R3 inventory refuses commented active RESTRAINT without writer preflight',()=>{
+  const source=base({body:'<!--<RESTRAINT NODE="40" CNODE="-1.010100" TYPE="1"/>-->'});
+  assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
+    error=>error.code===R.CARRIER);
+});
+test('R3 inventory refuses PI-hidden RESTRAINT without writer preflight',()=>{
+  const source=base({body:'<?pi <RESTRAINT NODE="40" CNODE="-1.010100" TYPE="1"/> ?>'});
+  assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
+    error=>error.code===R.CARRIER);
+});
+test('R3 inventory refuses even whitespace-only CDATA without writer preflight',()=>{
+  const source=base({body:'<![CDATA[ ]]> '});
+  assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
+    error=>error.code===R.CARRIER);
 });

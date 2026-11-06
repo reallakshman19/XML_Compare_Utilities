@@ -39,7 +39,7 @@ const specs=[
   {id:'R1_KNOWN_TAG_CDATA',file:TYPED,
     old:"assertModelCharacterData(text.slice(open+9,end),'cdata');",
     new:"void end;",
-    name:'R2 Step12 ambiguous CDATA refuses'},
+    name:'R3 inventory refuses even whitespace-only CDATA without writer preflight'},
   {id:'R1_BEND_PARENT_PLANNER',file:INV,
     old:"if(family==='BEND')\n          for(const slot of slots)for(const parent of endpoint)visit(slot,parent);",
     new:"if(false)\n          for(const slot of slots)for(const parent of endpoint)visit(slot,parent);",
@@ -115,6 +115,24 @@ const specs=[
     old:"f.decoded.trim()!=='-1.010100'&&Number.isFinite(Number(f.decoded))",
     new:"true&&Number.isFinite(Number(f.decoded))",
     name:'R2 PIN source-field sentinel absolute coordinate refusal',
+  },
+  {
+    id:'R3_COMMENT_TYPED_GUARD',file:TYPED,
+    old:"assertNoModelMarkup('comment');",
+    new:'void open;',
+    name:'R3 inventory refuses commented active RESTRAINT without writer preflight',
+  },
+  {
+    id:'R3_PI_TYPED_GUARD',file:TYPED,
+    old:"assertNoModelMarkup('processing-instruction');",
+    new:'void open;',
+    name:'R3 inventory refuses PI-hidden RESTRAINT without writer preflight',
+  },
+  {
+    id:'R3_MODEL_MARKUP_PREFLIGHT',file:WRITE,
+    old:'assertNoModelLexicalMarkup(originalText);',
+    new:'void originalText;',
+    name:'R3 C1 fail closed doctype emits no original bytes',
   },
   {
     id:'I2_CASE_NORMALISED_SOURCE_FIELD',file:FIELDS,

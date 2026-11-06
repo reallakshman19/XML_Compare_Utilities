@@ -86,6 +86,21 @@ function verifyPolicy(policy,ops){
     new Set(ids).size===ids.length,R.SELECTION);
   need(sameArray([...ids].sort(),ops.map(op=>op.sourceActionId).sort()),R.SELECTION);
 }
+// Before the strict S3 legacy row finder runs, fail closed on every
+// processing instruction, comment, CDATA or declaration inside PIPINGMODEL.
+ // This also catches DTD-in-model forms the strict source scanner rejects
+ // before the typed inventory can issue a named carrier refusal.
+function assertNoModelLexicalMarkup(source){
+  const opening=/<PIPINGMODEL(?=[\s>])/i.exec(source);
+  if(!opening)return; // unchanged strict source reader rejects missing model.
+  const contentStart=source.indexOf('>',opening.index);
+  if(contentStart<0)return;
+  const closure=/<\/PIPINGMODEL\s*>/i.exec(source.slice(contentStart+1));
+  const content=source.slice(contentStart+1,
+    closure?contentStart+1+closure.index:undefined);
+  need(!/<(?:!|\?)/.test(content),R.CARRIER,
+    {kind:'markup-in-caesar-model'});
+}
 function originalWitness(originalText,measured){
   let doc;
   try{doc=mapCaesarInputXmlToUxmlStrict(originalText,{fileSha256:measured});}
@@ -386,6 +401,7 @@ export async function applyUxmlEditOps(originalText,payload,{fileSha256}={}){
     const original=enc.encode(originalText),measured=await hash(original);
     need(shaFormat(fileSha256)&&fileSha256===measured&&
       payload.fileSha256===measured,R.HASH);
+    assertNoModelLexicalMarkup(originalText);
     const witness=originalWitness(originalText,measured);
     for(const op of payload.ops)
       need(op.fileSha256===measured,R.OP_SHA,{opId:op.opId});

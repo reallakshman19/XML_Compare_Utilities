@@ -5,7 +5,8 @@
  */
 import {mapCaesarInputXmlToUxmlStrict} from './UxmlInputXmlSchemaMapper.js';
 import {inventoryInputXml} from './UxmlEditOpsTypedInventory.js';
-import {exactNodeId,xmlDecode,absoluteInputXmlSourceWitness}
+import {exactNodeId,xmlDecode,absoluteInputXmlSourceWitness,
+  readInputXmlSourceField}
   from './UxmlInputXmlSourceFields.js';
 import {INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME} from './UxmlInputXmlDeltaGraph.js';
 
@@ -120,6 +121,50 @@ function sourcePairs(inv){
   }
   return pairs;
 }
+// The strict S3 reader's child extraction is independently checked against
+// the lexical inventory. A raw substring read from a comment/PI must never
+// count as a typed active RESTRAINT, SIF, or BEND node reference.
+const S3_CHILD_SLOTS=Object.freeze({
+  RESTRAINT:['NODE','CNODE'],RESTRANT:['NODE','CNODE'],
+  HANGER:['NODE','CNODE'],SIF:['NODE','BRANCHNODE'],
+  BEND:['NODE1','NODE2','NODE3'],
+});
+function assertS3TypedChildNodeParity(doc,inv){
+  const groups=new Map();
+  for(const c of inv.carriers){
+    if(c.index===null||!Object.hasOwn(S3_CHILD_SLOTS,c.element))continue;
+    const groupKey=c.index+'#'+c.elementPath;
+    if(!groups.has(groupKey))
+      groups.set(groupKey,{index:c.index,family:c.element,fields:new Map()});
+    groups.get(groupKey).fields.set(c.field,c.key);
+  }
+  const used=new Set();
+  const match=(index,family,attrs)=>{
+    assert(Object.hasOwn(S3_CHILD_SLOTS,family),C.TOPO,{index,family});
+    const fields=new Map();
+    try{
+      for(const name of S3_CHILD_SLOTS[family]){
+        const field=readInputXmlSourceField(attrs||{},name,{node:true,sentinel:true});
+        if(field)fields.set(name,field.numericId);
+      }
+    }catch{throw fail(C.TOPO,{index,family,reason:'invalid-s3-node'});}
+    if(!fields.size)return; // S3 saw a no-node auxiliary/geometry-only item.
+    const matches=[...groups].filter(([key,g])=>!used.has(key)&&
+      g.index===index&&g.family===family&&
+      [...fields].every(([name,node])=>g.fields.has(name)&&g.fields.get(name)===node));
+    assert(matches.length>0,C.TOPO,
+      {index,family,reason:'strict-reader-carrier-missing-from-original-inventory'});
+    used.add(matches[0][0]);
+  };
+  for(const [index,component] of doc.components.entries()){
+    const src=component.rawAttributes?.inputXml||{};
+    for(const row of src.restraints||[])
+      match(index,String(row.type||'').toUpperCase(),row.attributes);
+    for(const sif of src.sifEvidence||[])match(index,'SIF',sif.rawAttributes);
+    if(src.bendEvidence)match(index,'BEND',src.bendEvidence.rawAttributes);
+  }
+}
+
 function originalByteProof(original,result,ledger){
   let prior=0,cursor=0;
   for(const change of ledger){
@@ -202,6 +247,8 @@ export async function verifyUxmlEditOpsIndependent({
   }catch{throw fail(C.READER);}
   const before=inventoryInputXml(originalText,{refs:originalDoc.components.map(c=>c.sourceRefs[0])});
   const after=inventoryInputXml(newText,{refs:candidateDoc.components.map(c=>c.sourceRefs[0])});
+  assertS3TypedChildNodeParity(originalDoc,before);
+  assertS3TypedChildNodeParity(candidateDoc,after);
   recomputeGroups(authorisedMapping,originalDoc);
   assertVerifierSourcePairDistinctness(before,authorisedMapping);
   assert(eq(before.shape,after.shape)&&before.records.length===after.records.length&&
