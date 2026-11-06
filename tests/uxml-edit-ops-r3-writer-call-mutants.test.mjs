@@ -14,7 +14,7 @@ const WRITER='uxml/UxmlEditOpsPatchBack.js';
 const TARGET='tests/uxml-edit-ops-patch-back.test.mjs';
 const seedWrapper="import {mapCaesarInputXmlToUxmlStrict as baseS3} from './UxmlInputXmlSchemaMapper.js';\nimport {inventoryInputXml as baseInventory} from './UxmlEditOpsTypedInventory.js';\nconst isCandidate=source=>!source.includes('FROM_NODE=\"40\"');\nexport function mapCaesarInputXmlToUxmlStrict(source,opts){\n  const doc=baseS3(source,opts);\n  if(process.env.R3_WRITER_SEED==='S3'&&isCandidate(source)){\n    const from=doc.components[1]?.rawAttributes?.inputXml?.from;\n    if(!from)throw Error('R3 writer seed lacks candidate S3 position');\n    from.x+=0.004;\n  }\n  return doc;\n}\nexport function inventoryInputXml(source,opts){\n  const inv=baseInventory(source,opts);\n  if(process.env.R3_WRITER_SEED==='NUMERIC'&&isCandidate(source)){\n    const field=inv.items.find(c=>c.element==='PIPINGELEMENT'&&c.field==='DIAMETER');\n    if(!field)throw Error('R3 writer seed lacks typed property');\n    field.raw='999';\n  }\n  return inv;\n}\n";
 const cases=[
- {id:'FULL_NUMERIC_CALL',seed:'NUMERIC',expected:'TOPOLOGY',
+ {id:'FULL_NUMERIC_CALL',seed:'NUMERIC',expected:'PARITY',
   name:'R3 writer fullNumericOracle call detects seeded candidate inventory fault',
   from:'fullNumericOracle(original,candidate,mapping,ledger);',
   to:'void candidate;'},

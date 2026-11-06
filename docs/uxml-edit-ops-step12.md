@@ -219,3 +219,100 @@ coordinate-frame refusal each kill a single corresponding guard deletion.
 Verifier live-clone tests ANCHOR, REF_ANCHOR and FRAME each kill a separate
 single-edit deletion inside verifyUxmlEditOpsIndependent. None of the
 three original evidence checks may be inferred from the others.
+
+## Closure exception R3 (Owner-approved 6 November) — C1–C4
+
+This is the final repair exception. The same DRAFT PR stays unmerged.
+No S4.2/B7/B8 production, CLOS, policy, tolerance or native CAESAR II
+verification changes were authorised.
+
+### C1 hidden-XML construct protection
+
+Public Hexagon v14 GREInputxml.xml and PLB314Inputxml.xml contain zero
+comments, processing instructions, CDATA sections or DOCTYPE declarations
+in the PIPINGMODEL subtree. The original-byte writer refuses ALL
+`<!--...-->`, `<?...?>`, `<!DOCTYPE...>`, `<!...>` or
+`<![CDATA[...]]>` sections inside the model, **including whitespace-only
+CDATA**, as `INPUT_XML_UNKNOWN_NODE_CARRIER` before strict S3 can interpret
+any hidden carrier. A separate typed-inventory lexical check provides
+defence in depth. Ordinary whitespace remains allowed. Direct live
+examples conceal RESTRAINT or BEND NODE 40 in comments or PI; all refuse
+with `bytes:null`, empty ledger and no changed original.
+
+The strict S3 legacy child finder can read XML-looking text in a comment
+or PI. The independent verifier therefore compares both original and
+candidate strict-S3 RESTRAINT/RESTRANT/HANGER, SIF and BEND child node
+evidence against distinct typed inventory child element paths and
+numeric node-field identities. No strict-S3 active child can be
+unaccounted-for in the lexical inventory. A divergent parsed candidate
+must refuse `INPUT_XML_PATCHED_NUMERIC_TOPOLOGY_MISMATCH`.
+This is independent in implementation, but still shares the inventory's
+classification API, so the preexisting correlated-classification
+release risk is not erased.
+
+### C2 and C3 independent geometry/topology
+
+Committed isolated byte-consistent candidate tests invoke the **actual**
+`verifyUxmlEditOpsIndependent` entry point (not just exported helpers).
+RESTRAINT NODE+CNODE and SIF NODE+BRANCHNODE newly colliding under 40→20,
+and BEND NODE1+NODE2 colliding on a separate parent record, each refuse
+`INPUT_XML_ALIAS_SELF_CONNECTED`. Separate single-guard mutants remove
+each corresponding family or the intra-BEND pair loop and go RED.
+
+A source original absolute FROM_X that parses to 100.005 while strict-S3
+ports solve to 100.000, with unchanged 0.001 mm tolerance, refuses
+`INPUT_XML_ALIAS_GROUP_SPREAD`. Removing only the independent
+verifier's raw literal from the pairwise witness list turns that one
+live-entry-point control RED.
+
+### C4 named surviving-guard disposition
+
+PINNED: committed targeted GREEN original, one-guard-deleted RED.
+COVERED-BY: committed test still refuses the **same unsafe input** after
+this redundant guard is deleted, due to the named independent layer.
+REMOVED: unreachable or duplicate with explicit upstream proof.
+
+| Guard from R3 Oracle review | Status | Covering layer and committed test |
+|---|---|---|
+| Verifier :213 item path/kind | **PINNED** | R3 LIVE ITEM_PATH; single-edit path/kind assertion removal |
+| Verifier :208 typed item length | **PINNED** | R3 LIVE ITEM_COUNT; single-edit length check removal |
+| Verifier :232 S3 components length | **PINNED** | R3 LIVE COMPONENT_COUNT; single-edit count check removal |
+| Verifier :236 strict recordKey/ordinal/format | **PINNED** | R3 LIVE REF_SHAPE; single-edit ref-shape removal |
+| Writer :238 count>0 patches for absorbed ID | **COVERED-BY** ownerGroups/physicalNodeWitnesses | R3 COVERED writer zero absorbed count by original physical source proof; removed count guard still COORDINATE refusal |
+| Writer :111 original raw endpoint spelling match | **COVERED-BY** strict original reader/source-field duplicate admission | R3 COVERED writer endpoint string mismatch by source/typed duplicate gate |
+| Writer fullNumericOracle CALL | **PINNED** | R3 writer CALL FULL_NUMERIC_CALL: candidate-only wrong immutable non-node inventory, live caller must refuse SOURCE_PARITY; removing call goes RED |
+| Writer verifyS3Candidate CALL | **PINNED** | R3 writer CALL S3_CANDIDATE_CALL: candidate-only solved point drift 0.004 mm, live caller must refuse SOURCE_PARITY; removing call goes RED |
+| Inventory :486 raw attribute '<' | **COVERED-BY** strict original source structure / exact node ID | R3 COVERED invalid lexical < in node attribute by strict source parser |
+| Inventory :614 duplicate namespaced-attribute check | **REMOVED** | earlier readStartTag checks colon-prefixed names before typed classification; R3 C4 redundant namespaced-attribute gate removed but scanner still refuses |
+| Inventory :571 model DTD/DOCTYPE | **COVERED-BY** lexical original model-markup preflight | R3 COVERED model declaration refuses before loose strict child reader, plus R3 C1 fail closed doctype |
+| Inventory :545 node-like text heuristic | **COVERED-BY** preceding model attribute-only character-data guard | R3 COVERED node-like value NODE 40 refuses via shared model text rule; outside-model ALLOWABLESTRESS non-node text NODE 40 remains inert |
+| Inventory :556 malformed comment '--' check | **COVERED-BY** model-markup lexical preflight | R3 COVERED XML comment double dash cannot conceal a node carrier |
+| Typed comment and processing instruction skip | **PINNED** | R3_COMMENT_TYPED_GUARD / R3_PI_TYPED_GUARD, direct inventory source-ref tests |
+| Writer lexical model markup preflight | **PINNED** | R3_MODEL_MARKUP_PREFLIGHT / doctype source refusal |
+| Inventory whitespace-only CDATA section | **PINNED** | R1_KNOWN_TAG_CDATA retargeted direct-inventory test; any model CDATA refused |
+| Independent strict S3 child node inventory parity | **PINNED** | R3 LIVE S3_RESTRAINT / S3_SIF / S3_BEND, candidate parity-call mutants |
+
+All pinned mutants require an assertion-level RED, not module-not-found
+or syntax errors, after the original isolated control passes GREEN.
+The two writer call-site mutants alter a single production invocation
+in disposable clones with candidate-only reader/inventory fault seeds;
+the separately imported verifier uses real source modules.
+
+### Optional N1 disposition
+
+**NOT DONE (non-blocking):** Extend the static clone-to-workflow map from
+each mutant harness's current primary workflow to every workflow that
+invokes it. `uxml-s4-0-converter-audit.yml` and
+`uxml-b7-categorized-edit.yml` are known secondary consumers of
+`uxml-s3-caesar-mutants.test.mjs` /
+`uxml-s1-followup-mutants.test.mjs` without complete cloned-file
+trigger paths. This secondary-trigger expansion is outside the scoped
+C1–C4 safety correction and must not be silently reported DONE.
+The R2 committed primary workflow dependency check remains green.
+
+### Final release hold
+
+Owner's independent Oracle gate acceptance, authenticated TopoFix
+native action/transaction provenance and actual CAESAR II import/model
+topology verification remain NOT_RUN in this lane. This CLOSURE R3
+does not grant release, patch PSI116, or authorise merge.
