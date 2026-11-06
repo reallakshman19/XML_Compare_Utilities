@@ -622,8 +622,6 @@ export function inventoryInputXml(text,{refs=[]}={}){
         guard(expected!==null&&(attr.decoded===expected||attr.decoded===''),
           'INPUT_XML_UNKNOWN_NODE_CARRIER',{path,field:'xmlns'});
       }
-      guard(!attr.name.includes(':')||attr.name==='xmlns',
-        'INPUT_XML_UNKNOWN_NODE_CARRIER',{path,field:attr.name});
       const classification=classify(element,attr);
       const base={path:path+'@'+attr.field,elementPath:path,
         element:element.fold,field:attr.field,quote:attr.quote,

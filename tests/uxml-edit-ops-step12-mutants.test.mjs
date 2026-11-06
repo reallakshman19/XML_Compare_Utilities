@@ -82,8 +82,8 @@ const specs=[
     name:'R1 verifier S3 point parity refuses'},
   {
     id:'R2_SHARED_MODEL_TEXT_GUARD',file:TYPED,
-    old:"guard(XML_WHITESPACE.test(raw)||(!stack.some(e=>e.fold==='PIPINGMODEL')&&",
-    new:"guard(true||(!stack.some(e=>e.fold==='PIPINGMODEL')&&",
+    old:"guard(kind!=='cdata'&&",
+    new:"guard(true||kind!=='cdata'&&",
     name:'R2 Step12 ambiguous element text refuses',
   },
   {

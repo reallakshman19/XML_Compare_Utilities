@@ -43,7 +43,9 @@ jobs:
         run: node --test tests/uxml-edit-ops-step12-mutants.test.mjs
       - name: Step 1.2-R2 independent verifier live source/reader fault mutations
         run: node --test tests/uxml-edit-ops-verifier-live-mutants.test.mjs
-      - name: R2 surviving redundant guards covered by independent refusal layers
+      - name: R3 writer fullNumericOracle and verifyS3Candidate call-site mutants
+        run: node --test tests/uxml-edit-ops-r3-writer-call-mutants.test.mjs
+      - name: R2 and R3 covered guard deletion preserves named refusal
         run: node --test tests/uxml-edit-ops-r2-covered-guards.test.mjs
       - name: Edit-ops contract original bytes and named refusals LF CRLF
         run: node --test tests/uxml-edit-ops-patch-back.test.mjs

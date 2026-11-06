@@ -438,3 +438,50 @@ test('R2 COVERED writer absorbed remainder by numeric identity oracle',()=>{
   assert.throws(()=>g.fullNumericOracle(before,after,new Map([['40','20']]),ledger),
     e=>[R.REMAINED,R.TOPOLOGY].includes(e.code));
 });
+
+test('R3 COVERED writer zero absorbed count by original physical source proof',async()=>{
+  const src=fixture(),p=payload(src,[[999,20]]);
+  await denied(src,p,R.COORDINATE);
+});
+test('R3 COVERED writer endpoint string mismatch by source/typed duplicate gate',async()=>{
+  const valid=fixture(),src=valid.replace('FROM_NODE="40"',
+    'FROM_NODE="40" from_node="999"');
+  const old=payload(valid),digest=sha(src),p={...old,fileSha256:digest,
+    ops:old.ops.map(op=>({...op,fileSha256:digest}))};
+  const result=await attempt(src,p);
+  assert.equal(result.ok,false);
+  assert.equal(result.bytes,null);
+  assert.deepEqual(result.ledger,[]);
+  assert([R.SOURCE,R.CARRIER,R.REF].includes(result.refusals[0]?.code),
+    'strict S3/source-field gate must deny a duplicate raw endpoint');
+});
+test('R3 COVERED invalid lexical < in node attribute by strict source parser',async()=>{
+  const valid=fixture(),src=valid.replace('FROM_NODE="40"',
+    'FROM_NODE="40<RESTRAINT"');
+  const old=payload(valid),digest=sha(src),p={...old,fileSha256:digest,
+    ops:old.ops.map(op=>({...op,fileSha256:digest}))};
+  const result=await attempt(src,p);
+  assert.equal(result.ok,false);
+  assert.equal(result.bytes,null);
+  assert.deepEqual(result.ledger,[]);
+  assert([R.SOURCE,R.CARRIER,R.NODE_ID,R.REF].includes(result.refusals[0]?.code));
+});
+test('R3 COVERED node-like value NODE 40 refuses via shared model text rule',async()=>{
+  const valid=fixture(),src=valid.replace('</PIPINGELEMENT>',
+    'NODE 40</PIPINGELEMENT>');
+  await denied(src,payload(src),R.CARRIER);
+});
+test('R3 COVERED XML comment double dash cannot conceal a node carrier',async()=>{
+  const valid=fixture(),src=valid.replace('</PIPINGELEMENT>',
+    '<!--<RESTRAINT NODE="40"--><!-->--></PIPINGELEMENT>');
+  const old=payload(valid),digest=sha(src),p={...old,fileSha256:digest,
+    ops:old.ops.map(op=>({...op,fileSha256:digest}))};
+  await denied(src,p,R.CARRIER);
+});
+test('R3 COVERED model declaration refuses before loose strict child reader',async()=>{
+  const valid=fixture(),src=valid.replace('</PIPINGELEMENT>',
+    '<!DOCTYPE TRAP [<!ENTITY node "40">]></PIPINGELEMENT>');
+  const old=payload(valid),digest=sha(src),p={...old,fileSha256:digest,
+    ops:old.ops.map(op=>({...op,fileSha256:digest}))};
+  await denied(src,p,R.CARRIER);
+});

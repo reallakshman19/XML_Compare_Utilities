@@ -523,3 +523,9 @@ test('R3 inventory refuses even whitespace-only CDATA without writer preflight',
   assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
     error=>error.code===R.CARRIER);
 });
+
+test('R3 C4 redundant namespaced-attribute gate removed but scanner still refuses',()=>{
+  const source=base().replace('REF_NO="40"', 'REF_NO="40" ext:NODE="40"');
+  assert.throws(()=>inventoryInputXml(source,{refs:refs(base())}),
+    e=>[R.CARRIER,R.SOURCE].includes(e.code));
+});
