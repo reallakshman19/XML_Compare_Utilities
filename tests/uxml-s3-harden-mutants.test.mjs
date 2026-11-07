@@ -10,7 +10,7 @@ import {spawnSync} from 'node:child_process';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const structure='uxml/UxmlInputXmlSourceStructure.js',strict='uxml/UxmlInputXmlSchemaMapper.js';
 const files=[
-  structure,strict,'uxml/UxmlConstants.js','uxml/UxmlTypes.js',
+  structure,strict,'uxml/UxmlInputXmlSourceFields.js','uxml/UxmlConstants.js','uxml/UxmlTypes.js',
   'uxml/UxmlValidationGate.js','uxml/UxmlInputXmlDeltaGraph.js',
   'utils/line-no-metadata.js','docs/GREInputxml.xml','docs/PLB314Inputxml.xml',
   'tests/uxml-s3-harden-source-structure.test.mjs',

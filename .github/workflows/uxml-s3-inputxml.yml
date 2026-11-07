@@ -2,6 +2,14 @@ name: UXML S3 Strict CAESAR InputXML Reader
 on:
   pull_request:
     paths:
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/**'
+      - 'docs/**'
+      - 'opt/**'
+      - 'converters/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'uxml/UxmlInputXmlSchemaMapper.js'
       - 'docs/uxml-reader-contract.md'
       - 'docs/CODER-CHECKPOINT.md'

@@ -1,0 +1,61 @@
+name: UXML edit-ops v1 original-byte InputXML patch-back
+on:
+  pull_request:
+    paths:
+      - 'uxml/**'
+      - 'utils/**'
+      - 'docs/GREInputxml.xml'
+      - 'docs/PLB314Inputxml.xml'
+      - 'tests/**'
+      - 'uxml/UxmlEditOpsPatchBack.js'
+      - 'uxml/UxmlEditOpsTypedInventory.js'
+      - 'uxml/UxmlEditOpsInvariants.js'
+      - 'uxml/UxmlEditOpsIndependentVerifier.js'
+      - 'uxml/UxmlInputXmlSourceFields.js'
+      - 'uxml/UxmlInputXmlSchemaMapper.js'
+      - 'docs/uxml-edit-ops-contract.md'
+      - 'docs/uxml-edit-ops-step12.md'
+      - 'tests/uxml-edit-ops-*.test.mjs'
+      - 'tests/uxml-edit-ops-step12*.test.mjs'
+      - '.github/workflows/uxml-edit-ops-patch-back.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  edit-ops-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: node --check uxml/UxmlInputXmlSourceFields.js && node --check uxml/UxmlEditOpsTypedInventory.js && node --check uxml/UxmlEditOpsInvariants.js && node --check uxml/UxmlEditOpsIndependentVerifier.js && node --check uxml/UxmlEditOpsPatchBack.js && node --check tests/uxml-edit-ops-step12.test.mjs && node --check tests/uxml-edit-ops-step12-mutants.test.mjs && node --check tests/uxml-edit-ops-patch-back.test.mjs && node --check tests/uxml-edit-ops-mutants.test.mjs
+      - name: Mutant clone dependency / CI trigger consistency gate
+        run: node --test tests/uxml-workflow-path-coverage.test.mjs
+      - name: Step 1.2 invariant-first LT-1 through LT-5 and independent verifier
+        run: node --test tests/uxml-edit-ops-step12.test.mjs
+      - name: Step 1.2 kill all invariant guards (final R2)
+        run: node --test tests/uxml-edit-ops-step12-mutants.test.mjs
+      - name: Step 1.2-R2 independent verifier live source/reader fault mutations
+        run: node --test tests/uxml-edit-ops-verifier-live-mutants.test.mjs
+      - name: R3 writer fullNumericOracle and verifyS3Candidate call-site mutants
+        run: node --test tests/uxml-edit-ops-r3-writer-call-mutants.test.mjs
+      - name: R2 and R3 covered guard deletion preserves named refusal
+        run: node --test tests/uxml-edit-ops-r2-covered-guards.test.mjs
+      - name: Edit-ops contract original bytes and named refusals LF CRLF
+        run: node --test tests/uxml-edit-ops-patch-back.test.mjs
+      - name: Edit-ops guard mutants green controls / red mutations
+        run: node --test tests/uxml-edit-ops-mutants.test.mjs
+      - name: Strict S3 source structure and reader regression
+        run: node --test tests/uxml-s3-caesar-inputxml.test.mjs tests/uxml-s3-harden-source-structure.test.mjs
+      - name: S4.1 reader and S4.2 original-byte regression (unchanged)
+        run: node --test tests/uxml-s4-1-categorized-reader.test.mjs tests/uxml-s4-2-patch-back.test.mjs
+      - name: B7 and B8 unchanged controller and coverage
+        run: node --test tests/uxml-b7-controller.test.mjs tests/uxml-b8-coverage.test.mjs tests/uxml-b8-extended.test.mjs
+      - name: PSI116 S1 remains reader-only
+        run: node --test tests/uxml-psi116-s1.test.mjs

@@ -10,7 +10,8 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const patch='uxml/UxmlCategorizedPatchBack.js';
 const map='uxml/UxmlCategorizedProjectionMap.js';
 const files=[patch,map,'uxml/UxmlCategorizedInputXmlSchemaMapper.js',
-  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
+  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js',
+  'uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js','uxml/UxmlTypes.js',
   'uxml/UxmlValidationGate.js','xml-compare/CategorizedInputXmlConverter.js',
   'xml-compare/XmlCompareCoordinateSideload.js',

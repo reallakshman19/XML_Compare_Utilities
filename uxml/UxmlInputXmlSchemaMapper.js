@@ -49,6 +49,7 @@ import {
 import {validateUxmlDocument} from './UxmlValidationGate.js';
 import {solveCaesarInputXmlRuns,INPUTXML_HUB_FRAME,INPUTXML_SOURCE_FRAME} from './UxmlInputXmlDeltaGraph.js';
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
+import {sourceFieldValue} from './UxmlInputXmlSourceFields.js';
 
 import {
   LINE_NO_METADATA_KEYS,
@@ -196,17 +197,10 @@ function caesarDeltaOrZero(value) {
 }
 
 function attrValue(attrs, ...names) {
-  for (const name of names) {
-    if (attrs[name] != null && clean(attrs[name])) return clean(attrs[name]);
-
-    const key = Object.keys(attrs).find(
-      k => k.toLowerCase() === String(name).toLowerCase()
-    );
-
-    if (key && clean(attrs[key])) return clean(attrs[key]);
-  }
-
-  return '';
+  // Shared versioned source-field API also supplies exact lexical/decoded
+  // tokens, numeric node identities, byte ranges and original X/Y/Z witnesses
+  // to the patcher. Preserve strict-S3 raw recordKey lexical spelling here.
+  return sourceFieldValue(attrs,...names);
 }
 
 function lineNoFromAttributes(attrs) {

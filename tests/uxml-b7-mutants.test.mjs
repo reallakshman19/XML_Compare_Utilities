@@ -10,7 +10,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const target='tabs/inputxml-workspace/inputxml-workspace-categorized-edit-controller.js';
 const files=[target,'uxml/UxmlCategorizedPatchBack.js',
   'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
-  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
+  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',
   'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
   'xml-compare/CategorizedInputXmlConverter.js',

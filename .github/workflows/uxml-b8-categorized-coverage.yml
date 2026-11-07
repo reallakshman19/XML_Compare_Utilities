@@ -2,6 +2,15 @@ name: UXML B8 categorized source-bound editing coverage
 on:
   pull_request:
     paths:
+      - 'docs/uxml-edit-ops-step12.md'
+      - 'tests/uxml-b7-controller.test.mjs'
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/line-no-metadata.js'
+      - 'docs/GREInputxml.xml'
+      - 'docs/PLB314Inputxml.xml'
+      - 'opt/mock-xml.xml'
+      - 'converters/scripts/pdf_inputxml_profile_bm_cii.xml'
       - 'uxml/UxmlCategorizedPatchBack.js'
       - 'uxml/UxmlCategorizedProjectionMap.js'
       - 'docs/uxml/UxmlCategorizedPatchBack.js'

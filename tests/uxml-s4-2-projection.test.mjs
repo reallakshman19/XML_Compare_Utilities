@@ -306,7 +306,7 @@ test('S4.2 slice2 REFUSE throwing S4.0 converter with named code and no bytes',(
   try{
     const files=['uxml/UxmlCategorizedPatchBack.js',
       'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
-      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
+      'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js','uxml/UxmlInputXmlSourceStructure.js',
       'uxml/UxmlInputXmlDeltaGraph.js','uxml/UxmlConstants.js',
       'uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
       'xml-compare/CategorizedInputXmlConverter.js',
