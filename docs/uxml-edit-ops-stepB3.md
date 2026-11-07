@@ -13,23 +13,33 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    preserve the bytes. Measure SHA-256 and compare with required caller SHA;
    mismatch refuses before any geometry admission.
 2. Scan physical direct-child PIPINGELEMENT records using the unchanged
-   `UxmlInputXmlSourceStructure.js` scanner; read FROM_NODE, TO_NODE using
-   source-field/v1 exact numeric identity. Record physical ordinal and source
-   field paths. Missing/ambiguous source records refuse.
-3. Call unchanged `solveCaesarInputXmlRuns` on original attributes and signed
-   DELTA_X/Y/Z (CAESAR -1.010100 sentinel, hub X/-Z/Y mapping). It checks
-   path closure against the **unchanged 0.001 mm** tolerance.
-4. Require both distinct node identities to exist in one **same connected run**.
-   For every original endpoint occurrence, retain the node, element recordKey,
-   endpoint, hub-frame position and run. Sum all individual edge-closure
-   residual magnitudes for that run; refuse if the sum exceeds 0.001 mm.
-   This is a deliberately conservative bound on alternative simple-path
-   displacement, including paths combining multiple small loop errors.
-5. Require each node's endpoint witnesses to agree pairwise, then compare
-   every absorbed/canonical endpoint witness pair at 0.001 mm. Return
-   PROVEN_COINCIDENT or NOT_COINCIDENT with actual 3D distance and source
-   evidence, or REFUSED with a named code. Coordinates are **relative only**:
-   origin is arbitrary and does not authorize a cross-run join.
+   `UxmlInputXmlSourceStructure.js` scanner. Require exact case-sensitive
+   `FROM_NODE`, `TO_NODE` and `DELTA_X/Y/Z` spellings; refuse missing fields
+   and case-folded duplicates **before** calling the existing solver. Keep
+   source-field/v1 exact numeric node identity and physical record ordinals.
+3. Preflight all original DELTAs: only a value whose numeric representation is
+   **exactly -1.0101** is the CAESAR zero/unset sentinel. Any *other* value
+   inside the shared solver's 1e-5 sentinel window is `DELTA_INVALID`.
+   Call unchanged `solveCaesarInputXmlRuns` after sorting original records
+   by a canonical node/attribute key (preserving original indices and refs).
+   This makes the chosen spanning graph independent of physical element order.
+   Mapping is still CAESAR to hub `(X,-Z,Y)`; 0.001 mm is unchanged.
+4. Require both distinct node identities to exist in **one connected run**.
+   Record all original endpoint occurrences with their physical recordKey,
+   endpoint, relative hub-frame coordinate and run. For each original edge
+   `e=(u,v)`, compute `r_e = ||(p_v-p_u) - delta_e||`, where `p` is the
+   shared solver's node potential and `delta_e` is the source DELTA in hub
+   axes. Sum `R = sum_e r_e` over the same run; refuse `DELTA_PATH_CONFLICT`
+   if `R > 0.001 mm`. This conservative sum bounds the *cumulative*
+   displacement error of any path, including paths with multiple small loops.
+5. For a candidate `a,b`, the triangle inequality bounds **every path**
+   between them by `||p_b-p_a|| + R`. Return `PROVEN_COINCIDENT` **only if
+   that combined bound is <= 0.001 mm**; otherwise `NOT_COINCIDENT` with
+   the measured relative 3D distance and bound. A node's repeated endpoint
+   positions are projections of the same solved node potential, **not
+   independent witnesses**; there is no separate endpoint-pair check.
+   RecordKey/endpoint lists are provenance, and source edge residuals are
+   the actual independent geometry checks. Cross-run joins remain unproven.
 
 ## Invariants / refusal codes
 
@@ -40,7 +50,7 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
 | Node missing / same number | INPUT_XML_ALIAS_NODE_ABSENT / _DISTINCT_NODES_REQUIRED |
 | Different original runs | INPUT_XML_ALIAS_CROSS_RUN_UNPROVEN |
 | Missing, nonfinite or invalid DELTA | INPUT_XML_ALIAS_DELTA_MISSING / _NONFINITE / _INVALID |
-| Path or endpoint contradiction | INPUT_XML_ALIAS_DELTA_PATH_CONFLICT / _ENDPOINT_WITNESS_CONFLICT |
+| Cumulative path contradiction / original field case ambiguity | INPUT_XML_ALIAS_DELTA_PATH_CONFLICT / _SOURCE_ATTRIBUTE_CASE_AMBIGUOUS |
 
 No companion is admitted or required by B3. Extra supplied side-file objects
 are intentionally unused; they cannot override the original DELTA graph.
@@ -54,8 +64,11 @@ unanchored DELTA-only alias requests as
 
 `node --test tests/uxml-edit-ops-b3-samerun.test.mjs
 tests/uxml-edit-ops-b3-mutants.test.mjs`.
-Four delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA:
-unchanged probe GREEN -> a single guard deletion RED on the same seed.
+Eleven delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
+STACKED, CASE_DUPLICATE, CASE_REQUIRED, SENTINEL, NULL_INPUT, BOUNDARY
+and NODE_ID: each unchanged probe GREEN -> one guard deletion RED on
+the identical input. Both source orderings and all six permutations of
+the stacked-tolerance case must be `NOT_COINCIDENT`.
 Real GRE 500→510 must be NOT_COINCIDENT at approximately 225 mm; synthesized
 10→40 is PROVEN; forged side-file remains non-authoritative.
 

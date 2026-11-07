@@ -41,6 +41,57 @@ No private data placed in PR. Separate local no-index patch ledger was
 NOT_AVAILABLE in the connector-only environment; source preimages and
 exact commit/PR diff are preserved by GitHub for selective rollback.
 
+## B3-R1 takeover / repair (Owner Q46, 7 Nov 2026)
+
+**Authorized handoff:** Drive
+`Handoffs/LANE-B-B3-R1/STEP-B3-R1-B8.md`, source metadata 3420 B,
+declared SHA256 `cec9ff30cfb7d865974c9be9ce47bb5c385112a2338a0ed34895942ba06cbda9`.
+Starting exact PR259 head `cf16ad600fd074a7f0e5c05864610ac525fb5719`;
+PR258 dependency remains draft. B3-R1 blocks unsafe read-only coincidence
+proof; no writer, shared DeltaGraph, tolerance or workflows changed.
+
+| Qualification | Source-grounded finding / fix |
+|---|---|
+| A1 / A2 | `UxmlInputXmlSameRunCoincidence.js` computed independent path residual and pair distance checks; `UxmlInputXmlDeltaGraph.js` case-folded DELTA and interpreted a 1e-5 sentinel window. Three crafted unsafe accepts reproduced by Owner/Oracle. |
+| A3 | Exact original row fields, same connected run, conservative all-simple-path distance bound and 0.001-mm tolerance; no source mutation or Apply |
+| A4 | New tests pin order permutations, case-fold duplicates/lowercase-only, near-sentinel, null inputs, exact 0.001 and bad node ids. Eleven guard deletion probes must each be GREEN→RED |
+| A5 | Change isolated proof module and its tests/docs only; no change to shared solver/writer |
+
+**Repair rationale:** Canonical-sort original row references for
+order-independent graph potentials while retaining original record ordinals.
+Preflight required case-sensitive node/DELTA keys; treat only
+`Number(raw) === -1.0101` as sentinel and refuse adjacent numeric values
+inside the shared solver's window. Let `R=sum_e ||(p_v-p_u)-d_e||`;
+prove only when `distance(p_absorbed,p_owner) + R <= 0.001 mm`.
+This bounds each simple-path deviation by the triangle inequality.
+Drop vacuous endpoint-pair guard: both endpoints derive from the *same*
+solved node map. Original endpoint refs remain available for audit.
+
+**Forward repair change ledger**, each original preimage available via
+GitHub immutable blob in starting head:
+
+| File | Starting blob / action | Selective undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `94dfd064ce6b9eb17e3689ea7dcde1924f6a9a4d` — preflight, canonical solve, combined bound, input guard, remove vacuous endpoint check | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `9443a9d71b263741d2c7cfc00e5f8084aa936cd6` — 11 focused repair tests | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `e38be5717f8551ca1b58e7532ac8fd2f9c944381` — 7 more single-guard deletions | Restore only that blob if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `208b08d25d2484ed2c6e5a83f89df7c0c106dc10` — independent focused expected results | Restore only that blob if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `4b0c33c2006165215f0177d4934871204f1c5b6b` — precise proof chain/refusals | Restore only that blob if unchanged |
+| `agents/PR259_workreport.md` | `4821710c65855d8738efb9022af5ad704a1ca31c` — recovery report | Restore only that blob if unchanged |
+
+**Validation as of initial B3-R1 commit:** NOT_RUN at new head;
+existing B3 exact-head CI was successful. GitHub Actions exact-head and
+independent mutation probes are the decisive checks; do not infer green.
+**Highest risk:** upstream legacy solver has its own case-fold and widened
+sentinel acceptance; B3 compensates **without** changing that shared
+implementation. PR258 original-literal geometry guard still blocks
+DELTA-only writer calls; broader upstream audit is outside scope.
+
+**EXACT_NEXT_ACTION:** Inspect new #259 exact-head Actions; if failures,
+repair by another forward-only commit. Record final 11/11 mutation,
+B3 behavior, inherited CI conclusions in issue #239; STOP and leave draft.
+
+
 ## CI and risk
 
 - First candidate `44643cb47973cc38d3b55b7150ab83a1d95aed91`:

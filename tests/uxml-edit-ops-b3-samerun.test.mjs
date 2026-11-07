@@ -107,3 +107,93 @@ test('B3 boundary 0.0005 is coincident; 0.002 is not',async()=>{
   assert.equal(b.status,'NOT_COINCIDENT');
   assert(b.distanceMm>0.001);
 });
+
+const stackedRows=[
+  element(10,20,'100'),element(20,40,'-99.9995'),
+  element(10,20,'100.0009'),
+];
+test('B3-R1 stacked tolerance refuses in both element orders',async()=>{
+  for(const rows of [stackedRows,[...stackedRows].reverse()]){
+    const r=await check(model(rows),40,10);
+    assert.equal(r.status,'NOT_COINCIDENT',JSON.stringify(r));
+    assert(r.pathResidualMm>0 && r.pathResidualMm<0.001);
+    assert(r.pathBoundMm>0.001,'all-path upper bound: '+r.pathBoundMm);
+  }
+});
+test('B3-R1 every permutation of source element order has same verdict',async()=>{
+  const permutations=[
+    [0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0],
+  ];
+  const results=await Promise.all(permutations.map(async order=>
+    check(model(order.map(i=>stackedRows[i])),40,10)));
+  assert.deepEqual(results.map(r=>r.status),Array(6).fill('NOT_COINCIDENT'));
+  assert.equal(new Set(results.map(r=>r.distanceMm)).size,1);
+  assert.equal(new Set(results.map(r=>r.pathBoundMm)).size,1);
+});
+test('B3-R1 case-folded DELTA duplicate refuses; no lower-first forgery',async()=>{
+  const second=element(20,40,'-99')
+    .replace(' DELTA_X="-99"',' delta_x="-100" DELTA_X="-99"');
+  const r=await check(model([element(10,20,'100'),second]),40,10);
+  assert.equal(r.status,'REFUSED');assert.equal(r.code,C.FIELD_CASE);
+});
+test('B3-R1 lowercase-only DELTA_X/Y/Z is missing, never proof',async()=>{
+  const second=element(20,40,'-100')
+    .replace(' DELTA_X="-100"',' delta_x="-100"')
+    .replace(' DELTA_Y="-1.010100"',' delta_y="-1.010100"')
+    .replace(' DELTA_Z="-1.010100"',' delta_z="-1.010100"');
+  const r=await check(model([element(10,20,'100'),second]),40,10);
+  assert.equal(r.status,'REFUSED');assert.equal(r.code,C.DELTA_MISSING);
+});
+test('B3-R1 duplicate case-folded FROM_NODE / TO_NODE refuse',async()=>{
+  for(const [name,value] of [['FROM_NODE','20'],['TO_NODE','40']]){
+    const second=element(20,40,'-100')
+      .replace(' '+name+'="'+value+'"',
+        ' '+name.toLowerCase()+'="'+value+'" '+name+'="'+value+'"');
+    const r=await check(model([element(10,20,'100'),second]),40,10);
+    assert.equal(r.status,'REFUSED');assert.equal(r.code,C.FIELD_CASE);
+  }
+});
+test('B3-R1 lowercase-only source node identity refuses',async()=>{
+  const second=element(20,40,'-100').replace(' FROM_NODE="20"',' from_node="20"');
+  const r=await check(model([element(10,20,'100'),second]),40,10);
+  assert.equal(r.status,'REFUSED');assert.equal(r.code,C.NODE_ID);
+});
+test('B3-R1 near-sentinel values never become zero',async()=>{
+  for(const delta of ['-1.010095','-1.010105','-1.010099999']){
+    const r=await check(model([element(10,40,delta)]),40,10);
+    assert.equal(r.status,'REFUSED',delta+':'+JSON.stringify(r));
+    assert.equal(r.code,C.DELTA_INVALID,delta);
+  }
+});
+test('B3-R1 only numeric-exact sentinel is zero',async()=>{
+  for(const delta of ['-1.010100','-1.0101','-1.0101000']){
+    const r=await check(model([element(10,40,delta)]),40,10);
+    assert.equal(r.status,'PROVEN_COINCIDENT',delta+':'+JSON.stringify(r));
+    assert.equal(r.distanceMm,0);
+  }
+});
+test('B3-R1 null, undefined and non-object arguments refuse BYTES',async()=>{
+  for(const arg of [null,undefined,0,3.14,true,'source',[]]){
+    const r=await prove(arg);
+    assert.equal(r.status,'REFUSED');
+    assert.equal(r.code,C.BYTES);
+  }
+});
+test('B3-R1 invalid input node identity refuses with named code',async()=>{
+  for(const node of ['10.5','garbage',-1]){
+    const r=await check(coincident(),node,10);
+    assert.equal(r.status,'REFUSED');assert.equal(r.code,C.NODE_ID);
+  }
+  const text=model([element(10,40,'0.001').replace('FROM_NODE="10"',
+    'FROM_NODE="invalid"')]);
+  const r=await check(text,40,10);
+  assert.equal(r.status,'REFUSED');assert.equal(r.code,C.NODE_ID);
+});
+test('B3-R1 exactly 0.001 mm is PROVEN, above is NOT_COINCIDENT',async()=>{
+  const boundary=await check(model([element(10,40,'0.001')]),40,10);
+  const outside=await check(model([element(10,40,'0.001001')]),40,10);
+  assert.equal(boundary.status,'PROVEN_COINCIDENT',JSON.stringify(boundary));
+  assert.equal(boundary.distanceMm,0.001);
+  assert.equal(boundary.pathBoundMm,0.001);
+  assert.equal(outside.status,'NOT_COINCIDENT');
+});

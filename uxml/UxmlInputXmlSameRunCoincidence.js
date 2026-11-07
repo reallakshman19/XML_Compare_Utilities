@@ -20,7 +20,7 @@ export const INPUT_XML_B3_CODES=Object.freeze({
   DELTA_MISSING:'INPUT_XML_ALIAS_DELTA_MISSING',
   DELTA_NONFINITE:'INPUT_XML_ALIAS_DELTA_NONFINITE',
   DELTA_INVALID:'INPUT_XML_ALIAS_DELTA_INVALID',
-  ENDPOINT:'INPUT_XML_ALIAS_ENDPOINT_WITNESS_CONFLICT',
+  FIELD_CASE:'INPUT_XML_ALIAS_SOURCE_ATTRIBUTE_CASE_AMBIGUOUS',
 });
 const C=INPUT_XML_B3_CODES;
 const refuse=(code,details={})=>Object.freeze({status:'REFUSED',code,...details});
@@ -41,11 +41,47 @@ function readOpenAttributes(open) {
   }
   return attrs;
 }
+
+const requiredFields=Object.freeze([
+  'FROM_NODE','TO_NODE','DELTA_X','DELTA_Y','DELTA_Z',
+]);
+const numberFormat=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const sentinel=-1.0101;
+
+/** CAESAR source fields are case-sensitive, unlike the legacy run solver. */
+function preflightOriginalFields(attrs){
+  for(const field of requiredFields){
+    const present=Object.hasOwn(attrs,field)&&String(attrs[field]).trim()!=='';
+    if(!present)throw Error(field.startsWith('DELTA_')?C.DELTA_MISSING:C.NODE_ID);
+    const variants=Object.keys(attrs).filter(key=>key.toUpperCase()===field);
+    if(variants.length!==1)throw Error(C.FIELD_CASE);
+  }
+  for(const field of requiredFields.slice(2)){
+    const raw=String(attrs[field]).trim();
+    if(!numberFormat.test(raw))throw Error(C.DELTA_INVALID);
+    const value=Number(raw);
+    if(!Number.isFinite(value))throw Error(C.DELTA_NONFINITE);
+    // The shared solver accepts a 1e-5 window; B3 must fail closed
+    // on every near sentinel except the exact numeric CAESAR sentinel.
+    if(value!==sentinel && Math.abs(value-sentinel)<0.00001)
+      throw Error(C.DELTA_INVALID);
+  }
+}
+const rowOrderKey=row=>JSON.stringify([
+  row.fromNode,row.toNode,
+  Object.entries(row.attrs).sort(([a],[b])=>a<b?-1:a>b?1:0),
+]);
+const canonicalRowOrder=rows=>rows.sort((a,b)=>{
+  const x=rowOrderKey(a),y=rowOrderKey(b);
+  return x<y?-1:x>y?1:0;
+});
+
 function physicalRows(originalText) {
   const physical=scanOriginalInputXmlStructure(originalText);
   if(!physical)throw Error(C.SOURCE);
   return physical.map(row=>{
     const attrs=readOpenAttributes(row.open);
+    preflightOriginalFields(attrs);
     const from=readInputXmlSourceField(attrs,'FROM_NODE',{node:true})?.numericId;
     const to=readInputXmlSourceField(attrs,'TO_NODE',{node:true})?.numericId;
     if(!from||!to)throw Error(C.NODE_ID);
@@ -86,16 +122,6 @@ function sourceFailure(error) {
      message==='INPUT_XML_NODE_ENTITY_UNSUPPORTED')return C.NODE_ID;
   return C.SOURCE;
 }
-function compareWitnesses(a,b) {
-  const maxWithin=rows=>Math.max(0,...rows.flatMap((x,i)=>
-    rows.slice(i+1).map(y=>distance(x.point,y.point))));
-  if(maxWithin(a)>INPUTXML_DELTA_TOLERANCE||
-     maxWithin(b)>INPUTXML_DELTA_TOLERANCE)return refuse(C.ENDPOINT);
-  const distances=a.flatMap(x=>b.map(y=>distance(x.point,y.point)));
-  return {distanceMm:distance(a[0].point,b[0].point),
-    maxWitnessDistanceMm:Math.max(...distances)};
-}
-
 /**
  * @param {{originalBytes:Uint8Array,fileSha256:string,sourceNode:string|number,
  * canonicalNode:string|number}} request
@@ -105,6 +131,8 @@ function compareWitnesses(a,b) {
  * establish or disprove SAME-RUN coincidence; this never edits any bytes.
  */
 export async function proveInputXmlSameRunCoincidence(request={}) {
+  if(request===null||typeof request!=='object'||Array.isArray(request))
+    return refuse(C.BYTES);
   const {originalBytes,fileSha256,sourceNode,canonicalNode}=request;
   if(!(originalBytes instanceof Uint8Array))return refuse(C.BYTES);
   if(typeof fileSha256!=='string'||!shaRegex.test(fileSha256))
@@ -124,7 +152,7 @@ export async function proveInputXmlSameRunCoincidence(request={}) {
   try{
     source=exactNodeId(sourceNode);canonical=exactNodeId(canonicalNode);
     if(source===canonical)return refuse(C.DISTINCT);
-    graph=solveCaesarInputXmlRuns(physicalRows(originalText));
+    graph=solveCaesarInputXmlRuns(canonicalRowOrder(physicalRows(originalText)));
     evidence=originalWitnesses(graph);
   }catch(error){return refuse(sourceFailure(error));}
   const a=evidence.byNode.get(source),b=evidence.byNode.get(canonical);
@@ -136,15 +164,18 @@ export async function proveInputXmlSameRunCoincidence(request={}) {
   const pathResidualMm=evidence.pathResidualByRun.get(runA)||0;
   if(pathResidualMm>INPUTXML_DELTA_TOLERANCE)
     return refuse(C.LOOP,{runId:runA,pathResidualMm});
-  const comparison=compareWitnesses(a,b);
-  if(comparison.status==='REFUSED')return comparison;
-  const {distanceMm,maxWitnessDistanceMm}=comparison;
+  // Every occurrence of a node shares one solver position; comparing the
+  // copies against each other is vacuous. Raw edge residuals, not those
+  // duplicated positions, conservatively bound all alternative paths.
+  const distanceMm=distance(a[0].point,b[0].point);
+  const maxWitnessDistanceMm=distanceMm;
+  const pathBoundMm=distanceMm+pathResidualMm;
   return Object.freeze({
-    status:maxWitnessDistanceMm<=INPUTXML_DELTA_TOLERANCE?
+    status:pathBoundMm<=INPUTXML_DELTA_TOLERANCE?
       'PROVEN_COINCIDENT':'NOT_COINCIDENT',
     sourceNode:source,canonicalNode:canonical,sourceSha256:measured,
     runId:runA,frame:INPUTXML_HUB_FRAME,
-    distanceMm,maxWitnessDistanceMm,pathResidualMm,
+    distanceMm,maxWitnessDistanceMm,pathResidualMm,pathBoundMm,
     sourceWitnesses:a,canonicalWitnesses:b,
     authority:'ORIGINAL_INPUTXML_DELTA_SAME_RUN_READ_ONLY',
   });
