@@ -11,7 +11,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const target='uxml/UxmlCategorizedPatchBack.js';
 const fixtures=[
   target,'uxml/UxmlCategorizedProjectionMap.js','uxml/UxmlCategorizedInputXmlSchemaMapper.js',
-  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceStructure.js',
+  'uxml/UxmlInputXmlSchemaMapper.js','uxml/UxmlInputXmlSourceFields.js','uxml/UxmlInputXmlSourceStructure.js',
   'uxml/UxmlConstants.js','uxml/UxmlTypes.js','uxml/UxmlValidationGate.js',
   'uxml/UxmlInputXmlDeltaGraph.js',
   'xml-compare/CategorizedInputXmlConverter.js',

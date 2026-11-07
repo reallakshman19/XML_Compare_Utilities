@@ -3,6 +3,14 @@ name: UXML S3 harden original source structure
 on:
   pull_request:
     paths:
+      - 'uxml/**'
+      - 'xml-compare/**'
+      - 'utils/**'
+      - 'docs/**'
+      - 'opt/**'
+      - 'converters/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'uxml/UxmlInputXmlSchemaMapper.js'
       - 'uxml/UxmlInputXmlSourceStructure.js'
       - 'uxml/UxmlCategorizedInputXmlSchemaMapper.js'
