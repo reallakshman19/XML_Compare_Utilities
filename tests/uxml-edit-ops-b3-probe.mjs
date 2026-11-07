@@ -30,6 +30,12 @@ const specs={
     a:40,b:10,status:'PROVEN_COINCIDENT'},
   NODE_ID:{source:coincident(),a:'10.5',b:10,
     status:'REFUSED',code:C.NODE_ID},
+  W1_XML_SPACE_DELTA:{source:model([element(10,20,'100'),
+    element(20,40,'\u00A0-100')]),a:40,b:10,
+    status:'REFUSED',code:C.DELTA_INVALID},
+  W1_XML_SPACE_NODE:{source:model([element(10,20,'100'),
+    element(20,40,'-100').replace('TO_NODE="40"','TO_NODE="40\u00A0"')]),
+    a:40,b:10,status:'REFUSED',code:C.NODE_ID},
 };
 const spec=specs[which];
 assert(spec,'Unknown B3 guard '+which);

@@ -103,7 +103,8 @@ test('B3 boundary 0.0005 is coincident; 0.002 is not',async()=>{
   const near=model([element(10,20,'100'),element(20,40,'-99.9995')]);
   const a=await check(near,40,10),b=await check(separated(),40,10);
   assert.equal(a.status,'PROVEN_COINCIDENT');
-  assert(a.maxWitnessDistanceMm<=0.001);
+  assert(a.distanceMm<=0.001);
+  assert.equal(Object.hasOwn(a,'maxWitnessDistanceMm'),false);
   assert.equal(b.status,'NOT_COINCIDENT');
   assert(b.distanceMm>0.001);
 });
@@ -196,4 +197,66 @@ test('B3-R1 exactly 0.001 mm is PROVEN, above is NOT_COINCIDENT',async()=>{
   assert.equal(boundary.distanceMm,0.001);
   assert.equal(boundary.pathBoundMm,0.001);
   assert.equal(outside.status,'NOT_COINCIDENT');
+});
+
+
+const unicodeSpaces=[
+  ['NBSP U+00A0','\u00A0'],
+  ['EM SPACE U+2003','\u2003'],
+  ['BOM U+FEFF','\uFEFF'],
+];
+for(const [label,space] of unicodeSpaces){
+  test('B3-R2 W1 '+label+' DELTA axis/padding refuses',async()=>{
+    for(const axis of ['X','Y','Z']){
+      for(const side of ['leading','trailing']){
+        const name='DELTA_'+axis;
+        const raw=axis==='X'?'-100':'-1.010100';
+        const poisoned=side==='leading'?space+raw:raw+space;
+        const second=element(20,40,'-100').replace(
+          ' '+name+'="'+raw+'"',' '+name+'="'+poisoned+'"');
+        const r=await check(model([element(10,20,'100'),second]),40,10);
+        assert.equal(r.status,'REFUSED',label+' '+axis+' '+side+':'+JSON.stringify(r));
+        assert.equal(r.code,C.DELTA_INVALID);
+      }
+    }
+  });
+  test('B3-R2 W1 '+label+' raw node endpoints refuse',async()=>{
+    for(const [field,node] of [['FROM_NODE','20'],['TO_NODE','40']]){
+      for(const side of ['leading','trailing']){
+        const poisoned=side==='leading'?space+node:node+space;
+        const second=element(20,40,'-100').replace(
+          ' '+field+'="'+node+'"',' '+field+'="'+poisoned+'"');
+        const r=await check(model([element(10,20,'100'),second]),40,10);
+        assert.equal(r.status,'REFUSED',label+' '+field+' '+side+':'+JSON.stringify(r));
+        assert.equal(r.code,C.NODE_ID);
+      }
+    }
+  });
+}
+test('B3-R2 W1 XML-only padded DELTAs and nodes remain valid',async()=>{
+  for(const whitespace of [' ','\t','\n','\r',' \t\n\r ']){
+    const second=element(20,40,whitespace+'-100'+whitespace)
+      .replace(' FROM_NODE="20"',' FROM_NODE="'+whitespace+'20'+whitespace+'"')
+      .replace(' TO_NODE="40"',' TO_NODE="'+whitespace+'40'+whitespace+'"');
+    const r=await check(model([element(10,20,'100'),second]),40,10);
+    assert.equal(r.status,'PROVEN_COINCIDENT',JSON.stringify(r));
+    assert.equal(r.distanceMm,0);
+  }
+});
+test('B3-R2 W1 XML-entity numeric source survives, escaped NBSP refuses',async()=>{
+  const good=element(20,40,'-100').replace('TO_NODE="40"','TO_NODE="&#52;0"');
+  const bad=element(20,40,'-100').replace('TO_NODE="40"','TO_NODE="40&#xA0;"');
+  const yes=await check(model([element(10,20,'100'),good]),40,10);
+  const no=await check(model([element(10,20,'100'),bad]),40,10);
+  assert.equal(yes.status,'PROVEN_COINCIDENT',JSON.stringify(yes));
+  assert.equal(no.status,'REFUSED');
+  assert.equal(no.code,C.NODE_ID);
+});
+test('B3-R2 W2 output reports actual distance, no redundant maxWitnessDistanceMm',async()=>{
+  for(const src of [coincident(),separated()]){
+    const r=await check(src,40,10);
+    assert.equal(Object.hasOwn(r,'maxWitnessDistanceMm'),false);
+    assert(Number.isFinite(r.distanceMm));
+    assert(Number.isFinite(r.pathBoundMm));
+  }
 });

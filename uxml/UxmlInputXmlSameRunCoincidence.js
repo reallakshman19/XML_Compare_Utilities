@@ -3,7 +3,7 @@
  * A proof is source-relative; it grants no alias writer / TopoFix authority.
  */
 import {scanOriginalInputXmlStructure} from './UxmlInputXmlSourceStructure.js';
-import {readInputXmlSourceField,exactNodeId} from './UxmlInputXmlSourceFields.js';
+import {readInputXmlSourceField,exactNodeId,xmlDecode} from './UxmlInputXmlSourceFields.js';
 import {solveCaesarInputXmlRuns,INPUTXML_DELTA_TOLERANCE,INPUTXML_HUB_FRAME}
   from './UxmlInputXmlDeltaGraph.js';
 
@@ -45,19 +45,29 @@ function readOpenAttributes(open) {
 const requiredFields=Object.freeze([
   'FROM_NODE','TO_NODE','DELTA_X','DELTA_Y','DELTA_Z',
 ]);
-const numberFormat=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+// XML 1.0 S is exactly #x20, #x9, #xA, #xD; JS trim() is broader.
+const numberFormat=/^[ \t\r\n]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[ \t\r\n]*$/;
+const nodeFormat=/^[ \t\r\n]*\+?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[ \t\r\n]*$/;
 const sentinel=-1.0101;
 
 /** CAESAR source fields are case-sensitive, unlike the legacy run solver. */
 function preflightOriginalFields(attrs){
   for(const field of requiredFields){
-    const present=Object.hasOwn(attrs,field)&&String(attrs[field]).trim()!=='';
+    const present=Object.hasOwn(attrs,field);
     if(!present)throw Error(field.startsWith('DELTA_')?C.DELTA_MISSING:C.NODE_ID);
     const variants=Object.keys(attrs).filter(key=>key.toUpperCase()===field);
     if(variants.length!==1)throw Error(C.FIELD_CASE);
+    if(field.endsWith('_NODE')){
+      // Decode XML entities before checking the XML-only whitespace grammar.
+      // This preserves &#52;0 while rejecting literal or encoded NBSP/BOM.
+      let decoded;
+      try{decoded=xmlDecode(String(attrs[field]));}
+      catch{throw Error(C.NODE_ID);}
+      if(!nodeFormat.test(decoded))throw Error(C.NODE_ID);
+    }
   }
   for(const field of requiredFields.slice(2)){
-    const raw=String(attrs[field]).trim();
+    const raw=String(attrs[field]);
     if(!numberFormat.test(raw))throw Error(C.DELTA_INVALID);
     const value=Number(raw);
     if(!Number.isFinite(value))throw Error(C.DELTA_NONFINITE);
@@ -168,14 +178,13 @@ export async function proveInputXmlSameRunCoincidence(request={}) {
   // copies against each other is vacuous. Raw edge residuals, not those
   // duplicated positions, conservatively bound all alternative paths.
   const distanceMm=distance(a[0].point,b[0].point);
-  const maxWitnessDistanceMm=distanceMm;
   const pathBoundMm=distanceMm+pathResidualMm;
   return Object.freeze({
     status:pathBoundMm<=INPUTXML_DELTA_TOLERANCE?
       'PROVEN_COINCIDENT':'NOT_COINCIDENT',
     sourceNode:source,canonicalNode:canonical,sourceSha256:measured,
     runId:runA,frame:INPUTXML_HUB_FRAME,
-    distanceMm,maxWitnessDistanceMm,pathResidualMm,pathBoundMm,
+    distanceMm,pathResidualMm,pathBoundMm,
     sourceWitnesses:a,canonicalWitnesses:b,
     authority:'ORIGINAL_INPUTXML_DELTA_SAME_RUN_READ_ONLY',
   });

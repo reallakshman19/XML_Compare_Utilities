@@ -17,13 +17,25 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    `FROM_NODE`, `TO_NODE` and `DELTA_X/Y/Z` spellings; refuse missing fields
    and case-folded duplicates **before** calling the existing solver. Keep
    source-field/v1 exact numeric node identity and physical record ordinals.
+   Before shared `trim()` or number conversion, accept padding on raw
+   `FROM_NODE`, `TO_NODE`, `DELTA_X/Y/Z` values using only XML 1.0
+   whitespace: #x20 (space), #x9 (tab), #xA (LF), #xD (CR).
+   Unicode NBSP, EM SPACE, FEFF, etc. are **not** XML padding:
+   invalid raw node values refuse `NODE_ID_INVALID`, invalid DELTAs
+   refuse `DELTA_INVALID` (including decoded character references).
 3. Preflight all original DELTAs: only a value whose numeric representation is
    **exactly -1.0101** is the CAESAR zero/unset sentinel. Any *other* value
    inside the shared solver's 1e-5 sentinel window is `DELTA_INVALID`.
    Call unchanged `solveCaesarInputXmlRuns` after sorting original records
    by a canonical node/attribute key (preserving original indices and refs).
    This makes the chosen spanning graph independent of physical element order.
-   Mapping is still CAESAR to hub `(X,-Z,Y)`; 0.001 mm is unchanged.
+   B3 explicitly assumes CAESAR's unset sentinel means **exactly -1.0101**
+   numerically, and that physical geometry is the consistent original DELTA
+   graph regardless of element order. The shared solver still case-folds
+   `FROM_X/Y/Z` and `TO_X/Y/Z` absolute anchors. On a consistent connected
+   run, those anchors only translate the solved node positions together:
+   relative distances and edge residuals cannot change; inconsistent anchors
+   can refuse. Mapping is still CAESAR to hub `(X,-Z,Y)`; 0.001 mm is unchanged.
 4. Require both distinct node identities to exist in **one connected run**.
    Record all original endpoint occurrences with their physical recordKey,
    endpoint, relative hub-frame coordinate and run. For each original edge
@@ -35,7 +47,8 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
 5. For a candidate `a,b`, the triangle inequality bounds **every path**
    between them by `||p_b-p_a|| + R`. Return `PROVEN_COINCIDENT` **only if
    that combined bound is <= 0.001 mm**; otherwise `NOT_COINCIDENT` with
-   the measured relative 3D distance and bound. A node's repeated endpoint
+   the measured relative 3D `distanceMm` and `pathBoundMm`, without a
+   misleading `maxWitnessDistanceMm` alias. A node's repeated endpoint
    positions are projections of the same solved node potential, **not
    independent witnesses**; there is no separate endpoint-pair check.
    RecordKey/endpoint lists are provenance, and source edge residuals are
@@ -64,11 +77,13 @@ unanchored DELTA-only alias requests as
 
 `node --test tests/uxml-edit-ops-b3-samerun.test.mjs
 tests/uxml-edit-ops-b3-mutants.test.mjs`.
-Eleven delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
-STACKED, CASE_DUPLICATE, CASE_REQUIRED, SENTINEL, NULL_INPUT, BOUNDARY
-and NODE_ID: each unchanged probe GREEN -> one guard deletion RED on
-the identical input. Both source orderings and all six permutations of
-the stacked-tolerance case must be `NOT_COINCIDENT`.
+Thirteen delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
+STACKED, CASE_DUPLICATE, CASE_REQUIRED, SENTINEL, NULL_INPUT, BOUNDARY,
+NODE_ID, W1_XML_SPACE_DELTA and W1_XML_SPACE_NODE: each unchanged probe
+GREEN -> one guard deletion RED on identical input. Both source orderings
+and all six permutations of the stacked-tolerance case must be
+`NOT_COINCIDENT`. XML-only whitespace padding stays accepted; U+00A0,
+U+2003 and U+FEFF in original node/DELTA values all refuse by name.
 Real GRE 500→510 must be NOT_COINCIDENT at approximately 225 mm; synthesized
 10→40 is PROVEN; forged side-file remains non-authoritative.
 

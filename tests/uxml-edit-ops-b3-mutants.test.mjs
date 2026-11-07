@@ -37,6 +37,12 @@ const guards=[
     replace:'pathBoundMm<INPUTXML_DELTA_TOLERANCE?'},
   {id:'NODE_ID',old:'source=exactNodeId(sourceNode);canonical=exactNodeId(canonicalNode);',
     replace:'source=String(sourceNode);canonical=exactNodeId(canonicalNode);'},
+  {id:'W1_XML_SPACE_DELTA',
+    old:'if(!numberFormat.test(raw))throw Error(C.DELTA_INVALID);',
+    replace:'if(false)throw Error(C.DELTA_INVALID);'},
+  {id:'W1_XML_SPACE_NODE',
+    old:'if(!nodeFormat.test(decoded))throw Error(C.NODE_ID);',
+    replace:'if(false)throw Error(C.NODE_ID);'},
 ];
 const run=(cwd,id)=>spawnSync(process.execPath,
   ['tests/uxml-edit-ops-b3-probe.mjs',id],

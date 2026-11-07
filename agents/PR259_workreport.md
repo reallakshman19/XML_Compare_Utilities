@@ -25,7 +25,7 @@ Drive content inspected. Protected/private Owner geometry NOT_RUN.
 
 | Module | Path | Preimage / intent | Undo |
 |---|---|---|---|
-| Read-only geometry | `uxml/UxmlInputXmlSameRunCoincidence.js` | NEW; input SHA, original scanner, DeltaGraph, conservative loop residual, every endpoint witness | Delete only if unchanged |
+| Read-only geometry | `uxml/UxmlInputXmlSameRunCoincidence.js` | NEW; input SHA, original scanner, DeltaGraph, conservative loop residual and endpoint source provenance | Delete only if unchanged |
 | B3 fixtures | `tests/uxml-edit-ops-b3-fixtures.mjs` | NEW; isolated synthetic original exports | Delete only if unchanged |
 | B3 behavior | `tests/uxml-edit-ops-b3-samerun.test.mjs` | NEW; GRE + synthetic + failure cases | Delete only if unchanged |
 | B3 mutant oracle | `tests/uxml-edit-ops-b3-probe.mjs` | NEW; independent focused expected status | Delete only if unchanged |
@@ -79,17 +79,20 @@ GitHub immutable blob in starting head:
 | `docs/uxml-edit-ops-stepB3.md` | `4b0c33c2006165215f0177d4934871204f1c5b6b` — precise proof chain/refusals | Restore only that blob if unchanged |
 | `agents/PR259_workreport.md` | `4821710c65855d8738efb9022af5ad704a1ca31c` — recovery report | Restore only that blob if unchanged |
 
-**Validation as of initial B3-R1 commit:** NOT_RUN at new head;
-existing B3 exact-head CI was successful. GitHub Actions exact-head and
-independent mutation probes are the decisive checks; do not infer green.
+**Verified B3-R1 head `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`:**
+Step12 130/130 GREEN (27 B3 behavioral + 11 isolated guard mutants);
+GitHub Actions 9/9 observable workflows SUCCESS. Oracle separately
+reported CI 13/13 GREEN. These are R1-base observations, not a substitute
+for the R2 exact-head CI gate.
 **Highest risk:** upstream legacy solver has its own case-fold and widened
 sentinel acceptance; B3 compensates **without** changing that shared
 implementation. PR258 original-literal geometry guard still blocks
 DELTA-only writer calls; broader upstream audit is outside scope.
 
-**EXACT_NEXT_ACTION:** Inspect new #259 exact-head Actions; if failures,
-repair by another forward-only commit. Record final 11/11 mutation,
-B3 behavior, inherited CI conclusions in issue #239; STOP and leave draft.
+**R1 exact-head receipt:** issue #239, comment 6700734463.
+**EXACT_NEXT_ACTION:** Validate B3-R2 successor head, ensure the new
+XML-whitespace cases and mutants are GREEN, check inherited workflows,
+then record the R2 result on #239; STOP and leave draft.
 
 
 ## CI and risk
@@ -109,3 +112,43 @@ B3 behavior, inherited CI conclusions in issue #239; STOP and leave draft.
 - **EXACT_NEXT_ACTION:** inspect new #259 head Actions for Step12/B3 and
   inherited regressions; record exact green/red receipts on #239. STOP;
   wait for Owner/Oracle review before any B3 writer integration.
+
+## B3-R2 whitespace repair and evidence hygiene (Owner Q48, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R2/STEP-B3-R2-B8.md`, advertised 2909 B,
+SHA-256 `0787a30baecde86e3903feb7e85dac13c27d649e9ad5ea4311ab8a5818a16d50`.
+Grounded PR259 R1 parent `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`.
+
+**W1 invariant:** B3 admits raw XML attribute padding only from XML 1.0
+`#x20,#x9,#xA,#xD`. The legacy `String.trim()` also removes Unicode
+NBSP/EM SPACE/BOM and must not be authoritative. Required DELTA source
+values are checked against the original XML-only numeric grammar;
+FROM_NODE/TO_NODE values are XML-entity-decoded then validated against
+the XML-only numeric node grammar before unchanged source-field/v1
+identity canonicalization. Illegal whitespace refuses `DELTA_INVALID`
+or `NODE_ID_INVALID`. ASCII/XML padding and legal numeric node entities
+stay supported. Two independent guard deletions must turn GREEN→RED.
+
+**W2 evidence:** Drop redundant `maxWitnessDistanceMm` (it equaled
+`distanceMm`), preserve actual `distanceMm` and `pathBoundMm`.
+Document that case-folded absolute anchors in the **unchanged** solver
+can only translate a consistent connected run, leaving relative node
+distance invariant; B3 assumes exactly -1.0101 as CAESAR sentinel and
+order-independent DELTA geometry. No new writer or Apply authority.
+
+| Module | R1 preimage blob | W1/W2 repair | Selective undo |
+|---|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `7a28f9d475955ca65ba4f0d2f898cf44345b0d4b` | XML whitespace source admission, remove redundant output | Restore immutable preimage only if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `3e44b53890457e877d14554db5e55f449dccd708` | Unicode regressions, XML padding positives, output shape | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `8b6aa135611d2d052d8bf91dc04b32cf9435187c` | W1 delta and node independent probes | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `b9e376cdfe9a9388f7a1cca65fbc84970a157dd5` | Two more delete-one-guard mutants | Restore preimage if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `a91436cb4cdbe29f174f58e87dc362f70546bbf9` | Sentinel/order/anchor qualification, output shape, whitespace | Restore preimage if unchanged |
+| `agents/PR259_workreport.md` | `1969c710d96e9e89be2eb80024eab76df5c02875` | Correct R1 CI, authority handoff, remove vacuous witness text | Restore preimage if unchanged |
+
+**Collision verdict:** COORDINATION_REQUIRED (stacked PR259 on draft
+PR258); exact shared solver/scanner, writer, tolerance and workflow
+mutations are expressly prohibited and remain unchanged.
+
+**EXACT_NEXT_ACTION:** Observe R2 exact-head B3-inclusive edit-ops CI
+and 13 guard mutants, record all workflow outcomes on issue #239;
+STOP and retain PR259 draft for Owner-only merge authorization.
