@@ -541,7 +541,17 @@ const x1Zero=()=>model([
   edge({from:'10',to:'20',fx:0,tx:100}),
   edge({from:'30',to:'40',fx:100,tx:100}),
 ]);
-const x1Envelope=s=>envelope(s,[[30,20]]);
+const x1Envelope=s=>{
+  // Source-grounded physical record keys, not a shared-solver prescan:
+  // malformed DELTAs must reach the public writer's named refusal.
+  const action='SYNTH-30-20',digest=sha(s);
+  const op={opId:'UXML-OP-'+action,kind:'ALIAS_COINCIDENT_NODE',
+    sourceActionId:action,fileSha256:digest,
+    targets:['E0:F10:T20','E1:F30:T40'],
+    params:[{operation:'ALIAS_NODE',sourceNode:30,canonicalNode:20}]};
+  return {schema:'uxml-edit-ops/v1',sourceFormat:'INPUT_XML',
+    fileSha256:digest,policy:policy([op]),ops:[op]};
+};
 test('X1 writer honest anchored coincidence 30~20 accepts',async()=>{
   const src=x1Honest();
   const {updated}=await succeed(src,x1Envelope(src));

@@ -154,7 +154,11 @@ function assertExactOriginalDeltaGeometry(rows){
     try{
       from=absoluteInputXmlSourceWitness(attrs,'FROM').point;
       to=absoluteInputXmlSourceWitness(attrs,'TO').point;
-    }catch{throw new Refusal(R.COORDINATE,{row:row.index});}
+    }catch(error){
+      if(error?.code===R.CARRIER)
+        throw new Refusal(R.CARRIER,{row:row.index});
+      throw new Refusal(R.COORDINATE,{row:row.index});
+    }
     const errorMm=Math.hypot(
       to.x-from.x-delta.x,
       to.y-from.y+delta.z, // hub Y is minus source Z
