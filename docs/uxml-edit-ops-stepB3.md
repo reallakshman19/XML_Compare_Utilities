@@ -1,7 +1,7 @@
 # Lane B B3 — original InputXML same-run coincidence (READ-ONLY)
 
 Status: **DRAFT / PROOF ONLY**. Stacked on PR #258 at
-\`c4e3e1efc09b129f13c03311b099c1b87ee88205\`.
+`c4e3e1efc09b129f13c03311b099c1b87ee88205`.
 Owner/Oracle card Q41 (7 Nov) authorizes one new isolated B3 proof PR.
 No Step 1.2 alias writer, planner, verifier, numeric registry, 0.001 mm
 tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
@@ -13,10 +13,10 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    preserve the bytes. Measure SHA-256 and compare with required caller SHA;
    mismatch refuses before any geometry admission.
 2. Scan physical direct-child PIPINGELEMENT records using the unchanged
-   \`UxmlInputXmlSourceStructure.js\` scanner; read FROM_NODE, TO_NODE using
+   `UxmlInputXmlSourceStructure.js` scanner; read FROM_NODE, TO_NODE using
    source-field/v1 exact numeric identity. Record physical ordinal and source
    field paths. Missing/ambiguous source records refuse.
-3. Call unchanged \`solveCaesarInputXmlRuns\` on original attributes and signed
+3. Call unchanged `solveCaesarInputXmlRuns` on original attributes and signed
    DELTA_X/Y/Z (CAESAR -1.010100 sentinel, hub X/-Z/Y mapping). It checks
    path closure against the **unchanged 0.001 mm** tolerance.
 4. Require both distinct node identities to exist in one **same connected run**.
@@ -48,12 +48,12 @@ If companions are ever introduced, separate MISSING / STALE / MODEL_UNBOUND
 SHA and model checks must be designed and pinned before any authority.
 Do not apply the B3 proof to PR #258's writer in this slice: it **still refuses**
 unanchored DELTA-only alias requests as
-\`INPUT_XML_ALIAS_COORDINATE_UNPROVEN\`.
+`INPUT_XML_ALIAS_COORDINATE_UNPROVEN`.
 
 ## Tests, mutants, and authority
 
-\`node --test tests/uxml-edit-ops-b3-samerun.test.mjs
-tests/uxml-edit-ops-b3-mutants.test.mjs\`.
+`node --test tests/uxml-edit-ops-b3-samerun.test.mjs
+tests/uxml-edit-ops-b3-mutants.test.mjs`.
 Four delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA:
 unchanged probe GREEN -> a single guard deletion RED on the same seed.
 Real GRE 500→510 must be NOT_COINCIDENT at approximately 225 mm; synthesized

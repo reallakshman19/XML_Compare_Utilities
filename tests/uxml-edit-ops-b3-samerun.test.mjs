@@ -33,7 +33,7 @@ test('B3 public GRE original 500 -> 510 is NOT_COINCIDENT',async()=>{
     sourceNode:500,canonicalNode:510});
   assert.equal(r.status,'NOT_COINCIDENT',JSON.stringify(r));
   assert(Math.abs(r.distanceMm-224.9999854134436)<1e-5,r.distanceMm);
-  assert.equal(r.pathResidualMm,0);
+  assert(r.pathResidualMm<1e-6,'float roundoff: '+r.pathResidualMm);
 });
 test('B3 forged side coordinate cannot authorize noncoincident source nodes',async()=>{
   const src=separated();
