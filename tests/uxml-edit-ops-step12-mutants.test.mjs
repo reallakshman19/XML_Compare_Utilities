@@ -212,6 +212,66 @@ const specs=[
     new:"return {ok:true,bytes:candidateBytes,parity:'EQUAL',ledger,refusals:[],authorised:true};",
     name:'I-7 XCU output never claims native TopoFix plan authorization',
   },
+  {
+    id:'X1_EXACT_DELTA_CASE',file:WRITE,
+    old:'need(matched.length===1&&matched[0]===field,R.DELTA_MISSING,',
+    new:'need(true,R.DELTA_MISSING,',
+    name:'X1 writer lowercase-only delta_x refuses DELTA_MISSING',
+  },
+  {
+    id:'X1_EXACT_SENTINEL',file:WRITE,
+    old:'return value===caesarUnsetDelta?0:value;',
+    new:'return Math.abs(value-caesarUnsetDelta)<0.00001?0:value;',
+    name:'X1 writer near-sentinel -1.010095 with literal zero refuses',
+  },
+  {
+    id:'X1_XML_WHITESPACE',file:WRITE,
+    old:'need(exactDeltaNumeric.test(raw),R.DELTA_INVALID,{row:index,field});',
+    new:'need(true,R.DELTA_INVALID,{row:index,field});',
+    name:'X1 writer NBSP before DELTA refuses DELTA_INVALID',
+  },
+  {
+    id:'X1_COORDINATE_DISAGREEMENT',file:WRITE,
+    old:'need(errorMm<=INPUTXML_DELTA_TOLERANCE,R.DELTA_COORDINATE,',
+    new:'need(true,R.DELTA_COORDINATE,',
+    name:'X1 writer exact DELTA_X 99 against literal 100 refuses named discrepancy',
+  },
+  {
+    id:'Z1_UNANCHORED_S3_DELTA',file:WRITE,
+    old:'assertExactSolvedRowDeltas(rows,exactDeltas,doc);',
+    new:'void exactDeltas;',
+    name:'Z1 case C unanchored near-sentinel DELTA_X refuses full file',
+  },
+  {
+    id:'Z2_DROP_Y_TERM',file:WRITE,
+    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
+    new:'0, // source Y maps to hub Z',
+    name:'Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',
+  },
+  {
+    id:'Z2_DROP_Z_TERM',file:WRITE,
+    old:'s3To.y-s3From.y+delta.z, // source Z maps to negative hub Y',
+    new:'0, // source Z maps to negative hub Y',
+    name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
+  },
+  {
+    id:'Z2_SWAP_YZ',file:WRITE,
+    old:'s3To.z-s3From.z-delta.y, // source Y maps to hub Z',
+    new:'s3To.z-s3From.z-delta.z, // source Y maps to hub Z',
+    name:'Z2 honest nonzero Y and Z unanchored segment accepts',
+  },
+  {
+    id:'Z2_Y_AS_ZERO',file:WRITE,
+    old:"y:exactWriterDelta(attrs,'Y',row.index),",
+    new:'y:0,',
+    name:'Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',
+  },
+  {
+    id:'Z2_Z_AS_ZERO',file:WRITE,
+    old:"z:exactWriterDelta(attrs,'Z',row.index),",
+    new:'z:0,',
+    name:'Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',
+  },
 ];
 const run=(dir,args)=>spawnSync(process.execPath,args,{cwd:dir,encoding:'utf8',
   timeout:90000,env:Object.fromEntries(Object.entries(process.env)

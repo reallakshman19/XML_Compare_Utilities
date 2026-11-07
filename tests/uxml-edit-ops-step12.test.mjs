@@ -530,6 +530,160 @@ test('R3 C4 redundant namespaced-attribute gate removed but scanner still refuse
     e=>[R.CARRIER,R.SOURCE].includes(e.code));
 });
 
+
+// 1.2-R4: original CAESAR DELTA is independently read, not inferred from
+// the case-folding / near-sentinel S3 graph. All probes call the real writer.
+const x1Honest=()=>model([
+  edge({from:'10',to:'20',fx:0,tx:100}),
+  edge({from:'30',to:'40',fx:100,tx:200}),
+]);
+const x1Zero=()=>model([
+  edge({from:'10',to:'20',fx:0,tx:100}),
+  edge({from:'30',to:'40',fx:100,tx:100}),
+]);
+const x1Envelope=s=>{
+  // Source-grounded physical record keys, not a shared-solver prescan:
+  // malformed DELTAs must reach the public writer's named refusal.
+  const action='SYNTH-30-20',digest=sha(s);
+  const op={opId:'UXML-OP-'+action,kind:'ALIAS_COINCIDENT_NODE',
+    sourceActionId:action,fileSha256:digest,
+    targets:['E0:F10:T20','E1:F30:T40'],
+    params:[{operation:'ALIAS_NODE',sourceNode:30,canonicalNode:20}]};
+  return {schema:'uxml-edit-ops/v1',sourceFormat:'INPUT_XML',
+    fileSha256:digest,policy:policy([op]),ops:[op]};
+};
+test('X1 writer honest anchored coincidence 30~20 accepts',async()=>{
+  const src=x1Honest();
+  const {updated}=await succeed(src,x1Envelope(src));
+  assert.equal(refs(updated)[1].fromNode,'20');
+});
+test('X1 writer exact DELTA_X 99 against literal 100 refuses named discrepancy',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X="99"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer case-fold DELTA_X 99 duplicate delta_x 100 refuses carrier',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',
+    ' delta_x="100" DELTA_X="99"');
+  await refuse(src,x1Envelope(src),R.CARRIER);
+});
+test('X1 writer near-sentinel -1.010095 with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_X="-1.010100"',
+    ' DELTA_X="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer near-sentinel -1.0101001 is a real DELTA and refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_X="-1.010100"',
+    ' DELTA_X="-1.0101001"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('X1 writer lowercase-only delta_x refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' delta_x="100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('X1 writer mixed-case-only DeLtA_X refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DeLtA_X="100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('X1 writer NBSP before DELTA refuses DELTA_INVALID',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',
+    ' DELTA_X="\u00A0100"');
+  await refuse(src,x1Envelope(src),R.DELTA_INVALID);
+});
+test('X1 writer exact numeric sentinel and XML-only padding stay accepted',async()=>{
+  for(const raw of ['-1.010100','-1.0101',' -1.010100 ',
+    '\t-1.010100\n','\r-1.010100\t']){
+    const src=x1Zero().replace(' DELTA_X="-1.010100"',
+      ' DELTA_X="'+raw+'"');
+    const {updated}=await succeed(src,x1Envelope(src));
+    assert.equal(refs(updated)[1].fromNode,'20');
+  }
+});
+test('X1 writer non-DELTA literal coordinate formatting unchanged',async()=>{
+  const src=x1Honest().replace(' DELTA_X="100"',' DELTA_X=" 100 "');
+  await succeed(src,x1Envelope(src));
+});
+
+
+// Step 1.2-R5 Z1/Z2: independent physical records, not S3-derived claims.
+// E1 20->25 deliberately lacks literal endpoints; S3's approximate sentinel
+// must never authorize an alias of 50 (or 30) to 26.
+const z1Graph=({alias=50,dx='-1.010100',dy='-1.010100',
+  dz='-1.010100',yEnd=0,zEnd=0}={})=>{
+  const middle=edge({from:'20',to:'25',fx:100,tx:100,fy:0,ty:yEnd,
+    fz:0,tz:zEnd})
+    .replace(/ DELTA_X="[^"]*"/,' DELTA_X="'+dx+'"')
+    .replace(/ DELTA_Y="[^"]*"/,' DELTA_Y="'+dy+'"')
+    .replace(/ DELTA_Z="[^"]*"/,' DELTA_Z="'+dz+'"')
+    .replace(/ (?:FROM|TO)_[XYZ]="[^"]*"/g,'');
+  return model([
+    edge({from:'10',to:'20',fx:0,tx:100}),
+    middle,
+    edge({from:'25',to:'26',fx:100,tx:100,fy:yEnd,ty:yEnd,
+      fz:zEnd,tz:zEnd}),
+    edge({from:String(alias),to:'60',fx:100,tx:200,fy:yEnd,ty:yEnd,
+      fz:zEnd,tz:zEnd}),
+  ]);
+};
+const z1Envelope=(s,alias=50)=>{
+  const digest=sha(s),action='SYNTH-'+alias+'-26';
+  const op={opId:'UXML-OP-'+action,kind:'ALIAS_COINCIDENT_NODE',
+    sourceActionId:action,fileSha256:digest,
+    targets:['E2:F25:T26','E3:F'+alias+':T60'],
+    params:[{operation:'ALIAS_NODE',sourceNode:alias,canonicalNode:26}]};
+  return {schema:'uxml-edit-ops/v1',sourceFormat:'INPUT_XML',
+    fileSha256:digest,policy:policy([op]),ops:[op]};
+};
+test('Z1 case C unanchored near-sentinel DELTA_X refuses full file',async()=>{
+  for(const dx of ['-1.010095','-1.0100951','-1.0101049']){
+    const src=z1Graph({dx});
+    await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+  }
+});
+test('Z1 no-literal near-sentinel alias 30 to 26 refuses',async()=>{
+  const src=z1Graph({alias:30,dx:'-1.010095'});
+  await refuse(src,z1Envelope(src,30),R.DELTA_COORDINATE);
+});
+test('Z1 exact-sentinel unanchored graph still accepts both aliases',async()=>{
+  for(const alias of [50,30]){
+    const src=z1Graph({alias,dx:'-1.010100'});
+    const {updated}=await succeed(src,z1Envelope(src,alias));
+    assert.equal(refs(updated)[3].fromNode,'26');
+  }
+});
+test('Z2 no-literal near-sentinel DELTA_Y refuses named disagreement',async()=>{
+  const src=z1Graph({dy:'-1.010095'});
+  await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 no-literal near-sentinel DELTA_Z refuses named disagreement',async()=>{
+  const src=z1Graph({dz:'-1.010095'});
+  await refuse(src,z1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 honest nonzero Y and Z unanchored segment accepts',async()=>{
+  const src=z1Graph({dy:'7',dz:'3',yEnd:7,zEnd:3});
+  const {updated}=await succeed(src,z1Envelope(src));
+  assert.equal(refs(updated)[3].fromNode,'26');
+});
+test('Z2 DELTA_Y near-sentinel with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_Y="-1.010100"',
+    ' DELTA_Y="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 DELTA_Z near-sentinel with literal zero refuses',async()=>{
+  const src=x1Zero().replace(' DELTA_Z="-1.010100"',
+    ' DELTA_Z="-1.010095"');
+  await refuse(src,x1Envelope(src),R.DELTA_COORDINATE);
+});
+test('Z2 lowercase-only delta_y refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_Y="-1.010100"',
+    ' delta_y="-1.010100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+test('Z2 lowercase-only delta_z refuses DELTA_MISSING',async()=>{
+  const src=x1Honest().replace(' DELTA_Z="-1.010100"',
+    ' delta_z="-1.010100"');
+  await refuse(src,x1Envelope(src),R.DELTA_MISSING);
+});
+
 // B3 read-only proof runs in the existing edit-ops CI without workflow edits.
 // Guarded only for isolated step-1.2 mutation clones, which copy this test
 // without the unrelated B3 files and must retain their existing scope.
