@@ -43,6 +43,9 @@ const guards=[
   {id:'W1_XML_SPACE_NODE',
     old:'if(!nodeFormat.test(decoded))throw Error(C.NODE_ID);',
     replace:'if(false)throw Error(C.NODE_ID);'},
+  {id:'U1_MM_LENGTH_UNIT',
+    old:'if(!unitIsMillimetre(originalText))throw Error(C.UNIT);',
+    replace:'if(false)throw Error(C.UNIT);'},
 ];
 const run=(cwd,id)=>spawnSync(process.execPath,
   ['tests/uxml-edit-ops-b3-probe.mjs',id],

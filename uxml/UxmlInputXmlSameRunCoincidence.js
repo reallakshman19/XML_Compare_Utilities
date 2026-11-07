@@ -21,6 +21,7 @@ export const INPUT_XML_B3_CODES=Object.freeze({
   DELTA_NONFINITE:'INPUT_XML_ALIAS_DELTA_NONFINITE',
   DELTA_INVALID:'INPUT_XML_ALIAS_DELTA_INVALID',
   FIELD_CASE:'INPUT_XML_ALIAS_SOURCE_ATTRIBUTE_CASE_AMBIGUOUS',
+  UNIT:'INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN',
 });
 const C=INPUT_XML_B3_CODES;
 const refuse=(code,details={})=>Object.freeze({status:'REFUSED',code,...details});
@@ -28,9 +29,9 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
 const shaRegex=/^[a-f0-9]{64}$/i;
 const attrPattern=/^\s+([A-Za-z_:][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 
-function readOpenAttributes(open) {
-  const name=/^<PIPINGELEMENT(?=[\s/>])/.exec(open);
-  if(!name)throw Error(C.SOURCE);
+function readOpenAttributes(open,expectedTag='PIPINGELEMENT') {
+  const name=/^<([A-Za-z_:][\w.:-]*)(?=[\s/>])/.exec(open);
+  if(!name||name[1]!==expectedTag)throw Error(C.SOURCE);
   let tail=open.slice(name[0].length).replace(/\/?\s*>$/,'');
   const attrs={};
   while(tail.trim()){
@@ -86,9 +87,86 @@ const canonicalRowOrder=rows=>rows.sort((a,b)=>{
   return x<y?-1:x>y?1:0;
 });
 
+
+/**
+ * The existing structural scanner validates the document but returns only
+ * PIPINGELEMENT slices. Walk original lexical tags to locate the sole model
+ * UNITS/LENGTH declaration, never text, comments, PI or CDATA contents.
+ * Refuse uncertain markup rather than infer a default or convert units.
+ */
+function unitIsMillimetre(originalText){
+  const stack=[];
+  let unitCount=0,lengthCount=0,lengthAttrs=null;
+  let cursor=0;
+  while(cursor<originalText.length){
+    const start=originalText.indexOf('<',cursor);
+    if(start<0)break;
+    if(originalText.startsWith('<!--',start)){
+      const end=originalText.indexOf('-->',start+4);
+      if(end<0)return false;
+      cursor=end+3;continue;
+    }
+    if(originalText.startsWith('<?',start)){
+      const end=originalText.indexOf('?>',start+2);
+      if(end<0)return false;
+      cursor=end+2;continue;
+    }
+    if(originalText.startsWith('<![CDATA[',start)){
+      const end=originalText.indexOf(']]>',start+9);
+      if(end<0)return false;
+      cursor=end+3;continue;
+    }
+    if(originalText.startsWith('<!',start))return false;
+    let quote='',end=-1;
+    for(let i=start+1;i<originalText.length;i++){
+      const c=originalText[i];
+      if(quote){if(c===quote)quote='';}
+      else if(c==='"'||c==="'")quote=c;
+      else if(c==='>'){end=i+1;break;}
+    }
+    if(end<0)return false;
+    const tag=originalText.slice(start,end);
+    const closing=/^<\/([A-Za-z_:][\w.:-]*)\s*>$/.exec(tag);
+    if(closing){
+      if(stack.pop()!==closing[1])return false;
+    }else{
+      const open=/^<([A-Za-z_:][\w.:-]*)(?=[\s/>])/.exec(tag);
+      if(!open)return false;
+      const name=open[1],selfClosing=/\/\s*>$/.test(tag);
+      if(name==='UNITS'){
+        unitCount++;
+        if(selfClosing||stack.length!==2||
+           stack[0]!=='CAESARII'||stack[1]!=='PIPINGMODEL')
+          return false;
+      }
+      if(name==='LENGTH'){
+        lengthCount++;
+        if(!selfClosing||stack.at(-1)!=='UNITS')return false;
+        try{lengthAttrs=readOpenAttributes(tag,'LENGTH');}
+        catch{return false;}
+      }
+      if(!selfClosing)stack.push(name);
+    }
+    cursor=end;
+  }
+  if(stack.length||unitCount!==1||lengthCount!==1||!lengthAttrs)
+    return false;
+  const keys=Object.keys(lengthAttrs);
+  if(keys.filter(k=>k.toUpperCase()==='LABEL').length!==1||
+     keys.filter(k=>k.toUpperCase()==='FACTOR').length!==1||
+     !Object.hasOwn(lengthAttrs,'LABEL')||
+     !Object.hasOwn(lengthAttrs,'FACTOR'))
+    return false;
+  let label;
+  try{label=xmlDecode(lengthAttrs.LABEL);}catch{return false;}
+  return label==='mm.'&&numberFormat.test(lengthAttrs.FACTOR)&&
+    Number(lengthAttrs.FACTOR)===25.4;
+}
+
 function physicalRows(originalText) {
   const physical=scanOriginalInputXmlStructure(originalText);
   if(!physical)throw Error(C.SOURCE);
+  if(!unitIsMillimetre(originalText))throw Error(C.UNIT);
   return physical.map(row=>{
     const attrs=readOpenAttributes(row.open);
     preflightOriginalFields(attrs);

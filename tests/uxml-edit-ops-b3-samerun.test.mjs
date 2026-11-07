@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {proveInputXmlSameRunCoincidence as prove,
   INPUT_XML_B3_CODES as C} from '../uxml/UxmlInputXmlSameRunCoincidence.js';
-import {bytes,sha,element,model,coincident,separated,crossRun,
+import {bytes,sha,element,model,mmUnits,coincident,separated,crossRun,
   inconsistentLoop,accumulatedResidual}
   from './uxml-edit-ops-b3-fixtures.mjs';
 
@@ -258,5 +258,58 @@ test('B3-R2 W2 output reports actual distance, no redundant maxWitnessDistanceMm
     assert.equal(Object.hasOwn(r,'maxWitnessDistanceMm'),false);
     assert(Number.isFinite(r.distanceMm));
     assert(Number.isFinite(r.pathBoundMm));
+  }
+});
+
+
+const tinyDeltaRows=[element(10,20,'1.0'),element(20,40,'-0.9995')];
+const lengthUnit=(label,factor)=>'<UNITS><LENGTH LABEL="'+label+
+  '" FACTOR="'+factor+'"/></UNITS>';
+test('B3-R3 U1 valid explicit mm factor 25.4 preserves mm tolerance',async()=>{
+  for(const units of [mmUnits,lengthUnit('mm.','25.4')]){
+    const r=await check(model(tinyDeltaRows,units),40,10);
+    assert.equal(r.status,'PROVEN_COINCIDENT',JSON.stringify(r));
+    assert(Math.abs(r.distanceMm-0.0005)<1e-10,r.distanceMm);
+    assert(r.pathBoundMm<=0.001);
+  }
+});
+test('B3-R3 U1 metre label factor refuses millimetre coincidence',async()=>{
+  const r=await check(model(tinyDeltaRows,lengthUnit('m','0.025400')),40,10);
+  assert.equal(r.status,'REFUSED',JSON.stringify(r));
+  assert.equal(r.code,C.UNIT);
+});
+test('B3-R3 U1 inch label factor refuses millimetre coincidence',async()=>{
+  const r=await check(model(tinyDeltaRows,lengthUnit('in.','1.000000')),40,10);
+  assert.equal(r.status,'REFUSED',JSON.stringify(r));
+  assert.equal(r.code,C.UNIT);
+});
+test('B3-R3 U1 missing original UNITS refuses; no inferred default',async()=>{
+  const r=await check(model(tinyDeltaRows,null),40,10);
+  assert.equal(r.status,'REFUSED',JSON.stringify(r));
+  assert.equal(r.code,C.UNIT);
+});
+test('B3-R3 U1 duplicate UNITS or LENGTH refuses',async()=>{
+  for(const units of [
+    mmUnits+mmUnits,
+    '<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/>'+
+      '<LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>',
+    lengthUnit('mm.','25.400001'),
+    '<UNITS/>',
+  ]){
+    const r=await check(model(tinyDeltaRows,units),40,10);
+    assert.equal(r.status,'REFUSED',JSON.stringify(r));
+    assert.equal(r.code,C.UNIT);
+  }
+});
+test('B3-R3 U1 ignores comment/CDATA faux UNITS and refuses misplaced LENGTH',async()=>{
+  const cases=[
+    '<!-- '+mmUnits+' -->',
+    '<UNITS><![CDATA[<LENGTH LABEL="mm." FACTOR="25.400000"/>]]></UNITS>',
+    '<UNITS><OTHER><LENGTH LABEL="mm." FACTOR="25.400000"/></OTHER></UNITS>',
+  ];
+  for(const units of cases){
+    const r=await check(model(tinyDeltaRows,units),40,10);
+    assert.equal(r.status,'REFUSED',JSON.stringify(r));
+    assert.equal(r.code,C.UNIT);
   }
 });

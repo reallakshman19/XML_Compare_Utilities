@@ -81,9 +81,8 @@ GitHub immutable blob in starting head:
 
 **Verified B3-R1 head `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`:**
 Step12 130/130 GREEN (27 B3 behavioral + 11 isolated guard mutants);
-GitHub Actions 9/9 observable workflows SUCCESS. Oracle separately
-reported CI 13/13 GREEN. These are R1-base observations, not a substitute
-for the R2 exact-head CI gate.
+Owner/Oracle-runner CI **13/13 SUCCESS**, verified against this exact
+R1 head. These are R1-base observations, not an R3 CI claim.
 **Highest risk:** upstream legacy solver has its own case-fold and widened
 sentinel acceptance; B3 compensates **without** changing that shared
 implementation. PR258 original-literal geometry guard still blocks
@@ -101,9 +100,9 @@ then record the R2 result on #239; STOP and leave draft.
   edit-ops workflow `42322887282` **FAIL 111/112** on an overly exact GRE
   test expectation (computed path residual 5.832e-9 mm instead of 0).
   Behavior / mutant outcomes correct: all 4 guard mutants passed.
-- Follow-on repairs only that test assertion using a strict `<1e-6 mm`
-  numerical roundoff check; docs formatting is mechanical. Final exact-head
-  CI results must be recorded separately on issue #239 when observed.
+- Follow-on repaired only that test assertion using a strict `<1e-6 mm`
+  numerical roundoff check; docs formatting was mechanical. Subsequent
+  R1 and R2 exact-head Owner/Oracle-runner CI each reached **13/13 SUCCESS**.
 - **Highest risk:** output is relative graph evidence, not engineering
   authorisation; cumulative loop-residual bound is conservative and can
   refuse safe inputs. Never weaken tolerance or silently join two runs.
@@ -149,6 +148,47 @@ order-independent DELTA geometry. No new writer or Apply authority.
 PR258); exact shared solver/scanner, writer, tolerance and workflow
 mutations are expressly prohibited and remain unchanged.
 
-**EXACT_NEXT_ACTION:** Observe R2 exact-head B3-inclusive edit-ops CI
-and 13 guard mutants, record all workflow outcomes on issue #239;
-STOP and retain PR259 draft for Owner-only merge authorization.
+**Verified R2 exact head `0db8491c9ab8366ac0e79fe235db83f5d11ff94e`:**
+B3 behavior **36/36**; isolated guard mutants **13/13**; Step12 **141/141**;
+Owner/Oracle-runner CI **13/13 SUCCESS**. GitHub exact-head workflow
+results were verified separately; issue #239 R2 receipt 6702341116.
+**EXACT_NEXT_ACTION:** Validate R3 exact-head length-unit admission,
+record its 14 guard mutants / inherited CI on #239; STOP draft.
+
+## B3-R3 length unit repair (Owner Q49, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R3/STEP-B3-R3-B8.md`, advertised 2775 B,
+SHA256 `f27942b03cd0e44d27ffcbb2e539df37440912d77be70ba9a6658fa784a3b89e`.
+Exact parent `0db8491c9ab8366ac0e79fe235db83f5d11ff94e` remains draft.
+
+**U1 source invariant:** The original model must contain exactly one
+`PIPINGMODEL/UNITS/LENGTH` with `LABEL="mm."` and numeric-exact
+`FACTOR=25.4`. Reject absent, duplicated, alternate length units,
+other factors, wrong nesting, and comment/CDATA lookalikes with named
+`INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN` before solving. A complete
+millimetre declaration is required rather than assuming a default.
+No non-mm conversion, shared solver/scanner, writer, or tolerance edits.
+
+**U2 verified base evidence:** R1 head `40197c6a94c40c7e11edb0f1edfbd826d9144ad4`
+and R2 head `0db8491c9ab8366ac0e79fe235db83f5d11ff94e`
+each had Owner/Oracle-runner **13/13 CI SUCCESS**. R2 had **36**
+B3 behavioral and **13** mutation tests (Step12 **141/141**).
+Those results do not pre-authorize this R3 head; CI must run again.
+
+| R3 changed file | R2 preimage blob | Selective undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `83acd641ce649eb84084cbf30b68cfb9021dd109` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-fixtures.mjs` | `84820bebd44e99adf873f0d78212743d447b85ed` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `4ab894d5fa8697615f52720434091b760bfb1865` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `c03184d5f4057642eb2ca7ea303147a7b0d3b718` | Restore just this blob if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `e14b46fdb19b5e23560b4fa34e835d6acc9d7ced` | Restore just this blob if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `323bb9cc3ddcdfa6889ce041a2f0423f3012152b` | Restore just this blob if unchanged |
+| `agents/PR259_workreport.md` | `c07653852e38e4e79efb34c6d25014dc09cc9dad` | Restore just this blob if unchanged |
+
+**Scope:** Seven permitted files, no production writer/guard,
+shared scanner, DeltaGraph, workflow or tolerance changes. Source bytes
+read-only and original SHA retained.
+
+**EXACT_NEXT_ACTION:** Verify exact R3 head Actions, 14/14 isolated
+GREEN->RED mutants, GRE ~225mm NOT_COINCIDENT, six new U1 behavioral
+tests and inherited regressions; post issue #239 receipt and STOP draft.

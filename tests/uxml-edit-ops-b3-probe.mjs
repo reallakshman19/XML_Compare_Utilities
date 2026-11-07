@@ -36,6 +36,10 @@ const specs={
   W1_XML_SPACE_NODE:{source:model([element(10,20,'100'),
     element(20,40,'-100').replace('TO_NODE="40"','TO_NODE="40\u00A0"')]),
     a:40,b:10,status:'REFUSED',code:C.NODE_ID},
+  U1_MM_LENGTH_UNIT:{source:model([
+    element(10,20,'1.0'),element(20,40,'-0.9995')],
+    '<UNITS><LENGTH LABEL="m" FACTOR="0.025400"/></UNITS>'),
+    a:40,b:10,status:'REFUSED',code:C.UNIT},
 };
 const spec=specs[which];
 assert(spec,'Unknown B3 guard '+which);

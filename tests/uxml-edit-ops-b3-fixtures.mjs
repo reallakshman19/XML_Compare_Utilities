@@ -6,10 +6,11 @@ export const element=(from,to,dx,dy='-1.010100',dz='-1.010100')=>
   '<PIPINGELEMENT FROM_NODE="'+from+'" TO_NODE="'+to+
   '" DELTA_X="'+dx+'" DELTA_Y="'+dy+'" DELTA_Z="'+dz+
   '" DIAMETER="100" WALL_THICK="6.02"/>';
-export const model=rows=>
+export const mmUnits='<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>';
+export const model=(rows,units=mmUnits)=>
   '<CAESARII xmlns="COADE" VERSION="14.00" XML_TYPE="Input">'+
   '<PIPINGMODEL xmlns="" NUMELT="'+rows.length+'">'+
-  rows.join('\n')+'</PIPINGMODEL></CAESARII>';
+  rows.join('\n')+(units??'')+'</PIPINGMODEL></CAESARII>';
 export const coincident=()=>model([
   element(10,20,'100'),element(20,30,'50'),element(30,40,'-150'),
   element(40,50,'10'),element(50,10,'-10'),

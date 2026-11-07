@@ -12,7 +12,14 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    derived/enriched/categorized file. Fatal UTF-8 decoding and exact re-encoding
    preserve the bytes. Measure SHA-256 and compare with required caller SHA;
    mismatch refuses before any geometry admission.
-2. Scan physical direct-child PIPINGELEMENT records using the unchanged
+2. **Length-unit gate, before graph authority:** require exactly one actual
+   `PIPINGMODEL/UNITS/LENGTH` element in the original XML with
+   `LABEL="mm."` and `Number(FACTOR)===25.4` (CAESAR `25.400000`).
+   Refuse missing, duplicate, non-mm, malformed, or misplaced declarations
+   as `INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN`. No unit conversion or inferred
+   default: the unchanged 0.001 mm tolerance is meaningful only on admitted
+   mm InputXML.
+3. Scan physical direct-child PIPINGELEMENT records using the unchanged
    `UxmlInputXmlSourceStructure.js` scanner. Require exact case-sensitive
    `FROM_NODE`, `TO_NODE` and `DELTA_X/Y/Z` spellings; refuse missing fields
    and case-folded duplicates **before** calling the existing solver. Keep
@@ -23,7 +30,7 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    Unicode NBSP, EM SPACE, FEFF, etc. are **not** XML padding:
    invalid raw node values refuse `NODE_ID_INVALID`, invalid DELTAs
    refuse `DELTA_INVALID` (including decoded character references).
-3. Preflight all original DELTAs: only a value whose numeric representation is
+4. Preflight all original DELTAs: only a value whose numeric representation is
    **exactly -1.0101** is the CAESAR zero/unset sentinel. Any *other* value
    inside the shared solver's 1e-5 sentinel window is `DELTA_INVALID`.
    Call unchanged `solveCaesarInputXmlRuns` after sorting original records
@@ -36,7 +43,7 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    run, those anchors only translate the solved node positions together:
    relative distances and edge residuals cannot change; inconsistent anchors
    can refuse. Mapping is still CAESAR to hub `(X,-Z,Y)`; 0.001 mm is unchanged.
-4. Require both distinct node identities to exist in **one connected run**.
+5. Require both distinct node identities to exist in **one connected run**.
    Record all original endpoint occurrences with their physical recordKey,
    endpoint, relative hub-frame coordinate and run. For each original edge
    `e=(u,v)`, compute `r_e = ||(p_v-p_u) - delta_e||`, where `p` is the
@@ -44,7 +51,7 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    axes. Sum `R = sum_e r_e` over the same run; refuse `DELTA_PATH_CONFLICT`
    if `R > 0.001 mm`. This conservative sum bounds the *cumulative*
    displacement error of any path, including paths with multiple small loops.
-5. For a candidate `a,b`, the triangle inequality bounds **every path**
+6. For a candidate `a,b`, the triangle inequality bounds **every path**
    between them by `||p_b-p_a|| + R`. Return `PROVEN_COINCIDENT` **only if
    that combined bound is <= 0.001 mm**; otherwise `NOT_COINCIDENT` with
    the measured relative 3D `distanceMm` and `pathBoundMm`, without a
@@ -62,6 +69,7 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
 | Byte, structural, node identity | INPUT_XML_ALIAS_ORIGINAL_BYTES_INVALID / _SOURCE_REFUSED / _NODE_ID_INVALID |
 | Node missing / same number | INPUT_XML_ALIAS_NODE_ABSENT / _DISTINCT_NODES_REQUIRED |
 | Different original runs | INPUT_XML_ALIAS_CROSS_RUN_UNPROVEN |
+| Missing, duplicate or non-mm model length unit | INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN |
 | Missing, nonfinite or invalid DELTA | INPUT_XML_ALIAS_DELTA_MISSING / _NONFINITE / _INVALID |
 | Cumulative path contradiction / original field case ambiguity | INPUT_XML_ALIAS_DELTA_PATH_CONFLICT / _SOURCE_ATTRIBUTE_CASE_AMBIGUOUS |
 
@@ -77,10 +85,10 @@ unanchored DELTA-only alias requests as
 
 `node --test tests/uxml-edit-ops-b3-samerun.test.mjs
 tests/uxml-edit-ops-b3-mutants.test.mjs`.
-Thirteen delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
+Fourteen delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
 STACKED, CASE_DUPLICATE, CASE_REQUIRED, SENTINEL, NULL_INPUT, BOUNDARY,
-NODE_ID, W1_XML_SPACE_DELTA and W1_XML_SPACE_NODE: each unchanged probe
-GREEN -> one guard deletion RED on identical input. Both source orderings
+NODE_ID, W1_XML_SPACE_DELTA, W1_XML_SPACE_NODE and U1_MM_LENGTH_UNIT:
+each unchanged probe GREEN -> one guard deletion RED on identical input. Both source orderings
 and all six permutations of the stacked-tolerance case must be
 `NOT_COINCIDENT`. XML-only whitespace padding stays accepted; U+00A0,
 U+2003 and U+FEFF in original node/DELTA values all refuse by name.
