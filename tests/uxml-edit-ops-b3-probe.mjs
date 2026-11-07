@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {proveInputXmlSameRunCoincidence as prove,
   INPUT_XML_B3_CODES as C} from '../uxml/UxmlInputXmlSameRunCoincidence.js';
-import {bytes,sha,element,model,coincident,separated,crossRun,accumulatedResidual}
+import {bytes,sha,element,bendElement,mmUnits,model,coincident,separated,crossRun,accumulatedResidual}
   from './uxml-edit-ops-b3-fixtures.mjs';
 
 const which=process.argv[2];
@@ -39,6 +39,19 @@ const specs={
   U1_MM_LENGTH_UNIT:{source:model([
     element(10,20,'1.0'),element(20,40,'-0.9995')],
     '<UNITS><LENGTH LABEL="m" FACTOR="0.025400"/></UNITS>'),
+    a:40,b:10,status:'REFUSED',code:C.UNIT},
+  V1_BEND:{source:model([
+    bendElement(10,20,'1000'),
+    element(20,30,'-1.010100','-1.010100','1000'),
+    element(30,40,'-1.010100','-1.010100','-1000'),
+  ]),a:40,b:20,status:'REFUSED',code:C.BEND},
+  V2_UNITS_PLACEMENT:{source:model([
+    element(10,20,'1.0').replace(/\/>$/,'>'+mmUnits+'</PIPINGELEMENT>'),
+    element(20,40,'-0.9995')],null),
+    a:40,b:10,status:'REFUSED',code:C.UNIT},
+  V2_UNITS_LABEL:{source:model([
+    element(10,20,'1.0'),element(20,40,'-0.9995')],
+    '<UNITS><LENGTH LABEL="in." FACTOR="25.400000"/></UNITS>'),
     a:40,b:10,status:'REFUSED',code:C.UNIT},
 };
 const spec=specs[which];

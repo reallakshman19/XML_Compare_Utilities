@@ -6,6 +6,11 @@ export const element=(from,to,dx,dy='-1.010100',dz='-1.010100')=>
   '<PIPINGELEMENT FROM_NODE="'+from+'" TO_NODE="'+to+
   '" DELTA_X="'+dx+'" DELTA_Y="'+dy+'" DELTA_Z="'+dz+
   '" DIAMETER="100" WALL_THICK="6.02"/>';
+export const bendElement=(from,to,dx,nodes={node1:'19',node2:'18',
+  node3:'-1.010100'})=>element(from,to,dx).replace(/\/>$/,
+  '><BEND RADIUS="100" TYPE="3" ANGLE1="45" NODE1="'+nodes.node1+
+  '" ANGLE2="0" NODE2="'+nodes.node2+'" ANGLE3="-1.010100" NODE3="'+
+  nodes.node3+'"/></PIPINGELEMENT>');
 export const mmUnits='<UNITS><LENGTH LABEL="mm." FACTOR="25.400000"/></UNITS>';
 export const model=(rows,units=mmUnits)=>
   '<CAESARII xmlns="COADE" VERSION="14.00" XML_TYPE="Input">'+

@@ -192,3 +192,51 @@ read-only and original SHA retained.
 **EXACT_NEXT_ACTION:** Verify exact R3 head Actions, 14/14 isolated
 GREEN->RED mutants, GRE ~225mm NOT_COINCIDENT, six new U1 behavioral
 tests and inherited regressions; post issue #239 receipt and STOP draft.
+
+## B3-R4 bend exclusion and U1 mutation gaps (Owner Q53, 7 Nov 2026)
+
+**Card:** Drive `Handoffs/LANE-B-B3-R4/STEP-B3-R4-B8.md` (advertised
+2924 bytes, SHA-256
+`59971be529ed6e14a9ed185384ab0ddd7ce6d5cbf3df73325be396bf0b28db0f`).
+Exact starting R3 head `6bb9c0015f32d940aad83f47d1d32e1716e75452`,
+PR259 still draft, Owner-only merge.
+
+**V1:** The DELTA of a bend ends at its tangent intersection (TIP),
+not at the far weld / element `TO_NODE`; bend `NODE1`, `NODE2`,
+`NODE3` are separate curvature positions. The proof now reads real
+original-source BEND child tags, excluding their parent TO and each
+non-sentinel curvature node ID across all runs with named
+`INPUT_XML_ALIAS_BEND_NODE_UNPROVEN`. Never infer bend geometry or
+promote the shared solver's TIP position to weld/curvature authority.
+Comments and CDATA containing text that resembles BEND are not
+admitted as bend tags. Unrelated straight-node pairs remain provable.
+
+**V2:** Add independent U1 tests and mutants for a sole mm UNITS
+declaration misnested inside a PIPINGELEMENT and for `LABEL="in."`,
+`FACTOR="25.400000"`. Both refuse with `LENGTH_UNIT_UNPROVEN`;
+deleting the corresponding placement/label checks must turn the
+same focused assertions RED.
+
+**R3 verified parent:** Owner/Oracle-runner CI 13/13 SUCCESS,
+B3 behavior 42/42, mutants 14/14, Step12 148/148.
+These figures are not an R4 approval; R4 exact-head CI to be
+recorded independently.
+
+| R4 file | R3 starting blob / intent | Undo |
+|---|---|---|
+| `uxml/UxmlInputXmlSameRunCoincidence.js` | `1ef599f270f32c0731b56fb51c0f6dd727a7da7c` — read-only BEND exclusion and named refusal | Restore immutable preimage only if unchanged |
+| `tests/uxml-edit-ops-b3-fixtures.mjs` | `ac0fa35c7f8ed9b631581c2e79a70d090bdacae8` — synthetic BEND child | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-samerun.test.mjs` | `b998a467ee71c80ba31878dde19b315d025a038b` — GRE/synthetic bend and V2 unit tests | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-probe.mjs` | `34769c61910e493b3e41baed6ea4768f7a982326` — V1/V2 focused probes | Restore preimage if unchanged |
+| `tests/uxml-edit-ops-b3-mutants.test.mjs` | `b905610c59ba263b179246e22e001e705d4e3c94` — three guard deletion mutants | Restore preimage if unchanged |
+| `docs/uxml-edit-ops-stepB3.md` | `7f185fe65c119d010ac6e52b65dc96d90a5dd3da` — geometry claim corrected | Restore preimage if unchanged |
+| `agents/PR259_workreport.md` | `23082fef3cc197213ed343f619c0a995bc74c5f4` — recovery ledger | Restore preimage if unchanged |
+
+**Collision / authority:** COORDINATION_REQUIRED (stacked on draft
+PR258). No modifications to writer or guards, scanner, DeltaGraph,
+shared 0.001mm tolerance, CI workflows, or policy. No private Owner
+geometry or native CAESAR import.
+
+**EXACT_NEXT_ACTION:** Run exact R4 B3-inclusive edit-ops CI; require
+49/49 B3 behavior and 17/17 single-guard mutations plus inherited
+regressions, record issue #239 receipt, STOP and leave draft.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {proveInputXmlSameRunCoincidence as prove,
   INPUT_XML_B3_CODES as C} from '../uxml/UxmlInputXmlSameRunCoincidence.js';
-import {bytes,sha,element,model,mmUnits,coincident,separated,crossRun,
+import {bytes,sha,element,bendElement,model,mmUnits,coincident,separated,crossRun,
   inconsistentLoop,accumulatedResidual}
   from './uxml-edit-ops-b3-fixtures.mjs';
 
@@ -312,4 +312,68 @@ test('B3-R3 U1 ignores comment/CDATA faux UNITS and refuses misplaced LENGTH',as
     assert.equal(r.status,'REFUSED',JSON.stringify(r));
     assert.equal(r.code,C.UNIT);
   }
+});
+
+
+test('B3-R4 V1 bend TO node 20 cannot be proven at TIP',async()=>{
+  const src=model([
+    bendElement(10,20,'1000'),
+    element(20,30,'-1.010100','-1.010100','1000'),
+    element(30,40,'-1.010100','-1.010100','-1000'),
+  ]);
+  const result=await check(src,40,20);
+  assert.equal(result.status,'REFUSED',JSON.stringify(result));
+  assert.equal(result.code,C.BEND);
+});
+test('B3-R4 V1 bend curvature NODE1/2/3 excluded even if not graph endpoints',async()=>{
+  const src=model([
+    bendElement(10,20,'1000',{node1:'19.000000',node2:'18.000000',
+      node3:'17.000000'}),
+    element(20,30,'-1.010100','-1.010100','1000'),
+    element(30,40,'-1.010100','-1.010100','-1000'),
+  ]);
+  for(const n of [19,18,17]){
+    const result=await check(src,n,40);
+    assert.equal(result.status,'REFUSED',n+': '+JSON.stringify(result));
+    assert.equal(result.code,C.BEND);
+  }
+});
+test('B3-R4 V1 real GRE bend TO and curvature NODE1/2 refuse',async()=>{
+  const input=readFileSync(new URL('../docs/GREInputxml.xml',import.meta.url));
+  const src=input.toString('utf8');
+  const params={originalBytes:input,fileSha256:sha(src),canonicalNode:500};
+  for(const n of [1500,1499,1498]){
+    const result=await prove({...params,sourceNode:n});
+    assert.equal(result.status,'REFUSED',n+':'+JSON.stringify(result));
+    assert.equal(result.code,C.BEND);
+  }
+});
+test('B3-R4 V1 unrelated straight pair remains PROVEN with bend elsewhere',async()=>{
+  const src=model([
+    element(10,20,'100'),element(20,40,'-100'),
+    bendElement(80,90,'10',{node1:'89',node2:'88',node3:'-1.010100'}),
+  ]);
+  const result=await check(src,40,10);
+  assert.equal(result.status,'PROVEN_COINCIDENT',JSON.stringify(result));
+  assert.equal(result.distanceMm,0);
+});
+test('B3-R4 V1 text-only BEND in comment is never bend authority',async()=>{
+  const fake='<!-- <BEND RADIUS="100" NODE1="10" NODE2="40"/> -->';
+  const src=model([element(10,20,'100'),element(20,40,'-100')],mmUnits+fake);
+  const result=await check(src,40,10);
+  assert.equal(result.status,'PROVEN_COINCIDENT',JSON.stringify(result));
+});
+test('B3-R4 V2 model-level mm UNITS required, nested inside PIPINGELEMENT refuses',async()=>{
+  const nested=element(10,20,'1.0').replace(/\/>$/,
+    '>'+mmUnits+'</PIPINGELEMENT>');
+  const src=model([nested,element(20,40,'-0.9995')],null);
+  const result=await check(src,40,10);
+  assert.equal(result.status,'REFUSED',JSON.stringify(result));
+  assert.equal(result.code,C.UNIT);
+});
+test('B3-R4 V2 inch label with mm factor still refuses',async()=>{
+  const units='<UNITS><LENGTH LABEL="in." FACTOR="25.400000"/></UNITS>';
+  const result=await check(model(tinyDeltaRows,units),40,10);
+  assert.equal(result.status,'REFUSED',JSON.stringify(result));
+  assert.equal(result.code,C.UNIT);
 });

@@ -22,6 +22,7 @@ export const INPUT_XML_B3_CODES=Object.freeze({
   DELTA_INVALID:'INPUT_XML_ALIAS_DELTA_INVALID',
   FIELD_CASE:'INPUT_XML_ALIAS_SOURCE_ATTRIBUTE_CASE_AMBIGUOUS',
   UNIT:'INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN',
+  BEND:'INPUT_XML_ALIAS_BEND_NODE_UNPROVEN',
 });
 const C=INPUT_XML_B3_CODES;
 const refuse=(code,details={})=>Object.freeze({status:'REFUSED',code,...details});
@@ -163,6 +164,95 @@ function unitIsMillimetre(originalText){
     Number(lengthAttrs.FACTOR)===25.4;
 }
 
+
+/**
+ * BEND DELTAs terminate at the tangent intersection, not the far weld TO
+ * node. Curvature NODE1/2/3 also have no unambiguous DELTA-graph position.
+ * Identify real original BEND tags via a lexical tree walk, not text search.
+ */
+function originalBendExcludedNodes(originalText){
+  const stack=[],excluded=new Set();
+  let cursor=0;
+  while(cursor<originalText.length){
+    const start=originalText.indexOf('<',cursor);
+    if(start<0)break;
+    if(originalText.startsWith('<!--',start)){
+      const end=originalText.indexOf('-->',start+4);
+      if(end<0)throw Error(C.BEND);
+      cursor=end+3;continue;
+    }
+    if(originalText.startsWith('<?',start)){
+      const end=originalText.indexOf('?>',start+2);
+      if(end<0)throw Error(C.BEND);
+      cursor=end+2;continue;
+    }
+    if(originalText.startsWith('<![CDATA[',start)){
+      const end=originalText.indexOf(']]>',start+9);
+      if(end<0)throw Error(C.BEND);
+      cursor=end+3;continue;
+    }
+    // The shared structural scanner has already validated root/DOCTYPE
+    // boundaries. Unsupported declarations are never bend witnesses.
+    if(originalText.startsWith('<!',start)){
+      const end=originalText.indexOf('>',start+2);
+      if(end<0)throw Error(C.BEND);
+      cursor=end+1;continue;
+    }
+    let quote='',end=-1;
+    for(let i=start+1;i<originalText.length;i++){
+      const c=originalText[i];
+      if(quote){if(c===quote)quote='';}
+      else if(c==='"'||c==="'")quote=c;
+      else if(c==='>'){end=i+1;break;}
+    }
+    if(end<0)throw Error(C.BEND);
+    const tag=originalText.slice(start,end);
+    const closing=/^<\/([A-Za-z_:][\w.:-]*)\s*>$/.exec(tag);
+    if(closing){
+      if(stack.pop()?.name!==closing[1])throw Error(C.BEND);
+    }else{
+      const name=/^<([A-Za-z_:][\w.:-]*)(?=[\s/>])/.exec(tag)?.[1];
+      if(!name)throw Error(C.BEND);
+      const selfClosing=/\/\s*>$/.test(tag);
+      let toNode=null;
+      if(name==='PIPINGELEMENT'){
+        try{
+          const attrs=readOpenAttributes(tag);
+          preflightOriginalFields(attrs);
+          toNode=readInputXmlSourceField(attrs,'TO_NODE',{node:true})?.numericId;
+        }catch{throw Error(C.BEND);}
+      }
+      if(name==='BEND'){
+        const parent=stack.at(-1);
+        if(parent?.name!=='PIPINGELEMENT'||!parent.toNode)
+          throw Error(C.BEND);
+        excluded.add(parent.toNode);
+        let attrs;
+        try{attrs=readOpenAttributes(tag,'BEND');}
+        catch{throw Error(C.BEND);}
+        for(const key of ['NODE1','NODE2','NODE3']){
+          const keys=Object.keys(attrs).filter(x=>x.toUpperCase()===key);
+          if(keys.length>1||keys.length===1&&keys[0]!==key)
+            throw Error(C.BEND);
+          if(!keys.length)continue;
+          let raw;
+          try{raw=xmlDecode(attrs[key]);}
+          catch{throw Error(C.BEND);}
+          if(!/^[ \t\r\n]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[ \t\r\n]*$/.test(raw))
+            throw Error(C.BEND);
+          if(Number(raw)===sentinel)continue;
+          try{excluded.add(exactNodeId(raw));}
+          catch{throw Error(C.BEND);}
+        }
+      }
+      if(!selfClosing)stack.push({name,toNode});
+    }
+    cursor=end;
+  }
+  if(stack.length)throw Error(C.BEND);
+  return excluded;
+}
+
 function physicalRows(originalText) {
   const physical=scanOriginalInputXmlStructure(originalText);
   if(!physical)throw Error(C.SOURCE);
@@ -240,7 +330,11 @@ export async function proveInputXmlSameRunCoincidence(request={}) {
   try{
     source=exactNodeId(sourceNode);canonical=exactNodeId(canonicalNode);
     if(source===canonical)return refuse(C.DISTINCT);
-    graph=solveCaesarInputXmlRuns(canonicalRowOrder(physicalRows(originalText)));
+    const rows=physicalRows(originalText);
+    const bendProtected=originalBendExcludedNodes(originalText);
+    if(bendProtected.has(source)||bendProtected.has(canonical))
+      return refuse(C.BEND);
+    graph=solveCaesarInputXmlRuns(canonicalRowOrder(rows));
     evidence=originalWitnesses(graph);
   }catch(error){return refuse(sourceFailure(error));}
   const a=evidence.byNode.get(source),b=evidence.byNode.get(canonical);

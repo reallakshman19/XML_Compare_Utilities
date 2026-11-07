@@ -37,8 +37,13 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
    by a canonical node/attribute key (preserving original indices and refs).
    This makes the chosen spanning graph independent of physical element order.
    B3 explicitly assumes CAESAR's unset sentinel means **exactly -1.0101**
-   numerically, and that physical geometry is the consistent original DELTA
-   graph regardless of element order. The shared solver still case-folds
+   numerically, and that **straight-node** geometry is the consistent
+   original DELTA graph regardless of element order. A `BEND` element's
+   DELTAs terminate at the tangent intersection rather than its far-weld
+   `TO_NODE`, and `BEND NODE1/2/3` are curvature nodes. B3 refuses
+   either requested node if it is a bend TO or curvature node, anywhere
+   in the original source, with `INPUT_XML_ALIAS_BEND_NODE_UNPROVEN`;
+   no bend geometry is inferred in this slice. The shared solver still case-folds
    `FROM_X/Y/Z` and `TO_X/Y/Z` absolute anchors. On a consistent connected
    run, those anchors only translate the solved node positions together:
    relative distances and edge residuals cannot change; inconsistent anchors
@@ -69,7 +74,8 @@ tolerance, TopoFix transaction authority, or CAESAR II writer is changed.
 | Byte, structural, node identity | INPUT_XML_ALIAS_ORIGINAL_BYTES_INVALID / _SOURCE_REFUSED / _NODE_ID_INVALID |
 | Node missing / same number | INPUT_XML_ALIAS_NODE_ABSENT / _DISTINCT_NODES_REQUIRED |
 | Different original runs | INPUT_XML_ALIAS_CROSS_RUN_UNPROVEN |
-| Missing, duplicate or non-mm model length unit | INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN |
+| Missing, duplicate, misplaced or non-mm model length unit | INPUT_XML_ALIAS_LENGTH_UNIT_UNPROVEN |
+| Bend TO node or BEND NODE1/2/3 in original source | INPUT_XML_ALIAS_BEND_NODE_UNPROVEN |
 | Missing, nonfinite or invalid DELTA | INPUT_XML_ALIAS_DELTA_MISSING / _NONFINITE / _INVALID |
 | Cumulative path contradiction / original field case ambiguity | INPUT_XML_ALIAS_DELTA_PATH_CONFLICT / _SOURCE_ATTRIBUTE_CASE_AMBIGUOUS |
 
@@ -85,15 +91,20 @@ unanchored DELTA-only alias requests as
 
 `node --test tests/uxml-edit-ops-b3-samerun.test.mjs
 tests/uxml-edit-ops-b3-mutants.test.mjs`.
-Fourteen delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
+Seventeen delete-one-guard clones test ALL_PATH, SAME_RUN, TOLERANCE, SHA,
 STACKED, CASE_DUPLICATE, CASE_REQUIRED, SENTINEL, NULL_INPUT, BOUNDARY,
-NODE_ID, W1_XML_SPACE_DELTA, W1_XML_SPACE_NODE and U1_MM_LENGTH_UNIT:
-each unchanged probe GREEN -> one guard deletion RED on identical input. Both source orderings
+NODE_ID, W1_XML_SPACE_DELTA, W1_XML_SPACE_NODE, U1_MM_LENGTH_UNIT,
+V1_BEND, V2_UNITS_PLACEMENT and V2_UNITS_LABEL: each unchanged probe
+GREEN -> one guard deletion RED on identical input. Both source orderings
 and all six permutations of the stacked-tolerance case must be
 `NOT_COINCIDENT`. XML-only whitespace padding stays accepted; U+00A0,
 U+2003 and U+FEFF in original node/DELTA values all refuse by name.
-Real GRE 500→510 must be NOT_COINCIDENT at approximately 225 mm; synthesized
-10→40 is PROVEN; forged side-file remains non-authoritative.
+Real GRE 500→510 must be NOT_COINCIDENT at approximately 225 mm; GRE
+bend `TO_NODE=1500` and curvature `NODE1=1499`/`NODE2=1498` refuse.
+Straight synthetic 10→40 is PROVEN despite an unrelated bend; forged
+side-file remains non-authoritative. Unit regressions include genuine
+model-level mm, non-mm, absent, duplicate, **nested-only mm UNITS** and
+**`LABEL="in."` with `FACTOR=25.4`**, all with named admission outcomes.
 
 B3 does not produce patches, byte ledgers, selected actions or Apply authority.
 Native CAESAR import and private Owner files remain NOT_RUN. Existing PR #258
